@@ -380,6 +380,12 @@ Never wait for another role before doing work you can do yourself.
   `dist/`, `build/`, `.venv/`). Build only the touched scope; reuse or cite an
   existing green run on the same revision. Report
   `BUILD: <command> · built|reused · <seconds>`.
+- **LINT AND FORMAT** - style is automated, never argued. Use the language's one
+  canonical formatter and linter (Python: `ruff format` + `ruff check` + `mypy`;
+  see `references/Engineering.md` for the full table), run the fixer before
+  committing and the checker in CI. Never hand-format, never weaken a rule to pass
+  (no blanket `noqa`, no rule deleted from the config), and never merge code the
+  formatter would change. Evidence: the command and its result.
 - **COMMENTS** - write only comments the code cannot give you: a non-obvious why,
   a workaround with its reference, a public contract. Never restate the next line,
   never banner self-evident sections, never leave commented-out code, never write
