@@ -216,6 +216,50 @@ only the touched scope; run the workspace-wide suite only at the pre-merge gate.
 Reuse or cite an existing green run on the same revision instead of re-running
 it. Report `BUILD: <command> · built|reused · <seconds>`.
 
+## Linting, formatting and type checking
+
+Style is not a matter of taste and not a review topic. It is **automated**: a
+machine formats and lints the code, the CI fails when it would have changed
+anything, and the reviewer reviews behaviour instead of whitespace. A human never
+hand-formats, never argues about line length, and never disables a rule without a
+recorded reason.
+
+Rules:
+
+- **One canonical toolchain per language**, configured in the repository and
+  reviewed like code. Do not introduce a second formatter or a competing config.
+- **Run the fixer before you commit**, then the checker: `make format && make
+  lint` (or the language equivalent). The CI form check is not a suggestion -
+  unformatted code does not merge.
+- **Type-check where the language supports it** (and run the static analyser
+  where it exists). A type error is a defect, not a style opinion.
+- **Never weaken the gate to pass**: no blanket `# noqa`, no rule removed from the
+  config, no formatter excluded from a directory, no `--fix` on a file you did not
+  read. If a rule is genuinely wrong for this codebase, disable it *narrowly* with
+  a one-line reason in the config and record the decision.
+- **Generated code is excluded explicitly**, never left unformatted by accident.
+- **Evidence**: the lint/format command and its result go in the task evidence,
+  on the same revision as the tests.
+
+| Language | Formatter | Linter | Types / static analysis |
+|---|---|---|---|
+| Python | `ruff format` | `ruff check` | `mypy` |
+| JavaScript / TypeScript | `prettier --write` | `eslint` | `tsc --noEmit` |
+| Go | `gofmt` / `goimports` | `go vet`, `staticcheck` | the compiler |
+| Rust | `cargo fmt` | `cargo clippy -- -D warnings` | the compiler |
+| Java / Kotlin | `spotless:apply` | `checkstyle` / `ktlint` | the compiler |
+| C / C++ | `clang-format` | `clang-tidy` | `-Wall -Wextra -Werror` |
+| Shell | `shfmt -w` | `shellcheck` | - |
+| YAML | `prettier` / `yapf`-style | `yamllint` | - |
+| Markdown | `prettier` / `markdownlint --fix` | `markdownlint` | - |
+| JSON | language formatter | schema check | - |
+| Terraform | `terraform fmt` | `tflint` | `terraform validate` |
+| Dockerfile | `hadolint` | `hadolint` | - |
+
+This repository uses the Python row: `ruff check .`, `ruff format --check .` and
+`mypy src/teamwork` run in CI (see `pyproject.toml`), and `make lint` /
+`make format` wrap them.
+
 ## File discipline
 
 Keep only what the project needs. Update an existing document instead of creating
