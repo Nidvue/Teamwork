@@ -11,6 +11,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/VisionPZ/Teamwork/compare/v1.0.0...HEAD)
 
+## [1.0.1](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.1) - 2026-10-17
+
+### Added
+
+- Run on **any agent host**: `references/Adapters.md` maps the six host operations
+  to Pi, Claude Code, opencode, Codex, Cursor and a generic shell, with installation
+  paths and degraded modes.
+- Run against **any git host**: `references/Remotes.md` states the repository and CI
+  integrity policy (protected default branch, no force-push, required checks on the
+  exact revision, non-author approval, squash-only merges, protected `v*` tags,
+  least-privilege CI, drift checks) and maps it to GitHub, GitLab, Bitbucket,
+  Gitea/Forgejo and Azure DevOps.
+- A canonical **lint / format / type toolchain per language**, enforced in CI.
+- **Warnings are errors**: `pytest filterwarnings = ["error"]`, and every workflow
+  action moved off the Node-20-deprecated majors.
+- A **naming policy** (PascalCase team directories, ecosystem-correct file names)
+  and **commit rebase/squash hygiene** (one commit per task).
+- Several **Reviewers run in parallel** from one shared queue.
+- Imaging is owned by the Designer, raster and vector, with a
+  generate-review-improve loop.
+
+### Fixed
+
+- The privacy scan allows GitHub service mailboxes (`support@github.com`), and no
+  longer reads a dotted identifier as a credential.
+- `ledger export` writes `AuditManifest.md` instead of overwriting the Security
+  Auditor's `AuditReport.md`, and never embeds the absolute checkout path.
+- The engine pins `newline="\n"` on every text write without using the Python
+  3.10-only `write_text(newline=...)`, so 3.9 stays supported.
+
+### Security
+
+- The initial commit's personal author identity was purged; the repository was
+  recreated so no unreachable object or pull ref carries it.
+- The team mailbox domain is `agents.nidvue.com`; every commit uses a role mailbox.
+
 ## [1.0.0](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.0) - 2026-10-17
 
 ### Added
