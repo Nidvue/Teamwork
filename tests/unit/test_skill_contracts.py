@@ -667,7 +667,7 @@ def test_master_brand_precedes_the_product_name(root):
 
     readme = (root / "README.md").read_text(encoding="utf-8")
     assert "<h1>Nidvue Teamwork</h1>" in readme
-    assert "Nidvue Teamwork turns one prompt" in readme
+    assert "Nidvue Teamwork is **a skill" in readme
 
     mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
     assert "site_name: Nidvue Teamwork" in mkdocs
@@ -728,3 +728,55 @@ def test_the_mark_is_attributed_and_not_lfs_tracked(root):
     assert "trademarks of" in notice and "Nidvue" in notice
     attrs = (root / ".gitattributes").read_text(encoding="utf-8")
     assert "docs/assets/*" in attrs
+
+
+# --------------------------------------------------------------------------- #
+# skill-first positioning and per-agent models
+# --------------------------------------------------------------------------- #
+
+
+def test_the_project_is_positioned_as_a_skill(root):
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "a skill for your coding agent" in readme
+    assert "installing it as a package is optional" in readme
+    assert (
+        "every agent's model\nis configured independently" in readme
+        or "configured independently" in readme
+    )
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert "coding-agent skill" in pyproject
+
+
+def test_skill_states_it_ships_no_model_and_calls_no_llm_api(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "This is a **skill**, not a standalone application" in text
+    assert "Each agent's model is its own" in text
+    assert "ships no model and calls no LLM" in text
+
+
+def test_the_model_is_configurable_per_role_and_per_instance(cli, project, capsys, monkeypatch):
+    monkeypatch.chdir(project)
+    assert cli("init", "--no-git", "--agents", "ceo,reviewer-1,reviewer-2,developer-1") == 0
+    capsys.readouterr()
+    assert cli("model", "set", "reviewer", "--provider", "anthropic", "--model", "strong") == 0
+    assert cli("model", "set", "developer-1", "--provider", "deepseek", "--model", "cheap") == 0
+    # the instance override wins...
+    assert cli("model", "get", "developer-1") == 0
+    out = capsys.readouterr().out
+    assert "deepseek" in out and "cheap" in out
+    # ...and a sibling instance inherits the role default
+    assert cli("model", "get", "reviewer-2") == 0
+    out = capsys.readouterr().out
+    assert "anthropic" in out and "strong" in out
+    # and both show up in the roster view
+    assert cli("model", "list") == 0
+    listing = capsys.readouterr().out
+    assert "developer-1" in listing.lower() and "reviewer-2" in listing.lower()
+
+
+def test_concurrency_reference_documents_per_agent_models(root):
+    text = flat(read(root, "references", "Concurrency.md"))
+    assert "## Per-agent model configuration" in text
+    assert "model set reviewer" in text
+    assert "instance" in text and "wins over the **role** default" in text
+    assert "ships no model" in text.lower() or "does **not** ship a model" in text
