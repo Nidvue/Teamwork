@@ -697,3 +697,34 @@ def test_identifiers_are_not_renamed_by_the_brand(root):
         .split("VERSION")[0][:200]
         or True
     )
+
+
+# --------------------------------------------------------------------------- #
+# master brand mark
+# --------------------------------------------------------------------------- #
+
+
+def test_the_nidvue_mark_is_bundled_and_self_contained(root):
+    icon = root / "docs" / "assets" / "nidvue-icon.svg"
+    favicon = root / "docs" / "assets" / "nidvue-favicon.svg"
+    assert icon.is_file() and favicon.is_file()
+    for path in (icon, favicon):
+        body = path.read_text(encoding="utf-8")
+        assert "<svg" in body, path
+        for unsafe in ("<script", "@font-face", 'href="http', "xlink:href"):
+            assert unsafe not in body, f"{path}: {unsafe}"
+
+
+def test_the_mark_is_used_in_the_readme_and_the_site(root):
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert 'src="docs/assets/nidvue-icon.svg"' in readme
+    mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
+    assert "logo: assets/nidvue-icon.svg" in mkdocs
+    assert "favicon: assets/nidvue-favicon.svg" in mkdocs
+
+
+def test_the_mark_is_attributed_and_not_lfs_tracked(root):
+    notice = (root / "NOTICE").read_text(encoding="utf-8")
+    assert "trademarks of" in notice and "Nidvue" in notice
+    attrs = (root / ".gitattributes").read_text(encoding="utf-8")
+    assert "docs/assets/*" in attrs
