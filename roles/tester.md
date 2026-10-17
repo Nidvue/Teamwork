@@ -129,6 +129,14 @@ Details: `{references}/Testing.md`.
   pass - no blanket `noqa`, no rule removed, no directory excluded from the
   formatter. If a rule is genuinely wrong here, disable it narrowly with a reason
   and record the decision.
+- **Naming:** team directories are PascalCase; file names follow the ecosystem
+  (docs `Architecture.md`, components `ButtonGroup.tsx`; Python modules stay
+  `lower_snake_case` because the name is the import path; `pyproject.toml` and
+  friends are never renamed).
+- **Commit hygiene:** commit while you work, then `git rebase -i` onto the latest
+  default branch, squash `wip`/`fixup` commits and target **one commit per task**.
+  Never rebase or force-push a shared branch, or anything already on the default
+  branch.
 - Evidence: the format/lint command and its result, on the same revision as the
   tests.
 
