@@ -54,6 +54,11 @@ six host operations and the integrity settings are adapted
    actions stop the lane and escalate to the CEO (see RED LINES).
 8. **Nothing unnecessary is kept.** No duplicate docs, no scratch, no build
    output, no secrets in the repository.
+9. **Style is automated.** Every role uses the language's canonical formatter,
+   linter and type checker (Python: `ruff format` + `ruff check` + `mypy`); the
+   fixer runs before the commit and the checker gates the merge. No hand
+   formatting, no competing config, no rule weakened to pass. The per-language
+   toolchain is in `references/Engineering.md`.
 
 ## The org
 
