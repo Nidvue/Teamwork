@@ -1,4 +1,4 @@
-"""Integration tests: a full Teamwork workspace lifecycle on ``tmp_path``.
+"""Integration tests: a full Nidvue Teamwork workspace lifecycle on ``tmp_path``.
 
 Each test bootstraps its own workspace (the autouse ``isolated_workspace``
 fixture clears ambient state and gives every test a fresh tmp dir) and drives
