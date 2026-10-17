@@ -77,6 +77,8 @@ ROOT_ALLOWLIST = {
     "src",
     "templates",
     "tests",
+    "reports",
+    "coverage",
 }
 
 
@@ -108,11 +110,24 @@ def test_no_temp_or_stale_files_are_tracked(root):
 
 
 def test_repository_root_contains_only_expected_entries(root):
-    unexpected = sorted(
-        entry.name
-        for entry in root.iterdir()
-        if entry.name not in ROOT_ALLOWLIST and not entry.name.endswith(".egg-info")
-    )
+    """Committed debris is the defect; gitignored build/CI output is expected.
+
+    The CI test job writes ``reports/`` for the junit and coverage artefacts, so
+    an entry that ``git check-ignore`` matches is not a hygiene failure.
+    """
+    unexpected = []
+    for entry in sorted(root.iterdir()):
+        name = entry.name
+        if name in ROOT_ALLOWLIST or name.endswith(".egg-info"):
+            continue
+        ignored = (
+            subprocess.run(
+                ["git", "check-ignore", "-q", name], cwd=root, capture_output=True
+            ).returncode
+            == 0
+        )
+        if not ignored:
+            unexpected.append(name)
     assert unexpected == [], f"unexpected entries in the repository root: {unexpected}"
 
 
