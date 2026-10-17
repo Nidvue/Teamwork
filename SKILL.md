@@ -89,7 +89,7 @@ is committed. All team-created names are **PascalCase**.
 ├── docs/Team/                       # committed project output
 │   ├── Project.md  Plan.md  Board.md  Archive.md  Decisions.md
 │   ├── Architecture.md  Research.md  Design.md  Risks.md  Costs.md  Release.md
-│   └── AuditManifest.json  AuditReport.md      # written by `ledger export`
+│   └── AuditManifest.json  AuditManifest.md      # written by `ledger export`
 ├── <code/> <tests/>                 # committed project output
 └── .pi/Teamwork/Teams/<Team>/       # the team's own tree (hidden, gitignored)
     ├── TeamMap.md                   # workspace map
