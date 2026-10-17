@@ -241,6 +241,7 @@ charter,
 | 1 | replaced the generated illustration with the template card | "follow GitHub's template" | layout matches the template |
 | 2 | optically centred the stack (down 60 px) | "nothing outside the safe area" + balance at thumbnail size | pass: content bottom 500, safe bottom 600 |
 | 3 | rebuilt with 4x supersampling, the mark rasterised from the SVG at 600 px, and the palette taken from the brand (`#5857E8` / `#8584F0`); moved the accent rule clear of the text | "no aliasing" + "foreground and background colours correct and harmonious" | pass: name 18.6:1, description 7.2:1 on white; edges smooth at 2x zoom |
+| 4 | widened the accent rule from a 132 px stub to the full title width (730 px, 8 px thick) and snapped the drawing coordinates to integers | "the underline is too short" + no stray pixels at the caps | pass: rule spans the title exactly, inside the 40 pt safe area, edges clean at 2x zoom |
 
 #### IMG-2..IMG-4 - vector
 
