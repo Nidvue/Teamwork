@@ -1,5 +1,6 @@
 <div align="center">
   <img src="assets/banner.svg" alt="Teamwork banner: three connected nodes and the pitch 'One prompt in. A whole company of agents out.'" width="100%">
+  <img src="docs/assets/nidvue-icon.svg" alt="Nidvue" width="88" height="88">
   <h1>Nidvue Teamwork</h1>
   <p><strong>One prompt in. A whole company of agents out.</strong></p>
   <p>An autonomous, self-organising multi-agent company for coding agents:<br>
