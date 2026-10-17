@@ -364,7 +364,7 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                     rule["id"], rule["severity"], path, line_no, value, line, source, commit
                 )
 
-        # TODO/FIXME carrying a credential on the same line.
+        # A marker that carries a credential next to it is reported too.
         if _RE_TODO.search(line):
             credential = None
             for probe in (_RE_TOKEN, _RE_PRIVATE_KEY):
