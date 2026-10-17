@@ -343,6 +343,12 @@ Two duties that keep the remote and the confidence level honest:
   the reverse. Any failure - local or CI - is filed to the owning agent with the
   exact command, expected vs actual, log excerpt, SHA and run id, and nobody
   reports a suite as passing while the matching CI run is red.
+- **CI triggers are path-filtered: code in, prose and media out.** Documentation,
+  images and other non-code edits must not run the code matrix; they get a cheap
+  docs workflow instead (link health, privacy scan, `mkdocs build --strict`).
+  Anything that ships - `src/`, `scripts/`, `tests/`, packaging, workflows,
+  `roles/`, `references/`, `templates/` - always runs the full matrix. Never
+  ignore a path that ships, and keep the two path lists in sync.
 
 Both duties are evidence, not ceremony: `tests plan` and the task record must name
 the local result **and** the CI run (id + conclusion) for the certified revision.
