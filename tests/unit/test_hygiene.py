@@ -273,3 +273,17 @@ def test_engineering_reference_documents_the_comments_policy(root):
 def test_skill_documents_the_housekeeping_rule(root):
     text = (root / "SKILL.md").read_text(encoding="utf-8")
     assert "Everyone keeps the tree clean" in text
+
+
+def test_generated_manifests_contain_no_machine_path(root):
+    """The committed audit manifest must not leak the operator's home directory.
+
+    CI's privacy job caught ``"project": "/home/<user>/..."`` inside
+    docs/Team/AuditManifest.json after the first export.
+    """
+    manifest = root / "docs" / "Team" / "AuditManifest.json"
+    if not manifest.exists():
+        pytest.skip("no exported manifest yet")
+    text = manifest.read_text(encoding="utf-8")
+    for machine_path in ("/home/", "/Users/", "C:\\\\Users", "/tmp/"):
+        assert machine_path not in text, machine_path
