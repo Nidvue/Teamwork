@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -112,13 +113,41 @@ def find_artefacts() -> dict[str, Path]:
     return {"wheel": max(wheels, key=newest), "sdist": max(sdists, key=newest)}
 
 
+def expected_bundle_members() -> list[str]:
+    """Every skill-bundle file the wheel must carry, derived from the checkout.
+
+    Comparing against the source directories (rather than a hand-written count)
+    means adding a role charter or a template can never silently stop being
+    shipped, and a rename cannot pass unnoticed.
+    """
+    members: list[str] = ["teamwork/data/SKILL.md"]
+    for folder in ("roles", "references", "templates"):
+        for path in sorted((REPO_ROOT / folder).rglob("*.md")):
+            members.append("teamwork/data/" + path.relative_to(REPO_ROOT).as_posix())
+    return members
+
+
 def inspect_wheel(wheel: Path) -> None:
     """Assert the payload and metadata contract of the wheel."""
+    expected = expected_bundle_members()
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
         for member in REQUIRED_WHEEL_MEMBERS:
             if member not in names:
                 raise VerificationError(f"wheel is missing required member: {member}")
+        missing = [member for member in expected if member not in names]
+        if missing:
+            raise VerificationError(
+                f"wheel is missing {len(missing)} bundled skill file(s): "
+                + ", ".join(missing[:5])
+                + (" ..." if len(missing) > 5 else "")
+            )
+        if len(expected) < 20:
+            raise VerificationError(
+                f"only {len(expected)} bundle files found in the checkout; the "
+                "comparison would be vacuous (expected SKILL.md + roles + "
+                "references + templates)"
+            )
         metadata_names = [n for n in names if n.endswith(".dist-info/METADATA")]
         if not metadata_names:
             raise VerificationError("wheel has no METADATA file")
@@ -134,11 +163,7 @@ def inspect_wheel(wheel: Path) -> None:
         raise VerificationError(
             "wheel declares runtime dependencies but the contract is zero: " + "; ".join(runtime)
         )
-    present = [m for m in REQUIRED_WHEEL_MEMBERS if m in names]
-    log(
-        f"wheel payload ok ({len(names)} entries, "
-        f"{len(present)}/{len(REQUIRED_WHEEL_MEMBERS)} assets)"
-    )
+    log(f"wheel payload ok ({len(names)} entries, {len(expected)}/{len(expected)} bundle files)")
     log("wheel metadata ok (no ungated Requires-Dist)")
 
 
@@ -198,6 +223,8 @@ def smoke_test(wheel: Path, workdir: Path) -> None:
 
     run_ok([console, "selftest"], env=env)
 
+    full_loop_smoke(console, workdir, env)
+
     project = workdir / "init-project"
     project.mkdir()
     run_ok(
@@ -209,6 +236,157 @@ def smoke_test(wheel: Path, workdir: Path) -> None:
     if not teams.is_dir() or not any(teams.iterdir()):
         raise VerificationError(f"`teamwork init` created no workspace under {teams}")
     log("installed-wheel smoke test ok (--version, selftest, init)")
+
+
+def cli(console: Path, args: Sequence[str], cwd: Path, env: dict[str, str]) -> str:
+    """Run the *installed* console script and return its combined output."""
+    result = run([console, *args], cwd=cwd, env=env, capture=True)
+    if result.returncode != 0:
+        raise VerificationError(
+            f"installed `teamwork {' '.join(args)}` failed with exit "
+            f"{result.returncode}: {(result.stderr or result.stdout).strip()[:400]}"
+        )
+    return (result.stdout or "") + (result.stderr or "")
+
+
+def full_loop_smoke(console: Path, workdir: Path, env: dict[str, str]) -> None:
+    """Drive the complete gate loop through the *installed wheel* (AC-10).
+
+    The acceptance suite proves the loop from the repository checkout. This
+    proves the same behaviour from a wheel installed into a clean virtualenv,
+    which is what a user actually runs.
+
+    The roster is deliberately tiny (CEO, one Developer, one Reviewer) so that
+    every staffed role owns a test layer and the stop condition is reachable.
+    """
+    project = workdir / "loop-project"
+    project.mkdir()
+    cli(console, ["init", "--no-git", "--agents", "ceo,developer-1,reviewer-1"], project, env)
+
+    cli(
+        console,
+        [
+            "criteria",
+            "add",
+            "--id",
+            "AC-1",
+            "--text",
+            "the release loop works",
+            "--owner",
+            "developer",
+            "--by",
+            "ceo",
+        ],
+        project,
+        env,
+    )
+    cli(
+        console,
+        [
+            "tests",
+            "require",
+            "--area",
+            "engine",
+            "--layers",
+            "unit,acceptance",
+            "--by",
+            "ceo",
+            "--reason",
+            "release smoke test",
+        ],
+        project,
+        env,
+    )
+
+    def add_and_run(layer: str, command: str, by: str) -> None:
+        out = cli(
+            console,
+            ["tests", "add", "--layer", layer, "--area", "engine", "--command", command],
+            project,
+            env,
+        )
+        match = re.search(r"(TS-\d+)", out)
+        if not match:
+            raise VerificationError(f"`tests add {layer}` printed no id: {out.strip()[:200]}")
+        cli(
+            console,
+            [
+                "tests",
+                "run",
+                match.group(1),
+                "--by",
+                by,
+                "--result",
+                "pass",
+                "--evidence",
+                f"{command} @wheel -> ok",
+            ],
+            project,
+            env,
+        )
+
+    add_and_run("goal", "teamwork criteria list", "CEO")
+    add_and_run("unit", "python -m pytest tests/unit", "Developer-1")
+    add_and_run("acceptance", "python -m pytest tests/acceptance", "Reviewer-1")
+
+    cli(console, ["task", "add", "developer", "ship the widget", "--priority", "P0"], project, env)
+    cli(console, ["task", "set", "Developer-1", "T-0001", "--status", "selfcheck"], project, env)
+    cli(
+        console,
+        [
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "Developer-1",
+            "--note",
+            "re-read the diff and ran the unit layer",
+            "--test",
+            "python -m pytest tests/unit @wheel -> ok",
+        ],
+        project,
+        env,
+    )
+    cli(console, ["task", "set", "Developer-1", "T-0001", "--status", "review"], project, env)
+    cli(
+        console,
+        [
+            "review",
+            "developer",
+            "T-0001",
+            "--by",
+            "Reviewer-1",
+            "--result",
+            "pass",
+            "--evidence",
+            "python -m pytest tests/acceptance @wheel -> ok",
+        ],
+        project,
+        env,
+    )
+    cli(
+        console,
+        [
+            "criteria",
+            "verify",
+            "AC-1",
+            "--by",
+            "Reviewer-1",
+            "--evidence",
+            "python -m pytest tests/acceptance @wheel -> ok",
+        ],
+        project,
+        env,
+    )
+
+    stopped = run([console, "loop"], cwd=project, env=env, capture=True)
+    combined = (stopped.stdout or "") + (stopped.stderr or "")
+    if stopped.returncode != 0 or "> STOP" not in combined:
+        raise VerificationError(
+            "the installed wheel could not reach the stop condition: "
+            f"exit {stopped.returncode}; {combined.strip()[-400:]}"
+        )
+    log("installed-wheel full-loop smoke test ok (gate cleared, loop -> STOP)")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

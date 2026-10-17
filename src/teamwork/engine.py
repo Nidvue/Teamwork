@@ -7957,6 +7957,140 @@ def cmd_selftest(args) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# Imaging: is a text-to-image / image-to-image model available, and which one?
+#
+# Policy: the Designer's charter (roles/designer.md), Visual assets section.
+# The probe is deliberately OFFLINE: it reads environment variables and PATH
+# only, never the network, so it cannot leak a prompt, cannot hang, and cannot
+# claim a model that is not there.
+# --------------------------------------------------------------------------- #
+
+# Ranked best-first per provider (quality over speed and cost). "Best quality"
+# means the first generally available model listed. Checked 2026-10-17; add a new
+# provider with a source and a date before using it - an unknown provider is
+# never assumed to be the best.
+IMAGE_MODEL_RANKING = {
+    "openai": ("gpt-image-1", "dall-e-3"),
+    "google": (
+        "imagen-4.0-ultra-generate-001",
+        "imagen-4.0-generate-001",
+        "gemini-2.5-flash-image",
+    ),
+    "black-forest-labs": ("flux-1.1-pro", "flux-1-dev", "flux-1-schnell"),
+    "stability": ("stable-image-ultra", "sd3.5-large", "sd3.5-medium"),
+    "replicate": (
+        "black-forest-labs/flux-1.1-pro",
+        "stability-ai/stable-diffusion-3.5-large",
+    ),
+    "local": ("qwen-image-2.1", "sdxl", "sd3.5-large"),
+    "ollama-cloud": (),  # text/vision INPUT only as of 2026-10-17
+}
+
+# Ambient-credential detection order. A provider is only selected when it has a
+# ranked image model, so holding an OpenAI key does not pretend to be a model.
+IMAGE_PROVIDER_PRIORITY = (
+    "openai",
+    "google",
+    "black-forest-labs",
+    "stability",
+    "replicate",
+    "local",
+    "ollama-cloud",
+)
+
+IMAGE_PROVIDER_CREDENTIALS = {
+    "openai": ("OPENAI_API_KEY",),
+    "google": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+    "black-forest-labs": ("BFL_API_KEY", "BLACK_FOREST_LABS_API_KEY"),
+    "stability": ("STABILITY_API_KEY",),
+    "replicate": ("REPLICATE_API_TOKEN",),
+    "ollama-cloud": ("OLLAMA_API_KEY",),
+}
+
+IMAGE_FALLBACK_HINT = (
+    "no cloud image model detected: fall back to a local model, then to a "
+    "hand-authored SVG (roles/designer.md, fallback ladder). Do not stall, and "
+    "do not report an image that was never generated."
+)
+
+
+def detect_image_provider(env=None) -> str:
+    """First provider in priority order that is configured and has a model."""
+    env = os.environ if env is None else env
+    for provider in IMAGE_PROVIDER_PRIORITY:
+        if provider == "local":
+            if shutil.which("qimg") or any(key.startswith("QIMG_") for key in env):
+                return provider
+            continue
+        if not IMAGE_MODEL_RANKING.get(provider):
+            continue
+        if any(env.get(name) for name in IMAGE_PROVIDER_CREDENTIALS.get(provider, ())):
+            return provider
+    return ""
+
+
+def resolve_image_model(env=None) -> dict:
+    """Decide which image generator to use, without touching the network."""
+    env = os.environ if env is None else env
+    override = (env.get("TEAMWORK_IMAGE_MODEL") or "").strip()
+    if override:
+        provider = (env.get("TEAMWORK_IMAGE_PROVIDER") or "custom").strip() or "custom"
+        return {
+            "provider": provider,
+            "model": override,
+            "ranked": [],
+            "source": "TEAMWORK_IMAGE_MODEL override",
+            "fallback": "",
+        }
+    explicit = (env.get("TEAMWORK_IMAGE_PROVIDER") or "").strip()
+    if explicit:
+        ranked = list(IMAGE_MODEL_RANKING.get(explicit, ()))
+        return {
+            "provider": explicit,
+            "model": ranked[0] if ranked else "",
+            "ranked": ranked,
+            "source": "TEAMWORK_IMAGE_PROVIDER",
+            "fallback": "" if ranked else IMAGE_FALLBACK_HINT,
+        }
+    provider = detect_image_provider(env)
+    ranked = list(IMAGE_MODEL_RANKING.get(provider, ()))
+    return {
+        "provider": provider,
+        "model": ranked[0] if ranked else "",
+        "ranked": ranked,
+        "source": "ambient environment" if provider else "none detected",
+        "fallback": "" if provider else IMAGE_FALLBACK_HINT,
+    }
+
+
+def cmd_imaging(args) -> int:
+    """`teamwork imaging probe` - which image model, if any, is available."""
+    import json
+
+    decision = resolve_image_model()
+    if getattr(args, "json", False):
+        print(json.dumps({"command": "imaging.probe", **decision}, indent=2))
+        return 0
+    print("# imaging probe (offline: environment + PATH only)")
+    print(f"  provider:  {decision['provider'] or '-'}")
+    print(f"  model:     {decision['model'] or '-'}")
+    print(f"  source:    {decision['source']}")
+    if decision["ranked"]:
+        print("  ranked:    " + " > ".join(decision["ranked"]))
+    if decision["model"]:
+        print("  supports:  text-to-image, image-to-image")
+    else:
+        print("  supports:  none")
+    if decision["fallback"]:
+        print(f"  fallback:  {decision['fallback']}")
+    print(
+        "  policy:    roles/designer.md (plan, 4+ candidates, visual review,"
+        " improvement, privacy and licence red lines)"
+    )
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 
@@ -8660,7 +8794,7 @@ def _parsers_scheduling(sub, common) -> None:
 
 
 def _parsers_meta(sub, common) -> None:
-    """`version` and `selftest` command surface."""
+    """`version`, `selftest` and `imaging` command surface."""
     s = sub.add_parser("version", parents=[common], help="print the version and exit")
     s.set_defaults(func=cmd_version)
 
@@ -8668,6 +8802,18 @@ def _parsers_meta(sub, common) -> None:
         "selftest", parents=[common], help="offline smoke test of the install (no network)"
     )
     s.set_defaults(func=cmd_selftest)
+
+    s = sub.add_parser(
+        "imaging",
+        parents=[common],
+        help="image-generation capability: which text-to-image / image-to-image model is available",
+    )
+    isub = s.add_subparsers(dest="imaging_cmd", required=True)
+    p = isub.add_parser(
+        "probe", parents=[common], help="offline probe of the best available image model"
+    )
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.set_defaults(func=cmd_imaging)
 
 
 def main(argv=None) -> int:
