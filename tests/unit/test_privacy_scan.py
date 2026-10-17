@@ -75,7 +75,7 @@ def test_clean_source_lines_report_nothing():
         "import os\n"
         "def add(a, b):\n"
         "    return a + b\n"
-        "# a comment with a url: https://github.com/VisionPZ/Teamwork\n"
+        "# a comment with a url: https://github.com/VisionPZ/Nidvue-Teamwork\n"
         "TIMEOUT = 60\n"
         "name = 'teamwork'\n"
     )

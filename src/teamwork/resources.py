@@ -1,4 +1,4 @@
-"""Locate the Teamwork skill bundle.
+"""Locate the Nidvue Teamwork skill bundle.
 
 The engine needs ``SKILL.md``, ``roles/``, ``references/``, ``templates/`` and a
 runnable copy of itself. Those live in different places depending on how the

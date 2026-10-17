@@ -1,4 +1,4 @@
-# Installation
+# Installation - Nidvue Teamwork
 
 Owner: Technical Writer.
 
@@ -17,7 +17,7 @@ PyPI); the import name is `teamwork` and the console script is `teamwork`.
 
 !!! note "PyPI status"
     PyPI publishing is prepared but not enabled for this release. Until the
-    package is published, install from the [GitHub release](https://github.com/VisionPZ/Teamwork/releases)
+    package is published, install from the [GitHub release](https://github.com/VisionPZ/Nidvue-Teamwork/releases)
     wheel or from source. The `pip`/`pipx`/`uvx` commands below apply once the
     release is on PyPI.
 
@@ -56,13 +56,13 @@ $ uvx --from teamwork-agents teamwork --version
 ## Install from source
 
 ```console
-$ git clone https://github.com/VisionPZ/Teamwork.git
+$ git clone https://github.com/VisionPZ/Nidvue-Teamwork.git
 $ cd Teamwork
 $ python -m pip install .
 ```
 
 For development, install the package in editable mode with the test and docs
-extras (see [CONTRIBUTING.md](https://github.com/VisionPZ/Teamwork/blob/main/CONTRIBUTING.md)):
+extras (see [CONTRIBUTING.md](https://github.com/VisionPZ/Nidvue-Teamwork/blob/main/CONTRIBUTING.md)):
 
 ```console
 $ python -m pip install -e ".[dev]"

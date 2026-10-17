@@ -4,7 +4,7 @@ Owner: Designer. The developer-ready brief for `README.md` and `assets/**`:
 audience, information hierarchy, tokens, accessibility and the conversion
 checklist a Tester can assert on.
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [README](https://github.com/VisionPZ/Teamwork/blob/main/README.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [README](https://github.com/VisionPZ/Nidvue-Teamwork/blob/main/README.md)
 
 ## 0. Principles and typography
 
@@ -147,7 +147,7 @@ Assertable by a Tester on the merged README.
 - The banner org chart shows the CEO delegating to Architect, Developer and
   Reviewer, with Tester and the Ledger below - the same shape as the mermaid
   flowchart in the README.
-- Repository URLs use the public namespace `VisionPZ/Teamwork` (the same value
+- Repository URLs use the public namespace `VisionPZ/Nidvue-Teamwork` (the same value
   already used by `pyproject.toml`, `mkdocs.yml` and `CONTRIBUTING.md`). If the
   owner handle is ever treated as private, substitute it before publishing.
 
@@ -162,7 +162,7 @@ Revision of record: `e5efc5f` (working tree; `README.md`, `assets/**` and
 | Link health | `python3 scripts/teamwork.py links` | 0 new broken/malformed/bare links from README or Design; repo-wide exit 1 from pre-existing issues below |
 | Focused link rows | filter `link_report()` to README + Design | `broken: none`, `external_bad: none`, `bare: none` |
 | Fence balance | count lines beginning with three backticks | 14 markers, even, balanced |
-| Top-level heading | markdown `^# ` plus HTML `<h1>` outside fences | exactly 1 (`<h1>Teamwork</h1>`) |
+| Top-level heading | markdown `^# ` plus HTML `<h1>` outside fences | exactly 1 (`<h1>Nidvue Teamwork</h1>`) |
 | Anchor use | `grep -oE '\]\(#[a-z0-9-]+\)'` on README and Design | none used, so none can dangle |
 | No external resources in SVG | `grep -nE '<script|@font-face|xlink:href|href="http' assets/*.svg` | no matches; only the required `xmlns` namespace |
 
@@ -181,7 +181,7 @@ needs and owns the asset end to end. The policy - medium choice, the
 `imaging probe`, the model ranking, the review of every candidate, the
 improvement loop and the privacy/licence red lines - lives in the Designer's
 charter,
-[`roles/designer.md`](https://github.com/VisionPZ/Teamwork/blob/main/roles/designer.md).
+[`roles/designer.md`](https://github.com/VisionPZ/Nidvue-Teamwork/blob/main/roles/designer.md).
 
 ### Capability
 

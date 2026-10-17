@@ -1,9 +1,12 @@
 ---
 name: teamwork
-description: "Run a user prompt to completion with an autonomous multi-agent company: CEO, CTO, COO, CFO, Architect, Product Manager, Project Manager, Designer, Release Engineer, Technical Writer, Data Engineer, Developer(s), Tester(s), Reviewer and Security Auditor. Use when the user invokes /teamwork, asks for a team of sub-agents with roles, wants an org chart of agents that plans, builds, tests and iterates until the goal is met, or wants long-running parallel work with per-agent memory. The user talks only to the CEO; every other agent communicates internally."
+description: "Nidvue Teamwork - run a user prompt to completion with an autonomous multi-agent company: CEO, CTO, COO, CFO, Architect, Product Manager, Project Manager, Designer, Release Engineer, Technical Writer, Data Engineer, Developer(s), Tester(s), Reviewer and Security Auditor. Use when the user invokes /teamwork, asks for a team of sub-agents with roles, wants an org chart of agents that plans, builds, tests and iterates until the goal is met, or wants long-running parallel work with per-agent memory. The user talks only to the CEO; every other agent communicates internally."
 ---
 
-# /teamwork - autonomous project team
+# Nidvue Teamwork - `teamwork` skill
+
+> **Nidvue Teamwork** is the product brand; `teamwork` is the command, package and
+> workspace identifier.
 
 Turn one prompt into a functioning, self-organising team that keeps working until
 the goal is verified. The user talks **only to the CEO**. The CEO decomposes the

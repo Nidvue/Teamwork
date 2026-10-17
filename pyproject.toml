@@ -9,7 +9,7 @@ description = "Turn one prompt into an autonomous multi-agent company - package,
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 readme = "README.md"
-authors = [{ name = "Teamwork contributors" }]
+authors = [{ name = "Nidvue contributors" }]
 keywords = [
   "teamwork",
   "multi-agent",
@@ -44,11 +44,11 @@ dev = ["pytest", "pytest-cov", "ruff", "mypy", "build"]
 teamwork = "teamwork.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/VisionPZ/Teamwork"
-Documentation = "https://github.com/VisionPZ/Teamwork#readme"
-Repository = "https://github.com/VisionPZ/Teamwork"
-Changelog = "https://github.com/VisionPZ/Teamwork/blob/main/CHANGELOG.md"
-Issues = "https://github.com/VisionPZ/Teamwork/issues"
+Homepage = "https://github.com/VisionPZ/Nidvue-Teamwork"
+Documentation = "https://github.com/VisionPZ/Nidvue-Teamwork#readme"
+Repository = "https://github.com/VisionPZ/Nidvue-Teamwork"
+Changelog = "https://github.com/VisionPZ/Nidvue-Teamwork/blob/main/CHANGELOG.md"
+Issues = "https://github.com/VisionPZ/Nidvue-Teamwork/issues"
 
 # --------------------------------------------------------------------------- #
 # Build: src layout + the canonical skill bundle force-included into the wheel
