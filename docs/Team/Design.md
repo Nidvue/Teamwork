@@ -239,7 +239,8 @@ charter,
 | round | what changed | why (criterion) | review after |
 |---|---|---|---|
 | 1 | replaced the generated illustration with the template card | "follow GitHub's template" | layout matches the template |
-| 2 | optically centred the stack (down 60 px) | "nothing outside the safe area" + balance at thumbnail size | pass: content bottom 510, safe bottom 600 |
+| 2 | optically centred the stack (down 60 px) | "nothing outside the safe area" + balance at thumbnail size | pass: content bottom 500, safe bottom 600 |
+| 3 | rebuilt with 4x supersampling, the mark rasterised from the SVG at 600 px, and the palette taken from the brand (`#5857E8` / `#8584F0`); moved the accent rule clear of the text | "no aliasing" + "foreground and background colours correct and harmonious" | pass: name 18.6:1, description 7.2:1 on white; edges smooth at 2x zoom |
 
 #### IMG-2..IMG-4 - vector
 
