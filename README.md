@@ -50,7 +50,8 @@ $ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-
 | Concurrency control | Provider slot leases respect per-provider caps, so N agents never overload a model endpoint. |
 | Disputes and tribunal | A challenged design goes through evidence rounds; a 3-round deadlock is ruled on by the CEO + CTO + CFO and recorded. |
 | Portable, dependency-free | CPython 3.9-3.13 on Linux, macOS and Windows. **Zero third-party runtime dependencies.** |
-| Works as a skill and a package | Load it as `~/.pi/agent/skills/teamwork`, or `pip install` it and use the `teamwork` console script. |
+| Works as a skill and a package | Load it as a skill in Pi, Claude Code or opencode (`SKILL.md`), or as `AGENTS.md` in Codex, Cursor, Windsurf, Gemini CLI and Aider - the same protocol on every host (`references/Adapters.md`). |
+| Remote-agnostic integrity | Branch protection, required checks, squash-only merges and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike. |
 
 ## Install
 
