@@ -9,9 +9,49 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/VisionPZ/Teamwork/compare/v1.0.0...HEAD)
+## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.0.0...HEAD)
 
-## [1.0.2](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.2) - 2026-10-17
+### Changed
+
+- **Repository moved to `Nidvue/Teamwork`**: badges, clone commands, `pyproject`
+  URLs, `mkdocs.yml`, `CITATION.cff` and every documentation link now use the new
+  namespace. Only the historical audit records keep the former handle, because
+  rewriting a quoted command would falsify evidence.
+- **Teamwork is presented as a skill, not a standalone app**: the README, docs
+  home, install guide, quickstart and the animated demo all start from one clone
+  into the agent host and a `/teamwork` prompt; the Python package is documented
+  as an optional engine over the same code.
+
+- **One generic protocol, no host-specific instructions**: the README, docs home,
+  install guide, quickstart, CLI reference and the animated demo install the skill
+  into the project or user skills directory and start it by naming the skill.
+  Concrete host tools live only in `references/Adapters.md`, the optional adapter
+  reference, so the same text serves every agent.
+
+### Security
+
+- **The privacy scan now covers local and agent-host leakage**: tracked paths that
+  are private host state (`.pi/agent/` auth, settings, sessions, model stores),
+  credential files (`auth.json`, `.env`, `.netrc`, `.npmrc`, `.pypirc`, SSH keys,
+  `.aws/credentials`, `.kube/config`, `.docker/config.json`), key material and
+  local working state (`.pi/`, virtualenvs, build output, caches, `Scratch/`) fail
+  the gate; so do JSON config objects with a live credential, provider tokens
+  (`gsk_`, `xai-`, `pplx-`, `glpat-`, `npm_`, `hf_`, `sk_live_`, SendGrid) and
+  WSL/mounted home paths. Legitimate project paths (`.pi/Teamwork/`, `.env.example`,
+  `auth.py`) stay clean.
+
+### Added
+
+- **README "For agents"**: host detection, the clone, `selftest` verification, the
+  startup routine and the hard rules, written for the agent that installs and
+  drives the skill itself.
+- **README "Common ways to use it"**: eight trimmed real transcripts - new project,
+  feature in an existing repository, red CI, manual steering, pulse/parallel,
+  resume, ledger proof, model routing.
+- Tests assert the skill-first surfaces, the demo's line order and the new
+  namespace, so the framing and the URLs cannot silently regress.
+
+## [1.0.2](https://github.com/Nidvue/Teamwork/releases/tag/v1.0.2) - 2026-10-17
 
 ### Added
 
@@ -35,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The release workflow fails when the tag and the package version disagree.
 
-## [1.0.1](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.1) - 2026-10-17
+## [1.0.1](https://github.com/Nidvue/Teamwork/releases/tag/v1.0.1) - 2026-10-17
 
 ### Added
 
@@ -71,7 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recreated so no unreachable object or pull ref carries it.
 - The team mailbox domain is `agents.nidvue.com`; every commit uses a role mailbox.
 
-## [1.0.0](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.0) - 2026-10-17
+## [1.0.0](https://github.com/Nidvue/Teamwork/releases/tag/v1.0.0) - 2026-10-17
 
 ### Added
 

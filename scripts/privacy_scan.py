@@ -15,9 +15,25 @@ It fails on: personal email addresses that are not role mailboxes at the neutral
 identity domain; the retired private domain(s); absolute personal home paths
 (``/home/<name>``, ``/Users/<name>``, ``C:\\Users\\<name>``); API keys and tokens
 (``sk-``, ``ghp_``/``gho_``/``ghu_``/``ghs_``/``ghr_``, ``github_pat_``, ``AIza``,
-``wandb_``, ``xoxb-``, ``Bearer`` tokens, standalone high-entropy secrets);
-private-key headers; ``.env``-style assignments of secret-named variables; and
-``TODO``/``FIXME`` comments that carry credentials.
+``wandb_``, ``xoxb-``, ``Bearer`` tokens, provider keys such as ``gsk_``/``xai-``/
+``pplx-``/``glpat-``/``npm_``/``hf_``/``sk_live_``, standalone high-entropy
+secrets); private-key headers; ``.env``-style and JSON assignments of secret-named
+variables; ``TODO``/``FIXME`` comments that carry credentials.
+
+It also fails on **agent-host configuration leakage**, which is the easiest way
+for a local secret to reach a public tree:
+
+* a tracked file that is private host state - ``.pi/agent/`` (auth, settings,
+  sessions, memory, missions, installs), ``.env``, ``auth.json``,
+  ``credentials.json``, ``settings.local.json``, ``.netrc``/``.npmrc``/``.pypirc``,
+  shell history, SSH keys, ``.aws/credentials``, ``.kube/config``,
+  ``.docker/config.json``, and the equivalent files of other agent hosts;
+* a line that quotes a private host path (agent auth, settings or session
+  state) or a JSON config object that carries a live credential
+  (``"apiKey": "..."``).
+
+The team workspace the skill creates (``.pi/Teamwork/``) is project state, not
+host configuration, and is deliberately not matched.
 
 Design notes
 ------------
@@ -46,7 +62,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-SCANNER_VERSION = "1.0.0"
+SCANNER_VERSION = "1.1.0"
 
 # --------------------------------------------------------------------------- #
 # Neutral identity / allowlisted email domains
@@ -155,6 +171,8 @@ _RE_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 _RE_HOME = re.compile(
     r"(?:(?<![A-Za-z0-9_])/(?:home|Users)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
     r"|(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]Users[\\/]([^\\/\s\"']+))"
+    # WSL and container mounts of a real home directory
+    r"|(?:(?<![A-Za-z0-9])/mnt/[A-Za-z]/(?:Users|home)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
 )
 
 _RE_PRIVATE_KEY = re.compile(r"-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----")
@@ -167,6 +185,14 @@ _RE_TOKEN = re.compile(
     r"|\bwandb_[A-Za-z0-9]{20,}"
     r"|\bxox[baprs]-[A-Za-z0-9\-]{10,}"
     r"|\bAKIA[0-9A-Z]{16}\b"
+    r"|\bgsk_[A-Za-z0-9]{20,}"
+    r"|\bxai-[A-Za-z0-9]{20,}"
+    r"|\bpplx-[A-Za-z0-9]{20,}"
+    r"|\bnpm_[A-Za-z0-9]{30,}"
+    r"|\bglpat-[A-Za-z0-9_\-]{20,}"
+    r"|\bhf_[A-Za-z0-9]{30,}"
+    r"|\bsk_live_[A-Za-z0-9]{20,}"
+    r"|\bSG\.[A-Za-z0-9_\-]{16,}\.[A-Za-z0-9_\-]{16,}"
     r"|\b(?i:Bearer)\s+[A-Za-z0-9._+/=\-]{16,}"
 )
 
@@ -226,10 +252,119 @@ _RE_HIGH_ENTROPY = re.compile(r"(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{32,}={0,2}(?![A
 
 _RE_TODO = re.compile(r"(?i)\b(?:TODO|FIXME|XXX|HACK)\b")
 
+def _host_state(*parts: str) -> str:
+    """Join path fragments so this published file never quotes a private path."""
+    return "".join(parts)
+
+
+# Private state of an agent host. The skill directory itself
+# (``<agent-dir>/skills/<name>``) is a normal install target and is not listed.
+_AGENT_CONFIG_NAMES = (
+    r"auth(?:[^\s\"'`]*)?|settings\.json|trust\.json|"
+    r"mcp(?:-auth|-adapter|-onboarding)?\.json|models(?:-store)?\.json|"
+    r"prompt-history\.json|sessions?|memory|missions|agents|install|vendor|npm|cache|git|bin"
+)
+_RE_AGENT_CONFIG = re.compile(
+    _host_state(r"\.pi[\\/]", r"agent[\\/]")
+    + r"(?:" + _AGENT_CONFIG_NAMES + ")"
+    + "|" + _host_state(r"\.claude[\\/]", "settings", r"\.local\.json")
+    + "|" + _host_state(r"\.codex[\\/]", "auth", r"\.json")
+    + "|" + _host_state(r"\.gemini[\\/]", "oauth_creds", r"\.json"),
+    re.IGNORECASE,
+)
+
+# JSON config object carrying a live credential: ``"apiKey": "..."``. A
+# placeholder (``${TOKEN}``, ``<your-key>``) is filtered like ``.env`` values.
+_RE_JSON_SECRET = re.compile(
+    r"(?i)[\"'](?:api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|id[_-]?token|"
+    r"client[_-]?secret|secret|password|token)[\"']\s*:\s*[\"']([^\"'\s]{8,})[\"']"
+)
+
+# A tracked path that must never be published: host config, credentials, keys,
+# environment files, history. ``.env.example`` and friends stay allowed.
+_SENSITIVE_NAME = re.compile(
+    r"(?i)^(?:\.env(?:\.(?!example$|sample$|template$|dist$)[^/]+)?"
+    r"|auth(?:\.json)?(?:\.bak)?|auth\.json|credentials\.json|secrets?\.json"
+    r"|mcp-auth\.json|settings\.local\.json|\.netrc|\.npmrc|\.pypirc"
+    r"|\.bash_history|\.zsh_history|\.python_history"
+    r"|id_(?:rsa|dsa|ecdsa|ed25519)(?:\.pub)?"
+    r"|\.git-credentials|\.htpasswd)$"
+)
+_SENSITIVE_SUFFIX = re.compile(r"(?i)\.(?:pem|key|p12|pfx|keystore|jks)$")
+# Local working state: an agent workspace, a virtualenv, build output or a cache.
+# None of it is project source, so a tracked file here leaked by accident.
+_LOCAL_STATE_PARTS = (
+    ".pi",
+    ".agents",
+    ".claude",
+    ".codex",
+    ".gemini",
+    ".config/opencode",
+    ".venv",
+    "venv",
+    "node_modules",
+    "site",
+    "dist",
+    "build",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "coverage",
+    ".cache",
+    "target",
+    "Scratch",
+)
+_SENSITIVE_PARTS = (
+    _host_state(".pi/", "agent"),
+    _host_state(".claude/", "settings", ".local.json"),
+    _host_state(".codex/", "auth", ".json"),
+    _host_state(".gemini/", "oauth_creds", ".json"),
+    _host_state(".aws/", "credentials"),
+    _host_state(".kube/", "config"),
+    _host_state(".docker/", "config.json"),
+    _host_state(".ssh/", ""),
+)
+# Shell history and dotfile names above are matched on the basename only; a
+# project source file called ``auth.py`` must stay allowed.
+_SENSITIVE_BASENAMES = {"auth.json", "auth.json.bak"}
+
+# Editor and build residue: local artefacts that are never project source.
+_LOCAL_JUNK = re.compile(
+    r"(?i)^(?:\.DS_Store|Thumbs\.db|.*\.(?:swp|swo|orig|rej|bak|pyc|pyo))$"
+)
+
+
+def sensitive_path(rel: str):
+    """Return a reason when a tracked path is private local state, else ``None``."""
+    normalised = rel.replace("\\", "/")
+    while normalised.startswith("./"):
+        normalised = normalised[2:]
+    normalised = normalised.lstrip("/")
+    for part in _SENSITIVE_PARTS:
+        if normalised == part or normalised.startswith(part.rstrip("/") + "/"):
+            return f"private host state: {part}"
+    for part in _LOCAL_STATE_PARTS:
+        if normalised == part or normalised.startswith(part.rstrip("/") + "/"):
+            return f"local state: {part}/"
+    name = normalised.rsplit("/", 1)[-1]
+    if name in _SENSITIVE_BASENAMES:
+        return "credential file"
+    if _SENSITIVE_NAME.match(name):
+        return "secret-bearing file"
+    if _SENSITIVE_SUFFIX.search(name):
+        return "key material"
+    if _LOCAL_JUNK.match(name):
+        return "local state: editor or build artefact"
+    return None
+
+
 RULES = (
     {"id": "private-key", "severity": "critical", "regex": _RE_PRIVATE_KEY},
     {"id": "api-token", "severity": "critical", "regex": _RE_TOKEN},
     {"id": "env-secret", "severity": "critical", "regex": _RE_ENV_SECRET},
+    {"id": "json-secret", "severity": "critical", "regex": _RE_JSON_SECRET},
+    {"id": "agent-config", "severity": "high", "regex": _RE_AGENT_CONFIG},
     {"id": "private-domain", "severity": "high", "regex": None},  # compiled in scan()
     {"id": "personal-email", "severity": "high", "regex": _RE_EMAIL},
     {"id": "home-path", "severity": "high", "regex": _RE_HOME},
@@ -346,10 +481,10 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                 if rule["id"] == "personal-email" and _email_allowed(value):
                     continue
                 if rule["id"] == "home-path":
-                    user = match.group(1) or match.group(2) or ""
+                    user = match.group(1) or match.group(2) or match.group(3) or ""
                     if user.lower() in _GENERIC_HOME_USERS:
                         continue
-                if rule["id"] == "env-secret":
+                if rule["id"] in {"env-secret", "json-secret"}:
                     secret = match.group(1)
                     if _PLACEHOLDERS.match(secret):
                         continue
@@ -490,11 +625,34 @@ def _scan_bytes(data, path, source, allow, commit=None):
     return list(scan_lines(text, path, source, RULES, allow, commit=commit))
 
 
+def config_path_finding(rel, source, commit=None):
+    """A tracked path that is private host state is a finding on its own."""
+    reason = sensitive_path(rel)
+    if reason is None:
+        return None
+    local_state = reason.startswith("local state")
+    return {
+        "rule": "local-state" if local_state else "local-config",
+        "severity": "high" if local_state else "critical",
+        "path": rel,
+        "line": 0,
+        "source": source,
+        "commit": commit,
+        "location": rel,
+        "evidence": rel,
+        "match": rel,
+        "context": reason,
+    }
+
+
 def scan_tree(root, allow, stats=None):
     findings = []
     for rel in _tracked_paths(root):
         if stats is not None:
             stats["tracked_files"] += 1
+        path_finding = config_path_finding(rel, "tree")
+        if path_finding is not None:
+            findings.append(path_finding)
         full = root / rel
         try:
             data = full.read_bytes()
@@ -532,6 +690,9 @@ def scan_staged(root, allow, stats=None):
         for path in paths:
             if stats is not None:
                 stats["staged_files"] += 1
+            path_finding = config_path_finding(path, "staged")
+            if path_finding is not None:
+                findings.append(path_finding)
             findings.extend(_scan_bytes(data, path, "staged", allow))
     return findings
 
@@ -559,7 +720,11 @@ def scan_history(root, allow, stats=None):
             continue
         if stats is not None:
             stats["history_blobs"] += 1
-        findings.extend(_scan_bytes(data, sha_to_path[sha], "history:blob", allow, commit=sha))
+        rel = sha_to_path[sha]
+        path_finding = config_path_finding(rel, "history:blob", commit=sha)
+        if path_finding is not None:
+            findings.append(path_finding)
+        findings.extend(_scan_bytes(data, rel, "history:blob", allow, commit=sha))
     findings.extend(scan_commit_metadata(root, allow, stats=stats))
     return findings
 

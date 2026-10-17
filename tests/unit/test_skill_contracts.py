@@ -463,9 +463,16 @@ def test_scanner_allows_the_github_service_mailbox():
     import sys
 
     scripts = Path(__file__).resolve().parents[2] / "scripts"
-    if str(scripts) not in sys.path:
+    added = str(scripts) not in sys.path
+    if added:
         sys.path.insert(0, str(scripts))
-    import privacy_scan as ps
+    try:
+        import privacy_scan as ps
+    finally:
+        # Leaving scripts/ on sys.path would shadow the real ``teamwork`` package
+        # with ``scripts/teamwork.py`` for every later test in the session.
+        if added:
+            sys.path.remove(str(scripts))
 
     assert ps._email_allowed("support@github.com")
     assert ps._email_allowed("noreply@github.com")
@@ -671,7 +678,7 @@ def test_master_brand_precedes_the_product_name(root):
 
     mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
     assert "site_name: Nidvue Teamwork" in mkdocs
-    assert "VisionPZ/Teamwork" in mkdocs  # the repo link stays stable
+    assert "Nidvue/Teamwork" in mkdocs  # the repo link stays stable
 
     for name in ("pyproject.toml", "CITATION.cff"):
         text = (root / name).read_text(encoding="utf-8")
@@ -887,3 +894,162 @@ def test_automatic_routing_is_documented_everywhere(root):
     assert "TEAMWORK_MODEL_STRONG" in cli
     for path in sorted((root / "roles").glob("*.md")):
         assert "### Your model (all roles)" in path.read_text(encoding="utf-8"), path.name
+
+
+# --------------------------------------------------------------------------- #
+# skill-first presentation: the thing installed is a skill, not an app
+# --------------------------------------------------------------------------- #
+
+# Historical records quote commands run against the old namespace; rewriting them
+# would falsify evidence. Every other surface must use the current one.
+HISTORICAL_RECORDS = {"docs/Team/Archive.md", "docs/Team/AuditReport.md"}
+
+
+def _text_files(root: Path):
+    surfaces = [
+        "README.md",
+        "CHANGELOG.md",
+        "CITATION.cff",
+        "CODE_OF_CONDUCT.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md",
+        "mkdocs.yml",
+        "pyproject.toml",
+        "NOTICE",
+        "assets/demo.svg",
+        "templates/AGENTS.md",
+    ]
+    for name in surfaces:
+        yield root / name
+    for directory in ("docs", "roles", "references", "tests"):
+        for path in sorted((root / directory).rglob("*")):
+            if path.is_file() and path.suffix in {".md", ".yml", ".py", ".svg"}:
+                yield path
+
+
+def test_repository_namespace_is_nidvue(root):
+    """The repository lives at Nidvue/Teamwork; stale handles are a broken link."""
+    offenders = []
+    for path in _text_files(root):
+        rel = path.relative_to(root).as_posix()
+        if rel in HISTORICAL_RECORDS:
+            continue
+        stale = "Vision" + "PZ"  # split so this file never matches itself
+        if stale in path.read_text(encoding="utf-8"):
+            offenders.append(rel)
+    assert offenders == [], f"stale repository URLs in {offenders}"
+
+
+def test_install_is_one_clone_into_the_agent_host(root):
+    """The install is a skill clone, and the engine package is only optional."""
+    readme = read(root, "README.md")
+    head, install = readme.split("## Install the skill", 1)
+    install, optional = install.split("### Optional", 1)
+
+    assert "not a standalone" in head, "the README must say what this is not"
+    for host_path in (".agents/skills/teamwork", "~/.agents/skills/teamwork"):
+        assert host_path in install, host_path
+    assert "use the teamwork skill" in install
+    assert "/teamwork <prompt>" in install
+    for command in ("pipx install", "uvx --from", "pip install"):
+        assert command in optional, command
+
+
+def test_quickstart_starts_with_the_skill_not_the_cli(root):
+    readme = read(root, "README.md")
+    quickstart = readme.split("## 30-second quickstart", 1)[1].split("## How it works", 1)[0]
+    assert "git clone https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork" in quickstart
+    assert "use the teamwork skill: Build a URL shortener" in quickstart
+
+    guide = read(root, "docs", "guide", "quickstart.md")
+    clone_at = guide.index(".agents/skills/teamwork")
+    prompt_at = guide.index("use the teamwork skill: build a small URL shortener")
+    init_at = guide.index("teamwork init")
+    assert clone_at < prompt_at < init_at, "the clone and the prompt must precede the CLI"
+
+
+def test_demo_shows_the_skill_install_and_the_host_prompt(root):
+    """The animated demo is the first proof; it must not open with an app command."""
+    demo = read(root, "assets", "demo.svg")
+    types = [demo.index(f'class="t{n}"') for n in (1, 2, 3)]
+    assert types == sorted(types), "the demo must type its lines in reading order"
+    first, second, third = (demo[a:b] for a, b in zip(types, types[1:] + [len(demo)]))
+    assert "git clone https://github.com/Nidvue/Teamwork.git" in first
+    assert "&gt; " in second and "use the teamwork skill:" in second
+    assert "teamwork loop" in third
+    assert ".agents/skills/teamwork" in demo
+    assert "<title" in demo and "<desc" in demo
+
+
+def test_docs_home_and_install_guide_are_skill_first(root):
+    home = read(root, "docs", "index.md")
+    assert "not a standalone app" in home
+    assert "**Skill** (the product)" in home
+
+    guide = read(root, "docs", "guide", "install.md")
+    assert ".agents/skills/teamwork" in guide
+    assert guide.index("## Install the skill") < guide.index("## Optional: install the engine")
+
+
+def test_readme_gives_agents_install_and_use_instructions(root):
+    readme = read(root, "README.md")
+    section = readme.split("## For agents", 1)[1].split("## Common ways to use it", 1)[0]
+
+    for host_path in (".agents/skills/teamwork", "~/.agents/skills/teamwork"):
+        assert host_path in section, host_path
+    assert "scripts/teamwork.py selftest" in section
+    for step in ("task next", "selfcheck", "pr open", "loop"):
+        assert step in section, step
+    assert "references/Adapters.md" in section
+    assert "Never fake a test run" in section
+
+
+def test_readme_shows_real_cases_for_common_ways_to_use_it(root):
+    readme = read(root, "README.md")
+    examples = readme.split("## Common ways to use it", 1)[1].split("## How it works", 1)[0]
+    assert examples.count("```console") >= 6, "each case needs a transcript"
+    for command in (
+        "teamwork init --agents",
+        "teamwork criteria add --id",
+        "teamwork task add developer",
+        "teamwork loop",
+        "teamwork pulse --interval",
+        "teamwork parallel",
+        "teamwork load developer-1",
+        "teamwork ledger verify",
+        "teamwork trace T-0001",
+        "teamwork model auto",
+    ):
+        assert command in examples, command
+    assert ".agents/skills/teamwork" in examples
+    assert "use the teamwork skill" in examples
+
+
+# Host naming belongs to the adapter reference only; the surfaces a user reads
+# must describe one protocol that every agent host can run.
+HOST_PATTERNS = {
+    "pi": r"(?<![\w.])pi(?![\w.])",
+    "claude": r"\bclaude\b",
+    "opencode": r"\bopencode\b",
+    "codex": r"\bcodex\b",
+    "cursor": r"\bcursor\b",
+    "windsurf": r"\bwindsurf\b",
+    "gemini": r"\bgemini\b",
+}
+
+
+def test_adoption_surfaces_stay_agent_agnostic(root):
+    surfaces = (
+        "README.md",
+        "docs/index.md",
+        "docs/guide/install.md",
+        "docs/guide/quickstart.md",
+        "docs/guide/cli.md",
+        "docs/guide/architecture.md",
+        "assets/demo.svg",
+        "SKILL.md",
+    )
+    for name in surfaces:
+        text = (root / name).read_text(encoding="utf-8").lower()
+        for host, pattern in HOST_PATTERNS.items():
+            assert not re.search(pattern, text), f"{name} still names the host {host!r}"

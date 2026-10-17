@@ -25,7 +25,7 @@ order, stopping at the first failure.
 | `make test` | `pytest -q` | Unit, integration and acceptance tests. |
 | `make build` | `python -m build` | An sdist and a wheel are produced. |
 | `make verify` | `python scripts/verify_release.py` | The wheel bundles the skill and installs cleanly. |
-| `make privacy` | `python scripts/privacy_scan.py --history` | No personal data or secrets in the tree or history. |
+| `make privacy` | `python scripts/privacy_scan.py --history` | No personal data, credentials, agent-host configuration or local state in the tree, the index or the history. |
 | `make docs` | `python -m mkdocs build --strict` | The docs site builds with no warnings. |
 | `make links` | `python scripts/teamwork.py links` | No broken links, bare URLs or missing back-links. |
 | `make selftest` | `python scripts/teamwork.py selftest` | The installed engine passes its smoke check. |

@@ -171,7 +171,8 @@ wheel (no reliance on the source tree). `conftest.py` sets
 
 * `ci.yml`: `lint` (ruff), `typecheck` (mypy, non-blocking report), `test`
   matrix `{ubuntu,macos,windows} x {3.9,3.11,3.13}`, `build`
-  (sdist+wheel+verify_release), `privacy` (`privacy_scan.py --history`),
+  (sdist+wheel+verify_release), `privacy` (`privacy_scan.py --history`: personal
+  data, credentials, agent-host config and tracked local state),
   `docs` (mkdocs build --strict).
 * `release.yml`: on `v*` tags - build, checksums (`SHA256SUMS`), SBOM
   (CycloneDX JSON + SPDX), attestation, GitHub Release with all assets.

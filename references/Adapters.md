@@ -10,6 +10,10 @@ Never hard-code a host tool in a normative step. Name the operation, then use th
 adapter. If a host cannot provide an operation, use its documented degraded mode -
 the gates still hold, only the concurrency drops.
 
+This file is the **only** place that names a concrete host. Every other surface
+(`SKILL.md`, README, install guide, quickstart) describes one generic protocol and
+points here, so a new host is a new column, never a rewrite of the instructions.
+
 ## The six operations
 
 | # | Operation | What the team needs |

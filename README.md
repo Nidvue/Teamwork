@@ -6,30 +6,33 @@
   <p>An autonomous, self-organising multi-agent company for coding agents:<br>
   evidence-gated, role-shared, and auditable by design.</p>
   <p>
-    <a href="https://github.com/VisionPZ/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/VisionPZ/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github"></a>
+    <a href="https://github.com/Nidvue/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Nidvue/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github"></a>
     <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg"></a>
     <a href="docs/Team/Architecture.md"><img alt="Python 3.9 to 3.13" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue"></a>
-    <a href="docs/guide/install.md"><img alt="PyPI: ready" src="https://img.shields.io/badge/PyPI-ready-orange"></a>
+    <a href="docs/guide/install.md"><img alt="Skill: one clone to install" src="https://img.shields.io/badge/skill-install%20in%20one%20clone-8957e5"></a>
     <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
-    <a href="https://github.com/VisionPZ/Teamwork/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/VisionPZ/Teamwork?style=social"></a>
+    <a href="https://github.com/Nidvue/Teamwork/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Nidvue/Teamwork?style=social"></a>
   </p>
 </div>
 
 <p align="center">
-  <img src="assets/demo.svg" alt="Animated terminal: the CEO scaffolds a team workspace, dispatches the first task and runs the stop check, which reports CONTINUE until every acceptance criterion is verified." width="820">
+  <img src="assets/demo.svg" alt="Animated terminal: one git clone installs the skill, one /teamwork prompt starts the company, and the loop gate reports CONTINUE until every acceptance criterion is verified." width="820">
 </p>
 
 Nidvue Teamwork is **a skill for your coding agent** - not a standalone
-application. It turns one prompt into a team of AI agents that plans, builds, tests
-and **independently reviews its own work until every acceptance criterion has
+application. Install it like any other skill (one clone, no package manager), then
+ask your agent for the team:
+
+```text
+> /teamwork Build a URL shortener with a CLI, tests and docs
+```
+
+That prompt becomes a team of AI agents that plans, builds, tests and
+**independently reviews its own work until every acceptance criterion has
 executed evidence**. The agent host supplies the LLM API, and **every agent's model
 is configured independently** (`teamwork model set <agent>`): a strong model for the
 Reviewer, a cheap one for the mechanical lanes. The engine (`teamwork.py`, standard
-library only) is the tool the skill calls; installing it as a package is optional.
-
-```console
-$ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-1,developer-1,tester-1
-```
+library only) ships inside the skill and is what the CEO calls; installing it as a package is optional.
 
 ## Why Teamwork
 
@@ -54,17 +57,54 @@ $ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-
 | Disputes and tribunal | A challenged design goes through evidence rounds; a 3-round deadlock is ruled on by the CEO + CTO + CFO and recorded. |
 | Portable, dependency-free | CPython 3.9-3.13 on Linux, macOS and Windows. **Zero third-party runtime dependencies.** |
 | Enforced standards | One canonical toolchain per language, run by the team and gated in CI: `ruff format` + `ruff check` + `mypy` here, with the full per-language table in `references/Engineering.md`. |
-| Automatic model routing | `teamwork model auto` detects the agent host (pi / claude / opencode / codex / cursor / gemini) and routes the strongest available model to the decision lanes and the economy model to the mechanical lanes - best output where it compounds, lowest cost where it does not. Every lane's model is configurable independently (`model set <agent>`). |
+| Automatic model routing | `teamwork model auto` detects the running agent host where the environment identifies it and routes the strongest available model to the decision lanes and the economy model to the mechanical lanes - best output where it compounds, lowest cost where it does not. Every lane's model is configurable independently (`model set <agent>`). |
 | Clean, modular history | Work commits are rebased and squashed before review, feature work squash-merges into `main`, and the naming policy (PascalCase directories, ecosystem-correct files) is written down rather than argued about. |
-| Works as a skill and a package | Load it as a skill in Pi, Claude Code or opencode (`SKILL.md`), or as `AGENTS.md` in Codex, Cursor, Windsurf, Gemini CLI and Aider - the same protocol on every host (`references/Adapters.md`). |
+| Skill first, engine optional | The product is a skill: `SKILL.md`, role charters, references, templates and the stdlib-only engine in one directory. Any agent host that loads skills or reads `AGENTS.md` runs the same protocol (optional adapter mapping: `references/Adapters.md`); the Python package is only a convenience for driving the engine from a terminal. |
 | Remote-agnostic integrity | Branch protection, required checks, squash-only merges and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike. |
 
-## Install
+## Install the skill
 
-Requires Python 3.9 or newer. There are no runtime dependencies.
+Teamwork is a directory with a `SKILL.md`, the role charters, the references and
+the engine - no package manager, no daemon, no hosted service. Clone it where
+your agent discovers skills:
+
+| Scope | Path | Use it when |
+|---|---|---|
+| Project | `.agents/skills/teamwork/` | Commit it so every teammate, session and worktree gets the same protocol |
+| User | `~/.agents/skills/teamwork/` | You want the team available in every project |
 
 ```bash
-# pipx - isolated CLI, put on PATH (recommended)
+# project-local, committed with the repository (the portable Agent Skills layout)
+git clone https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
+
+# or user-level, available to every project
+git clone https://github.com/Nidvue/Teamwork.git ~/.agents/skills/teamwork
+```
+
+Any host that discovers skills from a directory reads this one. A host without a
+skill loader uses the same protocol through `AGENTS.md` (`teamwork agents-md`).
+Exact search paths are host policy, not part of the skill; where a host names its
+own skills directory, put the clone there instead. The optional per-host adapter
+mapping is in [`references/Adapters.md`](references/Adapters.md).
+
+Re-scan or reload skills in the host, then ask for the team by name:
+
+```text
+> use the teamwork skill: <prompt>
+```
+
+Where a host exposes skills as slash commands, the same request is
+`/teamwork <prompt>`. The host runs the bundled `scripts/teamwork.py` - Python
+3.9+, standard library only, no network access, nothing to build.
+
+### Optional: put the engine on your PATH
+
+The skill works without this step. Install the same engine as a package when you
+want to drive the team yourself from a terminal, or when your host cannot run a
+bundled script:
+
+```bash
+# pipx - isolated CLI, put on PATH
 pipx install teamwork-agents
 
 # uv - run without installing
@@ -74,7 +114,7 @@ uvx --from teamwork-agents teamwork --version
 python -m pip install teamwork-agents
 
 # from source
-git clone https://github.com/VisionPZ/Teamwork.git
+git clone https://github.com/Nidvue/Teamwork.git
 cd Teamwork && python -m pip install .
 ```
 
@@ -87,30 +127,218 @@ python3 scripts/teamwork.py --version    # teamwork 1.0.0
 > The distribution name is `teamwork-agents` (the name `teamwork` is taken on
 > PyPI); the import name and the console script are both `teamwork`. PyPI
 > publishing is prepared but not enabled for this release - until then, install
-> from the [GitHub release](https://github.com/VisionPZ/Teamwork/releases) wheel
+> from the [GitHub release](https://github.com/Nidvue/Teamwork/releases) wheel
 > or from source.
 
 ## 30-second quickstart
 
 ```bash
+# 1. install the skill (one clone, nothing to build)
+$ git clone https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
+
+# 2. in any project, ask your agent for the team
 $ cd my-project
-$ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-1,developer-1,tester-1
+> use the teamwork skill: Build a URL shortener with a CLI, tests and docs
+```
+
+The CEO takes it from there: it writes `AGENTS.md`, staffs the roster, freezes the
+interfaces, records the acceptance criteria and opens the lanes. `init` creates
+the hidden, gitignored workspace at `.pi/Teamwork/Teams/<Team>/` and leaves your
+project tree untouched. Project output (`AGENTS.md`, code, tests, docs) is
+committed; team state is local.
+
+The skill calls the engine for you. When you want to see or steer the machine
+yourself, the same run is three commands:
+
+```bash
 $ teamwork agents-md     # write or patch the AGENTS.md constitution
-$ teamwork map           # confirm the workspace and repo layout
+$ teamwork map           # the workspace layout, roles and instances
 $ teamwork criteria list # the machine records that define "done"
 ```
 
-`init` creates the hidden, gitignored workspace at
-`.pi/Teamwork/Teams/<Team>/` and leaves your project tree untouched. Project
-output (`AGENTS.md`, code, tests, docs) is committed; team state is local.
+Read the full walkthrough in [`docs/guide/quickstart.md`](docs/guide/quickstart.md).
 
-If you use the Pi coding agent, the whole company is one command:
+## For agents
 
-```text
-/teamwork Build a URL shortener with a CLI, tests and docs
+If you are the agent reading this repository, not the human who installed it: you
+can install and drive this skill yourself. Do the steps in order, and repeat them
+safely - every one is idempotent.
+
+### 1. Find the skill directory, then install
+
+A skill is a directory; the only host-specific part is where that directory is
+scanned from. Use your host's skills directory if it names one, otherwise the
+portable conventions below work.
+
+| Scope | Convention | When |
+|---|---|---|
+| Project | `.agents/skills/teamwork/` | The team protocol should travel with the repository |
+| User | `~/.agents/skills/teamwork/` | The team should be available in every project |
+
+```bash
+# already installed? any hit means yes
+ls .agents/skills/teamwork/SKILL.md ~/.agents/skills/teamwork/SKILL.md 2>/dev/null
+
+# not installed: clone once into the directory your host scans
+git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
 ```
 
-Read the full walkthrough in [`docs/guide/quickstart.md`](docs/guide/quickstart.md).
+### 2. Verify before you promise anything
+
+```console
+$ python3 .agents/skills/teamwork/scripts/teamwork.py selftest
+teamwork selftest: 5/5 checks passed
+```
+
+Use the directory you actually cloned to; the engine is the same in all of them.
+
+Exit `0` means the bundle and the engine are intact. Anything else: report the
+failure with the command and its output, and stop. Do not improvise a replacement.
+
+### 3. Follow the skill, from its own directory
+
+1. Read `<skill>/SKILL.md` completely, then `<skill>/roles/<your-role>.md` for the
+   role you are acting as.
+2. Run `scripts/teamwork.py init --agents ...` (the skill usually does this for
+   you) and `agents-md` so the constitution is in place before any work starts.
+3. Claim work with `task next <you>`; never sit idle while ready work exists.
+4. Record evidence as `command @revision -> result`; submit with `selfcheck`, then
+   `pr open`. A different role reviews and merges - you never merge your own work.
+5. Stop only when `loop` prints `STOP` and `audit` reports no problems.
+
+Read [`references/Adapters.md`](references/Adapters.md) for the six host
+operations, [`references/Concurrency.md`](references/Concurrency.md) for slot
+leases and model routing, and [`docs/guide/quickstart.md`](docs/guide/quickstart.md)
+for the workspace layout. Do not read the whole tree first; the skill is written
+to be loaded on demand.
+
+### 4. Rules that are not optional
+
+- No claim about code, tests or CI without a recorded command, revision and result.
+- Never fake a test run, never merge your own work, never weaken a gate.
+- A red line (secrets, force-push, publishing, production calls) is refused and
+  recorded with `redline` - then escalated, never executed.
+- The user talks to the CEO only. If you are not the CEO, report to the CEO.
+
+## Common ways to use it
+
+The transcripts are trimmed from a real run of the engine in this repository
+(paths elided); the prompts in A-C are illustrative.
+
+### A. New project from one prompt
+
+```console
+$ cd ~/code/url-shortener
+> use the teamwork skill: build a URL shortener - a CLI with shorten and expand,
+  SQLite storage, a pytest suite and a README. Keep it dependency-free.
+```
+
+The CEO writes `AGENTS.md`, records `AC-1..AC-n`, freezes the interfaces and opens
+the lanes. You keep working in the host; the team reports through the CEO.
+
+### B. A feature in an existing repository
+
+```console
+$ cd existing-repo
+$ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
+> use the teamwork skill: add per-key rate limiting to the public API - 100
+  requests/minute, 429 with Retry-After, and tests that prove the boundary.
+```
+
+Committing `.agents/skills/teamwork` gives every teammate the same protocol on a
+fresh clone.
+
+### C. A bug or a red CI run
+
+```console
+$ cd repo
+> use the teamwork skill: fix the failing CI job on main, prove the fix with the
+  exact test command, and do not touch unrelated files.
+```
+
+The protocol degrades the same way everywhere: without a teammate tool one agent
+switches hats, and the evidence gates still hold (`references/Adapters.md`).
+
+### D. Steer the machine yourself
+
+The skill calls these for you; run them when you want to see or change the plan.
+
+```console
+$ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-1,developer-1,tester-1
+$ teamwork criteria add --id AC-1 --text "shorten then expand returns the original URL" --owner developer --by ceo
+$ teamwork criteria add --id AC-2 --text "pytest -q passes on the matrix" --owner tester --by ceo
+$ teamwork task add developer "Implement shorten/expand with tests" --priority P0
+$ teamwork loop
+
+> CONTINUE
+  ! 2 acceptance criteria unverified
+  ! no layered test records
+  ! 1 task(s) not finished
+```
+
+### E. Keep the lanes full
+
+```console
+$ teamwork pulse --interval 5
+$ teamwork parallel
+
+## provider slots
+- anthropic        used=0    cap=64    free=64
+- deepseek         used=0    cap=2500  free=2500
+- ollama-cloud     used=0    cap=10    free=10
+- openai           used=0    cap=64    free=64
+- TOTAL free slots: 2638
+
+## executable work
+- developer        1 ready  next: developer/T-0001 [P0] Implement shorten/expand with tests
+```
+
+`pulse --commit` dispatches to idle instances. `parallel` shows how many lanes may
+start without exceeding a provider cap.
+
+### F. Resume after a crash or a new session
+
+All state is on disk, so a fresh agent resumes without a handover meeting.
+
+```console
+$ teamwork load developer-1     # the role's short-term memory
+$ teamwork task next developer-1
+$ teamwork map                  # roles, instances, open work
+```
+
+### G. Prove the audit trail to someone who does not trust the team
+
+```console
+$ teamwork ledger verify
+# Ledger verify (.../Ledger.jsonl)
+# records: 5 | head: a23748ba85cf962f
+- chain intact, every digest matches
+
+$ teamwork trace T-0001
+## task T-0001 [todo] Implement shorten/expand with tests  (developer)
+## ledger events (1)
+- #0005 task.add  developer  [P0] Implement shorten/expand with tests
+```
+
+`ledger export` writes a manifest that a reviewer can verify without access to
+the workspace.
+
+### H. Route the models, not just the roles
+
+```console
+$ teamwork model auto
+- architect          strong   deepseek-v4.1-flash
+- ceo                strong   deepseek-v4.1-flash
+- developer          economy  deepseek-v4.1-flash
+- product-manager    economy  deepseek-v4.1-flash
+- project-manager    economy  deepseek-v4.1-flash
+- reviewer           strong   deepseek-v4.1-flash
+- tester             economy  deepseek-v4.1-flash
+# dry run: rerun with --apply to write these into Settings.json
+```
+
+Decision lanes get the strongest model the host exposes; mechanical lanes get the
+economy one. `model set <agent>` overrides a single lane.
 
 ## How it works
 
@@ -162,11 +390,12 @@ licence metadata on 2026-10-17:
 
 ## Architecture at a glance
 
-One engine, three faces - a Pi skill, a Python package, and a workspace format:
+One skill, one engine, one workspace format - the package is a thin face on the
+same files:
 
 ```text
 Teamwork/
-├── SKILL.md                  # canonical skill entry (Pi loads this)
+├── SKILL.md                  # canonical skill entry (the host loads this)
 ├── roles/ references/ templates/
 ├── src/teamwork/             # engine, cli, resources, portable
 ├── scripts/teamwork.py       # compatibility shim, stdlib only
@@ -200,17 +429,20 @@ project optimises the conversion inputs (demo, README, topics, license, releases
   [`CONTRIBUTING.md`](CONTRIBUTING.md) and the
   [code of conduct](CODE_OF_CONDUCT.md).
 - **Security** - please report vulnerabilities privately via
-  [GitHub security advisories](https://github.com/VisionPZ/Teamwork/security/advisories/new);
+  [GitHub security advisories](https://github.com/Nidvue/Teamwork/security/advisories/new);
   see [`SECURITY.md`](SECURITY.md).
 - **License** - [AGPL-3.0](LICENSE), copyright (C) 2026 **Nidvue** (see [NOTICE](NOTICE)). The strong copyleft is deliberate: this is a
   governance tool, and its audit guarantees should survive modification.
-- **No personal data** - a hard project rule: no personal names, emails,
-  domains, absolute home paths or credentials in the tree or the history.
+- **No personal data, no local leakage** - a hard project rule: no personal
+  names, emails, domains, absolute home paths or credentials in the tree or the
+  history, and no agent-host configuration or local working state (`.pi/` auth,
+  settings and sessions, virtualenvs, build output, caches). `scripts/privacy_scan.py`
+  fails the build on any of them.
   Identity defaults to `agents.nidvue.com` and is overridable with
-  `TEAMWORK_IDENTITY_DOMAIN`; `scripts/privacy_scan.py` enforces the rule in CI.
+  `TEAMWORK_IDENTITY_DOMAIN`.
 
 ## Star history
 
-<a href="https://star-history.com/#VisionPZ/Teamwork&amp;Date">
-  <img src="https://api.star-history.com/svg?repos=VisionPZ/Teamwork&amp;type=Date" alt="Star history chart for Teamwork" width="720">
+<a href="https://star-history.com/#Nidvue/Teamwork&amp;Date">
+  <img src="https://api.star-history.com/svg?repos=Nidvue/Teamwork&amp;type=Date" alt="Star history chart for Teamwork" width="720">
 </a>

@@ -15,10 +15,16 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "scripts"
-if str(SCRIPTS) not in sys.path:
+_ADDED = str(SCRIPTS) not in sys.path
+if _ADDED:
     sys.path.insert(0, str(SCRIPTS))
-
-import privacy_scan as ps  # noqa: E402  (import after sys.path setup)
+try:
+    import privacy_scan as ps  # noqa: E402  (import after sys.path setup)
+finally:
+    # Leaving scripts/ on sys.path would shadow the real ``teamwork`` package
+    # with ``scripts/teamwork.py`` for every later test in the session.
+    if _ADDED:
+        sys.path.remove(str(SCRIPTS))
 
 
 def findings_for(text: str, path: str = "sample.py"):
@@ -75,7 +81,7 @@ def test_clean_source_lines_report_nothing():
         "import os\n"
         "def add(a, b):\n"
         "    return a + b\n"
-        "# a comment with a url: https://github.com/VisionPZ/Teamwork\n"
+        "# a comment with a url: https://github.com/Nidvue/Teamwork\n"
         "TIMEOUT = 60\n"
         "name = 'teamwork'\n"
     )
@@ -158,3 +164,103 @@ def test_dotted_identifiers_are_not_secrets():
 def test_a_real_assigned_secret_is_still_reported():
     secret = "Zx9" + "Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk"
     assert "env-secret" in rules_hit(f'API_TOKEN = "{secret}"\n')
+
+
+# --------------------------------------------------------------------------- #
+# agent-host configuration: the local secret most likely to reach a public tree
+# --------------------------------------------------------------------------- #
+
+
+def test_agent_host_config_path_in_a_line_is_reported():
+    # Fragmented so this test file does not trip the rule it is testing.
+    line = "token_file = ~/.pi/" + "agent/auth.json\n"
+    assert "agent-config" in rules_hit(line)
+
+
+def test_team_workspace_path_is_not_host_config():
+    line = "workspace: .pi/" + "Teamwork/Teams/Demo\n"
+    assert "agent-config" not in rules_hit(line)
+
+
+def test_other_agent_hosts_config_paths_are_reported():
+    for path in (
+        ".claude/" + "settings.local.json",
+        ".codex/" + "auth.json",
+        ".gemini/" + "oauth_creds.json",
+    ):
+        assert "agent-config" in rules_hit(f"config: {path}\n"), path
+
+
+def test_json_config_with_a_live_credential_is_reported():
+    payload = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2"
+    assert "json-secret" in rules_hit('{"apiKey": "' + payload + '"}\n')
+    assert "json-secret" in rules_hit('{"access_token": "' + payload + '"}\n')
+
+
+def test_json_config_placeholders_are_not_reported():
+    assert "json-secret" not in rules_hit('{"apiKey": "${PI_API_KEY}"}\n')
+    assert "json-secret" not in rules_hit('{"token": "<your-token>"}\n')
+
+
+def test_sensitive_tracked_paths_are_recognised():
+    sensitive = (
+        ".pi/" + "agent/auth.json",
+        ".pi/" + "agent/settings.json",
+        ".pi/" + "agent/sessions/2026.jsonl",
+        ".claude/" + "settings.local.json",
+        ".codex/" + "auth.json",
+        ".env",
+        ".env.local",
+        "credentials.json",
+        "id_" + "ed25519",
+        "certs/server.pem",
+        ".netrc",
+        "docs/.bash_history",
+        ".pi/Teamwork/Teams/Demo/Ledger.jsonl",
+        ".venv/lib/python3.12/site-packages/x.py",
+        "node_modules/pkg/index.js",
+        "site/index.html",
+        "dist/teamwork_agents-1.0.0.whl",
+        "__pycache__/cli.cpython-312.pyc",
+        "src/cli.pyc",
+        ".DS_Store",
+        "docs/guide.md.orig",
+        "Scratch/notes.md",
+        "target/release/teamwork",
+    )
+    for path in sensitive:
+        assert ps.sensitive_path(path), path
+
+
+def test_project_files_are_not_sensitive_paths():
+    allowed = (
+        ".env.example",
+        ".env.sample",
+        "src/auth.py",
+        "docs/guide/install.md",
+        "tests/unit/test_privacy_scan.py",
+        "assets/demo.svg",
+    )
+    for path in allowed:
+        assert ps.sensitive_path(path) is None, path
+
+
+def test_wsl_and_mounted_home_paths_are_reported():
+    for line in (
+        "path = /mnt/c/Users/" + "realperson/code\n",
+        "path = /mnt/d/home/" + "realperson/work\n",
+    ):
+        assert "home-path" in rules_hit(line), line
+
+
+def test_provider_keys_are_reported():
+    keys = (
+        "gsk_" + "A1b2C3d4E5f6G7h8I9j0K1l2",
+        "xai-" + "A1b2C3d4E5f6G7h8I9j0K1l2",
+        "pplx-" + "A1b2C3d4E5f6G7h8I9j0K1l2",
+        "glpat-" + "A1b2C3d4E5f6G7h8I9j0",
+        "hf_" + "A1b2C3d4E5f6G7h8" + "I9j0K1l2M3n4O5p6",
+        "sk_live_" + "A1b2C3d4E5f6G7h8I9j0K1l2",
+    )
+    for key in keys:
+        assert "api-token" in rules_hit(f"key = {key}\n"), key
