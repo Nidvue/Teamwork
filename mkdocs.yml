@@ -22,6 +22,8 @@ site_dir: site
 
 theme:
   name: material
+  logo: assets/nidvue-icon.svg
+  favicon: assets/nidvue-favicon.svg
   language: en
   features:
     - navigation.sections
