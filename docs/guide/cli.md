@@ -789,3 +789,27 @@ teamwork selftest
 ```
 
 Offline smoke test of the install; no network, no workspace required.
+
+### `imaging probe`
+
+```text
+teamwork imaging probe [--json]
+```
+
+The Designer's capability probe for **generated raster assets**. It is offline by
+design: it reads environment variables and `PATH` only, never the network, so it
+cannot leak a prompt or hang.
+
+Resolution order: `TEAMWORK_IMAGE_MODEL` (explicit override) ->
+`TEAMWORK_IMAGE_PROVIDER` -> the first ambient provider with a ranked image
+model, in the order openai, google, black-forest-labs, stability, replicate,
+local, ollama-cloud. "Best quality" is the first generally available model of the
+detected provider, ranked in `teamwork.engine.IMAGE_MODEL_RANKING`.
+
+When no model is detected it prints the fallback ladder instead of failing:
+local model, then a hand-authored SVG. The full process - plan one prompt per
+asset in `docs/Team/Design.md`, generate at least four candidates off one seed
+base, review every candidate visually, improve the winner until it passes,
+integrate, record evidence - plus the privacy and licence red lines, is the
+Designer's own policy in
+[`roles/designer.md`](https://github.com/VisionPZ/Teamwork/blob/main/roles/designer.md).

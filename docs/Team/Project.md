@@ -66,6 +66,17 @@ git history.
       referenced from README and `pyproject.toml`; CHANGELOG and CITATION
       present; every release artifact carries a checksum - proof:
       `ls LICENSE CHANGELOG.md CITATION.cff`
+- [ ] AC-13 Image generation owned by the Designer: `roles/designer.md` carries
+      the vector-first medium choice, the offline `imaging probe` with a ranked
+      model table and a fallback ladder, the generate-review-**improve** loop with
+      a 3-round cap and the privacy/licence red lines; `docs/Team/Design.md`
+      records each asset with a review log and an improvement log; there is no
+      separate `Imaging.md` - proof: `tests/unit/test_imaging.py`
+- [ ] AC-14 The updated skill is installed and runnable: `teamwork imaging probe`
+      exits 0 from the repo and from `~/.pi/agent/skills/teamwork`, and `init`
+      creates `Design.md` (and no `Imaging.md`) whose template carries the
+      visual-asset sections - proof:
+      `python3 ~/.pi/agent/skills/teamwork/scripts/teamwork.py imaging probe`
 
 ## Scope
 
@@ -111,6 +122,6 @@ git history.
 
 ## Sources
 
-- [The /teamwork skill](../../SKILL.md) - accessed 2026-10-17
+- [The /teamwork skill](https://github.com/VisionPZ/Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
 - [GitHub Actions matrix builds](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) - accessed 2026-10-17
 - [PyPA: packaging a Python project](https://packaging.python.org/en/latest/tutorials/packaging-projects/) - accessed 2026-10-17
