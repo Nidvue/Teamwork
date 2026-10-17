@@ -6,6 +6,29 @@ checklist a Tester can assert on.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [README](https://github.com/VisionPZ/Teamwork/blob/main/README.md)
 
+## 0. Principles and typography
+
+The same rules that govern a product UI govern this repository's own surfaces
+(README, docs site, SVGs). User first: every choice is justified by what the
+reader is trying to do.
+
+| principle | applied here | check |
+|---|---|---|
+| Simple | one pitch line, one install block, one comparison table; no badge wallpaper | time to first understood claim |
+| Efficient | the reader reaches a working command in one screen | lines above the fold before the quickstart |
+| Usable | headings in order, real alt text on every SVG, links that say where they go | `teamwork links` -> 0, one `<h1>` |
+| Great experience | consistent voice, honest limits (stars are not promised), no marketing filler | no claim without evidence |
+
+**Typography and fonts.** The repository ships **no font files**: every SVG uses
+`font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+sans-serif"` (an explicit fallback chain, no `@font-face`, no external resource),
+so nothing is fetched at render time and nothing is licensed to ship. Sizes follow
+a short scale (28 title / 20 lead / 14 body / 12 caption in the banner and demo,
+scaled by `viewBox`, not by pixels at one size). Text is **real text** everywhere -
+the terminal demo sets characters, never an image of characters - so it stays
+selectable and accessible. Body copy in Markdown is left to the platform stack and
+the reader's own size settings, which is the most user-centred default available.
+
 ## 1. Audience and job to be done
 
 | # | Audience | Arrives believing | Job to be done in the README | Success signal |

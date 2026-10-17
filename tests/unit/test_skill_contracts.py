@@ -228,3 +228,46 @@ def test_release_engineer_charter_documents_the_trigger_policy(root):
 def test_skill_documents_the_trigger_policy(root):
     text = flat(read(root, "SKILL.md"))
     assert "CI triggers are path-filtered: code in, prose and media out" in text
+
+
+# --------------------------------------------------------------------------- #
+# design principles: user first, simple, efficient, usable, great experience
+# --------------------------------------------------------------------------- #
+
+
+def test_designer_charter_is_user_first(root):
+    text = flat(read(root, "roles", "designer.md"))
+    assert "## Design principles - the user comes first" in text
+    for principle in ("**Simple.**", "**Efficient.**", "**Usable.**", "**A great experience.**"):
+        assert principle in text, principle
+    for topic in ("### Layout and typography", "**Fonts:**", "### Images and media"):
+        assert topic in text, topic
+    # typography and usability specifics that must not drift
+    assert "real text" in text
+    assert "16 px" in text
+    assert "45-75" in text
+    assert "4.5:1" in text
+    assert "prefers-reduced-motion" in text
+    assert "never let an inline SVG depend on an external font file" in text
+
+
+def test_design_template_carries_principles_and_typography(root):
+    text = read(root, "templates", "Docs", "Design.md")
+    assert "## Principles" in text
+    assert "## Typography and fonts" in text
+    assert "font stack" in text
+    assert "text-as-image" in text
+
+
+def test_repository_svgs_depend_on_no_external_font_or_resource(root):
+    import re
+
+    for svg in sorted((root / "assets").glob("*.svg")):
+        body = svg.read_text(encoding="utf-8")
+        assert "@font-face" not in body, svg
+        assert "xlink:href" not in body, svg
+        assert 'href="http' not in body, svg
+        # a font stack with a generic family fallback, in either the attribute or
+        # the CSS form (the terminal demo uses a <style> block)
+        assert "font-family" in body, svg
+        assert re.search(r"(sans-serif|monospace)", body), svg
