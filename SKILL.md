@@ -321,6 +321,32 @@ schedule_prompt({
 - If a wake reports idle lanes *and* ready work and nothing moves, that is a
   process defect: fix the assignment path, do not let the lane sit.
 
+### 5c. Push in stages, and certify both signals
+
+Two duties that keep the remote and the confidence level honest:
+
+- **Release Engineer - push after review, per milestone.** The Release Engineer is
+  the role that pushes commits to the shared remote, and only once the Reviewer
+  has passed that revision with no open finding. Push after each reviewed +
+  merged deliverable rather than batching everything to the end, so the remote
+  never drifts far from local `main`. Locally, before the push: build, tests,
+  `privacy_scan.py --tree --history` and the link check must be green on exactly
+  that revision. After the push, watch CI and confirm it is green **on that SHA**.
+  A red run is routed to its owner from the log (code -> Developer, test ->
+  Tester, contract -> Architect, workflow/packaging/flake -> Release Engineer,
+  scope -> CEO) and re-run after the fix. Force-push and published-history
+  rewrites need the CEO's explicit authorization; tags and public releases are
+  the CEO's step, prepared and verified by the Release Engineer.
+- **Tester - certify local *and* CI.** The Tester runs the layers locally and then
+  confirms the same result in CI on the pushed revision, job by job across the OS
+  and Python matrix. A green local run with a red CI run is a failure, and so is
+  the reverse. Any failure - local or CI - is filed to the owning agent with the
+  exact command, expected vs actual, log excerpt, SHA and run id, and nobody
+  reports a suite as passing while the matching CI run is red.
+
+Both duties are evidence, not ceremony: `tests plan` and the task record must name
+the local result **and** the CI run (id + conclusion) for the certified revision.
+
 ### 6. Close
 
 Completion gate - all of:

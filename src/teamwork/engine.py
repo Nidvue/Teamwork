@@ -276,7 +276,7 @@ def ensure_lfs(project: Path, quiet: bool = False) -> dict:
         if not any("teamwork: LFS" in line for line in lines):
             lines += ["", "# --- teamwork: Git LFS tracked content ---"]
         lines += [f"{pat} filter=lfs diff=lfs merge=lfs -text" for pat in missing]
-        path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8", newline="\n")
         result["patterns_added"] = len(missing)
     if not quiet:
         print(
@@ -1997,7 +1997,7 @@ def ledger_append(
         }
         record["hash"] = _digest(prev, record)
         line = json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
-        with path.open("a", encoding="utf-8") as fh:
+        with path.open("a", encoding="utf-8", newline="\n") as fh:
             fh.write(line)
             fh.flush()
             os.fsync(fh.fileno())
@@ -2795,7 +2795,7 @@ def cmd_skill(args) -> int:
                     "and follow it exactly",
                     "",
                 ]
-                with inbox.open("a", encoding="utf-8") as fh:
+                with inbox.open("a", encoding="utf-8", newline="\n") as fh:
                     fh.write("\n".join(note))
                 told.append(inst)
         s["status"] = "shared"
@@ -4207,12 +4207,14 @@ def cmd_init(args) -> int:
     if not pfile.exists():
         import json
 
-        pfile.write_text(json.dumps(DEFAULT_PROVIDER_LIMITS, indent=2) + "\n", encoding="utf-8")
+        pfile.write_text(
+            json.dumps(DEFAULT_PROVIDER_LIMITS, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
     global_dir(root).mkdir(parents=True, exist_ok=True)
 
     gi = global_dir(root) / ".gitignore"
     if not gi.exists():
-        gi.write_text("*\n!.gitignore\n", encoding="utf-8")
+        gi.write_text("*\n!.gitignore\n", encoding="utf-8", newline="\n")
 
     gpath = global_dir(root) / F_GLOBAL
     if not gpath.exists() or args.force:
@@ -4259,9 +4261,9 @@ def cmd_init(args) -> int:
             continue
         src = src_docs / filename
         if src.exists():
-            p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
         else:
-            p.write_text(f"# {filename[:-3]}\n\nOwner: {owner}\n", encoding="utf-8")
+            p.write_text(f"# {filename[:-3]}\n\nOwner: {owner}\n", encoding="utf-8", newline="\n")
     readme = root / F_MAP
     if not readme.exists() or args.force:
         src = TEMPLATES_DIR / DIR_TEAM_MAP_TPL
@@ -4271,6 +4273,7 @@ def cmd_init(args) -> int:
             .replace("{skill}", str(SKILL_DIR))
             .replace("{docs}", str(public)),
             encoding="utf-8",
+            newline="\n",
         )
 
     created = []
@@ -4303,6 +4306,7 @@ def cmd_init(args) -> int:
                     "{references}", str(SKILL_DIR / "references")
                 ),
                 encoding="utf-8",
+                newline="\n",
             )
         elif not shared_charter.exists():
             shared_charter.write_text(
@@ -4310,10 +4314,13 @@ def cmd_init(args) -> int:
                 f"No bundled charter found for '{role}'. Derive your duties from the\n"
                 f"task packet, report blockers to the CEO, and keep to your lane.\n",
                 encoding="utf-8",
+                newline="\n",
             )
         brief = d / F_START
         if args.force or not brief.exists():
-            brief.write_text(start_here(name, role, root, docs_dir(root)), encoding="utf-8")
+            brief.write_text(
+                start_here(name, role, root, docs_dir(root)), encoding="utf-8", newline="\n"
+            )
         for extra in (F_WORKLOG, F_INBOX):
             p = d / extra
             if not p.exists():
@@ -4324,6 +4331,7 @@ def cmd_init(args) -> int:
                     + AGENT_LINKS.format(**link_fields(d / extra, name))
                     + "\n",
                     encoding="utf-8",
+                    newline="\n",
                 )
         migrate_instance_memory(root, name, role)
         created.append(name)
@@ -4796,7 +4804,9 @@ def _consolidate_locked(
             dropped = len(archive) - ARCHIVE_CAP
             archive = archive[:ARCHIVE_CAP]
             (root / DIR_RUNTIME).mkdir(parents=True, exist_ok=True)
-            with (root / DIR_RUNTIME / "MemoryLog.md").open("a", encoding="utf-8") as fh:
+            with (root / DIR_RUNTIME / "MemoryLog.md").open(
+                "a", encoding="utf-8", newline="\n"
+            ) as fh:
                 fh.write(
                     f"- {today_iso()} {agent}: evicted {dropped} archive "
                     f"entr(y/ies) beyond ARCHIVE_CAP={ARCHIVE_CAP}\n"
@@ -4942,7 +4952,7 @@ def ensure_gitignore(project: Path) -> list:
         if text.strip():
             text += "\n"
         text += "\n".join(added) + "\n"
-        path.write_text(text, encoding="utf-8")
+        path.write_text(text, encoding="utf-8", newline="\n")
     return added
 
 
@@ -5511,7 +5521,7 @@ def _slot_renew(args, root: Path, provider: str) -> int:
     while len(parts) < 4:
         parts.append("-")
     parts[2] = f"{time.time():.3f}"
-    f.write_text("|".join(parts) + "\n", encoding="utf-8")
+    f.write_text("|".join(parts) + "\n", encoding="utf-8", newline="\n")
     print(f"# renewed {provider} slot for {args.agent} (TTL {SLOT_TTL_MINUTES}m)")
     return 0
 
@@ -5586,7 +5596,7 @@ def cmd_slot(args) -> int:
                 while len(parts) < 4:
                     parts.append("-")
                 parts[2] = f"{time.time():.3f}"
-                f.write_text("|".join(parts) + "\n", encoding="utf-8")
+                f.write_text("|".join(parts) + "\n", encoding="utf-8", newline="\n")
                 print(f"# {args.agent} already held a {provider} slot; renewed ({len(used)}/{cap})")
                 return 0
             if len(used) < cap:
@@ -5594,7 +5604,7 @@ def cmd_slot(args) -> int:
                 d.mkdir(parents=True, exist_ok=True)
                 now = f"{time.time():.3f}"
                 (d / f"{args.agent}.slot").write_text(
-                    f"{args.agent}|{now}|{now}|{args.task or '-'}\n", encoding="utf-8"
+                    f"{args.agent}|{now}|{now}|{args.task or '-'}\n", encoding="utf-8", newline="\n"
                 )
                 print(
                     f"# acquired {provider} slot for {args.agent}"
@@ -6459,8 +6469,8 @@ def archive_append(root: Path, owner: str, t: dict) -> str:
     ]
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "archive.lock"):
         if not path.exists():
-            path.write_text(ARCHIVE_HEADER + "\n", encoding="utf-8")
-        with path.open("a", encoding="utf-8") as fh:
+            path.write_text(ARCHIVE_HEADER + "\n", encoding="utf-8", newline="\n")
+        with path.open("a", encoding="utf-8", newline="\n") as fh:
             fh.write("\n".join(lines))
     return str(path.relative_to(project_of(root)))
 
@@ -6910,8 +6920,9 @@ def cmd_redline(args) -> int:
                 "Related: [team map](../TeamMap.md) | "
                 "[disputes](../Disputes.md)\n",
                 encoding="utf-8",
+                newline="\n",
             )
-        with path.open("a", encoding="utf-8") as fh:
+        with path.open("a", encoding="utf-8", newline="\n") as fh:
             fh.write("\n".join(block))
         ledger_append(
             root,
@@ -7825,20 +7836,23 @@ def cmd_agents_md(args) -> int:
     if not template.exists():
         die(f"missing template {template}")
     block = template.read_text(encoding="utf-8").strip()
-    block = block.replace("<script>", _resources.self_invocation())
+    # AGENTS.md is committed and may be published: substitute a portable command,
+    # never a machine path (``portable_invocation``). ``self_invocation`` returns
+    # an absolute path and is reserved for the private ``.pi/`` state.
+    block = block.replace("<script>", _resources.portable_invocation())
     managed = f"{BEGIN}\n{block}\n{END}"
     if not target.exists():
-        target.write_text(managed + "\n", encoding="utf-8")
+        target.write_text(managed + "\n", encoding="utf-8", newline="\n")
         print(f"teamwork: created {target}")
         return 0
     text = target.read_text(encoding="utf-8")
     if BEGIN in text and END in text:
         pre = text.split(BEGIN)[0]
         post = text.split(END, 1)[1]
-        target.write_text(pre + managed + post, encoding="utf-8")
+        target.write_text(pre + managed + post, encoding="utf-8", newline="\n")
         print(f"teamwork: updated teamwork section in {target}")
     else:
-        target.write_text(text.rstrip() + "\n\n" + managed + "\n", encoding="utf-8")
+        target.write_text(text.rstrip() + "\n\n" + managed + "\n", encoding="utf-8", newline="\n")
         print(f"teamwork: appended teamwork section to {target}")
     return 0
 

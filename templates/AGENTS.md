@@ -254,6 +254,20 @@ must not silently work around it:
   integration, Reviewer before merge). Record the verifier.
 - Re-run after the tree changes: evidence is bound to a revision and goes stale.
 
+- **PUSH POLICY** - only the Release Engineer pushes to the remote, and only
+  after the Reviewer has passed the revision with no open finding. Push per
+  reviewed + merged deliverable; never batch unreviewed commits and never wait
+  for the release to push. Before the push the build, tests, privacy scan and
+  link check must be green on that exact revision; after the push, confirm CI is
+  green on that SHA and route a red run to its owner (code -> Developer, test ->
+  Tester, contract -> Architect, workflow/packaging/flake -> Release Engineer,
+  scope -> CEO). Plain `git push` of a reviewed revision is normal work;
+  **force-push, published-history rewrite and retagging are red lines** that need
+  the CEO's explicit authorization. Tags and public releases are the CEO's step.
+- **LOCAL + CI** - the Tester certifies both: the layer runs locally *and* the
+  same result in CI on the pushed revision. Never report a suite as passing while
+  the matching CI run is red, and never let a red run go unowned.
+
 ## Red lines (stop and escalate, never execute)
 
 - Destructive filesystem or history: `rm -rf` outside your Scratch/worktree,
