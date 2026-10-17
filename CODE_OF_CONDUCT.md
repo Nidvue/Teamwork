@@ -65,7 +65,7 @@ representative at an online or offline event.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement through the
 repository's private reporting channel:
-[github.com/VisionPZ/Nidvue-Teamwork/security/advisories/new](https://github.com/VisionPZ/Nidvue-Teamwork/security/advisories/new).
+[github.com/VisionPZ/Teamwork/security/advisories/new](https://github.com/VisionPZ/Teamwork/security/advisories/new).
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the

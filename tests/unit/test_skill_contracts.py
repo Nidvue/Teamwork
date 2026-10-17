@@ -671,7 +671,7 @@ def test_master_brand_precedes_the_product_name(root):
 
     mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
     assert "site_name: Nidvue Teamwork" in mkdocs
-    assert "Nidvue-Teamwork" in mkdocs
+    assert "VisionPZ/Teamwork" in mkdocs  # the repo link stays stable
 
     for name in ("pyproject.toml", "CITATION.cff"):
         text = (root / name).read_text(encoding="utf-8")
