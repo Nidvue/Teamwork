@@ -14,6 +14,7 @@ process is spawned with ``sys.executable`` and an explicit environment.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -26,7 +27,14 @@ SRC_DIR = REPO_ROOT / "src"
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 
 #: The exact line both ``--version`` and the ``version`` subcommand must print.
-EXPECTED_VERSION = "teamwork 1.0.0"
+#: Read from the source of truth rather than hard-coded, so a version bump cannot
+#: leave a stale expectation behind (a black-box harness must not import the
+#: package it is testing).
+_VERSION = re.search(
+    r'__version__ = "([^"]+)"',
+    (SRC_DIR / "teamwork" / "version.py").read_text(encoding="utf-8"),
+).group(1)
+EXPECTED_VERSION = f"teamwork {_VERSION}"
 
 #: Roster used by the AC-10 flow. It deliberately staffs every layer that the
 #: core gate needs (goal/system/unit/integration/acceptance).
