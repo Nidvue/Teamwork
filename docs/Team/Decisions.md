@@ -200,3 +200,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: ls references/ docs/Team/ -> no Imaging.md; python3 scripts/teamwork.py init in a temp dir -> docs/Team/Design.md created, docs/Team/Imaging.md absent; PYTHONPATH=src ./.venv/bin/python -m pytest tests/unit/test_imaging.py -q -> 21 passed
 - falsified by: A Designer needs imaging policy that is not in roles/designer.md, or the Design template loses the asset/review/improvement sections.
 - consequences: -
+
+## D-20261017-CEO - Supersede: reviewed commits are pushed by the Release Engineer, per milestone
+
+- date: 2026-10-17
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: ceo
+- task: -
+- context: -
+- options considered: -
+- decision: The Release Engineer pushes commits to the shared remote once the Reviewer has passed them with no open finding, after each reviewed+merged deliverable rather than in one batch at the end; pre-push gates must be green on that revision and CI must be green on the pushed SHA. Force-push, published-history rewrite and retagging still require explicit CEO authorization, and tags/public releases remain the CEO's step. The Tester certifies local AND CI and routes any failure to the owning role.
+- why: The earlier rule that only the CEO may push made the remote drift behind local main and let CI problems surface late. The user asked for staged pushes gated on review, and for the Tester to guarantee both local and CI results and notify the responsible agent on failure.
+- evidence: roles/release-engineer.md + roles/tester.md updated; templates/AGENTS.md regenerated into AGENTS.md; PYTHONPATH=src ./.venv/bin/python -m pytest tests/unit/test_skill_contracts.py -q -> 11 passed
+- falsified by: A push lands without a Reviewer verdict, or CI is red on the pushed SHA while the task is reported green.
+- consequences: -
