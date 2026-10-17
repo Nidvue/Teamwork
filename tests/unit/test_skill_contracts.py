@@ -864,3 +864,26 @@ def test_the_custom_domain_is_configured_everywhere(root):
     assert "visionpz.github.io" not in readme
     for name in ("pyproject.toml", "CITATION.cff"):
         assert "visionpz.github.io" not in (root / name).read_text(encoding="utf-8"), name
+
+
+def test_automatic_routing_is_documented_everywhere(root):
+    """The routing must appear in every surface a reader or an agent looks at."""
+
+    def mentions(text):
+        low = text.lower()
+        return "model auto" in low and "routing" in low
+
+    surfaces = {
+        "README": root / "README.md",
+        "docs home": root / "docs" / "index.md",
+        "CLI reference": root / "docs" / "guide" / "cli.md",
+        "adapters": root / "references" / "Adapters.md",
+        "concurrency": root / "references" / "Concurrency.md",
+        "SKILL": root / "SKILL.md",
+    }
+    for label, path in surfaces.items():
+        assert mentions(path.read_text(encoding="utf-8")), label
+    cli = (root / "docs" / "guide" / "cli.md").read_text(encoding="utf-8")
+    assert "TEAMWORK_MODEL_STRONG" in cli
+    for path in sorted((root / "roles").glob("*.md")):
+        assert "### Your model (all roles)" in path.read_text(encoding="utf-8"), path.name

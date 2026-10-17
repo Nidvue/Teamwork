@@ -53,6 +53,14 @@ constitution there once (`teamwork.py agents-md`) and every host inherits it.
 - **No `teams` tool**: spawn with the host's own CLI in a `bash` job and point it
   at `Agents/<Name>/StartHere.md` - the startup routine is identical.
 
+## Host detection also drives model routing
+
+The same detection that picks the adapter picks the model: `teamwork.py model auto`
+reads the host (pi, claude, opencode, codex, cursor, gemini) and the model that host
+exposes, then routes the strongest available model to the decision lanes and the
+economy model to the mechanical lanes; `TEAMWORK_AGENT_HOST` pins the detection when
+the markers are ambiguous. Policy: [Concurrency](Concurrency.md).
+
 ## Rules
 
 1. **The engine is the constant.** `teamwork.py` (stdlib only, Python 3.9-3.13) is
