@@ -95,3 +95,26 @@ teamwork.py model list
   lanes at intake, and an agent never changes another agent's model.
 - Model choice never changes the protocol: the evidence gates, the two-stage
   review and the ledger hold whatever model produced the work.
+
+### Automatic cost-aware routing
+
+```sh
+teamwork.py model auto            # dry run: the plan, per lane
+teamwork.py model auto --apply    # write it into Settings.json
+teamwork.py model auto --json
+```
+
+`model auto` reads the *runtime environment* - which agent host is running (Pi,
+Claude Code, opencode, Codex, Cursor, Gemini CLI) and which model that host already
+exposes - and routes **the strongest available model to the lanes where a mistake
+is expensive** (Reviewer, Architect, Security Auditor, CEO, CTO) and **the economy
+model to the mechanical lanes** (developers, testers, writers, formatting, link
+checks). Quality where it compounds, cheapness where it does not.
+
+- It never invents a model id: `TEAMWORK_MODEL_STRONG` (or the host's own
+  `ANTHROPIC_MODEL` / `PI_MODEL` / `OPENCODE_MODEL` / ...) supplies the strong tier,
+  `TEAMWORK_MODEL_ECONOMY` the cheap one, and a lane with neither is reported as
+  `unset` together with the variable to set.
+- `--apply` is explicit: the plan is a dry run by default, and applying it is
+  recorded in the ledger.
+- Re-run it when the host or the budget changes; it is idempotent.
