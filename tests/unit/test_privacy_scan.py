@@ -142,3 +142,19 @@ def test_the_personal_domains_are_still_private():
     assert len(private) >= 2
     for domain in private:
         assert not ps._email_allowed("someone@" + domain)
+
+
+def test_dotted_identifiers_are_not_secrets():
+    """Regression: ``tokens = tokenize.generate_tokens(...)`` is code, not a key.
+
+    CI's privacy job failed on the new hygiene test because the env-secret rule
+    read the dotted callable on the right-hand side as a credential.
+    """
+    assert "env-secret" not in rules_hit("tokens = tokenize.generate_tokens(stream)\n")
+    assert "env-secret" not in rules_hit("key = settings.api_key\n")
+    assert "env-secret" not in rules_hit("token = self.client_token\n")
+
+
+def test_a_real_assigned_secret_is_still_reported():
+    secret = "Zx9" + "Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk"
+    assert "env-secret" in rules_hit(f'API_TOKEN = "{secret}"\n')
