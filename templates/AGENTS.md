@@ -389,6 +389,12 @@ Never wait for another role before doing work you can do yourself.
   review: one coherent change-set per commit, `wip`/`fixup` commits squashed,
   rebased onto the latest default branch, target one commit per task. Never rebase
   or force-push a shared branch or anything already on `main`.
+- **WARNINGS ARE ERRORS** - a warning is a defect that has not broken anything yet.
+  Make the tool fail on them in the config (`ruff check`, `mypy --warn-unused-ignores`,
+  `pytest -W error`, `--max-warnings 0`, `-D warnings`, `-Werror`), fix the cause,
+  and suppress only narrowly with a reason when the cause is third-party. CI
+  annotations count too: a deprecation notice about an action, a cache step or a
+  runner is a warning to fix, not to ignore.
 - **LINT AND FORMAT** - style is automated, never argued. Use the language's one
   canonical formatter and linter (Python: `ruff format` + `ruff check` + `mypy`;
   see `references/Engineering.md` for the full table), run the fixer before
