@@ -1,7 +1,7 @@
 # AUDIT REPORT - privacy and personal data
 
 Owner: Security Auditor.
-Related: [Project](Project.md) · [Architecture](Architecture.md).
+Related: [Project](Project.md) · [Architecture](Architecture.md) · [Risks](Risks.md).
 
 **Conclusion.** The tracked tree is clean: 111 working-tree files and the one
 tracked history blob contain no personal data, credential or secret. The single

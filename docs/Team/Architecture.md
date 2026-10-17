@@ -69,9 +69,10 @@ The engine needs four resource groups: `SKILL.md`, `roles/`, `references/`,
 `templates/`, and a runnable engine path. Resolution order, first hit wins:
 
 ```
-1. $TEAMWORK_SKILL_DIR                     (explicit override, tests use this)
+1. $TEAMWORK_SKILL_DIR                             (explicit override, tests use this)
 2. importlib.resources.files("teamwork") / "data"   (installed wheel)
-3. <repo root>/   where repo root = engine.py.parents[2]   (checkout)
+3. the repository root                             (git checkout: <repo>/src/teamwork/)
+4. Path(__file__).parent.parent                    (the directory holding the package, e.g. src/)
 ```
 
 Public API (frozen):
@@ -84,8 +85,10 @@ has_asset(name: str) -> bool
 ```
 
 `self_invocation()` returns, in order of preference:
-`teamwork` when a console script is importable/on PATH, else
-`python -m teamwork`, else `python <path-to scripts/teamwork.py>`.
+
+1. `teamwork` when the console script is on `PATH`;
+2. `python <skill>/scripts/teamwork.py` when the shim exists (a checkout);
+3. `python -m teamwork` (an installed package without the shim).
 
 `engine.py` must call `resources` instead of the old
 `SKILL_DIR = Path(__file__).resolve().parent.parent`.

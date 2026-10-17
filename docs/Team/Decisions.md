@@ -152,3 +152,51 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: python3 scripts/privacy_scan.py --tree --history --json @e5efc5f -> exit 1, 2 high findings on commit author email; tree/staged 0
 - falsified by: python3 scripts/privacy_scan.py --tree --history exits 0 on the pushed revision
 - consequences: CEO amends/filter-repo then force-with-lease; existing clones re-clone; AC-5 passes; release unblocked.
+
+## D-20261017-Architect - Type-check the new modules; exempt the ported engine for v1.0.0
+
+- date: 2026-10-17
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: architect
+- task: -
+- context: -
+- options considered: -
+- decision: mypy checks teamwork.resources, teamwork.portable, teamwork.version, teamwork.cli and teamwork.__main__ with zero errors; teamwork.engine is exempted via [[tool.mypy.overrides]] ignore_errors=true and is the tracked post-1.0 refactor. mypy cannot target python_version 3.9 in version 2.x, so 3.9 syntax compatibility is enforced by ruff target-version=py39 plus 'from __future__ import annotations'.
+- why: The engine is a behaviour-preserving port of a 7.4k-line untyped monolith; annotating it now would mix a large unreviewable type diff into the packaging change. A green-but-weaker type gate is honest only if the exemption is recorded and enforced elsewhere.
+- evidence: mypy src/teamwork -> Success: no issues found in 7 source files; ruff check . -> All checks passed; ruff target-version=py39
+- falsified by: Annotating teamwork.engine shows the exemption was hiding a real defect, or a 3.9-only syntax error reaches main.
+- consequences: -
+
+## D-20261017-CEO - Image generation is part of the Designer's work
+
+- date: 2026-10-17
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: ceo
+- task: -
+- context: -
+- options considered: -
+- decision: The skill gains an imaging capability owned by the Designer: an offline capability probe (teamwork imaging probe) that ranks the best available text-to-image / image-to-image model, cloud provider first, then a local model, then a hand-authored SVG; a plan file docs/Team/Imaging.md; and a mandatory generate-review-integrate process with privacy and licence red lines.
+- why: The user asked the skill to generate images with the best available model when the LLM API offers one, and clarified that this is the Designer's job rather than a new role. Making the Designer the single owner keeps one writer per asset and one review path.
+- evidence: python3 scripts/teamwork.py imaging probe -> provider=local model=qwen-image-2.1; PYTHONPATH=src ./.venv/bin/python -m pytest tests/unit/test_imaging.py -q -> 19 passed; python3 ~/.pi/agent/skills/teamwork/scripts/teamwork.py imaging probe -> provider=local
+- falsified by: No provider exposes a ranked image model and the Designer ships an image that was never reviewed, or a private datum appears in a cloud prompt.
+- consequences: -
+
+## D-20261017-CEO - Imaging lives inside the Designer's own document, not a separate file
+
+- date: 2026-10-17
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: ceo
+- task: -
+- context: -
+- options considered: -
+- decision: There is no references/Imaging.md and no docs/Team/Imaging.md. The Designer's charter (roles/designer.md) carries the full policy, and the Designer's project document (docs/Team/Design.md, from templates/Docs/Design.md) carries the asset record: capability, assets, review log and improvement log.
+- why: The user required that imaging be part of the Designer's work and that the separate Imaging document be merged into the Designer's. One owner, one document keeps the charter the single place to read and removes a file that could drift out of sync.
+- evidence: ls references/ docs/Team/ -> no Imaging.md; python3 scripts/teamwork.py init in a temp dir -> docs/Team/Design.md created, docs/Team/Imaging.md absent; PYTHONPATH=src ./.venv/bin/python -m pytest tests/unit/test_imaging.py -q -> 21 passed
+- falsified by: A Designer needs imaging policy that is not in roles/designer.md, or the Design template loses the asset/review/improvement sections.
+- consequences: -

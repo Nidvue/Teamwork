@@ -63,3 +63,8 @@
 *.exr filter=lfs diff=lfs merge=lfs -text
 *.hdr filter=lfs diff=lfs merge=lfs -text
 *.unitypackage filter=lfs diff=lfs merge=lfs -text
+
+# The GitHub social preview is one small PNG that every clone should receive as a
+# real file (GitHub serves it as the OG image for link shares), so it is
+# deliberately opted out of Git LFS. Keep it under 1 MiB.
+assets/social-preview.png -filter -diff -merge -text
