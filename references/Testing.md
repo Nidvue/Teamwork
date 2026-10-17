@@ -99,6 +99,27 @@ nor (with four or more staffed layers) while a staffed role has designed no test
 at all. `audit` lists the same gaps, failing layers, duplicate commands and roles
 with no tests.
 
+## Local and CI are one certification
+
+The Tester owns both signals and must show they agree:
+
+1. **Local** - run the layers on the working revision; this is the fast signal.
+2. **CI** - confirm the Release Engineer's pushed SHA produced the same result,
+   job by job across the OS/Python matrix; this is the authoritative signal.
+   A green local run with a red CI run is a failure, and so is the reverse.
+3. **Divergence is a defect.** Route it to the owner and re-verify after the fix:
+   code -> Developer; test -> Tester; contract/interface -> Architect; workflow,
+   packaging, runner or flake -> Release Engineer; scope -> CEO. File the exact
+   command, expected vs actual, log excerpt, SHA, run id and a one-line repro.
+4. **Never report a suite as passing while the matching CI run is red** (or the
+   reverse), and never let a red run go unowned.
+
+A `tests run` evidence string therefore names both:
+
+```
+<local command> @<rev> -> <result>; CI <run-id> @<rev> -> <conclusion>
+```
+
 ## How it fits the flow
 
 ```text

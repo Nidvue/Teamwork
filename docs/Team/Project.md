@@ -77,6 +77,17 @@ git history.
       creates `Design.md` (and no `Imaging.md`) whose template carries the
       visual-asset sections - proof:
       `python3 ~/.pi/agent/skills/teamwork/scripts/teamwork.py imaging probe`
+- [ ] AC-15 Staged, review-gated push: `roles/release-engineer.md` and
+      `references/Engineering.md` require the Release Engineer to push per
+      reviewed + merged milestone only after the Reviewer passes with no open
+      finding, with the build/tests/privacy/link gates green on that revision and
+      CI green on the pushed SHA, routing a red run to the owning role - proof:
+      `tests/unit/test_skill_contracts.py`
+- [ ] AC-16 Local **and** CI certification by the Tester: `roles/tester.md` and
+      `references/Testing.md` require both signals on the pushed revision,
+      treat divergence as a defect, route failures to the owning agent, and forbid
+      reporting a suite green while the matching CI run is red - proof:
+      `tests/unit/test_skill_contracts.py`
 
 ## Scope
 
