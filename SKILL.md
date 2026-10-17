@@ -147,14 +147,19 @@ Run these in order. Use `SKILL` for this skill's directory.
   designed, built and run by its owner (see `references/Testing.md`).
 - **Visual assets are the Designer's call.** The Designer decides what images,
   icons, banners and diagrams a deliverable needs - unasked - then produces and
-  improves them. Vector first (SVG / diagram-as-code); for a raster,
-  `imaging probe` picks the best available text-to-image model (cloud first, else
-  local, else SVG). The full process - one prompt per asset, four-plus candidates
-  off one seed base, a visual review of every candidate, improvement rounds until
-  it passes, integration and evidence - plus the privacy and licence red lines
-  live in `roles/designer.md`; the asset record lives in `docs/Team/Design.md`.
-  Never send private data to a cloud image model, never ship an asset nobody
-  reviewed, and never lower a criterion to make an asset pass.
+  improves them. Everything the Designer touches is **user first**: layout,
+  typography, fonts and images are judged by the user's task, and the standing
+  criteria are simplicity, efficiency, usability and a great experience (real
+  text never text-as-image, >= 4.5:1 contrast, >= 16 px body, explicit font
+  fallback chain, no external font dependency in an SVG). Vector first
+  (SVG / diagram-as-code); for a raster, `imaging probe` picks the best available
+  text-to-image model (cloud first, else local, else SVG). The full process - one
+  prompt per asset, four-plus candidates off one seed base, a visual review of
+  every candidate, improvement rounds until it passes, integration and evidence -
+  plus the privacy and licence red lines live in `roles/designer.md`; the asset
+  record lives in `docs/Team/Design.md`. Never send private data to a cloud image
+  model, never ship an asset nobody reviewed, and never lower a criterion to make
+  an asset pass.
 
 ### 2. Workspace, repository, constitution
 

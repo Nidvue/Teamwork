@@ -5,6 +5,30 @@ the record for every visual asset (raster and vector) the deliverable needs.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md)
 
+## Principles
+
+User first. Every choice - layout, typography, font, colour, image - is justified
+by the user's task, not by taste. Simplicity, efficiency, usability and a great
+experience, in that order. See `roles/designer.md` for the full policy.
+
+| principle | what it means here | check |
+|---|---|---|
+| Simple | shortest correct path, one primary action, remove before adding | steps in the primary flow |
+| Efficient | fewest actions, no dead ends, progressive disclosure | actions to complete the task |
+| Usable | keyboard, focus, contrast, targets, semantics, zoom | contrast >= 4.5:1, target >= 24px, 200% zoom |
+| Great experience | consistent states, honest errors, no dark patterns | every state specified |
+
+## Typography and fonts
+
+| field | value |
+|---|---|
+| type scale | e.g. 12 / 14 / 16 / 20 / 28 px |
+| body size / line height | >= 16 px / 1.4-1.6 |
+| measure | 45-75 characters |
+| font stack | `<platform stack>`, fallbacks stated explicitly |
+| shipped font? | name + licence + subset, or "none - platform stack" |
+| text-as-image | never; all text is real text |
+
 ## Flows
 
 | flow | entry | steps | success | errors | a11y |
