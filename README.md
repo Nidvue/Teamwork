@@ -5,12 +5,12 @@
   <p>An autonomous, self-organising multi-agent company for coding agents:<br>
   evidence-gated, role-shared, and auditable by design.</p>
   <p>
-    <a href="https://github.com/VisionPZ/Nidvue-Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/VisionPZ/Nidvue-Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github"></a>
+    <a href="https://github.com/VisionPZ/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/VisionPZ/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github"></a>
     <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg"></a>
     <a href="docs/Team/Architecture.md"><img alt="Python 3.9 to 3.13" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue"></a>
     <a href="docs/guide/install.md"><img alt="PyPI: ready" src="https://img.shields.io/badge/PyPI-ready-orange"></a>
     <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
-    <a href="https://github.com/VisionPZ/Nidvue-Teamwork/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/VisionPZ/Nidvue-Teamwork?style=social"></a>
+    <a href="https://github.com/VisionPZ/Teamwork/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/VisionPZ/Teamwork?style=social"></a>
   </p>
 </div>
 
@@ -70,7 +70,7 @@ uvx --from teamwork-agents teamwork --version
 python -m pip install teamwork-agents
 
 # from source
-git clone https://github.com/VisionPZ/Nidvue-Teamwork.git
+git clone https://github.com/VisionPZ/Teamwork.git
 cd Teamwork && python -m pip install .
 ```
 
@@ -83,7 +83,7 @@ python3 scripts/teamwork.py --version    # teamwork 1.0.0
 > The distribution name is `teamwork-agents` (the name `teamwork` is taken on
 > PyPI); the import name and the console script are both `teamwork`. PyPI
 > publishing is prepared but not enabled for this release - until then, install
-> from the [GitHub release](https://github.com/VisionPZ/Nidvue-Teamwork/releases) wheel
+> from the [GitHub release](https://github.com/VisionPZ/Teamwork/releases) wheel
 > or from source.
 
 ## 30-second quickstart
@@ -195,7 +195,7 @@ project optimises the conversion inputs (demo, README, topics, license, releases
   [`CONTRIBUTING.md`](CONTRIBUTING.md) and the
   [code of conduct](CODE_OF_CONDUCT.md).
 - **Security** - please report vulnerabilities privately via
-  [GitHub security advisories](https://github.com/VisionPZ/Nidvue-Teamwork/security/advisories/new);
+  [GitHub security advisories](https://github.com/VisionPZ/Teamwork/security/advisories/new);
   see [`SECURITY.md`](SECURITY.md).
 - **License** - [AGPL-3.0](LICENSE), copyright (C) 2026 **Nidvue** (see [NOTICE](NOTICE)). The strong copyleft is deliberate: this is a
   governance tool, and its audit guarantees should survive modification.
@@ -206,6 +206,6 @@ project optimises the conversion inputs (demo, README, topics, license, releases
 
 ## Star history
 
-<a href="https://star-history.com/#VisionPZ/Nidvue-Teamwork&amp;Date">
-  <img src="https://api.star-history.com/svg?repos=VisionPZ/Nidvue-Teamwork&amp;type=Date" alt="Star history chart for Teamwork" width="720">
+<a href="https://star-history.com/#VisionPZ/Teamwork&amp;Date">
+  <img src="https://api.star-history.com/svg?repos=VisionPZ/Teamwork&amp;type=Date" alt="Star history chart for Teamwork" width="720">
 </a>

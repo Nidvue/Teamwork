@@ -73,9 +73,9 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer: Reviewer-1
 - task / issue: -
 - area: -
-- self-check: [pass] confirmed the CI matrix and the docs workflow on the pushed revisions | test: gh run list --repo VisionPZ/Nidvue-Teamwork --workflow CI --limit 10 --json conclusion @710e68d -> CI/Docs runs quoted in the task evidence
+- self-check: [pass] confirmed the CI matrix and the docs workflow on the pushed revisions | test: gh run list --repo VisionPZ/Teamwork --workflow CI --limit 10 --json conclusion @710e68d -> CI/Docs runs quoted in the task evidence
 - author evidence: -
-- reviewer evidence: gh run list --repo VisionPZ/Nidvue-Teamwork --workflow CI --limit 10 --json conclusion @710e68d -> CI/Docs runs quoted in the task evidence
+- reviewer evidence: gh run list --repo VisionPZ/Teamwork --workflow CI --limit 10 --json conclusion @710e68d -> CI/Docs runs quoted in the task evidence
 - findings history: -
 - branch / merge: - / pending
 ## T-0001 · Privacy scanner + security audit report  (security-auditor)

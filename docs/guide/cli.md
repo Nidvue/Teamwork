@@ -812,4 +812,4 @@ asset in `docs/Team/Design.md`, generate at least four candidates off one seed
 base, review every candidate visually, improve the winner until it passes,
 integrate, record evidence - plus the privacy and licence red lines, is the
 Designer's own policy in
-[`roles/designer.md`](https://github.com/VisionPZ/Nidvue-Teamwork/blob/main/roles/designer.md).
+[`roles/designer.md`](https://github.com/VisionPZ/Teamwork/blob/main/roles/designer.md).
