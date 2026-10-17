@@ -22,7 +22,13 @@ prevent.
    - the checks are *required*, not advisory: "the release engineer saw it pass
      locally" is not a check;
    - require the branch to be up to date with the default branch before merge
-     (strict mode), so a green run cannot be stale.
+     (strict mode), so a green run cannot be stale;
+   - **a required check must always be reported.** A workflow skipped by a path
+     filter produces no check run at all, so a documentation-only pull request
+     would wait forever for a check that can never appear. Path filters belong on
+     `push` (a cost optimisation); on `pull_request` the required workflows run
+     unconditionally. This is the most common way branch protection deadlocks a
+     repository.
 3. **Required review.** At least one approval from a role that is not the author
    - in this team, the **Reviewer**. Self-approval is impossible; a new commit on
    the request dismisses the stale approval; the Reviewer - never the author -

@@ -25,12 +25,9 @@ on:
       - "AGENTS.md"
       - "assets/**"
       - "mkdocs.yml"
+  # Always run on a pull request: this workflow's check is required for a merge,
+  # and a path-filtered skip would leave the check unreported.
   pull_request:
-    paths:
-      - "docs/**"
-      - "**.md"
-      - "assets/**"
-      - "mkdocs.yml"
   workflow_dispatch:
 
 concurrency:
