@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560"
+     role="img" aria-labelledby="demoTitle demoDesc" xml:space="preserve">
+  <title id="demoTitle">Terminal animation: the CEO scaffolds a team and starts the first lane</title>
+  <desc id="demoDesc">A terminal runs "teamwork init" with the CEO and core roles, scaffolds AGENTS.md, the team documents, role-shared memory and the hash-chained ledger, then shows the first task and the loop gate reporting CONTINUE. The full transcript is also in the README quickstart.</desc>
+
+  <style type="text/css"><![CDATA[
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .prompt { fill: #3fb950; }
+    .cmd    { fill: #e6edf3; }
+    .dim    { fill: #8b949e; }
+    .out    { fill: #c9d1d9; }
+    .ok     { fill: #3fb950; }
+    .ceo    { fill: #d2a8ff; }
+    .warn   { fill: #d29922; }
+    @keyframes type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+    @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+    .t1 { animation: type 1.4s steps(30, end) 0.2s both; }
+    .t2 { animation: type 0.8s steps(30, end) 3.6s both; }
+    .t3 { animation: type 0.6s steps(20, end) 4.9s both; }
+    .a1 { animation: fade 0.25s ease-out 1.70s both; }
+    .a2 { animation: fade 0.25s ease-out 1.95s both; }
+    .a3 { animation: fade 0.25s ease-out 2.20s both; }
+    .a4 { animation: fade 0.25s ease-out 2.45s both; }
+    .a5 { animation: fade 0.25s ease-out 2.70s both; }
+    .a6 { animation: fade 0.25s ease-out 3.10s both; }
+    .a7 { animation: fade 0.25s ease-out 4.50s both; }
+    .a8 { animation: fade 0.25s ease-out 5.60s both; }
+    .a9 { animation: fade 0.20s ease-out 6.00s both; }
+    .cur { animation: blink 1s steps(1, end) 6.0s infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .t1, .t2, .t3, .a1, .a2, .a3, .a4, .a5, .a6, .a7, .a8, .a9, .cur {
+        animation: none !important; clip-path: none !important; opacity: 1 !important;
+      }
+    }
+  ]]></style>
+
+  <defs>
+    <linearGradient id="win" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#0a0e14"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="960" height="560" fill="#020409"/>
+  <rect x="20" y="20" width="920" height="520" rx="18" fill="url(#win)" stroke="#30363d"/>
+  <path d="M38 20 H922 A18 18 0 0 1 940 38 V66 H20 V38 A18 18 0 0 1 38 20 Z" fill="#161b22"/>
+  <line x1="20" y1="66" x2="940" y2="66" stroke="#30363d"/>
+  <circle cx="48" cy="43" r="7" fill="#ff5f56"/>
+  <circle cx="72" cy="43" r="7" fill="#ffbd2e"/>
+  <circle cx="96" cy="43" r="7" fill="#27c93f"/>
+  <text x="480" y="49" text-anchor="middle" font-size="15" class="dim">teamwork - autonomous company</text>
+
+  <text x="48" y="104" font-size="15" class="t1" clip-path="inset(0 100% 0 0)"><tspan class="prompt">$ </tspan><tspan class="cmd">teamwork init --agents ceo,architect,product-manager,developer-1,tester-1,reviewer</tspan></text>
+
+  <text x="48" y="134" font-size="15" class="out a1">Scaffolding .pi/Teamwork/Teams/Acme/ ...</text>
+  <text x="48" y="164" font-size="15" class="a2"><tspan class="ok">  [ok] </tspan><tspan class="out">AGENTS.md constitution</tspan></text>
+  <text x="48" y="194" font-size="15" class="a3"><tspan class="ok">  [ok] </tspan><tspan class="out">docs/Team/Project.md  Plan.md  Board.md</tspan></text>
+  <text x="48" y="224" font-size="15" class="a4"><tspan class="ok">  [ok] </tspan><tspan class="out">Roles/ shared memory + priority task queues</tspan></text>
+  <text x="48" y="254" font-size="15" class="a5"><tspan class="ok">  [ok] </tspan><tspan class="out">Ledger.jsonl hash-chained</tspan></text>
+  <text x="48" y="284" font-size="15" class="a6"><tspan class="ceo">[ceo] </tspan><tspan class="out">objective accepted: 12 roles staffed, 3 lanes running</tspan></text>
+
+  <text x="48" y="330" font-size="15" class="t2" clip-path="inset(0 100% 0 0)"><tspan class="prompt">$ </tspan><tspan class="cmd">teamwork task next developer-1</tspan></text>
+  <text x="48" y="360" font-size="15" class="a7"><tspan class="warn">  T-0007 </tspan><tspan class="out">[P0] README + visuals + design doc  (ready)</tspan></text>
+
+  <text x="48" y="406" font-size="15" class="t3" clip-path="inset(0 100% 0 0)"><tspan class="prompt">$ </tspan><tspan class="cmd">teamwork loop</tspan></text>
+  <text x="48" y="436" font-size="15" class="a8"><tspan class="warn">  CONTINUE - </tspan><tspan class="out">12 acceptance criteria unverified</tspan></text>
+
+  <text x="48" y="486" font-size="15" class="a9"><tspan class="prompt">$ </tspan></text>
+  <rect x="66" y="472" width="9" height="18" fill="#3fb950" class="cur"/>
+</svg>

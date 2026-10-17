@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""Build, inspect and smoke-test the Teamwork release artefacts.
+
+The single command that proves acceptance criterion AC-1 end to end:
+
+1. ``python -m build`` produces the sdist and the wheel in ``dist/``.
+2. The wheel is inspected with :mod:`zipfile`; the bundled skill assets
+   ``teamwork/data/SKILL.md`` and ``teamwork/data/templates/AGENTS.md`` must be
+   present, and the metadata must declare no runtime dependency.
+3. ``SHA256SUMS`` is written next to the artefacts.
+4. A throwaway virtual environment is created and the wheel installed into it
+   with ``--no-deps`` (the package has no dependencies by contract).
+5. The installed ``teamwork`` console script is executed:
+   ``teamwork --version``, ``teamwork selftest`` and a ``teamwork init`` inside a
+   temporary project directory.
+
+Only the standard library is used at runtime; ``build`` is the one external
+requirement (it is part of the ``dev`` extra).
+
+Exit code 0 means the release was verified; any failure exits 1.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+import subprocess
+import sys
+import tempfile
+import venv
+import zipfile
+from collections.abc import Sequence
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DIST_DIR = REPO_ROOT / "dist"
+
+#: Members that must exist inside the built wheel.
+REQUIRED_WHEEL_MEMBERS = (
+    "teamwork/data/SKILL.md",
+    "teamwork/data/templates/AGENTS.md",
+)
+
+
+def log(message: str) -> None:
+    print(f"verify_release: {message}", flush=True)
+
+
+def run(
+    command: Sequence[object],
+    cwd: Path = REPO_ROOT,
+    env: dict[str, str] | None = None,
+    capture: bool = False,
+) -> subprocess.CompletedProcess:
+    """Run a command, echoing it, and return the completed process."""
+    rendered = " ".join(str(part) for part in command)
+    log(f"run: {rendered}")
+    result = subprocess.run(
+        [str(part) for part in command],
+        cwd=str(cwd),
+        env=env,
+        capture_output=capture,
+        text=True,
+    )
+    if capture:
+        for stream in (result.stdout, result.stderr):
+            if stream:
+                print(stream, end="" if stream.endswith("\n") else "\n")
+    return result
+
+
+def run_ok(
+    command: Sequence[object],
+    cwd: Path = REPO_ROOT,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess:
+    """Run a command and abort the whole verification when it fails."""
+    result = run(command, cwd=cwd, env=env, capture=True)
+    if result.returncode != 0:
+        raise VerificationError(
+            f"command failed with exit {result.returncode}: "
+            + " ".join(str(part) for part in command)
+        )
+    return result
+
+
+class VerificationError(Exception):
+    """A release check failed; the message is user-facing."""
+
+
+def build_artefacts() -> None:
+    """Run ``python -m build`` from the repository root."""
+    try:
+        import build  # noqa: F401
+    except ImportError as exc:  # pragma: no cover - environment-dependent
+        raise VerificationError(
+            "'build' is not installed; run `make dev` or `python -m pip install build`"
+        ) from exc
+    run_ok([sys.executable, "-m", "build"])
+
+
+def find_artefacts() -> dict[str, Path]:
+    """Return the newest sdist and wheel from ``dist/``."""
+    wheels = list(DIST_DIR.glob("teamwork_agents-*.whl"))
+    sdists = list(DIST_DIR.glob("teamwork_agents-*.tar.gz"))
+    if not wheels:
+        raise VerificationError("no wheel found in dist/ after build")
+    if not sdists:
+        raise VerificationError("no sdist found in dist/ after build")
+    newest = lambda path: path.stat().st_mtime  # noqa: E731 - local key helper
+    return {"wheel": max(wheels, key=newest), "sdist": max(sdists, key=newest)}
+
+
+def inspect_wheel(wheel: Path) -> None:
+    """Assert the payload and metadata contract of the wheel."""
+    with zipfile.ZipFile(wheel) as archive:
+        names = set(archive.namelist())
+        for member in REQUIRED_WHEEL_MEMBERS:
+            if member not in names:
+                raise VerificationError(f"wheel is missing required member: {member}")
+        metadata_names = [n for n in names if n.endswith(".dist-info/METADATA")]
+        if not metadata_names:
+            raise VerificationError("wheel has no METADATA file")
+        metadata = archive.read(metadata_names[0]).decode("utf-8", "replace")
+    # ``Requires-Dist`` is also emitted for optional extras; only an
+    # ungated requirement violates the zero-runtime-dependency contract.
+    runtime = [
+        line
+        for line in metadata.splitlines()
+        if line.startswith("Requires-Dist:") and "extra ==" not in line
+    ]
+    if runtime:
+        raise VerificationError(
+            "wheel declares runtime dependencies but the contract is zero: " + "; ".join(runtime)
+        )
+    present = [m for m in REQUIRED_WHEEL_MEMBERS if m in names]
+    log(
+        f"wheel payload ok ({len(names)} entries, "
+        f"{len(present)}/{len(REQUIRED_WHEEL_MEMBERS)} assets)"
+    )
+    log("wheel metadata ok (no ungated Requires-Dist)")
+
+
+def write_checksums(artefacts: dict[str, Path]) -> Path:
+    """Write ``SHA256SUMS`` next to the artefacts."""
+    manifest = DIST_DIR / "SHA256SUMS"
+    lines: list[str] = []
+    for path in sorted(artefacts.values()):
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        lines.append(f"{digest}  {path.name}")
+    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    log(f"wrote {manifest.relative_to(REPO_ROOT)}")
+    return manifest
+
+
+def venv_paths(venv_dir: Path) -> tuple:
+    """Return ``(python, bin_dir)`` for a virtual environment."""
+    if os.name == "nt":  # pragma: no cover - exercised on Windows CI
+        return venv_dir / "Scripts" / "python.exe", venv_dir / "Scripts"
+    return venv_dir / "bin" / "python", venv_dir / "bin"
+
+
+def fresh_env() -> dict[str, str]:
+    """Environment without test overrides so packaged assets are resolved.
+
+    ``PYTHONPATH`` is dropped too: otherwise a source checkout on the path could
+    shadow the installed package and defeat the point of the smoke test.
+    """
+    env = dict(os.environ)
+    env.pop("TEAMWORK_SKILL_DIR", None)
+    env.pop("PYTHONPATH", None)
+    return env
+
+
+def smoke_test(wheel: Path, workdir: Path) -> None:
+    """Install the wheel in a clean venv and exercise the console script."""
+    venv_dir = workdir / "venv"
+    log(f"creating throwaway virtualenv at {venv_dir}")
+    venv.EnvBuilder(with_pip=True, clear=True).create(str(venv_dir))
+    python, bin_dir = venv_paths(venv_dir)
+    if not python.is_file():
+        raise VerificationError(f"virtualenv python not found: {python}")
+
+    env = fresh_env()
+    run_ok(
+        [python, "-m", "pip", "install", "--quiet", "--no-deps", wheel],
+        env=env,
+    )
+
+    console = bin_dir / ("teamwork.exe" if os.name == "nt" else "teamwork")
+    if not console.is_file():
+        raise VerificationError(f"console script not installed: {console}")
+
+    result = run_ok([console, "--version"], env=env)
+    if "teamwork" not in result.stdout:
+        raise VerificationError(f"unexpected --version output: {result.stdout!r}")
+
+    run_ok([console, "selftest"], env=env)
+
+    project = workdir / "init-project"
+    project.mkdir()
+    run_ok(
+        [console, "init", "--no-git", "--agents", "ceo,architect,developer-1,reviewer-1"],
+        cwd=project,
+        env=env,
+    )
+    teams = project / ".pi" / "Teamwork" / "Teams"
+    if not teams.is_dir() or not any(teams.iterdir()):
+        raise VerificationError(f"`teamwork init` created no workspace under {teams}")
+    log("installed-wheel smoke test ok (--version, selftest, init)")
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="verify_release.py",
+        description="Build, inspect and smoke-test the Teamwork release artefacts.",
+    )
+    parser.add_argument(
+        "--keep",
+        action="store_true",
+        help="keep the throwaway virtualenv and project for inspection",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    try:
+        build_artefacts()
+        artefacts = find_artefacts()
+        inspect_wheel(artefacts["wheel"])
+        write_checksums(artefacts)
+
+        if args.keep:
+            workdir = Path(tempfile.mkdtemp(prefix="teamwork-verify-"))
+            try:
+                smoke_test(artefacts["wheel"], workdir)
+            finally:
+                log(f"kept scratch directory: {workdir}")
+        else:
+            with tempfile.TemporaryDirectory(prefix="teamwork-verify-") as tmp:
+                smoke_test(artefacts["wheel"], Path(tmp))
+    except VerificationError as exc:
+        log(f"FAILED: {exc}")
+        return 1
+    log("OK - release verified")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
