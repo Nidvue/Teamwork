@@ -69,6 +69,10 @@ six host operations and the integrity settings are adapted
     commits squashed, rebased onto the latest default branch, one commit per task
     after the squash-merge. Never rebase or force-push a shared branch, or
     anything already on the default branch.
+12. **Warnings are errors.** The toolchain fails on them by configuration, the
+    cause is fixed, and a third-party warning is suppressed narrowly with a
+    reason. CI annotations (a deprecated action, a cache notice, a runner banner)
+    count as warnings and are fixed, not ignored.
 
 ## The org
 

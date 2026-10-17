@@ -92,6 +92,10 @@ yourself. The full rules live in the skill: `references/Roles.md` and
   default branch, squash `wip`/`fixup` commits and target **one commit per task**.
   Never rebase or force-push a shared branch, or anything already on the default
   branch.
+- **Warnings are errors:** make the toolchain fail on them (ruff/mypy clean,
+  `pytest -W error`, `--max-warnings 0`, `-D warnings`, `-Werror`), fix the cause,
+  and suppress only narrowly with a reason when the cause is third-party. CI
+  deprecation notices count as warnings.
 - Evidence: the format/lint command and its result, on the same revision as the
   tests.
 
