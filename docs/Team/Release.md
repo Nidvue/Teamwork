@@ -30,6 +30,28 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 | privacy | `python3 scripts/privacy_scan.py --tree --history` | yes |
 | docs | `mkdocs build --strict` | yes |
 
+### Trigger policy - code in, prose and media out
+
+A documentation or image-only change must not run the code matrix, and must not
+be blocked by it. `ci.yml` therefore declares `paths-ignore` for the prose/media
+set (`docs/**`, `*.md`, `LICENSE`, `CITATION.cff`, `assets/**`, `mkdocs.yml`,
+`AGENTS.md`); every shipping path (`src/`, `scripts/`, `tests/`, `roles/`,
+`references/`, `templates/`, packaging, `.github/workflows/`) still runs the full
+matrix. `docs.yml` triggers on the ignored paths and runs the checks that still
+matter for prose: `teamwork links`, `privacy_scan.py --tree --history` and
+`mkdocs build --strict`.
+
+| change touches | workflow | what runs |
+|---|---|---|
+| `src/**`, `scripts/**`, `tests/**`, packaging | CI | full matrix |
+| `.github/workflows/**` | CI | full matrix |
+| `roles/**`, `references/**`, `templates/**`, `SKILL.md` (shipped in the wheel) | CI | full matrix |
+| `docs/**`, `*.md`, `LICENSE`, `CITATION.cff` | Docs | links + privacy + strict build |
+| `assets/**` (images, banners, the social preview) | Docs | links + privacy + strict build |
+
+`workflow_dispatch` stays enabled on both, so the full matrix can be forced on a
+prose-only change when it is genuinely warranted.
+
 ## Deploy
 
 - Environments: none. The artefact is a Python package; the "deployment" is a
