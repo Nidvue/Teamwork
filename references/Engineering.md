@@ -148,6 +148,27 @@ Rules enforced mechanically:
 `teamwork.py pr list [--open]` is the Reviewer's PR inbox; `audit` and `loop`
 report branches that are not merged.
 
+## Push policy - reviewed and staged, never batched
+
+The **Release Engineer** is the role that pushes to the shared remote, and only
+after the **Reviewer** has passed the revision with no open finding.
+
+- **Per milestone.** Push after each reviewed + merged deliverable so the remote
+  does not drift far from local `main`. Do not sit on a stack of unreviewed
+  commits and do not wait for the release to push.
+- **Pre-push gates on the exact revision:** build, tests, `privacy_scan.py
+  --tree --history`, and the link check all green. A red gate is not pushed.
+- **Post-push:** watch CI and confirm green **on that SHA**; record the revision,
+  run ids and conclusions.
+- **Red run -> route it.** Code -> Developer, test -> Tester, contract ->
+  Architect, workflow/packaging/flake -> Release Engineer, scope -> CEO. Re-run
+  after the fix.
+- **Red lines:** force-pushing a shared branch, rewriting published history or
+  retagging a release needs the CEO's explicit authorization and is recorded with
+  `teamwork.py redline record`. Tags and public releases are the CEO's step,
+  prepared and verified by the Release Engineer.
+- **Never push a secret.** The privacy scan is the gate that enforces it.
+
 ## Worktrees (optional but recommended for parallel writers)
 
 `branch start --agent <Instance> --task <T-id> --worktree` creates the branch,

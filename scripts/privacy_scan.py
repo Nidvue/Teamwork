@@ -94,9 +94,13 @@ def _decode(*codes: int) -> str:
 
 
 _DEFAULT_PRIVATE_DOMAINS = (
-    _decode(110, 105, 100, 118, 117, 101, 46, 99, 111, 109),  # recorded private domain
-    _decode(122, 104, 97, 111, 46, 110, 111),  # retired identity domain (git history)
-    _decode(98, 117, 108, 98, 105, 116, 101, 99, 104, 46, 99, 111, 109),  # retired work-mail domain
+    # The role-mailbox domain is the project's own (IDENTITY_DOMAIN, agents.nidvue.com) and
+    # is allowed above; the domains below are the *personal* ones that must never
+    # appear. The operator's decision is recorded in docs/Team/Decisions.md.
+    _decode(122, 104, 97, 111, 46, 110, 111),  # personal identity domain
+    _decode(
+        98, 117, 108, 98, 105, 116, 101, 99, 104, 46, 99, 111, 109
+    ),  # personal work-mail domain
 )
 
 

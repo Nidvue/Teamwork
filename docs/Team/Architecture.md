@@ -175,7 +175,10 @@ wheel (no reliance on the source tree). `conftest.py` sets
 * `release.yml`: on `v*` tags - build, checksums (`SHA256SUMS`), SBOM
   (CycloneDX JSON + SPDX), attestation, GitHub Release with all assets.
 * `docs.yml`: build and deploy the site to GitHub Pages on `main`.
-* Nothing is pushed, tagged or released by any agent other than the CEO.
+* The Release Engineer pushes reviewed revisions to the remote per milestone
+  (only after the Reviewer passes them, never a red gate); the Tester certifies
+  local **and** CI results, routes failures to the owning role, and tags and
+  public releases remain the CEO's step.
 
 ## 10. Seams for testing
 
