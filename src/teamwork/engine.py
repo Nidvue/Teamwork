@@ -8170,10 +8170,155 @@ def resolved_model(root: Path, agent: str) -> dict:
     return {"provider": "", "model": "", "source": "unset"}
 
 
+# --------------------------------------------------------------------------- #
+# Automatic model routing: best quality per lane at the lowest cost
+#
+# The skill ships no model ids. It reads the runtime environment - which agent
+# host is running and which models that host already exposes - and routes the
+# STRONG model to the lanes where a mistake is expensive and the ECONOMY model to
+# the mechanical lanes. Nothing is invented: a lane with no available model is
+# reported as `unset` with the exact variable to set.
+# --------------------------------------------------------------------------- #
+
+AGENT_HOSTS = {
+    "pi": ("PI_SESSION_ID", "PI_PROVIDER", "PI_MODEL"),
+    "claude": ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "ANTHROPIC_MODEL"),
+    "opencode": ("OPENCODE_CONFIG", "OPENCODE_MODEL", "OPENCODE_SESSION"),
+    "codex": ("CODEX_HOME", "CODEX_MODEL", "OPENAI_MODEL"),
+    "cursor": ("CURSOR_TRACE_ID", "CURSOR_MODEL"),
+    "gemini": ("GEMINI_CLI", "GEMINI_MODEL"),
+    "unknown": (),
+}
+
+#: Lanes where a wrong answer is expensive get the strongest model available;
+#: everything else runs on the economy tier. One entry per role id.
+LANE_TIER = {
+    "reviewer": "strong",
+    "architect": "strong",
+    "security-auditor": "strong",
+    "ceo": "strong",
+    "cto": "strong",
+    "developer": "economy",
+    "tester": "economy",
+    "technical-writer": "economy",
+    "designer": "economy",
+    "release-engineer": "economy",
+    "project-manager": "economy",
+    "product-manager": "economy",
+    "coo": "economy",
+    "cfo": "economy",
+    "data-engineer": "economy",
+}
+
+
+def detect_agent_host(env=None) -> str:
+    """Which agent host is running us, from the environment it exports."""
+    env = os.environ if env is None else env
+    for host, markers in AGENT_HOSTS.items():
+        if any(env.get(marker) for marker in markers):
+            return host
+    return "unknown"
+
+
+def host_default_model(env=None) -> str:
+    """The model the host is already configured with, if it advertises one."""
+    env = os.environ if env is None else env
+    for var in (
+        "TEAMWORK_MODEL_STRONG",
+        "ANTHROPIC_MODEL",
+        "PI_MODEL",
+        "OPENCODE_MODEL",
+        "CODEX_MODEL",
+        "CURSOR_MODEL",
+        "GEMINI_MODEL",
+        "OPENAI_MODEL",
+    ):
+        value = (env.get(var) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def resolve_model_plan(root: Path, env=None) -> dict:
+    """Route every staffed role to a model: strong lanes first, cost last."""
+    env = os.environ if env is None else env
+    host = detect_agent_host(env)
+    strong = (env.get("TEAMWORK_MODEL_STRONG") or "").strip() or host_default_model(env)
+    economy = (env.get("TEAMWORK_MODEL_ECONOMY") or "").strip() or (
+        env.get("TEAMWORK_MODEL_STRONG") or ""
+    ).strip()
+    provider = (env.get("TEAMWORK_MODEL_PROVIDER") or "").strip() or (
+        env.get("PI_PROVIDER") or ""
+    ).strip()
+    assignments, missing = {}, []
+    for role in sorted(list_roles(root)):
+        tier = LANE_TIER.get(role, "economy")
+        model = strong if tier == "strong" else (economy or strong)
+        if not model:
+            missing.append(role)
+            continue
+        assignments[role] = {"provider": provider, "model": model, "tier": tier}
+    notes = [f"host: {host}"]
+    if missing:
+        notes.append(
+            "no model found in the environment for: "
+            + ", ".join(missing)
+            + " - set TEAMWORK_MODEL_STRONG (and optionally "
+            "TEAMWORK_MODEL_ECONOMY), or use `model set`"
+        )
+    else:
+        notes.append("every lane routed: strong -> decision lanes, economy -> mechanical lanes")
+    return {
+        "host": host,
+        "provider": provider,
+        "strong": strong,
+        "economy": economy or strong,
+        "assignments": assignments,
+        "notes": notes,
+    }
+
+
+def cmd_model_auto(args) -> int:
+    """`teamwork model auto [--apply] [--json]` - cost-aware automatic routing."""
+    import json
+
+    root = project_root(args)
+    plan = resolve_model_plan(root)
+    if getattr(args, "json", False):
+        print(json.dumps({"command": "model.auto", **plan}, indent=2, sort_keys=True))
+    else:
+        print(f"# model auto (host: {plan['host']})")
+        for role, entry in sorted(plan["assignments"].items()):
+            print(f"- {role:18s} {entry['tier']:8s} {entry['model']}")
+        for note in plan["notes"]:
+            print(f"# {note}")
+    if not getattr(args, "apply", False):
+        if not getattr(args, "json", False):
+            print("# dry run: rerun with --apply to write these into Settings.json")
+        return 0
+    if not plan["assignments"]:
+        die("nothing to apply: no model found in the environment")
+    config = load_model_config(root)
+    for role, entry in plan["assignments"].items():
+        config["roles"][role] = {"provider": entry["provider"], "model": entry["model"]}
+    save_model_config(root, config)
+    ledger_append(
+        root,
+        "model.auto",
+        plan["host"],
+        f"{len(plan['assignments'])} lanes",
+        f"strong={plan['strong'] or '-'} economy={plan['economy'] or '-'}",
+    )
+    print(f"# applied to {len(plan['assignments'])} lanes")
+    return 0
+
+
 def cmd_model(args) -> int:
     """`teamwork model set|get|list` - configure the LLM of each agent."""
     root = project_root(args)
     config = load_model_config(root)
+    if args.model_cmd == "auto":
+        return cmd_model_auto(args)
     if args.model_cmd == "set":
         provider = (args.provider or "").strip()
         model = (args.model or "").strip()
@@ -8930,6 +9075,14 @@ def _parsers_model(sub, common) -> None:
     p.add_argument("agent")
     p.set_defaults(func=cmd_model)
     p = msub.add_parser("list", parents=[common], help="every agent and its model")
+    p.set_defaults(func=cmd_model)
+    p = msub.add_parser(
+        "auto", parents=[common], help="route every lane to the best model the environment offers"
+    )
+    p.add_argument(
+        "--apply", action="store_true", help="write the plan into Settings.json (default: dry run)"
+    )
+    p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(func=cmd_model)
 
 

@@ -77,7 +77,11 @@ six host operations and the integrity settings are adapted
 12. **Each agent's model is its own.** The skill ships no model and calls no LLM
     API; the engine configures a model per role and per instance
     (`teamwork.py model set|get|list`), so a strong model can drive the Reviewer
-    while a cheap one drives mechanical lanes. Model choice never changes the
+    while a cheap one drives mechanical lanes. `teamwork.py model auto --apply`
+    reads the runtime environment (the agent host and the model it exposes) and
+    routes the strongest available model to the decision lanes and the economy one
+    to the mechanical lanes, so quality is maximised where it compounds and cost is
+    minimised where it does not. Model choice never changes the
     protocol: the gates, the review and the ledger hold anyway.
 13. **Warnings are errors.** The toolchain fails on them by configuration, the
     cause is fixed, and a third-party warning is suppressed narrowly with a
