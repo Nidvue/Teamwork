@@ -6,7 +6,9 @@ description: "Nidvue Teamwork - run a user prompt to completion with an autonomo
 # Nidvue Teamwork - `teamwork` skill
 
 > **Nidvue Teamwork** is the product brand; `teamwork` is the command, package and
-> workspace identifier.
+> workspace identifier. This is a **skill**, not a standalone application: the
+> engine is a stdlib-only tool the skill calls, and every agent runs through the
+> host's own LLM API with a model configured per agent (`references/Concurrency.md`).
 
 Turn one prompt into a functioning, self-organising team that keeps working until
 the goal is verified. The user talks **only to the CEO**. The CEO decomposes the
@@ -72,7 +74,12 @@ six host operations and the integrity settings are adapted
     commits squashed, rebased onto the latest default branch, one commit per task
     after the squash-merge. Never rebase or force-push a shared branch, or
     anything already on the default branch.
-12. **Warnings are errors.** The toolchain fails on them by configuration, the
+12. **Each agent's model is its own.** The skill ships no model and calls no LLM
+    API; the engine configures a model per role and per instance
+    (`teamwork.py model set|get|list`), so a strong model can drive the Reviewer
+    while a cheap one drives mechanical lanes. Model choice never changes the
+    protocol: the gates, the review and the ledger hold anyway.
+13. **Warnings are errors.** The toolchain fails on them by configuration, the
     cause is fixed, and a third-party warning is suppressed narrowly with a
     reason. CI annotations (a deprecated action, a cache notice, a runner banner)
     count as warnings and are fixed, not ignored.
