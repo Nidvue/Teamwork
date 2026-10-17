@@ -383,3 +383,89 @@ def test_remote_reference_documents_the_unreported_check_trap(root):
     text = flat(read(root, "references", "Remotes.md"))
     assert "a required check must always be reported" in text.lower()
     assert "deadlock" in text.lower()
+
+
+# --------------------------------------------------------------------------- #
+# automated code standards
+# --------------------------------------------------------------------------- #
+
+TOOLCHAIN_LANGUAGES = (
+    "Python",
+    "JavaScript / TypeScript",
+    "Go",
+    "Rust",
+    "Java / Kotlin",
+    "C / C++",
+    "Shell",
+    "YAML",
+    "Markdown",
+    "Terraform",
+    "Dockerfile",
+)
+
+
+def test_engineering_reference_defines_a_toolchain_per_language(root):
+    text = flat(read(root, "references", "Engineering.md"))
+    assert "## Linting, formatting and type checking" in text
+    for language in TOOLCHAIN_LANGUAGES:
+        assert language in text, f"missing toolchain row: {language}"
+    for tool in (
+        "ruff format",
+        "ruff check",
+        "mypy",
+        "prettier",
+        "eslint",
+        "gofmt",
+        "cargo fmt",
+        "clippy",
+        "clang-format",
+        "shellcheck",
+        "yamllint",
+        "markdownlint",
+        "terraform fmt",
+        "hadolint",
+    ):
+        assert tool in text, f"missing tool: {tool}"
+    assert "never weaken the gate to pass" in text.lower() or "Never weaken the gate" in text
+
+
+def test_agents_template_requires_lint_and_format(root):
+    text = (root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
+    assert "**LINT AND FORMAT**" in text
+    assert "ruff format" in text and "ruff check" in text
+
+
+def test_every_role_charter_requires_the_canonical_toolchain(root):
+    for path in sorted((root / "roles").glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        assert "### Code standards (all roles)" in text, path.name
+        assert "canonical formatter and linter" in text, path.name
+        assert "Never hand-format" in text, path.name
+
+
+def test_skill_contract_requires_automated_style(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "Style is automated" in text
+    assert "ruff format" in text and "ruff check" in text and "mypy" in text
+
+
+def test_this_repository_actually_configures_the_toolchain(root):
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.ruff]" in pyproject
+    assert "[tool.ruff.format]" in pyproject
+    assert "[tool.mypy]" in pyproject
+    ci = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "ruff format --check" in ci and "ruff check" in ci and "mypy" in ci
+
+
+def test_scanner_allows_the_github_service_mailbox():
+    """Dependabot signs off with support@github.com; that is not personal data."""
+    import sys
+
+    scripts = Path(__file__).resolve().parents[2] / "scripts"
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    import privacy_scan as ps
+
+    assert ps._email_allowed("support@github.com")
+    assert ps._email_allowed("noreply@github.com")

@@ -75,7 +75,7 @@ _ALLOWED_EMAIL_SUFFIXES = (
     ".localhost",
 )
 _ALLOWED_SERVICE_EMAILS = re.compile(
-    r"^(?:noreply@github\.com|[^@]+@users\.noreply\.github\.com|"
+    r"^(?:noreply@github\.com|support@github\.com|[^@]+@users\.noreply\.github\.com|"
     r"git@(?:github\.com|gitlab\.com|bitbucket\.org))$"
 )
 
