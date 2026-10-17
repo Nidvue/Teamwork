@@ -71,3 +71,27 @@ instances to the available capacity rather than to a fixed number.
 - The Reviewer, the Project Manager and the CEO are lanes too - keep them fed.
 - Never exceed a provider cap to "go faster": the extra lanes fail, and the
   failure costs more than the parallelism gains.
+
+
+## Per-agent model configuration
+
+The skill does **not** ship a model and does not call an LLM API itself. Each
+agent runs through the host's own API, so the model is a property of the *agent*,
+not of the project, and every lane can pick one independently:
+
+```sh
+teamwork.py model set reviewer   --provider anthropic --model <strong>   # role default
+teamwork.py model set developer-1 --provider deepseek --model <cheap>   # instance override
+teamwork.py model get developer-1
+teamwork.py model list
+```
+
+- An **instance** setting wins over the **role** default; an unset agent uses the
+  host's own default and records `unset`.
+- Give the reasoning-heavy lanes the stronger model (Reviewer, Architect,
+  Security Auditor) and the mechanical ones a cheaper or faster one (bulk edits,
+  formatting, link checks). Cost and latency are a per-lane choice, not a global one.
+- A model change is a recorded act (`Settings.json` + the ledger); the CEO sets the
+  lanes at intake, and an agent never changes another agent's model.
+- Model choice never changes the protocol: the evidence gates, the two-stage
+  review and the ledger hold whatever model produced the work.

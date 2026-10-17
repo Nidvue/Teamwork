@@ -19,11 +19,13 @@
   <img src="assets/demo.svg" alt="Animated terminal: the CEO scaffolds a team workspace, dispatches the first task and runs the stop check, which reports CONTINUE until every acceptance criterion is verified." width="820">
 </p>
 
-Nidvue Teamwork turns one prompt into a team of AI agents that plans, builds, tests and
-**independently reviews its own work until every acceptance criterion has executed
-evidence**. It ships three ways that share one engine: a [Pi](https://github.com/earendil-works/pi)
-skill, an installable Python package, and a project workspace you can read with
-git and your editor.
+Nidvue Teamwork is **a skill for your coding agent** - not a standalone
+application. It turns one prompt into a team of AI agents that plans, builds, tests
+and **independently reviews its own work until every acceptance criterion has
+executed evidence**. The agent host supplies the LLM API, and **every agent's model
+is configured independently** (`teamwork model set <agent>`): a strong model for the
+Reviewer, a cheap one for the mechanical lanes. The engine (`teamwork.py`, standard
+library only) is the tool the skill calls; installing it as a package is optional.
 
 ```console
 $ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-1,developer-1,tester-1

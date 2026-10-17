@@ -8112,6 +8112,104 @@ def cmd_imaging(args) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# Per-agent model configuration
+#
+# The team is a skill, not an application: every agent runs through its own LLM
+# API, and the model is a property of the AGENT, not of the project. A role may
+# have a default and an instance may override it, so a cheap model can drive the
+# mechanical lanes while a strong one drives the Reviewer.
+# --------------------------------------------------------------------------- #
+
+
+def load_model_config(root: Path) -> dict:
+    """Return ``{"roles": {...}, "agents": {...}}`` from Settings.json."""
+    path = providers_path(root)
+    data = {}
+    if path.exists():
+        try:
+            import json
+
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            data = {}
+    models = data.get("Models") if isinstance(data, dict) else None
+    if not isinstance(models, dict):
+        models = {}
+    return {
+        "roles": dict(models.get("roles") or {}),
+        "agents": dict(models.get("agents") or {}),
+    }
+
+
+def save_model_config(root: Path, config: dict) -> None:
+    """Persist the model map without disturbing the provider caps or the pulse."""
+    import json
+
+    path = providers_path(root)
+    data = {}
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    data["Models"] = {"roles": config["roles"], "agents": config["agents"]}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_lf(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def resolved_model(root: Path, agent: str) -> dict:
+    """The model the given instance should use: agent override, else role default."""
+    config = load_model_config(root)
+    if agent in config["agents"]:
+        return dict(config["agents"][agent], source="agent")
+    role = resolve_role(agent) if agent else ""
+    if role and role in config["roles"]:
+        return dict(config["roles"][role], source="role")
+    return {"provider": "", "model": "", "source": "unset"}
+
+
+def cmd_model(args) -> int:
+    """`teamwork model set|get|list` - configure the LLM of each agent."""
+    root = project_root(args)
+    config = load_model_config(root)
+    if args.model_cmd == "set":
+        provider = (args.provider or "").strip()
+        model = (args.model or "").strip()
+        if not provider and not model:
+            die("give at least --provider or --model")
+        entry = {"provider": provider, "model": model}
+        target = config["agents"] if args.agent and "-" in args.agent else config["roles"]
+        key = args.agent if target is config["agents"] else resolve_role(args.agent)
+        if not key:
+            die("name an agent or a role (e.g. reviewer-1, reviewer)")
+        target[key] = entry
+        save_model_config(root, config)
+        print(f"# model for {key}: provider={provider or '-'} model={model or '-'}")
+        ledger_append(
+            root, "model.set", key, provider or model, f"{provider or '-'}/{model or '-'}"
+        )
+        return 0
+    if args.model_cmd == "get":
+        decision = resolved_model(root, args.agent)
+        print(
+            f"# {args.agent}: provider={decision['provider'] or '-'} "
+            f"model={decision['model'] or '-'} ({decision['source']})"
+        )
+        return 0
+    rows = [(a, resolved_model(root, a)) for a in known_instances(root)]
+    for agent, d in sorted(rows):
+        print(
+            f"- {agent:22s} provider={d['provider'] or '-':14s} "
+            f"model={d['model'] or '-':22s} ({d['source']})"
+        )
+    if not rows:
+        print("- no agents yet")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 
@@ -8147,6 +8245,7 @@ def build_parser() -> argparse.ArgumentParser:
     _parsers_audit(sub, common)
     _parsers_scheduling(sub, common)
     _parsers_meta(sub, common)
+    _parsers_model(sub, common)
     return p
 
 
@@ -8812,6 +8911,26 @@ def _parsers_scheduling(sub, common) -> None:
     s.add_argument("--commit", action="store_true", help="assign the plan to the idle lanes now")
     s.add_argument("--interval", type=int, default=None, help="store the pulse interval in minutes")
     s.set_defaults(func=cmd_pulse)
+
+
+def _parsers_model(sub, common) -> None:
+    """`model` command surface - the LLM each agent runs on."""
+    s = sub.add_parser(
+        "model",
+        parents=[common],
+        help="configure the LLM model of each agent (per role or instance)",
+    )
+    msub = s.add_subparsers(dest="model_cmd", required=True)
+    p = msub.add_parser("set", parents=[common], help="set a role or instance model")
+    p.add_argument("agent")
+    p.add_argument("--provider", default="")
+    p.add_argument("--model", default="")
+    p.set_defaults(func=cmd_model)
+    p = msub.add_parser("get", parents=[common], help="show the effective model")
+    p.add_argument("agent")
+    p.set_defaults(func=cmd_model)
+    p = msub.add_parser("list", parents=[common], help="every agent and its model")
+    p.set_defaults(func=cmd_model)
 
 
 def _parsers_meta(sub, common) -> None:
