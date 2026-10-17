@@ -89,7 +89,7 @@ clean. `--history` reports the 2 findings above.
 | # | Action | Evidence |
 |---|---|---|
 | R1 | Repository-local git identity set to a **role** mailbox (`CEO <ceo@agents.nidvue.com>`) so an accidental plain `git commit` cannot inherit the operator identity; per-commit role identities (`git -c user.name=... -c user.email=...`) still override it | `git config --local user.email` -> `ceo@agents.nidvue.com`; `git log --format='%an <%ae>'` -> `ceo@agents.nidvue.com`, `teamwork@agents.nidvue.com` |
-| R2 | Engine default identity domain is the neutral `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> `Developer <developer@agents.nidvue.com>` |
+| R2 | Engine default identity domain is the `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> `Developer <developer@agents.nidvue.com>` |
 | R3 | Scanner masks all matched values, redacts the absolute root, and keeps private domains out of plain text | `scripts/privacy_scan.py`; see section 7 output |
 | R4 | This report redacts every personal value so it cannot re-leak what it documents | this file passes `scripts/privacy_scan.py --tree` |
 
