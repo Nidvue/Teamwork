@@ -72,9 +72,9 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
 
 ## Repository
 
-- Source and releases: [github.com/Nidvue/Nidvue-Teamwork](https://github.com/Nidvue/Nidvue-Teamwork)
-- README and demo: [README.md](https://github.com/Nidvue/Nidvue-Teamwork/blob/main/README.md)
-- Contributions: [CONTRIBUTING.md](https://github.com/Nidvue/Nidvue-Teamwork/blob/main/CONTRIBUTING.md)
-- Security policy: [SECURITY.md](https://github.com/Nidvue/Nidvue-Teamwork/blob/main/SECURITY.md)
-- Changelog: [CHANGELOG.md](https://github.com/Nidvue/Nidvue-Teamwork/blob/main/CHANGELOG.md)
-- License: [AGPL-3.0](https://github.com/Nidvue/Nidvue-Teamwork/blob/main/LICENSE)
+- Source and releases: [github.com/Nidvue/Teamwork](https://github.com/Nidvue/Teamwork)
+- README and demo: [README.md](https://github.com/Nidvue/Teamwork/blob/main/README.md)
+- Contributions: [CONTRIBUTING.md](https://github.com/Nidvue/Teamwork/blob/main/CONTRIBUTING.md)
+- Security policy: [SECURITY.md](https://github.com/Nidvue/Teamwork/blob/main/SECURITY.md)
+- Changelog: [CHANGELOG.md](https://github.com/Nidvue/Teamwork/blob/main/CHANGELOG.md)
+- License: [AGPL-3.0](https://github.com/Nidvue/Teamwork/blob/main/LICENSE)
