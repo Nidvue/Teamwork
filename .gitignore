@@ -1,0 +1,37 @@
+
+# --- teamwork: local working state (never commit) ---
+.pi/
+# --- teamwork: scratch and editor noise ---
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.swp
+*~
+.DS_Store
+Thumbs.db
+# --- teamwork: secrets ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+# --- teamwork: caches / build output (keep them on disk, just uncommitted) ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+dist/
+build/
+target/
+.venv/
+venv/
+coverage/
+.coverage
+
+# --- docs site build output ---
+site/
+*.egg-info/
