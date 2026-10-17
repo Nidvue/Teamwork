@@ -62,7 +62,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-SCANNER_VERSION = "1.1.0"
+SCANNER_VERSION = "1.1.1"
 
 # --------------------------------------------------------------------------- #
 # Neutral identity / allowlisted email domains
