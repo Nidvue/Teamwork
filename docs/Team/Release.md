@@ -73,7 +73,10 @@ prose-only change when it is genuinely warranted.
 - What is *not* reversible: a force-push to `main` rewrites history for anyone who
   already cloned. The privacy rewrite is therefore done **before** the first
   public announcement and before any external clone exists.
-- Last drill: recorded in [Archive](Archive.md) when the release is exercised.
+- Last drill: `python3 scripts/verify_release.py` @ `710e68d` -> `OK - release
+  verified` (build sdist+wheel, 38/38 bundle files in the wheel, clean-venv
+  install, `--version`, `selftest`, `init` and the full gate loop to `STOP`),
+  duration ~40 s; the CI `build` job runs the same command on every push.
 
 ## Observability
 
