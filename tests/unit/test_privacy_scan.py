@@ -207,8 +207,12 @@ def test_sensitive_tracked_paths_are_recognised():
         ".pi/" + "agent/auth.json",
         ".pi/" + "agent/settings.json",
         ".pi/" + "agent/sessions/2026.jsonl",
+        ".claude/" + "projects/session.jsonl",
         ".claude/" + "settings.local.json",
         ".codex/" + "auth.json",
+        ".codex/" + "sessions/2026.jsonl",
+        ".config/" + "opencode/auth.json",
+        ".aider." + "chat.history.md",
         ".env",
         ".env.local",
         "credentials.json",
@@ -234,6 +238,8 @@ def test_sensitive_tracked_paths_are_recognised():
 
 def test_project_files_are_not_sensitive_paths():
     allowed = (
+        ".agents/skills/teamwork/SKILL.md",
+        ".claude/skills/teamwork/SKILL.md",
         ".env.example",
         ".env.sample",
         "src/auth.py",
@@ -264,3 +270,9 @@ def test_provider_keys_are_reported():
     )
     for key in keys:
         assert "api-token" in rules_hit(f"key = {key}\n"), key
+
+
+def test_gitignore_deny_entries_are_not_agent_config_findings():
+    entry = ".claude/" + "settings.local.json\n"
+    assert "agent-config" in rules_hit(entry)
+    assert list(ps.scan_lines(entry, ".gitignore", "unit-test", ps.RULES, allow=[])) == []

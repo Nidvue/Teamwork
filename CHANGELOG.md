@@ -40,6 +40,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   WSL/mounted home paths. Legitimate project paths (`.pi/Teamwork/`, `.env.example`,
   `auth.py`) stay clean.
 
+- **`.gitignore` completed**: Python, packaging, test, doc-build, editor and OS
+  noise are ignored; credentials are denied by name (`auth.json`, `.env*`,
+  `*.pem`, SSH keys, `.netrc`, `.npmrc`, `.pypirc`); local agent-host state
+  (a host's `settings.local.json`, session/transcript directories, aider history)
+  is ignored while a committed skill bundle under `.agents/skills/` or
+  `.claude/skills/` stays tracked. A `.gitignore` deny entry is not treated as a
+  leak by the privacy scan.
+
 ### Added
 
 - **README "For agents"**: host detection, the clone, `selftest` verification, the

@@ -294,12 +294,7 @@ _SENSITIVE_SUFFIX = re.compile(r"(?i)\.(?:pem|key|p12|pfx|keystore|jks)$")
 # Local working state: an agent workspace, a virtualenv, build output or a cache.
 # None of it is project source, so a tracked file here leaked by accident.
 _LOCAL_STATE_PARTS = (
-    ".pi",
-    ".agents",
-    ".claude",
-    ".codex",
-    ".gemini",
-    ".config/opencode",
+    ".pi",  # the team workspace; a project skill under .agents/ stays tracked
     ".venv",
     "venv",
     "node_modules",
@@ -318,8 +313,14 @@ _LOCAL_STATE_PARTS = (
 _SENSITIVE_PARTS = (
     _host_state(".pi/", "agent"),
     _host_state(".claude/", "settings", ".local.json"),
+    _host_state(".claude/", ".credentials.json"),
+    _host_state(".claude/", "projects"),
+    _host_state(".claude/", "todos"),
     _host_state(".codex/", "auth", ".json"),
+    _host_state(".codex/", "sessions"),
     _host_state(".gemini/", "oauth_creds", ".json"),
+    _host_state(".gemini/", "tmp"),
+    _host_state(".config/", "opencode/", "auth.json"),
     _host_state(".aws/", "credentials"),
     _host_state(".kube/", "config"),
     _host_state(".docker/", "config.json"),
@@ -327,7 +328,12 @@ _SENSITIVE_PARTS = (
 )
 # Shell history and dotfile names above are matched on the basename only; a
 # project source file called ``auth.py`` must stay allowed.
-_SENSITIVE_BASENAMES = {"auth.json", "auth.json.bak"}
+_SENSITIVE_BASENAMES = {
+    "auth.json",
+    "auth.json.bak",
+    _host_state(".aider.", "chat.history.md"),
+    _host_state(".aider.", "input.history"),
+}
 
 # Editor and build residue: local artefacts that are never project source.
 _LOCAL_JUNK = re.compile(
@@ -474,8 +480,13 @@ def scan_lines(text, path, source, rules, allow, commit=None):
         elif rule["regex"] is not None:
             compiled.append((rule, rule["regex"]))
 
+    ignore_file = path.endswith(".gitignore")
     for line_no, line in enumerate(text.splitlines(), 1):
         for rule, regex in compiled:
+            # A .gitignore entry denies a private path; it is not a leak. The
+            # project's own deny list must therefore not fail the deny list test.
+            if rule["id"] == "agent-config" and ignore_file:
+                continue
             for match in regex.finditer(line):
                 value = match.group(0)
                 if rule["id"] == "personal-email" and _email_allowed(value):
