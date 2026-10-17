@@ -54,6 +54,23 @@ prevent.
    re-reads them from the host API to detect drift. A protection change is a
    governance event: recorded in `Decisions.md` with who changed it and why.
 
+## Single-owner repositories (the honest caveat)
+
+`required_approving_review_count = 1` cannot be satisfied by the author, and a host
+will not let you approve your own request. On a repository with one account that
+means either:
+
+- add a second collaborator (or a second account/bot with review rights) so a real
+  approval can happen - the preferred answer; or
+- keep `enforce_admins = false` so the owner can bypass the approval for their own
+  authorized work - and then **every bypass is a recorded governance event**: who,
+  when, which revision, and why the internal Reviewer verdict stands in for the
+  host approval.
+
+Do not set the approval count to zero to make life easier: that silently deletes
+the review gate for everyone else too. State which of the two applies in
+`Release.md`, and re-read it during the drift check.
+
 ## Host mapping
 
 | Policy | GitHub | GitLab | Bitbucket Cloud | Gitea / Forgejo | Azure DevOps |

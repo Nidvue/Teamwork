@@ -59,6 +59,16 @@ six host operations and the integrity settings are adapted
    fixer runs before the commit and the checker gates the merge. No hand
    formatting, no competing config, no rule weakened to pass. The per-language
    toolchain is in `references/Engineering.md`.
+10. **Names are deliberate.** Team directories are PascalCase; file names follow
+    the ecosystem, and PascalCase/camelCase are allowed wherever it permits them
+    (docs `Architecture.md`, components `ButtonGroup.tsx`). Python modules stay
+    `lower_snake_case` because the name is the import path, and tool-mandated
+    files are never renamed.
+11. **History is minimal and modular.** Commit while you work, then rebase and
+    squash before the review: one coherent change-set per commit, `wip`/`fixup`
+    commits squashed, rebased onto the latest default branch, one commit per task
+    after the squash-merge. Never rebase or force-push a shared branch, or
+    anything already on the default branch.
 
 ## The org
 
