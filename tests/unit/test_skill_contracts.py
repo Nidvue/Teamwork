@@ -852,3 +852,13 @@ def test_concurrency_reference_documents_automatic_routing(root):
     assert "model auto --apply" in text
     assert "never invents a model id" in text
     assert "quality where it compounds" in text.lower()
+
+
+def test_the_custom_domain_is_configured_everywhere(root):
+    """The site is served from teamwork.nidvue.com, not the github.io default."""
+    mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
+    assert "site_url: https://teamwork.nidvue.com/" in mkdocs
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "visionpz.github.io" not in readme
+    for name in ("pyproject.toml", "CITATION.cff"):
+        assert "visionpz.github.io" not in (root / name).read_text(encoding="utf-8"), name
