@@ -1,0 +1,5 @@
+# Documentation build dependencies.
+# Install with:  python -m pip install -r docs/requirements.txt
+# Build with:    python -m mkdocs build --strict
+
+mkdocs-material>=9.7,<10

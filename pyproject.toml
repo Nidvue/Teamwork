@@ -1,0 +1,167 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "teamwork-agents"
+dynamic = ["version"]
+description = "Turn one prompt into an autonomous multi-agent company - package, skill bundle and CLI for the /teamwork Pi skill."
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+readme = "README.md"
+authors = [{ name = "Teamwork contributors" }]
+keywords = [
+  "teamwork",
+  "multi-agent",
+  "agents",
+  "orchestration",
+  "automation",
+  "pi",
+  "skill",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Software Development :: Quality Assurance",
+]
+# Zero runtime dependencies: the engine is standard-library only.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "ruff", "mypy", "build"]
+
+[project.scripts]
+teamwork = "teamwork.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/VisionPZ/Teamwork"
+Documentation = "https://github.com/VisionPZ/Teamwork#readme"
+Repository = "https://github.com/VisionPZ/Teamwork"
+Changelog = "https://github.com/VisionPZ/Teamwork/blob/main/CHANGELOG.md"
+Issues = "https://github.com/VisionPZ/Teamwork/issues"
+
+# --------------------------------------------------------------------------- #
+# Build: src layout + the canonical skill bundle force-included into the wheel
+# at `teamwork/data/` so an installed package can resolve its own assets.
+# --------------------------------------------------------------------------- #
+
+[tool.hatch.version]
+path = "src/teamwork/version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/teamwork"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"SKILL.md" = "teamwork/data/SKILL.md"
+"roles" = "teamwork/data/roles"
+"references" = "teamwork/data/references"
+"templates" = "teamwork/data/templates"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/SKILL.md",
+  "/roles",
+  "/references",
+  "/templates",
+  "/scripts",
+  "/tests",
+  "/docs",
+  "/assets",
+  "/AGENTS.md",
+  "/LICENSE",
+  "/README.md",
+  "/CHANGELOG.md",
+  "/CONTRIBUTING.md",
+  "/SECURITY.md",
+  "/CODE_OF_CONDUCT.md",
+  "/CITATION.cff",
+  "/pyproject.toml",
+  "/Makefile",
+  "/mkdocs.yml",
+  "/.editorconfig",
+  "/.gitattributes",
+  "/.gitignore",
+]
+exclude = [
+  "/dist",
+  "/build",
+  "/site",
+  "/.venv",
+  "/.pi",
+  "/**/__pycache__",
+  "**/*.py[cod]",
+]
+
+# --------------------------------------------------------------------------- #
+# Development tooling
+# --------------------------------------------------------------------------- #
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+src = ["src", "tests", "scripts"]
+extend-exclude = ["dist", "build", "site", ".venv"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+"scripts/teamwork.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+# NOTE: mypy >= 1.19 no longer accepts `python_version = "3.9"`. The project still
+# supports 3.9 - that compatibility is enforced by `ruff` with
+# `target-version = "py39"` plus `from __future__ import annotations` - while mypy
+# types the code against the interpreter running it (3.12 in CI).
+files = ["src/teamwork"]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = true
+warn_redundant_casts = true
+show_error_codes = true
+
+# engine.py is a behaviour-preserving port of the original 7,416-line monolith.
+# It is untyped by design for v1.0.0; splitting and typing it is a tracked
+# post-1.0 refactor (see docs/Team/Decisions.md). Everything else must be clean.
+[[tool.mypy.overrides]]
+module = ["teamwork.engine"]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-ra"
+norecursedirs = ["dist", "build", "site", ".venv", ".pi", "*.egg"]
+
+[tool.coverage.run]
+source = ["teamwork"]
+branch = true
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
