@@ -81,7 +81,7 @@ def test_module_runs_without_site(tmp_path):
         check=False,
     )
     assert proc.returncode == 0, proc.stderr
-    assert proc.stdout.strip() == "1.0.0", proc.stdout
+    assert proc.stdout.strip() == EXPECTED_VERSION.split()[-1], proc.stdout
 
 
 def test_console_script_version_when_installed():
