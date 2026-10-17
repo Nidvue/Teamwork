@@ -51,6 +51,7 @@ $ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-
 | Disputes and tribunal | A challenged design goes through evidence rounds; a 3-round deadlock is ruled on by the CEO + CTO + CFO and recorded. |
 | Portable, dependency-free | CPython 3.9-3.13 on Linux, macOS and Windows. **Zero third-party runtime dependencies.** |
 | Enforced standards | One canonical toolchain per language, run by the team and gated in CI: `ruff format` + `ruff check` + `mypy` here, with the full per-language table in `references/Engineering.md`. |
+| Clean, modular history | Work commits are rebased and squashed before review, feature work squash-merges into `main`, and the naming policy (PascalCase directories, ecosystem-correct files) is written down rather than argued about. |
 | Works as a skill and a package | Load it as a skill in Pi, Claude Code or opencode (`SKILL.md`), or as `AGENTS.md` in Codex, Cursor, Windsurf, Gemini CLI and Aider - the same protocol on every host (`references/Adapters.md`). |
 | Remote-agnostic integrity | Branch protection, required checks, squash-only merges and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike. |
 
