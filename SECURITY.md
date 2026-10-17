@@ -15,7 +15,7 @@ Security fixes are released for the latest minor line.
 
 ## Reporting a vulnerability
 
-Use [GitHub Security Advisories](https://github.com/VisionPZ/Teamwork/security/advisories/new)
+Use [GitHub Security Advisories](https://github.com/VisionPZ/Nidvue-Teamwork/security/advisories/new)
 to report a vulnerability privately. This is the **only** supported channel: no
 personal email address is published, and reports sent by other means cannot be
 guaranteed to reach the maintainers.

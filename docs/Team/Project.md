@@ -139,6 +139,6 @@ git history.
 
 ## Sources
 
-- [The /teamwork skill](https://github.com/VisionPZ/Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
+- [The /teamwork skill](https://github.com/VisionPZ/Nidvue-Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
 - [GitHub Actions matrix builds](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) - accessed 2026-10-17
 - [PyPA: packaging a Python project](https://packaging.python.org/en/latest/tutorials/packaging-projects/) - accessed 2026-10-17

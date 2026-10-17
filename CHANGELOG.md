@@ -9,9 +9,9 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/VisionPZ/Teamwork/compare/v1.0.0...HEAD)
+## [Unreleased](https://github.com/VisionPZ/Nidvue-Teamwork/compare/v1.0.0...HEAD)
 
-## [1.0.1](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.1) - 2026-10-17
+## [1.0.1](https://github.com/VisionPZ/Nidvue-Teamwork/releases/tag/v1.0.1) - 2026-10-17
 
 ### Added
 
@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recreated so no unreachable object or pull ref carries it.
 - The team mailbox domain is `agents.nidvue.com`; every commit uses a role mailbox.
 
-## [1.0.0](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.0) - 2026-10-17
+## [1.0.0](https://github.com/VisionPZ/Nidvue-Teamwork/releases/tag/v1.0.0) - 2026-10-17
 
 ### Added
 

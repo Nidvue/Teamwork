@@ -1,18 +1,18 @@
 cff-version: 1.2.0
 message: "If you use Teamwork in your work, please cite it as below."
-title: "Teamwork: autonomous multi-agent project teams"
+title: "Nidvue Teamwork: autonomous multi-agent project teams"
 abstract: >-
-  Teamwork turns one prompt into a self-organising team of AI agents that plans,
+  Nidvue Teamwork turns one prompt into a self-organising team of AI agents that plans,
   builds, tests and reviews a project until every acceptance criterion is
   verified. It ships as a Pi skill, an installable standard-library-only Python
   package, and a markdown workspace format with a hash-chained audit ledger.
 authors:
-  - name: "The Teamwork contributors"
+  - name: "Nidvue"
 type: software
 version: 1.0.0
 date-released: "2026-10-17"
-url: "https://github.com/VisionPZ/Teamwork"
-repository-code: "https://github.com/VisionPZ/Teamwork"
+url: "https://github.com/VisionPZ/Nidvue-Teamwork"
+repository-code: "https://github.com/VisionPZ/Nidvue-Teamwork"
 license: AGPL-3.0-only
 keywords:
   - multi-agent
