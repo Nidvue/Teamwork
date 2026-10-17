@@ -260,11 +260,18 @@ def _unsafe_text_writes(module_path):
 
 
 def test_no_python_310_only_or_crlf_text_writes():
+    """Guard every shipped Python file, not just the engine package.
+
+    ``scripts/verify_release.py`` is part of the release pipeline and had the same
+    3.10-only call, so the scan is recursive over both directories.
+    """
     offenders = {}
-    for module_path in sorted((REPO_ROOT / "src" / "teamwork").glob("*.py")):
-        found = _unsafe_text_writes(module_path)
-        if found:
-            offenders[module_path.name] = found
+    roots = [REPO_ROOT / "src" / "teamwork", REPO_ROOT / "scripts"]
+    for base in roots:
+        for module_path in sorted(base.rglob("*.py")):
+            found = _unsafe_text_writes(module_path)
+            if found:
+                offenders[str(module_path.relative_to(REPO_ROOT))] = found
     assert offenders == {}, f"unsafe text writes: {offenders}"
 
 
