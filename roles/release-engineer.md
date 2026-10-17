@@ -62,6 +62,34 @@ git push origin main @<rev> -> 8ee248f -> origin/main
 gh run list --repo <owner>/<repo> --commit <sha> -> CI: success (7/7 jobs), Docs: success
 ```
 
+## CI trigger policy - code in, prose and media out
+
+CI exists to catch broken **behaviour**. A documentation typo, a reworded README
+or a new screenshot must not burn a 3x3 operating-system and Python matrix, and
+must not be blocked on it either. Filter the triggers by path:
+
+| Change touches | CI runs? | What runs |
+|---|---|---|
+| `src/**`, `scripts/**`, `tests/**`, `pyproject.toml`, `Makefile`, packaging | **yes** | the full matrix: lint, typecheck, tests, build, privacy |
+| `.github/workflows/**`, CI config, `dependabot.yml` | **yes** | the full matrix (a broken workflow is a code defect) |
+| shipped skill assets: `roles/**`, `references/**`, `templates/**`, `SKILL.md` | **yes** | the full matrix - the bundle is force-included into the wheel |
+| prose: `docs/**`, any `*.md`, `LICENSE`, `CITATION.cff`, `CHANGELOG.md`, `mkdocs.yml` | **no** | a cheap docs workflow instead |
+| media: `assets/**`, images, diagrams | **no** | the cheap docs workflow |
+
+Rules:
+
+- Use `paths-ignore` on the code workflow for the prose/media paths, and `paths`
+  on the docs workflow for the same list. Keep the two lists in sync - a path in
+  neither place would be untested, and a path in both would defeat the split.
+- The cheap docs workflow is **not** optional: it still runs link health
+  (`teamwork links`), the privacy scan (`--tree --history`) and
+  `mkdocs build --strict`. A documentation leak is still a leak, and a broken
+  link is still a defect.
+- Never ignore a path that ships. When in doubt, run CI: the cost of a wasted
+  matrix run is far below the cost of publishing an untested wheel.
+- `workflow_dispatch` stays enabled, so anyone can force the full matrix on a
+  prose-only change when it is genuinely warranted.
+
 ## Test layer: `release`
 
 ```sh
