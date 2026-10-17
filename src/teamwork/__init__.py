@@ -1,4 +1,4 @@
-"""Teamwork - an autonomous multi-agent company driven from one prompt.
+"""Nidvue Teamwork - an autonomous multi-agent company driven from one prompt.
 
 The user talks only to the CEO; the CEO staffs the rest of the org and keeps the
 lanes running until the goal is verified with evidence.

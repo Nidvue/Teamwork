@@ -8,7 +8,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 ## 1. The gap
 
 Multi-agent orchestration is a crowded field, but almost every popular framework
-is a **library you call from your own program**. Teamwork is a **process you run
+is a **library you call from your own program**. Nidvue Teamwork is a **process you run
 in your repository**: a prompt in, a staffed organisation out, with an evidence
 gate before anything counts as done. The differences that are hard to copy are
 the *governance* primitives, not the orchestration loop:
