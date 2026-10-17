@@ -9,13 +9,13 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 | step | command | expected result |
 |---|---|---|
-| clean checkout | `git clone https://github.com/VisionPZ/Nidvue-Teamwork && cd Teamwork` | clean tree |
+| clean checkout | `git clone https://github.com/VisionPZ/Teamwork && cd Teamwork` | clean tree |
 | dev setup | `make dev` | editable install with dev extras |
 | selftest | `python3 scripts/teamwork.py selftest` | `5/5 checks passed`, exit 0 |
 | build | `make build` | `dist/teamwork_agents-1.0.0.tar.gz` and `dist/teamwork_agents-1.0.0-py3-none-any.whl` |
 | verify | `make verify` | wheel contains `teamwork/data/SKILL.md`; clean-venv install; `teamwork --version`, `teamwork selftest`, temp-dir `teamwork init` all pass |
 | package | `python3 scripts/verify_release.py` | `SHA256SUMS` written next to the artefacts |
-| provenance | GitHub Actions attestation (release workflow) | `gh attestation verify <file> --repo VisionPZ/Nidvue-Teamwork` |
+| provenance | GitHub Actions attestation (release workflow) | `gh attestation verify <file> --repo VisionPZ/Teamwork` |
 
 ## CI gates
 
