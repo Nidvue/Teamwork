@@ -360,3 +360,26 @@ def test_skill_assigns_integrity_to_the_release_engineer(root):
     assert "protects" in text.lower() or "protected default branch" in text
     assert "squash-only merges" in text
     assert "protected `v*`" in text or "protected v*" in text
+
+
+def test_required_checks_are_always_reported_on_pull_requests(root):
+    """A path-filtered pull request would wait forever on an unreportable check.
+
+    The path filter is a cost optimisation and belongs on `push`; the required
+    workflows must run unconditionally on every pull request.
+    """
+    ci = read(root, ".github", "workflows", "ci.yml")
+    pr_block = ci.split("pull_request:", 1)[1].split("workflow_dispatch", 1)[0]
+    assert "paths-ignore" not in pr_block, "ci.yml must not path-filter pull requests"
+    docs = read(root, ".github", "workflows", "docs.yml")
+    docs_pr = docs.split("pull_request:", 1)[1].split("workflow_dispatch", 1)[0]
+    assert "paths:" not in docs_pr, "docs.yml must not path-filter pull requests"
+    # and the push side keeps the filter (the cost optimisation)
+    assert "paths-ignore" in ci.split("pull_request:", 1)[0]
+    assert "paths:" in docs.split("pull_request:", 1)[0]
+
+
+def test_remote_reference_documents_the_unreported_check_trap(root):
+    text = flat(read(root, "references", "Remotes.md"))
+    assert "a required check must always be reported" in text.lower()
+    assert "deadlock" in text.lower()
