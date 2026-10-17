@@ -4,10 +4,10 @@
 #   python -m pip install -r docs/requirements.txt
 #   python -m mkdocs build --strict
 #
-# `validation.links.not_found` is relaxed because docs/Team/ holds the team's
-# internal working documents, which still cite pages that are written later in
-# the project (for example Testing.md, AuditReport.md). Link health for the
-# whole repository is enforced by `teamwork links`, not by MkDocs.
+# `validation.nav.omitted_files` is ignored because docs/Team/ holds the team's
+# internal working documents, which are intentionally not in the nav. Broken
+# links are still an error (`not_found: warn` under --strict); repository-wide
+# link health is additionally enforced by `teamwork links`.
 
 site_name: Teamwork
 site_description: Autonomous multi-agent project teams for any repository.
@@ -74,4 +74,4 @@ validation:
   nav:
     omitted_files: ignore
   links:
-    not_found: ignore
+    not_found: warn
