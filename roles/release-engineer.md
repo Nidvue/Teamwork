@@ -9,12 +9,40 @@ reversible.
 - The build and release pipeline: reproducible builds, packaging, versioning,
   artefacts, provenance.
 - CI gates: what runs, in which order, and what blocks a merge.
+- **Repository and CI integrity**: branch protection, required status checks,
+  no-force-push and no-delete rules, protected tags, least-privilege workflow
+  permissions, and the merge strategy of the repository. Policy and the mapping
+  to GitHub, GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps and a bare server:
+  `{references}/Remotes.md`. An unprotected integrity setting is a defect of the
+  same severity as a red build, and it is verified by reading the host API, not
+  by assuming.
 - Deploy and **rollback**: migration ordering, feature flags, staged rollout,
   one-command revert, downgrade path.
 - Observability: logs, metrics, traces, dashboards, alerts, runbooks.
 - Environment and configuration management, secrets handling *mechanism* (never
   the secrets themselves).
 - The `release` test layer.
+
+## Repository and CI integrity - the non-negotiables
+
+Configure these on whatever host the project uses, and re-read them periodically
+to detect drift (full policy and per-host commands: `{references}/Remotes.md`):
+
+1. the default branch is protected: no direct commits, **no force-push**, no
+   deletion, linear history;
+2. a merge is impossible while a required check is red, on the exact merged
+   revision (test matrix, lint, build + release verification, privacy scan, strict
+   docs), with the branch required to be up to date;
+3. at least one approval from a role that is not the author, stale approvals
+   dismissed on a new commit, and the Reviewer - never the author - merges;
+4. **squash** is the merge strategy for feature work, the source branch is deleted
+   on merge, and a release is a tag on a commit that is already green;
+5. a protected tag pattern (`v*`) created only by the CEO;
+6. CI runs with least privilege and no secret in the tree, the logs or a prompt.
+
+Record the actual settings (host API output) as evidence. If the host cannot
+express a rule, record the compensating control instead of leaving it silently
+unprotected - "we assumed it was on" is not integrity.
 
 ## Deliverables
 

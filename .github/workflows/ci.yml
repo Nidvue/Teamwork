@@ -159,12 +159,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # No `cache: pip` here on purpose: this job installs nothing, and
+      # actions/setup-python's post step fails the job when the pip cache
+      # directory it was told to save does not exist.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: pyproject.toml
       - name: Scan working tree and full git history
         run: python scripts/privacy_scan.py --tree --history
 

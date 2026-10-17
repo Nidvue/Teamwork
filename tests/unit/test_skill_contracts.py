@@ -273,3 +273,90 @@ def test_repository_svgs_depend_on_no_external_font_or_resource(root):
         if "<text" in body or "font-family" in body:
             assert "font-family" in body, svg
             assert re.search(r"(sans-serif|monospace)", body), svg
+
+
+# --------------------------------------------------------------------------- #
+# host-agnostic execution: any agent software
+# --------------------------------------------------------------------------- #
+
+AGENT_HOSTS = ("Pi", "Claude Code", "opencode", "Codex", "Cursor", "Generic")
+HOST_OPERATIONS = (
+    "Spawn a teammate",
+    "Delegate one-shot work",
+    "Message an agent",
+    "Inspect teammate state",
+    "Re-wake on a schedule",
+    "Close the team",
+)
+
+
+def test_agent_host_adapters_cover_every_operation_and_host(root):
+    text = read(root, "references", "Adapters.md")
+    for host in AGENT_HOSTS:
+        assert host in text, f"adapter reference is missing host: {host}"
+    for operation in HOST_OPERATIONS:
+        assert operation in text, f"adapter reference is missing operation: {operation}"
+    assert "## Degraded modes" in text
+
+
+def test_the_skill_states_that_it_is_host_agnostic(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "agent-agnostic and remote-agnostic" in text
+    assert "references/Adapters.md" in text
+    assert "### 5d. Any agent host, any git host" in text
+
+
+def test_no_normative_step_requires_a_pi_only_tool(root):
+    """The protocol must not depend on one host's tool names.
+
+    ``teams``/``subagent``/``schedule_prompt`` may appear only as an adapter
+    example, never as the definition of an operation.
+    """
+    text = read(root, "SKILL.md")
+    assert "Only six\n  operations need a host mechanism" in text or "six\n  operations" in text
+    adapters = read(root, "references", "Adapters.md")
+    for tool in ("teams(", "subagent(", "schedule_prompt("):
+        assert tool in adapters, tool  # documented as Pi's mechanism
+    assert "Never hard-code a host tool" in flat(adapters)
+
+
+# --------------------------------------------------------------------------- #
+# repository and CI integrity on any git host
+# --------------------------------------------------------------------------- #
+
+REMOTE_HOSTS = ("GitHub", "GitLab", "Bitbucket", "Gitea", "Azure DevOps")
+INTEGRITY_RULES = (
+    "no force-push",
+    "required status checks",
+    "required review",
+    "squash",
+    "protected tag",
+)
+
+
+def test_remote_integrity_reference_covers_hosts_and_rules(root):
+    text = read(root, "references", "Remotes.md")
+    for host in REMOTE_HOSTS:
+        assert host in text, f"remote reference is missing host: {host}"
+    for rule in INTEGRITY_RULES:
+        assert rule in text.lower(), f"remote reference is missing rule: {rule}"
+    assert "## Minimum viable protection" in text
+    assert "Drift check" in text
+
+
+def test_release_engineer_owns_repo_and_ci_integrity(root):
+    text = flat(read(root, "roles", "release-engineer.md"))
+    assert "Repository and CI integrity" in text
+    assert "no force-push" in text
+    assert "required check" in text.lower()
+    assert "squash" in text.lower()
+    assert "protected tag pattern" in text
+    # charters use the {references} placeholder, substituted at init
+    assert "Remotes.md" in text
+
+
+def test_skill_assigns_integrity_to_the_release_engineer(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "protects" in text.lower() or "protected default branch" in text
+    assert "squash-only merges" in text
+    assert "protected `v*`" in text or "protected v*" in text
