@@ -8,3 +8,9 @@ Foundation, either version 3 of the License, or (at your option) any later versi
 The full licence text is in LICENSE. 'Teamwork' as a command, package or workspace
 identifier (teamwork, teamwork-agents, .pi/Teamwork/, TEAMWORK_*) is the technical
 name of the software and is not a separate brand.
+
+Trademarks
+----------
+The Nidvue name and the Nidvue logo (docs/assets/nidvue-*) are trademarks of
+Nidvue. They are bundled here so the documentation and the site can display the
+brand of this project; they are not covered by the AGPL grant for the code.

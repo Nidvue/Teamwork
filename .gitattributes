@@ -68,3 +68,7 @@
 # real file (GitHub serves it as the OG image for link shares), so it is
 # deliberately opted out of Git LFS. Keep it under 1 MiB.
 assets/social-preview.png -filter -diff -merge -text
+
+# Brand assets are tiny and must be readable by mkdocs and GitHub without a
+# Git LFS client, so they are opted out of LFS.
+docs/assets/* -filter -diff -merge -text
