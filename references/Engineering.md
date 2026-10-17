@@ -260,6 +260,50 @@ This repository uses the Python row: `ruff check .`, `ruff format --check .` and
 `mypy src/teamwork` run in CI (see `pyproject.toml`), and `make lint` /
 `make format` wrap them.
 
+## Naming - PascalCase, camelCase, and the ecosystem's rule
+
+Team-created **directories** are PascalCase (`docs/Team/`, `Roles/Developer/`,
+`Agents/Tester-1/`, `Runtime/Locks/`). **File names** follow the ecosystem, and
+PascalCase or camelCase are perfectly acceptable wherever the ecosystem allows
+them - a name is wrong only when it fights its language or its neighbours.
+
+| Kind | Convention | Example |
+|---|---|---|
+| Team directory | PascalCase | `Agents/Developer-1/`, `docs/Team/` |
+| Docs page | PascalCase, kebab only for multi-word slugs | `Architecture.md`, `quick-start.md` |
+| Python module / package | `lower_snake_case` (it *is* the import name) | `resources.py`, `teamwork/` |
+| Python class / exception | `PascalCase` | `SkillRoot`, `VerificationError` |
+| JS / TS component | `PascalCase` file | `ButtonGroup.tsx` |
+| JS / TS module, helper | `camelCase` file | `buildIndex.ts` |
+| Function / variable | snake_case (Python), camelCase (JS/TS) | `read_text`, `readText` |
+| Constant | `UPPER_SNAKE_CASE` | `IDENTITY_DOMAIN` |
+| Test file | source name + the ecosystem's test affix | `test_imaging.py`, `Button.test.tsx` |
+| Tool-mandated file | the tool's name, never renamed | `pyproject.toml`, `Makefile`, `AGENTS.md` |
+
+Rules: be consistent inside a directory; never rename a file just to satisfy
+taste; never break an import name, a case-sensitive module path or a tool's
+mandated filename for a naming preference; and if two conventions collide, the
+ecosystem's rule wins over a local habit.
+
+## Commit hygiene - rebase and squash before review
+
+Commit while you work, then **clean up before the review**. A reviewer reads the
+final diff; the intermediate noise is your problem, not theirs.
+
+- `git rebase -i` onto the latest default branch, squash `wip` / `fixup!` /
+  "oops" commits, reorder into a logical sequence, and drop debug leftovers.
+- Each commit is one coherent, self-contained change-set that follows the commit
+  style. A commit whose only purpose is to repair the previous commit is noise.
+- **Target one commit per task.** Squash-merge into the default branch produces
+  exactly that, so the history reads as one idea per task.
+- Rebase onto the default branch before opening or updating the request, and
+  resolve conflicts locally - never in the merge UI.
+- **Never rebase or force-push a shared branch**, and never rewrite a commit that
+  is already on the default branch or a published tag: rewrite only your own
+  unpushed work. Anything else is a red line needing the CEO's authorization.
+- Rebasing is not a way to hide a review: the Reviewer sees the squashed diff and
+  the conversation that produced it.
+
 ## File discipline
 
 Keep only what the project needs. Update an existing document instead of creating

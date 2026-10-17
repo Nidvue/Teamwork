@@ -469,3 +469,76 @@ def test_scanner_allows_the_github_service_mailbox():
 
     assert ps._email_allowed("support@github.com")
     assert ps._email_allowed("noreply@github.com")
+
+
+# --------------------------------------------------------------------------- #
+# naming and commit hygiene
+# --------------------------------------------------------------------------- #
+
+
+def test_engineering_reference_defines_the_naming_policy(root):
+    text = flat(read(root, "references", "Engineering.md"))
+    assert "## Naming - PascalCase, camelCase, and the ecosystem's rule" in text
+    for row in (
+        "Team directory",
+        "Docs page",
+        "Python module / package",
+        "JS / TS component",
+        "Test file",
+        "Tool-mandated file",
+    ):
+        assert row in text, row
+    assert "PascalCase" in text and "camelCase" in text
+    assert "lower_snake_case" in text
+    assert "the ecosystem's rule wins" in text
+
+
+def test_engineering_reference_defines_commit_hygiene(root):
+    text = flat(read(root, "references", "Engineering.md"))
+    assert "## Commit hygiene - rebase and squash before review" in text
+    assert "git rebase -i" in text
+    assert "one commit per task" in text.lower()
+    assert "Never rebase or force-push a shared branch" in text
+
+
+def test_agents_template_documents_naming_and_commit_hygiene(root):
+    text = (root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
+    assert "**NAMING**" in text
+    assert "**COMMIT HYGIENE**" in text
+    assert "PascalCase" in text and "lower_snake_case" in text
+
+
+def test_every_charter_documents_naming_and_commit_hygiene(root):
+    for path in sorted((root / "roles").glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        assert "**Naming:**" in text, path.name
+        assert "**Commit hygiene:**" in text, path.name
+        assert "one commit per task" in text.lower(), path.name
+
+
+def test_skill_contract_requires_naming_and_history_hygiene(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "Names are deliberate" in text
+    assert "History is minimal and modular" in text
+    assert "Team directories are PascalCase" in text
+
+
+def test_repository_names_follow_the_policy_it_documents(root):
+    """The policy must describe this repository, not an aspiration."""
+    # PascalCase team docs and skill directories
+    assert (root / "docs" / "Team" / "Architecture.md").is_file()
+    assert (root / "references" / "Engineering.md").is_file()
+    # Python modules are import paths: lower_snake_case
+    for module in (root / "src" / "teamwork").glob("*.py"):
+        assert module.stem == module.stem.lower(), module
+    # tool-mandated names are untouched
+    for tool_file in ("pyproject.toml", "Makefile", "AGENTS.md", "SKILL.md", "LICENSE"):
+        assert (root / tool_file).is_file(), tool_file
+
+
+def test_remote_reference_is_honest_about_single_owner_repositories(root):
+    text = flat(read(root, "references", "Remotes.md"))
+    assert "## Single-owner repositories" in text
+    assert "cannot be satisfied by the author" in text
+    assert "enforce_admins = false" in text
+    assert "Do not set the approval count to zero" in text
