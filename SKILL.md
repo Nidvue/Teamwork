@@ -87,7 +87,7 @@ six host operations and the integrity settings are adapted
 | Release Engineer | `release-engineer` | `roles/release-engineer.md` - also owns repository and CI integrity: branch protection, required checks, merge strategy and protected tags, on any git host |
 | Technical Writer | `technical-writer` | `roles/technical-writer.md` |
 | Data Engineer (conditional) | `data-engineer` | `roles/data-engineer.md` |
-| Reviewer | `reviewer` or `reviewer-1..N` | `roles/reviewer.md` - deep independent second review of every deliverable; only role that may pass/merge |
+| Reviewer | `reviewer-1..N` (several may run **in parallel**) | `roles/reviewer.md` - deep independent second review of every deliverable from one shared queue; one claim per deliverable; only a Reviewer may pass/merge, and never the author |
 | Security Auditor | `security-auditor` | `roles/security-auditor.md` |
 
 Minimum viable roster: `ceo, architect, product-manager, project-manager,
@@ -277,6 +277,12 @@ reports STOP.
   evidences the run. `tests plan` shows the matrix, role coverage and gaps;
   `loop` blocks STOP while a required layer is missing/failing or a role has
   designed no tests at all.
+- **Review is a parallel lane.** `reviewer-1..N` claim *different* deliverables
+  from the shared review queue at the same time (`review --queue`); one claim per
+  deliverable, the merger is always a different Reviewer from the one who
+  approved, high-risk work gets two Reviewers on purpose, nobody reviews their own
+  contribution, and findings union - a deliverable passes only when no open
+  finding remains on the revision.
 - The CEO keeps the interface contract stable, arbitrates conflicts, resolves
   duplicate work, and updates global memory.
 - The Project Manager chases stalled tasks and duplicates and refreshes
