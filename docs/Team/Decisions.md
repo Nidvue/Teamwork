@@ -77,7 +77,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 
 - date: 2026-10-17
 - kind: governance
-- status: accepted
+- status: superseded
 - deciders: CEO (ceo)
 - decided by: ceo
 - task: -
@@ -125,7 +125,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 
 - date: 2026-10-17
 - kind: process
-- status: accepted
+- status: superseded
 - deciders: CEO (ceo)
 - decided by: ceo
 - task: -
@@ -215,4 +215,20 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - why: The earlier rule that only the CEO may push made the remote drift behind local main and let CI problems surface late. The user asked for staged pushes gated on review, and for the Tester to guarantee both local and CI results and notify the responsible agent on failure.
 - evidence: roles/release-engineer.md + roles/tester.md updated; templates/AGENTS.md regenerated into AGENTS.md; PYTHONPATH=src ./.venv/bin/python -m pytest tests/unit/test_skill_contracts.py -q -> 11 passed
 - falsified by: A push lands without a Reviewer verdict, or CI is red on the pushed SHA while the task is reported green.
+- consequences: -
+
+## D-20261017-CEO - Owner instruction: the role mailbox domain is agents.nidvue.com
+
+- date: 2026-10-17
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: ceo
+- task: -
+- context: -
+- options considered: -
+- decision: The team agent commit identity uses the owner's domain: e.g. 'Developer <developer@agents.nidvue.com>'. TEAMWORK_IDENTITY_DOMAIN remains the override, privacy_scan.py allows @agents.nidvue.com as a legitimate role mailbox, and the personal domains/emails, home paths and keys stay forbidden. This supersedes the earlier choice of a neutral teamwork.local placeholder.
+- why: The owner stated in the running session that the agent mailbox domain suffix must be agents.nidvue.com rather than local, and asked for the corresponding commits to be updated. That instruction is the authority; the earlier neutral-domain assumption was the CEO's, not the owner's.
+- evidence: owner message in session 2026-10-17 'team agent email domain suffix should be agents.nidvue.com not local, update the corresponding commits'; git log --format='%an <%ae>' -> ceo@agents.nidvue.com / teamwork@agents.nidvue.com; python3 scripts/privacy_scan.py --tree --history -> 0 findings
+- falsified by: The owner withdraws the domain, or a personal datum is found in a role mailbox.
 - consequences: -
