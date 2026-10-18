@@ -388,3 +388,117 @@ def test_ledger_tamper_is_detected_after_the_flow(cli, project: Path) -> None:
 
     assert cli("--project", project, "ledger", "verify") == 1
     assert any("digest mismatch" in p for p in engine.ledger_verify(root))
+
+
+def test_reviewed_branch_is_merged_and_deleted(cli, project: Path) -> None:
+    """The full branch -> PR -> verdict -> merge path, including the two Reviewers."""
+    agents = ("ceo", "developer-1", "reviewer-1", "reviewer-2")
+    assert cli("--project", project, "init", "--agents", ",".join(agents)) == 0
+    root = team_root(project)
+
+    assert cli("--project", project, "task", "add", "developer", "ship it", "--priority", "P0") == 0
+    assert cli("--project", project, "task", "next", "developer-1") == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "branch",
+            "start",
+            "--agent",
+            "developer-1",
+            "--task",
+            "T-0001",
+        )
+        == 0
+    )
+    (project / "feature.txt").write_text("done\n", encoding="utf-8")
+    assert (
+        cli(
+            "--project",
+            project,
+            "commit",
+            "--role",
+            "developer",
+            "--type",
+            "feat",
+            "--task",
+            "T-0001",
+            "--area",
+            "core",
+            "--goal",
+            "ship it",
+            "--deliverable",
+            "feature.txt",
+            "--why",
+            "the task asked for it",
+            "--status",
+            "implemented",
+            "--result",
+            "true @rev -> ok",
+            "--all",
+        )
+        == 0
+    )
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--status", "selfcheck")
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            "--note",
+            "re-read the diff",
+            "--test",
+            "true @rev -> ok",
+        )
+        == 0
+    )
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--status", "review") == 0
+    )
+    assert (
+        cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", "T-0001") == 0
+    )
+    prs = engine.parse_reviews(root / "Reviews.md")
+    assert len(prs) == 1 and prs[0]["status"] == "open"
+    pr_id = prs[0]["id"]
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "review",
+            "developer",
+            "T-0001",
+            "--by",
+            "reviewer-1",
+            "--result",
+            "pass",
+            "--evidence",
+            "pytest @rev -> ok",
+        )
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "pr",
+            "merge",
+            "--pr",
+            pr_id,
+            "--by",
+            "reviewer-2",
+        )
+        == 0
+    )
+    task = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]
+    assert task["status"] == "done"
+    assert task["merge_commit"]
+    assert engine.branch_exists(project, task["branch"]) is False

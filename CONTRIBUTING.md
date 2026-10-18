@@ -25,14 +25,15 @@ Requirements: Python 3.9 or newer. The runtime has no third-party dependencies.
 
 | Target | Command | Purpose |
 |---|---|---|
-| `make lint` | `ruff check .` | Style and imports. |
+| `make lint` | `ruff check .` + `ruff format --check .` | Style, imports and formatting. |
 | `make typecheck` | `mypy src/teamwork` | Type report. |
 | `make test` | `pytest -q` | Unit, integration and acceptance tests. |
 | `make build` | `python -m build` | Build sdist and wheel. |
 | `make verify` | `python scripts/verify_release.py` | Install and smoke-test the wheel. |
-| `make privacy` | `python scripts/privacy_scan.py --history` | Privacy gate. |
+| `make privacy` | `python scripts/privacy_scan.py --tree --history` | Privacy gate. |
 | `make docs` | `python -m mkdocs build --strict` | Docs site. |
 | `make links` | `python scripts/teamwork.py links` | Link health. |
+| `make identity` | `python scripts/teamwork.py identity --audit` | Team commit identity. |
 | `make ci` | all of the above | Full local pipeline. |
 
 The full pipeline is documented in [docs/guide/ci.md](docs/guide/ci.md).
@@ -83,7 +84,7 @@ revision.
 - Never commit credentials, tokens, keys or `.env` contents.
 - Never print or log secrets, and never read them to debug.
 - Do not publish a personal email address or a personal filesystem path.
-- Run `python scripts/privacy_scan.py --history` before opening a PR. Git history
+- Run `python scripts/privacy_scan.py --tree --history` before opening a PR. Git history
   is scanned too; a secret that was committed once is still exposed.
 
 If you find a secret in the tree or history, stop and report it privately — see

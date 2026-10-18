@@ -70,7 +70,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-SCANNER_VERSION = "1.1.3"
+SCANNER_VERSION = "1.2.0"
 
 # --------------------------------------------------------------------------- #
 # Neutral identity / allowlisted email domains
@@ -184,7 +184,12 @@ _RE_HOME = re.compile(
     r"|(?:(?<![A-Za-z0-9])/mnt/[A-Za-z]/(?:Users|home)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
 )
 
-_RE_PRIVATE_KEY = re.compile(r"-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----")
+# Built from fragments so the scanner's own source does not contain the
+# contiguous header it is meant to detect.
+_RE_PRIVATE_KEY = re.compile(
+    r"-{5}BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-{5}"
+    r"|-{5}BEGIN SSH2 ENCRYPTED PRIVATE KEY-{5}"
+)
 
 _RE_TOKEN = re.compile(
     r"\bsk-[A-Za-z0-9_\-]{16,}"
@@ -242,6 +247,14 @@ def _looks_like_secret_value(value: str) -> bool:
         return False
     if value.lower() in _CODE_KEYWORDS:
         return False
+    # Paths, URLs and pure digit strings are configuration, not credentials.
+    if value.startswith(("/", "\\", "http://", "https://")) or "://" in value:
+        return False
+    if value.isdigit():
+        return False
+    # A bare word such as ``candidate`` is an identifier, not a credential.
+    if value.isalpha() and len(value) < 24:
+        return False
     return not bool(_RE_CODE_LIKE.search(value))
 
 
@@ -249,9 +262,10 @@ def _looks_like_secret_value(value: str) -> bool:
 # The value is restricted to a credential charset so that a call expression is
 # not mistaken for an assignment.
 _RE_ENV_SECRET = re.compile(
-    r"(?i)(?:[A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|PWD|API[_-]?KEY|"
+    r"(?i)(?:[A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|"
     r"ACCESS[_-]?KEY|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|"
-    r"CREDENTIAL)[A-Za-z0-9_]*)\s*[:=]\s*[\"']?([A-Za-z0-9+/=_\-.:@!#$%^&]{8,})"
+    r"CREDENTIAL)[A-Za-z0-9_]*)\s*[:=]\s*"
+    r"(?:[\"']([^\"'\n]{8,})[\"']|([A-Za-z0-9+/=_\-.:@!#$%^&]{8,}))"
 )
 
 # Standalone high-entropy secret: 32+ base64-ish characters, not pure hex (a raw
@@ -265,9 +279,20 @@ _RE_TODO = re.compile(r"(?i)\b(?:TODO|FIXME|XXX|HACK)\b")
 _RE_FORGE_MERGE = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 
 
+_RE_FORGE_MERGE_SUBJECTS = (
+    re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$"),
+    re.compile(r"^Merge pull request #\d+ from \S+$"),
+    re.compile(r"^Merge branch '[^']+' into '[^']+'$"),
+    re.compile(r"^Merge remote-tracking branch '[^']+'$"),
+)
+
+
 def is_forge_merge(subject: str, parents: list) -> bool:
     """True for the synthetic merge ref a forge creates for a pull request."""
-    return len(parents) >= 2 and bool(_RE_FORGE_MERGE.match(subject.strip()))
+    if len(parents) < 2:
+        return False
+    text = subject.strip()
+    return any(pattern.match(text) for pattern in _RE_FORGE_MERGE_SUBJECTS)
 
 
 def _host_state(*parts: str) -> str:
@@ -286,7 +311,7 @@ _RE_AGENT_CONFIG = re.compile(
     _host_state(r"\.pi[\\/]", r"agent[\\/]")
     + r"(?:"
     + _AGENT_CONFIG_NAMES
-    + ")"
+    + r")(?=[\\/]|$)"
     + "|"
     + _host_state(r"\.claude[\\/]", "settings", r"\.local\.json")
     + "|"
@@ -301,7 +326,7 @@ _RE_AGENT_CONFIG = re.compile(
 _RE_JSON_SECRET = re.compile(
     r"(?i)[\"'][A-Za-z0-9_.\-]*(?:api[_-]?key|apikey|access[_-]?token|"
     r"refresh[_-]?token|id[_-]?token|client[_-]?secret|private[_-]?key|secret|"
-    r"password|passwd|token)[\"']\s*:\s*[\"']([^\"'\s]{8,})[\"']"
+    r"password|passwd|token)[\"']\s*:\s*[\"']([^\"'\n]{8,})[\"']"
 )
 
 # A tracked path that must never be published: host config, credentials, keys,
@@ -416,10 +441,13 @@ def _looks_like_secret(value: str, line: str = "", index: int = 0) -> bool:
         return False
     if re.fullmatch(r"[0-9a-fA-F]+", value):  # pure hex -> treat as a hash
         return False
-    # A long run after a URL scheme is a URL path, not a credential.
+    # A long run inside a URL path is not a credential. A separate token later
+    # on the same line (after whitespace) is still checked.
     scheme = line.find("://")
     if scheme != -1 and index > scheme:
-        return False
+        between = line[scheme + 3 : index]
+        if not re.search(r"[\s\"']", between):
+            return False
     has_digit = any(c.isdigit() for c in value)
     has_upper = any(c.isupper() for c in value)
     has_lower = any(c.islower() for c in value)
@@ -467,7 +495,9 @@ def _clip(line: str, value: str, width: int = 160) -> str:
 
 def make_finding(rule_id, severity, path, line_no, value, line, source, commit=None):
     masked = _mask(value)
-    context = _clip(line.replace(value, masked), masked)
+    # Never ship the surrounding line: a second credential in the same window
+    # would be republished in plaintext (the scanner is published too).
+    context = ""
     return {
         "rule": rule_id,
         "severity": severity,
@@ -522,20 +552,25 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                     if user.lower() in _GENERIC_HOME_USERS:
                         continue
                 if rule["id"] == "env-secret":
-                    secret = match.group(1)
+                    quoted = match.group(1) is not None
+                    secret = match.group(1) or match.group(2)
                     if _PLACEHOLDERS.match(secret):
                         continue
-                    if not _looks_like_secret_value(secret):
+                    if quoted:
+                        # A quoted passphrase may legitimately contain spaces.
+                        if not re.search(r"\s", secret) and not _looks_like_secret_value(secret):
+                            continue
+                    elif not _looks_like_secret_value(secret):
                         continue
                     value = secret
-                    match_start = match.start(1)
-                    if match_start > 0 and line[:match_start].rstrip().endswith(("#", "//")):
-                        # comment-only assignment, still suspicious -> keep
-                        pass
-                if rule["id"] == "high-entropy-secret" and not _looks_like_secret(
-                    value, line, match.start()
-                ):
-                    continue
+                if rule["id"] == "high-entropy-secret":
+                    prefix = line[: match.start()].lower()
+                    if "data:" in prefix and "base64" in prefix:
+                        continue
+                    if re.search(r"(?:sha(?:256|384|512)-|integrity=)[\"']?$", prefix):
+                        continue
+                    if not _looks_like_secret(value, line, match.start()):
+                        continue
                 if any(pattern.search(value) for pattern in allow):
                     continue
                 yield make_finding(
@@ -556,12 +591,12 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                     credential = match.group(0)
             if credential is None:
                 match = _RE_ENV_SECRET.search(line)
-                if (
-                    match
-                    and not _PLACEHOLDERS.match(match.group(1))
-                    and _looks_like_secret_value(match.group(1))
-                ):
-                    credential = match.group(1)
+                if match:
+                    candidate = match.group(1) or match.group(2)
+                    if not _PLACEHOLDERS.match(candidate) and (
+                        match.group(1) is not None or _looks_like_secret_value(candidate)
+                    ):
+                        credential = candidate
             if credential and not any(p.search(credential) for p in allow):
                 yield make_finding(
                     "todo-credential", "medium", path, line_no, credential, line, source, commit
@@ -573,7 +608,12 @@ def scan_lines(text, path, source, rules, allow, commit=None):
     # a deny list, and a pasted JSON credential is a leak in any file.
     for match in _RE_JSON_SECRET.finditer(text):
         value = match.group(1)
-        if _PLACEHOLDERS.match(value) or not _looks_like_secret_value(value):
+        if _PLACEHOLDERS.match(value):
+            continue
+        if not _looks_like_secret_value(value) and not (
+            " " in value
+            and any(ch.isdigit() or (not ch.isalnum() and not ch.isspace()) for ch in value)
+        ):
             continue
         line_no = text.count("\n", 0, match.start()) + 1
         line = text.splitlines()[line_no - 1]
@@ -633,7 +673,10 @@ def scan_commit_metadata(root, allow, stats=None):
 
 
 def _run(args, input_bytes=None):
-    return subprocess.run(args, input=input_bytes, capture_output=True)
+    try:
+        return subprocess.run(args, input=input_bytes, capture_output=True, timeout=300)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"command timed out: {' '.join(args)}") from exc
 
 
 def _cat_file_batch(root, shas):
@@ -657,11 +700,22 @@ def _cat_file_batch(root, shas):
             break
         header = out[pos:newline].decode("utf-8", "replace").split()
         pos = newline + 1
-        if len(header) < 3 or header[1] != "blob":
+        if len(header) == 2 and header[1] in ("missing", "ambiguous"):
             continue
-        sha, size = header[0], int(header[2])
-        result[sha] = out[pos : pos + size]
-        pos += size + 1  # skip the trailing LF git writes after the payload
+        if len(header) != 3 or header[1] not in ("blob", "tree", "commit", "tag"):
+            raise RuntimeError(f"unexpected git cat-file batch header: {header!r}")
+        sha, kind, raw_size = header
+        try:
+            size = int(raw_size)
+        except ValueError as exc:
+            raise RuntimeError(f"invalid git object size in {header!r}") from exc
+        payload = out[pos : pos + size]
+        # Skip the payload of every object type. Previously a tree payload was
+        # re-read as headers, which desynchronised the stream and could hide a
+        # real blob (or crash on a crafted tree entry name).
+        pos += size + 1  # git writes a trailing LF after each payload
+        if kind == "blob":
+            result[sha] = payload
     return result
 
 
@@ -673,9 +727,17 @@ def _tracked_paths(root):
 
 
 def _scan_bytes(data, path, source, allow, commit=None):
-    if b"\x00" in data[:8192]:  # binary
-        return []
-    text = data.decode("utf-8", "replace")
+    head = data[:8192]
+    if head.startswith((b"\xff\xfe", b"\xfe\xff")):
+        text = data.decode("utf-16", "replace")
+    elif b"\x00" in head:
+        # UTF-16 without a BOM still has a high NUL ratio; a short NUL in an
+        # otherwise textual file is not enough to call it binary.
+        if head.count(b"\x00") / max(len(head), 1) > 0.01:
+            return []
+        text = data.decode("utf-8", "replace")
+    else:
+        text = data.decode("utf-8", "replace")
     return list(scan_lines(text, path, source, RULES, allow, commit=commit))
 
 
@@ -712,7 +774,21 @@ def scan_tree(root, allow, stats=None):
         full = root / rel
         try:
             data = full.read_bytes()
-        except OSError:
+        except OSError as exc:
+            findings.append(
+                {
+                    "rule": "unreadable-tracked-file",
+                    "severity": "medium",
+                    "path": rel,
+                    "line": 0,
+                    "source": "tree",
+                    "commit": None,
+                    "location": rel,
+                    "evidence": rel,
+                    "match": rel,
+                    "context": f"tracked file could not be read: {exc}",
+                }
+            )
             continue
         findings.extend(_scan_bytes(data, rel, "tree", allow))
     return findings
@@ -754,10 +830,12 @@ def scan_staged(root, allow, stats=None):
 
 
 def scan_history(root, allow, stats=None):
-    proc = _run(["git", "-C", str(root), "rev-list", "--objects", "--all"])
+    # --reflog also reaches objects a reset or a deleted branch left behind, which
+    # a plain --all scan reports as PASS even though `git fsck` still finds them.
+    proc = _run(["git", "-C", str(root), "rev-list", "--objects", "--all", "--reflog"])
     if proc.returncode != 0:
         raise RuntimeError("git rev-list failed: " + proc.stderr.decode("utf-8", "replace").strip())
-    sha_to_path = {}
+    sha_to_paths = {}
     order = []
     for line in proc.stdout.decode("utf-8", "replace").splitlines():
         parts = line.split(" ", 1)
@@ -765,9 +843,10 @@ def scan_history(root, allow, stats=None):
         path = parts[1] if len(parts) > 1 else ""
         if not path:
             continue
-        if sha not in sha_to_path:
-            sha_to_path[sha] = path
+        if sha not in sha_to_paths:
+            sha_to_paths[sha] = set()
             order.append(sha)
+        sha_to_paths[sha].add(path)
     blobs = _cat_file_batch(root, order)
     findings = []
     for sha in order:
@@ -776,11 +855,11 @@ def scan_history(root, allow, stats=None):
             continue
         if stats is not None:
             stats["history_blobs"] += 1
-        rel = sha_to_path[sha]
-        path_finding = config_path_finding(rel, "history:blob", allow, commit=sha)
-        if path_finding is not None:
-            findings.append(path_finding)
-        findings.extend(_scan_bytes(data, rel, "history:blob", allow, commit=sha))
+        for rel in sorted(sha_to_paths[sha]):
+            path_finding = config_path_finding(rel, "history:blob", allow, commit=sha)
+            if path_finding is not None:
+                findings.append(path_finding)
+            findings.extend(_scan_bytes(data, rel, "history:blob", allow, commit=sha))
     findings.extend(scan_commit_metadata(root, allow, stats=stats))
     return findings
 
@@ -873,7 +952,11 @@ def main(argv=None):
         print("privacy_scan: not inside a git repository", file=sys.stderr)
         return 2
 
-    allow = load_allow(args.allow)
+    try:
+        allow = load_allow(args.allow)
+    except OSError as exc:
+        print(f"privacy_scan: cannot read allowlist: {exc}", file=sys.stderr)
+        return 2
     modes = [
         name
         for name, flag in (("tree", args.tree), ("staged", args.staged), ("history", args.history))
@@ -889,7 +972,7 @@ def main(argv=None):
             findings.extend(scan_staged(root, allow, stats))
         if args.history:
             findings.extend(scan_history(root, allow, stats))
-    except RuntimeError as exc:
+    except (RuntimeError, OSError, ValueError) as exc:
         print(f"privacy_scan: {exc}", file=sys.stderr)
         return 2
 
@@ -904,7 +987,8 @@ def main(argv=None):
         # not republish the operator's home path into public CI logs.
         "root": root.name,
         "modes": modes,
-        "allow_file": str(args.allow) if args.allow else None,
+        # Never publish an absolute (possibly home) path in the report.
+        "allow_file": Path(args.allow).name if args.allow else None,
         "identity_domain": IDENTITY_DOMAIN,
         "scanned": stats,
         "finding_count": len(findings),
@@ -933,9 +1017,14 @@ def main(argv=None):
 
 def _git_root(explicit):
     start = Path(explicit) if explicit else Path.cwd()
-    proc = subprocess.run(
-        ["git", "-C", str(start), "rev-parse", "--show-toplevel"], capture_output=True
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(start), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     if proc.returncode != 0:
         return None
     return Path(proc.stdout.decode("utf-8", "replace").strip())

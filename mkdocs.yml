@@ -19,6 +19,11 @@ copyright: Copyright &copy; Nidvue
 
 docs_dir: docs
 site_dir: site
+# The team's working documents are internal: keep them out of the public site
+# rather than merely out of the nav (MkDocs builds every file under docs_dir).
+exclude_docs: |
+  Team/
+  requirements.txt
 
 theme:
   name: material
