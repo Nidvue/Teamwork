@@ -43,6 +43,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from fnmatch import fnmatch
 from pathlib import Path
 
 try:  # normal package import
@@ -3768,16 +3769,44 @@ def cmd_agents(args) -> int:
 
 
 def ensure_gitignore(project: Path) -> list:
-    """Add the teamwork entries that are missing. Never removes lines."""
+    """Add the teamwork entries that are missing. Never removes lines.
+
+    An entry counts as present when an existing pattern already covers it, so a
+    repository whose `.gitignore` has `.env.*` does not gain a redundant
+    `.env.local`. A section header is only appended together with an entry it
+    introduces, never on its own.
+    """
     path = project / ".gitignore"
     existing = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
-    have = {line.strip() for line in existing}
-    added = [line for line in GITIGNORE_LINES if line.strip() not in have]
+    patterns = [
+        line.strip() for line in existing if line.strip() and not line.strip().startswith("#")
+    ]
+
+    def covered(entry: str) -> bool:
+        target = entry.rstrip("/")
+        return any(
+            pattern in (entry, target) or fnmatch(entry, pattern) or fnmatch(target, pattern)
+            for pattern in patterns
+        )
+
+    sections: list[tuple[list, list]] = []
+    for line in GITIGNORE_LINES:
+        if line.strip().startswith("#"):
+            sections.append(([line], []))
+        else:
+            if not sections:
+                sections.append(([], []))
+            sections[-1][1].append(line)
+
+    added = []
+    for headers, entries in sections:
+        missing = [line for line in entries if not covered(line.strip())]
+        if missing:
+            added.extend(headers)
+            added.extend(missing)
     if added:
-        text = "\n".join(existing).rstrip() + "\n"
-        if text.strip():
-            text += "\n"
-        text += "\n".join(added) + "\n"
+        base = "\n".join(existing).rstrip()
+        text = (base + "\n\n" if base else "") + "\n".join(added) + "\n"
         write_lf(path, text)
     return added
 
