@@ -3,7 +3,7 @@
 Owner: Release Engineer. The canonical answer to "how does this get built, shipped,
 verified and reverted". Keep it executable: every command here must run as written.
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Archive](Archive.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Archive](Archive.md)
 
 ## Build
 
@@ -33,22 +33,29 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 ### Trigger policy - code in, prose and media out
 
-A documentation or image-only change must not run the code matrix, and must not
-be blocked by it. `ci.yml` therefore declares `paths-ignore` for the prose/media
-set (`docs/**`, `*.md`, `LICENSE`, `CITATION.cff`, `assets/**`, `mkdocs.yml`,
-`AGENTS.md`); every shipping path (`src/`, `scripts/`, `tests/`, `roles/`,
-`references/`, `templates/`, packaging, `.github/workflows/`) still runs the full
-matrix. `docs.yml` triggers on the ignored paths and runs the checks that still
-matter for prose: `teamwork links`, `privacy_scan.py --tree --history` and
-`mkdocs build --strict`.
+On a **push to `main`**, a documentation or image-only change must not run the
+code matrix. `ci.yml` therefore declares `paths-ignore` for the prose/media set: `docs/**`,
+the root prose files (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
+`SECURITY.md`, `CODE_OF_CONDUCT.md`, `AGENTS.md`), `LICENSE`, `CITATION.cff`,
+`assets/**` and `mkdocs.yml`. Every shipping path (`src/`, `scripts/`, `tests/`,
+`roles/`, `references/`, `templates/`, packaging, `.github/workflows/`,
+`SKILL.md`) still runs the full matrix. `docs.yml` triggers on the same ignored
+paths and runs the checks that still matter for prose: `teamwork links`,
+`privacy_scan.py --tree --history` and `mkdocs build --strict`.
 
-| change touches | workflow | what runs |
+On a **pull request both workflows always run**, regardless of paths: branch
+protection requires 14 checks to be *reported* on the head, and a path-filtered
+skip reports nothing, so a docs-only PR would wait forever. The path filter is a
+push-time cost optimisation, not a merge gate. Evidence: PR #16 (docs only) ran
+CI and Docs; the Docs-only push `39175948257` ran only Docs.
+
+| change touches | on push to `main` | on a PR |
 |---|---|---|
-| `src/**`, `scripts/**`, `tests/**`, packaging | CI | full matrix |
-| `.github/workflows/**` | CI | full matrix |
-| `roles/**`, `references/**`, `templates/**`, `SKILL.md` (shipped in the wheel) | CI | full matrix |
-| `docs/**`, `*.md`, `LICENSE`, `CITATION.cff` | Docs | links + privacy + strict build |
-| `assets/**` (images, banners, the social preview) | Docs | links + privacy + strict build |
+| `src/**`, `scripts/**`, `tests/**`, packaging | CI full matrix | CI + Docs |
+| `.github/workflows/**` | CI full matrix | CI + Docs |
+| `roles/**`, `references/**`, `templates/**`, `SKILL.md` (shipped in the wheel) | CI full matrix | CI + Docs |
+| `docs/**`, root prose files, `LICENSE`, `CITATION.cff` | Docs only (links + privacy + strict build) | CI + Docs |
+| `assets/**` (images, banners, the social preview) | Docs only (links + privacy + strict build) | CI + Docs |
 
 `workflow_dispatch` stays enabled on both, so the full matrix can be forced on a
 prose-only change when it is genuinely warranted.
@@ -72,9 +79,10 @@ prose-only change when it is genuinely warranted.
 
 - Environments: none. The artefact is a Python package; the "deployment" is a
   GitHub Release plus, optionally, a PyPI upload by the owner.
-- Order of operations: `main` green -> CEO rewrites history for privacy -> CEO
-  pushes `main` -> CI green -> CEO tags `v1.0.0` -> release workflow builds,
-  signs, attests and publishes the release assets. The tag build runs the test suite and `scripts/verify_release.py` before publishing.
+- Order of operations: `main` green -> push `main` -> CI green on that SHA ->
+  CEO tags `v<version>` -> release workflow builds, signs, attests and publishes
+  the release assets. History rewrites are not part of the flow; the pre-release
+  privacy rewrite already happened before the first public tag.
 - Configuration and secrets *mechanism* (never values): PyPI publishing uses
   Trusted Publishing (OIDC) and is deliberately not enabled; no secret is stored
   in the repository. Only the owner's local `gh` credential is used to push.
@@ -89,10 +97,10 @@ prose-only change when it is genuinely warranted.
 - What is *not* reversible: a force-push to `main` rewrites history for anyone who
   already cloned. The privacy rewrite is therefore done **before** the first
   public announcement and before any external clone exists.
-- Last drill: `python3 scripts/verify_release.py` @ `710e68d` -> `OK - release
-  verified` (build sdist+wheel, 38/38 bundle files in the wheel, clean-venv
-  install, `--version`, `selftest`, `init` and the full gate loop to `STOP`),
-  duration ~40 s; the CI `build` job runs the same command on every push.
+- Last drill: `python3 scripts/verify_release.py` @ `6905869` -> `OK - release
+  verified` (build sdist+wheel, bundle files in the wheel, clean-venv install,
+  `--version`, `selftest`, `init` and the full gate loop to `STOP`), duration
+  ~6 s; the CI `build` job runs the same command on every push.
 
 ## Observability
 

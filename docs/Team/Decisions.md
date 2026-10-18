@@ -328,3 +328,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: `git show -s --format=%ae 5b47529` -> personal mailbox (redacted); after amend -> `0cc655d` author `ceo@agents.nidvue.com`; `privacy_scan --tree --history` -> PASS; Docs run `39175948257` -> success.
 - falsified by: a future `main` commit whose author is not a role mailbox, or a privacy-scan failure on a pushed revision.
 - consequences: the person merging needs a local clone and the role identity; GitHub's squash button is reserved for a dedicated role-identity bot account.
+
+## D-20261019-CEO-2 - Governance documentation is tracked in the audit area
+
+- date: 2026-10-19
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0015
+- context: -
+- options considered: -
+- decision: T-0015 is recorded under the existing audit area instead of a new governance area
+- why: audit already owns the gate, ledger and path records these docs describe and has passing unit/integration/acceptance records; a prose-only area would demand three test layers that cannot test prose
+- evidence: tests plan @9680bad -> audit unit/int/acc passing; governance missing; task list -> T-0015 area=governance came from commit --area, not from the product domain
+- falsified by: -
+- consequences: -
