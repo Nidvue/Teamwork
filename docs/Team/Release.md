@@ -57,7 +57,12 @@ prose-only change when it is genuinely warranted.
 
 - Existing reviewed merge commits stay on `main`; they are not rewritten.
 - Every future change: branch -> push the branch -> open a GitHub PR -> all
-  required checks green on the PR head -> **squash merge** -> delete the branch.
+  required checks green on the PR head -> **squash merge locally with the role
+  identity** -> push `main` -> delete the branch.
+- Do **not** use GitHub's UI/API squash button: it authors the commit with the
+  signed-in account (personal email), which fails the privacy gate. Use
+  `git merge --squash <branch>` and commit as the acting role, or a dedicated
+  role-identity bot.
 - `main` keeps: 1 required approval, 14 required checks, strict up-to-date,
   no force-push, no deletion. `required_linear_history` is disabled so the
   existing merge commits do not force an admin bypass on every push.
