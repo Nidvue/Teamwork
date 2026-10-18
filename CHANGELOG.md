@@ -70,6 +70,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resume, ledger proof, model routing.
 - Tests assert the skill-first surfaces, the demo's line order and the new
   namespace, so the framing and the URLs cannot silently regress.
+- **Commit identity audit**: `teamwork identity --audit --range <base>..HEAD`
+  fails when a commit was not authored and committed by the acting role, and CI
+  runs it on every pull request and push. The engineering policy now states that
+  the role that does the work commits it, that the CEO commits only CEO-owned
+  documents and the bootstrap, and that the product identity is never valid.
 
 ## [1.0.2](https://github.com/Nidvue/Teamwork/releases/tag/v1.0.2) - 2026-10-17
 
