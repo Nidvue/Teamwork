@@ -318,3 +318,77 @@ def test_forge_merge_predicate_is_narrow():
     assert not ps.is_forge_merge("Merge branch 'feature'", ["a", "b"])
     # A single-parent commit with that message is not a forge merge either.
     assert not ps.is_forge_merge(merge, ["a" * 40])
+
+
+def test_gitignore_still_scans_json_credentials():
+    payload = "A1b2C3d4" + "E5f6G7h8"
+    line = '{"apiKey": "' + payload + '"}\n'
+    assert "json-secret" in rules_hit(line)
+    assert list(ps.scan_lines(line, ".gitignore", "unit-test", ps.RULES, allow=[]))
+    # The deny-list exemption stays narrow: a plain host path entry is still quiet.
+    deny = ".claude/" + "settings.local.json\n"
+    assert list(ps.scan_lines(deny, ".gitignore", "unit-test", ps.RULES, allow=[])) == []
+
+
+def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path):
+    import os
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    env = {
+        **os.environ,
+        "HOME": str(tmp_path),
+        "GIT_AUTHOR_NAME": "Technical Writer",
+        "GIT_AUTHOR_EMAIL": "technicalwriter@agents.nidvue.com",
+        "GIT_COMMITTER_NAME": "Technical Writer",
+        "GIT_COMMITTER_EMAIL": "technicalwriter@agents.nidvue.com",
+    }
+
+    def run(*args, extra_env=None):
+        return subprocess.run(
+            args,
+            cwd=repo,
+            env={**env, **(extra_env or {})},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    run("git", "init", "-q", "-b", "main", ".")
+    (repo / "a.txt").write_text("x", encoding="utf-8")
+    run("git", "add", ".")
+    run("git", "commit", "-qm", "base")
+    base = run("git", "rev-parse", "main").stdout.strip()
+
+    run("git", "switch", "-qc", "feature")
+    (repo / "b.txt").write_text("y", encoding="utf-8")
+    run("git", "add", ".")
+    run("git", "commit", "-qm", "feature")
+    feature = run("git", "rev-parse", "feature").stdout.strip()
+
+    token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
+    message = f"Merge {feature} into {base}\n\nleaked {token}"
+    run(
+        "git",
+        "switch",
+        "-q",
+        "main",
+    )
+    run(
+        "git",
+        "-c",
+        "user.name=Private Person",
+        "-c",
+        "user.email=someone@" + "private-mail.example",
+        "merge",
+        "--no-ff",
+        "-m",
+        message,
+        "feature",
+    )
+
+    findings = ps.scan_commit_metadata(repo, allow=[])
+    rules = {f["rule"] for f in findings}
+    assert "personal-email" not in rules, "the forge merge identity must be skipped"
+    assert "api-token" in rules, "the merge message must still be scanned"

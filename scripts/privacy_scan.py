@@ -70,7 +70,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-SCANNER_VERSION = "1.1.1"
+SCANNER_VERSION = "1.1.3"
 
 # --------------------------------------------------------------------------- #
 # Neutral identity / allowlisted email domains
@@ -166,6 +166,7 @@ _PLACEHOLDERS = re.compile(
     r"^(?:\$\{?[A-Za-z0-9_]+\}?|%[A-Za-z0-9_]+%|<[^>]+>|your[-_].*|"
     r".*[-_]here|xxx+|\.\.\.|redacted|placeholder|dummy|fake|changeme|change_me|"
     r"example|sample|test|none|null|nil|todo|secret|token|password|value|"
+    r"replace_me|"
     r"string|str|varname)$",
     re.IGNORECASE,
 )
@@ -567,19 +568,18 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                 )
 
     # A JSON config may put the key and the value on different lines; matching the
-    # whole text keeps a pretty-printed `"apiKey":` from slipping through.
-    if not ignore_file:
-        for match in _RE_JSON_SECRET.finditer(text):
-            value = match.group(1)
-            if _PLACEHOLDERS.match(value) or not _looks_like_secret_value(value):
-                continue
-            line_no = text.count("\n", 0, match.start()) + 1
-            line = text.splitlines()[line_no - 1]
-            if any(pattern.search(value) for pattern in allow):
-                continue
-            yield make_finding(
-                "json-secret", "critical", path, line_no, value, line, source, commit
-            )
+    # whole text keeps a pretty-printed `"apiKey":` from slipping through. This is
+    # deliberately not skipped for `.gitignore`: only the agent-config line rule is
+    # a deny list, and a pasted JSON credential is a leak in any file.
+    for match in _RE_JSON_SECRET.finditer(text):
+        value = match.group(1)
+        if _PLACEHOLDERS.match(value) or not _looks_like_secret_value(value):
+            continue
+        line_no = text.count("\n", 0, match.start()) + 1
+        line = text.splitlines()[line_no - 1]
+        if any(pattern.search(value) for pattern in allow):
+            continue
+        yield make_finding("json-secret", "critical", path, line_no, value, line, source, commit)
 
 
 def scan_commit_metadata(root, allow, stats=None):
