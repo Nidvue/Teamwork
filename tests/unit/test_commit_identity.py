@@ -94,6 +94,33 @@ def test_bot_dependency_update_is_allowed(repo):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
 
 
+def test_option_shaped_range_is_rejected(repo):
+    assert engine.audit_commit_identities(repo, "--all") == 2
+
+
+def test_bot_name_with_a_non_noreply_address_fails(repo):
+    _commit(repo, "dependabot[bot]", "dependabot@example.com", "chore: bump")
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+
+
+def test_forge_merge_commit_is_skipped(repo):
+    base = _git(repo, "rev-parse", "main").stdout.strip()
+    _git(repo, "switch", "-q", "-c", "feature")
+    _commit(repo, "Developer", "developer@agents.nidvue.com", "feat(x): branch")
+    feature = _git(repo, "rev-parse", "feature").stdout.strip()
+    _git(repo, "switch", "-q", "main")
+    _git(
+        repo,
+        "merge",
+        "--no-ff",
+        "-m",
+        f"Merge {feature} into {base}",
+        "feature",
+        ident=("Private Person", "someone@" + "private-mail.example"),
+    )
+    assert engine.audit_commit_identities(repo, "HEAD") == 0
+
+
 def test_committer_must_match_the_author(repo):
     env = {
         **os.environ,

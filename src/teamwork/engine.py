@@ -2933,6 +2933,9 @@ def audit_commit_identities(project: Path, rev_range: str) -> int:
     carries the forge account identity, so it is skipped; its own history is
     audited by the caller's range. Bot dependency updates are allowed.
     """
+    if rev_range.startswith("-"):
+        print(f"teamwork: invalid revision range {rev_range!r}")
+        return 2
     proc = run_git(
         project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", rev_range
     )
