@@ -14,7 +14,7 @@ Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architectu
 | M2 Make it attractive | README demo, strict docs site, 0 broken links | done |
 | M3 Independent verification | every deliverable has a Reviewer verdict | done |
 | M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - now at `v1.0.2` |
-| M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | in flight - T-0011..T-0015 |
+| M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | in flight - T-0011..T-0016 |
 
 ## M5 - post-1.0 hardening (current)
 
@@ -27,8 +27,9 @@ run, and the governance records match the merged revision.
 | T-0011 | Split `engine.py` into typed modules | ceo | P1 | - | `src/teamwork/*.py` | done | commit `c8fb469` |
 | T-0012 | Skip the POSIX umask test on Windows | ceo | P1 | T-0011 | `tests/unit/test_integrity_fixes.py` | done | commit `f2e3b5a`; CI `39173857076` windows jobs green |
 | T-0013 | Fix import order in the Windows skip test | ceo | P1 | T-0012 | `tests/unit/test_integrity_fixes.py` | done | commit `b7fe03b` |
-| T-0014 | Rebase and merge the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/` | in flight | PRs #11, #12, #13; stale branches failed the retired umask test |
-| T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | in flight | - |
+| T-0014 | Rebase and merge the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/release.yml` | doing | PRs #11, #12, #13 rebased onto `6905869`; 17/17 checks green on each head |
+| T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | doing (round 2) | reviewer failed round 1 on stale audit/PR/scope claims; figures corrected |
+| T-0016 | `ensure_gitignore` orphan headers and glob-covered entries | ceo | P1 | - | `src/teamwork/engine.py`, `tests/unit/` | todo | appended a dangling section header plus two redundant `.env` lines to this repo's `.gitignore` during a review run |
 
 ## Closed milestones (evidence on file)
 

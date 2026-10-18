@@ -33,22 +33,28 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 
 ### Trigger policy - code in, prose and media out
 
-A documentation or image-only change must not run the code matrix, and must not
-be blocked by it. `ci.yml` therefore declares `paths-ignore` for the prose/media
-set (`docs/**`, `*.md`, `LICENSE`, `CITATION.cff`, `assets/**`, `mkdocs.yml`,
+On a **push to `main`**, a documentation or image-only change must not run the
+code matrix. `ci.yml` therefore declares `paths-ignore` for the prose/media set
+(`docs/**`, `*.md`, `LICENSE`, `CITATION.cff`, `assets/**`, `mkdocs.yml`,
 `AGENTS.md`); every shipping path (`src/`, `scripts/`, `tests/`, `roles/`,
 `references/`, `templates/`, packaging, `.github/workflows/`) still runs the full
 matrix. `docs.yml` triggers on the ignored paths and runs the checks that still
 matter for prose: `teamwork links`, `privacy_scan.py --tree --history` and
 `mkdocs build --strict`.
 
-| change touches | workflow | what runs |
+On a **pull request both workflows always run**, regardless of paths: branch
+protection requires 14 checks to be *reported* on the head, and a path-filtered
+skip reports nothing, so a docs-only PR would wait forever. The path filter is a
+push-time cost optimisation, not a merge gate. Evidence: PR #16 (docs only) ran
+CI and Docs; the Docs-only push `39175948257` ran only Docs.
+
+| change touches | on push to `main` | on a PR |
 |---|---|---|
-| `src/**`, `scripts/**`, `tests/**`, packaging | CI | full matrix |
-| `.github/workflows/**` | CI | full matrix |
-| `roles/**`, `references/**`, `templates/**`, `SKILL.md` (shipped in the wheel) | CI | full matrix |
-| `docs/**`, `*.md`, `LICENSE`, `CITATION.cff` | Docs | links + privacy + strict build |
-| `assets/**` (images, banners, the social preview) | Docs | links + privacy + strict build |
+| `src/**`, `scripts/**`, `tests/**`, packaging | CI full matrix | CI + Docs |
+| `.github/workflows/**` | CI full matrix | CI + Docs |
+| `roles/**`, `references/**`, `templates/**`, `SKILL.md` (shipped in the wheel) | CI full matrix | CI + Docs |
+| `docs/**`, `*.md`, `LICENSE`, `CITATION.cff` | Docs only (links + privacy + strict build) | CI + Docs |
+| `assets/**` (images, banners, the social preview) | Docs only (links + privacy + strict build) | CI + Docs |
 
 `workflow_dispatch` stays enabled on both, so the full matrix can be forced on a
 prose-only change when it is genuinely warranted.

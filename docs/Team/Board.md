@@ -14,27 +14,37 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   macOS cells); Docs run `39176294486` green on `6905869`
 - Privacy: `privacy_scan.py --tree --history` -> PASS, 0 findings
 - Links: `teamwork.py links` -> 0 problems
-- Audit: `teamwork.py loop` -> STOP, `teamwork.py audit` -> 0 problems,
-  ledger chain intact (138 records)
+- Baseline gate at `6905869`: `teamwork.py loop` -> STOP and
+  `teamwork.py audit` -> 0 problems with the ledger chain intact (138 records at
+  that revision)
 - Remote: local `main` and `origin/main` are in sync (0 ahead, 0 behind)
+
+While M5 work is open the machine gates are *expected* to report that open work:
+`teamwork.py audit` -> 2 problem classes (3 unfinished tasks, one unmerged
+branch) and `teamwork.py loop` -> CONTINUE. Both return to 0 problems / STOP
+when the tasks close; the closing run is recorded in the final
+`docs/Team/AuditManifest.json` export. No other audit class is open.
 
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0014 dependency upkeep: PRs #11, #12, #13 | P0 | doing | `.github/workflows/` |
-| ceo | T-0015 governance docs refresh | P1 | doing | `docs/Team/Plan.md`, `Board.md`, `Risks.md`, `Release.md` |
+| ceo | T-0014 dependency upkeep: PRs #11, #12, #13 | P0 | doing | `.github/workflows/release.yml` |
+| ceo | T-0015 governance docs refresh | P1 | doing (reviewer failed round 1; corrected figures in this revision) | `docs/Team/Plan.md`, `Board.md`, `Risks.md`, `Release.md` |
+| ceo | T-0016 `ensure_gitignore` orphan headers and glob-covered entries | P1 | todo | `src/teamwork/engine.py`, tests |
 
 ## Open dependency PRs
 
-| PR | bump | state | note |
+| PR | bump | head | checks |
 |---|---|---|---|
-| #11 | `anchore/sbom-action` 0.24.0 -> 0.24.3 | open, behind `main` | rebase requested; branch still carries the retired umask test |
-| #12 | `actions/attest-build-provenance` -> `4d101475` | open, CI running after rebase | - |
-| #13 | `softprops/action-gh-release` -> `efb35369` | open, CI running after rebase | - |
+| #11 | `anchore/sbom-action` 0.24.0 -> 0.24.3 | `5874825` | 17 pass, Pages deploy skipped |
+| #12 | `actions/attest-build-provenance` -> `4d101475` | `7cb50af` | 17 pass, Pages deploy skipped |
+| #13 | `softprops/action-gh-release` -> `efb35369` | `9c10386` | 17 pass, Pages deploy skipped |
 
-All three bumps keep the SHA-pinned style (`uses: owner/action@<sha> # vN`).
-Missing `ci`/`dependencies` labels were created so Dependabot can label future PRs.
+All three branches were rebased onto `main` @ `6905869` (the earlier red Windows
+jobs came from the retired umask assertion, fixed in `f2e3b5a`). Each bump keeps
+the SHA-pinned style (`uses: owner/action@<sha> # vN`). Missing `ci` and
+`dependencies` labels were created so Dependabot can label future PRs.
 
 ## Closed history
 
