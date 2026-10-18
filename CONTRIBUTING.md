@@ -11,7 +11,7 @@ evidence**, and **no secrets or personal data ever enter the repository**.
 ## Development setup
 
 ```console
-$ git clone https://github.com/VisionPZ/Teamwork.git
+$ git clone https://github.com/Nidvue/Teamwork.git
 $ cd Teamwork
 $ python -m venv .venv
 $ . .venv/bin/activate            # Windows: .venv\Scripts\activate
