@@ -114,3 +114,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: PYTHONPATH=src ./.venv/bin/python -m pytest tests/acceptance -q @710e68d -> 12 passed, 1 skipped in 1.17s
 - findings history: -
 - branch / merge: - / pending
+
+## T-0001 · Full-project audit: integrity, gate, ledger, path and CI fixes  (ceo)
+- date: 2026-10-18
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the full diff: parser boundary, lock order, ledger chain, path components, review/merge gates, privacy scanner, CI workflows and docs | test: pytest -q --cov=teamwork @ebaeb66 -> 333 passed, coverage 39.8%; make ci @ebaeb66 -> all gates passed
+- author evidence: commit ebaeb66
+- reviewer evidence: pytest -q --cov=teamwork @ebaeb66 -> 333 passed; privacy_scan --tree --history -> PASS; links -> 0; verify_release -> OK
+- findings history: -
+- branch / merge: - / pending
