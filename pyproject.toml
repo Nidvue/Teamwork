@@ -38,7 +38,14 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "ruff", "mypy", "build"]
+dev = [
+  # Ranges keep Python 3.9 supported: pytest 9, mypy 2 and build 1.6 need 3.10+.
+  "pytest>=8,<10",
+  "pytest-cov>=5,<8",
+  "ruff>=0.9,<0.18",
+  "mypy>=1.14,<3",
+  "build>=1.2,<2",
+]
 
 [project.scripts]
 teamwork = "teamwork.cli:main"
@@ -161,6 +168,9 @@ branch = true
 omit = ["tests/*"]
 
 [tool.coverage.report]
+# A floor, not a target: it stops a large coverage regression while the engine
+# remains a tracked post-1.0 typing/splitting refactor.
+fail_under = 38
 show_missing = true
 skip_covered = true
 exclude_lines = [

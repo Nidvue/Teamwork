@@ -634,6 +634,15 @@ def test_ci_actions_are_not_on_node_deprecated_majors(root):
         "softprops/action-gh-release": 3,
     }
     found = dict(re.findall(r"([\w.-]+/[\w.-]+)@v(\d+)", text))
+    # A SHA-pinned action keeps the human-readable major in a trailing comment.
+    found.update(
+        {
+            action: major
+            for action, _sha, major in re.findall(
+                r"([\w.-]+/[\w.-]+)@([0-9a-f]{40}) # v(\d+)", text
+            )
+        }
+    )
     for action, floor in floors.items():
         assert action in found, f"{action} not pinned in a workflow"
         assert int(found[action]) >= floor, f"{action}@{found[action]} < v{floor}"
