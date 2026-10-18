@@ -93,6 +93,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   secret from the same line; `context` is no longer emitted. History scanning also
   follows reflogs, UTF-16 text is decoded, URLs/paths/digits are not credentials,
   and non-blob git objects no longer desynchronise the batch reader.
+- **Repo-local role identity**: `init`/`repo` now writes the CEO role mailbox to
+  the repository's local `user.name`/`user.email` when no local email exists, so
+  a plain `git commit` cannot inherit the operator's personal identity. An
+  existing local identity is never overwritten.
+- **CLI exit-code contract**: the reference and architecture now state the codes
+  the binary actually returns - `2` for usage and the gates that opt into it,
+  `1` for a generic error / role refusal / `loop` CONTINUE, `3` for nothing to
+  dispatch, `4` for a lock timeout.
 - **Release verification**: `verify_release.py` now checks the artefact version,
   inspects the sdist, drops every ambient `TEAMWORK_*` variable in the smoke test,
   and writes `SHA256SUMS` only after every check passes.
