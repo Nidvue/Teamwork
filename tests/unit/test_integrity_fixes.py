@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+
+import pytest
 from types import SimpleNamespace
 
 from teamwork import engine
@@ -533,6 +535,7 @@ def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -
     )
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows chmod only toggles the read-only bit")
 def test_atomic_write_respects_the_umask(tmp_path: Path) -> None:
     old = os.umask(0o077)
     try:
