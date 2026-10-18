@@ -312,3 +312,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: `gh api .../branches/main/protection` @2026-10-19 -> `required_linear_history: false`, `allow_force_pushes: false`, `allow_deletions: false`, reviews 1, checks 14; this decision itself will be merged by a squash PR.
 - falsified by: a future push that needs an admin linear-history bypass, or a force-push/deletion of `main`.
 - consequences: existing merge commits stay; future history is linear per change; branch protection is weaker only in the linear-history dimension, not in review/checks/force-push/deletion.
+
+## D-20261019-CEO-5 - Create the squash commit locally with the role identity
+
+- date: 2026-10-19
+- kind: governance
+- status: accepted
+- deciders: operator (user), CEO
+- decided by: ceo
+- task: T-0014
+- context: PR #14 was squash-merged by GitHub; the resulting commit `5b47529` was authored by the signed-in account (personal mailbox, redacted here), so the privacy gate failed. The commit had to be rewritten to `0cc655d` as `CEO <ceo@agents.nidvue.com>`.
+- options considered: A - keep using the GitHub squash button and allowlist the personal email (weakens the privacy gate); B - keep the PR + checks process, but create the squash commit locally with the acting role identity and push it (one admin bypass of the PR-merge rule; no personal metadata).
+- decision: B. A PR still gates the branch and its checks; the final squash commit is created locally as the role, then `main` is pushed. The PR is closed after the local merge.
+- why: the privacy gate must stay strict, and a reviewed tree can be integrated without letting the forge author the commit.
+- evidence: `git show -s --format=%ae 5b47529` -> personal mailbox (redacted); after amend -> `0cc655d` author `ceo@agents.nidvue.com`; `privacy_scan --tree --history` -> PASS; Docs run `39175948257` -> success.
+- falsified by: a future `main` commit whose author is not a role mailbox, or a privacy-scan failure on a pushed revision.
+- consequences: the person merging needs a local clone and the role identity; GitHub's squash button is reserved for a dedicated role-identity bot account.
