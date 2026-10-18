@@ -140,3 +140,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest tests/unit/test_ledger.py @1ee691a -> 17 passed; teamwork audit -> 0 problems
 - findings history: -
 - branch / merge: - / pending
+
+## T-0003 · Address final review notes: local git identity, CLI docs, changelog  (ceo)
+- date: 2026-10-19
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the bootstrap identity, CLI docs and changelog | test: pytest -q @1e646a9 -> 336 passed
+- author evidence: commit 1e646a9
+- reviewer evidence: pytest -q @1e646a9 -> 336 passed; identity --audit -> 0 problems; links -> 0
+- findings history: -
+- branch / merge: - / pending
