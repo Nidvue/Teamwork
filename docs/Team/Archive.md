@@ -127,3 +127,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest -q --cov=teamwork @ebaeb66 -> 333 passed; privacy_scan --tree --history -> PASS; links -> 0; verify_release -> OK
 - findings history: -
 - branch / merge: - / pending
+
+## T-0002 · Scope the audit-manifest anchor to the workspace id  (ceo)
+- date: 2026-10-18
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the manifest anchor path and the new test | test: pytest tests/unit/test_ledger.py @1ee691a -> 17 passed
+- author evidence: commit 1ee691a
+- reviewer evidence: pytest tests/unit/test_ledger.py @1ee691a -> 17 passed; teamwork audit -> 0 problems
+- findings history: -
+- branch / merge: - / pending
