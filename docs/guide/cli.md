@@ -35,7 +35,7 @@ target a specific workspace.
 |---|---|
 | `0` | Success. |
 | `1` | Generic error, a role/independence refusal, or `loop` says CONTINUE. |
-| `2` | Usage error and the gates that explicitly return 2 (missing evidence, unsigned tribunal, unapproved merge, ...). |
+| `2` | Usage error and the gates that explicitly return 2 (e.g. `task set --status done` without evidence; `pr merge` on an unapproved PR). |
 | `3` | Nothing to dispatch (`task next`, `pulse`). |
 | `4` | Lock timeout. |
 
