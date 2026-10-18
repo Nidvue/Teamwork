@@ -7,6 +7,7 @@ value or a lock deadlock actually hurt).
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -529,4 +530,28 @@ def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -
     assert (
         cli("--project", project, "dispute", "resolve", "D-0001", "--by", "ceo", "--decision", "d")
         == 0
+    )
+
+
+def test_atomic_write_respects_the_umask(tmp_path: Path) -> None:
+    old = os.umask(0o077)
+    try:
+        path = tmp_path / "private.md"
+        engine.atomic_write(path, "x\n")
+        assert path.stat().st_mode & 0o777 == 0o600
+    finally:
+        os.umask(old)
+
+
+def test_repo_bootstrap_does_not_rewrite_a_parent_repo_identity(tmp_path: Path) -> None:
+    outer = tmp_path / "outer"
+    outer.mkdir()
+    engine.run_git(outer, "init", "-q", "-b", "main")
+    engine.run_git(outer, "config", "--local", "user.name", "Ops Person")
+    engine.run_git(outer, "config", "--local", "user.email", "ops@example.com")
+    nested = outer / "nested-project"
+    nested.mkdir()
+    engine.ensure_repo(nested, commit=False, quiet=True)
+    assert engine.run_git(outer, "config", "--local", "user.email").stdout.strip() == (
+        "ops@example.com"
     )

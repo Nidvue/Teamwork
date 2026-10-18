@@ -92,6 +92,7 @@ clean. `--history` reports the 2 findings above.
 | R2 | Engine default identity domain is the `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> `Developer <developer@agents.nidvue.com>` |
 | R3 | Scanner masks all matched values, redacts the absolute root, and keeps private domains out of plain text | `scripts/privacy_scan.py`; see section 7 output |
 | R4 | This report redacts every personal value so it cannot re-leak what it documents | this file passes `scripts/privacy_scan.py --tree` |
+| R8 | The audit-manifest anchor is scoped to the workspace `TeamId`; a legacy manifest without one is historical and cannot make a new workspace look truncated | `ledger_verify`/`_audit_audit_trail` compare `team_id`; `tests/unit/test_ledger.py` covers same/foreign ids |
 
 ### Requested from the CEO (red-line, not executed by the Security Auditor)
 
