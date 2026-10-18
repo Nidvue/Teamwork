@@ -10,7 +10,8 @@ DIST   ?= dist
 .DEFAULT_GOAL := help
 
 .PHONY: help install dev lint format typecheck test test-unit test-integration \
-        test-acceptance selftest build verify privacy docs clean release-check
+        test-acceptance selftest build verify privacy docs links identity clean \
+        release-check ci
 
 help: ## Show this help.
 	@printf 'Teamwork - available targets:\n\n'
@@ -60,6 +61,12 @@ verify: ## Build, assert the wheel payload and smoke-test it in a throwaway venv
 privacy: ## Scan the working tree and full git history for private data.
 	$(PYTHON) scripts/privacy_scan.py --tree --history
 
+links: ## Check markdown links, URLs and back-links.
+	$(PYTHON) scripts/teamwork.py links
+
+identity: ## Fail when a commit is not authored/committed by the acting role.
+	$(PYTHON) scripts/teamwork.py identity --audit
+
 docs: ## Build the documentation site in strict mode.
 	$(PYTHON) -m mkdocs build --strict
 
@@ -71,5 +78,8 @@ clean: ## Remove build artefacts and local tool caches (keeps .venv).
 		-type d -name __pycache__ -exec rm -rf {} +
 	@printf 'clean: removed build output and caches\n'
 
-release-check: lint test verify privacy docs ## Run the full local release gate.
+release-check: lint test verify privacy docs links identity ## Run the full local release gate.
 	@printf 'release-check: all gates passed\n'
+
+ci: release-check ## Alias for the documented one-shot local pipeline.
+	@printf 'ci: all gates passed\n'

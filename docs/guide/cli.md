@@ -34,10 +34,10 @@ target a specific workspace.
 | Code | Meaning |
 |---|---|
 | `0` | Success. |
-| `1` | Generic error, or a gate refusal (e.g. `loop` says CONTINUE). |
-| `3` | Nothing to dispatch (`pulse`). |
+| `1` | Generic error, a role/independence refusal, or `loop` says CONTINUE. |
+| `2` | Usage error and the gates that explicitly return 2 (e.g. `task set --status done` without evidence; `pr merge` on an unapproved PR). |
+| `3` | Nothing to dispatch (`task next`, `pulse`). |
 | `4` | Lock timeout. |
-| `5` | Evidence/gate refusal. |
 
 ## Setup and workspace
 
@@ -53,7 +53,7 @@ Create the team workspace and memory files; creates the git repository unless
 | Option | Meaning |
 |---|---|
 | `--agents` | Comma-separated instance names, e.g. `ceo,architect,developer-1,tester-1`. |
-| `--force` | Overwrite existing files. |
+| `--force` | Rewrite generated scaffolding; existing memory, task records and team documents are preserved. |
 | `--no-git` | Do not create or check the git repository. |
 
 ### `repo`
@@ -693,7 +693,7 @@ Commit a change-set with the fixed style and the role commit identity.
 
 ```text
 teamwork identity [--role ROLE]
-teamwork identity --audit [--range REV..REV]
+teamwork identity --audit [--range REV..REV] [--strict-authors]
 ```
 
 Show the role commit identity, e.g. `Developer <developer@agents.nidvue.com>`.
@@ -702,9 +702,10 @@ Show the role commit identity, e.g. `Developer <developer@agents.nidvue.com>`.
 acting role. It checks the author, the committer and the `Acting role:` trailer,
 skips the forge's synthetic pull-request merge ref, and allows bot dependency
 updates only when both the bot name and a `users.noreply.github.com` mailbox
-match. The default range is `origin/main..HEAD`, then `HEAD~1..HEAD`, then `HEAD`;
-a range beginning with `-` is rejected. CI runs it on every pull request and every
-push to `main`.
+match. An author outside the team identity domain is reported as skipped by
+default; `--strict-authors` turns that into a failure. The default range
+is `origin/main..HEAD`, then `HEAD~1..HEAD`, then `HEAD`; a range beginning with
+`-` is rejected. CI runs it on every pull request and every push to `main`.
 
 ## Audit and control
 

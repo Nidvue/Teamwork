@@ -114,3 +114,95 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: PYTHONPATH=src ./.venv/bin/python -m pytest tests/acceptance -q @710e68d -> 12 passed, 1 skipped in 1.17s
 - findings history: -
 - branch / merge: - / pending
+
+## T-0001 · Full-project audit: integrity, gate, ledger, path and CI fixes  (ceo)
+- date: 2026-10-18
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the full diff: parser boundary, lock order, ledger chain, path components, review/merge gates, privacy scanner, CI workflows and docs | test: pytest -q --cov=teamwork @ebaeb66 -> 333 passed, coverage 39.8%; make ci @ebaeb66 -> all gates passed
+- author evidence: commit ebaeb66
+- reviewer evidence: pytest -q --cov=teamwork @ebaeb66 -> 333 passed; privacy_scan --tree --history -> PASS; links -> 0; verify_release -> OK
+- findings history: -
+- branch / merge: - / pending
+
+## T-0002 · Scope the audit-manifest anchor to the workspace id  (ceo)
+- date: 2026-10-18
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the manifest anchor path and the new test | test: pytest tests/unit/test_ledger.py @1ee691a -> 17 passed
+- author evidence: commit 1ee691a
+- reviewer evidence: pytest tests/unit/test_ledger.py @1ee691a -> 17 passed; teamwork audit -> 0 problems
+- findings history: -
+- branch / merge: - / pending
+
+## T-0003 · Address final review notes: local git identity, CLI docs, changelog  (ceo)
+- date: 2026-10-19
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the bootstrap identity, CLI docs and changelog | test: pytest -q @1e646a9 -> 336 passed
+- author evidence: commit 1e646a9
+- reviewer evidence: pytest -q @1e646a9 -> 336 passed; identity --audit -> 0 problems; links -> 0
+- findings history: -
+- branch / merge: - / pending
+
+## T-0004 · Correct exit-code docs and cover the local-identity guard  (ceo)
+- date: 2026-10-19
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the exit-code census, identity guard and new tests | test: pytest -q @043d483 -> 338 passed
+- author evidence: commit 043d483
+- reviewer evidence: pytest -q @043d483 -> 338 passed; links -> 0; privacy -> PASS
+- findings history: -
+- branch / merge: - / pending
+
+## T-0005 · Fix dispute sign AttributeError and cover it  (ceo)
+- date: 2026-10-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read dispute sign and the new regression test | test: pytest tests/unit/test_integrity_fixes.py @61eecc9 -> 30 passed
+- author evidence: commit 61eecc9
+- reviewer evidence: pytest tests/unit/test_integrity_fixes.py @61eecc9 -> 30 passed; dispute sign by developer -> exit 1, no traceback
+- correction: the original entry said exit 2; re-measurement showed the role refusal exits 1. The code and test are unchanged.
+- findings history: -
+- branch / merge: - / pending
+
+## T-0006 · Correct the exit-code example and cover tribunal sign  (ceo)
+- date: 2026-10-19
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the example row and the sign/resolve test | test: pytest tests/unit/test_integrity_fixes.py @29dc42f -> 30 passed
+- author evidence: commit 29dc42f
+- reviewer evidence: pytest tests/unit/test_integrity_fixes.py @29dc42f -> 30 passed; sign by ceo 0; resolve unsigned nonzero
+- findings history: -
+- branch / merge: - / pending
+
+## T-0007 · Correct the T-0005 archive exit-code evidence  (ceo)
+- date: 2026-10-19
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: archive
+- self-check: [pass] re-measured the dispute sign refusal and corrected the archive line | test: dispute sign by developer @b05d04a -> exit 1
+- author evidence: commit b05d04a
+- reviewer evidence: dispute sign by developer @b05d04a -> exit 1; archive line matches
+- findings history: -
+- branch / merge: - / pending
