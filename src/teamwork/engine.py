@@ -2268,7 +2268,11 @@ def ledger_verify(root: Path, reconcile: bool = False, _locked: bool = False) ->
 
             m = json.loads(manifest.read_text(encoding="utf-8"))
             recorded = int(m.get("ledger", {}).get("records", 0))
-            if recorded > len(records):
+            manifest_team = str(m.get("team_id") or "")
+            current_team = team_identity(root)
+            # Only an export from *this* workspace instance anchors this ledger.
+            # A manifest without a team id is a legacy export and is not enforced.
+            if manifest_team and manifest_team == current_team and recorded > len(records):
                 problems.append(
                     f"the last audit export recorded {recorded} records, "
                     f"the ledger has {len(records)}: truncated after export"
@@ -2672,6 +2676,7 @@ def ledger_export(root: Path, args) -> int:
     manifest = {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "team": root.name,
+        "team_id": team_identity(root) or ensure_team_identity(root),
         # Never embed the absolute checkout path: the manifest is committed and
         # published, and a machine path is both a privacy leak and useless to a
         # verifier on another host.
@@ -4582,6 +4587,7 @@ def cmd_init(args) -> int:
         import json
 
         write_lf(pfile, json.dumps(DEFAULT_PROVIDER_LIMITS, indent=2) + "\n")
+    ensure_team_identity(root)
     global_dir(root).mkdir(parents=True, exist_ok=True)
 
     gi = global_dir(root) / ".gitignore"
@@ -6047,6 +6053,24 @@ def awaiting_review(root: Path) -> list:
             ):
                 out.append((name, t))
     return out
+
+
+def team_identity(root: Path) -> str:
+    """The random id of this workspace instance, if it has one."""
+    return str(_load_settings(root).get("TeamId") or "")
+
+
+def ensure_team_identity(root: Path) -> str:
+    """Create the workspace id once. A re-created workspace gets a new id so an
+    old committed audit manifest cannot be mistaken for this ledger's history."""
+    import json
+    import uuid
+
+    data = dict(_load_settings(root))
+    if not data.get("TeamId"):
+        data["TeamId"] = uuid.uuid4().hex
+        atomic_write(providers_path(root), json.dumps(data, indent=2, sort_keys=True) + "\n")
+    return str(data["TeamId"])
 
 
 def _load_settings(root: Path) -> dict:
@@ -7768,7 +7792,9 @@ def _audit_audit_trail_append_only_hash_chained(root: Path, names: list, args) -
 
             mdata = json.loads(manifest.read_text(encoding="utf-8"))
             recorded = int(mdata.get("ledger", {}).get("records", 0))
-            if recorded > len(records):
+            manifest_team = str(mdata.get("team_id") or "")
+            current_team = team_identity(root)
+            if manifest_team and manifest_team == current_team and recorded > len(records):
                 print(
                     f"- the ledger has FEWER records ({len(records)}) than the last "
                     f"audit export recorded ({recorded}): it was truncated"
