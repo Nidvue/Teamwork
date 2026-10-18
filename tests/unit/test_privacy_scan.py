@@ -330,7 +330,7 @@ def test_gitignore_still_scans_json_credentials():
     assert list(ps.scan_lines(deny, ".gitignore", "unit-test", ps.RULES, allow=[])) == []
 
 
-def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path):
+def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path, monkeypatch):
     import os
     import subprocess
 
@@ -343,6 +343,12 @@ def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path):
         "GIT_AUTHOR_EMAIL": "technicalwriter@agents.nidvue.com",
         "GIT_COMMITTER_NAME": "Technical Writer",
         "GIT_COMMITTER_EMAIL": "technicalwriter@agents.nidvue.com",
+    }
+    private = {
+        "GIT_AUTHOR_NAME": "Private Person",
+        "GIT_AUTHOR_EMAIL": "someone@" + "private-mail.example",
+        "GIT_COMMITTER_NAME": "Private Person",
+        "GIT_COMMITTER_EMAIL": "someone@" + "private-mail.example",
     }
 
     def run(*args, extra_env=None):
@@ -369,26 +375,18 @@ def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path):
 
     token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
     message = f"Merge {feature} into {base}\n\nleaked {token}"
-    run(
-        "git",
-        "switch",
-        "-q",
-        "main",
-    )
-    run(
-        "git",
-        "-c",
-        "user.name=Private Person",
-        "-c",
-        "user.email=someone@" + "private-mail.example",
-        "merge",
-        "--no-ff",
-        "-m",
-        message,
-        "feature",
-    )
+    run("git", "switch", "-q", "main")
+    # The forge authors its merge ref with the PR account identity; deliver that
+    # identity through the environment, which beats `-c user.*`.
+    run("git", "merge", "--no-ff", "-m", message, "feature", extra_env=private)
+    merge_sha = run("git", "rev-parse", "HEAD").stdout.strip()
+    # Control: the same identity on an ordinary commit must still be reported.
+    run("git", "commit", "-q", "--allow-empty", "-m", "ordinary", extra_env=private)
+    control_sha = run("git", "rev-parse", "HEAD").stdout.strip()
 
     findings = ps.scan_commit_metadata(repo, allow=[])
-    rules = {f["rule"] for f in findings}
-    assert "personal-email" not in rules, "the forge merge identity must be skipped"
-    assert "api-token" in rules, "the merge message must still be scanned"
+    on_merge = {f["rule"] for f in findings if f.get("commit") == merge_sha}
+    on_control = {f["rule"] for f in findings if f.get("commit") == control_sha}
+    assert "personal-email" not in on_merge, "the forge merge identity must be skipped"
+    assert "api-token" in on_merge, "the merge message must still be scanned"
+    assert "personal-email" in on_control, "the control commit proves the assertion can fail"
