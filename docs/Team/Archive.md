@@ -258,3 +258,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest -q @c8fb469 -> 350 passed; mypy -> clean; make ci -> all gates passed; import DAG config<-names/layout<-records<-engine
 - findings history: -
 - branch / merge: ceo/t-0011-split-engine-py-into-typed-modules / pending
+
+## T-0012 · Skip the POSIX umask test on Windows  (ceo)
+- date: 2026-10-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: engine
+- self-check: [pass] re-read the Windows skip and POSIX assertion | test: pytest tests/unit/test_integrity_fixes.py @f2e3b5a -> 32 passed
+- author evidence: commit f2e3b5a
+- reviewer evidence: pytest tests/unit/test_integrity_fixes.py @f2e3b5a -> 32 passed; Windows skip is platform-scoped
+- findings history: -
+- branch / merge: ceo/t-0012-skip-the-posix-umask-test-on-windows / pending
