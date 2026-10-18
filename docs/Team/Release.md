@@ -53,6 +53,16 @@ matter for prose: `teamwork links`, `privacy_scan.py --tree --history` and
 `workflow_dispatch` stays enabled on both, so the full matrix can be forced on a
 prose-only change when it is genuinely warranted.
 
+## Remote merge policy (2026-10-19)
+
+- Existing reviewed merge commits stay on `main`; they are not rewritten.
+- Every future change: branch -> push the branch -> open a GitHub PR -> all
+  required checks green on the PR head -> **squash merge** -> delete the branch.
+- `main` keeps: 1 required approval, 14 required checks, strict up-to-date,
+  no force-push, no deletion. `required_linear_history` is disabled so the
+  existing merge commits do not force an admin bypass on every push.
+- Local `teamwork.py pr merge --squash` is the equivalent local path.
+
 ## Deploy
 
 - Environments: none. The artefact is a Python package; the "deployment" is a
