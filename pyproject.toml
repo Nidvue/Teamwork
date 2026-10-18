@@ -146,9 +146,9 @@ no_implicit_optional = true
 warn_redundant_casts = true
 show_error_codes = true
 
-# engine.py is a behaviour-preserving port of the original 7,416-line monolith.
-# It is untyped by design for v1.0.0; splitting and typing it is a tracked
-# post-1.0 refactor (see docs/Team/Decisions.md). Everything else must be clean.
+# The package split moved records, paths, names, IO and git plumbing into typed
+# modules. The remaining command layer (engine.py) keeps its v1.0 typing
+# exemption; every other module must be clean.
 [[tool.mypy.overrides]]
 module = ["teamwork.engine"]
 ignore_errors = true
