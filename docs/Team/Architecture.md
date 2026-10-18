@@ -9,8 +9,9 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Decis
 
 `Teamwork` is simultaneously:
 
-1. **A Pi skill** - `SKILL.md`, `roles/`, `references/`, `templates/` at the
-   repository root, loadable as `~/.pi/agent/skills/teamwork`.
+1. **A skill** - `SKILL.md`, `roles/`, `references/`, `templates/` at the
+   repository root, loadable from a project or user skills directory
+   (`.agents/skills/teamwork`).
 2. **A Python package** - `src/teamwork/`, installable with `pip install .`,
    exposing the `teamwork` console script and `python -m teamwork`.
 3. **A workspace format** - markdown + JSON under
@@ -23,7 +24,7 @@ The three share one engine. The engine is a port of the original 7,416-line
 
 ```
 Teamwork/
-├── SKILL.md                  # canonical skill entry (Pi loads this)
+├── SKILL.md                  # canonical skill entry (the host loads this)
 ├── roles/*.md                # 15 role charters
 ├── references/*.md           # policy detail
 ├── templates/                # AGENTS.md, Docs/*.md, TeamMap.md skeletons
@@ -171,7 +172,8 @@ wheel (no reliance on the source tree). `conftest.py` sets
 
 * `ci.yml`: `lint` (ruff), `typecheck` (mypy, non-blocking report), `test`
   matrix `{ubuntu,macos,windows} x {3.9,3.11,3.13}`, `build`
-  (sdist+wheel+verify_release), `privacy` (`privacy_scan.py --history`),
+  (sdist+wheel+verify_release), `privacy` (`privacy_scan.py --history`: personal
+  data, credentials, agent-host config and tracked local state),
   `docs` (mkdocs build --strict).
 * `release.yml`: on `v*` tags - build, checksums (`SHA256SUMS`), SBOM
   (CycloneDX JSON + SPDX), attestation, GitHub Release with all assets.
