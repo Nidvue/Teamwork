@@ -69,10 +69,10 @@ dispositioned (Architecture §9, `privacy` CI job).
 |---|---|---|---|---|---|
 | F-1 | high | personal-email | `history:commit` `commit:e5efc5f` (author email) | `pin******.no` | **open - history rewrite required** |
 | F-2 | high | private-domain | `history:commit` `commit:e5efc5f` (author email) | `z*****o` | **open - history rewrite required** |
-| F-3 | medium | hygiene | working tree `site/` | build output, 3.3 MB | open - recommendation |
+| F-3 | medium | hygiene | working tree `site/` | build output, 3.3 MB | resolved - `site/` is ignored |
 | F-4 | low | identity | `github.com` URLs in pyproject/mkdocs/README/workflows/CITATION | account handle `VisionPZ` | resolved - repository moved to `Nidvue/Teamwork` (2026-10-18) |
 | F-5 | low | identity | operator global git config (not in repo) | personal name + mailbox | mitigated in-repo |
-| F-6 | low | supply-chain | `.github/workflows/*.yml` | actions pinned to mutable major tags (`@v4`, `@v5`, `@v0`, `@v2`) | recommendation |
+| F-6 | low | supply-chain | `.github/workflows/*.yml` | actions pinned to mutable major tags (`@v4`, `@v5`, `@v0`, `@v2`) | resolved - every action is pinned to a full commit SHA |
 | F-7 | info | hygiene | `.pi/` and `.venv/` (gitignored) | home paths, private domain, personal mailboxes | residual risk |
 
 F-1/F-2 root cause: the initial commit was created outside the team identity

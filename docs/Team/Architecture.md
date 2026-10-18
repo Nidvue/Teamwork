@@ -3,7 +3,7 @@
 Owner: Architect. Frozen interface contract for every parallel lane. Nothing in
 this file changes without a recorded decision in [Decisions](Decisions.md).
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [user guide](../guide/architecture.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [user guide](https://github.com/Nidvue/Teamwork/blob/main/docs/guide/architecture.md)
 
 ## 1. What the system is
 
@@ -115,7 +115,8 @@ Additions to the original surface (no removals, no renames):
 
 Every existing subcommand, flag and exit code is unchanged. Exit codes: `0`
 success, `1` generic error, `3` "nothing to dispatch" (pulse), `4` lock timeout,
-`5` evidence/gate refusal.
+`2` usage error and the gates that explicitly call `die(..., 2)`; `die()` defaults
+to `1` for a generic error, a role/independence refusal, or `loop` CONTINUE.
 
 ## 5. Workspace-format contract (frozen)
 

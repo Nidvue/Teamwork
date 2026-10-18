@@ -381,6 +381,27 @@ Never wait for another role before doing work you can do yourself.
   `dist/`, `build/`, `.venv/`). Build only the touched scope; reuse or cite an
   existing green run on the same revision. Report
   `BUILD: <command> · built|reused · <seconds>`.
+- **NAMING** - team-created directories are PascalCase; file names follow the
+  ecosystem, and PascalCase/camelCase are fine wherever it allows them (docs
+  `Architecture.md`, components `ButtonGroup.tsx`). Python modules stay
+  `lower_snake_case` because the name *is* the import path, and tool-mandated files
+  (`pyproject.toml`, `Makefile`, `AGENTS.md`) are never renamed.
+- **COMMIT HYGIENE** - commit while you work, then rebase and squash before the
+  review: one coherent change-set per commit, `wip`/`fixup` commits squashed,
+  rebased onto the latest default branch, target one commit per task. Never rebase
+  or force-push a shared branch or anything already on `main`.
+- **WARNINGS ARE ERRORS** - a warning is a defect that has not broken anything yet.
+  Make the tool fail on them in the config (`ruff check`, `mypy --warn-unused-ignores`,
+  `pytest -W error`, `--max-warnings 0`, `-D warnings`, `-Werror`), fix the cause,
+  and suppress only narrowly with a reason when the cause is third-party. CI
+  annotations count too: a deprecation notice about an action, a cache step or a
+  runner is a warning to fix, not to ignore.
+- **LINT AND FORMAT** - style is automated, never argued. Use the language's one
+  canonical formatter and linter (Python: `ruff format` + `ruff check` + `mypy`;
+  see `references/Engineering.md` for the full table), run the fixer before
+  committing and the checker in CI. Never hand-format, never weaken a rule to pass
+  (no blanket `noqa`, no rule deleted from the config), and never merge code the
+  formatter would change. Evidence: the command and its result.
 - **COMMENTS** - write only comments the code cannot give you: a non-obvious why,
   a workaround with its reference, a public contract. Never restate the next line,
   never banner self-evident sections, never leave commented-out code, never write
@@ -389,7 +410,7 @@ Never wait for another role before doing work you can do yourself.
 - **CLEAN WORKING TREE** - no temp or stale files: `*.orig`, `*.rej`, `*.bak`,
   `*~`, `*.tmp`, `*.log`, `.DS_Store`, scratch copies, superseded drafts, empty
   directories. Scratch lives in your gitignored `Scratch/` and is emptied before
-  the task closes; `teamwork.py clean` sweeps what it knows and you sweep the rest
+  the task closes; `teamwork clean` sweeps what it knows and you sweep the rest
   in the same task. Keep one canonical home per file, keep the structure obvious,
   and leave the tree cleaner than you found it.
 
