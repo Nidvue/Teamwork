@@ -4,14 +4,43 @@ Owner: Technical Writer.
 
 Related: [Home](../index.md) · [Installation](install.md) · [CLI reference](cli.md) · [Architecture](architecture.md)
 
-Bootstrap an autonomous team in an empty project in about a minute. The example
-uses `demo/` as the project directory; paths in the output are elided for
-readability.
+Start a team in an empty project in about a minute. Step 1 installs the skill in
+one clone, step 2 is a single prompt to your agent host. The later steps show the
+engine commands the skill runs, so you can inspect or steer the machine yourself.
+The example uses `demo/` as the project directory; paths in the output are elided
+for readability.
 
-## 1. Create the workspace
+## 1. Install the skill
 
 ```console
-$ mkdir demo && cd demo
+$ mkdir -p .agents/skills
+$ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
+$ rm -rf .agents/skills/teamwork/.git
+```
+
+Dropping the nested `.git` keeps the skill as plain tracked files instead of an
+empty submodule in a fresh clone. Re-scan or reload skills in the host. A
+user-level clone (`~/.agents/skills/teamwork`, keep `.git` to pull updates) works
+the same way; if the host names its own skills directory, clone there instead.
+Python 3.9+ runs the bundled engine; there are no dependencies to install.
+Details: [Installation](install.md).
+
+## 2. Ask for the team
+
+```text
+$ mkdir -p demo && cd demo
+> use the teamwork skill: build a small URL shortener with a CLI, tests and docs
+```
+
+The CEO reads the skill, then staffs the roster, records the acceptance criteria,
+writes `AGENTS.md` and `docs/Team/`, freezes the interfaces and opens the lanes.
+Ambiguity is resolved in one consolidated round of questions; everything else is a
+recorded decision.
+
+Behind that prompt the skill runs the engine. These are the commands you can type
+yourself to see the same workspace it created:
+
+```console
 $ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-1,developer-1,tester-1
 teamwork: workspace ready at .pi/Teamwork/Teams/Demo
 teamwork: global memory .pi/Teamwork/Teams/Demo/Global/GlobalMemory.md
@@ -31,11 +60,14 @@ Add a second Reviewer (`reviewer-2`) whenever you want one Reviewer to verify an
 a different one to merge; with a single Reviewer the tool records the combined
 duty as an explicit exception.
 
-## 2. Check the layout
+`teamwork agents-md` writes or patches the constitution in an existing project, so
+a team can join a repository that already has an `AGENTS.md`.
+
+## 3. Check the layout
 
 ```console
 $ teamwork map
-# Team map  (.pi/Nidvue Teamwork/Teams/Demo)
+# Team map  (.pi/Teamwork/Teams/Demo)
 project docs (committed, one owner each, no duplicates)
   [x] Project.md           owner=CEO
   [x] Plan.md              owner=ProjectManager
@@ -45,7 +77,7 @@ roles (shared memory + queue) and their instances (private scratch)
   ...
 ```
 
-## 3. Record what "done" means
+## 4. Record what "done" means
 
 Acceptance criteria are machine records, not checkboxes. `loop` cannot report
 `STOP` while one is unverified.
@@ -56,7 +88,7 @@ $ teamwork criteria add --id AC-1 --text "CLI prints the version and exits 0" --
 $ teamwork criteria add --id AC-2 --text "pytest passes on the test matrix" --owner tester --by ceo
 ```
 
-## 4. Add work to a role queue
+## 5. Add work to a role queue
 
 Tasks belong to a ROLE and are shared by every instance of that role.
 
@@ -65,7 +97,7 @@ $ teamwork task add developer "Implement the feature" --priority P0 --body "Ship
 teamwork: developer queue + T-0001 [P0] Implement the feature
 ```
 
-## 5. Run the CEO loop
+## 6. Run the CEO loop
 
 One iteration is: re-plan, dispatch, work in parallel, independent review,
 rework, integrate. `loop` is the mechanical stop check:

@@ -806,9 +806,9 @@ own API, so the model is a property of the **agent**, not of the project.
   instance suffix (`developer-1`). The instance wins over the role.
 - `get` prints the effective model and where it came from (`agent`, `role` or
   `unset`); `list` prints the whole roster.
-- `auto` reads the **runtime environment** - which agent host is running (pi,
-  claude, opencode, codex, cursor, gemini) and which model it exposes - and routes
-  the strongest available model to the decision lanes (Reviewer, Architect,
+- `auto` reads the **runtime environment** - the running agent host and the model
+  it exposes - and routes the strongest available model to the decision lanes
+  (Reviewer, Architect,
   Security Auditor, CEO, CTO) and the economy model to the mechanical lanes
   (developers, testers, writers, formatting, link checks). It is a dry run by
   default; `--apply` writes it and records `model.auto` in the ledger. It never

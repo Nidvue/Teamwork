@@ -172,7 +172,10 @@ after the **Reviewer** has passed the revision with no open finding.
   retagging a release needs the CEO's explicit authorization and is recorded with
   `teamwork.py redline record`. Tags and public releases are the CEO's step,
   prepared and verified by the Release Engineer.
-- **Never push a secret.** The privacy scan is the gate that enforces it.
+- **Never push a secret or local state.** The privacy scan is the gate: it fails
+  on credentials, on private agent-host configuration (auth, settings, sessions,
+  model stores) and on tracked local state (`.pi/`, virtualenvs, build output,
+  caches, `Scratch/`).
 
 ## Worktrees (optional but recommended for parallel writers)
 
