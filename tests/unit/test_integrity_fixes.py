@@ -463,3 +463,12 @@ def test_init_force_preserves_records_and_team_documents(cli, project: Path) -> 
     assert (root.parents[3] / "docs" / "Team" / "Project.md").read_text(
         encoding="utf-8"
     ) == project_doc
+
+
+def test_repo_bootstrap_sets_a_role_local_git_identity(tmp_path: Path) -> None:
+    project = tmp_path / "repo-bootstrap"
+    project.mkdir()
+    engine.ensure_repo(project, commit=False, quiet=True)
+    assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
+        "ceo@agents.nidvue.com"
+    )
