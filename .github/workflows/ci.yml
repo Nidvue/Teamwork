@@ -54,8 +54,10 @@ jobs:
     name: lint (ruff)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout (full history for the commit identity audit)
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -68,6 +70,13 @@ jobs:
         run: ruff check .
       - name: ruff format --check
         run: ruff format --check .
+      - name: Commit identity audit
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python scripts/teamwork.py identity --audit --range "origin/${{ github.base_ref }}..HEAD"
+          else
+            python scripts/teamwork.py identity --audit --range "HEAD~1..HEAD"
+          fi
 
   typecheck:
     name: typecheck (mypy, non-blocking)
