@@ -472,3 +472,29 @@ def test_repo_bootstrap_sets_a_role_local_git_identity(tmp_path: Path) -> None:
     assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
         "ceo@agents.nidvue.com"
     )
+    assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "CEO"
+
+
+def test_repo_bootstrap_never_overwrites_an_existing_local_identity(tmp_path: Path) -> None:
+    project = tmp_path / "repo-existing-identity"
+    project.mkdir()
+    engine.run_git(project, "init", "-q", "-b", "main")
+    engine.run_git(project, "config", "--local", "user.name", "Ops Person")
+    engine.run_git(project, "config", "--local", "user.email", "ops@example.com")
+    engine.ensure_repo(project, commit=False, quiet=True)
+    assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
+    assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
+        "ops@example.com"
+    )
+
+
+def test_repo_bootstrap_preserves_a_name_only_local_identity(tmp_path: Path) -> None:
+    project = tmp_path / "repo-name-only"
+    project.mkdir()
+    engine.run_git(project, "init", "-q", "-b", "main")
+    engine.run_git(project, "config", "--local", "user.name", "Ops Person")
+    engine.ensure_repo(project, commit=False, quiet=True)
+    assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
+    assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
+        "ceo@agents.nidvue.com"
+    )
