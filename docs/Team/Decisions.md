@@ -296,3 +296,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: `pytest -q` -> 350 passed, 1 skipped; `mypy src/teamwork` -> no issues in 14 source files; `make ci` -> all gates passed; coverage 62.38%.
 - falsified by: a behaviour regression in the suite, an import cycle, or a moved module that imports `engine` at import time.
 - consequences: `engine.py` remains the command layer and its typing exemption; the record path is now isolated and can be typed/refactored independently.
+
+## D-20261019-CEO-4 - Future changes use a remote PR and a squash merge
+
+- date: 2026-10-19
+- kind: governance
+- status: accepted
+- deciders: operator (user), CEO
+- decided by: ceo
+- task: T-0014
+- context: `main` already contains reviewed local `--no-ff` merge commits. The remote rule `required_linear_history` therefore flagged every push and had to be admin-bypassed; removing the history would require a force-push.
+- options considered: A - rewrite `main` to a linear history (correct rule, but irreversible for every clone and a red line); B - keep the existing merge commits, disable the linear-history rule, and use a remote PR + squash merge for every future change (no rewrite; the process, reviews, checks and no-force/no-delete rules stay).
+- decision: B. The operator selected option 1. `required_linear_history` is disabled; PR review (1), 14 required checks, strict up-to-date, no force-push and no deletion remain enforced. Future work goes: branch -> push branch -> GitHub PR -> checks green -> squash merge -> delete branch. Local `pr merge` uses `--squash` for changes that will reach the remote.
+- why: the existing merge commits are reviewed evidence that must not be rewritten; a squash PR gives a single clean commit per change without touching published history.
+- evidence: `gh api .../branches/main/protection` @2026-10-19 -> `required_linear_history: false`, `allow_force_pushes: false`, `allow_deletions: false`, reviews 1, checks 14; this decision itself will be merged by a squash PR.
+- falsified by: a future push that needs an admin linear-history bypass, or a force-push/deletion of `main`.
+- consequences: existing merge commits stay; future history is linear per change; branch protection is weaker only in the linear-history dimension, not in review/checks/force-push/deletion.
