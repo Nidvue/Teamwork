@@ -280,3 +280,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: `pytest -q --cov=teamwork` @ code-audit-fixes -> 332 passed / 39.8% (floor 38%); `ruff check .` -> clean; `mypy src/teamwork` -> clean; `make ci PYTHON=.venv/bin/python` -> all gates passed; `scripts/verify_release.py` -> wheel+sdist inspected, installed-wheel full loop STOP; `privacy_scan.py --tree --history` -> PASS; `teamwork links` -> 0 issues.
 - falsified by: a metadata value that changes a gate field after a round-trip, a ledger repair that deadlocks, a name that escapes its directory, or a regression in the new `tests/unit/test_integrity_fixes.py`.
 - consequences: existing task/memory records remain readable; `init --force` no longer destroys records; review/merge now require an approved PR and an author; CI matrix adds 3.10/3.12; docs and Makefile expose `links`, `identity` and `ci`.
+
+## D-20261018-CEO-3 - Split engine.py into typed modules (behaviour preserved)
+
+- date: 2026-10-18
+- kind: technical
+- status: accepted
+- deciders: CEO, Reviewer
+- decided by: ceo
+- task: T-0011
+- context: `engine.py` carried 9.6k lines and mixed constants, record parsing, paths, IO, git plumbing and commands; `mypy` could not type any of it.
+- options considered: A - keep the monolith (lowest risk, no type or ownership boundary); B - split the stable layers into typed modules and leave the command layer on `engine.py` (medium diff, no behaviour change); C - split every command module (large diff, high risk for a release patch).
+- decision: B. Moved config, IO/lock, names/roles, layout, records, git plumbing and imaging into `config.py`, `io.py`, `names.py`, `layout.py`, `records.py`, `gitutil.py` and `imaging.py`; `engine.py` is the command layer and re-exports the moved API.
+- why: the split gives each trust boundary one owner and makes `mypy` meaningful for everything except the command layer, while the existing suite (350 tests) proves the move did not change behaviour.
+- evidence: `pytest -q` -> 350 passed, 1 skipped; `mypy src/teamwork` -> no issues in 14 source files; `make ci` -> all gates passed; coverage 62.38%.
+- falsified by: a behaviour regression in the suite, an import cycle, or a moved module that imports `engine` at import time.
+- consequences: `engine.py` remains the command layer and its typing exemption; the record path is now isolated and can be typed/refactored independently.
