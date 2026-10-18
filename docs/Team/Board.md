@@ -19,19 +19,23 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   that revision)
 - Remote: local `main` and `origin/main` are in sync (0 ahead, 0 behind)
 
-While M5 work is open the machine gates are *expected* to report that open work:
-`teamwork.py audit` -> 2 problem classes (3 unfinished tasks, one unmerged
-branch) and `teamwork.py loop` -> CONTINUE. Both return to 0 problems / STOP
-when the tasks close; the closing run is recorded in the final
-`docs/Team/AuditManifest.json` export. No other audit class is open.
+While any M5 task is open, `audit` and `loop` report that open work by design:
+unfinished tasks, deliverables awaiting review, an unmerged branch, and any
+required test layer without a passing record. The exact count changes with the
+queue, so it is not restated here - run `teamwork.py audit` for the live list.
+When every M5 task is closed and merged, the closing `audit` runs clean and its
+manifest is exported to `docs/Team/AuditManifest.json`.
 
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0014 dependency upkeep: PRs #11, #12, #13 | P0 | doing | `.github/workflows/release.yml` |
-| ceo | T-0015 governance docs refresh | P1 | doing (reviewer failed round 1; corrected figures in this revision) | `docs/Team/Plan.md`, `Board.md`, `Risks.md`, `Release.md` |
+| ceo | T-0014 dependency upkeep: PRs #11, #12, #13 | P0 | in flight | `.github/workflows/release.yml` |
+| ceo | T-0015 governance docs refresh | P1 | in flight, round 3 after two failed reviews | `docs/Team/Plan.md`, `Board.md`, `Risks.md`, `Release.md` |
 | ceo | T-0016 `ensure_gitignore` orphan headers and glob-covered entries | P1 | todo | `src/teamwork/engine.py`, tests |
+
+The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
+state; this table only says which lanes are open.
 
 ## Open dependency PRs
 
@@ -54,7 +58,8 @@ the SHA-pinned style (`uses: owner/action@<sha> # vN`). Missing `ci` and
 | M2 attractive docs | done | `mkdocs build --strict` green; `links` -> 0 |
 | M3 independent verification | done | `docs/Team/Archive.md` verdicts |
 | M4 publish | done | releases `v1.0.0`, `v1.0.1`, `v1.0.2` with wheel, sdist, `SHA256SUMS`, SBOM |
-| M5 engine split + Windows green | done | commits `c8fb469`, `f2e3b5a`, `b7fe03b`; CI `39173857076` |
+| M5a engine split + Windows green | done | commits `c8fb469`, `f2e3b5a`, `b7fe03b`; CI `39173857076` |
+| M5b dependency upkeep + governance refresh | in flight | T-0014, T-0015, T-0016 |
 
 ## Blocked
 

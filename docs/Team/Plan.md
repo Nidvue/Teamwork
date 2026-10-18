@@ -27,9 +27,12 @@ run, and the governance records match the merged revision.
 | T-0011 | Split `engine.py` into typed modules | ceo | P1 | - | `src/teamwork/*.py` | done | commit `c8fb469` |
 | T-0012 | Skip the POSIX umask test on Windows | ceo | P1 | T-0011 | `tests/unit/test_integrity_fixes.py` | done | commit `f2e3b5a`; CI `39173857076` windows jobs green |
 | T-0013 | Fix import order in the Windows skip test | ceo | P1 | T-0012 | `tests/unit/test_integrity_fixes.py` | done | commit `b7fe03b` |
-| T-0014 | Rebase and merge the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/release.yml` | doing | PRs #11, #12, #13 rebased onto `6905869`; 17/17 checks green on each head |
-| T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | doing (round 2) | reviewer failed round 1 on stale audit/PR/scope claims; figures corrected |
+| T-0014 | Rebase and merge the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/release.yml` | in flight | PRs #11, #12, #13 rebased onto `6905869`; 17/17 checks green on each head |
+| T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | in flight | reviewer failed rounds 1-2 on stale figures; corrected and re-measured |
 | T-0016 | `ensure_gitignore` orphan headers and glob-covered entries | ceo | P1 | - | `src/teamwork/engine.py`, `tests/unit/` | todo | appended a dangling section header plus two redundant `.env` lines to this repo's `.gitignore` during a review run |
+
+Open tasks say "in flight"; the role queue (`teamwork.py task list ceo`) is the
+only authoritative source for a task's exact state.
 
 ## Closed milestones (evidence on file)
 
