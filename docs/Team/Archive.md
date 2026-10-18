@@ -153,3 +153,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest -q @1e646a9 -> 336 passed; identity --audit -> 0 problems; links -> 0
 - findings history: -
 - branch / merge: - / pending
+
+## T-0004 · Correct exit-code docs and cover the local-identity guard  (ceo)
+- date: 2026-10-19
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the exit-code census, identity guard and new tests | test: pytest -q @043d483 -> 338 passed
+- author evidence: commit 043d483
+- reviewer evidence: pytest -q @043d483 -> 338 passed; links -> 0; privacy -> PASS
+- findings history: -
+- branch / merge: - / pending
