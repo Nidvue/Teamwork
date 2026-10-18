@@ -29,9 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `references/Adapters.md`, the optional adapter
   reference, so the same text serves every agent.
 
-- **Packaging metadata**: the `pyproject` keyword `pi` became `agent-skills`, so the
-  package is not advertised as one host's add-on.
-
 ### Security
 
 - **The privacy scan now covers local and agent-host leakage**: tracked paths that
@@ -53,6 +50,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is ignored while a committed skill bundle under `.agents/skills/` or
   `.claude/skills/` stays tracked. A `.gitignore` deny entry is not treated as a
   leak by the privacy scan.
+
+- **Packaging metadata**: the `pyproject` keyword `pi` became `agent-skills`, so the
+  package is not advertised as one host's add-on.
+
+- **Forge merge refs**: the synthetic `Merge <sha> into <sha>` commit a forge
+  creates for a pull request carries the PR author's account identity. The history
+  scan skips that identity (message and blobs are still scanned) so a clean branch
+  is not failed by the forge account; squash-only merges keep such a commit out of
+  `main`.
 
 ### Added
 
@@ -119,9 +125,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The engine pins `newline="\n"` on every text write without using the Python
   3.10-only `write_text(newline=...)`, so 3.9 stays supported.
 
-- **Packaging metadata**: the `pyproject` keyword `pi` became `agent-skills`, so the
-  package is not advertised as one host's add-on.
-
 ### Security
 
 - The initial commit's personal author identity was purged; the repository was
@@ -154,9 +157,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installed wheel.
 - The runtime has no third-party dependencies; file output is UTF-8 with `\n`
   newlines for byte-identical results across platforms.
-
-- **Packaging metadata**: the `pyproject` keyword `pi` became `agent-skills`, so the
-  package is not advertised as one host's add-on.
 
 ### Security
 
