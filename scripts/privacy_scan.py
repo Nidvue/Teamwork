@@ -254,6 +254,7 @@ _RE_HIGH_ENTROPY = re.compile(r"(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{32,}={0,2}(?![A
 
 _RE_TODO = re.compile(r"(?i)\b(?:TODO|FIXME|XXX|HACK)\b")
 
+
 def _host_state(*parts: str) -> str:
     """Join path fragments so this published file never quotes a private path."""
     return "".join(parts)
@@ -268,10 +269,15 @@ _AGENT_CONFIG_NAMES = (
 )
 _RE_AGENT_CONFIG = re.compile(
     _host_state(r"\.pi[\\/]", r"agent[\\/]")
-    + r"(?:" + _AGENT_CONFIG_NAMES + ")"
-    + "|" + _host_state(r"\.claude[\\/]", "settings", r"\.local\.json")
-    + "|" + _host_state(r"\.codex[\\/]", "auth", r"\.json")
-    + "|" + _host_state(r"\.gemini[\\/]", "oauth_creds", r"\.json"),
+    + r"(?:"
+    + _AGENT_CONFIG_NAMES
+    + ")"
+    + "|"
+    + _host_state(r"\.claude[\\/]", "settings", r"\.local\.json")
+    + "|"
+    + _host_state(r"\.codex[\\/]", "auth", r"\.json")
+    + "|"
+    + _host_state(r"\.gemini[\\/]", "oauth_creds", r"\.json"),
     re.IGNORECASE,
 )
 
@@ -339,9 +345,7 @@ _SENSITIVE_BASENAMES = {
 }
 
 # Editor and build residue: local artefacts that are never project source.
-_LOCAL_JUNK = re.compile(
-    r"(?i)^(?:\.DS_Store|Thumbs\.db|.*\.(?:swp|swo|orig|rej|bak|pyc|pyo))$"
-)
+_LOCAL_JUNK = re.compile(r"(?i)^(?:\.DS_Store|Thumbs\.db|.*\.(?:swp|swo|orig|rej|bak|pyc|pyo))$")
 
 
 def sensitive_path(rel: str):
