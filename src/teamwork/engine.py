@@ -2889,6 +2889,9 @@ def cmd_skill(args) -> int:
 
 def cmd_identity(args) -> int:
     root = project_root(args)
+    if args.audit:
+        project = project_of(root)
+        return audit_commit_identities(project, args.rev_range or default_audit_range(project))
     if args.role:
         print(identity_string(args.role))
         return 0
@@ -2898,6 +2901,85 @@ def cmd_identity(args) -> int:
         print(f"- {role:18s} {identity_string(role)}")
     print(f"# domain override: TEAMWORK_IDENTITY_DOMAIN (now {IDENTITY_DOMAIN})")
     return 0
+
+
+# Bot accounts a forge may author a dependency update with. They are not team
+# roles, so the role rule does not apply; the privacy scan still checks them.
+BOT_IDENTITIES = {"dependabot[bot]", "github-actions[bot]", "renovate[bot]"}
+_RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
+_RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
+
+
+def canonical_identities() -> dict:
+    """email -> display name for every role the team may commit as."""
+    return {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
+
+
+def default_audit_range(project: Path) -> str:
+    if run_git(project, "rev-parse", "--verify", "--quiet", "origin/main").returncode == 0:
+        return "origin/main..HEAD"
+    if run_git(project, "rev-parse", "--verify", "--quiet", "HEAD~1").returncode == 0:
+        return "HEAD~1..HEAD"
+    return "HEAD"
+
+
+def audit_commit_identities(project: Path, rev_range: str) -> int:
+    """Fail when a commit is not authored and committed by the acting role.
+
+    The role that does the work commits it. A forge-created pull-request merge ref
+    carries the forge account identity, so it is skipped; its own history is
+    audited by the caller's range. Bot dependency updates are allowed.
+    """
+    proc = run_git(
+        project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", rev_range
+    )
+    if proc.returncode != 0:
+        print(f"teamwork: cannot read {rev_range}: {proc.stderr.strip()}")
+        return 2
+    canonical = canonical_identities()
+    problems = []
+    seen = 0
+    print(f"# Commit identity audit ({rev_range})")
+    for record in proc.stdout.split("\x1e"):
+        record = record.strip("\n")
+        if not record:
+            continue
+        parts = record.split("\x1f")
+        if len(parts) < 6:
+            continue
+        sha, an, ae, cn, ce = parts[:5]
+        parents = parts[5].split()
+        body = parts[6] if len(parts) > 6 else ""
+        subject = body.splitlines()[0] if body else ""
+        short = sha[:12]
+        if len(parents) >= 2 and _RE_FORGE_MERGE_SUBJECT.match(subject.strip()):
+            print(f"- {short} skipped: forge pull-request merge ref")
+            continue
+        seen += 1
+        reasons = []
+        if an in BOT_IDENTITIES and ae not in canonical:
+            print(f"- {short} ok: bot {an}")
+            continue
+        expected = canonical.get(ae)
+        if expected is None:
+            reasons.append(f"not a role mailbox: {ae}")
+        elif an != expected:
+            reasons.append(f"display name {an!r} does not match role {expected!r}")
+        if ce != ae or cn != an:
+            reasons.append(f"committer {cn} <{ce}> differs from author {an} <{ae}>")
+        match = _RE_ACTING_ROLE.search(body)
+        if not match:
+            reasons.append("message has no 'Acting role:' line")
+        elif match.group(1) != an:
+            reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
+        if reasons:
+            problems.append((short, reasons))
+            for reason in reasons:
+                print(f"- {short} FAIL {an} <{ae}>: {reason}")
+        else:
+            print(f"- {short} ok {an} <{ae}>")
+    print(f"# commits: {seen} | problems: {len(problems)}")
+    return 1 if problems else 0
 
 
 def build_commit_message(role: str, meta: dict) -> str:
@@ -8846,6 +8928,18 @@ def _parsers_integration(sub, common) -> None:
         help="role commit identity, e.g. Developer <developer@agents.nidvue.com>",
     )
     s.add_argument("--role", default="")
+    s.add_argument(
+        "--audit",
+        action="store_true",
+        help="fail when a commit is not authored and committed by the acting role",
+    )
+    s.add_argument(
+        "--range",
+        dest="rev_range",
+        default="",
+        metavar="REV..REV",
+        help="revision range for --audit (default: origin/main..HEAD)",
+    )
     s.set_defaults(func=cmd_identity)
 
     s = sub.add_parser(
