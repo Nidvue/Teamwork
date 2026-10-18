@@ -693,9 +693,16 @@ Commit a change-set with the fixed style and the role commit identity.
 
 ```text
 teamwork identity [--role ROLE]
+teamwork identity --audit [--range REV..REV]
 ```
 
 Show the role commit identity, e.g. `Developer <developer@agents.nidvue.com>`.
+
+`--audit` fails when a commit in the range was not authored and committed by the
+acting role. It checks the author, the committer and the `Acting role:` trailer,
+skips the forge's synthetic pull-request merge ref, and allows bot dependency
+updates. The default range is `origin/main..HEAD` (else `HEAD~1..HEAD`). CI runs
+it on every pull request and every push to `main`.
 
 ## Audit and control
 
