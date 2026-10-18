@@ -3,7 +3,7 @@
 Owner: Release Engineer. The canonical answer to "how does this get built, shipped,
 verified and reverted". Keep it executable: every command here must run as written.
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Archive](Archive.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Archive](Archive.md)
 
 ## Build
 
@@ -72,9 +72,10 @@ prose-only change when it is genuinely warranted.
 
 - Environments: none. The artefact is a Python package; the "deployment" is a
   GitHub Release plus, optionally, a PyPI upload by the owner.
-- Order of operations: `main` green -> CEO rewrites history for privacy -> CEO
-  pushes `main` -> CI green -> CEO tags `v1.0.0` -> release workflow builds,
-  signs, attests and publishes the release assets. The tag build runs the test suite and `scripts/verify_release.py` before publishing.
+- Order of operations: `main` green -> push `main` -> CI green on that SHA ->
+  CEO tags `v<version>` -> release workflow builds, signs, attests and publishes
+  the release assets. History rewrites are not part of the flow; the pre-release
+  privacy rewrite already happened before the first public tag.
 - Configuration and secrets *mechanism* (never values): PyPI publishing uses
   Trusted Publishing (OIDC) and is deliberately not enabled; no secret is stored
   in the repository. Only the owner's local `gh` credential is used to push.
@@ -89,10 +90,10 @@ prose-only change when it is genuinely warranted.
 - What is *not* reversible: a force-push to `main` rewrites history for anyone who
   already cloned. The privacy rewrite is therefore done **before** the first
   public announcement and before any external clone exists.
-- Last drill: `python3 scripts/verify_release.py` @ `710e68d` -> `OK - release
-  verified` (build sdist+wheel, 38/38 bundle files in the wheel, clean-venv
-  install, `--version`, `selftest`, `init` and the full gate loop to `STOP`),
-  duration ~40 s; the CI `build` job runs the same command on every push.
+- Last drill: `python3 scripts/verify_release.py` @ `6905869` -> `OK - release
+  verified` (build sdist+wheel, bundle files in the wheel, clean-venv install,
+  `--version`, `selftest`, `init` and the full gate loop to `STOP`), duration
+  ~6 s; the CI `build` job runs the same command on every push.
 
 ## Observability
 
