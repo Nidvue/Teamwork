@@ -84,8 +84,13 @@ def test_missing_trailer_fails(repo):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
 
 
-def test_bot_dependency_update_is_allowed(repo, capsys):
-    _commit(repo, "dependabot[bot]", "dependabot@users.noreply.github.com", "chore: bump")
+def test_bot_dependency_update_is_allowed(repo):
+    _commit(
+        repo,
+        "dependabot[bot]",
+        "49699333+" + "dependabot[bot]@users.noreply.github.com",
+        "chore: bump",
+    )
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
 
 

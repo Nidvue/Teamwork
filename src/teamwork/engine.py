@@ -2906,6 +2906,9 @@ def cmd_identity(args) -> int:
 # Bot accounts a forge may author a dependency update with. They are not team
 # roles, so the role rule does not apply; the privacy scan still checks them.
 BOT_IDENTITIES = {"dependabot[bot]", "github-actions[bot]", "renovate[bot]"}
+_RE_BOT_EMAIL = re.compile(
+    r"^(?:[0-9]+\+)?(?:dependabot|github-actions|renovate)\[bot\]@users\.noreply\.github\.com$"
+)
 _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
 
@@ -2957,7 +2960,7 @@ def audit_commit_identities(project: Path, rev_range: str) -> int:
             continue
         seen += 1
         reasons = []
-        if an in BOT_IDENTITIES and ae not in canonical:
+        if an in BOT_IDENTITIES and _RE_BOT_EMAIL.match(ae) and ae not in canonical:
             print(f"- {short} ok: bot {an}")
             continue
         expected = canonical.get(ae)
