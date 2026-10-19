@@ -64,8 +64,10 @@ teamwork.py tests repro T-0007 --by developer-1 \
 ```
 
 The proof lives on the task, not on a layer record: a repro names one defect, so
-it cannot leak to a sibling bug in the same area. `tests list` shows layer
-evidence; `task list` shows the repro line.
+it cannot leak to a sibling bug in the same area. Task ids are unique per queue,
+not per workspace, so when `T-0001` exists on two queues, name the owner with
+`--role <role>`. `tests list` shows layer evidence; `task list` shows the repro
+line.
 
 `tests repro` refuses a single revision, a pre-run that does not read as failing,
 and (in a git workspace) a pre-revision that is not an ancestor of the

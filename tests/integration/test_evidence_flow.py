@@ -212,6 +212,77 @@ def test_tests_repro_requires_a_failing_pre_run(cli, project: Path) -> None:
     assert developer_task(root)["repro"] == ""
 
 
+def test_tests_repro_refuses_an_ambiguous_task_id(cli, project: Path) -> None:
+    root = init(cli, project)
+    add_bug_task(cli, project)
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "tester",
+            "fix the fixture leak",
+            "--priority",
+            "P2",
+            "--status",
+            "doing",
+            "--claimed-by",
+            "tester-1",
+            "--bug",
+        )
+        == 0
+    )
+    assert engine.parse_tasks(root / "Roles" / "Tester" / "TaskQueue.md")[0]["id"] == "T-0001"
+
+    refused = cli(
+        "--project",
+        project,
+        "tests",
+        "repro",
+        "T-0001",
+        "--by",
+        "developer-1",
+        "--pre-rev",
+        "aaa111",
+        "--pre-evidence",
+        "pytest @aaa111 -> 3 failed",
+        "--post-rev",
+        "bbb222",
+        "--post-evidence",
+        "pytest @bbb222 -> 12 passed",
+    )
+
+    assert refused != 0
+    assert developer_task(root)["repro"] == ""
+    assert engine.parse_tasks(root / "Roles" / "Tester" / "TaskQueue.md")[0]["repro"] == ""
+
+    accepted = cli(
+        "--project",
+        project,
+        "tests",
+        "repro",
+        "T-0001",
+        "--role",
+        "tester",
+        "--by",
+        "tester-1",
+        "--pre-rev",
+        "aaa111",
+        "--pre-evidence",
+        "pytest @aaa111 -> 3 failed",
+        "--post-rev",
+        "bbb222",
+        "--post-evidence",
+        "pytest @bbb222 -> 12 passed",
+    )
+
+    assert accepted == 0
+    assert developer_task(root)["repro"] == ""
+    tester_task = engine.parse_tasks(root / "Roles" / "Tester" / "TaskQueue.md")[0]
+    assert "pre @aaa111" in tester_task["repro"]
+
+
 def test_tests_repro_refuses_an_unknown_task(cli, project: Path) -> None:
     root = init(cli, project)
 

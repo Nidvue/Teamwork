@@ -229,3 +229,31 @@ def test_find_task_anywhere_reports_a_miss(tmp_path: Path) -> None:
     engine.write_tasks(root / "Roles" / "Developer" / "TaskQueue.md", [], "developer")
 
     assert engine._find_task_anywhere(root, "T-4040") == (None, None, None, None)
+
+
+def test_matching_tasks_reports_every_queue_hit(tmp_path: Path) -> None:
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    for role in ("Developer", "Tester"):
+        (root / "Roles" / role).mkdir(parents=True)
+        task = engine.new_task(f"{role} work")
+        task["id"] = "T-0001"
+        engine.write_tasks(root / "Roles" / role / "TaskQueue.md", [task], role)
+
+    hits = engine.matching_tasks(root, "T-0001")
+
+    assert [role for _t, _p, role, _i in hits] == ["developer", "tester"]
+
+
+def test_matching_tasks_honours_the_role_hint(tmp_path: Path) -> None:
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    for role in ("Developer", "Tester"):
+        (root / "Roles" / role).mkdir(parents=True)
+        task = engine.new_task(f"{role} work")
+        task["id"] = "T-0001"
+        engine.write_tasks(root / "Roles" / role / "TaskQueue.md", [task], role)
+
+    hits = engine.matching_tasks(root, "T-0001", "tester")
+
+    assert [role for _t, _p, role, _i in hits] == ["tester"]
