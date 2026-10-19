@@ -5,7 +5,7 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Status summary (2026-10-19, `main` @ `6905869`)
+## Status summary (2026-10-19, `main` @ `4cd8afc`)
 
 | milestone | exit condition | state |
 |---|---|---|
@@ -14,9 +14,9 @@ Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architectu
 | M2 Make it attractive | README demo, strict docs site, 0 broken links | done |
 | M3 Independent verification | every deliverable has a Reviewer verdict | done |
 | M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - now at `v1.0.2` |
-| M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | in flight - T-0011..T-0016 |
+| M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | done - T-0010..T-0016, closing T-0017 |
 
-## M5 - post-1.0 hardening (current)
+## M5 - post-1.0 hardening (closed)
 
 Exit: `pytest -q` green locally and in CI on every OS of the matrix, no open red
 run, and the governance records match the merged revision.
@@ -27,11 +27,12 @@ run, and the governance records match the merged revision.
 | T-0011 | Split `engine.py` into typed modules | ceo | P1 | - | `src/teamwork/*.py` | done | commit `c8fb469` |
 | T-0012 | Skip the POSIX umask test on Windows | ceo | P1 | T-0011 | `tests/unit/test_integrity_fixes.py` | done | commit `f2e3b5a`; CI `39173857076` windows jobs green |
 | T-0013 | Fix import order in the Windows skip test | ceo | P1 | T-0012 | `tests/unit/test_integrity_fixes.py` | done | commit `b7fe03b` |
-| T-0014 | Rebase and merge the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/release.yml` | in flight | PRs #11, #12, #13 rebased onto `6905869`; 17/17 checks green on each head |
-| T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | in flight | reviewer failed rounds 1-2 on stale figures; corrected and re-measured |
-| T-0016 | `ensure_gitignore` orphan headers and glob-covered entries | ceo | P1 | - | `src/teamwork/engine.py`, `tests/unit/` | todo | appended a dangling section header plus two redundant `.env` lines to this repo's `.gitignore` during a review run |
+| T-0014 | Land the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/release.yml` | done | commit `9b56f1b`; PR #17 17/17 checks; supersedes #11-#13 |
+| T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | done | commit `1d49c21`; passed on round 3 after two evidence-backed fails |
+| T-0016 | `ensure_gitignore` orphan headers and glob-covered entries | ceo | P1 | - | `src/teamwork/engine.py`, `tests/unit/test_gitignore_bootstrap.py` | done | commit `4cd8afc`; 5 regression tests, 3 of which fail on the pre-fix engine |
+| T-0017 | Close M5: board done + audit manifest export | ceo | P1 | T-0014..T-0016 | this file, `Board.md`, `AuditManifest.json` | in flight | final gate run and `ledger export` |
 
-Open tasks say "in flight"; the role queue (`teamwork.py task list ceo`) is the
+Only T-0017 is open; the role queue (`teamwork.py task list ceo`) is the
 only authoritative source for a task's exact state.
 
 ## Closed milestones (evidence on file)
