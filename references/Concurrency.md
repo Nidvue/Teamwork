@@ -11,11 +11,11 @@ Run everything as parallel as the providers allow, never past their caps.
 
 | Provider | Concurrent agents | Use it for |
 |---|---|---|
-| Ollama Cloud | ~10 | focused reasoning lanes: architecture, review, disputes, analysis |
+| Ollama Cloud | 64 | focused reasoning lanes: architecture, review, disputes, analysis |
 | DeepSeek official API | ~2500 | wide independent fanout: many developer/tester/designer sub-tasks, bulk docs and research |
 
 Caps live in `.pi/Teamwork/Teams/<Team>/Settings.json` and are overridable with
-`TEAMWORK_PROVIDER_LIMITS="ollama-cloud=10,deepseek=2500"`.
+`TEAMWORK_PROVIDER_LIMITS="ollama-cloud=64,deepseek=2500"`.
 
 ### Slots are leases
 
@@ -59,7 +59,7 @@ therefore schedules on **capacity**, not on idleness:
 |---|---|---|
 | `LANE_WIP` - units one lane may hold (`doing` + `selfcheck`) | 2 | `engine.LANE_WIP` |
 | Reviewer claims per lane | 1 | `review --claim` lease |
-| Provider capacity | `Settings.json` (`ollama-cloud` 10, `deepseek` 2500) | `parallel`, `pulse` |
+| Provider capacity | `Settings.json` (`ollama-cloud` 64, `deepseek` 2500) | `parallel`, `pulse` |
 
 `task next <lane> --capacity N` claims N executable tasks at once; `pulse
 --commit` tops every lane back up to its limit and refuses to plan more work than
