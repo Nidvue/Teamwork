@@ -152,26 +152,57 @@ def test_reports_to_boilerplate_is_not_self_contradictory(repo_root: Path) -> No
         )
 
 
-def test_agents_md_states_the_tree(repo_root: Path) -> None:
-    rows = _rows(repo_root / "templates" / "AGENTS.md")
+def _parent_cell(value: str) -> str:
+    """Normalise a `Reports to` cell to exactly one role name.
+
+    A row naming two managers ("CEO, CTO", "Product Manager, CEO") is the defect
+    this tree removes - a role with two managers answers to neither - so the cell
+    must hold exactly one name to pass. Comparing with ``startswith`` let
+    "Product Manager, CEO" satisfy a `product-manager` parent, which is the very
+    shape being forbidden.
+    """
+    cell = re.sub(r"\*\*|`", "", value).strip().rstrip(".")
+    return cell
+
+
+def _assert_states(rows: dict[str, str], where: str) -> None:
     for role, parent in ROLE_PARENT.items():
         if role == "ceo":
             continue
-        assert role in rows, f"templates/AGENTS.md has no row for {role}"
-        assert (
-            rows[role].startswith(parent.replace("-", " ").title()) or rows[role] == parent.upper()
-        ), f"templates/AGENTS.md says {role} reports to {rows[role]!r}, config says {parent!r}"
+        assert role in rows, f"{where} has no row for {role}"
+        cell = _parent_cell(rows[role])
+        want = {ROLE_DISPLAY.get(parent, parent)}
+        assert cell in want, (
+            f"{where} says {role} reports to {cell!r}; config says "
+            f"{ROLE_DISPLAY.get(parent, parent)!r} (exactly one manager per role)"
+        )
+
+
+def test_agents_md_states_the_tree(repo_root: Path) -> None:
+    _assert_states(_rows(repo_root / "templates" / "AGENTS.md"), "templates/AGENTS.md")
+
+
+def test_the_live_agents_md_matches_the_template(repo_root: Path) -> None:
+    """The committed AGENTS.md is what every agent actually obeys.
+
+    Regenerating the managed block (``teamwork agents-md``) or a hand edit could
+    otherwise drift the live table while the template stays correct - the same
+    decorative-surface defect as an unguarded charter.
+    """
+    live = _rows(repo_root / "AGENTS.md")
+    if not live:
+        pytest.skip("this checkout has no committed AGENTS.md")
+    template = _rows(repo_root / "templates" / "AGENTS.md")
+    assert live == template, (
+        "AGENTS.md and templates/AGENTS.md disagree on the reporting tree; the live "
+        "block is written by `teamwork.py agents-md`, so regenerate it rather than "
+        "editing one side"
+    )
+    _assert_states(live, "AGENTS.md")
 
 
 def test_roles_reference_states_the_tree(repo_root: Path) -> None:
-    rows = _rows(repo_root / "references" / "Roles.md")
-    for role, parent in ROLE_PARENT.items():
-        if role == "ceo":
-            continue
-        assert role in rows, f"references/Roles.md has no row for {role}"
-        assert (
-            rows[role].startswith(parent.replace("-", " ").title()) or rows[role] == parent.upper()
-        ), f"references/Roles.md says {role} reports to {rows[role]!r}, config says {parent!r}"
+    _assert_states(_rows(repo_root / "references" / "Roles.md"), "references/Roles.md")
 
 
 def test_map_renders_the_tree(repo_root: Path, capsys: pytest.CaptureFixture[str]) -> None:
