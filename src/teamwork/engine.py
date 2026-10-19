@@ -4310,6 +4310,162 @@ def cmd_repo(args) -> int:
     return 0
 
 
+def _worktree_is_busy(root: Path, path: str) -> bool:
+    """True when a lane is working here: a live slot lease or a claimed task.
+
+    Liveness outranks every other signal. A lane that took a slot and is mid-task
+    may hold nothing but an uncommitted file in a subdirectory, so the only honest
+    test is "is an agent still attached to this worktree".
+    """
+    here = Path(path)
+    # A lease names the task, and a task names the lane that claimed it. Compare both
+    # the worktree path and its agent name, because the slot file records the agent.
+    # Instance names are written both ways in the records (`Developer-1` in a claim,
+    # `developer-1` in a slot), so every comparison is case-folded.
+    rel = here.name
+    names = {rel.casefold(), safe_component(rel).casefold()}
+    slots = root / DIR_RUNTIME / DIR_SLOTS
+    for provider_dir in slots.glob("*") if slots.is_dir() else []:
+        for slot in provider_dir.glob("*.slot"):
+            if slot.stem.casefold() in names:
+                return True
+            try:
+                body = slot.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if rel and rel.casefold() in body.casefold():
+                return True
+    for role in list_roles(root):
+        path_q = role_dir(root, role) / F_TASKS
+        for task in parse_tasks(path_q):
+            if task.get("status") not in ("doing", "selfcheck"):
+                continue
+            claimed = str(task.get("claimed_by") or "")
+            if claimed and claimed.casefold() in names:
+                return True
+            branch = str(task.get("branch") or "")
+            if branch and branch == _worktree_branch(root, path):
+                return True
+    return False
+
+
+def _worktree_recently_written(here: Path, now: float, stale_minutes: int) -> bool:
+    """True when anything inside the worktree changed within the stale window.
+
+    The top directory's mtime only moves when an entry is added or removed, so a
+    lane that keeps editing files inside `build/` (often gitignored) looks idle.
+    Walk a bounded sample of the tree and take the newest mtime instead: a live
+    lane is by definition writing, and reclaiming a busy lane destroys work that
+    no commit can restore.
+    """
+    newest = here.stat().st_mtime
+    seen = 0
+    for child in here.rglob("*"):
+        seen += 1
+        if seen > 5000:
+            break
+        try:
+            newest = max(newest, child.stat().st_mtime)
+        except OSError:
+            continue
+        if (now - newest) / 60 < stale_minutes:
+            return True
+    return (now - newest) / 60 < stale_minutes
+
+
+def _worktree_locked(project: Path, path: str) -> bool:
+    """True when `git worktree lock` marks this worktree as pinned."""
+    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
+    current = ""
+    for line in listing:
+        if line.startswith("worktree "):
+            current = line[len("worktree ") :].strip()
+        elif line.startswith("locked") and current == path:
+            return True
+    return False
+
+
+def _worktree_branch(root: Path, path: str) -> str:
+    """The branch a worktree has checked out, or '' when detached."""
+    project = project_of(root)
+    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
+    current = ""
+    for line in listing:
+        if line.startswith("worktree "):
+            current = line[len("worktree ") :].strip()
+        elif line.startswith("branch ") and current == path:
+            return line[len("branch ") :].strip().removeprefix("refs/heads/")
+    return ""
+
+
+def reclaimable_worktrees(root: Path, stale_minutes: int) -> list:
+    """Worktrees under our own runtime/scratch dirs that hold nothing anyone needs.
+
+    A worktree is reclaimable when it is ours (under `.pi/`), NOT the main checkout,
+    has a clean `git status`, and its HEAD is already reachable from main - so
+    removing it cannot lose a commit. Age only decides when we look; reachability
+    and a clean tree are what make the removal safe.
+    """
+    project = project_of(root)
+    if not is_git_repo(project):
+        return []
+    now = time.time()
+    out = []
+    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
+    path = ""
+    head = ""
+    branch = ""
+    for line in listing + ["worktree "]:
+        if line.startswith("worktree "):
+            if path and _worktree_reclaimable(root, path, head, branch, now, stale_minutes):
+                out.append({"path": path, "head": head, "branch": branch})
+            path = line[len("worktree ") :].strip()
+            head = branch = ""
+        elif line.startswith("HEAD "):
+            head = line[len("HEAD ") :].strip()
+        elif line.startswith("branch "):
+            branch = line[len("branch ") :].strip().removeprefix("refs/heads/")
+    return out
+
+
+def _worktree_reclaimable(
+    root: Path, path: str, head: str, branch: str, now: float, stale_minutes: int
+) -> bool:
+    project = project_of(root)
+    here = Path(path)
+    if not here.is_dir() or here.resolve() == project.resolve():
+        return False
+    # Ours means inside the repository's own `.pi/` tree: both the runtime worktrees
+    # and the reviewer scratch worktrees live there. Never the main checkout. Compare
+    # resolved paths, not string prefixes: `.pi-evil/x` shares the prefix but is not
+    # ours, and a symlinked `.pi` must still resolve inside the repository.
+    pi_root = (project / TEAM_ROOT_DIR.split("/")[0]).resolve()
+    try:
+        if not here.resolve().is_relative_to(pi_root):
+            return False
+    except OSError:
+        return False
+    try:
+        if _worktree_recently_written(here, now, stale_minutes):
+            return False
+    except OSError:
+        return False
+    # Ignored files count as work: a lane's build cache, venv or object files live
+    # exactly here, and reclaiming them forces an expensive rebuild for a live lane.
+    status = run_git(here, "status", "--porcelain", "--ignored")
+    if status.returncode != 0 or status.stdout.strip():
+        return False
+    if not head:
+        return False
+    if _worktree_is_busy(root, path):
+        return False
+    # A locked worktree is pinned on purpose (a lane holding it, or a bisect):
+    # removing it would need --force twice and would defeat the lock.
+    if _worktree_locked(project, path):
+        return False
+    return run_git(project, "merge-base", "--is-ancestor", head, DEFAULT_BASE).returncode == 0
+
+
 def cmd_clean(args) -> int:
     """Remove scratch/temp files inside the team tree. Never touches tracked files."""
     root = project_root(args)
@@ -4356,6 +4512,32 @@ def cmd_clean(args) -> int:
             pass
     verb = "would remove" if args.dry_run else "removed"
     print(f"teamwork: {verb} {len(removed)} scratch/temp file(s), {freed / 1024:.1f} KiB")
+    reclaimed = [] if args.no_worktrees else reclaimable_worktrees(root, args.stale_minutes)
+    failed = []
+    for wt in reclaimed:
+        if args.dry_run:
+            continue
+        r = run_git(project, "worktree", "remove", "--force", wt["path"])
+        if r.returncode != 0 or Path(wt["path"]).exists():
+            # Never report a reclaim that did not happen: a lock or a permission
+            # problem is a finding, not a silent success.
+            failed.append((wt["path"], (r.stderr or "").strip().splitlines()[:1]))
+    if failed:
+        print(f"teamwork: {len(failed)} worktree(s) could not be reclaimed:")
+        for path, why in failed[:10]:
+            print(f"  - {path}: {why[0] if why else 'still present after remove'}")
+        reclaimed = [wt for wt in reclaimed if wt["path"] not in {p for p, _ in failed}]
+    if reclaimed:
+        wverb = "would reclaim" if args.dry_run else "reclaimed"
+        print(
+            f"teamwork: {wverb} {len(reclaimed)} merged, clean worktree(s) "
+            f"older than {args.stale_minutes}m (commits reachable from {DEFAULT_BASE})"
+        )
+    else:
+        print(
+            f"teamwork: no worktree to reclaim (only clean worktrees whose HEAD is "
+            f"reachable from {DEFAULT_BASE}, older than {args.stale_minutes}m)"
+        )
     for rel in removed[: args.limit]:
         print(f"  - {rel}")
     if len(removed) > args.limit:
@@ -8555,6 +8737,20 @@ def _parsers_workspace(sub, common) -> None:
     )
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--limit", type=int, default=40)
+    s.add_argument(
+        "--stale-minutes",
+        type=int,
+        default=60,
+        help="age before a merged, clean worktree is reclaimed (default 60)",
+    )
+    s.add_argument(
+        "--worktrees",
+        action="store_true",
+        help="reclaim merged, clean worktrees (the default; stated for clarity)",
+    )
+    s.add_argument(
+        "--no-worktrees", action="store_true", help="leave worktrees alone, only temp files"
+    )
     s.set_defaults(func=cmd_clean)
 
     s = sub.add_parser(
