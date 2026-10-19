@@ -205,7 +205,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 
 - date: 2026-10-17
 - kind: governance
-- status: accepted
+- status: superseded by D-20261020-CEO-2 (a stage ends with a push, not a milestone)
 - deciders: CEO (ceo)
 - decided by: ceo
 - task: -
@@ -536,3 +536,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: measured startup read: expand_roster over roles/*.md + templates/AGENTS.md -> slim 213225 B, standard 316023 B, full 551756 B (2.6x); pre-fix tribunal on a slim roster in /tmp/slim1: dispute escalate D-0001 -> '(ceo)' only, sign by ceo -> 'tribunal complete', resolve -> rc 0 (self-ruled); post-fix same workspace: escalate -> '(ceo, reviewer)', resolve by ceo -> rc 1 'ceo is a party to this dispute and cannot rule it', resolve by Reviewer-1 -> rc 0; tests/unit/test_roster_tiers.py -> 8 passed; pytest -q -> 453 passed, 1 skipped
 - falsified by: a slim roster that reports a test-layer gap for an unstaffed role, or a dispute resolved by a role that is a party to it
 - consequences: init --roster is the documented bootstrap; the folded lanes are printed at init; the Reviewer is now a tribunal member whenever cto/cfo are unstaffed
+
+## D-20261020-CEO-2 - A stage ends with a push, not with a merge
+
+- date: 2026-10-20
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0041
+- context: id -2, not -1: `cmd_decision` allocates from the checked-out branch only, and another open branch had already taken the bare id. The operator asked (2026-10-19) that a completed stage be pushed promptly once its commits are squashed, rebased and merged. The earlier rule pushed per milestone, which let local `main` drift far behind the remote - measured with `git rev-list --count origin/main..main`, and deliberately not written here, because a count in a document is stale before the document is committed.
+- options considered: keep batching per milestone (refused: the remote drifted by a whole release's worth of commits); push every commit as it is made (refused: it would publish unreviewed revisions and red gates, which the push policy and the red lines both forbid); push each merged stage after the gates are green on that revision (chosen).
+- decision: The Release Engineer pushes a stage as soon as that stage is squashed, rebased and merged and its pre-push gates are green on exactly that revision. A milestone is no longer the unit of pushing; a stage is.
+- why: Review and merge already establish that a revision is fit to be seen; holding it back until a milestone adds no safety, only exposure - a local-only history is a single disk failure from losing reviewed work, and it makes CI surface defects long after the code was written.
+- evidence: `grep -rn 'per milestone' SKILL.md references/Engineering.md roles/release-engineer.md docs/Team/Architecture.md AGENTS.md templates/AGENTS.md -> 0 hits` and `grep -c 'A stage ends with a push' AGENTS.md templates/AGENTS.md -> 1 each`; the rule is pinned by tests, and reverting the phrase fails them (`pytest tests/unit/test_skill_contracts.py -q` -> failures on the AGENTS.md surface, the skill surface, the release-engineer charter and the Engineering reference); `git rev-list --count origin/main..main` is read at the time of a push, never quoted here.
+- falsified by: A revision reaches the remote without a Reviewer verdict, or a merged stage sits unpublished past the gates being green on it.
+- consequences: Every stage ends with a push and a CI confirmation on that SHA; the Release Engineer reports the pushed revision and the run ids as evidence; tags and public releases remain the CEO's step.
