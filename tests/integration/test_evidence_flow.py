@@ -343,3 +343,66 @@ def test_review_pass_binds_its_artifact(cli, project: Path) -> None:
     assert task["status"] == "done"
     assert task["review_artifacts"].startswith("Reports/run.log:")
     assert "artifacts: Reports/run.log:" in task["review_evidence"]
+
+
+def test_audit_reports_a_bug_task_closed_without_a_repro(cli, project: Path) -> None:
+    init(cli, project)
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "developer",
+            "fix the parser crash",
+            "--priority",
+            "P1",
+            "--status",
+            "doing",
+            "--claimed-by",
+            "developer-1",
+            "--bug",
+        )
+        == 0
+    )
+    # The only way past the gate is an explicit override, and the audit still says so.
+    assert (
+        cli(
+            "--project",
+            project,
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            "--note",
+            "cannot reproduce locally",
+            "--test",
+            "pytest @bbb222 -> 12 passed",
+            "--force",
+            "defect is environment-specific",
+        )
+        == 0
+    )
+
+    class Sink:
+        def __init__(self) -> None:
+            self.lines: list[str] = []
+
+        def write(self, text: str) -> int:
+            self.lines.append(text)
+            return len(text)
+
+        def flush(self) -> None:
+            return None
+
+    import contextlib
+
+    out = Sink()
+    with contextlib.redirect_stdout(out):
+        code = cli("--project", project, "audit")
+
+    text = "".join(out.lines)
+    assert code != 0
+    assert "defect fixes without a fail -> pass repro record" in text
+    assert "T-0001" in text
