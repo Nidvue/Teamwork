@@ -504,3 +504,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: jq -r 'select(.action=="review.fail" and .target=="T-0031") | .detail' Ledger.jsonl | tail -1 -> 'FAIL @c9de7d3 (base main 31c03b5, round 5)'; git rev-parse c9de7d3^{tree} == git rev-parse HEAD^{tree} before 8b45af1 -> 32a14aa9 (the re-dispatched review measured the same tree, correctly); git log --oneline -1 8b45af1 -> 'docs(packaging): CHANGELOG one Added block in 1.1.0 ...'
 - falsified by: if any recorded round-5 verdict names a head that is not an ancestor of the reviewed branch, the retraction is wrong
 - consequences: verdict text is read from the record's detail, never from the rendered rev column; the round-5 findings were fixed rather than dismissed
+
+## D-20261019-Architect - Architecture.md section 2 map: no version literal, and pi-package/scripts trees listed
+
+- date: 2026-10-19
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: T-0001 sys-layer check found one drifted fact (version) and three omissions in the frozen layout, while the module list itself was already 1:1 with the 14 shipped modules.
+- options considered: A) correct the literal to 1.1.0 and keep quoting it - rejected: drifts again at the next bump. B) drop the literal and point at version.py - chosen. C) leave the tree alone and document the omissions elsewhere - rejected: section 2 is the frozen layout every lane reads.
+- decision: Section 2 of docs/Team/Architecture.md stops quoting a version string for src/teamwork/version.py (it said __version__ = "1.0.2" while the code says 1.1.0) and instead names the file as the single version source; the layout tree now also lists templates/pi-package/, scripts/build_pi_package.py and .agents/skills/, and the ownership table assigns scripts/build_pi_package.py + templates/pi-package/** to ceo (owner of Pi-Packaging.md).
+- why: A frozen contract that repeats a value it does not own drifts silently: the map was 1.0.2 behind the code and TS-0015 carried the stale 1.0.2 into its evidence. Naming version.py as the only source removes the class of drift rather than correcting one instance. The three omitted paths are shipped, tracked and load-bearing (Makefile:61-62 runs build_pi_package.py; the pi layer is built from templates/pi-package/), so a map that omits them is not a map of the repository.
+- evidence: python3 .pi/Teamwork/Teams/Teamwork/Agents/Architect/Artifacts/arch_map_check.py . @49cc390 -> PASS 6/6 (14 modules 1:1, 4 scripts, templates subtrees Docs+pi-package, import direction, exit codes); negative control on main:docs/Team/Architecture.md -> FAIL 4 mismatch(es) rc=1
+- falsified by: A future commit changes a version string in version.py and section 2 of Architecture.md must not need an edit; if a reviewer finds a version literal in section 2, this decision is void.
+- consequences: Section 2 no longer states a number, so the version is read from src/teamwork/version.py (pyproject [tool.hatch.version] reads the same file). scripts/build_pi_package.py and templates/pi-package/** now have a named owner (ceo) so one writer per file still holds.
