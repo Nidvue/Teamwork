@@ -241,8 +241,10 @@ def test_the_generated_brief_states_the_same_line_as_the_charter(
 
     root = tmp_path / "Team"
     root.mkdir(parents=True, exist_ok=True)
+    # A fully staffed team: every role has somewhere to report.
+    staffed = set(ROLE_PARENT)
     for role, parent in ROLE_PARENT.items():
-        brief = engine.start_here(f"{role}-1", role, root, tmp_path / "docs")
+        brief = engine.start_here(f"{role}-1", role, root, tmp_path / "docs", staffed)
         body = " ".join(brief.split())
         assert "Report to the CEO:" not in body or parent == "ceo", (
             f"the generated brief for {role} tells it to report to the CEO, but "
@@ -262,3 +264,44 @@ def test_the_generated_brief_states_the_same_line_as_the_charter(
         assert f"Report to the {want}:" in body, (
             f"the brief for {role} still says 'Report to the CEO' in the closing step"
         )
+
+
+def test_a_vacant_manager_folds_to_the_nearest_staffed_ancestor(
+    tmp_path: Path,
+) -> None:
+    """A slim roster has no CTO, so "report to the CTO" would be a dead address.
+
+    The brief names a manager; naming one the team does not staff sends an agent
+    to a mailbox nobody reads. It must fold upward and say which line is vacant.
+    """
+    from teamwork import engine
+
+    root = tmp_path / "Team"
+    root.mkdir(parents=True, exist_ok=True)
+    slim = {"ceo", "developer", "architect", "tester", "reviewer"}
+    brief = engine.start_here("developer-1", "developer", root, tmp_path / "docs", slim)
+    body = " ".join(brief.split())
+    assert "CTO, which this team does not staff" in body
+    assert "Report to the CEO (CTO not staffed here)" in body
+    assert "You report to the **CTO**" not in body
+
+    # With the CTO staffed the same role reports to it again.
+    full = engine.start_here("developer-1", "developer", root, tmp_path / "docs", set(ROLE_PARENT))
+    assert "You report to the **CTO**" in " ".join(full.split())
+
+
+def test_an_unbundled_role_does_not_get_the_users_ear(tmp_path: Path) -> None:
+    """A role outside the tree falls back to the CEO, never to the user.
+
+    The fallback charter already says "report to the CEO"; handing such a lane the
+    CEO branch would tell a non-CEO agent it is the only lane that reaches the user.
+    """
+    from teamwork import engine
+
+    root = tmp_path / "Team"
+    root.mkdir(parents=True, exist_ok=True)
+    brief = engine.start_here("auditor-1", "auditor", root, tmp_path / "docs", {"ceo"})
+    body = " ".join(brief.split())
+    assert "only lane that" not in body
+    assert "Report to the user" not in body
+    assert "report to the **CEO**" in body
