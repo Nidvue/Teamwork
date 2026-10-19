@@ -1465,21 +1465,6 @@ def require_ancestor(project: Path, older: str, newer: str) -> None:
         )
 
 
-def repro_records_for(root: Path, task: dict) -> list:
-    """Test records that prove a fail -> pass transition for this task.
-
-    A record that names a task proves that task only. The area-wide fallback is
-    for records written before the id link existed (``--task`` empty); it must not
-    let a repro for one bug satisfy a sibling bug in the same area.
-    """
-    area = (task.get("area") or "").lower()
-    records = [r for r in parse_tests(tests_path(root)) if r.get("repro")]
-    named = [r for r in records if r.get("task") == task["id"]]
-    if named:
-        return named
-    return [r for r in records if not r.get("task") and area and r["area"] == area]
-
-
 def cmd_tests(args) -> int:
     root = project_root(args)
     path = tests_path(root)
@@ -1607,19 +1592,10 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         return 0
 
     if args.tests_cmd == "repro":
-        idx = find_test(records, args.id)
-        if idx is None:
-            die(f"no test record '{args.id}'")
-        rec = records[idx]
-        actor, arole = validate_actor(root, args.by, "repro author")
-        want = owner_for_layer(root, rec["layer"])
-        if arole != want and not force:
-            die(
-                f"{rec['id']} is a {rec['layer']} record owned by the {want} role; "
-                f"{actor} is {arole}. A layer is designed and run by its own role."
-            )
-        if force:
-            force = require_reason(force, "running another role's layer")
+        t, tpath, role, tidx = _find_task_anywhere(root, args.id)
+        if t is None:
+            die(f"no task '{args.id}' in any role queue")
+        actor, _arole = validate_actor(root, args.by, "repro author")
         pre_rev = (args.pre_rev or "").strip()
         post_rev = (args.post_rev or "").strip()
         pre = (args.pre_evidence or "").strip()
@@ -1638,31 +1614,29 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
             die("--post-evidence must show the passing run ('-> 12 passed', 'PASS', 'ok')")
         require_ancestor(project_of(root), pre_rev, post_rev)
         artifacts = artifact_digests(root, getattr(args, "artifact", None))
-        rec["repro"] = f"pre @{pre_rev} -> {pre} | post @{post_rev} -> {post}"
-        if artifacts:
-            rec["artifacts"] = artifacts
-        rec["status"] = "passing"
-        rec["evidence"] = f"{rec['repro']}" + (f" | artifacts: {artifacts}" if artifacts else "")
-        rec["rev"] = post_rev
-        rec["by"] = actor
-        rec["updated"] = today_iso()
-        if force:
-            rec["forced"] = f"repro by {actor} ({arole}) for {want}: {force}"
-        write_tests(path, records)
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+            tasks = parse_tasks(tpath)
+            t = tasks[tidx]
+            t["repro"] = f"pre @{pre_rev} -> {pre} | post @{post_rev} -> {post}"
+            if artifacts:
+                t["repro_artifacts"] = artifacts
+            t["repro_by"] = actor
+            t["updated"] = today_iso()
+            if force:
+                t["forced"] = (t.get("forced", "") + f" | repro by {actor}: {force}").strip(" |")
+            write_tasks(tpath, tasks, role)
         ledger_append(
             root,
             "tests.repro",
             actor,
-            rec["id"],
-            f"{rec['layer']}/{rec['area']} "
+            t["id"],
             f"fail @{pre_rev} -> pass @{post_rev}"
             + (f" | artifacts: {artifacts}" if artifacts else "")
             + (f" FORCED: {force}" if force else ""),
             post_rev,
+            role,
         )
-        print(
-            f"# {rec['id']} {rec['layer']}/{rec['area']} repro proved: fail @{pre_rev} -> pass @{post_rev}"
-        )
+        print(f"# {t['id']} repro proved by {actor}: fail @{pre_rev} -> pass @{post_rev}")
         return 0
 
     if args.tests_cmd == "require":
@@ -5832,12 +5806,12 @@ def cmd_selfcheck(args) -> int:
             print(f"teamwork: {t['id']} is review=na; self-check not required")
             return 0
         if args.result == "pass" and t.get("kind") == "bug" and not args.force:
-            if not repro_records_for(root, t):
+            if not t.get("repro"):
                 die(
                     f"refusing to pass the self-check of {t['id']}: it is a bug task "
-                    "and no test record proves the defect existed. Record the "
+                    "and no repro proves the defect existed. Record the "
                     "fail -> pass transition first:\n"
-                    f"  teamwork.py tests repro <TS-id> --by {actor} "
+                    f"  teamwork.py tests repro {t['id']} --by {actor} "
                     "--pre-rev <rev-before> --pre-evidence '<cmd> @<rev> -> 3 failed' "
                     "--post-rev <rev-after> --post-evidence '<cmd> @<rev> -> 12 passed'\n"
                     "  (--force <reason> only when the defect cannot be reproduced)",
@@ -6248,7 +6222,7 @@ def _audit_bug_fixes_without_a_repro_record(root: Path, names: list, args) -> in
         for t in parse_tasks(task_file(root, name)):
             if t.get("kind") != "bug" or t["status"] not in ("done", "review"):
                 continue
-            if repro_records_for(root, t):
+            if t.get("repro"):
                 continue
             print(
                 f"- {name} {t['id']}: {t['title']} ({t['status']}) has no "
@@ -7801,9 +7775,11 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--force", default="", metavar="REASON")
     s.set_defaults(func=cmd_tests)
     s = tsub2.add_parser(
-        "repro", parents=[common], help="prove the defect: failing run before, passing run after"
+        "repro",
+        parents=[common],
+        help="prove the defect on its task: failing run before, passing run after",
     )
-    s.add_argument("id")
+    s.add_argument("id", metavar="TASK", help="T-0007, the defect task the proof belongs to")
     s.add_argument("--by", required=True)
     s.add_argument("--pre-rev", required=True, dest="pre_rev")
     s.add_argument("--pre-evidence", required=True, dest="pre_evidence")

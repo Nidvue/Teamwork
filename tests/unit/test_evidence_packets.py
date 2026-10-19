@@ -52,7 +52,7 @@ def commit(project: Path, message: str) -> str:
 def test_new_test_record_starts_with_an_empty_packet() -> None:
     record = engine.new_test_record("unit", "parser")
 
-    for field in ("baseline", "artifacts", "replay", "repro"):
+    for field in ("baseline", "artifacts", "replay"):
         assert record[field] == ""
 
 
@@ -62,7 +62,6 @@ def test_test_record_roundtrip_keeps_the_packet(tmp_path: Path) -> None:
     record["baseline"] = "empty cache, 0 entries"
     record["artifacts"] = "Reports/run.log:abc123:4096"
     record["replay"] = "pytest tests/unit/test_parser.py -q"
-    record["repro"] = "pre @aaa111 -> 3 failed | post @bbb222 -> 12 passed"
 
     engine.write_tests(path, [record])
     out = engine.parse_tests(path)
@@ -71,13 +70,15 @@ def test_test_record_roundtrip_keeps_the_packet(tmp_path: Path) -> None:
     assert out[0]["baseline"] == "empty cache, 0 entries"
     assert out[0]["artifacts"] == "Reports/run.log:abc123:4096"
     assert out[0]["replay"] == "pytest tests/unit/test_parser.py -q"
-    assert out[0]["repro"] == "pre @aaa111 -> 3 failed | post @bbb222 -> 12 passed"
 
 
 def test_new_task_records_kind_and_artifact_fields() -> None:
     task = engine.new_task("fix the parser crash")
 
     assert task["kind"] == ""
+    assert task["repro"] == ""
+    assert task["repro_artifacts"] == ""
+    assert task["repro_by"] == ""
     assert task["self_artifacts"] == ""
     assert task["review_artifacts"] == ""
 
@@ -86,14 +87,20 @@ def test_task_roundtrip_keeps_kind_and_artifacts(tmp_path: Path) -> None:
     path = tmp_path / "TaskQueue.md"
     task = engine.new_task("fix the parser crash")
     task["kind"] = "bug"
-    task["self_artifacts"] = "Reports/repro.log:def456:12"
+    task["repro"] = "pre @aaa111 -> 3 failed | post @bbb222 -> 12 passed"
+    task["repro_artifacts"] = "Reports/repro.log:def456:12"
+    task["repro_by"] = "developer-1"
+    task["self_artifacts"] = "Reports/self.log:def456:12"
     task["review_artifacts"] = "Reports/review.log:0a1b2c:8"
 
     engine.write_tasks(path, [task], "developer")
     out = engine.parse_tasks(path)
 
     assert out[0]["kind"] == "bug"
-    assert out[0]["self_artifacts"] == "Reports/repro.log:def456:12"
+    assert out[0]["repro"] == "pre @aaa111 -> 3 failed | post @bbb222 -> 12 passed"
+    assert out[0]["repro_artifacts"] == "Reports/repro.log:def456:12"
+    assert out[0]["repro_by"] == "developer-1"
+    assert out[0]["self_artifacts"] == "Reports/self.log:def456:12"
     assert out[0]["review_artifacts"] == "Reports/review.log:0a1b2c:8"
 
 
@@ -196,53 +203,29 @@ def test_require_ancestor_rejects_an_unknown_revision(tmp_path: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# repro matching
+# task lookup for repro
 # --------------------------------------------------------------------------- #
 
 
-def write_tests(root: Path, records: list) -> Path:
-    path = root / "Tests.md"
-    engine.write_tests(path, records)
-    return path
+def test_find_task_anywhere_finds_the_owning_queue(tmp_path: Path) -> None:
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    for role in ("Developer", "Tester"):
+        (root / "Roles" / role).mkdir(parents=True)
+        task = engine.new_task(f"{role} work")
+        task["id"] = "T-0001"
+        engine.write_tasks(root / "Roles" / role / "TaskQueue.md", [task], role)
+
+    task, path, role, idx = engine._find_task_anywhere(root, "T-0001")
+
+    assert role == "developer" and task["id"] == "T-0001"
+    assert path == root / "Roles" / "Developer" / "TaskQueue.md" and idx == 0
 
 
-def repro_record(area: str, task: str = "", repro: str = "pre @aaa -> 3 failed") -> dict:
-    record = engine.new_test_record("unit", area, owner="developer-1")
-    record["task"] = task
-    record["repro"] = repro
-    return record
+def test_find_task_anywhere_reports_a_miss(tmp_path: Path) -> None:
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    (root / "Roles" / "Developer").mkdir(parents=True)
+    engine.write_tasks(root / "Roles" / "Developer" / "TaskQueue.md", [], "developer")
 
-
-def test_repro_matches_the_task_it_names(tmp_path: Path) -> None:
-    root = make_root(tmp_path / "SampleProject")
-    write_tests(
-        root,
-        [repro_record("parser", task="T-0002"), repro_record("parser", task="T-0003")],
-    )
-
-    matched = engine.repro_records_for(root, {"id": "T-0003", "area": "parser"})
-
-    assert [r["task"] for r in matched] == ["T-0003"]
-
-
-def test_repro_for_a_sibling_bug_does_not_satisfy_the_task(tmp_path: Path) -> None:
-    root = make_root(tmp_path / "SampleProject")
-    write_tests(root, [repro_record("parser", task="T-0002")])
-
-    assert engine.repro_records_for(root, {"id": "T-0003", "area": "parser"}) == []
-
-
-def test_area_level_repro_covers_a_task_without_an_id_link(tmp_path: Path) -> None:
-    root = make_root(tmp_path / "SampleProject")
-    write_tests(root, [repro_record("parser")])
-
-    matched = engine.repro_records_for(root, {"id": "T-0003", "area": "parser"})
-
-    assert len(matched) == 1
-
-
-def test_repro_of_another_area_is_ignored(tmp_path: Path) -> None:
-    root = make_root(tmp_path / "SampleProject")
-    write_tests(root, [repro_record("ledger")])
-
-    assert engine.repro_records_for(root, {"id": "T-0003", "area": "parser"}) == []
+    assert engine._find_task_anywhere(root, "T-4040") == (None, None, None, None)

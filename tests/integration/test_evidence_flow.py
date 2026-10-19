@@ -104,16 +104,41 @@ def test_tests_run_refuses_a_missing_artifact(cli, project: Path) -> None:
     assert records(root)[0]["status"] == "pending"
 
 
-def test_tests_repro_proves_fail_then_pass(cli, project: Path) -> None:
+def add_bug_task(cli, project: Path, title: str = "fix the parser crash") -> None:
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "developer",
+            title,
+            "--priority",
+            "P1",
+            "--status",
+            "doing",
+            "--claimed-by",
+            "developer-1",
+            "--bug",
+        )
+        == 0
+    )
+
+
+def developer_task(root: Path) -> dict:
+    return engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]
+
+
+def test_tests_repro_proves_fail_then_pass_on_the_task(cli, project: Path) -> None:
     root = init(cli, project)
-    assert cli("--project", project, "tests", "add", "--layer", "unit", "--area", "parser") == 0
+    add_bug_task(cli, project)
 
     code = cli(
         "--project",
         project,
         "tests",
         "repro",
-        "TS-0001",
+        "T-0001",
         "--by",
         "developer-1",
         "--pre-rev",
@@ -127,23 +152,24 @@ def test_tests_repro_proves_fail_then_pass(cli, project: Path) -> None:
     )
 
     assert code == 0
-    rec = records(root)[0]
-    assert rec["status"] == "passing"
-    assert rec["rev"] == "bbb222"
-    assert "pre @aaa111" in rec["repro"] and "post @bbb222" in rec["repro"]
+    task = developer_task(root)
+    assert task["repro_by"] == "Developer-1"
+    assert "pre @aaa111" in task["repro"] and "post @bbb222" in task["repro"]
     assert [r["action"] for r in engine.ledger_read(root)].count("tests.repro") == 1
+    # the proof belongs to the defect, not to a layer record
+    assert engine.parse_tests(_tests_md(root)) == []
 
 
 def test_tests_repro_rejects_a_single_revision(cli, project: Path) -> None:
     root = init(cli, project)
-    assert cli("--project", project, "tests", "add", "--layer", "unit", "--area", "parser") == 0
+    add_bug_task(cli, project)
 
     code = cli(
         "--project",
         project,
         "tests",
         "repro",
-        "TS-0001",
+        "T-0001",
         "--by",
         "developer-1",
         "--pre-rev",
@@ -157,19 +183,19 @@ def test_tests_repro_rejects_a_single_revision(cli, project: Path) -> None:
     )
 
     assert code != 0
-    assert records(root)[0]["repro"] == ""
+    assert developer_task(root)["repro"] == ""
 
 
 def test_tests_repro_requires_a_failing_pre_run(cli, project: Path) -> None:
     root = init(cli, project)
-    assert cli("--project", project, "tests", "add", "--layer", "unit", "--area", "parser") == 0
+    add_bug_task(cli, project)
 
     code = cli(
         "--project",
         project,
         "tests",
         "repro",
-        "TS-0001",
+        "T-0001",
         "--by",
         "developer-1",
         "--pre-rev",
@@ -183,31 +209,38 @@ def test_tests_repro_requires_a_failing_pre_run(cli, project: Path) -> None:
     )
 
     assert code != 0
-    assert records(root)[0]["repro"] == ""
+    assert developer_task(root)["repro"] == ""
+
+
+def test_tests_repro_refuses_an_unknown_task(cli, project: Path) -> None:
+    root = init(cli, project)
+
+    code = cli(
+        "--project",
+        project,
+        "tests",
+        "repro",
+        "T-4040",
+        "--by",
+        "developer-1",
+        "--pre-rev",
+        "aaa111",
+        "--pre-evidence",
+        "pytest @aaa111 -> 3 failed",
+        "--post-rev",
+        "bbb222",
+        "--post-evidence",
+        "pytest @bbb222 -> 12 passed",
+    )
+
+    assert code != 0
+    assert [r["action"] for r in engine.ledger_read(root)].count("tests.repro") == 0
 
 
 def test_bug_task_cannot_self_check_without_a_repro_record(cli, project: Path) -> None:
     root = init(cli, project)
-    assert (
-        cli(
-            "--project",
-            project,
-            "task",
-            "add",
-            "developer",
-            "fix the parser crash",
-            "--priority",
-            "P1",
-            "--status",
-            "doing",
-            "--claimed-by",
-            "developer-1",
-            "--bug",
-        )
-        == 0
-    )
-    tasks = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")
-    assert tasks[0]["kind"] == "bug"
+    add_bug_task(cli, project)
+    assert developer_task(root)["kind"] == "bug"
 
     refused = cli(
         "--project",
@@ -224,33 +257,16 @@ def test_bug_task_cannot_self_check_without_a_repro_record(cli, project: Path) -
     )
 
     assert refused != 0
-    assert engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["self_check"] == (
-        "pending"
-    )
+    assert developer_task(root)["self_check"] == "pending"
 
-    # A repro record that names the task (no area needed) unlocks the self-check.
-    assert (
-        cli(
-            "--project",
-            project,
-            "tests",
-            "add",
-            "--layer",
-            "unit",
-            "--area",
-            "crash",
-            "--task",
-            "T-0001",
-        )
-        == 0
-    )
+    # The repro is recorded on the defect task itself and unlocks the self-check.
     assert (
         cli(
             "--project",
             project,
             "tests",
             "repro",
-            "TS-0001",
+            "T-0001",
             "--by",
             "developer-1",
             "--pre-rev",
@@ -280,7 +296,7 @@ def test_bug_task_cannot_self_check_without_a_repro_record(cli, project: Path) -
     )
 
     assert accepted == 0
-    task = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]
+    task = developer_task(root)
     assert task["self_check"] == "passed"
     assert task["status"] == "review"
 
@@ -407,24 +423,7 @@ def test_review_records_baseline_and_replay(cli, project: Path) -> None:
 
 def test_audit_reports_a_bug_task_closed_without_a_repro(cli, project: Path) -> None:
     init(cli, project)
-    assert (
-        cli(
-            "--project",
-            project,
-            "task",
-            "add",
-            "developer",
-            "fix the parser crash",
-            "--priority",
-            "P1",
-            "--status",
-            "doing",
-            "--claimed-by",
-            "developer-1",
-            "--bug",
-        )
-        == 0
-    )
+    add_bug_task(cli, project)
     # The only way past the gate is an explicit override, and the audit still says so.
     assert (
         cli(
