@@ -119,9 +119,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 213 kB |
-| `standard` | 9 | 316 kB |
-| `full` | 16 | 552 kB |
+| `slim` (default) | 6 | 215 kB |
+| `standard` | 9 | 318 kB |
+| `full` | 16 | 555 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.6x what `slim` costs.
@@ -450,11 +450,11 @@ deliverable in `review --queue`; report one short line. Never stop the team whil
 
 Two duties that keep the remote and the confidence level honest:
 
-- **Release Engineer - push after review, per milestone.** The Release Engineer is
+- **Release Engineer - push after review, stage by stage.** The Release Engineer is
   the role that pushes commits to the shared remote, and only once the Reviewer
   has passed that revision with no open finding. Push after each reviewed +
-  merged deliverable rather than batching everything to the end, so the remote
-  never drifts far from local `main`. Locally, before the push: build, tests,
+  merged stage rather than batching everything to the end, so the remote never
+  drifts far from local `main`. **A stage ends with a push, not with a merge.** Locally, before the push: build, tests,
   `privacy_scan.py --tree --history` and the link check must be green on exactly
   that revision. After the push, watch CI and confirm it is green **on that SHA**.
   A red run is routed to its owner from the log (code -> Developer, test ->

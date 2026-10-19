@@ -218,7 +218,8 @@ from the wrong role, so the two maps must not be conflated.
 * `release.yml`: on `v*` tags - build, checksums (`SHA256SUMS`), SBOM
   (CycloneDX JSON + SPDX), attestation, GitHub Release with all assets.
 * `docs.yml`: build and deploy the site to GitHub Pages on `main`.
-* The Release Engineer pushes reviewed revisions to the remote per milestone
+* The Release Engineer pushes reviewed revisions to the remote stage by stage
+  (a stage ends with a push, not with a merge)
   (only after the Reviewer passes them, never a red gate); the Tester certifies
   local **and** CI results, routes failures to the owning role, and tags and
   public releases remain the CEO's step.

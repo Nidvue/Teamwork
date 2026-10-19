@@ -181,9 +181,10 @@ report branches that are not merged.
 The **Release Engineer** is the role that pushes to the shared remote, and only
 after the **Reviewer** has passed the revision with no open finding.
 
-- **Per milestone.** Push after each reviewed + merged deliverable so the remote
-  does not drift far from local `main`. Do not sit on a stack of unreviewed
-  commits and do not wait for the release to push.
+- **Per stage.** A stage ends with a push, not with a merge: once a coherent
+  stage is squashed, rebased and merged and the gates below are green on that
+  revision, push it, so the remote does not drift far from local `main`. Do not
+  sit on a stack of unreviewed commits and do not wait for the release to push.
 - **Pre-push gates on the exact revision:** build, tests, `privacy_scan.py
   --tree --history`, and the link check all green. A red gate is not pushed.
 - **Post-push:** watch CI and confirm green **on that SHA**; record the revision,
