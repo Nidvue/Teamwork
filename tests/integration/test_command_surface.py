@@ -172,6 +172,22 @@ def test_ledger_export_dry_run_and_stats(cli, project: Path) -> None:
     assert cli("--project", project, "agents") == 0
 
 
+def test_ledger_export_does_not_pin_the_append_only_archive(cli, project: Path) -> None:
+    init(cli, project)
+    assert cli("--project", project, "ledger", "export") == 0
+
+    manifest = json.loads(
+        (project / "docs" / "Team" / "AuditManifest.json").read_text(encoding="utf-8")
+    )
+    paths = [a["path"] for a in manifest["artifacts"]]
+
+    # the archive gains an entry when the review passes, so pinning it would be
+    # stale the moment its own manifest is merged
+    assert "docs/Team/Archive.md" not in paths
+    assert "docs/Team/Project.md" in paths
+    assert "docs/Team/Decisions.md" in paths
+
+
 def test_dispute_round_cap_sign_and_resolve(cli, project: Path) -> None:
     init(cli, project)
     assert (
