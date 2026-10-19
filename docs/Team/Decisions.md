@@ -360,3 +360,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: pytest -q -> 375 passed, 1 skipped; ruff check -> passed; mypy src/teamwork -> no issues @working-tree
 - falsified by: First-pass review acceptance does not rise over the next ten tasks
 - consequences: -
+
+## D-20261019-Reviewer-1 - P-0016 post-merge: fix forward, not rollback
+
+- date: 2026-10-19
+- kind: process
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: T-0025
+- context: -
+- options considered: -
+- decision: Keep the merged ceo-audit-close skill and fix the root-hygiene allowlist in a follow-up (T-0025) instead of reverting P-0016.
+- why: The skill deliverable is correct and reviewed; the red suite comes from a latent gap in tests/unit/test_hygiene.py ROOT_ALLOWLIST that the first tracked .agents/ directory exposed. A one-line allowlist addition restores green with no user-visible risk, while a revert would delete a reviewed deliverable.
+- evidence: pytest -q @b662faf -> 1 failed (unexpected ['.agents']), 376 passed, 1 skipped; git ls-files .agents -> tracked SKILL.md; tests/unit/test_hygiene.py:46 ROOT_ALLOWLIST lacks .agents
+- falsified by: If adding .agents to ROOT_ALLOWLIST lets any other stray root entry pass, or if the skill directory should be ignored instead of tracked, this fix-forward is wrong.
+- consequences: -
