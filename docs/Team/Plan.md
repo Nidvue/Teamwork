@@ -5,7 +5,7 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Status summary (2026-10-19, `main` @ `8444134`)
+## Status summary (2026-10-19, `main` @ `31c03b5`)
 
 | milestone | exit condition | state |
 |---|---|---|
@@ -59,6 +59,15 @@ who holds it as a record; review is parallel, not serialised by the dispatcher.
 | id | task | role | prio | artifact | status | evidence |
 |---|---|---|---|---|---|---|
 | T-0001 | Fan review out across Reviewer lanes | developer | P0 | `engine.py`, `records.py`, `tests/unit/test_review_fanout.py`, docs | done | merge `8f210bc`; 10 new unit tests; repro `479742d` -> `76d5f76` |
+
+## M8 - records hygiene (closed)
+
+Exit: archive merge fields carry a proved revision or say `pending`, the Plan
+lists each milestone once, and the export names the head it was taken from.
+
+| id | task | role | prio | artifact | status | evidence |
+|---|---|---|---|---|---|---|
+| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | review | 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
 
 ## Closed milestones (evidence on file)
 
