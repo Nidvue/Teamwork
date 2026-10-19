@@ -26,19 +26,41 @@ Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.m
 
 ### Roster tiers
 
-| Tier | Roles | Use it for |
+`init --roster <tier>` expands a tier into instances; `--agents` overrides it.
+
+| Tier | Instances | Startup read |
 |---|---|---|
-| Core 6 | `ceo, product-manager, architect, developer-1..N, tester-1..N, reviewer-1..N` | a library or an internal tool; `plan` and `process` ride with the Product Manager/CEO, `tech` with the Architect |
-| Shipping 8 | Core + `release-engineer, technical-writer` | anything that must be built, shipped, rolled back and read by someone else |
-| Data 9 | Shipping + `data-engineer` | a project that owns persistent state |
-| Full 15 | Data + `cto, coo, cfo, designer, security-auditor` | real budget, a UI, or a compliance obligation |
+| `slim` (default) | 6 | 213 kB |
+| `standard` | 9 | 316 kB |
+| `full` | 16 | 552 kB |
 
-Staff two Reviewers whenever you can: one verifies, another merges.
+Startup read = every instance's `AGENTS.md` plus its own role charter, summed
+(`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
+justifies, and prefer an extra `developer-N`/`tester-N` over a coordination role.
 
-Minimum viable roster: `ceo, architect, product-manager, project-manager,
-reviewer, developer-1, tester-1`. Add `release-engineer` the moment the project
-has to ship anywhere, `technical-writer` when a human other than the author must
-read the docs, and `data-engineer` only when the project owns persistent state.
+A tier drops **lanes**, not gates:
+
+| Dropped from `slim` | Where the work goes |
+|---|---|
+| product-manager | requirements, acceptance criteria and `Research.md` ride with the CEO |
+| project-manager | `Plan.md`/`Board.md` ride with the CEO; `pulse` does the chasing |
+| cto / coo | stack and process facts go in `Decisions.md`/`Risks.md` |
+| cfo | `Costs.md` only when the work has a real cost dimension |
+| designer | `ui` layer unstaffed |
+| technical-writer | `docs` layer unstaffed; authors write their own docs |
+| data-engineer | `data` layer unstaffed |
+| release-engineer | the CEO pushes after review |
+| security-auditor | `security` layer unstaffed |
+
+Two invariants hold at every tier, and both are tested:
+
+- `staffed_layers` only requires a layer whose owning role has an instance, so
+  `tests plan` never reports a gap for work nobody owns.
+- `required_tribunal` never drops below `TRIBUNAL_MIN_SIGNERS`: with no CTO/CFO,
+  the Reviewer is the neutral seat, and a party to a dispute can never rule it.
+
+`init` prints the folded lanes and warns when `ceo`, `developer`, `tester` or
+`reviewer` is missing (`ROSTER_REQUIRED`).
 
 ### Roles we deliberately do not add
 
@@ -51,7 +73,7 @@ specialist (Designer owns `ui`, Reviewer verifies), and a dedicated performance
 engineer (perf and load live in the Release Engineer's `release` layer and the
 Tester's `integration` layer). Adding these would add ceremony without adding a
 gate. **Staff two Reviewers** (`reviewer-1`,
-`reviewer-2`) whenever you can: one verifies, another merges. With a single
+`reviewer-2`): one verifies, another merges. With a single
 Reviewer the same instance must do both, which is allowed but recorded as an
 exception (`review.merge_self`) and reported by `audit`. Without a `reviewer` the team cannot pass review
 or merge; without an `architect` nothing freezes interfaces. `init` warns when

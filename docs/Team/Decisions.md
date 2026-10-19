@@ -520,3 +520,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: python3 .pi/Teamwork/Teams/Teamwork/Agents/Architect/Artifacts/arch_map_check.py . @49cc390 -> PASS 6/6 (14 modules 1:1, 4 scripts, templates subtrees Docs+pi-package, import direction, exit codes); negative control on main:docs/Team/Architecture.md -> FAIL 4 mismatch(es) rc=1
 - falsified by: A future commit changes a version string in version.py and section 2 of Architecture.md must not need an edit; if a reviewer finds a version literal in section 2, this decision is void.
 - consequences: Section 2 no longer states a number, so the version is read from src/teamwork/version.py (pyproject [tool.hatch.version] reads the same file). scripts/build_pi_package.py and templates/pi-package/** now have a named owner (ceo) so one writer per file still holds.
+
+## D-20261019-CEO-16 - A slim roster is the default, and trimming a role must never trim a gate
+
+- date: 2026-10-19
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0037
+- context: id 16, not 14: cmd_decision allocates the next id by scanning docs/Team/Decisions.md on the CURRENT branch only, so two open branches both picked D-20261019-CEO-14 (ceo/t-0033-provider-caps holds it) and T-0034 skipped to 15 for the same reason. Filed as T-0038.
+- options considered: keep the 15-role list as the default (rejected: 2.6x startup text for lanes that own no gate); trim the roster but keep prose rules (rejected: the tribunal hole reproduced silently); trim with the invariants moved into code and tests (chosen)
+- decision: Default roster is --roster slim (ceo, architect, developer, tester, reviewer-1, reviewer-2). product-manager, project-manager, release-engineer, designer, technical-writer, data-engineer, security-auditor, cto, coo and cfo become lanes rather than seats. Two invariants are enforced in code: tests plan requires only the layers of staffed roles, and required_tribunal never drops below TRIBUNAL_MIN_SIGNERS, with the Reviewer taking the neutral seat; a party to a dispute can never rule it.
+- why: Fifteen charters per project cost 552 kB of startup text and most of those roles own no gate the CEO or the Reviewer cannot hold. The gates are what must survive the trim, so they are enforced in code rather than asked for in prose.
+- evidence: measured startup read: expand_roster over roles/*.md + templates/AGENTS.md -> slim 213225 B, standard 316023 B, full 551756 B (2.6x); pre-fix tribunal on a slim roster in /tmp/slim1: dispute escalate D-0001 -> '(ceo)' only, sign by ceo -> 'tribunal complete', resolve -> rc 0 (self-ruled); post-fix same workspace: escalate -> '(ceo, reviewer)', resolve by ceo -> rc 1 'ceo is a party to this dispute and cannot rule it', resolve by Reviewer-1 -> rc 0; tests/unit/test_roster_tiers.py -> 8 passed; pytest -q -> 453 passed, 1 skipped
+- falsified by: a slim roster that reports a test-layer gap for an unstaffed role, or a dispute resolved by a role that is a party to it
+- consequences: init --roster is the documented bootstrap; the folded lanes are printed at init; the Reviewer is now a tribunal member whenever cto/cfo are unstaffed
