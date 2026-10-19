@@ -6,7 +6,7 @@ that importing ``teamwork`` stays cheap.
 
 from __future__ import annotations
 
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 
 #: Distribution name on PyPI. The name ``teamwork`` is already taken there, so
 #: the project ships as ``teamwork-agents`` while importing as ``teamwork``.

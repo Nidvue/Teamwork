@@ -252,16 +252,24 @@ Everything else waits only on the interface freeze, not on each other.
 
 ### 4. Staff and dispatch
 
-Spawn long-lived teammates with the `teams` tool (shared task list, mailbox,
-auto-claim of unblocked tasks) and give each one its brief:
+The host may offer a long-lived teammate tool or none at all; either way each lane is a bounded `subagent`-style run that
+reads the role charter and the queue and takes its own work, so the fan-out is
+one call per lane and the CEO stays free while they run:
 
 ```text
-teams({ action: "delegate", tasks: [
-  { text: "architect: ...", assignee: "architect" },
-  { text: "developer-1: ...", assignee: "developer-1" },
-  { text: "tester-1: ...", assignee: "tester-1" }
-]})
+<teammate tool>(agent: "architect", task: "<packet>", background: true)
+<teammate tool>(agent: "developer", task: "<packet>", background: true)
+<teammate tool>(agent: "tester",    task: "<packet>", background: true)
 ```
+
+The concrete name per host - `subagent`, `Task`, a CLI job - is the adapter table
+in `references/Adapters.md`; the packet and the queue are the same everywhere.
+
+A dependent multi-step batch is one workflow call: the workflow owns the fan-out,
+each child gets its own task text and the parent gets every child's output back
+(`runs.all([...])` on hosts that offer workflows). Use worktree isolation only on
+a clean tree; otherwise run the lanes in the shared checkout and require
+`commit --paths` so no lane sweeps a peer's uncommitted work.
 
 Each dispatched task packet must contain: task id, objective, the frozen
 interface to build against, file/component boundary, acceptance evidence, the
@@ -335,6 +343,28 @@ python3 "$SKILL/scripts/teamwork.py" clean            # remove temp files
 - Report to the user at milestones: what changed, evidence, blockers, next. Never
   report progress that is not backed by evidence.
 
+### 5a. Parallelism is the default, not the reward
+
+A team that runs one lane at a time is a slow single agent with extra records.
+Four rules keep every lane busy without inventing work:
+
+| Rule | Mechanism | Why |
+|---|---|---|
+| A lane holds more than one unit | `LANE_WIP` (2): one deliverable in review plus the next one in progress | a lane waiting for its own review is idle capacity |
+| `pulse` fills capacity, not idle lanes | it computes `LANE_WIP - held` per lane and assigns that many | the old one-task-per-idle-lane rule capped the team at one task per lane per wake |
+| A dependency can release early | `deps: role:T-id@review` (submitted) or `@started` (picked up) | the downstream lane needs a frozen interface, not a merged deliverable |
+| Reviews are the exception | a Reviewer lane holds exactly one claim; run several Reviewer lanes | a deep review is not divisible, and the queue is the concurrency limit |
+
+Capacity is bounded by the provider caps in `Settings.json`, never by the number
+of lanes: `pulse` refuses to plan more assignments than there are free slots and
+prints the shortfall, so the team fills 10 Ollama Cloud lanes or 2500 DeepSeek
+lanes without over-subscribing either.
+
+The anti-patterns this replaces, all measured on a real run: a lane that took one
+task and then sat in review while nine lanes idled; a tester blocked for hours on
+`developer:T-0003` when the interface file had been frozen in the first hour; a
+pulse that handed the whole review backlog to one lane.
+
 ### 5b. Keep the lanes full: the CEO pulse
 
 After dispatching, the CEO **re-wakes on an interval**, looks for idle lanes, and
@@ -358,32 +388,28 @@ lease (`SlotTtlMinutes`, default **90** min): a lane that dies mid-review stops
 holding the deliverable when the lease expires and another lane takes it over.
 Everything else is idle and must be fed.
 
-Arm the recurring wake-up from the leader session:
+Arm the recurring wake-up with the host's durable scheduler (the teammate
+package persists schedules per project):
 
 ```text
-schedule_prompt({
-  action: "add",
-  name: "teamwork-pulse",
-  type: "cron",
-  schedule: "*/5 * * * *",
-  prompt: "Teamwork pulse. Run `python3 <SKILL>/scripts/teamwork.py pulse --commit`. \
-           Then: (1) for every assignment it reports, message that agent to start it now; \
-           (2) for every idle lane it reports with no matching work, assign the highest-\
-           priority unblocked task of its role, or fold the lane; (3) unblock anything \
-           stuck; (4) for every unclaimed deliverable in `review --queue`, aim a \
-           DIFFERENT Reviewer lane at it (`review <role> <T-id> --claim --by <lane>`) and \
-           never stack the backlog on one lane. \
-           Report one short line. Never stop the team while `loop` says CONTINUE."
-})
+<scheduler>(id: "teamwork-pulse", every: "5m", prompt: "<the pulse prompt below>")
 ```
+
+The scheduler is a host capability, not part of the protocol: whichever timer
+the host offers - a scheduler tool, a cron entry or a background loop - runs the
+same pulse prompt (`references/Adapters.md`).
+
+The workflow body is the pulse prompt: run `pulse --commit`; message every
+assigned lane to start now; give each idle lane its highest-priority unblocked
+task; unblock what is stuck; aim a DIFFERENT Reviewer lane at each unclaimed
+deliverable in `review --queue`; report one short line. Never stop the team while
+`loop` says CONTINUE.
 
 - Interval: `PulseMinutes` in `Settings.json`, default **5** minutes. Use a longer
   interval for long-running lanes, a shorter one near the end of a milestone.
 - The pulse must never be the only thing keeping the team alive: instances
   self-serve with `task next` between pulses.
-- Disarm it when the team closes:
-  `schedule_prompt({action: "remove", jobId: "<id>"})` (list with
-  `schedule_prompt({action: "list"})`).
+- Disarm it when the team closes: delete the schedule with the same host tool.
 - If a wake reports idle lanes *and* ready work and nothing moves, that is a
   process defect: fix the assignment path, do not let the lane sit.
 
@@ -472,7 +498,8 @@ Completion gate - all of:
 - [ ] Final user report: deliverable, how to run it, evidence table, known
       limitations, follow-ups.
 
-Then stop the team (`teams({action:"team_done"})`) and deliver the report.
+Then stop the team: end every live lane with the host's stop action, confirm
+`loop` still reports STOP on the final head, and deliver the report.
 
 ## Reference files (read on demand)
 
@@ -662,7 +689,7 @@ python3 $S slot renew --agent developer-3 && python3 $S slot release --agent dev
 python3 $S clean
 ```
 
-Team lifecycle: `teams({action:"delegate", tasks:[...]})` to staff,
-`teams({action:"message_dm"/"message_broadcast"})` to coordinate,
-`teams({action:"board"})`-equivalent via the script to inspect, and
-`teams({action:"team_done"})` to close.
+Team lifecycle: the teammate tool to staff a lane, the host's reply/steer
+channel to coordinate, its status view to inspect, its scheduler for the pulse
+and its stop action to close a lane. The exact names per host are in
+`references/Adapters.md`.

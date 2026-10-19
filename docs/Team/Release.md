@@ -3,7 +3,7 @@
 Owner: Release Engineer. The canonical answer to "how does this get built, shipped,
 verified and reverted". Keep it executable: every command here must run as written.
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Archive](Archive.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md)
 
 ## Build
 
