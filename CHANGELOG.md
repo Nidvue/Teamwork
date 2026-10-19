@@ -120,6 +120,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pr merge` built the merge commit but never advanced the base branch**: a PR
+  record whose `base` held a revision instead of a branch name (as P-0022 did)
+  made `git checkout <base>` detach HEAD, so the merge commit was created
+  off-branch: the merge was reported as done and recorded everywhere, while
+  `main` still pointed at the pre-merge tip and the merge commit was reachable
+  only by fast-forwarding the base by hand. The base is now resolved to the
+  local branch pointing at the recorded revision (preferring `main`, accepting a
+  unique match) and a revision no branch points at is refused with exit `2`
+  before anything is merged; the merge also runs in the work tree that has the
+  base checked out, so starting it from an instance worktree no longer fails on
+  `git checkout` or advances the wrong checkout
+  (`tests/unit/test_pr_merge_base_advance.py`).
+- **the archive entry never reached the base branch**: the entry is written by
+  the review pass, in whichever work tree that pass ran in - in the per-instance
+  layout a lane work tree - so after the merge the base had no archived record of
+  the shipped work. Entries are now written where the task's base branch is
+  checked out, and `pr merge` appends a missing entry on the base before it
+  commits the records, so the entry rides along in the same `chore(records)`
+  commit and is repointed at the merge revision in that same commit.
 - **`pr merge` left the archive rewrite uncommitted**: the `branch / merge`
   field of `docs/Team/Archive.md` was rewritten in the work tree after the merge
   commit, so the base branch kept `pending`, the tree stayed dirty, and the next
