@@ -44,6 +44,7 @@ DIRECTIVE = re.compile(
 )
 
 ROOT_ALLOWLIST = {
+    ".agents",
     ".editorconfig",
     ".git",
     ".github",
