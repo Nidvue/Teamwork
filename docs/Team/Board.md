@@ -23,7 +23,7 @@ allowlist entry and its wiring, so the same commands reproduce on the merge comm
   pass exactly one justified allowlist file
   ([SECURITY](../../SECURITY.md), `docs/Team/Decisions.md` 2026-10-19).
 - Links: `teamwork.py links` -> 0 problems (67 markdown files, 322 internal links)
-- Gate: `teamwork.py audit` -> 21 problems, every one an open completion gate
+- Gate: `teamwork.py audit` -> one entry per open completion gate
   (unmerged branches, review-pending deliverables, layer gaps); `teamwork.py loop`
   -> CONTINUE while P-0026 and P-0027 are unmerged.
   The closing export is `docs/Team/AuditManifest.json` (chain verified, exported
