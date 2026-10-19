@@ -124,7 +124,7 @@ teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
 
 | Option | Meaning |
 |---|---|
-| `--deps` | Comma list of dependencies; cross-role as `role:T-0001`. |
+| `--deps` | Comma list of dependencies; cross-role as `role:T-0001`. Add `@review` to release once the task is submitted for review, or `@started` once its owner has picked it up, so a downstream lane can start against a frozen interface. |
 | `--shared` | Shared board / issue / PR reference. |
 | `--body` | Acceptance criteria / notes. |
 | `--claimed-by` | Assign to a specific instance (default: role pool). |
@@ -144,11 +144,21 @@ List tasks, priority ordered.
 #### `task next`
 
 ```text
-teamwork task next AGENT [--peek]
+teamwork task next AGENT [--peek] [--capacity N]
 ```
 
 Atomically claim the highest-priority executable task of the role. `--peek` does
 not claim it.
+
+| Option | Meaning |
+|---|---|
+| `--peek` | Show what would be claimed, and claim nothing (the output lists every ready task as `ALSO READY`). |
+| `--capacity N` | Claim up to `N` executable tasks at once, for a lane that works in parallel; one `task.claim` record is written per claimed task, so `trace` shows each claim. `0` or a negative value is treated as `1`, never as "take nothing". Default `1`. |
+
+A lane that fills its capacity holds `LANE_WIP` (2) deliverables at once: one in
+review plus the next in progress. `pulse` uses the same arithmetic to fill each
+lane to its limit instead of handing work only to idle lanes; a Reviewer lane
+takes one deliverable at a time.
 
 #### `task set`
 
