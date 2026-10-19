@@ -186,7 +186,7 @@ Everything else: decide, record the decision and the evidence, and keep going.
 
 ## Concurrency and reuse (hard)
 
-- Respect provider caps: Ollama Cloud ~10 concurrent agents, DeepSeek official
+- Respect provider caps: Ollama Cloud 64 concurrent agents, DeepSeek official
   API ~2500, configured in `.pi/Teamwork/Teams/<Team>/Settings.json`.
 - Hold a lease for model-heavy work and release it when done:
   `slot acquire --agent <you> [--provider ...]`, `slot renew --agent <you>` on

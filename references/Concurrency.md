@@ -11,7 +11,7 @@ Run everything as parallel as the providers allow, never past their caps.
 
 | Provider | Concurrent agents | Use it for |
 |---|---|---|
-| Ollama Cloud | ~10 | focused reasoning lanes: architecture, review, disputes, analysis |
+| Ollama Cloud | 64 | focused reasoning lanes: architecture, review, disputes, analysis |
 | DeepSeek official API | ~2500 | wide independent fanout: many developer/tester/designer sub-tasks, bulk docs and research |
 
 Caps live in `.pi/Teamwork/Teams/<Team>/Settings.json` and are overridable with
