@@ -93,15 +93,27 @@ Create or update the managed teamwork block in `<project>/AGENTS.md`.
 
 ```text
 teamwork clean [--all] [--dry-run] [--limit LIMIT]
+               [--worktrees] [--no-worktrees] [--stale-minutes N]
 ```
 
-Remove scratch/temp files; never touches tracked files.
+Remove scratch/temp files and reclaim stale worktrees; never touches tracked files.
 
 | Option | Meaning |
 |---|---|
 | `--all` | Empty `Scratch/` entirely, not only temp patterns. |
 | `--dry-run` | Show what would be removed. |
 | `--limit` | Cap the number of files removed. |
+| `--worktrees` | Reclaim merged, clean worktrees (the default; stated for clarity). |
+| `--no-worktrees` | Leave every worktree alone, only sweep files. |
+| `--stale-minutes` | Age before a merged, clean worktree is reclaimed (default 60). |
+
+A worktree is reclaimed only when all of these hold: it resolves inside the
+project's own `.pi/`, `git status --porcelain --ignored` is empty (a lane's build
+cache counts as work), its HEAD is already an ancestor of the base branch, no
+`doing`/`selfcheck` task or live slot lease names its lane, it is not
+`git worktree lock`ed, and nothing in the tree was written within the stale
+window. A removal that fails is reported as `could not be reclaimed`, never
+counted as success.
 
 ### `agents`
 
