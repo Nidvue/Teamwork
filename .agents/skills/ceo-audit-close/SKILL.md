@@ -23,11 +23,11 @@ ceo instance. Extracted once so it is executed the same way every time.
 2. **Chain first, gates second.**
 
    ```sh
-   <script> ledger verify    # chain intact, digests match
-   <script> loop             # STOP, not CONTINUE
-   <script> audit            # 0 problems
-   <script> links            # 0 issues
-   <script> tests plan       # no GAP lines; every staffed role has a layer
+   teamwork.py ledger verify    # chain intact, digests match
+   teamwork.py loop             # STOP, not CONTINUE
+   teamwork.py audit            # 0 problems
+   teamwork.py links            # 0 issues
+   teamwork.py tests plan       # no GAP lines; every staffed role has a layer
    ```
 
    A non-zero exit is a blocker, not a note. `loop` is the stop gate; `audit` is
@@ -40,16 +40,17 @@ ceo instance. Extracted once so it is executed the same way every time.
 
 4. **Publish the manifest last.** `ledger export` writes
    `docs/Team/AuditManifest.json` and `AuditManifest.md` (head, record count, team
-   id, artifact digests). It is generated, never hand-edited, and regenerated
-   after the final merge.
+   id, artifact digests). It records the HEAD at export time, which is necessarily
+   an ancestor of the commit that carries the manifest, so export after the final
+   merge and never hand-edit.
 
 5. **Commit it through the normal gate.** Branch, commit the two manifest files,
    self-check with the export command as the `--test` line, PR, Reviewer merge. A
    manifest committed straight to `main` is an unreviewed claim.
 
 6. **Re-run the gates on the merged manifest revision.** The manifest records
-   `dirty: false` at export time; any later edit invalidates it, so export last
-   and re-verify.
+   `dirty: false` and the head it was exported from; any later merge or edit
+   invalidates it, so export last and re-verify.
 
 7. **Write the final report from records, not memory**: deliverable, how to run
    it, the evidence table (`command @rev -> result`), known limits still labelled
@@ -61,7 +62,8 @@ ceo instance. Extracted once so it is executed the same way every time.
 |---|---|
 | `loop` CONTINUE with only `todo` tasks | work was queued, not finished; do not report done |
 | `audit` reports a forced gate | someone bypassed a gate; the reason must be in the report |
-| manifest head != `git rev-parse HEAD` | the export predates the merge; regenerate |
+| manifest head is not an ancestor of its own commit | the export predates its commit; regenerate |
+| manifest head predates a later merge | the export is stale; regenerate and re-verify |
 | `dirty: true` in the manifest | exported from a working tree; it proves nothing |
 | digest mismatch on a recorded artifact | a reviewed file changed after its evidence |
 
