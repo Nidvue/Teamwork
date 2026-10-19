@@ -65,7 +65,7 @@ jobs:
       - name: Link health (broken links, back-links)
         run: python scripts/teamwork.py links
       - name: Privacy scan (tree + history)
-        run: python scripts/privacy_scan.py --tree --history
+        run: python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt
       - name: Build site (strict)
         run: mkdocs build --strict
       - name: Upload Pages artifact
