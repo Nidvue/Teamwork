@@ -3561,7 +3561,10 @@ def cmd_init(args) -> int:
             )
         brief = d / F_START
         if args.force or not brief.exists():
-            write_lf(brief, start_here(name, role, root, docs_dir(root)))
+            write_lf(
+                brief,
+                start_here(name, role, root, docs_dir(root), staffed={resolve_role(n) for n in names}),
+            )
         for extra in (F_WORKLOG, F_INBOX):
             p = d / extra
             if not p.exists():
@@ -3657,7 +3660,9 @@ def migrate_instance_memory(root: Path, name: str, role: str) -> int:
     return moved
 
 
-def start_here(name: str, role: str, root: Path, docs: Path) -> str:
+def start_here(
+    name: str, role: str, root: Path, docs: Path, staffed: set | None = None
+) -> str:
     global_mem = global_dir(root) / F_GLOBAL
     agents_md = project_of(root) / "AGENTS.md"
     script = _resources.self_invocation()
@@ -3665,32 +3670,63 @@ def start_here(name: str, role: str, root: Path, docs: Path) -> str:
     charter = role_dir(root, role) / F_ROLE
     parent = ROLE_PARENT.get(role)
     # The brief is generated for every instance and is read BEFORE the charter, so
-    # it has to state the same line the charter does. A hard-coded "report to the
-    # CEO" told every developer and tester to escalate past their own manager.
-    if parent == "ceo":
-        line = (
-            f"You are the **{role}** of an autonomous team. You report to the **CEO**. "
-            f"Escalate to the CEO only for a red line, a goal or scope change, or a "
-            f"decision that binds the whole team - never for work you can resolve "
-            f"inside your own lane. The user talks only to the CEO."
-        )
-        report_line = "Report to the CEO"
-    elif parent:
-        parent_name = ROLE_DISPLAY.get(parent, parent)
-        line = (
-            f"You are the **{role}** of an autonomous team. You report to the "
-            f"**{parent_name}**; escalate up that line, not to the CEO (the user talks "
-            f"only to the CEO). Talk to your manager, to the roles below you, and to "
-            f"peers when a fact or interface needs them."
-        )
-        report_line = f"Report to the {parent_name}"
-    else:
+    # it has to state the same line the charter does. Two things it must not do:
+    # hard-code the CEO for a role that reports to a CTO (# the whole reason this
+    # tree exists), and name a manager the team does not staff - a slim roster has
+    # no CTO, so a developer told to "report to the CTO" has nobody to report to.
+    # A vacancy folds upward to the nearest staffed ancestor, and the brief says so
+    # instead of pretending the lane is there.
+    if role == "ceo":
         line = (
             f"You are the **{role}** of an autonomous team. You are the only lane that "
             f"reaches the user. Talk to your direct reports, and to any peer when a "
             f"fact or interface needs them."
         )
         report_line = "Report to the user"
+    elif parent is None:
+        # Not a bundled role: the fallback charter says report to the CEO, so the
+        # brief must not hand an unknown lane the CEO's user-facing authority.
+        line = (
+            f"You are the **{role}** of an autonomous team. You have no line in the "
+            f"reporting tree (this team bundles no charter for '{role}'), so you report "
+            f"to the **CEO** and keep to the lane your task packet defines. The user "
+            f"talks only to the CEO."
+        )
+        report_line = "Report to the CEO"
+    else:
+        reachable = parent
+        vacancy: list[str] = []
+        if staffed is not None:
+            while reachable != "ceo" and reachable not in staffed:
+                vacancy.append(reachable)
+                reachable = ROLE_PARENT.get(reachable) or "ceo"
+        parent_name = ROLE_DISPLAY.get(reachable, reachable)
+        if vacancy:
+            vacant = ", ".join(ROLE_DISPLAY.get(r, r) for r in vacancy)
+            line = (
+                f"You are the **{role}** of an autonomous team. Your line runs through "
+                f"the {vacant}, which this team does not staff, so it folds to the "
+                f"**{parent_name}** - report there until a {vacant} instance exists. "
+                f"Escalate to the CEO only for a red line, a goal or scope change, or a "
+                f"decision that binds the whole team. The user talks only to the CEO."
+            )
+            report_line = f"Report to the {parent_name} ({vacant} not staffed here)"
+        elif reachable == "ceo":
+            line = (
+                f"You are the **{role}** of an autonomous team. You report to the "
+                f"**CEO**. Escalate to the CEO only for a red line, a goal or scope "
+                f"change, or a decision that binds the whole team - never for work you "
+                f"can resolve inside your own lane. The user talks only to the CEO."
+            )
+            report_line = "Report to the CEO"
+        else:
+            line = (
+                f"You are the **{role}** of an autonomous team. You report to the "
+                f"**{parent_name}**; escalate up that line, not to the CEO (the user talks "
+                f"only to the CEO). Talk to your manager, to the roles below you, and to "
+                f"peers when a fact or interface needs them."
+            )
+            report_line = f"Report to the {parent_name}"
     return f"""# START HERE - {name} ({role})
 
 {line}
