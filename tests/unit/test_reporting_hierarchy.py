@@ -189,8 +189,15 @@ def test_the_live_agents_md_matches_the_template(repo_root: Path) -> None:
     otherwise drift the live table while the template stays correct - the same
     decorative-surface defect as an unguarded charter.
     """
-    live = _rows(repo_root / "AGENTS.md")
+    path = repo_root / "AGENTS.md"
+    live = _rows(path)
     if not live:
+        # Skipping here would let a table header rename silently disable the pin,
+        # so an existing file that parses to no rows is a failure, not a skip.
+        assert not path.is_file(), (
+            "AGENTS.md exists but its reporting table parsed to zero rows; the header "
+            "must stay `| Role | Owns | Reports to |` or the tree goes unchecked"
+        )
         pytest.skip("this checkout has no committed AGENTS.md")
     template = _rows(repo_root / "templates" / "AGENTS.md")
     assert live == template, (
@@ -218,3 +225,40 @@ def test_map_renders_the_tree(repo_root: Path, capsys: pytest.CaptureFixture[str
     cto = next(k for k in indent if k.strip() == "CTO")
     dev = next(k for k in indent if k.strip() == "Developer")
     assert indent[dev] > indent[cto], "the map prints a flat list, not a tree"
+
+
+def test_the_generated_brief_states_the_same_line_as_the_charter(
+    repo_root: Path, tmp_path: Path
+) -> None:
+    """`StartHere.md` is read at step 1, before the charter, and is generated.
+
+    A hard-coded "report to the CEO" here told every developer and tester to
+    escalate past their own manager while their charter said the opposite - two
+    files an agent obeys, contradicting each other. The brief has to be rendered
+    from `ROLE_PARENT` like every other surface.
+    """
+    from teamwork import engine
+
+    root = tmp_path / "Team"
+    root.mkdir(parents=True, exist_ok=True)
+    for role, parent in ROLE_PARENT.items():
+        brief = engine.start_here(f"{role}-1", role, root, tmp_path / "docs")
+        body = " ".join(brief.split())
+        assert "Report to the CEO:" not in body or parent == "ceo", (
+            f"the generated brief for {role} tells it to report to the CEO, but "
+            f"config.py says it reports to {parent}"
+        )
+        if parent is None:
+            assert "only lane that" in body or "the user" in body
+            continue
+        want = ROLE_DISPLAY.get(parent, parent)
+        assert f"You report to the **{want}**" in body, (
+            f"the generated brief for {role} does not name {want} as its manager"
+        )
+        if parent == "ceo":
+            # A CEO parent is the one case where "not to the CEO" would contradict
+            # the same sentence, and the assertion above already forbids it.
+            continue
+        assert f"Report to the {want}:" in body, (
+            f"the brief for {role} still says 'Report to the CEO' in the closing step"
+        )
