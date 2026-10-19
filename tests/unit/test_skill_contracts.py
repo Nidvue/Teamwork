@@ -309,13 +309,13 @@ def test_the_skill_states_that_it_is_host_agnostic(root):
 def test_no_normative_step_requires_a_pi_only_tool(root):
     """The protocol must not depend on one host's tool names.
 
-    ``teams``/``subagent``/``schedule_prompt`` may appear only as an adapter
-    example, never as the definition of an operation.
+    ``subagent``/``schedule.create`` may appear only as an adapter example,
+    never as the definition of an operation.
     """
     text = read(root, "SKILL.md")
     assert "Only six\n  operations need a host mechanism" in text or "six\n  operations" in text
     adapters = read(root, "references", "Adapters.md")
-    for tool in ("teams(", "subagent(", "schedule_prompt("):
+    for tool in ("subagent(", "schedule.create"):
         assert tool in adapters, tool  # documented as Pi's mechanism
     assert "Never hard-code a host tool" in flat(adapters)
 
