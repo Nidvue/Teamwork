@@ -59,7 +59,15 @@ def package_json(ver: str) -> dict:
         "repository": {"type": "git", "url": "https://github.com/Nidvue/Teamwork"},
         # everything the runtime needs lives under skills/ and prompts/; the
         # licence and the notices must ship too, or npm drops them silently
-        "files": ["skills", "prompts", "README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md"],
+        "files": [
+            "skills",
+            "prompts",
+            "README.md",
+            "LICENSE",
+            "NOTICE",
+            "CHANGELOG.md",
+            "SECURITY.md",
+        ],
         "pi": {
             "skills": ["./skills"],
             "prompts": ["./prompts"],
