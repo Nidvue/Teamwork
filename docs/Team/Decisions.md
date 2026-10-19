@@ -344,3 +344,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: tests plan @9680bad -> audit unit/int/acc passing; governance missing; task list -> T-0015 area=governance came from commit --area, not from the product domain
 - falsified by: -
 - consequences: -
+
+## D-20261019-CEO-3 - Evidence packets and the repro-first gate
+
+- date: 2026-10-19
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0020
+- context: -
+- options considered: Keep the string (rejected: unverifiable proxy); require packets on every record (rejected: breaks existing records)
+- decision: Adopt A2+A3 from the pstack comparison: evidence carries baseline/artifact/replay (artifacts hashed into the ledger), and a --bug task needs a fail->pass repro record before self-check.
+- why: A free-text evidence string lets an author pick a proxy; the packet binds the claim to the real artifact and the repro binds a fix to a demonstrated defect.
+- evidence: pytest -q -> 375 passed, 1 skipped; ruff check -> passed; mypy src/teamwork -> no issues @working-tree
+- falsified by: First-pass review acceptance does not rise over the next ten tasks
+- consequences: -
