@@ -25,31 +25,35 @@ we changed, and how the published artefact is built.
 | Package | pip only | `pi-teamwork` npm package: `pi.skills` + `pi.prompts`, host packages in `peerDependencies` only |
 
 The portable skill stays portable: `tests/unit/test_skill_contracts.py` fails if
-`SKILL.md` names a host, so the pi specifics live in `skills/teamwork-pi/SKILL.md`
-inside the package, not in the core.
+an adoption surface (including `SKILL.md`) names a host, so the core talks about
+"the teammate tool" and the concrete pi calls live in
+`skills/teamwork-pi/SKILL.md` and in the adapter table.
 
 ## 3. Build and install
 
 ```sh
 make package                      # assemble dist/pi-teamwork
-cd dist/pi-teamwork && npm pack   # 65 files, ~870 kB
+cd dist/pi-teamwork && npm pack   # 68 files, ~889 kB unpacked
 pi install npm:pi-teamwork        # or: pi -e ./dist/pi-teamwork for one session
 ```
 
 `pi install` then `/skill:teamwork` (protocol) and `/skill:teamwork-pi`
 (pi tool mapping) are available. Verified on pi 1.3.0: the local install listed
 the package and `pi -p "list the skills that contain teamwork"` answered
-`teamwork, teamwork-pi`.
+`teamwork, teamwork-pi`; `npm pack --dry-run` in the built directory reports
+68 files and 888.5 kB unpacked, with the tarball root carrying `package.json`,
+`skills/`, `prompts/`, `README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`,
+`SECURITY.md`.
 
 ## 4. Layout of the published tarball
 
 ```text
 pi-teamwork/
-├── package.json          # name, pi-package keyword, pi.skills/pi.prompts, peer deps
-├── skills/teamwork/      # SKILL.md + references/ roles/ templates/ scripts/ src/
-├── skills/teamwork-pi/   # the pi adapter layer (six operations, packet shape, pitfalls)
-├── prompts/              # teamwork-pulse, teamwork-review
-└── README CHANGELOG LICENSE NOTICE SECURITY
+├── package.json                     # name, pi-package keyword, pi.skills/pi.prompts, peer deps
+├── skills/teamwork/                 # SKILL.md + references/ roles/ templates/ scripts/ src/
+├── skills/teamwork-pi/SKILL.md      # the pi adapter layer (six operations, packet shape)
+├── prompts/                         # teamwork-pulse.md, teamwork-review.md
+└── README.md CHANGELOG.md LICENSE NOTICE SECURITY.md
 ```
 
 Single source of truth: `scripts/build_pi_package.py` copies those trees into
