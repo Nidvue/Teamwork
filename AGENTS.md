@@ -123,6 +123,16 @@ per role, never delegated:
 
 - One record per (layer, area): `tests add --layer <l> --area <a>`, then
   `tests run <id> --by <you> --result pass|fail --evidence '<cmd @rev -> result>'`.
+- **Evidence is a packet, not a sentence.** Name the baseline, the action and the
+  artifact that proves the result; artifacts are hashed into the ledger:
+  `tests run <id> ... --baseline '<state before>' --artifact <path> --replay '<cmd>'`
+  (`--artifact` repeatable, must exist inside the repository, bound on self-check
+  and review too).
+- **A defect is proved before it is fixed.** `task add ... --bug` marks a fix; its
+  self-check is refused until `tests repro <id> --pre-rev <rev> --pre-evidence
+  '<cmd @rev -> 3 failed>' --post-rev <rev> --post-evidence '<cmd @rev -> 12 passed>'`
+  records the failing run before the passing one. `--force <reason>` only when the
+  defect genuinely cannot be reproduced.
 - Do not duplicate another layer's coverage; `tests add` refuses a duplicate
   (layer, area) and warns when a command already runs in another layer.
 - `tests plan` shows the matrix, role coverage and gaps; `loop` blocks STOP while a
