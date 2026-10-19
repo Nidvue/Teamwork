@@ -509,7 +509,10 @@ clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
 prints them whole. `docs/Team/Archive.md` itself always stores the full text, and
 `pr merge` rewrites only the `branch / merge` line of the matching entry so it
 records the real merge revision instead of `pending` - as a committed
-`chore(records)` change on the base branch, not as an uncommitted edit.
+`chore(records)` change on the base branch, not as an uncommitted edit. The
+entry is written where the task's base branch is checked out, so the base
+carries it; a base branch that has no entry yet gets one from `pr merge` before
+the merge commit is made.
 
 ## Decisions, disputes and governance
 
@@ -719,14 +722,26 @@ Reviewer: merge an approved PR. The merged branch is deleted unless
 recorded reason. `--pr` takes a PR id or a task id; a task id is resolved
 against the task's current branch, so a task reworked after an earlier merge
 reaches its live PR record instead of the one already integrated in the base.
+
+The merge always advances the base *branch*: a base recorded as a revision
+instead of a branch name is mapped back to the local branch pointing at that
+commit (preferring `main`, accepting a unique match) and refused with exit `2`
+when no branch points at it, because a merge built on a detached HEAD leaves the
+base where it was and publishes nothing. The merge runs in the work tree that
+has the base checked out, so a merge started from an instance worktree still
+lands on the base instead of failing on `git checkout`.
+
 After the merge the `branch / merge` line of the matching
 `docs/Team/Archive.md` entry is repointed from `pending` to the merge revision
 and that one-line rewrite is committed on the base branch as its own
 `chore(records)` commit (Reviewer identity), so the archive never disagrees with
-the branch history and the work tree is left clean for the next merge. Only an
-entry still saying `pending` is repointed: a task reworked after a merge reuses
-its branch name, and rewriting every match would erase the earlier merge
-revision from the archive.
+the branch history and the work tree is left clean for the next merge. If the
+base branch has no entry for the branch yet - the review pass writes entries in
+whatever work tree it ran in - the accepted-results entry is appended on the
+base first and rides along in the same commit, so the base always records what
+shipped. Only an entry still saying `pending` is repointed: a task reworked
+after a merge reuses its branch name, and rewriting every match would erase the
+earlier merge revision from the archive.
 
 ### `commit`
 
