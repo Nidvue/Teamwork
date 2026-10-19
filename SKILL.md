@@ -538,6 +538,11 @@ Mechanical enforcement:
 
 - `task set --status review` is refused until `self_check: passed`; a passing
   self-check requires a `--test` line - reading your own diff is not a test.
+- evidence is a packet: `--baseline`, `--artifact` (hashed into the ledger) and
+  `--replay` travel with the claim, on self-check and review as well as `tests run`.
+- a `--bug` task cannot pass its self-check without a `tests repro` record that
+  shows the failing run before the passing one (`--force` with a reason if the
+  defect genuinely cannot be reproduced).
 - only the owner may self-check their own task (`--by <owner>`), and only the
   Reviewer may review it; an author can never close a `review=required` task.
 - a `review --result pass` appends the accepted result to
@@ -599,7 +604,11 @@ python3 $S agents-md && python3 $S repo && python3 $S map
 python3 $S criteria add --id AC-1 --text "<verifiable statement>" --owner developer --by ceo
 python3 $S tests require --area auth --layers unit,integration,acceptance --by ceo --reason "core"
 python3 $S tests add --layer unit --area auth --command "go test ./internal/auth"
-python3 $S tests run TS-0001 --by developer-1 --result pass --evidence "<cmd> @<rev> -> <result>"
+python3 $S tests run TS-0001 --by developer-1 --result pass --evidence "<cmd> @<rev> -> <result>" \
+    --baseline "<state before>" --artifact <path> --replay "<cmd>"
+python3 $S tests repro TS-0002 --by developer-1 --pre-rev <rev> \
+    --pre-evidence "<cmd> @<rev> -> 3 failed" --post-rev <rev> \
+    --post-evidence "<cmd> @<rev> -> 12 passed"
 python3 $S global "<shared fact>" --key k --importance 4
 python3 $S remember developer-1 "<fact>" --key k --importance 4 --by developer-1 --src T-0007 --rev <sha>
 python3 $S task add developer "<task>" --priority P0 --deps architect:T-0002

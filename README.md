@@ -38,7 +38,7 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 
 | # | Differentiator | What it means in practice |
 |---|---|---|
-| 1 | **Evidence or `UNVERIFIED`** | A task cannot reach `done` without a recorded `command @revision -> result`. `teamwork loop` refuses to report `STOP` while any criterion or required test layer is unverified. "Looks done" is not a state. |
+| 1 | **Evidence or `UNVERIFIED`** | A task cannot reach `done` without a recorded `command @revision -> result`. Evidence is a packet - baseline, action, result, hashed artifact, replay - and a bug fix must prove the failure before the fix. `teamwork loop` refuses `STOP` while any criterion or required test layer is unverified. |
 | 2 | **Role-shared memory** | Memory and the priority queue belong to the **role**, not the instance (`Roles/Developer/` is shared by `Developer-1..N`). Agents reuse verified facts instead of re-asking, and the CEO pulse feeds every idle lane. |
 | 3 | **Hash-chained audit trail** | Every mutation is appended to `Ledger.jsonl` with `by` / `src` / `rev` provenance. `ledger verify` detects tampering, `trace T-0007` follows a claim end to end, and `ledger export` writes a manifest anyone can check without trusting the team. |
 
