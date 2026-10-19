@@ -624,6 +624,24 @@ def check_claimant(root: Path, value: str, kind: str = "claim", role: str = "") 
     return name
 
 
+def matching_tasks(root: Path, handle: str, role_hint: str = "") -> list:
+    """Every (task, path, role, index) hit for a handle, across role queues.
+
+    Task ids are unique per queue, not per workspace, so a bare ``T-0001`` can hit
+    several bugs. Callers that must act on exactly one task refuse the ambiguity
+    instead of taking the first match.
+    """
+    roles = [resolve_role(role_hint)] if role_hint else list_roles(root)
+    hits = []
+    for role in roles:
+        path = task_file(root, role)
+        tasks = parse_tasks(path)
+        idx = find_task(tasks, handle)
+        if idx is not None:
+            hits.append((tasks[idx], path, role, idx))
+    return hits
+
+
 def _find_task_anywhere(root: Path, handle: str, role_hint: str = ""):
     """(task, path, role, index) for a task id on any role queue."""
     roles = [resolve_role(role_hint)] if role_hint else list_roles(root)
@@ -1465,16 +1483,6 @@ def require_ancestor(project: Path, older: str, newer: str) -> None:
         )
 
 
-def repro_records_for(root: Path, task: dict) -> list:
-    """Test records that prove a fail -> pass transition for this task's area."""
-    area = (task.get("area") or "").lower()
-    return [
-        r
-        for r in parse_tests(tests_path(root))
-        if r.get("repro") and ((area and r["area"] == area) or r.get("task") == task["id"])
-    ]
-
-
 def cmd_tests(args) -> int:
     root = project_root(args)
     path = tests_path(root)
@@ -1602,19 +1610,17 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         return 0
 
     if args.tests_cmd == "repro":
-        idx = find_test(records, args.id)
-        if idx is None:
-            die(f"no test record '{args.id}'")
-        rec = records[idx]
-        actor, arole = validate_actor(root, args.by, "repro author")
-        want = owner_for_layer(root, rec["layer"])
-        if arole != want and not force:
+        hits = matching_tasks(root, args.id, (getattr(args, "role", "") or "").strip())
+        if not hits:
+            die(f"no task '{args.id}' in any role queue")
+        if len(hits) > 1:
             die(
-                f"{rec['id']} is a {rec['layer']} record owned by the {want} role; "
-                f"{actor} is {arole}. A layer is designed and run by its own role."
+                f"'{args.id}' exists on {len(hits)} queues "
+                f"({', '.join(h[2] for h in hits)}): task ids are unique per queue, "
+                "so name the defect's owner with --role <role>"
             )
-        if force:
-            force = require_reason(force, "running another role's layer")
+        t, tpath, role, tidx = hits[0]
+        actor, _arole = validate_actor(root, args.by, "repro author")
         pre_rev = (args.pre_rev or "").strip()
         post_rev = (args.post_rev or "").strip()
         pre = (args.pre_evidence or "").strip()
@@ -1633,31 +1639,29 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
             die("--post-evidence must show the passing run ('-> 12 passed', 'PASS', 'ok')")
         require_ancestor(project_of(root), pre_rev, post_rev)
         artifacts = artifact_digests(root, getattr(args, "artifact", None))
-        rec["repro"] = f"pre @{pre_rev} -> {pre} | post @{post_rev} -> {post}"
-        if artifacts:
-            rec["artifacts"] = artifacts
-        rec["status"] = "passing"
-        rec["evidence"] = f"{rec['repro']}" + (f" | artifacts: {artifacts}" if artifacts else "")
-        rec["rev"] = post_rev
-        rec["by"] = actor
-        rec["updated"] = today_iso()
-        if force:
-            rec["forced"] = f"repro by {actor} ({arole}) for {want}: {force}"
-        write_tests(path, records)
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+            tasks = parse_tasks(tpath)
+            t = tasks[tidx]
+            t["repro"] = f"pre @{pre_rev} -> {pre} | post @{post_rev} -> {post}"
+            if artifacts:
+                t["repro_artifacts"] = artifacts
+            t["repro_by"] = actor
+            t["updated"] = today_iso()
+            if force:
+                t["forced"] = (t.get("forced", "") + f" | repro by {actor}: {force}").strip(" |")
+            write_tasks(tpath, tasks, role)
         ledger_append(
             root,
             "tests.repro",
             actor,
-            rec["id"],
-            f"{rec['layer']}/{rec['area']} "
+            t["id"],
             f"fail @{pre_rev} -> pass @{post_rev}"
             + (f" | artifacts: {artifacts}" if artifacts else "")
             + (f" FORCED: {force}" if force else ""),
             post_rev,
+            role,
         )
-        print(
-            f"# {rec['id']} {rec['layer']}/{rec['area']} repro proved: fail @{pre_rev} -> pass @{post_rev}"
-        )
+        print(f"# {t['id']} repro proved by {actor}: fail @{pre_rev} -> pass @{post_rev}")
         return 0
 
     if args.tests_cmd == "require":
@@ -4137,6 +4141,8 @@ def _print_task(t: dict, prefix: str = "-") -> None:
     print(f"{prefix} {t['id']} [{t['priority']}/{t['status']}] {t['title']}{dep}{shared}{area}")
     if t.get("evidence"):
         print(f"    evidence: {t['evidence']}")
+    if t.get("repro"):
+        print(f"    repro: {t['repro']}")
     if t["body"]:
         for line in t["body"].splitlines():
             print(f"    {line}")
@@ -5827,12 +5833,12 @@ def cmd_selfcheck(args) -> int:
             print(f"teamwork: {t['id']} is review=na; self-check not required")
             return 0
         if args.result == "pass" and t.get("kind") == "bug" and not args.force:
-            if not repro_records_for(root, t):
+            if not t.get("repro"):
                 die(
                     f"refusing to pass the self-check of {t['id']}: it is a bug task "
-                    "and no test record proves the defect existed. Record the "
+                    "and no repro proves the defect existed. Record the "
                     "fail -> pass transition first:\n"
-                    f"  teamwork.py tests repro <TS-id> --by {actor} "
+                    f"  teamwork.py tests repro {t['id']} --by {actor} "
                     "--pre-rev <rev-before> --pre-evidence '<cmd> @<rev> -> 3 failed' "
                     "--post-rev <rev-after> --post-evidence '<cmd> @<rev> -> 12 passed'\n"
                     "  (--force <reason> only when the defect cannot be reproduced)",
@@ -6243,7 +6249,7 @@ def _audit_bug_fixes_without_a_repro_record(root: Path, names: list, args) -> in
         for t in parse_tasks(task_file(root, name)):
             if t.get("kind") != "bug" or t["status"] not in ("done", "review"):
                 continue
-            if repro_records_for(root, t):
+            if t.get("repro"):
                 continue
             print(
                 f"- {name} {t['id']}: {t['title']} ({t['status']}) has no "
@@ -7796,9 +7802,16 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--force", default="", metavar="REASON")
     s.set_defaults(func=cmd_tests)
     s = tsub2.add_parser(
-        "repro", parents=[common], help="prove the defect: failing run before, passing run after"
+        "repro",
+        parents=[common],
+        help="prove the defect on its task: failing run before, passing run after",
     )
-    s.add_argument("id")
+    s.add_argument("id", metavar="TASK", help="T-0007, the defect task the proof belongs to")
+    s.add_argument(
+        "--role",
+        default="",
+        help="which queue owns the task, required when the id exists on several",
+    )
     s.add_argument("--by", required=True)
     s.add_argument("--pre-rev", required=True, dest="pre_rev")
     s.add_argument("--pre-evidence", required=True, dest="pre_evidence")
