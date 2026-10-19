@@ -14,9 +14,10 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   acceptance test (covered by `verify_release.py`).
 - Privacy: `privacy_scan.py --tree --history` -> PASS, 0 findings
 - Links: `teamwork.py links` -> 0 problems
-- Gate: `teamwork.py loop` -> STOP and `teamwork.py audit` -> 0 problems once
-  P-0018 lands; the closing run is exported to `docs/Team/AuditManifest.json`
-  (307 records, chain verified, `dirty: false`)
+- Gate: `teamwork.py audit` -> 0 problems and `teamwork.py loop` -> STOP once
+  P-0018 merges; the closing export is `docs/Team/AuditManifest.json` (chain
+  verified, exported from a clean tree, four pinned artifacts plus the ledger
+  head)
 - Remote: `origin/main` is behind the local merges until the Release Engineer
   pushes the reviewed revision; CI on the pushed SHA is the certification step.
 
