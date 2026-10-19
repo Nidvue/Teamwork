@@ -13,18 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Per-queue PR resolution**: `pr open` used to match a task id across the
-  whole `Reviews.md`, so a second role owning the same id reopened and rewrote the
-  first role's PR (measured: the security lane's `T-0001` re-opened the merged
-  developer `P-0020`). `find_pr`/`find_pr_exact` now accept the task's branch and a
-  task-id match only resolves inside that branch.
+- **Per-queue PR resolution**: `pr open` used to match a task id across the whole
+  `Reviews.md`, so a second role owning the same id reopened and rewrote the first
+  role's PR (measured: the security lane's `T-0001` re-opened the merged developer
+  `P-0020`). `find_pr`/`find_pr_exact` now accept the task's branch and a task-id
+  match only resolves inside that branch.
 
-- **Parallel review lanes**: `pulse` now hands each unclaimed deliverable awaiting
-  review to a *different* idle Reviewer lane, and `review --claim` / `--release`
-  record the holder on the task (`review_claim`, `review_claim_ts`) with a lease,
-  a takeover after it lapses, and a verdict that clears it. A lane holding a claim
-  counts as busy, so the dispatcher stops feeding it; `review --queue` and `pulse`
-  name the holder and print the per-lane commands.
+- **Parallel review lanes**: `pulse` hands each unclaimed deliverable awaiting review
+  to a different idle Reviewer lane, and `review --claim` / `--release` record the
+  holder on the task with a lease, a takeover after it lapses, and a verdict that
+  clears it.
+
 - **Evidence packets**: `tests run`, `selfcheck` and `review` accept
   `--baseline`, `--artifact` (repeatable) and `--replay`, so the author and the
   Reviewer record the same five-part packet. Artifacts must exist in
@@ -97,6 +96,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pr merge` left the archive rewrite uncommitted**: the `branch / merge`
+  field of `docs/Team/Archive.md` was rewritten in the work tree after the merge
+  commit, so the base branch kept `pending`, the tree stayed dirty, and the next
+  merge in the same repository died on `git checkout` ("your local changes would
+  be overwritten"). The rewrite now lands as its own `chore(records)` commit on
+  the base branch (Reviewer identity, one `pr.merge.archive` ledger record), so
+  the committed archive names the real merge revision
+  (`tests/unit/test_context_economy.py`).
+- **archive rewrite could erase an earlier merge**: a task reworked after a
+  merge reuses its branch name, so `docs/Team/Archive.md` held two entries naming
+  the same branch. The rewrite repointed every match, overwriting the first merge
+  revision with the second. Only the newest entry still saying `pending` is
+  repointed now, and a branch with nothing pending is reported as unchanged.
+- **`pr merge --pr <task>` could select an already-merged PR**: a task reworked
+  after a merge keeps the old PR record, so matching on the task id alone could
+  return the branch already in the base. `find_pr` and `find_pr_exact` take an
+  optional branch and every PR lookup in the merge path passes the task's current
+  branch, so the live record is the one that merges.
 - **`ensure_gitignore` bootstrap**: a repository whose `.gitignore` already
   covered a rule with a glob (`.env.*` covers `.env.local`) gained a dangling
   section header and redundant lines on every `init`/`repo`. Coverage is now
