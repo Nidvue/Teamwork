@@ -5,7 +5,7 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Status summary (2026-10-19, `main` @ `3934690`)
+## Status summary (2026-10-19, `main` @ `8444134`)
 
 | milestone | exit condition | state |
 |---|---|---|
