@@ -67,8 +67,10 @@ coverage and branch checks.
 check **without trusting the team**:
 
 - `docs/Team/AuditManifest.json` - team, project, git revision and branch, ledger
-  record count and head hash, a sha256 digest for every state artifact, and the
-  exact verification steps.
+  record count and head hash, a sha256 digest for every committed state artifact
+  except `docs/Team/Archive.md` (append-only: it gains an entry when a review
+  passes, so a digest committed beside it would be stale by construction; its
+  entries are followed through the ledger), and the exact verification steps.
 - `docs/Team/AuditReport.md` - the human summary of the same facts.
 
 Verification procedure (reproducible by anyone with the repository):
