@@ -109,6 +109,96 @@ released artifact — with no personal data anywhere in the tree or in git histo
       `Nidvue/Teamwork` in every tracked file except the historical audit records -
       proof: `tests/unit/test_skill_contracts.py`, `python3 scripts/teamwork.py links`
 
+## Traceability - AC to task to test
+
+Owner: Product Manager. Re-measured every records pass from the tree and from a
+live run; no cell below is quoted from an older revision. Reproduce with
+`.pi/Teamwork/Teams/Teamwork/Agents/ProductManager/Scratch/trace-matrix.sh`
+(forward matrix `ac-matrix.py`, reverse map `record-ac.py`); the run that produced
+this section is bound to the ledger as test record TS-0016 and to
+`Agents/ProductManager/Artifacts/trace-matrix.txt`.
+
+Measured at `49cc390` on `productmanager/t-0001-...` (base `main`), 2026-10-19.
+
+### How the three layers are wired today
+
+| layer | where it lives | who writes it | how an AC is named |
+|---|---|---|---|
+| acceptance criterion | this file, `## Definition of done` | CEO | `AC-<n>` bullet |
+| delivering task | `docs/Team/Archive.md` section per closed task; open work in `Roles/<Role>/TaskQueue.md` | the owning role | free text in `self-check` / evidence |
+| test record | `.pi/Teamwork/Teams/Teamwork/Tests.md` via `teamwork.py tests add/run` | the role that ran it | **not at all** - keyed by layer/area only |
+
+The link between an AC and its test is therefore **documentary**: an AC names a
+proof command, and a test record reproduces that command in its evidence line.
+No record carries an AC id, and `teamwork.py trace AC-<n>` walks the ledger for the
+literal string, so it resolves only for `AC-1` - and that one hit is a *different*
+criterion (see gap G-1).
+
+### Forward map: AC -> proof -> delivering commit -> task -> record -> measured
+
+| AC | proof target | delivering commit | archived task(s) | test record | measured here | state |
+|---|---|---|---|---|---|---|
+| AC-1 | `scripts/verify_release.py` | `4d8ff35` | developer T-0001, ceo T-0017 | TS-0018 | `verify_release: OK - release verified` (sdist+wheel, clean-venv install, `--version`, `selftest`, `init`, installed-wheel loop -> STOP, `SHA256SUMS`) | green |
+| AC-2 | `tests/acceptance/test_entrypoints.py` | `4d8ff35` | ceo T-0017, T-0023, T-0026, T-0027 | none | 7 passed, 1 skipped (console script not installed; covered by AC-1) | green |
+| AC-3 | `pytest -q`, `teamwork.py tests plan` | command only | 20 archived tasks | TS-0001, TS-0005, TS-0008, TS-0011, TS-0014, TS-0018, TS-0022, TS-0024 | 430 collected, 429 passed 1 skipped; **`tests plan` rc 1 with 14 gaps** | **red** (second half) |
+| AC-4 | `gh run list --json displayTitle,conclusion` | `.github/workflows/ci.yml` @ `4d8ff35` | release-engineer T-0001 | none | green at `6cfebad` (17/17 jobs); the two commits after it touch `docs/` only, so `e8da9ce` carries a Docs run and Dependabot runs, not the matrix | green by path filter |
+| AC-5 | `python3 scripts/privacy_scan.py --tree --staged --history` | `4d8ff35` | security-auditor T-0001 | none | FAIL 18 findings; with `.github/privacy-allow.txt` still FAIL 5 (all `home-path` at `docs/Team/Archive.md:492`) | **red** (G-2) |
+| AC-6 | `teamwork.py links` | command only | 10 archived tasks | TS-0013, TS-0024 | `# issues: 6` - 5 broken `compare/` links + 1 bare URL, all in `docs/Team/Archive.md` | **red** (G-3) |
+| AC-7 | `gh release view v1.0.0 --json assets` | `.github/workflows/release.yml` @ `4d8ff35` | none | none | 5 assets: wheel, sdist, `SHA256SUMS`, `sbom.spdx.json`, `sbom.cyclonedx.json` | green (but the AC pins `v1.0.0`; latest is `v1.0.2` - G-5) |
+| AC-8 | `gh repo view --json description,repositoryTopics` | repo metadata | none | none | description + homepage + AGPL-3.0 + 14 topics set | green |
+| AC-9 | `tests/unit/test_portability.py` | `4d8ff35` | architect T-0001, ceo T-0016 | none | 20 passed; Windows jobs green in CI `391808644` | green |
+| AC-10 | `tests/acceptance/test_full_loop.py` | `4d8ff35` | none | none | 2 passed; the installed-wheel variant also passes inside `verify_release.py` | green |
+| AC-11 | `teamwork.py loop`, `teamwork.py audit` | command only | ceo T-0015, T-0023, T-0026, T-0027 | none | `loop` -> CONTINUE (1 failing layer, 14 missing, 12 open tasks, 4 disputes); `audit` -> 46 problems | **red** (G-4) |
+| AC-12 | `ls LICENSE CHANGELOG.md CITATION.cff` | `4d8ff35` | none | none | all three present; `pyproject.toml:10` references the licence file | green |
+| AC-13 | `tests/unit/test_imaging.py` | `b8f5548` (tests), `c8fb469` (`src/teamwork/imaging.py`) | designer T-0001 | none | 21 passed | green |
+| AC-14 | `python3 <skill-dir>/scripts/teamwork.py imaging probe` | command only | none | none | `# imaging probe (offline: environment + PATH only)` rc 0, ranked `qwen-image-2.1 > sdxl > sd3.5-large` | green |
+| AC-15 | `tests/unit/test_skill_contracts.py` | `31607cf` | designer T-0001, ceo T-0031 | none | 73 passed (contract tests named by behaviour, not by AC id) | green |
+| AC-16 | `tests/unit/test_skill_contracts.py` | `31607cf` | designer T-0001, ceo T-0031 | none | 73 passed | green |
+| AC-17 | `tests/unit/test_skill_contracts.py`, `docs/Team/Release.md` | `31607cf`, `4d8ff35` | designer T-0001, ceo T-0031 | none | 73 passed; `docs/Team/Release.md` present | green |
+| AC-18 | `tests/unit/test_skill_contracts.py`, `python3 scripts/teamwork.py links` | command + `31607cf` | 7 archived tasks | TS-0013 | 73 passed; **`links` -> 6 issues** | **red** (same cause as AC-6) |
+
+Totals: **13 of 18 green**, 4 red on an external gate (AC-5, AC-6/AC-18, AC-11),
+1 red on the coverage plan (AC-3), 1 green only by path-filter inference (AC-4).
+`4d8ff35` is the single bootstrap commit that added most proofs, so "delivering
+commit" is coarse: the per-lane work is recorded in the Archive sections, not in
+separate commits, for the M1-M4 lanes.
+
+### Reverse map: test record -> AC
+
+15 of the 25 test records name no proof that any AC claims; they are layer/area
+records (engine, audit, context-economy, evidence, packaging, pr) whose AC link is
+implicit. Records that do map: TS-0001/0005/0008/0011/0014/0018/0022/0024 -> AC-3,
+TS-0018 -> AC-1, TS-0013/TS-0024 -> AC-6 and AC-18, TS-0015 -> AC-9.
+
+**ACs with no covering test record** (16 of 18): AC-2, AC-3, AC-4, AC-5, AC-7,
+AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18. Only
+AC-1 and AC-6/AC-18 have one, and even those match by command text, not by id.
+
+**Test record with no AC**: TS-0020 `[acceptance/context-economy]` is `failing`
+(Reviewer-2: `pr merge` prints the archive entry but leaves `pending` and the tree
+dirty, so the next merge dies switching branches). No AC owns it - the
+context-economy contract has no acceptance criterion here.
+
+### Gaps and owners
+
+| id | gap | measured | owner |
+|---|---|---|---|
+| G-1 | The machine criterion store holds exactly one criterion, `AC-1 [verified]` (owner CEO, verified by Reviewer-1 2026-10-18 with `make ci` -> 333 passed, ledger #0019/#0020). Its text is the *old audit-fixes* criterion, not this file's AC-1. `teamwork.py criteria list` and `trace AC-1` therefore report the wrong artifact for the id. | `criteria list` -> 1 item; `trace AC-1` -> that item; `trace AC-2..AC-18` -> "nothing references" | CEO (re-key the store with `criteria add/verify` per AC, or prefix the historical one) |
+| G-2 | AC-5 is red in the tree: 5 `home-path` findings at `docs/Team/Archive.md:492` added by `80a8ed5` (T-0031). Without the allowlist there are 18 findings (also `agent-config` at `tests/unit/test_privacy_scan.py:464`, `archive.md:480`, `references/Adapters.md:41` - those are blessed by `.github/privacy-allow.txt`, the home path is not). | `privacy_scan --tree --history --allow .github/privacy-allow.txt` -> FAIL 5 | CEO T-0031 / T-0028 |
+| G-3 | AC-6 and AC-18 are red: 6 link issues in `docs/Team/Archive.md` (5 `compare/v1.0.2...*` targets that do not exist, 1 bare URL). | `teamwork.py links` -> `# issues: 6` | CEO T-0032 (branch at `ad8b6fc`, unmerged) |
+| G-4 | AC-11 is red because it is downstream of G-2, G-3 and the open tasks: `loop` -> CONTINUE, `audit` -> 46 problems. It cannot go green before the others. | `loop` rc 1 / `audit` rc 1 | CEO |
+| G-5 | AC-7 pins `v1.0.0` while `v1.0.2` is the released tag; AC-4 and AC-9 are phrased against "the pushed revision", which is ambiguous while local merges are ahead of `origin/main`. | `gh release list` -> v1.0.2 latest | CEO (re-word the AC, not re-do the release) |
+| G-6 | 14 required test layers are missing or failing, so AC-3's `tests plan` clause cannot pass: `concurrency/{unit,integration,acceptance}`, `merge/{unit,integration,acceptance}`, `pr/integration`, `privacy/{unit,security}`, `security/security`, `task-graph/{unit,integration,acceptance}`, `context-economy/acceptance` (failing). | `tests plan` -> 14 GAP lines, rc 1 | the owning role per area; PM tracks it |
+| G-7 | No AC owns the context-economy contract, so its failing acceptance record (TS-0020) has no requirement to escalate against. | see the reverse map above | CEO + ProductManager |
+
+### Requirements-layer contract for this area
+
+The traceability area requires exactly one test layer, `requirements`, and it is
+satisfied: `teamwork.py tests plan` reports `traceability  goal· req+ ...` and role
+coverage `product-manager  req  records=1 passing=1`. TS-0016 is that record; it is
+re-run and re-bound to the new revision, evidence and artifact on every records
+pass, and this section is its deliverable.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
