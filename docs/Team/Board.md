@@ -5,7 +5,7 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-19, `main` @ `8444134`)
+## Snapshot (2026-10-19, `main` @ `31c03b5`)
 
 - Milestone: M6 and M7 are merged into `main` (T-0003 landed at `8444134`);
   `v1.0.2` is the latest release and the next records pass is this PR.
@@ -28,6 +28,8 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   and names the revision it was exported from, so it verifies at that head
 - Remote: `origin/main` is behind the local merges until the Release Engineer
   pushes the reviewed revision; CI on the pushed SHA is the certification step.
+
+- pi packaging: [Pi-Packaging](Pi-Packaging.md)
 
 ## In flight
 

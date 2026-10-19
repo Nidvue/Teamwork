@@ -50,6 +50,38 @@ The CEO uses this before every dispatch round: fill every free slot with
 independent ready work, and scale `developer-N` / `tester-N` / `designer-N`
 instances to the available capacity rather than to a fixed number.
 
+### Work-in-progress, not lane count, is the throughput
+
+A lane that holds one task and waits for its review is idle capacity. The engine
+therefore schedules on **capacity**, not on idleness:
+
+| Concept | Default | Where |
+|---|---|---|
+| `LANE_WIP` - units one lane may hold (`doing` + `selfcheck`) | 2 | `engine.LANE_WIP` |
+| Reviewer claims per lane | 1 | `review --claim` lease |
+| Provider capacity | `Settings.json` (`ollama-cloud` 10, `deepseek` 2500) | `parallel`, `pulse` |
+
+`task next <lane> --capacity N` claims N executable tasks at once; `pulse
+--commit` tops every lane back up to its limit and refuses to plan more work than
+there are free provider slots, printing the shortfall. A claim that is still live
+blocks its lane; an expired claim is open for take-over, which is exactly what the
+next pulse hands out.
+
+### Stream the dependencies
+
+`deps: role:T-id` waits for `done` and is the slowest possible edge. Two earlier
+release points exist and should be used for every contract-shaped dependency:
+
+| Dep form | Releases when | Use it for |
+|---|---|---|
+| `role:T-id@started` | the owner has picked the task up | shadow work, fixtures, environment setup |
+| `role:T-id@review` | the work is submitted for review | testing and docs against a frozen interface |
+| `role:T-id` (default) | the task is `done` and merged | anything that needs the merged artifact |
+
+Using `@review` on every interface dependency is what lets the tester, the writer
+and the next developer start in the same hour rather than after a full review
+cycle.
+
 ### Reuse before you recompute
 
 - Reuse a **running lane** before spawning a new one - the teammate already holds

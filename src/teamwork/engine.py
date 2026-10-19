@@ -4279,27 +4279,39 @@ def cmd_task_next(args) -> int:
                 _print_task(t)
             return 3
         ready.sort(key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"], t["id"]))
-        best = ready[0]
+        # capacity 0 or negative is a typo, not "take nothing": claim one
+        want = max(1, int(getattr(args, "capacity", 1) or 1))
+        take = ready[:want] if want > 1 else ready[:1]
+        best = take[0]
         if not args.peek:
-            best["status"] = "doing"
-            best["claimed_by"] = check_claimant(root, args.agent, "claim", role)
-            best["updated"] = today_iso()
+            claimant = check_claimant(root, args.agent, "claim", role)
+            for item in take:
+                item["status"] = "doing"
+                item["claimed_by"] = claimant
+                item["updated"] = today_iso()
             write_tasks(path, tasks, role)
     if not args.peek:
-        ledger_append(
-            root,
-            "task.claim",
-            args.agent,
-            best["id"],
-            f"claimed {role} task: {best['title']}",
-            "",
-            role,
-        )
+        # one claim, one ledger record: a lane that takes three units leaves three
+        # audit entries, otherwise the chain says less than the queue does
+        for item in take:
+            ledger_append(
+                root,
+                "task.claim",
+                args.agent,
+                item["id"],
+                f"claimed {role} task: {item['title']}",
+                "",
+                role,
+            )
     suffix = "" if args.peek else f"  (claimed by {args.agent})"
+    extra = "" if args.peek or len(take) == 1 else f"  (+{len(take) - 1} more claimed)"
     print(
         f"NEXT for {args.agent} ({role} shared queue): {best['id']} "
-        f"[{best['priority']}] {best['title']}{suffix}"
+        f"[{best['priority']}] {best['title']}{suffix}{extra}"
     )
+    verb = "ALSO CLAIMED" if not args.peek else "ALSO READY"
+    for item in take[1:]:
+        print(f"  {verb}: {item['id']} [{item['priority']}] {item['title']}")
     if best.get("evidence"):
         print(f"    previous evidence: {best['evidence']}")
     for line in best["body"].splitlines():
@@ -4965,7 +4977,11 @@ def stale_claims(root: Path, minutes: int = None) -> list:
     return out
 
 
-def cmd_pulse(args) -> int:
+#: how many units one lane may hold at once (one working + one awaiting review)
+LANE_WIP = 2
+
+
+def cmd_pulse(args: object) -> int:
     """CEO wake-up: find idle lanes and hand them runnable work immediately."""
     root = project_root(args)
     if args.interval is not None:
@@ -5023,23 +5039,56 @@ def cmd_pulse(args) -> int:
             )
         print()
 
-    # assignments: match idle instances to ready work of their own role
+    # assignments: fill each lane up to its WIP limit, not just idle lanes.
+    # A lane whose deliverable is waiting in review still has capacity, and a lane
+    # that already holds LANE_WIP units gets nothing, so the queue drains in
+    # parallel instead of one task per lane per wake.
+    # only a live claim blocks a lane; an expired one is up for takeover, which
+    # is exactly the work the next pulse should hand out
+    claim_holders = {pascal(lane) for _own, _t, lane, age in claims if age < SLOT_TTL_MINUTES}
+    capacity: dict[str, int] = {}
+    for a in list_agents(root):
+        role_name = resolve_role(a)
+        held = sum(
+            1
+            for t in parse_tasks(task_file(root, role_name))
+            if pascal(t.get("claimed_by") or "") == pascal(a)
+            and t["status"] in ("doing", "selfcheck")
+        )
+        # a Reviewer lane holds ONE deliverable: a deep review is not divisible, and
+        # a second claim would just queue behind the first
+        limit = 1 if role_name == "reviewer" else LANE_WIP
+        if role_name == "reviewer" and pascal(a) in claim_holders:
+            limit = 0
+        capacity[a] = max(limit - (0 if role_name == "reviewer" else held), 0)
     plan = []
-    idle_by_role = {}
-    for a in idle:
-        idle_by_role.setdefault(resolve_role(a), []).append(a)
-    for role, inst_list in sorted(idle_by_role.items()):
+    by_role = {}
+    for a in sorted(capacity):
+        by_role.setdefault(resolve_role(a), []).append(a)
+    for role, inst_list in sorted(by_role.items()):
         items = list(ready_by_role.get(role, []))
-        if role == "reviewer" and open_items:
-            # one unclaimed deliverable per lane: independent reviews gain nothing
-            # from sharing a queue, so queueing them all on the first idle lane
-            # serialises the gate while the other lanes idle
-            for inst, (own, t) in zip(inst_list, open_items):
+        open_list = list(open_items)
+        for inst in inst_list:
+            if role == "reviewer" and open_list and capacity[inst] > 0:
+                own, t = open_list.pop(0)
                 plan.append(("reviewer", inst, t, f"deliverable review: {t['title']}", own))
-            inst_list = inst_list[len(open_items) :]
-        for inst, task in zip(inst_list, items):
-            plan.append((role, inst, task, task["title"], ""))
+                continue
+            while items and capacity[inst] > 0:
+                item = items.pop(0)
+                plan.append((role, inst, item, item["title"], ""))
+                capacity[inst] -= 1
 
+    limits = load_providers(root)
+    free_slots = sum(
+        max(cap - len(used_slots(root, prov)), 0)
+        for prov, cap in limits.items()
+        if prov != "default"
+    )
+    if len(plan) > free_slots:
+        print(
+            f"# capacity: {len(plan)} assignment(s) ready, {free_slots} free provider "
+            "slot(s) - the rest waits for a lease to free"
+        )
     print("## dispatch plan")
     if not plan:
         print("- nothing to dispatch")
@@ -5116,7 +5165,7 @@ def cmd_pulse(args) -> int:
         print("- nothing to dispatch: check blocked tasks and open disputes")
     print(
         f"- re-arm this pulse: schedule the next wake every {minutes} min "
-        "(see the /teamwork skill: schedule_prompt)"
+        "(see the /teamwork skill: schedule.create)"
     )
     return 0 if plan else 3
 
@@ -8014,6 +8063,12 @@ def _parsers_workspace(sub, common) -> None:
     )
     s.add_argument("agent")
     s.add_argument("--peek", action="store_true", help="do not claim it")
+    s.add_argument(
+        "--capacity",
+        type=int,
+        default=1,
+        help="claim up to N executable tasks at once (a lane that works in parallel)",
+    )
     s.set_defaults(func=cmd_task_next)
 
     s = tsub.add_parser("set", parents=[common], help="update status / priority / deps")
