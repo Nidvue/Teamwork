@@ -44,7 +44,7 @@ target a specific workspace.
 ### `init`
 
 ```text
-teamwork init [--agents AGENTS] [--force] [--no-git]
+teamwork init [--agents AGENTS] [--roster {slim,standard,full}] [--force] [--no-git]
 ```
 
 Create the team workspace and memory files; creates the git repository unless
@@ -52,9 +52,17 @@ Create the team workspace and memory files; creates the git repository unless
 
 | Option | Meaning |
 |---|---|
-| `--agents` | Comma-separated instance names, e.g. `ceo,architect,developer-1,tester-1`. |
+| `--roster` | Start from a tier: `slim` (default: ceo, architect, developer, tester, reviewer-1, reviewer-2), `standard` (adds product-manager, project-manager, release-engineer) or `full` (all 15 roles). |
+| `--agents` | Comma-separated instance names, e.g. `ceo,architect,developer-1,tester-1`. Overrides `--roster`. |
 | `--force` | Rewrite generated scaffolding; existing memory, task records and team documents are preserved. |
 | `--no-git` | Do not create or check the git repository. |
+
+A tier is a recipe, not a rule. Roles left out of the roster cost no charter, no
+shared queue and no memory set, and their work is folded into an existing lane
+rather than dropped: the test matrix only requires layers of staffed roles, and
+the tribunal keeps a neutral seat (the Reviewer when no CTO/CFO is staffed) so no
+party rules its own dispute. `init` prints the folded lanes and warns when
+`ceo`, `developer`, `tester` or `reviewer` is missing.
 
 ### `repo`
 
@@ -500,14 +508,12 @@ requires a `--test` line; `--note` records what was re-read, and
 ### `archive`
 
 ```text
-teamwork archive [--agent AGENT] [--limit N] [--all] [--full]
+teamwork archive [--agent AGENT] [--full]
 ```
 
-Show the reviewed-result archive (the team's evidence ledger), most recent
-entries first. The listing shows the last 8 entries and says how many it omitted;
-`--limit N` sets that count, `--all` lists every entry and `--full` implies it.
-The `self-check`/`author evidence`/`reviewer evidence`/`findings history` lines
-are clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
+Show the reviewed-result archive (the team's evidence ledger). The
+`self-check`/`author evidence`/`reviewer evidence`/`findings history` lines are
+clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
 prints them whole. `docs/Team/Archive.md` itself always stores the full text, and
 `pr merge` rewrites only the `branch / merge` line of the matching entry so it
 records the real merge revision instead of `pending` - as a committed
@@ -856,15 +862,11 @@ health.
 ### `loop`
 
 ```text
-teamwork loop [--full]
+teamwork loop
 ```
 
 Stop-condition check: may the team stop? Prints `STOP` or `CONTINUE` with
-reasons and every blocker. This view is read on every iteration, so by default it
-lists the failures, the gaps and the blockers, collapses passing test records into
-one count, and clips detail past 220 characters with an `... (+N chars: --full)`
-marker; `--full` prints every line and every passing record whole. Exit code is 1
-while the answer is `CONTINUE`.
+reasons.
 
 ### `version`
 

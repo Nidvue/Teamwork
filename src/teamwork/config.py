@@ -257,6 +257,57 @@ TRIBUNAL = ("ceo", "cto", "cfo")
 
 TRIBUNAL_MIN_SIGNERS = 2
 
+# Roster tiers, cheapest first. A role earns a seat only if it owns a deliverable,
+# a test layer and a decision right that no other role holds; everything else rides
+# as a lane. `slim` is the default because every extra role is another charter, queue
+# and memory set loaded at startup, and the gates do not need it: `staffed_layers`
+# already restricts the matrix to staffed roles, and `required_tribunal` stays at or
+# above TRIBUNAL_MIN_SIGNERS with the Reviewer as the neutral seat.
+ROSTER_TIERS = {
+    "slim": (
+        "ceo",
+        "architect",
+        "developer",
+        "tester",
+        "reviewer",
+    ),
+    "standard": (
+        "ceo",
+        "architect",
+        "product-manager",
+        "project-manager",
+        "developer",
+        "tester",
+        "reviewer",
+        "release-engineer",
+    ),
+    "full": (
+        "ceo",
+        "cto",
+        "coo",
+        "cfo",
+        "architect",
+        "product-manager",
+        "project-manager",
+        "designer",
+        "developer",
+        "tester",
+        "reviewer",
+        "security-auditor",
+        "release-engineer",
+        "technical-writer",
+        "data-engineer",
+    ),
+}
+
+DEFAULT_ROSTER_TIER = "slim"
+
+# Roles the gates cannot do without, whichever tier is chosen.
+ROSTER_REQUIRED = ("ceo", "developer", "tester", "reviewer")
+
+# Instances per role for a tier: reviewers get two so one verifies and another merges.
+ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
+
 SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria")
 
 DEFAULT_BASE = "main"
