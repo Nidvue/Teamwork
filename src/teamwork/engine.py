@@ -624,6 +624,24 @@ def check_claimant(root: Path, value: str, kind: str = "claim", role: str = "") 
     return name
 
 
+def matching_tasks(root: Path, handle: str, role_hint: str = "") -> list:
+    """Every (task, path, role, index) hit for a handle, across role queues.
+
+    Task ids are unique per queue, not per workspace, so a bare ``T-0001`` can hit
+    several bugs. Callers that must act on exactly one task refuse the ambiguity
+    instead of taking the first match.
+    """
+    roles = [resolve_role(role_hint)] if role_hint else list_roles(root)
+    hits = []
+    for role in roles:
+        path = task_file(root, role)
+        tasks = parse_tasks(path)
+        idx = find_task(tasks, handle)
+        if idx is not None:
+            hits.append((tasks[idx], path, role, idx))
+    return hits
+
+
 def _find_task_anywhere(root: Path, handle: str, role_hint: str = ""):
     """(task, path, role, index) for a task id on any role queue."""
     roles = [resolve_role(role_hint)] if role_hint else list_roles(root)
@@ -1592,9 +1610,16 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         return 0
 
     if args.tests_cmd == "repro":
-        t, tpath, role, tidx = _find_task_anywhere(root, args.id)
-        if t is None:
+        hits = matching_tasks(root, args.id, (getattr(args, "role", "") or "").strip())
+        if not hits:
             die(f"no task '{args.id}' in any role queue")
+        if len(hits) > 1:
+            die(
+                f"'{args.id}' exists on {len(hits)} queues "
+                f"({', '.join(h[2] for h in hits)}): task ids are unique per queue, "
+                "so name the defect's owner with --role <role>"
+            )
+        t, tpath, role, tidx = hits[0]
         actor, _arole = validate_actor(root, args.by, "repro author")
         pre_rev = (args.pre_rev or "").strip()
         post_rev = (args.post_rev or "").strip()
@@ -4116,6 +4141,8 @@ def _print_task(t: dict, prefix: str = "-") -> None:
     print(f"{prefix} {t['id']} [{t['priority']}/{t['status']}] {t['title']}{dep}{shared}{area}")
     if t.get("evidence"):
         print(f"    evidence: {t['evidence']}")
+    if t.get("repro"):
+        print(f"    repro: {t['repro']}")
     if t["body"]:
         for line in t["body"].splitlines():
             print(f"    {line}")
@@ -7780,6 +7807,11 @@ def _parsers_quality(sub, common) -> None:
         help="prove the defect on its task: failing run before, passing run after",
     )
     s.add_argument("id", metavar="TASK", help="T-0007, the defect task the proof belongs to")
+    s.add_argument(
+        "--role",
+        default="",
+        help="which queue owns the task, required when the id exists on several",
+    )
     s.add_argument("--by", required=True)
     s.add_argument("--pre-rev", required=True, dest="pre_rev")
     s.add_argument("--pre-evidence", required=True, dest="pre_evidence")

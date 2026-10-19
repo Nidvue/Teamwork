@@ -406,11 +406,14 @@ is appended to the ledger. `--baseline` is the state before the run and
 
 ```text
 teamwork tests repro TASK --by BY --pre-rev REV --pre-evidence EVIDENCE
-    --post-rev REV --post-evidence EVIDENCE [--artifact PATH]... [--force REASON]
+    --post-rev REV --post-evidence EVIDENCE [--role ROLE] [--artifact PATH]...
+    [--force REASON]
 ```
 
 Prove a defect before fixing it. `TASK` is the defect's `T-id` (`task add --bug`),
-searched on every role queue; the proof is stored on that task (`repro`,
+searched on every role queue (task ids are per queue, so an id that exists on
+several queues is refused until `--role` names the owner); the proof is stored on
+that task (`repro`,
 `repro_artifacts`, `repro_by`), not on a layer record, so it cannot leak to a
 sibling bug. The failing run at `--pre-rev` must contain `fail`/`FAIL`, the
 passing run at `--post-rev` must contain `pass`/`PASS`, and in a git workspace
