@@ -728,18 +728,37 @@ def find_task(tasks: list, handle: str):
 
 
 def dep_satisfied(root: Path, dep: str, cache: dict) -> bool:
+    """Is a dependency satisfied yet?
+
+    A bare ``role:T-id`` waits for the whole task to be ``done``. Add ``@review``
+    to release as soon as the work is *submitted* (``review`` or ``done``) and
+    ``@started`` to release once the owner has picked it up, so a downstream lane
+    can begin against a frozen contract instead of idling for a full review round.
+    """
     dep = dep.strip()
     if not dep:
         return True
     if ":" in dep:
         other_agent, other_id = dep.split(":", 1)
         other_agent, other_id = other_agent.strip(), other_id.strip()
-        key = ("x", other_agent, other_id)
+        mode = "done"
+        if "@" in other_id:
+            other_id, mode = other_id.split("@", 1)
+            other_id, mode = other_id.strip(), mode.strip().lower()
+        if mode not in ("done", "review", "started"):
+            mode = "done"
+        key = ("x", other_agent, other_id, mode)
         if key not in cache:
             path = role_dir(root, other_agent) / F_TASKS
             tasks = parse_tasks(path)
             idx = find_task(tasks, other_id)
-            cache[key] = bool(idx is not None and tasks[idx]["status"] == "done")
+            status = tasks[idx]["status"] if idx is not None else ""
+            wanted = {
+                "done": ("done",),
+                "review": ("review", "done"),
+                "started": ("doing", "selfcheck", "review", "done"),
+            }[mode]
+            cache[key] = status in wanted
         return cache[key]
     local_key = ("l", dep.lower())
     if local_key not in cache:
