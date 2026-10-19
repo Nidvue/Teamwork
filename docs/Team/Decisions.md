@@ -537,6 +537,67 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - falsified by: A future commit changes a version string in version.py and section 2 of Architecture.md must not need an edit; if a reviewer finds a version literal in section 2, this decision is void.
 - consequences: Section 2 no longer states a number, so the version is read from src/teamwork/version.py (pyproject [tool.hatch.version] reads the same file). scripts/build_pi_package.py and templates/pi-package/** now have a named owner (ceo) so one writer per file still holds.
 
+## D-20261019-CEO-17 - A reclaimable worktree is decided by task state, not by the filesystem
+
+- Owner: CEO
+- Related: [Plan.md](Plan.md), [Engineering.md](../../references/Engineering.md), [T-0040](../.pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md)
+- Task: T-0040
+
+### Context
+
+`.pi/` reached 267 MB of worktrees that `clean` never touched, so removal was
+manual and unsafe. A reclaimer that judges only the filesystem cannot tell a
+finished lane from a busy one: a lane writing to gitignored `build/` output leaves
+`git status` clean and does not move the top directory's mtime. Reviewer-1 proved
+each failure mode with a probe worktree at a952d93.
+
+### Decision
+
+A worktree is reclaimed only when all five hold, measured, never inferred:
+
+| Guard | Measurement |
+|---|---|
+| ours | `path.resolve().is_relative_to((project / ".pi").resolve())` - a string prefix let `.pi-evil/x` pass |
+| not busy | no live slot file for the lane, and no task of that role in `doing`/`selfcheck` claimed by it |
+| unlocked | `git worktree list --porcelain` carries no `locked` line for it |
+| no work | `git status --porcelain --ignored` is empty - a build cache is work |
+| merged and idle | HEAD is an ancestor of `main`, and nothing in a recursive walk of the tree was written inside the stale window |
+
+Removal is verified: a non-zero `git worktree remove` exit or a surviving
+directory is reported as "could not be reclaimed" and never counted.
+
+### Alternatives rejected
+
+| Option | Why not |
+|---|---|
+| Trust the top-dir mtime | A lane editing files inside the tree does not move it; a live lane would be deleted |
+| Trust `git status --porcelain` alone | Gitignored build output is a lane's real, unrecoverable-by-commit work |
+| `--force` everything older than N minutes | Deletes unmerged and uncommitted work; no commit can restore it |
+| Leave worktrees to a human | 43 worktrees and 267 MB accumulated while nobody looked |
+
+### Evidence
+
+`PYTHONPATH=src pytest -q` -> 456 passed, 1 skipped at this head;
+`tests/unit/test_worktree_reclaim.py` -> 14 passed (10 at a952d93);
+the live-lane and mixed-case tests fail on the pre-fix reclaimer: restoring
+`engine.py` from `a952d93` -> 2 failed, and restoring the case-sensitive guard
+from `e6ece35` -> the mixed-case test fails alone;
+`clean --worktrees --dry-run` -> rc 0 (was rc 2: the flag did not exist);
+`ruff check .` and `ruff format --check .` clean; `mypy src` -> 14 files.
+
+### Falsifier
+
+A worktree that satisfies all five guards and still holds work that no commit
+reaches. Reproduce by creating a worktree, writing only to an ignored path,
+marking its role's task `done`, and confirming `clean` reclaims it while the file
+is the only copy.
+
+### Consequence
+
+`clean` now reclaims by default and reports refusals; `--no-worktrees` and
+`--dry-run` remain the opt-outs. A lane that forgets to release its slot keeps its
+worktree until the slot expires - the safe direction to fail.
+
 ## D-20261019-CEO-16 - A slim roster is the default, and trimming a role must never trim a gate
 
 - date: 2026-10-19
