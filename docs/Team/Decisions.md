@@ -577,13 +577,16 @@ directory is reported as "could not be reclaimed" and never counted.
 
 ### Evidence
 
-`PYTHONPATH=src pytest -q` -> 456 passed, 1 skipped at this head;
-`tests/unit/test_worktree_reclaim.py` -> 14 passed (10 at a952d93);
-the live-lane and mixed-case tests fail on the pre-fix reclaimer: restoring
-`engine.py` from `a952d93` -> 2 failed, and restoring the case-sensitive guard
-from `e6ece35` -> the mixed-case test fails alone;
+`PYTHONPATH=src pytest -q` -> all green at this head (read the run: the count
+rises with every test another lane lands, so it is never written here);
+`tests/unit/test_worktree_reclaim.py` -> all pass;
+the guards are non-vacuous, proved by restoring the pre-fix code rather than by
+quoting a failure count: with `engine.py` taken from `a952d93` the reclaim tests
+fail, and with the case-sensitive comparison restored the mixed-case test fails
+alone (both are pre-fix probes, deliberately unreachable from this head and
+never cited as ancestors - reproduce them by checking those objects out);
 `clean --worktrees --dry-run` -> rc 0 (was rc 2: the flag did not exist);
-`ruff check .` and `ruff format --check .` clean; `mypy src` -> 14 files.
+`ruff check .` and `ruff format --check .` clean; `mypy src` clean.
 
 ### Falsifier
 
