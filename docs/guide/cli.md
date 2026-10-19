@@ -118,7 +118,7 @@ Manage a role's shared priority queue.
 ```text
 teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
     [--status {todo,doing,blocked}] [--deps DEPS] [--shared SHARED]
-    [--tags TAGS] [--body BODY] [--evidence EVIDENCE]
+    [--tags TAGS] [--body BODY] [--bug] [--evidence EVIDENCE]
     [--claimed-by CLAIMED_BY] [--no-review]
 ```
 
@@ -128,6 +128,7 @@ teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
 | `--shared` | Shared board / issue / PR reference. |
 | `--body` | Acceptance criteria / notes. |
 | `--claimed-by` | Assign to a specific instance (default: role pool). |
+| `--bug` | A defect fix: its self-check is refused until a `tests repro` record proves the defect. |
 | `--no-review` | Mark a chore that does not need Reviewer sign-off. |
 
 New tasks cannot start as `review` or `done`; the gates own those states.
@@ -374,7 +375,7 @@ Show criteria and status.
 ### `tests`
 
 ```text
-teamwork tests {add,run,require,rm,plan,list} ...
+teamwork tests {add,run,repro,require,rm,plan,list} ...
 ```
 
 Layered tests, each owned and run by its own role.
@@ -392,10 +393,27 @@ teamwork tests add --layer LAYER [--area AREA] [--owner OWNER]
 
 ```text
 teamwork tests run ID --by BY --result {pass,fail} --evidence EVIDENCE
-    [--rev REV] [--command COMMAND] [--force REASON]
+    [--rev REV] [--command COMMAND] [--baseline BASELINE]
+    [--artifact PATH]... [--replay REPLAY] [--force REASON]
 ```
 
-Record a layer run.
+Record a layer run as an evidence packet. `--artifact` names a file inside the
+project that proves the result; it is hashed (`path:sha256:bytes`) and the digest
+is appended to the ledger. `--baseline` is the state before the run and
+`--replay` is the command another agent can rerun.
+
+#### `tests repro`
+
+```text
+teamwork tests repro ID --by BY --pre-rev REV --pre-evidence EVIDENCE
+    --post-rev REV --post-evidence EVIDENCE [--artifact PATH]... [--force REASON]
+```
+
+Prove a defect before fixing it: the failing run at `--pre-rev` must contain
+`fail`/`FAIL`, the passing run at `--post-rev` must contain `pass`/`PASS`, and in
+a git workspace the pre-revision must be an ancestor of the post-revision. The
+record is marked passing and `audit` reports a `--bug` task that closed without
+one.
 
 #### `tests require`
 
@@ -436,23 +454,27 @@ List test records.
 
 ```text
 teamwork review [AGENT] [HANDLE] [--queue] [--by BY]
-    [--result {pass,fail}] [--evidence EVIDENCE] [--findings FINDINGS]
-    [--force REASON]
+    [--result {pass,fail}] [--evidence EVIDENCE] [--artifact PATH]...
+    [--findings FINDINGS] [--force REASON]
 ```
 
 Reviewer: independent second review of a deliverable. `--queue` lists everything
 awaiting review. A pass archives the result; a fail returns the task to its
-owner. `--force` overrides the review gates and requires a recorded reason.
+owner. `--artifact` binds a verification artifact (hashed into the ledger) to the
+verdict. `--force` overrides the review gates and requires a recorded reason.
 
 ### `selfcheck`
 
 ```text
 teamwork selfcheck AGENT HANDLE [--by BY] [--result {pass,fail}]
-    [--note NOTE] [--test TEST] [--force REASON]
+    [--note NOTE] [--test TEST] [--baseline BASELINE] [--artifact PATH]...
+    [--replay REPLAY] [--force REASON]
 ```
 
 Author's own review and test before submitting for review. A passing self-check
-requires a `--test` line; `--note` records what was re-read.
+requires a `--test` line; `--note` records what was re-read, and
+`--baseline/--artifact/--replay` attach the rest of the evidence packet. A
+`--bug` task is refused until a `tests repro` record exists for it.
 
 ### `archive`
 
