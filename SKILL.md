@@ -390,7 +390,7 @@ Four rules keep every lane busy without inventing work:
 
 Capacity is bounded by the provider caps in `Settings.json`, never by the number
 of lanes: `pulse` refuses to plan more assignments than there are free slots and
-prints the shortfall, so the team fills 10 Ollama Cloud lanes or 2500 DeepSeek
+prints the shortfall, so the team fills 64 Ollama Cloud lanes or 2500 DeepSeek
 lanes without over-subscribing either.
 
 The anti-patterns this replaces, all measured on a real run: a lane that took one
