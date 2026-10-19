@@ -706,11 +706,17 @@ teamwork pr merge --pr PR [--by BY] [--squash] [--keep-branch]
 
 Reviewer: merge an approved PR. The merged branch is deleted unless
 `--keep-branch` is given. `--force` overrides the review gate and requires a
-recorded reason. After the merge the `branch / merge` line of the matching
+recorded reason. `--pr` takes a PR id or a task id; a task id is resolved
+against the task's current branch, so a task reworked after an earlier merge
+reaches its live PR record instead of the one already integrated in the base.
+After the merge the `branch / merge` line of the matching
 `docs/Team/Archive.md` entry is repointed from `pending` to the merge revision
 and that one-line rewrite is committed on the base branch as its own
 `chore(records)` commit (Reviewer identity), so the archive never disagrees with
-the branch history and the work tree is left clean for the next merge.
+the branch history and the work tree is left clean for the next merge. Only an
+entry still saying `pending` is repointed: a task reworked after a merge reuses
+its branch name, and rewriting every match would erase the earlier merge
+revision from the archive.
 
 ### `commit`
 

@@ -229,22 +229,43 @@ def write_reviews(path: Path, prs: list) -> None:
     atomic_write(path, render_reviews(prs))
 
 
-def find_pr(prs: list, handle: str):
+def _branch_matches(pr: dict, branch: str | None) -> bool:
+    return not branch or (pr.get("branch") or "") == branch
+
+
+def find_pr(prs: list, handle: str, branch: str | None = None):
+    """Index of the PR named by ``handle`` (id, task or title).
+
+    ``branch`` disambiguates a task that has more than one PR record - a task
+    reworked after a merge keeps the old PR and gains a new branch, so matching
+    on the task id alone could return the record of the branch that is already
+    in the base. When it is given, only a record on that branch matches.
+    """
     want = (handle or "").strip().upper()
     for i, pr in enumerate(prs):
-        if pr["id"].upper() == want or pr["task"].upper() == want:
+        if pr["id"].upper() == want and _branch_matches(pr, branch):
             return i
     for i, pr in enumerate(prs):
-        if want and want.lower() in pr["title"].lower():
+        if pr["task"].upper() == want and _branch_matches(pr, branch):
+            return i
+    for i, pr in enumerate(prs):
+        if want and want.lower() in pr["title"].lower() and _branch_matches(pr, branch):
             return i
     return None
 
 
-def find_pr_exact(prs: list, handle: str):
-    """Exact id/task match only: a merge must never hit a fuzzy title match."""
+def find_pr_exact(prs: list, handle: str, branch: str | None = None):
+    """Exact id/task match only: a merge must never hit a fuzzy title match.
+
+    ``branch`` narrows the match the same way ``find_pr`` does, so a merge can
+    never select a PR record belonging to a different branch of the same task.
+    """
     want = (handle or "").strip().upper()
     for i, pr in enumerate(prs):
-        if pr["id"].upper() == want or pr["task"].upper() == want:
+        if pr["id"].upper() == want and _branch_matches(pr, branch):
+            return i
+    for i, pr in enumerate(prs):
+        if pr["task"].upper() == want and _branch_matches(pr, branch):
             return i
     return None
 

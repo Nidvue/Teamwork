@@ -93,6 +93,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the base branch (Reviewer identity, one `pr.merge.archive` ledger record), so
   the committed archive names the real merge revision
   (`tests/unit/test_context_economy.py`).
+- **archive rewrite could erase an earlier merge**: a task reworked after a
+  merge reuses its branch name, so `docs/Team/Archive.md` held two entries naming
+  the same branch. The rewrite repointed every match, overwriting the first merge
+  revision with the second. Only the newest entry still saying `pending` is
+  repointed now, and a branch with nothing pending is reported as unchanged.
+- **`pr merge --pr <task>` could select an already-merged PR**: a task reworked
+  after a merge keeps the old PR record, so matching on the task id alone could
+  return the branch already in the base. `find_pr` and `find_pr_exact` take an
+  optional branch and every PR lookup in the merge path passes the task's current
+  branch, so the live record is the one that merges.
 - **`ensure_gitignore` bootstrap**: a repository whose `.gitignore` already
   covered a rule with a glob (`.env.*` covers `.env.local`) gained a dangling
   section header and redundant lines on every `init`/`repo`. Coverage is now
