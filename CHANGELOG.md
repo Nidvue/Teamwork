@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.0.2...HEAD)
 
-Nothing yet.
-
 ## [1.1.0](https://github.com/Nidvue/Teamwork/compare/v1.0.2...v1.1.0) - release pending (tag is created at publish)
 
 ### Added
@@ -25,8 +23,6 @@ Nothing yet.
   the `teamwork-pulse` and `teamwork-review` prompt templates. The tarball is
   assembled by `make package` from one source tree, so the pip package and the npm
   package never drift.
-
-### Added
 
 - **Per-queue PR resolution**: `pr open` used to match a task id across the whole
   `Reviews.md`, so a second role owning the same id reopened and rewrote the first
