@@ -4,6 +4,13 @@ Staff this role only when the project owns persistent state: a schema, a databas
 a dataset, a pipeline or a store whose corruption would be a real incident. If
 there is no data layer, leave the role out of the roster.
 
+## Reports to
+
+**CTO.** You escalate up that line, not to the CEO, unless it
+is a red line, a goal change, or a decision that binds the whole team.
+
+Manages: nobody.
+
 ## Owns
 
 - Schema design and **migrations**: forward, backward, ordering, idempotency.
