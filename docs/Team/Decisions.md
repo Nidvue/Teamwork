@@ -489,6 +489,22 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - falsified by: if 2e338b6 is an ancestor of c9de7d3, the verdict is valid and this decision is wrong (git merge-base --is-ancestor 2e338b6 c9de7d3)
 - consequences: every review packet starts with the sha assertion; a verdict that does not name a head on the reviewed branch is re-dispatched, not fixed against
 
+## D-20261019-CEO-14 - Relax the local provider caps to the harness ceiling instead of the vendor's shared limit
+
+- date: 2026-10-19
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0033
+- context: the local provider caps were 10/8 while the teammate harness reports 64 concurrent fan-out slots, so dispatch throttled the team to ten lanes while sixty-four were available. The rulebook pages that state the cap (AGENTS.md, templates/AGENTS.md, references/Concurrency.md, templates/TeamMap.md) and the CEO charter each quoted the old bound, so a reader was told a number the engine did not enforce.
+- options considered: keep 10 (rejected: it serialised a 10-lane team on a 64-slot harness, measured at m01392); remove the caps entirely (rejected: dispatch then cannot detect a real provider limit); raise the cap only in the local Settings.json (rejected: a fresh team would still start at 10/8 and the repo default would keep contradicting the rulebook); raise it in both the repo default and every page that states it (chosen).
+- decision: Raise `ollama-cloud` from 10 to 64 and `default` from 8 to 32 in `DEFAULT_PROVIDER_LIMITS` (`src/teamwork/config.py:173-179`), and state 64 on every page that names the cap. Leave `deepseek` at 2500, `openai`/`anthropic` at 64. The team-local `Settings.json` may override the default; when it does, the two must agree.
+- why: the effective ceiling for concurrent lanes is the teammate harness (64 fan-out slots, reported by every run as "0/64 used"), not the provider's shared limit; capping at 10 throttled a team that could run six lanes at once when the operator asked for more.
+- evidence: `git show HEAD:src/teamwork/config.py | grep -A6 DEFAULT_PROVIDER_LIMITS -> ollama-cloud 64, default 32`; `teamwork.py parallel -> ollama-cloud used=0 cap=64 free=63, TOTAL free slots 2691` (before the change: cap=10, TOTAL 2638); `git grep -n 'Ollama Cloud' -> AGENTS.md:189, references/Concurrency.md:14, templates/AGENTS.md:197, templates/TeamMap.md:91 and roles/ceo.md:27 state 64, and 'grep -rn "~10" AGENTS.md templates/ references/ roles/ -> no provider hit`; a scratch copy with the constant set to 7 makes `parallel` report cap=7, so the constant is what drives dispatch.
+- falsified by: if a 64-lane ollama-cloud round starts getting provider 429/rate-limit errors, the cap is above the real limit and must come back down to the measured value; or if `grep -rn '~10'` finds a page still stating the old bound.
+- consequences: dispatch may now run many more lanes in parallel, so the CEO must still respect the provider's real behaviour and the `slot` lease TTL. The caps live in the repo default, so a fresh team starts at 64/32 without a local edit; the local `Settings.json` can narrow them, and any page stating a number must state the one the engine enforces.
+
 ## D-20261019-CEO-13 - Correct D-20261019-CEO-12: the round-5 verdict did name c9de7d3; the stale-sha premise was a ledger-display artefact
 
 - date: 2026-10-19
