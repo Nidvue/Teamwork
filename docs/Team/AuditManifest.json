@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-10-19T02:09:01",
+  "generated_at": "2026-10-19T02:15:53",
   "team": "Teamwork",
   "team_id": "431b5b8b1bc04db58a4f13ef114cf5c1",
   "project": "Teamwork",
   "ledger": {
-    "records": 184,
-    "head": "bdf747c63f97609c8e17eddbb52742c055f8667ec3ad7b32b9655a8336169a64",
+    "records": 191,
+    "head": "6ffdbfeb173c975085f8bc7d771a4de2ecc3dd1c9a852ca541337cde7208b93e",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "4cd8afc78e9c22630aefbb90f21014300fc140f7",
+    "head": "762fdb8cb56a9f8b73b8ec74aa7fc9b017c5842f",
     "branch": "ceo/t-0017-close-m5-mark-the-board-done-and-export",
-    "dirty": true,
+    "dirty": false,
     "lfs_files": 0
   },
   "artifacts": [
@@ -60,8 +60,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "e3017d34dc735cdc657d277be7ca26033849faf80241193d5487a87f7979ed88",
-      "bytes": 17127
+      "sha256": "88445318c6c6276cab95271e4ff02dfd595476b5e54f9f355dbf9362425fcba1",
+      "bytes": 18807
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/ArchivedMemory.md",
@@ -80,8 +80,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "0f040f0ace63324d7b8e9504abdf4bd1bd95b06afff302bc8d0b320ee5973ca4",
-      "bytes": 25986
+      "sha256": "7b5dd583e295c88d2ebdcb3c4427d11913e6501546321bc016cf6b285c4e3b27",
+      "bytes": 27352
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/ArchivedMemory.md",

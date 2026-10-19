@@ -1,10 +1,10 @@
 # Audit report
 
-- generated: 2026-10-19T02:09:01
+- generated: 2026-10-19T02:15:53
 - team: Teamwork
-- ledger: 184 records, chain verified: True
-- head hash: `bdf747c63f97609c8e17eddbb52742c0`
-- git: 4cd8afc78e9c on ceo/t-0017-close-m5-mark-the-board-done-and-export, dirty: True
+- ledger: 191 records, chain verified: True
+- head hash: `6ffdbfeb173c975085f8bc7d771a4de2`
+- git: 762fdb8cb56a on ceo/t-0017-close-m5-mark-the-board-done-and-export, dirty: False
 - externally verifiable artifacts: 5
 - local-only state files: 22
 
