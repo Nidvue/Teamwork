@@ -262,8 +262,9 @@ TRIBUNAL = ("ceo", "cto", "cfo")
 # Product Manager. Three roles stay with the CEO on purpose, because their job is
 # to disagree with everyone else: the Reviewer passes and merges (it must not be
 # managed by a lane whose work it reviews), the Security Auditor audits the whole
-# team, CTO included, and the CFO holds the budget cap that binds every lane. `ROLE_PARENT` is the single source of truth; the docs,
-# the charters and the AGENTS.md block are checked against it.
+# team, CTO included, and the CFO holds the budget cap that binds every lane.
+# `ROLE_PARENT` is the single source of truth; the docs, the charters, the
+# AGENTS.md block and the generated StartHere brief are checked against it.
 ROLE_PARENT = {
     "ceo": None,
     "cto": "ceo",
