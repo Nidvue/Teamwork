@@ -24,16 +24,19 @@ we changed, and how the published artefact is built.
 | Coordinate | `teams({action:"message_dm"})` | `subagent({action:"steer"})` for a live lane, `subagent_supervisor({action:"reply"})` for a child that asked |
 | Package | pip only | `pi-teamwork` npm package: `pi.skills` + `pi.prompts`, host packages in `peerDependencies` only |
 
-The portable skill stays portable: `tests/unit/test_skill_contracts.py` fails if
-an adoption surface (including `SKILL.md`) names a host, so the core talks about
-"the teammate tool" and the concrete pi calls live in
-`skills/teamwork-pi/SKILL.md` and in the adapter table.
+The portable skill stays portable: `test_skill_contracts.py:1052`
+(`test_adoption_surfaces_stay_agent_agnostic`) scans eight adoption surfaces -
+README, four docs pages, the demo asset, `SKILL.md`, `references/Adapters.md` - and
+fails on a host name, so the core talks about "the teammate tool" and the concrete
+pi calls live in `skills/teamwork-pi/SKILL.md` and in the adapter table.
+`tests/unit/test_pi_package.py` then pins the package itself: licence field,
+shipped files, peer-only host packages, no duplicated pi layer, runnable engine.
 
 ## 3. Build and install
 
 ```sh
 make package                      # assemble dist/pi-teamwork
-cd dist/pi-teamwork && npm pack   # 68 files, ~889 kB unpacked
+cd dist/pi-teamwork && npm pack   # 68 files, ~892 kB unpacked
 pi install npm:pi-teamwork        # or: pi -e ./dist/pi-teamwork for one session
 ```
 
@@ -41,7 +44,7 @@ pi install npm:pi-teamwork        # or: pi -e ./dist/pi-teamwork for one session
 (pi tool mapping) are available. Verified on pi 1.3.0: the local install listed
 the package and `pi -p "list the skills that contain teamwork"` answered
 `teamwork, teamwork-pi`; `npm pack --dry-run` in the built directory reports
-68 files and 888.5 kB unpacked, with the tarball root carrying `package.json`,
+68 files and 891.6 kB unpacked, with the tarball root carrying `package.json`,
 `skills/`, `prompts/`, `README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`,
 `SECURITY.md`.
 

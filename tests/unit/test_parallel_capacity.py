@@ -103,3 +103,41 @@ def test_pulse_fills_a_lane_up_to_its_wip_limit(cli, project: Path) -> None:
     tasks = engine.parse_tasks(engine.task_file(root, "developer"))
     assert len([t for t in tasks if t["status"] == "doing"]) == engine.LANE_WIP
     assert len([t for t in tasks if t["status"] == "todo"]) == len(tasks) - engine.LANE_WIP
+
+
+def test_every_claim_leaves_a_ledger_record(cli, project: Path) -> None:
+    """A lane that takes three units must leave three records, not one.
+
+    Measured defect: `task next --capacity 3` moved three tasks to `doing` but
+    wrote a single `task.claim`, so `trace T-0002` showed no record of the claim
+    and the audit trail disagreed with the queue.
+    """
+    assert cli("--project", project, "init", "--agents", ROSTER, "--no-git") == 0
+    root = team_root(project)
+    for i in range(3):
+        add(cli, project, "developer", f"unit {i}")
+    assert cli("--project", project, "task", "next", "developer-1", "--capacity", "3") == 0
+
+    ledger = (root / engine.F_LEDGER).read_text(encoding="utf-8")
+    claims = [line for line in ledger.splitlines() if '"task.claim"' in line]
+    assert len(claims) == 3, claims
+
+
+def test_peek_and_zero_capacity_do_not_mutate_or_claim(cli, project: Path) -> None:
+    assert cli("--project", project, "init", "--agents", ROSTER, "--no-git") == 0
+    root = team_root(project)
+    add(cli, project, "developer", "unit 0")
+    add(cli, project, "developer", "unit 1")
+
+    # a peek reports, it does not claim
+    assert (
+        cli("--project", project, "task", "next", "developer-1", "--peek", "--capacity", "2") == 0
+    )
+    tasks = engine.parse_tasks(engine.task_file(root, "developer"))
+    assert [t["status"] for t in tasks] == ["todo", "todo"]
+    assert all(not t["claimed_by"] for t in tasks)
+
+    # capacity 0 is a typo: claim exactly one, never silently claim all
+    assert cli("--project", project, "task", "next", "developer-1", "--capacity", "0") == 0
+    tasks = engine.parse_tasks(engine.task_file(root, "developer"))
+    assert [t["status"] for t in tasks] == ["doing", "todo"]

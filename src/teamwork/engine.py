@@ -4279,9 +4279,9 @@ def cmd_task_next(args) -> int:
                 _print_task(t)
             return 3
         ready.sort(key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"], t["id"]))
-        take = ready if getattr(args, "capacity", 1) > 1 else ready[:1]
-        if getattr(args, "capacity", 1) > 1:
-            take = take[: args.capacity]
+        # capacity 0 or negative is a typo, not "take nothing": claim one
+        want = max(1, int(getattr(args, "capacity", 1) or 1))
+        take = ready[:want] if want > 1 else ready[:1]
         best = take[0]
         if not args.peek:
             claimant = check_claimant(root, args.agent, "claim", role)
@@ -4291,23 +4291,27 @@ def cmd_task_next(args) -> int:
                 item["updated"] = today_iso()
             write_tasks(path, tasks, role)
     if not args.peek:
-        ledger_append(
-            root,
-            "task.claim",
-            args.agent,
-            best["id"],
-            f"claimed {role} task: {best['title']}",
-            "",
-            role,
-        )
+        # one claim, one ledger record: a lane that takes three units leaves three
+        # audit entries, otherwise the chain says less than the queue does
+        for item in take:
+            ledger_append(
+                root,
+                "task.claim",
+                args.agent,
+                item["id"],
+                f"claimed {role} task: {item['title']}",
+                "",
+                role,
+            )
     suffix = "" if args.peek else f"  (claimed by {args.agent})"
     extra = "" if args.peek or len(take) == 1 else f"  (+{len(take) - 1} more claimed)"
     print(
         f"NEXT for {args.agent} ({role} shared queue): {best['id']} "
         f"[{best['priority']}] {best['title']}{suffix}{extra}"
     )
+    verb = "ALSO CLAIMED" if not args.peek else "ALSO READY"
     for item in take[1:]:
-        print(f"  ALSO CLAIMED: {item['id']} [{item['priority']}] {item['title']}")
+        print(f"  {verb}: {item['id']} [{item['priority']}] {item['title']}")
     if best.get("evidence"):
         print(f"    previous evidence: {best['evidence']}")
     for line in best["body"].splitlines():

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.0.2...HEAD)
 
+Nothing yet.
+
 ### Added
 
 - **`pi-teamwork` package**: the skill now ships as a pi package (`pi.skills` +
@@ -22,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   assembled by `make package` from one source tree, so the pip package and the npm
   package never drift.
 
-## [1.1.0](https://github.com/Nidvue/Teamwork/compare/v1.0.2...v1.1.0)
+## [1.1.0](https://github.com/Nidvue/Teamwork/compare/v1.0.2...v1.1.0) - release pending (tag is created at publish)
 
 ### Added
 
