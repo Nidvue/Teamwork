@@ -1466,13 +1466,18 @@ def require_ancestor(project: Path, older: str, newer: str) -> None:
 
 
 def repro_records_for(root: Path, task: dict) -> list:
-    """Test records that prove a fail -> pass transition for this task's area."""
+    """Test records that prove a fail -> pass transition for this task.
+
+    A record that names a task proves that task only. The area-wide fallback is
+    for records written before the id link existed (``--task`` empty); it must not
+    let a repro for one bug satisfy a sibling bug in the same area.
+    """
     area = (task.get("area") or "").lower()
-    return [
-        r
-        for r in parse_tests(tests_path(root))
-        if r.get("repro") and ((area and r["area"] == area) or r.get("task") == task["id"])
-    ]
+    records = [r for r in parse_tests(tests_path(root)) if r.get("repro")]
+    named = [r for r in records if r.get("task") == task["id"]]
+    if named:
+        return named
+    return [r for r in records if not r.get("task") and area and r["area"] == area]
 
 
 def cmd_tests(args) -> int:
