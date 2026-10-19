@@ -21,7 +21,12 @@ CAP_PAGES = (
     "references/Concurrency.md",
     "templates/TeamMap.md",
     "roles/ceo.md",
+    "SKILL.md",
+    "README.md",
 )
+
+# any stated cap must be the enforced one, in either word order
+RETIRED = re.compile(r"(?:ollama-cloud[^\n]{0,20}\b10\b|\b10\b[^\n]{0,20}Ollama Cloud)")
 
 
 def test_the_default_caps_are_the_measured_ones() -> None:
@@ -36,14 +41,18 @@ def test_every_page_that_states_the_cap_states_the_enforced_number(repo_root: Pa
     cap = config.DEFAULT_PROVIDER_LIMITS["ollama-cloud"]
     for rel in CAP_PAGES:
         text = (repo_root / rel).read_text(encoding="utf-8")
-        assert "Ollama Cloud" in text, f"{rel} no longer states the provider cap"
+        assert re.search(r"ollama-cloud|Ollama Cloud", text, re.I), (
+            f"{rel} no longer states the provider cap"
+        )
         # the old bound was written as "~10" or "~10 concurrent agents"
         assert not re.search(r"Ollama Cloud[^\n]{0,40}~10\b", text), (
             f"{rel} still states the retired ~10 bound"
         )
-        assert re.search(rf"Ollama Cloud[^\n]{{0,40}}\b{cap}\b", text), (
-            f"{rel} does not state the enforced cap {cap}"
-        )
+        assert not RETIRED.search(text), f"{rel} still states the retired 10-lane cap"
+        states_cap = re.search(
+            rf"(?:ollama-cloud|Ollama Cloud)[^\n]{{0,40}}\b{cap}\b", text, re.I
+        ) or re.search(rf"\b{cap}\b[^\n]{{0,40}}(?:ollama-cloud|Ollama Cloud)", text, re.I)
+        assert states_cap, f"{rel} does not state the enforced cap {cap}"
 
 
 def test_the_cap_is_not_left_at_the_retired_bound(repo_root: Path) -> None:
