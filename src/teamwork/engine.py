@@ -5647,8 +5647,8 @@ def cmd_review(args) -> int:
         t["reviewer"] = reviewer
         t["updated"] = today_iso()
         archived = None
-        artifacts = artifact_digests(root, getattr(args, "artifact", None))
         if args.result == "pass":
+            artifacts = artifact_digests(root, getattr(args, "artifact", None))
             t["review_evidence"] = args.evidence.strip() + (
                 f" | artifacts: {artifacts}" if artifacts else ""
             )
