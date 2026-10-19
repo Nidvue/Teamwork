@@ -3321,9 +3321,10 @@ def cmd_init(args) -> int:
     roles_now = [resolve_role(n) for n in created]
     if len(instances_of(root, "reviewer")) == 1:
         print(
-            "teamwork: note - one Reviewer instance: it will verify and merge the "
-            "same PR (recorded as an exception). Add reviewer-2 to separate the "
-            "two duties."
+            "teamwork: WARNING one Reviewer instance: it must verify and merge the "
+            "same PR (logged as a review.merge_self exception) and every review "
+            "serialises onto that one lane. Add reviewer-2 (and reviewer-3) so the "
+            "pulse can fan reviews out and a different Reviewer can merge."
         )
     for required, why in (
         ("reviewer", "nothing can pass review or be merged"),
@@ -4651,6 +4652,53 @@ def cmd_slot(args) -> int:
 # --------------------------------------------------------------------------- #
 
 
+def claim_stamp() -> str:
+    """Timestamp a review claim at minute granularity, like the slot leases."""
+    return datetime.datetime.now().isoformat(timespec="minutes")
+
+
+def claim_age_minutes(value: str) -> int | None:
+    """Whole minutes since a claim was taken; None when the stamp is unusable."""
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        taken = datetime.datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return max(int((datetime.datetime.now() - taken).total_seconds() // 60), 0)
+
+
+def review_claim_state(t: dict) -> tuple:
+    """Return (lane, age_minutes, held) for a deliverable's review claim.
+
+    A claim is a lease, not a lock: an undated or unreadable stamp counts as
+    expired, so a lane that died holding a deliverable cannot freeze it forever.
+    """
+    lane = (t.get("review_claim") or "").strip()
+    if not lane:
+        return "", None, False
+    age = claim_age_minutes(t.get("review_claim_ts") or "")
+    if age is None:
+        return lane, None, False
+    return lane, age, age <= SLOT_TTL_MINUTES
+
+
+def review_is_held(t: dict) -> bool:
+    """True while a live claim pins a deliverable to one Reviewer lane."""
+    return review_claim_state(t)[2]
+
+
+def _claim_note(t: dict) -> str:
+    """One line of claim state for the pulse and queue listings."""
+    lane, age, held = review_claim_state(t)
+    if not lane:
+        return "unclaimed"
+    if held:
+        return f"held by {lane} ({age}m into the {SLOT_TTL_MINUTES}m lease)"
+    return f"claim by {lane} expired ({'undated' if age is None else f'{age}m'}) - take it over"
+
+
 def busy_instances(root: Path) -> set:
     """Instances that are working: they hold a slot or an active task."""
     busy = set()
@@ -4667,6 +4715,9 @@ def busy_instances(root: Path) -> set:
             continue
         for agent in used_slots(root, prov):
             busy.add(pascal(agent))
+    for _role, t in iter_tasks(root):
+        if review_is_held(t):
+            busy.add(pascal(t["review_claim"]))
     return busy
 
 
@@ -4694,6 +4745,77 @@ def awaiting_review(root: Path) -> list:
                 and t["status"] in ("review", "done")
             ):
                 out.append((name, t))
+    return out
+
+
+def open_review_items(root: Path) -> list:
+    """Deliverables awaiting review that no Reviewer lane currently holds."""
+    return [(name, t) for name, t in awaiting_review(root) if not review_is_held(t)]
+
+
+def review_lane_notes(root: Path) -> list:
+    """Each staffed Reviewer lane with what it is holding, for the queue header."""
+    claims: dict = {}
+    for _name, t, lane, _age in held_review_items(root):
+        claims.setdefault(pascal(lane), []).append(t["id"])
+    busy = busy_instances(root)
+    notes = []
+    for inst in instances_of(root, "reviewer"):
+        held = claims.get(pascal(inst))
+        if held:
+            state = f"holds {', '.join(held)}"
+        elif pascal(inst) in busy:
+            state = "busy"
+        else:
+            state = "idle"
+        notes.append(f"{inst} ({state})")
+    return notes
+
+
+def _pulse_review_claim(root: Path, owner: str, handle: str, lane: str) -> bool:
+    """Record a pulse-dispatched review claim in the owner's queue.
+
+    Re-reads the task under the owner's role lock: between the plan and the
+    commit the lane may have claimed the deliverable itself, or another lane may
+    have taken it, and a claim must not be written onto a verdict that landed.
+    """
+    path = task_file(root, owner)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{owner}.lock"):
+        tasks = parse_tasks(path)
+        idx = find_task(tasks, handle)
+        if idx is None:
+            return False
+        t = tasks[idx]
+        if (
+            t.get("review", "required") == "na"
+            or t.get("review_status") == "passed"
+            or t["status"] not in ("review", "done")
+            or review_is_held(t)
+            or pascal(t.get("claimed_by") or "") == pascal(lane)
+        ):
+            return False
+        t["review_claim"] = lane
+        t["review_claim_ts"] = claim_stamp()
+        write_tasks(path, tasks, owner)
+    ledger_append(
+        root,
+        "review.claim",
+        lane,
+        handle,
+        f"pulse dispatch: {owner}/{handle} (lease {SLOT_TTL_MINUTES}m)",
+        "",
+        "reviewer",
+    )
+    return True
+
+
+def held_review_items(root: Path) -> list:
+    """Every claim on the board, live or expired: (owner_role, task, lane, age)."""
+    out = []
+    for name, t in awaiting_review(root):
+        lane, age, _held = review_claim_state(t)
+        if lane:
+            out.append((name, t, lane, age))
     return out
 
 
@@ -4776,6 +4898,8 @@ def cmd_pulse(args) -> int:
     idle = idle_instances(root)
     busy = busy_instances(root)
     awaiting = awaiting_review(root)
+    open_items = open_review_items(root)
+    claims = held_review_items(root)
 
     ready_by_role = {}
     for role in list_roles(root):
@@ -4810,8 +4934,16 @@ def cmd_pulse(args) -> int:
         )
     if not ready_by_role:
         print("- none")
-    print(f"- awaiting independent review: {len(awaiting)}")
+    print(f"- awaiting independent review: {len(awaiting)} ({len(open_items)} unclaimed)")
     print()
+
+    if awaiting:
+        print(f"## deliverables awaiting review ({len(awaiting)})")
+        for name, t in awaiting:
+            print(
+                f"- {name}/{t['id']} [{t['priority']}/{t['status']}] {t['title']}  {_claim_note(t)}"
+            )
+        print()
 
     # assignments: match idle instances to ready work of their own role
     plan = []
@@ -4820,26 +4952,32 @@ def cmd_pulse(args) -> int:
         idle_by_role.setdefault(resolve_role(a), []).append(a)
     for role, inst_list in sorted(idle_by_role.items()):
         items = list(ready_by_role.get(role, []))
-        if role == "reviewer" and awaiting:
-            plan.append(
-                ("reviewer", inst_list[0], None, f"{len(awaiting)} deliverable(s) to review")
-            )
-            inst_list = inst_list[1:]
+        if role == "reviewer" and open_items:
+            # one unclaimed deliverable per lane: independent reviews gain nothing
+            # from sharing a queue, so queueing them all on the first idle lane
+            # serialises the gate while the other lanes idle
+            for inst, (own, t) in zip(inst_list, open_items):
+                plan.append(("reviewer", inst, t, f"deliverable review: {t['title']}", own))
+            inst_list = inst_list[len(open_items) :]
         for inst, task in zip(inst_list, items):
-            plan.append((role, inst, task, task["title"]))
+            plan.append((role, inst, task, task["title"], ""))
 
     print("## dispatch plan")
     if not plan:
         print("- nothing to dispatch")
-    for role, inst, task, title in plan:
-        tid = task["id"] if task else "Review"
+    for role, inst, task, title, review_owner in plan:
+        tid = f"{review_owner}/{task['id']}" if review_owner else (task["id"] if task else "Review")
         print(f"- {inst:16s} <- {tid} [{role}] {title}")
     print()
 
     if args.commit and plan:
         applied = []
-        for role, inst, task, _title in plan:
+        for role, inst, task, _title, review_owner in plan:
             if task is None:
+                continue
+            if review_owner:
+                if _pulse_review_claim(root, review_owner, task["id"], inst):
+                    applied.append(f"{inst}<-{review_owner}/{task['id']} (claim)")
                 continue
             path = task_file(root, role)
             with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
@@ -4851,10 +4989,10 @@ def cmd_pulse(args) -> int:
                 tasks[idx]["claimed_by"] = inst
                 tasks[idx]["updated"] = today_iso()
                 write_tasks(path, tasks, role)
-                applied.append((inst, task["id"]))
+                applied.append(f"{inst}<-{task['id']}")
         print(
             f"# applied {len(applied)} assignment(s)"
-            + (f": {', '.join(f'{i}<-{t}' for i, t in applied)}" if applied else "")
+            + (f": {', '.join(applied)}" if applied else "")
         )
     elif plan and not args.commit:
         print("# dry run: add --commit to apply these assignments")
@@ -4873,8 +5011,24 @@ def cmd_pulse(args) -> int:
 
     print("## CEO next actions")
     print("- assign the plan above to the idle lanes and tell each to start now")
-    if awaiting:
-        print(f"- the Reviewer has {len(awaiting)} deliverable(s) waiting; it is a lane too")
+    review_lanes = [a for a in idle if resolve_role(a) == "reviewer"]
+    if open_items and review_lanes:
+        print(
+            f"- {len(open_items)} deliverable(s) unclaimed: hand each one to a DIFFERENT "
+            f"Reviewer lane ({', '.join(review_lanes)}) - never queue them all on one lane"
+        )
+        print(
+            "  review <role> <T-id> --claim --by <lane>   # take it, then verdict it; "
+            "--release hands it back"
+        )
+    elif open_items:
+        print(
+            f"- {len(open_items)} deliverable(s) await review and no Reviewer lane is "
+            "idle: start another Reviewer lane, or claim them when one frees"
+        )
+    if claims:
+        taken = ", ".join(f"{own}/{t['id']}={lane}" for own, t, lane, _age in claims[:4])
+        print(f"- claimed: {taken} - an unresponsive lane frees its claim when the lease expires")
     if total_ready > len(idle):
         print(
             f"- {total_ready - len(idle)} ready task(s) have no free lane: queue by priority, "
@@ -5548,10 +5702,116 @@ def find_review_role_unused(root: Path, handle: str):
     return None, None, None, None, None
 
 
+def _review_claim(root: Path, args) -> int:
+    """Take a deliverable off the shared review queue, or hand it back.
+
+    Reviews are independent by design, so several lanes may run at once. The
+    queue is shared, so a lane must announce which deliverable it took: without
+    that the lanes collide on one deliverable and leave the rest unreviewed.
+    """
+    claim, release = bool(args.claim), bool(args.release)
+    if claim and release:
+        die("--claim and --release are mutually exclusive", 2)
+    if not (args.agent and args.handle):
+        die("usage: review <role> <T-id> --claim|--release --by <Reviewer instance>", 2)
+    if args.result:
+        die(f"--claim/--release do not take --result {args.result}; the verdict is separate", 2)
+    role = resolve_role(args.agent)
+    reviewer, rrole = validate_actor(root, args.by or "reviewer", "reviewer", allow_role=False)
+    if rrole != "reviewer":
+        die(f"only the Reviewer role may hold a review (you passed {reviewer}).", 2)
+    verb = "claim" if claim else "release"
+    path = task_file(root, role)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(path)
+        idx = find_task(tasks, args.handle)
+        if idx is None:
+            die(f"no task '{args.handle}' for {role}")
+        t = tasks[idx]
+        if t.get("review", "required") == "na":
+            print(f"teamwork: {role}/{t['id']} is review=na; nothing to {verb}")
+            return 0
+        if t.get("review_status") == "passed":
+            die(f"{role}/{t['id']} already passed review; nothing to {verb}", 2)
+        if t["status"] in ("todo", "dropped"):
+            die(
+                f"refusing to {verb} {role}/{t['id']}: status is {t['status']}, nothing is awaiting review",
+                2,
+            )
+        if pascal(t.get("claimed_by") or "") == pascal(reviewer):
+            die(
+                f"{reviewer} produced {t['id']} and cannot review it; another lane must take it.", 2
+            )
+        lane, age, held = review_claim_state(t)
+        if claim:
+            if held and pascal(lane) != pascal(reviewer):
+                die(
+                    f"{role}/{t['id']} is held by {lane} ({age}m into the "
+                    f"{SLOT_TTL_MINUTES}m lease): let it finish, or wait for the lease "
+                    "to expire and take it over",
+                    2,
+                )
+            took_over = (
+                f" (took over {lane}'s expired claim after {age if age is not None else 0}m)"
+                if lane and pascal(lane) != pascal(reviewer)
+                else ""
+            )
+            t["review_claim"] = reviewer
+            t["review_claim_ts"] = claim_stamp()
+            write_tasks(path, tasks, role)
+            ledger_append(
+                root,
+                "review.claim",
+                reviewer,
+                t["id"],
+                f"{role}/{t['id']} claimed for review (lease {SLOT_TTL_MINUTES}m){took_over}",
+                "",
+                "reviewer",
+            )
+            print(
+                f"teamwork: {reviewer} holds {role}/{t['id']} for {SLOT_TTL_MINUTES} min: "
+                f"review {role} {t['id']} --by {reviewer} --result pass --evidence "
+                "'<cmd @rev -> result>' or hand it back with --release"
+            )
+            return 0
+        if not lane:
+            print(f"teamwork: {role}/{t['id']} is not claimed; nothing to release")
+            return 0
+        other = pascal(lane) != pascal(reviewer)
+        if other and not args.force:
+            die(
+                f"{role}/{t['id']} is held by {lane}"
+                + (f" ({age}m into its lease)" if held else "")
+                + f": only that lane releases it, or force it with --force <reason> "
+                f"(use it when {lane} is dead)",
+                2,
+            )
+        forced = ""
+        if other:
+            args.force = require_reason(args.force, "another lane's claim")
+            forced = f" forced by {reviewer}: {args.force}"
+        t["review_claim"] = ""
+        t["review_claim_ts"] = ""
+        write_tasks(path, tasks, role)
+        ledger_append(
+            root,
+            "review.release",
+            reviewer,
+            t["id"],
+            f"{role}/{t['id']} released by {lane}{forced}",
+            "",
+            "reviewer",
+        )
+        print(f"teamwork: {role}/{t['id']} is back on the shared review queue")
+        return 0
+
+
 def cmd_review(args) -> int:
     root = project_root(args)
     if args.queue:
         return _review_queue(root)
+    if getattr(args, "claim", False) or getattr(args, "release", False):
+        return _review_claim(root, args)
     if not (args.agent and args.handle):
         die("usage: review <role> <T-id> --by <Reviewer> --result pass|fail [--evidence ...]")
     role = resolve_role(args.agent)
@@ -5585,6 +5845,13 @@ def cmd_review(args) -> int:
             die(
                 f"{reviewer} produced {t['id']} and cannot review it; "
                 "an independent instance must review."
+            )
+        lane, age, held = review_claim_state(t)
+        if lane and pascal(lane) != pascal(reviewer):
+            print(
+                f"teamwork: NOTE {role}/{t['id']} is held by {lane} "
+                f"({'lease held' if held else 'lease expired'} {age or ''}m); {reviewer} "
+                "reviewed it anyway - deliberate for a second opinion"
             )
         if args.result == "pass" and not args.force:
             if not t.get("claimed_by"):
@@ -5658,6 +5925,11 @@ def cmd_review(args) -> int:
 
         t["reviewer"] = reviewer
         t["updated"] = today_iso()
+        claim_note = ""
+        if (t.get("review_claim") or "").strip():
+            claim_note = f" | claim by {t['review_claim']} released"
+            t["review_claim"] = ""
+            t["review_claim_ts"] = ""
         archived = None
         if args.result == "pass":
             artifacts = artifact_digests(root, getattr(args, "artifact", None))
@@ -5704,7 +5976,7 @@ def cmd_review(args) -> int:
         "review.pass" if args.result == "pass" else "review.fail",
         reviewer,
         t["id"],
-        (t.get("review_evidence") or t.get("findings") or "")[:150],
+        ((t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note)[:200],
         "",
         role,
     )
@@ -5778,6 +6050,7 @@ def _review_queue(root: Path) -> int:
         print(
             f"- {name} {t['id']} [{t['priority']}/{t['status']}] {t['title']}"
             f"  review_status={t.get('review_status', 'pending')}"
+            f" claim: {_claim_note(t)}"
             f" self_check={t.get('self_check', 'pending')}"
             + (f" branch={t['branch']}" if t.get("branch") else "")
             + (f" pr={t['pr']}" if t.get("pr") else "")
@@ -5787,12 +6060,22 @@ def _review_queue(root: Path) -> int:
         if t.get("findings"):
             print(f"    findings so far: {t['findings']}")
     print()
-    print(f"# {len(rows)} deliverable(s) to review")
-    print("# verify independently, then")
+    lanes = review_lane_notes(root)
+    unclaimed = sum(1 for _prio, _name, t in rows if not review_is_held(t))
+    print(f"# {len(rows)} deliverable(s) to review ({unclaimed} unclaimed)")
+    print("# lanes: " + (", ".join(lanes) if lanes else "no Reviewer instance staffed"))
+    print("# a review is claimed work: one lane takes one deliverable, then verdicts it")
+    print("#   review <role> <T-id> --claim --by <Reviewer-instance>   # pin it to your lane")
     print(
-        "#   review <role> <T-id> --by <Reviewer> --result pass --evidence '<cmd @rev -> result>'"
+        "#   review <role> <T-id> --by <Reviewer-instance> --result pass --evidence '<cmd @rev -> result>'"
     )
-    print("#   review <role> <T-id> --by <Reviewer> --result fail --findings '<defect + evidence>'")
+    print(
+        "#   review <role> <T-id> --by <Reviewer-instance> --result fail --findings '<defect + evidence>'"
+    )
+    print(
+        f"#   review <role> <T-id> --release --by <Reviewer-instance>   # hand it back "
+        f"(a claim lapses after {SLOT_TTL_MINUTES}m)"
+    )
     return 0
 
 
@@ -7685,6 +7968,14 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("agent", nargs="?", help="owner of the deliverable")
     s.add_argument("handle", nargs="?", help="T-0002, title or substring")
     s.add_argument("--queue", action="store_true", help="list everything awaiting review")
+    s.add_argument(
+        "--claim",
+        action="store_true",
+        help="take the deliverable off the shared queue for your lane",
+    )
+    s.add_argument(
+        "--release", action="store_true", help="hand a claimed deliverable back to the queue"
+    )
     s.add_argument("--by", default="reviewer")
     s.add_argument("--result", choices=["pass", "fail"])
     s.add_argument("--evidence", default="", help="verification command @rev -> result")
