@@ -5652,6 +5652,10 @@ def cmd_review(args) -> int:
             t["review_evidence"] = args.evidence.strip() + (
                 f" | artifacts: {artifacts}" if artifacts else ""
             )
+            if (getattr(args, "baseline", "") or "").strip():
+                t["review_evidence"] += f" | baseline: {args.baseline.strip()}"
+            if (getattr(args, "replay", "") or "").strip():
+                t["review_evidence"] += f" | replay: {args.replay.strip()}"
             if artifacts:
                 t["review_artifacts"] = artifacts
             t["review_status"] = "passed"
@@ -7678,6 +7682,8 @@ def _parsers_quality(sub, common) -> None:
         metavar="PATH",
         help="verification artifact to hash and bind to the ledger (repeatable)",
     )
+    s.add_argument("--baseline", default="", help="the state the verification started from")
+    s.add_argument("--replay", default="", help="command or path that reproduces the verdict")
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
     s.add_argument(
         "--force",
