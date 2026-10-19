@@ -309,13 +309,13 @@ def test_the_skill_states_that_it_is_host_agnostic(root):
 def test_no_normative_step_requires_a_pi_only_tool(root):
     """The protocol must not depend on one host's tool names.
 
-    ``teams``/``subagent``/``schedule_prompt`` may appear only as an adapter
-    example, never as the definition of an operation.
+    ``subagent``/``schedule.create`` may appear only as an adapter example,
+    never as the definition of an operation.
     """
     text = read(root, "SKILL.md")
     assert "Only six\n  operations need a host mechanism" in text or "six\n  operations" in text
     adapters = read(root, "references", "Adapters.md")
-    for tool in ("teams(", "subagent(", "schedule_prompt("):
+    for tool in ("subagent(", "schedule.create"):
         assert tool in adapters, tool  # documented as Pi's mechanism
     assert "Never hard-code a host tool" in flat(adapters)
 
@@ -1050,7 +1050,7 @@ HOST_PATTERNS = {
 
 
 def test_adoption_surfaces_stay_agent_agnostic(root):
-    surfaces = (
+    surfaces = [
         "README.md",
         "docs/index.md",
         "docs/guide/install.md",
@@ -1059,11 +1059,19 @@ def test_adoption_surfaces_stay_agent_agnostic(root):
         "docs/guide/architecture.md",
         "assets/demo.svg",
         "SKILL.md",
-    )
+    ]
     for name in surfaces:
         text = (root / name).read_text(encoding="utf-8").lower()
         for host, pattern in HOST_PATTERNS.items():
             assert not re.search(pattern, text), f"{name} still names the host {host!r}"
+
+    # every role charter ships inside the pi package: a concrete host tool call
+    # there is the same portability regression as one in SKILL.md. Provider and
+    # model names are content, not a host dependency, so they are not scanned.
+    for charter in sorted((root / "roles").glob("*.md")):
+        text = charter.read_text(encoding="utf-8")
+        for tool in ("subagent(", "subagent_supervisor(", "schedule.create", "teams("):
+            assert tool not in text, f"{charter.name} hard-codes the host tool {tool!r}"
 
 
 def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path):
