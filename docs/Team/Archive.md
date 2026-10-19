@@ -543,7 +543,7 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - author evidence: commit 463c99d
 - reviewer evidence: worktree .pi/WT-t0038 @463c99d: pytest tests/unit/test_decision_ids.py -q -> 2 passed; PYTHONPATH=src pytest -q -> 444 passed,1 skipped; ruff check . -> All checks passed; mypy src -> no issues (14 files); git merge-tree main 463c99d -> 0 CONFLICT. Repro /tmp/decproj-MAIN (main code): main=[D-20261020-CEO] other-branch=[D-20261020-CEO] COLLISION; /tmp/decproj-FIX (463c99d): main=[D-20261020-CEO] other=[D-20261020-CEO-2] no collision. Non-vacuity: /tmp/fixrepo with engine.py:2427 reverted to taken=set(_decision_ids_in(existing)) -> pytest tests/unit/test_decision_ids.py -q -> 1 failed,1 passed (test_a_decision_recorded_on_another_branch_takes_a_fresh_id). Edge cases: _decision_ids_in('# DECISIONS\n\n## D-20261019-CEO-1 - one\n\n- context: see D-20261019-CEO-9\n') -> ['D-20261019-CEO-1'] (quoted prose id ignored); non-git project /tmp/ngt2 -> all_branch_decision_ids returns set() and decision add still allocates D-20261020-CEO from the current file. Residual risk (non-blocking, recorded): allocator only sees refs/heads tips + current file, so an id recorded on another branch but not yet committed is still invisible (/tmp/final: both lanes -> D-20261020-CEO, ledger target twice), and refs/remotes/tags/ledger are not consulted.
 - findings history: -
-- branch / merge: ceo/t-0038-decision-ids-collide-across-parallel-bra / pending
+- branch / merge: ceo/t-0038-decision-ids-collide-across-parallel-bra / 59967ab
 
 ## T-0035 · Archive quote hygiene: the merged T-0032 entry must not re-break the link check  (ceo)
 - date: 2026-10-20
