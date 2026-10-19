@@ -9,7 +9,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.0.2...HEAD)
+## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.1.0...HEAD)
+
+### Added
+
+- **`pi-teamwork` package**: the skill now ships as a pi package (`pi.skills` +
+  `pi.prompts`, host packages as `peerDependencies` only). A pi session installs it
+  with `pi install npm:pi-teamwork` and gets two skills: `/skill:teamwork` (the
+  protocol) and `/skill:teamwork-pi` (the pi tool mapping: `subagent` fan-out,
+  `schedule.create` pulse, `subagent_supervisor` replies, `subagent stop`), plus
+  the `teamwork-pulse` and `teamwork-review` prompt templates. The tarball is
+  assembled by `make package` from one source tree, so the pip package and the npm
+  package never drift.
+
+## [1.1.0](https://github.com/Nidvue/Teamwork/compare/v1.0.2...v1.1.0)
 
 ### Added
 
