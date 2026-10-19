@@ -119,6 +119,10 @@ this section is bound to the ledger as test record TS-0016 and to
 `Agents/ProductManager/Artifacts/trace-matrix.txt`.
 
 Measured at `49cc390` on `productmanager/t-0001-...` (base `main`), 2026-10-19.
+`teamwork.py links` and `audit` count every markdown file they find, so an
+untracked scratch copy of the tree (`.scratch-rv2/`, not tracked and never in CI)
+doubles their issue totals; the figures below are the tracked tree and are read
+from a checkout with no such copy present.
 
 ### How the three layers are wired today
 
