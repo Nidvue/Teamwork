@@ -29,6 +29,8 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 - Remote: `origin/main` is behind the local merges until the Release Engineer
   pushes the reviewed revision; CI on the pushed SHA is the certification step.
 
+- pi packaging: [Pi-Packaging](Pi-Packaging.md)
+
 ## In flight
 
 | agent | task | prio | state | artifact |
