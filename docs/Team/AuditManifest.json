@@ -1,40 +1,40 @@
 {
-  "generated_at": "2026-10-19T00:21:04",
+  "generated_at": "2026-10-19T02:09:01",
   "team": "Teamwork",
   "team_id": "431b5b8b1bc04db58a4f13ef114cf5c1",
   "project": "Teamwork",
   "ledger": {
-    "records": 94,
-    "head": "c706cffd1a0dbd12616c2e3991fe562dbd1a381d505f5dc95c8c8fd34722cd3c",
+    "records": 184,
+    "head": "bdf747c63f97609c8e17eddbb52742c055f8667ec3ad7b32b9655a8336169a64",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "a531fb8cd70f13c04bd2006a6fdee87715a83276",
-    "branch": "ceo/t-0010-export-the-current-audit-manifest-with-a",
-    "dirty": false,
+    "head": "4cd8afc78e9c22630aefbb90f21014300fc140f7",
+    "branch": "ceo/t-0017-close-m5-mark-the-board-done-and-export",
+    "dirty": true,
     "lfs_files": 0
   },
   "artifacts": [
     {
       "path": "docs/Team/Architecture.md",
-      "sha256": "01f5bf176144f60c4fdfb4e76d61a82ab9572cb782c193d145b7f09ec718fc1e",
-      "bytes": 9243
+      "sha256": "30a601b72f8f76e28eb1812fc616a3b48c16255a74cb9210d680150366f3ed3b",
+      "bytes": 10157
     },
     {
       "path": "docs/Team/Archive.md",
-      "sha256": "a5adb4d785508b9c51f5db0af56c7229b68deac5bf88cccb5d98bf26bb9de2d9",
-      "bytes": 12923
+      "sha256": "f4577574042bf2053a87d0876500ae895be4df681381e02cf64f93b1bc551728",
+      "bytes": 29294
     },
     {
       "path": "docs/Team/Decisions.md",
-      "sha256": "78b1fdcff2e379bb594e831616201931e476d538168ef4e3a631e49ecb8096d8",
-      "bytes": 18528
+      "sha256": "293f23d7e4610db8e1524daa7ac356541869480ca03e9b7b2d9a53a114c0754e",
+      "bytes": 24155
     },
     {
       "path": "docs/Team/Plan.md",
-      "sha256": "b93c47d166d45ea08eefa15064b21b7a2002344134191a8cde36c461c36ab16c",
-      "bytes": 4100
+      "sha256": "abd431eba676b9868e8e612eb41c600adfdf73bbe86f430b90412c37806b4128",
+      "bytes": 4229
     },
     {
       "path": "docs/Team/Project.md",
@@ -60,8 +60,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "2b6eb3957cfcfb7c8d056926987ef0735808c46e931252615b19fe380f53d98a",
-      "bytes": 1520
+      "sha256": "e3017d34dc735cdc657d277be7ca26033849faf80241193d5487a87f7979ed88",
+      "bytes": 17127
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/ArchivedMemory.md",
@@ -80,8 +80,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "dd83dddcca2a6273e8b3ac58d277368c9a97f1651246288a895341b8a32278ba",
-      "bytes": 7750
+      "sha256": "0f040f0ace63324d7b8e9504abdf4bd1bd95b06afff302bc8d0b320ee5973ca4",
+      "bytes": 25986
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/ArchivedMemory.md",
@@ -150,8 +150,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Tests.md",
-      "sha256": "c4ee2fe3ba1fab9d61da346367d4e600478f60997ae5b61f9e80e8e2b17d8bef",
-      "bytes": 1376
+      "sha256": "550bcc82841ce3f4cb105c0c2be8c3dd4da21ffd641482d2dca77e7336758991",
+      "bytes": 2263
     }
   ],
   "how_to_verify": [
