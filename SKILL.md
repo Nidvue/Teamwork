@@ -144,7 +144,7 @@ default; `--agents` overrides it for a roster you name exactly.
 | Tier | Instances | Startup read |
 |---|---|---|
 | `slim` (default) | 6 | 223 kB |
-| `standard` | 9 | 330 kB |
+| `standard` | 9 | 331 kB |
 | `full` | 16 | 577 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
