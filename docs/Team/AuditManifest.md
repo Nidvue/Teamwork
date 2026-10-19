@@ -1,12 +1,12 @@
 # Audit report
 
-- generated: 2026-10-19T13:54:02
+- generated: 2026-10-19T20:11:37
 - team: Teamwork
-- ledger: 336 records, chain verified: True
-- head hash: `f21a6c664fa417e7b86be5a31cf729b3`
-- git: 1609fe4545d9 on ceo/t-0026-close-the-m6-records-mark-t-0023-done-an, dirty: False
+- ledger: 592 records, chain verified: True
+- head hash: `6b1f259914eaa56cf898750f290ac682`
+- git: 89b7874eb782 on ceo/t-0027-m7-records-final, dirty: False
 - externally verifiable artifacts: 4
-- local-only state files: 22
+- local-only state files: 42
 
 ## Verification (external, no trust required)
 
@@ -20,7 +20,7 @@ teamwork.py trace <T-id>     # follow any claim end to end
 
 | path | bytes | sha256 |
 |---|---|---|
-| docs/Team/Architecture.md | 10157 | `30a601b72f8f76e2…` |
-| docs/Team/Decisions.md | 27266 | `09635cc8d1578a35…` |
-| docs/Team/Plan.md | 5495 | `e8e5b651357b6722…` |
+| docs/Team/Architecture.md | 10222 | `450c1d546c9e6b21…` |
+| docs/Team/Decisions.md | 37453 | `870154ac865912c0…` |
+| docs/Team/Plan.md | 6591 | `8f78306ad14b1d8b…` |
 | docs/Team/Project.md | 10766 | `9bc02eff318d0959…` |
