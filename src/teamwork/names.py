@@ -121,6 +121,25 @@ def one_line(value, limit: int = 0) -> str:
     return text[:limit].rstrip() if limit else text
 
 
+def clip(text, limit: int = 600) -> str:
+    """Shorten free text for a machine view: ``head... (+N chars: --full)``.
+
+    The records keep the whole value (Reviews.md, Ledger.jsonl and Archive.md are
+    the trust boundary and are never rewritten here); a *listing* only needs
+    enough to triage from, and a 10 KB findings line is what makes
+    ``review --queue`` or ``archive`` expensive for an agent that has to read
+    it. The marker states how many characters were omitted and the flag that
+    shows them, so a clipped view can never hide evidence silently. Text of
+    ``limit`` characters or fewer is returned unchanged - nothing was omitted,
+    so there is no marker to add.
+    """
+    value = str(text or "")
+    if len(value) <= limit:
+        return value
+    omitted = len(value) - limit
+    return f"{value[:limit]}... (+{omitted} chars: --full)"
+
+
 def body_text(value) -> str:
     """Body text that cannot forge a new record header.
 
