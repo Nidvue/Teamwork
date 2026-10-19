@@ -198,6 +198,7 @@ from .names import (
     ROLE_DISPLAY,
     _norm_key,
     body_text,
+    clip,
     git_identity_args,
     identity_string,
     one_line,
@@ -816,11 +817,42 @@ def cmd_pr(args) -> int:
         return _pr_open(args, root, project, here, path, role)
 
 
+def _merge_branch_hint(root: Path, handle: str) -> str:
+    """The branch of the task a merge names, or "" when ``handle`` is a PR id.
+
+    ``--pr`` accepts a PR id or a task id, and a task that was reworked after
+    an earlier merge still has the old (merged) PR record next to the new one,
+    so an id/task match alone can return the record whose branch already sits
+    in the base. The task's current branch narrows the lookup to the live record.
+
+    The task is read under its role lock and the reviews file is read later
+    under ``reviews.lock``, so the role -> reviews order that ``cmd_review``
+    uses is never inverted here.
+    """
+    for role in list_roles(root):
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+            tasks = parse_tasks(task_file(root, role))
+        tidx = find_task(tasks, handle)
+        if tidx is not None:
+            return tasks[tidx].get("branch") or ""
+    return ""
+
+
+def _merge_pr_index(prs: list, handle: str, branch: str = "") -> int | None:
+    """Index of the PR a merge names, preferring the record on ``branch``."""
+    if branch:
+        idx = find_pr_exact(prs, handle, branch)
+        if idx is not None:
+            return idx
+    return find_pr_exact(prs, handle)
+
+
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "merge.lock"):
+        hint = _merge_branch_hint(root, args.pr)
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
             prs = parse_reviews(path)
-            idx = find_pr_exact(prs, args.pr)
+            idx = _merge_pr_index(prs, args.pr, hint)
             if idx is None:
                 die(f"no PR '{args.pr}'")
             pr = prs[idx]
@@ -1027,7 +1059,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             # the git merge is not lost.
             with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
                 fresh_prs = parse_reviews(path)
-                pidx = find_pr_exact(fresh_prs, pr["id"])
+                pidx = find_pr_exact(fresh_prs, pr["id"], pr.get("branch"))
                 if pidx is not None:
                     fresh_prs[pidx]["status"] = "merged"
                     fresh_prs[pidx]["reviewer"] = merger
@@ -1041,6 +1073,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             root, "pr.merge", merger, pr["task"], f"{pr['id']} {branch} -> {base} at {sha}", sha
         )
         print(f"# merged {pr['id']} {branch} -> {base} at {sha} by {merger}")
+        print(commit_archive_merge_sha(root, here, branch, sha, pr, merger))
         if not args.keep_branch:
             if retire_branch(root, here, branch, force=args.squash):
                 ledger_append(
@@ -1078,7 +1111,7 @@ def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str)
         )
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
         prs = parse_reviews(path)
-        existing = find_pr(prs, t["id"])
+        existing = find_pr(prs, t["id"], t.get("branch"))
         if existing is not None:
             pr = prs[existing]
             pr["status"] = "open"
@@ -1861,6 +1894,7 @@ LEDGER_ACTIONS = (
     "review.fail",
     "pr.open",
     "pr.merge",
+    "pr.merge.archive",
     "branch.start",
     "branch.retire",
     "criteria.add",
@@ -2353,9 +2387,51 @@ def cmd_decision_list(args) -> int:
     return 0
 
 
+# Machine views: the records keep the full text, the listing does not need it.
+# A findings line can run past 10 KB, which is what makes `review --queue`,
+# `trace` and `archive` expensive for an agent that has to read them, so those
+# three views clip free-text evidence by default and `--full` turns it off.
+VIEW_CLIP_LIMIT = 600
+
+# The evidence-bearing lines of a docs/Team/Archive.md entry (archive_append).
+ARCHIVE_CLIP_FIELDS = (
+    "- self-check: ",
+    "- author evidence: ",
+    "- reviewer evidence: ",
+    "- findings history: ",
+)
+
+
+def view_text(value, full: bool) -> str:
+    """Render one free-text evidence field for a machine view.
+
+    Clipped to ``VIEW_CLIP_LIMIT`` characters unless the caller passed ``--full``;
+    the stored record always holds the whole value, so nothing is lost - the
+    clipped view only defers the detail to ``--full``.
+    """
+    text = str(value or "")
+    return text if full else clip(text, VIEW_CLIP_LIMIT)
+
+
+def archive_view_text(text: str, full: bool) -> str:
+    """Clip the evidence-bearing lines of an archive listing, keep the rest."""
+    if full:
+        return text
+    lines = []
+    for line in text.split("\n"):
+        for field in ARCHIVE_CLIP_FIELDS:
+            if line.startswith(field):
+                lines.append(field + clip(line[len(field) :], VIEW_CLIP_LIMIT))
+                break
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def cmd_trace(args) -> int:
     """Follow one handle through every record: the internal audit view."""
     root = project_root(args)
+    full = bool(getattr(args, "full", False))
     handle = args.handle.strip()
     up = handle.upper()
     print(f"# Trace {handle} ({root})")
@@ -2383,9 +2459,9 @@ def cmd_trace(args) -> int:
                 "forced",
             ):
                 if t.get(field):
-                    print(f"- {field}: {t[field]}")
+                    print(f"- {field}: {view_text(t[field], full)}")
             if t.get("findings"):
-                print(f"- findings: {t['findings']}")
+                print(f"- findings: {view_text(t['findings'], full)}")
             if t.get("branch"):
                 prj = work_repo(root)
                 base = t.get("base") or DEFAULT_BASE
@@ -2399,13 +2475,13 @@ def cmd_trace(args) -> int:
             found = True
             print(f"\n## criterion {c['id']} [{c['status']}] {c['text']}")
             print(f"- owner: {c['owner']} | verified by: {c['verified_by']} {c['verified']}")
-            print(f"- evidence: {c['evidence']}")
+            print(f"- evidence: {view_text(c['evidence'], full)}")
     for r in parse_tests(tests_path(root)):
         if up == r["id"].upper() or up == r["area"].upper():
             found = True
             print(f"\n## test {r['id']} [{r['layer']}/{r['area']}] {r['status']}")
             print(f"- owner: {r['owner']} | run by: {r['by']} | cmd: {r['command']}")
-            print(f"- evidence: {r['evidence'] or '-'}")
+            print(f"- evidence: {view_text(r['evidence'] or '-', full)}")
     for r in parse_reviews(reviews_path(root)):
         if up in (r["id"].upper(), r["task"].upper()):
             found = True
@@ -2415,7 +2491,7 @@ def cmd_trace(args) -> int:
                 f" | reviewer: {r['reviewer'] or '-'} | merge: {r['merge_commit'] or '-'}"
             )
             for n in r["notes"]:
-                print(f"    note: {n}")
+                print(f"    note: {view_text(n, full)}")
     for d in parse_disputes(disputes_path(root)):
         if up in (d["id"].upper(), (d["task"] or "").upper()):
             found = True
@@ -2425,9 +2501,11 @@ def cmd_trace(args) -> int:
                 f"escalated: {'yes' if d['escalated'] else 'no'}"
             )
             for r in d["rounds"]:
-                print(f"    r{r['n']} {r['by']} {r['date']}: {r['text']}")
+                print(f"    r{r['n']} {r['by']} {r['date']}: {view_text(r['text'], full)}")
             if d["decision"]:
-                print(f"- ruling: signed[{', '.join(d['signed'])}] {d['decision']}")
+                print(
+                    f"- ruling: signed[{', '.join(d['signed'])}] {view_text(d['decision'], full)}"
+                )
 
     events = [
         r
@@ -5679,7 +5757,12 @@ def archive_append(root: Path, owner: str, t: dict) -> str:
         f"- author evidence: {t.get('evidence') or '-'}",
         f"- reviewer evidence: {t.get('review_evidence') or '-'}",
         f"- findings history: {t.get('findings') or '-'}",
-        f"- branch / merge: {t.get('branch') or '-'} / {t.get('merge_commit') or 'pending'}",
+        # archive_append runs at review time, always before the merge revision
+        # exists, so a fresh entry starts at "pending" and `pr merge` repoints it.
+        # A reworked task still carries the earlier round's merge_commit; stamping
+        # it here would claim the new work merged at the old revision and leave the
+        # merge nothing to repoint.
+        f"- branch / merge: {t.get('branch') or '-'} / pending",
         "",
     ]
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "archive.lock"):
@@ -5690,6 +5773,161 @@ def archive_append(root: Path, owner: str, t: dict) -> str:
                 fh.write("\n")
             fh.write("\n".join(lines))
     return str(path.relative_to(project_of(root)))
+
+
+def archive_set_merge_sha(root: Path, branch: str, sha: str, repo: Path | None = None) -> str:
+    """Point the archive entry of a merged branch at the real merge revision.
+
+    ``archive_append`` runs when the review passes - before anyone has merged -
+    so it can only write ``pending`` in the ``branch / merge`` field. Once
+    ``pr merge`` has produced the revision, that one field is rewritten in
+    place: the entry is located by the branch written in its own
+    ``- branch / merge:`` line, no other line is touched, and a repeat call
+    with the same sha changes nothing (a re-run of the close-out is safe).
+    Returns the line the caller prints, including the no-match case.
+
+    ``repo`` is the work tree that holds the archive file to edit. It defaults
+    to the project root, but ``pr merge`` passes the work tree the merge landed
+    in so the rewrite follows the base branch instead of whichever checkout
+    happens to sit at the project root.
+
+    Only the *pending* entry is repointed, and of several pending entries for
+    the same branch only the last one: a task reworked after a merge reuses its
+    branch name, so its second archive entry names the same branch as the first.
+    Rewriting every match would overwrite the earlier merge revision with the
+    newer one and destroy the record of the first merge.
+    """
+    path = (repo or project_of(root)).joinpath(*DIR_DOCS) / "Archive.md"
+    if not path.exists():
+        return f"# archive: no archive file yet, so {branch} has no entry to update"
+    separator = " / "
+    prefix = "- branch / merge: "
+    pending = "pending"
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "archive.lock"):
+        lines = path.read_text(encoding="utf-8").split("\n")
+        matched: list = []
+        pending_lines: list = []
+        recorded: list = []
+        for index, line in enumerate(lines):
+            if not line.startswith(prefix):
+                continue
+            field = line[len(prefix) :].rstrip()
+            entry_branch, _, entry_merge = field.rpartition(separator)
+            if entry_branch != branch:
+                continue
+            matched.append(index)
+            if entry_merge == pending:
+                pending_lines.append(index)
+            else:
+                recorded.append(entry_merge)
+        rewritten: list = []
+        if pending_lines:
+            index = pending_lines[-1]
+            lines[index] = f"{prefix}{branch}{separator}{sha}"
+            rewritten.append(index)
+            write_lf(path, "\n".join(lines))
+    if not matched:
+        return (
+            f"# archive: no entry names branch {branch}, so nothing points at {sha} "
+            "(the entry is written by the review pass)"
+        )
+    if not pending_lines:
+        if sha in recorded:
+            return f"# archive: {branch} already records the merge at {sha} (no change)"
+        return (
+            f"# archive: {branch} has no entry awaiting its merge revision (already "
+            f"recorded: {', '.join(recorded) or 'none'}), so nothing points at {sha}"
+        )
+    if len(pending_lines) > 1:
+        return (
+            f"# archive: entry for {branch} now records the merge at {sha} "
+            f"({len(pending_lines)} entries awaited one; the latest was updated)"
+        )
+    return f"# archive: entry for {branch} now records the merge at {sha}"
+
+
+def commit_archive_merge_sha(
+    root: Path, here: Path, branch: str, sha: str, pr: dict, merger: str
+) -> str:
+    """Repoint the archive entry at the merge revision AND commit that rewrite.
+
+    Rewriting the work tree alone leaves ``pending`` in the base branch's HEAD,
+    makes the next merge in the same repository die on
+    ``git checkout <base>`` ("local changes would be overwritten"), and lets a
+    later, unrelated commit absorb the edit - an author's commit silently
+    carrying a Reviewer record. So the rewrite is committed here, on the base
+    branch the merge just landed on, with the Reviewer identity; the merge
+    commit itself stays the revision the archive names.
+
+    Returns the line(s) the caller prints. If the entry cannot be found or the
+    commit is refused, the work tree is restored to the committed state so the
+    repository is never left dirty by a merge.
+    """
+    base = pr.get("base") or DEFAULT_BASE
+    rel = "/".join(DIR_DOCS) + "/Archive.md"
+    path = here.joinpath(*DIR_DOCS) / "Archive.md"
+    message = archive_set_merge_sha(root, branch, sha, repo=here)
+    if not path.exists():
+        return message
+    if not run_git(here, "status", "--porcelain", "--", rel).stdout.strip():
+        return message
+    staged = run_git(here, "add", "--", rel)
+    if staged.returncode != 0:
+        run_git(here, "checkout", "--", rel)
+        die(
+            f"merged {pr['id']} at {sha}, but the archive rewrite could not be "
+            f"staged (the entry still says 'pending'):\n  "
+            f"{staged.stderr.strip() or staged.stdout.strip()}",
+            2,
+        )
+    close_msg = build_commit_message(
+        "reviewer",
+        {
+            "type": "chore",
+            "area": "records",
+            "task": pr.get("task"),
+            "producers": pr.get("author"),
+            "goal": f"the archive names the merge revision of {pr['id']}",
+            "deliverable": f"record the merge revision of {pr['id']} in Archive.md",
+            "docs": rel,
+            "why": (
+                "the archive entry is written at review time, before the merge "
+                "exists, so it can only say 'pending'"
+            ),
+            "status": f"merged into {base}",
+            "result": f"{branch} -> {sha}",
+        },
+    )
+    committed = subprocess.run(
+        ["git", "-C", str(here)]
+        + git_identity_args("reviewer")
+        + ["commit", "-q", "-F", "-", "--", rel],
+        input=close_msg,
+        capture_output=True,
+        text=True,
+    )
+    if committed.returncode != 0:
+        run_git(here, "reset", "-q", "--", rel)
+        run_git(here, "checkout", "--", rel)
+        die(
+            f"merged {pr['id']} at {sha}, but the archive rewrite could not be "
+            "committed (a hook or config blocked it). The merge stands and the "
+            "archive entry still says 'pending':\n  "
+            + (committed.stderr.strip() or committed.stdout.strip() or "(no output)").replace(
+                "\n", "\n  "
+            ),
+            2,
+        )
+    close_sha = run_git(here, "rev-parse", "--short", "HEAD").stdout.strip()
+    ledger_append(
+        root,
+        "pr.merge.archive",
+        merger,
+        pr.get("task") or "",
+        f"{pr['id']}: Archive.md names {branch} -> {sha} (record commit {close_sha})",
+        close_sha,
+    )
+    return f"{message}\n# committed the archive rewrite on {base} at {close_sha}"
 
 
 def find_review_role_unused(root: Path, handle: str):
@@ -5809,7 +6047,7 @@ def _review_claim(root: Path, args) -> int:
 def cmd_review(args) -> int:
     root = project_root(args)
     if args.queue:
-        return _review_queue(root)
+        return _review_queue(root, full=bool(getattr(args, "full", False)))
     if getattr(args, "claim", False) or getattr(args, "release", False):
         return _review_claim(root, args)
     if not (args.agent and args.handle):
@@ -5863,7 +6101,7 @@ def cmd_review(args) -> int:
             if t.get("pr"):
                 with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
                     prs_now = parse_reviews(reviews_path(root))
-                    pidx_now = find_pr_exact(prs_now, t["pr"])
+                    pidx_now = find_pr_exact(prs_now, t["pr"], t.get("branch"))
                 if pidx_now is not None and pascal(prs_now[pidx_now].get("author") or "") == pascal(
                     reviewer
                 ):
@@ -5958,7 +6196,7 @@ def cmd_review(args) -> int:
 
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
             prs = parse_reviews(reviews_path(root))
-            pidx = find_pr(prs, t.get("pr") or t["id"]) if t.get("pr") else None
+            pidx = find_pr(prs, t.get("pr") or t["id"], t.get("branch")) if t.get("pr") else None
             if pidx is not None:
                 prs[pidx]["status"] = "approved" if args.result == "pass" else "changes-requested"
                 prs[pidx]["reviewer"] = reviewer
@@ -6032,7 +6270,7 @@ def cmd_review(args) -> int:
     return 0
 
 
-def _review_queue(root: Path) -> int:
+def _review_queue(root: Path, full: bool = False) -> int:
     rows = []
     for name in list_roles(root):
         for t in parse_tasks(task_file(root, name)):
@@ -6056,9 +6294,9 @@ def _review_queue(root: Path) -> int:
             + (f" pr={t['pr']}" if t.get("pr") else "")
         )
         if t.get("evidence"):
-            print(f"    author evidence: {t['evidence']}")
+            print(f"    author evidence: {view_text(t['evidence'], full)}")
         if t.get("findings"):
-            print(f"    findings so far: {t['findings']}")
+            print(f"    findings so far: {view_text(t['findings'], full)}")
     print()
     lanes = review_lane_notes(root)
     unclaimed = sum(1 for _prio, _name, t in rows if not review_is_held(t))
@@ -6189,6 +6427,7 @@ def cmd_selfcheck(args) -> int:
 
 def cmd_archive(args) -> int:
     root = project_root(args)
+    full = bool(getattr(args, "full", False))
     path = archive_path(root)
     if not path.exists():
         print(f"# no archive yet ({path.relative_to(project_of(root))})")
@@ -6205,11 +6444,11 @@ def cmd_archive(args) -> int:
         ]
         print(f"# Archived results for {role} ({path.relative_to(project_of(root))})")
         for b in hits:
-            print("\n## " + b.rstrip())
+            print(archive_view_text("\n## " + b.rstrip(), full))
         if not hits:
             print("- none")
         return 0
-    print(text.rstrip())
+    print(archive_view_text(text.rstrip(), full))
     return 0
 
 
@@ -7969,6 +8208,11 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("handle", nargs="?", help="T-0002, title or substring")
     s.add_argument("--queue", action="store_true", help="list everything awaiting review")
     s.add_argument(
+        "--full",
+        action="store_true",
+        help="with --queue, print evidence and findings unclipped (default: 600 chars)",
+    )
+    s.add_argument(
         "--claim",
         action="store_true",
         help="take the deliverable off the shared queue for your lane",
@@ -8027,6 +8271,11 @@ def _parsers_quality(sub, common) -> None:
         "archive", parents=[common], help="show the reviewed-result archive (evidence ledger)"
     )
     s.add_argument("--agent")
+    s.add_argument(
+        "--full",
+        action="store_true",
+        help="print the evidence fields unclipped (default: 600 chars)",
+    )
     s.set_defaults(func=cmd_archive)
 
     s = sub.add_parser(
@@ -8387,6 +8636,11 @@ def _parsers_audit(sub, common) -> None:
         "trace", parents=[common], help="follow one task/criterion/test/PR through every record"
     )
     s.add_argument("handle")
+    s.add_argument(
+        "--full",
+        action="store_true",
+        help="print the evidence fields unclipped (default: 600 chars)",
+    )
     s.set_defaults(func=cmd_trace)
 
 
