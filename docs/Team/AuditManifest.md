@@ -1,10 +1,10 @@
 # Audit report
 
-- generated: 2026-10-19T20:11:37
+- generated: 2026-10-19T20:25:20
 - team: Teamwork
-- ledger: 592 records, chain verified: True
-- head hash: `6b1f259914eaa56cf898750f290ac682`
-- git: 89b7874eb782 on ceo/t-0027-m7-records-final, dirty: False
+- ledger: 612 records, chain verified: True
+- head hash: `c45d1c8ca90a7e39d495962d8dad62d1`
+- git: f5a6dfdc3c72 on ceo/t-0028-m8-records-hygiene-repair-the-archive-me, dirty: False
 - externally verifiable artifacts: 4
 - local-only state files: 42
 
@@ -22,5 +22,5 @@ teamwork.py trace <T-id>     # follow any claim end to end
 |---|---|---|
 | docs/Team/Architecture.md | 10222 | `450c1d546c9e6b21…` |
 | docs/Team/Decisions.md | 37453 | `870154ac865912c0…` |
-| docs/Team/Plan.md | 6591 | `8f78306ad14b1d8b…` |
+| docs/Team/Plan.md | 6003 | `be489b57f06ddee6…` |
 | docs/Team/Project.md | 10766 | `9bc02eff318d0959…` |
