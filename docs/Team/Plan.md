@@ -5,7 +5,7 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Status summary (2026-10-19, `main` @ `4cd8afc`)
+## Status summary (2026-10-19, `main` @ `3934690`)
 
 | milestone | exit condition | state |
 |---|---|---|
@@ -15,6 +15,7 @@ Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architectu
 | M3 Independent verification | every deliverable has a Reviewer verdict | done |
 | M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - now at `v1.0.2` |
 | M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | done - T-0010..T-0016, closing T-0017 |
+| M6 Evidence packets + repro gate | hashed evidence artifacts, repro-first bug gate, Reviewer verdicts | done - T-0020..T-0025 |
 
 ## M5 - post-1.0 hardening (closed)
 
@@ -30,10 +31,25 @@ run, and the governance records match the merged revision.
 | T-0014 | Land the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/release.yml` | done | commit `9b56f1b`; PR #17 17/17 checks; supersedes #11-#13 |
 | T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | done | commit `1d49c21`; passed on round 3 after two evidence-backed fails |
 | T-0016 | `ensure_gitignore` orphan headers and glob-covered entries | ceo | P1 | - | `src/teamwork/engine.py`, `tests/unit/test_gitignore_bootstrap.py` | done | commit `4cd8afc`; 5 regression tests, 3 of which fail on the pre-fix engine |
-| T-0017 | Close M5: board done + audit manifest export | ceo | P1 | T-0014..T-0016 | this file, `Board.md`, `AuditManifest.json` | in flight | final gate run and `ledger export` |
+| T-0017 | Close M5: board done + audit manifest export | ceo | P1 | T-0014..T-0016 | this file, `Board.md`, `AuditManifest.json` | done | commit `e8da9ce` |
 
-Only T-0017 is open; the role queue (`teamwork.py task list ceo`) is the
-only authoritative source for a task's exact state.
+No M5 task is open; the role queue (`teamwork.py task list ceo`) is the only
+authoritative source for a task's exact state.
+
+## M6 - evidence packets + repro gate (closed)
+
+Exit: evidence carries a hashed artifact, a defect proves its failing run before
+the fix, and both passed independent review. Source: [Research](Research.md) 6
+(A2 + A3).
+
+| id | task | role | prio | artifact | status | evidence |
+|---|---|---|---|---|---|---|
+| T-0020 | Evidence packets + repro-first gate | ceo | P1 | `src/teamwork/{engine,records}.py`, two test modules | done | `8694073`..`9d59976`; `Archive.md` |
+| T-0021 | Review records baseline + replay | ceo | P2 | `engine.py`, `docs/guide/cli.md` | done | `2297adc` |
+| T-0022 | The repro proof belongs to the defect task | ceo | P3 | `engine.py`, `records.py`, docs | done | `3934690`; 1 fail + 2 review rounds |
+| T-0024 | Close-out audit flow as a team skill | ceo | P2 | `.agents/skills/ceo-audit-close/SKILL.md` | done | `b662faf` |
+| T-0025 | Fix-forward: allow `.agents` at the root | ceo | P0 | `tests/unit/test_hygiene.py` | done | `d72f44b`; repro `b662faf` -> `a4ead34` |
+| T-0023 | Bind the adoption decision + closing manifest | ceo | P3 | `Decisions.md`, `AuditManifest.json` | in review | P-0018 |
 
 ## Closed milestones (evidence on file)
 
