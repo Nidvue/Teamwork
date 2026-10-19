@@ -5,26 +5,26 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-19, `main` @ `8f210bc`)
+## Snapshot (2026-10-19, `main` @ `8444134`)
 
-Gates below are re-measured on the **P-0021 branch head** (see `pr list P-0021`
-for the sha), not on `main`: that head differs from `8f210bc` only by this records
-pass, and a merge changes no measured file, so the same commands reproduce on the
-merge commit.
+Gates below are re-measured on this records branch (P-0026), which is based on
+`main` 8444134 (the T-0003 merge) and adds only documentation, one justified
+allowlist entry and its wiring, so the same commands reproduce on the merge commit.
 
 - Milestone: M6 (evidence packets + repro gate) and M7 (reviewer fan-out + claims)
   are closed; `v1.0.2` is the latest release.
-- Local gate: `pytest -q --cov=teamwork` -> 397 passed, 1 skipped, coverage 68.83%
+- Local gate: `pytest -q --cov=teamwork` -> 421 passed, 1 skipped, coverage 70.58%
   (floor 55%, enforced in `pyproject.toml` and `ci.yml`). The local skip is the
   console-script acceptance test (covered by `verify_release.py`).
 - Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
-  -> PASS, 0 findings. Without `--allow` the same scan reports 3 findings: the
-  quoted host install path survives in unreachable-but-reachable history, so one
-  justified entry keeps the append-only history verifiable
+  -> PASS, 0 findings. Without `--allow` the same scan reports the audit quotation
+  of the host install path and the scanner's own test fixture, which is why
+  `make privacy` and both CI jobs pass exactly one justified allowlist file
   ([SECURITY](../../SECURITY.md), `docs/Team/Decisions.md` 2026-10-19).
 - Links: `teamwork.py links` -> 0 problems (67 markdown files, 321 internal links)
-- Gate: `teamwork.py audit` -> 4 problems, all of them this in-flight PR; and
-  `teamwork.py loop` -> CONTINUE while P-0021 is unmerged, STOP once it lands.
+- Gate: `teamwork.py audit` -> 20 problems, every one an open completion gate
+  (unmerged branches, review-pending deliverables, layer gaps); `teamwork.py loop`
+  -> CONTINUE while P-0026 and P-0027 are unmerged.
   The closing export is `docs/Team/AuditManifest.json` (chain verified, exported
   from a clean tree, four pinned artifacts plus the ledger head)
 - Remote: `origin/main` is behind the local merges until the Release Engineer
@@ -34,7 +34,7 @@ merge commit.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0027 close the M7 records | P1 | in review (P-0021) | `Plan.md`, `Board.md`, `AuditManifest.json` |
+| ceo | T-0027 close the M7 records, T-0028 repair the archive | P1 | in review (P-0026, P-0027) | `Plan.md`, `Board.md`, `Archive.md`, `AuditManifest.json` |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
