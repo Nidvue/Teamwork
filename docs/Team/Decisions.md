@@ -376,3 +376,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: pytest -q @b662faf -> 1 failed (unexpected ['.agents']), 376 passed, 1 skipped; git ls-files .agents -> tracked SKILL.md; tests/unit/test_hygiene.py:46 ROOT_ALLOWLIST lacks .agents
 - falsified by: If adding .agents to ROOT_ALLOWLIST lets any other stray root entry pass, or if the skill directory should be ignored instead of tracked, this fix-forward is wrong.
 - consequences: -
+
+## D-20261019-CEO-6 - A2/A3 adoption closed at the merged revision
+
+- date: 2026-10-19
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0020
+- context: -
+- options considered: -
+- decision: The pstack-derived evidence packet and the repro-first gate are adopted as shipped: tests run/selfcheck/review record baseline, artifact (hashed) and replay; tests repro proves a defect fail->pass on the defect task with an ancestry check, and a --bug task cannot pass self-check without it. D-20261019-CEO-3 was recorded before the first commit; this entry binds the adoption to the merged revision.
+- why: The original decision's evidence was bound to @working-tree, which is not a reproducible revision; the closing record must cite a merge anyone can check.
+- evidence: pytest -q @3934690 -> 383 passed, 1 skipped; ledger verify @3934690 -> chain intact; git log 9d59976..3934690 -> T-0020, T-0021, T-0022, T-0024, T-0025 merged
+- falsified by: -
+- consequences: -
