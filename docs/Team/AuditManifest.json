@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-10-19T13:46:11",
+  "generated_at": "2026-10-19T13:47:13",
   "team": "Teamwork",
   "team_id": "431b5b8b1bc04db58a4f13ef114cf5c1",
   "project": "Teamwork",
   "ledger": {
-    "records": 313,
-    "head": "87fddb28ec6e753b59692b246daacad1cde8903ecb7f3881acf9b96cfd4b6b2a",
+    "records": 316,
+    "head": "d48fad14b312a36a4289ac178f832d3abdac59c95de430aa822245b1ee747702",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "9fd26c58f874352d62fa32d321cf9d22d6e59755",
+    "head": "44f6107d7edf44fc1b12be365480824551fe2609",
     "branch": "ceo/t-0023-bind-the-d-20261019-ceo-3-evidence-to-th",
-    "dirty": false,
+    "dirty": true,
     "lfs_files": 0
   },
   "artifacts": [
@@ -20,11 +20,6 @@
       "path": "docs/Team/Architecture.md",
       "sha256": "30a601b72f8f76e28eb1812fc616a3b48c16255a74cb9210d680150366f3ed3b",
       "bytes": 10157
-    },
-    {
-      "path": "docs/Team/Archive.md",
-      "sha256": "d9d439d5ddad01c7eac83d40f5bd73c736aefde971df96cc220944e3f80c1e50",
-      "bytes": 67543
     },
     {
       "path": "docs/Team/Decisions.md",
@@ -80,8 +75,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "3a0d1943497825db4babf05915e4d0db5f513448bc487c6d833c44a757d9abf3",
-      "bytes": 71069
+      "sha256": "fca73e0fb1ceaa0436241fa2c306c99404fa03705e28ceac7c65cec89a043416",
+      "bytes": 71639
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/ArchivedMemory.md",
@@ -160,6 +155,6 @@
     "3. sha256sum each artifact in this manifest",
     "4. git cat-file -t <git.head>   # the reviewed revision still exists",
     "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
-    "note: artifacts are committed project output and are checkable by anyone; local_state is hidden working state, only checkable on the machine that produced it. Ledger.jsonl carries its own chain, so it is represented by ledger.head rather than a digest."
+    "note: artifacts are committed project output and are checkable by anyone; local_state is hidden working state, only checkable on the machine that produced it. Ledger.jsonl carries its own chain, so it is represented by ledger.head rather than a digest. docs/Team/Archive.md is append-only and gains an entry when a review passes, so it is not pinned as an artifact; follow its entries with `trace`."
   ]
 }

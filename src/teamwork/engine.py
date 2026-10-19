@@ -2531,7 +2531,11 @@ def ledger_export(root: Path, args) -> int:
     )
     records = ledger_read(root)
     problems = ledger_verify(root, reconcile=True)
-    external = [a for a in tracked if not a["path"].startswith(".pi/")]
+    # Archive.md is the accepted-results ledger: it gains an entry for this very
+    # deliverable when the review passes, so a digest committed beside it is stale
+    # by construction. Its entries are verified through the ledger, not a snapshot.
+    archive_rel = str(archive_path(root).relative_to(project))
+    external = [a for a in tracked if not a["path"].startswith(".pi/") and a["path"] != archive_rel]
     internal = [a for a in tracked if a["path"].startswith(".pi/")]
     manifest = {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
@@ -2560,7 +2564,9 @@ def ledger_export(root: Path, args) -> int:
             "note: artifacts are committed project output and are checkable by "
             "anyone; local_state is hidden working state, only checkable on the "
             "machine that produced it. Ledger.jsonl carries its own chain, so it is "
-            "represented by ledger.head rather than a digest.",
+            "represented by ledger.head rather than a digest. docs/Team/Archive.md "
+            "is append-only and gains an entry when a review passes, so it is not "
+            "pinned as an artifact; follow its entries with `trace`.",
         ],
     }
     out_dir = docs_dir(root)
