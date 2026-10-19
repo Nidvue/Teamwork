@@ -157,20 +157,8 @@ Rules enforced mechanically:
 - generated records (Archive.md, Board.md, Plan.md) are committed by the Reviewer
   as `chore(records): ...` immediately before the merge, so the ledger matches the
   merged revision.
-- the archive entry is written at review time, before the merge revision exists,
-  so its `branch / merge` field says `pending`; `pr merge` repoints that one line
-  to the merge revision and commits the rewrite as a second `chore(records): ...`
-  on the base branch (ledger `pr.merge.archive`). The rewrite is never left as an
-  uncommitted edit, which would keep `pending` in HEAD and block the next merge
-  on a dirty tree. Only an entry still saying `pending` is repointed, and of
-  several such entries for one branch only the newest: a reworked task reuses its
-  branch name, so rewriting every match would erase the earlier merge revision.
 - PR records live in `.pi/Teamwork/Teams/<Team>/Reviews.md` (hidden local state);
-  the merged revision is recorded on the task as `merge_commit`. `find_pr` and
-  `find_pr_exact` take the branch as an optional third argument, and every PR
-  lookup in the merge path passes it: a task reworked after a merge keeps the old
-  PR record, so matching an id or a task alone can return the branch that is
-  already in the base.
+  the merged revision is recorded on the task as `merge_commit`.
 
 `teamwork.py branch list` shows branch -> PR -> merged state;
 `teamwork.py pr list [--open]` is the Reviewer's PR inbox; `audit` and `loop`

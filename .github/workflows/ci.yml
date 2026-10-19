@@ -198,7 +198,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Scan working tree and full git history
-        run: python scripts/privacy_scan.py --tree --history
+        run: python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt
 
   docs:
     name: docs (mkdocs build --strict)

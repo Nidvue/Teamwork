@@ -47,6 +47,16 @@ Out of scope: vulnerabilities in third-party tools or services you run alongside
 Teamwork; social engineering; and reports that require access to a private
 machine.
 
+## Privacy allowlist
+
+`scripts/privacy_scan.py` runs with `--allow .github/privacy-allow.txt` in
+`make privacy` and in CI. The file holds one regular expression per line plus a
+reason; it exists so a false positive cannot force a history rewrite. It carries
+exactly one entry today (`^\.pi/agent/npm$`, a package path quoted by T-0001 and
+since removed from the tree). A second entry needs a recorded decision and, if it
+masks a credential rule, the Security Auditor's review - growing the list is
+weakening the gate.
+
 ## Safe harbour
 
 Good-faith security research is welcome. We will not pursue action against

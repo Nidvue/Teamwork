@@ -1,0 +1,12 @@
+# Privacy allowlist (see scripts/privacy_scan.py --allow).
+# One regular expression per line, optional "# reason" suffix.
+#
+# ^\.pi/agent/npm$ - the only blessed entry (opened by T-0001). It matches the quoted
+# pi-subagents install path in docs/Team/Archive.md:480 (an audit quotation of
+# Reviewer-1's finding), the fixture string in tests/unit/test_privacy_scan.py:464,
+# and the history blobs of both. Rewriting that unpublished history would
+# invalidate commit SHAs quoted as evidence in docs/Team/Archive.md and
+# docs/Team/Decisions.md. Nothing from package-lock.json is blessed, because the
+# scanner does not report its "resolved" tarball URLs. A new secret is fixed at
+# source and never added here (D-20261019-CEO-8).
+^\.pi/agent/npm$

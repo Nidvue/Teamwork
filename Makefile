@@ -59,7 +59,7 @@ verify: ## Build, assert the wheel payload and smoke-test it in a throwaway venv
 	$(PYTHON) scripts/verify_release.py
 
 privacy: ## Scan the working tree and full git history for private data.
-	$(PYTHON) scripts/privacy_scan.py --tree --history
+	$(PYTHON) scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt
 
 links: ## Check markdown links, URLs and back-links.
 	$(PYTHON) scripts/teamwork.py links
