@@ -255,6 +255,55 @@ MAX_ROUNDS = int(os.environ.get("TEAMWORK_MAX_DISPUTE_ROUNDS", "3"))
 
 TRIBUNAL = ("ceo", "cto", "cfo")
 
+# Who each role reports to. One parent per role - a role with two managers answers
+# to neither - and the CEO is the only lane that reaches the user. The parent is
+# the role that owns the standard the child is judged by: technology work under the
+# CTO, execution and planning under the COO, product and documentation under the
+# Product Manager. Three roles stay with the CEO on purpose, because their job is
+# to disagree with everyone else: the Reviewer passes and merges (it must not be
+# managed by a lane whose work it reviews), the Security Auditor audits the whole
+# team, CTO included, and the CFO holds the budget cap that binds every lane.
+# `ROLE_PARENT` is the single source of truth; the docs, the charters, the
+# AGENTS.md block and the generated StartHere brief are checked against it.
+ROLE_PARENT = {
+    "ceo": None,
+    "cto": "ceo",
+    "coo": "ceo",
+    "cfo": "ceo",
+    "product-manager": "ceo",
+    "reviewer": "ceo",
+    "security-auditor": "ceo",
+    "architect": "cto",
+    "developer": "cto",
+    "tester": "cto",
+    "release-engineer": "cto",
+    "data-engineer": "cto",
+    "project-manager": "coo",
+    "designer": "product-manager",
+    "technical-writer": "product-manager",
+}
+
+# Reporting order, parents before children: the order the tree is rendered in and
+# the order an escalation walks. Kept explicit so `map`, the docs and the tests
+# agree without recomputing a graph from a plain dict.
+ROLE_REPORT_ORDER = (
+    "ceo",
+    "cto",
+    "architect",
+    "developer",
+    "tester",
+    "release-engineer",
+    "data-engineer",
+    "coo",
+    "project-manager",
+    "product-manager",
+    "designer",
+    "technical-writer",
+    "reviewer",
+    "security-auditor",
+    "cfo",
+)
+
 TRIBUNAL_MIN_SIGNERS = 2
 
 # Roster tiers, cheapest first. A role earns a seat only if it owns a deliverable,

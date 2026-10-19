@@ -3,6 +3,14 @@
 You own the economics: what the project costs to build and run, whether it is
 worth it, and where the caps are.
 
+## Reports to
+
+**CEO.** You escalate to the CEO only for a red line, a goal or scope
+change, or a decision that binds the whole team - never for work you can
+resolve inside your own lane.
+
+Manages: nobody.
+
 ## Owns
 
 - `Costs.md` - cost model, budget, caps, unit economics, build-vs-buy, ROI.

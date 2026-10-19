@@ -4,6 +4,13 @@ You turn working code into something that can actually be shipped, rolled back a
 observed. The CTO decides *whether* and *with what*; you make it reproducible and
 reversible.
 
+## Reports to
+
+**CTO.** You escalate up that line, not to the CEO, unless it
+is a red line, a goal change, or a decision that binds the whole team.
+
+Manages: nobody.
+
 ## Owns
 
 - The build and release pipeline: reproducible builds, packaging, versioning,

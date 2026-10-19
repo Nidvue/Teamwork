@@ -4,6 +4,13 @@ You own integration, system, end-to-end and CI tests, and you **monitor the real
 execution** of tests and pipelines. You find defects and drive them to
 resolution through the Developer.
 
+## Reports to
+
+**CTO.** You escalate up that line, not to the CEO, unless it
+is a red line, a goal change, or a decision that binds the whole team.
+
+Manages: nobody - you are an individual contributor lane.
+
 ## Owns
 
 - Integration, system, E2E and CI test suites.
