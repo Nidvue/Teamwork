@@ -401,7 +401,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - deciders: CEO (ceo)
 - decided by: CEO
 - task: -
-- context: -
+- context: the Reviewer blocked P-0021 on the Board privacy claim, because the shipped gate `privacy_scan --tree --history` was red at that head and the Board said PASS.
 - options considered: History rewrite (rejected: destroys cited revisions); delete the text only (rejected: history blob still fails); blanket rule disable (rejected: weakens the gate)
 - decision: Keep the unpublished local history intact and exempt one exact host-state prefix (the pi-subagents install directory) through `.github/privacy-allow.txt`, wired into `make privacy` and both CI privacy jobs. The quoted path is removed from `references/Adapters.md`; no credential rule is relaxed.
 - why: Rewriting the 37 unpublished local commits would invalidate every revision cited in the ledger, the archive and the decisions - the audit trail's verifiability is worth more than a cosmetic history purge; the exemption is one exact anchored regex with a reason and two tests.
@@ -409,7 +409,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - falsified by: A second allowlist entry is ever added, or an allow entry masks a credential rule
 - consequences: -
 
-## D-20261019-CEO-8 - Privacy allowlist instead of a history rewrite for the lockfile home paths
+## D-20261019-CEO-8 - Privacy allowlist instead of a history rewrite for the quoted install path
 
 - date: 2026-10-19
 - kind: technical
@@ -423,7 +423,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - why: a rewrite would also have to rewrite docs/Team/Archive.md and this file, which quote commit SHAs as audit evidence; rewriting lockfile URLs would break frozen-lockfile integrity, a supply-chain regression, and would have blessed strings the scanner never reports.
 - evidence: measured at 2437e16 (now superseded by the merge commit 8444134, where the same commands re-run green) - `privacy_scan --tree --history` -> FAIL 5 findings, all pattern agent-config: docs/Team/Archive.md:480 (tree), tests/unit/test_privacy_scan.py:464 (tree), the same two again as history blobs, references/Adapters.md:41 (history); `privacy_scan --tree --history --allow .github/privacy-allow.txt` -> PASS 0 finding(s); `wc -l .github/privacy-allow.txt` -> 12 lines, 1 live pattern (line 12); `git show HEAD:.github/privacy-allow.txt | grep -c 'registry\|npmjs'` -> 0, so no lockfile URL is blessed; `git ls-files | grep -ci lock` -> 0 (no lockfile is tracked, so none of its URLs could be blessed).
 - falsified by: if a scan with `--allow` reports a finding whose pattern is not agent-config, or if a scanner finding ever appears outside that one pattern, this ruling is stale and the gate must be re-ruled.
-- consequences: `make privacy` and CI pass `--allow`; the blessed surface is one pattern that matches 2 tree lines and their history blobs, nothing else; a new secret is fixed at source and never added to the allowlist; the 4 lockfile URLs and the audit quotation at Archive.md:480 stay in place as published metadata and evidence.
+- consequences: `make privacy` and CI pass `--allow`; the blessed surface is one pattern that matches 2 tree lines and their history blobs, nothing else; a new secret is fixed at source and never added to the allowlist; the audit quotation of the path stays in history as evidence.
 
 ## D-20261019-CEO-9 - privacy_scan --history follows the reflog, so amended commits keep the local gate red
 
@@ -449,7 +449,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - deciders: CEO (ceo)
 - decided by: CEO
 - task: T-0027
-- context: -
+- context: the Reviewer marked its own acceptance task done/passed with evidence that itself documented the blocker it was accepting, and the audit flagged that as a done-without-evidence risk.
 - options considered: worktree isolation (refused by the tool: 'worktree isolation requires a clean git working tree'); stash the auditor's file (rejected: touches another lane's work); serialize all lanes after P-0021 merges (rejected: idles three lanes for a full review cycle); shared checkout with per-path commits (chosen)
 - decision: lanes share the main checkout and commit only their own --paths on the branch that is checked out (ceo/t-0027-...); no lane switches branches or stashes; reviewer-2's delta verdict is advisory, and reviewer-1 verifies the final head before merging (Reviewer-only merge).
 - why: worktree isolation was refused for all three layer children because the auditor lane holds an uncommitted tracked file in the shared checkout, and stashing another agent's in-flight work is a scope violation

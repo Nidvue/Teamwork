@@ -16,14 +16,16 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   console-script acceptance test (covered by `verify_release.py`).
 - Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
   -> PASS, 0 findings; the shipped gate passes that one justified allow file
-  (`Makefile`, `ci.yml`, `docs.yml`), and without it the scan reports only the
-  audit quotation and the scanner's own test fixture
+  (`Makefile`, `ci.yml`, `docs.yml`). Without it the same scan reports four
+  findings, all pattern `agent-config`: the scanner's own fixture in the tree and
+  its history blob, the pre-fix `references/Adapters.md` blob, and the audit
+  quotation of the path
 - Links: `teamwork.py links` -> 0 problems
 - Gate: `teamwork.py loop` -> CONTINUE while any task branch is unmerged, and
   STOP only after the last review lands; `teamwork.py audit` lists one entry per
   open gate and its count moves with each review round, so it is read, not quoted.
-  The closing export is `docs/Team/AuditManifest.json` (chain verified, exported
-  from a clean tree, four pinned artifacts plus the ledger head)
+  The closing export `docs/Team/AuditManifest.json` is committed with this pass
+  and names the revision it was exported from, so it verifies at that head
 - Remote: `origin/main` is behind the local merges until the Release Engineer
   pushes the reviewed revision; CI on the pushed SHA is the certification step.
 
