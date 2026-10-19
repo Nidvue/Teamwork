@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Per-queue PR resolution**: `pr open` used to match a task id across the whole
+  `Reviews.md`, so a second role owning the same id reopened and rewrote the first
+  role's PR (measured: the security lane's `T-0001` re-opened the merged developer
+  `P-0020`). `find_pr`/`find_pr_exact` now accept the task's branch and a task-id
+  match only resolves inside that branch.
+
+- **Parallel review lanes**: `pulse` hands each unclaimed deliverable awaiting review
+  to a different idle Reviewer lane, and `review --claim` / `--release` record the
+  holder on the task with a lease, a takeover after it lapses, and a verdict that
+  clears it.
+
 - **Evidence packets**: `tests run`, `selfcheck` and `review` accept
   `--baseline`, `--artifact` (repeatable) and `--replay`, so the author and the
   Reviewer record the same five-part packet. Artifacts must exist in
