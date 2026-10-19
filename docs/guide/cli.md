@@ -459,7 +459,7 @@ List test records.
 ### `review`
 
 ```text
-teamwork review [AGENT] [HANDLE] [--queue] [--by BY]
+teamwork review [AGENT] [HANDLE] [--queue] [--full] [--by BY]
     [--result {pass,fail}] [--evidence EVIDENCE] [--artifact PATH]...
     [--baseline BASELINE] [--replay REPLAY] [--findings FINDINGS]
     [--force REASON]
@@ -470,6 +470,9 @@ awaiting review. A pass archives the result; a fail returns the task to its
 owner. `--artifact` binds a verification artifact (hashed into the ledger) to the
 verdict; `--baseline` and `--replay` record where the verification started and
 how to rerun it. `--force` overrides the review gates and requires a recorded reason.
+`--queue` clips each evidence and findings line at 600 characters and marks what it
+omitted (`... (+N chars: --full)`); `--full` prints them whole - the stored records
+always keep the full text.
 
 ### `selfcheck`
 
@@ -487,10 +490,16 @@ requires a `--test` line; `--note` records what was re-read, and
 ### `archive`
 
 ```text
-teamwork archive [--agent AGENT]
+teamwork archive [--agent AGENT] [--full]
 ```
 
-Show the reviewed-result archive (the team's evidence ledger).
+Show the reviewed-result archive (the team's evidence ledger). The
+`self-check`/`author evidence`/`reviewer evidence`/`findings history` lines are
+clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
+prints them whole. `docs/Team/Archive.md` itself always stores the full text, and
+`pr merge` rewrites only the `branch / merge` line of the matching entry so it
+records the real merge revision instead of `pending` - as a committed
+`chore(records)` change on the base branch, not as an uncommitted edit.
 
 ## Decisions, disputes and governance
 
@@ -697,7 +706,17 @@ teamwork pr merge --pr PR [--by BY] [--squash] [--keep-branch]
 
 Reviewer: merge an approved PR. The merged branch is deleted unless
 `--keep-branch` is given. `--force` overrides the review gate and requires a
-recorded reason.
+recorded reason. `--pr` takes a PR id or a task id; a task id is resolved
+against the task's current branch, so a task reworked after an earlier merge
+reaches its live PR record instead of the one already integrated in the base.
+After the merge the `branch / merge` line of the matching
+`docs/Team/Archive.md` entry is repointed from `pending` to the merge revision
+and that one-line rewrite is committed on the base branch as its own
+`chore(records)` commit (Reviewer identity), so the archive never disagrees with
+the branch history and the work tree is left clean for the next merge. Only an
+entry still saying `pending` is repointed: a task reworked after a merge reuses
+its branch name, and rewriting every match would erase the earlier merge
+revision from the archive.
 
 ### `commit`
 
@@ -782,10 +801,12 @@ Write an externally verifiable audit manifest (`docs/Team/AuditManifest.json`).
 ### `trace`
 
 ```text
-teamwork trace HANDLE
+teamwork trace HANDLE [--full]
 ```
 
-Follow one task, criterion, test or PR through every record.
+Follow one task, criterion, test or PR through every record. Free-text evidence
+(evidence, findings, review notes, dispute rounds, rulings) is clipped at 600
+characters with an `... (+N chars: --full)` marker; `--full` prints it whole.
 
 ### `links`
 
