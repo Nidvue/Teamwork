@@ -77,8 +77,9 @@ def test_release_engineer_owns_a_review_gated_staged_push_policy(root):
     # gated on the Reviewer
     assert "after the Reviewer has confirmed" in text
     assert "no finding is open" in text
-    # staged, not batched to the end
-    assert "per milestone" in text.lower()
+    # staged, not batched to the end: a stage ends with a push
+    assert "push per stage" in text.lower()
+    assert "a stage ends with a push, not with a merge" in text.lower()
     # pre-push gates and post-push CI watch on the pushed SHA
     assert "privacy_scan.py --tree --history" in text
     assert "on that pushed" in text or "on that SHA" in text
@@ -97,7 +98,8 @@ def test_engineering_reference_documents_the_push_policy(root):
     text = flat(read(root, "references", "Engineering.md"))
     assert "## Push policy - reviewed and staged, never batched" in text
     assert "force-pushing a shared branch, rewriting published history" in text
-    assert "per milestone" in text.lower()
+    assert "per milestone" not in text.lower()
+    assert "a stage ends with a push" in text.lower()
     assert "privacy_scan.py --tree --history" in text
 
 
@@ -142,18 +144,22 @@ def test_agents_template_carries_push_and_ci_rules(root):
     assert "PUSH POLICY" in text
     assert "LOCAL + CI" in text
     assert "after the Reviewer has passed the revision with no open finding" in text
+    # the cadence is a hard rule on both surfaces, not prose a rewrite can drop
+    assert "a stage ends with a push, not with a merge" in text.lower()
 
 
 def test_skill_entry_point_has_the_staged_push_and_ci_step(root):
     text = flat(read(root, "SKILL.md"))
     assert "### 5c. Push in stages, and certify both signals" in text
-    assert "push after review, per milestone" in text.lower()
+    assert "push after review, stage by stage" in text.lower()
+    assert "a stage ends with a push, not with a merge" in text.lower()
     assert "Tester - certify local *and* CI" in text
 
 
 def test_architecture_records_who_may_push(root):
     text = read(root, "docs", "Team", "Architecture.md")
     assert "The Release Engineer pushes reviewed revisions" in text
+    assert "per milestone" not in text.lower()
     assert "the Tester certifies" in text
 
 
