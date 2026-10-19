@@ -69,6 +69,12 @@ instances to the available capacity rather than to a fixed number.
   same file.
 - Only independent tasks run together; dependent tasks queue on their `deps`.
 - The Reviewer, the Project Manager and the CEO are lanes too - keep them fed.
+- **Review concurrency is the number of lanes, not the depth of the queue.**
+  `pulse --commit` fans unclaimed deliverables out one per idle Reviewer lane and
+  records a `review.claim` lease (`SlotTtlMinutes`, default 90 min) on each: the
+  holder counts as busy, another lane is refused while the lease is live, a verdict
+  or `--release` clears it, and an expired lease is open for take-over. So staff at
+  least `reviewer-1` and `reviewer-2`, and never stack the backlog on one lane.
 - Never exceed a provider cap to "go faster": the extra lanes fail, and the
   failure costs more than the parallelism gains.
 
