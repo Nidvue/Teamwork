@@ -1421,11 +1421,65 @@ def owner_for_layer(root: Path, layer: str) -> str:
     return LAYER_OWNER.get(layer, "")
 
 
+def artifact_digest(root: Path, raw: str) -> str:
+    """``rel:sha256[:16]:bytes`` for an evidence file that must exist right now.
+
+    An evidence artifact is proof a later agent can re-open, so it has to live in
+    the project and be bound to the revision: the digest is appended to the
+    ledger, and changing the file after the fact breaks the match.
+    """
+    import hashlib
+
+    project = project_of(root)
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = project / path
+    path = path.resolve()
+    if not path.is_file():
+        die(f"artifact not found: {raw} - evidence must name a file that exists")
+    try:
+        rel = path.relative_to(project.resolve())
+    except ValueError:
+        die(f"artifact outside the project: {raw} - keep evidence inside the repository")
+    data = path.read_bytes()
+    return f"{rel.as_posix()}:{hashlib.sha256(data).hexdigest()[:16]}:{len(data)}"
+
+
+def artifact_digests(root: Path, raws) -> str:
+    """Hash every ``--artifact`` path; one line, empty when none was given."""
+    return ", ".join(artifact_digest(root, r) for r in (raws or []))
+
+
+def require_ancestor(project: Path, older: str, newer: str) -> None:
+    """The failure must precede the fix: ``older`` has to be a real ancestor."""
+    if not is_git_repo(project):
+        return
+    for label, rev in (("pre", older), ("post", newer)):
+        r = run_git(project, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}")
+        if r.returncode != 0:
+            die(f"--{label}-rev '{rev}' is not a commit in this repository")
+    if run_git(project, "merge-base", "--is-ancestor", older, newer).returncode != 0:
+        die(
+            f"--pre-rev {older} is not an ancestor of --post-rev {newer}: "
+            "the failing run must come before the fix"
+        )
+
+
+def repro_records_for(root: Path, task: dict) -> list:
+    """Test records that prove a fail -> pass transition for this task's area."""
+    area = (task.get("area") or "").lower()
+    return [
+        r
+        for r in parse_tests(tests_path(root))
+        if r.get("repro") and ((area and r["area"] == area) or r.get("task") == task["id"])
+    ]
+
+
 def cmd_tests(args) -> int:
     root = project_root(args)
     path = tests_path(root)
     plan_path = testplan_path(root)
-    if args.tests_cmd in ("add", "run", "rm", "require", "plan"):
+    if args.tests_cmd in ("add", "run", "rm", "require", "plan", "repro"):
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "tests.lock"):
             return _tests_mutate(args, root, path, plan_path)
     records = parse_tests(path)
@@ -1512,8 +1566,15 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
             force = require_reason(force, "running another role's layer")
         if not (args.evidence or "").strip():
             die("a run needs --evidence '<command> @<rev> -> <result>'")
+        artifacts = artifact_digests(root, getattr(args, "artifact", None))
         rec["status"] = "passing" if args.result == "pass" else "failing"
         rec["evidence"] = args.evidence.strip()
+        if artifacts:
+            rec["artifacts"] = artifacts
+        if (getattr(args, "baseline", "") or "").strip():
+            rec["baseline"] = args.baseline.strip()
+        if (getattr(args, "replay", "") or "").strip():
+            rec["replay"] = args.replay.strip()
         rec["rev"] = args.rev or ""
         rec["by"] = actor
         rec["updated"] = today_iso()
@@ -1528,12 +1589,75 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
             actor,
             rec["id"],
             f"{rec['layer']}/{rec['area']} {rec['status']}: "
-            f"{rec['evidence'][:120]}" + (f" FORCED: {force}" if force else ""),
+            f"{rec['evidence'][:120]}"
+            + (f" | artifacts: {artifacts}" if artifacts else "")
+            + (f" FORCED: {force}" if force else ""),
             rec["rev"],
         )
         print(f"# {rec['id']} {rec['layer']}/{rec['area']} -> {rec['status']} by {actor}")
+        if artifacts:
+            print(f"#   artifacts: {artifacts}")
         if rec["status"] == "failing":
             print("#   the owning role must fix it; a failing layer blocks STOP")
+        return 0
+
+    if args.tests_cmd == "repro":
+        idx = find_test(records, args.id)
+        if idx is None:
+            die(f"no test record '{args.id}'")
+        rec = records[idx]
+        actor, arole = validate_actor(root, args.by, "repro author")
+        want = owner_for_layer(root, rec["layer"])
+        if arole != want and not force:
+            die(
+                f"{rec['id']} is a {rec['layer']} record owned by the {want} role; "
+                f"{actor} is {arole}. A layer is designed and run by its own role."
+            )
+        if force:
+            force = require_reason(force, "running another role's layer")
+        pre_rev = (args.pre_rev or "").strip()
+        post_rev = (args.post_rev or "").strip()
+        pre = (args.pre_evidence or "").strip()
+        post = (args.post_evidence or "").strip()
+        if not (pre_rev and post_rev and pre and post):
+            die(
+                "a repro needs both sides:\n"
+                "  --pre-rev <rev> --pre-evidence '<cmd> @<rev> -> <n> failed'\n"
+                "  --post-rev <rev> --post-evidence '<cmd> @<rev> -> <n> passed'"
+            )
+        if pre_rev == post_rev:
+            die("the pre-fix and post-fix revisions must differ")
+        if "fail" not in pre.lower():
+            die("--pre-evidence must show the failing run ('-> 3 failed', 'FAIL', 'exit 1')")
+        if "pass" not in post.lower():
+            die("--post-evidence must show the passing run ('-> 12 passed', 'PASS', 'ok')")
+        require_ancestor(project_of(root), pre_rev, post_rev)
+        artifacts = artifact_digests(root, getattr(args, "artifact", None))
+        rec["repro"] = f"pre @{pre_rev} -> {pre} | post @{post_rev} -> {post}"
+        if artifacts:
+            rec["artifacts"] = artifacts
+        rec["status"] = "passing"
+        rec["evidence"] = f"{rec['repro']}" + (f" | artifacts: {artifacts}" if artifacts else "")
+        rec["rev"] = post_rev
+        rec["by"] = actor
+        rec["updated"] = today_iso()
+        if force:
+            rec["forced"] = f"repro by {actor} ({arole}) for {want}: {force}"
+        write_tests(path, records)
+        ledger_append(
+            root,
+            "tests.repro",
+            actor,
+            rec["id"],
+            f"{rec['layer']}/{rec['area']} "
+            f"fail @{pre_rev} -> pass @{post_rev}"
+            + (f" | artifacts: {artifacts}" if artifacts else "")
+            + (f" FORCED: {force}" if force else ""),
+            post_rev,
+        )
+        print(
+            f"# {rec['id']} {rec['layer']}/{rec['area']} repro proved: fail @{pre_rev} -> pass @{post_rev}"
+        )
         return 0
 
     if args.tests_cmd == "require":
@@ -1680,6 +1804,10 @@ def _tests_list(args, root: Path, records: list) -> int:
             print(f"    cmd: {r['command']}")
         if r["evidence"]:
             print(f"    evidence: {r['evidence']}")
+        if r.get("repro"):
+            print(f"    repro: {r['repro']}")
+        if r.get("artifacts"):
+            print(f"    artifacts: {r['artifacts']}")
     gaps = test_gaps(root)
     if gaps:
         print(f"# {len(gaps)} coverage gap(s): see `tests plan`")
@@ -3980,6 +4108,8 @@ def cmd_task_add(args) -> int:
         )
         if args.claimed_by:
             t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
+        if getattr(args, "bug", False):
+            t["kind"] = "bug"
         wanted = t["title"].strip().lower()
         for existing in tasks:
             if existing["title"].strip().lower() == wanted:
@@ -5517,8 +5647,13 @@ def cmd_review(args) -> int:
         t["reviewer"] = reviewer
         t["updated"] = today_iso()
         archived = None
+        artifacts = artifact_digests(root, getattr(args, "artifact", None))
         if args.result == "pass":
-            t["review_evidence"] = args.evidence.strip()
+            t["review_evidence"] = args.evidence.strip() + (
+                f" | artifacts: {artifacts}" if artifacts else ""
+            )
+            if artifacts:
+                t["review_artifacts"] = artifacts
             t["review_status"] = "passed"
             t["status"] = "done"
             if args.force:
@@ -5687,11 +5822,32 @@ def cmd_selfcheck(args) -> int:
         if t.get("review", "required") == "na":
             print(f"teamwork: {t['id']} is review=na; self-check not required")
             return 0
+        if args.result == "pass" and t.get("kind") == "bug" and not args.force:
+            if not repro_records_for(root, t):
+                die(
+                    f"refusing to pass the self-check of {t['id']}: it is a bug task "
+                    "and no test record proves the defect existed. Record the "
+                    "fail -> pass transition first:\n"
+                    f"  teamwork.py tests repro <TS-id> --by {actor} "
+                    "--pre-rev <rev-before> --pre-evidence '<cmd> @<rev> -> 3 failed' "
+                    "--post-rev <rev-after> --post-evidence '<cmd> @<rev> -> 12 passed'\n"
+                    "  (--force <reason> only when the defect cannot be reproduced)",
+                    2,
+                )
+        artifacts = artifact_digests(root, getattr(args, "artifact", None))
         note = f"[{args.result}] {args.note.strip()}"
         if args.test.strip():
             note += f" | test: {args.test.strip()}"
+        if artifacts:
+            note += f" | artifacts: {artifacts}"
+        if (getattr(args, "baseline", "") or "").strip():
+            note += f" | baseline: {args.baseline.strip()}"
+        if (getattr(args, "replay", "") or "").strip():
+            note += f" | replay: {args.replay.strip()}"
         prev = t.get("self_note", "")
         t["self_note"] = (prev + " || " + note).strip(" |") if prev else note
+        if artifacts:
+            t["self_artifacts"] = artifacts
         t["updated"] = today_iso()
         if args.result == "pass":
             t["self_check"] = "passed"
@@ -5828,6 +5984,7 @@ def cmd_audit(args) -> int:
     problems += _audit_completion_gates_shared_with_loop(root, names, args)
     problems += _audit_audit_trail_append_only_hash_chained(root, names, args)
     problems += _audit_layered_tests(root, names, args)
+    problems += _audit_bug_fixes_without_a_repro_record(root, names, args)
     problems += _audit_merged_branches_still_open(root, names, args)
     problems += _audit_git_archival_lfs_large_files(root, names, args)
     problems += _audit_markdown_link_health_broken_malformed_ba(root, names, args)
@@ -6072,6 +6229,25 @@ def _audit_open_disputes_design_decision_challenges(root: Path, names: list, arg
     if not hits:
         print("- none")
     print()
+    return hits
+
+
+def _audit_bug_fixes_without_a_repro_record(root: Path, names: list, args) -> int:
+    print("## defect fixes without a fail -> pass repro record")
+    hits = 0
+    for name in names:
+        for t in parse_tasks(task_file(root, name)):
+            if t.get("kind") != "bug" or t["status"] not in ("done", "review"):
+                continue
+            if repro_records_for(root, t):
+                continue
+            print(
+                f"- {name} {t['id']}: {t['title']} ({t['status']}) has no "
+                "`tests repro` record: the defect was never shown to fail first"
+            )
+            hits += 1
+    if not hits:
+        print("- none")
     return hits
 
 
@@ -7270,6 +7446,11 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--shared", default="", help="shared board / issue / PR reference")
     s.add_argument("--tags", default="")
     s.add_argument("--body", default="", help="acceptance criteria / notes")
+    s.add_argument(
+        "--bug",
+        action="store_true",
+        help="a defect fix: self-check requires a fail -> pass repro record",
+    )
     s.add_argument("--evidence", default="")
     s.add_argument(
         "--claimed-by",
@@ -7491,6 +7672,12 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--by", default="reviewer")
     s.add_argument("--result", choices=["pass", "fail"])
     s.add_argument("--evidence", default="", help="verification command @rev -> result")
+    s.add_argument(
+        "--artifact",
+        action="append",
+        metavar="PATH",
+        help="verification artifact to hash and bind to the ledger (repeatable)",
+    )
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
     s.add_argument(
         "--force",
@@ -7511,6 +7698,14 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--result", choices=["pass", "fail"], default="pass")
     s.add_argument("--note", default="", help="what you re-read and why it is sound")
     s.add_argument("--test", default="", help="self-test command @rev -> observed result")
+    s.add_argument("--baseline", default="", help="the state before the change")
+    s.add_argument(
+        "--artifact",
+        action="append",
+        metavar="PATH",
+        help="evidence file to hash and bind to the ledger (repeatable)",
+    )
+    s.add_argument("--replay", default="", help="command or path another agent can rerun")
     s.add_argument(
         "--force",
         default="",
@@ -7584,6 +7779,26 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--evidence", required=True)
     s.add_argument("--rev", default="")
     s.add_argument("--command", default="")
+    s.add_argument("--baseline", default="", help="the state before the action")
+    s.add_argument(
+        "--artifact",
+        action="append",
+        metavar="PATH",
+        help="evidence file to hash and bind to the ledger (repeatable)",
+    )
+    s.add_argument("--replay", default="", help="command or path another agent can rerun")
+    s.add_argument("--force", default="", metavar="REASON")
+    s.set_defaults(func=cmd_tests)
+    s = tsub2.add_parser(
+        "repro", parents=[common], help="prove the defect: failing run before, passing run after"
+    )
+    s.add_argument("id")
+    s.add_argument("--by", required=True)
+    s.add_argument("--pre-rev", required=True, dest="pre_rev")
+    s.add_argument("--pre-evidence", required=True, dest="pre_evidence")
+    s.add_argument("--post-rev", required=True, dest="post_rev")
+    s.add_argument("--post-evidence", required=True, dest="post_evidence")
+    s.add_argument("--artifact", action="append", metavar="PATH")
     s.add_argument("--force", default="", metavar="REASON")
     s.set_defaults(func=cmd_tests)
     s = tsub2.add_parser(
