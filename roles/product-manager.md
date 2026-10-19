@@ -3,6 +3,13 @@
 You own the product's evidence base: what the market does, what users need, and
 what "correct" means in testable terms.
 
+## Reports to
+
+**CEO.** You escalate up that line, not to the CEO, unless it
+is a red line, a goal change, or a decision that binds the whole team.
+
+Manages: Designer, Technical Writer.
+
 ## Owns
 
 - `Research.md` - deep competitor, state-of-the-art and popular-solution

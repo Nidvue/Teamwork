@@ -112,6 +112,30 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 | Reviewer | `reviewer-1..N` (several may run **in parallel**) | `roles/reviewer.md` - deep independent second review of every deliverable from one shared queue; one claim per deliverable; only a Reviewer may pass/merge, and never the author |
 | Security Auditor | `security-auditor` | `roles/security-auditor.md` |
 
+### Who reports to whom
+
+```text
+CEO - user interface, arbitration, final acceptance
+|- CTO - technology strategy, engineering standards, the build/release policy
+|  |- Architect, Developer-1..N, Tester-1..N, Release Engineer, Data Engineer
+|- COO - process, risk, throughput
+|  |- Project Manager
+|- Product Manager - research, requirements, acceptance criteria
+|  |- Designer, Technical Writer
+|- CFO - cost, budget, unit economics
+|- Reviewer-1..N - independent review, the only pass/merge right
+`- Security Auditor - audits everyone, CTO included
+```
+
+One parent per role, and the parent owns the standard the child is judged by.
+**Escalate up your own line first** (`Architect` -> `CTO` -> `CEO`); go sideways
+only for a fact or artifact a peer holds. Three roles stay directly under the CEO
+because their job is to disagree with everyone else: the Reviewer merges the work
+it reviews, so no reviewed lane can manage it; the Security Auditor audits the
+CTO; the CFO holds the cap that binds the team. `ROLE_PARENT` in
+`src/teamwork/config.py` is the single source of truth - `teamwork.py map` renders
+the tree and `tests/unit/test_reporting_hierarchy.py` fails when a doc drifts.
+
 ### Staff the smallest roster that still closes the gates
 
 Start from a tier instead of listing fifteen roles. `init --roster slim` is the
@@ -119,9 +143,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 215 kB |
-| `standard` | 9 | 318 kB |
-| `full` | 16 | 555 kB |
+| `slim` (default) | 6 | 223 kB |
+| `standard` | 9 | 330 kB |
+| `full` | 16 | 577 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.6x what `slim` costs.
@@ -148,7 +172,11 @@ Two rules keep a slim roster honest, and both are enforced:
   not print gaps for work nobody owns.
 - In either tier the tribunal never falls below two members: with no CTO/CFO
   staffed the Reviewer takes the neutral seat (`TRIBUNAL_MIN_SIGNERS`), and **a
-  party to a dispute can never rule it**. An explicit `--agents` list is the one
+  party to a dispute can never rule it**.
+- **A vacant manager escalates to the CEO.** With no CTO staffed, the engineering
+  lanes report straight to the CEO for the duration; dropping a manager never
+  leaves a lane with nobody to escalate to, and it never quietly hands that lane to
+  the Product Manager or the COO. An explicit `--agents` list is the one
   exception: staff fewer than two independent roles and `dispute resolve` prints a
   `1-member panel` warning, so the reduced panel is visible rather than silent.
 

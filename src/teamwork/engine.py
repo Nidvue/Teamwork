@@ -113,6 +113,8 @@ from .config import (
     PROMOTE_MIN_IMPORTANCE,
     REVIEW_FAIL_LIMIT,
     REVIEW_STATUSES,
+    ROLE_PARENT,
+    ROLE_REPORT_ORDER,
     ROLES_DIR,
     ROSTER_INSTANCE_COUNT,
     ROSTER_REQUIRED,
@@ -7810,6 +7812,16 @@ def cmd_dispute_list(args) -> int:
     return 0
 
 
+def reporting_order() -> list[str]:
+    """Roles in reporting order, parents before children."""
+    return [r for r in ROLE_REPORT_ORDER if r in ROLE_PARENT]
+
+
+def reporting_children(parent: str) -> list[str]:
+    """Direct reports of ``parent``, in reporting order."""
+    return [r for r in ROLE_REPORT_ORDER if ROLE_PARENT.get(r) == parent]
+
+
 def cmd_map(args) -> int:
     """Print the workspace map + where code/tests actually live in this repo."""
     root = project_root(args)
@@ -7841,6 +7853,15 @@ def cmd_map(args) -> int:
         f"  open={len(open_d)}"
         + (f"  escalated={sum(1 for d in open_d if d['escalated'])}" if open_d else "")
     )
+    print()
+    print("reporting lines (one parent per role; the CEO is the only lane to the user)")
+
+    def _tree(role: str, depth: int) -> None:
+        print("  " + "  " * depth + ROLE_DISPLAY.get(role, role))
+        for kid in reporting_children(role):
+            _tree(kid, depth + 1)
+
+    _tree("ceo", 0)
     print()
     print("roles (shared memory + queue) and their instances (private scratch)")
     for role in list_roles(root):

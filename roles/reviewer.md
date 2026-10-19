@@ -40,6 +40,13 @@ like any other: it runs alongside the developer, tester and designer lanes.
 - **Attribution.** Every verdict names its reviewer instance, so the archive shows
   who verified what.
 
+## Reports to
+
+**CEO.** You escalate up that line, not to the CEO, unless it
+is a red line, a goal change, or a decision that binds the whole team.
+
+Manages: nobody - and nobody you review may manage you.
+
 ## Owns
 
 - Independent, deep review of every artifact: production code, unit tests,
