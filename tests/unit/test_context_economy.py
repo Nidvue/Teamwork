@@ -581,3 +581,180 @@ def test_archive_merge_sha_without_a_matching_entry_reports_it(cli, project: Pat
     assert engine.run_git(project, "rev-parse", "HEAD").stdout.strip() == head_before
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
     assert cli("--project", project, "archive") == 0
+
+
+def test_find_pr_ignores_the_record_of_a_different_branch() -> None:
+    """A reworked task keeps its old PR; the branch says which record is live."""
+    old = engine.new_pr(
+        "ship the clip helper", task="T-0001", branch="developer-1/t-0001-old", status="merged"
+    )
+    new = engine.new_pr(
+        "ship the clip helper", task="T-0001", branch="developer-1/t-0001-new", status="approved"
+    )
+    prs = [old, new]
+
+    assert engine.find_pr(prs, "T-0001") == 0, "without a branch the first record still wins"
+    assert engine.find_pr(prs, "T-0001", "developer-1/t-0001-new") == 1
+    assert engine.find_pr_exact(prs, "T-0001", "developer-1/t-0001-new") == 1
+    assert engine.find_pr_exact(prs, "T-0001", "developer-1/t-0001-gone") is None
+
+
+def test_merge_lookup_resolves_a_reworked_task_to_its_live_pr(cli, project: Path) -> None:
+    """``pr merge --pr T-0001`` must not land on the PR that is already merged.
+
+    The task id alone matches the first PR record naming the task, and after a
+    rework that record is the one whose branch already sits in the base: the
+    merge would report "already merged" and leave the live branch unmerged.
+    """
+    root = init_workspace(cli, project, git=True)
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "developer",
+            "ship the clip helper",
+            "--priority",
+            "P0",
+        )
+        == 0
+    )
+    tpath = root / "Roles" / "Developer" / "TaskQueue.md"
+    tasks = engine.parse_tasks(tpath)
+    live_branch = engine.branch_name("developer-1", tasks[0]["id"], tasks[0]["title"])
+    tasks[0]["branch"] = live_branch
+    tasks[0]["claimed_by"] = "developer-1"
+    tasks[0]["status"] = "review"
+    engine.write_tasks(tpath, tasks, "developer")
+
+    reviews = root_reviews(project)
+    engine.write_reviews(
+        reviews,
+        [
+            engine.new_pr(
+                "ship the clip helper",
+                task=tasks[0]["id"],
+                branch=live_branch + "-previous",
+                status="merged",
+            ),
+            engine.new_pr(
+                "ship the clip helper",
+                task=tasks[0]["id"],
+                branch=live_branch,
+                status="approved",
+            ),
+        ],
+    )
+
+    idx = engine._merge_pr_index(engine.parse_reviews(reviews), tasks[0]["id"], live_branch)
+    assert idx is not None
+    assert engine.parse_reviews(reviews)[idx]["branch"] == live_branch
+    assert engine.parse_reviews(reviews)[idx]["status"] == "approved"
+
+
+def test_rewrite_leaves_an_earlier_merge_of_the_same_branch_intact(
+    cli, project: Path, capsys
+) -> None:
+    """A reworked task reuses its branch name; the earlier merge must survive.
+
+    The second review appends a fresh entry with ``pending``, and both entries
+    then name the same branch. Rewriting every match would overwrite the first
+    merge revision with the second and silently destroy the record of the first
+    merge, so only the newest pending entry may move.
+    """
+    root = init_workspace(cli, project, git=True)
+    ship_and_open_pr(cli, project, root)
+    pass_review(cli, project, capsys)
+    branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
+    first_sha = merge_pr(cli, project, capsys)
+    pr = engine.parse_reviews(root_reviews(project))[0]
+
+    # a second review round appends the same branch again, awaiting its merge
+    path = engine.archive_path(root)
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text + f"\n## T-0001 · rework  (developer)\n- branch / merge: {branch} / pending\n",
+        encoding="utf-8",
+    )
+    second_sha = "beef123"
+
+    message = engine.commit_archive_merge_sha(root, project, branch, second_sha, pr, "reviewer-2")
+    assert "now records the merge at beef123" in message
+    lines = archive_branch_merge_lines(root)
+    assert lines == [
+        f"- branch / merge: {branch} / {first_sha}",
+        f"- branch / merge: {branch} / {second_sha}",
+    ], "the earlier merge revision is still recorded"
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+
+
+def test_rewrite_reports_when_the_branch_has_no_pending_entry(cli, project: Path, capsys) -> None:
+    """Every entry for the branch is already resolved: say so, change nothing."""
+    root = init_workspace(cli, project, git=True)
+    ship_and_open_pr(cli, project, root)
+    pass_review(cli, project, capsys)
+    branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
+    sha = merge_pr(cli, project, capsys)
+    pr = engine.parse_reviews(root_reviews(project))[0]
+
+    head_before = engine.run_git(project, "rev-parse", "HEAD").stdout.strip()
+    message = engine.commit_archive_merge_sha(root, project, branch, "cafe456", pr, "reviewer-2")
+    assert "has no entry awaiting its merge revision" in message
+    assert archive_branch_merge_lines(root) == [f"- branch / merge: {branch} / {sha}"]
+    assert engine.run_git(project, "rev-parse", "HEAD").stdout.strip() == head_before
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+
+
+def test_reworked_task_records_each_merge_revision_of_its_reused_branch(
+    cli, project: Path, capsys
+) -> None:
+    """Both rounds of a reworked task end up in the archive, each with its own sha.
+
+    A rework reuses the deterministic branch name, so the archive holds two
+    entries for one branch. The second entry must start at ``pending`` (the
+    task still carries the first round's ``merge_commit``, and stamping that in
+    would claim the new work merged at the old revision), and the second merge
+    must repoint exactly that entry.
+    """
+    root = init_workspace(cli, project, git=True)
+    ship_and_open_pr(cli, project, root)
+    pass_review(cli, project, capsys)
+    branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
+    first_sha = merge_pr(cli, project, capsys)
+
+    # the Reviewer sends the merged task back, and the same owner takes it again
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "reclaim",
+            "developer",
+            "T-0001",
+            "--as",
+            "developer-1",
+            "--reason",
+            "the reviewer asked for a follow-up",
+        )
+        == 0
+    )
+    assert cli("--project", project, "task", "set", "developer", "T-0001", "--status", "doing") == 0
+    ship_task(cli, project, "T-0001", "first deliverable", "second_pass.txt")
+    pass_review(cli, project, capsys)
+
+    pending_lines = [ln for ln in archive_branch_merge_lines(root) if ln.endswith("/ pending")]
+    assert pending_lines == [f"- branch / merge: {branch} / pending"], (
+        "the rework's entry awaits its own merge revision"
+    )
+
+    second_sha = merge_pr(cli, project, capsys)
+    assert second_sha != first_sha
+    assert archive_branch_merge_lines(root) == [
+        f"- branch / merge: {branch} / {first_sha}",
+        f"- branch / merge: {branch} / {second_sha}",
+    ], "each round keeps its own merge revision"
+    committed = committed_archive(project)
+    assert f"- branch / merge: {branch} / {first_sha}" in committed
+    assert f"- branch / merge: {branch} / {second_sha}" in committed
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
