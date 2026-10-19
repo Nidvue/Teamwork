@@ -498,7 +498,8 @@ Show the reviewed-result archive (the team's evidence ledger). The
 clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
 prints them whole. `docs/Team/Archive.md` itself always stores the full text, and
 `pr merge` rewrites only the `branch / merge` line of the matching entry so it
-records the real merge revision instead of `pending`.
+records the real merge revision instead of `pending` - as a committed
+`chore(records)` change on the base branch, not as an uncommitted edit.
 
 ## Decisions, disputes and governance
 
@@ -705,7 +706,11 @@ teamwork pr merge --pr PR [--by BY] [--squash] [--keep-branch]
 
 Reviewer: merge an approved PR. The merged branch is deleted unless
 `--keep-branch` is given. `--force` overrides the review gate and requires a
-recorded reason.
+recorded reason. After the merge the `branch / merge` line of the matching
+`docs/Team/Archive.md` entry is repointed from `pending` to the merge revision
+and that one-line rewrite is committed on the base branch as its own
+`chore(records)` commit (Reviewer identity), so the archive never disagrees with
+the branch history and the work tree is left clean for the next merge.
 
 ### `commit`
 

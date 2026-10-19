@@ -93,6 +93,11 @@ def task_to_review(cli, project: Path, root: Path) -> None:
 def ship_and_open_pr(cli, project: Path, root: Path) -> None:
     """Full owner path up to an open PR: branch, commit, self-check, ``pr open``."""
     task_to_review(cli, project, root)
+    ship_task(cli, project, "T-0001", "ship the clip helper", "feature.txt")
+
+
+def ship_task(cli, project: Path, handle: str, title: str, filename: str) -> None:
+    """Branch, commit, self-check and ``pr open`` for one already-claimed task."""
     assert (
         cli(
             "--project",
@@ -102,11 +107,11 @@ def ship_and_open_pr(cli, project: Path, root: Path) -> None:
             "--agent",
             "developer-1",
             "--task",
-            "T-0001",
+            handle,
         )
         == 0
     )
-    (project / "feature.txt").write_text("done\n", encoding="utf-8")
+    (project / filename).write_text("done\n", encoding="utf-8")
     assert (
         cli(
             "--project",
@@ -117,13 +122,13 @@ def ship_and_open_pr(cli, project: Path, root: Path) -> None:
             "--type",
             "feat",
             "--task",
-            "T-0001",
+            handle,
             "--area",
             "core",
             "--goal",
-            "ship the clip helper",
+            title,
             "--deliverable",
-            "feature.txt",
+            filename,
             "--why",
             "the task asked for it",
             "--status",
@@ -135,8 +140,7 @@ def ship_and_open_pr(cli, project: Path, root: Path) -> None:
         == 0
     )
     assert (
-        cli("--project", project, "task", "set", "developer", "T-0001", "--status", "selfcheck")
-        == 0
+        cli("--project", project, "task", "set", "developer", handle, "--status", "selfcheck") == 0
     )
     assert (
         cli(
@@ -144,7 +148,7 @@ def ship_and_open_pr(cli, project: Path, root: Path) -> None:
             project,
             "selfcheck",
             "developer",
-            "T-0001",
+            handle,
             "--by",
             "developer-1",
             "--note",
@@ -154,12 +158,8 @@ def ship_and_open_pr(cli, project: Path, root: Path) -> None:
         )
         == 0
     )
-    assert (
-        cli("--project", project, "task", "set", "developer", "T-0001", "--status", "review") == 0
-    )
-    assert (
-        cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", "T-0001") == 0
-    )
+    assert cli("--project", project, "task", "set", "developer", handle, "--status", "review") == 0
+    assert cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle) == 0
 
 
 # --------------------------------------------------------------------------- #
@@ -391,10 +391,20 @@ def test_clipped_views_never_rewrite_the_stored_records(cli, project: Path, caps
 def merge_pr(cli, project: Path, capsys) -> str:
     """Merge the approved PR of T-0001 and return the merge revision."""
     pr_id = engine.parse_reviews(root_reviews(project))[0]["id"]
+    return merge_pr_by_id(cli, project, capsys, pr_id)
+
+
+def merge_pr_by_id(cli, project: Path, capsys, pr_id: str) -> str:
+    """Merge one approved PR and return the merge revision."""
     assert cli("--project", project, "pr", "merge", "--pr", pr_id, "--by", "reviewer-2") == 0
     out = capsys.readouterr().out
     merge_line = next(line for line in out.splitlines() if line.startswith("# merged "))
     return merge_line.split(" at ")[1].split(" by ")[0].strip()
+
+
+def committed_archive(project: Path, rev: str = "HEAD") -> str:
+    """The archive blob as the base branch actually stores it."""
+    return engine.run_git(project, "show", f"{rev}:docs/Team/Archive.md").stdout
 
 
 def root_reviews(project: Path) -> Path:
@@ -430,18 +440,123 @@ def test_merged_branch_records_the_real_merge_sha_in_archive(cli, project: Path,
     assert others_before == others_after
     task = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]
     assert task["merge_commit"] == sha
+    # the fix is in the branch's history, not only in the work tree: the base
+    # branch HEAD carries the real sha, and the work tree is left clean
+    committed = committed_archive(project)
+    assert f"- branch / merge: {branch} / {sha}" in committed
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+    assert engine.run_git(project, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() == "main"
 
 
-def test_archive_merge_sha_rewrite_is_idempotent(cli, project: Path, capsys) -> None:
+def add_and_ship_second_task(cli, project: Path, capsys) -> tuple:
+    """A second, independent deliverable: T-0002 shipped, passed and merged."""
+    root = team_root(project)
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "developer",
+            "ship the second helper",
+            "--priority",
+            "P1",
+        )
+        == 0
+    )
+    assert cli("--project", project, "task", "next", "developer-1") == 0
+    ship_task(cli, project, "T-0002", "ship the second helper", "second.txt")
+    assert (
+        cli(
+            "--project",
+            project,
+            "review",
+            "developer",
+            "T-0002",
+            "--by",
+            "reviewer-1",
+            "--result",
+            "pass",
+            "--evidence",
+            "pytest @HEAD -> 1 passed",
+        )
+        == 0
+    )
+    pr_id = [p["id"] for p in engine.parse_reviews(root_reviews(project)) if p["task"] == "T-0002"][
+        0
+    ]
+    return root, merge_pr_by_id(cli, project, capsys, pr_id)
+
+
+def test_two_consecutive_merges_both_succeed_in_one_work_repo(cli, project: Path, capsys) -> None:
+    """The rewrite is committed, so the next merge does not die on a dirty tree.
+
+    Regression for the P-0022 blocker: the merge used to leave
+    ``docs/Team/Archive.md`` modified-but-uncommitted, and the next
+    ``pr merge`` failed with "Your local changes ... would be overwritten by
+    checkout: docs/Team/Archive.md".
+    """
     root = init_workspace(cli, project, git=True)
     ship_and_open_pr(cli, project, root)
     pass_review(cli, project, capsys)
+    first_branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
+    first_sha = merge_pr(cli, project, capsys)
+
+    # the second merge must not be blocked by leftover changes from the first
+    _, second_sha = add_and_ship_second_task(cli, project, capsys)
+
+    committed = committed_archive(project)
+    assert f"- branch / merge: {first_branch} / {first_sha}" in committed
+    assert " / pending" not in committed
+    second_branch = next(
+        t["branch"]
+        for t in engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")
+        if t["id"] == "T-0002"
+    )
+    assert f"- branch / merge: {second_branch} / {second_sha}" in committed
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+    assert cli("--project", project, "archive") == 0
+
+
+def test_archive_rewrite_is_a_commit_by_the_reviewer(cli, project: Path, capsys) -> None:
+    """The sha lands as its own Reviewer record commit, not as stray work tree state."""
+    root = init_workspace(cli, project, git=True)
+    ship_and_open_pr(cli, project, root)
+    pass_review(cli, project, capsys)
+    branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
     sha = merge_pr(cli, project, capsys)
 
+    body = engine.run_git(project, "log", "-1", "--format=%B").stdout
+    subject = engine.run_git(project, "log", "-1", "--format=%s").stdout
+    changed = engine.run_git(project, "show", "--name-only", "--format=", "HEAD").stdout.split()
+    assert "Acting role: Reviewer" in body
+    assert changed == ["docs/Team/Archive.md"], "the record commit touches only the archive"
+    assert "record the merge revision" in subject, "the rewrite is its own recorded commit"
+    assert branch in body and sha in body
+    assert engine.run_git(project, "log", "-1", "--format=%an").stdout.strip() == "Reviewer"
+    # the rewrite is itself a ledger record, so the sha is traceable
+    records = [r for r in engine.ledger_read(root) if r["action"] == "pr.merge.archive"]
+    assert len(records) == 1
+    assert records[0]["actor"] == "Reviewer-2"
+    assert sha in records[0]["detail"] and records[0]["rev"]
+
+
+def test_archive_merge_sha_rewrite_is_idempotent(cli, project: Path, capsys) -> None:
+    """Re-running the close-out commits nothing and prints the no-change line."""
+    root = init_workspace(cli, project, git=True)
+    ship_and_open_pr(cli, project, root)
+    pass_review(cli, project, capsys)
+    branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
+    sha = merge_pr(cli, project, capsys)
+    pr = engine.parse_reviews(root_reviews(project))[0]
+
+    head_before = engine.run_git(project, "rev-parse", "HEAD").stdout.strip()
     before = engine.archive_path(root).read_bytes()
-    message = engine.archive_set_merge_sha(root, "developer-1/t-0001-ship-the-clip-helper", sha)
+    message = engine.commit_archive_merge_sha(root, project, branch, sha, pr, "reviewer-2")
     assert "already records the merge" in message
     assert engine.archive_path(root).read_bytes() == before
+    assert engine.run_git(project, "rev-parse", "HEAD").stdout.strip() == head_before
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
     assert archive_branch_merge_lines(root)[0].endswith(f"/ {sha}")
 
 
@@ -451,12 +566,18 @@ def test_archive_merge_sha_without_a_matching_entry_reports_it(cli, project: Pat
     ship_and_open_pr(cli, project, root)
     pass_review(cli, project, capsys)
     merge_pr(cli, project, capsys)
+    pr = engine.parse_reviews(root_reviews(project))[0]
 
+    head_before = engine.run_git(project, "rev-parse", "HEAD").stdout.strip()
     before = engine.archive_path(root).read_bytes()
-    message = engine.archive_set_merge_sha(root, "developer-9/t-0042-never-archived", "0" * 40)
+    message = engine.commit_archive_merge_sha(
+        root, project, "developer-9/t-0042-never-archived", "0" * 40, pr, "reviewer-2"
+    )
     assert "no entry names branch developer-9/t-0042-never-archived" in message
     assert engine.archive_path(root).read_bytes() == before
     assert "0000000000000000000000000000000000000000" not in engine.archive_path(root).read_text(
         encoding="utf-8"
     )
+    assert engine.run_git(project, "rev-parse", "HEAD").stdout.strip() == head_before
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
     assert cli("--project", project, "archive") == 0
