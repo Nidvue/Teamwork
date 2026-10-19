@@ -36,7 +36,7 @@ shipped files, peer-only host packages, no duplicated pi layer, runnable engine.
 
 ```sh
 make package                      # assemble dist/pi-teamwork
-cd dist/pi-teamwork && npm pack   # 68 files, ~892 kB unpacked
+cd dist/pi-teamwork && npm pack   # npm reports the file count and size
 pi install npm:pi-teamwork        # or: pi -e ./dist/pi-teamwork for one session
 ```
 
@@ -44,9 +44,9 @@ pi install npm:pi-teamwork        # or: pi -e ./dist/pi-teamwork for one session
 (pi tool mapping) are available. Verified on pi 1.3.0: the local install listed
 the package and `pi -p "list the skills that contain teamwork"` answered
 `teamwork, teamwork-pi`; `npm pack --dry-run` in the built directory reports
-68 files and 891.6 kB unpacked, with the tarball root carrying `package.json`,
-`skills/`, `prompts/`, `README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`,
-`SECURITY.md`.
+68 files, with the tarball root carrying `package.json`, `skills/`, `prompts/`,
+`README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`, `SECURITY.md`. The unpacked size
+moves with every doc edit, so it is read from `npm pack`, never quoted in prose.
 
 ## 4. Layout of the published tarball
 
