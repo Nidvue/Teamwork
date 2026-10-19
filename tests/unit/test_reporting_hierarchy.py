@@ -334,3 +334,26 @@ def test_a_slim_roster_folds_the_charter_too(tmp_path: Path) -> None:
     assert engine.charter_reports_line("tester", {"ceo", "cto", "tester"}) is None
     # An unbundled role is not silently promoted to the CEO branch.
     assert engine.charter_reports_line("auditor", {"ceo", "auditor"}) is None
+
+
+def test_resolve_manager_is_the_single_resolver() -> None:
+    """One resolver, so brief and charter cannot disagree on any roster.
+
+    Round 4 found the brief and the charter naming different managers because
+    each did its own vacancy walk. Pin the contract: a staffed parent is
+    returned unchanged, an unstaffed chain collapses to the nearest staffed
+    ancestor, and a role outside the tree is reported as unbundled (None), never
+    as the CEO.
+    """
+    from teamwork import engine
+
+    assert engine.resolve_manager("developer", {"ceo", "cto", "developer"}) == ("cto", [])
+    assert engine.resolve_manager("developer", {"ceo", "developer"}) == ("ceo", ["cto"])
+    assert engine.resolve_manager("designer", {"ceo", "developer"}) == (
+        "ceo",
+        ["product-manager"],
+    )
+    assert engine.resolve_manager("ceo", {"ceo"}) == (None, [])
+    assert engine.resolve_manager("auditor", {"ceo", "auditor"}) == (None, [])
+    # unknown staffed set (init before the roster is known) keeps the designed tree
+    assert engine.resolve_manager("developer", None) == ("cto", [])
