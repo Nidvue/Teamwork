@@ -60,14 +60,14 @@ who holds it as a record; review is parallel, not serialised by the dispatcher.
 |---|---|---|---|---|---|---|
 | T-0001 | Fan review out across Reviewer lanes | developer | P0 | `engine.py`, `records.py`, `tests/unit/test_review_fanout.py`, docs | done | merge `8f210bc`; 10 new unit tests; repro `479742d` -> `76d5f76` |
 
-## Closed milestones (evidence on file)
+## M8 - records hygiene (closed)
 
-| id | task | role | result | evidence |
-|---|---|---|---|---|
-| T-0001 | Full-project audit: parser, ledger, paths, locks, privacy, CI | ceo | done | `make ci` -> all gates passed; 336 passed, 1 skipped |
-| T-0002 | Scope the audit-manifest anchor to the workspace id | ceo | done | `pytest tests/unit/test_ledger.py` -> 17 passed; `audit` -> 0 |
-| T-0003 | Repo-local role identity, `--strict-authors`, exit-code docs | ceo | done | commit `1e646a9` |
-| T-0004 | Accurate exit-code table; identity guard tests | ceo | done | commit `043d483` |
+Exit: archive merge fields carry a proved revision or say `pending`, the Plan
+lists each milestone once, and the export names the head it was taken from.
+
+| id | task | role | prio | artifact | status | evidence |
+|---|---|---|---|---|---|---|
+| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | review | 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
 
 ## Closed milestones (evidence on file)
 
