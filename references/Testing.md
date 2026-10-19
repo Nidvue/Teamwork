@@ -70,8 +70,9 @@ teamwork.py tests run TS-0002 --by tester-1 --result pass \
     --evidence "go test ./test/integration -run Auth @a1b2c3d -> ok 4 tests" \
     --baseline "empty auth table" --artifact Reports/auth-run.log --replay "go test ./test/integration -run Auth"
 
-# a defect fix proves the failure first (task added with --bug)
-teamwork.py tests repro TS-0002 --by tester-1 \
+# a defect fix proves the failure first; the proof is stored on the defect task
+# (task added with --bug), not on a layer record
+teamwork.py tests repro T-0007 --by tester-1 \
     --pre-rev a1b2c3d --pre-evidence "go test ./test/integration -run Auth @a1b2c3d -> FAIL, 2 tests" \
     --post-rev d4e5f6a --post-evidence "go test ./test/integration -run Auth @d4e5f6a -> ok 4 tests"
 
