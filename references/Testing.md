@@ -67,7 +67,13 @@ teamwork.py tests add --layer unit --area auth --command "go test ./internal/aut
 teamwork.py tests add --layer system --area auth --command "check-boundaries ./..."
 # the owning role runs it and records evidence
 teamwork.py tests run TS-0002 --by tester-1 --result pass \
-    --evidence "go test ./test/integration -run Auth @a1b2c3d -> ok 4 tests"
+    --evidence "go test ./test/integration -run Auth @a1b2c3d -> ok 4 tests" \
+    --baseline "empty auth table" --artifact Reports/auth-run.log --replay "go test ./test/integration -run Auth"
+
+# a defect fix proves the failure first (task added with --bug)
+teamwork.py tests repro TS-0002 --by tester-1 \
+    --pre-rev a1b2c3d --pre-evidence "go test ./test/integration -run Auth @a1b2c3d -> FAIL, 2 tests" \
+    --post-rev d4e5f6a --post-evidence "go test ./test/integration -run Auth @d4e5f6a -> ok 4 tests"
 
 teamwork.py tests list [--layer unit]
 teamwork.py tests plan        # matrix, role coverage, gaps
