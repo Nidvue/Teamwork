@@ -8,9 +8,10 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 ## Snapshot (2026-10-19, `main` @ `4cd8afc`)
 
 - Milestone: M5 post-1.0 hardening closed (M1-M4 delivered; `v1.0.2` is the latest release)
-- Local gate: `pytest -q` -> 355 passed, 1 skipped (356 on Linux CI, where the
-  POSIX umask assertion is not skipped); coverage 62.49% (floor 55%, enforced in
-  `pyproject.toml` and `ci.yml`)
+- Local gate: `pytest -q` -> 355 passed, 1 skipped; coverage 62.49% (floor 55%,
+  enforced in `pyproject.toml` and `ci.yml`). The local skip is the console-script
+  acceptance test (covered by `verify_release.py`); the Windows CI cells skip the
+  POSIX umask assertion, while the Linux cells run 356 passed with no skip.
 - CI: run `39179186345` green on `4cd8afc` (16/16 jobs incl. all Windows and macOS
   cells); Docs run `39179186471` green on the same SHA; earlier green runs
   `39173857076` (`b6dea2a`) and `39176294486` (`6905869`)
