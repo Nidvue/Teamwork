@@ -53,7 +53,7 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - author evidence: pyproject.toml+Makefile+.editorconfig+scripts/verify_release.py delivered; PYTHON=.venv/bin/python make verify @worktree -> 'verify_release: OK - release verified' exit 0 (build sdist+wheel, wheel 50 entries incl teamwork/data/SKILL.md + teamwork/data/templates/AGENTS.md, no ungated Requires-Dist, SHA256SUMS written+sha256sum -c OK, clean venv install, teamwork --version/selftest 5/5/init all pass). Not committed: task forbade git checkout.
 - reviewer evidence: ./.venv/bin/python scripts/verify_release.py @710e68d -> verify_release: OK - release verified
 - findings history: -
-- branch / merge: developer-1/t-0001-fan-review-out-across-reviewer-lanes-pul / 8f210bc
+- branch / merge: - / pending
 ## T-0002 · Tests: tests/unit + tests/integration + conftest.py  (developer)
 - date: 2026-10-17
 - priority: P0
@@ -218,7 +218,7 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - author evidence: commit e7a7d4d
 - reviewer evidence: pytest -q @e7a7d4d -> 350 passed; coverage 62.14%; ruff/mypy/links/privacy clean
 - findings history: -
-- branch / merge: ceo/t-0008-resolve-residual-audit-items-umask-bom-l / ffa1c26
+- branch / merge: ceo/t-0008-resolve-residual-audit-items-umask-bom-l / pending
 
 ## T-0009 · Fix the pr-merge commit message acting role  (ceo)
 - date: 2026-10-19
