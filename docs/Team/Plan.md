@@ -68,15 +68,6 @@ who holds it as a record; review is parallel, not serialised by the dispatcher.
 | T-0002 | Scope the audit-manifest anchor to the workspace id | ceo | done | `pytest tests/unit/test_ledger.py` -> 17 passed; `audit` -> 0 |
 | T-0003 | Repo-local role identity, `--strict-authors`, exit-code docs | ceo | done | commit `1e646a9` |
 | T-0004 | Accurate exit-code table; identity guard tests | ceo | done | commit `043d483` |
-
-## Closed milestones (evidence on file)
-
-| id | task | role | result | evidence |
-|---|---|---|---|---|
-| T-0001 | Full-project audit: parser, ledger, paths, locks, privacy, CI | ceo | done | `make ci` -> all gates passed; 336 passed, 1 skipped |
-| T-0002 | Scope the audit-manifest anchor to the workspace id | ceo | done | `pytest tests/unit/test_ledger.py` -> 17 passed; `audit` -> 0 |
-| T-0003 | Repo-local role identity, `--strict-authors`, exit-code docs | ceo | done | commit `1e646a9` |
-| T-0004 | Accurate exit-code table; identity guard tests | ceo | done | commit `043d483` |
 | T-0005 | Fix `dispute sign` undeclared `--force` | ceo | done | commit `61eecc9` |
 | T-0006 | Correct the exit-code example; tribunal sign coverage | ceo | done | commit `29dc42f` |
 | T-0007 | Correct the T-0005 archive evidence | ceo | done | commit `b05d04a` |
