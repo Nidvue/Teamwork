@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from teamwork.config import ROLE_PARENT, ROLE_REPORT_ORDER
+from teamwork.names import ROLE_DISPLAY
 
 
 def _rows(path: Path) -> dict[str, str]:
@@ -40,6 +41,10 @@ def _rows(path: Path) -> dict[str, str]:
         key = key.replace(" ", "-").lower()
         found[key] = reports
     return found
+
+
+def reporting_children_of(role: str) -> list[str]:
+    return [r for r in ROLE_REPORT_ORDER if ROLE_PARENT.get(r) == role]
 
 
 def test_the_tree_has_one_parent_per_role_and_a_root() -> None:
@@ -85,6 +90,66 @@ def test_the_ceo_is_not_everyones_manager() -> None:
         f"{len(direct)} roles report straight to the CEO ({sorted(direct)}); the tree has "
         "collapsed back to a flat organisation"
     )
+
+
+def test_every_charter_states_its_own_line(repo_root: Path) -> None:
+    """`ROLE_PARENT` is what an agent reads at startup, in its own charter.
+
+    The charter is the file the startup routine tells every instance to read first,
+    so a charter that names a different parent than `ROLE_PARENT` is the worst kind
+    of drift: the doc the agent obeys contradicts the doc the map renders.
+    """
+    for role, parent in ROLE_PARENT.items():
+        path = repo_root / "roles" / f"{role}.md"
+        assert path.is_file(), f"missing charter {path}"
+        text = path.read_text(encoding="utf-8")
+        assert "## Reports to" in text, f"roles/{role}.md has no ## Reports to section"
+        section = text.split("## Reports to", 1)[1].split("\n## ", 1)[0]
+        if parent is None:
+            assert "**The user" in section or "**user" in section.lower(), (
+                f"roles/{role}.md must name the user as its line"
+            )
+            continue
+        want = ROLE_DISPLAY.get(parent, parent)
+        assert f"**{want}.**" in section, (
+            f"roles/{role}.md does not name **{want}.** in its Reports-to section; "
+            f"config.py says {role} -> {parent}"
+        )
+
+
+def test_every_manages_line_matches_the_tree(repo_root: Path) -> None:
+    """A `Manages:` line lists exactly the roles whose parent is this role."""
+    for role in ROLE_PARENT:
+        path = repo_root / "roles" / f"{role}.md"
+        text = path.read_text(encoding="utf-8")
+        section = text.split("## Reports to", 1)[1].split("\n## ", 1)[0]
+        expected = reporting_children_of(role)
+        line = next((ln for ln in section.splitlines() if ln.startswith("Manages:")), None)
+        if line is None:
+            assert not expected, f"roles/{role}.md omits Manages: {expected}"
+            continue
+        names = {ROLE_DISPLAY.get(k, k) for k in expected}
+        body = line[len("Manages:") :].split(".")[0]
+        if not names:
+            assert body.strip().lower().startswith("nobody"), (
+                f"roles/{role}.md claims to manage {body.strip()!r} but no role reports to it"
+            )
+            continue
+        listed = {n.strip() for n in body.split(",")}
+        assert listed == names, (
+            f"roles/{role}.md Manages: {sorted(listed)} but the tree gives {sorted(names)}"
+        )
+
+
+def test_reports_to_boilerplate_is_not_self_contradictory(repo_root: Path) -> None:
+    """A role whose parent IS the CEO must not say 'not to the CEO'."""
+    for role, parent in ROLE_PARENT.items():
+        if parent != "ceo":
+            continue
+        text = (repo_root / "roles" / f"{role}.md").read_text(encoding="utf-8")
+        assert "not to the CEO" not in text, (
+            f"roles/{role}.md reports to the CEO and still says 'not to the CEO'"
+        )
 
 
 def test_agents_md_states_the_tree(repo_root: Path) -> None:
