@@ -112,17 +112,50 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 | Reviewer | `reviewer-1..N` (several may run **in parallel**) | `roles/reviewer.md` - deep independent second review of every deliverable from one shared queue; one claim per deliverable; only a Reviewer may pass/merge, and never the author |
 | Security Auditor | `security-auditor` | `roles/security-auditor.md` |
 
-Minimum viable roster: `ceo, architect, product-manager, project-manager,
-reviewer-1, reviewer-2, developer-1, tester-1` - **two Reviewer lanes minimum**,
-because the pulse fans reviews out one deliverable per lane and a single lane
-both serialises the gate and merges its own passes (`review.merge_self`). Add
-`release-engineer` as soon as anything must
-ship, `technical-writer` when someone other than the author must read the output,
-and `data-engineer` only when the project owns persistent state. Add CTO/COO/CFO/designer/security-auditor and
-extra developer/tester instances when the brief justifies it. Scale writers with
-the critical path, not with ceremony. `roles/` paths are relative to this skill
-directory. **The Reviewer is not optional**: it is the independent second-review
-gate for every deliverable.
+### Staff the smallest roster that still closes the gates
+
+Start from a tier instead of listing fifteen roles. `init --roster slim` is the
+default; `--agents` overrides it for a roster you name exactly.
+
+| Tier | Instances | Startup read |
+|---|---|---|
+| `slim` (default) | 6 | 213 kB |
+| `standard` | 9 | 316 kB |
+| `full` | 16 | 552 kB |
+
+Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
+the text a full roster pays for before any work starts, and 2.6x what `slim` costs.
+
+A role earns a seat only if it owns a deliverable, a test layer and a decision
+right no other role holds. Everything else is a **lane, not a role**: it costs no
+charter, no queue and no memory set.
+
+| Dropped from `slim` | Where the work goes |
+|---|---|
+| Product Manager | requirements and acceptance criteria ride with the CEO; `Research.md` becomes a task |
+| Project Manager | `Plan.md`/`Board.md` ride with the CEO; `pulse` already does the chasing |
+| CTO / COO | stack and risk are recorded in `Decisions.md`/`Risks.md` by whoever owns the change |
+| CFO | `Costs.md` only when the work has a real cost dimension |
+| Designer | `ui` layer unstaffed - add the role when the deliverable has a UI |
+| Technical Writer | `docs` layer unstaffed - authors write their own docs, the Reviewer verifies |
+| Data Engineer | `data` layer unstaffed - only a project owning persistent state needs it |
+| Security Auditor | `security` layer unstaffed - add it when the brief has a compliance or threat surface |
+| Release Engineer | the CEO pushes after review until shipping becomes a schedule of its own |
+
+Two rules keep a slim roster honest, and both are enforced:
+
+- `tests plan` only requires the layers of **staffed** roles, so a slim tier does
+  not print gaps for work nobody owns.
+- In either tier the tribunal never falls below two members: with no CTO/CFO
+  staffed the Reviewer takes the neutral seat (`TRIBUNAL_MIN_SIGNERS`), and **a
+  party to a dispute can never rule it**. An explicit `--agents` list is the one
+  exception: staff fewer than two independent roles and `dispute resolve` prints a
+  `1-member panel` warning, so the reduced panel is visible rather than silent.
+
+`init` prints the folded lanes and warns when a gate-critical role is missing.
+Scale writers with the critical path: add `developer-N`/`tester-N` before adding a
+coordination role. **The Reviewer is not optional**, and two Reviewer lanes are the
+minimum - one verifies, a different one merges.
 
 ## Workspace layout
 
@@ -211,8 +244,8 @@ Run these in order. Use `SKILL` for this skill's directory.
 ### 2. Workspace, repository, constitution
 
 ```sh
-python3 "$SKILL/scripts/teamwork.py" init --agents ceo,cto,coo,cfo,architect,\
-product-manager,project-manager,designer-1,developer-1,developer-2,tester-1,reviewer-1,reviewer-2
+python3 "$SKILL/scripts/teamwork.py" init --roster slim   # ceo, architect, developer,\
+tester, reviewer-1, reviewer-2 - or --roster standard|full, or --agents for an exact list
 python3 "$SKILL/scripts/teamwork.py" agents-md          # write/patch <project>/AGENTS.md
 python3 "$SKILL/scripts/teamwork.py" map                # confirm layout + repo structure
 ```
@@ -643,9 +676,9 @@ it covers the same ground plus links, LFS, duplicates and ownership sanity.
 ```sh
 S=<this skill dir>/scripts/teamwork.py
 
-# bootstrap (staff two Reviewers when you can)
-python3 $S init --agents ceo,architect,product-manager,project-manager,reviewer-1,reviewer-2,\
-developer-1,developer-2,tester-1
+# bootstrap from a tier (slim is the default; two Reviewers always)
+python3 $S init --roster slim
+python3 $S init --agents ceo,architect,developer-1,developer-2,tester-1,reviewer-1,reviewer-2
 python3 $S agents-md && python3 $S repo && python3 $S map
 
 # plan and shared state
