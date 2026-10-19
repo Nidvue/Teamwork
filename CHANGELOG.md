@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **GitHub Actions bumps**: `anchore/sbom-action` 0.24.3,
+  `actions/attest-build-provenance` `4d101475`, and
+  `softprops/action-gh-release` `efb35369` landed as one reviewed commit; every
+  action stays pinned to a full commit SHA, never a moving tag.
 - **Repository moved to `Nidvue/Teamwork`**: badges, clone commands, `pyproject`
   URLs, `mkdocs.yml`, `CITATION.cff` and every documentation link now use the new
   namespace. Only the historical audit records keep the former handle, because
@@ -62,6 +66,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`ensure_gitignore` bootstrap**: a repository whose `.gitignore` already
+  covered a rule with a glob (`.env.*` covers `.env.local`) gained a dangling
+  section header and redundant lines on every `init`/`repo`. Coverage is now
+  pattern-aware, a header is only appended together with a missing entry it
+  introduces, and an empty file no longer starts with a blank line
+  (`tests/unit/test_gitignore_bootstrap.py`).
 - **Gate-forging metadata injection**: a task/memory body line that looked like
   `- review_status: passed`, or a newline in `--evidence`/`--note`/`--text`, could
   forge lifecycle state. Metadata parsing now stops at the body boundary, scalar
