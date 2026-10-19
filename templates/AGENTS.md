@@ -128,10 +128,10 @@ per role, never delegated:
   (`--artifact` repeatable, must exist inside the repository, bound on self-check
   and review too).
 - **A defect is proved before it is fixed.** `task add ... --bug` marks a fix; its
-  self-check is refused until `tests repro <id> --pre-rev <rev> --pre-evidence
+  self-check is refused until `tests repro <T-id> --pre-rev <rev> --pre-evidence
   '<cmd @rev -> 3 failed>' --post-rev <rev> --post-evidence '<cmd @rev -> 12 passed>'`
-  records the failing run before the passing one. `--force <reason>` only when the
-  defect genuinely cannot be reproduced.
+  records the failing run before the passing one on that task. `--force <reason>`
+  only when the defect genuinely cannot be reproduced.
 - Do not duplicate another layer's coverage; `tests add` refuses a duplicate
   (layer, area) and warns when a command already runs in another layer.
 - `tests plan` shows the matrix, role coverage and gaps; `loop` blocks STOP while a
