@@ -54,10 +54,12 @@ def package_json(ver: str) -> dict:
             "agents",
             "skill",
         ],
-        "license": "Apache-2.0",
+        "license": "AGPL-3.0-or-later",
         "homepage": "https://pi.dev/packages",
         "repository": {"type": "git", "url": "https://github.com/Nidvue/Teamwork"},
-        "files": ["skills", "prompts", "references", "roles", "templates", "scripts", "src"],
+        # everything the runtime needs lives under skills/ and prompts/; the
+        # licence and the notices must ship too, or npm drops them silently
+        "files": ["skills", "prompts", "README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md"],
         "pi": {
             "skills": ["./skills"],
             "prompts": ["./prompts"],
@@ -91,7 +93,7 @@ def copy_skill(dest: Path) -> None:
         shutil.copytree(
             ROOT / name,
             skill / name,
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info"),
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info", "pi-package"),
         )
     # the pi-native layer, shipped beside the portable skill
     shutil.copytree(

@@ -257,17 +257,19 @@ reads the role charter and the queue and takes its own work, so the fan-out is
 one call per lane and the CEO stays free while they run:
 
 ```text
-subagent({ agent: "software-architect", async: true, cwd: "<project>", task: "<packet>" })
-subagent({ agent: "developer",          async: true, cwd: "<project>", task: "<packet>" })
-subagent({ agent: "tester",             async: true, cwd: "<project>", task: "<packet>" })
+<teammate tool>(agent: "architect", task: "<packet>", background: true)
+<teammate tool>(agent: "developer", task: "<packet>", background: true)
+<teammate tool>(agent: "tester",    task: "<packet>", background: true)
 ```
 
-A dependent multi-step batch is one workflow call - `subagent({workflow:
-"./packet.js"})` with `runs.all([...])` inside it - because the workflow owns the
-fan-out, each child gets its own task text and the parent gets every child's
-output back. Use `worktree: true` only on a clean tree; otherwise run the lanes in
-the shared checkout and require `commit --paths` so no lane sweeps a peer's
-uncommitted work.
+The concrete name per host - `subagent`, `Task`, a CLI job - is the adapter table
+in `references/Adapters.md`; the packet and the queue are the same everywhere.
+
+A dependent multi-step batch is one workflow call: the workflow owns the fan-out,
+each child gets its own task text and the parent gets every child's output back
+(`runs.all([...])` on hosts that offer workflows). Use worktree isolation only on
+a clean tree; otherwise run the lanes in the shared checkout and require
+`commit --paths` so no lane sweeps a peer's uncommitted work.
 
 Each dispatched task packet must contain: task id, objective, the frozen
 interface to build against, file/component boundary, acceptance evidence, the
@@ -368,13 +370,12 @@ Arm the recurring wake-up with the host's durable scheduler (the teammate
 package persists schedules per project):
 
 ```text
-subagent({
-  action: "schedule.create",
-  id: "teamwork-pulse",
-  workflow: "./.pi/workflows/teamwork-pulse.js",
-  options: { every: "5m", name: "Teamwork pulse", catchUp: "latest" }
-})
+<scheduler>(id: "teamwork-pulse", every: "5m", prompt: "<the pulse prompt below>")
 ```
+
+The scheduler is a host capability, not part of the protocol: whichever timer
+the host offers - a scheduler tool, a cron entry or a background loop - runs the
+same pulse prompt (`references/Adapters.md`).
 
 The workflow body is the pulse prompt: run `pulse --commit`; message every
 assigned lane to start now; give each idle lane its highest-priority unblocked
@@ -386,9 +387,7 @@ deliverable in `review --queue`; report one short line. Never stop the team whil
   interval for long-running lanes, a shorter one near the end of a milestone.
 - The pulse must never be the only thing keeping the team alive: instances
   self-serve with `task next` between pulses.
-- Disarm it when the team closes:
-  `subagent({action: "schedule.delete", id: "teamwork-pulse"})` (inspect with
-  `schedule.list` / `schedule.show`).
+- Disarm it when the team closes: delete the schedule with the same host tool.
 - If a wake reports idle lanes *and* ready work and nothing moves, that is a
   process defect: fix the assignment path, do not let the lane sit.
 
@@ -477,8 +476,8 @@ Completion gate - all of:
 - [ ] Final user report: deliverable, how to run it, evidence table, known
       limitations, follow-ups.
 
-Then stop the team: end every live lane with `subagent({action:"stop", id})`,
-confirm `loop` still reports STOP on the final head, and deliver the report.
+Then stop the team: end every live lane with the host's stop action, confirm
+`loop` still reports STOP on the final head, and deliver the report.
 
 ## Reference files (read on demand)
 
@@ -668,7 +667,7 @@ python3 $S slot renew --agent developer-3 && python3 $S slot release --agent dev
 python3 $S clean
 ```
 
-Team lifecycle through the host's teammate tools: `subagent({agent, task, async:true})` to staff a lane,
-`subagent_supervisor({action:"reply"})` or `contact_supervisor` to coordinate,
-`subagent({action:"status"})` to inspect, `schedule.create` / `schedule.delete`
-for the pulse, and `subagent({action:"stop"})` to close a lane.
+Team lifecycle: the teammate tool to staff a lane, the host's reply/steer
+channel to coordinate, its status view to inspect, its scheduler for the pulse
+and its stop action to close a lane. The exact names per host are in
+`references/Adapters.md`.
