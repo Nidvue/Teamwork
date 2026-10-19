@@ -500,12 +500,14 @@ requires a `--test` line; `--note` records what was re-read, and
 ### `archive`
 
 ```text
-teamwork archive [--agent AGENT] [--full]
+teamwork archive [--agent AGENT] [--limit N] [--all] [--full]
 ```
 
-Show the reviewed-result archive (the team's evidence ledger). The
-`self-check`/`author evidence`/`reviewer evidence`/`findings history` lines are
-clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
+Show the reviewed-result archive (the team's evidence ledger), most recent
+entries first. The listing shows the last 8 entries and says how many it omitted;
+`--limit N` sets that count, `--all` lists every entry and `--full` implies it.
+The `self-check`/`author evidence`/`reviewer evidence`/`findings history` lines
+are clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
 prints them whole. `docs/Team/Archive.md` itself always stores the full text, and
 `pr merge` rewrites only the `branch / merge` line of the matching entry so it
 records the real merge revision instead of `pending` - as a committed
@@ -854,11 +856,15 @@ health.
 ### `loop`
 
 ```text
-teamwork loop
+teamwork loop [--full]
 ```
 
 Stop-condition check: may the team stop? Prints `STOP` or `CONTINUE` with
-reasons.
+reasons and every blocker. This view is read on every iteration, so by default it
+lists the failures, the gaps and the blockers, collapses passing test records into
+one count, and clips detail past 220 characters with an `... (+N chars: --full)`
+marker; `--full` prints every line and every passing record whole. Exit code is 1
+while the answer is `CONTINUE`.
 
 ### `version`
 
