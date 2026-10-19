@@ -9,20 +9,53 @@ Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.m
 | Role | Instances | Owns | Reports to |
 |---|---|---|---|
 | CEO | leader session, never spawned | user interface, decomposition, assignment, arbitration, global memory, final report | user |
-| CTO | `cto` | technology strategy, feasibility, stack, engineering standards and the build/release *policy* | CEO |
-| COO | `coo` | process, tooling, dependencies, risk register, throughput | CEO |
+| CTO | `cto` | technology strategy, feasibility, stack, engineering standards, the build/release *policy*, and the engineering lanes | CEO |
+| COO | `coo` | process, tooling, dependencies, risk register, planning and throughput | CEO |
 | CFO | `cfo` | cost model, budget, unit economics, build-vs-buy, ROI | CEO |
-| Architect | `architect` | system/module/API/data/deployment architecture, **frozen interfaces**, ADRs | CEO, CTO |
-| Product Manager | `product-manager` | competitor/state-of-the-art research, stories, requirements, acceptance criteria, traceability | CEO |
-| Project Manager | `project-manager` | `Plan.md`, `Board.md`, task decomposition, dependency graph, duplicate detection, progress chasing | CEO, COO |
-| Designer | `designer-1..N` | UX flows, accessibility, visual consistency, `Design.md` | CEO, Product Manager |
-| Developer | `developer-1..N` | production code, **its own unit tests**, inline docs, commits on its branch | CEO, Architect |
-| Tester | `tester-1..N` | integration/system/E2E tests, running and monitoring them, defect routing, regression | CEO |
-| Release Engineer | `release-engineer` | build/release pipeline, CI gates, packaging, rollback, observability, runbooks | CEO, CTO |
-| Technical Writer | `technical-writer` | the committed documentation set, executed as written; release notes | CEO, Product Manager |
-| Data Engineer *(conditional)* | `data-engineer` | schema, migrations, integrity, backup/restore drills, query health | CEO, Architect |
+| Product Manager | `product-manager` | competitor/state-of-the-art research, stories, requirements, acceptance criteria, traceability, and the product/documentation lanes | CEO |
 | Reviewer | `reviewer` or `reviewer-1..N` | independent second review of **every** deliverable; **the only role that passes review and merges into `main`** | CEO |
-| Security Auditor | `security-auditor` | security assessment, red lines, remediation verification | CEO, CTO |
+| Security Auditor | `security-auditor` | security assessment, red lines, remediation verification; audits the whole team, CTO included | CEO |
+| Architect | `architect` | system/module/API/data/deployment architecture, **frozen interfaces**, ADRs | CTO |
+| Developer | `developer-1..N` | production code, **its own unit tests**, inline docs, commits on its branch | CTO |
+| Tester | `tester-1..N` | integration/system/E2E tests, running and monitoring them, defect routing, regression | CTO |
+| Release Engineer | `release-engineer` | build/release pipeline, CI gates, packaging, rollback, observability, runbooks | CTO |
+| Data Engineer *(conditional)* | `data-engineer` | schema, migrations, integrity, backup/restore drills, query health | CTO |
+| Project Manager | `project-manager` | `Plan.md`, `Board.md`, task decomposition, dependency graph, duplicate detection, progress chasing | COO |
+| Designer | `designer-1..N` | UX flows, accessibility, visual consistency, `Design.md` | Product Manager |
+| Technical Writer | `technical-writer` | the committed documentation set, executed as written; release notes | Product Manager |
+
+```text
+CEO - user interface, arbitration, final acceptance
+├── CTO - technology strategy, engineering standards
+│   ├── Architect - frozen interfaces, ADRs
+│   ├── Developer-1..N - code + its own unit tests
+│   ├── Tester-1..N - integration/E2E, local + CI
+│   ├── Release Engineer - pipeline, packaging, repo/CI integrity
+│   └── Data Engineer - schema, integrity, restore drills
+├── COO - process, risk, throughput
+│   └── Project Manager - plan, board, dependencies, chasing
+├── Product Manager - research, requirements, acceptance criteria
+│   ├── Designer - UX, accessibility, every visual asset
+│   └── Technical Writer - documentation, release notes
+├── CFO - cost, budget, unit economics
+├── Reviewer-1..N - independent review, the only pass/merge right
+└── Security Auditor - audits everyone, CTO included
+```
+
+**Why these three stay with the CEO.** The Reviewer passes and merges every
+deliverable, so it cannot be managed by a lane whose work it reviews - that would
+be review under a manager, not independent review. The Security Auditor audits the
+CTO's own decisions. The CFO holds the cap that binds every other role. Everything
+else hangs off the role that owns the standard it is judged by. `ROLE_PARENT` in
+`src/teamwork/config.py` is the single source of truth: `teamwork.py map` renders
+this tree and `tests/unit/test_reporting_hierarchy.py` fails if a doc drifts from it.
+
+**Escalation walks the tree.** A blocked Developer tells the Architect, then the
+CTO; a blocked Tester tells the CTO; a blocked Designer tells the Product Manager.
+The CEO hears it only when the line cannot resolve it - or when it is a red line,
+a goal change, or a decision that binds the whole team. This keeps the CEO out of
+day-to-day arbitration without weakening a single gate: the two-stage review, the
+ledger and the test matrix apply to every role wherever it sits.
 
 ### Roster tiers
 
@@ -30,9 +63,9 @@ Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.m
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 215 kB |
-| `standard` | 9 | 318 kB |
-| `full` | 16 | 555 kB |
+| `slim` (default) | 6 | 223 kB |
+| `standard` | 9 | 330 kB |
+| `full` | 16 | 577 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
