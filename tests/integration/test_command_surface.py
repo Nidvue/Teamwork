@@ -234,6 +234,9 @@ def test_dispute_round_cap_sign_and_resolve(cli, project: Path) -> None:
         )
         == 2
     )
+    # The panel is every independent member this roster staffs (ceo + reviewer), so
+    # both must sign before the ruling - a one-signature panel was the old defect.
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "reviewer-1") == 0
     assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "ceo") == 0
     assert (
         cli(

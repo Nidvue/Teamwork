@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Roster tiers, and a slim roster by default**: `init --roster slim|standard|full`
+  replaces a 15-role hand-written list with a recipe, and `slim` (ceo, architect,
+  developer, tester, reviewer-1, reviewer-2) is now the default - 213 kB of startup
+  charters summed over the instances, against 552 kB at `full`. A trimmed role leaves a lane, not a gate:
+  `tests plan` only requires layers of staffed roles, and `required_tribunal` never
+  falls below two signers, with the Reviewer as the neutral seat. Two holes this
+  exposed are closed: a tribunal of one used to let the CEO sign and resolve their
+  own dispute, and `init` now prints the folded lanes and warns when a
+  gate-critical role is missing.
+
 - **`pi-teamwork` package**: the skill now ships as a pi package (`pi.skills` +
   `pi.prompts`, host packages as `peerDependencies` only). A pi session installs it
   with `pi install npm:pi-teamwork` and gets two skills: `/skill:teamwork` (the

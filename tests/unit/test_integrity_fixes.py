@@ -24,8 +24,8 @@ def team_root(project: Path) -> Path:
     ).resolve()
 
 
-def init(cli, project: Path) -> Path:
-    assert cli("--project", project, "init", "--agents", ROSTER, "--no-git") == 0
+def init(cli, project: Path, agents: str = ROSTER) -> Path:
+    assert cli("--project", project, "init", "--agents", agents, "--no-git") == 0
     return team_root(project)
 
 
@@ -524,10 +524,9 @@ def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -
     )
     assert cli("--project", project, "dispute", "escalate", "D-0001", "--by", "developer-1") == 0
     assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "developer-1") != 0
-    assert (
-        cli("--project", project, "dispute", "resolve", "D-0001", "--by", "ceo", "--decision", "d")
-        != 0
-    )
+    # The point of this test is that a NON-tribunal role is refused at both steps.
+    # The roster staffs a reviewer, so the panel is ceo+reviewer and BOTH must sign.
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "reviewer-1") == 0
     assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "ceo") == 0
     assert (
         cli("--project", project, "dispute", "resolve", "D-0001", "--by", "ceo", "--decision", "d")
@@ -557,4 +556,206 @@ def test_repo_bootstrap_does_not_rewrite_a_parent_repo_identity(tmp_path: Path) 
     engine.ensure_repo(nested, commit=False, quiet=True)
     assert engine.run_git(outer, "config", "--local", "user.email").stdout.strip() == (
         "ops@example.com"
+    )
+
+
+def test_a_slim_roster_never_leaves_the_tribunal_at_one_member(cli, project: Path) -> None:
+    """No CTO/CFO means the CEO alone, so the Reviewer is added as the neutral seat."""
+    init(cli, project)
+    root = team_root(project)
+    assert engine.instances_of(root, "cto") == []
+    assert engine.instances_of(root, "cfo") == []
+    assert engine.required_tribunal(root) == ["ceo", "reviewer"]
+    assert len(engine.required_tribunal(root)) >= engine.TRIBUNAL_MIN_SIGNERS
+
+
+def _open_and_escalate(cli, project: Path, raiser: str, against: str) -> None:
+    assert (
+        cli(
+            "--project",
+            project,
+            "dispute",
+            "open",
+            "--by",
+            raiser,
+            "--against",
+            against,
+            "--topic",
+            "scope",
+            "--position",
+            "p",
+            "--evidence",
+            "e",
+        )
+        == 0
+    )
+    assert cli("--project", project, "dispute", "escalate", "D-0001", "--by", raiser) == 0
+
+
+def test_a_party_to_a_dispute_cannot_rule_it(cli, project: Path) -> None:
+    """The defect: on a slim roster the CEO was both the only party and the panel.
+
+    The panel is completed FIRST, so the assertion cannot be satisfied by the
+    pre-existing "members must sign" guard: with a full panel, the only thing
+    standing between the CEO and their own ruling is the party rule itself.
+    """
+    init(cli, project)
+    _open_and_escalate(cli, project, "ceo", "developer-1")
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "reviewer-1") == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "dispute",
+            "resolve",
+            "D-0001",
+            "--by",
+            "ceo",
+            "--decision",
+            "I rule for myself",
+        )
+        != 0
+    ), "a complete panel still let the CEO rule their own dispute"
+    # The same complete panel does rule, through the neutral member.
+    assert (
+        cli(
+            "--project",
+            project,
+            "dispute",
+            "resolve",
+            "D-0001",
+            "--by",
+            "reviewer-1",
+            "--decision",
+            "neutral ruling",
+        )
+        == 0
+    )
+
+
+def test_the_neutral_signer_can_resolve_a_dispute_between_two_panel_roles(
+    cli, project: Path
+) -> None:
+    """A CEO-vs-CTO dispute must be resolvable by the Reviewer, not deadlocked.
+
+    The resolve gate used the staffed-roles list (ceo, cto, cfo), which drops the
+    Reviewer; signing used the disputed panel (reviewer), which drops the parties.
+    So the Reviewer could sign and then be refused the ruling, and both parties
+    were refused as parties: unreachable without --force.
+    """
+    init(cli, project, agents="ceo,cto,developer-1,tester-1,reviewer-1,reviewer-2")
+    _open_and_escalate(cli, project, "ceo", "cto")
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "reviewer-1") == 0
+    # Both parties are refused.
+    for party in ("ceo", "cto"):
+        assert (
+            cli(
+                "--project",
+                project,
+                "dispute",
+                "resolve",
+                "D-0001",
+                "--by",
+                party,
+                "--decision",
+                "I rule for my own side",
+            )
+            != 0
+        ), f"{party} ruled a dispute it is a party to"
+    # The neutral signer that signing accepted can also rule.
+    assert (
+        cli(
+            "--project",
+            project,
+            "dispute",
+            "resolve",
+            "D-0001",
+            "--by",
+            "reviewer-1",
+            "--decision",
+            "neutral ruling",
+        )
+        == 0
+    )
+
+
+def test_a_party_cannot_bypass_the_rule_with_a_blank_reason(cli, project: Path) -> None:
+    init(cli, project)
+    _open_and_escalate(cli, project, "ceo", "developer-1")
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "reviewer-1") == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "dispute",
+            "resolve",
+            "D-0001",
+            "--by",
+            "ceo",
+            "--decision",
+            "own",
+            "--force",
+            " ",
+        )
+        != 0
+    )
+
+
+def test_a_one_member_panel_warns_instead_of_deadlocking(cli, project: Path) -> None:
+    """T-0037 F1: an invented signer deadlocked every escalated dispute.
+
+    With no reviewer, no CTO and no CFO staffed there is nothing to add, so the
+    panel stays at one and the ruling is allowed - but it must say so rather than
+    reporting a complete tribunal.
+    """
+    assert (
+        cli("--project", project, "init", "--agents", "ceo,developer-1,tester-1", "--no-git") == 0
+    )
+    root = team_root(project)
+    assert engine.required_tribunal(root) == ["ceo"]
+    _open_and_escalate(cli, project, "developer-1", "tester-1")
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "ceo") == 0
+    assert (
+        cli("--project", project, "dispute", "resolve", "D-0001", "--by", "ceo", "--decision", "x")
+        == 0
+    ), "a one-member panel must not deadlock the dispute"
+
+
+def test_a_signer_who_is_not_on_the_panel_is_refused(cli, project: Path) -> None:
+    """The panel must never contain a role with no instance (the F1 phantom signer)."""
+    assert (
+        cli("--project", project, "init", "--agents", "ceo,developer-1,tester-1", "--no-git") == 0
+    )
+    _open_and_escalate(cli, project, "developer-1", "tester-1")
+    assert (
+        cli(
+            "--project",
+            project,
+            "dispute",
+            "sign",
+            "D-0001",
+            "--by",
+            "independent-arbiter",
+        )
+        != 0
+    )
+
+
+def test_a_neutral_signer_unblocks_the_ruling(cli, project: Path) -> None:
+    init(cli, project)
+    _open_and_escalate(cli, project, "ceo", "developer-1")
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "reviewer-1") == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "dispute",
+            "resolve",
+            "D-0001",
+            "--by",
+            "reviewer-1",
+            "--decision",
+            "neutral ruling",
+        )
+        == 0
     )
