@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-19T02:27:12",
+  "generated_at": "2026-10-19T13:50:28",
   "team": "Teamwork",
   "team_id": "431b5b8b1bc04db58a4f13ef114cf5c1",
   "project": "Teamwork",
   "ledger": {
-    "records": 210,
-    "head": "20057b94f98dfc93197da41724cb009f9109d2e645c3c14f7cfc18b3d9fc1670",
+    "records": 324,
+    "head": "00f8834f4654df2c9149299abc7aaf030565dff5db3d8e174071fccfdaba3b8f",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "394c19b18b9cb8f5c7b7befe7666b5976106a537",
-    "branch": "main",
+    "head": "ab26dc24b88ea567910d8d572623e8bd8625b8cf",
+    "branch": "ceo/t-0023-bind-the-d-20261019-ceo-3-evidence-to-th",
     "dirty": false,
     "lfs_files": 0
   },
@@ -22,19 +22,14 @@
       "bytes": 10157
     },
     {
-      "path": "docs/Team/Archive.md",
-      "sha256": "03ad8de963cfacc1e721c2b5b39fe77541a71b1c3df4105544177e51c413cb0b",
-      "bytes": 34499
-    },
-    {
       "path": "docs/Team/Decisions.md",
-      "sha256": "293f23d7e4610db8e1524daa7ac356541869480ca03e9b7b2d9a53a114c0754e",
-      "bytes": 24155
+      "sha256": "09635cc8d1578a3548356537d1becc8a75ead771852f53e3df0e9d52723e14e5",
+      "bytes": 27266
     },
     {
       "path": "docs/Team/Plan.md",
-      "sha256": "abd431eba676b9868e8e612eb41c600adfdf73bbe86f430b90412c37806b4128",
-      "bytes": 4229
+      "sha256": "aaf46096b13182b15ec4a524314042aedc76fb7d40605f4d7e756a5e60b466a9",
+      "bytes": 5459
     },
     {
       "path": "docs/Team/Project.md",
@@ -60,8 +55,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "a455086c57355b0e614e0f5c29f0e7974571f4711396f4a2fa8867f2e168c2b6",
-      "bytes": 21984
+      "sha256": "41527e7dea6d5c5f5205bef4e40936d484286bae114828f8df041ad981d127b9",
+      "bytes": 56563
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/ArchivedMemory.md",
@@ -75,13 +70,13 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/ShortTermMemory.md",
-      "sha256": "f1e5599c0f6d219d34b01f5632310c44b57967a5e80e1b927cc6f67be7cdd185",
-      "bytes": 640
+      "sha256": "aa307daf21e424e0ec40a09145df02119b5a02b98dbe147ba966ea4558721d4e",
+      "bytes": 1297
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "847c50f297f4da3eb0457e95311d301ad09765c76797b927828490c119bf6419",
-      "bytes": 31092
+      "sha256": "313df575e2a477d9e6175f853c757c357f3ad28c3db59241935823e359fc8a8c",
+      "bytes": 78409
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/ArchivedMemory.md",
@@ -145,13 +140,13 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/TestPlan.md",
-      "sha256": "f85e176a98f8614da4376a0cdc59b575336289b3772236e190ed714ed4470d67",
-      "bytes": 508
+      "sha256": "b2b4b64c8a6c87efb70e60973c858f1859c3a28036f57538cab6000a6cc7361b",
+      "bytes": 559
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Tests.md",
-      "sha256": "550bcc82841ce3f4cb105c0c2be8c3dd4da21ffd641482d2dca77e7336758991",
-      "bytes": 2263
+      "sha256": "a6ffc1b39af5b1c1b07106a032639247ec8d9c8cc3c6cb725e2c23ec9efcad2b",
+      "bytes": 5078
     }
   ],
   "how_to_verify": [
@@ -160,6 +155,6 @@
     "3. sha256sum each artifact in this manifest",
     "4. git cat-file -t <git.head>   # the reviewed revision still exists",
     "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
-    "note: artifacts are committed project output and are checkable by anyone; local_state is hidden working state, only checkable on the machine that produced it. Ledger.jsonl carries its own chain, so it is represented by ledger.head rather than a digest."
+    "note: artifacts are committed project output and are checkable by anyone; local_state is hidden working state, only checkable on the machine that produced it. Ledger.jsonl carries its own chain, so it is represented by ledger.head rather than a digest. docs/Team/Archive.md is append-only and gains an entry when a review passes, so it is not pinned as an artifact; follow its entries with `trace`."
   ]
 }

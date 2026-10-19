@@ -5,27 +5,27 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-19, `main` @ `4cd8afc`)
+## Snapshot (2026-10-19, `main` @ `3934690`)
 
-- Milestone: M5 post-1.0 hardening closed (M1-M4 delivered; `v1.0.2` is the latest release)
-- Local gate: `pytest -q` -> 355 passed, 1 skipped; coverage 62.49% (floor 55%,
+- Milestone: M6 evidence packets + repro gate closed (M1-M5 delivered; `v1.0.2` is
+  the latest release); the closing records are in review on P-0018.
+- Local gate: `pytest -q` -> 383 passed, 1 skipped, coverage 67.52% (floor 55%,
   enforced in `pyproject.toml` and `ci.yml`). The local skip is the console-script
-  acceptance test (covered by `verify_release.py`); the Windows CI cells skip the
-  POSIX umask assertion, while the Linux cells run 356 passed with no skip.
-- CI: run `39179186345` green on `4cd8afc` (16/16 jobs incl. all Windows and macOS
-  cells); Docs run `39179186471` green on the same SHA; earlier green runs
-  `39173857076` (`b6dea2a`) and `39176294486` (`6905869`)
+  acceptance test (covered by `verify_release.py`).
 - Privacy: `privacy_scan.py --tree --history` -> PASS, 0 findings
 - Links: `teamwork.py links` -> 0 problems
-- Gate: `teamwork.py loop` and `teamwork.py audit` are the machine truth; the
-  closing run is exported to `docs/Team/AuditManifest.json` (ledger chain intact)
-- Remote: local `main` and `origin/main` are in sync (0 ahead, 0 behind)
+- Gate: `teamwork.py audit` -> 0 problems and `teamwork.py loop` -> STOP once
+  P-0018 merges; the closing export is `docs/Team/AuditManifest.json` (chain
+  verified, exported from a clean tree, four pinned artifacts plus the ledger
+  head)
+- Remote: `origin/main` is behind the local merges until the Release Engineer
+  pushes the reviewed revision; CI on the pushed SHA is the certification step.
 
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0017 close M5: board done + audit manifest export | P1 | in flight | this file, `Plan.md`, `AuditManifest.json` |
+| ceo | T-0023 bind the adoption decision + export the closing manifest | P3 | in review (P-0018) | `Decisions.md`, `AuditManifest.json` |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
@@ -54,6 +54,7 @@ created so Dependabot can label future PRs.
 | M4 publish | done | releases `v1.0.0`, `v1.0.1`, `v1.0.2` with wheel, sdist, `SHA256SUMS`, SBOM |
 | M5a engine split + Windows green | done | commits `c8fb469`, `f2e3b5a`, `b7fe03b`; CI `39173857076` |
 | M5b dependency upkeep + governance refresh | done | `9b56f1b` (T-0014), `1d49c21` (T-0015), `4cd8afc` (T-0016) |
+| M6 evidence packets + repro gate | done | T-0020..T-0025, `docs/Team/Archive.md`, merge `3934690` |
 
 ## Blocked
 
