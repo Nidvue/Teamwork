@@ -3524,6 +3524,9 @@ def cmd_init(args) -> int:
 
     created = []
     roles_seen = []
+    # A slim roster folds lanes away, so a charter that names an unstaffed
+    # parent would send the lane to a seat nobody holds.
+    staffed = {resolve_role(n) for n in names}
     for name in names:
         role = resolve_role(name)
         # role scope: memory + task queue, shared by every instance of the role
@@ -3546,12 +3549,13 @@ def cmd_init(args) -> int:
         role_file = ROLES_DIR / f"{role}.md"
         shared_charter = rd / F_ROLE
         if role_file.exists() and (args.force or not shared_charter.exists()):
-            write_lf(
-                shared_charter,
-                role_file.read_text(encoding="utf-8").replace(
-                    "{references}", str(SKILL_DIR / "references")
-                ),
+            body = role_file.read_text(encoding="utf-8").replace(
+                "{references}", str(SKILL_DIR / "references")
             )
+            folded = charter_reports_line(role, staffed)
+            if folded:
+                body = fold_charter_reports(body, folded)
+            write_lf(shared_charter, body)
         elif not shared_charter.exists():
             write_lf(
                 shared_charter,
@@ -3563,7 +3567,9 @@ def cmd_init(args) -> int:
         if args.force or not brief.exists():
             write_lf(
                 brief,
-                start_here(name, role, root, docs_dir(root), staffed={resolve_role(n) for n in names}),
+                start_here(
+                    name, role, root, docs_dir(root), staffed={resolve_role(n) for n in names}
+                ),
             )
         for extra in (F_WORKLOG, F_INBOX):
             p = d / extra
@@ -3626,6 +3632,71 @@ def cmd_init(args) -> int:
     return 0
 
 
+def resolve_manager(role: str, staffed: set[str] | None = None) -> tuple:
+    """Resolve who a role reports to on THIS roster.
+
+    ``ROLE_PARENT`` is the designed tree; a slim roster does not staff every
+    lane in it, so the brief and the charter must name the manager that is
+    actually there. Returns ``(reachable_parent, vacancy)`` where ``vacancy``
+    lists the unstaffed ancestors that were skipped. An unbundled role gets
+    ``(None, [])`` so no caller can mistake it for the CEO.
+    """
+    if role not in ROLE_PARENT:
+        return None, []
+    parent = ROLE_PARENT[role]
+    if parent is None or staffed is None:
+        return parent, []
+    reachable = parent
+    vacancy: list = []
+    while reachable != "ceo" and reachable not in staffed:
+        vacancy.append(reachable)
+        reachable = ROLE_PARENT.get(reachable) or "ceo"
+    return reachable, vacancy
+
+
+def fold_charter_reports(body: str, folded: str) -> str:
+    """Replace the manager paragraph under ``## Reports to`` with ``folded``."""
+    lines = body.splitlines()
+    try:
+        start = next(i for i, ln in enumerate(lines) if ln.strip() == "## Reports to")
+    except StopIteration:
+        return body
+    end = next(
+        (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
+        len(lines),
+    )
+    # "Manages:" is a different statement about the same role and must survive
+    # the rewrite - folding the manager line must not erase the span of control.
+    keeps = [ln for ln in lines[start + 1 : end] if ln.startswith("Manages:")]
+    mid = ["", *folded.splitlines()]
+    if keeps:
+        mid += ["", *keeps]
+    return "\n".join(lines[: start + 1] + mid + [""] + lines[end:]) + (
+        "" if body.endswith("\n") else "\n"
+    )
+
+
+def charter_reports_line(role: str, staffed: set[str] | None) -> str | None:
+    """The one-line manager statement to substitute into a charter, or None.
+
+    The bundled charters are a designed tree too; on a roster that does not
+    staff the parent they would tell a lane to escalate to a seat nobody holds.
+    Returns None when the charter's own text is already true.
+    """
+    if role not in ROLE_PARENT:
+        return None
+    reachable, vacancy = resolve_manager(role, staffed)
+    if not vacancy:
+        return None
+    vac = ", ".join(ROLE_DISPLAY.get(r, r) for r in vacancy)
+    name = ROLE_DISPLAY.get(reachable, reachable)
+    return (
+        f"**{name}** - your line runs through the {vac}, which this team does not\n"
+        f"staff, so it folds to the {name} until a {vac} instance exists. Escalate\n"
+        f"up that line; the user talks only to the CEO."
+    )
+
+
 def migrate_instance_memory(root: Path, name: str, role: str) -> int:
     """Fold legacy per-instance memory/tasks into the shared role directory."""
     moved = 0
@@ -3660,9 +3731,7 @@ def migrate_instance_memory(root: Path, name: str, role: str) -> int:
     return moved
 
 
-def start_here(
-    name: str, role: str, root: Path, docs: Path, staffed: set | None = None
-) -> str:
+def start_here(name: str, role: str, root: Path, docs: Path, staffed: set | None = None) -> str:
     global_mem = global_dir(root) / F_GLOBAL
     agents_md = project_of(root) / "AGENTS.md"
     script = _resources.self_invocation()
@@ -3694,12 +3763,7 @@ def start_here(
         )
         report_line = "Report to the CEO"
     else:
-        reachable = parent
-        vacancy: list[str] = []
-        if staffed is not None:
-            while reachable != "ceo" and reachable not in staffed:
-                vacancy.append(reachable)
-                reachable = ROLE_PARENT.get(reachable) or "ceo"
+        reachable, vacancy = resolve_manager(role, staffed)
         parent_name = ROLE_DISPLAY.get(reachable, reachable)
         if vacancy:
             vacant = ", ".join(ROLE_DISPLAY.get(r, r) for r in vacancy)

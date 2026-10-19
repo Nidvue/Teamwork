@@ -305,3 +305,32 @@ def test_an_unbundled_role_does_not_get_the_users_ear(tmp_path: Path) -> None:
     assert "only lane that" not in body
     assert "Report to the user" not in body
     assert "report to the **CEO**" in body
+
+
+def test_a_slim_roster_folds_the_charter_too(tmp_path: Path) -> None:
+    """The charter is the file an agent obeys, so it must fold like the brief.
+
+    On the default roster no CTO is staffed, yet the bundled charter says
+    "**CTO.** ... not to the CEO" - an escalation path to a seat nobody holds.
+    The generated charter has to name the manager that is actually there, and
+    must keep its `Manages:` line.
+    """
+    from teamwork import engine
+
+    slim = {"ceo", "developer", "tester", "reviewer", "architect"}
+    folded = engine.charter_reports_line("tester", slim)
+    assert folded is not None and "**CEO**" in folded and "CTO" in folded
+
+    body = (Path(engine.__file__).parent.parent.parent / "roles" / "tester.md").read_text(
+        encoding="utf-8"
+    )
+    out = engine.fold_charter_reports(body, folded)
+    section = out.split("## Reports to")[1].split("## ")[0]
+    assert "**CTO.**" not in section, "the folded charter still names the unstaffed CTO"
+    assert "**CEO**" in section
+    assert "Manages:" in section, "folding the manager line erased the span of control"
+
+    # A staffed parent needs no rewrite at all - the bundled text is already true.
+    assert engine.charter_reports_line("tester", {"ceo", "cto", "tester"}) is None
+    # An unbundled role is not silently promoted to the CEO branch.
+    assert engine.charter_reports_line("auditor", {"ceo", "auditor"}) is None
