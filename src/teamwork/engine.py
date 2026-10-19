@@ -1042,7 +1042,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             root, "pr.merge", merger, pr["task"], f"{pr['id']} {branch} -> {base} at {sha}", sha
         )
         print(f"# merged {pr['id']} {branch} -> {base} at {sha} by {merger}")
-        print(archive_set_merge_sha(root, branch, sha))
+        print(commit_archive_merge_sha(root, here, branch, sha, pr, merger))
         if not args.keep_branch:
             if retire_branch(root, here, branch, force=args.squash):
                 ledger_append(
@@ -1863,6 +1863,7 @@ LEDGER_ACTIONS = (
     "review.fail",
     "pr.open",
     "pr.merge",
+    "pr.merge.archive",
     "branch.start",
     "branch.retire",
     "criteria.add",
@@ -5738,7 +5739,7 @@ def archive_append(root: Path, owner: str, t: dict) -> str:
     return str(path.relative_to(project_of(root)))
 
 
-def archive_set_merge_sha(root: Path, branch: str, sha: str) -> str:
+def archive_set_merge_sha(root: Path, branch: str, sha: str, repo: Path | None = None) -> str:
     """Point the archive entry of a merged branch at the real merge revision.
 
     ``archive_append`` runs when the review passes - before anyone has merged -
@@ -5748,8 +5749,13 @@ def archive_set_merge_sha(root: Path, branch: str, sha: str) -> str:
     ``- branch / merge:`` line, no other line is touched, and a repeat call
     with the same sha changes nothing (a re-run of the close-out is safe).
     Returns the line the caller prints, including the no-match case.
+
+    ``repo`` is the work tree that holds the archive file to edit. It defaults
+    to the project root, but ``pr merge`` passes the work tree the merge landed
+    in so the rewrite follows the base branch instead of whichever checkout
+    happens to sit at the project root.
     """
-    path = archive_path(root)
+    path = (repo or project_of(root)).joinpath(*DIR_DOCS) / "Archive.md"
     if not path.exists():
         return f"# archive: no archive file yet, so {branch} has no entry to update"
     separator = " / "
@@ -5780,6 +5786,90 @@ def archive_set_merge_sha(root: Path, branch: str, sha: str) -> str:
         return f"# archive: {branch} already records the merge at {sha} (no change)"
     plural = "entries" if len(rewritten) > 1 else "entry"
     return f"# archive: {plural} for {branch} now record the merge at {sha}"
+
+
+def commit_archive_merge_sha(
+    root: Path, here: Path, branch: str, sha: str, pr: dict, merger: str
+) -> str:
+    """Repoint the archive entry at the merge revision AND commit that rewrite.
+
+    Rewriting the work tree alone leaves ``pending`` in the base branch's HEAD,
+    makes the next merge in the same repository die on
+    ``git checkout <base>`` ("local changes would be overwritten"), and lets a
+    later, unrelated commit absorb the edit - an author's commit silently
+    carrying a Reviewer record. So the rewrite is committed here, on the base
+    branch the merge just landed on, with the Reviewer identity; the merge
+    commit itself stays the revision the archive names.
+
+    Returns the line(s) the caller prints. If the entry cannot be found or the
+    commit is refused, the work tree is restored to the committed state so the
+    repository is never left dirty by a merge.
+    """
+    base = pr.get("base") or DEFAULT_BASE
+    rel = "/".join(DIR_DOCS) + "/Archive.md"
+    path = here.joinpath(*DIR_DOCS) / "Archive.md"
+    message = archive_set_merge_sha(root, branch, sha, repo=here)
+    if not path.exists():
+        return message
+    if not run_git(here, "status", "--porcelain", "--", rel).stdout.strip():
+        return message
+    staged = run_git(here, "add", "--", rel)
+    if staged.returncode != 0:
+        run_git(here, "checkout", "--", rel)
+        die(
+            f"merged {pr['id']} at {sha}, but the archive rewrite could not be "
+            f"staged (the entry still says 'pending'):\n  "
+            f"{staged.stderr.strip() or staged.stdout.strip()}",
+            2,
+        )
+    close_msg = build_commit_message(
+        "reviewer",
+        {
+            "type": "chore",
+            "area": "records",
+            "task": pr.get("task"),
+            "producers": pr.get("author"),
+            "goal": f"the archive names the merge revision of {pr['id']}",
+            "deliverable": f"record the merge revision of {pr['id']} in Archive.md",
+            "docs": rel,
+            "why": (
+                "the archive entry is written at review time, before the merge "
+                "exists, so it can only say 'pending'"
+            ),
+            "status": f"merged into {base}",
+            "result": f"{branch} -> {sha}",
+        },
+    )
+    committed = subprocess.run(
+        ["git", "-C", str(here)]
+        + git_identity_args("reviewer")
+        + ["commit", "-q", "-F", "-", "--", rel],
+        input=close_msg,
+        capture_output=True,
+        text=True,
+    )
+    if committed.returncode != 0:
+        run_git(here, "reset", "-q", "--", rel)
+        run_git(here, "checkout", "--", rel)
+        die(
+            f"merged {pr['id']} at {sha}, but the archive rewrite could not be "
+            "committed (a hook or config blocked it). The merge stands and the "
+            "archive entry still says 'pending':\n  "
+            + (committed.stderr.strip() or committed.stdout.strip() or "(no output)").replace(
+                "\n", "\n  "
+            ),
+            2,
+        )
+    close_sha = run_git(here, "rev-parse", "--short", "HEAD").stdout.strip()
+    ledger_append(
+        root,
+        "pr.merge.archive",
+        merger,
+        pr.get("task") or "",
+        f"{pr['id']}: Archive.md names {branch} -> {sha} (record commit {close_sha})",
+        close_sha,
+    )
+    return f"{message}\n# committed the archive rewrite on {base} at {close_sha}"
 
 
 def find_review_role_unused(root: Path, handle: str):

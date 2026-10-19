@@ -85,6 +85,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pr merge` left the archive rewrite uncommitted**: the `branch / merge`
+  field of `docs/Team/Archive.md` was rewritten in the work tree after the merge
+  commit, so the base branch kept `pending`, the tree stayed dirty, and the next
+  merge in the same repository died on `git checkout` ("your local changes would
+  be overwritten"). The rewrite now lands as its own `chore(records)` commit on
+  the base branch (Reviewer identity, one `pr.merge.archive` ledger record), so
+  the committed archive names the real merge revision
+  (`tests/unit/test_context_economy.py`).
 - **`ensure_gitignore` bootstrap**: a repository whose `.gitignore` already
   covered a rule with a glob (`.env.*` covers `.env.local`) gained a dangling
   section header and redundant lines on every `init`/`repo`. Coverage is now
