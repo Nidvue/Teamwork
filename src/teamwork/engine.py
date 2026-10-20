@@ -2867,7 +2867,7 @@ def ledger_export(root: Path, args) -> int:
     # Archive.md is the accepted-results ledger: it gains an entry for this very
     # deliverable when the review passes, so a digest committed beside it is stale
     # by construction. Its entries are verified through the ledger, not a snapshot.
-    archive_rel = str(archive_path(root).relative_to(project))
+    archive_rel = archive_path(root).relative_to(project).as_posix()
     external = [a for a in tracked if not a["path"].startswith(".pi/") and a["path"] != archive_rel]
     internal = [a for a in tracked if a["path"].startswith(".pi/")]
     manifest = {
