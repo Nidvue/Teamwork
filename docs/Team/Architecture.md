@@ -681,6 +681,10 @@ digest = sha256(("\n".join(lines) + "\n").encode("utf-8")).hexdigest()[:16]
   staging tree built from the published tarball by 11.3.1, never the unpacked
   tarball itself.
 
+* The first 16 hex characters are the published comparison form
+  (`a01d9f0cbee641c3`, 64 bits) - long enough that a collision is not a
+  realistic accidental pass.
+
 **Link policy (frozen).** A link is resolved inside the payload tree; it is
 never followed out of it, and the refusal never names the target.
 
@@ -725,9 +729,6 @@ appending a token-bearing remote URL to **`.git/config` alone** moved it to
 `ce020801f2fb5998` - a byte of git configuration changing a published digest.
 With the payload read from a git object the same tree is refused outright:
 `archive member links into the git directory: references/l`.
-* The first 16 hex characters are the published comparison form
-  (`a01d9f0cbee641c3`, 64 bits) - long enough that a collision is not a
-  realistic accidental pass.
 
 #### 11.3.1 Payload-path layout of a published tarball (frozen)
 
