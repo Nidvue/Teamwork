@@ -1003,4 +1003,4 @@ No blockers; no unrelated changes; branch mergeable.
 - author evidence: e611a8b
 - reviewer evidence: review @e611a8b: diff main..e611a8b = 2 files (+22/-1), only test-job hunks in .github/workflows/ci.yml (fetch-depth:0 + "Assert the history is full"); yaml valid, jobs [build,docs,lint,privacy,test,typecheck]; shallow clone (rev-parse --is-shallow-repository=true) -> pytest tests/unit/test_archive_merge_revisions.py = 1 passed, 3 skipped with reasons naming shallow clone; hand-run assert rc=1 (regression to depth 1 fails loudly); full clone 4 passed, 0 skipped; merge-tree rc=0; pytest -q 616 passed 1 skipped; ruff check/format 0; mypy 0; links 0 issues; privacy_scan PASS 0 findings; author CEO
 - findings history: 
-- branch / merge: ceo/t-0057-windows-ci-round-3-the-archive-guard-nee / pending
+- branch / merge: ceo/t-0057-windows-ci-round-3-the-archive-guard-nee / 298be09
