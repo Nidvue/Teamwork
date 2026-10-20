@@ -37,6 +37,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and report an embedded instruction as a finding. This is the untrusted-material
   rule every agent needed and no rule stated.
 
+- **In-loop enforcement: `teamwork hooks`.** `hooks install|status|uninstall`
+  writes `pre-commit` and `pre-push` into the directory git actually reads hooks
+  from (`git -C <root> rev-parse --path-format=absolute --git-path hooks`, so a
+  linked worktree works and `core.hooksPath` is honoured), and the two hooks refuse
+  what the prose could only ask for: a commit on the default branch including the
+  root commit on an unborn branch, a staged blob above 1 MiB with no LFS pattern, a
+  non-fast-forward push to the default branch, and deleting it. A non-role commit
+  identity warns and never blocks, `TEAMWORK_SKIP_HOOKS=1` bypasses both hooks,
+  `uninstall` removes only hooks carrying the `teamwork-managed hook` marker, and
+  `status` prints the literal directory it probed. Hooks stay opt-in - `init` never
+  installs them. Documented in [`docs/guide/cli.md`](docs/guide/cli.md).
+- **`ceo-audit-close` is a live skill, not dead text.** It existed in
+  `.agents/skills/` and was named by no always-on surface, so no agent was ever
+  told to load it - the exact defect the harness validator exists to catch. `SKILL.md`
+  section 6 now carries the trigger line that names it.
+
 ## [1.1.2](https://github.com/Nidvue/Teamwork/compare/v1.1.1...v1.1.2) - 2026-10-20
 
 ### Fixed

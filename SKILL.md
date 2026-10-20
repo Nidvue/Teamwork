@@ -576,6 +576,12 @@ python3 "$SKILL/scripts/teamwork.py" refresh --dry-run     # the file plan, no w
 
 ### 6. Close
 
+When the queue is empty and `loop` is about to report STOP, load the `ceo-audit-close`
+skill and follow it exactly: freeze the revision, verify the chain before the gates,
+check the archive against the tree, export the manifest last, and report from records.
+A trigger line is what makes an on-demand skill exist - an unnamed skill is dead text
+nobody is told to load, and `teamwork.py harness lint` fails a tree that has one.
+
 Completion gate - all of:
 
 - [ ] Every acceptance criterion in `docs/Team/Project.md` has evidence from a
