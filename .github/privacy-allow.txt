@@ -1,13 +1,33 @@
 # Privacy allowlist (see scripts/privacy_scan.py --allow).
 # One regular expression per line, optional "# reason" suffix.
 #
-# ^\.pi/agent/npm$ - the only blessed entry (opened by T-0001). It matches the quoted
-# pi-subagents install path: the scanner's own fixture at
-# tests/unit/test_privacy_scan.py:464 (present in the tree), the pre-fix blob of
+# Each entry is one fully escaped, anchored literal: no class, no wildcard, no
+# alternation. A new secret is fixed at source and never added here. There are two
+# entries, one per quoted path family that cannot be reworded: the pi install tree
+# and the operator user name (D-20261019-CEO-8, D-20261019-CEO-15).
+#
+# What an entry exempts is exactly one finding VALUE, not a directory: the scanner
+# tests each match against the pattern, and for `home-path` that value is the user
+# name alone. So `^\.pi/agent/npm$` covers every `agent-config` finding whose value
+# is that install tree, and `^/home/pingz$` covers every `home-path` finding for that
+# one user name - whether the path ends there, at `~/.ssh/id_rsa`, or anywhere else
+# under it. A credential rule is unaffected by either entry: a token, key or
+# password on the same line is still reported, and a sibling user name does not
+# match.
+
+# ^\.pi/agent/npm$ - opened by T-0001. The quoted pi-subagents install path: the
+# scanner's own fixture at tests/unit/test_privacy_scan.py, the pre-fix blob of
 # references/Adapters.md and the audit quotations of it in history, so `--tree`
-# alone is red by design. Rewriting that unpublished history would
-# invalidate commit SHAs quoted as evidence in docs/Team/Archive.md and
-# docs/Team/Decisions.md. Nothing from package-lock.json is blessed, because the
-# scanner does not report its "resolved" tarball URLs. A new secret is fixed at
-# source and never added here (D-20261019-CEO-8).
+# alone is red by design. Rewriting that unpublished history would invalidate
+# commit SHAs quoted as evidence in docs/Team/Archive.md and docs/Team/Decisions.md.
+# Nothing from package-lock.json is blessed: the scanner does not report its
+# "resolved" tarball URLs.
 ^\.pi/agent/npm$
+
+# ^/home/pingz$ - the operator user name, which appears as a build path in one
+# archived reviewer finding and in the justification text of this file. The
+# exemption is fixed by SHAPE (one literal user name), never by count: the number
+# of historical blobs that quote it grows with every commit that documents it.
+# A user name is not a credential, which is why this shape - and nothing else - is
+# exempted; anything secret on such a line is still caught by its own rule.
+^/home/pingz$
