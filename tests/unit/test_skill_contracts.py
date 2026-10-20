@@ -414,6 +414,32 @@ def test_the_merge_policy_forbids_the_host_merge_button(root):
     assert "local" in contributing.lower() or "locally" in contributing.lower()
 
 
+def test_ci_runs_the_committer_guard(root):
+    """The guard that catches an account stamped into main must be wired into CI.
+
+    Measured on this repository (2026-10-20): three rewrites of ``main`` came from
+    one cause - a host merge button wrote the signed-in account into the commit,
+    the privacy gate failed on that personal mailbox in the history, and the
+    acceptance proof that re-runs the gate failed the whole matrix. The guard
+    fires on the push instead, with the offending commit named.
+    """
+    ci = read(root, ".github", "workflows", "ci.yml")
+    assert "--guard-committer" in ci, "ci.yml must run the committer guard"
+    assert "committer guard" in ci.lower(), "the job must be named so it is visible"
+    assert "push:" in ci
+    assert ci.index("committer-guard:") > ci.index("jobs:"), "the guard must be a job"
+
+
+def test_the_committer_guard_is_documented(root):
+    """The repair must be written down where a contributor reads the policy."""
+    remotes = flat(read(root, "references", "Remotes.md"))
+    assert "committer" in remotes.lower()
+    contributing = flat(read(root, "CONTRIBUTING.md"))
+    assert "committer" in contributing.lower(), (
+        "the contributor guide must say the merge button stamps a committer"
+    )
+
+
 def test_release_engineer_owns_repo_and_ci_integrity(root):
     text = flat(read(root, "roles", "release-engineer.md"))
     assert "Repository and CI integrity" in text
