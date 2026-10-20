@@ -106,8 +106,29 @@ def test_a_rewritten_history_audits_the_tip_instead_of_dying(repo):
     """
     _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
     gone = "deadbeef" * 5
-    assert engine.rewrite_safe_range(repo, f"{gone}..HEAD") == "HEAD"
+    assert engine.rewrite_safe_range(repo, f"{gone}..HEAD") == "HEAD^..HEAD"
     assert engine.audit_commit_identities(repo, f"{gone}..HEAD") == 0
+
+
+def test_the_narrowed_range_does_not_re_audit_the_whole_history(repo):
+    """``HEAD`` alone means every ancestor, which is not the span the event covered.
+
+    Measured on this repository: after a rewrite the first version of the fallback
+    returned the tip alone, so the audit walked 337 commits and failed on four
+    pre-existing identity blemishes in old history - a red lane for commits the
+    push never touched.
+    """
+    _commit(repo, "Teamwork", "teamwork@agents.nidvue.com", "chore: old blemish")
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
+    gone = "deadbeef" * 5
+    assert engine.audit_commit_identities(repo, f"{gone}..HEAD") == 0
+
+
+def test_a_bad_tip_still_fails_after_narrowing(repo):
+    """Narrowing must not buy silence: the one commit it can measure still counts."""
+    _commit(repo, "Teamwork", "teamwork@agents.nidvue.com", "chore: bad tip")
+    gone = "deadbeef" * 5
+    assert engine.audit_commit_identities(repo, f"{gone}..HEAD") == 1
 
 
 def test_a_resolvable_range_is_not_narrowed(repo):
