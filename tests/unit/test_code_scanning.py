@@ -126,9 +126,18 @@ def test_an_unauthenticated_forge_does_not_report_zero_alerts(monkeypatch, tmp_p
     assert "no open alert" not in out
 
 
-def test_a_dot_directory_route_actually_fires() -> None:
-    """``.github/**`` must route; ``lstrip("./")`` used to strip the leading dot."""
+def test_a_dot_directory_route_actually_fires(monkeypatch) -> None:
+    """``.github/**`` must route; ``lstrip("./")`` used to strip the leading dot.
+
+    The fallback owner is the release-engineer, which ``.github/**`` also names, so
+    a plain equality check stays green when the dot is eaten - the mutant that
+    restored ``lstrip("./")`` survived the first version of this test. Poisoning
+    the fallback makes the route the only way to get the answer.
+    """
+    monkeypatch.setattr(engine, "SCAN_OWNER_ROLE", "nobody-owns-this")
     assert engine.scan_owner(".github/workflows/ci.yml") == "release-engineer"
+    assert engine.scan_owner(".github/dependabot.yml") == "release-engineer"
+    assert engine.scan_owner(".gitignore") == "nobody-owns-this"
     assert engine.scan_owner("./src/teamwork/engine.py") == "developer"
     assert engine.scan_owner("/scripts/privacy_scan.py") == "security-auditor"
 
