@@ -22,7 +22,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | R-13 | The privacy scanner has documented blind spots (personal names, GPG signature key IDs, binary blobs, non-email PII, unscanned `.git/config`) | security | med | med | Blind spots are listed in [AuditReport](AuditReport.md); the name/key-ID cases are eliminated by the history rewrite, the rest are accepted for v1.0.0 with an issue to extend the rule set | SecurityAuditor | accepted |
 | R-14 | The repository handle appears in every project URL, and it is derived from the owner's initials | security | low | low | The owner publishes under this account by choice; it is not a secret and no other personal datum accompanies it | CEO | accepted |
 | R-15 | `docs/Team/Archive.md`, `Ledger.jsonl` and the team workspace carry provenance that could leak if archived manually | security | low | med | `.pi/` and `site/` are gitignored; `scripts/privacy_scan.py --tree` flags tracked local state, agent-host config and credential files, and the release archive contains only the sdist/wheel | ReleaseEngineer | mitigating |
-| R-16 | The next push of local `main` publishes an operator identity that is still in the **unpublished** local history - the published history is already clean | security | med | high | The published state is clean today (see "The privacy red is local" below), so the risk is the pending push, not the past; the remediation is a rewrite of the local-only commits, which needs the user's authorisation through the CEO | CEO | open |
+| R-16 | The author identity of a retained forge commit is **disclosed at the object level** - the forge serves the object anonymously by SHA with the name and the address in the payload, and the disclosure cannot be un-disclosed; the commit is **not reachable from any published ref**, and the published history is clean | security | med | high | The published side is clean and the object is **retained** by the forge rather than published by a ref (see "The privacy red is local" below), but the forge serves it to anyone who asks for that SHA, so the identity is already disclosed and no history rewrite can undo that. The rewrite is still required - it stops the published history from carrying the identity forward - and it needs the user's authorisation through the CEO | CEO | open |
 
 ## The privacy red is local - the published history is clean
 
@@ -44,15 +44,29 @@ revision is pinned**: the commit that documents a count raises it
 
 **Causes of the local-history red** (the tree is clean; only history is red):
 
-1. **The offending commit is local-only.** It is the forge's squash merge of a
-   published pull request, authored with the operator's personal identity
-   because the forge stamps the signed-in account. The object is **absent from
-   the forge entirely** - `git cat-file -e <sha>` in a mirror of the forge says
-   the object does not exist - and it is an ancestor of no published ref and no
-   tag. Its **tree is identical** to the published commit that carries the same
-   content under the role mailbox, so the content is already public in a safe
-   form; only the local leftover carries the identity. Verify with
+1. **The offending commit is local-only, and the forge still serves it.** It is
+   the forge's squash merge of a published pull request, authored with the
+   operator's personal identity because the forge stamps the signed-in account.
+   It is **not reachable from any published ref** - it is an ancestor of no
+   published ref and no tag, `git ls-remote origin` advertises no ref that
+   carries it, and a plain anonymous clone does not contain it. **The forge
+   nevertheless serves the object anonymously**: its API returns it with HTTP
+   200 and the author name **and email** in the payload, its commit page returns
+   HTTP 200 and renders the author name, and the PR #23 record names it as
+   `merge_commit_sha` (also served by the ordinary enumerable `GET /pulls` list).
+   So the identity is **disclosed to anyone who asks for that SHA** and cannot be
+   un-disclosed - discoverability was measured absent (the forge's commit search
+   returns it by neither author nor SHA, a truncated-SHA fetch is refused), so
+   this is not a publicly discoverable disclosure but it is a real one. Its
+   **tree is identical** to the published commit that carries the same content
+   under the role mailbox, so the content is already public in a safe form and
+   the disclosure is of the **identity**. Verify with
    `git rev-parse <sha>^{tree} <published-sha>^{tree}`.
+   A note on the measure: `git cat-file -e <sha>` in a clone of the advertised
+   refs answers **reachability**, not existence on the forge - such a clone never
+   fetches an object no ref advertises. An earlier revision of this register
+   read that as the object not being on the forge at all, which is false; ask
+   the forge for the object by SHA to measure existence.
 2. **Archived reviewer findings in old blob revisions.** The archive copies a
    reviewer's findings verbatim, so older revisions of `docs/Team/Archive.md`
    still quote the address inside a quoted-evidence field. The live tree is
@@ -61,7 +75,7 @@ revision is pinned**: the commit that documents a count raises it
    revisions are what remain, and only a history rewrite removes them.
 
 **The remediation and who must authorise it.** The fix is a rewrite of the
-unpublished local commits: rebase the local branches onto the published tip,
+local commits: rebase the local branches onto the published tip,
 rewrite the leaking archive blob revisions so the address is redacted, and
 re-point the commit SHAs that `docs/Team/Archive.md`, `docs/Team/Decisions.md`
 and the ledger cite. No published ref, tag or release changes, and no push is
@@ -71,6 +85,9 @@ the conservative reading applies. The Security Auditor measured the whole
 remediation end to end in a throwaway clone and reported the gate going from
 red to clean; that figure is the Auditor's measurement on a throwaway copy, not
 a property of this tree - re-measure it on the real branch after the rewrite.
+**What the rewrite does not do:** it does not undo the disclosure. The identity
+is already disclosed at the object level; the rewrite protects the published
+history from carrying the identity forward.
 
 **One item belongs to the operator, not to the team.** The forge creates a
 `refs/pull/<n>/merge` preview ref for every open pull request, authored with
