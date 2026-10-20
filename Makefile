@@ -61,6 +61,12 @@ verify: ## Build, assert the wheel payload and smoke-test it in a throwaway venv
 package: ## Assemble the pi package (pi-teamwork) under dist/.
 	$(PYTHON) scripts/build_pi_package.py
 
+sync-skill: ## Mirror this checkout into the installed skill directory.
+	$(PYTHON) scripts/sync_skill.py
+
+sync-check: ## Fail when the installed skill differs from this checkout.
+	$(PYTHON) scripts/sync_skill.py --check
+
 privacy: ## Scan the working tree and full git history for private data.
 	$(PYTHON) scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt
 
