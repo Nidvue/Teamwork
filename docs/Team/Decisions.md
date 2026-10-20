@@ -728,3 +728,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: At head `2b31500` in a `git archive` extraction: the D-0021 mutant (`rm CHANGELOG.md` + `EXEMPT["AC-12"]="drift"`) FAILS with `an exemption must be justified by the table it exempts: AC-12: exempt as 'drift', but its proof cell `ls LICENSE CHANGELOG.md CITATION.cff` carries no such evidence` (tests/unit/test_traceability_matrix.py:480-486); the D-0021 floor mutant FAILS with `5 row(s) were re-run, but 18 rows minus 12 exemptions is 6`; `git log -S DETERMINISTIC_PROOFS --oneline` -> the list was introduced and later removed by the `83a78cf` rewrite; `dispute escalate/sign/resolve` for D-0019 and D-0021 -> signed=['cto','ceo'], tribunal complete, resolved by cto.
 - falsified by: `grep -rn DETERMINISTIC_PROOFS src tests` returning a match, or the AC-12 drift mutant passing at the head - either would mean the charged mechanism survived and the ruling is wrong.
 - consequences: `dispute list` shows 0 open and 0 escalated. Both the product-manager guard and the ruling are recorded; the residual limit that the guard cannot re-run forge rows stays stated in docs/Team/Project.md rather than hidden.
+
+## D-20261020-Tester - Option (a), generalized: tests/unit/test_traceability_matrix
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Tester (tester)
+- decided by: Tester
+- task: -
+- context: -
+- options considered: -
+- decision: Option (a), generalized: tests/unit/test_traceability_matrix.py skips the record-resolution guard only when no record in the team tree identifies itself with a cited id AND the layer/area the matrix claims for it, naming both counts; the moment one record identifies itself the guard hard-fails on every problem (missing, not passing, wrong layer/area) exactly as before. Option (b), a committed snapshot or digest, was rejected.
+- why: The cited records (TS-0001/0005/0008/0011/0013/0014/0018/0022/0024) exist only in a gitignored Tests.md from an earlier team run; this machine's tree is a fresh init that numbers its own TS-0001 as requirements/research while the matrix's TS-0001 was goal/audit, so a committed snapshot would have to be invented - the anti-fabrication rule forbids writing record data nobody measured - and the ids are workspace-local and re-used, so no digest can identify the producing workspace either. A skip that names the counts is honest; a red suite on every fresh workspace is not, and it would block unrelated lanes.
+- evidence: main 4de397e: pytest tests/unit/test_traceability_matrix.py -q -> 2 failed, 8 passed ('AC-1: TS-0018 is not a record in Tests.md' x9); branch with a fresh 2-record tree: 9 passed, 1 skipped with 'the team tree holds 2 test record(s) and none carries an id and layer/area claimed by the 9 records cited here'; scratch tree carrying TS-0018 release/release passing: hard failure naming the id collision and the 8 missing records; same tree with TS-0018 failing: hard failure "AC-1: TS-0018 has status 'failing', not 'passing'"; no tree at all (CI shape): skip
+- falsified by: A committed, non-invented source for the cited records would make option (b) available and this skip obsolete - e.g. if 'teamwork.py ledger export' published the tests add/run records into docs/Team/AuditManifest.json; likewise if 'teamwork.py init' stopped re-numbering TS ids from TS-0001, the id+layer/area identity test could be replaced by a workspace digest
+- consequences: -
