@@ -21,9 +21,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NAME = "pi-teamwork"
+
+# The bundle manifest is engine state, not a build-tool constant: the installed
+# skill, the wheel and the tarball must contain the same files.
+sys.path.insert(0, str(ROOT / "src"))
+from teamwork import bundle as _bundle  # noqa: E402
+
 # Files the skill needs at runtime; tests, docs and build output stay out of the tarball.
 SKILL_TREES = ("references", "roles", "templates", "scripts", "src")
 SKILL_FILES = ("SKILL.md", "AGENTS.md")
+assert SKILL_FILES == _bundle.BUNDLE_FILES and SKILL_TREES == _bundle.BUNDLE_TREES, (
+    "the pi package manifest drifted from teamwork.bundle"
+)
 TARBALL_FILES = ("README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md")
 
 

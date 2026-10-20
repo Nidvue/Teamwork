@@ -80,6 +80,24 @@ exposes, then routes the strongest available model to the decision lanes and the
 economy model to the mechanical lanes; `TEAMWORK_AGENT_HOST` pins the detection when
 the markers are ambiguous. Policy: [Concurrency](Concurrency.md).
 
+## The skill copy is the thing that runs
+
+Every host reads a *copy* of this skill from its skills directory, so the copy has
+to follow the remote. One command owns that on every host:
+
+```sh
+teamwork refresh            # fetch origin/main, then mirror into the host's skills dir
+teamwork refresh --check    # drift only, writes nothing, exit 1 when stale
+teamwork refresh --dest ~/.agents/skills/teamwork   # another host's directory
+teamwork refresh --mirror --repo <url>             # no checkout yet: create the mirror once
+```
+
+Measured failure this prevents: a host copy with an old `SKILL.md` and eight
+engine modules missing - the engine imported `config`/`gitutil`/`records` fine
+from the checkout and failed from the installed copy. A dirty checkout is
+mirrored, never reset; files the source dropped are deleted; a host reload is
+required after a write and the command says so.
+
 ## Rules
 
 1. **The engine is the constant.** `teamwork.py` (stdlib only, Python 3.9-3.13) is
