@@ -180,7 +180,15 @@ ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 #: 11.2.4 version token: a ``/`` or ``.`` abuts a URL/link destination, so it
 #: does not match; that is what keeps ``.../compare/v1.1.2...HEAD`` out.
 VERSION_TOKEN = re.compile(r"(?<![\w./-])v?(\d+\.\d+\.\d+)(?![\w./-])")
-TAGGED_TOKEN = re.compile(r"(?<![\w./-])v(\d+\.\d+\.\d+)(?![\w./-])")
+#: 11.2.4 R9: the frozen tag-claim pattern, copied from the contract byte for
+#: byte. It has exactly **one** capture group, so the claimed tag is always
+#: ``f"v{match.group(1)}"`` and no branch of the alternation can say ``vNone``.
+TAGGED_TOKEN = re.compile(
+    r"(?:(?<![\w./-])v"
+    r"|(?<![\w./-])(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+"
+    r"|releases/tag/|compare/)v?)"
+    r"(\d+\.\d+\.\d+)(?![-/\w])(?!\.\w)"
+)
 PROJECT_CONTEXT = re.compile(r"(?i)teamwork")
 #: 11.2.4: a foreign tool's version is not a teamwork version. Matched per
 #: token, not per line: ``Install Teamwork 1.0.2 to match python: 3.12.13``
@@ -712,6 +720,102 @@ def _version_tags(repo_root: Path) -> list[str]:
     return sorted(tags, key=sort_key)
 
 
+def _is_ancestor(repo_root: Path, tag: str, rev: str = "HEAD") -> bool:
+    """``git merge-base --is-ancestor <tag> <rev>`` - exit 0 means reachable."""
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo_root), "merge-base", "--is-ancestor", tag, rev],
+            capture_output=True,
+            timeout=300,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise InputError(f"git merge-base --is-ancestor {tag} {rev}: {exc}") from exc
+    return proc.returncode == 0
+
+
+def _reachable_version_tags(repo_root: Path) -> list[str]:
+    """The version tags whose commit is reachable from HEAD (11.2.2, set ``A``)."""
+    return [tag for tag in _version_tags(repo_root) if _is_ancestor(repo_root, tag, "HEAD")]
+
+
+def _tags_at_head(repo_root: Path) -> set[str]:
+    """The version tags that point at HEAD (11.2.2, set ``O``)."""
+    listed = _git(repo_root, "tag", "--points-at", "HEAD") or ""
+    return {line.strip() for line in listed.splitlines() if VERSION_TAG.match(line.strip())}
+
+
+def _complete_tag_set_error(repo_root: Path) -> str | None:
+    """Why the tag set cannot be trusted, or ``None`` when it can (11.2.2).
+
+    The complete tag set is a **required input**: a shallow clone cannot see
+    the tags, and a checkout with no version tag at all cannot be distinguished
+    from a blind one. Either is an input error (exit ``2``), never a pass.
+    """
+    shallow = (_git(repo_root, "rev-parse", "--is-shallow-repository") or "").strip()
+    if shallow == "true":
+        return (
+            "shallow clone: the complete tag set is required "
+            "(git rev-parse --is-shallow-repository is true)"
+        )
+    if _version_tags(repo_root):
+        return None
+    remotes = [
+        line.strip() for line in (_git(repo_root, "remote") or "").splitlines() if line.strip()
+    ]
+    if not remotes:
+        return None
+    carrying = _remote_carries_version_tags(repo_root, remotes)
+    if carrying is False:
+        # The remote is local and carries no version tag: the empty tag set is
+        # the complete tag set, not a blind checkout.
+        return None
+    if carrying is None:
+        return (
+            "no version tag in the local checkout while a remote is configured "
+            f"({', '.join(remotes)}): the complete tag set is required and cannot be confirmed"
+        )
+    return (
+        "no version tag in the local checkout while a remote is configured "
+        f"({', '.join(remotes)}): the complete tag set is required and cannot be confirmed"
+    )
+
+
+def _remote_carries_version_tags(repo_root: Path, remotes: Sequence[str]) -> bool | None:
+    """Whether a remote carries version tags, or ``None`` when it cannot be told.
+
+    Only a **local** remote is asked (``git ls-remote --tags``), so the checker
+    never opens a socket for this: for a network remote the answer cannot be
+    confirmed offline, and an unconfirmed answer is reported as such by
+    ``_complete_tag_set_error`` instead of being guessed.
+    """
+    checked = False
+    for remote in remotes:
+        url = (_git(repo_root, "remote", "get-url", remote) or "").strip()
+        if not url:
+            continue
+        local = url[len("file://") :] if url.startswith("file://") else url
+        if not Path(local).exists():
+            continue
+        checked = True
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(repo_root), "ls-remote", "--tags", remote],
+                capture_output=True,
+                timeout=300,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if proc.returncode != 0:
+            continue
+        for line in proc.stdout.decode("utf-8", "replace").splitlines():
+            ref = line.split()[-1] if line.split() else ""
+            if ref.startswith("refs/tags/") and VERSION_TAG.match(ref[len("refs/tags/") :]):
+                return True
+    return False if checked else None
+
+
 def _all_tags(repo_root: Path) -> list[str]:
     """Every tag name, unfiltered - R4 compares release names against this."""
     listed = _git(repo_root, "tag", "-l") or ""
@@ -861,6 +965,9 @@ def _stale_exceptions(exceptions: Iterable[dict[str, str]], tags: Sequence[str])
 
 def rule_r1_tagged_version(repo_root: Path) -> RuleResult:
     """Every ``vX.Y.Z`` tag must carry that version in ``version.py`` at its commit."""
+    error = _complete_tag_set_error(repo_root)
+    if error is not None:
+        raise InputError(error)
     tags = _version_tags(repo_root)
     findings: list[str] = []
     agreed = 0
@@ -881,22 +988,34 @@ def rule_r1_tagged_version(repo_root: Path) -> RuleResult:
 
 
 def rule_r2_head_is_newer(repo_root: Path) -> RuleResult:
-    """HEAD's version must be strictly greater than every tagged version."""
+    """HEAD must be strictly newer than every tag in ``S`` (11.2.2).
+
+    ``S = A - O``: the version tags **reachable from HEAD** (``A``) minus those
+    that **point at HEAD** (``O``). A tag that is not an ancestor of HEAD is
+    invisible to R2 - it says nothing about whether this checkout is ahead of
+    its own history - so a maintenance branch is not permanently red and the
+    count is never negative.
+    """
+    error = _complete_tag_set_error(repo_root)
+    if error is not None:
+        raise InputError(error)
     head = _read_version(repo_root)
     if head is None:
         raise InputError(f"{VERSION_PATH}: no __version__ at HEAD")
     head_tuple = _version_tuple(head)
     if head_tuple is None:
         raise InputError(f"{VERSION_PATH}: __version__ {head!r} is not X.Y.Z")
-    tags = _version_tags(repo_root)
+    reachable = _reachable_version_tags(repo_root)
+    at_head = _tags_at_head(repo_root)
+    comparable = [tag for tag in reachable if tag not in at_head]
     findings: list[str] = []
-    for tag in tags:
+    for tag in comparable:
         tagged = _version_tuple(tag[1:])
         if tagged is not None and not head_tuple > tagged:
             findings.append(f"HEAD version {head} is not greater than tag {tag}")
     if findings:
         return _drift("R2", findings)
-    return _ok("R2", f"HEAD {head} is newer than {len(tags)} tag(s)")
+    return _ok("R2", f"HEAD {head} is newer than {len(comparable)} tag(s)")
 
 
 # --------------------------------------------------------------------------- #
@@ -1013,6 +1132,9 @@ def rule_r4_releases_have_tags(
     ``v1.1.3-rc1`` is a tag a release may legitimately carry. Filtering it out
     here would report an existing tag as missing.
     """
+    error = _complete_tag_set_error(repo_root)
+    if error is not None:
+        raise InputError(error)
     tags = _all_tags(repo_root)
     if fetch is None:
         return _skip("R4", f"offline: GitHub releases API not queried; {len(tags)} tag(s) local")
@@ -1033,6 +1155,9 @@ def rule_r5_tags_have_releases(
     repo_root: Path, fetch: Callable[[str], Any] | None = None
 ) -> RuleResult:
     """Every tag must have exactly the GitHub Release that publishes it."""
+    error = _complete_tag_set_error(repo_root)
+    if error is not None:
+        raise InputError(error)
     tags = _version_tags(repo_root)
     if fetch is None:
         return _skip(
