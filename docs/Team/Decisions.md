@@ -577,7 +577,7 @@ directory is reported as "could not be reclaimed" and never counted.
 
 ### Evidence
 
-`PYTHONPATH=src pytest -q` -> all green at this head (read the run: the count
+- evidence: `PYTHONPATH=src pytest -q` -> all green at this head (read the run: the count
 rises with every test another lane lands, so it is never written here);
 `tests/unit/test_worktree_reclaim.py` -> all pass;
 the guards are non-vacuous, proved by restoring the pre-fix code rather than by
