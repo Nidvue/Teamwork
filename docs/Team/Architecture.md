@@ -369,9 +369,10 @@ Two comparisons, both on the same digest definition (11.3):
 1. **npm side.** Read `https://registry.npmjs.org/@nidvue%2Fteamwork` (the
    published name is `@nidvue/teamwork`, `scripts/build_pi_package.py:23`), take
    every version key, and for each download `dist.tarball`; unpack the `.tgz`
-   into a temporary directory (`tarfile`, `tempfile`, never into the repo), keep
-   the `skills/teamwork/` subtree (the published skill root, [Pi-Packaging](Pi-Packaging.md)
-   section 4), and compute the payload digest on the same relative paths.
+   into a temporary directory (`tarfile`, `tempfile`, never into the repo), **map
+   the tarball paths back to payload paths with the table in 11.3.1**, and
+   compute the 11.3 digest on those payload-relative paths. Hashing the tarball
+   where it sits is not the definition: a tarball path is not a payload path.
 2. **local side.** The tag whose version equals the npm version, at that tag's
    commit; its digest must equal the tarball's.
 
@@ -385,9 +386,16 @@ payload, so a change in it does not change what a user receives, and including
 it would report a drift for a repository-side edit (11.5, third example). The
 exclusion is part of the definition, applied uniformly, not per-version.
 
-Every exception prints a visible line: `R3 ok 1.1.1 admitted by exception (<reason>)`
-for an admitted version, and the DRIFT line names the version, both digests and
-the tag that was tried.
+Every exception is visible in R3's `detail` on every run, whatever R3's status:
+the note `<version> admitted by exception (<reason>)` is appended to the R3
+`detail` (`_exception_notes`), so a clean run reads
+`R3 ok 1 npm version(s) match a tagged payload digest; 1.1.1 admitted by exception (...)`
+and an offline run reads `R3 SKIP offline: npm registry not queried; 1.1.1
+admitted by exception (...)`. An exception never turns a DRIFT into an ok: a
+DRIFT line names the version, the tarball digest, the local digest and the tag
+that was tried. An exception naming a version that *does* have a `vX.Y.Z` tag is
+itself DRIFT (`exception names a traceable version ...; remove the entry`): an
+entry admits an untraceable version, it does not retire a traceable one.
 
 #### 11.2.4 R6, R8, R9 detail - the markdown scanners
 
@@ -447,10 +455,15 @@ the channel resolves and every unmarked channel line is `ok`; HTTP 404 means the
 distribution is unpublished, so each **unmarked** channel line is DRIFT (name
 the file and line, and the 404) while marked ones stay `ok`.
 
-**R9.** The token regex is R6's without the project-context condition: any
-`vX.Y.Z` token not inside a URL and not illustrative-marked must appear in
-`git tag -l`. It is the rule that catches a pin (`--branch <tag>`) to a tag that
-was never created (11.5) and a rollback paragraph that quotes a deleted tag.
+**R9.** The token regex is R6's **without** the optional `v` and **without** the
+project-context condition: `(?<![\w./-])v(\d+\.\d+\.\d+)(?![\w./-])`. The `v`
+is mandatory here, because R9's DRIFT clause is about a *tag* name and a bare
+semver has no `v` to prove it is one: `python: 3.12.13` names a Python version,
+and turning it into "missing tag `v3.12.13`" would be a defect, not a finding.
+R6 owns bare version prose; R9 owns `v`-prefixed tag claims. Any `vX.Y.Z` token
+not inside a URL and not illustrative-marked must appear in `git tag -l`. It is
+the rule that catches a pin (`--branch <tag>`) to a tag that was never created
+(11.5) and a rollback paragraph that quotes a deleted tag.
 
 ### 11.3 Bundled payload and its digest (frozen)
 
@@ -475,10 +488,48 @@ digest = sha256(("\n".join(lines) + "\n").encode("utf-8")).hexdigest()[:16]
   file that cannot be read is drift, not a skip.
 * `payload_digest(root, rev)`: with a `rev` the tree is materialised with
   `git archive <rev>` into a temporary directory (never `git checkout`), with
-  `rev=None` the working tree is read in place. The npm side uses the unpacked
-  tarball subtree as `root` (11.2.3).
-* The first 16 hex characters are the published comparison form (`b1ba21e39436bf09`,
-  64 bits) - long enough that a collision is not a realistic accidental pass.
+  `rev=None` the working tree is read in place. The npm side passes a staging
+  tree built from the published tarball by 11.3.1, never the unpacked tarball
+  itself.
+* The first 16 hex characters are the published comparison form
+  (`a01d9f0cbee641c3`, 64 bits) - long enough that a collision is not a
+  realistic accidental pass.
+
+#### 11.3.1 Payload-path layout of a published tarball (frozen)
+
+`scripts/build_pi_package.copy_skill` **re-lays** the payload: a tarball path is
+not a payload path. Hashing a `.tgz` where it sits therefore produces a digest no
+commit can reproduce - measured, in place and package-relative over all files,
+npm `1.1.2` gives `7c540615af001e46` and `1.1.0` gives `c7bc2b6d4ec6bfde`, neither
+of which matches any tag. The mapping below is part of the digest definition,
+applied to every npm version, never per-version:
+
+| Tarball prefix (under `package/`) | Payload prefix | Produced by |
+|---|---|---|
+| `skills/teamwork/` | `` (payload root) | `copy_skill`, the portable skill, `SKILL_FILES` + `SKILL_TREES` |
+| `skills/teamwork-pi/` | `templates/pi-package/skills/teamwork-pi/` | `copy_skill`, copied from that repository path |
+| `prompts/` | `templates/pi-package/prompts/` | `copy_skill`, copied from that repository path |
+
+Everything else in the tarball (`package.json`, `README.md`, `LICENSE`,
+`NOTICE`, `CHANGELOG.md`, `SECURITY.md`) is package metadata, not bundled
+payload, and is ignored. A tarball with none of the three prefixes is an input
+error (exit `2`), not an empty payload.
+
+To build the npm-side `root`: unpack the `.tgz`, create an empty staging
+directory, and copy every file under each tarball prefix to the corresponding
+payload prefix, preserving the relative path below the prefix. Then run the 11.3
+digest on the staging directory. Measured with this mapping (and 11.2.3's
+exclusion), `1.1.2` gives `a01d9f0cbee641c3` = the payload of commit `3f4981d`,
+`1.1.0` gives `ebfc2538e3d3d605` = tag `v1.1.0`, and `1.1.1` gives
+`726bc547afc41ead`, which matches no commit.
+
+Two implementation consequences, both measured:
+
+* **Line order is by string over the whole line** (`digest-then-path`), not by
+  path. Sorting by path alone gives `b1ba21e39436bf09` for `1.1.2` and
+  `0786a4ff3c2f84ba` for `1.1.1` when `scripts/build_pi_package.py` is included;
+  those are **not** 11.3 digests and must never be published as such.
+* Symlinks are resolved and unreadable files are drift, exactly as in 11.3.
 
 ### 11.4 `release-exceptions.json` (frozen)
 
@@ -491,7 +542,7 @@ and no others:
   {
     "version": "1.1.1",
     "reason": "published from a workspace whose commit was never pushed",
-    "evidence": "digest 0786a4ff3c2f84ba matches no commit in git rev-list --all",
+    "evidence": "digest 726bc547afc41ead matches no commit in git rev-list --all",
     "recorded": "2026-10-20"
   }
 ]
@@ -517,14 +568,22 @@ DRIFT that R3 found for a *different* version.
 
 ### 11.5 Worked examples - three measured facts
 
-Measured by the CEO on the repository, not re-derived here; the checker must
-reproduce them and the implementer must not contradict them.
+Every digest below is an **11.3 digest**: the mapping of 11.3.1 applied to the
+tarball and `scripts/build_pi_package.py` excluded, lines sorted as strings.
+The checker must reproduce them and the implementer must not contradict them.
 
 | # | Measurement | What the contract makes of it |
 |---|---|---|
-| 1 | npm `1.1.2` payload digest `b1ba21e39436bf09` equals the bundled-payload digest of commit `3f4981d` | `v1.1.2` must be tagged **at `3f4981d`**; then R1, R3, R5 hold for it and R2 forces the next `version.py` bump <!-- release-consistency: illustrative --> |
-| 2 | npm `1.1.1` payload digest `0786a4ff3c2f84ba` matches **no** commit in `git rev-list --all`; its `version.py` sha256 `545fc1605b3997460a1cf348562c43fed5a8315c83ac8291f9cbf4078703d36d` appears in no commit | `1.1.1` is the 11.4 exception entry, never a tag: there is no commit to tag, so a tag would be a lie the digest can prove <!-- release-consistency: illustrative --> |
-| 3 | npm `1.1.0` differs from tag `v1.1.0` **only** in `scripts/build_pi_package.py` | the payload comparison must exclude that file (11.2.3), or a green release reads as drift |
+| 1 | npm `1.1.2` payload digest `a01d9f0cbee641c3` equals the bundled-payload digest of commit `3f4981d` | `v1.1.2` must be tagged **at `3f4981d`**; then R1, R3, R5 hold for it and R2 forces the next `version.py` bump <!-- release-consistency: illustrative --> |
+| 2 | npm `1.1.1` payload digest `726bc547afc41ead` matches **no** commit in `git rev-list --all`; its `version.py` sha256 `545fc1605b3997460a1cf348562c43fed5a8315c83ac8291f9cbf4078703d36d` appears in no commit | `1.1.1` is the 11.4 exception entry, never a tag: there is no commit to tag, so a tag would be a lie the digest can prove <!-- release-consistency: illustrative --> |
+| 3 | npm `1.1.0`, mapped per 11.3.1 and excluding `scripts/build_pi_package.py`, gives `ebfc2538e3d3d605` = tag `v1.1.0`; **including** that file the same comparison gives `acec49f6cd1fe99a` for the tarball vs `cd43f09293a49c68` for the tag, and they differ only in that file | the payload comparison must map the paths (11.3.1) and exclude that file (11.2.3), or a green release reads as drift <!-- release-consistency: illustrative --> |
+
+Commands behind the numbers (reproducible from any checkout): the three
+tarballs were fetched with `npm pack @nidvue/teamwork@<version>` into a temporary
+directory, unpacked, mapped per 11.3.1 and hashed per 11.3; the local side is
+`payload_digest(root, "3f4981d")` and `payload_digest(root, "v1.1.0")`. The
+1.1.1 absence was checked by digesting all 392 commits of `git rev-list --all`
+with the same function: no match.
 
 Example 1 also fixes the release order: tag the payload commit, then let CI's
 `release.yml` build from the tag - never retag a later doc-only commit, whose
