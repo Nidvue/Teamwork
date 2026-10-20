@@ -925,4 +925,4 @@ No blockers; no unrelated changes; branch mergeable.
 - author evidence: commit 075256c
 - reviewer evidence: checks @075256c: merge-tree clean rc=0; mutant reverting 6313 to if t.get("forced"): -> test_a_finished_task_override_does_not_hold_the_stop_gate FAILS at tests/unit/test_integrity_fixes.py:776 (finished-override half); open-override half still passes; pytest 600 passed 1 skipped; ruff check . All checks passed; ruff format --check 137 files already formatted; mypy src Success 15 files; links issues: 0; loop gate-overrides section = none, blocker "gate override(s) in force" GONE; audit 11 pre-existing problems, none gate-override related
 - findings history: 
-- branch / merge: ceo/t-0054-a-finished-task-gate-override-cannot-hol / pending
+- branch / merge: ceo/t-0054-a-finished-task-gate-override-cannot-hol / e578482
