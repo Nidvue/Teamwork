@@ -63,9 +63,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 225 kB |
-| `standard` | 9 | 334 kB |
-| `full` | 16 | 583 kB |
+| `slim` (default) | 6 | 226 kB |
+| `standard` | 9 | 336 kB |
+| `full` | 16 | 586 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -106,9 +106,8 @@ specialist (Designer owns `ui`, Reviewer verifies), and a dedicated performance
 engineer (perf and load live in the Release Engineer's `release` layer and the
 Tester's `integration` layer). Adding these would add ceremony without adding a
 gate. **Staff two Reviewers** (`reviewer-1`,
-`reviewer-2`): one verifies, another merges. With a single
-Reviewer the same instance must do both, which is allowed but recorded as an
-exception (`review.merge_self`) and reported by `audit`. Without a `reviewer` the team cannot pass review
+`reviewer-2`): a passing review merges its own PR, so the second lane exists to
+fan the *review* queue out, not to land what the first lane passed. Without a `reviewer` the team cannot pass review
 or merge; without an `architect` nothing freezes interfaces. `init` warns when
 either is missing.
 
@@ -144,7 +143,7 @@ verdict, archive entry. A peer message is only a pointer to the record.
 | Process, risk register | COO | `Risks.md` |
 | Acceptance criteria and their verification | CEO writes; an independent role verifies | `Criteria.md` |
 | Review verdict | the Reviewer that verified it | task `review_status`, `Reviews.md` |
-| Merge into `main` | a **different** Reviewer than the one who passed it | merge commit, `Archive.md` |
+| Merge into `main` | the pass itself, recorded by the Reviewer who verified it; the author is refused | merge commit, `Archive.md` |
 | Test layer ownership and required coverage | each layer's own role; the Architect declares the required layers | `Tests.md`, `TestPlan.md` |
 | Contested design/decision | tribunal: CEO + CTO + CFO, after 3 rounds | `Disputes.md` + `Decisions.md` |
 | Red-line refusal | blocked until the CEO relays explicit user authorization | `Global/GlobalMemory.md`, `Decisions.md` |
@@ -183,8 +182,13 @@ teamwork.py selfcheck <role> <T-id> --by <Instance> --note "<what you re-read>" 
 teamwork.py pr open --agent <Instance> --task <T-id>
 # Reviewer:
 teamwork.py review <role> <T-id> --by <Reviewer> --result pass --evidence "<verify cmd @rev -> result>"
-teamwork.py pr merge --pr <P-id> --by <another-Reviewer> [--delete-branch]
+teamwork.py pr merge --pr <P-id> --by <reviewer>  # a pass already merged it;
+#                            use this only to land a --no-merge pass
 ```
+
+A pass merges the deliverable at once and deletes its branch, so there is no
+second Reviewer step: the engine refuses an author merging their own work and
+records the pass-without-merge only when `--no-merge` is given.
 
 Charters do not restate this; they state what the role produces and decides.
 
