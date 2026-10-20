@@ -6685,17 +6685,27 @@ def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = No
     return f"# archive: wrote the accepted-results entry for {branch} on the base"
 
 
-#: Credential rules of the shipped privacy gate. The archive mask borrows the
-#: gate's own rule table rather than re-declaring shapes: a hand-written mask
-#: drifted from the scanner twice (it covered 2 of the 5 credential rules and
-#: masked ``sk-learn-pipeline``, which the gate never reports), and the archive is
-#: the one place where a divergence between mask and gate is unrecoverable.
+#: Rules of the shipped privacy gate that the archive mask covers. The mask
+#: borrows the gate's own rule table rather than re-declaring shapes: a
+#: hand-written mask drifted from the scanner twice (it covered 2 of the 5
+#: credential rules and masked ``sk-learn-pipeline``, which the gate never
+#: reports), and the archive is the one place where a divergence between mask
+#: and gate is unrecoverable.
+#:
+#: The set is every rule the gate reports except the two it silences inside a
+#: quotation (``_QUOTED_PATH_RULES``): a path *shape* is not personal data, but
+#: an address is, and the gate keeps the identity rules armed on a quoted
+#: evidence line on purpose. Naming the two identity rules here is what stops
+#: the engine from writing an archive record the gate rejects - the review
+#: record is where a quoted address becomes permanent.
 CREDENTIAL_RULES = (
     "private-key",
     "api-token",
     "env-secret",
     "json-secret",
     "high-entropy-secret",
+    "personal-email",
+    "private-domain",
 )
 
 
@@ -6733,14 +6743,17 @@ def mask_secret_shapes(text: str) -> str:
 
     An archive entry quotes another agent's words verbatim, so a verdict that
     proved a credential rule fires by quoting a fake token puts that token into
-    history. The mask is exactly the gate's own finding set: a value the gate
-    reports becomes ``<redacted-RULE>``, and a value it does not report is left
-    byte-identical, so ordinary prose, commit shas, ``sk-something`` helper names
-    and a JSON placeholder the gate accepts survive. Every value comes from the
-    gate's own ``scan_lines`` - the JSON rule included - so the mask cannot drift
-    by taking a regex directly and skipping the gate's placeholder, code-shape and
-    allow filters. The quoted claim ("a token on the exempted line is still
-    reported") remains readable.
+    history. The mask is the gate's own finding set minus the two path *shapes*
+    the gate itself silences inside a quotation (``home-path``,
+    ``agent-config``): a value the gate reports becomes ``<redacted-RULE>``, and
+    a value it does not report is left byte-identical, so ordinary prose, commit
+    shas, ``sk-something`` helper names, a JSON placeholder the gate accepts and
+    a role mailbox survive. Every value comes from the gate's own ``scan_lines``
+    - the JSON rule included - so the mask cannot drift by taking a regex
+    directly and skipping the gate's placeholder, code-shape and allow filters.
+    The quoted claim ("a token on the exempted line is still reported") remains
+    readable, and so does the finding around a redacted address: the ADDRESS is
+    replaced, not the evidence.
     """
     if not text:
         return text
