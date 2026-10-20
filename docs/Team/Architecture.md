@@ -52,6 +52,7 @@ Teamwork/
 │   ├── teamwork.py           # thin compat shim -> teamwork.cli.main
 │   ├── verify_release.py     # build + install + smoke-test a wheel
 │   ├── build_pi_package.py   # assemble the pi-teamwork tarball (make package)
+│   ├── check_release_consistency.py  # the release-truth gate (make release-consistency)
 │   ├── sync_skill.py         # mirror this checkout into an installed skills dir (make sync-skill)
 │   └── privacy_scan.py       # tree + history privacy gate
 ├── tests/{unit,integration,acceptance}/  # pytest
