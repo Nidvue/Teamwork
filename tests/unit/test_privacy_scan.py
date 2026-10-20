@@ -477,3 +477,82 @@ def test_shipped_allowlist_has_exactly_one_justified_entry():
     assert entries == [r"^\.pi/agent/npm$"]
     # every exemption carries a reason next to it in the file
     assert any("T-0001" in ln for ln in lines if ln.startswith("#"))
+
+
+def _repo_with_planted_credential(tmp_path: Path) -> tuple[Path, str]:
+    """A throwaway git repo holding one planted credential, tracked."""
+    import os
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    planted = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
+    (repo / "leak.py").write_text(f'TOKEN = "{planted}"\n', encoding="utf-8")
+    env = {
+        **os.environ,
+        "HOME": str(tmp_path),
+        "GIT_AUTHOR_NAME": "Technical Writer",
+        "GIT_AUTHOR_EMAIL": "technicalwriter@agents.nidvue.com",
+        "GIT_COMMITTER_NAME": "Technical Writer",
+        "GIT_COMMITTER_EMAIL": "technicalwriter@agents.nidvue.com",
+    }
+    for args in (
+        ("git", "init", "-q", "-b", "main", "."),
+        ("git", "add", "."),
+        ("git", "commit", "-qm", "plant"),
+    ):
+        subprocess.run(args, cwd=repo, env=env, check=True, capture_output=True)
+    return repo, planted
+
+
+def test_reveal_never_prints_the_unmasked_secret(tmp_path, capsys):
+    """A log sink must never receive the value, even under ``--reveal``."""
+    repo, planted = _repo_with_planted_credential(tmp_path)
+    code = ps.main(["--tree", "--root", str(repo), "--reveal"])
+    out, err = capsys.readouterr()
+    assert code == 1, "a planted credential must still fail the scan"
+    assert planted not in out, "the unmasked secret must not reach stdout"
+    assert planted not in err, "the unmasked secret must not reach stderr"
+    assert ps._fingerprint(planted) in out, "--reveal must yield a stable fingerprint"
+    # The fingerprint is not usable as the secret and does not embed it.
+    assert planted[:12] not in out
+
+
+def test_plain_report_omits_the_fingerprint(tmp_path, capsys):
+    """Without --reveal the fingerprint is not emitted at all."""
+    repo, planted = _repo_with_planted_credential(tmp_path)
+    assert ps.main(["--tree", "--root", str(repo)]) == 1
+    out, err = capsys.readouterr()
+    assert planted not in out + err
+    assert "sha256:" not in out
+
+
+def test_reveal_to_writes_a_0600_file_and_keeps_the_log_clean(tmp_path, capsys):
+    """``--reveal-to`` exports the raw value to a private file, not to the log."""
+    import stat
+
+    repo, planted = _repo_with_planted_credential(tmp_path)
+    export = tmp_path / "revealed.tsv"
+    code = ps.main(["--tree", "--root", str(repo), "--reveal-to", str(export)])
+    out, err = capsys.readouterr()
+    assert code == 1
+    assert planted not in out, "the export must not be echoed to stdout"
+    assert planted not in err, "the export must not be echoed to stderr"
+    assert "WARNING" in err, "the operator must be warned that a secret file exists"
+    mode = stat.S_IMODE(export.stat().st_mode)
+    assert mode == 0o600, f"reveal file must be 0600, got {oct(mode)}"
+    body = export.read_text(encoding="utf-8")
+    assert planted in body
+    assert ps._fingerprint(planted) in body
+
+
+def test_reveal_to_refuses_to_clobber_an_existing_file(tmp_path, capsys):
+    """An existing path is never silently overwritten with plaintext secrets."""
+    repo, planted = _repo_with_planted_credential(tmp_path)
+    export = tmp_path / "revealed.tsv"
+    export.write_text("keep me", encoding="utf-8")
+    code = ps.main(["--tree", "--root", str(repo), "--reveal-to", str(export)])
+    capsys.readouterr()
+    assert code == 2, "an existing reveal path must be a usage error"
+    assert export.read_text(encoding="utf-8") == "keep me"
+    assert planted not in export.read_text(encoding="utf-8")
