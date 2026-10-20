@@ -413,7 +413,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 
 - date: 2026-10-19
 - kind: technical
-- status: superseded by D-20261019-CEO-15 (the blessed surface is now two literals, one per quoted path family, not one)
+- status: superseded by D-20261019-CEO-15, then by D-20261020-CEO-4 (two path literals per quoted path family, plus three fabricated probe values that a reviewer's own evidence quoted)
 - deciders: CEO (ceo)
 - decided by: CEO
 - task: T-0027
@@ -421,9 +421,25 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - options considered: (1) filter-repo rewrite of the unpublished local main; (2) delete the quoted path from the tree only; (3) commit an allowlist with one justified entry per rule and pass `--allow` in the Makefile target and the CI job (chosen).
 - decision: pass `--allow .github/privacy-allow.txt` from `make privacy` and the CI privacy job, and bless one pattern per quoted path family, starting with the pi install tree (`^\.pi/agent/npm$`), which covers the scanner's own fixture in the tree and the history blobs that quote the same path. Do not rewrite history. No dependency lockfile exists in this repository today, and a lockfile URL is not a scanner finding, so nothing from one is allowlisted.
 - why: a rewrite would also have to rewrite docs/Team/Archive.md and this file, which quote commit SHAs as audit evidence; no lockfile is tracked in this repository, so there was no lockfile to rewrite and nothing from one could be blessed.
-- evidence: `privacy_scan --tree --history --allow .github/privacy-allow.txt` -> PASS 0 findings; `grep -cE '^\^' .github/privacy-allow.txt` -> one live entry per quoted family; `git ls-files | grep -ci lock` -> 0 (no lockfile is tracked). No finding count and no line number is quoted here: the commit that documents a count changes it, which is how this record went stale.
-- falsified by: a scan with `--allow` reporting a finding whose pattern is not one of the exempted quoted path families. That falsifier fired: findings outside the single pattern appeared (the operator user name in an archived build path), so the gate was re-ruled in D-20261019-CEO-15 rather than silently widened.
+- evidence: `privacy_scan --tree --history --allow .github/privacy-allow.txt` -> PASS 0 findings; `grep -cE '^\^' .github/privacy-allow.txt` -> at least one live entry per quoted family (never one exact total: the file also carries value-shaped entries for fabricated probe values); `git ls-files | grep -ci lock` -> 0 (no lockfile is tracked). No finding count and no line number is quoted here: the commit that documents a count changes it, which is how this record went stale.
+- falsified by: a scan with `--allow` reporting a finding whose pattern is not one of the exempted quoted path families. That falsifier fired: a finding appeared outside the single pattern (the operator user name in an archived build path), so the gate was re-ruled in D-20261019-CEO-15 rather than silently widened. The exemption's exact membership is deliberately not restated here - the allowlist file is the record, and this one went stale precisely because it pinned a shape the file had outgrown.
 - consequences: `make privacy` and CI pass `--allow`; the blessed surface is one fully escaped literal per quoted path family, so a credential quoted on the same line is still reported; a new secret is fixed at source and never added to the allowlist; the audit quotations stay in history as evidence.
+
+## D-20261020-CEO-4 - A fabricated probe value is exempted by its exact literal, never by a rule
+
+- date: 2026-10-20
+- kind: security
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0048
+- context: two reviewers proved the gate still catches a credential by putting a fake one on the line they probed - `sk-live-0123...`, `PASSWORD="<passphrase>"` and two more. Their evidence is quoted verbatim into `docs/Team/Archive.md` by `archive_append`, so those invented values entered two unpublished blob revisions. `privacy_scan --tree --history --allow .github/privacy-allow.txt` then failed with three `critical` findings inside the archive, i.e. the archive that records the proof that the gate works became the reason the gate went red.
+- options considered: (1) `git filter-repo` the two unpublished commits - refused, it rewrites every SHA the archive and `docs/Team/Decisions.md` quote as evidence, and a red line covers history rewrite; (2) delete the quoted evidence lines - refused as deception: they are a reviewer's real findings; (3) mask credential shapes at the moment `archive_append` writes the entry, and exempt the two already-written values by their exact literal (chosen); (4) widen a rule - never: no rule is disabled.
+- decision: `archive_append` masks a credential shape in quoted evidence at write time, so no new fabricated or real value can enter the archive; the two values already written are exempted by three fully escaped anchored literals of their own, each naming the exact string, in `.github/privacy-allow.txt`.
+- why: masking at write time fixes the source for the future, and an exact literal is the narrowest possible exemption for the past. A rule-shaped entry (`sk-live-.*`) would exempt every future token of that family, which is the defect D-20261019-CEO-15 already refused for paths.
+- evidence: `scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` -> PASS, 0 findings; the same command without `--allow` -> the three findings are the only credential-rule hits, all three inside a quoted archive evidence line; `tests/unit/test_privacy_scan.py::test_a_fabricated_probe_value_is_exempted_but_its_neighbours_are_not` shows the exempted literal passes while a one-character sibling and a real `ghp_` token sharing the line are still reported; `tests/unit/test_archive_masks_a_credential_shape_quoted_as_evidence` shows a credential in a verdict never reaches `Archive.md`.
+- falsified by: any credential-shaped value the scanner reports on a line whose own text is exempted, OR an allowlist entry that matches more than one string.
+- consequences: the archive can quote a fabricated probe value without turning the shipped gate red; a real secret is still reported because its literal is not exempted and masking only rewrites the archived copy, never the scanner; the exemption list is longer by three value literals and the guard test asserts each one is a single escaped literal.
 
 ## D-20261019-CEO-9 - privacy_scan --history follows the reflog, so amended commits keep the local gate red
 

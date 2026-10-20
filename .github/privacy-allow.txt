@@ -31,3 +31,15 @@
 # A user name is not a credential, which is why this shape - and nothing else - is
 # exempted; anything secret on such a line is still caught by its own rule.
 ^/home/pingz$
+
+# The three fabricated probe values below are what a reviewer's own evidence
+# quoted while proving that the gate CATCHES a credential; they are not secrets,
+# they were invented to be caught. They reached docs/Team/Archive.md through the
+# verbatim quote and now live in two blob revisions of unpublished commits, so
+# the choice is the same one D-20261019-CEO-15 records: exempt the exact literal
+# instead of rewriting history and invalidating the SHAs the archive cites.
+# Each entry is anchored and fully escaped, so any other token, passphrase or
+# password shape on the same line is still reported.
+^sk-live-0123456789abcdef0123456789abcdef$
+^hunter2 passphrase$
+^changeme-placeholder$
