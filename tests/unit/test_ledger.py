@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from teamwork import engine
 
@@ -184,3 +185,38 @@ def test_audit_trail_ignores_a_foreign_workspace_manifest(tmp_path: Path, capsys
     hits = engine._audit_audit_trail_append_only_hash_chained(root, ["ceo"], None)
     assert hits == 0
     assert "FEWER records" not in capsys.readouterr().out
+
+
+def test_the_manifest_checkpoint_survives_later_ledger_work(tmp_path: Path, capsys) -> None:
+    """The manifest pins the export record, so work after the export still verifies.
+
+    Pinning the live head made the published recipe impossible to follow: the very
+    act of merging the manifest appends ledger records, so "compare the recomputed
+    head with ledger.head above" could never hold on a shipped tree.
+    """
+    project = tmp_path / "project"
+    root = project / ".pi" / "Teamwork" / "Teams" / "T"
+    root.mkdir(parents=True)
+    (root / "Settings.json").write_text('{"TeamId": "team-a"}\n', encoding="utf-8")
+    _seed(root)
+    docs = project / "docs" / "Team"
+    docs.mkdir(parents=True)
+    args = SimpleNamespace(dry_run=False, by="")
+    assert engine.ledger_export(root, args) == 0
+    manifest = json.loads((docs / engine.F_MANIFEST).read_text(encoding="utf-8"))
+
+    # the checkpoint names the export event, and its hash is that record's hash
+    checkpoint = manifest["ledger"]["checkpoint_n"]
+    records = engine.ledger_read(root)
+    assert records[checkpoint - 1]["action"] == "ledger.export"
+    assert manifest["ledger"]["head"] == records[checkpoint - 1]["hash"]
+
+    # later work moves the head; the checkpoint still resolves to the same record
+    engine.ledger_append(root, "task.add", "ceo", "T-0009", "work after the export")
+    later = engine.ledger_read(root)
+    assert later[-1]["hash"] != manifest["ledger"]["head"]
+    assert later[manifest["ledger"]["checkpoint_n"] - 1]["hash"] == manifest["ledger"]["head"]
+    assert engine.ledger_verify(root) == []
+    assert "checkpoint_n" in manifest["ledger"]
+    report = (docs / engine.F_AUDITREPORT).read_text(encoding="utf-8")
+    assert f"checkpoint: record #{checkpoint}" in report
