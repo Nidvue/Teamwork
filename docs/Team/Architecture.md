@@ -337,14 +337,14 @@ invents an `ok`.
 | Rule | Published fact | Local fact | DRIFT when | Offline |
 |---|---|---|---|---|
 | R1 | every git tag `vX.Y.Z` | `src/teamwork/version.py` **at that tag's commit** | the file is missing there, has no `__version__`, or its value is not `X.Y.Z` | evaluates |
-| R2 | `version.py` at HEAD | every tag's version | the HEAD version is not **strictly greater** than some tag's version | evaluates |
+| R2 | `version.py` at HEAD | every tag's version **except the tags that point at HEAD** | the HEAD version is not **strictly greater** than some *other* tag's version | evaluates |
 | R3 | every npm-published version | a git tag whose bundled-payload digest (11.3) equals that tarball's payload digest, or an entry in 11.4 | neither exists | `SKIP` |
 | R4 | every GitHub Release | `git tag -l` | no tag has the release's name | `SKIP` |
 | R5 | every git tag | the GitHub Release list | no release carries the tag's name | `SKIP` |
 | R6 | committed markdown that prints a version | `version.py` at HEAD | a printed literal version is **older** than HEAD's and its line/block is not illustrative-marked | evaluates |
 | R7 | `CHANGELOG.md` | every tagged version | a tagged version has no `## [X.Y.Z]` section, or more than one | evaluates |
 | R8 | committed markdown that advertises an install channel | the shipped name/entry point, and (online) PyPI | the channel names a package or executable the repository does not ship, or `--online` finds the channel does not resolve and the text does not mark it unavailable | partial (see 11.2.4) |
-| R9 | committed markdown that names a tag | `git tag -l` | a `vX.Y.Z` token names a tag that does not exist | evaluates |
+| R9 | committed markdown that names a tag | `git tag -l` | a `vX.Y.Z` token, or a bare `X.Y.Z` token in a pin/tag context (11.2.4), names a tag that does not exist | evaluates |
 
 #### 11.2.1 R1 detail
 
@@ -354,13 +354,39 @@ invents an `ok`.
   HEAD, and the tag object's commit for an annotated tag.
 * `__version__\s*=\s*["']([^"']+)["']` is the parse; a non-semver value is drift.
 
-#### 11.2.2 R2 detail
+#### 11.2.2 R1/R2 on a tag-push checkout
 
-Versions compare as integer tuples `(major, minor, patch)`. Consequence to keep
-in mind: the moment a tag is created on the commit that carries that same
-version, R2
-requires the next commit on `main` to bump `version.py` - tag first, bump
-immediately after, never leave HEAD equal to a tag.
+Versions compare as integer tuples `(major, minor, patch)`. R1 evaluates every
+tag against **its own commit** and never against HEAD (11.2.1), so it is
+indifferent to what is checked out.
+
+R2 asks a different question, and the contract must not confuse the two: *is
+this checkout ahead of the newest release?* It is therefore evaluated over the
+tag set **minus the tags that point at HEAD** (`git tag --points-at HEAD`). The
+reason is structural, not a convenience: R1 requires `version.py` at a tag's
+commit to **equal** that tag's name, so the commit that carries `vX.Y.Z` has
+`version.py == X.Y.Z`, and comparing HEAD against that tag could only ever ask
+whether a release is greater than itself. Including it makes the two rules
+mutually exclusive on exactly the revision `.github/workflows/release.yml`
+builds (a `v*` tag push), so the gate could never be green on the build it
+exists to gate.
+
+| HEAD state | R1 | R2 |
+|---|---|---|
+| HEAD is exactly tag `vX.Y.Z`, its `version.py` is `X.Y.Z`, no other tag at HEAD | `ok` (the tag agrees with its own commit) | `ok` - HEAD's own tag is excluded; detail counts the remaining tags (`N-1`) |
+| HEAD newer than every tag | `ok` | `ok` |
+| HEAD older than the newest tag | `ok` (each tag still agrees with its own commit) | DRIFT - names each tag ahead of HEAD |
+| HEAD between two tags | `ok` | DRIFT - names the tags ahead of HEAD only |
+
+The first row is the *detached HEAD that is exactly a tag*: a fresh
+`git checkout vX.Y.Z`, the release CI checkout, or the tag commit on `main`
+before the next bump all land there. R2 is `ok`; the gate is green on the
+release build. It stays meaningful on `main`: once `main` moves past the tag
+without a bump, HEAD's version equals the newest tag, that tag no longer points
+at HEAD, and R2 is DRIFT (the release tag is then simply an older tag). The
+release order is unchanged - tag the payload commit, then bump `version.py` on
+`main` immediately after; R2 simply no longer punishes the tagged commit for
+being tagged.
 
 #### 11.2.3 R3 detail
 
@@ -455,15 +481,37 @@ the channel resolves and every unmarked channel line is `ok`; HTTP 404 means the
 distribution is unpublished, so each **unmarked** channel line is DRIFT (name
 the file and line, and the 404) while marked ones stay `ok`.
 
-**R9.** The token regex is R6's **without** the optional `v` and **without** the
-project-context condition: `(?<![\w./-])v(\d+\.\d+\.\d+)(?![\w./-])`. The `v`
-is mandatory here, because R9's DRIFT clause is about a *tag* name and a bare
-semver has no `v` to prove it is one: `python: 3.12.13` names a Python version,
-and turning it into "missing tag `v3.12.13`" would be a defect, not a finding.
-R6 owns bare version prose; R9 owns `v`-prefixed tag claims. Any `vX.Y.Z` token
-not inside a URL and not illustrative-marked must appear in `git tag -l`. It is
-the rule that catches a pin (`--branch <tag>`) to a tag that was never created
-(11.5) and a rollback paragraph that quotes a deleted tag.
+**R9.** R9's DRIFT clause is about a *tag* name, so a bare semver is a claim
+only where the surrounding text makes it one. Two forms are matched, and the
+tag claimed is `v` + whichever capture group fired:
+
+```python
+TAGGED_TOKEN = re.compile(
+    r"(?<![\w./-])(?:v(\d+\.\d+\.\d+)"
+    r"|(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+"
+    r"|releases/tag/|compare/)v?(\d+\.\d+\.\d+))(?![\-\w./])"
+)
+```
+
+* group 1 - a `v`-prefixed token anywhere (`v1.0.0` in prose);
+* group 2 - a bare semver **in a pin/tag context**, i.e. immediately after
+  `--branch`, `--tag` or `--ref` (whitespace or `=`), after
+  `git checkout`/`git switch`, or inside `releases/tag/<token>` or
+  `compare/<token>` - each with or without the `v`.
+
+R6 owns bare version prose; R9 owns tag claims. A bare semver outside those
+contexts is not a tag claim - the Python interpreter line `python: 3.12.13` in
+`docs/guide/install.md` names an interpreter, and reporting it as a missing tag
+would be a defect, not a finding. The same URL guard as R6 still applies: a `/`
+or `.` abuts a link destination, and the leading lookbehind rejects a context
+keyword that is itself preceded by `/` or `.`, so a `releases/tag/...` or
+`compare/...` URL matches nothing.
+
+Any matched token not inside a URL and not illustrative-marked must name a tag
+in `git tag -l`. The group-2 form is what catches a pin (`--branch <tag>`) or a
+`--tag`/`--ref` argument naming a version that was never tagged - the defect the
+v-mandatory form missed - and the group-1 form still catches a rollback
+paragraph that quotes a deleted tag.
 
 ### 11.3 Bundled payload and its digest (frozen)
 
