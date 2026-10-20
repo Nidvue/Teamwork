@@ -83,6 +83,57 @@ lists each milestone once, and the export names the head it was taken from.
 | T-0008 | Residual audit items: umask, UTF-16 BOM, nested repo, coverage, stale board | ceo | done | commit `e7a7d4d` |
 | T-0009 | Fix the `pr merge` commit message acting role | ceo | done | commit `9e1ab8f` |
 
+## Task-graph integrity
+
+The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.
+A task census moves every time any task changes status, so this section states
+the invariants that were verified rather than a snapshot count.
+
+Verified at the plan-layer check (2026-10-19):
+
+| invariant | result |
+|---|---|
+| dangling dependencies | 0 |
+| dependency cycles | 0 |
+| one queue holding the same task id twice | 0 |
+| tasks missing a priority | 0 |
+| queue directories that are not a role | 0 |
+
+Each task block is `## T-xxxx` followed by `- priority:`, `- status:` and
+`- deps:` lines. A dependency is written `role:T-xxxx` and resolves against that
+role's queue; the role name is compared with separators and case removed, so
+`security-auditor`, `SecurityAuditor` and `securityauditor` all resolve to
+`Roles/SecurityAuditor/TaskQueue.md`.
+
+Task ids are allocated per role queue, so every role legitimately owns a
+`T-0001`; that is not a duplicate. What is a defect is one queue carrying the
+same id twice, or a queue directory whose name is not a role in the tree.
+
+Re-measure the census (snapshot only, not evidence):
+
+```sh
+grep -h '^- status:' .pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md | sort | uniq -c
+```
+
+Re-check the dependencies (they are structural, so the result does not move with
+the task count):
+
+```sh
+grep -h '^- deps: .' .pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md
+```
+
+Each `role:T-xxxx` above must name an existing queue directory and an existing
+`## T-xxxx` block in it; a name that resolves nowhere is a dangling dependency.
+
+The invariants are executable: `tests/unit/test_task_graph_integrity.py` parses
+the shared queues with role-qualified node keys and fails on a dangling dep, a
+cycle, a duplicate open id, a task with no priority, or this section acquiring a
+census again.
+
+```sh
+PYTHONPATH=src python -m pytest tests/unit/test_task_graph_integrity.py -q
+```
+
 ## Parallel rules
 
 - Interfaces were frozen in [Architecture](Architecture.md) before any lane
