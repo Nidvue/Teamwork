@@ -40,6 +40,7 @@ Teamwork/
 │   ├── config.py             # workspace paths, record names, caps
 │   ├── engine.py             # command layer: build_parser/main + gates, review/PR, memory, model
 │   ├── gitutil.py            # git plumbing (branch/merge/LFS)
+│   ├── harness.py            # harness surface: registry, whole-proposal lint, always-on budget
 │   ├── hooks.py              # the git hooks: install/status/uninstall + the pre-commit/pre-push rules
 │   ├── imaging.py            # offline image-model probe
 │   ├── io.py                 # atomic writes, the lock, die()

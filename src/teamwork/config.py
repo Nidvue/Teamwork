@@ -385,7 +385,15 @@ ROSTER_REQUIRED = ("ceo", "developer", "tester", "reviewer")
 # Instances per role for a tier: reviewers get two so one verifies and another merges.
 ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
 
-SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria")
+# Settings keys that are workspace policy, not provider concurrency limits: `slot`
+# reads every other key as a provider cap, so a new non-provider key must be
+# listed here or it becomes a phantom provider.
+SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria", "AlwaysOnBudgetKb")
+
+# The always-on context cap, per instance, in KB: SKILL.md + the managed teamwork
+# block of AGENTS.md + the role charter + the role memory. `harness budget` reads
+# `AlwaysOnBudgetKb` from the team Settings.json and falls back to this.
+DEFAULT_ALWAYS_ON_BUDGET_KB = 120
 
 DEFAULT_BASE = "main"
 
