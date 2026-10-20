@@ -4,7 +4,7 @@
 # (AC-4 CI matrix, AC-5 privacy, AC-2 no runtime deps, AC-9 cross-platform).
 #
 # Jobs: lint, typecheck (non-blocking), test (3 OS x 3 Python), build, privacy,
-# docs. Every job must be green on the pushed revision.
+# committer guard, docs. Every job must be green on the pushed revision.
 #
 # Trigger policy: a documentation-only change must not burn the 3x3 test matrix.
 # Prose paths are ignored here and validated by `.github/workflows/docs.yml`
@@ -83,6 +83,40 @@ jobs:
             python scripts/teamwork.py identity --audit --range "${BEFORE_SHA}..${HEAD_SHA}"
           else
             python scripts/teamwork.py identity --audit --range HEAD
+          fi
+
+  committer-guard:
+    name: committer guard (no account stamped into main)
+    runs-on: ubuntu-latest
+    # The earliest signal for the one mistake that has rewritten this branch
+    # three times: a host merge button (squash or rebase) writes the signed-in
+    # account into the commit it creates, and the privacy gate then fails on that
+    # personal mailbox in the history - which fails the whole matrix through the
+    # acceptance proof that re-runs it. This job fires on the push, with the
+    # offending commit named and the repair printed.
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - name: Guard the committer of the pushed revision
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # A pull_request event has no "before": GitHub sends the all-zero sha.
+          # A push after a rewrite has a "before" that no longer resolves. Both
+          # cases fall back to the tip, which is what can be measured.
+          if [ -n "${BEFORE_SHA}" ] && [ "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
+            python scripts/teamwork.py identity --guard-committer --range "${BEFORE_SHA}..${HEAD_SHA}" \
+              || python scripts/teamwork.py identity --guard-committer --range HEAD
+          else
+            python scripts/teamwork.py identity --guard-committer --range HEAD
           fi
 
   typecheck:
