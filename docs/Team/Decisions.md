@@ -744,3 +744,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: main 4de397e: pytest tests/unit/test_traceability_matrix.py -q -> 2 failed, 8 passed ('AC-1: TS-0018 is not a record in Tests.md' x9); branch with a fresh 2-record tree: 9 passed, 1 skipped with 'the team tree holds 2 test record(s) and none carries an id and layer/area claimed by the 9 records cited here'; scratch tree carrying TS-0018 release/release passing: hard failure naming the id collision and the 8 missing records; same tree with TS-0018 failing: hard failure "AC-1: TS-0018 has status 'failing', not 'passing'"; no tree at all (CI shape): skip
 - falsified by: A committed, non-invented source for the cited records would make option (b) available and this skip obsolete - e.g. if 'teamwork.py ledger export' published the tests add/run records into docs/Team/AuditManifest.json; likewise if 'teamwork.py init' stopped re-numbering TS ids from TS-0001, the id+layer/area identity test could be replaced by a workspace digest
 - consequences: -
+
+## D-20261020-Reviewer-1 - P-0007 pass evidence: correct the R3 clause mangled by shell expansion
+
+- date: 2026-10-20
+- kind: process
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: T-0002
+- context: -
+- options considered: -
+- decision: The R3 statement in the P-0007 review evidence (ledger record #0167) must be read as: the shim keeps root=$(git rev-parse --show-toplevel). The stored text shows the shell-expanded value of that substitution because the evidence was passed in double quotes; the deliverable is not affected.
+- why: I verified the shim body myself: src/teamwork/hooks.py:50 contains "root=$(git rev-parse --show-toplevel) || exit 0" and the module docstring at hooks.py:13-17 says the same. The mangled clause is a transcription defect in my evidence string, not a finding about the code; leaving it uncorrected would misstate what was verified.
+- evidence: grep -n "root=" src/teamwork/hooks.py @main a9c4081 -> 50: "root=$(git rev-parse --show-toplevel) || exit 0\n"; ledger record #0167 evidence clause R3; same class as the Architect transcription note at ledger #0165
+- falsified by: A hooks.py shim that hardcodes the root instead of resolving it with git rev-parse --show-toplevel would overturn this correction; none exists at 2fbd126.
+- consequences: -
