@@ -119,6 +119,9 @@ from .config import (
     ROSTER_INSTANCE_COUNT,
     ROSTER_REQUIRED,
     ROSTER_TIERS,
+    SCAN_BLOCKING,
+    SCAN_OWNER_ROLE,
+    SCAN_ROUTE,
     SCRATCH_DIRS,
     SCRATCH_PATTERNS,
     SETTINGS_NON_PROVIDER,
@@ -7174,6 +7177,171 @@ def cmd_board(args) -> int:
     return 0
 
 
+#: Prefix on a provenance string that means "no alert was read", never "zero alerts".
+UNREADABLE_SCAN = "unreadable: "
+
+
+def _scan_remote(project: Path) -> tuple[str, str]:
+    """``(owner, repo)`` from ``origin``, or ``("", "")`` when it is not a forge."""
+    proc = run_git(project, "remote", "get-url", "origin")
+    if proc.returncode != 0:
+        return "", ""
+    url = proc.stdout.strip()
+    match = re.search(r"[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?$", url)
+    if not match:
+        return "", ""
+    return match.group(1), match.group(2)
+
+
+def scan_owner(path: str) -> str:
+    """The role that owns ``path``, from the file-ownership map ``SCAN_ROUTE``.
+
+    ``lstrip("./")`` would be a character-set strip and turn ``.github/x.yml``
+    into ``github/x.yml``, silently killing the ``.github/**`` route; strip only a
+    leading ``./`` and a leading ``/``.
+    """
+    rel = path.replace("\\", "/")
+    while rel.startswith("./"):
+        rel = rel[2:]
+    rel = rel.lstrip("/")
+    for pattern, role in SCAN_ROUTE:
+        if fnmatch(rel, pattern):
+            return role
+    return SCAN_OWNER_ROLE
+
+
+def _scan_alerts(project: Path, limit: int, full: bool) -> tuple[list, str]:
+    """Read the host's open code-scanning alerts.
+
+    Returns the alerts and a one-line provenance string naming the command that
+    produced them, so the report can carry an evidence line instead of a claim.
+    A host without a scanner is not an error: it returns ``([], "<why>")`` and the
+    caller prints the degraded mode rather than pretending there are zero alerts.
+    """
+    owner, repo = _scan_remote(project)
+    if not owner:
+        return [], UNREADABLE_SCAN + "no origin remote here"
+    cmd = [
+        "gh",
+        "api",
+        f"repos/{owner}/{repo}/code-scanning/alerts?state=open&per_page={limit}",
+        "--jq",
+        "[.[] | {number, rule: .rule.id, severity: .rule.severity,"
+        " description: .rule.description, path: .most_recent_instance.location.path,"
+        " line: .most_recent_instance.location.start_line,"
+        " ref: .most_recent_instance.ref, state}]",
+    ]
+    try:
+        done = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return [], f"{UNREADABLE_SCAN}could not run gh: {exc}"
+    if done.returncode != 0:
+        reason = (done.stderr or done.stdout).strip().splitlines()
+        detail = reason[-1] if reason else f"gh exited {done.returncode}"
+        return [], f"{UNREADABLE_SCAN}code scanning is not readable for {owner}/{repo}: {detail}"
+    try:
+        import json
+
+        alerts = json.loads(done.stdout or "[]")
+    except ValueError:
+        return [], f"{UNREADABLE_SCAN}gh returned output that is not JSON"
+    return alerts, f"gh api repos/{owner}/{repo}/code-scanning/alerts?state=open -> {len(alerts)}"
+
+
+def cmd_code_scanning(args) -> int:
+    """Read the forge's code-scanning alerts and route each one to its owner.
+
+    A red alert on the default branch is a known defect in the shipped revision,
+    so this is a release gate: the Release Engineer reads it, and the role that
+    owns the file receives the fix as a task. ``--commit`` does the routing
+    (one task per (owner, rule, path)); without it the plan is printed only.
+    """
+    root = project_root(args)
+    project = project_of(root)
+    alerts, provenance = _scan_alerts(project, args.limit, args.full)
+    print(f"# code scanning ({provenance})")
+    if provenance.startswith(UNREADABLE_SCAN):
+        # An unreadable scanner is NOT a green gate: no alert was read, so nothing
+        # was verified. Refuse rather than print "no open alert" over a failed read.
+        print(f"- cannot verify: {provenance}")
+        print("# the release gate is UNVERIFIED for this revision; fix the read first")
+        return 2
+    if not alerts:
+        print("- no open alert")
+        return 0
+    blocking = [a for a in alerts if str(a.get("severity") or "").lower() in SCAN_BLOCKING]
+    plan: dict[tuple, dict] = {}
+    for alert in alerts:
+        path = str(alert.get("path") or "")
+        role = scan_owner(path)
+        severity = str(alert.get("severity") or "?")
+        where = f"{path}:{alert.get('line') or '?'}" if path else "?"
+        print(f"- #{alert.get('number')} [{severity}] {alert.get('rule')} {where} -> {role}")
+        if args.full and alert.get("description"):
+            print(f"    {alert['description']}")
+        key = (role, str(alert.get("rule") or ""), path)
+        plan.setdefault(
+            key,
+            {
+                "role": role,
+                "rule": str(alert.get("rule") or ""),
+                "path": path,
+                "severity": severity,
+                "numbers": [],
+            },
+        )["numbers"].append(alert.get("number"))
+    if not args.commit:
+        if blocking:
+            print(
+                f"# {len(blocking)} blocking alert(s): route them with"
+                " `code-scanning --commit` before the next push"
+            )
+        else:
+            print(f"# {len(alerts)} open alert(s), none blocking")
+        return 1 if blocking else 0
+    filed = 0
+    for (role, rule, path), item in sorted(plan.items()):
+        title = f"Code scanning: {rule} in {path or '(whole repo)'}"
+        numbers = ",".join(f"#{n}" for n in item["numbers"] if n)
+        body = (
+            f"Code scanning alert(s) {numbers} on the default branch.\n"
+            f"rule: {rule}\nseverity: {item['severity']}\nfile: {path}\n"
+            f"read again with: teamwork.py code-scanning\n"
+            f"close by fixing the code, or by a recorded false-positive triage signed"
+            f" by the Security Auditor (never silently);"
+            f" the Release Engineer re-reads the forge after the push."
+        )
+        priority = "P0" if item["severity"].lower() in SCAN_BLOCKING else "P2"
+        before = len(parse_tasks(task_file(root, role)))
+        cmd_task_add(
+            argparse.Namespace(
+                project=str(project),
+                team=getattr(args, "team", ""),
+                agent=role,
+                title=title,
+                priority=priority,
+                shared=numbers,
+                deps="",
+                tags="security,code-scanning",
+                status="todo",
+                body=body,
+                evidence=provenance,
+                no_review=False,
+                claimed_by="",
+                bug=False,
+            )
+        )
+        after = len(parse_tasks(task_file(root, role)))
+        if after > before:
+            filed += 1
+        # a duplicate title is a no-op; the alert is already routed
+    print(f"# filed {filed} code-scanning task(s) across {len(plan)} file(s)")
+    print("teamwork: the Release Engineer owns the gate; the file owner fixes it")
+    # Filing a fix does not close the gate: the alert is still open until the forge
+    # reports it fixed, so the exit code must stay red after --commit too.
+    return 1 if blocking else 0
+
+
 def cmd_audit(args) -> int:
     """Anti-hallucination / integrity audit of the whole workspace."""
     root = project_root(args)
@@ -9509,6 +9677,20 @@ def _parsers_audit(sub, common) -> None:
     )
     s.add_argument("--stale-days", type=int, default=2)
     s.set_defaults(func=cmd_audit)
+
+    s = sub.add_parser(
+        "code-scanning",
+        parents=[common],
+        help="read the forge's code-scanning alerts and route each one to its owner",
+    )
+    s.add_argument(
+        "--commit",
+        action="store_true",
+        help="file one task per (owner, rule, file); default only prints the plan",
+    )
+    s.add_argument("--limit", type=int, default=100, help="how many open alerts to read")
+    s.add_argument("--full", action="store_true", help="also print each alert's description")
+    s.set_defaults(func=cmd_code_scanning)
 
     s = sub.add_parser("ledger", parents=[common], help="append-only audit trail (hash-chained)")
     lsub = s.add_subparsers(dest="ledger_cmd", required=True)
