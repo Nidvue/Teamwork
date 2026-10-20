@@ -2864,6 +2864,12 @@ def ledger_export(root: Path, args) -> int:
     )
     records = ledger_read(root)
     problems = ledger_verify(root, reconcile=True)
+    # The manifest is a checkpoint, not the head of time: every later ledger event
+    # (the review pass, the merge, the next task) appends and moves the head. Pin the
+    # export record's own sequence number so a verifier can recompute the chain up to
+    # exactly this point and compare - comparing against the live head can never
+    # succeed on a tree that kept working after the export, which is every tree.
+    checkpoint_n = int(records[-1].get("n") or 0) if records else 0
     # Archive.md is the accepted-results ledger: it gains an entry for this very
     # deliverable when the review passes, so a digest committed beside it is stale
     # by construction. Its entries are verified through the ledger, not a snapshot.
@@ -2880,6 +2886,7 @@ def ledger_export(root: Path, args) -> int:
         "project": project.name,
         "ledger": {
             "records": len(records),
+            "checkpoint_n": checkpoint_n,
             "head": records[-1]["hash"] if records else "",
             "verified": not problems,
             "problems": problems,
@@ -2889,8 +2896,10 @@ def ledger_export(root: Path, args) -> int:
         "local_state": sorted(internal, key=lambda x: x["path"]),
         "how_to_verify": [
             "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
-            "2. compare the recomputed head hash with ledger.head above "
-            "(a rebuilt or truncated ledger cannot reproduce it)",
+            f"2. take record #{checkpoint_n} (the ledger.export event) and compare its "
+            "hash with ledger.head above: the chain up to this checkpoint must "
+            "reproduce, and any record after it is work that happened later "
+            "(a rebuilt or truncated trail cannot reproduce the checkpoint)",
             "3. sha256sum each artifact in this manifest",
             "4. git cat-file -t <git.head>   # the reviewed revision still exists",
             "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
@@ -2917,6 +2926,8 @@ def ledger_export(root: Path, args) -> int:
         f"- team: {manifest['team']}",
         f"- ledger: {manifest['ledger']['records']} records, "
         f"chain verified: {manifest['ledger']['verified']}",
+        f"- checkpoint: record #{manifest['ledger']['checkpoint_n']} (the ledger.export "
+        "event behind this manifest; later records are work that happened after it)",
         f"- head hash: `{manifest['ledger']['head'][:32]}`",
         f"- git: {manifest['git']['head'][:12] or '(none)'} on "
         f"{manifest['git']['branch'] or '-'}, dirty: {manifest['git']['dirty']}",
@@ -5260,6 +5271,11 @@ def _slot_renew(args, root: Path, provider: str) -> int:
 
 def cmd_slot(args) -> int:
     root = project_root(args)
+    # A lock or slot dir is working state and must live in the team tree. Refusing
+    # here keeps a mis-set TEAMWORK_ROOT from creating a stray Runtime/ in the
+    # project root, which is a committed-tree defect and invisible to git status.
+    if not (root / DIR_ROLES).is_dir() and not (root / DIR_AGENTS).is_dir():
+        die(f"no workspace at {root}: run `teamwork.py init` first (or fix TEAMWORK_ROOT)")
     limits = load_providers(root)
     agent = getattr(args, "agent", "") or ""
     provider = args.provider or (find_slot_provider(root, agent) if agent else "")
