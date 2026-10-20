@@ -278,7 +278,7 @@ _http_get_json(url: str) -> object                  # the single network seam (1
 |---|---|
 | `0` | every rule is `ok` or an admitted `SKIP`; no DRIFT |
 | `1` | at least one rule is `DRIFT` and no input failed |
-| `2` | at least one input could not be read: malformed or missing exceptions file, not a git repository, or `--online` with a failed registry/API call |
+| `2` | at least one input could not be read: malformed or missing exceptions file, not a git repository, a shallow or tag-less checkout for a tag rule (11.2.2), or `--online` with a registry/API call that answered nothing (5xx, timeout, DNS/TLS - *not* a 404, see 11.1.4) |
 
 Precedence is `2` > `1` > `0`: a run that finds drift *and* cannot read the
 registry exits `2`. An unreadable input is never downgraded to a `SKIP` that
@@ -325,8 +325,26 @@ it (a test monkeypatches it to raise and asserts `0`/`1`, never an exception),
 and `--online` uses it only for R3 (npm), R4/R5 (GitHub) and R8 (PyPI). It uses
 `urllib.request` with a 20 s timeout, an explicit `User-Agent`, no credential
 and no token from the environment (a secret must never be logged, and an
-anonymous read is enough for all three endpoints); a non-200 response, a
-non-JSON body, a URL error or a timeout is the "failed API call" of exit `2`.
+anonymous read is enough for all three endpoints).
+
+**The one split - an answer about the artefact vs an unreadable input.** This
+paragraph is the only place the contract states it, and no rule restates it
+differently:
+
+* **HTTP 404 is a *finding about the artefact*, not a failure to read.** The
+  registry answered, and the answer was "this does not exist". 404 therefore
+  belongs to the rule that asked (R8: the distribution is unpublished, so each
+  unmarked channel line is DRIFT; R3: a version's `dist.tarball` is gone, so the
+  version is DRIFT unless 11.4 admits it) and **never** produces exit `2` on its
+  own.
+* **5xx, a timeout, a DNS failure, a TLS failure, a connection error, or a
+  non-JSON body is an unreadable input.** Nothing was learned about the
+  artefact, so the rule prints `SKIP` whose `detail` says why and the run exits
+  **`2`** (11.1.1). `_http_get_json` raises `HttpError`/`InputError`, the rule
+  converts it to that `SKIP`, and the code is never downgraded to `0`.
+
+So a non-200 that is *not* a 404 is the "failed API call" of exit `2`, while a
+404 is the answer the rule was waiting for.
 
 ### 11.2 The nine rules
 
@@ -337,8 +355,8 @@ invents an `ok`.
 | Rule | Published fact | Local fact | DRIFT when | Offline |
 |---|---|---|---|---|
 | R1 | every git tag `vX.Y.Z` | `src/teamwork/version.py` **at that tag's commit** | the file is missing there, has no `__version__`, or its value is not `X.Y.Z` | evaluates |
-| R2 | `version.py` at HEAD | every tag's version **except the tags that point at HEAD** | the HEAD version is not **strictly greater** than some *other* tag's version | evaluates |
-| R3 | every npm-published version | a git tag whose bundled-payload digest (11.3) equals that tarball's payload digest, or an entry in 11.4 | neither exists | `SKIP` |
+| R2 | `version.py` at HEAD | the version tags **reachable from HEAD**, minus those that point at HEAD (`S`, 11.2.2) | the HEAD version is not **strictly greater** than some version in `S` | evaluates (needs the complete tag set, 11.2.2) |
+| R3 | every npm-published version | a git tag whose bundled-payload digest (11.3) equals that tarball's payload digest, or an entry in 11.4 | neither exists (a 404 on the advertised tarball is also DRIFT - 11.1.4) | `SKIP` |
 | R4 | every GitHub Release | `git tag -l` | no tag has the release's name | `SKIP` |
 | R5 | every git tag | the GitHub Release list | no release carries the tag's name | `SKIP` |
 | R6 | committed markdown that prints a version | `version.py` at HEAD | a printed literal version is **older** than HEAD's and its line/block is not illustrative-marked | evaluates |
@@ -360,33 +378,90 @@ Versions compare as integer tuples `(major, minor, patch)`. R1 evaluates every
 tag against **its own commit** and never against HEAD (11.2.1), so it is
 indifferent to what is checked out.
 
-R2 asks a different question, and the contract must not confuse the two: *is
-this checkout ahead of the newest release?* It is therefore evaluated over the
-tag set **minus the tags that point at HEAD** (`git tag --points-at HEAD`). The
-reason is structural, not a convenience: R1 requires `version.py` at a tag's
-commit to **equal** that tag's name, so the commit that carries `vX.Y.Z` has
-`version.py == X.Y.Z`, and comparing HEAD against that tag could only ever ask
-whether a release is greater than itself. Including it makes the two rules
-mutually exclusive on exactly the revision `.github/workflows/release.yml`
-builds (a `v*` tag push), so the gate could never be green on the build it
-exists to gate.
+**R2's tag set (frozen).** R2 asks *is this checkout ahead of the newest release
+on its own line of history?* It is evaluated over a set `S` computed in three
+steps, the only place the rule reads git:
+
+1. `A` - the **version tags** (`^v\d+\.\d+\.\d+$`, 11.2.1) whose commit is
+   **reachable from HEAD**, i.e. `git merge-base --is-ancestor <tag> HEAD`
+   exits `0`. This is `git describe --tags --abbrev=0`'s ancestry, not
+   `git tag -l`.
+2. `O` - the subset of `A` that **points at HEAD** (`git tag --points-at HEAD`).
+3. `S = A - O` - the tags R2 compares against, and the set its `detail` counts.
+
+DRIFT iff some tag in `S` has a version that is **not** strictly less than
+HEAD's, and the `detail` names each such tag. `ok` reads
+`HEAD <X.Y.Z> is newer than <|S|> tag(s)`, where `|S| = len(A) - len(O)` over
+**reachable version tags only**. It is never `len(git tag -l) - len(O)`:
+subtracting the tags-at-HEAD from *every* tag in the repository is the
+arithmetic defect that printed `is newer than -2 tag(s)` for `v1.1.0` with two
+doc tags at HEAD, while promising `N-1`.
+
+Two consequences of the ancestry freeze, both intended:
+
+* **A maintenance branch is not permanently red.** A `1.0.x` line branched off
+  `v1.0.0` with `v1.0.1` on it sees only `v1.0.0` and its own tag; the later
+  `v1.1.0`/`v1.1.2` of the main line are not its ancestors, so they are outside <!-- release-consistency: illustrative -->
+  `A` and R2 is `ok`. Under a "compare against every tag in the repository"
+  rule such a branch could never be green again - the defect this freeze
+  removes.
+* **A tag that is not an ancestor of HEAD is invisible to R2.** R1 still checks
+  it against its own commit, R4 and R5 still see it, R7 still requires its
+  CHANGELOG heading; R2 alone ignores it, because it says nothing about whether
+  *this* checkout is ahead of *its* history. It is neither an error nor a
+  finding and never contributes to the count.
+
+Why `O` is excluded is structural, not a convenience: R1 requires `version.py`
+at a tag's commit to **equal** that tag's name, so the commit that carries
+`vX.Y.Z` has `version.py == X.Y.Z`, and comparing HEAD against that tag could
+only ever ask whether a release is greater than itself. Including it makes the
+two rules mutually exclusive on exactly the revision
+`.github/workflows/release.yml` builds (a `v*` tag push), so the gate could
+never be green on the build it exists to gate.
 
 | HEAD state | R1 | R2 |
 |---|---|---|
-| HEAD is exactly tag `vX.Y.Z`, its `version.py` is `X.Y.Z`, no other tag at HEAD | `ok` (the tag agrees with its own commit) | `ok` - HEAD's own tag is excluded; detail counts the remaining tags (`N-1`) |
-| HEAD newer than every tag | `ok` | `ok` |
-| HEAD older than the newest tag | `ok` (each tag still agrees with its own commit) | DRIFT - names each tag ahead of HEAD |
-| HEAD between two tags | `ok` | DRIFT - names the tags ahead of HEAD only |
+| HEAD is exactly tag `vX.Y.Z`, its `version.py` is `X.Y.Z`, no other tag at HEAD | `ok` (the tag agrees with its own commit) | `ok` - `O` is HEAD's own tag; detail counts `\|S\|` (`N-1`) |
+| HEAD newer than every reachable tag | `ok` | `ok`, detail counts `\|S\|` |
+| HEAD older than the newest *reachable* tag | `ok` (each tag still agrees with its own commit) | DRIFT - names each reachable tag ahead of HEAD |
+| HEAD between two reachable tags | `ok` | DRIFT - names the reachable tags ahead of HEAD only |
+| HEAD on a maintenance line; later main-line tags are not ancestors | `ok` | `ok` - those tags are outside `A` |
 
 The first row is the *detached HEAD that is exactly a tag*: a fresh
 `git checkout vX.Y.Z`, the release CI checkout, or the tag commit on `main`
 before the next bump all land there. R2 is `ok`; the gate is green on the
 release build. It stays meaningful on `main`: once `main` moves past the tag
-without a bump, HEAD's version equals the newest tag, that tag no longer points
-at HEAD, and R2 is DRIFT (the release tag is then simply an older tag). The
-release order is unchanged - tag the payload commit, then bump `version.py` on
-`main` immediately after; R2 simply no longer punishes the tagged commit for
-being tagged.
+without a bump, HEAD's version equals the newest reachable tag, that tag no
+longer points at HEAD, and R2 is DRIFT (the release tag is then simply an older
+tag). The release order is unchanged - tag the payload commit, then bump
+`version.py` on `main` immediately after; R2 simply no longer punishes the
+tagged commit for being tagged.
+
+**The complete tag set is a required input; a shallow clone is exit `2`.** Any
+workflow that evaluates R1, R2, R4 or R5 must check out the repository with the
+**complete tag set** (`actions/checkout` with `fetch-depth: 0`), and the checker
+must treat the alternatives as input errors, never as passes:
+
+* `git rev-parse --is-shallow-repository` printing `true`, or
+* a version-tag set that is empty while the remote carries tags.
+
+Either makes every tag rule exit `2` with the reason in its `detail`; it never
+prints `R1 ok 1 tag(s)` / `R2 ok ... 0 tag(s)` from a clone that simply cannot
+see the tags. This matters most where it is least visible:
+`.github/workflows/release.yml` builds exactly the revision R2 exists to gate, so
+a shallow checkout there turns the gate green *because the build is blind*. The
+**tarball path** carries the same guard: a tarball unpacked without `.git` has no
+tag list at all, so R1/R2 against it are an unreadable input (exit `2`), never a
+clean run.
+
+**This subsection changes a rule's meaning, and is marked as a meaning change.**
+Before it, R2 compared HEAD against *every* tag in the repository and its
+`detail` could print a negative count; the frozen rule compares only the
+version tags reachable from HEAD, excludes the tags that point at HEAD, and
+counts `|S|`. The old and new behaviour are both stated above so the change is
+reviewable from this file alone; the matching `D-` entry in
+[Decisions](Decisions.md) is the Architect's to file with this task's
+measurements, and until it lands this paragraph is the record.
 
 #### 11.2.3 R3 detail
 
@@ -479,39 +554,70 @@ is an admission.
 **R8 online half.** `https://pypi.org/pypi/teamwork-agents/json`: HTTP 200 means
 the channel resolves and every unmarked channel line is `ok`; HTTP 404 means the
 distribution is unpublished, so each **unmarked** channel line is DRIFT (name
-the file and line, and the 404) while marked ones stay `ok`.
+the file and line, and the 404) while marked ones stay `ok`. That 404 is a
+*finding*, not an unreadable input - 11.1.4 states the split once and this rule
+does not restate it: a 5xx, a timeout, a DNS/TLS error or a non-JSON body here is
+`SKIP` and exit `2`, exactly as there.
 
 **R9.** R9's DRIFT clause is about a *tag* name, so a bare semver is a claim
-only where the surrounding text makes it one. Two forms are matched, and the
-tag claimed is `v` + whichever capture group fired:
+only where the surrounding text makes it one. The pattern is frozen exactly as
+below and has **one capture group**:
 
 ```python
 TAGGED_TOKEN = re.compile(
-    r"(?<![\w./-])(?:v(\d+\.\d+\.\d+)"
-    r"|(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+"
-    r"|releases/tag/|compare/)v?(\d+\.\d+\.\d+))(?![\-\w./])"
+    r"(?:(?<![\w./-])v"
+    r"|(?<![\w./-])(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+"
+    r"|releases/tag/|compare/)v?)"
+    r"(\d+\.\d+\.\d+)(?![-/\w])(?!\.\w)"
 )
 ```
 
-* group 1 - a `v`-prefixed token anywhere (`v1.0.0` in prose);
-* group 2 - a bare semver **in a pin/tag context**, i.e. immediately after
-  `--branch`, `--tag` or `--ref` (whitespace or `=`), after
-  `git checkout`/`git switch`, or inside `releases/tag/<token>` or
-  `compare/<token>` - each with or without the `v`.
+**Group 1 carries the version in every alternative.** The tag claimed is always
+`v` + `match.group(1)` (the reader is `f"v{match.group(1)}"`), so no branch of
+the alternation can produce `vNone`: the context prefixes match inside a
+non-capturing group and only the semver is captured. There is no group 2.
+
+The two alternatives:
+
+* **a `v`-prefixed token anywhere** - `v1.0.0` in prose, or a rollback paragraph
+  quoting a deleted tag;
+* **a bare semver in a pin/tag context** - immediately after `--branch`,
+  `--tag` or `--ref` (whitespace or `=`), after `git checkout`/`git switch`, or
+  inside `releases/tag/<token>` or `compare/<token>` - each with or without the
+  `v`. This is what catches a pin naming a version that was never tagged, the
+  defect a `v`-mandatory pattern missed.
+
+Two boundary guards, and why each is written as it is:
+
+* **leading `(?<![\w./-])`**, on *both* alternatives - a claim never starts
+  inside a word or a path, so `xcompare/9.9.9` and `my--branch 9.9.9` match
+  nothing.
+* **trailing `(?![-/\w])(?!\.\w)`** - two assertions, not one character class,
+  because `.` means two different things at a token's end. A `.` followed by a
+  word character is a domain or file extension (`semver.org/spec/v2.0.0.html`,
+  `v2.0.0.html`) and the token ends before it; a `.` followed by anything else
+  ends a sentence or starts a git range, so `released at v9.9.9.` and <!-- release-consistency: illustrative -->
+  `compare/9.9.9...HEAD` **are** claims. A `-` or `/` keeps its old meaning (a <!-- release-consistency: illustrative -->
+  pre-release suffix `v9.9.9-rc1`, a path segment, a longer token), and a
+  trailing word character is a longer token.
 
 R6 owns bare version prose; R9 owns tag claims. A bare semver outside those
 contexts is not a tag claim - the Python interpreter line `python: 3.12.13` in
 `docs/guide/install.md` names an interpreter, and reporting it as a missing tag
-would be a defect, not a finding. The same URL guard as R6 still applies: a `/`
-or `.` abuts a link destination, and the leading lookbehind rejects a context
-keyword that is itself preceded by `/` or `.`, so a `releases/tag/...` or
-`compare/...` URL matches nothing.
+would be a defect, not a finding - and so are `version: 3.12.13` and a bare
+`foo/bar/9.9.9`: with no context keyword the pattern does not match at all.
 
-Any matched token not inside a URL and not illustrative-marked must name a tag
-in `git tag -l`. The group-2 form is what catches a pin (`--branch <tag>`) or a
-`--tag`/`--ref` argument naming a version that was never tagged - the defect the
-v-mandatory form missed - and the group-1 form still catches a rollback
-paragraph that quotes a deleted tag.
+**One rule, not two: where the keyword sits.** A `compare/` or `releases/tag/`
+keyword preceded by `/` or `.` is part of a link destination
+(`https://github.com/Nidvue/Teamwork/compare/v1.1.2...HEAD`, the CHANGELOG
+`[Unreleased]` heading), and the leading lookbehind rejects it - that URL
+matches nothing. The *same* keyword in prose or in a code span
+(`compare/9.9.9...HEAD`, `releases/tag/9.9.9`) is a claim and **is** reported. <!-- release-consistency: illustrative -->
+That is one guard read two ways, not a promise that `compare/<token>` is covered
+beside a claim that it is not.
+
+Any matched token that is not illustrative-marked must name a tag in
+`git tag -l`.
 
 ### 11.3 Bundled payload and its digest (frozen)
 
