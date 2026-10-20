@@ -1037,3 +1037,60 @@ def test_the_archive_mask_does_not_rewrite_a_helper_name_or_a_sha(tmp_path: Path
     text = (tmp_path / "docs" / "Team" / "Archive.md").read_text(encoding="utf-8")
 
     assert prose in text, "a value the gate does not report must not be masked"
+
+
+def test_the_archive_mask_follows_the_gate_for_json_config_shapes(tmp_path: Path) -> None:
+    """The JSON arm must use the gate's filters, not the bare regex.
+
+    The mask took ``_RE_JSON_SECRET`` matches directly, so a placeholder or a code
+    reference the gate deliberately accepts (``${API_KEY}``, ``replace_me``,
+    ``process.env.KEY``) was rewritten in the immutable record - the mask
+    over-firing on text the author never wrote. The gate's own ``scan_lines`` is
+    the only source now, in both directions.
+    """
+    accepted = [
+        '{"api_key": "your-key-here"}',
+        '{"apiKey": "replace_me"}',
+        '{"token": "changeme"}',
+        '{"api_key": "process.env.KEY"}',
+        '{"api_key": "${API_KEY}"}',
+        '{"api_key": "<your-key>"}',
+        '{"password": "example"}',
+        '{"secret": "none"}',
+    ]
+    for line in accepted:
+        assert (
+            list(engine._privacy_scan().scan_lines(line, "", "a", engine._privacy_scan().RULES, ()))
+            == []
+        )
+        assert engine.mask_secret_shapes(line) == line, (
+            f"the gate accepts this, so it must survive: {line}"
+        )
+
+    # Built at runtime and not named like a credential: the gate would (rightly)
+    # report either a literal high-entropy value or a secret-named assignment.
+    blob = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6"
+    line = '{"apiKey": "' + blob + '"}'
+    assert engine.mask_secret_shapes(line) == '{"apiKey": "<redacted-json-secret>"}'
+
+
+def test_the_archive_mask_and_the_gate_agree_on_every_probe(tmp_path: Path) -> None:
+    """One table, both directions: masked iff the gate reports it."""
+    scanner = engine._privacy_scan()
+    sha = "a" * 40
+    probes = [
+        '{"api_key": "${API_KEY}"}',
+        "sk-learn-pipeline",
+        "the sk-timeout-wrapper helper",
+        "GITHUB_TOKEN=abcdefgh",
+        sha,
+        "ordinary prose sentence.",
+        "https://example.com/x",
+        "docs/Team/Archive.md:6467",
+    ]
+    for line in probes:
+        reported = list(scanner.scan_lines(line, "", "a", scanner.RULES, ()))
+        assert not reported, f"probe must be invisible to the gate: {line}"
+        assert engine.mask_secret_shapes(line) == line, (
+            f"the gate is silent, so the mask must be too: {line}"
+        )

@@ -6567,8 +6567,11 @@ def mask_secret_shapes(text: str) -> str:
     proved a credential rule fires by quoting a fake token puts that token into
     history. The mask is exactly the gate's own finding set: a value the gate
     reports becomes ``<redacted-RULE>``, and a value it does not report is left
-    byte-identical, so ordinary prose, commit shas and ``sk-something`` helper
-    names survive. The quoted claim ("a token on the exempted line is still
+    byte-identical, so ordinary prose, commit shas, ``sk-something`` helper names
+    and a JSON placeholder the gate accepts survive. Every value comes from the
+    gate's own ``scan_lines`` - the JSON rule included - so the mask cannot drift
+    by taking a regex directly and skipping the gate's placeholder, code-shape and
+    allow filters. The quoted claim ("a token on the exempted line is still
     reported") remains readable.
     """
     if not text:
@@ -6578,18 +6581,18 @@ def mask_secret_shapes(text: str) -> str:
         return text
     rules = [rule for rule in scanner.RULES if rule["id"] in CREDENTIAL_RULES]
     values: list[tuple[str, str]] = []
+    # The gate's own ``scan_lines`` is the only source of values, for every rule.
+    # Taking a regex directly (the JSON arm once did) bypasses the gate's
+    # placeholder, code-shape and allow filters, so a placeholder the gate accepts
+    # (``${API_KEY}``, ``replace_me``) was rewritten in the immutable record.
     for finding in scanner.scan_lines(text, "", "archive", rules, ()):
         value = finding.get("match") or ""
-        if value and (value, finding["rule"]) not in values:
-            values.append((value, finding["rule"]))
-    # ``scan_lines`` runs the JSON rule over the whole text (a pretty-printed value
-    # spans lines), so it is not in the per-line pass above.
-    for match in scanner._RE_JSON_SECRET.finditer(text):
-        value = match.group(1)
-        if value:
-            # A JSON credential is also high-entropy; name it by the specific rule.
-            values = [pair for pair in values if pair[0] != value]
-            values.append((value, "json-secret"))
+        if not value:
+            continue
+        rule = finding["rule"]
+        # A JSON credential is also high-entropy; name it by the specific rule.
+        values = [pair for pair in values if pair[0] != value]
+        values.append((value, rule))
     # Longest first, so a value that contains another one is replaced once.
     for value, rule in sorted(values, key=lambda pair, /: -len(pair[0])):
         text = text.replace(value, f"<redacted-{rule}>")
