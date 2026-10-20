@@ -758,3 +758,33 @@ def test_an_exempted_value_does_not_exempt_a_sibling_name():
         f["rule"] for f in ps.scan_lines(f"built {sibling}", "src/a.py", "tree", ps.RULES, allow)
     }
     assert rules == {"home-path"}
+
+
+def test_an_elided_home_path_identifies_nobody_and_is_not_reported():
+    """A quoted CI log elides the account name; reporting it is crying wolf.
+
+    The scanner flagged a commit message that abbreviated a Windows path to its
+    parent directories plus a bare ellipsis. That form carries no user name, so it
+    identifies nobody. The exemption must be exactly the elision - a real name,
+    even a partly masked one, still reports.
+    """
+    allow: list = []
+    elided = ["C:/Users/.../gone", "/home/.../x", "C:\\Users\\...\\gone"]
+    for path in elided:
+        rules = {f["rule"] for f in ps.scan_lines(path, "commit:abc", "message", ps.RULES, allow)}
+        assert "home-path" not in rules, (path, sorted(rules))
+
+    for path in (
+        "/home/" + "operat" + "/x",
+        "C:\\Users\\op" + "erator\\x",
+        "/home/" + "op***tor" + "/x",
+    ):
+        rules = {f["rule"] for f in ps.scan_lines(path, "commit:abc", "message", ps.RULES, allow)}
+        assert "home-path" in rules, (path, sorted(rules))
+
+    # A name that only starts with dots is not an elision. `_RE_HOME` already
+    # requires an alphanumeric first character, so these never matched - the
+    # predicate is asked directly to prove it does not widen that.
+    for name in (".hidden", "..", "." * 4 + "name"):
+        assert not ps._user_is_elided(name), name
+    assert ps._user_is_elided("...") and ps._user_is_elided("...\\gone")
