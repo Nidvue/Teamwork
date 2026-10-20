@@ -125,11 +125,14 @@ def test_install_writes_both_stages_with_the_marker_and_mode(cli, repo, capsys) 
         lines = body.splitlines()
         assert lines[0] == "#!/bin/sh"
         assert config.HOOK_MARKER == "teamwork-managed hook"
-        assert config.HOOK_MARKER in lines[1], "the marker literal belongs on line 2"
+        expected = (
+            f"# {config.HOOK_MARKER} (stage: {stage}) - remove with: teamwork.py hooks uninstall"
+        )
+        assert lines[1] == expected
         assert "\r" not in body
         assert body.rstrip().endswith(f'hook {stage} "$@"')
         assert "root=$(git rev-parse --show-toplevel)" in body
-        assert '[ -n "$TEAMWORK_SKIP_HOOKS" ] && exit 0' in body
+        assert '[ -n "${TEAMWORK_SKIP_HOOKS:-}" ] && exit 0' in body
 
 
 def test_install_is_idempotent(cli, repo, capsys) -> None:
