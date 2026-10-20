@@ -292,3 +292,264 @@ def test_r8_reports_an_inline_code_install_line(tmp_path):
 
     assert result.status == "DRIFT"
     assert "wrongscript" in result.detail
+
+
+# --------------------------------------------------------------------------- #
+# 11.2.2 - the frozen contract: R2's tag set, R9's pattern, the shallow guard
+# --------------------------------------------------------------------------- #
+
+#: The contract's frozen pattern (Architecture.md 11.2.4), byte for byte.
+CONTRACT_TAGGED_TOKEN = (
+    r"(?:(?<![\w./-])v"
+    r"|(?<![\w./-])(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+"
+    r"|releases/tag/|compare/)v?)"
+    r"(\d+\.\d+\.\d+)(?![-/\w])(?!\.\w)"
+)
+
+
+def cgit(root: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(root), *GIT_OPTIONS, *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, f"git {' '.join(args)}: {result.stderr}"
+    return result.stdout
+
+
+def cwrite(root: Path, rel: str, text: str) -> None:
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def cversion(root: Path, version: str) -> None:
+    cwrite(
+        root,
+        "src/teamwork/version.py",
+        f'__version__ = "{version}"\nDIST_NAME = "teamwork-agents"\n',
+    )
+
+
+def ccommit(root: Path, message: str) -> None:
+    cgit(root, "add", "-A")
+    cgit(root, "commit", "-q", "-m", message)
+
+
+def ctag(root: Path, name: str) -> None:
+    cgit(root, "tag", name)
+
+
+def crepo(root: Path, version: str = "1.0.0") -> Path:
+    root.mkdir(parents=True, exist_ok=True)
+    cgit(root, "init", "-q")
+    cversion(root, version)
+    ccommit(root, "base")
+    return root
+
+
+def test_r2_counts_the_reachable_version_tags_and_never_a_negative(tmp_path):
+    """``S = A - O``: the two doc tags at HEAD are not version tags."""
+    root = crepo(tmp_path / "repo", "1.0.0")
+    ctag(root, "v1.0.0")
+    ctag(root, "docs-a")
+    ctag(root, "docs-b")
+    cwrite(root, "README.md", "# readme\n")
+    ccommit(root, "doc commit")
+    cversion(root, "1.0.1")
+    ccommit(root, "bump")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    reachable = crc._reachable_version_tags(root)
+    at_head = crc._tags_at_head(root)
+    assert reachable == ["v1.0.0"]
+    assert at_head == set()
+    assert len(reachable) - len(at_head) >= 0
+    assert result.status == "ok"
+    assert result.detail == "HEAD 1.0.1 is newer than 1 tag(s)"
+
+
+def test_r2_a_maintenance_branch_is_not_permanently_red(tmp_path):
+    """A ``1.0.x`` line branched off ``v1.0.0`` is ``ok``."""
+    root = crepo(tmp_path / "repo", "1.0.0")
+    ctag(root, "v1.0.0")
+    cgit(root, "checkout", "-q", "-b", "main-line")
+    cversion(root, "1.1.0")
+    ccommit(root, "main bump")
+    ctag(root, "v1.1.0")
+    cversion(root, "1.1.2")
+    ccommit(root, "main bump again")
+    ctag(root, "v1.1.2")
+    cgit(root, "checkout", "-q", "-b", "maintenance", "v1.0.0")
+    cversion(root, "1.0.1")
+    ccommit(root, "maintenance release")
+    ctag(root, "v1.0.1")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.status == "ok"
+    assert result.detail == "HEAD 1.0.1 is newer than 1 tag(s)"
+
+
+def test_r2_a_stale_main_names_only_the_reachable_tags_ahead(tmp_path):
+    """HEAD between two reachable tags: DRIFT names the reachable one only."""
+    root = crepo(tmp_path / "repo", "1.0.0")
+    ctag(root, "v1.0.0")
+    cversion(root, "1.1.0")
+    ccommit(root, "bump")
+    ctag(root, "v1.1.0")
+    cversion(root, "1.0.5")
+    ccommit(root, "stale bump")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.status == "DRIFT"
+    assert "v1.1.0" in result.detail
+    assert "v1.0.0" not in result.detail
+
+
+def test_r2_a_tag_push_is_ok_because_the_tag_at_head_is_excluded(tmp_path):
+    """HEAD is exactly ``vX.Y.Z``: the tag at HEAD is in ``O``, so R2 is ok."""
+    root = crepo(tmp_path / "repo", "1.1.0")
+    ctag(root, "v1.1.0")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.status == "ok"
+    assert result.detail == "HEAD 1.1.0 is newer than 0 tag(s)"
+
+
+def test_the_implemented_r9_pattern_is_the_contract_pattern_byte_for_byte():
+    assert crc.TAGGED_TOKEN.pattern == CONTRACT_TAGGED_TOKEN
+    assert crc.TAGGED_TOKEN.groups == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("we shipped v1.0.0 today", "1.0.0"),
+        ("roll back to v0.9.0 now", "0.9.0"),
+        ("checkout --branch 1.2.3", "1.2.3"),
+        ("checkout --branch=v1.2.3", "1.2.3"),
+        ("checkout --tag 1.2.3", "1.2.3"),
+        ("checkout --ref v1.2.3", "1.2.3"),
+        ("git checkout 1.2.3", "1.2.3"),
+        ("git switch v1.2.3", "1.2.3"),
+        ("see releases/tag/1.2.3", "1.2.3"),
+        ("see releases/tag/v1.2.3", "1.2.3"),
+        ("compare/1.2.3...HEAD", "1.2.3"),
+        ("compare/v1.2.3...HEAD", "1.2.3"),
+        ("released at v9.9.9.", "9.9.9"),
+        ("https://github.com/Nidvue/Teamwork/compare/v1.1.2...HEAD", None),
+        ("https://github.com/Nidvue/Teamwork/releases/tag/v1.1.2", None),
+        ("semver.org/spec/v2.0.0.html", None),
+        ("xcompare/9.9.9", None),
+        ("my--branch 9.9.9", None),
+        ("python: 3.12.13", None),
+    ],
+)
+def test_the_r9_pattern_matches_exactly_the_contract_table(text, expected):
+    versions = [match.group(1) for match in crc.TAGGED_TOKEN.finditer(text)]
+    if expected is None:
+        assert versions == []
+    else:
+        assert expected in versions
+
+
+def test_the_reported_tag_is_never_vnone():
+    """Every branch of the alternation carries the version in group 1."""
+    for text in (
+        "we shipped v1.0.0 today",
+        "checkout --branch 1.2.3",
+        "git switch v1.2.3",
+        "see releases/tag/1.2.3",
+        "compare/v1.2.3...HEAD",
+    ):
+        match = crc.TAGGED_TOKEN.search(text)
+        assert match is not None, text
+        assert match.re.groups == 1
+        assert f"v{match.group(1)}" != "vNone"
+
+
+def test_r9_reports_the_group_1_version_as_a_tag(tmp_path):
+    """End to end: a bare semver in a pin context names a tag that is missing."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    cgit(root, "init", "-q")
+    cwrite(root, "src/teamwork/version.py", '__version__ = "1.1.0"\n')
+    cwrite(root, "README.md", "# Teamwork\n\nInstall with --branch 9.9.9 today.\n")
+    ccommit(root, "readme with a pin")
+
+    result = crc.rule_r9_markdown_tags(root)
+
+    assert result.status == "DRIFT"
+    assert "v9.9.9" in result.detail
+    assert "vNone" not in result.detail
+
+
+def test_a_real_shallow_clone_is_an_input_error_not_a_pass(tmp_path):
+    """A **real** ``git clone --depth 1`` is exit 2, never a green run.
+
+    The clone is real, not simulated: the guard exists precisely because the
+    clone cannot see the tags, so the clone itself has to be shallow for the
+    test to mean anything.
+    """
+    origin = crepo(tmp_path / "origin", "1.1.0")
+    ctag(origin, "v1.1.0")
+    cversion(origin, "1.1.2")
+    ccommit(origin, "bump")
+    ctag(origin, "v1.1.2")
+
+    clone = tmp_path / "clone"
+    result = subprocess.run(
+        ["git", "clone", "--depth", "1", "--branch", "v1.1.2", f"file://{origin}", str(clone)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert cgit(clone, "rev-parse", "--is-shallow-repository").strip() == "true"
+
+    # The clone sees only the tag it was branched on - the blind build the guard exists for.
+    assert crc._version_tags(clone) == ["v1.1.2"]
+    assert "v1.1.0" not in crc._version_tags(clone)
+
+    for rule in (crc.rule_r1_tagged_version, crc.rule_r2_head_is_newer):
+        with pytest.raises(crc.InputError) as caught:
+            rule(clone)
+        assert "shallow" in str(caught.value)
+
+    assert crc.main(["--offline", "--repo-root", str(clone)]) == 2
+
+
+def test_a_full_clone_is_the_normal_result(tmp_path):
+    """The same origin, cloned with the complete tag set, evaluates normally."""
+    origin = crepo(tmp_path / "origin", "1.1.0")
+    ctag(origin, "v1.1.0")
+    cversion(origin, "1.1.2")
+    ccommit(origin, "bump")
+    ctag(origin, "v1.1.2")
+
+    clone = tmp_path / "clone"
+    result = subprocess.run(
+        ["git", "clone", "--no-local", str(origin), str(clone)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    assert crc._version_tags(clone) == ["v1.1.0", "v1.1.2"]
+    assert crc.rule_r1_tagged_version(clone).status == "ok"
+    assert crc.rule_r2_head_is_newer(clone).status == "ok"
+
+
+def test_a_tarball_without_git_is_an_input_error(tmp_path):
+    """A tree with no ``.git`` has no tag list: exit 2, never a clean run."""
+    root = tmp_path / "tarball"
+    root.mkdir()
+    cwrite(root, "src/teamwork/version.py", '__version__ = "1.1.0"\n')
+
+    assert crc.main(["--offline", "--repo-root", str(root)]) == 2
