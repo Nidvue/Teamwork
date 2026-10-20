@@ -200,6 +200,7 @@ from .layout import (
     teams_root_unused,
     testplan_path,
     tests_path,
+    work_docs_dir,
     work_repo,
 )
 from .names import (
@@ -381,6 +382,7 @@ __all__ = [
     "project_of",
     "docs_dir",
     "work_repo",
+    "work_docs_dir",
     "team_root_from_cwd",
     "project_root",
     "teams_root_unused",
@@ -2376,7 +2378,7 @@ def ledger_verify(root: Path, reconcile: bool = False, _locked: bool = False) ->
         except (ValueError, OSError, TypeError):
             problems.append("head cache is unreadable")
     # external anchor: the last exported checkpoint must not be ahead of us
-    manifest = docs_dir(root) / F_MANIFEST
+    manifest = work_docs_dir(root) / F_MANIFEST
     if manifest.exists():
         try:
             import json
@@ -2791,37 +2793,50 @@ def _file_digest(path: Path) -> str:
         return ""
 
 
-def manifest_path_hint(root: Path) -> Path:
-    return docs_dir(root) / F_MANIFEST
-
-
 def ledger_export(root: Path, args) -> int:
-    """Emit an externally verifiable manifest of the whole trail."""
+    """Emit an externally verifiable manifest of the whole trail.
+
+    The manifest is project output, so it is written in the work tree the
+    command acts on: a lane that exports from its own worktree gets a file it
+    can commit on its branch, and the manifest describes that work tree's
+    revision. Writing it into the project that owns the team tree instead left
+    the lane's worktree clean and the main checkout dirty - the very state the
+    manifest's own ``dirty`` field then misreported - and pinned the main
+    checkout's head, a revision the committing branch does not have.
+    """
     import json
 
-    project = project_of(root)
+    # The work tree the command acts on: a lane that exports from its own
+    # worktree gets a file it can commit on its branch, and the manifest
+    # describes that work tree's revision.
+    project = work_repo(root)
+    docs = work_docs_dir(root)
+    # The team's hidden tree (ledger, memory, task queues) lives in the project
+    # that owns it, not in the work tree, so its entries stay relative to that
+    # project.
+    state_root = project_of(root)
     problems = ledger_verify(root, reconcile=True)
     records = ledger_read(root)
     tracked = []
-    for path in (
-        criteria_path(root),
-        tests_path(root),
-        testplan_path(root),
-        reviews_path(root),
-        disputes_path(root),
-        global_dir(root) / F_GLOBAL,
-        docs_dir(root) / "Project.md",
-        docs_dir(root) / "Plan.md",
-        docs_dir(root) / "Architecture.md",
-        docs_dir(root) / "Decisions.md",
-        docs_dir(root) / "Archive.md",
+    for path, base in (
+        (criteria_path(root), state_root),
+        (tests_path(root), state_root),
+        (testplan_path(root), state_root),
+        (reviews_path(root), state_root),
+        (disputes_path(root), state_root),
+        (global_dir(root) / F_GLOBAL, state_root),
+        (docs / "Project.md", project),
+        (docs / "Plan.md", project),
+        (docs / "Architecture.md", project),
+        (docs / "Decisions.md", project),
+        (docs / "Archive.md", project),
     ):
         if path.exists():
             tracked.append(
                 {
                     # posix form: the manifest is published, so a Windows
                     # backslash would make the same revision hash differently.
-                    "path": path.relative_to(project).as_posix(),
+                    "path": path.relative_to(base).as_posix(),
                     "sha256": _file_digest(path),
                     "bytes": path.stat().st_size,
                 }
@@ -2832,7 +2847,7 @@ def ledger_export(root: Path, args) -> int:
             if p.exists():
                 tracked.append(
                     {
-                        "path": p.relative_to(project).as_posix(),
+                        "path": p.relative_to(state_root).as_posix(),
                         "sha256": _file_digest(p),
                         "bytes": p.stat().st_size,
                     }
@@ -2860,7 +2875,7 @@ def ledger_export(root: Path, args) -> int:
         root,
         "ledger.export",
         export_actor,
-        str(manifest_path_hint(root)),
+        str(docs / F_MANIFEST),
         f"manifest export ({len(records)} records before this event)",
     )
     records = ledger_read(root)
@@ -2874,7 +2889,7 @@ def ledger_export(root: Path, args) -> int:
     # Archive.md is the accepted-results ledger: it gains an entry for this very
     # deliverable when the review passes, so a digest committed beside it is stale
     # by construction. Its entries are verified through the ledger, not a snapshot.
-    archive_rel = archive_path(root).relative_to(project).as_posix()
+    archive_rel = (docs / "Archive.md").relative_to(project).as_posix()
     external = [a for a in tracked if not a["path"].startswith(".pi/") and a["path"] != archive_rel]
     internal = [a for a in tracked if a["path"].startswith(".pi/")]
     manifest = {
@@ -2883,8 +2898,9 @@ def ledger_export(root: Path, args) -> int:
         "team_id": team_identity(root) or ensure_team_identity(root),
         # Never embed the absolute checkout path: the manifest is committed and
         # published, and a machine path is both a privacy leak and useless to a
-        # verifier on another host.
-        "project": project.name,
+        # verifier on another host. The name is the project's, never the work
+        # tree's: a lane worktree is named after the instance that owns it.
+        "project": state_root.name,
         "ledger": {
             "records": len(records),
             "checkpoint_n": checkpoint_n,
@@ -2912,7 +2928,7 @@ def ledger_export(root: Path, args) -> int:
             "pinned as an artifact; follow its entries with `trace`.",
         ],
     }
-    out_dir = docs_dir(root)
+    out_dir = docs
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = out_dir / F_MANIFEST
     report_path = out_dir / F_AUDITREPORT
@@ -8244,7 +8260,7 @@ def _audit_audit_trail_append_only_hash_chained(root: Path, names: list, args) -
         hits += 1
     if records and not problems_ledger:
         print(f"- {len(records)} records, chain intact, head {records[-1]['hash'][:16]}")
-    manifest = docs_dir(root) / F_MANIFEST
+    manifest = work_docs_dir(root) / F_MANIFEST
     if manifest.exists():
         try:
             import json
