@@ -839,13 +839,20 @@ def _merge_branch_hint(root: Path, handle: str) -> str:
     under ``reviews.lock``, so the role -> reviews order that ``cmd_review``
     uses is never inverted here.
     """
+    # Task ids are unique per role queue, so two lanes can each own a T-0001.
+    # Returning the first one found would silently merge the other lane's PR,
+    # so an ambiguous handle yields "" and the caller makes the operator name
+    # the PR instead of guessing.
+    hits = []
     for role in list_roles(root):
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
             tasks = parse_tasks(task_file(root, role))
         tidx = find_task(tasks, handle)
         if tidx is not None:
-            return tasks[tidx].get("branch") or ""
-    return ""
+            branch = tasks[tidx].get("branch") or ""
+            if branch:
+                hits.append(branch)
+    return hits[0] if len(set(hits)) == 1 else ""
 
 
 def _merge_base_branch(project: Path, raw: str, pr: dict) -> str:
@@ -911,7 +918,35 @@ def _merge_pr_index(prs: list, handle: str, branch: str = "") -> int | None:
         idx = find_pr_exact(prs, handle, branch)
         if idx is not None:
             return idx
-    return find_pr_exact(prs, handle)
+    idx = find_pr_exact(prs, handle)
+    if idx is not None and _handle_is_ambiguous(prs, handle):
+        die(
+            f"'{handle}' names more than one open PR ("
+            + ", ".join(
+                f"{pr['id']} {pr.get('branch') or '-'}"
+                for pr in prs
+                if _handle_matches(pr, handle) and (pr.get("status") or "") != "merged"
+            )
+            + "); pass the PR id: pr merge --pr P-000x"
+        )
+    return idx
+
+
+def _handle_matches(pr: dict, handle: str) -> bool:
+    want = (handle or "").strip().upper()
+    return bool(want) and (pr["id"].upper() == want or pr["task"].upper() == want)
+
+
+def _handle_is_ambiguous(prs: list, handle: str) -> bool:
+    """True when a bare task id names PRs on more than one branch."""
+    branches = {
+        pr.get("branch") or ""
+        for pr in prs
+        if _handle_matches(pr, handle)
+        and (pr.get("status") or "") != "merged"
+        and (pr.get("status") or "") != "closed"
+    }
+    return len(branches) > 1
 
 
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:

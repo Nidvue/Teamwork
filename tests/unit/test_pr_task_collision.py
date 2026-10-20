@@ -94,3 +94,36 @@ def test_pr_merge_by_task_id_reaches_the_live_record_after_a_rework(
     assert f"- branch / merge: {live_branch} / {first_sha}" in archive
     assert f"- branch / merge: {live_branch} / {merged['merge_commit']}" in archive
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+
+
+def test_merge_by_an_ambiguous_task_id_is_refused_not_guessed() -> None:
+    """Two lanes can each own a T-0001, so a bare task id is ambiguous.
+
+    Reviewer-1 proved at 6c8d818 that `pr merge --pr T-0001` silently consumed
+    the developer's record and answered "already merged" for the security lane,
+    which could then never merge its own PR by task id. The hint lookup took the
+    first role's branch, so the wrong record matched by construction.
+    """
+    prs = [
+        {
+            "id": "P-0001",
+            "task": "T-0001",
+            "title": "developer ship",
+            "branch": "developer/t-0001-ship-it",
+            "status": "open",
+        },
+        {
+            "id": "P-0002",
+            "task": "T-0001",
+            "title": "security rescan",
+            "branch": "securityauditor/t-0001-rescan",
+            "status": "open",
+        },
+    ]
+    assert engine._handle_is_ambiguous(prs, "T-0001") is True
+    assert engine._handle_is_ambiguous(prs, "P-0002") is False
+    # A merged record no longer competes: the live one is unambiguous.
+    prs[1]["status"] = "merged"
+    assert engine._handle_is_ambiguous(prs, "T-0001") is False
+    # With a branch hint the right record is reached without any guessing.
+    assert records.find_pr_exact(prs, "T-0001", "developer/t-0001-ship-it") == 0
