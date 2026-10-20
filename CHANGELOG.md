@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.0.2...HEAD)
 
+### Security
+
+- **The privacy scanner publishes no character of a matched value**: a finding
+  line now names the rule - `<location>: [<severity>/<rule>] <redacted-<rule>>` -
+  instead of a partly masked preview (`ghp********************************QQQ`
+  used to hand the first and last three characters of a credential to every reader
+  of a CI log, which is the disclosure the scanner exists to prevent). The raw
+  value is no longer an item of the finding record at all: it is held on the
+  `Finding` object as `.raw`, so no reporting sink - the text line, `--json`, the
+  archive mask - can serialise it by accident. `--reveal` (stable fingerprint) and
+  `--reveal-to` (`0600` file) are unchanged, and the `--json` evidence is
+  rule-named too. This closes the two open `py/clear-text-logging-sensitive-data`
+  code-scanning alerts on `scripts/privacy_scan.py` by removing the dataflow
+  rather than by a dismissal or a query exclusion, and `SCANNER_VERSION` moves to
+  `1.4.0`. Dead code that took a raw value (`_clip`) is gone.
+
 ## [1.1.0](https://github.com/Nidvue/Teamwork/releases/tag/v1.1.0) - 2026-10-20
 
 ### Added
