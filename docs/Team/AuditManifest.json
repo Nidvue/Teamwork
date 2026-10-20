@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-10-20T08:01:50",
+  "generated_at": "2026-10-20T08:20:24",
   "team": "Teamwork",
   "team_id": "431b5b8b1bc04db58a4f13ef114cf5c1",
   "project": "Teamwork",
   "ledger": {
-    "records": 1556,
-    "checkpoint_n": 1556,
-    "head": "bac689eea2e63e3147e2a3ddd1e30f838e346270771b45134d408cd694466514",
+    "records": 1576,
+    "checkpoint_n": 1576,
+    "head": "79f8f78346027e114c50ca052f621c3a9c353981679c9c10b560cdd0b9119cd0",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "0ca01a1d087d3285c06cadf497fec66a18523fca",
-    "branch": "ceo/t-0055-close-out-the-run-export-the-manifest-an",
+    "head": "445c892ab5dfde8ef260f71987737ea420888a55",
+    "branch": "main",
     "dirty": false,
     "lfs_files": 0
   },
@@ -34,8 +34,8 @@
     },
     {
       "path": "docs/Team/Project.md",
-      "sha256": "8638f97308b779d699677079dd35ee5770c97b52cddc630bd7950155a4a38450",
-      "bytes": 23118
+      "sha256": "54201cb1d3f8de576e0dca4684d5874a07f7f108c8fd30372634d316c71c90ff",
+      "bytes": 24045
     }
   ],
   "local_state": [
@@ -56,8 +56,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "9d503c25f2345c840616b1f6d17a0457670ed96e37ec8e1ee484cada9e436bfd",
-      "bytes": 555714
+      "sha256": "c97be371b878fe9b3c2e9bdccd4cabbd90a64d4e48ebf00c6896e03cea973f83",
+      "bytes": 560063
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Architect/ArchivedMemory.md",
@@ -96,8 +96,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "00979b11a70742f3826d811349b855ad7ba557daf87a940114a42962c57126de",
-      "bytes": 509554
+      "sha256": "2b4a8dfaeeff31ce49b58bf627dab4918ee88ca961328873e480ba990e7c9091",
+      "bytes": 515117
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CTO/ArchivedMemory.md",
@@ -272,7 +272,7 @@
   ],
   "how_to_verify": [
     "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
-    "2. take record #1556 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
+    "2. take record #1576 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
     "3. sha256sum each artifact in this manifest",
     "4. git cat-file -t <git.head>   # the reviewed revision still exists",
     "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
