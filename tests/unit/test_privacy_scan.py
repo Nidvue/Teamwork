@@ -8,6 +8,7 @@ no side effects at import time.
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -619,7 +620,15 @@ def test_reveal_to_writes_a_0600_file_and_keeps_the_log_clean(tmp_path, capsys):
     assert planted not in err, "the export must not be echoed to stderr"
     assert "WARNING" in err, "the operator must be warned that a secret file exists"
     mode = stat.S_IMODE(export.stat().st_mode)
-    assert mode == 0o600, f"reveal file must be 0600, got {oct(mode)}"
+    if os.name == "nt":
+        # Windows has no POSIX mode bits: chmod only toggles read-only and a
+        # fresh file always reads back 0o666. The privacy guarantee there comes
+        # from the per-user profile ACL, not from a mode, so asserting 0o600
+        # would fail on a correct implementation. The exclusivity contract is
+        # pinned by test_reveal_to_refuses_to_clobber_an_existing_file instead.
+        assert mode in (0o600, 0o666), mode
+    else:
+        assert mode == 0o600, f"reveal file must be 0600, got {oct(mode)}"
     body = export.read_text(encoding="utf-8")
     assert planted in body
     assert ps._fingerprint(planted) in body
