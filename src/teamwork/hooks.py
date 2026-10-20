@@ -29,16 +29,12 @@ from .config import (
     IDENTITY_DOMAIN,
     LFS_MAX_BYTES,
 )
-from .gitutil import branch_exists, current_branch, lfs_tracked, run_git
+from .gitutil import current_branch, lfs_tracked, run_git
 from .io import die, write_lf
 from .layout import project_path
 from .names import resolve_role, role_identity
 
 ZERO_SHA = "0" * 40
-
-#: The legacy default branch name, used only when the repository has no `main`:
-#: the frozen contract protects whichever branch is the default one.
-LEGACY_BASE = "master"
 
 ALLOW_MAIN = "TEAMWORK_ALLOW_MAIN"
 ALLOW_FORCE = "TEAMWORK_ALLOW_FORCE"
@@ -123,6 +119,9 @@ def status(project: Path) -> int:
     target_dir = hooks_dir(project)
     for stage in HOOK_STAGES:
         print(f"{stage} {hook_state(target_dir / stage)}")
+    # The directory is part of the answer: in a linked worktree the hooks are not
+    # under <toplevel>/.git, so a reader must be able to see where we looked.
+    print(f"# hooks directory: {target_dir}")
     return 0
 
 
@@ -141,12 +140,13 @@ def uninstall(project: Path) -> int:
     return 0
 
 
-def default_ref(project: Path) -> str:
-    """The remote ref of the default base branch: ``main``, else the legacy name."""
-    if branch_exists(project, DEFAULT_BASE):
-        return f"refs/heads/{DEFAULT_BASE}"
-    if branch_exists(project, LEGACY_BASE):
-        return f"refs/heads/{LEGACY_BASE}"
+def protected_ref() -> str:
+    """The one protected remote ref. ``config.DEFAULT_BASE`` is the only literal.
+
+    A legacy ``master`` fallback was tried and dropped: it made the two stages
+    disagree (R1 refused only the configured base while P1/P2 also guarded
+    ``master``), and Architecture 11.7 freezes one constant for both.
+    """
     return f"refs/heads/{DEFAULT_BASE}"
 
 
@@ -253,7 +253,7 @@ def pushed_refspecs() -> list:
 
 def check_push(project: Path, refspecs: list) -> int:
     """P1 no non-fast-forward on the default branch, P2 no deleting it."""
-    protected = default_ref(project)
+    protected = protected_ref()
     allow_force = bool(os.environ.get(ALLOW_FORCE))
     refusals = []
     for parts in refspecs:
