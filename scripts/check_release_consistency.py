@@ -72,6 +72,18 @@ their payload paths before hashing. Measured on the published tarballs:
 ``scripts/build_pi_package.py`` is excluded, which is 11.5 example 3);
 ``1.1.1`` -> ``726bc547afc41ead``, which matches no commit in
 ``git rev-list --all`` (389 commits checked) - 11.5 example 2.
+
+Exit-code policy for an input that cannot be read (11.1.1): section 11 makes a
+missing or unreadable input exit ``2``, and 11.1.4 names a non-200 response, a
+URL error and a timeout as that failed API call. Section 11.2.4 carves out one
+case - R8's PyPI ``404`` means "the distribution is unpublished", which is a
+fact about the release, not a failed read. R3 has the same shape: an HTTP
+``404`` on a version's ``dist.tarball`` is treated like a ``vX.Y.Z`` tag that
+does not exist - DRIFT - because the tarball the registry advertises is absent,
+which is exactly what the gate exists to report. Every other transport/status
+failure (``5xx``, timeout, URL error) is *unreadable input*: ``fatal=True``,
+exit ``2``, never a DRIFT finding. A network flake must be distinguishable from
+a release defect, so 5xx/timeout can never share an exit code with drift.
 """
 
 from __future__ import annotations
@@ -157,13 +169,33 @@ ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 VERSION_TOKEN = re.compile(r"(?<![\w./-])v?(\d+\.\d+\.\d+)(?![\w./-])")
 TAGGED_TOKEN = re.compile(r"(?<![\w./-])v(\d+\.\d+\.\d+)(?![\w./-])")
 PROJECT_CONTEXT = re.compile(r"(?i)teamwork")
-FOREIGN_VERSION = re.compile(r"(?i)\b(python3?|cpython|node|npm|pi)\s*[:=]\s*\d")
+#: 11.2.4: a foreign tool's version is not a teamwork version. Matched per
+#: token, not per line: ``Install Teamwork 1.0.2 to match python: 3.12.13``
+#: skips ``3.12.13`` and still flags our own stale ``1.0.2``.
+FOREIGN_VERSION = re.compile(r"(?i)\b(?:python3?|cpython|node|npm|pi)\s*[:=]\s*v?(\d+\.\d+\.\d+)")
 CHANGELOG_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\]")
 FENCE_OPEN = re.compile(r"^(`{3,}|~{3,})")
 PIP_PLAIN = re.compile(r"\bpip3?\s+install\s+(\S+)")
 PIP_MODULE = re.compile(r"\b(?:python3?|py)\s+-m\s+pip3?\s+install\s+(\S+)")
 PIPX = re.compile(r"\bpipx\s+install\s+(\S+)")
-UVX = re.compile(r"\buvx\s+--from\s+(\S+)(?:\s+([A-Za-z0-9_.-]+))?")
+#: The two run-without-installing shapes: ``uvx --from <dist> <script>`` and
+#: ``pipx run --spec <dist> <script>``. The script argument is read by
+#: ``_trailing_script`` because prose continues after the distribution name and
+#: a bare ``\S+`` would invent an executable out of the next English word.
+UVX_FROM = re.compile(r"\buvx\s+--from\s+(\S+)")
+PIPX_RUN = re.compile(r"\bpipx\s+run\s+--spec\s+(\S+)")
+#: ``<script>`` must be the *next* argument after the distribution: a flag, a
+#: closing quote/bracket or the end of the line must follow it (``teamwork
+#: --version``, ``teamwork` ``). Prose that continues after the distribution
+#: (``teamwork-agents` is the fastest way to try it``) therefore names none.
+SCRIPT_ARGUMENT = re.compile(
+    r"[ \t]+([A-Za-z0-9_-](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?)"
+    r"(?=[ \t]+-{1,2}\S|[ \t]*[`\"')\]]|[ \t]*$)"
+)
+NEGATED_CHANNEL = re.compile(
+    r"(?i)\b(no|not|never|without)\s+(?:a\s+|an\s+|any\s+)?"
+    r"`?(?:pip3?|pipx|uvx|uv)`?\s+(?:install|run|--from)"
+)
 
 
 class InputError(RuntimeError):
@@ -207,6 +239,24 @@ def _ok(rule: str, detail: str) -> RuleResult:
 
 def _skip(rule: str, detail: str, fatal: bool = False) -> RuleResult:
     return RuleResult(rule, "SKIP", _one_line(detail), fatal=fatal)
+
+
+def _unreadable(
+    rule: str,
+    findings: Sequence[str],
+    notes: Sequence[str],
+    reason: str,
+) -> RuleResult:
+    """An input could not be read (11.1.1): exit 2, and every DRIFT finding kept.
+
+    The status stays ``DRIFT`` when there is one, so ``problems`` in ``--json``
+    still names it; ``fatal=True`` makes the exit code ``2`` win over ``1``.
+    With no drift it is the ``SKIP`` that carries the reason.
+    """
+    if findings:
+        detail = "; ".join([*findings, f"unreadable input: {reason}", *notes])
+        return RuleResult(rule, "DRIFT", _one_line(detail), tuple(findings), fatal=True)
+    return _skip(rule, "; ".join([f"unreadable input: {reason}", *notes]), fatal=True)
 
 
 def _one_line(text: str) -> str:
@@ -328,6 +378,13 @@ def _extract_tar(archive: tarfile.TarFile, destination: Path) -> None:
         parts = Path(member.name).parts
         if member.name.startswith(("/", "\\")) or ".." in parts:
             raise InputError(f"archive member escapes the temporary tree: {member.name}")
+        # 11.3: the payload is plain files only, so a link member is a defect by
+        # itself. A name-only guard is not enough on 3.9-3.13, whose extractall
+        # has no default filter and would happily write through ``linkname``.
+        if member.issym() or member.islnk():
+            raise InputError(
+                f"archive member is a link, which the payload never contains: {member.name}"
+            )
     archive.extractall(destination)
 
 
@@ -532,6 +589,12 @@ def _version_tags(repo_root: Path) -> list[str]:
         return _version_tuple(tag[1:]) or (0, 0, 0)
 
     return sorted(tags, key=sort_key)
+
+
+def _all_tags(repo_root: Path) -> list[str]:
+    """Every tag name, unfiltered - R4 compares release names against this."""
+    listed = _git(repo_root, "tag", "-l") or ""
+    return [line.strip() for line in listed.splitlines() if line.strip()]
 
 
 def markdown_paths(repo_root: Path, globs: Sequence[str] = ("*.md",)) -> list[str]:
@@ -749,6 +812,7 @@ def rule_r3_npm_payloads(
     get_bytes = fetch_bytes if fetch_bytes is not None else _http_get_bytes
     matched = 0
     ignored: list[str] = []
+    unreadable: list[str] = []
     for version in sorted(versions, key=lambda item: _version_tuple(str(item)) or (0, 0, 0)):
         if _version_tuple(str(version)) is None:
             ignored.append(str(version))
@@ -763,8 +827,18 @@ def rule_r3_npm_payloads(
             continue
         try:
             digest = _tarball_payload_digest(get_bytes(tarball))
+        except HttpError as exc:
+            # A 404 is the registry's own answer that the tarball it advertises
+            # does not exist - the release is missing, so it is drift. Anything
+            # else (5xx, timeout, URL error) is unreadable input: exit 2, so a
+            # network flake can never be mistaken for a release defect.
+            if exc.status == 404:
+                findings.append(f"{version}: tarball {tarball} is missing: {exc}")
+            else:
+                unreadable.append(f"{version}: tarball unreadable: {exc}")
+            continue
         except InputError as exc:
-            findings.append(f"{version}: tarball unreadable: {exc}")
+            unreadable.append(f"{version}: tarball unreadable: {exc}")
             continue
         tag = f"v{version}"
         if tag not in tags:
@@ -773,7 +847,7 @@ def rule_r3_npm_payloads(
         try:
             local = payload_digest(repo_root, tag)
         except InputError as exc:
-            findings.append(f"{version}: {exc}")
+            unreadable.append(f"{version}: {exc}")
             continue
         if local == digest:
             matched += 1
@@ -783,6 +857,8 @@ def rule_r3_npm_payloads(
             )
     if ignored:
         notes.append(f"ignored non-X.Y.Z npm version(s): {', '.join(sorted(ignored))}")
+    if unreadable:
+        return _unreadable("R3", findings, notes, "; ".join(unreadable))
     if findings:
         return _drift("R3", findings, notes)
     return _ok(
@@ -809,8 +885,14 @@ def _github_release_names(data: object) -> list[str]:
 def rule_r4_releases_have_tags(
     repo_root: Path, fetch: Callable[[str], Any] | None = None
 ) -> RuleResult:
-    """Every GitHub Release must name a tag the repository has."""
-    tags = _version_tags(repo_root)
+    """Every GitHub Release must name a tag the repository has.
+
+    The comparison set is the whole of ``git tag -l``, not the ``vX.Y.Z`` subset:
+    11.2.4's version-tag filter is R1/R2/R5's, and a pre-release tag such as
+    ``v1.1.3-rc1`` is a tag a release may legitimately carry. Filtering it out
+    here would report an existing tag as missing.
+    """
+    tags = _all_tags(repo_root)
     if fetch is None:
         return _skip("R4", f"offline: GitHub releases API not queried; {len(tags)} tag(s) local")
     try:
@@ -856,12 +938,25 @@ def _channel_claims(line: str) -> list[tuple[str, str | None]]:
             name = _clean_distribution(match.group(1))
             if name:
                 claims.append((name, None))
-    for match in UVX.finditer(line):
-        name = _clean_distribution(match.group(1))
-        if name:
-            executable = match.group(2)
-            claims.append((name, executable.strip() if executable else None))
+    for pattern in (UVX_FROM, PIPX_RUN):
+        for match in pattern.finditer(line):
+            name = _clean_distribution(match.group(1))
+            if name:
+                claims.append((name, _trailing_script(line, match.end())))
     return claims
+
+
+def _trailing_script(line: str, start: int) -> str | None:
+    """The console script after ``uvx --from <dist>`` / ``pipx run --spec <dist>``.
+
+    Only a real argument counts: ``uvx --from teamwork-agents is the fastest way
+    to try it`` continues as prose, and reading ``is`` as an executable would
+    report a drift the text never claimed.
+    """
+    match = SCRIPT_ARGUMENT.match(line, start)
+    if not match:
+        return None
+    return match.group(1).strip() or None
 
 
 def _clean_distribution(token: str) -> str | None:
@@ -884,9 +979,10 @@ def _negated_install(line: str) -> bool:
     """A sentence that says there is *no* install channel advertises nothing.
 
     11.2.4 scopes R8 to markdown that *advertises* a channel; ``there is no pip
-    install and no venv`` (CHANGELOG.md, SKILL.md) states the opposite.
+    install and no venv`` (CHANGELOG.md, SKILL.md) states the opposite, and so
+    does ``no uvx --from ...`` or ``never pipx run ...``.
     """
-    return bool(re.search(r"(?i)\b(no|not|never|without)\s+(?:a\s+)?`?pip3?`?\s+install", line))
+    return bool(NEGATED_CHANNEL.search(line))
 
 
 def rule_r8_install_channels(
@@ -968,6 +1064,12 @@ def rule_r8_install_channels(
 # --------------------------------------------------------------------------- #
 
 
+def _project_tokens(text: str) -> list[re.Match[str]]:
+    """Version tokens that name this project, per 11.2.4's foreign-tool rule."""
+    foreign = {match.span(1) for match in FOREIGN_VERSION.finditer(text)}
+    return [match for match in VERSION_TOKEN.finditer(text) if match.span(1) not in foreign]
+
+
 def rule_r6_markdown_versions(repo_root: Path) -> RuleResult:
     """Prose must not print a project version older than HEAD (11.2.4)."""
     head = _read_version(repo_root)
@@ -984,12 +1086,10 @@ def rule_r6_markdown_versions(repo_root: Path) -> RuleResult:
         except OSError as exc:
             raise InputError(f"{rel}: {exc}") from exc
         for line in _marked_lines(text):
-            if FOREIGN_VERSION.search(line.text):
-                continue
             about_project = bool(
                 PROJECT_CONTEXT.search(line.text) or PROJECT_CONTEXT.search(line.block)
             )
-            tokens = list(VERSION_TOKEN.finditer(line.text)) if about_project else []
+            tokens = list(_project_tokens(line.text)) if about_project else []
             if tokens and line.exempted:
                 illustrative += 1
                 continue
