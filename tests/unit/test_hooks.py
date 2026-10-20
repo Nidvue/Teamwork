@@ -86,6 +86,17 @@ def repo(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def unborn(tmp_path: Path) -> Path:
+    """A repository whose HEAD names the default branch before any commit exists."""
+    path = tmp_path / "Unborn"
+    path.mkdir()
+    git(path, "init", "-q", "-b", config.DEFAULT_BASE)
+    git(path, "config", "user.name", "Developer")
+    git(path, "config", "user.email", ROLE_EMAIL)
+    return path
+
+
+@pytest.fixture
 def feature(repo: Path) -> Path:
     git(repo, "checkout", "-q", "-b", "feature")
     return repo
@@ -106,8 +117,10 @@ def test_install_writes_both_stages_with_the_marker_and_mode(cli, repo, capsys) 
         path = hook_dir(repo) / stage
         body = path.read_text(encoding="utf-8")
         assert path.stat().st_mode & 0o777 == 0o755
-        assert config.HOOK_MARKER in body
-        assert body.startswith("#!/bin/sh\n")
+        lines = body.splitlines()
+        assert lines[0] == "#!/bin/sh"
+        assert config.HOOK_MARKER == "teamwork-managed hook"
+        assert config.HOOK_MARKER in lines[1], "the marker literal belongs on line 2"
         assert "\r" not in body
         assert body.rstrip().endswith(f'hook {stage} "$@"')
         assert "root=$(git rev-parse --show-toplevel)" in body
@@ -202,6 +215,42 @@ def test_pre_commit_refuses_on_the_default_branch(cli, repo, capsys) -> None:
     err = capsys.readouterr().err
     assert "refusing to commit on" in err
     assert "teamwork.py branch start --agent <you> --task <T-id>" in err
+
+
+def test_pre_commit_refuses_the_root_commit_on_the_default_branch(cli, unborn, capsys) -> None:
+    """The first commit has an unborn HEAD: `rev-parse --abbrev-ref` prints nothing."""
+    probe = subprocess.run(
+        ["git", "-C", str(unborn), "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+        env=clean_env(),
+    )
+    assert probe.stdout.strip() != config.DEFAULT_BASE, (
+        "an unborn HEAD does not name the branch, which is why the guard asks git symbolic-ref"
+    )
+    capsys.readouterr()
+
+    assert cli("--project", unborn, "hook", "pre-commit") == 1
+    assert "refusing to commit on" in capsys.readouterr().err
+
+
+def test_the_root_commit_is_refused_end_to_end(cli, unborn, repo_root, capsys) -> None:
+    write(unborn / "scripts" / "teamwork.py", engine_shim(repo_root))
+    write(unborn / "README.md", "# first\n")
+    git(unborn, "add", "README.md")
+    capsys.readouterr()
+    assert cli("--project", unborn, "hooks", "install") == 0
+
+    done = subprocess.run(
+        ["git", "-C", str(unborn), "commit", "-q", "-m", "first"],
+        capture_output=True,
+        text=True,
+        env=clean_env(),
+    )
+
+    assert done.returncode != 0, "the root commit on the default branch must be refused"
+    assert "refusing to commit on" in done.stderr or "refusing to commit on" in done.stdout
+    assert git(unborn, "rev-list", "--all") == "", "nothing may have been committed"
 
 
 def test_pre_commit_allows_the_default_branch_with_the_override(
