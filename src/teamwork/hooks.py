@@ -44,10 +44,9 @@ def shim(stage: str) -> str:
     """The POSIX sh hook git runs. Resolves the engine from the work tree root."""
     return (
         "#!/bin/sh\n"
-        f"# {HOOK_MARKER} (stage: {stage})\n"
-        "# remove with: teamwork.py hooks uninstall\n"
+        f"# {HOOK_MARKER} (stage: {stage}) - remove with: teamwork.py hooks uninstall\n"
         "# the hook file lives in the git dir; the rules act on the work tree below\n"
-        '[ -n "$TEAMWORK_SKIP_HOOKS" ] && exit 0\n'
+        '[ -n "${TEAMWORK_SKIP_HOOKS:-}" ] && exit 0\n'
         "root=$(git rev-parse --show-toplevel) || exit 0\n"
         "# -f, not -x: scripts/teamwork.py is committed 100644, so an executable-bit\n"
         "# test would turn every hook into a silent no-op in this repository\n"
