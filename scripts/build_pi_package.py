@@ -20,7 +20,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-NAME = "pi-teamwork"
+NAME = "@nidvue/teamwork"
+REPO_URL = "https://github.com/Nidvue/Teamwork"
+REPO_BLOB = REPO_URL + "/blob/main/"
+REPO_RAW = REPO_URL.replace("github.com", "raw.githubusercontent.com") + "/main/"
+PREVIEW = REPO_RAW + "assets/social-preview.png"
 
 # The bundle manifest is engine state, not a build-tool constant: the installed
 # skill, the wheel and the tarball must contain the same files.
@@ -50,14 +54,15 @@ def package_json(ver: str) -> dict:
         "name": NAME,
         "version": ver,
         "description": (
-            "Run a user prompt to completion with an autonomous multi-agent team on pi: "
+            "Nidvue Teamwork - an autonomous, self-governing agent company for pi: "
             "CEO-led decomposition, parallel lanes, two-stage review, hash-chained audit "
-            "ledger, layered role-owned tests."
+            "ledger and layered role-owned tests. Python 3.9+, stdlib only."
         ),
         "keywords": [
             "pi-package",
             "pi",
             "pi-coding-agent",
+            "nidvue",
             "teamwork",
             "multi-agent",
             "orchestration",
@@ -65,8 +70,10 @@ def package_json(ver: str) -> dict:
             "skill",
         ],
         "license": "AGPL-3.0-or-later",
-        "homepage": "https://pi.dev/packages",
-        "repository": {"type": "git", "url": "https://github.com/Nidvue/Teamwork"},
+        "author": {"name": "Nidvue contributors"},
+        "homepage": REPO_URL,
+        "repository": {"type": "git", "url": "git+" + REPO_URL + ".git"},
+        "bugs": {"url": REPO_URL + "/issues"},
         # everything the runtime needs lives under skills/ and prompts/; the
         # licence and the notices must ship too, or npm drops them silently
         "files": [
@@ -81,6 +88,8 @@ def package_json(ver: str) -> dict:
         "pi": {
             "skills": ["./skills"],
             "prompts": ["./prompts"],
+            # gallery preview; a URL, so the image never enters the tarball
+            "image": PREVIEW,
         },
         # Host-provided packages are peers, never dependencies: a physical copy
         # bypasses pi's module mapping and duplicates registries (docs/packages.md).
@@ -121,24 +130,32 @@ def copy_skill(dest: Path) -> None:
     shutil.copytree(ROOT / "templates" / "pi-package" / "prompts", dest / "prompts")
 
 
-REPO_URL = "https://github.com/Nidvue/Teamwork/blob/main/"
-
-
 def ship_readme(dest: Path) -> None:
-    """Rewrite repo-relative links to absolute ones.
+    """Rewrite repo-relative links and images to absolute ones.
 
-    The tarball ships the skill and the notices, not ``docs/`` or the test tree,
-    so a relative link that works in the repository is dead for a package user.
+    The tarball ships the skill and the notices, not ``assets/`` or ``docs/``, so a
+    relative reference that works in the repository renders broken on npm and in
+    the pi gallery - both of which show this README.
     """
     text = (ROOT / "README.md").read_text(encoding="utf-8")
 
+    def keep(target: str) -> bool:
+        return target.startswith(("http:", "https:", "#", "mailto:", "data:"))
+
     def absolute(match: re.Match[str]) -> str:
         target = match.group(2)
-        if target.startswith(("http:", "https:", "#", "mailto:")):
+        if keep(target):
             return match.group(0)
-        return f"[{match.group(1)}]({REPO_URL}{target.lstrip('./')})"
+        return f"[{match.group(1)}]({REPO_BLOB}{target.lstrip('./')})"
+
+    def raw(match: re.Match[str]) -> str:
+        target = match.group(2)
+        if keep(target):
+            return match.group(0)
+        return f'{match.group(1)}"{REPO_RAW}{target.lstrip("./")}"'
 
     rewritten = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", absolute, text)
+    rewritten = re.sub(r'(src=)"([^"]+)"', raw, rewritten)
     Path(dest / "README.md").open("w", encoding="utf-8", newline="\n").write(rewritten)
 
 
@@ -165,8 +182,9 @@ def main(argv: list[str]) -> int:
     copy_docs(dest)
     ship_readme(dest)
     manifest = json.loads((dest / "package.json").read_text(encoding="utf-8"))
-    missing = [p for p in json.loads(json.dumps(manifest["pi"])).values() for p in p]
-    absent = [p for p in missing if not (dest / p.lstrip("./")).exists()]
+    # only the list-valued resources are paths on disk; ``pi.image`` is a URL
+    declared = [p for v in manifest["pi"].values() if isinstance(v, list) for p in v]
+    absent = [p for p in declared if not (dest / p.lstrip("./")).exists()]
     if absent:
         print(f"missing declared resources: {absent}", file=sys.stderr)
         return 1

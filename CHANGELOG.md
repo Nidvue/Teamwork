@@ -9,7 +9,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.0.2...HEAD)
+## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.1.1...HEAD)
+
+## [1.1.1](https://github.com/Nidvue/Teamwork/compare/v1.1.0...v1.1.1) - 2026-10-20
+
+### Fixed
+
+- **npm package republished as 1.1.1**: the first `npm publish` of
+  `@nidvue/teamwork@1.1.0` exited 0 but only *staged* the version on the registry
+  (`dist-tags.latest` stayed at the `0.0.0-stage` placeholder, the packument never
+  appeared, and `npm stage list` returned no stage-id to reject). A second publish
+  of that version is refused with `E409 Cannot publish over previously staged
+  version`. This is the phantom-staged-publish registry bug tracked as
+  [npm/cli#9889](https://github.com/npm/cli/issues/9889); the version number cannot
+  be reused, so the package ships as 1.1.1. No code, skill or protocol change -
+  the only differences from the 1.1.0 build are the `version` field and this entry.
 
 ### Security
 
@@ -41,9 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   own dispute, and `init` now prints the folded lanes and warns when a
   gate-critical role is missing.
 
-- **`pi-teamwork` package**: the skill now ships as a pi package (`pi.skills` +
-  `pi.prompts`, host packages as `peerDependencies` only). A pi session installs it
-  with `pi install npm:pi-teamwork` and gets two skills: `/skill:teamwork` (the
+- **`@nidvue/teamwork` package**: the skill ships as a pi package under the
+  Nidvue npm scope (`pi.skills` + `pi.prompts`, host packages as
+  `peerDependencies` only). A pi session installs it
+  with `pi install npm:@nidvue/teamwork` and gets two skills: `/skill:teamwork` (the
   protocol) and `/skill:teamwork-pi` (the pi tool mapping: `subagent` fan-out,
   `schedule.create` pulse, `subagent_supervisor` replies, `subagent stop`), plus
   the `teamwork-pulse` and `teamwork-review` prompt templates. The tarball is
