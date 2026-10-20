@@ -16,6 +16,7 @@ drift reporting - without any network.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -31,12 +32,22 @@ GIT_ENV = {
 }
 
 
+def git_path() -> str:
+    """The ambient PATH plus the usual bin directories.
+
+    Hard-coding ``/usr/bin:/bin`` hides git on NixOS and Guix, where it lives in
+    ``/run/current-system/sw/bin``: the tests need *a* git, not a specific one.
+    """
+    ambient = os.environ.get("PATH", "")
+    return os.pathsep.join(p for p in (ambient, "/usr/bin", "/bin", "/usr/local/bin") if p)
+
+
 def git(path: Path, *argv: str) -> str:
     done = subprocess.run(
         ["git", "-C", str(path), *argv],
         capture_output=True,
         text=True,
-        env={**GIT_ENV, "PATH": "/usr/bin:/bin:/usr/local/bin"},
+        env={**GIT_ENV, "PATH": git_path()},
     )
     assert done.returncode == 0, (argv, done.stderr)
     return done.stdout.strip()

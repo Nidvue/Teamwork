@@ -30,20 +30,22 @@ def build(tmp_path: Path) -> Path:
         text=True,
     )
     assert done.returncode == 0, done.stderr
-    return out / "pi-teamwork"
+    return out / "@nidvue" / "teamwork"
 
 
 def test_manifest_matches_the_shipped_tree(tmp_path: Path) -> None:
     pkg = build(tmp_path)
     manifest = json.loads((pkg / "package.json").read_text(encoding="utf-8"))
 
-    assert manifest["name"] == "pi-teamwork"
+    assert manifest["name"] == "@nidvue/teamwork", "the master brand owns the npm scope"
     assert "pi-package" in manifest["keywords"], "the gallery discovers pi-package only"
     assert manifest["license"] == "AGPL-3.0-or-later", "LICENSE is AGPL v3"
     assert "GNU AFFERO GENERAL PUBLIC LICENSE" in (pkg / "LICENSE").read_text(encoding="utf-8")
 
     # every resource the pi manifest declares must exist in the tarball
     for paths in manifest["pi"].values():
+        if not isinstance(paths, list):
+            continue  # pi.image is a URL, not a path
         for pattern in paths:
             assert (pkg / pattern.lstrip("./")).exists(), pattern
 
@@ -51,6 +53,14 @@ def test_manifest_matches_the_shipped_tree(tmp_path: Path) -> None:
     for needed in ("README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md"):
         assert needed in manifest["files"], needed
         assert (pkg / needed).exists(), needed
+
+    # the gallery card is the description, and every link must reach the repo
+    assert "Nidvue Teamwork" in manifest["description"]
+    assert len(manifest["description"]) <= 256, "npm truncates the gallery card"
+    assert manifest["homepage"] == "https://github.com/Nidvue/Teamwork"
+    assert manifest["repository"]["url"].endswith("github.com/Nidvue/Teamwork.git")
+    assert manifest["bugs"]["url"].endswith("/issues")
+    assert manifest["pi"]["image"].startswith("https://")
 
     # host packages are peer-only: a physical copy duplicates pi's module registry
     for host in (
