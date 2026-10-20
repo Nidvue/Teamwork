@@ -104,11 +104,41 @@ def test_findings_on_different_lines_are_kept_separately():
     assert len(ps.dedupe(raw)) == 2
 
 
-def test_mask_never_returns_the_whole_secret():
+def test_a_finding_publishes_no_character_of_the_value():
+    """The evidence names the rule; it never carries a prefix or a suffix.
+
+    A partly masked preview is still a disclosure: the first and last characters
+    of a credential reach every reader of a CI log. The report therefore carries
+    no character of the value at all, and the value lives on the Finding object
+    (``.raw``) where no reporting sink serialises it.
+    """
+    import json
+
     secret = "sk-" + "abcdefghijklmnopqrstuvwxyz"
-    masked = ps._mask(secret)
-    assert masked != secret
-    assert secret not in masked
+    (finding,) = findings_for(f'k = "{secret}"\n')
+    assert finding["evidence"] == "<redacted-api-token>"
+    assert finding.raw == secret
+    assert "match" not in finding, "the raw value must not be a report item"
+    report = json.dumps(finding)
+    assert secret not in report
+    assert secret[:3] not in report, "not even a prefix may reach a sink"
+    assert secret[-3:] not in report, "not even a suffix may reach a sink"
+
+
+def test_the_json_report_never_carries_a_value(tmp_path, capsys):
+    """``--json`` serialises the findings, so it must hold no value either.
+
+    This is the sink CodeQL reports on ``json.dumps(report)``: the raw value used
+    to travel in the ``match`` item of every finding, so the report dict carried
+    it into the log even though the human-readable line did not print it.
+    """
+    repo, planted = _repo_with_planted_credential(tmp_path)
+    assert ps.main(["--tree", "--root", str(repo), "--json"]) == 1
+    out, err = capsys.readouterr()
+    assert planted not in out
+    assert planted[:8] not in out, "a prefix of the value is still the value"
+    assert "<redacted-api-token>" in out, "the rule must still be named"
+    assert planted not in err
 
 
 def test_summarize_counts_by_severity_and_rule():
@@ -743,7 +773,7 @@ def test_every_shipped_allowlist_entry_matches_a_real_finding():
     for pattern in path_entries:
         literal = re.sub(r"\\(.)", r"\1", entry_body(pattern.pattern))
         line = f"built {literal}"
-        values.update(f["match"] for f in ps.scan_lines(line, "src/mod.py", "tree", ps.RULES, []))
+        values.update(f.raw for f in ps.scan_lines(line, "src/mod.py", "tree", ps.RULES, []))
     for pattern in path_entries:
         assert any(pattern.search(value) for value in values), (
             f"{pattern.pattern!r} exempts no finding that the scanner reports"

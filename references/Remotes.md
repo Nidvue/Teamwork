@@ -118,7 +118,10 @@ Security), an open `error`/`critical`/`high` alert on the default branch is a
 known defect **in the shipped revision**: the code is already public, so the
 alert is a release blocker, not a backlog item. Two measured examples on this
 repository's own remote, both `py/clear-text-logging-sensitive-data` on
-`scripts/privacy_scan.py`, both `error`, both on `main` with no task and no owner.
+`scripts/privacy_scan.py`, both `error`, both on `main` with no task and no owner -
+and both only closed when the value stopped reaching the sink at all: the raw
+value left the finding record, and the report named the rule instead of printing a
+partly masked preview.
 
 The Release Engineer owns the gate:
 

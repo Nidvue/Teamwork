@@ -1042,19 +1042,22 @@ the index and the full git history. `--tree`, `--staged` and `--history` combine
 `--all` sets all three; the default is `--tree`. Exit `2` is a usage or git
 error. CI runs `--tree --history --allow .github/privacy-allow.txt`.
 
-**Matched values are masked by default and the unmasked value is never printed.**
-There is deliberately no flag that sends a secret to stdout or stderr: a log line
-survives the session (CI logs are retained and world-readable, terminals are
-recorded, `tee` output outlives the shell), so the scanner never writes one.
+**No character of a matched value reaches stdout or stderr.** There is
+deliberately no flag that sends a secret to a log: a log line survives the session
+(CI logs are retained and world-readable, terminals are recorded, `tee` output
+outlives the shell), and a partly masked preview such as `ev***et` already hands
+the first and last characters of a credential to every reader of that log.
 
-Plain output shows `ev***et`-style masked evidence, which is enough to recognise a
-finding in place.
+Plain output therefore names the rule, not the value -
+`src/mod.py:12: [critical/api-token] <redacted-api-token>` - which says what fired
+and where. The value itself is held outside the report record, so no reporting
+sink (the text line, `--json`, a CI annotation) can serialise it by accident.
 
 | Option | Meaning |
 |---|---|
 | `--reveal` | append a stable fingerprint to each finding line - `sha256:` plus 12 hex characters of the unsalted SHA-256 of the full value. Use it to tell two findings apart or to confirm that a rotated secret really is gone. It is not usable as the credential and does not embed any prefix of it |
 | `--reveal-to PATH` | write the raw matched values to a file you name, for local remediation only. The file is created `0600` and **refuses to overwrite** an existing path (exit `2`); each line is `location<TAB>rule<TAB>fingerprint<TAB>value`; a `WARNING` naming the file is printed to stderr; a partial file is deleted on error |
-| `--json` | machine-readable report. It carries the same masked evidence; `match` is removed before the report is built, so the raw value is not in the JSON either |
+| `--json` | machine-readable report. It carries the same rule-named evidence; the raw value is not an item of any finding, so it is not in the JSON either |
 | `--quiet` | only the one-line `PASS`/`FAIL` summary |
 | `--allow FILE` | allowlist, one regular expression per line with an optional `# reason` |
 
