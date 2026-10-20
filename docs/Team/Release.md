@@ -12,9 +12,9 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | clean checkout | `git clone https://github.com/Nidvue/Teamwork && cd Teamwork` | clean tree |
 | dev setup | `make dev` | editable install with dev extras |
 | selftest | `python3 scripts/teamwork.py selftest` | `5/5 checks passed`, exit 0 |
-| build | `make build` | `dist/teamwork_agents-1.1.0.tar.gz` and `dist/teamwork_agents-1.1.0-py3-none-any.whl` |
-| verify | `make verify` | wheel contains `teamwork/data/SKILL.md`; clean-venv install; `teamwork --version`, `teamwork selftest`, temp-dir `teamwork init` all pass |
-| package | `python3 scripts/verify_release.py` | `SHA256SUMS` written next to the artefacts |
+| build | `make build` | `dist/teamwork_agents-<version>.tar.gz` and `dist/teamwork_agents-<version>-py3-none-any.whl`, where `<version>` is what `python3 scripts/teamwork.py --version` prints (read it from `src/teamwork/version.py`; the filenames follow it and are never pinned here) |
+| verify | `make verify` (runs `scripts/verify_release.py`) | every bundled skill file (`teamwork/data/SKILL.md`, roles, references, templates) is present in the wheel and the sdist, the wheel metadata declares no ungated `Requires-Dist`; clean-venv install; `teamwork --version`, `teamwork selftest`, the full gate loop to `STOP` and a temp-dir `teamwork init` all pass; `dist/SHA256SUMS` is written last, only after every check passed |
+| pi package | `make package` | `dist/@nidvue/teamwork` pi bundle (built by `scripts/build_pi_package.py`) |
 | provenance | GitHub Actions attestation (release workflow) | `gh attestation verify <file> --repo Nidvue/Teamwork` |
 
 ## CI gates
@@ -22,37 +22,51 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | gate | command | blocks a merge? |
 |---|---|---|
 | lint | `ruff check . && ruff format --check .` | yes |
-| typecheck | `mypy src/teamwork` | no (report only for v1.0.0) |
+| identity | `scripts/teamwork.py identity --audit --range <base>..HEAD` | yes (team-domain commits) |
+| committer guard | `scripts/teamwork.py identity --guard-committer --range <before>..<head>` | yes |
+| typecheck | `mypy src/teamwork` | no (`continue-on-error: true`, a report not a gate) |
 | unit + integration | `pytest tests/unit tests/integration -q` | yes |
 | acceptance | `pytest tests/acceptance -q` | yes |
+| coverage | `pytest --cov=teamwork --cov-fail-under=55` | yes, as part of `test` |
 | matrix | ubuntu/macos/windows x py3.9/3.11/3.13, plus py3.10/3.12 on ubuntu | yes |
 | build | `python -m build && python scripts/verify_release.py` | yes |
-| privacy | `python3 scripts/privacy_scan.py --tree --history` | yes |
-| docs | `teamwork links` + `mkdocs build --strict` | yes |
-| identity | `scripts/teamwork.py identity --audit` | yes (team-domain commits) |
+| privacy | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | yes |
+| docs | `teamwork links` + `mkdocs build --strict` (in `docs.yml`) | yes |
 
 ## Release candidate gate
 
 The gate is measured on a revision that is reachable from the default branch - never
 on a detached head or a discarded amend, because such a revision can never ship. The
-revision below is the tip of `main` when the gate was run; re-run the table on the
-current tip before a tag, and read each result from the command, never from this page.
+table carries no pinned revision: it is a description of what each gate must print,
+and the revision it applies to is always the head you are about to tag -
+`git rev-parse --short HEAD` (equivalently `git log --oneline -1`). Re-run every row
+on that head before a tag and read each result from the command, never from this page.
 
-| gate | command | measured at `1a6d21c` |
+| gate | command | what a passing result prints |
 |---|---|---|
-| build | `python -m build && python scripts/verify_release.py` | `OK - release verified`, `SHA256SUMS` written; wheel `553adf4921dcb236`, sdist `e8a453daaa6d55ff` |
-| selftest | `python3 scripts/teamwork.py selftest` | `5/5 checks passed`, exit 0 |
-| unit + integration + acceptance | `pytest -q` | 600 passed, 1 skipped (the skip is the console-script check, covered by `verify_release.py`) |
-| lint + format | `ruff check . && ruff format --check .` | clean, 137 files formatted |
-| typecheck | `mypy src/teamwork` | no issues in 15 files |
-| privacy | `privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | `PASS - 0 finding(s)`, exit 0 |
-| docs | `teamwork links` + `mkdocs build --strict` | `# issues: 0`; strict build succeeds |
-| identity | `teamwork identity --audit --range origin/main..main` | 0 commits, 0 problems |
-| code scanning | `teamwork code-scanning` | 2 open `error` alerts, both `py/clear-text-logging-sensitive-data` on `scripts/privacy_scan.py`, triaged false positive by the Security Auditor (`D-20261020-SEC-1`) - the gate reads the triage, not a zero |
+| build | `python -m build && python scripts/verify_release.py` | `verify_release: OK - release verified` and `wrote dist/SHA256SUMS`; the two digests in that file are the values to record |
+| selftest | `python3 scripts/teamwork.py selftest` | `teamwork selftest: 5/5 checks passed`, exit 0 |
+| unit + integration + acceptance | `pytest -q` | every test passes; the only legitimate skips are the console-script check (covered by `verify_release.py`) and the two that need the gitignored team tree, so read the skip reasons rather than a count |
+| lint + format | `ruff check . && ruff format --check .` | `All checks passed!`; `... files already formatted` |
+| typecheck | `mypy src/teamwork` | `Success: no issues found` |
+| privacy | `privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | `PASS - 0 finding(s) in tree, history`, exit 0 |
+| docs | `teamwork links` + `mkdocs build --strict` | `# issues: 0`; the strict build finishes without a warning |
+| identity | `teamwork identity --audit --range origin/main..main` | `# commits: 0 | problems: 0` on a clean push, and `problems: 0` otherwise |
+| code scanning | `teamwork code-scanning` | `- no open alert`. Any open `error`/`critical`/`high` alert is a red gate and is filed to the role that owns the file, never dismissed (`D-20261020-SEC-1`, below) |
 
 The privacy row is quoted with `--allow` because that is what CI and `make privacy`
-run: the allowlist exempts three path shapes that appear only as quoted evidence,
-and every pattern rule still fires on the same line.
+run. The allowlist exempts two quoted path families (the pi install tree and one
+operator user name) and three fabricated probe values a reviewer quoted as evidence;
+every pattern rule still fires on the same line.
+
+The code-scanning row no longer quotes a triage. `D-20261020-SEC-1` originally
+triaged alerts #2 and #3 (`py/clear-text-logging-sensitive-data` on
+`scripts/privacy_scan.py`) as false positives; the reporting path was then refactored
+instead (`2e7810f`, T-0053: the raw value lives on the `Finding` object as an
+attribute, never as an item, and every sink names the rule, not the value). The forge
+reports all three alerts as `fixed`, not `dismissed`, so `teamwork code-scanning`
+prints `- no open alert`. The decision stays in [Decisions](Decisions.md) as the record
+of that triage; it is not the current answer.
 
 ### Trigger policy - code in, prose and media out
 
@@ -67,10 +81,12 @@ paths and runs the checks that still matter for prose: `teamwork links`,
 `privacy_scan.py --tree --history` and `mkdocs build --strict`.
 
 On a **pull request both workflows always run**, regardless of paths: branch
-protection requires 14 checks to be *reported* on the head, and a path-filtered
-skip reports nothing, so a docs-only PR would wait forever. The path filter is a
-push-time cost optimisation, not a merge gate. Evidence: PR #16 (docs only) ran
-CI and Docs; the Docs-only push `39175948257` ran only Docs.
+protection requires every check to be *reported* on the head (read the list with
+`gh api repos/Nidvue/Teamwork/branches/main/protection --jq
+'.required_status_checks.contexts[]'`), and a path-filtered skip reports nothing, so a
+docs-only PR would wait forever. The path filter is a push-time cost optimisation, not
+a merge gate. Evidence: PR #16 (docs only) ran CI and Docs on its head `0e00001`, both
+success; the Docs-only push `39175948257` ran only Docs, success.
 
 | change touches | on push to `main` | on a PR |
 |---|---|---|
@@ -87,50 +103,85 @@ prose-only change when it is genuinely warranted.
 
 - Existing reviewed merge commits stay on `main`; they are not rewritten.
 - Every future change: branch -> push the branch -> open a GitHub PR -> all
-  required checks green on the PR head -> **squash merge locally with the role
+  required checks green on the PR head -> **integrate locally with the role
   identity** -> push `main` -> delete the branch.
-- Do **not** use GitHub's UI/API squash button: it authors the commit with the
-  signed-in account (personal email), which fails the privacy gate. Use
-  `git merge --squash <branch>` and commit as the acting role, or a dedicated
-  role-identity bot.
-- `main` keeps: 1 required approval, 14 required checks, strict up-to-date,
-  no force-push, no deletion. `required_linear_history` is disabled so the
-  existing merge commits do not force an admin bypass on every push.
-- Local `teamwork.py pr merge --squash` is the equivalent local path.
+- Do **not** use any GitHub merge button. Every host button stamps the signed-in
+  account into the commit it creates - squash as the author, rebase as the
+  committer - and that fails the privacy gate on history. Since 2026-10-20 the forge
+  has squash and merge commits *off* and rebase on (`gh api repos/Nidvue/Teamwork` ->
+  `allow_squash_merge=false`, `allow_merge_commit=false`, `allow_rebase_merge=true`,
+  `delete_branch_on_merge=true`); the host also needs one method enabled, so the
+  guard, not the setting, is what protects `main`.
+- Locally: `git merge --squash <branch>` and commit as the acting role, or
+  `teamwork.py pr merge --squash`, which does exactly that as the Reviewer mailbox.
+- `main` keeps: 1 required approval, strict up-to-date, no force-push, no deletion,
+  `required_linear_history` disabled so the existing merge commits do not need an
+  admin bypass. The required check list is measured, not quoted; the committer guard
+  (`identity --guard-committer`) reports a stamped account on the push, and
+  `identity --audit` accepts a forge rebase committer (`noreply@github.com`) only
+  when the author is a canonical role mailbox.
 
 ## Deploy
 
-- Environments: none. The artefact is a Python package; the "deployment" is a
-  GitHub Release plus, optionally, a PyPI upload by the owner.
+- Environments: none for the package. The artefact is a Python package; the
+  "deployment" is a GitHub Release. `teamwork-agents` is **not on PyPI** (measured:
+  `https://pypi.org/pypi/teamwork-agents/json` -> `404`, `pip index versions
+  teamwork-agents` -> `No matching distribution found`), so the release asset is the
+  only install source and a user needs no index at all:
+  `pip install https://github.com/Nidvue/Teamwork/releases/download/<tag>/teamwork_agents-<version>-py3-none-any.whl`.
 - Order of operations: `main` green -> push `main` -> CI green on that SHA ->
-  CEO tags `v<version>` -> release workflow builds, signs, attests and publishes
-  the release assets. History rewrites are not part of the flow; the pre-release
-  privacy rewrite already happened before the first public tag.
-- Configuration and secrets *mechanism* (never values): PyPI publishing uses
-  Trusted Publishing (OIDC) and is deliberately not enabled; no secret is stored
-  in the repository. Only the owner's local `gh` credential is used to push.
+  CEO tags `v<version>` -> the Release workflow asserts the tag equals
+  `src/teamwork/version.py`, re-runs the tests, builds sdist+wheel, writes
+  `SHA256SUMS` and two SBOMs, **attests** build provenance and publishes the GitHub
+  Release. It does not sign: provenance is the sigstore attestation, verified with
+  `gh attestation verify <file> --repo Nidvue/Teamwork` (measured on the published
+  `v1.1.0` wheel -> pass, workflow ref `release.yml@refs/tags/v1.1.0`). History
+  rewrites are not part of the flow; the pre-release privacy rewrite already happened
+  before the first public tag.
+- Configuration and secrets *mechanism* (never values): no publish credential exists at
+  all. There is no PyPI job in any workflow and no secret in the repository; Trusted
+  Publishing (OIDC) would be the mechanism if a PyPI upload were ever enabled. Only the
+  operator's local `gh` credential pushes.
 
 ## Rollback
 
-- One command to return to the previous version for a user:
-  `pip install "teamwork-agents==<previous>"` (or `git checkout v0.9.0`).
-- To retract a bad release: `gh release delete v1.0.0 --yes` and re-tag after the
-  fix (`git tag -d v1.0.0 && git push origin :v1.0.0`). Deleting a GitHub Release
-  does not delete the git tag; both must be handled.
+- Reverting a user to an earlier version needs no index: install the asset of the
+  tag you want. List the tags first - never copy a literal from this page, a released
+  tag cannot be re-pointed:
+  `git tag -l --sort=-v:refname` -> newest first; `git tag -l --sort=-v:refname | sed -n 2p`
+  is the previous one. Then
+  `pip install https://github.com/Nidvue/Teamwork/releases/download/<tag>/teamwork_agents-${tag#v}-py3-none-any.whl`.
+- Drill (measured 2026-10-20): previous tag `v1.0.2` -> wheel installed into a clean
+  venv -> `teamwork --version` `teamwork 1.0.2`, `teamwork selftest: 5/5 checks
+  passed`. Rolling *back* is therefore one command and needs no checkout.
+- To retract a bad release: `gh release delete <tag> --yes`, then re-tag after the fix
+  (`git tag -d <tag> && git push origin :<tag>`). Deleting a GitHub Release does not
+  delete the git tag; both must be handled. Moving or re-pointing a *published* tag is
+  a red line - publish a new patch version instead.
 - What is *not* reversible: a force-push to `main` rewrites history for anyone who
-  already cloned. The privacy rewrite is therefore done **before** the first
-  public announcement and before any external clone exists.
-- Last drill: `python3 scripts/verify_release.py` @ `6905869` -> `OK - release
-  verified` (build sdist+wheel, bundle files in the wheel, clean-venv install,
-  `--version`, `selftest`, `init` and the full gate loop to `STOP`), duration
-  ~6 s; the CI `build` job runs the same command on every push.
+  already cloned. The privacy rewrite is therefore done **before** the first public
+  announcement and before any external clone exists.
+- Last release drill: `python3 scripts/verify_release.py` at head `f277ac7` ->
+  `verify_release: OK - release verified`, `wrote dist/SHA256SUMS`, 5.7 s (build
+  sdist+wheel, every bundled skill file present in both, no ungated `Requires-Dist`,
+  clean-venv install, `--version`, `selftest`, the full gate loop to `STOP`, and
+  `init`). The CI `build` job runs the same command on every push, and the Release
+  workflow runs it on every tag.
 
 ## Observability
 
 - Metrics: CI status on the default branch, release asset presence, `gh run list`
-  conclusions, open issues and PRs.
-- Alerts and their thresholds: a red CI run on `main` is a release blocker;
-  `pytest` collection count dropping below 60 is a regression signal.
+  conclusions, open issues and PRs, `teamwork code-scanning`.
+- Alerts and their thresholds - read each from its file, never from this page:
+  - a red CI run on `main`, on the SHA that is deployed, is a release blocker;
+  - coverage below the floor in `.github/workflows/ci.yml` (`--cov-fail-under=55`,
+    mirrored by `fail_under = 55` in `pyproject.toml`) fails the `test` job;
+  - an open `error`/`critical`/`high` code-scanning alert is a red gate and is filed
+    to the role that owns the file;
+  - a test that collects as an *error*, or a skipped test whose reason is not one of
+    the two known ones (console script not installed; gitignored team tree absent),
+    is the regression signal - a collection census is deliberately not quoted, because
+    a count in a document is stale before the document is committed.
 - Runbooks: this file; [Project](Project.md) for the acceptance criteria;
   [Architecture](Architecture.md) for the interface contract.
 
