@@ -17,9 +17,13 @@ guard here that runs without the gitignored team tree.
 
 That tree is the honest limit of this file: the record-resolution test reads
 `.pi/Teamwork/Teams/*/Tests.md`, which is gitignored, so in CI it is skipped and
-only these contradictions plus the structural checks run. The record claims are
-therefore certified where the tree exists (a working checkout, every review) and
-the table's internal consistency is certified everywhere.
+only these contradictions plus the structural checks run. It also skips in a
+workspace whose tree recognizes none of the cited records (a fresh
+`teamwork.py init` leaves an empty Tests.md and numbers its own `TS-0001`, so a
+re-initialised team state can neither certify nor contradict a matrix written by
+an older run) - and it says so with both counts instead of passing silently.
+`test_the_record_check_still_fails_where_the_tree_recognizes_a_cited_record` keeps
+the assertion's teeth measurable where no tree exists at all.
 """
 
 from __future__ import annotations
@@ -153,6 +157,48 @@ def test_the_matrix_ac_set_equals_the_definition_of_done_ac_set(repo_root: Path)
     )
 
 
+def _record_problems(records: dict, cited: list) -> list[str]:
+    """Every cited record the team tree does not back, one readable line each.
+
+    Split out of the guard so its teeth survive the skip below: a workspace that
+    holds none of the cited records cannot certify them (T-0003), but the moment
+    one resolves, every cited record must resolve, be ``passing`` and carry the
+    layer/area the row claims.
+    """
+    problems: list[str] = []
+    for ac, rec, claim in cited:
+        record = records.get(rec)
+        if record is None:
+            problems.append(f"{ac}: {rec} is not a record in Tests.md")
+            continue
+        if record.get("status") != "passing":
+            problems.append(f"{ac}: {rec} has status {record.get('status')!r}, not 'passing'")
+        actual = f"{record.get('layer', '')}/{record.get('area', '')}"
+        if actual != claim:
+            problems.append(f"{ac}: {rec} is {actual}, the row claims {claim}")
+    return problems
+
+
+def _recognized(records: dict, cited: list) -> list[str]:
+    """The cited claims a record in this tree identifies itself with.
+
+    Identity is the record id plus the layer/area the row claims for it - status
+    is deliberately left out, so a record that flipped to ``failing`` is still
+    recognised and then fails on the assertion rather than being skipped away.
+    A workspace that re-ran ``teamwork.py init`` numbers its own records from
+    ``TS-0001``, so an id can collide with a cited record while meaning something
+    else; a colliding id under another layer/area is not identity, and nothing
+    in such a tree can certify the committed matrix.
+    """
+    matched: list[str] = []
+    for ac, rec, claim in cited:
+        record = records.get(rec) or {}
+        actual = f"{record.get('layer', '')}/{record.get('area', '')}"
+        if record and actual == claim:
+            matched.append(f"{ac}: {rec} ({claim})")
+    return matched
+
+
 def test_every_cited_test_record_exists_passes_and_matches_its_layer_and_area(
     repo_root: Path,
 ) -> None:
@@ -168,18 +214,40 @@ def test_every_cited_test_record_exists_passes_and_matches_its_layer_and_area(
         f"rows name records without the layer/area they claim for them: {unclaimed}"
     )
     records = _team_tests(repo_root)
-    problems = []
-    for ac, rec, claim in cited:
-        record = records.get(rec)
-        if record is None:
-            problems.append(f"{ac}: {rec} is not a record in Tests.md")
-            continue
-        if record.get("status") != "passing":
-            problems.append(f"{ac}: {rec} has status {record.get('status')!r}, not 'passing'")
-        actual = f"{record.get('layer', '')}/{record.get('area', '')}"
-        if actual != claim:
-            problems.append(f"{ac}: {rec} is {actual}, the row claims {claim}")
+    cited_ids = sorted({rec for _ac, rec, _claim in cited})
+    if not _recognized(records, cited):
+        pytest.skip(
+            f"the team tree holds {len(records)} test record(s) and none carries an id and "
+            f"layer/area claimed by the {len(cited_ids)} records cited here "
+            f"({', '.join(cited_ids)}): this workspace's team state did not produce "
+            "docs/Team/Project.md, so its record column cannot be certified against it - "
+            "a fresh `teamwork.py init` leaves an empty Tests.md and numbers its own "
+            "TS-0001, and CI has no tree at all"
+        )
+    problems = _record_problems(records, cited)
     assert not problems, problems
+
+
+def test_the_record_check_still_fails_where_the_tree_recognizes_a_cited_record() -> None:
+    """Prove the assertion above is intact: the skip must not soften it (T-0003)."""
+    cited = [("AC-1", "TS-0018", "release/release")]
+    good = {"TS-0018": {"status": "passing", "layer": "release", "area": "release"}}
+    assert _recognized(good, cited) == ["AC-1: TS-0018 (release/release)"]
+    assert _record_problems(good, cited) == []
+
+    wrong_status = {**good, "TS-0018": {**good["TS-0018"], "status": "failing"}}
+    assert _recognized(wrong_status, cited), "a status flip must still be recognised"
+    assert _record_problems(wrong_status, cited) == [
+        "AC-1: TS-0018 has status 'failing', not 'passing'"
+    ]
+
+    collision = {"TS-0018": {"status": "passing", "layer": "requirements", "area": "research"}}
+    assert _recognized(collision, cited) == [], "an id collision is not identity"
+    assert _record_problems(collision, cited) == [
+        "AC-1: TS-0018 is requirements/research, the row claims release/release"
+    ]
+
+    assert _record_problems({}, cited) == ["AC-1: TS-0018 is not a record in Tests.md"]
 
 
 def test_every_named_task_resolves_to_a_queue_or_the_archive(repo_root: Path) -> None:
