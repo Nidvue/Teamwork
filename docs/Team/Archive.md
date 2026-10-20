@@ -783,3 +783,16 @@ No blockers; no unrelated changes; branch mergeable.
 - reviewer evidence: ok
 - findings history: -
 - branch / merge: developer-1/t-0001-fan-review-out-across-reviewer-lanes-pul / d5cecf6
+
+## T-0001 · Fan review out across Reviewer lanes (pulse dispatch + review claims)  (developer)
+- date: 2026-10-20
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: c
+- self-check: [pass] Re-read the whole 7-file change-set. Engine: pulse fans open_review_items over idle lanes with zip(), held lanes are excluded via review_is_held() so a lane is never handed two deliverables; _pulse_review_claim writes the claim under role-reviewer.lock and appends review.claim; _review_claim refuses cross-lane takeover while the lease is live, allows it after SLOT_TTL_MINUTES, refuses non-Reviewer actors and self-review, and only the holder releases (--force <reason> for the CEO); verdicts clear review_claim/_ts; queue and pulse print the holder plus per-lane commands; init WARNING on one lane. Records: review_claim/_ts added to the task allowlist, parser and renderer, so the claim survives a rewrite. Tests: 10 cases (fan-out, held lane busy, leftover lanes still get work, claim lease/takeover, release + force-reason, actor rules, verdict clears, queue holder+lanes, init WARNING, two lanes no nag); I ran them against the base revision in a scratch worktree first (9 failed / 1 passed) so they are not vacuous. Docs: SKILL.md roster now reviewer-1+reviewer-2 with the fan-out/claim text and pulse prompt step 4, roles/reviewer.md claim protocol, references/Concurrency.md lane-concurrency rule, references/Adapters.md Pi column rewritten to the tools this install actually has (subagent fan-out, contact_supervisor, subagent_supervisor) with a verification note; I hand-checked the Adapters table renders with 6 cells per row and smoke-tested init/pulse/review --claim/--release/queue on a throwaway 2-lane team in .pi/ScratchSmoke. No test was weakened: the two Adapters assertions still pin the same contract, the teams() mention is kept as the documented alternative for hosts that have it. | test: pytest -q @76d5f76 -> 394 passed, 1 skipped; pytest tests/unit/test_review_fanout.py -q @76d5f76 -> 10 passed; ruff check -> all passed; ruff format --check -> 113 files already formatted; mypy src/teamwork -> no issues in 14 source files; teamwork links --src SKILL.md --src references --src roles -> 0 issue(s); repro pre @479742d -> 9 failed, 1 passed || [pass] probe | test: n/a @HEAD -> ok || [pass] n | test: t || [pass] n | test: t || [pass] n | test: t
+- author evidence: commit 76d5f76; commit 32ba0ed; commit dd73d59
+- reviewer evidence: ok
+- findings history: -
+- branch / merge: developer-1/t-0001-fan-review-out-across-reviewer-lanes-pul / pending
