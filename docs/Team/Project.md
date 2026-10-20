@@ -157,3 +157,158 @@ released artifact — with no personal data anywhere in the tree or in git histo
 - [The /teamwork skill](https://github.com/Nidvue/Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
 - [GitHub Actions matrix builds](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) - accessed 2026-10-17
 - [PyPA: packaging a Python project](https://packaging.python.org/en/latest/tutorials/packaging-projects/) - accessed 2026-10-17
+
+## Traceability - AC to task to test
+
+Owner: Product Manager. This section is a *method*, not a snapshot: it states which
+AC each row closes, which task archived it, which test record proves it, and the
+command that re-reads its state. It quotes no revision and no census count - the
+commit that writes such a number changes it. Re-read a row with its proof command.
+
+### How the three layers are wired today
+
+| layer | where it lives | who writes it | how an AC is named |
+|---|---|---|---|
+| acceptance criterion | this file, `## Definition of done` | CEO | `AC-<n>` bullet |
+| delivering task | `docs/Team/Archive.md` section per closed task; open work in `Roles/<Role>/TaskQueue.md` | the owning role | free text in `self-check` / evidence |
+| test record | `.pi/Teamwork/Teams/Teamwork/Tests.md` via `teamwork.py tests add/run` | the role that ran it | keyed by layer/area, cited here as `<record id> (<layer>/<area>)` |
+
+An AC carries no test-record id of its own, so the link is **documentary**: a row
+names a record whose evidence line reproduces the row's proof command. That is why
+every cell below carries the layer/area it claims - the guard
+`tests/unit/test_traceability_matrix.py` re-resolves every cited record against
+`Tests.md` and fails when a record is missing, not `passing`, or filed under a
+different layer/area than the row claims.
+
+### State rule
+
+`state` is the conclusion of a run of that row's `proof command`, and it is only
+credible because the column is checked against a second statement of the same
+fact - the gaps table:
+
+- `green` - every clause of the proof command exits 0, and no gap row blames this
+  AC as failing;
+- `red (G-n)` - at least one clause exits non-zero, and at least one named gap row
+  names this AC together with a failure word.
+
+Two guards hold the column, and they fail differently on purpose:
+
+- `test_a_green_row_is_not_blamed_by_a_gap_and_a_red_row_is` reads the gaps table
+  and refuses a contradiction between the two columns - cheap, and it catches an
+  inconsistent edit;
+- `test_every_deterministic_state_matches_a_real_run` **executes** the proof
+  command of every row whose result is a pure function of the tree, and fails when
+  the exit code disagrees with the claimed state.
+
+The second one is the load-bearing guard, and it exists because editing prose can
+satisfy any check that is inferable from prose: six review rounds proved that. Each
+round the guard was widened around one observed hole, and each time the hole moved
+one indirection out - first `state` was checked only for spelling, then the gap
+cross-check could be defeated by editing both columns together, then the row to
+re-run was read from a hand-kept list, so deleting an entry disabled the check for
+that row. The version here therefore takes its commands from **this table's own
+proof column** and nothing else: there is no list of protected rows to shorten, and
+a mutant that edits a row has to make the row's real command agree with it.
+
+Its bound is stated, not hidden. A row is re-run unless it appears in `EXEMPT` in
+the guard, and every exemption names one of three reasons: the proof is this pytest
+run (so a red suite already fails here), the proof reads the forge and a CI job
+without credentials cannot re-read it (`AC-4`, `AC-7`, `AC-8`), or a clause reads
+the gitignored team tree, which drifts between runs (`AC-3`). An exemption is not
+a bare dict entry: it is a claim about what its row reads, and **this table has to
+carry the evidence for it**. The guard holds one evidence pattern per reason -
+`pytest` in the cell for `self`, `gh` / `verify_release.py` / a CI workflow for
+`forge`, `tests plan` / `TEAMWORK_ROOT` / the team tree for `drift` - and fails an
+exemption whose row's proof cell carries none of it, naming the AC and the reason.
+So exempting `AC-12` as `drift` while its cell reads `ls LICENSE CHANGELOG.md
+CITATION.cff` is a contradiction, not a silent skip. An exemption naming an
+unknown reason, or a row the table no longer defines, fails the guard too; so does
+a non-exempt row whose proof cell parses into no command.
+
+The floor is relative for the same reason: the guard requires the number of rows
+re-run to equal **rows minus exemptions**. An absolute floor let exempting a row
+lower the bar without tripping it; the arithmetic now makes every exemption pay
+for itself, so the residual limit is the three reasons above - each one readable,
+and each one checked against the row that claims it - not an unchecked count.
+
+Measured while this revision was written, all three on an extracted archive of the
+committed tree: with `CHANGELOG.md` deleted and `AC-12` added to `EXEMPT` as
+`drift`, the guard fails naming `AC-12` and the reason; dropping an exemption from
+the dict while its row is skipped fails the relative floor; the unchanged tree
+passes. A green row flipped to a red state that names a closed gap, and `AC-11`
+flipped to green with its gap rewritten, each still fail the re-run guard on their
+own with no other test edited.
+
+`AC-4`, `AC-7`, `AC-8` are phrased against the forge (`gh run list`,
+`gh release view`, `gh repo view`). They were read and are green, but a CI job
+without credentials cannot re-read them, so they carry no gap and their proof is
+the recorded command, not the guard.
+
+### Forward map: AC -> proof -> task -> record -> state
+
+| AC | proof target | archived task(s) | test record | proof command (read the run) | state |
+|---|---|---|---|---|---|
+| AC-1 | `scripts/verify_release.py` | developer T-0001, ceo T-0017 | TS-0018 (release/release) | `PYTHONPATH=src python scripts/verify_release.py` | green |
+| AC-2 | `tests/acceptance/test_entrypoints.py` | ceo T-0017, T-0023, T-0026, T-0027 | none | `python -m pytest -q tests/acceptance/test_entrypoints.py` | green |
+| AC-3 | `pytest -q`, `teamwork.py tests plan` | every closed task, per `docs/Team/Archive.md` | TS-0001 (goal/audit), TS-0005 (unit/engine), TS-0008 (acceptance/evidence), TS-0011 (goal/hygiene), TS-0014 (security/decisions), TS-0018 (release/release), TS-0022 (goal/pr), TS-0024 (integration/context-economy) | `PYTHONPATH=src python -m pytest -q` and `python scripts/teamwork.py tests plan` | green |
+| AC-4 | `.github/workflows/ci.yml` | release-engineer T-0001 | none | `gh run list --json displayTitle,conclusion` | green |
+| AC-5 | `scripts/privacy_scan.py` | security-auditor T-0001 | none | `python scripts/privacy_scan.py --tree --staged --history --allow .github/privacy-allow.txt` | green |
+| AC-6 | `teamwork.py links` | every closed task, per `docs/Team/Archive.md` | TS-0013 (goal/decisions), TS-0024 (integration/context-economy) | `python scripts/teamwork.py links` -> read the `# issues:` line | green |
+| AC-7 | `.github/workflows/release.yml` | none | none | `gh release view v1.0.0 --json assets` | green (the AC pins `v1.0.0`, which exists; a newer tag does not break it - G-5) |
+| AC-8 | repo metadata | none | none | `gh repo view --json description,repositoryTopics` | green |
+| AC-9 | `tests/unit/test_portability.py` | architect T-0001, ceo T-0016 | none | `python -m pytest -q tests/unit/test_portability.py` | green |
+| AC-10 | `tests/acceptance/test_full_loop.py` | none | none | `python -m pytest -q tests/acceptance/test_full_loop.py` | green |
+| AC-11 | `teamwork.py loop`, `teamwork.py audit` | ceo T-0015, T-0023, T-0026, T-0027 | none | `python scripts/teamwork.py loop` and `python scripts/teamwork.py audit` | red (G-4) |
+| AC-12 | `LICENSE`, `CHANGELOG.md`, `CITATION.cff` | none | none | `ls LICENSE CHANGELOG.md CITATION.cff` | green |
+| AC-13 | `tests/unit/test_imaging.py` | designer T-0001 | none | `python -m pytest -q tests/unit/test_imaging.py` | green |
+| AC-14 | `scripts/teamwork.py imaging probe` | none | none | `python scripts/teamwork.py imaging probe` | green |
+| AC-15 | `tests/unit/test_skill_contracts.py` | designer T-0001, ceo T-0031 | none | `python -m pytest -q tests/unit/test_skill_contracts.py` | green |
+| AC-16 | `tests/unit/test_skill_contracts.py` | designer T-0001, ceo T-0031 | none | `python -m pytest -q tests/unit/test_skill_contracts.py` | green |
+| AC-17 | `tests/unit/test_skill_contracts.py`, `docs/Team/Release.md` | designer T-0001, ceo T-0031 | none | the same pytest plus `ls docs/Team/Release.md` | green |
+| AC-18 | `tests/unit/test_skill_contracts.py`, `teamwork.py links` | every closed task, per `docs/Team/Archive.md` | TS-0013 (goal/decisions) | the same pytest plus `python scripts/teamwork.py links` | green |
+
+The per-lane work of the M1-M4 lanes lives in the Archive sections rather than in
+one commit per lane, so an AC's proof is usually a file in the tree.
+
+### Reverse map: test record -> AC (derived, never hand-edited)
+
+This block is the forward table read backwards: the guard recomputes it from the
+rows above and fails if the two disagree, so it cannot drift into a second,
+contradicting statement of the same facts.
+
+```
+TS-0001: AC-3
+TS-0005: AC-3
+TS-0008: AC-3
+TS-0011: AC-3
+TS-0013: AC-6, AC-18
+TS-0014: AC-3
+TS-0018: AC-1, AC-3
+TS-0022: AC-3
+TS-0024: AC-3, AC-6
+no AC: TS-0016, TS-0020
+```
+
+`TS-0016` (`requirements/traceability`) is this section's own record. `TS-0020`
+(`acceptance/context-economy`) passes, but no acceptance criterion owns the
+context-economy contract it proves - that is gap G-7, not a green row.
+
+### Gaps and owners
+
+| id | gap | how to read it | owner |
+|---|---|---|---|
+| G-1 | The machine criterion store holds one criterion, `AC-1`, whose text is the *old audit-fixes* criterion, not this file's AC-1. `criteria list` and `trace AC-1` therefore report the wrong artifact for the id. | `python scripts/teamwork.py criteria list` then `trace AC-1` and `trace AC-2` (the latter resolves nothing) | CEO (re-key the store with `criteria add/verify` per AC, or prefix the historical one) |
+| G-2 | AC-5 was red: `privacy_scan` reported `home-path` and `agent-config` findings in `docs/Team/Archive.md` that `.github/privacy-allow.txt` did not bless. **Closed** by the three fully escaped literals in that allowlist plus the quoted-evidence scope in the scanner; the row stays listed because it explained a red state for several revisions. | `python scripts/privacy_scan.py --tree --staged --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s)` | CEO T-0031, T-0034, T-0048 (closed) |
+| G-3 | AC-6 and AC-18 link health: the four `compare/v1.0.2...*` strings in `docs/Team/Archive.md` are quoted evidence of a past review finding and are deliberately not link-checked, so `links` reports no issue. This gap is closed; it stays listed because the earlier red state cited it. | `python scripts/teamwork.py links` -> `# issues: 0` | CEO T-0032 (closed) |
+| G-4 | AC-11 is red because it is downstream of G-2 and the open tasks: `loop` returns CONTINUE and `audit` reports problems. It cannot go green before the others. | `loop` / `audit` exit codes, then their summaries | CEO |
+| G-5 | AC-7 pins `v1.0.0` while newer tags are released; AC-4 and AC-9 are phrased against "the pushed revision", which is ambiguous while local merges are ahead of `origin/main`. | `gh release list --limit 5`; `git log --oneline origin/main..main` | CEO (re-word the AC, not re-do the release) |
+| G-6 | AC-3 was red because required test layers were missing, so its `tests plan` clause exited non-zero. **Closed**: every staffed role has designed and run a record of its own layer. | `python scripts/teamwork.py tests plan` -> no `# GAP` line, rc 0 | the owning role per area; PM tracks it (closed) |
+| G-7 | No AC owns the context-economy contract, so the acceptance record that proves it (`TS-0020`, passing) has no requirement to escalate against or regress behind. | the reverse map above, then `tests plan` | CEO + Product Manager |
+
+### Requirements-layer contract for this area
+
+The traceability area requires exactly one test layer, `requirements`, and `TS-0016`
+satisfies it: `teamwork.py tests plan` reports the `traceability` row with `req+`
+marked and role coverage for `product-manager` under `req`. `TS-0016` is re-run and
+re-bound to the new revision, evidence and artifact on every records pass, and this
+section is its deliverable.
