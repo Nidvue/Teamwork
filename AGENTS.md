@@ -288,9 +288,13 @@ must not silently work around it:
   must be green on that exact revision; after the push, confirm CI is green on
   that SHA and route a red run to its owner (code -> Developer, test -> Tester,
   contract -> Architect, workflow/packaging/flake -> Release Engineer, scope ->
-  CEO). Plain `git push` of a reviewed revision is normal work; **force-push,
-  published-history rewrite and retagging are red lines** that need the CEO's
-  explicit authorization. Tags and public releases are the CEO's step.
+  CEO). **On a forge that scans code, the security tab is part of that signal**:
+  `teamwork code-scanning` reads the open alerts, an `error`/`critical`/`high`
+  alert is a red gate, and `--commit` files the fix with the role that owns the
+  file (never a dismissal to quiet it). Plain `git push` of a reviewed revision
+  is normal work; **force-push, published-history rewrite and retagging are red
+  lines** that need the CEO's explicit authorization. Tags and public releases
+  are the CEO's step.
 - **LOCAL + CI** - the Tester certifies both: the layer runs locally *and* the
   same result in CI on the pushed revision. Never report a suite as passing while
   the matching CI run is red, and never let a red run go unowned.
