@@ -569,7 +569,7 @@ def test_reviewer_charter_documents_parallel_reviews(root):
     assert "The queue is shared" in text
     assert "One claim per deliverable" in text
     assert "Double review is explicit" in text
-    assert "the merger is always a different reviewer" in text.lower()
+    assert "a pass is the merge" in text.lower()
     assert "Conflict of interest" in text
     assert "Findings union" in text
 
@@ -1131,3 +1131,99 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
     for name in surfaces:
         text = (root / name).read_text(encoding="utf-8")
         assert "rm -rf .agents/skills/teamwork/.git" in text, name
+
+
+def test_no_surface_still_demands_a_second_reviewer_to_merge(root):
+    """A pass merges at once; no shipped surface may teach the retired two-step.
+
+    Six review rounds attacked a heuristic that tried to *recognise* an offender
+    sentence, and every round found a phrasing it could not see - the search space
+    of ways to say "somebody other than the verifier lands it" is unbounded, so
+    that design cannot converge. This guard is deliberately bounded instead:
+
+    * a POSITIVE floor: every shipped surface must still state the merged-on-pass
+      rule in one of the accepted sentences (delete or contradict the rule and this
+      fails), and
+    * a REGRESSION LIST: every wording a reviewer actually produced, each of which
+      shipped green at some point, is stored here and grepped for verbatim.
+
+    That trades "catches phrasings nobody thought of" for "cannot be talked
+    around": the rule must be present and the known retirements must stay absent.
+    A newly invented phrasing only survives if a reviewer reads the surface and
+    adds a line here - which is the review step doing its job, not a regex.
+
+    KNOWN AND ACCEPTED LIMITATION, measured: appending
+    "Whoever read the patch carries it onto the trunk." to references/Roles.md
+    leaves this test green (it shares no wording with any retired phrase). That is
+    deliberate - the previous predicate was six rounds deep in paraphrases it could
+    not see while reading as if it could. This one does not overclaim: it guarantees
+    the rule is present and the retirements stay gone, and it names the residual
+    risk instead of hiding it.
+    """
+
+    surfaces = (
+        ("AGENTS.md",),
+        ("templates", "AGENTS.md"),
+        ("references", "Roles.md"),
+        ("SKILL.md",),
+        ("docs", "guide", "cli.md"),
+        ("references", "Engineering.md"),
+        ("roles", "reviewer.md"),
+    )
+    texts = {parts: flat(read(root, *parts)) for parts in surfaces}
+
+    # (1) The rule has to be stated, in the imperative form the contract uses.
+    # Without this the rest of the guard is satisfied by simply deleting the topic.
+    stated = (
+        "pass merges",
+        "pass is the merge",
+        "merges the pr at once",
+        "merging it now",
+        "merges the deliverable",
+        "passing review merges the pr itself",
+        "a pass is the merge",
+    )
+    for parts, text in texts.items():
+        low = text.lower()
+        assert any(phrase in low for phrase in stated), (
+            f"{'/'.join(parts)} no longer states that a pass merges the deliverable"
+        )
+
+    # (2) Every wording a reviewer produced. Verbatim, case-folded, whitespace
+    # collapsed - so a re-wrap or a capitalisation change cannot hide one.
+    retired = (
+        "a different reviewer must merge it",
+        "a second reviewer must merge it",
+        "another reviewer must merge it",
+        "another reviewer applies the change after the pass",
+        "another reviewer merges it after the pass",
+        "the next reviewer merges it",
+        "someone who did not pass it must land the branch",
+        "somebody besides the verifier must land the branch",
+        "landing is done by whoever did not pass it",
+        "the reviewer who was not the one to verify it applies the change",
+        "the reviewer who did not verify it applies the change",
+        "a reviewer who was not the verifier lands the branch",
+        "a reviewer who was not the verifier applies the change",
+        "the role that did not record the verdict integrates the change",
+        "the branch is integrated by a different reviewer",
+        "after the pass, someone else lands the branch",
+        "the reviewer who merely read the diff lands it",
+        "the merge is performed by a reviewer other than the verifier",
+        "a different role applies the change to main",
+        "it must be merged by an instance that did not record the verdict",
+        "the change should be landed by a lane that only read the diff",
+        "--by <another-reviewer>",
+    )
+    for parts, text in texts.items():
+        low = " ".join(text.lower().split())
+        for wording in retired:
+            assert wording not in low, (
+                f"{'/'.join(parts)} teaches the retired two-step merge: {wording!r}"
+            )
+
+    # (3) The rule as authored: the author is the one party refused, so
+    # independence never becomes "find a second Reviewer".
+    joined = " ".join(" ".join(text.lower().split()) for text in texts.values())
+    assert "author never merges" in joined or "never merges its own work" in joined
+    assert "author" in joined and "refused" in joined
