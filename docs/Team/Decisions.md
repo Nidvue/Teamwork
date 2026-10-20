@@ -808,3 +808,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: developer T-0001 branch: pytest -q -> tests/unit/test_portability.py::test_architecture_lists_exactly_the_shipped_modules FAILED 'At index 7 diff: imaging.py != harness.py'; same for developer T-0002 hooks.py; both fixed by one line in section 2 and re-verified green.
 - falsified by: A lane uses the exception to edit Architecture.md beyond its own module line, or a module line lands without the other module's tests passing at the merged revision.
 - consequences: -
+
+## D-20261020-Reviewer-1-2 - No dispute on architect T-0001's third fail: the counter counts a task handle, not a deliverable
+
+- date: 2026-10-20
+- kind: process
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: T-0001
+- context: -
+- options considered: -
+- decision: Reviewer-1 fails architect T-0001 at f476b82 without opening a dispute. The engine's 'failure #3' warning counts fails by task handle, and four different deliverables share the handle T-0001: ceo T-0001 (rubric docs, merged), developer/tester T-0001 (harness lane), architect T-0001 (this contract). This deliverable has two fails: Reviewer-2's F1-F4 round (ledger #0176) and mine, so the loop is not spinning on one artefact.
+- why: A dispute exists for a design disagreement between roles, not for concrete defects with a named owner and a stated remedy. Every one of my four blockers is mechanical and reproducible on demand: a merge-tree rc=1 (rebase), an author/committer mismatch (squash), a layer test that is red at the merged tree and stricter than the text it enforces (make it per-group), and a frozen shim body that the merged hooks.py does not write (align the text or route a Developer task). None of them requires the tribunal to choose between two defensible designs - the deliverable is the only side that is wrong in each case, and the ruling it implements (D-0001) is already binding.
+- evidence: teamwork.py review --queue @main e1ea14f -> architect T-0001 review_status=failed, findings name four blockers; git merge-tree --write-tree main f476b82 -> rc=1 CONFLICT docs/Team/Decisions.md; teamwork.py identity --audit --range main..f476b82 -> 2 commits, 1 problem; probe merge main+f476b82 pytest -q -> 3 failed, 701 passed, 3 skipped (2 of the failures are the new contract test); main:src/teamwork/hooks.py shim() -> one combined marker line and no 2>/dev/null, while Architecture 11.6 freezes two lines plus 2>/dev/null; ledger #0124 and #0174 and #0176 are the fails this handle has accumulated across four owners.
+- falsified by: If the architect re-submits the same revision with the same findings, or argues the two-line marker and the all-or-nothing landing are the correct design, that is a design disagreement and the tribunal decides it; equally if the merged-tree failure turns out to depend on which lane lands first rather than on the text, the per-group wording is the wrong remedy and this decision is wrong.
+- consequences: P-0003 stays changes-requested with four recorded blockers; the Architect owns the rework, not the Reviewer.
