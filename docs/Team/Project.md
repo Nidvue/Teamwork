@@ -211,17 +211,22 @@ proof column** and nothing else: there is no list of protected rows to shorten, 
 a mutant that edits a row has to make the row's real command agree with it.
 
 Its bound is stated, not hidden. A row is re-run unless it appears in `EXEMPT` in
-the guard, and every exemption names one of three reasons: the proof is this pytest
+the guard, and every exemption names one of four reasons: the proof is this pytest
 run (so a red suite already fails here), the proof reads the forge and a CI job
-without credentials cannot re-read it (`AC-4`, `AC-7`, `AC-8`), or a clause reads
-the gitignored team tree, which drifts between runs. `AC-3` is exempt as the first
+without credentials cannot re-read it (`AC-4`, `AC-7`, `AC-8`), a clause reads
+the gitignored team tree, which drifts between runs, or - and this one was earned
+in review round 9 - the proof asks the live board a question whose answer is only
+true on a merged revision (`AC-11` runs `loop` and `audit`; while this
+deliverable itself is under review, that board necessarily still lists it, so the
+command exits 1 mid-review and 0 after the merge). `AC-3` is exempt as the first
 reason: its proof cell opens with the `pytest -q` run and only its second clause
 reads the team tree, so the drift reason is declared for that shape but no row
 currently needs it. An exemption is not
 a bare dict entry: it is a claim about what its row reads, and **this table has to
 carry the evidence for it**. The guard holds one evidence pattern per reason -
 `pytest` in the cell for `self`, `gh` / `verify_release.py` / a CI workflow for
-`forge`, `tests plan` / `TEAMWORK_ROOT` / the team tree for `drift` - and fails an
+`forge`, `tests plan` / `TEAMWORK_ROOT` / the team tree for `drift`, and
+`teamwork.py loop` / `teamwork.py audit` for `inflight` - and fails an
 exemption whose row's proof cell carries none of it, naming the AC and the reason.
 So exempting `AC-12` as `drift` while its cell reads `ls LICENSE CHANGELOG.md
 CITATION.cff` is a contradiction, not a silent skip. An exemption naming an
@@ -231,7 +236,7 @@ a non-exempt row whose proof cell parses into no command.
 The floor is relative for the same reason: the guard requires the number of rows
 re-run to equal **rows minus exemptions**. An absolute floor let exempting a row
 lower the bar without tripping it; the arithmetic now makes every exemption pay
-for itself, so the residual limit is the three reasons above - each one readable,
+for itself, so the residual limit is the four reasons above - each one readable,
 and each one checked against the row that claims it - not an unchecked count.
 
 Measured while this revision was written, all three on an extracted archive of the
@@ -261,7 +266,7 @@ the recorded command, not the guard.
 | AC-8 | repo metadata | none | none | `gh repo view --json description,repositoryTopics` | green |
 | AC-9 | `tests/unit/test_portability.py` | architect T-0001, ceo T-0016 | none | `python -m pytest -q tests/unit/test_portability.py` | green |
 | AC-10 | `tests/acceptance/test_full_loop.py` | none | none | `python -m pytest -q tests/acceptance/test_full_loop.py` | green |
-| AC-11 | `teamwork.py loop`, `teamwork.py audit` | ceo T-0015, T-0023, T-0026, T-0027 | none | `python scripts/teamwork.py loop` and `python scripts/teamwork.py audit` | red (G-4) |
+| AC-11 | `teamwork.py loop`, `teamwork.py audit` | ceo T-0015, T-0023, T-0026, T-0027 | none | `python scripts/teamwork.py loop` and `python scripts/teamwork.py audit` | green (read on a merged revision - G-4) |
 | AC-12 | `LICENSE`, `CHANGELOG.md`, `CITATION.cff` | none | none | `ls LICENSE CHANGELOG.md CITATION.cff` | green |
 | AC-13 | `tests/unit/test_imaging.py` | designer T-0001 | none | `python -m pytest -q tests/unit/test_imaging.py` | green |
 | AC-14 | `scripts/teamwork.py imaging probe` | none | none | `python scripts/teamwork.py imaging probe` | green |
@@ -303,7 +308,7 @@ context-economy contract it proves - that is gap G-7, not a green row.
 | G-1 | The machine criterion store holds one criterion, `AC-1`, whose text is the *old audit-fixes* criterion, not this file's AC-1. `criteria list` and `trace AC-1` therefore report the wrong artifact for the id. | `python scripts/teamwork.py criteria list` then `trace AC-1` and `trace AC-2` (the latter resolves nothing) | CEO (re-key the store with `criteria add/verify` per AC, or prefix the historical one) |
 | G-2 | AC-5 was red: `privacy_scan` reported `home-path` and `agent-config` findings in `docs/Team/Archive.md` that `.github/privacy-allow.txt` did not bless. **Closed** by the three fully escaped literals in that allowlist plus the quoted-evidence scope in the scanner; the row stays listed because it explained a red state for several revisions. | `python scripts/privacy_scan.py --tree --staged --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s)` | CEO T-0031, T-0034, T-0048 (closed) |
 | G-3 | AC-6 and AC-18 link health: the four `compare/v1.0.2...*` strings in `docs/Team/Archive.md` are quoted evidence of a past review finding and are deliberately not link-checked, so `links` reports no issue. This gap is closed; it stays listed because the earlier red state cited it. | `python scripts/teamwork.py links` -> `# issues: 0` | CEO T-0032 (closed) |
-| G-4 | AC-11 is red because it is downstream of G-2 and the open tasks: `loop` returns CONTINUE and `audit` reports problems. It cannot go green before the others. | `loop` / `audit` exit codes, then their summaries | CEO |
+| G-4 | AC-11 was red because it was downstream of G-2 and the then-open tasks: `loop` returned CONTINUE and `audit` reported problems. **Closed** once every task, dispute and gate override cleared, so `loop` prints STOP and `audit` finds zero problems; the row stays listed because it explained a red state for many revisions. **This proof only reads true on a merged revision**: while any deliverable is still open the board it reads necessarily contains that deliverable, so the row is exempt from the re-run guard with the reason `inflight` instead of being re-executed mid-review. | `python scripts/teamwork.py loop` -> STOP, `python scripts/teamwork.py audit` -> `# problems found: 0` (measured at `8b4585b`, a merged revision) | CEO (closed) |
 | G-5 | AC-7 pins `v1.0.0` while newer tags are released; AC-4 and AC-9 are phrased against "the pushed revision", which is ambiguous while local merges are ahead of `origin/main`. | `gh release list --limit 5`; `git log --oneline origin/main..main` | CEO (re-word the AC, not re-do the release) |
 | G-6 | AC-3 was red because required test layers were missing, so its `tests plan` clause exited non-zero. **Closed**: every staffed role has designed and run a record of its own layer. | `python scripts/teamwork.py tests plan` -> no `# GAP` line, rc 0 | the owning role per area; PM tracks it (closed) |
 | G-7 | No AC owns the context-economy contract, so the acceptance record that proves it (`TS-0020`, passing) has no requirement to escalate against or regress behind. | the reverse map above, then `tests plan` | CEO + Product Manager |
