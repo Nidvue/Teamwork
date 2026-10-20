@@ -472,6 +472,76 @@ def _shannon_entropy(value: str) -> float:
     return -sum((n / length) * math.log2(n / length) for n in counts.values())
 
 
+#: A token that may continue past the match: the high-entropy rule matches 32+
+#: base64-ish characters, and a path segment may continue with a file name, a
+#: second extension or another segment.
+_TOKEN_CHARS = re.compile(r"[A-Za-z0-9._/+=-]+")
+#: One path segment of a repository path: a name, optionally with an extension.
+_PATH_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+#: The words of a name: a CamelCase run splits into its parts, a trailing digit
+#: group is its own part.
+_NAME_WORDS = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]*|[a-z]+|[0-9]+")
+#: A lower-case letter followed by an upper-case one: the CamelCase mark that
+#: separates a name like ``ProductManager`` from a random mix of letters.
+_CAMEL_CASE = re.compile(r"[a-z][A-Z]")
+#: How many words a path segment may have before it stops reading as a name.
+_MAX_NAME_WORDS = 3
+#: A one-letter alphabetic part means a random mix, not a name.
+_MIN_NAME_WORD = 2
+
+
+def _token_around(line: str, index: int, length: int) -> str:
+    """The whole token the match at ``index`` sits in, or ``""``."""
+    for match in _TOKEN_CHARS.finditer(line):
+        if match.start() <= index and index + length <= match.end():
+            return match.group(0)
+    return ""
+
+
+def _is_path_name(token: str) -> bool:
+    """Does this token read as a repository path rather than as a random string?
+
+    Every segment must be a name: a word (or a few words in CamelCase) with an
+    optional extension. A random base64 run splits into many short fragments,
+    which is what tells the two apart.
+    """
+    if "/" not in token:
+        return False
+    segments = [segment for segment in token.split("/") if segment]
+    if not segments:
+        return False
+    for segment in segments:
+        if not _PATH_SEGMENT.fullmatch(segment):
+            return False
+        words = _NAME_WORDS.findall(segment.split(".")[0])
+        if not words or len(words) > _MAX_NAME_WORDS:
+            return False
+        if any(len(word) < _MIN_NAME_WORD and word.isalpha() for word in words):
+            return False
+    return True
+
+
+def _is_path_fragment(line: str, index: int, length: int) -> bool:
+    """Is the match a piece of a path, rather than a value in its own right?
+
+    The high-entropy rule matches 32+ base64-ish characters, so it also matches
+    the first 33 characters of a longer path: ``ProductManager/Artifacts/Harness2``
+    is the head of ``ProductManager/Artifacts/Harness2-Brief.md``. A credential
+    is a whole token, so two signals together are decisive - the token must read
+    as a path, and it must be a NAME (CamelCase, or cut out of a longer path).
+    A random base64 run reads as neither: it has too many fragments to be a
+    name, and it is a whole token.
+    """
+    whole = _token_around(line, index, length)
+    if not _is_path_name(whole):
+        return False
+    if len(whole) > length:
+        following = whole[length]
+        if following.isalnum() or following in "-_":
+            return True
+    return any(_CAMEL_CASE.search(part) for part in whole.split("/") if part)
+
+
 def _looks_like_secret(value: str, line: str = "", index: int = 0) -> bool:
     """Filter out hashes, identifiers, URL paths and natural words."""
     if len(value) < 32:
@@ -485,6 +555,11 @@ def _looks_like_secret(value: str, line: str = "", index: int = 0) -> bool:
         between = line[scheme + 3 : index]
         if not re.search(r"[\s\"']", between):
             return False
+    # A relative path is a path, not a secret. The rule matches the first 32+
+    # characters of a longer path, so the match has to be checked against the
+    # whole token it was cut from.
+    if _is_path_fragment(line, index, len(value)):
+        return False
     has_digit = any(c.isdigit() for c in value)
     has_upper = any(c.isupper() for c in value)
     has_lower = any(c.islower() for c in value)
