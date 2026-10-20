@@ -3235,7 +3235,13 @@ def rewrite_safe_range(project: Path, rev_range: str) -> str:
         f"# {base[:12]} is not an ancestor of this clone (history rewrite): "
         f"auditing the tip only, the span before it is unmeasurable"
     )
-    return rev_range.split("..", 1)[1].strip() or "HEAD"
+    tip = rev_range.split("..", 1)[1].strip() or "HEAD"
+    if run_git(project, "rev-parse", "--verify", "--quiet", f"{tip}^").returncode != 0:
+        return tip  # a root commit is its own whole history
+    # ``tip`` alone means "every ancestor of tip", which would re-audit the whole
+    # history the event never covered - one rewrite then turns every old blemish
+    # red at once. The span that can be measured is exactly the new tip.
+    return f"{tip}^..{tip}"
 
 
 def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool = False) -> int:
