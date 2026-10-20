@@ -214,7 +214,10 @@ Its bound is stated, not hidden. A row is re-run unless it appears in `EXEMPT` i
 the guard, and every exemption names one of three reasons: the proof is this pytest
 run (so a red suite already fails here), the proof reads the forge and a CI job
 without credentials cannot re-read it (`AC-4`, `AC-7`, `AC-8`), or a clause reads
-the gitignored team tree, which drifts between runs (`AC-3`). An exemption is not
+the gitignored team tree, which drifts between runs. `AC-3` is exempt as the first
+reason: its proof cell opens with the `pytest -q` run and only its second clause
+reads the team tree, so the drift reason is declared for that shape but no row
+currently needs it. An exemption is not
 a bare dict entry: it is a claim about what its row reads, and **this table has to
 carry the evidence for it**. The guard holds one evidence pattern per reason -
 `pytest` in the cell for `self`, `gh` / `verify_release.py` / a CI workflow for
