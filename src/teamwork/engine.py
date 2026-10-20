@@ -2818,7 +2818,9 @@ def ledger_export(root: Path, args) -> int:
         if path.exists():
             tracked.append(
                 {
-                    "path": str(path.relative_to(project)),
+                    # posix form: the manifest is published, so a Windows
+                    # backslash would make the same revision hash differently.
+                    "path": path.relative_to(project).as_posix(),
                     "sha256": _file_digest(path),
                     "bytes": path.stat().st_size,
                 }
@@ -2829,7 +2831,7 @@ def ledger_export(root: Path, args) -> int:
             if p.exists():
                 tracked.append(
                     {
-                        "path": str(p.relative_to(project)),
+                        "path": p.relative_to(project).as_posix(),
                         "sha256": _file_digest(p),
                         "bytes": p.stat().st_size,
                     }
