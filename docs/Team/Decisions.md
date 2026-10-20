@@ -229,7 +229,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - options considered: -
 - decision: The team agent commit identity uses the owner's domain: e.g. 'Developer <developer@agents.nidvue.com>'. TEAMWORK_IDENTITY_DOMAIN remains the override, privacy_scan.py allows @agents.nidvue.com as a legitimate role mailbox, and the personal domains/emails, home paths and keys stay forbidden. This supersedes the earlier choice of a neutral teamwork.local placeholder.
 - why: The owner stated in the running session that the agent mailbox domain suffix must be agents.nidvue.com rather than local, and asked for the corresponding commits to be updated. That instruction is the authority; the earlier neutral-domain assumption was the CEO's, not the owner's.
-- evidence: owner message in session 2026-10-17 'team agent email domain suffix should be agents.nidvue.com not local, update the corresponding commits'; git log --format='%an <%ae>' -> ceo@agents.nidvue.com / teamwork@agents.nidvue.com; python3 scripts/privacy_scan.py --tree --history -> 0 findings
+- evidence: owner message in session 2026-10-17 'team agent email domain suffix should be agents.nidvue.com not local, update the corresponding commits'; git log --format='%ae' --all | sort -u -> the role mailboxes only, every one on the agents.nidvue.com domain (the count is read from the run, never pinned); scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt -> PASS 0 findings
 - falsified by: The owner withdraws the domain, or a personal datum is found in a role mailbox.
 - consequences: -
 
@@ -245,7 +245,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - options considered: -
 - decision: The agent commit identity domain suffix is @agents.nidvue.com (e.g. 'Developer <developer@agents.nidvue.com>'). IDENTITY_DOMAIN defaults to agents.nidvue.com, privacy_scan.py allows that exact domain, and every existing commit was rewritten so author and committer mailboxes use it.
 - why: The owner corrected the domain to the agents subdomain and asked for the existing commits to be updated; the whole history and every example must match, or the identity is not consistent.
-- evidence: git log --format='%an <%ae>' -> ceo@agents.nidvue.com / teamwork@agents.nidvue.com; python3 scripts/privacy_scan.py --tree --history -> 0 findings; grep -rn 'agents.nidvue.com' -> only agents.nidvue.com
+- evidence: git log --format='%ae' --all | sort -u -> the role mailboxes only, every one on the agents.nidvue.com domain (the count is read from the run, never pinned); scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt -> PASS 0 findings; grep -rn 'agents.nidvue.com' -> only agents.nidvue.com
 - falsified by: A commit or shipped document carries a mailbox outside agents.nidvue.com, or the owner changes the suffix again.
 - consequences: -
 
@@ -257,7 +257,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - deciders: operator (user), CEO
 - decided by: ceo
 - task: -
-- context: `main` carried 36 commits authored by the CEO, one by the product identity `Teamwork <teamwork@agents.nidvue.com>` and one by the Reviewer; the role that did the work must be the author.
+- context: `main` carried commits authored by the CEO, and a few by a product identity rather than the role that did the work; the role that did the work must be the author.
 - options considered: A - leave history and enforce forward only (non-destructive; old attribution stays wrong); B - `.mailmap` (display only, SHAs unchanged, per-commit role unknowable); C - rewrite authors, committers, trailers and tags by changed-path role (correct everywhere; every SHA changes and releases are re-pointed).
 - decision: C, with the operator's explicit authorization. Each commit is attributed to the role that owns its dominant paths; author and committer dates are preserved; the `Role:` and `Acting role:` trailers are rewritten; `v1.0.0`-`v1.0.2` are re-pointed to the rewritten commits.
 - why: the operator judged attribution correctness worth the SHA churn. A local bundle (`.pi/backup-pre-rewrite.bundle`, gitignored) is the rollback, and the new identity audit prevents recurrence.
