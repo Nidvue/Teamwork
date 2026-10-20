@@ -340,6 +340,11 @@ EXEMPT_REASONS = {
     "self": "the proof is this pytest run, which is already the suite hosting the guard",
     "forge": "the proof reads the forge and a CI job without credentials cannot re-run it",
     "drift": "a clause reads the gitignored team tree, which drifts between runs",
+    "inflight": (
+        "the proof asks the live board whether the run is finished, and while this "
+        "deliverable is under review the board necessarily still holds it, so the "
+        "answer is green only on a merged revision"
+    ),
 }
 
 # Evidence a reason must find in the row's OWN proof cell. An exemption is not a
@@ -351,6 +356,7 @@ EXEMPT_EVIDENCE: dict[str, str] = {
     "self": r"\bpytest\b",
     "forge": r"\bgh\b|verify_release\.py|\bci\.ya?ml\b|\brelease\.ya?ml\b|\bCI job\b",
     "drift": r"tests plan|TEAMWORK_ROOT|team tree|\.pi/Teamwork",
+    "inflight": r"teamwork\.py loop|teamwork\.py audit",
 }
 
 EXEMPT: dict[str, str] = {
@@ -361,6 +367,7 @@ EXEMPT: dict[str, str] = {
     "AC-8": "forge",
     "AC-9": "self",
     "AC-10": "self",
+    "AC-11": "inflight",
     "AC-13": "self",
     "AC-15": "self",
     "AC-16": "self",
