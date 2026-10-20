@@ -618,6 +618,53 @@ def test_an_env_secret_on_the_line_does_not_disarm_the_path_rules():
         assert {"agent-config", "env-secret", "home-path"} <= rules, (path, sorted(rules))
 
 
+def test_the_quote_scope_is_what_drops_a_quoted_path_and_only_that():
+    """A quoted evidence line loses its path findings; the same path elsewhere does not.
+
+    The scope had no test at all in its first version: deleting the skip left the
+    whole suite green while a quoted line started reporting paths it must not. This
+    test drives the real prefix, so removing the skip fails it.
+    """
+    allow: list = []
+    home = "/home/" + "operat" + "/x.py"
+    config = ".pi" + "/agent" + "/settings.json"
+
+    def hits(line: str, path: str) -> set:
+        return {f["rule"] for f in ps.scan_lines(line, path, "history:blob", ps.RULES, allow)}
+
+    for prefix in (
+        "- self-check: ",
+        "- author evidence: ",
+        "- reviewer evidence: ",
+        "- findings history: ",
+    ):
+        quoted = hits(f"{prefix}built {home} and {config}", "docs/Team/Archive.md")
+        assert not {"agent-config", "home-path"} & quoted, (prefix, sorted(quoted))
+
+    # The same path in a document this repository authors is a real finding.
+    authored = hits(f"built {home} and {config}", "docs/Team/Board.md")
+    assert {"agent-config", "home-path"} <= authored, sorted(authored)
+
+    # And the scope is confined to Archive.md: the same quoted prefix elsewhere
+    # does not silence a path.
+    elsewhere = hits(f"- reviewer evidence: built {home}", "docs/Team/Board.md")
+    assert "home-path" in elsewhere, sorted(elsewhere)
+
+
+def test_a_credential_on_a_quoted_evidence_line_is_still_reported():
+    """The scope silences path shapes, never a credential rule."""
+    allow: list = []
+    home = "/home/" + "operat" + "/x.py"
+    token = "sk-" + "live-" + "0123456789abcdef0123456789abcdef"
+    line = f"- reviewer evidence: built {home} with token {token}"
+    rules = {
+        f["rule"]
+        for f in ps.scan_lines(line, "docs/Team/Archive.md", "history:blob", ps.RULES, allow)
+    }
+    assert "home-path" not in rules, sorted(rules)
+    assert rules - {"home-path"}, "a credential on an exempted line must still be reported"
+
+
 def entry_body(entry: str) -> str:
     """The escaped literal inside `^...$`, without the anchors."""
     assert entry.startswith("^") and entry.endswith("$"), entry
