@@ -107,7 +107,7 @@ both are `0`. `--history` with `--allow` is also `0`.
 
 | # | Action | Evidence |
 |---|---|---|
-| R1 | Repository-local git identity set to a **role** mailbox (`CEO <ceo@agents.nidvue.com>`) so an accidental plain `git commit` cannot inherit the operator identity; per-commit role identities (`git -c user.name=... -c user.email=...`) still override it | `git config --local user.email` -> `ceo@agents.nidvue.com`; `git log --format='%an <%ae>'` -> `ceo@agents.nidvue.com`, `teamwork@agents.nidvue.com` |
+| R1 | Repository-local git identity set to a **role** mailbox (`CEO <ceo@agents.nidvue.com>`) so an accidental plain `git commit` cannot inherit the operator identity; per-commit role identities (`git -c user.name=... -c user.email=...`) still override it | `git config --local user.email` -> `ceo@agents.nidvue.com`; `git log --format='%ae' main \| sort -u` -> every address is a role mailbox on `@agents.nidvue.com` |
 | R2 | Engine default identity domain is the `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> `Developer <developer@agents.nidvue.com>` |
 | R3 | Scanner masks all matched values, has no flag that prints a secret (`--reveal` prints a `sha256:` fingerprint; `--reveal-to` exports to a `0600` file), redacts the absolute root, and keeps private domains out of plain text | `scripts/privacy_scan.py`; `tests/unit/test_privacy_scan.py::test_reveal_never_prints_the_unmasked_secret`; see sections 7 and 7.1 |
 | R4 | This report redacts every personal value so it cannot re-leak what it documents | this file passes `scripts/privacy_scan.py --tree` |
@@ -132,12 +132,13 @@ re-opened with the new object id as evidence.
 
 ### Recommended to the file owners
 
-- **R6 (`.gitignore`, owner of repository hygiene):** add `site/`. It is mkdocs
-  build output, currently **not** ignored (`git check-ignore site` -> exit 1).
-  Committing it would publish 3.3 MB of third-party minified JS (whose text
-  contains other people's mailboxes) and would fail `--tree`. `dist/`,
-  `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`, `.venv/` and `.pi/` are
-  already ignored.
+- **R6 (`.gitignore`, owner of repository hygiene): closed.** `site/` (mkdocs
+  build output, 3.3 MB of third-party minified JS whose text carries other
+  people's mailboxes) is ignored: `git check-ignore site` -> `site`, rc 0
+  (`.gitignore` carries the rule). `dist/`, `.pytest_cache/`, `.mypy_cache/`,
+  `.ruff_cache/`, `.venv/` and `.pi/` are ignored for the same reason. An earlier
+  revision of this report said `site/` was *not* ignored; that was measured before
+  the rule was added and is corrected here, matching F-3 in the findings table.
 - **R7 (Release Engineer):** pin GitHub Actions to full commit SHAs (or rely on
   the existing Dependabot `github-actions` group) so a moved tag cannot inject
   code into the release job that holds `contents: write` and `id-token: write`.
