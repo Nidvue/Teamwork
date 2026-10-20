@@ -839,13 +839,20 @@ def _merge_branch_hint(root: Path, handle: str) -> str:
     under ``reviews.lock``, so the role -> reviews order that ``cmd_review``
     uses is never inverted here.
     """
+    # Task ids are unique per role queue, so two lanes can each own a T-0001.
+    # Returning the first one found would silently merge the other lane's PR,
+    # so an ambiguous handle yields "" and the caller makes the operator name
+    # the PR instead of guessing.
+    hits = []
     for role in list_roles(root):
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
             tasks = parse_tasks(task_file(root, role))
         tidx = find_task(tasks, handle)
         if tidx is not None:
-            return tasks[tidx].get("branch") or ""
-    return ""
+            branch = tasks[tidx].get("branch") or ""
+            if branch:
+                hits.append(branch)
+    return hits[0] if len(set(hits)) == 1 else ""
 
 
 def _merge_base_branch(project: Path, raw: str, pr: dict) -> str:
@@ -906,12 +913,52 @@ def _merge_work_repo(project: Path, here: Path, base: str) -> Path:
 
 
 def _merge_pr_index(prs: list, handle: str, branch: str = "") -> int | None:
-    """Index of the PR a merge names, preferring the record on ``branch``."""
+    """Index of the PR a merge names, preferring the live record on ``branch``.
+
+    A PR id is globally unique, so it resolves exactly. A *task* id is unique only
+    per role queue, so it must never resolve through a dead record: a lane whose
+    sibling already merged would otherwise be told "already merged" and its own
+    approved PR would never land (measured: P-0001 merged, P-0002 approved, bare
+    ``pr merge --pr T-0001`` answered ``already merged`` and exited 0).
+    """
     if branch:
         idx = find_pr_exact(prs, handle, branch)
         if idx is not None:
             return idx
-    return find_pr_exact(prs, handle)
+    live = [i for i, pr in enumerate(prs) if _handle_matches(pr, handle) and _pr_is_live(pr)]
+    if not live:
+        # No live candidate: fall back to the exact/dead match so the caller can
+        # report "already merged" instead of inventing one.
+        return find_pr_exact(prs, handle)
+    if len(live) == 1:
+        return live[0]
+    die(
+        f"'{handle}' names more than one open PR ("
+        + ", ".join(
+            f"{prs[i]['id']} [{prs[i].get('status') or '-'}] {prs[i].get('branch') or '-'}"
+            for i in live
+        )
+        + "); pass the PR id: pr merge --pr P-000x"
+    )
+    return None
+
+
+def _handle_matches(pr: dict, handle: str) -> bool:
+    want = (handle or "").strip().upper()
+    return bool(want) and (pr["id"].upper() == want or pr["task"].upper() == want)
+
+
+def _pr_is_live(pr: dict) -> bool:
+    """False once a PR is merged or closed - the two states a merge must skip."""
+    return (pr.get("status") or "") not in ("merged", "closed")
+
+
+def _handle_is_ambiguous(prs: list, handle: str) -> bool:
+    """True when a bare task id names live PRs on more than one branch."""
+    branches = {
+        pr.get("branch") or "" for pr in prs if _handle_matches(pr, handle) and _pr_is_live(pr)
+    }
+    return len(branches) > 1
 
 
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
