@@ -143,9 +143,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 223 kB |
-| `standard` | 9 | 331 kB |
-| `full` | 16 | 577 kB |
+| `slim` (default) | 6 | 225 kB |
+| `standard` | 9 | 334 kB |
+| `full` | 16 | 583 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.6x what `slim` costs.
@@ -487,9 +487,17 @@ Two duties that keep the remote and the confidence level honest:
   that revision. After the push, watch CI and confirm it is green **on that SHA**.
   A red run is routed to its owner from the log (code -> Developer, test ->
   Tester, contract -> Architect, workflow/packaging/flake -> Release Engineer,
-  scope -> CEO) and re-run after the fix. Force-push and published-history
-  rewrites need the CEO's explicit authorization; tags and public releases are
-  the CEO's step, prepared and verified by the Release Engineer.
+  scope -> CEO) and re-run after the fix. **A GitHub (or GitLab / Azure)
+  code-scanning alert is part of the same gate**: `teamwork code-scanning` reads
+  the open alerts, an `error`/`critical`/`high` one is a red release signal on the
+  shipped revision, and `--commit` files a `P0` task with the role that owns the
+  file. It exits `1` while a blocking alert is open (filing the fix does not
+  close the gate), and `2` with `unreadable: ...` when the security tab could not
+  be read at all - an unread scanner is `UNVERIFIED`, never a green zero.
+  Dismissing an alert is a Security Auditor triage with a recorded reason, never
+  a way to silence the gate. Force-push and published-history rewrites need the
+  CEO's explicit authorization; tags and public releases are the CEO's step,
+  prepared and verified by the Release Engineer.
 - **Tester - certify local *and* CI.** The Tester runs the layers locally and then
   confirms the same result in CI on the pushed revision, job by job across the OS
   and Python matrix. A green local run with a red CI run is a failure, and so is
