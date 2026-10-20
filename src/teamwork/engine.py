@@ -3199,6 +3199,12 @@ _RE_BOT_EMAIL = re.compile(
 )
 _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
+#: The committer a git host stamps on a merge it performs itself. It is transport,
+#: not identity: a forge rebase merge rewrites the committer to this account and
+#: leaves the author untouched, so the role that did the work is still the author -
+#: which is what this audit checks, and what the privacy gate already accepts
+#: (``noreply@github.com`` is a service address there, never a personal mailbox).
+_RE_FORGE_COMMITTER_EMAIL = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\.com)$")
 
 
 def canonical_identities() -> dict:
@@ -3249,7 +3255,10 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
 
     The role that does the work commits it. A forge-created pull-request merge ref
     carries the forge account identity, so it is skipped; its own history is
-    audited by the caller's range. Bot dependency updates are allowed. A public
+    audited by the caller's range. A forge-side *rebase* merge is accepted too: it
+    keeps the author and stamps only its own noreply committer, so the acting role
+    is still the author (see ``_RE_FORGE_COMMITTER_EMAIL``). Bot dependency updates
+    are allowed. A public
     repository also receives outside contributions: unless ``strict_authors`` is
     set, an author outside the team's identity domain is reported as skipped
     rather than failed, while a team-domain author with the wrong role still
@@ -3298,7 +3307,11 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             reasons.append(f"not a role mailbox: {ae}")
         elif an != expected:
             reasons.append(f"display name {an!r} does not match role {expected!r}")
-        if ce != ae or cn != an:
+        # A forge-side merge stamps its own noreply committer - but only for a
+        # commit whose author is a canonical role mailbox, so the identity that
+        # matters (the acting role) is still enforced by every check here.
+        forge_committer = expected is not None and _RE_FORGE_COMMITTER_EMAIL.match(ce) is not None
+        if (ce != ae or cn != an) and not forge_committer:
             reasons.append(f"committer {cn} <{ce}> differs from author {an} <{ae}>")
         match = _RE_ACTING_ROLE.search(body)
         if not match:
@@ -3309,6 +3322,8 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             problems.append((short, reasons))
             for reason in reasons:
                 print(f"- {short} FAIL {an} <{ae}>: {reason}")
+        elif forge_committer:
+            print(f"- {short} ok {an} <{ae}> (forge committer {ce})")
         else:
             print(f"- {short} ok {an} <{ae}>")
     print(f"# commits: {seen} | problems: {len(problems)}")
