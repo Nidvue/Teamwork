@@ -66,6 +66,50 @@ def test_every_role_charter_exists_and_is_substantial(root):
         assert "## Boundaries" in (roles_dir / f"{role}.md").read_text(encoding="utf-8"), role
 
 
+def frontmatter(path: Path) -> dict[str, str]:
+    """The skill's YAML frontmatter as flat key/value pairs.
+
+    A five-line parser instead of a yaml dependency: the fields this contract
+    pins are single-line scalars, and a package must not grow a runtime dep to
+    read its own header.
+    """
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("---\n"), f"{path.name} has no frontmatter"
+    block = text.split("\n---\n", 1)[0][len("---\n") :]
+    fields: dict[str, str] = {}
+    for line in block.splitlines():
+        if not line or line[0].isspace() or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        fields[key.strip()] = value.strip().strip("\"'")
+    return fields
+
+
+def test_the_skill_declares_the_agent_skills_contract(root):
+    """The published package is loaded by hosts other than this one.
+
+    ``compatibility`` is the only place an installer can learn that the engine
+    needs python3 before the first tool call fails on it, so it must be present
+    and agree with the interpreter the Python distribution actually supports.
+    """
+    fields = frontmatter(root / "SKILL.md")
+    assert fields["name"] == "teamwork"
+    assert 0 < len(fields["description"]) <= 1024, "the spec caps the description"
+
+    compatibility = fields["compatibility"]
+    assert "python3" in compatibility, compatibility
+    requires = re.search(
+        r'requires-python\s*=\s*">=([0-9.]+)"',
+        read(root, "pyproject.toml"),
+    )
+    assert requires, "pyproject.toml no longer declares requires-python"
+    assert requires.group(1) in compatibility, (
+        "SKILL.md advertises an interpreter the wheel does not support: "
+        f"{requires.group(1)} vs {compatibility!r}"
+    )
+    assert "stdlib" in compatibility, "the no-dependency claim is the point of the engine"
+
+
 # --------------------------------------------------------------------------- #
 # push policy: Release Engineer pushes reviewed revisions in stages
 # --------------------------------------------------------------------------- #
