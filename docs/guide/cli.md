@@ -811,6 +811,39 @@ default; `--strict-authors` turns that into a failure. The default range
 is `origin/main..HEAD`, then `HEAD~1..HEAD`, then `HEAD`; a range beginning with
 `-` is rejected. CI runs it on every pull request and every push to `main`.
 
+### `hooks`
+
+```text
+teamwork hooks install [--force]
+teamwork hooks status
+teamwork hooks uninstall
+teamwork hook pre-commit
+teamwork hook pre-push [REMOTE] [URL]
+```
+
+Install, inspect or remove the two git hooks that enforce, in the tool loop, the
+rules the prose can only ask for. `install` writes `pre-commit` and `pre-push` into
+the directory git actually reads hooks from (`git -C <root> rev-parse
+--path-format=absolute --git-path hooks`), so it works in a linked worktree where
+`<toplevel>/.git` is a file, and it honours `core.hooksPath`. Hooks are opt-in:
+`teamwork init` never installs them, and `TEAMWORK_SKIP_HOOKS=1` makes both exit 0
+unchanged.
+
+| Hook | Rule | Override |
+|---|---|---|
+| `pre-commit` | R1 refuse a commit on the default branch, including the root commit on an unborn branch | `TEAMWORK_ALLOW_MAIN=1` |
+| `pre-commit` | R2 refuse a staged file above 1 MiB that no `.gitattributes` LFS pattern covers | - |
+| `pre-commit` | R3 a commit identity that is not a role mailbox warns on stderr and does not block | - |
+| `pre-push` | P1 refuse a non-fast-forward update to the default branch | `TEAMWORK_ALLOW_FORCE=1` |
+| `pre-push` | P2 refuse deleting the default branch | - |
+
+`status` prints `installed`, `absent` or `foreign` per hook plus the literal
+directory it probed; `uninstall` removes only hooks carrying the
+`teamwork-managed hook` marker and never touches a foreign hook, and `install`
+refuses to overwrite one without `--force`. The shim resolves the engine from the
+git root and is a no-op when `scripts/teamwork.py` is absent, so a copied
+repository cannot inherit a hook that fails.
+
 ## Audit and control
 
 ### `ledger`
