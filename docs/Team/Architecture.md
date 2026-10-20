@@ -250,21 +250,27 @@ section is the **target**, not a description of the running program; where the
 two differ, the target wins - but the difference is stated here, once, so
 nobody reads section 11 as a changelog of the current implementation. At
 revision `3055a8a` plus this amendment `scripts/check_release_consistency.py`
-is **not in `main`**: it exists on the developer's branch at `c66c387` and is
-pending merge. Against that code:
+is **not in `main`**: it exists on the developer's branch, whose tip is
+`d998801` (parent `c66c387`), and is pending merge. Against that code:
 
 | Clause | Status | Where |
 |---|---|---|
-| 11.3 - the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `c66c387` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
-| 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `c66c387` `_extract_tar` / `_link_target` / `_materialise_links` |
-| 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `c66c387` `_digest_of_files` (`unreadable payload file`) and the link refusals |
-| 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **PENDING** | `rule_r2_head_is_newer` still compares `HEAD` against **every** version tag; no reachability test exists |
-| 11.2.2 - the `detail` counts `|S|`, never a negative number | **PENDING** | the same function prints `is newer than {len(tags)} tag(s)` over all version tags |
-| 11.2.2 - a shallow or tag-less checkout is exit `2` | **PENDING** | the checker has no `git rev-parse --is-shallow-repository` guard |
-| 11.2.4 - the frozen `TAGGED_TOKEN` regex | **PENDING** | the shipped pattern is `(?<![\w./-])v(\d+\.\d+\.\d+)(?![\w./-])`; on the 20 probes it matches 2 of the 10 must-match cases and correctly rejects the 10 must-not-match cases |
+| 11.3 - the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `d998801` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
+| 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `d998801` `_extract_tar` / `_link_target` / `_materialise_links` |
+| 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `d998801` `_digest_of_files` (`unreadable payload file`) and the link refusals |
+| 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **implemented** | `d998801` `rule_r2_head_is_newer` uses `_reachable_version_tags` and `_tags_at_head` |
+| 11.2.2 - the `detail` counts `|S|`, never a negative number | **implemented** | the same function reports `is newer than {len(comparable)} tag(s)` over `S` |
+| 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `d998801` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
+| 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `d998801` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
 
-The pending rows are open work for the Developer and the Tester, not a defect of
-this amendment.
+Everything section 11 freezes is therefore implemented in the developer's tip
+`d998801`, and none of it is in `main` yet: the whole file is **PENDING
+merge**, and until it lands `main` ships no checker at all. The two commits
+this amendment introduced into the contract (`rev=None` and the link policy)
+were implemented first, at `c66c387`; R2's `S = A - O`, the shallow guard and
+`TAGGED_TOKEN` followed at `d998801`. The table exists so that a reader of
+section 11 does not read it as a changelog of `main`: **the contract is the
+target, and the target is met on the developer's branch, not in `main`**.
 
 ### 11.1 CLI (frozen)
 
