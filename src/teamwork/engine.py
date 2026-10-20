@@ -6306,7 +6306,11 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     s = _section("integrity", "gate overrides, provenance and liveness")
     forced, unprovenanced, silent = [], [], []
     for role, t in tasks:
-        if t.get("forced"):
+        # An override on a task that is finished is history: it explains how the
+        # task got closed, not a gate that is still held open. Counting it would
+        # make the stop condition unreachable - every past override would block
+        # STOP forever. Only overrides on an OPEN task are a live blocker.
+        if t.get("forced") and t["status"] not in ("done", "dropped"):
             forced.append(f"{t['id']} ({role}): {t['forced']}")
         if (
             t["status"] in ("doing", "selfcheck")
@@ -7858,7 +7862,7 @@ def _audit_forced_gate_overrides(root: Path, names: list, args) -> int:
     hits = 0
     for name in names:
         for t in parse_tasks(task_file(root, name)):
-            if t.get("forced"):
+            if t.get("forced") and t["status"] not in ("done", "dropped"):
                 print(f"- {name} {t['id']}: {t['forced']}")
                 hits += 1
     if not hits:
