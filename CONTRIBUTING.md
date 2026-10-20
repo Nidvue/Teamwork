@@ -63,14 +63,23 @@ The full pipeline is documented in [docs/guide/ci.md](docs/guide/ci.md).
 4. **Open a pull request** describing the artifact, the evidence and the
    revision.
 5. **Independent review.** A different maintainer reviews and merges; you never
-   merge your own change. **Merge locally as the reviewing role and push; do not
-   use the forge's squash button.** A forge squash merge stamps the *signed-in
-   account's* mailbox on the resulting commit, and the privacy gate scans history:
-   it fails on the personal address, and because that gate is also an acceptance
-   proof, the traceability guard fails with it. This has cost two rewrites of
-   `main` (see the 2026-10-20 entries in [Decisions](docs/Team/Decisions.md)). If a
-   rewrite is forced on you anyway, amend the tip to a role mailbox, verify its
-   tree is byte-identical to the commit it replaces, push it with
+   merge your own change. The preferred path is a local merge as the reviewing
+   role, then a push. **Squash merging is disabled on the remote**: a forge squash
+   stamps the *signed-in account's* mailbox on the resulting commit, and the
+   privacy gate scans history - it fails on the personal address, and because that
+   gate is also an acceptance proof, the traceability guard fails with it. That
+   cost two rewrites of `main` (see the 2026-10-20 entries in
+   [Decisions](docs/Team/Decisions.md)).
+
+   **Rebase merging is the one forge action that is safe**, and it is the only one
+   enabled: it replays the commits unchanged, so the author stays the role that did
+   the work, and it rewrites only the committer to the host's `noreply@github.com`
+   account. The identity audit accepts that stamp for a role-authored commit
+   (`_RE_FORGE_COMMITTER_EMAIL`) and the privacy gate already treats it as a
+   service address; a committer that is *not* the host's is still a defect.
+
+   If a rewrite is forced on you anyway, amend the tip to a role mailbox, verify
+   its tree is byte-identical to the commit it replaces, push it with
    `--force-with-lease`, and restore the branch protection you relaxed to do it.
 
 ## Evidence rule
