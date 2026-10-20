@@ -22,7 +22,8 @@ Usage
     teamwork.py load AGENT [--limit N]
     teamwork.py remember AGENT TEXT [--layer short|long] [--key K]
                                   [--importance 0-5] [--tags a,b] [--pin]
-    teamwork.py global TEXT [--key K] [--importance N] [--tags a,b] [--pin]
+    teamwork.py global TEXT [--by BY] [--src SRC] [--rev REV]
+                            [--key K] [--importance N] [--tags a,b] [--pin]
     teamwork.py recall QUERY [--agent A] [--all] [--global] [--layer both|short|long]
     teamwork.py touch AGENT ID|KEY [--layer short|long]
     teamwork.py forget AGENT ID|KEY [--layer short|long]
@@ -4237,7 +4238,16 @@ def cmd_global(args) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "global.lock"):
         entries = parse_memory(path)
-        entry = new_entry(args.text, args.key, args.importance, args.tags, args.pin)
+        entry = new_entry(
+            args.text,
+            args.key,
+            args.importance,
+            args.tags,
+            args.pin,
+            by=args.by or "",
+            src=args.src or "",
+            rev=args.rev or "",
+        )
         entries, merged, added = merge_entries(entries, [entry])
         entries.sort(key=score, reverse=True)
         pinned = [e for e in entries if e["pinned"]]
@@ -4254,9 +4264,10 @@ def cmd_global(args) -> int:
     ledger_append(
         root,
         "memory.global",
-        "ceo",
+        args.by or "ceo",
         args.key or "global",
         f"{added} new / {merged} merged: {args.text[:80]}",
+        args.rev,
     )
     print(f"teamwork: global memory {added} new / {merged} merged ({path})")
     return 0
@@ -9610,6 +9621,9 @@ def _parsers_memory(sub, common) -> None:
     s.add_argument("--importance", type=int, default=3)
     s.add_argument("--tags", default="")
     s.add_argument("--pin", action="store_true")
+    s.add_argument("--by", default="", help="who recorded it (provenance)")
+    s.add_argument("--src", default="", help="what it comes from (task, doc, run)")
+    s.add_argument("--rev", default="", help="revision it was verified at")
     s.set_defaults(func=cmd_global)
 
     s = sub.add_parser("recall", parents=[common], help="search memory")

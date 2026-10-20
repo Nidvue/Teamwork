@@ -306,10 +306,22 @@ Add or update an entry in the ROLE's shared memory.
 ### `global`
 
 ```text
-teamwork global TEXT [--key KEY] [--importance IMPORTANCE] [--tags TAGS] [--pin]
+teamwork global TEXT [--by BY] [--src SRC] [--rev REV]
+    [--key KEY] [--importance IMPORTANCE] [--tags TAGS] [--pin]
 ```
 
 Add or update an entry in global shared memory (CEO-owned).
+
+`--by` names who recorded the entry, `--src` what it comes from (a task, a
+document, a run) and `--rev` the revision it was verified at. The audit gate
+reports a memory entry without a `by` as a blocker, so a global entry is
+recorded with its provenance the same way a role entry is.
+
+A merge never overwrites provenance that is already there. The three fields
+describe one recording act and travel together: an entry recorded without an
+author is completed by a later writer, an entry that already has an author
+keeps it, and a later writer who is not the author can neither take over the
+entry nor graft their own `src` and `rev` onto it.
 
 ### `recall`
 
