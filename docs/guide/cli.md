@@ -880,6 +880,36 @@ teamwork loop
 Stop-condition check: may the team stop? Prints `STOP` or `CONTINUE` with
 reasons.
 
+### `refresh`
+
+```text
+teamwork refresh [--dest DIR] [--host HOST] [--source DIR] [--repo URL]
+                 [--remote origin] [--branch main] [--mirror]
+                 [--no-fetch] [--check] [--dry-run] [--quiet]
+```
+
+Keep the **installed** skill equal to the remote. The host loads the copy in its
+skills directory, not the checkout, so updating one without the other leaves the
+agent reading stale text - measured once on this machine as an old `SKILL.md`
+plus 8 engine modules that were simply missing.
+
+1. Resolve the source: `--source`, else `$TEAMWORK_SOURCE`, else the bundle in
+   use when it is a git checkout, else the tool-managed mirror beside
+   the skills directory (`<skills-parent>/.teamwork-source`; `--mirror` forces that case).
+2. In a checkout: fetch `--remote/--branch` and fast-forward. A dirty tree is
+   never clobbered - the checkout is mirrored as it stands and the command says
+   "fast-forward skipped".
+3. Mirror into `--dest` (default the host's skills directory). Files the source
+   no longer ships are deleted, files outside the bundle trees are never touched,
+   and a stale `__pycache__` is removed.
+4. Print the reminder to reload the host when anything was written.
+
+`--check` reports drift and exits `1` without writing; `--dry-run` prints the
+file plan; `--no-fetch` mirrors the local checkout only (`--repo` is required
+just once, to create the mirror). `scripts/sync_skill.py` and `make sync-skill` /
+`make sync-check` are the same mirror for a checkout that has no `teamwork` on
+`PATH`.
+
 ### `version`
 
 ```text

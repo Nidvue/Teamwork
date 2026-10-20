@@ -8245,6 +8245,133 @@ def cmd_agents_md(args) -> int:
     return 0
 
 
+def _fetch_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
+    """Fetch ``remote/branch`` into ``source``. Returns ``(ok, detail)``."""
+    got = run_git(source, "fetch", "--prune", "--quiet", remote, branch)
+    if got.returncode != 0:
+        tail = (got.stderr or got.stdout).strip().splitlines()
+        return False, tail[-1] if tail else "fetch failed"
+    rev = run_git(source, "rev-parse", "--short", f"{remote}/{branch}")
+    if rev.returncode != 0:
+        return False, f"no {remote}/{branch} after fetch"
+    return True, rev.stdout.strip()
+
+
+def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
+    """Move ``source`` to ``remote/branch`` without touching a dirty tree."""
+    dirty = run_git(source, "status", "--porcelain").stdout.strip()
+    if dirty:
+        # Never clobber uncommitted work, but do not refuse to mirror either: the
+        # operator may be mid-change and still want the installed copy to match.
+        return True, (
+            f"local changes ({dirty.splitlines()[0]}) - fast-forward skipped, "
+            "mirroring this checkout as it stands"
+        )
+    ok, detail = _fetch_source(source, remote, branch)
+    if not ok:
+        return False, detail
+    head = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
+    target = detail
+    if head == target:
+        return True, f"already at {remote}/{branch} {target}"
+    pulled = run_git(source, "merge", "--ff-only", f"{remote}/{branch}")
+    if pulled.returncode != 0:
+        tail = (pulled.stderr or pulled.stdout).strip().splitlines()
+        return False, f"cannot fast-forward {head} -> {target}: {tail[-1] if tail else '?'}"
+    after = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
+    if after == head:
+        # The checkout already contains remote/branch - it is AHEAD of it, which is
+        # the normal state of a lane mid-task. Report where HEAD really is rather
+        # than announce a move that did not happen.
+        return True, f"{remote}/{branch} {target} is already contained in {head} (ahead of it)"
+    return True, f"{head} -> {after}"
+
+
+def cmd_refresh(args) -> int:
+    """Re-sync the installed skill from the remote, so a host copy follows ``main``.
+
+    Three cases, one command:
+
+    * the bundle in use is a **git checkout** - fetch and fast-forward it, then
+      mirror it into the installed skills directory;
+    * ``--source``/``TEAMWORK_SOURCE`` names a checkout - same, mirrored here;
+    * neither - the tool-managed mirror checkout (``<skills>/.teamwork-source``)
+      is created once with ``--repo`` (or the project's ``origin``) and updated
+      from then on.
+
+    The mirror is the whole point: an agent host reads the *copy* in the skills
+    directory, so updating the checkout alone leaves the agent on stale text.
+    """
+    from . import bundle
+
+    dest = bundle.resolve_dest(args.host, args.dest)
+    explicit = Path(args.source).expanduser() if args.source else None
+    if explicit is None and bundle.env_source():
+        explicit = Path(bundle.env_source()).expanduser()
+    if explicit is not None and not bundle.is_checkout(explicit.resolve()):
+        die(f"--source {explicit} is not a git checkout of this skill (no .git + src/teamwork)")
+    source = explicit
+    if source is None and not args.mirror and bundle.is_checkout(SKILL_DIR):
+        source = SKILL_DIR
+    if source is None:
+        source = bundle.default_mirror_path(dest)
+    source = source.resolve()
+
+    remote, branch = args.remote, args.branch
+    created = False
+    if not bundle.is_checkout(source):
+        repo = args.repo
+        if not repo and getattr(args, "project", None):
+            origin = run_git(project_of(project_root(args)), "remote", "get-url", "origin")
+            repo = origin.stdout.strip() if origin.returncode == 0 else ""
+        if not repo:
+            die(
+                f"{source} is not a checkout and no --repo was given; "
+                "pass --repo <url> once to create the mirror"
+            )
+        source.parent.mkdir(parents=True, exist_ok=True)
+        cloned = run_git(source.parent, "clone", "--quiet", "--branch", branch, repo, str(source))
+        if cloned.returncode != 0:
+            tail = (cloned.stderr or cloned.stdout).strip().splitlines()
+            die(f"cannot clone {repo} into {source}: {tail[-1] if tail else '?'}")
+        created = True
+        print(f"# mirror checkout created at {source}")
+
+    if not args.no_fetch:
+        ok, detail = _update_source(source, remote, branch)
+        if not ok:
+            die(f"refresh stopped: {detail}")
+        print(f"# source {source.name}: {detail}")
+    added, updated, removed = bundle.plan(source, dest)
+    if args.check:
+        if added or updated or removed:
+            print(
+                f"# OUT OF SYNC: {len(added)} missing, {len(updated)} stale, "
+                f"{len(removed)} extra -> run refresh",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"# installed skill {dest} matches {source}")
+        return 0
+    if not (added or updated or removed):
+        print(f"# installed skill {dest} already matches {source}")
+        return 0
+    if args.dry_run:
+        for rel in added:
+            print(f"  + {rel}")
+        for rel in updated:
+            print(f"  ~ {rel}")
+        for rel in removed:
+            print(f"  - {rel}")
+        print(f"# would write {len(added) + len(updated) + len(removed)} file(s) -> {dest}")
+        return 0
+    bundle.sync(source, dest, dry_run=False, quiet=args.quiet)
+    print(f"# refreshed {dest}: {len(added)} added, {len(updated)} updated, {len(removed)} removed")
+    if created or added or updated:
+        print("# restart the agent host or reload the skill so the new text is read")
+    return 0
+
+
 def cmd_version(args) -> int:
     """`teamwork version` / `teamwork --version`."""
     print(f"teamwork {VERSION}")
@@ -9496,6 +9623,30 @@ def _parsers_model(sub, common) -> None:
 
 def _parsers_meta(sub, common) -> None:
     """`version`, `selftest` and `imaging` command surface."""
+    s = sub.add_parser(
+        "refresh",
+        parents=[common],
+        help="fetch the remote and mirror the skill into the installed skills directory",
+    )
+    s.add_argument("--dest", default="", help="skills directory to write")
+    s.add_argument(
+        "--host", default="pi", choices=("pi", "agents"), help="which host's default skills dir"
+    )
+    s.add_argument("--source", default="", help="checkout to mirror (default: the one in use)")
+    s.add_argument("--repo", default="", help="remote to clone when no checkout exists yet")
+    s.add_argument(
+        "--mirror",
+        action="store_true",
+        help="use the tool-managed mirror checkout even when this bundle is a checkout",
+    )
+    s.add_argument("--remote", default="origin", help="git remote to fetch")
+    s.add_argument("--branch", default=DEFAULT_BASE, help="branch to follow")
+    s.add_argument("--no-fetch", action="store_true", help="mirror the local checkout only")
+    s.add_argument("--check", action="store_true", help="report drift, write nothing")
+    s.add_argument("--dry-run", action="store_true", help="print the plan, write nothing")
+    s.add_argument("--quiet", action="store_true", help="print only the summary")
+    s.set_defaults(func=cmd_refresh)
+
     s = sub.add_parser("version", parents=[common], help="print the version and exit")
     s.set_defaults(func=cmd_version)
 
