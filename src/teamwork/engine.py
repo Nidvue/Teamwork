@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime
+import importlib.util
 import os
 import re
 import shutil
@@ -6516,32 +6517,83 @@ def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = No
     return f"# archive: wrote the accepted-results entry for {branch} on the base"
 
 
-#: Credential shapes that a review packet may quote as a FABRICATED probe value.
-#: They are harmless, but the scanner cannot tell them from real ones and keeps
-#: its credential rules armed inside a quotation by design (see
-#: ``scripts/privacy_scan.py``), so committing one turns the shipped privacy gate
-#: red on a later revision - and the only "fix" available then would be widening
-#: the allowlist, which is the one thing the gate exists to prevent.
-_RE_BEARER = re.compile(r"\b((?:sk|ghp|gho|ghu|ghs|ghr)[-_]|github_pat_|AIza)[A-Za-z0-9_\-]{12,}")
-_RE_PASSWORD = re.compile(
-    r"(?i)\b([A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|ACCESS[_-]?KEY"
-    r"|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|CREDENTIAL)[A-Za-z0-9_]*"
-    r"\s*[:=]\s*)(?:\"[^\"\n]{8,}\"|'[^'\n]{8,}'|[^\s\"',;]{8,})"
+#: Credential rules of the shipped privacy gate. The archive mask borrows the
+#: gate's own rule table rather than re-declaring shapes: a hand-written mask
+#: drifted from the scanner twice (it covered 2 of the 5 credential rules and
+#: masked ``sk-learn-pipeline``, which the gate never reports), and the archive is
+#: the one place where a divergence between mask and gate is unrecoverable.
+CREDENTIAL_RULES = (
+    "private-key",
+    "api-token",
+    "env-secret",
+    "json-secret",
+    "high-entropy-secret",
 )
 
 
+def _privacy_scan():  # noqa: ANN202 - module handle, cached below
+    """The shipped scanner module, imported from the bundle.
+
+    Loaded by path with no ``sys.path`` change, so a bundled ``scripts/``
+    directory can neither shadow the ``teamwork`` package nor leak into the
+    process. ``None`` means the bundle is incomplete (an install that dropped
+    ``scripts/``); the caller then records the text unmasked rather than guessing.
+    """
+    global _PRIVACY_SCAN
+    if _PRIVACY_SCAN is not _UNLOADED:
+        return _PRIVACY_SCAN
+    path = _resources.asset("scripts") / "privacy_scan.py"
+    _PRIVACY_SCAN = None
+    if path.is_file():
+        try:
+            spec = importlib.util.spec_from_file_location("_teamwork_privacy_scan", path)
+            if spec is not None and spec.loader is not None:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                _PRIVACY_SCAN = module
+        except Exception:  # noqa: BLE001 - a broken scanner must not break records
+            _PRIVACY_SCAN = None
+    return _PRIVACY_SCAN
+
+
+_UNLOADED = object()
+_PRIVACY_SCAN = _UNLOADED
+
+
 def mask_secret_shapes(text: str) -> str:
-    """Rewrite credential-shaped values in quoted text to a named marker.
+    """Rewrite a value the privacy gate would report, and nothing else.
 
     An archive entry quotes another agent's words verbatim, so a verdict that
-    proved a scanner rule fires by quoting a fake token puts that token into
-    history. Masking keeps the sentence readable and the record honest: the
-    quoted claim ("a token on the exempted line is still reported") survives.
+    proved a credential rule fires by quoting a fake token puts that token into
+    history. The mask is exactly the gate's own finding set: a value the gate
+    reports becomes ``<redacted-RULE>``, and a value it does not report is left
+    byte-identical, so ordinary prose, commit shas and ``sk-something`` helper
+    names survive. The quoted claim ("a token on the exempted line is still
+    reported") remains readable.
     """
     if not text:
-        return text or "-"
-    out = _RE_BEARER.sub(r"\1<redacted-token>", text)
-    return _RE_PASSWORD.sub(r"\1<redacted-value>", out)
+        return text
+    scanner = _privacy_scan()
+    if scanner is None:
+        return text
+    rules = [rule for rule in scanner.RULES if rule["id"] in CREDENTIAL_RULES]
+    values: list[tuple[str, str]] = []
+    for finding in scanner.scan_lines(text, "", "archive", rules, ()):
+        value = finding.get("match") or ""
+        if value and (value, finding["rule"]) not in values:
+            values.append((value, finding["rule"]))
+    # ``scan_lines`` runs the JSON rule over the whole text (a pretty-printed value
+    # spans lines), so it is not in the per-line pass above.
+    for match in scanner._RE_JSON_SECRET.finditer(text):
+        value = match.group(1)
+        if value:
+            # A JSON credential is also high-entropy; name it by the specific rule.
+            values = [pair for pair in values if pair[0] != value]
+            values.append((value, "json-secret"))
+    # Longest first, so a value that contains another one is replaced once.
+    for value, rule in sorted(values, key=lambda pair, /: -len(pair[0])):
+        text = text.replace(value, f"<redacted-{rule}>")
+    return text
 
 
 def _quoted(t: dict, field: str) -> str:
@@ -6552,10 +6604,6 @@ def _quoted(t: dict, field: str) -> str:
     ``archive_view_text``), not a storage one.
     """
     return mask_secret_shapes(t.get(field) or "")
-
-
-#: Fields of an archive entry that quote another agent's words verbatim.
-QUOTED_EVIDENCE_FIELDS = ("self_note", "evidence", "review_evidence", "findings")
 
 
 def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) -> str:
@@ -6569,7 +6617,9 @@ def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) ->
     path = base_repo.joinpath(*DIR_DOCS) / "Archive.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"## {t['id']} · {t['title']}  ({owner})",
+        # The title is operator- or agent-written text and rides into the same
+        # immutable record, so it is masked exactly like the quoted fields.
+        f"## {t['id']} · {mask_secret_shapes(t['title'])}  ({owner})",
         f"- date: {today_iso()}",
         f"- priority: {t['priority']}",
         f"- owner: {owner} role (work by: {t.get('claimed_by') or owner})",
