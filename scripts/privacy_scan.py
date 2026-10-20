@@ -49,11 +49,31 @@ Design notes
 * The scanner is itself published, so it must not become the leak it detects.
   Private domains are therefore not stored as plain text (they are reconstructed
   from code points at runtime) and matched values are **masked by default** so a
-  failing CI log cannot republish the secret. ``--reveal`` prints full values for
-  local remediation only.
+  failing CI log cannot republish the secret. Unmasked values are **never**
+  printed: ``--reveal`` prints a stable fingerprint (SHA-256 prefix) instead and
+  ``--reveal-to PATH`` exports the raw values to a ``0600`` file for local
+  remediation only.
 * The allowlist file (``--allow``) holds one regular expression per line with an
   optional ``# reason`` suffix. A finding is exempt when its matched text matches
   any allowlist expression. Keep it minimal and justify each entry.
+
+Revealing a matched value
+-------------------------
+Unmasked values are **never** written to stdout or stderr. A log line is a
+broadcast sink - CI logs are public, terminals are recorded, and ``tee``ed
+output outlives the session - so the scanner has no flag that prints a secret.
+
+* ``--reveal`` adds ``(sha256:<12 hex>)`` to each finding line. The fingerprint
+  is a stable, unsalted SHA-256 prefix: it identifies which finding is which and
+  lets an operator confirm a rotated value, but it cannot be used as the
+  credential.
+* ``--reveal-to PATH`` writes the raw values to a file the operator names, for
+  local remediation only. The file is created with ``O_EXCL`` and mode ``0600``
+  (an existing path is a usage error, never overwritten), every line is
+  ``location<TAB>rule<TAB>fingerprint<TAB>value``, a warning naming the file is
+  printed to stderr, and a half-written file is removed on error. Delete it
+  after rotating the secret; never commit it, paste it into a ticket or a chat,
+  or leave it in a shared workspace.
 
 Exit codes: ``0`` clean, ``1`` findings, ``2`` usage / git error.
 """
@@ -61,6 +81,7 @@ Exit codes: ``0`` clean, ``1`` findings, ``2`` usage / git error.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -70,7 +91,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-SCANNER_VERSION = "1.2.0"
+SCANNER_VERSION = "1.3.0"
 
 # --------------------------------------------------------------------------- #
 # Neutral identity / allowlisted email domains
@@ -471,6 +492,49 @@ def _mask(value: str) -> str:
     if len(value) <= 10:
         return value[0] + "*" * (len(value) - 2) + value[-1]
     return value[:3] + "*" * (len(value) - 6) + value[-3:]
+
+
+def _fingerprint(value: str, length: int = 12) -> str:
+    """A stable, non-usable identifier for a matched value.
+
+    Enough to tell two findings apart and to find the secret again once its
+    location is known, but not enough to reconstruct or use it. The hash is
+    unsalted SHA-256 of the full value, so the same secret always yields the
+    same fingerprint across runs and machines.
+    """
+    digest = hashlib.sha256(value.encode("utf-8", "replace")).hexdigest()
+    return "sha256:" + digest[:length]
+
+
+def write_reveal_file(path, pairs):
+    """Export ``(finding, raw_value)`` pairs to a new ``0600`` file.
+
+    Unmasked values must never reach stdout/stderr (CI logs, terminals, ``tee``
+    output). A file the operator names keeps the remediation use case while the
+    log stays clean. The file is created with ``O_EXCL`` and mode ``0600`` so an
+    existing path is never silently overwritten and no other user can read it.
+    Returns the number of values written.
+    """
+    target = Path(path)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    fd = os.open(str(target), flags, 0o600)
+    written = 0
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            for finding, value in pairs:
+                handle.write(
+                    f"{finding['location']}\t{finding['rule']}\t{_fingerprint(value)}\t{value}\n"
+                )
+                written += 1
+        os.chmod(str(target), 0o600)
+    except BaseException:
+        # Do not leave a half-written plaintext secrets file behind.
+        try:
+            os.unlink(str(target))
+        except OSError:
+            pass
+        raise
+    return written
 
 
 def _clip(line: str, value: str, width: int = 160) -> str:
@@ -945,7 +1009,15 @@ def main(argv=None):
     )
     parser.add_argument("--json", action="store_true", help="emit JSON")
     parser.add_argument(
-        "--reveal", action="store_true", help="print full matched values (local remediation only)"
+        "--reveal",
+        action="store_true",
+        help="print a stable fingerprint (sha256 prefix) per finding; never the value itself",
+    )
+    parser.add_argument(
+        "--reveal-to",
+        metavar="PATH",
+        default=None,
+        help="write unmasked matched values to PATH (created 0600, never overwritten)",
     )
     parser.add_argument("--quiet", action="store_true", help="only print the one-line summary")
     args = parser.parse_args(argv)
@@ -985,9 +1057,39 @@ def main(argv=None):
         return 2
 
     findings = dedupe(findings)
-    if not args.reveal:
-        for finding in findings:
-            finding.pop("match", None)
+    # Unmasked values are never printed. A log line - CI output, a terminal, a
+    # `tee`d file - is a broadcast sink: --reveal only adds a stable fingerprint
+    # and --reveal-to exports the raw values to a file the operator names.
+    reveal_path = args.reveal_to
+    reveal_values = []
+    for finding in findings:
+        match = finding.pop("match", None)
+        if match is None:
+            continue
+        if args.reveal:
+            finding["fingerprint"] = _fingerprint(match)
+        if reveal_path:
+            reveal_values.append((finding, match))
+
+    reveal_written = 0
+    if reveal_path:
+        try:
+            reveal_written = write_reveal_file(reveal_path, reveal_values)
+        except FileExistsError:
+            print(
+                f"privacy_scan: refusing to overwrite existing file {reveal_path}",
+                file=sys.stderr,
+            )
+            return 2
+        except OSError as exc:
+            print(f"privacy_scan: cannot write reveal file: {exc}", file=sys.stderr)
+            return 2
+        print(
+            f"privacy_scan: WARNING - {reveal_written} unmasked value(s) written to "
+            f"{reveal_path} (mode 0600). Delete it after remediation; never commit, "
+            f"copy into a ticket, or paste it into a chat.",
+            file=sys.stderr,
+        )
 
     report = {
         "scanner_version": SCANNER_VERSION,
@@ -1009,11 +1111,12 @@ def main(argv=None):
     else:
         if not args.quiet:
             for finding in findings:
-                shown = (
-                    finding.get("match", finding["evidence"])
-                    if args.reveal
-                    else finding["evidence"]
-                )
+                # The unmasked value is never printed: stdout is a broadcast
+                # sink. --reveal only adds a non-usable fingerprint.
+                shown = finding["evidence"]
+                fingerprint = finding.get("fingerprint")
+                if fingerprint:
+                    shown = f"{shown} ({fingerprint})"
                 print(
                     f"{finding['location']}: [{finding['severity']}/"
                     f"{finding['rule']}] {shown}  {finding.get('detail', '')}"

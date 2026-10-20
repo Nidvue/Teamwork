@@ -1015,3 +1015,41 @@ base, review every candidate visually, improve the winner until it passes,
 integrate, record evidence - plus the privacy and licence red lines, is the
 Designer's own policy in
 [`roles/designer.md`](https://github.com/Nidvue/Teamwork/blob/main/roles/designer.md).
+
+## Auxiliary scripts
+
+### `scripts/privacy_scan.py`
+
+```text
+python3 scripts/privacy_scan.py [--tree] [--staged] [--history] [--all]
+                                [--allow FILE] [--root DIR] [--json]
+                                [--reveal] [--reveal-to PATH] [--quiet]
+```
+
+The privacy gate. It fails (exit `1`) on personal data, credentials, private
+domains, absolute home paths and agent-host configuration in the tracked tree,
+the index and the full git history. `--tree`, `--staged` and `--history` combine;
+`--all` sets all three; the default is `--tree`. Exit `2` is a usage or git
+error. CI runs `--tree --history --allow .github/privacy-allow.txt`.
+
+**Matched values are masked by default and the unmasked value is never printed.**
+There is deliberately no flag that sends a secret to stdout or stderr: a log line
+survives the session (CI logs are retained and world-readable, terminals are
+recorded, `tee` output outlives the shell), so the scanner never writes one.
+
+Plain output shows `ev***et`-style masked evidence, which is enough to recognise a
+finding in place.
+
+| Option | Meaning |
+|---|---|
+| `--reveal` | append a stable fingerprint to each finding line - `sha256:` plus 12 hex characters of the unsalted SHA-256 of the full value. Use it to tell two findings apart or to confirm that a rotated secret really is gone. It is not usable as the credential and does not embed any prefix of it |
+| `--reveal-to PATH` | write the raw matched values to a file you name, for local remediation only. The file is created `0600` and **refuses to overwrite** an existing path (exit `2`); each line is `location<TAB>rule<TAB>fingerprint<TAB>value`; a `WARNING` naming the file is printed to stderr; a partial file is deleted on error |
+| `--json` | machine-readable report. It carries the same masked evidence; `match` is removed before the report is built, so the raw value is not in the JSON either |
+| `--quiet` | only the one-line `PASS`/`FAIL` summary |
+| `--allow FILE` | allowlist, one regular expression per line with an optional `# reason` |
+
+Remediation workflow: run with `--reveal` to locate and identify, then
+`--reveal-to /a/path/only/you/can/read` to recover the exact strings, rotate the
+credential, delete the file, and rewrite history if it was committed. Never pass
+`--reveal-to` in CI, never commit the output, and never paste it into a ticket or
+a chat - the file is plaintext by construction.
