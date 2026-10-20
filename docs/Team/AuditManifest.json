@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-20T08:20:24",
+  "generated_at": "2026-10-20T08:34:27",
   "team": "Teamwork",
   "team_id": "431b5b8b1bc04db58a4f13ef114cf5c1",
   "project": "Teamwork",
   "ledger": {
-    "records": 1576,
-    "checkpoint_n": 1576,
-    "head": "79f8f78346027e114c50ca052f621c3a9c353981679c9c10b560cdd0b9119cd0",
+    "records": 1587,
+    "checkpoint_n": 1587,
+    "head": "af80a524e943b500ad3e1cf523eb8949505c7cc59d1f42cae74b8002010ee5d6",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "445c892ab5dfde8ef260f71987737ea420888a55",
+    "head": "23ad80a68d884d5d644578baf085ed868fe023b9",
     "branch": "main",
     "dirty": false,
     "lfs_files": 0
@@ -56,8 +56,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "c97be371b878fe9b3c2e9bdccd4cabbd90a64d4e48ebf00c6896e03cea973f83",
-      "bytes": 560063
+      "sha256": "7e10bda4eeee4a01ff21201483f33f3b7caf150aaff0b7e2f0edebc466445195",
+      "bytes": 561390
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Architect/ArchivedMemory.md",
@@ -96,8 +96,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "2b4a8dfaeeff31ce49b58bf627dab4918ee88ca961328873e480ba990e7c9091",
-      "bytes": 515117
+      "sha256": "c7072dca54a7e776bbb84eca12bc2edea10f691038b860ff2437d36b19829f8f",
+      "bytes": 516683
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CTO/ArchivedMemory.md",
@@ -272,7 +272,7 @@
   ],
   "how_to_verify": [
     "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
-    "2. take record #1576 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
+    "2. take record #1587 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
     "3. sha256sum each artifact in this manifest",
     "4. git cat-file -t <git.head>   # the reviewed revision still exists",
     "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
