@@ -143,9 +143,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 225 kB |
-| `standard` | 9 | 334 kB |
-| `full` | 16 | 583 kB |
+| `slim` (default) | 6 | 226 kB |
+| `standard` | 9 | 336 kB |
+| `full` | 16 | 586 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.6x what `slim` costs.
@@ -373,10 +373,11 @@ reports STOP.
   designed no tests at all.
 - **Review is a parallel lane.** `reviewer-1..N` claim *different* deliverables
   from the shared review queue at the same time (`review --queue`); one claim per
-  deliverable, the merger is always a different Reviewer from the one who
-  approved, high-risk work gets two Reviewers on purpose, nobody reviews their own
-  contribution, and findings union - a deliverable passes only when no open
-  finding remains on the revision.
+  deliverable, high-risk work gets two Reviewers on purpose, nobody reviews their
+  own contribution, and findings union - a deliverable passes only when no open
+  finding remains on the revision. **A pass is the merge**: the lane that verified
+  the revision lands it and deletes the branch, so an approved deliverable never
+  waits in a second queue.
 - The CEO keeps the interface contract stable, arbitrates conflicts, resolves
   duplicate work, and updates global memory.
 - The Project Manager chases stalled tasks and duplicates and refreshes
@@ -769,7 +770,7 @@ python3 $S selfcheck developer T-0007 --by developer-1 --note "<what you re-read
     --test "<cmd> @<rev> -> <result>"
 python3 $S pr open --agent developer-1 --task T-0007
 python3 $S review developer T-0007 --by reviewer-1 --result pass --evidence "<verify cmd @<rev> -> result>"
-python3 $S pr merge --pr P-0001 --by reviewer-2          # a DIFFERENT Reviewer merges
+python3 $S pr merge --pr P-0001 --by reviewer-1          # only if a pass was landed --no-merge
 
 # reuse: extract a repeated flow and share it with same-role peers
 python3 $S skill candidates
