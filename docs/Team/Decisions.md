@@ -744,3 +744,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: branch developer-1/t-0005-... commit e4cd4c1: tarball-in-place digests 1.1.2 7c540615af001e46 / 1.1.0 de679daed556099f match no tag, while remapped digests a01d9f0cbee641c3 == payload of 3f4981d and ebfc2538e3d3d605 == v1.1.0; 11.5 values b1ba21e39436bf09 / 0786a4ff3c2f84ba reproduce only with build_pi_package included
 - falsified by: If the implemented checker's remapped digests did not reproduce the published tarballs, the contract would be right and the implementation wrong - so the Architect must reproduce one digest independently (T-0003) before amending
 - consequences: -
+
+## D-20261020-CEO-5 - M9: make every published version traceable to a tag, and every release claim measurable
+
+- date: 2026-10-20
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Open milestone M9 (release-truth). Scope: (a) a checker scripts/check_release_consistency.py that fails on release drift; (b) tag v1.1.2 at 3f4981d, whose bundled payload is byte-identical to the published npm 1.1.2, and publish its GitHub Release; (c) repair README/install.md/Release.md claims; (d) release 1.1.3 from the merged main. npm 1.1.1 is recorded as an exception.
+- why: Measured on main f277ac7: npm dist-tag latest = 1.1.2 but git has no v1.1.1/v1.1.2 tag, so 'released' means two different things; the GitHub Release lags npm by two versions; README.md:132 and docs/guide/install.md:115,157 print 'teamwork 1.0.2' while version.py says 1.1.2; docs/Team/Release.md:116 rolls back to a v0.9.0 tag that does not exist; and pip install teamwork-agents 404s on PyPI while README.md:122 still prints the command. Each is a claim a reader can falsify in one command, which is the defect class this project exists to remove.
+- evidence: npm 1.1.2 tarball payload digest b1ba21e39436bf09 == commit 3f4981d tree digest b1ba21e39436bf09 (64/64 files, 0 differ); npm 1.1.1 payload 0786a4ff3c2f84ba matches NO commit (src/teamwork/version.py sha256 545fc1605b3997460a1cf348562c43fed5a8315c83ac8291f9cbf4078703d36d absent from git rev-list --all); npm 1.1.0 payload de679daed556099f differs from tag v1.1.0 only in scripts/build_pi_package.py; git tag -l -> v1.0.0 v1.0.1 v1.0.2 v1.1.0 only; pypi.org/pypi/teamwork-agents/json -> Not Found; verify_release.py at 3f4981d -> 'OK - release verified'; pytest at 3f4981d -> 620 passed 3 skipped
+- falsified by: Tag v1.1.2 at 3f4981d and the release workflow produces a wheel whose skill payload differs from the npm 1.1.2 tarball, or check_release_consistency.py exits 0 while a version is published with no matching tag and no exception record.
+- consequences: npm and GitHub Releases become two views of one tagged source; a future publish with no tag fails the consistency gate in CI rather than being discovered by a user.
+
+## D-20261020-CEO-6 - Docs lanes are unstaffed this milestone; the CEO writes README, CHANGELOG and docs/guide
+
+- date: 2026-10-20
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: technical-writer and designer are not staffed on this roster, so their folded lanes (README.md, CHANGELOG.md, docs/guide/**, docs/index.md) are written by the CEO for M9 and recorded as a CEO exception, instead of staffing two roles for four file edits.
+- why: The ownership table is binding so that two lanes never write one file; it does not require staffing a role to satisfy it when a lane is folded. Adding technical-writer-1 and designer-1 would add two charters, two queues, two memory sets and two test-layer obligations for a milestone whose docs edits are version strings, one install note and one stale table.
+- evidence: ls .pi/Teamwork/Teams/Teamwork/Roles/ -> Architect CEO CTO Developer ProductManager ProjectManager ReleaseEngineer Reviewer SecurityAuditor Tester (no TechnicalWriter, no Designer); docs/Team/Architecture.md:66-89 assigns README.md to designer-1 and CHANGELOG.md+docs/guide/** to technical-writer; tests plan requires only staffed roles' layers
+- falsified by: A second writer touches one of those files in this milestone, or the Reviewer finds a docs claim no role could have measured.
+- consequences: The docs layer stays unstaffed and tests plan reports no gap for it; the Reviewer still reviews every docs edit, so the second gate is unchanged.
