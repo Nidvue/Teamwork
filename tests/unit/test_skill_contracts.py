@@ -569,7 +569,7 @@ def test_reviewer_charter_documents_parallel_reviews(root):
     assert "The queue is shared" in text
     assert "One claim per deliverable" in text
     assert "Double review is explicit" in text
-    assert "the merger is always a different reviewer" in text.lower()
+    assert "a pass is the merge" in text.lower()
     assert "Conflict of interest" in text
     assert "Findings union" in text
 
@@ -1131,3 +1131,76 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
     for name in surfaces:
         text = (root / name).read_text(encoding="utf-8")
         assert "rm -rf .agents/skills/teamwork/.git" in text, name
+
+
+def test_no_surface_still_demands_a_second_reviewer_to_merge(root):
+    """A pass merges at once; no shipped surface may teach the retired two-step.
+
+    Review found AGENTS.md and templates/AGENTS.md still saying "a different
+    Reviewer must merge it" two paragraphs from where the same files said a pass
+    merges, and references/Roles.md printing a command the engine now answers with
+    "already merged". The engine refuses nobody for merging a passed deliverable, so
+    a doc that asks for a second one strands the pass this feature exists to land.
+    """
+
+    # "somebody other than the verifier does the merging" in any wording, with the
+    # verb on either side of the noun ("a second Reviewer merges it", "integrated by
+    # a different reviewer").
+    # The actor and the noun must be one phrase: "a second Reviewer", "the next
+    # reviewer", "by a different reviewer". A loose "some other word in the same
+    # sentence" test charges an honest row such as "a different role verifies
+    # (Tester for integration, Reviewer before merge)".
+    other_reviewer = re.compile(
+        r"(?:\b(?:second|next|another|different|other)\s+(?:\w+\s+){0,2}(?:reviewer|verifier)"
+        r"|\b(?:reviewer|verifier)\s+(?:is\s+|was\s+)?(?:\w+\s+)?(?:a\s+|an\s+|the\s+)?"
+        r"(?:second|next|another|different|other)\b)",
+        re.I,
+    )
+    somebody_else = re.compile(r"\b(?:someone|somebody)\b", re.I)
+    elsewhere = re.compile(r"\bwho did not (?:pass|verif|review)\b", re.I)
+    merging = re.compile(r"\b(?:merg|land|appl|integrat)\w*", re.I)
+    negated = re.compile(
+        r"\b(?:no|not|never|without)\s+(?:a\s+|an\s+|the\s+)?"
+        r"(?:second|next|another|different|other)\b",
+        re.I,
+    )
+    window = 80
+
+    def teaches_the_two_step(sentence: str) -> bool:
+        """One sentence that names somebody other than the verifier doing the merge.
+
+        Judged on the concept, not on the pronoun. A reviewer found the first
+        version, which tested only "different"/"another", blind to "second
+        Reviewer", "someone who did not pass it", "integrated by a different
+        reviewer", and blind to SKILL.md and docs/guide/cli.md.
+        """
+        low = flat(sentence).lower()
+        if negated.search(low):
+            return False
+        for verb in merging.finditer(low):
+            near = low[max(0, verb.start() - window) : verb.end() + window]
+            if elsewhere.search(near) or somebody_else.search(near):
+                return True
+            if other_reviewer.search(near):
+                return True
+        return False
+
+    for parts in (("AGENTS.md",), ("templates", "AGENTS.md"), ("references", "Roles.md")):
+        text = flat(read(root, *parts))
+        assert "pass merges the deliverable at once" in text.lower(), parts
+    surfaces = (
+        ("AGENTS.md",),
+        ("templates", "AGENTS.md"),
+        ("references", "Roles.md"),
+        ("SKILL.md",),
+        ("docs", "guide", "cli.md"),
+    )
+    for parts in surfaces:
+        # Judge sentences, not physical lines: a wrap puts "there is no" on the line
+        # above "second Reviewer step", and a per-line test would read the sentence
+        # as an instruction.
+        sentences = re.split(r"(?<=[.;:])\s+", flat(read(root, *parts)))
+        offenders = [sentence for sentence in sentences if teaches_the_two_step(sentence)]
+        assert not offenders, (parts, offenders)
+    roles = flat(read(root, "references", "Roles.md"))
+    assert "--by <another-Reviewer>" not in roles, "the retired command is still printed"
