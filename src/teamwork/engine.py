@@ -3214,6 +3214,30 @@ def default_audit_range(project: Path) -> str:
     return "HEAD"
 
 
+def rewrite_safe_range(project: Path, rev_range: str) -> str:
+    """Narrow ``A..B`` to ``B`` when ``A`` no longer exists, and say so.
+
+    A push event hands CI the revision the branch had before the push. When that
+    push *rewrote* history - the sanctioned repair for a commit carrying a
+    personal mailbox - the old revision is gone, ``git log A..B`` exits 128 with
+    "Invalid revision range", and the identity audit dies over a range that can no
+    longer be measured. The new tip can still be audited, so audit it, name the
+    rewrite, and never pretend the unmeasurable span was clean.
+    """
+    if ".." not in rev_range:
+        return rev_range
+    base = rev_range.split("..", 1)[0].strip()
+    if not base or base.startswith("-"):
+        return rev_range
+    if run_git(project, "cat-file", "-e", f"{base}^{{commit}}").returncode == 0:
+        return rev_range
+    print(
+        f"# {base[:12]} is not an ancestor of this clone (history rewrite): "
+        f"auditing the tip only, the span before it is unmeasurable"
+    )
+    return rev_range.split("..", 1)[1].strip() or "HEAD"
+
+
 def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool = False) -> int:
     """Fail when a commit is not authored and committed by the acting role.
 
@@ -3228,6 +3252,7 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     if rev_range.startswith("-"):
         print(f"teamwork: invalid revision range {rev_range!r}")
         return 2
+    rev_range = rewrite_safe_range(project, rev_range)
     proc = run_git(
         project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", rev_range
     )
