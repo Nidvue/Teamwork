@@ -898,3 +898,56 @@ def test_archive_quoted_evidence_is_not_link_checked(tmp_path: Path) -> None:
     assert report["bare"] == [], "a URL inside quoted evidence is not an authored bare URL"
     broken_targets = [target for _, _, target, _ in report["broken"]]
     assert broken_targets == ["missing.md"], "authored links must still be checked"
+
+
+def test_archive_masks_a_credential_shape_quoted_as_evidence(tmp_path: Path) -> None:
+    """A verdict may quote a FAKE token to prove a rule fires; the archive must not keep it.
+
+    ``archive_append`` quotes another agent's words verbatim, and the shipped
+    privacy gate keeps its credential rules armed inside a quotation by design, so
+    committing a probe value turns the gate red on a later revision - and the only
+    "fix" left then is widening the allowlist, the one thing the gate prevents.
+    The claim stays readable; the shape is rewritten.
+    """
+    token = "sk-" + "live-" + "0123456789abcdef0123456789abcdef"
+    password = "PASS" + 'WORD="' + "hunter2 passphrase" + '"'
+    t = {
+        "id": "T-0001",
+        "title": "probe",
+        "priority": "P0",
+        "branch": "dev/t-0001",
+        "self_note": "re-read the scanner",
+        "evidence": f"a token on the exempted line is still reported: {token} -> api-token",
+        "review_evidence": f"reproduced with {password} on the line",
+        "findings": "-",
+        "merge_commit": "",
+    }
+    engine.archive_append(tmp_path, "developer", t, repo=tmp_path)
+    text = (tmp_path / "docs" / "Team" / "Archive.md").read_text(encoding="utf-8")
+
+    assert token not in text, "the raw token must never reach the archive"
+    assert "hunter2 passphrase" not in text
+    assert "<redacted-token>" in text and "<redacted-value>" in text
+    # The claim the evidence makes survives, so the record is still worth reading.
+    assert "still reported" in text and "-> api-token" in text
+
+
+def test_the_archive_mask_leaves_ordinary_prose_alone(tmp_path: Path) -> None:
+    """Masking is shape-based: naming a rule must not edit an innocent sentence."""
+    t = {
+        "id": "T-0002",
+        "title": "prose",
+        "priority": "P1",
+        "branch": "dev/t-0002",
+        "self_note": "re-read the gate",
+        "evidence": "the api-token rule fires on a token; PASSWORD must be at least 8 chars",
+        "review_evidence": "short=1 stays, and a bare word sk-live is not a token",
+        "findings": "-",
+        "merge_commit": "",
+    }
+    engine.archive_append(tmp_path, "developer", t, repo=tmp_path)
+    text = (tmp_path / "docs" / "Team" / "Archive.md").read_text(encoding="utf-8")
+
+    assert "the api-token rule fires on a token" in text
+    assert "PASSWORD must be at least 8 chars" in text
+    assert "sk-live is not a token" in text

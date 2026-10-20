@@ -6516,6 +6516,48 @@ def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = No
     return f"# archive: wrote the accepted-results entry for {branch} on the base"
 
 
+#: Credential shapes that a review packet may quote as a FABRICATED probe value.
+#: They are harmless, but the scanner cannot tell them from real ones and keeps
+#: its credential rules armed inside a quotation by design (see
+#: ``scripts/privacy_scan.py``), so committing one turns the shipped privacy gate
+#: red on a later revision - and the only "fix" available then would be widening
+#: the allowlist, which is the one thing the gate exists to prevent.
+_RE_BEARER = re.compile(r"\b((?:sk|ghp|gho|ghu|ghs|ghr)[-_]|github_pat_|AIza)[A-Za-z0-9_\-]{12,}")
+_RE_PASSWORD = re.compile(
+    r"(?i)\b([A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|ACCESS[_-]?KEY"
+    r"|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|CREDENTIAL)[A-Za-z0-9_]*"
+    r"\s*[:=]\s*)(?:\"[^\"\n]{8,}\"|'[^'\n]{8,}'|[^\s\"',;]{8,})"
+)
+
+
+def mask_secret_shapes(text: str) -> str:
+    """Rewrite credential-shaped values in quoted text to a named marker.
+
+    An archive entry quotes another agent's words verbatim, so a verdict that
+    proved a scanner rule fires by quoting a fake token puts that token into
+    history. Masking keeps the sentence readable and the record honest: the
+    quoted claim ("a token on the exempted line is still reported") survives.
+    """
+    if not text:
+        return text or "-"
+    out = _RE_BEARER.sub(r"\1<redacted-token>", text)
+    return _RE_PASSWORD.sub(r"\1<redacted-value>", out)
+
+
+def _quoted(t: dict, field: str) -> str:
+    """One quoted field of an archive entry, credential shapes masked.
+
+    The value is NOT clipped: the archive is the evidence record and
+    ``archive --full`` must reproduce it, so length is a view concern (see
+    ``archive_view_text``), not a storage one.
+    """
+    return mask_secret_shapes(t.get(field) or "")
+
+
+#: Fields of an archive entry that quote another agent's words verbatim.
+QUOTED_EVIDENCE_FIELDS = ("self_note", "evidence", "review_evidence", "findings")
+
+
 def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) -> str:
     """Append an accepted-results entry for ``t`` and say where it was written.
 
@@ -6534,10 +6576,10 @@ def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) ->
         f"- reviewer: {t.get('reviewer') or 'reviewer'}",
         f"- task / issue: {t.get('shared') or '-'}",
         f"- area: {t.get('area') or '-'}",
-        f"- self-check: {t.get('self_note') or '-'}",
-        f"- author evidence: {t.get('evidence') or '-'}",
-        f"- reviewer evidence: {t.get('review_evidence') or '-'}",
-        f"- findings history: {t.get('findings') or '-'}",
+        f"- self-check: {_quoted(t, 'self_note')}",
+        f"- author evidence: {_quoted(t, 'evidence')}",
+        f"- reviewer evidence: {_quoted(t, 'review_evidence')}",
+        f"- findings history: {_quoted(t, 'findings')}",
         # archive_append runs at review time, always before the merge revision
         # exists, so a fresh entry starts at "pending" and `pr merge` repoints it.
         # A reworked task still carries the earlier round's merge_commit; stamping
