@@ -7,31 +7,37 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 ## Snapshot (2026-10-20, `main` as `git rev-parse --short main` reports it)
 
-- Milestone: M6 and M7 are merged into `main` (T-0003 landed at `8444134`);
-  `v1.0.2` is the latest release and the next records pass is this PR.
-- Local gate: `pytest -q` on this branch head -> all pass; the count is read from
-  that run and never pinned here, because every commit that adds a test changes it.
-  The one skip is the console-script acceptance test (covered by
+- Milestone: M9 Harness^2 adoption is open. On `main`: `hooks` (developer T-0002,
+  merge `49cd42e`), the ordered review rubric and the untrusted-material rule (ceo
+  T-0001, merge `2f44f00`), Research section 8 (product-manager T-0001, merge
+  `73be637`). Not on `main`: the `harness` command group - it is in rework behind
+  P-0004 - and the Architect's contract, whose last review (`f476b82`) sent it back
+  for rework. M8 records hygiene is closed (ceo T-0028, merge `62ef5db`).
+- Local gate: `pytest -q` on this branch (`main` `74b5522`) -> 1 failed, 3 skipped.
+  The one failure is
+  `tests/unit/test_traceability_matrix.py::test_every_deterministic_state_matches_a_real_run`,
+  i.e. the AC-5 privacy row below, not a code defect; the passing count is read
+  from that run and never pinned here, because every commit that adds a test
+  changes it. Two skips are the gitignored team tree (a worktree carries no
+  `.pi/`), the third is the console-script acceptance test (covered by
   `verify_release.py`).
-- Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
-  -> PASS, 0 findings; the shipped gate passes that allow file (`Makefile`,
-  `ci.yml`, `docs.yml`). Without `--allow` the scan reports findings in exactly two
-  path families - the pi install tree (`agent-config`) and one operator user name
-  (`home-path`) - and no credential rule fires. The no-allow count is read from the
-  run and never pinned: most of those hits are the justification text that documents
-  the exemption, so the commit that documents the count raises it.
-  `tests/unit/test_privacy_scan.py` pins every entry as one fully escaped literal,
-  rejects a wildcard or a sibling name, and proves a credential on an exempted line
-  is still reported. The alternatives (rewriting
-  unpublished history, deleting a real reviewer finding) were refused in
-  D-20261019-CEO-15: a user name or an install path is not a credential, and a
-  credential quoted on the same line is still reported.
+- Privacy: **RED at HEAD.** `python3 scripts/privacy_scan.py --tree --history
+  --allow .github/privacy-allow.txt` -> FAIL, exit 1, in two families: commit
+  metadata (the forge squash merge `4de397e` carries the operator account as
+  author, and two unmerged branch commits `d692f38`, `a7f24af` match an
+  e-mail/domain rule or the entropy rule in their messages) and tree text
+  (`docs/Team/Archive.md` line 1070 quotes that operator address verbatim inside an
+  archived reviewer finding). [Project](Project.md) row AC-5 still claims this gate
+  green; the claim is false at this head and CEO T-0004 owns it, so this Board does
+  not repeat it as green. The finding count is read from the run and never pinned:
+  `--history` reaches other lanes' unmerged branches, so the count moves while
+  `main` does not.
 - Links: `teamwork.py links` -> 0 problems
 - Gate: `teamwork.py loop` -> CONTINUE while any task branch is unmerged, and
   STOP only after the last review lands; `teamwork.py audit` lists one entry per
   open gate and its count moves with each review round, so it is read, not quoted.
-  The closing export `docs/Team/AuditManifest.json` is committed with this pass
-  and names the revision it was exported from, so it verifies at that head
+  The closing export `docs/Team/AuditManifest.json` names the revision it was
+  exported from, so it verifies at that head
 - Remote: `origin/main` is behind the local merges until the Release Engineer
   pushes the reviewed revision; CI on the pushed SHA is the certification step.
 
@@ -41,10 +47,16 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0028 archive repair | P1 | in review (P-0027) | `Plan.md`, `Board.md`, `Archive.md`, `AuditManifest.json` |
+| architect | T-0001 contract for the harness surface and the hooks CLI | P1 | in rework after 2 review rounds (P-0003, changes-requested) | `docs/Team/Architecture.md` 11, `docs/Team/Decisions.md` |
+| developer | T-0001 `harness list` / `lint` / `budget` | P0 | in rework after 2 review rounds (P-0004, changes-requested at `5eabdc9`) | `src/teamwork/harness.py`, `tests/unit/test_harness_surface.py` |
+| tester | T-0001 process-boundary + acceptance suite | P0 | blocked on developer T-0001 | `tests/integration/test_harness_cli.py`, `tests/acceptance/test_harness_docs.py` |
+| ceo | T-0002 docs pass for the new surface | P1 | in review (P-0008 at `20a99fd`) | `docs/guide/cli.md`, `CHANGELOG.md`, `SKILL.md` |
+| ceo | T-0003 / T-0004 the false AC-5 privacy claim | P0 / P2 | blocked on a ruling / ready | [Project](Project.md) AC-5 |
+| reviewer | T-0001 run the acceptance record TS-0004 | P2 | ready | acceptance record TS-0004 |
+| product-manager | T-0002 one clarifying line for `Project.md` | P3 | in review; the sentence is routed to the CEO, no edit made | this PR |
 
-The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
-state; this table only says which lanes are open.
+The task queue (`teamwork.py board`, `teamwork.py task list <role>`) is
+authoritative for a task's exact state; this table only says which lanes are open.
 
 ## Dependency PRs (landed)
 
@@ -67,10 +79,10 @@ created so Dependabot can label future PRs.
 | M1 package the engine | done | `scripts/verify_release.py` -> `OK - release verified` |
 | M2 attractive docs | done | `mkdocs build --strict` green; `links` -> 0 |
 | M3 independent verification | done | `docs/Team/Archive.md` verdicts |
-| M4 publish | done | releases `v1.0.0`, `v1.0.1`, `v1.0.2` with wheel, sdist, `SHA256SUMS`, SBOM |
+| M4 publish | done | tags `v1.0.0`, `v1.0.1`, `v1.0.2`, `v1.1.0` with wheel, sdist, `SHA256SUMS`, SBOM |
 | M5a engine split + Windows green | done | commits `c8fb469`, `f2e3b5a`, `b7fe03b`; CI `39173857076` |
 | M5b dependency upkeep + governance refresh | done | `9b56f1b` (T-0014), `1d49c21` (T-0015), `4cd8afc` (T-0016) |
-| M8 records hygiene | done | ceo T-0028, merge fields repaired, Plan de-duplicated, manifest re-pinned |
+| M8 records hygiene | done | ceo T-0028, merge `62ef5db` (P-0027, Reviewer-4): merge fields proved or `pending`, Plan de-duplicated, manifest re-pinned |
 | M7 review fan-out + claims | done | Developer T-0001, merge `8f210bc`, 10 new unit tests |
 | M6 evidence packets + repro gate | done | T-0020..T-0025, `docs/Team/Archive.md`, merge `3934690` |
 
@@ -78,6 +90,8 @@ created so Dependabot can label future PRs.
 
 | task | waiting on | owner | unblock action |
 |---|---|---|---|
+| AC-5 privacy claim is false on `main` (ceo T-0003, T-0004) | a ruling on the three options in the task record | CEO | exempt the exact anchored literal with a written reason and Security Auditor triage; or keep the role identity through the merge path so the finding never appears; or rewrite published history - a red line that needs the user's authorization and would invalidate the SHAs `Archive.md` cites |
+| tester T-0001 process-boundary suite | developer T-0001 (the `harness` engine) merging | Developer | rebase onto `main` and re-run the moment the engine lands; its probe merge already passes 26 of 29 against the hooks branch |
 | purge of the pre-rewrite commit object | GitHub garbage collection or Support | CEO | owner decision: leave it, recreate the repository, or file a Support purge request. It is unreachable from any branch and was already unreachable when the history was rewritten |
 
 ## Duplicate or conflicting work
