@@ -47,9 +47,11 @@ and never pinned here, because the commit that documents a count raises it.
   (`git rev-list --objects --all` + `git cat-file --batch`, plus commit metadata).
   `--all` combines them; `--allow FILE` exempts documented patterns; `--json`
   emits machine-readable output.
-- Eight rule families: personal email, retired private domain, absolute home
-  path, API token/known prefix, `.env`-style secret assignment, standalone
-  high-entropy secret, PEM private-key header, `TODO`/`FIXME` carrying a credential.
+- Nine rule families, plus one separate yield: personal email, retired private
+  domain, absolute home path, agent-config paths, API token/known prefix,
+  `.env`-style secret assignment, JSON/config secret value, standalone
+  high-entropy secret, and a PEM private-key header (`TODO`/`FIXME` carrying a
+  credential is yielded outside `RULES`).
 - **The tool is itself published**, so it masks matched values by default,
   redacts the absolute repo root, and keeps the private domains out of plain
   text (reconstructed at runtime; extend with `TEAMWORK_PRIVATE_DOMAINS`). A
@@ -87,7 +89,7 @@ dispositioned (Architecture §9, `privacy` CI job).
 |---|---|---|---|---|---|
 | F-1 | high | personal-email | author metadata of the pre-rebuild repository | `pin******.no` | **resolved - the commit is not an object in this repository**; `git cat-file -t <rev>` -> `Not a valid object name`, and no ref contains it |
 | F-2 | high | private-domain | author metadata of the pre-rebuild repository | `z*****o` | **resolved - same commit**; every identity reachable from `main` is a role mailbox |
-| F-3 | medium | hygiene | working tree `site/` | build output, 3.3 MB | resolved - `site/` is ignored |
+| F-3 | medium | hygiene | working tree `site/` | mkdocs build output | resolved - `site/` is ignored and untracked |
 | F-4 | low | identity | `github.com` URLs in pyproject/mkdocs/README/workflows/CITATION | account handle `VisionPZ` | resolved - repository moved to `Nidvue/Teamwork` (2026-10-18) |
 | F-5 | low | identity | operator global git config (not in repo) | personal name + mailbox | mitigated in-repo |
 | F-6 | low | supply-chain | `.github/workflows/*.yml` | actions pinned to mutable major tags (`@v4`, `@v5`, `@v0`, `@v2`) | resolved - every action is pinned to a full commit SHA |
@@ -97,9 +99,15 @@ F-1/F-2 root cause: the initial commit of the pre-rebuild repository was created
 outside the team identity policy, so its author was the operator. That commit is
 no longer an object here (see section 5), so the rows record a closed history.
 
-`--tree` and `--staged` report findings only from the allowlist's own text and
-from the tests that probe the scanner; with `--allow .github/privacy-allow.txt`
-both are `0`. `--history` with `--allow` is also `0`.
+`--tree` and `--staged` report nothing at all once
+`--allow .github/privacy-allow.txt` is passed, and `--history` with the same flag
+is also `0`. Without the flag the run is red, and the residue is exactly the
+allowlist file's own text plus the scanner's own tests, which must contain a
+credential-shaped probe to prove the scanner still catches one. That residue is
+not a leak: the probes are invented values, and the allowlist entries are
+published-by-design patterns rather than secrets. The rule is that a finding is
+either fixed at source or exempted in that file with a written reason - never
+ignored.
 
 ## 5. Remediation
 
@@ -118,8 +126,8 @@ both are `0`. `--history` with `--allow` is also `0`.
 R5 asked the CEO for a history rewrite/force-push to remove a personal author
 mailbox. **It is withdrawn rather than executed**: measured at this revision, the
 commit it named is not an object in this repository (`git cat-file -t` -> `Not a
-valid object name`), no ref contains it, and every one of the twelve author
-identities reachable on `main` is a role mailbox. The repository was rebuilt after
+valid object name`), no ref contains it, and every author identity
+reachable on `main` is a role mailbox. The repository was rebuilt after
 the request was written, so the condition the request existed for is gone.
 
 Recorded rather than deleted because a withdrawn request is still a fact about
@@ -133,8 +141,8 @@ re-opened with the new object id as evidence.
 ### Recommended to the file owners
 
 - **R6 (`.gitignore`, owner of repository hygiene): closed.** `site/` (mkdocs
-  build output, 3.3 MB of third-party minified JS whose text carries other
-  people's mailboxes) is ignored: `git check-ignore site` -> `site`, rc 0
+  build output: third-party minified JS whose text carries other people's
+  mailboxes) is ignored: `git check-ignore site` -> `site`, rc 0
   (`.gitignore` carries the rule). `dist/`, `.pytest_cache/`, `.mypy_cache/`,
   `.ruff_cache/`, `.venv/` and `.pi/` are ignored for the same reason. An earlier
   revision of this report said `site/` was *not* ignored; that was measured before
@@ -174,7 +182,7 @@ $ python3 scripts/privacy_scan.py --tree --history
 privacy_scan: FAIL - <n> finding(s) in tree, history
 
 $ git log --format='%ae' main | sort -u
-<twelve role mailboxes, every one @agents.nidvue.com>
+<one role mailbox per role, every one @agents.nidvue.com>
 ```
 
 The gap between the two runs is exactly the allowlist, and the allowlist is
