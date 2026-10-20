@@ -5,7 +5,7 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md)
 
-## Status summary (2026-10-20, `main` @ `74b5522`)
+## Status summary (2026-10-20, `main` @ `de4cf75`)
 
 | milestone | exit condition | state |
 |---|---|---|
@@ -18,7 +18,7 @@ Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architectu
 | M6 Evidence packets + repro gate | hashed evidence artifacts, repro-first bug gate, Reviewer verdicts | done - T-0020..T-0025 |
 | M7 Reviewer fan-out + claims | `pulse` hands each unclaimed deliverable to a different idle Reviewer lane | done - developer T-0001, merge `8f210bc` |
 | M8 Records hygiene | archive merge fields proved or `pending`, Plan lists each milestone once, export names its head | done - ceo T-0028, merge `62ef5db` (P-0027, Reviewer-4); the Plan row below still said `review` and is corrected here |
-| M9 Harness^2 adoption | AC-H1..AC-H8 verified on the merged revision | open - 3 lanes unmerged, `pytest -q` red on AC-5 |
+| M9 Harness^2 adoption | AC-H1..AC-H8 verified on the merged revision | open - every M9 lane is merged and AC-H1..AC-H8 are verified; the exit condition's last clause (`pytest -q` clean on `main`) holds, so the milestone closes when the CEO records it |
 
 ## M5 - post-1.0 hardening (closed)
 
@@ -88,21 +88,27 @@ so the Harness^2 adoption is M9. A row is `done` only when its merge is on
 | id | task | role | prio | deps | artifact | status | evidence |
 |---|---|---|---|---|---|---|---|
 | T-0001 | Research section 8: verdict table, adoption order, falsifiers, sources | product-manager | P1 | - | `docs/Team/Research.md` 8, `tests/unit/test_research_sources.py` | done | merge `73be637` (P-0005); 5 passed @ `38e6890` |
-| T-0001 | Freeze the harness-surface and hooks CLI contract; record the decisions | architect | P1 | - | `docs/Team/Architecture.md` 11, `docs/Team/Decisions.md` | doing | P-0003 changes-requested after 2 rework rounds; head `f476b82` unmerged |
-| T-0001 | Engine: `harness list`, `harness lint`, `harness budget` + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/harness.py`, `tests/unit/test_harness_surface.py` | doing | P-0004 changes-requested after 2 rounds (@`a26f5db`, @`5eabdc9`); `harness` absent from `main` |
+| T-0001 | Freeze the harness-surface and hooks CLI contract; record the decisions | architect | P1 | - | `docs/Team/Architecture.md` 11, `docs/Team/Decisions.md` | done | merge `bef4e02` (P-0003); the contract landed as Architecture 11.1-11.9 around one `hook_dir(root)` resolver |
+| T-0001 | Engine: `harness list`, `harness lint`, `harness budget` + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/harness.py`, `tests/unit/test_harness_surface.py` | done | merge `b33120c` (P-0004); the eight-row registry landed in `ac71f71` |
 | T-0002 | Engine: git hooks (in-loop enforcement) + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/hooks.py`, `tests/unit/test_hooks.py` | done | merge `49cd42e` (P-0007); 30 passed @ `2fbd126` |
-| T-0001 | Integration + acceptance tests for the harness surface and hooks | tester | P0 | developer:T-0001, developer:T-0002 | `tests/integration/test_harness_cli.py`, `tests/acceptance/test_harness_docs.py` | blocked | branch `21bfcd3` unmerged: 29 failed on `main` (groups and docs absent), 26 passed / 3 failed on the probe merge |
+| T-0001 | Integration + acceptance tests for the harness surface and hooks | tester | P0 | developer:T-0001, developer:T-0002 | `tests/integration/test_harness_cli.py`, `tests/acceptance/test_harness_docs.py` | done | merge `47db23d` (P-0011); the argv-builder defect the first round found was fixed in `1305090` |
 | T-0001 | Docs: reviewer rubric, untrusted-material rule, SKILL.md and CHANGELOG | ceo | P1 | - | `roles/reviewer.md`, `references/Evidence.md`, `SKILL.md` | done | merge `2f44f00` (P-0001), after 2 fail + 1 pass rounds |
-| T-0002 | Docs pass for the new surface: cli guide, CHANGELOG, dead-skill trigger line | ceo | P1 | developer:T-0001, developer:T-0002 | `docs/guide/cli.md`, `CHANGELOG.md`, `SKILL.md` | review | P-0008 open at `20a99fd`: `hooks` documented, `harness` deliberately not |
-| T-0001 | Run the acceptance record TS-0004 for area harness | reviewer | P2 | tester:T-0001 | acceptance record TS-0004 | todo | filed with owner `tester` by mistake; only the reviewer role can run or remove it |
+| T-0002 | Docs pass for the new surface: cli guide, CHANGELOG, dead-skill trigger line | ceo | P1 | developer:T-0001, developer:T-0002 | `docs/guide/cli.md`, `CHANGELOG.md`, `SKILL.md` | done | merge `28c1133` (P-0008); `hooks` documented at `20a99fd`, `harness` documented after the engine merged |
+| T-0001 | Run the acceptance record TS-0004 for area harness | reviewer | P2 | tester:T-0001 | acceptance record TS-0004 | done | the duplicate was resolved by renumbering: TS-0003 (integration/harness) and TS-0005 (acceptance/harness) cover the area |
 
-Two tasks were dropped in this milestone; they are the only `- status: dropped`
-rows in the six live queues (`grep -c '^- status: dropped'
-.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`).
+Every M9 row is `done` and every merge named in the evidence column is an
+ancestor of `main` (`git merge-base --is-ancestor <sha> main`). AC-H1..AC-H8
+are verified on the merged revision (`teamwork.py criteria list` -> 8/8) and
+`pytest -q` is clean on `main`, so the milestone's exit condition is met; the
+milestone itself closes when the CEO records that, not before.
+
+Two tasks were dropped in this milestone. They are the M9 drops; the live
+queues also carry CEO drops from the privacy work, which is outside this
+milestone's scope and is listed in the table below.
 
 | id | task | role | why dropped |
 |---|---|---|---|
-| T-0003 | Three measured defects on the harness/hooks branches (list shape, hook marker, root-commit hole) | developer | covered by the fixes it named: the eight-row list landed in developer T-0001 `5eabdc9`, the marker literal and root-commit refusal in developer T-0002 `2fbd126` |
+| T-0003 | Three measured defects on the harness/hooks branches (list shape, hook marker, root-commit hole) | developer | covered by the fixes it named: the eight-row list landed in developer T-0001 `ac71f71`, the marker literal and root-commit refusal in developer T-0002 `2fbd126` |
 | T-0002 | Architecture 11.2/11.6 drifted from the two branches in four measured ways | architect | superseded: reconciled inside architect T-0001's review rework `f476b82` as amendments A1-A3 and rulings R1-R6 (D-20261020-Architect-8, -9) |
 
 Landed in the same window, outside this milestone's scope:
@@ -111,8 +117,20 @@ Landed in the same window, outside this milestone's scope:
 |---|---|---|---|---|
 | T-0002 | Fix the hardcoded POSIX `PATH` in `tests/unit/test_skill_refresh.py` | tester | done | merge `090910a` (P-0002) |
 | T-0003 | Make the traceability record-resolution guard honest about an empty team tree | tester | done | merge `cc86e6d` (P-0006); it is why product-manager T-0002 exists |
-| T-0003 | RED gate: the privacy scan fails at HEAD on a forge squash merge | ceo | blocked | needs a ruling on the three options in the task record |
-| T-0004 | AC-5's claimed green is false on `main` | ceo | todo | the one failure left in `pytest -q`; see [Board](Board.md) |
+| T-0003 | RED gate: the privacy scan fails at HEAD on a forge squash merge | ceo | blocked | needs the user's authorization for a history rewrite; see [Board](Board.md) |
+| T-0004 | AC-5's claimed green is false on `main` | ceo | dropped | superseded by ceo T-0005, which corrected the claim in the records; see [Board](Board.md) |
+| T-0006 | The privacy red is local: the published history is clean | ceo | dropped | the answer it produced is recorded in [Risks](Risks.md) R-16 and in the T-0003 record |
+| T-0007 | Fix the archive mask so it covers every rule the shipped gate reports | ceo | dropped | done on the developer lane as developer T-0007, merge `ba947c0` (P-0014) |
+| T-0005 | Records truth: AC-5 must not claim green | ceo | done | merge `f91bf1b` (P-0010) |
+| T-0008 | Re-review P-0010 after the archive-mask fix | ceo | done | merge `51b8235` (P-0016) |
+| T-0009 | Export the audit manifest for the M9 milestone | ceo | done | merge `bbbe525` (P-0019) |
+| T-0010 | Ledger export writes to the project root even inside a lane worktree | ceo | done | closed on the developer lane's reviewed work: merge `6d090aa` (P-0018) |
+| T-0011 | The published branch carries a committer guard the local main lacks | ceo | doing | the local history rewrite must be based on the published tip; see [Board](Board.md) |
+| T-0004 | Design, declare and run the unit-layer test record for every area | developer | done | merge `1380163` (P-0012) |
+| T-0005 | Global memory entries must carry provenance, and a merge must never drop it | developer | done | merge `1592195` (P-0013) |
+| T-0006 | The privacy gate false-positives on a relative path | developer | done | merge `0343b28` (P-0015) |
+| T-0008 | Ledger export must act on the work tree the command runs in | developer | done | merge `6d090aa` (P-0018) |
+| T-0003 | Write the committed record of the privacy-audit answer | product-manager | done | merge `49ad40e` (P-0017) |
 
 ## Closed milestones (evidence on file)
 
