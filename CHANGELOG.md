@@ -9,7 +9,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.1.1...HEAD)
+## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.1.2...HEAD)
+
+## [1.1.2](https://github.com/Nidvue/Teamwork/compare/v1.1.1...v1.1.2) - 2026-10-20
+
+### Fixed
+
+- **The skill now declares its interpreter.** `SKILL.md` carried no
+  `compatibility` field, so a host without python3 loaded the skill and only found
+  out at the first `teamwork.py` call. It now states
+  `compatibility: python3 3.9 or newer on PATH - the engine is stdlib-only, so
+  there is no pip install and no venv; git is required for every branch, commit
+  and PR operation`, and
+  `tests/unit/test_skill_contracts.py::test_the_skill_declares_the_agent_skills_contract`
+  fails when the field is missing or advertises an interpreter `pyproject.toml`
+  does not support.
+- **A self-contradictory review rule.** The re-submission bullet read "there is no
+  round limit, but at fail, fix, re-check, re-submit, re-review until it passes" -
+  a truncated sentence that contradicted the 3-failure dispute rule stated 300
+  lines above it. It now says failures are counted and at 3 the Reviewer opens a
+  dispute, which is what the tribunal paragraph, `AGENTS.md` and
+  `references/Dissent.md` all say.
+- **Nine tests were unreachable on NixOS and Guix.**
+  `tests/unit/test_skill_refresh.py` ran every `git` call with a hard-coded
+  `PATH=/usr/bin:/bin:/usr/local/bin`, where git does not exist on those
+  distributions, so the nine fixtures errored instead of testing the refresh path.
+  The ambient `PATH` is now prepended and the standard directories are kept as a
+  floor. On this machine: 9 errors -> 0.
 
 ## [1.1.1](https://github.com/Nidvue/Teamwork/compare/v1.1.0...v1.1.1) - 2026-10-20
 
