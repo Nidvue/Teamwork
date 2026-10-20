@@ -1016,4 +1016,4 @@ No blockers; no unrelated changes; branch mergeable.
 - author evidence: 540e5ca
 - reviewer evidence: git rev-parse --short 540e5ca -> 540e5ca; git diff main 540e5ca -> 1 line, CHANGELOG.md:14 only; git merge-tree --write-tree main 540e5ca -> rc=0; grep -n "^## \[" CHANGELOG.md -> 1.0.2/1.0.1/1.0.0 all releases/tag/vX.Y.Z - YYYY-MM-DD, new 1.1.0 identical shape; date -u +%F -> 2026-10-20; version.py=1.1.0, package.json=1.1.0; teamwork links -> 0 issues; pytest -q -> 616 passed, 1 skipped; ruff check/format --check -> clean; privacy_scan.py --tree --history -> PASS 0 findings; git log main..540e5ca -> CEO <ceo@agents.nidvue.com>
 - findings history: 
-- branch / merge: ceo/t-0058-tag-v1-1-0-date-the-release-section-inst / pending
+- branch / merge: ceo/t-0058-tag-v1-1-0-date-the-release-section-inst / e0ab0b6
