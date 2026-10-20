@@ -101,13 +101,16 @@ no longer an object here (see section 5), so the rows record a closed history.
 
 `--tree` and `--staged` report nothing at all once
 `--allow .github/privacy-allow.txt` is passed, and `--history` with the same flag
-is also `0`. Without the flag the run is red, and the residue is exactly the
-allowlist file's own text plus the scanner's own tests, which must contain a
-credential-shaped probe to prove the scanner still catches one. That residue is
-not a leak: the probes are invented values, and the allowlist entries are
-published-by-design patterns rather than secrets. The rule is that a finding is
-either fixed at source or exempted in that file with a written reason - never
-ignored.
+is also `0`. Without the flag all three are red, and the residue differs by mode:
+`--tree`/`--staged` report only the allowlist file's own text and the scanner's
+own tests (which must contain a credential-shaped probe, or they could not prove
+the scanner catches one), while `--history` additionally reports the same families
+as they appear in *already-committed* blobs - the archived evidence that quotes a
+path, and the older revisions of the records that discuss the exemption. Those
+blobs cannot be corrected without rewriting published history, which is why the
+allowlist exists; the tree is where a new occurrence is fixed at source. The rule
+is that a finding is either fixed at source or exempted in that file with a
+written reason - never ignored.
 
 ## 5. Remediation
 
@@ -147,9 +150,12 @@ re-opened with the new object id as evidence.
   `.ruff_cache/`, `.venv/` and `.pi/` are ignored for the same reason. An earlier
   revision of this report said `site/` was *not* ignored; that was measured before
   the rule was added and is corrected here, matching F-3 in the findings table.
-- **R7 (Release Engineer):** pin GitHub Actions to full commit SHAs (or rely on
-  the existing Dependabot `github-actions` group) so a moved tag cannot inject
-  code into the release job that holds `contents: write` and `id-token: write`.
+- **R7 (Release Engineer): done.** Every `uses:` in the three workflow files is
+  pinned to a full 40-hex commit SHA with its `# vN` comment beside it, so a moved
+  tag cannot inject code into the release job that holds `contents: write` and
+  `id-token: write`; Dependabot's `github-actions` group keeps the pins current.
+  This is the item F-6 records as resolved, and it is struck from the residual-risk
+  table below so the report cannot say both.
 
 ## 6. Residual risk
 
@@ -157,7 +163,7 @@ re-opened with the new object id as evidence.
 |---|---|---|
 | ~~Personal author metadata stays in history until R5 lands~~ - measured closed: no personal identity is reachable from any ref | CEO | **closed** (R5 withdrawn) |
 | `.venv/` and `.pi/` contain the operator's home path, private domain and mailboxes; they are gitignored but a `git add -f` or a `.gitignore` edit would expose them | COO / all agents | accepted, monitored by `--tree` |
-| CI actions on mutable tags | Release Engineer | open (R7) |
+| ~~CI actions on mutable tags~~ - every `uses:` is pinned to a full commit SHA (F-6, R7) | Release Engineer | **closed** |
 | A future commit made outside `teamwork.py commit` could use the global personal identity | all agents | mitigated by R1; the `privacy` CI job catches it on push |
 | A genuine secret typed into a PR before CI runs is briefly public in the PR diff | all agents | use `--staged` before committing; GitHub push protection is external |
 
