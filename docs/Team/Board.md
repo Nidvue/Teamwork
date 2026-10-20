@@ -5,20 +5,27 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-19, `main` @ `31c03b5`)
+## Snapshot (2026-10-20, `main` as `git rev-parse --short main` reports it)
 
 - Milestone: M6 and M7 are merged into `main` (T-0003 landed at `8444134`);
   `v1.0.2` is the latest release and the next records pass is this PR.
-- Local gate: `pytest -q --cov=teamwork` on this branch head before the merge ->
-  421 passed, 1 skipped, coverage 70.58% (floor 55%, enforced in `pyproject.toml`
-  and `ci.yml`); the count rises with the tests this PR adds, so the merge-time
-  number is whatever CI prints on the merged SHA. The local skip is the
-  console-script acceptance test (covered by `verify_release.py`).
+- Local gate: `pytest -q` on this branch head -> all pass; the count is read from
+  that run and never pinned here, because every commit that adds a test changes it.
+  The one skip is the console-script acceptance test (covered by
+  `verify_release.py`).
 - Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
-  -> PASS, 0 findings; the shipped gate passes that one justified allow file
-  (`Makefile`, `ci.yml`, `docs.yml`). Without it the same scan reports nine
-  findings, all pattern `agent-config`, because every commit that quotes the path
-  adds another history blob; the tree itself carries only the scanner's own fixture
+  -> PASS, 0 findings; the shipped gate passes that allow file (`Makefile`,
+  `ci.yml`, `docs.yml`). Without `--allow` the scan reports findings in exactly two
+  path families - the pi install tree (`agent-config`) and one operator user name
+  (`home-path`) - and no credential rule fires. The no-allow count is read from the
+  run and never pinned: most of those hits are the justification text that documents
+  the exemption, so the commit that documents the count raises it.
+  `tests/unit/test_privacy_scan.py` pins both entries as fully escaped literals,
+  rejects a wildcard or a sibling name, and proves a credential on an exempted line
+  is still reported. The alternatives (rewriting
+  unpublished history, deleting a real reviewer finding) were refused in
+  D-20261019-CEO-15: a user name or an install path is not a credential, and a
+  credential quoted on the same line is still reported.
 - Links: `teamwork.py links` -> 0 problems
 - Gate: `teamwork.py loop` -> CONTINUE while any task branch is unmerged, and
   STOP only after the last review lands; `teamwork.py audit` lists one entry per
