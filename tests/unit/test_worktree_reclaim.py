@@ -55,7 +55,7 @@ def test_a_clean_merged_worktree_is_reclaimed(cli, project: Path) -> None:
     root = _repo_with_team(cli, project)
     wt = _add_worktree(project, "gone")
     _age(wt, 120)
-    assert [w["path"] for w in engine.reclaimable_worktrees(root, 60)] == [str(wt)]
+    assert [Path(w["path"]) for w in engine.reclaimable_worktrees(root, 60)] == [wt]
 
 
 def test_a_worktree_holding_unmerged_commits_is_kept(cli, project: Path) -> None:
@@ -134,7 +134,13 @@ def test_a_directory_sharing_the_pi_prefix_is_not_ours(cli, project: Path) -> No
     engine.run_git(project, "worktree", "add", "--detach", str(outside), "HEAD")
     _age(outside, 120)
     listed = engine.run_git(project, "worktree", "list", "--porcelain").stdout
-    assert str(outside) in listed, "the probe worktree must really be registered"
+    # git prints worktree paths with forward slashes even on Windows, so compare
+    # paths, not strings: str(outside) carries backslashes there.
+    assert any(
+        Path(ln.split(" ", 1)[1]) == outside
+        for ln in listed.splitlines()
+        if ln.startswith("worktree ")
+    ), "the probe worktree must really be registered"
     assert engine.reclaimable_worktrees(root, 60) == []
 
 
