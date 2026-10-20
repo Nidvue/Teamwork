@@ -926,3 +926,16 @@ No blockers; no unrelated changes; branch mergeable.
 - reviewer evidence: checks @075256c: merge-tree clean rc=0; mutant reverting 6313 to if t.get("forced"): -> test_a_finished_task_override_does_not_hold_the_stop_gate FAILS at tests/unit/test_integrity_fixes.py:776 (finished-override half); open-override half still passes; pytest 600 passed 1 skipped; ruff check . All checks passed; ruff format --check 137 files already formatted; mypy src Success 15 files; links issues: 0; loop gate-overrides section = none, blocker "gate override(s) in force" GONE; audit 11 pre-existing problems, none gate-override related
 - findings history: 
 - branch / merge: ceo/t-0054-a-finished-task-gate-override-cannot-hol / e578482
+
+## T-0001 · Push the reviewed main and confirm CI is green on that SHA  (release-engineer)
+- date: 2026-10-20
+- priority: P0
+- owner: release-engineer role (work by: release-engineer)
+- reviewer: Reviewer-4
+- task / issue: -
+- area: -
+- self-check: [pass] re-read the pushed range and the CI run: plain fast-forward, 11 commits, every job green on the pushed SHA | test: git push origin main @01bb067 -> 6f96366..01bb067; gh run view 39370980919 @01bb067 -> completed success, 16/16 jobs; TS-0054 release/ci passing
+- author evidence: pushed origin/main e8da9ce..6f96366 (plain ff, no force): 'git push origin main' -> 'e8da9ce..6f96366 main -> main'; run ids on the pushed SHA: CI 39365622524, CodeQL 39365622097, Docs 39365622609; preconditions all measured on 6f96366: pytest 598 passed 1 skipped, ruff clean, mypy 15 files clean, links 0, privacy_scan --tree --history --allow PASS 0, identity --audit origin/main..main 193 commits 0 problems, ledger verify chain intact. CI conclusions pending at record time; to be confirmed in the self-check.
+- reviewer evidence: checks 6-9 @01bb067: measured from REMOTE+forge: git ls-remote origin refs/heads/main -> 01bb067456f4b7b341bdfd19202299eccf81c4e2; local main == origin/main == 01bb067 (a bare "git rev-parse --short main origin/main" errors "Needed a single revision", so resolved separately); git status --porcelain empty; origin log head = 01bb067 chore(records): record the merge revision of P-0060 in Archive.md; gh run list --limit 5 --json headSha -> 3 runs on headSha 01bb067 all successfully completed: 39370980919 CI success, 39370980902 Docs success, 39370980557 CodeQL success (note: --commit 01bb067 returns [] because gh matches full SHA; verified via headSha field); gh run view 39370980919 -> 16/16 jobs success incl privacy scan (tree + history), docs mkdocs --strict, lint, build, typecheck and 11 test jobs (ubuntu/macos/windows x py3.9-3.13); teamwork.py tests list -> TS-0054 release/ci passing (evidence names run 39370980919 @01bb067, 16/16 jobs) and TS-0055 release/code-scanning passing (2 open alerts #2/#3 py/clear-text-logging at scripts/privacy_scan.py:1150,1161 triaged false positive by security-auditor T-0004, D-20261020-SEC-1 merged, no unfixed alert)
+- findings history: 
+- branch / merge: - / pending
