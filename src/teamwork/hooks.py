@@ -45,16 +45,16 @@ ALLOW_FORCE = "TEAMWORK_ALLOW_FORCE"
 
 
 def shim(stage: str) -> str:
-    """The POSIX sh hook git runs. Resolves the engine from the work tree root.
-
-    ``-f`` rather than ``-x``: the engine shim is committed as mode 100644, so an
-    executable-bit test would turn every hook into a no-op in this repository.
-    """
+    """The POSIX sh hook git runs. Resolves the engine from the work tree root."""
     return (
         "#!/bin/sh\n"
-        f"# {HOOK_MARKER}; remove with: teamwork.py hooks uninstall\n"
+        f"# {HOOK_MARKER} (stage: {stage})\n"
+        "# remove with: teamwork.py hooks uninstall\n"
+        "# the hook file lives in the git dir; the rules act on the work tree below\n"
         '[ -n "$TEAMWORK_SKIP_HOOKS" ] && exit 0\n'
         "root=$(git rev-parse --show-toplevel) || exit 0\n"
+        "# -f, not -x: scripts/teamwork.py is committed 100644, so an executable-bit\n"
+        "# test would turn every hook into a silent no-op in this repository\n"
         '[ -f "$root/scripts/teamwork.py" ] || exit 0\n'
         f'exec python3 "$root/scripts/teamwork.py" hook {stage} "$@"\n'
     )
@@ -186,9 +186,22 @@ def large_staged_files(project: Path) -> list:
     return blocked
 
 
+def head_branch(project: Path) -> str:
+    """The branch name even on an unborn HEAD, where `rev-parse --abbrev-ref` is empty.
+
+    A repository's very first commit has a HEAD pointing at an unresolved ref, so
+    the root commit is the one a branch check would otherwise wave through.
+    """
+    branch = current_branch(project)
+    if branch and branch != "HEAD":
+        return branch
+    symbolic = run_git(project, "symbolic-ref", "--short", "HEAD").stdout.strip()
+    return symbolic or branch
+
+
 def check_commit(project: Path) -> int:
     """R1 default branch, R2 large non-LFS blob, R3 identity (a warning, never a block)."""
-    branch = current_branch(project)
+    branch = head_branch(project)
     if branch == DEFAULT_BASE and not os.environ.get(ALLOW_MAIN):
         print(
             f"teamwork: refusing to commit on '{DEFAULT_BASE}': it only receives merges "

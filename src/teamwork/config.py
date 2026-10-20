@@ -394,7 +394,7 @@ DEFAULT_BASE = "main"
 # touched: it belongs to someone else.
 HOOK_STAGES = ("pre-commit", "pre-push")
 
-HOOK_MARKER = "Installed by teamwork.py hooks install"
+HOOK_MARKER = "teamwork-managed hook"
 
 # Git LFS threshold shared by the pre-commit hook and `commit --check-lfs`: one
 # MiB, because "1 MB" in decimal and binary differ by 4.8% and a threshold that
