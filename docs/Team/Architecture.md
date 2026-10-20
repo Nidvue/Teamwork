@@ -245,6 +245,27 @@ list). It is the release gate of [Release](Release.md); it is read-only (it
 never tags, publishes, pushes or writes), it runs offline by default, and a
 missing or unreadable input is an error, never a pass.
 
+**What is implemented and what is pending (read this before the code).** This
+section is the **target**, not a description of the running program; where the
+two differ, the target wins - but the difference is stated here, once, so
+nobody reads section 11 as a changelog of the current implementation. At
+revision `3055a8a` plus this amendment `scripts/check_release_consistency.py`
+is **not in `main`**: it exists on the developer's branch at `c66c387` and is
+pending merge. Against that code:
+
+| Clause | Status | Where |
+|---|---|---|
+| 11.3 - the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `c66c387` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
+| 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `c66c387` `_extract_tar` / `_link_target` / `_materialise_links` |
+| 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `c66c387` `_digest_of_files` (`unreadable payload file`) and the link refusals |
+| 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **PENDING** | `rule_r2_head_is_newer` still compares `HEAD` against **every** version tag; no reachability test exists |
+| 11.2.2 - the `detail` counts `|S|`, never a negative number | **PENDING** | the same function prints `is newer than {len(tags)} tag(s)` over all version tags |
+| 11.2.2 - a shallow or tag-less checkout is exit `2` | **PENDING** | the checker has no `git rev-parse --is-shallow-repository` guard |
+| 11.2.4 - the frozen `TAGGED_TOKEN` regex | **PENDING** | the shipped pattern is `(?<![\w./-])v(\d+\.\d+\.\d+)(?![\w./-])`; on the 20 probes it matches 2 of the 10 must-match cases and correctly rejects the 10 must-not-match cases |
+
+The pending rows are open work for the Developer and the Tester, not a defect of
+this amendment.
+
 ### 11.1 CLI (frozen)
 
 | Flag | Default | Meaning |
@@ -264,7 +285,7 @@ missing or unreadable input is an error, never a pass.
 
 ```python
 main(argv: Optional[Sequence[str]] = None) -> int   # the frozen entry point
-payload_digest(root: Path, rev: Optional[str]) -> str  # 11.3; rev None = working tree
+payload_digest(root: Path, rev: Optional[str]) -> str  # 11.3; rev None = HEAD
 _http_get_json(url: str) -> object                  # the single network seam (11.1.4)
 ```
 
@@ -460,9 +481,10 @@ Before it, R2 compared HEAD against *every* tag in the repository and its
 `detail` could print a negative count; the frozen rule compares only the
 version tags reachable from HEAD, excludes the tags that point at HEAD, and
 counts `|S|`. The old and new behaviour are both stated above so the change is
-reviewable from this file alone; the matching `D-` entry in
-[Decisions](Decisions.md) is the Architect's to file with this task's
-measurements, and until it lands this paragraph is the record.
+reviewable from this file alone. The matching `D-` entry is
+[D-20261021-Architect](Decisions.md#d-20261021-architect---r2-compares-head-only-against-the-version-tags-reachable-from-head),
+which carries this task's measurements, the alternatives rejected and the
+falsifier.
 
 #### 11.2.3 R3 detail
 
@@ -639,13 +661,64 @@ digest = sha256(("\n".join(lines) + "\n").encode("utf-8")).hexdigest()[:16]
 * `relpath_posix` is the path relative to the payload root, with `/` separators
   on every OS - the digest must be identical on Linux, macOS and Windows.
 * Two spaces between digest and path (the `sha256sum` line shape), lines sorted
-  as strings, one trailing newline, hashed **once**. Symlinks are resolved; a
-  file that cannot be read is drift, not a skip.
-* `payload_digest(root, rev)`: with a `rev` the tree is materialised with
-  `git archive <rev>` into a temporary directory (never `git checkout`), with
-  `rev=None` the working tree is read in place. The npm side passes a staging
-  tree built from the published tarball by 11.3.1, never the unpacked tarball
-  itself.
+  as strings, one trailing newline, hashed **once**. Symlinks are resolved under
+  the link policy below; a payload file that cannot be read, and a link that
+  cannot be resolved, are the **same case - an input error (exit `2`)**, never a
+  skip and never drift (11.1.1: an unreadable input is never downgraded, and
+  `2` takes precedence over `1`).
+* `payload_digest(root, rev)`: the payload **always comes from a git object**.
+  The tree is materialised with `git archive <rev>` into a temporary directory
+  (never `git checkout`), and `rev=None` means the commit **`HEAD`** names - not
+  the working tree. The working tree is never a digest source, so it contributes
+  no bytes, the archive path and the npm path always read the same tree, and
+  the two can never disagree about what the payload is. The npm side passes a
+  staging tree built from the published tarball by 11.3.1, never the unpacked
+  tarball itself.
+
+**Link policy (frozen).** A link is resolved inside the payload tree; it is
+never followed out of it, and the refusal never names the target.
+
+1. **Target inside the repository and inside the commit** - the link is
+   materialised as a regular file holding the target's bytes, and the digest
+   reads those bytes. A link to a tracked but gitignored file resolves the same
+   way. Measured: a committed `references/l -> references/keep.md` gives
+   `rev=None` and `rev=HEAD` the same digest `64674639a038018f`, and that digest
+   does **not** move when the target is edited on disk.
+2. **Absolute target** - refused, **exit `2`** (input error): `archive member
+   links to an absolute path: <the link's own path>`.
+3. **Target outside the repository / outside the tree** - refused, **exit `2`**:
+   `archive member links outside the tree: <the link's own path>`.
+4. **Target inside the git directory** (`.git` anywhere in the target's parts) -
+   refused, **exit `2`**: `archive member links into the git directory: <the
+   link's own path>`.
+5. **Broken, cyclic or self-referential target** - refused, **exit `2`**: `archive
+   link does not resolve to a readable file (broken, cyclic or self-referential):
+   <the links' own paths>`.
+
+Every refusal names the **link's own path** and never the target's path, so a
+refusal cannot carry a name from outside the tree into the digest or into the
+printed output.
+
+11.3.1's closing bullet ("Symlinks are resolved and unreadable files are drift,
+exactly as in 11.3") is a **restatement** of this subsection; where the two
+differ, this subsection governs - so "unreadable" there reads "an input error
+(exit `2`)", per this subsection and per 11.1.1. 11.3.1 is otherwise
+byte-identical to the frozen text.
+
+**Why an unresolvable link is an input error (exit `2`) and not drift (exit
+`1`).** DRIFT means a published fact disagrees with the local fact; a link
+pointing out of the tree means there is no local fact to compare - the checker
+could not read an input at all. That is the class 11.1.1 already reserves for
+exit `2` (a missing exceptions file, a shallow checkout), and exit `2` outranks
+exit `1`, so the run stops instead of reporting a release inconsistency that was
+never measured. DRIFT would also be the wrong label for a link into `.git`,
+which is not a claim about the release at all. The measurement that forced the
+rule: with the working tree as the digest source, a committed
+`references/l -> ../.git/config` gave the digest `f2aeb5b8a144fe47`, and
+appending a token-bearing remote URL to **`.git/config` alone** moved it to
+`ce020801f2fb5998` - a byte of git configuration changing a published digest.
+With the payload read from a git object the same tree is refused outright:
+`archive member links into the git directory: references/l`.
 * The first 16 hex characters are the published comparison form
   (`a01d9f0cbee641c3`, 64 bits) - long enough that a collision is not a
   realistic accidental pass.
