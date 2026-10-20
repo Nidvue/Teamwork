@@ -927,13 +927,75 @@ def test_archive_masks_a_credential_shape_quoted_as_evidence(tmp_path: Path) -> 
 
     assert token not in text, "the raw token must never reach the archive"
     assert "hunter2 passphrase" not in text
-    assert "<redacted-token>" in text and "<redacted-value>" in text
+    assert "<redacted-api-token>" in text and "<redacted-env-secret>" in text
     # The claim the evidence makes survives, so the record is still worth reading.
     assert "still reported" in text and "-> api-token" in text
 
 
+def test_the_archive_mask_covers_every_credential_rule_the_gate_arms(tmp_path: Path) -> None:
+    """The mask borrows the scanner's rule table, so it cannot cover only some rules.
+
+    A hand-written mask covered 2 of the gate's 5 credential rules, so a verdict
+    quoting a private-key header, a JSON secret or a bare high-entropy value was
+    archived raw and the shipped gate then failed on the archive itself.
+    """
+    pem = "-----" + "BEGIN RSA PRIVATE KEY" + "-----"
+    high = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6"
+    shapes = {
+        "api-token": "sk-" + "live-" + "0123456789abcdef0123456789abcdef",
+        "private-key": pem,
+        "env-secret": "PASS" + 'WORD="' + "hunter2 passphrase" + '"',
+        "json-secret": '{"api' + 'Key": "' + high + '"}',
+        "high-entropy-secret": high,
+    }
+    for rule, value in shapes.items():
+        t = {
+            "id": "T-0001",
+            "title": "probe",
+            "priority": "P0",
+            "branch": "dev/t-0001",
+            "self_note": "re-read the scanner",
+            "evidence": f"the {rule} rule fires on {value}",
+            "review_evidence": "-",
+            "findings": "-",
+            "merge_commit": "",
+        }
+        engine.archive_append(tmp_path, "developer", t, repo=tmp_path)
+    text = (tmp_path / "docs" / "Team" / "Archive.md").read_text(encoding="utf-8")
+
+    for rule, value in shapes.items():
+        assert value not in text, f"the raw {rule} value must never reach the archive"
+        assert f"<redacted-{rule}>" in text, f"the {rule} value must be named, not merely cut"
+
+
+def test_the_archive_mask_covers_the_entry_header(tmp_path: Path) -> None:
+    """The title is agent-written text in the same record, so it is masked too."""
+    token = "sk-" + "live-" + "0123456789abcdef0123456789abcdef"
+    t = {
+        "id": "T-0003",
+        "title": f"leak {token} in the title",
+        "priority": "P1",
+        "branch": "dev/t-0002",
+        "self_note": "-",
+        "evidence": "-",
+        "review_evidence": "-",
+        "findings": "-",
+        "merge_commit": "",
+    }
+    engine.archive_append(tmp_path, "developer", t, repo=tmp_path)
+    text = (tmp_path / "docs" / "Team" / "Archive.md").read_text(encoding="utf-8")
+
+    assert token not in text
+    assert "<redacted-api-token>" in text
+
+
 def test_the_archive_mask_leaves_ordinary_prose_alone(tmp_path: Path) -> None:
-    """Masking is shape-based: naming a rule must not edit an innocent sentence."""
+    """Masking is the gate's own finding set: naming a rule must not edit prose.
+
+    The mask used to fire at 12 characters after ``sk-`` while the gate requires
+    16, so a helper or task named ``sk-...`` was rewritten in the immutable record
+    for a value the gate never reported.
+    """
     t = {
         "id": "T-0002",
         "title": "prose",
@@ -951,3 +1013,27 @@ def test_the_archive_mask_leaves_ordinary_prose_alone(tmp_path: Path) -> None:
     assert "the api-token rule fires on a token" in text
     assert "PASSWORD must be at least 8 chars" in text
     assert "sk-live is not a token" in text
+
+
+def test_the_archive_mask_does_not_rewrite_a_helper_name_or_a_sha(tmp_path: Path) -> None:
+    """A shape the gate would not report must pass through byte-identical."""
+    sha = "a" * 40
+    prose = (
+        "we ran sk-learn-pipeline tests, the sk-timeout-wrapper helper, "
+        f"GITHUB_TOKEN=abcdefgh and commit {sha} unchanged"
+    )
+    t = {
+        "id": "T-0004",
+        "title": "prose",
+        "priority": "P2",
+        "branch": "dev/t-0003",
+        "self_note": prose,
+        "evidence": "-",
+        "review_evidence": "-",
+        "findings": "-",
+        "merge_commit": "",
+    }
+    engine.archive_append(tmp_path, "developer", t, repo=tmp_path)
+    text = (tmp_path / "docs" / "Team" / "Archive.md").read_text(encoding="utf-8")
+
+    assert prose in text, "a value the gate does not report must not be masked"
