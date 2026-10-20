@@ -77,6 +77,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A passing review merges the PR at once**: `review --result pass` is now the
+  merge trigger. The Reviewer that verified the revision lands it on the base
+  branch and deletes the branch in the same command, so an approved deliverable
+  never waits in a second queue for a different lane to merge it. Independence is
+  enforced against the **author** - nobody reviews or merges their own work - not
+  against a second Reviewer; `--keep-branch` keeps the branch and `--no-merge`
+  separates the landing step again. A pass that cannot land (a conflict, a dirty
+  tree) keeps the recorded verdict and prints the exact `pr merge` to finish,
+  saying plainly that the work is not in the base yet.
 - **GitHub Actions bumps**: `anchore/sbom-action` 0.24.3,
   `actions/attest-build-provenance` `4d101475`, and
   `softprops/action-gh-release` `efb35369` landed as one reviewed commit; every

@@ -162,8 +162,9 @@ per role, never delegated:
   (`unit`, `integration`, `acceptance`); declare more per area with
   `tests require --area <a> --layers ... --by <instance> --reason <why>`. Every
   staffed role must run at least one test of its own layer somewhere.
-- Several Reviewers may run at once. One may pass the verdict; a **different**
-  Reviewer must merge it.
+- Several Reviewers may run at once. A **pass merges the deliverable at once** and
+  deletes its branch; the author never merges, and a pass is refused when the
+  reviewer is the author. `--no-merge` records the pass without landing it.
 
 ## Two-stage quality gate (hard)
 
@@ -405,8 +406,9 @@ Never wait for another role before doing work you can do yourself.
   branch is deleted (`pr merge` does this by default; `--keep-branch` opts out).
 - **PR TO THE REVIEWER** - when your task is done and self-checked, open a PR
   (`pr open`). The Reviewer verifies it; a fail returns it to you.
-- **REVIEWER-ONLY MERGE** - only the Reviewer merges into `main`, and only after
-  the review passed (`pr merge --by reviewer`). You never merge your own work.
+- **REVIEWER-ONLY MERGE, ON PASS** - only the Reviewer merges into `main`, and a
+  passing review (`review --result pass`) merges at once and deletes the branch.
+  You never review or merge your own work.
 - **COMMIT BATCHING** - commit once per coherent, locally green change-set at a
   staged milestone, not per file or per test run. Never bundle unrelated issues
   or mixed owners.

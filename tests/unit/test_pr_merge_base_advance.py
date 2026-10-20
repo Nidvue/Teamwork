@@ -137,6 +137,9 @@ def pass_review(cli, project: Path) -> None:
             "pass",
             "--evidence",
             "pytest @HEAD -> 1 passed @be762bf",
+            # these tests drive the merge themselves and rewrite the recorded
+            # base first, so the pass records the verdict only
+            "--no-merge",
         )
         == 0
     )
