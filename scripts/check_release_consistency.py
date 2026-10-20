@@ -70,8 +70,10 @@ their payload paths before hashing. Measured on the published tarballs:
 ``1.1.2`` -> ``a01d9f0cbee641c3`` = payload of ``3f4981d``; ``1.1.0`` ->
 ``ebfc2538e3d3d605`` = payload of ``v1.1.0`` (identical once
 ``scripts/build_pi_package.py`` is excluded, which is 11.5 example 3);
-``1.1.1`` -> ``726bc547afc41ead``, which matches no commit in
-``git rev-list --all`` (389 commits checked) - 11.5 example 2.
+``1.1.1`` -> ``726bc547afc41ead``, which matches no commit reachable from
+``git rev-list --all`` - 11.5 example 2. The commit count is deliberately not
+stated: it stood at 389 when that measurement was shipped and is 404 now, and a
+number that rots in a comment is exactly the defect class this gate removes.
 
 Exit-code policy for an input that cannot be read (11.1.1): section 11 makes a
 missing or unreadable input exit ``2``, and 11.1.4 names a non-200 response, a
@@ -92,6 +94,7 @@ import argparse
 import fnmatch
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -184,14 +187,18 @@ PIPX = re.compile(r"\bpipx\s+install\s+(\S+)")
 #: a bare ``\S+`` would invent an executable out of the next English word.
 UVX_FROM = re.compile(r"\buvx\s+--from\s+(\S+)")
 PIPX_RUN = re.compile(r"\bpipx\s+run\s+--spec\s+(\S+)")
-#: ``<script>`` must be the *next* argument after the distribution: a flag, a
-#: closing quote/bracket or the end of the line must follow it (``teamwork
-#: --version``, ``teamwork` ``). Prose that continues after the distribution
+#: One shell-ish argument after the distribution name. ``_trailing_script`` skips
+#: any ``--flag value`` pairs in between (``--python 3.12``), so the *first*
+#: positional token is the script - requiring the script to be the token right
+#: after the distribution dropped it, so ``uvx --from <dist> --python 3.12
+#: wrongscript --version`` came back nameless and unfindable.
+ARGUMENT = re.compile(r"[ \t]+(\S+)")
+#: A script argument is a bare word, and the command must end after it: a flag, a
+#: closing quote/bracket or the end of the line (``teamwork --version``,
+#: ``teamwork` ``). Prose that continues after the distribution
 #: (``teamwork-agents` is the fastest way to try it``) therefore names none.
-SCRIPT_ARGUMENT = re.compile(
-    r"[ \t]+([A-Za-z0-9_-](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?)"
-    r"(?=[ \t]+-{1,2}\S|[ \t]*[`\"')\]]|[ \t]*$)"
-)
+SCRIPT_WORD = re.compile(r"[A-Za-z0-9_-](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?")
+SCRIPT_TERMINATOR = re.compile(r"(?:[ \t]+-{1,2}\S|[ \t]*[`\"')\]]|[ \t]*$)")
 NEGATED_CHANNEL = re.compile(
     r"(?i)\b(no|not|never|without)\s+(?:a\s+|an\s+|any\s+)?"
     r"`?(?:pip3?|pipx|uvx|uv)`?\s+(?:install|run|--from)"
@@ -374,18 +381,101 @@ def _payload_skip(rel: Path) -> bool:
 
 
 def _extract_tar(archive: tarfile.TarFile, destination: Path) -> None:
+    """Write every member of ``archive`` into ``destination`` without a link.
+
+    11.3 says symlinks are **resolved** and that a file which cannot be read is
+    drift, not a skip. So a link is materialised as a regular file holding the
+    bytes of its target: the extracted tree then contains exactly what the
+    working tree reads, and ``git archive`` and the npm tarball agree on the same
+    tree instead of one of them failing on any tracked link at all.
+
+    A link is refused - ``InputError``, exit 2 - when its target is absolute,
+    escapes the archive root, or cannot be read. A *self-referential or cyclic*
+    link has no bytes to resolve to and the frozen text does not say what it
+    means, so it is refused too rather than guessed at.
+
+    Members are extracted one by one rather than with ``extractall``: ``filter=``
+    does not exist before 3.12, and on 3.12+ the unfiltered call raises a
+    ``DeprecationWarning`` that this repository turns into a test failure
+    (``pyproject.toml`` sets ``filterwarnings = ["error"]``).
+    """
+    regular: list[tarfile.TarInfo] = []
+    links: list[tarfile.TarInfo] = []
     for member in archive.getmembers():
         parts = Path(member.name).parts
         if member.name.startswith(("/", "\\")) or ".." in parts:
             raise InputError(f"archive member escapes the temporary tree: {member.name}")
-        # 11.3: the payload is plain files only, so a link member is a defect by
-        # itself. A name-only guard is not enough on 3.9-3.13, whose extractall
-        # has no default filter and would happily write through ``linkname``.
-        if member.issym() or member.islnk():
+        if member.isdir():
+            (destination / member.name).mkdir(parents=True, exist_ok=True)
+        elif member.isreg():
+            regular.append(member)
+        elif member.issym() or member.islnk():
+            links.append(member)
+        else:
+            raise InputError(f"archive member is not a regular file: {member.name}")
+    for member in regular:
+        target = destination / member.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            source = archive.extractfile(member)
+        except (KeyError, OSError, tarfile.TarError) as exc:
+            raise InputError(f"archive member cannot be read: {member.name}: {exc}") from exc
+        if source is None:
+            raise InputError(f"archive member cannot be read: {member.name}")
+        with source, open(target, "wb") as handle:
+            handle.write(source.read())
+    _materialise_links(links, destination)
+
+
+def _link_target(member: tarfile.TarInfo, destination: Path) -> Path:
+    """Where ``member``'s link points, or ``InputError`` if that is outside."""
+    linkname = member.linkname
+    if not linkname:
+        raise InputError(f"archive member is a link with no target: {member.name}")
+    if linkname.startswith(("/", "\\")) or Path(linkname).is_absolute():
+        raise InputError(f"archive member links to an absolute path: {member.name} -> {linkname}")
+    # A symlink's target is relative to the link's own directory; a tar hardlink
+    # names a path from the archive root.
+    base = destination if member.islnk() else (destination / member.name).parent
+    target = Path(os.path.normpath(str(base / linkname)))
+    try:
+        target.relative_to(destination)
+    except ValueError:
+        raise InputError(
+            f"archive member links outside the tree: {member.name} -> {linkname}"
+        ) from None
+    return target
+
+
+def _materialise_links(links: Sequence[tarfile.TarInfo], destination: Path) -> None:
+    """Replace every link in ``destination`` with its resolved target's bytes.
+
+    Repeated in rounds so a link to another link resolves once that one does; a
+    round that resolves nothing is a broken, directory or cyclic target (or a
+    link to itself), which is refused.
+    """
+    pending = list(links)
+    while pending:
+        deferred: list[tarfile.TarInfo] = []
+        for member in pending:
+            target = _link_target(member, destination)
+            if not target.is_file():
+                deferred.append(member)
+                continue
+            try:
+                data = target.read_bytes()
+            except OSError as exc:
+                raise InputError(f"archive link target unreadable: {member.name}: {exc}") from exc
+            path = destination / member.name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        if len(deferred) == len(pending):
+            names = ", ".join(member.name for member in deferred)
             raise InputError(
-                f"archive member is a link, which the payload never contains: {member.name}"
+                f"archive link does not resolve to a readable file (broken, cyclic "
+                f"or self-referential): {names}"
             )
-    archive.extractall(destination)
+        pending = deferred
 
 
 def _digest_of_tree(root: Path) -> str:
@@ -397,6 +487,7 @@ def _payload_paths(root: Path) -> list[Path]:
     paths: list[Path] = []
     for name in PAYLOAD_FILES:
         candidate = root / name
+        _require_resolvable_link(candidate, root)
         if candidate.is_file():
             paths.append(candidate)
     for tree in PAYLOAD_TREES:
@@ -404,6 +495,7 @@ def _payload_paths(root: Path) -> list[Path]:
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*")):
+            _require_resolvable_link(path, root)
             try:
                 is_file = path.is_file()
             except OSError as exc:
@@ -411,6 +503,35 @@ def _payload_paths(root: Path) -> list[Path]:
             if is_file:
                 paths.append(path)
     return paths
+
+
+def _require_resolvable_link(path: Path, root: Path) -> None:
+    """11.3: a symlink is resolved, so its target must be readable and inside.
+
+    A link whose target is absolute, escapes ``root``, is broken, or points at
+    itself (directly or through other links) cannot be resolved to payload
+    bytes, and 11.3 makes that drift, not a skip. This is the working-tree half
+    of the same policy ``_extract_tar`` applies to an archive, so ``rev=None``
+    and ``rev=HEAD`` refuse the same trees instead of disagreeing.
+    """
+    try:
+        if not path.is_symlink():
+            return
+    except OSError as exc:
+        raise InputError(f"{path}: {exc}") from exc
+    rel = path.relative_to(root).as_posix()
+    target = Path(os.path.realpath(path))
+    if Path(os.readlink(path)).is_absolute():
+        raise InputError(f"{rel}: payload symlink has an absolute target")
+    try:
+        target.relative_to(Path(os.path.realpath(root)))
+    except ValueError:
+        raise InputError(f"{rel}: payload symlink escapes the payload root") from None
+    if not target.is_file():
+        raise InputError(
+            f"{rel}: payload symlink does not resolve to a readable file "
+            f"(broken, cyclic or self-referential)"
+        )
 
 
 def _digest_of_files(paths: Sequence[Path], root: Path) -> str:
@@ -949,14 +1070,30 @@ def _channel_claims(line: str) -> list[tuple[str, str | None]]:
 def _trailing_script(line: str, start: int) -> str | None:
     """The console script after ``uvx --from <dist>`` / ``pipx run --spec <dist>``.
 
+    The script is the first *positional* argument. Intermediate ``--flag value``
+    pairs are skipped first (a flag whose next token is another flag has no
+    value), so ``uvx --from teamwork-agents --python 3.12 teamwork --version``
+    reads ``teamwork`` rather than nothing.
+
     Only a real argument counts: ``uvx --from teamwork-agents is the fastest way
     to try it`` continues as prose, and reading ``is`` as an executable would
-    report a drift the text never claimed.
+    report a drift the text never claimed. The positional must therefore also
+    end the command - a flag, a closing quote/bracket or the end of the line.
     """
-    match = SCRIPT_ARGUMENT.match(line, start)
-    if not match:
-        return None
-    return match.group(1).strip() or None
+    tokens = [(match.group(1), match.start(1)) for match in ARGUMENT.finditer(line, start)]
+    index = 0
+    while index < len(tokens):
+        text, offset = tokens[index]
+        if text.startswith("-"):
+            has_value = index + 1 < len(tokens) and not tokens[index + 1][0].startswith("-")
+            index += 2 if has_value else 1
+            continue
+        if not SCRIPT_WORD.fullmatch(text):
+            return None
+        if not SCRIPT_TERMINATOR.match(line, offset + len(text)):
+            return None
+        return text
+    return None
 
 
 def _clean_distribution(token: str) -> str | None:
