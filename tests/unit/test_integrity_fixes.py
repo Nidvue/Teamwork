@@ -782,3 +782,19 @@ def test_a_finished_task_override_does_not_hold_the_stop_gate(cli, project: Path
     engine.write_tasks(task_path(root), [stale, live], "developer")
     blockers = engine.gate_report(root)["blockers"]
     assert any("gate override" in b for b in blockers), blockers
+
+
+def test_a_slot_command_refuses_a_root_that_is_not_a_workspace(
+    cli, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A mis-set TEAMWORK_ROOT must not create working state in the project root.
+
+    The lock dir is created on demand by ``lock()``, so a slot command pointed at a
+    bare directory writes ``Runtime/Locks`` there - committed-tree debris that
+    ``git status`` cannot see because the directory starts empty.
+    """
+    bare = project / "not-a-workspace"
+    bare.mkdir()
+    monkeypatch.setenv("TEAMWORK_ROOT", str(bare))
+    assert cli("--project", project, "slot", "acquire", "--agent", "ceo") != 0
+    assert not (bare / engine.DIR_RUNTIME).exists(), "no working state may be written there"
