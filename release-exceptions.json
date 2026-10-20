@@ -1,0 +1,8 @@
+[
+  {
+    "version": "1.1.1",
+    "reason": "published from a workspace whose commit was never pushed, so no commit exists to tag",
+    "evidence": "npm 1.1.1 payload digest 0786a4ff3c2f84ba matches no commit in git rev-list --all; its version.py sha256 545fc1605b3997460a1cf348562c43fed5a8315c83ac8291f9cbf4078703d36d appears in no commit either",
+    "recorded": "2026-10-20"
+  }
+]
