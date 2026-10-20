@@ -306,6 +306,34 @@ ROLE_REPORT_ORDER = (
 
 TRIBUNAL_MIN_SIGNERS = 2
 
+# Code-scanning findings are a release gate, not a nice-to-have: a red alert on
+# the default branch means the shipped revision has a known defect. The Release
+# Engineer owns the read and the routing because it already owns repository and CI
+# integrity (`references/Remotes.md`); the fix lands with whoever owns the file.
+# `SCAN_ROUTE` is the file-ownership map, most specific pattern first.
+SCAN_OWNER_ROLE = "release-engineer"
+
+SCAN_ROUTE = (
+    (".github/**", "release-engineer"),
+    ("scripts/privacy_scan.py", "security-auditor"),
+    ("scripts/**", "developer"),
+    ("src/**", "developer"),
+    ("tests/**", "developer"),
+    ("docs/guide/**", "technical-writer"),
+    ("docs/Team/Architecture.md", "architect"),
+    ("docs/Team/Release.md", "release-engineer"),
+    ("docs/Team/AuditReport.md", "security-auditor"),
+    ("docs/**", "technical-writer"),
+    ("templates/**", "ceo"),
+    ("roles/**", "ceo"),
+    ("references/**", "ceo"),
+    ("README.md", "designer"),
+    ("assets/**", "designer"),
+)
+
+# A scan alert at or above this severity blocks the release gate.
+SCAN_BLOCKING = ("error", "critical", "high")
+
 # Roster tiers, cheapest first. A role earns a seat only if it owns a deliverable,
 # a test layer and a decision right that no other role holds; everything else rides
 # as a lane. `slim` is the default because every extra role is another charter, queue

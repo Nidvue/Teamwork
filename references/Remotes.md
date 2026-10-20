@@ -83,6 +83,7 @@ the review gate for everyone else too. State which of the two applies in
 | squash-only, delete branch | repo `allow_squash_merge=true`, `allow_merge_commit=false`, `allow_rebase_merge=false`, `delete_branch_on_merge=true` | project merge method `ff`/squash + "Delete source branch" | merge strategy setting | "Squash merge only" | "Squash merge" + delete source branch |
 | protected tags | tag protection rules / Rulesets | protected tags | (use branch restrictions on the release branch) | protected tags | tag policies via a pipeline gate |
 | least-privilege CI | workflow `permissions:` | job `rules` + protected variables | pipelines `deployment` permissions | Actions permissions | pipeline permissions + variable groups |
+| code scanning as a gate | `code-scanning/alerts?state=open` (`--commit` routes the fixes) | SAST report in the MR / `vulnerabilities` API | Pipeline security report | integrated scanners (`gosec` via Actions) | Advanced Security alerts |
 | bare git server | `update` hook / `pre-receive` + `receive.denyNonFastForwards` | - | - | - | - |
 
 ## Minimum viable protection (what must be on)
@@ -107,7 +108,31 @@ gh api repos/<owner>/<repo>/branches/main/protection @<rev> -> required_checks=[
 gh api repos/<owner>/<repo> --jq '.allow_squash_merge,.allow_merge_commit,.allow_rebase_merge,.delete_branch_on_merge'
   @<rev> -> true false false true
 gh run list --workflow CI --commit <sha> @<rev> -> success (all matrix jobs)
+teamwork.py code-scanning @<rev> -> 0 open alerts (or: N blocking -> P0 tasks filed to the file owners)
 ```
+
+## Code scanning is part of the release signal
+
+On a forge that scans code (GitHub code scanning, GitLab SAST, Azure Advanced
+Security), an open `error`/`critical`/`high` alert on the default branch is a
+known defect **in the shipped revision**: the code is already public, so the
+alert is a release blocker, not a backlog item. Two measured examples on this
+repository's own remote, both `py/clear-text-logging-sensitive-data` on
+`scripts/privacy_scan.py`, both `error`, both on `main` with no task and no owner.
+
+The Release Engineer owns the gate:
+
+```sh
+teamwork.py code-scanning            # plan: alert -> owning role, exit 1 while blocking
+teamwork.py code-scanning --commit    # file one P0 task per (owner, rule, file)
+```
+
+Routing follows file ownership (`SCAN_ROUTE` in `src/teamwork/config.py`); the
+Security Auditor owns `scripts/privacy_scan.py` and the triage of a genuine
+false positive, the Developer owns `src/**` and `tests/**`, the Release Engineer
+owns `.github/**` and unfiled alerts. Dismissing an alert is a recorded
+triage, never a way to quiet the gate. Re-read after the fix lands and record
+the alert numbers and the `gh api` command as evidence, exactly like a CI run id.
 
 ## Drift check
 
