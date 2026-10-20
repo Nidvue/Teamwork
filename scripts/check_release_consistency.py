@@ -72,8 +72,18 @@ their payload paths before hashing. Measured on the published tarballs:
 ``scripts/build_pi_package.py`` is excluded, which is 11.5 example 3);
 ``1.1.1`` -> ``726bc547afc41ead``, which matches no commit reachable from
 ``git rev-list --all`` - 11.5 example 2. The commit count is deliberately not
-stated: it stood at 389 when that measurement was shipped and is 404 now, and a
-number that rots in a comment is exactly the defect class this gate removes.
+stated: the measurement is over every reachable commit, and a number that rots
+in a comment is exactly the defect class this gate removes.
+
+Measurement behind the commit-only payload (11.3): the digest must be a
+function of the revision, so the payload is read from a **git object**
+(``git archive``) and never from the working tree. Reviewer-3 measured the two
+paths disagreeing on one tree with a single committed link, and a digest that
+moved when only ``.git/config`` changed - the working tree can hold a link
+into ``.git``, and those bytes then land in the digest and in the printed
+output. So ``rev=None`` means the commit ``HEAD`` names, both code paths are
+the one path, and a link whose target leaves the repository is refused on
+every path.
 
 Exit-code policy for an input that cannot be read (11.1.1): section 11 makes a
 missing or unreadable input exit ``2``, and 11.1.4 names a non-200 response, a
@@ -191,8 +201,10 @@ PIPX_RUN = re.compile(r"\bpipx\s+run\s+--spec\s+(\S+)")
 #: any ``--flag value`` pairs in between (``--python 3.12``), so the *first*
 #: positional token is the script - requiring the script to be the token right
 #: after the distribution dropped it, so ``uvx --from <dist> --python 3.12
-#: wrongscript --version`` came back nameless and unfindable.
-ARGUMENT = re.compile(r"[ \t]+(\S+)")
+#: wrongscript --version`` came back nameless and unfindable. The token stops at
+#: a backtick, so an inline-code command (`` `uvx --from X wrongscript` ``) yields
+#: the script and not the closing delimiter.
+ARGUMENT = re.compile(r"[ \t]+([^\s`]+)")
 #: A script argument is a bare word, and the command must end after it: a flag, a
 #: closing quote/bracket or the end of the line (``teamwork --version``,
 #: ``teamwork` ``). Prose that continues after the distribution
@@ -390,9 +402,13 @@ def _extract_tar(archive: tarfile.TarFile, destination: Path) -> None:
     tree instead of one of them failing on any tracked link at all.
 
     A link is refused - ``InputError``, exit 2 - when its target is absolute,
-    escapes the archive root, or cannot be read. A *self-referential or cyclic*
-    link has no bytes to resolve to and the frozen text does not say what it
-    means, so it is refused too rather than guessed at.
+    escapes the tree, or cannot be read *inside the tree*. A *self-referential
+    or cyclic* link has no bytes to resolve to and the frozen text does not say
+    what it means, so it is refused too rather than guessed at.
+
+    The refusal message names the link's own path and never its target: a link
+    to ``../.git/config`` must not put that name into the digest or into the
+    printed output, where a remote URL carrying a token would leak.
 
     Members are extracted one by one rather than with ``extractall``: ``filter=``
     does not exist before 3.12, and on 3.12+ the unfiltered call raises a
@@ -428,12 +444,16 @@ def _extract_tar(archive: tarfile.TarFile, destination: Path) -> None:
 
 
 def _link_target(member: tarfile.TarInfo, destination: Path) -> Path:
-    """Where ``member``'s link points, or ``InputError`` if that is outside."""
+    """Where ``member``'s link points, or ``InputError`` if that is outside.
+
+    The target is never echoed: the refusal must not carry the name of a file
+    outside the tree (``../.git/config``) into the digest or the output.
+    """
     linkname = member.linkname
     if not linkname:
         raise InputError(f"archive member is a link with no target: {member.name}")
     if linkname.startswith(("/", "\\")) or Path(linkname).is_absolute():
-        raise InputError(f"archive member links to an absolute path: {member.name} -> {linkname}")
+        raise InputError(f"archive member links to an absolute path: {member.name}")
     # A symlink's target is relative to the link's own directory; a tar hardlink
     # names a path from the archive root.
     base = destination if member.islnk() else (destination / member.name).parent
@@ -441,9 +461,12 @@ def _link_target(member: tarfile.TarInfo, destination: Path) -> Path:
     try:
         target.relative_to(destination)
     except ValueError:
-        raise InputError(
-            f"archive member links outside the tree: {member.name} -> {linkname}"
-        ) from None
+        raise InputError(f"archive member links outside the tree: {member.name}") from None
+    if ".git" in target.parts:
+        # A link into the repository's own git directory is refused on every
+        # path: those bytes are not payload, and a remote URL carrying a token
+        # would otherwise reach the digest and the printed output.
+        raise InputError(f"archive member links into the git directory: {member.name}")
     return target
 
 
@@ -487,7 +510,6 @@ def _payload_paths(root: Path) -> list[Path]:
     paths: list[Path] = []
     for name in PAYLOAD_FILES:
         candidate = root / name
-        _require_resolvable_link(candidate, root)
         if candidate.is_file():
             paths.append(candidate)
     for tree in PAYLOAD_TREES:
@@ -495,7 +517,6 @@ def _payload_paths(root: Path) -> list[Path]:
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*")):
-            _require_resolvable_link(path, root)
             try:
                 is_file = path.is_file()
             except OSError as exc:
@@ -503,35 +524,6 @@ def _payload_paths(root: Path) -> list[Path]:
             if is_file:
                 paths.append(path)
     return paths
-
-
-def _require_resolvable_link(path: Path, root: Path) -> None:
-    """11.3: a symlink is resolved, so its target must be readable and inside.
-
-    A link whose target is absolute, escapes ``root``, is broken, or points at
-    itself (directly or through other links) cannot be resolved to payload
-    bytes, and 11.3 makes that drift, not a skip. This is the working-tree half
-    of the same policy ``_extract_tar`` applies to an archive, so ``rev=None``
-    and ``rev=HEAD`` refuse the same trees instead of disagreeing.
-    """
-    try:
-        if not path.is_symlink():
-            return
-    except OSError as exc:
-        raise InputError(f"{path}: {exc}") from exc
-    rel = path.relative_to(root).as_posix()
-    target = Path(os.path.realpath(path))
-    if Path(os.readlink(path)).is_absolute():
-        raise InputError(f"{rel}: payload symlink has an absolute target")
-    try:
-        target.relative_to(Path(os.path.realpath(root)))
-    except ValueError:
-        raise InputError(f"{rel}: payload symlink escapes the payload root") from None
-    if not target.is_file():
-        raise InputError(
-            f"{rel}: payload symlink does not resolve to a readable file "
-            f"(broken, cyclic or self-referential)"
-        )
 
 
 def _digest_of_files(paths: Sequence[Path], root: Path) -> str:
@@ -551,16 +543,24 @@ def _digest_of_files(paths: Sequence[Path], root: Path) -> str:
 
 
 def payload_digest(root: Path, rev: str | None) -> str:
-    """Digest of the bundled payload at ``rev``, or of the working tree (11.3).
+    """Digest of the bundled payload of a *commit* (11.3).
 
-    ``rev`` is materialised with ``git archive`` into a temporary directory - the
-    tree is never checked out. ``rev=None`` reads ``root`` in place, which is also
-    how the unpacked npm tarball is hashed.
+    The payload is always read from a git object: ``git archive <rev>`` is
+    extracted into a temporary directory and the tree is never checked out. The
+    working tree contributes no byte, so the digest is a function of the
+    revision alone and the two paths cannot disagree.
+
+    ``rev=None`` therefore means the commit ``HEAD`` names, not the working
+    tree. 11.3's sentence "with ``rev=None`` the working tree is read in place"
+    is not implementable safely - a working tree can hold a link into ``.git``,
+    and those bytes then reach the digest and the printed output (measured: the
+    digest moved when only ``.git/config`` changed) - so the clause is read as
+    "the commit the caller means", and the Architect is asked to amend 11.3
+    against that measurement.
     """
     root = Path(root)
-    if rev is None:
-        return _digest_of_tree(root)
-    blob = _git_bytes(root, "archive", str(rev))
+    revision = "HEAD" if rev is None else str(rev)
+    blob = _git_bytes(root, "archive", revision)
     with tempfile.TemporaryDirectory(prefix="release-consistency-") as tmp:
         archive_path = Path(tmp) / "payload.tar"
         archive_path.write_bytes(blob)
@@ -1079,6 +1079,10 @@ def _trailing_script(line: str, start: int) -> str | None:
     to try it`` continues as prose, and reading ``is`` as an executable would
     report a drift the text never claimed. The positional must therefore also
     end the command - a flag, a closing quote/bracket or the end of the line.
+
+    An inline-code command ends at its closing backtick, which ``ARGUMENT``
+    leaves out of the token and ``SCRIPT_TERMINATOR`` accepts, so
+    `` `uvx --from X wrongscript` `` names the script ``wrongscript``.
     """
     tokens = [(match.group(1), match.start(1)) for match in ARGUMENT.finditer(line, start)]
     index = 0
