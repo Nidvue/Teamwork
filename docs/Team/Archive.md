@@ -795,4 +795,4 @@ No blockers; no unrelated changes; branch mergeable.
 - author evidence: commit 76d5f76; commit 32ba0ed; commit dd73d59
 - reviewer evidence: ok
 - findings history: -
-- branch / merge: developer-1/t-0001-fan-review-out-across-reviewer-lanes-pul / pending
+- branch / merge: developer-1/t-0001-fan-review-out-across-reviewer-lanes-pul / 5df1dd7
