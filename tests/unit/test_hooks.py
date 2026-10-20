@@ -59,6 +59,11 @@ def write(path: Path, text: str, mode: int | None = None) -> Path:
     return path
 
 
+def stage_lines(out: str) -> list:
+    """The two stage rows of `hooks status`, with the directory comment removed."""
+    return [line for line in out.splitlines() if line and not line.startswith("#")]
+
+
 def hook_dir(repo: Path) -> Path:
     """Asked of git directly, so the test does not trust the code under test."""
     located = Path(git(repo, "rev-parse", "--git-path", "hooks"))
@@ -156,20 +161,27 @@ def test_install_force_replaces_a_foreign_hook(cli, repo, capsys) -> None:
     assert "echo mine" not in body
 
 
+def test_status_reports_the_directory_it_probed(cli, repo, capsys) -> None:
+    capsys.readouterr()
+    assert cli("--project", repo, "hooks", "status") == 0
+    out = capsys.readouterr().out
+    assert f"# hooks directory: {hook_dir(repo)}" in out
+
+
 def test_status_reports_absent_then_installed_then_foreign(cli, repo, capsys) -> None:
     capsys.readouterr()
     assert cli("--project", repo, "hooks", "status") == 0
-    assert capsys.readouterr().out.split() == ["pre-commit", "absent", "pre-push", "absent"]
+    assert stage_lines(capsys.readouterr().out) == ["pre-commit absent", "pre-push absent"]
 
     assert cli("--project", repo, "hooks", "install") == 0
     capsys.readouterr()
     assert cli("--project", repo, "hooks", "status") == 0
-    assert capsys.readouterr().out.split() == ["pre-commit", "installed", "pre-push", "installed"]
+    assert stage_lines(capsys.readouterr().out) == ["pre-commit installed", "pre-push installed"]
 
     write(hook_dir(repo) / "pre-commit", "#!/bin/sh\necho mine\n")
     capsys.readouterr()
     assert cli("--project", repo, "hooks", "status") == 0
-    assert capsys.readouterr().out.split() == ["pre-commit", "foreign", "pre-push", "installed"]
+    assert stage_lines(capsys.readouterr().out) == ["pre-commit foreign", "pre-push installed"]
 
 
 def test_uninstall_removes_only_its_own_hook(cli, repo, capsys) -> None:
@@ -451,7 +463,7 @@ def test_install_from_a_linked_worktree_lands_in_the_common_git_dir_and_fires(
     assert (common / "pre-commit").is_file()
     assert (common / "pre-push").is_file()
     assert cli("--project", linked, "hooks", "status") == 0
-    assert capsys.readouterr().out.split() == ["pre-commit", "installed", "pre-push", "installed"]
+    assert stage_lines(capsys.readouterr().out) == ["pre-commit installed", "pre-push installed"]
 
     body = engine_shim(repo_root)
     write(linked / "scripts" / "teamwork.py", body)
