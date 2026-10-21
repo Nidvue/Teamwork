@@ -436,13 +436,16 @@ def test_the_documented_resolver_answers_from_a_linked_worktree(tmp_path: Path) 
     repo, wt = _hermetic_repo(tmp_path)
     assert (wt / ".git").is_file(), "a linked worktree's .git must be a gitfile"
     assert (wt / ".git" / "hooks").exists() is False
-    assert _git(repo, "rev-parse", "--path-format=absolute", "--git-path", "hooks") == (
+    # Compare the RESOLVED paths, not the printed strings: git prints forward
+    # slashes on Windows, `str(Path)` renders backslashes, and the two spellings
+    # name the same directory.
+    assert Path(_git(repo, "rev-parse", "--path-format=absolute", "--git-path", "hooks")) == Path(
         _git(wt, "-C", ".", "rev-parse", "--path-format=absolute", "--git-path", "hooks")
     )
-    assert _git(wt, "rev-parse", "--path-format=absolute", "--git-path", "hooks") == str(
+    assert Path(_git(wt, "rev-parse", "--path-format=absolute", "--git-path", "hooks")) == (
         repo / ".git" / "hooks"
     )
-    assert _git(wt, "rev-parse", "--show-toplevel") == str(wt)
+    assert Path(_git(wt, "rev-parse", "--show-toplevel")) == wt
 
 
 def test_the_pin_is_what_keeps_a_relative_answer_inside_this_repository(
@@ -491,7 +494,9 @@ def test_an_unborn_branch_is_readable_only_through_symbolic_ref(tmp_path: Path) 
     """A3: the root commit is the case `rev-parse --abbrev-ref HEAD` cannot answer."""
     fresh = tmp_path / "fresh"
     fresh.mkdir()
-    _git(fresh, "init", "-q", ".")
+    # Name the branch: the subject is the unborn HEAD, not the runner's
+    # `init.defaultBranch`, which is `master` wherever the config does not say.
+    _git(fresh, "init", "-q", "-b", "main", ".")
     assert _git(fresh, "symbolic-ref", "--short", "HEAD") == "main"
     abbrev = subprocess.run(
         ("git", "rev-parse", "--abbrev-ref", "HEAD"),
