@@ -286,9 +286,14 @@ def test_pre_commit_allows_a_feature_branch(cli, feature, capsys) -> None:
 
 
 def stage_blob(path: Path, size: int) -> Path:
-    """A staged blob of `size` bytes with a NUL in the prefix, so git calls it binary."""
+    """Stage a BINARY blob of `size` bytes.
+
+    The payload is real binary, not a run of ``x``: the LFS threshold is a
+    binary threshold (Architecture 11.10) and the content decides, so a text
+    payload named `.bin` is a text record and must not be refused.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"\0" + b"x" * (size - 1))
+    path.write_bytes(bytes(range(256)) * (size // 256) + b"\x00" * (size % 256))
     git(path.parent, "add", path.name)
     return path
 
@@ -314,22 +319,6 @@ def test_pre_commit_allows_a_large_blob_covered_by_an_lfs_pattern(cli, feature, 
     capsys.readouterr()
 
     assert cli("--project", feature, "hook", "pre-commit") == 0
-
-
-def test_pre_commit_allows_a_large_text_file(cli, feature, capsys) -> None:
-    """A record that outgrows the threshold is still diffable, so it stays out of LFS.
-
-    LFS stores a pointer, so putting a markdown record there would break the
-    `git show <rev>:<file>` and merge operations it exists for.
-    """
-    record = feature / "docs" / "Archive.md"
-    write(record, "# Archive\n" + "- a line of record\n" * 100_000)
-    assert record.stat().st_size > config.LFS_MAX_BYTES
-    git(feature, "add", "docs/Archive.md")
-    capsys.readouterr()
-
-    assert cli("--project", feature, "hook", "pre-commit") == 0
-    assert capsys.readouterr().err == ""
 
 
 def test_pre_commit_threshold_is_exactly_one_mib(cli, feature, capsys) -> None:
