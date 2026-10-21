@@ -60,7 +60,7 @@ under two roles is two tasks.
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
-| developer | T-0009 | release-consistency | done | P-0085 | - |
+| developer | T-0009 | release-consistency | done | P-0085 | f8dd596 |
 | developer | T-0010 | release | done | - | - |
 | developer | T-0011 | ci-contracts | done | P-0083 | a1a04bc |
 | developer | T-0012 | release-consistency | done | P-0080 | - |
@@ -76,9 +76,9 @@ under two roles is two tasks.
 | ceo | T-0062 | release | done | P-0067 | e4b141c |
 | ceo | T-0063 | release | doing | - | - |
 | ceo | T-0064 | docs | done | P-0082 | def7b1c |
-| reviewer | T-0002 | release | todo | - | - |
+| reviewer | T-0002 | release | review | - | - |
 | tester | T-0003 | release | todo | - | - |
-| project-manager | T-0002 | plan | doing | - | - |
+| project-manager | T-0002 | plan | review | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read
 from the PR record, not from this table. A row with no PR is a task whose
