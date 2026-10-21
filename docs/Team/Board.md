@@ -57,6 +57,18 @@ under two roles is two tasks.
 | architect | T-0003 | architecture | done | P-0075 | b02ed38 |
 | architect | T-0004 | architecture | done | P-0079 | cf95b98 |
 | architect | T-0005 | ci | dropped | P-0081 | - |
+| ceo | T-0059 | release | done | P-0069 | 3078c48 |
+| ceo | T-0060 | - | done | - | - |
+| ceo | T-0061 | release | done | P-0070 | 135ae06 |
+| ceo | T-0062 | release | done | P-0067 | e4b141c |
+| ceo | T-0063 | - | done | - | - |
+| ceo | T-0064 | docs | done | P-0082 | def7b1c |
+| ceo | T-0065 | - | doing | P-0096 | - |
+| ceo | T-0066 | links | done | P-0098 | b6c0817 |
+| ceo | T-0067 | - | done | P-0097 | 143e192 |
+| ceo | T-0068 | - | done | - | - |
+| ceo | T-0069 | - | done | - | - |
+| ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
@@ -66,28 +78,28 @@ under two roles is two tasks.
 | developer | T-0012 | release-consistency | done | P-0080 | 5fa73ef |
 | developer | T-0013 | release-consistency | done | P-0084 | 602c56d |
 | developer | T-0014 | - | done | P-0089 | 2cbb2e7 |
-| developer | T-0015 | - | todo | - | - |
-| developer | T-0016 | - | todo | - | - |
-| developer | T-0017 | - | todo | - | - |
+| developer | T-0015 | - | done | P-0091 | cc2f50f |
+| developer | T-0016 | - | done | P-0095 | 03c7fbf |
+| developer | T-0017 | - | done | P-0094 | b5fbc93 |
+| developer | T-0018 | - | done | P-0101 | 35b6f2d |
+| developer | T-0019 | - | doing | - | - |
+| developer | T-0020 | - | todo | - | - |
+| project-manager | T-0002 | plan | doing | P-0086 | - |
 | release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
-| release-engineer | T-0004 | release | todo | - | - |
+| release-engineer | T-0004 | - | todo | - | - |
 | release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
 | release-engineer | T-0006 | - | todo | - | - |
 | release-engineer | T-0007 | release | done | P-0078 | 6fa8930 |
 | release-engineer | T-0008 | ci | done | - | - |
 | release-engineer | T-0009 | - | done | P-0090 | e3a2476 |
-| ceo | T-0059 | release | done | P-0069 | 3078c48 |
-| ceo | T-0060 | release | done | - | - |
-| ceo | T-0061 | release | done | P-0070 | 135ae06 |
-| ceo | T-0062 | release | done | P-0067 | e4b141c |
-| ceo | T-0063 | release | done | - | - |
-| ceo | T-0064 | docs | done | P-0082 | def7b1c |
-| reviewer | T-0002 | release | done | - | - |
-| reviewer | T-0003 | - | todo | - | - |
+| release-engineer | T-0010 | - | done | P-0104 | 3b0fbfa |
+| reviewer | T-0002 | - | done | - | - |
+| reviewer | T-0003 | - | done | P-0093 | f6242c9 |
+| reviewer | T-0004 | - | done | P-0102 | 44259cb |
 | security-auditor | T-0005 | privacy | done | P-0088 | e2c18a5 |
-| tester | T-0003 | release | doing | P-0087 | - |
-| tester | T-0004 | - | todo | - | - |
-| project-manager | T-0002 | plan | doing | P-0086 | - |
+| tester | T-0003 | - | doing | P-0087 | - |
+| tester | T-0004 | - | done | P-0092 | c84932e |
+| tester | T-0005 | - | done | P-0103 | b91084d |
 
 Rows whose PR is not merged carry no merged revision; the revision is read
 from the PR record, not from this table. A row with no PR is a task whose
@@ -97,15 +109,13 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| release-engineer | T-0004 push and certify CI | P0 | todo | the pushed revision and its runs |
-| release-engineer | T-0006 CI identity audit | P2 | todo | `.github/workflows/`, the audit command surface |
-| developer | T-0015 unit-layer records for the six uncovered areas | P1 | todo | the unit test records |
-| developer | T-0016 R3 ignores a published non-X.Y.Z npm version | P0 | todo | `scripts/check_release_consistency.py` |
-| developer | T-0017 the install docs pin a superseded wheel URL | P1 | todo | `docs/guide/install.md` |
-| tester | T-0003 acceptance proof | P1 | doing | P-0087 is unmerged; its proof files are on that branch, not in this tree |
-| tester | T-0004 integration-layer records for the six uncovered areas | P1 | todo | the integration test records |
-| reviewer | T-0003 acceptance-layer records for the five uncovered areas | P1 | todo | the acceptance test records |
-| project-manager | T-0002 record M9 on the plan and the board | P2 | doing | [Plan](Plan.md), this file |
+| ceo | T-0065 Reconcile the published origin/main line (M9 Harness^2) with the local M9 release-traceability line | P0 | doing | the reconciled line on P-0096 |
+| release-engineer | T-0004 M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | the pushed revision and its CI runs |
+| developer | T-0019 docs/guide/install.md:87 documents a tag pin (--branch v1.1.2) that teamwork refresh always rejects | P1 | doing | `src/teamwork/engine.py` refresh source resolution |
+| tester | T-0003 M9-J acceptance proof that the release claims hold | P1 | doing | `docs/Team/M9Acceptance.md` on P-0087 |
+| developer | T-0020 R6 cannot see a stale version in `--branch`/`--tag` prose, only in releases/download URLs | P2 | todo | `scripts/check_release_consistency.py` |
+| project-manager | T-0002 M9-I record M9 on the plan and board | P2 | doing | [Plan](Plan.md), this file |
+| release-engineer | T-0006 CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | `.github/workflows/`, the audit command surface |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
