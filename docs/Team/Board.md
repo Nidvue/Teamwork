@@ -82,8 +82,8 @@ under two roles is two tasks.
 | developer | T-0016 | - | done | P-0095 | 03c7fbf |
 | developer | T-0017 | - | done | P-0094 | b5fbc93 |
 | developer | T-0018 | - | done | P-0101 | 35b6f2d |
-| developer | T-0019 | - | doing | - | - |
-| developer | T-0020 | - | todo | - | - |
+| developer | T-0019 | - | done | P-0107 | 3404a42 |
+| developer | T-0020 | - | done | P-0106 | - |
 | project-manager | T-0002 | plan | doing | P-0086 | - |
 | release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
 | release-engineer | T-0004 | - | todo | - | - |
@@ -111,9 +111,7 @@ deliverable landed by commit without a PR record.
 |---|---|---|---|---|
 | ceo | T-0065 Reconcile the published origin/main line (M9 Harness^2) with the local M9 release-traceability line | P0 | doing | the reconciled line on P-0096 |
 | release-engineer | T-0004 M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | the pushed revision and its CI runs |
-| developer | T-0019 docs/guide/install.md:87 documents a tag pin (--branch v1.1.2) that teamwork refresh always rejects | P1 | doing | `src/teamwork/engine.py` refresh source resolution |
-| tester | T-0003 M9-J acceptance proof that the release claims hold | P1 | doing | `docs/Team/M9Acceptance.md` on P-0087 |
-| developer | T-0020 R6 cannot see a stale version in `--branch`/`--tag` prose, only in releases/download URLs | P2 | todo | `scripts/check_release_consistency.py` |
+| tester | T-0003 M9-J acceptance proof that the release claims hold | P1 | doing | `docs/Team/M9Acceptance.md` on P-0087 - a file of that branch, not on main yet |
 | project-manager | T-0002 M9-I record M9 on the plan and board | P2 | doing | [Plan](Plan.md), this file |
 | release-engineer | T-0006 CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | `.github/workflows/`, the audit command surface |
 
