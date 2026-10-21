@@ -33,15 +33,25 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | privacy | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | yes |
 | docs | `teamwork links` + `mkdocs build --strict` (in `docs.yml`) | yes |
 | release consistency | `python scripts/check_release_consistency.py --offline` (the `release-consistency` job in `ci.yml`) | yes (a registered required check) |
-| release consistency (online) | `python scripts/check_release_consistency.py --online` (the `consistency` job in `release.yml`, task T-0007) | yes (on a `v*` tag) |
+| release consistency (online) | `python scripts/check_release_consistency.py --online` (the `consistency` job in `release.yml`, which lands with task T-0007) | yes (on a `v*` tag) |
+
+The `release consistency (offline - docs + tags + version)` context **is
+registered** in the branch protection of `main` (16 contexts, `strict=true`).
+It must not be *blocking* until `scripts/check_release_consistency.py` and
+`release-exceptions.json` are merged (developer task **T-0005**): without the
+checker the job cannot run and exits 2, so a merge to `main` would be blocked
+by a check that has nothing to run. The same landing must carry the R6/R8/R9
+prose repairs (CEO task **T-0061**), because `main` is red on those rules
+today. The CEO owns that sequencing; the gate itself is not softened to
+compensate.
 
 The consistency gate runs twice on purpose. In `ci.yml` it runs **offline**: R1,
 R2, R6, R7 and R9 evaluate from the tree and the tags, and R3/R4/R5/R8 print
 `SKIP` with the reason, because the npm registry, the GitHub API and PyPI need
 credentials and rate-limit headroom that do not belong in every pull request.
-The **online** half lives in `release.yml`, which runs on a `v*` tag and holds
-the release token; that is where R3/R4/R5 stop being permanently `SKIP`.
->>>>>>> 34c5c34 (ci(ci): .github/workflows/ci.yml: the release-consistency job applies the frozen)
+The **online** half - the same checker with `--online` - lands with the release
+task **T-0007**; it is not in `release.yml` on `main` today, so R3/R4/R5 are
+still permanently `SKIP` in every automated run until that task lands.
 
 ## Release candidate gate
 
@@ -104,10 +114,15 @@ prose set and that workflow's `paths:` list must stay identical.
 The `scope` job measures the change set from `github.event.before` to
 `github.sha`. When `before` is unusable - the all-zero sha of a first push, or
 a sha that no longer exists after a rewritten history - the change set is
-measured from the merge base with the default branch (else the root commit)
-instead, so a push that carried a source change cannot be reported as a
-prose-only push. When the change set cannot be established at all, the code
-jobs **run**: an unknown change set must never silently skip the matrix.
+measured from the merge base with the default branch instead. When even that
+base is **not behind** HEAD the change set is **undetermined**, and the code
+jobs **run**: an unknown change set must never silently skip the matrix. The
+only case with a determinate change set and no usable base is a **root
+commit** (HEAD has no parent): every file it carries is the change set, and it
+is listed with `git diff-tree --root`. A push whose remote already holds HEAD
+- which is the normal state after a push, because `origin/main` then points at
+the pushed SHA - is therefore *undetermined*, not "prose only", and the matrix
+runs.
 
 On a **pull request both workflows always run**, regardless of paths: branch
 protection requires every check to be *reported* on the head (read the list with
@@ -130,11 +145,26 @@ prose-only change when it is genuinely warranted.
 
 A **tag push** (`v*`) runs the `release-consistency` gate and the tag-sensitive
 checks; the tagged commit already passed the matrix as a `main` push, and
-`release.yml` re-runs pytest on the tag. The gate applies the tag set frozen in
-`docs/Team/Architecture.md` section 11.2.2 (`S = A - O`: the version tags
+`release.yml` re-runs pytest on the tag. R2 itself applies the tag set frozen
+in `docs/Team/Architecture.md` section 11.2.2 (`S = A - O`: the version tags
 reachable from HEAD, minus the tags that point at HEAD), so the tag a build
-publishes is never compared with itself. Every other finding - a genuine drift,
-an unreadable input - still fails the job.
+publishes is never compared with itself. The **checker** computes that set;
+the workflow does not re-implement the rule, and it does not parse the
+checker's findings to soften them. Every other finding - a genuine drift, an
+unreadable input - still fails the job.
+
+### The gate's exit codes
+
+| situation | exit | what the job prints |
+|---|---|---|
+| the checker is not in the tree | 2 | `the release consistency checker is not in the tree (scripts/check_release_consistency.py is absent), so the gate cannot run` |
+| a rule drifted (R2, R6, R7, R8, R9) | 1 | `::error::<RULE> DRIFT: <detail>` per finding, then `# release consistency: N problem(s)` |
+| an input the gate reads could not be read | 2 | `::error::an input the gate reads could not be read (checker exit 2)` |
+| everything agrees | 0 | one line per rule, `# release consistency: 0 problem(s)` |
+
+A missing checker is an **unreadable input**, not a skip: the gate fails with
+exit 2 and says plainly that the checker is absent. It is never downgraded to
+a pass.
 
 ## Remote merge policy (2026-10-19)
 
@@ -151,12 +181,13 @@ an unreadable input - still fails the job.
   guard, not the setting, is what protects `main`.
 - Locally: `git merge --squash <branch>` and commit as the acting role, or
   `teamwork.py pr merge --squash`, which does exactly that as the Reviewer mailbox.
-- `main` keeps: 1 required approval, strict up-to-date, no force-push, no deletion,
-  `required_linear_history` disabled so the existing merge commits do not need an
-  admin bypass. The required check list is measured, not quoted; the committer guard
-  (`identity --guard-committer`) reports a stamped account on the push, and
-  `identity --audit` accepts a forge rebase committer (`noreply@github.com`) only
-  when the author is a canonical role mailbox.
+- `main` keeps: 1 required approval, 16 required checks (the release-consistency
+  context was added to the 15 before it), strict up-to-date, no force-push, no
+  deletion, `required_linear_history` disabled so the existing merge commits do not
+  need an admin bypass. The required check list is measured, not quoted; the
+  committer guard (`identity --guard-committer`) reports a stamped account on the
+  push, and `identity --audit` accepts a forge rebase committer
+  (`noreply@github.com`) only when the author is a canonical role mailbox.
 
 ## Deploy
 
