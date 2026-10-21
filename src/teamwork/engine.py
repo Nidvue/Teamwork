@@ -8405,7 +8405,10 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
 def _audit_markdown_link_health_broken_malformed_ba(root: Path, names: list, args) -> int:
     hits = 0
     print("## markdown link health (broken / malformed / bare / missing back-links)")
-    rep = link_report(project_of(root), root)
+    # Same rule as cmd_links: measure the tree the caller is in. project_of()
+    # answers for the main checkout, so inside a worktree this section reported
+    # "none" no matter what the lane's own documents contained.
+    rep = link_report(work_repo(root), root)
     link_issues = (
         len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"]) + len(rep["missing_back"])
     )
