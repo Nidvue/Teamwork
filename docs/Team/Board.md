@@ -63,7 +63,7 @@ under two roles is two tasks.
 | ceo | T-0062 | release | done | P-0067 | e4b141c |
 | ceo | T-0063 | - | done | - | - |
 | ceo | T-0064 | docs | done | P-0082 | def7b1c |
-| ceo | T-0065 | - | doing | P-0096 | - |
+| ceo | T-0065 | - | review | P-0096 | - |
 | ceo | T-0066 | links | done | P-0098 | b6c0817 |
 | ceo | T-0067 | - | done | P-0097 | 143e192 |
 | ceo | T-0068 | - | done | - | - |
@@ -84,7 +84,7 @@ under two roles is two tasks.
 | developer | T-0018 | - | done | P-0101 | 35b6f2d |
 | developer | T-0019 | - | done | P-0107 | 3404a42 |
 | developer | T-0020 | - | done | P-0106 | - |
-| project-manager | T-0002 | plan | doing | P-0086 | - |
+| project-manager | T-0002 | plan | review | P-0086 | - |
 | release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
 | release-engineer | T-0004 | - | todo | - | - |
 | release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
@@ -109,10 +109,10 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0065 Reconcile the published origin/main line (M9 Harness^2) with the local M9 release-traceability line | P0 | doing | the reconciled line on P-0096 |
+| ceo | T-0065 Reconcile the published origin/main line (M9 Harness^2) with the local M9 release-traceability line | P0 | review | the reconciled line on P-0096 |
 | release-engineer | T-0004 M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | the pushed revision and its CI runs |
 | tester | T-0003 M9-J acceptance proof that the release claims hold | P1 | doing | `docs/Team/M9Acceptance.md` on P-0087 - a file of that branch, not on main yet |
-| project-manager | T-0002 M9-I record M9 on the plan and board | P2 | doing | [Plan](Plan.md), this file |
+| project-manager | T-0002 M9-I record M9 on the plan and board | P2 | review | [Plan](Plan.md), this file |
 | release-engineer | T-0006 CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | `.github/workflows/`, the audit command surface |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
