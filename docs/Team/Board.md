@@ -70,7 +70,7 @@ under two roles is two tasks.
 | ceo | T-0069 | - | done | - | - |
 | ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
 | ceo | T-0071 | - | done | P-0108 | 9099e51 |
-| ceo | T-0072 | - | todo | - | - |
+| ceo | T-0072 | - | done | P-0110 | 4af8b2e |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
@@ -86,7 +86,7 @@ under two roles is two tasks.
 | developer | T-0018 | - | done | P-0101 | 35b6f2d |
 | developer | T-0019 | - | done | P-0107 | 3404a42 |
 | developer | T-0020 | - | done | P-0106 | 3fad639 |
-| developer | T-0021 | - | review | P-0109 | - |
+| developer | T-0021 | - | done | P-0109 | 6962dfb |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | done | P-0093 | f6242c9 |
 | reviewer | T-0004 | - | done | P-0102 | 44259cb |
@@ -120,8 +120,6 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0072 · The LFS audit flags a large text record that must stay diffable | P1 | todo | - |
-| developer | T-0021 · The identity gate rejects the team's own role mailboxes and integration merges | P0 | review | - |
 | release-engineer | T-0004 · M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | - |
 | release-engineer | T-0006 · CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | - |
 
