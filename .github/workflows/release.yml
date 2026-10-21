@@ -1,32 +1,25 @@
 # Release pipeline for teamwork-agents.
 #
-# Contract: docs/Team/Architecture.md (section 9 and section 11) and
-# docs/Team/Project.md AC-7.
+# Contract: docs/Team/Architecture.md (the CI/release contract and the
+# release-consistency contract, the nine rules R1-R9) and docs/Team/Project.md
+# AC-7.
 # Triggered only by a `v*` tag. Produces sdist + wheel, SHA256SUMS, a CycloneDX
 # JSON and an SPDX JSON SBOM, attests build provenance, and publishes a GitHub
 # Release with every asset. Nothing is pushed by an agent; the CEO owns the tag.
 #
-# The release-consistency gate (docs/Team/Architecture.md section 11) runs in the
-# `consistency` job, before anything is built or published, and again after the
-# publish so the Release of the tag being published is checked too. It needs the
-# complete tag set, so every checkout in this file uses `fetch-depth: 0`: a
-# depth-1 clone makes R1/R2/R4/R5 vacuous (measured: a clone of `v1.1.2` saw one
-# tag and reported `R2 ok ... 0 tag(s)`), which is a green gate on a blind build.
+# The release-consistency gate (the nine rules R1-R9 of
+# docs/Team/Architecture.md) runs in the `consistency` job, before anything is
+# built or published, and again after the publish so the Release of the tag
+# being published is checked too. The gate needs the complete tag set, so
+# every checkout in this file uses `fetch-depth: 0`: a depth-1 clone makes
+# R1/R2/R4/R5 vacuous (measured: a clone of `v1.1.2` saw one tag and reported
+# `R2 ok ... 0 tag(s)`), which is a green gate on a blind build.
 #
-# Two dependencies of this workflow are owned by other lanes and are named
-# here so the red state of a partially repaired tree is understood rather than
-# worked around:
-#
-# * `scripts/check_release_consistency.py` (Developer lane, `developer T-0005`)
-#   is not in the tree yet. The gate below fails closed - a missing checker
-#   exits 2 and blocks the release - so the pipeline is red until that lane
-#   merges. That is the intended state, not a defect to be bypassed.
-# * The doc drift the checker reports (R8: the PyPI install fences in
-#   `README.md` and `docs/` advertise a distribution this project does not
-#   publish) is repaired by the CEO lane `ceo T-0061`, which adds a
-#   `<!-- release-consistency: channel-unavailable -->` marker above every
-#   such fence. This workflow adds **no** exemption for it: the gate stays
-#   strict and turns green only when the marker lands in the tree.
+# The gate fails closed. `scripts/check_release_consistency.py` is not
+# optional: a missing checker exits 2 and blocks the release, an unreadable
+# input exits 2, and drift exits 1. There is no `|| true` and no
+# `continue-on-error` on either gate step, so a release can only be published
+# from a tree the checker has actually read.
 
 name: Release
 
@@ -110,14 +103,9 @@ jobs:
           # The token is passed so the read can be authenticated. It lives
           # only in the runner's environment and never in the tree.
           #
-          # NOTE for the Developer lane (`developer T-0012`, owner of
-          # scripts/check_release_consistency.py): the token support
-          # (`Authorization: Bearer $GITHUB_TOKEN` in the checker's
-          # `_http_get`) is landing in `developer T-0012`. Until that lands
-          # the read stays anonymous, so the bounded retry above is what
-          # keeps a transient HTTP 403 from blocking a release. No workflow
-          # change is needed when it lands; the token is already exported to
-          # the checker process.
+          # The checker reads the bearer token from the environment
+          # (`Authorization: Bearer $GITHUB_TOKEN`) and sends it only to
+          # api.github.com / github.com.
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
@@ -371,9 +359,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
           # Same token and same reason as in the `consistency` job: the GitHub
           # API read must be authenticated or it answers HTTP 403 from a
-          # shared runner address. The token support in the checker is
-          # landing in `developer T-0012`; see the NOTE in the `consistency`
-          # job.
+          # shared runner address.
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
@@ -429,15 +415,26 @@ jobs:
               if attempt < ATTEMPTS:
                   time.sleep(RETRY_SECONDS)
 
-          # The exit code of the checker decides, not only the R5 rule: an
-          # unreadable input (exit 2) is never downgraded to a pass
-          # (Architecture.md 11.1.1).
-          if proc.returncode == 2:
+          # The exit code of the checker decides, not only the R5 rule, and
+          # the mapping is the same as in the pre-publish gate: 0 = clean,
+          # 1 = drift, 2 = an input that could not be read, and any other
+          # exit code is an unreadable input too (exit 2) - never a pass and
+          # never a downgrade to drift. An unexpected exit is not drift, so
+          # both steps must agree on it.
+          if proc.returncode == 0:
+              pass
+          elif proc.returncode == 1:
+              print("::error::the checker reported drift after the publish (checker exit 1)", file=sys.stderr)
+              raise SystemExit(1)
+          elif proc.returncode == 2:
               print("::error::an input the re-check reads could not be read (checker exit 2)", file=sys.stderr)
               raise SystemExit(2)
-          if proc.returncode != 0:
-              print(f"::error::the checker exited {proc.returncode} after the publish", file=sys.stderr)
-              raise SystemExit(1)
+          else:
+              print(
+                  f"::error::the checker exited {proc.returncode} after the publish: an unexpected exit code",
+                  file=sys.stderr,
+              )
+              raise SystemExit(2)
 
           # R5 is the rule this step exists for: after the publish, the
           # Release of the tag being published exists, so R5 must be `ok`.
