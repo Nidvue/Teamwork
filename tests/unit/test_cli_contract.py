@@ -491,7 +491,9 @@ def test_an_unborn_branch_is_readable_only_through_symbolic_ref(tmp_path: Path) 
     """A3: the root commit is the case `rev-parse --abbrev-ref HEAD` cannot answer."""
     fresh = tmp_path / "fresh"
     fresh.mkdir()
-    _git(fresh, "init", "-q", ".")
+    # Name the branch: the subject is the unborn HEAD, not the runner's
+    # `init.defaultBranch`, which is `master` wherever the config does not say.
+    _git(fresh, "init", "-q", "-b", "main", ".")
     assert _git(fresh, "symbolic-ref", "--short", "HEAD") == "main"
     abbrev = subprocess.run(
         ("git", "rev-parse", "--abbrev-ref", "HEAD"),
