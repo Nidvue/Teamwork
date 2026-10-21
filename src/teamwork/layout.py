@@ -73,6 +73,16 @@ def work_repo(root: Path, cwd: Path | None = None) -> Path:
     return project_of(root)
 
 
+def work_docs_dir(root: Path, cwd: Path | None = None) -> Path:
+    """Committed project output in the work tree this command acts on.
+
+    ``docs_dir`` always points at the project that owns the team tree; a lane
+    that runs inside its own worktree must land its output there instead, so
+    the file can be committed on the lane's branch.
+    """
+    return work_repo(root, cwd).joinpath(*DIR_DOCS)
+
+
 def team_root_from_cwd(cwd: Path) -> Path | None:
     """If we are inside one of our own worktrees, use the team that owns it.
 

@@ -63,9 +63,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 226 kB |
-| `standard` | 9 | 336 kB |
-| `full` | 16 | 586 kB |
+| `slim` (default) | 6 | 238 kB |
+| `standard` | 9 | 351 kB |
+| `full` | 16 | 607 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -91,6 +91,13 @@ Two invariants hold at every tier, and both are tested:
   `tests plan` never reports a gap for work nobody owns.
 - `required_tribunal` never drops below `TRIBUNAL_MIN_SIGNERS`: with no CTO/CFO,
   the Reviewer is the neutral seat, and a party to a dispute can never rule it.
+
+The party rule is per **instance**, not per role: a dispute names the two agents
+between it, so an instance is a party when it is named in `raised_by`/`against`.
+A role leaves the panel only when EVERY one of its instances is a party, so the
+uninvolved third Reviewer can seat a Reviewer-vs-Reviewer dispute - that
+instance is the neutral seat the invariant above promises. A party may never sign
+or resolve, and `--force` waives the signature requirement, never the party rule.
 
 `init` prints the folded lanes and warns when `ceo`, `developer`, `tester` or
 `reviewer` is missing (`ROSTER_REQUIRED`).
