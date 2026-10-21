@@ -1,9 +1,25 @@
 # Release pipeline for teamwork-agents.
 #
-# Contract: docs/Team/Architecture.md (section 9) and docs/Team/Project.md AC-7.
+# Contract: docs/Team/Architecture.md (the CI/release contract and the
+# release-consistency contract, the nine rules R1-R9) and docs/Team/Project.md
+# AC-7.
 # Triggered only by a `v*` tag. Produces sdist + wheel, SHA256SUMS, a CycloneDX
 # JSON and an SPDX JSON SBOM, attests build provenance, and publishes a GitHub
 # Release with every asset. Nothing is pushed by an agent; the CEO owns the tag.
+#
+# The release-consistency gate (the nine rules R1-R9 of
+# docs/Team/Architecture.md) runs in the `consistency` job, before anything is
+# built or published, and again after the publish so the Release of the tag
+# being published is checked too. The gate needs the complete tag set, so
+# every checkout in this file uses `fetch-depth: 0`: a depth-1 clone makes
+# R1/R2/R4/R5 vacuous (measured: a clone of `v1.1.2` saw one tag and reported
+# `R2 ok ... 0 tag(s)`), which is a green gate on a blind build.
+#
+# The gate fails closed. `scripts/check_release_consistency.py` is not
+# optional: a missing checker exits 2 and blocks the release, an unreadable
+# input exits 2, and drift exits 1. There is no `|| true` and no
+# `continue-on-error` on either gate step, so a release can only be published
+# from a tree the checker has actually read.
 
 name: Release
 
@@ -26,13 +42,204 @@ env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
+  consistency:
+    name: release consistency gate (online, before anything is published)
+    runs-on: ubuntu-latest
+    # `contents: read` is the workflow default; it is stated here because the
+    # gate's GitHub API read needs a token to be authenticated (see the gate
+    # step). The token is never written to the tree.
+    permissions:
+      contents: read
+    # A separate job, so the ordering lives in the dependency graph and not
+    # only in the step order: `build` needs this job, `attest` needs `build`
+    # and `release` needs both, so a release that cannot be traced is never
+    # built and never published.
+    #
+    # The checker's exit codes are its own (Architecture.md 11.1.1): 0 clean,
+    # 1 drift, 2 an input that could not be read. 1 and 2 both fail this job:
+    # there is no `|| true` and no `continue-on-error` in this job.
+    steps:
+      - name: Checkout (the complete tag set - R1/R2/R4/R5 read git tags)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Architecture.md 11.2.2: a workflow that evaluates R1, R2, R4 or R5
+          # must check out the complete tag set. A shallow checkout turns the
+          # tag rules vacuous, which is a green gate on a blind build.
+          fetch-depth: 0
+          lfs: true
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - name: Assert the checkout carries the complete tag set
+        shell: bash
+        run: |
+          # Architecture.md 11.2.2: a shallow clone is an input error (exit 2),
+          # never a pass. The checker enforces this for itself, but the
+          # workflow must not depend on the script's version to know that the
+          # gate looked at every tag.
+          if [ "$(git rev-parse --is-shallow-repository)" != "false" ]; then
+            echo "::error::the checkout is shallow: the tag rules would be vacuous"
+            exit 2
+          fi
+          tags=$(git tag -l | grep -cE '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)
+          if [ "${tags}" -eq 0 ]; then
+            echo "::error::the checkout carries no version tag: the tag rules would be vacuous"
+            exit 2
+          fi
+          echo "tag set: ${tags} version tag(s); the checkout is not shallow"
+      - name: Release consistency gate (online)
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          # The GitHub API read of the checker is anonymous by design
+          # (x-ratelimit-limit 60 for an anonymous request), and an
+          # anonymous read of api.github.com/repos/Nidvue/Teamwork/releases
+          # answers HTTP 403 from a shared runner address. The checker
+          # reports that as an unreadable input (exit 2) and the gate as a
+          # blocked release, which is a transient upstream failure, not a
+          # defect of the tree.
+          #
+          # The token is passed so the read can be authenticated. It lives
+          # only in the runner's environment and never in the tree.
+          #
+          # The checker reads the bearer token from the environment
+          # (`Authorization: Bearer $GITHUB_TOKEN`) and sends it only to
+          # api.github.com / github.com.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import time
+
+          CHECKER = "scripts/check_release_consistency.py"
+          tag = os.environ["RELEASE_TAG"]
+          # A transient upstream failure (an HTTP 403/5xx from the GitHub API
+          # or the registries) is retried a bounded number of times before it
+          # is allowed to block the release. Drift is never retried.
+          ATTEMPTS = 3
+          RETRY_SECONDS = int(os.environ.get("RELEASE_GATE_RETRY_SECONDS", "20"))
+
+          # The checker is not optional: a release gate that is silently
+          # absent is a release gate that is silently green.
+          if not os.path.isfile(CHECKER):
+              print(f"::error::{CHECKER} is missing: the release gate cannot be skipped", file=sys.stderr)
+              raise SystemExit(2)
+
+          # The tag being published must be the one this build checks out;
+          # otherwise the exemptions below would cover a tag that is not
+          # being released, and the gate would be judging the wrong revision.
+          at_head = subprocess.run(
+              ["git", "tag", "--points-at", "HEAD"],
+              capture_output=True,
+              text=True,
+          ).stdout.split()
+          if tag not in at_head:
+              print(
+                  f"::error::{tag} does not point at HEAD ({at_head}): the gate would judge the wrong revision",
+                  file=sys.stderr,
+              )
+              raise SystemExit(2)
+
+          proc = None
+          for attempt in range(1, ATTEMPTS + 1):
+              proc = subprocess.run(
+                  [sys.executable, CHECKER, "--online", "--json"],
+                  capture_output=True,
+                  text=True,
+              )
+              if proc.returncode != 2:
+                  break
+              print(
+                  f"the checker could not read an input (exit 2), attempt {attempt}/{ATTEMPTS}: "
+                  f"{proc.stderr.strip() or proc.stdout.strip()[:400]}"
+              )
+              if attempt < ATTEMPTS:
+                  time.sleep(RETRY_SECONDS)
+
+          if not proc.stdout.strip():
+              print(
+                  f"::error::the checker printed nothing (exit {proc.returncode}): {proc.stderr.strip()}",
+                  file=sys.stderr,
+              )
+              raise SystemExit(2)
+          try:
+              payload = json.loads(proc.stdout)
+          except json.JSONDecodeError as exc:
+              print(f"::error::the checker printed no JSON: {exc}", file=sys.stderr)
+              raise SystemExit(2)
+
+          for rule in payload.get("rules", []):
+              print(f"{rule['id']} {rule['status']} {rule['detail']}")
+
+          # One finding is expected on a tag push and is not drift: the R5
+          # finding for the tag being published, because its GitHub Release
+          # is created by this workflow *after* this gate, so it cannot exist
+          # yet. It follows from Architecture.md 11.2.2 and is settled where
+          # it can be: the re-check after the publish step, where the Release
+          # of the tag exists.
+          #
+          # The exemption is narrow: it names the exact rule (R5), the exact
+          # condition (the detail is exactly `tag <the published tag> has no
+          # GitHub Release`) and the reason (the Release is published after
+          # this gate). It covers no other rule and no other tag, so a
+          # genuine drift is never hidden.
+          #
+          # R2 needs no exemption: the checker implements 11.2.2's set
+          # `S = A - O` (HEAD is compared only against the version tags
+          # reachable from HEAD minus the tags that point at HEAD), so on a
+          # tag push the tag being released is never compared with itself
+          # and R2 reports `ok`. An exemption for a finding the checker no
+          # longer produces would be a gate that can silently hide a future
+          # one, so there is none.
+          exempt = []
+          others = []
+          for problem in payload.get("problems", []):
+              rule = problem.get("rule")
+              detail = problem.get("detail", "")
+              if rule == "R5" and detail == f"tag {tag} has no GitHub Release":
+                  exempt.append(problem)
+                  continue
+              others.append(problem)
+
+          # The exit code is mapped, never propagated raw: 0 = consistent,
+          # 1 = drift, 2 = an unreadable input or a usage error. Anything
+          # else the checker may produce is treated as an unreadable input
+          # (Architecture.md 11.1.1), never as a pass and never as a drift.
+          if proc.returncode == 2:
+              print("::error::an input the gate reads could not be read (checker exit 2)", file=sys.stderr)
+              raise SystemExit(2)
+          if proc.returncode not in (0, 1):
+              print(f"::error::the checker exited {proc.returncode}: an unexpected exit code", file=sys.stderr)
+              raise SystemExit(2)
+          if others:
+              for problem in others:
+                  print(f"::error::{problem['rule']} DRIFT: {problem['detail']}", file=sys.stderr)
+              raise SystemExit(1)
+          if proc.returncode == 0:
+              raise SystemExit(0)
+          if exempt:
+              for problem in exempt:
+                  print(f"expected on a tag push, checked again later: {problem['rule']} {problem['detail']}")
+              raise SystemExit(0)
+          print(f"::error::the checker exited {proc.returncode} without a finding", file=sys.stderr)
+          raise SystemExit(2)
+          PY
+
   build:
     name: build + checksums + SBOM
     runs-on: ubuntu-latest
+    needs: [consistency]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # The complete tag set, for the same reason as in the `consistency`
+          # job: a shallow checkout hides the tags the release is judged on.
+          fetch-depth: 0
           lfs: true
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -133,3 +340,110 @@ jobs:
             SHA256SUMS
             sbom.cyclonedx.json
             sbom.spdx.json
+      # The gate in the `consistency` job ran before the publish, where the
+      # Release of the tag being published did not exist yet and R5 could not
+      # see it. Now it exists, so R5 is checked for real: every version tag
+      # must have a GitHub Release. The checker is not optional here either.
+      - name: Checkout (the complete tag set - R5 reads git tags)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - name: Verify the published release (R5 for the published tag)
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          # Same token and same reason as in the `consistency` job: the GitHub
+          # API read must be authenticated or it answers HTTP 403 from a
+          # shared runner address.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import time
+
+          CHECKER = "scripts/check_release_consistency.py"
+          tag = os.environ["RELEASE_TAG"]
+          # GitHub's API is eventually consistent: a Release created seconds
+          # ago can still be invisible. The re-check therefore polls for a
+          # bounded time (~60 s) before it is allowed to fail. A Release that
+          # is genuinely missing never appears, so it still fails.
+          ATTEMPTS = 4
+          RETRY_SECONDS = int(os.environ.get("RELEASE_GATE_RETRY_SECONDS", "20"))
+
+          if not os.path.isfile(CHECKER):
+              print(f"::error::{CHECKER} is missing: the release gate cannot be skipped", file=sys.stderr)
+              raise SystemExit(2)
+
+          proc = None
+          payload = None
+          for attempt in range(1, ATTEMPTS + 1):
+              proc = subprocess.run(
+                  [sys.executable, CHECKER, "--online", "--json"],
+                  capture_output=True,
+                  text=True,
+              )
+              if not proc.stdout.strip():
+                  print(
+                      f"::error::the checker printed nothing (exit {proc.returncode}): {proc.stderr.strip()}",
+                      file=sys.stderr,
+                  )
+                  raise SystemExit(2)
+              try:
+                  payload = json.loads(proc.stdout)
+              except json.JSONDecodeError as exc:
+                  print(f"::error::the checker printed no JSON: {exc}", file=sys.stderr)
+                  raise SystemExit(2)
+
+              for rule in payload.get("rules", []):
+                  print(f"{rule['id']} {rule['status']} {rule['detail']}")
+
+              r5 = next((r for r in payload.get("rules", []) if r.get("id") == "R5"), None)
+              if proc.returncode == 0 or (r5 is not None and r5.get("status") == "ok"):
+                  break
+              print(
+                  f"the Release of {tag} is not visible yet (attempt {attempt}/{ATTEMPTS}): "
+                  f"{r5.get('detail') if r5 else 'no R5 in the report'}"
+              )
+              if attempt < ATTEMPTS:
+                  time.sleep(RETRY_SECONDS)
+
+          # The exit code of the checker decides, not only the R5 rule, and
+          # the mapping is the same as in the pre-publish gate: 0 = clean,
+          # 1 = drift, 2 = an input that could not be read, and any other
+          # exit code is an unreadable input too (exit 2) - never a pass and
+          # never a downgrade to drift. An unexpected exit is not drift, so
+          # both steps must agree on it.
+          if proc.returncode == 0:
+              pass
+          elif proc.returncode == 1:
+              print("::error::the checker reported drift after the publish (checker exit 1)", file=sys.stderr)
+              raise SystemExit(1)
+          elif proc.returncode == 2:
+              print("::error::an input the re-check reads could not be read (checker exit 2)", file=sys.stderr)
+              raise SystemExit(2)
+          else:
+              print(
+                  f"::error::the checker exited {proc.returncode} after the publish: an unexpected exit code",
+                  file=sys.stderr,
+              )
+              raise SystemExit(2)
+
+          # R5 is the rule this step exists for: after the publish, the
+          # Release of the tag being published exists, so R5 must be `ok`.
+          r5 = next((r for r in payload.get("rules", []) if r.get("id") == "R5"), None)
+          if r5 is None:
+              print("::error::the checker reported no R5", file=sys.stderr)
+              raise SystemExit(2)
+          if r5.get("status") != "ok":
+              print(f"::error::R5 is not ok after the publish: {r5.get('detail')}", file=sys.stderr)
+              raise SystemExit(1)
+          print(f"the Release of {tag} exists and every version tag has one")
+          PY

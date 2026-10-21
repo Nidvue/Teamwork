@@ -72,6 +72,7 @@ ROOT_ALLOWLIST = {
     "mkdocs.yml",
     "pyproject.toml",
     "references",
+    "release-exceptions.json",
     "roles",
     "scripts",
     "site",

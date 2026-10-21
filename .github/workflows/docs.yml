@@ -2,11 +2,12 @@
 #
 # Contract: docs/Team/Architecture.md (section 9), docs/Team/Project.md AC-6.
 #
-# Trigger policy: `ci.yml` ignores documentation-only paths so that a prose edit
-# never runs the 3x3 test matrix. Those paths land here instead, where the cheap
-# checks that actually matter for prose still run - `teamwork links`, the privacy
-# scan (a documentation leak is still a leak) and `mkdocs build --strict`. Code
-# changes do not need this workflow: the site content did not change.
+# Trigger policy: the `ci.yml` scope job classifies the change and skips the
+# 3x3 test matrix on a prose-only push, so a prose edit never runs the matrix.
+# Those paths land here instead, where the cheap checks that actually matter for
+# prose still run - `teamwork links`, the privacy scan (a documentation leak is
+# still a leak) and `mkdocs build --strict`. Code changes do not need this
+# workflow: the site content did not change.
 
 name: Docs
 
