@@ -235,27 +235,308 @@ def test_the_role_mailbox_domain_is_an_owner_decision(root):
 # CI trigger policy: code in, prose and media out
 # --------------------------------------------------------------------------- #
 
-#: Paths that must NOT run the code matrix (prose and media).
-PROSE_AND_MEDIA = ('"docs/**"', '"assets/**"', '"README.md"', '"LICENSE"', '"mkdocs.yml"')
+#: The prose/media set, as path patterns. Every member must be named by the
+#: workflow's own filter (a `paths-ignore` list or the `scope` classifier's
+#: regex) and by `docs.yml`'s `paths:` list - the two lists must not drift.
+PROSE_AND_MEDIA = ("docs/**", "assets/**", "README.md", "LICENSE", "mkdocs.yml")
+
+#: One concrete file per prose/media pattern, used to exercise the filter the
+#: workflow really implements (a glob list or the classifier's regex).
+PROSE_AND_MEDIA_EXAMPLES = (
+    "docs/Team/Architecture.md",
+    "assets/logo.svg",
+    "README.md",
+    "LICENSE",
+    "mkdocs.yml",
+)
 
 #: Paths that must ALWAYS run the code matrix when they change.
 SHIPPED = ("src/**", "scripts/**", "tests/**", "roles/**", "references/**", "templates/**")
 
+#: The directories whose files ship in the wheel/skill bundle.
+SHIPPED_DIRS = ("src", "scripts", "tests", "roles", "references", "templates")
+
+#: The expensive jobs the cost optimisation may skip, and only on a push.
+EXPENSIVE_JOBS = ("lint", "typecheck", "test", "build", "privacy", "docs")
+
+#: The exact condition the expensive jobs carry under the `scope` mechanism.
+SCOPE_CONDITION = "if: github.event_name != 'push' || needs.scope.outputs.code == 'true'"
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _strip_comments(text: str) -> str:
+    """The workflow text without its comment lines.
+
+    The header of `ci.yml` explains the mechanism it replaced, so a mention of
+    `paths-ignore` in a comment is not a filter. Only code counts.
+    """
+    return "\n".join(line for line in text.splitlines() if not line.strip().startswith("#"))
+
+
+def workflow_triggers(text: str) -> dict[str, str]:
+    """The `on:` section of a workflow, keyed by trigger name.
+
+    A text parser, not a YAML parser: the workflow must be readable without a
+    runtime dependency, and the section is a flat, two-space-indented mapping.
+    """
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.rstrip() == "on:")
+    triggers: dict[str, str] = {}
+    name = ""
+    body: list[str] = []
+    for line in lines[start + 1 :]:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and _indent(line) == 0:
+            break  # the section ends at the next top-level key
+        if not stripped or stripped.startswith("#"):
+            if name:
+                body.append(line)
+            continue
+        if _indent(line) == 2 and stripped.endswith(":"):
+            if name:
+                triggers[name] = "\n".join(body)
+            name = stripped[:-1]
+            body = []
+        elif name:
+            body.append(line)
+    if name:
+        triggers[name] = "\n".join(body)
+    return triggers
+
+
+def workflow_jobs(text: str) -> dict[str, str]:
+    """The `jobs:` section of a workflow, keyed by job name."""
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.rstrip() == "jobs:")
+    jobs: dict[str, str] = {}
+    name = ""
+    body: list[str] = []
+    for line in lines[start + 1 :]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if _indent(line) == 0:
+            break
+        if _indent(line) == 2 and re.fullmatch(r"[A-Za-z0-9_-]+:", stripped):
+            if name:
+                jobs[name] = "\n".join(body)
+            name = stripped[:-1]
+            body = []
+        elif name:
+            body.append(line)
+    if name:
+        jobs[name] = "\n".join(body)
+    return jobs
+
+
+def _yaml_list(block: str, key: str) -> list[str] | None:
+    """The list items of `key:` inside a trigger block, or None if absent."""
+    match = re.search(rf"^    {re.escape(key)}:\s*$", block, re.M)
+    if not match:
+        return None
+    items: list[str] = []
+    for line in block[match.end() :].splitlines():
+        item = re.match(r"^      - (.+)$", line)
+        if item:
+            items.append(item.group(1).strip().strip('"'))
+        elif not line.strip() or line.strip().startswith("#"):
+            continue
+        else:
+            break
+    return items
+
+
+def _glob_to_regex(pattern: str) -> re.Pattern[str]:
+    """A GitHub-style path glob as a regex (`**` crosses directories)."""
+    out: list[str] = []
+    index = 0
+    while index < len(pattern):
+        if pattern.startswith("**", index):
+            out.append(".*")
+            index += 2
+        elif pattern[index] == "*":
+            out.append("[^/]*")
+            index += 1
+        elif pattern[index] == "?":
+            out.append("[^/]")
+            index += 1
+        else:
+            out.append(re.escape(pattern[index]))
+            index += 1
+    return re.compile("^" + "".join(out) + "$")
+
+
+def _expand_prose_regex(regex: str) -> set[str]:
+    """The classifier regex as the equivalent set of path patterns.
+
+    The `scope` job states the prose set as one alternation
+    (`^(docs/|assets/|README\\.md$|...)`); the `docs.yml` list states the same
+    set as globs. Expanding the regex makes the two comparable.
+    """
+    body = regex.strip()
+    if body.startswith("^(") and body.endswith(")"):
+        body = body[2:-1]
+    patterns: set[str] = set()
+    for alternative in body.split("|"):
+        item = alternative.strip().replace("\\.", ".").rstrip("$")
+        patterns.add(item + "**" if item.endswith("/") else item)
+    return patterns
+
+
+class ProseSet:
+    """The prose/media filter a workflow really implements.
+
+    Two mechanisms exist in the history of `ci.yml`: a workflow-level
+    `paths-ignore` list and the `scope` classifier job (a regex over the
+    changed paths). Both are modelled here, so the tests can assert the
+    contract without depending on which one is checked out.
+    """
+
+    def __init__(self, patterns: set[str], regex: str | None = None) -> None:
+        self.patterns = patterns
+        self.regex = regex
+        self._compiled = re.compile(regex) if regex else None
+        self._globs = [_glob_to_regex(pattern) for pattern in sorted(patterns)]
+
+    @property
+    def mechanism(self) -> str:
+        return "scope" if self._compiled is not None else "paths-ignore"
+
+    def matches(self, path: str) -> bool:
+        """True when the workflow classifies `path` as prose/media."""
+        if self._compiled is not None:
+            return self._compiled.search(path) is not None
+        return any(glob.match(path) for glob in self._globs)
+
+
+def ci_prose_filter(root: Path) -> ProseSet:
+    """The prose/media filter `ci.yml` implements on a push."""
+    text = read(root, ".github", "workflows", "ci.yml")
+    classifier = re.search(r"PROSE='([^']*)'", text)
+    if classifier:
+        return ProseSet(_expand_prose_regex(classifier.group(1)), classifier.group(1))
+    items = _yaml_list(workflow_triggers(text).get("push", ""), "paths-ignore")
+    assert items is not None, "ci.yml has neither a scope classifier nor a paths-ignore filter"
+    return ProseSet(set(items))
+
+
+def docs_prose_filter(root: Path) -> set[str]:
+    """The prose/media set `docs.yml` triggers on."""
+    text = read(root, ".github", "workflows", "docs.yml")
+    items = _yaml_list(workflow_triggers(text).get("push", ""), "paths")
+    assert items is not None, "docs.yml must trigger on a prose/media path list"
+    return set(items)
+
+
+def _first_file(root: Path, directory: str) -> str:
+    for path in sorted((root / directory).rglob("*")):
+        if path.is_file():
+            return path.relative_to(root).as_posix()
+    raise AssertionError(f"no file found under {directory}/")
+
 
 def test_ci_ignores_prose_and_media_paths(root):
-    text = read(root, ".github", "workflows", "ci.yml")
-    assert "paths-ignore:" in text, "ci.yml must filter documentation-only changes"
+    """The prose/media set is named by the workflow and really classifies prose.
+
+    The mechanism may be a `paths-ignore` list or the `scope` classifier's
+    regex; the contract is that the set is named, and that every member of it
+    is classified as prose by the filter the workflow implements.
+    """
+    prose = ci_prose_filter(root)
     for marker in PROSE_AND_MEDIA:
-        assert marker in text, f"ci.yml paths-ignore is missing {marker}"
+        assert marker in prose.patterns, f"ci.yml does not name the prose path {marker}"
+    for example in PROSE_AND_MEDIA_EXAMPLES:
+        assert prose.matches(example), f"ci.yml does not classify {example} as prose"
+    # the filter must be a real filter: a shipping file is not prose
+    assert not prose.matches("src/teamwork/cli.py")
+    # Exactly one mechanism filters the push. A workflow-level `paths-ignore`
+    # skips the whole workflow - including a gate whose subject is prose - so
+    # it cannot coexist with the job-level classifier.
+    text = read(root, ".github", "workflows", "ci.yml")
+    has_scope = "scope" in workflow_jobs(text)
+    has_trigger_filter = "paths-ignore" in workflow_triggers(text).get("push", "")
+    assert not (has_scope and has_trigger_filter), (
+        "ci.yml must not carry a workflow-level paths-ignore next to the scope classifier"
+    )
 
 
 def test_ci_does_not_ignore_anything_that_ships(root):
+    """Nothing that ships may be classified as prose.
+
+    The classifier's real logic is exercised: the shipped files of the tree
+    are offered to the filter the workflow implements, and each one must come
+    back as code.
+    """
+    prose = ci_prose_filter(root)
+    shipped_examples = [_first_file(root, directory) for directory in SHIPPED_DIRS]
+    shipped_examples += [
+        "SKILL.md",
+        "pyproject.toml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/docs.yml",
+        ".github/workflows/release.yml",
+    ]
+    for example in shipped_examples:
+        assert not prose.matches(example), f"ci.yml classifies the shipping path {example} as prose"
+    for marker in SHIPPED:
+        assert marker not in prose.patterns, f"ci.yml must not ignore shipping path {marker}"
+    assert "pyproject.toml" not in prose.patterns
+    assert ".github/**" not in prose.patterns
+
+
+def test_the_prose_set_and_the_docs_workflow_path_list_are_identical(root):
+    """A path in one list and not the other is a hole in one of the two gates.
+
+    The prose set the CI filter uses and the `paths:` list `docs.yml` triggers
+    on must be the same set - asserted as an identity of the sets, not as a
+    count, so that a path added to one side fails the test.
+    """
+    prose = ci_prose_filter(root)
+    docs = docs_prose_filter(root)
+    assert prose.patterns == docs, (
+        f"the CI prose set and the docs.yml path list differ: "
+        f"only in CI: {sorted(prose.patterns - docs)}, only in docs.yml: {sorted(docs - prose.patterns)}"
+    )
+    for marker in PROSE_AND_MEDIA:
+        assert marker in docs, f"docs.yml path list is missing {marker}"
+
+
+def test_the_release_consistency_gate_is_never_filtered(root):
+    """A gate whose subject is prose must not be skipped when prose drifts.
+
+    The `release-consistency` job reads the markdown, `version.py` and
+    `CHANGELOG.md`. A workflow-level `paths-ignore` on the push trigger skips
+    the whole workflow - including that job - exactly when the documentation
+    drifts, which makes the gate worthless. So the gate must be unfiltered:
+    no workflow-level push filter, no `needs:` on the classifier and no
+    job-level `if:`.
+
+    On a revision that does not carry the gate yet there is nothing to
+    protect, and the test states that instead of pretending to check it.
+    """
     text = read(root, ".github", "workflows", "ci.yml")
-    ignore_block = text.split("paths-ignore:", 1)[1].split("workflow_dispatch", 1)[0]
-    for shipped in SHIPPED:
-        assert shipped not in ignore_block, f"ci.yml must not ignore shipping path {shipped}"
-    assert "pyproject.toml" not in ignore_block
-    assert ".github/" not in ignore_block
+    code = _strip_comments(text)
+    jobs = workflow_jobs(code)
+    gate = jobs.get("release-consistency")
+    checker = root / "scripts" / "check_release_consistency.py"
+    if checker.is_file():
+        assert gate is not None, "the checker is in the tree, so ci.yml must carry the gate"
+    if gate is None:
+        assert "scope" not in jobs, "ci.yml has a scope job but no release-consistency gate"
+        return
+    push = workflow_triggers(code).get("push", "")
+    assert "paths-ignore" not in push, "ci.yml must not path-filter the push trigger"
+    assert "paths-ignore" not in code, "ci.yml must not carry a workflow-level path filter"
+    assert not re.search(r"^    needs:", gate, re.M), (
+        "the consistency gate must not need the scope job"
+    )
+    assert not re.search(r"^    if:", gate, re.M), (
+        "the consistency gate must not be skipped by an if"
+    )
+    assert "check_release_consistency.py" in gate, "the gate must run the consistency checker"
 
 
 def test_the_docs_workflow_covers_the_ignored_paths_with_cheap_checks(root):
@@ -462,17 +743,43 @@ def test_required_checks_are_always_reported_on_pull_requests(root):
     """A path-filtered pull request would wait forever on an unreportable check.
 
     The path filter is a cost optimisation and belongs on `push`; the required
-    workflows must run unconditionally on every pull request.
+    workflows must run unconditionally on every pull request. A check that is
+    skipped by a path filter is not reported at all, and a required check that
+    is never reported blocks the merge forever.
     """
     ci = read(root, ".github", "workflows", "ci.yml")
-    pr_block = ci.split("pull_request:", 1)[1].split("workflow_dispatch", 1)[0]
-    assert "paths-ignore" not in pr_block, "ci.yml must not path-filter pull requests"
+    triggers = workflow_triggers(ci)
+    assert "pull_request" in triggers, "ci.yml must trigger on every pull request"
+    pr_block = triggers["pull_request"]
+    assert not re.search(r"^\s+paths(-ignore)?:", pr_block, re.M), (
+        "ci.yml must not path-filter pull requests"
+    )
     docs = read(root, ".github", "workflows", "docs.yml")
-    docs_pr = docs.split("pull_request:", 1)[1].split("workflow_dispatch", 1)[0]
-    assert "paths:" not in docs_pr, "docs.yml must not path-filter pull requests"
-    # and the push side keeps the filter (the cost optimisation)
-    assert "paths-ignore" in ci.split("pull_request:", 1)[0]
-    assert "paths:" in docs.split("pull_request:", 1)[0]
+    docs_pr = workflow_triggers(docs).get("pull_request", "")
+    assert not re.search(r"^\s+paths(-ignore)?:", docs_pr, re.M), (
+        "docs.yml must not path-filter pull requests"
+    )
+    # the cost optimisation exists, on the push side only
+    assert "push" in triggers, "ci.yml must trigger on push"
+    jobs = workflow_jobs(ci)
+    if "scope" in jobs:
+        # the classifier mechanism: the expensive jobs ask the classifier
+        assert "paths-ignore" not in triggers["push"], (
+            "ci.yml must not path-filter the push trigger next to the scope classifier"
+        )
+        assert jobs["scope"].count("outputs:") == 1, "the scope job must publish one output"
+        assert "code:" in jobs["scope"], "the scope job must publish the code output"
+        for job in EXPENSIVE_JOBS:
+            assert job in jobs, f"ci.yml is missing the {job} job"
+            assert "needs: scope" in jobs[job], f"the {job} job must need the scope job"
+            assert SCOPE_CONDITION in jobs[job], (
+                f"the {job} job must skip only on a prose-only push"
+            )
+    else:
+        # the trigger-filter mechanism: the jobs themselves are never skipped
+        for job in EXPENSIVE_JOBS:
+            assert job in jobs, f"ci.yml is missing the {job} job"
+            assert not re.search(r"^    if:", jobs[job], re.M), f"the {job} job must not be skipped"
 
 
 def test_remote_reference_documents_the_unreported_check_trap(root):
