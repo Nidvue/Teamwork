@@ -449,6 +449,61 @@ def test_r3_compares_the_tarball_payload_with_the_tagged_payload(tmp_path):
     assert fetch.asked == [crc.NPM_REGISTRY, crc.NPM_REGISTRY]
 
 
+def test_r3_an_unadmitted_non_semver_published_version_is_drift(tmp_path):
+    """A published version must not escape R3 by its version shape.
+
+    11.2.3 says R3 takes *every* version key from the registry and that an npm
+    version is satisfied by a tag or by a 11.4 entry - there is no third path.
+    Treating a key that is not ``X.Y.Z`` as "ignored" therefore lets a version
+    that is neither tagged nor admitted in writing pass as clean, which is
+    exactly what AC-REL-1 forbids: the npm staged-publish placeholder
+    ``0.0.0-stage`` is published, carries no ``gitHead``, has no tag and no
+    payload to digest, and the gate used to print ``ok`` for it.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    fetch = fake_http({crc.NPM_REGISTRY: npm_registry({"1.1.0": "x", "0.0.0-stage": "x"})})
+
+    result = crc.rule_r3_npm_payloads(root, [], fetch, lambda url: tarball(PAYLOAD))
+
+    assert result.status == "DRIFT"
+    assert any("0.0.0-stage" in finding for finding in result.findings)
+    assert "ignored non-X.Y.Z" not in result.detail
+
+
+def test_r3_an_admitted_non_semver_published_version_is_ok_end_to_end(tmp_path):
+    """The escape must be *recorded*: 11.4 admits the version, the gate is green.
+
+    AC-REL-1's second path is a written admission with a measured reason. The
+    exception record is the only place that admission can live, so
+    ``load_exceptions`` has to accept the published version string it admits
+    (the placeholder is ``0.0.0-stage``, which no ``vX.Y.Z`` tag can carry) and
+    R3 has to keep it visible in its ``detail`` on every run.
+    """
+    exception = {
+        "version": "0.0.0-stage",
+        "reason": "npm's staged-publish placeholder, published before 1.1.0",
+        "evidence": "gitHead is null and no commit in git rev-list --all carries 0.0.0-stage",
+        "recorded": "2026-10-21",
+    }
+    root = make_repo(
+        tmp_path / "repo", version="1.1.0", files=PAYLOAD, exceptions=json.dumps([exception])
+    )
+    git(root, "tag", "v1.1.0")
+    fetch = fake_http({crc.NPM_REGISTRY: npm_registry({"1.1.0": "x", "0.0.0-stage": "x"})})
+
+    result = crc.rule_r3_npm_payloads(
+        root,
+        crc.load_exceptions(root / "release-exceptions.json"),
+        fetch,
+        lambda url: tarball(PAYLOAD),
+    )
+
+    assert result.status == "ok"
+    assert "1 npm version(s) match" in result.detail
+    assert "0.0.0-stage admitted by exception" in result.detail
+
+
 # --------------------------------------------------------------------------- #
 # R4 / R5 - the GitHub Release list and the tag list must agree
 # --------------------------------------------------------------------------- #
