@@ -69,7 +69,7 @@ under two roles is two tasks.
 | ceo | T-0068 | - | done | - | - |
 | ceo | T-0069 | - | done | - | - |
 | ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
-| ceo | T-0071 | - | done | P-0108 | - |
+| ceo | T-0071 | - | done | P-0108 | 9099e51 |
 | ceo | T-0072 | - | todo | - | - |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
