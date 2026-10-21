@@ -6090,10 +6090,19 @@ EXTERNAL_SCHEMES = ("http://", "https://", "mailto:", "doi:", "ftp://")
 
 
 def iter_markdown(project: Path) -> list:
-    """Every markdown file a human might read, excluding caches and dependencies."""
+    """Every markdown file a human might read, excluding caches and dependencies.
+
+    The skip test is relative to ``project``. Testing the absolute parts instead
+    silently skipped every file when the project itself lives under ``.pi`` (a
+    per-instance worktree), which made ``links`` pass vacuously there.
+    """
     out = []
     for p in project.rglob("*.md"):
-        if any(part in SKIP_DIRS for part in p.parts):
+        try:
+            parts = p.relative_to(project).parts
+        except ValueError:
+            parts = p.parts
+        if any(part in SKIP_DIRS for part in parts):
             continue
         out.append(p)
     return sorted(out)
@@ -6207,7 +6216,9 @@ def link_report(project: Path, root: Path) -> dict:
 
 def cmd_links(args) -> int:
     root = project_root(args)
-    project = project_of(root)
+    # Inside one of our worktrees this is the worktree, so a lane checks the links
+    # it is about to submit rather than the checkout it happens to share.
+    project = work_repo(root)
     rep = link_report(project, root)
     issues = len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"])
     if not args.no_reciprocity:
@@ -8434,7 +8445,10 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
 def _audit_markdown_link_health_broken_malformed_ba(root: Path, names: list, args) -> int:
     hits = 0
     print("## markdown link health (broken / malformed / bare / missing back-links)")
-    rep = link_report(project_of(root), root)
+    # Same rule as cmd_links: measure the tree the caller is in. project_of()
+    # answers for the main checkout, so inside a worktree this section reported
+    # "none" no matter what the lane's own documents contained.
+    rep = link_report(work_repo(root), root)
     link_issues = (
         len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"]) + len(rep["missing_back"])
     )
