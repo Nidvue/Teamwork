@@ -2025,4 +2025,4 @@ No blockers; no unrelated changes; branch mergeable.
 - author evidence: 
 - reviewer evidence: PYTHONPATH=$PWD/src .venv/bin/python -m pytest -q tests/unit/test_board_matches_tool.py @eee5553 bare worktree -> 4 passed, 2 skipped (live-tree tests skip without .pi/); with a .pi/Teams/Teamwork copy -> 6 passed; mutation: flipped the '| ceo | T-0071 | - |' state cell review->done -> 2 failed with "ceo T-0071: board says ('done','P-0108','-'), queue says ('review','P-0108','-')"; git checkout -- docs/Team/Board.md -> 6 passed
 - findings history: 
-- branch / merge: ceo/t-0071-the-board-vs-queue-comparison-is-a-test / pending
+- branch / merge: ceo/t-0071-the-board-vs-queue-comparison-is-a-test / 9099e51
