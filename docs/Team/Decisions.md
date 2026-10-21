@@ -729,6 +729,375 @@ worktree until the slot expires - the safe direction to fail.
 - falsified by: `grep -rn DETERMINISTIC_PROOFS src tests` returning a match, or the AC-12 drift mutant passing at the head - either would mean the charged mechanism survived and the ruling is wrong.
 - consequences: `dispute list` shows 0 open and 0 escalated. Both the product-manager guard and the ruling are recorded; the residual limit that the guard cannot re-run forge rows stays stated in docs/Team/Project.md rather than hidden.
 
+## D-20261020-Tester - Option (a), generalized: tests/unit/test_traceability_matrix
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Tester (tester)
+- decided by: Tester
+- task: -
+- context: -
+- options considered: -
+- decision: Option (a), generalized: tests/unit/test_traceability_matrix.py skips the record-resolution guard only when no record in the team tree identifies itself with a cited id AND the layer/area the matrix claims for it, naming both counts; the moment one record identifies itself the guard hard-fails on every problem (missing, not passing, wrong layer/area) exactly as before. Option (b), a committed snapshot or digest, was rejected.
+- why: The cited records (TS-0001/0005/0008/0011/0013/0014/0018/0022/0024) exist only in a gitignored Tests.md from an earlier team run; this machine's tree is a fresh init that numbers its own TS-0001 as requirements/research while the matrix's TS-0001 was goal/audit, so a committed snapshot would have to be invented - the anti-fabrication rule forbids writing record data nobody measured - and the ids are workspace-local and re-used, so no digest can identify the producing workspace either. A skip that names the counts is honest; a red suite on every fresh workspace is not, and it would block unrelated lanes.
+- evidence: main 3f4981d: pytest tests/unit/test_traceability_matrix.py -q -> 2 failed, 8 passed ('AC-1: TS-0018 is not a record in Tests.md' x9); branch with a fresh 2-record tree: 9 passed, 1 skipped with 'the team tree holds 2 test record(s) and none carries an id and layer/area claimed by the 9 records cited here'; scratch tree carrying TS-0018 release/release passing: hard failure naming the id collision and the 8 missing records; same tree with TS-0018 failing: hard failure "AC-1: TS-0018 has status 'failing', not 'passing'"; no tree at all (CI shape): skip
+- falsified by: A committed, non-invented source for the cited records would make option (b) available and this skip obsolete - e.g. if 'teamwork.py ledger export' published the tests add/run records into docs/Team/AuditManifest.json; likewise if 'teamwork.py init' stopped re-numbering TS ids from TS-0001, the id+layer/area identity test could be replaced by a workspace digest
+- consequences: -
+
+## D-20261020-Reviewer-1 - P-0007 pass evidence: correct the R3 clause mangled by shell expansion
+
+- date: 2026-10-20
+- kind: process
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: T-0002
+- context: -
+- options considered: -
+- decision: The R3 statement in the P-0007 review evidence (ledger record #0167) must be read as: the shim keeps root=$(git rev-parse --show-toplevel). The stored text shows the shell-expanded value of that substitution because the evidence was passed in double quotes; the deliverable is not affected.
+- why: I verified the shim body myself: src/teamwork/hooks.py:50 contains "root=$(git rev-parse --show-toplevel) || exit 0" and the module docstring at hooks.py:13-17 says the same. The mangled clause is a transcription defect in my evidence string, not a finding about the code; leaving it uncorrected would misstate what was verified.
+- evidence: grep -n "root=" src/teamwork/hooks.py @main 5a40f0f -> 50: "root=$(git rev-parse --show-toplevel) || exit 0\n"; ledger record #0167 evidence clause R3; same class as the Architect transcription note at ledger #0165
+- falsified by: A hooks.py shim that hardcodes the root instead of resolving it with git rev-parse --show-toplevel would overturn this correction; none exists at 0795f26.
+- consequences: -
+
+## D-20261020-CEO-5 - Hook marker and shim body: the code and Architecture 11.6 must say one thing
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The shim's line 2 carries the literal 'teamwork-managed hook' plus the human instruction, one HOOK_MARKER constant keys install/status/uninstall/overwrite, and Architecture 11.6 is amended to the shipped body: '[ -f ]' instead of '[ -x ]' and '${TEAMWORK_SKIP_HOOKS:-}' for the bypass.
+- why: A frozen interface the code silently reinterprets is what the freeze exists to prevent, but the frozen text was also wrong twice: '[ -x ]' would make every installed hook a silent no-op because scripts/teamwork.py is committed 100644, and the two-line marker it fixed was never implemented.
+- evidence: tester T-0001 process-boundary suite -> tests/integration/test_harness_cli.py: test_the_installed_hook_carries_the_marker_literal FAILED (config.py:411 HOOK_MARKER='Installed by teamwork.py hooks install', the literal never appears) and test_the_root_commit_on_the_default_branch_is_refused FAILED ('git commit -m first' succeeds on an unborn main, second commit refused, because gitutil.current_branch() is empty on an unborn branch); 21 other assertions passed. The -x defect: git ls-files -s scripts/teamwork.py -> 100644.
+- falsified by: A hook installed by 'hooks install' that is skipped by git, or a status/uninstall that touches a foreign hook, or a first commit on the default base that the hook allows.
+- consequences: -
+
+## D-20261020-CEO-6 - harness list: the code conforms to Architecture 11.2, not the other way round
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: harness.py renders exactly eight data rows in C1..C8 order, '-' for C5's class and bytes, the section-2 owner in the role column, no header lines; the per-class byte sums move under --verbose. The Architect does not amend 11.2 to match an eleven-row output.
+- why: The point of the registry is a 1:1 inventory of the eight Harness^2 components, which is what makes it auditable row by row against Research section 8 and the paper. Eleven rows (C3 per role, C7 and C8 split) would make the 'exactly eight' claim in Architecture and in the research verdict false, and would leave no column a reader can check against the source taxonomy.
+- evidence: Developer branch a26f5db: python3 scripts/teamwork.py harness list -> '# harness surfaces' + a column header + 12 data rows + '#' per-class totals; Architecture.md section 11.2 (frozen, D-20261020-Architect-2) -> 'exactly eight rows, no header line, - for C5'; reviewer fail on developer T-0001 P-0004 quoted the same delta.
+- falsified by: A reader cannot map row to component without a lookup, or a harness.py test asserts a row count other than 8 at the merged revision.
+- consequences: -
+
+## D-20261020-CEO-7 - A new module may carry its own one-line entry in the Architecture module list
+
+- date: 2026-10-20
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: When a lane adds a module under src/teamwork/, that lane may add the single line for it to the frozen module list in Architecture.md section 2 inside its own task branch, disclosed in the commit body, the PR and the self-check, instead of waiting for the Architect. Anything beyond that one line is still the Architect's file.
+- why: tests/unit/test_portability.py::test_architecture_lists_exactly_the_shipped_modules turns main RED the moment the new module merges, and no other lane can repair it in the same commit because the Architect is not building that module. A merge that is red on arrival is worse than a one-line, disclosed, reviewed cross-boundary edit.
+- evidence: developer T-0001 branch: pytest -q -> tests/unit/test_portability.py::test_architecture_lists_exactly_the_shipped_modules FAILED 'At index 7 diff: imaging.py != harness.py'; same for developer T-0002 hooks.py; both fixed by one line in section 2 and re-verified green.
+- falsified by: A lane uses the exception to edit Architecture.md beyond its own module line, or a module line lands without the other module's tests passing at the merged revision.
+- consequences: -
+
+## D-20261020-Reviewer-1-2 - No dispute on architect T-0001's third fail: the counter counts a task handle, not a deliverable
+
+- date: 2026-10-20
+- kind: process
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: T-0001
+- context: -
+- options considered: -
+- decision: Reviewer-1 fails architect T-0001 at f476b82 without opening a dispute. The engine's 'failure #3' warning counts fails by task handle, and four different deliverables share the handle T-0001: ceo T-0001 (rubric docs, merged), developer/tester T-0001 (harness lane), architect T-0001 (this contract). This deliverable has two fails: Reviewer-2's F1-F4 round (ledger #0176) and mine, so the loop is not spinning on one artefact.
+- why: A dispute exists for a design disagreement between roles, not for concrete defects with a named owner and a stated remedy. Every one of my four blockers is mechanical and reproducible on demand: a merge-tree rc=1 (rebase), an author/committer mismatch (squash), a layer test that is red at the merged tree and stricter than the text it enforces (make it per-group), and a frozen shim body that the merged hooks.py does not write (align the text or route a Developer task). None of them requires the tribunal to choose between two defensible designs - the deliverable is the only side that is wrong in each case, and the ruling it implements (D-0001) is already binding.
+- evidence: teamwork.py review --queue @main 25c566e -> architect T-0001 review_status=failed, findings name four blockers; git merge-tree --write-tree main f476b82 -> rc=1 CONFLICT docs/Team/Decisions.md; teamwork.py identity --audit --range main..f476b82 -> 2 commits, 1 problem; probe merge main+f476b82 pytest -q -> 3 failed, 701 passed, 3 skipped (2 of the failures are the new contract test); main:src/teamwork/hooks.py shim() -> one combined marker line and no 2>/dev/null, while Architecture 11.6 freezes two lines plus 2>/dev/null; ledger #0124 and #0174 and #0176 are the fails this handle has accumulated across four owners.
+- falsified by: If the architect re-submits the same revision with the same findings, or argues the two-line marker and the all-or-nothing landing are the correct design, that is a design disagreement and the tribunal decides it; equally if the merged-tree failure turns out to depend on which lane lands first rather than on the text, the per-group wording is the wrong remedy and this decision is wrong.
+- consequences: P-0003 stays changes-requested with four recorded blockers; the Architect owns the rework, not the Reviewer.
+
+## D-20261020-Architect - The harness surface is a registry over files that already exist, not a new abstraction or a generated file
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: H1 of the Harness^2 brief asks for a named surface with an activation class and a cost. The CEO froze 'harness list' as 'class bytes path role' per surface, with bytes measured at run time.
+- options considered: (A) one abstraction or module per Harness^2 component, with a generated manifest (rejected: a generated file becomes a second copy of text that must never be duplicated, and it has to be kept in sync with the eight files it describes); (B) a registry that enumerates the paths the engine already resolves and measures them on disk (chosen); (C) documentation only, no command (rejected: nothing then measures bytes or checks the activation class, so the cost doctrine stays unenforced)
+- decision: The eight Harness^2 components are a table (C1..C8) over paths that already exist in this repository: SKILL.md, the managed block in AGENTS.md, Roles/<Role> memory + Global/GlobalMemory.md, references/*.md, the lane packet (no file), .agents/skills/*/SKILL.md, scripts/*.py + src/teamwork/*.py and the two hook files found through `hook_dir(root)` (`git -C <root> rev-parse --git-path hooks`), not through a repository-relative `.git/hooks` path - corrected by D-20261020-Architect-8, which is the ruling that superseded the repository-relative spelling. 'harness list' prints class, measured bytes, path and owner role per component and nothing is generated, mirrored or moved.
+- why: Three of the eight components are already the shipped skill bundle, and Architecture section 3 already fixes a single source for that bundle (checkout or wheel, never two copies). A registry makes the cost of each component measurable without relocating content, and a generated file would recreate exactly the duplication the wheel force-include exists to avoid; the eight rows stay checkable against the tree by a test instead of by a build step.
+- evidence: at 2e7810f: wc -c AGENTS.md -> 27431 (managed block 27386), SKILL.md -> 46575, roles/*.md -> 134781 over 15 files, references/*.md -> 11 files, .agents/skills/ -> 1 directory, scripts/*.py -> 5 files, src/teamwork/*.py -> 15 files: every path the registry names already exists, so no file is added by this contract
+- falsified by: A component whose value cannot be read from the file it names, so the registry has to invent a second artifact; or the registry and the tree disagreeing (a row naming a path that is absent, or a path no row covers) at review time.
+- consequences: harness list becomes the only place the eight components are named; docs/Team/Architecture.md section 11 carries the same table and tests/unit/test_cli_contract.py asserts the emitted rows against it, so a new always-on file cannot be added without a row.
+
+## D-20261020-Architect-2 - In-loop enforcement is an opt-in git hook, with a documented bypass and a non-blocking identity check
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: H4 adopts Harness^2's middleware component: enforce a behaviour instead of instructing it. The CEO froze 'hooks install|status|uninstall' plus 'hook pre-commit' and 'hook pre-push'.
+- options considered: (A) run the hook installation automatically inside 'init' (rejected: it mutates .git in every project the skill bootstraps, an agent cannot decline it, and it silently changes git behaviour for the operator's own commits); (B) an explicit 'hooks install' that refuses a foreign hook without --force, a TEAMWORK_SKIP_HOOKS bypass, and an identity finding that only warns (chosen); (C) no hooks at all, engine-only enforcement (rejected: the engine never sees a hand-typed or agent-typed 'git commit', which is exactly the case the rule exists for)
+- decision: In-loop enforcement ships as 'hooks install', never as an init step. The shim exits 0 immediately when TEAMWORK_SKIP_HOOKS is set, install refuses to overwrite a hook it did not write unless --force, uninstall removes only marked hooks, and the pre-commit identity rule (R3) prints a warning to stderr and exits 0.
+- why: A git hook is the only enforcement point that sees a plain 'git commit' or 'git push', so it is the only place a middleware rule can actually bind. But an uninterruptible hook turns a legitimate workflow (an operator committing their own work, a rebase, a cherry-pick) into a refusal, and the team's own red line is to stop and escalate rather than block the operator; H4's own falsifier is that agents answer a misfiring hook by setting the bypass. The identity rule is the one rule with no engine gate behind it to protect: cmd_commit sets the role identity itself (names.git_identity_args), so a foreign identity can only arrive from a commit the engine did not make, and identity is a provenance warning, not a correctness gate.
+- evidence: at 2e7810f: grep -rn 'hooks install|def cmd_hooks' src -> no match (the surface is new, nothing to conflict with); engine.py:3263-3268 - the identity audit reaches 'not a role mailbox' only under --strict-authors and only warns otherwise; names.py:189 git_identity_args sets user.name/user.email per role, so engine-made commits always match; grep -rn TEAMWORK_SKIP_HOOKS src scripts -> no match, the escape name is unused
+- falsified by: A hook that fires on a legitimate workflow and is answered by exporting TEAMWORK_SKIP_HOOKS in a lane: the rule must then move back into the engine (H4 falsifier). Or an engine gate that already refuses the same commit, which would make the hook pure duplication.
+- consequences: init never installs a hook; 'hooks status' reports installed|absent|foreign so a bypassed or missing hook is visible; R3 exits 0; the bypass, the marker and the refusal-to-overwrite rule are all stated in Architecture section 11 and asserted by the system test.
+
+## D-20261020-Architect-3 - 'harness lint' derives the subcommand vocabulary from the parser, not from a list
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: H3 adopts whole-proposal invalidators. One of them is SUBCOMMAND: every 'teamwork.py <word>' a skill file names must be a subcommand that exists. The CEO froze the list as 'derived from the parser'.
+- options considered: (A) a checked-in list of subcommand names next to the lint rule (rejected: it is a second copy of the parser and drifts the first time a command is added, and a stale entry fails a valid skill file); (B) enumerate the choices of engine.build_parser() at run time (chosen); (C) ask the CLI with --help and parse the text (rejected: it couples the rule to argparse's help formatting and cannot be called in-process)
+- decision: 'harness lint' builds the parser with engine.build_parser() and reads the registered top-level subcommand names from the subparsers action; no list of command names is checked in anywhere, and the lint rule has no vocabulary of its own.
+- why: The engine is the vocabulary: build_parser() is the single function that defines every subcommand (engine.py:9193, with nine _parsers_* helpers), so deriving from it makes the rule exactly as current as the CLI it checks. A checked-in list would be a second source of truth for the one thing this rule is about; the whole point of the rule is that a skill file naming a command that no longer exists is caught by the same code that defines the commands.
+- evidence: at 2e7810f: PYTHONPATH=src python -c 'from teamwork.engine import build_parser; from argparse import _SubParsersAction; print(len([a for a in build_parser()._actions if isinstance(a,_SubParsersAction)][0].choices))' -> 43 top-level choices, read from the parser object; python3 scripts/teamwork.py --help prints the same 43 names and no list of them exists in the source (grep -c 'add_parser(' engine.py -> 95, all registrations)
+- falsified by: A command reachable without being registered in the parser - an alias resolved in main(), or a shim that rewrites argv - which the rule would then miss; or the parser being built only after the lint runs, so the rule sees a stale surface.
+- consequences: The rule is as complete as the parser and needs no maintenance when a command is added; an alias must be registered as a subparser to be visible to lint.
+
+## D-20261020-Architect-4 - The always-on budget default is 120 KiB per instance, measured on the shipped text
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: H2 adopts the cost doctrine: always-on prose is paid on every call, so 'if you add always-on text, cut something else to pay for it'. The CEO froze a new Settings.json key AlwaysOnBudgetKb with a default of 120.
+- options considered: (A) no default, budget only when a workspace sets one (rejected: Settings.json is optional and absent in a fresh workspace, so the budget would silently not exist); (B) 120 KiB per instance, overridable per workspace (chosen); (C) one cap per role sized to its charter (rejected: the expensive part is the text every instance pays - the AGENTS.md block plus SKILL.md - not the difference between charters)
+- decision: AlwaysOnBudgetKb defaults to 120 in config.py, is overridable per workspace in Settings.json, and is read as KiB (multiply by 1024), so the default is 122880 bytes. The measurement unit is one instance: managed AGENTS.md block + SKILL.md + that role's charter + that role's memory. The number is per instance, never the sum over the roster.
+- why: Measured on the tree at 2e7810f: the shared always-on text is 73961 B (managed AGENTS.md block 27386 + SKILL.md 46575) and every instance pays it before its own charter; role memory is ~1.3 kB and the largest charter is designer at 18069 B, so the most expensive instance in the shipped roster is 93379 B, 76% of 122880 B. That leaves about 30 kB of headroom - one more section of prose, not one more document - while a charter inflated to 40 kB or a second always-on paragraph in AGENTS.md trips the line. Summing the roster instead (15 instances) would be ~1.25 MB and OVER for every workspace, which measures the roster rather than the cost of a call.
+- evidence: at 2e7810f: wc -c AGENTS.md -> 27431 total with the managed block (BEGIN..END) measuring 27386 B; wc -c SKILL.md -> 46575; wc -c roles/*.md -> 134781 over 15 files (largest roles/designer.md 18069, smallest roles/technical-writer.md 5601); Roles/*/ShortTermMemory.md + LongTermMemory.md in the live workspace -> 1292..1349 B per role; 27386 + 46575 + 18069 + 1349 = 93379 B of 122880 B = 76%
+- falsified by: The cap raised twice in a row instead of cutting text (H2 falsifier), or an instance whose always-on file was never actually loaded into a run - then the measured bytes and the real cost have drifted apart and the number must be recalibrated from a real startup, not lowered or raised by taste.
+- consequences: config.py owns the default and Settings.json overrides it per workspace; budget prints one line per instance plus a total and exits 1 when any instance is OVER; the key must be declared non-provider (see D-20261020-Architect-6) or it is read as a concurrency limit named AlwaysOnBudgetKb.
+
+## D-20261020-Architect-5 - The hook file is written to 'git rev-parse --git-path hooks', not to the toplevel .git/hooks
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: The frozen text said hooks install writes `.git/hooks/{pre-commit,pre-push}` with the root resolved by 'git rev-parse --show-toplevel' - wording later superseded by D-20261020-Architect-8, together with the amendment the CEO proposed for it, 'relative results resolved against the project root', which the neutral seat withdrew as unsafe on its own (D-0001 R2). Every lane here works in a linked worktree, where <toplevel>/.git is a regular file. Dispute D-0001 records the defect against the CEO.
+- options considered: (A) keep the frozen wording and special-case the worktree (rejected: it is a special case for the normal case, and it still guesses what git will read); (B) ask git: 'git rev-parse --git-path hooks' (chosen); (C) 'git rev-parse --git-common-dir'/hooks (rejected: re-implements git's own path resolution, and ignores core.hooksPath and a separate git dir)
+- decision: 'hooks install|status|uninstall' resolve the hook directory with 'git rev-parse --git-path hooks' and write there. The shim still resolves the project root with 'git rev-parse --show-toplevel', because the rules act on the work tree while the hook file lives in the git directory git actually reads.
+- why: In a linked worktree <toplevel> is the worktree, but git reads hooks from the COMMON git dir; <toplevel>/.git is a 66-byte file, so the frozen path is not merely wrong, it cannot be created (ENOTDIR). --git-path hooks is the only answer that is correct in all three cases - normal checkout, linked worktree, separate git dir - and git computes it, so the contract does not have to know about core.hooksPath. Consequence that must be stated: the hooks are per common git dir, so installing from any lane worktree installs for every worktree of that repository at once.
+- evidence: at 2e7810f in the Architect worktree: git rev-parse --show-toplevel -> .../Runtime/Worktrees/Architect; test -d .git -> false (.git is a 66-byte file); mkdir -p .git/hooks -> 'cannot create directory .git: Not a directory', rc=1; git rev-parse --git-path hooks -> /home/pingz/Code/Nidvue/Teamwork/.git/hooks; reproduced in a throwaway repo /tmp/hookprobe + linked worktree /tmp/hookprobe-wt: --git-path hooks -> /tmp/hookprobe/.git/hooks while mkdir -p .git/hooks -> rc=1
+- falsified by: 'hooks install' succeeding against <toplevel>/.git/hooks inside a linked worktree and git honouring the file, or a repository whose --git-path hooks output is not the directory git executes (then the resolver must follow git's actual rule rather than this command).
+- consequences: The install target is git's answer, not a path built from the toplevel; Architecture section 11 states both resolutions and the shared-across-worktrees consequence; 'hooks status' must therefore also resolve through --git-path hooks or it will report 'absent' while the hook is installed.
+- corrected by: D-20261020-Architect-8 - this entry's context quoted the superseded repository-relative target and the CEO's withdrawn 'resolved against the project root' amendment; the resolver is frozen there as an atomic pair with the `-C <root>` pin, and Architecture 11.6 now carries that wording only.
+
+## D-20261020-Architect-6 - The new surface adds no second source of truth: the budget key is declared non-provider, the branch name comes from config.DEFAULT_BASE, the LFS and AGENTS.md-block helpers are reused
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: Three values the new commands need already exist in the engine, and two of them exist twice. Measured before writing the contract: the Settings.json loader treats every key it does not know as a provider cap, the default branch is defined in two modules plus one literal, and the LFS check plus the managed AGENTS.md block each live in exactly one place.
+- options considered: (A) let the new code read what it finds and keep the duplicates (rejected: AlwaysOnBudgetKb would silently become a concurrency provider named after the key, and a second branch-name constant would let the hook refuse a commit on one branch while the engine refuses on another); (B) one named source per value, with the new surface as a consumer (chosen); (C) move every constant into one module now (rejected: that is a refactor of working code with no requirement behind it, outside this contract)
+- decision: The new surface consumes named single sources: AlwaysOnBudgetKb is added to config.SETTINGS_NON_PROVIDER so load_providers ignores it; the hook reads config.DEFAULT_BASE (never a literal and never gitutil's copy); the LFS rule calls gitutil.lfs_tracked; the managed-block bytes come from the engine's BEGIN/END markers via one helper shared with cmd_agents_md. gitutil.DEFAULT_BASE and the 'git init -b main' literal are recorded as debt with a follow-up task, not silently shadowed.
+- why: A hook that disagrees with the engine about the default branch refuses the wrong commit, and a Settings key read as a provider invents a concurrency cap nobody declared - both are silent, both would be found in review rather than at the gate. The LFS check and the block markers are the two places where a re-implementation is guaranteed to drift: lfs_tracked already encodes the '.gitattributes filter=lfs' parsing including the '*.<ext>' vs path match, and the BEGIN/END markers are the only thing that separates managed text from the CEO's own prose in AGENTS.md.
+- evidence: at 2e7810f: PYTHONPATH=src python -c 'from teamwork.engine import load_providers; print(load_providers(Path("/tmp/arch_probe")))' on Settings.json {ollama-cloud:64, PulseMinutes:30, AlwaysOnBudgetKb:120} -> {'ollama-cloud': 64, ..., 'AlwaysOnBudgetKb': 120} (the key is read as a provider cap; the skip list is config.py:388 SETTINGS_NON_PROVIDER = ('PulseMinutes','Criteria'), applied at engine.py:5151); grep -rn DEFAULT_BASE src -> config.py:390 and gitutil.py:12 (two constants, same value) plus engine.py:4487 run_git(project,'init','-b','main') (a third copy as a literal); lfs_tracked at gitutil.py:154 is already the check cmd_commit uses at engine.py:3434; BEGIN/END at engine.py:8623-8624 appear nowhere else in src/ and are written only by cmd_agents_md at engine.py:8627
+- falsified by: An AlwaysOnBudgetKb value that changes a concurrency cap in 'teamwork.py parallel', or the hook and the engine disagreeing about the default branch on a branch rename (config.DEFAULT_BASE changed while gitutil.DEFAULT_BASE and the init literal are not).
+- consequences: config.SETTINGS_NON_PROVIDER gains AlwaysOnBudgetKb; the hook's branch rule and the engine's share one constant; a follow-up task must collapse gitutil.DEFAULT_BASE and the init literal into config.DEFAULT_BASE, which is a src change outside this contract's file boundary.
+
+## D-20261020-Architect-7 - One large-file threshold: 1048576 bytes, shared with 'commit --lfs-threshold', not a second literal
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: The frozen hook rule R2 refuses a staged file above 1 MiB that no .gitattributes LFS pattern covers. The engine already refuses the same class of file in cmd_commit, with the threshold as a bare argparse default of 1_000_000 bytes.
+- options considered: (A) let the hook carry its own 1 MiB literal and leave the engine's 1_000_000 alone (rejected: two thresholds 48576 bytes apart, so the same file is refused by commit and allowed by the hook, and neither is the documented number); (B) one named constant config.LFS_MAX_BYTES = 1_048_576, used as the hook's threshold and as the default of 'commit --lfs-threshold' (chosen); (C) copy the engine's 1_000_000 into the hook (rejected: '1 MiB' is what the contract and the skill say, and a decimal 1,000,000 is neither MiB nor MB)
+- decision: config.LFS_MAX_BYTES = 1048576 is the single large-file threshold. The hook refuses a staged file whose size is strictly greater than it and which gitutil.lfs_tracked does not cover; 'commit --lfs-threshold' defaults to the same constant so the two refusals coincide.
+- why: Both gates exist to stop the same thing - a binary reaching history without LFS - and a gate pair that disagrees on the boundary teaches the team that the boundary is negotiable. The constant belongs in config.py with the other tunables (config is data; modules do not import the command layer for it), and the reuse of gitutil.lfs_tracked keeps the .gitattributes parsing in one place.
+- evidence: at 2e7810f: engine.py:9816 --lfs-threshold default=1_000_000 (a bare literal, not a constant); engine.py:3426-3445 refuses 'above --lfs-threshold' with gitutil.lfs_tracked as the pattern check; gitutil.lfs_tracked at gitutil.py:154; 1_048_576 - 1_000_000 = 48_576 bytes of disagreement between '1 MiB' as documented and the shipped default
+- falsified by: A file between the two thresholds that is committed through the hook path and then refused by 'commit' (or the reverse) on the same tree, i.e. the two gates still disagreeing after the constant is introduced.
+- consequences: config.LFS_MAX_BYTES is added; cmd_commit's parser default reads it; the hook and the engine refuse the same files; the system test does not need to assert the number twice - it asserts the contract names one threshold.
+
+## D-20261020-Architect-8 - Ruling D-0001 implemented: one hook-directory resolver, correct only as an atomic pair with the `-C <root>` pin, and the C8 row measures through it
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: neutral seat (tribunal, signed by reviewer); implemented by Architect
+- decided by: neutral seat, ruling D-0001
+- task: T-0001
+- context: Dispute D-0001 (Architect -> CEO) was resolved by the neutral seat: the frozen `hooks install` target was a repository-relative `.git/hooks/{pre-commit,pre-push}` and an amendment proposed resolving "relative results against the project root". Both the target and that amendment are superseded by the ruling R1-R6, which the Architect owns in `docs/Team/Architecture.md` section 11 and in this log.
+- options considered: (A) keep the repository-relative wording and special-case the linked worktree (rejected by the ruling R5: it hardcodes the default, breaks on `core.hooksPath` and still guesses what git reads); (B) the ruling's one resolver, `hook_dir(root)` = `git -C <root> rev-parse --path-format=absolute --git-path hooks` (or `-C <root>` plus a relative result joined onto `<root>`), used by install, status AND uninstall (chosen); (C) accept the CEO's amendment as written, joining a relative result onto the project root without pinning the invocation cwd (rejected by the ruling R2 and re-measured here: it resolves into the PARENT directory)
+- decision: R1 - `hooks install`, `hooks status` and `hooks uninstall` take the hook directory from one shared helper `hook_dir(root)`; no path is built from `.git` plus a suffix and `.git/hooks` is never a constant; `status` prints the literal directory it probed. R2 - the resolver is an atomic pair, `git -C <root> rev-parse --path-format=absolute --git-path hooks` or `-C <root>` plus "join a relative result onto `<root>`", and the `-C <root>` pin is mandatory. R3 - the shim keeps `root=$(git rev-parse --show-toplevel)`. R4 - the linked-worktree case is mandatory and hermetic (`git init` + one commit + `git worktree add`) in the layer test, together with a subdirectory negative test. R5 - no constant `.git/hooks`; `core.hooksPath` is honoured for free and not special-cased. R6 - every residual `<toplevel>/.git/hooks` and repository-relative `.git/hooks/{pre-commit,pre-push}` target in the frozen text is superseded: Architecture 11.2's C8 spec, 11.6 and 11.9 are rewritten, and D-20261020-Architect-1's C8 phrase and D-20261020-Architect-5's context carry a `corrected by` pointer here.
+- why: The hook directory answers "where git reads hooks" and the toplevel answers "which work tree the rules act on", and in a linked worktree those are different repositories' worth of path apart - so one value cannot serve both, and the read side is as broken as the write side: install dies loudly at `mkdir`, but status/uninstall would report `absent` and remove nothing while a live hook keeps running in the common dir. The `-C <root>` pin is not style because `--git-path` is answered relative to the invocation cwd; without it the command is correct only when run from the repository root, which is the one cwd no test picks by accident.
+- evidence: at d692f38 in `Scratch/arch-probe` (hermetic, `git init -q repo` + one commit + `git worktree add -q ../wt -b probe`): `test -d wt/.git` -> false and `wc -c wt/.git` -> `139` with content `gitdir: .../repo/.git/worktrees/wt` (the 66-byte figure in D-0001 is the same gitfile shape with a shorter path), so the worktree's `.git` is a file; from `wt`: `git rev-parse --show-toplevel` -> `<probe>/wt` while `git rev-parse --git-path hooks` and `git -C . rev-parse --path-format=absolute --git-path hooks` both -> `<probe>/repo/.git/hooks` (R3's two answers, R2's absolute form); from `repo/scripts` with no pin: `git rev-parse --git-path hooks` -> `../.git/hooks`, and joining that onto `<repo>` (the toplevel) -> `<probe>/.git/hooks`, the PARENT of the repository, not the repository (R2's trap, re-measured); `git -C . -c core.hooksPath=/tmp/xx rev-parse --git-path hooks` -> `/tmp/xx` (R5); Python against the worktree: `os.path.getsize(wt/'.git'/'hooks'/'pre-commit')` -> `NotADirectoryError: [Errno 20] Not a directory` and `glob(wt/'.git'/'hooks'/'*')` -> `[]`, which is exactly why the frozen C8 spec reported 0 bytes for an installed hook (R6/F1); in the Architect lane worktree: `--show-toplevel` -> `.../Runtime/Worktrees/Architect` vs `-C <that> rev-parse --path-format=absolute --git-path hooks` -> `/home/pingz/Code/Nidvue/Teamwork/.git/hooks` (the real-lane reproduction); `python3 -m pytest tests/unit/test_cli_contract.py -q` on this entry's contract -> `41 passed, 1 skipped`; three mutants each fail it and each was re-run against the restored text: the C8 cell back to `.git/hooks/{pre-commit,pre-push}` -> `2 failed` (`test_c8_is_measured_through_the_resolver_not_a_repository_relative_path`, `test_every_registry_path_that_is_a_repository_file_exists`), the `-C <root>` pin deleted from the resolver line -> `1 failed` (`test_the_resolver_is_frozen_as_an_atomic_pair_with_the_c_pin`), and the resolver paragraph replaced by the withdrawn join-onto-the-project-root sentence -> the same test fails.
+- falsified by: A repository layout where `git -C <root> rev-parse --git-path hooks` and the directory git actually executes a hook from disagree (a separate `--separate-git-dir` checkout with `core.hooksPath` unset is the case to try), or a lane whose `hooks status` prints a directory it did not probe - either would mean the resolver answers the wrong question and the contract must follow git's real rule instead of this command.
+- consequences: the measured directory and the executed directory are the same by construction for all three subcommands; `harness list`'s C8 row is a template over `hook_dir(root)` and can no longer print 0 for an installed hook; the layer test must build a linked worktree and a subdirectory case, and a skipped worktree test is a review failure; this entry also corrects, by pointer, the superseded wording in D-20261020-Architect-1 and D-20261020-Architect-5.
+
+## D-20261020-Architect-9 - The frozen hook body, as measured: `[ -f ]` not `[ -x ]`, one marker constant, `${TEAMWORK_SKIP_HOOKS:-}`, and R1 resolves an unborn HEAD
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0001
+- context: The hooks lane (developer T-0002) wrote a shim body that differs from the frozen text in four measured ways: the engine test, the line-2 marker literal, the bypass expansion, and the branch resolution R1 uses. Each difference is either a defect in the contract or a defect in the code, and the lane cannot carry both.
+- options considered: (A) freeze the contract as first written and send the Developer to `[ -x ]`, the two-line marker, a bare `$TEAMWORK_SKIP_HOOKS` and `rev-parse --abbrev-ref HEAD` (rejected: three of the four make the hook silently or visibly wrong - a no-op engine test, a marker `status` does not key on, a bypass that can abort, a root commit the branch rule waves through); (B) amend the contract to the code's measured facts and let the lane close the rest (chosen - the lane has since closed all of it: the merged `shim()` carries both `${TEAMWORK_SKIP_HOOKS:-}` and the un-redirected `--show-toplevel`); (C) leave both texts and let each lane read what it likes (rejected: that is exactly what the freeze exists to prevent)
+- decision: 11.6 freezes the body the merged code writes, verbatim from `git show main:src/teamwork/hooks.py` `shim()` - the single line 2 `# teamwork-managed hook (stage: <stage>) - remove with: teamwork.py hooks uninstall`, `[ -n "${TEAMWORK_SKIP_HOOKS:-}" ] && exit 0`, `root=$(git rev-parse --show-toplevel) || exit 0` with **no** `2>/dev/null`, `[ -f "$root/scripts/teamwork.py" ]`, `exec python3 "$root/scripts/teamwork.py" hook <stage> "$@"` - and 11.7's R1 describes the shipped resolver, which reads `gitutil.current_branch` and falls back to `git symbolic-ref --short HEAD` when that answer is empty or `HEAD`.
+- why: `scripts/teamwork.py` is committed mode `100644`, so an executable-bit test is false in every checkout and the hook would `exit 0` on every commit while `hooks status` still says `installed` - the worst failure mode available, since it looks like enforcement. The marker must be one constant because install's overwrite refusal, `status` and `uninstall` all decide by it: two literals means a hook this tool wrote can be reported `foreign`, and `--force` then becomes the normal path. The `:-` default keeps the expansion total so an unset bypass means "run the rules", never "abort": measured, `sh -u -c 'echo "[$UNSET_VAR]"'` -> `UNSET_VAR: unbound variable`, rc 127, which git reads as a refusal. R1 needs an answer on an unborn HEAD because that is where the first commit on the default branch happens.
+- evidence: `git show main:src/teamwork/hooks.py` (merged revision, `shim()` at lines 43-56) writes exactly `# teamwork-managed hook (stage: pre-commit) - remove with: teamwork.py hooks uninstall` as one line, `[ -f "$root/scripts/teamwork.py" ]` with the rationale in a comment, `[ -n "${TEAMWORK_SKIP_HOOKS:-}" ] && exit 0` and `root=$(git rev-parse --show-toplevel) || exit 0` with no `2>/dev/null`; `git show main:src/teamwork/config.py` -> `HOOK_STAGES = ("pre-commit", "pre-push")`, `HOOK_MARKER = "teamwork-managed hook"`; `git show main:src/teamwork/hooks.py` `head_branch()` at lines 188-198 -> `current_branch(project)` first and `run_git(project, "symbolic-ref", "--short", "HEAD")` only when that is empty or `HEAD`; at d692f38 `git ls-files -s scripts/teamwork.py` -> `100644 616216ef... 0 scripts/teamwork.py`, so `[ -x ]` would be false (D-20261020-Architect-9's `-f`); in `Scratch/arch-probe/fresh` (`git init -q`, no commit) `git rev-parse --abbrev-ref HEAD` prints `HEAD` and exits 128 with "ambiguous argument 'HEAD'" while `git symbolic-ref --short HEAD` -> `main`; `sh -u -c 'echo "[$UNSET_VAR]"'` -> rc 127, `sh -c 'echo "[${UNSET_VAR:-}]"'` -> rc 0; Tester T-0001 measured the consequence at the process boundary: with the hook installed on an unborn `main`, `git commit -m first` succeeds as a root commit and only the second commit is refused ("teamwork: refusing to commit on 'main'"). Four mutants of this entry were re-run against the restored contract: `-f` -> `-x` -> `1 failed` (`test_the_frozen_shim_body_tests_the_engine_file_for_existence_not_mode`), the combined line-2 marker split back into two lines -> `1 failed` (`test_the_frozen_shim_body_writes_the_merged_marker_line_verbatim`), `${TEAMWORK_SKIP_HOOKS:-}` -> `$TEAMWORK_SKIP_HOOKS` -> the same test fails, `root=$(git rev-parse --show-toplevel)` -> `root=$(git rev-parse --show-toplevel 2>/dev/null)` -> `1 failed` (same test), and the R1 paragraph reverted to `git rev-parse --abbrev-ref HEAD` -> `1 failed` (`test_r1_resolves_an_unborn_head_so_the_root_commit_is_refused`).
+- falsified by: A checkout where `scripts/teamwork.py` IS executable (a tree that ships it `100755`), which would make `-x` harmless and this amendment unnecessary - or a shell that expands an unset positional parameter without failing under `set -u`, which would remove the reason for `:-`. Neither changes the marker or the unborn-HEAD argument.
+- consequences: 11.6 and the merged `hooks.py` now say one thing, so the Developer lane carries **no** remaining delta on the shim body; `tests/unit/test_cli_contract.py` asserts the merged body line for line, so a future shim edit reopens this entry rather than drifting silently; the Tester's process-boundary suite asserts the file body against 11.6 rather than against a remembered string; `-x` anywhere in a hook body is a review failure.
+
+## D-20261020-Tester-2 - harness list: the Tester's registry test was the defect, the shipped code matched the frozen 11.2
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Tester (tester)
+- decided by: Tester
+- task: T-0001
+- context: -
+- options considered: -
+- decision: Correct tests/integration/test_harness_cli.py to the merged Architecture 11.2/11.3 (frozen specs separated by runs of 2+ spaces) instead of changing src/teamwork/harness.py, and pin the eight frozen path specs as literals in C1..C8 order.
+- why: The single failing assertion was the test's own pre-contract assumption. 11.2 as merged at 811065b freezes 'managed block in AGENTS.md', 'Roles/<Role>/*.md + Global/GlobalMemory.md', 'scripts/*.py + src/teamwork/*.py' and 'hook_dir(root)/{pre-commit,pre-push}', and 11.3 makes C5's class '-'; those cells contain single spaces, so line.split() tears a row into 7 cells and the path column cannot be the frozen spec at all. harness.py already implements exactly that (harness.SPEC_* constants, _CELL_SEPARATOR_RE=r'\s{2,}', parse_surface_row), so the code needed no change and the test did.
+- evidence: python3 scripts/teamwork.py harness list @252805e -> 8 rows, 4 cells, C1..C8; .venv/bin/python -m pytest -q tests/integration/test_harness_cli.py tests/acceptance/test_harness_docs.py @b90b5af -> 38 passed; mutants: SPEC_HOOKS->hook_dir(root)/pre-commit -> 1 failed, Surface('C5','n/a',...) -> 1 failed
+- falsified by: If 11.2 on main still froze 'AGENTS.md'/'scripts/*.py'/'hook_dir(root)/pre-commit' as the path cells, or if harness list printed a header or nine rows, the code would be the defect and this decision would be wrong.
+- consequences: -
+
+## D-20261020-Developer - Global memory entries carry provenance, and a merge never drops or steals it
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Developer (developer)
+- decided by: Developer
+- task: T-0005
+- context: -
+- options considered: -
+- decision: teamwork global takes the same provenance flags as teamwork remember (--by/--src/--rev) and stores them in the entry; the ledger record for a global write names its author instead of hardcoding 'ceo'. merge_entries carries by/src/rev forward as ONE triple: a record written without an author is completed by a later writer (all three fields move together), a record that already has an author keeps it, and a later writer who is not the author may not overwrite the author nor graft their own src/rev onto it. The same author may fill the gaps in their own record.
+- why: The audit gate reports a memory entry without 'by' as a BLOCKER, but the global writer had no --by at all, so a global entry could never satisfy the rule it was audited against - the gate was unreachable by construction, not a property of the data. Measured at the process boundary in a throwaway workspace: 'global --by Developer --src T-0005 --rev 252805e' -> 'by: Developer / src: T-0005 / rev: 252805e' in GlobalMemory.md, and 'audit' then reports no memory entry without provenance. The triple travels together because by/src/rev describe ONE recording act: the field-wise rule lets a second writer graft their own src and rev onto a record someone else authored, which credits the first author with a revision the second writer verified - measured, the field-wise carry-forward produced 'by: CEO / src: T-9 / rev: fff' where the first writer supplied only 'by: CEO'.
+- evidence: python3 scripts/teamwork.py global --help @worktree -> --by BY --src SRC --rev REV; throwaway workspace (init --agents ceo,reviewer-1 --no-git): 'global ... --by Developer --src T-0005 --rev 252805e' -> '- by: Developer / - src: T-0005 / - rev: 252805e'; 'global ... ' without --by -> '- by: ' then the same key with --by -> '0 new / 1 merged' -> '- by: Reviewer-1 / - src: T-0005 / - rev: 252805e'; a later writer '--by Impostor' -> the author stays 'Reviewer-1'; 'audit' -> no memory entry without provenance, 'loop' -> 'gate overrides, provenance and liveness: - none'; ledger memory.global records -> actor='Developer' rev='252805e' (was hardcoded 'ceo'); .venv/bin/python -m pytest -q tests/unit/test_global_memory_provenance.py -> 14 passed, and three mutants of the merge rule are red (carry-forward removed -> 4 failed; field-wise overwrite -> 4 failed; field-wise carry-forward -> 2 failed)
+- falsified by: A merge that never completes a missing author (so a record written without one stays red forever) would make this decision wrong - the completion path is the point, not the prohibition. Equally, a global entry that a legitimate later writer must be able to re-attribute to a different author (a fact corrected by another role) would break the no-overwrite rule and force a second, explicit re-attribution path.
+- consequences: docs/guide/cli.md documents the three flags on 'global' and states the merge rule, so the published reference matches the shipped surface. The three provenance fields are one unit in merge_entries; a future writer who adds a fourth provenance field must decide which triple it belongs to rather than patching fields independently.
+
+## D-20261020-Developer-2 - The T-0005 rework is a pure rebase: both Decisions.md blocks are kept and the newer '14 passed' evidence line wins
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Developer (developer)
+- decided by: Developer
+- task: T-0005
+- context: The Reviewer failed P-0013 for ONE blocker: the branch was not mergeable against current main (git merge-tree --write-tree main 5ab3ab9 -> rc 1, CONFLICT (content) in docs/Team/Decisions.md at two regions) and explicitly marked everything else VERIFIED GOOD, DO NOT REWORK. The conflict is a pure staleness artefact: the P-0010 records commit (36bef5a) carried the Developer's D-20261020-Developer entry onto main, so both sides of the merge own the same decision id with different evidence numbers.
+- options considered: (A) drop the Tester's D-20261020-Tester-2 block to make the append point agree (rejected: it would delete another role's accepted decision from the shared log); (B) keep main's '13 passed' line (rejected: it is the STALE measurement - the branch's 14 assertions and the 4/4/2 mutant counts are the newer, and the Reviewer independently measured 14 passed at 5ab3ab9); (C) keep both blocks and take the newer evidence line, the decision id once (chosen)
+- decision: The P-0013 rework is a rebase onto main 78e3cdc with one mechanical conflict resolution in docs/Team/Decisions.md and NO change to code, tests, docs/guide/cli.md or CHANGELOG.md. Both conflict regions are resolved by KEEPING BOTH SIDES: main's D-20261020-Tester-2 block (added by 36bef5a for P-0010) is kept alongside the branch's D-20261020-Developer block, and the branch's NEWER evidence line ('14 passed', with the 4/4/2 mutant counts) wins over main's stale '13 passed' (3/2/1 counts). The decision id D-20261020-Developer appears EXACTLY ONCE in the resolved file.
+- why: The two sides are not two different facts about one decision; they are one decision recorded twice, and the difference is the measurement date. The Reviewer reproduced the resolution in a scratch clone and confirmed it: exactly one D-20261020-Developer heading, one D-20261020-Tester-2 heading, both entries present, no duplicate id. The rebased tree is green: 763 passed, 3 skipped, 0 failed - the branch's pre-merge AC-5 failure is gone because P-0010 landed it on main. The work stays ONE commit with the Developer role mailbox as author AND committer, so the identity audit still reports 1 commit, 0 problems.
+- evidence: git merge-tree --write-tree main HEAD -> rc 0 (it was rc 1, CONFLICT (content) docs/Team/Decisions.md, at 5ab3ab9); .venv/bin/python -m pytest -q @worktree -> 763 passed, 3 skipped, 0 failed; .venv/bin/python -m pytest -q tests/unit/test_global_memory_provenance.py @worktree -> 14 passed; ruff check . @worktree -> All checks passed; ruff format --check . @worktree -> 147 files already formatted; mypy src/teamwork @worktree -> Success, no issues found in 17 source files; python3 scripts/teamwork.py links @worktree -> 0 issues; python3 scripts/teamwork.py identity --audit --range main..developer/t-0005-global-memory-entries-must-be-able-to-ca -> 1 commit, 0 problems (Developer <developer@agents.nidvue.com>); resolved file vs main -> the ONLY line that differs is the evidence line '13 passed' -> '14 passed'; resolved file vs 5ab3ab9 -> the ONLY addition is main's D-20261020-Tester-2 block; src/teamwork/engine.py, src/teamwork/records.py and tests/unit/test_global_memory_provenance.py are byte-identical to 5ab3ab9
+- falsified by: A resolved file in which the D-20261020-Developer heading appears twice, or in which the D-20261020-Tester-2 block is missing, or in which the stale '13 passed' line survived, would make this resolution wrong; so would a merge-tree rc other than 0, or a suite with any failure.
+- consequences: The branch is mergeable against main, so the Reviewer's pass (which is the merge trigger) will land the work instead of recording it as shipped while the code stays off main. The commit keeps the Developer role mailbox as author and committer and the full fixed trailer shape, so no identity gate regresses.
+
+## D-20261020-Developer-3 - ledger export resolves the work tree through the existing wo
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Developer (developer)
+- decided by: Developer
+- task: T-0008
+- context: -
+- options considered: -
+- decision: ledger export resolves the work tree through the existing work_repo resolver (layout.work_docs_dir), not project_of(root): the manifest is written into, and describes, the work tree the command runs in
+- why: The export wrote into the checkout owning the team tree, so a lane could not commit the manifest it exported and the manifest pinned a revision the committing branch did not have (measured by the CEO: ceo T-0010). work_repo is the resolver cmd_branch/cmd_commit/cmd_pr already use, so the fix introduces no second resolver
+- evidence: .venv/bin/python -m pytest -q @3d1607d -> 818 passed, 3 skipped, 0 failed; tests/unit/test_ledger_export_worktree.py @3d1607d -> 6 passed, and with the resolver reverted to project_of(root) -> 5 failed, 1 passed; live export in the lane work tree -> manifest written in the work tree, main checkout's manifest sha256 unchanged
+- falsified by: Show the export writing docs/Team/AuditManifest.json outside the work tree the command runs in, or the manifest's git.head differing from that work tree's HEAD
+- consequences: -
+
+## D-20261020-CEO-8 - The published branch is the base of any local history rewrite
+
+- date: 2026-10-20
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0011
+- context: The remediation for the red privacy gate needs a rewrite of the unpublished local history, and the local `main` is the branch that is about to be pushed. The local `main` and the published `origin/main` have diverged, so a rewrite based on the local merge base would drop whatever the published side carries that the local side does not.
+- options considered: (A) base the rewrite on the local `main`'s merge base - refused, it drops the published side's files; (B) base the rewrite on the local `main` tip - refused for the same reason, the local tip does not contain the published work; (C) base the rewrite on the PUBLISHED tip and carry the published side's files over verbatim (chosen)
+- decision: A rewrite of the unpublished local history must be based on the PUBLISHED tip (`origin/main`), not on the local `main` or its merge base, and the published side's files must be carried over verbatim. The published tip carries work the local `main` does not have - the committer guard (`guard_committer_identity` in `src/teamwork/engine.py` plus the `committer-guard` job in `.github/workflows/ci.yml`) and the rebase-merge explanation in `references/Remotes.md` and `CONTRIBUTING.md` - and the two test files that pin them. The local-only chain is rebased onto the published tip, and the published side's files are taken from the published tip, not re-authored.
+- why: The published tip is the only base that keeps both sides' work, and the guard is the one piece that stops the red from coming back: a host merge button writes the signed-in account into the commit it creates, the privacy gate then fails on that personal mailbox in the history, and because the same gate is an acceptance proof the traceability guard fails with it. A rewrite that dropped the guard would rebuild the exact condition it is meant to remove, and the red would return on the next forge merge. The published tip is the base rather than the local tip because the local tip does not contain the guard at all, so basing on it loses the work by construction.
+- evidence: `git rev-parse --short origin/main` -> `f277ac7` ("chore(merge): merge of feature/committer-guard"); `git merge-base --is-ancestor origin/main main` -> NO, so the published tip is not on the local branch; `git rev-list --count $(git merge-base origin/main main)..origin/main` -> 8, the published tip is that far ahead of the local merge base; `git show origin/main:src/teamwork/engine.py | grep -c 'def guard_committer_identity'` -> 1, and `git show main:src/teamwork/engine.py | grep -c 'def guard_committer_identity'` -> 0, so the guard is on the published side and absent from the local side; `git show origin/main:.github/workflows/ci.yml | grep -n 'committer-guard'` -> the job is there; `git show --stat 8b5265c` -> the guard commit carries the committer guard in `src/teamwork/engine.py`, the `committer-guard` job in `.github/workflows/ci.yml`, the rebase-merge explanation in `references/Remotes.md` and `CONTRIBUTING.md` and the two test files; a rebase of the local chain onto the published tip, measured in a throwaway worktree, leaves the local tree differing from the rebased tree in 6 files, +466/-19, and every one of those files is the published side's work. No finding count and no test count is pinned anywhere in this record, and no revision is pinned beyond the two commits the decision is about - the published tip and the guard commit - because the commit that documents a count raises it (D-20261019-CEO-15).
+- falsified by: The published tip carries no file the local `main` lacks, or the guard it carries is present on the local side too, or a rewrite based on the published tip still drops the guard - then the choice of base would not matter and the published-tip rule would be wrong. Equally, a rewrite that changes a published-side file instead of carrying it over verbatim would falsify the "verbatim" half: the published side's work must survive the rewrite unchanged.
+- consequences: The local-only chain is rebased onto `origin/main` and the published side's files are carried over verbatim, so the committer guard and the rebase-merge explanation survive the rewrite and the next forge merge cannot stamp an account into `main` unnoticed. The rewrite itself stays a red line that needs the user's authorization, which ceo T-0003 carries. This record gives the rewrite its base; [Board](Board.md) and [Plan](Plan.md) name the same rule for the reader who looks there.
+
+## D-20261021-Reviewer-1 - D-0003 ruling: the privacy boundary is drawn at the object, but 'published' is not the word for it
+
+- date: 2026-10-21
+- kind: tribunal
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: D-0003
+- context: -
+- options considered: -
+- decision: The Audit Report must not call the object 'published' and must not say 'absent from the forge'; it must state three separate facts: (1) reachability - the commit is not reachable from any published ref (ls-remote: 40 refs, none advertising it; not an ancestor of origin/main nor of refs/pull/23/head; a plain anonymous clone does not contain it; a truncated-SHA fetch is refused) and the published side is clean (3058 reachable objects swept, 0 hits for address, name or domain); (2) service - the forge serves the object anonymously by SHA, HTTP 200 through its API with the author name AND email in the payload, HTTP 200 on its commit page, and named as merge_commit_sha in the PR #23 record (also served by the enumerable GET /pulls list); (3) disclosure - the author identity has been disclosed to anyone who requests that SHA and cannot be un-disclosed, while the CONTENT of that commit is already published safely as 3f4981d under the role mailbox (identical tree 7f1c4b30, and 3f4981d IS in origin/main). The report must not use 'publicly disclosed', 'exposed' or 'leaked': discoverability was measured absent (commit search total_count 0 by author, by sha: and by bare sha; user search 0; the forge's user endpoint for the PR author returns a null email; the commit page renders the name but not the address). The phrases 'the next push, not the past' and 'a containment problem rather than a published disclosure' are withdrawn: the disclosure happened at the object level, and R5 (the rewrite) stays OPEN and still needs the user's authorization through the CEO. CEO rule D-20261020-CEO-9 (the privacy boundary is drawn at the OBJECT, not at the ref) is ADOPTED, with one precision: what must never be published is the IDENTITY, not the content. Use 'retained' for the object and 'disclosed' for the identity; reserve 'published' for objects reachable from a published ref.
+- why: Both available labels are wrong, each for the same reason: the word 'published' is already load-bearing in the same report for the role-mailbox commit 3f4981d, which IS reachable from origin/main and whose content is what the published tree ships - so calling the offending object 'published' makes the report contradict itself, and calling it 'not published' uses a reachability measurement as an existence claim ('absent from the forge'), which is false because the forge serves the object (API HTTP 200 with the email in the payload, commit page 200, PR #23 merge_commit_sha). The Reviewer's own original inference overreached and is corrected here: the object is NOT discoverable - commit search returns 0 for the author, for sha: and for the bare sha, a truncated-SHA fetch is refused, and a plain clone does not contain it - so 'publicly disclosed' is as wrong as 'never published'. The only wording that misleads neither reader states the three facts separately.
+- evidence: git ls-remote origin @2026-10-21 -> 40 refs, 0 matching 3f4981d; git merge-base --is-ancestor 3f4981d origin/main -> rc 1; git merge-base --is-ancestor 3f4981d a5a41bd (the published PR head) -> rc 1; anonymous clone (credential.helper= empty, pristine HOME) -> git cat-file -t 3f4981d -> rc 128 'could not get object info'; same clone git fetch --no-tags origin 3f4981d -> rc 0 with the object present; git fetch origin 3f4981d -> 'couldn't find remote ref'; the forge's commits endpoint for the PR author -> HTTP 200 with the author address in the payload; the forge's commit page for that object -> HTTP 200, the author name rendered, the address not; the forge's PR #23 record -> merge_commit_sha = that object, merged_at 2026-10-20T10:21:24Z; the enumerable pull-request list -> the same merge_commit_sha; the forge's commit search by author / by object id / by bare object id -> total_count 0 each; the forge's user endpoint for the PR author -> a null email; the forge's user search by the author address -> total_count 0; full clone + '+refs/pull/*/head' fetch, sweep of 3058 reachable objects -> 0 hits for address, name or private domain; git rev-parse 3f4981d^{tree} 3f4981d^{tree} -> the same tree; git merge-base --is-ancestor 3f4981d origin/main -> rc 0
+- falsified by: A measurement showing the object is NOT served by the forge (an API or page response other than HTTP 200 for that SHA), or that it IS discoverable (the forge's commit search returning it, or a truncated-SHA fetch succeeding), or that the commit is reachable from a published ref, would make this ruling wrong. Equally, a reader-facing consequence: if the report cannot be rewritten to the three-fact form, the ruling fails to bind.
+- consequences: The Security Auditor owns the AuditReport.md rewrite (F-1, F-2, F-8, the section-5 R5 table, the section-7 measurement table, the section-6 residual-risk row) and says so in its report; R5 stays open. Reviewer-2 withdraws the 'published' and 'publicly disclosed' inferences and keeps the 'absent from the forge' finding. The ruling text is filed as dispute round 3/3 in D-0003, as the ruling of that dispute, and as .pi/Teamwork/Teams/Teamwork/Agents/Reviewer-1/Reports/D-0003-ruling.md.
+
+## D-20261021-CEO-1 - A commit message or a decision entry names an object by its ROLE, never by its full 40-hex id
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0003
+- context: The shipped privacy gate cannot tell a git object id from a leaked credential, so a commit message or a decision entry that quotes one is a message the gate will refuse to push. The Audit Report rewrite's own commit message is such a message, and the ruling entry had already failed the same class before it.
+- options considered: (A) teach the entropy rule to recognise a git object id and exempt it (rejected: the rule cannot tell an object id from a credential by shape alone, and a wrong exemption is a hole in the shipped gate); (B) exempt the object-id shape in the allowlist (rejected: the allowlist exempts finding VALUES one at a time and is never widened for a shape, per D-20261019-CEO-15 and D-20261020-CEO-4); (C) name the object by its ROLE wherever a commit message or a decision entry refers to one (chosen)
+- decision: A commit message or a decision entry names an object by its ROLE - 'the offending commit', 'the role-mailbox commit', 'the tree id both share' - and never quotes its object id. A measurement that needs an id is stated as the measurement rather than quoted as the value. The rule applies to the record that carries the rule: this entry quotes no object id and no pinned count.
+- why: The entropy rule reads a long base64-ish token that carries upper case, lower case and a digit and clears the entropy threshold as a credential, because a git object id and a leaked token are indistinguishable to it - the rule cannot tell them apart, so a record that quotes one is a record the gate refuses to push, and the cost falls on the lane that wrote it: the work is correct, the record is not publishable. Measured, the trigger is the object id inside a forge API or commit-page path, where the id and the path segments form one long token; a bare id in prose is not what fires. Naming the object by its role removes the value from the message without removing the fact - the reader learns which object is meant and can ask the author or the ledger for the id, and the gate sees prose. The alternatives do not work: an exemption for the object-id shape teaches the shipped gate to trust a shape it cannot verify, and an allowlist entry for one value does not survive the next commit, because every commit that documents an id adds another one.
+- evidence: the shipped scanner over the Audit Report rewrite's own commit message -> the high-entropy findings are the forge API and commit-page paths that carry the offending object id inside a URL, and the tree id both share is quoted on the same line; a scratch tree whose decision entry names the objects by their role instead -> `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` -> PASS, rc 0, and the same scratch tree with the same entry quoting the offending object id inside the forge API and commit-page paths -> FAIL, rc 1, with the high-entropy findings on that evidence line, so the class is measured on both sides of the change; a commit message that names the offending commit and the role-mailbox commit by role -> the same scanner over that message -> PASS, rc 0, while the same scan over the Audit Report rewrite's own message -> FAIL, rc 1, on the high-entropy findings; `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` -> the commit-metadata findings are reported against the same commit id family; the finding count on every one of those lines is read from the run and never pinned, per D-20261019-CEO-15.
+- falsified by: A measurement showing that the shipped entropy rule does not fire on a quoted object id in a commit message or a decision entry - for instance a forge path whose id the rule's own path-name test reads as a path, so the URL form stops tripping it - would make the naming rule unnecessary. Equally, a commit message or decision entry that names an object by its role and still trips the gate would mean the role names themselves are not safe, and the rule would have to say what a safe reference looks like.
+- consequences: every lane writes its commit messages and its decision entries the same way, so a record that names an object by its role is publishable while a record that quotes the id is not. The Audit Report rewrite's commit message is a finding in its own right and is owned by the lane that wrote it; the remediation is to name the objects by their role, not to change the gate. The archive mask's treatment applies here as well: name the rule, not the value. This entry changes no code, no allowlist entry and no gate, so the shipped privacy gate keeps exactly the coverage it has today; [Risks](Risks.md) carries the state of the gate and the rule that a record must not re-publish a value, and [Archive](Archive.md) carries the evidence of both.
+
+## D-20261021-Reviewer-1-2 - PASS ceo T-0012 / P-0029: the re-exported audit manifest at
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: -
+- context: -
+- options considered: -
+- decision: PASS ceo T-0012 / P-0029: the re-exported audit manifest at 1895d1b describes a real revision and the chain claim is true, so it is merged (147dfa4, records 6a7b08a) and the branch is retired.
+- why: git.merge-base --is-ancestor 4fe0b17 1895d1b -> rc 0 (the manifest names the export revision, which is the direct parent of the commit that carries it, so it is an ancestor by construction); git.branch == the lane branch and git.dirty == false; ledger verify -> chain intact, and my own independent recomputation of all 671 records with the engine's rule sha256(prev+canon(record)) reproduced every digest and every prev-link; the pinned count 666 IS the export-time count because record #666 is the ledger.export event and its hash equals manifest ledger.head, so the chain reproduces up to exactly that checkpoint; Decisions.md dd3e9bfb/145134B and Plan.md 1d9ac825/17872B recomputed by hand from the committed blobs and matched, Global/GlobalMemory.md d361d7c5/1880B matched in .pi/Teamwork/Teams/Teamwork/; the main checkout was untouched (git status --short empty, its committed manifest still the old 509/160c6daf671f export); links 0 issues, pytest -q at 1895d1b 823 passed/3 skipped/0 failed, identity --audit 1 commit 0 problems with author == committer == CEO <ceo@agents.nidvue.com> == the repo's local git config identity, merge-tree --write-tree main <branch> rc 0.
+- evidence: git merge-base --is-ancestor 7f6071484b9dacd2edcebb871ddbcca97d595915 1895d1b -> rc 0 @1895d1b; python3 scripts/teamwork.py ledger verify -> 'records: 671 | chain intact, every digest matches' @main; independent chain recomputation over 671 records -> all match; sha256sum + wc -c on docs/Team/Decisions.md and docs/Team/Plan.md @1895d1b -> both match the manifest; git status --short in the main checkout -> empty; python3 scripts/teamwork.py links -> 0 issues @main; .venv/bin/python -m pytest -q @1895d1b -> 823 passed, 3 skipped, 0 failed; python3 scripts/teamwork.py identity --audit --range main..ceo/t-0012-... -> 1 commit, 0 problems, CEO <ceo@agents.nidvue.com>; git merge-tree --write-tree main ceo/t-0012-... -> rc 0, tree a0ef845fee6917d81197cfbd0b670f0c5dabdb49
+- falsified by: A verifier who recomputes the chain and finds record #666 is NOT the ledger.export event, or that manifest ledger.head != the hash of record #666, or that the four artifact digests do not match the committed blobs at 1895d1b, or that the main checkout was modified by the export - any of these would falsify the manifest's central claim and reopen this verdict.
+- consequences: -
+
 ## D-20261020-CEO-7 - The frozen contract is corrected by measurement, not defended
 
 - date: 2026-10-20
@@ -776,7 +1145,6 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: ls .pi/Teamwork/Teams/Teamwork/Roles/ -> no TechnicalWriter and no Designer instance directory; the file-ownership table in section 2 of docs/Team/Architecture.md assigns README.md to designer-1 and CHANGELOG.md+docs/guide/** to technical-writer; tests plan requires only staffed roles' layers
 - falsified by: A second writer touches one of those files in this milestone, or the Reviewer finds a docs claim no role could have measured.
 - consequences: The docs layer stays unstaffed and tests plan reports no gap for it; the Reviewer still reviews every docs edit, so the second gate is unchanged.
-
 
 ## D-20261021-Architect - R2 compares HEAD only against the version tags reachable from HEAD
 
@@ -884,3 +1252,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: pytest -q tests/integration @7f285ce -> 115 passed; pytest -q test_links_flow.py @7f285ce -> 9 passed; same file @main b6c0817 -> 9 passed; mutation git checkout 781b1b4~1 -- src/teamwork/engine.py -> 2 failed with "# 0 markdown file(s)"; mutation cmd_links line 6228 "return 1 if issues else 0" -> "return 0" -> 6 failed (all links-failing tests, 3 clean-control tests still passed); restore -> 9 passed, git status empty; pytest -q tests/integration @5d30639 main -> green
 - falsified by: -
 - consequences: -
+
+## D-20261021-CEO-5 - D-0027: an acceptance proof states the command and the exit code, never a pass count
+
+- date: 2026-10-21
+- kind: process
+- status: accepted
+- deciders: CEO (resolve)
+- decided by: CEO
+- task: T-0003 (tester)
+- dispute: D-0027 (Tester-1 against Reviewer-3, 1 round)
+- context: three review rounds failed tester T-0003 on pass counts that any commit changes (`790 passed`, `777 passed`, `1 missing, 2 stale`), and the third finding itself asked for a structural rather than numeric remedy.
+- decision: an acceptance proof quotes the command, its exit code and the *named* failures and skips; it never pins a passing count. Where a count is genuinely the claim, it is bound to a revision and re-measured after every rebase in the same task.
+- why: a pass count is a property of the tree at one revision, so any later merge falsifies it - which is why the same file carried two stale figures at once. The exit code and the test ids are the invariant; the count is not.
+- evidence: `docs/Team/M9Acceptance.md` @28d6a4d -> §4 states exit 0 with the three named skips and explicitly refuses a count, §5 states `sync_skill.py --check` exits 1 and names the class of drift with no count; `grep -nE "790 passed|777 passed|1 missing, 3 stale"` -> no hits; `pytest -q` @28d6a4d -> 1198 passed, 3 skipped, exit 0; `teamwork.py links` -> `# issues: 0`; the deliverable passed review and merged at `a43e61e`.
+- falsified by: a later `docs/Team/M9Acceptance.md` revision that pins a pass count again, or a review verdict that fails a proof for a count it re-measured on a different revision than the one named.
+- consequences: the dispute is moot by delivery and closed; the same rule governs every later acceptance proof, and a count that does appear must name the revision it was taken at.
