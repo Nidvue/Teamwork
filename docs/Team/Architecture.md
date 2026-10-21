@@ -476,7 +476,7 @@ invents an `ok`.
 | R3 | every npm-published version | a git tag whose bundled-payload digest (11.3) equals that tarball's payload digest, or an entry in 11.4 | neither exists (a 404 on the advertised tarball is also DRIFT - 11.1.4) | `SKIP` |
 | R4 | every GitHub Release | `git tag -l` | no tag has the release's name | `SKIP` |
 | R5 | every git tag | the GitHub Release list | no release carries the tag's name | `SKIP` |
-| R6 | committed markdown that prints a version | `version.py` at HEAD | a printed literal version is **older** than HEAD's and its line/block is not illustrative-marked | evaluates |
+| R6 | committed markdown that prints a version, or names a `releases/download/<tag>/` asset | `version.py` at HEAD, and `git tag -l` for a release asset | a printed literal version is **older** than HEAD's, or a release-asset tag names no tag or one **older** than the newest, and its line/block is not illustrative-marked | evaluates |
 | R7 | `CHANGELOG.md` | every tagged version | a tagged version has no `## [X.Y.Z]` section, or more than one | evaluates |
 | R8 | committed markdown that advertises an install channel | the shipped name/entry point, and (online) PyPI | the channel names a package or executable the repository does not ship, or `--online` finds the channel does not resolve and the text does not mark it unavailable | partial (see 11.2.4) |
 | R9 | committed markdown that names a tag | `git tag -l` | a `vX.Y.Z` token, or a bare `X.Y.Z` token in a pin/tag context (11.2.4), names a tag that does not exist | evaluates |
@@ -643,6 +643,26 @@ matches `(?i)teamwork`. Two exclusions keep it from inventing drift:
 * a line that declares a foreign tool's version is skipped:
   `(?i)\b(python3?|cpython|node|npm|pi)\s*[:=]\s*\d` (`python: 3.12.13` in
   `docs/guide/install.md` is not a teamwork version).
+
+**The one URL that is a version claim: a release asset.** The exclusion above
+was written to keep a `compare/` *range* out, and it also blinded R6 to the one
+URL shape whose tag is a claim: a `releases/download/<tag>/<asset>` link names
+the release an install command downloads, so a superseded tag installs a
+superseded wheel. That shape is read by its own literal-path pattern
+`(?<=releases/download/)v?(\d+\.\d+\.\d+)(?=/)`. Because the lookbehind is the
+path and not a lone `/`, `.../compare/v1.1.0...v1.1.2` still matches nothing -
+the two rules read the same URLs in opposite directions on purpose.
+
+**Two baselines, one rule.** A prose token is judged against **HEAD**; a release
+asset tag is judged against `git tag -l` - it must **name an existing tag** and
+must not be **older than the newest one**. They differ because a released asset
+can only name a release while `version.py` legitimately leads the newest tag
+between releases: with HEAD `1.1.3` and newest tag `v1.1.2`, an install command
+for `v1.1.2` is correct and a command for `v1.1.0` is stale. Judging the asset
+against HEAD would make the correct URL unfixable without an illustrative
+marker, which would hide exactly the staleness the rule exists to report. R6's
+`detail` still reports only the count of illustrative lines; an asset finding
+names the file, line, tag and the baseline it missed.
 
 **Illustrative marker (R6 and R9).** The exact literal
 `<!-- release-consistency: illustrative -->`. It exempts a physical line when it

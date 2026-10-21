@@ -117,7 +117,7 @@ git clone https://github.com/Nidvue/Teamwork.git
 cd Teamwork && python -m pip install .
 
 # the wheel attached to a GitHub release
-python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.0/teamwork_agents-1.1.0-py3-none-any.whl
+python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.2/teamwork_agents-1.1.2-py3-none-any.whl
 ```
 
 Run it straight from a checkout without installing anything:
