@@ -71,6 +71,45 @@ ceo instance. Extracted once so it is executed the same way every time.
 
 Every run records command + revision + observed result, as the team requires.
 
+### Verdict on this skill
+
+verdict: no observed effect
+
+- **The pre-skill failure this file was written for** (`bbf0b29`, 2026-10-17, a
+  day and a half before the extraction at `453475f`):
+  `git show bbf0b29:docs/Team/AuditManifest.json` reports `git.dirty: true`,
+  `ledger.records: 241`, and a `git.head` of `bbb9d299` that does not exist in the
+  repository at all (`git cat-file -e bbb9d299` -> `fatal: Not a valid object
+  name`). The manifest was exported from a working tree and names a revision
+  nobody can check.
+- **The same failure recurring after the extraction**, which is why the label is
+  not `helped`: `git show b82a08d:docs/Team/AuditManifest.json` and
+  `git show 921d11a:docs/Team/AuditManifest.json` both report `git.dirty: true`
+  (2026-10-19T13:47:17 and 2026-10-19T19:41:50 - respectively 14m20s and about
+  six hours after `443339f`, which already carried step 4). Three later manifests
+  (`bbf0b29`, `b50a967`, `1895d1b`) also name a `git.head` that is absent from the
+  repository, so the stale-head mode is present in both eras.
+- **Counts are stated as the command that produces them, never as a figure**:
+  `.pi/Teamwork/Teams/Teamwork/Ledger.jsonl` held 2075 records with
+  `ts <= $(git log -1 --format=%cI 1895d1b)` at that revision, against the
+  manifest's `ledger.records: 666` - measure it with
+  `python3 -c "import json,subprocess;cut=subprocess.run(['git','log','-1','--format=%cI','1895d1b'],capture_output=True,text=True).stdout.strip();print(sum(1 for l in open('.pi/Teamwork/Teams/Teamwork/Ledger.jsonl') if l.strip() and json.loads(l).get('ts','') and json.loads(l)['ts']<=cut))"`.
+  A written-down count is stale the moment it is committed; this row is the
+  reason that rule exists.
+- **Why `no observed effect` and not `helped`:** no close-out has yet been shown
+  to read this file and land a manifest with `dirty: false` whose `git.head` is an
+  ancestor of its own commit, and the failures above repeated after the file
+  existed. `confounded` would be wrong too - there is no competing change to
+  blame; the flow was simply not followed.
+- **What would change the label:** one close-out executed from steps 1-7 that
+  lands `dirty: false` with an ancestor head makes this `helped`; a close-out that
+  reads this file and still produces a dirty or orphaned head makes it `confounded`.
+- **Note for the gate's owner:** `VERDICT_RE`
+  (`src/teamwork/harness.py:118-121`) is an unanchored search and
+  `evidence_findings` (`:563-590`) only checks that a label exists, so this row
+  passed lint while carrying invented numbers. Mechanically checking that a
+  verdict names a resolvable revision would have caught it.
+
 ## Guardrails
 
 - This skill does not replace `AGENTS.md`, the red lines, or the quality gates.
