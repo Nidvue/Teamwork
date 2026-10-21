@@ -208,19 +208,96 @@ from the wrong role, so the two maps must not be conflated.
 
 ## 9. CI / release contract
 
-* `ci.yml`: `lint` (ruff check + format --check + commit-identity audit),
-  `typecheck` (mypy, non-blocking report), `test` matrix
-  `{ubuntu,macos,windows} x {3.9,3.11,3.13}` plus ubuntu `3.10`/`3.12`,
-  `build` (sdist+wheel+verify_release), `privacy`
-  (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`: personal
-  data, credentials, agent-host config and tracked local state),
-  `docs` (mkdocs build --strict). On `push` the prose and media paths are
-  `paths-ignore`d so a docs-only change does not burn the 3x3 matrix; every
-  `pull_request` runs the full set, because a path-filtered skip reports no
-  check at all and a required check that is never reported blocks the merge.
+* `ci.yml` always fires: on a push to `main`, on a `v*` tag, on every
+  `pull_request` and on `workflow_dispatch`. There is no workflow-level
+  `paths-ignore`; the filtering is a job, not a trigger.
+  * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
+    commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
+    matrix `{ubuntu,macos,windows} x {3.9,3.11,3.13}` plus ubuntu
+    `3.10`/`3.12`, `build` (sdist+wheel+verify_release), `privacy`
+    (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`:
+    personal data, credentials, agent-host config and tracked local state),
+    `committer-guard`, `release-consistency` (offline release gate),
+    `docs` (mkdocs build --strict).
+  * The `scope` job computes the changed-path set from git and publishes one
+    output, `code` (`true` = something that ships changed). The expensive jobs
+    (`lint`, `typecheck`, `test`, `build`, `privacy`, `docs`) carry
+    `needs: scope` and
+    `if: github.event_name != 'push' || needs.scope.outputs.code == 'true'`,
+    so they skip on a **push only**, and only when the change set is
+    prose/media only. Every `pull_request` runs the full set: a path-filtered
+    skip reports no check at all, and a required check that is never reported
+    blocks the merge. A **tag push** (`v*`) is not a code change: the tagged
+    commit already passed the matrix as a `main` push and `release.yml` re-runs
+    pytest on the tag, so the six expensive jobs are filtered out by `scope`
+    (`code=false`) and the jobs that still run are the `scope` classifier
+    itself and the two jobs that are not filtered by it -
+    `committer-guard` and `release-consistency`. Both of those are unfiltered
+    jobs, not "the consistency gate alone": `scope` can skip only the jobs
+    that declare `needs: scope`, and every job without that declaration runs
+    on every event.
+  * The prose/media set the classifier uses is `docs/**`, `assets/**` and the
+    root prose files `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
+    `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`
+    and `mkdocs.yml`. This set and `.github/workflows/docs.yml`'s `paths:`
+    list **must stay identical** - a path that leaves one list without joining
+    the other is a hole in one of the two gates. The identity is checkable
+    without a stored count: expand the `scope` job's `PROSE` regex and the
+    `paths:` list of `.github/workflows/docs.yml` over the tree and compare the
+    two sets - they must be equal, with no path in one list only. Every
+    shipping path (`src/`, `scripts/`, `tests/`, `roles/`, `references/`,
+    `templates/`,
+    packaging, `.github/workflows/`, `SKILL.md`) is outside the prose set and
+    still runs the full matrix.
+  * The classifier measures every change set with `git diff --no-renames`, so
+    a **rename is seen as a delete plus an add** and both paths are classified.
+    Rename detection reports only the destination of a rename, so without
+    `--no-renames` a move of a shipping file into a prose path would list only
+    the prose path and be classified as prose - the matrix would be skipped on
+    a change that removed shipping code.
+  * The classifier's **undetermined** case is part of the contract: it enters
+    the root-commit branch only when HEAD truly has no parent (every file it
+    carries is the change set). Every other case whose fork point is HEAD -
+    a rewritten history, a push whose `before` is unresolvable - is
+    *undetermined*, and an undetermined change set runs the code jobs: an
+    unknown change set must never silently skip the matrix.
+  * The `release-consistency` gate is **never filtered**. It has no `needs:`
+    and no `if:`, so it runs on every event, including a prose-only push,
+    because its subject is prose that disagrees with a tag, `version.py` or
+    `CHANGELOG.md` - a gate skipped exactly when the documentation drifts is
+    worthless. The job graph says the same thing: `scope` can skip only the
+    jobs that declare `needs: scope`, and the jobs in `ci.yml` that declare
+    neither `needs:` nor `if:` are `committer-guard` and `release-consistency`
+    - so a tag push, on which `scope` reports `code=false` and the six
+    expensive jobs are skipped, still runs the classifier and those two jobs.
+    The property is checkable without a line number: read the `needs:` and
+    `if:` keys of every job in `.github/workflows/ci.yml`; the jobs with
+    neither are `committer-guard` and `release-consistency`.
+    It runs the checker offline
+    (`scripts/check_release_consistency.py --offline --json`); the online half
+    is the `consistency` job in `release.yml` (see below). Exit 0 is clean,
+    exit 1 is drift, exit 2 is an unreadable input, and 1 and 2 both fail the
+    job - there is no `continue-on-error`. A missing checker is an unreadable
+    input (exit 2), not a pass: the checker is the subject of the gate, so its
+    absence fails the job. The rule set (R1, R2 and the tag rules) is computed
+    by the checker, never re-implemented or softened in the workflow.
 * `release.yml`: on `v*` tags - build, checksums (`SHA256SUMS`), SBOM
-  (CycloneDX JSON + SPDX), attestation, GitHub Release with all assets.
-* `docs.yml`: build and deploy the site to GitHub Pages on `main`.
+  (CycloneDX JSON + SPDX), attestation, GitHub Release with all assets. The
+  online half of the release-consistency gate is a separate `consistency` job
+  there (`--online`), and `build` carries `needs: [consistency]`, so a release
+  that cannot be traced is never built and never published. Whether that job
+  is in the tree the reader holds is a question with a command, not a
+  sentence: `git show HEAD:.github/workflows/release.yml | grep -n
+  "consistency:"` prints a line when the job is in the tree and nothing when
+  it is not, and the same file with `grep -n "needs: \[consistency\]"` says
+  whether `build` waits for it. While that job is not in the tree, the offline
+  half in `ci.yml` is the only gate.
+* `docs.yml`: build and deploy the site to GitHub Pages on `main`; it triggers
+  on the same prose/media set as the `scope` classifier and runs the checks
+  that matter for prose (`teamwork links`, the privacy scan, `mkdocs build
+  --strict`). The trigger policy and the offline/online split are written out
+  in [Release](Release.md); the reason for the design is recorded in
+  [Decisions](Decisions.md).
 * The Release Engineer pushes reviewed revisions to the remote stage by stage
   (a stage ends with a push, not with a merge)
   (only after the Reviewer passes them, never a red gate); the Tester certifies
@@ -248,18 +325,19 @@ missing or unreadable input is an error, never a pass.
 **What is implemented and what is pending (read this before the code).** This
 section is the **target**, not a description of the running program; where the
 two differ, the target wins - but the difference is stated here, once, so
-nobody reads section 11 as a changelog of the current implementation. At the
-time of writing `scripts/check_release_consistency.py` is **not in `main`**
-(`git ls-tree main scripts/check_release_consistency.py` prints nothing): it
-is owned by the Developer lane and lands with it. The implementation this
-section is measured against is the Developer lane's commit `d998801` (parent
-`c66c387`) - the revision measured at the time of writing, reproducible with
-`git show d998801:scripts/check_release_consistency.py` - pending merge.
-Against that code:
+nobody reads section 11 as a changelog of the current implementation. The
+implementation this section is measured against is the Developer lane's commit
+`d998801` (parent `c66c387`), reproducible with
+`git show d998801:scripts/check_release_consistency.py`. Whether that
+implementation is in the tree you are reading is a question with a command,
+not a sentence: the checker file is in the tree when
+`git ls-tree HEAD scripts/check_release_consistency.py` prints a line, and the
+implementation is in the tree when `git merge-base --is-ancestor d998801 HEAD`
+exits `0`. Against that code:
 
 | Clause | Status | Where |
 |---|---|---|
-| 11.3 - the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `d998801` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
+| 11.3 - on the local side the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `d998801` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
 | 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `d998801` `_extract_tar` / `_link_target` / `_materialise_links` |
 | 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `d998801` `_digest_of_files` (`unreadable payload file`) and the link refusals |
 | 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **implemented** | `d998801` `rule_r2_head_is_newer` uses `_reachable_version_tags` and `_tags_at_head` |
@@ -267,18 +345,21 @@ Against that code:
 | 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `d998801` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
 | 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `d998801` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
 
-Everything section 11 freezes is therefore implemented on the Developer lane's
-commit `d998801` (the revision measured at the time of writing), and none of
-it is in `main` yet: the whole file is **PENDING
-merge**, and until it lands `main` ships no checker at all. The two commits
-this amendment introduced into the contract (`rev=None` and the link policy)
-were implemented first, at `c66c387`; R2's `S = A - O`, the shallow guard and
+Every row of the table names a symbol in `d998801`, so the "implemented" column
+is re-derivable instead of a status word: for a row whose symbol is `<name>`,
+`git show d998801:scripts/check_release_consistency.py | grep -c "<name>"`
+prints `1` when the row is implemented and `0` when it is not.
+
+Everything section 11 freezes is therefore implemented in the revision
+`d998801`; whether that revision is in the tree the reader is holding is a
+question with a command - `git merge-base --is-ancestor d998801 HEAD` exits `0`
+when it is - and not a property of the document. The two amendments this
+section introduced into the contract (`rev=None` and the link policy) were
+implemented first, at `c66c387` (`git merge-base --is-ancestor c66c387 HEAD`
+exits `0` when that is in the tree too); R2's `S = A - O`, the shallow guard and
 `TAGGED_TOKEN` followed at `d998801`. The table exists so that a reader of
-section 11 does not read it as a changelog of `main`: **the contract is the
-target, and the target is met on the Developer lane's branch, not in `main`**.
-Every row of the table names a function in `d998801`, so a reader can re-derive
-the "implemented" column with `git show d998801:scripts/check_release_consistency.py`
-rather than trusting a status word.
+section 11 does not read it as a changelog of the repository: **the contract is
+the target, and each row names the revision that implements it**.
 
 ### 11.1 CLI (frozen)
 
@@ -684,7 +765,8 @@ digest = sha256(("\n".join(lines) + "\n").encode("utf-8")).hexdigest()[:16]
   cannot be resolved, are the **same case - an input error (exit `2`)**, never a
   skip and never drift (11.1.1: an unreadable input is never downgraded, and
   `2` takes precedence over `1`).
-* `payload_digest(root, rev)`: the payload **always comes from a git object**.
+* `payload_digest(root, rev)`: on the local side the payload **always comes
+  from a git object**.
   The tree is materialised with `git archive <rev>` into a temporary directory
   (never `git checkout`), and `rev=None` means the commit **`HEAD`** names - not
   the working tree. The working tree is never a digest source, so it contributes
@@ -704,8 +786,15 @@ never followed out of it, and the refusal never names the target.
    materialised as a regular file holding the target's bytes, and the digest
    reads those bytes. A link to a tracked but gitignored file resolves the same
    way. Measured: a committed `references/l -> references/keep.md` gives
-   `rev=None` and `rev=HEAD` the same digest `64674639a038018f`, and that digest
-   does **not** move when the target is edited on disk.
+   `rev=None` and `rev=HEAD` the same digest `1e24271d36f868d3`, and that
+   digest does **not** move when the target is edited on disk. The fixture is
+   committed: `tests/unit/test_release_consistency_digest.py` -
+   `test_an_in_commit_link_resolves_on_both_paths` asserts
+   `payload_digest(root, None) == payload_digest(root, "HEAD")` on it, and
+   `test_a_link_to_a_tracked_but_gitignored_file_resolves_and_is_stable`
+   asserts the digest is unchanged by an edit to the target on disk. The
+   assertion is the contract; the digest is what the committed fixture
+   produces.
 2. **Absolute target** - refused, **exit `2`** (input error): `archive member
    links to an absolute path: <the link's own path>`.
 3. **Target outside the repository / outside the tree** - refused, **exit `2`**:
@@ -738,8 +827,12 @@ never measured. DRIFT would also be the wrong label for a link into `.git`,
 which is not a claim about the release at all. The measurement that forced the
 rule: with the working tree as the digest source, a committed
 `references/l -> ../.git/config` gave the digest `f2aeb5b8a144fe47`, and
-appending a token-bearing remote URL to **`.git/config` alone** moved it to
-`ce020801f2fb5998` - a byte of git configuration changing a published digest.
+appending a token-bearing remote URL to **`.git/config` alone** moved it
+again - a byte of git configuration changing a published digest. The
+mechanism is the contract, and it is pinned by the committed fixture
+`tests/unit/test_release_consistency_digest.py`
+(`test_a_link_into_the_git_directory_is_refused_on_both_paths` and
+`test_editing_git_config_does_not_move_the_digest`).
 With the payload read from a git object the same tree is refused outright:
 `archive member links into the git directory: references/l`.
 
