@@ -150,21 +150,97 @@ def ensure_lfs(project: Path, quiet: bool = False) -> dict:
     return result
 
 
+BINARY_SNIFF_BYTES = 8192
+
+
+def is_binary_content(path: Path) -> bool:
+    """True when the file's CONTENT is binary, the way git decides it.
+
+    The LFS threshold is a binary threshold (Architecture 11.10): a text record
+    that grows past it is still a document, so the gates must not refuse it. The
+    test reads the bytes, never the name, because a name can be defeated - a
+    real binary renamed ``.md`` is still a binary, and a genuine binary dropped
+    into ``docs/Team/`` is still a binary. Git makes the same call from the
+    bytes (``git diff --numstat`` prints ``-  -`` for a binary), so this is the
+    model the repository already trusts.
+
+    A NUL byte in the first 8 KiB is the discriminator, with one exception: a
+    UTF-16 document also contains NUL bytes, so a head that decodes as UTF-16
+    into printable text is text and stays exempt.
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(BINARY_SNIFF_BYTES)
+    except OSError:
+        return False
+    if not head:
+        return False
+    if b"\x00" not in head:
+        return False
+    for encoding in ("utf-16-le", "utf-16-be"):
+        try:
+            candidate = head.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+        if candidate and all(ch.isprintable() or ch in "\n\r\t" for ch in candidate):
+            return False
+    return True
+
+
+def _attr_matches(pattern: str, rel: str, name: str) -> bool:
+    """Whether a .gitattributes pattern covers this path."""
+    if pattern.startswith("*."):
+        return name.endswith(pattern[1:])
+    return bool(Path(rel).match(pattern))
+
+
 def lfs_tracked(project: Path, rel: str) -> bool:
+    """Whether a .gitattributes pattern would route this file into Git LFS.
+
+    The LAST matching line wins, as git reads it: a later ``-filter`` opt-out
+    cancels an earlier ``filter=lfs`` pattern. The opt-out matters because
+    `.gitattributes` opts the small social-preview PNG and the brand assets OUT
+    of LFS, and a check that ignored the opt-out would report them as LFS
+    files - and, for a text file, would report a misconfiguration that does not
+    exist.
+    """
     path = project / ".gitattributes"
     if not path.exists():
         return False
     name = Path(rel).name
+    tracked = False
     for line in path.read_text(encoding="utf-8").splitlines():
         parts = line.split()
-        if len(parts) >= 2 and "filter=lfs" in line:
-            pattern = parts[0]
-            if pattern.startswith("*."):
-                if name.endswith(pattern[1:]):
-                    return True
-            elif Path(rel).match(pattern):
-                return True
-    return False
+        if len(parts) < 2:
+            continue
+        if not _attr_matches(parts[0], rel, name):
+            continue
+        if "filter=lfs" in line:
+            tracked = True
+        elif "-filter" in line:
+            tracked = False
+    return tracked
+
+
+def lfs_text_mismatch(project: Path, rel: str) -> bool:
+    """True when a TEXT file is captured by an LFS pattern - a misconfiguration.
+
+    ``.gitattributes`` routes a file into Git LFS BY NAME. A name is not
+    evidence, so a text file can be routed into LFS by accident: a record
+    written to ``assets/movie.bin`` is a 126-byte POINTER in the tree, and the
+    document is gone for every reader without an LFS client. LFS is for
+    binaries; a document in LFS is broken.
+
+    The size threshold is not the discriminator here and must not be: a text
+    file in LFS is broken at ANY size, so this check is size-independent. It
+    asks two questions of the same file - is the content text (the shared
+    ``is_binary_content``) and does a pattern capture the name (the shared
+    ``lfs_tracked``) - and both answers are reused by the three gates, so the
+    gates cannot disagree about which files are misconfigured.
+    """
+    if not lfs_tracked(project, rel):
+        return False
+    return not is_binary_content(project / rel)
 
 
 def branch_name(instance: str, task_id: str, title: str) -> str:
