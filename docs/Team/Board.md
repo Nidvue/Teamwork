@@ -76,7 +76,7 @@ under two roles is two tasks.
 | ceo | T-0062 | release | done | P-0067 | e4b141c |
 | ceo | T-0063 | release | doing | - | - |
 | ceo | T-0064 | docs | done | P-0082 | def7b1c |
-| reviewer | T-0002 | release | review | - | - |
+| reviewer | T-0002 | release | done | - | - |
 | tester | T-0003 | release | todo | - | - |
 | project-manager | T-0002 | plan | review | - | - |
 
@@ -92,7 +92,6 @@ deliverable landed by commit without a PR record.
 | ceo | T-0063 required-check sequencing | P0 | doing | `.github/workflows/ci.yml` |
 | architect | T-0004 contract amendments | P0 | review | `docs/Team/Architecture.md` section 11 |
 | release-engineer | T-0004 push and certify CI | P0 | todo | the pushed revision and its runs |
-| reviewer | T-0002 traceability verification | P1 | todo | the acceptance-layer test record |
 | tester | T-0003 acceptance proof | P1 | todo | `tests/acceptance/test_release_claims.py` |
 | project-manager | T-0002 record M9 on the plan and the board | P2 | review | [Plan](Plan.md), this file |
 
