@@ -97,7 +97,7 @@ under two roles is two tasks.
 | tester | T-0003 | - | done | P-0087 | a43e61e |
 | tester | T-0004 | - | done | P-0092 | c84932e |
 | tester | T-0005 | - | done | P-0103 | b91084d |
-| tester | T-0006 | - | todo | - | - |
+| tester | T-0006 | - | done | - | - |
 | product-manager | T-0001 | traceability | done | P-0037 | eeab44c |
 | project-manager | T-0001 | - | done | P-0034 | 69116cc |
 | project-manager | T-0002 | plan | done | P-0086 | 203b515 |
@@ -112,7 +112,7 @@ under two roles is two tasks.
 | release-engineer | T-0009 | - | done | P-0090 | e3a2476 |
 | release-engineer | T-0010 | - | done | P-0104 | 3b0fbfa |
 | release-engineer | T-0011 | - | dropped | - | - |
-| release-engineer | T-0012 | - | todo | - | - |
+| release-engineer | T-0012 | - | done | - | - |
 | security-auditor | T-0001 | core | dropped | P-0023 | - |
 | security-auditor | T-0002 | - | dropped | - | - |
 | security-auditor | T-0003 | security | done | P-0051 | 4e1e53f |
@@ -127,8 +127,6 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| tester | T-0006 · M10-T1 the CI scope-classifier suite must run under Git Bash, not WSL bash, on windows-latest | P0 | todo | - |
-| release-engineer | T-0012 · M10-R2 record the committer-guard decision and push the reviewed M10 revision, then certify CI on the pushed SHA | P0 | todo | - |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
