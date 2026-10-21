@@ -29,6 +29,14 @@ GIT_ENV = {
     "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
     "GIT_COMMITTER_NAME": "Tester",
     "GIT_COMMITTER_EMAIL": "tester@agents.nidvue.com",
+    # Hermetic, not accidentally hermetic: the subprocess gets no ``HOME``, so git
+    # finds no ``~/.gitconfig``, and these three say so out loud. Without them a
+    # system ``/etc/gitconfig`` could hand the fixtures a ``commit.gpgsign``,
+    # ``core.hooksPath`` or ``init.templateDir``, and a credential prompt could
+    # block a run. ``os.devnull`` is ``/dev/null`` here and ``nul`` on Windows.
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_TERMINAL_PROMPT": "0",
 }
 
 
@@ -94,6 +102,36 @@ def refresh(cli, capsys, *argv: str) -> tuple[int, str]:
     code = cli("refresh", *argv)
     captured = capsys.readouterr()
     return code, captured.out + captured.err
+
+
+def test_the_git_helper_ignores_the_callers_git_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hermetic must mean proof, not the accident of a missing ``HOME`` (T-0002).
+
+    A future edit that forwards ``HOME``, ``GIT_CONFIG_GLOBAL`` or
+    ``GIT_CONFIG_SYSTEM`` into the child would hand every fixture a foreign
+    ``user.name``, a ``commit.gpgsign`` that fails each commit and an
+    ``init.defaultBranch`` that renames the branch under test.
+    """
+    hostile = tmp_path / ".gitconfig"
+    hostile.write_text(
+        "[user]\n\tname = Operator\n\temail = operator@example.com\n"
+        "[commit]\n\tgpgsign = true\n[init]\n\tdefaultBranch = trunk\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(hostile))
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", str(hostile))
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    git(repo, "commit", "-q", "--allow-empty", "-m", "x")
+
+    assert git(repo, "rev-parse", "--abbrev-ref", "HEAD") != "trunk", "config leaked"
+    assert git(repo, "log", "-1", "--format=%an <%ae>") == "Tester <tester@agents.nidvue.com>"
 
 
 def test_refresh_mirrors_the_checkout_into_the_installed_directory(
