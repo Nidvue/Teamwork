@@ -414,8 +414,11 @@ def test_hooks_install_status_uninstall_round_trip(tmp_path: Path) -> None:
     for stage in ("pre-commit", "pre-push"):
         path = hook_path(project, stage)
         assert path.is_file(), f"{stage} not written to git's hooks dir"
-        mode = stat.S_IMODE(path.stat().st_mode)
-        assert mode == 0o755, f"11.6 says mode 0755, got {oct(mode)}"
+        if os.name != "nt":
+            # Windows has no executable bit and git for Windows ignores the file
+            # mode, so the 0755 contract only holds where POSIX modes exist.
+            mode = stat.S_IMODE(path.stat().st_mode)
+            assert mode == 0o755, f"11.6 says mode 0755, got {oct(mode)}"
         assert path.read_text(encoding="utf-8").startswith("#!/bin/sh\n")
         assert b"\r" not in path.read_bytes(), "11.6: LF endings"
 
