@@ -5,10 +5,16 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-20, `main` as `git rev-parse --short main` reports it)
+## Snapshot
 
-- Milestone: M6 and M7 are merged into `main` (T-0003 landed at `8444134`);
-  `v1.0.2` is the latest release and the next records pass is this PR.
+- Milestone: M9 (release truth) is in progress. Its state is read with
+  `teamwork.py board` and `teamwork.py task list <role>`; the rows of this
+  board are a human summary of the same records.
+- Release state, each fact read by its own command:
+  - npm `latest`: `npm view @nidvue/teamwork dist-tags` -> the `latest` tag
+  - newest git tag: `git tag -l --sort=-v:refname | head -1`
+  - version on `main`: `grep __version__ src/teamwork/version.py`
+  - the published version that has no tag: `cat release-exceptions.json`
 - Local gate: `pytest -q` on this branch head -> all pass; the count is read from
   that run and never pinned here, because every commit that adds a test changes it.
   The one skip is the console-script acceptance test (covered by
@@ -37,11 +43,58 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 - pi packaging: [Pi-Packaging](Pi-Packaging.md)
 
+## M9 - release truth
+
+The milestone is described in [Plan](Plan.md) (goal, non-goals, deliverables,
+dependencies and the acceptance criteria). The state of every row is read with
+`teamwork.py task list <role>`; the PR and the merged revision are read with
+`teamwork.py pr list`. Task ids are allocated per role queue, so the same id
+under two roles is two tasks.
+
+| role | id | area | state | pr | merged revision |
+|---|---|---|---|---|---|
+| architect | T-0002 | architecture | dropped | P-0068 | - |
+| architect | T-0003 | architecture | done | P-0075 | b02ed38 |
+| architect | T-0004 | architecture | review | P-0079 | - |
+| architect | T-0005 | ci | dropped | P-0081 | - |
+| developer | T-0005 | release | done | P-0073 | 5fa73ef |
+| developer | T-0006 | release | done | P-0074 | 74740be |
+| developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
+| developer | T-0009 | release-consistency | done | P-0085 | - |
+| developer | T-0010 | release | done | - | - |
+| developer | T-0011 | ci-contracts | done | P-0083 | a1a04bc |
+| developer | T-0012 | release-consistency | done | P-0080 | - |
+| developer | T-0013 | release-consistency | done | P-0084 | 602c56d |
+| release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
+| release-engineer | T-0004 | release | todo | - | - |
+| release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
+| release-engineer | T-0007 | release | done | P-0078 | 6fa8930 |
+| release-engineer | T-0008 | ci | done | - | - |
+| ceo | T-0059 | release | doing | P-0069 | - |
+| ceo | T-0060 | release | done | - | - |
+| ceo | T-0061 | release | done | P-0070 | - |
+| ceo | T-0062 | release | done | P-0067 | e4b141c |
+| ceo | T-0063 | release | doing | - | - |
+| ceo | T-0064 | docs | done | P-0082 | def7b1c |
+| reviewer | T-0002 | release | todo | - | - |
+| tester | T-0003 | release | todo | - | - |
+| project-manager | T-0002 | plan | doing | - | - |
+
+Rows whose PR is not merged carry no merged revision; the revision is read
+from the PR record, not from this table. A row with no PR is a task whose
+deliverable landed by commit without a PR record.
+
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0028 archive repair | P1 | in review (P-0027) | `Plan.md`, `Board.md`, `Archive.md`, `AuditManifest.json` |
+| ceo | T-0059 version bump and the npm-only anomaly | P0 | doing | `src/teamwork/version.py`, `CHANGELOG.md` |
+| ceo | T-0063 required-check sequencing | P0 | doing | `.github/workflows/ci.yml` |
+| architect | T-0004 contract amendments | P0 | review | `docs/Team/Architecture.md` section 11 |
+| release-engineer | T-0004 push and certify CI | P0 | todo | the pushed revision and its runs |
+| reviewer | T-0002 traceability verification | P1 | todo | the acceptance-layer test record |
+| tester | T-0003 acceptance proof | P1 | todo | `tests/acceptance/test_release_claims.py` |
+| project-manager | T-0002 record M9 on the plan and the board | P2 | doing | [Plan](Plan.md), this file |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
