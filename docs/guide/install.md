@@ -84,7 +84,7 @@ message, schedule) is in
 
     After a refresh, **reload the skill** (restart the host session, or re-scan
     skills) so the new ``SKILL.md`` is read - the command prints that reminder
-    whenever it wrote something. Pin a tag (`--branch v1.1.0`) when you want a
+    whenever it wrote something. Pin a tag (`--branch v1.1.2`) when you want a
     fixed protocol revision instead of `main`.
 
 ## Optional: install the engine on PATH
@@ -109,7 +109,7 @@ PyPI); the import name is `teamwork` and the console script is `teamwork`.
 Each tag publishes a wheel and an sdist with checksums and SBOMs:
 
 ```console
-$ python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.0/teamwork_agents-1.1.0-py3-none-any.whl
+$ python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.2/teamwork_agents-1.1.2-py3-none-any.whl
 ```
 
 ### Index commands (unavailable until PyPI publishing is enabled)
