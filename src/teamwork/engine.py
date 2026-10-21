@@ -108,6 +108,7 @@ from .config import (
     LAYER_CELL,
     LAYER_OWNER,
     LAYER_WHAT,
+    LFS_MAX_BYTES,
     LONG_CAP,
     MAX_ROUNDS,
     MIN_USES,
@@ -150,7 +151,9 @@ from .gitutil import (
     branch_worktree,
     current_branch,
     ensure_lfs,
+    is_binary_content,
     is_git_repo,
+    lfs_text_mismatch,
     lfs_tracked,
     run_git,
 )
@@ -422,6 +425,7 @@ __all__ = [
     "branch_merged",
     "branch_worktree",
     "ensure_lfs",
+    "lfs_text_mismatch",
     "lfs_tracked",
     "branch_name",
     "REVIEWS_HEADER",
@@ -3583,6 +3587,7 @@ def cmd_commit(args) -> int:
                 if (
                     fp.is_file()
                     and fp.stat().st_size > args.lfs_threshold
+                    and is_binary_content(fp)
                     and not lfs_tracked(project, line)
                 ):
                     big.append(f"{line} ({fp.stat().st_size // 1024} KiB)")
@@ -3594,6 +3599,17 @@ def cmd_commit(args) -> int:
                 + "\n  ".join(big)
                 + "\n  add a pattern to .gitattributes (teamwork.py repo) or raise"
                 " --lfs-threshold",
+                2,
+            )
+        mismatched = [line for line in staged.splitlines() if lfs_text_mismatch(project, line)]
+        if mismatched:
+            die(
+                "refusing to commit text file(s) that .gitattributes routes into Git "
+                "LFS:\n  "
+                + "\n  ".join(mismatched)
+                + "\n  this file is text but a LFS pattern captures its name; LFS is "
+                "for binaries, and a document in LFS is unreadable without a client."
+                "\n  drop the pattern from .gitattributes, or make the content binary.",
                 2,
             )
 
@@ -8385,26 +8401,46 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
             print("- .gitattributes has no Git LFS rules: run `teamwork.py repo`")
             hits += 1
         else:
-            big = []
+            all_files = []
             for p_ in project.rglob("*"):
                 if not p_.is_file() or any(
                     part in {".git", ".pi"} | SKIP_DIRS for part in p_.parts
                 ):
                     continue
+                all_files.append(p_.relative_to(project).as_posix())
+            mismatched = [rel for rel in all_files if lfs_text_mismatch(project, rel)]
+            if mismatched:
+                print(
+                    f"- {len(mismatched)} text file(s) routed into Git LFS by a "
+                    ".gitattributes pattern, e.g. "
+                    + ", ".join(mismatched[:3])
+                    + "\n  LFS is for binaries: a document in LFS is a pointer for "
+                    "every reader without an LFS client. Drop the pattern from "
+                    ".gitattributes, or make the content binary."
+                )
+                hits += 1
+            big = []
+            for rel in all_files:
                 try:
-                    if p_.stat().st_size >= 1_000_000:
-                        big.append(p_.relative_to(project).as_posix())
+                    if (project / rel).stat().st_size > LFS_MAX_BYTES:
+                        big.append(rel)
                 except OSError:
                     pass
-            untracked = [b for b in big if not lfs_tracked(project, b)]
+            binaries = [b for b in big if is_binary_content(project / b)]
+            untracked = [b for b in binaries if not lfs_tracked(project, b)]
             if untracked:
                 print(
-                    f"- {len(untracked)} large file(s) not LFS-tracked, e.g. "
+                    f"- {len(untracked)} large binary file(s) not LFS-tracked, e.g. "
                     + ", ".join(untracked[:3])
                 )
                 hits += 1
-            else:
-                print(f"- LFS rules present; {len(big)} large file(s), all tracked")
+            if not untracked:
+                text = len(big) - len(binaries)
+                note = f"; {text} large text record(s) exempt from the threshold" if text else ""
+                print(
+                    f"- LFS rules present; {len(binaries)} large binary file(s), "
+                    f"all LFS-tracked{note}"
+                )
     else:
         print("- no git repository yet: run `teamwork.py repo`")
         hits += 1
@@ -10090,7 +10126,7 @@ def _parsers_integration(sub, common) -> None:
     s.add_argument(
         "--lfs-threshold",
         type=int,
-        default=1_000_000,
+        default=LFS_MAX_BYTES,
         help="bytes above which a file must be LFS-tracked",
     )
     s.set_defaults(func=cmd_commit)

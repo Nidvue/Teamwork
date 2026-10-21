@@ -489,14 +489,16 @@ non-zero).
 | Id | Stage | Rule | Override |
 |---|---|---|---|
 | R1 | pre-commit | refuse the commit whose HEAD is `config.DEFAULT_BASE`, resolved with `git symbolic-ref --short HEAD` (it answers on an unborn branch) | `TEAMWORK_ALLOW_MAIN=1` |
-| R2 | pre-commit | refuse a staged file larger than `config.LFS_MAX_BYTES` (1048576) that no `.gitattributes` LFS pattern covers | add the pattern; no env override |
+| R2 | pre-commit | refuse a staged **binary** file larger than `config.LFS_MAX_BYTES` (1048576) that no `.gitattributes` LFS pattern covers; a text record is never refused **by the threshold**; and refuse a staged **text** file that an LFS pattern **does** cover, because a document in LFS is a pointer (section 11.10) | add the pattern (first case) / drop the pattern (second case); no env override |
 | R3 | pre-commit | warn on stderr when the commit identity is not a role mailbox (`<role>@IDENTITY_DOMAIN`), and exit **0** | - |
 | P1 | pre-push | refuse a non-fast-forward update of `refs/heads/<DEFAULT_BASE>` | `TEAMWORK_ALLOW_FORCE=1` |
 | P2 | pre-push | refuse deleting `refs/heads/<DEFAULT_BASE>` (zero local sha) | none |
 
 Reuse is part of the contract: R1 and P1-P2 read `config.DEFAULT_BASE` (one
-constant, no literal); R2 calls `gitutil.lfs_tracked` and compares against
-`config.LFS_MAX_BYTES`, the same pair `commit --check-lfs` uses; P1 asks
+constant, no literal); R2 calls `gitutil.lfs_tracked`, compares against
+`config.LFS_MAX_BYTES` and asks `gitutil.is_binary_content` and
+`gitutil.lfs_text_mismatch` for the two tests, the same calls
+`commit --check-lfs` uses; P1 asks
 `git merge-base --is-ancestor`, the engine's own fast-forward test; R3 compares
 against `IDENTITY_DOMAIN` and `names.role_identity`, never a second domain
 string. Re-implementing any of them is a defect, not a shortcut.
@@ -557,3 +559,75 @@ which a cwd-relative `--git-path` answer is observably wrong. **A skipped
 worktree test is a review failure, not a pass** - the linked worktree is where
 every lane of this team actually works, so a suite that only exercises the
 primary checkout has not tested the contract at all (`D-20261020-Architect-8`).
+
+### 11.10 The LFS threshold applies to binaries, not to text records (frozen)
+
+`config.LFS_MAX_BYTES` (1048576) is a **binary** threshold. It is not a size
+limit on the repository: a tracked **text** record that grows past it is still a
+document, and a document in Git LFS is broken - a reader without an LFS client
+sees a pointer, and the link check follows a pointer instead of a document
+(`D-20261021-Architect`).
+
+The three gates that read the threshold are the **audit**, **`commit
+--check-lfs`** and the **pre-commit rule R2**. All three ask the **same
+predicate**, `gitutil.is_binary_content(path)`, and all three compare against
+**the same constant**, `config.LFS_MAX_BYTES`. A fourth literal is a defect:
+`cmd_commit`'s `--lfs-threshold` default reads the constant, and the audit's
+own size test reads the constant. There is exactly one number and one binary
+test in the codebase.
+
+| Question | Answer (frozen) |
+|---|---|
+| What does the threshold apply to? | **Binary content only.** A text record is never refused **by the threshold**, at any size. |
+| How is "binary" decided? | **By content**, through `gitutil.is_binary_content` - never by extension, never by path, never by an allow-list of directories. |
+| Which files are exempt? | Every file whose content is text: the `docs/Team/` records, the skill files, the tracked markdown/json/text files the team reads and the link check follows - and every other text file in the tree. The exemption is a property of the **content**, not of the location. |
+| What happens when a text record is large? | **Nothing.** It is a document. It is committed as a plain file and it grows. The threshold says nothing about it. |
+| What happens when a binary is large? | The gate refuses it and names the file, exactly as before, and the remedy is the same: add the `.gitattributes` LFS pattern. |
+| Is a text record ever pushed into LFS? | **No.** `.gitattributes` routes a file into LFS **by name**, so a text file can be routed there by accident - and a document in LFS is broken. The gates therefore **refuse** a text file that a pattern would capture, with a message naming the mismatch. This check is **size-independent**: a text file in LFS is broken at any size. |
+
+**The two refusals, and the difference between them.** The gates refuse for two
+distinct reasons, and a file can hit either one:
+
+| Refusal | Trigger | Message |
+|---|---|---|
+| the threshold | a **binary** above `LFS_MAX_BYTES` that no LFS pattern covers | "refusing to commit large file(s) that no Git LFS pattern covers" - the remedy is to add the pattern |
+| the mismatch | a **text** file that an LFS pattern **does** cover | "refusing to commit text file(s) that .gitattributes routes into Git LFS" - the remedy is to drop the pattern or make the content binary |
+
+The two are opposites and both are needed. The first stops a binary from
+reaching history unarchived; the second stops a document from being archived as
+if it were a binary. Together they are what makes the promise in this section
+**true**: a text record is never pushed into LFS, because the gate that would
+push it refuses the commit first.
+
+**Why content and not the name.** A name-based rule is a rule the content can
+defeat: a real binary renamed `.md` is exempt, and a genuine binary dropped
+into `docs/Team/` is exempt. Git itself decides "binary" from the bytes, not
+from the name (`git diff --numstat` prints `-  -` for a random-byte `.md`), so
+a content test is the model the repository already trusts. The test is
+`gitutil.is_binary_content`: read the first 8192 bytes; if they contain a NUL
+byte the file is binary, **except** when the head decodes as printable UTF-16 -
+a UTF-16 document also contains NUL bytes and is still a text file. This is the
+same rule `git` uses and the same shape `scripts/privacy_scan.py` already
+applies to a file's head.
+
+**The pattern check reads `.gitattributes` last-match-wins.** A later
+`-filter` line cancels an earlier `filter=lfs` pattern, exactly as git reads
+it: the shipped `.gitattributes` opts the small social-preview PNG and the
+brand assets OUT of LFS, and a check that ignored the opt-out would report a
+text brand asset as a misconfiguration that does not exist.
+
+**The test is a gate, not a helper.** The layer test for this section must call
+the **audit** and the **commit path**, not a private predicate: a test that only
+calls the predicate passes while the product is broken, because the defect lives
+in the *wiring*. The suite must fail when (a) the audit stops exempting a large
+text record, (b) the audit stops flagging a large binary, (c) `commit
+--check-lfs` refuses a large text record, (d) the hook's R2 refuses a large
+text record, and (e) any of the three gates stops refusing a text file that an
+LFS pattern would capture. A predicate-only test is a review failure, not a
+pass (`D-20261021-Architect`).
+
+**The three gates, one predicate.** `gitutil.is_binary_content` and
+`gitutil.lfs_tracked` are the only two questions any of the three gates asks,
+and each gate asks them in the same order: is the content binary, and does an
+LFS pattern cover it. The engine's audit, the engine's `cmd_commit` and the
+hook module must not each grow their own copy of the test.

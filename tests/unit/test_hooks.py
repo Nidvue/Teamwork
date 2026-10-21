@@ -286,7 +286,14 @@ def test_pre_commit_allows_a_feature_branch(cli, feature, capsys) -> None:
 
 
 def stage_blob(path: Path, size: int) -> Path:
-    write(path, "x" * size)
+    """Stage a BINARY blob of `size` bytes.
+
+    The payload is real binary, not a run of ``x``: the LFS threshold is a
+    binary threshold (Architecture 11.10) and the content decides, so a text
+    payload named `.bin` is a text record and must not be refused.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(bytes(range(256)) * (size // 256) + b"\x00" * (size % 256))
     git(path.parent, "add", path.name)
     return path
 
