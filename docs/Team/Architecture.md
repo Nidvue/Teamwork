@@ -484,7 +484,7 @@ invents an `ok`.
 | R3 | every npm-published version | a git tag whose bundled-payload digest (11.3) equals that tarball's payload digest, or an entry in 11.4 | neither exists (a 404 on the advertised tarball is also DRIFT - 11.1.4) | `SKIP` |
 | R4 | every GitHub Release | `git tag -l` | no tag has the release's name | `SKIP` |
 | R5 | every git tag | the GitHub Release list | no release carries the tag's name | `SKIP` |
-| R6 | committed markdown that prints a version, or names a `releases/download/<tag>/` asset | `version.py` at HEAD, and `git tag -l` for a release asset | a printed literal version is **older** than HEAD's, or a release-asset tag names no tag or one **older** than the newest, and its line/block is not illustrative-marked | evaluates |
+| R6 | committed markdown that prints a version, names a `releases/download/<tag>/` asset, or pins `--branch`/`--tag`/`git checkout` at a version | `version.py` at HEAD, and `git tag -l` for a release asset or a pin | a printed literal version is **older** than HEAD's, or a release-asset tag / pin names no tag or one **older** than the newest, and its line/block is not illustrative-marked | evaluates |
 | R7 | `CHANGELOG.md` | every tagged version | a tagged version has no `## [X.Y.Z]` section, or more than one | evaluates |
 | R8 | committed markdown that advertises an install channel | the shipped name/entry point, and (online) PyPI | the channel names a package or executable the repository does not ship, or `--online` finds the channel does not resolve and the text does not mark it unavailable | partial (see 11.2.4) |
 | R9 | committed markdown that names a tag | `git tag -l` | a `vX.Y.Z` token, or a bare `X.Y.Z` token in a pin/tag context (11.2.4), names a tag that does not exist | evaluates |
@@ -670,16 +670,40 @@ superseded wheel. That shape is read by its own literal-path pattern
 path and not a lone `/`, `.../compare/v1.1.0...v1.1.2` still matches nothing -
 the two rules read the same URLs in opposite directions on purpose.
 
+**The second kind of version claim: a pin.** A version inside a
+`--branch`/`--tag`/`--ref` value, or after `git checkout`/`git switch`, is a claim
+even when the line never names the project - `docs/guide/install.md` pins a tag in
+a console block with no `teamwork` on it, so the project-context gate read nothing
+there, and R9 (which sees the same shape through `TAGGED_TOKEN`) only asks whether
+the tag exists, never whether it is stale. R6 therefore reads pins through its own
+local pattern, not through `TAGGED_TOKEN`:
+
+```python
+PIN_VERSION = re.compile(
+    r"(?<![\w./-])(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+)"
+    r"v?(\d+\.\d+\.\d+)(?![-/\w])(?!\.\w)"
+)
+```
+
+It is separate for two reasons: R6 must stay blind to a bare `vX.Y.Z` in prose (a
+measurement, a drill) and to the `releases/tag/` and `compare/` shapes it reads the
+other way, and a pin claim must not depend on the line's wording. The illustrative
+marker exempts a pin exactly as it exempts prose, and the pin is judged against the
+tag baseline below.
+
 **Two baselines, one rule.** A prose token is judged against **HEAD**; a release
-asset tag is judged against `git tag -l` - it must **name an existing tag** and
-must not be **older than the newest one**. They differ because a released asset
-can only name a release while `version.py` legitimately leads the newest tag
-between releases: with HEAD `1.1.3` and newest tag `v1.1.2`, an install command
-for `v1.1.2` is correct and a command for `v1.1.0` is stale. Judging the asset
-against HEAD would make the correct URL unfixable without an illustrative
+asset tag and a pin are judged against `git tag -l` - each must **name an existing
+tag** and must not be **older than the newest one**. They differ because a released
+asset or a pin can only name a release while `version.py` legitimately leads the
+newest tag between releases: with HEAD `1.1.3` and newest tag `v1.1.2`, a pin for
+`v1.1.2` is correct and a pin for `v1.1.0` is stale. Judging either against HEAD
+would make the correct command unfixable without an illustrative
 marker, which would hide exactly the staleness the rule exists to report. R6's
-`detail` still reports only the count of illustrative lines; an asset finding
-names the file, line, tag and the baseline it missed.
+`detail` still reports only the count of illustrative lines; an asset or pin
+finding names the file, line, tag and the baseline it missed - `installs the
+v1.1.0 release asset, older than the newest tag v1.1.2` for an asset and `pins
+--branch v1.1.0, older than the newest tag v1.1.2` (or `git tag -l has no such
+tag`) for a pin, so the two shapes stay distinguishable in the gate output.
 
 **Illustrative marker (R6 and R9).** The exact literal
 `<!-- release-consistency: illustrative -->`. It exempts a physical line when it
