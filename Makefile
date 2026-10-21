@@ -15,10 +15,15 @@ DIST   ?= dist
 
 help: ## Show this help.
 	@printf 'Teamwork - available targets:\n\n'
-	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+	-@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(subst \,/,$(MAKEFILE_LIST)) \
 		| sort \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
-	@printf '\nPYTHON=%s  PIP=%s  DIST=%s\n' '$(PYTHON)' '$(PIP)' '$(DIST)'
+	@n=$$(grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(subst \,/,$(MAKEFILE_LIST)) | wc -l); \
+		if [ "$$n" -eq 0 ]; then \
+			echo 'make help: no documented targets found in: $(MAKEFILE_LIST)' >&2; \
+			exit 1; \
+		fi
+	-@printf '\nPYTHON=%s  PIP=%s  DIST=%s\n' '$(PYTHON)' '$(PIP)' '$(DIST)'
 
 install: ## Install the package (runtime, zero dependencies).
 	$(PIP) install .

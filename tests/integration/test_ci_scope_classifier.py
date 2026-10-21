@@ -8,10 +8,12 @@ a program, so a defect there is invisible until a documentation-only push burns
 the 3x3 matrix or a code push skips it.
 
 This module therefore extracts the *real* block from the workflow (so the test
-cannot drift from the shipped classifier), runs it with ``bash`` against real
-committed repositories under ``tmp_path``, and reads the emitted value. Every
-case is also proved to bite: the same script is mutated in a scratch copy and
-the corresponding verdict must flip.
+cannot drift from the shipped classifier), runs it with a real POSIX ``bash``
+against real committed repositories under ``tmp_path``, and reads the emitted
+value. The shell is resolved by :func:`posix_bash`, because a bare ``bash`` on a
+Windows runner is the System32 WSL launcher, not a shell. Every case is also
+proved to bite: the same script is mutated in a scratch copy and the
+corresponding verdict must flip.
 
 Owner: tester. Task: T-0004.
 """
@@ -20,8 +22,13 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
+import sys
+from collections.abc import Callable
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
@@ -148,7 +155,7 @@ def classify(
         }
     )
     result = subprocess.run(
-        ["bash", str(script)],
+        [posix_bash(), str(script)],
         cwd=str(repo),
         env=env,
         capture_output=True,
@@ -167,6 +174,166 @@ def classify(
             pairs[key] = value
     assert "code" in pairs, f"classifier emitted no code: {output.read_text()!r}"
     return pairs
+
+
+# --------------------------------------------------------------------------- #
+# A POSIX shell, not a bare ``bash``
+# --------------------------------------------------------------------------- #
+
+#: A ``bash`` on PATH can be the WSL launcher in two places: the System32
+#: shim and the Store app-execution alias. Neither is a POSIX shell - with no
+#: distribution installed they exit 1 and print a UTF-16LE "no installed
+#: distributions" message, which surfaces here as a mysterious "classifier
+#: failed: exit 1" instead of a harness defect. Reject both by path.
+WSL_LAUNCHER_DIRS = ("c:/windows/system32",)
+WSL_LAUNCHER_SUFFIXES = ("/windowsapps/bash.exe",)
+
+
+def _normalised(path: str) -> str:
+    """Lower-case, forward-slash form so Windows paths compare reliably."""
+    return path.replace("\\", "/").rstrip("/").lower()
+
+
+def _is_wsl_launcher(path: str) -> bool:
+    """True for a ``bash.exe`` that is the WSL launcher rather than a shell.
+
+    Covers the System32 shim and the Store alias under ``WindowsApps``, in both
+    the given form and the form ``Path.resolve()`` reports, so a shim that is a
+    link into ``WindowsApps`` cannot slip through.
+    """
+    forms = {_normalised(path)}
+    try:
+        forms.add(_normalised(str(Path(path).resolve())))
+    except OSError:
+        pass
+    for form in forms:
+        if any(form.startswith(directory + "/") for directory in WSL_LAUNCHER_DIRS):
+            return True
+        if form.endswith(WSL_LAUNCHER_SUFFIXES):
+            return True
+    return False
+
+
+def _git_install_bash() -> list[str]:
+    """Real Git-for-Windows shells derived from ``git --exec-path``.
+
+    On Windows ``git --exec-path`` returns e.g.
+    ``C:/Program Files/Git/mingw64/libexec/git-core``. Walking up from that
+    directory to the install root gives ``C:/Program Files/Git``, whose
+    ``bin/bash.exe`` and ``usr/bin/bash.exe`` are genuine POSIX shells.
+    """
+    result = subprocess.run(["git", "--exec-path"], capture_output=True, text=True, check=False)
+    if result.returncode != 0 or not result.stdout.strip():
+        return []
+    exec_path = Path(result.stdout.strip())
+    candidates: list[str] = []
+    # git-core -> libexec -> mingw64 -> install root
+    for root in list(exec_path.parents)[:4]:
+        candidates.append(str(root / "bin" / "bash.exe"))
+        candidates.append(str(root / "usr" / "bin" / "bash.exe"))
+    return candidates
+
+
+def posix_bash(
+    os_name: str | None = None,
+    which: Callable[[str], str | None] | None = None,
+    git_shells: Callable[[], list[str]] | None = None,
+    exists: Callable[[str], bool] | None = None,
+) -> str:
+    """Return the path of a real POSIX ``bash`` to run the classifier with.
+
+    On POSIX this is simply ``shutil.which("bash")``. On Windows a bare
+    ``"bash"`` is resolved by the OS to ``C:\\Windows\\System32\\bash.exe``, the
+    WSL launcher - not a shell - so it is never accepted: Git-for-Windows
+    ``bash.exe`` candidates are derived from ``git --exec-path`` and the PATH
+    lookup is only used when it does not land on the WSL launcher.
+
+    Every seam (``os_name``, ``which``, ``git_shells``, ``exists``) is injectable
+    so the Windows branch is testable on any host, including the rejection path:
+    a test that let the real filesystem answer ``exists`` would pass merely
+    because a ``C:\\...`` path is absent on POSIX, proving nothing about the
+    guard. Raises ``AssertionError`` naming everything tried when no usable
+    shell exists, rather than silently running the WSL launcher.
+    """
+    name = os.name if os_name is None else os_name
+    lookup: Callable[[str], str | None] = shutil.which if which is None else which
+    if name != "nt":
+        bash = lookup("bash")
+        if bash is None:
+            raise AssertionError(f"no bash on PATH (which bash -> None, os.name={name})")
+        return bash
+
+    present: Callable[[str], bool] = (lambda p: Path(p).exists()) if exists is None else exists
+    tried: list[str] = []
+    on_path = lookup("bash")
+    tried.append(f"which bash -> {on_path!r}")
+    git_candidates = (_git_install_bash if git_shells is None else git_shells)()
+    tried.extend(f"git --exec-path -> {c!r}" for c in git_candidates)
+
+    # Git-derived shells first (the install root, never System32), then any
+    # PATH candidate that is not the WSL launcher.
+    for candidate in [*git_candidates, on_path]:
+        if candidate and not _is_wsl_launcher(candidate) and present(candidate):
+            return candidate
+    raise AssertionError(
+        "no usable POSIX bash found on Windows - the candidates were the WSL "
+        "launcher or absent, neither of which can run the classifier. "
+        "Tried: " + "; ".join(tried)
+    )
+
+
+def test_posix_bash_rejects_the_wsl_launcher_on_windows() -> None:
+    """The Windows branch must refuse the launcher and say what it tried.
+
+    Both shapes are exercised: the System32 shim and the Store alias under
+    ``WindowsApps``, which a plain ``startswith("C:/Windows/System32")`` guard
+    would accept.
+    """
+    for launcher in (
+        "C:\\Windows\\System32\\bash.exe",
+        "C:\\Users\\runner\\AppData\\Local\\Microsoft\\WindowsApps\\bash.exe",
+    ):
+        # ``exists`` answers True so the ONLY thing that can reject the
+        # launcher is the guard: delete the guard (stub _is_wsl_launcher to
+        # False) and this test fails instead of passing for the wrong reason.
+        with pytest.raises(AssertionError, match="no usable POSIX bash"):
+            posix_bash(
+                os_name="nt",
+                which=lambda _name, hit=launcher: hit,
+                git_shells=lambda: [],
+                exists=lambda _p: True,
+            )
+
+
+def test_posix_bash_prefers_a_git_install_shell_on_windows() -> None:
+    """A real shell derived from ``git --exec-path`` wins over the launcher.
+
+    ``sys.executable`` stands in for the Git-for-Windows ``bash.exe``: the point
+    is which candidate is chosen, and that the launcher on PATH is never it.
+    """
+    real = sys.executable
+    launcher = "C:\\Windows\\System32\\bash.exe"
+
+    assert (
+        posix_bash(
+            os_name="nt",
+            which=lambda _: launcher,
+            git_shells=lambda: [real],
+            exists=lambda _p: True,
+        )
+        == real
+    ), "a Git install shell must win over the launcher on PATH"
+
+    # The complement: with only the launcher available and it SAYING it exists,
+    # the guard is the sole reason nothing is returned. This is the case the
+    # ordering alone does not cover.
+    with pytest.raises(AssertionError, match="no usable POSIX bash"):
+        posix_bash(
+            os_name="nt",
+            which=lambda _: launcher,
+            git_shells=lambda: [],
+            exists=lambda _p: True,
+        )
 
 
 ZERO_SHA = "0" * 40
