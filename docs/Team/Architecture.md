@@ -138,7 +138,7 @@ Additions to the original surface (no removals, no renames):
 Every existing subcommand, flag and exit code is unchanged. Exit codes are part
 of the contract:
 
-| Code | Meaning | Sites measured at v1.1.0 |
+| Code | Meaning | Sites in the engine's current tree |
 |---|---|---|
 | `0` | success | the completing path of every command |
 | `1` | generic error or gate refusal; the `die()` default | `io.die(msg, code=1)`, `loop` CONTINUE (`return 1 if blockers else 0`) |
@@ -248,11 +248,13 @@ missing or unreadable input is an error, never a pass.
 **What is implemented and what is pending (read this before the code).** This
 section is the **target**, not a description of the running program; where the
 two differ, the target wins - but the difference is stated here, once, so
-nobody reads section 11 as a changelog of the current implementation. At
-revision `3055a8a` plus this amendment `scripts/check_release_consistency.py`
-is **not in `main`** (`git ls-tree main scripts/` lists only `verify_release.py`):
-it exists on the developer's branch `developer-1/t-0005-...`, whose tip is
-`cd7e802` and which contains `d998801` (parent `c66c387`), pending merge.
+nobody reads section 11 as a changelog of the current implementation. At the
+time of writing `scripts/check_release_consistency.py` is **not in `main`**
+(`git ls-tree main scripts/check_release_consistency.py` prints nothing): it
+is owned by the Developer lane and lands with it. The implementation this
+section is measured against is the Developer lane's commit `d998801` (parent
+`c66c387`) - the revision measured at the time of writing, reproducible with
+`git show d998801:scripts/check_release_consistency.py` - pending merge.
 Against that code:
 
 | Clause | Status | Where |
@@ -265,15 +267,18 @@ Against that code:
 | 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `d998801` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
 | 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `d998801` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
 
-Everything section 11 freezes is therefore implemented in the developer's branch
-at `d998801` and still present at `cd7e802`, and none of it is in `main` yet:
-the whole file is **PENDING
+Everything section 11 freezes is therefore implemented on the Developer lane's
+commit `d998801` (the revision measured at the time of writing), and none of
+it is in `main` yet: the whole file is **PENDING
 merge**, and until it lands `main` ships no checker at all. The two commits
 this amendment introduced into the contract (`rev=None` and the link policy)
 were implemented first, at `c66c387`; R2's `S = A - O`, the shallow guard and
 `TAGGED_TOKEN` followed at `d998801`. The table exists so that a reader of
 section 11 does not read it as a changelog of `main`: **the contract is the
-target, and the target is met on the developer's branch, not in `main`**.
+target, and the target is met on the Developer lane's branch, not in `main`**.
+Every row of the table names a function in `d998801`, so a reader can re-derive
+the "implemented" column with `git show d998801:scripts/check_release_consistency.py`
+rather than trusting a status word.
 
 ### 11.1 CLI (frozen)
 
@@ -491,11 +496,10 @@ tag list at all, so R1/R2 against it are an unreadable input (exit `2`), never a
 clean run.
 
 **This subsection changes a rule's meaning, and is marked as a meaning change.**
-Before it, R2 compared HEAD against *every* tag in the repository and its
-`detail` could print a negative count; the frozen rule compares only the
-version tags reachable from HEAD, excludes the tags that point at HEAD, and
-counts `|S|`. The old and new behaviour are both stated above so the change is
-reviewable from this file alone. The matching `D-` entry is
+Before it, R2 compared HEAD against *every* version tag in the repository; the
+frozen rule compares only the version tags reachable from HEAD, excludes the
+tags that point at HEAD, and counts `|S|`. The old and new behaviour are both
+stated above so the change is reviewable from this file alone. The matching `D-` entry is
 [D-20261021-Architect](Decisions.md#d-20261021-architect---r2-compares-head-only-against-the-version-tags-reachable-from-head),
 which carries this task's measurements, the alternatives rejected and the
 falsifier.
@@ -505,7 +509,7 @@ falsifier.
 Two comparisons, both on the same digest definition (11.3):
 
 1. **npm side.** Read `https://registry.npmjs.org/@nidvue%2Fteamwork` (the
-   published name is `@nidvue/teamwork`, `scripts/build_pi_package.py:23`), take
+   published name is `@nidvue/teamwork`, `scripts/build_pi_package.py`), take
    every version key, and for each download `dist.tarball`; unpack the `.tgz`
    into a temporary directory (`tarfile`, `tempfile`, never into the repo), **map
    the tarball paths back to payload paths with the table in 11.3.1**, and
@@ -829,8 +833,11 @@ Commands behind the numbers (reproducible from any checkout): the three
 tarballs were fetched with `npm pack @nidvue/teamwork@<version>` into a temporary
 directory, unpacked, mapped per 11.3.1 and hashed per 11.3; the local side is
 `payload_digest(root, "3f4981d")` and `payload_digest(root, "v1.1.0")`. The
-1.1.1 absence was checked by digesting all 392 commits of `git rev-list --all`
-with the same function: no match.
+1.1.1 absence was checked by digesting **every** commit of `git rev-list --all`
+with the same function: no match. The count-free form of the measurement is the
+predicate itself - `git rev-list --all` contains no commit whose 11.3 payload
+digest is `726bc547afc41ead` - so it can be re-run at any revision without
+re-reading a number.
 
 Example 1 also fixes the release order: tag the payload commit, then let CI's
 `release.yml` build from the tag - never retag a later doc-only commit, whose
