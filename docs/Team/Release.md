@@ -119,7 +119,12 @@ base is **not behind** HEAD the change set is **undetermined**, and the code
 jobs **run**: an unknown change set must never silently skip the matrix. The
 only case with a determinate change set and no usable base is a **root
 commit** (HEAD has no parent): every file it carries is the change set, and it
-is listed with `git diff-tree --root`. A push whose remote already holds HEAD
+is listed with `git diff-tree --root`. Every change set is measured with
+`--no-renames`, so a rename is seen as a delete plus an add and **both** paths
+are classified. Without it, rename detection reports only the *destination*:
+a push that moved `src/teamwork/foo.py` to `docs/foo.md` would list only the
+prose path, be classified as prose, and skip the matrix on a change that
+removed shipping code. A push whose remote already holds HEAD
 - which is the normal state after a push, because `origin/main` then points at
 the pushed SHA - is therefore *undetermined*, not "prose only", and the matrix
 runs.
@@ -138,6 +143,7 @@ success; the Docs-only push `39175948257` ran only Docs, success.
 | `.github/workflows/**` | CI full matrix | CI + Docs |
 | `roles/**`, `references/**`, `templates/**`, `SKILL.md` (shipped in the wheel) | CI full matrix | CI + Docs |
 | `docs/**`, root prose files, `LICENSE`, `CITATION.cff` | scope skips the code jobs; the consistency gate and Docs still run | CI + Docs |
+| a rename **out of** a shipping path (e.g. `src/**` -> `docs/**`) | scope sees both paths (`--no-renames`): the code jobs run | CI + Docs |
 | `assets/**` (images, banners, the social preview) | scope skips the code jobs; the consistency gate and Docs still run | CI + Docs |
 
 `workflow_dispatch` stays enabled on both, so the full matrix can be forced on a
