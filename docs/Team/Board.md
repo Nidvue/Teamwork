@@ -71,7 +71,7 @@ under two roles is two tasks.
 | ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
 | ceo | T-0071 | - | done | P-0108 | 9099e51 |
 | ceo | T-0072 | - | done | P-0110 | 4af8b2e |
-| ceo | T-0073 | - | review | P-0111 | - |
+| ceo | T-0073 | - | done | P-0111 | 25f8f3e |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
@@ -121,7 +121,6 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0073 · The shared skill registry row the harness lint demands (ceo-audit-close has no verdict) | P0 | review | - |
 | release-engineer | T-0004 · M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | blocked | - |
 | release-engineer | T-0006 · CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | - |
 
