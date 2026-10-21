@@ -1367,6 +1367,118 @@ def test_r3_an_exception_admits_only_the_version_it_names_end_to_end(tmp_path):
     assert not any("9.9.9" in finding for finding in result.findings)
 
 
+def test_r3_an_exception_admits_exactly_its_own_version_and_no_other(tmp_path):
+    """The admission is per version: the exception's own version and nothing else.
+
+    Two npm versions are published; one of them has a recorded exception, the
+    other has no tag and therefore cannot be traced to any commit. The gate
+    must report the untraceable one (11.2.3: an exception "cannot silence a
+    DRIFT that R3 found for a *different* version").
+
+    The admission test is ``version in admitted``. Read as ``if admitted`` -
+    the truthiness of the admitted set - a single recorded exception would
+    swallow the second version too and R3 would report ``ok`` for a publish
+    that cannot be traced to any commit. That is the defect this test pins.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    exceptions = [
+        {
+            "version": "1.1.1",
+            "reason": "published from a workspace whose commit was never pushed",
+            "evidence": "digest 0123456789abcdef matches no commit in git rev-list --all",
+            "recorded": "2026-10-20",
+        }
+    ]
+    fetch = fake_http({crc.NPM_REGISTRY: npm_registry({"1.1.1": "x", "1.1.2": "x"})})
+
+    result = crc.rule_r3_npm_payloads(root, exceptions, fetch, lambda url: tarball(PAYLOAD))
+
+    assert result.status == "DRIFT"
+    # The untraceable version is named, and named as untraceable.
+    assert any("1.1.2" in finding for finding in result.findings)
+    assert any("no tag v1.1.2" in finding for finding in result.findings)
+    # The admitted version produces no finding at all - it is excused, not drifted.
+    assert not any("1.1.1" in finding for finding in result.findings)
+    # The admission stays visible on every run.
+    assert "1.1.1 admitted by exception" in result.detail
+
+
+def test_load_exceptions_returns_every_recorded_entry(tmp_path):
+    """The loader hands the recorded entries to the admission test.
+
+    A loader that returns an empty list would leave the gate with no
+    exception at all, so every published version would be compared - and the
+    recorded admission would be silently forgotten. The loaded entry must
+    therefore carry the four contract keys of 11.4.
+    """
+    root = make_repo(
+        tmp_path / "repo",
+        exceptions=json.dumps(
+            [
+                {
+                    "version": "1.1.1",
+                    "reason": "published from a workspace whose commit was never pushed",
+                    "evidence": "digest 0123456789abcdef matches no commit",
+                    "recorded": "2026-10-20",
+                }
+            ]
+        ),
+    )
+
+    entries = crc.load_exceptions(root / "release-exceptions.json")
+
+    assert len(entries) == 1
+    assert entries[0]["version"] == "1.1.1"
+    assert set(entries[0]) == {"version", "reason", "evidence", "recorded"}
+
+
+def test_load_exceptions_rejects_an_entry_with_a_missing_key(tmp_path):
+    """An entry without all four contract keys is an input error (11.4).
+
+    A loader that tolerates a missing ``evidence`` (or ``reason``, or
+    ``recorded``) would admit a version on a record no reviewer can judge -
+    the "silent pass" 11.4 forbids.
+    """
+    root = make_repo(tmp_path / "repo")
+    write(
+        root,
+        {
+            "release-exceptions.json": json.dumps(
+                [
+                    {
+                        "version": "1.1.1",
+                        "reason": "published from a workspace whose commit was never pushed",
+                        "recorded": "2026-10-20",
+                    }
+                ]
+            )
+        },
+    )
+
+    with pytest.raises(crc.InputError, match="missing key"):
+        crc.load_exceptions(root / "release-exceptions.json")
+
+
+def test_r3_a_missing_exception_file_is_an_input_error(tmp_path):
+    """A missing exception file is exit 2, never "there are no exceptions".
+
+    11.4: "Missing file ... is an input error: exit 2". Reading a missing file
+    as an empty exception list would make the gate pass a publish that has no
+    recorded admission at all - the failure this whole rule exists to remove.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    (root / "release-exceptions.json").unlink()
+
+    with pytest.raises(crc.InputError, match="missing"):
+        crc.load_exceptions(root / "release-exceptions.json")
+
+    code, stdout, _ = run_main(["--offline", "--repo-root", str(root)])
+    assert code == 2
+    assert "R3 SKIP" in stdout
+    assert "missing" in stdout
+
+
 #: The bundled payload of the fixture below, exactly as 11.3 defines it: the two
 #: files plus the two trees, with nothing else. The root files of the fixture
 #: (pyproject.toml, CHANGELOG.md, README.md, release-exceptions.json) are not
