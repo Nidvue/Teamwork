@@ -138,7 +138,7 @@ Additions to the original surface (no removals, no renames):
 Every existing subcommand, flag and exit code is unchanged. Exit codes are part
 of the contract:
 
-| Code | Meaning | Sites measured at v1.1.0 |
+| Code | Meaning | Sites in the engine's current tree |
 |---|---|---|
 | `0` | success | the completing path of every command |
 | `1` | generic error or gate refusal; the `die()` default | `io.die(msg, code=1)`, `loop` CONTINUE (`return 1 if blockers else 0`) |
@@ -208,19 +208,96 @@ from the wrong role, so the two maps must not be conflated.
 
 ## 9. CI / release contract
 
-* `ci.yml`: `lint` (ruff check + format --check + commit-identity audit),
-  `typecheck` (mypy, non-blocking report), `test` matrix
-  `{ubuntu,macos,windows} x {3.9,3.11,3.13}` plus ubuntu `3.10`/`3.12`,
-  `build` (sdist+wheel+verify_release), `privacy`
-  (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`: personal
-  data, credentials, agent-host config and tracked local state),
-  `docs` (mkdocs build --strict). On `push` the prose and media paths are
-  `paths-ignore`d so a docs-only change does not burn the 3x3 matrix; every
-  `pull_request` runs the full set, because a path-filtered skip reports no
-  check at all and a required check that is never reported blocks the merge.
+* `ci.yml` always fires: on a push to `main`, on a `v*` tag, on every
+  `pull_request` and on `workflow_dispatch`. There is no workflow-level
+  `paths-ignore`; the filtering is a job, not a trigger.
+  * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
+    commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
+    matrix `{ubuntu,macos,windows} x {3.9,3.11,3.13}` plus ubuntu
+    `3.10`/`3.12`, `build` (sdist+wheel+verify_release), `privacy`
+    (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`:
+    personal data, credentials, agent-host config and tracked local state),
+    `committer-guard`, `release-consistency` (offline release gate),
+    `docs` (mkdocs build --strict).
+  * The `scope` job computes the changed-path set from git and publishes one
+    output, `code` (`true` = something that ships changed). The expensive jobs
+    (`lint`, `typecheck`, `test`, `build`, `privacy`, `docs`) carry
+    `needs: scope` and
+    `if: github.event_name != 'push' || needs.scope.outputs.code == 'true'`,
+    so they skip on a **push only**, and only when the change set is
+    prose/media only. Every `pull_request` runs the full set: a path-filtered
+    skip reports no check at all, and a required check that is never reported
+    blocks the merge. A **tag push** (`v*`) is not a code change: the tagged
+    commit already passed the matrix as a `main` push and `release.yml` re-runs
+    pytest on the tag, so the six expensive jobs are filtered out by `scope`
+    (`code=false`) and the jobs that still run are the `scope` classifier
+    itself and the two jobs that are not filtered by it -
+    `committer-guard` and `release-consistency`. Both of those are unfiltered
+    jobs, not "the consistency gate alone": `scope` can skip only the jobs
+    that declare `needs: scope`, and every job without that declaration runs
+    on every event.
+  * The prose/media set the classifier uses is `docs/**`, `assets/**` and the
+    root prose files `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
+    `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`
+    and `mkdocs.yml`. This set and `.github/workflows/docs.yml`'s `paths:`
+    list **must stay identical** - a path that leaves one list without joining
+    the other is a hole in one of the two gates. The identity is checkable
+    without a stored count: expand the `scope` job's `PROSE` regex and the
+    `paths:` list of `.github/workflows/docs.yml` over the tree and compare the
+    two sets - they must be equal, with no path in one list only. Every
+    shipping path (`src/`, `scripts/`, `tests/`, `roles/`, `references/`,
+    `templates/`,
+    packaging, `.github/workflows/`, `SKILL.md`) is outside the prose set and
+    still runs the full matrix.
+  * The classifier measures every change set with `git diff --no-renames`, so
+    a **rename is seen as a delete plus an add** and both paths are classified.
+    Rename detection reports only the destination of a rename, so without
+    `--no-renames` a move of a shipping file into a prose path would list only
+    the prose path and be classified as prose - the matrix would be skipped on
+    a change that removed shipping code.
+  * The classifier's **undetermined** case is part of the contract: it enters
+    the root-commit branch only when HEAD truly has no parent (every file it
+    carries is the change set). Every other case whose fork point is HEAD -
+    a rewritten history, a push whose `before` is unresolvable - is
+    *undetermined*, and an undetermined change set runs the code jobs: an
+    unknown change set must never silently skip the matrix.
+  * The `release-consistency` gate is **never filtered**. It has no `needs:`
+    and no `if:`, so it runs on every event, including a prose-only push,
+    because its subject is prose that disagrees with a tag, `version.py` or
+    `CHANGELOG.md` - a gate skipped exactly when the documentation drifts is
+    worthless. The job graph says the same thing: `scope` can skip only the
+    jobs that declare `needs: scope`, and the jobs in `ci.yml` that declare
+    neither `needs:` nor `if:` are `committer-guard` and `release-consistency`
+    - so a tag push, on which `scope` reports `code=false` and the six
+    expensive jobs are skipped, still runs the classifier and those two jobs.
+    The property is checkable without a line number: read the `needs:` and
+    `if:` keys of every job in `.github/workflows/ci.yml`; the jobs with
+    neither are `committer-guard` and `release-consistency`.
+    It runs the checker offline
+    (`scripts/check_release_consistency.py --offline --json`); the online half
+    is the `consistency` job in `release.yml` (see below). Exit 0 is clean,
+    exit 1 is drift, exit 2 is an unreadable input, and 1 and 2 both fail the
+    job - there is no `continue-on-error`. A missing checker is an unreadable
+    input (exit 2), not a pass: the checker is the subject of the gate, so its
+    absence fails the job. The rule set (R1, R2 and the tag rules) is computed
+    by the checker, never re-implemented or softened in the workflow.
 * `release.yml`: on `v*` tags - build, checksums (`SHA256SUMS`), SBOM
-  (CycloneDX JSON + SPDX), attestation, GitHub Release with all assets.
-* `docs.yml`: build and deploy the site to GitHub Pages on `main`.
+  (CycloneDX JSON + SPDX), attestation, GitHub Release with all assets. The
+  online half of the release-consistency gate is a separate `consistency` job
+  there (`--online`), and `build` carries `needs: [consistency]`, so a release
+  that cannot be traced is never built and never published. Whether that job
+  is in the tree the reader holds is a question with a command, not a
+  sentence: `git show HEAD:.github/workflows/release.yml | grep -n
+  "consistency:"` prints a line when the job is in the tree and nothing when
+  it is not, and the same file with `grep -n "needs: \[consistency\]"` says
+  whether `build` waits for it. While that job is not in the tree, the offline
+  half in `ci.yml` is the only gate.
+* `docs.yml`: build and deploy the site to GitHub Pages on `main`; it triggers
+  on the same prose/media set as the `scope` classifier and runs the checks
+  that matter for prose (`teamwork links`, the privacy scan, `mkdocs build
+  --strict`). The trigger policy and the offline/online split are written out
+  in [Release](Release.md); the reason for the design is recorded in
+  [Decisions](Decisions.md).
 * The Release Engineer pushes reviewed revisions to the remote stage by stage
   (a stage ends with a push, not with a merge)
   (only after the Reviewer passes them, never a red gate); the Tester certifies
@@ -245,6 +322,45 @@ list). It is the release gate of [Release](Release.md); it is read-only (it
 never tags, publishes, pushes or writes), it runs offline by default, and a
 missing or unreadable input is an error, never a pass.
 
+**What is implemented and what is pending (read this before the code).** This
+section is the **target**, not a description of the running program; where the
+two differ, the target wins - but the difference is stated here, once, so
+nobody reads section 11 as a changelog of the current implementation. The
+implementation this section is measured against is the Developer lane's commit
+`d998801` (parent `c66c387`), reproducible with
+`git show d998801:scripts/check_release_consistency.py`. Whether that
+implementation is in the tree you are reading is a question with a command,
+not a sentence: the checker file is in the tree when
+`git ls-tree HEAD scripts/check_release_consistency.py` prints a line, and the
+implementation is in the tree when `git merge-base --is-ancestor d998801 HEAD`
+exits `0`. Against that code:
+
+| Clause | Status | Where |
+|---|---|---|
+| 11.3 - on the local side the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `d998801` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
+| 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `d998801` `_extract_tar` / `_link_target` / `_materialise_links` |
+| 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `d998801` `_digest_of_files` (`unreadable payload file`) and the link refusals |
+| 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **implemented** | `d998801` `rule_r2_head_is_newer` uses `_reachable_version_tags` and `_tags_at_head` |
+| 11.2.2 - the `detail` counts `|S|`, never a negative number | **implemented** | the same function reports `is newer than {len(comparable)} tag(s)` over `S` |
+| 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `d998801` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
+| 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `d998801` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
+
+Every row of the table names a symbol in `d998801`, so the "implemented" column
+is re-derivable instead of a status word: for a row whose symbol is `<name>`,
+`git show d998801:scripts/check_release_consistency.py | grep -c "<name>"`
+prints `1` when the row is implemented and `0` when it is not.
+
+Everything section 11 freezes is therefore implemented in the revision
+`d998801`; whether that revision is in the tree the reader is holding is a
+question with a command - `git merge-base --is-ancestor d998801 HEAD` exits `0`
+when it is - and not a property of the document. The two amendments this
+section introduced into the contract (`rev=None` and the link policy) were
+implemented first, at `c66c387` (`git merge-base --is-ancestor c66c387 HEAD`
+exits `0` when that is in the tree too); R2's `S = A - O`, the shallow guard and
+`TAGGED_TOKEN` followed at `d998801`. The table exists so that a reader of
+section 11 does not read it as a changelog of the repository: **the contract is
+the target, and each row names the revision that implements it**.
+
 ### 11.1 CLI (frozen)
 
 | Flag | Default | Meaning |
@@ -264,7 +380,7 @@ missing or unreadable input is an error, never a pass.
 
 ```python
 main(argv: Optional[Sequence[str]] = None) -> int   # the frozen entry point
-payload_digest(root: Path, rev: Optional[str]) -> str  # 11.3; rev None = working tree
+payload_digest(root: Path, rev: Optional[str]) -> str  # 11.3; rev None = HEAD
 _http_get_json(url: str) -> object                  # the single network seam (11.1.4)
 ```
 
@@ -393,10 +509,15 @@ steps, the only place the rule reads git:
 DRIFT iff some tag in `S` has a version that is **not** strictly less than
 HEAD's, and the `detail` names each such tag. `ok` reads
 `HEAD <X.Y.Z> is newer than <|S|> tag(s)`, where `|S| = len(A) - len(O)` over
-**reachable version tags only**. It is never `len(git tag -l) - len(O)`:
-subtracting the tags-at-HEAD from *every* tag in the repository is the
-arithmetic defect that printed `is newer than -2 tag(s)` for `v1.1.0` with two
-doc tags at HEAD, while promising `N-1`.
+**reachable version tags only**, so the count is never negative. The rule it
+replaces (`c66c387:891-899`) compared HEAD against **every** version tag in the
+repository and counted `len(tags)` - a count that is never negative either, but
+that has no notion of reachability, so it was red against tags which were
+never the checkout's ancestors. The arithmetic this subsection forbids is
+`len(git tag -l) - len(O)`: it subtracts the tags-at-HEAD from *every* tag in
+the repository, so on one version tag with two doc tags at HEAD it evaluates to
+`-2`. No revision of the checker implements it and none prints a negative
+count; it is the defect the freeze removes, not an output of any shipped code.
 
 Two consequences of the ancestry freeze, both intended:
 
@@ -422,7 +543,7 @@ never be green on the build it exists to gate.
 
 | HEAD state | R1 | R2 |
 |---|---|---|
-| HEAD is exactly tag `vX.Y.Z`, its `version.py` is `X.Y.Z`, no other tag at HEAD | `ok` (the tag agrees with its own commit) | `ok` - `O` is HEAD's own tag; detail counts `\|S\|` (`N-1`) |
+| HEAD is exactly tag `vX.Y.Z`, its `version.py` is `X.Y.Z`, no other tag at HEAD | `ok` (the tag agrees with its own commit) | `ok` - `O` is HEAD's own tag; the detail counts `\|S\|` (= `\|A\| - 1`, because `O` holds exactly that one tag) |
 | HEAD newer than every reachable tag | `ok` | `ok`, detail counts `\|S\|` |
 | HEAD older than the newest *reachable* tag | `ok` (each tag still agrees with its own commit) | DRIFT - names each reachable tag ahead of HEAD |
 | HEAD between two reachable tags | `ok` | DRIFT - names the reachable tags ahead of HEAD only |
@@ -456,20 +577,20 @@ tag list at all, so R1/R2 against it are an unreadable input (exit `2`), never a
 clean run.
 
 **This subsection changes a rule's meaning, and is marked as a meaning change.**
-Before it, R2 compared HEAD against *every* tag in the repository and its
-`detail` could print a negative count; the frozen rule compares only the
-version tags reachable from HEAD, excludes the tags that point at HEAD, and
-counts `|S|`. The old and new behaviour are both stated above so the change is
-reviewable from this file alone; the matching `D-` entry in
-[Decisions](Decisions.md) is the Architect's to file with this task's
-measurements, and until it lands this paragraph is the record.
+Before it, R2 compared HEAD against *every* version tag in the repository; the
+frozen rule compares only the version tags reachable from HEAD, excludes the
+tags that point at HEAD, and counts `|S|`. The old and new behaviour are both
+stated above so the change is reviewable from this file alone. The matching `D-` entry is
+[D-20261021-Architect](Decisions.md#d-20261021-architect---r2-compares-head-only-against-the-version-tags-reachable-from-head),
+which carries this task's measurements, the alternatives rejected and the
+falsifier.
 
 #### 11.2.3 R3 detail
 
 Two comparisons, both on the same digest definition (11.3):
 
 1. **npm side.** Read `https://registry.npmjs.org/@nidvue%2Fteamwork` (the
-   published name is `@nidvue/teamwork`, `scripts/build_pi_package.py:23`), take
+   published name is `@nidvue/teamwork`, `scripts/build_pi_package.py`), take
    every version key, and for each download `dist.tarball`; unpack the `.tgz`
    into a temporary directory (`tarfile`, `tempfile`, never into the repo), **map
    the tarball paths back to payload paths with the table in 11.3.1**, and
@@ -538,8 +659,8 @@ both fine - the changelog may lead the tag; only a tagged version without a
 heading, or a duplicate heading, is drift.
 
 **R8 offline half.** The three channel forms are matched literally on one line:
-`pip install teamwork-agents` (and the `python -m`, `python3 -m`, `py -m`
-variants), `pipx install teamwork-agents`, `uvx --from teamwork-agents`. Each
+`pip install teamwork-agents` (and the `python -m`, `python3 -m`, `py -m` <!-- release-consistency: channel-unavailable -->
+variants), `pipx install teamwork-agents`, `uvx --from teamwork-agents`. Each <!-- release-consistency: channel-unavailable -->
 must agree with the shipped metadata - the distribution name
 (`version.DIST_NAME`, `teamwork-agents`) and the console script
 (`[project.scripts]` `teamwork` in `pyproject.toml`) - and must be covered by the
@@ -639,16 +760,81 @@ digest = sha256(("\n".join(lines) + "\n").encode("utf-8")).hexdigest()[:16]
 * `relpath_posix` is the path relative to the payload root, with `/` separators
   on every OS - the digest must be identical on Linux, macOS and Windows.
 * Two spaces between digest and path (the `sha256sum` line shape), lines sorted
-  as strings, one trailing newline, hashed **once**. Symlinks are resolved; a
-  file that cannot be read is drift, not a skip.
-* `payload_digest(root, rev)`: with a `rev` the tree is materialised with
-  `git archive <rev>` into a temporary directory (never `git checkout`), with
-  `rev=None` the working tree is read in place. The npm side passes a staging
-  tree built from the published tarball by 11.3.1, never the unpacked tarball
-  itself.
+  as strings, one trailing newline, hashed **once**. Symlinks are resolved under
+  the link policy below; a payload file that cannot be read, and a link that
+  cannot be resolved, are the **same case - an input error (exit `2`)**, never a
+  skip and never drift (11.1.1: an unreadable input is never downgraded, and
+  `2` takes precedence over `1`).
+* `payload_digest(root, rev)`: on the local side the payload **always comes
+  from a git object**.
+  The tree is materialised with `git archive <rev>` into a temporary directory
+  (never `git checkout`), and `rev=None` means the commit **`HEAD`** names - not
+  the working tree. The working tree is never a digest source, so it contributes
+  no bytes, the archive path and the npm path always read the same tree, and
+  the two can never disagree about what the payload is. The npm side passes a
+  staging tree built from the published tarball by 11.3.1, never the unpacked
+  tarball itself.
+
 * The first 16 hex characters are the published comparison form
   (`a01d9f0cbee641c3`, 64 bits) - long enough that a collision is not a
   realistic accidental pass.
+
+**Link policy (frozen).** A link is resolved inside the payload tree; it is
+never followed out of it, and the refusal never names the target.
+
+1. **Target inside the repository and inside the commit** - the link is
+   materialised as a regular file holding the target's bytes, and the digest
+   reads those bytes. A link to a tracked but gitignored file resolves the same
+   way. Measured: a committed `references/l -> references/keep.md` gives
+   `rev=None` and `rev=HEAD` the same digest `1e24271d36f868d3`, and that
+   digest does **not** move when the target is edited on disk. The fixture is
+   committed: `tests/unit/test_release_consistency_digest.py` -
+   `test_an_in_commit_link_resolves_on_both_paths` asserts
+   `payload_digest(root, None) == payload_digest(root, "HEAD")` on it, and
+   `test_a_link_to_a_tracked_but_gitignored_file_resolves_and_is_stable`
+   asserts the digest is unchanged by an edit to the target on disk. The
+   assertion is the contract; the digest is what the committed fixture
+   produces.
+2. **Absolute target** - refused, **exit `2`** (input error): `archive member
+   links to an absolute path: <the link's own path>`.
+3. **Target outside the repository / outside the tree** - refused, **exit `2`**:
+   `archive member links outside the tree: <the link's own path>`.
+4. **Target inside the git directory** (`.git` anywhere in the target's parts) -
+   refused, **exit `2`**: `archive member links into the git directory: <the
+   link's own path>`.
+5. **Broken, cyclic or self-referential target** - refused, **exit `2`**: `archive
+   link does not resolve to a readable file (broken, cyclic or self-referential):
+   <the links' own paths>`.
+
+Every refusal names the **link's own path** and never the target's path, so a
+refusal cannot carry a name from outside the tree into the digest or into the
+printed output.
+
+**11.3.1's closing bullet is a restatement of this subsection.** It states that a
+payload file which cannot be read - like a link which cannot be resolved - is
+an **input error (exit `2`)**, never drift, and it points here for the
+precedence rule: where 11.3 and 11.3.1 differ, this subsection governs, and
+11.1.1 keeps `2` above `1`. 11.3.1's remap table and its "no recognizable
+prefix → exit `2`" rule are otherwise byte-identical to the frozen text.
+
+**Why an unresolvable link is an input error (exit `2`) and not drift (exit
+`1`).** DRIFT means a published fact disagrees with the local fact; a link
+pointing out of the tree means there is no local fact to compare - the checker
+could not read an input at all. That is the class 11.1.1 already reserves for
+exit `2` (a missing exceptions file, a shallow checkout), and exit `2` outranks
+exit `1`, so the run stops instead of reporting a release inconsistency that was
+never measured. DRIFT would also be the wrong label for a link into `.git`,
+which is not a claim about the release at all. The measurement that forced the
+rule: with the working tree as the digest source, a committed
+`references/l -> ../.git/config` gave the digest `f2aeb5b8a144fe47`, and
+appending a token-bearing remote URL to **`.git/config` alone** moved it
+again - a byte of git configuration changing a published digest. The
+mechanism is the contract, and it is pinned by the committed fixture
+`tests/unit/test_release_consistency_digest.py`
+(`test_a_link_into_the_git_directory_is_refused_on_both_paths` and
+`test_editing_git_config_does_not_move_the_digest`).
+With the payload read from a git object the same tree is refused outright:
+`archive member links into the git directory: references/l`.
 
 #### 11.3.1 Payload-path layout of a published tarball (frozen)
 
@@ -684,7 +870,10 @@ Two implementation consequences, both measured:
   path. Sorting by path alone gives `b1ba21e39436bf09` for `1.1.2` and
   `0786a4ff3c2f84ba` for `1.1.1` when `scripts/build_pi_package.py` is included;
   those are **not** 11.3 digests and must never be published as such.
-* Symlinks are resolved and unreadable files are drift, exactly as in 11.3.
+* Symlinks are resolved under the link policy of 11.3, and a payload file that
+  cannot be read - like a link that cannot be resolved - is an **input error
+  (exit `2`)**, never drift; where 11.3 and this subsection differ, 11.3 governs
+  (its precedence note, above).
 
 ### 11.4 `release-exceptions.json` (frozen)
 
@@ -737,8 +926,11 @@ Commands behind the numbers (reproducible from any checkout): the three
 tarballs were fetched with `npm pack @nidvue/teamwork@<version>` into a temporary
 directory, unpacked, mapped per 11.3.1 and hashed per 11.3; the local side is
 `payload_digest(root, "3f4981d")` and `payload_digest(root, "v1.1.0")`. The
-1.1.1 absence was checked by digesting all 392 commits of `git rev-list --all`
-with the same function: no match.
+1.1.1 absence was checked by digesting **every** commit of `git rev-list --all`
+with the same function: no match. The count-free form of the measurement is the
+predicate itself - `git rev-list --all` contains no commit whose 11.3 payload
+digest is `726bc547afc41ead` - so it can be re-run at any revision without
+re-reading a number.
 
 Example 1 also fixes the release order: tag the payload commit, then let CI's
 `release.yml` build from the tag - never retag a later doc-only commit, whose
