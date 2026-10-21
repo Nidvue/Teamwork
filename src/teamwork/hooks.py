@@ -29,7 +29,13 @@ from .config import (
     IDENTITY_DOMAIN,
     LFS_MAX_BYTES,
 )
-from .gitutil import current_branch, is_binary_file, lfs_tracked, run_git
+from .gitutil import (
+    current_branch,
+    is_binary_content,
+    lfs_text_mismatch,
+    lfs_tracked,
+    run_git,
+)
 from .io import die, write_lf
 from .layout import project_path
 from .names import resolve_role, role_identity
@@ -144,7 +150,7 @@ def protected_ref() -> str:
 
     A legacy ``master`` fallback was tried and dropped: it made the two stages
     disagree (R1 refused only the configured base while P1/P2 also guarded
-    ``master``), and Architecture 12.7 freezes one constant for both.
+    ``master``), and Architecture 11.7 freezes one constant for both.
     """
     return f"refs/heads/{DEFAULT_BASE}"
 
@@ -169,11 +175,12 @@ def is_role_mailbox(project: Path) -> bool:
 
 
 def large_staged_files(project: Path) -> list:
-    """Staged binary blobs above the LFS threshold with no .gitattributes pattern.
+    """Staged BINARY blobs above the LFS threshold that no pattern covers.
 
-    A large text file is not LFS material: LFS replaces it with a pointer, and the
-    diff, the merge and `git show <rev>:<path>` - the operations a record file
-    exists for - stop working. Only binaries trip this.
+    The threshold is a binary threshold (Architecture 11.10): a text record is a
+    document, so it is never refused however large it grows. The binary test is
+    the shared `gitutil.is_binary_content`, the same one `commit --check-lfs`
+    and the audit ask, so the three gates cannot disagree about a file.
     """
     staged = run_git(project, "diff", "--cached", "--name-only", "--diff-filter=ACMR")
     blocked = []
@@ -181,13 +188,33 @@ def large_staged_files(project: Path) -> list:
         rel = rel.strip()
         if not rel:
             continue
+        path = project / rel
         try:
-            size = (project / rel).stat().st_size
+            size = path.stat().st_size
         except OSError:
             continue
-        if size > LFS_MAX_BYTES and is_binary_file(project / rel) and not lfs_tracked(project, rel):
+        if size > LFS_MAX_BYTES and is_binary_content(path) and not lfs_tracked(project, rel):
             blocked.append((rel, size))
     return blocked
+
+
+def text_files_routed_into_lfs(project: Path) -> list:
+    """Staged TEXT files that a .gitattributes pattern would push into LFS.
+
+    `.gitattributes` routes a file into LFS BY NAME, so a text file can be
+    routed there by accident - and a document in LFS is a pointer for every
+    reader without an LFS client. The check is size-independent, because a text
+    file in LFS is broken at any size (Architecture 11.10).
+    """
+    staged = run_git(project, "diff", "--cached", "--name-only", "--diff-filter=ACMR")
+    mismatched = []
+    for rel in staged.stdout.splitlines():
+        rel = rel.strip()
+        if not rel:
+            continue
+        if lfs_text_mismatch(project, rel):
+            mismatched.append(rel)
+    return mismatched
 
 
 def head_branch(project: Path) -> str:
@@ -222,6 +249,18 @@ def check_commit(project: Path) -> int:
             + "\n".join(f"  {rel} ({size} bytes > {LFS_MAX_BYTES})" for rel, size in blocked)
             + "\n  add the pattern to .gitattributes (teamwork.py repo writes the "
             "standard set) so the blob goes through Git LFS.",
+            file=sys.stderr,
+        )
+        return 1
+    mismatched = text_files_routed_into_lfs(project)
+    if mismatched:
+        print(
+            "teamwork: refusing to commit text file(s) that .gitattributes routes "
+            "into Git LFS:\n"
+            + "\n".join(f"  {rel}" for rel in mismatched)
+            + "\n  this file is text but a LFS pattern captures its name; LFS is for "
+            "binaries, and a document in LFS is unreadable without a client.\n"
+            "  drop the pattern from .gitattributes, or make the content binary.",
             file=sys.stderr,
         )
         return 1
