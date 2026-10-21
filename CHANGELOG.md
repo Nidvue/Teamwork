@@ -42,8 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bundled script are now the documented installs, and the index commands are marked
   as unavailable instead of failing for the reader.
 - **`docs/Team/Release.md` describes the release that exists.** Its rollback
-  pointed at a `v0.9.0` tag that was never cut, its gate table was measured on a
-  superseded revision, its build table named `1.1.0` artefacts, and its
+  pointed at a `v0.9.0` tag <!-- release-consistency: illustrative --> that was
+  never cut, its gate table was measured on a superseded revision, its build table
+  named `1.1.0` artefacts, and its
   code-scanning row described alerts that were already fixed.
 
 ### Recorded
@@ -84,8 +85,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.1] - 2026-10-20
 
-> No `v1.1.1` tag exists and none is cut: this version was published to npm only,
-> and its source revision carries `1.1.0` (see `release-exceptions.json`). The
+> No `v1.1.1` tag <!-- release-consistency: illustrative --> exists and none is
+> cut: this version was published to npm only, and its source revision carries
+> `1.1.0` (see `release-exceptions.json`). The
 > changes below are the `1.1.0` engine republished under a new registry version.
 
 ### Fixed
