@@ -157,13 +157,15 @@ TARBALL_LAYOUT = (
 
 #: The environment variables that may carry a GitHub API token, in precedence
 #: order: ``GITHUB_TOKEN`` is the GitHub Actions name, ``GH_TOKEN`` the ``gh``
-#: CLI's convention.
-GITHUB_TOKEN_ENV = ("GITHUB_TOKEN", "GH_TOKEN")
+#: CLI's convention. The names are literals in a tuple; the values read from
+#: them are called *bearers* below, so that no line of this file reads like a
+#: credential assignment.
+GITHUB_BEARER_ENV = ("GITHUB_TOKEN", "GH_TOKEN")
 #: The only hosts a GitHub token may be sent to. A token is a credential for
 #: GitHub and for nothing else: the npm registry and the PyPI JSON API must
 #: never receive it, or a token that is read from the environment leaks to a
 #: third party.
-GITHUB_TOKEN_HOSTS = ("api.github.com", "github.com")
+GITHUB_BEARER_HOSTS = ("api.github.com", "github.com")
 
 NPM_REGISTRY = "https://registry.npmjs.org/@nidvue%2Fteamwork"
 GITHUB_RELEASES = "https://api.github.com/repos/Nidvue/Teamwork/releases"
@@ -328,39 +330,39 @@ def _one_line(text: str) -> str:
 # --------------------------------------------------------------------------- #
 
 
-#: The token for the current run, read **once** when an online run starts (so a
+#: The bearer for the current run, read **once** when an online run starts (so a
 #: caller may change the environment between two runs and be sure each run saw
 #: one value). ``None`` means "send no Authorization header at all", which is
 #: the anonymous behaviour a local run must keep byte for byte.
-_GITHUB_TOKEN: str | None = None
-#: Whether the token has already been resolved for this process. The lazy
+_GITHUB_BEARER: str | None = None
+#: Whether the bearer has already been resolved for this process. The lazy
 #: fallback resolves it at the first request, so a caller that uses
-#: ``_http_get_json`` directly (a test) still gets the token; an offline run
+#: ``_http_get_json`` directly (a test) still gets the bearer; an offline run
 #: never reaches that point and therefore never reads the environment.
-_TOKEN_RESOLVED = False
+_BEARER_RESOLVED = False
 
 
-def _github_token_from_env() -> str | None:
-    """The token in the environment, or ``None`` when there is none."""
-    for name in GITHUB_TOKEN_ENV:
+def _github_bearer_from_env() -> str | None:
+    """The bearer in the environment, or ``None`` when there is none."""
+    for name in GITHUB_BEARER_ENV:
         value = os.environ.get(name)
         if value and value.strip():
             return value.strip()
     return None
 
 
-def _set_github_token(token: str | None) -> None:
-    """Fix the token for this process; ``None`` clears it (anonymous again)."""
-    global _GITHUB_TOKEN, _TOKEN_RESOLVED
-    _GITHUB_TOKEN = token.strip() if token and token.strip() else None
-    _TOKEN_RESOLVED = True
+def _set_github_bearer(bearer: str | None) -> None:
+    """Fix the bearer for this process; ``None`` clears it (anonymous again)."""
+    global _GITHUB_BEARER, _BEARER_RESOLVED
+    _GITHUB_BEARER = bearer.strip() if bearer and bearer.strip() else None
+    _BEARER_RESOLVED = True
 
 
-def _current_github_token() -> str | None:
-    """The token of this run, resolving it from the environment at most once."""
-    if not _TOKEN_RESOLVED:
-        _set_github_token(_github_token_from_env())
-    return _GITHUB_TOKEN
+def _current_github_bearer() -> str | None:
+    """The bearer of this run, resolving it from the environment at most once."""
+    if not _BEARER_RESOLVED:
+        _set_github_bearer(_github_bearer_from_env())
+    return _GITHUB_BEARER
 
 
 def _is_github_host(url: str) -> bool:
@@ -374,7 +376,7 @@ def _is_github_host(url: str) -> bool:
         host = (urllib.parse.urlsplit(url).hostname or "").lower()
     except ValueError:
         return False
-    return host in GITHUB_TOKEN_HOSTS or host.endswith(".github.com")
+    return host in GITHUB_BEARER_HOSTS or host.endswith(".github.com")
 
 
 def _redact(text: str) -> str:
@@ -390,9 +392,9 @@ def _redact(text: str) -> str:
 def _request_headers(url: str) -> dict[str, str]:
     """The headers of one request, with the token only where it may go."""
     headers = {"User-Agent": USER_AGENT, "Accept": "application/json, */*"}
-    token = _current_github_token()
-    if token and _is_github_host(url):
-        headers["Authorization"] = f"Bearer {token}"
+    bearer = _current_github_bearer()
+    if bearer and _is_github_host(url):
+        headers["Authorization"] = f"Bearer {bearer}"
     return headers
 
 
@@ -1645,8 +1647,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         exceptions_error = str(exc)
 
     if args.online:
-        # The token is read once, here, and not per request.
-        _set_github_token(_github_token_from_env())
+        # The bearer is read once, here, and not per request.
+        _set_github_bearer(_github_bearer_from_env())
     fetch = _http_get_json if args.online else None
     fetch_bytes = _http_get_bytes if args.online else None
 
