@@ -201,9 +201,10 @@ revisions:
 `python3 scripts/sync_skill.py --check` exits 1:
 
 ```
-sync_skill: /home/pingz/.pi/agent/skills/teamwork is out of sync with <repo>: 1 missing, 2 stale, 0 to delete
+sync_skill: /home/pingz/.pi/agent/skills/teamwork is out of sync with <repo>: 1 missing, 3 stale, 0 to delete
   missing: scripts/check_release_consistency.py
   stale:   scripts/privacy_scan.py
+  stale:   src/teamwork/engine.py
   stale:   src/teamwork/version.py
 ```
 
@@ -213,8 +214,14 @@ measured tree:
 
 1. the installed bundle has **no** `scripts/check_release_consistency.py` - the
    checker has never been synced into the installed skill;
-2. two installed files are older than the measured tree:
-   `scripts/privacy_scan.py` and `src/teamwork/version.py`.
+2. three installed files are older than the measured tree:
+   `scripts/privacy_scan.py`, `src/teamwork/engine.py` and
+   `src/teamwork/version.py`.
+
+The third one appeared after the audit-evidence and links fixes landed: the
+installed `engine.py` still lacks `_task_has_execution_evidence`, which is why
+`teamwork audit` run from the installed skill reported five false
+"done without evidence" rows while the checkout reported none.
 
 AC-REL-6 asks the installed skill to mirror the remote's `main`. The remote's
 `main` is the pre-M9 revision, so the criterion is not measurable until the
