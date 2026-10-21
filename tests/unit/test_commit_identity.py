@@ -400,7 +400,12 @@ def _commit_as(
     )
 
 
-def _merge_branch(repo: Path, committer: tuple[str, str], message: str) -> None:
+def _merge_branch(
+    repo: Path,
+    committer: tuple[str, str],
+    message: str,
+    author: tuple[str, str] | None = None,
+) -> None:
     """A two-parent merge contributed by a second branch."""
     _git(repo, "switch", "-q", "-c", "peer-branch")
     _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): peer work")
@@ -409,8 +414,8 @@ def _merge_branch(repo: Path, committer: tuple[str, str], message: str) -> None:
         ["git", "-C", str(repo), "merge", "-q", "--no-ff", "-m", message, "peer-branch"],
         env=_env(
             repo,
-            GIT_AUTHOR_NAME=committer[0],
-            GIT_AUTHOR_EMAIL=committer[1],
+            GIT_AUTHOR_NAME=(author or committer)[0],
+            GIT_AUTHOR_EMAIL=(author or committer)[1],
             GIT_COMMITTER_NAME=committer[0],
             GIT_COMMITTER_EMAIL=committer[1],
         ),
@@ -518,3 +523,79 @@ def test_the_audit_prints_who_landed_a_peers_work(repo, capsys):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
     out = capsys.readouterr().out
     assert "(landed by Reviewer)" in out, out
+
+
+def test_a_role_mailbox_with_the_instance_display_form_is_ok(repo):
+    """The team commits with ``-c user.name=ProjectManager``, no spaces.
+
+    Measured on this repository on 7e73e1f: the audit failed five commits with
+    "display name 'ProjectManager' does not match role 'Project Manager'" and the
+    same for ReleaseEngineer, although every one is a canonical role mailbox.
+    """
+    _git(
+        repo,
+        "commit",
+        "--allow-empty",
+        "-m",
+        "docs(x): record the plan\n\nActing role: ProjectManager",
+        ident=("ProjectManager", "projectmanager@agents.nidvue.com"),
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+
+
+def test_a_role_mailbox_with_the_spaced_display_form_is_still_ok(repo):
+    """Regression guard: the spaced canonical display name keeps passing."""
+    _commit(repo, "Project Manager", "projectmanager@agents.nidvue.com", "docs(x): plan")
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+
+
+def test_an_unknown_display_name_on_a_role_mailbox_still_fails(repo):
+    """Tolerance for the two canonical forms must not accept any name at all."""
+    _git(
+        repo,
+        "commit",
+        "--allow-empty",
+        "-m",
+        "docs(x): plan\n\nActing role: Somebody",
+        ident=("Somebody", "projectmanager@agents.nidvue.com"),
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+
+
+def test_an_integration_merge_commit_is_content_free(repo):
+    """A plain ``git merge`` integration carries no acting role of its own.
+
+    Measured on this repository on 7e73e1f: e40d8de, 3fad639 and 1d90ccd are
+    two-parent merges committed by the Reviewer and failed only because
+    ``_is_content_free_team_merge`` demanded a ``chore(merge):`` subject.
+    """
+    _merge_branch(
+        repo,
+        ("Reviewer", "reviewer@agents.nidvue.com"),
+        "Merge branch 'main' into projectmanager/t-0002-records",
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+
+
+def test_an_integration_merge_with_a_personal_committer_still_fails(repo):
+    """Exempting a merge never excuses a personal address stamping it."""
+    _merge_branch(
+        repo,
+        ("Some One", "personal" + "@" + "example.invalid"),
+        "Merge branch 'main' into projectmanager/t-0002-records",
+        author=("Reviewer", "reviewer@agents.nidvue.com"),
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+
+
+def test_a_single_parent_commit_without_an_acting_role_still_fails(repo):
+    """A commit that lands content must name its role, merge subject or not."""
+    _git(
+        repo,
+        "commit",
+        "--allow-empty",
+        "-m",
+        "Merge branch 'main' into projectmanager/t-0002-records",
+        ident=("Reviewer", "reviewer@agents.nidvue.com"),
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
