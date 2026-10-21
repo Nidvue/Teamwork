@@ -2039,3 +2039,16 @@ No blockers; no unrelated changes; branch mergeable.
 - reviewer evidence: numstat main..HEAD: 3 files but Archive.md -13 is main's own a40dcd1 absent from branch base; merge-tree --write-tree main 64fdb0b vs main = exactly src/teamwork/engine.py + tests/unit/test_commit_identity.py (2 files), Archive.md count on main 76 = HEAD 76 (no Decisions.md loss); pytest -q tests/unit/test_commit_identity.py -> 34 passed; pytest -q tests/unit -> 996 passed, 2 skipped; identity --audit --range origin/main..main with branch engine -> '# commits: 201 | problems: 0' vs main's engine @a40dcd1 -> '# commits: 201 | problems: 11' (non-vacuous: instance-form display mismatches + 'no Acting role' on plain merges); narrowness: 3 guard tests pass, each killed by a targeted mutation - _matches_role_display->True kills test_an_unknown_display_name_on_a_role_mailbox_still_fails, dropping the canonical-committer guard kills test_an_integration_merge_with_a_personal_committer_still_fails, dropping len(parents)<2 kills test_a_single_parent_commit_without_an_acting_role_still_fails; ruff check + format --check clean; tree restored via git checkout, git status --porcelain empty @64fdb0b
 - findings history: 
 - branch / merge: developer-1/t-0021-identity-gate-accepts-role-mailboxes / 6962dfb
+
+## T-0072 · The LFS audit flags a large text record that must stay diffable  (ceo)
+- date: 2026-10-21
+- priority: P1
+- owner: ceo role (work by: ceo)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: -
+- self-check: [pass] re-read the diff: is_binary_file uses git's own NUL-in-prefix test; both call sites (audit scan and hooks.large_staged_files) now require it; a large text record stays diffable | test: pytest -q tests/unit/test_audit_evidence_sources.py tests/unit/test_hooks.py @e4f9d6b -> 38 passed; audit -> 'LFS rules present; 0 large file(s), all tracked' | artifacts: tests/unit/test_audit_evidence_sources.py:89923b9e5abe7efb:5680
+- author evidence: 
+- reviewer evidence: git -C $WT diff --numstat main..HEAD -> 5 files (engine.py +3/-1, gitutil.py +19, hooks.py +8/-3, test_audit_evidence_sources.py +58, test_hooks.py +19/-1); merge-base f37698c diff -> exactly those 5 files, no main content deleted (main-only Archive/test_commit_identity deltas are main-side 0690da2, merge-tree --write-tree main e4f9d6b = b2be4ae clean, merged tree keeps 2041-line Archive with T-0021 and T-0071 blocks); PYTHONPATH=$PWD/src pytest -q tests/unit/test_audit_evidence_sources.py tests/unit/test_hooks.py @e4f9d6b -> 38 passed; live audit WITH fix (PYTHONPATH=$WT/src) -> '- LFS rules present; 0 large file(s), all tracked' vs main code -> '- 1 large file(s) not LFS-tracked, e.g. docs/Team/Archive.md'; non-vacuity a: -k large_binary -> 1 passed; b: mutation is_binary_file -> return True -> -k large_text -> 1 failed (test_a_large_text_record_is_not_an_lfs_candidate), restored; c: mutation dropping 'and is_binary_file(p_)' at engine.py:8464 -> -k large_text -> 1 failed, restored; git status --porcelain empty after restores and full 38-passed re-run; 8000-byte sniff window matches git's own binary heuristic (BINARY_SNIFF_BYTES=8000 in gitutil.py:154), so boundary is correct-by-alignment @e4f9d6b
+- findings history: 
+- branch / merge: ceo/t-0072-lfs-audit-skips-text-files / pending
