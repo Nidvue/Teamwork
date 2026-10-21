@@ -1161,3 +1161,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: env GIT_CONFIG_GLOBAL=<hostile config> PYTHONPATH=src .venv/bin/python -m pytest -q tests/integration/test_harness_cli.py tests/acceptance/test_harness_docs.py tests/unit/test_skill_refresh.py tests/unit/test_skill_contracts.py @eccafae -> 13 failed, 122 passed; @39ab050 -> 135 passed; mutant: + GIT_CONFIG_NOSYSTEM=1 + GIT_CONFIG_GLOBAL=os.devnull + GIT_TERMINAL_PROMPT=0 on the integration run() child env @eccafae -> 29 passed, 0 failed
 - falsified by: A re-submission that keeps dict(os.environ) as the base and re-asserts the hermeticity keys at all four sites AND shows 0 failed in the same hostile-env run at BOTH the pre-fix and fixed revisions would overturn this.
 - consequences: -
+
+## D-20261021-Reviewer-1-4 - T-0012 passes and is merged: the case-insensitive lookup bel
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: -
+- context: -
+- options considered: -
+- decision: T-0012 passes and is merged: the case-insensitive lookup belongs in the GUARD, not in tests/gitenv.py.
+- why: The helper is byte-identical to the T-0011 merge (blob 983df20c at 5177a25, 5283a79, main and 78629ac), so a fix there would have reopened the hermeticity contract the T-0011 review closed. Reproducing CPython's own nt os.environ (os._Environ with the stdlib's nt encodekey=key.upper()) turns the base red with the EXACT CI message and turns 78629ac green, and the CI command shape (pytest --cov-fail-under=55) goes rc 1 -> rc 0 across that one test. The guard keeps its teeth: removing a platform variable from the child env (case-insensitively) turns it red for all four names, a wrong value turns it red, and a deliberately vacuous guard stays green - the control that separates 'the test detects the defect' from 'the test passes'.
+- evidence: pytest -q -p winenv_plugin @2bc6c0d (Windows-shaped env) -> 1 failed, 848 passed, 3 skipped, 'AssertionError: SystemRoot did not reach the child'; the same @78629ac -> 849 passed, 3 skipped, 0 failed; the CI shape (--junitxml --cov=teamwork --cov-fail-under=55) @78629ac under the Windows shape -> rc 0, coverage 75.73%; the same at the base -> rc 1; git diff main..78629ac -- tests/gitenv.py -> EMPTY; mutant (drop SystemRoot/TEMP/TMP/ComSpec from the child env) -> 1 failed, 11 passed each; vacuous-guard control -> 12 passed; gates @78629ac -> pytest 849 passed/3 skipped, ruff clean, ruff format 155 files, mypy 17 files clean, links 0, identity 1 commit 0 problems, merge-tree rc 0
+- falsified by: A rebuild of CPython's nt os.environ that does NOT reproduce the base failure with the exact CI message, or a mutant that removes a platform variable from the child env and leaves the guard GREEN, or a diff showing tests/gitenv.py changed, or a Windows CI job on the merged revision still red.
+- consequences: -
