@@ -51,8 +51,14 @@ def test_the_platform_variables_reach_the_child(monkeypatch: pytest.MonkeyPatch)
 
     env = child_env()
 
+    # Windows upper-cases the environment KEYS, so look the value up the way
+    # the platform stores it: case-insensitively, or the variable is present and
+    # the guard cannot see it.
     for name in ("SystemRoot", "TEMP", "TMP", "ComSpec"):
-        assert env.get(name) == os.environ[name], f"{name} did not reach the child"
+        stored = next((v for k, v in os.environ.items() if k.upper() == name.upper()), None)
+        assert stored is not None, f"{name} was not set in the parent environment"
+        reached = next((v for k, v in env.items() if k.upper() == name.upper()), None)
+        assert reached == stored, f"{name} did not reach the child"
 
 
 def test_the_callers_git_configuration_does_not_reach_the_child(
