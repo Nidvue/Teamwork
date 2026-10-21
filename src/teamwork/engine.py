@@ -6063,10 +6063,19 @@ EXTERNAL_SCHEMES = ("http://", "https://", "mailto:", "doi:", "ftp://")
 
 
 def iter_markdown(project: Path) -> list:
-    """Every markdown file a human might read, excluding caches and dependencies."""
+    """Every markdown file a human might read, excluding caches and dependencies.
+
+    The skip test is relative to ``project``. Testing the absolute parts instead
+    silently skipped every file when the project itself lives under ``.pi`` (a
+    per-instance worktree), which made ``links`` pass vacuously there.
+    """
     out = []
     for p in project.rglob("*.md"):
-        if any(part in SKIP_DIRS for part in p.parts):
+        try:
+            parts = p.relative_to(project).parts
+        except ValueError:
+            parts = p.parts
+        if any(part in SKIP_DIRS for part in parts):
             continue
         out.append(p)
     return sorted(out)
@@ -6180,7 +6189,9 @@ def link_report(project: Path, root: Path) -> dict:
 
 def cmd_links(args) -> int:
     root = project_root(args)
-    project = project_of(root)
+    # Inside one of our worktrees this is the worktree, so a lane checks the links
+    # it is about to submit rather than the checkout it happens to share.
+    project = work_repo(root)
     rep = link_report(project, root)
     issues = len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"])
     if not args.no_reciprocity:
