@@ -85,7 +85,10 @@ message, schedule) is in
     After a refresh, **reload the skill** (restart the host session, or re-scan
     skills) so the new ``SKILL.md`` is read - the command prints that reminder
     whenever it wrote something. Pin a tag (`--branch v1.1.2`) when you want a
-    fixed protocol revision instead of `main`.
+    fixed protocol revision instead of `main`: the checkout is then moved onto
+    that tag's commit *detached* and the refresh prints `pinned to tag v1.1.2`.
+    It is a read-only mirror of that revision - re-run with `--branch main` to
+    follow the branch again, or name another tag to move the pin.
 
 ## Optional: install the engine on PATH
 
