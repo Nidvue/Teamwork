@@ -1432,4 +1432,4 @@ No blockers; no unrelated changes; branch mergeable.
 - author evidence: commit 4dfedf9; commit 27b271e; commit 704d9ce
 - reviewer evidence: probe
 - findings history: 
-- branch / merge: developer/t-0010-the-unborn-head-test-assumes-the-runner / pending
+- branch / merge: developer/t-0010-the-unborn-head-test-assumes-the-runner / f405c4e
