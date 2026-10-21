@@ -26,8 +26,9 @@ Link checking reuses the engine's own reader (`strip_code`,
 is a link `teamwork links` also reports, and a fenced example or a quoted Archive
 entry is skipped for the same reason it is skipped there.
 
-Mutations run against a `tmp_path` copy of `docs/` plus the one out-of-tree
-directory its links reach (`references/`), so the real tree is never written.
+Mutations run against a `tmp_path` copy of `docs/` plus what its links reach
+outside it - the `references/` directory and the root-level files named in
+`ROOT_LINK_FILES` - so the real tree is never written.
 """
 
 from __future__ import annotations
@@ -45,8 +46,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_DIR = "docs"
 TEAM_DIR = "docs/Team"
 
-#: Directories outside `docs/` that documents link into. Measured: the only one.
+#: Directories outside `docs/` that documents link into. Measured.
 EXTRA_TREES = ("references",)
+
+#: Root-level files outside `docs/` that documents link to. A document may cite a
+#: top-level file (a CHANGELOG, a README); the copy must carry it or the link check
+#: reports a broken link that only the missing copy caused. Measured by resolving
+#: every relative link in `docs/` against the repository root; extend the list when
+#: a document starts linking to another root-level file.
+ROOT_LINK_FILES = ("CHANGELOG.md", "README.md", "CONTRIBUTING.md")
 
 OWNER_RE = re.compile(r"(?<![\w`])Owner:\s*(?P<owner>[^.,;\n]*)")
 RELATED_RE = re.compile(r"(?<![\w`])Related:\s*(?P<targets>[^\n]*)")
@@ -150,6 +158,8 @@ def docs_copy(tmp_path: Path) -> Path:
     shutil.copytree(REPO_ROOT / DOCS_DIR, tmp_path / DOCS_DIR)
     for extra in EXTRA_TREES:
         shutil.copytree(REPO_ROOT / extra, tmp_path / extra)
+    for name in ROOT_LINK_FILES:
+        shutil.copy2(REPO_ROOT / name, tmp_path / name)
     return tmp_path
 
 
