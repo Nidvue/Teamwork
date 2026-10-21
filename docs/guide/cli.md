@@ -306,10 +306,22 @@ Add or update an entry in the ROLE's shared memory.
 ### `global`
 
 ```text
-teamwork global TEXT [--key KEY] [--importance IMPORTANCE] [--tags TAGS] [--pin]
+teamwork global TEXT [--by BY] [--src SRC] [--rev REV]
+    [--key KEY] [--importance IMPORTANCE] [--tags TAGS] [--pin]
 ```
 
 Add or update an entry in global shared memory (CEO-owned).
+
+`--by` names who recorded the entry, `--src` what it comes from (a task, a
+document, a run) and `--rev` the revision it was verified at. The audit gate
+reports a memory entry without a `by` as a blocker, so a global entry is
+recorded with its provenance the same way a role entry is.
+
+A merge never overwrites provenance that is already there. The three fields
+describe one recording act and travel together: an entry recorded without an
+author is completed by a later writer, an entry that already has an author
+keeps it, and a later writer who is not the author can neither take over the
+entry nor graft their own `src` and `rev` onto it.
 
 ### `recall`
 
@@ -810,6 +822,62 @@ match. An author outside the team identity domain is reported as skipped by
 default; `--strict-authors` turns that into a failure. The default range
 is `origin/main..HEAD`, then `HEAD~1..HEAD`, then `HEAD`; a range beginning with
 `-` is rejected. CI runs it on every pull request and every push to `main`.
+
+### `harness`
+
+```text
+teamwork harness list
+teamwork harness lint [--verbose]
+teamwork harness budget [--limit KB]
+```
+
+The harness is everything around the model: the always-on prompt and rules, the
+memory, the tool guidance, the skills, the scripts and the in-loop hooks. This
+group names that surface, validates it, and prices it.
+
+| Subcommand | What it does |
+|---|---|
+| `list` | eight rows, one per component (C1..C8), each with its activation class, the bytes it costs and the role that owns it. `always-on` is paid on every run, `on-demand` only when invoked, `in-loop` is enforced rather than instructed. C5 (subagents) is a lane packet, not a file, so its class and bytes are `-`. |
+| `lint` | the whole-proposal checks, before anything is probed: `IDENTITY` (frontmatter `name:` equals the directory, `description:` non-empty), `TRIGGER` (the skill is named in an always-on surface - an unnamed skill is dead text nobody is told to load), `SUBCOMMAND` (every `teamwork.py <verb>` in a skill exists in the CLI), `HELPER` (every repo-relative path a skill references is shipped), `EVIDENCE` (a registered `shared` skill carries a verdict row). Exit 1 with one `- PROBLEM <RULE> <path>: <detail>` line per finding. `--verbose` also prints one `# checked: <file> -> <RULE> verdict` line per file read. |
+| `budget` | always-on bytes per instance - `AGENTS.md` block + `SKILL.md` + the role charter + that role's memory - against `AlwaysOnBudgetKb` in `Settings.json` (default 120 KiB, `--limit` overrides). Exit 1 when any instance is `OVER`: always-on prose is the expensive option, so the cap is what makes "cut something to pay for it" a rule rather than an intention. |
+
+`list` and `lint` work from any checkout; `budget` needs the team workspace
+because it measures it. A hook installed by `hooks install` is measured through
+`git rev-parse --git-path hooks`, so a linked worktree reports the hook that is
+actually running rather than a zero from a path that does not exist.
+
+### `hooks`
+
+```text
+teamwork hooks install [--force]
+teamwork hooks status
+teamwork hooks uninstall
+teamwork hook pre-commit
+teamwork hook pre-push [REMOTE] [URL]
+```
+
+Install, inspect or remove the two git hooks that enforce, in the tool loop, the
+rules the prose can only ask for. `install` writes `pre-commit` and `pre-push` into
+the directory git actually reads hooks from (`git -C <root> rev-parse
+--path-format=absolute --git-path hooks`), so it works in a linked worktree where
+`<toplevel>/.git` is a file, and it honours `core.hooksPath`. Hooks are opt-in:
+`teamwork init` never installs them, and `TEAMWORK_SKIP_HOOKS=1` makes both exit 0
+unchanged.
+
+| Hook | Rule | Override |
+|---|---|---|
+| `pre-commit` | R1 refuse a commit on the default branch, including the root commit on an unborn branch | `TEAMWORK_ALLOW_MAIN=1` |
+| `pre-commit` | R2 refuse a staged file above 1 MiB that no `.gitattributes` LFS pattern covers | - |
+| `pre-commit` | R3 a commit identity that is not a role mailbox warns on stderr and does not block | - |
+| `pre-push` | P1 refuse a non-fast-forward update to the default branch | `TEAMWORK_ALLOW_FORCE=1` |
+| `pre-push` | P2 refuse deleting the default branch | - |
+
+`status` prints `installed`, `absent` or `foreign` per hook plus the literal
+directory it probed; `uninstall` removes only hooks carrying the
+`teamwork-managed hook` marker and never touches a foreign hook, and `install`
+refuses to overwrite one without `--force`. The shim resolves the engine from the
+git root and is a no-op when `scripts/teamwork.py` is absent, so a copied
+repository cannot inherit a hook that fails.
 
 ## Audit and control
 

@@ -47,6 +47,13 @@ dispute at the round cap. The ruling is recorded in `docs/Team/Decisions.md` and
 is final - the losing side implements it and says so in its report. A dispute
 never blocks unrelated work; keep going on everything not contested.
 
+**Who may sit.** The party rule is per instance: an instance is a party when it
+is named in `raised_by`/`against`, and a party may never sign or resolve - not
+even with `--force`, which waives the signature requirement, not the party rule.
+A role leaves the panel only when EVERY one of its instances is a party, so in a
+dispute between two Reviewers the third, uninvolved Reviewer is the neutral seat
+and may rule it.
+
 ## Parallel lanes
 
 The team is a set of lanes, not a queue:
