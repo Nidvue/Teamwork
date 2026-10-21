@@ -460,12 +460,26 @@ def _http_get_bytes(url: str) -> bytes:
     return _http_get(url)
 
 
+#: Every git invocation in this script pins ``core.autocrlf=false``. The
+#: payload digest is computed from ``git archive`` bytes, and an ambient
+#: ``core.autocrlf`` (the default on a Windows runner) would otherwise change
+#: those bytes and with them the digest - the same tree would publish a
+#: different digest per platform. One shared prefix keeps the text helper from
+#: reintroducing the dependence a later byte-sensitive use would expose.
+_GIT_PINNED = ("git", "-c", "core.autocrlf=false")
+
+
+def _git_cmd(repo_root: Path, *args: str) -> list[str]:
+    """The argv for a git call whose output must not depend on the host."""
+    return [*_GIT_PINNED, "-C", str(repo_root), *args]
+
+
 def _git_root(explicit: str | None) -> Path | None:
     """Resolve ``--repo-root`` and require it to be the work tree top level."""
     start = Path(explicit) if explicit else Path.cwd()
     try:
         proc = subprocess.run(
-            ["git", "-C", str(start), "rev-parse", "--show-toplevel"],
+            _git_cmd(start, "rev-parse", "--show-toplevel"),
             capture_output=True,
             timeout=120,
             check=False,
@@ -486,7 +500,7 @@ def _git_root(explicit: str | None) -> Path | None:
 def _git(repo_root: Path, *args: str, missing_ok: bool = False) -> str | None:
     try:
         proc = subprocess.run(
-            ["git", "-C", str(repo_root), *args],
+            _git_cmd(repo_root, *args),
             capture_output=True,
             timeout=300,
             check=False,
@@ -502,9 +516,11 @@ def _git(repo_root: Path, *args: str, missing_ok: bool = False) -> str | None:
 
 
 def _git_bytes(repo_root: Path, *args: str) -> bytes:
+    # The archive is the digest's only input, so an ambient core.autocrlf must
+    # not change the bytes or the digest becomes platform-dependent.
     try:
         proc = subprocess.run(
-            ["git", "-C", str(repo_root), *args],
+            _git_cmd(repo_root, *args),
             capture_output=True,
             timeout=300,
             check=False,
@@ -855,7 +871,7 @@ def _is_ancestor(repo_root: Path, tag: str, rev: str = "HEAD") -> bool:
     """``git merge-base --is-ancestor <tag> <rev>`` - exit 0 means reachable."""
     try:
         proc = subprocess.run(
-            ["git", "-C", str(repo_root), "merge-base", "--is-ancestor", tag, rev],
+            _git_cmd(repo_root, "merge-base", "--is-ancestor", tag, rev),
             capture_output=True,
             timeout=300,
             check=False,
@@ -931,7 +947,7 @@ def _remote_carries_version_tags(repo_root: Path, remotes: Sequence[str]) -> boo
         checked = True
         try:
             proc = subprocess.run(
-                ["git", "-C", str(repo_root), "ls-remote", "--tags", remote],
+                _git_cmd(repo_root, "ls-remote", "--tags", remote),
                 capture_output=True,
                 timeout=300,
                 check=False,
