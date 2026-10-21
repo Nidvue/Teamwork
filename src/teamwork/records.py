@@ -980,6 +980,22 @@ def merge_entries(target: list, incoming: list, prefix: str = "M-") -> tuple:
         existing["tags"] = ",".join(
             sorted({t for t in (existing["tags"] + "," + src["tags"]).split(",") if t.strip()})
         )
+        # Provenance is carried forward, never dropped: an entry recorded
+        # without an author can still be completed by a later writer, and an
+        # entry that has one keeps it. The three fields describe ONE recording
+        # act, so they only travel together: a later writer who is not the
+        # author must not graft their own src/rev onto someone else's record
+        # (that would credit the author with a revision they never verified).
+        if src.get("by"):
+            if not existing.get("by"):
+                for field in ("by", "src", "rev"):
+                    existing[field] = src.get(field, "")
+            elif existing.get("by") == src.get("by"):
+                # the same author completing their own record: fill the gaps,
+                # never overwrite what is already there
+                for field in ("src", "rev"):
+                    if not existing.get(field) and src.get(field):
+                        existing[field] = src[field]
         merged += 1
     return target, merged, added
 
