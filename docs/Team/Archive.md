@@ -1419,3 +1419,42 @@ No blockers; no unrelated changes; branch mergeable.
 - reviewer evidence: git diff fc9f41f..7e79ca3 -- src/teamwork/engine.py @7e79ca3 -> _task_has_execution_evidence reads evidence|review_evidence|self_note (strip+any), correct set; forced clause on skipped-selfcheck predicate. Mutation: branch worktree 7e79ca3 with fc9f41f engine.py -> pytest tests/unit/test_audit_evidence_sources.py = 3 failed, 2 passed; restore -> 5 passed. Anti-vacuity: test_a_done_task_with_no_proof_at_all_is_still_flagged and test_an_unforced_skipped_self_check_is_still_flagged are real assertions and passed under the OLD engine. Live audit with branch engine on team tree @7e79ca3 -> submitted-without-selfcheck: none; done-without-evidence: none (main HEAD 591b301 still flags ceo T-0060 and developer T-0015 because the fix is unmerged; both records carry real command output in review_evidence: T-0015 77 passed/794 passed/ruff at 4b3e636). ruff check/format clean; mypy clean; full unit suite 798 passed 2 skipped with one pre-existing unrelated failure (test_traceability_matrix.py::test_every_deterministic_state_matches_a_real_run, also fails at fc9f41f).
 - findings history: 
 - branch / merge: ceo/t-0067-audit-flags-every-review-passed-task-as / 143e192
+
+## T-0003 · M9-K acceptance-layer records for the five uncovered areas  (reviewer)
+- date: 2026-10-21
+- priority: P1
+- owner: reviewer role (work by: reviewer-1)
+- reviewer: Reviewer-4
+- task / issue: -
+- area: -
+- self-check: [pass] Re-read all six acceptance files: each drives a documented entrypoint as a subprocess against a fresh tmp checkout (tests/acceptance/gate_fixtures.py builds it from the tracked file set), asserts only the observable outcome, and carries a recorded mutation that makes it fail. Found and worked around one real harness defect while proving non-vacuity: teamwork.py links resolves the main checkout from a worktree, so the docs test builds its own checkout instead of trusting the ambient tree. | test: cd /home/pingz/Code/Nidvue/Teamwork/.pi/Teamwork/Teams/Teamwork/Runtime/Worktrees/Rev-t0003 && PYTHONPATH=$PWD/src .venv/bin/python -m pytest -q tests/acceptance/ @7b4c67c -> 36 passed, 1 skipped (the pre-existing console-script skip) | replay: cd /home/pingz/Code/Nidvue/Teamwork/.pi/Teamwork/Teams/Teamwork/Runtime/Worktrees/Rev-t0003 && .venv/bin/python -m pytest -q tests/acceptance/
+- author evidence: 
+- reviewer evidence: pytest tests/acceptance/ @7b4c67c -> 36 passed, 1 skipped (5.74s); test_entrypoints.py alone -> 7 passed 1 skipped (fixture did not perturb it). gate_fixtures.py:116 checkout() runs `git ls-files -z` cwd REPO_ROOT then shutil.copyfile per tracked path; measured copy -> 178/178 tracked files, no .git/, no .pi/, Makefile+scripts/check_release_consistency.py+docs/Team/Release.md present => real tracked tree, not a stub; docs test broken-link mutation (append ./NoSuchDoc.md to docs/Team/Release.md) -> test_link_check_reports_zero_issues FAILED `# issues: 1` => the copy is genuinely scanned. Mutations (each reverted, tree clean, 36 passed 1 skipped after): (A) Makefile:30 ruff check->ruff lint -> custom-assert FAILED `make -n ci never runs 'ruff check'`; (B) check_release_consistency.py:1574 exit_code:=0 -> 3 failed (drift/unreadable/json-vs-exit) `the process exit code must be the verdict (1), got 0`; (C) ci.yml continue-on-error:true on release-consistency -> `a non-blocking consistency gate is not a gate`; (D) docs link break -> `# issues: 1`. Layer judgement: 23 new test names all state user-observable promises (exit codes 0/1/2, make exit+stdout, shipped YAML/docs/manifest parsing); one meta-guard only (test_the_distribution_name_is_read_from_the_manifest_not_hard_coded, docs.py:143) which is tolerable as it protects the acceptance above; no unit-layer duplication of T-0015. Coupling: grep /home/pingz|https?://|../../ over the 6 files -> 0 hits; no urllib/requests/socket; REPO_ROOT = Path(__file__).resolve().parents[2] (cli_harness.py:25) i.e. worktree-relative; docs.py calls checkout() at lines 55,78,117,145 instead of the ambient tree, confirming the .pi SKIP_DIRS reasoning. Minor, non-blocking: test_dry_run_prints_without_executing and test_a_failing_recipe_exits_non_zero (makefile tests) assert generic GNU make semantics on throwaway Makefiles rather than this repository.
+- findings history: 
+- branch / merge: reviewer-1/t-0003-m9-k-acceptance-layer-records / f6242c9
+
+## T-0066 · teamwork.py links measures the main checkout even when run inside a worktree, so a lane's own doc links are never checked  (ceo)
+- date: 2026-10-21
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: links
+- self-check: [pass] re-read iter_markdown and cmd_links: the skip test is now relative to the measured project, and cmd_links resolves through work_repo so a lane measures its own worktree; added a regression test for each, and confirmed the local-state skip still holds (a .pi/Scratch note inside the worktree stays out). | test: pytest -q tests/unit/test_integrity_fixes.py -k links @781b1b4 -> 3 passed; engine.py stashed -> 2 failed, 1 passed
+- author evidence: from .pi/.../Runtime/Worktrees/Rev-t0003: scripts/teamwork.py links -> '# Link check (/home/pingz/Code/Nidvue/Teamwork)' 71 files 332 links; from the main checkout -> identical 71 files 332 links; commit 781b1b4
+- reviewer evidence: read engine.py:6065-6078 + cmd_links:6191-6193 @781b1b4 -> relative_to(project).parts skip with ValueError fallback; work_repo(root) replaces project_of(root). WARNING: audit path engine.py:8397 still calls link_report(project_of(root), root) -> pre-existing, NOT introduced here: `audit` inside a worktree with [probe](nope2.md) in docs/Team/Design.md prints "markdown link health - none" (exit 0). Needs its own task. mutation-A `git worktree add .pi/.../Runtime/Worktrees/LinkProbe 781b1b4` + broken link -> `links` prints `# Link check (<LinkProbe path>)`, `- docs/Team/Design.md: [probe](definitely-missing.md) - target does not exist`, EXIT=1; on main code same probe EXIT=0 (# 71 files, no broken listed, measured main); revert line -> EXIT=0; worktree removed+pruned. mutation-B `git checkout 781b1b4~1 -- src/teamwork/engine.py` -> `pytest -k links` = 2 failed, 1 passed; restore -> 3 passed. pytest tests/unit/test_integrity_fixes.py -> 43 passed. ruff check src/ tests/ -> All checks passed; ruff format --check -> 2 files already formatted. main-checkout path set unchanged: old absolute-parts filter 71 files == new iter_markdown 71 files, diff empty (no path class added/dropped). team tree clean: `links --project . --team Teamwork` -> # issues: 0. callers: link_report used by cmd_links:6191 and audit:8397 only; tests at test_context_economy.py:897, test_integrity_fixes.py:363 pass positional project=tmp so unaffected by the cmd_links hunk.
+- findings history: 
+- branch / merge: ceo/t-0066-teamwork-py-links-measures-the-main-chec / b6c0817
+
+## T-0005 · M9-K integration layer for the links area  (tester)
+- date: 2026-10-21
+- priority: P1
+- owner: tester role (work by: tester-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: -
+- self-check: [pass] Re-read the whole test file: every case drives scripts/teamwork.py links as a subprocess from a throwaway tree, asserts the exact report section and exit code, and each defect case has a bite check (create the target / drop --no-reciprocity / move the link out of the quoted field). Test 4 pinning a release-asset path is plain relative-link resolution, and a second test pins that an absolute releases/download URL is not checked offline (no network). The worktree tests build <project>/.pi/Teamwork/Teams/X/Runtime/Worktrees/Dev with a .git entry, assert the report header names the worktree and the file count is non-zero, and are mutation-proved by reverting 781b1b4. | test: PYTHONPATH=src .venv/bin/python -m pytest -q tests/integration/test_links_flow.py @7f285ce -> 9 passed; whole layer -> 115 passed; with 781b1b4~1 src/teamwork/engine.py -> 2 failed, 7 passed; ruff check + format --check clean
+- author evidence: 
+- reviewer evidence: 2000-character evidence...
+- findings history: 
+- branch / merge: tester-1/t-0005-m9-k-integration-layer-for-the-links-are / 5d30639
