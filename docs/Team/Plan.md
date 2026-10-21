@@ -119,10 +119,14 @@ Non-goals:
 | T-0015 | unit-layer records for the six uncovered areas | developer | - | the unit test records |
 | T-0016 | R3 ignores a published non-X.Y.Z npm version | developer | - | `scripts/check_release_consistency.py` |
 | T-0017 | the install docs pin a superseded wheel URL | developer | - | `docs/guide/install.md` |
+| T-0018 | the traceability unit test re-declared the version shape | developer | - | `tests/unit/test_release_traceability.py` |
+| T-0019 | the tag pin `refresh --branch vX.Y.Z` cannot resolve | developer | - | `src/teamwork/engine.py`, `docs/guide/install.md` |
+| T-0020 | R6 cannot see a stale version in a `--branch`/`--tag` pin | developer | - | `scripts/check_release_consistency.py` |
 | T-0003 | wire the gate into CI | release-engineer | ci | `.github/workflows/ci.yml` |
 | T-0004 | push the merged revision and certify CI | release-engineer | release | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
 | T-0005 | repair the release record | release-engineer | release | `docs/Team/Release.md` |
 | T-0006 | audit every commit identity on a rewritten-history push | release-engineer | - | `.github/workflows/` |
+| T-0010 | the identity gate must not audit all history on a rewritten-history push | release-engineer | - | `src/teamwork/engine.py`, `tests/unit/test_commit_identity.py` |
 | T-0007 | the full tag set and the online half in the release workflow | release-engineer | release | `.github/workflows/release.yml` |
 | T-0008 | the scope classifier and a rename out of a shipping path | release-engineer | ci | `.github/workflows/ci.yml` |
 | T-0009 | the release prose must state what the tree contains | release-engineer | - | `docs/Team/Release.md` |
@@ -132,11 +136,17 @@ Non-goals:
 | T-0062 | open the milestone: criteria, task graph, decisions | ceo | release | [Decisions](Decisions.md), the criteria records |
 | T-0063 | sequence the required check | ceo | release | `.github/workflows/ci.yml`, the branch protection |
 | T-0064 | the version claim in the architecture guide | ceo | docs | `docs/guide/architecture.md` |
+| T-0065 | reconcile the published line with the local release-traceability line | ceo | - | the merged line, `docs/Team/Archive.md` |
+| T-0066 | `links` measured the main checkout from inside a worktree | ceo | links | `src/teamwork/engine.py` |
+| T-0067 | `audit` asked which field the proof was written in | ceo | - | `src/teamwork/engine.py`, `tests/unit/test_audit_evidence_sources.py` |
+| T-0070 | `audit` link health used the main checkout too | ceo | links | `src/teamwork/engine.py`, `tests/unit/test_integrity_fixes.py` |
 | T-0002 | independent verification of the published-version traceability | reviewer | release | the acceptance-layer test record |
+| T-0004 | acceptance-layer records for the links area | reviewer | - | `tests/acceptance/test_acceptance_links.py` |
 | T-0003 | acceptance-layer records for the five uncovered areas | reviewer | - | the acceptance test records |
 | T-0005 | fix the env-secret rule that reports a function call as a credential | security-auditor | privacy | `scripts/privacy_scan.py`, `tests/unit/test_privacy_scan.py` |
 | T-0003 | acceptance proof that the release claims hold | tester | release | the acceptance proof, held on the unmerged P-0087 branch |
 | T-0004 | integration-layer records for the six uncovered areas | tester | - | the integration test records |
+| T-0005 | integration-layer records for the links area | tester | - | `tests/integration/test_links_flow.py` |
 | T-0002 | record M9 on the plan and the board | project-manager | plan | this file, [Board](Board.md) |
 
 Task ids are allocated per role queue, so the same id under two roles is two
