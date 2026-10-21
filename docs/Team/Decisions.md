@@ -1113,3 +1113,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: GIT_CONFIG_GLOBAL=<~/.gitconfig without the [init] section> .venv/bin/python -m pytest -q @4fb1e09 -> 1 failed, 837 passed, 2 skipped; same config @4dfedf9 -> 838 passed, 2 skipped, 0 failed; .venv/bin/python -m pytest -q tests/unit/test_cli_contract.py @4dfedf9 -> 42 passed
 - falsified by: A CI run on the pushed revision that still reports test_an_unborn_branch_is_readable_only_through_symbolic_ref failing, or a local run with a git config lacking [init] that turns any OTHER test red, would overturn this.
 - consequences: -
+
+## D-20261021-Reviewer-2 - The T-0010 second submission (c8aa7e3) PASSES review: the th
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Reviewer-2 (reviewer)
+- decided by: Reviewer-2
+- task: -
+- context: -
+- options considered: -
+- decision: The T-0010 second submission (c8aa7e3) PASSES review: the three Windows-only failures are TEST defects, not product defects, and the fix scopes the assertions to the platforms where the contract holds. The 0755 mode is a POSIX contract (Windows has no executable bit; git for Windows ignores the file mode) and the resolver contract is about the RESOLVED PATH, not the printed spelling.
+- why: Measured: (a) the mode assertion is still asserted on every POSIX runner - mutating src/teamwork/hooks.py:111 chmod(0o755)->chmod(0o644) turns BOTH tests/unit/test_hooks.py::test_install_writes_both_stages_with_the_marker_and_mode and tests/integration/test_harness_cli.py::test_hooks_install_status_uninstall_round_trip red ('11.6 says mode 0755, got 0o644'), so the POSIX contract was NOT weakened; (b) the resolver still pins the PRIMARY repository's hooks directory - mutating the expectation from repo/.git/hooks to wt/.git/hooks turns test_the_documented_resolver_answers_from_a_linked_worktree red, and mutating the product hooks_dir() to the pre-ruling <toplevel>/.git/hooks turns test_install_from_a_linked_worktree_lands_in_the_common_git_dir_and_fires red; (c) the Windows spelling is provably fixed - the exact CI strings ('C:/Users/runneradmin/...' vs 'C:\\Users\\runneradmin\\...') compare EQUAL under PureWindowsPath, and the fix is a no-op on POSIX (Path(a)==Path(b) iff a==b for git-printed POSIX paths, and '..' segments are NOT collapsed so no wrong path can pass); (d) the class is swept - the only other mode sites are tests/unit/test_privacy_scan.py:712 (already Windows-aware: nt branch asserts 0o600-or-0o666, else branch asserts exactly 0o600) and tests/unit/test_integrity_fixes.py:543 (skipif(os.name=='nt')), and no other git-printed path is compared against str(Path) except test_cli_contract.py:473, which compares git's VERBATIM echo of a -c core.hooksPath value to str(elsewhere) - that one is a different shape (echo of a value git never rewrites) and it did not fail on the Windows job.
+- evidence: pytest -q @c8aa7e3 -> 837 passed, 3 skipped, 0 failed; ruff check . -> All checks passed; ruff format --check . -> 153 files already formatted; mypy src/teamwork -> Success, 17 source files; links -> 0 issues; identity --audit 9ada068..c8aa7e3 -> 1 commit, 0 problems, author == committer == Developer <developer@agents.nidvue.com>; git merge-tree --write-tree 9ada068 c8aa7e3 -> rc 0; three mutation proofs as described
+- falsified by: A POSIX runner where the mode assertion no longer fires (revert to the pre-fix bytes and re-run the chmod(0o644) mutant), a linked worktree that answers with its OWN .git/hooks and the test still green, or a Windows runner where Path('C:/x') != Path('C:\\x') - any of these would overturn the pass.
+- consequences: -
+
+## D-20261021-Reviewer-2-2 - The T-0010 review record at ledger #0748 carried the evidenc
+
+- date: 2026-10-21
+- kind: process
+- status: accepted
+- deciders: Reviewer-2 (reviewer)
+- decided by: Reviewer-2
+- task: -
+- context: -
+- options considered: -
+- decision: The T-0010 review record at ledger #0748 carried the evidence string 'probe' - a placeholder, not a verification. The verdict and the merge are unchanged and the review is a PASS; the placeholder is corrected in place in the archive entry, the task record and the PR note, each with an explicit '- correction:' line, and the real evidence is the verification that was actually performed at c8aa7e3.
+- why: A review record is the team's evidence; a placeholder is a claim without evidence, which the house rules treat as a defect in the review itself. The precedent is the T-0005 correction (commit b05d04a, '- correction: the original entry said exit 2; re-measurement showed the role refusal exits 1. The code and test are unchanged.') and the retraction D-20261019-CEO-12 ('never edit a recorded decision; append a correction that names the error and the measurement'). The commit c8aa7e3 and the merged tree are untouched: the correction edits the RECORD, not the deliverable.
+- evidence: git show 39ab050 -- docs/Team/Archive.md -> the T-0010 entry carried '- reviewer evidence: probe'; git log --format='%h %an %ad' --date=iso -S 'reviewer evidence: probe' -- docs/Team/Archive.md -> e465ede (2026-10-21 12:43:06, this Reviewer-2 pass) and 36bef5a (2026-10-20 14:06:09, a PRIOR session's T-0005 entry, left untouched because it is not this review's record); the corrected line carries the real gates at c8aa7e3: pytest -q -> 837 passed, 3 skipped, 0 failed; ruff check -> All checks passed; ruff format --check -> 153 files already formatted; mypy src/teamwork -> Success, 17 source files; links -> 0 issues; identity --audit 9ada068..c8aa7e3 -> 1 commit, 0 problems, author == committer == Developer <developer@agents.nidvue.com>; git merge-tree --write-tree 9ada068 c8aa7e3 -> rc 0; plus the three mutation proofs (chmod 0o644 -> both mode tests red; resolver expectation -> the linked-worktree test red; product hooks_dir reverted -> the common-git-dir test red)
+- falsified by: A record showing the correction changed the reviewed tree - i.e. git diff 39ab050..<the correction commit> -- src/ tests/ showing a byte - would overturn it; so would the corrected evidence failing to reproduce at c8aa7e3.
+- consequences: -
