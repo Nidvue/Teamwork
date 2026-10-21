@@ -154,6 +154,67 @@ def test_the_callers_repository_pointers_do_not_reach_the_child(
         assert name not in env, f"{name} reached the child: {env.get(name)!r}"
 
 
+def test_the_callers_quarantine_path_does_not_reach_the_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An inherited GIT_QUARANTINE_PATH makes the child refuse every ref update.
+
+    The name is written out literally here on purpose. The test above loops
+    over ``GIT_REPO_VARS``, so dropping a member from that tuple would shrink
+    the loop with it and the test would stay green - which is how the
+    quarantine hole survived. A literal cannot shrink: drop
+    ``GIT_QUARANTINE_PATH`` from the tuple and this goes red.
+
+    ``GIT_QUARANTINE_PATH`` is git's quarantine object directory (the one a
+    clone writes into before the objects are accepted). A child that inherits
+    it fails EVERY ref update with "error: ref updates forbidden inside
+    quarantine environment" (git exit 1), so the harness measures the
+    quarantine instead of the contract.
+    """
+    monkeypatch.setenv("GIT_QUARANTINE_PATH", str(tmp_path / "quarantine"))
+
+    env = child_env()
+
+    assert "GIT_QUARANTINE_PATH" not in env, (
+        f"GIT_QUARANTINE_PATH reached the child: {env.get('GIT_QUARANTINE_PATH')!r}"
+    )
+
+
+def test_a_child_git_run_ignores_a_hostile_quarantine_path(tmp_path: Path) -> None:
+    """The proof, not the accident: the child's git still updates refs.
+
+    A future edit that stops removing ``GIT_QUARANTINE_PATH`` hands every
+    fixture a git that refuses to commit.
+    """
+    caller = dict(os.environ)
+    caller["GIT_QUARANTINE_PATH"] = str(tmp_path / "quarantine")
+    env = child_env(
+        caller,
+        HOME=str(tmp_path),
+        GIT_AUTHOR_NAME="Tester",
+        GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
+        GIT_COMMITTER_NAME="Tester",
+        GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
+    )
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*argv: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", "-C", str(repo), *argv],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    git("init", "-q")
+    git("commit", "-q", "--allow-empty", "-m", "x")
+
+    assert git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip() != ""
+
+
 def test_the_overrides_win_over_the_pins() -> None:
     """A site that wants its own HOME or identity still gets it."""
     env = child_env(HOME="/tmp/throwaway", GIT_AUTHOR_NAME="Tester")

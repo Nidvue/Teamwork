@@ -76,6 +76,12 @@ GIT_CONFIG_PAIR_PREFIXES = (
 #: them (``git -C`` sets GIT_DIR, a script can export it), and a child that
 #: inherits them acts on that repository instead of the throwaway tree the test
 #: made - which is not a hermetic failure but a wrong-repository failure.
+#:
+#: ``GIT_QUARANTINE_PATH`` belongs here for the same reason as
+#: ``GIT_OBJECT_DIRECTORY``: it is git's quarantine object directory, and a
+#: child that inherits it refuses EVERY ref update ("error: ref updates
+#: forbidden inside quarantine environment", git exit 1), so the harness
+#: measures a clone's quarantine instead of the contract.
 GIT_REPO_VARS = (
     "GIT_DIR",
     "GIT_WORK_TREE",
@@ -84,6 +90,7 @@ GIT_REPO_VARS = (
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
     "GIT_COMMON_DIR",
     "GIT_NAMESPACE",
+    "GIT_QUARANTINE_PATH",
 )
 
 #: The pins that make a child's git configuration hermetic: no system config,
