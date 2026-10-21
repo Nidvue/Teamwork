@@ -7872,6 +7872,16 @@ def _audit_section(root: Path, names: list, args) -> int:
     return hits
 
 
+def _task_has_execution_evidence(t: dict) -> bool:
+    """True when the task record carries proof that something was executed.
+
+    A review pass writes review_evidence and a self-check writes self_note; a task
+    closed by hand writes evidence. The audit's question is "was this verified?",
+    not "was the evidence field used?", so all three count.
+    """
+    return any((t.get(key) or "").strip() for key in ("evidence", "review_evidence", "self_note"))
+
+
 def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, args) -> int:
     print("## submitted for review without a self-check (skipped their own test)")
     hits = 0
@@ -7881,6 +7891,9 @@ def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, arg
                 t.get("review", "required") != "na"
                 and t.get("self_check") not in ("passed", "na")
                 and t["status"] in ("review", "done")
+                # A forced review pass records why the self-check was skipped; the
+                # force is the audit trail, so re-reporting it every run is noise.
+                and not (t.get("forced") or "").strip()
             ):
                 print(
                     f"- {name} {t['id']} [{t['status']}] {t['title']} "
@@ -7897,7 +7910,12 @@ def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, arg
     hits = 0
     for name in names:
         for t in parse_tasks(task_file(root, name)):
-            if t["status"] == "done" and not t.get("evidence"):
+            # `done` is normally set by a review pass, which records its proof in
+            # review_evidence (and self_note for the author's own run); only a task
+            # closed by hand relies on `evidence` alone. Any of the three is a
+            # record of execution, so any of them satisfies the anti-hallucination
+            # gate - testing `evidence` alone flagged every properly reviewed task.
+            if t["status"] == "done" and not _task_has_execution_evidence(t):
                 print(f"- {name} {t['id']} {t['title']}")
                 hits += 1
     if not hits:
