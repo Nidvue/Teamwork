@@ -317,7 +317,9 @@ from the wrong role, so the two maps must not be conflated.
 ## 11. Release consistency contract
 
 One file, `scripts/check_release_consistency.py`, compared against one committed
-record, `release-exceptions.json`. Its job: prove that every *published* fact
+record, `release-exceptions.json`. The sibling gate on commit identity - which
+committer, which acting role, which merge shape counts - is specified in
+[Release](Release.md#what-the-identity-audit-accepts-and-why-t-0010). Its job: prove that every *published* fact
 (git tag, npm version, GitHub Release, PyPI project, committed prose) agrees with
 the *local* fact (`src/teamwork/version.py`, the tree at that commit, the tag
 list). It is the release gate of [Release](Release.md); it is read-only (it

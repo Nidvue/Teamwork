@@ -3305,6 +3305,12 @@ _RE_BOT_EMAIL = re.compile(
 )
 _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
+#: ``Role: <display name>`` is the same machine-written fact as ``Acting role:``:
+#: ``build_commit_message`` emits both, so a message that carries only the
+#: structured trailer still names its acting role.
+_RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
+#: The subject of a team merge commit (``pr merge`` / worktree integration).
+_RE_MERGE_SUBJECT = re.compile(r"^chore\(merge\):", re.IGNORECASE)
 #: The committer a git host stamps on a merge it performs itself. It is transport,
 #: not identity: a forge rebase merge rewrites the committer to this account and
 #: leaves the author untouched, so the role that did the work is still the author -
@@ -3354,6 +3360,21 @@ def rewrite_safe_range(project: Path, rev_range: str) -> str:
     # history the event never covered - one rewrite then turns every old blemish
     # red at once. The span that can be measured is exactly the new tip.
     return f"{tip}^..{tip}"
+
+
+def _is_content_free_team_merge(
+    parents: list, name: str, email: str, body: str, canonical: dict
+) -> bool:
+    """A two-parent ``chore(merge)`` commit with no body adds no content, so it
+    carries no acting role. Single-parent commits are never exempt: they do add
+    content and must say who acted.
+    """
+    if len(parents) < 2 or email not in canonical or name != canonical[email]:
+        return False
+    lines = body.splitlines()
+    if not lines or not _RE_MERGE_SUBJECT.match(lines[0].strip()):
+        return False
+    return not "".join(lines[1:]).strip()
 
 
 def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool = False) -> int:
@@ -3417,17 +3438,34 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
         # commit whose author is a canonical role mailbox, so the identity that
         # matters (the acting role) is still enforced by every check here.
         forge_committer = expected is not None and _RE_FORGE_COMMITTER_EMAIL.match(ce) is not None
-        if (ce != ae or cn != an) and not forge_committer:
+        # A merge commit lands a peer's reviewed work, so the committer need not be
+        # the author. That is only acceptable when the committer is itself a
+        # canonical role mailbox (the reviewer/CEO who merged): a personal address
+        # stamping someone else's commit is exactly the privacy defect this gate
+        # exists for, so it stays a failure.
+        landing_role = canonical.get(ce) if ce in canonical and (ce != ae or cn != an) else None
+        if (ce != ae or cn != an) and not forge_committer and landing_role is None:
             reasons.append(f"committer {cn} <{ce}> differs from author {an} <{ae}>")
         match = _RE_ACTING_ROLE.search(body)
         if not match:
-            reasons.append("message has no 'Acting role:' line")
+            # The structured ``Role:`` trailer carries the same machine-written
+            # fact; accept it, but only when it names the author's own role.
+            match = _RE_ROLE_FIELD.search(body)
+            if match:
+                fallback_role = resolve_role(match.group(1))
+                if role_identity(fallback_role)[0] != an:
+                    reasons.append(f"'Role: {match.group(1)}' does not match author {an!r}")
+                    match = None
         elif match.group(1) != an:
             reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
+        if not match and not _is_content_free_team_merge(parents, cn, ce, body, canonical):
+            reasons.append("message has no 'Acting role:' line")
         if reasons:
             problems.append((short, reasons))
             for reason in reasons:
                 print(f"- {short} FAIL {an} <{ae}>: {reason}")
+        elif landing_role is not None:
+            print(f"- {short} ok {an} <{ae}> (landed by {landing_role})")
         elif forge_committer:
             print(f"- {short} ok {an} <{ae}> (forge committer {ce})")
         else:
