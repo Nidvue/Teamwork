@@ -62,14 +62,19 @@ def run(
     cwd: Path | None = None,
 ) -> subprocess.CompletedProcess:
     """``python3 scripts/teamwork.py --project <project> <args>`` as a process."""
-    child = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": str(project),  # no developer git config reaches the scaffold
-        "PYTHONPATH": str(REPO_ROOT / "src"),
-        "PYTHONIOENCODING": "utf-8",
-        "PYTHONUTF8": "1",
-        "LC_ALL": "C.UTF-8",
-    }
+    # Start from the parent environment: a hand-built one that keeps PATH and
+    # HOME but drops the platform's own variables breaks Windows, where the
+    # interpreter's RNG is initialised from the OS and needs SystemRoot/TEMP.
+    child = dict(os.environ)
+    child.update(
+        {
+            "HOME": str(project),  # no developer git config reaches the scaffold
+            "PYTHONPATH": str(REPO_ROOT / "src"),
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONUTF8": "1",
+            "LC_ALL": "C.UTF-8",
+        }
+    )
     child.update(env or {})
     return subprocess.run(
         [sys.executable, str(CLI_SHIM), "--project", str(project), *args],

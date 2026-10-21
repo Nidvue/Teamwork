@@ -1180,7 +1180,10 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
     remote = tmp_path / "remote"
     remote.mkdir()
     (remote / "SKILL.md").write_text("---\nname: teamwork\n---\n", encoding="utf-8")
+    # The parent environment first: on Windows the interpreter's RNG is
+    # initialised from the OS and fails without SystemRoot/TEMP.
     env = {
+        **__import__("os").environ,
         "GIT_AUTHOR_NAME": "T",
         "GIT_AUTHOR_EMAIL": "t@example.com",
         "GIT_COMMITTER_NAME": "T",
