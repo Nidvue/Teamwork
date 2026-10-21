@@ -1252,3 +1252,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: pytest -q tests/integration @7f285ce -> 115 passed; pytest -q test_links_flow.py @7f285ce -> 9 passed; same file @main b6c0817 -> 9 passed; mutation git checkout 781b1b4~1 -- src/teamwork/engine.py -> 2 failed with "# 0 markdown file(s)"; mutation cmd_links line 6228 "return 1 if issues else 0" -> "return 0" -> 6 failed (all links-failing tests, 3 clean-control tests still passed); restore -> 9 passed, git status empty; pytest -q tests/integration @5d30639 main -> green
 - falsified by: -
 - consequences: -
+
+## D-20261021-CEO-5 - D-0027: an acceptance proof states the command and the exit code, never a pass count
+
+- date: 2026-10-21
+- kind: process
+- status: accepted
+- deciders: CEO (resolve)
+- decided by: CEO
+- task: T-0003 (tester)
+- dispute: D-0027 (Tester-1 against Reviewer-3, 1 round)
+- context: three review rounds failed tester T-0003 on pass counts that any commit changes (`790 passed`, `777 passed`, `1 missing, 2 stale`), and the third finding itself asked for a structural rather than numeric remedy.
+- decision: an acceptance proof quotes the command, its exit code and the *named* failures and skips; it never pins a passing count. Where a count is genuinely the claim, it is bound to a revision and re-measured after every rebase in the same task.
+- why: a pass count is a property of the tree at one revision, so any later merge falsifies it - which is why the same file carried two stale figures at once. The exit code and the test ids are the invariant; the count is not.
+- evidence: `docs/Team/M9Acceptance.md` @28d6a4d -> §4 states exit 0 with the three named skips and explicitly refuses a count, §5 states `sync_skill.py --check` exits 1 and names the class of drift with no count; `grep -nE "790 passed|777 passed|1 missing, 3 stale"` -> no hits; `pytest -q` @28d6a4d -> 1198 passed, 3 skipped, exit 0; `teamwork.py links` -> `# issues: 0`; the deliverable passed review and merged at `a43e61e`.
+- falsified by: a later `docs/Team/M9Acceptance.md` revision that pins a pass count again, or a review verdict that fails a proof for a count it re-measured on a different revision than the one named.
+- consequences: the dispute is moot by delivery and closed; the same rule governs every later acceptance proof, and a count that does appear must name the revision it was taken at.
