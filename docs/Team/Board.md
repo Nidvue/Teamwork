@@ -60,25 +60,34 @@ under two roles is two tasks.
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
-| developer | T-0009 | release-consistency | done | P-0085 | f5ef807 |
+| developer | T-0009 | release-consistency | done | P-0085 | f8dd596 |
 | developer | T-0010 | release | done | - | - |
 | developer | T-0011 | ci-contracts | done | P-0083 | a1a04bc |
-| developer | T-0012 | release-consistency | done | P-0080 | - |
+| developer | T-0012 | release-consistency | done | P-0080 | 5fa73ef |
 | developer | T-0013 | release-consistency | done | P-0084 | 602c56d |
+| developer | T-0014 | - | done | P-0089 | 2cbb2e7 |
+| developer | T-0015 | - | todo | - | - |
+| developer | T-0016 | - | todo | - | - |
+| developer | T-0017 | - | todo | - | - |
 | release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
 | release-engineer | T-0004 | release | todo | - | - |
 | release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
+| release-engineer | T-0006 | - | todo | - | - |
 | release-engineer | T-0007 | release | done | P-0078 | 6fa8930 |
 | release-engineer | T-0008 | ci | done | - | - |
-| ceo | T-0059 | release | done | P-0069 | - |
+| release-engineer | T-0009 | - | done | P-0090 | e3a2476 |
+| ceo | T-0059 | release | done | P-0069 | 3078c48 |
 | ceo | T-0060 | release | done | - | - |
-| ceo | T-0061 | release | done | P-0070 | - |
+| ceo | T-0061 | release | done | P-0070 | 135ae06 |
 | ceo | T-0062 | release | done | P-0067 | e4b141c |
-| ceo | T-0063 | release | doing | - | - |
+| ceo | T-0063 | release | done | - | - |
 | ceo | T-0064 | docs | done | P-0082 | def7b1c |
 | reviewer | T-0002 | release | done | - | - |
-| tester | T-0003 | release | review | P-0087 | - |
-| project-manager | T-0002 | plan | review | P-0086 | - |
+| reviewer | T-0003 | - | todo | - | - |
+| security-auditor | T-0005 | privacy | done | P-0088 | e2c18a5 |
+| tester | T-0003 | release | doing | P-0087 | - |
+| tester | T-0004 | - | todo | - | - |
+| project-manager | T-0002 | plan | doing | P-0086 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read
 from the PR record, not from this table. A row with no PR is a task whose
@@ -88,12 +97,15 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0059 version bump and the npm-only anomaly | P0 | done | `src/teamwork/version.py`, `CHANGELOG.md` |
-| ceo | T-0063 required-check sequencing | P0 | doing | `.github/workflows/ci.yml` |
-| architect | T-0004 contract amendments | P0 | done | `docs/Team/Architecture.md` section 11 |
 | release-engineer | T-0004 push and certify CI | P0 | todo | the pushed revision and its runs |
-| tester | T-0003 acceptance proof | P1 | review | `tests/integration/test_release_consistency_integration.py`, `docs/Team/M9Acceptance.md` |
-| project-manager | T-0002 record M9 on the plan and the board | P2 | review | [Plan](Plan.md), this file |
+| release-engineer | T-0006 CI identity audit | P2 | todo | `.github/workflows/`, the audit command surface |
+| developer | T-0015 unit-layer records for the six uncovered areas | P1 | todo | the unit test records |
+| developer | T-0016 R3 ignores a published non-X.Y.Z npm version | P0 | todo | `scripts/check_release_consistency.py` |
+| developer | T-0017 the install docs pin a superseded wheel URL | P1 | todo | `docs/guide/install.md` |
+| tester | T-0003 acceptance proof | P1 | doing | P-0087 is unmerged; its proof files are on that branch, not in this tree |
+| tester | T-0004 integration-layer records for the six uncovered areas | P1 | todo | the integration test records |
+| reviewer | T-0003 acceptance-layer records for the five uncovered areas | P1 | todo | the acceptance test records |
+| project-manager | T-0002 record M9 on the plan and the board | P2 | doing | [Plan](Plan.md), this file |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.

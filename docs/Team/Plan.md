@@ -74,7 +74,7 @@ lists each milestone once, and the export names the head it was taken from.
 
 | id | task | role | prio | artifact | status | evidence |
 |---|---|---|---|---|---|---|
-| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | review | 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
+| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | done | merge `62ef5db`; 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
 
 ## M9 - release truth (in progress)
 
@@ -115,11 +115,17 @@ Non-goals:
 | T-0011 | the CI path-filter contract tests | developer | ci-contracts | `tests/unit/test_skill_contracts.py` |
 | T-0012 | the GitHub API token in the checker | developer | release-consistency | `scripts/check_release_consistency.py` |
 | T-0013 | the R9 denial-line exemptions | developer | release-consistency | `tests/unit/test_release_consistency.py` |
+| T-0014 | keep `scripts/` off `sys.path` after the skill-sync import | developer | - | `tests/unit/test_skill_sync.py` |
+| T-0015 | unit-layer records for the six uncovered areas | developer | - | the unit test records |
+| T-0016 | R3 ignores a published non-X.Y.Z npm version | developer | - | `scripts/check_release_consistency.py` |
+| T-0017 | the install docs pin a superseded wheel URL | developer | - | `docs/guide/install.md` |
 | T-0003 | wire the gate into CI | release-engineer | ci | `.github/workflows/ci.yml` |
 | T-0004 | push the merged revision and certify CI | release-engineer | release | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
 | T-0005 | repair the release record | release-engineer | release | `docs/Team/Release.md` |
+| T-0006 | audit every commit identity on a rewritten-history push | release-engineer | - | `.github/workflows/` |
 | T-0007 | the full tag set and the online half in the release workflow | release-engineer | release | `.github/workflows/release.yml` |
 | T-0008 | the scope classifier and a rename out of a shipping path | release-engineer | ci | `.github/workflows/ci.yml` |
+| T-0009 | the release prose must state what the tree contains | release-engineer | - | `docs/Team/Release.md` |
 | T-0059 | bump the version and record the npm-only anomaly | ceo | release | `src/teamwork/version.py`, `CHANGELOG.md` |
 | T-0060 | tag the published version and publish its release | ceo | release | the git tag and its GitHub Release |
 | T-0061 | repair the install and version claims | ceo | release | `README.md`, `docs/guide/install.md` |
@@ -127,7 +133,10 @@ Non-goals:
 | T-0063 | sequence the required check | ceo | release | `.github/workflows/ci.yml`, the branch protection |
 | T-0064 | the version claim in the architecture guide | ceo | docs | `docs/guide/architecture.md` |
 | T-0002 | independent verification of the published-version traceability | reviewer | release | the acceptance-layer test record |
-| T-0003 | acceptance proof that the release claims hold | tester | release | `tests/integration/test_release_consistency_integration.py`, `docs/Team/M9Acceptance.md` |
+| T-0003 | acceptance-layer records for the five uncovered areas | reviewer | - | the acceptance test records |
+| T-0005 | fix the env-secret rule that reports a function call as a credential | security-auditor | privacy | `scripts/privacy_scan.py`, `tests/unit/test_privacy_scan.py` |
+| T-0003 | acceptance proof that the release claims hold | tester | release | the acceptance proof, held on the unmerged P-0087 branch |
+| T-0004 | integration-layer records for the six uncovered areas | tester | - | the integration test records |
 | T-0002 | record M9 on the plan and the board | project-manager | plan | this file, [Board](Board.md) |
 
 Task ids are allocated per role queue, so the same id under two roles is two
@@ -161,7 +170,7 @@ states the verifiable claim and the command that produces its evidence.
 | AC-REL-1 | every version published to npm or to GitHub Releases is traceable to a git tag at a commit whose bundled payload matches, or is listed in `release-exceptions.json` with a measured reason | `python3 scripts/check_release_consistency.py --online` (R3), `git tag -l`, `cat release-exceptions.json` | ceo |
 | AC-REL-2 | the checker implements R1-R9, exits 0 clean, 1 on drift and 2 on unreadable input, and every rule has a unit test that fails before the implementation and passes after it | `python3 scripts/check_release_consistency.py --offline` and its exit codes, `python3 -m pytest tests/unit/test_release_consistency.py tests/unit/test_release_consistency_digest.py tests/unit/test_release_consistency_r8.py -q` | developer |
 | AC-REL-3 | the git tag for the published npm version points at the commit that version was published from, and its GitHub Release carries the wheel, the sdist, `SHA256SUMS` and both SBOMs | `git rev-list -n1 v1.1.2`, `gh release view v1.1.2 --json assets` | release-engineer |
-| AC-REL-4 | `README.md`, `docs/guide/install.md` and `docs/Team/Release.md` print no install command that cannot work, no version older than `src/teamwork/version.py` and no tag that does not exist | `python3 scripts/check_release_consistency.py --offline` (R6, R9), `python3 scripts/check_release_consistency.py --online` (R8), `python3 -m pytest -q tests/integration/test_release_consistency_integration.py` (the 13-test layer of tester T-0003, PR P-0087), and the proof document `docs/Team/M9Acceptance.md` sections 1 and 3 | ceo |
+| AC-REL-4 | `README.md`, `docs/guide/install.md` and `docs/Team/Release.md` print no install command that cannot work, no version older than `src/teamwork/version.py` and no tag that does not exist | `python3 scripts/check_release_consistency.py --offline` (R6, R9), `python3 scripts/check_release_consistency.py --online` (R8), `python3 -m pytest -q tests/unit/test_release_consistency.py tests/unit/test_release_consistency_r8.py` | ceo |
 | AC-REL-5 | the version on `main` is strictly greater than every published and tagged version, and `CHANGELOG.md` records the npm-only 1.1.1 anomaly with its reason | `grep __version__ src/teamwork/version.py`, `git tag -l`, `npm view @nidvue/teamwork versions`, `grep -n '^## ' CHANGELOG.md` | ceo |
 | AC-REL-6 | CI runs the release-consistency gate, every workflow is green on the pushed revision, and the installed skill mirrors it | `gh run list --workflow=ci.yml --commit <pushed sha>`, `python3 scripts/teamwork.py refresh --check` | release-engineer |
 
