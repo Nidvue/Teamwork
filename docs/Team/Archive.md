@@ -1445,3 +1445,16 @@ No blockers; no unrelated changes; branch mergeable.
 - reviewer evidence: read engine.py:6065-6078 + cmd_links:6191-6193 @781b1b4 -> relative_to(project).parts skip with ValueError fallback; work_repo(root) replaces project_of(root). WARNING: audit path engine.py:8397 still calls link_report(project_of(root), root) -> pre-existing, NOT introduced here: `audit` inside a worktree with [probe](nope2.md) in docs/Team/Design.md prints "markdown link health - none" (exit 0). Needs its own task. mutation-A `git worktree add .pi/.../Runtime/Worktrees/LinkProbe 781b1b4` + broken link -> `links` prints `# Link check (<LinkProbe path>)`, `- docs/Team/Design.md: [probe](definitely-missing.md) - target does not exist`, EXIT=1; on main code same probe EXIT=0 (# 71 files, no broken listed, measured main); revert line -> EXIT=0; worktree removed+pruned. mutation-B `git checkout 781b1b4~1 -- src/teamwork/engine.py` -> `pytest -k links` = 2 failed, 1 passed; restore -> 3 passed. pytest tests/unit/test_integrity_fixes.py -> 43 passed. ruff check src/ tests/ -> All checks passed; ruff format --check -> 2 files already formatted. main-checkout path set unchanged: old absolute-parts filter 71 files == new iter_markdown 71 files, diff empty (no path class added/dropped). team tree clean: `links --project . --team Teamwork` -> # issues: 0. callers: link_report used by cmd_links:6191 and audit:8397 only; tests at test_context_economy.py:897, test_integrity_fixes.py:363 pass positional project=tmp so unaffected by the cmd_links hunk.
 - findings history: 
 - branch / merge: ceo/t-0066-teamwork-py-links-measures-the-main-chec / b6c0817
+
+## T-0005 · M9-K integration layer for the links area  (tester)
+- date: 2026-10-21
+- priority: P1
+- owner: tester role (work by: tester-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: -
+- self-check: [pass] Re-read the whole test file: every case drives scripts/teamwork.py links as a subprocess from a throwaway tree, asserts the exact report section and exit code, and each defect case has a bite check (create the target / drop --no-reciprocity / move the link out of the quoted field). Test 4 pinning a release-asset path is plain relative-link resolution, and a second test pins that an absolute releases/download URL is not checked offline (no network). The worktree tests build <project>/.pi/Teamwork/Teams/X/Runtime/Worktrees/Dev with a .git entry, assert the report header names the worktree and the file count is non-zero, and are mutation-proved by reverting 781b1b4. | test: PYTHONPATH=src .venv/bin/python -m pytest -q tests/integration/test_links_flow.py @7f285ce -> 9 passed; whole layer -> 115 passed; with 781b1b4~1 src/teamwork/engine.py -> 2 failed, 7 passed; ruff check + format --check clean
+- author evidence: 
+- reviewer evidence: 2000-character evidence...
+- findings history: 
+- branch / merge: tester-1/t-0005-m9-k-integration-layer-for-the-links-are / pending
