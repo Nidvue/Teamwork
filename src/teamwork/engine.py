@@ -150,6 +150,7 @@ from .gitutil import (
     branch_worktree,
     current_branch,
     ensure_lfs,
+    is_binary_file,
     is_git_repo,
     lfs_tracked,
     run_git,
@@ -3621,6 +3622,7 @@ def cmd_commit(args) -> int:
                 if (
                     fp.is_file()
                     and fp.stat().st_size > args.lfs_threshold
+                    and is_binary_file(fp)
                     and not lfs_tracked(project, line)
                 ):
                     big.append(f"{line} ({fp.stat().st_size // 1024} KiB)")
@@ -8459,7 +8461,7 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
                 ):
                     continue
                 try:
-                    if p_.stat().st_size >= 1_000_000:
+                    if p_.stat().st_size >= 1_000_000 and is_binary_file(p_):
                         big.append(p_.relative_to(project).as_posix())
                 except OSError:
                     pass

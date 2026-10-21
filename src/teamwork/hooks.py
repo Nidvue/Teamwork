@@ -29,7 +29,7 @@ from .config import (
     IDENTITY_DOMAIN,
     LFS_MAX_BYTES,
 )
-from .gitutil import current_branch, lfs_tracked, run_git
+from .gitutil import current_branch, is_binary_file, lfs_tracked, run_git
 from .io import die, write_lf
 from .layout import project_path
 from .names import resolve_role, role_identity
@@ -169,7 +169,12 @@ def is_role_mailbox(project: Path) -> bool:
 
 
 def large_staged_files(project: Path) -> list:
-    """Staged blobs above the LFS threshold that no .gitattributes pattern covers."""
+    """Staged binary blobs above the LFS threshold with no .gitattributes pattern.
+
+    A large text file is not LFS material: LFS replaces it with a pointer, and the
+    diff, the merge and `git show <rev>:<path>` - the operations a record file
+    exists for - stop working. Only binaries trip this.
+    """
     staged = run_git(project, "diff", "--cached", "--name-only", "--diff-filter=ACMR")
     blocked = []
     for rel in staged.stdout.splitlines():
@@ -180,7 +185,7 @@ def large_staged_files(project: Path) -> list:
             size = (project / rel).stat().st_size
         except OSError:
             continue
-        if size > LFS_MAX_BYTES and not lfs_tracked(project, rel):
+        if size > LFS_MAX_BYTES and is_binary_file(project / rel) and not lfs_tracked(project, rel):
             blocked.append((rel, size))
     return blocked
 
