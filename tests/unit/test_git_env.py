@@ -11,7 +11,11 @@ them is a defect:
   what a fresh branch is called and whether a commit is signed).
 
 ``tests/gitenv.py`` is the one place that rule lives, so it is the one place
-these tests pin it.
+these tests pin it. The environment is a configuration source of its own, so
+the tests cover the file pointers (``GIT_CONFIG_GLOBAL``, ``GIT_CONFIG_SYSTEM``,
+``XDG_CONFIG_HOME``), the environment-injected pairs (``GIT_CONFIG_COUNT`` and
+its numbered ``GIT_CONFIG_KEY_<n>`` / ``GIT_CONFIG_VALUE_<n>``), the ``--file``
+pointer ``GIT_CONFIG`` and the template directory ``GIT_TEMPLATE_DIR``.
 """
 
 from __future__ import annotations
@@ -22,7 +26,14 @@ import sys
 from pathlib import Path
 
 import pytest
-from tests.gitenv import GIT_CONFIG_VARS, GIT_REPO_VARS, HERMETIC_GIT, child_env
+from tests.gitenv import (
+    GIT_CONFIG_PAIR_PREFIXES,
+    GIT_CONFIG_VARS,
+    GIT_REPO_VARS,
+    GIT_TEMPLATE_VAR,
+    HERMETIC_GIT,
+    child_env,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -87,13 +98,6 @@ def test_a_child_git_run_ignores_a_hostile_caller_config(tmp_path: Path) -> None
         "[user]\n\tname = Operator\n\temail = operator@example.com\n"
         "[commit]\n\tgpgsign = true\n[init]\n\tdefaultBranch = trunk\n",
         encoding="utf-8",
-    )
-    env = child_env(
-        HOME=str(tmp_path),
-        GIT_AUTHOR_NAME="Tester",
-        GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
-        GIT_COMMITTER_NAME="Tester",
-        GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
     )
     # the caller's configuration is what the child must not see: a caller
     # carries it in the environment, so the child's environment is built from
@@ -179,3 +183,104 @@ def test_the_helper_is_importable_from_every_test_layer() -> None:
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip() == os.devnull
+
+
+def test_the_environment_injected_config_pairs_do_not_reach_the_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GIT_CONFIG_COUNT injects configuration straight into the child.
+
+    Git reads the injected pairs *above* the global file, so the pins do not
+    neutralise them: with ``GIT_CONFIG_GLOBAL=os.devnull`` and
+    ``GIT_CONFIG_NOSYSTEM=1`` still set, an injected ``commit.gpgsign=true``
+    makes every commit in the child fail.
+    """
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "2")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "commit.gpgsign")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "true")
+    monkeypatch.setenv("GIT_CONFIG_KEY_1", "init.defaultBranch")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_1", "trunk")
+
+    env = child_env()
+
+    assert "GIT_CONFIG_COUNT" not in env, "GIT_CONFIG_COUNT reached the child"
+    for name in env:
+        for prefix in GIT_CONFIG_PAIR_PREFIXES:
+            assert not name.startswith(prefix), f"{name} reached the child"
+
+
+def test_the_environment_injected_config_does_not_reach_the_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GIT_CONFIG is git's --file pointer: a whole config file, by another name.
+
+    The pins point the global config at /dev/null, but this pointer is a
+    separate source, so a caller's file would decide what the harness
+    measures.
+    """
+    hostile = tmp_path / "hostile.gitconfig"
+    hostile.write_text(
+        "[user]\n\tname = Operator\n\temail = operator@example.com\n"
+        "[commit]\n\tgpgsign = true\n[init]\n\tdefaultBranch = trunk\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GIT_CONFIG", str(hostile))
+
+    env = child_env()
+
+    assert "GIT_CONFIG" not in env, "GIT_CONFIG reached the child"
+
+
+def test_the_callers_template_directory_does_not_reach_the_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """GIT_TEMPLATE_DIR installs the caller's hooks into every fresh repository.
+
+    It is the environment twin of ``init.templateDir``: git copies the
+    template's ``hooks/`` into each repository it creates, so a caller's
+    pre-commit hook would run inside the harness.
+    """
+    monkeypatch.setenv(GIT_TEMPLATE_VAR, str(tmp_path / "template"))
+
+    env = child_env()
+
+    assert GIT_TEMPLATE_VAR not in env, "GIT_TEMPLATE_DIR reached the child"
+
+
+def test_a_child_git_run_ignores_the_environment_injected_config(tmp_path: Path) -> None:
+    """The proof for the injected pairs: the child's git does not see them.
+
+    The pins cannot cover this source, so the helper has to remove it. A
+    future edit that stops doing so hands every fixture a
+    ``commit.gpgsign`` that fails each commit.
+    """
+    caller = dict(os.environ)
+    caller["GIT_CONFIG_COUNT"] = "1"
+    caller["GIT_CONFIG_KEY_0"] = "commit.gpgsign"
+    caller["GIT_CONFIG_VALUE_0"] = "true"
+    env = child_env(
+        caller,
+        HOME=str(tmp_path),
+        GIT_AUTHOR_NAME="Tester",
+        GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
+        GIT_COMMITTER_NAME="Tester",
+        GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
+    )
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*argv: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", "-C", str(repo), *argv],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    git("init", "-q")
+    git("commit", "-q", "--allow-empty", "-m", "x")
+
+    author = git("log", "-1", "--format=%an <%ae>").stdout.strip()
+    assert author == "Tester <tester@agents.nidvue.com>", author
