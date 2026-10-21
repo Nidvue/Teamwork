@@ -359,9 +359,13 @@ when it is - and not a property of the document. The two amendments this
 section introduced into the contract (`rev=None` and the link policy) were
 implemented first, at `c66c387` (`git merge-base --is-ancestor c66c387 HEAD`
 exits `0` when that is in the tree too); R2's `S = A - O`, the shallow guard and
-`TAGGED_TOKEN` followed at `d998801`. The table exists so that a reader of
-section 11 does not read it as a changelog of the repository: **the contract is
-the target, and each row names the revision that implements it**.
+`TAGGED_TOKEN` followed at `d998801`. The third amendment, that a published version which is
+not `X.Y.Z` is DRIFT unless a 11.4 entry admits it (`T-0016`), lands at
+`37ef0ed`: `git show 37ef0ed:scripts/check_release_consistency.py | grep -c
+PUBLISHED_VERSION` prints `2` when it is in that revision. The table exists so
+that a reader of section 11 does not read it as a changelog of the repository:
+**the contract is the target, and each row names the revision that implements
+it**.
 
 ### 11.1 CLI (frozen)
 
@@ -478,7 +482,7 @@ invents an `ok`.
 | R3 | every npm-published version | a git tag whose bundled-payload digest (11.3) equals that tarball's payload digest, or an entry in 11.4 | neither exists (a 404 on the advertised tarball is also DRIFT - 11.1.4) | `SKIP` |
 | R4 | every GitHub Release | `git tag -l` | no tag has the release's name | `SKIP` |
 | R5 | every git tag | the GitHub Release list | no release carries the tag's name | `SKIP` |
-| R6 | committed markdown that prints a version | `version.py` at HEAD | a printed literal version is **older** than HEAD's and its line/block is not illustrative-marked | evaluates |
+| R6 | committed markdown that prints a version, or names a `releases/download/<tag>/` asset | `version.py` at HEAD, and `git tag -l` for a release asset | a printed literal version is **older** than HEAD's, or a release-asset tag names no tag or one **older** than the newest, and its line/block is not illustrative-marked | evaluates |
 | R7 | `CHANGELOG.md` | every tagged version | a tagged version has no `## [X.Y.Z]` section, or more than one | evaluates |
 | R8 | committed markdown that advertises an install channel | the shipped name/entry point, and (online) PyPI | the channel names a package or executable the repository does not ship, or `--online` finds the channel does not resolve and the text does not mark it unavailable | partial (see 11.2.4) |
 | R9 | committed markdown that names a tag | `git tag -l` | a `vX.Y.Z` token, or a bare `X.Y.Z` token in a pin/tag context (11.2.4), names a tag that does not exist | evaluates |
@@ -605,6 +609,15 @@ An npm version is satisfied by (a) such a tag or (b) a 11.4 entry. Note what (a)
 implicitly forbids: a tag at a commit whose payload differs from the tarball,
 which is exactly the npm `1.1.0` case of 11.5.
 
+**There is no third path, and the version's shape is not one.** "Take every
+version key" means every key is enforced: a key that is not `X.Y.Z` cannot have
+a `vX.Y.Z` tag, so it is DRIFT unless a 11.4 entry admits it. Classifying such a
+key as "ignored" let a published version escape both paths of AC-REL-1 by its
+spelling alone (measured: npm's `0.0.0-stage` staged-publish placeholder, no tag,
+no `gitHead`, published before `1.1.0`) - which is why 11.4's `version` key
+accepts the published string, not only `X.Y.Z`. A 11.4 entry is the only way a
+published version can be untagged, whatever its shape (`T-0016`).
+
 **`scripts/build_pi_package.py` is excluded from both sides of every digest.**
 It is the build-time generator that *assembles* the tarball; it is not shipped
 payload, so a change in it does not change what a user receives, and including
@@ -645,6 +658,26 @@ matches `(?i)teamwork`. Two exclusions keep it from inventing drift:
 * a line that declares a foreign tool's version is skipped:
   `(?i)\b(python3?|cpython|node|npm|pi)\s*[:=]\s*\d` (`python: 3.12.13` in
   `docs/guide/install.md` is not a teamwork version).
+
+**The one URL that is a version claim: a release asset.** The exclusion above
+was written to keep a `compare/` *range* out, and it also blinded R6 to the one
+URL shape whose tag is a claim: a `releases/download/<tag>/<asset>` link names
+the release an install command downloads, so a superseded tag installs a
+superseded wheel. That shape is read by its own literal-path pattern
+`(?<=releases/download/)v?(\d+\.\d+\.\d+)(?=/)`. Because the lookbehind is the
+path and not a lone `/`, `.../compare/v1.1.0...v1.1.2` still matches nothing -
+the two rules read the same URLs in opposite directions on purpose.
+
+**Two baselines, one rule.** A prose token is judged against **HEAD**; a release
+asset tag is judged against `git tag -l` - it must **name an existing tag** and
+must not be **older than the newest one**. They differ because a released asset
+can only name a release while `version.py` legitimately leads the newest tag
+between releases: with HEAD `1.1.3` and newest tag `v1.1.2`, an install command
+for `v1.1.2` is correct and a command for `v1.1.0` is stale. Judging the asset
+against HEAD would make the correct URL unfixable without an illustrative
+marker, which would hide exactly the staleness the rule exists to report. R6's
+`detail` still reports only the count of illustrative lines; an asset finding
+names the file, line, tag and the baseline it missed.
 
 **Illustrative marker (R6 and R9).** The exact literal
 `<!-- release-consistency: illustrative -->`. It exempts a physical line when it
@@ -896,15 +929,15 @@ and no others:
 
 | Key | Contract |
 |---|---|
-| `version` | `X.Y.Z`, matching the npm version it admits; duplicate versions are an input error (exit `2`) |
+| `version` | the npm version it admits: `X.Y.Z`, or a published `X.Y.Z-<prerelease>`/`X.Y.Z+<build>` string that no `vX.Y.Z` tag can carry (11.2.3); anything else is an input error; duplicate versions are an input error (exit `2`) |
 | `reason` | one sentence a reviewer can judge; empty is an input error |
 | `evidence` | the measurement, not a restatement: a digest, a command with its result, a URL |
 | `recorded` | `YYYY-MM-DD`, the ISO date the entry was written |
 
 It is read **before** any rule runs. Missing file, invalid JSON, a non-array, a
-non-object entry, a missing/extra key, a version that is not `X.Y.Z`, or a date
-that is not `YYYY-MM-DD` is an input error: exit `2`, with the offending path and
-problem in the `detail` of the `SKIP` that R3 prints.
+non-object entry, a missing/extra key, a version that is not an npm version (see
+`version` above), or a date that is not `YYYY-MM-DD` is an input error: exit `2`,
+with the offending path and problem in the `detail` of the `SKIP` that R3 prints.
 
 An exception is a **recorded, reviewable admission**, never a silent pass: it is
 committed, it goes through the two-stage gate like any other artifact, and R3

@@ -186,6 +186,12 @@ SCAN_EXCLUDED = "docs/Team/Archive.md"
 R6_GLOBS = ("README.md", "docs/index.md", "docs/Team/Release.md", "docs/guide/*.md")
 
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+#: A version npm can publish: ``X.Y.Z`` plus an optional prerelease/build tail.
+#: Wider than ``SEMVER`` on purpose - a published version that cannot be a tag
+#: (``0.0.0-stage``) still has to be *nameable* in 11.4's record, or the only
+#: escape left is the silent skip this rule exists to remove. It is still a
+#: narrow format: prose, a branch name or a typo is not a version.
+PUBLISHED_VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 VERSION_TAG = re.compile(r"^v(\d+\.\d+\.\d+)$")
 VERSION_ASSIGN = re.compile(r"""__version__\s*=\s*["']([^"']+)["']""")
 DIST_NAME_ASSIGN = re.compile(r"""DIST_NAME\s*=\s*["']([^"']+)["']""")
@@ -193,6 +199,15 @@ ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 #: 11.2.4 version token: a ``/`` or ``.`` abuts a URL/link destination, so it
 #: does not match; that is what keeps ``.../compare/v1.1.2...HEAD`` out.
 VERSION_TOKEN = re.compile(r"(?<![\w./-])v?(\d+\.\d+\.\d+)(?![\w./-])")
+#: The one URL shape that *is* a version claim (11.2.4): the tag in a
+#: ``releases/download/<tag>/<asset>`` link says which release the wheel came
+#: from, so a superseded tag makes the install command install a superseded
+#: wheel. VERSION_TOKEN cannot see it - a ``/`` abuts the token on both sides -
+#: and the exclusion above was written to keep a ``compare/`` *range* out, not
+#: a release tag, so the shape is read on its own. The lookbehind is the literal
+#: path, so ``.../compare/v1.1.0...HEAD`` still matches nothing, and group 1 is
+#: the bare tag.
+RELEASE_ASSET_TAG = re.compile(r"(?<=releases/download/)v?(\d+\.\d+\.\d+)(?=/)")
 #: 11.2.4 R9: the frozen tag-claim pattern, copied from the contract byte for
 #: byte. It has exactly **one** capture group, so the claimed tag is always
 #: ``f"v{match.group(1)}"`` and no branch of the alternation can say ``vNone``.
@@ -1027,8 +1042,11 @@ def load_exceptions(path: Path) -> list[dict[str, str]]:
         if missing:
             raise InputError(f"{label}: missing key(s) {', '.join(missing)}")
         version = entry["version"]
-        if not isinstance(version, str) or not SEMVER.match(version):
-            raise InputError(f"{label}: version {version!r} is not X.Y.Z")
+        if not isinstance(version, str) or not PUBLISHED_VERSION.match(version):
+            raise InputError(
+                f"{label}: version {version!r} is not an npm version (X.Y.Z, optionally "
+                f"with a -prerelease/+build tail)"
+            )
         if version in seen:
             raise InputError(f"{label}: duplicate version {version}")
         seen.add(version)
@@ -1154,13 +1172,20 @@ def rule_r3_npm_payloads(
 
     get_bytes = fetch_bytes if fetch_bytes is not None else _http_get_bytes
     matched = 0
-    ignored: list[str] = []
     unreadable: list[str] = []
     for version in sorted(versions, key=lambda item: _version_tuple(str(item)) or (0, 0, 0)):
-        if _version_tuple(str(version)) is None:
-            ignored.append(str(version))
-            continue
         if version in admitted:
+            continue
+        # 11.2.3 takes *every* version key, and an npm version is satisfied by a
+        # tag or by a 11.4 entry - there is no third path. A key that is not
+        # X.Y.Z cannot have a ``vX.Y.Z`` tag, so without an entry it is drift:
+        # calling it "ignored" would let a published version escape AC-REL-1 by
+        # its shape alone (npm's ``0.0.0-stage`` placeholder did exactly that).
+        if _version_tuple(str(version)) is None:
+            findings.append(
+                f"{version}: not X.Y.Z, so no vX.Y.Z tag can carry it, and no "
+                f"release-exceptions.json entry admits it"
+            )
             continue
         info = versions[version]
         dist = info.get("dist") if isinstance(info, dict) else None
@@ -1198,8 +1223,6 @@ def rule_r3_npm_payloads(
             findings.append(
                 f"{version}: tarball payload digest {digest} != payload {local} at {tag}"
             )
-    if ignored:
-        notes.append(f"ignored non-X.Y.Z npm version(s): {', '.join(sorted(ignored))}")
     if unreadable:
         return _unreadable("R3", findings, notes, "; ".join(unreadable))
     if findings:
@@ -1449,20 +1472,47 @@ def rule_r8_install_channels(
 # --------------------------------------------------------------------------- #
 
 
-def _project_tokens(text: str) -> list[re.Match[str]]:
-    """Version tokens that name this project, per 11.2.4's foreign-tool rule."""
+def _project_tokens(text: str) -> list[tuple[re.Match[str], bool]]:
+    """``(token, is-release-asset)`` claims that name this project (11.2.4).
+
+    A bare token is a claim, a token inside a URL is not - except the tag of a
+    ``releases/download/<tag>/`` asset link, which names the release the install
+    command downloads. Those are read by ``RELEASE_ASSET_TAG`` in addition to
+    ``VERSION_TOKEN``; the two never overlap, because the ``/`` that hides a
+    token from ``VERSION_TOKEN`` is exactly the path the lookbehind requires.
+
+    The flag is returned because the two are judged against *different*
+    baselines: prose may name any version up to HEAD, while a released asset can
+    only name a tag - and between releases ``version.py`` leads the newest tag.
+    """
     foreign = {match.span(1) for match in FOREIGN_VERSION.finditer(text)}
-    return [match for match in VERSION_TOKEN.finditer(text) if match.span(1) not in foreign]
+    claims = [(match, False) for match in VERSION_TOKEN.finditer(text)]
+    claims += [(match, True) for match in RELEASE_ASSET_TAG.finditer(text)]
+    found = [claim for claim in claims if claim[0].span(1) not in foreign]
+    return sorted(found, key=lambda claim: claim[0].start())
 
 
 def rule_r6_markdown_versions(repo_root: Path) -> RuleResult:
-    """Prose must not print a project version older than HEAD (11.2.4)."""
+    """Prose must not print a stale project version (11.2.4).
+
+    Two baselines, because there are two kinds of claim. Prose names a version
+    of this project, so anything older than HEAD is stale. A
+    ``releases/download/<tag>/`` link names a *released asset*, so it is stale
+    only when a newer tag exists - judging it against HEAD would call the newest
+    release command wrong for the whole window between a release and the next
+    bump, which is where this repository sits now (HEAD ``1.1.3``, newest tag
+    ``v1.1.2``).
+    """
     head = _read_version(repo_root)
     if head is None:
         raise InputError(f"{VERSION_PATH}: no __version__ at HEAD")
     head_tuple = _version_tuple(head)
     if head_tuple is None:
         raise InputError(f"{VERSION_PATH}: __version__ {head!r} is not X.Y.Z")
+    tags = _version_tags(repo_root)
+    tag_tuples = {parsed for tag in tags if (parsed := _version_tuple(tag[1:])) is not None}
+    newest = tags[-1] if tags else None
+    newest_tuple = _version_tuple(newest[1:]) if newest is not None else None
     findings: list[str] = []
     illustrative = 0
     for rel in markdown_paths(repo_root, R6_GLOBS):
@@ -1478,11 +1528,24 @@ def rule_r6_markdown_versions(repo_root: Path) -> RuleResult:
             if tokens and line.exempted:
                 illustrative += 1
                 continue
-            for match in tokens:
+            for match, is_asset in tokens:
                 printed = _version_tuple(match.group(1))
-                if printed is not None and printed < head_tuple:
+                if printed is None:
+                    continue
+                if not is_asset:
+                    if printed < head_tuple:
+                        findings.append(
+                            f"{rel}:{line.number}: prints {match.group(0)}, older than HEAD {head}"
+                        )
+                elif printed not in tag_tuples:
                     findings.append(
-                        f"{rel}:{line.number}: prints {match.group(0)}, older than HEAD {head}"
+                        f"{rel}:{line.number}: installs the {match.group(0)} release asset, "
+                        "but git tag -l has no such tag"
+                    )
+                elif newest_tuple is not None and printed < newest_tuple:
+                    findings.append(
+                        f"{rel}:{line.number}: installs the {match.group(0)} release asset, "
+                        f"older than the newest tag {newest}"
                     )
     if findings:
         return _drift("R6", findings, [f"{illustrative} illustrative"])
