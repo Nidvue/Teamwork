@@ -2026,3 +2026,16 @@ No blockers; no unrelated changes; branch mergeable.
 - reviewer evidence: PYTHONPATH=$PWD/src .venv/bin/python -m pytest -q tests/unit/test_board_matches_tool.py @eee5553 bare worktree -> 4 passed, 2 skipped (live-tree tests skip without .pi/); with a .pi/Teams/Teamwork copy -> 6 passed; mutation: flipped the '| ceo | T-0071 | - |' state cell review->done -> 2 failed with "ceo T-0071: board says ('done','P-0108','-'), queue says ('review','P-0108','-')"; git checkout -- docs/Team/Board.md -> 6 passed
 - findings history: 
 - branch / merge: ceo/t-0071-the-board-vs-queue-comparison-is-a-test / 9099e51
+
+## T-0021 · The identity gate rejects the team's own role mailboxes and integration merges  (developer)
+- date: 2026-10-21
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: -
+- self-check: [pass] Re-read the full diff on 1595761: _matches_role_display replaces the exact-name comparison in the author check, the Role: fallback and the Acting role: trailer check; _RE_MERGE_SUBJECT now also matches 'Merge branch ...' and 'Merge commit <sha>' with the >=2-parent, canonical-committer and empty-body guards unchanged; single-parent and unknown-display tests still assert 1 problem. | test: pytest -q tests/unit/test_commit_identity.py @1595761 -> 34 passed || [pass] re-read the merged tip 64fdb0b: the helper, the three call sites, the merge regex, and the six new tests | test: PYTHONPATH=src pytest -q tests/unit/test_commit_identity.py @64fdb0b -> 34 passed; identity --audit --range origin/main..main -> 200 commits, 0 problems | artifacts: tests/unit/test_commit_identity.py:63c1e447b081a1ce:18948 | replay: git worktree add /tmp/t21 main && cp tests/unit/test_commit_identity.py /tmp/t21/tests/unit/ && cd /tmp/t21 && pytest -q tests/unit/test_commit_identity.py
+- author evidence: 
+- reviewer evidence: numstat main..HEAD: 3 files but Archive.md -13 is main's own a40dcd1 absent from branch base; merge-tree --write-tree main 64fdb0b vs main = exactly src/teamwork/engine.py + tests/unit/test_commit_identity.py (2 files), Archive.md count on main 76 = HEAD 76 (no Decisions.md loss); pytest -q tests/unit/test_commit_identity.py -> 34 passed; pytest -q tests/unit -> 996 passed, 2 skipped; identity --audit --range origin/main..main with branch engine -> '# commits: 201 | problems: 0' vs main's engine @a40dcd1 -> '# commits: 201 | problems: 11' (non-vacuous: instance-form display mismatches + 'no Acting role' on plain merges); narrowness: 3 guard tests pass, each killed by a targeted mutation - _matches_role_display->True kills test_an_unknown_display_name_on_a_role_mailbox_still_fails, dropping the canonical-committer guard kills test_an_integration_merge_with_a_personal_committer_still_fails, dropping len(parents)<2 kills test_a_single_parent_commit_without_an_acting_role_still_fails; ruff check + format --check clean; tree restored via git checkout, git status --porcelain empty @64fdb0b
+- findings history: 
+- branch / merge: developer-1/t-0021-identity-gate-accepts-role-mailboxes / pending
