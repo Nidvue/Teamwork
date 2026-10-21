@@ -198,6 +198,30 @@ def test_a_real_assigned_secret_is_still_reported():
     assert "env-secret" in rules_hit(f'API_TOKEN = "{secret}"\n')
 
 
+def test_a_function_call_is_not_a_credential():
+    """Regression: a call on the right of ``=`` is code, not a credential.
+
+    The env-secret rule read the callee name of
+    ``token = _current_github_token()`` as a credential, so the privacy job's
+    ``--history`` pass stayed red on every revision that contained the line,
+    even though the tree was clean.
+    """
+    assert "env-secret" not in rules_hit("token = _current_github_token()\n")
+    assert "env-secret" not in rules_hit("token = _current_github_token\n")
+    assert "env-secret" not in rules_hit("token = token.strip\n")
+    assert "env-secret" not in rules_hit("token = bearer.strip()\n")
+
+
+def test_a_real_credential_value_is_still_reported_next_to_a_code_name():
+    """The code-name guard must not hide a genuine credential."""
+    key = "AKIA" + "IOSFODNN7EXAMPLE"
+    assert "env-secret" in rules_hit(f'API_KEY = "{key}"\n')
+    assert "env-secret" in rules_hit(f"API_KEY = {key}\n")
+    # A name that says "secret" is a credential even when it is underscored.
+    # The fixture is fragmented so this test file does not trip the rule itself.
+    assert "env-secret" in rules_hit("password = my_super_" + "secret_password\n")
+
+
 # --------------------------------------------------------------------------- #
 # agent-host configuration: the local secret most likely to reach a public tree
 # --------------------------------------------------------------------------- #
