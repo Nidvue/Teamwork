@@ -8990,20 +8990,64 @@ def cmd_agents_md(args) -> int:
     return 0
 
 
-def _fetch_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
-    """Fetch ``remote/branch`` into ``source``. Returns ``(ok, detail)``."""
+def _source_ref(source: Path, remote: str, branch: str) -> tuple[str, str]:
+    """Resolve a refresh pin to ``(kind, commit)``, or ``("", "")``.
+
+    A pin names either a **branch** - fetched into ``refs/remotes/<remote>/<name>``
+    by a plain ``git fetch`` - or a **tag**, which a fetch by name leaves in
+    ``FETCH_HEAD`` only (``git fetch origin v1.1.2`` never creates
+    ``refs/remotes/origin/v1.1.2``, and ``git clone --branch`` accepts a tag
+    exactly once). Both spellings are tried, branch first, and the caller is told
+    which one answered so it can move the checkout the way that kind allows.
+    """
+    for kind, ref in (
+        ("branch", f"refs/remotes/{remote}/{branch}"),
+        ("tag", f"refs/tags/{branch}"),
+    ):
+        got = run_git(source, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+        if got.returncode == 0 and got.stdout.strip():
+            return kind, got.stdout.strip()
+    return "", ""
+
+
+def _fetch_source(source: Path, remote: str, branch: str) -> tuple[bool, str, str, str]:
+    """Fetch the ``branch`` pin into ``source`` -> ``(ok, detail, kind, commit)``.
+
+    ``kind`` is ``"branch"`` or ``"tag"`` and ``commit`` the full sha, so
+    ``_update_source`` can pick a fast-forward or a detached move without guessing
+    from the printed detail.
+    """
     got = run_git(source, "fetch", "--prune", "--quiet", remote, branch)
     if got.returncode != 0:
         tail = (got.stderr or got.stdout).strip().splitlines()
-        return False, tail[-1] if tail else "fetch failed"
-    rev = run_git(source, "rev-parse", "--short", f"{remote}/{branch}")
-    if rev.returncode != 0:
-        return False, f"no {remote}/{branch} after fetch"
-    return True, rev.stdout.strip()
+        missing = tail[-1] if tail else "fetch failed"
+        return False, f"no branch or tag {branch} on {remote}: {missing}", "", ""
+    kind, commit = _source_ref(source, remote, branch)
+    if not kind:
+        # The name exists (the fetch above succeeded) but is not a branch: fetch it
+        # as a tag ref so ``refs/tags/<name>`` resolves and stays identifiable.
+        tagged = run_git(
+            source, "fetch", "--quiet", remote, f"refs/tags/{branch}:refs/tags/{branch}"
+        )
+        if tagged.returncode == 0:
+            kind, commit = _source_ref(source, remote, branch)
+    if not kind:
+        return False, f"no branch {remote}/{branch} and no tag {branch} after fetch", "", ""
+    short = run_git(source, "rev-parse", "--short", commit).stdout.strip() or commit[:7]
+    if kind == "tag":
+        return True, f"pinned to tag {branch} {short}", kind, commit
+    return True, short, kind, commit
 
 
 def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
-    """Move ``source`` to ``remote/branch`` without touching a dirty tree."""
+    """Move ``source`` to the ``branch`` pin without touching a dirty tree.
+
+    A branch pin fast-forwards. A **tag** pin is a fixed revision, so the checkout
+    is moved onto that commit *detached* - the only move that can go backwards (an
+    older tag, a rollback) as well as forwards. Neither path is ``reset --hard``,
+    a clean tree loses nothing because the commits stay in the refs, and a dirty
+    tree keeps the "mirror it as it stands" behaviour above.
+    """
     dirty = run_git(source, "status", "--porcelain").stdout.strip()
     if dirty:
         # Never clobber uncommitted work, but do not refuse to mirror either: the
@@ -9012,14 +9056,38 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
             f"local changes ({dirty.splitlines()[0]}) - fast-forward skipped, "
             "mirroring this checkout as it stands"
         )
-    ok, detail = _fetch_source(source, remote, branch)
+    ok, detail, kind, commit = _fetch_source(source, remote, branch)
     if not ok:
         return False, detail
     head = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
-    target = detail
+    target = run_git(source, "rev-parse", "--short", commit).stdout.strip()
+    if kind == "tag":
+        # A tag pin is a fixed revision, not a line of development, so the
+        # checkout has to sit on it rather than on a tracking branch. Detaching
+        # is the only move that can go backwards as well as forwards; the tree is
+        # clean here, so nothing is lost (the commits stay in the refs).
+        moved = run_git(source, "checkout", "--quiet", "--detach", commit)
+        if moved.returncode != 0:
+            tail = (moved.stderr or moved.stdout).strip().splitlines()
+            return False, f"cannot move {head} -> {detail}: {tail[-1] if tail else '?'}"
+        after = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
+        if after == head:
+            return True, detail
+        return True, f"{head} -> {after} ({detail})"
+    label = f"{remote}/{branch} {detail}"
+    detached = run_git(source, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() == "HEAD"
+    if detached:
+        # Leaving a tag pin for a branch: re-attach first, or the fast-forward
+        # would only move a detached HEAD and the branch pin would not stick.
+        reattach = run_git(source, "checkout", "--quiet", branch)
+        if reattach.returncode != 0:
+            tail = (reattach.stderr or reattach.stdout).strip().splitlines()
+            return False, (
+                f"cannot re-attach {branch} from the detached tag pin: {tail[-1] if tail else '?'}"
+            )
     if head == target:
-        return True, f"already at {remote}/{branch} {target}"
-    pulled = run_git(source, "merge", "--ff-only", f"{remote}/{branch}")
+        return True, f"already at {label}"
+    pulled = run_git(source, "merge", "--ff-only", commit)
     if pulled.returncode != 0:
         tail = (pulled.stderr or pulled.stdout).strip().splitlines()
         return False, f"cannot fast-forward {head} -> {target}: {tail[-1] if tail else '?'}"

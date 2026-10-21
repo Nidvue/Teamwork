@@ -5,88 +5,127 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-21, `main` as `git rev-parse --short main` reports it)
+## Snapshot
 
-- Milestone: M9 Harness^2 adoption is open. The whole surface is on `main`:
-  `harness` (developer T-0001, merge `5dc7f6b`), `hooks` (developer T-0002, merge
-  `1c99bb1`), the Architect's contract for both (architect T-0001, merge
-  `811065b`), the ordered review rubric and the untrusted-material rule (ceo
-  T-0001, merge `e82075d`), Research section 8 (product-manager T-0001, merge
-  `3ce409a`), the process-boundary and acceptance suites (tester T-0001, merge
-  `4b3e6dd`) and the docs pass for the new surface (ceo T-0002, merge
-  `915f84f`). Every one of those merges is an ancestor of `main`
-  (`git merge-base --is-ancestor <sha> main` -> rc 0). AC-H1..AC-H8 are verified
-  on the merged revision (`teamwork.py criteria list` -> 8/8). M9 stays open on
-  the exit condition `pytest -q` clean on `main`, not on a missing surface, and
-  it closes when the CEO records that. M8 records hygiene is closed (ceo
-  T-0028, merge `62ef5db`).
-- Local gate: `pytest -q` on this branch -> 0 failed, some skipped. The suite is
-  green: the AC-5 privacy row that used to fail it no longer does, because the
-  privacy tree side is closed and the false green claim was corrected
-  (ceo T-0005, merge `05a4e4f`). The passing count is read from that run and
-  never pinned here, because every commit that adds a test changes it. The
-  skips are the gitignored team tree (a worktree carries no `.pi/`) and the
-  console-script acceptance test (covered by `verify_release.py`).
-- Privacy: **RED in HISTORY, GREEN in TREE.** `python3 scripts/privacy_scan.py
-  --tree --allow .github/privacy-allow.txt` -> PASS - 0 finding(s), exit 0: the
-  tree family is closed, the archive mask covers every rule the shipped gate
-  reports (developer T-0007, merge `bd59121`), the two archived lines that
-  quoted the operator address were rewritten (ceo T-0008, merge `9d96c95`) and
-  the scanner false positive on a relative path was fixed (developer T-0006,
-  merge `f9ce145`). `python3 scripts/privacy_scan.py --tree --history --allow
-  .github/privacy-allow.txt` -> FAIL, exit 1: the history family is still red on
-  the local commits, in commit metadata (the forge squash merge `3f4981d`
-  carries the operator account as author, and one commit message carries a
-  40-hex tree id the entropy rule reports) and in the older
-  `docs/Team/Archive.md` blob revisions that quote that address inside archived
-  reviewer evidence. The rewrite plan is measured, not asserted: the Security
-  Auditor ran the whole remediation in a throwaway clone and the history scan
-  went from FAIL to PASS 0 there - a measurement on a throwaway copy, not a
-  property of this tree, so re-measure it on the real branch after the rewrite.
-  That rewrite needs the **user's** authorization, because AGENTS.md's red-line
-  list names "history rewrite" without the published qualifier; it is owned by
-  ceo T-0003 and is blocked on that authorization, not on any team work. The
-  finding count is read from the run and never pinned: `--history` reaches other
-  lanes' unmerged branches, so the count moves while `main` does not.
-  [Project](Project.md) row AC-5 says red (G-8) and says so honestly.
+- Milestone: M9 (release truth) is in progress and M9p (Harness^2 adoption) is
+  closed on the published line; both are described in [Plan](Plan.md). Their state
+  is read with `teamwork.py board` and `teamwork.py task list <role>`; the rows of
+  this board are a human summary of the same records.
+- Release state, each fact read by its own command:
+  - npm `latest`: `npm view @nidvue/teamwork dist-tags` -> the `latest` tag
+  - newest git tag: `git tag -l --sort=-v:refname | head -1`
+  - version on `main`: `grep __version__ src/teamwork/version.py`
+  - the published version that has no tag: `cat release-exceptions.json`
+- Local gate: `pytest -q` on this branch head -> all pass; the count is read from
+  that run and never pinned here, because every commit that adds a test changes it.
+  The one skip is the console-script acceptance test (covered by
+  `verify_release.py`).
+- Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
+  on `main` -> PASS, 0 findings; the shipped gate passes that allow file
+  (`Makefile`, `ci.yml`, `docs.yml`). The local line was red before this merge and
+  the published line was green: `git show 4fb1e09:scripts/privacy_scan.py` carries
+  `_is_path_fragment`/`_is_path_name` (4 hits), which stops the scan reading a
+  role directory name as a secret, and the unpublished local line had 0 - so the
+  reconciled tree inherits the guard instead of the false positive. Without
+  `--allow` the scan reports the pi install tree (`agent-config`) and one operator
+  user name (`home-path`); `tests/unit/test_privacy_scan.py` pins every entry as
+  one escaped literal, rejects a wildcard, and proves a credential on an exempted
+  line is still reported. The alternatives were refused in D-20261019-CEO-15: a
+  user name or an install path is not a credential. The finding count is read from
+  the run and never pinned here.
 - Links: `teamwork.py links` -> 0 problems
 - Gate: `teamwork.py loop` -> CONTINUE while any task branch is unmerged, and
   STOP only after the last review lands; `teamwork.py audit` lists one entry per
   open gate and its count moves with each review round, so it is read, not quoted.
-  The closing export `docs/Team/AuditManifest.json` names the revision it was
-  exported from, so it verifies at that head - but that head is behind the
-  current `main`, so the digests it pins for [Plan](Plan.md) and
-  [Decisions](Decisions.md) no longer match the live files and a re-export is
-  owed before the milestone closes
-- Remote: the local `main` is **109 commits ahead** of `origin/main`
-  (`git rev-list --left-right --count origin/main...main` -> `8 109`), and the
-  published side is **8 commits ahead of the local merge base** - the remote is
-  not caught up, and it is not a simple fast-forward either. The published tip
-  carries work the local `main` does **not** have: the committer guard
-  (`identity --guard-committer` plus its CI job) and the rebase-merge
-  explanation in `references/Remotes.md` and `CONTRIBUTING.md`
-  (D-20261020-CEO-8). A rewrite of the local history must therefore be based on
-  the **published** tip, not on the local merge base, or the rewrite drops the
-  guard that stops the red from coming back
-  ([D-20261020-CEO-8](Decisions.md)). Only the Release Engineer pushes, and only
-  after the Reviewer has passed the revision; CI on the pushed SHA is the
-  certification step.
+  The closing export `docs/Team/AuditManifest.json` is committed with this pass
+  and names the revision it was exported from, so it verifies at that head
+- Remote: `origin/main` is behind the local merges until the Release Engineer
+  pushes the reviewed revision; CI on the pushed SHA is the certification step.
 
 - pi packaging: [Pi-Packaging](Pi-Packaging.md)
+
+## M9 - release truth
+
+The milestone is described in [Plan](Plan.md) (goal, non-goals, deliverables,
+dependencies and the acceptance criteria). The state of every row is read with
+`teamwork.py task list <role>`; the PR and the merged revision are read with
+`teamwork.py pr list`. Task ids are allocated per role queue, so the same id
+under two roles is two tasks.
+
+| role | id | area | state | pr | merged revision |
+|---|---|---|---|---|---|
+| architect | T-0002 | architecture | dropped | P-0068 | - |
+| architect | T-0003 | architecture | done | P-0075 | b02ed38 |
+| architect | T-0004 | architecture | done | P-0079 | cf95b98 |
+| architect | T-0005 | ci | dropped | P-0081 | - |
+| ceo | T-0059 | release | done | P-0069 | 3078c48 |
+| ceo | T-0060 | - | done | - | - |
+| ceo | T-0061 | release | done | P-0070 | 135ae06 |
+| ceo | T-0062 | release | done | P-0067 | e4b141c |
+| ceo | T-0063 | - | done | - | - |
+| ceo | T-0064 | docs | done | P-0082 | def7b1c |
+| ceo | T-0065 | - | done | P-0096 | - |
+| ceo | T-0066 | links | done | P-0098 | b6c0817 |
+| ceo | T-0067 | - | done | P-0097 | 143e192 |
+| ceo | T-0068 | - | done | - | - |
+| ceo | T-0069 | - | done | - | - |
+| ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
+| ceo | T-0071 | - | review | P-0108 | - |
+| developer | T-0005 | release | done | P-0073 | 5fa73ef |
+| developer | T-0006 | release | done | P-0074 | 74740be |
+| developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
+| developer | T-0009 | release-consistency | done | P-0085 | f8dd596 |
+| developer | T-0010 | release | done | - | - |
+| developer | T-0011 | ci-contracts | done | P-0083 | a1a04bc |
+| developer | T-0012 | release-consistency | done | P-0080 | 5fa73ef |
+| developer | T-0013 | release-consistency | done | P-0084 | 602c56d |
+| developer | T-0014 | - | done | P-0089 | 2cbb2e7 |
+| developer | T-0015 | - | done | P-0091 | cc2f50f |
+| developer | T-0016 | - | done | P-0095 | 03c7fbf |
+| developer | T-0017 | - | done | P-0094 | b5fbc93 |
+| developer | T-0018 | - | done | P-0101 | 35b6f2d |
+| developer | T-0019 | - | done | P-0107 | 3404a42 |
+| developer | T-0020 | - | done | P-0106 | - |
+| reviewer | T-0002 | - | done | - | - |
+| reviewer | T-0003 | - | done | P-0093 | f6242c9 |
+| reviewer | T-0004 | - | done | P-0102 | 44259cb |
+| tester | T-0003 | - | doing | P-0087 | - |
+| tester | T-0004 | - | done | P-0092 | c84932e |
+| tester | T-0005 | - | done | P-0103 | b91084d |
+| product-manager | T-0001 | traceability | done | P-0037 | eeab44c |
+| project-manager | T-0001 | - | done | P-0034 | 69116cc |
+| project-manager | T-0002 | plan | done | P-0086 | 203b515 |
+| release-engineer | T-0001 | - | done | - | - |
+| release-engineer | T-0002 | release | done | P-0062 | d0c4c4a |
+| release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
+| release-engineer | T-0004 | - | todo | - | - |
+| release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
+| release-engineer | T-0006 | - | todo | - | - |
+| release-engineer | T-0007 | release | done | P-0078 | 6fa8930 |
+| release-engineer | T-0008 | ci | done | - | - |
+| release-engineer | T-0009 | - | done | P-0090 | e3a2476 |
+| release-engineer | T-0010 | - | done | P-0104 | 3b0fbfa |
+| security-auditor | T-0001 | core | dropped | P-0023 | - |
+| security-auditor | T-0002 | - | dropped | - | - |
+| security-auditor | T-0003 | security | done | P-0051 | 4e1e53f |
+| security-auditor | T-0004 | - | done | P-0058 | d40a5db |
+| security-auditor | T-0005 | privacy | done | P-0088 | e2c18a5 |
+
+Rows whose PR is not merged carry no merged revision; the revision is read
+from the PR record, not from this table. A row with no PR is a task whose
+deliverable landed by commit without a PR record.
 
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0003 the false AC-5 privacy claim | P0 | blocked on the user's authorization for a history rewrite | [Project](Project.md) AC-5 |
-| product-manager | T-0007 refresh the Plan and Board for the merged state of M9 | P1 | in review | this PR |
+| ceo | T-0071 · The board-vs-queue comparison is a test, not a discipline | P1 | review | - |
+| tester | T-0003 M9-J acceptance proof that the release claims hold | P1 | doing | `docs/Team/M9Acceptance.md` on P-0087 - a file of that branch, not on main yet |
+| release-engineer | T-0004 M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | the pushed revision and its CI runs |
+| release-engineer | T-0006 CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | `.github/workflows/`, the audit command surface |
 
-The task queue (`teamwork.py board`, `teamwork.py task list <role>`) is
-authoritative for a task's exact state; this table only says which lanes are open.
-The product-manager records lanes that closed on earlier PRs are no longer listed
-here: T-0004 (merge `51e879e`), T-0005 (merge `3dbd3ad`) and T-0006 (merge
-`57a71c8`); ceo T-0011 is `done` on the same measurement (D-20261020-CEO-8), and
-the only open CEO lane is the blocked T-0003.
+The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
+state; this table only says which lanes are open.
 
 ## Dependency PRs (landed)
 
@@ -109,10 +148,10 @@ created so Dependabot can label future PRs.
 | M1 package the engine | done | `scripts/verify_release.py` -> `OK - release verified` |
 | M2 attractive docs | done | `mkdocs build --strict` green; `links` -> 0 |
 | M3 independent verification | done | `docs/Team/Archive.md` verdicts |
-| M4 publish | done | tags `v1.0.0`, `v1.0.1`, `v1.0.2`, `v1.1.0` on the local `main`; `v1.1.2` is tagged on the published side and is not on the local `main` yet |
+| M4 publish | done | releases `v1.0.0`, `v1.0.1`, `v1.0.2` with wheel, sdist, `SHA256SUMS`, SBOM |
 | M5a engine split + Windows green | done | commits `c8fb469`, `f2e3b5a`, `b7fe03b`; CI `39173857076` |
 | M5b dependency upkeep + governance refresh | done | `9b56f1b` (T-0014), `1d49c21` (T-0015), `4cd8afc` (T-0016) |
-| M8 records hygiene | done | ceo T-0028, merge `62ef5db` (P-0027, Reviewer-4): merge fields proved or `pending`, Plan de-duplicated, manifest re-pinned |
+| M8 records hygiene | done | ceo T-0028, merge fields repaired, Plan de-duplicated, manifest re-pinned |
 | M7 review fan-out + claims | done | Developer T-0001, merge `8f210bc`, 10 new unit tests |
 | M6 evidence packets + repro gate | done | T-0020..T-0025, `docs/Team/Archive.md`, merge `3934690` |
 
@@ -120,8 +159,7 @@ created so Dependabot can label future PRs.
 
 | task | waiting on | owner | unblock action |
 |---|---|---|---|
-| AC-5 privacy history is red on `main` (ceo T-0003) | the user's authorization for a history rewrite | CEO | remediating the history family means rewriting unpublished local history, a red line under AGENTS.md; the alternatives in the task record are an exact-literal allowlist entry with a written reason and Security Auditor triage, or keeping the role identity through the merge path so the finding never appears. The tree side is already green, so only the history side is at stake |
-| ceo T-0003 the local history rewrite | the published tip to be the base of the rewrite | CEO | base the rewrite on `origin/main`, not on the local merge base, and carry the published side's files over verbatim ([D-20261020-CEO-8](Decisions.md)); the committer guard is what stops the red from coming back. The rewrite plan is measured (history scan FAIL -> PASS 0 in a throwaway clone) and the authorization asked for is in the ceo T-0003 task record |
+| purge of the pre-rewrite commit object | GitHub garbage collection or Support | CEO | owner decision: leave it, recreate the repository, or file a Support purge request. It is unreachable from any branch and was already unreachable when the history was rewritten |
 
 ## Duplicate or conflicting work
 
