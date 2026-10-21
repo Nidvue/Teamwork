@@ -25,10 +25,10 @@ without a measurement.
 
 | # | Criterion | Command | Observed output | Verdict |
 |---|---|---|---|---|
-| AC-REL-1 | every published version is traceable to a tag, or admitted by a recorded exception | `python3 scripts/check_release_consistency.py --online` | `R3 ok 2 npm version(s) match a tagged payload digest; 1.1.1 admitted by exception (published from a workspace whose commit was never pushed, so no commit exists to tag); ignored non-X.Y.Z npm version(s): 0.0.0-stage` | **PASS** |
+| AC-REL-1 | every published version is traceable to a tag, or admitted by a recorded exception | `python3 scripts/check_release_consistency.py --online` | `R3 ok 2 npm version(s) match a tagged payload digest; 0.0.0-stage admitted by exception (npm's staged-publish placeholder, published before 1.1.0 with no source commit and no bundled payload); 1.1.1 admitted by exception (published from a workspace whose commit was never pushed, so no commit exists to tag)` | **PASS** |
 | AC-REL-1 | the exception is a committed, readable record | `cat release-exceptions.json` | one entry: `"version": "1.1.1"`, `"reason": "published from a workspace whose commit was never pushed, so no commit exists to tag"`, with `evidence` and `recorded` | **PASS** |
 | AC-REL-1 | the published set is what npm says | `npm view @nidvue/teamwork versions --json` | four versions, one per line in a JSON array: `"0.0.0-stage"`, `"1.1.0"`, `"1.1.1"`, `"1.1.2"` (the command pretty-prints one string per line; written on one line here) | **PASS** |
-| AC-REL-1 | each published version's tarball payload digest equals the digest of a tag | the checker's own digest comparison, per npm version, replayed through `_tarball_payload_digest` and `payload_digest` | `1.1.0: digest ebfc2538e3d3d605 == payload of v1.1.0: True` · `1.1.1: digest 726bc547afc41ead; no tag v1.1.1; tags with this digest: []` · `1.1.2: digest a01d9f0cbee641c3 == payload of v1.1.2: True` · `0.0.0-stage: tarball unreadable: npm tarball: none of the shipped payload paths are present` (non-`X.Y.Z`, so R3 does not look for a tag for it) | **PASS** (1.1.1 is the admitted exception) |
+| AC-REL-1 | each published version's tarball payload digest equals the digest of a tag | the checker's own digest comparison, per npm version, replayed through `_tarball_payload_digest` and `payload_digest` | `1.1.0: digest ebfc2538e3d3d605 == payload of v1.1.0: True` · `1.1.1: digest 726bc547afc41ead; no tag names it; tags with this digest: []` · `1.1.2: digest a01d9f0cbee641c3 == payload of v1.1.2: True` · `0.0.0-stage: tarball unreadable: npm tarball: none of the shipped payload paths are present` (non-`X.Y.Z`, so R3 does not look for a tag for it) | **PASS** (1.1.1 is the admitted exception) |
 | AC-REL-2 | the checker implements R1-R9 of the frozen contract | `python3 scripts/check_release_consistency.py --offline` | nine rule lines, one per rule, each with a status and a detail: five `ok` (`R1`, `R2`, `R6`, `R7`, `R9`) and four `SKIP` with a reason (`R3`, `R4`, `R5`, `R8` - the network half is not queried offline). The verdict is still clean, `# release consistency: 0 problem(s)`; §3 has the whole output | **PASS** (the four SKIPs are the offline half by design, see §3) |
 | AC-REL-2 | exit 0 = clean | `python3 scripts/check_release_consistency.py --offline; echo "exit=$?"` | `# release consistency: 0 problem(s)` / `exit=0` | **PASS** |
 | AC-REL-2 | exit 0 = clean, online | `python3 scripts/check_release_consistency.py --online; echo "exit=$?"` | `# release consistency: 0 problem(s)` / `exit=0` | **PASS** |
@@ -81,7 +81,7 @@ merged tree. The whole output is:
 ```
 R1 ok 5 tag(s) agree with version.py
 R2 ok HEAD 1.1.3 is newer than 5 tag(s)
-R3 ok 2 npm version(s) match a tagged payload digest; 1.1.1 admitted by exception (published from a workspace whose commit was never pushed, so no commit exists to tag); ignored non-X.Y.Z npm version(s): 0.0.0-stage
+R3 ok 2 npm version(s) match a tagged payload digest; 0.0.0-stage admitted by exception (npm's staged-publish placeholder, published before 1.1.0 with no source commit and no bundled payload); 1.1.1 admitted by exception (published from a workspace whose commit was never pushed, so no commit exists to tag)
 R4 ok 5 release(s) name an existing tag
 R5 ok 5 tag(s) have a GitHub Release
 R6 ok no version older than 1.1.3; 2 illustrative
