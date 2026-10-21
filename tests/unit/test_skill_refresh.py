@@ -257,11 +257,26 @@ def test_no_checkout_and_no_repo_fails_with_the_fix(cli, capsys, tmp_path: Path)
 
 def test_the_engine_and_the_sync_script_share_one_manifest() -> None:
     """A second copy of the file list would drift silently and drop a module."""
+    import importlib.util
     import sys
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-    import build_pi_package
-    import sync_skill
+    # Loaded by path: putting ``scripts/`` on ``sys.path`` would shadow the real
+    # ``teamwork`` package for every later test in the session (T-0014).
+    scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
+
+    def load(name: str, filename: str):
+        spec = importlib.util.spec_from_file_location(name, scripts_dir / filename)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        snapshot = list(sys.path)
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            sys.path[:] = snapshot
+        return module
+
+    build_pi_package = load("build_pi_package_under_test", "build_pi_package.py")
+    sync_skill = load("sync_skill_under_test", "sync_skill.py")
 
     assert sync_skill.BUNDLE_FILES == bundle.BUNDLE_FILES
     assert sync_skill.BUNDLE_TREES == bundle.BUNDLE_TREES
