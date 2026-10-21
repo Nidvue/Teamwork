@@ -223,6 +223,26 @@ NEGATED_CHANNEL = re.compile(
     r"(?i)\b(no|not|never|without)\s+(?:a\s+|an\s+|any\s+)?"
     r"`?(?:pip3?|pipx|uvx|uv)`?\s+(?:install|run|--from)"
 )
+#: A hazard statement: the line ties a distribution to *another* project, so a
+#: distribution named on it is named in order to warn against it and is not an
+#: advertisement ("the ``teamwork`` PyPI name is taken, so ``pip install
+#: teamwork`` gets the wrong project"). Three shapes are recognised - a
+#: project-like noun after a disqualifying adjective ("the wrong project"), a
+#: name that is taken or unrelated, and a name that belongs to somebody else.
+#: A bare "wrong" is deliberately **not** enough: the noun after it must be a
+#: project-like word, so "the wrong way to install is ``pip install teamwork``"
+#: stays an advertisement.
+WARNING_CONTEXT = re.compile(
+    r"(?i)\b(?:"
+    r"(?:wrong|other|different|another|not\s+this|someone\s+else)\s+"
+    r"(?:project|package|distribution|tool|software|module)"
+    r"|name\b[^.]{0,30}?\btaken\b"
+    r"|\b(?:taken|unrelated)\b[^.]{0,40}\bname\b"
+    r"|belongs\s+to\s+(?:another\s+|some\s+|someone\s+else\s+|a\s+|an\s+|the\s+)?"
+    r"(?:project|package|distribution|tool|software|module|company|organisation"
+    r"|organization|team|owner)"
+    r")"
+)
 
 
 class InputError(RuntimeError):
@@ -1241,6 +1261,20 @@ def _clean_distribution(token: str) -> str | None:
     return name
 
 
+def _warned_claim(line: str, name: str, dist_name: str | None) -> bool:
+    """A claim of a *foreign* distribution on a hazard line is not an ad.
+
+    11.2.4 scopes R8 to an **advertised** channel. A line that ties a
+    distribution to another project names it in order to warn against it, so
+    that name is exempt. The exemption is per claim, not per line: a line
+    that both warns and advertises keeps the shipped name under the normal
+    check, including the ``[project.scripts]`` lookup.
+    """
+    if dist_name is None or name == dist_name:
+        return False
+    return bool(WARNING_CONTEXT.search(line))
+
+
 def _negated_install(line: str) -> bool:
     """A sentence that says there is *no* install channel advertises nothing.
 
@@ -1272,6 +1306,8 @@ def rule_r8_install_channels(
             for name, executable in _channel_claims(line.text):
                 claimed += 1
                 where = f"{rel}:{line.number}"
+                if _warned_claim(line.text, name, dist_name):
+                    continue
                 if dist_name is None:
                     findings.append(
                         f"{where}: cannot verify {name}, no DIST_NAME in {VERSION_PATH}"
