@@ -109,34 +109,42 @@ Where a host exposes skills as slash commands, the same request is
 
 The skill works without this step. Install the same engine as a package when you
 want to drive the team yourself from a terminal, or when your host cannot run a
-bundled script:
+bundled script.
 
 ```bash
-# pipx - isolated CLI, put on PATH
-pipx install teamwork-agents
-
-# uv - run without installing
-uvx --from teamwork-agents teamwork --version
-
-# pip
-python -m pip install teamwork-agents
-
-# from source
+# from source (works today)
 git clone https://github.com/Nidvue/Teamwork.git
 cd Teamwork && python -m pip install .
+
+# the wheel attached to a GitHub release
+python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.0/teamwork_agents-1.1.0-py3-none-any.whl
 ```
 
 Run it straight from a checkout without installing anything:
 
 ```bash
-python3 scripts/teamwork.py --version    # teamwork 1.0.2
+python3 scripts/teamwork.py --version    # teamwork 1.1.3
 ```
 
-> The distribution name is `teamwork-agents` (the name `teamwork` is taken on
-> PyPI); the import name and the console script are both `teamwork`. PyPI
-> publishing is prepared but not enabled for this release - until then, install
-> from the [GitHub release](https://github.com/Nidvue/Teamwork/releases) wheel
-> or from source.
+#### The package index is not live yet
+
+The distribution name is `teamwork-agents` (the name `teamwork` is taken on
+PyPI); the import name and the console script are both `teamwork`. The package is
+**not published to PyPI**: `https://pypi.org/pypi/teamwork-agents/json` returns
+not-found, so these commands fail for now and are listed only to describe the
+channel, not to be run.
+
+<!-- release-consistency: channel-unavailable -->
+```console
+$ pipx install teamwork-agents        # unavailable: not on PyPI yet
+$ uvx --from teamwork-agents teamwork --version   # unavailable: not on PyPI yet
+$ python -m pip install teamwork-agents           # unavailable: not on PyPI yet
+```
+
+Until the package is published, use the GitHub-release wheel above or install
+from source; `python3 scripts/teamwork.py` needs neither. This note is what
+`scripts/check_release_consistency.py` rule R8 reads, so the claim and the
+package index cannot drift apart again.
 
 ## 30-second quickstart
 
