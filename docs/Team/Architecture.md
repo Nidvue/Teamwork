@@ -250,8 +250,10 @@ section is the **target**, not a description of the running program; where the
 two differ, the target wins - but the difference is stated here, once, so
 nobody reads section 11 as a changelog of the current implementation. At
 revision `3055a8a` plus this amendment `scripts/check_release_consistency.py`
-is **not in `main`**: it exists on the developer's branch, whose tip is
-`d998801` (parent `c66c387`), and is pending merge. Against that code:
+is **not in `main`** (`git ls-tree main scripts/` lists only `verify_release.py`):
+it exists on the developer's branch `developer-1/t-0005-...`, whose tip is
+`cd7e802` and which contains `d998801` (parent `c66c387`), pending merge.
+Against that code:
 
 | Clause | Status | Where |
 |---|---|---|
@@ -263,8 +265,9 @@ is **not in `main`**: it exists on the developer's branch, whose tip is
 | 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `d998801` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
 | 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `d998801` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
 
-Everything section 11 freezes is therefore implemented in the developer's tip
-`d998801`, and none of it is in `main` yet: the whole file is **PENDING
+Everything section 11 freezes is therefore implemented in the developer's branch
+at `d998801` and still present at `cd7e802`, and none of it is in `main` yet:
+the whole file is **PENDING
 merge**, and until it lands `main` ships no checker at all. The two commits
 this amendment introduced into the contract (`rev=None` and the link policy)
 were implemented first, at `c66c387`; R2's `S = A - O`, the shallow guard and
@@ -420,10 +423,15 @@ steps, the only place the rule reads git:
 DRIFT iff some tag in `S` has a version that is **not** strictly less than
 HEAD's, and the `detail` names each such tag. `ok` reads
 `HEAD <X.Y.Z> is newer than <|S|> tag(s)`, where `|S| = len(A) - len(O)` over
-**reachable version tags only**. It is never `len(git tag -l) - len(O)`:
-subtracting the tags-at-HEAD from *every* tag in the repository is the
-arithmetic defect that printed `is newer than -2 tag(s)` for `v1.1.0` with two
-doc tags at HEAD, while promising `N-1`.
+**reachable version tags only**, so the count is never negative. The rule it
+replaces (`c66c387:891-899`) compared HEAD against **every** version tag in the
+repository and counted `len(tags)` - a count that is never negative either, but
+that has no notion of reachability, so it was red against tags which were
+never the checkout's ancestors. The arithmetic this subsection forbids is
+`len(git tag -l) - len(O)`: it subtracts the tags-at-HEAD from *every* tag in
+the repository, so on one version tag with two doc tags at HEAD it evaluates to
+`-2`. No revision of the checker implements it and none prints a negative
+count; it is the defect the freeze removes, not an output of any shipped code.
 
 Two consequences of the ancestry freeze, both intended:
 
@@ -449,7 +457,7 @@ never be green on the build it exists to gate.
 
 | HEAD state | R1 | R2 |
 |---|---|---|
-| HEAD is exactly tag `vX.Y.Z`, its `version.py` is `X.Y.Z`, no other tag at HEAD | `ok` (the tag agrees with its own commit) | `ok` - `O` is HEAD's own tag; detail counts `\|S\|` (`N-1`) |
+| HEAD is exactly tag `vX.Y.Z`, its `version.py` is `X.Y.Z`, no other tag at HEAD | `ok` (the tag agrees with its own commit) | `ok` - `O` is HEAD's own tag; the detail counts `\|S\|` (= `\|A\| - 1`, because `O` holds exactly that one tag) |
 | HEAD newer than every reachable tag | `ok` | `ok`, detail counts `\|S\|` |
 | HEAD older than the newest *reachable* tag | `ok` (each tag still agrees with its own commit) | DRIFT - names each reachable tag ahead of HEAD |
 | HEAD between two reachable tags | `ok` | DRIFT - names the reachable tags ahead of HEAD only |
@@ -709,11 +717,12 @@ Every refusal names the **link's own path** and never the target's path, so a
 refusal cannot carry a name from outside the tree into the digest or into the
 printed output.
 
-11.3.1's closing bullet ("Symlinks are resolved and unreadable files are drift,
-exactly as in 11.3") is a **restatement** of this subsection; where the two
-differ, this subsection governs - so "unreadable" there reads "an input error
-(exit `2`)", per this subsection and per 11.1.1. 11.3.1 is otherwise
-byte-identical to the frozen text.
+**11.3.1's closing bullet is a restatement of this subsection.** It states that a
+payload file which cannot be read - like a link which cannot be resolved - is
+an **input error (exit `2`)**, never drift, and it points here for the
+precedence rule: where 11.3 and 11.3.1 differ, this subsection governs, and
+11.1.1 keeps `2` above `1`. 11.3.1's remap table and its "no recognizable
+prefix → exit `2`" rule are otherwise byte-identical to the frozen text.
 
 **Why an unresolvable link is an input error (exit `2`) and not drift (exit
 `1`).** DRIFT means a published fact disagrees with the local fact; a link
@@ -764,7 +773,10 @@ Two implementation consequences, both measured:
   path. Sorting by path alone gives `b1ba21e39436bf09` for `1.1.2` and
   `0786a4ff3c2f84ba` for `1.1.1` when `scripts/build_pi_package.py` is included;
   those are **not** 11.3 digests and must never be published as such.
-* Symlinks are resolved and unreadable files are drift, exactly as in 11.3.
+* Symlinks are resolved under the link policy of 11.3, and a payload file that
+  cannot be read - like a link that cannot be resolved - is an **input error
+  (exit `2`)**, never drift; where 11.3 and this subsection differ, 11.3 governs
+  (its precedence note, above).
 
 ### 11.4 `release-exceptions.json` (frozen)
 
