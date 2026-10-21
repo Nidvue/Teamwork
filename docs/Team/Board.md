@@ -63,12 +63,13 @@ under two roles is two tasks.
 | ceo | T-0062 | release | done | P-0067 | e4b141c |
 | ceo | T-0063 | - | done | - | - |
 | ceo | T-0064 | docs | done | P-0082 | def7b1c |
-| ceo | T-0065 | - | review | P-0096 | - |
+| ceo | T-0065 | - | done | P-0096 | - |
 | ceo | T-0066 | links | done | P-0098 | b6c0817 |
 | ceo | T-0067 | - | done | P-0097 | 143e192 |
 | ceo | T-0068 | - | done | - | - |
 | ceo | T-0069 | - | done | - | - |
 | ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
+| ceo | T-0071 | - | doing | - | - |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
@@ -84,7 +85,17 @@ under two roles is two tasks.
 | developer | T-0018 | - | done | P-0101 | 35b6f2d |
 | developer | T-0019 | - | done | P-0107 | 3404a42 |
 | developer | T-0020 | - | done | P-0106 | - |
-| project-manager | T-0002 | plan | review | P-0086 | - |
+| reviewer | T-0002 | - | done | - | - |
+| reviewer | T-0003 | - | done | P-0093 | f6242c9 |
+| reviewer | T-0004 | - | done | P-0102 | 44259cb |
+| tester | T-0003 | - | doing | P-0087 | - |
+| tester | T-0004 | - | done | P-0092 | c84932e |
+| tester | T-0005 | - | done | P-0103 | b91084d |
+| product-manager | T-0001 | traceability | done | P-0037 | eeab44c |
+| project-manager | T-0001 | - | done | P-0034 | 69116cc |
+| project-manager | T-0002 | plan | done | P-0086 | 203b515 |
+| release-engineer | T-0001 | - | done | - | - |
+| release-engineer | T-0002 | release | done | P-0062 | d0c4c4a |
 | release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
 | release-engineer | T-0004 | - | todo | - | - |
 | release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
@@ -93,13 +104,11 @@ under two roles is two tasks.
 | release-engineer | T-0008 | ci | done | - | - |
 | release-engineer | T-0009 | - | done | P-0090 | e3a2476 |
 | release-engineer | T-0010 | - | done | P-0104 | 3b0fbfa |
-| reviewer | T-0002 | - | done | - | - |
-| reviewer | T-0003 | - | done | P-0093 | f6242c9 |
-| reviewer | T-0004 | - | done | P-0102 | 44259cb |
+| security-auditor | T-0001 | core | dropped | P-0023 | - |
+| security-auditor | T-0002 | - | dropped | - | - |
+| security-auditor | T-0003 | security | done | P-0051 | 4e1e53f |
+| security-auditor | T-0004 | - | done | P-0058 | d40a5db |
 | security-auditor | T-0005 | privacy | done | P-0088 | e2c18a5 |
-| tester | T-0003 | - | doing | P-0087 | - |
-| tester | T-0004 | - | done | P-0092 | c84932e |
-| tester | T-0005 | - | done | P-0103 | b91084d |
 
 Rows whose PR is not merged carry no merged revision; the revision is read
 from the PR record, not from this table. A row with no PR is a task whose
@@ -109,11 +118,10 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0065 Reconcile the published origin/main line (M9 Harness^2) with the local M9 release-traceability line | P0 | review | the reconciled line on P-0096 |
-| release-engineer | T-0004 M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | the pushed revision and its CI runs |
-| tester | T-0003 M9-J acceptance proof that the release claims hold | P1 | doing | `docs/Team/M9Acceptance.md` on P-0087 - a file of that branch, not on main yet |
-| project-manager | T-0002 M9-I record M9 on the plan and board | P2 | review | [Plan](Plan.md), this file |
-| release-engineer | T-0006 CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | `.github/workflows/`, the audit command surface |
+| ceo | T-0071 · The board-vs-queue comparison is a test, not a discipline | P1 | doing | - |
+| tester | T-0003 · M9-J acceptance proof that the release claims hold | P1 | doing | - |
+| release-engineer | T-0004 · M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | - |
+| release-engineer | T-0006 · CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | - |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
