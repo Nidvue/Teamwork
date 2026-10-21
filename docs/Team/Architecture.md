@@ -603,6 +603,15 @@ An npm version is satisfied by (a) such a tag or (b) a 11.4 entry. Note what (a)
 implicitly forbids: a tag at a commit whose payload differs from the tarball,
 which is exactly the npm `1.1.0` case of 11.5.
 
+**There is no third path, and the version's shape is not one.** "Take every
+version key" means every key is enforced: a key that is not `X.Y.Z` cannot have
+a `vX.Y.Z` tag, so it is DRIFT unless a 11.4 entry admits it. Classifying such a
+key as "ignored" let a published version escape both paths of AC-REL-1 by its
+spelling alone (measured: npm's `0.0.0-stage` staged-publish placeholder, no tag,
+no `gitHead`, published before `1.1.0`) - which is why 11.4's `version` key
+accepts the published string, not only `X.Y.Z`. A 11.4 entry is the only way a
+published version can be untagged, whatever its shape (`T-0016`).
+
 **`scripts/build_pi_package.py` is excluded from both sides of every digest.**
 It is the build-time generator that *assembles* the tarball; it is not shipped
 payload, so a change in it does not change what a user receives, and including
@@ -894,15 +903,15 @@ and no others:
 
 | Key | Contract |
 |---|---|
-| `version` | `X.Y.Z`, matching the npm version it admits; duplicate versions are an input error (exit `2`) |
+| `version` | the npm version it admits: `X.Y.Z`, or a published `X.Y.Z-<prerelease>`/`X.Y.Z+<build>` string that no `vX.Y.Z` tag can carry (11.2.3); anything else is an input error; duplicate versions are an input error (exit `2`) |
 | `reason` | one sentence a reviewer can judge; empty is an input error |
 | `evidence` | the measurement, not a restatement: a digest, a command with its result, a URL |
 | `recorded` | `YYYY-MM-DD`, the ISO date the entry was written |
 
 It is read **before** any rule runs. Missing file, invalid JSON, a non-array, a
-non-object entry, a missing/extra key, a version that is not `X.Y.Z`, or a date
-that is not `YYYY-MM-DD` is an input error: exit `2`, with the offending path and
-problem in the `detail` of the `SKIP` that R3 prints.
+non-object entry, a missing/extra key, a version that is not an npm version (see
+`version` above), or a date that is not `YYYY-MM-DD` is an input error: exit `2`,
+with the offending path and problem in the `detail` of the `SKIP` that R3 prints.
 
 An exception is a **recorded, reviewable admission**, never a silent pass: it is
 committed, it goes through the two-stage gate like any other artifact, and R3
