@@ -218,6 +218,19 @@ TAGGED_TOKEN = re.compile(
     r"(\d+\.\d+\.\d+)(?![-/\w])(?!\.\w)"
 )
 PROJECT_CONTEXT = re.compile(r"(?i)teamwork")
+#: 11.2.4 R6 pin token: a version inside ``--branch``/``--tag``/``--ref`` or
+#: after ``git checkout``/``git switch`` is a version *claim* even when the line
+#: never says "teamwork". ``docs/guide/install.md`` pins a tag in a console block
+#: that names no project, so the project-context gate hid it, and R9 (which reads
+#: the same shapes through ``TAGGED_TOKEN``) only asks whether the tag exists,
+#: never whether it is stale. Kept separate from ``TAGGED_TOKEN`` on purpose: R6
+#: must not start judging every bare ``vX.Y.Z`` against the tags - a bare version
+#: is prose and is judged against HEAD, and ``TAGGED_TOKEN`` would also match the
+#: ``releases/tag/`` and ``compare/`` shapes R6 reads another way.
+PIN_VERSION = re.compile(
+    r"(?<![\w./-])(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+)"
+    r"v?(\d+\.\d+\.\d+)(?![-/\w])(?!\.\w)"
+)
 #: 11.2.4: a foreign tool's version is not a teamwork version. Matched per
 #: token, not per line: ``Install Teamwork 1.0.2 to match python: 3.12.13``
 #: skips ``3.12.13`` and still flags our own stale ``1.0.2``.
@@ -1472,8 +1485,8 @@ def rule_r8_install_channels(
 # --------------------------------------------------------------------------- #
 
 
-def _project_tokens(text: str) -> list[tuple[re.Match[str], bool]]:
-    """``(token, is-release-asset)`` claims that name this project (11.2.4).
+def _project_tokens(text: str) -> list[tuple[re.Match[str], str]]:
+    """``(token, kind)`` claims naming this project (11.2.4); kind is prose/asset.
 
     A bare token is a claim, a token inside a URL is not - except the tag of a
     ``releases/download/<tag>/`` asset link, which names the release the install
@@ -1481,15 +1494,27 @@ def _project_tokens(text: str) -> list[tuple[re.Match[str], bool]]:
     ``VERSION_TOKEN``; the two never overlap, because the ``/`` that hides a
     token from ``VERSION_TOKEN`` is exactly the path the lookbehind requires.
 
-    The flag is returned because the two are judged against *different*
-    baselines: prose may name any version up to HEAD, while a released asset can
-    only name a tag - and between releases ``version.py`` leads the newest tag.
+    The kind is returned because the three kinds are judged against *different*
+    baselines: prose may name any version up to HEAD, while a released asset or a
+    pin can only name a tag - and between releases ``version.py`` leads the
+    newest tag.
     """
     foreign = {match.span(1) for match in FOREIGN_VERSION.finditer(text)}
-    claims = [(match, False) for match in VERSION_TOKEN.finditer(text)]
-    claims += [(match, True) for match in RELEASE_ASSET_TAG.finditer(text)]
+    claims = [(match, "prose") for match in VERSION_TOKEN.finditer(text)]
+    claims += [(match, "asset") for match in RELEASE_ASSET_TAG.finditer(text)]
     found = [claim for claim in claims if claim[0].span(1) not in foreign]
     return sorted(found, key=lambda claim: claim[0].start())
+
+
+def _pinned_tokens(text: str) -> list[tuple[re.Match[str], str]]:
+    """``(token, "pin")`` claims in a ``--branch``/``--tag``/checkout context.
+
+    Not gated on ``PROJECT_CONTEXT``: a pin names a revision of *this* project by
+    construction, and the install guide's own tag pin sits in a console block that
+    never spells the project name. A version in prose that is not a pin - a
+    measurement, a drill, an interpreter version - is still not read here.
+    """
+    return [(match, "pin") for match in PIN_VERSION.finditer(text)]
 
 
 def rule_r6_markdown_versions(repo_root: Path) -> RuleResult:
@@ -1497,11 +1522,19 @@ def rule_r6_markdown_versions(repo_root: Path) -> RuleResult:
 
     Two baselines, because there are two kinds of claim. Prose names a version
     of this project, so anything older than HEAD is stale. A
-    ``releases/download/<tag>/`` link names a *released asset*, so it is stale
-    only when a newer tag exists - judging it against HEAD would call the newest
-    release command wrong for the whole window between a release and the next
-    bump, which is where this repository sits now (HEAD ``1.1.3``, newest tag
-    ``v1.1.2``).
+    ``releases/download/<tag>/`` link names a *released asset*, and a
+    ``--branch``/``--tag``/``git checkout`` version names a *released pin*, so
+    both are stale only when a newer tag exists - judging them against HEAD would
+    call the newest release command wrong for the whole window between a release
+    and the next bump, which is where this repository sits now (HEAD ``1.1.3``,
+    newest tag ``v1.1.2``). A pin that names no tag at all is drift, because the
+    install command it documents cannot resolve.
+
+    The pin shape has its own small pattern (``PIN_VERSION``) instead of reusing
+    R9's ``TAGGED_TOKEN``: R6 must stay blind to a bare ``vX.Y.Z`` in prose (a
+    measurement, a drill) and to the ``releases/tag/`` and ``compare/`` shapes it
+    reads the other way, while a pin is a claim whatever the line says about the
+    project - which is exactly the gate that hid ``install.md``'s tag pin.
     """
     head = _read_version(repo_root)
     if head is None:
@@ -1524,28 +1557,40 @@ def rule_r6_markdown_versions(repo_root: Path) -> RuleResult:
             about_project = bool(
                 PROJECT_CONTEXT.search(line.text) or PROJECT_CONTEXT.search(line.block)
             )
-            tokens = list(_project_tokens(line.text)) if about_project else []
+            tokens = _pinned_tokens(line.text)
+            tokens += _project_tokens(line.text) if about_project else []
+            tokens.sort(key=lambda claim: claim[0].start())
             if tokens and line.exempted:
                 illustrative += 1
                 continue
-            for match, is_asset in tokens:
+            for match, kind in tokens:
                 printed = _version_tuple(match.group(1))
                 if printed is None:
                     continue
-                if not is_asset:
+                if kind == "prose":
                     if printed < head_tuple:
                         findings.append(
                             f"{rel}:{line.number}: prints {match.group(0)}, older than HEAD {head}"
                         )
                 elif printed not in tag_tuples:
                     findings.append(
-                        f"{rel}:{line.number}: installs the {match.group(0)} release asset, "
-                        "but git tag -l has no such tag"
+                        f"{rel}:{line.number}: "
+                        + (
+                            f"pins {match.group(0)}, but git tag -l has no such tag"
+                            if kind == "pin"
+                            else f"installs the {match.group(0)} release asset, "
+                            "but git tag -l has no such tag"
+                        )
                     )
                 elif newest_tuple is not None and printed < newest_tuple:
                     findings.append(
-                        f"{rel}:{line.number}: installs the {match.group(0)} release asset, "
-                        f"older than the newest tag {newest}"
+                        f"{rel}:{line.number}: "
+                        + (
+                            f"pins {match.group(0)}, older than the newest tag {newest}"
+                            if kind == "pin"
+                            else f"installs the {match.group(0)} release asset, "
+                            f"older than the newest tag {newest}"
+                        )
                     )
     if findings:
         return _drift("R6", findings, [f"{illustrative} illustrative"])
