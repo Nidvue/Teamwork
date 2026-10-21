@@ -1,8 +1,9 @@
 # Continuous integration for teamwork-agents.
 #
-# Contract: docs/Team/Architecture.md (section 9, "CI / release contract", which
-# is where the path filtering is described) and docs/Team/Project.md
-# (AC-4 CI matrix, AC-5 privacy, AC-2 no runtime deps, AC-9 cross-platform).
+# Contract: docs/Team/Architecture.md (section 9, "CI / release contract") and
+# docs/Team/Project.md (AC-4 CI matrix, AC-5 privacy, AC-2 no runtime deps,
+# AC-9 cross-platform). The path filtering itself is described in this header
+# and implemented by the `scope` job below, not by a workflow-level filter.
 #
 # Jobs: scope, lint, typecheck (non-blocking), test (3 OS x 3 Python), build,
 # privacy, committer guard, release-consistency, docs. Every job must be green on
@@ -24,8 +25,9 @@
 # must stay identical.
 #
 # The consistency gate in this file runs `--offline`, so R3/R4/R5/R8 (npm, the
-# GitHub API, PyPI) print SKIP here. The online half lives in
-# `.github/workflows/release.yml`, which holds the release token.
+# GitHub API, PyPI) print SKIP here. The online half - the same checker with
+# `--online` - lands with the release task T-0007; it is not in this file and
+# this file does not claim to run it.
 
 name: CI
 
@@ -111,10 +113,15 @@ jobs:
             # against its own parent (what this did before) reports only the
             # last commit and hides the source changes the push carried, so the
             # change set is measured from the widest base that is still known:
-            # the fork point with the default branch, else the root commit.
-            # When even that cannot be established the change set is
-            # undetermined, and then the code jobs run: an unknown change set
-            # must never silently skip the matrix.
+            # the fork point with the default branch.
+            #
+            # A fork point that is not *behind* HEAD gives no change set at all:
+            # after a push `origin/<default>` already contains HEAD, so the
+            # merge base IS HEAD and the previous state of the branch is gone.
+            # Only the root commit has a determinate change set in that
+            # position (its files are the whole change set); for every other
+            # commit the change set is undetermined, and then the code jobs
+            # run: an unknown change set must never silently skip the matrix.
             BASE=""
             for CANDIDATE in "origin/${DEFAULT_BRANCH}" "origin/HEAD"; do
               [ -n "${CANDIDATE}" ] || continue
@@ -122,17 +129,21 @@ jobs:
               BASE=$(git merge-base "${HEAD_REV}" "${CANDIDATE}" 2>/dev/null || true)
               [ -n "${BASE}" ] && break
             done
-            if [ -z "${BASE}" ]; then
-              BASE=$(git rev-list --max-parents=0 "${HEAD_REV}" 2>/dev/null | tail -n 1)
-            fi
             if [ -n "${BASE}" ] && [ "${BASE}" != "${HEAD_REV}" ]; then
+              # The fork point is behind HEAD: the change set is the diff.
               FILES=$(git diff --name-only "${BASE}" "${HEAD_REV}")
               [ -n "${FILES}" ] || UNDETERMINED=1
-            elif [ "${BASE}" = "${HEAD_REV}" ]; then
-              # HEAD is the root commit: every file it carries is the change set.
+            elif ! git rev-parse --verify -q "${HEAD_REV}^" >/dev/null; then
+              # HEAD is the root commit: it has no parent, so every file it
+              # carries is the change set.
               FILES=$(git diff-tree --root --no-commit-id --name-only -r "${HEAD_REV}")
               [ -n "${FILES}" ] || UNDETERMINED=1
             else
+              # HEAD has a parent but the fork point is HEAD itself: the remote
+              # already holds this push, so the pre-push state is gone and the
+              # change set cannot be established. Undetermined, never "prose
+              # only": an unknown change set must never silently skip the
+              # matrix.
               FILES=""
               UNDETERMINED=1
             fi
@@ -369,21 +380,22 @@ jobs:
     # belong in every pull request, and an unauthenticated 403 would turn a gate
     # into a flake. Offline they print SKIP with the reason, and every local rule
     # (R1, R2, R6, R7, R9) still evaluates from the tree and the tags. The online
-    # half lives in `.github/workflows/release.yml`, which holds the release
-    # token; nothing in this file claims to run it.
+    # half - the same checker with `--online` - lands with the release task
+    # T-0007; nothing in this file claims to run it.
     #
-    # R2 is the one rule whose frozen semantics the checker does not implement
-    # yet. `docs/Team/Architecture.md` section 11.2.2 freezes R2 over the
-    # version tags *reachable from HEAD* minus the tags that *point at HEAD*
-    # (`S = A - O`); `scripts/check_release_consistency.py` (developer task
-    # T-0005) still compares HEAD with every version tag. On a tag push the two
-    # disagree: the tag being published points at HEAD, so the checker reports
-    # "HEAD version 1.1.2 is not greater than tag v1.1.2" and the gate is red on
-    # the very build it exists to gate. The exemption below applies the frozen
-    # tag set to the checker's findings: an R2 finding that names no tag in `S`
-    # is not a finding under the contract, and every other finding - a genuine
-    # drift, an unreadable input - still fails this job. It is removed as soon
-    # as the checker implements 11.2.2 itself.
+    # R2 is not re-implemented here. `docs/Team/Architecture.md` section 11.2.2
+    # freezes R2 over the version tags *reachable from HEAD* minus the tags that
+    # *point at HEAD* (`S = A - O`), and the checker (developer task T-0005)
+    # computes that set itself. This job used to parse the checker's English
+    # detail text to re-apply the frozen tag set; that was a second source of
+    # truth for a rule the checker owns, and it is gone. The checker's own R2
+    # decides, so a tag push is green because the checker excludes the tag at
+    # HEAD - not because the workflow hid the finding.
+    #
+    # If `scripts/check_release_consistency.py` is not in the tree the gate
+    # cannot run at all. That is reported plainly and the job fails with exit
+    # 2: the checker is the subject of the gate, so its absence is an
+    # unreadable input, not a pass and not a confusing "no report" error.
     steps:
       - name: Checkout (full history and tags - R1/R2/R4/R5 read git tags)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -400,13 +412,16 @@ jobs:
       - name: Release consistency gate (offline)
         run: |
           set -uo pipefail
+          CHECKER="scripts/check_release_consistency.py"
+          if [ ! -f "${CHECKER}" ]; then
+            echo "::error::the release consistency checker is not in the tree (${CHECKER} is absent), so the gate cannot run. This revision does not carry the checker; the required check must not be registered as blocking until the checker is merged." >&2
+            exit 2
+          fi
           REPORT="$(mktemp)"
           GATE_RC=0
-          python scripts/check_release_consistency.py --offline --json > "${REPORT}" || GATE_RC=$?
+          python "${CHECKER}" --offline --json > "${REPORT}" || GATE_RC=$?
           python - "${REPORT}" "${GATE_RC}" <<'PY'
           import json
-          import re
-          import subprocess
           import sys
 
           report, gate_rc = sys.argv[1], int(sys.argv[2])
@@ -414,57 +429,24 @@ jobs:
               with open(report, encoding="utf-8") as handle:
                   payload = json.load(handle)
           except (OSError, ValueError) as exc:
-              # The checker did not produce a report: it is missing, unreadable
-              # or crashed. Its own exit code is the truth (2 = an input could
+              # The checker did not produce a report: it crashed, or its output
+              # is not JSON. Its own exit code is the truth (2 = an input could
               # not be read), and the job must fail either way.
               print(f"::error::the checker produced no report: {exc}", file=sys.stderr)
               raise SystemExit(gate_rc if gate_rc else 2)
 
-          def git(*args):
-              return subprocess.run(
-                  ["git", *args], capture_output=True, text=True, check=False
-              ).stdout.split()
-
-          VERSION_TAG = re.compile(r"^v\d+\.\d+\.\d+$")
-          tags = [tag for tag in git("tag", "-l") if VERSION_TAG.match(tag)]
-          at_head = set(git("tag", "--points-at", "HEAD"))
-          reachable = {
-              tag
-              for tag in tags
-              if subprocess.run(
-                  ["git", "merge-base", "--is-ancestor", tag, "HEAD"], check=False
-              ).returncode
-              == 0
-          }
-          # Architecture.md 11.2.2: S = A - O (reachable version tags minus the
-          # tags that point at HEAD).
-          frozen = reachable - at_head
-
           for rule in payload.get("rules", []):
               print(f"{rule['id']} {rule['status']} {rule['detail']}")
 
-          exempt, others = [], []
-          for problem in payload.get("problems", []):
-              if problem.get("rule") == "R2":
-                  named = set(re.findall(r"\btag (v\d+\.\d+\.\d+)\b", problem.get("detail", "")))
-                  if named and not (named & frozen):
-                      exempt.append(problem)
-                      continue
-              others.append(problem)
-
-          for problem in exempt:
-              print(
-                  "R2 finding outside the frozen tag set of Architecture.md 11.2.2, "
-                  f"not a drift: {problem['detail']}"
-              )
-          for problem in others:
+          problems = payload.get("problems", [])
+          for problem in problems:
               print(f"::error::{problem['rule']} DRIFT: {problem['detail']}", file=sys.stderr)
-          print(f"# release consistency: {len(others)} problem(s)")
+          print(f"# release consistency: {len(problems)} problem(s)")
 
           if gate_rc == 2:
               print("::error::an input the gate reads could not be read (checker exit 2)", file=sys.stderr)
               raise SystemExit(2)
-          if others:
+          if problems:
               raise SystemExit(1)
           raise SystemExit(0)
           PY
