@@ -243,19 +243,24 @@ def argv_of(spec: str) -> list:
 
 def cli(project: Path, *args: str) -> subprocess.CompletedProcess:
     """The documented command, run against a throwaway repository."""
-    child = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": str(project),
-        "GIT_CONFIG_NOSYSTEM": "1",
-        "GIT_CONFIG_GLOBAL": os.devnull,
-        "GIT_AUTHOR_NAME": "Tester",
-        "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
-        "GIT_COMMITTER_NAME": "Tester",
-        "GIT_COMMITTER_EMAIL": "tester@agents.nidvue.com",
-        "PYTHONPATH": str(REPO_ROOT / "src"),
-        "PYTHONIOENCODING": "utf-8",
-        "PYTHONUTF8": "1",
-    }
+    # Start from the parent environment: a hand-built one that keeps PATH and
+    # HOME but drops the platform's own variables breaks Windows, where the
+    # interpreter's RNG is initialised from the OS and needs SystemRoot/TEMP.
+    child = dict(os.environ)
+    child.update(
+        {
+            "HOME": str(project),
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_AUTHOR_NAME": "Tester",
+            "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
+            "GIT_COMMITTER_NAME": "Tester",
+            "GIT_COMMITTER_EMAIL": "tester@agents.nidvue.com",
+            "PYTHONPATH": str(REPO_ROOT / "src"),
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONUTF8": "1",
+        }
+    )
     return subprocess.run(
         [sys.executable, str(CLI_SHIM), "--project", str(project), *args],
         cwd=str(project),
