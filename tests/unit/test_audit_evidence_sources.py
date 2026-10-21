@@ -21,6 +21,9 @@ from teamwork.records import new_task, parse_tasks, write_tasks
 
 ROSTER = "ceo,developer-1"
 
+#: Enough bytes to pass the 1 MiB LFS threshold without being slow to write.
+BIG = 1_200_000
+
 
 def team_root(project: Path) -> Path:
     return (
@@ -171,3 +174,58 @@ def test_an_unforced_skipped_self_check_is_still_flagged(cli, project: Path):
     assert [line for line in flagged if task_id in line], (
         "a self-check that was skipped with no recorded force is a real defect"
     )
+
+
+def git_repo(project: Path) -> None:
+    """A repository with the standard LFS patterns, so the audit has something to read."""
+    import subprocess
+
+    def git(*argv: str) -> None:
+        subprocess.run(["git", "-C", str(project), *argv], check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.name", "Test")
+    git("config", "user.email", "test@example.com")
+    (project / ".gitattributes").write_text(
+        "*.bin filter=lfs diff=lfs merge=lfs -text\n", encoding="utf-8"
+    )
+
+
+def test_a_large_text_record_is_not_an_lfs_candidate(cli, project: Path):
+    """A record that outgrows the threshold stays a text file, not an LFS pointer.
+
+    LFS is for binaries: the pointer file would break `git show <rev>:<file>` and
+    the block merges the archive depends on. Git's own binary test is a NUL byte
+    in the prefix, so a huge markdown file is text and must not be flagged.
+    """
+    root = make_root(cli, project)
+    (root / "Roles" / "Developer").mkdir(parents=True, exist_ok=True)
+    git_repo(project)
+    doc = project / "docs" / "Archive.md"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text("# Archive\n" + "- a line of record\n" * (BIG // 20), encoding="utf-8")
+    assert doc.stat().st_size > 1_000_000
+
+    _, text = audit_output(cli, project)
+
+    flagged = section(text, "## git archival (LFS + large files)")
+    assert not [line for line in flagged if "Archive.md" in line], flagged
+
+
+def test_a_large_binary_is_still_an_lfs_candidate(cli, project: Path):
+    """The gate must not become vacuous: a real blob still needs a pattern."""
+    root = make_root(cli, project)
+    (root / "Roles" / "Developer").mkdir(parents=True, exist_ok=True)
+    git_repo(project)
+    # LFS rules exist but none covers *.bin, so the blob itself is the finding.
+    (project / ".gitattributes").write_text(
+        "*.dat filter=lfs diff=lfs merge=lfs -text\n", encoding="utf-8"
+    )
+    blob = project / "assets" / "movie.bin"
+    blob.parent.mkdir(parents=True, exist_ok=True)
+    blob.write_bytes(b"\0" + b"x" * BIG)
+
+    _, text = audit_output(cli, project)
+
+    flagged = section(text, "## git archival (LFS + large files)")
+    assert [line for line in flagged if "movie.bin" in line], flagged
