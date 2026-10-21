@@ -32,6 +32,16 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | build | `python -m build && python scripts/verify_release.py` | yes |
 | privacy | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | yes |
 | docs | `teamwork links` + `mkdocs build --strict` (in `docs.yml`) | yes |
+| release consistency | `python scripts/check_release_consistency.py --offline` (the `release-consistency` job in `ci.yml`) | yes (a registered required check) |
+| release consistency (online) | `python scripts/check_release_consistency.py --online` (the `consistency` job in `release.yml`, task T-0007) | yes (on a `v*` tag) |
+
+The consistency gate runs twice on purpose. In `ci.yml` it runs **offline**: R1,
+R2, R6, R7 and R9 evaluate from the tree and the tags, and R3/R4/R5/R8 print
+`SKIP` with the reason, because the npm registry, the GitHub API and PyPI need
+credentials and rate-limit headroom that do not belong in every pull request.
+The **online** half lives in `release.yml`, which runs on a `v*` tag and holds
+the release token; that is where R3/R4/R5 stop being permanently `SKIP`.
+>>>>>>> 34c5c34 (ci(ci): .github/workflows/ci.yml: the release-consistency job applies the frozen)
 
 ## Release candidate gate
 
@@ -71,14 +81,33 @@ of that triage; it is not the current answer.
 ### Trigger policy - code in, prose and media out
 
 On a **push to `main`**, a documentation or image-only change must not run the
-code matrix. `ci.yml` therefore declares `paths-ignore` for the prose/media set: `docs/**`,
-the root prose files (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
-`SECURITY.md`, `CODE_OF_CONDUCT.md`, `AGENTS.md`), `LICENSE`, `CITATION.cff`,
-`assets/**` and `mkdocs.yml`. Every shipping path (`src/`, `scripts/`, `tests/`,
-`roles/`, `references/`, `templates/`, packaging, `.github/workflows/`,
-`SKILL.md`) still runs the full matrix. `docs.yml` triggers on the same ignored
-paths and runs the checks that still matter for prose: `teamwork links`,
-`privacy_scan.py --tree --history` and `mkdocs build --strict`.
+code matrix. `ci.yml` has **no `paths-ignore`**: the workflow always fires on
+`main`, on a `v*` tag and on every pull request, and a `scope` job classifies
+the changed paths. The prose/media set is: `docs/**`, the root prose files
+(`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+`CODE_OF_CONDUCT.md`, `AGENTS.md`), `LICENSE`, `CITATION.cff`, `assets/**` and
+`mkdocs.yml`. A push that touches nothing outside that set skips the code jobs;
+every shipping path (`src/`, `scripts/`, `tests/`, `roles/`, `references/`,
+`templates/`, packaging, `.github/workflows/`, `SKILL.md`) still runs the full
+matrix.
+
+`paths-ignore` was removed because it was the wrong tool: a workflow-level
+ignore skips **every** job in the file, including the `release-consistency`
+gate, whose whole subject is prose that disagrees with a tag, `version.py` or
+`CHANGELOG.md`. A gate skipped exactly when the documentation drifts is
+worthless. The `scope` job replaces it: the cheap jobs skip, the gate does
+not. `docs.yml` still triggers on the same prose/media set (`paths:`) and runs
+the checks that matter for prose: `teamwork links`,
+`privacy_scan.py --tree --history` and `mkdocs build --strict`. The `scope`
+prose set and that workflow's `paths:` list must stay identical.
+
+The `scope` job measures the change set from `github.event.before` to
+`github.sha`. When `before` is unusable - the all-zero sha of a first push, or
+a sha that no longer exists after a rewritten history - the change set is
+measured from the merge base with the default branch (else the root commit)
+instead, so a push that carried a source change cannot be reported as a
+prose-only push. When the change set cannot be established at all, the code
+jobs **run**: an unknown change set must never silently skip the matrix.
 
 On a **pull request both workflows always run**, regardless of paths: branch
 protection requires every check to be *reported* on the head (read the list with
@@ -93,11 +122,19 @@ success; the Docs-only push `39175948257` ran only Docs, success.
 | `src/**`, `scripts/**`, `tests/**`, packaging | CI full matrix | CI + Docs |
 | `.github/workflows/**` | CI full matrix | CI + Docs |
 | `roles/**`, `references/**`, `templates/**`, `SKILL.md` (shipped in the wheel) | CI full matrix | CI + Docs |
-| `docs/**`, root prose files, `LICENSE`, `CITATION.cff` | Docs only (links + privacy + strict build) | CI + Docs |
-| `assets/**` (images, banners, the social preview) | Docs only (links + privacy + strict build) | CI + Docs |
+| `docs/**`, root prose files, `LICENSE`, `CITATION.cff` | scope skips the code jobs; the consistency gate and Docs still run | CI + Docs |
+| `assets/**` (images, banners, the social preview) | scope skips the code jobs; the consistency gate and Docs still run | CI + Docs |
 
 `workflow_dispatch` stays enabled on both, so the full matrix can be forced on a
 prose-only change when it is genuinely warranted.
+
+A **tag push** (`v*`) runs the `release-consistency` gate and the tag-sensitive
+checks; the tagged commit already passed the matrix as a `main` push, and
+`release.yml` re-runs pytest on the tag. The gate applies the tag set frozen in
+`docs/Team/Architecture.md` section 11.2.2 (`S = A - O`: the version tags
+reachable from HEAD, minus the tags that point at HEAD), so the tag a build
+publishes is never compared with itself. Every other finding - a genuine drift,
+an unreadable input - still fails the job.
 
 ## Remote merge policy (2026-10-19)
 
