@@ -391,10 +391,11 @@ jobs:
     # half - the same checker with `--online` - lands with the release task
     # T-0007; nothing in this file claims to run it.
     #
-    # R2 is not re-implemented here. `docs/Team/Architecture.md` section 11.2.2
-    # freezes R2 over the version tags *reachable from HEAD* minus the tags that
-    # *point at HEAD* (`S = A - O`), and the checker (developer task T-0005)
-    # computes that set itself. This job used to parse the checker's English
+    # R2 is not re-implemented here. R2 compares HEAD only against the version
+    # tags reachable from HEAD minus the tags that point at HEAD (`S = A - O`);
+    # the frozen contract for it is in `docs/Team/Architecture.md` ("Release
+    # consistency contract"), and the checker (developer task T-0005) computes
+    # that set itself. This job used to parse the checker's English
     # detail text to re-apply the frozen tag set; that was a second source of
     # truth for a rule the checker owns, and it is gone. The checker's own R2
     # decides, so a tag push is green because the checker excludes the tag at
