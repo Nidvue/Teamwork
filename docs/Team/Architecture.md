@@ -357,9 +357,13 @@ when it is - and not a property of the document. The two amendments this
 section introduced into the contract (`rev=None` and the link policy) were
 implemented first, at `c66c387` (`git merge-base --is-ancestor c66c387 HEAD`
 exits `0` when that is in the tree too); R2's `S = A - O`, the shallow guard and
-`TAGGED_TOKEN` followed at `d998801`. The table exists so that a reader of
-section 11 does not read it as a changelog of the repository: **the contract is
-the target, and each row names the revision that implements it**.
+`TAGGED_TOKEN` followed at `d998801`. The third amendment, that a published version which is
+not `X.Y.Z` is DRIFT unless a 11.4 entry admits it (`T-0016`), lands at
+`37ef0ed`: `git show 37ef0ed:scripts/check_release_consistency.py | grep -c
+PUBLISHED_VERSION` prints `2` when it is in that revision. The table exists so
+that a reader of section 11 does not read it as a changelog of the repository:
+**the contract is the target, and each row names the revision that implements
+it**.
 
 ### 11.1 CLI (frozen)
 
