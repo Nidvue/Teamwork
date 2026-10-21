@@ -1,6 +1,7 @@
 # Continuous integration for teamwork-agents.
 #
-# Contract: docs/Team/Architecture.md (section 9) and docs/Team/Project.md
+# Contract: docs/Team/Architecture.md (section 9, "CI / release contract", which
+# is where the path filtering is described) and docs/Team/Project.md
 # (AC-4 CI matrix, AC-5 privacy, AC-2 no runtime deps, AC-9 cross-platform).
 #
 # Jobs: scope, lint, typecheck (non-blocking), test (3 OS x 3 Python), build,
@@ -21,6 +22,10 @@
 # Prose paths are still validated by `.github/workflows/docs.yml` (links, privacy
 # scan, mkdocs --strict); the `scope` prose set and that workflow's `paths:` list
 # must stay identical.
+#
+# The consistency gate in this file runs `--offline`, so R3/R4/R5/R8 (npm, the
+# GitHub API, PyPI) print SKIP here. The online half lives in
+# `.github/workflows/release.yml`, which holds the release token.
 
 name: CI
 
@@ -68,6 +73,7 @@ jobs:
           REF_NAME: ${{ github.ref }}
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           # Only a push is a cost-optimised event. A pull request and a manual run
           # always execute the full set: a required check that is not reported
@@ -96,14 +102,44 @@ jobs:
           # so resolve what is actually there and otherwise fall back to the tip. A
           # root commit has no parent, so it needs --root to list its files at all.
           HEAD_REV="${HEAD_SHA:-$(git rev-parse HEAD)}"
+          UNDETERMINED=0
           if [ -n "${BEFORE_SHA}" ] && git rev-parse --verify -q "${BEFORE_SHA}^{commit}" >/dev/null; then
             FILES=$(git diff --name-only "${BEFORE_SHA}" "${HEAD_REV}")
-          elif git rev-parse --verify -q "${HEAD_REV}^" >/dev/null; then
-            FILES=$(git diff --name-only "${HEAD_REV}^" "${HEAD_REV}")
           else
-            FILES=$(git diff-tree --root --no-commit-id --name-only -r "${HEAD_REV}")
+            # `before` is unusable: the all-zero sha of a first push, or a sha
+            # that no longer exists after a rewritten history. Diffing the tip
+            # against its own parent (what this did before) reports only the
+            # last commit and hides the source changes the push carried, so the
+            # change set is measured from the widest base that is still known:
+            # the fork point with the default branch, else the root commit.
+            # When even that cannot be established the change set is
+            # undetermined, and then the code jobs run: an unknown change set
+            # must never silently skip the matrix.
+            BASE=""
+            for CANDIDATE in "origin/${DEFAULT_BRANCH}" "origin/HEAD"; do
+              [ -n "${CANDIDATE}" ] || continue
+              git rev-parse --verify -q "${CANDIDATE}^{commit}" >/dev/null || continue
+              BASE=$(git merge-base "${HEAD_REV}" "${CANDIDATE}" 2>/dev/null || true)
+              [ -n "${BASE}" ] && break
+            done
+            if [ -z "${BASE}" ]; then
+              BASE=$(git rev-list --max-parents=0 "${HEAD_REV}" 2>/dev/null | tail -n 1)
+            fi
+            if [ -n "${BASE}" ] && [ "${BASE}" != "${HEAD_REV}" ]; then
+              FILES=$(git diff --name-only "${BASE}" "${HEAD_REV}")
+              [ -n "${FILES}" ] || UNDETERMINED=1
+            elif [ "${BASE}" = "${HEAD_REV}" ]; then
+              # HEAD is the root commit: every file it carries is the change set.
+              FILES=$(git diff-tree --root --no-commit-id --name-only -r "${HEAD_REV}")
+              [ -n "${FILES}" ] || UNDETERMINED=1
+            else
+              FILES=""
+              UNDETERMINED=1
+            fi
           fi
-          if [ -z "${FILES}" ]; then
+          if [ "${UNDETERMINED}" = "1" ]; then
+            code=true
+          elif [ -z "${FILES}" ]; then
             code=false
           elif printf '%s\n' "${FILES}" | grep -qvE "${PROSE}"; then
             code=true
@@ -333,7 +369,21 @@ jobs:
     # belong in every pull request, and an unauthenticated 403 would turn a gate
     # into a flake. Offline they print SKIP with the reason, and every local rule
     # (R1, R2, R6, R7, R9) still evaluates from the tree and the tags. The online
-    # half belongs in the release workflow or a manual run.
+    # half lives in `.github/workflows/release.yml`, which holds the release
+    # token; nothing in this file claims to run it.
+    #
+    # R2 is the one rule whose frozen semantics the checker does not implement
+    # yet. `docs/Team/Architecture.md` section 11.2.2 freezes R2 over the
+    # version tags *reachable from HEAD* minus the tags that *point at HEAD*
+    # (`S = A - O`); `scripts/check_release_consistency.py` (developer task
+    # T-0005) still compares HEAD with every version tag. On a tag push the two
+    # disagree: the tag being published points at HEAD, so the checker reports
+    # "HEAD version 1.1.2 is not greater than tag v1.1.2" and the gate is red on
+    # the very build it exists to gate. The exemption below applies the frozen
+    # tag set to the checker's findings: an R2 finding that names no tag in `S`
+    # is not a finding under the contract, and every other finding - a genuine
+    # drift, an unreadable input - still fails this job. It is removed as soon
+    # as the checker implements 11.2.2 itself.
     steps:
       - name: Checkout (full history and tags - R1/R2/R4/R5 read git tags)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -348,7 +398,76 @@ jobs:
         with:
           python-version: "3.12"
       - name: Release consistency gate (offline)
-        run: python scripts/check_release_consistency.py --offline
+        run: |
+          set -uo pipefail
+          REPORT="$(mktemp)"
+          GATE_RC=0
+          python scripts/check_release_consistency.py --offline --json > "${REPORT}" || GATE_RC=$?
+          python - "${REPORT}" "${GATE_RC}" <<'PY'
+          import json
+          import re
+          import subprocess
+          import sys
+
+          report, gate_rc = sys.argv[1], int(sys.argv[2])
+          try:
+              with open(report, encoding="utf-8") as handle:
+                  payload = json.load(handle)
+          except (OSError, ValueError) as exc:
+              # The checker did not produce a report: it is missing, unreadable
+              # or crashed. Its own exit code is the truth (2 = an input could
+              # not be read), and the job must fail either way.
+              print(f"::error::the checker produced no report: {exc}", file=sys.stderr)
+              raise SystemExit(gate_rc if gate_rc else 2)
+
+          def git(*args):
+              return subprocess.run(
+                  ["git", *args], capture_output=True, text=True, check=False
+              ).stdout.split()
+
+          VERSION_TAG = re.compile(r"^v\d+\.\d+\.\d+$")
+          tags = [tag for tag in git("tag", "-l") if VERSION_TAG.match(tag)]
+          at_head = set(git("tag", "--points-at", "HEAD"))
+          reachable = {
+              tag
+              for tag in tags
+              if subprocess.run(
+                  ["git", "merge-base", "--is-ancestor", tag, "HEAD"], check=False
+              ).returncode
+              == 0
+          }
+          # Architecture.md 11.2.2: S = A - O (reachable version tags minus the
+          # tags that point at HEAD).
+          frozen = reachable - at_head
+
+          for rule in payload.get("rules", []):
+              print(f"{rule['id']} {rule['status']} {rule['detail']}")
+
+          exempt, others = [], []
+          for problem in payload.get("problems", []):
+              if problem.get("rule") == "R2":
+                  named = set(re.findall(r"\btag (v\d+\.\d+\.\d+)\b", problem.get("detail", "")))
+                  if named and not (named & frozen):
+                      exempt.append(problem)
+                      continue
+              others.append(problem)
+
+          for problem in exempt:
+              print(
+                  "R2 finding outside the frozen tag set of Architecture.md 11.2.2, "
+                  f"not a drift: {problem['detail']}"
+              )
+          for problem in others:
+              print(f"::error::{problem['rule']} DRIFT: {problem['detail']}", file=sys.stderr)
+          print(f"# release consistency: {len(others)} problem(s)")
+
+          if gate_rc == 2:
+              print("::error::an input the gate reads could not be read (checker exit 2)", file=sys.stderr)
+              raise SystemExit(2)
+          if others:
+              raise SystemExit(1)
+          raise SystemExit(0)
+          PY
 
   docs:
     name: docs (mkdocs build --strict)
