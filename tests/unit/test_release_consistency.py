@@ -449,6 +449,61 @@ def test_r3_compares_the_tarball_payload_with_the_tagged_payload(tmp_path):
     assert fetch.asked == [crc.NPM_REGISTRY, crc.NPM_REGISTRY]
 
 
+def test_r3_an_unadmitted_non_semver_published_version_is_drift(tmp_path):
+    """A published version must not escape R3 by its version shape.
+
+    11.2.3 says R3 takes *every* version key from the registry and that an npm
+    version is satisfied by a tag or by a 11.4 entry - there is no third path.
+    Treating a key that is not ``X.Y.Z`` as "ignored" therefore lets a version
+    that is neither tagged nor admitted in writing pass as clean, which is
+    exactly what AC-REL-1 forbids: the npm staged-publish placeholder
+    ``0.0.0-stage`` is published, carries no ``gitHead``, has no tag and no
+    payload to digest, and the gate used to print ``ok`` for it.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    fetch = fake_http({crc.NPM_REGISTRY: npm_registry({"1.1.0": "x", "0.0.0-stage": "x"})})
+
+    result = crc.rule_r3_npm_payloads(root, [], fetch, lambda url: tarball(PAYLOAD))
+
+    assert result.status == "DRIFT"
+    assert any("0.0.0-stage" in finding for finding in result.findings)
+    assert "ignored non-X.Y.Z" not in result.detail
+
+
+def test_r3_an_admitted_non_semver_published_version_is_ok_end_to_end(tmp_path):
+    """The escape must be *recorded*: 11.4 admits the version, the gate is green.
+
+    AC-REL-1's second path is a written admission with a measured reason. The
+    exception record is the only place that admission can live, so
+    ``load_exceptions`` has to accept the published version string it admits
+    (the placeholder is ``0.0.0-stage``, which no ``vX.Y.Z`` tag can carry) and
+    R3 has to keep it visible in its ``detail`` on every run.
+    """
+    exception = {
+        "version": "0.0.0-stage",
+        "reason": "npm's staged-publish placeholder, published before 1.1.0",
+        "evidence": "gitHead is null and no commit in git rev-list --all carries 0.0.0-stage",
+        "recorded": "2026-10-21",
+    }
+    root = make_repo(
+        tmp_path / "repo", version="1.1.0", files=PAYLOAD, exceptions=json.dumps([exception])
+    )
+    git(root, "tag", "v1.1.0")
+    fetch = fake_http({crc.NPM_REGISTRY: npm_registry({"1.1.0": "x", "0.0.0-stage": "x"})})
+
+    result = crc.rule_r3_npm_payloads(
+        root,
+        crc.load_exceptions(root / "release-exceptions.json"),
+        fetch,
+        lambda url: tarball(PAYLOAD),
+    )
+
+    assert result.status == "ok"
+    assert "1 npm version(s) match" in result.detail
+    assert "0.0.0-stage admitted by exception" in result.detail
+
+
 # --------------------------------------------------------------------------- #
 # R4 / R5 - the GitHub Release list and the tag list must agree
 # --------------------------------------------------------------------------- #
@@ -546,6 +601,96 @@ def test_r6_version_inside_a_url_is_not_a_claim(tmp_path):
 
     assert result.status == "ok"
     assert "0 illustrative" in result.detail
+
+
+def _wheel_url(tag: str) -> str:
+    version = tag[1:]
+    return (
+        "https://github.com/Nidvue/Teamwork/releases/download/"
+        f"{tag}/teamwork_agents-{version}-py3-none-any.whl"
+    )
+
+
+def test_r6_release_asset_url_is_a_version_claim(tmp_path):
+    """A ``releases/download/<tag>/`` asset link names a released version (T-0017).
+
+    A general URL is not a claim, but this one URL shape is: the tag in the path
+    says *which release* the wheel came from, so a stale tag sends the reader to
+    a superseded asset. R6 was blind to it because a ``/`` abuts the token, and
+    measured on this repository it reported ``ok no version older than 1.1.3``
+    while README.md and docs/guide/install.md both installed the v1.1.0 wheel.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.2",
+        {
+            "README.md": f"# Teamwork\n\nTeamwork wheel: {_wheel_url('v1.1.0')}\n",
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.2]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+    git(root, "tag", "v1.1.2")
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "DRIFT"
+    assert "README.md:3" in result.detail
+    assert "v1.1.0" in result.detail
+    assert "v1.1.2" in result.detail
+
+
+def test_r6_release_asset_url_at_the_newest_tag_is_ok(tmp_path):
+    """The asset yardstick is the newest *tag*, not HEAD (T-0017).
+
+    ``version.py`` legitimately leads the newest tag between releases (the
+    repository measured at this task has HEAD ``1.1.3`` and newest tag
+    ``v1.1.2``), and an install command can only name a released asset. Judging
+    the URL against HEAD would make the correct URL unfixable without an
+    illustrative marker, which would hide exactly the staleness this rule is
+    for. Judging it against the newest tag reports v1.1.0 while v1.1.2 is out
+    and stays quiet on v1.1.2.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.3",
+        {
+            "README.md": f"# Teamwork\n\nTeamwork wheel: {_wheel_url('v1.1.2')}\n",
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.3]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+    git(root, "tag", "v1.1.2")
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "ok"
+    assert "0 illustrative" in result.detail
+
+
+def test_r6_release_asset_url_naming_no_tag_is_drift(tmp_path):
+    """A release asset tag that does not exist is an install command that cannot work.
+
+    AC-REL-4's "no install command that cannot work" half: newer than the newest
+    tag is not enough, the tag must be in ``git tag -l``.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.1",
+        {
+            "README.md": f"# Teamwork\n\nTeamwork wheel: {_wheel_url('v1.1.1')}\n",
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.1]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "DRIFT"
+    assert "no such tag" in result.detail
+    assert "v1.1.1" in result.detail
 
 
 def test_r6_skips_a_foreign_tool_version(tmp_path):
