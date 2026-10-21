@@ -63,13 +63,14 @@ under two roles is two tasks.
 | ceo | T-0062 | release | done | P-0067 | e4b141c |
 | ceo | T-0063 | - | done | - | - |
 | ceo | T-0064 | docs | done | P-0082 | def7b1c |
-| ceo | T-0065 | - | done | P-0096 | - |
+| ceo | T-0065 | - | done | P-0096 | df3de8c |
 | ceo | T-0066 | links | done | P-0098 | b6c0817 |
 | ceo | T-0067 | - | done | P-0097 | 143e192 |
 | ceo | T-0068 | - | done | - | - |
 | ceo | T-0069 | - | done | - | - |
 | ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
-| ceo | T-0071 | - | doing | - | - |
+| ceo | T-0071 | - | done | P-0108 | - |
+| ceo | T-0072 | - | todo | - | - |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
@@ -84,11 +85,12 @@ under two roles is two tasks.
 | developer | T-0017 | - | done | P-0094 | b5fbc93 |
 | developer | T-0018 | - | done | P-0101 | 35b6f2d |
 | developer | T-0019 | - | done | P-0107 | 3404a42 |
-| developer | T-0020 | - | done | P-0106 | - |
+| developer | T-0020 | - | done | P-0106 | 3fad639 |
+| developer | T-0021 | - | review | P-0109 | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | done | P-0093 | f6242c9 |
 | reviewer | T-0004 | - | done | P-0102 | 44259cb |
-| tester | T-0003 | - | doing | P-0087 | - |
+| tester | T-0003 | - | done | P-0087 | a43e61e |
 | tester | T-0004 | - | done | P-0092 | c84932e |
 | tester | T-0005 | - | done | P-0103 | b91084d |
 | product-manager | T-0001 | traceability | done | P-0037 | eeab44c |
@@ -118,8 +120,8 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0071 · The board-vs-queue comparison is a test, not a discipline | P1 | doing | - |
-| tester | T-0003 · M9-J acceptance proof that the release claims hold | P1 | doing | - |
+| ceo | T-0072 · The LFS audit flags a large text record that must stay diffable | P1 | todo | - |
+| developer | T-0021 · The identity gate rejects the team's own role mailboxes and integration merges | P0 | review | - |
 | release-engineer | T-0004 · M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | - |
 | release-engineer | T-0006 · CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | - |
 
