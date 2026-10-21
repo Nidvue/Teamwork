@@ -103,10 +103,18 @@ jobs:
           # "before" is all-zero for a new branch and unresolvable after a rewrite,
           # so resolve what is actually there and otherwise fall back to the tip. A
           # root commit has no parent, so it needs --root to list its files at all.
+          #
+          # Every change set is measured with --no-renames. Rename detection
+          # reports only the *destination* of a rename, so a push that moved
+          # src/teamwork/foo.py to docs/foo.md would list only the prose path
+          # and be classified as prose - the matrix would be skipped on a change
+          # that removed shipping code. With --no-renames a rename is a delete
+          # plus an add, so both paths are classified and the shipping path can
+          # never be hidden by the rename.
           HEAD_REV="${HEAD_SHA:-$(git rev-parse HEAD)}"
           UNDETERMINED=0
           if [ -n "${BEFORE_SHA}" ] && git rev-parse --verify -q "${BEFORE_SHA}^{commit}" >/dev/null; then
-            FILES=$(git diff --name-only "${BEFORE_SHA}" "${HEAD_REV}")
+            FILES=$(git diff --no-renames --name-only "${BEFORE_SHA}" "${HEAD_REV}")
           else
             # `before` is unusable: the all-zero sha of a first push, or a sha
             # that no longer exists after a rewritten history. Diffing the tip
@@ -131,12 +139,12 @@ jobs:
             done
             if [ -n "${BASE}" ] && [ "${BASE}" != "${HEAD_REV}" ]; then
               # The fork point is behind HEAD: the change set is the diff.
-              FILES=$(git diff --name-only "${BASE}" "${HEAD_REV}")
+              FILES=$(git diff --no-renames --name-only "${BASE}" "${HEAD_REV}")
               [ -n "${FILES}" ] || UNDETERMINED=1
             elif ! git rev-parse --verify -q "${HEAD_REV}^" >/dev/null; then
               # HEAD is the root commit: it has no parent, so every file it
               # carries is the change set.
-              FILES=$(git diff-tree --root --no-commit-id --name-only -r "${HEAD_REV}")
+              FILES=$(git diff-tree --root --no-renames --no-commit-id --name-only -r "${HEAD_REV}")
               [ -n "${FILES}" ] || UNDETERMINED=1
             else
               # HEAD has a parent but the fork point is HEAD itself: the remote
