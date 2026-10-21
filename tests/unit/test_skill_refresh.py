@@ -24,7 +24,10 @@ import pytest
 
 from teamwork import bundle, engine
 
+# The platform variables must survive: on Windows the interpreter's RNG is
+# initialised from the OS and fails without SystemRoot/TEMP.
 GIT_ENV = {
+    **os.environ,
     "GIT_AUTHOR_NAME": "Tester",
     "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
     "GIT_COMMITTER_NAME": "Tester",
