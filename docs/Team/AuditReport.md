@@ -366,7 +366,7 @@ clone of the advertised refs answers only the first.
 ```
 $ git ls-remote origin | wc -l
 40
-$ git ls-remote origin | grep -c 4de397e
+$ git ls-remote origin | grep -c 3f4981d
 0
 
 $ git merge-base --is-ancestor <rev> origin/main; echo $?

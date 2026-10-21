@@ -8,13 +8,13 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 ## Snapshot (2026-10-21, `main` as `git rev-parse --short main` reports it)
 
 - Milestone: M9 Harness^2 adoption is open. The whole surface is on `main`:
-  `harness` (developer T-0001, merge `b33120c`), `hooks` (developer T-0002, merge
-  `49cd42e`), the Architect's contract for both (architect T-0001, merge
-  `bef4e02`), the ordered review rubric and the untrusted-material rule (ceo
-  T-0001, merge `2f44f00`), Research section 8 (product-manager T-0001, merge
-  `73be637`), the process-boundary and acceptance suites (tester T-0001, merge
-  `47db23d`) and the docs pass for the new surface (ceo T-0002, merge
-  `28c1133`). Every one of those merges is an ancestor of `main`
+  `harness` (developer T-0001, merge `5dc7f6b`), `hooks` (developer T-0002, merge
+  `1c99bb1`), the Architect's contract for both (architect T-0001, merge
+  `811065b`), the ordered review rubric and the untrusted-material rule (ceo
+  T-0001, merge `e82075d`), Research section 8 (product-manager T-0001, merge
+  `3ce409a`), the process-boundary and acceptance suites (tester T-0001, merge
+  `4b3e6dd`) and the docs pass for the new surface (ceo T-0002, merge
+  `915f84f`). Every one of those merges is an ancestor of `main`
   (`git merge-base --is-ancestor <sha> main` -> rc 0). AC-H1..AC-H8 are verified
   on the merged revision (`teamwork.py criteria list` -> 8/8). M9 stays open on
   the exit condition `pytest -q` clean on `main`, not on a missing surface, and
@@ -23,19 +23,19 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 - Local gate: `pytest -q` on this branch -> 0 failed, some skipped. The suite is
   green: the AC-5 privacy row that used to fail it no longer does, because the
   privacy tree side is closed and the false green claim was corrected
-  (ceo T-0005, merge `f91bf1b`). The passing count is read from that run and
+  (ceo T-0005, merge `05a4e4f`). The passing count is read from that run and
   never pinned here, because every commit that adds a test changes it. The
   skips are the gitignored team tree (a worktree carries no `.pi/`) and the
   console-script acceptance test (covered by `verify_release.py`).
 - Privacy: **RED in HISTORY, GREEN in TREE.** `python3 scripts/privacy_scan.py
   --tree --allow .github/privacy-allow.txt` -> PASS - 0 finding(s), exit 0: the
   tree family is closed, the archive mask covers every rule the shipped gate
-  reports (developer T-0007, merge `ba947c0`), the two archived lines that
-  quoted the operator address were rewritten (ceo T-0008, merge `51b8235`) and
+  reports (developer T-0007, merge `bd59121`), the two archived lines that
+  quoted the operator address were rewritten (ceo T-0008, merge `9d96c95`) and
   the scanner false positive on a relative path was fixed (developer T-0006,
-  merge `0343b28`). `python3 scripts/privacy_scan.py --tree --history --allow
+  merge `f9ce145`). `python3 scripts/privacy_scan.py --tree --history --allow
   .github/privacy-allow.txt` -> FAIL, exit 1: the history family is still red on
-  the local commits, in commit metadata (the forge squash merge `4de397e`
+  the local commits, in commit metadata (the forge squash merge `3f4981d`
   carries the operator account as author, and one commit message carries a
   40-hex tree id the entropy rule reports) and in the older
   `docs/Team/Archive.md` blob revisions that quote that address inside archived
@@ -84,8 +84,8 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 The task queue (`teamwork.py board`, `teamwork.py task list <role>`) is
 authoritative for a task's exact state; this table only says which lanes are open.
 The product-manager records lanes that closed on earlier PRs are no longer listed
-here: T-0004 (merge `fe0afb9`), T-0005 (merge `80f0cfa`) and T-0006 (merge
-`cd516f1`); ceo T-0011 is `done` on the same measurement (D-20261020-CEO-8), and
+here: T-0004 (merge `51e879e`), T-0005 (merge `3dbd3ad`) and T-0006 (merge
+`57a71c8`); ceo T-0011 is `done` on the same measurement (D-20261020-CEO-8), and
 the only open CEO lane is the blocked T-0003.
 
 ## Dependency PRs (landed)
