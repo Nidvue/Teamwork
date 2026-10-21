@@ -1057,6 +1057,18 @@ No blockers; no unrelated changes; branch mergeable.
 - findings history: 
 - branch / merge: releaseengineer/t-0005-m9-h2-repair-docs-team-release-md-your-f / 8fcf3fc
 
+## T-0009 · M9-C3 tests: R3 exception admission must not admit every version  (developer)
+- date: 2026-10-21
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: release-consistency
+- self-check: [pass] re-read the four new tests against scripts/check_release_consistency.py:1137 (admitted set), :1163 (the admission test), :1001-1043 (load_exceptions) and Architecture 11.4; confirmed the checker and release-exceptions.json are untouched by this commit | test: python3 -m pytest -q tests/unit/test_release_consistency.py @895e7ef -> 70 passed || [pass] re-read the four new tests against the contract in docs/Team/Architecture.md 11.4; the branch carries only the test file, cherry-picked onto the current main | test: python3 -m pytest -q tests/unit/test_release_consistency.py @93f6f4b -> 70 passed
+- author evidence: commit 895e7ef
+- reviewer evidence: git diff --name-only main..93f6f4b -> tests/unit/test_release_consistency.py (1 file); pytest -q tests/unit/test_release_consistency.py @93f6f4b -> 73 passed; git log --format='%an <%ae>' main..93f6f4b -> Developer <developer@agents.nidvue.com>; new test asserts status==DRIFT, names 1.1.2 as 'no tag v1.1.2', and 'not any("1.1.1" in finding)'
+- findings history: 
+- branch / merge: developer-1/t-0009-m9-c3-tests-r3-exception-admission-must / f8dd596
 ## T-0060 · M9-G tag v1.1.2 retroactively and publish its GitHub Release  (ceo)
 - date: 2026-10-21
 - priority: P0
