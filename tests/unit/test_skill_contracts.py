@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 import pytest
+from tests.gitenv import child_env
 
 ROLES = (
     "architect",
@@ -1180,14 +1181,21 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
     remote = tmp_path / "remote"
     remote.mkdir()
     (remote / "SKILL.md").write_text("---\nname: teamwork\n---\n", encoding="utf-8")
-    env = {
-        "GIT_AUTHOR_NAME": "T",
-        "GIT_AUTHOR_EMAIL": "t@example.com",
-        "GIT_COMMITTER_NAME": "T",
-        "GIT_COMMITTER_EMAIL": "t@example.com",
-        "PATH": __import__("os").environ["PATH"],
-        "HOME": str(tmp_path),
-    }
+    # The platform's own variables must survive (a hand-built environment that
+    # keeps PATH and HOME but drops SystemRoot/TEMP breaks Windows, where the
+    # interpreter's RNG is initialised from the OS) and the caller's git
+    # configuration must not: ``GIT_CONFIG_GLOBAL``, ``GIT_CONFIG_SYSTEM`` and
+    # ``$XDG_CONFIG_HOME/git/config`` would otherwise decide whether the commit
+    # is signed (``commit.gpgsign``) and which branch a fresh repository starts
+    # on (``init.defaultBranch``). ``child_env`` starts from the parent
+    # environment and re-asserts the hermeticity on top.
+    env = child_env(
+        GIT_AUTHOR_NAME="T",
+        GIT_AUTHOR_EMAIL="t@example.com",
+        GIT_COMMITTER_NAME="T",
+        GIT_COMMITTER_EMAIL="t@example.com",
+        HOME=str(tmp_path),
+    )
     for cmd in (
         ["git", "init", "-q", "."],
         ["git", "add", "SKILL.md"],

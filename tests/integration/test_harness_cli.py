@@ -22,6 +22,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from tests.gitenv import child_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
@@ -62,14 +63,19 @@ def run(
     cwd: Path | None = None,
 ) -> subprocess.CompletedProcess:
     """``python3 scripts/teamwork.py --project <project> <args>`` as a process."""
-    child = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": str(project),  # no developer git config reaches the scaffold
-        "PYTHONPATH": str(REPO_ROOT / "src"),
-        "PYTHONIOENCODING": "utf-8",
-        "PYTHONUTF8": "1",
-        "LC_ALL": "C.UTF-8",
-    }
+    # The platform's own variables must survive (a hand-built environment that
+    # keeps PATH and HOME but drops SystemRoot/TEMP breaks Windows, where the
+    # interpreter's RNG is initialised from the OS), and the caller's git
+    # configuration must not (core.hooksPath, init.defaultBranch and
+    # commit.gpgsign would decide what this test measures). ``child_env``
+    # starts from the parent environment and re-asserts the hermeticity on top.
+    child = child_env(
+        HOME=str(project),  # no developer git config reaches the scaffold
+        PYTHONPATH=str(REPO_ROOT / "src"),
+        PYTHONIOENCODING="utf-8",
+        PYTHONUTF8="1",
+        LC_ALL="C.UTF-8",
+    )
     child.update(env or {})
     return subprocess.run(
         [sys.executable, str(CLI_SHIM), "--project", str(project), *args],
@@ -90,16 +96,13 @@ def ok(project: Path, *args: str, **kwargs) -> str:
 
 def git(project: Path, *args: str, stdin: str | None = None, env: dict | None = None):
     """Run git in the scaffold with an explicit, hermetic environment."""
-    child = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": str(project),
-        "GIT_AUTHOR_NAME": "Tester",
-        "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
-        "GIT_COMMITTER_NAME": "Tester",
-        "GIT_COMMITTER_EMAIL": "tester@agents.nidvue.com",
-        "GIT_CONFIG_NOSYSTEM": "1",
-        "GIT_CONFIG_GLOBAL": os.devnull,
-    }
+    child = child_env(
+        HOME=str(project),
+        GIT_AUTHOR_NAME="Tester",
+        GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
+        GIT_COMMITTER_NAME="Tester",
+        GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
+    )
     child.update(env or {})
     return subprocess.run(
         ["git", "-C", str(project), *args],
