@@ -659,8 +659,8 @@ both fine - the changelog may lead the tag; only a tagged version without a
 heading, or a duplicate heading, is drift.
 
 **R8 offline half.** The three channel forms are matched literally on one line:
-`pip install teamwork-agents` (and the `python -m`, `python3 -m`, `py -m`
-variants), `pipx install teamwork-agents`, `uvx --from teamwork-agents`. Each
+`pip install teamwork-agents` (and the `python -m`, `python3 -m`, `py -m` <!-- release-consistency: channel-unavailable -->
+variants), `pipx install teamwork-agents`, `uvx --from teamwork-agents`. Each <!-- release-consistency: channel-unavailable -->
 must agree with the shipped metadata - the distribution name
 (`version.DIST_NAME`, `teamwork-agents`) and the console script
 (`[project.scripts]` `teamwork` in `pyproject.toml`) - and must be covered by the
