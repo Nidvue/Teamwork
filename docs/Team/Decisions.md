@@ -1145,3 +1145,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git show 39ab050 -- docs/Team/Archive.md -> the T-0010 entry carried '- reviewer evidence: probe'; git log --format='%h %an %ad' --date=iso -S 'reviewer evidence: probe' -- docs/Team/Archive.md -> e465ede (2026-10-21 12:43:06, this Reviewer-2 pass) and 36bef5a (2026-10-20 14:06:09, a PRIOR session's T-0005 entry, left untouched because it is not this review's record); the corrected line carries the real gates at c8aa7e3: pytest -q -> 837 passed, 3 skipped, 0 failed; ruff check -> All checks passed; ruff format --check -> 153 files already formatted; mypy src/teamwork -> Success, 17 source files; links -> 0 issues; identity --audit 9ada068..c8aa7e3 -> 1 commit, 0 problems, author == committer == Developer <developer@agents.nidvue.com>; git merge-tree --write-tree 9ada068 c8aa7e3 -> rc 0; plus the three mutation proofs (chmod 0o644 -> both mode tests red; resolver expectation -> the linked-worktree test red; product hooks_dir reverted -> the common-git-dir test red)
 - falsified by: A record showing the correction changed the reviewed tree - i.e. git diff 39ab050..<the correction commit> -- src/ tests/ showing a byte - would overturn it; so would the corrected evidence failing to reproduce at c8aa7e3.
 - consequences: -
+
+## D-20261021-Reviewer-1-3 - A child environment that inherits os.environ must RE-ASSERT
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: -
+- context: -
+- options considered: -
+- decision: A child environment that inherits os.environ must RE-ASSERT the hermeticity keys on top of it (GIT_CONFIG_NOSYSTEM=1, GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT=0, and unset GIT_CONFIG_SYSTEM and XDG_CONFIG_HOME) at EVERY site that spawns git; 'inherit the parent env' is not a substitute for pinning the git config.
+- why: Measured at eccafae (the T-0011 fix) against 39ab050 (its parent) with the SAME hostile caller env on the same four test files: 39ab050 -> 135 passed / 0 failed, eccafae -> 13 failed / 122 passed; with only XDG_CONFIG_HOME set -> 1 failed / 134 passed vs 135 passed. The inherited core.hooksPath and init.defaultBranch redirect the hook writes and rename the branch; commit.gpgsign=true makes every commit exit 128. The Windows RNG crash needs the parent's SystemRoot/TEMP, and the git hermeticity needs the pinned keys - they are independent axes, so one does not replace the other.
+- evidence: env GIT_CONFIG_GLOBAL=<hostile config> PYTHONPATH=src .venv/bin/python -m pytest -q tests/integration/test_harness_cli.py tests/acceptance/test_harness_docs.py tests/unit/test_skill_refresh.py tests/unit/test_skill_contracts.py @eccafae -> 13 failed, 122 passed; @39ab050 -> 135 passed; mutant: + GIT_CONFIG_NOSYSTEM=1 + GIT_CONFIG_GLOBAL=os.devnull + GIT_TERMINAL_PROMPT=0 on the integration run() child env @eccafae -> 29 passed, 0 failed
+- falsified by: A re-submission that keeps dict(os.environ) as the base and re-asserts the hermeticity keys at all four sites AND shows 0 failed in the same hostile-env run at BOTH the pre-fix and fixed revisions would overturn this.
+- consequences: -
