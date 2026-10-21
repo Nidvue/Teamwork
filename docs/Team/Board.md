@@ -7,10 +7,9 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 ## Snapshot
 
-- Milestone: M9 (release truth) is in progress and M9p (Harness^2 adoption) is
-  closed on the published line; both are described in [Plan](Plan.md). Their state
-  is read with `teamwork.py board` and `teamwork.py task list <role>`; the rows of
-  this board are a human summary of the same records.
+- Milestone: M9 (release truth) is in progress. Its state is read with
+  `teamwork.py board` and `teamwork.py task list <role>`; the rows of this
+  board are a human summary of the same records.
 - Release state, each fact read by its own command:
   - npm `latest`: `npm view @nidvue/teamwork dist-tags` -> the `latest` tag
   - newest git tag: `git tag -l --sort=-v:refname | head -1`
@@ -21,18 +20,18 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   The one skip is the console-script acceptance test (covered by
   `verify_release.py`).
 - Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
-  on `main` -> PASS, 0 findings; the shipped gate passes that allow file
-  (`Makefile`, `ci.yml`, `docs.yml`). The local line was red before this merge and
-  the published line was green: `git show 4fb1e09:scripts/privacy_scan.py` carries
-  `_is_path_fragment`/`_is_path_name` (4 hits), which stops the scan reading a
-  role directory name as a secret, and the unpublished local line had 0 - so the
-  reconciled tree inherits the guard instead of the false positive. Without
-  `--allow` the scan reports the pi install tree (`agent-config`) and one operator
-  user name (`home-path`); `tests/unit/test_privacy_scan.py` pins every entry as
-  one escaped literal, rejects a wildcard, and proves a credential on an exempted
-  line is still reported. The alternatives were refused in D-20261019-CEO-15: a
-  user name or an install path is not a credential. The finding count is read from
-  the run and never pinned here.
+  -> PASS, 0 findings; the shipped gate passes that allow file (`Makefile`,
+  `ci.yml`, `docs.yml`). Without `--allow` the scan reports findings in exactly two
+  path families - the pi install tree (`agent-config`) and one operator user name
+  (`home-path`) - and no credential rule fires. The no-allow count is read from the
+  run and never pinned: most of those hits are the justification text that documents
+  the exemption, so the commit that documents the count raises it.
+  `tests/unit/test_privacy_scan.py` pins every entry as one fully escaped literal,
+  rejects a wildcard or a sibling name, and proves a credential on an exempted line
+  is still reported. The alternatives (rewriting
+  unpublished history, deleting a real reviewer finding) were refused in
+  D-20261019-CEO-15: a user name or an install path is not a credential, and a
+  credential quoted on the same line is still reported.
 - Links: `teamwork.py links` -> 0 problems
 - Gate: `teamwork.py loop` -> CONTINUE while any task branch is unmerged, and
   STOP only after the last review lands; `teamwork.py audit` lists one entry per
@@ -64,13 +63,14 @@ under two roles is two tasks.
 | ceo | T-0062 | release | done | P-0067 | e4b141c |
 | ceo | T-0063 | - | done | - | - |
 | ceo | T-0064 | docs | done | P-0082 | def7b1c |
-| ceo | T-0065 | - | done | P-0096 | - |
+| ceo | T-0065 | - | done | P-0096 | df3de8c |
 | ceo | T-0066 | links | done | P-0098 | b6c0817 |
 | ceo | T-0067 | - | done | P-0097 | 143e192 |
 | ceo | T-0068 | - | done | - | - |
 | ceo | T-0069 | - | done | - | - |
 | ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
-| ceo | T-0071 | - | review | P-0108 | - |
+| ceo | T-0071 | - | done | P-0108 | - |
+| ceo | T-0072 | - | todo | - | - |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
@@ -85,11 +85,12 @@ under two roles is two tasks.
 | developer | T-0017 | - | done | P-0094 | b5fbc93 |
 | developer | T-0018 | - | done | P-0101 | 35b6f2d |
 | developer | T-0019 | - | done | P-0107 | 3404a42 |
-| developer | T-0020 | - | done | P-0106 | - |
+| developer | T-0020 | - | done | P-0106 | 3fad639 |
+| developer | T-0021 | - | review | P-0109 | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | done | P-0093 | f6242c9 |
 | reviewer | T-0004 | - | done | P-0102 | 44259cb |
-| tester | T-0003 | - | doing | P-0087 | - |
+| tester | T-0003 | - | done | P-0087 | a43e61e |
 | tester | T-0004 | - | done | P-0092 | c84932e |
 | tester | T-0005 | - | done | P-0103 | b91084d |
 | product-manager | T-0001 | traceability | done | P-0037 | eeab44c |
@@ -119,10 +120,10 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0071 · The board-vs-queue comparison is a test, not a discipline | P1 | review | - |
-| tester | T-0003 M9-J acceptance proof that the release claims hold | P1 | doing | `docs/Team/M9Acceptance.md` on P-0087 - a file of that branch, not on main yet |
-| release-engineer | T-0004 M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | the pushed revision and its CI runs |
-| release-engineer | T-0006 CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | `.github/workflows/`, the audit command surface |
+| ceo | T-0072 · The LFS audit flags a large text record that must stay diffable | P1 | todo | - |
+| developer | T-0021 · The identity gate rejects the team's own role mailboxes and integration merges | P0 | review | - |
+| release-engineer | T-0004 · M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | todo | - |
+| release-engineer | T-0006 · CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | - |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
