@@ -376,3 +376,145 @@ def test_committer_must_match_the_author(repo):
         text=True,
     )
     assert engine.audit_commit_identities(repo, "HEAD") == 1
+
+
+def _commit_as(
+    repo: Path,
+    author: tuple[str, str],
+    committer: tuple[str, str],
+    message: str,
+) -> None:
+    """A commit whose committer is deliberately not its author."""
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "--allow-empty", "-q", "-m", message],
+        env=_env(
+            repo,
+            GIT_AUTHOR_NAME=author[0],
+            GIT_AUTHOR_EMAIL=author[1],
+            GIT_COMMITTER_NAME=committer[0],
+            GIT_COMMITTER_EMAIL=committer[1],
+        ),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _merge_branch(repo: Path, committer: tuple[str, str], message: str) -> None:
+    """A two-parent merge contributed by a second branch."""
+    _git(repo, "switch", "-q", "-c", "peer-branch")
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): peer work")
+    _git(repo, "switch", "-q", "main")
+    subprocess.run(
+        ["git", "-C", str(repo), "merge", "-q", "--no-ff", "-m", message, "peer-branch"],
+        env=_env(
+            repo,
+            GIT_AUTHOR_NAME=committer[0],
+            GIT_AUTHOR_EMAIL=committer[1],
+            GIT_COMMITTER_NAME=committer[0],
+            GIT_COMMITTER_EMAIL=committer[1],
+        ),
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_a_canonical_role_committer_landing_a_peers_work_is_not_a_defect(repo):
+    """A lane landing a peer's reviewed work commits as its own role mailbox.
+
+    Measured on this repository: ``identity --audit --range origin/main..main``
+    reported 16 problems, 14 of them "committer Reviewer <...> differs from author
+    Developer <...>" - the Reviewer merging reviewed Developer work. That is the
+    merge policy working, not an identity defect.
+    """
+    _commit_as(
+        repo,
+        ("Developer", "developer@agents.nidvue.com"),
+        ("Reviewer", "reviewer@agents.nidvue.com"),
+        "feat(x): peer work\n\nActing role: Developer",
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+
+
+def test_a_personal_committer_that_differs_from_the_author_is_still_a_defect(repo):
+    """Only a canonical role mailbox may land a peer's commit.
+
+    A personal address in the committer field is the privacy defect the gate
+    exists for, so accepting role committers must not excuse it.
+    """
+    _commit_as(
+        repo,
+        ("Developer", "developer@agents.nidvue.com"),
+        ("Some One", "personal" + "@" + "example.invalid"),
+        "feat(x): peer work\n\nActing role: Developer",
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+
+
+def test_role_is_accepted_as_equivalent_to_acting_role(repo):
+    """``build_commit_message`` writes both trailers, so either one names the role.
+
+    Measured on this repository: 807b315 and 9d75c5d carry ``Role: <role>`` and no
+    ``Acting role:`` line because they were written by ``build_commit_message``,
+    which emits the structured ``Role:`` field above the free-form trailer.
+    """
+    _git(
+        repo,
+        "commit",
+        "--allow-empty",
+        "-m",
+        "feat(x): structured trailer only\n\nTask: T-1\nRole: Developer",
+        ident=("Developer", "developer@agents.nidvue.com"),
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+    # A Role: line naming someone else is still a misattribution.
+    _git(
+        repo,
+        "commit",
+        "--allow-empty",
+        "-m",
+        "feat(x): claims another role\n\nTask: T-1\nRole: Tester",
+        ident=("Developer", "developer@agents.nidvue.com"),
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+
+
+def test_a_two_parent_chore_merge_with_an_empty_body_is_exempt(repo):
+    """A content-free integration merge has no acting role to name.
+
+    Measured on this repository: f5ef807 is a two-parent
+    ``chore(merge): merge of developer-1/t-0009-...`` with a completely empty
+    body, committed by the Reviewer. It adds no content of its own.
+    """
+    _merge_branch(
+        repo,
+        ("Reviewer", "reviewer@agents.nidvue.com"),
+        "chore(merge): merge of tester-1/t-0001-peer-work",
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+
+
+def test_a_single_parent_merge_with_an_empty_body_is_not_exempt(repo):
+    """A fast-forward or squash commit does add content, so it must name its role."""
+    _git(
+        repo,
+        "commit",
+        "--allow-empty",
+        "-m",
+        "chore(merge): merge of tester-1/t-0001-peer-work",
+        ident=("Reviewer", "reviewer@agents.nidvue.com"),
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+
+
+def test_the_audit_prints_who_landed_a_peers_work(repo, capsys):
+    """Accepting the case must not hide it: the landing role stays visible."""
+    _commit_as(
+        repo,
+        ("Developer", "developer@agents.nidvue.com"),
+        ("Reviewer", "reviewer@agents.nidvue.com"),
+        "feat(x): peer work\n\nActing role: Developer",
+    )
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+    out = capsys.readouterr().out
+    assert "(landed by Reviewer)" in out, out
