@@ -1236,3 +1236,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: python3 scripts/check_release_consistency.py --online @fb99293 -> R3 ok ... ignored non-X.Y.Z npm version(s): 0.0.0-stage, exit 0; same command on this branch with the 0.0.0-stage entry removed from the exception file -> R3 DRIFT 0.0.0-stage: not X.Y.Z, so no vX.Y.Z tag can carry it, and no release-exceptions.json entry admits it, exit 1; npm view @nidvue/teamwork time -> 0.0.0-stage 2026-10-20T08:50:57Z before 1.1.0 08:56:07Z, gitHead null, tarball digest -> InputError none of the shipped payload paths are present
 - falsified by: A published npm version whose key is not X.Y.Z that R3 reports ok for. Or an npm version X.Y.Z-stage that does have a commit and could be tagged.
 - consequences: release-exceptions.json gains the 0.0.0-stage entry; Architecture 11.2.3 and 11.4 gain one paragraph and one row; tests/unit/test_release_consistency.py gains two tests
+
+## D-20261021-Reviewer-2 - review pass for tests/integration/test_links_flow.py
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Reviewer-2 (reviewer)
+- decided by: Reviewer-2
+- task: -
+- context: -
+- options considered: -
+- decision: review pass for tests/integration/test_links_flow.py
+- why: -
+- evidence: pytest -q tests/integration @7f285ce -> 115 passed; pytest -q test_links_flow.py @7f285ce -> 9 passed; same file @main b6c0817 -> 9 passed; mutation git checkout 781b1b4~1 -- src/teamwork/engine.py -> 2 failed with "# 0 markdown file(s)"; mutation cmd_links line 6228 "return 1 if issues else 0" -> "return 0" -> 6 failed (all links-failing tests, 3 clean-control tests still passed); restore -> 9 passed, git status empty; pytest -q tests/integration @5d30639 main -> green
+- falsified by: -
+- consequences: -
