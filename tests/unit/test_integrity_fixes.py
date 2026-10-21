@@ -850,3 +850,27 @@ def test_links_command_measures_the_worktree_it_runs_in(cli, project: Path, caps
     assert f"# Link check ({worktree.resolve()})" in out
     assert "README.md: [gone](missing.md) - target does not exist" in out
     assert code == 1, "the worktree's broken link must fail the check"
+
+
+def test_audit_link_health_measures_the_tree_under_the_caller(cli, project: Path, capsys) -> None:
+    """`audit` had the same blind spot `links` had: it asked project_of(root).
+
+    Run inside a worktree, the link-health section reported "- none" whatever the
+    lane's own documents said, so a broken doc link could reach review unseen.
+    """
+    root = init(cli, project)
+    worktree = team_root(project) / engine.DIR_RUNTIME / engine.DIR_WORKTREES / "Dev"
+    worktree.mkdir(parents=True)
+    (worktree / ".git").mkdir()
+    (worktree / "README.md").write_text("[gone](missing.md)\n", encoding="utf-8")
+
+    cwd = Path.cwd()
+    os.chdir(worktree)
+    try:
+        engine._audit_markdown_link_health_broken_malformed_ba(root, [], None)
+    finally:
+        os.chdir(cwd)
+
+    out = capsys.readouterr().out
+    assert "- none" not in out, "a broken link in the worktree must be counted"
+    assert "issue(s); run `teamwork.py links` for the list" in out
