@@ -118,7 +118,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - decision: The distribution name is teamwork-agents; the import package and console script are teamwork.
 - why: The PyPI name 'teamwork' is already taken, and the import name is part of the public API.
 - evidence: pyproject name = teamwork-agents; README states the install command.
-- falsified by: pip install teamwork-agents does not expose the teamwork command.
+- falsified by: pip install teamwork-agents <!-- release-consistency: channel-unavailable --> does not expose the teamwork command.
 - consequences: -
 
 ## D-20261017-CEO - Only the CEO performs external publishing
