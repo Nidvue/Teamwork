@@ -1097,3 +1097,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git merge-base --is-ancestor 7f6071484b9dacd2edcebb871ddbcca97d595915 1895d1b -> rc 0 @1895d1b; python3 scripts/teamwork.py ledger verify -> 'records: 671 | chain intact, every digest matches' @main; independent chain recomputation over 671 records -> all match; sha256sum + wc -c on docs/Team/Decisions.md and docs/Team/Plan.md @1895d1b -> both match the manifest; git status --short in the main checkout -> empty; python3 scripts/teamwork.py links -> 0 issues @main; .venv/bin/python -m pytest -q @1895d1b -> 823 passed, 3 skipped, 0 failed; python3 scripts/teamwork.py identity --audit --range main..ceo/t-0012-... -> 1 commit, 0 problems, CEO <ceo@agents.nidvue.com>; git merge-tree --write-tree main ceo/t-0012-... -> rc 0, tree a0ef845fee6917d81197cfbd0b670f0c5dabdb49
 - falsified by: A verifier who recomputes the chain and finds record #666 is NOT the ledger.export event, or that manifest ledger.head != the hash of record #666, or that the four artifact digests do not match the committed blobs at 1895d1b, or that the main checkout was modified by the export - any of these would falsify the manifest's central claim and reopen this verdict.
 - consequences: -
+
+## D-20261021-Developer - The unborn-HEAD test names its branch explicitly ('git init
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Developer (developer)
+- decided by: Developer
+- task: -
+- context: -
+- options considered: -
+- decision: The unborn-HEAD test names its branch explicitly ('git init -q -b main .') instead of inheriting the runner's init.defaultBranch; the suite's other 'git init' calls that do not pass -b were each measured and none of them depends on the default branch name.
+- why: The test's subject is the unborn HEAD (symbolic-ref answers, rev-parse --abbrev-ref cannot); the branch NAME is incidental, so it must be pinned rather than inherited. Measured by running the whole suite with a git config that has no [init] section: pre-fix 1 failed (the only failure is this test, 'assert master == main'), post-fix 838 passed / 2 skipped / 0 failed - so no other test in the suite depends on the default branch name, and the fix is complete rather than partial. The other no--b sites were read individually: tests/unit/test_skill_refresh.py:130 asserts the branch is NOT 'trunk' (a leak check, so naming the branch would weaken it - left as is); tests/unit/test_cli_contract.py:424, tests/unit/test_skill_contracts.py:1192/1200 and tests/unit/test_evidence_packets.py:35 never name a branch (left as is).
+- evidence: GIT_CONFIG_GLOBAL=<~/.gitconfig without the [init] section> .venv/bin/python -m pytest -q @4fb1e09 -> 1 failed, 837 passed, 2 skipped; same config @4dfedf9 -> 838 passed, 2 skipped, 0 failed; .venv/bin/python -m pytest -q tests/unit/test_cli_contract.py @4dfedf9 -> 42 passed
+- falsified by: A CI run on the pushed revision that still reports test_an_unborn_branch_is_readable_only_through_symbolic_ref failing, or a local run with a git config lacking [init] that turns any OTHER test red, would overturn this.
+- consequences: -
