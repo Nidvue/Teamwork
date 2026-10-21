@@ -88,8 +88,8 @@ under two roles is two tasks.
 | developer | T-0019 | - | done | P-0107 | 3404a42 |
 | developer | T-0020 | - | done | P-0106 | 3fad639 |
 | developer | T-0021 | - | done | P-0109 | 6962dfb |
-| developer | T-0022 | ci | review | P-0112 | - |
-| developer | T-0023 | ci | review | P-0113 | - |
+| developer | T-0022 | ci | done | P-0112 | 8e87b9e |
+| developer | T-0023 | ci | done | P-0113 | f3330c4 |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | done | P-0093 | f6242c9 |
 | reviewer | T-0004 | - | done | P-0102 | 44259cb |
@@ -126,8 +126,6 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0022 · M10-D1 the checkout is LF on every platform (ruff format --check + git archive digest must not depend on core.autocrlf) | P0 | review | - |
-| developer | T-0023 · M10-D2 the make-help target list must survive a Windows path | P0 | review | - |
 | tester | T-0006 · M10-T1 the CI scope-classifier suite must run under Git Bash, not WSL bash, on windows-latest | P0 | todo | - |
 | release-engineer | T-0012 · M10-R2 record the committer-guard decision and push the reviewed M10 revision, then certify CI on the pushed SHA | P0 | todo | - |
 
