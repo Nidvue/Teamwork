@@ -219,9 +219,16 @@ a pass.
   `git tag -l --sort=-v:refname` -> newest first; `git tag -l --sort=-v:refname | sed -n 2p`
   is the previous one. Then
   `pip install https://github.com/Nidvue/Teamwork/releases/download/<tag>/teamwork_agents-${tag#v}-py3-none-any.whl`.
-- Drill (measured 2026-10-20): previous tag `v1.0.2` -> wheel installed into a clean
+- Drill (measured 2026-10-20), the recorded rollback transcript:
+
+  <!-- release-consistency: illustrative -->
+  ```
+  previous tag `v1.0.2` -> wheel installed into a clean
   venv -> `teamwork --version` `teamwork 1.0.2`, `teamwork selftest: 5/5 checks
-  passed`. Rolling *back* is therefore one command and needs no checkout.
+  passed`
+  ```
+
+  Rolling *back* is therefore one command and needs no checkout.
 - To retract a bad release: `gh release delete <tag> --yes`, then re-tag after the fix
   (`git tag -d <tag> && git push origin :<tag>`). Deleting a GitHub Release does not
   delete the git tag; both must be handled. Moving or re-pointing a *published* tag is
