@@ -1068,7 +1068,7 @@ No blockers; no unrelated changes; branch mergeable.
 - author evidence: commit 895e7ef
 - reviewer evidence: git diff --name-only main..93f6f4b -> tests/unit/test_release_consistency.py (1 file); pytest -q tests/unit/test_release_consistency.py @93f6f4b -> 73 passed; git log --format='%an <%ae>' main..93f6f4b -> Developer <developer@agents.nidvue.com>; new test asserts status==DRIFT, names 1.1.2 as 'no tag v1.1.2', and 'not any("1.1.1" in finding)'
 - findings history: 
-- branch / merge: developer-1/t-0009-m9-c3-tests-r3-exception-admission-must / pending
+- branch / merge: developer-1/t-0009-m9-c3-tests-r3-exception-admission-must / f8dd596
 ## T-0060 · M9-G tag v1.1.2 retroactively and publish its GitHub Release  (ceo)
 - date: 2026-10-21
 - priority: P0
