@@ -94,7 +94,7 @@ deliverable landed by commit without a PR record.
 | release-engineer | T-0004 push and certify CI | P0 | todo | the pushed revision and its runs |
 | reviewer | T-0002 traceability verification | P1 | todo | the acceptance-layer test record |
 | tester | T-0003 acceptance proof | P1 | todo | `tests/acceptance/test_release_claims.py` |
-| project-manager | T-0002 record M9 on the plan and the board | P2 | doing | [Plan](Plan.md), this file |
+| project-manager | T-0002 record M9 on the plan and the board | P2 | review | [Plan](Plan.md), this file |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
