@@ -127,7 +127,7 @@ Non-goals:
 | T-0063 | sequence the required check | ceo | release | `.github/workflows/ci.yml`, the branch protection |
 | T-0064 | the version claim in the architecture guide | ceo | docs | `docs/guide/architecture.md` |
 | T-0002 | independent verification of the published-version traceability | reviewer | release | the acceptance-layer test record |
-| T-0003 | acceptance proof that the release claims hold | tester | release | `tests/acceptance/test_release_claims.py` |
+| T-0003 | acceptance proof that the release claims hold | tester | release | `tests/integration/test_release_consistency_integration.py`, `docs/Team/M9Acceptance.md` |
 | T-0002 | record M9 on the plan and the board | project-manager | plan | this file, [Board](Board.md) |
 
 Task ids are allocated per role queue, so the same id under two roles is two
@@ -161,7 +161,7 @@ states the verifiable claim and the command that produces its evidence.
 | AC-REL-1 | every version published to npm or to GitHub Releases is traceable to a git tag at a commit whose bundled payload matches, or is listed in `release-exceptions.json` with a measured reason | `python3 scripts/check_release_consistency.py --online` (R3), `git tag -l`, `cat release-exceptions.json` | ceo |
 | AC-REL-2 | the checker implements R1-R9, exits 0 clean, 1 on drift and 2 on unreadable input, and every rule has a unit test that fails before the implementation and passes after it | `python3 scripts/check_release_consistency.py --offline` and its exit codes, `python3 -m pytest tests/unit/test_release_consistency.py tests/unit/test_release_consistency_digest.py tests/unit/test_release_consistency_r8.py -q` | developer |
 | AC-REL-3 | the git tag for the published npm version points at the commit that version was published from, and its GitHub Release carries the wheel, the sdist, `SHA256SUMS` and both SBOMs | `git rev-list -n1 v1.1.2`, `gh release view v1.1.2 --json assets` | release-engineer |
-| AC-REL-4 | `README.md`, `docs/guide/install.md` and `docs/Team/Release.md` print no install command that cannot work, no version older than `src/teamwork/version.py` and no tag that does not exist | `python3 scripts/check_release_consistency.py --online` (R6, R8, R9), `python3 -m pytest tests/acceptance/test_release_claims.py -q` | ceo |
+| AC-REL-4 | `README.md`, `docs/guide/install.md` and `docs/Team/Release.md` print no install command that cannot work, no version older than `src/teamwork/version.py` and no tag that does not exist | `python3 scripts/check_release_consistency.py --offline` (R6, R9), `python3 scripts/check_release_consistency.py --online` (R8), `python3 -m pytest -q tests/integration/test_release_consistency_integration.py` (the 13-test layer of tester T-0003, PR P-0087), and the proof document `docs/Team/M9Acceptance.md` sections 1 and 3 | ceo |
 | AC-REL-5 | the version on `main` is strictly greater than every published and tagged version, and `CHANGELOG.md` records the npm-only 1.1.1 anomaly with its reason | `grep __version__ src/teamwork/version.py`, `git tag -l`, `npm view @nidvue/teamwork versions`, `grep -n '^## ' CHANGELOG.md` | ceo |
 | AC-REL-6 | CI runs the release-consistency gate, every workflow is green on the pushed revision, and the installed skill mirrors it | `gh run list --workflow=ci.yml --commit <pushed sha>`, `python3 scripts/teamwork.py refresh --check` | release-engineer |
 

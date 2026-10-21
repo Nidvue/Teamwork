@@ -55,12 +55,12 @@ under two roles is two tasks.
 |---|---|---|---|---|---|
 | architect | T-0002 | architecture | dropped | P-0068 | - |
 | architect | T-0003 | architecture | done | P-0075 | b02ed38 |
-| architect | T-0004 | architecture | review | P-0079 | - |
+| architect | T-0004 | architecture | done | P-0079 | cf95b98 |
 | architect | T-0005 | ci | dropped | P-0081 | - |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
-| developer | T-0009 | release-consistency | done | P-0085 | f8dd596 |
+| developer | T-0009 | release-consistency | done | P-0085 | f5ef807 |
 | developer | T-0010 | release | done | - | - |
 | developer | T-0011 | ci-contracts | done | P-0083 | a1a04bc |
 | developer | T-0012 | release-consistency | done | P-0080 | - |
@@ -70,15 +70,15 @@ under two roles is two tasks.
 | release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
 | release-engineer | T-0007 | release | done | P-0078 | 6fa8930 |
 | release-engineer | T-0008 | ci | done | - | - |
-| ceo | T-0059 | release | doing | P-0069 | - |
+| ceo | T-0059 | release | done | P-0069 | - |
 | ceo | T-0060 | release | done | - | - |
 | ceo | T-0061 | release | done | P-0070 | - |
 | ceo | T-0062 | release | done | P-0067 | e4b141c |
 | ceo | T-0063 | release | doing | - | - |
 | ceo | T-0064 | docs | done | P-0082 | def7b1c |
 | reviewer | T-0002 | release | done | - | - |
-| tester | T-0003 | release | todo | - | - |
-| project-manager | T-0002 | plan | review | - | - |
+| tester | T-0003 | release | review | P-0087 | - |
+| project-manager | T-0002 | plan | review | P-0086 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read
 from the PR record, not from this table. A row with no PR is a task whose
@@ -88,11 +88,11 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0059 version bump and the npm-only anomaly | P0 | doing | `src/teamwork/version.py`, `CHANGELOG.md` |
+| ceo | T-0059 version bump and the npm-only anomaly | P0 | done | `src/teamwork/version.py`, `CHANGELOG.md` |
 | ceo | T-0063 required-check sequencing | P0 | doing | `.github/workflows/ci.yml` |
-| architect | T-0004 contract amendments | P0 | review | `docs/Team/Architecture.md` section 11 |
+| architect | T-0004 contract amendments | P0 | done | `docs/Team/Architecture.md` section 11 |
 | release-engineer | T-0004 push and certify CI | P0 | todo | the pushed revision and its runs |
-| tester | T-0003 acceptance proof | P1 | todo | `tests/acceptance/test_release_claims.py` |
+| tester | T-0003 acceptance proof | P1 | review | `tests/integration/test_release_consistency_integration.py`, `docs/Team/M9Acceptance.md` |
 | project-manager | T-0002 record M9 on the plan and the board | P2 | review | [Plan](Plan.md), this file |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
