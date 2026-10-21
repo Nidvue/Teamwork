@@ -135,7 +135,6 @@ not-found, so these commands fail for now and are listed only to describe the
 channel, not to be run.
 
 <!-- release-consistency: channel-unavailable -->
-
 ```console
 $ pipx install teamwork-agents        # unavailable: not on PyPI yet
 $ uvx --from teamwork-agents teamwork --version   # unavailable: not on PyPI yet
