@@ -21,26 +21,25 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests.gitenv import child_env
 
 from teamwork import bundle, engine
 
 # The platform variables must survive: on Windows the interpreter's RNG is
 # initialised from the OS and fails without SystemRoot/TEMP.
-GIT_ENV = {
-    **os.environ,
-    "GIT_AUTHOR_NAME": "Tester",
-    "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
-    "GIT_COMMITTER_NAME": "Tester",
-    "GIT_COMMITTER_EMAIL": "tester@agents.nidvue.com",
-    # Hermetic, not accidentally hermetic: the subprocess gets no ``HOME``, so git
-    # finds no ``~/.gitconfig``, and these three say so out loud. Without them a
-    # system ``/etc/gitconfig`` could hand the fixtures a ``commit.gpgsign``,
-    # ``core.hooksPath`` or ``init.templateDir``, and a credential prompt could
-    # block a run. ``os.devnull`` is ``/dev/null`` here and ``nul`` on Windows.
-    "GIT_CONFIG_NOSYSTEM": "1",
-    "GIT_CONFIG_GLOBAL": os.devnull,
-    "GIT_TERMINAL_PROMPT": "0",
-}
+# Hermetic, not accidentally hermetic: the caller's git configuration must not
+# reach the child either, so a system ``/etc/gitconfig``, a ``~/.gitconfig`` or
+# an inherited ``GIT_CONFIG_GLOBAL`` cannot hand the fixtures a
+# ``commit.gpgsign``, ``core.hooksPath`` or ``init.templateDir``, and a
+# credential prompt cannot block a run. ``child_env`` starts from the parent
+# environment (the platform's variables survive) and re-asserts these pins on
+# top of it.
+GIT_ENV = child_env(
+    GIT_AUTHOR_NAME="Tester",
+    GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
+    GIT_COMMITTER_NAME="Tester",
+    GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
+)
 
 
 def git_path() -> str:
