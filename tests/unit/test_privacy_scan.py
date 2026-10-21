@@ -154,6 +154,66 @@ def test_high_entropy_lookalike_is_not_a_false_positive():
     assert "high-entropy-secret" not in rules_hit(f"digest = {sha}\n")
 
 
+def test_a_relative_path_is_not_a_high_entropy_secret():
+    """The rule that fired on a path fragment: the measured false positive.
+
+    The commit message of a7f24af quotes the path of a brief, and the
+    high-entropy rule matched the first 33 characters of it - a path, not a
+    secret. A gate that cries wolf on the team's own file names gets bypassed,
+    so the path must not be reported.
+    """
+    line = (
+        "Refs: T-0002; D-20261020-Architect-5 (git rev-parse --git-path hooks); "
+        "ProductManager/Artifacts/Harness2-Brief.md section 5 (H4)\n"
+    )
+    assert "high-entropy-secret" not in rules_hit(line)
+
+
+def test_a_real_high_entropy_secret_is_still_reported():
+    """The other side of the same fix: a credential is still a credential.
+
+    The path exemption is a property of the SHAPE (a name-like path the match
+    was cut out of), not of the entropy, so a value that is a whole token keeps
+    being reported - including one that ends in a period or a quote.
+    """
+    probe = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6"
+    for line in (
+        f"the key is {probe}\n",
+        f"the secret {probe}.\n",
+        f"value: {probe}\n",
+        f'quoted "{probe}"\n',
+    ):
+        assert "high-entropy-secret" in rules_hit(line), line
+    # An assignment is reported by the assignment rule; the entropy rule still
+    # sees the same value, so it must not be the only thing that catches it.
+    assert "env-secret" in rules_hit(f"API_KEY={probe}\n")
+
+
+def test_a_secret_that_contains_a_slash_is_still_reported():
+    """A base64 value may contain ``/``; that alone must not excuse it.
+
+    The path exemption needs the whole token to read as a path AND the match to
+    be a cut-off piece of it. A random base64 run has too many fragments to
+    read as a name, so it stays reported.
+    """
+    probe = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6/Q7r8S9t0"
+    assert "high-entropy-secret" in rules_hit(f"the value {probe} is here\n")
+
+
+def test_a_path_that_is_a_whole_token_is_not_a_secret_either():
+    """The same path, quoted whole, is a path too.
+
+    The exemption is about the SHAPE - a name-like path - and not about where
+    the match happened to stop, so a path the rule matches whole is exempt as
+    well. A credential on the same line is still reported by its own rule.
+    """
+    long_path = "ProductManager/Artifacts/" + "Harness2"
+    assert "high-entropy-secret" not in rules_hit(f"see {long_path}\n")
+
+    token = "sk-" + "live-" + "0123456789abcdef0123456789abcdef"
+    assert "api-token" in rules_hit(f"see ProductManager/Artifacts/Harness2 with {token}\n")
+
+
 @pytest.mark.parametrize(
     "line",
     [
