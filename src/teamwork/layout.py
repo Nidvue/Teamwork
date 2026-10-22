@@ -112,10 +112,6 @@ def project_root(args) -> Path:
     return (project / TEAM_ROOT_DIR / TEAMS_SUBDIR / slug).resolve()
 
 
-def teams_root_unused(project: Path) -> Path:
-    return project / TEAM_ROOT_DIR / TEAMS_SUBDIR
-
-
 def agents_dir(root: Path) -> Path:
     return root / DIR_AGENTS
 

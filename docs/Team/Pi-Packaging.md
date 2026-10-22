@@ -1,4 +1,4 @@
-# pi packaging - `pi-teamwork`
+# pi packaging - `@nidvue/teamwork`
 
 Owner: CEO. Related: [Plan](Plan.md) · [Board](Board.md) · [Release](Release.md) · [Architecture](Architecture.md)
 
@@ -12,7 +12,7 @@ we changed, and how the published artefact is built.
 |---|---|---|---|
 | [`pi-subagents`](../../references/Adapters.md) | extension + skills + prompts, `pi.extensions`/`skills`/`prompts` | real host primitives: `subagent`, `subagent_supervisor`, `contact_supervisor`, durable `schedule.*`, workflows with `runs.all` | no team protocol: no queue, no gate, no audit trail |
 | `@tmustier/pi-agent-teams` | extension + one skill | team-shaped prompts and hooks | no evidence gate, no ledger, no role-owned test layers |
-| this skill, v1.0.2 | skill + stdlib engine | the protocol: two-stage gate, hash-chained ledger, layered tests, disputes | pi-hostile wording (`teams()`, `schedule_prompt`) and no npm artefact |
+| this skill, before the pi layer | skill + stdlib engine | the protocol: two-stage gate, hash-chained ledger, layered tests, disputes | pi-hostile wording (`teams()`, `schedule_prompt`) and no npm artefact |
 
 ## 2. What changed for pi
 
@@ -22,7 +22,7 @@ we changed, and how the published artefact is built.
 | Pulse | `schedule_prompt({type:"cron"})` | `subagent({action:"schedule.create", options:{every:"5m"}})` (pi-subagents persists it under `.pi/subagents/schedules/`) |
 | Close | `teams({action:"team_done"})` | `subagent({action:"stop", id})` per live lane, then the report |
 | Coordinate | `teams({action:"message_dm"})` | `subagent({action:"steer"})` for a live lane, `subagent_supervisor({action:"reply"})` for a child that asked |
-| Package | pip only | `pi-teamwork` npm package: `pi.skills` + `pi.prompts`, host packages in `peerDependencies` only |
+| Package | pip only | the `@nidvue/teamwork` npm package: `pi.skills` + `pi.prompts`, host packages in `peerDependencies` only |
 
 The portable skill stays portable: `test_adoption_surfaces_stay_agent_agnostic`
 (`tests/unit/test_skill_contracts.py`) scans eight adoption surfaces - `README.md`,
@@ -42,23 +42,23 @@ shipped files, peer-only host packages, no duplicated pi layer, runnable engine.
 ## 3. Build and install
 
 ```sh
-make package                      # assemble dist/pi-teamwork
-cd dist/pi-teamwork && npm pack   # npm reports the file count and size
-pi install npm:pi-teamwork        # or: pi -e ./dist/pi-teamwork for one session
+make package                                 # assemble dist/@nidvue/teamwork
+cd dist/@nidvue/teamwork && npm pack         # npm reports the file count and size
+pi install npm:@nidvue/teamwork              # or: pi -e ./dist/@nidvue/teamwork for one session
 ```
 
 `pi install` then `/skill:teamwork` (protocol) and `/skill:teamwork-pi`
 (pi tool mapping) are available. Verified on pi 1.3.0: the local install listed
 the package and `pi -p "list the skills that contain teamwork"` answered
-`teamwork, teamwork-pi`; `npm pack --dry-run` in the built directory reports
-68 files, with the tarball root carrying `package.json`, `skills/`, `prompts/`,
-`README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`, `SECURITY.md`. The unpacked size
-moves with every doc edit, so it is read from `npm pack`, never quoted in prose.
+`teamwork, teamwork-pi`. The tarball root carries `package.json`, `skills/`,
+`prompts/`, `README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`, `SECURITY.md`. Both
+the file count and the unpacked size move with every edit, so they are read from
+`npm pack`, never quoted in prose.
 
 ## 4. Layout of the published tarball
 
 ```text
-pi-teamwork/
+@nidvue/teamwork/
 ├── package.json                     # name, pi-package keyword, pi.skills/pi.prompts, peer deps
 ├── skills/teamwork/                 # SKILL.md + references/ roles/ templates/ scripts/ src/
 ├── skills/teamwork-pi/SKILL.md      # the pi adapter layer (six operations, packet shape)
@@ -67,13 +67,13 @@ pi-teamwork/
 ```
 
 Single source of truth: `scripts/build_pi_package.py` copies those trees into
-`dist/pi-teamwork`; the repository keeps `SKILL.md` at its root because the pip
+`dist/@nidvue/teamwork`; the repository keeps `SKILL.md` at its root because the pip
 package and every `scripts/teamwork.py` reference already point there.
 
 ## 5. Publishing gates
 
 - [ ] `make package` clean, `npm pack --dry-run` shows only intended files
-- [ ] `pi install ./dist/pi-teamwork` lists the package and both skills load
+- [ ] `pi install ./dist/@nidvue/teamwork` lists the package and both skills load
 - [ ] `pytest -q`, `ruff`, `mypy`, `links`, `privacy` green on the release commit
 - [ ] version bumped in `src/teamwork/version.py` (single source) and CHANGELOG written
 - [ ] the npm publish itself is the CEO's step and needs the user's authorization

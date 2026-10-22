@@ -200,7 +200,6 @@ from .layout import (
     task_file,
     team_root_from,
     team_root_from_cwd,
-    teams_root_unused,
     testplan_path,
     tests_path,
     work_docs_dir,
@@ -388,7 +387,6 @@ __all__ = [
     "work_docs_dir",
     "team_root_from_cwd",
     "project_root",
-    "teams_root_unused",
     "agents_dir",
     "agent_dir",
     "roles_dir",
@@ -2075,17 +2073,6 @@ def _tests_list(args, root: Path, records: list) -> int:
     gaps = test_gaps(root)
     if gaps:
         print(f"# {len(gaps)} coverage gap(s): see `tests plan`")
-    return 0
-
-
-def cmd_testplan_unused(args) -> int:
-    root = project_root(args)
-    plan = parse_testplan(testplan_path(root))
-    print(f"# Test plan ({testplan_path(root)})")
-    if not plan:
-        print(f"# default required layers for any area: {', '.join(DEFAULT_REQUIRED_LAYERS)}")
-    for area in sorted(plan):
-        print(f"- {area:20s} {', '.join(plan[area])}")
     return 0
 
 
@@ -6382,7 +6369,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     names = list_roles(root)
     tasks = all_tasks(root)
 
-    # 1 - acceptance criteria -------------------------------------------------
     s = _section("criteria", "acceptance criteria (machine records)")
     criteria = parse_criteria(criteria_path(root))
     if not criteria:
@@ -6419,7 +6405,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         )
     sections.append(s)
 
-    # 2 - layered tests -------------------------------------------------------
     s = _section("tests", "test layers (each owned and run by its own role)")
     records = parse_tests(tests_path(root))
     if not records:
@@ -6463,7 +6448,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         )
     sections.append(s)
 
-    # 3 - work in flight ------------------------------------------------------
     s = _section("work", "work in flight")
     buckets = {k: [] for k in ("todo", "doing", "selfcheck", "blocked", "review")}
     invalid = []
@@ -6488,7 +6472,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["blockers"].append(f"{len(invalid)} task(s) have an unknown status")
     sections.append(s)
 
-    # 4 - awaiting review -----------------------------------------------------
     s = _section("review", "awaiting independent review")
     awaiting = [
         (r, t)
@@ -6507,7 +6490,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["lines"].append("none")
     sections.append(s)
 
-    # 5 - review churn (a failing loop must escalate, not spin) ---------------
     s = _section("churn", "review churn")
     churn = [
         (r, t)
@@ -6533,7 +6515,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["lines"].append("none")
     sections.append(s)
 
-    # 6 - branches -----------------------------------------------------------
     s = _section("branches", "branches (merge and retire)")
     project = project_of(root)
     unmerged, leftover = [], []
@@ -6566,7 +6547,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["lines"].append("none")
     sections.append(s)
 
-    # 7 - overrides, provenance, liveness ------------------------------------
     s = _section("integrity", "gate overrides, provenance and liveness")
     forced, unprovenanced, silent = [], [], []
     for role, t in tasks:
@@ -6621,7 +6601,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["lines"].append("none")
     sections.append(s)
 
-    # 8 - disputes -----------------------------------------------------------
     s = _section("disputes", "open disputes")
     open_disputes = [d for d in disputes if d["status"] != "resolved"]
     for d in open_disputes:
@@ -6652,7 +6631,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["lines"].append("none")
     sections.append(s)
 
-    # 9 - audit trail --------------------------------------------------------
     s = _section("ledger", "audit trail")
     if ledger_cache_behind(root):
         s["lines"].append(
@@ -7092,16 +7070,6 @@ def commit_archive_merge_sha(
         close_sha,
     )
     return f"{message}\n# committed the archive rewrite on {base} at {close_sha}"
-
-
-def find_review_role_unused(root: Path, handle: str):
-    """(role, task) for a task id / title across every role queue."""
-    for role in list_roles(root):
-        tasks = parse_tasks(task_file(root, role))
-        idx = find_task(tasks, handle)
-        if idx is not None:
-            return role, tasks[idx], tasks, task_file(root, role), idx
-    return None, None, None, None, None
 
 
 def _review_claim(root: Path, args) -> int:
@@ -8922,11 +8890,6 @@ def cmd_dispute_list(args) -> int:
     for d in disputes:
         _print_dispute(d)
     return 0
-
-
-def reporting_order() -> list[str]:
-    """Roles in reporting order, parents before children."""
-    return [r for r in ROLE_REPORT_ORDER if r in ROLE_PARENT]
 
 
 def reporting_children(parent: str) -> list[str]:
