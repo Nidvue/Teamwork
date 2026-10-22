@@ -3,6 +3,20 @@
 Owner: Tester.
 Related: [Project](Project.md) · [CHANGELOG](../../CHANGELOG.md) · [README](../../README.md) · [CONTRIBUTING](../../CONTRIBUTING.md)
 
+## Status
+
+**Historical measurement - superseded on AC-REL-6.** This proof was taken at
+`fb99293149`, before the M9 revision was pushed. Its one open row has since
+closed:
+
+- **AC-REL-6 now holds.** The M9 revision was pushed, and CI run 39690418108 on
+  `22ade33` reported **19/19 jobs success**. The installed-skill half of it is a
+  standing condition, not a fact: `refresh --check` re-measures it on every
+  revision, so read the command rather than this sentence.
+
+Every other row below stands as measured. Read "NOT YET RUN" and "FAIL" as the
+state at `fb99293149`, not as the current state.
+
 The team documents this proof reads - `docs/Team/Architecture.md` (§11, the
 frozen release-consistency contract), `docs/Team/Project.md` (the AC rows),
 `docs/Team/Release.md` (the release procedure) - are cited by path in the text
@@ -11,11 +25,12 @@ creates a back-link obligation in the *target* file, and this lane owns only
 this document and the test file it names; the back-links belong to the
 documents' own owners.
 
-**Conclusion.** Five of the six machine acceptance records of M9 hold on the
-current `main`. **AC-REL-6 does not**: the M9 revision is not on the remote,
-so no CI run exists for it, and the installed skill does not mirror it. The
-release gate is green in both modes on the current `main` - the **offline** gate
-exits 0 and the **online** gate exits 0 with `0 problem(s)`.
+**Conclusion at `fb99293149`.** Five of the six machine acceptance records of M9
+held. **AC-REL-6 did not** at that revision: the M9 revision was not yet on the
+remote, so no CI run existed for it, and the installed skill did not mirror it
+(closed later - see *Status* above). The release gate was green in both modes -
+the **offline** gate exited 0 and the **online** gate exited 0 with `0
+problem(s)`.
 
 Every row below carries the command that was run and the output that command
 printed. Re-running the command re-derives the row; nothing here is asserted
@@ -45,8 +60,8 @@ without a measurement.
 | AC-REL-5 | `version.py` is strictly greater than every published and tagged version | `grep -n __version__ src/teamwork/version.py` and `git tag -l` | `9:__version__ = "1.1.3"`; `git tag -l` prints five tags on five lines - `v1.0.0`, `v1.0.1`, `v1.0.2`, `v1.1.0`, `v1.1.2` - so no tagged version reaches 1.1.3 | **PASS** |
 | AC-REL-5 | the CHANGELOG records the 1.1.1 anomaly | `grep -n "1\.1\.1" CHANGELOG.md` | `52:- **npm 1.1.1 has no source commit and is listed as an exception.**` (the version number is inside backticks in the file) and `86:## [1.1.1] - 2026-10-20` | **PASS** |
 | AC-REL-6 | CI runs the release-consistency gate | `grep -n "release-consistency" .github/workflows/ci.yml` | `376:  release-consistency:` - a blocking job running `python scripts/check_release_consistency.py --offline --json`, with no `continue-on-error` | **PASS** (the workflow runs the gate) |
-| AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | the local `main` is ahead of `origin/main`; the newest runs are the pre-M9 ones | **NOT YET RUN** - the M9 revision is not pushed, so no CI run exists for it |
-| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | exits 1: files the tree ships are absent from the installed bundle and installed engine files are older than the tree (§5). The counts are not quoted - they move with every commit | **FAIL** |
+| AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | at the audited revision the local `main` was ahead of `origin/main` and the newest runs were the pre-M9 ones | **CLOSED LATER** - the revision was pushed and CI run 39690418108 on `22ade33` was 19/19 success; not measurable at `fb99293149` |
+| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | at the audited revision it exited 1: files the tree ships were absent from the installed bundle and installed engine files were older than the tree (§5). The counts are not quoted - they move with every commit | **CLOSED LATER** - the bundle was refreshed and the criterion holds on the published revision; it was **FAIL** at `fb99293149`. It is a standing condition: re-measure it with `python3 scripts/teamwork.py refresh --check` |
 
 ## 2. What "the merged tree" means here
 
@@ -207,16 +222,17 @@ from the run:
   `teamwork.py refresh` on the release lane, not a re-install here.
 
 AC-REL-6 asks the installed skill to mirror the remote's `main`. The remote's
-`main` is the pre-M9 revision, so the criterion is not measurable until the
-M9 revision is pushed; the check above already fails against the merged tree,
-so pushing alone will not make it pass.
+`main` was the pre-M9 revision, so the criterion was not measurable until the
+M9 revision was pushed, and the check above failed against the merged tree as
+well - pushing alone would not have made it pass. Both were resolved afterwards:
+the push happened, CI went green on it, and the installed skill was refreshed.
 
 ## 6. What could not be verified, and why
 
 | Criterion | Status | Reason |
 |---|---|---|
-| AC-REL-6, "every workflow is green on the pushed M9 revision" | **NOT YET RUN** | the M9 revision is not on the remote (`git rev-list --count origin/main..main` is non-zero and `origin/main` is still the pre-M9 revision), so no CI run exists for it. No green CI is claimed here. |
-| AC-REL-6, "the installed skill mirrors the remote's `main`" | **FAIL** (measured against the merged tree) | `sync_skill.py --check` exits 1; the remote's `main` is still the pre-M9 revision, so the criterion as written cannot be satisfied until the push happens. |
+| AC-REL-6, "every workflow is green on the pushed M9 revision" | **CLOSED LATER** (was **NOT YET RUN**) | at the audited revision the M9 revision was not on the remote, so no CI run existed for it and no green CI was claimed. The revision was pushed later and CI run 39690418108 on `22ade33` was 19/19 success. |
+| AC-REL-6, "the installed skill mirrors the remote's `main`" | **CLOSED LATER** (was **FAIL** against the merged tree) | `sync_skill.py --check` exited 1 at the audited revision. The criterion is a standing condition, so it is re-measured - not asserted - with `python3 scripts/teamwork.py refresh --check`; it held once the bundle was refreshed. |
 
 ## 7. The test this lane adds
 
