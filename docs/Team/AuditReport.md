@@ -7,18 +7,22 @@ Related: [Project](Project.md) · [Architecture](Architecture.md) · [Risks](Ris
 
 **Superseded in part - read this first.** This is a dated measurement, not a
 live dashboard. It was written against the revision whose local history still
-carried the disclosed commit, and two of its conclusions have since been closed:
+carried the disclosed commit, and its conclusions have since been closed:
 
 - **R5 (the history rewrite) is DONE, not open.** The CEO performed the
 authorized rewrite of the unpublished local history; `docs/Team/Project.md` gap
 G-8 records it as **closed**. Section 5's R5 table, and the R5 paragraphs below,
 are the pre-rewrite state kept as evidence of what was measured and why.
+- **The recorded findings are closed too.** F-1 and F-2 (the disclosed commit)
+  closed with R5; F-9 (the ruling's own evidence line) closed when the entry was
+  rewritten to name the rule instead of the value.
 - **The gate is green now.** `python3 scripts/privacy_scan.py --tree --history
   --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s)`.
 
 The findings, the method and the threat model stand as the record of the audit
-that justified the rewrite. Where this file says "is red" or "is open", read it
-as "was red at the audited revision".
+that justified the rewrite. Where this file says "is red" or "is open" or
+"remains to be done", read it as "was true at the audited revision" - every such
+statement is a measurement of that revision, not a task still owed.
 
 **Conclusion at the audited revision.** The **tree** was clean, the **published**
 history was clean, and the **local** history was **red**. The red is caused by one commit, and that commit is
@@ -182,7 +186,7 @@ dispositioned (Architecture §9, `privacy` CI job).
 | F-6 | low | supply-chain | `.github/workflows/*.yml` | actions pinned to mutable major tags (`@v4`, `@v5`, `@v0`, `@v2`) | resolved - every action is pinned to a full commit SHA (`grep -hoE 'uses: [^ ]+' .github/workflows/*.yml \| grep -vE '@[0-9a-f]{40}$'` -> nothing) |
 | F-7 | info | hygiene | `.pi/` and `.venv/` (gitignored) | home paths, private domain, personal mailboxes | residual risk |
 | F-8 | info | boundary | the published side of the same object | no address, no name, no private domain | **measured boundary, not a finding of a leak** - the published side is clean and the object is **not reachable from any published ref**, and the content of the offending commit is already published safely under the role mailbox (identical tree, and that role-mailbox commit **is** in `origin/main`). So the published history carries no personal identity, and the disclosure is of the **identity** of the retained object, not of its content. This row is what keeps the risk proportionate: it bounds F-1 and F-2, and it is the reason the report distinguishes *reachability*, *service* and *disclosure* instead of compressing them into one adjective |
-| F-9 | high | personal-email + private-domain | the **decision record of the ruling that governs this report** (`D-20261021-Reviewer-1`), on the Reviewer's own unmerged branch | `pin******.no` | **CLOSED** - the decision entry names the rule, not the value: `grep -nE '[\w.+-]+@[\w.-]+\.(no|com|org)' docs/Team/Decisions.md` now returns only role mailboxes. **Measured at the audited revision, and it is a NEW occurrence, not the old one.** The decision entry quotes the operator's address **literally** in its `evidence:` line, and the commit that carries it quotes the same address in its **commit message**. Measured on that branch's tree: the shipped tree scan is `FAIL` (the address, the private domain and two high-entropy false positives on the same line), where `main` is `PASS`. The occurrence is in the record that documents this very disclosure, so it reproduces the exact failure the gate exists to catch. It is not on `main` and not on any published ref, so it is **not published** and it is **not disclosed** to anyone who does not already have that branch - but it will become published the moment the ruling is merged, and the shipped `privacy` CI job will refuse that push. **Remediation: the decision entry must name the rule, not the value** - the same treatment the archive mask already gives the review records (`docs/Team/Archive.md` carries `[redacted-personal-email]` where it used to carry the value) - and the commit message must do the same. Owner: the Reviewer who wrote the entry, with the CEO as the routing lane. This report does not edit that file; it is not in this lane's scope |
+| F-9 | high | personal-email + private-domain | the **decision record of the ruling that governs this report** (`D-20261021-Reviewer-1`), on the Reviewer's own unmerged branch | `pin******.no` | **CLOSED** - the decision entry names the rule, not the value. Verified: `grep -nE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' docs/Team/Decisions.md | grep -v 'agents\.nidvue\.com'` prints nothing, while the same pattern over a control line carrying an address prints it (`grep -cE` -> 1). Note the earlier revision of this row cited an ERE with `\w`, which GNU grep does not expand, so that command matched nothing and proved nothing. **Measured at the audited revision, and it is a NEW occurrence, not the old one.** The decision entry quotes the operator's address **literally** in its `evidence:` line, and the commit that carries it quotes the same address in its **commit message**. Measured on that branch's tree: the shipped tree scan is `FAIL` (the address, the private domain and two high-entropy false positives on the same line), where `main` is `PASS`. The occurrence is in the record that documents this very disclosure, so it reproduces the exact failure the gate exists to catch. It is not on `main` and not on any published ref, so it is **not published** and it is **not disclosed** to anyone who does not already have that branch - but it will become published the moment the ruling is merged, and the shipped `privacy` CI job will refuse that push. **Remediation: the decision entry must name the rule, not the value** - the same treatment the archive mask already gives the review records (`docs/Team/Archive.md` carries `[redacted-personal-email]` where it used to carry the value) - and the commit message must do the same. Owner: the Reviewer who wrote the entry, with the CEO as the routing lane. This report does not edit that file; it is not in this lane's scope |
 
 F-1/F-2 root cause: the author of the squash-merged commit is the **account that
 was signed in to the forge** when the merge button was pressed, not the role
@@ -197,9 +201,10 @@ exists on the forge and is served by it (F-1, fact 2). The re-measurement is in
 section 7.2, and the request that was withdrawn on the old measurement is
 re-opened as R5.
 
-The mode-by-mode residue, re-measured: `--tree` and `--staged` report nothing at
-all once `--allow .github/privacy-allow.txt` is passed. `--history` with the same
-flag is red, and the residue is the two causes above - older blob revisions of
+The mode-by-mode residue, re-measured **at the audited revision**: `--tree` and
+`--staged` reported nothing at all once `--allow .github/privacy-allow.txt` was
+passed. `--history` with the same flag was red then (it is green since R5), and
+the residue was the two causes above - older blob revisions of
 `docs/Team/Archive.md` that quote the address inside a quoted-evidence field, and
 the author field of the squash-merge commit. Without the allowlist the tree is
 also red, and its residue is the allowlist file's own text, the scanner's own
@@ -319,7 +324,7 @@ today. The `privacy` CI job refuses a push that introduces a personal identity.
 | ~~CI actions on mutable tags~~ - every `uses:` is pinned to a full commit SHA (F-6, R7) | Release Engineer | **closed** |
 | A future commit made outside `teamwork.py commit` could use the global personal identity | all agents | mitigated by R1; the `privacy` CI job and the published-side committer guard catch it on push |
 | A genuine secret typed into a PR before CI runs is briefly public in the PR diff | all agents | use `--staged` before committing; GitHub push protection is external |
-| The decision record of the ruling that governs this report quotes the operator's address literally (F-9), in the record's own `evidence:` line and in the commit message that carries it. It is on an unmerged branch, so nothing is published or disclosed yet, but merging it as it stands would put the address into the published tree and the shipped `privacy` CI job would refuse the push | Reviewer (author of the entry), routed by the CEO | **open** - rewrite the evidence line to name the rule instead of the value, and the commit message with it, before the ruling is merged |
+| The decision record of the ruling that governs this report quoted the operator's address literally (F-9), in the record's own `evidence:` line and in the commit message that carried it | Reviewer (author of the entry), routed by the CEO | **closed** - the entry now names the rule instead of the value, and the shipped `privacy` gate passes on the tree |
 
 ## 7. Verification
 
