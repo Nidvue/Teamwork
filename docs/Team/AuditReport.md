@@ -3,8 +3,29 @@
 Owner: Security Auditor.
 Related: [Project](Project.md) · [Architecture](Architecture.md) · [Risks](Risks.md).
 
-**Conclusion.** The **tree** is clean, the **published** history is clean, and the
-**local** history is **red**. The red is caused by one commit, and that commit is
+## Status
+
+**Superseded in part - read this first.** This is a dated measurement, not a
+live dashboard. It was written against the revision whose local history still
+carried the disclosed commit, and its conclusions have since been closed:
+
+- **R5 (the history rewrite) is DONE, not open.** The CEO performed the
+authorized rewrite of the unpublished local history; `docs/Team/Project.md` gap
+G-8 records it as **closed**. Section 5's R5 table, and the R5 paragraphs below,
+are the pre-rewrite state kept as evidence of what was measured and why.
+- **The recorded findings are closed too.** F-1 and F-2 (the disclosed commit)
+  closed with R5; F-9 (the ruling's own evidence line) closed when the entry was
+  rewritten to name the rule instead of the value.
+- **The gate is green now.** `python3 scripts/privacy_scan.py --tree --history
+  --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s)`.
+
+The findings, the method and the threat model stand as the record of the audit
+that justified the rewrite. Where this file says "is red" or "is open" or
+"remains to be done", read it as "was true at the audited revision" - every such
+statement is a measurement of that revision, not a task still owed.
+
+**Conclusion at the audited revision.** The **tree** was clean, the **published**
+history was clean, and the **local** history was **red**. The red is caused by one commit, and that commit is
 in the forge. Three facts, kept separate, because they have different answers
 and different remediations:
 
@@ -32,11 +53,13 @@ and different remediations:
    display name but a null email, and the commit page renders the name but not the
    address.
 
-**R5 is open, not withdrawn.** The local history rewrite is still required: it
-protects the published history from carrying the identity forward. It does **not**
-undo the disclosure, and this report does not claim it does. The rewrite is a red
-line that needs the **user's** authorization through the CEO; it is carried by
-`ceo T-0003`, and this report neither authorizes nor performs it.
+**R5 was open at the audited revision - it is now closed.** The local history
+rewrite was required because it protects the published history from carrying the
+identity forward. It does **not** undo the disclosure, and this report does not
+claim it does. The rewrite is a red line that needed the **user's** authorization
+through the CEO; it was carried by `ceo T-0003` and performed under that
+authorization (`docs/Team/Project.md` gap G-8). The text that follows is the
+request as it stood before the rewrite.
 
 **Words.** "Published" is reserved for objects reachable from a published ref. The
 word for the object here is **retained** (the forge retains it and serves it by
@@ -73,9 +96,10 @@ and never pinned here, because the commit that documents a count raises it
 - **Two surfaces are measured separately**, because they have different answers
   and different remediations: the **local** repository (the branch that is about
   to be pushed) and the **published** repository (every ref the forge holds,
-  measured in a clone of the forge). The published surface is clean; the local
-  history is red. A single "the repository is clean" sentence cannot carry both,
-  which is why this report states them in a table.
+  measured in a clone of the forge). At the audited revision the published
+  surface was clean and the local history was red; a single "the repository is
+  clean" sentence cannot carry both, which is why this report states them in a
+  table. Both are clean now (the local side since R5).
 - Revision audited: `main` at the tip `git rev-parse main` reported when this
   report was refreshed; the counts below are re-read on every refresh rather than
   pinned, because the commit that documents a count raises it. The same applies
@@ -155,15 +179,15 @@ dispositioned (Architecture §9, `privacy` CI job).
 
 | id | severity | rule | source / location | masked evidence | status |
 |---|---|---|---|---|---|
-| F-1 | high | personal-email | author metadata of the forge squash merge of PR #23, on local `main` | `pin******.no` | **OPEN** - three facts, in this order. (1) The commit is **not reachable from any published ref and is not in the published history** (`git ls-remote origin` -> 40 refs, none advertising it; not an ancestor of published `origin/main` nor of the published `refs/pull/23/head`; a plain anonymous clone does not contain it; a truncated-SHA fetch is refused), and the published side is clean. (2) The forge nevertheless **serves it anonymously by SHA**, with no authentication: its API returns HTTP 200 with the **author name and email in the payload**, its commit page returns HTTP 200 and renders the author name, and the PR #23 record names it as `merge_commit_sha` (also served by the ordinary enumerable `GET /pulls` list). (3) The author identity is therefore **already disclosed to anyone who requests that SHA**, and it cannot be un-disclosed. Discoverability was measured absent, so this is not a claim of broadcast, of public discovery or of a leak. Remediation: R5 (below) - the local history rewrite, which protects the published history from carrying the identity forward but does not undo the disclosure; it needs the user's authorization (ceo T-0003) |
-| F-2 | high | private-domain | same commit, same author field | `z*****o` | **OPEN** - same commit and same remediation as F-1 |
+| F-1 | high | personal-email | author metadata of the forge squash merge of PR #23, on local `main` | `pin******.no` | **CLOSED by R5** (the authorized rewrite, `Project.md` G-8) - three facts, in this order. (1) The commit is **not reachable from any published ref and is not in the published history** (`git ls-remote origin` -> 40 refs, none advertising it; not an ancestor of published `origin/main` nor of the published `refs/pull/23/head`; a plain anonymous clone does not contain it; a truncated-SHA fetch is refused), and the published side is clean. (2) The forge nevertheless **serves it anonymously by SHA**, with no authentication: its API returns HTTP 200 with the **author name and email in the payload**, its commit page returns HTTP 200 and renders the author name, and the PR #23 record names it as `merge_commit_sha` (also served by the ordinary enumerable `GET /pulls` list). (3) The author identity is therefore **already disclosed to anyone who requests that SHA**, and it cannot be un-disclosed. Discoverability was measured absent, so this is not a claim of broadcast, of public discovery or of a leak. Remediation: R5 (below) - the local history rewrite, which protects the published history from carrying the identity forward but does not undo the disclosure; it needs the user's authorization (ceo T-0003) |
+| F-2 | high | private-domain | same commit, same author field | `z*****o` | **CLOSED by R5** - same commit and same remediation as F-1 |
 | F-3 | medium | hygiene | working tree `site/` | mkdocs build output | resolved - `site/` is ignored and untracked (`git check-ignore -v site/` -> `.gitignore`: `site/`; `git ls-files site` -> nothing) |
 | F-4 | low | identity | `github.com` URLs in pyproject/mkdocs/README/workflows/CITATION | account handle `VisionPZ` | resolved - repository moved to `Nidvue/Teamwork` (2026-10-18); no tracked file outside `docs/Team/Archive.md` and this report carries the handle |
 | F-5 | low | identity | operator global git config (not in repo) | personal name + mailbox | mitigated in-repo |
 | F-6 | low | supply-chain | `.github/workflows/*.yml` | actions pinned to mutable major tags (`@v4`, `@v5`, `@v0`, `@v2`) | resolved - every action is pinned to a full commit SHA (`grep -hoE 'uses: [^ ]+' .github/workflows/*.yml \| grep -vE '@[0-9a-f]{40}$'` -> nothing) |
 | F-7 | info | hygiene | `.pi/` and `.venv/` (gitignored) | home paths, private domain, personal mailboxes | residual risk |
 | F-8 | info | boundary | the published side of the same object | no address, no name, no private domain | **measured boundary, not a finding of a leak** - the published side is clean and the object is **not reachable from any published ref**, and the content of the offending commit is already published safely under the role mailbox (identical tree, and that role-mailbox commit **is** in `origin/main`). So the published history carries no personal identity, and the disclosure is of the **identity** of the retained object, not of its content. This row is what keeps the risk proportionate: it bounds F-1 and F-2, and it is the reason the report distinguishes *reachability*, *service* and *disclosure* instead of compressing them into one adjective |
-| F-9 | high | personal-email + private-domain | the **decision record of the ruling that governs this report** (`D-20261021-Reviewer-1`), on the Reviewer's own unmerged branch | `pin******.no` | **OPEN - measured, and it is a NEW occurrence, not the old one.** The decision entry quotes the operator's address **literally** in its `evidence:` line, and the commit that carries it quotes the same address in its **commit message**. Measured on that branch's tree: the shipped tree scan is `FAIL` (the address, the private domain and two high-entropy false positives on the same line), where `main` is `PASS`. The occurrence is in the record that documents this very disclosure, so it reproduces the exact failure the gate exists to catch. It is not on `main` and not on any published ref, so it is **not published** and it is **not disclosed** to anyone who does not already have that branch - but it will become published the moment the ruling is merged, and the shipped `privacy` CI job will refuse that push. **Remediation: the decision entry must name the rule, not the value** - the same treatment the archive mask already gives the review records (`docs/Team/Archive.md` carries `[redacted-personal-email]` where it used to carry the value) - and the commit message must do the same. Owner: the Reviewer who wrote the entry, with the CEO as the routing lane. This report does not edit that file; it is not in this lane's scope |
+| F-9 | high | personal-email + private-domain | the **decision record of the ruling that governs this report** (`D-20261021-Reviewer-1`), on the Reviewer's own unmerged branch | `pin******.no` | **CLOSED** - the decision entry names the rule, not the value. Verified: `grep -nE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' docs/Team/Decisions.md | grep -v 'agents\.nidvue\.com'` prints nothing, while the same pattern over a control line carrying an address prints it (`grep -cE` -> 1). Note the earlier revision of this row cited an ERE with `\w`, which GNU grep does not expand, so that command matched nothing and proved nothing. **As measured at the audited revision this was a NEW occurrence, not the old one.** The decision entry quoted the operator's address **literally** in its `evidence:` line, and the commit that carried it quoted the same address in its **commit message**. On that branch's tree the shipped tree scan was `FAIL` (the address, the private domain and two high-entropy false positives on the same line) where `main` was `PASS`: the occurrence was in the record that documents this very disclosure, so it reproduced the exact failure the gate exists to catch. It was never on `main` or on any published ref, so it was not published; had the ruling been merged as it stood, the shipped `privacy` CI job would have refused the push. **Remediation, since performed:** the entry names the rule instead of the value - the same treatment the archive mask already gives the review records (`docs/Team/Archive.md` carries `[redacted-personal-email]` where it used to carry the value) - and the commit message does the same |
 
 F-1/F-2 root cause: the author of the squash-merged commit is the **account that
 was signed in to the forge** when the merge button was pressed, not the role
@@ -178,9 +202,10 @@ exists on the forge and is served by it (F-1, fact 2). The re-measurement is in
 section 7.2, and the request that was withdrawn on the old measurement is
 re-opened as R5.
 
-The mode-by-mode residue, re-measured: `--tree` and `--staged` report nothing at
-all once `--allow .github/privacy-allow.txt` is passed. `--history` with the same
-flag is red, and the residue is the two causes above - older blob revisions of
+The mode-by-mode residue, re-measured **at the audited revision**: `--tree` and
+`--staged` reported nothing at all once `--allow .github/privacy-allow.txt` was
+passed. `--history` with the same flag was red then (it is green since R5), and
+the residue was the two causes above - older blob revisions of
 `docs/Team/Archive.md` that quote the address inside a quoted-evidence field, and
 the author field of the squash-merge commit. Without the allowlist the tree is
 also red, and its residue is the allowlist file's own text, the scanner's own
@@ -203,13 +228,14 @@ in that file with a written reason - never ignored.
 | R4 | This report redacts every personal value so it cannot re-leak what it documents | this file passes `scripts/privacy_scan.py --tree` |
 | R8 | The audit-manifest anchor is scoped to the workspace `TeamId`; a legacy manifest without one is historical and cannot make a new workspace look truncated | `ledger_verify`/`_audit_audit_trail` compare `team_id`; `tests/unit/test_ledger.py` covers same/foreign ids |
 
-### R5 - OPEN (was: withdrawn; re-opened with a new cause)
+### R5 - CLOSED (was: withdrawn, then re-opened, then performed)
 
-R5 asks the CEO for a **rewrite of the local history** so that a personal author
-mailbox stops being reachable from the branch that is about to be pushed. **It is
-open, not withdrawn.** The ruling `D-20261021-Reviewer-1` changes
-what the report says about the object; it does not change whether the rewrite is
-needed.
+R5 asked the CEO for a **rewrite of the local history** so that a personal author
+mailbox stops being reachable from the branch that was about to be pushed. **It
+was open at the audited revision and has since been performed** under the user's
+authorization (`docs/Team/Project.md` gap G-8). The ruling
+`D-20261021-Reviewer-1` changed what the report says about the object; it did not
+change whether the rewrite was needed.
 
 **The three facts, restated as the state of the request.** Each row is the
 measure and what it answers.
@@ -229,14 +255,14 @@ measure and what it answers.
 | full clone + `+refs/pull/*/head`, object-by-object sweep | no address, no name, no private domain | the **published** side is clean |
 | `git rev-parse <rev>^{tree} <role-mailbox-rev>^{tree}` | the same tree id | the **content** is already published under the role mailbox; the disclosure is of the **identity** |
 
-**What the request is for.** Rewrite the local commits so that the personal
-address is not reachable from the branch that is about to be pushed: rebase the
+**What the request was for.** Rewrite the local commits so that the personal
+address was not reachable from the branch about to be pushed: rebase the
 local branches onto the **published** tip, rewrite the archive blob revisions
 that quote the address so the value is redacted, and re-point the commit ids
 that `docs/Team/Archive.md`, `docs/Team/Decisions.md` and the ledger cite. No
 published ref, tag or release changes, and nothing is force-pushed.
 
-**What the request is not, and cannot be.** The rewrite **does not undo the
+**What the request was not, and could not be.** The rewrite **does not undo the
 disclosure**. The identity is already disclosed at the object level: the forge
 serves the retained object with the name and the address attached, and that fact
 cannot be un-disclosed by anything this team does to its own history. What the
@@ -246,15 +272,16 @@ refs, and it removes the address from the local archive blob revisions. The
 disclosure and the rewrite are two different problems, and only the second one is
 in this team's hands.
 
-**Authorization: the user's, through the CEO.** `AGENTS.md`'s red-line list names
-"history rewrite" without a *published* qualifier, and the conservative reading
-applies; the PUSH POLICY names "force-push, published-history rewrite and
-retagging" as needing the CEO's explicit authorization. The request therefore
-needs the **user's** authorization, and it is carried by `ceo T-0003`. This
-report records the request and the evidence; it does not authorize the rewrite
-and does not perform it. The base of the rewrite is fixed by
-D-20261020-CEO-8 (in `docs/Team/Decisions.md`): the **published** tip, not the
-local tip or the local merge base.
+**Authorization: the user's, through the CEO - and it was given.** `AGENTS.md`'s
+red-line list names "history rewrite" without a *published* qualifier, and the
+conservative reading applies; the PUSH POLICY names "force-push,
+published-history rewrite and retagging" as needing the CEO's explicit
+authorization. The request therefore needed the **user's** authorization, and it
+was carried by `ceo T-0003` and recorded as gap G-8 of `docs/Team/Project.md`.
+This report recorded the request and the evidence; it did not itself authorize or
+perform the rewrite. The base of the rewrite was fixed by D-20261020-CEO-8 (in
+`docs/Team/Decisions.md`): the **published** tip, not the local tip or the local
+merge base.
 
 **What holds regardless of the rewrite.** R1 sets the repository-local identity
 to a role mailbox, so a plain `git commit` cannot inherit an operator identity;
@@ -294,12 +321,12 @@ today. The `privacy` CI job refuses a push that introduces a personal identity.
 
 | risk | owner | status |
 |---|---|---|
-| **The author identity of the retained commit is disclosed at the object level and cannot be un-disclosed.** (1) The commit is **not reachable from any published ref and is not in the published history** (`git ls-remote origin` -> 40 refs, none advertising it; not an ancestor of published `origin/main` nor of `refs/pull/23/head`; a plain anonymous clone does not contain it; a truncated-SHA fetch is refused) and the published side is clean (no address, no name, no private domain in the swept reachable objects). (2) The forge nevertheless **serves the object anonymously by SHA**, with no authentication: its API returns HTTP 200 with the **author name and email in the payload**, its commit page returns HTTP 200 and renders the author name, and the PR #23 record names it as `merge_commit_sha` (also served by the ordinary enumerable `GET /pulls` list). (3) The identity is therefore **already disclosed to anyone who asks for that SHA** and cannot be un-disclosed; discoverability was measured absent, so no claim of broadcast, of public discovery or of a leak is made here. The **local history rewrite (R5) is still required** - it protects the published history from carrying the identity forward - **but it does not undo the disclosure**. What the operator decides about the identity itself is outside this team's hands | CEO | **open** - R5 (a rewrite of the local history) needs the user's authorization (ceo T-0003); the disclosure itself is not reversible by the team |
+| **The author identity of the retained commit is disclosed at the object level and cannot be un-disclosed.** (1) The commit is **not reachable from any published ref and is not in the published history** (`git ls-remote origin` -> 40 refs, none advertising it; not an ancestor of published `origin/main` nor of `refs/pull/23/head`; a plain anonymous clone does not contain it; a truncated-SHA fetch is refused) and the published side is clean (no address, no name, no private domain in the swept reachable objects). (2) The forge nevertheless **serves the object anonymously by SHA**, with no authentication: its API returns HTTP 200 with the **author name and email in the payload**, its commit page returns HTTP 200 and renders the author name, and the PR #23 record names it as `merge_commit_sha` (also served by the ordinary enumerable `GET /pulls` list). (3) The identity is therefore **already disclosed to anyone who asks for that SHA** and cannot be un-disclosed; discoverability was measured absent, so no claim of broadcast, of public discovery or of a leak is made here. The **local history rewrite (R5) was required** - it protects the published history from carrying the identity forward - **but it does not undo the disclosure**. What the operator decides about the identity itself is outside this team's hands | CEO | **residual** - R5 was performed under the user's authorization (`Project.md` G-8), so the published history will not carry the identity forward; the disclosure already made at the object level is not reversible by the team |
 | `.venv/` and `.pi/` contain the operator's home path, private domain and mailboxes; they are gitignored but a `git add -f` or a `.gitignore` edit would expose them | COO / all agents | accepted, monitored by `--tree` |
 | ~~CI actions on mutable tags~~ - every `uses:` is pinned to a full commit SHA (F-6, R7) | Release Engineer | **closed** |
 | A future commit made outside `teamwork.py commit` could use the global personal identity | all agents | mitigated by R1; the `privacy` CI job and the published-side committer guard catch it on push |
 | A genuine secret typed into a PR before CI runs is briefly public in the PR diff | all agents | use `--staged` before committing; GitHub push protection is external |
-| The decision record of the ruling that governs this report quotes the operator's address literally (F-9), in the record's own `evidence:` line and in the commit message that carries it. It is on an unmerged branch, so nothing is published or disclosed yet, but merging it as it stands would put the address into the published tree and the shipped `privacy` CI job would refuse the push | Reviewer (author of the entry), routed by the CEO | **open** - rewrite the evidence line to name the rule instead of the value, and the commit message with it, before the ruling is merged |
+| The decision record of the ruling that governs this report quoted the operator's address literally (F-9), in the record's own `evidence:` line and in the commit message that carried it | Reviewer (author of the entry), routed by the CEO | **closed** - the entry now names the rule instead of the value, and the shipped `privacy` gate passes on the tree |
 
 ## 7. Verification
 
@@ -464,8 +491,8 @@ grepping this report for a withdrawn phrase does not find it:
 | a risk row that said the exposure lay ahead of us rather than behind us | the disclosure happened at the object level, when the forge served the object with the identity attached |
 | a risk row that reduced this to a containment task rather than a disclosure | the same reason - the disclosure happened; the rewrite does not undo it |
 
-The disclosure happened; the rewrite is still needed; the rewrite does not undo
-it.
+The disclosure happened. The rewrite was then performed; it did not undo the
+disclosure.
 
 ### 7.2.1 The ruling's own record (F-9)
 
@@ -493,14 +520,13 @@ private domain, quoted literally in the `evidence:` line of the entry that
 documents the disclosure. The commit message of the same commit quotes the
 address as well.
 
-The two facts that keep this proportionate: the occurrence is **not on `main`
-and not on any published ref**, so it is not published and not disclosed to
-anyone who does not already have that branch; and the fix is the one the team
-already uses elsewhere - **name the rule, not the value**. The archive mask
+The two facts that keep this proportionate: the occurrence was **never on `main`
+and never on any published ref**, so it was not published and not disclosed to
+anyone who did not already have that branch; and the fix is the one the team
+already uses elsewhere - **name the rule, not the value**. The archive mask had
 replaced the quoted address with `[redacted-personal-email]` in exactly this way
-(`docs/Team/Archive.md`), and the ruling entry needs the same treatment in both
-the record and the commit message. The owner is the author of the entry; this
-lane does not edit that file.
+(`docs/Team/Archive.md`). The ruling entry received the same treatment in both
+the record and the commit message, which is why the finding is closed.
 
 ### 7.3 Without the allowlist
 

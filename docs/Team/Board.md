@@ -7,11 +7,12 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 ## Snapshot
 
-- Milestone: M9 (release truth) is in progress. Its state is read with
-  `teamwork.py board` and `teamwork.py task list <role>`; the rows of this
-  board are a human summary of the same records.
-- Release state, each fact read by its own command:
-  - npm `latest`: `npm view @nidvue/teamwork dist-tags` -> the `latest` tag
+- Milestone: M9 (release truth) and M10 (release truth on every OS) are closed.
+  Live state is read with `teamwork.py board` and `teamwork.py task list <role>`;
+  the rows of this board are a human summary of the same records.
+- Release state, each fact read by its own command - no value is pinned here,
+  because every one of them moves:
+  - npm `latest`: `npm view @nidvue/teamwork dist-tags`
   - newest git tag: `git tag -l --sort=-v:refname | head -1`
   - version on `main`: `grep __version__ src/teamwork/version.py`
   - the published version that has no tag: `cat release-exceptions.json`
@@ -72,6 +73,7 @@ under two roles is two tasks.
 | ceo | T-0071 | - | done | P-0108 | 9099e51 |
 | ceo | T-0072 | - | done | P-0110 | 4af8b2e |
 | ceo | T-0073 | - | done | P-0111 | 25f8f3e |
+| ceo | T-0074 | - | review | P-0115 | - |
 | developer | T-0005 | release | done | P-0073 | 5fa73ef |
 | developer | T-0006 | release | done | P-0074 | 74740be |
 | developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
@@ -127,6 +129,7 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0074 · Docs and tree hygiene: update stale README/docs claims, delete dead symbols, remove redundant banners | P0 | review | - |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
