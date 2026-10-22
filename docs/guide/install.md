@@ -109,11 +109,18 @@ PyPI); the import name is `teamwork` and the console script is `teamwork`.
 
 ### Install from the GitHub release wheel
 
-Each tag publishes a wheel and an sdist with checksums and SBOMs:
+Each tag publishes a wheel and an sdist with checksums and SBOMs. The URL below
+names the newest **release**, which can be older than the checkout - a version is
+bumped before it is tagged, so read both rather than assuming they agree:
 
 ```console
+$ gh release list --limit 1
+$ python3 scripts/teamwork.py --version
 $ python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.2/teamwork_agents-1.1.2-py3-none-any.whl
 ```
+
+If you need the tree's exact engine instead of the released one, install from the
+checkout: `python -m pip install .`.
 
 ### Index commands (unavailable until PyPI publishing is enabled)
 
@@ -126,8 +133,11 @@ Verify (once the channel is live):
 
 ```console
 $ teamwork --version
-teamwork 1.1.3
+teamwork <version>
 ```
+
+The number printed is `__version__` in the installed `teamwork/version.py`, so
+read it from the command rather than from a copy of this page.
 
 ### Install with pipx (isolated, on PATH)
 
@@ -170,7 +180,7 @@ directory, without installing anything:
 
 ```console
 $ python3 scripts/teamwork.py --version
-teamwork 1.1.3
+teamwork <version>
 ```
 
 ## Platform notes
@@ -220,7 +230,7 @@ $ python3 .agents/skills/teamwork/scripts/teamwork.py selftest
   PASS  stop-condition gate    ok
 
 teamwork selftest: 5/5 checks passed
-  version:   1.1.3
+  version:   <version>
   python:    3.12.13 (posix)
   skill:     /path/to/Teamwork
 ```

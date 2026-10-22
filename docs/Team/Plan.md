@@ -17,13 +17,14 @@ for one task. This file carries the exit condition, which does not move.
 | M1 Package the engine | `selftest` + installed wheel `--version` | done |
 | M2 Make it attractive | README demo, strict docs site, 0 broken links | done |
 | M3 Independent verification | every deliverable has a Reviewer verdict | done |
-| M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - now at `v1.0.2` |
+| M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - the release line has since advanced; newest tag is read with `git tag -l --sort=-v:refname \| head -1` |
 | M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | done - T-0010..T-0016, closing T-0017 |
 | M6 Evidence packets + repro gate | hashed evidence artifacts, repro-first bug gate, Reviewer verdicts | done - T-0020..T-0025 |
 | M7 Reviewer fan-out + claims | `pulse` gives every deliverable to a different idle Reviewer lane | done |
 | M8 Records hygiene | archive merge fields carry a proved revision, each milestone listed once | done |
-| M9 Release truth | every published version is traceable to a tag or a measured exception, and every release claim is measurable | in progress (state read with `teamwork.py board`) |
+| M9 Release truth | every published version is traceable to a tag or a measured exception, and every release claim is measurable | done - AC-REL-1..AC-REL-6 measured green, including CI on the pushed revision |
 | M9p Harness^2 adoption | `harness` and `hooks` registered and documented, AC-H1..AC-H8 verified on the merged revision | closed on the published line; its records are kept below under M9p because the reconciled history carries two milestones that were both named M9 |
+| M10 Release truth on every OS | the CI matrix is green on all three operating systems, not only ubuntu and macOS | done - T-0022..T-0024; CI run 39690418108 on the pushed revision, 19/19 jobs |
 
 ## M5 - post-1.0 hardening (closed)
 
@@ -77,12 +78,12 @@ lists each milestone once, and the export names the head it was taken from.
 |---|---|---|---|---|---|---|
 | T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | done | merge `62ef5db`; 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
 
-## M9 - release truth (in progress)
+## M9 - release truth (closed)
 
 Goal: the published state and the repository must agree, and every release claim
 in the documentation must be measurable by a command.
 
-M9 exists because they disagreed: the npm `latest` release shipped an engine
+M9 existed because they disagreed: the npm `latest` release shipped an engine
 behind `main`, its CI run was red, no git tag covered the published versions,
 the docs advertised an install channel that does not exist, and the release
 record named a tag that never existed and a coverage threshold an order of
