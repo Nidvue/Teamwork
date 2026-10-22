@@ -133,8 +133,11 @@ Verify (once the channel is live):
 
 ```console
 $ teamwork --version
-teamwork 1.1.3
+teamwork <version>
 ```
+
+The number printed is `__version__` in the installed `teamwork/version.py`, so
+read it from the command rather than from a copy of this page.
 
 ### Install with pipx (isolated, on PATH)
 
@@ -177,7 +180,7 @@ directory, without installing anything:
 
 ```console
 $ python3 scripts/teamwork.py --version
-teamwork 1.1.3
+teamwork <version>
 ```
 
 ## Platform notes
@@ -227,7 +230,7 @@ $ python3 .agents/skills/teamwork/scripts/teamwork.py selftest
   PASS  stop-condition gate    ok
 
 teamwork selftest: 5/5 checks passed
-  version:   1.1.3
+  version:   <version>
   python:    3.12.13 (posix)
   skill:     /path/to/Teamwork
 ```
