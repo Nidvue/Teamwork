@@ -10,7 +10,8 @@ Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md)
 Turn the private `teamwork` skill into a self-contained, reusable,
 cross-platform open-source **skill for coding agents**: one directory cloned into
 the host's skill location, with the stdlib-only engine bundled inside it and also
-published as the optional `teamwork-agents` package, a full development → test →
+distributable as the optional `teamwork-agents` package (built and released as a
+GitHub-release wheel; not yet published to PyPI), a full development → test →
 build → verify → release pipeline, polished documentation aimed at adoption, and a
 public GitHub repository at `Nidvue/Teamwork` that is safe to open (zero private
 information). The skill is the product; the package is a convenience face on the

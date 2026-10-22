@@ -1411,3 +1411,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: identity --guard-committer --range 4be25e8..HEAD -> '# committer guard: 2 commit(s) in 4be25e8..HEAD carry a role committer' rc 0; identity --guard-committer --range 1254516..4be25e8 -> '- 6348825271cf FAIL committer R <r@r>' rc 1; git merge-base --is-ancestor 6348825 1254516 -> NO (came in with the local M9 line); git rev-list --count 6348825..main -> 329
 - falsified by: A future push still fails the committer guard on 6348825, i.e. the guard turns out to scan all history rather than the pushed range.
 - consequences: -
+
+## D-20261022-CEO - Docs staleness is fixed by dated status headers, not by rewriting measured audits
+
+- date: 2026-10-22
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0074
+- context: docs/Team/AuditReport.md and M9Acceptance.md are dated measurements whose conclusions were later closed; three documents also disagreed on the required-check count.
+- options considered: -
+- decision: Historical measurement documents get a dated Status section that names what has since closed and states the truth now; their body stays as the record of what was measured. Generated artefacts (Board.md tables) are regenerated with tests/unit/test_board_matches_tool.py, never hand-edited. Live documents (README, docs/guide/*, Plan.md milestones, Project.md objective) are corrected in place. The published npm package name is @nidvue/teamwork (scripts/build_pi_package.py:23 NAME), so Pi-Packaging.md orders pi install npm:@nidvue/teamwork.
+- why: A measured audit that is silently rewritten loses its evidentiary value and cannot be distinguished from an audit that never found the defect; a dated status header keeps the measurement and tells the reader what is true now.
+- evidence: gh api repos/Nidvue/Teamwork/branches/main/protection -> 16 required contexts (Release.md:39,:200 correct; Archive.md's 15 was the older measurement); ruff format --check . -> 186 files already formatted; pytest -q -> 1255 passed 1 skipped; check_release_consistency.py --offline -> 0 problem(s); privacy_scan --tree --history --allow -> PASS 0 findings; teamwork.py links -> # issues: 0
+- falsified by: A reader who follows the Status header and reaches a stale conclusion, or a regenerated Board.md whose tables differ from its queues.
+- consequences: -
