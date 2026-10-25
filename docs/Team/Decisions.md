@@ -1281,7 +1281,7 @@ worktree until the slot expires - the safe direction to fail.
 - decision: The distribution name is teamwork-agents; the import package and console script are teamwork.
 - why: The PyPI name 'teamwork' is already taken, and the import name is part of the public API.
 - evidence: pyproject name = teamwork-agents; README states the install command.
-- falsified by: pip install teamwork-agents does not expose the teamwork command.
+- falsified by: pip install teamwork-agents does not expose the teamwork command. <!-- release-consistency: channel-unavailable -->
 - consequences: -
 
 ## D-20261021-Developer - The unborn-HEAD test names its branch explicitly ('git init
@@ -1491,3 +1491,51 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: python tests/unit/test_board_matches_tool.py @7e2fa1d -> exit 0, wrote 42 task(s), 42 rows / 28 in flight, hidden 0; pytest -q -> 2 failed, 10 passed before re-render (2 drift rows), 12 passed after; pre-fix queues() -> 26 of 42 records, 18 of 28 open
 - falsified by: A committed Board.md row that the recipe cannot regenerate, or a hidden open task after the fold, overturns the acceptance.
 - consequences: -
+
+## D-20261025-CEO-3 - D-0001 ruling: a matrix row is measured at the head it lands on
+
+- date: 2026-10-25
+- kind: tribunal
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0001
+- context: -
+- options considered: -
+- decision: A traceability row is measured at the revision the PR lands on; a moving base is a rebuild trigger, not a defect of the author. AC-15 and AC-16 share one command and may not disagree (measure once). G-10 and every gap row state what is measured now. Reviewer-3's rebuild-first position is upheld; the Product Manager's rows were measured, not invented.
+- why: Landing rows known false publishes a false record; measuring at the landing head is the only reading that stays true after the merge
+- evidence: dispute D-0001 escalated after 3 review fails; signed by ceo + reviewer (neutral seat, CTO/CFO unstaffed, Reviewer-3 as a party excluded); measured at 2ddbeb4: skill_contracts 2 failed/83 passed, guard 10 passed/1 skipped, Tests.md carries 22 records while G-10 said empty
+- falsified by: A rebuilt matrix at the landing head still contradicts itself, or a row measured at the landing head is wrong after the merge
+- consequences: PM rebuilds once on main and re-measures every row; the reviewer passes on the guard plus row-consistency; this reading binds later matrices
+
+## D-20261025-CEO-4 - The board cannot contain its own post-merge state; the merge records step re-renders it
+
+- date: 2026-10-25
+- kind: technical
+- status: accepted
+- deciders: CEO, Reviewer-1 (neutral technical seat)
+- decided by: CEO
+- task: T-0003, T-0013
+- context: A committed `docs/Team/Board.md` is a projection of the queues at render time, so landing the commit that carries it flips its own task (and the render's task) from `doing`/`review` to `done` + merge sha. Measured across three board deliverables: every attempt to land a self-consistent board produced stale rows on main immediately after the merge.
+- options considered: (a) render after the merge - impossible, the merge is what changes the state; (b) exempt a landing task from both invariants - workable and measured; (c) fold the re-render into the post-merge records commit - the permanent fix, not yet implemented.
+- decision: (b) now, (c) as the standing fix. A task is a *landing* task when either side (queue or board) says `review`, or when the queue carries the merge of the same PR while the board row is still open with no merged revision. Every other row stays strict. `pr merge`'s records step should re-render the board so the exception can be retired.
+- why: treating a structural impossibility as an author defect loops forever; the projection must be refreshed by the step that changes the state, and the exemption must stay narrow enough to catch real drift.
+- evidence: `pytest -q tests/unit/test_board_matches_tool.py` @d5401a3 -> 9 passed, 4 skipped, 0 failed; live gate with `TEAMWORK_ROOT` set -> `mismatches()=[]`, `flight_mismatches()=[]`, 44 tasks / 44 rows; mutations: non-landing drift FAILS, done-vs-doing FAILS, landing row exempt.
+- falsified by: a board render that stays invariant across the merge of the commit carrying it, or a review finding a drift class the exemption hides.
+- consequences: follow-up task for the engine's merge records step; each docs-only merge needs a re-render until that lands.
+
+## D-20261025-CEO-5 - Tribunal rulings D-0001/D-0002/D-0003: a matrix row is measured at the head it lands on and pins no moving count
+
+- date: 2026-10-25
+- kind: tribunal
+- status: accepted
+- deciders: CEO + Reviewer neutral seat (CTO/CFO unstaffed; the filing Reviewer, as a party, did not rule)
+- decided by: CEO
+- task: T-0001
+- context: The traceability deliverable failed five reviews in one class - rows measured on an older base, and rows that pinned counts which move with every commit.
+- options considered: (a) land the rows and correct them afterwards - the reviewer showed that publishes false red rows for a green tree; (b) rebuild once at the landing head with no pinned counts.
+- decision: (b) binds every later matrix. A row is measured at the revision it lands on; a moving base is a rebuild trigger, not an author defect. No row or gap pins a moving count - it names the command and the shape a reader must see. AC-3/AC-21 state their own measured result plus their open dependency instead of claiming the whole suite green.
+- why: a matrix whose numbers change every commit cannot be true in more than one revision, and a green claim over a red suite is the defect the matrix exists to catch.
+- evidence: five review rounds on `productmanager/t-0001-*`; final head `b3facf3` -> guard `pytest -q tests/unit/test_traceability_matrix.py` 10 passed, 1 skipped; count scan (`role lines|N failed, N passed|N records`) -> none; merged at `96160cf`.
+- falsified by: a rebuilt matrix at its landing head that still contradicts itself, or a row measured there that turns out wrong after the merge.
+- consequences: binds later matrices; both parties implemented it.
