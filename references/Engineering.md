@@ -49,10 +49,24 @@ git -c user.name="Developer" -c user.email="developer@agents.nidvue.com" commit 
 `teamwork.py identity [--role X]` prints the exact identity.
 `TEAMWORK_IDENTITY_DOMAIN` overrides the email domain.
 
-Repo-local identity: the repository's own `user.name`/`user.email` is set to a
-**role** mailbox (never the operator's), so an accidental plain `git commit`
-cannot leak a personal identity. The per-commit `-c` form below still overrides
-it and remains the rule for every deliverable.
+### The constitution, quoted
+
+`AGENTS.md` (Commit identity) is the rule; text in a charter or a reference that
+departs from it is wrong, whatever the repository's local configuration says:
+
+- Commit as the **acting role mailbox**: `author == committer ==
+  <Role> <role@agents.nidvue.com>` - the role that did the work, never an instance
+  number, never another role's mailbox, never the operator's account.
+- Apply it **per commit**: `git -c user.name=<Role> -c user.email=<role>@agents.nidvue.com
+  commit ...`, or `teamwork.py commit --role <role> ...`, which does the same.
+- End the message with `Acting role: <Role>`; the identity gate fails when that
+  trailer does not match the author.
+
+A plain `git commit` inherits whatever the repository's own `user.name` / `user.email`
+happens to be configured to, and the identity gate fails that commit unless the
+configured identity is the acting role mailbox. The repository-local config is
+therefore a convenience fallback only and no lane may read it as permission to
+skip the per-commit form above.
 
 ## Commit batching
 
