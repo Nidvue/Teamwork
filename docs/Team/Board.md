@@ -79,7 +79,7 @@ under two roles is two tasks.
 | reviewer | T-0001 | - | todo | - | - |
 | reviewer | T-0002 | - | todo | - | - |
 | product-manager | T-0001 | - | doing | - | - |
-| project-manager | T-0001 | hygiene | doing | - | - |
+| project-manager | T-0001 | plan | review | - | - |
 | release-engineer | T-0001 | ci | review | P-0003 | - |
 | release-engineer | T-0002 | - | todo | - | - |
 | release-engineer | T-0003 | - | todo | - | - |
@@ -114,7 +114,7 @@ landed by commit without a PR record.
 | reviewer | T-0001 · Serve the review queue and own the acceptance layer for the M11 deliverables | P0 | todo | - |
 | reviewer | T-0002 · Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | todo | - |
 | product-manager | T-0001 · Rebuild the traceability matrix for AC-19..AC-21 and re-key the machine criteria store (gap G-1) | P1 | doing | - |
-| project-manager | T-0001 · Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | doing | - |
+| project-manager | T-0001 · Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | review | - |
 | release-engineer | T-0001 · Workflow and release-gate integrity: workflows match the tree, hooks install, branch protection matches policy | P0 | review | P-0003 |
 | release-engineer | T-0002 · Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | todo | - |
 | release-engineer | T-0003 · ci.yml skips the privacy job (and every code job) on a prose-only push to main | P2 | todo | - |
