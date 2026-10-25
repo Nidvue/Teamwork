@@ -13,8 +13,11 @@ target; the underlying command is shown so it can be run without `make`.
 $ make ci
 ```
 
-Runs lint, type-check, tests, build/verify, privacy scan, docs build, link check
-and the commit-identity audit in order, stopping at the first failure.
+Runs lint, tests, build/verify, release consistency, privacy scan, docs build,
+link check and the commit-identity audit in order, stopping at the first failure.
+The target is `release-check`, and `make ci` is its alias - the same recipe, not
+a superset. `make typecheck` is deliberately not in it: mypy is a report, not a
+gate, in CI as well as locally.
 
 ## Steps and targets
 
@@ -25,6 +28,7 @@ and the commit-identity audit in order, stopping at the first failure.
 | `make test` | `pytest -q` | Unit, integration and acceptance tests. |
 | `make build` | `python -m build` | An sdist and a wheel are produced. |
 | `make verify` | `python scripts/verify_release.py` | The wheel bundles the skill and installs cleanly. |
+| `make release-consistency` | `python scripts/check_release_consistency.py` | Every published fact (a tag, a CHANGELOG section, a version token in a document) agrees with `src/teamwork/version.py`. Offline; the online half runs in `release.yml`. |
 | `make privacy` | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | No personal data, credentials, agent-host configuration or local state in the tree, the index or the history. The allowlist exempts specific committed values by exact literal, each with a written reason; a credential on the same line is still reported. |
 | `make docs` | `python -m mkdocs build --strict` | The docs site builds with no warnings. |
 | `make links` | `python scripts/teamwork.py links` | No broken links, bare URLs or missing back-links. |
@@ -45,21 +49,36 @@ $ python -m pip install -e ".[dev]"
 $ python -m pip install -r docs/requirements.txt
 ```
 
-The `dev` extra installs `pytest`, `ruff` and `mypy`; `docs/requirements.txt`
-installs `mkdocs-material`.
+The `dev` extra installs `pytest`, `pytest-cov`, `ruff`, `mypy` and `build`;
+`docs/requirements.txt` installs `mkdocs-material`.
 
 ## What CI runs
 
-`.github/workflows/ci.yml` runs the jobs below; each maps to a `make` target:
+`.github/workflows/ci.yml` runs the jobs below. The first column is the job id in
+that file:
+
+```text
+scope -> lint -> committer-guard -> typecheck -> test -> build -> privacy
+      -> release-consistency -> docs
+```
+
+`scope` is the classifier the rest hang off. A pull request and a manual run
+execute every job; a push skips the matrix when the changed paths are prose only
+(`docs/`, `assets/`, `*.md`, `LICENSE`, `CITATION.cff`, `mkdocs.yml`), and a tag
+push runs the consistency gate alone, because the tagged commit already passed
+the matrix as a `main` push.
 
 | Job | Matrix | Step |
 |---|---|---|
-| `lint` | ubuntu | `make lint` then `make identity` |
-| `typecheck` | ubuntu | `make typecheck` (non-blocking report) |
+| `scope` | ubuntu | classifies the changed paths and publishes `code=true/false` |
+| `lint` | ubuntu | `ruff check .`, then `ruff format --check .`, then the commit identity audit on a full-history checkout |
+| `committer-guard` | ubuntu | `teamwork.py identity --guard-committer --range ...` on every push, naming a forge-stamped committer before it reaches `main` |
+| `typecheck` | ubuntu | `mypy src/teamwork` with `continue-on-error: true` - a report, not a gate |
 | `test` | ubuntu/macos/windows × Python 3.9/3.11/3.13, plus 3.10/3.12 on ubuntu | `make test` |
 | `build` | ubuntu | `make build` then `make verify` |
 | `privacy` | ubuntu | `make privacy` |
-| `docs` | ubuntu | `make links` then `make docs` |
+| `release-consistency` | ubuntu | `check_release_consistency.py` offline: R1, R2, R6, R7 and R9 evaluate, R3/R4/R5/R8 print `SKIP` with the reason |
+| `docs` | ubuntu | link health (`teamwork.py links`), then `mkdocs build --strict` |
 
 `docs.yml` builds and deploys the site to GitHub Pages on `main`; `release.yml`
 runs on `v*` tags and produces the wheel, sdist, checksums and SBOM.
