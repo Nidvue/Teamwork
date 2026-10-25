@@ -249,12 +249,17 @@ named here with its id - never left silently unprotected.
 | `ci.yml` `PROSE=` | `docs/`, `assets/`, `README.md$`, `CHANGELOG.md$`, `CONTRIBUTING.md$`, `SECURITY.md$`, `CODE_OF_CONDUCT.md$`, `CITATION.cff$`, `LICENSE$`, `AGENTS.md$`, `mkdocs.yml$` |
 | `docs.yml` `paths:` | `docs/**`, `assets/**`, `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`, `mkdocs.yml` |
 | as path sets | identical - 11 members, `scope`-only `[]`, `paths`-only `[]` |
-| 18 probe paths through both | 0 disagreements: `docs/x`, `assets/`, `README.md`, `LICENSE`, `mkdocs.yml` are prose in both; `README.md.bak`, `docsx/a.md`, `assetsfoo/x.png`, `SKILL.md`, `NOTICE`, `release-exceptions.json`, `src/teamwork/cli.py`, `.github/workflows/ci.yml` are code in both |
+| 13 probe paths through both (5 prose + 8 code) | 0 disagreements: `docs/x`, `assets/`, `README.md`, `LICENSE`, `mkdocs.yml` are prose in both; `README.md.bak`, `docsx/a.md`, `assetsfoo/x.png`, `SKILL.md`, `NOTICE`, `release-exceptions.json`, `src/teamwork/cli.py`, `.github/workflows/ci.yml` are code in both |
 
 The `$` anchors are load-bearing: the file members are exact names, so `README.md.bak` is
-code, not prose. `NOTICE` is the only tracked root text file in neither list; it carries
-no link and no site page, `ci.yml`'s privacy job still scans it on every code push, and an
-unclassified path falls towards *running* the matrix, never towards skipping it.
+code, not prose. Of the 17 tracked root files (`git ls-files | awk -F/ 'NF==1'`), 9 are
+list members - `AGENTS.md`, `CHANGELOG.md`, `CITATION.cff`, `CODE_OF_CONDUCT.md`,
+`CONTRIBUTING.md`, `LICENSE`, `README.md`, `SECURITY.md`, `mkdocs.yml` - and the other 8
+are matched by neither list: `.editorconfig`, `.gitattributes`, `.gitignore`, `Makefile`,
+`NOTICE`, `SKILL.md`, `pyproject.toml`, `release-exceptions.json`. `NOTICE` is therefore
+not the only one; it carries no link and no site page, `ci.yml`'s privacy job still scans
+it on every code push, and an unclassified path falls towards *running* the matrix, never
+towards skipping it.
 
 ### 2. Every command a workflow runs exists in this tree
 
@@ -296,10 +301,15 @@ accessed 2026-10-25). No deprecated action, no deprecated runner expression, no
 already passed, and the newest green ubuntu lanes ran 2026-10-22 - read the first ubuntu
 run after it. A SHA pin is runner-image independent, so no `uses:` changes for it.
 
-The two failing CI runs on 2026-10-21 (`9b82f84`, `4be25e8`) were three failing
-`windows-latest` lanes each - a payload-digest assertion and
-`test_dry_run_prints_without_executing`, i.e. test defects, not runner deprecations - and
-all 11 lanes are green again at `67df036`.
+Two CI runs failed on 2026-10-21 (`9b82f84`, `4be25e8`) and they are not one defect class.
+`9b82f84` had three failing `windows-latest` lanes - a payload-digest assertion and
+`test_dry_run_prints_without_executing`, i.e. test defects, not runner deprecations.
+`4be25e8` had **four** failing checks: those same three `windows-latest` lanes (`py3.9`,
+`py3.11`, `py3.13`) plus `committer guard (no account stamped into main)` in the `CI`
+workflow - run `39662780079`, job `119439857709`, failing step "Guard the committer of the
+pushed revision" - i.e. an identity-gate failure, not a test defect. Recorded separately on
+purpose: folding it into "three test lanes" would hide a gate class from this drift record.
+All 11 lanes are green again at `67df036`.
 
 ### 4. The forge still matches `references/Remotes.md`
 
