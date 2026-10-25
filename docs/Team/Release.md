@@ -204,6 +204,18 @@ a pass.
   committer guard (`identity --guard-committer`) reports a stamped account on the
   push, and `identity --audit` accepts a forge rebase committer
   (`noreply@github.com`) only when the author is a canonical role mailbox.
+- `enforce_admins` is `false` and the repository has **one** collaborator with admin
+  (`gh api repos/Nidvue/Teamwork/collaborators`). That is the single-owner caveat
+  `references/Remotes.md` asks to be stated here: `required_approving_review_count=1`
+  cannot be satisfied by the only account, so the admin bypass is the escape, and a
+  local merge pushed straight to `main` does not wait for the protection rules at
+  all. The push path is guarded by the checks that run **on the push** - `committer
+  guard`, `privacy scan`, `release consistency` - and by the Reviewer's verdict; the
+  required checks block the host-PR path. Every bypass is a governance event: who,
+  when, which revision, and why the Reviewer verdict stands in for the host approval.
+  A second account with review rights is the preferred fix and removes the bypass.
+- Measured state, and what is still unprotected: the **Integrity drift check**
+  section below.
 
 ### What the identity audit accepts, and why (T-0010)
 
@@ -223,6 +235,173 @@ for the contract this gate belongs to.
 
 Re-stamping the existing history was refused: it rewrites every descendant sha, and
 `docs/Team/Archive.md` pins each landed PR's merge revision.
+
+## Integrity drift check (2026-10-25)
+
+The pipeline is read, not assumed. Each row is a command and its result on `main` at
+`7db810a`. Re-run them; a drift is fixed in the same change-set, or filed as a task and
+named here with its id - never left silently unprotected.
+
+### 1. The `scope` prose set and the `docs.yml` `paths:` list are one list
+
+| reading | value |
+|---|---|
+| `ci.yml` `PROSE=` | `docs/`, `assets/`, `README.md$`, `CHANGELOG.md$`, `CONTRIBUTING.md$`, `SECURITY.md$`, `CODE_OF_CONDUCT.md$`, `CITATION.cff$`, `LICENSE$`, `AGENTS.md$`, `mkdocs.yml$` |
+| `docs.yml` `paths:` | `docs/**`, `assets/**`, `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`, `mkdocs.yml` |
+| as path sets | identical - 11 members, `scope`-only `[]`, `paths`-only `[]` |
+| 13 probe paths through both (5 prose + 8 code) | 0 disagreements: `docs/x`, `assets/`, `README.md`, `LICENSE`, `mkdocs.yml` are prose in both; `README.md.bak`, `docsx/a.md`, `assetsfoo/x.png`, `SKILL.md`, `NOTICE`, `release-exceptions.json`, `src/teamwork/cli.py`, `.github/workflows/ci.yml` are code in both |
+
+The `$` anchors are load-bearing: the file members are exact names, so `README.md.bak` is
+code, not prose. Of the 17 tracked root files (`git ls-files | awk -F/ 'NF==1'`), 9 are
+list members - `AGENTS.md`, `CHANGELOG.md`, `CITATION.cff`, `CODE_OF_CONDUCT.md`,
+`CONTRIBUTING.md`, `LICENSE`, `README.md`, `SECURITY.md`, `mkdocs.yml` - and the other 8
+are matched by neither list: `.editorconfig`, `.gitattributes`, `.gitignore`, `Makefile`,
+`NOTICE`, `SKILL.md`, `pyproject.toml`, `release-exceptions.json`. `NOTICE` is therefore
+not the only one; it carries no link and no site page, `ci.yml`'s privacy job still scans
+it on every code push, and an unclassified path falls towards *running* the matrix, never
+towards skipping it.
+
+### 2. Every command a workflow runs exists in this tree
+
+0 missing over `ci.yml` (19 `run` blocks), `docs.yml` (4) and `release.yml` (8). Every
+path they name exists - `scripts/teamwork.py`, `scripts/privacy_scan.py`,
+`scripts/verify_release.py`, `scripts/check_release_consistency.py`,
+`.github/privacy-allow.txt`, `docs/requirements.txt`, `tests/{unit,integration,acceptance}`
+- and every flag is in the script's own `--help` (`privacy_scan.py --tree --history
+--allow`, `check_release_consistency.py --offline|--online --json`,
+`teamwork.py identity --audit|--guard-committer --range`, `teamwork.py links`).
+`pytest`, `build` and `mkdocs` come from `.[dev]` (`pytest>=8,<10`, `pytest-cov>=5,<8`,
+`build>=1.2,<2`) and `docs/requirements.txt` (`mkdocs-material>=9.7.7,<10`). No workflow
+invokes `make`, and every target named on this page exists in the `Makefile`.
+
+One reproducibility defect sits in that job list: the `lint` job installs ruff with
+`python -m pip install --upgrade ruff` (`ci.yml:192`), ignoring the project's own
+`ruff>=0.9,<0.18` pin (`pyproject.toml:45`). The newest ruff on PyPI on 2026-10-25 is
+0.17.2, inside the range, so the required check is correct today and leaves the pin the
+day 0.18.0 ships - on a revision that changed nothing. Filed: `release-engineer` T-0002.
+
+### 3. Actions are pinned, and no deprecation is pending
+
+Every `uses:` in the three workflows is a 40-hex SHA - 10 distinct pins, each resolving
+to a real commit (`gh api repos/<owner>/<repo>/commits/<sha>`), and 9 of the 10 equal the
+commit their file comment names (`gh api repos/<owner>/<repo>/git/ref/tags/<v>`, which
+needs the tag object dereferenced for `attest-build-provenance`). The one that lags is
+`actions/setup-python@v7`: pinned `5fda3b95` (2026-07-20), tag tip `6d4fd22b`
+(2026-10-22), and no update is queued (`gh pr list --state open` -> empty) although
+`.github/dependabot.yml` watches `github-actions` weekly. A frozen pin is what pinning
+means; it is recorded so the next drift check sees it move.
+
+Annotations on the last five runs (`gh run list -L 5 --json databaseId,conclusion,headSha`
+then `gh api repos/Nidvue/Teamwork/check-runs/<id>/annotations`) carry **one** `notice`
+and no warning or error: "the ubuntu-latest label will migrate to Ubuntu 26 beginning
+October 19, 2026"
+([actions/runner-images#14748](https://github.com/actions/runner-images/issues/14748),
+accessed 2026-10-25). No deprecated action, no deprecated runner expression, no
+`ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` anywhere in the three files. That date has
+already passed, and the newest green ubuntu lanes ran 2026-10-22 - read the first ubuntu
+run after it. A SHA pin is runner-image independent, so no `uses:` changes for it.
+
+Two CI runs failed on 2026-10-21 (`9b82f84`, `4be25e8`) and they are not one defect class.
+`9b82f84` had three failing `windows-latest` lanes - a payload-digest assertion and
+`test_dry_run_prints_without_executing`, i.e. test defects, not runner deprecations.
+`4be25e8` had **four** failing checks: those same three `windows-latest` lanes (`py3.9`,
+`py3.11`, `py3.13`) plus `committer guard (no account stamped into main)` in the `CI`
+workflow - run `39662780079`, job `119439857709`, failing step "Guard the committer of the
+pushed revision" - i.e. an identity-gate failure, not a test defect. Recorded separately on
+purpose: folding it into "three test lanes" would hide a gate class from this drift record.
+All 11 lanes are green again at `67df036`.
+
+### 4. The forge still matches `references/Remotes.md`
+
+Measured 2026-10-25 with `gh api repos/Nidvue/Teamwork/branches/main/protection`, `gh api
+repos/Nidvue/Teamwork`, `gh api repos/Nidvue/Teamwork/actions/permissions`,
+`.../actions/permissions/workflow`, `gh api repos/Nidvue/Teamwork/rulesets` and
+`gh api repos/Nidvue/Teamwork/tags/protection`:
+
+| policy | measured | verdict |
+|---|---|---|
+| no force-push | `allow_force_pushes.enabled=false` | ok |
+| no branch deletion | `allow_deletions.enabled=false` | ok |
+| required checks, strict | `strict=true`, 16 contexts | ok |
+| >= 1 non-author approval, stale dismissed | `required_approving_review_count=1`, `dismiss_stale_reviews=true`, `require_last_push_approval=false` | ok - last-push approval is not a policy rule |
+| the whole matrix is required | the two `include:` lanes `test (ubuntu-latest / py3.10)` and `test (ubuntu-latest / py3.12)` run on every code push but are **not** contexts | **drift** -> `ceo` T-0002 |
+| no merge commits on the default branch | `required_linear_history.enabled=false` | **drift**, rationale only in this page -> `ceo` T-0005 |
+| one canonical merge shape, host buttons off | `allow_squash_merge=false`, `allow_merge_commit=false`, `allow_rebase_merge=true`, `delete_branch_on_merge=true` | ok - the `references/Remotes.md` rebase-only variant; the host stamps the signed-in account and the required `committer guard` catches it |
+| admin bypass only as a recorded event | `enforce_admins.enabled=false`, one collaborator (`VisionPZ`, admin) | ok with the caveat stated above |
+| protected `v*` tag, CEO only | `rulesets -> []`, `tags/protection -> HTTP 404` | **drift** -> `ceo` T-0003 |
+| least-privilege CI | `default_workflow_permissions=read`, `can_approve_pull_request_reviews=false`; `allowed_actions=all`, `sha_pinning_required=false` | partial: the default is `read` and every pin is a SHA by convention, but the forge does not enforce pinning -> `ceo` T-0006 |
+| code scanning as a gate | CodeQL default setup `configured` (`actions`, `python`), no CodeQL context required | **drift** -> `ceo` T-0006 |
+
+### 5. The hooks refuse a plain commit
+
+In a throwaway clone under this worktree's `Scratch/` (`git clone --shared` ->
+`Scratch/clone`, never the repository itself), on `main` at `7db810a`:
+
+| command | result |
+|---|---|
+| `teamwork.py hooks status` | `pre-commit absent`, `pre-push absent` |
+| `teamwork.py hooks install` | `pre-commit installed`, `pre-push installed` |
+| `echo x >> README.md && git commit -am ...` on `main`, personal identity | **refused, exit 1**: `teamwork: refusing to commit on 'main': it only receives merges performed by the Reviewer.`; `git log` still `7db810a` |
+| the same commit on a new branch | accepted, exit 0, plus `teamwork: warning: commit identity ... is not a role mailbox` |
+
+The branch rule blocks; the identity rule warns by design - `check_commit` in
+`src/teamwork/hooks.py` is documented as "R1 default branch, R2 large non-LFS blob, R3
+identity (a warning, never a block)". Identity is enforced on the push instead, by the
+required `committer guard` and the `identity --audit` step in the `lint` job.
+
+### 6. Release truth: `version.py` 1.1.3 against the newest tag `v1.1.2`
+
+| fact | command | value |
+|---|---|---|
+| the version the package claims | `grep __version__ src/teamwork/version.py` | `1.1.3` |
+| the newest tag | `git tag --sort=-v:refname \| head -1` | `v1.1.2` - 5 tags (`1.0.0`, `1.0.1`, `1.0.2`, `1.1.0`, `1.1.2`); `1.1.1` is admitted by exception in `release-exceptions.json` |
+| no tag on the release head | `git tag --points-at HEAD` | empty |
+| `CHANGELOG.md` | `grep -n '^## \[1.1.3\]' CHANGELOG.md` | `:89`, dated 2026-10-20, compare link `v1.1.2...v1.1.3` (404 until the tag exists) |
+| the offline gate | `python scripts/check_release_consistency.py --offline` | exit 0, `# release consistency: 0 problem(s)` |
+| the online gate | `python scripts/check_release_consistency.py --online` | **exit 1**, 1 problem: `R8 DRIFT docs/Team/Decisions.md:1284: PyPI HTTP 404, the channel does not resolve and is unmarked` |
+| the matrix on the release revision | `gh api repos/Nidvue/Teamwork/actions/runs/<run-id>/jobs` for run `39712543510` | 3 success + 6 **skipped** on `7db810a`; the last full matrix is `67df036` (run `39709658539`, 19/19) |
+
+`1.1.3` is therefore **not releasable today**, for two measured reasons, neither of them
+the version bump:
+
+1. `release.yml`'s `consistency` job runs the checker with `--online` before anything is
+   built or published and exempts only the exact R5 finding of the tag being published, so
+   that R8 line fails the release at its first job. The fix is one marker on one line
+   (`docs/Team/Decisions.md:1284`, the form already used at `:121`, where
+   `teamwork-agents` 404s on PyPI by design); the file is CEO-owned. Filed: `ceo` T-0004.
+2. The revision to be tagged carries no full-matrix run. `main`'s tip `7db810a` was
+   classified prose-only by the `scope` job, so `lint`, the 11 `test` lanes, `build`,
+   `privacy`, `docs` and `typecheck` were skipped, and the newest 19/19 green run is the
+   older `67df036`. `workflow_dispatch` exists for exactly this: dispatch CI on the
+   revision the CEO is about to tag and read all 19 jobs.
+
+What a release then needs, in order - every step after the gates is the CEO's by design
+(a tag and a Release are never an agent's step):
+
+1. `ceo` T-0004 lands, and `python scripts/check_release_consistency.py --online` prints
+   `# release consistency: 0 problem(s)` and exits 0 on the release head.
+2. Every row of **Release candidate gate** above re-run green on that head.
+3. CI dispatched on that head -> 19/19 jobs success, read by run id and SHA.
+4. The CEO tags `v<version>` (the 1.1.3 release) on that commit; `release.yml` then asserts
+   the tag equals
+   `src/teamwork/version.py`, re-runs pytest, builds, writes `SHA256SUMS` and both SBOMs,
+   attests provenance and publishes the GitHub Release with the online gate in front.
+5. Rollback is unchanged and needs no index: install the wheel asset of the tag you want.
+
+### Open drift
+
+| # | drift | owner / task |
+|---|---|---|
+| 1 | two matrix lanes run but do not block a merge | `ceo` T-0002 |
+| 2 | no protected `v*` tag rule | `ceo` T-0003 |
+| 3 | the R8 marker is missing at `docs/Team/Decisions.md:1284` - blocks every release | `ceo` T-0004 |
+| 4 | `required_linear_history=false`, rationale not in `Decisions.md` | `ceo` T-0005 |
+| 5 | CodeQL is not a required check; the forge does not enforce SHA pinning | `ceo` T-0006 |
+| 6 | the lint job installs an unpinned ruff | `release-engineer` T-0002 |
+
+Items 1-5 are not changed by this document: a branch-protection or tag rule change is a
+forge governance event and belongs to the CEO. Item 6 is this lane's own file and is
+scheduled, not silently reverted.
 
 ## Deploy
 
