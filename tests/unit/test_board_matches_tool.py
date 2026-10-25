@@ -16,6 +16,12 @@ rewrites the file in place, so the fix for a red run is to run it.
 The queues live in the gitignored team tree, so the live checks skip in a fresh
 clone and in CI. The synthetic tests below run everywhere and pin the comparison
 logic itself, which is what keeps it honest where the tree is absent.
+
+Every staffed role therefore needs an entry in both roster maps: a queue whose
+role is unlisted used to reach this render path as `KeyError: 'technicalwriter'`,
+which named a dict key instead of the missing role, so the documented repair
+recipe could not run at all. An unlisted role now raises `UnknownRole` naming
+itself and the two maps to extend.
 """
 
 from __future__ import annotations
@@ -58,10 +64,15 @@ FLOOR = {
     "release-engineer": 3,
     "reviewer": 2,
     "security-auditor": 5,
+    # technical-writer has no pre-milestone history - its queue was created with
+    # the milestone it works in - so every task it has is in scope.
+    "technical-writer": 1,
     "tester": 3,
 }
 
 #: The folded queue directory name -> the hyphenated spelling the board's rows use.
+#: This is the roster: every role with a `Roles/*/TaskQueue.md` must appear here,
+#: because the board cannot spell a role this dict has no name for.
 DISPLAY = {
     "architect": "architect",
     "ceo": "ceo",
@@ -72,6 +83,7 @@ DISPLAY = {
     "releaseengineer": "release-engineer",
     "reviewer": "reviewer",
     "securityauditor": "security-auditor",
+    "technicalwriter": "technical-writer",
     "tester": "tester",
 }
 
@@ -79,6 +91,28 @@ DISPLAY = {
 def norm_role(name: str) -> str:
     """`SecurityAuditor`, `security-auditor` and `securityauditor` are one role."""
     return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+class UnknownRole(ValueError):
+    """A queue role that `DISPLAY` has no board spelling for.
+
+    Not a `KeyError`: the message has to name the role and the maps to extend,
+    because the reader of a failed regeneration needs the fix, not the dict lookup
+    that produced it.
+    """
+
+
+def display_role(role: str) -> str:
+    """The board's hyphenated spelling for a queue role, or an error naming it."""
+    folded = norm_role(role)
+    try:
+        return DISPLAY[folded]
+    except KeyError:
+        raise UnknownRole(
+            f"queue role {folded!r} has no board spelling: add {folded!r} to DISPLAY "
+            f"(with its hyphenated spelling) and to FLOOR (with its milestone floor) "
+            f"in {Path(__file__).name}"
+        ) from None
 
 
 def team_root() -> Path | None:
@@ -89,11 +123,35 @@ def team_root() -> Path | None:
     return None
 
 
+def live_root() -> Path:
+    """This checkout's team tree, or a skip - the queues are gitignored state.
+
+    The `assert` narrows `team_root()` for a checker that cannot see that
+    `pytest.skip` does not return; it is unreachable at runtime.
+    """
+    root = team_root()
+    if root is None:
+        pytest.skip("no local team tree in this checkout (gitignored working state)")
+    assert root is not None
+    return root
+
+
+def live_tasks() -> dict[tuple[str, str], dict[str, str]]:
+    """The milestone's tasks from this checkout's queues, or a skip when empty."""
+    tasks = queues(live_root())
+    if not tasks:
+        pytest.skip("no shared role queues in the local team tree")
+    return tasks
+
+
 def queues(root: Path) -> dict[tuple[str, str], dict[str, str]]:
     """The milestone's tasks, keyed by (folded role, id), with their fields."""
     out: dict[tuple[str, str], dict[str, str]] = {}
     for path in sorted((root / "Roles").glob("*/TaskQueue.md")):
         role = norm_role(path.parent.name)
+        # A queue the board cannot spell is a defect in this file, so it fails here
+        # naming the role instead of surfacing later as rows that are all absent.
+        display_role(role)
         current: dict[str, str] | None = None
         for line in path.read_text(encoding="utf-8").splitlines():
             head = TASK_RE.match(line)
@@ -202,7 +260,7 @@ def render(tasks: dict[tuple[str, str], dict[str, str]], board: str) -> str:
             "| "
             + " | ".join(
                 [
-                    DISPLAY[key[0]],
+                    display_role(key[0]),
                     key[1],
                     fields.get("area") or "-",
                     fields.get("status", ""),
@@ -228,7 +286,7 @@ def render(tasks: dict[tuple[str, str], dict[str, str]], board: str) -> str:
         old = listed.get(key)
         if old is not None:
             cells = [
-                DISPLAY[key[0]],
+                display_role(key[0]),
                 f"{key[1]} {old[2]}".strip(),
                 old[3],
                 fields["status"],
@@ -236,7 +294,7 @@ def render(tasks: dict[tuple[str, str], dict[str, str]], board: str) -> str:
             ]
         else:
             cells = [
-                DISPLAY[key[0]],
+                display_role(key[0]),
                 f"{key[1]} {fields.get('title', '')}".strip(),
                 fields.get("priority", "-"),
                 fields["status"],
@@ -249,23 +307,13 @@ def render(tasks: dict[tuple[str, str], dict[str, str]], board: str) -> str:
 
 
 def test_the_board_rows_equal_the_queues() -> None:
-    root = team_root()
-    if root is None:
-        pytest.skip("no local team tree in this checkout (gitignored working state)")
-    tasks = queues(root)
-    if not tasks:
-        pytest.skip("no shared role queues in the local team tree")
+    tasks = live_tasks()
     rows = board_rows(BOARD.read_text(encoding="utf-8"))
     assert not mismatches(tasks, rows), mismatches(tasks, rows)
 
 
 def test_the_in_flight_table_is_exactly_the_open_set() -> None:
-    root = team_root()
-    if root is None:
-        pytest.skip("no local team tree in this checkout (gitignored working state)")
-    tasks = queues(root)
-    if not tasks:
-        pytest.skip("no shared role queues in the local team tree")
+    tasks = live_tasks()
     board = BOARD.read_text(encoding="utf-8")
     found = flight_mismatches(tasks, in_flight(board))
     assert not found, found
@@ -358,10 +406,94 @@ def _directory(root: Path, role: str) -> Path:
     raise SystemExit(f"no queue directory for {role}")
 
 
+def _skeleton() -> str:
+    """A board carrying both tables, every other section one line."""
+    return "\n".join(
+        [
+            "# BOARD",
+            "",
+            TABLE_HEAD,
+            "|---|---|---|---|---|---|",
+            "| ceo | T-0059 | - | todo | - | - |",
+            "",
+            "Rows whose PR is not merged carry no merged revision.",
+            "",
+            FLIGHT_HEAD,
+            "|---|---|---|---|---|",
+            "| ceo | T-0059 stale title | P0 | todo | somewhere |",
+            "",
+            "The task queue (`teamwork.py task list ceo`) is authoritative.",
+            "",
+        ]
+    )
+
+
+def test_the_full_roster_renders() -> None:
+    """Every staffed role has a board spelling, so the recipe cannot KeyError.
+
+    The defect this pins: `technical-writer` was queued while DISPLAY and FLOOR
+    still listed only the older roles, so the repair recipe documented in this
+    file's `__main__` block died on `KeyError: 'technicalwriter'` - the render path
+    could not run at all, whatever the queues said. Both directions are covered:
+    the whole roster renders, and a role that is not on it is named.
+    """
+    tasks = {
+        (folded, "T-0001"): {"status": "doing", "title": "a task", "priority": "P1"}
+        for folded in DISPLAY
+    }
+    once = render(tasks, _skeleton())
+    for folded, spelled in DISPLAY.items():
+        assert f"| {spelled} | T-0001 |" in once, folded
+        assert f"| {spelled} | T-0001 a task | P1 | doing | - |" in once, folded
+    assert "| technical-writer | T-0001 |" in once
+
+
+def test_an_unknown_role_is_named_and_not_a_bare_keyerror() -> None:
+    tasks = {("chiefofstaff", "T-0001"): {"status": "doing"}}
+    with pytest.raises(UnknownRole) as caught:
+        render(tasks, _skeleton())
+    message = str(caught.value)
+    assert "chiefofstaff" in message
+    assert "DISPLAY" in message and "FLOOR" in message
+    assert not isinstance(caught.value, KeyError)
+    with pytest.raises(UnknownRole, match="chiefofstaff"):
+        display_role("ChiefOfStaff")
+
+
+def test_display_and_floor_list_the_same_roster() -> None:
+    """One map without the other is how a queued role becomes unrenderable."""
+    assert {norm_role(role) for role in DISPLAY} == {norm_role(role) for role in FLOOR}
+    assert display_role("TechnicalWriter") == display_role("technical-writer")
+
+
+def test_every_queued_role_has_a_board_spelling() -> None:
+    """A new queue directory must not wait for a red regeneration to be noticed."""
+    present = {
+        norm_role(path.parent.name) for path in (live_root() / "Roles").glob("*/TaskQueue.md")
+    }
+    if not present:
+        pytest.skip("no shared role queues in the local team tree")
+    assert not present - set(DISPLAY), sorted(present - set(DISPLAY))
+    assert not present - {norm_role(role) for role in FLOOR}, sorted(present)
+
+
 if __name__ == "__main__":  # pragma: no cover - a maintainer's regeneration step
     root = team_root()
     if root is None:
         raise SystemExit("no local team tree in this checkout")
     tasks = queues(root)
-    BOARD.write_text(render(tasks, BOARD.read_text(encoding="utf-8")), encoding="utf-8")
-    print(f"wrote {BOARD}: {len(tasks)} task(s) across {len(FLOOR)} queue(s)")
+    before = BOARD.read_text(encoding="utf-8")
+    after = render(tasks, before)
+    BOARD.write_text(after, encoding="utf-8")
+    print(f"wrote {BOARD}: {len(tasks)} task(s) across {len(DISPLAY)} queue(s)")
+    # `render` writes only what `queues()` returned, so a row that leaves the table
+    # was filtered by FLOOR. Name it: a row dropped in silence is the stale-board
+    # defect this file exists to catch, and the recipe must not commit it quietly.
+    for role, tid in sorted(set(board_rows(before)) - set(board_rows(after))):
+        print(
+            f"note: {role} {tid} left the table - under FLOOR, or its key spelled unlike its queue"
+        )
+    problems = mismatches(tasks, board_rows(after)) + flight_mismatches(tasks, in_flight(after))
+    if problems:
+        print("\n".join(problems))
+        raise SystemExit(1)
