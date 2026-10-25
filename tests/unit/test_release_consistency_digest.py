@@ -19,6 +19,8 @@ Owner: developer. Task: T-0005.
 
 from __future__ import annotations
 
+import ast
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -99,6 +101,15 @@ def both_refuse(root: Path) -> list[str]:
 # --------------------------------------------------------------------------- #
 
 
+#: A link cannot be created without privileges on Windows (Developer Mode), so the
+#: 11.3 link policy is only exercised where the platform supports it. The same
+#: marker guards ``tests/unit/test_release_consistency.py``; the meta test at the
+#: bottom of this file fails when a symlink-creating test lacks it (T-0002).
+needs_symlinks = pytest.mark.skipif(
+    os.name == "nt", reason="creating a symlink needs Developer Mode on Windows"
+)
+
+
 def test_the_two_digest_paths_agree_on_a_clean_tree(tmp_path):
     root = make_repo(tmp_path / "repo")
 
@@ -134,6 +145,7 @@ def test_editing_git_config_does_not_move_the_digest(tmp_path):
     assert before == after
 
 
+@needs_symlinks
 def test_a_link_to_a_gitignored_file_is_refused_on_both_paths(tmp_path):
     """The target is not in the commit, so neither path can resolve it."""
     root = make_repo(tmp_path / "repo")
@@ -148,6 +160,7 @@ def test_a_link_to_a_gitignored_file_is_refused_on_both_paths(tmp_path):
         assert "SECRET" not in message
 
 
+@needs_symlinks
 def test_a_link_to_a_tracked_but_gitignored_file_resolves_and_is_stable(tmp_path):
     """The target is in the commit: both paths agree, and an edit moves nothing."""
     root = make_repo(tmp_path / "repo")
@@ -169,6 +182,7 @@ def test_a_link_to_a_tracked_but_gitignored_file_resolves_and_is_stable(tmp_path
     assert digests(root) == (working, head)
 
 
+@needs_symlinks
 def test_a_link_into_the_git_directory_is_refused_on_both_paths(tmp_path):
     """``../.git/config`` must never be read, and never named in the output."""
     root = make_repo(tmp_path / "repo")
@@ -182,6 +196,7 @@ def test_a_link_into_the_git_directory_is_refused_on_both_paths(tmp_path):
         assert "git directory" in message
 
 
+@needs_symlinks
 def test_a_link_out_of_the_tree_is_refused_on_both_paths(tmp_path):
     """A relative target above the tree is refused, and named as such."""
     root = make_repo(tmp_path / "repo")
@@ -196,6 +211,7 @@ def test_a_link_out_of_the_tree_is_refused_on_both_paths(tmp_path):
         assert "outside the tree" in message
 
 
+@needs_symlinks
 def test_a_link_into_the_git_directory_never_reaches_the_digest(tmp_path):
     root = make_repo(tmp_path / "repo")
     (root / "references" / "l").symlink_to("../.git/config")
@@ -207,6 +223,7 @@ def test_a_link_into_the_git_directory_never_reaches_the_digest(tmp_path):
             crc.payload_digest(root, rev)
 
 
+@needs_symlinks
 def test_an_in_commit_link_resolves_on_both_paths(tmp_path):
     root = make_repo(tmp_path / "repo")
     (root / "references" / "l").symlink_to("keep.md")
@@ -219,6 +236,7 @@ def test_an_in_commit_link_resolves_on_both_paths(tmp_path):
     assert len(working) == 16
 
 
+@needs_symlinks
 def test_an_absolute_link_is_refused_on_both_paths(tmp_path):
     root = make_repo(tmp_path / "repo")
     (root / "references" / "l").symlink_to("/etc/hostname")
@@ -230,6 +248,7 @@ def test_an_absolute_link_is_refused_on_both_paths(tmp_path):
         assert "absolute path" in message
 
 
+@needs_symlinks
 def test_a_broken_cyclic_or_self_link_is_refused_on_both_paths(tmp_path):
     root = make_repo(tmp_path / "repo")
     (root / "references" / "broken").symlink_to("nowhere.md")
@@ -553,3 +572,156 @@ def test_a_tarball_without_git_is_an_input_error(tmp_path):
     cwrite(root, "src/teamwork/version.py", '__version__ = "1.1.0"\n')
 
     assert crc.main(["--offline", "--repo-root", str(root)]) == 2
+
+
+# --------------------------------------------------------------------------- #
+# T-0002 - no symlink-creating test may run on a host that cannot create links
+# --------------------------------------------------------------------------- #
+
+#: Calls that need the symlink privilege, by the attribute they are reached through.
+SYMLINK_CALLS = frozenset({"symlink", "symlink_to"})
+
+TESTS_ROOT = REPO_ROOT / "tests"
+
+
+def _windows_skip_markers(tree: ast.Module) -> set[str]:
+    """Module-level names bound to a skipif whose condition names ``os`` and ``nt``.
+
+    The condition is read structurally (``os.name == "nt"``) rather than as text,
+    so a marker that skips for an unrelated reason cannot launder a symlink test.
+    """
+    markers: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            targets, value = [node.target], node.value
+        else:
+            continue
+        if not (isinstance(value, ast.Call) and getattr(value.func, "attr", None) == "skipif"):
+            continue
+        condition = value.args[0] if value.args else None
+        if condition is None:
+            continue
+        names = {n.id for n in ast.walk(condition) if isinstance(n, ast.Name)}
+        constants = {n.value for n in ast.walk(condition) if isinstance(n, ast.Constant)}
+        if "os" in names and "nt" in constants:
+            markers.update(t.id for t in targets if isinstance(t, ast.Name))
+    return markers
+
+
+def _symlinks(node: ast.AST) -> bool:
+    """True when the node calls ``os.symlink``/``Path.symlink_to``."""
+    if not isinstance(node, ast.Call):
+        return False
+    return getattr(node.func, "attr", None) in SYMLINK_CALLS
+
+
+def _decorator_names(node: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for decorator in getattr(node, "decorator_list", []):
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if isinstance(target, ast.Name):
+            names.add(target.id)
+        elif isinstance(target, ast.Attribute):
+            names.add(target.attr)
+    return names
+
+
+def unguarded_symlink_tests(source: str, path: str = "<source>") -> list[str]:
+    """Test functions that create a symlink without the Windows skip marker.
+
+    Walks every module-level function and class method, so a helper named
+    ``test_...`` and a class-based test are treated the same way. A class-level
+    marker counts for its methods. The scan is deliberately not recursive into
+    nested closures: a symlink call inside one would be reported against the
+    enclosing test, which still has to carry the marker.
+    """
+    tree = ast.parse(source, filename=path)
+    markers = _windows_skip_markers(tree)
+    offenders: list[str] = []
+    owners = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    classes = {n: _decorator_names(n) for n in ast.walk(tree) if isinstance(n, ast.ClassDef)}
+    for node in owners:
+        if not node.name.startswith("test_"):
+            continue
+        if not any(_symlinks(inner) for inner in ast.walk(node)):
+            continue
+        guarded = bool(_decorator_names(node) & markers)
+        for klass, klass_names in classes.items():
+            if klass_names & markers and node in ast.walk(klass):
+                guarded = True
+        if not guarded:
+            offenders.append(f"{path}:{node.lineno} {node.name}")
+    return offenders
+
+
+def test_every_symlink_test_carries_the_windows_skip():
+    """T-0002: an unguarded symlink test is red here, not red on a Windows host.
+
+    Measured at 7db810a on this host: the eight link tests in this file died with
+    ``OSError [WinError 1314]`` and, because the integration suite asserts that
+    this file is green as its mutant baseline, the cascade also failed
+    ``test_every_rule_has_a_test_that_fails_before_the_rule_exists``.
+    """
+    scanned = 0
+    offenders: list[str] = []
+    for module_path in sorted(TESTS_ROOT.rglob("*.py")):
+        offenders.extend(
+            unguarded_symlink_tests(module_path.read_text(encoding="utf-8"), str(module_path))
+        )
+        scanned += 1
+    assert scanned > 0, "the scan found no test modules: it would pass vacuously"
+    assert offenders == [], "symlink tests without the Windows skip: " + "; ".join(offenders)
+
+
+def test_the_symlink_guard_flags_an_unguarded_test():
+    """Positive control: the scan must catch the defect it exists for."""
+    unguarded = """
+import os
+import pytest
+
+needs_symlinks = pytest.mark.skipif(os.name == "nt", reason="no privilege")
+
+
+def test_link_unguarded(tmp_path):
+    (tmp_path / "a").symlink_to("b")
+
+
+@needs_symlinks
+def test_link_guarded(tmp_path):
+    (tmp_path / "a").symlink_to("b")
+
+
+@needs_symlinks
+def test_link_via_os(tmp_path):
+    os.symlink("b", tmp_path / "a")
+
+
+@needs_symlinks
+def test_no_link_at_all(tmp_path):
+    assert tmp_path
+
+
+def helper_that_links(tmp_path):
+    (tmp_path / "a").symlink_to("b")
+"""
+    assert unguarded_symlink_tests(unguarded) == ["<source>:8 test_link_unguarded"]
+
+
+def test_a_marker_that_does_not_name_windows_does_not_count():
+    """A skipif for another reason must not launder a symlink test."""
+    wrong_marker = """
+import os
+import pytest
+
+rare = pytest.mark.skipif(os.getenv("CI") == "1", reason="slow")
+
+
+@rare
+def test_link_skipped_for_the_wrong_reason(tmp_path):
+    (tmp_path / "a").symlink_to("b")
+"""
+    assert unguarded_symlink_tests(wrong_marker) == [
+        "<source>:9 test_link_skipped_for_the_wrong_reason"
+    ]
