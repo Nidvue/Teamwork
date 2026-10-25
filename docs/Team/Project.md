@@ -47,11 +47,12 @@ released artifact — with no personal data anywhere in the tree or in git histo
       tracked local state (`.pi/`, virtualenvs, build output, caches, `Scratch/`)
       in any tracked file or commit - proof:
       `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
-      **RED at this revision and honestly so**: the gate fails on commit metadata
-      the forge stamps when a pull request is squash-merged by the operator account,
-      and on the pre-redaction blob that quotes it. A green claim here would be the
-      exact defect this criterion exists to prevent; the decision is
-      [D-20261019-CEO-15](Decisions.md) (one fully escaped allowlist literal, no pinned count) and the work is ceo T-0003.
+      **Green as measured on the merged revision** (`PASS - 0 finding(s)` over
+      tree and full history). `--history` walks every ref, so an unmerged branch
+      that quotes a private path turns it red until that branch is fixed or
+      discarded: that is why the gate is read on the merged revision and not on a
+      working branch. The earlier red note is kept in the gaps table (G-2, G-8),
+      not in this criterion.
 - [ ] AC-6 Documentation: README plus a docs site (mkdocs) plus CONTRIBUTING,
       SECURITY, CODE_OF_CONDUCT, CHANGELOG, CITATION; `teamwork.py links`
       reports zero broken links - proof: `teamwork.py links`
@@ -114,6 +115,36 @@ released artifact — with no personal data anywhere in the tree or in git histo
       package appears only as an optional engine; repository URLs use
       `Nidvue/Teamwork` in every tracked file except the historical audit records -
       proof: `tests/unit/test_skill_contracts.py`, `python3 scripts/teamwork.py links`
+- [ ] AC-19 Tree hygiene: no unreferenced, duplicate or superseded file is left in
+      the tree; every census hit is either deleted in a recorded task or justified
+      in the Archive, and the hygiene guards stay green - proof:
+      `python3 -m pytest -q tests/unit/test_hygiene.py` plus `teamwork.py audit`
+- [ ] AC-20 Docs truth: every state claim in `docs/Team/` and the README (red /
+      green / done / version / tag) matches a command re-run on the merged
+      revision, and no contradiction is left inside one document - proof:
+      `python3 scripts/check_release_consistency.py` plus `teamwork.py links`
+- [ ] AC-21 Test-suite portability: the suite is green on a Windows host with
+      Developer Mode off and no GNU make, because each such test works there or
+      skips with a stated reason, and a regression test pins each guard - proof:
+      `python3 -m pytest -q`
+
+## M11 - Solid review pass (this engagement)
+
+Objective restated from the user brief: review code, logic, workflow, documents
+and files systematically; make each of them solid for its purpose; remove
+unnecessary files; update stale ones. Non-goals: new engine features, a roster
+redesign, PyPI publication.
+
+Exit condition: AC-3, AC-5, AC-6, AC-11, AC-19, AC-20, AC-21 verified by a role
+other than the author on the merged revision.
+
+Baseline measured before any lane started (`7db810a`, win32, py3.13, `.venv`):
+`pytest -q` -> 11 failed / 1217 passed / 28 skipped; `ruff check` and
+`ruff format --check` clean; `links` 0 issues; `privacy_scan --tree --history`
+PASS; `check_release_consistency` 0 problems; `audit` 0 problems on a fresh team
+tree. The failures reproduce a single class: tests that need a privilege or tool
+the host does not have, plus one real engine defect (`resources.self_invocation()`
+returns a command `shlex.split` mangles on Windows).
 
 ## Scope
 
