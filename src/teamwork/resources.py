@@ -15,11 +15,30 @@ Resolution order (first hit wins):
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
 
 ENV_VAR = "TEAMWORK_SKILL_DIR"
+
+#: Arguments in this character set survive a POSIX shell and ``shlex.split``
+#: unquoted. Backslash is deliberately absent: shlex reads it as an escape, so a
+#: Windows interpreter path under a home directory lost every separator before
+#: T-0001.
+_SHELL_SAFE = re.compile(r"[A-Za-z0-9_@%+=:,./-]+")
+
+
+def _shell_arg(part: str) -> str:
+    """Quote one argument so ``shlex.split`` (and a POSIX shell) returns it whole.
+
+    Single quotes are the only portable quoting that preserves backslashes, so a
+    Windows path needs no translation; a literal ``'`` is spliced in as ``'\\''``.
+    """
+    if part and _SHELL_SAFE.fullmatch(part):
+        return part
+    return "'" + part.replace("'", "'\\''") + "'"
+
 
 #: A directory counts as the skill root when at least one of these is present.
 _MARKERS = ("SKILL.md", "roles", "references", "templates")
@@ -88,6 +107,22 @@ def has_asset(name: str) -> bool:
     return asset(name).exists()
 
 
+def self_invocation_argv() -> list[str]:
+    """The exact command prefix as a list of arguments - the structured form.
+
+    Callers that need to run the command must use this: a list cannot be mangled
+    by a space or a backslash in the interpreter path. :func:`self_invocation`
+    is the same command rendered as one shell-quoted string.
+    """
+    script = shutil.which("teamwork")
+    if script:
+        return ["teamwork"]
+    shim = asset("scripts", "teamwork.py")
+    if shim.is_file():
+        return [sys.executable, str(shim)]
+    return [sys.executable, "-m", "teamwork"]
+
+
 def self_invocation() -> str:
     """The command prefix a teammate should use to run this CLI, machine-local.
 
@@ -100,14 +135,13 @@ def self_invocation() -> str:
     1. the ``teamwork`` console script, when it is on ``PATH``;
     2. ``python3 <repo>/scripts/teamwork.py`` when running from a checkout;
     3. ``python3 -m teamwork`` for an installed package.
+
+    Every argument that is not shell-safe is single-quoted, so the string
+    survives ``shlex.split`` (and a POSIX shell) unchanged on Windows and POSIX
+    even when a path holds a space or a backslash. A caller that cannot tolerate
+    a string should use :func:`self_invocation_argv` instead.
     """
-    script = shutil.which("teamwork")
-    if script:
-        return "teamwork"
-    shim = asset("scripts", "teamwork.py")
-    if shim.is_file():
-        return f"{sys.executable} {shim}"
-    return f"{sys.executable} -m teamwork"
+    return " ".join(_shell_arg(part) for part in self_invocation_argv())
 
 
 def portable_invocation() -> str:

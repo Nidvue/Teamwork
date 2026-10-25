@@ -18,6 +18,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from teamwork import engine, portable, resources
 
 # ``tests/unit/test_portability.py`` -> parents[2] is the repository root.
@@ -218,6 +220,98 @@ def test_self_invocation_command_is_runnable():
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == f"teamwork {engine.VERSION}"
+
+
+# --------------------------------------------------------------------------- #
+# self_invocation(): one command, the same arguments on every host (T-0001)
+# --------------------------------------------------------------------------- #
+
+
+def _checkout_with_spaces(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """A fake checkout whose interpreter and shim sit under paths with spaces.
+
+    ``tmp_path`` carries a space on this project's hosts and a backslash on
+    Windows, which is exactly the shape that broke the unquoted join.
+    """
+    exe = tmp_path / "Py thon 3.13" / "python.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_text("", encoding="utf-8")
+    shim = tmp_path / "check out" / "scripts" / "teamwork.py"
+    shim.parent.mkdir(parents=True)
+    shim.write_text("", encoding="utf-8")
+    monkeypatch.setattr(resources.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(resources.sys, "executable", str(exe))
+    monkeypatch.setattr(
+        resources,
+        "asset",
+        lambda *parts: shim if parts == ("scripts", "teamwork.py") else tmp_path / "missing",
+    )
+    return [str(exe), str(shim)]
+
+
+def test_self_invocation_argv_is_the_structured_form(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    expected = _checkout_with_spaces(tmp_path, monkeypatch)
+    assert resources.self_invocation_argv() == expected
+
+
+def test_self_invocation_survives_a_path_with_spaces(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression, T-0001: the unquoted join lost every path separator.
+
+    Measured at 7db810a: a Windows interpreter path under a home directory was
+    split at every backslash - POSIX ``shlex`` reads one as an escape - so a path
+    like ``<home>/<checkout>/python.exe`` came back as three unrelated tokens
+    instead of one, and the runnable-command test died with
+    ``FileNotFoundError [WinError 2]``.
+    """
+    expected = _checkout_with_spaces(tmp_path, monkeypatch)
+    assert shlex.split(resources.self_invocation(), posix=True) == expected
+
+
+def test_self_invocation_quotes_an_apostrophe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A ``'`` in a path must not close the quote early."""
+    exe = tmp_path / "O'Brien" / "python.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_text("", encoding="utf-8")
+    monkeypatch.setattr(resources.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(resources.sys, "executable", str(exe))
+    monkeypatch.setattr(resources, "asset", lambda *parts: tmp_path / "missing")
+    assert shlex.split(resources.self_invocation(), posix=True) == [
+        str(exe),
+        "-m",
+        "teamwork",
+    ]
+
+
+def test_self_invocation_prefers_the_console_script(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preference 1 stays a bare ``teamwork`` - nothing to quote, nothing local."""
+    monkeypatch.setattr(resources.shutil, "which", lambda _name: "/usr/local/bin/teamwork")
+    assert resources.self_invocation_argv() == ["teamwork"]
+    assert resources.self_invocation() == "teamwork"
+
+
+def test_self_invocation_falls_back_to_the_module(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preference 3 renders a space in the interpreter path as one argument."""
+    monkeypatch.setattr(resources.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(resources.sys, "executable", "/opt/py thon/bin/python3")
+    monkeypatch.setattr(resources, "asset", lambda *parts: Path("/nonexistent/shim.py"))
+    expected = ["/opt/py thon/bin/python3", "-m", "teamwork"]
+    assert resources.self_invocation_argv() == expected
+    assert shlex.split(resources.self_invocation(), posix=True) == expected
+
+
+def test_self_invocation_quotes_only_what_needs_it() -> None:
+    """Shell-safe arguments stay bare, so a POSIX command line stays readable."""
+    assert resources._shell_arg("teamwork") == "teamwork"
+    assert resources._shell_arg("-m") == "-m"
+    assert resources._shell_arg("/usr/bin/python3") == "/usr/bin/python3"
+    assert resources._shell_arg("C:\\py\\python.exe") == "'C:\\py\\python.exe'"
+    assert resources._shell_arg("/opt/py thon/python3") == "'/opt/py thon/python3'"
 
 
 # --------------------------------------------------------------------------- #
