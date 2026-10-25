@@ -303,7 +303,7 @@ read any row again with `teamwork.py task list <role>`.
 | architect | T-0001 | Code and logic review of src/teamwork and scripts: find real defects, dead code, inconsistent invariants; file each finding as a task and record contract changes in Architecture.md | P0 | - | doing | Architect | - | - |
 | developer | T-0001 | Fix resources.self_invocation(): the returned command is unusable on Windows when a path has a space or backslash | P0 | - | review | Developer-1 | P-0001 | - |
 | developer | T-0002 | Guard every symlink-dependent test so the suite is green on a host without symlink privilege | P0 | - | doing | Developer-1 | - | - |
-| developer | T-0003 | Make every test that needs an external tool honest: skip with a stated reason when the tool is absent | P0 | test-portability | selfcheck | Developer-2 | - | - |
+| developer | T-0003 | Make every test that needs an external tool honest: skip with a stated reason when the tool is absent | P0 | test-portability | review | Developer-2 | P-0004 | - |
 | developer | T-0004 | Remove the personal absolute path from commit a4c726f (message + resources.py docstrings) before it can merge | P0 | - | todo | - | - | - |
 | developer | T-0005 | Reword the developer-1 T-0001 commit message: it carries the operator home path and turns the privacy gate red | P0 | - | todo | - | - | - |
 | developer | T-0006 | Re-point the board gate at the live milestone: tests/unit/test_board_matches_tool.py cannot see the M11 queues | P1 | - | todo | - | - | - |
@@ -311,7 +311,7 @@ read any row again with `teamwork.py task list <role>`.
 | reviewer | T-0001 | Serve the review queue and own the acceptance layer for the M11 deliverables | P0 | - | todo | - | - | - |
 | reviewer | T-0002 | Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | - | todo | - | - | - |
 | product-manager | T-0001 | Rebuild the traceability matrix for AC-19..AC-21 and re-key the machine criteria store (gap G-1) | P1 | - | doing | ProductManager | - | - |
-| project-manager | T-0001 | Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | - | doing | ProjectManager | - | - |
+| project-manager | T-0001 | Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | hygiene | doing | ProjectManager | - | - |
 | release-engineer | T-0001 | Workflow and release-gate integrity: workflows match the tree, hooks install, branch protection matches policy | P0 | ci | review | ReleaseEngineer | P-0003 | - |
 | release-engineer | T-0002 | Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | - | todo | - | - | - |
 | release-engineer | T-0003 | ci.yml skips the privacy job (and every code job) on a prose-only push to main | P2 | - | todo | - | - | - |
@@ -605,10 +605,11 @@ Zero duplicates, measured two ways: no two tracked files share a digest
    worktree the file skips (`4 passed, 2 skipped`) because a worktree has no team
    tree; in the main checkout at `7db810a` it fails (`2 failed, 4 passed`). After
    the re-initialisation for M11 the queues restart at T-0001, so no floor above 1
-   can match. Run through the gate's own functions against the board below (24
-   rows rendered from the queues): `mismatches()` -> 14 and `flight_mismatches()`
-   -> 14, and all 28 are the floor excluding real M11 tasks - zero are a
-   state, PR or merged-revision disagreement.
+   can match. Re-run through the gate's own functions against the board below:
+   `mismatches()` and `flight_mismatches()` report only tasks the floor excludes
+   (`... on the board, but no such task in the milestone`), and not one
+   `board says (state, pr, merged), queue says (...)` disagreement - the rows and
+   the queues agree on every task the gate does look at.
 2. **Two stale instance directories** (filed as ceo T-0008). `Agents/Developer`
    and `Agents/Tester` are not empty - each holds the generated `StartHere.md`,
    `Inbox.md` and `WorkLog.md` - but no task is claimed by `Developer` or
