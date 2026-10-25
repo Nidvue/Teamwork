@@ -831,9 +831,17 @@ is `origin/main..HEAD`, then `HEAD~1..HEAD`, then `HEAD`; a range beginning with
 `-` is rejected. CI runs it on every pull request and every push to `main`.
 
 `--guard-committer` is the narrower gate CI runs on every push (the
-`committer-guard` job): it fails only when a commit carries a **committer**
-outside the team identity domain - the mailbox a forge writes when a pull request
-is squash-merged by a signed-in account - and says nothing about the author.
+`committer-guard` job). It passes a commit when its **committer** is a role
+mailbox, and it also passes the host stamp a forge writes into the commit it
+creates - a `users.noreply.github.com` committer - but only when the **author**
+of that commit is a role mailbox. The host stamp is transport, not identity; the
+author still has to be the team. So the guard does read an author fact: a
+host-stamped commit with a personal author fails. Measured on a commit authored
+by `jane@example.com` and committed by `123456+jane@users.noreply.github.com`,
+`guard_committer_identity()` exits 1 with `- 0851b9bd6493 FAIL committer
+123456+jane <123456+jane@users.noreply.github.com> (author Jane Doe
+<jane@example.com>)`. The full author check is `--audit`, which CI runs on every
+pull request and every push to `main`.
 
 ### `harness`
 
