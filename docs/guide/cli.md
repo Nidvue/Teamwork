@@ -501,7 +501,7 @@ List test records.
 ### `review`
 
 ```text
-teamwork review [AGENT] [HANDLE] [--queue] [--full] [--by BY]
+teamwork review [AGENT] [HANDLE] [--queue] [--full] [--claim] [--release] [--by BY]
     [--result {pass,fail}] [--evidence EVIDENCE] [--artifact PATH]...
     [--baseline BASELINE] [--replay REPLAY] [--findings FINDINGS]
     [--keep-branch] [--no-merge] [--force REASON]
@@ -516,6 +516,13 @@ task to its owner. `--artifact` binds a verification artifact (hashed into the
 ledger) to the verdict; `--baseline` and `--replay` record where the
 verification started and how to rerun it. `--force` overrides the review gates
 and requires a recorded reason.
+
+Several Reviewers may run at once, so a lane announces what it took:
+`review <role> <T-id> --claim --by <reviewer>` puts a lease on one deliverable
+and `--release` hands an unfinished one back. A lease nobody renews expires and
+the next lane takes it over; `--force <reason>` releases another lane's live
+claim, which is the case where that lane is dead. The claim and release modes
+take no `--result` - the verdict is a separate call.
 
 Independence is about the **author**, not about a second Reviewer: the author
 never reviews or merges its own work, and a Reviewer who co-authored a
@@ -809,7 +816,7 @@ Commit a change-set with the fixed style and the role commit identity.
 
 ```text
 teamwork identity [--role ROLE]
-teamwork identity --audit [--range REV..REV] [--strict-authors]
+teamwork identity --audit [--range REV..REV] [--strict-authors] [--guard-committer]
 ```
 
 Show the role commit identity, e.g. `Developer <developer@agents.nidvue.com>`.
@@ -822,6 +829,19 @@ match. An author outside the team identity domain is reported as skipped by
 default; `--strict-authors` turns that into a failure. The default range
 is `origin/main..HEAD`, then `HEAD~1..HEAD`, then `HEAD`; a range beginning with
 `-` is rejected. CI runs it on every pull request and every push to `main`.
+
+`--guard-committer` is the narrower gate CI runs on every push (the
+`committer-guard` job). It passes a commit when its **committer** is a role
+mailbox, and it also passes the host stamp a forge writes into the commit it
+creates - a `users.noreply.github.com` committer - but only when the **author**
+of that commit is a role mailbox. The host stamp is transport, not identity; the
+author still has to be the team. So the guard does read an author fact: a
+host-stamped commit with a personal author fails. Measured on a commit authored
+by `jane@example.com` and committed by `123456+jane@users.noreply.github.com`,
+`guard_committer_identity()` exits 1 with `- 0851b9bd6493 FAIL committer
+123456+jane <123456+jane@users.noreply.github.com> (author Jane Doe
+<jane@example.com>)`. The full author check is `--audit`, which CI runs on every
+pull request and every push to `main`.
 
 ### `harness`
 
@@ -990,11 +1010,12 @@ Auditor triage with a recorded reason, never a silent one.
 ### `loop`
 
 ```text
-teamwork loop
+teamwork loop [--full]
 ```
 
 Stop-condition check: may the team stop? Prints `STOP` or `CONTINUE` with
-reasons.
+reasons. Detail past 220 characters is clipped by default; `--full` prints every
+line whole.
 
 ### `refresh`
 
@@ -1010,8 +1031,12 @@ agent reading stale text - measured once on this machine as an old `SKILL.md`
 plus 8 engine modules that were simply missing.
 
 1. Resolve the source: `--source`, else `$TEAMWORK_SOURCE`, else the bundle in
-   use when it is a git checkout, else the tool-managed mirror beside
-   the skills directory (`<skills-parent>/.teamwork-source`; `--mirror` forces that case).
+   use when it is a git checkout, else the tool-managed mirror checkout
+   `.teamwork-source` (`--mirror` forces that case). The mirror sits beside the
+   skills directory, one level higher when that directory is literally named
+   `skills`: the default `pi` destination `~/.pi/agent/skills/teamwork` mirrors
+   through `~/.pi/agent/.teamwork-source`, and `--host agents` uses
+   `~/.agents/.teamwork-source`.
 2. In a checkout: fetch `--remote/--branch` and fast-forward. A dirty tree is
    never clobbered - the checkout is mirrored as it stands and the command says
    "fast-forward skipped".

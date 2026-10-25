@@ -23,18 +23,29 @@ three faces share it.
 
 ```text
 src/teamwork/
-├── __init__.py      # __version__ and lazy re-exports
-├── __main__.py      # python -m teamwork -> cli.main()
-├── cli.py           # build_parser() + main(argv) -> int
-├── engine.py        # the ported engine (single module)
-├── resources.py     # locate the skill bundle (checkout or wheel)
-├── portable.py      # Windows-safe process/path helpers
-└── version.py       # the package version (__version__)
+├── __init__.py     # __version__ re-export only
+├── __main__.py     # python -m teamwork -> cli.main()
+├── cli.py          # main(argv) -> int, a thin face on engine.main
+├── engine.py       # the ported engine and the argparse surface (build_parser)
+├── bundle.py       # the movable skill bundle + the refresh mirror
+├── config.py       # workspace paths, record names, caps, scan routing
+├── gitutil.py      # git plumbing for branch/PR/merge
+├── harness.py      # harness registry, always-on budget, proposal lint
+├── hooks.py        # the pre-commit and pre-push git hooks
+├── imaging.py      # offline image-model capability probe
+├── io.py           # atomic file IO, the exclusive lock, the one error exit
+├── layout.py       # the team tree, the committed docs and their links
+├── names.py        # names, roles and commit identities
+├── records.py      # the markdown record layer: parse, render, find
+├── resources.py    # locate the skill bundle (checkout or wheel)
+├── portable.py     # Windows-safe process/path helpers
+└── version.py      # the package version (__version__)
 ```
 
 `scripts/teamwork.py` is a thin compatibility shim that adds `src/` to
 `sys.path` and calls `teamwork.cli.main`, so the CLI runs from a checkout with
-only the standard library.
+only the standard library. The argument parser is not in `cli.py`: it is
+`engine.build_parser()`, and `cli.main` is the same call as `engine.main`.
 
 ## Resource resolution
 
@@ -51,12 +62,17 @@ Frozen public API:
 ```python
 skill_root() -> Path        # directory holding SKILL.md + bundle folders
 asset(*parts) -> Path       # skill_root() joined with parts
-self_invocation() -> str    # how a teammate should invoke the CLI
+self_invocation() -> str    # how a teammate should invoke the CLI (machine-local)
+portable_invocation() -> str  # a command prefix safe to commit
 has_asset(name: str) -> bool
 ```
 
 `self_invocation()` prefers the `teamwork` console script, then
-`python3 scripts/teamwork.py` from a checkout, then `python -m teamwork`.
+`<sys.executable> <repo>/scripts/teamwork.py` from a checkout, then
+`<sys.executable> -m teamwork` - an absolute interpreter path, so it belongs in
+`.pi/` state and never in a committed file. `portable_invocation()` returns the
+bare `teamwork` for anything that lands in the repository, because a committed
+`AGENTS.md` must not embed a home path.
 
 ## Workspace format
 
