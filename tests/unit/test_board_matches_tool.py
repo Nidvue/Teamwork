@@ -33,6 +33,17 @@ floor therefore may only decide whether a *closed* record is history: an open ta
 is always in scope, the keys are folded the way the lookup spells them, and
 `test_no_queued_task_is_silently_hidden` counts the raw queues instead of trusting
 the view that does the hiding.
+
+One row is exempt from both invariants, and only one kind: a task that is LANDING.
+A committed board is a projection at render time, but the act of landing a PR flips
+its own task from `review`/`doing` to `done` plus a merge revision, so no commit can
+carry its own post-merge state - the merge that would make the row true does not
+exist yet when the row is written. This is structural, not an author's error:
+`projectmanager T-0003` read `doing` on the board and `done` + `cfba521` in the queue
+with no defect behind the difference. So a landing task is excluded from both sides
+(the CEO decision: "The board cannot contain its own post-merge state"), while every
+other comparison stays strict - an open `todo`/`doing` task must still be visible and
+equal, and a `done` task must still match when both sides say `done`.
 """
 
 from __future__ import annotations
@@ -234,13 +245,66 @@ def in_flight(board: str) -> dict[tuple[str, str], str]:
     }
 
 
+def is_landing(fields: dict[str, str], row: tuple[str, str, str]) -> bool:
+    """Whether this task's state is changing by the act of landing - see the module note.
+
+    A landing task's state changes by the act of landing, so neither side can be
+    stable until the post-merge re-render: the queue moves to `review` (the PR is up
+    for review) and then to `done` + a merge revision (the PR landed), while the last
+    committed board still shows the state it rendered under. Two shapes are that
+    window, and nothing else is:
+
+    * either side says `review` - the review the landing waits on; or
+    * the queue already carries the merge for the *same* PR whose row is still open
+      on the board with no merged revision (`projectmanager T-0003`). Both sides name
+      one PR, so the board is exactly one render behind the queue for that PR, which
+      a drift between two different PRs can never look like.
+    """
+    queue_state = fields.get("status", "")
+    board_state, board_pr, board_merged = row
+    if queue_state == "review" or board_state == "review":
+        return True
+    return (
+        queue_state == "done"
+        and board_state in OPEN
+        and board_merged in ("", "-")
+        and board_pr != "-"
+        and board_pr == (fields.get("pr") or "-")
+        and bool(fields.get("merge_commit"))
+    )
+
+
+def landing_keys(
+    tasks: dict[tuple[str, str], dict[str, str]],
+    rows: dict[tuple[str, str], tuple[str, str, str]],
+    flight: dict[tuple[str, str], str] | None = None,
+) -> set[tuple[str, str]]:
+    """The tasks excluded from both invariants because they are mid-landing.
+
+    A task with no board row is read from its In-flight entry instead: that table
+    carries no PR, so only the `review` half of the predicate can match, and the
+    missing row is itself already reported by `mismatches`.
+    """
+    out: set[tuple[str, str]] = set()
+    for key, fields in tasks.items():
+        row = rows.get(key)
+        if row is None and flight is not None and key in flight:
+            row = (flight[key], fields.get("pr") or "-", "-")
+        if row is not None and is_landing(fields, row):
+            out.add(key)
+    return out
+
+
 def mismatches(
     tasks: dict[tuple[str, str], dict[str, str]],
     rows: dict[tuple[str, str], tuple[str, str, str]],
 ) -> list[str]:
     """Both directions: a row that is wrong and a task that has no row."""
     out = []
+    landing = landing_keys(tasks, rows)
     for key, fields in sorted(tasks.items()):
+        if key in landing:
+            continue
         want = expected_row(fields)
         got = rows.get(key)
         if got is None:
@@ -253,8 +317,16 @@ def mismatches(
 
 
 def flight_mismatches(
-    tasks: dict[tuple[str, str], dict[str, str]], flight: dict[tuple[str, str], str]
+    tasks: dict[tuple[str, str], dict[str, str]],
+    flight: dict[tuple[str, str], str],
+    rows: dict[tuple[str, str], tuple[str, str, str]] | None = None,
 ) -> list[str]:
+    """The In-flight table versus the open set, minus the tasks that are landing."""
+    landing = landing_keys(tasks, rows or {}, flight)
+    tasks = {key: fields for key, fields in tasks.items() if key not in landing}
+    # both directions of the comparison, so a landing row is not reported as an
+    # In-flight entry whose queue status is no longer open
+    flight = {key: state for key, state in flight.items() if key not in landing}
     want = {
         key: fields.get("status", "")
         for key, fields in tasks.items()
@@ -349,44 +421,98 @@ def test_the_board_rows_equal_the_queues() -> None:
     assert not mismatches(tasks, rows), mismatches(tasks, rows)
 
 
+def without_landing(board: str, keys: set[tuple[str, str]]) -> str:
+    """The board with the landing rows removed from both tables.
+
+    Only those rows are dropped: everything else is still compared and still has to
+    be what a regeneration writes, so the exemption cannot spread.
+    """
+    kept = []
+    for line in board.splitlines():
+        match = BOARD_ROW.match(line) or FLIGHT_ROW.match(line)
+        if match and (norm_role(match.group(1)), match.group(2)) in keys:
+            continue
+        kept.append(line)
+    return "\n".join(kept) + "\n"
+
+
 def test_the_in_flight_table_is_exactly_the_open_set() -> None:
     tasks = live_tasks()
     board = BOARD.read_text(encoding="utf-8")
-    found = flight_mismatches(tasks, in_flight(board))
+    landing = landing_keys(tasks, board_rows(board), in_flight(board))
+    found = flight_mismatches(tasks, in_flight(board), board_rows(board))
     assert not found, found
-    assert render(tasks, board) == board, "the board is not what a regeneration writes"
+    rest = {key: fields for key, fields in tasks.items() if key not in landing}
+    stable = without_landing(board, landing)
+    assert not flight_mismatches(rest, in_flight(stable), board_rows(stable)), "In flight drifted"
+    assert render(rest, stable) == stable, "the board is not what a regeneration writes"
 
 
 def test_the_comparison_bites_on_a_stale_row() -> None:
     """The synthetic half: this logic runs in CI, where the team tree is absent."""
     tasks = {
         ("developer", "T-0005"): {"status": "done", "pr": "P-0001", "merge_commit": "abc1234"},
-        ("tester", "T-0003"): {"status": "review", "pr": "P-0002"},
+        # a task mid-work, not landing: open on both sides, one side stale
+        ("tester", "T-0003"): {"status": "doing", "pr": "P-0002"},
         ("ceo", "T-0059"): {"status": "doing"},
     }
     rows = {
         ("developer", "T-0005"): ("done", "P-0001", "abc1234"),
-        # the row the submission itself flips: open in the queue, stale on the board
-        ("tester", "T-0003"): ("doing", "-", "-"),
+        # a stale row that no landing can explain: still todo after the claim
+        ("tester", "T-0003"): ("todo", "-", "-"),
         # a board row for a task that does not exist
         ("reviewer", "T-0009"): ("done", "-", "-"),
     }
     found = mismatches(tasks, rows)
     assert (
-        "tester T-0003: board says ('doing', '-', '-'), queue says ('review', 'P-0002', '-')"
+        "tester T-0003: board says ('todo', '-', '-'), queue says ('doing', 'P-0002', '-')"
         in found
     )
     assert "ceo T-0059: in the queue as ('doing', '-', '-'), absent from the board" in found
     assert "reviewer T-0009: on the board, but no such task in the milestone" in found
 
-    flight = {("tester", "T-0003"): "doing", ("release-engineer", "T-0008"): "todo"}
-    found = flight_mismatches(tasks, flight)
-    assert "tester T-0003: In flight says 'doing', the queue says 'review'" in found
+    flight = {("tester", "T-0003"): "todo", ("release-engineer", "T-0008"): "todo"}
+    found = flight_mismatches(tasks, flight, rows)
+    assert "tester T-0003: In flight says 'todo', the queue says 'doing'" in found
     assert "ceo T-0059: open in the queue as 'doing', missing from In flight" in found
     assert (
         "release-engineer T-0008: listed In flight as 'todo', but its queue status is not open"
         in found
     )
+
+
+def test_a_landing_task_is_excluded_and_a_drift_is_not() -> None:
+    """The structural exemption, pinned in the three directions that could go wrong.
+
+    (a) a landing task does not fail either invariant; (b) a genuinely drifted task
+    that is not landing still fails; (c) a done-vs-doing drift on a task with no
+    landing evidence - the same two states as `projectmanager T-0003` - still fails,
+    so the exemption cannot be used to wave through a stale board.
+    """
+    # (a) the measured shape: the row rendered while P-0016 was open, queue merged
+    landed = {("projectmanager", "T-0003"): {"status": "done", "pr": "P-0016", "merge_commit": "cfba521"}}
+    stale_row = {("projectmanager", "T-0003"): ("doing", "P-0016", "-")}
+    assert mismatches(landed, stale_row) == []
+    assert flight_mismatches(landed, {("projectmanager", "T-0003"): "doing"}, stale_row) == []
+    # (a) the earlier window: the queue is at review, the board still says doing
+    assert mismatches(
+        {("tester", "T-0004"): {"status": "review", "pr": "P-0003"}},
+        {("tester", "T-0004"): ("doing", "P-0003", "-")},
+    ) == []
+    # (b) a non-landing task that really drifted: open on both sides, states differ
+    assert mismatches(
+        {("tester", "T-0006"): {"status": "doing"}}, {("tester", "T-0006"): ("todo", "-", "-")}
+    ) == ["tester T-0006: board says ('todo', '-', '-'), queue says ('doing', '-', '-')"]
+    # (c) done in the queue, doing on the board, and no merge record either side
+    assert mismatches(
+        {("ceo", "T-0002"): {"status": "done"}}, {("ceo", "T-0002"): ("doing", "-", "-")}
+    ) == ["ceo T-0002: board says ('doing', '-', '-'), queue says ('done', '-', '-')"]
+    # (c) the same two states, but the two sides name different PRs: two PRs is not
+    # one PR observed twice, so this is a drift and not a landing
+    assert mismatches(
+        {("ceo", "T-0004"): {"status": "done", "pr": "P-0001", "merge_commit": "abc1234"}},
+        {("ceo", "T-0004"): ("doing", "P-0009", "-")},
+    ) == ["ceo T-0004: board says ('doing', 'P-0009', '-'), queue says ('done', 'P-0001', 'abc1234')"]
 
 
 def test_an_empty_field_is_a_dash_not_a_value() -> None:
