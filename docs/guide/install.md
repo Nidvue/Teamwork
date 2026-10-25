@@ -64,7 +64,7 @@ message, schedule) is in
     the installed directory:
 
     ```console
-    $ teamwork refresh                 # fetch origin/main, then mirror into ~/.pi/agent/skills/teamwork
+    $ teamwork refresh                 # fetch origin/main, then mirror into the host's skills directory
     $ teamwork refresh --dest ~/.agents/skills/teamwork
     $ teamwork refresh --check          # drift check: writes nothing, exits 1 when stale
     $ teamwork refresh --dry-run        # what it would copy, deletes and writes nothing
@@ -75,9 +75,12 @@ message, schedule) is in
     engine module must not shadow the new one), and never touches a file outside
     the bundle trees, so an operator note in the skills directory survives. With no
     checkout in use it keeps a tool-managed mirror beside the skills directory,
-    created once with `--repo <url>` and updated from then on - for the default
-    `pi` destination that is `~/.pi/agent/.teamwork-source`, and for
-    `--host agents` it is `~/.agents/.teamwork-source`:
+    created once with `--repo <url>` and updated from then on. The destination
+    is resolved from the host's skills directory - `--dest` names one directly
+    and `--host` selects a host's default - and the mirror sits beside it:
+    `~/.pi/agent/skills/teamwork` mirrors through
+    `~/.pi/agent/.teamwork-source`, and `--host agents` uses
+    `~/.agents/.teamwork-source`:
 
     ```console
     $ teamwork refresh --mirror --repo https://github.com/Nidvue/Teamwork.git
