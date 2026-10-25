@@ -465,8 +465,7 @@ def test_the_comparison_bites_on_a_stale_row() -> None:
     }
     found = mismatches(tasks, rows)
     assert (
-        "tester T-0003: board says ('todo', '-', '-'), queue says ('doing', 'P-0002', '-')"
-        in found
+        "tester T-0003: board says ('todo', '-', '-'), queue says ('doing', 'P-0002', '-')" in found
     )
     assert "ceo T-0059: in the queue as ('doing', '-', '-'), absent from the board" in found
     assert "reviewer T-0009: on the board, but no such task in the milestone" in found
@@ -490,15 +489,20 @@ def test_a_landing_task_is_excluded_and_a_drift_is_not() -> None:
     so the exemption cannot be used to wave through a stale board.
     """
     # (a) the measured shape: the row rendered while P-0016 was open, queue merged
-    landed = {("projectmanager", "T-0003"): {"status": "done", "pr": "P-0016", "merge_commit": "cfba521"}}
+    landed = {
+        ("projectmanager", "T-0003"): {"status": "done", "pr": "P-0016", "merge_commit": "cfba521"}
+    }
     stale_row = {("projectmanager", "T-0003"): ("doing", "P-0016", "-")}
     assert mismatches(landed, stale_row) == []
     assert flight_mismatches(landed, {("projectmanager", "T-0003"): "doing"}, stale_row) == []
     # (a) the earlier window: the queue is at review, the board still says doing
-    assert mismatches(
-        {("tester", "T-0004"): {"status": "review", "pr": "P-0003"}},
-        {("tester", "T-0004"): ("doing", "P-0003", "-")},
-    ) == []
+    assert (
+        mismatches(
+            {("tester", "T-0004"): {"status": "review", "pr": "P-0003"}},
+            {("tester", "T-0004"): ("doing", "P-0003", "-")},
+        )
+        == []
+    )
     # (b) a non-landing task that really drifted: open on both sides, states differ
     assert mismatches(
         {("tester", "T-0006"): {"status": "doing"}}, {("tester", "T-0006"): ("todo", "-", "-")}
@@ -512,7 +516,9 @@ def test_a_landing_task_is_excluded_and_a_drift_is_not() -> None:
     assert mismatches(
         {("ceo", "T-0004"): {"status": "done", "pr": "P-0001", "merge_commit": "abc1234"}},
         {("ceo", "T-0004"): ("doing", "P-0009", "-")},
-    ) == ["ceo T-0004: board says ('doing', 'P-0009', '-'), queue says ('done', 'P-0001', 'abc1234')"]
+    ) == [
+        "ceo T-0004: board says ('doing', 'P-0009', '-'), queue says ('done', 'P-0001', 'abc1234')"
+    ]
 
 
 def test_an_empty_field_is_a_dash_not_a_value() -> None:
