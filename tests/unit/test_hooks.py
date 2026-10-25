@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from tests.tooling import require_tool
 
 from teamwork import config, engine, hooks
 
@@ -477,6 +478,10 @@ def test_install_from_a_linked_worktree_lands_in_the_common_git_dir_and_fires(
     assert (common / "pre-push").is_file()
     assert cli("--project", linked, "hooks", "status") == 0
     assert stage_lines(capsys.readouterr().out) == ["pre-commit installed", "pre-push installed"]
+
+    # The hooks themselves are POSIX shell scripts, so running one needs `sh`:
+    # an absent shell is a skip that names it, not a FileNotFoundError.
+    require_tool("sh")
 
     body = engine_shim(repo_root)
     write(linked / "scripts" / "teamwork.py", body)

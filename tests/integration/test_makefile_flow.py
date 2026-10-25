@@ -16,18 +16,22 @@ does not depend on which interpreter happens to be first on ``PATH``:
 ``make test`` and ``make ci`` are deliberately not run: they are slow and are
 covered by their own layers.
 
+Every test here needs GNU make, so one guard - routed through
+``tests.tooling.require_tool`` - skips the file where it is absent and names the
+tool. It is a plain function so a test can call it and prove what it does.
+
 Owner: tester. Task: T-0004.
 """
 
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from tests.tooling import require_tool
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAKEFILE = REPO_ROOT / "Makefile"
@@ -55,8 +59,12 @@ def run_make(args: list[str], cwd: Path, *, env: dict[str, str] | None = None):
 
 @pytest.fixture(autouse=True)
 def require_make():
-    if shutil.which("make") is None:
-        pytest.skip("make is not installed; the Makefile targets cannot be executed")
+    make_required()
+
+
+def make_required() -> None:
+    """Skip when GNU make is absent: the targets below *are* ``make``."""
+    require_tool("make")
 
 
 DOCUMENTED_TARGETS = (
