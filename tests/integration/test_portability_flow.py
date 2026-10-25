@@ -199,7 +199,7 @@ def _argv0_tool(call: ast.Call) -> str | None:
     if not call.args:
         return None
     first = call.args[0]
-    if not isinstance(first, ast.List | ast.Tuple) or not first.elts:
+    if not isinstance(first, (ast.List, ast.Tuple)) or not first.elts:
         return None
     head = first.elts[0]
     # `[sys.executable, "-m", "mkdocs", ...]` runs an external *module*.
@@ -430,3 +430,70 @@ def test_the_guard_scan_accepts_every_guard_shape_the_tree_uses(tmp_path: Path) 
     """A named `skipif` decorator, an autouse fixture and an in-body skip all count."""
     (tmp_path / "test_guarded.py").write_text(GUARDED_SOURCE, encoding="utf-8")
     assert unguarded_tests(tmp_path) == []
+
+
+# --- runtime-compatibility guard -------------------------------------------
+#
+# `pyproject.toml` still declares `requires-python = ">=3.9"`, but both modules
+# below carry `from __future__ import annotations`. That makes an annotation such
+# as `def f(node: ast.AST | None)` legal on 3.9, while the *same spelling in an
+# evaluated position* - `isinstance(x, ast.List | ast.Tuple)` - is a PEP 604
+# union and raises `TypeError: unsupported operand type(s) for |` on 3.9. That
+# is exactly how the 3.9 CI job went red on revision 20c7d23. This guard is a
+# static pass, so it fails on the developer's own interpreter too.
+
+UNION_GUARDED_MODULES = (
+    Path(__file__).with_name("test_ci_release_flow.py"),
+    Path(__file__),
+)
+
+
+def _isinstance_union_lines(tree: ast.AST) -> list[int]:
+    """Line numbers of `isinstance`/`issubclass` calls taking an `X | Y` argument."""
+    offenders: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+        if name not in {"isinstance", "issubclass"}:
+            continue
+        arguments = list(node.args) + [keyword.value for keyword in node.keywords]
+        if any(
+            isinstance(inner, ast.BinOp) and isinstance(inner.op, ast.BitOr)
+            for argument in arguments
+            for inner in ast.walk(argument)
+        ):
+            offenders.append(node.lineno)
+    return offenders
+
+
+def test_no_isinstance_union_a_python_39_runtime_cannot_evaluate() -> None:
+    """No `isinstance(x, X | Y)` in either module: 3.9 raises `TypeError` on it."""
+    offenders = [
+        f"{module.name}:{line}"
+        for module in UNION_GUARDED_MODULES
+        for line in _isinstance_union_lines(
+            ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
+        )
+    ]
+    assert offenders == [], (
+        "`isinstance`/`issubclass` takes a PEP 604 union (`X | Y`), which raises "
+        "`TypeError: unsupported operand type(s) for |` on Python 3.9: "
+        f"{offenders}. Spell it as a tuple: `(ast.List, ast.Tuple)`."
+    )
+
+
+def test_the_union_guard_bites_on_the_spelling_20c7d23_shipped() -> None:
+    """The guard reports the exact expression `_argv0_tool` carried at 20c7d23."""
+    source = (
+        "import ast\n"
+        "\n"
+        "\n"
+        "def _argv0_tool(call):\n"
+        "    first = call.args[0]\n"
+        "    return isinstance(first, ast.List | ast.Tuple)\n"
+    )
+    assert _isinstance_union_lines(ast.parse(source)) == [6]
+    portable = source.replace("(first, ast.List | ast.Tuple)", "(first, (ast.List, ast.Tuple))")
+    assert _isinstance_union_lines(ast.parse(portable)) == []
