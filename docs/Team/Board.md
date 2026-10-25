@@ -7,9 +7,13 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 ## Snapshot
 
-- Milestone: M9 (release truth) and M10 (release truth on every OS) are closed.
-  Live state is read with `teamwork.py board` and `teamwork.py task list <role>`;
-  the rows of this board are a human summary of the same records.
+- Milestone: M11 (solid review and tree truth) is live; M9 (release truth) and
+  M10 (release truth on every OS) are closed. Live state is read with
+  `teamwork.py board` and `teamwork.py task list <role>`; the rows of this board
+  are rendered from those queues and are a human summary of the same records.
+- Tree census (project-manager T-0001): 214 tracked files classified, 206 live,
+  2 superseded-in-part records, 0 duplicates, 6 unreferenced in-tree and kept
+  with a written reason, 0 deleted - see [Plan](Plan.md) M11.
 - Release state, each fact read by its own command - no value is pinned here,
   because every one of them moves:
   - npm `latest`: `npm view @nidvue/teamwork dist-tags`
@@ -44,96 +48,165 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 - pi packaging: [Pi-Packaging](Pi-Packaging.md)
 
-## M9 - release truth
 
-The milestone is described in [Plan](Plan.md) (goal, non-goals, deliverables,
-dependencies and the acceptance criteria). The state of every row is read with
-`teamwork.py task list <role>`; the PR and the merged revision are read with
+## M11 - solid review and tree truth (live)
+
+The milestone is described in [Plan](Plan.md) M11. This table is rendered from
+`Roles/*/TaskQueue.md` at the commit that carries it, so it is the queues' state
+and not an opinion about it; read the same cells with
+`teamwork.py task list <role>`, and the PR and merged revision with
 `teamwork.py pr list`. Task ids are allocated per role queue, so the same id
 under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| architect | T-0002 | architecture | dropped | P-0068 | - |
-| architect | T-0003 | architecture | done | P-0075 | b02ed38 |
-| architect | T-0004 | architecture | done | P-0079 | cf95b98 |
-| architect | T-0005 | ci | dropped | P-0081 | - |
-| ceo | T-0059 | release | done | P-0069 | 3078c48 |
-| ceo | T-0060 | - | done | - | - |
-| ceo | T-0061 | release | done | P-0070 | 135ae06 |
-| ceo | T-0062 | release | done | P-0067 | e4b141c |
-| ceo | T-0063 | - | done | - | - |
-| ceo | T-0064 | docs | done | P-0082 | def7b1c |
-| ceo | T-0065 | - | done | P-0096 | df3de8c |
-| ceo | T-0066 | links | done | P-0098 | b6c0817 |
-| ceo | T-0067 | - | done | P-0097 | 143e192 |
-| ceo | T-0068 | - | done | - | - |
-| ceo | T-0069 | - | done | - | - |
-| ceo | T-0070 | links | done | P-0100 | 4e2fda5 |
-| ceo | T-0071 | - | done | P-0108 | 9099e51 |
-| ceo | T-0072 | - | done | P-0110 | 4af8b2e |
-| ceo | T-0073 | - | done | P-0111 | 25f8f3e |
-| ceo | T-0074 | - | review | P-0115 | - |
-| developer | T-0005 | release | done | P-0073 | 5fa73ef |
-| developer | T-0006 | release | done | P-0074 | 74740be |
-| developer | T-0007 | makefile | done | P-0071 | 3ee1d35 |
-| developer | T-0009 | release-consistency | done | P-0085 | f8dd596 |
-| developer | T-0010 | release | done | - | - |
-| developer | T-0011 | ci-contracts | done | P-0083 | a1a04bc |
-| developer | T-0012 | release-consistency | done | P-0080 | 5fa73ef |
-| developer | T-0013 | release-consistency | done | P-0084 | 602c56d |
-| developer | T-0014 | - | done | P-0089 | 2cbb2e7 |
-| developer | T-0015 | - | done | P-0091 | cc2f50f |
-| developer | T-0016 | - | done | P-0095 | 03c7fbf |
-| developer | T-0017 | - | done | P-0094 | b5fbc93 |
-| developer | T-0018 | - | done | P-0101 | 35b6f2d |
-| developer | T-0019 | - | done | P-0107 | 3404a42 |
-| developer | T-0020 | - | done | P-0106 | 3fad639 |
-| developer | T-0021 | - | done | P-0109 | 6962dfb |
-| developer | T-0022 | ci | done | P-0112 | 8e87b9e |
-| developer | T-0023 | ci | done | P-0113 | f3330c4 |
-| developer | T-0024 | - | done | P-0114 | dc260d7 |
-| reviewer | T-0002 | - | done | - | - |
-| reviewer | T-0003 | - | done | P-0093 | f6242c9 |
-| reviewer | T-0004 | - | done | P-0102 | 44259cb |
-| tester | T-0003 | - | done | P-0087 | a43e61e |
-| tester | T-0004 | - | done | P-0092 | c84932e |
-| tester | T-0005 | - | done | P-0103 | b91084d |
-| tester | T-0006 | - | done | - | - |
-| product-manager | T-0001 | traceability | done | P-0037 | eeab44c |
-| project-manager | T-0001 | - | done | P-0034 | 69116cc |
-| project-manager | T-0002 | plan | done | P-0086 | 203b515 |
-| release-engineer | T-0001 | - | done | - | - |
-| release-engineer | T-0002 | release | done | P-0062 | d0c4c4a |
-| release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
-| release-engineer | T-0004 | - | dropped | - | - |
-| release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
-| release-engineer | T-0006 | - | done | - | - |
-| release-engineer | T-0007 | release | done | P-0078 | 6fa8930 |
-| release-engineer | T-0008 | ci | done | - | - |
-| release-engineer | T-0009 | - | done | P-0090 | e3a2476 |
-| release-engineer | T-0010 | - | done | P-0104 | 3b0fbfa |
-| release-engineer | T-0011 | - | dropped | - | - |
-| release-engineer | T-0012 | - | done | - | - |
-| security-auditor | T-0001 | core | dropped | P-0023 | - |
-| security-auditor | T-0002 | - | dropped | - | - |
-| security-auditor | T-0003 | security | done | P-0051 | 4e1e53f |
-| security-auditor | T-0004 | - | done | P-0058 | d40a5db |
-| security-auditor | T-0005 | privacy | done | P-0088 | e2c18a5 |
+| ceo | T-0001 | intake | doing | - | - |
+| ceo | T-0007 | - | review | P-0002 | - |
+| ceo | T-0002 | - | todo | - | - |
+| ceo | T-0003 | - | todo | - | - |
+| ceo | T-0004 | - | todo | - | - |
+| ceo | T-0005 | - | todo | - | - |
+| ceo | T-0006 | - | todo | - | - |
+| ceo | T-0008 | - | todo | - | - |
+| architect | T-0001 | - | doing | - | - |
+| developer | T-0001 | - | review | P-0001 | - |
+| developer | T-0002 | - | doing | - | - |
+| developer | T-0003 | test-portability | selfcheck | - | - |
+| developer | T-0004 | - | todo | - | - |
+| developer | T-0005 | - | todo | - | - |
+| developer | T-0006 | - | todo | - | - |
+| tester | T-0001 | - | doing | - | - |
+| reviewer | T-0001 | - | todo | - | - |
+| reviewer | T-0002 | - | todo | - | - |
+| product-manager | T-0001 | - | doing | - | - |
+| project-manager | T-0001 | - | doing | - | - |
+| release-engineer | T-0001 | ci | review | P-0003 | - |
+| release-engineer | T-0002 | - | todo | - | - |
+| release-engineer | T-0003 | - | todo | - | - |
+| release-engineer | T-0004 | - | todo | - | - |
+| security-auditor | T-0001 | - | doing | - | - |
+| technical-writer | T-0001 | - | doing | - | - |
 
-Rows whose PR is not merged carry no merged revision; the revision is read
-from the PR record, not from this table. A row with no PR is a task whose
-deliverable landed by commit without a PR record.
+Rows whose PR is not merged carry no merged revision; the revision is read from
+the PR record, not from this table. A task with no PR is a task whose deliverable
+landed by commit without a PR record.
 
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0074 · Docs and tree hygiene: update stale README/docs claims, delete dead symbols, remove redundant banners | P0 | review | - |
+| ceo | T-0001 · Own M11: intake, criteria, goal-layer tests, arbitration, close-out (manifest + final report) | P0 | doing | - |
+| ceo | T-0007 · Record the M11 solid-review engagement intake (objective, criteria, milestone, decision) | P0 | review | P-0002 |
+| ceo | T-0002 · Register the two include: matrix lanes as required checks (py3.10, py3.12 run but do not block) | P1 | todo | - |
+| ceo | T-0003 · Protect the v* tag pattern (no ruleset, no tag protection rule today) | P1 | todo | - |
+| ceo | T-0004 · Clear the R8 drift at docs/Team/Decisions.md:1284 - it blocks the online release gate, so no tag can be released | P1 | todo | - |
+| ceo | T-0005 · Decide required_linear_history on main (off; policy says no merge commits on the default branch) | P2 | todo | - |
+| ceo | T-0006 · Make CodeQL a merge gate, and either enforce SHA pinning on actions or record why not | P2 | todo | - |
+| ceo | T-0008 · Remove the two stale tier-init instance dirs .pi/Teamwork/Teams/Teamwork/Agents/Developer and Agents/Tester | P2 | todo | - |
+| architect | T-0001 · Code and logic review of src/teamwork and scripts: find real defects, dead code, inconsistent invariants; file each finding as a task and record contract changes in Architecture.md | P0 | doing | - |
+| developer | T-0001 · Fix resources.self_invocation(): the returned command is unusable on Windows when a path has a space or backslash | P0 | review | P-0001 |
+| developer | T-0002 · Guard every symlink-dependent test so the suite is green on a host without symlink privilege | P0 | doing | - |
+| developer | T-0003 · Make every test that needs an external tool honest: skip with a stated reason when the tool is absent | P0 | selfcheck | - |
+| developer | T-0004 · Remove the personal absolute path from commit a4c726f (message + resources.py docstrings) before it can merge | P0 | todo | - |
+| developer | T-0005 · Reword the developer-1 T-0001 commit message: it carries the operator home path and turns the privacy gate red | P0 | todo | - |
+| developer | T-0006 · Re-point the board gate at the live milestone: tests/unit/test_board_matches_tool.py cannot see the M11 queues | P1 | todo | - |
+| tester | T-0001 · Certify the suite locally on this host and in CI on the pushed revision; own integration-layer records for portability and ci-release | P0 | doing | - |
+| reviewer | T-0001 · Serve the review queue and own the acceptance layer for the M11 deliverables | P0 | todo | - |
+| reviewer | T-0002 · Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | todo | - |
+| product-manager | T-0001 · Rebuild the traceability matrix for AC-19..AC-21 and re-key the machine criteria store (gap G-1) | P1 | doing | - |
+| project-manager | T-0001 · Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | doing | - |
+| release-engineer | T-0001 · Workflow and release-gate integrity: workflows match the tree, hooks install, branch protection matches policy | P0 | review | P-0003 |
+| release-engineer | T-0002 · Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | todo | - |
+| release-engineer | T-0003 · ci.yml skips the privacy job (and every code job) on a prose-only push to main | P2 | todo | - |
+| release-engineer | T-0004 · privacy-allow.txt: correct the exemption-mechanism sentence and record that the file is self-exempting | P3 | todo | - |
+| security-auditor | T-0001 · Security and privacy posture audit: tree, history, workflows, hooks, scanning alerts | P0 | doing | - |
+| technical-writer | T-0001 · Docs truth pass: remove every stale or self-contradicting state claim in docs/Team, README, CHANGELOG and docs/guide | P0 | doing | - |
 
-The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
-state; this table only says which lanes are open.
+The task queue (`teamwork.py task list <role>`) is authoritative for a task's
+exact state; this table only says which lanes are open.
 
+## M9 - release truth (closed)
+
+The milestone is described in [Plan](Plan.md) M9 (goal, non-goals, deliverables,
+dependencies and the acceptance criteria). Its rows are the close record: the
+worktree was re-initialised for M11, so the shared queues no longer carry these
+ids and this table cannot be regenerated. Each merged revision is still read from
+the PR record `teamwork.py pr list` holds for that branch.
+
+| role | id | area | state at the M9 close | pr | merged revision |
+|---|---|---|---|---|---|
+| architect | M9 T-0002 | architecture | dropped | P-0068 | - |
+| architect | M9 T-0003 | architecture | done | P-0075 | b02ed38 |
+| architect | M9 T-0004 | architecture | done | P-0079 | cf95b98 |
+| architect | M9 T-0005 | ci | dropped | P-0081 | - |
+| ceo | M9 T-0059 | release | done | P-0069 | 3078c48 |
+| ceo | M9 T-0060 | - | done | - | - |
+| ceo | M9 T-0061 | release | done | P-0070 | 135ae06 |
+| ceo | M9 T-0062 | release | done | P-0067 | e4b141c |
+| ceo | M9 T-0063 | - | done | - | - |
+| ceo | M9 T-0064 | docs | done | P-0082 | def7b1c |
+| ceo | M9 T-0065 | - | done | P-0096 | df3de8c |
+| ceo | M9 T-0066 | links | done | P-0098 | b6c0817 |
+| ceo | M9 T-0067 | - | done | P-0097 | 143e192 |
+| ceo | M9 T-0068 | - | done | - | - |
+| ceo | M9 T-0069 | - | done | - | - |
+| ceo | M9 T-0070 | links | done | P-0100 | 4e2fda5 |
+| ceo | M9 T-0071 | - | done | P-0108 | 9099e51 |
+| ceo | M9 T-0072 | - | done | P-0110 | 4af8b2e |
+| ceo | M9 T-0073 | - | done | P-0111 | 25f8f3e |
+| ceo | M9 T-0074 | - | review | P-0115 | - |
+| developer | M9 T-0005 | release | done | P-0073 | 5fa73ef |
+| developer | M9 T-0006 | release | done | P-0074 | 74740be |
+| developer | M9 T-0007 | makefile | done | P-0071 | 3ee1d35 |
+| developer | M9 T-0009 | release-consistency | done | P-0085 | f8dd596 |
+| developer | M9 T-0010 | release | done | - | - |
+| developer | M9 T-0011 | ci-contracts | done | P-0083 | a1a04bc |
+| developer | M9 T-0012 | release-consistency | done | P-0080 | 5fa73ef |
+| developer | M9 T-0013 | release-consistency | done | P-0084 | 602c56d |
+| developer | M9 T-0014 | - | done | P-0089 | 2cbb2e7 |
+| developer | M9 T-0015 | - | done | P-0091 | cc2f50f |
+| developer | M9 T-0016 | - | done | P-0095 | 03c7fbf |
+| developer | M9 T-0017 | - | done | P-0094 | b5fbc93 |
+| developer | M9 T-0018 | - | done | P-0101 | 35b6f2d |
+| developer | M9 T-0019 | - | done | P-0107 | 3404a42 |
+| developer | M9 T-0020 | - | done | P-0106 | 3fad639 |
+| developer | M9 T-0021 | - | done | P-0109 | 6962dfb |
+| developer | M9 T-0022 | ci | done | P-0112 | 8e87b9e |
+| developer | M9 T-0023 | ci | done | P-0113 | f3330c4 |
+| developer | M9 T-0024 | - | done | P-0114 | dc260d7 |
+| reviewer | M9 T-0002 | - | done | - | - |
+| reviewer | M9 T-0003 | - | done | P-0093 | f6242c9 |
+| reviewer | M9 T-0004 | - | done | P-0102 | 44259cb |
+| tester | M9 T-0003 | - | done | P-0087 | a43e61e |
+| tester | M9 T-0004 | - | done | P-0092 | c84932e |
+| tester | M9 T-0005 | - | done | P-0103 | b91084d |
+| tester | M9 T-0006 | - | done | - | - |
+| product-manager | M9 T-0001 | traceability | done | P-0037 | eeab44c |
+| project-manager | M9 T-0001 | - | done | P-0034 | 69116cc |
+| project-manager | M9 T-0002 | plan | done | P-0086 | 203b515 |
+| release-engineer | M9 T-0001 | - | done | - | - |
+| release-engineer | M9 T-0002 | release | done | P-0062 | d0c4c4a |
+| release-engineer | M9 T-0003 | ci | done | P-0076 | 46c4aeb |
+| release-engineer | M9 T-0004 | - | dropped | - | - |
+| release-engineer | M9 T-0005 | release | done | P-0072 | 8fcf3fc |
+| release-engineer | M9 T-0006 | - | done | - | - |
+| release-engineer | M9 T-0007 | release | done | P-0078 | 6fa8930 |
+| release-engineer | M9 T-0008 | ci | done | - | - |
+| release-engineer | M9 T-0009 | - | done | P-0090 | e3a2476 |
+| release-engineer | M9 T-0010 | - | done | P-0104 | 3b0fbfa |
+| release-engineer | M9 T-0011 | - | dropped | - | - |
+| release-engineer | M9 T-0012 | - | done | - | - |
+| security-auditor | M9 T-0001 | core | dropped | P-0023 | - |
+| security-auditor | M9 T-0002 | - | dropped | - | - |
+| security-auditor | M9 T-0003 | security | done | P-0051 | 4e1e53f |
+| security-auditor | M9 T-0004 | - | done | P-0058 | d40a5db |
+| security-auditor | M9 T-0005 | privacy | done | P-0088 | e2c18a5 |
+
+In flight at the M9 close, kept with the record:
+
+| agent | task | prio | state | artifact |
+|---|---|---|---|---|
+| ceo | M9 T-0074 · Docs and tree hygiene: update stale README/docs claims, delete dead symbols, remove redundant banners | P0 | review | - |
 ## Dependency PRs (landed)
 
 | PR | bump | outcome |
