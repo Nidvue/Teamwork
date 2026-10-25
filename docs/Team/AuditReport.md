@@ -16,8 +16,17 @@ are the pre-rewrite state kept as evidence of what was measured and why.
 - **The recorded findings are closed too.** F-1 and F-2 (the disclosed commit)
   closed with R5; F-9 (the ruling's own evidence line) closed when the entry was
   rewritten to name the rule instead of the value.
-- **The gate is green now.** `python3 scripts/privacy_scan.py --tree --history
-  --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s)`.
+- **The gate is green, measured.** `python3 scripts/privacy_scan.py --tree
+  --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s) in tree,
+  history`, exit 0, at the head of `securityauditor/t-0001-security-and-privacy-posture-audit-tree` (2026-10-25). The red that section 0
+  below was written against is history, kept as measured: the same command at
+  `7db810a` (main, 2026-10-25) -> `FAIL - 1 finding(s)`, a **commit message plus
+  one code comment on an unmerged branch** (**F-P1**), and the commit named there
+  (`a4c726f`) has since been dropped and its reflog expired under
+  `D-20261025-CEO`, so the disclosure is gone from every ref rather than
+  exempted. The live measurement, the per-entry ruling on the allowlist and the
+  hook, CI and red-line findings are **section 0** below; where the two disagree,
+  section 0 is the current state.
 
 The findings, the method and the threat model stand as the record of the audit
 that justified the rewrite. Where this file says "is red" or "is open" or
@@ -84,6 +93,102 @@ and that no allowlist entry can hide one: a real token, key or password on an
 exempted line is still reported by its own rule. The count is read from the run
 and never pinned here, because the commit that documents a count raises it
 (D-20261019-CEO-15, in `docs/Team/Decisions.md`).
+
+## 0. Posture re-audit - 2026-10-25 (T-0001)
+
+Owner: Security Auditor.
+Related: [Risks](Risks.md) · [Project](Project.md).
+
+This is the **live** posture, measured on this host. Audited revision
+`7db810a05f515420f319d4d513f605c8760f9624` (main), all refs included because
+`--history` sweeps every blob and every commit message reachable from every ref;
+measured 2026-10-25T14:43Z. Where an older section of this file states a
+different state, this section is the current one.
+
+**Re-measured after F-P1 was repaired** at the head of `securityauditor/t-0001-security-and-privacy-posture-audit-tree` (2026-10-25):
+`scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` ->
+`PASS - 0 finding(s) in tree, history`, exit 0. The one red row in 0.1 and the
+one open high finding in 0.2 are therefore recorded at their audited revision and
+marked closed; every other row was re-run unchanged and still holds.
+
+### 0.1 The six checks
+
+| # | Check | Command (at the audited revision) | Result |
+|---|---|---|---|
+| 1 | privacy gate, tree | `scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` | **PASS** - 0 findings, exit 0 |
+| 1 | privacy gate, tree + history | same + `--history` | **PASS** - 0 findings, exit 0 at the branch head; at the audited revision this row was **FAIL** - 2 findings, exit 1 (**F-P1**, closed) |
+| 1 | what the allowlist hides | the same command twice: `--history` **without** `--allow`, then **with** it | **without** `--allow`: **FAIL** - findings reported; **with** `--allow`: **PASS** - 0 findings, exit 0. Both numbers are read from that run and never pinned here, because the commit that documents the raw count raises it (see above). The pair is the whole claim, and it demonstrates the rule rather than a fraction: an entry may suppress **only** the value it names, and a credential finding on an exempted line is still reported by its own rule (0.3) |
+| 2 | action pinning | every `uses:` in `.github/workflows/*.yml` | 37/37 on a full 40-hex sha (ci 19, docs 5, release 13); 0 unpinned, 0 tag or branch ref |
+| 2 | least privilege | `permissions:` per workflow and per job | 3/3 workflows declare top-level `contents: read`; 15 jobs: 11 inherit it, 4 widen it and only as far as they need (0.2) |
+| 2 | triggers and secrets | grep over the three workflows | 0 `pull_request_target`, 0 `workflow_run`, 0 `secrets.*`; `github.token` appears twice, as a step env var only (release.yml:109,363), never echoed |
+| 2 | no echo of a token | `grep -rn 'echo.*token\|echo.*secret\|set -x'` | empty; the gate script scrubs `Authorization` out of any message (`_redact()`, check_release_consistency.py:411) and sends the token only to `*.github.com` hosts (`_is_github_host`) |
+| 3 | credentials in the tree | `git ls-files \| grep -iE '(\.env\|credential\|secret\|id_rsa\|\.pem\|\.key\|\.netrc\|\.npmrc)'` | empty; `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.p12`, `*.pfx` |
+| 3 | credentials in history | full-blob and all-commit-message sweep (row 1) | not one `private-key`, `personal-email`, `json-secret` or `.env`-file hit among the findings reported there; every hit is a path or a fabricated probe value (0.3) |
+| 4 | code scanning | `teamwork.py code-scanning`; `gh api repos/Nidvue/Teamwork/code-scanning/alerts?state=open` | **readable, not unreadable** - `[]`, 0 open |
+| 4 | the zero is live, not stale | `gh api .../code-scanning/alerts?state=all`; `.../code-scanning/analyses?per_page=5` | 3 historical alerts, **all `state: fixed`, none dismissed** (`py/clear-text-logging-sensitive-data`, scripts/privacy_scan.py:1008,1150,1161); python and actions analyses at `7db810a` with `results_count: 0`, 2026-10-24T11:44Z |
+| 4 | adjacent scanners | `gh api .../dependabot/alerts?state=open`; `.../secret-scanning/alerts?state=open` | both `[]` |
+| 5 | hooks, installed | `teamwork.py hooks install` in a throwaway clone, then a plain `git commit` on `main` | **refused**, exit 1: "refusing to commit on 'main'" (**A-1**) |
+| 5 | hooks, bypass 1 | `git commit --no-verify` on `main` | **accepted**, exit 0 - git cannot be stopped by a hook (**A-1**) |
+| 5 | hooks, bypass 2 | `TEAMWORK_SKIP_HOOKS=1 git commit` on `main` | **accepted**, exit 0 - documented escape hatch (hooks/pre-commit line 5) (**A-1**) |
+| 6 | red lines | AGENTS.md vs `references/Evidence.md` vs `roles/*.md` | no contradiction: the four weakening lines are verbatim in both policy files and no role card grants a forbidden action; two one-way wording gaps (**F-P3**) |
+
+### 0.2 Findings
+
+| ID | Severity | What, with evidence | Owner | State |
+|---|---|---|---|---|
+| F-P1 | **high** - gate red | Commit `a4c726f4b2ca` carries an absolute build path under the operator home directory **twice**: in its `Why:` line and in the comment at `src/teamwork/resources.py:27` of its own tree (a new blob, not the shipped one). `--tree --history --allow` -> `commit:a4c726f4b2ca:8 [high/home-path] message` **and** `src/teamwork/resources.py:27 [high/home-path]`; `--tree` alone is still **PASS**, so the shipped source is clean and the leak is on that branch only (`git branch -a --contains a4c726f4b2ca` -> `developer-1/t-0001-...`; the Windows form is absent from `origin/main` -> 0 occurrences of that shape). Unpublished, so the fix is free now; after the merge it needs a history rewrite. | Developer (`developer:T-0005`, P0 filed) | **closed** - the commit was dropped and the reflog expired (`D-20261025-CEO`), the consumer-email illustration was removed from the docs, and `--tree --history --allow` re-measures **PASS 0** at that head; nothing was exempted to get there |
+| F-P2 | medium | The `privacy` job is skipped on a prose-only push to main: `gh api .../commits/7db810a/check-runs` -> 6 skipped, including `privacy scan (tree + history)`; the only run at that sha is docs.yml (`actions/runs/39712543491`). Cause: `ci.yml:359` `if: github.event_name != 'push' \|\| needs.scope.outputs.code == 'true'`. Mitigated at PR time (any non-push event forces `code=true`) and by branch protection, but a merge commit created at merge time is never scanned by the PR run. `committer-guard` is **not** gated and did run. | Release Engineer (`release-engineer:T-0003`, P2 filed) | open |
+| F-P3 | low | Two wording asymmetries, no live conflict: `scope violation` appears only in AGENTS.md, and AGENTS.md forbids **logging** secrets while `references/Evidence.md` says "reading, printing or storing". The allowlist header also states the wrong mechanism (0.3). | Release Engineer / Technical Writer (`release-engineer:T-0004`, P3 filed) | open |
+| A-1 | accepted | Local hooks are client-side and cannot stop `--no-verify`; that is git's own flag, not a defect of the hook. The control that holds is on the forge: `gh api repos/Nidvue/Teamwork/branches/main/protection` -> `strict: true`, 16 required contexts including `privacy scan (tree + history)` and `committer guard`, 1 approving review, `allow_force_pushes: false`, `allow_deletions: false`, `required_conversation_resolution: true`. Residual: `enforce_admins: false` (an admin bypasses every check) and `required_signatures: false`. | CTO / Release Engineer | accepted policy |
+
+**Least privilege, job by job, and why the four widenings are right.** docs
+`deploy` takes `pages: write` + `id-token: write` (it publishes Pages and the
+OIDC token is what authorises it); release `attest` takes `id-token: write` +
+`attestations: write` (build provenance); release `release` takes `contents:
+write` (it creates the Release); release `consistency` restates `contents: read`
+because its forge read is authenticated. Nothing takes `actions: write`, nothing
+takes `packages: write`, and the workflow default stays read-only.
+
+### 0.3 Ruling on the allowlist, entry by entry
+
+Method: a throwaway git repository under `Scratch/` (17 files, fabricated values
+only, never in this repository) scanned with and without the allowlist. Without
+it: **14 findings over 12 files**. With it: **6 findings** - the Windows home
+path, a POSIX home path for a *different* user name, an AWS-shaped key, a
+non-exempt `sk-live-` value, the harness auth file, and a line carrying an exempt
+home path **plus** a non-exempt token (the token was still reported). The other
+six files were exempt.
+
+| Entry (file order) | What it exempts, measured | Still justified? | Over-broad? | Could it hide a real leak? |
+|---|---|---|---|---|
+| 1. the harness install tree path | every `agent-config` finding whose matched text is that tree **or a path under it** (`.../settings.json` was exempt too) | **Yes** - it is the scanner's own fixture, the pre-fix blob of `references/Adapters.md` and the audit quotations of it in history, so `--tree` alone would be red by design; rewriting that unpublished history would invalidate commit SHAs quoted as evidence in `Archive.md` and `Decisions.md` | No: the value is an install path, and a sibling path (the harness auth file) was still reported | No: the exemption is scoped to the `agent-config` rule for that one path. A token, key or password on the same line is still reported by its own rule (measured) |
+| 2. the operator user name as a POSIX home path | every `home-path` finding for that path **or a path under it**; a sibling user name was still reported | **Yes** - one archived reviewer finding and this file's own justification text quote it; a user name is not a credential; the exemption is fixed by shape, never by count, so it does not grow with the number of commits that document it | No: anchored and fully escaped; another user name does not match (measured) | Only the identity of that one user name, which is the disclosure the entry exists for and which is already in published `origin/main` (1 message occurrence). **Do not extend it to the Windows form** - that would exempt the operator name everywhere for ever and hide the next real occurrence; F-P1 is fixed at source instead |
+| 3-5. the three fabricated probe values (token, passphrase, placeholder) | the exact literals a reviewer invented to prove the gate **catches** a credential, then quoted into `Archive.md`; without the allowlist, history reports `Archive.md:744` `api-token` and `Archive.md:745` `env-secret` twice, with it none | **Yes** - they are the review evidence, and rewriting the unpublished history to drop them would invalidate the SHAs the archive cites | No: exact literals, no class, no wildcard, no alternation | Only a credential whose value is *literally* one of three invented strings - i.e. none. In tree mode they now suppress nothing at all (the two prose values produce no finding on their own), so they are purely historical-evidence exemptions |
+
+**Ruling.** Keep all five. The matching is `re.search(value)`
+(`privacy_scan.py:784,812,832`), so an unanchored entry *would* be a wildcard;
+all five are `^...$` around escaped literals, which is why the measured behaviour
+is exact-shape. The one structural caveat: the file matches its own literals, so
+the gate cannot scan the file that configures it - every change to it is a
+security-relevant change with no second gate, and it must be reviewed as one
+(F-P3).
+
+### 0.4 What this audit could NOT verify
+
+- **The pre-push hook against a real remote.** Only `pre-commit` was exercised; a
+  push is the Release Engineer's step and an external action, so
+  `check_push`/force-update refusal is `UNVERIFIED` here.
+- **Hook behaviour on a POSIX runner.** Measured on this Windows host only (Git
+  for Windows `sh`). The hook's own note that the mode bit is not tested (it uses
+  `-f`, not `-x`) was read, not measured on Linux.
+- **How the forge scores a skipped required check.** I observed the `skipped`
+  conclusion (F-P2); I did not observe a merge being allowed or refused because
+  of it.
+- **Repository settings beyond branch protection and the alert APIs.**
+  Secret-scanning push protection, the CodeQL default-setup configuration and
+  the ruleset list were not read.
+- **Live remote state.** `origin/main` here is the local tracking ref; no
+  `ls-remote` sweep of the forge was performed in this re-audit.
 
 ## 1. Scope and revision
 
