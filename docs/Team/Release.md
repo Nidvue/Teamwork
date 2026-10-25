@@ -327,7 +327,7 @@ repos/Nidvue/Teamwork`, `gh api repos/Nidvue/Teamwork/actions/permissions`,
 | the whole matrix is required | the two `include:` lanes `test (ubuntu-latest / py3.10)` and `test (ubuntu-latest / py3.12)` run on every code push but are **not** contexts | **drift** -> `ceo` T-0002 |
 | no merge commits on the default branch | `required_linear_history.enabled=false` | **drift**, rationale only in this page -> `ceo` T-0005 |
 | one canonical merge shape, host buttons off | `allow_squash_merge=false`, `allow_merge_commit=false`, `allow_rebase_merge=true`, `delete_branch_on_merge=true` | ok - the `references/Remotes.md` rebase-only variant; the host stamps the signed-in account and the required `committer guard` catches it |
-| admin bypass only as a recorded event | `enforce_admins.enabled=false`, one collaborator (`VisionPZ`, admin) | ok with the caveat stated above |
+| admin bypass only as a recorded event | `enforce_admins.enabled=false`, one admin collaborator | ok with the caveat stated above |
 | protected `v*` tag, CEO only | `rulesets -> []`, `tags/protection -> HTTP 404` | **drift** -> `ceo` T-0003 |
 | least-privilege CI | `default_workflow_permissions=read`, `can_approve_pull_request_reviews=false`; `allowed_actions=all`, `sha_pinning_required=false` | partial: the default is `read` and every pin is a SHA by convention, but the forge does not enforce pinning -> `ceo` T-0006 |
 | code scanning as a gate | CodeQL default setup `configured` (`actions`, `python`), no CodeQL context required | **drift** -> `ceo` T-0006 |
