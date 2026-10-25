@@ -63,10 +63,24 @@ scope -> lint -> committer-guard -> typecheck -> test -> build -> privacy
 ```
 
 `scope` is the classifier the rest hang off. A pull request and a manual run
-execute every job; a push skips the matrix when the changed paths are prose only
-(`docs/`, `assets/`, `*.md`, `LICENSE`, `CITATION.cff`, `mkdocs.yml`), and a tag
-push runs the consistency gate alone, because the tagged commit already passed
-the matrix as a `main` push.
+execute every job; a tag push runs the consistency gate alone, because the tagged
+commit already passed the matrix as a `main` push. A push skips the matrix only
+when every changed path is prose, and prose is exactly this set: `docs/`,
+`assets/`, and these root files - `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
+`SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`,
+`mkdocs.yml`. There is no `*.md` wildcard. The `PROSE` pattern in `ci.yml` and
+the `paths:` list of `docs.yml` must hold the same set, so this is the whole
+story.
+
+**`SKILL.md` is not prose.** It ships inside the wheel (`pyproject.toml`,
+`[tool.hatch.build.targets.wheel.force-include]`: `"SKILL.md" =
+"teamwork/data/SKILL.md"`), so a push touching only `SKILL.md` runs the full
+matrix - the wheel content changed and has to be rebuilt and verified. The other
+root files are outside both lists for the same kind of reason: `Makefile`,
+`pyproject.toml` and `release-exceptions.json` are tooling, `NOTICE` ships in the
+packaged skill tarball, and `.gitignore`, `.gitattributes` and `.editorconfig`
+configure the build. `NOTICE` beside `LICENSE` is the asymmetry to remember:
+`LICENSE` is prose, `NOTICE` is not.
 
 | Job | Matrix | Step |
 |---|---|---|
