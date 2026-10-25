@@ -82,7 +82,7 @@ under two roles is two tasks.
 | developer | T-0010 | - | doing | - | - |
 | developer | T-0011 | - | doing | - | - |
 | developer | T-0012 | plan | done | P-0015 | 17927a5 |
-| developer | T-0013 | plan | doing | P-0018 | - |
+| developer | T-0013 | plan | done | P-0018 | cfc09cf |
 | product-manager | T-0001 | traceability | done | P-0009 | 96160cf |
 | project-manager | T-0001 | plan | done | P-0005 | 1bf629a |
 | project-manager | T-0002 | - | doing | - | - |
@@ -99,7 +99,7 @@ under two roles is two tasks.
 | reviewer | T-0003 | - | todo | - | - |
 | security-auditor | T-0001 | - | done | P-0007 | f31b26e |
 | security-auditor | T-0002 | - | review | - | - |
-| security-auditor | T-0003 | - | todo | - | - |
+| security-auditor | T-0003 | audit-posture | done | P-0019 | 57231b7 |
 | technical-writer | T-0001 | docs-truth | done | P-0006 | 641e610 |
 | technical-writer | T-0002 | - | review | - | - |
 | technical-writer | T-0003 | docs-truth | done | P-0014 | 8b9fac8 |
@@ -126,7 +126,6 @@ landed by commit without a PR record.
 | developer | T-0009 · portable.py:53 stale type-ignore makes mypy red: 1 error on the tree | P2 | doing | - |
 | developer | T-0010 · gitutil.py:132 ensure_lfs records a failed git lfs install silently, while the probe failure at 120-127 warns | P2 | doing | - |
 | developer | T-0011 · identity --audit --range resolves against the primary checkout, so a worktree lane cannot audit its own branch | P0 | doing | - |
-| developer | T-0013 · Board gate: a landing task cannot be stable; exclude it from both invariants | P0 | doing | - |
 | project-manager | T-0002 · Reconcile the two M11 sections in Plan.md after the intake merges (one section, tool-derived state, no duplicated milestone) | P0 | doing | - |
 | release-engineer | T-0002 · Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | doing | - |
 | release-engineer | T-0003 · ci.yml skips the privacy job (and every code job) on a prose-only push to main | P2 | todo | - |
@@ -137,7 +136,6 @@ landed by commit without a PR record.
 | reviewer | T-0002 · Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | todo | - |
 | reviewer | T-0003 · Resolve the contradiction between AGENTS.md (commit as the acting role mailbox) and the Tester/Reviewer charter clause (use the locally configured identity) | P1 | todo | - |
 | security-auditor | T-0002 · Re-commit P-0007 under the Security Auditor role identity and refresh the gate line now that the leak is fixed | P0 | review | - |
-| security-auditor | T-0003 · AuditReport.md:23 restated 1 finding where the measured pair at 7db810a is 2 | P0 | todo | - |
 | technical-writer | T-0002 · Remove the consumer email illustration and the matching commit-message line from P-0006 (privacy gate red) | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
