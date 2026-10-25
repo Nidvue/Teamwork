@@ -217,6 +217,13 @@ every cell below carries the layer/area it claims - the guard
 `Tests.md` and fails when a record is missing, not `passing`, or filed under a
 different layer/area than the row claims.
 
+That re-resolution is **skipped in this tree, and it says so**: this engagement
+re-initialized the team state, so `Tests.md` holds none of the ids the record
+column cites, and a tree that recognizes none of them can neither certify nor
+contradict the column (gap G-10). The ids are therefore historical - the record
+that proved the row when it was archived, not a claim that a record resolves
+today. Every other guard below runs without the tree.
+
 ### State rule
 
 `state` is the conclusion of a run of that row's `proof command`, and it is only
@@ -270,6 +277,22 @@ CITATION.cff` is a contradiction, not a silent skip. An exemption naming an
 unknown reason, or a row the table no longer defines, fails the guard too; so does
 a non-exempt row whose proof cell parses into no command.
 
+Three bounds were measured while this revision was written, and they are stated
+here rather than worked around:
+
+- **`python3` in the definition of done is rendered `python` in the cells below.**
+  That is the same run - the guard launches the interpreter hosting this suite
+  instead of whatever `python` means on `PATH`.
+- **`teamwork.py audit`'s exit code is a board verdict, not a tree verdict.** At
+  this revision it exits 1 on the in-flight engagement - criteria unverified, tasks
+  open, branches unmerged - while its own tree sections (LFS and large files, link
+  health) report ok. So `AC-19`'s executed clauses are the two tree clauses, and
+  the audit half is bounded exactly like `AC-11`'s G-4 (`inflight`).
+- **the whole-suite run cannot be its own re-run cell.** `python -m pytest -q`
+  launched from inside this suite recurses into this guard - which is why `AC-3`'s
+  first clause is exempt as `self` - so `AC-21` executes the portability module and
+  states the whole-suite result beside it.
+
 The floor is relative for the same reason: the guard requires the number of rows
 re-run to equal **rows minus exemptions**. An absolute floor let exempting a row
 lower the bar without tripping it; the arithmetic now makes every exemption pay
@@ -295,22 +318,25 @@ the recorded command, not the guard.
 |---|---|---|---|---|---|
 | AC-1 | `scripts/verify_release.py` | developer T-0001, ceo T-0017 | TS-0018 (release/release) | `PYTHONPATH=src python scripts/verify_release.py` | green |
 | AC-2 | `tests/acceptance/test_entrypoints.py` | ceo T-0017, T-0023, T-0026, T-0027 | none | `python -m pytest -q tests/acceptance/test_entrypoints.py` | green |
-| AC-3 | `pytest -q`, `teamwork.py tests plan` | every closed task, per `docs/Team/Archive.md` | TS-0001 (goal/audit), TS-0005 (unit/engine), TS-0008 (acceptance/evidence), TS-0011 (goal/hygiene), TS-0014 (security/decisions), TS-0018 (release/release), TS-0022 (goal/pr), TS-0024 (integration/context-economy) | `PYTHONPATH=src python -m pytest -q` and `python scripts/teamwork.py tests plan` | green |
+| AC-3 | `pytest -q`, `teamwork.py tests plan` | every closed task, per `docs/Team/Archive.md` | TS-0001 (goal/audit), TS-0005 (unit/engine), TS-0008 (acceptance/evidence), TS-0011 (goal/hygiene), TS-0014 (security/decisions), TS-0018 (release/release), TS-0022 (goal/pr), TS-0024 (integration/context-economy) | `PYTHONPATH=src python -m pytest -q` and `python scripts/teamwork.py tests plan` | red (G-6) - re-measured at this revision, not copied: `PYTHONPATH=src python -m pytest -q` exits 1 (`3 failed, 1239 passed, 36 skipped in 862.80s` at `cf1e24e`'s rebuild base, two of them the content failures AC-16 names) and `python scripts/teamwork.py tests plan` exits 1 on the missing layer records (`# GAP hygiene/unit`, `plan/plan`, `test-portability/unit`). The row stays exempt from the re-run guard as `self` (its first clause is the suite hosting the guard), so its state is a measured verdict, not a guard verdict |
 | AC-4 | `.github/workflows/ci.yml` | release-engineer T-0001 | none | `gh run list --json displayTitle,conclusion` | green |
-| AC-5 | `scripts/privacy_scan.py` | security-auditor T-0001, ceo T-0003 | none | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | **green** - the shipped gate exits 0 over the tree and the full history after the authorized rewrite of the unpublished local history: the commit whose author a forge squash merge stamped from the signed-in operator account is no longer in this history, the archive blobs that quoted the address were rewritten to name the rule instead, and the one commit message that quoted a 40-hex object id now names the object by its role. The published side was never affected. The count is not pinned: every commit that documents a count raises it (D-20261019-CEO-15). |
+| AC-5 | `scripts/privacy_scan.py` | security-auditor T-0001, ceo T-0003 | none | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | **green** - verified by running it at this revision, not copied: `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` prints `PASS - 0 finding(s) in tree, history` and exits 0 over the tree and the full history, reflog walk included. The failing state that used to sit here was two findings on an unmerged sibling lane, closed by the authorized lane rewrite plus the authorized reflog expiry (D-20261025-CEO-2) - G-9. The published side was never affected, and the count is not pinned: every commit that documents a count raises it (D-20261019-CEO-15) |
 | AC-6 | `teamwork.py links` | every closed task, per `docs/Team/Archive.md` | TS-0013 (goal/decisions), TS-0024 (integration/context-economy) | `python scripts/teamwork.py links` -> read the `# issues:` line | green |
 | AC-7 | `.github/workflows/release.yml` | none | none | `gh release view v1.0.0 --json assets` | green (the AC pins `v1.0.0`, which exists; a newer tag does not break it - G-5) |
 | AC-8 | repo metadata | none | none | `gh repo view --json description,repositoryTopics` | green |
-| AC-9 | `tests/unit/test_portability.py` | architect T-0001, ceo T-0016 | none | `python -m pytest -q tests/unit/test_portability.py` | green |
+| AC-9 | `tests/unit/test_portability.py` | architect T-0001, ceo T-0016 | none | `python -m pytest -q tests/unit/test_portability.py` | green - verified by running it at this revision: the module exits 0 (`32 passed in 1.74s`), so the Windows-host portability fix that landed in this tree fixed the self-invocation defect and the claim holds; the row stays exempt from the re-run guard as `self` because the suite hosting the guard already runs it |
 | AC-10 | `tests/acceptance/test_full_loop.py` | none | none | `python -m pytest -q tests/acceptance/test_full_loop.py` | green |
-| AC-11 | `teamwork.py loop`, `teamwork.py audit` | ceo T-0015, T-0023, T-0026, T-0027 | none | `python scripts/teamwork.py loop` and `python scripts/teamwork.py audit` | green (read on a merged revision - G-4) |
+| AC-11 | `teamwork.py loop`, `teamwork.py audit` | ceo T-0015, T-0023, T-0026, T-0027 | none | `python scripts/teamwork.py loop` and `python scripts/teamwork.py audit` | green only on a merged revision (G-4) - at this revision both exit 1 because the engagement is still open, the same in-flight bound as G-4 |
 | AC-12 | `LICENSE`, `CHANGELOG.md`, `CITATION.cff` | none | none | `ls LICENSE CHANGELOG.md CITATION.cff` | green |
 | AC-13 | `tests/unit/test_imaging.py` | designer T-0001 | none | `python -m pytest -q tests/unit/test_imaging.py` | green |
 | AC-14 | `scripts/teamwork.py imaging probe` | none | none | `python scripts/teamwork.py imaging probe` | green |
 | AC-15 | `tests/unit/test_skill_contracts.py` | designer T-0001, ceo T-0031 | none | `python -m pytest -q tests/unit/test_skill_contracts.py` | green |
-| AC-16 | `tests/unit/test_skill_contracts.py` | designer T-0001, ceo T-0031 | none | `python -m pytest -q tests/unit/test_skill_contracts.py` | green |
-| AC-17 | `tests/unit/test_skill_contracts.py`, `docs/Team/Release.md` | designer T-0001, ceo T-0031 | none | the same pytest plus `ls docs/Team/Release.md` | green |
-| AC-18 | `tests/unit/test_skill_contracts.py`, `teamwork.py links` | every closed task, per `docs/Team/Archive.md` | TS-0013 (goal/decisions) | the same pytest plus `python scripts/teamwork.py links` | green |
+| AC-16 | `tests/unit/test_skill_contracts.py` | designer T-0001, ceo T-0031 | none | `python -m pytest -q tests/unit/test_skill_contracts.py` | red (G-6) - re-measured at this revision: the module exits 1, failing `test_repository_namespace_is_nidvue` (a stale repository URL in `docs/Team/Release.md`) and `test_adoption_surfaces_stay_agent_agnostic` (`docs/guide/install.md` still names the host `pi`); both are content defects on the merged tree, owned by the technical-writer lane |
+| AC-17 | `tests/unit/test_skill_contracts.py`, `docs/Team/Release.md` | designer T-0001, ceo T-0031 | none | the same pytest plus `ls docs/Team/Release.md` | red (G-6) - the same module exits 1 at this revision (see AC-16), so the pytest half is not met; the `ls` half is the file's existence, which AC-12 covers |
+| AC-18 | `tests/unit/test_skill_contracts.py`, `teamwork.py links` | every closed task, per `docs/Team/Archive.md` | TS-0013 (goal/decisions) | the same pytest plus `python scripts/teamwork.py links` | red (G-6) - the same module exits 1 at this revision (see AC-16), so the conjunct is not met even though `teamwork.py links` reports `# issues: 0` |
+| AC-19 | `tests/unit/test_hygiene.py`, `teamwork.py links`, `teamwork.py audit` | project-manager T-0001, ceo T-0001 | none | `python -m pytest -q tests/unit/test_hygiene.py` and `python scripts/teamwork.py links` | green - both tree clauses exit 0 at this revision. The definition of done also names `audit`, whose exit code is a board verdict (see the bound above) and whose two tree sections report ok, so this row's verdict is the tree's, not the board's |
+| AC-20 | `scripts/check_release_consistency.py`, `teamwork.py links` | technical-writer T-0001, ceo T-0001 | none | `python scripts/check_release_consistency.py` and `python scripts/teamwork.py links` | green - the release-consistency check reports 0 problems and link health 0 issues at this revision; the residual prose sweep is the technical-writer lane named beside it |
+| AC-21 | `tests/unit/test_portability.py` | developer-1 T-0001, developer-1 T-0002, developer-2 T-0003 | none | `python -m pytest -q tests/unit/test_portability.py` | green - verified by running it at this revision: `python -m pytest -q tests/unit/test_portability.py` exits 0 (`32 passed in 1.74s`), so `test_self_invocation_command_is_runnable` now passes and the definition of done's portability half is met. The whole-suite clause beside it is still not met, but for a different cause - the two content failures AC-16 names - so the suite's failure is carried by G-6, not by this row |
 
 The per-lane work of the M1-M4 lanes lives in the Archive sections rather than in
 one commit per lane, so an AC's proof is usually a file in the tree.
@@ -334,27 +360,35 @@ TS-0024: AC-3, AC-6
 no AC: TS-0016, TS-0020
 ```
 
-`TS-0016` (`requirements/traceability`) is this section's own record. `TS-0020`
-(`acceptance/context-economy`) passes, but no acceptance criterion owns the
-context-economy contract it proves - that is gap G-7, not a green row.
+`TS-0016` (`requirements/traceability`) was this section's own record and `TS-0020`
+(`acceptance/context-economy`) proved the context-economy contract no criterion
+owns - G-7. Neither resolves in this tree (G-10): the block stays the derived
+inverse of the forward map, and the record this task creates for the area is
+`requirements/traceability`, made by `tests add` and re-bound on every records pass
+rather than cited here, because the commit that writes this text precedes it.
 
 ### Gaps and owners
 
 | id | gap | how to read it | owner |
 |---|---|---|---|
-| G-1 | The machine criterion store holds one criterion, `AC-1`, whose text is the *old audit-fixes* criterion, not this file's AC-1. `criteria list` and `trace AC-1` therefore report the wrong artifact for the id. | `python scripts/teamwork.py criteria list` then `trace AC-1` and `trace AC-2` (the latter resolves nothing) | CEO (re-key the store with `criteria add/verify` per AC, or prefix the historical one) |
+| G-1 | The machine criterion store once held one criterion, `AC-1`, whose text was the *old audit-fixes* criterion, so `criteria list` and `trace AC-1` reported the wrong artifact for the id. **Closed**: the store now carries this file's own ids - `AC-3`, `AC-5`, `AC-6`, `AC-11`, `AC-19`, `AC-20`, `AC-21` - and `trace AC-19` resolves a criterion where `trace AC-2` resolves nothing. Residual, stated rather than implied: the store covers the criteria this engagement verifies; every other row of the forward map is documentary only. | `python scripts/teamwork.py criteria list` -> one line per id above; `python scripts/teamwork.py trace AC-19` -> a criterion section, `trace AC-2` -> no criterion | CEO (closed by the M11 intake re-key, ceo T-0001) |
 | G-2 | AC-5 was red: `privacy_scan` reported `home-path` and `agent-config` findings in `docs/Team/Archive.md` that `.github/privacy-allow.txt` did not bless. **Closed** by the three fully escaped literals in that allowlist plus the quoted-evidence scope in the scanner; the row stays listed because it explained a red state for several revisions. | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s)` | CEO T-0031, T-0034, T-0048 (closed) |
 | G-3 | AC-6 and AC-18 link health: the four `compare/v1.0.2...*` strings in `docs/Team/Archive.md` are quoted evidence of a past review finding and are deliberately not link-checked, so `links` reports no issue. This gap is closed; it stays listed because the earlier red state cited it. | `python scripts/teamwork.py links` -> `# issues: 0` | CEO T-0032 (closed) |
 | G-4 | AC-11 was red because it was downstream of G-2 and the then-open tasks: `loop` returned CONTINUE and `audit` reported problems. **Closed** once every task, dispute and gate override cleared, so `loop` prints STOP and `audit` finds zero problems; the row stays listed because it explained a red state for many revisions. **This proof only reads true on a merged revision**: while any deliverable is still open the board it reads necessarily contains that deliverable, so the row is exempt from the re-run guard with the reason `inflight` instead of being re-executed mid-review. | `python scripts/teamwork.py loop` -> STOP, `python scripts/teamwork.py audit` -> `# problems found: 0` (measured at `8b4585b`, a merged revision) | CEO (closed) |
 | G-5 | AC-7 pins `v1.0.0` while newer tags are released; AC-4 and AC-9 are phrased against "the pushed revision", which is ambiguous while local merges are ahead of `origin/main`. | `gh release list --limit 5`; `git log --oneline origin/main..main` | CEO (re-word the AC, not re-do the release) |
-| G-6 | AC-3 was red because required test layers were missing, so its `tests plan` clause exited non-zero. **Closed**: every staffed role has designed and run a record of its own layer. | `python scripts/teamwork.py tests plan` -> no `# GAP` line, rc 0 | the owning role per area; PM tracks it (closed) |
+| G-6 | AC-3, AC-16, AC-17 and AC-18 are red at this revision, and the list shrank: the portability defect that used to lead it is fixed, so the two portability rows of the forward map now pass instead of appearing here. What remains is (a) `python -m pytest -q` exiting 1 on two content defects in `tests/unit/test_skill_contracts.py` - a stale repository URL in `docs/Team/Release.md`, and `docs/guide/install.md` still naming the host `pi` - which is the module AC-16/AC-17/AC-18 name, and (b) `teamwork.py tests plan` exiting 1 because the re-initialized tree holds no layer record yet, so AC-3's second clause fails too. Every staffed role still owes its own layer record. **Open**: it clears when the technical-writer lane fixes those two content defects and each role has run its layer's record. | `python -m pytest -q` -> exit 1 with the failures named (`3 failed, 1239 passed, 36 skipped`); `python scripts/teamwork.py tests plan` -> `# GAP` lines, exit 1 | technical-writer for the two content defects, every role for its own layer record; PM tracks it |
 | G-8 | AC-5 was red at this revision, and honestly so: the shipped gate failed on commit metadata - the author email a forge squash merge stamped from the signed-in operator account, one high-entropy false positive in a commit message, and the pre-redaction blobs of `docs/Team/Archive.md`. **Closed** by the authorized rewrite of the unpublished local history: the chain was rebased onto the published tip, the archive blobs were redacted, the one commit message that quoted a 40-hex object id was re-worded to name the object by its role, and the cited revisions were re-pointed at the rewritten commits. The published side was clean throughout and is unchanged. What the rewrite cannot undo: the author identity of the retained object is already disclosed to anyone who requests its SHA (D-20261021-Reviewer-1) - the rewrite protects the published history, it cannot un-disclose. | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s)` | CEO T-0003 (closed by the authorized rewrite; the exemption rule is D-20261019-CEO-15) |
-| G-7 | No AC owns the context-economy contract, so the acceptance record that proves it (`TS-0020`, passing) has no requirement to escalate against or regress behind. | the reverse map above, then `tests plan` | CEO + Product Manager |
+| G-7 | No acceptance criterion owns the context-economy contract. The acceptance record that used to prove it is not in this tree - the engagement re-initialized the team state (G-10) - so the contract has neither a requirement to escalate against nor a live record to regress behind. | this forward map: no row names the context-economy area; then `python scripts/teamwork.py tests plan` | CEO + Product Manager |
+| G-9 | AC-5 was red, and the red was not in the merged tree: the tree scan reported a PASS while the history scan exited 1 on two findings that lived only on a sibling lane - the commit message of the developer portability fix quoted the absolute interpreter path it repaired, and that commit's docstring carried the same path shape. **Closed**: the lane was rewritten and the superseded commit is no longer reachable, because the reflog that still held it was expired under D-20261025-CEO-2; `--history` now walks no commit that carries either finding. The row stays listed because it explained a red AC-5 for several revisions and because the lesson outlives it: `--history` walks every ref, so an unmerged lane alone can redden AC-5, and merging a leaking commit carries the finding into `main`. | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s) in tree, history`, exit 0 | developer T-0001 (closed by the lane rewrite and the authorized reflog expiry); security-auditor verifies AC-5 |
+| G-10 | The engagement re-initialized the team state, so `Tests.md` is empty and every `TS-` id in the record column of the forward map is a historical id from the previous tree generation: none of them resolves today, which is why the guard's record re-resolution reports a skip with the counts it found instead of certifying the column. The requirement stands and the record does not: this section's own `requirements/traceability` record is created by `tests add` in the same task and re-bound on every records pass. | `python scripts/teamwork.py tests plan` -> `NO TESTS YET` for each role until its own record is run; the guard prints the skip instead of passing silently | every role for its own layer's record; PM tracks the column |
 
 ### Requirements-layer contract for this area
 
-The traceability area requires exactly one test layer, `requirements`, and `TS-0016`
-satisfies it: `teamwork.py tests plan` reports the `traceability` row with `req+`
-marked and role coverage for `product-manager` under `req`. `TS-0016` is re-run and
-re-bound to the new revision, evidence and artifact on every records pass, and this
-section is its deliverable.
+The traceability area requires exactly one test layer, `requirements`. At the
+moment this section was committed the record did not exist - the tree is empty
+(G-10) - so `teamwork.py tests plan` reported no `requirements` coverage for
+`product-manager`; the same task then creates the record with
+`python scripts/teamwork.py tests add --layer requirements --area traceability
+--owner product-manager` and binds it to a run with `tests run`, which is what
+turns the claim into evidence. It is re-run and re-bound on every records pass,
+and this section is its deliverable.
