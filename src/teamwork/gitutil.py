@@ -114,9 +114,50 @@ def branch_worktree(project: Path, branch: str):
     return None
 
 
+class HooksDirUnresolved(RuntimeError):
+    """git could not answer ``rev-parse --git-path hooks`` for this work tree.
+
+    This exception is the *single* hooks-directory contract: it is raised here and
+    each caller chooses what a failure means for it. ``hooks.hooks_dir`` (the
+    installer) hands the message to ``die``, so the operator sees the same text as
+    before; ``harness.hooks_dir`` (a report, which must never abort a listing)
+    catches it and returns ``None``. Two divergent implementations of the same
+    ``rev-parse`` made the report disagree with the installer about both resolution
+    and failure - one function, two policies, is the fix.
+    """
+
+    def __init__(self, project: Path, stderr: str) -> None:
+        self.project = project
+        self.stderr = stderr
+        super().__init__(f"cannot resolve the git hooks directory for {project}: {stderr}")
+
+
+def hooks_dir(project: Path) -> Path:
+    """``<git-dir>/hooks``, resolved, so a linked worktree finds the shared one.
+
+    ``git rev-parse --git-path hooks`` prints a path relative to ``project``; it is
+    resolved here because inside a worktree the answer is the *common* git
+    directory, which is not under ``project`` at all. Raises
+    :class:`HooksDirUnresolved` when git cannot answer - the callers decide whether
+    that is fatal (installer) or a reported absence (harness).
+    """
+    result = run_git(project, "rev-parse", "--git-path", "hooks")
+    if result.returncode != 0 or not result.stdout.strip():
+        raise HooksDirUnresolved(project, result.stderr.strip())
+    located = Path(result.stdout.strip())
+    return (located if located.is_absolute() else project / located).resolve()
+
+
 def ensure_lfs(project: Path, quiet: bool = False) -> dict:
-    """Enable Git LFS locally and keep .gitattributes in sync."""
-    result = {"available": False, "installed": False, "patterns_added": 0}
+    """Enable Git LFS locally and keep .gitattributes in sync.
+
+    ``installed`` and ``install_error`` are the readable status the caller (and a
+    test) can act on: a failed ``git lfs install`` used to be swallowed while the
+    probe above warned, which left a repository whose ``.gitattributes`` names LFS
+    filters that git has never been told about - every large binary then committed
+    as a plain blob, silently.
+    """
+    result = {"available": False, "installed": False, "install_error": "", "patterns_added": 0}
     probe = subprocess.run(["git", "lfs", "version"], capture_output=True, text=True)
     if probe.returncode != 0:
         if not quiet:
@@ -130,6 +171,14 @@ def ensure_lfs(project: Path, quiet: bool = False) -> dict:
         ["git", "-C", str(project), "lfs", "install", "--local"], capture_output=True, text=True
     )
     result["installed"] = inst.returncode == 0
+    if not result["installed"]:
+        result["install_error"] = (inst.stderr.strip() or inst.stdout.strip())[:500]
+        if not quiet:
+            print(
+                "teamwork: WARNING `git lfs install --local` failed; large binaries will"
+                " be committed as plain blobs. Run it by hand to enable archival"
+                f" ({result['install_error'] or 'no output'})."
+            )
 
     path = project / ".gitattributes"
     existing = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
