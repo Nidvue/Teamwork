@@ -8,12 +8,18 @@ bites after a push:
 1. **The prose set and the `docs.yml` trigger list are the same set.** A path that
    leaves one list without joining the other is a hole in one of the two gates:
    prose classified as code burns the 3x3 matrix, code classified as prose skips
-   it. The unit test compares the two lists as text; this module compares their
-   *behaviour* - it materialises one real file per entry of each list, one real
-   file per near-miss boundary, runs the shipped classifier on each single-path
-   git change set, and requires the verdict to equal `docs.yml`'s answer in both
-   directions. The comparison is then shown to bite: dropping one entry from
-   either side must produce a named mismatch.
+   it. The unit side of this claim is a *paper* comparison: `test_skill_contracts`
+   expands the `PROSE` alternation into globs and compares that pattern set with the
+   globs in `docs.yml`'s `paths:` list - two lists that agree on paper can still
+   disagree about a real path, and no unit test says what the shipped classifier
+   prints. This module compares their *behaviour*: it materialises one real file per
+   entry of the `docs.yml` list and per alternative of the `PROSE` regex the `scope`
+   job carries, one real file per near-miss boundary, runs the shipped classifier on
+   each single-path git change set, and requires the verdict to equal `docs.yml`'s
+   answer in both directions. The probe set is built from the shipped files, never
+   only from the pair under test, so an entry deleted from *either* side is still
+   probed and reported. The comparison is then shown to bite: dropping one entry
+   from either side must produce a named mismatch.
 2. **Every command a workflow runs exists in the tree and is the real one.** A
    workflow that names a script or a flag the tree does not have fails only on
    the forge, on the revision that needed the gate. Here every repository path in
@@ -126,6 +132,39 @@ CODE_PROBES = (
 )
 
 
+#: The classifier states its prose set as one alternation in the `scope` job:
+#: `PROSE='^(docs/|assets/|README\.md$|...|mkdocs\.yml$)'`. Reading the alternatives
+#: back out of the shipped run block is what gives the comparison its prose side: an
+#: entry deleted from `docs.yml` is *still* probed, as a path the classifier calls
+#: prose and `docs.yml` no longer covers. A fixed tuple of probes cannot do this - it
+#: would have to be edited by hand exactly when the list moved, which is the edit that
+#: opens the hole.
+PROSE_REGEX_RE = re.compile(r"PROSE='(?P<regex>[^']*)'")
+
+
+def prose_alternatives(ci_text: str) -> list[str]:
+    """The alternatives of the `PROSE` regex the shipped `scope` job carries."""
+    match = PROSE_REGEX_RE.search(ci_text)
+    assert match is not None, "ci.yml: the scope job no longer states a `PROSE` regex"
+    body = match.group("regex").strip()
+    # A whole-path alternation is written `^(a|b|c)$`; peel the anchors before
+    # splitting, without assuming the parens are there.
+    if body.startswith("^(") and body.endswith(")$"):
+        body = body[2:-2]
+    elif body.startswith("^") and body.endswith("$"):
+        body = body[1:-1]
+    alternatives = [alt for alt in body.split("|") if alt]
+    assert alternatives, "ci.yml: the `PROSE` regex has no alternatives"
+    return alternatives
+
+
+def sample_for_prose(alternative: str) -> str:
+    """A concrete changed path that one `PROSE` alternative matches."""
+    if alternative.endswith("/"):
+        return alternative + "probe/page.md"
+    return alternative.rstrip("$").replace("\\.", ".")
+
+
 def verdict(tmp_path: Path, repo: Path, script: Path, before: str, head: str) -> str:
     """Run the classifier for one change set and return ``code``'s value.
 
@@ -147,8 +186,16 @@ def mismatch_report(
 ) -> list[str]:
     """Compare the classifier's verdict with `docs.yml`'s answer for every probe.
 
+    The trigger side comes from the `docs.yml` text under test; the prose side is
+    read out of the *shipped* `ci.yml` run block. Probing both sources is the point:
+    the shipped prose list still names an entry that a real edit removed from
+    `docs.yml`, so the removed path is probed and the disagreement is named.
+    Deriving the probe set from the file under test alone, or from a fixed tuple of
+    code paths, lets a deletion pass silently - exactly the hole this module exists
+    to close.
+
     ``ci_text`` / ``docs_text`` default to the shipped files and exist so a mutant
-    can be fed in. ``only`` narrows the probe set to the given markers; the mutant
+    can be fed in. ``only`` narrows the probe set to the given paths; the mutant
     tests use it so that the full sweep stays in the one test that needs it and the
     module stays in the seconds, not the minutes. Returns one line per disagreement;
     an empty list means the two lists agree on every probed path.
@@ -162,15 +209,20 @@ def mismatch_report(
     script = write_script(tmp_path, extract_run_block(workflow, SCOPE_STEP))
     repo, previous = new_repo(tmp_path, {"README.md": "# root\n"}, name="agreement-repo")
 
-    # Sample the *shipped* list as well as the given one: a path that a mutant has
-    # removed from `docs.yml` must still be probed, or the comparison would fall
-    # silent exactly on the hole it exists to find.
-    selected: tuple[str, ...]
+    # Sample the *shipped* trigger list as well as the given one, and the *shipped*
+    # prose set as well: a path that a mutant has removed from either file must still
+    # be probed, or the comparison falls silent exactly on the hole it exists to find.
+    shipped = docs_trigger_markers(DOCS_WORKFLOW.read_text(encoding="utf-8"))
+    prose = [
+        sample_for_prose(alternative)
+        for alternative in prose_alternatives(CI_WORKFLOW.read_text(encoding="utf-8"))
+    ]
     if only is None:
-        shipped = docs_trigger_markers(DOCS_WORKFLOW.read_text(encoding="utf-8"))
-        selected = (*shipped, *markers)
+        selected = (*shipped, *markers, *prose)
     else:
-        selected = only
+        # Narrow, but never blind: the paths asked for, plus any prose alternative
+        # that names the same path - which is what a one-entry mutant needs.
+        selected = (*only, *(probe for probe in prose if probe in only))
     probes = [sample_for_marker(marker) for marker in selected]
     if only is None:
         probes += list(CODE_PROBES)
