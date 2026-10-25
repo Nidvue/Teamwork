@@ -234,28 +234,44 @@ from the wrong role, so the two maps must not be conflated.
     personal data, credentials, agent-host config and tracked local state),
     `committer-guard`, `release-consistency` (offline release gate),
     `docs` (mkdocs build --strict).
-  * The `scope` job computes the changed-path set from git and publishes one
-    output, `code` (`true` = something that ships changed). The expensive jobs
-    (`lint`, `typecheck`, `test`, `build`, `privacy`, `docs`) carry
-    `needs: scope` and
-    `if: github.event_name != 'push' || needs.scope.outputs.code == 'true'`,
-    so they skip on a **push only**, and only when the change set is
-    prose/media only. Every `pull_request` runs the full set: a path-filtered
-    skip reports no check at all, and a required check that is never reported
-    blocks the merge. A **tag push** (`v*`) is not a code change: the tagged
-    commit already passed the matrix as a `main` push and `release.yml` re-runs
-    pytest on the tag, so the six expensive jobs are filtered out by `scope`
-    (`code=false`) and the jobs that still run are the `scope` classifier
-    itself and the two jobs that are not filtered by it -
-    `committer-guard` and `release-consistency`. Both of those are unfiltered
-    jobs, not "the consistency gate alone": `scope` can skip only the jobs
-    that declare `needs: scope`, and every job without that declaration runs
-    on every event.
+  * The `scope` job computes the changed-path set from git and publishes **two**
+    outputs, because the filtered jobs ask two different questions and a
+    prose-only push answers them differently: `code` (`true` = something that
+    ships changed) and `prose` (`true` = something in the prose/media set below
+    changed). On a prose-only push `code=false` and `prose=true`, so the jobs
+    keyed off `code` skip while the prose-relevant gates still run.
+    * Keyed off `code` **alone** - `lint`, `typecheck`, `test`, `build` - with
+      `needs: scope` and
+      `if: github.event_name != 'push' || needs.scope.outputs.code == 'true'`.
+      These are the jobs a prose change cannot affect, and the ones a
+      prose-only push must not burn.
+    * Keyed off `code || prose` - `privacy` and `docs` - with `needs: scope`
+      and
+      `if: github.event_name != 'push' || needs.scope.outputs.code == 'true' || needs.scope.outputs.prose == 'true'`.
+      Both are prose-relevant gates: a documentation leak is still a leak, so
+      the privacy scan reads prose as well as code, and the `docs` job is the
+      link health plus `mkdocs build --strict` build of the very pages a prose
+      push edited. Keyed off `code` alone they would be skipped on exactly the
+      push that edits documentation.
+    * Every `pull_request` (and every `workflow_dispatch`) runs the full set: a
+      path-filtered skip reports no check at all, and a required check that is
+      never reported blocks the merge.
+    * A **tag push** (`v*`) is neither a code change nor a prose change: the
+      tagged commit already passed the matrix as a `main` push and
+      `release.yml` re-runs pytest on the tag, so `scope` reports `code=false`
+      and `prose=false`. What still runs is the `scope` classifier and the two
+      jobs that declare neither `needs:` nor `if:` - `committer-guard` and
+      `release-consistency`. That is the consistency gate *and* the committer
+      guard, not the consistency gate alone: `scope` can skip only the jobs
+      that declare `needs: scope`, and every job without that declaration runs
+      on every event.
   * The prose/media set the classifier uses is `docs/**`, `assets/**` and the
     root prose files `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
     `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`
-    and `mkdocs.yml`. This set and `.github/workflows/docs.yml`'s `paths:`
-    list **must stay identical** - a path that leaves one list without joining
+    and `mkdocs.yml`. This set is what the `scope` job's `PROSE` pattern matches
+    to raise the `prose` output, and it and `.github/workflows/docs.yml`'s
+    `paths:` list **must stay identical** - a path that leaves one list without
+    joining
     the other is a hole in one of the two gates. The identity is checkable
     without a stored count: expand the `scope` job's `PROSE` regex and the
     `paths:` list of `.github/workflows/docs.yml` over the tree and compare the
