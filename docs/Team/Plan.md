@@ -276,6 +276,349 @@ Landed in the same window, outside this milestone's scope:
 | T-0008 | Residual audit items: umask, UTF-16 BOM, nested repo, coverage, stale board | ceo | done | commit `e7a7d4d` |
 | T-0009 | Fix the `pr merge` commit message acting role | ceo | done | commit `9e1ab8f` |
 
+## M11 - solid review and tree truth (live)
+
+Exit: every tracked file carries a verdict and the search that produced it, no
+file is left unreferenced or duplicated without a written justification, the
+board and the M11 table below are rendered from the role queues rather than from
+a hand-written snapshot, and the M11 acceptance criteria are verified on the
+merged revision (`teamwork.py criteria list`). Source: the CEO's M11 intake
+(ceo T-0001).
+
+### M11 deliverables
+
+Rendered from `Roles/*/TaskQueue.md`. The queue is the authority for a state, so
+read any row again with `teamwork.py task list <role>`.
+
+| role | id | task | prio | area | state | claimed by | pr | merged |
+|---|---|---|---|---|---|---|---|---|
+| ceo | T-0001 | Own M11: intake, criteria, goal-layer tests, arbitration, close-out (manifest + final report) | P0 | intake | doing | CEO | - | - |
+| ceo | T-0007 | Record the M11 solid-review engagement intake (objective, criteria, milestone, decision) | P0 | - | review | CEO | P-0002 | - |
+| ceo | T-0002 | Register the two include: matrix lanes as required checks (py3.10, py3.12 run but do not block) | P1 | - | todo | - | - | - |
+| ceo | T-0003 | Protect the v* tag pattern (no ruleset, no tag protection rule today) | P1 | - | todo | - | - | - |
+| ceo | T-0004 | Clear the R8 drift at docs/Team/Decisions.md:1284 - it blocks the online release gate, so no tag can be released | P1 | - | todo | - | - | - |
+| ceo | T-0005 | Decide required_linear_history on main (off; policy says no merge commits on the default branch) | P2 | - | todo | - | - | - |
+| ceo | T-0006 | Make CodeQL a merge gate, and either enforce SHA pinning on actions or record why not | P2 | - | todo | - | - | - |
+| ceo | T-0008 | Remove the two stale tier-init instance dirs .pi/Teamwork/Teams/Teamwork/Agents/Developer and Agents/Tester | P2 | - | todo | - | - | - |
+| architect | T-0001 | Code and logic review of src/teamwork and scripts: find real defects, dead code, inconsistent invariants; file each finding as a task and record contract changes in Architecture.md | P0 | - | doing | Architect | - | - |
+| developer | T-0001 | Fix resources.self_invocation(): the returned command is unusable on Windows when a path has a space or backslash | P0 | - | review | Developer-1 | P-0001 | - |
+| developer | T-0002 | Guard every symlink-dependent test so the suite is green on a host without symlink privilege | P0 | - | doing | Developer-1 | - | - |
+| developer | T-0003 | Make every test that needs an external tool honest: skip with a stated reason when the tool is absent | P0 | test-portability | review | Developer-2 | P-0004 | - |
+| developer | T-0004 | Remove the personal absolute path from commit a4c726f (message + resources.py docstrings) before it can merge | P0 | - | todo | - | - | - |
+| developer | T-0005 | Reword the developer-1 T-0001 commit message: it carries the operator home path and turns the privacy gate red | P0 | - | todo | - | - | - |
+| developer | T-0006 | Re-point the board gate at the live milestone: tests/unit/test_board_matches_tool.py cannot see the M11 queues | P1 | - | todo | - | - | - |
+| tester | T-0001 | Certify the suite locally on this host and in CI on the pushed revision; own integration-layer records for portability and ci-release | P0 | - | doing | Tester-1 | - | - |
+| reviewer | T-0001 | Serve the review queue and own the acceptance layer for the M11 deliverables | P0 | - | todo | - | - | - |
+| reviewer | T-0002 | Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | - | todo | - | - | - |
+| product-manager | T-0001 | Rebuild the traceability matrix for AC-19..AC-21 and re-key the machine criteria store (gap G-1) | P1 | - | doing | ProductManager | - | - |
+| project-manager | T-0001 | Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | plan | review | ProjectManager | - | - |
+| release-engineer | T-0001 | Workflow and release-gate integrity: workflows match the tree, hooks install, branch protection matches policy | P0 | ci | review | ReleaseEngineer | P-0003 | - |
+| release-engineer | T-0002 | Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | - | todo | - | - | - |
+| release-engineer | T-0003 | ci.yml skips the privacy job (and every code job) on a prose-only push to main | P2 | - | todo | - | - | - |
+| release-engineer | T-0004 | privacy-allow.txt: correct the exemption-mechanism sentence and record that the file is self-exempting | P3 | - | todo | - | - | - |
+| security-auditor | T-0001 | Security and privacy posture audit: tree, history, workflows, hooks, scanning alerts | P0 | - | doing | SecurityAuditor | - | - |
+| technical-writer | T-0001 | Docs truth pass: remove every stale or self-contradicting state claim in docs/Team, README, CHANGELOG and docs/guide | P0 | - | doing | TechnicalWriter | - | - |
+
+### M11 tree census - project-manager T-0001
+
+214 tracked files, each classified by a measurement rather than by inspection.
+The evidence cell quotes the search that produced the verdict, so every row can
+be re-run:
+
+| measurement | command | result |
+|---|---|---|
+| tracked files | `git ls-files \| wc -l` | 214 |
+| references to a path, then to its basename | `git grep -l -F -- <path>` / `git grep -l -F -- <name>` | the evidence cell of every row below |
+| test modules pytest collects | `python -m pytest --collect-only -q` | 1256 tests in 83 modules |
+| byte-identical duplicates | `git ls-files -z \| xargs -0 md5sum \| sort \| uniq -d -w32` | 0 |
+| build and bundle consumers | `pyproject.toml`, `bundle.BUNDLE_FILES`/`BUNDLE_TREES`, `build_pi_package.py`, `verify_release.py` | the `roles/`, `references/`, `templates/`, `SKILL.md` and `AGENTS.md` rows |
+| deletions the census proved | `git status --short` after the pass | 0 |
+
+Counts: **206 live, 2 superseded in part and kept as records, 0 duplicate, 6
+unreferenced in-tree and kept with a written reason, 0 deleted.**
+
+#### Census
+
+`live` means something in the tree reads the file: code, a test, a build
+manifest, a bundle list, the site nav or a document that links it. `evidence`
+names that consumer; a bare count is the number of files naming the path.
+
+| path | verdict | evidence | action |
+|---|---|---|---|
+| `.agents/skills/ceo-audit-close/SKILL.md` | live | project skill: `grep -l ceo-audit-close` -> 9 file(s); `grep -l .agents/skills/ceo-audit-close/SKILL.md` -> 4 (Archive.md, Plan.md, test_harness_cli.py, +1) | kept |
+| `.agents/skills/product-manager-records/SKILL.md` | live | project skill: `grep -l product-manager-records` -> 2 file(s); `grep -l .agents/skills/product-manager-records/SKILL.md` -> 1 (Archive.md) | kept |
+| `.editorconfig` | live | `pyproject.toml` sdist list; editor convention; `grep -l .editorconfig` -> 4 (Architecture.md, Archive.md, pyproject.toml, +1) | kept |
+| `.gitattributes` | live | `grep -l .gitattributes` -> 17 (AGENTS.md, Architecture.md, Archive.md, +14) | kept |
+| `.github/ISSUE_TEMPLATE/bug_report.yml` | unreferenced in-tree | GitHub reads `.github/ISSUE_TEMPLATE/*.yml` by path; in-tree hits 0 | kept, justified - the repo's issue form; no in-tree gate replaces it |
+| `.github/ISSUE_TEMPLATE/feature_request.yml` | unreferenced in-tree | GitHub reads `.github/ISSUE_TEMPLATE/*.yml` by path; in-tree hits 0 | kept, justified - same reason as the bug form |
+| `.github/PULL_REQUEST_TEMPLATE.md` | unreferenced in-tree | GitHub reads `.github/PULL_REQUEST_TEMPLATE.md` by path; in-tree hits 0 | kept, justified - the contributor's checklist; deleting removes a control |
+| `.github/dependabot.yml` | live | forge dependency updates; `test_code_scanning.py` pins its shape; `grep -l .github/dependabot.yml` -> 1 (test_code_scanning.py) | kept |
+| `.github/privacy-allow.txt` | live | `Makefile` and both workflows pass it to the privacy scan; `grep -l .github/privacy-allow.txt` -> 17 (ci.yml, docs.yml, Makefile, +14) | kept |
+| `.github/workflows/ci.yml` | live | `grep -l .github/workflows/ci.yml` -> 15 (Architecture.md, Archive.md, Decisions.md, +12) | kept |
+| `.github/workflows/docs.yml` | live | `grep -l .github/workflows/docs.yml` -> 7 (ci.yml, Architecture.md, Archive.md, +4) | kept |
+| `.github/workflows/release.yml` | live | `grep -l .github/workflows/release.yml` -> 12 (ci.yml, Architecture.md, Archive.md, +9) | kept |
+| `.gitignore` | live | `grep -l .gitignore` -> 14 (CHANGELOG.md, SKILL.md, Archive.md, +11) | kept |
+| `AGENTS.md` | live | the managed team block; `bundle.BUNDLE_FILES`; `grep -l AGENTS.md` -> 49 (SKILL.md, SKILL.md, docs.yml, +46) | kept |
+| `CHANGELOG.md` | live | the release history every release rule reads; `grep -l CHANGELOG.md` -> 28 (ci.yml, docs.yml, release.yml, +25) | kept |
+| `CITATION.cff` | live | citation metadata; in the sdist file list; `grep -l CITATION.cff` -> 14 (docs.yml, CHANGELOG.md, Architecture.md, +11) | kept |
+| `CODE_OF_CONDUCT.md` | live | `docs.yml` paths; linked from README/CONTRIBUTING; `grep -l CODE_OF_CONDUCT.md` -> 12 (docs.yml, CHANGELOG.md, CONTRIBUTING.md, +9) | kept |
+| `CONTRIBUTING.md` | live | `docs.yml` paths; linked from README/SECURITY; `grep -l CONTRIBUTING.md` -> 17 (docs.yml, CHANGELOG.md, CODE_OF_CONDUCT.md, +14) | kept |
+| `LICENSE` | live | `pyproject.toml` license file; `NOTICE` references it; `grep -l LICENSE` -> 20 (ci.yml, docs.yml, NOTICE, +17) | kept |
+| `Makefile` | live | the documented one-shot gate (`make ci`); `grep -l Makefile` -> 17 (.editorconfig, AGENTS.md, Architecture.md, +14) | kept |
+| `NOTICE` | live | `build_pi_package.py` ships it in the npm package; `grep -l NOTICE` -> 10 (CHANGELOG.md, README.md, Architecture.md, +7) | kept |
+| `README.md` | live | `pyproject.toml` readme; site and forge entry page; `grep -l README.md` -> 41 (ci.yml, docs.yml, CHANGELOG.md, +38) | kept |
+| `SECURITY.md` | live | `docs.yml` paths; linked from README/CONTRIBUTING; `grep -l SECURITY.md` -> 16 (docs.yml, CHANGELOG.md, CODE_OF_CONDUCT.md, +13) | kept |
+| `SKILL.md` | live | `bundle.BUNDLE_FILES`; the protocol every role reads; `grep -l SKILL.md` -> 57 (AGENTS.md, CHANGELOG.md, README.md, +54) | kept |
+| `assets/banner.svg` | live | README hero `<img src=...>` (README.md:2); `grep -l assets/banner.svg` -> 2 (README.md, Design.md) | kept |
+| `assets/demo.svg` | live | README demo `<img src=...>` (README.md:19); `grep -l assets/demo.svg` -> 7 (README.md, Archive.md, Design.md, +4) | kept |
+| `assets/logo.svg` | live | Design IMG-3; pinned by `test_skill_contracts.py:248`; `grep -l assets/logo.svg` -> 3 (Archive.md, Design.md, test_skill_contracts.py) | kept |
+| `assets/social-preview.png` | live | Design IMG-1; `.gitattributes:82` opt-out; forge social preview; `grep -l assets/social-preview.png` -> 6 (.gitattributes, Archive.md, Decisions.md, +3) | kept |
+| `docs/CNAME` | unreferenced in-tree | in-tree hits 0; content `teamwork.nidvue.com` == `CHANGELOG.md:427` | kept, justified - a published site claim, not a dead file |
+| `docs/Team/Architecture.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Architecture.md` -> 30 (PULL_REQUEST_TEMPLATE.md, dependabot.yml, ci.yml, +27) | kept |
+| `docs/Team/Archive.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Archive.md` -> 33 (SKILL.md, privacy-allow.txt, AGENTS.md, +30) | kept |
+| `docs/Team/AuditManifest.json` | live | generated by `ledger export` (`config.F_MANIFEST`); `grep -l docs/Team/AuditManifest.json` -> 12 (SKILL.md, SKILL.md, Archive.md, +9) | kept |
+| `docs/Team/AuditManifest.md` | live | generated by `ledger export` (`config.F_AUDITREPORT`); `grep -l docs/Team/AuditManifest.md` -> 3 (Archive.md, test_acceptance_docs.py, test_docs_contracts.py) | kept |
+| `docs/Team/AuditReport.md` | superseded in part (record) | header `Superseded in part - read this first`; 8 files name it (Architecture, Risks, decisions) | kept, justified - dated audit measurement and evidence record |
+| `docs/Team/Board.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Board.md` -> 7 (SKILL.md, Architecture.md, Archive.md, +4) | kept |
+| `docs/Team/Costs.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Costs.md` -> 2 (Architecture.md, test_portability.py) | kept |
+| `docs/Team/Decisions.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Decisions.md` -> 21 (SKILL.md, PULL_REQUEST_TEMPLATE.md, privacy-allow.txt, +18) | kept |
+| `docs/Team/Design.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Design.md` -> 8 (README.md, SKILL.md, Architecture.md, +5) | kept |
+| `docs/Team/M9Acceptance.md` | superseded in part (record) | header `Historical measurement - superseded on AC-REL-6`; linked from `Project.md:6`, `Decisions.md:1268` | kept, justified - evidence record; D-20261022-CEO-5 keeps its body |
+| `docs/Team/Pi-Packaging.md` | live | linked from Plan/Board/Architecture/Release; `test_docs_contracts.py:323` names it; `grep -l docs/Team/Pi-Packaging.md` -> 3 (Architecture.md, Archive.md, test_docs_contracts.py) | kept |
+| `docs/Team/Plan.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Plan.md` -> 8 (SKILL.md, Architecture.md, Archive.md, +5) | kept |
+| `docs/Team/Project.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Project.md` -> 15 (ci.yml, docs.yml, release.yml, +12) | kept |
+| `docs/Team/Release.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Release.md` -> 14 (ci.yml, CHANGELOG.md, Architecture.md, +11) | kept |
+| `docs/Team/Research.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Research.md` -> 6 (CHANGELOG.md, Architecture.md, Archive.md, +3) | kept |
+| `docs/Team/Risks.md` | live | `config.DOCS` team document, one owner and one path; `grep -l docs/Team/Risks.md` -> 6 (SKILL.md, Architecture.md, Archive.md, +3) | kept |
+| `docs/assets/nidvue-apple-touch-icon.png` | unreferenced in-tree | only `docs/Team/Archive.md` names it; NOTICE covers `docs/assets/nidvue-*` | kept, justified - NOTICE claim; deletion touches a trademark record |
+| `docs/assets/nidvue-favicon.ico` | unreferenced in-tree | only `docs/Team/Archive.md` names it; NOTICE covers `docs/assets/nidvue-*` | kept, justified - same reason as the touch icon |
+| `docs/assets/nidvue-favicon.svg` | live | `mkdocs.yml:31` favicon; `grep -l nidvue-favicon.svg` -> 2 (mkdocs.yml, test_skill_contracts.py) | kept |
+| `docs/assets/nidvue-icon.svg` | live | `mkdocs.yml:30` logo; README.md:3; `grep -l docs/assets/nidvue-icon.svg` -> 2 (README.md, test_skill_contracts.py) | kept |
+| `docs/guide/architecture.md` | live | `mkdocs.yml` nav; `grep -l docs/guide/architecture.md` -> 6 (Architecture.md, Archive.md, Pi-Packaging.md, +3) | kept |
+| `docs/guide/ci.md` | live | `mkdocs.yml` nav; `grep -l docs/guide/ci.md` -> 1 (CONTRIBUTING.md) | kept |
+| `docs/guide/cli.md` | live | `mkdocs.yml` nav; `grep -l docs/guide/cli.md` -> 8 (CHANGELOG.md, Archive.md, Decisions.md, +5) | kept |
+| `docs/guide/install.md` | live | `mkdocs.yml` nav; `grep -l docs/guide/install.md` -> 13 (CHANGELOG.md, README.md, Architecture.md, +10) | kept |
+| `docs/guide/quickstart.md` | live | `mkdocs.yml` nav; `grep -l docs/guide/quickstart.md` -> 5 (README.md, Archive.md, Pi-Packaging.md, +2) | kept |
+| `docs/index.md` | live | `mkdocs.yml` nav; `grep -l docs/index.md` -> 10 (Architecture.md, Archive.md, Decisions.md, +7) | kept |
+| `docs/requirements.txt` | live | installed by `ci.yml`, `docs.yml`, `mkdocs.yml`; `grep -l docs/requirements.txt` -> 5 (ci.yml, docs.yml, CONTRIBUTING.md, +2) | kept |
+| `mkdocs.yml` | live | the site build every docs job runs; `grep -l mkdocs.yml` -> 12 (docs.yml, CHANGELOG.md, Architecture.md, +9) | kept |
+| `pyproject.toml` | live | the build, the `teamwork` console script and the tool config; `grep -l pyproject.toml` -> 36 (ci.yml, release.yml, AGENTS.md, +33) | kept |
+| `references/Adapters.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Adapters.md` -> 11 (privacy-allow.txt, CHANGELOG.md, README.md, +8) | kept |
+| `references/Audit.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Audit.md` -> 2 (SKILL.md, Archive.md) | kept |
+| `references/Concurrency.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Concurrency.md` -> 7 (README.md, SKILL.md, Archive.md, +4) | kept |
+| `references/Dissent.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Dissent.md` -> 3 (CHANGELOG.md, SKILL.md, Archive.md) | kept |
+| `references/Docs.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Docs.md` -> 3 (SKILL.md, Research.md, technical-writer.md) | kept |
+| `references/Engineering.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Engineering.md` -> 11 (AGENTS.md, README.md, SKILL.md, +8) | kept |
+| `references/Evidence.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Evidence.md` -> 10 (CHANGELOG.md, SKILL.md, Archive.md, +7) | kept |
+| `references/Remotes.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Remotes.md` -> 5 (CHANGELOG.md, SKILL.md, Archive.md, +2) | kept |
+| `references/Roles.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Roles.md` -> 9 (SKILL.md, Archive.md, Decisions.md, +6) | kept |
+| `references/State.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/State.md` -> 1 (SKILL.md) | kept |
+| `references/Testing.md` | live | `bundle.BUNDLE_TREES`; linked from `SKILL.md`; `grep -l references/Testing.md` -> 3 (SKILL.md, Archive.md, Project.md) | kept |
+| `release-exceptions.json` | live | read by `check_release_consistency.py` R3 (AC-REL-1); `grep -l release-exceptions.json` -> 17 (CHANGELOG.md, Architecture.md, Archive.md, +14) | kept |
+| `roles/architect.md` | live | `ROLES_DIR / 'architect.md'` (`engine.py:3893`); `grep -l roles/architect.md` -> 2 (SKILL.md, Archive.md) | kept |
+| `roles/ceo.md` | live | `ROLES_DIR / 'ceo.md'` (`engine.py:3893`); `grep -l roles/ceo.md` -> 4 (SKILL.md, Archive.md, Decisions.md, +1) | kept |
+| `roles/cfo.md` | live | `ROLES_DIR / 'cfo.md'` (`engine.py:3893`); `grep -l roles/cfo.md` -> 2 (SKILL.md, Archive.md) | kept |
+| `roles/coo.md` | live | `ROLES_DIR / 'coo.md'` (`engine.py:3893`); `grep -l roles/coo.md` -> 2 (SKILL.md, Archive.md) | kept |
+| `roles/cto.md` | live | `ROLES_DIR / 'cto.md'` (`engine.py:3893`); `grep -l roles/cto.md` -> 2 (SKILL.md, Archive.md) | kept |
+| `roles/data-engineer.md` | live | `ROLES_DIR / 'data-engineer.md'` (`engine.py:3893`); `grep -l roles/data-engineer.md` -> 1 (SKILL.md) | kept |
+| `roles/designer.md` | live | `ROLES_DIR / 'designer.md'` (`engine.py:3893`); `grep -l roles/designer.md` -> 9 (SKILL.md, Decisions.md, Design.md, +6) | kept |
+| `roles/developer.md` | live | `ROLES_DIR / 'developer.md'` (`engine.py:3893`); `grep -l roles/developer.md` -> 5 (SKILL.md, Archive.md, Decisions.md, +2) | kept |
+| `roles/product-manager.md` | live | `ROLES_DIR / 'product-manager.md'` (`engine.py:3893`); `grep -l roles/product-manager.md` -> 2 (SKILL.md, Archive.md) | kept |
+| `roles/project-manager.md` | live | `ROLES_DIR / 'project-manager.md'` (`engine.py:3893`); `grep -l roles/project-manager.md` -> 1 (SKILL.md) | kept |
+| `roles/release-engineer.md` | live | `ROLES_DIR / 'release-engineer.md'` (`engine.py:3893`); `grep -l roles/release-engineer.md` -> 4 (SKILL.md, Archive.md, Decisions.md, +1) | kept |
+| `roles/reviewer.md` | live | `ROLES_DIR / 'reviewer.md'` (`engine.py:3893`); `grep -l roles/reviewer.md` -> 7 (CHANGELOG.md, SKILL.md, Archive.md, +4) | kept |
+| `roles/security-auditor.md` | live | `ROLES_DIR / 'security-auditor.md'` (`engine.py:3893`); `grep -l roles/security-auditor.md` -> 2 (SKILL.md, Archive.md) | kept |
+| `roles/technical-writer.md` | live | `ROLES_DIR / 'technical-writer.md'` (`engine.py:3893`); `grep -l roles/technical-writer.md` -> 2 (SKILL.md, Decisions.md) | kept |
+| `roles/tester.md` | live | `ROLES_DIR / 'tester.md'` (`engine.py:3893`); `grep -l roles/tester.md` -> 3 (SKILL.md, Decisions.md, Project.md) | kept |
+| `scripts/build_pi_package.py` | live | `grep -l scripts/build_pi_package.py` -> 9 (Makefile, Architecture.md, Archive.md, +6) | kept |
+| `scripts/check_release_consistency.py` | live | `grep -l scripts/check_release_consistency.py` -> 19 (ci.yml, release.yml, CHANGELOG.md, +16) | kept |
+| `scripts/privacy_scan.py` | live | `grep -l scripts/privacy_scan.py` -> 29 (PULL_REQUEST_TEMPLATE.md, privacy-allow.txt, ci.yml, +26) | kept |
+| `scripts/sync_skill.py` | live | `grep -l scripts/sync_skill.py` -> 8 (Makefile, Architecture.md, Archive.md, +5) | kept |
+| `scripts/teamwork.py` | live | `grep -l scripts/teamwork.py` -> 46 (ci.yml, docs.yml, CHANGELOG.md, +43) | kept |
+| `scripts/verify_release.py` | live | `grep -l scripts/verify_release.py` -> 20 (ci.yml, release.yml, CONTRIBUTING.md, +17) | kept |
+| `src/teamwork/__init__.py` | live | package entry point (`pyproject.toml` / `python -m teamwork`) | kept |
+| `src/teamwork/__main__.py` | live | package entry point (`pyproject.toml` / `python -m teamwork`) | kept |
+| `src/teamwork/bundle.py` | live | imported by 4 module(s): build_pi_package.py, sync_skill.py, engine.py, +1 | kept |
+| `src/teamwork/cli.py` | live | imported by 4 module(s): teamwork.py, __main__.py, test_context_economy.py, +1 | kept |
+| `src/teamwork/config.py` | live | imported by 15 module(s): engine.py, harness.py, hooks.py, +12 | kept |
+| `src/teamwork/engine.py` | live | imported by 42 module(s): cli.py, harness.py, conftest.py, +39 | kept |
+| `src/teamwork/gitutil.py` | live | imported by 3 module(s): engine.py, harness.py, hooks.py | kept |
+| `src/teamwork/harness.py` | live | imported by 1 module(s): engine.py | kept |
+| `src/teamwork/hooks.py` | live | imported by 2 module(s): engine.py, test_cli_contract.py | kept |
+| `src/teamwork/imaging.py` | live | imported by 1 module(s): engine.py | kept |
+| `src/teamwork/io.py` | live | imported by 11 module(s): engine.py, gitutil.py, harness.py, +8 | kept |
+| `src/teamwork/layout.py` | live | imported by 4 module(s): engine.py, harness.py, hooks.py, +1 | kept |
+| `src/teamwork/names.py` | live | imported by 8 module(s): engine.py, gitutil.py, harness.py, +5 | kept |
+| `src/teamwork/portable.py` | live | imported by 3 module(s): engine.py, io.py, test_portable.py | kept |
+| `src/teamwork/records.py` | live | imported by 4 module(s): engine.py, harness.py, test_audit_evidence_sources.py, +1 | kept |
+| `src/teamwork/resources.py` | live | imported by 3 module(s): config.py, engine.py, test_resources.py | kept |
+| `src/teamwork/version.py` | live | imported by 3 module(s): __init__.py, engine.py, test_cli_dispatch.py | kept |
+| `templates/AGENTS.md` | live | `bundle.BUNDLE_FILES`; `verify_release.py:44`; `engine.py:9235`; `grep -l templates/AGENTS.md` -> 14 (Architecture.md, Archive.md, Decisions.md, +11) | kept |
+| `templates/Docs/Architecture.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Archive.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Board.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Costs.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Decisions.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Design.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Plan.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Project.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Release.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Research.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/Docs/Risks.md` | live | `init` copies it from `TEMPLATES_DIR/'Docs'` (`engine.py:3848`) | kept |
+| `templates/TeamMap.md` | live | `config.DIR_TEAM_MAP_TPL`, read by `init` (`engine.py:3848`); `grep -l templates/TeamMap.md` -> 4 (Architecture.md, Archive.md, Decisions.md, +1) | kept |
+| `templates/pi-package/prompts/teamwork-pulse.md` | live | `build_pi_package.py:130` ships `prompts/`; `grep -l teamwork-pulse.md` -> 1 (Pi-Packaging.md) | kept |
+| `templates/pi-package/prompts/teamwork-review.md` | live | `build_pi_package.py:130` ships `prompts/`; `grep -l teamwork-review.md` -> 1 (Pi-Packaging.md) | kept |
+| `templates/pi-package/skills/teamwork-pi/SKILL.md` | live | `build_pi_package.py:127` copies it into the npm package; `grep -l templates/pi-package/skills/teamwork-pi/SKILL.md` -> 1 (Archive.md) | kept |
+| `tests/__init__.py` | live | imported by 6 module(s): check_release_consistency.py, privacy_scan.py, cli_harness.py, +3 | kept |
+| `tests/acceptance/cli_harness.py` | live | imported by 9 module(s): gate_fixtures.py, test_acceptance_docs.py, test_acceptance_links.py, +6 | kept |
+| `tests/acceptance/conftest.py` | live | imported by 1 module(s): __init__.py | kept |
+| `tests/acceptance/gate_fixtures.py` | live | imported by 5 module(s): test_acceptance_ci_contracts.py, test_acceptance_docs.py, test_acceptance_links.py, +2 | kept |
+| `tests/acceptance/test_acceptance_ci_contracts.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_acceptance_docs.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_acceptance_links.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_acceptance_makefile.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_acceptance_release_consistency.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_acceptance_release_workflow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_cross_platform.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_entrypoints.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_full_loop.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/acceptance/test_harness_docs.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/conftest.py` | live | imported by 2 module(s): __init__.py, conftest.py | kept |
+| `tests/gitenv.py` | live | imported by 5 module(s): test_harness_docs.py, test_harness_cli.py, test_git_env.py, +2 | kept |
+| `tests/integration/test_ci_scope_classifier.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_command_surface.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_context_economy_contract.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_docs_pipeline_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_evidence_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_harness_cli.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_links_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_makefile_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_release_consistency_integration.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_release_gate_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_release_traceability_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_release_workflow_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_task_graph_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/integration/test_workspace_flow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_archive_mask_identity_rules.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_archive_merge_revisions.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_audit_evidence_sources.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_board_matches_tool.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_ci_contracts.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_cli_contract.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_cli_dispatch.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_code_scanning.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_commit_identity.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_context_economy.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_criteria.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_decision_ids.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_dispute_panel_instances.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_docs_contracts.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_evidence_packets.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_git_env.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_gitignore_bootstrap.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_global_memory_provenance.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_harness_surface.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_hooks.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_hygiene.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_imaging.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_integrity_fixes.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_io.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_ledger.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_ledger_export_worktree.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_lfs_threshold_scope.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_makefile_contracts.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_memory.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_names.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_parallel_capacity.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_pi_package.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_portability.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_portable.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_pr_merge_base_advance.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_pr_task_collision.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_privacy_scan.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_provider_caps.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_refresh_source.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_release_consistency.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_release_consistency_digest.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_release_consistency_r8.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_release_traceability.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_release_workflow.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_reporting_hierarchy.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_research_sources.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_resources.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_review_fanout.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_review_merges_on_pass.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_roster_tiers.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_skill_contracts.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_skill_refresh.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_skill_sync.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_sys_path_hygiene.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_task_graph_integrity.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_tasks.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_test_records.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_traceability_matrix.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/test_worktree_reclaim.py` | live | pytest collects it (1256 tests collected) | kept |
+| `tests/unit/workflow_yaml.py` | live | imported by 3 module(s): test_ci_contracts.py, test_makefile_contracts.py, test_release_workflow.py | kept |
+
+#### Deletions
+
+None. The pass proved no tracked file is dead, so it deleted nothing: a file
+that only a forge reads by path (`.github/` templates, `docs/CNAME`), a file a
+trademark claim names (`docs/assets/nidvue-*`), and a dated measurement a
+decision keeps (`M9Acceptance.md`, `AuditReport.md`) are all still in use by
+something outside a grep. Deleting one of them on suspicion is the failure mode
+this census exists to prevent, and each of the six unreferenced rows below states
+the reader that keeps it alive.
+
+#### Kept, justified - the eight non-live rows
+
+| path | why it stays |
+|---|---|
+| `.github/ISSUE_TEMPLATE/bug_report.yml` | GitHub reads it by path; it is the repo's own bug form, and no in-tree gate replaces it |
+| `.github/ISSUE_TEMPLATE/feature_request.yml` | same reason as the bug form |
+| `.github/PULL_REQUEST_TEMPLATE.md` | the contributor's checklist; deleting it removes a control, not a file |
+| `docs/CNAME` | the custom-domain claim `CHANGELOG.md:427` makes, in the file the Pages deploy needs |
+| `docs/assets/nidvue-apple-touch-icon.png` | `NOTICE` names `docs/assets/nidvue-*` as the bundled trademark set |
+| `docs/assets/nidvue-favicon.ico` | same trademark set as the touch icon |
+| `docs/Team/M9Acceptance.md` | a dated measurement kept as the record of what M9 measured; `D-20261022-CEO-5` keeps a historical document's body, and `Project.md` and `Decisions.md` link it |
+| `docs/Team/AuditReport.md` | the audit's dated measurement; the security lane re-stated it under the D-0003 ruling instead of deleting it |
+
+#### Duplicate check
+
+Zero duplicates, measured two ways: no two tracked files share a digest
+(`md5sum | uniq -d` -> 0), and the pairs that look like copies are not:
+
+| pair | why both are real |
+|---|---|
+| `templates/Docs/*.md` vs `docs/Team/*.md` | the template and the instance: `init` copies the first to make the second, and the second carries this team's content |
+| `tests/unit/test_portable.py` vs `tests/unit/test_portability.py` | the OS seam's unit tests vs the portability contract (source-level rules, bundle resolution) - 6 tests vs 26, no shared assertion |
+| `SKILL.md` vs `templates/pi-package/skills/teamwork-pi/SKILL.md` | the host-agnostic protocol vs the pi-specific layer that maps its six host operations |
+| `README.md` vs `docs/guide/install.md` | the entry page vs the install reference the site links; the version pin they share is read by rule R6 of the release checker |
+
+#### Findings handed to their owners
+
+1. **The board gate cannot see M11** (filed as developer T-0006).
+   `tests/unit/test_board_matches_tool.py` compares the board with the queues
+   through a per-role `FLOOR` table written for M9, and it looks the floor up with
+   the folded role name (`norm_role`) while the table is keyed by the hyphenated
+   one, so every hyphenated role silently gets floor 0. Measured: in a linked
+   worktree the file skips (`4 passed, 2 skipped`) because a worktree has no team
+   tree; in the main checkout at `7db810a` it fails (`2 failed, 4 passed`). After
+   the re-initialisation for M11 the queues restart at T-0001, so no floor above 1
+   can match. Re-run through the gate's own functions against the board below:
+   `mismatches()` and `flight_mismatches()` report only tasks the floor excludes
+   (`... on the board, but no such task in the milestone`), and not one
+   `board says (state, pr, merged), queue says (...)` disagreement - the rows and
+   the queues agree on every task the gate does look at.
+2. **Two stale instance directories** (filed as ceo T-0008). `Agents/Developer`
+   and `Agents/Tester` are not empty - each holds the generated `StartHere.md`,
+   `Inbox.md` and `WorkLog.md` - but no task is claimed by `Developer` or
+   `Tester`, and the tool counts them as lanes: `teamwork.py agents` ->
+   `developer instances=3 [Developer, Developer-1, Developer-2]` and
+   `tester instances=2 [Tester, Tester-1]`, while only `Developer-1`,
+   `Developer-2` and `Tester-1` hold work. Removing local team state is the
+   CEO's call, not a hygiene deletion from this lane.
+
 ## Task-graph integrity
 
 The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.
