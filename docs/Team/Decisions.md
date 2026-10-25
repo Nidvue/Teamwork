@@ -1475,3 +1475,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: pytest -q @7db810a -> 11 failed, 1217 passed, 28 skipped; ruff check -> clean; teamwork.py links -> 0 issues; privacy_scan --tree --history -> PASS; check_release_consistency -> 0 problems
 - falsified by: A reviewer reproduces 'pytest -q' green on a plain Windows host with Developer Mode off and no GNU make, at the merged revision
 - consequences: Findings become tasks; docs state claims are re-measured; the tree census is owned by the project manager
+
+## D-20261025-Reviewer-1 - The board gate's FLOOR may filter only CLOSED queue records,
+
+- date: 2026-10-25
+- kind: governance
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: -
+- context: -
+- options considered: -
+- decision: The board gate's FLOOR may filter only CLOSED queue records, and a regenerated docs/Team/Board.md that lands inside a developer gate-fix PR is accepted as the recipe's own output, not hand editing - provided the reviewer re-runs the recipe and gets the same rows.
+- why: Review of P-0017 at 7e2fa1d: pre-fix FLOOR (ceo:59, developer:5, reviewer:2, plus hyphenated keys that norm_role never matched) made queues() drop 10 open tasks while the board claimed to be the queues' state; folding the keys and admitting every OPEN record yields hidden=0, 42 rows, 28 in flight. The board half is unavoidable in the same PR: with only the test fix, main's committed 26-row board contradicts the now-seeing gate, so the green-gate requirement cannot be met otherwise - and re-running the recipe reproduces the committed rows.
+- evidence: python tests/unit/test_board_matches_tool.py @7e2fa1d -> exit 0, wrote 42 task(s), 42 rows / 28 in flight, hidden 0; pytest -q -> 2 failed, 10 passed before re-render (2 drift rows), 12 passed after; pre-fix queues() -> 26 of 42 records, 18 of 28 open
+- falsified by: A committed Board.md row that the recipe cannot regenerate, or a hidden open task after the fold, overturns the acceptance.
+- consequences: -
