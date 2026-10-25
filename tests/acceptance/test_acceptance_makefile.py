@@ -10,19 +10,23 @@ promises the documentation makes about it:
 3. a failing recipe is a failing ``make`` - proved on a throwaway ``-f`` Makefile
    so nothing in this repository is touched.
 
+Every test that executes ``make`` guards on it: on a host without GNU make the
+skip names the tool instead of failing with ``FileNotFoundError [WinError 2]
+'make'`` (``T-0003``). The one test that only reads the Makefile as text needs no
+tool and is not guarded, so it still runs there.
+
 Owner: reviewer. Task: T-0003. Requirement: acceptance layer, area ``makefile``.
 """
 
 from __future__ import annotations
 
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 from cli_harness import REPO_ROOT, build_env
+from tests.tooling import require_tool
 
 AREA = "makefile"
 MAKEFILE = REPO_ROOT / "Makefile"
@@ -40,8 +44,6 @@ REQUIRED_GATE_COMMANDS = (
     "privacy_scan.py",
     "teamwork.py links",
 )
-
-pytestmark = pytest.mark.skipif(shutil.which("make") is None, reason="make is not installed")
 
 
 def run_make(*args: str, cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess:
@@ -74,6 +76,7 @@ def _documented_targets() -> dict[str, str]:
 
 def test_help_exits_0_and_lists_the_contributor_targets():
     """ACCEPT: `make help` -> exit 0, one line per documented target."""
+    require_tool("make")
     proc = run_make("help")
 
     assert proc.returncode == 0, f"make help failed:\n{proc.stdout}\n{proc.stderr}"
@@ -91,6 +94,7 @@ def test_help_exits_0_and_lists_the_contributor_targets():
 
 def test_ci_dry_run_names_the_gate_commands():
     """ACCEPT: `make -n ci` -> exit 0 and prints every gate command, running none."""
+    require_tool("make")
     proc = run_make("-n", "ci")
 
     assert proc.returncode == 0, f"make -n ci failed:\n{proc.stdout}\n{proc.stderr}"
@@ -105,6 +109,7 @@ def test_ci_dry_run_names_the_gate_commands():
 
 def test_dry_run_prints_without_executing(tmp_path):
     """ACCEPT: `make -n` expands a recipe and produces none of its effects."""
+    require_tool("make")
     marker = tmp_path / "executed.marker"
     (tmp_path / "Makefile").write_text(
         f"gate:\n\t@printf '%s' ran > '{marker.as_posix()}'\n",
@@ -125,6 +130,7 @@ def test_dry_run_prints_without_executing(tmp_path):
 
 def test_a_failing_recipe_exits_non_zero(tmp_path):
     """ACCEPT: a recipe that fails is a `make` that fails - the gate is real."""
+    require_tool("make")
     broken = tmp_path / "Makefile"
     broken.write_text(
         "ok:\n\t@true\n\nbroken:\n\t@false\n\nchain: ok broken\n",
@@ -157,7 +163,10 @@ def test_a_failing_recipe_exits_non_zero(tmp_path):
 
 
 def test_the_real_pipeline_is_the_ci_alias():
-    """ACCEPT: `ci` is the documented one-shot pipeline, not an empty alias."""
+    """ACCEPT: `ci` is the documented one-shot pipeline, not an empty alias.
+
+    Read from the Makefile's text, so this one needs no tool and is not guarded.
+    """
     text = MAKEFILE.read_text(encoding="utf-8")
     assert re.search(r"^ci:\s+release-check\b", text, re.MULTILINE), (
         "`ci` is not the release-check pipeline:\n" + text

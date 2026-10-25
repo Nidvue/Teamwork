@@ -7,7 +7,10 @@ are asserted here and cannot silently disappear in a refactor.
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import stat
 from pathlib import Path
 
 import pytest
@@ -864,6 +867,7 @@ def test_this_repository_actually_configures_the_toolchain(root):
 
 def test_scanner_allows_the_github_service_mailbox():
     """Dependabot signs off with support@github.com; that is not personal data."""
+    import importlib
     import sys
 
     scripts = Path(__file__).resolve().parents[2] / "scripts"
@@ -871,7 +875,7 @@ def test_scanner_allows_the_github_service_mailbox():
     if added:
         sys.path.insert(0, str(scripts))
     try:
-        import privacy_scan as ps
+        ps = importlib.import_module("privacy_scan")
     finally:
         # Leaving scripts/ on sys.path would shadow the real ``teamwork`` package
         # with ``scripts/teamwork.py`` for every later test in the session.
@@ -1067,7 +1071,9 @@ def test_release_tag_matches_the_package_version(root):
     import re
 
     text = (root / "src" / "teamwork" / "version.py").read_text(encoding="utf-8")
-    version = re.search(r'__version__ = "([^"]+)"', text).group(1)
+    declaration = re.search(r'__version__ = "([^"]+)"', text)
+    assert declaration is not None, "version.py declares no __version__: " + text
+    version = declaration.group(1)
     changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
     assert f"## [{version}]" in changelog, f"CHANGELOG has no [{version}] section"
     release = (root / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
@@ -1478,6 +1484,21 @@ def test_adoption_surfaces_stay_agent_agnostic(root):
             assert tool not in text, f"{charter.name} hard-codes the host tool {tool!r}"
 
 
+def _delete_repository(path: Path) -> None:
+    """Delete a checkout, including a repository git has made read-only.
+
+    git marks its objects and refs read-only, and ``shutil.rmtree`` stops at the
+    first one on Windows (``PermissionError: [WinError 5]``), so the write bit is
+    restored before the tree goes. The documented recipe says ``rm -rf``, but that
+    is a documentation surface asserted further down - not a tool this test needs
+    installed (T-0003).
+    """
+    for parent, directories, files in os.walk(path, topdown=False):
+        for name in [*files, *directories]:
+            Path(parent, name).chmod(stat.S_IWRITE)
+    shutil.rmtree(path)
+
+
 def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path):
     """The project install must be committable: 100644 files, not a 160000 submodule.
 
@@ -1520,7 +1541,7 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
         env=env,
         check=True,
     )
-    subprocess.run(["rm", "-rf", ".agents/skills/teamwork/.git"], cwd=project, check=True)
+    _delete_repository(project / ".agents" / "skills" / "teamwork" / ".git")
     subprocess.run(["git", "add", "-A"], cwd=project, env=env, check=True)
     listing = subprocess.run(
         ["git", "ls-files", "-s", ".agents/skills/teamwork/SKILL.md"],
