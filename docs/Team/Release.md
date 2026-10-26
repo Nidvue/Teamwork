@@ -36,7 +36,12 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | release consistency (online) | `python scripts/check_release_consistency.py --online` (the `consistency` job in `release.yml`) | yes (on a `v*` tag) |
 
 The `release consistency (offline - docs + tags + version)` context **is
-registered** in the branch protection of `main` (16 contexts, `strict=true`).
+registered** in the branch protection of `main` - measured, not quoted:
+`gh api repos/Nidvue/Teamwork/branches/main/protection --jq
+'.required_status_checks.contexts|length'` prints `20`, with `strict=true`. The four
+newest are the `test (ubuntu-latest / py3.10)` and `test (ubuntu-latest / py3.12)`
+lanes and the two CodeQL contexts `Analyze (python)` and `Analyze (actions)`; read the
+list, never this number.
 It can only be *blocking* when the gate can actually run, and that is a
 re-runnable condition, not a date:
 
@@ -197,12 +202,13 @@ a pass.
   guard, not the setting, is what protects `main`.
 - Locally: `git merge --squash <branch>` and commit as the acting role, or
   `teamwork.py pr merge --squash`, which does exactly that as the Reviewer mailbox.
-- `main` keeps: 1 required approval, 16 required checks (the release-consistency
-  context was added to the 15 before it), strict up-to-date, no force-push, no
-  deletion, `required_linear_history` disabled so the existing merge commits do not
-  need an admin bypass. The required check list is measured, not quoted; the
-  committer guard (`identity --guard-committer`) reports a stamped account on the
-  push, and `identity --audit` accepts a forge rebase committer
+- `main` keeps: 1 required approval, 20 required checks (the release-consistency
+  context was added to the 15 before it, then the ubuntu `py3.10` and `py3.12` lanes and
+  the `Analyze (python)` / `Analyze (actions)` contexts brought it to 20), strict
+  up-to-date, no force-push, no deletion, `required_linear_history` disabled so the
+  existing merge commits do not need an admin bypass. The required check list is
+  measured, not quoted; the committer guard (`identity --guard-committer`) reports a
+  stamped account on the push, and `identity --audit` accepts a forge rebase committer
   (`noreply@github.com`) only when the author is a canonical role mailbox.
 - `enforce_admins` is `false` and the repository has **one** collaborator with admin
   (`gh api repos/Nidvue/Teamwork/collaborators`). That is the single-owner caveat
@@ -313,24 +319,26 @@ All 11 lanes are green again at `67df036`.
 
 ### 4. The forge still matches `references/Remotes.md`
 
-Measured 2026-10-25 with `gh api repos/Nidvue/Teamwork/branches/main/protection`, `gh api
+Measured 2026-10-25, re-measured 2026-10-26 after the forge hardening (`ceo` T-0010), with
+`gh api repos/Nidvue/Teamwork/branches/main/protection`, `gh api
 repos/Nidvue/Teamwork`, `gh api repos/Nidvue/Teamwork/actions/permissions`,
-`.../actions/permissions/workflow`, `gh api repos/Nidvue/Teamwork/rulesets` and
-`gh api repos/Nidvue/Teamwork/tags/protection`:
+`.../actions/permissions/workflow`, `gh api repos/Nidvue/Teamwork/rulesets`,
+`gh api repos/Nidvue/Teamwork/rulesets/<id>` and `gh api
+repos/Nidvue/Teamwork/tags/protection`:
 
 | policy | measured | verdict |
 |---|---|---|
 | no force-push | `allow_force_pushes.enabled=false` | ok |
 | no branch deletion | `allow_deletions.enabled=false` | ok |
-| required checks, strict | `strict=true`, 16 contexts | ok |
+| required checks, strict | `strict=true`, 20 contexts | ok |
 | >= 1 non-author approval, stale dismissed | `required_approving_review_count=1`, `dismiss_stale_reviews=true`, `require_last_push_approval=false` | ok - last-push approval is not a policy rule |
-| the whole matrix is required | the two `include:` lanes `test (ubuntu-latest / py3.10)` and `test (ubuntu-latest / py3.12)` run on every code push but are **not** contexts | **drift** -> `ceo` T-0002 |
+| the whole matrix is required | all 11 `test` lanes are contexts, including the two `include:` lanes `test (ubuntu-latest / py3.10)` and `test (ubuntu-latest / py3.12)`, and the two CodeQL contexts `Analyze (python)` / `Analyze (actions)` block a merge as well | ok - closed by `ceo` T-0010; the lanes run *and* block |
 | no merge commits on the default branch | `required_linear_history.enabled=false` | **drift**, rationale only in this page -> `ceo` T-0005 |
 | one canonical merge shape, host buttons off | `allow_squash_merge=false`, `allow_merge_commit=false`, `allow_rebase_merge=true`, `delete_branch_on_merge=true` | ok - the `references/Remotes.md` rebase-only variant; the host stamps the signed-in account and the required `committer guard` catches it |
 | admin bypass only as a recorded event | `enforce_admins.enabled=false`, one admin collaborator | ok with the caveat stated above |
-| protected `v*` tag, CEO only | `rulesets -> []`, `tags/protection -> HTTP 404` | **drift** -> `ceo` T-0003 |
-| least-privilege CI | `default_workflow_permissions=read`, `can_approve_pull_request_reviews=false`; `allowed_actions=all`, `sha_pinning_required=false` | partial: the default is `read` and every pin is a SHA by convention, but the forge does not enforce pinning -> `ceo` T-0006 |
-| code scanning as a gate | CodeQL default setup `configured` (`actions`, `python`), no CodeQL context required | **drift** -> `ceo` T-0006 |
+| protected `v*` tag, CEO only | one active ruleset `protect v* release tags` (id `25840176`, `target=tag`, condition `refs/tags/v*`, rules `deletion` + `non_fast_forward` + `update`, `bypass_actors -> []`, `current_user_can_bypass=never`); `tags/protection -> HTTP 404` is the retired endpoint the ruleset replaces | ok - closed by `ceo` T-0010 |
+| least-privilege CI | `default_workflow_permissions=read`, `can_approve_pull_request_reviews=false`; `allowed_actions=all`, `sha_pinning_required=true`, and `grep -ho 'uses: *[^ ]*' .github/workflows/*.yml \| sed 's/uses: *//' \| sort -u` -> 10 distinct actions, every one a 40-hex SHA (0 tag refs) | ok - the forge enforces the pinning the tree already has, closed by `ceo` T-0010 |
+| code scanning as a gate | CodeQL default setup `configured` (`actions`, `python`) and both `Analyze (python)` and `Analyze (actions)` are required contexts | ok - closed by `ceo` T-0010 |
 
 ### 5. The hooks refuse a plain commit
 
@@ -392,16 +400,15 @@ What a release then needs, in order - every step after the gates is the CEO's by
 
 | # | drift | owner / task |
 |---|---|---|
-| 1 | two matrix lanes run but do not block a merge | `ceo` T-0002 |
-| 2 | no protected `v*` tag rule | `ceo` T-0003 |
-| 3 | the R8 marker is missing at `docs/Team/Decisions.md:1284` - blocks every release | `ceo` T-0004 |
-| 4 | `required_linear_history=false`, rationale not in `Decisions.md` | `ceo` T-0005 |
-| 5 | CodeQL is not a required check; the forge does not enforce SHA pinning | `ceo` T-0006 |
-| 6 | the lint job installs an unpinned ruff | `release-engineer` T-0002 |
+| 1 | the R8 marker is missing at `docs/Team/Decisions.md:1284` - blocks every release | `ceo` T-0004 |
+| 2 | `required_linear_history=false`, rationale not in `Decisions.md` | `ceo` T-0005 |
+| 3 | the lint job installs an unpinned ruff | `release-engineer` T-0002 |
 
-Items 1-5 are not changed by this document: a branch-protection or tag rule change is a
-forge governance event and belongs to the CEO. Item 6 is this lane's own file and is
-scheduled, not silently reverted.
+The three forge drifts this table used to carry - the two matrix lanes that ran without
+blocking, the unprotected `v*` tag and the CodeQL/SHA-pinning pair - are closed by `ceo`
+T-0010 and measured in section 4 above, not restated here. Items 1-2 are not changed by
+this document: a branch-protection change is a forge governance event and belongs to the
+CEO. Item 3 is this lane's own file and is scheduled, not silently reverted.
 
 ## Deploy
 
