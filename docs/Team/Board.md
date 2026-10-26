@@ -71,7 +71,7 @@ under two roles is two tasks.
 | ceo | T-0007 | - | done | P-0002 | 991dff1 |
 | ceo | T-0008 | - | dropped | - | - |
 | ceo | T-0009 | - | dropped | - | - |
-| ceo | T-0010 | - | todo | - | - |
+| ceo | T-0010 | - | done | - | - |
 | developer | T-0001 | - | done | P-0001 | fdd95a6 |
 | developer | T-0002 | - | done | P-0011 | 5648f4c |
 | developer | T-0003 | test-portability | done | P-0004 | dfb4d64 |
@@ -123,7 +123,6 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0010 · Record the forge hardening applied after the M11 push | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
