@@ -61,6 +61,7 @@ under two roles is two tasks.
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
 | architect | T-0001 | code-review | done | P-0008 | e47f5d5 |
+| architect | T-0002 | - | done | P-0027 | f0ada67 |
 | ceo | T-0001 | intake | done | P-0020 | 6fa2726 |
 | ceo | T-0002 | - | dropped | - | - |
 | ceo | T-0003 | - | dropped | - | - |
@@ -70,6 +71,7 @@ under two roles is two tasks.
 | ceo | T-0007 | - | done | P-0002 | 991dff1 |
 | ceo | T-0008 | - | dropped | - | - |
 | ceo | T-0009 | - | dropped | - | - |
+| ceo | T-0010 | - | todo | - | - |
 | developer | T-0001 | - | done | P-0001 | fdd95a6 |
 | developer | T-0002 | - | done | P-0011 | 5648f4c |
 | developer | T-0003 | test-portability | done | P-0004 | dfb4d64 |
@@ -83,6 +85,10 @@ under two roles is two tasks.
 | developer | T-0011 | - | dropped | - | - |
 | developer | T-0012 | plan | done | P-0015 | 17927a5 |
 | developer | T-0013 | plan | done | P-0018 | cfc09cf |
+| developer | T-0014 | test-portability | done | P-0021 | 1a7f9e5 |
+| developer | T-0015 | - | dropped | - | - |
+| developer | T-0016 | - | done | P-0023 | 280627e |
+| developer | T-0017 | - | done | P-0026 | 521a7d6 |
 | product-manager | T-0001 | traceability | done | P-0009 | 96160cf |
 | project-manager | T-0001 | plan | done | P-0005 | 1bf629a |
 | project-manager | T-0002 | - | dropped | - | - |
@@ -94,6 +100,8 @@ under two roles is two tasks.
 | release-engineer | T-0005 | - | dropped | - | - |
 | release-engineer | T-0006 | - | dropped | - | - |
 | release-engineer | T-0007 | ci | done | P-0013 | 183cf0d |
+| release-engineer | T-0008 | - | dropped | - | - |
+| release-engineer | T-0009 | - | done | P-0025 | c6ac201 |
 | reviewer | T-0001 | records | dropped | - | - |
 | reviewer | T-0002 | - | dropped | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -103,7 +111,9 @@ under two roles is two tasks.
 | technical-writer | T-0001 | docs-truth | done | P-0006 | 641e610 |
 | technical-writer | T-0002 | - | dropped | - | - |
 | technical-writer | T-0003 | docs-truth | done | P-0014 | 8b9fac8 |
+| technical-writer | T-0004 | - | done | P-0024 | 8ad3467 |
 | tester | T-0001 | ci-release | done | P-0012 | aabff63 |
+| tester | T-0002 | - | done | P-0022 | ee05c22 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -113,6 +123,7 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0010 · Record the forge hardening applied after the M11 push | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
