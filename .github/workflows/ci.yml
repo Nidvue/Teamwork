@@ -267,15 +267,26 @@ jobs:
         env:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          # A pull_request event has no "before": GitHub sends the all-zero sha.
-          # A push after a rewrite has a "before" that no longer resolves. Both
-          # cases fall back to the tip, which is what can be measured.
+          # A tag push has no "before" (all zeros). Auditing HEAD there would
+          # audit the whole history; an old non-role merge commit would fail
+          # every release. Audit the tagged commit itself instead. A pull
+          # request has an explicit base sha; audit its branch range. A first
+          # branch push has no measurable span, so audit the tip.
           if [ -n "${BEFORE_SHA}" ] && [ "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
-            python scripts/teamwork.py identity --guard-committer --range "${BEFORE_SHA}..${HEAD_SHA}" \
-              || python scripts/teamwork.py identity --guard-committer --range HEAD
+            RANGE="${BEFORE_SHA}..${HEAD_SHA}"
+          elif [ "${REF_TYPE}" = "tag" ]; then
+            RANGE="${HEAD_SHA}^..${HEAD_SHA}"
+          elif [ -n "${BASE_SHA}" ]; then
+            RANGE="${BASE_SHA}..${HEAD_SHA}"
           else
-            python scripts/teamwork.py identity --guard-committer --range HEAD
+            RANGE="${HEAD_SHA}^..${HEAD_SHA}"
+          fi
+          if ! python scripts/teamwork.py identity --guard-committer --range "${RANGE}"; then
+            # A root commit has no parent; the one-commit range cannot resolve.
+            python scripts/teamwork.py identity --guard-committer --range "${HEAD_SHA}"
           fi
 
   typecheck:
