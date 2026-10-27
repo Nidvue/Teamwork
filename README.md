@@ -432,7 +432,7 @@ Teamwork/
 ├── scripts/teamwork.py       # compatibility shim, stdlib only
 ├── tests/{unit,integration,acceptance}/
 ├── docs/                     # mkdocs site + docs/Team/ project documents
-├── assets/                   # SVG banner, logo, terminal demo
+├── assets/                   # banner, logo, terminal demo, social preview
 └── .github/workflows/        # ci.yml, release.yml, docs.yml
 ```
 

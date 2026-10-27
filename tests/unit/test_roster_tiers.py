@@ -28,7 +28,8 @@ def test_slim_is_the_default_roster(cli, project: Path) -> None:
     roles = engine.list_roles(root)
     assert engine.DEFAULT_ROSTER_TIER == "slim"
     assert sorted(roles) == sorted(engine.ROSTER_TIERS["slim"])
-    # Two reviewers: one verifies, a different one merges.
+    # Two reviewers: the queue fans out one deliverable per lane, and a second
+    # lane can give a sampled or high-risk deliverable an independent verdict.
     assert len(engine.instances_of(root, "reviewer")) == 2
 
 

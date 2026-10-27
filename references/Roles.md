@@ -2,7 +2,7 @@
 
 Reference for the /teamwork skill. Loaded on demand.
 
-Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.md) | [State](State.md) | [Concurrency](Concurrency.md) | [Testing](Testing.md) | [Audit](Audit.md)
+Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.md) | [State](State.md) | [Concurrency](Concurrency.md) | [Testing](Testing.md) | [Audit](Audit.md) | [Coordination](Coordination.md)
 
 ## Roster
 
