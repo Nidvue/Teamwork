@@ -39,7 +39,9 @@ do not become the queue every blocked agent waits in.
    independent ready work: Ollama Cloud takes 64 concurrent lanes, the DeepSeek
    API ~2500. Scale `developer-*` / `tester-*` / `designer-*` to the available
    capacity, not to a fixed number, and hand the next task to a lane that is
-   already running before spawning a new one.
+   already running before spawning a new one. When two verification lanes are
+   staffed, set `TEAMWORK_MODEL_ALT` and run `model auto --apply` so independent
+   review is not the same model twice.
 5. **Run the loop.** Unblock, arbitrate conflicts, resolve duplicate work,
    update global memory, and report progress to the user. Keep the team in
    parallel lanes; never serialise work that has no dependency.
@@ -61,6 +63,33 @@ matching work, assign the top unblocked task of its role or fold the lane. Unblo
 stuck tasks, and push the Reviewer when deliverables are waiting. Re-arm with
 the host scheduler (see `references/Adapters.md`) and delete the schedule at
 team close. An idle lane while ready work exists is a defect in your dispatch.
+
+## Coordination health
+
+Identical lanes make identical mistakes. At every milestone, and before the final
+report, run the checks and act on the high findings:
+
+```sh
+teamwork.py coordination --strict     # exit 1 while a high finding is open
+```
+
+- `C-DIV-BRANCH` / `C-DIV-TASK` / `C-DIV-SHARED`: merge, re-scope or hand one owner
+  the shared reference. Duplicate work is not parallelism.
+- `C-DIV-MODEL`: set `TEAMWORK_MODEL_ALT` and re-apply; two Reviewer lanes on one
+  model share one blind spot.
+- `C-TRUST-ECHO` / `C-TRUST-MONOCULTURE`: fan the review queue, and sample a
+  second review; never accept a verdict agreed before it was recorded.
+- `C-MERGE-RATE` / `C-MERGE-ABANDONED`: land, close or re-scope
+  the PR; a branch that conflicts twice is re-planned, not retried. Stale open PRs
+  are already in `audit`.
+- `C-CAP-STARVED`: release leases or move the lane to slot-free work; a lane that
+  polls for capacity is a stampede, not progress.
+
+A conflicting directive is resolved by a measurable contest or by you. Never by
+killing a peer's process, starving its lease or taking its worktree; `reclaim`
+refuses a live lane for the same reason. A user-facing deliverable is shown to the
+user at the milestone - a running build, screenshot or recording - because taste
+is not emergent.
 
 ## Self-management and the loop
 
@@ -115,8 +144,9 @@ never let a dispute run a fourth round.
 
 ## Done when
 
-Every acceptance criterion has evidence, no lane is blocked, docs match code, and
-the user has a final report they can act on.
+Every acceptance criterion has evidence, no lane is blocked, `coordination
+--strict` reports no high finding, docs match code, and the user has a final
+report they can act on.
 
 ## Submitting work (all roles)
 

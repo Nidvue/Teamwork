@@ -82,16 +82,26 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
     reads the runtime environment (the agent host and the model it exposes) and
     routes the strongest available model to the decision lanes and the economy one
     to the mechanical lanes, so quality is maximised where it compounds and cost is
-    minimised where it does not. Model choice never changes the
+    minimised where it does not. This is cost-aware routing, never an invented
+    model id. Set `TEAMWORK_MODEL_ALT` when two verification lanes are staffed:
+    independent review on the same model twice is one check sampled twice
+    (`references/Coordination.md`). Model choice never changes the
     protocol: the gates, the review and the ledger hold anyway.
-    The CEO sets the lanes in one step with `teamwork.py model auto --apply`, which
-    detects the running agent host where the environment identifies it and routes
-    the strongest available model to the decision lanes and the economy model to
-    the mechanical lanes - automatic cost-aware routing, never an invented model id.
 13. **Warnings are errors.** The toolchain fails on them by configuration, the
     cause is fixed, and a third-party warning is suppressed narrowly with a
     reason. CI annotations (a deprecated action, a cache notice, a runner banner)
     count as warnings and are fixed, not ignored.
+14. **Independence is structural.** Verification lanes do not share a model when
+    a second one is available; a Reviewer records its own run, never the author's
+    line copied; one task owns one branch; a duplicate task, branch or shared
+    reference is a defect, not parallel efficiency.
+15. **No lane wars.** Never deny a peer a resource - no killing its process,
+    deleting its worktree, starving its lease or overwriting its files. A
+    conflicting directive is resolved by a measurable contest or by the CEO, never
+    by force. `reclaim` refuses a lane that still holds a live slot.
+16. **Consensus is not evidence.** A single source is provisional, a unanimous
+    zero-finding run is sampled, and lowering a gate so the team can agree is
+    collusion. Trust is conditional and recorded (`references/Coordination.md`).
 
 ## The org
 
@@ -144,9 +154,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 238 kB |
-| `standard` | 9 | 351 kB |
-| `full` | 16 | 607 kB |
+| `slim` (default) | 6 | 249 kB |
+| `standard` | 9 | 366 kB |
+| `full` | 16 | 631 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
@@ -184,7 +194,10 @@ Two rules keep a slim roster honest, and both are enforced:
 `init` prints the folded lanes and warns when a gate-critical role is missing.
 Scale writers with the critical path: add `developer-N`/`tester-N` before adding a
 coordination role. **The Reviewer is not optional**, and two Reviewer lanes are the
-minimum - one verifies, a different one merges.
+minimum: the review queue fans one deliverable per lane, a re-submitted fix is
+reviewed from scratch, and a second lane gives a sampled or high-risk deliverable
+an independent verdict. A pass merges - the lane that verified the revision lands
+it.
 
 ## Workspace layout
 
@@ -395,6 +408,7 @@ python3 "$SKILL/scripts/teamwork.py" criteria list    # are the goals actually m
 python3 "$SKILL/scripts/teamwork.py" tests plan       # layered test coverage and gaps
 python3 "$SKILL/scripts/teamwork.py" board
 python3 "$SKILL/scripts/teamwork.py" review --queue   # Reviewer's work list
+python3 "$SKILL/scripts/teamwork.py" coordination --strict   # conformity, trust, merge health
 python3 "$SKILL/scripts/teamwork.py" audit            # fabricated completions, stale work, duplicates, link health
 python3 "$SKILL/scripts/teamwork.py" links            # markdown links, URLs, back-links
 python3 "$SKILL/scripts/teamwork.py" pulse --commit   # idle lanes -> assignment
@@ -419,9 +433,10 @@ Four rules keep every lane busy without inventing work:
 | Reviews are the exception | a Reviewer lane holds exactly one claim; run several Reviewer lanes | a deep review is not divisible, and the queue is the concurrency limit |
 
 Capacity is bounded by the provider caps in `Settings.json`, never by the number
-of lanes: `pulse` refuses to plan more assignments than there are free slots and
+of lanes: `pulse` defers new-lane assignments beyond the free-slot count and
 prints the shortfall, so the team fills 64 Ollama Cloud lanes or 2500 DeepSeek
-lanes without over-subscribing either.
+lanes without over-subscribing either. A top-up for a lane that already holds a
+lease is not a new lane.
 
 The anti-patterns this replaces, all measured on a real run: a lane that took one
 task and then sat in review while nine lanes idled; a tester blocked for hours on
@@ -574,6 +589,29 @@ python3 "$SKILL/scripts/teamwork.py" refresh --dry-run     # the file plan, no w
   reviewed revision, then runs `refresh --check` so the machine that ships the
   protocol also runs it. A failing `--check` is a defect on par with a red gate.
 
+### 5f. Keep lanes decorrelated
+
+Identical lanes make identical mistakes: same model, same context, same queue.
+Measure and enforce independence at intake and at every milestone.
+
+- `model auto --apply` with `TEAMWORK_MODEL_ALT` set when two Reviewer, Tester or
+  Security Auditor lanes are staffed. `coordination` reports `C-DIV-MODEL` when
+  every verification lane resolves to one model.
+- `coordination --strict` is the milestone gate: duplicate branch/task, echoed
+  review evidence, reviewer monoculture, abandoned PRs, a merge fraction below
+  0.5, slot starvation. `--commit` records the check; exit 1 means a high finding
+  is open. Stale open PRs are already reported by `audit`.
+- A conflict is resolved by a measurable contest or the CEO, never by denying a
+  peer a resource. `reclaim` refuses a live lane; `--force <reason>` is only for a
+  confirmed dead one.
+- The Reviewer reads the artifact before the author's summary and records its own
+  run. Evidence identical to the author's line is `C-TRUST-ECHO`.
+- A user-facing deliverable is **shown** at the milestone - a running build, a
+  screenshot, a recording - because taste is not emergent.
+
+The mechanisms, the measured failure each one addresses, and the de-escalation
+ladder are in `references/Coordination.md`.
+
 ### 6. Close
 
 When the queue is empty and `loop` is about to report STOP, load the `ceo-audit-close`
@@ -619,6 +657,7 @@ read the one you need instead of the whole skill.
 | `references/Dissent.md` | independent decisions, challenging a design, the 3-round cap, the CEO+CTO+CFO tribunal |
 | `references/State.md` | role-shared memory (short/long/global) and the priority task queue |
 | `references/Concurrency.md` | provider caps, slot leases, parallelism plan, reuse |
+| `references/Coordination.md` | multi-agent failure modes and their mechanisms: conformity, stampede, lane wars, trust, echo, merge collapse, taste |
 | `references/Docs.md` | markdown structure, concision rules, bidirectional links |
 | `references/Engineering.md` | commit identity, commit style, Git LFS, branch/PR/merge, worktrees, build economy |
 | `references/Roles.md` | the full roster, handoffs, decision rights and boundaries |
@@ -796,9 +835,11 @@ python3 $S skill share <kebab-name> --by developer-1
 
 # keep the lanes full and the trail honest
 python3 $S board && python3 $S pulse --commit && python3 $S parallel
+python3 $S coordination --strict          # high finding -> exit 1; --commit records it
+TEAMWORK_MODEL_ALT=<second-model> python3 $S model auto --apply   # decorrelate verification lanes
 python3 $S ledger show --tail 20 && python3 $S ledger verify && python3 $S ledger export
 python3 $S trace T-0007
-python3 $S task reclaim developer T-0007 --as Developer-2 --reason "owner went silent"
+python3 $S task reclaim developer T-0007 --as Developer-2 --reason "owner went silent"  # refuses a live lane; --force <reason> to override
 python3 $S tests plan && python3 $S audit && python3 $S links && python3 $S loop
 python3 $S dispute open --by developer-1 --against architect --topic "..." --evidence "..."
 python3 $S slot acquire --agent developer-3 --provider deepseek --task T-0012

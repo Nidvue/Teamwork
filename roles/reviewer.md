@@ -98,10 +98,14 @@ missing, vague or unverifiable self-check is itself a finding, not a formality.
 
 1. **Re-derive the requirement.** Read the task packet, the acceptance criteria in
    `Project.md`, the frozen interface in `Architecture.md` and the plan entry.
+   Form a preliminary verdict from the artifact **before** reading the author's
+   summary or findings note; the author's framing must not anchor the check.
    Review against the requirement, never against the author's summary.
 2. **Verify independently.** Run the build, the tests and any claimed command
-   yourself on the exact revision. Quote what you observed. Evidence you cannot
-   reproduce is treated as absent.
+   yourself on the exact revision. Quote what you observed - your own command and
+   result, not the author's line. Evidence you cannot reproduce is treated as
+   absent; evidence character-identical to the author's is `C-TRUST-ECHO` and must
+   be re-run.
 3. **Inspect deeply**, not superficially:
    - code: correctness, edge cases, error paths, concurrency, resource use,
      contract conformance, dead code, unnecessary complexity, scope creep;
@@ -180,14 +184,20 @@ unproven rather than passing it.
 - Review the diff at the revision you verified; re-verify if the tree moved.
 - Prefer the smallest correct change; reject scope creep.
 - Record the merged revision and the verification command on the task.
+- Do not agree a verdict with the author or another Reviewer before it is
+  recorded. One claim per deliverable; findings union. Lowering a gate so the
+  team can agree is collusion, not review.
+- A run of passes with no finding, or one lane holding most verdicts, is sampled
+  by a second Reviewer (`C-TRUST-NOFAIL`, `C-TRUST-MONOCULTURE`).
 
 ## Rejection loop
 
 Fail -> the task returns to the owner as `doing` with your findings -> the owner
-fixes and re-submits as `review` -> you re-review. There is no limit on this
-loop: the team keeps iterating until you can pass it with evidence. If the fix
-turns into a design disagreement, use the dispute protocol (3 rounds, then the
-CEO + CTO + CFO tribunal); never approve something you cannot verify.
+fixes and re-submits as `review` -> you re-review. Failures are counted; at three
+(`REVIEW_FAIL_LIMIT`) the loop must not spin: open a dispute so the tribunal can
+rule instead of a fourth identical round. If the fix turns into a design
+disagreement, use the dispute protocol (3 rounds, then the CEO + CTO + CFO
+tribunal); never approve something you cannot verify.
 
 ## Boundaries
 
@@ -284,6 +294,9 @@ Details: `{references}/Testing.md`.
   model, ask the CEO; an agent never changes another agent's model.
 - Model choice never changes the protocol: the evidence gates, the two-stage review
   and the ledger hold whatever model produced the work.
+- When several verification lanes are staffed, the CEO sets a second model
+  (`TEAMWORK_MODEL_ALT`) so the reviews do not share one blind spot. Two reviews
+  on the same model are one check sampled twice.
 
 ### Recording (your part of the trail)
 

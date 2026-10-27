@@ -166,6 +166,7 @@ role-shared memory - is not in pstack and must not be traded away for throughput
 - [pstack source, cursor/plugins at e43c7ee - Cursor](https://github.com/cursor/plugins/tree/e43c7ee/pstack) - accessed 2026-10-19
 - [Harness^2: Recursive Agent Harnessing for an Open World - arXiv:2610.14224](https://arxiv.org/abs/2610.14224) - accessed 2026-10-20
 - [google-research/harness2 - Google Research](https://github.com/google-research/harness2) - accessed 2026-10-20
+- [Measuring multiagent systems - Anthropic](https://www.anthropic.com/research/multiagent-systems) - accessed 2026-10-27
 
 ## 8. Harness^2 (Google Research): what we adopt, what we reject
 
@@ -240,3 +241,24 @@ Every `teamwork.py` subcommand named below exists in this revision; `tests/unit/
 - **Contrast is not correctness, by their own account** - "sensitive to execution variability and shared model biases", and transfer is not guaranteed. They are not uniformly ahead either: Meta-Harness leads LAB Partial for Gemini 3.5 Flash under Codex (76.5 vs 75.6), and Harness Scaling lands below its own base harness in seven of twelve pairs. A signal that can lose must never become our gate.
 - **Their selector has no way to notice a bad pick.** Of nine regressions in three groups: a 55 chosen over a 95 on WorkBuddy-Bench code, narrower coverage taking LAB from 54 to 26, and an unchecked cache assumption propagating a 2-11 point loss across candidates. Our gate exists for exactly this - independent review, hash-chained ledger, criteria records (`teamwork.py criteria`), repro-first bugs - and H5 keeps the order while dropping the anonymity that would blind the Reviewer to it.
 - **What we must not trade away:** independent review (`roles/reviewer.md`: the author never closes its own task), the hash-chained `Ledger.jsonl` with `teamwork.py ledger verify`, criteria records, and the repro pair. No row above may turn a criterion into a preference.
+
+## 9. Anthropic: multiagent coordination failures (what we adopt)
+
+Source: [Measuring multiagent systems](https://www.anthropic.com/research/multiagent-systems), accessed 2026-10-27. All numbers are the paper's own experiments; none is reproduced here.
+
+| Finding | Verdict | Surface | Falsifier |
+|---|---|---|---|
+| Coordination is environmental, not a capability | **Adopt** | `teamwork.py coordination` checks and `references/Coordination.md` | high findings persist after the mechanisms land |
+| Shared model/context makes lanes fail together | **Adopt** | `TEAMWORK_MODEL_ALT` in `model auto`, `C-DIV-MODEL`; duplicate branch/task checks | one-model Reviewer lanes still catch defects a second model would |
+| Starved queues cause polling stampedes | **Adopt** | `pulse` defers new lanes past free slots; slot leases; `C-CAP-STARVED` | over-subscription or busy-polling recurs |
+| Incompatible directives escalate into sabotage | **Adopt** | reclaim refuses a live lane, no-resource-denial red line, contest-then-CEO ladder | a lane denies a peer a resource |
+| Gullibility and premature consensus | **Adapt** | blind-first review, unique-evidence note, source+date, contradiction over averaging | a unanimous wrong verdict passes review |
+| Collusion and rubber-stamping | **Adopt** | `C-TRUST-ECHO`, `C-TRUST-MONOCULTURE`, sampled second review | a zero-finding lane is never sampled |
+| Merge collapse and abandoned PRs | **Adopt** | one branch per task, rebase before review, `C-MERGE-*` | merge fraction stays below 0.5 |
+| Taste is not emergent | **Adopt** | milestone demo to the user; Designer owns assets | a user-facing deliverable ships unreviewed by a human |
+
+### 9.1 What this does not fix
+
+- The paper measures its own swarms, not this engine; no count transfers.
+- The checks read records, not intent. A green report is the absence of known signatures, not proof of good coordination.
+- Human taste still needs a human: the milestone demo is a gate, and a poor demo is a finding, not a reason to lower a criterion.
