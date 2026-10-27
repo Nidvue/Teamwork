@@ -186,6 +186,7 @@ python3 "$SKILL/scripts/teamwork.py" coordination --json     # machine-readable
 | `C-MERGE-RATE` | medium | merge fraction recovers |
 | `C-MERGE-ABANDONED` | high | branch restored or PR closed with a reason |
 | `C-CAP-STARVED` | medium | a lease freed or slot-free work taken |
+| `C-REVIEW-BACKLOG` | medium | another Reviewer lane staffed or the queue drained |
 | `C-CAP-OVER` | high | leases released to the cap |
 
 `--strict` is the gate for a milestone report; the default report is diagnostic
