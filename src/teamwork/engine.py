@@ -5743,15 +5743,15 @@ def review_latency(root: Path) -> dict:
     durations = []
     for record in ledger_read(root):
         action = record.get("action")
-        target = record.get("target") or ""
+        key = (record.get("role") or "", record.get("target") or "")
         try:
             stamp = datetime.datetime.fromisoformat(record.get("ts") or "")
         except ValueError:
             continue
         if action == "review.claim":
-            claims[target] = stamp
-        elif action in ("review.pass", "review.fail") and target in claims:
-            durations.append((stamp - claims.pop(target)).total_seconds() / 60)
+            claims[key] = stamp
+        elif action in ("review.pass", "review.fail") and key in claims:
+            durations.append((stamp - claims.pop(key)).total_seconds() / 60)
     durations.sort()
 
     def pct(share: float):
@@ -5959,7 +5959,7 @@ def _pulse_review_claim(root: Path, owner: str, handle: str, lane: str) -> bool:
         handle,
         f"pulse dispatch: {owner}/{handle} (lease {review_lease_minutes(root)}m)",
         "",
-        "reviewer",
+        owner,
     )
     return True
 
@@ -7833,7 +7833,10 @@ def _review_claim(root: Path, args) -> int:
     if not (args.agent and args.handle):
         die("usage: review <role> <T-id> --claim|--release|--renew --by <Reviewer instance>", 2)
     if args.result:
-        die(f"--claim/--release do not take --result {args.result}; the verdict is separate", 2)
+        die(
+            f"--claim/--release/--renew do not take --result {args.result}; the verdict is separate",
+            2,
+        )
     role = resolve_role(args.agent)
     reviewer, rrole = validate_actor(root, args.by or "reviewer", "reviewer", allow_role=False)
     if rrole != "reviewer":
@@ -7876,7 +7879,7 @@ def _review_claim(root: Path, args) -> int:
                 t["id"],
                 f"{role}/{t['id']} lease renewed for {lease}m",
                 "",
-                "reviewer",
+                role,
             )
             print(f"teamwork: {reviewer} renewed {role}/{t['id']} for {lease} min")
             return 0
@@ -7903,7 +7906,7 @@ def _review_claim(root: Path, args) -> int:
                 t["id"],
                 f"{role}/{t['id']} claimed for review (lease {lease}m){took_over}",
                 "",
-                "reviewer",
+                role,
             )
             print(
                 f"teamwork: {reviewer} holds {role}/{t['id']} for {lease} min: "
@@ -7937,7 +7940,7 @@ def _review_claim(root: Path, args) -> int:
             t["id"],
             f"{role}/{t['id']} released by {lane}{forced}",
             "",
-            "reviewer",
+            role,
         )
         print(f"teamwork: {role}/{t['id']} is back on the shared review queue")
         return 0
@@ -7945,6 +7948,10 @@ def _review_claim(root: Path, args) -> int:
 
 def cmd_review(args) -> int:
     root = project_root(args)
+    if getattr(args, "packet", False) and (
+        args.claim or args.release or getattr(args, "renew", False) or args.result
+    ):
+        die("--packet is read-only; claim or verdict separately", 2)
     if args.queue:
         return _review_queue(
             root,
