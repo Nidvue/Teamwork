@@ -63,13 +63,15 @@ Order is deliberate: claim, proof, action, depth.
 
 ## 3. Visual system
 
-All assets are hand-authored SVG (text, no raster), so nothing enters Git LFS
+The Teamwork marks are hand-authored SVG (text, no raster); the only raster is
+`assets/social-preview.png`, plus the Nidvue trademark icon set under
+`docs/assets/`. Nothing enters Git LFS
 (R-9). No external fonts, no network, no `<script>`.
 
 | Asset | Size / viewBox | Job |
 |---|---|---|
 | `assets/banner.svg` | 1280 x 360 | Wordmark, pitch, role chips, mini org chart |
-| `assets/logo.svg` | 128 x 128 | Compact mark for docs/favicons |
+| `assets/logo.svg` | 128 x 128 | Compact mark shipped with the skill bundle; pinned by the asset contract |
 | `assets/demo.svg` | 960 x 560 | Animated terminal transcript: skill clone (nested `.git` dropped) -> skill-named request -> loop gate |
 
 ### Tokens
@@ -207,9 +209,9 @@ charter,
 | id | asset | medium | purpose / surface | path | size | candidates | status |
 |---|---|---|---|---|---|---|---|
 | IMG-1 | social preview | raster | GitHub repo social preview (OG image) for link shares | `assets/social-preview.png` | 1280x640 | 4 | integrated |
-| IMG-2 | README banner | svg | README hero strip | `assets/banner.svg` | 2:1, viewBox | - | integrated |
-| IMG-3 | logo | svg | repo mark in README/docs | `assets/logo.svg` | square, viewBox | - | integrated |
-| IMG-4 | terminal demo | svg | README "what it looks like" animation | `assets/demo.svg` | 2:1, viewBox | - | integrated |
+| IMG-2 | README banner | svg | README hero strip | `assets/banner.svg` | 1280x360 | - | integrated |
+| IMG-3 | logo | svg | bundle mark pinned by the asset contract (the docs favicon is the Nidvue mark, not this file) | `assets/logo.svg` | 128x128 | - | integrated |
+| IMG-4 | terminal demo | svg | README "what it looks like" animation | `assets/demo.svg` | 960x560 | - | integrated |
 
 #### IMG-1 - social preview
 

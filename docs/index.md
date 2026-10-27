@@ -70,6 +70,8 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
 - Two-stage quality gate: author self-check, then independent Reviewer verdict.
 - Layered tests, one owner per layer, tracked in `tests plan`.
 - Hash-chained ledger with `ledger verify`, `ledger export` and `trace`.
+- Coordination health with `coordination --strict`: duplicate work, echoed
+  review evidence, reviewer monoculture, merge collapse and slot starvation.
 - Provider slot leases for concurrency caps.
 - Portable runtime: CPython 3.9-3.13 on Linux, macOS and Windows.
 

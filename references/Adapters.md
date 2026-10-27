@@ -1,5 +1,9 @@
 # Adapters - running the team on any agent host
 
+Owner: CEO.
+
+Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.md) | [State](State.md) | [Concurrency](Concurrency.md) | [Coordination](Coordination.md) | [Roles](Roles.md) | [Testing](Testing.md) | [Audit](Audit.md) | [Remotes](Remotes.md)
+
 The team is a **protocol**, not a product feature. Everything normative in this
 skill - the workspace format, acceptance-criteria records, the two-stage gate,
 the hash-chained ledger, the test-layer matrix, `AGENTS.md` - is host-independent
