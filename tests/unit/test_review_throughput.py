@@ -228,13 +228,36 @@ def test_profile_is_inferred_from_the_branch_diff_and_renames(cli, project: Path
     assert engine.review_profile_for(root, "developer", docs_task)[0] == "fast"
 
     git(project, "checkout", "-q", "main")
+    git(project, "checkout", "-q", "-b", "code")
+    (project / "src" / "pkg" / "mod.py").write_text("x = 2\n", encoding="utf-8")
+    git(project, "add", "src/pkg/mod.py")
+    git(project, "commit", "-qm", "code")
+    code_task = {"branch": "code", "base": "main", "tags": "", "area": "", "review_profile": ""}
+    assert engine.review_profile_for(root, "developer", code_task)[0] == "standard"
+
+    git(project, "checkout", "-q", "main")
+    git(project, "checkout", "-q", "-b", "workflow")
+    (project / ".github" / "workflows").mkdir(parents=True)
+    (project / ".github" / "workflows" / "ci.yml").write_text("name: ci\n", encoding="utf-8")
+    git(project, "add", ".github/workflows/ci.yml")
+    git(project, "commit", "-qm", "workflow")
+    workflow_task = {
+        "branch": "workflow",
+        "base": "main",
+        "tags": "",
+        "area": "",
+        "review_profile": "",
+    }
+    assert engine.review_profile_for(root, "developer", workflow_task)[0] == "deep"
+
+    git(project, "checkout", "-q", "main")
     git(project, "checkout", "-q", "-b", "rename")
     (project / "docs").mkdir(exist_ok=True)
     git(project, "mv", "src/pkg/mod.py", "docs/mod.md")
     git(project, "commit", "-qm", "move")
     rename_task = {"branch": "rename", "base": "main", "tags": "", "area": "", "review_profile": ""}
     profile, reason = engine.review_profile_for(root, "developer", rename_task)
-    assert profile == "deep", reason
+    assert profile == "standard", reason
     packet = engine.review_packet(
         root,
         "developer",
