@@ -382,7 +382,8 @@ DEFAULT_ROSTER_TIER = "slim"
 # Roles the gates cannot do without, whichever tier is chosen.
 ROSTER_REQUIRED = ("ceo", "developer", "tester", "reviewer")
 
-# Instances per role for a tier: reviewers get two so one verifies and another merges.
+# Instances per role for a tier: reviewers get two so the review queue fans out
+# and a sampled or high-risk deliverable gets a second independent verdict.
 ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
 
 # Settings keys that are workspace policy, not provider concurrency limits: `slot`
