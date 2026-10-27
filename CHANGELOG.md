@@ -9,11 +9,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.1.2...HEAD)
+## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.2.0...HEAD)
 
-Compares from the newest **tag**, `v1.1.2`. The `1.1.3` section below is dated but
-not yet tagged, so this range covers it too; the ordering below is by change, not
-by tag boundary.
+Compares from the newest tag, `v1.2.0`.
+
+## [1.2.0](https://github.com/Nidvue/Teamwork/compare/v1.1.2...v1.2.0) - 2026-10-27
 
 ### Added
 

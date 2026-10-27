@@ -194,12 +194,31 @@ def test_no_exception_names_a_version_that_is_already_tagged():
     assert load_checker()._stale_exceptions(entries, tags()) == []
 
 
-def test_the_current_version_is_not_excepted_and_is_not_tagged():
-    """The measurement that makes the previous line meaningful on this revision."""
+def test_the_current_version_is_never_excepted_and_its_tag_is_head_or_pending():
+    """A release commit may carry the tag; any later commit must bump the version."""
     entries = raw_entries(tracked_exceptions_path())
     current = current_version()
     assert current not in {str(entry["version"]) for entry in entries}, current
-    assert f"v{current}" not in set(tags()), f"v{current} is already tagged - bump the version"
+    tag = f"v{current}"
+    if tag in set(tags()):
+        tagged = subprocess.run(
+            ["git", "rev-list", "-n", "1", tag],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert tagged.returncode == 0 and head.returncode == 0, (tagged.stderr, head.stderr)
+        assert tagged.stdout.strip() == head.stdout.strip(), (
+            f"{tag} is behind HEAD - bump the version"
+        )
 
 
 def test_the_locator_and_the_version_reader_are_not_vacuous():

@@ -357,44 +357,22 @@ The branch rule blocks; the identity rule warns by design - `check_commit` in
 identity (a warning, never a block)". Identity is enforced on the push instead, by the
 required `committer guard` and the `identity --audit` step in the `lint` job.
 
-### 6. Release truth: `version.py` 1.1.3 against the newest tag `v1.1.2`
+### 6. Release truth: `version.py` 1.2.0 and tag `v1.2.0`
 
 | fact | command | value |
 |---|---|---|
-| the version the package claims | `grep __version__ src/teamwork/version.py` | `1.1.3` |
-| the newest tag | `git tag --sort=-v:refname \| head -1` | `v1.1.2` - 5 tags (`1.0.0`, `1.0.1`, `1.0.2`, `1.1.0`, `1.1.2`); `1.1.1` is admitted by exception in `release-exceptions.json` |
-| no tag on the release head | `git tag --points-at HEAD` | empty |
-| `CHANGELOG.md` | `grep -n '^## \[1.1.3\]' CHANGELOG.md` | `:89`, dated 2026-10-20, compare link `v1.1.2...v1.1.3` (404 until the tag exists) |
+| the version the package claims | `grep __version__ src/teamwork/version.py` | `1.2.0` |
+| the newest tag | `git tag --sort=-v:refname \| head -1` | `v1.2.0` - 6 tags (`1.0.0`, `1.0.1`, `1.0.2`, `1.1.0`, `1.1.2`, `1.2.0`); `1.1.1` is admitted by exception in `release-exceptions.json` |
+| the tag on the release head | `git tag --points-at HEAD` | `v1.2.0` |
+| `CHANGELOG.md` | `grep -n '^## \[1.2.0\]' CHANGELOG.md` | `:16`, dated 2026-10-27, compare link `v1.1.2...v1.2.0` |
 | the offline gate | `python scripts/check_release_consistency.py --offline` | exit 0, `# release consistency: 0 problem(s)` |
-| the online gate | `python scripts/check_release_consistency.py --online` | **exit 1**, 1 problem: `R8 DRIFT docs/Team/Decisions.md:1284: PyPI HTTP 404, the channel does not resolve and is unmarked` |
-| the matrix on the release revision | `gh api repos/Nidvue/Teamwork/actions/runs/<run-id>/jobs` for run `39712543510` | 3 success + 6 **skipped** on `7db810a`; the last full matrix is `67df036` (run `39709658539`, 19/19) |
+| the CI/release record | `gh run list --workflow Release` on the pushed tag | the run id and conclusions on that SHA are the post-push record |
 
-`1.1.3` is therefore **not releasable today**, for two measured reasons, neither of them
-the version bump:
+`1.2.0` is cut from reviewed `main` `bc50a9a`: coordination safety (`4800480`) and
+review throughput (`0b873cb`..`bc50a9a`). The tag push runs `release.yml`'s online
+consistency gate, the test matrix, build/attest and the GitHub Release.
 
-1. `release.yml`'s `consistency` job runs the checker with `--online` before anything is
-   built or published and exempts only the exact R5 finding of the tag being published, so
-   that R8 line fails the release at its first job. The fix is one marker on one line
-   (`docs/Team/Decisions.md:1284`, the form already used at `:121`, where
-   `teamwork-agents` 404s on PyPI by design); the file is CEO-owned. Filed: `ceo` T-0004.
-2. The revision to be tagged carries no full-matrix run. `main`'s tip `7db810a` was
-   classified prose-only by the `scope` job, so `lint`, the 11 `test` lanes, `build`,
-   `privacy`, `docs` and `typecheck` were skipped, and the newest 19/19 green run is the
-   older `67df036`. `workflow_dispatch` exists for exactly this: dispatch CI on the
-   revision the CEO is about to tag and read all 19 jobs.
-
-What a release then needs, in order - every step after the gates is the CEO's by design
-(a tag and a Release are never an agent's step):
-
-1. `ceo` T-0004 lands, and `python scripts/check_release_consistency.py --online` prints
-   `# release consistency: 0 problem(s)` and exits 0 on the release head.
-2. Every row of **Release candidate gate** above re-run green on that head.
-3. CI dispatched on that head -> 19/19 jobs success, read by run id and SHA.
-4. The CEO tags `v<version>` (the 1.1.3 release) on that commit; `release.yml` then asserts
-   the tag equals
-   `src/teamwork/version.py`, re-runs pytest, builds, writes `SHA256SUMS` and both SBOMs,
-   attests provenance and publishes the GitHub Release with the online gate in front.
-5. Rollback is unchanged and needs no index: install the wheel asset of the tag you want.
+Rollback needs no index: install the wheel asset of the tag you want.
 
 ### Open drift
 
