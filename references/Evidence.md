@@ -1,5 +1,7 @@
 # Evidence, red lines and dissent
 
+Owner: CEO.
+
 Reference for the /teamwork skill. Loaded on demand; `SKILL.md` keeps the
 operating procedure.
 

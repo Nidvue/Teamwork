@@ -1,5 +1,7 @@
 # Decisions, dissent and the tribunal
 
+Owner: CEO.
+
 Reference for the /teamwork skill. Loaded on demand; `SKILL.md` keeps the
 operating procedure.
 
