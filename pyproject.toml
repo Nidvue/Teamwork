@@ -133,6 +133,15 @@ quote-style = "double"
 indent-style = "space"
 line-ending = "lf"
 
+[tool.pyright]
+# Mirrors the mypy override below. `engine.py` is the ported command layer and
+# keeps its v1.0 typing exemption; every other module is expected to be clean.
+# The canonical gate is `mypy src/teamwork` (Makefile / CI); this section stops a
+# second checker from reporting the same accepted exemption as 39 errors.
+include = ["src/teamwork"]
+exclude = ["src/teamwork/engine.py"]
+ignore = ["src/teamwork/engine.py"]
+
 [tool.mypy]
 # NOTE: mypy >= 1.19 no longer accepts `python_version = "3.9"`. The project still
 # supports 3.9 - that compatibility is enforced by `ruff` with

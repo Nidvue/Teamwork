@@ -182,6 +182,10 @@ SLOT_TTL_MINUTES = int(os.environ.get("TEAMWORK_SLOT_TTL_MINUTES", "90"))
 
 REVIEW_FAIL_LIMIT = int(os.environ.get("TEAMWORK_REVIEW_FAIL_LIMIT", "3"))
 
+# A review claim is a short work lease, not a provider slot. A lane that dies
+# mid-review must not freeze the deliverable for the 90-minute slot TTL.
+REVIEW_LEASE_MINUTES = int(os.environ.get("TEAMWORK_REVIEW_LEASE_MINUTES", "20"))
+
 SHORT_CAP = int(os.environ.get("TEAMWORK_SHORT_CAP", "24"))
 
 LONG_CAP = int(os.environ.get("TEAMWORK_LONG_CAP", "64"))
@@ -389,7 +393,7 @@ ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
 # Settings keys that are workspace policy, not provider concurrency limits: `slot`
 # reads every other key as a provider cap, so a new non-provider key must be
 # listed here or it becomes a phantom provider.
-SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria", "AlwaysOnBudgetKb")
+SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria", "AlwaysOnBudgetKb", "ReviewLeaseMinutes")
 
 # The always-on context cap, per instance, in KB: SKILL.md + the managed teamwork
 # block of AGENTS.md + the role charter + the role memory. `harness budget` reads
