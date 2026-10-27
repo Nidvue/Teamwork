@@ -265,3 +265,21 @@ def test_queue_ties_break_by_age(cli, project: Path) -> None:
     engine.write_tasks(path, tasks, "developer")
     items = engine.open_review_items(root)
     assert [task["title"] for _name, task in items] == ["older", "newer"]
+
+
+def test_review_latency_does_not_mix_task_ids_across_roles(cli, project: Path) -> None:
+    root = init(cli, project)
+    engine.ledger_append(root, "review.claim", "Reviewer-1", "T-0001", "", "", "developer")
+    engine.ledger_append(root, "review.claim", "Reviewer-2", "T-0001", "", "", "tester")
+    engine.ledger_append(root, "review.pass", "Reviewer-1", "T-0001", "ok", "", "developer")
+    engine.ledger_append(root, "review.pass", "Reviewer-2", "T-0001", "ok", "", "tester")
+    assert engine.review_latency(root)["count"] == 2
+
+
+def test_packet_is_read_only(cli, project: Path) -> None:
+    root = init(cli, project)
+    handle = submit(cli, project, root, "packet guard")
+    assert (
+        cli("--project", project, "review", "developer", handle, "--packet", "--result", "pass")
+        == 2
+    )
