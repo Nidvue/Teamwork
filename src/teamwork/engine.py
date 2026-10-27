@@ -5711,7 +5711,7 @@ def review_profile_for(root: Path, role: str, task: dict) -> tuple:
     project = project_of(root)
     if branch and is_git_repo(project) and branch_exists(project, branch):
         base = task.get("base") or DEFAULT_BASE
-        diff = run_git(project, "diff", "--name-only", f"{base}...{branch}")
+        diff = run_git(project, "diff", "--no-renames", "--name-only", f"{base}...{branch}")
         files = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
         if files:
             if all(_is_prose_review_path(path) for path in files):
@@ -5779,12 +5779,14 @@ def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
     branch = task.get("branch") or ""
     if branch and is_git_repo(project) and branch_exists(project, branch):
         base = task.get("base") or DEFAULT_BASE
-        names = run_git(project, "diff", "--name-only", f"{base}...{branch}")
+        names = run_git(project, "diff", "--no-renames", "--name-only", f"{base}...{branch}")
         files = [line.strip() for line in names.stdout.splitlines() if line.strip()]
         if files:
             lines.append("- changed files:")
             lines += [f"  - {path}" for path in files[:20]]
-        stat = run_git(project, "diff", "--stat", f"{base}...{branch}").stdout.strip()
+        stat = run_git(
+            project, "diff", "--no-renames", "--stat", f"{base}...{branch}"
+        ).stdout.strip()
         if stat:
             lines.append(f"- diffstat: {one_line(stat.splitlines()[-1])}")
     for label, field in (
@@ -5853,8 +5855,9 @@ def busy_instances(root: Path) -> set:
             continue
         for agent in used_slots(root, prov):
             busy.add(pascal(agent))
+    lease = review_lease_minutes(root)
     for _role, t in iter_tasks(root):
-        if review_is_held(t, review_lease_minutes(root)):
+        if review_is_held(t, lease):
             busy.add(pascal(t["review_claim"]))
     return busy
 
@@ -5898,6 +5901,7 @@ def open_review_items(root: Path) -> list:
         key=lambda item: (
             PRIORITY_ORDER.get(item[1]["priority"], 9),
             item[1]["created"],
+            item[0],
             item[1]["id"],
         )
     )
@@ -6952,7 +6956,6 @@ def link_report(project: Path, root: Path) -> dict:
                 try:
                     outs.add(resolved.relative_to(project).as_posix())
                 except ValueError:
-                    # a link that resolves outside the project is not part of the graph
                     pass
         graph[rel] = outs
         # Strip link destinations before looking for bare URLs: a URL that is

@@ -14,7 +14,10 @@ order, capacity guidance, and claim->verdict latency in `coordination`.
 from __future__ import annotations
 
 import datetime
+import subprocess
 from pathlib import Path
+
+from tests.gitenv import child_env
 
 from teamwork import engine
 
@@ -61,8 +64,24 @@ def age_claim(root: Path, handle: str, minutes: int, role: str = "developer") ->
     engine.write_tasks(path, tasks, role)
 
 
+def git(project: Path, *args: str) -> str:
+    env = child_env(
+        GIT_AUTHOR_NAME="Test",
+        GIT_AUTHOR_EMAIL="test@example.com",
+        GIT_COMMITTER_NAME="Test",
+        GIT_COMMITTER_EMAIL="test@example.com",
+    )
+    result = subprocess.run(
+        ["git", "-C", str(project), *args], capture_output=True, text=True, env=env
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout
+
+
 def test_review_lease_is_short_expires_and_renews(cli, project: Path) -> None:
     root = init(cli, project)
+    assert engine.REVIEW_LEASE_MINUTES == 20
+    assert engine.REVIEW_LEASE_MINUTES != engine.SLOT_TTL_MINUTES
     handle = submit(cli, project, root, "review lease")
     assert (
         cli("--project", project, "review", "developer", handle, "--claim", "--by", "reviewer-1")
@@ -74,7 +93,7 @@ def test_review_lease_is_short_expires_and_renews(cli, project: Path) -> None:
     assert engine.review_claim_state(task, engine.REVIEW_LEASE_MINUTES)[2] is True
 
     # A lane that died 21 minutes ago no longer blocks the deliverable.
-    age_claim(root, handle, engine.REVIEW_LEASE_MINUTES + 1)
+    age_claim(root, handle, 21)
     task = [
         t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == handle
     ][0]
@@ -189,3 +208,60 @@ def test_coordination_flags_a_review_backlog(cli, project: Path) -> None:
     engine.write_tasks(path, tasks, "developer")
     report = engine.coordination_report(root)
     assert "C-REVIEW-BACKLOG" in {finding["code"] for finding in report["findings"]}
+
+
+def test_profile_is_inferred_from_the_branch_diff_and_renames(cli, project: Path) -> None:
+    git(project, "init", "-q", "-b", "main")
+    (project / "src" / "pkg").mkdir(parents=True)
+    (project / "src" / "pkg" / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    (project / "README.md").write_text("base\n", encoding="utf-8")
+    git(project, "add", ".")
+    git(project, "commit", "-qm", "base")
+    root = init(cli, project)
+
+    git(project, "checkout", "-q", "-b", "docs")
+    (project / "docs").mkdir(exist_ok=True)
+    (project / "docs" / "x.md").write_text("doc\n", encoding="utf-8")
+    git(project, "add", "docs/x.md")
+    git(project, "commit", "-qm", "docs")
+    docs_task = {"branch": "docs", "base": "main", "tags": "", "area": "", "review_profile": ""}
+    assert engine.review_profile_for(root, "developer", docs_task)[0] == "fast"
+
+    git(project, "checkout", "-q", "main")
+    git(project, "checkout", "-q", "-b", "rename")
+    (project / "docs").mkdir(exist_ok=True)
+    git(project, "mv", "src/pkg/mod.py", "docs/mod.md")
+    git(project, "commit", "-qm", "move")
+    rename_task = {"branch": "rename", "base": "main", "tags": "", "area": "", "review_profile": ""}
+    profile, reason = engine.review_profile_for(root, "developer", rename_task)
+    assert profile == "deep", reason
+    packet = engine.review_packet(
+        root,
+        "developer",
+        {
+            **rename_task,
+            "id": "T-0001",
+            "title": "move the module",
+            "priority": "P2",
+            "status": "review",
+            "self_check": "passed",
+            "review_status": "pending",
+        },
+    )
+    assert "docs/mod.md" in packet and "src/pkg/mod.py" in packet
+
+
+def test_queue_ties_break_by_age(cli, project: Path) -> None:
+    root = init(cli, project)
+    path = engine.task_file(root, "developer")
+    tasks = []
+    for created, title in (("2026-01-03", "newer"), ("2026-01-01", "older")):
+        task = engine.new_task(title)
+        task["status"] = "review"
+        task["self_check"] = "passed"
+        task["claimed_by"] = "Developer-1"
+        task["created"] = created
+        tasks.append(task)
+    engine.write_tasks(path, tasks, "developer")
+    items = engine.open_review_items(root)
+    assert [task["title"] for _name, task in items] == ["older", "newer"]
