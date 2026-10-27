@@ -5689,10 +5689,19 @@ PROSE_REVIEW_FILES = (
     "mkdocs.yml",
 )
 DEEP_REVIEW_TAGS = {"security", "migration", "auth", "crypto", "release", "ci", "infra", "data"}
+DEEP_REVIEW_PREFIXES = (".github/workflows/", ".github/actions/", "migrations/")
+DEEP_REVIEW_MARKERS = ("security", "auth", "crypto", "migration", "release")
 
 
 def _is_prose_review_path(path: str) -> bool:
     return path in PROSE_REVIEW_FILES or path.startswith(PROSE_REVIEW_PREFIXES)
+
+
+def _is_deep_review_path(path: str) -> bool:
+    low = path.lower()
+    return path.startswith(DEEP_REVIEW_PREFIXES) or any(
+        marker in low for marker in DEEP_REVIEW_MARKERS
+    )
 
 
 def review_profile_for(root: Path, role: str, task: dict) -> tuple:
@@ -5716,9 +5725,9 @@ def review_profile_for(root: Path, role: str, task: dict) -> tuple:
         if files:
             if all(_is_prose_review_path(path) for path in files):
                 return "fast", f"{len(files)} prose file(s)"
-            shipping = [p for p in files if p.startswith(("src/", "scripts/", ".github/"))]
-            if shipping:
-                return "deep", f"{len(shipping)} runtime/workflow file(s)"
+            deep = [p for p in files if _is_deep_review_path(p)]
+            if deep:
+                return "deep", f"{len(deep)} security/release/workflow file(s)"
             return "standard", f"{len(files)} file(s)"
     return "standard", "no diff profile available"
 
@@ -5732,7 +5741,7 @@ def review_gate_hint(profile: str) -> str:
     if profile == "deep":
         return (
             "the full suite, lint/typecheck, privacy over tree and history, and the "
-            "security scan; this is a security/release/data change"
+            "security scan; this is a security/release/data/workflow change"
         )
     return "the full test suite, lint and type-check; a green CI run on the branch SHA may be cited"
 
