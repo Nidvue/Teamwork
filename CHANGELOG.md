@@ -150,16 +150,15 @@ by tag boundary.
   either older than HEAD or newer than every tag. This CHANGELOG's `harness
   budget` byte range was stale by three kilobytes.
 
-### Fixed
-
-- **Documentation and asset consistency pass.** `references/Adapters.md` and
-  `references/Remotes.md` gain the `Owner:` / `Related:` header every reference
-  carries, and every reference now links `Coordination.md`. The roster and
-  reviewer comments no longer claim that "a different Reviewer merges" (a pass
-  merges). `docs/Team/Design.md` records the real geometry (banner 1280x360,
-  demo 960x560, logo 128x128) and no longer calls the raster social preview an
-  SVG; the README asset tree names the social preview, and `docs/index.md` lists
-  the coordination gate.
+- **Documentation and asset consistency pass.** Every `references/*.md` now
+  carries the `Owner:` and `Related:` header required by `references/Docs.md`,
+  and every reference links `Coordination.md`. The roster and reviewer comments
+  no longer claim that "a different Reviewer merges" (a pass merges).
+  `docs/Team/Design.md` records the real geometry (banner 1280x360, demo
+  960x560, logo 128x128), names the logo as a repository mark outside the
+  installed bundle, and stops calling the raster social preview an SVG; the
+  README asset tree names the social preview, and `docs/index.md` lists the
+  coordination gate.
 
 ## [1.1.3](https://github.com/Nidvue/Teamwork/compare/v1.1.2...v1.1.3) - 2026-10-20
 
