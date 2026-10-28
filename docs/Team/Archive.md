@@ -2908,4 +2908,4 @@ Advisory to the PM lane (not charged here): P-0009 must land promptly after this
 - author evidence: commit dc977c9
 - reviewer evidence: pytest -q tests/unit/test_traceability_matrix.py @dc977c9 -> 13 passed, 1 skipped in 168.97s exit 0; ruff check . -> All checks passed; ruff format --check . -> 199 files already formatted; teamwork.py links -> # issues: 0; check_release_consistency.py --offline -> 0 problem(s); git diff main...HEAD --stat -> 1 file, +113/-10; identity --audit main..HEAD -> 0 problems
 - findings history: reclaimed from developer by Developer-1 (forced: same lane, instance-level takeover of a role-handle claim for the task the supervisor assigned to developer-1): developer-1 is the instance assigned T-0020 by the supervisor; the queue holds it under the role handle, so the instance must hold it before branch start
-- branch / merge: developer-1/t-0020-matrix-guard-re-runs-the-full-history-pr / pending
+- branch / merge: developer-1/t-0020-matrix-guard-re-runs-the-full-history-pr / b350119
