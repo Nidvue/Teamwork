@@ -37,9 +37,12 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
     T-0015, which is listed in the Blocked table below with the action that closes it
 - Local gate: `pytest -q` on this branch head -> all pass; the count is read from
   that run and never pinned here, because every commit that adds a test changes it.
-  Tests that need a tool or a privilege the host lacks skip with a stated reason
-  and `tests/unit/test_portability.py` pins each guard; the console-script
-  acceptance test is covered by `scripts/verify_release.py`.
+  A test that needs a tool the host lacks skips with a stated reason instead of
+  failing or passing silently: the guard is `tests/tooling.py` (`require_tool`,
+  `GUARDED_TOOLS`) and `tests/unit/test_tool_guards.py` pins it, including that no
+  test runs a guarded tool without it - the same pair
+  [Architecture](Architecture.md) names. The console-script acceptance test is
+  covered by `scripts/verify_release.py`.
 - Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
   -> PASS, 0 findings; the shipped gate passes that allow file (`Makefile`,
   `ci.yml`, `docs.yml`). Without `--allow` the scan reports findings in exactly two
