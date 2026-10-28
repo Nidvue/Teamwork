@@ -652,7 +652,7 @@ view of the queues - the defect the board gate exists to prevent.
 | ceo | T-0013 | Add the AC-22/AC-23 rows to the traceability matrix: main's suite is red without them | P0 | docs | done | CEO | P-0034 | 1793013 |
 | developer | T-0018 | scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | - | todo | - | - | - |
 | developer | T-0019 | Record the release area's unit layer from the release tests that exist | P1 | - | done | Developer-1 | P-0036 | 65392da |
-| project-manager | T-0004 | Add M12 (release parity: GitHub, npm, Pages) to Plan.md and refresh the board | P1 | plan | todo | - | - | - |
+| project-manager | T-0004 | Add M12 (release parity: GitHub, npm, Pages) to Plan.md and refresh the board | P1 | plan | dropped | - | - | - |
 | project-manager | T-0005 | Release blocker: docs/Team/Board.md is stale against the live queues so the full suite is red at ee75c4a (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | plan | review | project-manager | P-0039 | - |
 | release-engineer | T-0011 | release.yml uploads SHA256SUMS twice (dist/* and the explicit entry): the duplicate-name race made the v1.3.0 publish job fail with 'Not Found - releases/assets#update-a-release-asset' and need a re-run | P0 | release | done | release-engineer | P-0030 | 7908d44 |
 | release-engineer | T-0012 | Push the branch and its tag together (git push --atomic): pushing main first made the main CI release-consistency gate run without the new tag and fail R6 until the job was re-run | P1 | - | todo | - | - | - |
