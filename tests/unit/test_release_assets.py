@@ -25,10 +25,12 @@ Owner: release-engineer. Task: T-0011.
 from __future__ import annotations
 
 import hashlib
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from workflow_yaml import parse_workflow
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -301,3 +303,63 @@ def test_the_manifest_step_is_not_skippable() -> None:
     assert "if" not in step, step.get("if")
     run = str(step["run"])
     assert "|| true" not in run
+
+
+def build_step(document: dict) -> dict:
+    """The step that builds and verifies the release artefacts."""
+    for _, step in steps(document):
+        if "verify_release.py" in str(step.get("run") or ""):
+            return step
+    raise AssertionError("the release workflow has no step that runs verify_release.py")
+
+
+def build_commands(document: dict) -> list[str]:
+    """The shell commands of the build step, comments and blank lines dropped."""
+    run = str(build_step(document)["run"])
+    return [
+        line.strip()
+        for line in run.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def test_the_release_build_starts_from_a_clean_dist() -> None:
+    """The suite leaves ``dist/@nidvue`` behind, so the build must clear ``dist/``.
+
+    Why this exists: the workflow-invoked-script probe in
+    ``tests/integration/test_ci_release_flow.py`` runs ``build_pi_package.py --help``,
+    which is not implemented, so the probe performs the real build into ``dist/``.
+    v1.4.0 shipped that residue into the manifest step and the release run failed
+    (40771484033). Deleting the clean must break this test, not a tag.
+    """
+    commands = build_commands(release())
+    assert commands, "the build step has no commands"
+    assert commands[0] in {"rm -rf dist", "rm -rf ./dist"}, (
+        f"the release build must start by cleaning dist/, found {commands[0]!r}"
+    )
+    assert any("verify_release.py" in command for command in commands), commands
+
+
+def test_the_clean_removes_a_preseeded_bundle_directory(tmp_path: Path) -> None:
+    """Run the shipped clean against a workspace that already holds the residue."""
+    workspace = workspace_with_assets(tmp_path)
+    residue = workspace / "dist" / "@nidvue" / "teamwork"
+    residue.mkdir(parents=True)
+    (residue / "package.json").write_text("{}", encoding="utf-8")
+
+    refused = run_manifest(workspace, release())
+    assert refused.returncode != 0, "the manifest guard must refuse a directory in dist/"
+    assert "non-file entries" in refused.stdout + refused.stderr, refused.stdout
+
+    clean = build_commands(release())[0]
+    if shutil.which("bash") is None:
+        pytest.skip("no bash on this host, so the shipped clean cannot be executed here")
+    probe = subprocess.run(["bash", "-c", "true"], capture_output=True, check=False)
+    if probe.returncode != 0:
+        pytest.skip(
+            "bash on this host is not a POSIX shell that can run the workflow's step "
+            f"(it answered {probe.returncode} and said {probe.stderr.decode('utf-8', 'replace').strip()[:120]!r}); "
+            "CI runs this step on ubuntu"
+        )
+    subprocess.run(["bash", "-c", clean], cwd=str(workspace), check=True)
+    assert not (workspace / "dist" / "@nidvue").exists(), "the clean did not remove the residue"
