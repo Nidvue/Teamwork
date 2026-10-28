@@ -9,6 +9,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2](https://github.com/Nidvue/Teamwork/compare/v1.4.1...v1.4.2) - 2026-10-29
+
+Compares from the previous tag, `v1.4.1`.
+
+### Fixed
+
+- The test that pins the release build's clean `dist/` runs `bash` through the
+  repository's own tool guard (`tests.tooling.require_tool`) instead of calling it
+  directly, so a host without a usable POSIX shell reports a skip with its reason
+  rather than tripping `test_no_test_executes_a_guarded_tool_without_the_guard` -
+  which is what failed the v1.4.1 tag's own suite.
+
 ## [1.4.1](https://github.com/Nidvue/Teamwork/compare/v1.4.0...v1.4.1) - 2026-10-29
 
 Compares from the previous tag, `v1.4.0`.
