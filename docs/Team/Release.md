@@ -625,6 +625,40 @@ than assumed.
   `init`). The CI `build` job runs the same command on every push, and the Release
   workflow runs it on every tag.
 
+## The docs site is a release artefact
+
+`.github/workflows/docs.yml` builds and deploys the Pages site on a push to `main`
+**and on a `v*` tag push**: a release rebuilds and deploys the site from the tagged
+revision, and a later prose push to `main` deploys `main`'s content again, so the
+deployed site shows whichever of the two ran last.
+
+| fact | value | how it was established |
+|---|---|---|
+| trigger | `on.push: {branches: [main], tags: ["v*"], paths: [...]}` | the file |
+| path filters vs tags | **not evaluated for a tag push**: "Path filters are not evaluated for pushes of tags." | [Workflow syntax for GitHub Actions](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpull_requestpull_request_targetpathspaths-ignore) - accessed 2026-10-28 |
+| deploy guard | `github.ref == 'refs/heads/main' \|\| startsWith(github.ref, 'refs/tags/v')`, used by the job *and* by the Pages artifact upload | the file |
+| Pages environment policy | `main` `type=branch` and `v*` `type=tag` | `gh api repos/Nidvue/Teamwork/environments/github-pages/deployment-branch-policies`, measured by the CEO on 2026-10-28 |
+
+Consequences worth knowing before the next release:
+
+- The `paths:` list is a **branch-push** filter. A tag push ignores it, which is what
+  makes the release deploy possible at all; a tag trigger that relied on a path would
+  never fire. The prose-set contract with `ci.yml`'s `scope` job is therefore about
+  `main` pushes only, and is unchanged.
+- The Pages deploy is gated by the `github-pages` environment, and an environment
+  deployment-branch policy is **not** changed by this lane. The `v*` tag entry is a forge
+  setting the CEO owns; if it were removed, the release run would fail at the deploy
+  step, not silently skip. Re-read the policy with the command in the table above
+  before blaming the workflow.
+- Release order: `main` green -> tag -> `release.yml` publishes the artefacts -> the
+  Docs run on the same tag rebuilds and deploys the site from that revision. The site
+  is **not** pinned to a tag: the `main` trigger and the `main` deploy guard are both
+  live, and the concurrency group is per-ref (`group: pages-${{ github.ref }}`), so a
+  later `main` run redeploys the site from `main` - a documentation fix on `main`
+  reaches the site with no tag at all. If the deployed site must match the released
+  revision, either put the documentation fix in the tag (a patch release) or drop the
+  `main` deploy path so that only tags deploy.
+
 ## Observability
 
 - Metrics: CI status on the default branch, release asset presence, `gh run list`
