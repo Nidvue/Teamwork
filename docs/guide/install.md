@@ -2,12 +2,13 @@
 
 Owner: Technical Writer.
 
-Related: [Home](../index.md) · [Quickstart](quickstart.md) · [CLI reference](cli.md)
+Related: [Home](../index.md) · [Quickstart](quickstart.md) · [CLI reference](cli.md) · [Releases](../releases.md)
 
 Nidvue Teamwork is a **skill for your coding agent**, not a standalone app. You
 install it by cloning this repository into the directory your host reads skills
-from; the host runs the bundled engine. Nothing is built, nothing is daemonised,
-nothing is sent to a service of ours.
+from - or, where the host resolves packages from npm, by installing
+`@nidvue/teamwork`. The host runs the bundled engine either way. Nothing is
+built, nothing is daemonised, nothing is sent to a service of ours.
 
 ## Requirements
 
@@ -16,6 +17,23 @@ nothing is sent to a service of ours.
 | Agent host | any host that loads a skill directory, or that can run a script and read `AGENTS.md` |
 | Engine runtime | CPython 3.9 - 3.13, standard library only, no third-party dependencies |
 | Platforms | Linux, macOS, Windows |
+
+## Four channels, one engine
+
+Every channel below ships the engine in `src/teamwork/` from the same tagged
+revision - `src/teamwork/version.py` is the one version string - so they differ in
+what your agent can load from them, not in what they do.
+
+| Channel | Get it with | What you receive | Pick it when |
+|---|---|---|---|
+| **Skill clone** (the product) | the `git clone` in [Install the skill](#install-the-skill) | `SKILL.md`, the role charters, `references/`, `templates/` and the engine, as plain tracked files | Your agent host loads a skill directory |
+| **npm package** | `npm install @nidvue/teamwork`, or your host's own package command | the same skill tree under `skills/teamwork/`, the prompts that ship beside it, and the project notices | Your host resolves skills from the npm registry |
+| **GitHub-release wheel** | [the release asset](#install-from-the-github-release-wheel) | the Python package: the `teamwork` console script and `python -m teamwork` | You want `teamwork` on your PATH |
+| **Source** | `git clone` then `python -m pip install .` | everything, editable | You are working on the engine |
+
+None of them is a fork and none carries a second copy of the code. What a release
+publishes on each face, and how to read the version it currently serves, is in
+[Releases](../releases.md).
 
 ## Install the skill
 
@@ -88,11 +106,13 @@ message, schedule) is in
 
     After a refresh, **reload the skill** (restart the host session, or re-scan
     skills) so the new ``SKILL.md`` is read - the command prints that reminder
-    whenever it wrote something. Pin a tag (`--branch v1.3.0`) when you want a
-    fixed protocol revision instead of `main`: the checkout is then moved onto
-    that tag's commit *detached* and the refresh prints `pinned to tag v1.3.0`.
-    It is a read-only mirror of that revision - re-run with `--branch main` to
-    follow the branch again, or name another tag to move the pin.
+    whenever it wrote something. Pin a tag when you want a fixed protocol revision
+    instead of `main` - name it with `git tag -l --sort=-v:refname | head -1`
+    rather than copying a literal, because a version printed on a page goes stale
+    the day it is tagged: the checkout is then moved onto that tag's commit
+    *detached* and the refresh prints `pinned to tag <tag>`. It is a read-only
+    mirror of that revision - re-run with `--branch main` to follow the branch
+    again, or name another tag to move the pin.
 
 ## Optional: install the engine on PATH
 
@@ -113,18 +133,41 @@ PyPI); the import name is `teamwork` and the console script is `teamwork`.
 
 ### Install from the GitHub release wheel
 
-Each tag publishes a wheel and an sdist with checksums and SBOMs. The URL below
-names the newest **release**, which can be older than the checkout - a version is
-bumped before it is tagged, so read both rather than assuming they agree:
+Each tag publishes a wheel and an sdist with checksums and SBOMs. The commands
+below resolve the newest **release** from the tag list instead of printing a
+version here, because a released wheel can be older than the checkout - a version
+is bumped before it is tagged, so read both rather than assuming they agree:
 
 ```console
-$ gh release list --limit 1
+$ tag="$(git tag -l --sort=-v:refname | head -1)"
 $ python3 scripts/teamwork.py --version
-$ python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.3.0/teamwork_agents-1.3.0-py3-none-any.whl
+$ python -m pip install "https://github.com/Nidvue/Teamwork/releases/download/$tag/teamwork_agents-${tag#v}-py3-none-any.whl"
+# or the sdist, when your environment builds from source
+$ python -m pip install "https://github.com/Nidvue/Teamwork/releases/download/$tag/teamwork_agents-${tag#v}.tar.gz"
 ```
 
 If you need the tree's exact engine instead of the released one, install from the
-checkout: `python -m pip install .`.
+checkout: `python -m pip install .`. The release assets themselves, and how to
+verify them, are listed in [Releases](../releases.md).
+
+### Install the skill bundle from npm
+
+The same skill tree is published to the npm registry as `@nidvue/teamwork`, for a
+host that resolves skills from packages rather than from a directory on disk. The
+bundle carries `skills/teamwork/` (the clone's own tree), the prompts that ship
+beside it and the project notices:
+
+```console
+$ npm view @nidvue/teamwork version      # the version the registry serves
+$ npm install @nidvue/teamwork           # or your host's own package command
+```
+
+The registry entry and the newest tag can disagree - the registry learns about a
+version only when the release publishes it - so read the version from that
+command rather than from this page. This is not the Python package: `npm install`
+puts the bundle in the project's `node_modules/`, where a host that resolves npm
+packages finds `skills/` and `prompts/`, while `pip` puts the `teamwork` command
+on your PATH.
 
 ### Index commands (unavailable until PyPI publishing is enabled)
 
