@@ -186,6 +186,26 @@ REVIEW_FAIL_LIMIT = int(os.environ.get("TEAMWORK_REVIEW_FAIL_LIMIT", "3"))
 # mid-review must not freeze the deliverable for the 90-minute slot TTL.
 REVIEW_LEASE_MINUTES = int(os.environ.get("TEAMWORK_REVIEW_LEASE_MINUTES", "20"))
 
+# A role's shared memory has ONE revising instance at a time. The role file lock
+# makes a single write atomic; this lease is what holds the pen across several
+# commands, so an instance can finish one coherent memory update (`memory claim`
+# ... several `remember`/`forget` ... `memory release`) before a peer interleaves
+# its own view of the same file. A dead holder must not freeze the role forever,
+# so the lease expires and the next writer takes it over.
+MEMORY_LEASE_MINUTES = int(os.environ.get("TEAMWORK_MEMORY_LEASE_MINUTES", "30"))
+
+# A lease that outlives this long is "slow": the role's other instances may contest
+# it and the arbiter (the CTO) rules. The default is half a lease, so a normal
+# multi-entry update never trips it while a stuck lane is visible well before the
+# lease expires and frees itself.
+MEMORY_STALL_MINUTES = int(os.environ.get("TEAMWORK_MEMORY_STALL_MINUTES", "15"))
+
+# Who rules on a contested memory lease. The CTO owns engineering standards and the
+# build and lock policy, so a stuck writer is an engineering question rather than a
+# dispute between peers. The arbiter folds up the reporting line when the CTO is
+# unstaffed (a slim roster), and a party never rules its own lease.
+MEMORY_ARBITER_ROLE = os.environ.get("TEAMWORK_MEMORY_ARBITER", "cto")
+
 SHORT_CAP = int(os.environ.get("TEAMWORK_SHORT_CAP", "24"))
 
 LONG_CAP = int(os.environ.get("TEAMWORK_LONG_CAP", "64"))
@@ -393,7 +413,13 @@ ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
 # Settings keys that are workspace policy, not provider concurrency limits: `slot`
 # reads every other key as a provider cap, so a new non-provider key must be
 # listed here or it becomes a phantom provider.
-SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria", "AlwaysOnBudgetKb", "ReviewLeaseMinutes")
+SETTINGS_NON_PROVIDER = (
+    "PulseMinutes",
+    "Criteria",
+    "AlwaysOnBudgetKb",
+    "ReviewLeaseMinutes",
+    "MemoryLeaseMinutes",
+)
 
 # The always-on context cap, per instance, in KB: SKILL.md + the managed teamwork
 # block of AGENTS.md + the role charter + the role memory. `harness budget` reads

@@ -141,6 +141,8 @@ Additions to the original surface (no removals, no renames):
 | `version` subcommand | same as `--version` |
 | `teamwork selftest` | runs an offline smoke check of the workspace (used by CI) |
 | `teamwork coordination` | coordination health: conformity, trust, lane wars, merge rate, slot starvation |
+| `teamwork instance add\|list\|retire` | scale **any** role to N instances sharing the role's memory and queue; retire an idle one and keep the role's memory |
+| `teamwork memory claim\|release\|renew\|contest\|extend\|revoke\|status` | the role memory lease: exactly one instance of a role revises that role's memory at a time, held across a multi-entry update; a peer contests a long lease and the arbiter (CTO, folded to the CEO) extends or revokes it |
 
 Every existing subcommand, flag and exit code is unchanged. Exit codes are part
 of the contract:
@@ -159,6 +161,17 @@ Unchanged from the skill: `.pi/Teamwork/Teams/<Team>/` with `Roles/<Role>/`
 (shared memory + `TaskQueue.md`), `Agents/<Instance>/` (private), `Global/`,
 `Runtime/`, `Ledger.jsonl` (hash-chained), `Criteria.md`, `Tests.md`,
 `TestPlan.md`, `Reviews.md`, `Disputes.md`.
+
+Additive, and the only state `instance`/`memory` introduce:
+`Runtime/Locks/memory-<Role>.claim` is the role memory lease - one JSON object
+(`role`, `instance`, `token`, `acquired`, `expires_ts`, `minutes`, `explicit`,
+`reason`) whose live holder is the single instance allowed to revise that role's
+memory. An absent, unreadable or expired file means the role is free. Two fields
+carry an arbitration: `contests` (the peers' `--by` / `at` / `reason` requests,
+written under the role lock) and `arbitrated_by` / `arbitrated_at` once the
+arbiter rules, so a live holder cannot erase a pending case by writing one more
+entry. It lives under `Runtime/`, is ephemeral and gitignored, and removing it
+never loses a memory entry - the memory itself stays in `Roles/<Role>/`.
 
 The ledger record shape and chain (`_digest(prev, record)`) are frozen; changing
 them invalidates every existing workspace.
