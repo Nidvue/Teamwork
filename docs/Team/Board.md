@@ -7,10 +7,14 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 ## Snapshot
 
-- Milestone: M11 (solid review and tree truth) is live; M9 (release truth) and
-  M10 (release truth on every OS) are closed. Live state is read with
-  `teamwork.py board` and `teamwork.py task list <role>`; the rows of this board
-  are rendered from those queues and are a human summary of the same records.
+- Milestone: M12 (release parity: GitHub, npm, Pages) is the engagement that is
+  live - intake in [Project](Project.md) M12, scope and rows in [Plan](Plan.md)
+  M12, exit condition AC-22 and AC-23 verified by a role other than the author on
+  the merged revision. M11 (solid review and tree truth) is still open behind it
+  and its rows are in the same table below; M10 (release truth on every OS) and
+  M9 (release truth) are closed. Live state is read with `teamwork.py board` and
+  `teamwork.py task list <role>`; the rows of this board are rendered from those
+  queues and are a human summary of the same records.
 - Tree census (project-manager T-0001): 214 tracked files classified, 206 live,
   2 superseded-in-part records, 0 duplicates, 6 unreferenced in-tree and kept
   with a written reason, 0 deleted - see [Plan](Plan.md) M11.
@@ -20,10 +24,25 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   - newest git tag: `git tag -l --sort=-v:refname | head -1`
   - version on `main`: `grep __version__ src/teamwork/version.py`
   - the published version that has no tag: `cat release-exceptions.json`
+- Release parity (M12), each fact read by its own command and none of it pinned:
+  - whether a tag publishes to npm: the `on:` block of
+    `.github/workflows/release.yml` and `grep -c 'npm publish' .github/workflows/release.yml`
+  - whether a tag rebuilds the site: the `on:` block of `.github/workflows/docs.yml`
+    and the `github-pages` environment's deployment branch policies
+    (`gh api repos/Nidvue/Teamwork/environments/github-pages/deployment-branch-policies`)
+  - the two rows the M12 exit clause names, whose state this line must not quote:
+    release-engineer T-0012 and release-engineer T-0011, read with
+    `teamwork.py task list release-engineer`
+  - the row that closes AC-22's evidence, and what it waits on: release-engineer
+    T-0015, which is listed in the Blocked table below with the action that closes it
 - Local gate: `pytest -q` on this branch head -> all pass; the count is read from
   that run and never pinned here, because every commit that adds a test changes it.
-  The one skip is the console-script acceptance test (covered by
-  `verify_release.py`).
+  A test that needs a tool the host lacks skips with a stated reason instead of
+  failing or passing silently: the guard is `tests/tooling.py` (`require_tool`,
+  `GUARDED_TOOLS`) and `tests/unit/test_tool_guards.py` pins it, including that no
+  test runs a guarded tool without it - the same pair
+  [Architecture](Architecture.md) names. The console-script acceptance test is
+  covered by `scripts/verify_release.py`.
 - Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
   -> PASS, 0 findings; the shipped gate passes that allow file (`Makefile`,
   `ci.yml`, `docs.yml`). Without `--allow` the scan reports findings in exactly two
@@ -49,9 +68,11 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 - pi packaging: [Pi-Packaging](Pi-Packaging.md)
 
 
-## M11 - solid review and tree truth (live)
+## Live queues - M11 and M12 (rendered)
 
-The milestone is described in [Plan](Plan.md) M11. This table is rendered from
+One queue per role carries both open milestones: M11 (solid review and tree truth)
+is described in [Plan](Plan.md) M11 and M12 (release parity: GitHub, npm, Pages) in
+[Plan](Plan.md) M12. This table is rendered from
 `Roles/*/TaskQueue.md` at the commit that carries it, so it is the queues' state
 and not an opinion about it; read the same cells with
 `teamwork.py task list <role>`, and the PR and merged revision with
@@ -62,6 +83,7 @@ under two roles is two tasks.
 |---|---|---|---|---|---|
 | architect | T-0001 | code-review | done | P-0008 | e47f5d5 |
 | architect | T-0002 | - | done | P-0027 | f0ada67 |
+| architect | T-0003 | - | todo | - | - |
 | ceo | T-0001 | intake | done | P-0020 | 6fa2726 |
 | ceo | T-0002 | - | dropped | - | - |
 | ceo | T-0003 | - | dropped | - | - |
@@ -72,6 +94,9 @@ under two roles is two tasks.
 | ceo | T-0008 | - | dropped | - | - |
 | ceo | T-0009 | - | dropped | - | - |
 | ceo | T-0010 | - | done | - | - |
+| ceo | T-0011 | - | todo | - | - |
+| ceo | T-0012 | intake | done | P-0033 | bd7467d |
+| ceo | T-0013 | docs | done | P-0034 | 1793013 |
 | developer | T-0001 | - | done | P-0001 | fdd95a6 |
 | developer | T-0002 | - | done | P-0011 | 5648f4c |
 | developer | T-0003 | test-portability | done | P-0004 | dfb4d64 |
@@ -89,10 +114,14 @@ under two roles is two tasks.
 | developer | T-0015 | - | dropped | - | - |
 | developer | T-0016 | - | done | P-0023 | 280627e |
 | developer | T-0017 | - | done | P-0026 | 521a7d6 |
+| developer | T-0018 | - | todo | - | - |
+| developer | T-0019 | - | done | P-0036 | 65392da |
 | product-manager | T-0001 | traceability | done | P-0009 | 96160cf |
 | project-manager | T-0001 | plan | done | P-0005 | 1bf629a |
 | project-manager | T-0002 | - | dropped | - | - |
 | project-manager | T-0003 | plan | done | P-0016 | cfba521 |
+| project-manager | T-0004 | plan | dropped | - | - |
+| project-manager | T-0005 | plan | review | P-0039 | - |
 | release-engineer | T-0001 | ci | done | P-0003 | c781596 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | dropped | - | - |
@@ -103,9 +132,15 @@ under two roles is two tasks.
 | release-engineer | T-0008 | - | dropped | - | - |
 | release-engineer | T-0009 | - | done | P-0025 | c6ac201 |
 | release-engineer | T-0010 | ci | done | P-0028 | cf31e7d |
+| release-engineer | T-0011 | release | done | P-0030 | 7908d44 |
+| release-engineer | T-0012 | - | todo | - | - |
+| release-engineer | T-0013 | release | done | P-0031 | d3f9b7a |
+| release-engineer | T-0014 | release | done | P-0032 | c41ecfe |
+| release-engineer | T-0015 | - | blocked | - | - |
 | reviewer | T-0001 | records | dropped | - | - |
 | reviewer | T-0002 | - | dropped | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
+| reviewer | T-0004 | - | done | P-0038 | e038181 |
 | security-auditor | T-0001 | - | done | P-0007 | f31b26e |
 | security-auditor | T-0002 | - | dropped | - | - |
 | security-auditor | T-0003 | audit-posture | done | P-0019 | 57231b7 |
@@ -114,8 +149,11 @@ under two roles is two tasks.
 | technical-writer | T-0002 | - | dropped | - | - |
 | technical-writer | T-0003 | docs-truth | done | P-0014 | 8b9fac8 |
 | technical-writer | T-0004 | - | done | P-0024 | 8ad3467 |
+| technical-writer | T-0005 | docs | done | P-0035 | 1d94e18 |
 | tester | T-0001 | ci-release | done | P-0012 | aabff63 |
 | tester | T-0002 | - | done | P-0022 | ee05c22 |
+| tester | T-0003 | - | done | P-0037 | 3627c7d |
+| tester | T-0004 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -125,6 +163,13 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| architect | T-0003 · Architecture.md no longer describes what docs.yml does: it omits the v* tag trigger | P1 | todo | - |
+| ceo | T-0011 · Allow v* tags to deploy the github-pages environment so a release can refresh the site | P0 | todo | - |
+| developer | T-0018 · scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | todo | - |
+| project-manager | T-0005 · Release blocker: docs/Team/Board.md is stale against the live queues so the full suite is red at ee75c4a (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | review | - |
+| release-engineer | T-0012 · Push the branch and its tag together (git push --atomic): pushing main first made the main CI release-consistency gate run without the new tag and fail R6 until the job was re-run | P1 | todo | - |
+| release-engineer | T-0015 · Backfill the already-tagged release to npm once the operator configures the publisher credential | P1 | blocked | - |
+| tester | T-0004 · Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at 3627c7d could not retire it | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
@@ -243,6 +288,7 @@ created so Dependabot can label future PRs.
 
 | task | waiting on | owner | unblock action |
 |---|---|---|---|
+| release-engineer T-0015 - backfill the already-tagged release to npm, the evidence AC-22 is waiting on | the operator's one-time npm trusted-publisher configuration for `.github/workflows/release.yml` (or an `NPM_TOKEN` repository secret) | release-engineer lane; the CEO runs the dispatch, the lane publishes nothing | once the credential exists, the CEO runs the release workflow's dispatch path for the existing tags in ascending version order; the close is `npm view @nidvue/teamwork dist-tags` and `scripts/check_release_consistency.py --online` (rule R3) on the merged revision |
 | purge of the pre-rewrite commit object | GitHub garbage collection or Support | CEO | owner decision: leave it, recreate the repository, or file a Support purge request. It is unreachable from any branch and was already unreachable when the history was rewritten |
 
 ## Duplicate or conflicting work
