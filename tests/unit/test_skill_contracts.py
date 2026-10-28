@@ -1595,6 +1595,7 @@ def test_adoption_surfaces_stay_agent_agnostic(root):
         "docs/guide/quickstart.md",
         "docs/guide/cli.md",
         "docs/guide/architecture.md",
+        "docs/releases.md",
         "assets/demo.svg",
         "SKILL.md",
     ]
