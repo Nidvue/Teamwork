@@ -1571,3 +1571,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: pytest tests/unit/test_memory_lease.py tests/integration/test_role_memory_lease.py -q @worktree -> 31 passed
 - falsified by: If a peer can extend or revoke a lease (exit 0), if a held lease disappears from one holder write, if the arbiter rules its own lease, or if a contested case files more than one open task.
 - consequences: New verbs memory contest|extend|revoke (ledger actions memory.contest, memory.grant, memory.revoke); lease JSON gains contests, arbitrated_by, arbitrated_at; MemoryStallMinutes in Settings.json (default 15); references/State.md, docs/guide/cli.md, Architecture section 4/5, templates/AGENTS.md, README, CHANGELOG updated.
+
+## D-20261028-CEO-3 - Release parity: npm publish and Pages from the released revision
+
+- date: 2026-10-28
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0011
+- context: -
+- options considered: NPM_TOKEN repository secret as the only mechanism (a long-lived credential in the repo); a manual npm publish per release (unverifiable, drifted to 1.1.2); deploying the site from main after a release (would publish unreleased content).
+- decision: Every v* tag publishes @nidvue/teamwork to the npm registry from that tagged revision through npm Trusted Publishing over OIDC (no long-lived secret; NPM_TOKEN only as a fallback), and the Pages site is rebuilt and deployed from the released revision by making docs.yml trigger on v* and allowing v* to deploy the github-pages environment.
+- why: The operator's directive is that a release reaches GitHub and npm and that the published site follows it. The measured state contradicted it: npm latest was 1.1.2 while the newest tag was v1.3.0, release.yml had no npm job, docs.yml never ran on a tag, and the github-pages environment allowed the main branch only.
+- evidence: npm view @nidvue/teamwork dist-tags -> latest: 1.1.2; git tag -l --sort=-v:refname | head -1 -> v1.3.0; grep -c 'npm publish' .github/workflows/release.yml -> 0; gh api repos/Nidvue/Teamwork/environments/github-pages/deployment-branch-policies -> main type=branch; the CEO added v* type=tag and re-read it -> main type=branch, v* type=tag (2026-10-28).
+- falsified by: If npm Trusted Publishing cannot authenticate for this repository/workflow, the job fails loudly and the NPM_TOKEN fallback or the secret is used instead - the gate is not softened to green.
+- consequences: AC-22 and AC-23 are added; release-engineer T-0011/T-0013/T-0014 carry the work and technical-writer T-0005 the site truth; the operator owes one one-time npm configuration before the first tag publishes.
