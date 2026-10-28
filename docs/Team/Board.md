@@ -118,7 +118,7 @@ under two roles is two tasks.
 | project-manager | T-0002 | - | dropped | - | - |
 | project-manager | T-0003 | plan | done | P-0016 | cfba521 |
 | project-manager | T-0004 | plan | todo | - | - |
-| project-manager | T-0005 | plan | doing | - | - |
+| project-manager | T-0005 | plan | review | P-0039 | - |
 | release-engineer | T-0001 | ci | done | P-0003 | c781596 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | dropped | - | - |
@@ -164,7 +164,7 @@ landed by commit without a PR record.
 | ceo | T-0011 · Allow v* tags to deploy the github-pages environment so a release can refresh the site | P0 | todo | - |
 | developer | T-0018 · scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | todo | - |
 | project-manager | T-0004 · Add M12 (release parity: GitHub, npm, Pages) to Plan.md and refresh the board | P1 | todo | - |
-| project-manager | T-0005 · Release blocker: docs/Team/Board.md is stale against the live queues so the full suite is red at ee75c4a (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | doing | - |
+| project-manager | T-0005 · Release blocker: docs/Team/Board.md is stale against the live queues so the full suite is red at ee75c4a (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | review | - |
 | release-engineer | T-0012 · Push the branch and its tag together (git push --atomic): pushing main first made the main CI release-consistency gate run without the new tag and fail R6 until the job was re-run | P1 | todo | - |
 | release-engineer | T-0015 · Backfill the already-tagged release to npm once the operator configures the publisher credential | P1 | blocked | - |
 | tester | T-0004 · Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at 3627c7d could not retire it | P2 | todo | - |
