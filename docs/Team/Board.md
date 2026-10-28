@@ -116,12 +116,15 @@ under two roles is two tasks.
 | developer | T-0017 | - | done | P-0026 | 521a7d6 |
 | developer | T-0018 | - | todo | - | - |
 | developer | T-0019 | - | done | P-0036 | 65392da |
+| developer | T-0020 | traceability | done | P-0041 | b350119 |
 | product-manager | T-0001 | traceability | done | P-0009 | 96160cf |
+| product-manager | T-0002 | - | todo | - | - |
 | project-manager | T-0001 | plan | done | P-0005 | 1bf629a |
 | project-manager | T-0002 | - | dropped | - | - |
 | project-manager | T-0003 | plan | done | P-0016 | cfba521 |
 | project-manager | T-0004 | plan | dropped | - | - |
-| project-manager | T-0005 | plan | review | P-0039 | - |
+| project-manager | T-0005 | plan | done | P-0039 | 4a9d988 |
+| project-manager | T-0006 | plan | review | P-0042 | - |
 | release-engineer | T-0001 | ci | done | P-0003 | c781596 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | dropped | - | - |
@@ -137,6 +140,8 @@ under two roles is two tasks.
 | release-engineer | T-0013 | release | done | P-0031 | d3f9b7a |
 | release-engineer | T-0014 | release | done | P-0032 | c41ecfe |
 | release-engineer | T-0015 | - | blocked | - | - |
+| release-engineer | T-0016 | release | done | P-0040 | a5c1874 |
+| release-engineer | T-0017 | - | todo | - | - |
 | reviewer | T-0001 | records | dropped | - | - |
 | reviewer | T-0002 | - | dropped | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -166,9 +171,11 @@ landed by commit without a PR record.
 | architect | T-0003 · Architecture.md no longer describes what docs.yml does: it omits the v* tag trigger | P1 | todo | - |
 | ceo | T-0011 · Allow v* tags to deploy the github-pages environment so a release can refresh the site | P0 | todo | - |
 | developer | T-0018 · scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | todo | - |
-| project-manager | T-0005 · Release blocker: docs/Team/Board.md is stale against the live queues so the full suite is red at ee75c4a (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | review | - |
+| product-manager | T-0002 · CI red on 3 more cells: the traceability guard's 300s subprocess timeout expires on the AC-5 full-history privacy scan (ubuntu py3.11/py3.12, windows py3.11) | P0 | todo | - |
+| project-manager | T-0006 · Release blocker (push of P-0040/P-0041): docs/Team/Board.md is stale against the live queues so pytest is red at 12d0d6b (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | review | - |
 | release-engineer | T-0012 · Push the branch and its tag together (git push --atomic): pushing main first made the main CI release-consistency gate run without the new tag and fail R6 until the job was re-run | P1 | todo | - |
 | release-engineer | T-0015 · Backfill the already-tagged release to npm once the operator configures the publisher credential | P1 | blocked | - |
+| release-engineer | T-0017 · Re-push main (P-0040 merge is local only) and retire the merged t-0016 branch: your Runtime worktree still holds it | P0 | todo | - |
 | tester | T-0004 · Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at 3627c7d could not retire it | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
