@@ -507,6 +507,15 @@ Mechanics that are easy to get wrong:
   publish step therefore writes an explicit userconfig: with an `_authToken` line when
   `NPM_TOKEN` exists, and with **no** `_authToken` line at all otherwise, so npm falls
   through to the OIDC exchange that `id-token: write` enables.
+- **That userconfig is written with `open(..., newline="\n")`, never
+  `Path.write_text(..., newline=...)`.** The keyword exists only from Python 3.10, and
+  `tests/integration/test_release_workflow_flow.py` executes the shipped block under
+  every interpreter in the CI matrix, so the py3.9 cells failed on
+  `TypeError: write_text() got an unexpected keyword argument 'newline'` (CI run
+  40728749217) while the release job's own 3.12 was unaffected.
+  `tests/unit/test_portability.py` now parses the embedded python of every
+  `.github/workflows/*.yml` exactly as it parses this tree's modules, so a 3.10-only
+  call inside a workflow heredoc is a local failure rather than a matrix failure.
 - **The token reaches the npm child only through that file.** The step does read the
   secret into its own process (`NPM_TOKEN` in its `env:`), but the child environment is
   built as `dict(os.environ)` and then has `NPM_TOKEN` **and** `NODE_AUTH_TOKEN` removed
