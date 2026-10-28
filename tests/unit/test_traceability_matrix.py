@@ -43,6 +43,23 @@ ARCHIVE = "docs/Team/Archive.md"
 # gitignored working state: absent in CI, present in a working checkout
 TEAM_TESTS_GLOB = ".pi/Teamwork/Teams/*/Tests.md"
 
+# Per-command budget, in seconds, for re-running one row's proof command (T-0020).
+# The costliest proof in the table is the AC-5 row's full history walk
+# (`privacy_scan.py --tree --history`, every blob reachable from every ref plus
+# every commit's identity fields), so its runtime follows the *history*, not the
+# code: a fixed 300 s budget was green at one revision and timed out at the next
+# pushed one after nothing changed in this guard or in the scanner (CI run
+# 40728749217, ubuntu py3.11/py3.12 and windows py3.11). The budget must therefore
+# cover a COLD runner walking a history already larger than the one measured here:
+# an empty object cache, no warmed `git cat-file --batch`, and a filesystem with
+# antivirus interception are all slower than a developer's checkout with a local
+# object store, where the same command measured 149 s over 944 commits / 6236
+# objects. 900 s is ~6x that measurement, so ordinary history growth and a slower
+# runner are not failures. It stays finite on purpose: a proof that hangs must
+# still fail, only later, and the failure names this budget so the next reader can
+# tell slow from hung.
+PROOF_TIMEOUT_SECONDS = 900
+
 
 def _section(project: str) -> str:
     start = project.find(SECTION)
@@ -87,7 +104,9 @@ def _matrix(section: str) -> tuple[list[str], list[list[str]]]:
                     break
                 body.append(candidate)
             return [c.lower() for c in cells], body
-    pytest.fail(f"the traceability section has no table headed by {COLUMNS}")
+    # `pytest.fail` raises, but it is a callable object, so a static return-checker
+    # cannot see the `NoReturn`; raising directly keeps the sentinel analysable.
+    raise AssertionError(f"the traceability section has no table headed by {COLUMNS}")
 
 
 def _team_tests(repo_root: Path) -> dict:
@@ -484,7 +503,11 @@ def _run(repo_root: Path, argv: list[str]) -> int:
 
     Leading ``KEY=VALUE`` tokens are exported for the child, and a script path is
     launched with this interpreter so the proof does not depend on ``python``
-    meaning the same thing in every shell.
+    meaning the same thing in every shell. The run is bounded by
+    ``PROOF_TIMEOUT_SECONDS``, and exceeding it is a failure that names the budget
+    rather than a bare ``TimeoutExpired``: an unfinished proof proved nothing, so
+    the row's state is unsupported, and the reader has to be able to tell a budget
+    that no longer covers a cold runner from a command that hangs.
     """
     import os
     import subprocess
@@ -505,14 +528,23 @@ def _run(repo_root: Path, argv: list[str]) -> int:
     elif tokens and tokens[0].endswith(".py"):
         tokens.insert(0, sys.executable)
     command = tokens
-    completed = subprocess.run(
-        command,
-        cwd=Path(__file__).resolve().parents[2],
-        capture_output=True,
-        text=True,
-        timeout=300,
-        env=env,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=Path(__file__).resolve().parents[2],
+            capture_output=True,
+            text=True,
+            timeout=PROOF_TIMEOUT_SECONDS,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as expired:
+        raise AssertionError(
+            f"the proof command {expired.cmd!r} did not finish within "
+            f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s, so the row it proves has "
+            "no measured verdict: a hung proof must fail, so either the command is wrong "
+            "or the budget no longer covers a cold runner - raise the constant, do not "
+            "exempt the row"
+        ) from expired
     return completed.returncode
 
 
@@ -588,3 +620,74 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
         f"exemptions is {expected}: a row was skipped or the parser drifted"
     )
     assert not disagreements, "the state column disagrees with the run: " + "; ".join(disagreements)
+
+
+# T-0020: the re-run guard's per-command budget, proved rather than trusted. The
+# defect these three tests pin was a bare `timeout=300` in `_run`: it was green at
+# one revision and timed out on the next pushed one in three CI jobs, because the
+# AC-5 proof walks the whole history and nothing in the guard or the scanner had
+# changed. Two things had to stay true afterwards - the budget is generous enough
+# that a slow cold runner is not a failure, and a proof that genuinely hangs still
+# fails instead of being skipped - so each is asserted here in milliseconds rather
+# than by letting the suite hang for the real budget.
+
+
+def test_the_proof_budget_is_a_generous_named_constant() -> None:
+    """The budget is a stated number with headroom, and still a finite one."""
+    assert isinstance(PROOF_TIMEOUT_SECONDS, int) and not isinstance(PROOF_TIMEOUT_SECONDS, bool), (
+        f"the proof budget must be an int number of seconds, not {PROOF_TIMEOUT_SECONDS!r}"
+    )
+    # 300 s is the value that timed out on CI, so the ceiling of the defect is the
+    # floor of the fix; 900 is the chosen headroom over the measured history walk.
+    assert PROOF_TIMEOUT_SECONDS >= 600, (
+        f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s leaves no headroom over the "
+        "300 s that timed out on a cold CI runner walking the full history"
+    )
+    # Finite on purpose: an unbounded or hour-long budget would turn a hung proof
+    # into a stalled job instead of a failed one.
+    assert PROOF_TIMEOUT_SECONDS <= 1800, (
+        f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s is long enough that a hung "
+        "proof reads as a slow one; a hang must fail well inside a CI job"
+    )
+
+
+def test_a_proof_command_runs_under_the_named_budget(
+    repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`_run` must apply the constant - a literal left behind would not be the fix."""
+    import subprocess
+    import sys
+
+    seen: dict = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = list(command)
+        seen["timeout"] = kwargs.get("timeout")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert _run(repo_root, ["python", "scripts/privacy_scan.py", "--history"]) == 0
+    assert seen["timeout"] == PROOF_TIMEOUT_SECONDS, (
+        f"the proof ran with timeout={seen['timeout']!r}, not the named budget "
+        f"{PROOF_TIMEOUT_SECONDS} - a literal in `_run` is how T-0020 happened"
+    )
+    # the interpreter substitution `_run` exists for must survive the budget change
+    assert seen["command"][0] == sys.executable
+
+
+def test_a_hung_proof_command_fails_and_names_the_budget(
+    repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A budget is not a skip: an unfinished proof fails and says which one."""
+    import subprocess
+
+    def fake_run(command, **kwargs):
+        budget: float = kwargs["timeout"]
+        raise subprocess.TimeoutExpired(command, budget)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(AssertionError) as excinfo:
+        _run(repo_root, ["python", "scripts/teamwork.py", "loop"])
+    message = str(excinfo.value)
+    assert f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s" in message, message
+    assert "teamwork.py" in message, message
