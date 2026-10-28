@@ -2,7 +2,7 @@
 
 Owner: Technical Writer.
 
-Related: [Home](../index.md) · [Installation](install.md) · [CLI reference](cli.md) · [Architecture](architecture.md)
+Related: [Home](../index.md) · [Installation](install.md) · [CLI reference](cli.md) · [Architecture](architecture.md) · [Releases](../releases.md)
 
 Start a team in an empty project in about a minute. Step 1 installs the skill in
 one clone, step 2 is a single prompt to your agent host. The later steps show the
@@ -24,6 +24,12 @@ user-level clone (`~/.agents/skills/teamwork`, keep `.git` to pull updates) work
 the same way; if the host names its own skills directory, clone there instead.
 Python 3.9+ runs the bundled engine; there are no dependencies to install.
 Details: [Installation](install.md).
+
+If your host resolves skills from packages instead of a directory on disk, the
+same tree is on npm as `@nidvue/teamwork` (`npm install @nidvue/teamwork`).
+[Installation](install.md) compares the four channels and their commands, and
+[Releases](../releases.md) says what every release publishes on each of them - and
+what it does not publish at all.
 
 ## 2. Ask for the team
 
