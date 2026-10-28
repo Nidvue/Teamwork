@@ -49,8 +49,12 @@ teamwork.py parallel
 ```
 
 The CEO uses this before every dispatch round: fill every free slot with
-independent ready work, and scale `developer-N` / `tester-N` / `designer-N`
-instances to the available capacity rather than to a fixed number.
+independent ready work, and scale instances of **any** role - `developer-N`,
+`tester-N`, `reviewer-N`, and equally `architect-N` or `cto-N` - to the available
+capacity rather than to a fixed number (`teamwork.py instance add <role> --count N`).
+Instances of one role share its memory and queue, and the memory lease
+(`memory claim <role> --by <instance>`, `references/State.md`) keeps exactly one of
+them revising that memory while the rest read.
 
 ### Work-in-progress, not lane count, is the throughput
 
