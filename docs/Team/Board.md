@@ -117,8 +117,8 @@ under two roles is two tasks.
 | project-manager | T-0001 | plan | done | P-0005 | 1bf629a |
 | project-manager | T-0002 | - | dropped | - | - |
 | project-manager | T-0003 | plan | done | P-0016 | cfba521 |
-| project-manager | T-0004 | - | todo | - | - |
-| project-manager | T-0005 | - | doing | - | - |
+| project-manager | T-0004 | plan | todo | - | - |
+| project-manager | T-0005 | plan | doing | - | - |
 | release-engineer | T-0001 | ci | done | P-0003 | c781596 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | dropped | - | - |
