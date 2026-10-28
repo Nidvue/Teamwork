@@ -26,6 +26,7 @@ for one task. This file carries the exit condition, which does not move.
 | M9p Harness^2 adoption | `harness` and `hooks` registered and documented, AC-H1..AC-H8 verified on the merged revision | closed on the published line; its records are kept below under M9p because the reconciled history carries two milestones that were both named M9 |
 | M10 Release truth on every OS | the CI matrix is green on all three operating systems, not only ubuntu and macOS | done - T-0022..T-0024; CI run 39690418108 on the pushed revision, 19/19 jobs |
 | M11 Solid review pass | suite green on a stock Windows host, docs re-measured, tree censused and cleaned, `loop` STOP + `audit` 0 problems | in progress - see the M11 section below |
+| M12 Release parity: GitHub, npm, Pages | AC-22 and AC-23 verified by a role other than the author on the merged revision, and the two release defects named at intake (release-engineer T-0011, T-0012) closed | in progress - see the M12 section below; the live state of every row is read with `teamwork.py board` |
 
 ## M5 - post-1.0 hardening (closed)
 
@@ -619,6 +620,59 @@ Zero duplicates, measured two ways: no two tracked files share a digest
    `tester instances=2 [Tester, Tester-1]`, while only `Developer-1`,
    `Developer-2` and `Tester-1` hold work. Removing local team state is the
    CEO's call, not a hygiene deletion from this lane.
+
+## M12 - Release parity (live)
+
+Intake, objective, non-goals and the two acceptance criteria are in
+[Project](Project.md) M12; this section carries the exit condition and the rows
+that deliver it, and pins no state that `teamwork.py` can report. The board renders
+the same records for both open milestones: [Board](Board.md).
+
+Exit condition: AC-22 (npm parity) and AC-23 (Pages on release) verified by a role
+other than the author on the merged revision, and the two release defects named at
+intake closed - release-engineer T-0011 and release-engineer T-0012. Their state
+is read with `teamwork.py task list release-engineer` and never from this file.
+
+### M12 engagement tasks
+
+Rendered from `Roles/*/TaskQueue.md` at the revision that carries this section, so
+it is what the queues said then and not a claim about now; read any cell again with
+`teamwork.py task list <role>` and `teamwork.py pr list`. The selection is
+mechanical and re-measurable - it is every task record created in this engagement:
+`grep -h '^- created: 2026-10-28' .pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.
+Housekeeping records filed in the same engagement are included rather than filtered
+out, because a table that picked the rows it liked would be a second, hand-kept
+view of the queues - the defect the board gate exists to prevent.
+
+| role | id | task | prio | area | state | claimed by | pr | merged |
+|---|---|---|---|---|---|---|---|---|
+| architect | T-0003 | Architecture.md no longer describes what docs.yml does: it omits the v* tag trigger | P1 | - | todo | - | - | - |
+| ceo | T-0011 | Allow v* tags to deploy the github-pages environment so a release can refresh the site | P0 | - | todo | - | - | - |
+| ceo | T-0012 | Record the M12 intake, AC-22/AC-23 and the governance decision; own their acceptance | P0 | intake | done | CEO | P-0033 | bd7467d |
+| ceo | T-0013 | Add the AC-22/AC-23 rows to the traceability matrix: main's suite is red without them | P0 | docs | done | CEO | P-0034 | 1793013 |
+| developer | T-0018 | scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | - | todo | - | - | - |
+| developer | T-0019 | Record the release area's unit layer from the release tests that exist | P1 | - | done | Developer-1 | P-0036 | 65392da |
+| project-manager | T-0004 | Add M12 (release parity: GitHub, npm, Pages) to Plan.md and refresh the board | P1 | - | todo | - | - | - |
+| project-manager | T-0005 | Release blocker: docs/Team/Board.md is stale against the live queues so the full suite is red at ee75c4a (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | - | doing | project-manager | - | - |
+| release-engineer | T-0011 | release.yml uploads SHA256SUMS twice (dist/* and the explicit entry): the duplicate-name race made the v1.3.0 publish job fail with 'Not Found - releases/assets#update-a-release-asset' and need a re-run | P0 | release | done | release-engineer | P-0030 | 7908d44 |
+| release-engineer | T-0012 | Push the branch and its tag together (git push --atomic): pushing main first made the main CI release-consistency gate run without the new tag and fail R6 until the job was re-run | P1 | - | todo | - | - | - |
+| release-engineer | T-0013 | Publish @nidvue/teamwork to npm from every v* tag, and make the release asset set unique (supersedes T-0011) | P0 | release | done | release-engineer | P-0031 | d3f9b7a |
+| release-engineer | T-0014 | Pages rebuilds and deploys from the released revision on a v* tag | P0 | release | done | release-engineer | P-0032 | c41ecfe |
+| release-engineer | T-0015 | Backfill the already-tagged release to npm once the operator configures the publisher credential | P1 | - | blocked | - | - | - |
+| reviewer | T-0004 | Land the D-0004 tribunal ruling in Decisions.md on main (commit 4645118) | P0 | - | done | Reviewer-2 | P-0038 | e038181 |
+| technical-writer | T-0005 | Site and README: npm as a first-class install channel plus a releases page | P0 | docs | done | technical-writer | P-0035 | 1d94e18 |
+| tester | T-0003 | Record the release area's integration layer on the merged revision | P1 | - | done | tester-1 | P-0037 | 3627c7d |
+| tester | T-0004 | Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at 3627c7d could not retire it | P2 | - | todo | - | - | - |
+
+Both proofs the exit condition asks for come from a tag run of the merged
+pipeline, and no commit can supply that measurement: `grep -c 'npm publish'
+.github/workflows/release.yml` and the `on:` block of `.github/workflows/docs.yml`
+show the pipeline is in place, and the first `v*` tag after this merge is what
+measures it. Both criteria are recorded red at intake as gaps G-11 and G-12 in
+[Project](Project.md), where each carries the command that re-measures it; the row
+that closes AC-22's evidence is release-engineer T-0015, blocked on the operator's
+npm credential, and AC-23 also waits on the `github-pages` environment policy
+(ceo T-0011).
 
 ## Task-graph integrity
 
