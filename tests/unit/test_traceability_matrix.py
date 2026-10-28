@@ -441,6 +441,13 @@ EXEMPT: dict[str, str] = {
     "AC-16": "self",
     "AC-17": "self",  # the pytest half; its `ls` half is covered by AC-12
     "AC-18": "self",
+    # AC-22 and AC-23 are proved by a release run, which exists only after a tag:
+    # the npm publish job's run and the Pages job of the same tag. Their proof
+    # cells name the forge command and the CI job, which is what the `forge`
+    # evidence pattern asks for, and neither row may be claimed green by editing
+    # this dict - each is red against a gap that owns it (G-11, G-12).
+    "AC-22": "forge",
+    "AC-23": "forge",
 }
 
 
