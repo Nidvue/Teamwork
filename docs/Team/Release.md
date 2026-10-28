@@ -361,10 +361,10 @@ required `committer guard` and the `identity --audit` step in the `lint` job.
 
 | fact | command | value |
 |---|---|---|
-| the version the package claims | `grep __version__ src/teamwork/version.py` | `1.3.0` |
-| the newest tag | `git tag --sort=-v:refname \| head -1` | `v1.3.0` - 8 tags (`1.0.0`, `1.0.1`, `1.0.2`, `1.1.0`, `1.1.2`, `1.2.0`, `1.2.1`, `1.3.0`); `1.1.1` is admitted by exception in `release-exceptions.json` |
-| the tag on the release head | `git tag --points-at HEAD` | `v1.3.0` |
-| `CHANGELOG.md` | `grep -n '^## \[1.3.0\]' CHANGELOG.md` | `:12`, dated 2026-10-28, compare link `v1.2.1...v1.3.0` |
+| the version the package claims | `grep __version__ src/teamwork/version.py` | `1.4.0` - the unreleased tree; the record below describes the tag before it |
+| the newest tag | `git tag --sort=-v:refname \| head -1` | read it from the command, never here: after the first landing past a tag every older version is stale prose under R6, so this row names no tag at all. The admitted exception is listed in `release-exceptions.json` |
+| the tag on the released head | `git rev-parse v1.3.0^{commit}` | `df97067`; `git tag --points-at HEAD` is empty because the tree carries the next change-set |
+| `CHANGELOG.md` | `grep -n '^## \[1.3.0\]' CHANGELOG.md` | read the line from the command: it moves whenever a section is added above it. The section is dated 2026-10-28 with the compare link `v1.2.1...v1.3.0`, and the unreleased 1.4.0 section sits above it |
 | the offline gate | `python scripts/check_release_consistency.py --offline` | exit 0, `# release consistency: 0 problem(s)` |
 | the online gate | `python scripts/check_release_consistency.py --online` | exit 0 on the tagged revision (R3/R4/R5/R8 read the registry and the forge) |
 | the CI/release record | `gh run list --workflow Release` on the pushed tag | the run id and conclusions on that SHA are the post-push record |
