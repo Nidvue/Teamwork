@@ -124,7 +124,7 @@ under two roles is two tasks.
 | project-manager | T-0003 | plan | done | P-0016 | cfba521 |
 | project-manager | T-0004 | plan | dropped | - | - |
 | project-manager | T-0005 | plan | done | P-0039 | 4a9d988 |
-| project-manager | T-0006 | plan | review | P-0042 | - |
+| project-manager | T-0006 | plan | done | P-0042 | 660f09e |
 | release-engineer | T-0001 | ci | done | P-0003 | c781596 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | dropped | - | - |
@@ -155,6 +155,7 @@ under two roles is two tasks.
 | technical-writer | T-0003 | docs-truth | done | P-0014 | 8b9fac8 |
 | technical-writer | T-0004 | - | done | P-0024 | 8ad3467 |
 | technical-writer | T-0005 | docs | done | P-0035 | 1d94e18 |
+| technical-writer | T-0006 | docs | done | P-0043 | e78074e |
 | tester | T-0001 | ci-release | done | P-0012 | aabff63 |
 | tester | T-0002 | - | done | P-0022 | ee05c22 |
 | tester | T-0003 | - | done | P-0037 | 3627c7d |
@@ -172,7 +173,6 @@ landed by commit without a PR record.
 | ceo | T-0011 · Allow v* tags to deploy the github-pages environment so a release can refresh the site | P0 | todo | - |
 | developer | T-0018 · scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | todo | - |
 | product-manager | T-0002 · CI red on 3 more cells: the traceability guard's 300s subprocess timeout expires on the AC-5 full-history privacy scan (ubuntu py3.11/py3.12, windows py3.11) | P0 | todo | - |
-| project-manager | T-0006 · Release blocker (push of P-0040/P-0041): docs/Team/Board.md is stale against the live queues so pytest is red at 12d0d6b (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | review | - |
 | release-engineer | T-0012 · Push the branch and its tag together (git push --atomic): pushing main first made the main CI release-consistency gate run without the new tag and fail R6 until the job was re-run | P1 | todo | - |
 | release-engineer | T-0015 · Backfill the already-tagged release to npm once the operator configures the publisher credential | P1 | blocked | - |
 | release-engineer | T-0017 · Re-push main (P-0040 merge is local only) and retire the merged t-0016 branch: your Runtime worktree still holds it | P0 | todo | - |
