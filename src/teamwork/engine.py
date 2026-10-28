@@ -111,6 +111,9 @@ from .config import (
     LFS_MAX_BYTES,
     LONG_CAP,
     MAX_ROUNDS,
+    MEMORY_ARBITER_ROLE,
+    MEMORY_LEASE_MINUTES,
+    MEMORY_STALL_MINUTES,
     MIN_USES,
     PRIORITY_ORDER,
     PROMOTE_MIN_IMPORTANCE,
@@ -2101,6 +2104,15 @@ LEDGER_ACTIONS = (
     "memory.drop",
     "memory.merge",
     "memory.evict",
+    "memory.claim",
+    "memory.claim.force",
+    "memory.renew",
+    "memory.release",
+    "memory.contest",
+    "memory.grant",
+    "memory.revoke",
+    "instance.add",
+    "instance.retire",
     "task.add",
     "task.claim",
     "task.status",
@@ -3810,6 +3822,262 @@ def roster_for(names: list) -> dict:
     return {"tier": "explicit", "roles": roles, "instances": names, "missing_required": missing}
 
 
+def scaffold_role(root: Path, role: str, staffed: set | None = None, force: bool = False) -> Path:
+    """Role scope: one shared memory set, queue and charter for every instance.
+
+    Idempotent and non-destructive: existing files are never rewritten unless
+    ``force`` names the charter. Called by `init` and by `instance add`, so a role
+    that gains a fifth instance does not gain a second memory file.
+    """
+    role = resolve_role(role)
+    rd = role_dir(root, role)
+    rd.mkdir(parents=True, exist_ok=True)
+    for filename in (F_SHORT, F_LONG, F_MEM_ARCHIVE):
+        p = rd / filename
+        if not p.exists():
+            write_memory(p, [], filename, role)
+    tp = rd / F_TASKS
+    if not tp.exists():
+        write_tasks(tp, [], role)
+    role_file = ROLES_DIR / f"{role}.md"
+    shared_charter = rd / F_ROLE
+    if role_file.exists() and (force or not shared_charter.exists()):
+        body = role_file.read_text(encoding="utf-8").replace(
+            "{references}", str(SKILL_DIR / "references")
+        )
+        folded = charter_reports_line(role, staffed)
+        if folded:
+            body = fold_charter_reports(body, folded)
+        write_lf(shared_charter, body)
+    elif not shared_charter.exists():
+        write_lf(
+            shared_charter,
+            f"# Role: {role}\n\n"
+            f"No bundled charter found for '{role}'. Derive your duties from the\n"
+            f"task packet, report blockers to the CEO, and keep to your lane.\n",
+        )
+    return rd
+
+
+def scaffold_instance(
+    root: Path, name: str, role: str, staffed: set | None = None, force: bool = False
+) -> Path:
+    """Instance scope: private brief, worklog, inbox, artifacts, scratch, reports."""
+    d = agent_dir(root, name)
+    for sub in (DIR_ARTIFACTS, DIR_SCRATCH, DIR_REPORTS):
+        (d / sub).mkdir(parents=True, exist_ok=True)
+    brief = d / F_START
+    if force or not brief.exists():
+        write_lf(brief, start_here(name, role, root, docs_dir(root), staffed=staffed))
+    for extra in (F_WORKLOG, F_INBOX):
+        p = d / extra
+        if p.exists():
+            continue
+        write_lf(
+            p,
+            f"# {extra[:-3]} - {name} ({role})\n\n"
+            f"> Private to this instance. The {role} memory and task queue\n"
+            f"> are shared with every other {role} instance, and only one instance\n"
+            f"> of the role revises that memory at a time (`memory claim {role}`).\n\n"
+            + AGENT_LINKS.format(**link_fields(d / extra, name))
+            + "\n",
+        )
+    migrate_instance_memory(root, name, role)
+    return d
+
+
+def next_instance_name(root: Path, role: str) -> str:
+    """The next free instance name for a role: `role-N`, or `role` when it is alone.
+
+    A bare role name is the role's first instance, so a role that already has one
+    gains `-2` rather than reusing a name or renaming a lane that records already
+    name (`claimed_by`, branches, ledger entries).
+    """
+    role_p = pascal(role)
+    taken = {pascal(i) for i in instances_of(root, role)}
+    if not taken:
+        return role_p
+    n = 2 if role_p in taken else 1
+    while f"{role_p}-{n}" in taken:
+        n += 1
+    return f"{role_p}-{n}"
+
+
+def cmd_instance(args) -> int:
+    """Every role scales: `instance add|list|retire`.
+
+    Roles differ in what they own, not in how many lanes may serve it: any role
+    can run several instances, they share the role's memory and queue, and the
+    memory lease (`memory claim`) keeps exactly one of them revising it.
+    """
+    root = project_root(args)
+    if not role_dir(root, "ceo").parent.is_dir() and not agents_dir(root).is_dir():
+        die("no workspace here: run `teamwork.py init` first")
+    if args.instance_cmd == "list":
+        return _instance_list(root, args.json)
+    if args.instance_cmd == "retire":
+        return _instance_retire(root, args)
+    return _instance_add(root, args)
+
+
+def _instance_add(root: Path, args) -> int:
+    import json
+
+    role = resolve_role(args.role)
+    count = max(int(args.count or 1), 1)
+    names = list_roles(root)
+    if role not in names and names and not args.new_role:
+        die(
+            f"the {role} role has no seat in this team. Staffed roles: {', '.join(names)}.\n"
+            f"  Add it anyway with `--new-role` (it gets the shared memory set and a "
+            f"charter copy like any other role), or fix the spelling."
+        )
+    by = (args.by or "ceo").strip()
+    staffed = set(names) | {role}
+    if args.name and count > 1:
+        die("--name names ONE instance; drop --count or add them one at a time", 2)
+    created = []
+    for _ in range(count):
+        if args.name:
+            if resolve_role(args.name) != role:
+                die(
+                    f"'{args.name}' resolves to the {resolve_role(args.name)} role, "
+                    f"not {role}. An instance name must belong to the role it serves.",
+                    2,
+                )
+            name = pascal(args.name)
+            if agent_dir(root, name).is_dir():
+                die(f"instance '{name}' already exists", 2)
+        else:
+            name = next_instance_name(root, role)
+        scaffold_role(root, role, staffed=staffed)
+        scaffold_instance(root, name, role, staffed=staffed)
+        created.append(name)
+        ledger_append(
+            root,
+            "instance.add",
+            by,
+            name,
+            f"{role} instance {name}; shared memory Roles/{pascal(role)}",
+            "",
+            role,
+        )
+    if args.json:
+        print(json.dumps({"role": role, "created": created}, indent=2))
+        return 0
+    inst = instances_of(root, role)
+    print(f"teamwork: added {len(created)} {role} instance(s): {', '.join(created)}")
+    print(f"#   shared memory (ONE reviser at a time): {role_dir(root, role)}")
+    print(f"#   {role} instances now: {', '.join(inst)}")
+    print(
+        f"#   start one with: teamwork.py load {created[0]} && teamwork.py task next {created[0]}"
+    )
+    print(f"#   the role's memory pen: teamwork.py memory claim {role} --by {created[0]}")
+    if len(inst) > 1:
+        print(
+            f"#   WARNING {len(inst)} {role} instances share one queue and one memory. "
+            "Two of them editing the memory at once is impossible (`memory claim` "
+            "leases it), but each lane still needs its own branch: "
+            f"`branch start --agent {created[0]} --task <T-id>`."
+        )
+    return 0
+
+
+def _instance_list(root: Path, as_json: bool) -> int:
+    import json
+
+    rows = []
+    for role in list_roles(root):
+        claim = read_memory_claim(root, role)
+        rows.append(
+            {
+                "role": role,
+                "instances": instances_of(root, role),
+                "memory_writer": pascal(claim["instance"]) if claim else "",
+                "minutes_left": memory_claim_remaining(claim) if claim else 0,
+                "tasks": len(parse_tasks(task_file(root, role))),
+            }
+        )
+    if as_json:
+        print(json.dumps({"roles": rows}, indent=2))
+        return 0
+    if not rows:
+        print("teamwork: no role in this workspace yet")
+        return 0
+    for row in rows:
+        holder = (
+            f"memory-writer: {row['memory_writer']} ({row['minutes_left']}m)"
+            if row["memory_writer"]
+            else "memory free"
+        )
+        print(
+            f"{row['role']:20s} instances={len(row['instances']):2d} "
+            f"[{', '.join(row['instances']) or '-'}]  tasks={row['tasks']:3d}  {holder}"
+        )
+    return 0
+
+
+def _instance_retire(root: Path, args) -> int:
+    name, role = validate_actor(root, args.name, "instance")
+    d = agent_dir(root, name)
+    if not d.is_dir():
+        hint = (
+            " The bare role name is only an instance when `Agents/<Role>/` exists - "
+            f"this team's {role} lanes are: {', '.join(instances_of(root, role)) or 'none'}."
+        )
+        die(f"no instance directory for '{name}'.{hint}")
+    by = (args.by or "ceo").strip()
+    blockers = _instance_busy_reasons(root, role, name)
+    if blockers and not args.reason:
+        die("--reason is required to retire an instance", 2)
+    if blockers and not args.force:
+        die(
+            f"{name} is not idle: {'; '.join(blockers)}.\n"
+            f"  Reclaim or finish that work, then retire it, or pass "
+            f'`--force "<why>"` so the record says what was abandoned.',
+            2,
+        )
+    shutil.rmtree(d)
+    ledger_append(
+        root,
+        "instance.retire",
+        by,
+        name,
+        (args.reason or "no reason given")
+        + (f" | forced past: {'; '.join(blockers)}" if blockers else "")
+        + f" | {role} memory kept at Roles/{pascal(role)}",
+        "",
+        role,
+    )
+    print(f"teamwork: retired {name}; the {role} memory and queue stay in place")
+    if not instances_of(root, role):
+        print(
+            f"#   WARNING no {role} instance left: that lane owns work nobody can take. "
+            f"Add one with `instance add {role}`."
+        )
+    return 0
+
+
+def _instance_busy_reasons(root: Path, role: str, name: str) -> list:
+    reasons = []
+    mine = pascal(name)
+    for t in parse_tasks(task_file(root, role)):
+        if pascal(t.get("claimed_by") or "") == mine and t.get("status") in (
+            "doing",
+            "selfcheck",
+            "review",
+        ):
+            reasons.append(f"{t['id']} is {t.get('status')} by {t.get('claimed_by')}")
+    claim = read_memory_claim(root, role)
+    if claim and pascal(claim["instance"]) == mine:
+        reasons.append(f"it holds the {role} memory pen ({memory_claim_remaining(claim)} min left)")
+    slots = root / DIR_RUNTIME / DIR_SLOTS
+    if slots.is_dir():
+        for slot in slots.glob(f"*/{safe_component(mine)}.slot"):
+            reasons.append(f"a provider slot is leased ({slot.parent.name})")
+    return reasons
+
+
 def cmd_init(args) -> int:
     root = project_root(args)
     project = project_of(root)
@@ -3900,60 +4168,10 @@ def cmd_init(args) -> int:
     staffed = {resolve_role(n) for n in names}
     for name in names:
         role = resolve_role(name)
-        # role scope: memory + task queue, shared by every instance of the role
-        rd = role_dir(root, role)
-        rd.mkdir(parents=True, exist_ok=True)
-        for filename in (F_SHORT, F_LONG, F_MEM_ARCHIVE):
-            p = rd / filename
-            if not p.exists():
-                write_memory(p, [], filename, role)
-        tp = rd / F_TASKS
-        if not tp.exists():
-            write_tasks(tp, [], role)
+        scaffold_role(root, role, staffed=staffed, force=args.force)
         if role not in roles_seen:
             roles_seen.append(role)
-
-        # instance scope: private charter copy, worklog, inbox, scratch, outputs
-        d = agent_dir(root, name)
-        for sub in (DIR_ARTIFACTS, DIR_SCRATCH, DIR_REPORTS):
-            (d / sub).mkdir(parents=True, exist_ok=True)
-        role_file = ROLES_DIR / f"{role}.md"
-        shared_charter = rd / F_ROLE
-        if role_file.exists() and (args.force or not shared_charter.exists()):
-            body = role_file.read_text(encoding="utf-8").replace(
-                "{references}", str(SKILL_DIR / "references")
-            )
-            folded = charter_reports_line(role, staffed)
-            if folded:
-                body = fold_charter_reports(body, folded)
-            write_lf(shared_charter, body)
-        elif not shared_charter.exists():
-            write_lf(
-                shared_charter,
-                f"# Role: {role}\n\n"
-                f"No bundled charter found for '{role}'. Derive your duties from the\n"
-                f"task packet, report blockers to the CEO, and keep to your lane.\n",
-            )
-        brief = d / F_START
-        if args.force or not brief.exists():
-            write_lf(
-                brief,
-                start_here(
-                    name, role, root, docs_dir(root), staffed={resolve_role(n) for n in names}
-                ),
-            )
-        for extra in (F_WORKLOG, F_INBOX):
-            p = d / extra
-            if not p.exists():
-                write_lf(
-                    p,
-                    f"# {extra[:-3]} - {name} ({role})\n\n"
-                    f"> Private to this instance. The {role} memory and task queue\n"
-                    f"> are shared with every other {role} instance.\n\n"
-                    + AGENT_LINKS.format(**link_fields(d / extra, name))
-                    + "\n",
-                )
-        migrate_instance_memory(root, name, role)
+        scaffold_instance(root, name, role, staffed=staffed, force=args.force)
         created.append(name)
 
     print(f"teamwork: workspace ready at {root}")
@@ -4264,7 +4482,7 @@ def cmd_load(args) -> int:
     d = role_dir(root, role)
     if not d.is_dir() and not agents_dir(root).is_dir():
         die(f"unknown role '{role}' (run init or check `agents`)")
-    consolidate_agent(root, role, dry_run=False, quiet=True)
+    consolidate_agent(root, role, dry_run=False, quiet=True, actor=args.agent, strict=False)
     limit = args.limit or SHORT_CAP
     entries = parse_memory(d / F_SHORT)
     entries.sort(key=lambda e: parse_date(e["last_used"]), reverse=True)
@@ -4276,6 +4494,19 @@ def cmd_load(args) -> int:
         f" ({len(keep)}/{len(entries)} entries)"
     )
     print(f"# shared by: {', '.join(inst) or role}")
+    claim = read_memory_claim(root, role)
+    if claim:
+        print(
+            f"# READ-ONLY right now: {memory_holder_line(claim)}. "
+            f"Remember/touch/forget will be refused until that lease is released "
+            f"(`memory status {role}`); reads and `recall` always work."
+        )
+    else:
+        print(
+            f"# memory is free: `memory claim {role} --by {args.agent} --reason '<what you "
+            f"are about to update>'` holds the pen for a multi-entry update; a single "
+            f"`remember` takes it automatically."
+        )
     print(
         f"# Long-term entries are NOT loaded; query them with:"
         f' teamwork.py recall "<query>" --agent {role}'
@@ -4305,12 +4536,279 @@ def _memory_path(root: Path, agent: str, layer: str) -> tuple:
     return d / filename, filename
 
 
+# --------------------------------------------------------------------------- #
+# Role memory: ONE revising instance at a time
+# --------------------------------------------------------------------------- #
+# `Runtime/Locks/role-<Role>.lock` makes a single write atomic, and that is all it
+# does. Two instances of one role can still interleave their edits: A adds entry
+# 1, B consolidates and evicts it, A adds entry 2 against a file it never saw - and
+# the role's memory ends up as a merge nobody reasoned about. The lease below is
+# the missing rule: one instance of the role holds the pen, every other instance of
+# that role is read-only until the pen is released or its lease expires. Several
+# roles revise their own memory in parallel; instances within a role do not.
+#
+# Two ways to hold it, both under the same state file:
+#   * explicit - `memory claim` / `memory release`; held across several commands so
+#     one coherent update lands before a peer looks at the file ("until the memory
+#     for that role is fully updated");
+#   * implicit - one mutating command (`remember`, `forget`, `touch`,
+#     `consolidate`) takes the pen for its own duration and gives it back. Two
+#     peers still serialise instead of interleaving, without a second ceremony.
+
+
+def memory_claim_path(root: Path, role: str) -> Path:
+    return root / DIR_RUNTIME / DIR_LOCKS / f"memory-{resolve_role(role)}.claim"
+
+
+def memory_lease_minutes(root: Path) -> int:
+    try:
+        return max(int(_load_settings(root).get("MemoryLeaseMinutes", MEMORY_LEASE_MINUTES)), 1)
+    except (TypeError, ValueError):
+        return MEMORY_LEASE_MINUTES
+
+
+def memory_stall_minutes(root: Path) -> int:
+    """How long a lease is held before the role's peers may call it stalled."""
+    try:
+        return max(int(_load_settings(root).get("MemoryStallMinutes", MEMORY_STALL_MINUTES)), 1)
+    except (TypeError, ValueError):
+        return MEMORY_STALL_MINUTES
+
+
+def memory_claim_age(claim: dict) -> int | None:
+    return claim_age_minutes(claim.get("acquired") or "")
+
+
+def memory_claim_is_slow(root: Path, claim: dict) -> bool:
+    age = memory_claim_age(claim)
+    return age is not None and age >= memory_stall_minutes(root)
+
+
+def memory_arbiter(root: Path, holder_role: str = "") -> tuple:
+    """Who rules on a contested memory lease on THIS roster: (role, skipped).
+
+    The CTO owns engineering standards and the build and lock policy, so a stuck
+    writer is an engineering question. On a roster without a CTO the request folds
+    up the reporting line to the CEO (AGENTS.md: a vacant manager escalates to the
+    CEO), and a party never rules its own lease - a CTO's own memory being contested
+    goes to the CEO.
+    """
+    staffed = set(list_roles(root))
+    chain = [MEMORY_ARBITER_ROLE]
+    while chain[-1] != "ceo" and chain[-1] in ROLE_PARENT:
+        chain.append(ROLE_PARENT[chain[-1]] or "ceo")
+    held_by = resolve_role(holder_role) if holder_role else ""
+    skipped = []
+    for role in chain:
+        if role == held_by:
+            skipped.append(role)
+            continue
+        if role in staffed:
+            return role, skipped
+        skipped.append(role)
+    return "", skipped
+
+
+def read_memory_claim(root: Path, role: str) -> dict:
+    """The live revision lease for this role's shared memory, or {} when free."""
+    import json
+
+    path = memory_claim_path(root, role)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict) or not data.get("instance"):
+        return {}
+    try:
+        expires = float(data.get("expires_ts") or 0)
+    except (TypeError, ValueError):
+        return {}
+    if expires <= time.time():
+        return {}
+    return data
+
+
+def memory_claim_remaining(claim: dict) -> int:
+    try:
+        return max(int(round((float(claim.get("expires_ts") or 0) - time.time()) / 60.0)), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def memory_holder_line(claim: dict) -> str:
+    role = claim.get("role") or resolve_role(claim.get("instance", ""))
+    return (
+        f"{pascal(claim['instance'])} is revising the {role} memory "
+        f"({memory_claim_remaining(claim)} min left on its lease, "
+        f"since {claim.get('acquired') or '-'}: {claim.get('reason') or 'no reason given'})"
+    )
+
+
+def _write_memory_claim(root: Path, claim: dict) -> dict:
+    import json
+
+    path = memory_claim_path(root, claim["role"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write(path, json.dumps(claim, indent=2, sort_keys=True) + "\n")
+    return claim
+
+
+def _clear_memory_claim(root: Path, role: str, token: str) -> bool:
+    """Remove the lease only if this process still owns it."""
+    path = memory_claim_path(root, role)
+    try:
+        import json
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict) or data.get("token") != token:
+        return False
+    try:
+        path.unlink()
+    except OSError:
+        return False
+    return True
+
+
+def memory_actor(root: Path, role: str, actor: str = "", require_instance: bool = False) -> str:
+    """The instance acting on a role's memory, validated against that role.
+
+    A bare role name is accepted (it means the role's own pool) unless the caller
+    needs one accountable instance - `memory claim` does, because the lease names
+    who holds the pen. The CEO may hold it too: the shared tree is the CEO's, and a
+    seat that holds the pen still excludes every peer.
+    """
+    role = resolve_role(role)
+    raw = (actor or "").strip()
+    if not raw:
+        return pascal(role)
+    resolved = resolve_role(raw)
+    if resolved != role:
+        if resolved == "ceo":
+            return pascal(raw)
+        die(
+            f"'{raw}' belongs to the {resolved} role, not {role}. A role's shared "
+            f"memory is revised by its own instances (or the CEO), so a lane cannot "
+            f"rewrite a peer role's memory."
+        )
+    inst = pascal(raw)
+    insts = instances_of(root, role)
+    names = {pascal(i) for i in insts}
+    # A name that IS an instance is never ambiguous, even when it equals the role's
+    # own name (`memory claim cto --by CTO` with CTO and CTO-2 both staffed). Only a
+    # role name with no such directory means "the role's pool", and a lease must not
+    # name a pool.
+    if inst == pascal(role) and require_instance and inst not in names:
+        if len(insts) > 1:
+            die(
+                f"name the {role} instance holding the pen: '{raw}' is the role, and it "
+                f"has {', '.join(insts)}. Only one instance of a role revises its shared "
+                f"memory at a time, so the lease must name one of them "
+                f"(`--by {insts[-1]}`)."
+            )
+        return pascal(insts[0]) if insts else inst
+    known = names
+    if known and inst not in known and inst != pascal(role):
+        die(
+            f"unknown {role} instance '{raw}'. Known: {', '.join(sorted(known))}. "
+            f"Add one with `teamwork.py instance add {role}`."
+        )
+    return inst
+
+
+@contextlib.contextmanager
+def memory_session(
+    root: Path,
+    role: str,
+    actor: str = "",
+    reason: str = "",
+    strict: bool = True,
+    minutes: int | None = None,
+):
+    """Hold the role's memory pen for the body, then give it back.
+
+    Yields the live claim, or ``None`` when ``strict`` is false and a peer holds an
+    explicit lease - a read path (`load` consolidating in the background) degrades
+    to "skip maintenance" instead of failing the lane that only wanted to read.
+    """
+    role = resolve_role(role)
+    inst = memory_actor(root, role, actor)
+    lock_path = root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"
+    ttl = max(int(minutes or memory_lease_minutes(root)), 1)
+
+    def peer_holds() -> dict:
+        held = read_memory_claim(root, role)
+        if held and held.get("explicit") and pascal(held["instance"]) != inst:
+            return held
+        return {}
+
+    blocked = peer_holds()
+    if blocked:
+        if strict:
+            die(
+                f"{memory_holder_line(blocked)}. Only one instance of the {role} role "
+                f"revises its shared memory at a time. Read it (`recall`) and retry "
+                f"when the lease is released, or take the pen deliberately: "
+                f'`memory claim {role} --by {inst} --force "<why>"`.',
+                2,
+            )
+        yield None
+        return
+
+    with lock(lock_path):
+        blocked = peer_holds()
+        if blocked:
+            if not strict:
+                yield None
+                return
+            die(
+                f"{memory_holder_line(blocked)}. Only one instance of the {role} role "
+                f"revises its shared memory at a time.",
+                2,
+            )
+        held = read_memory_claim(root, role)
+        explicit = bool(held.get("explicit")) and pascal(held["instance"]) == inst
+        # Joining my own lease keeps what the arbiter and the peers put on it:
+        # a pending contest must not vanish because the holder wrote one more
+        # entry, and an arbiter's ruling must stay on the record.
+        claim = dict(held) if explicit else {}
+        claim.update(
+            {
+                "role": role,
+                "instance": inst,
+                "token": f"{os.getpid()}.{time.time():.6f}",
+                "acquired": (held.get("acquired") if explicit else "")
+                or datetime.datetime.now().isoformat(timespec="seconds"),
+                "expires_ts": time.time() + ttl * 60.0,
+                "minutes": ttl,
+                "explicit": explicit,
+                "reason": (held.get("reason") if explicit else "") or reason or "memory update",
+            }
+        )
+        _write_memory_claim(root, claim)
+        try:
+            yield claim
+        finally:
+            # An explicit lease outlives the command that created it; it is the
+            # whole point of `memory claim`. An implicit one dies with the write.
+            if not claim["explicit"]:
+                _clear_memory_claim(root, role, claim["token"])
+
+
+def _role_memory_paths(root: Path, role: str) -> tuple:
+    d = role_dir(root, role)
+    return d, d / F_SHORT, d / F_LONG, d / F_MEM_ARCHIVE
+
+
 def cmd_remember(args) -> int:
     root = project_root(args)
     path, filename = _memory_path(root, args.agent, args.layer)
     if not args.text.strip():
         die("empty memory text")
-    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{resolve_role(args.agent)}.lock"):
+    role = resolve_role(args.agent)
+    with memory_session(root, role, args.by or args.agent, reason=f"remember {args.key or 'note'}"):
         entries = parse_memory(path)
         entry = new_entry(
             args.text,
@@ -4324,15 +4822,18 @@ def cmd_remember(args) -> int:
         )
         entries, merged, added = merge_entries(entries, [entry])
         write_memory(path, entries, filename, args.agent)
-    ledger_append(
-        root,
-        "memory.add" if added else "memory.update",
-        args.by or args.agent,
-        args.key or args.agent,
-        f"{'added' if added else 'updated'} {args.layer} entry: {args.text[:80]}",
-        args.rev,
-    )
-    consolidate_agent(root, args.agent, dry_run=False, quiet=True)
+        ledger_append(
+            root,
+            "memory.add" if added else "memory.update",
+            args.by or args.agent,
+            args.key or args.agent,
+            f"{'added' if added else 'updated'} {args.layer} entry: {args.text[:80]}",
+            args.rev,
+        )
+        d, short_path, long_path, arch_path = _role_memory_paths(root, role)
+        _consolidate_locked(
+            root, role, role, d, short_path, long_path, arch_path, dry_run=False, quiet=True
+        )
     print(f"teamwork: remembered {added} new / {merged} merged entry in {path}")
     return 0
 
@@ -4457,7 +4958,9 @@ def _find_entry(entries: list, handle: str):
 def cmd_touch(args) -> int:
     root = project_root(args)
     path, filename = _memory_path(root, args.agent, args.layer)
-    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{resolve_role(args.agent)}.lock"):
+    role = resolve_role(args.agent)
+    actor = getattr(args, "by", "") or args.agent
+    with memory_session(root, role, actor, reason=f"touch {args.handle}"):
         entries = parse_memory(path)
         idx = _find_entry(entries, args.handle)
         if idx is None:
@@ -4465,13 +4968,13 @@ def cmd_touch(args) -> int:
         entries[idx]["uses"] += 1
         entries[idx]["last_used"] = today_iso()
         write_memory(path, entries, filename, args.agent)
-    ledger_append(
-        root,
-        "memory.touch",
-        args.agent,
-        entries[idx]["key"] or args.handle,
-        f"uses={entries[idx]['uses']}",
-    )
+        ledger_append(
+            root,
+            "memory.touch",
+            actor,
+            entries[idx]["key"] or args.handle,
+            f"uses={entries[idx]['uses']}",
+        )
     print(f"teamwork: touched {entries[idx]['key'] or args.handle} (uses={entries[idx]['uses']})")
     return 0
 
@@ -4479,35 +4982,413 @@ def cmd_touch(args) -> int:
 def cmd_forget(args) -> int:
     root = project_root(args)
     path, filename = _memory_path(root, args.agent, args.layer)
-    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{resolve_role(args.agent)}.lock"):
+    role = resolve_role(args.agent)
+    actor = getattr(args, "by", "") or args.agent
+    with memory_session(root, role, actor, reason=f"forget {args.handle}"):
         entries = parse_memory(path)
         idx = _find_entry(entries, args.handle)
         if idx is None:
             die(f"no entry '{args.handle}' in {path}")
         removed = entries.pop(idx)
         write_memory(path, entries, filename, args.agent)
-    ledger_append(
-        root,
-        "memory.forget",
-        args.agent,
-        removed["key"] or args.handle,
-        f"removed: {(removed.get('body') or '')[:80]}",
-    )
+        ledger_append(
+            root,
+            "memory.forget",
+            actor,
+            removed["key"] or args.handle,
+            f"removed: {(removed.get('body') or '')[:80]}",
+        )
     print(f"teamwork: forgot {removed['key'] or args.handle}")
     return 0
 
 
-def consolidate_agent(root: Path, agent: str, dry_run: bool = False, quiet: bool = False) -> dict:
+def cmd_memory(args) -> int:
+    """`memory claim|release|renew|contest|extend|revoke|status`.
+
+    Who may revise a role's memory, who may call a long update stalled, and who
+    rules on it.
+    """
+    root = project_root(args)
+    sub = args.memory_cmd
+    if sub == "status":
+        return _memory_status(root, getattr(args, "agent", "") or "", args.json)
+    role = resolve_role(args.agent)
+    if not role_dir(root, role).is_dir() and not agents_dir(root).is_dir():
+        die("no workspace here: run `teamwork.py init` first")
+    if sub == "claim":
+        actor = memory_actor(root, role, args.by, require_instance=True)
+        return _memory_claim(root, role, actor, args.ttl, args.reason, args.force)
+    if sub == "contest":
+        actor = memory_actor(root, role, args.by, require_instance=True)
+        return _memory_contest(root, role, actor, args.reason)
+    if sub in ("extend", "revoke"):
+        # The arbiter is deliberately ANOTHER role (the CTO, folded up to the CEO),
+        # so this path bypasses `memory_actor`: a peer role may not write the
+        # memory, but it may rule on who is allowed to.
+        if not (args.by or "").strip():
+            die(f"--by is required for `memory {sub}`: name the arbiter ruling", 2)
+        actor, _actor_role = validate_actor(root, args.by, "arbiter")
+        return _memory_arbitrate(
+            root, role, actor, sub, getattr(args, "ttl", 0), getattr(args, "reason", "")
+        )
+    actor = memory_actor(root, role, args.by)
+    if sub == "renew":
+        return _memory_renew(root, role, actor, args.ttl)
+    if sub == "release":
+        return _memory_release(root, role, actor, args.force)
+    die(f"unknown memory subcommand '{sub}'")
+
+
+def _memory_contest(root: Path, role: str, actor: str, reason: str) -> int:
+    """A peer of the role asks the arbiter to rule on a lease that is running long."""
+    if not reason.strip():
+        die("--reason is required: what makes this update look stalled?", 2)
+    task_id = ""
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        held = read_memory_claim(root, role)
+        if not held:
+            print(
+                f"teamwork: no live lease on the {role} memory - nothing to contest. "
+                f"`memory status {role}` shows the truth."
+            )
+            return 0
+        if pascal(held["instance"]) == actor:
+            die(
+                f"{actor} holds the {role} memory pen; a holder does not contest its own "
+                f"lease. Release it (`memory release {role} --by {actor}`) or finish the "
+                f"update.",
+                2,
+            )
+        age = memory_claim_age(held)
+        arbiter, _skipped = memory_arbiter(root, role)
+        if not arbiter:
+            die(
+                "no seat on this roster may rule on that lease (the arbiter and every "
+                "manager above it are the holder's own role). Open a dispute instead: "
+                f"`dispute open --by {actor} --against {held['instance']} --topic "
+                f"'stalled {role} memory lease' --evidence '<age, task, lease>'`.",
+                2,
+            )
+        contests = [c for c in (held.get("contests") or []) if isinstance(c, dict)]
+        contests.append(
+            {
+                "by": actor,
+                "at": datetime.datetime.now().isoformat(timespec="seconds"),
+                "reason": reason.strip(),
+                "age_minutes": age,
+            }
+        )
+        held["contests"] = contests
+        _write_memory_claim(root, held)
+    title = f"Rule on the {role} memory lease held by {pascal(held['instance'])}"
+    body = (
+        f"{actor} contests the {role} memory lease.\n\n"
+        f"- holder: {pascal(held['instance'])}\n"
+        f"- held since: {held.get('acquired') or '-'} ({age if age is not None else '?'} min)\n"
+        f"- lease left: {memory_claim_remaining(held)} min (of {held.get('minutes')})\n"
+        f"- reason given by the holder: {held.get('reason') or '-'}\n"
+        f"- why it looks stalled: {reason.strip()}\n\n"
+        f"Rule with one of:\n"
+        f"- `memory extend {role} --by <you> --ttl 30 --reason '<why more time is fair>'`\n"
+        f"- `memory revoke {role} --by <you> --reason '<why the pen is removed>'`"
+    )
+    task_id = _file_arbiter_task(root, arbiter, title, body, actor, role)
+    ledger_append(
+        root,
+        "memory.contest",
+        actor,
+        role,
+        f"contested {pascal(held['instance'])}'s lease ({age if age is not None else '?'} min)"
+        f" -> {arbiter}{' ' + task_id if task_id else ''}: {reason.strip()[:120]}",
+        "",
+        role,
+    )
+    who = ROLE_DISPLAY.get(arbiter, pascal(arbiter))
+    print(
+        f"teamwork: contest recorded - {pascal(held['instance'])} has held the {role} "
+        f"memory pen for {age if age is not None else '?'} min."
+    )
+    print(f"#   arbiter: {who}" + (f", task {task_id} on its queue" if task_id else ""))
+    print(
+        f"#   {who} rules: `memory extend {role} --by {who} --ttl N` or `memory revoke {role} --by {who} --reason '<why>'`"
+    )
+    return 0
+
+
+def _memory_arbitrate(root: Path, role: str, actor: str, action: str, ttl: int, reason: str) -> int:
+    """`extend` (more time for this holder) or `revoke` (free the role now)."""
+    arbiter, skipped = memory_arbiter(root, role)
+    actor_role = resolve_role(actor)
+    if not arbiter or actor_role not in (arbiter, "ceo"):
+        expected = ROLE_DISPLAY.get(arbiter, pascal(arbiter)) if arbiter else "no seat"
+        folded = f" ({', '.join(skipped)} unstaffed or a party)" if skipped else ""
+        die(
+            f"only the {expected}{folded} rules on the {role} memory lease: the CTO "
+            f"owns engineering standards and the lock policy, and a peer cannot "
+            f"extend or remove another instance's lease. Contest it first: "
+            f"`memory contest {role} --by <you> --reason '<why>'`.",
+            2,
+        )
+    if not reason.strip():
+        die(f"--reason is required for `memory {action}`: the ruling is evidence", 2)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        held = read_memory_claim(root, role)
+        if not held:
+            print(
+                f"teamwork: no live lease on the {role} memory - it has already "
+                f"expired or been released; nothing to {action}."
+            )
+            return 0
+        holder = pascal(held["instance"])
+        if action == "extend":
+            minutes = max(int(ttl or held.get("minutes") or memory_lease_minutes(root)), 1)
+            held["expires_ts"] = time.time() + minutes * 60.0
+            held["minutes"] = minutes
+            held["arbitrated_by"] = actor
+            held["arbitrated_at"] = datetime.datetime.now().isoformat(timespec="seconds")
+            held["contests"] = []
+            _write_memory_claim(root, held)
+            detail = (
+                f"extended {holder}'s lease by {minutes} min (contests answered): "
+                f"{reason.strip()[:120]}"
+            )
+        else:
+            _clear_memory_claim(root, role, held["token"])
+            detail = f"revoked {holder}'s lease, {role} memory free: {reason.strip()[:120]}"
+    ledger_append(
+        root,
+        "memory.grant" if action == "extend" else "memory.revoke",
+        actor,
+        role,
+        detail + (f" | skipped from the arbiter chain: {', '.join(skipped)}" if skipped else ""),
+        "",
+        role,
+    )
+    if action == "extend":
+        print(
+            f"teamwork: {holder} keeps the {role} memory pen for {minutes} more min "
+            f"(ruled by {actor})"
+        )
+    else:
+        print(f"teamwork: {holder}'s lease on the {role} memory is revoked; the role is free")
+    return 0
+
+
+def _file_arbiter_task(root: Path, arbiter: str, title: str, body: str, by: str, role: str) -> str:
+    """Put the request on the arbiter's queue, once, without duplicating an open one."""
+    if not instances_of(root, arbiter):
+        return ""
+    path = task_file(root, arbiter)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{arbiter}.lock"):
+        tasks = parse_tasks(path)
+        for existing in tasks:
+            if existing["title"].strip().lower() == title.strip().lower() and existing[
+                "status"
+            ] not in ("done", "dropped"):
+                return existing["id"]
+        t = new_task(
+            title,
+            "P0",
+            tags="memory-lease,arbitration",
+            body=body,
+            review="na",
+        )
+        t["area"] = "memory-lease"
+        t["claimed_by"] = ""
+        tasks.append(t)
+        write_tasks(path, tasks, arbiter)
+        task_id = tasks[-1]["id"]
+    ledger_append(
+        root,
+        "task.add",
+        by,
+        task_id,
+        f"arbitration request on the {role} memory lease -> {arbiter}",
+        "",
+        arbiter,
+    )
+    return task_id
+
+
+def _memory_claim(root: Path, role: str, actor: str, ttl: int, reason: str, force: str) -> int:
+    minutes = max(int(ttl or memory_lease_minutes(root)), 1)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        held = read_memory_claim(root, role)
+        if held and pascal(held["instance"]) != actor:
+            if not force:
+                die(
+                    f"{memory_holder_line(held)}. Only one instance of the {role} role "
+                    f"revises its shared memory at a time. Wait for the release "
+                    f"(`memory status {role}`), or take the pen deliberately with "
+                    f'`--force "<why>"`.',
+                    2,
+                )
+            _clear_memory_claim(root, role, held["token"])
+            ledger_append(
+                root,
+                "memory.claim.force",
+                actor,
+                role,
+                f"took the pen from {pascal(held['instance'])}: {force}",
+                "",
+                role,
+            )
+        claim = {
+            "role": role,
+            "instance": actor,
+            "token": f"{os.getpid()}.{time.time():.6f}",
+            "acquired": datetime.datetime.now().isoformat(timespec="seconds"),
+            "expires_ts": time.time() + minutes * 60.0,
+            "minutes": minutes,
+            "explicit": True,
+            "reason": reason or "memory update",
+        }
+        _write_memory_claim(root, claim)
+    ledger_append(
+        root,
+        "memory.claim",
+        actor,
+        role,
+        f"explicit {minutes}-minute lease: {claim['reason']}",
+        "",
+        role,
+    )
+    print(
+        f"teamwork: {actor} now revises the {role} memory ({minutes} min lease, "
+        f"expires in {memory_claim_remaining(claim)} min).\n"
+        f"#   every other {role} instance is read-only until "
+        f"`memory release {role} --by {actor}` or the lease expires.\n"
+        f"#   renew with `memory renew {role} --by {actor}` if the update runs long."
+    )
+    return 0
+
+
+def _memory_renew(root: Path, role: str, actor: str, ttl: int) -> int:
+    minutes = max(int(ttl or memory_lease_minutes(root)), 1)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        held = read_memory_claim(root, role)
+        if not held:
+            die(
+                f"no live lease on the {role} memory: nothing to renew. Take it with "
+                f"`memory claim {role} --by {actor}`.",
+                2,
+            )
+        if pascal(held["instance"]) != actor:
+            die(
+                f"{memory_holder_line(held)}. Only the holder renews it.",
+                2,
+            )
+        held["expires_ts"] = time.time() + minutes * 60.0
+        held["minutes"] = minutes
+        held["explicit"] = True
+        _write_memory_claim(root, held)
+    ledger_append(root, "memory.renew", actor, role, f"lease extended by {minutes} min", "", role)
+    print(f"teamwork: {actor} holds the {role} memory pen for another {minutes} min")
+    return 0
+
+
+def _memory_release(root: Path, role: str, actor: str, force: str) -> int:
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        held = read_memory_claim(root, role)
+        if not held:
+            print(f"teamwork: nothing to release - no instance is revising the {role} memory")
+            return 0
+        holder = pascal(held["instance"])
+        if holder != actor and not force:
+            die(
+                f"{memory_holder_line(held)}. Only the holder releases the pen; "
+                f'take it over deliberately with `--force "<why>"` if that lane is gone.',
+                2,
+            )
+        _clear_memory_claim(root, role, held["token"])
+    ledger_append(
+        root,
+        "memory.release",
+        actor,
+        role,
+        f"released the pen held by {holder}" + (f" (forced: {force})" if force else ""),
+        "",
+        role,
+    )
+    print(f"teamwork: the {role} memory is free; any {role} instance may revise it now")
+    return 0
+
+
+def _memory_status(root: Path, agent: str, as_json: bool) -> int:
+    import json
+
+    roles = [resolve_role(agent)] if agent else list_roles(root)
+    if not roles:
+        print("teamwork: no workspace here (run `teamwork.py init`)")
+        return 0
+    rows = []
+    for role in roles:
+        claim = read_memory_claim(root, role)
+        age = memory_claim_age(claim) if claim else None
+        contests = (
+            [c for c in (claim.get("contests") or []) if isinstance(c, dict)] if claim else []
+        )
+        rows.append(
+            {
+                "role": role,
+                "instances": instances_of(root, role),
+                "holder": pascal(claim["instance"]) if claim else "",
+                "minutes_left": memory_claim_remaining(claim) if claim else 0,
+                "held_minutes": age if age is not None else 0,
+                "since": claim.get("acquired", "") if claim else "",
+                "reason": claim.get("reason", "") if claim else "",
+                "explicit": bool(claim.get("explicit")) if claim else False,
+                "slow": bool(claim) and memory_claim_is_slow(root, claim),
+                "contests": contests,
+                "arbiter": memory_arbiter(root, role)[0] if contests else "",
+            }
+        )
+    if as_json:
+        print(json.dumps({"roles": rows, "stall_minutes": memory_stall_minutes(root)}, indent=2))
+        return 0
+    print(f"# who may revise each role's shared memory now ({len(rows)} role(s))")
+    print(f"# a lease held longer than {memory_stall_minutes(root)} min is contestable")
+    for row in rows:
+        if not row["holder"]:
+            print(f"- {row['role']:18s} free (instances: {', '.join(row['instances']) or '-'})")
+            continue
+        flags = []
+        if row["slow"]:
+            flags.append("SLOW")
+        if row["contests"]:
+            flags.append(f"CONTESTED by {row['contests'][-1].get('by', '?')}")
+        print(
+            f"- {row['role']:18s} revising: {row['holder']:18s} "
+            f"{row['minutes_left']:3d} min left, held {row['held_minutes']:3d} min, "
+            f"since {row['since']}: {row['reason']}" + (f"  [{' / '.join(flags)}]" if flags else "")
+        )
+        if row["contests"]:
+            last = row["contests"][-1]
+            print(
+                f"    contest: {last.get('by', '?')} at {last.get('at', '?')}: "
+                f"{last.get('reason', '')[:120]} -> arbiter {row['arbiter'] or 'none'}"
+            )
+    return 0
+
+
+def consolidate_agent(
+    root: Path,
+    agent: str,
+    dry_run: bool = False,
+    quiet: bool = False,
+    actor: str = "",
+    strict: bool = True,
+) -> dict:
     role = resolve_role(agent)
     agent = role
-    d = role_dir(root, role)
-    short_path = d / F_SHORT
-    long_path = d / F_LONG
-    arch_path = d / F_MEM_ARCHIVE
-
-    lock_path = root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"
-    ctx = contextlib.nullcontext() if dry_run else lock(lock_path)
-    with ctx:
+    d, short_path, long_path, arch_path = _role_memory_paths(root, role)
+    if dry_run:
+        return _consolidate_locked(
+            root, role, agent, d, short_path, long_path, arch_path, dry_run, quiet
+        )
+    with memory_session(root, role, actor or agent, reason="consolidate", strict=strict) as claim:
+        if claim is None:
+            return {"agent": agent, "skipped": "another instance is revising this memory"}
         return _consolidate_locked(
             root, role, agent, d, short_path, long_path, arch_path, dry_run, quiet
         )
@@ -4627,8 +5508,9 @@ def cmd_consolidate(args) -> int:
     names = list_roles(root) if (args.all or not args.agent) else [resolve_role(args.agent)]
     if not names:
         die("no agents in this workspace")
+    actor = getattr(args, "by", "") or ""
     for name in names:
-        consolidate_agent(root, name, dry_run=args.dry_run)
+        consolidate_agent(root, name, dry_run=args.dry_run, actor=actor)
     return 0
 
 
@@ -4673,12 +5555,18 @@ def cmd_agents(args) -> int:
         return 0
     for role in roles:
         inst = instances_of(root, role)
+        claim = read_memory_claim(root, role)
+        writer = (
+            f"pen={pascal(claim['instance'])}({memory_claim_remaining(claim)}m)"
+            if claim
+            else "pen=free"
+        )
         print(
             f"{role:20s} instances={len(inst):2d} "
             f"[{', '.join(inst) if inst else '-'}]  "
             f"mem={len(parse_memory(role_dir(root, role) / F_SHORT))}"
             f"/{len(parse_memory(role_dir(root, role) / F_LONG))} "
-            f"tasks={len(parse_tasks(task_file(root, role)))}"
+            f"tasks={len(parse_tasks(task_file(root, role)))} {writer}"
         )
     return 0
 
@@ -10491,11 +11379,12 @@ def _parsers_workspace(sub, common) -> None:
     s = sub.add_parser(
         "consolidate",
         parents=[common],
-        help="promote stale short-term entries, evict long-term overflow",
+        help="promote stale short-term entries, evict long-term overflow (takes the role memory pen)",
     )
     s.add_argument("--agent")
     s.add_argument("--all", action="store_true")
     s.add_argument("--dry-run", action="store_true")
+    s.add_argument("--by", default="", help="which instance consolidates (default: the role)")
     s.set_defaults(func=cmd_consolidate)
 
     s = sub.add_parser("stats", parents=[common], help="memory sizes and cap violations")
@@ -10505,6 +11394,36 @@ def _parsers_workspace(sub, common) -> None:
 
     s = sub.add_parser("agents", parents=[common], help="list agent directories")
     s.set_defaults(func=cmd_agents)
+
+    s = sub.add_parser(
+        "instance",
+        parents=[common],
+        help="add/list/retire instances of ANY role (they share the role's memory)",
+    )
+    isub = s.add_subparsers(dest="instance_cmd", required=True)
+    p = isub.add_parser(
+        "add", parents=[common], help="launch one or more extra instances of a role"
+    )
+    p.add_argument("role", help="role slug to scale, e.g. architect, cto, designer")
+    p.add_argument("--count", type=int, default=1, help="how many instances to add (default 1)")
+    p.add_argument("--name", default="", help="explicit instance name instead of the next free one")
+    p.add_argument("--new-role", action="store_true", help="staff a role this team does not have")
+    p.add_argument("--by", default="ceo", help="who adds it (provenance)")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.set_defaults(func=cmd_instance)
+    p = isub.add_parser(
+        "list", parents=[common], help="every role, its instances and memory writer"
+    )
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.set_defaults(func=cmd_instance)
+    p = isub.add_parser(
+        "retire", parents=[common], help="remove an idle instance (the role's memory stays)"
+    )
+    p.add_argument("name", help="instance to remove, e.g. reviewer-3")
+    p.add_argument("--by", default="ceo", help="who retires it (provenance)")
+    p.add_argument("--reason", default="", help="why it goes (required once it holds work)")
+    p.add_argument("--force", action="store_true", help="retire even while it holds work")
+    p.set_defaults(func=cmd_instance)
 
     # --- tasks ----------------------------------------------------------- #
     st = sub.add_parser("task", parents=[common], help="manage an agent's priority task list")
@@ -10762,13 +11681,76 @@ def _parsers_memory(sub, common) -> None:
     s.add_argument("agent")
     s.add_argument("handle", help="M-0003 or key or substring")
     s.add_argument("--layer", choices=["short", "long"], default="short")
+    s.add_argument("--by", default="", help="which instance touches it (default: the agent)")
     s.set_defaults(func=cmd_touch)
 
     s = sub.add_parser("forget", parents=[common], help="delete an entry")
     s.add_argument("agent")
     s.add_argument("handle")
     s.add_argument("--layer", choices=["short", "long"], default="short")
+    s.add_argument("--by", default="", help="which instance forgets it (default: the agent)")
     s.set_defaults(func=cmd_forget)
+
+    # The role memory lease: exactly one instance revises a role's memory at a
+    # time, and it keeps the pen until the whole update is in.
+    s = sub.add_parser(
+        "memory",
+        parents=[common],
+        help="the role memory pen: claim/release/renew/contest/extend/revoke",
+    )
+    msub = s.add_subparsers(dest="memory_cmd", required=True)
+    p = msub.add_parser(
+        "claim", parents=[common], help="hold the pen for the role's memory until you release it"
+    )
+    p.add_argument("agent", help="role (or instance) whose memory you will revise")
+    p.add_argument("--by", default="", help="the instance taking the pen (required by the lease)")
+    p.add_argument("--ttl", type=int, default=0, help="lease minutes (default MemoryLeaseMinutes)")
+    p.add_argument("--reason", default="", help="what update you are about to make")
+    p.add_argument(
+        "--force",
+        default="",
+        metavar="REASON",
+        help="take the pen from a stalled holder; reason required and recorded",
+    )
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser("release", parents=[common], help="give the pen back (holder only)")
+    p.add_argument("agent")
+    p.add_argument("--by", default="", help="the instance releasing it")
+    p.add_argument("--force", default="", metavar="REASON", help="release a dead lane's pen")
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser("renew", parents=[common], help="extend the lease while the update runs")
+    p.add_argument("agent")
+    p.add_argument("--by", default="", help="the holder")
+    p.add_argument("--ttl", type=int, default=0, help="lease minutes (default MemoryLeaseMinutes)")
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser(
+        "contest",
+        parents=[common],
+        help="peer: ask the CTO to rule on a lease that is running unusually long",
+    )
+    p.add_argument("agent", help="role whose memory is held")
+    p.add_argument("--by", default="", help="the peer instance raising it")
+    p.add_argument("--reason", default="", help="why the update looks stalled (required)")
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser(
+        "extend", parents=[common], help="CTO/CEO: rule that the holder keeps the pen longer"
+    )
+    p.add_argument("agent")
+    p.add_argument("--by", default="", help="the arbiter ruling")
+    p.add_argument("--ttl", type=int, default=0, help="extra minutes (default: a full lease)")
+    p.add_argument("--reason", default="", help="why more time is fair (required)")
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser(
+        "revoke", parents=[common], help="CTO/CEO: remove the lease and free the role now"
+    )
+    p.add_argument("agent")
+    p.add_argument("--by", default="", help="the arbiter ruling")
+    p.add_argument("--reason", default="", help="why the pen is removed (required)")
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser("status", parents=[common], help="who may revise which role's memory now")
+    p.add_argument("agent", nargs="?", default="", help="one role (default: every role)")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.set_defaults(func=cmd_memory)
 
 
 def _parsers_task(sub, common) -> None:

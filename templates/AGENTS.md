@@ -37,8 +37,13 @@ team including the CTO, and the **CFO** holds the budget cap. Escalate up your o
 line first; go sideways only for a fact or artifact a peer holds.
 
 Instance names are `<role>` or `<role>-<n>` (`developer-2`, `tester-1`,
-`designer-1`). Every instance has its own directory; **memory and the task queue
-are shared by every instance of a role** (`Roles/<Role>/`).
+`designer-1`). **Any role can run several instances**: they share one
+`Roles/<Role>/` memory set and one task queue, and `instance add` scales a role
+at any point (`instance add cto --count 2`). Only one instance of a role may
+revise that role's memory at a time (`memory claim <role> --by <instance>`, then
+`memory release` when the update is complete); a single `remember` takes the pen
+only for its own duration. Everything else about a lane stays per instance: its
+directory, its branch, its slot.
 
 **A slim roster is the default.** Staff a role only if it owns a deliverable, a
 test layer and a decision right no other role holds; everything else is a lane.
@@ -396,6 +401,18 @@ Never wait for another role before doing work you can do yourself.
   continuously; stale entries auto-promote to long-term memory.
 - Long-term memory (`LongTermMemory.md`) is never loaded - query it with `recall`.
   Overflow is archived so the live file stays within its cap.
+- **One instance of a role revises that role's memory at a time.** They all read
+  the same `Roles/<Role>/` files; before a multi-entry update take the pen with
+  `memory claim <role> --by <instance>` and give it back with `memory release`
+  when the update is complete (a single `remember` takes it automatically for its
+  own duration). A peer's write is refused, not silently merged - never edit the
+  memory file by hand to get around that.
+- **A long update is contested, not waited out.** If a lease runs past
+  `MemoryStallMinutes`, any other instance of that role raises `memory contest
+  <role> --by <you> --reason "<why>"`; the **CTO** rules - more time
+  (`memory extend`) or remove the lock (`memory revoke`) - and the ruling is
+  recorded. Nobody waits on a wedged pen and nobody removes a peer's lock
+  unilaterally.
 - Only the CEO writes `Global/GlobalMemory.md`; propose additions to the CEO
   instead of duplicating them privately. Read global memory before asking.
 - Store facts, not chatter: interfaces, decisions, gotchas, commands, revisions,

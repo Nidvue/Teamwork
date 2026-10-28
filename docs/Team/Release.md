@@ -357,20 +357,27 @@ The branch rule blocks; the identity rule warns by design - `check_commit` in
 identity (a warning, never a block)". Identity is enforced on the push instead, by the
 required `committer guard` and the `identity --audit` step in the `lint` job.
 
-### 6. Release truth: `version.py` 1.2.1 and tag `v1.2.1`
+### 6. Release truth: `v1.3.0` - any role scales, one holds the memory pen
 
 | fact | command | value |
 |---|---|---|
-| the version the package claims | `grep __version__ src/teamwork/version.py` | `1.2.1` |
-| the newest tag | `git tag --sort=-v:refname \| head -1` | `v1.2.1` - 7 tags (`1.0.0`, `1.0.1`, `1.0.2`, `1.1.0`, `1.1.2`, `1.2.0`, `1.2.1`); `1.1.1` is admitted by exception in `release-exceptions.json` |
-| the tag on the release head | `git tag --points-at HEAD` | `v1.2.1` |
-| `CHANGELOG.md` | `grep -n '^## \[1.2.1\]' CHANGELOG.md` | `:16`, dated 2026-10-27, compare link `v1.2.0...v1.2.1` |
+| the version the package claims | `grep __version__ src/teamwork/version.py` | `1.3.0` |
+| the newest tag | `git tag --sort=-v:refname \| head -1` | `v1.3.0` - 8 tags (`1.0.0`, `1.0.1`, `1.0.2`, `1.1.0`, `1.1.2`, `1.2.0`, `1.2.1`, `1.3.0`); `1.1.1` is admitted by exception in `release-exceptions.json` |
+| the tag on the release head | `git tag --points-at HEAD` | `v1.3.0` |
+| `CHANGELOG.md` | `grep -n '^## \[1.3.0\]' CHANGELOG.md` | `:12`, dated 2026-10-28, compare link `v1.2.1...v1.3.0` |
 | the offline gate | `python scripts/check_release_consistency.py --offline` | exit 0, `# release consistency: 0 problem(s)` |
+| the online gate | `python scripts/check_release_consistency.py --online` | exit 0 on the tagged revision (R3/R4/R5/R8 read the registry and the forge) |
 | the CI/release record | `gh run list --workflow Release` on the pushed tag | the run id and conclusions on that SHA are the post-push record |
 
-`1.2.1` is cut from reviewed `main` `21354d8` (the 1.2.0 release) and fixes the
-tag-push committer guard. The tag push runs `release.yml`'s online
-consistency gate, the test matrix, build/attest and the GitHub Release.
+`1.3.0` is cut from reviewed `main` and adds three things: **any role** can run
+several instances (`instance add|list|retire`) against one shared
+`Roles/<Role>/` memory, **one instance at a time revises that memory**
+(`memory claim|release|renew|status`, `Runtime/Locks/memory-<Role>.claim`), and a
+lease that runs long is **contested by a peer and ruled by the CTO**
+(`memory contest|extend|revoke`; the arbiter folds to the CEO when the CTO is
+unstaffed, and a party never rules its own lease). No protocol gate changed. The
+tag push runs `release.yml`'s online consistency gate, the test matrix,
+build/attest and the GitHub Release.
 
 Rollback needs no index: install the wheel asset of the tag you want.
 

@@ -1539,3 +1539,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: five review rounds on `productmanager/t-0001-*`; final head `b3facf3` -> guard `pytest -q tests/unit/test_traceability_matrix.py` 10 passed, 1 skipped; count scan (`role lines|N failed, N passed|N records`) -> none; merged at `96160cf`.
 - falsified by: a rebuilt matrix at its landing head that still contradicts itself, or a row measured there that turns out wrong after the merge.
 - consequences: binds later matrices; both parties implemented it.
+
+## D-20261028-CEO - Any role scales to N instances; one instance at a time holds the role memory pen
+
+- date: 2026-10-28
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: Only developer, tester, designer and reviewer were documented as multi-instance, and the role memory was protected by a per-write file lock only. Two instances of a role could interleave edits: A adds an entry, B consolidates and evicts it, A adds the next one against a file it never saw.
+- options considered: A - keep per-role single instances (blocks scaling the CTO/Architect lanes); B - per-write mutex only (no rule across commands, last writer wins); C - role memory lease (chosen).
+- decision: Any role may run several instances via 'instance add <role> --count N'; they share one Roles/<Role>/ memory set and one TaskQueue.md. A mutating memory command takes Runtime/Locks/memory-<Role>.claim for its own duration, and 'memory claim' holds it explicitly until 'memory release' or expiry, so exactly one instance of a role revises that role's memory at a time. Peers stay read-only (exit 2 naming the holder); reads and recall never block.
+- why: The existing role lock already serialised a single write, so the missing rule was ownership across a multi-entry update. A lease reuses the review-claim pattern the engine already trusts (renew, expire, force with a reason) instead of inventing a second concurrency model, and it keeps role-shared memory while removing the instance cap. Read paths degrade to skipping maintenance instead of failing, so a peer holding the pen never blocks a lane that only wants to load context.
+- evidence: pytest tests/unit/test_memory_lease.py tests/integration/test_role_memory_lease.py -q @worktree -> 20 passed
+- falsified by: If two instances of one role can show interleaved memory writes on the same revision, or a peer can mutate memory while another holds a live explicit lease.
+- consequences: New CLI: instance add|list|retire, memory claim|release|renew|status. New lease file under Runtime/Locks. references/State.md, Concurrency.md, SKILL.md, templates/AGENTS.md, Architecture.md section 4/5 updated. Instance retirement keeps the role's memory; a busy instance needs --force and a reason.
+
+## D-20261028-CEO-2 - A stalled memory lease is contested by a peer and ruled by the CTO
+
+- date: 2026-10-28
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: One instance of a role holds the role memory pen for a multi-entry update. If that lane wedges, its peers were read-only until the 30-minute lease expired, or one of them took the pen with --force and the record said only that it had been taken. Neither is an answer to 'this update is running unusually long'.
+- options considered: A - let the lease expire (blocks the whole role for up to 30 minutes, no judgement); B - any peer takes it with --force (unilateral, no check that the update really is stalled); C - a peer contests it and the CTO rules, extend or revoke (chosen).
+- decision: Any other instance of the role may run 'memory contest <role> --by <you> --reason'. The contest is stored on the lease ('contests') and one P0 memory-lease task is filed on the arbiter's queue. The arbiter - the CTO, folded up the reporting line to the CEO when unstaffed, never the holder's own role - answers with 'memory extend' (holder keeps the pen, contests cleared) or 'memory revoke' (lock cleared, role free). Only the arbiter or the CEO may rule; a holder cannot contest itself.
+- why: A stuck writer is an engineering question, and the CTO already owns engineering standards and the build/lock policy; routing it there needs no new authority. The three existing invariants apply unchanged: a lease still expires on its own, a party never rules its own case, and a vacant seat escalates up the line instead of vanishing. Filing one P0 task reuses the board the pulse already feeds, so the request is not a chat message that can be lost.
+- evidence: pytest tests/unit/test_memory_lease.py tests/integration/test_role_memory_lease.py -q @worktree -> 31 passed
+- falsified by: If a peer can extend or revoke a lease (exit 0), if a held lease disappears from one holder write, if the arbiter rules its own lease, or if a contested case files more than one open task.
+- consequences: New verbs memory contest|extend|revoke (ledger actions memory.contest, memory.grant, memory.revoke); lease JSON gains contests, arbitrated_by, arbitrated_at; MemoryStallMinutes in Settings.json (default 15); references/State.md, docs/guide/cli.md, Architecture section 4/5, templates/AGENTS.md, README, CHANGELOG updated.
