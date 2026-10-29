@@ -265,29 +265,30 @@ jobs:
           python-version: "3.12"
       - name: Guard the committer of the pushed revision
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
           REF_TYPE: ${{ github.ref_type }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          # A tag push has no "before" (all zeros). Auditing HEAD there would
-          # audit the whole history; an old non-role merge commit would fail
-          # every release. Audit the tagged commit itself instead. A pull
-          # request has an explicit base sha; audit its branch range. A first
-          # branch push has no measurable span, so audit the tip.
-          if [ -n "${BEFORE_SHA}" ] && [ "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
-            RANGE="${BEFORE_SHA}..${HEAD_SHA}"
-          elif [ "${REF_TYPE}" = "tag" ]; then
-            RANGE="${HEAD_SHA}^..${HEAD_SHA}"
-          elif [ -n "${BASE_SHA}" ]; then
+          # A pull request is judged on its own change-set, from the base sha the
+          # event carries. `github.event.before` is a push field: on a pull request
+          # it can hold a base tip that no longer resolves after main advanced, and
+          # the old ordering then audited the whole ancestry (run 40789321527
+          # flagged an accepted main ancestor). So the PR arm comes first.
+          #
+          # A tag push has no "before" (all zeros); audit the tagged commit alone.
+          # A first branch push has no measurable span, so audit the tip commit.
+          # An unreadable range is the engine's own fallback (the tip commit only,
+          # never the ancestry), so there is no second invocation here.
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${BASE_SHA}" ]; then
             RANGE="${BASE_SHA}..${HEAD_SHA}"
+          elif [ -n "${BEFORE_SHA}" ] && [ "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="${BEFORE_SHA}..${HEAD_SHA}"
           else
             RANGE="${HEAD_SHA}^..${HEAD_SHA}"
           fi
-          if ! python scripts/teamwork.py identity --guard-committer --range "${RANGE}"; then
-            # A root commit has no parent; the one-commit range cannot resolve.
-            python scripts/teamwork.py identity --guard-committer --range "${HEAD_SHA}"
-          fi
+          python scripts/teamwork.py identity --guard-committer --range "${RANGE}"
 
   typecheck:
     name: typecheck (mypy, non-blocking)
