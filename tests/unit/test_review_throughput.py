@@ -6,9 +6,12 @@ the diff and run the full matrix even for a prose-only change. Measured on the
 previous revision: a dead lane froze a deliverable for 90 minutes, and a
 docs-only review paid the full code suite.
 
-Pinned here: the 20-minute renewable review lease, expiry/take-over, the packet
-(profile, gates, self-check, checklist), profile inference, priority/age queue
-order, capacity guidance, and claim->verdict latency in `coordination`.
+Pinned here: the profile-aware review lease (a fast claim keeps the 20-minute
+base, a standard claim twice it, a deep claim four times, capped), expiry and
+take-over, the packet (profile, gates, self-check, checklist), profile inference,
+priority/age queue order, `review --next` (claim + packet in one atomic step), the
+queue listing only submitted work, capacity guidance, expired-claim reporting, and
+claim->verdict latency in `coordination`.
 """
 
 from __future__ import annotations
@@ -90,14 +93,26 @@ def test_review_lease_is_short_expires_and_renews(cli, project: Path) -> None:
     task = [
         t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == handle
     ][0]
-    assert engine.review_claim_state(task, engine.REVIEW_LEASE_MINUTES)[2] is True
+    assert task["review_claim_profile"] == "standard"
+    assert task["review_claim_lease"] == str(2 * engine.REVIEW_LEASE_MINUTES)
+    assert engine.review_claim_state(task)[2] is True
 
-    # A lane that died 21 minutes ago no longer blocks the deliverable.
+    # The stored lease is the one the claim was granted: a standard claim is still
+    # held at 21 minutes, where the flat 20-minute rule used to free it (and let
+    # the other lane take the same deliverable over).
     age_claim(root, handle, 21)
     task = [
         t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == handle
     ][0]
+    assert engine.review_claim_state(task)[2] is True
     assert engine.review_claim_state(task, engine.REVIEW_LEASE_MINUTES)[2] is False
+
+    # A lane that died past its own lease no longer blocks the deliverable.
+    age_claim(root, handle, 41)
+    task = [
+        t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == handle
+    ][0]
+    assert engine.review_claim_state(task)[2] is False
     assert (
         cli("--project", project, "review", "developer", handle, "--claim", "--by", "reviewer-2")
         == 0
@@ -306,3 +321,172 @@ def test_packet_is_read_only(cli, project: Path) -> None:
         cli("--project", project, "review", "developer", handle, "--packet", "--result", "pass")
         == 2
     )
+
+
+def test_a_deep_review_claims_a_longer_lease_than_a_prose_review(cli, project: Path) -> None:
+    """The lease follows the work: prose is cheap to restart, a deep review is not."""
+    root = init(cli, project)
+    fast = engine.review_lease_for_profile(root, "fast")
+    standard = engine.review_lease_for_profile(root, "standard")
+    deep = engine.review_lease_for_profile(root, "deep")
+    assert fast == engine.REVIEW_LEASE_MINUTES
+    assert fast < standard < deep
+    assert engine.review_lease_for_profile(root, "fast") == engine.REVIEW_LEASE_MINUTES
+    # The cap wins over the multiplier, so a misconfigured base cannot freeze work.
+    # Written through the real Settings file: the base lease is what the cap caps.
+    import json
+
+    settings = engine.providers_path(root)
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    data["ReviewLeaseMinutes"] = 100
+    data["ReviewLeaseMaxMinutes"] = 240
+    settings.write_text(json.dumps(data), encoding="utf-8")
+    assert engine.review_lease_for_profile(root, "deep") == 240
+    data["ReviewLeaseMaxMinutes"] = 30
+    settings.write_text(json.dumps(data), encoding="utf-8")
+    assert engine.review_lease_for_profile(root, "deep") == 30
+    assert engine.review_lease_for_profile(root, "standard") == 30
+    assert engine.review_lease_for_profile(root, "fast") == 30
+
+
+def test_the_queue_lists_only_work_the_author_submitted(cli, project: Path, capsys) -> None:
+    """A todo task has no frozen diff; counting it inflated the queue and the advice."""
+    root = init(cli, project)
+    submitted = submit(cli, project, root, "ready to review")
+    assert cli("--project", project, "task", "add", "developer", "not submitted yet") == 0
+    capsys.readouterr()
+    assert cli("--project", project, "review", "--queue") == 0
+    out = capsys.readouterr().out
+    assert submitted in out
+    assert "not submitted yet" not in out, "a todo task is not awaiting review"
+    assert "1 deliverable(s) to review" in out
+
+
+def test_review_next_claims_and_prints_the_top_packet_in_one_step(
+    cli, project: Path, capsys
+) -> None:
+    root = init(cli, project)
+    low = submit(cli, project, root, "low priority", "--priority", "P2")
+    high = submit(cli, project, root, "high priority", "--priority", "P0")
+    capsys.readouterr()
+    assert cli("--project", project, "review", "--next", "--by", "reviewer-1") == 0
+    out = capsys.readouterr().out
+    assert high in out and "# Review packet:" in out, "the claimed packet is printed"
+    assert low not in out
+    tasks = engine.parse_tasks(engine.task_file(root, "developer"))
+    claimed = [t for t in tasks if t["id"] == high][0]
+    assert claimed["review_claim"] == "Reviewer-1"
+    assert engine.review_is_held(claimed)
+
+    # One lane, one deliverable: a deep review is not divisible.
+    assert cli("--project", project, "review", "--next", "--by", "reviewer-1") == 2
+    capsys.readouterr()
+    # The other lane takes the next item.
+    assert cli("--project", project, "review", "--next", "--by", "reviewer-2") == 0
+    out = capsys.readouterr().out
+    assert low in out
+
+
+def test_review_next_reports_an_empty_queue_with_its_own_exit_code(
+    cli, project: Path, capsys
+) -> None:
+    init(cli, project)
+    capsys.readouterr()
+    assert cli("--project", project, "review", "--next", "--by", "reviewer-1") == 3
+    assert "nothing awaiting review" in capsys.readouterr().out
+
+
+def test_coordination_reports_a_claim_that_outlived_its_lease(cli, project: Path) -> None:
+    root = init(cli, project)
+    handle = submit(cli, project, root, "stale claim")
+    assert (
+        cli("--project", project, "review", "developer", handle, "--claim", "--by", "reviewer-1")
+        == 0
+    )
+    age_claim(root, handle, 2 * engine.REVIEW_LEASE_MINUTES + 1)
+    report = engine.coordination_report(root)
+    assert report["metrics"]["review_expired_claims"] == 1
+    assert "C-REVIEW-LEASE" in {finding["code"] for finding in report["findings"]}
+
+
+def test_release_clears_every_claim_field(cli, project: Path) -> None:
+    """A released claim must not lend its profile or lease to the next claimant."""
+    root = init(cli, project)
+    handle = submit(cli, project, root, "released claim")
+    assert (
+        cli("--project", project, "review", "developer", handle, "--claim", "--by", "reviewer-1")
+        == 0
+    )
+    assert (
+        cli("--project", project, "review", "developer", handle, "--release", "--by", "reviewer-1")
+        == 0
+    )
+    task = [
+        t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == handle
+    ][0]
+    assert task["review_claim"] == ""
+    assert task["review_claim_ts"] == ""
+    assert task["review_claim_profile"] == ""
+    assert task["review_claim_lease"] == ""
+
+
+def test_a_claim_after_a_release_gets_the_current_profiles_lease(cli, project: Path) -> None:
+    """The next lane's lease follows the diff it reviews, not the released claim."""
+    root = init(cli, project)
+    deep = submit(cli, project, root, "deep review after a release", "--review-profile", "deep")
+    assert (
+        cli("--project", project, "review", "developer", deep, "--claim", "--by", "reviewer-1") == 0
+    )
+    # The claim was explicitly deep: 4x the base, and the stored lease says so.
+    task = [t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == deep][
+        0
+    ]
+    assert task["review_claim_profile"] == "deep"
+    assert task["review_claim_lease"] == str(4 * engine.REVIEW_LEASE_MINUTES)
+    assert (
+        cli("--project", project, "review", "developer", deep, "--release", "--by", "reviewer-1")
+        == 0
+    )
+    assert (
+        cli("--project", project, "review", "developer", deep, "--claim", "--by", "reviewer-2") == 0
+    )
+    task = [t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == deep][
+        0
+    ]
+    assert task["review_claim"] == "Reviewer-2"
+    assert task["review_claim_profile"] == "deep"
+    assert task["review_claim_lease"] == str(4 * engine.REVIEW_LEASE_MINUTES)
+
+
+def test_a_take_over_gets_the_current_profiles_lease(cli, project: Path) -> None:
+    """The case that distinguishes the stored lease from the profile lease.
+
+    A release clears the stored lease, so a release-then-claim test recomputes
+    either way. The stored lease is observable only on a take-over: a live
+    standard claim (40m) whose profile is widened to deep, aged past 40m, then
+    taken over by the other lane must be granted the CURRENT profile's 80m, not
+    the 40m the expired claim was granted.
+    """
+    root = init(cli, project)
+    handle = submit(cli, project, root, "take over a widened claim", "--review-profile", "standard")
+    assert (
+        cli("--project", project, "review", "developer", handle, "--claim", "--by", "reviewer-1")
+        == 0
+    )
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    task = [t for t in tasks if t["id"] == handle][0]
+    assert task["review_claim_lease"] == str(2 * engine.REVIEW_LEASE_MINUTES)
+    task["review_profile"] = "deep"
+    engine.write_tasks(path, tasks, "developer")
+    age_claim(root, handle, 2 * engine.REVIEW_LEASE_MINUTES + 1)
+    assert (
+        cli("--project", project, "review", "developer", handle, "--claim", "--by", "reviewer-2")
+        == 0
+    )
+    task = [
+        t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == handle
+    ][0]
+    assert task["review_claim"] == "Reviewer-2"
+    assert task["review_claim_profile"] == "deep"
+    assert task["review_claim_lease"] == str(4 * engine.REVIEW_LEASE_MINUTES)
