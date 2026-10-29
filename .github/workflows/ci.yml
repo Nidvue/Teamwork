@@ -453,6 +453,15 @@ jobs:
     # decides, so a tag push is green because the checker excludes the tag at
     # HEAD - not because the workflow hid the finding.
     #
+    # R2's scope (11.2.2.1, D-20261029-Architect): a pull request publishes
+    # nothing, so the gate passes `--head-is-default-branch=no` there and R2
+    # reports SKIP instead of a false DRIFT on a branch cut from a
+    # tagged-but-unbumped `main`. Every other event - a push to `main`, a `v*`
+    # tag push - keeps the fail-closed default `yes`, so R2 is still evaluated
+    # where a version is actually published, and a tag placed on an older commit
+    # is still caught. One flag, one invocation; the rule is not re-implemented
+    # in shell here.
+    #
     # If `scripts/check_release_consistency.py` is not in the tree the gate
     # cannot run at all. That is reported plainly and the job fails with exit
     # 2: the checker is the subject of the gate, so its absence is an
@@ -471,6 +480,13 @@ jobs:
         with:
           python-version: "3.12"
       - name: Release consistency gate (offline)
+        env:
+          # 11.2.2.1: `no` on a pull request (R2 SKIP - nothing is published),
+          # `yes` on every other event (R2 evaluated - the fail-closed default).
+          # Both arms are spelled out, so a change of either is reviewable, and
+          # deleting this line cannot make the gate green: the checker's own
+          # default is `yes`.
+          HEAD_IS_DEFAULT_BRANCH: ${{ github.event_name == 'pull_request' && 'no' || 'yes' }}
         run: |
           set -uo pipefail
           CHECKER="scripts/check_release_consistency.py"
@@ -480,7 +496,7 @@ jobs:
           fi
           REPORT="$(mktemp)"
           GATE_RC=0
-          python "${CHECKER}" --offline --json > "${REPORT}" || GATE_RC=$?
+          python "${CHECKER}" --offline --json --head-is-default-branch="${HEAD_IS_DEFAULT_BRANCH}" > "${REPORT}" || GATE_RC=$?
           python - "${REPORT}" "${GATE_RC}" <<'PY'
           import json
           import sys
