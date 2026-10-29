@@ -3220,15 +3220,22 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
     )
     if proc.returncode != 0:
         # A range whose base does not resolve is not a usage error: a push after a
-        # rewrite, or a pull_request event's all-zero "before", leaves exactly that.
-        # The tip is what can be measured, so measure it and say so.
+        # rewrite, or a pull_request event's stale "before", leaves exactly that.
+        # The tip is what can be measured, so measure that one commit and say so.
+        # Measuring its whole ancestry instead would fail a pull request on an
+        # old commit that main accepted long ago: measured on run 40789321527,
+        # the fallback named 6348825 (an ancestor of main, not part of the PR).
         tip = rev_range.split("..", 1)[1].strip() if ".." in rev_range else rev_range
         print(
             f"# {rev_range} cannot be read ({proc.stderr.strip()}); "
-            f"auditing the tip only, the span before it is unmeasurable"
+            f"auditing the tip commit only, the span before it is unmeasurable"
         )
         proc = run_git(
-            project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", tip or "HEAD"
+            project,
+            "log",
+            "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e",
+            "--max-count=1",
+            tip or "HEAD",
         )
         rev_range = tip or "HEAD"
         if proc.returncode != 0:
