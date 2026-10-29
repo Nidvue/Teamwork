@@ -94,6 +94,12 @@ ENTRY_RE = re.compile(r"^##\s+(M-\d+)\s*(?:·|:)?\s*(.*)$")
 
 META_RE = re.compile(r"^-\s+([a-z_]+):\s*(.*)$")
 
+#: Metadata the model holds as a number while ``render_tasks`` writes it as text.
+#: ``new_task`` seeds these as ``int``, so without coercion in the parser a
+#: round-trip silently changes their type and a reader that compares the value
+#: (``t["review_fails"] >= 3``) raises ``TypeError`` on a reloaded queue only.
+NUMERIC_FIELDS = frozenset({"review_fails"})
+
 TASK_HEADER = (
     "# Task queue - {owner} (shared by every {owner} instance)\n\n"
     "> Priority ordered (P0 highest). `task next <instance>` atomically claims the\n"
@@ -623,7 +629,10 @@ def parse_tasks(path: Path) -> list:
                     "review_artifacts",
                     "review_fails",
                 ):
-                    current[field] = value
+                    if field in NUMERIC_FIELDS:
+                        current[field] = int(value) if value.isdigit() else 0
+                    else:
+                        current[field] = value
                 continue
             in_body = True
         current["body"] = (current["body"] + "\n" + raw).strip()

@@ -6,8 +6,8 @@ pi layer shipped twice).
 
 Pinned here: the built manifest carries the repository's licence, every declared
 path exists, npm's `files` list covers what the tarball needs, the host-provided
-packages stay peers, and the pi adapter tree is not duplicated inside the portable
-skill.
+packages stay peers, the pi adapter tree is not duplicated inside the portable
+skill, and the command line answers `--help` without assembling a package.
 """
 
 from __future__ import annotations
@@ -95,3 +95,53 @@ def test_engine_and_skill_are_runnable_from_the_tarball(tmp_path: Path) -> None:
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip().startswith("teamwork "), done.stdout
+
+
+# --------------------------------------------------------------------------- #
+# The command line: asking what this script does must never build anything
+# --------------------------------------------------------------------------- #
+
+
+def dist_entries() -> set[str]:
+    """Everything the default output directory holds, recursively."""
+    dist = ROOT / "dist"
+    return {str(p.relative_to(dist)) for p in dist.rglob("*")} if dist.is_dir() else set()
+
+
+def run_script(*argv: str, cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(BUILD), *argv], cwd=str(cwd), capture_output=True, text=True
+    )
+
+
+def test_help_exits_zero_before_touching_the_filesystem(tmp_path: Path) -> None:
+    """The CI probe runs every workflow script with ``--help`` and must create nothing.
+
+    The hand-rolled argv scan looked for a literal ``--out`` and otherwise fell
+    through to a full build, so the probe assembled a real package into
+    ``dist/@nidvue/teamwork`` - residue ``release.yml`` had to delete before it
+    could publish.
+    """
+    before = dist_entries()
+    done = run_script("--help", cwd=tmp_path)
+    assert done.returncode == 0, done.stderr
+    assert "--out" in done.stdout, "the help text does not document the only flag"
+    assert dist_entries() == before, "`--help` assembled a package into dist/"
+    assert list(tmp_path.iterdir()) == [], "`--help` wrote into the working directory"
+
+
+def test_a_flag_without_its_value_is_a_usage_error_not_a_traceback(tmp_path: Path) -> None:
+    """``--out`` with no value raised ``IndexError`` from ``argv.index(...) + 1``."""
+    done = run_script("--out", cwd=tmp_path)
+    assert done.returncode == 2, (done.returncode, done.stderr)
+    assert done.stderr.startswith("usage:"), done.stderr
+    assert "Traceback" not in done.stderr
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_an_unknown_flag_is_refused_before_anything_is_built(tmp_path: Path) -> None:
+    before = dist_entries()
+    done = run_script("--nonesuch", cwd=tmp_path)
+    assert done.returncode == 2, (done.returncode, done.stderr)
+    assert "unrecognized arguments: --nonesuch" in done.stderr, done.stderr
+    assert dist_entries() == before, "an unknown flag still built a package"
