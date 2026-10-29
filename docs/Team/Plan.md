@@ -674,6 +674,34 @@ that closes AC-22's evidence is release-engineer T-0015, blocked on the operator
 npm credential, and AC-23 also waits on the `github-pages` environment policy
 (ceo T-0011).
 
+## M13 - Code integrity, CI truth and reviewer throughput (live)
+
+Intake: the user asked for a systematic review of the code that fixes what it
+finds, the CI errors fixed, and the reviewer lane made faster because it had
+become the bottleneck. Scope, non-goals and the machine criteria AC-R1..AC-R7 are
+in [Project](Project.md); this section names the lanes and where their evidence
+lands.
+
+| lane | what it owns | evidence |
+|---|---|---|
+| Reviewer-1 audit | `engine.py` task/queue/review/pulse/loop paths, ranked findings with a reproduction each | `Agents/Reviewer-1/Reports/M13-engine-audit.md` |
+| Reviewer-2 audit | support modules, `scripts/`, workflows, Makefile | `Agents/Reviewer-2/Reports/M13-support-audit.md` |
+| Tester audit | vacuous/flaky tests, cross-platform hazards, CI scope paths | `Agents/Tester/Reports/M13-test-audit.md` |
+| Security audit | `privacy_scan.py` rule coverage and the release trust boundary | `Agents/SecurityAuditor/Reports/M13-security-audit.md` |
+| Fix lanes | one branch and PR per task, each with its own test; the Reviewer that verified it merges it | `teamwork.py task list developer`, [Archive](Archive.md) |
+| Architect | the R2-on-a-feature-branch decision and the committer-guard fallback scope | [Decisions](Decisions.md), [Architecture](Architecture.md) section 11.2.2 |
+
+Measured before the throughput change, from this team's own ledger on 2026-10-29:
+a review claim lived 20 minutes while claim-to-verdict was p50 42.4 / p90 125.2
+minutes, so a standard or deep claim could be taken over mid-review; and
+`review --queue` listed ten unfinished tasks where one was submitted. T-0017 made
+R2 green after the `v1.4.2` tag; T-0015 fixed the committer guard that audited the
+whole ancestry on a pull request; T-0016 made the queue measure submitted work and
+the lease follow the review profile.
+
+Findings that are real but not fixed in this engagement carry a task with the
+audit row as evidence and the reason they wait; they are not dropped silently.
+
 ## Task-graph integrity
 
 The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.
