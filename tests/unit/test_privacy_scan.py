@@ -214,6 +214,61 @@ def test_a_path_that_is_a_whole_token_is_not_a_secret_either():
     assert "api-token" in rules_hit(f"see ProductManager/Artifacts/Harness2 with {token}\n")
 
 
+def test_a_lane_id_in_a_document_path_is_not_a_high_entropy_secret():
+    """The measured false positive: ``M13`` used to split into ``M`` + ``13``.
+
+    ``--history`` was red on main because a table row in ``docs/Team/Plan.md``
+    names the report path below, and the high-entropy rule matched its first 34
+    characters. Every segment is a normal name, but ``M13`` split into a
+    one-letter fragment and a digit group, so the path did not read as a name.
+    A lane, milestone or chapter id is one word (see ``ps._NAME_WORDS``).
+    """
+    line = (
+        "| Security audit | `privacy_scan.py` rule coverage and the release "
+        "trust boundary | `Agents/SecurityAuditor/Reports/M13-security-audit.md` |\n"
+    )
+    assert "high-entropy-secret" not in rules_hit(line)
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "docs/C5.md",
+        "docs/M13/report.md",
+        "docs/M13-security-audit.md",
+        "Agents/SecurityAuditor/Reports/M13-security-audit.md",
+        "ProductManager/Artifacts/Harness2-Brief.md",
+    ],
+)
+def test_a_capital_letter_fused_to_digits_is_one_name_part(token):
+    """The accepted direction, at the recogniser: an id is a word, not a fragment."""
+    assert ps._is_path_name(token)
+
+
+_RANDOM_32 = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6"
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        # A one-letter word that is NOT fused to digits is still a fragment.
+        "Abcdefghij/K/Lmnopqrst",
+        # The existing random-base64 fixture, which happens to contain a slash.
+        _RANDOM_32 + "/Q7r8S9t0",
+        # Alternating letter/digit fragments that are not ids stay fragments.
+        _RANDOM_32 + "/" + "Q7r8S9t0Ab1",
+    ],
+)
+def test_the_path_exemption_still_rejects_random_and_fragment_tokens(token):
+    """The rejected direction: the id fix must not make every token a path."""
+    assert not ps._is_path_name(token)
+
+
+def test_a_secret_next_to_a_lane_id_is_still_reported():
+    """A path on the line does not exempt a whole-token credential beside it."""
+    assert "high-entropy-secret" in rules_hit(f"see docs/M13-notes.md and the key {_RANDOM_32}\n")
+
+
 @pytest.mark.parametrize(
     "line",
     [
