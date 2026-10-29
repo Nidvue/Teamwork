@@ -7,11 +7,14 @@ skills as ``<root>/<name>/SKILL.md``. Copying the skill into the published tree 
 build time keeps one source of truth in git and one conventional layout in the
 tarball, instead of maintaining two copies of every reference file.
 
-Usage: ``python3 scripts/build_pi_package.py [--out dist]``
+Usage: ``python3 scripts/build_pi_package.py [--out dist]`` - ``--help`` is safe:
+argument parsing happens before anything touches the filesystem, so a probe that
+asks this script what it does can never leave a build behind.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import shutil
@@ -168,8 +171,33 @@ def copy_docs(dest: Path) -> None:
             shutil.copy2(source, dest / name)
 
 
+def parser() -> argparse.ArgumentParser:
+    """``argparse``, like every other script here: ``--help`` exits 0 and a
+    malformed command line exits 2 with a usage line, neither of which builds.
+
+    The hand-rolled ``argv.index("--out") + 1`` it replaces raised ``IndexError``
+    on a bare ``--out`` and, worse, built on *any* invocation that parsed - so the
+    CI probe that runs every workflow script with ``--help`` assembled a real
+    package into ``dist/``.
+    """
+    p = argparse.ArgumentParser(
+        prog="build_pi_package.py",
+        description=(
+            f"assemble the pi package (@nidvue/teamwork) from this repository, writing <out>/{NAME}"
+        ),
+    )
+    p.add_argument(
+        "--out",
+        default="",
+        metavar="DIR",
+        help="directory to assemble into (default: <repository>/dist)",
+    )
+    return p
+
+
 def main(argv: list[str]) -> int:
-    out = Path(argv[argv.index("--out") + 1]) if "--out" in argv else ROOT / "dist"
+    args = parser().parse_args(argv)
+    out = Path(args.out) if args.out else ROOT / "dist"
     dest = out / NAME
     if dest.exists():
         shutil.rmtree(dest)
