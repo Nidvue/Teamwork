@@ -121,3 +121,36 @@ def test_find_task_by_id_and_substring() -> None:
     assert engine.find_task(tasks, "T-0002") == 1
     assert engine.find_task(tasks, "alpha") == 0
     assert engine.find_task(tasks, "nope") is None
+
+
+def test_review_fails_survives_a_round_trip_as_an_int(tmp_path: Path) -> None:
+    """`new_task` seeds `review_fails` as int; the renderer writes text.
+
+    Every reader used to have to remember `int(...)` because the parser handed the
+    field back as a string, so a reloaded queue changed the field's type and a
+    direct comparison raised `TypeError` on the second read only.
+    """
+    path = tmp_path / "TaskQueue.md"
+    task = engine.new_task("failing review")
+    task["review_fails"] = 2
+    engine.write_tasks(path, [task], "developer")
+
+    reloaded = engine.parse_tasks(path)[0]
+    assert reloaded["review_fails"] == 2
+    assert isinstance(reloaded["review_fails"], int), type(reloaded["review_fails"])
+
+
+def test_a_corrupt_review_fails_line_parses_to_zero(tmp_path: Path) -> None:
+    """A hand-edited queue must not turn a counter into a string that never compares."""
+    path = tmp_path / "TaskQueue.md"
+    path.write_text(
+        "# Task queue\n\n"
+        "## T-0001 · hand edited\n"
+        "- priority: P2\n"
+        "- status: todo\n"
+        "- review_fails: garbage\n"
+        "\n"
+        "body\n",
+        encoding="utf-8",
+    )
+    assert engine.parse_tasks(path)[0]["review_fails"] == 0
