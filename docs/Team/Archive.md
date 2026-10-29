@@ -3259,4 +3259,4 @@ Advisory to the PM lane (not charged here): P-0009 must land promptly after this
 - author evidence: commit 76fea79
 - reviewer evidence: 
 - findings history: 
-- branch / merge: ceo/t-0022-chore-records-final-board-render-after-t / pending
+- branch / merge: ceo/t-0022-chore-records-final-board-render-after-t / e7e4768
