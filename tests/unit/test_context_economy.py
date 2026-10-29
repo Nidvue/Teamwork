@@ -97,6 +97,31 @@ def task_to_review(cli, project: Path, root: Path) -> None:
     assert cli("--project", project, "task", "next", "developer-1") == 0
 
 
+def submitted_task(cli, project: Path, root: Path) -> None:
+    """Claim T-0001 and submit it: only a submitted deliverable is in the queue."""
+    task_to_review(cli, project, root)
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--status", "selfcheck")
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            "--note",
+            "re-read the diff",
+            "--test",
+            "pytest @HEAD -> 1 passed",
+        )
+        == 0
+    )
+
+
 def ship_and_open_pr(cli, project: Path, root: Path) -> None:
     """Full owner path up to an open PR: branch, commit, self-check, ``pr open``."""
     task_to_review(cli, project, root)
@@ -213,7 +238,7 @@ def test_clip_keeps_the_head_and_counts_the_omitted_tail() -> None:
 
 def test_review_queue_clips_author_evidence_by_default(cli, project: Path, capsys) -> None:
     root = init_workspace(cli, project, git=False)
-    task_to_review(cli, project, root)
+    submitted_task(cli, project, root)
     out = render(cli, capsys, "--project", project, "review", "--queue")
     assert queue_author_line() in out
     assert AUTHOR_TAIL not in out
@@ -221,7 +246,7 @@ def test_review_queue_clips_author_evidence_by_default(cli, project: Path, capsy
 
 def test_review_queue_full_prints_the_omitted_text(cli, project: Path, capsys) -> None:
     root = init_workspace(cli, project, git=False)
-    task_to_review(cli, project, root)
+    submitted_task(cli, project, root)
     out = render(cli, capsys, "--project", project, "review", "--queue", "--full")
     assert AUTHOR_TAIL in out
     assert AUTHOR_LONG in out
@@ -247,6 +272,28 @@ def test_review_queue_clips_findings_too_and_counts_them(cli, project: Path, cap
             "pytest @HEAD -> 1 failed",
             "--findings",
             FINDINGS_LONG,
+        )
+        == 0
+    )
+    # A fail returns the deliverable to the author; it re-enters the queue only on
+    # re-submission, still carrying the findings.
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--status", "selfcheck")
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            "--note",
+            "fix the finding",
+            "--test",
+            "pytest @HEAD -> 1 passed",
         )
         == 0
     )

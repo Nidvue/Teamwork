@@ -65,3 +65,25 @@ def test_the_cap_is_not_left_at_the_retired_bound(repo_root: Path) -> None:
     ]
     assert '"ollama-cloud": 10' not in block
     assert '"default": 8' not in block
+
+
+def test_a_settings_only_key_never_becomes_a_provider_cap(tmp_path: Path) -> None:
+    """`ReviewLeaseMaxMinutes` is a review setting, not a model provider.
+
+    Settings.json also carries provider caps, and load_providers treats every key
+    it does not know as one. A missing entry in SETTINGS_NON_PROVIDER therefore
+    turns a documented review setting into a phantom pool and inflates the free
+    slot count the CEO scales lanes on.
+    """
+    from teamwork import engine
+
+    assert "ReviewLeaseMaxMinutes" in config.SETTINGS_NON_PROVIDER
+    assert "ReviewLeaseMinutes" in config.SETTINGS_NON_PROVIDER
+    root = tmp_path / ".pi" / "Teamwork" / "Teams" / "Probe"
+    root.mkdir(parents=True)
+    engine.providers_path(root).write_text(
+        '{"ReviewLeaseMaxMinutes": 30, "ollama-cloud": 64}', encoding="utf-8"
+    )
+    caps = engine.load_providers(root)
+    assert "ReviewLeaseMaxMinutes" not in caps
+    assert caps["ollama-cloud"] == 64

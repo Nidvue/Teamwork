@@ -618,19 +618,27 @@ verification started and how to rerun it. `--force` overrides the review gates
 and requires a recorded reason.
 
 Several Reviewers may run at once, so a lane announces what it took:
-`review <role> <T-id> --claim --by <reviewer>` puts a **20-minute** work lease on
-one deliverable (`ReviewLeaseMinutes` / `TEAMWORK_REVIEW_LEASE_MINUTES`),
-`--renew` extends it, and `--release` hands an unfinished one back. A lease nobody
-renews expires and the next lane takes it over; `--force <reason>` releases
-another lane's live claim, which is the case where that lane is dead. The claim,
-renew and release modes take no `--result` - the verdict is a separate call.
+`review --next --by <reviewer>` claims the highest-priority unclaimed deliverable
+and prints its packet in one atomic step, and
+`review <role> <T-id> --claim --by <reviewer>` pins a specific one. A claim is a
+work lease scaled to its profile - base `ReviewLeaseMinutes` /
+`TEAMWORK_REVIEW_LEASE_MINUTES` (20 min) ×1 for a prose diff, ×2 standard, ×4 deep,
+capped by `ReviewLeaseMaxMinutes` - so a deep review is not taken over mid-flight
+while a prose one frees its item quickly. `--renew` extends it, and `--release`
+hands an unfinished one back. `review --next` claims the highest-priority unclaimed
+deliverable and prints its packet in one step; it exits `3` when the queue is empty.
+A lease nobody renews expires and the next lane takes it over; `--force <reason>` releases another lane's live claim, which is the
+case where that lane is dead. The claim, renew and release modes take no
+`--result` - the verdict is a separate call.
 
 `--packet` prints what a Reviewer needs before claiming: the inferred profile
 (`fast` prose-only, `standard` code, `deep` security/release/data/workflow), the
 changed files and diffstat, the author's self-check, the gate set for that profile
 and the ordered checklist. `--queue --packet` prints a packet per item. The queue
-is sorted by priority then age and prints the lane capacity, so the CEO can see
-when to staff another Reviewer lane.
+lists only work the author has submitted - a `todo` has no frozen diff - and is
+sorted by priority then age; it prints the lane capacity, the per-profile lease and
+the number of expired claims, so the CEO can see when to staff another Reviewer
+lane.
 
 Independence is about the **author**, not about a second Reviewer: the author
 never reviews or merges its own work, and a Reviewer who co-authored a
