@@ -156,8 +156,8 @@ under two roles is two tasks.
 | developer | T-0042 | - | dropped | - | - |
 | developer | T-0043 | board | done | P-0066 | 321d0c4 |
 | developer | T-0044 | deliver | done | P-0059 | e9eaacf |
-| developer | T-0045 | - | dropped | - | - |
-| developer | T-0046 | - | dropped | - | - |
+| developer | T-0045 | - | todo | - | - |
+| developer | T-0046 | - | todo | - | - |
 | developer | T-0047 | - | dropped | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
@@ -190,6 +190,8 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0045 · fix(docs): the preflight surface still quotes the retired 38/43 figure | P2 | todo | - |
+| developer | T-0046 · fix(records): a review fail must record its own findings, not the accumulated first 200 characters | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
