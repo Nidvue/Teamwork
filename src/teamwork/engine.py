@@ -254,6 +254,7 @@ from .records import (
     find_task,
     find_test,
     header_for,
+    load_task_queues,
     local_dep_map,
     merge_entries,
     merge_tasks,
@@ -264,6 +265,7 @@ from .records import (
     new_skill,
     new_task,
     new_test_record,
+    next_id,
     parse_criteria,
     parse_date,
     parse_disputes,
@@ -282,6 +284,7 @@ from .records import (
     render_testplan,
     render_tests,
     score,
+    task_graph_problems,
     today,
     today_iso,
     write_criteria,
@@ -5951,6 +5954,27 @@ def cmd_clean(args) -> int:
 # --------------------------------------------------------------------------- #
 
 
+def require_runnable_task_graph(root: Path, role: str, tasks: list) -> None:
+    """Refuse a write that would leave the task graph unrunnable.
+
+    A dangling dep, a self-dependency or a cycle deadlocks the queue: `task next`
+    then reports "no unclaimed executable task" as if the workload were empty,
+    with no hint that the graph is the cause. The write is the only moment the
+    operator still has the ids in hand, so the refusal happens there and names
+    the offending task - for a cycle, its whole path.
+    """
+    problems = task_graph_problems(root, role, tasks)
+    if not problems:
+        return
+    die(
+        "refusing to write an unrunnable task graph:\n"
+        + "\n".join(f"  - {problem}" for problem in problems)
+        + "\n  fix a dependency with `task set <agent> <T-id> --deps ...`; "
+        "`task check` reports the same problems for the whole team.",
+        2,
+    )
+
+
 def cmd_task_add(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
@@ -5982,6 +6006,10 @@ def cmd_task_add(args) -> int:
                 )
                 return 0
         tasks.append(t)
+        # The id has to exist before the graph is checked, or a dep on this very
+        # task would read as unknown and a self-dependency could not be seen.
+        t["id"] = next_id(tasks, "T-")
+        require_runnable_task_graph(root, role, tasks)
         write_tasks(path, tasks, role)
     ledger_append(
         root, "task.add", args.agent, t["id"], f"[{t['priority']}] {t['title']}", "", role
@@ -6124,6 +6152,8 @@ def cmd_task_set(args) -> int:
             t["priority"] = args.priority.upper()
         if args.deps is not None:
             t["deps"] = args.deps
+            # Every write that changes the edges must leave a graph that can run.
+            require_runnable_task_graph(root, role, tasks)
         if args.title:
             t["title"] = args.title
         if args.evidence is not None:
@@ -6200,6 +6230,25 @@ def cmd_task_set(args) -> int:
     if t.get("evidence"):
         print(f"          evidence: {t['evidence']}")
     return 0
+
+
+def cmd_task_check(args) -> int:
+    """Read-side twin of the write gate: the same invariants over the queues on disk."""
+    root = project_root(args)
+    queues = load_task_queues(root)
+    problems = task_graph_problems(root)
+    if not problems:
+        print(f"# task graph: 0 problems in {len(queues)} role queue(s)")
+        return 0
+    print(f"teamwork: the task graph has {len(problems)} problem(s):")
+    for problem in sorted(problems):
+        print(f"  - {problem}")
+    print(
+        "  a dependency that never resolves is never executable: `task next` reports\n"
+        "  the lane as idle, not the graph as broken. Repair the named edges with\n"
+        "  `task set <agent> <T-id> --deps ...`."
+    )
+    return 2
 
 
 def cmd_task_reclaim(args) -> int:
@@ -11509,6 +11558,13 @@ def _parsers_workspace(sub, common) -> None:
         "required and is recorded and audited",
     )
     s.set_defaults(func=cmd_task_set)
+
+    s = tsub.add_parser(
+        "check",
+        parents=[common],
+        help="verify the task graph: deps resolve, no cycle, no duplicate id",
+    )
+    s.set_defaults(func=cmd_task_check)
 
     s = tsub.add_parser(
         "reclaim", parents=[common], help="take back a task whose owner went silent"
