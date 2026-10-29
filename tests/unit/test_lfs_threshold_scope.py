@@ -341,16 +341,18 @@ def test_the_hook_module_asks_the_shared_predicate(repo: Path, monkeypatch) -> N
     """One predicate, not two copies: the hook calls the shared one.
 
     A second copy of the binary test in the hook module is how the gates drift
-    apart again, so the wiring itself is asserted.
+    apart again, so the wiring itself is asserted. The staged path asks the
+    byte-level form (the content the commit records, T-0024/H5) and the deletion
+    fallback asks the file form; both are `gitutil`'s.
     """
-    calls: list = []
-    real = gitutil.is_binary_content
+    sniffed: list = []
+    real = gitutil.is_binary_bytes
 
-    def spy(path: Path) -> bool:
-        calls.append(path)
-        return real(path)
+    def spy(head: bytes) -> bool:
+        sniffed.append(head)
+        return real(head)
 
-    monkeypatch.setattr(hooks, "is_binary_content", spy)
+    monkeypatch.setattr(hooks, "is_binary_bytes", spy)
     git(repo, "checkout", "-q", "-b", "feature")
     blob = write_binary(repo / "assets" / "weights.dat", BIG)
     stage(blob)
@@ -358,7 +360,32 @@ def test_the_hook_module_asks_the_shared_predicate(repo: Path, monkeypatch) -> N
     blocked = hooks.large_staged_files(repo)
 
     assert [rel for rel, _ in blocked] == ["assets/weights.dat"]
-    assert calls, "the hook did not ask the shared binary predicate"
+    assert sniffed and sniffed[0][:8] == blob.read_bytes()[:8], (
+        "the hook did not ask the shared binary predicate"
+    )
+
+
+def test_the_work_tree_fallback_is_the_only_path_that_reads_a_file(repo: Path, monkeypatch) -> None:
+    """The work-tree read survives only where the index has no entry to read.
+
+    A path the index does not hold (a staged deletion, or a conflicted path whose
+    entry is not at stage 0) has nothing to commit: the gate falls back to the
+    file, and the verdict is still the shared predicate. A path that is gone from
+    both is no candidate at all rather than an error.
+    """
+    read: list = []
+    real = gitutil.is_binary_content
+
+    def spy(path: Path) -> bool:
+        read.append(path)
+        return real(path)
+
+    monkeypatch.setattr(hooks, "is_binary_content", spy)
+    blob = write_binary(repo / "assets" / "unstaged.bin", 4096)
+
+    assert hooks.staged_verdict(repo, "assets/unstaged.bin") == (4096, True)
+    assert read == [blob], "the fallback did not ask the shared file predicate"
+    assert hooks.staged_verdict(repo, "gone/missing.bin") == (None, False)
 
 
 # --------------------------------------------------------------------------- #
