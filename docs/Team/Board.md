@@ -107,7 +107,9 @@ under two roles is two tasks.
 | ceo | T-0019 | - | dropped | - | - |
 | ceo | T-0020 | records | done | P-0058 | bcf48e7 |
 | ceo | T-0021 | - | dropped | - | - |
-| ceo | T-0022 | records | review | P-0060 | - |
+| ceo | T-0022 | records | done | P-0060 | e7e4768 |
+| ceo | T-0023 | records | done | P-0061 | 7c96192 |
+| ceo | T-0024 | records | review | P-0062 | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -151,7 +153,7 @@ under two roles is two tasks.
 | developer | T-0041 | - | dropped | - | - |
 | developer | T-0042 | - | dropped | - | - |
 | developer | T-0043 | - | dropped | - | - |
-| developer | T-0044 | deliver | dropped | P-0059 | - |
+| developer | T-0044 | deliver | doing | P-0059 | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -183,7 +185,8 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0022 · chore(records): final board render after the M13 close | P0 | review | - |
+| ceo | T-0024 · chore(records): final board render at close | P0 | review | - |
+| developer | T-0044 · feat(deliver): one pre-flight gate, so a review round is never spent on a mechanical miss | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
