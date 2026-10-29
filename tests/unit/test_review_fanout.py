@@ -164,7 +164,7 @@ def test_the_pulse_stops_dispatching_reviews_when_every_lane_is_holding_one(lane
     assert "developer/T-0001=Reviewer-1" in out, out
 
     # a stalled lane stops pinning its deliverable once the lease runs out
-    age_claim(root, "T-0001", engine.REVIEW_LEASE_MINUTES + 1)
+    age_claim(root, "T-0001", 2 * engine.REVIEW_LEASE_MINUTES + 1)
     assert cli("--project", project, "pulse") == 0
     out = capsys.readouterr().out
     assert "claim by Reviewer-1 expired" in out and "take it over" in out, out
@@ -211,7 +211,7 @@ def test_a_claim_blocks_another_lane_until_the_lease_expires(lanes, capsys) -> N
     err = capsys.readouterr().err
     assert "held by Reviewer-1" in err and "lease" in err, err
 
-    age_claim(root, "T-0001", engine.REVIEW_LEASE_MINUTES + 1)
+    age_claim(root, "T-0001", 2 * engine.REVIEW_LEASE_MINUTES + 1)
     assert (
         cli("--project", project, "review", "developer", "T-0001", "--claim", "--by", "Reviewer-3")
         == 0
