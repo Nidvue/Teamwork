@@ -716,12 +716,16 @@ grep -h '^- deps: .' .pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md
 Each `role:T-xxxx` above must name an existing queue directory and an existing
 `## T-xxxx` block in it; a name that resolves nowhere is a dangling dependency.
 
-The invariants are executable: `tests/unit/test_task_graph_integrity.py` parses
-the shared queues with role-qualified node keys and fails on a dangling dep, a
-cycle, a duplicate open id, a task with no priority, or this section acquiring a
-census again.
+The invariants are executable: `teamwork.records.task_graph_problems()` resolves
+role-qualified node keys, and `teamwork.py task check` reports the same problems
+over the queues on disk - a dangling dep, a self-dependency or cycle (with its
+path), a queue holding one open id twice, and a task with no priority.
+`tests/unit/test_task_graph_integrity.py` is the invariant record that calls it,
+and the `task add` / `task set --deps` write gates refuse a graph the checker
+rejects, so a deadlocked queue is never written in the first place.
 
 ```sh
+teamwork.py task check
 PYTHONPATH=src python -m pytest tests/unit/test_task_graph_integrity.py -q
 ```
 
