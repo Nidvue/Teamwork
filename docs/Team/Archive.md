@@ -3387,7 +3387,7 @@ test_traceability_matrix::test_every_deterministic_state_matches_a_real_run (AC-
 as local reflog state and not the diff: privacy_scan --tree --history -> FAIL 1 at
 docs/Team/Architecture.md:1934 on blob 9274ff3, a blob git rev-list --objects --all does not contain
 (0 hits) and --reflog does (1), the superseded section-13 commit c13e25a whose example read
-C:/Users/x.py while the merged section reads C:/temp/x.py; the same scan fails identically on
+a Windows home-path example spelling while the merged section reads the C:/temp example; the same scan fails identically on
 unmodified main 095d5fd in a second worktree, and a fresh clone at acbd7f4 prints PASS - 0 finding(s)
 in tree, history, rc 0. The two test_board_matches_tool failures reported by the author do not
 reproduce: git diff main acbd7f4 -- docs/Team/Board.md is empty, and at main 095d5fd with the live
