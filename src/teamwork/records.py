@@ -34,11 +34,12 @@ from .layout import (
     link_fields,
     reviews_path,
     role_dir,
+    roles_dir,
     team_root_from,
     testplan_path,
     tests_path,
 )
-from .names import body_text, one_line
+from .names import body_text, one_line, resolve_role
 
 REVIEWS_HEADER = (
     "# Reviews - PRs awaiting the Reviewer\n\n"
@@ -791,7 +792,7 @@ def local_dep_map(tasks: list) -> dict:
 def executable(t: dict, lookup: dict, cache: dict, root: Path) -> bool:
     if t["status"] != "todo":
         return False
-    for dep in [d for d in re.split(r"[,\s]+", t["deps"]) if d.strip()]:
+    for dep in split_dependencies(t["deps"]):
         if ":" in dep:
             if not dep_satisfied(root, dep, cache):
                 return False
@@ -799,6 +800,149 @@ def executable(t: dict, lookup: dict, cache: dict, root: Path) -> bool:
             if lookup.get(dep.lower()) != "done":
                 return False
     return True
+
+
+#: A dependency is a task id, optionally role-qualified and with a release mode.
+DEP_RE = re.compile(r"^(?:(?P<role>[A-Za-z][A-Za-z0-9-]*):)?(?P<id>T-\d+)(?:@(?P<mode>[a-z]+))?$")
+
+#: Statuses that keep a task in the graph a lane still has to work through.
+OPEN_STATUSES = ("todo", "doing", "selfcheck", "review")
+
+
+def norm_role(name: str) -> str:
+    """`security-auditor`, `SecurityAuditor`, `securityauditor` - one role.
+
+    Queue directories are PascalCase while a dependency may spell the role the
+    way it is displayed, so both sides of a comparison go through this.
+    """
+    return re.sub(r"[^a-z0-9]", "", str(name or "").lower())
+
+
+def split_dependencies(raw: str) -> list[str]:
+    """The dependency strings of one record: comma or whitespace separated.
+
+    ``-`` is the placeholder an empty field is sometimes rendered with, so it
+    means "no dependencies" rather than a task named ``-``.
+    """
+    return [part for part in re.split(r"[,\s]+", raw or "") if part.strip() and part.strip() != "-"]
+
+
+def dep_target(role: str, dep: str) -> tuple[str, str] | None:
+    """The (normalised role, task id) a dependency points at, else ``None``.
+
+    A bare ``T-0001`` resolves inside the queue that writes it; ``role:T-0001``
+    resolves inside that role's queue, and accepts an instance spelling
+    (``developer-1:T-0001``) the way ``dep_satisfied`` already does. The
+    ``@review`` / ``@started`` release mode is not part of the target.
+    """
+    match = DEP_RE.match((dep or "").strip())
+    if match is None:
+        return None
+    qualifier = match.group("role")
+    owner = norm_role(resolve_role(qualifier)) if qualifier else norm_role(role)
+    return owner, match.group("id").upper()
+
+
+def load_task_queues(root: Path) -> dict[str, list[dict]]:
+    """Every role queue in the team tree, keyed by normalised role name."""
+    out: dict[str, list[dict]] = {}
+    base = roles_dir(root)
+    if not base.is_dir():
+        return out
+    for path in sorted(base.glob(f"*/{F_TASKS}")):
+        out[norm_role(path.parent.name)] = parse_tasks(path)
+    return out
+
+
+def task_graph_problems(root: Path, role: str = "", tasks: list | None = None) -> list[str]:
+    """Every way the task graph would be unrunnable, as one line per problem.
+
+    The invariants `docs/Team/Plan.md` states, checked over the whole graph
+    because a dependency crosses role queues and a cycle exists only in their
+    union: every dependency resolves to an existing task and is not the task
+    itself, no queue holds one open id twice, no dependency cycle exists, and
+    every task carries a priority `task next` can order.
+
+    ``role``/``tasks`` check a queue *as it is about to be written* - the write
+    gates pass the parsed queue with the pending change already applied - so a
+    refused write changes nothing on disk. Without them the queues on disk are
+    checked. An empty result means the graph is safe to write.
+    """
+    queues = load_task_queues(root)
+    if role and tasks is not None:
+        queues[norm_role(role)] = list(tasks)
+    known = {
+        (owner, str(t.get("id") or "").upper()) for owner, items in queues.items() for t in items
+    }
+    problems: list[str] = []
+    for owner, items in queues.items():
+        problems.extend(_queue_problems(owner, items, known))
+    problems.extend(_cycle_problems(queues, known))
+    return list(dict.fromkeys(problems))
+
+
+def _queue_problems(owner: str, tasks: list, known: set[tuple[str, str]]) -> list[str]:
+    """The per-queue half of the invariants: ids, priorities and dep targets."""
+    problems: list[str] = []
+    open_ids: dict[str, int] = {}
+    for t in tasks:
+        tid = str(t.get("id") or "").upper()
+        if t.get("status") in OPEN_STATUSES:
+            open_ids[tid] = open_ids.get(tid, 0) + 1
+        if t.get("priority") not in PRIORITY_ORDER:
+            problems.append(f"{owner}:{tid} has no priority, so no lane can order or pick it")
+        for dep in split_dependencies(t.get("deps", "")):
+            target = dep_target(owner, dep)
+            if target is None:
+                problems.append(f"{owner}:{tid} depends on {dep!r}, which is not a task id")
+            elif target == (owner, tid):
+                problems.append(f"{owner}:{tid} depends on itself")
+            elif target not in known:
+                problems.append(f"{owner}:{tid} depends on {dep!r}, which names no task")
+    for tid, count in open_ids.items():
+        if count > 1:
+            problems.append(
+                f"{owner}:{tid} appears {count} times in one queue, so `task set` "
+                "would act on whichever block it read first"
+            )
+    return problems
+
+
+def _cycle_problems(queues: dict[str, list[dict]], known: set[tuple[str, str]]) -> list[str]:
+    """Depth-first walk over the resolved edges; a cycle names its own path.
+
+    A self-loop is already reported by the per-queue pass, so it is not walked
+    here. Every task in a cycle is unexecutable forever, which `task next`
+    reports only as "nothing to do" - hence a named path, not a count.
+    """
+    edges: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    for owner, tasks in queues.items():
+        for t in tasks:
+            node = (owner, str(t.get("id") or "").upper())
+            edges[node] = [
+                target
+                for target in (
+                    dep_target(owner, dep) for dep in split_dependencies(t.get("deps", ""))
+                )
+                if target is not None and target in known and target != node
+            ]
+    found: list[str] = []
+    walked: set[tuple[str, str]] = set()
+
+    def walk(node: tuple[str, str], stack: list[tuple[str, str]]) -> None:
+        if node in stack:
+            loop = stack[stack.index(node) :] + [node]
+            found.append("dependency cycle: " + " -> ".join(f"{role}:{tid}" for role, tid in loop))
+            return
+        if node in walked:
+            return
+        for nxt in edges.get(node, []):
+            walk(nxt, [*stack, node])
+        walked.add(node)
+
+    for node in edges:
+        walk(node, [])
+    return list(dict.fromkeys(found))
 
 
 def today() -> date:
@@ -938,32 +1082,36 @@ def score(entry: dict) -> int:
     )
 
 
+def next_id(items: list, prefix: str) -> str:
+    """The id a new record would get, without renumbering the existing ones.
+
+    A write gate has to know the id *before* it validates the graph, or a
+    dependency on the task being added looks unknown and a self-dependency
+    cannot be seen at all. ``assign_ids`` allocates from the same rule.
+    """
+    used = {str(it.get("id") or "") for it in items}
+    highest = 0
+    for value in used:
+        tail = value.split("-", 1)[1] if "-" in value else ""
+        if tail.isdigit():
+            highest = max(highest, int(tail))
+    while f"{prefix}{highest + 1:04d}" in used:
+        highest += 1
+    return f"{prefix}{highest + 1:04d}"
+
+
 def assign_ids(items: list, prefix: str) -> None:
     """Keep existing ids stable; allocate fresh, collision-free ids for the rest."""
-    used = set()
+    seen = set()
     for it in items:
         i = it.get("id", "")
-        if i and i not in used:
-            used.add(i)
+        if i and i not in seen:
+            seen.add(i)
         else:
             it["id"] = ""
-    counter = 0
     for it in items:
-        if it["id"]:
-            try:
-                counter = max(counter, int(it["id"].split("-")[1]))
-            except (IndexError, ValueError):
-                pass
-    for it in items:
-        if it["id"]:
-            continue
-        while True:
-            counter += 1
-            candidate = f"{prefix}{counter:04d}"
-            if candidate not in used:
-                break
-        it["id"] = candidate
-        used.add(candidate)
+        if not it["id"]:
+            it["id"] = next_id(items, prefix)
 
 
 def merge_entries(target: list, incoming: list, prefix: str = "M-") -> tuple:
