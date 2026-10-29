@@ -65,9 +65,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 277 kB |
-| `standard` | 9 | 401 kB |
-| `full` | 16 | 682 kB |
+| `slim` (default) | 6 | 292 kB |
+| `standard` | 9 | 423 kB |
+| `full` | 16 | 721 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -128,6 +128,72 @@ gate. **Staff two Reviewers** (`reviewer-1`,
 fan the *review* queue out, not to land what the first lane passed. Without a `reviewer` the team cannot pass review
 or merge; without an `architect` nothing freezes interfaces. `init` warns when
 either is missing.
+
+## Throughput contract
+
+Owner: CEO. Ten rules that remove duplicated, redundant and unnecessary work.
+They bind every lane on any roster; the feature-team structure below is the shape
+they are designed for.
+
+1. **One parent, one board.** A role has exactly one line manager. Where a
+   supervision body exists (CEO + CTO + CFO), it holds **decision rights**, never a
+   second reporting line: the board decides, the manager manages. A role with two
+   managers answers to neither.
+2. **One feature, one team.** One open feature per Team Leader. A second
+   concurrent feature means the org is short a leader, not that a lane serialises.
+3. **One owner per artifact, one writer per file.** `Architecture.md`, `Board.md`,
+   `Plan.md`, `Decisions.md`, the test records and every source file have one writer
+   at a time; a second lane waits or is re-scoped. Two open features never share a
+   writable path.
+4. **One verification per fact per revision.** A passing result another role
+   recorded at the revision under review is cited (`review --credit`), not re-run.
+5. **One gate, one place.** CI owns the matrix. The author proves the same checks
+   locally through `preflight`; the Reviewer reads the result instead of executing
+   it again.
+6. **Definition of ready.** Before a squad starts: interface frozen by the
+   Architect, writable paths exclusive, no dependency on another feature's
+   in-flight work, and the slice verifiable on its own. Failing one sends the
+   feature back to the Architect, not to the calendar.
+7. **Definition of done.** `preflight` green at the revision, an independent
+   Reviewer pass, archived, merged. Nothing else counts; a status the board does
+   not show does not exist.
+8. **Generated artifacts render at the merge** *(target; engine support in T-0043)*.
+   `Board.md` and the archive belong to the base branch and are written by the
+   merging Reviewer. Until the merge path does that, a branch that must carry a
+   board render re-renders it as its **last** act, after every other task change,
+   because a render riding a feature branch conflicts with the next merge by
+   construction.
+9. **Right-sized roster.** One Developer and one Tester per feature team; a second
+   Developer only for a genuinely parallel slice; specialists join the squad only
+   for the features that need their layer; Reviewer lanes sized to the queue, not
+   to habit. Every extra lane is a model bill and one more claim to coordinate.
+10. **Small slices, short leases.** A task must fit one review **lease** -
+    20 / 40 / 80 minutes for the fast / standard / deep profile - inside which the
+    reviewer's own **budget** is 10 / 20 / 40 minutes. A slice that needs a deep
+    review is split, not scheduled. A fix after a fail is re-reviewed as a delta by
+    the lane that raised the finding.
+
+### Feature teams (design; engine support in T-0042)
+
+```text
+CEO
+├── CTO ─┬── Architect            (shared service: interface + file-ownership map)
+│        ├── Team Leader A ── Developer, Tester [+ Designer/Data/Writer/Security when the feature needs the layer]
+│        ├── Team Leader B ── Developer, Tester
+│        └── Release Engineer
+├── Product Manager ── Designer, Technical Writer   (pooled, assigned per feature)
+├── Security Auditor              (shared, independent - audits every team and the CTO)
+├── Reviewer-1..N                (independent - the only pass/merge right)
+└── COO ── Project Manager       (shared service: one graph, one board)
+```
+
+A Team Leader owns one feature record, cuts it into tasks that name the feature,
+and is accountable for the vertical slice. A specialist (Designer, Data Engineer,
+Technical Writer, Security Auditor) belongs to the shared pool and **reports to
+one manager at a time**: the Team Leader for the duration of an assignment, and
+their discipline head outside it - never both. That keeps **one line manager per
+role at any moment**, which is why a supervision board can sit above a leader
+without breaking the invariant.
 
 ## Handoff chain
 
