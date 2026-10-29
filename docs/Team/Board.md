@@ -110,7 +110,7 @@ under two roles is two tasks.
 | ceo | T-0022 | records | done | P-0060 | e7e4768 |
 | ceo | T-0023 | records | done | P-0061 | 7c96192 |
 | ceo | T-0024 | records | done | P-0062 | 394a386 |
-| ceo | T-0025 | records | review | P-0064 | - |
+| ceo | T-0025 | records | done | P-0064 | 3a489fb |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -189,7 +189,6 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0025 · chore(records): board render after the close queue | P0 | review | - |
 | developer | T-0043 · fix(board): a generated board must not ride a feature branch, and a pass must not precede an unmergeable revision | P2 | doing | - |
 | developer | T-0047 · fix(records): a bulk sweep must not be able to drop live work silently | P1 | todo | - |
 
