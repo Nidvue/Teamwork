@@ -604,7 +604,7 @@ teamwork review [AGENT] [HANDLE] [--queue] [--full] [--packet]
     [--claim] [--release] [--renew] [--by BY]
     [--result {pass,fail}] [--evidence EVIDENCE] [--artifact PATH]...
     [--baseline BASELINE] [--replay REPLAY] [--findings FINDINGS]
-    [--keep-branch] [--no-merge] [--force REASON]
+    [--credit TS-0006[,TS-0007]] [--keep-branch] [--no-merge] [--force REASON]
 ```
 
 Reviewer: independent second review of a deliverable. `--queue` lists everything
@@ -633,8 +633,23 @@ case where that lane is dead. The claim, renew and release modes take no
 
 `--packet` prints what a Reviewer needs before claiming: the inferred profile
 (`fast` prose-only, `standard` code, `deep` security/release/data/workflow), the
-changed files and diffstat, the author's self-check, the gate set for that profile
-and the ordered checklist. `--queue --packet` prints a packet per item. The queue
+changed files and diffstat, the author's self-check, the gate set for that profile,
+the **credits** available at the revision under review (the passing `tests run`
+records another role made there, with their command, and the author's own record
+excluded), the layers left **uncovered** for the area, and - on a re-submitted fix
+- the review round, the previous findings and the changed files since the failed
+revision. `--queue --packet` prints a packet per item.
+
+Review economy: one run per fact per revision. A gate result another role already
+recorded at this revision is cited, not re-run. `--credit TS-0006` names the record
+your pass relies on; it is validated (the record must exist, be `passing`, carry
+the revision under review, and have been run by a role other than the author's) and
+recorded in the review evidence as
+`credited: TS-0006 integration/harness by Tester @sha`. The Reviewer's own runs are
+the requirement check, the `acceptance` layer, the criteria the packet lists as
+uncovered, and one sampled credit. `--credit` is refused with `--result fail`:
+a fail records findings, not citations. A fail stores the failed revision, so the
+next packet is a **delta** review. The queue
 lists only work the author has submitted - a `todo` has no frozen diff - and is
 sorted by priority then age; it prints the lane capacity, the per-profile lease and
 the number of expired claims, so the CEO can see when to staff another Reviewer

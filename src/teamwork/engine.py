@@ -4520,7 +4520,10 @@ Three steps, in order. You cannot skip any of them.
    If your own check finds a problem, use `--result fail` - the task returns to
    `doing`. A pass records the self-check and submits the task for review.
 3. **Independent review by a Reviewer instance** (ask the CEO which one is
-   assigned to you), who re-verifies from scratch:
+   assigned to you), who verifies what no independent lane verified at your
+   revision, cites the passing records you recorded instead of re-running them
+   (`--packet` lists them, `--credit TS-nnnn` cites one), and re-reviews a fix as
+   a delta against the failed revision:
    `{script} review {role} <T-id> --by <Reviewer instance> --result pass|fail ...`
    A fail comes back to you with findings; fix, self-check and re-submit. Failures
    are counted: at 3 the Reviewer must open a dispute and the tribunal rules, so do
@@ -6775,6 +6778,140 @@ def review_gate_hint(profile: str) -> str:
     return "the full test suite, lint and type-check; a green CI run on the branch SHA may be cited"
 
 
+# --- review economy: verify once, credit the rest -------------------------
+#
+# A review that re-runs a suite another role already ran at the same revision
+# is not independent, it is duplicated: independence is about the AUTHOR. A
+# passing record another role produced at this revision is a result the
+# reviewer may cite, and the packet lists what is citable so the reviewer does
+# not have to rediscover it (and does not have to guess whether it is stale).
+
+CREDIT_REV_RE = re.compile(r"@([0-9a-f]{7,40})\b")
+
+
+def review_revision(root: Path, task: dict) -> str:
+    """The short SHA under review: the head of the task's branch, '' if unknown."""
+    project = project_of(root)
+    branch = (task.get("branch") or "").strip()
+    if not (branch and is_git_repo(project) and branch_exists(project, branch)):
+        return ""
+    return run_git(project, "rev-parse", "--short", branch).stdout.strip()
+
+
+def _same_revision(left: str, right: str) -> bool:
+    """Two short/full SHAs name the same commit when one is a prefix of the other."""
+    a, b = (left or "").strip().lower(), (right or "").strip().lower()
+    if not a or not b:
+        return False
+    return a.startswith(b) or b.startswith(a)
+
+
+def record_revision(record: dict) -> str:
+    """A test record's revision: its `rev`, else the ``@sha`` its evidence quotes."""
+    rev = (record.get("rev") or "").strip()
+    if rev:
+        return rev
+    match = CREDIT_REV_RE.search(record.get("evidence") or "")
+    return match.group(1) if match else ""
+
+
+def actor_role(root: Path, name: str) -> str:
+    """The role an instance name belongs to; a role name resolves to itself."""
+    want = pascal(name)
+    if not want:
+        return ""
+    for role in list_roles(root):
+        if pascal(role) == want:
+            return role
+        for inst in instances_of(root, role):
+            if pascal(inst) == want:
+                return role
+    return resolve_role(name) if want else ""
+
+
+def creditable_tests(root: Path, role: str, task: dict) -> tuple:
+    """(credits, stale): passing records another role ran at the revision under review.
+
+    A credit is a *result on a revision*, never an opinion: the record must be
+    passing, its revision must be the one under review, and the role that ran it
+    must not be the author's role. A record at another revision is stale and is
+    counted as such - the tree moved and the run has to follow it.
+    """
+    rev = review_revision(root, task)
+    if not rev:
+        return [], 0
+    author_role = actor_role(root, task.get("claimed_by") or "") or resolve_role(role)
+    credits, stale = [], 0
+    for record in parse_tests(tests_path(root)):
+        if record.get("status") != "passing":
+            continue
+        by_role = actor_role(root, record.get("by") or record.get("owner") or "")
+        if not by_role or by_role == author_role:
+            continue
+        if not _same_revision(record_revision(record), rev):
+            stale += 1
+            continue
+        credits.append(record)
+    return credits, stale
+
+
+def uncovered_layers(root: Path, task: dict, credits: list) -> list:
+    """Required layers for the task's area that no creditable record covers."""
+    area = (task.get("area") or "").strip().lower()
+    if not area:
+        return []
+    covered = {record["layer"] for record in credits}
+    return [layer for layer in required_layers_for(root, area) if layer not in covered]
+
+
+def credit_artifact_note(root: Path, record: dict) -> str:
+    """', artifact gone' when a cited record's evidence file is no longer on disk."""
+    project = project_of(root)
+    for rel in _artifact_paths(record.get("artifacts") or ""):
+        if not (project / rel).exists():
+            return ", artifact gone - sample this one"
+    return ""
+
+
+def _artifact_paths(raw: str) -> list:
+    return [item.split(":")[0].strip() for item in (raw or "").split(",") if item.strip()]
+
+
+def _credit_label(record: dict) -> str:
+    """One packet line: id, layer/area, who ran it, and the recorded command."""
+    by = record.get("by") or record.get("owner") or "?"
+    return (
+        f"{record['id']} {record['layer']}/{record['area']} by {by}: "
+        f"{record.get('command') or record.get('evidence') or '-'}"
+    )
+
+
+def credit_refusal(root: Path, role: str, task: dict, handle: str) -> str:
+    """Why `--credit <handle>` is not allowed here, in the reviewer's own words."""
+    rev = review_revision(root, task)
+    author_role = actor_role(root, task.get("claimed_by") or "") or resolve_role(role)
+    want = (handle or "").strip().upper()
+    record = next((r for r in parse_tests(tests_path(root)) if r["id"].upper() == want), None)
+    if record is None:
+        return f"no test record {handle} (see `teamwork.py tests list`)"
+    if record.get("status") != "passing":
+        return f"{record['id']} is {record.get('status') or 'pending'}, not passing"
+    by_role = actor_role(root, record.get("by") or record.get("owner") or "")
+    if by_role and by_role == author_role:
+        return (
+            f"{record['id']} was run by {by_role}, the author's own role - the author's "
+            "run is never a credit (that is the check the review exists to make)"
+        )
+    rec_rev = record_revision(record)
+    if not (rev and _same_revision(rec_rev, rev)):
+        return (
+            f"{record['id']} ran at {rec_rev or 'an unrecorded revision'} and the review is at "
+            f"{rev or 'no known revision'} - a credit dies when the tree moves; re-run it or "
+            "record a fresh result with `tests run --rev`"
+        )
+    return f"{record['id']} is not creditable"
+
+
 def review_latency(root: Path) -> dict:
     """Claim -> verdict durations from the ledger, in minutes."""
     claims: dict = {}
@@ -6835,13 +6972,68 @@ def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
         value = (task.get(field) or "").strip()
         if value:
             lines.append(f"- {label}: {view_text(value, full)}")
+    rev = review_revision(root, task)
+    credits, stale = creditable_tests(root, role, task) if rev else ([], 0)
+    fails = int(task.get("review_fails") or 0)
+    if fails:
+        lines.append(f"- review round: {fails + 1} ({fails} previous fail)")
+        findings = (task.get("findings") or "").strip()
+        if findings:
+            lines.append(f"- previous findings: {view_text(findings, full)}")
+        fail_rev = (task.get("review_fail_rev") or "").strip()
+        if fail_rev and rev and _same_revision(fail_rev, rev):
+            lines.append(
+                f"- delta since {fail_rev}: none - this is the revision that failed; "
+                "re-reviewing it unchanged buys nothing, send it back with the same finding"
+            )
+        elif fail_rev and rev and is_git_repo(project):
+            delta = run_git(project, "diff", "--no-renames", "--name-only", f"{fail_rev}..{rev}")
+            files = [path.strip() for path in delta.stdout.splitlines() if path.strip()]
+            if delta.returncode != 0:
+                lines.append(
+                    f"- delta since {fail_rev}: not diffable - that revision is not in this "
+                    "repository, so re-review the deliverable against the findings above"
+                )
+            elif files:
+                shown = ", ".join(files[:12]) + (" ..." if len(files) > 12 else "")
+                lines.append(f"- delta since {fail_rev} ({len(files)} file(s)): {shown}")
+                lines.append(
+                    "- re-review the delta and the findings above, not the whole "
+                    "deliverable; a full re-review is for a changed contract"
+                )
+            else:
+                lines.append(f"- delta since {fail_rev}: nothing changed - no fix to verify")
+    if rev:
+        lines.append(f"- credits at {rev}: another role's passing record, cite with --credit")
+        if credits:
+            for record in credits[:12]:
+                lines.append(f"  - {_credit_label(record)}{credit_artifact_note(root, record)}")
+            if len(credits) > 12:
+                lines.append(f"  - ... {len(credits) - 12} more (`teamwork.py tests list`)")
+        else:
+            lines.append(
+                "  - none: no other role recorded a passing result at this revision, "
+                "so these gates are yours to run"
+            )
+        missing = uncovered_layers(root, task, credits)
+        if missing:
+            lines.append("- uncovered layers for this area: " + ", ".join(missing))
+        if stale:
+            lines.append(
+                f"- stale: {stale} passing record(s) at another revision - a credit "
+                "dies when the tree moves, so do not cite them"
+            )
     lines += [
+        "- rule: one run per fact per revision - cite a credit instead of repeating its",
+        "  command; record your own run for the acceptance layer, the uncovered criteria",
+        "  and one sampled credit; a deterministic gate already green here is read, not",
+        "  re-executed",
         "- checklist: delivery/conformance; fidelity; internal consistency; "
         "operational fitness; finish; evidence reproduces",
         f"- claim: review {role} {task['id']} --claim --by <lane>  "
         f"({profile} profile, lease {lease}m; --renew to extend)",
         f"- verdict: review {role} {task['id']} --by <lane> --result pass "
-        "--evidence '<cmd @rev -> result>'",
+        "--evidence '<cmd @rev -> result>' [--credit TS-nnnn]",
     ]
     return "\n".join(lines)
 
@@ -7595,6 +7787,81 @@ def duplicate_task_pairs(root: Path, threshold: float = 0.6) -> list:
     return pairs
 
 
+#: Review economy: how far back a credit ratio is measured, and the number of
+#: recent passes below which a zero-credit window is not yet a finding.
+COORD_CREDIT_DAYS = 14
+COORD_CREDIT_FLOOR = 5
+
+
+def _evidence_commands(text: str) -> list:
+    """The command part of every '<cmd> @<rev> -> <result>' line in one evidence string."""
+    out = []
+    for chunk in re.split(r";\s*|\n", str(text or "")):
+        if "@" in chunk and "->" in chunk:
+            command = chunk.split("@", 1)[0].strip()
+            if len(command) >= 8:
+                out.append(re.sub(r"\s+", " ", command))
+    return out
+
+
+def review_economy(root: Path, tasks: list) -> dict:
+    """Recent passes: how many cited a credit, how many re-reviewed a fix, and
+    which reviews re-ran a gate already recorded green at the same revision.
+
+    A review that repeats another role's command buys wall-clock, not
+    independence: independence is about the author, so the duplication is
+    measurable and is reported instead of defended.
+    """
+    cutoff = datetime.datetime.now() - datetime.timedelta(days=COORD_CREDIT_DAYS)
+    index = {(role, task["id"].upper()): task for role, task in tasks}
+    by_id = {task["id"].upper(): task for _, task in tasks}
+    recent, credited, repasses = 0, 0, 0
+    for record in ledger_read(root):
+        if record.get("action") != "review.pass":
+            continue
+        try:
+            stamp = datetime.datetime.fromisoformat(record.get("ts") or "")
+        except ValueError:
+            continue
+        if stamp < cutoff:
+            continue
+        recent += 1
+        target = (record.get("target") or "").upper()
+        task = index.get((record.get("role") or "", target)) or by_id.get(target)
+        if task is None:
+            continue
+        if "credited:" in (task.get("review_evidence") or ""):
+            credited += 1
+        if int(task.get("review_fails") or 0) >= 1:
+            repasses += 1
+    passing: dict = {}
+    for test in parse_tests(tests_path(root)):
+        if test.get("status") != "passing":
+            continue
+        command = re.sub(r"\s+", " ", (test.get("command") or "").strip())
+        if len(command) >= 8:
+            passing.setdefault(command, []).append(test)
+    duplicated = []
+    for role, task in tasks:
+        evidence = task.get("review_evidence") or ""
+        if not evidence:
+            continue
+        match = CREDIT_REV_RE.search(evidence)
+        rev = match.group(1) if match else ""
+        for command in _evidence_commands(evidence):
+            for test in passing.get(command, []):
+                if _same_revision(record_revision(test), rev):
+                    duplicated.append((f"{role}/{task['id']}", command, test["id"]))
+                    break
+    return {
+        "days": COORD_CREDIT_DAYS,
+        "recent_passes": recent,
+        "credited_passes": credited,
+        "delta_reviews": repasses,
+        "duplicated": duplicated,
+    }
+
+
 def _recent_reclaims(root: Path) -> list:
     cutoff = datetime.datetime.now() - datetime.timedelta(days=COORD_RECLAIM_DAYS)
     rows = []
@@ -7885,6 +8152,38 @@ def coordination_report(root: Path) -> dict:
             )
         )
 
+    # --- review economy: is the reviewer re-running a lane's recorded result? --
+    economy = review_economy(root, tasks)
+    if economy["duplicated"]:
+        rows = economy["duplicated"][:3]
+        findings.append(
+            _coord_finding(
+                "C-REVIEW-DUP",
+                "review",
+                "low",
+                ", ".join(row[0] for row in rows),
+                "the review re-ran a gate another role already recorded green at the "
+                "same revision: " + "; ".join(f"{row[1]} = {row[2]}" for row in rows),
+                "cite it instead of re-running it (`review ... --result pass --credit "
+                "<TS-id>`); re-run only the acceptance layer, the uncovered criteria "
+                "and one sampled credit",
+            )
+        )
+    if economy["recent_passes"] >= COORD_CREDIT_FLOOR and not economy["credited_passes"]:
+        findings.append(
+            _coord_finding(
+                "C-REVIEW-NOCREDIT",
+                "review",
+                "medium",
+                f"0/{economy['recent_passes']} passes in {economy['days']}d cited a credit",
+                "every review is re-deriving gates another role already recorded at the "
+                "same revision, so the Reviewer pays the whole cost of the check again",
+                "read `review <role> <T-id> --packet`: it lists the records you may cite; "
+                "cite them with --credit, and run only the acceptance layer, the "
+                "uncovered criteria and one sampled credit",
+            )
+        )
+
     return {
         "findings": findings,
         "metrics": {
@@ -7902,6 +8201,10 @@ def coordination_report(root: Path) -> dict:
             "review_expired_claims": len(expired_review_claims(root)),
             "review_p50_minutes": latency["p50"],
             "review_p90_minutes": latency["p90"],
+            "review_recent_passes": economy["recent_passes"],
+            "review_credited_passes": economy["credited_passes"],
+            "review_delta_passes": economy["delta_reviews"],
+            "review_duplicated_gates": len(economy["duplicated"]),
             "free_slots": free,
             "reclaims": len(reclaims),
         },
@@ -7947,6 +8250,12 @@ def _coordination_print(report: dict, root: Path) -> int:
         f"- review queue: {metrics['review_queue']} unclaimed | claims: "
         f"{metrics['review_claims']} | claim->verdict p50/p90: "
         f"{metrics['review_p50_minutes']}/{metrics['review_p90_minutes']} min"
+    )
+    print(
+        f"- review economy: {metrics['review_credited_passes']}/"
+        f"{metrics['review_recent_passes']} recent passes cited a credit | "
+        f"{metrics['review_delta_passes']} re-reviewed a fix | "
+        f"{metrics['review_duplicated_gates']} duplicated gate run(s)"
     )
     print(f"- reclaims in {COORD_RECLAIM_DAYS} days: {metrics['reclaims']}")
     return 0
@@ -9226,6 +9535,8 @@ def cmd_review(args) -> int:
         die("--result must be pass or fail")
     if args.result == "fail" and not args.findings.strip():
         die("a fail needs --findings '<what is wrong, with evidence>'")
+    if (getattr(args, "credit", "") or "").strip() and args.result != "pass":
+        die("--credit belongs to a pass: it names the record a passing verdict cited", 2)
     if args.force:
         args.force = require_reason(args.force, "the review gate")
     if args.result == "pass" and not (args.evidence or "").strip() and not args.force:
@@ -9336,11 +9647,26 @@ def cmd_review(args) -> int:
             t["review_claim_profile"] = ""
             t["review_claim_lease"] = ""
         archived = None
+        credited: list = []
         if args.result == "pass":
+            available, _stale = creditable_tests(root, role, t)
+            for raw in [x.strip() for x in (getattr(args, "credit", "") or "").split(",")]:
+                if not raw:
+                    continue
+                record = next((r for r in available if r["id"].upper() == raw.upper()), None)
+                if record is None:
+                    die(f"refusing --credit {raw}: {credit_refusal(root, role, t, raw)}")
+                credited.append(
+                    f"{record['id']} {record['layer']}/{record['area']} by "
+                    f"{record.get('by') or record.get('owner') or '?'} "
+                    f"@{record_revision(record)}"
+                )
             artifacts = artifact_digests(root, getattr(args, "artifact", None))
             t["review_evidence"] = args.evidence.strip() + (
                 f" | artifacts: {artifacts}" if artifacts else ""
             )
+            if credited:
+                t["review_evidence"] += " | credited: " + "; ".join(credited)
             if (getattr(args, "baseline", "") or "").strip():
                 t["review_evidence"] += f" | baseline: {args.baseline.strip()}"
             if (getattr(args, "replay", "") or "").strip():
@@ -9349,6 +9675,7 @@ def cmd_review(args) -> int:
                 t["review_artifacts"] = artifacts
             t["review_status"] = "passed"
             t["status"] = "done"
+            t["review_fail_rev"] = ""
             if args.force:
                 t["forced"] = (
                     t.get("forced", "") + f" | review pass forced by {reviewer}: {args.force}"
@@ -9359,6 +9686,9 @@ def cmd_review(args) -> int:
             t["review_status"] = "failed"
             t["status"] = "doing"
             t["review_fails"] = int(t.get("review_fails") or 0) + 1
+            # The revision that failed is what the next round is compared against:
+            # a fix is re-reviewed as a delta, not re-derived from scratch.
+            t["review_fail_rev"] = review_revision(root, t) or (t.get("review_fail_rev") or "")
         write_tasks(path, tasks, role)
 
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
@@ -9395,6 +9725,14 @@ def cmd_review(args) -> int:
         )
     if t.get("pr") and args.result == "fail":
         print(f"          PR {t['pr']}: changes requested - fix and re-submit")
+    if args.result == "pass" and not credited:
+        available, _stale = creditable_tests(root, role, t)
+        if available:
+            print(
+                f"# note: {len(available)} creditable record(s) at "
+                f"{review_revision(root, t)} were not cited; a re-submitted fix then pays "
+                "for them again - `--credit TS-nnnn`, the packet lists them"
+            )
     if args.result == "pass":
         print(
             f"teamwork: REVIEW PASS {role} {t['id']} by {reviewer}: {t['title']}"
@@ -12264,6 +12602,12 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--baseline", default="", help="the state the verification started from")
     s.add_argument("--replay", default="", help="command or path that reproduces the verdict")
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
+    s.add_argument(
+        "--credit",
+        default="",
+        metavar="TS-nnnn",
+        help="comma list of passing records another role ran at this revision: cited, not re-run",
+    )
     s.add_argument(
         "--keep-branch",
         action="store_true",
