@@ -23,12 +23,21 @@ The file is located with `git ls-files`, so moving it is a build failure here an
 not a silent "no exceptions" pass: `[]` and "file not found" must never look the
 same. Mutants write bad records into `tmp_path`, so the tracked file is never
 touched.
+
+The published line (Architecture 11.2.2.1, `D-20261029-Architect`): the second
+half of the traceability assertion - "the tag of the current version is HEAD" -
+is a claim about the line a version is *published* on, so it is scoped through
+`published_line()`, the same predicate the gate uses to decide whether R2
+evaluates or prints `SKIP`. A pull request and a feature branch publish nothing,
+and asserting a fact about `main` there is the false red the amendment removes.
+The first half (the version in the tree is never excepted) stays unconditional.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -169,6 +178,147 @@ def record_problems(
 
 
 # --------------------------------------------------------------------------- #
+# the published line (11.2.2.1)
+# --------------------------------------------------------------------------- #
+
+#: The branch that publishes a version; R2 is evaluated there and nowhere else.
+#: Spelled out, not imported from ``teamwork.config``: the release gate is a
+#: stand-alone script and 11.2.2.1 names the branch in the contract itself, so a
+#: test that read the engine's constant could pass while the contract's own name
+#: changed.
+DEFAULT_BRANCH = "main"
+
+
+def _git_output(repo_root: Path, *args: str) -> str | None:
+    """The stripped stdout of a read-only git call, or ``None`` when it fails.
+
+    ``git symbolic-ref --short -q HEAD`` exits 1 on a detached checkout, and that
+    failure *is* the answer: there is no branch, so a tag has to be asked next.
+    """
+    result = subprocess.run(
+        ["git", *args], cwd=repo_root, capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def published_line(repo_root: Path = REPO_ROOT) -> bool:
+    """Whether this checkout is the line that publishes a version (11.2.2.1).
+
+    The frozen gate evaluates R2 only where a version is *published* and reports
+    ``SKIP`` everywhere else; the traceability assertion below asks R2's question
+    in prose, so it has to be scoped by the same predicate or the two disagree.
+
+    The answer is a stated input, never a guess:
+
+    * a ``pull_request`` event publishes nothing -> ``False``, whatever the ref;
+    * a ``GITHUB_REF`` under ``refs/heads/`` -> ``True`` iff it is
+      ``refs/heads/main``;
+    * a ``GITHUB_REF`` under ``refs/tags/`` -> ``True`` (the tag is the artefact);
+    * otherwise - outside CI, or an event that names neither - git is asked: the
+      checkout's branch is ``main``, or a tag points at HEAD.
+    """
+    event = os.environ.get("GITHUB_EVENT_NAME")
+    ref = os.environ.get("GITHUB_REF")
+    if event == "pull_request":
+        return False
+    if ref:
+        if ref.startswith("refs/heads/"):
+            return ref == f"refs/heads/{DEFAULT_BRANCH}"
+        if ref.startswith("refs/tags/"):
+            return True
+    branch = _git_output(repo_root, "symbolic-ref", "--short", "-q", "HEAD")
+    if branch is not None:
+        return branch == DEFAULT_BRANCH
+    return bool(_git_output(repo_root, "tag", "--points-at", "HEAD"))
+
+
+def _git(root: Path, *args: str) -> str:
+    """A git call with identity and signing pinned, so the fixture is hermetic."""
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Developer",
+            "-c",
+            "user.email=developer@agents.nidvue.com",
+            "-c",
+            "commit.gpgSign=false",
+            "-c",
+            "tag.gpgSign=false",
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, f"git {' '.join(args)}: {result.stderr}"
+    return result.stdout
+
+
+def probe_repo(
+    tmp_path: Path, name: str, *, branch: str | None = DEFAULT_BRANCH, tag: str | None = None
+) -> Path:
+    """A throwaway checkout: one commit, optionally tagged and/or on another branch."""
+    root = tmp_path / name.replace("/", "-")
+    root.mkdir()
+    _git(root, "init", "-q", "-b", DEFAULT_BRANCH)
+    (root / "README.md").write_text("# probe\n", encoding="utf-8")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "probe")
+    if tag:
+        _git(root, "tag", tag)
+    if branch is None:
+        _git(root, "checkout", "-q", "--detach", tag or "HEAD")
+    elif branch != DEFAULT_BRANCH:
+        _git(root, "checkout", "-q", "-b", branch)
+    return root
+
+
+@pytest.mark.parametrize(
+    ("event", "ref", "expected"),
+    [
+        # A pull request publishes nothing - the whole reason for the amendment -
+        # whatever ref the merge ref is compared against.
+        ("pull_request", "refs/pull/42/merge", False),
+        ("pull_request", "refs/heads/main", False),
+        # A push to the default branch is the published line.
+        ("push", "refs/heads/main", True),
+        # A lane branch is not.
+        ("push", "refs/heads/developer-10/t-0032", False),
+        # A tag push publishes the tag.
+        ("push", "refs/tags/v1.4.3", True),
+    ],
+)
+def test_the_scope_comes_from_the_ci_event_and_ref(monkeypatch, event, ref, expected):
+    """The five stated cases; the predicate is tested, not trusted."""
+    monkeypatch.setenv("GITHUB_EVENT_NAME", event)
+    monkeypatch.setenv("GITHUB_REF", ref)
+    assert published_line() is expected
+
+
+@pytest.mark.parametrize(
+    ("branch", "tag", "expected"),
+    [
+        (DEFAULT_BRANCH, None, True),
+        ("developer-10/t-0032", None, False),
+        (None, "v1.0.0", True),
+    ],
+)
+def test_outside_ci_the_scope_is_asked_of_git(monkeypatch, tmp_path, branch, tag, expected):
+    """No CI variables at all: a local run on `main` or a tag is the published line."""
+    for name in ("GITHUB_EVENT_NAME", "GITHUB_REF"):
+        monkeypatch.delenv(name, raising=False)
+    root = probe_repo(
+        tmp_path, f"{branch or 'detached'}-{tag or 'untagged'}", branch=branch, tag=tag
+    )
+    assert published_line(root) is expected
+
+
+# --------------------------------------------------------------------------- #
 # the real record
 # --------------------------------------------------------------------------- #
 
@@ -195,10 +345,25 @@ def test_no_exception_names_a_version_that_is_already_tagged():
 
 
 def test_the_current_version_is_never_excepted_and_its_tag_is_head_or_pending():
-    """A release commit may carry the tag; any later commit must bump the version."""
+    """A release commit may carry the tag; any later commit must bump the version.
+
+    Two halves, scoped differently on purpose (11.2.2.1):
+
+    * **unconditional** - the version in the tree is never excepted. That is a
+      claim about this revision and it holds on every checkout;
+    * **the published line only** - ``v<current>`` is HEAD. A pull request, a
+      feature branch and a lane work tree publish nothing, so asserting it there
+      would report a fact about ``main`` as a defect of the branch - the false red
+      CI run 40789321527 measured - and the frozen gate already prints ``SKIP``
+      there instead of evaluating R2.
+    """
     entries = raw_entries(tracked_exceptions_path())
     current = current_version()
     assert current not in {str(entry["version"]) for entry in entries}, current
+    if not published_line():
+        pytest.skip(
+            f"not the published line: `v{current}` at HEAD is a claim about {DEFAULT_BRANCH}"
+        )
     tag = f"v{current}"
     if tag in set(tags()):
         tagged = subprocess.run(
