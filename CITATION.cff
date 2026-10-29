@@ -1,4 +1,4 @@
-cff-version: 1.4.2
+cff-version: 1.4.3
 message: "If you use Teamwork in your work, please cite it as below."
 title: "Nidvue Teamwork: autonomous multi-agent project teams"
 abstract: >-
@@ -9,7 +9,7 @@ abstract: >-
 authors:
   - name: "Nidvue"
 type: software
-version: 1.4.2
+version: 1.4.3
 date-released: "2026-10-29"
 url: "https://github.com/Nidvue/Teamwork"
 repository-code: "https://github.com/Nidvue/Teamwork"
