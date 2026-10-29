@@ -396,7 +396,9 @@ def test_nothing_is_built_or_published_before_the_gate_has_run() -> None:
     # `release` names the gate too: it reads the resolved tag from the
     # `consistency` job's outputs, so the edge is explicit and not only transitive.
     assert "needs: [consistency, build, attest]" in "\n".join(jobs["release"])
-    assert "needs: [consistency, build]" in "\n".join(jobs["npm"])
+    # `npm` needs `attest` as well: an npm version is immutable, so a package must
+    # not be published while its provenance attestation is red (M13 F-5(d)).
+    assert "needs: [consistency, build, attest]" in "\n".join(jobs["npm"])
     for name in ("build", "attest", "release", "npm"):
         assert "needs:" in "\n".join(jobs[name]), f"{name} has no dependency"
 
@@ -860,3 +862,362 @@ def test_the_token_guard_bites_when_the_pop_is_removed(
         "without the pop the token must still reach the child, or the guard is not what "
         "keeps it out"
     )
+
+
+# --------------------------------------------------------------------------- #
+# The publish path runs the privacy gate, and nothing is public before its
+# checks: M13 security audit F-5 and F-9 (task `developer` T-0036)
+#
+# Measured at the audit's revision: `grep -n privacy
+# .github/workflows/release.yml` -> no output, so a release cut from that tree
+# published a revision the privacy gate rejects; `ci.yml`'s `privacy` job does
+# not run on a tag push (`scope` emits `code=false`/`prose=false` there) and
+# `docs.yml` is a separate workflow `Release` never waits for; `Create GitHub
+# Release` ran *before* the only post-publish R5 check, so a red gate could not
+# unpublish; `npm` needed `[consistency, build]` and not `attest`, so a package
+# could ship while its provenance attestation failed; and `concurrency.group`
+# was `release-${{ github.ref }}`, so a tag push (`refs/tags/vX.Y.Z`) and a
+# `workflow_dispatch` of the same tag (`refs/heads/main`) were two groups that
+# could publish the same version twice.
+#
+# The four checks below read the workflow through the suite's own parser
+# (`tests/unit/workflow_yaml.py`, the standard-library reader the CI contract
+# tests use - PyYAML is not in the `dev` extra), and each has a mutant twin that
+# edits the PARSED document in memory and asserts the same function reports the
+# defect, so the tracked workflow is never written and a rewrite that drops a
+# clause fails here instead of shipping.
+# --------------------------------------------------------------------------- #
+
+UNIT_DIR = Path(__file__).resolve().parents[1] / "unit"
+
+#: The shipped privacy gate, byte for byte the command `ci.yml`, `docs.yml` and
+#: `make privacy` run. A different spelling here would be a second gate.
+PRIVACY_COMMAND = (
+    "python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt"
+)
+
+#: The release the concurrency contract is evaluated for.
+CONCURRENCY_TAG = "v1.2.3"
+
+#: The two ways one tag reaches this workflow, with the context values GitHub
+#: substitutes. A dispatch checks out the default branch and names the release in
+#: its `tag` input; a tag push names it in `github.ref_name`.
+CONCURRENCY_CONTEXTS = {
+    "tag push": {
+        "github.event.inputs.tag": "",
+        "github.ref_name": CONCURRENCY_TAG,
+        "github.ref": f"refs/tags/{CONCURRENCY_TAG}",
+    },
+    "dispatch": {
+        "github.event.inputs.tag": CONCURRENCY_TAG,
+        "github.ref_name": "main",
+        "github.ref": "refs/heads/main",
+    },
+}
+
+GROUP_EXPRESSION = re.compile(r"\$\{\{(?P<body>[^}]*)\}\}")
+
+
+def suite_parser():
+    """`workflow_yaml.parse_workflow`, loaded from its file.
+
+    ``tests/unit`` is not a package and this module must keep working when it is
+    run on its own, so the reader is loaded by path rather than imported by name.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("workflow_yaml", UNIT_DIR / "workflow_yaml.py")
+    assert spec is not None and spec.loader is not None, (
+        f"{UNIT_DIR}/workflow_yaml.py is not loadable"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.parse_workflow
+
+
+def release_document() -> dict:
+    """A fresh parse of the shipped workflow - mutants must not leak between tests."""
+    return suite_parser()(RELEASE_WORKFLOW.read_text(encoding="utf-8"))
+
+
+def release_jobs(document: dict) -> dict:
+    found = document.get("jobs")
+    assert isinstance(found, dict) and found, "release.yml declares no jobs"
+    return found
+
+
+def job_needs(job: dict) -> list[str]:
+    """`needs:` is a scalar or a sequence; normalise both to a list."""
+    needs = job.get("needs")
+    if needs is None:
+        return []
+    if isinstance(needs, str):
+        return [needs]
+    assert isinstance(needs, list), f"needs: {needs!r} is neither a string nor a list"
+    return [str(item) for item in needs]
+
+
+def job_steps(job: dict) -> list[dict]:
+    return [step for step in job.get("steps") or [] if isinstance(step, dict)]
+
+
+def step_run(step: dict) -> str:
+    return str(step.get("run") or "")
+
+
+def step_action(step: dict) -> str:
+    return str(step.get("uses") or "").split("@", 1)[0].strip()
+
+
+def privacy_gate_problems(document: dict) -> list[str]:
+    """The `consistency` job must run the shipped privacy gate, unsoftened."""
+    gate = release_jobs(document).get("consistency")
+    if gate is None:
+        return ["the consistency job is missing"]
+    runs = [step for step in job_steps(gate) if "scripts/privacy_scan.py" in step_run(step)]
+    if not runs:
+        return [
+            "the consistency job runs no scripts/privacy_scan.py step: a tag push skips ci.yml's "
+            "privacy job, so the release would publish a revision the gate rejects"
+        ]
+    problems: list[str] = []
+    if len(runs) > 1:
+        problems.append(
+            f"{len(runs)} privacy_scan.py steps in the consistency job: one gate, one run"
+        )
+    for step in runs:
+        text = step_run(step)
+        for required in ("--tree", "--history", "--allow .github/privacy-allow.txt"):
+            if required not in text:
+                problems.append(
+                    f"the privacy step does not pass {required!r}: {text.strip()[:120]}"
+                )
+        if "|| true" in text:
+            problems.append(
+                "the privacy step ends in `|| true`: a finding would not block the release"
+            )
+        if step.get("continue-on-error") in (True, "true"):
+            problems.append("the privacy step ignores its failure (continue-on-error)")
+    return problems
+
+
+def provenance_problems(document: dict) -> list[str]:
+    """A package is never published while its provenance attestation is red."""
+    jobs = release_jobs(document)
+    problems: list[str] = []
+    for name in ("npm", "release"):
+        job = jobs.get(name)
+        if job is None:
+            problems.append(f"the {name} job is missing")
+            continue
+        if "attest" not in job_needs(job):
+            problems.append(f"needs of {name} is {job_needs(job)}: it does not wait for attest")
+    return problems
+
+
+def publish_order_problems(document: dict) -> list[str]:
+    """The Release is a draft until the R5 re-check has read it."""
+    job = release_jobs(document).get("release")
+    if job is None:
+        return ["the release job is missing"]
+    steps = job_steps(job)
+    created = [
+        i for i, step in enumerate(steps) if step_action(step) == "softprops/action-gh-release"
+    ]
+    rechecked = [
+        i for i, step in enumerate(steps) if "check_release_consistency.py" in step_run(step)
+    ]
+    published = [i for i, step in enumerate(steps) if "--draft=false" in step_run(step)]
+    if len(created) != 1:
+        return [
+            f"the release job creates the Release with {len(created)} step(s): exactly one expected"
+        ]
+    if not rechecked:
+        return ["the release job runs no R5 re-check"]
+    if len(published) != 1:
+        return [
+            f"the release job publishes the draft with {len(published)} step(s): exactly one expected"
+        ]
+    draft_flag = str((steps[created[0]].get("with") or {}).get("draft", "")).strip().lower()
+    problems: list[str] = []
+    if draft_flag != "true":
+        problems.append(
+            f"the Release is created with draft: {draft_flag or '<unset>'}: it is public before the "
+            "R5 re-check, and a red re-check cannot unpublish it"
+        )
+    if not created[0] < rechecked[0]:
+        problems.append(
+            "the R5 re-check runs before the Release exists: it can only judge a created Release"
+        )
+    if not rechecked[0] < published[0]:
+        problems.append(
+            "the draft is published before the R5 re-check: the re-check cannot keep it private"
+        )
+    return problems
+
+
+def resolve_group(group: str, context: dict[str, str]) -> str:
+    """Evaluate a `concurrency.group` expression for one event.
+
+    Only `name || name` over context values is modelled - the whole expression
+    language this file needs. An unmodelled context raises instead of resolving to
+    a plausible empty string, so a rewritten group cannot pass this test by being
+    mis-read.
+    """
+
+    def resolve(match: re.Match[str]) -> str:
+        for term in match.group("body").split("||"):
+            name = term.strip()
+            if name not in context:
+                raise AssertionError(
+                    f"concurrency.group uses {name!r}, which this contract does not model"
+                )
+            if context[name]:
+                return context[name]
+        return ""
+
+    return GROUP_EXPRESSION.sub(resolve, group)
+
+
+def concurrency_problems(document: dict) -> list[str]:
+    """One tag, one concurrency group - whichever way the run was started."""
+    concurrency = document.get("concurrency")
+    if not isinstance(concurrency, dict):
+        return ["the workflow declares no concurrency group"]
+    group = concurrency.get("group")
+    if not isinstance(group, str) or not group.strip():
+        return ["concurrency.group is empty"]
+    problems: list[str] = []
+    if str(concurrency.get("cancel-in-progress", "")).strip().lower() != "false":
+        problems.append(
+            "concurrency.cancel-in-progress is not false: a second run could kill a publish halfway"
+        )
+    try:
+        resolved = {
+            event: resolve_group(group, context) for event, context in CONCURRENCY_CONTEXTS.items()
+        }
+    except AssertionError as unmodelled:
+        return problems + [f"concurrency.group cannot be evaluated: {unmodelled}"]
+    if CONCURRENCY_TAG not in resolved["tag push"]:
+        problems.append(
+            f"the group for a tag push is {resolved['tag push']!r}: it does not name the tag, so two tags "
+            "share one group"
+        )
+    if resolved["tag push"] != resolved["dispatch"]:
+        problems.append(
+            f"a tag push resolves the group to {resolved['tag push']!r} but a dispatch of the same tag "
+            f"resolves it to {resolved['dispatch']!r}: the two runs can publish one version twice"
+        )
+    return problems
+
+
+def test_the_consistency_job_runs_the_privacy_gate() -> None:
+    """A tag push skips `ci.yml`'s privacy job, so the release must run it itself."""
+    document = release_document()
+
+    assert privacy_gate_problems(document) == [], privacy_gate_problems(document)
+    runs = [
+        step_run(step).strip()
+        for step in job_steps(release_jobs(document)["consistency"])
+        if "scripts/privacy_scan.py" in step_run(step)
+    ]
+    # Byte-identical to the command `ci.yml`, `docs.yml` and `make privacy` run: a
+    # second spelling here would be a second gate.
+    assert runs == [PRIVACY_COMMAND], runs
+
+
+def test_npm_waits_for_the_provenance_attestation() -> None:
+    """An npm version is immutable: publish it only once it can be traced."""
+    document = release_document()
+
+    assert provenance_problems(document) == [], provenance_problems(document)
+
+
+def test_the_release_is_a_draft_until_the_recheck_has_read_it() -> None:
+    """Nothing is public before the gate that judges it has run."""
+    document = release_document()
+
+    assert publish_order_problems(document) == [], publish_order_problems(document)
+
+
+def test_the_concurrency_group_is_keyed_by_the_resolved_tag() -> None:
+    """A tag push and a dispatch of that tag are one group, not two."""
+    document = release_document()
+
+    assert concurrency_problems(document) == [], concurrency_problems(document)
+    group = str(document["concurrency"]["group"])
+    assert resolve_group(group, CONCURRENCY_CONTEXTS["tag push"]) == resolve_group(
+        group, CONCURRENCY_CONTEXTS["dispatch"]
+    )
+
+
+def test_the_privacy_gate_bites_when_the_step_is_dropped() -> None:
+    """The audit's own measurement: `grep -n privacy release.yml` -> no output."""
+    document = release_document()
+    consistency = release_jobs(document)["consistency"]
+    consistency["steps"] = [
+        step for step in job_steps(consistency) if "scripts/privacy_scan.py" not in step_run(step)
+    ]
+
+    problems = privacy_gate_problems(document)
+
+    assert any("runs no scripts/privacy_scan.py step" in problem for problem in problems), problems
+
+
+def test_the_privacy_gate_bites_when_it_is_softened() -> None:
+    """`|| true` on the privacy step is a gate that can only ever be green."""
+    document = release_document()
+    for step in job_steps(release_jobs(document)["consistency"]):
+        if "scripts/privacy_scan.py" in step_run(step):
+            step["run"] = step_run(step).rstrip() + " || true\n"
+
+    problems = privacy_gate_problems(document)
+
+    assert any("|| true" in problem for problem in problems), problems
+
+
+def test_the_provenance_edge_bites_when_npm_stops_needing_attest() -> None:
+    """The pre-fix `needs: [consistency, build]` must be reported, not passed."""
+    document = release_document()
+    release_jobs(document)["npm"]["needs"] = ["consistency", "build"]
+
+    problems = provenance_problems(document)
+
+    assert any("needs of npm is ['consistency', 'build']" in problem for problem in problems), (
+        problems
+    )
+
+
+def test_the_draft_ordering_bites_when_the_release_is_published_on_creation() -> None:
+    """`draft: true` removed is exactly the shipped-before-the-recheck defect."""
+    document = release_document()
+    job = release_jobs(document)["release"]
+    for step in job_steps(job):
+        if step_action(step) == "softprops/action-gh-release":
+            step["with"]["draft"] = "false"
+
+    problems = publish_order_problems(document)
+
+    assert any("public before the R5 re-check" in problem for problem in problems), problems
+
+
+def test_the_draft_ordering_bites_when_the_publish_step_moves_up() -> None:
+    """A publish step above the re-check is the v1.3.0 'already public' shape."""
+    document = release_document()
+    job = release_jobs(document)["release"]
+    steps = job["steps"]
+    steps.insert(1, steps.pop())
+
+    problems = publish_order_problems(document)
+
+    assert any("published before the R5 re-check" in problem for problem in problems), problems
+
+
+def test_the_concurrency_key_bites_when_it_goes_back_to_the_ref() -> None:
+    """`release-${{ github.ref }}` splits one tag into two groups - the F-9 defect."""
+    document = release_document()
+    document["concurrency"]["group"] = "release-${{ github.ref }}"
+
+    problems = concurrency_problems(document)
+
+    assert any("can publish one version twice" in problem for problem in problems), problems
