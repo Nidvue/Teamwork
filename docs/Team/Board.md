@@ -111,7 +111,7 @@ under two roles is two tasks.
 | ceo | T-0023 | records | done | P-0061 | 7c96192 |
 | ceo | T-0024 | records | done | P-0062 | 394a386 |
 | ceo | T-0025 | records | done | P-0064 | 3a489fb |
-| ceo | T-0026 | records | review | P-0065 | - |
+| ceo | T-0026 | records | done | P-0065 | 2fab37e |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -154,7 +154,7 @@ under two roles is two tasks.
 | developer | T-0040 | records | done | P-0055 | 5d93c2c |
 | developer | T-0041 | - | dropped | - | - |
 | developer | T-0042 | - | dropped | - | - |
-| developer | T-0043 | board | dropped | - | - |
+| developer | T-0043 | board | done | P-0066 | 321d0c4 |
 | developer | T-0044 | deliver | done | P-0059 | e9eaacf |
 | developer | T-0045 | - | dropped | - | - |
 | developer | T-0046 | - | dropped | - | - |
@@ -190,7 +190,6 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0026 · chore(records): closing board render | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
