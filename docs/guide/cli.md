@@ -297,9 +297,18 @@ Remove a task (own role only).
 
 ```text
 teamwork board
+teamwork board --check [--json]
+teamwork board --write [--json]
 ```
 
-Cross-agent board with counts and each role's next task.
+Cross-agent board with counts and each role's next task. `--check` compares the
+two task tables of `docs/Team/Board.md` with the role queues and exits `1` naming
+every stale row (`0` when equal); `--write` renders them from the queues and exits
+`0`, naming every row it drops because no in-scope queue record carries it.
+`--json` prints one object (`board`, `ok`/`written`, `tasks`, `queues`, and
+`problems`/`dropped`) and is only valid with `--check` or `--write`. A board that
+is missing its tables, or a queue set that cannot be read, is a setup error
+(`2`), never a clean check.
 
 ### `parallel`
 
