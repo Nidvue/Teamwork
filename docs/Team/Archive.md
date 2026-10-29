@@ -3331,3 +3331,16 @@ Found but not charged: the guide says the ledger prefix lets coordination "count
 - reviewer evidence: 
 - findings history: 
 - branch / merge: ceo/t-0025-chore-records-board-render-after-the-clo / 3a489fb
+
+## T-0026 · chore(records): closing board render  (ceo)
+- date: 2026-10-29
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: reviewer
+- task / issue: -
+- area: records
+- self-check: 
+- author evidence: commit 4710ba6
+- reviewer evidence: 
+- findings history: 
+- branch / merge: ceo/t-0026-chore-records-closing-board-render / pending
