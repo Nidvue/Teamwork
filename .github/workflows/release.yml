@@ -33,6 +33,25 @@
 # input exits 2, and drift exits 1. There is no `|| true` and no
 # `continue-on-error` on either gate step, so a release can only be published
 # from a tree the checker has actually read.
+#
+# Nothing is public before its checks have passed. Three rules carry that, and
+# each one is in the structure rather than in a comment:
+#
+#   * the `consistency` job also runs the privacy gate
+#     (`scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt`),
+#     because a tag push skips `ci.yml`'s `privacy` job (`scope` emits
+#     `code=false` there) and `docs.yml` is a different workflow this one never
+#     waits for;
+#   * `npm` needs `attest` as well as `consistency` and `build`: an npm version is
+#     immutable, so a package is never published while its provenance
+#     attestation is red;
+#   * the GitHub Release is created as a **draft**, the R5 re-check reads it, and
+#     only the last step of the `release` job publishes it. Before that ordering,
+#     a red re-check ran after the Release was already public and could not
+#     unpublish it.
+#
+# `concurrency` is keyed by the resolved tag, so a `v*` tag push and a
+# `workflow_dispatch` of the same tag share one group and cannot publish twice.
 
 name: Release
 
@@ -57,7 +76,16 @@ on:
         type: string
 
 concurrency:
-  group: release-${{ github.ref }}
+  # Keyed by the RESOLVED tag being published, never by the ref that carried the
+  # run. A tag push names the tag in `github.ref_name` (`refs/tags/vX.Y.Z`) and a
+  # `workflow_dispatch` names it in the `tag` input while its ref is
+  # `refs/heads/main`, so `github.ref` gave one tag TWO groups - a tag push and a
+  # dispatch of the same tag could then publish at the same time: two npm
+  # publishes of one immutable version and two uploads of one asset name, which
+  # is the v1.3.0 two-`SHA256SUMS` 404 class. With the resolved tag both runs
+  # land in `release-vX.Y.Z` and serialize; `cancel-in-progress` stays false so
+  # the second one queues instead of killing a publish halfway through.
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 # Least privilege: the workflow default is read-only; each job widens it only as
@@ -187,6 +215,18 @@ jobs:
             exit 2
           fi
           echo "tag set: ${tags} version tag(s); the checkout is not shallow"
+      # The publish path must run the privacy gate before anything is published.
+      # `ci.yml`'s `privacy` job does not cover a tag push: `scope` emits
+      # `code=false`/`prose=false` there, so the only surviving privacy scan is
+      # `docs.yml`, a different workflow that `Release` does not wait for. This
+      # job already has the complete clone the `--history` walk needs
+      # (`fetch-depth: 0` above), so the gate runs here, before the build.
+      # Same command as `ci.yml`/`docs.yml`/`make privacy`; no `|| true` and no
+      # `continue-on-error`, so a finding (exit 1) or an unreadable input
+      # (exit 2) blocks the release instead of publishing it.
+      - name: Privacy scan (tree + full history) - never publish a revision the gate rejects
+        shell: bash
+        run: python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt
       - name: Release consistency gate (online)
         shell: bash
         env:
@@ -511,9 +551,20 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: release-assets
-      - name: Create GitHub Release
+      # The Release is created as a DRAFT and only published by the last step of
+      # this job, after the R5 re-check below has read it. Before this, `Create
+      # GitHub Release` published first and the re-check ran second, so a red
+      # gate could not unpublish: the Release was already on the forge. A draft
+      # is invisible to anyone without push access and still counts for R5
+      # (`GET /repos/.../releases` returns drafts to the authenticated token),
+      # so the re-check can judge it before the world can see it.
+      - name: Create GitHub Release (draft - published only after the R5 re-check)
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
+          # A re-run of the same tag push converges: the action updates the
+          # existing Release for this tag, the re-check reads it again and the
+          # publish step below re-publishes it. Nothing is left half-public.
+          draft: true
           generate_release_notes: true
           # dist/* carries the wheel, the sdist and the ONE SHA256SUMS; the two
           # SBOMs live at the repository root. A second `SHA256SUMS` entry here
@@ -522,10 +573,12 @@ jobs:
             dist/*
             sbom.cyclonedx.json
             sbom.spdx.json
-      # The gate in the `consistency` job ran before the publish, where the
-      # Release of the tag being published did not exist yet and R5 could not
-      # see it. Now it exists, so R5 is checked for real: every version tag
-      # must have a GitHub Release. The checker is not optional here either.
+      # The gate in the `consistency` job ran before any Release existed for
+      # this tag, so R5 could not see one and the tag's own missing Release was
+      # the single finding it was allowed to exempt. The DRAFT now exists, so R5
+      # is checked for real: every version tag must have a GitHub Release. The
+      # checker is not optional here either, and this step is what stands between
+      # the draft and the publish step below.
       - name: Checkout (the complete tag set - R5 reads git tags)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -632,6 +685,30 @@ jobs:
               raise SystemExit(1)
           print(f"the Release of {tag} exists and every version tag has one")
           PY
+      # The one-way door is opened LAST, and only by a run in which every gate
+      # above succeeded: the assets are uploaded, the draft Release carries them
+      # and the R5 re-check has read it. `gh release edit --draft=false` flips the
+      # existing Release published; it creates, moves and deletes nothing, and it
+      # never names a git ref - the tag is the CEO's. The `gh` CLI is preinstalled
+      # on GitHub-hosted runners and the token is the job's own `contents: write`.
+      - name: Publish the draft Release (the gate above passed - this is the one-way door)
+        shell: bash
+        env:
+          # `gh` reads the token from GH_TOKEN; it is never written to the tree.
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.consistency.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release edit "${RELEASE_TAG}" --draft=false
+          # Read back the state that was just set: a Release that is still a draft
+          # is not published, and a green step that says otherwise would be a
+          # false record of the release.
+          is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq '.isDraft')"
+          if [ "${is_draft}" != "false" ]; then
+            echo "::error::${RELEASE_TAG} is still a draft (isDraft=${is_draft}): the Release was not published"
+            exit 1
+          fi
+          echo "published the Release of ${RELEASE_TAG} (isDraft=${is_draft})"
 
   # Publish the pi package to npm. Contract (docs/Team/Release.md, section
   # "Publishing @nidvue/teamwork"):
@@ -652,9 +729,14 @@ jobs:
   #   * the job fails loudly when it cannot publish. There is no
   #     `continue-on-error` and no `|| true`: an unauthenticated publish is a red
   #     run with the two ways to authorise it printed, never a green skip.
+  # `attest` is in `needs:` because a version published to npm is immutable: the
+  # provenance attestation is part of what is published (the tarball carries
+  # `dist.integrity` and `gitHead`, and `--provenance` links it to the build), so
+  # a package must not ship while its attestation is red. Before this edge, a
+  # failed provenance attestation still published a version nobody could trace.
   npm:
     name: publish @nidvue/teamwork to npm
-    needs: [consistency, build]
+    needs: [consistency, build, attest]
     runs-on: ubuntu-latest
     # `id-token: write` is the whole credential for trusted publishing; `contents:
     # read` is all the checkout needs. Nothing is written to the repository.
