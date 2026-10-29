@@ -5,9 +5,12 @@ Scans three sources and exits non-zero on any hit:
 
 * ``--tree``    tracked files (``git ls-files``), read from the working tree;
 * ``--staged``  index content of tracked files (``git ls-files -s`` + ``git cat-file``);
-* ``--history`` every blob reachable from every ref (``git rev-list --objects --all``
-  + ``git cat-file --batch``) **and** every commit's author/committer/message
-  metadata (the place a personal identity usually survives a blob-level scan).
+* ``--history`` every blob reachable from every ref or reflog (``git rev-list
+  --objects --all --reflog``) **and** every commit's author/committer/message
+  metadata over the same set (``git log --all --reflog``) - the place a personal
+  identity usually survives a blob-level scan. The reflog is part of the set: an
+  amended or reset commit is unreachable from any ref and still recoverable, so
+  both walkers read ``_HISTORY_REVISIONS``.
 
 ``--all`` combines the three. Flags combine freely.
 
@@ -55,9 +58,13 @@ Design notes
   serialise it by accident. ``--reveal`` prints a stable fingerprint (SHA-256
   prefix) instead and ``--reveal-to PATH`` exports the raw values to a ``0600``
   file for local remediation only.
-* The allowlist file (``--allow``) holds one regular expression per line with an
-  optional ``# reason`` suffix. A finding is exempt when its matched text matches
-  any allowlist expression. Keep it minimal and justify each entry.
+* The allowlist file (``--allow``) holds one regular expression per line with a
+  ``# reason`` suffix that must be separated by whitespace. A finding is exempt
+  when its matched text matches any allowlist expression. Keep it minimal and
+  justify each entry. A ``#`` that is not whitespace-separated is part of the
+  pattern (a literal ``#``, as in ``^ab#cd$``); write ``\\#`` for a literal ``#``
+  that must sit after a space. A pattern left mid-escape by the comment strip is
+  refused with exit 2 rather than compiled into something nobody wrote.
 
 Revealing a matched value
 -------------------------
@@ -99,6 +106,15 @@ from collections import Counter
 from pathlib import Path
 
 SCANNER_VERSION = "1.4.0"
+
+#: What ``--history`` means, in one place: every object reachable from every ref
+#: AND from the reflog. The reflog is the half that matters after a repair - an
+#: amended commit or a reset branch is unreachable but still recoverable through
+#: the reflog, so a scan that skipped it would report PASS on exactly the history
+#: the documented repair leaves behind. Both walkers (``rev-list --objects`` for
+#: blobs and ``git log`` for commit metadata) pass this same pair, because a
+#: walker that drifts from the other scans a different history.
+_HISTORY_REVISIONS = ("--all", "--reflog")
 
 # --------------------------------------------------------------------------- #
 # Neutral identity / allowlisted email domains
@@ -835,9 +851,15 @@ def scan_lines(text, path, source, rules, allow, commit=None):
 
 
 def scan_commit_metadata(root, allow, stats=None):
-    """Scan author/committer name+email and the message of every commit."""
+    """Scan author/committer name+email and the message of every commit.
+
+    "Every commit" is ``_HISTORY_REVISIONS`` - all refs plus the reflog, the same
+    set ``scan_history`` walks for blobs. ``--reflog`` is load-bearing: a commit
+    an amend rewrote away is unreachable from any ref, so without it its blobs get
+    scanned while its author/committer mailbox is skipped.
+    """
     fmt = "%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e"
-    proc = _run(["git", "-C", str(root), "log", "--all", "--format=" + fmt])
+    proc = _run(["git", "-C", str(root), "log", *_HISTORY_REVISIONS, "--format=" + fmt])
     if proc.returncode != 0:
         return []
     findings = []
@@ -1055,9 +1077,11 @@ def scan_staged(root, allow, stats=None):
 
 
 def scan_history(root, allow, stats=None):
-    # --reflog also reaches objects a reset or a deleted branch left behind, which
-    # a plain --all scan reports as PASS even though `git fsck` still finds them.
-    proc = _run(["git", "-C", str(root), "rev-list", "--objects", "--all", "--reflog"])
+    # --reflog reaches objects a reset, an amend or a deleted branch left behind,
+    # which a plain --all scan reports as PASS even though `git fsck` still finds
+    # them. `scan_commit_metadata` walks the same `_HISTORY_REVISIONS` pair: the
+    # two must agree about what the history is, or one of them is a blind spot.
+    proc = _run(["git", "-C", str(root), "rev-list", "--objects", *_HISTORY_REVISIONS])
     if proc.returncode != 0:
         raise RuntimeError("git rev-list failed: " + proc.stderr.decode("utf-8", "replace").strip())
     sha_to_paths = {}
@@ -1094,6 +1118,25 @@ def scan_history(root, allow, stats=None):
 # --------------------------------------------------------------------------- #
 
 
+def allow_expression(line):
+    """One allowlist line with its comment suffix removed, pattern intact.
+
+    Only a WHITESPACE-SEPARATED trailing ``#`` starts a comment. Splitting on the
+    first ``#`` instead turns ``^ab#cd$`` into ``^ab`` - a shorter, more
+    permissive expression that still compiles, so a pattern for one literal would
+    quietly exempt everything sharing its prefix. A ``#`` that is not
+    whitespace-separated is a literal in the pattern; a literal that has to follow
+    a space is written ``\\#``, which the comment rule cannot match.
+    """
+    return re.sub(r"\s+#.*$", "", line).strip()
+
+
+def _ends_mid_escape(expression):
+    """Whether the expression ends with an escaped or dangling backslash run."""
+    trailing = len(expression) - len(expression.rstrip("\\"))
+    return bool(trailing % 2)
+
+
 def load_allow(path):
     patterns = []
     if not path:
@@ -1103,9 +1146,17 @@ def load_allow(path):
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        expression = line.split("#", 1)[0].strip()
+        expression = allow_expression(line)
         if not expression:
             continue
+        if _ends_mid_escape(expression):
+            print(
+                f"privacy_scan: {path}:{line_no}: allow pattern ends mid-escape "
+                "(a comment strip would have to break it); write '\\#' for a literal "
+                "'#' that follows whitespace",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
         try:
             patterns.append(re.compile(expression))
         except re.error as exc:
