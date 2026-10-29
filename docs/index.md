@@ -72,8 +72,9 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
 - Hash-chained ledger with `ledger verify`, `ledger export` and `trace`.
 - Coordination health with `coordination --strict`: duplicate work, echoed
   review evidence, reviewer monoculture, merge collapse and slot starvation.
-- Risk-tiered review packets and a 20-minute renewable review lease keep the
-  Reviewer queue moving without lowering the evidence bar.
+- Risk-tiered review packets, a profile-aware review lease (20/40/80 min, capped)
+  and `review --next` keep the Reviewer queue moving without lowering the
+  evidence bar.
 - Provider slot leases for concurrency caps.
 - Portable runtime: CPython 3.9-3.13 on Linux, macOS and Windows.
 

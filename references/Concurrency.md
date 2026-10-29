@@ -109,14 +109,16 @@ cycle.
 - The Reviewer, the Project Manager and the CEO are lanes too - keep them fed.
 - **Review concurrency is the number of lanes, not the depth of the queue.**
   `pulse --commit` fans unclaimed deliverables out one per idle Reviewer lane and
-  records a `review.claim` lease (`ReviewLeaseMinutes`, default 20 min) on each:
-  the holder counts as busy, another lane is refused while the lease is live, a
-  verdict or `--release` clears it, `--renew` extends it, and an expired lease is
-  open for take-over. The lease is deliberately shorter than the provider-slot TTL
-  (`SlotTtlMinutes`, 90 min): a dead Reviewer must not freeze a deliverable for a
-  slot lifetime. Staff at least `reviewer-1` and `reviewer-2`, add a lane when the
-  unclaimed queue is deeper than twice the lane count, and never stack the backlog
-  on one lane.
+  records a `review.claim` lease on each (`ReviewLeaseMinutes` base, default 20
+  min, scaled by the review profile: ×1 fast, ×2 standard, ×4 deep, capped by
+  `ReviewLeaseMaxMinutes`): the holder counts as busy, another lane is refused
+  while the lease is live, a verdict or `--release` clears it, `--renew` extends
+  it, and an expired lease is open for take-over. The base is deliberately shorter
+  than the provider-slot TTL (`SlotTtlMinutes`, 90 min): a dead Reviewer must not
+  freeze a deliverable for a slot lifetime, while a deep review is not taken over
+  mid-flight by a lease sized for prose. Staff at least `reviewer-1` and
+  `reviewer-2`, add a lane when the unclaimed queue is deeper than twice the lane
+  count, and never stack the backlog on one lane.
 - **Review has a profile and a packet.** The profile is inferred from the diff
   (fast for prose-only, deep for security/release/data/workflow, standard
   otherwise); `review <role> <T-id> --packet` prints it with the diff, the author's

@@ -254,12 +254,14 @@ environment. Four rules (mechanisms in `references/Coordination.md`):
 - **Measure it.** `coordination --strict` at every milestone (exit 1 on a high
   finding); `--commit` records the check. Merge fraction, echoed evidence,
   reviewer monoculture and slot starvation are health metrics.
-- **Reviews are a throughput gate.** A review claim is a 20-minute renewable
-  lease (`--renew`), not the 90-minute provider-slot TTL. Start from
+- **Reviews are a throughput gate.** A review claim is a profile-aware renewable
+  lease - 20 minutes for a prose diff, 40 standard, 80 deep, capped at 240
+  (`--renew`), not the 90-minute provider-slot TTL. Start from
+  `review --next --by <lane>` (claim + packet in one step) or
   `review <role> <T-id> --packet`; run the profile's gates (fast for prose-only,
   standard for code, deep for security/release/data/workflow). Staff another
   Reviewer lane when the unclaimed queue exceeds twice the lane count;
-  `coordination` reports the claim-to-verdict p50/p90.
+  `coordination` reports the claim-to-verdict p50/p90 and expired claims.
 
 ## Decision quality and dissent (hard)
 
