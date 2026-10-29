@@ -18,6 +18,7 @@ Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.m
 | Reviewer | `reviewer` or `reviewer-1..N` | independent second review of **every** deliverable; **the only role that passes review and merges into `main`** | CEO |
 | Security Auditor | `security-auditor` | security assessment, red lines, remediation verification; audits the whole team, CTO included | CEO |
 | Architect | `architect` | system/module/API/data/deployment architecture, **frozen interfaces**, ADRs | CTO |
+| Team Leader | `team-leader` or `team-leader-1..N` | **one feature** end to end (`F-nnnn`), its squad, its `feature` test layer, and the proof that the feature is independent of every other open feature | CTO |
 | Developer | `developer-1..N` | production code, **its own unit tests**, inline docs, commits on its branch | CTO |
 | Tester | `tester-1..N` | integration/system/E2E tests, running and monitoring them, defect routing, regression | CTO |
 | Release Engineer | `release-engineer` | build/release pipeline, CI gates, packaging, rollback, observability, runbooks | CTO |
@@ -30,6 +31,7 @@ Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.m
 CEO - user interface, arbitration, final acceptance
 ├── CTO - technology strategy, engineering standards
 │   ├── Architect - frozen interfaces, ADRs
+│   ├── Team Leader-1..N - one feature each, a squad, the slice's feature layer
 │   ├── Developer-1..N - code + its own unit tests
 │   ├── Tester-1..N - integration/E2E, local + CI
 │   ├── Release Engineer - pipeline, packaging, repo/CI integrity
@@ -65,9 +67,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 292 kB |
-| `standard` | 9 | 423 kB |
-| `full` | 16 | 721 kB |
+| `slim` (default) | 7 | 339 kB |
+| `standard` | 10 | 471 kB |
+| `full` | 17 | 770 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -173,12 +175,12 @@ they are designed for.
     review is split, not scheduled. A fix after a fail is re-reviewed as a delta by
     the lane that raised the finding.
 
-### Feature teams (design; engine support in T-0042)
+### Feature teams (merged; engine `teamwork.py feature`, contract in Architecture.md 13)
 
 ```text
 CEO
 ├── CTO ─┬── Architect            (shared service: interface + file-ownership map)
-│        ├── Team Leader A ── Developer, Tester [+ Designer/Data/Writer/Security when the feature needs the layer]
+│        ├── Team Leader A ── Developer, Tester [+ Designer/Data/Writer when the feature needs the layer]
 │        ├── Team Leader B ── Developer, Tester
 │        └── Release Engineer
 ├── Product Manager ── Designer, Technical Writer   (pooled, assigned per feature)
@@ -189,9 +191,11 @@ CEO
 
 A Team Leader owns one feature record, cuts it into tasks that name the feature,
 and is accountable for the vertical slice. A specialist (Designer, Data Engineer,
-Technical Writer, Security Auditor) belongs to the shared pool and **reports to
-one manager at a time**: the Team Leader for the duration of an assignment, and
-their discipline head outside it - never both. That keeps **one line manager per
+Technical Writer) belongs to the shared pool and **reports to one manager at a
+time**: the Team Leader for the duration of an assignment, and their discipline
+head outside it - never both. The Security Auditor is the exception: it is never
+attached to a team, because it audits the lane above and the team it would join
+(D-20261029-Architect-2). That keeps **one line manager per
 role at any moment**, which is why a supervision board can sit above a leader
 without breaking the invariant.
 
