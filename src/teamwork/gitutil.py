@@ -213,6 +213,22 @@ def is_binary_content(path: Path) -> bool:
     bytes (``git diff --numstat`` prints ``-  -`` for a binary), so this is the
     model the repository already trusts.
 
+    Only the head is read (``BINARY_SNIFF_BYTES``); ``is_binary_bytes`` holds the
+    decision and takes a head directly, so a caller holding the bytes it is about
+    to commit - the staged path - asks the same question without a work-tree file
+    to read.
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(BINARY_SNIFF_BYTES)
+    except OSError:
+        return False
+    return is_binary_bytes(head)
+
+
+def is_binary_bytes(head: bytes) -> bool:
+    """True when this content HEAD is binary, the way git decides it.
+
     A NUL byte in the first 8 KiB is the discriminator, with one exception: a
     UTF-16 document also contains NUL bytes, so a head that decodes as UTF-16
     into printable text is text and stays exempt.
@@ -227,11 +243,6 @@ def is_binary_content(path: Path) -> bool:
     where it matters. `tests/unit/test_audit_evidence_sources.py::
     test_a_large_binary_is_still_an_lfs_candidate` pins that case.
     """
-    try:
-        with open(path, "rb") as fh:
-            head = fh.read(BINARY_SNIFF_BYTES)
-    except OSError:
-        return False
     if not head:
         return False
     nul_ratio = head.count(b"\x00") / len(head)
@@ -284,6 +295,34 @@ def lfs_tracked(project: Path, rel: str) -> bool:
     return tracked
 
 
+def staged_blob_meta(project: Path, rel: str):
+    """``(size, head)`` of the INDEX entry for ``rel``, or ``None`` when it has none.
+
+    The pre-commit gate reads ``git diff --cached --name-only``, which names an
+    INDEX path - so the size and the content it must judge are the staged ones.
+    A work-tree ``stat()`` answers a different question: a blob staged at 2 MiB
+    and truncated to one byte afterwards still commits 2 MiB, and text staged then
+    overwritten with binary bytes still commits text. ``:rel`` is git's stage-0
+    index spec; a deletion has no entry, which is why the caller may fall back to
+    the work tree only when this returns ``None``.
+    """
+    size = subprocess.run(
+        ["git", "-C", str(project), "cat-file", "-s", f":{rel}"], capture_output=True
+    )
+    if size.returncode != 0:
+        return None
+    try:
+        length = int(size.stdout.strip())
+    except ValueError:
+        return None
+    blob = subprocess.run(
+        ["git", "-C", str(project), "cat-file", "blob", f":{rel}"], capture_output=True
+    )
+    if blob.returncode != 0:
+        return None
+    return length, blob.stdout[:BINARY_SNIFF_BYTES]
+
+
 def lfs_text_mismatch(project: Path, rel: str) -> bool:
     """True when a TEXT file is captured by an LFS pattern - a misconfiguration.
 
@@ -299,6 +338,12 @@ def lfs_text_mismatch(project: Path, rel: str) -> bool:
     ``is_binary_content``) and does a pattern capture the name (the shared
     ``lfs_tracked``) - and both answers are reused by the three gates, so the
     gates cannot disagree about which files are misconfigured.
+
+    The WORK-TREE file is the right source here, unlike the commit gate: when the
+    ``lfs`` filter is installed, staging a pattern-matched file replaces it with a
+    pointer, so the index holds the pointer and only the working copy still holds
+    the content whose kind decides whether the capture was a mistake. Reading the
+    index here would call every properly LFS-tracked binary a text file.
     """
     if not lfs_tracked(project, rel):
         return False
