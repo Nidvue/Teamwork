@@ -7325,6 +7325,15 @@ def cmd_parallel(args) -> int:
 # --------------------------------------------------------------------------- #
 
 COORD_OPEN = ("todo", "doing", "selfcheck", "blocked", "review")
+# PR record states that no longer expect anybody to touch the forge. `merged`
+# landed, `closed` was withdrawn with a stated reason, and `superseded` means
+# the work moved to another PR - under any of them a dead branch is the ordinary
+# end of a branch, not work that disappeared.
+COORD_PR_TERMINAL = ("merged", "closed", "superseded")
+# Task states that mean the work behind a PR is finished with: `done` landed,
+# `dropped` was deliberately abandoned with a reason in the queue, `superseded`
+# moved elsewhere. Any other state still owes the team an outcome.
+COORD_TASK_TERMINAL = ("done", "dropped", "superseded")
 COORD_VERIFICATION_ROLES = ("reviewer", "security-auditor", "tester")
 COORD_VERDICT_FLOOR = 6
 COORD_MERGE_FLOOR = 4
@@ -7388,6 +7397,78 @@ def _model_label(root: Path, lane: str) -> str:
     if provider and model:
         return f"{provider}/{model}"
     return model or provider
+
+
+def pr_owes_action(pr: dict) -> bool:
+    """Does this PR record still say somebody owes the forge an action?
+
+    Read from the record alone, never from the case in front of you:
+
+    * ``merged`` / ``closed`` / ``superseded`` are terminal by their own status;
+    * ``approved`` is terminal only once the record carries the ``merge_commit``
+      that landed it - an approval with no commit is still an owed merge;
+    * every other status (``open``, ``in-review``, ``changes-requested``, and any
+      status this engine does not know) still expects an action. An unknown
+      status fails closed: a record the engine cannot read is not evidence that
+      the work finished.
+    """
+    status = re.sub(r"[\s_]+", "-", (pr.get("status") or "").strip().lower())
+    if status in COORD_PR_TERMINAL:
+        return False
+    if status == "approved" and (pr.get("merge_commit") or "").strip():
+        return False
+    return True
+
+
+def task_owes_action(task) -> bool:
+    """Does the task behind a PR still owe the team an outcome?
+
+    ``None`` (no task record resolves) fails closed, for the same reason an
+    unknown PR status does: the absence of a finished task is not evidence that
+    the work landed.
+    """
+    if not task:
+        return True
+    status = (task.get("status") or "").strip().lower()
+    return status not in COORD_TASK_TERMINAL
+
+
+def pr_is_abandoned(pr: dict, task, branch_gone: bool) -> bool:
+    """A PR the forge still has open, whose branch is gone, whose work is live.
+
+    All three conditions come from a record and all three must hold. The rule is
+    about the records, not about the PRs that first exposed the defect:
+
+    1. the PR status still expects an action (:func:`pr_owes_action`);
+    2. the branch the record names no longer resolves in the git repository;
+    3. the task it was opened for is not terminal (:func:`task_owes_action`).
+
+    A `superseded` PR, a merged or approved-and-merged one, and any PR whose
+    task is done or dropped are history: their branch is gone because the work
+    ended. Only a live PR on a dead branch is abandonment - the case where work
+    disappears and no record says so.
+    """
+    return bool(branch_gone) and pr_owes_action(pr) and task_owes_action(task)
+
+
+def _pr_task(pr: dict, index: dict):
+    """The task a PR record names, or ``None`` when it cannot be resolved.
+
+    ``index`` maps ``(role, T-id)`` to the task. Task ids are unique per queue,
+    not per team (every role has a T-0001), so the record's own ``role`` decides
+    first. Without a usable role, a bare id that is unique across the queues
+    still resolves; an ambiguous one does not, and the caller then fails closed.
+    """
+    handle = (pr.get("task") or "").strip().upper()
+    if not handle:
+        return None
+    role = (pr.get("role") or "").strip().lower()
+    if role and (role, handle) in index:
+        return index[(role, handle)]
+    candidates = [task for (_, tid), task in index.items() if tid == handle]
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
 
 
 def duplicate_task_pairs(root: Path, threshold: float = 0.6) -> list:
@@ -7608,13 +7689,14 @@ def coordination_report(root: Path) -> dict:
         )
     project = project_of(root)
     if is_git_repo(project):
-        abandoned = [
-            pr
-            for pr in prs
-            if pr.get("status") != "merged"
-            and pr.get("branch")
-            and not branch_exists(project, pr["branch"])
-        ]
+        task_index = {(role, task["id"].upper()): task for role, task in tasks}
+        abandoned = []
+        for pr in prs:
+            branch = (pr.get("branch") or "").strip()
+            if not branch or branch_exists(project, branch):
+                continue
+            if pr_is_abandoned(pr, _pr_task(pr, task_index), True):
+                abandoned.append(pr)
         if abandoned:
             findings.append(
                 _coord_finding(

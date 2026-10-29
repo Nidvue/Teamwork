@@ -147,7 +147,13 @@ strategy was to stop sharing files, which loses the benefit of a team.
   file at a time.
 - A PR that conflicts twice is **re-scoped**, not retried a third time.
 - `C-MERGE-RATE` fires below a 0.5 merge fraction with 4+ PRs;
-  `C-MERGE-ABANDONED` catches a PR whose branch is gone. Stale open PRs are
+  `C-MERGE-ABANDONED` fires on a PR record that still expects an action
+  (`open`, `in-review`, `changes-requested`, or `approved` without a
+  `merge_commit`) whose branch is gone **and** whose task is not
+  `done`/`dropped`/`superseded`. A `merged`, `closed` or `superseded` record -
+  or any record whose task has already ended - retires its branch by design and
+  is never abandonment: counting those reported finished work as lost, which is
+  a false alarm that teaches the team to ignore the gate. Stale open PRs are
   already reported by `audit` (`branch / PR flow`), so this reference does not
   duplicate them.
 - The Reviewer's pass is the merge. An approved PR never waits in a second queue.
@@ -184,7 +190,7 @@ python3 "$SKILL/scripts/teamwork.py" coordination --json     # machine-readable
 | `C-TRUST-NOFAIL` | low | a sampled second review |
 | `C-TURF-RECLAIM` | low | reclaims follow the ladder |
 | `C-MERGE-RATE` | medium | merge fraction recovers |
-| `C-MERGE-ABANDONED` | high | branch restored or PR closed with a reason |
+| `C-MERGE-ABANDONED` | high | the branch is restored, or the PR record and its task finish (merged/closed/superseded, task done/dropped) |
 | `C-CAP-STARVED` | medium | a lease freed or slot-free work taken |
 | `C-REVIEW-BACKLOG` | medium | another Reviewer lane staffed or the queue drained |
 | `C-CAP-OVER` | high | leases released to the cap |
