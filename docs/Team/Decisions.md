@@ -1683,3 +1683,51 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: ledger parse @HEAD: 1336 records, review.claim 92, pass 59, fail 36, 21/61 deliverables with >1 verdict (2:13, 3:4, 4:3, 5:1), claim->verdict p50 12.2 / p90 25.8 / max 125.2 min; teamwork.py coordination -> 3 unclaimed, 2 claims, 8 lanes; teamwork.py task list developer -> T-0025 open on the CI-citation slice only
 - falsified by: if credited reviews let a defect reach main that a from-scratch review would have caught (tracked as a review.reopen or a post-merge defect), or if the credit ratio rises while review p90 and the reopen count stay flat, the reuse added no throughput and must be reverted
 - consequences: the packet and --credit become the operable surface; every lane must record tests run --rev so its result is creditable; the failing lane owns the delta re-review
+
+## D-20261029-CEO-2 - Throughput contract: one parent plus a supervision board, one feature per team, one gate in one place, generated artifacts rendered at the merge
+
+- date: 2026-10-29
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0021
+- context: The operator asked for a Team Leader role whose squad reports to it, several teams in parallel on independent features, one shared Architect and one shared Project Manager, supervised by CEO+CTO+CFO. The constitution's one-parent rule forbids three line managers, so supervision was separated from management.
+- options considered: rejected: three literal line managers for a Team Leader (the role would answer to whichever spoke last); rejected: keep the flat 16-role tree and add lanes for throughput (the 17-developer roster was already idle and the sweep dropped 8 accepted tasks twice); rejected: make the Reviewer re-run every gate to be safe (that is the duplication the review economy removed)
+- decision: Adopt the ten-rule throughput contract in references/Roles.md and templates/AGENTS.md as binding on every lane, and the feature-team org (Team Leader per independent feature, squad of Developer+Tester plus layer specialists, shared Architect/Project Manager/Release Engineer/Security Auditor) as the structure it is designed for. A supervision body of CEO+CTO+CFO holds decision rights over a feature; the CTO remains the single line manager of every Team Leader, so the one-parent invariant survives.
+- why: Measured on this team's ledger: of 43 review.fail findings, 38 are mechanical (docs surface 12, unmergeable branch 11, board drift 6, red gate 5, scope creep 4, unreachable evidence 4) and only 5 are judgement findings; 24 of 65 deliverables needed more than one verdict and 10 needed three or more; claim->verdict p50 12.2 / p90 25.8 min; 5 commits carried a Board.md render, two of which conflicted with a sibling merge by construction. Every one of those costs a Reviewer lease and serialises an author, so the fix is structural: remove the work instead of absorbing it.
+- evidence: ledger classification @0c91bdd -> 43 review.fail, 38 mechanical; verdict distribution -> 24/65 >1, 10 >=3; claim->verdict p50 12.2 / p90 25.8 min; 5 Board.md commits; teamwork.py instance list before right-sizing -> 17 developer + 8 reviewer lanes for 65 tasks, after -> 1 developer + 4 reviewer (target 3); teamwork.py preflight ceo T-0021 --run -> PREFLIGHT pass, 6 checks, 0 failed (PF-d7409034318d)
+- falsified by: if mechanical fails do not fall toward zero once preflight is used (measurable now via the review_mechanical field), or if the right-sized roster starves a lane while work is ready (C-CAP-STARVED), the contract is wrong and must be revised rather than defended
+- consequences: Every laneruns preflight before selfcheck; the board/archive move to the merge step (T-0043); the Team Leader role and feature records land with T-0042 and the charter with T-0018; reviewers stop re-executing deterministic gates
+
+## D-20261029-CEO-3 - Correction to D-20261029-CEO-2: the contract's basis is 24 of 65 re-reviewed targets plus a contested 16-24 of 44 fail classification, not 38 of 43
+
+- date: 2026-10-29
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0021
+- context: -
+- options considered: -
+- decision: The throughput contract stands; its stated basis is corrected. Reproducible: 44 review failures recorded, 24 of 65 review targets (one role + task) needed more than one verdict and 10 needed three or more, at ledger snapshot n in [1410,1450], claim->verdict p50 12.2 / p90 25.8 min. Contested and therefore not load-bearing: how many of the 44 failures a local check could have caught - the author's record-level reading says 16 mechanical / 26 judgement / 2 non-findings, Reviewer-1's says 24 / 17 / 3. The documents state the range and the method; the prospective measurement is the review_mechanical field now written on every fail.
+- why: The first review of P-0063 failed on exactly this: 38 of 43 does not reproduce (the ledger holds 44; the published six-class breakdown sums to 42, not 38, because the keyword classification double-counted one finding into several classes and had no bucket for the two identity fails). A governance decision that rests on an unreproducible number is worse than no number: it teaches every later lane to quote it.
+- evidence: python3 scripts/teamwork.py review ceo T-0021 --by reviewer-1 --result fail (ledger n=1616) -> 38/43 does not reproduce: 44 fails, breakdown sums 42; reviewer's exclusive classification 24/17/3; ledger slice n in [1410,1450] -> 65 targets, 24 with >1 verdict, 10 with >=3, 43 fails; author's record-level classification of the same 44 -> 16 mechanical / 26 judgement / 2 non-findings (36%); preflight @c1f2f67 -> PF-edf3894d6be9 @c1f2f67ab77b, 6 checks, 0 failed (the digest D-20261029-CEO-2 cites, PF-d7409034318d, was the pre-commit no-branch run)
+- falsified by: if review_mechanical on the next 20 fails shows the mechanical share outside 36-55%, the corrected range is wrong and must be replaced by the measured value
+- consequences: SKILL.md 5i now prints the table with unit, snapshot and method; tests/unit/test_skill_contracts.py pins the reproducible numbers and the contested range instead of the estimate
+
+## D-20261029-CEO-4 - Correction to D-20261029-CEO-3: one ledger cut (n=1615) for every number in the basis, and the withdrawn sentence removed from every surface
+
+- date: 2026-10-29
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0021
+- context: -
+- options considered: -
+- decision: The throughput contract's basis is stated at ONE ledger cut, n=1615: 44 review failures; 66 review targets (one role + task), 26 with more than one verdict, 11 with three or more; distribution 1:40, 2:15, 3:6, 4:4, 5:1; claim->verdict p50 10.8 / p90 25.7 min. The mechanical share stays the contested 16-24 of 44 and is measured prospectively by the review_mechanical field. The withdrawn '38 of 43' sentence is removed from SKILL.md, the AGENTS.md managed block, templates/AGENTS.md and CHANGELOG.md, and the lease/budget minutes and rule-8-as-target corrections are carried to all four surfaces, not only to references/Roles.md.
+- why: Round 2 of this review failed because the corrected table mixed three ledger cuts - 44 fails and 24 of 65 targets never coexisted at any single cut - and because the retracted sentence still shipped in the file every agent opens first. A table assembled from several snapshots and a retraction that only reaches one surface are the same failure as the original overstatement: a number that cannot be reproduced.
+- evidence: ledger filter at n<=1615 -> 44 review.fail, 66 distinct (role,target) review targets, 26 with >1 verdict, 11 with >=3, distribution {1:40,2:15,3:6,4:4,5:1}, claim->verdict p50 10.8 / p90 25.7 (46 pairs, engine.review_latency algorithm); grep '38 of 43' over SKILL.md, AGENTS.md, templates/AGENTS.md, CHANGELOG.md, references/Roles.md -> no hit; preflight ceo T-0021 --run -> see the self-check line
+- falsified by: if a reader cannot reproduce 44/66/26/11 at n=1615 with a ledger filter, or if any surface still states a mechanical point estimate as measured, this correction is wrong
+- consequences: engine.py and tests/unit/test_preflight.py still describe the change with the retired 38/43 figure - filed as a developer follow-up (T-0045); the fail-record ledger detail truncation is filed as T-0046
