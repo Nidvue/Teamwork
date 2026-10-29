@@ -3246,4 +3246,4 @@ Advisory to the PM lane (not charged here): P-0009 must land promptly after this
 - author evidence: commit eac1952 on branch ceo/t-0020; Board.md 92 rows, board --check -> 0
 - reviewer evidence: 
 - findings history: 
-- branch / merge: ceo/t-0020-chore-records-re-render-board-md-after-t / pending
+- branch / merge: ceo/t-0020-chore-records-re-render-board-md-after-t / bcf48e7
