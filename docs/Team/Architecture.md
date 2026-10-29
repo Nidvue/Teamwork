@@ -412,6 +412,13 @@ that a reader of section 11 does not read it as a changelog of the repository:
 **the contract is the target, and each row names the revision that implements
 it**.
 
+One subsection is deliberately the exception: 11.2.2.1 is an amendment accepted
+at D-20261029-Architect and is **not** implemented at `d998801` or at the revision
+this paragraph was written. It carries its own implementation spec and the exact
+tests; developer task T-0032 implements it, and no row of the rule table above
+claims it is green until that revision lands - a reader can tell a frozen target
+from a shipped one.
+
 ### 11.1 CLI (frozen)
 
 | Flag | Default | Meaning |
@@ -421,6 +428,7 @@ it**.
 | `--json` | off | emit the JSON object of 11.1.3 instead of the table |
 | `--exceptions PATH` | `<repo-root>/release-exceptions.json` | the exception record of 11.4; a relative path resolves against `--repo-root` |
 | `--repo-root PATH` | the current directory | every path and git call is rooted here (tests point it at a fixture tree) |
+| `--head-is-default-branch {yes,no}` | `yes` | whether the checkout under test is the default branch, i.e. whether its version is a published claim; `no` makes R2 report `SKIP` instead of being evaluated (11.2.2.1, amendment [D-20261029-Architect](Decisions.md#d-20261029-architect---r2-evaluates-the-published-line-the-release-order-still-owes-one-bump-per-tag)) |
 
 * `--offline` and `--online` together is a usage error: one line on stderr
   (`# check_release_consistency: --offline and --online are mutually exclusive`),
@@ -523,7 +531,7 @@ invents an `ok`.
 | Rule | Published fact | Local fact | DRIFT when | Offline |
 |---|---|---|---|---|
 | R1 | every git tag `vX.Y.Z` | `src/teamwork/version.py` **at that tag's commit** | the file is missing there, has no `__version__`, or its value is not `X.Y.Z` | evaluates |
-| R2 | `version.py` at HEAD | the version tags **reachable from HEAD**, minus those that point at HEAD (`S`, 11.2.2) | the HEAD version is not **strictly greater** than some version in `S` | evaluates (needs the complete tag set, 11.2.2) |
+| R2 | `version.py` at HEAD | the version tags **reachable from HEAD**, minus those that point at HEAD (`S`, 11.2.2) | the HEAD version is not **strictly greater** than some version in `S` | evaluates on the default branch, `SKIP` elsewhere (11.2.2.1; needs the complete tag set, 11.2.2) |
 | R3 | every npm-published version | a git tag whose bundled-payload digest (11.3) equals that tarball's payload digest, or an entry in 11.4 | neither exists (a 404 on the advertised tarball is also DRIFT - 11.1.4) | `SKIP` |
 | R4 | every GitHub Release | `git tag -l` | no tag has the release's name | `SKIP` |
 | R5 | every git tag | the GitHub Release list | no release carries the tag's name | `SKIP` |
@@ -635,6 +643,123 @@ stated above so the change is reviewable from this file alone. The matching `D-`
 [D-20261021-Architect](Decisions.md#d-20261021-architect---r2-compares-head-only-against-the-version-tags-reachable-from-head),
 which carries this task's measurements, the alternatives rejected and the
 falsifier.
+
+#### 11.2.2.1 R2's scope: the published line (amendment, [D-20261029-Architect](Decisions.md#d-20261029-architect---r2-evaluates-the-published-line-the-release-order-still-owes-one-bump-per-tag))
+
+R2 asks one question about what this repository **publishes**: is the version in
+`version.py` ahead of the newest release on its own line of history? A feature
+branch, a pull-request merge ref and a lane work tree publish nothing, so the rule
+is evaluated where a version is actually published - the default branch, and a tag
+push, which is `ok` there by construction - and reports `SKIP` on every other
+checkout:
+
+* **When the checkout is the default branch** - a `push` to `main`, or a local run
+  that says so - 11.2.2 above applies **unchanged**: `S = A - O` over the version
+  tags reachable from HEAD, DRIFT iff HEAD's version is not strictly greater than a
+  tag in `S`, and the `detail` names each such tag.
+* **Off the default branch** - a pull-request merge ref, a feature branch, a lane
+  work tree - R2 prints
+  `R2 SKIP not the default branch: the published line is evaluated on main only`
+  and contributes no finding. It is a `SKIP`, never an `ok` - nothing was proved,
+  and the detail says why (11.1.2). The exit code stays `0` while no other rule
+  drifts: 11.1.1 already admits a `SKIP`, and this is not an unreadable input, so
+  no exit code is redefined by this amendment.
+
+A `v*` tag push is **not** scoped out and needs no flag: the tag is the published
+artefact, `O` contains it, so R2 is `ok` there by construction (11.2.2's first
+table row) - and leaving it evaluated keeps the catch for the one case that
+matters, a tag placed on an older commit, which is DRIFT.
+
+The scope is a **stated input, never a guess**: `--head-is-default-branch=yes|no`
+(11.1) carries it, and its default is `yes`. A run that says nothing - including a
+workflow that forgets the flag - evaluates the frozen rule, so this amendment
+**cannot make a gate green by omission**; the worst a mistake can do is leave the
+old false red. A shallow clone still exits `2` through R1, R4 and R5, which keep
+the complete-tag-set requirement, so scoping R2 cannot hide a blind checkout.
+
+**The invariant is not loosened.** On the default branch a commit on top of the
+newest tag without a version bump is still DRIFT, exactly as 11.2.2 says, and the
+tests below measure that pair rather than asserting it in prose.
+
+**Why the scope cannot be finer.** R2 has exactly two coherent scopes, and there
+is no third. A rule that evaluates a pull-request checkout's own version flags
+every branch cut from a tagged-but-unbumped `main` by arithmetic: the branch's
+version *equals* the newest reachable tag, `O` does not contain that tag, so `S`
+is non-empty and the comparison is `X <= X`. Refinements that compare the head
+with its base ("did this pull request introduce the drift?") do not help, because
+the first branch commit after a tag is precisely the one that introduces it, and a
+rule that blocks that commit either deadlocks the bump that would clear it or
+re-creates the same red. The false red is measured, not argued: CI run
+40778031671 (a `push` to `main`) failed on
+`R2 DRIFT HEAD version 1.4.1 is not greater than tag v1.4.1`, run 40789321527 (a
+`pull_request`) failed on `R2 DRIFT HEAD version 1.4.2 is not greater than tag
+v1.4.2`, and `T-0017` cleared it for one release by bumping to `1.4.3` - which is
+the definition of a hope, not a gate. The same invariant is implemented a second
+time as a test assertion (`tests/unit/test_release_traceability.py`, "the tag of
+the current version is HEAD"), so a change that scopes R2 and not that assertion
+leaves the trap red in the `test` matrix.
+
+**What is *not* changed.** R1, R3, R4, R5, R6, R7, R8 and R9 are untouched; the
+exit-code precedence `2 > 1 > 0` (11.1.1) is untouched; `_complete_tag_set_error`
+is untouched; and the `detail` strings of the frozen rule are untouched, so no
+consumer that reads them needs a second source of truth.
+
+**Implementation spec (a developer task, filed by the CEO).**
+
+| file | change |
+|---|---|
+| `scripts/check_release_consistency.py` | `rule_r2_head_is_newer(repo_root: Path, head_is_default_branch: bool = True)` returns `_skip("R2", "not the default branch: the published line is evaluated on main only")` **before** it reads HEAD's version or the tag set; `main()` adds `--head-is-default-branch` (`choices=("yes", "no")`, `default="yes"`) and passes `args.head_is_default_branch == "yes"`; the module docstring states this subsection |
+| `.github/workflows/ci.yml` | the `release-consistency` gate passes `--head-is-default-branch=no` when `github.event_name == 'pull_request'` and `=yes` otherwise - one `env:` entry and one flag in the existing `run:` block, no second invocation and no re-implementation of the rule in shell |
+| `.github/workflows/release.yml` | **no change**: both call sites run on a `v*` tag push, which stays evaluated by the default, so the release build keeps R2's catch for a tag placed on an older commit |
+| `docs/Team/Release.md` (Release Engineer) | line 26's `--range <before>..<head>` becomes the change-set rule of [D-20261029-Architect](Decisions.md#d-20261029-architect---r2-evaluates-the-published-line-the-release-order-still-owes-one-bump-per-tag), and the forward-looking sentence of "Closed: R2 was red off the release tag" ("the next release must bump the version before it tags, or every lane after that tag pays this again") becomes the amended scope plus the release order, because after this amendment the lanes do not pay - `main` does, until the bump lands |
+
+Tests, in the order a reader should run them:
+
+1. `tests/unit/test_release_consistency.py` - five additions:
+   * `test_r2_off_the_default_branch_is_a_skip_and_not_an_ok`: the trap as a
+     fixture (tag `v1.1.0` at the first commit, a second commit with no bump);
+     `rule_r2_head_is_newer(root, head_is_default_branch=False)` returns
+     `status == "SKIP"` and a detail containing `not the default branch`.
+   * `test_r2_on_the_default_branch_at_a_tag_with_no_bump_is_still_drift`: the
+     same fixture with the default argument returns `DRIFT` naming `tag v1.1.0`.
+     This pair is the no-loosening proof, and a mutant that returns `ok` for both
+     turns it red.
+   * `test_the_scope_flag_changes_nothing_but_r2`: a fixture whose only finding is
+     an R9 drift, run with `--head-is-default-branch=no`, still exits `1` with the
+     R9 finding present and R2 `SKIP`.
+   * `test_json_mode_reports_the_scope_skip_and_exits_zero`:
+     `run_main(["--offline", "--json", "--head-is-default-branch=no"])` exits `0`,
+     `rules[1]` is `{"id": "R2", "status": "SKIP", ...}` and `problems == []`.
+   * `test_a_third_value_for_the_scope_flag_is_a_usage_error`:
+     `--head-is-default-branch=maybe` exits `2`, prints a usage line on stderr and
+     nothing on stdout.
+2. `tests/unit/test_release_traceability.py` - **migration, not deletion**: the
+   existing assertion keeps its first half (the current version is never excepted)
+   unconditionally and scopes the second half (the tag of the current version is
+   HEAD) through one helper `published_line()`: `GITHUB_EVENT_NAME ==
+   "pull_request"` is false; a `GITHUB_REF` under `refs/heads/` is true iff it is
+   `refs/heads/main`; one under `refs/tags/` is true; outside CI it is
+   `git symbolic-ref --short -q HEAD` printing `main`, or a tag pointing at HEAD.
+   A table-driven unit test pins all five cases with `monkeypatch.setenv`, so the
+   scope is a tested predicate rather than a skip that hides.
+3. `tests/unit/test_ci_contracts.py` - two tests: every `pull_request`-triggered
+   step that invokes `check_release_consistency.py` names
+   `--head-is-default-branch=no` (walk `jobs[*].steps[*].run` through
+   `workflow_yaml.parse_workflow`), and the `release-consistency` job passes `yes`
+   on the non-pull-request arm so both arms are greppable. The mutant twin flips
+   the two literals and the second test goes red.
+4. `tests/integration/test_ci_release_flow.py` - no edit expected: its existing
+   probe runs every workflow-invoked script with `--help` and fails on an
+   undocumented flag, so the flag must appear there; the implementer confirms the
+   file is still green instead of assuming it.
+
+The developer task must contain, at minimum: the three files this decision owns and
+no fifth; 11.2.2.1's rule text verbatim as the acceptance; the no-loosening pair as
+two tests; a mutant that flips the flag's default to `no` and must turn the
+default-branch DRIFT test red; a run of `check_release_consistency.py --offline` on
+`main` that is still `0 problem(s)`; and the implementation-table row below section
+11 naming the revision that lands it. Until that revision exists, **no table row
+claims this subsection** - that is the table's own rule, not an omission.
 
 #### 11.2.3 R3 detail
 
