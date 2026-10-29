@@ -356,6 +356,79 @@ def test_r2_accepts_head_newer_than_every_tag(tmp_path):
     assert "newer than 1 tag(s)" in result.detail
 
 
+def test_r2_reports_a_head_version_equal_to_a_tag_as_drift(tmp_path):
+    """11.2.2: the commit after a tag must bump the version (the post-release trap).
+
+    ``v1.1.0`` names the *previous* commit and is reachable, so it is in ``S``.
+    HEAD still says ``1.1.0``: the comparison is strict, ``1.1.0 > 1.1.0`` is
+    false, so this is drift. A non-strict ``>=`` would instead accept "tag and
+    ship, then land commits without a bump" - the exact state R2 exists to
+    refuse - so this test is the one that pins the operator, not the fixture.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    commit(root, {"README.md": "# Teamwork\n\n- post-release edit\n"}, message="after the tag")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.rule == "R2"
+    assert result.status == "DRIFT"
+    assert result.findings == ("HEAD version 1.1.0 is not greater than tag v1.1.0",)
+    assert "v1.1.0" in result.detail
+
+
+def test_r2_reports_a_head_version_older_than_a_reachable_tag(tmp_path):
+    """The drift branch itself: a reachable tag above HEAD must be reported.
+
+    A downgrade after the tag is the plainest form of the failure, and it is the
+    only shape that fires when the drift branch is deleted outright.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(root, "1.0.0")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.rule == "R2"
+    assert result.status == "DRIFT"
+    assert result.findings == ("HEAD version 1.0.0 is not greater than tag v1.1.0",)
+
+
+def test_r2_is_ok_and_counts_the_set_when_head_is_greater(tmp_path):
+    """The healthy case: one tag in ``S``, so ``|S| = 1`` is the whole detail."""
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(root, "1.2.0")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.status == "ok"
+    assert result.findings == ()
+    assert result.detail == "HEAD 1.2.0 is newer than 1 tag(s)"
+
+
+def test_r2_excludes_the_tag_that_points_at_head_from_the_count(tmp_path):
+    """``S = A - O``: the tag at HEAD is dropped before anything is compared.
+
+    ``v1.3.0`` points at HEAD and is therefore in ``O``; only ``v1.1.0`` and
+    ``v1.2.0`` are counted, so ``|S| = 2``. Keeping ``O`` in ``S`` would make a
+    release that is exactly its own tag red.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(root, "1.2.0")
+    git(root, "tag", "v1.2.0")
+    bump(root, "1.3.0")
+    git(root, "tag", "v1.3.0")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.status == "ok"
+    assert result.findings == ()
+    assert result.detail == "HEAD 1.3.0 is newer than 2 tag(s)"
+    assert "v1.3.0" not in result.detail
+
+
 # --------------------------------------------------------------------------- #
 # R3 - npm versions must resolve to a tagged payload or a recorded exception
 # --------------------------------------------------------------------------- #
