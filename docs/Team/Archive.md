@@ -3343,4 +3343,4 @@ Found but not charged: the guide says the ledger prefix lets coordination "count
 - author evidence: commit 4710ba6
 - reviewer evidence: 
 - findings history: 
-- branch / merge: ceo/t-0026-chore-records-closing-board-render / pending
+- branch / merge: ceo/t-0026-chore-records-closing-board-render / 2fab37e
