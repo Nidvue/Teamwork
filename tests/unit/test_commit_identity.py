@@ -349,6 +349,50 @@ def test_the_committer_guard_survives_an_unreadable_range(repo, capsys):
     assert "unmeasurable" in out, "the guard must say what it could not measure"
 
 
+def test_the_unreadable_range_fallback_audits_the_tip_and_not_the_ancestry(repo, capsys):
+    """An old accepted commit must not fail a pull request that does not touch it.
+
+    Measured on CI run 40789321527: a pull_request event carried a stale
+    `github.event.before` (63acff4) that no longer resolved, the workflow fell
+    back to a whole-history audit, and the guard failed on 6348825 - an ancestor
+    of main, not a commit the PR introduced.
+    """
+    _commit(repo, "Some One", "personal" + "@" + "example.invalid", "chore(x): old merge")
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): the new change")
+    gone = "0" * 40
+    assert engine.guard_committer_identity(repo, f"{gone}..HEAD") == 0
+    out = capsys.readouterr().out
+    assert "tip commit only" in out, "the fallback must state its scope"
+    assert "old merge" not in out, "the fallback must not read the ancestry"
+
+
+def test_the_unreadable_range_fallback_still_fails_a_foreign_tip(repo):
+    """Scoping the fallback must not turn the guard into a pass."""
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): base")
+    _commit(repo, "Some One", "personal" + "@" + "example.invalid", "chore(x): bad tip")
+    gone = "0" * 40
+    assert engine.guard_committer_identity(repo, f"{gone}..HEAD") == 1
+
+
+def test_the_ci_guard_prefers_the_pull_request_base_over_the_push_before_sha():
+    """A pull request is audited on its own change-set, from its base sha.
+
+    `github.event.before` is a push field. Reading it first is what made a PR
+    audit all of history when the base tip had moved: the event's `before` no
+    longer resolved, so the workflow fell back to the ancestry.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    text = (repo_root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    guard = text[text.index("committer-guard:") :]
+    assert "BASE_SHA: ${{ github.event.pull_request.base.sha }}" in guard
+    pr_arm = guard.index('"${EVENT_NAME}" = "pull_request"')
+    before_arm = guard.index('"${BEFORE_SHA}" != "0000000000000000000000000000000000000000"')
+    assert pr_arm < before_arm, "the pull_request arm must come before the push arm"
+    assert guard.count("--guard-committer") == 1, (
+        "the workflow must not re-run the guard on a wider range after a finding"
+    )
+
+
 def test_committer_must_match_the_author(repo):
     env = {
         **os.environ,
