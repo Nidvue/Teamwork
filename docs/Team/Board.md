@@ -153,7 +153,7 @@ under two roles is two tasks.
 | developer | T-0039 | - | dropped | - | - |
 | developer | T-0040 | records | done | P-0055 | 5d93c2c |
 | developer | T-0041 | - | dropped | - | - |
-| developer | T-0042 | - | todo | - | - |
+| developer | T-0042 | t-0042 | done | P-0068 | fb8eae0 |
 | developer | T-0043 | board | done | P-0066 | 321d0c4 |
 | developer | T-0044 | deliver | done | P-0059 | e9eaacf |
 | developer | T-0045 | - | todo | - | - |
@@ -192,7 +192,6 @@ landed by commit without a PR record.
 |---|---|---|---|---|
 | ceo | T-0018 · Add the Team Leader charter and redraw the org in the constitution, the skill and the roster tiers | P1 | todo | - |
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
-| developer | T-0042 · Engine: feature teams, per-instance team scoping, feature records and the feature-layer test | P1 | todo | - |
 | developer | T-0045 · fix(docs): the preflight surface still quotes the retired 38/43 figure | P2 | todo | - |
 | developer | T-0046 · fix(records): a review fail must record its own findings, not the accumulated first 200 characters | P2 | todo | - |
 | developer | T-0047 · fix(records): a bulk sweep must not be able to drop live work silently | P1 | todo | - |
