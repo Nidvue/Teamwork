@@ -2,11 +2,14 @@
 
 `docs/Team/Plan.md` states these invariants in its "Task-graph integrity" section
 rather than a task census, because a census moves with every status change. This
-test is the executable half of that claim: it parses shared role queues and fails
-when one of the four invariants breaks.
+test is the executable half of that claim: it calls the product's checker
+(`teamwork.records.task_graph_problems`) over synthetic queues, over the live
+ones when this checkout has a team tree, and over the write gates the CLI uses -
+so the invariant lives in the product, not in test-only code.
 
-The invariant checks run against synthetic queues as well as the live ones, so the
-logic is exercised in CI where the local team tree (gitignored) is absent.
+Each invariant is exercised twice: the checker reports it on a queue, and
+`task add` / `task set --deps` refuses to write it, because a queue that cannot
+run is indistinguishable from a lane with nothing to do.
 """
 
 from __future__ import annotations
@@ -17,16 +20,11 @@ from pathlib import Path
 
 import pytest
 
-from teamwork import config
+from teamwork import config, engine, records
 
 REPO = Path(__file__).resolve().parents[2]
 TEAM_REL = Path(".pi") / "Teamwork" / "Teams" / "Teamwork"
-
-TASK_RE = re.compile(r"^## (T-\d{4})\b")
-FIELD_RE = re.compile(r"^- ([a-z_]+):\s*(.*)$")
-DEP_RE = re.compile(r"^(?:(?P<role>[A-Za-z][A-Za-z-]*):)?(?P<id>T-\d{4})$")
-OPEN = {"todo", "doing", "review", "selfcheck"}
-PRIORITIES = {"P0", "P1", "P2", "P3"}
+ROSTER = "ceo,developer-1,tester-1,reviewer-1"
 
 
 def team_root() -> Path | None:
@@ -42,137 +40,6 @@ def queues_of(root: Path) -> list[Path]:
     return sorted((root / "Roles").glob("*/TaskQueue.md"))
 
 
-def norm_role(name: str) -> str:
-    """`security-auditor`, `SecurityAuditor` and `securityauditor` are one role.
-
-    The queues are directories (`Roles/SecurityAuditor/`) while a dependency may
-    write the qualifier however the role is displayed, so both sides of the
-    comparison go through this - otherwise `security-auditor:T-0001` looks dangling
-    while the task exists.
-    """
-    return re.sub(r"[^a-z0-9]", "", name.lower())
-
-
-def role_of(path: Path) -> str:
-    return norm_role(path.parent.name)
-
-
-def ids_in(path: Path) -> list[str]:
-    """Every `## T-xxxx` heading in a queue, in file order, including repeats."""
-    return re.findall(r"^## (T-\d{4})\b", path.read_text(encoding="utf-8"), re.M)
-
-
-def parse(path: Path) -> dict[str, dict[str, str]]:
-    """One dict per `## T-xxxx` block, keyed by id, holding its `- field: value` lines."""
-    tasks: dict[str, dict[str, str]] = {}
-    current: dict[str, str] | None = None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        head = TASK_RE.match(line)
-        if head:
-            current = tasks.setdefault(head.group(1), {})
-            continue
-        if current is None:
-            continue
-        field = FIELD_RE.match(line)
-        if field:
-            current[field.group(1)] = field.group(2).strip()
-    return tasks
-
-
-def graph(paths: list[Path]) -> dict[tuple[str, str], dict[str, str]]:
-    out: dict[tuple[str, str], dict[str, str]] = {}
-    for path in paths:
-        for tid, fields in parse(path).items():
-            out[(role_of(path), tid)] = fields
-    return out
-
-
-def deps(fields: dict[str, str]) -> list[str]:
-    raw = fields.get("deps", "")
-    if raw in ("", "-"):
-        return []
-    return [item.strip() for item in raw.split(",") if item.strip()]
-
-
-def dangling(g: dict[tuple[str, str], dict[str, str]]) -> list[str]:
-    """Deps naming a task that does not exist would silently never release."""
-    out = []
-    for (role, tid), fields in g.items():
-        for dep in deps(fields):
-            match = DEP_RE.match(dep)
-            if not match:
-                out.append(f"{role}:{tid} -> unparsable {dep!r}")
-            elif (
-                (norm_role(match.group("role")) if match.group("role") else role),
-                match.group("id"),
-            ) not in g:
-                out.append(f"{role}:{tid} -> {dep}")
-    return out
-
-
-def cycles(g: dict[tuple[str, str], dict[str, str]]) -> list[str]:
-    """A cycle makes every task in it unexecutable, so it must fail loudly."""
-    edges = {}
-    for node, fields in g.items():
-        edges[node] = [
-            ((norm_role(m.group("role")) if m.group("role") else node[0]), m.group("id"))
-            for m in (DEP_RE.match(d) for d in deps(fields))
-            if m
-            and ((norm_role(m.group("role")) if m.group("role") else node[0]), m.group("id")) in g
-        ]
-    found: list[str] = []
-    done: set[tuple[str, str]] = set()
-
-    def walk(node, stack):
-        if node in stack:
-            loop = stack[stack.index(node) :] + [node]
-            found.append(" -> ".join(f"{r}:{t}" for r, t in loop))
-            return
-        if node in done:
-            return
-        for nxt in edges.get(node, []):
-            walk(nxt, [*stack, node])
-        done.add(node)
-
-    for node in g:
-        walk(node, [])
-    return found
-
-
-def duplicate_open_ids(paths: list[Path]) -> dict[str, int]:
-    """One queue holding the same id twice is a defect; the same id across queues is not.
-
-    Ids are allocated per role queue (`records.assign_ids`), so every role legitimately
-    owns a `T-0001`. What must not happen is one queue carrying the id twice: `task set`
-    and `pr merge` would then act on whichever block they read first. Counting has to
-    happen on the parsed blocks, not on the flattened graph, which keys by `(role, id)`.
-    """
-    out: dict[str, int] = {}
-    for path in paths:
-        role = role_of(path)
-        seen: dict[str, int] = {}
-        for tid in ids_in(path):
-            seen[tid] = seen.get(tid, 0) + 1
-        for tid, n in seen.items():
-            if n > 1:
-                out[f"{role}:{tid}"] = n
-    return out
-
-
-def unprioritised(g: dict[tuple[str, str], dict[str, str]]) -> list[str]:
-    """A task with no priority is never pickable by `task next`."""
-    return [
-        f"{role}:{tid}"
-        for (role, tid), fields in g.items()
-        if fields.get("priority", "").strip() not in PRIORITIES
-    ]
-
-
-def unknown_role(g: dict[tuple[str, str], dict[str, str]], staffed: set[str]) -> list[str]:
-    """A queue directory that is not a role has no charter, budget or place in the tree."""
-    return sorted({role for role, _ in g if role not in staffed})
-
-
 def write_queue(root: Path, role: str, body: str) -> Path:
     path = root / "Roles" / role / "TaskQueue.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -181,11 +48,11 @@ def write_queue(root: Path, role: str, body: str) -> Path:
 
 
 CLEAN = """# Queue
-## T-0001
+## T-0001 · produce the contract
 - priority: P1
 - status: done
 - deps: -
-## T-0002
+## T-0002 · build against it
 - priority: P2
 - status: todo
 - deps: T-0001
@@ -193,11 +60,11 @@ CLEAN = """# Queue
 
 # A second role, so the fixture never plants the duplicate this suite looks for.
 CLEAN_TESTER = """# Queue
-## T-0011
+## T-0011 · test the contract
 - priority: P1
 - status: done
 - deps: -
-## T-0012
+## T-0012 · test the build
 - priority: P2
 - status: todo
 - deps: T-0011
@@ -211,13 +78,19 @@ def synthetic(tmp_path) -> Path:
     return tmp_path
 
 
+def problems(root: Path) -> list[str]:
+    """The product's verdict on every queue under ``root``."""
+    return records.task_graph_problems(root)
+
+
+def named(root: Path, *fragments: str) -> list[str]:
+    """The problems that mention every fragment, so a message can be pinned exactly."""
+    return [p for p in problems(root) if all(fragment in p for fragment in fragments)]
+
+
 def test_a_clean_graph_passes_every_invariant(synthetic):
-    g = graph(queues_of(synthetic))
-    assert len(g) == 4
-    assert not dangling(g)
-    assert not cycles(g)
-    assert not duplicate_open_ids(queues_of(synthetic))
-    assert not unprioritised(g)
+    assert len(queues_of(synthetic)) == 2
+    assert problems(synthetic) == []
 
 
 def test_a_dangling_role_qualified_dep_is_reported(synthetic):
@@ -225,19 +98,21 @@ def test_a_dangling_role_qualified_dep_is_reported(synthetic):
         synthetic,
         "Tester",
         CLEAN_TESTER
-        + "## T-0013\n- priority: P1\n- status: todo\n- deps: security-auditor:T-0001\n",
+        + "## T-0013 · wait on a role that never wrote it\n"
+        + "- priority: P1\n- status: todo\n- deps: security-auditor:T-0001\n",
     )
-    g = graph(queues_of(synthetic))
-    assert dangling(g) == ["tester:T-0013 -> security-auditor:T-0001"]
+    assert named(synthetic, "tester:T-0013", "security-auditor:T-0001", "names no task")
 
 
 def test_a_dep_on_a_missing_bare_id_is_reported(synthetic):
     write_queue(
         synthetic,
         "Tester",
-        CLEAN_TESTER + "## T-0014\n- priority: P1\n- status: todo\n- deps: T-0099\n",
+        CLEAN_TESTER
+        + "## T-0014 · wait on an id that never existed\n"
+        + "- priority: P1\n- status: todo\n- deps: T-0099\n",
     )
-    assert dangling(graph(queues_of(synthetic))) == ["tester:T-0014 -> T-0099"]
+    assert named(synthetic, "tester:T-0014", "'T-0099'", "names no task")
 
 
 def test_a_qualified_dep_resolves_inside_its_own_role(synthetic):
@@ -246,44 +121,55 @@ def test_a_qualified_dep_resolves_inside_its_own_role(synthetic):
         synthetic,
         "Tester",
         CLEAN_TESTER
-        + "## T-0015\n- priority: P1\n- status: todo\n- deps: developer:T-0002, tester:T-0012\n",
+        + "## T-0015 · two roles at once\n"
+        + "- priority: P1\n- status: todo\n- deps: developer:T-0002, tester:T-0012\n",
     )
-    assert not dangling(graph(queues_of(synthetic)))
+    assert problems(synthetic) == []
 
 
 def test_a_two_node_cycle_is_reported(synthetic):
     write_queue(
         synthetic,
         "Tester",
-        "## T-0001\n- priority: P1\n- status: todo\n- deps: tester:T-0002\n"
-        "## T-0002\n- priority: P1\n- status: todo\n- deps: tester:T-0001\n",
+        "## T-0001 · one\n- priority: P1\n- status: todo\n- deps: tester:T-0002\n"
+        "## T-0002 · two\n- priority: P1\n- status: todo\n- deps: tester:T-0001\n",
     )
-    found = cycles(graph(queues_of(synthetic)))
-    assert found and "tester:T-0001" in found[0] and "tester:T-0002" in found[0]
+    found = named(synthetic, "dependency cycle")
+    assert len(found) == 1, found
+    assert "tester:T-0001" in found[0] and "tester:T-0002" in found[0]
+    # The path starts and ends on the same task: it is a loop, not a chain.
+    path = found[0].split(": ", 1)[1].split(" -> ")
+    assert path[0] == path[-1], path
 
 
-def test_a_self_dependency_is_a_cycle(synthetic):
-    write_queue(synthetic, "Tester", "## T-0001\n- priority: P1\n- status: todo\n- deps: T-0001\n")
-    assert cycles(graph(queues_of(synthetic)))
+def test_a_self_dependency_is_reported(synthetic):
+    write_queue(
+        synthetic,
+        "Tester",
+        "## T-0001 · itself\n- priority: P1\n- status: todo\n- deps: T-0001\n",
+    )
+    assert named(synthetic, "tester:T-0001", "depends on itself")
 
 
 def test_a_resolved_chain_is_not_a_cycle(synthetic):
     write_queue(
         synthetic,
         "Tester",
-        "## T-0001\n- priority: P1\n- status: done\n- deps: -\n"
-        "## T-0002\n- priority: P1\n- status: todo\n- deps: T-0001\n"
-        "## T-0003\n- priority: P1\n- status: todo\n- deps: T-0002\n",
+        "## T-0001 · one\n- priority: P1\n- status: done\n- deps: -\n"
+        "## T-0002 · two\n- priority: P1\n- status: todo\n- deps: T-0001\n"
+        "## T-0003 · three\n- priority: P1\n- status: todo\n- deps: T-0002\n",
     )
-    assert not cycles(graph(queues_of(synthetic)))
+    assert problems(synthetic) == []
 
 
 def test_two_roles_each_owning_an_open_t_0001_is_not_a_duplicate(synthetic):
     """Ids are per role queue by design, so a shared id across lanes is normal."""
     write_queue(
-        synthetic, "SecurityAuditor", "## T-0001\n- priority: P1\n- status: doing\n- deps: -\n"
+        synthetic,
+        "SecurityAuditor",
+        "## T-0001 · audit\n- priority: P1\n- status: doing\n- deps: -\n",
     )
-    assert not duplicate_open_ids(queues_of(synthetic))
+    assert problems(synthetic) == []
 
 
 def test_one_queue_holding_the_same_id_twice_is_reported(synthetic):
@@ -291,10 +177,10 @@ def test_one_queue_holding_the_same_id_twice_is_reported(synthetic):
     write_queue(
         synthetic,
         "Developer",
-        CLEAN + "## T-0002\n- priority: P3\n- status: todo\n- deps: -\n",
+        CLEAN + "## T-0002 · a second block with the same id\n"
+        "- priority: P3\n- status: todo\n- deps: -\n",
     )
-    found = duplicate_open_ids(queues_of(synthetic))
-    assert found == {"developer:T-0002": 2}
+    assert named(synthetic, "developer:T-0002", "appears 2 times in one queue")
 
 
 def test_a_capitalised_dep_qualifier_resolves(synthetic):
@@ -303,23 +189,227 @@ def test_a_capitalised_dep_qualifier_resolves(synthetic):
         synthetic,
         "Tester",
         CLEAN_TESTER
-        + "## T-0016\n- priority: P1\n- status: todo\n- deps: SecurityAuditor:T-0001\n",
+        + "## T-0016 · display casing\n"
+        + "- priority: P1\n- status: todo\n- deps: SecurityAuditor:T-0001\n",
     )
     write_queue(
-        synthetic, "SecurityAuditor", "## T-0001\n- priority: P1\n- status: doing\n- deps: -\n"
+        synthetic,
+        "SecurityAuditor",
+        "## T-0001 · audit\n- priority: P1\n- status: doing\n- deps: -\n",
     )
-    assert not dangling(graph(queues_of(synthetic)))
+    assert problems(synthetic) == []
+
+
+def test_a_dep_qualified_with_an_instance_name_resolves(synthetic):
+    """`developer-1:T-0001` is the same queue as `developer:T-0001` (dep_satisfied agrees)."""
+    write_queue(
+        synthetic,
+        "Tester",
+        CLEAN_TESTER
+        + "## T-0017 · instance spelling\n"
+        + "- priority: P1\n- status: todo\n- deps: developer-1:T-0002\n",
+    )
+    assert problems(synthetic) == []
 
 
 def test_a_queue_directory_that_is_not_a_role_is_reported(synthetic):
-    write_queue(synthetic, "Auditor", "## T-0001\n- priority: P1\n- status: todo\n- deps: -\n")
-    staffed = {"developer", "tester"}
-    assert unknown_role(graph(queues_of(synthetic)), staffed) == ["auditor"]
+    write_queue(
+        synthetic, "Auditor", "## T-0001 · rogue\n- priority: P1\n- status: todo\n- deps: -\n"
+    )
+    staffed = {records.norm_role(role) for role in config.ROLE_PARENT}
+    assert set(records.load_task_queues(synthetic)) - staffed == {"auditor"}
 
 
 def test_a_task_without_a_priority_is_reported(synthetic):
-    write_queue(synthetic, "Tester", "## T-0001\n- priority: -\n- status: todo\n- deps: -\n")
-    assert unprioritised(graph(queues_of(synthetic))) == ["tester:T-0001"]
+    write_queue(
+        synthetic, "Tester", "## T-0001 · unprioritised\n- priority: -\n- status: todo\n- deps: -\n"
+    )
+    assert named(synthetic, "tester:T-0001", "has no priority")
+
+
+# --------------------------------------------------------------------------- #
+# the write gates: a broken graph must be refused before it exists
+# --------------------------------------------------------------------------- #
+
+
+def init_team(cli, project: Path) -> Path:
+    assert cli("--project", project, "init", "--agents", ROSTER, "--no-git") == 0
+    root = (
+        project / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / engine.team_slug(project)
+    ).resolve()
+    assert root.is_dir()
+    return root
+
+
+def queue(root: Path, role: str) -> list[dict]:
+    return engine.parse_tasks(root / "Roles" / role / "TaskQueue.md")
+
+
+def test_task_add_refuses_a_self_dependency(cli, project: Path, capsys) -> None:
+    root = init_team(cli, project)
+    assert cli("--project", project, "task", "add", "developer", "first", "--no-review") == 0
+    capsys.readouterr()
+
+    # The new task gets T-0002, so depending on T-0002 is depending on itself.
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "developer",
+            "second",
+            "--deps",
+            "T-0002",
+            "--no-review",
+        )
+        == 2
+    )
+    err = capsys.readouterr().err
+    assert "developer:T-0002 depends on itself" in err, err
+    assert [t["id"] for t in queue(root, "Developer")] == ["T-0001"]
+
+
+@pytest.mark.parametrize("dep", ["T-0099", "nosuchrole:T-0001", "no-task-id"])
+def test_task_add_refuses_an_unknown_dependency(cli, project: Path, capsys, dep: str) -> None:
+    root = init_team(cli, project)
+    assert cli("--project", project, "task", "add", "developer", "first", "--no-review") == 0
+    capsys.readouterr()
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "developer",
+            "downstream",
+            "--deps",
+            dep,
+            "--no-review",
+        )
+        == 2
+    )
+    err = capsys.readouterr().err
+    assert dep in err, err
+    assert [t["id"] for t in queue(root, "Developer")] == ["T-0001"]
+
+
+def test_task_set_refuses_a_two_node_cycle(cli, project: Path, capsys) -> None:
+    root = init_team(cli, project)
+    assert cli("--project", project, "task", "add", "developer", "api", "--no-review") == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "tester",
+            "test the api",
+            "--deps",
+            "developer:T-0001",
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--deps", "tester:T-0001")
+        == 2
+    )
+    err = capsys.readouterr().err
+    assert "dependency cycle: developer:T-0001 -> tester:T-0001 -> developer:T-0001" in err, err
+    # The refused write changed nothing: the queue on disk still has no deps.
+    assert queue(root, "Developer")[0]["deps"] == ""
+
+
+def test_task_set_refuses_a_cross_role_cycle(cli, project: Path, capsys) -> None:
+    root = init_team(cli, project)
+    assert cli("--project", project, "task", "add", "ceo", "decide", "--no-review") == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "developer",
+            "build",
+            "--deps",
+            "ceo:T-0001",
+            "--no-review",
+        )
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "tester",
+            "verify",
+            "--deps",
+            "developer:T-0001",
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    assert cli("--project", project, "task", "set", "ceo", "T-0001", "--deps", "tester:T-0001") == 2
+    err = capsys.readouterr().err
+    assert "ceo:T-0001 -> tester:T-0001 -> developer:T-0001 -> ceo:T-0001" in err, err
+    assert queue(root, "CEO")[0]["deps"] == ""
+
+
+def test_task_add_refuses_a_duplicate_open_id(cli, project: Path, capsys) -> None:
+    root = init_team(cli, project)
+    assert cli("--project", project, "task", "add", "tester", "only", "--no-review") == 0
+    path = root / "Roles" / "Tester" / "TaskQueue.md"
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        + "\n## T-0001 · a repeated block\n- priority: P1\n- status: todo\n- deps: -\n",
+        encoding="utf-8",
+    )
+    capsys.readouterr()
+
+    assert cli("--project", project, "task", "add", "tester", "another", "--no-review") == 2
+    err = capsys.readouterr().err
+    assert "tester:T-0001 appears 2 times in one queue" in err, err
+
+
+def test_task_check_is_clean_on_a_valid_graph(cli, project: Path, capsys) -> None:
+    init_team(cli, project)
+    assert cli("--project", project, "task", "add", "developer", "api", "--no-review") == 0
+    assert (
+        cli("--project", project, "task", "add", "tester", "test", "--deps", "developer:T-0001")
+        == 0
+    )
+    capsys.readouterr()
+
+    assert cli("--project", project, "task", "check") == 0
+    out = capsys.readouterr().out
+    assert "0 problems in 4 role queue(s)" in out, out
+
+
+def test_task_check_reports_a_cycle_that_arrived_on_disk(cli, project: Path, capsys) -> None:
+    """A merge can bring a queue the gate never wrote, so the read side must see it."""
+    root = init_team(cli, project)
+    write_queue(
+        root,
+        "Tester",
+        "## T-0001 · one\n- priority: P1\n- status: todo\n- deps: tester:T-0002\n"
+        "## T-0002 · two\n- priority: P1\n- status: todo\n- deps: tester:T-0001\n",
+    )
+    capsys.readouterr()
+
+    assert cli("--project", project, "task", "check") == 2
+    out = capsys.readouterr().out
+    assert "dependency cycle: tester:T-0001 -> tester:T-0002 -> tester:T-0001" in out, out
+
+
+# --------------------------------------------------------------------------- #
+# the committed claim
+# --------------------------------------------------------------------------- #
 
 
 def test_the_plan_states_the_same_invariants():
@@ -366,10 +456,9 @@ def test_the_plan_section_pins_no_census():
 
 def test_the_plan_lists_each_milestone_once():
     """A duplicated closed-milestone table is the defect this task set out to fix."""
+    pattern = r"^## (?:M\d+|Closed milestones)"
     headings = re.findall(
-        r"^## (?:M\d+|Closed milestones)",
-        (REPO / "docs" / "Team" / "Plan.md").read_text(encoding="utf-8"),
-        re.M,
+        pattern, (REPO / "docs" / "Team" / "Plan.md").read_text(encoding="utf-8"), re.M
     )
     assert len(headings) == len(set(headings)), f"duplicated sections: {headings}"
 
@@ -382,10 +471,7 @@ def test_the_live_queues_are_clean():
     paths = queues_of(root)
     if not paths:
         pytest.skip("no shared role queues in the local team tree")
-    g = graph(paths)
-    assert not dangling(g), dangling(g)
-    assert not cycles(g), cycles(g)
-    assert not duplicate_open_ids(paths)
-    assert not unprioritised(g)
-    staffed = {norm_role(role) for role in config.ROLE_PARENT}
-    assert not unknown_role(g, staffed), unknown_role(g, staffed)
+    found = records.task_graph_problems(root)
+    assert not found, found
+    staffed = {records.norm_role(role) for role in config.ROLE_PARENT}
+    assert not set(records.load_task_queues(root)) - staffed
