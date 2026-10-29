@@ -42,9 +42,27 @@ def project_path(args) -> Path:
     return Path.cwd()
 
 
+def team_root_or_die(root: Path) -> Path:
+    """Validate that ``root`` is deep enough to name a project, once, in one message.
+
+    ``TEAMWORK_ROOT`` is a documented override and is taken verbatim, so a value
+    one level too shallow reached ``root.parents[3]`` and raised ``IndexError: 3``
+    - the engine's one-line ``die()`` replaced by a traceback whose message was an
+    integer. Only the depth ``project_of`` needs is asserted: callers other than
+    the CLI (the engine's own tests, the archive path) hand in bare team
+    directories that are not laid out under ``.pi/Teamwork``.
+    """
+    if len(root.parents) < 4:
+        die(
+            "TEAMWORK_ROOT must point at <project>/.pi/Teamwork/Teams/<Team> "
+            f"(got {root}, which is {len(root.parents) + 1} level(s) deep)"
+        )
+    return root
+
+
 def project_of(root: Path) -> Path:
     """<project>/.pi/Teamwork/Teams/<Team> -> <project>."""
-    return root.parents[3]
+    return team_root_or_die(root).parents[3]
 
 
 def docs_dir(root: Path) -> Path:
