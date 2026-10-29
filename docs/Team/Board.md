@@ -100,8 +100,8 @@ under two roles is two tasks.
 | ceo | T-0013 | - | done | - | - |
 | ceo | T-0014 | audit | done | P-0034 | 67e0b0a |
 | ceo | T-0015 | plan | doing | P-0056 | - |
-| ceo | T-0016 | - | todo | - | - |
-| ceo | T-0017 | review | review | P-0057 | - |
+| ceo | T-0016 | - | dropped | - | - |
+| ceo | T-0017 | review | doing | P-0057 | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -123,26 +123,26 @@ under two roles is two tasks.
 | developer | T-0019 | records | dropped | P-0044 | - |
 | developer | T-0020 | engine | done | P-0041 | 171b2cf |
 | developer | T-0021 | tooling | done | P-0047 | 2f8be75 |
-| developer | T-0022 | - | doing | - | - |
-| developer | T-0023 | - | todo | - | - |
+| developer | T-0022 | - | dropped | - | - |
+| developer | T-0023 | - | dropped | - | - |
 | developer | T-0024 | security | done | P-0040 | 343941f |
-| developer | T-0025 | - | todo | - | - |
+| developer | T-0025 | - | dropped | - | - |
 | developer | T-0026 | records | done | P-0046 | 53ed4f1 |
 | developer | T-0027 | release | done | P-0043 | a3aab49 |
 | developer | T-0028 | board | done | P-0045 | a74aee4 |
-| developer | T-0029 | - | todo | - | - |
-| developer | T-0030 | hooks | doing | P-0049 | - |
-| developer | T-0031 | - | todo | - | - |
+| developer | T-0029 | - | dropped | - | - |
+| developer | T-0030 | hooks | dropped | P-0049 | - |
+| developer | T-0031 | - | dropped | - | - |
 | developer | T-0032 | release | done | P-0048 | abbb067 |
-| developer | T-0033 | - | todo | - | - |
+| developer | T-0033 | - | dropped | - | - |
 | developer | T-0034 | security | done | P-0053 | b1eabef |
 | developer | T-0035 | security | doing | P-0054 | - |
 | developer | T-0036 | release | done | P-0052 | 7c1e2a5 |
 | developer | T-0037 | hooks | done | P-0051 | d71a5ee |
-| developer | T-0038 | - | todo | - | - |
-| developer | T-0039 | - | todo | - | - |
+| developer | T-0038 | - | dropped | - | - |
+| developer | T-0039 | - | dropped | - | - |
 | developer | T-0040 | records | done | P-0055 | 5d93c2c |
-| developer | T-0041 | - | todo | - | - |
+| developer | T-0041 | - | dropped | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -159,11 +159,11 @@ under two roles is two tasks.
 | security-auditor | T-0001 | audit | dropped | P-0022 | - |
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
-| security-auditor | T-0004 | - | review | - | - |
+| security-auditor | T-0004 | - | doing | - | - |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
-| tester | T-0004 | - | review | - | - |
+| tester | T-0004 | - | done | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -174,21 +174,9 @@ landed by commit without a PR record.
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0015 · Record M13 in Plan/Project and regenerate docs/Team/Board.md from the queues | P0 | doing | - |
-| ceo | T-0016 · fix(ci): de-duplicate the privacy/links/mkdocs gates across ci.yml and docs.yml (needs the protected-context change) | P2 | todo | - |
-| ceo | T-0017 · perf(review): verify once, credit the rest - the reviewer stops re-running what an independent lane already proved | P0 | review | - |
-| developer | T-0022 · perf(engine): stop re-reading every queue and the whole ledger per command | P2 | doing | - |
-| developer | T-0023 · fix(trace): scope disputes and gate churn to a role+id, not a bare task id | P3 | todo | - |
-| developer | T-0025 · perf(review): surface an existing green gate run for the branch revision in the packet | P2 | todo | - |
-| developer | T-0029 · fix(tests): make the entrypoint version assertion hermetic and isolate the history proof | P2 | todo | - |
-| developer | T-0030 · fix(hooks): the installed hook must exec the running interpreter, not python3 | P2 | doing | - |
-| developer | T-0031 · test(acceptance): prove merge-on-pass and ledger verify on a real git loop | P3 | todo | - |
-| developer | T-0033 · docs(release): state the shipped committer-guard range and add the 1.4.3 changelog entries | P2 | todo | - |
+| ceo | T-0017 · perf(review): verify once, credit the rest - the reviewer stops re-running what an independent lane already proved | P0 | doing | - |
 | developer | T-0035 · fix(security): a commit subject must not exempt its identity from the history scan | P0 | doing | - |
-| developer | T-0038 · fix(privacy): URL-shaped credentials and annotated tag messages are unscanned | P2 | todo | - |
-| developer | T-0039 · docs(release): Release.md must describe the privacy gate, the draft-then-publish order and the attest edge | P2 | todo | - |
-| developer | T-0041 · fix(records): a removed task id must never be reissued | P2 | todo | - |
-| security-auditor | T-0004 · Audit scripts/privacy_scan.py and the release trust boundary for correctness and false-negative risk | P1 | review | - |
-| tester | T-0004 · Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at 3627c7d could not retire it | P2 | review | - |
+| security-auditor | T-0004 · Audit scripts/privacy_scan.py and the release trust boundary for correctness and false-negative risk | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
