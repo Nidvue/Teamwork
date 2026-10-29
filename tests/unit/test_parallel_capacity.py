@@ -11,6 +11,7 @@ and one pulse fills a lane up to its WIP limit instead of handing it one task.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from teamwork import engine
@@ -141,3 +142,44 @@ def test_peek_and_zero_capacity_do_not_mutate_or_claim(cli, project: Path) -> No
     assert cli("--project", project, "task", "next", "developer-1", "--capacity", "0") == 0
     tasks = engine.parse_tasks(engine.task_file(root, "developer"))
     assert [t["status"] for t in tasks] == ["doing", "todo"]
+
+
+def test_one_lane_needs_one_slot_for_its_whole_wip(cli, project: Path, capsys) -> None:
+    """A lane needs one lease for both WIP units, not one per plan entry.
+
+    The capacity maths counted plan entries, so one lane with two units looked
+    like two lanes needing two slots: the second unit was deferred to a later
+    wake and the lane never reached its WIP (T-0020/A5).
+    """
+    assert cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    root = team_root(project)
+    settings_path = root / engine.F_SETTINGS
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    for provider in ("ollama-cloud", "deepseek", "openai", "anthropic", "default"):
+        settings[provider] = 0
+    settings_path.write_text(json.dumps(settings), encoding="utf-8")
+    add(cli, project, "developer", "unit 0")
+    add(cli, project, "developer", "unit 1")
+
+    # no free slot: the two units of ONE lane are two deferred assignments, and
+    # the lane is counted once, not twice
+    capsys.readouterr()
+    assert cli("--project", project, "pulse", "--commit") == 3
+    out = capsys.readouterr().out
+    assert "# capacity: 1 lane(s) need a new slot, 0 free" in out, out
+    assert "deferring 2 assignment(s)" in out, out
+    assert all(
+        t["status"] == "todo" for t in engine.parse_tasks(engine.task_file(root, "developer"))
+    )
+
+    # one free slot serves the whole lane: nothing is deferred, both units are given
+    settings["ollama-cloud"] = 1
+    settings_path.write_text(json.dumps(settings), encoding="utf-8")
+    capsys.readouterr()
+    assert cli("--project", project, "pulse", "--commit") == 0
+    out = capsys.readouterr().out
+    assert "# capacity" not in out, out
+    assert "deferred until a lease frees" not in out, out
+    tasks = engine.parse_tasks(engine.task_file(root, "developer"))
+    assert [t["status"] for t in tasks] == ["doing", "doing"]
+    assert {t["claimed_by"].lower() for t in tasks} == {"developer-1"}

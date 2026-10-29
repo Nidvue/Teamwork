@@ -228,8 +228,8 @@ def test_pulse_defers_more_new_lanes_than_free_slots(cli, project: Path) -> None
         settings[provider] = 0
     (root / engine.F_SETTINGS).write_text(json.dumps(settings), encoding="utf-8")
 
-    assert cli("--project", project, "task", "add", "developer", "one") == 0
-    assert cli("--project", project, "task", "add", "developer", "two") == 0
+    for title in ("one", "two", "three"):
+        assert cli("--project", project, "task", "add", "developer", title) == 0
     assert cli("--project", project, "pulse", "--commit") == 3
     tasks = engine.parse_tasks(task_path(root, "developer"))
     assert all(task["status"] == "todo" for task in tasks), "a starved pulse claimed work"
@@ -238,7 +238,11 @@ def test_pulse_defers_more_new_lanes_than_free_slots(cli, project: Path) -> None
     (root / engine.F_SETTINGS).write_text(json.dumps(settings), encoding="utf-8")
     assert cli("--project", project, "pulse", "--commit") == 0
     tasks = engine.parse_tasks(task_path(root, "developer"))
-    assert len([task for task in tasks if task["status"] == "doing"]) == 1
+    # one lease covers a lane's WIP: the first lane takes both of its units on the
+    # single free slot, and the second lane is the one deferred (T-0020/A5)
+    doing = [task for task in tasks if task["status"] == "doing"]
+    assert len(doing) == engine.LANE_WIP, [task["status"] for task in tasks]
+    assert {task["claimed_by"].lower() for task in doing} == {"developer-1"}
 
 
 def test_strict_exits_one_on_a_high_finding(cli, project: Path, capsys) -> None:
