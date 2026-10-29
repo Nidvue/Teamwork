@@ -128,8 +128,10 @@ The Reviewer is the gate every lane waits on; keep the queue moving.
   self-check, gates and checklist. A prose-only diff is a `fast` review - link
   check and docs/contract tests, not the full code matrix; code is `standard`;
   security/release/data/workflow is `deep`.
-- A claim is a 20-minute renewable lease (`ReviewLeaseMinutes`), not the
-  90-minute slot TTL. Tell a Reviewer to `--renew` a genuinely long review and
+- A claim is a profile-aware renewable lease: base `ReviewLeaseMinutes` (20 min)
+  x1 for a prose diff, x2 standard, x4 deep, capped by `ReviewLeaseMaxMinutes` -
+  not the 90-minute slot TTL. `review --next --by <lane>` claims and prints the
+  top packet in one step. Tell a Reviewer to `--renew` a genuinely long review and
   never to hold a claim while writing prose.
 - `coordination` reports the claim-to-verdict p50/p90; if it rises while the
   queue grows, staff a lane before adding review depth.
