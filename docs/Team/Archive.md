@@ -3272,4 +3272,4 @@ Advisory to the PM lane (not charged here): P-0009 must land promptly after this
 - author evidence: commit 559fd22
 - reviewer evidence: 
 - findings history: 
-- branch / merge: ceo/t-0023-chore-records-export-the-closing-audit-m / pending
+- branch / merge: ceo/t-0023-chore-records-export-the-closing-audit-m / 7c96192
