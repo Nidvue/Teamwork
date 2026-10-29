@@ -874,3 +874,38 @@ def test_audit_link_health_measures_the_tree_under_the_caller(cli, project: Path
     out = capsys.readouterr().out
     assert "- none" not in out, "a broken link in the worktree must be counted"
     assert "issue(s); run `teamwork.py links` for the list" in out
+
+
+# --------------------------------------------------------------------------- #
+# TEAMWORK_ROOT: a validated shape, never `IndexError: 3`
+# --------------------------------------------------------------------------- #
+
+
+def test_a_shallow_teamwork_root_dies_with_one_readable_line(
+    cli, project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """`TEAMWORK_ROOT` was taken verbatim and `project_of` indexed `parents[3]`.
+
+    A root one level too shallow therefore raised ``IndexError: 3`` and the CLI
+    printed an integer where it promises one readable line - for links and map,
+    and for every other subcommand that resolves the project.
+    """
+    shallow = Path(project.anchor) / "abc"
+    assert len(shallow.parents) < 4, f"the fixture is not shallow enough: {shallow}"
+
+    monkeypatch.setenv("TEAMWORK_ROOT", str(shallow))
+    for argv in (("links",), ("map",), ("pr", "list"), ("ledger", "verify"), ("branch", "list")):
+        assert cli(*argv) == 1, argv
+        err = capsys.readouterr().err
+        assert "TEAMWORK_ROOT must point at <project>/.pi/Teamwork/Teams/<Team>" in err, argv
+        assert "IndexError" not in err and "Traceback" not in err, argv
+
+
+def test_a_properly_shaped_teamwork_root_still_resolves_the_project(
+    cli, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The validation must not reject the layout it documents."""
+    root = init(cli, project)
+    monkeypatch.setenv("TEAMWORK_ROOT", str(root))
+    assert engine.project_of(root) == project.resolve()
+    assert engine.docs_dir(root) == project.resolve().joinpath(*engine.DIR_DOCS)

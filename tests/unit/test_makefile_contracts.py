@@ -431,6 +431,8 @@ def test_release_check_chains_the_gates_it_claims():
     for gate in (
         "lint",
         "test",
+        "selftest",
+        "sync-check",
         "verify",
         "release-consistency",
         "privacy",
@@ -439,6 +441,123 @@ def test_release_check_chains_the_gates_it_claims():
         "identity",
     ):
         assert gate in recipe, f"release-check no longer runs {gate}: {recipe}"
+
+
+# --------------------------------------------------------------------------- #
+# The advertised release gate must be runnable after a plain `make dev`
+# --------------------------------------------------------------------------- #
+
+#: Module -> the distribution that provides it. A module the gate runs but this
+#: map does not name fails the test below, so a new gate cannot slip past the
+#: installability claim by being unknown.
+MODULE_DISTRIBUTIONS = {
+    "pytest": "pytest",
+    "ruff": "ruff",
+    "mypy": "mypy",
+    "build": "build",
+    "mkdocs": "mkdocs-material",
+}
+
+#: Modules that install things rather than check them; never a gate.
+INSTALL_MODULES = {"pip", "wheel", "setuptools", "ensurepip", "venv", "virtualenv"}
+
+REQUIREMENT_RE = re.compile(r"^(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?P<spec>.*)$")
+
+
+def distribution(name: str) -> str:
+    """PEP 503 normalisation: `MkDocs_Material` and `mkdocs-material` are one name."""
+    return re.sub(r"[-_.]+", "-", name).strip().lower()
+
+
+def requirement_specs(entries: list[str]) -> dict[str, str]:
+    """distribution -> its version specifier, from requirement strings or file lines."""
+    specs: dict[str, str] = {}
+    for entry in entries:
+        entry = entry.split("#", 1)[0].strip()
+        if not entry:
+            continue
+        match = REQUIREMENT_RE.match(entry)
+        if match:
+            specs[distribution(match.group("name"))] = match.group("spec").strip()
+    return specs
+
+
+def dev_extra_requirements(repo_root: Path = REPO_ROOT) -> list[str]:
+    """The `dev` extra's requirement strings, read without a TOML dependency."""
+    text = (repo_root / "pyproject.toml").read_text(encoding="utf-8")
+    table = re.search(r"(?ms)^\[project\.optional-dependencies\]\s*$(.*?)(?=^\[)", text)
+    assert table, "pyproject.toml no longer declares [project.optional-dependencies]"
+    extra = re.search(r"(?ms)^dev\s*=\s*\[(.*?)^\]", table.group(1))
+    assert extra, "pyproject.toml no longer declares a dev extra"
+    return re.findall(r'"([^"]+)"', extra.group(1))
+
+
+def prerequisite_closure(text: str, target: str = "release-check") -> set[str]:
+    """`target` plus every target it depends on, transitively."""
+    targets = make_targets(text)
+    seen: set[str] = set()
+    stack = [target]
+    while stack:
+        name = stack.pop()
+        if name in seen or name not in targets:
+            continue
+        seen.add(name)
+        stack.extend(prereq for prereq in targets[name] if prereq in targets)
+    return seen
+
+
+def modules_run_by(text: str, target: str = "release-check") -> set[str]:
+    """Every `python -m <module>` a prerequisite of `target` invokes."""
+    recipes = make_targets(text)
+    modules: set[str] = set()
+    for name in prerequisite_closure(text, target):
+        for line in recipes[name]:
+            for argv in split_commands(line.lstrip("@")):
+                argv = [normalise(word) for word in argv]
+                if len(argv) >= 3 and is_interpreter(argv[0]) and argv[1] == "-m":
+                    if argv[2] not in INSTALL_MODULES:
+                        modules.add(argv[2])
+    return modules
+
+
+def test_every_makefile_target_is_declared_phony():
+    """A target shadowed by a file of the same name silently does nothing.
+
+    `.PHONY` listed 20 of the 23 targets: `package`, `sync-skill` and `sync-check`
+    were missing, so a directory called `package` (which `make package` creates)
+    would have turned the target into a no-op.
+    """
+    text = makefile_text()
+    undeclared = sorted(set(make_targets(text)) - phony_targets(text))
+    assert undeclared == [], f"targets missing from .PHONY: {undeclared}"
+
+
+def test_every_module_the_release_gate_runs_is_in_the_dev_extra():
+    """`make dev` must install everything `make release-check` executes.
+
+    `docs` is part of the gate but `mkdocs` was not in the `dev` extra, so the
+    advertised one-shot local gate failed on a clean `make dev` checkout.
+    """
+    modules = modules_run_by(makefile_text())
+    assert {"pytest", "ruff", "mkdocs"} <= modules, (
+        f"the scan missed a gate module, so the claim is vacuous: {sorted(modules)}"
+    )
+    unknown = sorted(modules - set(MODULE_DISTRIBUTIONS))
+    assert unknown == [], f"gate modules with no known distribution: {unknown}"
+    dev = set(requirement_specs(dev_extra_requirements()))
+    missing = sorted(MODULE_DISTRIBUTIONS[m] for m in modules if MODULE_DISTRIBUTIONS[m] not in dev)
+    assert missing == [], f"`make release-check` runs modules `.[dev]` does not install: {missing}"
+
+
+def test_the_docs_builder_range_is_the_one_docs_requirements_pins():
+    """Two homes for one requirement is fine only while they cannot drift."""
+    docs = requirement_specs((REPO_ROOT / "docs" / "requirements.txt").read_text().splitlines())
+    dev = requirement_specs(dev_extra_requirements())
+    assert "mkdocs-material" in docs, "docs/requirements.txt no longer pins the docs builder"
+    assert dev.get("mkdocs-material") == docs["mkdocs-material"], (
+        f"the dev extra pins {dev.get('mkdocs-material')!r} but docs/requirements.txt "
+        f"pins {docs['mkdocs-material']!r}"
+    )
 
 
 # --------------------------------------------------------------------------- #
