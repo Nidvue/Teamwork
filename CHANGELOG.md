@@ -9,6 +9,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3](https://github.com/Nidvue/Teamwork/compare/v1.4.2...v1.4.3) - 2026-10-29
+
+Compares from the previous tag, `v1.4.2`.
+
+### Changed
+
+- `version.py` and `CITATION.cff` move to `1.4.3` on `main` immediately after the
+  `v1.4.2` tag. The release consistency rule R2 compares the checked-out version
+  with every tag reachable from it, so the next commit on `main` - or on any branch
+  cut from it - would be drift without this bump, because `v1.4.2` would no longer
+  point at `HEAD`. The release order this restores: tag the payload commit, then
+  bump on `main`.
+
 ## [1.4.2](https://github.com/Nidvue/Teamwork/compare/v1.4.1...v1.4.2) - 2026-10-29
 
 Compares from the previous tag, `v1.4.1`.
