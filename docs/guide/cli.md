@@ -310,6 +310,17 @@ every stale row (`0` when equal); `--write` renders them from the queues and exi
 is missing its tables, or a queue set that cannot be read, is a setup error
 (`2`), never a clean check.
 
+The committed board is written by the **merging Reviewer**, not by the feature
+branch: `pr merge` (and therefore a passing `review`) re-renders it from the
+queues and commits it as a `chore(records)` change after the merge. A branch that
+still carries its own render is not an error - `preflight` charges only drift the
+branch itself caused - but the merge's re-render makes the carried copy irrelevant,
+so no lane needs to hand-render before submitting. If that carried copy conflicts
+with a base that moved, the rebase the probe prints should **drop** it (the merge
+writes the file) instead of rendering it again. `board --write` is the repair
+command for a board that is already on the base; a render that could not be
+committed says so and names it.
+
 ### `parallel`
 
 ```text
@@ -617,6 +628,18 @@ ledger) to the verdict; `--baseline` and `--replay` record where the
 verification started and how to rerun it. `--force` overrides the review gates
 and requires a recorded reason.
 
+Before a pass records anything it runs the same mergeability probe as `preflight`:
+`git merge-tree --write-tree <base> <branch>`. When the probe is non-zero - the
+branch conflicts with the base it would merge into - the pass is **refused** with
+the conflicting paths and the rebase command, exit `2`: no verdict is recorded, the
+PR is not flipped to `approved` and the task stays in `review`. That refusal is the
+point of the probe: a pass that precedes a merge that cannot happen leaves reviewed
+work unlanded behind a green verdict (P-0057 recorded `review_status=passed` and
+then died in `pr merge` on a `Board.md` conflict). `--force <reason>` records a
+deliberate override of the probe on the task's `forced` field and in the
+`review.pass` ledger detail; git still cannot land a conflict, so the merge is
+reported as not run rather than counted as shipped.
+
 Several Reviewers may run at once, so a lane announces what it took:
 `review --next --by <reviewer>` claims the highest-priority unclaimed deliverable
 and prints its packet in one atomic step, and
@@ -699,7 +722,7 @@ PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 | `branch` | a branch the record names is not in this repository, the base is not a commit here, the base has moved past the branch (behind), or the branch carries no commit over the base. Two **warnings**, not failures: more than one commit (squash before review) and a task with no branch at all - a verdict, a records pass or a research note legitimately carries no code, and the other revision checks then report `not measured`. |
 | `identity` | `identity --audit --range <base>..<branch>` reports a commit that is not authored and committed by a role mailbox, or that carries no `Acting role:` trailer. |
 | `evidence` | the task's `evidence`, its `self_note`, or the note the running `selfcheck` is about to store (its `--test` line included) names an `@<sha>` that is not a commit in this repository. |
-| `mergeable` | `git merge-tree --write-tree <base> <branch>` is non-zero, naming the conflicting paths; an unanswerable probe (git < 2.38) is a failure, not a pass. |
+| `mergeable` | `git merge-tree --write-tree <base> <branch>` is non-zero, naming the conflicting paths; an unanswerable probe (git < 2.38) is a failure, not a pass. The same probe refuses a `review --result pass` and a `pr merge`, so a verdict can never precede an impossible merge. |
 | `board` | the branch itself changes `docs/Team/Board.md` and that file disagrees with the queues. A branch that does not carry the board is never charged: the merging Reviewer renders it. |
 | `gate` | `PreflightCommand` (below) was run with `--run` and exited non-zero. |
 
@@ -973,6 +996,14 @@ base where it was and publishes nothing. The merge runs in the work tree that
 has the base checked out, so a merge started from an instance worktree still
 lands on the base instead of failing on `git checkout`.
 
+Before it touches the work tree, `pr merge` re-runs the mergeability probe
+against the base it is about to advance (`git merge-tree --write-tree <base>
+<branch>`) and refuses with exit `2`, naming the conflicting paths and the rebase
+command, when the branch no longer merges. A verdict is a statement about a
+revision, not a promise that the base has not moved since it was recorded, so
+nothing is checked out, committed or recorded on that path. `--force <reason>`
+records the override in the `pr.merge.forced` ledger record.
+
 After the merge the `branch / merge` line of the matching
 `docs/Team/Archive.md` entry is repointed from `pending` to the merge revision
 and that one-line rewrite is committed on the base branch as its own
@@ -984,6 +1015,15 @@ base first and rides along in the same commit, so the base always records what
 shipped. Only an entry still saying `pending` is repointed: a task reworked
 after a merge reuses its branch name, and rewriting every match would erase the
 earlier merge revision from the archive.
+
+After the merge and its records commit, the merging Reviewer re-renders
+`docs/Team/Board.md` from the role queues with the product's own renderer
+(`teamwork.board`) and commits it as another `chore(records)` commit. The landing
+has just moved this task to `done` with its merge revision, so this is the only
+render that can leave a board equal to the queues - including rows another lane
+moved while the branch waited. A render that cannot be written or committed is
+reported as `the merge ... is LANDED, but docs/Team/Board.md ... is STALE`, with the
+`board --write` repair command; the merge record is never rolled back.
 
 ### `commit`
 
