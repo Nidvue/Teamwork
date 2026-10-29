@@ -106,10 +106,10 @@ under two roles is two tasks.
 | ceo | T-0018 | - | dropped | - | - |
 | ceo | T-0019 | - | dropped | - | - |
 | ceo | T-0020 | records | done | P-0058 | bcf48e7 |
-| ceo | T-0021 | - | dropped | - | - |
+| ceo | T-0021 | org | done | P-0063 | 20e12ae |
 | ceo | T-0022 | records | done | P-0060 | e7e4768 |
 | ceo | T-0023 | records | done | P-0061 | 7c96192 |
-| ceo | T-0024 | records | review | P-0062 | - |
+| ceo | T-0024 | records | done | P-0062 | 394a386 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -152,8 +152,10 @@ under two roles is two tasks.
 | developer | T-0040 | records | done | P-0055 | 5d93c2c |
 | developer | T-0041 | - | dropped | - | - |
 | developer | T-0042 | - | dropped | - | - |
-| developer | T-0043 | - | dropped | - | - |
-| developer | T-0044 | deliver | doing | P-0059 | - |
+| developer | T-0043 | - | todo | - | - |
+| developer | T-0044 | deliver | done | P-0059 | e9eaacf |
+| developer | T-0045 | - | todo | - | - |
+| developer | T-0046 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -185,8 +187,9 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0024 · chore(records): final board render at close | P0 | review | - |
-| developer | T-0044 · feat(deliver): one pre-flight gate, so a review round is never spent on a mechanical miss | P0 | doing | - |
+| developer | T-0043 · fix(board): a generated board must not ride a feature branch, and a pass must not precede an unmergeable revision | P2 | todo | - |
+| developer | T-0045 · fix(docs): the preflight surface still quotes the retired 38/43 figure | P2 | todo | - |
+| developer | T-0046 · fix(records): a review fail must record its own findings, not the accumulated first 200 characters | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
