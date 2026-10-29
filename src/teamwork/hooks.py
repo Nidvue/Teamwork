@@ -14,6 +14,26 @@ directory; the *rules* act on the work tree the commit or push happens in
 installs for every worktree of that repository, which is what the shim's
 ``root=$(git rev-parse --show-toplevel)`` line is for - do not "fix" it back to
 ``.git/hooks``.
+
+Three properties are contract, because a guard nobody can install - or one that
+quietly stops running - is worse than no guard at all (security audit F-6):
+
+* **Per stage.** ``pre-commit`` (R1, the rule that keeps commits off the default
+  branch) is installed even when ``pre-push`` already belongs to someone else.
+  ``git lfs install`` owns ``pre-push`` in a fresh clone, and an all-or-nothing
+  installer refused BOTH stages because of it.
+* **A foreign hook is chained, not dropped.** A hook this tool did not write is
+  preserved as ``<stage>.teamwork-foreign`` and run by the teamwork shim after the
+  rules pass, so the LFS hook keeps working and so does the branch guard.
+* **Fail closed.** The shim exits 1 with a message when it cannot resolve the work
+  tree or when the engine file is missing. It used to exit 0 in both cases, which
+  silently disabled every rule while ``hooks status`` still reported ``installed``.
+
+The guard is **local only**: ``git commit --no-verify``, ``git push --no-verify``
+and a ``core.hooksPath`` pointing elsewhere all skip these files, and a clone that
+never ran ``hooks install`` has none of them. The forge-side rule (branch
+protection / ruleset) is what covers those paths; the hook is the cheap in-loop
+half of the same rule, never the whole control.
 """
 
 from __future__ import annotations
@@ -24,10 +44,13 @@ from pathlib import Path
 
 from .config import (
     DEFAULT_BASE,
+    F_LEDGER,
     HOOK_MARKER,
     HOOK_STAGES,
     IDENTITY_DOMAIN,
     LFS_MAX_BYTES,
+    TEAM_ROOT_DIR,
+    TEAMS_SUBDIR,
 )
 from .gitutil import (
     HooksDirUnresolved,
@@ -49,20 +72,121 @@ ZERO_SHA = "0" * 40
 ALLOW_MAIN = "TEAMWORK_ALLOW_MAIN"
 ALLOW_FORCE = "TEAMWORK_ALLOW_FORCE"
 
+#: Where a foreign hook is preserved before the teamwork shim takes its place:
+#: ``pre-push`` -> ``pre-push.teamwork-foreign``. One suffix derived from the stage
+#: name, so ``install``, ``status`` and ``uninstall`` cannot disagree about it.
+CHAIN_SUFFIX = ".teamwork-foreign"
 
-def shim(stage: str) -> str:
-    """The POSIX sh hook git runs. Resolves the engine from the work tree root."""
-    return (
-        "#!/bin/sh\n"
-        f"# {HOOK_MARKER} (stage: {stage}) - remove with: teamwork.py hooks uninstall\n"
-        "# the hook file lives in the git dir; the rules act on the work tree below\n"
-        '[ -n "${TEAMWORK_SKIP_HOOKS:-}" ] && exit 0\n'
-        "root=$(git rev-parse --show-toplevel) || exit 0\n"
-        "# -f, not -x: scripts/teamwork.py is committed 100644, so an executable-bit\n"
-        "# test would turn every hook into a silent no-op in this repository\n"
-        '[ -f "$root/scripts/teamwork.py" ] || exit 0\n'
-        f'exec python3 "$root/scripts/teamwork.py" hook {stage} "$@"\n'
-    )
+#: The interpreter the shim runs the engine with. A hook is a machine-local file
+#: (nothing is committed), so an absolute path would be safe; ``python3`` stays the
+#: documented spelling here and T-0030 owns the interpreter-resolution question.
+SHIM_INTERPRETER = "python3"
+
+
+def chained_hook(path: Path) -> Path:
+    """The preserved foreign hook that the stage at ``path`` chains, or would chain."""
+    return path.parent / f"{path.name}{CHAIN_SUFFIX}"
+
+
+#: The head of every shim: the marker line, the bypass, and the two fail-closed
+#: guards. Literal shell with ``@MARKER@``/``@STAGE@`` as the only substitutions, so
+#: the frozen body in ``docs/Team/Architecture.md`` section 12.6 can be read beside
+#: this text. Two constructs here are contract, not style:
+#:
+#: * ``[ -n "${TEAMWORK_SKIP_HOOKS:-}" ]`` - the ``:-`` keeps the expansion total,
+#:   so an inherited ``set -u`` cannot turn the bypass into a blocker;
+#: * the two ``exit 1`` blocks - a guard that cannot run must refuse loudly. The
+#:   previous ``|| exit 0`` disabled every rule when the engine file was renamed
+#:   or the checkout was broken, while ``hooks status`` still said ``installed``.
+SHIM_HEAD = """\
+#!/bin/sh
+# @MARKER@ (stage: @STAGE@) - remove with: teamwork.py hooks uninstall
+# the hook file lives in the git dir; the rules act on the work tree below
+# local only: `--no-verify` and a core.hooksPath pointing elsewhere skip this
+# file, and a clone that never ran `hooks install` has none of it - the
+# forge-side rule covers those, so this hook is never the whole control.
+[ -n "${TEAMWORK_SKIP_HOOKS:-}" ] && exit 0
+root=$(git rev-parse --show-toplevel)
+if [ -z "$root" ]; then
+  echo "teamwork: @STAGE@ hook: cannot resolve the work tree root (git rev-parse --show-toplevel failed); refusing rather than skipping the guard. Bypass deliberately with TEAMWORK_SKIP_HOOKS=1." >&2
+  exit 1
+fi
+# -f, not -x: scripts/teamwork.py is committed 100644, so an executable-bit
+# test would turn every hook into a silent no-op in this repository
+if [ ! -f "$root/scripts/teamwork.py" ]; then
+  echo "teamwork: @STAGE@ hook: $root/scripts/teamwork.py is missing, so the rules cannot run; refusing rather than failing open. Restore the file, run 'teamwork.py hooks uninstall', or bypass deliberately with TEAMWORK_SKIP_HOOKS=1." >&2
+  exit 1
+fi
+"""
+
+#: The tail of a normal shim: the engine replaces the shell, so git reads its exit
+#: code directly.
+SHIM_EXEC = 'exec @INTERP@ "$root/scripts/teamwork.py" hook @STAGE@ "$@"\n'
+
+#: The ``pre-push`` preamble for a chained stage. git hands the refspec list to the
+#: hook on stdin and BOTH hooks need it, so it is copied once and each hook is fed
+#: from the copy; a pipe would give the list to whichever hook read first.
+SHIM_REFSPECS = """\
+# git hands pre-push the refspec list on stdin and BOTH hooks need it: copy it
+# once, then feed each hook from the copy
+refspecs=$(mktemp "${TMPDIR:-/tmp}/teamwork-@STAGE@.XXXXXX") || {
+  echo "teamwork: @STAGE@ hook: cannot create a temporary file for git's refspec list; refusing rather than starving the chained hook." >&2
+  exit 1
+}
+trap 'rm -f "$refspecs"' 0
+cat > "$refspecs"
+@INTERP@ "$root/scripts/teamwork.py" hook @STAGE@ "$@" < "$refspecs"
+"""
+
+#: The tail of a chained shim: the rules first, then the preserved foreign hook.
+#: The preserved file is named beside this one and found through this file's own
+#: directory, which is the hooks directory whatever path git used to reach it.
+SHIM_CHAIN = """\
+# this stage had a foreign hook when teamwork installed over it: it is kept
+# beside this file as @STAGE@@SUFFIX@ and runs after the rules pass
+hook_dir=$(cd "$(dirname "$0")" && pwd) || exit 1
+chained="$hook_dir/@STAGE@@SUFFIX@"
+if [ ! -f "$chained" ]; then
+  echo "teamwork: @STAGE@ hook: the preserved @STAGE@@SUFFIX@ it was installed to chain is gone; refusing rather than silently dropping that hook. Re-run 'teamwork.py hooks install', or remove this hook with 'teamwork.py hooks uninstall'." >&2
+  exit 1
+fi
+@BEFORE@# a refusal from the rules stops here: the chained hook must not run for a
+# commit or push that already failed
+status=$?
+if [ "$status" -ne 0 ]; then exit "$status"; fi
+@AFTER@status=$?
+exit "$status"
+"""
+
+
+def shim(stage: str, chain: bool = False) -> str:
+    """The POSIX sh hook git runs. Resolves the engine from the work tree root.
+
+    Both guards exit **non-zero** on purpose. ``git rev-parse --show-toplevel``
+    failing and ``scripts/teamwork.py`` being absent both mean the rules cannot
+    run; exiting 0 there made a renamed engine or a broken checkout disable every
+    rule silently while ``hooks status`` still reported ``installed`` (security
+    audit F-6). A guard that cannot run must say so and refuse, and
+    ``TEAMWORK_SKIP_HOOKS`` stays the one documented escape.
+
+    ``chain=True`` writes the variant for a stage whose foreign hook was preserved
+    as ``<stage>.teamwork-foreign``: the rules run first and the preserved hook
+    runs after them with the same arguments - and, on ``pre-push``, with the same
+    stdin, which is why git's refspec list is copied through a temporary file
+    rather than piped to a hook that would starve the other one.
+    """
+    head = SHIM_HEAD.replace("@MARKER@", HOOK_MARKER).replace("@STAGE@", stage)
+    if not chain:
+        tail = SHIM_EXEC
+        return head + tail.replace("@INTERP@", SHIM_INTERPRETER).replace("@STAGE@", stage)
+    if stage == "pre-push":
+        before = SHIM_REFSPECS.replace("@INTERP@", SHIM_INTERPRETER).replace("@STAGE@", stage)
+        after = '"$chained" "$@" < "$refspecs"\n'
+    else:
+        before = f'{SHIM_INTERPRETER} "$root/scripts/teamwork.py" hook {stage} "$@"\n'
+        after = '"$chained" "$@"\n'
+    tail = SHIM_CHAIN.replace("@SUFFIX@", CHAIN_SUFFIX).replace("@STAGE@", stage)
+    return head + tail.replace("@BEFORE@", before).replace("@AFTER@", after)
 
 
 def git_root(args) -> Path:
@@ -100,39 +224,140 @@ def is_managed(path: Path) -> bool:
 
 
 def hook_state(path: Path) -> str:
+    """``installed`` (a hook this tool wrote), ``foreign`` (anyone else's), ``absent``."""
     if not path.exists():
         return "absent"
     return "installed" if is_managed(path) else "foreign"
 
 
-def install(project: Path, force: bool) -> int:
+def shim_chains(path: Path) -> bool:
+    """True only when the installed shim actually runs a preserved foreign hook.
+
+    The preserved file's existence is not the answer: ``--force`` writes a plain
+    shim on purpose, and ``hooks status`` must not claim a chain that does not run.
+    The body is the proof, exactly as it is for ``is_managed``.
+    """
+    if hook_state(path) != "installed":
+        return False
+    try:
+        body = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return f"{path.name}{CHAIN_SUFFIX}" in body
+
+
+def write_shim(path: Path, stage: str, chain: bool) -> None:
+    """One stage's shim, mode 0755 and LF endings; the only place a hook is written."""
+    write_lf(path, shim(stage, chain))
+    path.chmod(0o755)
+
+
+def keep_executable(path: Path) -> None:
+    """A preserved hook git could not execute would turn the chain into a refusal."""
+    if not os.access(path, os.X_OK):
+        path.chmod(path.stat().st_mode | 0o111)
+
+
+def record_force(project: Path, stages: list, reason: str) -> None:
+    """Record *why* a foreign hook was replaced, when this project has a team ledger.
+
+    ``hooks install`` runs in any repository git can answer for, so it may not
+    create a team tree of its own: the line is appended only where the project
+    already carries one, and a missing or unwritable ledger never costs the
+    operator the install.
+    """
+    teams = project / TEAM_ROOT_DIR / TEAMS_SUBDIR
+    if not teams.is_dir():
+        return
+    candidates = sorted(teams.glob(f"*/{F_LEDGER}"))
+    if len(candidates) != 1:
+        return
+    from .engine import ledger_append
+
+    try:
+        ledger_append(
+            candidates[0].parent,
+            "hooks.install",
+            actor=_config(project, "user.name"),
+            target=", ".join(stages),
+            detail=f"replaced a foreign hook with --force; reason: {reason}",
+        )
+    except (OSError, SystemExit):  # pragma: no cover - the install must not die here
+        return
+
+
+def install(project: Path, force: bool, reason: str = "") -> int:
+    """Install **each** stage on its own; a foreign hook is chained, never dropped.
+
+    All-or-nothing was the defect (security audit F-6): one foreign ``pre-push``
+    (``git lfs install`` writes one in every fresh clone) made ``install`` refuse
+    ``pre-commit`` as well, so R1 - the rule that keeps commits off the default
+    branch - could not be installed without ``--force`` deleting the LFS hook.
+    Now every stage lands unless that specific stage is blocked, a foreign hook is
+    moved aside to ``<stage>.teamwork-foreign`` and run after the rules pass, and a
+    stage that could not be installed makes the run exit 1 while the others stay.
+    """
     target_dir = hooks_dir(project)
-    foreign = [
-        target_dir / stage
-        for stage in HOOK_STAGES
-        if hook_state(target_dir / stage) == "foreign" and not force
-    ]
-    if foreign:
+    foreign = [stage for stage in HOOK_STAGES if hook_state(target_dir / stage) == "foreign"]
+    if force and foreign and not reason.strip():
         die(
-            "refusing to overwrite "
-            + ", ".join(str(path) for path in foreign)
-            + f": it was not installed by teamwork (no '{HOOK_MARKER}' line). "
-            "Move it aside yourself, or re-run with --force to replace it."
+            "--force replaces a hook this tool did not install ("
+            + ", ".join(foreign)
+            + "), so say why: --force --reason '<why>'. The reason is recorded, and a "
+            "replacement without one is the kind of quiet overwrite this refusal exists "
+            "to prevent."
         )
     target_dir.mkdir(parents=True, exist_ok=True)
+    replaced: list = []
+    chained: list = []
+    blocked: list = []
     for stage in HOOK_STAGES:
         path = target_dir / stage
-        write_lf(path, shim(stage))
-        path.chmod(0o755)
-        print(f"{stage} installed")
+        preserved = chained_hook(path)
+        state = hook_state(path)
+        if state == "foreign":
+            if force:
+                write_shim(path, stage, chain=False)
+                replaced.append(stage)
+                print(f"{stage} replaced (--force); the hook that was there is gone")
+                continue
+            if preserved.exists():
+                blocked.append(stage)
+                print(
+                    f"teamwork: {stage}: a foreign hook and a preserved "
+                    f"{preserved.name} are both in the way; resolve one of them, or "
+                    "re-run with --force --reason '<why>'",
+                    file=sys.stderr,
+                )
+                continue
+            path.replace(preserved)
+            keep_executable(preserved)
+            chained.append(stage)
+        write_shim(path, stage, chain=preserved.exists())
+        if preserved.exists():
+            print(f"{stage} installed (chained: {preserved.name})")
+        else:
+            print(f"{stage} installed")
+    if replaced:
+        record_force(project, replaced, reason.strip())
     print(f"# hooks directory: {target_dir}")
-    return 0
+    if chained:
+        print(
+            "# chained: "
+            + ", ".join(f"{stage}{CHAIN_SUFFIX}" for stage in chained)
+            + " runs after the rules pass"
+        )
+    return 1 if blocked else 0
 
 
 def status(project: Path) -> int:
     target_dir = hooks_dir(project)
     for stage in HOOK_STAGES:
-        print(f"{stage} {hook_state(target_dir / stage)}")
+        path = target_dir / stage
+        line = f"{stage} {hook_state(path)}"
+        if shim_chains(path):
+            line += f" (chained: {chained_hook(path).name})"
+        print(line)
     # The directory is part of the answer: in a linked worktree the hooks are not
     # under <toplevel>/.git, so a reader must be able to see where we looked.
     print(f"# hooks directory: {target_dir}")
@@ -140,17 +365,29 @@ def status(project: Path) -> int:
 
 
 def uninstall(project: Path) -> int:
+    """Remove only marked hooks, and hand a chained foreign hook back its stage.
+
+    Deleting the teamwork hook while leaving ``<stage>.teamwork-foreign`` behind
+    would silently switch the LFS hook off for good, so the preserved hook is
+    restored to its own name. A foreign hook this tool never touched is left alone
+    and said so.
+    """
     target_dir = hooks_dir(project)
     for stage in HOOK_STAGES:
         path = target_dir / stage
+        preserved = chained_hook(path)
         state = hook_state(path)
         if state == "installed":
             path.unlink()
             print(f"{stage} removed")
         elif state == "foreign":
             print(f"{stage} foreign (left alone)")
+            continue
         else:
             print(f"{stage} absent")
+        if preserved.exists():
+            preserved.replace(path)
+            print(f"{stage} previous hook restored from {preserved.name}")
     return 0
 
 
@@ -364,7 +601,7 @@ def check_push(project: Path, refspecs: list) -> int:
 def cmd_hooks(args) -> int:
     project = git_root(args)
     if args.hooks_cmd == "install":
-        return install(project, args.force)
+        return install(project, args.force, args.reason)
     if args.hooks_cmd == "status":
         return status(project)
     return uninstall(project)
@@ -392,7 +629,14 @@ def add_parsers(sub, common) -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="replace a hook this tool did not install (it has no marker line)",
+        help="replace a hook this tool did not install (it has no marker line) instead of "
+        "preserving and chaining it",
+    )
+    parser.add_argument(
+        "--reason",
+        default="",
+        help="why a foreign hook is replaced; required with --force when one is present, "
+        "and recorded in the team ledger when this project has one",
     )
     parser.set_defaults(func=cmd_hooks)
 
