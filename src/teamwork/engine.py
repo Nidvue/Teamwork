@@ -4999,6 +4999,8 @@ def cmd_recall(args) -> int:
 
 
 def _find_entry(entries: list, handle: str):
+    if not (handle or "").strip():
+        return None
     if re.fullmatch(r"M-\d+", handle.upper()):
         wanted = handle.upper()
         for i, e in enumerate(entries):
@@ -6180,6 +6182,8 @@ def cmd_task_next(args) -> int:
 def cmd_task_set(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
+    if not (args.handle or "").strip():
+        die("a task handle must not be blank", 2)
     path = task_file(root, role)
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
@@ -6370,6 +6374,8 @@ def cmd_task_rm(args) -> int:
         die(f"only the {role} role may remove its own task (you are {actor})")
     if args.force:
         args.force = require_reason(args.force, "removing another role's task")
+    if not (args.handle or "").strip():
+        die("a task handle must not be blank", 2)
     path = task_file(root, role)
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
@@ -9476,6 +9482,13 @@ def cmd_selfcheck(args) -> int:
         if t.get("review", "required") == "na":
             print(f"teamwork: {t['id']} is review=na; self-check not required")
             return 0
+        if t["status"] in ("done", "dropped") and not args.force:
+            die(
+                f"refusing to self-check the closed task {t['id']} (status {t['status']}): "
+                "reopen it through the review-fail path, or pass --force <reason> to "
+                "reopen it deliberately",
+                2,
+            )
         if args.result == "pass" and t.get("kind") == "bug" and not args.force:
             if not t.get("repro"):
                 die(

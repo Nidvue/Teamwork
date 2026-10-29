@@ -730,6 +730,10 @@ def merge_tasks(dst: list, incoming: list) -> tuple:
 
 
 def find_task(tasks: list, handle: str):
+    # ``"" in text`` is True, so a blank handle used to match the first task:
+    # `task rm <role> ""` removed T-0001. A blank handle is not found.
+    if not (handle or "").strip():
+        return None
     if re.fullmatch(r"T-\d+", handle.upper()):
         wanted = handle.upper()
         for i, t in enumerate(tasks):
@@ -1308,6 +1312,8 @@ def write_disputes(path: Path, disputes: list) -> None:
 
 
 def find_dispute(disputes: list, handle: str):
+    if not (handle or "").strip():
+        return None
     if re.fullmatch(r"D-\d+", (handle or "").upper()):
         for i, d in enumerate(disputes):
             if d["id"].upper() == handle.upper():
