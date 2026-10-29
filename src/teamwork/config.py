@@ -420,6 +420,8 @@ SETTINGS_NON_PROVIDER = (
     "ReviewLeaseMinutes",
     "ReviewLeaseMaxMinutes",
     "MemoryLeaseMinutes",
+    # `preflight --run` executes this one; it is a command string, not a cap.
+    "PreflightCommand",
 )
 
 # The always-on context cap, per instance, in KB: SKILL.md + the managed teamwork
