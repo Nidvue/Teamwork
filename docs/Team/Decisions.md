@@ -1796,3 +1796,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: privacy_scan --tree --allow .github/privacy-allow.txt @68b6b9e -> FAIL 1 (docs/Team/Archive.md:3390); after the reflow in the working tree -> PASS 0; privacy_scan --tree --history @68b6b9e -> FAIL 4; after the reflow -> FAIL 3 (2 archive blobs + the pre-existing reflog blob); privacy_scan --tree --history in a fresh clone @095d5fd -> PASS 0; pytest -q @68b6b9e -> 2 failed (test_the_committed_tree_passes_the_privacy_scan and the pre-existing AC-5), 1683 passed, 4 skipped.
 - falsified by: A scan that treats every line of a '- reviewer evidence:' value as quoted, or a fresh clone at the fixed tip that reads 0 history findings, would overturn the residual claim.
 - consequences: -
+
+## D-20261029-CEO-5 - D-0008 ruling: the feature-team contract is frozen and merged; the fourth-round sentence was a one-line fix, not a redesign
+
+- date: 2026-10-29
+- kind: tribunal
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0018
+- context: -
+- options considered: -
+- decision: Reviewer-5 failed architect T-0005 three times, each on a genuine frozen-text contradiction, then opened D-0008 at the limit. The architect's one-sentence fix (rule 5 over every record, every other rule over the open set) closed the last residual and Reviewer-5 passed at 93c1759; P-0067 merged at bb7c34f. The dispute is resolved and the contract stands; T-0042 implements it and merged as P-0068.
+- why: The dispute was escalated because the panel (ceo+cto+reviewer) could not all sign: the CTO is unstaffed and the reviewer seat was the disputant. The ruling records that the substance was settled by measurement before it reached the tribunal, so the escalation was about a signature, not a disagreement.
+- evidence: ledger: review.fail architect T-0005 x3 (rounds 1-3), dispute D-0008 rounds 1-3, review.pass @93c1759, pr.merge P-0067 -> bb7c34f; review.pass developer T-0042 @acbd7f4, pr.merge P-0068 -> fb8eae0; coordination -> 0/69 credited, 29 delta re-reviews, p50/p90 9.9/25.4 min
+- falsified by: if T-0042 shipped a feature surface that contradicts Architecture.md 13 in a way this ruling called settled, the ruling's premise (the contract is implementable) is wrong
+- consequences: The Team Leader role, the feature records and the feature test layer are live; references/Roles.md names the Team Leader and no longer attaches the Security Auditor to a team
