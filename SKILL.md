@@ -154,9 +154,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 277 kB |
-| `standard` | 9 | 401 kB |
-| `full` | 16 | 682 kB |
+| `slim` (default) | 6 | 292 kB |
+| `standard` | 9 | 423 kB |
+| `full` | 16 | 721 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
@@ -677,6 +677,57 @@ under review is a fact to cite, and `review --packet` lists those facts.
 duplication never has to be argued about twice. **Every author pays this
 forward:** record a run with `--rev <sha>` and `--artifact`, because an
 unrecorded run is a run the Reviewer has to repeat.
+
+### 5i. The throughput contract
+
+Speed is a property of the structure, not of working harder. Measured on this
+project's own trail (`Ledger.jsonl`, snapshot before this change):
+
+Every number below comes from **one** ledger cut, `n = 1615` (record ids are append-only,
+so the cut is reproducible with a filter at that id - do not mix cuts):
+
+| fact | value at n=1615 |
+|---|---|
+| review failures recorded | **44** |
+| review targets (one role + task) | **66**, of which **26** needed more than one verdict and **11** needed three or more |
+| verdict distribution | 1: 40, 2: 15, 3: 6, 4: 4, 5: 1 |
+| claim -> verdict | p50 10.8 min, p90 25.7 min |
+| failures in a class a local check could have caught before submission | **16-24 of 44** by two independent readings of the same records (36 %-55 %); the split is contested, so it is not the basis of this contract |
+
+Two readings disagree on how much of that block is machine-decidable, so the
+contract does not rest on the estimate: **every review fail now records whether
+the author had a green `preflight` at that revision** (`mechanical: no|unknown|n/a`),
+which measures it prospectively instead of classifying findings after the fact.
+Ten rules remove the duplicated work either way; the full text is
+`references/Roles.md`.
+
+| Rule | What it forbids |
+|---|---|
+| one parent, one board | a second reporting line; three managers for one role - the board decides, it does not manage |
+| one feature, one team | a Team Leader owning two open features, or two teams on one slice |
+| one owner per artifact, one writer per file | two lanes editing `Architecture.md`, the board, a charter or one source file |
+| one verification per fact per revision | re-running a gate another role recorded green at that revision (5h) |
+| one gate, one place | CI and `docs.yml` running the same check; the Reviewer re-executing what `preflight` already proved |
+| definition of ready | starting a squad on a moving interface, a shared path, or an in-flight dependency |
+| definition of done | a done that is not preflight-green + independent pass + archived + merged |
+| generated artifacts render at the merge | a `Board.md` / `Archive.md` render riding a feature branch and conflicting with the next merge |
+| right-sized roster | one lane per task; 20 concurrent lanes for 60 tasks; a second Developer for a slice one can carry |
+| small slices, short leases | a task that cannot be verdict-ed inside one profile lease - split it instead |
+
+`teamwork.py preflight <role> <T-id>` turns rules 6-8 into one fail-closed command
+the author runs before `selfcheck`: identity, commit count, every `@<sha>` in the
+evidence and in the self-check test text must exist, `merge-tree` against the base
+must be clean, board drift is charged only when the branch edits the board, and
+the project's own gate runs from `Settings.json` → `PreflightCommand` (`--run`).
+A review fail now records whether it was `mechanical` (no green preflight at that
+revision) or not, so this table is re-measurable rather than asserted.
+
+**Feature teams are the design that follows** (structure in
+`references/Roles.md`, engine support in T-0042): a Team Leader owns one
+independent feature and a small squad, several teams run in parallel, and the
+Architect and the Project Manager are shared services rather than per-team staff.
+Until the engine registers the role, the rules above bind every lane in the flat
+tree exactly as written.
 
 ### 6. Close
 
