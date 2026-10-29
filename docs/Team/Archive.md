@@ -3273,3 +3273,16 @@ Advisory to the PM lane (not charged here): P-0009 must land promptly after this
 - reviewer evidence: 
 - findings history: 
 - branch / merge: ceo/t-0023-chore-records-export-the-closing-audit-m / 7c96192
+
+## T-0024 · chore(records): final board render at close  (ceo)
+- date: 2026-10-29
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: reviewer
+- task / issue: -
+- area: records
+- self-check: 
+- author evidence: commit 0c4f983
+- reviewer evidence: 
+- findings history: 
+- branch / merge: ceo/t-0024-chore-records-final-board-render-at-clos / pending
