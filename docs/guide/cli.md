@@ -637,8 +637,11 @@ point of the probe: a pass that precedes a merge that cannot happen leaves revie
 work unlanded behind a green verdict (P-0057 recorded `review_status=passed` and
 then died in `pr merge` on a `Board.md` conflict). `--force <reason>` records a
 deliberate override of the probe on the task's `forced` field and in the
-`review.pass` ledger detail; git still cannot land a conflict, so the merge is
-reported as not run rather than counted as shipped.
+`review.pass` ledger detail, and that detail **leads** with the override
+(`FORCED: <reason> | mergeability overridden: <probe>`) so a Reviewer's full
+evidence line can never truncate it away - the queue is local and gitignored, so the
+hash-chained ledger is the only durable proof the override happened; git still cannot
+land a conflict, so the merge is reported as not run rather than counted as shipped.
 
 Several Reviewers may run at once, so a lane announces what it took:
 `review --next --by <reviewer>` claims the highest-priority unclaimed deliverable

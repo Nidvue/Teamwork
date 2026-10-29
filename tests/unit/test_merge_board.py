@@ -107,7 +107,7 @@ def diverge_main(project: Path, filename: str = "feature.txt") -> None:
     assert committed.returncode == 0, committed.stderr
 
 
-def review_pass(cli, project: Path, *extra: str) -> int:
+def review_pass(cli, project: Path, *extra: str, evidence: str = "pytest @HEAD -> 7 passed") -> int:
     argv = [
         "--project",
         project,
@@ -119,7 +119,7 @@ def review_pass(cli, project: Path, *extra: str) -> int:
         "--result",
         "pass",
         "--evidence",
-        "pytest @HEAD -> 7 passed",
+        evidence,
         *extra,
     ]
     return cli(*argv)
@@ -134,6 +134,24 @@ def developer_task(project: Path) -> dict:
 
 def pass_records(project: Path) -> list:
     return engine.parse_reviews(team_root(project) / "Reviews.md")
+
+
+def pass_detail(project: Path) -> str:
+    """The detail of the newest ``review.pass`` record - the durable proof."""
+    records = [
+        r for r in engine.ledger_read(team_root(project)) if r.get("action") == "review.pass"
+    ]
+    assert records, "the verdict must be on the ledger"
+    return records[-1].get("detail") or ""
+
+
+#: The length a real Reviewer writes: the 66 ``review.pass`` records in the live ledger
+#: carry 149-181-character details. A 23-character line would let a cap that eats the
+#: override pass, so the truncation is measured against a realistic one.
+REALISTIC_EVIDENCE = (
+    "pytest -q @HEAD -> 1591 passed, 10 skipped, 0 failed; tests/unit/test_merge_board.py "
+    "-> 6 passed; ruff check + ruff format --check clean; mypy Success; links 0"
+)
 
 
 def ship(cli, project: Path) -> None:
@@ -203,16 +221,30 @@ def test_pr_merge_refuses_a_branch_that_no_longer_merges_and_changes_nothing(
 def test_force_overrides_the_mergeability_probe_and_records_the_reason(
     cli, project, capsys
 ) -> None:
-    """``--force`` may override the probe, but the override is a recorded fact."""
+    """``--force`` may override the probe, but the override is a recorded fact.
+
+    The task queue is local and gitignored, so the ``review.pass`` detail is the only
+    durable proof that the override happened: the full reason and the mergeability
+    marker must survive a real Reviewer's ~160-character evidence line AND a claim
+    note, not only the 23-character line that used to make the cap harmless.
+    """
     seed_board(project)
     ship(cli, project)
     diverge_main(project)
     reason = "the sibling branch must land before its rebase window closes"
+    assert len(REALISTIC_EVIDENCE) >= 150, REALISTIC_EVIDENCE
+    # the claim frees a note into the detail as well, so take the deliverable first
+    assert (
+        cli("--project", project, "review", "developer", "T-0001", "--claim", "--by", "reviewer-1")
+        == 0
+    )
 
     capsys.readouterr()
     # --no-merge: the override is about the verdict; git still cannot merge a
     # conflict, and that failure is reported rather than counted as landed.
-    assert review_pass(cli, project, "--force", reason, "--no-merge") == 0
+    assert (
+        review_pass(cli, project, "--force", reason, "--no-merge", evidence=REALISTIC_EVIDENCE) == 0
+    )
 
     task = developer_task(project)
     assert task["review_status"] == "passed"
@@ -220,10 +252,11 @@ def test_force_overrides_the_mergeability_probe_and_records_the_reason(
     assert "CONFLICT in feature.txt" in task["forced"], task["forced"]
     assert reason in task["forced"], task["forced"]
     assert pass_records(project)[0]["status"] == "approved"
-    ledger = (team_root(project) / engine.F_LEDGER).read_text(encoding="utf-8")
-    assert "review.pass" in ledger, "the verdict must be on the ledger"
-    assert f"FORCED: {reason}" in ledger, "the recorded override reason must be on the ledger"
-    assert "mergeability overridden" in ledger, "the ledger must say what was overridden"
+    detail = pass_detail(project)
+    assert f"FORCED: {reason}" in detail, "the full override reason must be on the ledger"
+    assert "mergeability overridden" in detail, "the ledger must say what was overridden"
+    assert "CONFLICT in feature.txt" in detail, detail
+    assert REALISTIC_EVIDENCE[:150] in detail, "the evidence tail must still be readable"
 
 
 def test_a_merge_renders_the_board_from_queues_that_moved_after_the_branch_was_cut(
