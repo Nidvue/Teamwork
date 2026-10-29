@@ -1,5 +1,6 @@
 # Privacy allowlist (see scripts/privacy_scan.py --allow).
-# One regular expression per line, optional "# reason" suffix.
+# One regular expression per line, optional whitespace-separated "# reason" suffix.
+# A '#' that is not whitespace-separated is part of the pattern, not a comment.
 #
 # Each entry is one fully escaped, anchored literal: no class, no wildcard, no
 # alternation. A new secret is fixed at source and never added here. Each entry is
