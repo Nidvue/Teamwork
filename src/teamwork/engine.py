@@ -49,11 +49,13 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 try:  # normal package import
+    from . import board as boardlib
     from . import resources as _resources
     from .portable import pid_alive
     from .version import __version__ as VERSION
 except ImportError:  # pragma: no cover - executed as a plain script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import board as boardlib  # type: ignore
     import resources as _resources  # type: ignore
     from portable import (
         pid_alive,  # type: ignore
@@ -9423,9 +9425,92 @@ def cmd_archive(args) -> int:
     return 0
 
 
+def _board_tables(args, root: Path) -> int:
+    """Render or check ``docs/Team/Board.md``'s task tables against the queues.
+
+    ``--write`` replaces both tables in the work tree this lane is in and exits 0;
+    ``--check`` leaves the file untouched and exits 1 naming every differing row.
+    The committed board is the projection of the queues, so an unreadable or empty
+    queue set is an error (2), never a clean check.
+    """
+    import json
+
+    path = work_docs_dir(root) / "Board.md"
+    if not path.is_file():
+        die(f"no board at {path}: the committed projection is docs/Team/Board.md", 2)
+    try:
+        tasks = boardlib.queues(root)
+    except ValueError as exc:
+        die(f"cannot read the role queues under {roles_dir(root)}: {exc}", 2)
+    if not tasks:
+        die(f"no task records under {roles_dir(root)}: run `teamwork.py init` first", 2)
+    before = path.read_text(encoding="utf-8")
+    required = (boardlib.TABLE_HEAD, boardlib.FLIGHT_HEAD, "## In flight")
+    missing = [anchor for anchor in required if anchor not in before]
+    if missing:
+        die(
+            f"{path} is not a rendered board: missing "
+            + ", ".join(repr(anchor) for anchor in missing)
+            + "; start from the committed docs/Team/Board.md",
+            2,
+        )
+    try:
+        after = boardlib.render(tasks, before)
+        found = boardlib.problems(tasks, before)
+    except ValueError as exc:
+        die(f"cannot compare {path} with the queues: {exc}", 2)
+    if getattr(args, "write", False):
+        changed = after != before
+        if changed:
+            write_lf(path, after)
+        # Name every row that left the table: it had no in-scope queue record, so
+        # the projection dropped it. A row removed in silence is the stale-board
+        # defect. In --json the same list travels in the payload, so stdout stays
+        # parseable exactly when a drop happens.
+        dropped = sorted(set(boardlib.board_rows(before)) - set(boardlib.board_rows(after)))
+        queues_read = len({key[0] for key in tasks})
+        if getattr(args, "json", False):
+            print(
+                json.dumps(
+                    {
+                        "board": str(path),
+                        "written": changed,
+                        "tasks": len(tasks),
+                        "queues": queues_read,
+                        "dropped": [f"{role} {tid}" for role, tid in dropped],
+                    }
+                )
+            )
+        else:
+            verb = "wrote" if changed else "unchanged"
+            print(f"{verb} {path}: {len(tasks)} task(s) across {queues_read} queue(s)")
+            for role, tid in dropped:
+                print(f"note: {role} {tid} left the table - no in-scope queue record for it now")
+        return 0
+
+    if getattr(args, "json", False):
+        print(json.dumps({"board": str(path), "ok": not found, "problems": found}))
+    elif found:
+        print(f"{path} does not match the role queues:")
+        print("\n".join(found))
+    else:
+        print(f"{path} matches the role queues: {len(tasks)} task(s)")
+    return 1 if found else 0
+
+
 def cmd_board(args) -> int:
-    """One line per role: status counts, the next executable task, slot usage."""
+    """One line per role: status counts, the next executable task, slot usage.
+
+    ``--write``/``--check`` act on the committed board's two task tables instead,
+    which is what makes the board a product invariant rather than a test-only one.
+    """
     root = project_root(args)
+    if getattr(args, "json", False) and not (
+        getattr(args, "write", False) or getattr(args, "check", False)
+    ):
+        die("--json reports --write or --check; it has no meaning for the summary view", 2)
+    if getattr(args, "write", False) or getattr(args, "check", False):
+        return _board_tables(args, root)
     names = list_roles(root)
     print("# priority-ordered; READY = todo with all dependencies done")
     print("# one shared queue per ROLE; several instances may serve it")
@@ -11654,6 +11739,16 @@ def _parsers_workspace(sub, common) -> None:
     s = sub.add_parser(
         "board", parents=[common], help="cross-agent board with counts and next task"
     )
+    board_mode = s.add_mutually_exclusive_group()
+    board_mode.add_argument(
+        "--write", action="store_true", help="rewrite docs/Team/Board.md's task tables"
+    )
+    board_mode.add_argument(
+        "--check",
+        action="store_true",
+        help="exit 1 naming every board row that differs from the role queues",
+    )
+    s.add_argument("--json", action="store_true", help="machine-readable --write/--check output")
     s.set_defaults(func=cmd_board)
 
     s = sub.add_parser(
