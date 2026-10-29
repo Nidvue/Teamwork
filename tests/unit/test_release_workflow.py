@@ -409,8 +409,15 @@ def npm_runs(document: dict | None = None) -> dict[str, str]:
     }
 
 
-def test_the_npm_job_needs_the_gate_and_the_build():
-    assert set(needs_of(npm_job())) == {GATE_JOB, "build"}, needs_of(npm_job())
+def test_the_npm_job_needs_the_gate_the_build_and_the_attestation():
+    """An npm version is immutable: it waits for the provenance attestation too.
+
+    M13 security audit F-5(d): `needs: [consistency, build]` let a package be
+    published while `attest` failed, contradicting this file's own header ("a
+    release that cannot be traced is never ... published"). The edge is now part
+    of the graph, so a red attestation stops the publish before it happens.
+    """
+    assert set(needs_of(npm_job())) == {GATE_JOB, "build", "attest"}, needs_of(npm_job())
 
 
 def test_the_npm_job_holds_the_oidc_token_and_no_write_permission():
