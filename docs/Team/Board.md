@@ -85,6 +85,7 @@ under two roles is two tasks.
 | architect | T-0002 | - | dropped | - | - |
 | architect | T-0003 | - | done | P-0036 | 90eb61c |
 | architect | T-0004 | architecture | done | P-0042 | be2c868 |
+| architect | T-0005 | - | dropped | - | - |
 | ceo | T-0001 | review | done | P-0001 | 2f44f00 |
 | ceo | T-0002 | docs | done | P-0008 | 28c1133 |
 | ceo | T-0003 | - | done | - | - |
@@ -99,9 +100,13 @@ under two roles is two tasks.
 | ceo | T-0012 | audit | done | P-0029 | e74cde1 |
 | ceo | T-0013 | - | done | - | - |
 | ceo | T-0014 | audit | done | P-0034 | 67e0b0a |
-| ceo | T-0015 | plan | doing | P-0056 | - |
+| ceo | T-0015 | plan | done | P-0056 | 22c817d |
 | ceo | T-0016 | - | dropped | - | - |
-| ceo | T-0017 | review | doing | P-0057 | - |
+| ceo | T-0017 | review | done | P-0057 | 13fb170 |
+| ceo | T-0018 | - | dropped | - | - |
+| ceo | T-0019 | - | dropped | - | - |
+| ceo | T-0020 | records | review | P-0058 | - |
+| ceo | T-0021 | - | dropped | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -136,13 +141,16 @@ under two roles is two tasks.
 | developer | T-0032 | release | done | P-0048 | abbb067 |
 | developer | T-0033 | - | dropped | - | - |
 | developer | T-0034 | security | done | P-0053 | b1eabef |
-| developer | T-0035 | security | doing | P-0054 | - |
+| developer | T-0035 | security | done | P-0054 | 937d0d0 |
 | developer | T-0036 | release | done | P-0052 | 7c1e2a5 |
 | developer | T-0037 | hooks | done | P-0051 | d71a5ee |
 | developer | T-0038 | - | dropped | - | - |
 | developer | T-0039 | - | dropped | - | - |
 | developer | T-0040 | records | done | P-0055 | 5d93c2c |
 | developer | T-0041 | - | dropped | - | - |
+| developer | T-0042 | - | dropped | - | - |
+| developer | T-0043 | - | dropped | - | - |
+| developer | T-0044 | - | dropped | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -156,10 +164,11 @@ under two roles is two tasks.
 | reviewer | T-0002 | records | done | P-0026 | e3fa290 |
 | reviewer | T-0003 | - | done | - | - |
 | reviewer | T-0004 | - | done | - | - |
+| reviewer | T-0005 | - | dropped | - | - |
 | security-auditor | T-0001 | audit | dropped | P-0022 | - |
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
-| security-auditor | T-0004 | - | doing | - | - |
+| security-auditor | T-0004 | - | done | - | - |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
@@ -173,10 +182,7 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0015 · Record M13 in Plan/Project and regenerate docs/Team/Board.md from the queues | P0 | doing | - |
-| ceo | T-0017 · perf(review): verify once, credit the rest - the reviewer stops re-running what an independent lane already proved | P0 | doing | - |
-| developer | T-0035 · fix(security): a commit subject must not exempt its identity from the history scan | P0 | doing | - |
-| security-auditor | T-0004 · Audit scripts/privacy_scan.py and the release trust boundary for correctness and false-negative risk | P1 | doing | - |
+| ceo | T-0020 · chore(records): re-render Board.md after the M13 descope | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
