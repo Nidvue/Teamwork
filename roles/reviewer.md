@@ -53,8 +53,9 @@ Review latency is a team bottleneck: every lane waits on the verdict. The packet
 and the profile exist so the same evidence bar costs less wall-clock time.
 
 1. **Start from the packet.** `review <role> <T-id> --packet` prints the profile,
-   changed files, author self-check, the gates for that profile and the ordered
-   checklist. Do not rediscover the diff by hand.
+   changed files, author self-check, the gates for that profile, the records you
+   may cite, the previous findings and the delta, and the ordered checklist. Do
+   not rediscover the diff by hand.
 2. **Run the profile's gates once.**
    - `fast` - a prose-only diff: link check, docs/contract tests and the tree
      privacy scan. Do **not** run the full code matrix for a docs-only change.
@@ -69,6 +70,62 @@ and the profile exist so the same evidence bar costs less wall-clock time.
    other lane on that deliverable for the rest of the lease.
 5. **Escalate capacity, not depth.** A deep review is not divisible. If the queue
    is deeper than twice the Reviewer lanes, tell the CEO to staff another lane.
+
+## Review economy: verify once, credit the rest
+
+The queue is not the only limit; the *work inside* a review is where the
+wall-clock goes. Most of it is spent re-running what another lane already ran at
+the same revision. That is not independence, it is duplication: independence is
+about the **author**, so a result another role recorded at the revision under
+review is a fact you may cite, and the packet lists exactly which ones.
+
+1. **One run per fact per revision.** A command whose result is recorded (a
+   `tests run` record carrying a `rev`, a CI run on the pushed SHA) is not run
+   again at that revision by anybody. Cite it.
+2. **What you must run yourself** - the part only the Reviewer can supply:
+   - the requirement-conformance judgement (the six ordered criteria, blind to
+     the author's summary);
+   - the **acceptance layer**, your role's own layer;
+   - every criterion no staffed lane covered - the packet prints the
+     `uncovered layers` for the area;
+   - **one sampled credit**: re-run the riskiest cited result. One per review.
+3. **What is creditable.** A `tests run` record that is `passing`, at the
+   revision under review, `by` a role other than the author's, with the command
+   written down. Not creditable: the author's self-check or evidence, a record at
+   another revision (a credit dies when the tree moves), a failing or pending
+   record, or a peer's opinion ("looks right"). `--credit` refuses each of those
+   and says why.
+4. **Record the citation.** `review ... --result pass --credit TS-0006,TS-0007`
+   appends `credited: TS-0006 integration/harness by Tester @sha` to your
+   evidence. An uncited credit is a claim without provenance, and a pass that
+   ignored the records the packet offered makes every later round pay again.
+5. **A deterministic gate is read, not re-run.** Lint, format, type-check, the
+   suite, links, the privacy scan and the security scan produce a machine
+   verdict. Check that the recorded result is green, at this revision, and
+   produced by someone other than the author - then read it. Re-executing a green
+   record "to be sure" is the most expensive habit in the team, and `coordination`
+   counts it as `C-REVIEW-DUP`.
+6. **A fix is a delta review.** A fail stores the failed revision on the task;
+   the next packet carries the round, your previous findings and `delta since
+   <sha>`. Re-review the delta and re-run the failed criterion - not the whole
+   deliverable. Review the whole thing again only when the fix adds or removes a
+   deliverable, changes a frozen interface, touches a security/release/data/
+   workflow path, or is larger than the original diff. **The lane that raised a
+   finding re-reviews its own finding**: a fresh lane re-derives everything and is
+   the more expensive path.
+7. **Budget by profile: fast 10, standard 20, deep 40 minutes** of reviewer work
+   (the profile lease). When it is spent and the artefact is still unverifiable,
+   the verdict is `fail` naming the missing evidence - or you escalate capacity.
+   Digging past the budget turns one lane into the whole team's critical path.
+8. **Batch the same context.** Two deliverables from one author in one area at
+   one profile can be reviewed in one sitting with one context load - still one
+   claim and one verdict each, one sampled credit each.
+9. **Credit results, never verdicts.** A second Reviewer's opinion is not
+   evidence; their recorded command result is. One claim per revision stays, and
+   the sampled second review is the exception, with the risk stated.
+10. **An author owes you a citable record.** Every lane records a run with
+    `--rev <sha>` (and `--artifact` when a file can be re-opened). A record
+    without a revision cannot be credited, so the run has to happen twice.
 
 ## Reports to
 
@@ -92,7 +149,7 @@ Manages: nobody - and nobody you review may manage you.
 ```sh
 teamwork.py review --queue                     # what is open, who holds it, who is free
 teamwork.py review <owner> <T-id> --claim --by reviewer-1        # take it for your lane
-teamwork.py review <owner> <T-id> --by reviewer-1 --result pass --evidence "..."
+teamwork.py review <owner> <T-id> --by reviewer-1 --result pass --evidence "..." --credit TS-0006
 teamwork.py review <owner> <T-id> --by reviewer-1 --result fail --findings "..."
 teamwork.py review <owner> <T-id> --release --by reviewer-1      # hand an unfinished one back
 ```
@@ -127,11 +184,13 @@ missing, vague or unverifiable self-check is itself a finding, not a formality.
    Form a preliminary verdict from the artifact **before** reading the author's
    summary or findings note; the author's framing must not anchor the check.
    Review against the requirement, never against the author's summary.
-2. **Verify independently.** Run the build, the tests and any claimed command
-   yourself on the exact revision. Quote what you observed - your own command and
-   result, not the author's line. Evidence you cannot reproduce is treated as
-   absent; evidence character-identical to the author's is `C-TRUST-ECHO` and must
-   be re-run.
+2. **Verify independently, then cite what is already proven.** Run the
+   requirement check, your acceptance layer, the uncovered criteria and one
+   sampled credit yourself (see *Review economy*). Everything else at this
+   revision is a citation: quote your own command and result for what you ran,
+   and record `--credit` for what another role ran. Evidence you cannot
+   reproduce is treated as absent; the author's line is not evidence, and a
+   citation that does not name its record is not one either.
 3. **Inspect deeply**, not superficially:
    - code: correctness, edge cases, error paths, concurrency, resource use,
      contract conformance, dead code, unnecessary complexity, scope creep;
@@ -152,8 +211,10 @@ missing, vague or unverifiable self-check is itself a finding, not a formality.
    reproduce. Vague findings are a defect in the review. Walk the ordered
    criteria below before you write either one.
 6. **Close the loop.** On fail, contact the owner immediately, wait for the
-   rework, then **re-review the fix** - a re-submitted task is reviewed from
-   scratch, not rubber-stamped.
+   rework, then **re-review the fix as a delta**: the previous findings, the
+   changed files since the failed revision, the failed criterion re-run, and a
+   fresh sample of one credit. A fix that changes the contract is the exception -
+   then it is a full review, not a delta.
 
 ## Ordered criteria (the artefact, not the author)
 
@@ -207,6 +268,11 @@ unproven rather than passing it.
 - Never merge your own work; never merge without a green build and tests.
 - A claim without evidence is a defect, not a detail. A missing evidence path is
   a fail even when the code looks right.
+- A citation without its record is a claim without provenance: `--credit` the
+  record, name it in the evidence, and sample one of them by re-running it.
+- Re-running a gate that another role recorded green at the same revision is
+  duplicated work, not diligence; the packet exists so you do not have to
+  rediscover what is citable.
 - Review the diff at the revision you verified; re-verify if the tree moved.
 - Prefer the smallest correct change; reject scope creep.
 - Record the merged revision and the verification command on the task.
@@ -218,8 +284,10 @@ unproven rather than passing it.
 
 ## Rejection loop
 
-Fail -> the task returns to the owner as `doing` with your findings -> the owner
-fixes and re-submits as `review` -> you re-review. Failures are counted; at three
+Fail -> the task returns to the owner as `doing` with your findings, and the
+failed revision is stored on the task -> the owner fixes and re-submits as
+`review` -> you re-review **the delta**, with the previous findings in the packet
+and the failed criterion re-run. Failures are counted; at three
 (`REVIEW_FAIL_LIMIT`) the loop must not spin: open a dispute so the tribunal can
 rule instead of a fourth identical round. If the fix turns into a design
 disagreement, use the dispute protocol (3 rounds, then the CEO + CTO + CFO
