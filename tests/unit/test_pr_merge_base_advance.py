@@ -349,3 +349,28 @@ def test_archive_write_repo_targets_the_work_tree_holding_the_base(cli, project)
     assert engine.archive_write_repo(root, {"base": "side"}) == side_wt
     # a base that no work tree holds falls back to the project root
     assert engine.archive_write_repo(root, {"base": ""}) == project.resolve()
+
+
+def test_the_merge_restores_the_branch_the_work_tree_was_on(cli, project, capsys) -> None:
+    """A successful merge must not strand the calling work tree on the base.
+
+    Only the failure path checked the previous branch out again, so a lane whose
+    work tree was on another branch silently found itself on ``main`` after the
+    merge - and its next edit/commit landed on the base (T-0020/A9).
+    """
+    root = init_workspace(cli, project)
+    work = Path(add_task(cli, project, "restore the branch after a merge", "feature.txt"))
+    commit_self_check_and_open(cli, project, work=work, filename="feature.txt")
+    pass_review(cli, project)
+    branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
+
+    # the base is checked out nowhere and the work repo sits on its own branch, so
+    # the merge runs here: exactly the case that used to leave the tree on main
+    assert engine.run_git(project, "checkout", "-b", "lane/scratch").returncode == 0
+    out = merge(cli, project, capsys)
+
+    assert "# restored lane/scratch" in out, out
+    assert head_branch(cli, project) == "lane/scratch"
+    assert engine.run_git(project, "cat-file", "-e", "main:feature.txt").returncode == 0
+    assert engine.run_git(project, "branch", "--list", branch).stdout.strip() == ""
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
