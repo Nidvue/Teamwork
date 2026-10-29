@@ -47,8 +47,8 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 | Feature | What you get |
 |---|---|
 | Autonomous org | 15 role charters - CEO, CTO, COO, CFO, Architect, Product Manager, Project Manager, Designer, Developer, Tester, Release Engineer, Technical Writer, Data Engineer, Reviewer, Security Auditor. |
-| Two-stage quality gate | The author self-checks with a real test, then a **different** role reviews from scratch. Only the Reviewer may merge. |
-| Review throughput | Risk-tiered review packets (`fast`/`standard`/`deep`), a profile-aware claim lease (20/40/80 min, capped), `review --next` to claim and packet in one step, priority/age queue ordering, and capacity guidance so the Reviewer queue is not the bottleneck. |
+| Two-stage quality gate | The author self-checks with a real test, then a **different** role verifies the artifact against the requirement - what no independent lane verified at that revision - and cites the recorded results it does not repeat. Only the Reviewer may merge. |
+| Review throughput | Risk-tiered review packets (`fast`/`standard`/`deep`) that list the records you may cite, `--credit` so a review does not re-run a gate another role already ran at the same revision, a delta re-review after a fail, a profile-aware claim lease (20/40/80 min, capped), `review --next` to claim and packet in one step, priority/age queue ordering, and capacity guidance so the Reviewer queue is not the bottleneck. |
 | Parallel lanes | Freeze interfaces first, then developer, tester and designer lanes run concurrently against one frozen contract. |
 | Layered tests | Each role designs, builds and runs its own test layer (`unit`, `integration`, `acceptance`, `ui`, `security`, ...); `tests plan` shows coverage and gaps. |
 | Designed images | The Designer owns every visual asset, raster **and** vector, and decides what the deliverable needs: vector first (SVG, diagram-as-code), and for a raster `imaging probe` picks the best available text-to-image model (cloud first, else local, else SVG), then plan -> 4+ candidates -> visual review -> improve until it passes -> integrate, with privacy and licence rules. |

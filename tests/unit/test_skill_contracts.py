@@ -1997,3 +1997,66 @@ def test_a_process_change_reported_as_an_improvement_needs_a_contrast(root):
         assert "declining to record a lesson is a valid outcome" in text, (
             f"{name} must keep declining to record a lesson legitimate"
         )
+
+
+# --------------------------------------------------------------------------- #
+# review economy: the anti-duplication rule lives where every agent reads it
+# --------------------------------------------------------------------------- #
+
+
+def test_reviewer_charter_defines_the_credit_rule(root):
+    text = flat(read(root, "roles", "reviewer.md"))
+    assert "## Review economy: verify once, credit the rest" in text
+    assert "One run per fact per revision" in text
+    assert "one sampled credit" in text
+    assert "credited:" in text
+    assert "A fix is a delta review" in text
+    assert "fast 10, standard 20, deep 40 minutes" in text
+
+
+def test_skill_entry_point_has_the_verify_once_step(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "### 5h. Verify once, credit the rest" in text
+    assert "`--credit`" in text and "credited:" in text
+    assert "C-REVIEW-DUP" in text and "C-REVIEW-NOCREDIT" in text
+    assert "A fix is a delta review" in text or "a fix is a delta" in text.lower()
+    # the old rule the economy replaced must not survive anywhere in the skill
+    assert "reviewed from scratch" not in text
+
+
+def test_the_constitution_carries_the_credit_rule_and_no_from_scratch_review(root):
+    for name in ("AGENTS.md", "templates/AGENTS.md"):
+        text = flat(read(root, *name.split("/")))
+        assert "Verify once, credit the rest" in text, name
+        assert "`review --credit TS-nnnn`" in text, name
+        assert "re-reviewed as a **delta**" in text, name
+        assert "reviewed from scratch" not in text, name
+
+
+def test_coordination_reference_documents_the_credit_and_the_duplicate_check(root):
+    text = flat(read(root, "references", "Coordination.md"))
+    assert "Independence is about the author, not about repetition" in text
+    assert "C-REVIEW-DUP" in text
+    assert "C-REVIEW-NOCREDIT" in text
+    assert "C-TRUST-ECHO" in text
+
+
+def test_testing_reference_tells_the_author_why_the_revision_is_recorded(root):
+    text = flat(read(root, "references", "Testing.md"))
+    assert "A record with no `--rev` cannot be matched to a revision" in text
+    assert "cannot be credited" in text
+
+
+def test_no_shipped_surface_still_says_the_old_from_scratch_rule(root):
+    """The rule the economy replaced is gone from every surface an agent reads."""
+    assert "reviews from scratch" not in flat(read(root, "README.md"))
+    assert "re-verifies from scratch" not in flat(read(root, "src", "teamwork", "engine.py"))
+    assert "from scratch" not in flat(read(root, "docs", "guide", "cli.md"))
+
+
+def test_the_cli_guide_documents_the_credit_and_the_packet_lines(root):
+    text = flat(read(root, "docs", "guide", "cli.md"))
+    assert "--credit TS-0006[,TS-0007]" in text
+    assert "credited: TS-0006 integration/harness by Tester" in text
+    assert "the **credits** available at the revision under review" in text
+    assert "the layers left **uncovered**" in text
