@@ -2219,9 +2219,15 @@ def _digest(prev: str, record: dict) -> str:
     return hashlib.sha256((prev + _canon(record)).encode("utf-8")).hexdigest()
 
 
+#: The ledger's own width for a record's ``detail`` field (``_clean_detail``). A
+#: caller may cut its text shorter, but never below the point where the part that
+#: matters - an override marker - would be the part the cut removes.
+LEDGER_DETAIL_CHARS = 400
+
+
 def _clean_detail(detail) -> str:
     text = " ".join(str(detail or "").split())
-    return text[:400]
+    return text[:LEDGER_DETAIL_CHARS]
 
 
 def _ledger_tail(root: Path):
@@ -9572,6 +9578,26 @@ def _review_next(root: Path, args) -> int:
     return 3
 
 
+def _review_pass_detail(t: dict, args, claim_note: str, probe_note: str) -> str:
+    """The ``review.pass`` ledger detail, with any override in front of the evidence.
+
+    The task queue is local and gitignored, so the hash-chained ledger is the only
+    durable proof that a safety override happened - and it is what a reader consults
+    long after the queue has moved on. So the override markers LEAD the detail and
+    the cut is the ledger's own field width (``LEDGER_DETAIL_CHARS``): building
+    ``evidence + markers`` and cutting the tail swallowed the whole override as soon
+    as a Reviewer wrote the ~160-character evidence line a real review carries, which
+    made the durable record disagree with the task's ``forced`` field.
+    """
+    override = f"FORCED: {args.force}" if getattr(args, "force", "") else ""
+    if probe_note:
+        marker = f"mergeability overridden: {probe_note}"
+        override = f"{override} | {marker}" if override else marker
+    tail = (t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note
+    detail = f"{override} | {tail}" if override else tail
+    return detail[:LEDGER_DETAIL_CHARS]
+
+
 def cmd_review(args) -> int:
     root = project_root(args)
     if getattr(args, "packet", False) and (
@@ -9831,12 +9857,7 @@ def cmd_review(args) -> int:
         reviewer,
         t["id"],
         (
-            (
-                (t.get("review_evidence") or t.get("findings") or "")[:150]
-                + claim_note
-                + (f" | FORCED: {args.force}" if args.force else "")
-                + (f" | mergeability overridden: {probe_note}" if probe_note else "")
-            )[:200]
+            _review_pass_detail(t, args, claim_note, probe_note)
             if args.result == "pass"
             # The classification leads the detail so the mechanical-fail rate can be
             # counted off the append-only ledger long after the task record moves on.
