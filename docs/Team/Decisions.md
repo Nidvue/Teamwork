@@ -1619,3 +1619,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `git merge-base --is-ancestor bd7467d main` -> rc 0; `git log -1 --format=%P bd7467d` -> parents 8b37625 9577be9, so the merge landed the reviewed head; `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` at main -> PASS, 0 finding(s) in tree, history (rc 0); `git diff --stat df97067 bd7467d -- .github/privacy-allow.txt` -> empty, and the file carries no entry for the flagged fingerprint sha256:bdcb463eab06, so nothing was allowlisted; `git cat-file -e 6ed58e8` and `git cat-file -e 722873b` -> both fail (the objects are ABSENT, not merely unreferenced); `git rev-list --all --reflog` -> neither sha; `git grep -n` for the flagged token over main -> no match; `docs/Team/Project.md:180-182` at bd7467d -> past tense, names D-20261028-CEO-3. Round history: D-0004 r1 Reviewer-1 (2026-10-28), r2 CEO (2026-10-28), r3 Reviewer-1 verification PASS at 9577be9; P-0033 merged as bd7467d, archive eddc7c0.
 - falsified by: If any of these hold: `privacy_scan.py --tree --history` exits non-zero on main; `.github/privacy-allow.txt` gains an entry for a value the scanner reported; a sha removed from an unpushed lane is still present under `git cat-file -e` or reappears in a history scan; a record about a forge object quotes a path instead of a command that prints the value; or a baseline sentence about a forge setting names neither the change nor the tense it is written in.
 - consequences: D-0004 is closed and binds the next lanes. P-0033 stands merged and green at bd7467d; no allowlist entry was added; the two superseded commits are absent as objects. A future lane whose record quotes a runs/<id> URL, or a baseline that states a forge setting in the present tense without naming the change, is failing the gate or the record rather than raising a new question.
+
+## D-20261029-Developer-6 - The pre-existing red of privacy_scan --history on main is a
+
+- date: 2026-10-29
+- kind: technical
+- status: accepted
+- deciders: Developer-6 (developer)
+- decided by: Developer-6
+- task: -
+- context: -
+- options considered: -
+- decision: The pre-existing red of privacy_scan --history on main is a BLOB finding in docs/Team/Plan.md (history:blob), not a commit-metadata finding; T-0024's widening of the metadata walk adds nothing to it, and the fix belongs to the Plan.md lane, not to T-0024
+- why: While verifying that adding --reflog to the commit-metadata walker does not turn main's history gate red, --history reported exactly 1 finding at two revisions: at the T-0024 branch tip ff8dbce and with the untouched base scanner at 857eddf. The finding is docs/Team/Plan.md:690 high-entropy-secret with source history:blob, so it is a blob reachable from the refs/reflog that the blob walker already covered before T-0024 (rev-list --objects --all --reflog was never narrowed); the metadata walk contributed zero findings at either revision. It is therefore out of T-0024's scope and must not be silenced by widening the allowlist
+- evidence: PYTHONPATH=src scripts/privacy_scan.py --history --allow .github/privacy-allow.txt --root . @ff8dbce -> FAIL - 1 finding(s) in history (docs/Team/Plan.md:690, history:blob); the same command with the base scanner @857eddf -> FAIL - 1 finding(s) in history (identical location and source); PYTHONPATH=src scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt --root . @ff8dbce -> PASS - 0 finding(s) in tree
+- falsified by: A --history run at 857eddf (base scanner, untouched) that exits 0, or a metadata-sourced finding (source history:commit) that appears only at ff8dbce, would overturn this
+- consequences: -
