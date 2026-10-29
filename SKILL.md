@@ -154,12 +154,12 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 292 kB |
-| `standard` | 9 | 423 kB |
-| `full` | 16 | 721 kB |
+| `slim` (default) | 7 | 339 kB |
+| `standard` | 10 | 471 kB |
+| `full` | 17 | 770 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
-the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
+the text a full roster pays for before any work starts, and 2.3x what `slim` costs.
 
 A role earns a seat only if it owns a deliverable, a test layer and a decision
 right no other role holds. Everything else is a **lane, not a role**: it costs no
@@ -722,12 +722,17 @@ the project's own gate runs from `Settings.json` → `PreflightCommand` (`--run`
 A review fail now records whether it was `mechanical` (no green preflight at that
 revision) or not, so this table is re-measurable rather than asserted.
 
-**Feature teams are the design that follows** (structure in
-`references/Roles.md`, engine support in T-0042): a Team Leader owns one
-independent feature and a small squad, several teams run in parallel, and the
-Architect and the Project Manager are shared services rather than per-team staff.
-Until the engine registers the role, the rules above bind every lane in the flat
-tree exactly as written.
+**Feature teams are live** (structure in `references/Roles.md`, engine
+`teamwork.py feature add|set|list|check`, contract in `Architecture.md` 13): a Team
+Leader owns one independent feature and the squad attached to it, several teams run
+in parallel, and the Architect and the Project Manager are shared services rather
+than per-team staff. `feature check` applies five rules - a shared writable path,
+an in-flight dependency, one open feature per leader, the owned-path shape (globs,
+paths outside the repository, another lane's checkout, generated artifacts, the
+records file itself), and a duplicate id over every record - and a feature cannot
+leave `proposed` without a frozen interface, refused by
+`feature set <F-nnnn> --state ready`. `preflight`, a review pass and the merge all
+run `feature check` at the tree they are about to accept.
 
 ### 6. Close
 
