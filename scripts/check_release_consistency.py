@@ -24,7 +24,7 @@ One function per rule, each taking explicit inputs and no hidden global state so
 a unit test can point it at a fixture tree::
 
     rule_r1_tagged_version(repo_root) -> RuleResult
-    rule_r2_head_is_newer(repo_root) -> RuleResult
+    rule_r2_head_is_newer(repo_root, head_is_default_branch=True) -> RuleResult
     rule_r3_npm_payloads(repo_root, exceptions=(), fetch=None, fetch_bytes=None)
     rule_r4_releases_have_tags(repo_root, fetch=None)
     rule_r5_tags_have_releases(repo_root, fetch=None)
@@ -96,6 +96,17 @@ which is exactly what the gate exists to report. Every other transport/status
 failure (``5xx``, timeout, URL error) is *unreadable input*: ``fatal=True``,
 exit ``2``, never a DRIFT finding. A network flake must be distinguishable from
 a release defect, so 5xx/timeout can never share an exit code with drift.
+
+R2's scope (11.2.2.1, amendment [D-20261029-Architect]): the rule asks whether
+the version this checkout **publishes** is ahead of the newest release on its
+line of history. A pull-request merge ref, a feature branch and a lane work tree
+publish nothing, so ``main()`` carries that fact in
+``--head-is-default-branch {yes,no}`` (default ``yes``) and
+``rule_r2_head_is_newer(..., head_is_default_branch=False)`` returns ``SKIP`` -
+never ``ok`` - *before* it reads HEAD's version or the tag set. The default is
+fail-closed: a run that says nothing evaluates the frozen rule, so the scope
+cannot turn a gate green by omission, and ``S = A - O``, the strictly-greater
+comparison and every detail string of 11.2.2 are untouched.
 """
 
 from __future__ import annotations
@@ -178,6 +189,10 @@ ILLUSTRATIVE = "<!-- release-consistency: illustrative -->"
 CHANNEL_UNAVAILABLE = "<!-- release-consistency: channel-unavailable -->"
 
 EXCEPTION_KEYS = ("version", "reason", "evidence", "recorded")
+
+#: 11.2.2.1's exact detail for the scoped-out checkout. The status is ``SKIP``,
+#: never ``ok``: nothing was proved, and the detail says why (11.1.2).
+R2_NOT_THE_DEFAULT_BRANCH = "not the default branch: the published line is evaluated on main only"
 
 #: 11.2.4: historical evidence is never rewritten to satisfy a gate.
 SCAN_EXCLUDED = "docs/Team/Archive.md"
@@ -1137,7 +1152,7 @@ def rule_r1_tagged_version(repo_root: Path) -> RuleResult:
     return _ok("R1", f"{agreed} tag(s) agree with version.py")
 
 
-def rule_r2_head_is_newer(repo_root: Path) -> RuleResult:
+def rule_r2_head_is_newer(repo_root: Path, head_is_default_branch: bool = True) -> RuleResult:
     """HEAD must be strictly newer than every tag in ``S`` (11.2.2).
 
     ``S = A - O``: the version tags **reachable from HEAD** (``A``) minus those
@@ -1145,7 +1160,15 @@ def rule_r2_head_is_newer(repo_root: Path) -> RuleResult:
     invisible to R2 - it says nothing about whether this checkout is ahead of
     its own history - so a maintenance branch is not permanently red and the
     count is never negative.
+
+    ``head_is_default_branch=False`` is 11.2.2.1: a checkout that publishes
+    nothing (a pull-request merge ref, a feature branch, a lane work tree) gets
+    a ``SKIP`` that names the scope, returned before any input is read. It is
+    never ``ok`` - nothing was proved - and the default ``True`` keeps the
+    frozen rule as the fail-closed answer for a run that says nothing.
     """
+    if not head_is_default_branch:
+        return _skip("R2", R2_NOT_THE_DEFAULT_BRANCH)
     error = _complete_tag_set_error(repo_root)
     if error is not None:
         raise InputError(error)
@@ -1741,6 +1764,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="git work tree top level to check (default: current directory)",
     )
+    parser.add_argument(
+        "--head-is-default-branch",
+        choices=("yes", "no"),
+        default="yes",
+        help="whether this checkout is the default branch, i.e. whether its version is a "
+        "published claim (11.2.2.1); `no` makes R2 report SKIP instead of being "
+        "evaluated (default: yes)",
+    )
     args = parser.parse_args(argv)
 
     if args.offline and args.online:
@@ -1778,7 +1809,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     results: list[RuleResult] = [
         _run_rule("R1", lambda: rule_r1_tagged_version(repo_root)),
-        _run_rule("R2", lambda: rule_r2_head_is_newer(repo_root)),
+        _run_rule(
+            "R2",
+            lambda: rule_r2_head_is_newer(
+                repo_root, head_is_default_branch=args.head_is_default_branch == "yes"
+            ),
+        ),
         _run_rule(
             "R3",
             lambda: (
