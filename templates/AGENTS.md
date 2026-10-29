@@ -177,6 +177,14 @@ Every deliverable must pass **your own self-check first, then the Reviewer's
 independent review** before it counts as finished. You cannot submit work you have
 not checked and tested yourself, and you cannot close a `review=required` task.
 
+**Verify once, credit the rest.** Independence is about the author, not about
+repeating a peer: a result another role recorded at the same revision (a
+`tests run --rev` record, a CI run on the pushed SHA) is cited with
+`review --credit TS-nnnn`, never re-run. The Reviewer's own runs are the
+requirement check, its `acceptance` layer, the criteria the packet lists as
+uncovered, and one sampled credit. Record every run with `--rev <sha>` - an
+unrecorded run is a run the Reviewer has to repeat.
+
 - Author: `task set <you> <T-id> --status selfcheck` (start your own review).
 - Author: `selfcheck <you> <T-id> --by <you> --note '<what you re-read>' --test '<cmd @rev -> result>'`
   -> records the self-check and submits for review. Use `--result fail` when your
@@ -189,8 +197,9 @@ not checked and tested yourself, and you cannot close a `review=required` task.
   -> the task returns to the owner as `doing`; contact the owner immediately.
 - Reviewer: `review <owner> <T-id> --by reviewer --result pass --evidence '<verify cmd @rev -> result>'`
   -> the task becomes `done` with the Reviewer's own evidence.
-- A re-submitted fix is reviewed from scratch: fail -> fix -> self-check ->
-  re-submit -> re-review, until it passes with evidence. Failures are counted; at
+- A re-submitted fix is re-reviewed as a **delta**: the previous findings, the
+  changed files since the failed revision, the failed criterion re-run, and one
+  fresh sampled credit - not the whole deliverable again. Failures are counted; at
   3 the Reviewer opens a dispute and the tribunal rules, so the loop cannot spin.
 
 Review applies to code, unit tests, integration/E2E tests, documentation, design
