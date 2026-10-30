@@ -3396,3 +3396,16 @@ Found but not charged: the guide says the ledger prefix lets coordination "count
 - reviewer evidence: pytest -q tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py @9b9a3ad -> 119 passed; defect reproduced @b8649dd and @ea901ad blob -> 1 failed AssertionError ('assets/banner.svg',(1280,360),[]); guard still red when the bare cell is removed from demo in both tables, restored -> 1 passed; tests/unit/test_privacy_scan.py @9b9a3ad -> 85 passed; teamwork.py links @9b9a3ad -> 0 issues; git diff 2d4ed4b 9b9a3ad -- docs/Team/Design.md -> empty; tests/ untouched (0 files, sha 2617C4AF identical to main)
 - findings history: 
 - branch / merge: designer/t-0002-design-md-geometry-cells-stopped-matchin / aeb5d62
+
+## T-0001 · SKILL.md files 'squash-only merges' under host settings, which the tree contradicts: the host merge buttons are off and the review pass lands a merge commit  (ceo)
+- date: 2026-10-30
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: -
+- self-check: [pass] Re-read the diff: one bullet in SKILL.md and one assertion in test_skill_contracts.py; the new wording matches references/Remotes.md:44-61,101 and CONTRIBUTING.md:67, and the assertion fails against the previous text (grep -c 'host merge button off' on HEAD:SKILL.md -> 0). | test: venv\Scripts\python.exe -m pytest -q tests/unit/test_skill_contracts.py tests/unit/test_hygiene.py @2997c76 -> 112 passed; teamwork.py links @2997c76 -> 0 issues | preflight: PF-234d07c939cb @2997c762761e (6 checks, 0 failed)
+- author evidence: 
+- reviewer evidence: pytest -q tests/unit/test_skill_contracts.py tests/unit/test_hygiene.py tests/unit/test_docs_contracts.py @2997c76 -> 129 passed; teamwork.py links @2997c76 -> 75 files, 388 links, # issues: 0; privacy_scan --tree --allow .github/privacy-allow.txt @2997c76 -> PASS, 0 finding(s); new test run against 2997c76^:SKILL.md -> 1 failed on assert 'host merge button off' and each of the three new assertions turns it red when its phrase is removed, so no assertion is vacuous; git show -s --format='%h parents=%p' 7783953 381bb5c ff9a708 aeb5d62 -> all 2-parent chore(merge) commits and engine.py:1257-1273 (_merge_args squash=False, delete_branch=True) + :1166-1172 (git merge --no-ff as reviewer) -> 'Reviewer merges locally' and 'source branch is deleted' match the tree, 'host was squash-only' did not; git diff --stat 2997c76^..2997c76 -> 2 files, 7+/2-; git merge-tree main 2997c76 -> rc 0; TS-0005 recorded
+- findings history: 
+- branch / merge: ceo/t-0001-skill-md-files-squash-only-merges-under / pending
