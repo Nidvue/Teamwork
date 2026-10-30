@@ -129,17 +129,26 @@ If you find a secret in the tree or history, stop and report it privately — se
 
 ## Developer Certificate of Origin (DCO)
 
-Every commit must be signed off under the
-[Developer Certificate of Origin 1.1](https://developercertificate.org/): add a
-`Signed-off-by` line with `git commit -s`.
+A `Signed-off-by` line is welcome but **not required**: add one with
+`git commit -s` if you want to certify the
+[Developer Certificate of Origin 1.1](https://developercertificate.org/) in the
+commit itself.
 
 ```text
 Signed-off-by: Your Name <you@example.com>
 ```
 
 Signing off certifies that you wrote the contribution, or have the right to
-submit it under the project license (AGPL-3.0). By contributing you agree to
-release your work under that license.
+submit it under the project license (AGPL-3.0); by contributing you agree to
+release your work under that license either way.
+
+What guarantees provenance here is not a sign-off line but two records the
+project does check: the **role commit identity** - `Developer
+<developer@agents.nidvue.com>` and friends, audited by `identity --audit` on
+every pull request and by `identity --guard-committer` on every push - and the
+**hash-chained ledger** (`Ledger.jsonl`), where every mutation carries
+`by` / `src` / `rev` and `ledger verify` detects tampering. No gate reads
+`Signed-off-by`, and most commits here do not carry one.
 
 ## Code of conduct
 

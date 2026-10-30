@@ -61,7 +61,7 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 | Automatic model routing | `teamwork model auto` detects the running agent host where the environment identifies it and routes the strongest available model to the decision lanes and the economy model to the mechanical lanes - best output where it compounds, lowest cost where it does not. Every lane's model is configurable independently (`model set <agent>`). |
 | Clean, modular history | Work commits are rebased and squashed before review, feature work squash-merges into `main`, and the naming policy (PascalCase directories, ecosystem-correct files) is written down rather than argued about. |
 | Skill first, engine optional | The product is a skill: `SKILL.md`, role charters, references, templates and the stdlib-only engine in one directory. Any agent host that loads skills or reads `AGENTS.md` runs the same protocol (optional adapter mapping: `references/Adapters.md`); the Python package is only a convenience for driving the engine from a terminal. |
-| Remote-agnostic integrity | Branch protection, required checks, a one-commit-per-task history merged locally by the Reviewer, and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike. |
+| Remote-agnostic integrity | Branch protection, required checks and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike; the one-commit-per-task merge is always done locally by the Reviewer, never with a host button. |
 
 ## Install the skill
 
@@ -118,7 +118,9 @@ Re-scan or reload skills in the host, then ask for the team by name:
 
 Where a host exposes skills as slash commands, the same request is
 `/teamwork <prompt>`. The host runs the bundled `scripts/teamwork.py` - Python
-3.9+, standard library only, no service of ours to reach, nothing to build.
+3.9+, standard library only, nothing to build, and it runs offline: no service of
+ours, no account. The few commands that touch a forge - code scanning, a skill
+refresh, the online release check - are the ones you run yourself.
 
 ### Optional: put the engine on your PATH
 
@@ -187,8 +189,10 @@ $ cd my-project
 
 The CEO takes it from there: it writes `AGENTS.md`, staffs the roster, freezes the
 interfaces, records the acceptance criteria and opens the lanes. `init` creates
-the hidden, gitignored workspace at `.pi/Teamwork/Teams/<Team>/` and leaves your
-project tree untouched. Project output (`AGENTS.md`, code, tests, docs) is
+the hidden, gitignored workspace at `.pi/Teamwork/Teams/<Team>/`; in the project it
+adds `.gitignore`, `.gitattributes` and `docs/Team/`, appends its managed block to
+`AGENTS.md` (creating the file when it is absent), touches no other existing file
+and makes the initial commit. Project output (`AGENTS.md`, code, tests, docs) is
 committed; team state is local.
 
 The skill calls the engine for you. When you want to see or steer the machine
