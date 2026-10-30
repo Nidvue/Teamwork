@@ -11,12 +11,14 @@ Owner: architect. Task: T-0003.
 from __future__ import annotations
 
 import ast
+import io
 import os
 import re
 import shlex
 import subprocess
 import sys
 import textwrap
+import tokenize
 from pathlib import Path
 
 import pytest
@@ -33,14 +35,50 @@ FORBIDDEN_MODULES = frozenset({"fcntl", "termios", "pwd", "grp", "resource"})
 #: Textual guard for ``shell=True`` (catches aliases the AST scan misses).
 SHELL_TRUE_RE = re.compile(r"shell\s*=\s*True")
 
+#: Roots that ship Python which runs on a user's host: the runtime package and the
+#: ``/scripts`` tree the sdist carries (``pyproject.toml`` include list). ``du`` in
+#: ``scripts/build_pi_package.py`` broke win32 (T-0002), so a scan of the package
+#: alone went green on the very root where that defect lived.
+SHIPPED_ROOTS = (SRC_TEAMWORK, REPO_ROOT / "scripts")
+
 
 def _source_files():
-    """Every Python module shipped in the runtime package."""
-    return sorted(SRC_TEAMWORK.rglob("*.py"))
+    """Every shipped Python module: the runtime package and the sdist's scripts."""
+    return sorted(path for root in SHIPPED_ROOTS for path in root.rglob("*.py"))
 
 
 def _parse(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+
+def _masked_source(path: Path) -> str:
+    """The module's source with every comment and string literal blanked out.
+
+    ``check_release_consistency.py`` *states* the rule in its header ("standard
+    library only, no ``shell=True``"), and a regex over the raw text read that
+    sentence as a violation. Masking keeps the line structure, so a real hit still
+    reports the line a reader can open.
+    """
+    text = path.read_text(encoding="utf-8")
+    offsets = [0]
+    for line in text.splitlines(keepends=True):
+        offsets.append(offsets[-1] + len(line))
+
+    def absolute(position: tuple[int, int]) -> int:
+        row, column = position
+        return offsets[row - 1] + column
+
+    parts = []
+    cursor = 0
+    for token in tokenize.generate_tokens(io.StringIO(text).readline):
+        if token.type not in (tokenize.COMMENT, tokenize.STRING):
+            continue
+        start, end = absolute(token.start), absolute(token.end)
+        parts.append(text[cursor:start])
+        parts.append("".join("\n" if char == "\n" else " " for char in text[start:end]))
+        cursor = end
+    parts.append(text[cursor:])
+    return "".join(parts)
 
 
 # --------------------------------------------------------------------------- #
@@ -117,6 +155,9 @@ def test_source_scan_sees_runtime_modules():
     """Guard against the scans passing vacuously on an empty file list."""
     names = {path.name for path in _source_files()}
     assert {"engine.py", "portable.py", "resources.py"} <= names
+    # both roots must be seen: a scan that silently lost scripts/ would pass while
+    # reporting nothing about the tree that ships the release pipeline
+    assert {"build_pi_package.py", "privacy_scan.py"} <= names
 
 
 def test_no_forbidden_posix_imports_in_runtime():
@@ -149,7 +190,7 @@ def test_no_forbidden_posix_imports_in_runtime():
 def test_no_subprocess_shell_true_in_runtime():
     offenders = []
     for path in _source_files():
-        text = path.read_text(encoding="utf-8")
+        text = _masked_source(path)
         for match in SHELL_TRUE_RE.finditer(text):
             line = text.count("\n", 0, match.start()) + 1
             offenders.append(f"{path}:{line} shell=True")
