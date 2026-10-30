@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -195,6 +195,36 @@ def parser() -> argparse.ArgumentParser:
     return p
 
 
+def tree_bytes(root: Path) -> int:
+    """Apparent size of the assembled tree, from the standard library only.
+
+    ``du -sh`` is the compact one-liner, but the build runs in this repository's
+    test suite and in the release workflow on every host, and Windows has no
+    ``du``: the subprocess raised ``FileNotFoundError`` after the whole package
+    had already been copied (T-0002).
+    """
+    total = 0
+    for parent, _directories, files in os.walk(root):
+        for name in files:
+            path = os.path.join(parent, name)
+            if os.path.isfile(path):
+                total += os.path.getsize(path)
+    return total
+
+
+def human_size(count: int) -> str:
+    """The shape ``du -h`` prints: bytes below 1K, then one decimal below ten units."""
+    if count < 1024:
+        return str(count)
+    units = "KMGTP"
+    value = float(count) / 1024
+    index = 0
+    while value >= 1024 and index < len(units) - 1:
+        value /= 1024
+        index += 1
+    return f"{value:.1f}{units[index]}" if value < 10 else f"{value:.0f}{units[index]}"
+
+
 def main(argv: list[str]) -> int:
     args = parser().parse_args(argv)
     out = Path(args.out) if args.out else ROOT / "dist"
@@ -216,9 +246,7 @@ def main(argv: list[str]) -> int:
     if absent:
         print(f"missing declared resources: {absent}", file=sys.stderr)
         return 1
-    sized = subprocess.run(
-        ["du", "-sh", str(dest)], capture_output=True, text=True, check=False
-    ).stdout.split()[0]
+    sized = human_size(tree_bytes(dest))
     print(f"built {dest} ({NAME} {ver}, {sized})")
     print("next: npm pack --dry-run --json  (inside the built directory) and pi -e ./dist/" + NAME)
     return 0
