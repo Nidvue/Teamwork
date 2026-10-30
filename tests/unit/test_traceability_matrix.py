@@ -24,6 +24,15 @@ re-initialised team state can neither certify nor contradict a matrix written by
 an older run) - and it says so with both counts instead of passing silently.
 `test_the_record_check_still_fails_where_the_tree_recognizes_a_cited_record` keeps
 the assertion's teeth measurable where no tree exists at all.
+
+Two host assumptions were the guard's own defects (T-0003). `ls` exists only on a
+POSIX host, so a win32 runner died with `FileNotFoundError` before it could
+disagree with any row - a reporter that crashes is not a guard. `ls` is now
+translated to the existence check it means (the same paths, the same exit status),
+a proof whose declared host capability is absent is SKIPPED with the row and the
+reason named and counted by the same arithmetic as an exemption, and any other
+command this host cannot start is a disagreement naming the row - never a crash,
+never a silent pass.
 """
 
 from __future__ import annotations
@@ -508,6 +517,10 @@ def _run(repo_root: Path, argv: list[str]) -> int:
     rather than a bare ``TimeoutExpired``: an unfinished proof proved nothing, so
     the row's state is unsupported, and the reader has to be able to tell a budget
     that no longer covers a cold runner from a command that hangs.
+
+    A command this host cannot start raises ``ProofUnlaunchable`` instead of the
+    bare ``OSError``: the caller reports the row with the command and the reason,
+    so one host-only proof cannot take the whole suite down (T-0003).
     """
     import os
     import subprocess
@@ -520,6 +533,7 @@ def _run(repo_root: Path, argv: list[str]) -> int:
     while tokens and "=" in tokens[0] and not tokens[0].startswith("-"):
         key, _, value = tokens.pop(0).partition("=")
         env[key] = value
+    tokens = _portable(tokens)
     # the table says `python`; that must mean the interpreter hosting this suite,
     # not whatever `python` happens to be first on PATH (a bare interpreter has no
     # dependencies and turned AC-1 red for the wrong reason in review round six)
@@ -545,7 +559,129 @@ def _run(repo_root: Path, argv: list[str]) -> int:
             "or the budget no longer covers a cold runner - raise the constant, do not "
             "exempt the row"
         ) from expired
+    except OSError as exc:
+        raise ProofUnlaunchable(
+            f"proof `{' '.join(argv)}` cannot start on this host: {exc}"
+        ) from exc
     return completed.returncode
+
+
+class ProofUnlaunchable(Exception):
+    """A proof command this host cannot start at all (T-0003).
+
+    Not a verdict about the tree: it is a limit of the host, so the caller reports
+    the row it belongs to instead of letting the exception abort the suite.
+    """
+
+
+#: `ls` is the one POSIX-only program the proof table names, and its contract in a
+#: proof cell is the exit status: 0 when every named path exists, non-zero when one
+#: does not. A win32 host ships no `ls`, so the same paths are checked with this
+#: interpreter - a deleted file still turns the row non-zero, so the translation
+#: cannot certify a row the POSIX command would refuse (T-0003).
+_EXISTS_CHECK = (
+    "import pathlib, sys\n"
+    "missing = [p for p in sys.argv[1:] if not pathlib.Path(p).exists()]\n"
+    "if missing:\n"
+    "    print('missing: ' + ', '.join(missing))\n"
+    "sys.exit(1 if missing else 0)\n"
+)
+
+
+def _portable(argv: list[str]) -> list[str]:
+    """The portable launcher for a POSIX-only proof program, else the command as written.
+
+    Only `ls` is translated, and only without options: a flag changes the contract
+    (a listing, a recursion, a sort order), so that shape is refused rather than
+    silently reinterpreted as something it is not.
+    """
+    if argv and argv[0] == "ls":
+        paths = argv[1:]
+        if not paths or any(path.startswith("-") for path in paths):
+            raise ProofUnlaunchable(
+                f"`{' '.join(argv)}` needs `ls`, which this host does not ship, and the "
+                "guard has no portable form for these arguments"
+            )
+        return ["python", "-c", _EXISTS_CHECK, *paths]
+    return argv
+
+
+#: A proof this host may be unable to run at all, keyed by AC, with the capability
+#: that decides it. `build` is the dev extra that `scripts/verify_release.py` needs
+#: to produce the sdist and the wheel: a host without that extra cannot measure the
+#: row and must say so instead of reporting a defect it never found (T-0003). The
+#: row is still certified in CI on every code push, by both jobs in
+#: `.github/workflows/ci.yml`: the `test` job installs `.[dev]`, so the guard's own
+#: run there executes this row like any other, and the `build` job runs
+#: `python scripts/verify_release.py` itself with `build` installed (the same
+#: command the row names). Naming the jobs, not their line numbers: those rot.
+HOST_CAPABILITY: dict[str, str] = {"AC-1": "module:build"}
+
+#: Evidence a declared capability must find in the row's OWN proof cell, so the
+#: declaration is a claim about what that cell runs - not a bare dict entry that
+#: could excuse any row. A capability with no pattern here fails the guard.
+HOST_CAPABILITY_EVIDENCE: dict[str, str] = {
+    "module:build": r"verify_release\.py|python -m build",
+}
+
+
+def _capability_present(capability: str) -> bool:
+    """Whether this interpreter can satisfy a declared host capability."""
+    import importlib.util
+
+    kind, _, name = capability.partition(":")
+    if kind != "module" or not name:
+        raise AssertionError(f"unknown host capability {capability!r}: expected `module:<name>`")
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _replay(section: str, repo_root: Path) -> tuple[int, list[str], list[str]]:
+    """Re-run every non-exempt row's own proof command.
+
+    Returns ``(executed, skipped, disagreements)``. A row whose declared host
+    capability is absent is SKIPPED with its reason and counted by the caller's
+    arithmetic; a row that is neither exempt nor parseable, and a row whose command
+    runs but disagrees with its claimed state, are disagreements. Nothing here
+    raises because of the host: a reporter that crashes is not a guard (T-0003).
+    """
+    _header, body = _matrix(section)
+    claimed = {row[0]: row[5].lower() for row in body}
+    proofs = {row[0]: row[4] for row in body}
+    executed = 0
+    skipped: list[str] = []
+    disagreements: list[str] = []
+
+    for ac in sorted(claimed):
+        if ac in EXEMPT:
+            continue
+        capability = HOST_CAPABILITY.get(ac)
+        if capability and not _capability_present(capability):
+            skipped.append(
+                f"{ac}: host skip - {capability.partition(':')[2]!r} is not available to this "
+                f"interpreter, so its proof {proofs[ac]!r} cannot be measured here"
+            )
+            continue
+        commands = _proof_commands(proofs[ac])
+        if not commands:
+            disagreements.append(
+                f"{ac} is neither exempt nor parseable into a command: {proofs[ac]!r}"
+            )
+            continue
+        try:
+            codes = [_run(repo_root, argv) for argv in commands]
+        except ProofUnlaunchable as exc:
+            disagreements.append(f"{ac}: {exc}")
+            continue
+        executed += 1
+        if "green" in claimed[ac] and any(codes):
+            disagreements.append(f"{ac} is claimed green, the run exits {codes}")
+        elif "green" not in claimed[ac] and not any(codes):
+            disagreements.append(f"{ac} is claimed red, every clause exits 0")
+
+    return executed, skipped, disagreements
 
 
 def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
@@ -571,11 +707,18 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
       define, is a defect and fails here;
     - a row that is neither exempt nor parseable into a command is a defect too:
       silence is how the sixth round got through;
-    - the number of rows re-run must equal `rows - exemptions`, so exempting a
-      row cannot lower the bar without the arithmetic saying so.
+    - a row this host cannot measure is reported and counted, never crashed and
+      never passed: `HOST_CAPABILITY` declares the capability, the row's own cell
+      has to evidence it, and the floor arithmetic below charges the skip exactly
+      like an exemption; a skip no declaration owns, or a command this host cannot
+      start, is a disagreement;
+    - the number of rows re-run plus the rows host-skipped must equal
+      `rows - exemptions`, so exempting or skipping a row cannot lower the bar
+      without the arithmetic saying so.
     """
     project = (repo_root / "docs/Team/Project.md").read_text(encoding="utf-8")
-    _header, body = _matrix(_section(project))
+    section = _section(project)
+    _header, body = _matrix(section)
     claimed = {row[0]: row[5].lower() for row in body}
     proofs = {row[0]: row[4] for row in body}
 
@@ -597,29 +740,64 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
     assert not unjustified, "an exemption must be justified by the table it exempts: " + "; ".join(
         unjustified
     )
+    # a declared host capability is the same kind of claim: it names a row AND the
+    # evidence for it lives in that row's own proof cell
+    unbacked_capability = sorted(
+        f"{ac}: declares {capability!r}, but its proof cell {proofs[ac]!r} carries no evidence"
+        for ac, capability in HOST_CAPABILITY.items()
+        if capability not in HOST_CAPABILITY_EVIDENCE
+        or not re.search(HOST_CAPABILITY_EVIDENCE[capability], proofs[ac])
+    )
+    assert not unbacked_capability, (
+        "a host capability must be justified by the row it excuses: "
+        + "; ".join(unbacked_capability)
+    )
+    dropped_capability = sorted(set(HOST_CAPABILITY) - set(claimed))
+    assert not dropped_capability, (
+        f"the table dropped rows that HOST_CAPABILITY still names: {dropped_capability}"
+    )
 
-    disagreements: list[str] = []
-    executed = 0
-    for ac in sorted(claimed):
-        if ac in EXEMPT:
-            continue
-        commands = _proof_commands(proofs[ac])
-        if not commands:
-            cell = proofs[ac]
-            disagreements.append(f"{ac} is neither exempt nor parseable into a command: {cell!r}")
-            continue
-        executed += 1
-        codes = [_run(repo_root, argv) for argv in commands]
-        if "green" in claimed[ac] and any(codes):
-            disagreements.append(f"{ac} is claimed green, the run exits {codes}")
-        elif "green" not in claimed[ac] and not any(codes):
-            disagreements.append(f"{ac} is claimed red, every clause exits 0")
+    executed, skipped, disagreements = _replay(section, repo_root)
+    host_skipped = sorted(entry.split(":", 1)[0] for entry in skipped)
+    undeclared = sorted(set(host_skipped) - set(HOST_CAPABILITY))
+    assert not undeclared, (
+        "these rows were skipped without a declared host capability, so a proof escaped "
+        f"execution silently: {undeclared}"
+    )
     expected = len(claimed) - len(EXEMPT)
-    assert executed == expected, (
-        f"{executed} row(s) were re-run, but {len(claimed)} rows minus {len(EXEMPT)} "
-        f"exemptions is {expected}: a row was skipped or the parser drifted"
+    assert executed + len(skipped) == expected, (
+        f"{executed} row(s) were re-run and {len(skipped)} host-skipped, but {len(claimed)} "
+        f"rows minus {len(EXEMPT)} exemptions is {expected}: a row was skipped or the parser drifted"
     )
     assert not disagreements, "the state column disagrees with the run: " + "; ".join(disagreements)
+    # A row this host cannot measure is not hidden here: the arithmetic above has
+    # already charged it, and the next test states it as a skip with its AC and
+    # reason - so the guard's own verdict stays a verdict about the rows it measured.
+
+
+def test_a_row_this_host_cannot_measure_is_named_with_its_reason(repo_root: Path) -> None:
+    """The guard's residual limit, stated instead of hidden (T-0003).
+
+    `test_every_deterministic_state_matches_a_real_run` re-runs every row this host
+    can measure and counts the rest instead of crashing on them; this test names that
+    remainder. A proof whose declared host capability is absent is a SKIP carrying
+    the row and the reason, so a host without the `dev` extra sees which verdict it
+    does not have - and CI, which installs that extra, measures the row instead.
+    """
+    project = (repo_root / "docs/Team/Project.md").read_text(encoding="utf-8")
+    _header, body = _matrix(_section(project))
+    claimed = {row[0]: row[5].lower() for row in body}
+    proofs = {row[0]: row[4] for row in body}
+    undeclared = sorted(set(HOST_CAPABILITY) - set(claimed))
+    assert not undeclared, f"HOST_CAPABILITY names rows the table no longer defines: {undeclared}"
+    missing = [
+        f"{ac}: {capability.partition(':')[2]!r} is not available to this interpreter, so its "
+        f"proof {proofs[ac]!r} cannot be measured here"
+        for ac, capability in HOST_CAPABILITY.items()
+        if not _capability_present(capability)
+    ]
+    if missing:
+        pytest.skip("; ".join(missing))
 
 
 # T-0020: the re-run guard's per-command budget, proved rather than trusted. The
@@ -691,3 +869,98 @@ def test_a_hung_proof_command_fails_and_names_the_budget(
     message = str(excinfo.value)
     assert f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s" in message, message
     assert "teamwork.py" in message, message
+
+
+# T-0003: two host assumptions were the guard's own defects. It launched `ls` on a
+# host that has none, so the suite died with `FileNotFoundError` before it could
+# disagree with any row, and it would have measured a build proof on a host without
+# the `dev` extra. Each fix is pinned here in milliseconds: the translation keeps
+# the POSIX command's contract, a launch failure is a named disagreement instead of
+# an exception, a skip is a declared capability with a reason, and the disagreement
+# itself still has teeth.
+
+
+def test_an_ls_proof_is_an_existence_check_over_the_same_paths(repo_root: Path) -> None:
+    """`ls a b c` means "these exist": the translation must keep that, both ways."""
+    assert _run(repo_root, ["ls", "LICENSE", "CHANGELOG.md", "CITATION.cff"]) == 0
+    # a deleted path must still turn the row non-zero, or the translation would
+    # certify a green row that the POSIX command refuses
+    assert _run(repo_root, ["ls", "LICENSE", "no-such-proof-path-9c1f"]) != 0
+
+
+def test_an_ls_proof_with_options_is_refused_not_reinterpreted() -> None:
+    """A flag changes what `ls` means, so that shape is a host limit, not a check."""
+    with pytest.raises(ProofUnlaunchable) as excinfo:
+        _portable(["ls", "-l", "LICENSE"])
+    assert "no portable form" in str(excinfo.value)
+
+
+def test_a_proof_this_host_cannot_launch_is_reported_not_raised(
+    repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The defect: `FileNotFoundError` out of the reporter. Now the row fails, legibly."""
+    import subprocess
+
+    def fake_run(command, **kwargs):
+        raise FileNotFoundError(2, "The system cannot find the file specified")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(ProofUnlaunchable) as excinfo:
+        _run(repo_root, ["gh", "run", "list"])
+    message = str(excinfo.value)
+    assert "gh run list" in message, message
+    assert "cannot start on this host" in message, message
+
+
+def _synthetic_matrix(proof: str, state: str) -> str:
+    """One-row matrix in the shape `_matrix` reads, for the replay's own tests."""
+    return (
+        "| AC | proof target | archived task(s) | test record | proof command (read the run) | state |\n"
+        "|---|---|---|---|---|---|\n"
+        f"| AC-99 | `x` | none | none | {proof} | {state} |\n"
+    )
+
+
+def test_the_replay_still_fails_a_green_row_whose_command_disagrees(tmp_path: Path) -> None:
+    """Teeth: the host handling must not soften the disagreement it exists around."""
+    executed, skipped, disagreements = _replay(
+        _synthetic_matrix('`python -c "raise SystemExit(1)"`', "green"), tmp_path
+    )
+    assert executed == 1, (executed, skipped, disagreements)
+    assert not skipped, skipped
+    assert any("AC-99 is claimed green" in line for line in disagreements), disagreements
+
+
+def test_a_declared_host_capability_skips_its_row_with_a_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A row this host cannot measure is named and counted, never silently passed."""
+    import sys
+
+    monkeypatch.setattr(sys.modules[__name__], "_capability_present", lambda capability: False)
+    section = (
+        "| AC | proof target | archived task(s) | test record | proof command (read the run) | state |\n"
+        "|---|---|---|---|---|---|\n"
+        "| AC-1 | `x` | none | none | `python scripts/verify_release.py` | green |\n"
+    )
+    executed, skipped, disagreements = _replay(section, tmp_path)
+    assert executed == 0, (executed, skipped)
+    assert not disagreements, disagreements
+    assert len(skipped) == 1 and skipped[0].startswith("AC-1: host skip"), skipped
+    assert "'build'" in skipped[0], skipped[0]
+
+
+def test_an_undeclared_proof_this_host_cannot_launch_is_a_disagreement(tmp_path: Path) -> None:
+    """The skip channel is closed: only a declared, evidenced capability may stop a row.
+
+    A typo or a host-only program with no declaration must fail the guard instead of
+    quietly exempting the row - that is how a row stops being executed (T-0003).
+    """
+    executed, skipped, disagreements = _replay(
+        _synthetic_matrix("`bin/teamwork-no-such-proof-9c1f --check`", "green"), tmp_path
+    )
+    assert executed == 0, (executed, skipped, disagreements)
+    assert not skipped, skipped
+    assert any("AC-99" in line and "cannot start on this host" in line for line in disagreements), (
+        disagreements
+    )

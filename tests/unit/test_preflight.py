@@ -33,9 +33,14 @@ only when `preflight` is wrong.
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 from teamwork import board as boardlib
 from teamwork import engine
@@ -393,27 +398,100 @@ def test_a_task_with_no_branch_is_a_warning_so_the_shipped_flow_still_runs(cli, 
 # --------------------------------------------------------------------------- #
 
 
+def portable_failing_gate() -> str:
+    """A `PreflightCommand` that exits 1 on every host, quoted as `shlex` reads it.
+
+    `sh -c false` is the POSIX spelling of "a gate that fails"; a win32 host ships
+    no `sh`, so the portable spelling is this interpreter refusing on purpose. The
+    quotes matter: `shlex.split` keeps a backslash inside them, so a Windows
+    interpreter path survives (T-0003).
+    """
+    return f'"{sys.executable}" -c "raise SystemExit(1)"'
+
+
 def test_the_project_gate_is_unverified_until_run_asks_for_it(cli, project, capsys):
     """The skill names no toolchain: the command is the project's, and it is opt-in.
 
     Without `--run` a configured gate is not executed (the report says so), and with
-    it a failing command is a real failure carrying its own output - the 5-in-43
+    it a failing command is a real failure carrying its own exit status - the 5-in-43
     red-gate class, decided before the Reviewer is asked.
+
+    The command is written portably on purpose: this test asserts the same contract
+    on a POSIX and on a win32 host (T-0003), so the exact POSIX spelling
+    (`sh -c false`) lives in the two tests below - one that runs it where the host
+    has a `sh`, and one that pins what an unlaunchable gate must report.
     """
+    root = init_team(cli, project)
+    start_branch(cli, project)
+    commit_as_author(cli, project)
+    gate = portable_failing_gate()
+    settings = root / engine.F_SETTINGS
+    settings.write_text(json.dumps({"PreflightCommand": gate}) + "\n", encoding="utf-8")
+
+    code, out = preflight(cli, capsys, project)
+    assert code == 0, out
+    assert f"UNVERIFIED: PreflightCommand not run (pass --run): {gate}" in out
+
+    code, out = preflight(cli, capsys, project, "--run")
+    assert code == 1, out
+    assert f"{gate} -> exit 1" in out
+    assert "(gate)" in out
+
+
+def test_the_posix_false_gate_reports_its_exit_where_the_host_has_a_sh(cli, project, capsys):
+    """The original red-gate command, kept everywhere it can actually run.
+
+    The engine contract is host-independent - a gate that exits non-zero is red and
+    the report names its exit status - but `sh -c false` is not: a win32 host ships
+    no `sh`, so there is no exit status to read and demanding one would assert a
+    shell this host does not have. That host is covered by the next test instead,
+    which pins what an unlaunchable gate must report; here the host is asked
+    whether it can run the exact command before the command is used (T-0003).
+    """
+    if shutil.which("sh") is None:
+        pytest.skip(
+            "this host has no `sh` on PATH, so `sh -c false` has no exit status to "
+            "assert here; the portable failing gate above carries the exit-status "
+            "contract and the unlaunchable gate below carries this host's case"
+        )
     root = init_team(cli, project)
     start_branch(cli, project)
     commit_as_author(cli, project)
     settings = root / engine.F_SETTINGS
     settings.write_text('{"PreflightCommand": "sh -c false"}\n', encoding="utf-8")
 
-    code, out = preflight(cli, capsys, project)
-    assert code == 0, out
-    assert "UNVERIFIED: PreflightCommand not run (pass --run): sh -c false" in out
-
     code, out = preflight(cli, capsys, project, "--run")
+
     assert code == 1, out
     assert "sh -c false -> exit 1" in out
     assert "(gate)" in out
+
+
+def test_an_unlaunchable_gate_command_is_red_with_its_reason(cli, project, capsys):
+    """An unlaunchable gate must never escape the engine and never pass silently.
+
+    The defect this pins (T-0003): a POSIX-only `PreflightCommand` on win32 either
+    raised out of `preflight` or reported nothing the author could act on, so the
+    gate was lost exactly where it was needed. The contract is host-independent -
+    exit 1, a `(gate)` failure, and a detail naming the command AND why it could
+    not start - and the program is one no host ships, so the assertion is the same
+    everywhere.
+    """
+    missing = "teamwork-preflight-no-such-program-9c1f"
+    assert shutil.which(missing) is None, f"this host unexpectedly ships {missing!r}"
+    root = init_team(cli, project)
+    start_branch(cli, project)
+    commit_as_author(cli, project)
+    gate = f"{missing} --check"
+    settings = root / engine.F_SETTINGS
+    settings.write_text(json.dumps({"PreflightCommand": gate}) + "\n", encoding="utf-8")
+
+    code, out = preflight(cli, capsys, project, "--run")
+
+    assert code == 1, out
+    assert "(gate)" in out
+    assert f"{gate} -> could not start" in out
+    assert "install it, or point PreflightCommand at a command this host has" in out
 
 
 # --------------------------------------------------------------------------- #
