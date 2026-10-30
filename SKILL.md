@@ -570,7 +570,8 @@ the local result **and** the CI run (id + conclusion) for the certified revision
 - **Git host.** The Release Engineer guarantees repository and CI integrity on
   whatever host is in use: protected default branch, **no force-push**, no
   deletion, required status checks on the exact revision, at least one non-author
-  approval, squash-only merges with the source branch deleted, protected `v*`
+  approval, the host merge button off - the Reviewer merges locally and the source
+  branch is deleted (`pr merge --squash` is the one-commit path) - protected `v*`
   tags created only by the CEO, and least-privilege CI with no secret in the tree.
   Policy and the per-host mapping are in `references/Remotes.md`. Record the actual
   settings from the host API as evidence and re-read them to detect drift; an
