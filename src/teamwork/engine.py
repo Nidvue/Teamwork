@@ -10325,6 +10325,9 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
     `--run` is explicit because the command is the project's, not the skill's: a
     preflight that ran `make check` by default would be a language assumption, and
     one that ran it silently would make every self-check pay for a full suite.
+    A command this host cannot start is reported as a FAILED gate carrying the
+    command and the reason, never raised: a gate nobody can read is a gate that
+    taught the lane to skip it (T-0003).
     """
     name = "gate"
     command = _settings_string(root, PREFLIGHT_SETTINGS_KEY)
@@ -10358,12 +10361,25 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
             text=True,
             timeout=PREFLIGHT_GATE_TIMEOUT,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            f"{command} -> could not run: {exc}",
-            "install it, or point PreflightCommand at a command this host has",
+            f"{command} -> no exit: still running after {PREFLIGHT_GATE_TIMEOUT}s",
+            f"{command}   # a gate that hangs is not a pass; make it finish, then re-run"
+            " preflight --run",
+        )
+    except OSError as exc:
+        # A command this host cannot start is a RED gate on every host, never an
+        # exception out of the engine and never a silent pass: the report carries the
+        # command text and the reason, so a POSIX-only gate reads as red on win32
+        # instead of crashing the author's run (T-0003).
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{command} -> could not start: {exc}",
+            "install it, or point PreflightCommand at a command this host has"
+            "   # then re-run preflight --run",
         )
     if proc.returncode == 0:
         return PreflightCheck(name, PREFLIGHT_OK, f"{command} -> exit 0")
