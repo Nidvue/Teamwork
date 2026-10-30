@@ -3369,4 +3369,4 @@ Found but not charged: the guide says the ledger prefix lets coordination "count
 - author evidence: venv\Scripts\python.exe -m pytest -q tests/unit/test_pi_package.py @333c08a -> 3 failed (FileNotFoundError: [WinError 2] from scripts/build_pi_package.py:219 subprocess.run(['du','-sh',...]))
 - reviewer evidence: pytest -q tests/unit/test_pi_package.py @abe23e9 -> 7 passed; the new test against 333c08a -> 1 failed (97, 'launched an external binary: du'), base file -> 3 failed 3 passed; shipped build run @abe23e9 -> rc 0 'built ... 1.4M' while 333c08a -> rc 1 FileNotFoundError WinError 2; ruff check/format --check -> clean; privacy_scan --tree --allow -> PASS 0; full suite 1544 passed 2 failed, both pre-existing at 333c08a (sh/ls absent on win32, owned by T-0003); human_size boundaries 0/1023/1024/1536/10240/1258291 -> 0/1023/1.0K/1.5K/10K/1.2M; TS-0007 acceptance/packaging passing
 - findings history: 
-- branch / merge: developer-2/t-0002-windows-gate-build-pi-package-py-shells / pending
+- branch / merge: developer-2/t-0002-windows-gate-build-pi-package-py-shells / 381bb5c
