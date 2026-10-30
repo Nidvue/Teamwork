@@ -867,7 +867,11 @@ def test_release_engineer_owns_repo_and_ci_integrity(root):
 def test_skill_assigns_integrity_to_the_release_engineer(root):
     text = flat(read(root, "SKILL.md"))
     assert "protects" in text.lower() or "protected default branch" in text
-    assert "squash-only merges" in text
+    # the merge is the Reviewer's local action; the host's own button is off, so a
+    # host-side "squash-only" policy is not what this bullet may claim (Remotes.md).
+    assert "host merge button off" in text
+    assert "merges locally" in text
+    assert "source branch is deleted" in text
     assert "protected `v*`" in text or "protected v*" in text
 
 
