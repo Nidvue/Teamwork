@@ -7,7 +7,7 @@
   evidence-gated, role-shared, and auditable by design.</p>
   <p>
     <a href="https://github.com/Nidvue/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Nidvue/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github"></a>
-    <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg"></a>
+    <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg"></a>
     <a href="docs/Team/Architecture.md"><img alt="Python 3.9 to 3.13" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue"></a>
     <a href="docs/guide/install.md"><img alt="Skill: one clone to install" src="https://img.shields.io/badge/skill-install%20in%20one%20clone-8957e5"></a>
     <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
@@ -178,12 +178,13 @@ package index cannot drift apart again.
 ## 30-second quickstart
 
 ```bash
-# 1. install the skill (one clone, nothing to build; drop the nested .git so the
-#    skill is committed as plain files, not a submodule)
+# 1. create the project and install the skill into it (one clone, nothing to
+#    build; drop the nested .git so the skill is committed as plain files, not a
+#    submodule)
+$ mkdir my-project && cd my-project
 $ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork && rm -rf .agents/skills/teamwork/.git
 
-# 2. in any project, ask your agent for the team
-$ cd my-project
+# 2. ask your agent for the team, from the project root
 > use the teamwork skill: Build a URL shortener with a CLI, tests and docs
 ```
 
@@ -448,7 +449,7 @@ Nothing is dispatched before the interfaces are frozen, and nothing reaches
 
 | Project | Orchestration model | Evidence gate | Audit trail | Coding-agent skill | Zero runtime deps | License |
 |---|---|---|---|---|---|---|
-| **Nidvue Teamwork** | Persistent role org: shared role memory, priority queues, parallel lanes, CEO pulse | **Enforced** - `loop` blocks `STOP` until every criterion and required test layer has evidence | **Hash-chained** `Ledger.jsonl`, `ledger verify`, `trace`, `ledger export` | **Yes** - ships `SKILL.md`, `roles/`, `references/`, `templates/` | **Yes** - standard library only | AGPL-3.0 |
+| **Nidvue Teamwork** | Persistent role org: shared role memory, priority queues, parallel lanes, CEO pulse | **Enforced** - `loop` blocks `STOP` until every criterion and required test layer has evidence | **Hash-chained** `Ledger.jsonl`, `ledger verify`, `trace`, `ledger export` | **Yes** - ships `SKILL.md`, `roles/`, `references/`, `templates/` | **Yes** - standard library only | AGPL-3.0-or-later |
 | CrewAI | Role-based crews, sequential or hierarchical process | No | Task output and logs, not tamper-evident | No - Python library | No | MIT |
 | AutoGen | Event-driven multi-agent conversations | No | Conversation logs, not tamper-evident | No - Python library | No | CC-BY-4.0 (archived) |
 | MetaGPT | SOP-driven "software company" pipeline | No | Artifact files, not tamper-evident | No - Python library | No | MIT |
@@ -507,7 +508,7 @@ project optimises the conversion inputs (demo, README, topics, license, releases
 - **Security** - please report vulnerabilities privately via
   [GitHub security advisories](https://github.com/Nidvue/Teamwork/security/advisories/new);
   see [`SECURITY.md`](SECURITY.md).
-- **License** - [AGPL-3.0](LICENSE), copyright (C) 2026 **Nidvue** (see [NOTICE](NOTICE)). The strong copyleft is deliberate: this is a
+- **License** - [AGPL-3.0-or-later](LICENSE) (version 3 of the AGPL or any later version), copyright (C) 2026 **Nidvue** (see [NOTICE](NOTICE)). The strong copyleft is deliberate: this is a
   governance tool, and its audit guarantees should survive modification.
 - **No personal data, no local leakage** - a hard project rule: no personal
   names, emails, domains, absolute home paths or credentials in the tree or the
