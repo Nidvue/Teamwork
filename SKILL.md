@@ -429,7 +429,7 @@ python3 "$SKILL/scripts/teamwork.py" links            # markdown links, URLs, ba
 python3 "$SKILL/scripts/teamwork.py" pulse --commit   # idle lanes -> assignment
 python3 "$SKILL/scripts/teamwork.py" parallel         # free slots vs ready work
 python3 "$SKILL/scripts/teamwork.py" loop             # may we stop yet?
-python3 "$SKILL/scripts/teamwork.py" clean            # remove temp files
+python3 "$SKILL/scripts/teamwork.py" clean --team-wide  # every lane's temp files
 ```
 
 - Report to the user at milestones: what changed, evidence, blockers, next. Never
@@ -549,10 +549,10 @@ Two duties that keep the remote and the confidence level honest:
 
 - **Everyone keeps the tree clean.** No comment the code already gives you, no
   commented-out code, no `TODO`/`FIXME` without a tracked task id; delete temp and
-  stale files in the same task (`teamwork.py clean` plus the rest by hand); keep
-  one canonical home per file and an obvious structure, and leave the working tree
-  cleaner than you found it. A reviewer who cannot tell deliverable from debris
-  fails the task.
+  stale files in the same task (`teamwork.py clean` for your own lane's temp
+  patterns, `--all` for its `Scratch/`, the rest by hand); keep one canonical home
+  per file and an obvious structure, and leave the working tree cleaner than you
+  found it. A reviewer who cannot tell deliverable from debris fails the task.
 
 Both duties are evidence, not ceremony: `tests plan` and the task record must name
 the local result **and** the CI run (id + conclusion) for the certified revision.
@@ -984,7 +984,7 @@ python3 $S tests plan && python3 $S audit && python3 $S links && python3 $S loop
 python3 $S dispute open --by developer-1 --against architect --topic "..." --evidence "..."
 python3 $S slot acquire --agent developer-3 --provider deepseek --task T-0012
 python3 $S slot renew --agent developer-3 && python3 $S slot release --agent developer-3
-python3 $S clean
+python3 $S clean --team-wide              # every lane's temp files, plus Global/ and Roles/
 ```
 
 Team lifecycle: the teammate tool to staff a lane, the host's reply/steer
