@@ -109,7 +109,7 @@ way.
 | `--team-wide` | Clean every lane's Scratch plus `Global/` and `Roles/`, printing each location before removal; a stray file sitting directly in `Agents/` belongs to no lane and is left alone. |
 | `--all` | Empty the Scratch/ in scope entirely, not only temp patterns; a team-wide run still only removes temp files from `Global/` and `Roles/`. |
 | `--dry-run` | Show what would be removed. |
-| `--limit` | Cap the number of files removed. |
+| `--limit` | Cap the number of paths printed (default 40); removal is not capped. |
 | `--worktrees` | Reclaim merged, clean worktrees (the default; stated for clarity). |
 | `--no-worktrees` | Leave every worktree alone, only sweep files. |
 | `--stale-minutes` | Age before a merged, clean worktree is reclaimed (default 60). |
