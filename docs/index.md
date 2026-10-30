@@ -41,8 +41,8 @@ One engine backs all three; the skill is how people install and use it.
 ## 30-second quickstart
 
 ```console
+$ mkdir my-project && cd my-project
 $ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork && rm -rf .agents/skills/teamwork/.git
-$ cd my-project
 > use the teamwork skill: build a URL shortener with a CLI, tests and docs
 ```
 
@@ -97,4 +97,4 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
 - Contributions: [CONTRIBUTING.md](https://github.com/Nidvue/Teamwork/blob/main/CONTRIBUTING.md)
 - Security policy: [SECURITY.md](https://github.com/Nidvue/Teamwork/blob/main/SECURITY.md)
 - Changelog: [CHANGELOG.md](https://github.com/Nidvue/Teamwork/blob/main/CHANGELOG.md)
-- License: [AGPL-3.0](https://github.com/Nidvue/Teamwork/blob/main/LICENSE)
+- License: [AGPL-3.0-or-later](https://github.com/Nidvue/Teamwork/blob/main/LICENSE)
