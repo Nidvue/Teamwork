@@ -3395,4 +3395,4 @@ Found but not charged: the guide says the ledger prefix lets coordination "count
 - author evidence: venv\Scripts\python.exe -m pytest -q tests/unit/test_docs_contracts.py -k design_asset_geometry @ea901ad -> 1 failed: AssertionError ('assets/banner.svg', (1280, 360), []) - the size cell now reads '1280 x 360, declared = viewBox' so the guard's fullmatch on 'WxH' finds nothing; commit 2d4ed4b
 - reviewer evidence: pytest -q tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py @9b9a3ad -> 119 passed; defect reproduced @b8649dd and @ea901ad blob -> 1 failed AssertionError ('assets/banner.svg',(1280,360),[]); guard still red when the bare cell is removed from demo in both tables, restored -> 1 passed; tests/unit/test_privacy_scan.py @9b9a3ad -> 85 passed; teamwork.py links @9b9a3ad -> 0 issues; git diff 2d4ed4b 9b9a3ad -- docs/Team/Design.md -> empty; tests/ untouched (0 files, sha 2617C4AF identical to main)
 - findings history: 
-- branch / merge: designer/t-0002-design-md-geometry-cells-stopped-matchin / pending
+- branch / merge: designer/t-0002-design-md-geometry-cells-stopped-matchin / aeb5d62
