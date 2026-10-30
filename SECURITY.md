@@ -52,12 +52,13 @@ machine.
 `scripts/privacy_scan.py` runs with `--allow .github/privacy-allow.txt` in
 `make privacy` and in CI. The file holds one regular expression per line plus a
 reason; it exists so a false positive cannot force a history rewrite. The file
-itself is the list, and nothing elsewhere counts it: it carries five anchored
-literals today - two path families (`^\.pi/agent/npm$` and the operator user
-name) and three fabricated probe values a reviewer quoted while proving that the
-gate catches a credential. A new entry needs a recorded decision and, if it
-masks a credential rule, the Security Auditor's review - growing the list is
-weakening the gate.
+carries the list - five anchored literals today, two path families
+(`^\.pi/agent/npm$` and the operator user name) and three fabricated probe values
+a reviewer quoted while proving that the gate catches a credential - and
+`tests/unit/test_privacy_scan.py` pins those five entries by name, so a sixth
+cannot arrive silently. A new entry needs a recorded decision and, if it masks a
+credential rule, the Security Auditor's review, and that test updated in the same
+change - growing the list is weakening the gate.
 
 ## Safe harbour
 
