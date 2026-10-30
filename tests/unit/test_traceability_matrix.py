@@ -657,17 +657,21 @@ def _replay(section: str, repo_root: Path) -> tuple[int, list[str], list[str]]:
     for ac in sorted(claimed):
         if ac in EXEMPT:
             continue
+        # Parse before the capability check, so a declaration excuses only a row
+        # that has a command to run: a cell rewritten into prose that merely *names*
+        # the proof (reviewer F2 on T-0003) is a disagreement for every row, declared
+        # or not - otherwise "declared" would become a way to stop parsing a cell.
+        commands = _proof_commands(proofs[ac])
+        if not commands:
+            disagreements.append(
+                f"{ac} is neither exempt nor parseable into a command: {proofs[ac]!r}"
+            )
+            continue
         capability = HOST_CAPABILITY.get(ac)
         if capability and not _capability_present(capability):
             skipped.append(
                 f"{ac}: host skip - {capability.partition(':')[2]!r} is not available to this "
                 f"interpreter, so its proof {proofs[ac]!r} cannot be measured here"
-            )
-            continue
-        commands = _proof_commands(proofs[ac])
-        if not commands:
-            disagreements.append(
-                f"{ac} is neither exempt nor parseable into a command: {proofs[ac]!r}"
             )
             continue
         try:
@@ -711,7 +715,9 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
       never passed: `HOST_CAPABILITY` declares the capability, the row's own cell
       has to evidence it, and the floor arithmetic below charges the skip exactly
       like an exemption; a skip no declaration owns, or a command this host cannot
-      start, is a disagreement;
+      start, is a disagreement; a declaration also excuses only a row whose cell
+      still parses into a command, so prose that merely names the proof is a
+      disagreement like any other unparseable cell;
     - the number of rows re-run plus the rows host-skipped must equal
       `rows - exemptions`, so exempting or skipping a row cannot lower the bar
       without the arithmetic saying so.
@@ -948,6 +954,32 @@ def test_a_declared_host_capability_skips_its_row_with_a_reason(
     assert not disagreements, disagreements
     assert len(skipped) == 1 and skipped[0].startswith("AC-1: host skip"), skipped
     assert "'build'" in skipped[0], skipped[0]
+
+
+def test_a_declared_capability_does_not_excuse_a_cell_with_no_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F2: a declaration excuses a capability, never the parsing of the cell.
+
+    With the skip applied before parsing, rewriting AC-1's cell into prose that
+    merely *names* `scripts/verify_release.py` turned a defect ("neither exempt nor
+    parseable") into a silent host skip. The row must stay a disagreement whatever
+    its capability declares, so "declared" can never become a way to stop reading a
+    cell.
+    """
+    import sys
+
+    monkeypatch.setattr(sys.modules[__name__], "_capability_present", lambda capability: False)
+    section = (
+        "| AC | proof target | archived task(s) | test record | proof command (read the run) | state |\n"
+        "|---|---|---|---|---|---|\n"
+        "| AC-1 | `x` | none | none | the same verify_release.py run as AC-2 | green |\n"
+    )
+    executed, skipped, disagreements = _replay(section, tmp_path)
+    assert executed == 0, (executed, skipped)
+    assert not skipped, skipped
+    assert len(disagreements) == 1, disagreements
+    assert "neither exempt nor parseable" in disagreements[0], disagreements[0]
 
 
 def test_an_undeclared_proof_this_host_cannot_launch_is_a_disagreement(tmp_path: Path) -> None:
