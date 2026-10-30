@@ -116,9 +116,7 @@ SCANNER_VERSION = "1.4.0"
 #: walker that drifts from the other scans a different history.
 _HISTORY_REVISIONS = ("--all", "--reflog")
 
-# --------------------------------------------------------------------------- #
 # Neutral identity / allowlisted email domains
-# --------------------------------------------------------------------------- #
 
 IDENTITY_DOMAIN = os.environ.get("TEAMWORK_IDENTITY_DOMAIN", "agents.nidvue.com")
 
@@ -147,14 +145,12 @@ _ALLOWED_SERVICE_EMAILS = re.compile(
     r"git@(?:github\.com|gitlab\.com|bitbucket\.org))$"
 )
 
-# --------------------------------------------------------------------------- #
 # Retired private domains
 #
 # Kept out of plain text on purpose: this file ships in the public tree and the
 # history, and must not itself contain the string it is meant to detect. The
 # list is built from code points and can be extended at runtime with the
 # comma-separated TEAMWORK_PRIVATE_DOMAINS environment variable.
-# --------------------------------------------------------------------------- #
 
 
 def _decode(*codes: int) -> str:
@@ -215,9 +211,7 @@ _PLACEHOLDERS = re.compile(
     re.IGNORECASE,
 )
 
-# --------------------------------------------------------------------------- #
 # Detection rules
-# --------------------------------------------------------------------------- #
 
 _RE_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 
@@ -718,9 +712,7 @@ def write_reveal_file(path, pairs):
     return written
 
 
-# --------------------------------------------------------------------------- #
 # Findings
-# --------------------------------------------------------------------------- #
 
 
 class Finding(dict):
@@ -945,9 +937,7 @@ def scan_commit_metadata(root, allow, stats=None):
     return findings
 
 
-# --------------------------------------------------------------------------- #
 # Git helpers
-# --------------------------------------------------------------------------- #
 
 
 def _run(args, input_bytes=None):
@@ -1157,9 +1147,7 @@ def scan_history(root, allow, stats=None):
     return findings
 
 
-# --------------------------------------------------------------------------- #
 # Allowlist
-# --------------------------------------------------------------------------- #
 
 
 def allow_expression(line):
@@ -1209,9 +1197,7 @@ def load_allow(path):
     return patterns
 
 
-# --------------------------------------------------------------------------- #
 # Reporting
-# --------------------------------------------------------------------------- #
 
 
 def summarize(findings):
