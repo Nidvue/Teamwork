@@ -1795,3 +1795,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: probe_marks.py + render_marks.py @d7aa9d2 -> 4.05 / 4.31 / 4.18:1 analytic worst per line and 3.94 / 4.10 / 4.07:1 rendered, 3/3 >= 3:1; render diff @d7aa9d2 -> 1090 px changed, all inside the connector strips; verify_assets.py @d7aa9d2 -> PROBLEMS 0 with the worst text pair 5.62:1 and worst mark 3.20:1 unchanged
 - falsified by: A reviewer shows a point on any of the three lines still under 3:1, or the pixel diff moving outside the connector strips, or the banner's look regressing against the before render
 - consequences: -
+
+## D-20261031-CEO - Pill and org-box outlines are decorative; the connectors are not
+
+- date: 2026-10-31
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: darken every outline (rejected: changes the design for no information gain); leave the connectors as decoration (rejected: the hierarchy is only carried by the lines); fix only the connectors (chosen)
+- decision: In assets/banner.svg the five pill outlines (2.47-2.58:1) and six org-box outlines (2.68-2.97:1) stay below the 3:1 bar, because every one of those shapes is named by a label measured at 11.0-14.2:1; the three CEO connectors are held to 3:1 and were fixed to 3.83-4.09:1 because they are the only element that says which seat hangs off which.
+- why: WCAG SC 1.4.11 applies to graphical objects required to understand the content. The outlines carry no information a label does not; the connectors carry the hierarchy and the asset's desc calls it an org chart. Reviewer-1 refused to verify AC-2 on the connectors and asked for this ruling rather than deciding it alone.
+- evidence: Reviewer-1 probe+render @4445d4e -> connectors 2.66-2.79:1 (bar 3:1); after stroke-opacity=1 @f497f62 -> 3.83/4.09/3.96 analytic, 3.94/4.10/4.09 rendered; pill/box outlines 2.47-2.97:1 with labels 11.18:1 and ~14:1; git diff 4445d4e..f497f62 -- assets/banner.svg -> one hunk, one attribute
+- falsified by: a reader who cannot tell which seat hangs off which without the line colour - i.e. a label or ordering change that removes the connectors' role
+- consequences: Design.md records both sets of numbers and the one-attribute cost for anyone who disagrees
