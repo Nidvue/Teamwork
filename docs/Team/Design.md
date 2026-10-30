@@ -104,7 +104,7 @@ record in section 9.
 | Badge | Message | Why it earns a slot | Link target | Alt text |
 |---|---|---|---|---|
 | CI | Build is green | The first credential a developer checks | Actions `ci.yml` | "CI status" |
-| License | AGPL-3.0 | Copyleft is a deliberate decision (R-11); state it up front | `LICENSE` | "License: AGPL-3.0" |
+| License | AGPL-3.0-or-later | Copyleft is a deliberate decision (R-11); state it up front | `LICENSE` | "License: AGPL-3.0-or-later" |
 | Python | 3.9-3.13 | Compatibility is a purchase decision | Architecture | "Python 3.9 to 3.13" |
 | Skill install | One clone, nothing to build | Sets the install expectation correctly: this is a skill, not an app | Install guide | "Skill: one clone to install" |
 | PRs welcome | Contributions open | Lowers the barrier for the first PR | `CONTRIBUTING.md` | "PRs welcome" |
@@ -118,7 +118,7 @@ Python" duplicates the Python badge.
 | Check | Requirement | Result |
 |---|---|---|
 | Contrast, body text | >= 4.5:1 (WCAG 2.1 AA) | 13 text pairs over 21 background checks all pass; lowest pair 5.62:1 (`#8b949e` on the `#161b22` title bar), next 6.35:1 (CEO node label on the indigo end of the accent gradient) |
-| Contrast, decorative mark | >= 3:1 | Passes at its worst: NIDVUE frame `#8584F0` on white 3.20:1, NIDVUE N `#5857E8` on the README dark ground 3.56:1, logo node 4.24:1 (non-text, so the 3:1 bar applies). The frame used to be drawn at `opacity="0.92"`, which composites to 2.88:1 on white - fixed this sweep |
+| Contrast, decorative mark | >= 3:1 | Passes at its worst: NIDVUE frame `#8584F0` on white 3.20:1, NIDVUE N `#5857E8` on the README dark ground 3.56:1, logo node 4.24:1 (non-text, so the 3:1 bar applies). The frame used to be drawn at `opacity="0.92"`, which composites to 2.88:1 on white - fixed this sweep. The banner's hierarchy marks are measured **against the composited background, glow included**: CEO connectors 4.05:1 worst along the three lines (they were 2.77:1 until T-0003), Tester/Ledger 3.98:1 |
 | Text alternatives | Every `<img>` and every SVG has a text alternative | `alt` on each README image; `<title>` + `<desc>` + `aria-labelledby` in all five SVGs, and every `aria-labelledby` token resolves to an element (checked, not assumed) |
 | Colour independence | Colour never the only carrier of meaning | `[ok]`, `[ceo]`, `CONTINUE` are word labels; status colour is redundant |
 | Motion | Animation is decorative and can be stopped | CSS keyframes; `@media (prefers-reduced-motion: reduce)` removes all animation and reveals the full transcript |
@@ -145,7 +145,12 @@ Contrast measurements (WCAG 2.1 relative-luminance formula, computed by
 | `#8b949e` on `#161b22` | 5.62:1 | AA |
 
 Non-text marks: `#0b1020` on `#6366f1` 4.24:1, `#8584F0` on white 3.20:1,
-`#5857E8` on `#0b1020` 3.56:1 and on white 5.33:1 - all above the 3:1 bar.
+`#5857E8` on `#0b1020` 3.56:1 and on white 5.33:1 - all above the 3:1 bar. In the
+banner, measured on the composited background (gradient + grid + glow) rather
+than on a flat fill: CEO connectors `#818cf8` 4.05:1 worst (2.77:1 before T-0003),
+Tester/Ledger connectors `#22d3ee` at 0.6 3.98:1, logo node strokes 6.35:1.
+Rendered on pixels (`cairosvg`, with the connectors stripped for the background
+pass) the same three lines read 3.94 / 4.10 / 4.07:1.
 
 ## 6. Conversion checklist
 
@@ -157,7 +162,7 @@ Assertable by a Tester on the merged README.
 - [ ] Install section installs the skill first (project or user skills directory, or `AGENTS.md` where the host has no skill loader) and demotes pipx/uvx/pip/source to an optional engine.
 - [ ] Quickstart is no more than four commands and names the workspace path.
 - [ ] Comparison table has 5 alternatives x 6 decision columns, with sources.
-- [ ] License (AGPL-3.0) and the "no personal data" statement are present.
+- [ ] License (AGPL-3.0-or-later) and the "no personal data" statement are present.
 - [ ] Exactly one top-level heading (HTML `<h1>` or markdown `# `); every fenced block balanced.
 - [ ] Every internal link in the README resolves; no bare or malformed external URL in it.
 - [ ] Every SVG parses as XML and carries `<title>` + `<desc>`.
@@ -218,21 +223,27 @@ host can do:
   (parses every SVG with `xml.etree.ElementTree`, decodes the PNG chunks and the
   ICO directory by hand, and computes contrast with the WCAG relative-luminance
   formula). No eyeballing.
+- **contrast over a real background** - `Artifacts/T-0003/Scripts/probe_marks.py`
+  (T-0003): the flat-fill model above cannot see a gradient, a grid or a glow, so
+  this one composites `banner.svg`'s whole background stack at every sample point
+  along every mark before compositing the stroke over it, and
+  `render_marks.py` (WSL, `cairosvg`) renders the file twice - as shipped and with
+  the connectors stripped - so the ratio is measured on painted pixels too.
 - **render and look** - `Scratch/render_review.py` under WSL, where the repo's
   `.venv` has `cairosvg` and Pillow: every SVG rasterised at 1x, 2x and 16 px and
   opened; every raster decoded.
 - **diagram** - `Scratch/check_mermaid.py`, because no mermaid renderer exists on
   this host and fetching one is not allowed.
 
-All three scripts live in the agent's gitignored `Scratch/`; the repository holds
-no audit code for this.
+All of these scripts live in the agent's gitignored `Scratch/` and `Artifacts/`;
+the repository holds no audit code for this.
 
 | Check | Command | Result |
 |---|---|---|
 | Structure and semantics, all 5 SVGs | `venv\Scripts\python.exe Scratch\verify_assets.py <worktree>` | 5/5 well-formed; 5/5 `role="img"` with `<title>`, `<desc>` and every `aria-labelledby` token resolving; 5/5 declared `width`/`height` = `viewBox`; every `font-family` stack ends in a generic family; 0 `<script>`, `@font-face`, `@import`, `xlink:href`, `<image>`, `base64`, external `href`/`src`/`url()`; geometry inside the viewBox; 13 `<text>` elements in the banner and 11 in the demo (129 and 516 characters of real text), no text drawn as a path |
 | Raster container and size | same script | `social-preview.png` 1280x640 colourtype 2 (RGB), chunks `IHDR IDAT IDAT IEND`, no metadata chunk; `nidvue-apple-touch-icon.png` 180x180 colourtype 2; `nidvue-favicon.ico` header `0,1,3`, 16-byte entries, 3 PNG frames 16/32/48, 0 trailing bytes |
 | ICO decodes in a real decoder | `.venv/bin/python Scratch/render_review.py` (WSL, Pillow 13.0.0) | `PIL.Image.open` -> `sizes [(16, 16), (32, 32), (48, 48)]`, every frame RGBA (before the repair: `OSError: Truncated File Read`) |
-| Contrast | same stdlib script | 13 text pairs over 21 background checks, all >= 4.5:1, worst 5.62:1; marks all >= 3:1 after the frame fix (3.20:1 worst) |
+| Contrast | same stdlib script, plus the glow-aware probe `Artifacts/T-0003/Scripts/probe_marks.py` | 13 text pairs over 21 background checks, all >= 4.5:1, worst 5.62:1; marks all >= 3:1, worst 3.20:1 (NIDVUE frame on white). The SVG marks are now measured against the **composited** background (linear gradient + 1 px grid + radial glow), because the flat-fill model this document used first cannot see the glow: banner CEO connectors 2.77 -> 4.05:1, cyan 3.98 / 4.09:1, logo mark 6.35:1 |
 | Render and look | `render_review.py` at 1x, 2x and 16 px, every file opened | IMG-2 tagline clear of the org chart; IMG-4 all eight transcript lines legible, no clipping, no tofu; IMG-1/3/5/6 clean; NIDVUE legible at 16 px on light and dark; touch icon now shows the mark on white, not on black |
 | Diagram | `venv\Scripts\python.exe Scratch\check_mermaid.py README.md` | 1 block, 16 nodes, 17 edges, balanced shapes, every endpoint declared, `--credit` and delta-fix steps present, 0 problems |
 | Links | `python scripts/teamwork.py --project <worktree> links` | 0 issues (75 markdown files, 388 internal links) |
@@ -281,7 +292,7 @@ the asset, not only the surface that displays it.
 | id | asset | medium | size | bytes / mode | referenced by | review result |
 |---|---|---|---|---|---|---|
 | IMG-1 | `assets/social-preview.png` | raster | 1280 x 640 | 71 004 B (69 KiB), RGB | `scripts/build_pi_package.py:30` (`PREVIEW`), `.gitattributes:82` (LFS opt-out), Design/Plan/Decisions/Archive, `roles/designer.md` | pass - template layout, real text, measured on white: name 18.55:1, description 8.29:1, accent rule 5.33:1; only IHDR/IDAT/IEND chunks; inside the 40 pt safe area. One deviation recorded below (pitch punctuation) |
-| IMG-2 | `assets/banner.svg` | svg | 1280 x 360 | declared, 5 029 B | `README.md:2` (hero), Design/Plan/Archive | pass - one defect fixed (tagline collided with the org chart at the widest font of the stack; 25 -> 22 px) |
+| IMG-2 | `assets/banner.svg` | svg | 1280 x 360 | declared, 5 027 B | `README.md:2` (hero), Design/Plan/Archive | pass - two defects fixed: the tagline collided with the org chart at the widest font of the stack (25 -> 22 px), and the three CEO connectors sat at 2.78:1 under the glow (found by Reviewer-1 at `4445d4e`; `stroke-opacity` 0.7 -> 1 on that one group -> 4.05:1 worst, measured along each line) |
 | IMG-3 | `assets/logo.svg` | svg | 128 x 128 | declared, 964 B | `tests/unit/test_skill_contracts.py:251` (`PROSE_AND_MEDIA_EXAMPLES`), Design/Plan/Archive | pass - the standalone Teamwork mark; **kept, not dead**: it is the fixture that proves `assets/**` is treated as prose/media, and the mark the banner draws at 132 px. It is not on a product surface by design (README shows the *Nidvue* mark) |
 | IMG-4 | `assets/demo.svg` | svg | 960 x 560 | declared, 4 778 B | `README.md:19`, Design/Plan/Project/Pi-Packaging/Archive, `tests/unit/test_{skill_contracts,privacy_scan}.py` | pass - one stale line fixed (`12 roles staffed` -> `5 roles staffed, 2 lanes running`, matching the `slim` roster tier) |
 | IMG-5 | `docs/assets/nidvue-icon.svg` | svg | 256 x 256 | declared, 608 B | `README.md:3`, `mkdocs.yml:30` (theme logo), `tests/unit/test_skill_contracts.py:1262-1276` | pass - `role=img`, `<title>` + `<desc>`, no external resource, geometry centred in the viewBox; intrinsic size declared and the frame drawn at full opacity this sweep |
@@ -333,6 +344,7 @@ the asset, not only the surface that displays it.
 | 5 | NIDVUE mark: declared `width="256" height="256"` and dropped the frame's `opacity="0.92"` | "state the intrinsic size or aspect ratio" + the 3:1 non-text bar: at 0.92 the frame composites to 2.88:1 on white, at full opacity 3.20:1 | pass: rendered at 16 px, 1x and 2x on white and on `#0d1117`; frame reads as one mark with the N |
 | 6 | touch icon re-rendered from `nidvue-favicon.svg` at 180x180 on white, opaque RGB | "a touch icon must be opaque": the RGBA copy was composited by iOS on black, taking the N to 3.56:1 and hiding the mark's ground | pass: `alpha` channel gone (colortype 2), mark unchanged, 1 952 B |
 | 7 | README flowchart: added the recorded-run node, the `--credit` edge and the `FX[Owner fixes]` delta node; labelled the lane group "one per staffed role" | "the pitch and the protocol must say the same thing": the README's own "Review throughput" row promises `--credit` and a delta re-review, and the diagram showed a full re-review loop | pass: 16 nodes, 17 edges, balanced, every endpoint declared (`check_mermaid.py`) |
+| 8 | banner: `stroke-opacity` 0.7 -> 1 on the CEO connector group only, after Reviewer-1 measured 2.78:1 at `4445d4e` | the 3:1 non-text bar on a mark *required to understand* the content: the connectors are the only element that says Tester hangs off Architect and Ledger off Reviewer, and the glow under the top of the stem lifted the background | pass: 4.05 / 4.31 / 4.18:1 analytic worst per line, 3.94 / 4.10 / 4.07:1 rendered; 1 090 pixels changed, all inside the connector strips; geometry, colour token, width and glow untouched |
 
 #### IMG-2..IMG-4 - vector
 
@@ -348,7 +360,8 @@ the asset, not only the surface that displays it.
   generic family; every SVG declares `width`/`height` equal to its `viewBox`;
   geometry inside the viewBox; `cairosvg` render at 1x, 2x and 16 px -> every text
   line legible, no tofu, no clipping; contrast 13 text pairs over 21 background
-  checks >= 4.5:1 and every mark >= 3:1 (section 5)
+  checks >= 4.5:1 and every mark >= 3:1, measured against the composited
+  background and not a flat fill (section 5, T-0003)
 
 ### Review log - the superseded generated round for IMG-1
 
@@ -377,6 +390,8 @@ Pillow. The rows below are the findings that produced a change or a decision.
 | asset | finding (measured) | change |
 |---|---|---|
 | IMG-2 banner | the tagline overran its column: at the widest member of the font stack (the DejaVu Sans fallback, 601 px) it ended at x = 849 while the org chart's first box starts at x = 832, so the copy collided with `Architect` on any renderer whose font is wider than Arial's | tagline 25 px -> 22 px: worst case 529 px, ends at x = 777, 55 px clear of the chart; copy unchanged |
+| IMG-2 banner | **found by Reviewer-1 at `4445d4e`, not by me**: the three CEO connectors (`assets/banner.svg:68-70`, `#818cf8` at `stroke-opacity` 0.7, 2 px) measured **2.78:1** at (1010,124) where the bar is 3:1, and 3.08:1 at y = 180 - the radial glow lifts the background under the top of the stem. My own probe reproduces it: 2.77 / 2.89 / 2.83:1 worst along the three lines analytically, and 2.70 / 2.79 / 2.73:1 on a `cairosvg` render (2.79:1 at (1010,124), 3.07:1 at y = 180, matching the finding). My earlier 3.46:1 came from a flat-canvas model that could not see the glow | `stroke-opacity` 0.7 -> **1** on that one `<g>` - geometry, colour token, width and the glow unchanged, so the chart still reads as one indigo system under the accent-filled CEO node. After: **4.05 / 4.31 / 4.18:1** analytically (worst along each line) and **3.94 / 4.10 / 4.07:1** on the render; the change moves 1 090 pixels of 460 800, all inside the three connector strips (bbox 889,122 - 1130,199, 0 outside), and 5 029 -> 5 027 B |
+| IMG-2 banner | measured this pass, no defect fixed: the five role chips (`#818cf8` at 0.6 on the 8 % white pill) sit at 2.47-2.71:1 and the six org boxes at 2.95:1 against their own fill, so they are also under the 3:1 bar | **no change - scoped out, recorded, not waved through**: each pill and box is named by the label inside it (`#e0e7ff` at 11.0-14.2:1), so the outline is a grouping affordance rather than a mark *required to understand* the content under the WCAG 2.1 non-text bar (SC 1.4.11: parts of a graphic required to understand the content) - unlike the connectors, which the CEO ruled are the only element that says Tester hangs off Architect and Ledger off Reviewer. The numbers and the one-attribute fix (`stroke-opacity` ~0.8 on the five pills, ~0.75 on the six boxes) stay here for anyone who disagrees. **Ruled by the CEO on 2026-10-31: decorative, keep them at 2.47-2.95:1** - SC 1.4.11 covers graphics *required to understand* the content, and every one of these shapes is named by a label measured at 11.0-14.2:1, so the outline carries nothing a reader needs |
 | IMG-4 demo | `objective accepted: 12 roles staffed, 3 lanes running` matched no roster tier - `ROSTER_TIERS` (`src/teamwork/config.py:367-374`) is `slim` (5 roles: ceo, architect, developer, tester, reviewer), `standard` (8) and `full` (15), and `docs/guide/cli.md:55` states `slim` is the default | corrected to `5 roles staffed, 2 lanes running`. The two lanes are **developer and tester**: the only execution roles in the slim tier (`src/teamwork/config.py:367-374`), against `README.md:52`, which names developer, tester and designer as the parallel lanes and `slim` does not staff the designer. Five roles, six agents - the reviewer is staffed twice (`docs/guide/cli.md:55`); "roles" is the unit the sentence counts. The rest of the transcript is untouched |
 | IMG-6 favicon.svg | `role="img"` and a `<title>` but no `<desc>` and no `aria-labelledby`, unlike IMG-5 | added `<desc>` + `aria-labelledby="ft fd"` |
 | IMG-7 favicon.ico | the directory used 12-byte entries, so the image offsets were 12 short and `wPlanes` / `wBitCount` read as garbage; `PIL.Image.open` raised `OSError: Truncated File Read` | container rebuilt (6 + 3 x 16 B) over the same three PNG frames; `PIL` now reports frames 16/32/48 |
