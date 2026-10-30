@@ -368,9 +368,7 @@ def _one_line(text: str) -> str:
     return flat or "(no detail)"
 
 
-# --------------------------------------------------------------------------- #
 # Process and network seams
-# --------------------------------------------------------------------------- #
 
 
 #: The bearer for the current run, read **once** when an online run starts (so a
@@ -548,9 +546,7 @@ def _git_bytes(repo_root: Path, *args: str) -> bytes:
     return proc.stdout
 
 
-# --------------------------------------------------------------------------- #
 # Bundled payload digest (11.3)
-# --------------------------------------------------------------------------- #
 
 
 def _payload_skip(rel: Path) -> bool:
@@ -790,9 +786,7 @@ def _tarball_payload_digest(blob: bytes) -> str:
         return _digest_of_tree(staged)
 
 
-# --------------------------------------------------------------------------- #
 # Local facts
-# --------------------------------------------------------------------------- #
 
 
 def _version_tuple(version: str) -> tuple[int, int, int] | None:
@@ -1052,9 +1046,7 @@ def _marked_lines(text: str, marker: str = ILLUSTRATIVE) -> list[_MarkedLine]:
     return marked
 
 
-# --------------------------------------------------------------------------- #
 # The exception record (11.4)
-# --------------------------------------------------------------------------- #
 
 
 def load_exceptions(path: Path) -> list[dict[str, str]]:
@@ -1123,9 +1115,7 @@ def _stale_exceptions(exceptions: Iterable[dict[str, str]], tags: Sequence[str])
     return findings
 
 
-# --------------------------------------------------------------------------- #
 # R1 / R2 - the tag and the local version string
-# --------------------------------------------------------------------------- #
 
 
 def rule_r1_tagged_version(repo_root: Path) -> RuleResult:
@@ -1191,9 +1181,7 @@ def rule_r2_head_is_newer(repo_root: Path, head_is_default_branch: bool = True) 
     return _ok("R2", f"HEAD {head} is newer than {len(comparable)} tag(s)")
 
 
-# --------------------------------------------------------------------------- #
 # R3 / R4 / R5 / R8 - the published half
-# --------------------------------------------------------------------------- #
 
 
 def rule_r3_npm_payloads(
@@ -1519,9 +1507,7 @@ def rule_r8_install_channels(
     return _ok("R8", f"PyPI {reason}; {marked} channel line(s) marked channel-unavailable")
 
 
-# --------------------------------------------------------------------------- #
 # R6 / R7 / R9 - the committed prose
-# --------------------------------------------------------------------------- #
 
 
 def _project_tokens(text: str) -> list[tuple[re.Match[str], str]]:
@@ -1690,9 +1676,7 @@ def rule_r9_markdown_tags(repo_root: Path) -> RuleResult:
     return _ok("R9", f"every vX.Y.Z token names a tag; {illustrative} illustrative")
 
 
-# --------------------------------------------------------------------------- #
 # Entry point
-# --------------------------------------------------------------------------- #
 
 
 def _all_skip(reason: str) -> list[RuleResult]:
