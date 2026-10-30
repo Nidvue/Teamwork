@@ -4432,7 +4432,8 @@ Three steps, in order. You cannot skip any of them.
        --task <T-id> --area <area> --goal "<what was asked>" \\
        --deliverable "<what you produced>" --why "<why this change>" \\
        --status "<actual state>" --result "<command @rev -> observed result>" --all`
-   Then clean your `scratch/` (`{script} clean --all`).
+   Then clean your `scratch/` (`{script} clean --all` from your lane worktree, or
+   `{script} clean --agent {name} --all`).
 2. **Your own review and test.** Re-read your diff, check edge cases, error
    paths, regressions and docs, and actually *run* something.
    You also own a test layer: make sure there is a `tests` record for the `{role}`
@@ -5852,50 +5853,126 @@ def _worktree_reclaimable(
     return run_git(project, "merge-base", "--is-ancestor", head, DEFAULT_BASE).returncode == 0
 
 
+def caller_agent(root: Path) -> str:
+    """The lane that invoked the command, named by the worktree holding the cwd.
+
+    A lane works inside `Runtime/Worktrees/<Agent>`, so that worktree's name is
+    the caller. From the main checkout no single agent owns the tree and the
+    result is empty - the caller then has to name its scope explicitly.
+    """
+    wt_root = (root / DIR_RUNTIME / DIR_WORKTREES).resolve()
+    try:
+        rel = Path.cwd().resolve().relative_to(wt_root)
+    except (OSError, ValueError):
+        return ""
+    return rel.parts[0] if rel.parts else ""
+
+
+def clean_scope(root: Path, agent: str = "", team_wide: bool = False) -> list:
+    """Which lanes a clean may touch. Never more than was asked for.
+
+    Scratch is one lane's private workspace, so the default scope is the caller
+    alone and every unlink - the `--all` emptying and the `*.tmp`/`*.temp` pass -
+    stays inside that lane's directory. `--team-wide` is the only way to reach
+    every lane, and the locations it will touch are printed before the first
+    unlink. There is no "guess and sweep" fallback: an unresolvable caller is
+    refused, because the alternative is exactly the T-0005 defect - one lane's
+    janitor run unlinking a peer's in-flight files, irreversibly.
+    """
+    agents = list_agents(root)
+    if team_wide:
+        return agents
+    if agent:
+        wanted = pascal(agent)
+        for known in agents:
+            if pascal(known) == wanted:
+                return [known]
+        die(f"no agent directory at {agent_dir(root, agent)}: check `teamwork agents`", 2)
+    caller = caller_agent(root)
+    if caller:
+        for known in agents:
+            if pascal(known) == pascal(caller):
+                return [known]
+    die(
+        "clean needs a scope: run it from your lane worktree "
+        f"({root / DIR_RUNTIME / DIR_WORKTREES}/<agent>), or pass --agent <name> to "
+        "clean your own Scratch, or --team-wide to sweep every lane plus Global/ and "
+        "Roles/ (the locations are printed before anything is removed)",
+        2,
+    )
+
+
+def _shown_path(path: Path, project: Path) -> str:
+    """A path as the operator sees it: relative to the project when it is inside."""
+    try:
+        return path.relative_to(project).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def clean_locations(root: Path, agents: list, team_wide: bool = False) -> list:
+    """The directories one clean may unlink from: the lanes in scope and nothing else.
+
+    An agent scope covers that lane's directory - its `Scratch/` plus its own
+    stray temp files - and no other. `--team-wide` adds the team-shared working
+    state, `Global/` and `Roles/`, where a temp file belongs to no lane in
+    particular; `--all` still empties only `Scratch/`. Stray files sitting
+    directly in `Agents/` belong to no lane and are left alone.
+    """
+    locations = [agent_dir(root, agent) for agent in agents]
+    if team_wide:
+        locations += [global_dir(root), roles_dir(root)]
+    return locations
+
+
 def cmd_clean(args) -> int:
-    """Remove scratch/temp files inside the team tree. Never touches tracked files."""
+    """Remove scratch/temp files inside the team tree. Never touches tracked files.
+
+    The scope is one lane by default (see `clean_scope`): that lane's directory,
+    which is its `Scratch/` plus its own stray temp files. Touching another lane
+    or the team-shared working state (`Global/`, `Roles/`) requires `--team-wide`,
+    which prints every location before the first unlink. `--all` empties
+    `Scratch/` only - `Global/` and `Roles/` just lose their temp-pattern files.
+    """
     root = project_root(args)
     project = project_of(root)
     if not root.exists():
         die(f"no workspace at {root}")
+    team_wide = bool(getattr(args, "team_wide", False))
+    if team_wide and getattr(args, "agent", ""):
+        die("--agent scopes the clean to one lane; --team-wide is the opposite: pick one", 2)
+    agents = clean_scope(root, getattr(args, "agent", ""), team_wide)
+    locations = clean_locations(root, agents, team_wide)
+    if team_wide:
+        print(f"teamwork: team-wide clean: {len(locations)} location(s) in scope")
+        for base in locations:
+            print(f"  - {_shown_path(base, project)}")
     tracked = set()
     if is_git_repo(project):
         r = run_git(project, "ls-files", "-z")
         tracked = {p for p in r.stdout.split("\0") if p}
     removed = []
     freed = 0
-    for agent in list_agents(root):
-        for sub in SCRATCH_DIRS:
-            d = agent_dir(root, agent) / sub
-            if not d.is_dir():
-                continue
-            for p in d.rglob("*"):
-                if not p.is_file():
-                    continue
-                rel = p.relative_to(project).as_posix()
-                if rel in tracked:
-                    continue
-                if not args.all and not any(p.match(pat) for pat in SCRATCH_PATTERNS):
-                    continue
-                try:
-                    freed += p.stat().st_size
-                    removed.append(rel)
-                    if not args.dry_run:
-                        p.unlink()
-                except OSError:
-                    pass
-    # workspace-wide stray temp files (never memory, tasks or docs)
-    for p in list(root.rglob("*.tmp")) + list(root.rglob("*.temp")):
-        rel = p.relative_to(project).as_posix()
-        if rel in tracked:
+    for base in locations:
+        if not base.is_dir():
             continue
-        try:
-            freed += p.stat().st_size
-            removed.append(rel)
-            if not args.dry_run:
-                p.unlink()
-        except OSError:
-            pass
+        scratch = [base / sub for sub in SCRATCH_DIRS]
+        for p in base.rglob("*"):
+            if not p.is_file():
+                continue
+            rel = p.relative_to(project).as_posix()
+            if rel in tracked:
+                continue
+            empty_scratch = args.all and any(p.is_relative_to(d) for d in scratch)
+            if not empty_scratch and not any(p.match(pat) for pat in SCRATCH_PATTERNS):
+                continue
+            try:
+                freed += p.stat().st_size
+                removed.append(rel)
+                if not args.dry_run:
+                    p.unlink()
+            except OSError:
+                pass
     verb = "would remove" if args.dry_run else "removed"
     print(f"teamwork: {verb} {len(removed)} scratch/temp file(s), {freed / 1024:.1f} KiB")
     reclaimed = [] if args.no_worktrees else reclaimable_worktrees(root, args.stale_minutes)
@@ -5929,7 +6006,8 @@ def cmd_clean(args) -> int:
     if len(removed) > args.limit:
         print(f"  ... and {len(removed) - args.limit} more")
     if not args.all:
-        print("teamwork: only temp patterns were removed; pass --all to empty scratch/ entirely.")
+        where = "every lane's Scratch/" if getattr(args, "team_wide", False) else "your Scratch/"
+        print(f"teamwork: only temp patterns were removed; pass --all to empty {where} entirely.")
     return 0
 
 
@@ -12947,6 +13025,16 @@ def _parsers_workspace(sub, common) -> None:
 
     s = sub.add_parser(
         "clean", parents=[common], help="remove scratch/temp files (never tracked files)"
+    )
+    s.add_argument(
+        "--agent",
+        default="",
+        help="clean only this agent's Scratch (default: the lane worktree you run from)",
+    )
+    s.add_argument(
+        "--team-wide",
+        action="store_true",
+        help="clean every agent's Scratch: the directories are printed before removal",
     )
     s.add_argument(
         "--all", action="store_true", help="empty scratch/ entirely, not just temp patterns"

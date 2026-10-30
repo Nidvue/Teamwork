@@ -103,7 +103,7 @@ def test_clean_removes_the_reclaimable_worktree_and_keeps_the_rest(cli, project:
     (kept / "a.txt").write_text("edited\n", encoding="utf-8")
     _age(gone, 120)
     _age(kept, 120)
-    assert cli("--project", project, "clean") == 0
+    assert cli("--project", project, "clean", "--agent", "ceo") == 0
     assert not gone.exists()
     assert kept.exists()
     assert engine.run_git(project, "worktree", "list").returncode == 0
@@ -113,7 +113,7 @@ def test_no_worktrees_leaves_them_alone(cli, project: Path) -> None:
     _repo_with_team(cli, project)
     gone = _add_worktree(project, "gone")
     _age(gone, 120)
-    assert cli("--project", project, "clean", "--no-worktrees") == 0
+    assert cli("--project", project, "clean", "--agent", "ceo", "--no-worktrees") == 0
     assert gone.exists()
 
 
@@ -188,7 +188,7 @@ def test_a_reclaim_that_failed_is_reported_not_counted(cli, project: Path, capsy
     _age(wt, 120)
     engine.run_git(project, "worktree", "lock", str(wt))
     capsys.readouterr()
-    assert cli("--project", project, "clean", "--stale-minutes", "60") == 0
+    assert cli("--project", project, "clean", "--agent", "ceo", "--stale-minutes", "60") == 0
     out = capsys.readouterr().out
     assert "could not be reclaimed" not in out, "a locked worktree is skipped, not failed"
     assert wt.exists(), "a locked worktree must survive"
