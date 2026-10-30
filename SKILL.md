@@ -156,9 +156,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 292 kB |
-| `standard` | 9 | 423 kB |
-| `full` | 16 | 721 kB |
+| `slim` (default) | 6 | 293 kB |
+| `standard` | 9 | 425 kB |
+| `full` | 16 | 725 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
