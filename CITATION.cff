@@ -1,11 +1,12 @@
-cff-version: 1.4.3
+cff-version: 1.2.0
 message: "If you use Teamwork in your work, please cite it as below."
 title: "Nidvue Teamwork: autonomous multi-agent project teams"
 abstract: >-
   Nidvue Teamwork turns one prompt into a self-organising team of AI agents that plans,
   builds, tests and reviews a project until every acceptance criterion is
-  verified. It ships as a Pi skill, an installable standard-library-only Python
-  package, and a markdown workspace format with a hash-chained audit ledger.
+  verified. It ships as a skill for any coding-agent host, an installable
+  standard-library-only Python package, and a markdown workspace format with a
+  hash-chained audit ledger.
 authors:
   - name: "Nidvue"
 type: software

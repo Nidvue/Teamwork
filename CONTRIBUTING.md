@@ -4,9 +4,10 @@ Owner: Technical Writer.
 
 Related: [Architecture](docs/Team/Architecture.md) · [CI pipeline](docs/guide/ci.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
 
-Thanks for helping. Nidvue Teamwork is a standard-library-only Python package that also
-ships as a Pi skill. Two rules matter more than any other: **every claim carries
-evidence**, and **no secrets or personal data ever enter the repository**.
+Thanks for helping. Nidvue Teamwork is a skill for any coding-agent host, backed
+by a standard-library-only Python engine. Two rules matter more than any other:
+**every claim carries evidence**, and **no secrets or personal data ever enter
+the repository**.
 
 ## Development setup
 
@@ -30,11 +31,11 @@ Requirements: Python 3.9 or newer. The runtime has no third-party dependencies.
 | `make test` | `pytest -q` | Unit, integration and acceptance tests. |
 | `make build` | `python -m build` | Build sdist and wheel. |
 | `make verify` | `python scripts/verify_release.py` | Install and smoke-test the wheel. |
-| `make privacy` | `python scripts/privacy_scan.py --tree --history` | Privacy gate. |
+| `make privacy` | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | Privacy gate. |
 | `make docs` | `python -m mkdocs build --strict` | Docs site. |
 | `make links` | `python scripts/teamwork.py links` | Link health. |
 | `make identity` | `python scripts/teamwork.py identity --audit` | Team commit identity. |
-| `make ci` | all of the above | Full local pipeline. |
+| `make ci` | `make release-check` | Every local gate CI runs, plus the offline selftest and the skill-sync check; `typecheck` is deliberately not in it. |
 
 The full pipeline is documented in [docs/guide/ci.md](docs/guide/ci.md).
 
@@ -71,18 +72,14 @@ The full pipeline is documented in [docs/guide/ci.md](docs/guide/ci.md).
    cost two rewrites of `main` (see the 2026-10-20 entries in
    [Decisions](docs/Team/Decisions.md)).
 
-   **Rebase merging is the one forge action that is safe**, and it is the only one
-   enabled: it replays the commits unchanged, so the author stays the role that did
-   the work, and it rewrites only the committer to the host's `noreply@github.com`
-   account. The identity audit accepts that stamp for a role-authored commit
-   (`_RE_FORGE_COMMITTER_EMAIL`) and the privacy gate already treats it as a
-   service address; a committer that is *not* the host's is still a defect.
-
-   **A rebase merge is the one forge action left enabled**, because a host
-   requires at least one merge method — but it is not safe on its own: measured
-   on this repository, the rebase button wrote the *merging account* as the
-   committer, exactly as the squash button wrote it as the author. Both then fail
-   the privacy gate on history. So the local merge stays the canonical path:
+   **A host requires at least one merge method, so rebase stays enabled - and it
+   is not safe either.** It replays the commits unchanged, so the author stays the
+   role that did the work, and the identity audit accepts the host's own
+   `noreply@github.com` committer for a role-authored commit
+   (`_RE_FORGE_COMMITTER_EMAIL`). But measured on this repository, the rebase
+   button wrote the *merging account* as the committer, exactly as the squash
+   button wrote it as the author. Both then fail the privacy gate on history. So
+   the local merge stays the canonical path:
 
    ```sh
    teamwork.py pr merge --pr P-0001 --by reviewer-1   # commits as a role mailbox
