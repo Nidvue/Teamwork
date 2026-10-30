@@ -73,8 +73,9 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 11. **History is minimal and modular.** Commit while you work, then rebase and
     squash before the review: one coherent change-set per commit, `wip`/`fixup`
     commits squashed, rebased onto the latest default branch, one commit per task
-    after the Reviewer's local merge (`pr merge --squash` is the single-commit
-    option). Never rebase or force-push a shared branch, or
+    before the merge. The Reviewer merges locally (`git merge --no-ff`), so `main`
+    records that commit plus the merge commit (`pr merge --squash` is the
+    single-commit option). Never rebase or force-push a shared branch, or
     anything already on the default branch.
 12. **Each agent's model is its own.** The skill ships no model and calls no LLM
     API; the engine configures a model per role and per instance
