@@ -73,7 +73,8 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 11. **History is minimal and modular.** Commit while you work, then rebase and
     squash before the review: one coherent change-set per commit, `wip`/`fixup`
     commits squashed, rebased onto the latest default branch, one commit per task
-    after the squash-merge. Never rebase or force-push a shared branch, or
+    after the Reviewer's local merge (`pr merge --squash` is the single-commit
+    option). Never rebase or force-push a shared branch, or
     anything already on the default branch.
 12. **Each agent's model is its own.** The skill ships no model and calls no LLM
     API; the engine configures a model per role and per instance
@@ -570,8 +571,9 @@ the local result **and** the CI run (id + conclusion) for the certified revision
 - **Git host.** The Release Engineer guarantees repository and CI integrity on
   whatever host is in use: protected default branch, **no force-push**, no
   deletion, required status checks on the exact revision, at least one non-author
-  approval, the host merge button off - the Reviewer merges locally and the source
-  branch is deleted (`pr merge --squash` is the one-commit path) - protected `v*`
+  approval, the host merge button off (rebase-only where the host requires at
+  least one method) - the Reviewer merges locally and the source branch is
+  deleted (`pr merge --squash` is the one-commit path) - protected `v*`
   tags created only by the CEO, and least-privilege CI with no secret in the tree.
   Policy and the per-host mapping are in `references/Remotes.md`. Record the actual
   settings from the host API as evidence and re-read them to detect drift; an
