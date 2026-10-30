@@ -135,11 +135,11 @@ def test_clean_removes_scratch_only(cli, project: Path) -> None:
     scratch.mkdir(parents=True, exist_ok=True)
     (scratch / "a.tmp").write_text("x", encoding="utf-8")
     (scratch / "keep.md").write_text("keep", encoding="utf-8")
-    assert cli("--project", project, "clean", "--dry-run") == 0
-    assert cli("--project", project, "clean") == 0
+    assert cli("--project", project, "clean", "--agent", "developer-1", "--dry-run") == 0
+    assert cli("--project", project, "clean", "--agent", "developer-1") == 0
     assert not (scratch / "a.tmp").exists()
     assert (scratch / "keep.md").exists()
-    assert cli("--project", project, "clean", "--all") == 0
+    assert cli("--project", project, "clean", "--agent", "developer-1", "--all") == 0
     assert not (scratch / "keep.md").exists()
 
 
