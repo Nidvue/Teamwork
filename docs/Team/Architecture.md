@@ -182,7 +182,13 @@ them invalidates every existing workspace.
 * Runtime: CPython **3.9 - 3.13**, Linux, macOS, Windows. No third-party import
   at runtime.
 * Forbidden in the runtime path: `fcntl`, `termios`, `pwd`, `grp`, `os.fork`,
-  `resource`, `shell=True`, POSIX-only signal use.
+  `resource`, `shell=True`, POSIX-only signal use. The runtime path is every
+  shipped Python root - `src/teamwork/` and `scripts/`, which the sdist carries
+  (`pyproject.toml` include list) - and `tests/unit/test_portability.py` scans
+  both, so a POSIX-only import in the release scripts fails the same guard as
+  one in the engine. A *required external binary* is a different defect class
+  (`du` in `build_pi_package.py`, T-0002) and is pinned functionally instead:
+  that build runs with every `argv[0]` refused (`tests/unit/test_pi_package.py`).
 * All file I/O passes `encoding="utf-8"`; generated text is written with
   `newline="\n"` for byte-identical output across platforms.
 * Process liveness for stale-lock recovery must use a portable helper:
@@ -191,8 +197,12 @@ them invalidates every existing workspace.
 def pid_alive(pid: int) -> bool   # Windows-safe; never kills anything
 ```
 
-* Paths never hardcode `/tmp`, `/home` or a drive letter; use
-  `tempfile` / `pathlib` only.
+* Paths never hardcode `/tmp`, `/home` or a drive letter; use `tempfile` /
+  `pathlib` only. The one exception is the generated git hook, which is POSIX
+  `sh` and names its temp file `mktemp "${TMPDIR:-/tmp}/..."`: on win32 `sh`
+  exists only inside git, where `/tmp` is git's own MSYS temp directory
+  (T-0001: `TMPDIR` unset, `MINGW64_NT-10.0-26200` -> `mktemp ok: /tmp/...`), and
+  a `mktemp` that cannot create the file refuses the hook rather than passing it.
 
 ## 7. Packaging contract
 
