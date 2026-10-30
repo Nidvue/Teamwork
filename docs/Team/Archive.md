@@ -3486,4 +3486,4 @@ Found but not charged: the guide says the ledger prefix lets coordination "count
 - author evidence: 
 - reviewer evidence: links @8c3383a -> 75 files 388 links 0 issues; pytest -q tests/unit/test_skill_contracts.py tests/unit/test_docs_contracts.py tests/unit/test_hygiene.py @8c3383a -> 129 passed; fixture cases @8c3383a: bare clean from base -> exit 2 nothing removed, --agent+--team-wide -> exit 2 nothing removed, --dry-run -> exit 0 nothing removed, --limit 1 -> 1 path printed and 4 removed (peer intact), 45 tmp files -> 40 paths + and 5 more, --team-wide --all -> 5 locations printed before removed 8 and Agents/stray.tmp + Global/Roles non-temp survive; agents-md round-trip on a copy -> diff vs committed AGENTS.md empty (control with e829b7a template reverts the clean lines); merge-tree main 8c3383a -> 840a65a2 exit 0; TS-0005 recorded
 - findings history: 
-- branch / merge: technicalwriter/t-0002-the-clean-command-contract-changed-agent / pending
+- branch / merge: technicalwriter/t-0002-the-clean-command-contract-changed-agent / 543c665
