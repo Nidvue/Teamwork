@@ -72,16 +72,16 @@ except that `.gitattributes` opts `docs/assets/*` out of LFS at the cost of also
 opting the SVGs out of **text diffs** - see the finding in section 9.
 No external fonts, no network, no `<script>`.
 
-| Asset | Size / viewBox | Job |
-|---|---|---|
-| `assets/banner.svg` | 1280 x 360, declared = viewBox | Wordmark, pitch, role chips, mini org chart |
-| `assets/logo.svg` | 128 x 128, declared = viewBox | Repository mark, not part of the installed bundle; CI prose/media fixture |
-| `assets/demo.svg` | 960 x 560, declared = viewBox | Animated terminal transcript: skill clone (nested `.git` dropped) -> skill-named request -> loop gate |
-| `assets/social-preview.png` | 1280 x 640, RGB, no alpha | GitHub social preview / OG image; the only raster on a Teamwork surface |
-| `docs/assets/nidvue-icon.svg` | 256 x 256, declared = viewBox | Nidvue mark: README hero icon, MkDocs theme logo |
-| `docs/assets/nidvue-favicon.svg` | 256 x 256, declared = viewBox | MkDocs favicon (the same mark, standalone) |
-| `docs/assets/nidvue-favicon.ico` | 16 / 32 / 48 PNG frames | Windows/legacy favicon container of the same mark |
-| `docs/assets/nidvue-apple-touch-icon.png` | 180 x 180, RGB, opaque | iOS home-screen icon, rendered from the mark SVG; trademark set only, no in-tree reference |
+| Asset | Geometry | Source of the figure | Job |
+|---|---|---|---|
+| `assets/banner.svg` | 1280 x 360 | declared = viewBox | Wordmark, pitch, role chips, mini org chart |
+| `assets/logo.svg` | 128 x 128 | declared = viewBox | Repository mark, not part of the installed bundle; CI prose/media fixture |
+| `assets/demo.svg` | 960 x 560 | declared = viewBox | Animated terminal transcript: skill clone (nested `.git` dropped) -> skill-named request -> loop gate |
+| `assets/social-preview.png` | 1280 x 640 | IHDR, RGB, no alpha | GitHub social preview / OG image; the only raster on a Teamwork surface |
+| `docs/assets/nidvue-icon.svg` | 256 x 256 | declared = viewBox | Nidvue mark: README hero icon, MkDocs theme logo |
+| `docs/assets/nidvue-favicon.svg` | 256 x 256 | declared = viewBox | MkDocs favicon (the same mark, standalone) |
+| `docs/assets/nidvue-favicon.ico` | 16 / 32 / 48 | PNG frames in an ICO | Windows/legacy favicon container of the same mark |
+| `docs/assets/nidvue-apple-touch-icon.png` | 180 x 180 | IHDR, RGB, opaque | iOS home-screen icon, rendered from the mark SVG; trademark set only, no in-tree reference |
 
 The full inventory - references, measured size, review result - is the asset
 record in section 9.
@@ -278,16 +278,16 @@ Inventory, measured 2026-10-30 in this worktree (`git grep -l -F <path>` = who
 references it, `wc -c` = size). "Referenced by" counts the document that records
 the asset, not only the surface that displays it.
 
-| id | asset | medium | size | referenced by | review result |
-|---|---|---|---|---|---|
-| IMG-1 | `assets/social-preview.png` | raster | 1280x640, 71 004 B (69 KiB), RGB | `scripts/build_pi_package.py:30` (`PREVIEW`), `.gitattributes:82` (LFS opt-out), Design/Plan/Decisions/Archive, `roles/designer.md` | pass - template layout, real text, measured on white: name 18.55:1, description 8.29:1, accent rule 5.33:1; only IHDR/IDAT/IEND chunks; inside the 40 pt safe area. One deviation recorded below (pitch punctuation) |
-| IMG-2 | `assets/banner.svg` | svg | 1280x360 declared, 5 029 B | `README.md:2` (hero), Design/Plan/Archive | pass - one defect fixed (tagline collided with the org chart at the widest font of the stack; 25 -> 22 px) |
-| IMG-3 | `assets/logo.svg` | svg | 128x128 declared, 964 B | `tests/unit/test_skill_contracts.py:251` (`PROSE_AND_MEDIA_EXAMPLES`), Design/Plan/Archive | pass - the standalone Teamwork mark; **kept, not dead**: it is the fixture that proves `assets/**` is treated as prose/media, and the mark the banner draws at 132 px. It is not on a product surface by design (README shows the *Nidvue* mark) |
-| IMG-4 | `assets/demo.svg` | svg | 960x560 declared, 4 778 B | `README.md:19`, Design/Plan/Project/Pi-Packaging/Archive, `tests/unit/test_{skill_contracts,privacy_scan}.py` | pass - one stale line fixed (`12 roles staffed` -> `5 roles staffed, 2 lanes running`, matching the `slim` roster tier) |
-| IMG-5 | `docs/assets/nidvue-icon.svg` | svg | 256x256 declared, 608 B | `README.md:3`, `mkdocs.yml:30` (theme logo), `tests/unit/test_skill_contracts.py:1262-1276` | pass - `role=img`, `<title>` + `<desc>`, no external resource, geometry centred in the viewBox; intrinsic size declared and the frame drawn at full opacity this sweep |
-| IMG-6 | `docs/assets/nidvue-favicon.svg` | svg | 256x256 declared, 602 B | `mkdocs.yml:31` (favicon), `tests/unit/test_skill_contracts.py:1263,1277` | pass - `<desc>` + `aria-labelledby` added earlier, intrinsic size declared and frame at full opacity this sweep; legible at 16 px on light and dark grounds |
-| IMG-7 | `docs/assets/nidvue-favicon.ico` | raster (ICO) | 16 + 32 + 48 PNG frames, 1 892 B | Plan/Archive only (the trademark set, `NOTICE:14`); no page loads it | **repaired earlier this task** - the directory used 12-byte entries with offsets 12 short, so `PIL.Image.open` raised `OSError: Truncated File Read`; rebuilt with 16-byte entries over the same three frames. Re-verified this sweep: `sizes [(16, 16), (32, 32), (48, 48)]`, all RGBA |
-| IMG-8 | `docs/assets/nidvue-apple-touch-icon.png` | raster | 180x180, 1 952 B, RGB | Plan/Archive only, `NOTICE:14` | **repaired this sweep** - it shipped RGBA (alpha 0..255), so iOS composited the transparent ground on black and the indigo N fell to 3.56:1; now rendered opaque from `nidvue-favicon.svg` on the mark's white ground |
+| id | asset | medium | size | bytes / mode | referenced by | review result |
+|---|---|---|---|---|---|---|
+| IMG-1 | `assets/social-preview.png` | raster | 1280 x 640 | 71 004 B (69 KiB), RGB | `scripts/build_pi_package.py:30` (`PREVIEW`), `.gitattributes:82` (LFS opt-out), Design/Plan/Decisions/Archive, `roles/designer.md` | pass - template layout, real text, measured on white: name 18.55:1, description 8.29:1, accent rule 5.33:1; only IHDR/IDAT/IEND chunks; inside the 40 pt safe area. One deviation recorded below (pitch punctuation) |
+| IMG-2 | `assets/banner.svg` | svg | 1280 x 360 | declared, 5 029 B | `README.md:2` (hero), Design/Plan/Archive | pass - one defect fixed (tagline collided with the org chart at the widest font of the stack; 25 -> 22 px) |
+| IMG-3 | `assets/logo.svg` | svg | 128 x 128 | declared, 964 B | `tests/unit/test_skill_contracts.py:251` (`PROSE_AND_MEDIA_EXAMPLES`), Design/Plan/Archive | pass - the standalone Teamwork mark; **kept, not dead**: it is the fixture that proves `assets/**` is treated as prose/media, and the mark the banner draws at 132 px. It is not on a product surface by design (README shows the *Nidvue* mark) |
+| IMG-4 | `assets/demo.svg` | svg | 960 x 560 | declared, 4 778 B | `README.md:19`, Design/Plan/Project/Pi-Packaging/Archive, `tests/unit/test_{skill_contracts,privacy_scan}.py` | pass - one stale line fixed (`12 roles staffed` -> `5 roles staffed, 2 lanes running`, matching the `slim` roster tier) |
+| IMG-5 | `docs/assets/nidvue-icon.svg` | svg | 256 x 256 | declared, 608 B | `README.md:3`, `mkdocs.yml:30` (theme logo), `tests/unit/test_skill_contracts.py:1262-1276` | pass - `role=img`, `<title>` + `<desc>`, no external resource, geometry centred in the viewBox; intrinsic size declared and the frame drawn at full opacity this sweep |
+| IMG-6 | `docs/assets/nidvue-favicon.svg` | svg | 256 x 256 | declared, 602 B | `mkdocs.yml:31` (favicon), `tests/unit/test_skill_contracts.py:1263,1277` | pass - `<desc>` + `aria-labelledby` added earlier, intrinsic size declared and frame at full opacity this sweep; legible at 16 px on light and dark grounds |
+| IMG-7 | `docs/assets/nidvue-favicon.ico` | raster (ICO) | 16 + 32 + 48 | 1 892 B, PNG frames | Plan/Archive only (the trademark set, `NOTICE:14`); no page loads it | **repaired earlier this task** - the directory used 12-byte entries with offsets 12 short, so `PIL.Image.open` raised `OSError: Truncated File Read`; rebuilt with 16-byte entries over the same three frames. Re-verified this sweep: `sizes [(16, 16), (32, 32), (48, 48)]`, all RGBA |
+| IMG-8 | `docs/assets/nidvue-apple-touch-icon.png` | raster | 180 x 180 | 1 952 B, RGB | Plan/Archive only, `NOTICE:14` | **repaired this sweep** - it shipped RGBA (alpha 0..255), so iOS composited the transparent ground on black and the indigo N fell to 3.56:1; now rendered opaque from `nidvue-favicon.svg` on the mark's white ground |
 
 #### IMG-1 - social preview
 
