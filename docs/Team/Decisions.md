@@ -1763,3 +1763,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git rev-list --count HEAD -> 1073; git log --format=%B | grep -c 'Signed-off-by:' -> 11; grep -rn 'Signed-off-by' .github/workflows/*.yml Makefile scripts/*.py -> 0 hits
 - falsified by: a gate appears that requires signoff, or the requirement is restored with a recorded adoption date and a grandfather clause
 - consequences: one clause rewritten in CONTRIBUTING.md; nothing in the commit protocol changes
+
+## D-20261030-Developer-3 - T-0003 is proved but cannot be submitted green: main's AC-20 row is red
+
+- date: 2026-10-30
+- kind: process
+- status: proposed
+- deciders: Developer-3 (developer)
+- decided by: Developer-3
+- task: T-0003
+- context: -
+- options considered: -
+- decision: The T-0003 fix is committed at 44bdf92 (rebased onto main 0c49c3b) and returns the two files green on a pre-drift base; the remaining red at the merge head is AC-20's traceability row, whose proof fails on main itself, so it is routed to its owner instead of being exempted, edited or forced by this lane.
+- why: The guard executes each row's own proof command; 'python scripts/check_release_consistency.py' exits 1 on main 0c49c3b (R8 drift on docs/Team/Decisions.md:1744, introduced by ceo commit 82c13c7), and the row claims green. Editing the state column, Decisions.md and the R8 rule are all outside this lane's write scope, and exempting AC-20 would delete the re-run that the whole guard exists for.
+- evidence: venv\Scripts\python.exe scripts\check_release_consistency.py @0c49c3b (main repo root) -> 1 problem(s), R8 DRIFT docs/Team/Decisions.md:1744: "channel names into, the project ships teamwork-agents"; _channel_claims on that line's "pip install" plus "into" pair -> [('into', None)]; pytest -q tests/unit/test_traceability_matrix.py @44bdf92 -> 1 failed (AC-20 is claimed green, the run exits [1, 0])
+- falsified by: check_release_consistency.py exits 0 on main, or AC-20's row carries a red state owned by a gap, or the guard passes on main with the row still claiming green
+- consequences: -
