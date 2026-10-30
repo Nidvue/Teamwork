@@ -483,9 +483,11 @@ Never wait for another role before doing work you can do yourself.
 - Commit only what the project needs. Never commit build output, caches,
   virtualenvs, editor noise, secrets or local working state.
 - Delete temporary and no-longer-needed files when you finish a task:
-  `<script> clean` (temp patterns) or `clean --all` (your `Scratch/`).
-  Cleanup touches only untracked scratch - never tracked, uncommitted or
-  evidence-bearing files, and never `git clean -fdx`.
+  `<script> clean` (temp patterns, your lane only) or `clean --all` (empty that
+  lane's `Scratch/`); from the base checkout no lane is known, so a bare `clean`
+  refuses until you pass `--agent` or `--team-wide`. Cleanup touches only
+  untracked scratch - never tracked, uncommitted or evidence-bearing files, and
+  never `git clean -fdx`.
 - Keep `Artifacts/` and `Reports/` for real deliverables and evidence; move final
   deliverables into the repository, leave drafts in your agent directory.
 
@@ -553,9 +555,10 @@ Never wait for another role before doing work you can do yourself.
 - **CLEAN WORKING TREE** - no temp or stale files: `*.orig`, `*.rej`, `*.bak`,
   `*~`, `*.tmp`, `*.log`, `.DS_Store`, scratch copies, superseded drafts, empty
   directories. Scratch lives in your gitignored `Scratch/` and is emptied before
-  the task closes; `<script> clean` sweeps what it knows and you sweep the rest
-  in the same task. Keep one canonical home per file, keep the structure obvious,
-  and leave the tree cleaner than you found it.
+  the task closes: `<script> clean` removes your lane's temp patterns, `--all`
+  empties your lane's `Scratch/`, and you sweep the rest by hand in the same
+  task. Keep one canonical home per file, keep the structure obvious, and leave
+  the tree cleaner than you found it.
 
 ## Safety boundaries
 
