@@ -61,7 +61,7 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 | Automatic model routing | `teamwork model auto` detects the running agent host where the environment identifies it and routes the strongest available model to the decision lanes and the economy model to the mechanical lanes - best output where it compounds, lowest cost where it does not. Every lane's model is configurable independently (`model set <agent>`). |
 | Clean, modular history | Work commits are rebased and squashed before review, feature work squash-merges into `main`, and the naming policy (PascalCase directories, ecosystem-correct files) is written down rather than argued about. |
 | Skill first, engine optional | The product is a skill: `SKILL.md`, role charters, references, templates and the stdlib-only engine in one directory. Any agent host that loads skills or reads `AGENTS.md` runs the same protocol (optional adapter mapping: `references/Adapters.md`); the Python package is only a convenience for driving the engine from a terminal. |
-| Remote-agnostic integrity | Branch protection, required checks, squash-only merges and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike. |
+| Remote-agnostic integrity | Branch protection, required checks, a one-commit-per-task history merged locally by the Reviewer, and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike. |
 
 ## Install the skill
 
@@ -118,7 +118,7 @@ Re-scan or reload skills in the host, then ask for the team by name:
 
 Where a host exposes skills as slash commands, the same request is
 `/teamwork <prompt>`. The host runs the bundled `scripts/teamwork.py` - Python
-3.9+, standard library only, no network access, nothing to build.
+3.9+, standard library only, no service of ours to reach, nothing to build.
 
 ### Optional: put the engine on your PATH
 
