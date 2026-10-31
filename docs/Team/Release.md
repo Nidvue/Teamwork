@@ -559,7 +559,7 @@ answered the two open questions instead of assuming them.
 | --- | --- | --- |
 | trusted publisher | `publish @nidvue/teamwork to npm` failed in 19 s with `npm error code ENEEDAUTH` / `need auth`, and `gh secret list` prints nothing - neither credential path exists | **blocked**, operator step below |
 | GitHub Release | published with 5 assets (wheel, sdist, `SHA256SUMS`, CycloneDX and SPDX SBOMs); `sha256sum -c` of the downloaded wheel against the downloaded `SHA256SUMS` -> `OK` | published |
-| npm registry | `npm view @nidvue/teamwork versions dist-tags` reports published versions whose `dist-tags.latest` is older than the tagged revision, so `v1.4.3` is not on the registry | **not published** |
+| npm registry | `npm view @nidvue/teamwork versions dist-tags` reports published versions whose `dist-tags.latest` is older than the tagged revision, so the tagged revision is not on the registry | **not published** |
 | `gitHead` and the attestation | both are produced by the publish itself, so neither exists yet for `1.4.3` | `UNVERIFIED` |
 
 The workflow is not the cause: `release.yml` carries `id-token: write`, pins Node
