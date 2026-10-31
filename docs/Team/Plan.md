@@ -749,8 +749,10 @@ failure, one POSIX proof cell. Nothing was waived; each of the three real
 classes became a task above.
 
 The decision is `D-20261030-CEO`; the host fact is in global memory under
-`build`. `mypy` is **UNVERIFIED** on this host (not installed in either
-interpreter).
+`build`. `mypy` is installed in the same `venv/` and `make typecheck`'s command
+(`mypy src/teamwork`) reports `Success: no issues found in 18 source files`
+(mypy 2.4.1, run on 2026-10-31); before that install the type gate was the one
+`UNVERIFIED` line on this host.
 
 ### M14.2 - What the reviews cost and caught
 
