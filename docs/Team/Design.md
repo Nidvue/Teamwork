@@ -309,7 +309,7 @@ only the surface that displays it.
 
 | id | asset | medium | size | bytes / mode | referenced by | review result |
 |---|---|---|---|---|---|---|
-| IMG-1 | `assets/social-preview.png` | raster | 1280 x 640 | 73 345 B (72 KiB), RGB | `scripts/build_pi_package.py:30` (`PREVIEW`), `scripts/render_social_preview.py` (generator), `.gitattributes:82` (LFS opt-out), Design/Plan/Decisions/Archive, `roles/designer.md` | pass - template layout, real text, measured on white: name 18.55:1, description 8.29:1, accent rule 5.33:1; only IHDR/IDAT/IEND chunks; inside the 40 pt safe area. Pitch now matches the README (period); rebuilt from the current mark, so the frame is full-opacity `#8584F0` (3.20:1) instead of the stale 0.92 composite (2.88:1) |
+| IMG-1 | `assets/social-preview.png` | raster | 1280 x 640 | 73 345 B (71.6 KiB), RGB | `scripts/build_pi_package.py:30` (`PREVIEW`), `scripts/render_social_preview.py` (generator), `.gitattributes:82` (LFS opt-out), Design/Plan/Decisions/Archive, `roles/designer.md` | pass - template layout, real text, measured on white: name 18.55:1, description 8.29:1, accent rule 5.33:1; only IHDR/IDAT/IEND chunks; inside the 40 pt safe area. Pitch now matches the README (period); rebuilt from the current mark, so the frame is full-opacity `#8584F0` (3.20:1) instead of the stale 0.92 composite (2.88:1) |
 | IMG-2 | `assets/banner.svg` | svg | 1280 x 360 | declared, 5 027 B | `README.md:2` (hero), Design/Plan/Archive | pass - two defects fixed: the tagline collided with the org chart at the widest font of the stack (25 -> 22 px), and the three CEO connectors sat at 2.78:1 under the glow (found by Reviewer-1 at `4445d4e`; `stroke-opacity` 0.7 -> 1 on that one group -> 4.05:1 worst, measured along each line) |
 | IMG-3 | `assets/logo.svg` | svg | 128 x 128 | declared, 964 B | `tests/unit/test_skill_contracts.py:251` (`PROSE_AND_MEDIA_EXAMPLES`), Design/Plan/Archive | pass - the standalone Teamwork mark; **kept, not dead**: it is the fixture that proves `assets/**` is treated as prose/media, and the mark the banner draws at 132 px. It is not on a product surface by design (README shows the *Nidvue* mark) |
 | IMG-4 | `assets/demo.svg` | svg | 960 x 560 | declared, 4 778 B | `README.md:19`, Design/Plan/Project/Pi-Packaging/Archive, `tests/unit/test_{skill_contracts,privacy_scan}.py` | pass - one stale line fixed (`12 roles staffed` -> `5 roles staffed, 2 lanes running`, matching the `slim` roster tier) |
@@ -345,7 +345,7 @@ only the surface that displays it.
   the Windows `venv` stops at `ModuleNotFoundError: No module named 'cairosvg'`,
   so that host cannot render the card
 - evidence (T-0005): two consecutive runs -> byte-identical 1280x640 RGB,
-  73 345 B, sha256 `29615f1a57c54a8d...`; chunks `IHDR IDAT IDAT IEND`, 0 metadata;
+  73 345 B (71.6 KiB), sha256 `29615f1a57c54a8d...`; chunks `IHDR IDAT IDAT IEND`, 0 metadata;
   the generator reads the pitch `One prompt in. A whole company of agents out.`
   from README.md:5, so the card's copy is the README's copy. Against the old card
   (`96ff20db69bc9ae2...`, 71 004 B, comma) 22 660 of 819 200 pixels (2.77%) differ
@@ -416,7 +416,7 @@ template), which is recorded in the log above.
 
 | round | what changed | why (criterion) | review after |
 |---|---|---|---|
-| 1 | flattened RGBA to RGB and re-encoded with metadata stripped (625 KiB -> 516 KiB) | "under 1 MiB as a plain file" and the "strip metadata" red line - measured on the generated illustration of that round, not on the shipped card | superseded with the round; the shipped card is 69 KiB with only IHDR/IDAT/IEND chunks |
+| 1 | flattened RGBA to RGB and re-encoded with metadata stripped (625 KiB -> 516 KiB) | "under 1 MiB as a plain file" and the "strip metadata" red line - measured on the generated illustration of that round, not on the shipped card | superseded with the round; the shipped card is 71.6 KiB with only IHDR/IDAT/IEND chunks |
 
 ### 2026-10-30 graphics sweep (T-0001)
 
