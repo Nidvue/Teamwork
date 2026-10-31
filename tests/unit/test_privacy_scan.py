@@ -777,6 +777,8 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
         r"^sk-live-0123456789abcdef0123456789abcdef$",
         r"^hunter2 passphrase$",
         r"^changeme-placeholder$",
+        r"^C:/Users/x$",
+        r"^C:/Users/x\.py$",
     ]
     for entry in entries:
         assert _is_one_escaped_literal(entry), f"{entry!r} is not one escaped literal"
@@ -1057,6 +1059,32 @@ def test_an_elided_home_path_identifies_nobody_and_is_not_reported():
     for name in (".hidden", "..", "." * 4 + "name"):
         assert not ps._user_is_elided(name), name
     assert ps._user_is_elided("...") and ps._user_is_elided("...\\gone")
+
+
+def test_a_windows_user_name_ends_where_a_name_ends() -> None:
+    """The reported value must be the name, not the punctuation after it.
+
+    The Windows branch accepted every character but a separator, a space or a
+    quote, so the value swallowed whatever followed it: a closing backtick, or the
+    ``$`` of an anchored allowlist line. No anchored literal could then express the
+    value it was written to exempt - not even this repository's own allowlist
+    entry, which reported itself. The branch now uses the POSIX name charset.
+    """
+    for text, expected in (
+        ("see `C:/Users/x.py` here", "C:/Users/x.py"),
+        ("^C:/Users/x$", "C:/Users/x"),
+        ("C:/Users/x.py,", "C:/Users/x.py"),
+        ("C:\\Users\\first.last\\x", "C:\\Users\\first.last"),
+    ):
+        matched = [m.group(0) for m in ps._RE_HOME.finditer(text)]
+        assert matched == [expected], (text, matched)
+
+    # Ending the match earlier is precision, never permission: the name is still
+    # reported, so a code span cannot be used to smuggle a real account through.
+    allow: list = []
+    line = "path `C:/Users/" + "op" + "erator/x.py`"
+    rules = {f["rule"] for f in ps.scan_lines(line, "file:doc.md", "text", ps.RULES, allow)}
+    assert "home-path" in rules, sorted(rules)
 
 
 # --------------------------------------------------------------------------- #
