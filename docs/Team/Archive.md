@@ -3577,4 +3577,4 @@ Found but not charged: the guide says the ledger prefix lets coordination "count
 - author evidence: 
 - reviewer evidence: Windows CPython 3.15.2 + pytest 9.2.0 @8fa9071 -> tests/unit/test_board_matches_tool.py 13 passed, 4 skipped; ruff check . All checks passed; ruff format --check . 206 files already formatted; board --write then --check @8fa9071 on the real queues (TEAMWORK_ROOT, scratch worktree) -> exit 0, 19 tasks across 6 queues, designer rows present, 100 -> 19 rows (88 dropped); guard proven: deleting designer from DISPLAY -> new test fails naming designer, data-engineer folding mutation -> fails naming the fold
 - findings history: 
-- branch / merge: developer-3/t-0006-board-check-is-red-at-head-queue-role-de / pending
+- branch / merge: developer-3/t-0006-board-check-is-red-at-head-queue-role-de / 5895411
