@@ -197,10 +197,11 @@ Assertable by a Tester on the merged README.
 
 ## 8. Verification
 
-Two passes are on record: the README/assets deliverable at `e5efc5f`, and the
-graphics sweep of this task. The sweep rows were run in the worktree immediately
-before the commit that carries this file and re-run at that commit, so the tree
-they measured is the tree that landed.
+Three passes are on record: the README/assets deliverable at `e5efc5f`, the
+graphics sweep of T-0001, and the OG-card generator of T-0005 (8.3). The sweep
+rows were run in the worktree immediately before the commit that carries this
+file and re-run at that commit, so the tree they measured is the tree that
+landed.
 
 ### 8.1 README and assets deliverable (`e5efc5f`)
 
@@ -262,6 +263,21 @@ the README or the assets). All three were fixed and are now green in
 - the missing back-links in `Architecture.md` and `Research.md` were added;
 - the guide back-link was added to `Architecture.md`.
 
+### 8.3 Social preview generator (T-0005, 2026-10-31)
+
+Host: WSL, the repository's `.venv` (Python 3.14.4, Pillow 13.0.0, cairosvg
+2.9.1). The Windows `venv` has neither Pillow nor cairosvg.
+
+| Check | Command | Result |
+|---|---|---|
+| Rebuild | `.venv/bin/python scripts/render_social_preview.py` | 1280x640 RGB, 73 345 B, sha256 `29615f1a57c54a8d9fac59a5b78002f3bf122a585e9365a51604834ced3916c2` |
+| Determinism | the same command run twice | byte-identical, same sha256 |
+| Container | stdlib PNG chunk parse | IHDR 1280x640 depth 8 colourtype 2; chunks `IHDR IDAT IDAT IEND`; 0 metadata chunks |
+| Pitch input | `README.md:5` (`<p><strong>...</strong></p>`) | `One prompt in. A whole company of agents out.` - period, no comma |
+| Windows run | `venv\Scripts\python.exe scripts\render_social_preview.py` | exit 1, `ModuleNotFoundError: No module named 'cairosvg'`; the generator must run in the WSL `.venv` |
+| Asset contract | `verify_assets.py <worktree>` | social-preview 1280x640 colourtype 2, chunks `IHDR IDAT IDAT IEND`, 0 metadata; every other asset unchanged |
+| Old -> new | `Scratch/t0005/verify_card.py` | 22 660 of 819 200 pixels (2.77%) differ by >8: mark frame `#8f8ef0` -> `#8584f0` (2.88:1 -> 3.20:1), pitch comma -> period, and antialiasing; every content band keeps its box (section 9, IMG-1) |
+
 ## 9. Visual assets (raster and vector)
 
 Imaging is part of this document: the Designer decides what the deliverable
@@ -278,6 +294,7 @@ charter,
 | probe | `python scripts/teamwork.py imaging probe` on this host (Windows, 2026-10-30) -> `provider: -`, `model: -`, `source: none detected`: **no image model is reachable from this lane**. The earlier pass recorded `provider=local`, `model=qwen-image-2.1` on the authoring host; that result is not reproducible here and is not relied on |
 | provider ranking check | the configured LLM provider is `ollama-cloud`; its catalog is text/vision **input** only (checked 2026-10-17), so no cloud text-to-image model is available to the team |
 | model used | none in this sweep. Every change is hand-authored SVG or a `cairosvg` render of it (fallback ladder rungs 4-5: hand-authored vector, diagram-as-code) |
+| generator | `scripts/render_social_preview.py` (Pillow + cairosvg) - rebuilds the raster from the committed mark SVG and the pitch at `README.md:5`; two runs are byte-identical |
 | model licence | the shipped social preview was composed programmatically on the earlier host; no third-party image is redistributed and no real person is depicted |
 | local fallback | `qimg` (text-to-image and instruction-driven image editing) exists on the authoring host only |
 | cloud prompt policy | no private data, no real people, metadata stripped before commit |
@@ -285,13 +302,14 @@ charter,
 
 ### Assets
 
-Inventory, measured 2026-10-30 in this worktree (`git grep -l -F <path>` = who
-references it, `wc -c` = size). "Referenced by" counts the document that records
-the asset, not only the surface that displays it.
+Inventory, measured 2026-10-30 in this worktree and the social preview
+re-measured 2026-10-31 (T-0005; `git grep -l -F <path>` = who references it,
+`wc -c` = size). "Referenced by" counts the document that records the asset, not
+only the surface that displays it.
 
 | id | asset | medium | size | bytes / mode | referenced by | review result |
 |---|---|---|---|---|---|---|
-| IMG-1 | `assets/social-preview.png` | raster | 1280 x 640 | 71 004 B (69 KiB), RGB | `scripts/build_pi_package.py:30` (`PREVIEW`), `.gitattributes:82` (LFS opt-out), Design/Plan/Decisions/Archive, `roles/designer.md` | pass - template layout, real text, measured on white: name 18.55:1, description 8.29:1, accent rule 5.33:1; only IHDR/IDAT/IEND chunks; inside the 40 pt safe area. One deviation recorded below (pitch punctuation) |
+| IMG-1 | `assets/social-preview.png` | raster | 1280 x 640 | 73 345 B (72 KiB), RGB | `scripts/build_pi_package.py:30` (`PREVIEW`), `scripts/render_social_preview.py` (generator), `.gitattributes:82` (LFS opt-out), Design/Plan/Decisions/Archive, `roles/designer.md` | pass - template layout, real text, measured on white: name 18.55:1, description 8.29:1, accent rule 5.33:1; only IHDR/IDAT/IEND chunks; inside the 40 pt safe area. Pitch now matches the README (period); rebuilt from the current mark, so the frame is full-opacity `#8584F0` (3.20:1) instead of the stale 0.92 composite (2.88:1) |
 | IMG-2 | `assets/banner.svg` | svg | 1280 x 360 | declared, 5 027 B | `README.md:2` (hero), Design/Plan/Archive | pass - two defects fixed: the tagline collided with the org chart at the widest font of the stack (25 -> 22 px), and the three CEO connectors sat at 2.78:1 under the glow (found by Reviewer-1 at `4445d4e`; `stroke-opacity` 0.7 -> 1 on that one group -> 4.05:1 worst, measured along each line) |
 | IMG-3 | `assets/logo.svg` | svg | 128 x 128 | declared, 964 B | `tests/unit/test_skill_contracts.py:251` (`PROSE_AND_MEDIA_EXAMPLES`), Design/Plan/Archive | pass - the standalone Teamwork mark; **kept, not dead**: it is the fixture that proves `assets/**` is treated as prose/media, and the mark the banner draws at 132 px. It is not on a product surface by design (README shows the *Nidvue* mark) |
 | IMG-4 | `assets/demo.svg` | svg | 960 x 560 | declared, 4 778 B | `README.md:19`, Design/Plan/Project/Pi-Packaging/Archive, `tests/unit/test_{skill_contracts,privacy_scan}.py` | pass - one stale line fixed (`12 roles staffed` -> `5 roles staffed, 2 lanes running`, matching the `slim` roster tier) |
@@ -308,9 +326,11 @@ the asset, not only the surface that displays it.
   strictly - 1280x640, white ground, the whole composition inside the template's
   40 pt safe border, and the template's centred stack: icon, then the name in bold,
   then a short two-line description
-- composition: the Nidvue mark (rounded, 150 px) above **Nidvue Teamwork** in
-  DejaVu Sans Bold 72 px, then the pitch in DejaVu Sans 32 px - all text drawn with a
-  real font, never generated by an image model
+- composition: the Nidvue mark (168 px on the card, rasterised from the mark SVG
+  at 600 px then resized) above **Nidvue Teamwork** in DejaVu Sans Bold 72 px, an
+  8 px accent rule, then the pitch read from `README.md:5` and the description in
+  DejaVu Sans 32 px - all text drawn with a real font, never generated by an image
+  model
 - acceptance criteria: 1280x640 exactly, nothing outside the 40 pt safe area, no
   model-rendered lettering, legible at thumbnail size, under 1 MiB as a plain
   (non-LFS) file
@@ -319,11 +339,28 @@ the asset, not only the surface that displays it.
 - candidates reviewed: the earlier generated illustration was **rejected** for this
   surface - it did not follow the template
 - selected: the template-conformant card, rebuilt programmatically
-- evidence: `PIL` composition @worktree -> 1280x640, 71 004 B (69 KiB; the 33 KiB
-  figure recorded here earlier was measured before the round-3 supersampling),
-  content bottom 510 of a 600 safe bottom; re-measured 2026-10-30 -> 1280x640,
-  colortype 2 (RGB, no alpha), no EXIF or `tEXt` chunk; reviewed visually before
-  commit and again in this sweep
+- generator: `scripts/render_social_preview.py` (committed by T-0005), with
+  `docs/assets/nidvue-icon.svg` and `README.md:5` as its inputs. Run it in the
+  repository's WSL `.venv` (`.venv/bin/python scripts/render_social_preview.py`);
+  the Windows `venv` stops at `ModuleNotFoundError: No module named 'cairosvg'`,
+  so that host cannot render the card
+- evidence (T-0005): two consecutive runs -> byte-identical 1280x640 RGB,
+  73 345 B, sha256 `29615f1a57c54a8d...`; chunks `IHDR IDAT IDAT IEND`, 0 metadata;
+  the generator reads the pitch `One prompt in. A whole company of agents out.`
+  from README.md:5, so the card's copy is the README's copy. Against the old card
+  (`96ff20db69bc9ae2...`, 71 004 B, comma) 22 660 of 819 200 pixels (2.77%) differ
+  and every content band keeps its box: mark 574..705 x 136..267 (identical), title
+  281..1004 x 332..387 (identical), rule 276..1003 x 400..406 (was 275..1004 x
+  400..407), pitch 256..1020 x 443..473 (was 258..1019; the period replaces the
+  comma), description 106..1169 x 488..518 (identical). The rebuild also carries
+  the mark's current full-opacity frame `#8584F0` (3.20:1 on white) where the stale
+  card held the pre-T-0001 0.92 composite `#8f8ef0` (2.88:1); the frame colour is
+  the only intended non-copy change, the rest of the difference is antialiasing
+- evidence (T-0001): `PIL` composition @worktree -> 1280x640, 71 004 B (69 KiB; the
+  33 KiB figure recorded here earlier was measured before the round-3
+  supersampling), content bottom 510 of a 600 safe bottom; re-measured 2026-10-30
+  -> 1280x640, colortype 2 (RGB, no alpha), no EXIF or `tEXt` chunk; reviewed
+  visually before commit and again in the T-0001 sweep
 
 ### Review log
 
@@ -397,15 +434,18 @@ Pillow. The rows below are the findings that produced a change or a decision.
 | IMG-7 favicon.ico | the directory used 12-byte entries, so the image offsets were 12 short and `wPlanes` / `wBitCount` read as garbage; `PIL.Image.open` raised `OSError: Truncated File Read` | container rebuilt (6 + 3 x 16 B) over the same three PNG frames; `PIL` now reports frames 16/32/48 |
 | IMG-5, IMG-6 (both NIDVUE SVGs) | `viewBox` only, no `width`/`height`, so a bare `<img>` gives the mark a 300x150 default box before CSS runs; and the `#8584F0` frame carries `opacity="0.92"`, which composites to **2.88:1** on white - under the 3:1 bar this document asserts for a meaningful graphic | `width="256" height="256"` declared; `opacity` removed -> 3.20:1 on white, 5.91:1 on `#0d1117`; the two files stay identical apart from their `<desc>` |
 | IMG-8 touch icon | shipped RGBA with `alpha` 0..255, so iOS composites the transparent ground on black: the indigo N drops to 3.56:1 and the mark loses its white ground | re-rendered from `nidvue-favicon.svg` at 180x180 on white, saved colourtype 2 (RGB), metadata-free, 1 952 B |
-| IMG-1 social preview | pitch reads "One prompt in**,** a whole company of agents out." while the README, the banner and the `<h1>` subtitle read "One prompt in**.** A whole company of agents out." | no change - see the deviation note below; the card is otherwise identical in wording and mark |
+| IMG-1 social preview | pitch read "One prompt in**,** a whole company of agents out." while the README, the banner and the `<h1>` subtitle read "One prompt in**.** A whole company of agents out."; no generator was committed, so the card could not be replayed | superseded by T-0005 (2026-10-31): the committed generator rebuilds the card, the pitch is now the README's (period), and the frame carries the current full-opacity mark (3.20:1) |
 | README mermaid flowchart | the flow showed lanes -> self-check -> review -> merge -> loop and sent every fail back to `LANES`, omitting the two steps the protocol is built on: a recorded result at the same revision is **credited** (`--credit`) rather than re-run, and a failed review is re-reviewed as a **delta** by the reviewer that raised the finding | block edited: `REC[(Recorded runs at that revision)]`, `REC -.->|verify once - cite with --credit| RV`, `RV -- fail + findings --> FX[Owner fixes]`, `FX --> SC`; lane group labelled "one per staffed role" |
 | IMG-3 logo | measured, no defect: `role=img`, title + desc, no text, no external reference, geometry inside the 128 viewBox | none - the fixture usage is the reason it ships |
 
-Deviation accepted - the social preview's comma: the OG card is the one asset with
-no committed generator (`scripts/` builds no image), so a rebuild would change the
-whole card for one character and could not be shown to have changed nothing else.
-The words are identical; the README remains the canonical wording and the CEO can
-ask for a rebuild if the verbatim string matters more than the risk.
+Resolved (T-0005) - the card is now replayable and its pitch matches the README.
+The comma deviation was accepted in T-0001 only because no generator was
+committed; T-0005 commits `scripts/render_social_preview.py` and its inputs,
+rebuilds the card from the current mark and the README pitch, and removes the
+hand-edit risk. A stranger reproduces the shipped bytes with
+`.venv/bin/python scripts/render_social_preview.py` in the repository's WSL
+`.venv` (two runs -> the same sha256); the Windows `venv` has no cairosvg and
+reports `ModuleNotFoundError: No module named 'cairosvg'`.
 
 Repair recipe for IMG-7 (the three frames are the existing payload bytes):
 
@@ -454,7 +494,7 @@ Result: 1 952 B, 180x180, colourtype 2 (RGB), chunks `IHDR IDAT IEND`.
 |---|---|---|---|---|
 | F-1 | `.gitattributes:86` | `docs/assets/* -filter -diff -merge -text` marks the NIDVUE **SVGs** as binary too, so `git diff` prints "Binary files differ" for a hand-authored text asset; every change to IMG-5/IMG-6 in this sweep is invisible in the diff a Reviewer reads | Architect / Release Engineer | split the rule: `docs/assets/*.svg -filter -merge` (keep text/diff) and `docs/assets/*.png -filter -diff -merge -text`; `-filter` alone is enough to stay out of LFS |
 | F-2 | `README.md:2,19` | the hero `<img>` tags declare no intrinsic height (`width="100%"` and `width="820"`), so the two largest assets shift the page while loading; `README.md:3` does it right (`width="88" height="88"`) | CEO (README prose) | add `height="360"` / `height="478"` (the 2x-safe intrinsic ratio) next to the widths |
-| F-3 | `assets/social-preview.png` | the pitch on the OG card uses a comma where the README uses a full stop (deviation note above) | CEO | rebuild the card only with a committed generator, so the change can be replayed |
+| F-3 | `assets/social-preview.png` | the pitch on the OG card used a comma where the README uses a full stop, and no generator was committed | closed by T-0005 (Designer): `scripts/render_social_preview.py` rebuilds the card from the current mark and the README pitch; the pitch is now the README's |
 
 ### Notes
 
