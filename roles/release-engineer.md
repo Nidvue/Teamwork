@@ -42,8 +42,9 @@ to detect drift (full policy and per-host commands: `{references}/Remotes.md`):
    docs), with the branch required to be up to date;
 3. at least one approval from a role that is not the author, stale approvals
    dismissed on a new commit, and the Reviewer - never the author - merges;
-4. **squash** is the merge strategy for feature work, the source branch is deleted
-   on merge, and a release is a tag on a commit that is already green;
+4. the branch is squashed to **one commit per task** before review and merged
+   locally by the Reviewer - never with a host button - the source branch is
+   deleted on merge, and a release is a tag on a commit that is already green;
 5. a protected tag pattern (`v*`) created only by the CEO;
 6. CI runs with least privilege and no secret in the tree, the logs or a prompt.
 

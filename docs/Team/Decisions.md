@@ -1812,3 +1812,83 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: ledger: review.fail architect T-0005 x3 (rounds 1-3), dispute D-0008 rounds 1-3, review.pass @93c1759, pr.merge P-0067 -> bb7c34f; review.pass developer T-0042 @acbd7f4, pr.merge P-0068 -> fb8eae0; coordination -> 0/69 credited, 29 delta re-reviews, p50/p90 9.9/25.4 min
 - falsified by: if T-0042 shipped a feature surface that contradicts Architecture.md 13 in a way this ruling called settled, the ruling's premise (the contract is implementable) is wrong
 - consequences: The Team Leader role, the feature records and the feature test layer are live; references/Roles.md names the Team Leader and no longer attaches the Security Auditor to a team
+
+## D-20261030-CEO - The gate runs from a Windows venv at venv/ because the shipped .venv is a WSL virtualenv
+
+- date: 2026-10-30
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: pip install into the system interpreter (rejected: pollutes the operator host); a new .venv-win directory (rejected: not gitignored, dirties the tree); venv/ which .gitignore already covers (chosen)
+- decision: On this win32 host the project gate is venv\\Scripts\\python.exe (pytest 9.2.0, ruff 0.17.3) with the package installed editable; venv/ stays gitignored and the WSL .venv is left untouched.
+- why: No pytest or ruff exists on the host PATH and the repository .venv is a Linux virtualenv with bin/ and no Scripts/, so the documented gate could not run at all; one test (tests/unit/test_sys_path_hygiene.py) passes only after the editable install, which proves the setup step, not a code defect.
+- evidence: python -m pytest -> No module named pytest; Test-Path .venv\\Scripts\\python.exe -> False; .venv\\bin exists -> WSL venv; venv\\Scripts\\python.exe -m pytest -q @333c08a -> 10 failed 1540 passed 46 skipped before pip install -e . and the sys-path module green after
+- falsified by: the repository gains a documented cross-platform bootstrap that needs none of this, or CI proves the same result without a venv
+- consequences: every lane on this host uses venv\\Scripts\\python.exe; the fact is in global memory under key build
+
+## D-20261030-CEO-2 - DCO signoff stays voluntary: correct the document, not the history
+
+- date: 2026-10-30
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: add a DCO CI gate (rejected: 1062 historical commits non-conforming, fix needs a history rewrite); drop the requirement from the doc (chosen); leave the contradiction (rejected: violates AC-1)
+- decision: CONTRIBUTING.md states that a Signed-off-by line is welcome but not required by any gate; the provenance guarantee is the role commit identity plus the hash-chained ledger.
+- why: CONTRIBUTING.md required Signed-off-by on every commit while 11 of 1073 commits carry one and no gate checks it, so the document asserted a rule the project does not enforce and cannot retroactively satisfy: enforcing it now would mark 1062 commits non-conforming, and rewriting published history is a red line.
+- evidence: git rev-list --count HEAD -> 1073; git log --format=%B | grep -c 'Signed-off-by:' -> 11; grep -rn 'Signed-off-by' .github/workflows/*.yml Makefile scripts/*.py -> 0 hits
+- falsified by: a gate appears that requires signoff, or the requirement is restored with a recorded adoption date and a grandfather clause
+- consequences: one clause rewritten in CONTRIBUTING.md; nothing in the commit protocol changes
+
+## D-20261030-Developer-3 - T-0003 is proved but cannot be submitted green: main's AC-20 row is red
+
+- date: 2026-10-30
+- kind: process
+- status: proposed
+- deciders: Developer-3 (developer)
+- decided by: Developer-3
+- task: T-0003
+- context: -
+- options considered: -
+- decision: The T-0003 fix is committed at 44bdf92 (rebased onto main 0c49c3b) and returns the two files green on a pre-drift base; the remaining red at the merge head is AC-20's traceability row, whose proof fails on main itself, so it is routed to its owner instead of being exempted, edited or forced by this lane.
+- why: The guard executes each row's own proof command; 'python scripts/check_release_consistency.py' exits 1 on main 0c49c3b (R8 drift on docs/Team/Decisions.md:1744, introduced by ceo commit 82c13c7), and the row claims green. Editing the state column, Decisions.md and the R8 rule are all outside this lane's write scope, and exempting AC-20 would delete the re-run that the whole guard exists for.
+- evidence: venv\Scripts\python.exe scripts\check_release_consistency.py @0c49c3b (main repo root) -> 1 problem(s), R8 DRIFT docs/Team/Decisions.md:1744: "channel names into, the project ships teamwork-agents"; _channel_claims on that line's "pip install" plus "into" pair -> [('into', None)]; pytest -q tests/unit/test_traceability_matrix.py @44bdf92 -> 1 failed (AC-20 is claimed green, the run exits [1, 0])
+- falsified by: check_release_consistency.py exits 0 on main, or AC-20's row carries a red state owned by a gap, or the guard passes on main with the row still claiming green
+- consequences: -
+
+## D-20261031-Designer - Fix the banner's CEO connectors with stroke-opacity 0.7 -> 1
+
+- date: 2026-10-31
+- kind: technical
+- status: accepted
+- deciders: Designer (designer)
+- decided by: Designer
+- task: T-0003
+- context: -
+- options considered: -
+- decision: Fix the banner's CEO connectors with stroke-opacity 0.7 -> 1 on that one group, rather than recolouring to #a5b4fc or dimming the glow
+- why: All three candidates clear 3:1, so the tie breaks on the smallest change and the preserved look: opacity 1 changes one attribute and no colour token (so #818cf8 stays the single indigo token the record already lists), keeps the glow that the banner's background is built on, and makes the connectors read at the same weight as the accent that fills the CEO node above them; #a5b4fc would add a colour to the token set for a 0.2:1 smaller margin, and dimming the glow changes every other pixel of the canvas
+- evidence: probe_marks.py + render_marks.py @d7aa9d2 -> 4.05 / 4.31 / 4.18:1 analytic worst per line and 3.94 / 4.10 / 4.07:1 rendered, 3/3 >= 3:1; render diff @d7aa9d2 -> 1090 px changed, all inside the connector strips; verify_assets.py @d7aa9d2 -> PROBLEMS 0 with the worst text pair 5.62:1 and worst mark 3.20:1 unchanged
+- falsified by: A reviewer shows a point on any of the three lines still under 3:1, or the pixel diff moving outside the connector strips, or the banner's look regressing against the before render
+- consequences: -
+
+## D-20261031-CEO - Pill and org-box outlines are decorative; the connectors are not
+
+- date: 2026-10-31
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: darken every outline (rejected: changes the design for no information gain); leave the connectors as decoration (rejected: the hierarchy is only carried by the lines); fix only the connectors (chosen)
+- decision: In assets/banner.svg the five pill outlines (2.47-2.58:1) and six org-box outlines (2.68-2.97:1) stay below the 3:1 bar, because every one of those shapes is named by a label measured at 11.0-14.2:1; the three CEO connectors are held to 3:1 and were fixed to 3.83-4.09:1 because they are the only element that says which seat hangs off which.
+- why: WCAG SC 1.4.11 applies to graphical objects required to understand the content. The outlines carry no information a label does not; the connectors carry the hierarchy and the asset's desc calls it an org chart. Reviewer-1 refused to verify AC-2 on the connectors and asked for this ruling rather than deciding it alone.
+- evidence: Reviewer-1 probe+render @4445d4e -> connectors 2.66-2.79:1 (bar 3:1); after stroke-opacity=1 @f497f62 -> 3.83/4.09/3.96 analytic, 3.94/4.10/4.09 rendered; pill/box outlines 2.47-2.97:1 with labels 11.18:1 and ~14:1; git diff 4445d4e..f497f62 -- assets/banner.svg -> one hunk, one attribute
+- falsified by: a reader who cannot tell which seat hangs off which without the line colour - i.e. a label or ordering change that removes the connectors' role
+- consequences: Design.md records both sets of numbers and the one-attribute cost for anyone who disagrees

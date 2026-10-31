@@ -560,16 +560,7 @@ __all__ = [
     "cmd_imaging",
 ]
 
-# --------------------------------------------------------------------------- #
-# Paths and tunables
-#
-# The bundled skill (SKILL.md, roles/, references/, templates/) is located by
-# `resources`, so the same engine works from a git checkout, from an installed
-# wheel (`teamwork/data/`) and from an explicit $TEAMWORK_SKILL_DIR override.
-# --------------------------------------------------------------------------- #
 
-
-# --------------------------------------------------------------------------- #
 # Layout: the team's own tree is hidden and independent of project output.
 #
 #   <project>/.pi/Teamwork/Teams/<Team>/
@@ -582,15 +573,12 @@ __all__ = [
 #
 # Project output (code, tests, docs/Team/*.md) lives in the repository and is
 # never mixed with this tree. Team-created names are PascalCase.
-# --------------------------------------------------------------------------- #
 
 
-# --------------------------------------------------------------------------- #
 # Git identity, commit style and Git LFS
 #
 # Team commits are authored by the ROLE, never by an instance: the mailbox is
 # "Developer <developer@agents.nidvue.com>", never "Developer-1 <developer-1@...>".
-# --------------------------------------------------------------------------- #
 
 
 COMMIT_TYPES = (
@@ -608,15 +596,11 @@ COMMIT_TYPES = (
     "revert",
 )
 
-# Paths tracked with Git LFS: binaries, media, models, datasets, archives.
 
-
-# --------------------------------------------------------------------------- #
 # Branch -> PR -> Reviewer merge
 #
 # main only ever receives merges performed by the Reviewer. Every instance works
 # on its own branch and hands a PR to the Reviewer.
-# --------------------------------------------------------------------------- #
 
 
 def require_reason(force: str, what: str) -> str:
@@ -1536,9 +1520,7 @@ def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str)
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Acceptance criteria as records: `loop` cannot report STOP without them
-# --------------------------------------------------------------------------- #
 
 
 def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
@@ -1751,20 +1733,6 @@ def cmd_criteria(args) -> int:
             print(f"    {c['evidence']}")
     return 0 if done == len(items) else 1
 
-
-# --------------------------------------------------------------------------- #
-# Layered tests: each layer is designed, developed and run by its owning role
-#
-#   unit        -> Developer      (its own unit tests)
-#   integration -> Tester         (its own integration/system/E2E suites)
-#   system      -> Architect      (architecture-conformance tests: boundaries, deps, contracts)
-#   ui          -> Designer       (UI use-case / flow / a11y tests)
-#   acceptance  -> Reviewer       (acceptance tests over every role's output)
-#   security    -> Security Auditor
-#
-# Layers are independent and run in parallel. A (layer, area) pair is unique, so
-# the same thing is never tested twice by accident.
-# --------------------------------------------------------------------------- #
 
 F_TESTS = "Tests.md"
 F_TESTPLAN = "TestPlan.md"
@@ -2217,7 +2185,6 @@ def _tests_list(args, root: Path, records: list) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Audit trail: append-only hash-chained ledger + provenance + external export
 #
 # Every mutation writes one JSON line to Ledger.jsonl:
@@ -2225,7 +2192,6 @@ def _tests_list(args, root: Path, records: list) -> int:
 # hash = sha256(prev_hash + canonical_json(record)) so the chain is tamper-evident.
 # A third party can verify the chain, the record digests and the git revision
 # without trusting the team: `teamwork.py ledger export`, then re-run the checks.
-# --------------------------------------------------------------------------- #
 
 # The generated manifest is AuditManifest.md; AuditReport.md belongs to the
 # Security Auditor's findings report and must never be overwritten.
@@ -3161,7 +3127,6 @@ def ledger_export(root: Path, args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Team skills: agents extract repeated, consistency-critical flows into a skill
 # inside the project and share it with the peers of the same role.
 #
@@ -3169,7 +3134,6 @@ def ledger_export(root: Path, args) -> int:
 #   - committed project output, so every instance (and every worktree) sees it
 #   - Pi discovers project .agents/skills/ from the working directory upward
 # Registry: <team>/Skills.md (who owns it, who was told, current state)
-# --------------------------------------------------------------------------- #
 
 
 def skill_body(name: str, owner_role: str, description: str, body: str, by: str) -> str:
@@ -3919,43 +3883,6 @@ def cmd_commit(args) -> int:
     return 0
 
 
-# Shared project documents: single owner, single canonical path, no duplicates.
-# code first, tests second, docs third - see PRIORITY in the skill.
-
-# Files/dirs the team must never commit: local working state, caches, secrets.
-
-# Only these are removed by `clean`; everything else is left alone.
-
-# --------------------------------------------------------------------------- #
-# Disputes: independent decisions, rebuttal, 3-round cap, CEO+CTO+CFO tribunal
-# --------------------------------------------------------------------------- #
-
-
-# Cross-links every generated markdown file carries, relative to its own dir.
-# Depth: .pi/Teamwork/Teams/<Team>/Roles/<Role>/ = 5 below the project root;
-#        .pi/Teamwork/Teams/<Team>/Agents/<Instance>/ = 6.
-
-
-# --------------------------------------------------------------------------- #
-# Small helpers
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# Workspace
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# Entry parsing / serialising
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# Commands
-# --------------------------------------------------------------------------- #
-
-
 def expand_roster(tier: str) -> dict:
     """Instances, roles and the gates a tier leaves uncovered.
 
@@ -4402,7 +4329,7 @@ def cmd_init(args) -> int:
         )
         ledger_append(root, "ledger.export", "system", "init", "ledger seeded at bootstrap")
 
-    # --- shared project documents (one owner, one canonical path) --------- #
+    # Shared project documents: one owner, one canonical path.
     # Committed project output, under <project>/docs/Team/.
     public = docs_dir(root)
     public.mkdir(parents=True, exist_ok=True)
@@ -4413,6 +4340,11 @@ def cmd_init(args) -> int:
             continue
         src = src_docs / filename
         if src.exists():
+            # Board.md is the one doc with a machine shape: `board --write` renders
+            # its tables and refuses a file that lacks the anchors. The template is
+            # that skeleton, so `tests/unit/test_init_board.py` renders it as well;
+            # without that check the two drift and `init` hands the team a board the
+            # tool will not render (T-0007).
             write_lf(p, src.read_text(encoding="utf-8"))
         elif filename == F_FEATURES:
             # The records file is a parsed record set, not prose: a bare stub would
@@ -4715,7 +4647,8 @@ Three steps, in order. You cannot skip any of them.
        --task <T-id> --area <area> --goal "<what was asked>" \\
        --deliverable "<what you produced>" --why "<why this change>" \\
        --status "<actual state>" --result "<command @rev -> observed result>" --all`
-   Then clean your `scratch/` (`{script} clean --all`).
+   Then clean your `scratch/` (`{script} clean --all` from your lane worktree, or
+   `{script} clean --agent {name} --all`).
 2. **Your own review and test.** Re-read your diff, check edge cases, error
    paths, regressions and docs, and actually *run* something.
    You also own a test layer: make sure there is a `tests` record for the `{role}`
@@ -4810,9 +4743,8 @@ def _memory_path(root: Path, agent: str, layer: str) -> tuple:
     return d / filename, filename
 
 
-# --------------------------------------------------------------------------- #
 # Role memory: ONE revising instance at a time
-# --------------------------------------------------------------------------- #
+#
 # `Runtime/Locks/role-<Role>.lock` makes a single write atomic, and that is all it
 # does. Two instances of one role can still interleave their edits: A adds entry
 # 1, B consolidates and evicts it, A adds entry 2 against a file it never saw - and
@@ -5847,11 +5779,6 @@ def cmd_agents(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
-# Git repository bootstrap + cleanup
-# --------------------------------------------------------------------------- #
-
-
 def ensure_gitignore(project: Path) -> list:
     """Add the teamwork entries that are missing. Never removes lines.
 
@@ -6141,50 +6068,126 @@ def _worktree_reclaimable(
     return run_git(project, "merge-base", "--is-ancestor", head, DEFAULT_BASE).returncode == 0
 
 
+def caller_agent(root: Path) -> str:
+    """The lane that invoked the command, named by the worktree holding the cwd.
+
+    A lane works inside `Runtime/Worktrees/<Agent>`, so that worktree's name is
+    the caller. From the main checkout no single agent owns the tree and the
+    result is empty - the caller then has to name its scope explicitly.
+    """
+    wt_root = (root / DIR_RUNTIME / DIR_WORKTREES).resolve()
+    try:
+        rel = Path.cwd().resolve().relative_to(wt_root)
+    except (OSError, ValueError):
+        return ""
+    return rel.parts[0] if rel.parts else ""
+
+
+def clean_scope(root: Path, agent: str = "", team_wide: bool = False) -> list:
+    """Which lanes a clean may touch. Never more than was asked for.
+
+    Scratch is one lane's private workspace, so the default scope is the caller
+    alone and every unlink - the `--all` emptying and the `*.tmp`/`*.temp` pass -
+    stays inside that lane's directory. `--team-wide` is the only way to reach
+    every lane, and the locations it will touch are printed before the first
+    unlink. There is no "guess and sweep" fallback: an unresolvable caller is
+    refused, because the alternative is exactly the T-0005 defect - one lane's
+    janitor run unlinking a peer's in-flight files, irreversibly.
+    """
+    agents = list_agents(root)
+    if team_wide:
+        return agents
+    if agent:
+        wanted = pascal(agent)
+        for known in agents:
+            if pascal(known) == wanted:
+                return [known]
+        die(f"no agent directory at {agent_dir(root, agent)}: check `teamwork agents`", 2)
+    caller = caller_agent(root)
+    if caller:
+        for known in agents:
+            if pascal(known) == pascal(caller):
+                return [known]
+    die(
+        "clean needs a scope: run it from your lane worktree "
+        f"({root / DIR_RUNTIME / DIR_WORKTREES}/<agent>), or pass --agent <name> to "
+        "clean your own Scratch, or --team-wide to sweep every lane plus Global/ and "
+        "Roles/ (the locations are printed before anything is removed)",
+        2,
+    )
+
+
+def _shown_path(path: Path, project: Path) -> str:
+    """A path as the operator sees it: relative to the project when it is inside."""
+    try:
+        return path.relative_to(project).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def clean_locations(root: Path, agents: list, team_wide: bool = False) -> list:
+    """The directories one clean may unlink from: the lanes in scope and nothing else.
+
+    An agent scope covers that lane's directory - its `Scratch/` plus its own
+    stray temp files - and no other. `--team-wide` adds the team-shared working
+    state, `Global/` and `Roles/`, where a temp file belongs to no lane in
+    particular; `--all` still empties only `Scratch/`. Stray files sitting
+    directly in `Agents/` belong to no lane and are left alone.
+    """
+    locations = [agent_dir(root, agent) for agent in agents]
+    if team_wide:
+        locations += [global_dir(root), roles_dir(root)]
+    return locations
+
+
 def cmd_clean(args) -> int:
-    """Remove scratch/temp files inside the team tree. Never touches tracked files."""
+    """Remove scratch/temp files inside the team tree. Never touches tracked files.
+
+    The scope is one lane by default (see `clean_scope`): that lane's directory,
+    which is its `Scratch/` plus its own stray temp files. Touching another lane
+    or the team-shared working state (`Global/`, `Roles/`) requires `--team-wide`,
+    which prints every location before the first unlink. `--all` empties
+    `Scratch/` only - `Global/` and `Roles/` just lose their temp-pattern files.
+    """
     root = project_root(args)
     project = project_of(root)
     if not root.exists():
         die(f"no workspace at {root}")
+    team_wide = bool(getattr(args, "team_wide", False))
+    if team_wide and getattr(args, "agent", ""):
+        die("--agent scopes the clean to one lane; --team-wide is the opposite: pick one", 2)
+    agents = clean_scope(root, getattr(args, "agent", ""), team_wide)
+    locations = clean_locations(root, agents, team_wide)
+    if team_wide:
+        print(f"teamwork: team-wide clean: {len(locations)} location(s) in scope")
+        for base in locations:
+            print(f"  - {_shown_path(base, project)}")
     tracked = set()
     if is_git_repo(project):
         r = run_git(project, "ls-files", "-z")
         tracked = {p for p in r.stdout.split("\0") if p}
     removed = []
     freed = 0
-    for agent in list_agents(root):
-        for sub in SCRATCH_DIRS:
-            d = agent_dir(root, agent) / sub
-            if not d.is_dir():
-                continue
-            for p in d.rglob("*"):
-                if not p.is_file():
-                    continue
-                rel = p.relative_to(project).as_posix()
-                if rel in tracked:
-                    continue
-                if not args.all and not any(p.match(pat) for pat in SCRATCH_PATTERNS):
-                    continue
-                try:
-                    freed += p.stat().st_size
-                    removed.append(rel)
-                    if not args.dry_run:
-                        p.unlink()
-                except OSError:
-                    pass
-    # workspace-wide stray temp files (never memory, tasks or docs)
-    for p in list(root.rglob("*.tmp")) + list(root.rglob("*.temp")):
-        rel = p.relative_to(project).as_posix()
-        if rel in tracked:
+    for base in locations:
+        if not base.is_dir():
             continue
-        try:
-            freed += p.stat().st_size
-            removed.append(rel)
-            if not args.dry_run:
-                p.unlink()
-        except OSError:
-            pass
+        scratch = [base / sub for sub in SCRATCH_DIRS]
+        for p in base.rglob("*"):
+            if not p.is_file():
+                continue
+            rel = p.relative_to(project).as_posix()
+            if rel in tracked:
+                continue
+            empty_scratch = args.all and any(p.is_relative_to(d) for d in scratch)
+            if not empty_scratch and not any(p.match(pat) for pat in SCRATCH_PATTERNS):
+                continue
+            try:
+                freed += p.stat().st_size
+                removed.append(rel)
+                if not args.dry_run:
+                    p.unlink()
+            except OSError:
+                pass
     verb = "would remove" if args.dry_run else "removed"
     print(f"teamwork: {verb} {len(removed)} scratch/temp file(s), {freed / 1024:.1f} KiB")
     reclaimed = [] if args.no_worktrees else reclaimable_worktrees(root, args.stale_minutes)
@@ -6218,13 +6221,9 @@ def cmd_clean(args) -> int:
     if len(removed) > args.limit:
         print(f"  ... and {len(removed) - args.limit} more")
     if not args.all:
-        print("teamwork: only temp patterns were removed; pass --all to empty scratch/ entirely.")
+        where = "every lane's Scratch/" if getattr(args, "team_wide", False) else "your Scratch/"
+        print(f"teamwork: only temp patterns were removed; pass --all to empty {where} entirely.")
     return 0
-
-
-# --------------------------------------------------------------------------- #
-# Tasks
-# --------------------------------------------------------------------------- #
 
 
 def require_runnable_task_graph(root: Path, role: str, tasks: list) -> None:
@@ -6650,7 +6649,6 @@ def cmd_task_rm(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Feature teams: docs/Team/Features.md, the independence check and the
 # per-instance team attachment (Architecture.md 13)
 #
@@ -6658,7 +6656,6 @@ def cmd_task_rm(args) -> int:
 # another squad's merge. The records are one committed file, one authority per
 # field, and the caller commits its own edit on its own branch - the path
 # `decision add` already walks for docs/Team/Decisions.md.
-# --------------------------------------------------------------------------- #
 
 
 def feature_record_path(root: Path) -> Path:
@@ -7420,11 +7417,6 @@ def _feature_check(root: Path, args) -> int:
     return 2
 
 
-# --------------------------------------------------------------------------- #
-# Concurrency: provider limits and a file-based slot semaphore
-# --------------------------------------------------------------------------- #
-
-
 def providers_path(root: Path) -> Path:
     return root / F_SETTINGS
 
@@ -7615,7 +7607,6 @@ def cmd_slot(args) -> int:
                 args.force = require_reason(args.force, "releasing another lane's lease")
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"slots-{provider}.lock"):
             return _slot_release(args, root, provider, cap)
-    # (removed: unreachable release0 branch)
 
     if args.slot_cmd == "renew":
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"slots-{provider}.lock"):
@@ -7665,11 +7656,6 @@ def cmd_slot(args) -> int:
                 3,
             )
         time.sleep(1.0)
-
-
-# --------------------------------------------------------------------------- #
-# CEO pulse: periodic wake-up, idle lanes, immediate dispatch
-# --------------------------------------------------------------------------- #
 
 
 def claim_stamp() -> str:
@@ -7798,7 +7784,7 @@ def review_gate_hint(profile: str) -> str:
     return "the full test suite, lint and type-check; a green CI run on the branch SHA may be cited"
 
 
-# --- review economy: verify once, credit the rest -------------------------
+# Review economy: verify once, credit the rest.
 #
 # A review that re-runs a suite another role already ran at the same revision
 # is not independent, it is duplicated: independence is about the AUTHOR. A
@@ -8726,7 +8712,6 @@ def cmd_parallel(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Coordination health
 #
 # Source: Anthropic, "Measuring multiagent systems" (accessed 2026-10-27),
@@ -8735,7 +8720,6 @@ def cmd_parallel(args) -> int:
 # lanes that share a model, a context and a queue fail together, and a review
 # lane with no cross-check turns one blind spot into a systemic one. So this is
 # instrumentation, not advice: every check reads records the team already writes.
-# --------------------------------------------------------------------------- #
 
 COORD_OPEN = ("todo", "doing", "selfcheck", "blocked", "review")
 # PR record states that no longer expect anybody to touch the forge. `merged`
@@ -9011,7 +8995,7 @@ def coordination_report(root: Path) -> dict:
     open_tasks = [(role, t) for role, t in tasks if t.get("status") in COORD_OPEN]
     findings: list = []
 
-    # --- diversity: the same branch, the same work, the same blind spot -------
+    # Diversity: the same branch, the same work, the same blind spot.
     branches: dict = {}
     shared_refs: dict = {}
     for role, task in open_tasks:
@@ -9085,7 +9069,7 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # --- trust: echo, monoculture, no-finding-ever ---------------------------
+    # Trust: echo, monoculture, no-finding-ever.
     for role, task in tasks:
         if task.get("review_status") != "passed":
             continue
@@ -9138,7 +9122,7 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # --- turf: reclaims are the visible edge of a lane war --------------------
+    # Turf: reclaims are the visible edge of a lane war.
     reclaims = _recent_reclaims(root)
     if reclaims:
         who = ", ".join(
@@ -9157,7 +9141,7 @@ def coordination_report(root: Path) -> dict:
             )
         )
 
-    # --- merge health: the article's measured collapse ------------------------
+    # Merge health: the article's measured collapse.
     prs = parse_reviews(reviews_path(root))
     live_states = ("open", "approved", "changes-requested")
     total_prs = sum(1 for pr in prs if pr.get("status") in live_states + ("merged",))
@@ -9199,7 +9183,7 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # --- capacity: starved lanes race, over-subscribed lanes fail -------------
+    # Capacity: starved lanes race, over-subscribed lanes fail.
     limits = load_providers(root)
     reap_slots(root)
     over, free = [], 0
@@ -9276,7 +9260,7 @@ def coordination_report(root: Path) -> dict:
             )
         )
 
-    # --- review economy: is the reviewer re-running a lane's recorded result? --
+    # Review economy: is the reviewer re-running a lane's recorded result?
     economy = review_economy(root, tasks)
     if economy["duplicated"]:
         rows = economy["duplicated"][:3]
@@ -9612,13 +9596,11 @@ def cmd_links(args) -> int:
     return 1 if issues else 0
 
 
-# --------------------------------------------------------------------------- #
 # The completion gates, in one place.
 #
 # `loop` (may the team stop?) and `audit` (is the team healthy?) both read this
 # single report, so the documented stop condition and the enforced one can never
 # drift apart again.
-# --------------------------------------------------------------------------- #
 
 
 def iter_tasks(root: Path, statuses=None):
@@ -9915,7 +9897,7 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["lines"].append("none")
     sections.append(s)
 
-    # 8b - roster gaps (a missing instance silently removes a layer) ----------
+    # 8b - roster gaps (a missing instance silently removes a layer)
     s = _section("roster", "roster gaps")
     for role in names:
         if not instances_of(root, role):
@@ -10003,10 +9985,6 @@ def cmd_loop(args) -> int:
         print(f"  ! {b}")
     return 1 if blockers else 0
 
-
-# --------------------------------------------------------------------------- #
-# Archive: the accepted-results ledger (committed project output)
-# --------------------------------------------------------------------------- #
 
 ARCHIVE_HEADER = (
     "# ARCHIVE - accepted results\n\n"
@@ -11059,7 +11037,6 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Preflight: the author's mechanical gate, run before the self-check
 #
 # Measured from the ledger (43 `review.fail` records classified by their finding
@@ -11070,7 +11047,6 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
 # minutes) and serialises the author. So one command answers the questions a
 # Reviewer answers first, prints the exact fix for each miss, and `selfcheck`
 # refuses while it is red: the Reviewer's lease is then spent on judgement.
-# --------------------------------------------------------------------------- #
 
 #: Settings.json key naming the project's OWN gate (`make check`, `npm test`, ...).
 #: The skill ships no toolchain, so an unset key is reported as UNVERIFIED rather
@@ -11432,6 +11408,18 @@ def _preflight_mergeable(project: Path, base: str, branch: str, role: str) -> Pr
     )
 
 
+def _queues_initialised(root: Path) -> bool:
+    """Whether `init` has left a queue behind: an empty queue is not a missing one.
+
+    A fresh `init` creates one empty `TaskQueue.md` per role, so a new project has
+    nothing to render yet and the projection of no work is an empty table. Treating
+    that as "no task records: run init first" refused the board of a project that
+    had just run `init` (T-0007). Only a team tree with no queue at all means the
+    command is looking at a project whose queues were never created.
+    """
+    return any(roles_dir(root).glob("*/TaskQueue.md"))
+
+
 def _board_problems(root: Path, text: str) -> list:
     """What is wrong with this Board.md TEXT against the live queues (read-only).
 
@@ -11446,7 +11434,7 @@ def _board_problems(root: Path, text: str) -> list:
         tasks = boardlib.queues(root)
     except ValueError as exc:
         return [f"cannot read the role queues under {roles_dir(root)}: {exc}"]
-    if not tasks:
+    if not tasks and not _queues_initialised(root):
         return [f"no task records under {roles_dir(root)}: run `teamwork.py init` first"]
     try:
         return boardlib.problems(tasks, text)
@@ -11539,6 +11527,9 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
     `--run` is explicit because the command is the project's, not the skill's: a
     preflight that ran `make check` by default would be a language assumption, and
     one that ran it silently would make every self-check pay for a full suite.
+    A command this host cannot start is reported as a FAILED gate carrying the
+    command and the reason, never raised: a gate nobody can read is a gate that
+    taught the lane to skip it (T-0003).
     """
     name = "gate"
     command = _settings_string(root, PREFLIGHT_SETTINGS_KEY)
@@ -11572,12 +11563,25 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
             text=True,
             timeout=PREFLIGHT_GATE_TIMEOUT,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            f"{command} -> could not run: {exc}",
-            "install it, or point PreflightCommand at a command this host has",
+            f"{command} -> no exit: still running after {PREFLIGHT_GATE_TIMEOUT}s",
+            f"{command}   # a gate that hangs is not a pass; make it finish, then re-run"
+            " preflight --run",
+        )
+    except OSError as exc:
+        # A command this host cannot start is a RED gate on every host, never an
+        # exception out of the engine and never a silent pass: the report carries the
+        # command text and the reason, so a POSIX-only gate reads as red on win32
+        # instead of crashing the author's run (T-0003).
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{command} -> could not start: {exc}",
+            "install it, or point PreflightCommand at a command this host has"
+            "   # then re-run preflight --run",
         )
     if proc.returncode == 0:
         return PreflightCheck(name, PREFLIGHT_OK, f"{command} -> exit 0")
@@ -11883,7 +11887,7 @@ def _board_tables(args, root: Path) -> int:
         tasks = boardlib.queues(root)
     except ValueError as exc:
         die(f"cannot read the role queues under {roles_dir(root)}: {exc}", 2)
-    if not tasks:
+    if not tasks and not _queues_initialised(root):
         die(f"no task records under {roles_dir(root)}: run `teamwork.py init` first", 2)
     before = path.read_text(encoding="utf-8")
     missing = [anchor for anchor in BOARD_ANCHORS if anchor not in before]
@@ -11891,7 +11895,7 @@ def _board_tables(args, root: Path) -> int:
         die(
             f"{path} is not a rendered board: missing "
             + ", ".join(repr(anchor) for anchor in missing)
-            + "; start from the committed docs/Team/Board.md",
+            + "; the skeleton `init` copies is templates/Docs/Board.md",
             2,
         )
     try:
@@ -13409,10 +13413,6 @@ def cmd_map(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
-# AGENTS.md
-# --------------------------------------------------------------------------- #
-
 BEGIN = "<!-- BEGIN teamwork -->"
 END = "<!-- END teamwork -->"
 
@@ -13753,14 +13753,12 @@ def cmd_selftest(args) -> int:
     return 1 if failed else 0
 
 
-# --------------------------------------------------------------------------- #
 # Imaging: is a text-to-image / image-to-image model available, and which one?
 #
 # Policy: the Designer's charter (roles/designer.md), Visual assets section.
 # The probe is deliberately OFFLINE: it reads environment variables and PATH
 # only, never the network, so it cannot leak a prompt, cannot hang, and cannot
 # claim a model that is not there.
-# --------------------------------------------------------------------------- #
 
 # Ranked best-first per provider (quality over speed and cost). "Best quality"
 # means the first generally available model listed. Checked 2026-10-17; add a new
@@ -13771,14 +13769,12 @@ def cmd_selftest(args) -> int:
 # ranked image model, so holding an OpenAI key does not pretend to be a model.
 
 
-# --------------------------------------------------------------------------- #
 # Per-agent model configuration
 #
 # The team is a skill, not an application: every agent runs through its own LLM
 # API, and the model is a property of the AGENT, not of the project. A role may
 # have a default and an instance may override it, so a cheap model can drive the
 # mechanical lanes while a strong one drives the Reviewer.
-# --------------------------------------------------------------------------- #
 
 
 def load_model_config(root: Path) -> dict:
@@ -13832,7 +13828,6 @@ def resolved_model(root: Path, agent: str) -> dict:
     return {"provider": "", "model": "", "source": "unset"}
 
 
-# --------------------------------------------------------------------------- #
 # Automatic model routing: best quality per lane at the lowest cost
 #
 # The skill ships no model ids. It reads the runtime environment - which agent
@@ -13840,7 +13835,6 @@ def resolved_model(root: Path, agent: str) -> dict:
 # STRONG model to the lanes where a mistake is expensive and the ECONOMY model to
 # the mechanical lanes. Nothing is invented: a lane with no available model is
 # reported as `unset` with the exact variable to set.
-# --------------------------------------------------------------------------- #
 
 AGENT_HOSTS = {
     "pi": ("PI_SESSION_ID", "PI_PROVIDER", "PI_MODEL"),
@@ -14055,11 +14049,6 @@ def cmd_model(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
-# CLI
-# --------------------------------------------------------------------------- #
-
-
 def build_parser() -> argparse.ArgumentParser:
     # `--project` is accepted both before and after the subcommand.
     common = argparse.ArgumentParser(add_help=False)
@@ -14173,7 +14162,6 @@ def _parsers_workspace(sub, common) -> None:
     p.add_argument("--force", action="store_true", help="retire even while it holds work")
     p.set_defaults(func=cmd_instance)
 
-    # --- tasks ----------------------------------------------------------- #
     st = sub.add_parser("task", parents=[common], help="manage an agent's priority task list")
     tsub = st.add_subparsers(dest="task_cmd", required=True)
 
@@ -14315,7 +14303,6 @@ def _parsers_workspace(sub, common) -> None:
     s = sub.add_parser("map", parents=[common], help="print the workspace map and repo layout")
     s.set_defaults(func=cmd_map)
 
-    # --- disputes -------------------------------------------------------- #
     sd = sub.add_parser(
         "dispute", parents=[common], help="challenge a design/decision with counter-evidence"
     )
@@ -14374,6 +14361,16 @@ def _parsers_workspace(sub, common) -> None:
 
     s = sub.add_parser(
         "clean", parents=[common], help="remove scratch/temp files (never tracked files)"
+    )
+    s.add_argument(
+        "--agent",
+        default="",
+        help="clean only this agent's Scratch (default: the lane worktree you run from)",
+    )
+    s.add_argument(
+        "--team-wide",
+        action="store_true",
+        help="clean every agent's Scratch: the directories are printed before removal",
     )
     s.add_argument(
         "--all", action="store_true", help="empty scratch/ entirely, not just temp patterns"

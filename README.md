@@ -7,7 +7,7 @@
   evidence-gated, role-shared, and auditable by design.</p>
   <p>
     <a href="https://github.com/Nidvue/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Nidvue/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github"></a>
-    <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg"></a>
+    <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg"></a>
     <a href="docs/Team/Architecture.md"><img alt="Python 3.9 to 3.13" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue"></a>
     <a href="docs/guide/install.md"><img alt="Skill: one clone to install" src="https://img.shields.io/badge/skill-install%20in%20one%20clone-8957e5"></a>
     <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
@@ -59,9 +59,9 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 | Portable, dependency-free | CPython 3.9-3.13 on Linux, macOS and Windows. **Zero third-party runtime dependencies.** |
 | Enforced standards | One canonical toolchain per language, run by the team: `ruff format` + `ruff check` gate CI, `mypy` runs as a non-blocking report (the engine is a tracked post-1.0 typing refactor); the full per-language table is in `references/Engineering.md`. |
 | Automatic model routing | `teamwork model auto` detects the running agent host where the environment identifies it and routes the strongest available model to the decision lanes and the economy model to the mechanical lanes - best output where it compounds, lowest cost where it does not. Every lane's model is configurable independently (`model set <agent>`). |
-| Clean, modular history | Work commits are rebased and squashed before review, feature work squash-merges into `main`, and the naming policy (PascalCase directories, ecosystem-correct files) is written down rather than argued about. |
+| Clean, modular history | Work commits are rebased and squashed before review, each task then lands as one commit merged locally by the Reviewer (a merge commit on `main`, source branch deleted), and the naming policy (PascalCase directories, ecosystem-correct files) is written down rather than argued about. |
 | Skill first, engine optional | The product is a skill: `SKILL.md`, role charters, references, templates and the stdlib-only engine in one directory. Any agent host that loads skills or reads `AGENTS.md` runs the same protocol (optional adapter mapping: `references/Adapters.md`); the Python package is only a convenience for driving the engine from a terminal. |
-| Remote-agnostic integrity | Branch protection, required checks, squash-only merges and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike. |
+| Remote-agnostic integrity | Branch protection, required checks and protected `v*` tags are enforced on GitHub, GitLab, Bitbucket, Gitea/Forgejo or Azure DevOps alike; the one-commit-per-task merge is always done locally by the Reviewer, never with a host button. |
 
 ## Install the skill
 
@@ -118,7 +118,9 @@ Re-scan or reload skills in the host, then ask for the team by name:
 
 Where a host exposes skills as slash commands, the same request is
 `/teamwork <prompt>`. The host runs the bundled `scripts/teamwork.py` - Python
-3.9+, standard library only, no network access, nothing to build.
+3.9+, standard library only, nothing to build, and it runs offline: no service of
+ours, no account. The few commands that touch a forge - code scanning, a skill
+refresh, the online release check - are the ones you run yourself.
 
 ### Optional: put the engine on your PATH
 
@@ -176,19 +178,22 @@ package index cannot drift apart again.
 ## 30-second quickstart
 
 ```bash
-# 1. install the skill (one clone, nothing to build; drop the nested .git so the
-#    skill is committed as plain files, not a submodule)
+# 1. create the project and install the skill into it (one clone, nothing to
+#    build; drop the nested .git so the skill is committed as plain files, not a
+#    submodule)
+$ mkdir my-project && cd my-project
 $ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork && rm -rf .agents/skills/teamwork/.git
 
-# 2. in any project, ask your agent for the team
-$ cd my-project
+# 2. ask your agent for the team, from the project root
 > use the teamwork skill: Build a URL shortener with a CLI, tests and docs
 ```
 
 The CEO takes it from there: it writes `AGENTS.md`, staffs the roster, freezes the
 interfaces, records the acceptance criteria and opens the lanes. `init` creates
-the hidden, gitignored workspace at `.pi/Teamwork/Teams/<Team>/` and leaves your
-project tree untouched. Project output (`AGENTS.md`, code, tests, docs) is
+the hidden, gitignored workspace at `.pi/Teamwork/Teams/<Team>/`; in the project it
+adds `.gitignore`, `.gitattributes` and `docs/Team/`, appends its managed block to
+`AGENTS.md` (creating the file when it is absent), touches no other existing file
+and makes the initial commit. Project output (`AGENTS.md`, code, tests, docs) is
 committed; team state is local.
 
 The skill calls the engine for you. When you want to see or steer the machine
@@ -420,14 +425,17 @@ flowchart TD
     AR --> LANES
     PJ --> LANES
     CEO -.->|model auto: strong lanes, economy lanes| LANES
-    subgraph LANES[Parallel lanes]
+    subgraph LANES[Parallel lanes - one per staffed role]
         DEV[Developer: code + unit tests]
         TST[Tester: integration + E2E tests]
         DES[Designer: UX and accessibility specs]
     end
     LANES --> SC[Author self-check: run your own test]
+    SC --> REC[(Recorded runs at that revision)]
     SC --> RV{Independent Reviewer}
-    RV -- fail + findings --> LANES
+    REC -.->|verify once - cite with --credit| RV
+    RV -- fail + findings --> FX[Owner fixes]
+    FX --> SC
     RV -- pass --> MG[Reviewer merges to main]
     MG --> LP{teamwork loop}
     LP -- criterion or layer failing --> LANES
@@ -441,7 +449,7 @@ Nothing is dispatched before the interfaces are frozen, and nothing reaches
 
 | Project | Orchestration model | Evidence gate | Audit trail | Coding-agent skill | Zero runtime deps | License |
 |---|---|---|---|---|---|---|
-| **Nidvue Teamwork** | Persistent role org: shared role memory, priority queues, parallel lanes, CEO pulse | **Enforced** - `loop` blocks `STOP` until every criterion and required test layer has evidence | **Hash-chained** `Ledger.jsonl`, `ledger verify`, `trace`, `ledger export` | **Yes** - ships `SKILL.md`, `roles/`, `references/`, `templates/` | **Yes** - standard library only | AGPL-3.0 |
+| **Nidvue Teamwork** | Persistent role org: shared role memory, priority queues, parallel lanes, CEO pulse | **Enforced** - `loop` blocks `STOP` until every criterion and required test layer has evidence | **Hash-chained** `Ledger.jsonl`, `ledger verify`, `trace`, `ledger export` | **Yes** - ships `SKILL.md`, `roles/`, `references/`, `templates/` | **Yes** - standard library only | AGPL-3.0-or-later |
 | CrewAI | Role-based crews, sequential or hierarchical process | No | Task output and logs, not tamper-evident | No - Python library | No | MIT |
 | AutoGen | Event-driven multi-agent conversations | No | Conversation logs, not tamper-evident | No - Python library | No | CC-BY-4.0 (archived) |
 | MetaGPT | SOP-driven "software company" pipeline | No | Artifact files, not tamper-evident | No - Python library | No | MIT |
@@ -500,7 +508,7 @@ project optimises the conversion inputs (demo, README, topics, license, releases
 - **Security** - please report vulnerabilities privately via
   [GitHub security advisories](https://github.com/Nidvue/Teamwork/security/advisories/new);
   see [`SECURITY.md`](SECURITY.md).
-- **License** - [AGPL-3.0](LICENSE), copyright (C) 2026 **Nidvue** (see [NOTICE](NOTICE)). The strong copyleft is deliberate: this is a
+- **License** - [AGPL-3.0-or-later](LICENSE) (version 3 of the AGPL or any later version), copyright (C) 2026 **Nidvue** (see [NOTICE](NOTICE)). The strong copyleft is deliberate: this is a
   governance tool, and its audit guarantees should survive modification.
 - **No personal data, no local leakage** - a hard project rule: no personal
   names, emails, domains, absolute home paths or credentials in the tree or the

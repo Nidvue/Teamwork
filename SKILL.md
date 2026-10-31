@@ -73,7 +73,9 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 11. **History is minimal and modular.** Commit while you work, then rebase and
     squash before the review: one coherent change-set per commit, `wip`/`fixup`
     commits squashed, rebased onto the latest default branch, one commit per task
-    after the squash-merge. Never rebase or force-push a shared branch, or
+    before the merge. The Reviewer merges locally (`git merge --no-ff`), so `main`
+    records that commit plus the merge commit (`pr merge --squash` is the
+    single-commit option). Never rebase or force-push a shared branch, or
     anything already on the default branch.
 12. **Each agent's model is its own.** The skill ships no model and calls no LLM
     API; the engine configures a model per role and per instance
@@ -154,9 +156,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 339 kB |
-| `standard` | 10 | 471 kB |
-| `full` | 17 | 770 kB |
+| `slim` (default) | 7 | 340 kB |
+| `standard` | 10 | 473 kB |
+| `full` | 17 | 774 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.3x what `slim` costs.
@@ -427,7 +429,7 @@ python3 "$SKILL/scripts/teamwork.py" links            # markdown links, URLs, ba
 python3 "$SKILL/scripts/teamwork.py" pulse --commit   # idle lanes -> assignment
 python3 "$SKILL/scripts/teamwork.py" parallel         # free slots vs ready work
 python3 "$SKILL/scripts/teamwork.py" loop             # may we stop yet?
-python3 "$SKILL/scripts/teamwork.py" clean            # remove temp files
+python3 "$SKILL/scripts/teamwork.py" clean --team-wide  # every lane's temp files
 ```
 
 - Report to the user at milestones: what changed, evidence, blockers, next. Never
@@ -547,10 +549,10 @@ Two duties that keep the remote and the confidence level honest:
 
 - **Everyone keeps the tree clean.** No comment the code already gives you, no
   commented-out code, no `TODO`/`FIXME` without a tracked task id; delete temp and
-  stale files in the same task (`teamwork.py clean` plus the rest by hand); keep
-  one canonical home per file and an obvious structure, and leave the working tree
-  cleaner than you found it. A reviewer who cannot tell deliverable from debris
-  fails the task.
+  stale files in the same task (`teamwork.py clean` for your own lane's temp
+  patterns, `--all` for its `Scratch/`, the rest by hand); keep one canonical home
+  per file and an obvious structure, and leave the working tree cleaner than you
+  found it. A reviewer who cannot tell deliverable from debris fails the task.
 
 Both duties are evidence, not ceremony: `tests plan` and the task record must name
 the local result **and** the CI run (id + conclusion) for the certified revision.
@@ -570,7 +572,9 @@ the local result **and** the CI run (id + conclusion) for the certified revision
 - **Git host.** The Release Engineer guarantees repository and CI integrity on
   whatever host is in use: protected default branch, **no force-push**, no
   deletion, required status checks on the exact revision, at least one non-author
-  approval, squash-only merges with the source branch deleted, protected `v*`
+  approval, the host merge button off (rebase-only where the host requires at
+  least one method) - the Reviewer merges locally and the source branch is
+  deleted (`pr merge --squash` is the one-commit path) - protected `v*`
   tags created only by the CEO, and least-privilege CI with no secret in the tree.
   Policy and the per-host mapping are in `references/Remotes.md`. Record the actual
   settings from the host API as evidence and re-read them to detect drift; an
@@ -985,7 +989,7 @@ python3 $S tests plan && python3 $S audit && python3 $S links && python3 $S loop
 python3 $S dispute open --by developer-1 --against architect --topic "..." --evidence "..."
 python3 $S slot acquire --agent developer-3 --provider deepseek --task T-0012
 python3 $S slot renew --agent developer-3 && python3 $S slot release --agent developer-3
-python3 $S clean
+python3 $S clean --team-wide              # every lane's temp files, plus Global/ and Roles/
 ```
 
 Team lifecycle: the teammate tool to staff a lane, the host's reply/steer
