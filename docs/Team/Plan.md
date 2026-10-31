@@ -730,7 +730,7 @@ revision, `teamwork.py tests plan` with no gap for a staffed role, `loop` STOP.
 | Developer-2 | T-0005 | `clean --all` being team-wide, so one lane emptied every peer's `Scratch/` | `6111b1a` |
 | Developer-3 | T-0003 | an unlaunchable gate escaping, and POSIX-only proof cells crashing the matrix guard | `cf26e96` |
 | Developer-3 | T-0006 | the board renderer's missing role spellings | `5895411` |
-| Developer-4 | T-0007 | a fresh project could not render the board `init` had just written | [FILL] |
+| Developer-4 | T-0007 | a fresh project could not render the board `init` had just written | `4895f66` |
 | Architect | T-0001 | the `system` layer: no POSIX-only launch, every failure guarded or red | `0cac9bd` |
 | Tester | T-0001 | the gate certification, both `integration` layers, and the red it refused to waive | `8b5db3f` |
 | CEO | T-0001, T-0002 | the merge contract three public surfaces still claimed | `d36e731`, `cd561a5` |
