@@ -6,8 +6,9 @@
 # alternation. A new secret is fixed at source and never added here. Each entry is
 # one quoted value that cannot be reworded after it is committed: two path families
 # (the pi install tree and the operator user name - D-20261019-CEO-8,
-# D-20261019-CEO-15) and three fabricated probe values a reviewer quoted as
-# evidence (D-20261020-CEO-4). The file itself is the list; nothing here counts it.
+# D-20261019-CEO-15) and four fabricated values quoted as evidence: three probe
+# values (D-20261020-CEO-4) and one example path (D-20261031-CEO-2). The file itself
+# is the list; nothing here counts it.
 #
 # What an entry exempts is the text the scanner matched, not a directory: a finding
 # is exempt when its matched text matches any pattern here. For `home-path` and
@@ -54,3 +55,15 @@
 ^sk-live-0123456789abcdef0123456789abcdef$
 ^hunter2 passphrase$
 ^changeme-placeholder$
+
+# ^C:/Users/x$ and ^C:/Users/x\.py$ - a fabricated example path, opened by
+# D-20261031-CEO-2. The superseded Architecture.md section-13 example read this
+# path while the merged section reads the C:/temp form, and the archive quotes the
+# old value while explaining the red - a quotation that cannot be reworded after
+# it is committed. No account is named: the "user" segment is the file name x.py.
+# Two entries because the rule reports what follows the user name: the full
+# C:/Users/x.py where the value ends there, and the bare C:/Users/x where a
+# backslash follows it - this file's own entry line is the second case, because an
+# escaped dot puts a \ after the name.
+^C:/Users/x$
+^C:/Users/x\.py$
