@@ -99,9 +99,9 @@ caught at 16-24 of 44. The share is contested, so `preflight` plus the
   another feature's in-flight code. That goes back to the Architect.
 - **Definition of done.** `preflight` green, independent pass, archived, merged -
   nothing else, and a status the board does not show does not exist.
-- **Generated artifacts render at the merge** *(target; T-0043)*. `Board.md` and
-  the archive belong on the base branch, written by the merging Reviewer; until the
-  merge path does it, a branch that must carry a board render re-renders it last.
+- **Generated artifacts render at the merge** *(T-0043)*. `Board.md` and
+  the archive are written on the base branch by the merging Reviewer, so a branch
+  does not carry a board render: the merge re-renders it from the queues.
 - **Right-sized roster, small slices.** One Developer and one Tester per feature
   team; a task fits one review **lease** (20/40/80 min for fast/standard/deep) whose
   reviewer **budget** is 10/20/40 min, or it is split; a fix after a fail is a delta
