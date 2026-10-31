@@ -4135,6 +4135,11 @@ def cmd_init(args) -> int:
             continue
         src = src_docs / filename
         if src.exists():
+            # Board.md is the one doc with a machine shape: `board --write` renders
+            # its tables and refuses a file that lacks the anchors. The template is
+            # that skeleton, so `tests/unit/test_init_board.py` renders it as well;
+            # without that check the two drift and `init` hands the team a board the
+            # tool will not render (T-0007).
             write_lf(p, src.read_text(encoding="utf-8"))
         else:
             write_lf(p, f"# {filename[:-3]}\n\nOwner: {owner}\n")
@@ -10247,6 +10252,18 @@ def _preflight_mergeable(project: Path, base: str, branch: str, role: str) -> Pr
     )
 
 
+def _queues_initialised(root: Path) -> bool:
+    """Whether `init` has left a queue behind: an empty queue is not a missing one.
+
+    A fresh `init` creates one empty `TaskQueue.md` per role, so a new project has
+    nothing to render yet and the projection of no work is an empty table. Treating
+    that as "no task records: run init first" refused the board of a project that
+    had just run `init` (T-0007). Only a team tree with no queue at all means the
+    command is looking at a project whose queues were never created.
+    """
+    return any(roles_dir(root).glob("*/TaskQueue.md"))
+
+
 def _board_problems(root: Path, text: str) -> list:
     """What is wrong with this Board.md TEXT against the live queues (read-only).
 
@@ -10261,7 +10278,7 @@ def _board_problems(root: Path, text: str) -> list:
         tasks = boardlib.queues(root)
     except ValueError as exc:
         return [f"cannot read the role queues under {roles_dir(root)}: {exc}"]
-    if not tasks:
+    if not tasks and not _queues_initialised(root):
         return [f"no task records under {roles_dir(root)}: run `teamwork.py init` first"]
     try:
         return boardlib.problems(tasks, text)
@@ -10683,7 +10700,7 @@ def _board_tables(args, root: Path) -> int:
         tasks = boardlib.queues(root)
     except ValueError as exc:
         die(f"cannot read the role queues under {roles_dir(root)}: {exc}", 2)
-    if not tasks:
+    if not tasks and not _queues_initialised(root):
         die(f"no task records under {roles_dir(root)}: run `teamwork.py init` first", 2)
     before = path.read_text(encoding="utf-8")
     missing = [anchor for anchor in BOARD_ANCHORS if anchor not in before]
@@ -10691,7 +10708,7 @@ def _board_tables(args, root: Path) -> int:
         die(
             f"{path} is not a rendered board: missing "
             + ", ".join(repr(anchor) for anchor in missing)
-            + "; start from the committed docs/Team/Board.md",
+            + "; the skeleton `init` copies is templates/Docs/Board.md",
             2,
         )
     try:
