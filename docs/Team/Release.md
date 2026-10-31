@@ -551,27 +551,30 @@ Release already exists. Dispatch needs the workflow file to be on the default br
 
 ### What is UNVERIFIED, and the operator step
 
-Nothing above has been published by this lane, and none of it can be: publishing is an
-external action the CEO owns. Two facts are still open, and they are recorded rather
-than assumed.
+Publishing is an external action the CEO owns: this lane builds and verifies, the
+pipeline publishes, and the credential is the operator's. The first real tag run
+answered the two open questions instead of assuming them.
 
-1. **The trusted publisher is not registered.** Measured 2026-10-28:
-   `npm view @nidvue/teamwork versions dist-tags --json` answers with four published
-   versions whose `dist-tags.latest` names a version older than the newest tag, so no
-   tag of this pipeline has ever exercised the `npm` job. **Operator / CEO step:**
-   npmjs.com -> `@nidvue/teamwork` -> Settings -> Trusted Publisher -> GitHub Actions,
-   organization `Nidvue`, repository `Teamwork`, workflow filename `release.yml`; or a
-   repository secret named `NPM_TOKEN`.
-2. **`gitHead` and the provenance attestation are produced by the publish itself.**
-   The local dry run `npm publish --dry-run --json` in `dist/@nidvue/teamwork` (npm
-   11.19.1, node 24.22.1, 2026-10-28) prints the tarball - 74 entries, integrity
-   `sha512-...` - but not `gitHead`, which the registry adds on publish. The registry
-   does record it: `npm view @nidvue/teamwork gitHead` on the newest published version
-   answers `4de397e6827594fac847a90fc9aa4f871ced75ad`, and `git cat-file -t` cannot
-   resolve that sha in this repository (the pre-release history rewrite). That is
-   exactly the condition the verification step treats as red, and the reason it
-   compares `gitHead` with `git rev-parse HEAD` instead of only printing it. The first
-   real tag run is the first proof; until then this is `UNVERIFIED`.
+| fact | measured on `v1.4.3` (run `41236799362`) | state |
+| --- | --- | --- |
+| trusted publisher | `publish @nidvue/teamwork to npm` failed in 19 s with `npm error code ENEEDAUTH` / `need auth`, and `gh secret list` prints nothing - neither credential path exists | **blocked**, operator step below |
+| GitHub Release | published with 5 assets (wheel, sdist, `SHA256SUMS`, CycloneDX and SPDX SBOMs); `sha256sum -c` of the downloaded wheel against the downloaded `SHA256SUMS` -> `OK` | published |
+| npm registry | `npm view @nidvue/teamwork versions dist-tags` reports published versions whose `dist-tags.latest` is older than the tagged revision, so `v1.4.3` is not on the registry | **not published** |
+| `gitHead` and the attestation | both are produced by the publish itself, so neither exists yet for `1.4.3` | `UNVERIFIED` |
+
+The workflow is not the cause: `release.yml` carries `id-token: write`, pins Node
+22.14.0 and npm 11.5.1, and passes `--provenance`; `ENEEDAUTH` means npm never had a
+credential to exchange. **Operator / CEO step**, either one:
+
+1. npmjs.com -> `@nidvue/teamwork` -> Settings -> Trusted Publisher -> GitHub
+   Actions, organization `Nidvue`, repository `Teamwork`, workflow filename
+   `release.yml`; or
+2. a repository secret named `NPM_TOKEN` holding an npm automation token.
+
+Then re-run only the failed job (`gh run rerun 41236799362 --failed`) or dispatch the
+backfill for the existing tag. A re-run converges: a version already on the registry
+is printed and the step exits 0. The red run stays red on purpose - a release that
+cannot publish is never a green skip.
 
 ## Deploy
 
