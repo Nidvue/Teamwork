@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-31T02:38:52",
+  "generated_at": "2026-10-31T12:12:55",
   "team": "Teamwork",
   "team_id": "9a46148ba7b74f6cafcc65045215d108",
   "project": "Teamwork",
   "ledger": {
-    "records": 401,
-    "checkpoint_n": 401,
-    "head": "b8ebe706d03dc721c1f4253ceb8c4a2e0cd16746ec9ccb9ab6d214cd7a51d0f3",
+    "records": 402,
+    "checkpoint_n": 402,
+    "head": "ba7bce8b126438e919b86f5e9c94dfc5b5e5f7602f4bc2126d039f5e0ae83d8b",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "5280dda7a039ea5c108bcd9586c51b7aec0aaa96",
+    "head": "966d0c9ecea24fbac77fc05b0467544a8e1cf5ff",
     "branch": "main",
     "dirty": false,
     "lfs_files": 0
@@ -29,8 +29,8 @@
     },
     {
       "path": "docs/Team/Plan.md",
-      "sha256": "7435817b521b4f4cabef8849bb6837ae275b520cca7cf4d15abb920835ca52a5",
-      "bytes": 80398
+      "sha256": "1f4052c2639e7af78d0223561bb35f398441c4f5bfe2cf45691ebd3a7e39e5a2",
+      "bytes": 80579
     },
     {
       "path": "docs/Team/Project.md",
@@ -212,7 +212,7 @@
   ],
   "how_to_verify": [
     "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
-    "2. take record #401 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
+    "2. take record #402 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
     "3. sha256sum each artifact in this manifest",
     "4. git cat-file -t <git.head>   # the reviewed revision still exists",
     "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
