@@ -213,6 +213,27 @@ The measured baseline and the audit lanes are in [Plan](Plan.md) M13. Findings
 that this engagement does not fix carry a task with the audit row as evidence;
 none is dropped silently.
 
+## M14 - Tree truth (this engagement)
+
+Objective, from the operator's directive: continue the project and finish the
+job. The claims that the tree is true, the assets are sound and the code is clean
+had been carried by prose, so they are re-measured as machine criteria and
+repaired where the measurement disagreed.
+
+Non-goals: a new engine feature, a roster change, a published tag, an npm
+publication, any history rewrite.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-1 | every public document states only facts the tree supports; no stale version, path, count, command or date claim | Technical Writer | Reviewer |
+| AC-2 | every visual asset is referenced, valid, accessible, on-pitch and free of an external font or network dependency | Designer | Reviewer |
+| AC-3 | no unnecessary file, comment or scratch artefact remains; `ruff check`, `ruff format --check` and `pytest` are green | Developer | Tester |
+| AC-4 | an independent Reviewer lane re-reads the diff, runs its own checks and passes the revision before merge | Reviewer | CEO |
+
+Exit condition: the four criteria verified by a role other than their owner on
+the merged revision. The measured baseline, the three defect classes it produced
+and the review record are in [Plan](Plan.md) M14.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`

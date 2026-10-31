@@ -272,9 +272,10 @@ per-repository working state stays under that repository's own `.pi/`.
 At the start and end of each task remove your own scratch: temp logs, one-off
 dumps, finished-task artifacts. Cleanup is untracked/ignored-only; never delete
 tracked, uncommitted, unmerged or evidence-bearing files, and never run
-`git clean -fdx`. Prefer `teamwork.py clean` (temp patterns) and
-`teamwork.py clean --all` (your `Scratch/`). Keep `Artifacts/` and `Reports/` for
-things that are actually deliverables or evidence.
+`git clean -fdx`. Prefer `teamwork.py clean` (your lane's temp patterns) and
+`teamwork.py clean --all` (that lane's `Scratch/`); neither leaves your lane, so
+another lane or the shared `Global/` and `Roles/` needs `--team-wide`. Keep
+`Artifacts/` and `Reports/` for things that are actually deliverables or evidence.
 
 ## Build economy
 
@@ -439,7 +440,7 @@ comment. When a comment is warranted, write what the code cannot say, in one lin
 - **Delete temp and stale files as you go**: `*.orig`, `*.rej`, `*.bak`, `*~`,
   `*.tmp`, `*.log`, `.DS_Store`, `Thumbs.db`, generated caches, scratch copies,
   superseded drafts, empty directories. `teamwork.py clean` removes the patterns
-  it knows; do the rest by hand in the same task, not "later".
+  it knows in your own lane; do the rest by hand in the same task, not "later".
 - **Never commit** build output, caches, local state, editor noise, secrets, or a
   file whose only purpose is to be regenerated.
 - **Scratch stays private and ephemeral**: `Agents/<Instance>/Scratch/`, gitignored,
