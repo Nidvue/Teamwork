@@ -84,7 +84,7 @@ under two roles is two tasks.
 | architect | T-0001 | portability | done | P-0012 | 0cac9bd |
 | ceo | T-0001 | - | done | P-0005 | d36e731 |
 | ceo | T-0002 | - | done | P-0006 | cd561a5 |
-| ceo | T-0004 | - | doing | - | - |
+| ceo | T-0004 | - | done | P-0019 | f3a765f |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -109,7 +109,6 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0004 · Close M14: render the board, write the Plan/Project/Risks records, record the goal layer, export the ledger manifest and refresh the installed skill | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
