@@ -27,6 +27,7 @@ src/teamwork/
 ├── __main__.py     # python -m teamwork -> cli.main()
 ├── cli.py          # main(argv) -> int, a thin face on engine.main
 ├── engine.py       # the ported engine and the argparse surface (build_parser)
+├── board.py        # docs/Team/Board.md rendered and checked against the queues
 ├── bundle.py       # the movable skill bundle + the refresh mirror
 ├── config.py       # workspace paths, record names, caps, scan routing
 ├── gitutil.py      # git plumbing for branch/PR/merge
@@ -103,7 +104,7 @@ Every mutation is appended to `Ledger.jsonl`. Each record carries the previous
 record's digest, so the chain is tamper-evident:
 
 ```text
-record = {n, prev, action, actor, target, detail, ts, rev, hash}
+record = {n, prev, action, actor, role, target, detail, ts, rev, hash}
 ```
 
 - `teamwork ledger verify` recomputes the chain.

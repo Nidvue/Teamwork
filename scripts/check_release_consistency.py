@@ -253,6 +253,17 @@ FOREIGN_VERSION = re.compile(r"(?i)\b(?:python3?|cpython|node|npm|pi)\s*[:=]\s*v
 CHANGELOG_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\]")
 FENCE_OPEN = re.compile(r"^(`{3,}|~{3,})")
 PIP_PLAIN = re.compile(r"\bpip3?\s+install\s+(\S+)")
+#: The words that follow ``pip install`` in ordinary prose and name no package.
+#: ``pip install into the system interpreter`` is a sentence about where a
+#: command writes, not a claim on a distribution called ``into``; without this
+#: set a bare ``\S+`` turns every such sentence into a drift (T-0004: R8 read
+#: ``docs/Team/Decisions.md`` line 1744 that way and reported ``channel names
+#: into``). Kept deliberately short - the words that actually introduce an
+#: object after ``install`` - so ``pip install teamwork`` and ``pip install
+#: some-other-dist`` stay claims and the gate keeps biting.
+PROSE_STOPWORDS = frozenset(
+    {"into", "the", "a", "an", "on", "from", "with", "and", "or", "to", "for"}
+)
 PIP_MODULE = re.compile(r"\b(?:python3?|py)\s+-m\s+pip3?\s+install\s+(\S+)")
 PIPX = re.compile(r"\bpipx\s+install\s+(\S+)")
 #: The two run-without-installing shapes: ``uvx --from <dist> <script>`` and
@@ -368,9 +379,7 @@ def _one_line(text: str) -> str:
     return flat or "(no detail)"
 
 
-# --------------------------------------------------------------------------- #
 # Process and network seams
-# --------------------------------------------------------------------------- #
 
 
 #: The bearer for the current run, read **once** when an online run starts (so a
@@ -548,9 +557,7 @@ def _git_bytes(repo_root: Path, *args: str) -> bytes:
     return proc.stdout
 
 
-# --------------------------------------------------------------------------- #
 # Bundled payload digest (11.3)
-# --------------------------------------------------------------------------- #
 
 
 def _payload_skip(rel: Path) -> bool:
@@ -790,9 +797,7 @@ def _tarball_payload_digest(blob: bytes) -> str:
         return _digest_of_tree(staged)
 
 
-# --------------------------------------------------------------------------- #
 # Local facts
-# --------------------------------------------------------------------------- #
 
 
 def _version_tuple(version: str) -> tuple[int, int, int] | None:
@@ -1052,9 +1057,7 @@ def _marked_lines(text: str, marker: str = ILLUSTRATIVE) -> list[_MarkedLine]:
     return marked
 
 
-# --------------------------------------------------------------------------- #
 # The exception record (11.4)
-# --------------------------------------------------------------------------- #
 
 
 def load_exceptions(path: Path) -> list[dict[str, str]]:
@@ -1123,9 +1126,7 @@ def _stale_exceptions(exceptions: Iterable[dict[str, str]], tags: Sequence[str])
     return findings
 
 
-# --------------------------------------------------------------------------- #
 # R1 / R2 - the tag and the local version string
-# --------------------------------------------------------------------------- #
 
 
 def rule_r1_tagged_version(repo_root: Path) -> RuleResult:
@@ -1191,9 +1192,7 @@ def rule_r2_head_is_newer(repo_root: Path, head_is_default_branch: bool = True) 
     return _ok("R2", f"HEAD {head} is newer than {len(comparable)} tag(s)")
 
 
-# --------------------------------------------------------------------------- #
 # R3 / R4 / R5 / R8 - the published half
-# --------------------------------------------------------------------------- #
 
 
 def rule_r3_npm_payloads(
@@ -1406,15 +1405,20 @@ def _trailing_script(line: str, start: int) -> str | None:
 def _clean_distribution(token: str) -> str | None:
     """Reduce a pip/pipx/uvx package token to a distribution name, or ``None``.
 
-    A local path (``pip install .``, ``pip install -e ".[dev]"``) and a
-    placeholder (``pip install <wheel>``) name no published distribution, so
-    they are not channel claims. What survives is a PEP 503 name.
+    A local path (``pip install .``, ``pip install -e ".[dev]"``), a URL, a flag
+    (``pip install --upgrade``) and a placeholder (``pip install <wheel>``) name
+    no published distribution, so they are not channel claims. Neither is an
+    English word: ``pip install into the system interpreter`` continues as
+    prose, and ``into`` is not a distribution (``PROSE_STOPWORDS``). What
+    survives is a PEP 503 name.
     """
     name = token.strip().strip("\"'`").strip()
     for stop in ("==", ">=", "<=", "!=", "~=", "[", ";", ","):
         name = name.split(stop, 1)[0]
     name = name.strip().strip("\"'`")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name):
+        return None
+    if name.lower() in PROSE_STOPWORDS:
         return None
     return name
 
@@ -1519,9 +1523,7 @@ def rule_r8_install_channels(
     return _ok("R8", f"PyPI {reason}; {marked} channel line(s) marked channel-unavailable")
 
 
-# --------------------------------------------------------------------------- #
 # R6 / R7 / R9 - the committed prose
-# --------------------------------------------------------------------------- #
 
 
 def _project_tokens(text: str) -> list[tuple[re.Match[str], str]]:
@@ -1690,9 +1692,7 @@ def rule_r9_markdown_tags(repo_root: Path) -> RuleResult:
     return _ok("R9", f"every vX.Y.Z token names a tag; {illustrative} illustrative")
 
 
-# --------------------------------------------------------------------------- #
 # Entry point
-# --------------------------------------------------------------------------- #
 
 
 def _all_skip(reason: str) -> list[RuleResult]:

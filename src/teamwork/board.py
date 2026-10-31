@@ -89,11 +89,16 @@ FLIGHT_HEAD = "| agent | task | prio | state | artifact |"
 #: `norm_role()`, so `FLOOR.get("securityauditor")` was `0` and those floors never
 #: applied at all. Every floor is now 1 - no queue carries a pre-milestone id - and
 #: the keys are folded, which `test_the_floor_is_keyed_the_way_the_lookup_spells_it`
-#: pins. The dict stays because it is the roster the render order shares.
+#: pins. The dict stays because it is the roster the render order shares, and its
+#: keys are alphabetical by folded role so the render order is stable and reviewable.
 FLOOR = {
     "architect": 1,
     "ceo": 1,
+    "cfo": 1,
+    "coo": 1,
     "cto": 1,
+    "dataengineer": 1,
+    "designer": 1,
     "developer": 1,
     "productmanager": 1,
     "projectmanager": 1,
@@ -105,12 +110,22 @@ FLOOR = {
 }
 
 #: The folded queue directory name -> the hyphenated spelling the board's rows use.
-#: This is the roster: every role with a `Roles/*/TaskQueue.md` must appear here,
-#: because the board cannot spell a role this dict has no name for.
+#: This is the roster: every role `config.ROLE_PARENT` can staff must appear here,
+#: because the board cannot spell a role this dict has no name for. A misspelt value
+#: is just as bad as a missing one: `board_rows()` folds the committed cell back with
+#: `norm_role()`, so a row the fold does not reproduce is unfindable. `cfo`, `coo`,
+#: `designer` and `data-engineer` were staffable but unlisted, so a roster that named
+#: one of them made `board --check`/`--write` exit 2 on `UnknownRole` even though the
+#: roster was legal; `test_every_staffable_role_has_a_board_spelling` pins the two
+#: maps to `config.ROLE_PARENT` so the next roster change cannot repeat it.
 DISPLAY = {
     "architect": "architect",
     "ceo": "ceo",
+    "cfo": "cfo",
+    "coo": "coo",
     "cto": "cto",
+    "dataengineer": "data-engineer",
+    "designer": "designer",
     "developer": "developer",
     "productmanager": "product-manager",
     "projectmanager": "project-manager",

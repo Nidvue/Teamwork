@@ -13,8 +13,9 @@ target; the underlying command is shown so it can be run without `make`.
 $ make ci
 ```
 
-Runs lint, tests, build/verify, release consistency, privacy scan, docs build,
-link check and the commit-identity audit in order, stopping at the first failure.
+Runs lint, tests, the engine selftest, the skill-sync check, build/verify, release
+consistency, privacy scan, docs build, link check and the commit-identity audit
+in order, stopping at the first failure.
 The target is `release-check`, and `make ci` is its alias - the same recipe, not
 a superset. `make typecheck` is deliberately not in it: mypy is a report, not a
 gate, in CI as well as locally.
