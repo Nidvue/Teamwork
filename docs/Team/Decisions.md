@@ -2,7 +2,11 @@
 
 Owner: Architect for technical entries, CEO for governance, tribunal and red-line
 entries. Append-only, newest last, binding. Every entry is traceable: it names who
-decided, on what evidence, and what would falsify it.
+decided, on what evidence, and what would falsify it. From the ledger era
+(2026-10-30 onward) each entry also lands in the tamper-evident ledger; entries
+written before it predate the ledger and are cited by date and author. An id that
+repeats from before the ledger era is resolved by the correction entry
+D-20261101-CEO-4; from that entry on, an id is unique.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
@@ -604,7 +608,7 @@ never cited as ancestors - reproduce them by checking those objects out);
 `clean --worktrees --dry-run` -> rc 0 (was rc 2: the flag did not exist);
 `ruff check .` and `ruff format --check .` clean; `mypy src` clean.
 
-### Falsifier
+### Falsified by
 
 A worktree that satisfies all five guards and still holds work that no commit
 reaches. Reproduce by creating a worktree, writing only to an ignored path,
@@ -1906,4 +1910,20 @@ worktree until the slot expires - the safe direction to fail.
 - why: measured, not deferred to the author: each call is exercised by my own CLI probe and pinned by a test that goes red when the behaviour is removed. observe is the only fail-closed middle for a typo (auto authorises proactive claims, off silences the report); the ledger shape my probe produced carries target=task, role=lane and detail naming the lane+mode, which is the (task, lane, mode) content the task names; exit 3 is the exit code the command already returned for an empty executable queue, so a refusal is not a new contract; the config entry is what keeps a numeric typo from becoming a cap=0 provider in parallel, measured both ways
 - evidence: pytest -q tests/unit/test_pulse_authority.py @0778e52 -> 18 passed; with the SETTINGS_NON_PROVIDER entry reverted in a scratch worktree of 0778e52 -> 2 failed, 16 passed (registration assertion + test_parallel_prints_no_pulse_mode_provider[0]) and restored -> 18 passed; Artifacts/T-0015/t0015_probe_delta.py @0778e52 -> 11/11 PASS and @7c4530f -> 9/11 (numeric 0 and 2 phantom=True); git diff 0778e52 HEAD -- src/teamwork/config.py src/teamwork/engine.py tests/unit/test_pulse_authority.py -> empty, so main 482736c carries the reviewed bytes and 18 passed there; pytest -q over the 7 pulse/parallel/slot/dispatch modules @0778e52 -> 125 passed; ruff check + ruff format --check -> clean, mypy src/teamwork -> 18 files, no issues; preflight @0778e52 -> 6 checks 0 failed, merge-tree clean
 - falsified by: a numeric PulseMode 0 or 2 that prints a provider row in parallel, a typo read as auto, an inferred task claimed outside auto, or an explicit task blocked by a refused one - any of the 11 probe checks flipping on this revision
+- consequences: -
+
+## D-20261101-CEO-4 - Decisions records: five falsifiers supplied, one heading renamed, eight repeated ids mapped, ledger promise scoped
+
+- date: 2026-11-01
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0010
+- context: -
+- options considered: rewriting the entries (rejected: the file is append-only and the text is the record); leaving the header's claim and passing the layer (rejected: the claim stays false); supplying in place plus a mapping entry (chosen)
+- decision: Five entries lacked a falsifier and were given one in place, and the eight repeated pre-ledger ids are resolved by ordinal. D-20261019-CEO-17 already had a falsifier under a heading no reader or probe recognised ('### Falsifier'); the heading is renamed to '### Falsified by' with its text unchanged, not duplicated. The five that were genuinely empty are D-20261017-CEO 'Only the CEO performs external publishing', D-20261019-CEO-2, D-20261019-CEO-6, D-20261020-CEO-3 and D-20261021-Reviewer-2 'review pass for tests/integration/test_links_flow.py'; each now names an observation that would overturn that decision, marked supplied 2026-11-01. A repeated id is cited by its ordinal and its first line: D-20261017-CEO 1-10, D-20261017-Architect 1-4, D-20261021-Architect 1-2, D-20261021-Architect-2 1-2, D-20261021-Reviewer-2 1-2, D-20261020-CEO-5 1-2, D-20261020-CEO-6 1-2, D-20261020-CEO-7 1-2. From this entry on an id is unique. Two entries, D-20261017-CEO ordinals 3 and 10, share both their first line and their body - they are one record written twice - so their ordinal alone separates them; for every other repeat the ordinal and the first line agree. The header now says the ledger covers entries from 2026-10-30 onward and that earlier entries are cited by date and author.
+- why: The header is the contract a probe, a reviewer and an operator each test the file against, and it promised a property the file's own history cannot have: 104 entries predate the ledger. Supplying a missing falsifier inside its own entry adds information without changing what was decided, which is the one edit an append-only record can absorb.
+- evidence: Reviewer-6 TS-0045 at b7f6142 -> 107/112 complete, 5 missing, 94 ids for 112 entries; Reviewer-9 at 70648d4 -> 5 missing (not 6; D-20261019-CEO-17 already carried one under another heading), the correction entry had no decision.add event; this entry is that event
+- falsified by: an entry dated 2026-11-01 or later with no falsifier, sharing an id, or without a ledger event; or a citation of a pre-ledger entry the ordinal map does not resolve
 - consequences: -
