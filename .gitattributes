@@ -82,5 +82,11 @@
 assets/social-preview.png -filter -diff -merge -text
 
 # Brand assets are tiny and must be readable by mkdocs and GitHub without a
-# Git LFS client, so they are opted out of LFS.
+# Git LFS client, so they are opted out of LFS. Raster formats stay binary: a
+# PNG or ICO edit reviews as "Binary files differ", which is the truth.
 docs/assets/* -filter -diff -merge -text
+
+# An SVG is text, so an icon or banner edit must review as a real diff. The last
+# matching pattern wins, so this narrower rule follows the raster one above and
+# leaves every other asset attribute untouched.
+docs/assets/*.svg diff
