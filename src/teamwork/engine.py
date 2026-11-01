@@ -9002,6 +9002,19 @@ def cmd_stage(args) -> int:
     return 0
 
 
+def _task_exists(root: Path, task_id: str) -> bool:
+    """True when some role queue holds this exact task id.
+
+    An attention item that names a task is what releases that task in `stage`,
+    so an id no queue holds would put a line on the panel that can never match.
+    """
+    wanted = task_id.upper()
+    for role in list_roles(root):
+        if any(t["id"].upper() == wanted for t in parse_tasks(role_dir(root, role) / F_TASKS)):
+            return True
+    return False
+
+
 def cmd_attention(args) -> int:
     """Record, list or resolve an item that needs a person."""
     root = project_root(args)
@@ -9016,9 +9029,16 @@ def cmd_attention(args) -> int:
         text = (args.text or "").strip()
         if not text:
             die("attention add needs --text '<what a person must answer or grant>'")
+        named = (args.task or "").strip().upper()
+        if named and not _task_exists(root, named):
+            die(
+                f"no task '{args.task}' in any role queue: the id is what releases that "
+                "task in `stage`, so it must exist - drop --task for an item that names "
+                "no task"
+            )
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "attention.lock"):
             items = parse_attention(path)
-            item = new_attention(text, args.kind, actor, args.task)
+            item = new_attention(text, args.kind, actor, named)
             items.append(item)
             write_attention(path, items)
         ledger_append(

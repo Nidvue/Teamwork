@@ -145,6 +145,7 @@ def test_attention_add_then_list_shows_one_line_per_open_item_oldest_first(
     cli, project: Path, capsys
 ) -> None:
     init(cli, project)
+    assert cli("--project", project, "task", "add", "developer", "push the release") == 0
     capsys.readouterr()
 
     assert (
@@ -158,7 +159,7 @@ def test_attention_add_then_list_shows_one_line_per_open_item_oldest_first(
             "--kind",
             "authorization",
             "--task",
-            "T-0007",
+            "T-0001",
             "--by",
             "Developer-1",
         )
@@ -185,7 +186,7 @@ def test_attention_add_then_list_shows_one_line_per_open_item_oldest_first(
     lines = capsys.readouterr().out.strip().splitlines()
 
     assert len(lines) == 2
-    assert lines[0].startswith("A-0001 [authorization] T-0007 by Developer-1 ")
+    assert lines[0].startswith("A-0001 [authorization] T-0001 by Developer-1 ")
     assert lines[0].endswith("grant the push")
     assert lines[1].startswith("A-0002 [decision] by CEO ")
     assert lines[1].endswith("pick a licence")
@@ -328,6 +329,32 @@ def test_attention_add_refuses_an_unknown_author(cli, project: Path) -> None:
         )
         != 0
     )
+
+
+def test_attention_add_refuses_a_task_id_no_queue_holds(cli, project: Path, capsys) -> None:
+    """An item that names a task is what releases it in `stage`: a phantom id must not be stored."""
+    root = init(cli, project)
+    capsys.readouterr()
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "attention",
+            "add",
+            "--text",
+            "grant the push",
+            "--kind",
+            "authorization",
+            "--task",
+            "T-9999",
+            "--by",
+            "CEO",
+        )
+        != 0
+    )
+    assert engine.parse_attention(engine.attention_path(root)) == []
+    assert "T-9999" in capsys.readouterr().err
 
 
 def test_attention_resolve_refuses_an_unknown_item(cli, project: Path) -> None:
