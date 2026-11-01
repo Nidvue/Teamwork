@@ -242,6 +242,16 @@ def disputes_path(root: Path) -> Path:
     return root / F_DISPUTES
 
 
+#: The attention record is team-local state next to Reviews.md and Disputes.md -
+#: it is never committed, so it is named here rather than in ``config.DOCS``,
+#: which lists the committed project documents.
+F_ATTENTION = "Attention.md"
+
+
+def attention_path(root: Path) -> Path:
+    return root / F_ATTENTION
+
+
 def skills_path(root: Path) -> Path:
     return root / F_SKILLS
 
