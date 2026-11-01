@@ -1876,3 +1876,18 @@ worktree until the slot expires - the safe direction to fail.
 - falsified by: A badge whose width is a constant of its URL but is served at a different width would break the decision: re-fetch the six URLs and compare against badge_served.json (check_badge_tags.py fails on a mismatch), or a reader-visible distortion of a sized badge on the rendered page
 - consequences: -
 
+## D-20261101-CEO-3 - The Windows operator-path shape is exempted by one literal; the history rewrite it avoids is the larger action
+
+- date: 2026-11-01
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0011
+- context: -
+- options considered: rewrite the two commits (red-line history rewrite, invalidates cited SHAs, --reflog still exposes them); leave the gate red and never push (blocks release); exempt the Windows shape by literal (chosen, bounded, reversible)
+- decision: Amend D-20261019-CEO-8/-15 and AuditReport F-P1: .github/privacy-allow.txt may carry one anchored literal for the operator's Windows home prefix (^C:\\Users\\<name>$), because the two commit messages that carry it (e4b046f, 5b63723) are ancestors of main with 44 commits and 40 cited SHAs above them, so the source fix is a published-history rewrite. The exemption is one shape, anchored and escaped; a sibling user name, a forward-slash form and every credential rule stay armed, and the control is committed.
+- why: SECURITY.md requires a recorded decision for a new entry and calls growth weakening. The ruling it amends assumed the source fix was cheap; measured, it is not - rewriting those commits rewrites every descendant SHA that Archive.md, Decisions.md and the ledger cite as evidence, and --reflog keeps the old messages reportable anyway. Between a bounded literal and a history rewrite, the literal is the smaller exposure and the reversible one.
+- evidence: reviewer-4 acceptance/release @7f82302 -> privacy_scan --tree --history --allow PASS 0 with the entry, FAIL 2 without; narrowness probe with the shipped --allow -> different user reported, exempt prefix + ghp_ token reports api-token only, one-char sibling reported; git rev-list --count e4b046f..main -> 44 commits above the first cited commit
+- falsified by: a credential on a line carrying the exempt prefix is not reported, or the exemption silences a sibling user name, or the allowlist grows past this one shape without a new decision
+- consequences: -
