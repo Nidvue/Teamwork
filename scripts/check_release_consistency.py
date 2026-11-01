@@ -32,10 +32,11 @@ a unit test can point it at a fixture tree::
     rule_r7_changelog(repo_root) -> RuleResult
     rule_r8_install_channels(repo_root, fetch=None) -> RuleResult
     rule_r9_markdown_tags(repo_root) -> RuleResult
+    rule_r10_licence_grant(repo_root) -> RuleResult
 
 ``fetch=None`` is what makes a rule offline: R3, R4, R5 and R8 print a ``SKIP``
-whose detail says why, and R3, R7, R1, R2, R6 and R9 evaluate from the tree.
-Passing ``fetch`` (and for R3 ``fetch_bytes``) is ``--online``.
+whose detail says why, and R1, R2, R3, R6, R7, R9 and R10 evaluate from the
+tree. Passing ``fetch`` (and for R3 ``fetch_bytes``) is ``--online``.
 
 Supporting helpers a test may use directly::
 
@@ -60,6 +61,15 @@ Design notes
   ``vX.Y.Z`` token": a bare ``3.12.13`` in ``python: 3.12.13`` names a Python
   version, not a tag, and turning it into "missing tag v3.12.13" would be a
   defect rather than a finding. R6 owns bare version prose.
+* R10 (the licence-surface rule, added under T-0009 for risk R-23) is the one
+  rule this file carries that `docs/Team/Architecture.md` section 11 does not
+  yet list: it froze nine rules and only the Architect amends it. The rule reads
+  the licence grant from every surface that states one and reports a
+  disagreement, because nothing compared them and `CITATION.cff` could claim
+  ``AGPL-3.0-only`` while the tree granted "or-later". It cannot weaken R1..R9:
+  it touches no other rule, reads only files those rules never judge for a
+  licence, and its two pins are a fixture that must fail naming both values and
+  this repository, which must pass.
 
 Measurement behind ``TARBALL_LAYOUT`` (11.2.3): the npm tarball does *not* keep
 payload-relative paths. ``build_pi_package.copy_skill`` stages ``skills/teamwork/``
@@ -124,6 +134,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -146,6 +157,7 @@ __all__ = [
     "rule_r7_changelog",
     "rule_r8_install_channels",
     "rule_r9_markdown_tags",
+    "rule_r10_licence_grant",
 ]
 
 #: The single source of the version string, and the only local version fact.
@@ -310,6 +322,33 @@ WARNING_CONTEXT = re.compile(
     r"|organization|team|owner)"
     r")"
 )
+
+#: The GNU family names, as a regex alternation, most specific first: the key is
+#: the SPDX prefix the grant is reported under. `\b` opens the alternative and no
+#: boundary closes it, because the compact SPDX spellings (`AGPLv3+`,
+#: `AGPL-3.0-or-later`) continue with a letter or a digit. `GPL` cannot match
+#: inside `AGPL`/`LGPL`: the character before it is a word character, so the
+#: opening `\b` fails. The spelled-out branch is kept because a grant sentence and
+#: a classifier both name the family in full and attach the version with a space.
+LICENCE_FAMILIES = (
+    ("AGPL", r"agpl|gnu\s+affero\s+general\s+public\s+licen[cs]e"),
+    ("LGPL", r"lgpl|gnu\s+(?:lesser|library)\s+general\s+public\s+licen[cs]e"),
+    ("GPL", r"gpl|gnu\s+general\s+public\s+licen[cs]e"),
+)
+#: The two ways a GNU grant says "or any later version": the SPDX suffix and the
+#: licence's own boilerplate. Nothing else is read as or-later, so `-only` and a
+#: bare `GPL-3.0` (SPDX reads a bare id as the "only" grant) stay "only".
+LICENCE_OR_LATER = re.compile(
+    r"(?i)(?:-or-later\b|-\s*or\s+later\b|\bor\s+later\b"
+    r"|\b(?:any|a)\s+later\s+version\b|\bor\s*\(\s*at\s+your\s+option\s*\)"
+    r"|v\d+(?:\.\d+)?\+|(?<=[0-9])\+)"
+)
+CITATION_LICENSE = re.compile(r"^\s*licen[cs]e\s*:\s*(\S.*?)\s*$")
+PYPROJECT_LICENCE_STRING = re.compile(r'^\s*license\s*=\s*"([^"]+)"\s*$')
+PYPROJECT_LICENCE_TEXT = re.compile(r'^\s*license\s*=\s*\{\s*text\s*=\s*"([^"]+)"')
+PYPROJECT_LICENCE_CLASSIFIER = re.compile(r'^\s*"(License\s*::[^"]*)"\s*,?\s*$')
+NPM_LICENCE_FIELD = re.compile(r'^\s*"license"\s*:\s*"([^"]+)"')
+README_LICENCE_BULLET = re.compile(r"(?i)^\s*[-*+]\s+(?:\*\*|__)?licen[cs]e(?:\*\*|__)?\b")
 
 
 class InputError(RuntimeError):
@@ -1692,13 +1731,221 @@ def rule_r9_markdown_tags(repo_root: Path) -> RuleResult:
     return _ok("R9", f"every vX.Y.Z token names a tag; {illustrative} illustrative")
 
 
+# R10 - one licence grant across every surface that states one (T-0009, R-23)
+
+
+@dataclass(frozen=True)
+class LicenceClaim:
+    """One surface's licence statement: where it is and what it grants."""
+
+    file: str
+    line: int
+    value: str
+
+
+def _dot_version(version: str) -> str:
+    """``3`` is ``3.0``: SPDX writes ``AGPL-3.0`` and both spellings are one grant."""
+    return version if "." in version else f"{version}.0"
+
+
+def _gnu_version(alternative: str, flat: str) -> str | None:
+    """The version the text attaches to the family named by ``alternative``.
+
+    Two spellings carry it: the compact one (``AGPL-3.0``, ``AGPLv3``, ``License
+    v3``) and the licence's own prose (``version 3 of the License``). Both must be
+    read because the NOTICE grant sentence names its version in the second way and
+    its family in the first, and the classifier names both. More than one version
+    is ambiguous, so it is refused rather than guessed.
+    """
+    found: set[str] = set()
+    attached = re.compile(rf"(?i)(?<![\w-])(?:{alternative})[- ]?v?(\d+(?:\.\d+)?)")
+    for match in attached.finditer(flat):
+        found.add(_dot_version(match.group(1)))
+    for match in re.finditer(r"(?i)\bversion\s+(\d+(?:\.\d+)?)", flat):
+        found.add(_dot_version(match.group(1)))
+    if len(found) != 1:
+        return None
+    return found.pop()
+
+
+def _licence_grant(text: str) -> str | None:
+    """The one GNU licence grant ``text`` states, as an SPDX-shaped id.
+
+    ``None`` means "this text states no grant": a bare mention of the family
+    without a version (``not covered by the AGPL grant for the code``) is prose
+    about the licence, not a statement of which one applies. Only the GNU family
+    is read - this project is AGPL, and a licence this rule cannot read is an
+    input error rather than a pass, so a relensing fails loudly instead of
+    turning the gate green.
+    """
+    flat = " ".join(str(text).split())
+    for family, alternative in LICENCE_FAMILIES:
+        if not re.search(rf"(?i)\b(?:{alternative})", flat):
+            continue
+        version = _gnu_version(alternative, flat)
+        if version is None:
+            return None
+        grant = "or-later" if LICENCE_OR_LATER.search(flat) else "only"
+        return f"{family}-{version}-{grant}"
+    return None
+
+
+def _surface_lines(repo_root: Path, rel: str) -> list[str] | None:
+    """The surface's lines, or ``None`` when the tree does not carry that file."""
+    try:
+        return (Path(repo_root) / rel).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise InputError(f"{rel}: {exc}") from exc
+
+
+def _claim(rel: str, number: int, statement: str) -> LicenceClaim:
+    value = _licence_grant(statement)
+    if value is None:
+        raise InputError(
+            f"{rel}:{number}: cannot read a licence grant from {_one_line(statement)!r}"
+        )
+    return LicenceClaim(rel, number, value)
+
+
+def _citation_claims(rel: str, lines: Sequence[str]) -> list[LicenceClaim]:
+    for number, line in enumerate(lines, 1):
+        match = CITATION_LICENSE.match(line)
+        if match:
+            return [_claim(rel, number, match.group(1))]
+    return []
+
+
+def _pyproject_claims(rel: str, lines: Sequence[str]) -> list[LicenceClaim]:
+    """The inline licence id and every ``License ::`` classifier.
+
+    ``license = { file = "LICENSE" }`` states no grant - it points at the licence
+    text - so it is skipped, which is why the classifier is read as well: a tree
+    that only points at LICENSE would otherwise carry no machine-readable claim.
+    """
+    claims: list[LicenceClaim] = []
+    for number, line in enumerate(lines, 1):
+        match = PYPROJECT_LICENCE_STRING.match(line) or PYPROJECT_LICENCE_TEXT.match(line)
+        if match:
+            claims.append(_claim(rel, number, match.group(1)))
+            continue
+        match = PYPROJECT_LICENCE_CLASSIFIER.match(line)
+        if match:
+            claims.append(_claim(rel, number, match.group(1)))
+    return claims
+
+
+def _npm_metadata_claims(rel: str, lines: Sequence[str]) -> list[LicenceClaim]:
+    """The ``license`` field of the package.json the pi build writes."""
+    for number, line in enumerate(lines, 1):
+        match = NPM_LICENCE_FIELD.match(line)
+        if match:
+            return [_claim(rel, number, match.group(1))]
+    return []
+
+
+def _notice_claims(rel: str, lines: Sequence[str]) -> list[LicenceClaim]:
+    """The grant paragraph: the licence's own "This program is free software" text.
+
+    Read as a paragraph, not a line, because the grant wraps across five lines and
+    its version sits in the last one. The first paragraph that states a grant is
+    the claim; the trademark paragraph below it mentions the family without a
+    version and so is not one.
+    """
+    start = 0
+    for number, line in enumerate(lines + [""], 1):
+        if line.strip():
+            continue
+        paragraph = " ".join(lines[start : number - 1]).strip()
+        claim = _licence_grant(paragraph) if paragraph else None
+        if claim is not None:
+            return [LicenceClaim(rel, start + 1, claim)]
+        start = number
+    raise InputError(f"{rel}: no licence grant sentence")
+
+
+def _readme_claims(rel: str, lines: Sequence[str]) -> list[LicenceClaim]:
+    """The licence bullet, not the comparison table around it.
+
+    A table row is how the README compares *other* projects' licences (``| CrewAI
+    | ... | MIT |``); reading it as this project's grant would make any comparison
+    table a drift. Only a bullet that opens with the licence label is read, which
+    is the shape the README's "Contributing, security and license" section uses.
+    """
+    return [
+        _claim(rel, number, line)
+        for number, line in enumerate(lines, 1)
+        if README_LICENCE_BULLET.match(line)
+    ]
+
+
+#: Each surface's reader, keyed by the file that carries the statement, in
+#: tie-break order: when two grants are equally common the earliest surface here
+#: is the one a finding quotes, so one tree yields one report rather than one per
+#: surface. ``LICENSE`` is deliberately absent - it is the licence *text*, whose
+#: "either version 3 ... or any later version" is how the AGPL tells an author to
+#: apply itself, not a claim by this project; the grant this project makes lives
+#: in NOTICE.
+LICENCE_READERS = (
+    ("CITATION.cff", _citation_claims),
+    ("pyproject.toml", _pyproject_claims),
+    ("scripts/build_pi_package.py", _npm_metadata_claims),
+    ("NOTICE", _notice_claims),
+    ("README.md", _readme_claims),
+)
+
+
+def rule_r10_licence_grant(repo_root: Path) -> RuleResult:
+    """Every surface that states a licence must state the same one.
+
+    R-23: `CITATION.cff` could claim ``AGPL-3.0-only`` while the tree granted
+    "or-later" and no gate read the field, so the repository published two
+    different grants. The rule reads each surface that carries a statement -
+    CITATION's ``license:``, pyproject's inline id and its classifiers, the
+    ``license`` field of the package.json the pi build writes, NOTICE's grant
+    sentence and the README's licence bullet - and reports every surface whose
+    grant differs from the most common one, naming the file, both values and the
+    line of each.
+
+    A surface that states nothing is not compared: a fixture without a NOTICE
+    proves nothing about NOTICE. With fewer than two statements there is nothing
+    to disagree, so the rule is a ``SKIP`` that says so - never an ``ok`` that
+    would claim agreement it did not measure.
+    """
+    claims: list[LicenceClaim] = []
+    for rel, reader in LICENCE_READERS:
+        lines = _surface_lines(repo_root, rel)
+        if lines is None:
+            continue
+        claims.extend(reader(rel, lines))
+    if not claims:
+        return _skip("R10", "no licence surface in this tree: nothing to compare")
+    counts = Counter(claim.value for claim in claims)
+    best = max(counts.values())
+    reference = next(claim for claim in claims if counts[claim.value] == best)
+    findings = [
+        f"{claim.file}:{claim.line}: licence {claim.value}, "
+        f"but {reference.file}:{reference.line} says {reference.value}"
+        for claim in claims
+        if claim.value != reference.value
+    ]
+    if findings:
+        return _drift("R10", findings)
+    if len(claims) == 1:
+        return _skip(
+            "R10", f"one licence surface: {reference.file}:{reference.line} {reference.value}"
+        )
+    return _ok("R10", f"{len(claims)} licence surface(s) agree on {reference.value}")
+
+
 # Entry point
 
 
 def _all_skip(reason: str) -> list[RuleResult]:
     return [
         _skip(rule, reason, fatal=True)
-        for rule in ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9")
+        for rule in ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10")
     ]
 
 
@@ -1833,6 +2080,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _run_rule("R7", lambda: rule_r7_changelog(repo_root)),
         _run_rule("R8", lambda: rule_r8_install_channels(repo_root, fetch)),
         _run_rule("R9", lambda: rule_r9_markdown_tags(repo_root)),
+        _run_rule("R10", lambda: rule_r10_licence_grant(repo_root)),
     ]
     return _emit(results, args.json)
 
