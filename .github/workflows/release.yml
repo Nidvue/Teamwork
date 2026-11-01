@@ -1,7 +1,7 @@
 # Release pipeline for teamwork-agents.
 #
 # Contract: docs/Team/Architecture.md (the CI/release contract and the
-# release-consistency contract, the nine rules R1-R9) and docs/Team/Project.md
+# release-consistency contract, the ten rules R1-R10) and docs/Team/Project.md
 # AC-7.
 # Triggered by a `v*` tag push, and by a `workflow_dispatch` that names an
 # EXISTING `vX.Y.Z` tag reachable from `main` (the npm backfill path - it never
@@ -20,7 +20,7 @@
 # updating it, leaving the release a draft until a re-run. `dist/SHA256SUMS` is
 # now the only manifest and it covers every published asset.
 #
-# The release-consistency gate (the nine rules R1-R9 of
+# The release-consistency gate (the ten rules R1-R10 of
 # docs/Team/Architecture.md) runs in the `consistency` job, before anything is
 # built or published, and again after the publish so the Release of the tag
 # being published is checked too. The gate needs the complete tag set, so
