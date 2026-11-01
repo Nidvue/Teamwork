@@ -199,6 +199,8 @@ def test_a_fail_stores_the_revision_and_the_next_packet_is_a_delta(cli, project:
             "fail",
             "--findings",
             "the boundary is untested",
+            "--detects",
+            "a request exactly at the length limit is rejected instead of accepted",
         )
         == 0
     )
@@ -211,7 +213,8 @@ def test_a_fail_stores_the_revision_and_the_next_packet_is_a_delta(cli, project:
     engine.write_tasks(engine.task_file(root, "developer"), [task], "developer")
     unchanged = engine.review_packet(root, "developer", task)
     assert "review round: 2 (1 previous fail)" in unchanged
-    assert "previous findings: the boundary is untested" in unchanged
+    assert "previous findings: detects:" in unchanged
+    assert "the boundary is untested" in unchanged
     assert f"delta since {head}: none" in unchanged
 
     (project / "README.md").write_text("base\nfixed\nplus a boundary test\n", encoding="utf-8")
