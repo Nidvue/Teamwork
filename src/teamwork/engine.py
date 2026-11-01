@@ -237,6 +237,7 @@ from .records import (
     DISPUTE_RE,
     ENTRY_RE,
     HEADERS,
+    MANDATES,
     META_RE,
     REVIEWS_HEADER,
     ROLE_LINKS,
@@ -2100,6 +2101,7 @@ LEDGER_ACTIONS = (
     "instance.add",
     "instance.retire",
     "task.add",
+    "task.duplicate",
     "task.claim",
     "task.status",
     "task.evidence",
@@ -6041,43 +6043,83 @@ def cmd_task_add(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
     path = task_file(root, role)
+    mandate = (getattr(args, "mandate", "") or "explicit").strip().lower()
+    basis = one_line(getattr(args, "basis", "") or "")
+    key = one_line(getattr(args, "key", "") or "")
+    if mandate not in MANDATES:
+        die(f"--mandate '{mandate}' is not one of {', '.join(MANDATES)}", 2)
+    if mandate == "inferred" and not basis:
+        die(
+            "an inferred mandate needs --basis '<why this work may be done>': the "
+            "team derived the work itself, so the record must say what authorised it",
+            2,
+        )
+    duplicate = None
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
-        t = new_task(
-            args.title,
-            args.priority,
-            args.shared,
-            args.deps,
-            args.tags,
-            args.status,
-            args.body or "",
-            args.evidence,
-            "na" if args.no_review else "required",
-            getattr(args, "review_profile", ""),
+        if key:
+            duplicate = next((t for t in tasks if t.get("intake_key") == key), None)
+        if duplicate is None:
+            t = new_task(
+                args.title,
+                args.priority,
+                args.shared,
+                args.deps,
+                args.tags,
+                args.status,
+                args.body or "",
+                args.evidence,
+                "na" if args.no_review else "required",
+                getattr(args, "review_profile", ""),
+                mandate,
+                basis,
+                key,
+            )
+            if args.claimed_by:
+                t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
+            if getattr(args, "bug", False):
+                t["kind"] = "bug"
+            wanted = t["title"].strip().lower()
+            for existing in tasks:
+                if existing["title"].strip().lower() == wanted:
+                    print(
+                        f"teamwork: {role} queue already has {existing['id']}: "
+                        f"{existing['title']} - not duplicated"
+                    )
+                    return 0
+            tasks.append(t)
+            # The id has to exist before the graph is checked, or a dep on this very
+            # task would read as unknown and a self-dependency could not be seen.
+            t["id"] = next_id(tasks, "T-")
+            require_runnable_task_graph(root, role, tasks)
+            write_tasks(path, tasks, role)
+    if duplicate is not None:
+        ledger_append(
+            root,
+            "task.duplicate",
+            args.agent,
+            duplicate["id"],
+            f"intake key {key} repeated: {duplicate['title']}",
+            "",
+            role,
         )
-        if args.claimed_by:
-            t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
-        if getattr(args, "bug", False):
-            t["kind"] = "bug"
-        wanted = t["title"].strip().lower()
-        for existing in tasks:
-            if existing["title"].strip().lower() == wanted:
-                print(
-                    f"teamwork: {role} queue already has {existing['id']}: "
-                    f"{existing['title']} - not duplicated"
-                )
-                return 0
-        tasks.append(t)
-        # The id has to exist before the graph is checked, or a dep on this very
-        # task would read as unknown and a self-dependency could not be seen.
-        t["id"] = next_id(tasks, "T-")
-        require_runnable_task_graph(root, role, tasks)
-        write_tasks(path, tasks, role)
+        print(
+            f"teamwork: {role} queue already has {duplicate['id']}: "
+            f"{duplicate['title']} - intake key {key} repeated, nothing created"
+        )
+        return 0
     ledger_append(
-        root, "task.add", args.agent, t["id"], f"[{t['priority']}] {t['title']}", "", role
+        root,
+        "task.add",
+        args.agent,
+        t["id"],
+        f"[{t['priority']}] {t['title']}" + (f" ({mandate})" if mandate == "inferred" else ""),
+        "",
+        role,
     )
     print(
         f"teamwork: {role} queue + {t['id']} [{t['priority']}] {t['title']}"
+        + (" [inferred]" if t["mandate"] == "inferred" else "")
         + (f" [for {t['claimed_by']}]" if t["claimed_by"] else "")
     )
     return 0
@@ -6087,7 +6129,10 @@ def _print_task(t: dict, prefix: str = "-") -> None:
     dep = f" deps={t['deps']}" if t["deps"] else ""
     shared = f" shared={t['shared']}" if t["shared"] else ""
     area = f" area={t['area']}" if t.get("area") else ""
-    print(f"{prefix} {t['id']} [{t['priority']}/{t['status']}] {t['title']}{dep}{shared}{area}")
+    badge = " [inferred]" if t.get("mandate") == "inferred" else ""
+    print(
+        f"{prefix} {t['id']}{badge} [{t['priority']}/{t['status']}] {t['title']}{dep}{shared}{area}"
+    )
     if t.get("evidence"):
         print(f"    evidence: {t['evidence']}")
     if t.get("repro"):
@@ -10792,8 +10837,9 @@ def cmd_board(args) -> int:
         print(f"- {label} {summary}")
         if ready:
             top = ready[0]
+            badge = " [inferred]" if top.get("mandate") == "inferred" else ""
             print(
-                f"  next={top['id']} [{top['priority']}] {top['title']}"
+                f"  next={top['id']}{badge} [{top['priority']}] {top['title']}"
                 + f" claimed_by={top.get('claimed_by') or 'pool'}"
             )
         else:
@@ -12880,6 +12926,22 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--deps", default="", help="comma list; cross-role as role:T-0001")
     s.add_argument("--shared", default="", help="shared board / issue / PR reference")
     s.add_argument("--tags", default="")
+    s.add_argument(
+        "--mandate",
+        default="explicit",
+        choices=list(MANDATES),
+        help="explicit (a person or role asked for it) or inferred (the team derived it)",
+    )
+    s.add_argument(
+        "--basis",
+        default="",
+        help="why this work may be done; required when --mandate is inferred",
+    )
+    s.add_argument(
+        "--key",
+        default="",
+        help="idempotence key: a repeated key adds nothing and names the existing task",
+    )
     s.add_argument(
         "--review-profile",
         default="",
