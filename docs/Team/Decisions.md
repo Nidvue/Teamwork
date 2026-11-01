@@ -1843,3 +1843,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: venv python scripts/check_release_consistency.py --offline @2a15514 -> 'R10 ok 5 licence surface(s) agree on AGPL-3.0-or-later', 0 problem(s), exit 0; copy of the five real surfaces with CITATION rewritten to AGPL-3.0-only -> R10 DRIFT 'CITATION.cff:17: licence AGPL-3.0-only, but pyproject.toml:26 says AGPL-3.0-or-later'; venv python -m pytest -q tests/unit/test_release_consistency.py @2a15514 -> 94 passed, 12 skipped
 - falsified by: A surface that carries a real grant which one of these readers misses (e.g. a licence stated only in LICENSE or in a docs/ page) would leave a disagreement undetected: add that surface, or show a tree where two grants differ and R10 reports ok.
 - consequences: Consequence outside this task's scope, measured not assumed: the suites that pin the rule-id set now see R10 and must be updated by their owners - tests/integration/test_release_consistency_integration.py:177,390 and tests/acceptance/test_acceptance_release_consistency.py:79,111 hardcode range(1, 10); docs/Team/Architecture.md section 11 still freezes nine rules and only the Architect amends it.
+
+## D-20261101-Reviewer-5 - R10 (T-0009) ships only with the frozen rule-id contract amended and both layer pins moved
+
+- date: 2026-11-01
+- kind: technical
+- status: accepted
+- deciders: Reviewer-5 (reviewer)
+- decided by: Reviewer-5
+- task: T-0009
+- context: -
+- options considered: -
+- decision: Reject merging T-0009 at 2a15514. R10 itself measured sound (see evidence), but the deliverable changes a frozen interface and leaves 9 red tests in two layers, so the rework must land as one green change-set in this order: (1) Architect amends docs/Team/Architecture.md 11.1.2 RULE-ID R1..R9 -> R1..R10, 11.2 The nine rules -> ten (R10 row + detail), and docs/Team/Plan.md:103,114,185 (AC-REL-2 says R1-R9); (2) Tester widens tests/integration/test_release_consistency_integration.py:44 LINE regex (R(?P<rule>[1-9]) cannot parse R10) and the pins at :177,:390 (tester T-0004); (3) Reviewer moves tests/acceptance/test_acceptance_release_consistency.py:79,:105,:111 (reviewer T-0003); (4) only then is a T-0009 revision merged, with pytest -q green at the merge revision. Rejected: merge now and let the two layer owners fix it afterwards - that puts red main and red CI (ci.yml runs plain pytest) on the baseline every other lane builds on, and loop refuses STOP on a failing layer. Rejected: the developer edits the two test files itself - they are Tester/Reviewer layer artifacts and the layer owner must own its own pin.
+- why: The integration failures are not the rule-id set alone: the contract's line parser is single-digit, so a test-side range(1,10) -> range(1,11) bump would be a test weakening that hides an unamended wire format. The contract owner must amend first, then its consumers.
+- evidence: pytest -q tests/integration/test_release_consistency_integration.py @2a15514 -> 7 failed, 6 passed, 5 failures at :147 'the line does not match the contract format: R10 SKIP ...' plus :177 and :390 rule-id set; pytest -q tests/acceptance/test_acceptance_release_consistency.py @2a15514 -> 2 failed, 3 passed at :79; scripts/check_release_consistency.py --offline @2a15514 -> R10 ok 5 licence surface(s) agree on AGPL-3.0-or-later, 0 problem(s), exit 0; my own fixture probes (17 shapes) in .pi/Teamwork/Reviewer-5/t0009_probe.py -> drift names both files/values/lines, one surface = SKIP, unreadable = exit 2, README comparison rows and the NOTICE trademark paragraph are not read; artifacts Agents/Reviewer-5/Artifacts/T-0009-layers-2a15514.txt, T-0009-r10-probes-2a15514.txt
+- falsified by: If a T-0009 revision at review shows the four sites green with R10 present and Architecture 11 amended, this ordering cost was unnecessary; it says nothing about R10's extractor logic, which measured correct.
+- consequences: -
