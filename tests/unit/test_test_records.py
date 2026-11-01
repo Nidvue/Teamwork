@@ -46,6 +46,28 @@ def test_render_tests_splits_layer_and_area(tmp_path: Path) -> None:
     assert not path.exists()
 
 
+def test_render_tests_default_path_renders_a_generic_header() -> None:
+    """Regression (T-0017): path=None crashed with UnboundLocalError.
+
+    render_tests follows the renderers that do fall back when there is no file to
+    link from - render_criteria and render_testplan - so the header is the bare H1
+    title and carries no Related line. render_tasks and render go through
+    header_for, which deliberately refuses a missing path (records.py:1197-1204);
+    that guard is intentional and stays.
+    """
+    text = engine.render_tests([engine.new_test_record("unit", "names")])
+    assert text.startswith("# Tests - one record per test layer and area\n\n")
+    assert "Related:" not in text
+    assert "## TS-0001 · unit · names" in text
+
+
+def test_render_tests_with_path_links_the_sibling_documents(tmp_path: Path) -> None:
+    """The other arm still links its siblings, so the fix cannot just drop them."""
+    text = engine.render_tests([engine.new_test_record("unit", "names")], tmp_path / "Tests.md")
+    assert "Related: [test plan](" in text
+    assert "[criteria](" in text
+
+
 def test_render_tests_orders_by_layer_then_area(tmp_path: Path) -> None:
     path = tmp_path / "Tests.md"
     records = [
