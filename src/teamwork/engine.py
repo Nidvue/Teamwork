@@ -1691,33 +1691,122 @@ def owner_for_layer(root: Path, layer: str) -> str:
     return LAYER_OWNER.get(layer, "")
 
 
-def artifact_digest(root: Path, raw: str) -> str:
+def artifact_tree(root: Path, cwd: Path | None = None) -> Path:
+    """The checkout a relative ``--artifact`` is read from: the invoker's own.
+
+    A lane works in its own linked worktree, so the tree the command runs in is
+    that worktree; from the base checkout it is the base checkout. Resolving
+    against ``project_of(root)`` instead let a lane bind *main's* copy of a file
+    it had changed, which made the digest prove nothing about the revision under
+    review (R-22, T-0011).
+    """
+    return work_repo(root, cwd)
+
+
+def project_trees(root: Path) -> list:
+    """Every checkout of this project: the base checkout first, then its worktrees."""
+    project = project_of(root)
+    trees = [project.resolve()]
+    if is_git_repo(project):
+        for line in run_git(project, "worktree", "list", "--porcelain").stdout.splitlines():
+            if line.startswith("worktree "):
+                other = Path(line.split(" ", 1)[1].strip()).resolve()
+                if other not in trees:
+                    trees.append(other)
+        return trees
+    wt_root = root / DIR_RUNTIME / DIR_WORKTREES
+    if wt_root.is_dir():
+        for cand in sorted(wt_root.iterdir()):
+            if (cand / ".git").exists() and cand.resolve() not in trees:
+                trees.append(cand.resolve())
+    return trees
+
+
+def _tree_label(tree: Path, project: Path) -> str:
+    """Name a checkout unambiguously: base and lane copies of a path read alike."""
+    if tree.resolve() == project.resolve():
+        return f"the base checkout ({project})"
+    return f"the lane worktree {tree.name} ({tree})"
+
+
+def _inside(path: Path, base: Path) -> bool:
+    try:
+        path.resolve().relative_to(base.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def artifact_digest(root: Path, raw: str, cwd: Path | None = None) -> str:
     """``rel:sha256[:16]:bytes`` for an evidence file that must exist right now.
 
     An evidence artifact is proof a later agent can re-open, so it has to live in
     the project and be bound to the revision: the digest is appended to the
     ledger, and changing the file after the fact breaks the match.
+
+    A relative path is read from the tree the command runs in
+    (:func:`artifact_tree`), never from the base checkout, and it may not resolve
+    into a different checkout at all: a ``..`` climb, or a name only another tree
+    has, is refused with both candidates named, because silently hashing the other
+    tree's copy is the defect this rule closes. An absolute path is refused when
+    your own tree has the same name - two candidate copies are exactly the silent
+    choice this rule removes. A copy only one checkout has is unambiguous, so it
+    binds: the team's shared ``.pi`` state and a lane's own new file are readable
+    from anywhere.
     """
     import hashlib
 
-    project = project_of(root)
-    path = Path(raw).expanduser()
-    if not path.is_absolute():
-        path = project / path
-    path = path.resolve()
+    project = project_of(root).resolve()
+    tree = artifact_tree(root, cwd).resolve()
+    given = Path(raw).expanduser()
+    trees = project_trees(root)
+    path = (given if given.is_absolute() else tree / given).resolve()
+    # A lane worktree sits inside the base checkout, so the deepest tree holding
+    # the path names the copy, and the base cannot claim a lane's file.
+    candidates = [t for t in [tree, *trees] if _inside(path, t)]
+    holder = max(candidates, key=lambda p: len(p.parts)) if candidates else None
+    outside = holder is not None and holder != tree
+    twin = (tree / path.relative_to(holder)).resolve() if outside else None
+    if outside and not given.is_absolute():
+        die(
+            f"artifact {raw} resolves to {path}, outside the tree this command "
+            f"runs in ({tree}), in {_tree_label(holder, project)}. A relative "
+            "--artifact is read from your own tree, so pass a path inside it - or "
+            "an absolute path if you mean another checkout's copy."
+        )
+    if outside and twin.is_file():
+        die(
+            f"artifact {raw} is {path}, in {_tree_label(holder, project)}, while "
+            f"your own tree has the same name at {twin}. A lane binds its own "
+            "copy: the two are different files under one name, and the record "
+            "would read as if it were yours."
+        )
     if not path.is_file():
+        rival = None
+        if not given.is_absolute():
+            rival = next((t for t in trees if t != tree and (t / given).is_file()), None)
+        if rival is not None:
+            die(
+                f"artifact {raw} is not in your tree ({path}), but the same name "
+                f"exists in {_tree_label(rival, project)} at {(rival / given).resolve()}. "
+                "A relative --artifact is read from your own tree so a lane cannot "
+                "bind the base checkout's copy of a file it changed; pass the path "
+                "that exists here, or an absolute path if you mean that copy."
+            )
         die(f"artifact not found: {raw} - evidence must name a file that exists")
+    # The record names the file as the checkout that holds it does, so an
+    # artifact bound from a lane reads the same as the merged path on main.
     try:
-        rel = path.relative_to(project.resolve())
+        rel = path.relative_to(holder or tree)
     except ValueError:
         die(f"artifact outside the project: {raw} - keep evidence inside the repository")
     data = path.read_bytes()
     return f"{rel.as_posix()}:{hashlib.sha256(data).hexdigest()[:16]}:{len(data)}"
 
 
-def artifact_digests(root: Path, raws) -> str:
+def artifact_digests(root: Path, raws, cwd: Path | None = None) -> str:
     """Hash every ``--artifact`` path; one line, empty when none was given."""
-    return ", ".join(artifact_digest(root, r) for r in (raws or []))
+    return ", ".join(artifact_digest(root, r, cwd) for r in (raws or []))
 
 
 def require_ancestor(project: Path, older: str, newer: str) -> None:
