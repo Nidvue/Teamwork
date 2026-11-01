@@ -138,7 +138,8 @@ one `TaskQueue.md`; only one of them revises that memory at a time.
 ### `instance`
 
 ```text
-teamwork instance add ROLE [--count N] [--name NAME] [--new-role] [--by BY] [--json]
+teamwork instance add ROLE [--count N] [--name NAME] [--new-role]
+                       [--under TEAM_LEADER] [--by BY] [--json]
 teamwork instance list [--json]
 teamwork instance retire NAME --reason WHY [--by BY] [--force]
 ```
@@ -147,7 +148,21 @@ teamwork instance retire NAME --reason WHY [--by BY] [--force]
   fourth architect costs one directory, not a second memory. A role the team does
   not staff needs `--new-role`: it then gets the shared memory set and charter
   copy like any other.
-- `list` prints role, instances, task count and the current memory writer.
+- `--under TEAM_LEADER` attaches a squad specialist (`developer`, `tester`,
+  `designer`, `data-engineer`, `technical-writer`) to the team leader it works
+  for. The attachment is **one private file**, `Agents/<Instance>/Team.md`: it is
+  a fact about that instance, not a reporting line, so `map` and `ROLE_PARENT` do
+  not change and a specialist has exactly one manager at a time. It is refused
+  (`2`) for a target that is not a team-leader instance, for a team-leader (a
+  leader's only manager is the CTO - more teams is `instance add team-leader`
+  with no `--under`), for the shared services and the independent lanes
+  (`architect`, `project-manager`, `release-engineer`, `reviewer`, `ceo`, `cto`,
+  `coo`, `cfo`, and `security-auditor`, which audits the lane above and the team
+  it would be attached to and is never attached), and for a name that already
+  exists - moving a specialist is `instance retire` then `instance add --under`,
+  so no command can write a second `under:` line.
+- `list` prints role, instances, task count and the current memory writer, with
+  `(under=<TeamLeader>)` beside every attached instance.
 - `retire` removes an idle instance's private directory and always keeps the
   role's memory and queue. An instance that still claims a `doing`/`selfcheck`/
   `review` task, holds a provider slot or holds the memory pen is refused until it
@@ -210,8 +225,8 @@ Manage a role's shared priority queue.
 
 ```text
 teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
-    [--status {todo,doing,blocked}] [--deps DEPS] [--shared SHARED]
-    [--review-profile {fast,standard,deep}]
+    [--status {todo,doing,blocked}] [--deps DEPS] [--feature F-0001]
+    [--shared SHARED] [--review-profile {fast,standard,deep}]
     [--tags TAGS] [--body BODY] [--bug] [--evidence EVIDENCE]
     [--claimed-by CLAIMED_BY] [--no-review]
 ```
@@ -225,6 +240,7 @@ teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
 | `--claimed-by` | Assign to a specific instance (default: role pool). |
 | `--bug` | A defect fix: its self-check is refused until a `tests repro` record proves the defect. |
 | `--no-review` | Mark a chore that does not need Reviewer sign-off. |
+| `--feature` | Slice the task to a `ready` or `active` feature (`F-0001`); the record is written as `- feature: F-0001` after `- deps:`, and a queue written without the flag is byte-identical to before the field existed. A `proposed` feature is not frozen yet and a `done`/`dropped` one takes no work, so both are refused (`2`). Only that feature's own squad may claim the task - see [`feature`](#feature). |
 
 New tasks cannot start as `review` or `done`; the gates own those states.
 
@@ -254,6 +270,21 @@ A lane that fills its capacity holds `LANE_WIP` (2) deliverables at once: one in
 review plus the next in progress. `pulse` uses the same arithmetic to fill each
 lane to its limit instead of handing work only to idle lanes; a Reviewer lane
 takes one deliverable at a time.
+
+A task that carries `--feature F-nnnn` belongs to one feature team: it is
+executable by an instance iff the record's `owner` is that instance, or the
+instance's `Agents/<Instance>/Team.md` names that owner, **and** the record is
+`active`. An instance with no `under:` never executes a feature task, a leader
+executes only its own, and a `ready` feature's tasks are queued and held. A task
+with no `--feature` belongs to no team and stays executable by any instance of
+its role. When everything ready is another team's, the command says so and exits
+`3`:
+
+```text
+teamwork: Developer-2 (developer) has no executable task of its own team
+  (2 ready in the queue, 2 held by another team)
+  - T-0071 [P1] feature=F-0002 owner=TeamLeader-1
+```
 
 #### `task set`
 
@@ -316,6 +347,17 @@ every stale row (`0` when equal); `--write` renders them from the queues and exi
 `problems`/`dropped`) and is only valid with `--check` or `--write`. A board that
 is missing its tables, or a queue set that cannot be read, is a setup error
 (`2`), never a clean check.
+
+The committed board is written by the **merging Reviewer**, not by the feature
+branch: `pr merge` (and therefore a passing `review`) re-renders it from the
+queues and commits it as a `chore(records)` change after the merge. A branch that
+still carries its own render is not an error - `preflight` charges only drift the
+branch itself caused - but the merge's re-render makes the carried copy irrelevant,
+so no lane needs to hand-render before submitting. If that carried copy conflicts
+with a base that moved, the rebase the probe prints should **drop** it (the merge
+writes the file) instead of rendering it again. `board --write` is the repair
+command for a board that is already on the base; a render that could not be
+committed says so and names it.
 
 ### `parallel`
 
@@ -535,7 +577,7 @@ teamwork tests add --layer LAYER [--area AREA] [--owner OWNER]
     [--task TASK] [--command COMMAND] [--no-owner-check] [--force REASON]
 ```
 
-`--layer` is one of `goal,requirements,plan,tech,release,data,process,cost,system,ui,docs,unit,integration,acceptance,security`.
+`--layer` is one of `goal,requirements,plan,tech,release,data,process,cost,system,ui,docs,unit,integration,acceptance,security,feature`. The `feature` layer is owned by `team-leader` and proves feature isolation: the slice's diff, its standalone build and its frozen interface. `staffed_layers` requires it only where a `team-leader` instance exists, so `tests plan` never reports a gap for work nobody owns; `DEFAULT_REQUIRED_LAYERS` stays `unit,integration,acceptance` and a team leader widens its own area with `tests require --area F-0001 --layers unit,integration,acceptance,feature --reason <why>`.
 
 #### `tests run`
 
@@ -624,6 +666,21 @@ ledger) to the verdict; `--baseline` and `--replay` record where the
 verification started and how to rerun it. `--force` overrides the review gates
 and requires a recorded reason.
 
+Before a pass records anything it runs the same mergeability probe as `preflight`:
+`git merge-tree --write-tree <base> <branch>`. When the probe is non-zero - the
+branch conflicts with the base it would merge into - the pass is **refused** with
+the conflicting paths and the rebase command, exit `2`: no verdict is recorded, the
+PR is not flipped to `approved` and the task stays in `review`. That refusal is the
+point of the probe: a pass that precedes a merge that cannot happen leaves reviewed
+work unlanded behind a green verdict (P-0057 recorded `review_status=passed` and
+then died in `pr merge` on a `Board.md` conflict). `--force <reason>` records a
+deliberate override of the probe on the task's `forced` field and in the
+`review.pass` ledger detail, and that detail **leads** with the override
+(`FORCED: <reason> | mergeability overridden: <probe>`) so a Reviewer's full
+evidence line can never truncate it away - the queue is local and gitignored, so the
+hash-chained ledger is the only durable proof the override happened; git still cannot
+land a conflict, so the merge is reported as not run rather than counted as shipped.
+
 Several Reviewers may run at once, so a lane announces what it took:
 `review --next --by <reviewer>` claims the highest-priority unclaimed deliverable
 and prints its packet in one atomic step, and
@@ -697,7 +754,7 @@ measure is a failure, never a pass. One line per check, the exact command that
 clears each finding, then the summary and a digest:
 
 ```text
-PREFLIGHT pass @1a2b3c4d5e6f :: 6 checks, 0 failed
+PREFLIGHT pass @1a2b3c4d5e6f :: 7 checks, 0 failed
 PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 ```
 
@@ -706,8 +763,9 @@ PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 | `branch` | a branch the record names is not in this repository, the base is not a commit here, the base has moved past the branch (behind), or the branch carries no commit over the base. Two **warnings**, not failures: more than one commit (squash before review) and a task with no branch at all - a verdict, a records pass or a research note legitimately carries no code, and the other revision checks then report `not measured`. |
 | `identity` | `identity --audit --range <base>..<branch>` reports a commit that is not authored and committed by a role mailbox, or that carries no `Acting role:` trailer. |
 | `evidence` | the task's `evidence`, its `self_note`, or the note the running `selfcheck` is about to store (its `--test` line included) names an `@<sha>` that is not a commit in this repository. |
-| `mergeable` | `git merge-tree --write-tree <base> <branch>` is non-zero, naming the conflicting paths; an unanswerable probe (git < 2.38) is a failure, not a pass. |
+| `mergeable` | `git merge-tree --write-tree <base> <branch>` is non-zero, naming the conflicting paths; an unanswerable probe (git < 2.38) is a failure, not a pass. The same probe refuses a `review --result pass` and a `pr merge`, so a verdict can never precede an impossible merge. |
 | `board` | the branch itself changes `docs/Team/Board.md` and that file disagrees with the queues. A branch that does not carry the board is never charged: the merging Reviewer renders it. |
+| `features` | the feature records at the tree this branch would **land** - the base's records with the branch's rows folded in - break the independence rule (`feature check`). A lane's own revision can be green while the merged tree is red, because the record it collides with may live on another branch; the same predicate refuses a `review --result pass` and a `pr merge`. A tree with no records has nothing to judge and passes. |
 | `gate` | `PreflightCommand` (below) was run with `--run` and exited non-zero. |
 
 `--run` executes the project's own gate command from the team `Settings.json`,
@@ -911,6 +969,187 @@ teamwork skill rm NAME --by BY
 teamwork skill list
 ```
 
+## Feature teams
+
+A **feature** is one vertical slice one squad can build, test and ship without
+another squad's merge. One Team Leader owns it and its squad; several teams work
+in parallel; one Architect freezes every interface and one Project Manager keeps
+the record set. The records live in **one committed file**,
+`docs/Team/Features.md`, because the independence rule below is a predicate over
+all open features at once - split it per team and no single read answers the
+question, so two leaders can each "win" their own check without either having
+seen the other.
+
+The file is an ordinary committed document: `feature add` and `feature set` write
+it **in the caller's checkout**, under `Runtime/Locks/features.lock`, and the
+caller commits its edit on its own branch. The Reviewer's merge lands it. A
+conflict in it is a document conflict the merging Reviewer resolves one row
+against another; no command picks a winner.
+
+### `feature`
+
+```text
+teamwork feature add STATEMENT --owner TEAM_LEADER --paths P[,P...]
+                     [--interface REF] [--depends-on F-nnnn[,F-nnnn...]]
+                     --by BY [--json]
+teamwork feature set F-nnnn --state STATE [--interface REF] [--paths P[,P...]]
+                     [--depends-on F-nnnn[,F-nnnn...]] --by BY [--json]
+teamwork feature list [--state STATE] [--json]
+teamwork feature check [F-nnnn...] [--json]
+```
+
+`--by` is **required** on `add` and `set`: it is the caller naming itself, and the
+authority is checked on what it resolves to. It resolves in `allow_role=False`
+mode - an instance whose name matches, a bare role with exactly one instance, or a
+refusal (a role name satisfies no instance check) - and a `feature` write exits
+`2`, never the engine's default `1`.
+
+#### The record
+
+| Field | Meaning | Who may write it |
+|---|---|---|
+| `id` | `F-nnnn`. Allocated as one more than the highest number visible at the caller's revision. There is no counter file and no reservation: a refused `add` writes nothing and consumes nothing, so the next successful add offers the same number. An id is never reused, and a landed record's id never changes | the command |
+| `statement` | One line: what ships, as the user-visible result. A second feature stating the same thing is not a refusal; `add` prints `teamwork: F-0001 already records that statement - not duplicated` and exits `0` | the owner |
+| `owner` | Exactly one `team-leader` instance, the squad's only manager. At `add` it must be the caller, so no lane can file a slice on another leader's behalf, and a leader holds one open feature at a time | the owner |
+| `interface` | The frozen-interface reference: an anchor in `Architecture.md` (`Architecture.md#13`) or a decision id (`D-20261029-Architect-2`). `-` while the record waits on its freeze | an `architect` caller |
+| `paths` | Comma-separated owned writable paths: the feature's whole write set. Required and non-empty - a feature that owns no path cannot be independent of anything, it is a plan, not a slice | the owner, validated by the command |
+| `depends-on` | Comma list of `F-nnnn` **work** dependencies, or `-`. A dependency is green only when the target is `done`; a feature that needs only an earlier feature's contract records the frozen anchor in `interface` instead and has no dependency at all | the owner |
+| `state` | `proposed` -> `ready` -> `active` -> `done`, or `dropped` | the command, on `feature set` |
+| `created`, `updated` | ISO dates, the audit pair every record carries | the command |
+
+#### The states
+
+| Transition | Who may issue it | What it releases |
+|---|---|---|
+| `proposed` -> `ready` | an `architect` caller | the freeze. The record enters the open set: `feature check` starts comparing its paths, `task add --feature` accepts the id and `pulse` prints its team line. Nothing executes yet |
+| `ready` -> `active` | the record's `owner` instance | **execution**: `task next` hands the squad the tasks carrying the feature, and `feature`-layer test records may be opened. A `ready` feature's tasks are queued and held |
+| `active` -> `done` | the record's `owner` instance | the owned paths (a closed record is released, not compared), every dependency on it turns green, the leader's one-open-feature slot frees, and the `feature`-layer record closes with its merge evidence |
+| `proposed`/`ready` -> `dropped`, and `active` -> `dropped` once every task carrying the feature is terminal | the record's `owner` instance | the same releases as `done`; the id stays taken |
+
+`done` and `dropped` are terminal: reopening is a new record with a new id. A
+`done` transition waits until every task carrying `feature: F-nnnn` is `done`, and
+`dropped` from `active` waits until every such task is terminal. `paths` cannot
+change once the record is `active` - the claim is final when the work starts.
+
+```text
+teamwork: features + F-0003 [proposed] ship the record set  owner=TeamLeader-1 paths=2
+teamwork: features ~ F-0003 [proposed] -> [ready] interface=Architecture.md#13
+```
+
+`set` prints the from/to pair and then one `<field>=<value>` per changed field, in
+the record's field order (`interface=`, `paths=<n>`, `depends-on=`); a field the
+command did not change is not printed, so a pure transition prints the pair only
+and `set --state ready` on a `ready` record prints `[ready] -> [ready]`. Edits are
+applied before the state is evaluated, so `set F-0003 --state ready --interface
+Architecture.md#13` is one command.
+
+A refusal is one shape per verb, and the reason is one sentence from a closed set:
+
+```text
+teamwork: no feature added: F-0002 F-0001 share a writable path: src/a.py
+teamwork: F-0003 stays [proposed]: ready needs a frozen interface: --interface <anchor-or-decision>
+teamwork: F-0003 stays [ready]: active is the record owner's transition: --by must be TeamLeader-1 (you are TeamLeader-2)
+teamwork: F-0003 stays [active]: done while 2 task(s) carrying feature: F-0003 are not done (T-0071, T-0072)
+teamwork: F-0003 stays [active]: dropped from [active] needs every task carrying feature: F-0003 terminal (open: T-0071)
+teamwork: F-0003 stays [active]: paths cannot change from [active]: the claim is final when the work starts
+teamwork: F-0003 stays [dropped]: a record in [dropped] is terminal; open a new feature
+teamwork: F-0003 stays [proposed]: a state cannot be skipped forward (proposed -> ready -> active -> done)
+teamwork: F-0003 stays [proposed]: unknown state 'shipped' (proposed, ready, active, done, dropped)
+```
+
+`F-0003 stays [-]` when no such record exists.
+
+#### `feature list` and `feature check`
+
+```text
+# Features (2 open / 3 total) @ 1a2b3c4
+- F-0001 [active] ship the record set
+    owner=TeamLeader-1 interface=Architecture.md#13
+    paths=src/a.py,src/b.py
+    depends-on=-
+```
+
+The header is dated: `@ <short-sha>` when the working copy is clean, so the bytes
+read are exactly that revision's, and `@ worktree` when it is not - an uncommitted
+row or edit is at no revision, and printing `HEAD` for it would date the answer to
+a commit that does not contain it. `--state` filters the listing and both counts
+then describe the filtered set; a filter that matches nothing prints the header
+and exits `3`. An unknown state exits `2`.
+
+`feature check` evaluates **rules 1-4 over the open records** (`ready` and
+`active`) and **rule 5 over every record**, open or closed:
+
+| # | Rule | Finding |
+|---|---|---|
+| 1 | no two open features own overlapping writable paths | `F-0001 F-0002 share a writable path: src/a.py` |
+| 2 | no open feature depends on another feature's in-flight work | `F-0001 depends on in-flight F-0002 (state=active)` |
+| 3 | one open feature per leader | `TeamLeader-1 owns 2 open features: F-0001, F-0002 (rule 2: one open feature per leader)` |
+| 4 | no owned path is a glob, outside the repository, checkout state, a generated artifact or the records file | `F-0001 claims a glob (src/*.py); name the directory instead` |
+| 5 | no two records carry one id, over every record | `F-0001 is allocated twice (TeamLeader-1, TeamLeader-2); renumber the arriving record before it lands` |
+
+Both sides of a comparison are normalised once (`\` to `/`, no leading `./`, no
+repeated `/`, no trailing `/`, NFKC, then case-folding) and then a claim covers
+another when they are equal or one is a directory above it, matched on `/`. So
+`src/teamwork` and `src/teamwork/` are the same claim and cover
+`src/teamwork/engine.py`, while `engine.py` and `engine_extra.py` do not collide.
+Nothing is `stat`'ed and no glob is expanded, so a dirty worktree and a fresh clone
+answer the same question. A path is inside the repository by a **string** test:
+not absolute, no drive prefix, no `..` segment - `src/new_module.py` is inside
+whether or not it exists. Case differences are a collision on every platform, and
+a closed record's paths are released rather than compared.
+
+```text
+# feature check: 2 open feature(s), 0 problem(s) @ 1a2b3c4
+teamwork: feature check: 1 problem(s) in 2 open feature(s) @ 1a2b3c4:
+  - F-0001 F-0002 share a writable path: src/a.py
+  ...
+```
+
+`check` exits `0` green, `2` on any finding or an unknown id, and `1` only when
+the records file cannot be read at all. `feature check F-0003` checks exactly the
+named records: a named `done`/`dropped` record contributes no finding except a
+rule-5 duplicate.
+
+**A shared frozen interface is not a collision.** Two features that name the same
+anchor in `interface` are parallel work - the Architect froze it before either
+squad started - which is the whole point of the field. What is refused is a shared
+*writable path*.
+
+**The duplicate id, and the renumber rule.** Allocation is max+1 per revision, so
+an id cannot be duplicated inside one branch and can be across two: two leaders
+cut from the same base each read `F-0003` as free and each branch carries a row
+with that id. Neither allocation is a mistake and neither row is discarded. The
+merge path runs `feature check` at the merged tree and refuses the merge with the
+rule-5 finding, and the **merging Reviewer** resolves it as a document conflict:
+the record already reachable from the target branch keeps its id, because that id
+is already in the target's history; the record **arriving from the branch** is
+renumbered to the next free `F-nnnn` at the merged tree, in one edit to its `id`
+and to the `feature: <old id>` field of every task on that branch that carries it.
+`statement`, `owner`, `paths`, `depends-on`, `state` and `interface` are
+untouched, nothing is dropped and nothing is refiled, and the renumber happens
+**before** the record lands. Because the check reads only the caller's revision, a
+lane whose branch predates another feature's record can be green while the merged
+tree is red; rebase before you check, and read the `@ revision` the answer is
+dated at. `preflight`, `review --result pass` and `pr merge` all run the check at
+the tree that would be landed, so the collision is refused there instead.
+
+#### `--json`
+
+One object per invocation, keys in the order written, nothing else on stdout, and
+the exit code is identical with and without the flag:
+
+```json
+{"id": "F-0003", "state": "ready", "changed": true, "rev": "1a2b3c4"}
+{"rev": "1a2b3c4", "open": 2, "total": 3, "features": [{"id": "F-0001", "statement": "...", "owner": "TeamLeader-1", "interface": "Architecture.md#13", "paths": ["src/a.py"], "depends_on": [], "state": "active", "created": "2026-10-29", "updated": "2026-10-29"}]}
+{"rev": "1a2b3c4", "ok": true, "features": 2, "problems": []}
+```
+
+A refusal prints the same reason string the plain line carries - `{"id": null,
+"state": null, "changed": false, "reason": "...", "rev": "..."}` for `add` (no
+number is allocated, so none is printed or consumed) and the record's id and
+current state for `set` - so a script never has to parse prose twice. A read
+verb's misuse prints `{"rev": "...", "error": "..."}`.
+
 ## Git workflow
 
 ### `branch`
@@ -980,6 +1219,14 @@ base where it was and publishes nothing. The merge runs in the work tree that
 has the base checked out, so a merge started from an instance worktree still
 lands on the base instead of failing on `git checkout`.
 
+Before it touches the work tree, `pr merge` re-runs the mergeability probe
+against the base it is about to advance (`git merge-tree --write-tree <base>
+<branch>`) and refuses with exit `2`, naming the conflicting paths and the rebase
+command, when the branch no longer merges. A verdict is a statement about a
+revision, not a promise that the base has not moved since it was recorded, so
+nothing is checked out, committed or recorded on that path. `--force <reason>`
+records the override in the `pr.merge.forced` ledger record.
+
 After the merge the `branch / merge` line of the matching
 `docs/Team/Archive.md` entry is repointed from `pending` to the merge revision
 and that one-line rewrite is committed on the base branch as its own
@@ -991,6 +1238,15 @@ base first and rides along in the same commit, so the base always records what
 shipped. Only an entry still saying `pending` is repointed: a task reworked
 after a merge reuses its branch name, and rewriting every match would erase the
 earlier merge revision from the archive.
+
+After the merge and its records commit, the merging Reviewer re-renders
+`docs/Team/Board.md` from the role queues with the product's own renderer
+(`teamwork.board`) and commits it as another `chore(records)` commit. The landing
+has just moved this task to `done` with its merge revision, so this is the only
+render that can leave a board equal to the queues - including rows another lane
+moved while the branch waited. A render that cannot be written or committed is
+reported as `the merge ... is LANDED, but docs/Team/Board.md ... is STALE`, with the
+`board --write` repair command; the merge record is never rolled back.
 
 ### `commit`
 
