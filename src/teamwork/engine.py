@@ -6567,7 +6567,8 @@ def cmd_task_set(args) -> int:
                 f"refusing to close {t['id']}: it needs an independent review.\n"
                 f"  1) {args.agent}: task set {args.agent} {t['id']} --status review\n"
                 f"  2) reviewer: review {args.agent} {t['id']} --by <Reviewer instance> \\\n"
-                "       --result fail --findings '<what is wrong, with evidence>'\n"
+                "       --result fail --findings '<what is wrong, with evidence>' \\\n"
+                "       --detects '<the specific failure that finding catches>'\n"
                 f"  3) reviewer: review {args.agent} {t['id']} --by <Reviewer instance> \\\n"
                 "       --result pass --evidence '<verification command @rev -> result>'\n"
                 "  Use --force only for a chore that is explicitly review=na.",
@@ -7144,6 +7145,80 @@ def review_mechanical(task: dict, revision: str) -> tuple:
         f"no green preflight is recorded for @{revision[:12]}: the author did not run"
         " the mechanical gate",
     )
+
+
+# HERO's reachability test (Anti-OverDefense, rules 1-5): before running a check,
+# name the specific failure it would catch and what would change if it occurred.
+# The failure has to be reachable in this project's supported use, so adopting the
+# test turns a review finding into a claim someone can falsify - not a defence
+# against an input nobody can supply.
+
+#: The rule itself, printed with every refusal: one line, so it is read once.
+REVIEW_REACHABILITY_RULE = (
+    "a finding must be reachable in this project's supported use - its documented "
+    "inputs, published interface or real data - and constructible in principle is "
+    "not enough"
+)
+
+#: A detector that answers HERO's question with a worry instead of a failure.
+#: Deliberately narrow: the whole answer must be the canned phrase, because a false
+#: refusal sends a real finding back untouched, while a vague one that slips through
+#: is only counted by `audit` - a measurable cost, not a blocked lane.
+_VAGUE_DETECT_RE = re.compile(
+    r"^(?:"
+    r"(?:(?:an?|the|this|that|some) )?"
+    r"(?:(?:typical|classic|strange|weird|unusual|common|rare|obscure|nasty|tricky|possible"
+    r"|potential) )?"
+    r"(?:rare|obscure|possible|potential|edge|corner|similar) cases?"
+    r"|(?:it )?(?:could|might|may|can)(?: also)?(?: still)? "
+    r"(?:break|fail|go wrong|be wrong|regress)"
+    r"|there (?:could|might|may) be (?:a )?(?:bugs?|problems?|issues?|failures?)"
+    r"|(?:not|never|isn'?t) (?:tested|covered|verified|checked)"
+    r"|(?:no|lacks?|lack of|missing) tests?"
+    r"|(?:some |a )?(?:bugs?|errors?|issues?|regressions?|problems?)"
+    r"|(?:general|overall|potential|possible) (?:risks?|issues?|problems?|failures?)"
+    r"|(?:unknown|unclear|none|n/?a|maybe|probably|various|misc)"
+    r")[.!]*$"
+)
+
+
+def detects_problem(detects: str, findings: str = "") -> str:
+    """Why a ``--detects`` fails the reachability test; ``''`` when it passes.
+
+    Two shapes are refused: an empty answer, and a canned phrase that names no
+    failure at all ("edge case", "it could break", "not tested"). A detector that
+    merely repeats the defect is refused too - it says the work is wrong, not what
+    would have caught it.
+    """
+    text = one_line(detects)
+    if not text:
+        return "missing"
+    if _VAGUE_DETECT_RE.match(text.lower()):
+        return f"a restatement: {text!r} names a worry, not a failure"
+    if findings and one_line(findings).lower().rstrip(".") == text.lower().rstrip("."):
+        return (
+            f"a restatement of the defect: {text!r} repeats the finding instead of "
+            "naming the failure it would catch"
+        )
+    return ""
+
+
+#: `review.fail` detail -> its detector. The detail is one line that starts with the
+#: mechanical classification, and a pipe inside the detector is written as a slash
+#: there, so this boundary is exact and a finding's own prose cannot forge it.
+_RE_LEDGER_DETECTS = re.compile(r"^mechanical: [^|]*? \| detects: (.*?)(?: \| |$)")
+
+
+def ledger_detects(detail: str) -> str | None:
+    """The detector on a ``review.fail`` ledger line; ``None`` when none is recorded.
+
+    None is the legacy shape - every fail recorded before the field existed - and
+    the audit counts those rather than treating them as a defect in the record.
+    """
+    if not detail or "detects:" not in detail:
+        return None
+    match = _RE_LEDGER_DETECTS.search(detail)
+    return match.group(1).strip() if match else None
 
 
 def record_revision(record: dict) -> str:
@@ -10107,6 +10182,14 @@ def cmd_review(args) -> int:
         die("--result must be pass or fail")
     if args.result == "fail" and not args.findings.strip():
         die("a fail needs --findings '<what is wrong, with evidence>'")
+    if args.result == "fail":
+        problem = detects_problem(args.detects, args.findings)
+        if problem:
+            die(
+                "a fail needs --detects '<the specific failure this would catch>': "
+                f"{REVIEW_REACHABILITY_RULE}.\n"
+                f"  the --detects is {problem}."
+            )
     if (getattr(args, "credit", "") or "").strip() and args.result != "pass":
         die("--credit belongs to a pass: it names the record a passing verdict cited", 2)
     if args.force:
@@ -10222,6 +10305,7 @@ def cmd_review(args) -> int:
         credited: list = []
         mechanical = ""
         mechanical_why = ""
+        detects = ""
         if args.result == "pass":
             available, _stale = creditable_tests(root, role, t)
             for raw in [x.strip() for x in (getattr(args, "credit", "") or "").split(",")]:
@@ -10260,8 +10344,13 @@ def cmd_review(args) -> int:
             # once, and classify the fail against the same revision.
             failed_rev = review_revision(root, t) or (t.get("review_fail_rev") or "")
             mechanical, mechanical_why = review_mechanical(t, failed_rev)
+            detects = one_line(args.detects)
             prev = t.get("findings", "")
-            t["findings"] = (prev + " | " + args.findings).strip(" |")
+            # The detector leads its defect so a reader judges proportionality
+            # without reading the whole report (HERO rules 1-5).
+            finding = f"detects: {detects} | {args.findings.strip()}"
+            t["findings"] = f"{prev} | {finding}" if prev else finding
+            t["review_detects"] = detects
             t["review_status"] = "failed"
             t["status"] = "doing"
             t["review_fails"] = int(t.get("review_fails") or 0) + 1
@@ -10293,8 +10382,13 @@ def cmd_review(args) -> int:
             ((t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note)[:200]
             if args.result == "pass"
             # The classification leads the detail so the mechanical-fail rate can be
-            # counted off the append-only ledger long after the task record moves on.
-            else (f"mechanical: {mechanical} | " + (t.get("findings") or "")[:150])[:200]
+            # counted off the append-only ledger long after the task record moves on;
+            # the detector follows it, so `audit` counts per fail rather than per task
+            # and a legacy record (no field) is counted as missing, never as a defect.
+            else (
+                f"mechanical: {mechanical} | detects: {detects.replace('|', '/')} "
+                f"| {one_line(args.findings)[:120]}"
+            )[:200]
         ),
         "",
         role,
@@ -10345,6 +10439,7 @@ def cmd_review(args) -> int:
             f"teamwork: REVIEW FAIL {role} {t['id']} by {reviewer}: {t['title']}"
             + (f" [work by {t['claimed_by']}]" if t.get("claimed_by") else "")
         )
+        print(f"          detects: {t.get('review_detects') or '-'}")
         print(f"          findings: {t['findings']}")
         print(f"          mechanical: {mechanical} ({mechanical_why})")
         if t.get("merge_commit"):
@@ -10435,7 +10530,8 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
         "#   review <role> <T-id> --by <Reviewer-instance> --result pass --evidence '<cmd @rev -> result>'"
     )
     print(
-        "#   review <role> <T-id> --by <Reviewer-instance> --result fail --findings '<defect + evidence>'"
+        "#   review <role> <T-id> --by <Reviewer-instance> --result fail "
+        "--findings '<defect + evidence>' --detects '<failure it catches>'"
     )
     print("#   review <role> <T-id> --renew --by <Reviewer-instance>   # extend a long review")
     print(
@@ -11532,6 +11628,7 @@ def cmd_audit(args) -> int:
     problems += _audit_deliverables_awaiting_independent_review(root, names, args)
     problems += _audit_open_disputes_design_decision_challenges(root, names, args)
     problems += _audit_forced_gate_overrides(root, names, args)
+    problems += _audit_review_fails_without_a_reachable_detect(root, names, args)
     problems += _audit_roster_gaps_roles_with_no_instance(root, names, args)
     problems += _audit_ownership_sanity_phantom_agents_silent_o(root, names, args)
     problems += _audit_branch_pr_flow(root, names, args)
@@ -11821,6 +11918,47 @@ def _audit_forced_gate_overrides(root: Path, names: list, args) -> int:
     if not hits:
         print("- none")
     return hits
+
+
+def _audit_review_fails_without_a_reachable_detect(root: Path, names: list, args) -> int:
+    """Count review fails with no reachable detector; never a problem, always a count.
+
+    HERO's reachability test is adopted as a required field, but the gate can only
+    police fails recorded after it: every earlier `review.fail` in the trail has no
+    detector, and a record is a fact about what happened, not something to fail the
+    team for later. So the section reports the rate and returns 0 - the number is
+    the measurement, and `preflight`/`review` keep the gate itself.
+    """
+    print("## review fails without a reachable --detects (proportionality)")
+    records = [r for r in ledger_read(root) if r.get("action") == "review.fail"]
+    if not records:
+        print("- no review fails recorded")
+        print()
+        return 0
+    missing, vague = [], []
+    for record in records:
+        detects = ledger_detects(record.get("detail") or "")
+        if detects is None or not detects.strip():
+            missing.append(record)
+            continue
+        problem = detects_problem(detects)
+        if problem:
+            vague.append((record, detects, problem))
+    ok = len(records) - len(missing) - len(vague)
+    print(
+        f"- {len(records)} review fail(s): {ok} reachable, {len(missing)} no detector "
+        f"recorded, {len(vague)} a restatement"
+    )
+    for record in missing[:5]:
+        print(
+            f"  - {record.get('ts') or '?'} {record.get('target') or '-'}: "
+            "no --detects on record (legacy fail, before the field was required)"
+        )
+    for _record, detects, problem in vague[:5]:
+        print(f"  - {detects!r}: {problem}")
+    print("- non-blocking: the count is a health metric, not a gate (the gate is review)")
+    print()
+    return 0
 
 
 def _audit_roster_gaps_roles_with_no_instance(root: Path, names: list, args) -> int:
@@ -13839,6 +13977,12 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--baseline", default="", help="the state the verification started from")
     s.add_argument("--replay", default="", help="command or path that reproduces the verdict")
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
+    s.add_argument(
+        "--detects",
+        default="",
+        help="with --result fail: the specific failure this finding catches, reachable "
+        "in this project's supported use (required; 'edge case' is refused)",
+    )
     s.add_argument(
         "--credit",
         default="",
