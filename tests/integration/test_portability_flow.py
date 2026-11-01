@@ -9,7 +9,8 @@ Three claims, all of them about a host other than the one that wrote the code:
    under a deliberately space-containing directory: the checkout shim, the shim run
    from a space-containing cwd, `-m teamwork`, and the installed console script (a
    skip naming the missing entry point when it is not installed for this
-   interpreter).
+   interpreter, and a skip naming the interpreter it was generated for when the
+   virtualenv was moved after install - T-0019).
 2. **A test that needs a privilege or an external tool states its guard.** On a
    host without Developer Mode a symlink call raises `WinError 1314`, and on a host
    without GNU make `["make", ...]` raises `FileNotFoundError`; both turn a green
@@ -37,6 +38,7 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -137,6 +139,45 @@ def console_script() -> Path | None:
     return Path(found) if found else None
 
 
+#: A generated entry point is a launcher for exactly one interpreter: the line
+#: after `#!` names it. POSIX writes a text script, Windows writes the same line
+#: into the executable, which also carries UTF-16 job-object strings - so a match
+#: must decode as printable ASCII and name an interpreter to count.
+SHEBANG = re.compile(rb"#!([ -~]{3,512})[\r\n]")
+INTERPRETER_NAME = re.compile(r"python[0-9.]*(?:\.exe)?$|\.py$", re.IGNORECASE)
+
+
+def launcher_interpreter(script: Path) -> Path | None:
+    """The interpreter a generated console script dispatches to, or `None`."""
+    try:
+        data = script.read_bytes()
+    except OSError:
+        return None
+    for match in SHEBANG.finditer(data):
+        candidate = match.group(1).decode("ascii", "replace").strip()
+        if INTERPRETER_NAME.search(candidate):
+            return Path(candidate)
+    return None
+
+
+def launcher_problem(script: Path) -> str:
+    """Why this launcher cannot be exercised here, or `""` when it can.
+
+    A virtualenv that is moved or renamed keeps its generated launchers, whose
+    `#!` line still names the interpreter at the old path; the launcher then
+    exits non-zero with empty stdout *and* stderr, which reads as a defect in the
+    entry point when it is a stale install (T-0019). Only that shape is excused:
+    a launcher for an interpreter that exists is always measured.
+    """
+    interpreter = launcher_interpreter(script)
+    if interpreter is None or not interpreter.is_absolute() or interpreter.exists():
+        return ""
+    return (
+        f"{script.name} was generated for {interpreter}, which does not exist - the "
+        "virtualenv moved after the entry point was installed"
+    )
+
+
 def test_the_console_script_runs_from_a_path_with_a_space(tmp_path: Path) -> None:
     """The installed entry point, run from a space-containing cwd."""
     script = console_script()
@@ -146,12 +187,49 @@ def test_the_console_script_runs_from_a_path_with_a_space(tmp_path: Path) -> Non
             f"{sys.executable} (checked {Path(sys.executable).parent} and PATH) - "
             "`pip install -e .` into this interpreter to exercise this path"
         )
+    problem = launcher_problem(script)
+    if problem:
+        pytest.skip(
+            f"{problem}; `pip install -e .` into {sys.executable} re-generates it, so "
+            "this path can then be exercised"
+        )
     cwd = tmp_path / "console run dir with a space"
     cwd.mkdir()
     env = {key: value for key, value in os.environ.items() if not key.startswith("TEAMWORK_")}
     argv = [str(script), "--version"]
     result = run(argv, cwd=cwd, env=env)
     assert_version(result.stdout, argv, result)
+
+
+def test_a_launcher_for_a_moved_interpreter_is_named_not_reported_as_a_script_defect(
+    tmp_path: Path,
+) -> None:
+    """The Windows shape: the shebang sits in an executable, after UTF-16 strings."""
+    gone = tmp_path / "old checkout" / "Scripts" / "python.exe"
+    script = tmp_path / "teamwork.exe"
+    script.write_bytes(
+        b"MZ\x00\x00 #!\x00\x00P\x00A\x00T\x00H\x00\x00\r\n"
+        + f"#!{gone}\r\n".encode()
+        + b"PK\x03\x04__main__.py"
+    )
+
+    assert launcher_interpreter(script) == gone, "the shebang must be read past the binary strings"
+    reason = launcher_problem(script)
+    assert str(gone) in reason, reason
+    assert "moved" in reason, reason
+
+
+def test_a_launcher_for_the_running_interpreter_is_still_measured(tmp_path: Path) -> None:
+    """The discriminator: only a missing interpreter excuses the script."""
+    live = tmp_path / "teamwork"
+    live.write_text(f"#!{sys.executable}\nimport sys\n", encoding="utf-8")
+    assert launcher_problem(live) == "", (
+        "a launcher that names a live interpreter must still run - otherwise a real "
+        "quoting bug in the entry point would be skipped away"
+    )
+    unparsable = tmp_path / "plain"
+    unparsable.write_text("MZ not a launcher\n", encoding="utf-8")
+    assert launcher_problem(unparsable) == "", "an unreadable launcher is measured, not excused"
 
 
 # --------------------------------------------------------------------------- #
