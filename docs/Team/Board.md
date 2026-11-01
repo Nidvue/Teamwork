@@ -82,12 +82,25 @@ under two roles is two tasks.
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
 | architect | T-0001 | portability | done | P-0012 | 0cac9bd |
+| architect | T-0002 | contract | doing | P-0037 | - |
+| architect | T-0003 | - | todo | - | - |
 | ceo | T-0001 | - | done | P-0005 | d36e731 |
 | ceo | T-0002 | - | done | P-0006 | cd561a5 |
 | ceo | T-0004 | - | done | P-0019 | f3a765f |
+| ceo | T-0005 | plan | done | P-0024 | eed95de |
+| ceo | T-0006 | - | todo | - | - |
+| ceo | T-0007 | plan | done | P-0030 | dacd0f3 |
+| ceo | T-0008 | records | doing | P-0033 | - |
+| ceo | T-0009 | - | todo | - | - |
+| ceo | T-0010 | records | done | P-0036 | 5ffaf70 |
+| ceo | T-0011 | release | done | P-0040 | 1c91255 |
+| ceo | T-0012 | records | review | P-0041 | - |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
+| designer | T-0004 | ui-readme | done | P-0020 | a5294b3 |
+| designer | T-0005 | ui-assets | done | P-0023 | 94f3e40 |
+| designer | T-0006 | ui-readme | done | P-0035 | 0a80105 |
 | developer | T-0001 | - | done | P-0008 | 304d757 |
 | developer | T-0002 | - | done | P-0003 | 381bb5c |
 | developer | T-0003 | - | done | P-0009 | cf26e96 |
@@ -95,11 +108,38 @@ under two roles is two tasks.
 | developer | T-0005 | clean | done | P-0010 | 6111b1a |
 | developer | T-0006 | - | done | P-0017 | 5895411 |
 | developer | T-0007 | board | done | P-0018 | 4895f66 |
+| developer | T-0008 | assets | done | P-0021 | baa2cdb |
+| developer | T-0009 | release | done | P-0027 | 938aad4 |
+| developer | T-0010 | records | done | P-0022 | dbe19a8 |
+| developer | T-0011 | records | done | P-0032 | 6877247 |
+| developer | T-0012 | - | todo | - | - |
+| developer | T-0013 | records | done | P-0026 | 9789d84 |
+| developer | T-0014 | attention | done | P-0031 | 02fcdbf |
+| developer | T-0015 | engine | done | P-0039 | 326e4cf |
+| developer | T-0016 | docs | done | P-0029 | 7decc35 |
+| developer | T-0017 | records | done | P-0038 | b260682 |
+| developer | T-0018 | release | done | P-0034 | 55ba101 |
+| developer | T-0019 | engine | done | P-0042 | 3b16a9c |
+| developer | T-0020 | - | done | - | - |
+| developer | T-0021 | - | todo | - | - |
+| developer | T-0022 | - | todo | - | - |
+| developer | T-0023 | review | done | P-0044 | 1d25519 |
+| developer | T-0024 | - | todo | - | - |
+| developer | T-0025 | - | todo | - | - |
+| developer | T-0026 | - | todo | - | - |
+| developer | T-0027 | - | doing | - | - |
+| reviewer | T-0001 | - | done | - | - |
+| reviewer | T-0002 | records | done | - | - |
 | technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
 | technical-writer | T-0002 | - | done | P-0011 | 543c665 |
 | technical-writer | T-0003 | - | done | P-0014 | a1929ba |
 | technical-writer | T-0004 | - | done | P-0016 | aeed914 |
+| technical-writer | T-0005 | docs | done | P-0025 | b29a8bc |
+| technical-writer | T-0006 | - | todo | - | - |
+| technical-writer | T-0007 | - | todo | - | - |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
+| tester | T-0002 | integration | done | P-0028 | 4198781 |
+| tester | T-0003 | integration | doing | P-0043 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -109,6 +149,22 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| architect | T-0002 · M15 A8: Architecture section 11 freezes nine release-consistency rules; R10 makes the frozen contract false | P2 | doing | - |
+| architect | T-0003 · Section 5 does not name Attention.md, the record T-0014 introduces; add the workspace-format row when it merges | P2 | todo | - |
+| ceo | T-0006 · M15 A7: push the reviewed stage to origin/main and certify CI on that SHA | P1 | todo | - |
+| ceo | T-0008 · M15 plan: the surfaces table says four and lists five rows | P3 | doing | - |
+| ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
+| ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
+| developer | T-0012 · T-0043: the merge path does not render the board, so a merged revision's board is stale until a manual records commit | P1 | todo | - |
+| developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | todo | - |
+| developer | T-0022 · unit guard test_ui_readme is RED on main: the badge-set parse pins the alt text as the last table column | P1 | todo | - |
+| developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
+| developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |
+| developer | T-0026 · docs/Team/Decisions.md is a pure append point, so every lane's entry conflicts on every later merge and tasks are failed for it twice | P2 | todo | - |
+| developer | T-0027 · Integrate the published line into integration/m15-m16 (PR #30): three conflicts, both sides' behaviour preserved | P0 | doing | - |
+| technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | todo | - |
+| technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
+| tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
