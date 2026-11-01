@@ -7,6 +7,7 @@ adds the fifth: proof that the defect failed before the fix.
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -20,6 +21,23 @@ def make_root(project: Path) -> Path:
     root = project / ".pi" / "Teamwork" / "Teams" / "Sample"
     root.mkdir(parents=True)
     return root
+
+
+def make_lane(root: Path, instance: str = "Developer") -> Path:
+    """A lane worktree where ``work_repo`` looks for one.
+
+    A linked worktree is marked by a ``.git`` *file*; the engine only asks
+    whether it exists, which is enough to tell a lane from the base checkout.
+    """
+    lane = root / "Runtime" / "Worktrees" / instance
+    lane.mkdir(parents=True)
+    (lane / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+    return lane
+
+
+def digest_of(rel: str, data: bytes) -> str:
+    """The record shape ``rel:sha256[:16]:bytes`` the ledger stores."""
+    return f"{rel}:{hashlib.sha256(data).hexdigest()[:16]}:{len(data)}"
 
 
 def git(project: Path, *argv: str) -> str:
@@ -161,6 +179,115 @@ def test_artifact_digests_is_empty_without_artifacts(tmp_path: Path) -> None:
 
     assert engine.artifact_digests(root, None) == ""
     assert engine.artifact_digests(root, []) == ""
+
+
+# --------------------------------------------------------------------------- #
+# which checkout a relative --artifact is read from (R-22, T-0011)
+# --------------------------------------------------------------------------- #
+
+
+def test_a_relative_artifact_is_read_from_the_lane_worktree(tmp_path: Path) -> None:
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    lane = make_lane(root)
+    (project / "Reports").mkdir()
+    (project / "Reports" / "run.log").write_bytes(b"base copy: 3 failed\n")
+    (lane / "Reports").mkdir()
+    (lane / "Reports" / "run.log").write_bytes(b"lane copy: 12 passed\n")
+
+    from_lane = engine.artifact_digest(root, "Reports/run.log", cwd=lane)
+    from_base = engine.artifact_digest(root, "Reports/run.log", cwd=project)
+
+    assert from_lane == digest_of("Reports/run.log", b"lane copy: 12 passed\n")
+    assert from_base == digest_of("Reports/run.log", b"base copy: 3 failed\n")
+    assert from_lane != from_base
+
+
+def test_the_lane_is_the_default_artifact_tree(tmp_path: Path, monkeypatch) -> None:
+    """The wiring, not only the parameter: the command's cwd picks the tree."""
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    lane = make_lane(root)
+    (project / "run.log").write_bytes(b"base\n")
+    (lane / "run.log").write_bytes(b"lane\n")
+    monkeypatch.chdir(lane)
+
+    assert engine.artifact_digests(root, ["run.log"]) == digest_of("run.log", b"lane\n")
+
+
+def test_a_relative_artifact_only_another_tree_has_is_refused(tmp_path: Path, capsys) -> None:
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    lane = make_lane(root)
+    (project / "Reports").mkdir()
+    (project / "Reports" / "run.log").write_bytes(b"base copy\n")
+
+    with pytest.raises(SystemExit) as exc:
+        engine.artifact_digest(root, "Reports/run.log", cwd=lane)
+
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert str((lane / "Reports" / "run.log").resolve()) in err
+    assert str((project / "Reports" / "run.log").resolve()) in err
+    assert "base checkout" in err
+
+
+def test_a_relative_artifact_may_not_climb_into_another_lane(tmp_path: Path, capsys) -> None:
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    lane = make_lane(root, "Developer")
+    other = make_lane(root, "Developer-2")
+    (other / "run.log").write_bytes(b"the other lane's file\n")
+    (lane / "run.log").write_bytes(b"mine\n")
+
+    with pytest.raises(SystemExit) as exc:
+        engine.artifact_digest(root, "../Developer-2/run.log", cwd=lane)
+
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert str(lane.resolve()) in err
+    assert str((other / "run.log").resolve()) in err
+
+
+def test_an_absolute_path_another_tree_holds_is_refused_when_yours_has_it(
+    tmp_path: Path, capsys
+) -> None:
+    """Naming the base checkout's copy explicitly is still two copies under one name."""
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    lane = make_lane(root)
+    (project / "src").mkdir()
+    (project / "src" / "engine.py").write_bytes(b"main's copy\n")
+    (lane / "src").mkdir()
+    (lane / "src" / "engine.py").write_bytes(b"the lane's copy\n")
+
+    with pytest.raises(SystemExit) as exc:
+        engine.artifact_digest(root, str(project / "src" / "engine.py"), cwd=lane)
+
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert str((project / "src" / "engine.py").resolve()) in err
+    assert str((lane / "src" / "engine.py").resolve()) in err
+
+
+def test_a_copy_only_one_checkout_holds_still_binds(tmp_path: Path) -> None:
+    """Shared ``.pi`` state and a lane-only file are unambiguous, so they stay usable."""
+    project = tmp_path / "SampleProject"
+    root = make_root(project)
+    lane = make_lane(root)
+    shared = root / "Agents" / "Developer" / "Artifacts" / "run.log"
+    shared.parent.mkdir(parents=True)
+    shared.write_bytes(b"team-local proof\n")
+    (lane / "Reports").mkdir()
+    (lane / "Reports" / "new.log").write_bytes(b"only this lane has it\n")
+
+    assert engine.artifact_digest(root, str(shared), cwd=lane) == digest_of(
+        ".pi/Teamwork/Teams/Sample/Agents/Developer/Artifacts/run.log",
+        b"team-local proof\n",
+    )
+    assert engine.artifact_digest(
+        root, str(lane / "Reports" / "new.log"), cwd=project
+    ) == digest_of("Reports/new.log", b"only this lane has it\n")
 
 
 # --------------------------------------------------------------------------- #
