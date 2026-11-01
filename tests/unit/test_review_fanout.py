@@ -375,6 +375,8 @@ def test_a_verdict_clears_the_claim_so_the_lane_is_free_for_the_next(lanes, caps
             "fail",
             "--findings",
             "second opinion: the parser drops the tail",
+            "--detects",
+            "a path with a trailing slash loses its last element after the parse",
         )
         == 0
     )

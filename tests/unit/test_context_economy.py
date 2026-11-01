@@ -38,6 +38,10 @@ REVIEWER_LONG = REVIEWER_HEAD + ("bravo-verification-word " * 40) + REVIEWER_TAI
 FINDINGS_HEAD = "finding-head "
 FINDINGS_TAIL = "delta-finding-tail-sentinel-7a3e"
 FINDINGS_LONG = FINDINGS_HEAD + ("charlie-finding-word " * 45) + FINDINGS_TAIL
+# A fail now records `detects: <x> | <defect>` (T-0023), so this is the stored
+# string the queue clips: the detector, then the defect the view is measured on.
+DETECTS = "a finding longer than the view is clipped with its tail left unprinted"
+FINDINGS_RECORDED = f"detects: {DETECTS} | {FINDINGS_LONG}"
 
 assert len(AUTHOR_LONG) > LIMIT and len(REVIEWER_LONG) > LIMIT and len(FINDINGS_LONG) > LIMIT
 
@@ -272,6 +276,8 @@ def test_review_queue_clips_findings_too_and_counts_them(cli, project: Path, cap
             "pytest @HEAD -> 1 failed",
             "--findings",
             FINDINGS_LONG,
+            "--detects",
+            DETECTS,
         )
         == 0
     )
@@ -299,8 +305,8 @@ def test_review_queue_clips_findings_too_and_counts_them(cli, project: Path, cap
     )
     out = render(cli, capsys, "--project", project, "review", "--queue")
     assert (
-        f"    findings so far: {FINDINGS_LONG[:LIMIT]}... (+{len(FINDINGS_LONG) - LIMIT} chars: --full)"
-        in out
+        f"    findings so far: {FINDINGS_RECORDED[:LIMIT]}"
+        f"... (+{len(FINDINGS_RECORDED) - LIMIT} chars: --full)" in out
     )
     assert FINDINGS_TAIL not in out
     out = render(cli, capsys, "--project", project, "review", "--queue", "--full")
