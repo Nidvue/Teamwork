@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/banner.svg" alt="Teamwork banner: three connected nodes and the pitch 'One prompt in. A whole company of agents out.'" width="100%">
+  <img src="assets/banner.svg" alt="Teamwork banner: three connected nodes and the pitch 'One prompt in. A whole company of agents out.'" width="1280" height="360" style="max-width:100%;height:auto">
   <img src="docs/assets/nidvue-icon.svg" alt="Nidvue" width="88" height="88">
   <h1>Nidvue Teamwork</h1>
   <p><strong>One prompt in. A whole company of agents out.</strong></p>
@@ -16,7 +16,7 @@
 </div>
 
 <p align="center">
-  <img src="assets/demo.svg" alt="Animated terminal: one git clone installs the skill, one request that names the skill starts the company, and the loop gate reports CONTINUE until every acceptance criterion is verified." width="820">
+  <img src="assets/demo.svg" alt="Animated terminal: one git clone installs the skill, one request that names the skill starts the company, and the loop gate reports CONTINUE until every acceptance criterion is verified." width="820" height="478" style="max-width:100%;height:auto">
 </p>
 
 Nidvue Teamwork is **a skill for your coding agent** - not a standalone
