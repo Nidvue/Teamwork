@@ -194,6 +194,13 @@ Assertable by a Tester on the merged README.
   the former personal handle; the same value is used by `pyproject.toml`,
   `mkdocs.yml`, `CITATION.cff` and `CONTRIBUTING.md`. GitHub redirects the old
   paths, but nothing in the tree relies on that redirect.
+- README images are sized by their `width`/`height` **attributes**, never by CSS
+  alone: github.com's README pipeline rewrites every `<img>` `style`, keeps
+  `width`/`height`/`alt`, and generates `max-width: 100%; height: auto;
+  max-height: Hpx;` from the two attributes. The attribute pair is therefore what
+  reserves the box before the SVG arrives and what caps the demo at 820 px; a CSS
+  `max-width` may refine a non-GitHub preview but must never be the only place a
+  width is declared.
 
 ## 8. Verification
 
@@ -277,6 +284,25 @@ Host: WSL, the repository's `.venv` (Python 3.14.4, Pillow 13.0.0, cairosvg
 | Windows run | `venv\Scripts\python.exe scripts\render_social_preview.py` | exit 1, `ModuleNotFoundError: No module named 'cairosvg'`; the generator must run in the WSL `.venv` |
 | Asset contract | `verify_assets.py <worktree>` | social-preview 1280x640 colourtype 2, chunks `IHDR IDAT IDAT IEND`, 0 metadata; every other asset unchanged |
 | Old -> new | `Scratch/t0005/verify_card.py` | 22 660 of 819 200 pixels (2.77%) differ by >8: mark frame `#8f8ef0` -> `#8584f0` (2.88:1 -> 3.20:1), pitch comma -> period, and antialiasing; every content band keeps its box (section 9, IMG-1) |
+
+### 8.4 README layout stability (T-0004, 2026-11-01)
+
+The reviewer's fail at `a00c92c` was correct: the demo's
+`style="width:100%;max-width:820px;height:auto"` never reaches github.com, so the
+demo rendered `880x513.33` in an 880 px column instead of the reviewed
+`820x478.33`, and "renders at 820 px" was false on the product page. The fix moves
+the 820 px cap into the attribute pair, where GitHub keeps it.
+
+| Check | Command | Result |
+|---|---|---|
+| Intrinsic size from each SVG root | `venv\Scripts\python.exe <Artifacts>/T-0004/Scripts/check_sizes.py <worktree>` | banner header `1280x360` = viewBox, declared `1280x360`, both ratios 3.5556, deviation 0.00%; demo header `960x560` = viewBox, declared `820x478`, ratio 1.7155 vs 1.7143, deviation 0.07% (exact height at 820 px is 478.33, so 0.33 px sub-pixel) |
+| Served tag shape | `GET api.github.com/repos/Nidvue/Teamwork/readme`, `Accept: application/vnd.github.html`, 2026-11-01 | the icon's author declarations are already gone: served as `width="88" height="88" style="max-width: 100%; height: auto; max-height: 88px;"` - `width`/`height` survive, `style` is GitHub's, no `aspect-ratio` is generated |
+| Reserved vs loaded box | `github_harness.py` -> Chrome `--headless=new --dump-dom`, columns 1280/880/820/375, renderers `local` / `github` / `github+aspect-ratio` | `github` renderer (what this repository's pipeline serves), current tags: 8/8 cells reserved == loaded - 7 at `delta_height 0.00`, the demo at a 375 px column at `218.59` reserved vs `218.75` loaded (0.16 px); demo `820x478` at 1280/880/820 columns, i.e. the reviewed width survives; banner `880x247.5` / `820x230.63` / `375x105.47`, unchanged. The same renderer on the pre-fix tag from `a00c92c` reproduces `880x513.33` at an 880 px column |
+| Author-CSS renderer | same harness, `local` renderer | demo `820x478.33` loaded against a `820x478` reserved box (0.33 px sub-pixel, no visible reflow); the cap still applies where author CSS is honoured |
+| Links | `python scripts/teamwork.py --project <worktree> links` | 0 issues (75 markdown files, 388 internal links) |
+
+Not measured here: a full github.com render (Mermaid, camo image proxy). The
+emulation covers the `<img>` box, which is what the finding was about.
 
 ## 9. Visual assets (raster and vector)
 
@@ -493,7 +519,7 @@ Result: 1 952 B, 180x180, colourtype 2 (RGB), chunks `IHDR IDAT IEND`.
 | # | file | finding | owner | suggested fix |
 |---|---|---|---|---|
 | F-1 | `.gitattributes:86` | `docs/assets/* -filter -diff -merge -text` marks the NIDVUE **SVGs** as binary too, so `git diff` prints "Binary files differ" for a hand-authored text asset; every change to IMG-5/IMG-6 in this sweep is invisible in the diff a Reviewer reads | Architect / Release Engineer | split the rule: `docs/assets/*.svg -filter -merge` (keep text/diff) and `docs/assets/*.png -filter -diff -merge -text`; `-filter` alone is enough to stay out of LFS |
-| F-2 | `README.md:2,19` | the hero `<img>` tags declare no intrinsic height (`width="100%"` and `width="820"`), so the two largest assets shift the page while loading; `README.md:3` does it right (`width="88" height="88"`) | CEO (README prose) | add `height="360"` / `height="478"` (the 2x-safe intrinsic ratio) next to the widths |
+| F-2 | `README.md:2,19` | the hero `<img>` tags declared no intrinsic height (`width="100%"` and `width="820"`), so the two largest assets shifted the page while loading | Designer | resolved in T-0004: `README.md:2` carries `width="1280" height="360"` (native) and `README.md:19` `width="820" height="478"` (ratio 1.7155 vs the asset's 1.7143, 0.33 px at 820 px wide); the attributes are the whole contract on github.com, whose pipeline replaces every author `style` and derives the box from `width`/`height` alone - measurements in 8.4 |
 | F-3 | `assets/social-preview.png` | the pitch on the OG card used a comma where the README uses a full stop, and no generator was committed | closed by T-0005 (Designer): `scripts/render_social_preview.py` rebuilds the card from the current mark and the README pitch; the pitch is now the README's |
 
 ### Notes

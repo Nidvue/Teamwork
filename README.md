@@ -16,7 +16,7 @@
 </div>
 
 <p align="center">
-  <img src="assets/demo.svg" alt="Animated terminal: one git clone installs the skill, one request that names the skill starts the company, and the loop gate reports CONTINUE until every acceptance criterion is verified." width="960" height="560" style="width:100%;max-width:820px;height:auto">
+  <img src="assets/demo.svg" alt="Animated terminal: one git clone installs the skill, one request that names the skill starts the company, and the loop gate reports CONTINUE until every acceptance criterion is verified." width="820" height="478" style="max-width:100%;height:auto">
 </p>
 
 Nidvue Teamwork is **a skill for your coding agent** - not a standalone
