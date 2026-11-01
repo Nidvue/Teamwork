@@ -2414,6 +2414,33 @@ def test_r10_the_readme_bullet_is_read_and_a_comparison_row_is_not(tmp_path):
     assert "AGPL-3.0-only" in result.findings[0], result.findings[0]
 
 
+#: The review's M2: the link is ``-only`` while the bullet's prose still grants
+#: "or any later version". One sentence, two grants, so the rule must read both.
+README_MIXED = (
+    "# Teamwork\n"
+    "\n"
+    "## Contributing, security and license\n"
+    "\n"
+    "- **License** - [AGPL-3.0-only](LICENSE) (version 3 of the AGPL or any later version),"
+    " copyright (C) 2026 **Nidvue**.\n"
+)
+
+
+def test_r10_a_readme_link_and_prose_that_disagree_are_drift(tmp_path):
+    """R-23's remedy is one grant per surface: the link is a statement too."""
+    root = licence_tree(tmp_path / "repo")
+    (root / "README.md").write_bytes(README_MIXED.encode("utf-8"))
+
+    result = crc.rule_r10_licence_grant(root)
+
+    assert result.status == "DRIFT", result
+    assert len(result.findings) == 1, result.findings
+    finding = result.findings[0]
+    assert finding.startswith("README.md:"), finding
+    assert "AGPL-3.0-only" in finding, finding
+    assert "AGPL-3.0-or-later" in finding, finding
+
+
 def test_r10_the_trademark_paragraph_is_not_a_grant(tmp_path):
     """``not covered by the AGPL grant`` names the family and grants nothing."""
     root = licence_tree(tmp_path / "repo")

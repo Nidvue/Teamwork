@@ -61,11 +61,14 @@ Design notes
   ``vX.Y.Z`` token": a bare ``3.12.13`` in ``python: 3.12.13`` names a Python
   version, not a tag, and turning it into "missing tag v3.12.13" would be a
   defect rather than a finding. R6 owns bare version prose.
-* R10 (the licence-surface rule, added under T-0009 for risk R-23) is the one
-  rule this file carries that `docs/Team/Architecture.md` section 11 does not
-  yet list: it froze nine rules and only the Architect amends it. The rule reads
-  the licence grant from every surface that states one and reports a
-  disagreement, because nothing compared them and `CITATION.cff` could claim
+* R10 (the licence-surface rule, added under T-0009 for risk R-23) makes the
+  contract ten rules. Section 11 froze nine; the Architect amended it in P-0037
+  (T-0002): 11.1.2 now fixes the RULE-ID as "`R` plus the rule number, so it is
+  two characters for R1..R9 and three for R10 ... the format is not narrowed to
+  keep a single-digit parser green", 11.2 is "the ten rules" in `R1..R10` order,
+  and 11.2.5 freezes what this rule does. This file edits no frozen document.
+  The rule reads the licence grant from every surface that states one and reports
+  a disagreement, because nothing compared them and `CITATION.cff` could claim
   ``AGPL-3.0-only`` while the tree granted "or-later". It cannot weaken R1..R9:
   it touches no other rule, reads only files those rules never judge for a
   licence, and its two pins are a fixture that must fail naming both values and
@@ -349,6 +352,10 @@ PYPROJECT_LICENCE_TEXT = re.compile(r'^\s*license\s*=\s*\{\s*text\s*=\s*"([^"]+)
 PYPROJECT_LICENCE_CLASSIFIER = re.compile(r'^\s*"(License\s*::[^"]*)"\s*,?\s*$')
 NPM_LICENCE_FIELD = re.compile(r'^\s*"license"\s*:\s*"([^"]+)"')
 README_LICENCE_BULLET = re.compile(r"(?i)^\s*[-*+]\s+(?:\*\*|__)?licen[cs]e(?:\*\*|__)?\b")
+#: ``[label](target)`` inside the README bullet: the label carries the SPDX id and
+#: the prose around it carries the licence's own grant wording. They are read as
+#: two statements, because a surface that disagrees with itself is drift too.
+MARKDOWN_LINK = re.compile(r"\[(?P<label>[^\]]*)\]\((?P<target>[^)]*)\)")
 
 
 class InputError(RuntimeError):
@@ -1854,7 +1861,7 @@ def _notice_claims(rel: str, lines: Sequence[str]) -> list[LicenceClaim]:
     version and so is not one.
     """
     start = 0
-    for number, line in enumerate(lines + [""], 1):
+    for number, line in enumerate([*lines, ""], 1):
         if line.strip():
             continue
         paragraph = " ".join(lines[start : number - 1]).strip()
@@ -1872,12 +1879,33 @@ def _readme_claims(rel: str, lines: Sequence[str]) -> list[LicenceClaim]:
     | ... | MIT |``); reading it as this project's grant would make any comparison
     table a drift. Only a bullet that opens with the licence label is read, which
     is the shape the README's "Contributing, security and license" section uses.
+
+    The bullet carries two statements - the link's SPDX id and the prose's own
+    wording ("version 3 of the AGPL or any later version") - so both are read.
+    Reading only the joined text ORs them into one grant, and a surface whose link
+    says ``-only`` while its prose says "or later" would pass the rule while
+    publishing two grants in one sentence (the review's M2). A bullet that states
+    no grant at all is still unreadable rather than silently absent.
     """
-    return [
-        _claim(rel, number, line)
-        for number, line in enumerate(lines, 1)
-        if README_LICENCE_BULLET.match(line)
-    ]
+    claims: list[LicenceClaim] = []
+    for number, line in enumerate(lines, 1):
+        if not README_LICENCE_BULLET.match(line):
+            continue
+        linked = 0
+        for match in MARKDOWN_LINK.finditer(line):
+            value = _licence_grant(match.group("label")) or _licence_grant(match.group("target"))
+            if value is not None:
+                claims.append(LicenceClaim(rel, number, value))
+                linked += 1
+        prose = MARKDOWN_LINK.sub(" ", line)
+        value = _licence_grant(prose)
+        if value is not None:
+            claims.append(LicenceClaim(rel, number, value))
+        elif not linked:
+            raise InputError(
+                f"{rel}:{number}: cannot read a licence grant from {_one_line(line)!r}"
+            )
+    return claims
 
 
 #: Each surface's reader, keyed by the file that carries the statement, in
@@ -1904,12 +1932,12 @@ def rule_r10_licence_grant(repo_root: Path) -> RuleResult:
     different grants. The rule reads each surface that carries a statement -
     CITATION's ``license:``, pyproject's inline id and its classifiers, the
     ``license`` field of the package.json the pi build writes, NOTICE's grant
-    sentence and the README's licence bullet - and reports every surface whose
-    grant differs from the most common one, naming the file, both values and the
-    line of each.
+    sentence and the README's licence bullet (its link and its prose as two
+    statements) - and reports every surface whose grant differs from the most
+    common one, naming the file, both values and the line of each.
 
     A surface that states nothing is not compared: a fixture without a NOTICE
-    proves nothing about NOTICE. With fewer than two statements there is nothing
+    proves nothing about NOTICE. With fewer than two surfaces there is nothing
     to disagree, so the rule is a ``SKIP`` that says so - never an ``ok`` that
     would claim agreement it did not measure.
     """
@@ -1932,11 +1960,12 @@ def rule_r10_licence_grant(repo_root: Path) -> RuleResult:
     ]
     if findings:
         return _drift("R10", findings)
-    if len(claims) == 1:
+    surfaces = len({claim.file for claim in claims})
+    if surfaces == 1:
         return _skip(
             "R10", f"one licence surface: {reference.file}:{reference.line} {reference.value}"
         )
-    return _ok("R10", f"{len(claims)} licence surface(s) agree on {reference.value}")
+    return _ok("R10", f"{surfaces} licence surface(s) agree on {reference.value}")
 
 
 # Entry point
