@@ -25,6 +25,29 @@ from gate_fixtures import commit_all, git, make_repo, run_checker, write_release
 AREA = "release-consistency"
 STATUSES = {"ok", "DRIFT", "SKIP"}
 
+#: The contract's rule ids, in contract order (Architecture 11.2, amended to ten
+#: rules by P-0037; 11.1.2 admits `R10` as a three-character RULE-ID). Written out
+#: literally, never derived from the checker or a ``range()`` bound: a rule the
+#: report drops must fail, and the next rule extends this tuple instead of moving
+#: a bound. Adding a rule is an Architecture amendment and updates this line.
+CONTRACT_RULE_IDS = (
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R8",
+    "R9",
+    "R10",
+)
+
+
+def _assert_contract_rule_ids(rule_ids):
+    """The report carries exactly the contract's rules, in contract order."""
+    assert list(rule_ids) == list(CONTRACT_RULE_IDS), list(rule_ids)
+
 
 def _clean_release_tree(root):
     """A tree whose release facts all agree: one tag, version.py, CHANGELOG."""
@@ -75,8 +98,7 @@ def test_json_verdict_agrees_with_the_exit_code(tmp_path, builder, expected_rc, 
         assert payload["problems"] == [], payload["problems"]
     else:
         assert payload["problems"], "a drifted tree reported no problem"
-    rules = {rule["id"]: rule for rule in payload["rules"]}
-    assert set(rules) == {f"R{n}" for n in range(1, 10)}, sorted(rules)
+    _assert_contract_rule_ids([rule["id"] for rule in payload["rules"]])
     assert all(rule["status"] in STATUSES for rule in payload["rules"]), payload["rules"]
     assert all(isinstance(rule["detail"], str) and rule["detail"] for rule in payload["rules"])
 
@@ -102,17 +124,23 @@ def test_human_report_agrees_with_the_json_verdict(tmp_path):
 
 
 def test_clean_tree_reports_every_rule_not_a_bare_pass(tmp_path):
-    """ACCEPT: a clean run names all nine rules, so 'clean' is earned per rule."""
+    """ACCEPT: a clean run names every contract rule, so 'clean' is earned per rule."""
     repo = _clean_release_tree(tmp_path / "rules")
 
     proc = run_checker(repo, "--offline")
 
     assert proc.returncode == 0, proc.stdout
-    for number in range(1, 10):
-        assert f"R{number} " in proc.stdout, f"rule R{number} was not reported:\n{proc.stdout}"
+    for rule_id in CONTRACT_RULE_IDS:
+        assert f"{rule_id} " in proc.stdout, f"rule {rule_id} was not reported:\n{proc.stdout}"
     assert "SKIP offline" in proc.stdout, (
         "the offline mode must say which rules it skipped and why:\n" + proc.stdout
     )
+
+
+def test_the_contract_rule_ids_reject_a_report_that_drops_the_newest_rule():
+    """The id assertion is discriminating: the contract minus R10 must not pass."""
+    with pytest.raises(AssertionError):
+        _assert_contract_rule_ids(CONTRACT_RULE_IDS[:-1])
 
 
 def test_an_unreadable_tree_is_not_silently_clean(tmp_path):

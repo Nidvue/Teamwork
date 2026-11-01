@@ -1,6 +1,6 @@
 """Unit tests for the release gate (``scripts/check_release_consistency.py``).
 
-Every rule R1..R9 is proved on a *synthetic fixture repository* built in
+Every rule R1..R10 is proved on a *synthetic fixture repository* built in
 ``tmp_path``, never on this repository: a rule is only trustworthy if it fires on
 a deliberately drifted tree and stays quiet on a clean one, while a test that
 reads the real repository would fail the moment the repository changes for a
@@ -1353,7 +1353,7 @@ def test_main_exits_zero_on_a_clean_fixture(tmp_path):
     assert (code, stderr) == (0, "")
     assert stdout.splitlines()[-1] == "# release consistency: 0 problem(s)"
     assert [line.split()[0] for line in stdout.splitlines()[:-1]] == [
-        f"R{index}" for index in range(1, 10)
+        f"R{index}" for index in range(1, 11)
     ]
 
 
@@ -1398,7 +1398,7 @@ def test_json_output_carries_problems_rules_and_exit_code(tmp_path):
     assert code == 1
     assert list(payload) == ["problems", "rules", "exit_code"]
     assert payload["exit_code"] == code
-    assert [rule["id"] for rule in payload["rules"]] == [f"R{index}" for index in range(1, 10)]
+    assert [rule["id"] for rule in payload["rules"]] == [f"R{index}" for index in range(1, 11)]
     assert payload["problems"] == [
         {"rule": "R2", "detail": "HEAD version 1.0.0 is not greater than tag v1.1.0"}
     ]
@@ -1428,11 +1428,14 @@ def test_offline_run_never_reports_ok_for_a_network_rule(tmp_path):
     statuses = {line.split()[0]: line.split()[1] for line in stdout.splitlines() if line[:1] == "R"}
 
     assert code == 0
-    assert set(statuses) == {f"R{index}" for index in range(1, 10)}
+    assert set(statuses) == {f"R{index}" for index in range(1, 11)}
     for rule in NETWORK_RULES:
         assert statuses[rule] == "SKIP", f"{rule} must not pass offline: {statuses[rule]}"
     for line in stdout.splitlines()[:-1]:
-        if line.split()[1] == "SKIP":
+        # The "offline" wording is the network switch's excuse. R10 is an offline
+        # rule that skips because this fixture carries no licence surface, so it
+        # states its own reason instead.
+        if line.split()[0] in NETWORK_RULES and line.split()[1] == "SKIP":
             assert "offline" in line, line
 
 
@@ -1507,6 +1510,7 @@ def test_the_checker_surface_is_available():
         "rule_r7_changelog",
         "rule_r8_install_channels",
         "rule_r9_markdown_tags",
+        "rule_r10_licence_grant",
         "load_exceptions",
         "InputError",
         "RuleResult",
@@ -2261,3 +2265,232 @@ def test_11_3_each_kind_of_link_refusal_says_a_different_reason(tmp_path):
     }
 
     assert len(set(reasons.values())) == 4, reasons
+
+
+# --------------------------------------------------------------------------- #
+# 11.5 R10 - one licence grant across every surface that states one
+# --------------------------------------------------------------------------- #
+
+GRANT = "AGPL-3.0-or-later"
+ONLY = "AGPL-3.0-only"
+CLASSIFIER_OR_LATER = (
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)"
+)
+CLASSIFIER_ONLY = "License :: OSI Approved :: GNU Affero General Public License v3"
+#: The licence's own grant boilerplate, as NOTICE carries it (wrapped over lines,
+#: which is why the reader parses a paragraph) and the one-word variant.
+NOTICE_OR_LATER = "either version 3 of the License, or (at your option) any later version"
+NOTICE_ONLY = "version 3 of the License only"
+
+CITATION_TEMPLATE = 'cff-version: 1.2.0\ntitle: "Teamwork fixture"\nlicense: {grant}\n'
+PYPROJECT_TEMPLATE = (
+    '[project]\nname = "teamwork-agents"\nlicense = {{ file = "LICENSE" }}\n'
+    "classifiers = [\n"
+    '  "Development Status :: 4 - Beta",\n'
+    '  "{classifier}",\n'
+    ']\n\n[project.scripts]\nteamwork = "teamwork.cli:main"\n'
+)
+NPM_TEMPLATE = '{{\n  "name": "@nidvue/teamwork",\n  "license": "{grant}",\n}}\n'
+NOTICE_TEMPLATE = (
+    "Nidvue Teamwork\n"
+    "Copyright (C) 2026 Nidvue\n"
+    "\n"
+    "This program is free software: you can redistribute it and/or modify it under the\n"
+    "terms of the GNU Affero General Public License as published by the Free Software\n"
+    "Foundation, {clause}.\n"
+    "\n"
+    "The Nidvue name is a trademark and is not covered by the AGPL grant for the code.\n"
+)
+README_TEMPLATE = (
+    "# Teamwork\n"
+    "\n"
+    "| Project | License |\n"
+    "|---|---|\n"
+    "| **Nidvue Teamwork** | {grant} |\n"
+    "| CrewAI | MIT |\n"
+    "\n"
+    "## Contributing, security and license\n"
+    "\n"
+    "- **License** - [{grant}](LICENSE), copyright (C) 2026 **Nidvue**.\n"
+)
+
+
+def licence_tree(
+    root: Path,
+    citation: str = GRANT,
+    classifier: str = CLASSIFIER_OR_LATER,
+    npm: str = GRANT,
+    notice: str = NOTICE_OR_LATER,
+    readme: str = GRANT,
+) -> Path:
+    """Every surface stating ``AGPL-3.0-or-later`` unless one is overridden."""
+    return make_repo(
+        root,
+        files={
+            "CITATION.cff": CITATION_TEMPLATE.format(grant=citation),
+            "pyproject.toml": PYPROJECT_TEMPLATE.format(classifier=classifier),
+            "scripts/build_pi_package.py": NPM_TEMPLATE.format(grant=npm),
+            "NOTICE": NOTICE_TEMPLATE.format(clause=notice),
+            "README.md": README_TEMPLATE.format(grant=readme),
+        },
+    )
+
+
+def test_r10_five_agreeing_surfaces_are_ok(tmp_path):
+    result = crc.rule_r10_licence_grant(licence_tree(tmp_path / "repo"))
+
+    assert result.status == "ok", result
+    assert "5 licence surface(s) agree on AGPL-3.0-or-later" in result.detail
+
+
+def test_r10_citation_only_against_an_or_later_tree_names_both_values(tmp_path):
+    """R-23 itself: CITATION claims -only while every other surface grants or-later."""
+    root = licence_tree(tmp_path / "repo", citation=ONLY)
+
+    result = crc.rule_r10_licence_grant(root)
+
+    assert result.status == "DRIFT", result
+    assert len(result.findings) == 1, result.findings
+    finding = result.findings[0]
+    assert finding.startswith("CITATION.cff:"), finding
+    assert "AGPL-3.0-only" in finding, finding
+    assert "AGPL-3.0-or-later" in finding, finding
+    assert "pyproject.toml:" in finding, finding
+
+
+def test_r10_this_repository_states_one_licence_grant():
+    """R-23's second pin: the tree as it stands must pass, or the rule is wrong."""
+    result = crc.rule_r10_licence_grant(REPO_ROOT)
+
+    assert result.status == "ok", result
+    assert "AGPL-3.0-or-later" in result.detail, result.detail
+    assert "5 licence surface(s)" in result.detail, result.detail
+
+
+def test_r10_the_pyproject_classifier_is_read_not_only_its_licence_key(tmp_path):
+    """``license = { file = "LICENSE" }`` states no id, so the classifier carries it."""
+    root = licence_tree(tmp_path / "repo", classifier=CLASSIFIER_ONLY)
+
+    result = crc.rule_r10_licence_grant(root)
+
+    assert result.status == "DRIFT", result
+    assert len(result.findings) == 1, result.findings
+    assert result.findings[0].startswith("pyproject.toml:"), result.findings[0]
+    assert "AGPL-3.0-only" in result.findings[0], result.findings[0]
+
+
+def test_r10_the_npm_metadata_field_is_read(tmp_path):
+    """The published package.json metadata is a surface a reader sees."""
+    root = licence_tree(tmp_path / "repo", npm=ONLY)
+
+    result = crc.rule_r10_licence_grant(root)
+
+    assert result.status == "DRIFT", result
+    assert len(result.findings) == 1, result.findings
+    assert result.findings[0].startswith("scripts/build_pi_package.py:"), result.findings[0]
+
+
+def test_r10_the_notice_grant_sentence_is_read_across_its_line_break(tmp_path):
+    """The grant wraps, and its version sits on the last line of the paragraph."""
+    root = licence_tree(tmp_path / "repo", notice=NOTICE_ONLY)
+
+    result = crc.rule_r10_licence_grant(root)
+
+    assert result.status == "DRIFT", result
+    assert len(result.findings) == 1, result.findings
+    assert result.findings[0].startswith("NOTICE:"), result.findings[0]
+    assert "AGPL-3.0-only" in result.findings[0], result.findings[0]
+
+
+def test_r10_the_readme_bullet_is_read_and_a_comparison_row_is_not(tmp_path):
+    """A table row names somebody else's licence; reading it would invent a drift."""
+    root = licence_tree(tmp_path / "repo", readme=ONLY)
+
+    result = crc.rule_r10_licence_grant(root)
+
+    assert result.status == "DRIFT", result
+    assert len(result.findings) == 1, result.findings
+    assert result.findings[0].startswith("README.md:"), result.findings[0]
+    assert "AGPL-3.0-only" in result.findings[0], result.findings[0]
+
+
+#: The review's M2: the link is ``-only`` while the bullet's prose still grants
+#: "or any later version". One sentence, two grants, so the rule must read both.
+README_MIXED = (
+    "# Teamwork\n"
+    "\n"
+    "## Contributing, security and license\n"
+    "\n"
+    "- **License** - [AGPL-3.0-only](LICENSE) (version 3 of the AGPL or any later version),"
+    " copyright (C) 2026 **Nidvue**.\n"
+)
+
+
+def test_r10_a_readme_link_and_prose_that_disagree_are_drift(tmp_path):
+    """R-23's remedy is one grant per surface: the link is a statement too."""
+    root = licence_tree(tmp_path / "repo")
+    (root / "README.md").write_bytes(README_MIXED.encode("utf-8"))
+
+    result = crc.rule_r10_licence_grant(root)
+
+    assert result.status == "DRIFT", result
+    assert len(result.findings) == 1, result.findings
+    finding = result.findings[0]
+    assert finding.startswith("README.md:"), finding
+    assert "AGPL-3.0-only" in finding, finding
+    assert "AGPL-3.0-or-later" in finding, finding
+
+
+def test_r10_the_trademark_paragraph_is_not_a_grant(tmp_path):
+    """``not covered by the AGPL grant`` names the family and grants nothing."""
+    root = licence_tree(tmp_path / "repo")
+
+    claims = crc._notice_claims(
+        "NOTICE", (root / "NOTICE").read_text(encoding="utf-8").splitlines()
+    )
+
+    assert [claim.value for claim in claims] == ["AGPL-3.0-or-later"]
+
+
+def test_r10_one_surface_is_a_skip_not_an_ok(tmp_path):
+    """Nothing was compared, so the rule must not claim that everything agrees."""
+    root = make_repo(
+        tmp_path / "repo", files={"CITATION.cff": CITATION_TEMPLATE.format(grant=GRANT)}
+    )
+
+    result = crc.rule_r10_licence_grant(root)
+
+    assert result.status == "SKIP", result
+    assert "one licence surface" in result.detail, result.detail
+    assert "CITATION.cff:" in result.detail, result.detail
+
+
+def test_r10_a_tree_with_no_licence_surface_is_a_skip_not_an_ok(tmp_path):
+    result = crc.rule_r10_licence_grant(make_repo(tmp_path / "repo"))
+
+    assert result.status == "SKIP", result
+    assert "no licence surface" in result.detail, result.detail
+
+
+def test_r10_a_statement_it_cannot_read_is_exit_two(tmp_path):
+    """A grant this rule cannot read fails the gate; it never passes by silence."""
+    root = licence_tree(tmp_path / "repo", citation="Proprietary")
+
+    code, stdout, _ = run_main(["--offline", "--repo-root", str(root)])
+
+    assert code == 2, stdout
+    assert "R10 SKIP" in stdout, stdout
+    assert "cannot read a licence grant" in stdout, stdout
+
+
+def test_r10_a_drifted_citation_exits_one_and_carries_both_values(tmp_path):
+    root = licence_tree(tmp_path / "repo", citation=ONLY)
+
+    code, stdout, _ = run_main(["--offline", "--json", "--repo-root", str(root)])
+    payload = json.loads(stdout)
+
+    assert code == 1, stdout
+    assert payload["exit_code"] == 1
+    assert [problem["rule"] for problem in payload["problems"]] == ["R10"], payload["problems"]
+    detail = payload["problems"][0]["detail"]
+    assert "CITATION.cff:" in detail and "AGPL-3.0-only" in detail and "AGPL-3.0-or-later" in detail
