@@ -1827,3 +1827,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: docs/Team/Research.md section 10 @e4b046f vs docs 000-003 of the prototype (accessed 2026-11-01): Mandate = strength + scope + policy version; accept mode off/observe/auto; accepting a Trigger twice creates one Ticket; the stage table is first-match over stored facts
 - falsified by: an inferred task is claimed outside auto, a duplicate key creates two tasks, or an open authorization is invisible at STOP
 - consequences: -
+
+## D-20261101-Developer-5 - R10 is a tenth rule, and the licence-surface readers are deliberately narrow
+
+- date: 2026-11-01
+- kind: technical
+- status: accepted
+- deciders: Developer-5 (developer)
+- decided by: Developer-5
+- task: T-0009
+- context: -
+- options considered: -
+- decision: Add R10 (rule_r10_licence_grant) to scripts/check_release_consistency.py: read the licence grant from the five surfaces that state one, normalise it to a GNU SPDX-shaped id (AGPL-3.0-only / -or-later), and report every surface whose grant differs from the most common one, naming both files, both values and the line of each. Surfaces are read narrowly on purpose: CITATION's license:, pyproject's inline id plus every License:: classifier, the package.json license field in scripts/build_pi_package.py, NOTICE's first grant paragraph, and only the README licence bullet (never its comparison table).
+- why: R-23 is real: CITATION.cff said AGPL-3.0-only while NOTICE, pyproject and the npm metadata granted or-later, and no rule read the field. A surface that states nothing is not compared (a fixture without NOTICE proves nothing), one statement is a SKIP rather than an ok, and a grant the rule cannot read raises InputError so the run exits 2 instead of passing. The narrow readers exist to avoid inventing drift: the README's competitor rows name MIT and the NOTICE trademark paragraph names the AGPL family without a version, so a broader 'every licence mention' reader would report the project disagreeing with itself.
+- evidence: venv python scripts/check_release_consistency.py --offline @2a15514 -> 'R10 ok 5 licence surface(s) agree on AGPL-3.0-or-later', 0 problem(s), exit 0; copy of the five real surfaces with CITATION rewritten to AGPL-3.0-only -> R10 DRIFT 'CITATION.cff:17: licence AGPL-3.0-only, but pyproject.toml:26 says AGPL-3.0-or-later'; venv python -m pytest -q tests/unit/test_release_consistency.py @2a15514 -> 94 passed, 12 skipped
+- falsified by: A surface that carries a real grant which one of these readers misses (e.g. a licence stated only in LICENSE or in a docs/ page) would leave a disagreement undetected: add that surface, or show a tree where two grants differ and R10 reports ok.
+- consequences: Consequence outside this task's scope, measured not assumed: the suites that pin the rule-id set now see R10 and must be updated by their owners - tests/integration/test_release_consistency_integration.py:177,390 and tests/acceptance/test_acceptance_release_consistency.py:79,111 hardcode range(1, 10); docs/Team/Architecture.md section 11 still freezes nine rules and only the Architect amends it.
