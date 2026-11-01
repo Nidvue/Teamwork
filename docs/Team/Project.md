@@ -234,6 +234,32 @@ Exit condition: the four criteria verified by a role other than their owner on
 the merged revision. The measured baseline, the three defect classes it produced
 and the review record are in [Plan](Plan.md) M14.
 
+## M15 - Authority and attention (this engagement)
+
+Objective, from the operator's directive: study
+[dsh-superagent](https://github.com/deepseek-ai/dsh-superagent-prototype) and
+adopt what it proves, into the skill itself. The adopted half is the one this
+team lacks: **who may start work, and what needs a person** - a Mandate with a
+strength, an accept mode for proactive work, idempotent intake, an attention
+queue and a stage table computed from records. The comparison and the rejected
+half are in [Research](Research.md) section 10.
+
+Non-goals: a new roster role, any change to the workspace format that an older
+tree cannot read, a pushed release, a history rewrite, and any redesign of the
+review gate (the two-stage gate and the ledger stay exactly as they are).
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-8 | `task add` is idempotent on `--key` and records a mandate (`explicit`/`inferred`) with its basis; a repeated add returns the existing id and creates nothing | Developer | Reviewer |
+| AC-9 | proactive assignment is gated by `PulseMode` (`off`/`observe`/`auto`); `observe` records the dispatch it would have made and claims nothing, and an `inferred` task is never claimed outside `auto` | Developer | Reviewer |
+| AC-10 | `attention` records what needs a person (`add`/`list`/`resolve`), `loop` counts open items and blocks STOP on an open authorization, and a healthy team prints none | Developer | Reviewer |
+| AC-11 | `stage` classifies every in-flight task into a person-stage or a working-stage from records alone, by a first-match table, and names the row it matched | Developer | Reviewer |
+| AC-12 | the adoption is documented with a direct URL and access date per source, and every claim it makes is reproducible against the tree | Technical Writer | Reviewer |
+
+Exit condition: AC-8..AC-12 verified by a role other than their owner on the
+merged revision, `tests plan` with no gap in the touched areas, and the
+M14 and M15 criteria all closed in the same STOP.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
