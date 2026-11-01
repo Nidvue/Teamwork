@@ -2195,6 +2195,7 @@ LEDGER_ACTIONS = (
     "task.status",
     "task.evidence",
     "task.reclaim",
+    "pulse.observe",
     "selfcheck",
     "review.pass",
     "review.fail",
@@ -6267,12 +6268,27 @@ def cmd_task_next(args) -> int:
         lookup = local_dep_map(tasks)
         cache = {}
         ready = [t for t in tasks if executable(t, lookup, cache, root)]
+        # Proactive work - a task the team inferred, not one a person asked for -
+        # is only taken when the team has accepted proactive work: mode `auto`.
+        # `observe` and `off` report it and say why it waits, so the record
+        # exists and the claim does not (AC-9, dsh 002-authorization.md).
+        mode, mode_source = load_pulse_mode(root)
+        refused = [t for t in ready if task_is_inferred(t)] if mode != "auto" else []
+        if refused:
+            ready = [t for t in ready if not task_is_inferred(t)]
         if not ready:
-            blocked = [t for t in tasks if t["status"] in ("todo", "doing", "selfcheck")]
+            blocked = [
+                t
+                for t in tasks
+                if t["status"] in ("todo", "doing", "selfcheck") and t not in refused
+            ]
             print(
                 f"teamwork: {args.agent} ({role}) has no unclaimed executable task"
-                f" ({len(blocked)} open: blocked, claimed or in progress)"
+                f" ({len(blocked)} other open: blocked, claimed or in progress"
+                + (f", {len(refused)} refused: the accept mode is not auto" if refused else "")
+                + ")"
             )
+            _print_mode_refusals(refused, mode, mode_source)
             for t in sorted(blocked, key=lambda t: PRIORITY_ORDER.get(t["priority"], 9)):
                 _print_task(t)
             return 3
@@ -6288,6 +6304,7 @@ def cmd_task_next(args) -> int:
                 item["claimed_by"] = claimant
                 item["updated"] = today_iso()
             write_tasks(path, tasks, role)
+    _print_mode_refusals(refused, mode, mode_source)
     if not args.peek:
         # one claim, one ledger record: a lane that takes three units leaves three
         # audit entries, otherwise the chain says less than the queue does
@@ -7439,6 +7456,58 @@ def set_pulse_minutes(root: Path, minutes: int) -> None:
     atomic_write(providers_path(root), json.dumps(data, indent=2) + "\n")
 
 
+#: Settings.json key for the accept mode of *proactive* work (AC-9, dsh
+#: 002-authorization.md): `auto` acts on it, `observe` records what it would
+#: accept, `off` only reports. Absent reads as `auto`, so every tree written
+#: before this key existed keeps dispatching exactly as it did.
+PULSE_MODE_KEY = "PulseMode"
+PULSE_MODES = ("off", "observe", "auto")
+PULSE_MODE_DEFAULT = "auto"
+
+
+def load_pulse_mode(root: Path, override: str = "") -> tuple[str, str]:
+    """The effective accept mode, and where it came from.
+
+    ``override`` is a one-run ``pulse --mode``; otherwise the team
+    ``Settings.json`` decides. An unrecognised value reads as ``observe``: a typo
+    must neither authorise proactive work nor silence the report, so it lands in
+    the middle mode and names itself as the source.
+    """
+    if override:
+        return override.strip().lower(), "--mode"
+    settings = _load_settings(root)
+    if PULSE_MODE_KEY not in settings:
+        return PULSE_MODE_DEFAULT, f"default: no {PULSE_MODE_KEY} in Settings.json"
+    raw = settings[PULSE_MODE_KEY]
+    mode = raw.strip().lower() if isinstance(raw, str) else ""
+    if mode in PULSE_MODES:
+        return mode, f"Settings.json {PULSE_MODE_KEY}"
+    return (
+        "observe",
+        f"Settings.json {PULSE_MODE_KEY} {raw!r} is not one of "
+        f"{'/'.join(PULSE_MODES)} - read as observe",
+    )
+
+
+def task_is_inferred(t: dict) -> bool:
+    """A task the team inferred rather than one a person asked for.
+
+    The field arrives with the intake change (T-0013); a queue written before it
+    has no ``mandate`` and reads as explicit, which is the backward-compatible
+    default.
+    """
+    return t.get("mandate") == "inferred"
+
+
+def _print_mode_refusals(refused: list, mode: str, source: str) -> None:
+    for t in refused:
+        basis = t.get("mandate_basis") or "(no basis recorded)"
+        print(
+            f"- refused {t['id']} [inferred]: accept mode is {mode} ({source}) - "
+            f"taking inferred work needs auto; basis: {basis}"
+        )
+
+
 def stale_claims(root: Path, minutes: int = None) -> list:
     """Claims whose owner has no live lease and has not updated for the TTL.
 
@@ -7471,6 +7540,7 @@ def cmd_pulse(args: object) -> int:
     if args.interval is not None:
         set_pulse_minutes(root, args.interval)
     minutes = load_pulse_minutes(root)
+    mode, mode_source = load_pulse_mode(root, getattr(args, "mode", "") or "")
     reap_slots(root)
 
     idle = idle_instances(root)
@@ -7487,6 +7557,7 @@ def cmd_pulse(args: object) -> int:
 
     print(f"# Pulse ({root})")
     print(f"# interval: every {minutes} min | {len(busy)} busy, {len(idle)} idle lane(s)")
+    print(f"# accept mode: {mode} (from {mode_source})")
     print()
 
     print(f"## idle lanes ({len(idle)})")
@@ -7602,7 +7673,12 @@ def cmd_pulse(args: object) -> int:
             f"free - deferring {len(deferred)} assignment(s) instead of "
             "over-subscribing the provider"
         )
-    print("## dispatch plan")
+    if mode == "observe":
+        print("## would accept (observe - nothing is claimed)")
+    elif mode == "off":
+        print("## dispatch plan (off - report only, nothing is claimed)")
+    else:
+        print("## dispatch plan")
     if not plan:
         print("- nothing to dispatch")
     for role, inst, task, title, review_owner in plan:
@@ -7617,32 +7693,67 @@ def cmd_pulse(args: object) -> int:
         )
     print()
 
-    if args.commit and plan:
-        applied = []
+    if mode == "observe":
+        # The assessment is the record: observe exists so proactive candidates
+        # are written down while the team still decides whether to act on them.
+        # Each run records what it would have accepted, and every record names the
+        # lane that ran the pulse - an unattributed ledger line cannot be audited.
+        actor = getattr(args, "agent", "") or "ceo"
+        recorded = 0
         for role, inst, task, _title, review_owner in plan:
             if task is None:
                 continue
-            if review_owner:
-                if _pulse_review_claim(root, review_owner, task["id"], inst):
-                    applied.append(f"{inst}<-{review_owner}/{task['id']} (claim)")
-                continue
-            path = task_file(root, role)
-            with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
-                tasks = parse_tasks(path)
-                idx = find_task(tasks, task["id"])
-                if idx is None or tasks[idx]["status"] != "todo":
+            target = f"{review_owner}/{task['id']}" if review_owner else task["id"]
+            ledger_append(
+                root,
+                "pulse.observe",
+                actor,
+                task["id"],
+                f"would accept {target} on {inst} (mode {mode})",
+                "",
+                role,
+            )
+            recorded += 1
+        if recorded:
+            print(f"# observe: {recorded} assignment(s) recorded as pulse.observe; nothing claimed")
+            print()
+
+    if args.commit and plan:
+        if mode != "auto":
+            print(
+                f"# --commit downgraded: accept mode is {mode} ({mode_source}) - "
+                f"reported {len(plan)} assignment(s), claimed 0"
+                + (" (the would-accept records above stand)" if mode == "observe" else "")
+            )
+        else:
+            applied = []
+            for role, inst, task, _title, review_owner in plan:
+                if task is None:
                     continue
-                tasks[idx]["status"] = "doing"
-                tasks[idx]["claimed_by"] = inst
-                tasks[idx]["updated"] = today_iso()
-                write_tasks(path, tasks, role)
-                applied.append(f"{inst}<-{task['id']}")
-        print(
-            f"# applied {len(applied)} assignment(s)"
-            + (f": {', '.join(applied)}" if applied else "")
-        )
+                if review_owner:
+                    if _pulse_review_claim(root, review_owner, task["id"], inst):
+                        applied.append(f"{inst}<-{review_owner}/{task['id']} (claim)")
+                    continue
+                path = task_file(root, role)
+                with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+                    tasks = parse_tasks(path)
+                    idx = find_task(tasks, task["id"])
+                    if idx is None or tasks[idx]["status"] != "todo":
+                        continue
+                    tasks[idx]["status"] = "doing"
+                    tasks[idx]["claimed_by"] = inst
+                    tasks[idx]["updated"] = today_iso()
+                    write_tasks(path, tasks, role)
+                    applied.append(f"{inst}<-{task['id']}")
+            print(
+                f"# applied {len(applied)} assignment(s)"
+                + (f": {', '.join(applied)}" if applied else "")
+            )
     elif plan and not args.commit:
-        print("# dry run: add --commit to apply these assignments")
+        if mode == "auto":
+            print("# dry run: add --commit to apply these assignments")
+        else:
+            print(f"# accept mode {mode}: report only - --commit would not claim here")
     print()
 
     stale = stale_claims(root)
@@ -7657,7 +7768,13 @@ def cmd_pulse(args: object) -> int:
         print()
 
     print("## CEO next actions")
-    print("- assign the plan above to the idle lanes and tell each to start now")
+    if mode == "auto":
+        print("- assign the plan above to the idle lanes and tell each to start now")
+    else:
+        print(
+            f"- accept mode {mode}: the plan is a report, not a dispatch - no lane has "
+            "been given work"
+        )
     review_lanes = [a for a in idle if resolve_role(a) == "reviewer"]
     if open_items and review_lanes:
         print(
@@ -13949,6 +14066,17 @@ def _parsers_scheduling(sub, common) -> None:
     )
     s.add_argument("--commit", action="store_true", help="assign the plan to the idle lanes now")
     s.add_argument("--interval", type=int, default=None, help="store the pulse interval in minutes")
+    s.add_argument(
+        "--mode",
+        choices=list(PULSE_MODES),
+        default="",
+        help="override the accept mode for this run (default: Settings.json PulseMode)",
+    )
+    s.add_argument(
+        "--agent",
+        default="",
+        help="lane running this pulse, recorded on a pulse.observe line (default: ceo)",
+    )
     s.set_defaults(func=cmd_pulse)
 
 
