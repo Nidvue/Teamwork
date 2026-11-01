@@ -101,17 +101,23 @@ record in section 9.
 
 ## 4. Badges: chosen and why
 
-| Badge | Message | Why it earns a slot | Link target | Alt text |
-|---|---|---|---|---|
-| CI | Build is green | The first credential a developer checks | Actions `ci.yml` | "CI status" |
-| License | AGPL-3.0-or-later | Copyleft is a deliberate decision (R-11); state it up front | `LICENSE` | "License: AGPL-3.0-or-later" |
-| Python | 3.9-3.13 | Compatibility is a purchase decision | Architecture | "Python 3.9 to 3.13" |
-| Skill install | One clone, nothing to build | Sets the install expectation correctly: this is a skill, not an app | Install guide | "Skill: one clone to install" |
-| PRs welcome | Contributions open | Lowers the barrier for the first PR | `CONTRIBUTING.md` | "PRs welcome" |
-| Stars | Social proof | Requested conversion signal; never promised (R-1) | Stargazers | "GitHub stars" |
+| Badge | Message | Why it earns a slot | Link target | Alt text | Declared box (8.5) |
+|---|---|---|---|---|---|
+| CI | Build is green | The first credential a developer checks | Actions `ci.yml` | "CI status" | `height="20"` |
+| License | AGPL-3.0-or-later | Copyleft is a deliberate decision (R-11); state it up front | `LICENSE` | "License: AGPL-3.0-or-later" | `width="160" height="20"` |
+| Python | 3.9-3.13 | Compatibility is a purchase decision | Architecture | "Python 3.9 to 3.13" | `width="228" height="20"` |
+| Skill install | One clone, nothing to build | Sets the install expectation correctly: this is a skill, not an app | Install guide | "Skill: one clone to install" | `width="144" height="20"` |
+| PRs welcome | Contributions open | Lowers the barrier for the first PR | `CONTRIBUTING.md` | "PRs welcome" | `width="90" height="20"` |
+| Stars | Social proof | Requested conversion signal; never promised (R-1) | Stargazers | "GitHub stars" | `height="20"` |
 
 Rejected: "platform" and "build" badges add noise without a decision; "Made with
 Python" duplicates the Python badge.
+
+Every badge declares the height it is served at (20 px in all 9 states measured);
+the four whose text is fixed in the URL also declare their width, and the CI and
+stars badges declare no width because their width *is* live content (91/101/201 px
+for CI passing / no status / not found, 76/90/94 px for 0 stars / `octocat/Hello-World`
+/ `torvalds/linux`). Measurements and the bounded residual shift: 8.5.
 
 ## 5. Accessibility
 
@@ -159,6 +165,9 @@ Assertable by a Tester on the merged README.
 - [ ] Pitch and project name visible before the first scroll (hero block).
 - [ ] Animated demo is the first element after the hero and needs no JS/network.
 - [ ] Six badges present, each with alt text and a working link target.
+- [ ] Every badge declares `height="20"`; the four static badges (License,
+      Python, Skill, PRs) also declare their width, and CI and stars declare none
+      (8.5) - a Tester can assert this with a regex over the six tags.
 - [ ] Install section installs the skill first (project or user skills directory, or `AGENTS.md` where the host has no skill loader) and demotes pipx/uvx/pip/source to an optional engine.
 - [ ] Quickstart is no more than four commands and names the workspace path.
 - [ ] Comparison table has 5 alternatives x 6 decision columns, with sources.
@@ -201,14 +210,18 @@ Assertable by a Tester on the merged README.
   reserves the box before the SVG arrives and what caps the demo at 820 px; a CSS
   `max-width` may refine a non-GitHub preview but must never be the only place a
   width is declared.
+- A third-party badge declares what the repository owns: its `height` always, its
+  `width` only when the URL fixes the text the badge renders. A badge whose width
+  is live content (CI status, star count) gets no `width` - a stale pair distorts
+  it, an absent one only re-wraps the row by one line (8.5).
 
 ## 8. Verification
 
 Three passes are on record: the README/assets deliverable at `e5efc5f`, the
-graphics sweep of T-0001, and the OG-card generator of T-0005 (8.3). The sweep
-rows were run in the worktree immediately before the commit that carries this
-file and re-run at that commit, so the tree they measured is the tree that
-landed.
+graphics sweep of T-0001, the OG-card generator of T-0005 (8.3), and the badge
+row of T-0006 (8.5). The sweep rows were run in the worktree immediately before
+the commit that carries this file and re-run at that commit, so the tree they
+measured is the tree that landed.
 
 ### 8.1 README and assets deliverable (`e5efc5f`)
 
@@ -303,6 +316,43 @@ the 820 px cap into the attribute pair, where GitHub keeps it.
 
 Not measured here: a full github.com render (Mermaid, camo image proxy). The
 emulation covers the `<img>` box, which is what the finding was about.
+
+### 8.5 README badge row (T-0006, 2026-11-01)
+
+R-18 was titled "a README `<img>` carries no intrinsic height" and T-0004 fixed
+the hero and the demo; the six shields.io badges still declared nothing, so the
+statement was broader than the fix. Decision, taken as the asset owner:
+
+**Size every badge the repository can size truthfully, and exempt the two whose
+width is live content, with the residual shift measured.** 4 of 6 badges now
+carry the pair they are served at; the CI and stars badges carry only
+`height="20"` because their width changes with the message and the count, so a
+declared pair would distort the badge the moment CI fails or a star arrives. No
+criterion is relaxed for the hero or the demo (8.4 is unchanged).
+
+| Check | Command | Result |
+|---|---|---|
+| Served size, shields.io vs camo | `Scripts/badge_sizes.py`, `Scripts/camo_badges.py` 2026-11-01 | 6/6 identical through `camo.githubusercontent.com` (`image/svg+xml`): CI `91x20`, License `160x20`, Python `228x20`, Skill `144x20`, PRs `90x20`, stars `76x20`; no badge has a `viewBox`, the root `width`/`height` is the intrinsic size |
+| Is the width a constant of the URL? | same, other states | **no for CI**: 91 passing, 101 no status, 201 repo/workflow not found. **no for stars**: 76 (0), 90 `octocat/Hello-World`, 94 `torvalds/linux`, 146 repo not found. **yes for the four static badges**: 160 / 228 / 144 / 90, unchanged across fetches (the text is in the URL, shields renders it) |
+| Height is constant | same, all 9 states | 20 px in every state; `height="20"` is true for all six and cannot distort a scaled badge |
+| Reserved == loaded, per badge | `Scripts/badge_harness.py` + Chrome `--headless=new --dump-dom` + `Scripts/report_boxes.py 1280` (and `880`, `340`) | License, Python, Skill, PRs: reserved == loaded, `dW 0.00 dH 0.00`; CI and stars: `0x20` reserved vs `91x20`/`76x20` loaded - the height is reserved for all six, the width of two is not |
+| Page shift while the row loads | `Scripts/sweep_shift.py` over 101 column widths, 300-1300 px | **73/101 columns stable at 0.00 px**, including every width >= 820 px (the badge row fits one line at desktop); worst **+26.00 px** (exactly one line) at 28 of 101 widths in 300-810 px, where the two unsized badges push the row onto one more line |
+| The same sweep before the change | same harness, `served` variant + the pre-change tags | **0/101 stable**: +2.00 px at >= 820, +28.00 at 490-810, +54.00 at 320-480, +80.00 at 300-310 |
+| Why not size all six | `stale-ci` variant (CI declared `91x20`, file 201 px wide) | the box holds at `91x20` and the badge is drawn squashed - a wrong pair is worse than an absent one, which is why the two variable badges get no width |
+| Author attributes survive github.com | `GET api.github.com/repos/Nidvue/Teamwork/readme`, `Accept: application/vnd.github.html`, 2026-11-01 | the pipeline reads `width`/`height` per `<img>`: the icon is served `width="88" height="88" style="max-width: 100%; height: auto; max-height: 88px;"`, the banner `width="100%" style="max-width: 100%;"`; the camo rewrite replaces `src`, adds `data-canonical-src` and keeps every other attribute, so a declared pair reaches the reader |
+| Links | `python scripts/teamwork.py --project <worktree> links` | 0 issues |
+
+Not measured: the same row on a real github.com page render (the emulation uses
+github's `markdown-body` metrics, not its published stylesheet byte for byte),
+and the pre-load state of a request that is still in flight rather than one that
+has not started - a replaced element with no intrinsic size is the same box in
+both, which is the box this row is about.
+
+The residual is real and bounded, not hidden: a reader on a 400-480 px or
+650-810 px viewport sees the content below the badge row move by one 26 px line
+once, while the two live badges download cold. Removing even that needs a width
+the repository does not own, so it stays a recorded, accepted risk (R-24), not a
+claim that the row is stable.
 
 ## 9. Visual assets (raster and vector)
 
@@ -521,6 +571,7 @@ Result: 1 952 B, 180x180, colourtype 2 (RGB), chunks `IHDR IDAT IEND`.
 | F-1 | `.gitattributes:86` | `docs/assets/* -filter -diff -merge -text` marks the NIDVUE **SVGs** as binary too, so `git diff` prints "Binary files differ" for a hand-authored text asset; every change to IMG-5/IMG-6 in this sweep is invisible in the diff a Reviewer reads | Architect / Release Engineer | split the rule: `docs/assets/*.svg -filter -merge` (keep text/diff) and `docs/assets/*.png -filter -diff -merge -text`; `-filter` alone is enough to stay out of LFS |
 | F-2 | `README.md:2,19` | the hero `<img>` tags declared no intrinsic height (`width="100%"` and `width="820"`), so the two largest assets shifted the page while loading | Designer | resolved in T-0004: `README.md:2` carries `width="1280" height="360"` (native) and `README.md:19` `width="820" height="478"` (ratio 1.7155 vs the asset's 1.7143, 0.33 px at 820 px wide); the attributes are the whole contract on github.com, whose pipeline replaces every author `style` and derives the box from `width`/`height` alone - measurements in 8.4 |
 | F-3 | `assets/social-preview.png` | the pitch on the OG card used a comma where the README uses a full stop, and no generator was committed | closed by T-0005 (Designer): `scripts/render_social_preview.py` rebuilds the card from the current mark and the README pitch; the pitch is now the README's |
+| F-4 | `README.md:9-14` | the six third-party badges declared no intrinsic size, so the badge paragraph re-flowed while they loaded - the residual R-18/T-0004 left | closed by T-0006 (Designer): every badge declares `height="20"`; the four with text fixed in the URL also declare `width`; CI and stars declare none because their width is live content. Page shift 0.00 px at 73 of 101 column widths (all >= 820 px), worst +26.00 px where the two live badges cross a line - measurements in 8.5, bound recorded as R-24 |
 
 ### Notes
 
