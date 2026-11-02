@@ -8227,9 +8227,13 @@ def detects_problem(detects: str, findings: str = "") -> str:
 
 
 #: `review.fail` detail -> its detector. The detail is one line that starts with the
-#: mechanical classification, and a pipe inside the detector is written as a slash
-#: there, so this boundary is exact and a finding's own prose cannot forge it.
-_RE_LEDGER_DETECTS = re.compile(r"^mechanical: [^|]*? \| detects: (.*?)(?: \| |$)")
+#: mechanical classification, then the review round, then the detector; a pipe
+#: inside the detector is written as a slash there, so this boundary is exact and a
+#: finding's own prose cannot forge it. The round is optional in the pattern so
+#: records written before it was added keep reading (legacy, not a defect).
+_RE_LEDGER_DETECTS = re.compile(
+    r"^mechanical: [^|]*? \| (?:round: \d+ \| )?detects: (.*?)(?: \| |$)"
+)
 
 
 def ledger_detects(detail: str) -> str | None:
@@ -11519,9 +11523,9 @@ def cmd_review(args) -> int:
             # the detector follows it, so `audit` counts per fail rather than per task
             # and a legacy record (no field) is counted as missing, never as a defect.
             else (
-                f"mechanical: {mechanical} | detects: {detects.replace('|', '/')} "
-                f"| {one_line(args.findings)[:120]}"
-            )[:200]
+                f"mechanical: {mechanical} | round: {int(t.get('review_fails') or 0)} "
+                f"| detects: {detects.replace('|', '/')} | {one_line(args.findings)[:150]}"
+            )[:260]
         ),
         "",
         role,
