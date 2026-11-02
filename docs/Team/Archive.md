@@ -4138,4 +4138,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit e2c6282
 - reviewer evidence: git diff --stat main...e2c6282 -> CHANGELOG.md only, 14 insertions, no other path; every new claim reproduces against the merged code and record: engine.guard_committer_identity's bot allowance is T-0048 (c4825dc, merge fc6da3a), the GitLab service mailbox is scripts/privacy_scan.py _ALLOWED_SERVICE_EMAILS in the same change-set, and the mkdocs floor is D-20261102-CTO; check_release_consistency.py --offline @e2c6282 -> 0 problems and --online @e2c6282 -> 0 problems (R1-R10); pytest -q tests/unit/test_docs_contracts.py tests/unit/test_release_traceability.py @e2c6282 -> 42 passed, 1 skipped; teamwork.py links @e2c6282 -> 0 issues; privacy_scan --tree @e2c6282 -> PASS 0 findings; the code this documents is the revision CI run 41426053829 certified green on main; no test weakened, no tag created by this change.
 - findings history: 
-- branch / merge: ceo/t-0027-release-v1-5-1-correct-the-1-5-1-notes-f / pending
+- branch / merge: ceo/t-0027-release-v1-5-1-correct-the-1-5-1-notes-f / 786041c
