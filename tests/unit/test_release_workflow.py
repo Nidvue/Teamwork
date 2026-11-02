@@ -31,10 +31,8 @@ text) and re-run the same analysis, so the tracked workflow is never written.
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -574,20 +572,20 @@ def npm_verify_script() -> str:
     return body.rsplit("\nPY", 1)[0]
 
 
-def test_the_npm_verify_reads_the_flat_dist_integrity_field(tmp_path):
+def test_the_npm_verify_reads_the_flat_dist_integrity_field(monkeypatch, capsys):
     """``npm view`` returns ``dist.integrity`` as a flat key, not a nested object.
 
     Measured on release run 41443890248: the version was visible and the publish
     had taken the idempotent path, but the verify step failed with
     "dist.integrity is None" because it read ``payload["dist"]["integrity"]`` while
     npm printed the dotted field as ``payload["dist.integrity"]``.
+
+    The embedded script is executed in this process with both commands faked at the
+    subprocess boundary: a fake executable cannot be cross-platform (Windows cannot
+    run the POSIX ``npm`` shim the first version of this test wrote), and the
+    parsing is what is under test.
     """
-    head = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
+    head = "a" * 40
     payload = json.dumps(
         {
             "version": "1.5.1",
@@ -595,23 +593,19 @@ def test_the_npm_verify_reads_the_flat_dist_integrity_field(tmp_path):
             "gitHead": head,
         }
     )
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    fake_npm = bin_dir / "npm"
-    fake_npm.write_text(f"#!/bin/sh\ncat <<'JSON'\n{payload}\nJSON\n", encoding="utf-8")
-    fake_npm.chmod(0o755)
-    env = {
-        **os.environ,
-        "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
-        "PACKAGE_VERSION": "1.5.1",
-        "TAG_NAME": "v1.5.1",
-    }
-    result = subprocess.run(
-        [sys.executable, "-c", npm_verify_script()],
-        cwd=str(REPO_ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "verified @nidvue/teamwork@1.5.1" in result.stdout
+    real_run = subprocess.run
+
+    def fake_run(command, *args, **kwargs):
+        if isinstance(command, list) and command:
+            if command[0] == "git":
+                return subprocess.CompletedProcess(command, 0, stdout=head + "\n", stderr="")
+            if command[0] == "npm":
+                return subprocess.CompletedProcess(command, 0, stdout=payload, stderr="")
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setenv("PACKAGE_VERSION", "1.5.1")
+    monkeypatch.setenv("TAG_NAME", "v1.5.1")
+    exec(npm_verify_script(), {"__name__": "__main__"})
+    out = capsys.readouterr().out
+    assert "verified @nidvue/teamwork@1.5.1" in out
