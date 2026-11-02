@@ -281,7 +281,7 @@ Re-measured 2026-10-28 after the npm publish job landed: `ci.yml` 19, `docs.yml`
 `npm install -g npm@11.5.1` are the two new commands, both in the tree and in `PATH` on a
 GitHub-hosted runner).
 `pytest`, `build` and `mkdocs` come from `.[dev]` (`pytest>=8,<10`, `pytest-cov>=5,<8`,
-`build>=1.2,<2`) and `docs/requirements.txt` (`mkdocs-material>=9.7.7,<10`). No workflow
+`build>=1.2,<2`) and `docs/requirements.txt` (`mkdocs-material>=9.8.0,<10`). No workflow
 invokes `make`, and every target named on this page exists in the `Makefile`.
 
 One reproducibility defect sits in that job list: the `lint` job installs ruff with
