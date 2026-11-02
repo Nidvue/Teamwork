@@ -86,6 +86,8 @@ under two roles is two tasks.
 | architect | T-0003 | - | done | P-0036 | 90eb61c |
 | architect | T-0004 | architecture | done | P-0042 | be2c868 |
 | architect | T-0005 | architecture | done | P-0067 | bb7c34f |
+| architect | T-0006 | - | review | P-0082 | - |
+| architect | T-0007 | - | done | P-0081 | 0340949 |
 | ceo | T-0001 | review | done | P-0001 | 2f44f00 |
 | ceo | T-0002 | docs | done | P-0008 | 28c1133 |
 | ceo | T-0003 | - | done | - | - |
@@ -115,6 +117,8 @@ under two roles is two tasks.
 | ceo | T-0027 | release | done | P-0071 | 786041c |
 | ceo | T-0028 | release | done | P-0074 | 38bcef8 |
 | ceo | T-0029 | skill | done | P-0078 | c571e2b |
+| ceo | T-0030 | skill | review | P-0084 | - |
+| ceo | T-0031 | records | review | P-0085 | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -166,6 +170,7 @@ under two roles is two tasks.
 | developer | T-0049 | release | done | P-0072 | 982dfa6 |
 | developer | T-0050 | release | done | P-0073 | bce6f07 |
 | developer | T-0051 | release | done | P-0079 | d2e7f62 |
+| developer | T-0052 | harness | blocked | P-0080 | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -185,10 +190,13 @@ under two roles is two tasks.
 | security-auditor | T-0003 | - | dropped | - | - |
 | security-auditor | T-0004 | - | done | - | - |
 | security-auditor | T-0005 | - | done | - | - |
+| security-auditor | T-0006 | audit | review | P-0083 | - |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
 | tester | T-0004 | - | done | - | - |
+| tester | T-0005 | harness | blocked | - | - |
+| tester | T-0006 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -198,7 +206,14 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| architect | T-0006 · Decide the evidence-archive segmentation and the engine.py split (ADR), keeping every record id resolvable | P1 | review | - |
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
+| ceo | T-0030 · Decide which SKILL.md sections are always-on and move the rest to references/ with a pointer | P2 | review | - |
+| ceo | T-0031 · Archive closed reviewer task evidence to a per-role file, keeping the task ids in the queue | P2 | review | - |
+| developer | T-0052 · fix(review): budget counts only what every run loads; probes and defaults agree; record the project review | P1 | blocked | - |
+| security-auditor | T-0006 · Re-state docs/Team/AuditReport.md with dated facts; the commit-absent claim is superseded | P1 | review | - |
+| tester | T-0005 · Make the team-state lint reproducible in CI so a shared skill without its verdict fails the build | P1 | blocked | - |
+| tester | T-0006 · Pin document structure rather than sentences in test_skill_contracts.py where wording is not the contract | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
