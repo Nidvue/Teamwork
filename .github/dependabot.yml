@@ -61,6 +61,15 @@ updates:
     labels:
       - dependencies
       - docs
+    ignore:
+      # mkdocs-material 9.8.0 requires Python >= 3.11, while this project
+      # supports 3.9 (pyproject requires-python and the CI matrix) and the dev
+      # extra must carry the same range as this file. The shared range already
+      # allows 9.8.0 where the interpreter supports it, so only the floor bump
+      # is refused; drop this entry when Python 3.9 and 3.10 are dropped.
+      - dependency-name: "mkdocs-material"
+        versions:
+          - ">=9.8.0"
 
   - package-ecosystem: uv
     directory: "/"
