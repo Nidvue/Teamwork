@@ -8133,9 +8133,11 @@ _RE_PREFLIGHT_EVIDENCE = re.compile(
 #: skipped the gate and the finding may well be mechanical;
 #: ``n/a`` - the task has no revision (a verdict, a records pass) and there is
 #: nothing to preflight.
-#: Why a verdict writes it at all: 38 of the 43 measured fails were mechanical, and
-#: that rate is the whole argument for the gate. A claim of improvement needs a
-#: contrast, so the rate has to stay measurable after the gate ships.
+#: Why a verdict writes it at all: at one ledger cut (n=1615) there were 44 review
+#: failures over 66 review targets and two independent readings classified the
+#: locally-decidable share differently (16-24 of 44). The share is contested, so a
+#: verdict records whether the author's preflight was green and the rate is
+#: measured prospectively; a claim of improvement needs a contrast.
 REVIEW_MECHANICAL_NO = "no"
 REVIEW_MECHANICAL_UNKNOWN = "unknown"
 REVIEW_MECHANICAL_NA = "n/a"
@@ -11679,14 +11681,15 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
 
 # Preflight: the author's mechanical gate, run before the self-check
 #
-# Measured from the ledger (43 `review.fail` records classified by their finding
-# text): 12 docs-surface, 11 branch-not-mergeable, 6 board drift, 5 red gate, 4
-# scope creep and 4 unreachable-evidence revision. 38 of the 43 are mechanical
-# and locally decidable in seconds, and 24 of 65 deliverables needed more than
-# one verdict - each extra round costs a Reviewer lease (p50 12.2 / p90 25.8
-# minutes) and serialises the author. So one command answers the questions a
-# Reviewer answers first, prints the exact fix for each miss, and `selfcheck`
-# refuses while it is red: the Reviewer's lease is then spent on judgement.
+# Measured from the ledger at one cut (n=1615): 44 review failures over 66 review
+# targets (one role + task), of which 26 needed more than one verdict and 11
+# needed three or more. Two independent readings put the failures a local check
+# could have caught at 16-24 of 44; the share is contested, so the `mechanical:`
+# field on every fail measures it prospectively instead of asserting it here.
+# Each extra round costs a Reviewer lease (p50 12.2 / p90 25.8 minutes) and
+# serialises the author. So one command answers the questions a Reviewer answers
+# first, prints the exact fix for each miss, and `selfcheck` refuses while it is
+# red: the Reviewer's lease is then spent on judgement.
 
 #: Settings.json key naming the project's OWN gate (`make check`, `npm test`, ...).
 #: The skill ships no toolchain, so an unset key is reported as UNVERIFIED rather
