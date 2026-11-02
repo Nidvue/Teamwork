@@ -4191,3 +4191,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff --stat main...ebadac6 -> src/teamwork/engine.py and tests/unit/test_preflight.py only, comments and docstrings; the four passages now state the n=1615 cut (44 review failures, 66 targets, 26 >1 verdict, 11 >=3) and the contested 16-24 of 44, matching D-20261029-CEO-3; pytest -q tests/unit/test_preflight.py @ebadac6 -> 18 passed; grep -rn '38 of 43' src tests -> 0 hits (historical archive/task title only); ruff check + format --check -> clean; no check logic, constant or assertion changed.
 - findings history: 
 - branch / merge: developer/t-0045-fix-docs-the-preflight-surface-still-quo / f1aec91
+
+## T-0046 · fix(records): a review fail must record its own findings, not the accumulated first 200 characters  (developer)
+- date: 2026-11-02
+- priority: P2
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the detail builder, the parser and the regression. The round is read from t['review_fails'] after the increment, so the first fail writes round: 1 and the second round: 2; the findings slice is args.findings (this round) at 150 chars inside a 260-char bound. The parser accepts the optional round prefix so every legacy record still yields its detector, and the old 'mechanical | detects' shape remains readable. The two-fail test proves round 2 does not carry round 1's text. | test: pytest -q tests/unit/test_review_detects.py tests/unit/test_review_credit.py @011ec94 -> 29 passed; old-format mutant -> test_a_second_fail_records_its_own_round_and_findings failed, fixed -> passed; ruff check + format --check -> clean | preflight: PF-769b90435f40 @011ec94b4634 (7 checks, 0 failed)
+- author evidence: Reviewer-1 round 3 on P-0063: ledger n=1622 review.fail detail is the round-2 text; round-3 findings exist only on the task; commit 011ec94
+- reviewer evidence: git diff --stat main...011ec94 -> src/teamwork/engine.py and tests/unit/test_review_detects.py only; the detail now writes mechanical | round: N | detects | this-round findings[:150] bounded at 260, and the parser accepts the optional round prefix so legacy records still read (test at :315-317 passes); the regression seeds two fails, resubmits, and proves the second record carries round: 2 and the second finding while the first finding is absent; pytest -q tests/unit/test_review_detects.py tests/unit/test_review_credit.py @011ec94 -> 29 passed; reverting to the old 120-char/no-round detail -> the new test fails (non-vacuous); ruff check + format --check -> clean.
+- findings history: 
+- branch / merge: developer/t-0046-fix-records-a-review-fail-must-record-it / pending
