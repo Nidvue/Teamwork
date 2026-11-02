@@ -4385,4 +4385,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit a6028ce
 - reviewer evidence: python3 -m pytest -q tests/unit/test_docs_contracts.py tests/unit/test_skill_contracts.py @a6028ce -> 124 passed in 1.48s; python3 scripts/teamwork.py links @a6028ce -> 0 issues; diff a6028ce^..a6028ce -> docs/guide/cli.md +1/-1 (budget row now charter + short-term memory, matches D-20261102-Architect-C3 and harness.py instance_always_on = managed AGENTS block + SKILL.md + charter + F_SHORT), docs/Team/Risks.md +1/-1 (R-25 month+size 512 KiB roll, index keyed by (id, month, segment), matches D-20261102-Architect-ADR decision A); no other file changed
 - findings history: 
-- branch / merge: ceo/t-0032-docs-guide-the-harness-budget-row-still / pending
+- branch / merge: ceo/t-0032-docs-guide-the-harness-budget-row-still / 3179a8a
