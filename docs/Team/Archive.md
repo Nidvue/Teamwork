@@ -4230,3 +4230,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: privacy_scan --tree --history --allow .github/privacy-allow.txt @88360dc -> PASS 0 finding(s) in tree, history (exit 0); the task is a verification follow-up with no branch, so the pass records the measured closure and merges nothing.
 - findings history: 
 - branch / merge: - / pending
+
+## T-0005 · Acceptance: the feature-team model is enforced by the engine, not only documented  (reviewer)
+- date: 2026-11-02
+- priority: P1
+- owner: reviewer role (work by: Reviewer-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: -
+- self-check: [pass] The acceptance exists as TS-0056 (acceptance/t-0042, passing, owner/by Reviewer-1): 88 feature tests at acbd7f4, three mutants (architect gate removed, overlap always false, covers substring), CLI probes for every frozen command and exit code, and a byte-identical task queue without --feature. The engine work it accepts is merged (T-0042, acbd7f4 on main), so the model is enforced by code and the acceptance record is the independent check. | test: teamwork.py tests list @88360dc -> TS-0056 acceptance/t-0042 passing; PYTHONPATH=src pytest -q tests/unit/test_features.py tests/unit/test_feature_independence.py tests/unit/test_feature_teams.py @88360dc -> 88 passed | preflight: PF-19cd185139d4 @- (7 checks, 0 failed)
+- author evidence: 
+- reviewer evidence: TS-0056 acceptance/t-0042 is passing at acbd7f4 with 88 feature tests, three mutants and CLI probes for every frozen command; PYTHONPATH=src pytest -q the three feature unit files @88360dc -> 88 passed; the engine work is merged on main and the acceptance is independent of the Developer who wrote it.
+- findings history: 
+- branch / merge: - / pending
