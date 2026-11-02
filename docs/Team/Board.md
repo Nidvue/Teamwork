@@ -170,7 +170,7 @@ under two roles is two tasks.
 | developer | T-0049 | release | done | P-0072 | 982dfa6 |
 | developer | T-0050 | release | done | P-0073 | bce6f07 |
 | developer | T-0051 | release | done | P-0079 | d2e7f62 |
-| developer | T-0052 | harness | blocked | P-0080 | - |
+| developer | T-0052 | harness | done | P-0080 | ff62638 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -210,7 +210,6 @@ landed by commit without a PR record.
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
 | ceo | T-0030 · Decide which SKILL.md sections are always-on and move the rest to references/ with a pointer | P2 | review | - |
 | ceo | T-0031 · Archive closed reviewer task evidence to a per-role file, keeping the task ids in the queue | P2 | review | - |
-| developer | T-0052 · fix(review): budget counts only what every run loads; probes and defaults agree; record the project review | P1 | blocked | - |
 | security-auditor | T-0006 · Re-state docs/Team/AuditReport.md with dated facts; the commit-absent claim is superseded | P1 | review | - |
 | tester | T-0005 · Make the team-state lint reproducible in CI so a shared skill without its verdict fails the build | P1 | blocked | - |
 | tester | T-0006 · Pin document structure rather than sentences in test_skill_contracts.py where wording is not the contract | P2 | todo | - |
