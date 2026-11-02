@@ -159,7 +159,7 @@ under two roles is two tasks.
 | developer | T-0043 | board | done | P-0066 | 321d0c4 |
 | developer | T-0044 | deliver | done | P-0059 | e9eaacf |
 | developer | T-0045 | records | done | P-0075 | f1aec91 |
-| developer | T-0046 | - | todo | - | - |
+| developer | T-0046 | records | done | P-0076 | 0e3f5f8 |
 | developer | T-0047 | - | todo | - | - |
 | developer | T-0048 | privacy | done | P-0070 | fc6da3a |
 | developer | T-0049 | release | done | P-0072 | 982dfa6 |
@@ -197,7 +197,6 @@ landed by commit without a PR record.
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
-| developer | T-0046 · fix(records): a review fail must record its own findings, not the accumulated first 200 characters | P2 | todo | - |
 | developer | T-0047 · fix(records): a bulk sweep must not be able to drop live work silently | P1 | todo | - |
 | reviewer | T-0005 · Acceptance: the feature-team model is enforced by the engine, not only documented | P1 | todo | - |
 
