@@ -114,6 +114,7 @@ under two roles is two tasks.
 | ceo | T-0026 | records | done | P-0065 | 2fab37e |
 | ceo | T-0027 | release | done | P-0071 | 786041c |
 | ceo | T-0028 | release | done | P-0074 | 38bcef8 |
+| ceo | T-0029 | skill | done | P-0078 | c571e2b |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -177,7 +178,7 @@ under two roles is two tasks.
 | reviewer | T-0002 | records | done | P-0026 | e3fa290 |
 | reviewer | T-0003 | - | done | - | - |
 | reviewer | T-0004 | - | done | - | - |
-| reviewer | T-0005 | - | todo | - | - |
+| reviewer | T-0005 | - | done | - | - |
 | security-auditor | T-0001 | audit | dropped | P-0022 | - |
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
@@ -197,7 +198,6 @@ landed by commit without a PR record.
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
-| reviewer | T-0005 · Acceptance: the feature-team model is enforced by the engine, not only documented | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
