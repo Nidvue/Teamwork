@@ -4268,4 +4268,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit b154f71
 - reviewer evidence: git diff --stat main...b154f71 -> tests/unit/test_release_workflow.py only; the test no longer writes any executable, it executes the embedded verify script in-process with fake_run returning a fixed git head and the real flat npm payload; the flat-key assertion (version, dist.integrity, gitHead) is unchanged; pytest -q tests/unit/test_release_workflow.py @b154f71 -> 31 passed; ruff check + format --check -> clean; the failing CI run 41459695478 shows only the three Windows legs red with FileNotFoundError [WinError 2] and the other 17 jobs green, which the removed shim explains.
 - findings history: 
-- branch / merge: developer/t-0051-fix-test-make-the-npm-verify-contract-te / pending
+- branch / merge: developer/t-0051-fix-test-make-the-npm-verify-contract-te / d2e7f62
