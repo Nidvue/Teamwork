@@ -4086,7 +4086,7 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit d1162f2
 - reviewer evidence: probe_t0017_archive_entry.py --repo . --rev d1162f2 @d1162f2 -> RESULT PASS: the T-0006 entry is byte-identical (4029 chars) to the engine render (archive_append, engine.py:10810-10831) of the ceo T-0006 record that ledger review.pass #1443 by Reviewer-5 names; --control -> RESULT FAIL, so it bites; git show d1162f2 --stat -> docs/Team/Archive.md 1 file, 13 insertions 0 deletions, entry at EOF; detached worktree @d1162f2: pytest -q tests/unit/test_archive_merge_revisions.py -> 6 passed; teamwork.py links -> issues 0 (77 files, 388 links); privacy_scan --tree --allow -> PASS 0; board --check -> the same 4 drift lines at main f4b7dd3, so none introduced by this branch (deferred close-out render); git merge-tree --write-tree main d1162f2 -> exit 0 before this pass appended its own entry; TS-0068 acceptance/archive-entry passing
 - findings history: 
-- branch / merge: ceo/t-0017-land-the-t-0006-pass-entry-the-no-branch / pending
+- branch / merge: ceo/t-0017-land-the-t-0006-pass-entry-the-no-branch / d3a7988
 
 ## T-0006 · M15 A7: push the reviewed stage to origin/main and certify CI on that SHA  (ceo)
 - date: 2026-11-02
