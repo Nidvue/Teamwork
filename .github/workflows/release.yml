@@ -923,8 +923,11 @@ jobs:
           version = os.environ["PACKAGE_VERSION"]
           tag = os.environ["TAG_NAME"]
           # The registry is eventually consistent: a version published seconds ago
-          # can still be missing. Poll for a bounded time (~60 s) and fail after it.
-          ATTEMPTS = 4
+          # can still be missing. Poll for a bounded time (4 min) and fail after it.
+          # Measured on release run 41439789453: a fresh 1.5.1 publish was still
+          # E404 at 61 s, so the old 4x20 s window left the run red on a version
+          # that was already published.
+          ATTEMPTS = 12
           RETRY_SECONDS = 20
 
           head = subprocess.run(
