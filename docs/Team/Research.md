@@ -3,7 +3,7 @@
 Owner: Product Manager. Market context, comparable projects and the reasoning
 behind the positioning. Every claim carries a source and an access date.
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [Roles](../../references/Roles.md)
 
 ## 1. The gap
 
@@ -309,3 +309,53 @@ work from any caller, `pulse` assigns proactively with no authority test, and
   The review gate and the criterion records still carry the quality claim.
 - An attention queue is only honest if it is drained: an item resolved with a
   free-text "ok" is the same failure as a rubber-stamped review.
+
+## 11. Lauren Tan (Grok Bot team guide): what we adopt, what we reject
+
+Source: [Lauren Tan, Grok Bot team guide](https://x.com/poteto/status/2116576229319233596) - accessed 2026-11-02; [dr eggbot](https://x.ai/bot/_jOdbfkB16zxu7MRcmReE) - accessed 2026-11-02. The guide is seven operating tips from the xAI Grok Bot team; the replies add the least-privilege correction, the proactivity/SOUL thread and five field complaints. It is operational experience, not a benchmark: no number in it measures this project.
+
+**The thesis is ours already:** the unit is the team, not the prompt. Six tips map
+to an existing surface, two are adapted, one is rejected in its literal form.
+
+| Tip | Teamwork surface | Verdict | Concrete rule |
+|---|---|---|---|
+| Add a bot designer (dr eggbot) | no meta-agent | **Adopt** | `team-designer` team skill: interview, roster/skills/permission/routine audit, one-page design |
+| Few good bots, not many | slim roster; `audit` roster gaps | **Adopt, strengthen** | every seat names a deliverable, a test layer and a decision right; the designer audits it |
+| Bots write their own skills | `.agents/skills/`, `skill create`/`share`/`candidates` | **Adopt, strengthen** | an instruction that defines a repeatable flow becomes a skill in the same task |
+| Connectors, vault, all tools | red lines and the review gate | **Adapt - reject "all tools"** | least privilege, one job, one proof per deliverable; no bot-owned email or accounts |
+| Remove copy-paste | board, memory, records | **Adopt** | no human relay: a manual relay is a tooling defect, recorded with `attention` |
+| Onboard an intern | startup routine and task packet | **Adopt** | restate goal, acceptance and non-goals before planning; the CEO confirms |
+| Voice dump + restate | text-only host | **Adapt** | the restatement check applies to the brief; a scope-changing restatement is a requirement change |
+| Proactivity / SOUL.md | `pulse`, `attention`, inferred tasks | **Adapt** | proactivity is a record: an idle lane proposes one automation/risk, never silent autonomy |
+| Routines | loop/pulse, `harness budget` | **Adopt (cheap)** | trigger + budget + stop condition; a heavy routine gets its own lane |
+
+**The correction that matters.** The guide says to give a bot access to all the
+tools. The top reply (CobaltHere) is right for any team with more than one agent:
+a clear job, limited permissions, and a way to prove the task was completed;
+skills help consistency, verification helps trust; the goal is the smallest team
+that reliably ships, not the largest. We adopt the correction and reject the
+literal tip. The guide's own field complaints point the same way - routines that
+do not fire, agents that skip steps, one persistent thread that burns tokens -
+are verification, reliability and context-budget problems, not prompt problems.
+
+**Adoption order.** (1) the `team-designer` skill and the intern protocol (this
+change); (2) the skills trigger, now hard; (3) the per-role permission and
+verification matrix inside the designer; (4) the proactivity and routine audit on
+the pulse. The first two change behaviour cheaply; the last two are audits, not
+new machinery.
+
+**Falsifiers.** The designer failed if, after ten designs, the roster does not
+shrink or the first-pass review rate does not rise. The intern protocol failed if
+the no-relay rule produces no automation task in a week. The routine rule failed
+if `harness budget` does not fall for the lanes that move routines out. Each is
+measured from the records, not asserted.
+
+### 11.1 What this does not fix
+
+- The guide assumes a hosted chat product with connectors and a voice mode. We
+  have one repository, one operator and a red line on external actions; the
+  "own email and accounts" tip is exactly the line we do not cross.
+- A bot designer is an interview and an audit, not an org chart generator. It can
+  recommend the smallest roster; it cannot prove the model will execute it.
+- Proactivity is bounded by the pulse and the attention record. A designer that
+  proposes work no lane approved is the rubber-stamp failure in another costume.
