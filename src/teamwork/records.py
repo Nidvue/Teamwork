@@ -777,6 +777,8 @@ def new_task(
         "dropped_under_live": "",
         # A gate override reason, when one was forced (see the audit).
         "forced": "",
+        # Where a closed task's long evidence lives once it is archived.
+        "archived": "",
         "findings": "",
         "created": today_iso(),
         "updated": today_iso(),
@@ -858,6 +860,7 @@ def parse_tasks(path: Path) -> list:
                     "review_mechanical",
                     "review_detects",
                     "dropped_under_live",
+                    "archived",
                 ):
                     if field in NUMERIC_FIELDS:
                         current[field] = int(value) if value.isdigit() else 0
@@ -928,6 +931,8 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("created", t["created"]),
             ("updated", t["updated"]),
         ]
+        if t.get("archived"):
+            meta.append(("archived", t.get("archived")))
         for field, value in meta:
             out.append(f"- {field}: {one_line(value)}")
         out.append("")
