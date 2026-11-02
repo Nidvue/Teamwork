@@ -4190,4 +4190,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: Reviewer-1 round 3 on P-0063: engine.py:9930-9938 and test_preflight.py:3,599 still assert 38/43 as measured; docs withdrew it in D-20261029-CEO-3/4; commit ebadac6
 - reviewer evidence: git diff --stat main...ebadac6 -> src/teamwork/engine.py and tests/unit/test_preflight.py only, comments and docstrings; the four passages now state the n=1615 cut (44 review failures, 66 targets, 26 >1 verdict, 11 >=3) and the contested 16-24 of 44, matching D-20261029-CEO-3; pytest -q tests/unit/test_preflight.py @ebadac6 -> 18 passed; grep -rn '38 of 43' src tests -> 0 hits (historical archive/task title only); ruff check + format --check -> clean; no check logic, constant or assertion changed.
 - findings history: 
-- branch / merge: developer/t-0045-fix-docs-the-preflight-surface-still-quo / pending
+- branch / merge: developer/t-0045-fix-docs-the-preflight-surface-still-quo / f1aec91
