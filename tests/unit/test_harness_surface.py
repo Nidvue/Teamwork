@@ -159,7 +159,7 @@ def test_list_prints_exactly_eight_rows_in_component_order(cli, project, capsys)
     assert specs == [
         "SKILL.md",
         "managed block in AGENTS.md",
-        "Roles/<Role>/*.md + Global/GlobalMemory.md",
+        "Roles/<Role>/ShortTermMemory.md",
         "references/*.md",
         "n/a - lane packet, no file",
         ".agents/skills/*/SKILL.md",
@@ -203,12 +203,10 @@ def recompute(spec: str, repo: Path, root: Path) -> int:
             start = text.find(engine.BEGIN)
             end = text.find(engine.END)
             total += len(text[start : end + len(engine.END)].encode("utf-8"))
-        elif part == "Global/GlobalMemory.md":
-            total += (root / part).stat().st_size
-        elif part == "Roles/<Role>/*.md":
+        elif part == "Roles/<Role>/ShortTermMemory.md":
             for role in sorted((root / config.DIR_ROLES).iterdir()):
                 if role.is_dir():
-                    total += sum(path.stat().st_size for path in role.glob("*.md"))
+                    total += (role / config.F_SHORT).stat().st_size
         else:
             total += sum(path.stat().st_size for path in repo.glob(part) if path.is_file())
     return total
@@ -666,3 +664,27 @@ def test_lint_on_this_repository_reports_only_the_routed_dead_skill(repo_root: P
         assert [finding.path for finding in dead] == [".agents/skills/ceo-audit-close/SKILL.md"], (
             "the unnamed ceo-audit-close skill is the only TRIGGER finding this tree allows"
         )
+
+
+def test_long_term_memory_is_not_always_on(cli, project, capsys) -> None:
+    """AGENTS.md says long-term memory is never loaded, so the budget must not count it.
+
+    Measured on the live team: the reviewer read 133160 bytes against a 122880 cap,
+    and the gap was exactly its 19559-byte LongTermMemory.md.
+    """
+    build_tree(project)
+    assert cli("--project", project, "init", "--no-git") == 0
+    root = team_root(project)
+    role = engine.resolve_role("ceo")
+    before = harness.instance_always_on(project, root, role)
+
+    long_term = harness.role_dir(root, role) / config.F_LONG
+    long_term.parent.mkdir(parents=True, exist_ok=True)
+    long_term.write_text("archived line\n" * 20000, encoding="utf-8")
+    assert harness.instance_always_on(project, root, role) == before
+
+    short_term = harness.role_dir(root, role) / config.F_SHORT
+    short_term.write_text(
+        short_term.read_text(encoding="utf-8") + "fresh\n" * 500, encoding="utf-8"
+    )
+    assert harness.instance_always_on(project, root, role) > before
