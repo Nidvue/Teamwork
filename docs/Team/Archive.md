@@ -4204,3 +4204,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff --stat main...011ec94 -> src/teamwork/engine.py and tests/unit/test_review_detects.py only; the detail now writes mechanical | round: N | detects | this-round findings[:150] bounded at 260, and the parser accepts the optional round prefix so legacy records still read (test at :315-317 passes); the regression seeds two fails, resubmits, and proves the second record carries round: 2 and the second finding while the first finding is absent; pytest -q tests/unit/test_review_detects.py tests/unit/test_review_credit.py @011ec94 -> 29 passed; reverting to the old 120-char/no-round detail -> the new test fails (non-vacuous); ruff check + format --check -> clean.
 - findings history: 
 - branch / merge: developer/t-0046-fix-records-a-review-fail-must-record-it / 0e3f5f8
+
+## T-0047 · fix(records): a bulk sweep must not be able to drop live work silently  (developer)
+- date: 2026-11-02
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the guard against the four measured sweeps. The three live signals are checked before the status write: a claimed_by (any claim, including a retired instance), an unmerged branch resolved through the existing branch_merged helper, and the review gate (review=required with self_check passed or status review). A clean todo task still drops without a reason. A forced drop stores the blockers in dropped_under_live, the task renderer/parser carries the new field, and audit prints the new section; the mutant disabling the refuse path fails all three live-work tests. | test: pytest -q tests/unit/test_tasks.py tests/unit/test_task_graph_integrity.py tests/unit/test_task_record_integrity.py tests/unit/test_features.py tests/unit/test_stage.py @2469630 -> 119 passed; guard-disabled mutant -> 3 live-work tests failed, restored -> 7 passed; ruff check + format --check -> clean | preflight: PF-a5f1ec07fc30 @24696307ede3 (7 checks, 0 failed)
+- author evidence: ledger: 17:23:01 and 17:41:18 bulk drops of 8 accepted tasks; 19:20:37 dropped developer T-0043 that the tribunal had restored in D-0007; 17:38 dropped developer T-0044 while its branch was being built; global memory no-sweep-org-work did not prevent any of them; commit 2469630
+- reviewer evidence: git diff --stat main...2469630 -> engine.py, records.py, tests/unit/test_task_record_integrity.py only; the guard runs before the status write and refuses (a) any claimed_by, (b) an unmerged branch via the existing branch_merged, (c) a review=required task with self_check passed or status review, unless --force gives a reason; the forced path stores dropped_under_live, records.py parses/renders it, and audit prints the new section; pytest -q the five task/stage/feature files @2469630 -> 119 passed; disabling the guard -> the three live-work tests fail (non-vacuous); a plain todo still drops (control); ruff check + format --check -> clean; the two board failures are live-tree drift, identical on main and owned by the merge render.
+- findings history: 
+- branch / merge: developer/t-0047-fix-records-a-bulk-sweep-must-not-be-abl / pending
