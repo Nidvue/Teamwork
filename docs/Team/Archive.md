@@ -4217,3 +4217,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff --stat main...2469630 -> engine.py, records.py, tests/unit/test_task_record_integrity.py only; the guard runs before the status write and refuses (a) any claimed_by, (b) an unmerged branch via the existing branch_merged, (c) a review=required task with self_check passed or status review, unless --force gives a reason; the forced path stores dropped_under_live, records.py parses/renders it, and audit prints the new section; pytest -q the five task/stage/feature files @2469630 -> 119 passed; disabling the guard -> the three live-work tests fail (non-vacuous); a plain todo still drops (control); ruff check + format --check -> clean; the two board failures are live-tree drift, identical on main and owned by the merge render.
 - findings history: 
 - branch / merge: developer/t-0047-fix-records-a-bulk-sweep-must-not-be-abl / 4445f52
+
+## T-0005 · fix(privacy): the history gate is red on main from a superseded doc example and an archived finding  (security-auditor)
+- date: 2026-11-02
+- priority: P1
+- owner: security-auditor role (work by: SecurityAuditor)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: -
+- self-check: [pass] The gate the task asked for is green at the revision: privacy_scan --tree --history --allow .github/privacy-allow.txt @88360dc -> PASS 0. The historical home-path blobs the task named are no longer reported, and the same command is the AC-5 proof, so the acceptance is a measurement rather than a code change. | test: privacy_scan --tree --history --allow .github/privacy-allow.txt @88360dc -> PASS 0 finding(s) in tree, history (exit 0) | preflight: PF-19cd185139d4 @- (7 checks, 0 failed)
+- author evidence: privacy_scan --tree --history --allow .github/privacy-allow.txt @a3b6e93 -> PASS 0 findings (CI run 41447021280 privacy job success); the full suite on ubuntu py3.9 at a3b6e93 is success (AC-5 traceability green); the tree-only and history gates are the same shipped command
+- reviewer evidence: privacy_scan --tree --history --allow .github/privacy-allow.txt @88360dc -> PASS 0 finding(s) in tree, history (exit 0); the task is a verification follow-up with no branch, so the pass records the measured closure and merges nothing.
+- findings history: 
+- branch / merge: - / pending
