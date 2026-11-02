@@ -30,7 +30,11 @@ text) and re-run the same analysis, so the tracked workflow is never written.
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -553,3 +557,61 @@ def test_the_npm_verify_window_outlasts_registry_propagation():
         "after 61 s on release run 41439789453"
     )
     assert "time.sleep(RETRY_SECONDS)" in step, "the verify step no longer sleeps between attempts"
+
+
+def npm_verify_script() -> str:
+    """The embedded Python of the verify step, with the heredoc wrapper removed."""
+    steps = [
+        step
+        for step in npm_job().get("steps") or []
+        if isinstance(step, dict)
+        and str(step.get("name") or "").startswith("Verify the published version")
+    ]
+    assert len(steps) == 1, f"expected one verify step, found {len(steps)}"
+    run = str(steps[0].get("run") or "")
+    assert "<<'PY'" in run, run[:120]
+    body = run.split("<<'PY'", 1)[1]
+    return body.rsplit("\nPY", 1)[0]
+
+
+def test_the_npm_verify_reads_the_flat_dist_integrity_field(tmp_path):
+    """``npm view`` returns ``dist.integrity`` as a flat key, not a nested object.
+
+    Measured on release run 41443890248: the version was visible and the publish
+    had taken the idempotent path, but the verify step failed with
+    "dist.integrity is None" because it read ``payload["dist"]["integrity"]`` while
+    npm printed the dotted field as ``payload["dist.integrity"]``.
+    """
+    head = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    payload = json.dumps(
+        {
+            "version": "1.5.1",
+            "dist.integrity": "sha512-" + "A" * 86,
+            "gitHead": head,
+        }
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake_npm = bin_dir / "npm"
+    fake_npm.write_text(f"#!/bin/sh\ncat <<'JSON'\n{payload}\nJSON\n", encoding="utf-8")
+    fake_npm.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
+        "PACKAGE_VERSION": "1.5.1",
+        "TAG_NAME": "v1.5.1",
+    }
+    result = subprocess.run(
+        [sys.executable, "-c", npm_verify_script()],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "verified @nidvue/teamwork@1.5.1" in result.stdout
