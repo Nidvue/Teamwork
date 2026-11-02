@@ -50,6 +50,8 @@ F_MEM_ARCHIVE = "ArchivedMemory.md"
 
 F_TASKS = "TaskQueue.md"
 
+F_TASK_ARCHIVE = "TaskArchive.md"
+
 F_ROLE = "Role.md"
 
 F_START = "StartHere.md"
