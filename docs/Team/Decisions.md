@@ -2087,3 +2087,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git reflog --date=iso -> 8f5698c 2026-11-02 01:01:06 commit, bb9866f 2026-11-02 01:12:05 commit, both author/committer CEO <ceo@agents.nidvue.com>; teamwork.py ledger show --tail 60 -> no commit/pr/review record for either sha; gh run list -> 41364904234 (CI on 8f5698c) success, 41365863390 (CI on bb9866f) in progress; git rev-parse origin/main -> bb9866f
 - falsified by: A review of the landed revision finds a defect that changes behaviour, or CI on bb9866f is red: then the fix is repaired forward on a branch with the normal gate, never by rewriting the published commits.
 - consequences: T-0022 and T-0028 are dropped as duplicates; a retrospective review task carries the independent verdict; the release tags bb9866f only after CI on that SHA is green.
+
+## D-20261102-CTO - The mkdocs-material floor stays at 9.7.7 while Python 3.9/3.10 are supported
+
+- date: 2026-11-02
+- kind: technical
+- status: accepted
+- deciders: CTO (cto)
+- decided by: CTO
+- task: T-0048
+- context: Two open Dependabot PRs were red on 2026-11-02: #31 failed only the committer guard on a bot-authored commit (fixed by T-0048), #32 bumped docs/requirements.txt to >=9.8.0 and failed test_the_docs_builder_range_is_the_one_docs_requirements_pins until the dev extra moved with it. Moving the dev extra to 9.8.0 trades a one-line parity failure for six uninstallable matrix legs.
+- options considered: Raise the floor in both homes and accept a red py3.9/py3.10 matrix (rejected: breaks the advertised Python floor); add python_version markers to both homes (rejected: two floors in two files, and the parity test compares the strings, so the invariant gets weaker); pin 9.8.0 only in docs/requirements.txt (rejected: the parity test refuses drift by design).
+- decision: Keep both homes (pyproject dev extra and docs/requirements.txt) at the shared range mkdocs-material>=9.7.7,<10, and ignore the Dependabot /docs proposal for >=9.8.0 until Python 3.9 and 3.10 are dropped. The range already allows 9.8.0 where the interpreter supports it; only the floor bump is refused.
+- why: mkdocs-material 9.8.0 declares requires-python >=3.11; this project declares requires-python >=3.9 and its CI test job installs .[dev] on py3.9 and py3.10, so raising the floor makes pip resolution unsatisfiable on those legs. Dependabot PR #32 could not be landed as opened: its docs/requirements.txt bump is reachable only through the parity test that forces the dev extra to the same floor.
+- evidence: [mkdocs-material 9.8.0 metadata](https://pypi.org/pypi/mkdocs-material/9.8.0/json) - accessed 2026-11-02 -> requires_python '>=3.11'; [mkdocs-material 9.7.7 metadata](https://pypi.org/pypi/mkdocs-material/9.7.7/json) - accessed 2026-11-02 -> requires_python '>=3.8'; uv pip compile --python-version 3.9 on 'mkdocs-material>=9.8.0,<10' @170d89a -> 'No solution found ... 9.8.0 depends on Python>=3.11 ... unsatisfiable'; pyproject requires-python @170d89a -> '>=3.9'; .github/workflows/ci.yml test job @170d89a -> 'python -m pip install -e .[dev]' on the py3.9/py3.10 legs
+- falsified by: If mkdocs-material publishes a 9.8.x wheel with requires-python >=3.9, or the project raises requires-python to >=3.11, the floor can move and this ignore must be dropped.
+- consequences: Dependabot /docs will not propose mkdocs-material >=9.8.0 (ignore entry in .github/dependabot.yml); PR #32 is closed as not landable; the docs job on py3.12 still resolves 9.8.0 from the unchanged range
