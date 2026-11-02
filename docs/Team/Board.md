@@ -161,6 +161,7 @@ under two roles is two tasks.
 | developer | T-0046 | - | todo | - | - |
 | developer | T-0047 | - | todo | - | - |
 | developer | T-0048 | privacy | done | P-0070 | fc6da3a |
+| developer | T-0049 | release | done | P-0072 | 982dfa6 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
