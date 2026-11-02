@@ -4243,3 +4243,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: TS-0056 acceptance/t-0042 is passing at acbd7f4 with 88 feature tests, three mutants and CLI probes for every frozen command; PYTHONPATH=src pytest -q the three feature unit files @88360dc -> 88 passed; the engine work is merged on main and the acceptance is independent of the Developer who wrote it.
 - findings history: 
 - branch / merge: - / pending
+
+## T-0029 · Adopt the Grok Bot team guide: a team-designer skill, the intern protocol, and the research record  (ceo)
+- date: 2026-11-02
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: skill
+- self-check: [pass] Re-read the article against every adopted rule and the existing constitution. The thesis (team, not prompt) is already ours; the six new rules do not contradict the red lines - 'least privilege, one job, one proof' replaces the literal 'give every bot every tool' with the top reply's correction, 'no human relay' points at the board/memory/records the team already keeps, and 'proactivity is a record' uses attention/pulse rather than silent autonomy. The team-designer skill is an interview + audit, not a new role, and its guardrails cannot bypass self-check, review or the merge. The Research section 11 carries the two source URLs with access dates, the seven tips, the correction, the proactivity/SOUL thread, the field complaints, an adopt/adapt/reject table and falsifiers. The link checker is clean after the template link became a plain path and Research links back to Roles; the roster tier numbers were re-measured (353/491/805 kB) and the test passes. No engine behaviour changed. | test: pytest -q tests/unit/test_skill_contracts.py tests/unit/test_roster_tiers.py tests/unit/test_docs_contracts.py tests/unit/test_harness_surface.py @cdea1bc -> 166 passed; teamwork links -> 0 issues; privacy_scan --tree -> PASS 0; skill list -> S-0002 team-designer file=ok; check_release_consistency --offline -> 0 problems | preflight: PF-c9999d5a84c6 @cdea1bcce391 (7 checks, 0 failed)
+- author evidence: commit cdea1bc
+- reviewer evidence: git diff --stat main...cdea1bc -> 7 files: AGENTS.md, templates/AGENTS.md, SKILL.md, references/Roles.md, docs/Team/Research.md, .agents/skills/team-designer/SKILL.md, tests/unit/test_skill_contracts.py; the six intern rules are present in template + AGENTS + SKILL (5j) + Roles, and the five new tests pin them; the team-designer skill has the interview, roster, skills, permission/verification, proactivity/routine, anti-patterns and falsifiers steps and its guardrails forbid bypassing self-check/review/merge; Research.md section 11 cites both URLs with accessed 2026-11-02 and carries the adopt/adapt/reject table; the least-privilege correction replaces 'all tools' and bot-owned accounts are rejected as a red line; pytest -q the four contract/roster/docs/harness files @cdea1bc -> 166 passed; links -> 0 issues; privacy tree -> PASS 0; the roster tier numbers 353/491/805 kB re-derive from the test formula; skill list -> S-0002 file=ok; no engine behaviour changed.
+- findings history: 
+- branch / merge: ceo/t-0029-adopt-the-grok-bot-team-guide-a-team-des / pending
