@@ -2098,6 +2098,68 @@ def test_the_roles_reference_carries_the_contract_and_the_feature_team_design(ro
     assert "shared service" in text
 
 
+# --------------------------------------------------------------------------- #
+# the intern protocol: the Grok Bot guide, adapted (T-0029)
+# --------------------------------------------------------------------------- #
+
+INTERN_RULES = (
+    "No human relay",
+    "Teach once, encode it",
+    "Least privilege, one job, one proof",
+    "Onboard, then restate",
+    "Proactivity is a record",
+    "Routine hygiene",
+)
+
+
+def test_the_intern_protocol_is_stated_where_every_agent_reads_it(root):
+    for name in ("templates/AGENTS.md", "AGENTS.md"):
+        text = flat(read(root, *name.split("/")))
+        assert "## The intern protocol (hard)" in text, name
+        for rule in INTERN_RULES:
+            assert rule in text, (name, rule)
+
+
+def test_the_skill_states_the_intern_protocol(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "### 5j. The intern protocol" in text
+    for rule in INTERN_RULES:
+        assert rule.lower() in text.lower(), rule
+    assert "team-designer" in text
+
+
+def test_the_roles_reference_carries_the_intern_protocol(root):
+    text = flat(read(root, "references", "Roles.md"))
+    assert "## The intern protocol" in text
+    for rule in INTERN_RULES:
+        assert rule in text, rule
+    assert "team-designer" in text
+
+
+def test_the_team_designer_skill_covers_the_interview_and_the_proof(root):
+    """The adopted bot-designer: an interview and an audit, not a role factory."""
+    text = flat(read(root, ".agents", "skills", "team-designer", "SKILL.md"))
+    assert "# team-designer" in text
+    assert "Interview in one batch, then restate" in text
+    assert "smallest-team rule" in text.lower()
+    assert "Audit the skills" in text
+    assert "Audit permissions and verification together" in text
+    assert "Audit proactivity and routines" in text
+    assert "Anti-patterns" in text
+    assert "Falsifiers" in text
+
+
+def test_the_research_document_records_the_grok_bot_guide(root):
+    text = flat(read(root, "docs", "Team", "Research.md"))
+    assert "## 11. Lauren Tan (Grok Bot team guide)" in text
+    assert "https://x.com/poteto/status/2116576229319233596" in text
+    assert "accessed 2026-11-02" in text
+    assert "dr eggbot" in text
+    assert "**Adopt**" in text and "**Adapt" in text and "**Reject" in text
+    assert "least privilege" in text.lower()
+    assert "smallest team" in text.lower()
+
+
 def test_the_skill_states_the_contract_and_its_measured_basis(root):
     text = flat(read(root, "SKILL.md"))
     assert "### 5i. The throughput contract" in text
