@@ -4203,4 +4203,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: Reviewer-1 round 3 on P-0063: ledger n=1622 review.fail detail is the round-2 text; round-3 findings exist only on the task; commit 011ec94
 - reviewer evidence: git diff --stat main...011ec94 -> src/teamwork/engine.py and tests/unit/test_review_detects.py only; the detail now writes mechanical | round: N | detects | this-round findings[:150] bounded at 260, and the parser accepts the optional round prefix so legacy records still read (test at :315-317 passes); the regression seeds two fails, resubmits, and proves the second record carries round: 2 and the second finding while the first finding is absent; pytest -q tests/unit/test_review_detects.py tests/unit/test_review_credit.py @011ec94 -> 29 passed; reverting to the old 120-char/no-round detail -> the new test fails (non-vacuous); ruff check + format --check -> clean.
 - findings history: 
-- branch / merge: developer/t-0046-fix-records-a-review-fail-must-record-it / pending
+- branch / merge: developer/t-0046-fix-records-a-review-fail-must-record-it / 0e3f5f8
