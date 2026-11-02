@@ -11839,6 +11839,11 @@ PREFLIGHT_GATE_TIMEOUT = 3600
 #: is the four-in-43 "evidence names an unreachable revision" failure.
 _RE_EVIDENCE_REV = re.compile(r"@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])")
 
+#: The digest `selfcheck` appends to a note after preflight runs. It names the
+#: revision the gate measured, and a later rebase rewrites that revision: the
+#: tool's own record must not be the reason a resubmission is refused.
+_RE_PREFLIGHT_DIGEST = re.compile(r"preflight:\s*PF-[0-9a-f]+ @[0-9a-f]+[^|]*")
+
 #: The board is generated output, and this is the one path the check reads.
 PREFLIGHT_BOARD_PATH = "/".join(DIR_DOCS + ("Board.md",))
 
@@ -12122,11 +12127,19 @@ def _preflight_identity(project: Path, base: str, branch: str, role: str) -> Pre
     )
 
 
+def _rev_reachable(project: Path, sha: str) -> bool:
+    """True when some ref contains ``sha``, so a reader can check it out."""
+    result = run_git(project, "for-each-ref", "--contains", sha)
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
 def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> PreflightCheck:
     """Every ``@<sha>`` in the task's evidence and self-check note is a real commit.
 
     A claim bound to a revision nobody can check out is not evidence, and it is one
-    of the four classes a Reviewer has already failed a deliverable for.
+    of the four classes a Reviewer has already failed a deliverable for. Existing is
+    not enough: a rebase can leave the commit in the object store while no ref
+    contains it, so the reader cannot check it out.
 
     ``extra_text`` is the note `selfcheck` is ABOUT TO store, including its
     ``--test`` line: the stored ``self_note`` is only written after this runs, so
@@ -12135,20 +12148,69 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
     measurement nobody can reproduce.
     """
     name = "evidence"
-    text = "\n".join((task.get("evidence", ""), task.get("self_note", ""), extra_text))
-    named = sorted({match.lower() for match in _RE_EVIDENCE_REV.findall(text)})
+    # A note accumulates: every past self-check stays behind a ` || `. Only the note
+    # this run is about to store (extra_text) and the latest stored one are current;
+    # judging older sections would block the very re-check that fixes a rewrite.
+    latest = (task.get("self_note", "") or "").split(" || ")[-1]
+    digest = _RE_PREFLIGHT_DIGEST.sub("", task.get("evidence", ""))
+    note = _RE_PREFLIGHT_DIGEST.sub("", extra_text or latest)
+    evidence_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(digest)})
+    note_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(note)} - set(evidence_revs))
+    named = sorted(set(evidence_revs) | set(note_revs))
     if not named:
         return PreflightCheck(name, PREFLIGHT_OK, "the task names no @<rev> revision yet")
-    missing = [sha for sha in named if not _rev_commit_exists(project, sha)]
-    if missing:
+
+    evidence_missing = [sha for sha in evidence_revs if not _rev_commit_exists(project, sha)]
+    evidence_dangling = [
+        sha
+        for sha in evidence_revs
+        if sha not in evidence_missing and not _rev_reachable(project, sha)
+    ]
+    note_missing = [sha for sha in note_revs if not _rev_commit_exists(project, sha)]
+    note_dangling = [
+        sha for sha in note_revs if sha not in note_missing and not _rev_reachable(project, sha)
+    ]
+
+    problems = []
+    if evidence_dangling:
+        problems.append(
+            "the task evidence names "
+            + ", ".join(f"@{sha}" for sha in evidence_dangling[:5])
+            + ", which no ref contains (a rebase, amend or reset removed it)"
+        )
+    if evidence_missing:
+        problems.append(
+            "the task evidence names "
+            + ", ".join(f"@{sha}" for sha in evidence_missing[:5])
+            + ", which is not a commit in this repository"
+        )
+    if note_missing:
+        problems.append(
+            "the stored self-check names "
+            + ", ".join(f"@{sha}" for sha in note_missing[:5])
+            + ", which is not a commit in this repository"
+        )
+    if note_dangling:
+        problems.append(
+            "the stored self-check names "
+            + ", ".join(f"@{sha}" for sha in note_dangling[:5])
+            + ", which no ref contains after a rewrite"
+        )
+    if evidence_dangling or evidence_missing:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            "the task evidence names "
-            + ", ".join(f"@{sha}" for sha in missing[:5])
-            + ", which is not a commit in this repository",
-            "re-point the evidence at the revision you measured: git log --oneline -5,"
+            "; ".join(problems),
+            "re-point the evidence at the revision you measured now: git log --oneline -5,"
             " then task set <role> <T-id> --evidence '<cmd> @<sha> -> <result>'",
+        )
+    if note_dangling or note_missing:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            "; ".join(problems),
+            "refresh the note: selfcheck <agent> <T-id> --by <you> --note '<what you"
+            " re-read>' --test '<cmd> @<current-rev> -> <result>'",
         )
     shown = ", ".join(f"@{sha}" for sha in named[:5])
     return PreflightCheck(
