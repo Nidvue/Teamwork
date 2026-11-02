@@ -117,7 +117,7 @@ under two roles is two tasks.
 | ceo | T-0027 | release | done | P-0071 | 786041c |
 | ceo | T-0028 | release | done | P-0074 | 38bcef8 |
 | ceo | T-0029 | skill | done | P-0078 | c571e2b |
-| ceo | T-0030 | skill | review | P-0084 | - |
+| ceo | T-0030 | skill | done | P-0084 | aa98609 |
 | ceo | T-0031 | records | done | P-0085 | 7bc4f15 |
 | ceo | T-0032 | - | todo | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
@@ -209,7 +209,6 @@ landed by commit without a PR record.
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
-| ceo | T-0030 · Decide which SKILL.md sections are always-on and move the rest to references/ with a pointer | P2 | review | - |
 | ceo | T-0032 · docs(guide): the harness budget row still says the role's memory, not its short-term memory | P1 | todo | - |
 | developer | T-0053 · fix(deliver): preflight must require an evidence sha to be reachable from the branch, not merely present in the object store | P1 | todo | - |
 | tester | T-0006 · Pin document structure rather than sentences in test_skill_contracts.py where wording is not the contract | P2 | todo | - |
