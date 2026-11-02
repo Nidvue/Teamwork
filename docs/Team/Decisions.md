@@ -2071,3 +2071,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: pytest -q tests/unit/test_pulse_authority.py @0778e52 -> 18 passed; with the SETTINGS_NON_PROVIDER entry reverted in a scratch worktree of 0778e52 -> 2 failed, 16 passed (registration assertion + test_parallel_prints_no_pulse_mode_provider[0]) and restored -> 18 passed; Artifacts/T-0015/t0015_probe_delta.py @0778e52 -> 11/11 PASS and @7c4530f -> 9/11 (numeric 0 and 2 phantom=True); git diff 0778e52 HEAD -- src/teamwork/config.py src/teamwork/engine.py tests/unit/test_pulse_authority.py -> empty, so main 482736c carries the reviewed bytes and 18 passed there; pytest -q over the 7 pulse/parallel/slot/dispatch modules @0778e52 -> 125 passed; ruff check + ruff format --check -> clean, mypy src/teamwork -> 18 files, no issues; preflight @0778e52 -> 6 checks 0 failed, merge-tree clean
 - falsified by: a numeric PulseMode 0 or 2 that prints a provider row in parallel, a typo read as auto, an inferred task claimed outside auto, or an explicit task blocked by a refused one - any of the 11 probe checks flipping on this revision
 - consequences: -
+
+## D-20261102-CEO - Two fixes landed on main and were pushed outside the review gate; kept, not rewritten
+
+- date: 2026-11-02
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Keep 8f5698c and bb9866f as published history and certify them retrospectively (independent Reviewer verdict on the landed revision plus the CI run on that SHA). Do not rewrite or force-push published history. Re-assert the gate for every later commit: branch, self-check, preflight, Reviewer pass.
+- why: A leftover lane from the previous session committed both fixes directly on main with the CEO identity and pushed them at 00:01 and 00:12, before this session dispatched any lane. The content is the fix the brief asked for and CI run 41364904234 on 8f5698c is green, so reverting would destroy working published work; the defect is the path, not the content.
+- evidence: git reflog --date=iso -> 8f5698c 2026-11-02 01:01:06 commit, bb9866f 2026-11-02 01:12:05 commit, both author/committer CEO <ceo@agents.nidvue.com>; teamwork.py ledger show --tail 60 -> no commit/pr/review record for either sha; gh run list -> 41364904234 (CI on 8f5698c) success, 41365863390 (CI on bb9866f) in progress; git rev-parse origin/main -> bb9866f
+- falsified by: A review of the landed revision finds a defect that changes behaviour, or CI on bb9866f is red: then the fix is repaired forward on a branch with the normal gate, never by rewriting the published commits.
+- consequences: T-0022 and T-0028 are dropped as duplicates; a retrospective review task carries the independent verdict; the release tags bb9866f only after CI on that SHA is green.
