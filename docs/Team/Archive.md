@@ -4177,4 +4177,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 8109dd7
 - reviewer evidence: git diff --stat main...8109dd7 -> src/teamwork/version.py, CITATION.cff, CHANGELOG.md only; check_release_consistency.py --offline @8109dd7 -> 0 problems (main at 982dfa6 was R2 DRIFT HEAD 1.5.1 not greater than tag v1.5.1) and --online @8109dd7 -> 0 problems; pytest -q tests/unit/test_docs_contracts.py tests/unit/test_release_traceability.py tests/unit/test_release_workflow.py @8109dd7 -> 73 passed, 1 skipped; teamwork.py links -> 0 issues; ruff check + format --check -> clean; git rev-parse v1.5.1 -> 530bc13 (the tag is untouched); the 1.5.2 section names only the two workflow fixes and states no shipped behaviour change.
 - findings history: 
-- branch / merge: ceo/t-0028-chore-release-bump-to-1-5-2-on-main-afte / pending
+- branch / merge: ceo/t-0028-chore-release-bump-to-1-5-2-on-main-afte / 38bcef8
