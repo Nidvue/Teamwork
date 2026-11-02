@@ -88,7 +88,7 @@ under two roles is two tasks.
 | ceo | T-0002 | - | done | P-0006 | cd561a5 |
 | ceo | T-0004 | - | done | P-0019 | f3a765f |
 | ceo | T-0005 | plan | done | P-0024 | eed95de |
-| ceo | T-0006 | - | todo | - | - |
+| ceo | T-0006 | - | done | - | - |
 | ceo | T-0007 | plan | done | P-0030 | dacd0f3 |
 | ceo | T-0008 | records | doing | P-0033 | - |
 | ceo | T-0009 | - | todo | - | - |
@@ -99,6 +99,7 @@ under two roles is two tasks.
 | ceo | T-0014 | - | done | - | - |
 | ceo | T-0015 | records | done | P-0045 | bbdffbf |
 | ceo | T-0016 | release | done | P-0046 | 2893940 |
+| ceo | T-0017 | records | done | P-0049 | d3a7988 |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -161,7 +162,6 @@ landed by commit without a PR record.
 |---|---|---|---|---|
 | architect | T-0002 · M15 A8: Architecture section 11 freezes nine release-consistency rules; R10 makes the frozen contract false | P2 | doing | - |
 | architect | T-0003 · Section 5 does not name Attention.md, the record T-0014 introduces; add the workspace-format row when it merges | P2 | todo | - |
-| ceo | T-0006 · M15 A7: push the reviewed stage to origin/main and certify CI on that SHA | P1 | todo | - |
 | ceo | T-0008 · M15 plan: the surfaces table says four and lists five rows | P3 | doing | - |
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
