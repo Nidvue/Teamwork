@@ -86,7 +86,7 @@ under two roles is two tasks.
 | architect | T-0003 | - | done | P-0036 | 90eb61c |
 | architect | T-0004 | architecture | done | P-0042 | be2c868 |
 | architect | T-0005 | architecture | done | P-0067 | bb7c34f |
-| architect | T-0006 | - | review | P-0082 | - |
+| architect | T-0006 | - | done | P-0082 | f4cd70f |
 | architect | T-0007 | - | done | P-0081 | 0340949 |
 | ceo | T-0001 | review | done | P-0001 | 2f44f00 |
 | ceo | T-0002 | docs | done | P-0008 | 28c1133 |
@@ -208,7 +208,6 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0006 · Decide the evidence-archive segmentation and the engine.py split (ADR), keeping every record id resolvable | P1 | review | - |
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
 | ceo | T-0030 · Decide which SKILL.md sections are always-on and move the rest to references/ with a pointer | P2 | review | - |
 | ceo | T-0032 · docs(guide): the harness budget row still says the role's memory, not its short-term memory | P1 | todo | - |
