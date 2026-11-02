@@ -27,7 +27,7 @@ reader to nowhere. Each of those is a fact about the tree, so each is checked
 mechanically instead of being trusted to review.
 
 The always-on budget is the cost doctrine made measurable: SKILL.md, the managed
-teamwork block of AGENTS.md, the role charter and the role's memory files are in
+teamwork block of AGENTS.md, the role charter and the role's short-term memory are in
 context on every run, so they are the expensive option and the only one capped.
 ``AlwaysOnBudgetKb`` in the team ``Settings.json`` sets the cap; missing,
 unreadable or non-numeric settings fall back to
@@ -46,8 +46,6 @@ from .config import (
     DEFAULT_ALWAYS_ON_BUDGET_KB,
     DIR_AGENTS,
     DIR_ROLES,
-    F_GLOBAL,
-    F_LONG,
     F_ROLE,
     F_SETTINGS,
     F_SHORT,
@@ -56,7 +54,6 @@ from .gitutil import HooksDirUnresolved, run_git
 from .gitutil import hooks_dir as resolved_hooks_dir
 from .io import die
 from .layout import (
-    global_dir,
     known_instances,
     list_roles,
     project_of,
@@ -96,7 +93,7 @@ CLASS_CELLS = CLASSES + (NO_VALUE,)
 #: measurement, which is the defect this column exists to prevent.
 SPEC_SYSTEM_PROMPT = "SKILL.md"
 SPEC_GUARDRAILS = "managed block in AGENTS.md"
-SPEC_MEMORY = "Roles/<Role>/*.md + Global/GlobalMemory.md"
+SPEC_MEMORY = "Roles/<Role>/ShortTermMemory.md"
 SPEC_TOOL_GUIDANCE = "references/*.md"
 SPEC_SKILLS = ".agents/skills/*/SKILL.md"
 SPEC_SCRIPTS = "scripts/*.py + src/teamwork/*.py"
@@ -274,7 +271,7 @@ def collect(repo: Path, root: Path) -> list[Surface]:
     component across rows cannot be checked against the taxonomy it claims to
     describe. Each row's ``path`` is the frozen spec (Architecture 12.2) and
     ``size`` is what that spec selects at run time: C2 is the managed block inside
-    AGENTS.md, C3 is every role's markdown plus the global memory, C7 is the
+    AGENTS.md, C3 is every role's short-term memory, C7 is the
     scripts plus the engine package, C8 is both hook stages found through the git
     hook directory. Measuring something other than what the cell names would make
     the printed number unreproducible from the row, which is what the registry is
@@ -318,11 +315,8 @@ def collect(repo: Path, root: Path) -> list[Surface]:
 
 
 def memory_bytes(root: Path) -> int:
-    """C3: every role's markdown plus the shared global memory of the team."""
-    total = file_size(global_dir(root) / F_GLOBAL)
-    for role in list_roles(root):
-        total += glob_size(role_dir(root, role), "*.md")
-    return total
+    """C3: every role's short-term memory, the file startup loads into context."""
+    return sum(file_size(role_dir(root, role) / F_SHORT) for role in list_roles(root))
 
 
 #: A row's third cell is a spec, and the frozen specs contain single spaces
@@ -624,7 +618,6 @@ def instance_always_on(repo: Path, root: Path, role: str) -> int:
         + file_size(repo / "SKILL.md")
         + file_size(charter_path(repo, root, role))
         + file_size(role_dir(root, role) / F_SHORT)
-        + file_size(role_dir(root, role) / F_LONG)
     )
 
 
