@@ -638,6 +638,12 @@ def budget_rows(repo: Path, root: Path, limit_kb: int | None) -> tuple[list[Budg
     return rows, cap, source
 
 
+def over_budget_rows(repo: Path, root: Path) -> list[BudgetRow]:
+    """The instances whose always-on read is over the configured cap, if any."""
+    rows, _cap, _source = budget_rows(repo, root, None)
+    return [row for row in rows if row.over]
+
+
 def render_budget(rows: list[BudgetRow]) -> str:
     """``<instance> <always_on> <budget> <ok|OVER>`` per row, then the total line."""
     lines = [
