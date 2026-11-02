@@ -24,18 +24,18 @@ Compares from the previous tag, `v1.5.0`.
 ## [1.5.0](https://github.com/Nidvue/Teamwork/compare/v1.4.4...v1.5.0) - 2026-11-01
 
 ### Added
-- A task carries a **mandate**: \	ask add --mandate explicit|inferred --basis\ records why work may start, and \--key\ makes intake idempotent (a repeated key returns the existing task).
-- An **accept mode** for proactive work: \PulseMode\ in \Settings.json\ (\off\/\observe\/\uto\). In \observe\, \pulse\ records the assignments it would make and claims nothing; an inferred task is never claimed outside \uto\.
-- **Attention** as a record: \ttention add|list|resolve\ in the team tree, with a kind; an open \uthorization\ blocks STOP and a healthy team prints nothing.
-- A **stage table**: \stage\ classifies every in-flight task into a person-stage or a working-stage from records alone, by first match, naming the row it matched.
-- A review finding must name the failure it detects: eview --result fail\ requires \--detects\, and \udit\ counts the misses. A finding must be reachable in this project's supported use; constructible in principle is not enough.
+- A task carries a **mandate**: `task add --mandate explicit|inferred --basis` records why work may start, and `--key` makes intake idempotent (a repeated key returns the existing task).
+- An **accept mode** for proactive work: `PulseMode` in `Settings.json` (`off`/`observe`/`auto`). In `observe`, `pulse` records the assignments it would make and claims nothing; an inferred task is never claimed outside `auto`.
+- **Attention** as a record: `attention add|list|resolve` in the team tree, with a kind; an open `authorization` blocks STOP and a healthy team prints nothing.
+- A **stage table**: `stage` classifies every in-flight task into a person-stage or a working-stage from records alone, by first match, naming the row it matched.
+- A review finding must name the failure it detects: `review --result fail` requires `--detects`, and `audit` counts the misses. A finding must be reachable in this project's supported use; constructible in principle is not enough.
 - Release-consistency rule **R10**: every surface that states a licence grant must agree.
 
 ### Fixed
-- A relative \--artifact\ resolves against the invoking checkout, never the base tree, and an ambiguous copy is refused naming both candidates.
+- A relative `--artifact` resolves against the invoking checkout, never the base tree, and an ambiguous copy is refused naming both candidates.
 - The merge path's records commit is path-scoped, and a peer's staged entry survives the merge for every shape (modify, new, delete, rename, partial).
-- \clean\ no longer removes a live lane's worktree or a bound evidence artifact.
-- ecords.render_tests\ with its documented default \path=None\ renders instead of crashing.
+- `clean` no longer removes a live lane's worktree or a bound evidence artifact.
+- `records.render_tests` with its documented default `path=None` renders instead of crashing.
 
 ## [1.4.4](https://github.com/Nidvue/Teamwork/compare/v1.4.3...v1.4.4) - 2026-10-31
 
