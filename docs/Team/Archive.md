@@ -4151,4 +4151,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 489c946
 - reviewer evidence: git diff --stat main...489c946 -> .github/workflows/release.yml + tests/unit/test_release_workflow.py only; the defect reproduces on release run 41439789453 (publish step printed 'published @nidvue/teamwork@1.5.1' and the registry now serves 1.5.1 with gitHead 530bc13, but the verify step hit E404 at 61 s and exited 1); the fix sets the verify budget to 12x20 s = 240 s and the new test reads the step's own ATTEMPTS/RETRY_SECONDS and refuses <180 s; pytest -q tests/unit/test_release_workflow.py tests/integration/test_release_workflow_flow.py @489c946 -> 70 passed; reverting to 4x20 s -> test_the_npm_verify_window_outlasts_registry_propagation failed (non-vacuous); yaml.safe_load(release.yml) -> ok; ruff check + format --check -> clean; no other workflow behavior changed and the step still fails closed after the budget.
 - findings history: 
-- branch / merge: developer/t-0049-fix-release-the-npm-verify-window-must-o / pending
+- branch / merge: developer/t-0049-fix-release-the-npm-verify-window-must-o / 982dfa6
