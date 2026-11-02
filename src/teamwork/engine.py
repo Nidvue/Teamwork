@@ -118,6 +118,7 @@ from .config import (
     F_SHORT,
     F_SKILLS,
     F_START,
+    F_TASK_ARCHIVE,
     F_TASKS,
     F_TEAM,
     F_WORKLOG,
@@ -6638,6 +6639,95 @@ def cmd_task_list(args) -> int:
     return 0
 
 
+#: The fields a closed task carries that cost startup context. `forced` stays in
+#: the queue because the loop and the gate report read it.
+ARCHIVED_TASK_FIELDS = ("self_note", "review_evidence", "findings", "body")
+
+
+def _archived_section(t: dict) -> str:
+    """One archive section, carrying the fields the queue no longer stores."""
+    lines = [f"## {t['id']} · {one_line(t.get('title')) or 'task'}", ""]
+    lines.append(f"- status: {t['status']}")
+    for field in ARCHIVED_TASK_FIELDS:
+        value = (t.get(field) or "").strip()
+        if value:
+            lines.append(f"- {field}: {value}")
+    return "\n".join(lines)
+
+
+def _archived_evidence(root: Path, role: str, t: dict) -> bool:
+    """True when a task's evidence lives in the role's TaskArchive.md.
+
+    A section that carries only the status is not evidence: archiving must never
+    turn a fabricated completion into a clean record.
+    """
+    pointer = (t.get("archived") or "").strip()
+    if not pointer.startswith(F_TASK_ARCHIVE + "#"):
+        return False
+    path = role_dir(root, role) / F_TASK_ARCHIVE
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    header = f"## {t['id']} "
+    if header not in text:
+        return False
+    section = text.split(header, 1)[1].split("\n## ", 1)[0]
+    for field in ARCHIVED_TASK_FIELDS:
+        marker = f"- {field}: "
+        if marker in section and section.split(marker, 1)[1].split("\n", 1)[0].strip():
+            return True
+    return False
+
+
+def cmd_task_archive(args) -> int:
+    """Move a closed task's long evidence out of the queue, keeping its id."""
+    root = project_root(args)
+    role = resolve_role(args.agent)
+    path = task_file(root, role)
+    archive = role_dir(root, role) / F_TASK_ARCHIVE
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(path)
+        closed = [t for t in tasks if t["status"] in ("done", "dropped") and not t.get("archived")]
+        # A done task with no execution evidence is an audit finding, not history:
+        # archiving it would move the finding out of the queue that reports it.
+        kept = [t for t in closed if t["status"] == "done" and not _task_has_execution_evidence(t)]
+        closed = [t for t in closed if t not in kept]
+        for t in kept:
+            print(
+                f"# kept {role} {t['id']} in the queue: done without execution evidence,"
+                " which the audit must keep reporting"
+            )
+        if not closed:
+            print(f"# nothing to archive in {role}")
+            return 1 if kept else 0
+        for t in closed:
+            t["archived"] = f"{F_TASK_ARCHIVE}#{t['id'].lower()}"
+        existing = (
+            archive.read_text(encoding="utf-8")
+            if archive.is_file()
+            else f"# Task archive - {role}\n\nOwner: {role}. Closed evidence moved out of"
+            f" `{F_TASKS}` so the queue stays a starting point, not a history.\n\n"
+            f"Related: [{F_TASKS}]({F_TASKS})\n"
+        )
+        sections = [_archived_section(t) for t in closed]
+        write_lf(archive, existing.rstrip() + "\n\n" + "\n\n".join(sections) + "\n")
+        for t in closed:
+            for field in ARCHIVED_TASK_FIELDS:
+                t[field] = ""
+        write_tasks(path, tasks, role)
+    ledger_append(
+        root,
+        "task.archive",
+        args.agent,
+        role,
+        f"{len(closed)} task(s) -> {archive.name}",
+        "",
+        role,
+    )
+    print(f"# archived {len(closed)} closed task(s) from {role} into {archive}")
+    return 0
+
+
 def cmd_task_next(args) -> int:
     """Highest-priority executable task in the ROLE queue; claims it by default."""
     root = project_root(args)
@@ -13114,7 +13204,11 @@ def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, arg
             # closed by hand relies on `evidence` alone. Any of the three is a
             # record of execution, so any of them satisfies the anti-hallucination
             # gate - testing `evidence` alone flagged every properly reviewed task.
-            if t["status"] == "done" and not _task_has_execution_evidence(t):
+            if (
+                t["status"] == "done"
+                and not _task_has_execution_evidence(t)
+                and not _archived_evidence(root, name, t)
+            ):
                 print(f"- {name} {t['id']} {t['title']}")
                 hits += 1
     if not hits:
@@ -15001,6 +15095,14 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--all", action="store_true")
     s.add_argument("--status", choices=list(STATUSES))
     s.set_defaults(func=cmd_task_list)
+
+    s = tsub.add_parser(
+        "archive",
+        parents=[common],
+        help="move closed task evidence into the role's TaskArchive.md, keeping the ids",
+    )
+    s.add_argument("agent")
+    s.set_defaults(func=cmd_task_archive)
 
     s = tsub.add_parser(
         "next", parents=[common], help="claim the highest-priority executable task of the role"
