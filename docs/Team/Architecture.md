@@ -62,6 +62,7 @@ Teamwork/
 │   ├── build_pi_package.py   # assemble the pi-teamwork tarball (make package)
 │   ├── check_release_consistency.py  # the release-truth gate (make release-consistency)
 │   ├── sync_skill.py         # mirror this checkout into an installed skills dir (make sync-skill)
+│   ├── render_social_preview.py  # draw assets/social-preview.png from the README pitch
 │   └── privacy_scan.py       # tree + history privacy gate
 ├── tests/{unit,integration,acceptance}/  # pytest
 ├── docs/                     # mkdocs site (index/install/quickstart/...)
