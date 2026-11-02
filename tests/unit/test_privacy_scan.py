@@ -78,6 +78,26 @@ def test_role_mailbox_is_allowed():
     assert "personal-email" not in rules_hit("author: Developer <developer@agents.nidvue.com>\n")
 
 
+def test_forge_service_mailboxes_are_allowed():
+    """A forge's noreply address is transport, not personal data.
+
+    The committer guard already accepts ``noreply@gitlab.com`` as a host stamp
+    (``engine._RE_FORGE_COMMITTER_EMAIL``), and the CLI guide names it, so the
+    privacy scan must read the same allowlist or the gate fails on the page that
+    documents it.
+    """
+    assert ps._email_allowed("noreply@github.com")
+    assert ps._email_allowed("noreply@gitlab.com")
+    assert "personal-email" not in rules_hit("committer: GitLab <noreply@gitlab.com>\n")
+
+
+def test_a_personal_address_behind_the_service_mailbox_is_still_reported():
+    """The service allowance is the exact host address, never its user domain."""
+    # Assembled at runtime: the scan must never read this file as a real address.
+    address = "jane.doe" + "@" + "users.noreply.gitlab.com"
+    assert "personal-email" in rules_hit(f"author: Jane <{address}>\n")
+
+
 def test_clean_source_lines_report_nothing():
     clean = (
         "import os\n"
