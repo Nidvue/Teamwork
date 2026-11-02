@@ -6735,6 +6735,30 @@ def cmd_task_next(args) -> int:
     return 0
 
 
+def _task_drop_blockers(root: Path, task: dict) -> list[str]:
+    """Why dropping ``task`` would abandon live work (T-0047).
+
+    A bulk sweep must not be able to erase accepted, in-flight work with a canned
+    reason. The three live signals are the same ones `reclaim` and `instance retire`
+    already honour: a claim, an open branch, and the review gate. A drop that names
+    none of them is a normal decision and needs no reason.
+    """
+    blockers: list[str] = []
+    claimed = (task.get("claimed_by") or "").strip()
+    if claimed:
+        blockers.append(f"claimed_by {claimed}")
+    branch = (task.get("branch") or "").strip()
+    if branch:
+        project = project_of(root)
+        if is_git_repo(project) and not branch_merged(project, branch):
+            blockers.append(f"open branch {branch}")
+    if task.get("review", "required") != "na" and (
+        task.get("self_check") == "passed" or task.get("status") == "review"
+    ):
+        blockers.append("in the review gate")
+    return blockers
+
+
 def cmd_task_set(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
@@ -6749,6 +6773,19 @@ def cmd_task_set(args) -> int:
         t = tasks[idx]
         if args.force:
             t["forced"] = (t.get("forced", "") + f" | {args.force}").strip(" |")
+        drop_blockers: list[str] = []
+        if args.status == "dropped":
+            drop_blockers = _task_drop_blockers(root, t)
+            if drop_blockers and not args.force:
+                die(
+                    f"refusing to drop {t['id']}: it is live work ({'; '.join(drop_blockers)}).\n"
+                    "  Finish it, or drop it deliberately with\n"
+                    f"  task set {args.agent} {t['id']} --status dropped --force "
+                    "'<why this work is abandoned>'\n"
+                    "  A bulk sweep may not erase accepted work silently: the reason and "
+                    "the blockers are recorded and reported by `audit`.",
+                    2,
+                )
         if args.status:
             if args.status not in STATUSES:
                 die(f"status must be one of {', '.join(STATUSES)}")
@@ -6759,6 +6796,8 @@ def cmd_task_set(args) -> int:
                 if pascal(args.agent) != pascal(role):
                     t["claimed_by"] = check_claimant(root, args.agent, "claim", role)
             t["status"] = args.status
+            if args.status == "dropped" and drop_blockers:
+                t["dropped_under_live"] = "; ".join(drop_blockers)
         if getattr(args, "claimed_by", None) is not None:
             if str(args.claimed_by).strip():
                 t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
@@ -12932,6 +12971,7 @@ def cmd_audit(args) -> int:
     problems += _audit_deliverables_awaiting_independent_review(root, names, args)
     problems += _audit_open_disputes_design_decision_challenges(root, names, args)
     problems += _audit_forced_gate_overrides(root, names, args)
+    problems += _audit_dropped_under_a_live_claim(root, names, args)
     problems += _audit_review_fails_without_a_reachable_detect(root, names, args)
     problems += _audit_roster_gaps_roles_with_no_instance(root, names, args)
     problems += _audit_ownership_sanity_phantom_agents_silent_o(root, names, args)
@@ -13218,6 +13258,27 @@ def _audit_forced_gate_overrides(root: Path, names: list, args) -> int:
         for t in parse_tasks(task_file(root, name)):
             if t.get("forced") and t["status"] not in ("done", "dropped"):
                 print(f"- {name} {t['id']}: {t['forced']}")
+                hits += 1
+    if not hits:
+        print("- none")
+    return hits
+
+
+def _audit_dropped_under_a_live_claim(root: Path, names: list, args) -> int:
+    """A drop forced past a live claim must stay visible after the task closes.
+
+    A sweep can only erase work if nobody can see it happened. The task records the
+    blockers, so this section is the audit-side half of the guard (T-0047).
+    """
+    print("## dropped under a live claim")
+    hits = 0
+    for name in names:
+        for t in parse_tasks(task_file(root, name)):
+            if t.get("dropped_under_live"):
+                print(
+                    f"- {name} {t['id']}: {t['dropped_under_live']} "
+                    f"| forced: {t.get('forced') or '-'}"
+                )
                 hits += 1
     if not hits:
         print("- none")
