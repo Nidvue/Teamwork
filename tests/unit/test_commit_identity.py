@@ -312,6 +312,49 @@ def test_the_committer_guard_accepts_the_host_noreply_stamp(repo):
     assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 0
 
 
+def test_the_committer_guard_accepts_a_bot_dependency_update_from_the_forge(repo):
+    """Dependabot authors its own commit; the host commits it as itself.
+
+    Measured on CI run 41402633282 (pull request #31): the commit was authored by
+    ``dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>`` and
+    committed by ``GitHub <noreply@github.com>``, and the guard failed it - so
+    every dependency pull request went red on a commit that carries no personal
+    mailbox. ``identity --audit`` already allows that bot, and so does the
+    privacy gate; the guard reads the same allowlist.
+    """
+    _commit(
+        repo,
+        "dependabot[bot]",
+        "49699333+" + "dependabot[bot]@users.noreply.github.com",
+        "chore: bump",
+    )
+    _amend_committer(repo, "GitHub", "noreply@github.com")
+    assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 0
+
+
+def test_the_committer_guard_still_fails_a_bot_name_behind_a_personal_committer(repo):
+    """The bot allowance excuses the host stamp, never a personal committer."""
+    _commit(
+        repo,
+        "dependabot[bot]",
+        "49699333+" + "dependabot[bot]@users.noreply.github.com",
+        "chore: bump",
+    )
+    _amend_committer(repo, "Some One", "personal" + "@" + "example.invalid")
+    assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 1
+
+
+def test_the_committer_guard_still_fails_a_personal_author_behind_the_forge_stamp(repo):
+    """A squash merge keeps the signed-in account as the author: still red.
+
+    The forge committer is accepted only for a role or an allowlisted bot author,
+    so widening the bot case must not excuse the account this guard exists for.
+    """
+    _commit(repo, "Some One", "personal" + "@" + "example.invalid", "feat(x): done")
+    _amend_committer(repo, "GitHub", "noreply@github.com")
+    assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 1
+
+
 def test_the_committer_guard_names_the_repair(repo, capsys):
     _forge_commit(repo, "Security Auditor", "securityauditor@agents.nidvue.com", "fix(x): done")
     address = "personal" + "@" + "example.invalid"
