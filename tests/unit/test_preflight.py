@@ -803,3 +803,95 @@ def test_a_fail_on_a_task_with_no_revision_is_recorded_as_not_applicable(cli, pr
     assert "nothing to preflight" in out
     assert "review_mechanical: n/a" in queue_text(root)
     assert last_fail_detail(root).startswith("mechanical: n/a | ")
+
+
+def test_evidence_naming_a_rebased_away_commit_is_red(cli, project, capsys):
+    """Existing is not reachable: a rebase leaves the object, no ref contains it."""
+    init_team(cli, project)
+    start_branch(cli, project)
+    first = commit_as_author(cli, project, "gone.txt")
+    assert git(project, "reset", "--hard", "HEAD~1").returncode == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "set",
+            "developer-1",
+            "T-0001",
+            "--evidence",
+            f"pytest -q @{first[:7]} -> 3 passed",
+        )
+        == 0
+    )
+    commit_as_author(cli, project, "feat.txt")
+
+    code, out = preflight(cli, capsys, project)
+
+    assert code == 1, out
+    assert "no ref contains" in out, out
+
+
+def test_the_tool_digest_survives_a_rewrite(cli, project, capsys):
+    """selfcheck's own digest names the measured revision; a rewrite must not block it.
+
+    `preflight` appends `| preflight: PF-... @<rev>` to the note, and a rebase or
+    amend rewrites that revision. The tool's own record cannot be the reason its
+    next run is refused, or a rebase leaves the lane with no way out but --force.
+    """
+    root = init_team(cli, project)
+    start_branch(cli, project)
+    commit_as_author(cli, project)
+    sha = git(project, "rev-parse", "--short", "HEAD").stdout.strip()
+    assert (
+        selfcheck(
+            cli, project, "--note", "re-read the diff", "--test", f"pytest -q @{sha} -> 3 passed"
+        )
+        == 0
+    )
+
+    queue = engine.role_dir(root, "developer") / "TaskQueue.md"
+    assert "preflight: PF-" in queue.read_text(encoding="utf-8")
+
+    (project / "extra.txt").write_text("more\n", encoding="utf-8")
+    assert git(project, "add", "extra.txt").returncode == 0
+    assert git_as(project, "developer", "commit", "--amend", "--no-edit").returncode == 0
+    new_sha = git(project, "rev-parse", "--short", "HEAD").stdout.strip()
+    # Re-point the record at the new revision; the digest already in the note still
+    # names the old one, and that alone must not block the next self-check.
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "set",
+            "developer-1",
+            "T-0001",
+            "--evidence",
+            f"commit {new_sha}",
+        )
+        == 0
+    )
+    # A plain preflight after the rewrite still sees the stored note's old @sha and
+    # must say how to clear it: re-run the self-check, not re-point the evidence.
+    code, out = preflight(cli, capsys, project)
+    assert code == 1, out
+    assert "stored self-check" in out and "refresh the note" in out
+
+    capsys.readouterr()
+    assert (
+        selfcheck(
+            cli, project, "--note", "re-read again", "--test", f"pytest -q @{new_sha} -> 3 passed"
+        )
+        == 0
+    )
+
+
+def test_a_recorded_digest_is_not_a_claim() -> None:
+    """The digest `selfcheck` writes is the tool's record, not the author's claim."""
+    task = {
+        "evidence": "",
+        "self_note": "re-read | preflight: PF-abc123 @deadbeef (7 checks, 0 failed)",
+    }
+    check = engine._preflight_evidence(Path("/nonexistent"), task)
+    assert check.status == engine.PREFLIGHT_OK
