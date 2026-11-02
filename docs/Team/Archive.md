@@ -4165,3 +4165,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff --stat main...a6b93b3 -> .github/workflows/release.yml + tests/unit/test_release_workflow.py only; the defect reproduces on release run 41443890248 (idempotent path found 1.5.1, then '##[error]dist.integrity is None' -> exit 1); npm view @nidvue/teamwork@1.5.1 version dist.integrity gitHead --json returns flat keys ['dist.integrity','gitHead','version'] and no nested 'dist' (measured); the fix reads the flat key first with the nested shape as fallback; pytest -q tests/unit/test_release_workflow.py @a6b93b3 -> 31 passed; restoring the nested-only read -> test_the_npm_verify_reads_the_flat_dist_integrity_field failed (non-vacuous); yaml.safe_load -> ok; ruff check + format --check -> clean; the version/gitHead checks and the 240 s retry window are unchanged.
 - findings history: 
 - branch / merge: developer/t-0050-fix-release-the-npm-verify-step-must-rea / bce6f07
+
+## T-0028 · chore(release): bump to 1.5.2 on main after the v1.5.1 tag; record the release-pipeline fixes  (ceo)
+- date: 2026-11-02
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: release
+- self-check: [pass] Re-read the release order against the tag: v1.5.1 is at 530bc13, main is now the merge train after it, and R2 compares HEAD's 1.5.1 with the tag. The bump to 1.5.2 clears it; CITATION tracks 1.5.2 and the 1.5.2 CHANGELOG section names only the two workflow fixes that landed after the tag, with no shipped behaviour change. The v1.5.1 tag is untouched. | test: check_release_consistency --offline @8109dd7 -> 0 problems; pytest -q tests/unit/test_docs_contracts.py tests/unit/test_release_traceability.py tests/unit/test_release_workflow.py @8109dd7 -> 73 passed, 1 skipped; teamwork links -> 0 issues | preflight: PF-da508ad5ef18 @8109dd758ba1 (7 checks, 0 failed)
+- author evidence: commit 8109dd7
+- reviewer evidence: git diff --stat main...8109dd7 -> src/teamwork/version.py, CITATION.cff, CHANGELOG.md only; check_release_consistency.py --offline @8109dd7 -> 0 problems (main at 982dfa6 was R2 DRIFT HEAD 1.5.1 not greater than tag v1.5.1) and --online @8109dd7 -> 0 problems; pytest -q tests/unit/test_docs_contracts.py tests/unit/test_release_traceability.py tests/unit/test_release_workflow.py @8109dd7 -> 73 passed, 1 skipped; teamwork.py links -> 0 issues; ruff check + format --check -> clean; git rev-parse v1.5.1 -> 530bc13 (the tag is untouched); the 1.5.2 section names only the two workflow fixes and states no shipped behaviour change.
+- findings history: 
+- branch / merge: ceo/t-0028-chore-release-bump-to-1-5-2-on-main-afte / pending
