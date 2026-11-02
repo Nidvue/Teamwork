@@ -146,7 +146,7 @@ under two roles is two tasks.
 | technical-writer | T-0007 | - | todo | - | - |
 | technical-writer | T-0008 | - | dropped | - | - |
 | technical-writer | T-0009 | changelog | done | P-0047 | 4539796 |
-| technical-writer | T-0010 | release | review | P-0048 | - |
+| technical-writer | T-0010 | release | done | P-0048 | 856ba14 |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
@@ -176,7 +176,6 @@ landed by commit without a PR record.
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | todo | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
-| technical-writer | T-0010 · CITATION.cff date-released is 2026-10-31 while the 1.5.1 section is dated 2026-11-02 | P3 | review | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
