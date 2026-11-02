@@ -192,7 +192,7 @@ under two roles is two tasks.
 | security-auditor | T-0003 | - | dropped | - | - |
 | security-auditor | T-0004 | - | done | - | - |
 | security-auditor | T-0005 | - | done | - | - |
-| security-auditor | T-0006 | audit | review | P-0083 | - |
+| security-auditor | T-0006 | audit | done | P-0083 | 98232a8 |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
@@ -213,7 +213,6 @@ landed by commit without a PR record.
 | ceo | T-0030 · Decide which SKILL.md sections are always-on and move the rest to references/ with a pointer | P2 | review | - |
 | ceo | T-0032 · docs(guide): the harness budget row still says the role's memory, not its short-term memory | P1 | todo | - |
 | developer | T-0053 · fix(deliver): preflight must require an evidence sha to be reachable from the branch, not merely present in the object store | P1 | todo | - |
-| security-auditor | T-0006 · Re-state docs/Team/AuditReport.md with dated facts; the commit-absent claim is superseded | P1 | review | - |
 | tester | T-0006 · Pin document structure rather than sentences in test_skill_contracts.py where wording is not the contract | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
