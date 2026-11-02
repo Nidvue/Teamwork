@@ -95,11 +95,12 @@ under two roles is two tasks.
 | ceo | T-0010 | records | done | P-0036 | 5ffaf70 |
 | ceo | T-0011 | release | done | P-0040 | 1c91255 |
 | ceo | T-0012 | records | review | P-0041 | - |
-| ceo | T-0013 | - | todo | - | - |
+| ceo | T-0013 | - | blocked | - | - |
 | ceo | T-0014 | - | done | - | - |
 | ceo | T-0015 | records | done | P-0045 | bbdffbf |
 | ceo | T-0016 | release | done | P-0046 | 2893940 |
 | ceo | T-0017 | records | done | P-0049 | d3a7988 |
+| ceo | T-0018 | records | selfcheck | - | - |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -117,7 +118,7 @@ under two roles is two tasks.
 | developer | T-0009 | release | done | P-0027 | 938aad4 |
 | developer | T-0010 | records | done | P-0022 | dbe19a8 |
 | developer | T-0011 | records | done | P-0032 | 6877247 |
-| developer | T-0012 | - | todo | - | - |
+| developer | T-0012 | - | dropped | - | - |
 | developer | T-0013 | records | done | P-0026 | 9789d84 |
 | developer | T-0014 | attention | done | P-0031 | 02fcdbf |
 | developer | T-0015 | engine | done | P-0039 | 326e4cf |
@@ -165,8 +166,8 @@ landed by commit without a PR record.
 | ceo | T-0008 · M15 plan: the surfaces table says four and lists five rows | P3 | doing | - |
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
-| ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | todo | - |
-| developer | T-0012 · T-0043: the merge path does not render the board, so a merged revision's board is stale until a manual records commit | P1 | todo | - |
+| ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | blocked | - |
+| ceo | T-0018 · Render the board after the last queue changes so the released tree's board is true | P1 | selfcheck | - |
 | developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | todo | - |
 | developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
 | developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |
