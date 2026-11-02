@@ -119,6 +119,7 @@ under two roles is two tasks.
 | ceo | T-0029 | skill | done | P-0078 | c571e2b |
 | ceo | T-0030 | skill | review | P-0084 | - |
 | ceo | T-0031 | records | review | P-0085 | - |
+| ceo | T-0032 | - | todo | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -195,7 +196,7 @@ under two roles is two tasks.
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
 | tester | T-0004 | - | done | - | - |
-| tester | T-0005 | harness | blocked | - | - |
+| tester | T-0005 | harness | done | P-0086 | 41b38f6 |
 | tester | T-0006 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -210,8 +211,8 @@ landed by commit without a PR record.
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
 | ceo | T-0030 · Decide which SKILL.md sections are always-on and move the rest to references/ with a pointer | P2 | review | - |
 | ceo | T-0031 · Archive closed reviewer task evidence to a per-role file, keeping the task ids in the queue | P2 | review | - |
+| ceo | T-0032 · docs(guide): the harness budget row still says the role's memory, not its short-term memory | P1 | todo | - |
 | security-auditor | T-0006 · Re-state docs/Team/AuditReport.md with dated facts; the commit-absent claim is superseded | P1 | review | - |
-| tester | T-0005 · Make the team-state lint reproducible in CI so a shared skill without its verdict fails the build | P1 | blocked | - |
 | tester | T-0006 · Pin document structure rather than sentences in test_skill_contracts.py where wording is not the contract | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
