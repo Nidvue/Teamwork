@@ -12971,6 +12971,7 @@ def cmd_audit(args) -> int:
     problems += _audit_deliverables_awaiting_independent_review(root, names, args)
     problems += _audit_open_disputes_design_decision_challenges(root, names, args)
     problems += _audit_forced_gate_overrides(root, names, args)
+    problems += _audit_startup_read_over_the_cap(root, names, args)
     problems += _audit_dropped_under_a_live_claim(root, names, args)
     problems += _audit_review_fails_without_a_reachable_detect(root, names, args)
     problems += _audit_roster_gaps_roles_with_no_instance(root, names, args)
@@ -13262,6 +13263,24 @@ def _audit_forced_gate_overrides(root: Path, names: list, args) -> int:
     if not hits:
         print("- none")
     return hits
+
+
+def _audit_startup_read_over_the_cap(root: Path, names: list, args) -> int:
+    """An instance whose always-on read exceeds the cap is a defect, not a metric.
+
+    `harness budget` reports the same numbers, but a budget nobody runs is not
+    enforced; the audit is where the team looks, so the overage is a problem here.
+    """
+    from . import harness as _harness
+
+    print("## startup read over the cap")
+    over = _harness.over_budget_rows(_harness.repo_root(args), root)
+    for row in over:
+        print(f"- {row.instance}: {row.always_on} bytes against a cap of {row.budget}")
+    if not over:
+        print("- none")
+    print()
+    return len(over)
 
 
 def _audit_dropped_under_a_live_claim(root: Path, names: list, args) -> int:
