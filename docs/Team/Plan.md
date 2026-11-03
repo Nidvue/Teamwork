@@ -838,6 +838,33 @@ there would have landed its work on another task's branch. `branch start
 | Reviewer-1 | three suite failures on main are pre-existing, not any lane's regression | filed as a bug task |
 | CEO | the publish gate is red on two of my own commit messages (an expanded shell variable) | security task, allowlist shape + control |
 
+## M17 - Institutional memory: lessons and prefixed skills (live)
+
+Intake: the operator requires that every agent remember the mistakes it made and
+work to stop them recurring, that a mistake can become a local skill that fixes
+the workflow, that an agent can create skills for any regularly performed task,
+and that every such skill carries one fixed prefix. Contract:
+[ARCHITECTURE](Architecture.md) section 14; criteria:
+[PROJECT](Project.md) M17; decision: `D-2026...-Architect` in
+[DECISIONS](Decisions.md).
+
+| task | role | deliverable | deps | state |
+|---|---|---|---|---|
+| T-0004 | architect | `Architecture.md` section 14 + technical decision | - | frozen contract |
+| T-0031 | developer | lesson records, `lesson` CLI, `tw-` enforcement, kinds, candidates, `PREFIX` rule, unit tests, two skills renamed | architect T-0004 | implementation |
+| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` | architect T-0004 | documentation |
+| T-0004 | tester | integration and acceptance proof of the lesson -> skill loop and prefix enforcement | developer T-0031 | proof |
+| T-0019 | ceo | intake, criteria, records, migration check and close-out | all | records |
+
+Parallel rules: the developer owns `src/teamwork/` and unit tests; the Technical
+Writer owns the always-on prose surfaces; the Tester owns the new integration and
+acceptance modules; the CEO owns `Project.md`, `Plan.md` and the close-out
+records. No two lanes share a writable file. The two legacy skill renames are the
+developer's, because the tests that trigger them are the developer's.
+
+Exit condition: AC-M17-1..AC-M17-5 verified by a role other than the owner on the
+merged revision, the M17 layers recorded and passing, and the records exported.
+
 ## Task-graph integrity
 
 The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.
