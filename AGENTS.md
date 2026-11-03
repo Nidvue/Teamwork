@@ -140,19 +140,65 @@ When a flow is repetitive, widely reused and must stay consistent, the owning ro
 extracts it into a team skill and tells its peers:
 
 ```sh
-teamwork skill candidates                       # find flows worth extracting
-teamwork skill create --name <kebab-name> --role <role> --by <you> \
+teamwork skill candidates                       # repeated areas + review failures worth a lesson
+teamwork skill create --name tw-<kebab-name> --role <role> --by <you> \
     --for "<when to use it>" --body-file <steps.md>
-teamwork skill share <kebab-name> --by <you>    # notifies same-role peers
+teamwork skill create --name tw-<kebab-name> --role <role> --by <you> \
+    --kind mistake --from-lesson L-0001 --for "<when to use it>" --body-file <steps.md>
+teamwork skill share tw-<kebab-name> --by <you>  # notifies same-role peers
 ```
 
-- The file lives at `<project>/.agents/skills/<name>/SKILL.md` - committed project
-  output, so every instance and every worktree sees it.
+- Every team skill is named `tw-<kebab-name>`: the directory and the front-matter
+  `name:` carry the prefix, `skill create` refuses any other name, and
+  `harness lint` reports rule `PREFIX` for a skill that does not.
+- Two kinds: `workflow` (the default) is the one way to do a recurring job;
+  `mistake` is created from a recorded lesson with `--from-lesson L-nnnn`, which
+  marks the lesson fixed and links both records. `--kind mistake` without
+  `--from-lesson` is refused, because a mistake skill names the record it fixes.
+- The file lives at `<project>/.agents/skills/tw-<name>/SKILL.md` - committed
+  project output, so every instance and every worktree sees it.
 - A skill never replaces this file, the red lines or the gates, and never bypasses
-  self-check, review, the PR or the Reviewer-only merge.
+  self-check, review, the PR or the Reviewer-only merge, and never weakens a gate.
 - Creating or changing a skill is normal work: branch, commit, PR, review, merge.
 - Reuse the shared skill instead of re-inventing the flow; when you change it,
   share again so peers do not drift.
+
+## Learning from your own work (hard)
+
+A failure or a discovery you do not record is one the team pays for twice. Two
+team-local stores, both written only through the commands and never committed:
+
+- **Lessons** - `Roles/<Role>/Lessons.md`, shared by every instance of the role.
+  One record per mistake: what went wrong, why, the rule you now follow, and the
+  evidence that proved it. Record one after your own self-check or a review
+  fails, before you re-submit; a failed check is not complete without it.
+
+  ```sh
+  teamwork lesson add --by <you> --mistake '<observable failure>' \
+      --cause '<why it happened>' --rule '<what you do instead>' \
+      --evidence '<command @rev -> result>' [--task T-nnnn]
+  teamwork lesson fix L-0001 --by <you> [--skill tw-<name>] [--evidence '<new proof>']
+  ```
+
+- **Project knowledge** - `Knowledge.md` at the team root, shared by every role.
+  One `K-` record is one durable fact, rule, command or measured behaviour that
+  makes the next decision faster. It requires evidence, carries tags and an
+  importance from 1 to 5, and is superseded - never contradicted - when it stops
+  being true. Search before asking, and `touch` a record you actually used.
+
+  ```sh
+  teamwork knowledge add --by <you> --topic '<topic>' --statement '<one fact>' \
+      --evidence '<command @rev -> result | path:line | URL + access date>' \
+      [--tags '<tag,tag>'] [--importance 1-5] [--supersedes K-0002]
+  teamwork knowledge search '<topic>'
+  teamwork knowledge touch K-0001 --by <you>
+  ```
+
+- `load` surfaces both: the role's open lessons (first 10) and the top 10 active
+  knowledge records, ranked by importance, uses and recency.
+- A recurring review finding needs a lesson, and a `tw-` mistake skill when the
+  flow changes; a skill never replaces a gate and never weakens one.
+- Never store a secret, credential, token or personal data in either store.
 
 ## Recording and audit (hard)
 
@@ -465,6 +511,10 @@ Never wait for another role before doing work you can do yourself.
   unilaterally.
 - Only the CEO writes `Global/GlobalMemory.md`; propose additions to the CEO
   instead of duplicating them privately. Read global memory before asking.
+- Retrieve before re-reading: `ctx://` is a read-only view over memory, lessons,
+  knowledge, skills, docs and tasks. Use `context find "<topic>"` (optionally
+  `--scope ctx://role/<role>`) and `context read <uri>`; read by id, never a whole
+  archive, plan or task queue. The tree adds no store, index or sidecar.
 - Store facts, not chatter: interfaces, decisions, gotchas, commands, revisions,
   evidence. Never store secrets.
 

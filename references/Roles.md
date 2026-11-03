@@ -67,9 +67,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 340 kB |
-| `standard` | 10 | 473 kB |
-| `full` | 17 | 774 kB |
+| `slim` (default) | 7 | 362 kB |
+| `standard` | 10 | 503 kB |
+| `full` | 17 | 825 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -287,3 +287,24 @@ Charters do not restate this; they state what the role produces and decides.
 - Never commit on `main`; work on your own branch.
 - Never fake evidence, weaken tests, or claim an unexecuted result.
 - Stop at a red line: record it, escalate, do other work meanwhile.
+
+## Learning loop
+
+Every role records its own experience; it is not the CEO's or the writer's job to
+remember it for them.
+
+- A self-check or review failure becomes a lesson in the role's `Lessons.md`
+  (`lesson add`), with the failure, the cause, the new rule and the evidence.
+  When the fix is a flow, the role creates a `tw-` mistake skill from it
+  (`--kind mistake --from-lesson L-nnnn`) so the lesson is closed by the change
+  that prevents it.
+- A durable project fact becomes a `K-` record in the team `Knowledge.md`
+  (`knowledge add`) with its evidence, tags and importance; every role reads the
+  top-ranked records at startup, searches before asking, and `touch`es a record
+  it used.
+- The Reviewer records a lesson when the same finding class recurs - across
+  authors or rounds - and checks that a repeated finding has a lesson or a `tw-`
+  skill behind it.
+- The CEO reports the growth at close-out: active knowledge records, fixed
+  lessons and the `tw-` skills they produced. A project whose agents never add or
+  use a record is not accumulating experience, whatever its archive says.
