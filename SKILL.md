@@ -156,9 +156,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 340 kB |
-| `standard` | 10 | 473 kB |
-| `full` | 17 | 774 kB |
+| `slim` (default) | 7 | 362 kB |
+| `standard` | 10 | 503 kB |
+| `full` | 17 | 825 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.3x what `slim` costs.
@@ -209,7 +209,7 @@ is committed. All team-created names are **PascalCase**.
 ```text
 <project>/
 ├── AGENTS.md                        # team constitution (auto-loaded, managed block)
-├── .agents/skills/<Name>/SKILL.md   # team skills extracted from repeated flows
+├── .agents/skills/tw-<name>/SKILL.md # team skills extracted from repeated flows
 ├── docs/Team/                       # committed project output
 │   ├── Project.md  Plan.md  Board.md  Archive.md  Decisions.md
 │   ├── Architecture.md  Research.md  Design.md  Risks.md  Costs.md  Release.md
@@ -222,7 +222,8 @@ is committed. All team-created names are **PascalCase**.
     ├── Tests.md  TestPlan.md        # layered test records + required layers
     ├── Reviews.md                   # PRs and review verdicts
     ├── Disputes.md                  # design/decision challenges
-    ├── Skills.md                    # team-skill registry
+    ├── Skills.md                    # team-skill registry (tw- name, kind, lesson)
+    ├── Knowledge.md                 # project knowledge, K- records (never committed)
     ├── Ledger.jsonl                 # append-only, hash-chained audit trail
     ├── Global/                      # CEO-owned shared memory (+ its .gitignore)
     │   ├── GlobalMemory.md
@@ -230,6 +231,7 @@ is committed. All team-created names are **PascalCase**.
     ├── Roles/<Role>/                # SHARED by every instance of the role
     │   ├── ShortTermMemory.md  LongTermMemory.md  ArchivedMemory.md
     │   ├── Role.md                  # charter copy
+    │   ├── Lessons.md               # role-shared mistakes, L- records (never committed)
     │   └── TaskQueue.md
     ├── Agents/<Instance>/           # private to one instance
     │   ├── StartHere.md  WorkLog.md  Inbox.md
@@ -738,6 +740,72 @@ leave `proposed` without a frozen interface, refused by
 `feature set <F-nnnn> --state ready`. `preflight`, a review pass and the merge all
 run `feature check` at the tree they are about to accept.
 
+### 5j. Learning is part of the work
+
+A failure you do not record is a failure the team pays for twice. Three things
+close the loop:
+
+- **A lesson (`L-`)** after your own self-check or a review fails, and after any
+  mistake worth not repeating: the observable failure, its cause, the rule you
+  now follow, and the evidence that proved it. `lesson add` requires all four,
+  and `load` shows the role's open lessons at every startup. Record the lesson
+  before the re-submission; `lesson fix` closes it when the re-run proves the
+  rule works.
+- **A `tw-` mistake skill** when the fix is a flow, not a one-off: create it from
+  the lesson with `--kind mistake --from-lesson L-nnnn`. The lesson becomes
+  `fixed` and the two records link, so the skill names the failure it prevents
+  instead of repeating it. A review finding that keeps recurring with no lesson
+  and no skill behind it is itself a defect.
+- **A knowledge record (`K-`)** when you learn a durable project fact - an
+  interface, a command, a measured behaviour, a gotcha - with the evidence that
+  established it, tags, an importance from 1 to 5, and a kind (`fact` by default,
+  or `experience`, `preference`, `gotcha`, `rule`). One record is one fact.
+  Search before asking (`knowledge search "<topic>"`), `touch` a record you
+  actually used, and supersede an obsolete fact instead of silently believing two
+  things: `knowledge add --supersedes K-0002 ...`. Never store a secret,
+  credential, token or personal data.
+
+`load` prints your open lessons (first 10) and the top 10 active knowledge
+records, ranked by importance, uses and recency, so every agent reads the most
+useful experience first. The stores are team-local working state and are never
+committed: `Roles/<Role>/Lessons.md` is shared by the role's instances, and
+`Knowledge.md` at the team root is shared by every role. Both are written only
+through the commands - a hand edit is a defect, not a shortcut - and **a lesson
+or a skill never replaces a gate and never weakens one**.
+
+```sh
+python3 "$SKILL/scripts/teamwork.py" lesson add --by <you> \
+    --mistake '<observable failure>' --cause '<why it happened>' \
+    --rule '<what you do instead>' --evidence '<command @rev -> result>'
+python3 "$SKILL/scripts/teamwork.py" skill create --name tw-<slug> --role <role> \
+    --by <you> --kind mistake --from-lesson L-0001 --for '<when to use it>'
+python3 "$SKILL/scripts/teamwork.py" knowledge add --by <you> --topic '<topic>' \
+    --statement '<one durable fact>' --evidence '<command @rev -> result>' \
+    --tags '<tag,tag>' --importance 4
+```
+
+### 5k. The context tree
+
+`ctx://` is one read-only view over the team's memory, lessons, knowledge,
+skills, docs and tasks, so an agent navigates what the project knows instead of
+re-reading files. It adds no store: every node resolves to an existing file or
+record, and no file, index, cache or summary sidecar is created.
+
+- **Levels**: L0 is the one-line summary, L1 the record fields, heading tree or
+  child list, and L2 the full record or file. They are computed at read time and
+  never written back.
+- **Commands**: `context ls`, `context tree`, `context read <uri>`,
+  `context find "<query>" [--scope <uri>]`, `context stats` and
+  `context digest <T-id>`.
+- **Retrieve by id, never by whole file**: start with
+  `context find "<topic>" --scope ctx://role/<role>` or `context ls`, then
+  `context read <uri>` at the level you need. Never read a whole archive, plan or
+  task queue to answer one question, and never read a file that a `ctx://` node
+  already addresses.
+- `context digest` proposes a lesson or knowledge block from a task; it writes
+  nothing and claims nothing. `context` never replaces `load`, the gates or the
+  evidence rule - it is navigation and retrieval.
+
 ### 6. Close
 
 When the queue is empty and `loop` is about to report STOP, load the `tw-ceo-audit-close`
@@ -781,7 +849,7 @@ read the one you need instead of the whole skill.
 |---|---|
 | `references/Evidence.md` | evidence shape, claim discipline, red lines, what to escalate |
 | `references/Dissent.md` | independent decisions, challenging a design, the 3-round cap, the CEO+CTO+CFO tribunal |
-| `references/State.md` | role-shared memory (short/long/global) and the priority task queue |
+| `references/State.md` | role-shared memory (short/long/global), lessons, project knowledge, the context tree and the priority task queue |
 | `references/Concurrency.md` | provider caps, slot leases, parallelism plan, reuse |
 | `references/Coordination.md` | multi-agent failure modes and their mechanisms: conformity, stampede, lane wars, trust, echo, merge collapse, taste |
 | `references/Docs.md` | markdown structure, concision rules, bidirectional links |
@@ -792,10 +860,20 @@ read the one you need instead of the whole skill.
 | `references/Adapters.md` | running the team on any agent host: the six operations, the optional per-host mapping, installation and degraded modes |
 | `references/Remotes.md` | repository and CI integrity on any git host: branch protection, required checks, merge strategy, protected tags, least privilege, and the GitHub / GitLab / Bitbucket / Gitea / Azure mapping |
 
-Team skills: when a flow is repetitive, widely reused and must stay consistent,
-the owning role extracts it into `<project>/.agents/skills/<name>/SKILL.md` and
-shares it with its peers (`skill create`, `skill share`, `skill candidates`). The
-file is project output: it goes through the normal branch, commit, PR and review.
+Team skills: every team skill is named `tw-<kebab-name>` - the directory
+`.agents/skills/tw-<name>/SKILL.md` and the front-matter `name:` both carry the
+prefix, `skill create` refuses any other name, and `harness lint` reports rule
+`PREFIX` for a directory that does not. There are two kinds: `workflow` (the
+default) is the one way to do a recurring job; `mistake` is created from a
+recorded lesson with `--from-lesson L-nnnn`, which marks the lesson fixed and
+links both records (`--kind mistake` without `--from-lesson` is refused). The
+owning role extracts one when a flow is repetitive, widely reused and must stay
+consistent, and shares it with its peers (`skill create`, `skill share`,
+`skill candidates` - which surfaces both repeated areas and tasks whose review
+failed, with a paste-ready `lesson add` and `skill create --from-lesson` line).
+The file is project output: it goes through the normal branch, commit, PR and
+review, and a skill never replaces this file, the red lines or a gate, and never
+weakens one.
 
 Recording and audit: every mutation appends to the hash-chained `Ledger.jsonl`
 (`ledger verify`, `ledger show`, `trace <id>`), and `ledger export` writes
@@ -975,8 +1053,14 @@ python3 $S pr merge --pr P-0001 --by reviewer-1          # only if a pass was la
 
 # reuse: extract a repeated flow and share it with same-role peers
 python3 $S skill candidates
-python3 $S skill create --name <kebab-name> --role developer --by developer-1 --for "<when to use>"
-python3 $S skill share <kebab-name> --by developer-1
+python3 $S skill create --name tw-<kebab-name> --role developer --by developer-1 --for "<when to use>"
+python3 $S skill share tw-<kebab-name> --by developer-1
+
+# learn: a mistake becomes a lesson, and a flow fix becomes a tw- mistake skill
+python3 $S lesson add --by developer-1 --mistake "<failure>" --cause "<why>" \
+    --rule "<what changes>" --evidence "<cmd @<rev> -> result>"
+python3 $S skill create --name tw-<slug> --role developer --by developer-1 \
+    --kind mistake --from-lesson L-0001 --for "<when to use>"
 
 # keep the lanes full and the trail honest
 python3 $S board && python3 $S pulse --commit && python3 $S parallel

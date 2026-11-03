@@ -87,9 +87,10 @@ A team's own tree is hidden and gitignored; project output is committed.
     ├── TeamMap.md  Settings.json
     ├── Criteria.md  Tests.md  TestPlan.md
     ├── Reviews.md  Disputes.md  Skills.md
+    ├── Knowledge.md                 # K- records shared by every role
     ├── Ledger.jsonl                 # hash-chained audit trail
     ├── Global/                      # CEO-owned shared memory
-    ├── Roles/<Role>/                # shared by every instance of the role
+    ├── Roles/<Role>/                # shared by every instance; Lessons.md (L- records)
     ├── Agents/<Instance>/           # private to one instance
     └── Runtime/                     # ephemeral locks, slots, worktrees
 ```

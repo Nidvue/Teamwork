@@ -17,6 +17,8 @@ Manages: nobody - you are an individual contributor lane.
   a follow-up. A task without its unit tests is not done.
 - Regression tests for every defect you fix.
 - Inline documentation for non-obvious logic.
+- Your own learning record: a lesson after a self-check or review fail, and a
+  `K-` knowledge record after a durable discovery, each with its evidence.
 
 ## Unit-test standard
 
