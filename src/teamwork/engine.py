@@ -4322,7 +4322,7 @@ def _context_dir(uri: str, name: str, children: list, count_label: str = "childr
 
 def _context_headings(text: str) -> list:
     out = []
-    for raw in text.splitlines():
+    for raw in strip_fences(text).splitlines():
         match = _HEADING_RE.match(raw)
         if not match:
             continue
@@ -4344,7 +4344,7 @@ def _context_doc_l0(path: Path) -> str:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return ""
-    lines = text.splitlines()
+    lines = strip_fences(text).splitlines()
     title = ""
     start = 0
     for index, raw in enumerate(lines):
@@ -11470,10 +11470,14 @@ INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 PLACEHOLDER_RE = re.compile(r"[<>{}\[\]]|full-url|example\.com|your-|\.\.\.")
 
 
+def strip_fences(text: str) -> str:
+    """Drop fenced blocks, keeping their line count and the text around them."""
+    return FENCE_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+
+
 def strip_code(text: str) -> str:
     """Drop fenced blocks and inline code so examples are not link-checked."""
-    text = FENCE_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
-    return INLINE_CODE_RE.sub(lambda m: " " * len(m.group(0)), text)
+    return INLINE_CODE_RE.sub(lambda m: " " * len(m.group(0)), strip_fences(text))
 
 
 SKIP_DIRS = {
