@@ -135,11 +135,13 @@ teamwork.py parallel               # free slots vs ready work
 teamwork.py instance list          # roster size
 teamwork.py harness budget         # startup vs recallable bytes
 teamwork.py coordination --strict  # review oversupply, rework, merge health
-python .pi/Scratch/ceo/throughput_probe.py   # ledger latencies and rework (gitignored probe)
+teamwork.py throughput             # ledger latencies, rework share, surface bytes
 ```
 
-The probe is scratch and gitignored; the report's facts are reproduced by the
-commands above, not by trusting a number in this file.
+The last command is the report's own reader: it parses `Ledger.jsonl` and the
+tree and prints the facts in section 2. A scratch probe may exist under
+`.pi/Scratch/`, but the report is reproducible from the shipped command, not
+from a gitignored file.
 
 ## 9. Falsifiers
 
