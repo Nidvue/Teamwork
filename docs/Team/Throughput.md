@@ -17,11 +17,10 @@ made for each, and the command that re-reads it.
 Non-goals: a new org layer, a hosted dashboard, a second store, deleting history,
 or a gate weakened to make a number look better.
 
-**State at this cut (2026-11-04):** AC-M18-1 verified by Reviewer-9; AC-M18-2 is
+**State at this cut (2026-11-04):** AC-M18-1 and AC-M18-3 verified; AC-M18-2 is
 **open** - the roster cut lost 102 artifact paths (`L-0001`) and the M17 docs
-pushed Developer/Reviewer startup over the cap; AC-M18-3 is open until the M18
-docs (P-0061) merge. The report is a baseline and a change list, not a completion
-claim; `loop` is CONTINUE.
+pushed Developer/Reviewer startup over the cap. The report is a baseline and a
+change list, not a completion claim; `loop` is CONTINUE.
 
 ## 2. Baseline (ledger n=1859, measured 2026-11-04)
 
