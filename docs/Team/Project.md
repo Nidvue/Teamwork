@@ -336,11 +336,10 @@ Exit condition: AC-M18-1..AC-M18-3 verified by a role other than their owner on
 the merged revision, the lane tasks archived, and the report's baseline
 re-readable by its commands.
 
-**Stage state at this cut:** AC-M18-1 verified by Reviewer-9 on the merged tools;
-AC-M18-2 **open** - the roster cut lost 102 artifact paths (`L-0001`) and the M17
-docs pushed Developer/Reviewer startup over the cap; AC-M18-3 open until the M18
-docs (P-0061) merge. The context proof (T-0005) is still in progress. Do not read
-this milestone as closed.
+**Stage state at this cut:** AC-M18-1 and AC-M18-3 verified; AC-M18-2 **open** -
+the roster cut lost 102 artifact paths (`L-0001`) and the M17 docs pushed
+Developer/Reviewer startup over the cap. The context proof (T-0005) is still in
+progress. Do not read this milestone as closed.
 
 ## Scope
 
