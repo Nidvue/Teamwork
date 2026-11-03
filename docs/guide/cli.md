@@ -141,7 +141,7 @@ one `TaskQueue.md`; only one of them revises that memory at a time.
 teamwork instance add ROLE [--count N] [--name NAME] [--new-role]
                        [--under TEAM_LEADER] [--by BY] [--json]
 teamwork instance list [--json]
-teamwork instance retire NAME --reason WHY [--by BY] [--force]
+teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
 ```
 
 - `add` scaffolds `Agents/<Role>-N` against the existing `Roles/<Role>/`, so a
@@ -163,11 +163,16 @@ teamwork instance retire NAME --reason WHY [--by BY] [--force]
   so no command can write a second `under:` line.
 - `list` prints role, instances, task count and the current memory writer, with
   `(under=<TeamLeader>)` beside every attached instance.
-- `retire` removes an idle instance's private directory and always keeps the
-  role's memory and queue. An instance that still claims a `doing`/`selfcheck`/
-  `review` task, holds a provider slot or holds the memory pen is refused until it
-  is idle, or requires `--reason` plus `--force` so the record says what was
-  abandoned.
+- `retire` **moves** an idle instance's private directory to
+  `Runtime/Retired/<Instance>/` and always keeps the role's memory and queue. Its
+  `Artifacts/`, `Reports/` and `WorkLog.md` are evidence and are never deleted; a
+  second retirement of the same name gets a timestamped sibling. An instance that
+  still claims a `doing`/`selfcheck`/`review` task, holds a provider slot or holds
+  the memory pen is refused until it is idle, or requires `--reason` plus
+  `--force` so the record says what was abandoned. Before a cut, verify
+  `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`): the
+  first cut ran from a stale checkout and lost 102 artifact paths (`L-0001`).
+  `parallel` says how many lanes the ready work supports; `list` is the roster.
 
 ### `memory`
 
@@ -1095,6 +1100,7 @@ PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 | `mergeable` | `git merge-tree --write-tree <base> <branch>` is non-zero, naming the conflicting paths; an unanswerable probe (git < 2.38) is a failure, not a pass. The same probe refuses a `review --result pass` and a `pr merge`, so a verdict can never precede an impossible merge. |
 | `board` | the branch itself changes `docs/Team/Board.md` and that file disagrees with the queues. A branch that does not carry the board is never charged: the merging Reviewer renders it. |
 | `features` | the feature records at the tree this branch would **land** - the base's records with the branch's rows folded in - break the independence rule (`feature check`). A lane's own revision can be green while the merged tree is red, because the record it collides with may live on another branch; the same predicate refuses a `review --result pass` and a `pr merge`. A tree with no records has nothing to judge and passes. |
+| `slice` | the diff is past the review profile's slice budget: 6 files / 300 changed lines (`fast`), 12/600 (`standard`), 24/1,200 (`deep`). A **warning**, not a failure: split the task or record in the self-check why it is one coherent contract. |
 | `gate` | `PreflightCommand` (below) was run with `--run` and exited non-zero. |
 
 `--run` executes the project's own gate command from the team `Settings.json`,
@@ -1136,12 +1142,19 @@ self-check is never blocked: an author reporting their own failure is the point.
 ### `archive`
 
 ```text
-teamwork archive [--agent AGENT] [--full]
+teamwork archive [--agent AGENT] [--task T-ID]... [--limit N] [--all] [--full]
 ```
 
-Show the reviewed-result archive (the team's evidence ledger). The
-`self-check`/`author evidence`/`reviewer evidence`/`findings history` lines are
-clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
+Show the reviewed-result archive (the team's evidence ledger). The default is the
+8 most recent entries; `--limit N`, `--all` and `--full` widen it. `--task T-ID`
+(repeatable) prints only the entries whose heading names that task, which is the
+read-by-id path: a whole `Archive.md` read is ~0.63M tokens on the current
+revision against a ~0.11-0.15M startup, so read the entry the question is about,
+not the history. Task ids are per role, so a repeated id can return entries from
+more than one role; read the heading's role.
+
+The `self-check`/`author evidence`/`reviewer evidence`/`findings history` lines
+are clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
 prints them whole. `docs/Team/Archive.md` itself always stores the full text, and
 `pr merge` rewrites only the `branch / merge` line of the matching entry so it
 records the real merge revision instead of `pending` - as a committed
@@ -1669,7 +1682,7 @@ pull request and every push to `main`.
 ```text
 teamwork harness list
 teamwork harness lint [--verbose]
-teamwork harness budget [--limit KB]
+teamwork harness budget [--limit KB] [--recallable]
 ```
 
 The harness is everything around the model: the always-on prompt and rules, the
@@ -1680,7 +1693,7 @@ group names that surface, validates it, and prices it.
 |---|---|
 | `list` | eight rows, one per component (C1..C8), each with its activation class, the bytes it costs and the role that owns it. `always-on` is paid on every run, `on-demand` only when invoked, `in-loop` is enforced rather than instructed. C5 (subagents) is a lane packet, not a file, so its class and bytes are `-`. |
 | `lint` | the whole-proposal checks, before anything is probed: `IDENTITY` (frontmatter `name:` equals the directory, `description:` non-empty), `TRIGGER` (the skill is named in an always-on surface - an unnamed skill is dead text nobody is told to load), `SUBCOMMAND` (every `teamwork.py <verb>` in a skill exists in the CLI), `HELPER` (every repo-relative path a skill references is shipped), `EVIDENCE` (a registered `shared` skill carries a verdict row). Exit 1 with one `- PROBLEM <RULE> <path>: <detail>` line per finding. `--verbose` also prints one `# checked: <file> -> <RULE> verdict` line per file read. |
-| `budget` | always-on bytes per instance - `AGENTS.md` block + `SKILL.md` + the role charter + that role's memory - against `AlwaysOnBudgetKb` in `Settings.json` (default 120 KiB, `--limit` overrides). Exit 1 when any instance is `OVER`: always-on prose is the expensive option, so the cap is what makes "cut something to pay for it" a rule rather than an intention. |
+| `budget` | the **startup** read per instance - `AGENTS.md` block + `SKILL.md` + the role charter + short memory + open lessons + top-10 knowledge - against `AlwaysOnBudgetKb` in `Settings.json` (default 120 KiB = 122880 B; `--limit` overrides for one run). Exit 1 when any instance is `OVER`: always-on prose is the expensive option, so the cap is what makes "cut something to pay for it" a rule rather than an intention. `--recallable` prints the recall-only bytes instead - long-term/archived memory, fixed lessons and superseded knowledge, which `load` never prints; it is a visibility row, not a second cap. |
 
 `list` and `lint` work from any checkout; `budget` needs the team workspace
 because it measures it. A hook installed by `hooks install` is measured through
@@ -1810,6 +1823,19 @@ report is diagnostic; `--strict` exits `1` while a high-severity finding is open
 and is the milestone gate; `--commit` appends the result to the ledger; `--json`
 is machine-readable. Mechanisms and the failure each check addresses:
 `references/Coordination.md`.
+
+### `throughput`
+
+```text
+teamwork throughput [--json]
+```
+
+Read-only measured report from the ledger and the tree: top actions; review
+claim -> verdict count, p50/p90/max; pass/fail verdicts; targets with more than
+one verdict; queue depth per role; instance count; and surface bytes (AGENTS,
+SKILL, startup range, Archive, Decisions, Plan, docs/Team, largest TaskQueue)
+with a `//4` token estimate. `--json` prints one object with the same fields. It
+writes no file and no ledger record; re-run it at the revision you quote.
 
 ### `links`
 

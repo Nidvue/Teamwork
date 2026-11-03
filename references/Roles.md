@@ -67,9 +67,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 362 kB |
-| `standard` | 10 | 503 kB |
-| `full` | 17 | 825 kB |
+| `slim` (default) | 7 | 374 kB |
+| `standard` | 10 | 520 kB |
+| `full` | 17 | 853 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -174,6 +174,32 @@ they are designed for.
     reviewer's own **budget** is 10 / 20 / 40 minutes. A slice that needs a deep
     review is split, not scheduled. A fix after a fail is re-reviewed as a delta by
     the lane that raised the finding.
+
+### M18: the measured rules
+
+The M18 cut adds four rules that follow from the measured trail (`teamwork.py
+throughput` re-reads it):
+
+- **Scale on demand, retire move-only.** `slim` is the default; add an instance
+  only for a named deliverable (`parallel` and `instance list` read the demand).
+  `instance retire` moves the idle directory to `Runtime/Retired/<Instance>/` and
+  never deletes artifacts, reports or the worklog. A cut first verifies
+  `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`); the one
+  cut from a stale checkout lost 102 artifact paths (`L-0001`).
+- **Read by id.** `archive --task <T-id>`, `decision list`, `board` and `trace`
+  answer a question; a whole `Archive.md` read is ~0.63M tokens against a
+  ~0.11-0.15M startup. Never read all of `Archive.md`, `Decisions.md`, `Plan.md`
+  or a `TaskQueue.md`.
+- **Tester before Reviewer.** The author's self-check answers the first-pass
+  contract (boundary/second-call, contract surface, concurrency, scope); the
+  Reviewer judges the requirement and acceptance layer; the Tester records the
+  full suite once and the Reviewer credits it (`--credit`), so the suite is paid
+  once.
+- **Token-true budget and right-sized slices.** `harness budget` measures
+  startup; `--recallable` reports long/archive memory and fixed/superseded
+  records. The cap is `AlwaysOnBudgetKb` (122880 B); trim what `load` prints,
+  never raise it. `preflight` warns past 6/300, 12/600 or 24/1,200 files/lines;
+  split or say why it is one contract - the warning is not a failure.
 
 ### Feature teams (merged; engine `teamwork.py feature`, contract in Architecture.md 13)
 
