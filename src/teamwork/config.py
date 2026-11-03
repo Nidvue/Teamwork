@@ -188,6 +188,17 @@ KNOWLEDGE_KINDS = ("fact", "experience", "preference", "gotcha", "rule")
 KNOWLEDGE_TOPIC_MAX = 120
 KNOWLEDGE_STATEMENT_MAX = 500
 
+#: The read-only context view (Architecture.md 16). The tree is computed from
+#: the files at call time: these are output caps and URI parts, never storage.
+CONTEXT_ROOT = "ctx://"
+CONTEXT_NAMESPACES = ("project", "role", "global")
+CONTEXT_NODE_TYPES = ("dir", "doc", "skill", "knowledge", "lesson", "memory", "task")
+CONTEXT_CHILD_CAP = 20
+CONTEXT_HEADING_CAP = 20
+CONTEXT_FIND_LIMIT = 10
+CONTEXT_MEMORY_FILES = {"short": F_SHORT, "long": F_LONG, "archive": F_MEM_ARCHIVE}
+CONTEXT_MEMORY_LAYERS = ("short", "long", "archive")
+
 SKILLS_DIR = (".agents", "skills")
 
 #: Every Teamwork-authored skill is recognisable by this fixed prefix. It is the

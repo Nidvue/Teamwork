@@ -81,6 +81,13 @@ from .config import (
     ALL_LAYERS_SENTINEL,
     ARCHIVE_CAP,
     CODE_DIRS,
+    CONTEXT_CHILD_CAP,
+    CONTEXT_FIND_LIMIT,
+    CONTEXT_HEADING_CAP,
+    CONTEXT_MEMORY_LAYERS,
+    CONTEXT_NAMESPACES,
+    CONTEXT_NODE_TYPES,
+    CONTEXT_ROOT,
     DEFAULT_BASE,
     DEFAULT_PROVIDER_LIMITS,
     DEFAULT_REQUIRED_LAYERS,
@@ -193,6 +200,7 @@ from .gitutil import (
     lfs_tracked,
     run_git,
 )
+from .harness import parse_frontmatter
 from .imaging import (
     IMAGE_FALLBACK_HINT,
     IMAGE_MODEL_RANKING,
@@ -216,6 +224,9 @@ from .layout import (
     agent_dir,
     agents_dir,
     attention_path,
+    context_doc_files,
+    context_docs_dir,
+    context_skill_files,
     criteria_path,
     disputes_path,
     docs_dir,
@@ -227,6 +238,7 @@ from .layout import (
     link_fields,
     list_agents,
     list_roles,
+    memory_layer_path,
     project_of,
     project_path,
     project_root,
@@ -436,6 +448,13 @@ __all__ = [
     "KNOWLEDGE_KINDS",
     "KNOWLEDGE_TOPIC_MAX",
     "KNOWLEDGE_STATEMENT_MAX",
+    "CONTEXT_ROOT",
+    "CONTEXT_NAMESPACES",
+    "CONTEXT_NODE_TYPES",
+    "CONTEXT_CHILD_CAP",
+    "CONTEXT_HEADING_CAP",
+    "CONTEXT_FIND_LIMIT",
+    "CONTEXT_MEMORY_LAYERS",
     "SKILLS_DIR",
     "SKILL_PREFIX",
     "SKILL_KINDS",
@@ -4187,6 +4206,718 @@ def cmd_knowledge(args) -> int:
         write_knowledge(path, items)
         ledger_append(root, "knowledge.touch", actor, item["id"], f"uses={item['uses']}")
     print(f"# {item['id']} uses={item['uses']}")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# Context tree: the read-only ctx:// view (Architecture.md 16)
+#
+# Every node is computed from a file that already exists; there is no store, no
+# sidecar and no index. A directory's L1 lists child L0s, a record's L1 lists its
+# fields, a doc's L1 lists headings, and L2 is the record block or file text.
+# `find` never reads L2, so a body edit cannot change its result.
+# --------------------------------------------------------------------------- #
+
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+
+#: The field order of `render_tasks`, used for a task's L1 and L2.
+_CONTEXT_TASK_FIELDS = (
+    "priority",
+    "status",
+    "deps",
+    "feature",
+    "shared",
+    "tags",
+    "mandate",
+    "mandate_basis",
+    "intake_key",
+    "area",
+    "kind",
+    "repro",
+    "repro_artifacts",
+    "repro_by",
+    "review",
+    "review_status",
+    "review_profile",
+    "self_check",
+    "self_note",
+    "self_artifacts",
+    "reviewer",
+    "review_claim",
+    "review_claim_ts",
+    "review_claim_profile",
+    "review_claim_lease",
+    "review_evidence",
+    "review_artifacts",
+    "claimed_by",
+    "branch",
+    "base",
+    "worktree",
+    "pr",
+    "merge_commit",
+    "review_fails",
+    "review_fail_rev",
+    "review_mechanical",
+    "review_detects",
+    "forced",
+    "evidence",
+    "findings",
+    "created",
+    "updated",
+)
+
+
+class ContextNode:
+    """One address in the ctx:// tree.
+
+    ``children is None`` is a leaf (record, doc, skill); a list is a directory.
+    ``record`` carries the parsed markdown record for knowledge, lessons, memory
+    and tasks, so the levels are rendered from the same parser the CLI uses.
+    """
+
+    __slots__ = ("uri", "type", "name", "path", "record", "tags", "children", "count_label")
+
+    def __init__(
+        self,
+        uri: str,
+        node_type: str,
+        name: str,
+        *,
+        path: Path | None = None,
+        record: dict | None = None,
+        tags=None,
+        children: list | None = None,
+        count_label: str = "children",
+    ) -> None:
+        self.uri = uri
+        self.type = node_type
+        self.name = name
+        self.path = path
+        self.record = record
+        self.tags = list(tags or [])
+        self.children = children
+        self.count_label = count_label
+
+
+def _context_plural(count: int, singular: str, plural: str = "") -> str:
+    if count == 1:
+        return singular
+    return plural or singular + "s"
+
+
+def _context_count(node: ContextNode) -> str:
+    count = len(node.children or [])
+    if node.count_label == "children":
+        word = _context_plural(count, "child", "children")
+    elif node.count_label == "entries":
+        word = _context_plural(count, "entry", "entries")
+    else:
+        word = _context_plural(count, node.count_label[:-1], node.count_label)
+    return f"{count} {word}"
+
+
+def _context_dir(uri: str, name: str, children: list, count_label: str = "children") -> ContextNode:
+    return ContextNode(uri, "dir", name, children=list(children), count_label=count_label)
+
+
+def _context_headings(text: str) -> list:
+    out = []
+    for raw in text.splitlines():
+        match = _HEADING_RE.match(raw)
+        if not match:
+            continue
+        title = re.sub(r"\s+#+\s*$", "", match.group(2)).strip()
+        out.append((len(match.group(1)), title))
+    return out
+
+
+def _context_heading_lines(text: str) -> list:
+    headings = _context_headings(text)[:CONTEXT_HEADING_CAP]
+    if not headings:
+        return []
+    base = headings[0][0]
+    return [f"{'  ' * max(0, level - base)}- {title}" for level, title in headings]
+
+
+def _context_doc_l0(path: Path) -> str:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    lines = text.splitlines()
+    title = ""
+    start = 0
+    for index, raw in enumerate(lines):
+        match = _HEADING_RE.match(raw)
+        if match and len(match.group(1)) == 1:
+            title = re.sub(r"\s+#+\s*$", "", match.group(2)).strip()
+            start = index + 1
+            break
+    parts: list = []
+    for raw in lines[start:]:
+        line = raw.strip()
+        if not line:
+            if parts:
+                break
+            continue
+        if _HEADING_RE.match(line):
+            if parts:
+                break
+            continue
+        parts.append(line)
+    paragraph = one_line(" ".join(parts))
+    if title and paragraph:
+        return f"{title}: {paragraph}"
+    return title or paragraph
+
+
+def _context_skill_description(path: Path) -> str:
+    try:
+        fields = parse_frontmatter(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        return ""
+    return one_line(fields.get("description", ""))
+
+
+def _context_l0(node: ContextNode) -> str:
+    if node.children is not None:
+        return _context_count(node)
+    record = node.record or {}
+    if node.type == "knowledge":
+        return (
+            f"[{record.get('kind') or 'fact'}] "
+            f"{one_line(record.get('topic'))}: {one_line(record.get('statement'))}"
+        )
+    if node.type == "lesson":
+        return f"[{record.get('status') or 'open'}] {one_line(record.get('mistake'))}"
+    if node.type == "memory":
+        return one_line(record.get("body"))
+    if node.type == "task":
+        return one_line(record.get("title"))
+    if node.type == "doc":
+        return _context_doc_l0(node.path) if node.path else ""
+    if node.type == "skill":
+        return _context_skill_description(node.path) if node.path else ""
+    return ""
+
+
+def _context_knowledge_fields(record: dict) -> list:
+    lines = []
+    for field in KNOWLEDGE_FIELDS:
+        if field == "tags":
+            value = knowledge_tags(record)
+        elif field in ("importance", "uses"):
+            value = str(int(record.get(field, 0)))
+        else:
+            value = one_line(record.get(field, ""))
+        if not value and field in KNOWLEDGE_OPTIONAL:
+            value = "-"
+        lines.append(f"- {field}: {value}")
+    return lines
+
+
+def _context_lesson_fields(record: dict) -> list:
+    lines = []
+    for field in LESSON_FIELDS:
+        if field in ("task", "skill") and not record.get(field):
+            continue
+        lines.append(f"- {field}: {one_line(record.get(field, ''))}")
+    return lines
+
+
+def _context_memory_fields(record: dict) -> list:
+    return [
+        f"- key: {one_line(record.get('key', ''))}",
+        f"- importance: {int(record.get('importance', 0))}",
+        f"- uses: {int(record.get('uses', 0))}",
+        f"- created: {one_line(record.get('created', ''))}",
+        f"- last_used: {one_line(record.get('last_used', ''))}",
+        f"- tags: {one_line(record.get('tags', ''))}",
+        f"- pinned: {'yes' if record.get('pinned') else 'no'}",
+        f"- by: {one_line(record.get('by', ''))}",
+        f"- src: {one_line(record.get('src', ''))}",
+        f"- rev: {one_line(record.get('rev', ''))}",
+    ]
+
+
+def _context_task_fields(record: dict) -> list:
+    lines = [f"- title: {one_line(record.get('title', ''))}"]
+    for field in _CONTEXT_TASK_FIELDS:
+        value = record.get(field, "")
+        if field == "review_fails":
+            value = str(int(value or 0))
+        lines.append(f"- {field}: {one_line(value)}")
+    return lines
+
+
+def _context_l1_lines(node: ContextNode) -> list:
+    if node.children is not None:
+        lines = [f"# {_context_count(node)}"]
+        shown = node.children[:CONTEXT_CHILD_CAP]
+        lines.extend(f"- {child.name} {_context_l0(child)}" for child in shown)
+        if len(node.children) > CONTEXT_CHILD_CAP:
+            lines.append(f"... {len(node.children) - CONTEXT_CHILD_CAP} more")
+        return lines
+    record = node.record or {}
+    if node.type == "knowledge":
+        return _context_knowledge_fields(record)
+    if node.type == "lesson":
+        return _context_lesson_fields(record)
+    if node.type == "memory":
+        return _context_memory_fields(record)
+    if node.type == "task":
+        return _context_task_fields(record)
+    if node.type in ("doc", "skill") and node.path:
+        try:
+            return _context_heading_lines(node.path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            return []
+    return []
+
+
+def _context_l2_lines(node: ContextNode) -> list:
+    if node.children is not None:
+        die(f"{node.uri} is a directory; L2 is a record or a file", 2)
+    record = node.record or {}
+    if node.type == "knowledge":
+        return [f"## {record.get('id')} - {one_line(record.get('topic'))}"] + (
+            _context_knowledge_fields(record)
+        )
+    if node.type == "lesson":
+        return [f"## {record.get('id')} - {one_line(record.get('mistake'))}"] + (
+            _context_lesson_fields(record)
+        )
+    if node.type == "memory":
+        lines = [
+            f"## {record.get('id')} · {one_line(record.get('key')) or 'note'}",
+            *_context_memory_fields(record),
+            "",
+        ]
+        body = str(record.get("body") or "").strip()
+        if body:
+            lines.append(body)
+        return lines
+    if node.type == "task":
+        lines = [f"## {record.get('id')} · {one_line(record.get('title')) or 'task'}"]
+        for field in _CONTEXT_TASK_FIELDS:
+            value = record.get(field, "")
+            if field == "review_fails":
+                value = str(int(value or 0))
+            lines.append(f"- {field}: {one_line(value)}")
+        body = str(record.get("body") or "").strip()
+        if body:
+            lines.extend(["", body])
+        return lines
+    if node.type in ("doc", "skill") and node.path:
+        try:
+            return node.path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return []
+    return []
+
+
+def _context_record_node(
+    uri: str, node_type: str, record: dict, path: Path, tags=None
+) -> ContextNode:
+    return ContextNode(uri, node_type, record.get("id", ""), path=path, record=record, tags=tags)
+
+
+def context_tree(root: Path) -> tuple:
+    """Build the whole view from the files on disk; return (root node, by-uri map)."""
+    nodes: dict = {}
+
+    def remember(node: ContextNode) -> ContextNode:
+        nodes[node.uri] = node
+        return node
+
+    knowledge = parse_knowledge(knowledge_path(root))
+    knowledge_children = [
+        remember(
+            _context_record_node(
+                f"ctx://project/knowledge/{item['id']}",
+                "knowledge",
+                item,
+                knowledge_path(root),
+                tags=item["tags"],
+            )
+        )
+        for item in knowledge
+    ]
+    skills = []
+    for path in context_skill_files(root):
+        name = path.parent.name
+        skills.append(
+            remember(ContextNode(f"ctx://project/skills/{name}", "skill", name, path=path))
+        )
+    docs_base = context_docs_dir(root)
+    docs = []
+    for path in context_doc_files(root):
+        rel = path.relative_to(docs_base).as_posix()
+        docs.append(remember(ContextNode(f"ctx://project/docs/{rel}", "doc", rel, path=path)))
+
+    project = remember(
+        _context_dir(
+            "ctx://project",
+            "project",
+            [
+                remember(
+                    _context_dir(
+                        "ctx://project/knowledge",
+                        "knowledge",
+                        knowledge_children,
+                        "records",
+                    )
+                ),
+                remember(_context_dir("ctx://project/skills", "skills", skills, "skills")),
+                remember(_context_dir("ctx://project/docs", "docs", docs, "docs")),
+            ],
+        )
+    )
+
+    role_children = []
+    for role in list_roles(root):
+        base = f"ctx://role/{role}"
+        lessons = [
+            remember(
+                _context_record_node(
+                    f"{base}/lessons/{item['id']}",
+                    "lesson",
+                    item,
+                    lessons_path(root, role),
+                )
+            )
+            for item in sorted(parse_lessons(lessons_path(root, role)), key=lambda i: i["id"])
+        ]
+        tasks = [
+            remember(
+                _context_record_node(
+                    f"{base}/tasks/{item['id']}",
+                    "task",
+                    item,
+                    role_dir(root, role) / F_TASKS,
+                    tags=normalise_tags(item.get("tags")),
+                )
+            )
+            for item in sorted(parse_tasks(role_dir(root, role) / F_TASKS), key=lambda i: i["id"])
+        ]
+        memory_stores = []
+        for layer in CONTEXT_MEMORY_LAYERS:
+            path = memory_layer_path(root, role, layer)
+            entries = [
+                remember(
+                    _context_record_node(
+                        f"{base}/memory/{layer}/{item['id']}",
+                        "memory",
+                        item,
+                        path,
+                        tags=normalise_tags(item.get("tags")),
+                    )
+                )
+                for item in parse_memory(path)
+            ]
+            memory_stores.append(
+                remember(
+                    ContextNode(
+                        f"{base}/memory/{layer}",
+                        "memory",
+                        layer,
+                        path=path,
+                        children=entries,
+                        count_label="entries",
+                    )
+                )
+            )
+        role_children.append(
+            remember(
+                _context_dir(
+                    base,
+                    role,
+                    [
+                        remember(_context_dir(f"{base}/lessons", "lessons", lessons, "lessons")),
+                        remember(_context_dir(f"{base}/tasks", "tasks", tasks, "tasks")),
+                        remember(_context_dir(f"{base}/memory", "memory", memory_stores, "stores")),
+                    ],
+                )
+            )
+        )
+
+    global_path = global_dir(root) / F_GLOBAL
+    global_entries = [
+        remember(
+            _context_record_node(
+                f"ctx://global/memory/{item['id']}",
+                "memory",
+                item,
+                global_path,
+                tags=normalise_tags(item.get("tags")),
+            )
+        )
+        for item in parse_memory(global_path)
+    ]
+    global_node = remember(
+        _context_dir(
+            "ctx://global",
+            "global",
+            [
+                remember(
+                    ContextNode(
+                        "ctx://global/memory",
+                        "memory",
+                        "memory",
+                        path=global_path,
+                        children=global_entries,
+                        count_label="entries",
+                    )
+                )
+            ],
+        )
+    )
+    role_node = remember(_context_dir("ctx://role", "role", role_children, "roles"))
+    root_node = remember(
+        _context_dir(
+            "ctx://",
+            "ctx://",
+            [project, role_node, global_node],
+            "namespaces",
+        )
+    )
+    return root_node, nodes
+
+
+def _context_unsafe(uri: str) -> bool:
+    """A segment that could escape the view is unknown, never resolved."""
+    if not isinstance(uri, str) or not uri.startswith(CONTEXT_ROOT):
+        return True
+    if "\\" in uri:
+        return True
+    rest = uri[len(CONTEXT_ROOT) :]
+    if not rest:
+        return False
+    if rest.startswith("/"):
+        return True
+    for segment in rest.split("/"):
+        if segment in ("", ".", ".."):
+            return True
+        if re.match(r"^[A-Za-z]:", segment):
+            return True
+    return False
+
+
+def _context_require(nodes: dict, uri: str) -> ContextNode:
+    if _context_unsafe(uri):
+        die(f"unknown context URI '{uri}'", 2)
+    node = nodes.get(uri)
+    if node is None:
+        die(f"unknown context URI '{uri}'", 2)
+    return node
+
+
+def _context_in_scope(uri: str, scope: str) -> bool:
+    if scope == CONTEXT_ROOT:
+        return True
+    return uri == scope or uri.startswith(scope + "/")
+
+
+def _context_score(node: ContextNode, tokens: list, normalised: str, l0: str, l1: str) -> int:
+    l0f = l0.casefold()
+    l1f = l1.casefold()
+    score = 0
+    if normalised and normalised in l0f:
+        score += 5
+    if tokens and all(token in l0f for token in tokens):
+        score += 3
+    score += 2 * sum(l0f.count(token) for token in tokens)
+    score += sum(l1f.count(token) for token in tokens)
+    if any(tag.casefold() in tokens for tag in node.tags):
+        score += 1
+    return score
+
+
+def _context_quote(value) -> str:
+    return "'" + one_line(value).replace("'", '"') + "'"
+
+
+def cmd_context(args) -> int:
+    root = project_root(args)
+    _root_node, nodes = context_tree(root)
+    verb = args.context_cmd
+
+    if verb == "ls":
+        node = _context_require(nodes, args.uri or CONTEXT_ROOT)
+        if args.limit < 0:
+            die("--limit must be 0 (all) or a positive count", 2)
+        if node.children is None:
+            return 0
+        limit = args.limit or len(node.children)
+        for child in node.children[:limit]:
+            if args.level == 0:
+                print(f"- {child.uri} [{child.type}] {_context_l0(child)}")
+            else:
+                print(f"- {child.uri} [{child.type}]")
+                for line in _context_l1_lines(child):
+                    print(f"  {line}")
+        return 0
+
+    if verb == "tree":
+        node = _context_require(nodes, args.uri or CONTEXT_ROOT)
+        if args.depth < 0:
+            die("-L must be a non-negative depth", 2)
+
+        def walk(current: ContextNode, level: int) -> None:
+            print(f"{'  ' * level}- {current.name} {_context_l0(current)}".rstrip())
+            if current.children is None or level >= args.depth:
+                return
+            shown = current.children[:CONTEXT_CHILD_CAP]
+            for child in shown:
+                walk(child, level + 1)
+            if len(current.children) > CONTEXT_CHILD_CAP:
+                print(f"{'  ' * (level + 1)}... {len(current.children) - CONTEXT_CHILD_CAP} more")
+
+        walk(node, 0)
+        return 0
+
+    if verb == "read":
+        node = _context_require(nodes, args.uri)
+        if args.level == 0:
+            print(_context_l0(node))
+        elif args.level == 1:
+            lines = _context_l1_lines(node)
+            if lines:
+                print("\n".join(lines))
+        else:
+            lines = _context_l2_lines(node)
+            if lines:
+                print("\n".join(lines))
+        return 0
+
+    if verb == "find":
+        scope = _context_require(nodes, args.scope or CONTEXT_ROOT)
+        if args.limit < 0:
+            die("--limit must be 0 (all) or a positive count", 2)
+        tokens = [token.casefold() for token in (args.query or "").split()]
+        normalised = " ".join(tokens)
+        hits = []
+        for node in nodes.values():
+            if not _context_in_scope(node.uri, scope.uri):
+                continue
+            l0 = _context_l0(node)
+            l1 = "\n".join(_context_l1_lines(node))
+            score = _context_score(node, tokens, normalised, l0, l1)
+            if score > 0:
+                hits.append((score, node, l0))
+        hits.sort(key=lambda hit: (-hit[0], hit[1].uri))
+        if args.limit:
+            hits = hits[: args.limit]
+        if not hits:
+            print(f'# no context node matched "{args.query}"')
+            return 0
+        for score, node, l0 in hits:
+            print(f"- {score} {node.uri} [{node.type}] {l0}")
+        return 0
+
+    if verb == "stats":
+        role_memory = sum(
+            1
+            for node in nodes.values()
+            if node.type == "memory"
+            and node.record is not None
+            and node.path is not None
+            and node.path.parent.name != DIR_GLOBAL
+        )
+        global_memory = sum(
+            1
+            for node in nodes.values()
+            if node.type == "memory"
+            and node.record is not None
+            and node.path is not None
+            and node.path.parent.name == DIR_GLOBAL
+        )
+        memory = role_memory + global_memory
+        lessons = [node.record for node in nodes.values() if node.type == "lesson"]
+        knowledge = [node.record for node in nodes.values() if node.type == "knowledge"]
+        active = sum(1 for item in knowledge if item["status"] == "active")
+        superseded = sum(1 for item in knowledge if item["status"] == "superseded")
+        open_lessons = sum(1 for item in lessons if item["status"] != "fixed")
+        fixed_lessons = len(lessons) - open_lessons
+        print(
+            f"- memory: {memory} {_context_plural(memory, 'entry', 'entries')} "
+            f"(roles {role_memory}, global {global_memory})"
+        )
+        print(f"- lessons: {len(lessons)} ({open_lessons} open, {fixed_lessons} fixed)")
+        print(f"- knowledge: {active} active, {superseded} superseded")
+        print(f"- skills: {sum(1 for node in nodes.values() if node.type == 'skill')}")
+        print(f"- docs: {sum(1 for node in nodes.values() if node.type == 'doc')}")
+        print(f"- tasks: {sum(1 for node in nodes.values() if node.type == 'task')}")
+        return 0
+
+    # digest
+    tid = (args.task_id or "").strip().upper()
+    found = None
+    owner = ""
+    queues = load_task_queues(root)
+    for role in sorted(queues):
+        for task in queues[role]:
+            if str(task.get("id") or "").upper() == tid:
+                found = task
+                owner = role
+                break
+        if found is not None:
+            break
+    if found is None:
+        die(f"no task '{args.task_id}' in any role queue", 2)
+
+    fails = int(found.get("review_fails") or 0)
+    findings = one_line(found.get("findings"))
+    failed = found.get("review_status") == "failed" or fails > 0 or bool(findings)
+    done = found.get("status") == "done"
+    if not failed and not done:
+        print(f"# {tid}: nothing to digest")
+        return 0
+
+    if failed:
+        cause = one_line(findings, 300) or "<the review finding>"
+        if found.get("review_evidence"):
+            evidence = one_line(found["review_evidence"], 300)
+        elif found.get("review_fail_rev"):
+            evidence = f"review of {tid} @{found['review_fail_rev']} -> failed"
+        elif found.get("branch"):
+            evidence = f"{tid} branch {found['branch']} -> review failed"
+        else:
+            evidence = f"{tid} review finding"
+        print(
+            f"# lesson candidate for {tid} "
+            f"({'review failed ' + str(fails) + 'x' if fails else 'findings recorded'})"
+        )
+        print(
+            "teamwork.py lesson add --by <you> "
+            f"--role {owner} "
+            f"--mistake {_context_quote(one_line(found.get('title'), 120))} "
+            f"--cause {_context_quote(cause)} "
+            f"--rule {_context_quote('<what rule prevents this>')} "
+            f"--evidence {_context_quote(evidence)} "
+            f"--task {tid}"
+        )
+
+    if done:
+        statement = one_line(
+            found.get("result") or found.get("title") or "", KNOWLEDGE_STATEMENT_MAX
+        )
+        if found.get("merge_commit") and found.get("branch"):
+            evidence = f"merge {found['merge_commit']} of {found['branch']} -> {tid} done"
+        elif found.get("merge_commit"):
+            evidence = f"merge {found['merge_commit']} -> {tid} done"
+        elif found.get("branch"):
+            evidence = f"branch {found['branch']} -> {tid} done"
+        else:
+            evidence = f"{tid} -> done"
+        print(f"# knowledge candidate for {tid} (done)")
+        print(
+            "teamwork.py knowledge add --by <you> --kind experience "
+            f"--topic {_context_quote(one_line(found.get('title'), KNOWLEDGE_TOPIC_MAX))} "
+            f"--statement {_context_quote(statement)} "
+            f"--evidence {_context_quote(evidence)} "
+            f"--task {tid}"
+        )
     return 0
 
 
@@ -16694,6 +17425,38 @@ def _parsers_governance(sub, common) -> None:
     s.add_argument("knowledge_id", metavar="K_ID")
     s.add_argument("--by", required=True)
     s.set_defaults(func=cmd_knowledge)
+
+    s = sub.add_parser(
+        "context",
+        parents=[common],
+        help="read-only ctx:// view over memory, lessons, knowledge, skills, docs and tasks",
+    )
+    csub = s.add_subparsers(dest="context_cmd", required=True)
+    s = csub.add_parser("ls", parents=[common], help="list the children of a context node")
+    s.add_argument("uri", nargs="?", default=CONTEXT_ROOT, metavar="URI")
+    s.add_argument("--level", type=int, choices=(0, 1), default=0)
+    s.add_argument("--limit", type=int, default=20, help="rows to print (0 = all)")
+    s.set_defaults(func=cmd_context)
+    s = csub.add_parser("tree", parents=[common], help="print the context tree to a depth")
+    s.add_argument("uri", nargs="?", default=CONTEXT_ROOT, metavar="URI")
+    s.add_argument("-L", dest="depth", type=int, default=2, metavar="N")
+    s.set_defaults(func=cmd_context)
+    s = csub.add_parser("read", parents=[common], help="print one node at L0, L1 or L2")
+    s.add_argument("uri", metavar="URI")
+    s.add_argument("--level", type=int, choices=(0, 1, 2), default=1)
+    s.set_defaults(func=cmd_context)
+    s = csub.add_parser("find", parents=[common], help="deterministic search over the tree")
+    s.add_argument("query", metavar="QUERY")
+    s.add_argument("--scope", default=CONTEXT_ROOT, metavar="URI")
+    s.add_argument("--limit", type=int, default=CONTEXT_FIND_LIMIT, help="hits to print (0 = all)")
+    s.set_defaults(func=cmd_context)
+    s = csub.add_parser("stats", parents=[common], help="live counts for every store")
+    s.set_defaults(func=cmd_context)
+    s = csub.add_parser(
+        "digest", parents=[common], help="propose lesson/knowledge records for a task"
+    )
+    s.add_argument("task_id", metavar="T_ID")
+    s.set_defaults(func=cmd_context)
 
     s = sub.add_parser(
         "skill", parents=[common], help="create/share a reusable team skill with same-role peers"
