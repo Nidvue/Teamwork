@@ -882,9 +882,9 @@ token table are in [THROUGHPUT](Throughput.md); the criteria are AC-M18-1..3 in
 
 | task | role | deliverable | deps | state |
 |---|---|---|---|---|
-| T-0020 | ceo | measured baseline, `Throughput.md`, live roster right-sizing, criteria | - | report on the CEO branch; AC-M18-1 open |
+| T-0020 | ceo | measured baseline, `Throughput.md`, live roster right-sizing, criteria | - | report on this branch; AC-M18-1 verified |
 | T-0034 | developer | `harness budget` startup/recallable, `archive --task`, `C-REVIEW-OVERSUPPLY`, preflight slice warning, safe retirement, `throughput`, unit tests | developer T-0032 | merged b9e5135 |
-| T-0013 | technical-writer | read-by-id, right-sized slice, review first-pass, token budget in the always-on surfaces | T-0011, T-0034 | merged docs P-0061 pending review |
+| T-0013 | technical-writer | read-by-id, right-sized slice, review first-pass, token budget in the always-on surfaces | T-0011, T-0034 | merged b4096f5 |
 | T-0006 | tester | integration/acceptance proof of the token tools and the oversupply finding | developer T-0034 | merged 4c28b85 |
 
 The ordering is deliberate: the report and the roster cut first (no code, no
