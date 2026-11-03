@@ -95,6 +95,11 @@ def test_pid_alive_rejects_non_positive_pids():
     assert portable.pid_alive(-1) is False
 
 
+def test_pid_alive_an_unlikely_pid_is_false():
+    """A pid no process holds reports dead, not alive (the arbitrary-pid branch)."""
+    assert portable.pid_alive(2**30) is False
+
+
 def test_pid_alive_certainly_dead_process_is_false():
     # Spawn a short-lived process, reap it, then probe its (now dead) pid.
     # PID reuse inside the microseconds before the probe is theoretically
