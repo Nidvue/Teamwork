@@ -279,6 +279,60 @@ the run that proved it, is opinion. Never store a credential, token or personal
 data in either store, and cite knowledge as `K-0001` plus its evidence, never as
 the record's authority.
 
+## Context economy and the token budget
+
+The startup read is the always-on floor; history is a recall cost, not a startup
+cost. A whole `Archive.md` read is ~0.63M tokens on this revision against a
+~0.11-0.15M startup, so answer a question by id:
+
+| Question | Command |
+|---|---|
+| What did the review decide about this task? | `archive --task T-nnnn` |
+| What decisions exist, by kind? | `decision list [--kind KIND]` |
+| What is open, in flight or waiting? | `board` |
+| Follow one task, criterion, test or PR | `trace <id>` |
+| What does the context tree say? | `context find` / `context read <uri>` |
+
+Never read all of `Archive.md`, `Decisions.md`, `Plan.md` or a `TaskQueue.md`;
+the largest queue is ~64k tokens at the M18 cut. `archive` also accepts
+`--limit N`, `--all` and `--full`; its default is the 8 most recent entries.
+Task ids are per role, so a repeated id can return more than one role's entry;
+read the heading's role.
+
+### Token budget and roster
+
+- `harness budget` reports the **startup** read (`AGENTS.md` block + `SKILL.md` +
+  the role charter + short memory + open lessons + top-10 knowledge) per
+  instance against `AlwaysOnBudgetKb` (122880 B default), and exits 1 while any
+  row is over. `--recallable` reports the **recall-only** surface - long-term and
+  archived memory, fixed lessons, superseded knowledge - which `load` never
+  prints; it is a visibility row, not a second cap.
+- When a startup row is over, trim what `load` prints (memory entries, the
+  lesson/knowledge caps) or record why an entry stays; never raise the cap to
+  make the row pass.
+- `throughput` re-reads review latency, verdict/rework share, queue depth,
+  instance count and surface bytes (AGENTS, SKILL, Archive, Decisions, Plan,
+  docs/Team, largest TaskQueue) with a `//4` token estimate; `--json` is the
+  machine form.
+- `parallel` says how many lanes the ready work supports and `instance list` is
+  the roster. `slim` is the default; add an instance only for a named
+  deliverable. `instance retire` MOVES the idle directory to
+  `Runtime/Retired/<Instance>/` (a repeat gets a timestamped sibling) and never
+  deletes artifacts, reports or the worklog. Before a cut, verify `git rev-parse
+  HEAD` is at or after the move-only revision (`b9e5135`): the one cut from a
+  stale checkout deleted 102 artifact paths and is recorded as `L-0001`.
+
+### Review first pass and slices
+
+The author's self-check note answers the boundary/empty/duplicate/second-call
+case, the contract surface, concurrency and shared writes, and the exact scope;
+the Reviewer judges the requirement and its acceptance layer. On a code task the
+Tester records the full suite once at the revision and the Reviewer cites it
+(`--credit`), so the ~30-minute suite is paid once. `preflight` warns when the
+diff passes its profile slice: 6 files / 300 changed lines (`fast`), 12/600
+(`standard`), 24/1,200 (`deep`); split it or say why it is one coherent
+contract. The warning is not a failure.
+
 ## Task lists and priority
 
 Every role keeps one shared `TaskQueue.md`, priority ordered; any of its instances
