@@ -66,7 +66,12 @@ Snapshot, not a pinned census. The command column re-reads it.
 4. **Always-on accounting is wrong in one direction.** The budget counts
    `LongTermMemory.md`, which `load` never prints (it is recall-only) and does
    not count the lessons/knowledge that `load` now does print. The developer
-   lane is reported OVER while its actual startup read is under the cap.
+   lane is reported OVER while its actual startup read is under the cap. The
+   corrected measurement (T-0034) shows the live split: Developer-10 startup
+   119,500 B / recallable 5,077 B (ok), Reviewer-1 startup **142,774 B** (OVER by
+   19,894) because the role-shared short memory sits at its 24-entry cap. The
+   fix is to trim what `load` prints (or record why an entry stays), not to raise
+   the cap; the roster cut alone does not reduce a shared-memory read.
 5. **Review queue latency is second-order - but duplicate full-suite runs are
    not.** p90 is 24.5 min, max 69 min, with 13 renewals and 10 releases: some
    reviews are too large for one lease. That is a slice-size problem (change 4).
@@ -89,6 +94,7 @@ Snapshot, not a pinned census. The command column re-reads it.
 | 6 | Reviewer oversupply | `coordination` reports `C-REVIEW-OVERSUPPLY` when reviewer lanes exceed twice the unclaimed queue and the queue is small | idle reviewer lanes | Developer T-0034 |
 | 7 | One owner, one board, one feature | already frozen; re-stated at intake so a second manager or a second feature per leader is refused | queue conflicts, duplicate tasks | CEO, Architect |
 | 8 | Tester before Reviewer on a code task | the Tester records the full suite at the revision; the Reviewer packet cites it (`--credit`) and runs only its acceptance layer, the uncovered criteria and one sampled credit; no gate weakens | full-suite runs per revision; claim-to-verdict p90 | CEO dispatch order, Reviewer rubric |
+| 9 | Every lane works in a worktree, including the CEO | the base checkout stays on `main`, so the merge path, the host skill scan and every lane see the integrated tree; no lane checks out its branch in the shared tree | checkout switches, stale skill scans, merge-target confusion | CEO, all lanes |
 
 ## 5. The token budget
 
