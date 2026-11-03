@@ -17,6 +17,7 @@ from .config import (
     F_GLOBAL,
     F_GLOBAL_ARCHIVE,
     F_INBOX,
+    F_KNOWLEDGE,
     F_LESSONS,
     F_LONG,
     F_MAP,
@@ -288,6 +289,16 @@ def lessons_path(root: Path, agent: str) -> Path:
                 + (", ".join(known) if known else "(none)")
             )
     return d / F_LESSONS
+
+
+def knowledge_path(root: Path) -> Path:
+    """The project-wide knowledge store at the team root.
+
+    Team-local working state, shared by every role: it sits next to
+    ``Criteria.md`` and ``Tests.md`` under ``.pi/`` and is never committed. A
+    missing file reads as an empty store (Architecture.md 15).
+    """
+    return root / F_KNOWLEDGE
 
 
 def skills_dir(root: Path) -> Path:
