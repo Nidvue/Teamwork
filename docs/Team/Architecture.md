@@ -2377,10 +2377,11 @@ no `# project knowledge:` line; `python scripts/teamwork.py recall --help` ->
 `--agent`/`--all`/`--global`/`--layer` only, no knowledge source;
 `python scripts/teamwork.py --help` -> no `knowledge` subcommand;
 `git ls-files Knowledge.md` -> empty; `python scripts/teamwork.py harness lint`
--> `# problems found: 2`, both pre-existing `HELPER` findings (the live S-0001 /
-S-0002 registry rows point at `tw-` names T-0031 has not renamed yet), and no
-rule covers the store. Until T-0032 lands, `Knowledge.md` is a rule, not a
-command.
+-> `# problems found: 0` in this lane's worktree with an isolated empty team
+registry (`TEAMWORK_ROOT` under the worktree), and no rule covers the store (the
+shared live root still reports 2 pre-existing `HELPER` findings for the S-0001 /
+S-0002 `tw-` rows awaiting T-0031). Until T-0032 lands, `Knowledge.md` is a
+rule, not a command.
 
 Every agent accumulates durable project knowledge as `K-` records in
 `Knowledge.md` at the team root. This is not a mistake log and not a task note:
@@ -2426,27 +2427,53 @@ teamwork knowledge show K_ID
 teamwork knowledge touch K_ID --by BY
 ```
 
-- `add` requires `--by`, `--topic`, `--statement` and `--evidence`; `--statement`
-  is at most 500 characters; `--importance` defaults to 3; tags are normalised
-  to a lower-case comma list. A duplicate is one entry: when the normalised
-  `topic` and `statement` already exist the command prints the existing id and
-  adds nothing (the same idempotent-intake rule M15 uses for tasks).
-  `--supersedes K-0002` sets the new record's `supersedes`, marks the old record
+- `add` requires `--by`, `--topic`, `--statement` and `--evidence`; `--topic` is
+  at most 120 characters and `--statement` at most 500; `--importance` defaults
+  to 3; `--tags` defaults to empty; `--supersedes` and `--task` default to unset.
+  Tags are normalised to a lower-case kebab comma list. Ids are `K-0001` upward,
+  allocated from the file maximum.
+- The duplicate key is exact: `normalise(s) = " ".join(s.split()).casefold()`,
+  applied to `topic` and to `statement`; two records are duplicates iff **both**
+  normalised values are equal. No punctuation, accent or other folding applies.
+  A duplicate is one entry: `add` prints `# K-0003 already records this: <topic>`
+  and adds nothing, exit 0 (the same idempotent-intake rule M15 uses for tasks).
+  `--supersedes` never silently loses to a duplicate: when the content duplicates
+  K-0003 and `--supersedes K-0002` is also given, K-0002 is marked `superseded`
+  with `superseded_by: K-0003` and updated, then the duplicate line is printed;
+  when the duplicate is the supersedes target itself, nothing changes.
+- A topic is a claim slot: at most one **active** record carries a given
+  normalised `topic`. `add` refuses a new record whose normalised topic is
+  already active on another record unless `--supersedes <that id>` is given:
+  `# knowledge: K-0003 already owns topic "<topic>"; use --supersedes K-0003 or a distinct topic`,
+  exit 2. This is the rule that keeps two contradictory beliefs from
+  coexisting - a replacing fact uses `--supersedes`, a different fact uses a
+  different topic.
+- On success `add` prints `# K-0001 recorded: <topic>` then
+  `- path: <Knowledge.md>`.
+- `--supersedes K-0002` sets the new record's `supersedes`, marks the old record
   `status: superseded` and `superseded_by: K-new`, and updates it; the new
   record's evidence is what justifies the replacement. An unknown or
-  already-superseded `--supersedes` id is refused, so supersession is a single
-  link and every superseded record names exactly one replacement.
-- `list` defaults to `--status active`, ordered by `importance` descending, then
-  `uses` descending, then `updated` descending, then id; `--tag` and `--role`
-  filter; `--limit` caps. The last line is a totals line:
-  `# knowledge: N active, M superseded, T use(s)`, where `T` is the sum of
-  `uses` over every record, active and superseded.
+  already-superseded `--supersedes` id is refused, exit 2, so supersession is a
+  single link and every superseded record names exactly one replacement.
+- `list` defaults to `--status active` and `--limit 20` (`0` means all) with no
+  role or tag filter until asked; `--role` matches the `owner` field (provenance,
+  not a permission or read filter) and `--tag` matches one tag in the record's
+  list. Rows are ordered by `importance` descending, then `uses` descending, then
+  `updated` descending, then id **ascending**, one line each:
+  `- K-0001 [active] importance=3 uses=2 tags=build,ci: <topic> - <statement>`
+  The last line is exactly `# knowledge: N active, M superseded, T use(s)`, where
+  `T` is the sum of `uses` over every record, active and superseded.
 - `search QUERY` is a case-insensitive substring match over `topic`, `statement`
-  and `tags`, ranked like `list`, read-only.
-- `show K_ID` prints every field and the file path; unknown id is an error.
-- `touch K_ID --by BY` increments `uses` and sets `updated`; it is how the team
-  records that a fact was actually used, which is what makes the ranking follow
-  need rather than volume.
+  and `tags`, read-only, active only, `--limit 20` by default (`0` means all),
+  ranked like `list`, and prints the same row. No match prints
+  `# no knowledge matched "<query>"` and exits 0.
+- `show K_ID` prints `## K-0001 - <topic>`, then every field in record order as
+  `- field: value` (an unset optional field prints `-` as its value), then
+  `- path: <Knowledge.md>`; unknown id exits 2.
+- `touch K_ID --by BY` increments `uses`, sets `updated` and prints
+  `# K-0001 uses=N`; unknown id exits 2. It is how the team records that a fact
+  was actually used, which is what makes the ranking follow need rather than
+  volume.
 - Ledger events: `knowledge.add`, `knowledge.supersede` (when `--supersedes` is
   used), `knowledge.touch`.
 - `load` prints the top 10 **active** records project-wide, one line each:
