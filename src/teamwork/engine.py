@@ -107,6 +107,7 @@ from .config import (
     F_HEAD,
     F_INBOX,
     F_LEDGER,
+    F_LESSONS,
     F_LONG,
     F_MANIFEST,
     F_MAP,
@@ -217,6 +218,7 @@ from .layout import (
     global_dir,
     instances_of,
     known_instances,
+    lessons_path,
     link_fields,
     list_agents,
     list_roles,
@@ -261,12 +263,15 @@ from .records import (
     DISPUTE_RE,
     ENTRY_RE,
     HEADERS,
+    LESSON_FIELDS,
     MANDATES,
     META_RE,
     REVIEWS_HEADER,
     ROLE_LINKS,
     ROUND_RE,
+    SKILL_KINDS,
     SKILL_NAME_RE,
+    SKILL_PREFIX,
     SKILLS_HEADER,
     TASK_HEADER,
     TASK_RE,
@@ -282,6 +287,7 @@ from .records import (
     find_criterion,
     find_dispute,
     find_feature,
+    find_lesson,
     find_pr,
     find_pr_exact,
     find_skill,
@@ -296,6 +302,7 @@ from .records import (
     new_dispute,
     new_entry,
     new_feature,
+    new_lesson,
     new_pr,
     new_skill,
     new_task,
@@ -309,6 +316,7 @@ from .records import (
     parse_disputes,
     parse_features,
     parse_features_text,
+    parse_lessons,
     parse_memory,
     parse_reviews,
     parse_skills,
@@ -320,6 +328,7 @@ from .records import (
     render_criteria,
     render_disputes,
     render_features,
+    render_lessons,
     render_reviews,
     render_skills,
     render_tasks,
@@ -332,6 +341,7 @@ from .records import (
     write_criteria,
     write_disputes,
     write_features,
+    write_lessons,
     write_memory,
     write_reviews,
     write_skills,
@@ -402,7 +412,10 @@ __all__ = [
     "F_MANIFEST",
     "F_AUDITREPORT",
     "F_SKILLS",
+    "F_LESSONS",
     "SKILLS_DIR",
+    "SKILL_PREFIX",
+    "SKILL_KINDS",
     "DEFAULT_PROVIDER_LIMITS",
     "SLOT_TTL_MINUTES",
     "REVIEW_FAIL_LIMIT",
@@ -466,6 +479,7 @@ __all__ = [
     "reviews_path",
     "disputes_path",
     "skills_path",
+    "lessons_path",
     "task_file",
     "skills_dir",
     "skill_file",
@@ -565,6 +579,12 @@ __all__ = [
     "render_skills",
     "write_skills",
     "find_skill",
+    "LESSON_FIELDS",
+    "new_lesson",
+    "parse_lessons",
+    "render_lessons",
+    "write_lessons",
+    "find_lesson",
     "IMAGE_MODEL_RANKING",
     "IMAGE_PROVIDER_PRIORITY",
     "IMAGE_PROVIDER_CREDENTIALS",
@@ -3376,11 +3396,33 @@ def ledger_export(root: Path, args) -> int:
 # Registry: <team>/Skills.md (who owns it, who was told, current state)
 
 
-def skill_body(name: str, owner_role: str, description: str, body: str, by: str) -> str:
+def skill_body(
+    name: str,
+    owner_role: str,
+    description: str,
+    body: str,
+    by: str,
+    kind: str = "workflow",
+    lesson: str = "",
+    context: str = "",
+) -> str:
     """A skill file that is safe to share: it cannot replace the team rules."""
+    frontmatter = [f"name: {name}", f'description: "{description.strip()}"', f"kind: {kind}"]
+    if kind == "mistake" and lesson:
+        frontmatter.append(f"prevents: {lesson}")
+    prevents = ""
+    if kind == "mistake":
+        quote = context.strip() or (
+            "> <quote the mistake, its cause and the rule that replaces it>"
+        )
+        prevents = (
+            "## Prevents\n\n"
+            f"{lesson or '<lesson id>'}: the recorded mistake this workflow stops recurring.\n\n"
+            f"{quote}\n\n"
+        )
+    front = "\n".join(frontmatter)
     return f"""---
-name: {name}
-description: "{description.strip()}"
+{front}
 ---
 
 # {name}
@@ -3394,7 +3436,7 @@ Use this skill when: {description.strip()}
 This flow is repetitive, widely reused and must stay consistent across every
 {owner_role} instance. Extracted once so it is executed the same way every time.
 
-## Steps
+{prevents}## Steps
 
 {body.strip() or "1. <fill in the steps this skill standardises>"}
 
@@ -3413,6 +3455,21 @@ Every run records command + revision + observed result, as the team requires.
 """
 
 
+# A skill may close a lesson, so the only legal nesting is lessons -> skills.
+# Nothing may take skills.lock and then wait for lessons.lock: two lanes holding
+# one and waiting for the other would deadlock.
+LESSONS_LOCK = "lessons.lock"
+SKILLS_LOCK = "skills.lock"
+
+
+def lessons_lock_path(root: Path) -> Path:
+    return root / DIR_RUNTIME / DIR_LOCKS / LESSONS_LOCK
+
+
+def skills_lock_path(root: Path) -> Path:
+    return root / DIR_RUNTIME / DIR_LOCKS / SKILLS_LOCK
+
+
 def cmd_skill(args) -> int:
     root = project_root(args)
     path = skills_path(root)
@@ -3420,10 +3477,28 @@ def cmd_skill(args) -> int:
 
     if args.skill_cmd == "create":
         name = (args.name or "").strip().lower()
+        if not name.startswith(SKILL_PREFIX):
+            die(
+                f"skill name '{name}' must start with {SKILL_PREFIX}: every team skill is "
+                f"recognisable by the fixed prefix (e.g. {SKILL_PREFIX}<name>)"
+            )
         if not SKILL_NAME_RE.match(name):
-            die(f"skill name '{args.name}' must be kebab-case (a-z, 0-9, dashes)")
-        if find_skill(items, name) is not None:
-            die(f"skill '{name}' is already registered; update it instead")
+            die(
+                f"skill name '{args.name}' must be kebab-case after the "
+                f"'{SKILL_PREFIX}' prefix (a-z, 0-9, dashes)"
+            )
+        kind = args.kind or "workflow"
+        lesson_id = (args.from_lesson or "").strip().upper()
+        if args.from_lesson:
+            if args.kind == "workflow":
+                die(
+                    "--from-lesson implies --kind mistake: a mistake skill names the lesson it fixes"
+                )
+            kind = "mistake"
+        elif kind == "mistake":
+            die(
+                "--kind mistake requires --from-lesson L-nnnn: a mistake skill names the lesson it fixes"
+            )
         actor, arole = validate_actor(root, args.by, "author")
         owner = resolve_role(args.role or arole)
         if not instances_of(root, owner):
@@ -3445,62 +3520,118 @@ def cmd_skill(args) -> int:
                 "  ... then create, commit, PR, review, merge.",
                 2,
             )
-        target_dir = skills_dir(root) / name
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target = target_dir / "SKILL.md"
-        if target.exists() and not args.force:
-            die(f"{target} already exists; edit it on a branch instead")
-        atomic_write(target, skill_body(name, owner, args.description, body, actor))
-        canonical = f"{'/'.join(SKILLS_DIR)}/{name}/SKILL.md"
-        rec = new_skill(name, owner, args.description, actor, canonical)
-        rec["notes"].append(f"created by {actor}")
-        items.append(rec)
-        write_skills(path, items)
-        ledger_append(root, "skill.create", actor, name, f"{owner} skill: {args.description[:90]}")
-        print(f"# {rec['id']} skill '{name}' for the {owner} role")
+        lesson_item, lesson_file = None, None
+        with contextlib.ExitStack() as stack:
+            if lesson_id:
+                stack.enter_context(lock(lessons_lock_path(root)))
+                found = find_lesson_anywhere(root, lesson_id)
+                if found is None:
+                    die(f"no lesson '{lesson_id}'")
+                lesson_role, _index, lesson_item, lesson_file = found
+                if lesson_role != owner:
+                    die(f"lesson {lesson_item['id']} belongs to {lesson_role}, not {owner}")
+                if lesson_item["status"] == "fixed" and lesson_item.get("skill"):
+                    die(f"lesson {lesson_item['id']} is already fixed by {lesson_item['skill']}")
+            stack.enter_context(lock(skills_lock_path(root)))
+            items = parse_skills(path)
+            if find_skill(items, name) is not None:
+                die(f"skill '{name}' is already registered; update it instead")
+            context = ""
+            if lesson_item is not None:
+                context = (
+                    f"> **Mistake:** {one_line(lesson_item['mistake'])}\n"
+                    f"> **Cause:** {one_line(lesson_item['cause'])}\n"
+                    f"> **Rule:** {one_line(lesson_item['rule'])}"
+                )
+            target_dir = skills_dir(root) / name
+            target_dir.mkdir(parents=True, exist_ok=True)
+            target = target_dir / "SKILL.md"
+            if target.exists() and not args.force:
+                die(f"{target} already exists; edit it on a branch instead")
+            atomic_write(
+                target,
+                skill_body(
+                    name,
+                    owner,
+                    args.description,
+                    body,
+                    actor,
+                    kind=kind,
+                    lesson=lesson_id,
+                    context=context,
+                ),
+            )
+            canonical = f"{'/'.join(SKILLS_DIR)}/{name}/SKILL.md"
+            rec = new_skill(
+                name, owner, args.description, actor, canonical, kind=kind, lesson=lesson_id
+            )
+            rec["notes"].append(f"created by {actor}")
+            if lesson_id:
+                rec["notes"].append(f"fixes lesson {lesson_id}")
+            items.append(rec)
+            write_skills(path, items)
+            ledger_append(
+                root, "skill.create", actor, name, f"{owner} skill: {args.description[:90]}"
+            )
+            if lesson_item is not None and lesson_file is not None:
+                records = parse_lessons(lesson_file)
+                index = find_lesson(records, lesson_id)
+                if index is not None:
+                    records[index]["status"] = "fixed"
+                    records[index]["skill"] = name
+                    records[index]["updated"] = today_iso()
+                    write_lessons(lesson_file, records)
+                ledger_append(root, "lesson.fix", actor, lesson_id, f"closed by skill {name}")
+        print(f"# {rec['id']} skill '{name}' for the {owner} role (kind: {kind})")
+        if lesson_id:
+            print(f"#   fixes lesson: {lesson_id}")
         print(f"#   file: {rec['path']} (project output: commit it on your branch)")
         print(f"#   share it: teamwork.py skill share {name} --by {actor}")
         return 0
 
     if args.skill_cmd == "share":
-        idx = find_skill(items, args.name)
-        if idx is None:
-            die(f"no skill '{args.name}'")
-        s = items[idx]
         actor, arole = validate_actor(root, args.by, "sharer")
-        roles = [r.strip() for r in (args.to or s["owner_role"]).split(",") if r.strip()]
-        told = []
-        for r in roles:
-            for inst in instances_of(root, r):
-                if pascal(inst) == pascal(actor):
-                    continue
-                inbox = agent_dir(root, inst) / F_INBOX
-                note = [
-                    "",
-                    f"## {today_iso()} skill shared: {s['name']}",
-                    f"- from: {actor} ({arole})",
-                    f"- owner role: {s['owner_role']}",
-                    f"- when to use: {s['description']}",
-                    f"- path: {s['path']}",
-                    f"- read it before doing this kind of {s['owner_role']} work, "
-                    "and follow it exactly",
-                    "",
-                ]
-                with inbox.open("a", encoding="utf-8", newline="\n") as fh:
-                    fh.write("\n".join(note))
-                told.append(inst)
-        s["status"] = "shared"
-        s["shared_with"] = ", ".join(told) if told else s.get("shared_with", "")
-        s["updated"] = today_iso()
-        s["notes"].append(f"shared by {actor} with: {', '.join(told) or 'nobody'}")
-        write_skills(path, items)
-        ledger_append(
-            root,
-            "skill.share",
-            actor,
-            s["name"],
-            f"told: {', '.join(told) or 'nobody'} ({','.join(roles)})",
-        )
+        with lock(skills_lock_path(root)):
+            items = parse_skills(path)
+            idx = find_skill(items, args.name)
+            if idx is None:
+                die(f"no skill '{args.name}'")
+            s = items[idx]
+            roles = [r.strip() for r in (args.to or s["owner_role"]).split(",") if r.strip()]
+            told = []
+            for r in roles:
+                for inst in instances_of(root, r):
+                    if pascal(inst) == pascal(actor):
+                        continue
+                    inbox = agent_dir(root, inst) / F_INBOX
+                    note = [
+                        "",
+                        f"## {today_iso()} skill shared: {s['name']}",
+                        f"- from: {actor} ({arole})",
+                        f"- owner role: {s['owner_role']}",
+                        f"- kind: {s.get('kind', 'workflow')}",
+                        f"- lesson: {s.get('lesson') or '-'}",
+                        f"- when to use: {s['description']}",
+                        f"- path: {s['path']}",
+                        f"- read it before doing this kind of {s['owner_role']} work, "
+                        "and follow it exactly",
+                        "",
+                    ]
+                    with inbox.open("a", encoding="utf-8", newline="\n") as fh:
+                        fh.write("\n".join(note))
+                    told.append(inst)
+            s["status"] = "shared"
+            s["shared_with"] = ", ".join(told) if told else s.get("shared_with", "")
+            s["updated"] = today_iso()
+            s["notes"].append(f"shared by {actor} with: {', '.join(told) or 'nobody'}")
+            write_skills(path, items)
+            ledger_append(
+                root,
+                "skill.share",
+                actor,
+                s["name"],
+                f"told: {', '.join(told) or 'nobody'} ({','.join(roles)})",
+            )
         print(f"# shared '{s['name']}' with {len(told)} instance(s): {', '.join(told) or 'none'}")
         if s["path"] and not skill_file(root, s["path"]).exists():
             print(f"# WARNING the skill file is missing: {s['path']}")
@@ -3527,25 +3658,64 @@ def cmd_skill(args) -> int:
         for role, area, n, titles in sorted(rows, key=lambda r: -r[2]):
             print(f"- {role}/{area}: {n} task(s), e.g. {'; '.join(titles)}")
             print(
-                f"    teamwork.py skill create --name {role}-{area} --role {role} "
-                f"--by <instance> --for '<when to use>' --body-file <steps.md>"
+                f"    teamwork.py skill create --name {SKILL_PREFIX}{role}-{area} "
+                f"--role {role} --by <instance> --for '<when to use>' "
+                "--body-file <steps.md>"
+            )
+        print("## mistake candidates (review failures)")
+        failed = []
+        for role in list_roles(root):
+            tasks = [
+                task
+                for task in parse_tasks(task_file(root, role))
+                if int(task.get("review_fails") or 0) > 0
+            ]
+            if tasks:
+                failed.append((role, tasks))
+        if not failed:
+            print("- none: no task of any role carries a failed review")
+        for role, tasks in sorted(failed):
+            titles = [one_line(task["title"]) for task in tasks[:3]]
+            print(f"- {role}: {len(tasks)} task(s) with failed review(s), e.g. {'; '.join(titles)}")
+            first = tasks[0]
+            print(
+                f"    teamwork.py lesson add --by {role} "
+                f"--mistake '{one_line(first['title'])}' "
+                f"--cause '{one_line(first.get('findings')) or '<the review finding>'}' "
+                f"--rule '<what changes>' "
+                f"--evidence '{one_line(first.get('review_evidence')) or '<review record>'}'"
+            )
+            open_lessons = [
+                item for item in parse_lessons(lessons_path(root, role)) if item["status"] == "open"
+            ]
+            from_lesson = (
+                sorted(open_lessons, key=lambda item: item["id"])[-1]["id"]
+                if open_lessons
+                else "L-nnnn"
+            )
+            print(
+                f"    teamwork.py skill create --name {SKILL_PREFIX}<slug> --role {role} "
+                f"--by <you> --kind mistake --from-lesson {from_lesson} "
+                "--for '<when to use>'"
             )
         return 0
 
     if args.skill_cmd == "rm":
-        idx = find_skill(items, args.name)
-        if idx is None:
-            die(f"no skill '{args.name}'")
         actor, _r = validate_actor(root, args.by, "actor")
-        removed = items.pop(idx)
-        write_skills(path, items)
-        ledger_append(
-            root,
-            "skill.rm",
-            actor,
-            removed["name"],
-            f"unregistered ({removed['path']}); delete the file on a branch",
-        )
+        with lock(skills_lock_path(root)):
+            items = parse_skills(path)
+            idx = find_skill(items, args.name)
+            if idx is None:
+                die(f"no skill '{args.name}'")
+            removed = items.pop(idx)
+            write_skills(path, items)
+            ledger_append(
+                root,
+                "skill.rm",
+                actor,
+                removed["name"],
+                f"unregistered ({removed['path']}); delete the file on a branch",
+            )
         print(
             f"# unregistered '{removed['name']}'. The file {removed['path']} still "
             "exists: delete it on a branch through the normal review flow."
@@ -3557,19 +3727,173 @@ def cmd_skill(args) -> int:
     if not items:
         print("- none yet. Create one when a flow is repetitive and must stay consistent:")
         print(
-            "  teamwork.py skill create --name <kebab> --role <role> --by <you> "
-            "--for '<when to use>'"
+            f"  teamwork.py skill create --name {SKILL_PREFIX}<kebab> --role <role> "
+            "--by <you> --for '<when to use>'"
         )
         return 0
     for s in items:
         exists = skill_file(root, s["path"]).exists() if s["path"] else False
         print(
-            f"- {s['id']} {s['name']:24s} [{s['status']}] owner={s['owner_role']:16s} "
-            f"file={'ok' if exists else 'MISSING'}"
+            f"- {s['id']} {s['name']:28s} [{s['status']}] "
+            f"kind={s.get('kind', 'workflow')} lesson={s.get('lesson') or '-'} "
+            f"owner={s['owner_role']:16s} file={'ok' if exists else 'MISSING'}"
         )
         print(f"    when: {s['description'][:90]}")
         if s["shared_with"]:
             print(f"    shared with: {s['shared_with']}")
+    return 0
+
+
+def role_lessons(root: Path) -> list:
+    """Every role's lesson records as ``(role, item, path)``, role order stable."""
+    found = []
+    for role in list_roles(root):
+        path = lessons_path(root, role)
+        for item in parse_lessons(path):
+            found.append((role, item, path))
+    return found
+
+
+def find_lesson_anywhere(root: Path, handle: str):
+    """Locate one globally unique lesson id across every role's Lessons.md."""
+    for role, item, path in role_lessons(root):
+        if item["id"].upper() == (handle or "").strip().upper():
+            items = parse_lessons(path)
+            index = find_lesson(items, handle)
+            if index is not None:
+                return role, index, items[index], path
+    return None
+
+
+def next_lesson_id(root: Path) -> str:
+    """``L-`` plus four digits, allocated from every role's Lessons.md."""
+    highest = 0
+    for _role, item, _path in role_lessons(root):
+        match = re.fullmatch(r"L-(\d{4})", item["id"])
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return f"L-{highest + 1:04d}"
+
+
+def print_lesson(item: dict) -> None:
+    print(f"# {item['id']} - {item['mistake']}")
+    for field in LESSON_FIELDS:
+        print(f"- {field}: {item.get(field, '')}")
+
+
+def cmd_lesson(args) -> int:
+    root = project_root(args)
+
+    if args.lesson_cmd == "add":
+        actor, arole = validate_actor(root, args.by, "author")
+        owner = resolve_role(args.role or arole)
+        if not instances_of(root, owner):
+            die(f"no {owner} instance exists to own this lesson; add one or pick another --role")
+        for field, hint in (
+            ("mistake", "the observable failure"),
+            ("cause", "why it happened"),
+            ("rule", "what the agent does instead"),
+            ("evidence", "command @rev -> result"),
+        ):
+            if not (getattr(args, field) or "").strip():
+                die(f"--{field} is required: {hint}")
+        path = lessons_path(root, owner)
+        with lock(lessons_lock_path(root)):
+            items = parse_lessons(path)
+            item = new_lesson(
+                owner,
+                args.mistake,
+                args.cause,
+                args.rule,
+                args.evidence,
+                actor,
+                args.task or "",
+            )
+            item["id"] = next_lesson_id(root)
+            items.append(item)
+            write_lessons(path, items)
+            ledger_append(root, "lesson.add", actor, item["id"], one_line(item["mistake"]))
+        print(f"# {item['id']} recorded for {owner}: {one_line(item['mistake'])}")
+        print(f"#   file: {path}")
+        return 0
+
+    if args.lesson_cmd == "list":
+        roles = [resolve_role(args.role)] if args.role else list_roles(root)
+        rows = []
+        for role in roles:
+            path = lessons_path(root, role)
+            for item in parse_lessons(path):
+                if args.status != "all" and item["status"] != args.status:
+                    continue
+                rows.append((role, item))
+        print(f"# Lessons ({root})")
+        if not rows:
+            print("# no lessons recorded")
+        for role, item in sorted(rows, key=lambda row: row[1]["id"]):
+            print(
+                f"- {item['id']} [{item['status']}] {role}: {item['mistake']} -> "
+                f"{item['rule']} (skill: {item.get('skill') or 'no skill'})"
+            )
+        return 0
+
+    if args.lesson_cmd == "show":
+        found = find_lesson_anywhere(root, args.lesson_id)
+        if found is None:
+            die(f"no lesson '{args.lesson_id}'")
+        _role, _index, item, path = found
+        print_lesson(item)
+        print(f"#   file: {path}")
+        return 0
+
+    # fix
+    actor, _arole = validate_actor(root, args.by, "author")
+    found = find_lesson_anywhere(root, args.lesson_id)
+    if found is None:
+        die(f"no lesson '{args.lesson_id}'")
+    _role, _index, _item, path = found
+    skill = (args.skill or "").strip().lower()
+    with lock(lessons_lock_path(root)):
+        records = parse_lessons(path)
+        index = find_lesson(records, args.lesson_id)
+        if index is None:
+            die(f"no lesson '{args.lesson_id}'")
+        changed = records[index]
+        if changed["status"] == "fixed" and not (args.evidence or "").strip():
+            die(
+                f"lesson {changed['id']} is already fixed by "
+                f"{changed.get('skill') or 'no skill'}; pass --evidence to re-prove the fix"
+            )
+        evidence = one_line(args.evidence or changed.get("evidence"))
+        if not evidence:
+            die("--evidence is required: a fixed lesson carries the proof that it no longer recurs")
+        if skill:
+            with lock(skills_lock_path(root)):
+                registered = parse_skills(skills_path(root))
+                index = find_skill(registered, skill)
+                if index is None:
+                    die(f"no skill '{skill}' in Skills.md")
+                record = registered[index]
+                if not record["name"].startswith(SKILL_PREFIX):
+                    die(f"skill '{record['name']}' must start with {SKILL_PREFIX}")
+                if record.get("kind") != "mistake":
+                    die(f"skill '{record['name']}' is kind '{record.get('kind')}', not 'mistake'")
+        changed["status"] = "fixed"
+        if skill:
+            changed["skill"] = skill
+        if (args.rule or "").strip():
+            changed["rule"] = one_line(args.rule)
+        changed["evidence"] = evidence
+        changed["updated"] = today_iso()
+        write_lessons(path, records)
+        ledger_append(
+            root,
+            "lesson.fix",
+            actor,
+            changed["id"],
+            f"closed by skill {skill}" if skill else f"fixed by {actor}",
+        )
+    print_lesson(changed)
+    print(f"#   file: {path}")
     return 0
 
 
@@ -4970,6 +5294,24 @@ def cmd_load(args) -> int:
         )
     if not keep:
         print("- (empty: this is your first task or memory was just consolidated)")
+    print()
+    lessons = parse_lessons(lessons_path(root, role))
+    if not lessons:
+        print(
+            f"# Lessons: none recorded for {role} "
+            f"(record one with: teamwork.py lesson add --by {args.agent} --mistake ...)"
+        )
+    else:
+        open_lessons = sorted(
+            [item for item in lessons if item["status"] != "fixed"],
+            key=lambda item: item["id"],
+        )
+        fixed = [item for item in lessons if item["status"] == "fixed"]
+        print(f"# Lessons ({role}) - open mistakes to avoid:")
+        for item in open_lessons[:10]:
+            skill = f" (fixed by {item['skill']})" if item.get("skill") else ""
+            print(f"- [{item['id']}] {item['mistake']} -> {item['rule']}{skill}")
+        print(f"# fixed: {len(fixed)}; full list: teamwork.py lesson list --role {role}")
     return 0
 
 
@@ -15642,14 +15984,59 @@ def _parsers_governance(sub, common) -> None:
     s.set_defaults(func=cmd_decision_list)
 
     s = sub.add_parser(
+        "lesson",
+        parents=[common],
+        help="record/list/fix the mistakes an agent must not repeat",
+    )
+    lsub = s.add_subparsers(dest="lesson_cmd", required=True)
+    s = lsub.add_parser(
+        "add", parents=[common], help="record one mistake and the rule that stops it"
+    )
+    s.add_argument("--by", required=True)
+    s.add_argument("--mistake", required=True, help="the observable failure")
+    s.add_argument("--cause", required=True, help="why it happened")
+    s.add_argument("--rule", required=True, help="what the agent now does instead")
+    s.add_argument("--evidence", required=True, help="command @rev -> result")
+    s.add_argument("--role", default="", help="owning role (default: yours)")
+    s.add_argument("--task", default="", help="T-id this mistake happened on")
+    s.set_defaults(func=cmd_lesson)
+    s = lsub.add_parser("list", parents=[common], help="list recorded lessons")
+    s.add_argument("--role", default="", help="one role (default: every role)")
+    s.add_argument("--status", default="all", choices=["open", "fixed", "all"])
+    s.set_defaults(func=cmd_lesson)
+    s = lsub.add_parser("show", parents=[common], help="print one lesson with every field")
+    s.add_argument("lesson_id", metavar="L_ID")
+    s.set_defaults(func=cmd_lesson)
+    s = lsub.add_parser("fix", parents=[common], help="close a lesson, optionally with a skill")
+    s.add_argument("lesson_id", metavar="L_ID")
+    s.add_argument("--by", required=True)
+    s.add_argument("--rule", default="", help="replace the rule with what actually changed")
+    s.add_argument("--skill", default="", metavar="TW_NAME", help="the mistake skill that fixes it")
+    s.add_argument("--evidence", default="", help="command @rev -> result")
+    s.set_defaults(func=cmd_lesson)
+
+    s = sub.add_parser(
         "skill", parents=[common], help="create/share a reusable team skill with same-role peers"
     )
     ssub = s.add_subparsers(dest="skill_cmd", required=True)
     s = ssub.add_parser("create", parents=[common], help="extract a repeated flow")
-    s.add_argument("--name", required=True, help="kebab-case name")
+    s.add_argument("--name", required=True, help="tw- prefixed name")
     s.add_argument("--role", default="", help="owning role (default: yours)")
     s.add_argument("--for", dest="description", required=True, help="when to use this skill")
     s.add_argument("--by", required=True)
+    s.add_argument(
+        "--kind",
+        default="",
+        choices=list(SKILL_KINDS),
+        help="workflow (default) or mistake (requires --from-lesson)",
+    )
+    s.add_argument(
+        "--from-lesson",
+        default="",
+        dest="from_lesson",
+        metavar="L_ID",
+        help="the recorded lesson this mistake skill fixes",
+    )
     s.add_argument("--body", default="")
     s.add_argument("--body-file", default="")
     s.add_argument("--force", action="store_true")

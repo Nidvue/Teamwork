@@ -531,7 +531,7 @@ def test_an_unborn_branch_is_readable_only_through_symbolic_ref(tmp_path: Path) 
 
 def test_the_lint_rules_and_their_order_are_frozen() -> None:
     section = _section_text()
-    order = ["IDENTITY", "TRIGGER", "SUBCOMMAND", "HELPER", "EVIDENCE"]
+    order = ["IDENTITY", "PREFIX", "TRIGGER", "SUBCOMMAND", "HELPER", "EVIDENCE"]
     positions = [section.index(rule) for rule in order]
     assert positions == sorted(positions), "the lint rules must stay in their frozen order"
 
