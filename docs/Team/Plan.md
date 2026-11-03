@@ -852,8 +852,11 @@ and that every such skill carries one fixed prefix. Contract:
 |---|---|---|---|---|
 | T-0004 | architect | `Architecture.md` section 14 + technical decision | - | frozen contract |
 | T-0031 | developer | lesson records, `lesson` CLI, `tw-` enforcement, kinds, candidates, `PREFIX` rule, unit tests, two skills renamed | architect T-0004 | implementation |
-| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` | architect T-0004 | documentation |
-| T-0004 | tester | integration and acceptance proof of the lesson -> skill loop and prefix enforcement | developer T-0031 | proof |
+| T-0005 | architect | `Architecture.md` section 15: the project knowledge store, its CLI, ranking, supersession and load surface | architect T-0004 | contract |
+| T-0032 | developer | `Knowledge.md` records, `knowledge` CLI, ranked `load`, duplicate and supersession rules, unit tests | architect T-0005 | implementation |
+| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` for sections 14-15 | architect T-0004, T-0005 | documentation |
+| T-0012 | technical-writer | knowledge chapter: the accumulation loop, ranking, supersession, and the fluency measure in the guide and the constitution | developer T-0032 | documentation |
+| T-0004 | tester | integration and acceptance proof of the lesson -> skill loop, the knowledge accumulation loop and prefix enforcement | developer T-0031, T-0032 | proof |
 | T-0019 | ceo | intake, criteria, records, migration check and close-out | all | records |
 
 Parallel rules: the developer owns `src/teamwork/` and unit tests; the Technical
@@ -862,7 +865,7 @@ acceptance modules; the CEO owns `Project.md`, `Plan.md` and the close-out
 records. No two lanes share a writable file. The two legacy skill renames are the
 developer's, because the tests that trigger them are the developer's.
 
-Exit condition: AC-M17-1..AC-M17-5 verified by a role other than the owner on the
+Exit condition: AC-M17-1..AC-M17-6 verified by a role other than the owner on the
 merged revision, the M17 layers recorded and passing, and the records exported.
 
 ## Task-graph integrity
