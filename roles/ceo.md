@@ -64,6 +64,25 @@ stuck tasks, and push the Reviewer when deliverables are waiting. Re-arm with
 the host scheduler (see `references/Adapters.md`) and delete the schedule at
 team close. An idle lane while ready work exists is a defect in your dispatch.
 
+## Throughput and token economy
+
+- **Size the roster on demand.** `slim` is the default; read `parallel` and
+  `instance list`, add an instance only for a named deliverable, and retire an
+  idle lane. Retirement is move-only to `Runtime/Retired/<Instance>/`; verify
+  `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`) before a
+  cut. A stale cut lost 102 artifact paths (`L-0001`); evidence is never deleted.
+- **Read by id.** `board`, `archive --task <T-id>`, `decision list` and `trace`
+  answer a question. Never read all of `Archive.md`, `Decisions.md`, `Plan.md`
+  or a `TaskQueue.md`; a whole archive is ~0.63M tokens against a ~0.11-0.15M
+  startup.
+- **Keep the budget token-true.** `harness budget` is the startup read;
+  `--recallable` is long/archive memory and fixed/superseded records. The cap is
+  122880 B; when a lane is over, trim what `load` prints, never raise the cap.
+- **Review once, measure it.** The Tester records the full suite before the
+  Reviewer; the Reviewer judges the requirement and credits the suite. `preflight`
+  warns when a diff passes the profile slice - split it or record why it is one
+  contract. `throughput` re-reads the review and token numbers.
+
 ## Coordination health
 
 Identical lanes make identical mistakes. At every milestone, and before the final

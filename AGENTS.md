@@ -115,6 +115,29 @@ branch itself caused, and the project gate from `Settings.json` →
 `PreflightCommand`. A fail records whether it was `mechanical`, so the numbers
 above stay measured rather than asserted. Full text: `references/Roles.md`.
 
+## Context and token economy (hard)
+
+- **Right-size the roster.** `slim` is the default; add an instance only for a
+  named deliverable and retire an idle lane. Retirement is **move-only** to
+  `Runtime/Retired/<Instance>/` - artifacts, reports and the worklog are evidence,
+  never deleted. Before a cut, verify `git rev-parse HEAD` is at or after the
+  move-only revision (`b9e5135`); a cut from a stale checkout lost 102 artifact
+  paths (`L-0001`). `parallel` and `instance list` read the demand.
+- **Read by id.** `archive --task <T-id>`, `decision list`, `board` and `trace`
+  answer a question without loading a history: the archive is ~0.6M tokens and a
+  startup is ~0.1-0.15M. Never read all of `Archive.md`, `Decisions.md`,
+  `Plan.md` or a `TaskQueue.md`.
+- **Review the first pass.** The self-check note answers the boundary and
+  empty/duplicate/second-call case, the contract surface, concurrency and shared
+  writes, and the exact scope; the Reviewer judges the requirement and the
+  acceptance layer. On a code task the Tester records the full suite first and
+  the Reviewer cites it (`--credit`) - Tester before Reviewer.
+- **Keep the budget token-true.** `harness budget` is `load`'s startup;
+  `--recallable` is long/archive memory and fixed lessons/superseded knowledge.
+  The cap is `AlwaysOnBudgetKb` (122880 B); trim what `load` prints, never raise
+  it. `preflight` warns past 6/300, 12/600 or 24/1,200 files/lines; split or say
+  why it is one contract. `throughput` re-reads the review and surface numbers.
+
 ## Writing standard (hard)
 
 All memory, plans, designs, research, decisions and docs are **markdown**,

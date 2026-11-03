@@ -156,9 +156,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 362 kB |
-| `standard` | 10 | 503 kB |
-| `full` | 17 | 825 kB |
+| `slim` (default) | 7 | 374 kB |
+| `standard` | 10 | 520 kB |
+| `full` | 17 | 853 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.3x what `slim` costs.
@@ -705,7 +705,8 @@ contract does not rest on the estimate: **every review fail now records whether
 the author had a green `preflight` at that revision** (`mechanical: no|unknown|n/a`),
 which measures it prospectively instead of classifying findings after the fact.
 Ten rules remove the duplicated work either way; the full text is
-`references/Roles.md`.
+`references/Roles.md`. `teamwork.py throughput` re-reads the current cut; 5l is
+the M18 response to that measurement, not a replacement for this historical table.
 
 | Rule | What it forbids |
 |---|---|
@@ -805,6 +806,42 @@ record, and no file, index, cache or summary sidecar is created.
 - `context digest` proposes a lesson or knowledge block from a task; it writes
   nothing and claims nothing. `context` never replaces `load`, the gates or the
   evidence rule - it is navigation and retrieval.
+
+### 5l. Throughput and the token budget
+
+`teamwork.py throughput` is the measured reader: review claim -> verdict
+latency, pass/fail and rework share, queue depth, instance count and the bytes of
+every surface. At the M18 cut it reported p50 5.8 min / p90 22.1 min and 31 of 65
+targets needing more than one verdict; re-run it at your revision instead of
+quoting these. The policy that follows:
+
+- **Right-size the roster.** `slim` is the default. Add an instance only for a
+  named deliverable or when the ready queue for its role is deeper than its lanes
+  (`teamwork parallel`, `teamwork instance list`), and retire an idle one.
+  Retirement is **move-only** to `Runtime/Retired/<Instance>/`: the artifacts,
+  reports and worklog are evidence, never deleted. Before a cut, verify
+  `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`); the
+  first cut ran from a stale checkout and lost 102 artifact paths (`L-0001`).
+- **Read by id, never by history.** `archive --task <T-id>`, `decision list`,
+  `board` and `trace <id>` answer a question; a whole `Archive.md` read is
+  ~0.63M tokens against a ~0.11-0.15M startup, and `Decisions.md`, `Plan.md` and
+  a `TaskQueue.md` are the same trap. Never read a whole record file.
+- **Make the first pass review-ready.** The self-check note answers the boundary
+  and empty/duplicate/second-call case, the contract surface (every existing
+  flag, field and transition), concurrency and shared-file writes, and the exact
+  scope - each with a test or a reason. The Reviewer judges the requirement and
+  its acceptance layer, not the lint; on a code task the Tester records the full
+  suite first and the Reviewer cites it (`--credit`), so the ~30-minute suite is
+  paid once (Tester before Reviewer).
+- **Keep the budget token-true.** `harness budget` measures what `load` prints at
+  startup; `harness budget --recallable` reports long-term/archived memory and
+  fixed lessons/superseded knowledge that `load` never prints. The cap is
+  `AlwaysOnBudgetKb` (122880 B default). When a startup row is over, trim what
+  `load` prints and record why - never raise the cap.
+- **Split at the slice warning.** `preflight` warns when a diff passes its
+  profile's slice: 6 files / 300 changed lines (`fast`), 12/600 (`standard`),
+  24/1,200 (`deep`). The warning does not fail a justified single-contract task;
+  split it or say in the self-check why it cannot be split.
 
 ### 6. Close
 
@@ -951,7 +988,7 @@ Mechanical enforcement:
   With several lanes `--by reviewer` is ambiguous - name the instance (`reviewer-1`).
 - a `review --result pass` appends the accepted result to
   `docs/Team/Archive.md` (what, who, verified how, which revision) - the team's
-  evidence ledger. Read it with `teamwork.py archive [--agent X]`.
+  evidence ledger. Read it by id with `teamwork.py archive --task <T-id>`.
 - a re-submitted fix is re-reviewed as a **delta**: its own findings, the changed
   files since the failed revision, the failed criterion re-run, one fresh sampled
   credit - fail, fix, self-check, re-submit, re-review until it passes - and the
@@ -1032,7 +1069,7 @@ python3 $S task add developer "<task>" --priority P0 --deps architect:T-0002
 # scale ANY role: instances share the role's memory + queue, one reviser at a time
 python3 $S instance add architect --count 2
 python3 $S instance list
-python3 $S instance retire architect-3 --reason "trimmed"
+python3 $S instance retire architect-3 --reason "trimmed"   # move-only; verify HEAD at/after b9e5135 first
 python3 $S memory claim architect --by Architect-2 --reason "rewrite the contract"
 python3 $S memory contest architect --by Architect-3 --reason "three tasks blocked"
 python3 $S memory extend architect --by CTO --ttl 45 --reason "the rewrite is large"
@@ -1070,6 +1107,12 @@ python3 $S ledger show --tail 20 && python3 $S ledger verify && python3 $S ledge
 python3 $S trace T-0007
 python3 $S task reclaim developer T-0007 --as Developer-2 --reason "owner went silent"  # refuses a live lane; --force <reason> to override
 python3 $S tests plan && python3 $S audit && python3 $S links && python3 $S loop
+
+# throughput and token economy
+python3 $S throughput
+python3 $S archive --task <T-id>
+python3 $S harness budget --recallable
+python3 $S instance retire <instance> --reason "<why>"   # move-only; verify HEAD at/after b9e5135 first
 python3 $S dispute open --by developer-1 --against architect --topic "..." --evidence "..."
 python3 $S slot acquire --agent developer-3 --provider deepseek --task T-0012
 python3 $S slot renew --agent developer-3 && python3 $S slot release --agent developer-3
