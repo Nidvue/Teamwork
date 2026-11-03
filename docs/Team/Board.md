@@ -199,6 +199,7 @@ under two roles is two tasks.
 | tester | T-0004 | - | done | - | - |
 | tester | T-0005 | harness | done | P-0086 | 41b38f6 |
 | tester | T-0006 | tests | done | P-0089 | 2c4ad7e |
+| tester | T-0007 | t-0042 | done | P-0090 | 6750ea7 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
