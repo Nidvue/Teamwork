@@ -260,6 +260,42 @@ Exit condition: AC-8..AC-12 verified by a role other than their owner on the
 merged revision, `tests plan` with no gap in the touched areas, and the
 M14 and M15 criteria all closed in the same STOP.
 
+## M17 - Institutional memory: lessons and prefixed skills (this engagement)
+
+Objective, from the operator's directive: every agent remembers the mistakes it
+made and works to stop them recurring; an agent can turn such a mistake into a
+local skill that fixes the workflow; an agent can also create a skill for any
+regularly performed task by itself; and every skill the team creates carries one
+fixed prefix so a reader recognises it on sight.
+
+The mechanism is two records and one rule. A **lesson** names a mistake the agent
+actually made, its cause, the rule now followed and the evidence - stored in the
+role's shared memory so every instance sees it at startup. A **skill** with
+`kind: mistake` cites that lesson (`prevents: L-nnnn`) and is created only from
+it; a skill with `kind: workflow` captures a repeated flow that is not a defect.
+Both are named `tw-*`, enforced at creation and linted on the tree. The full
+contract is [Architecture](Architecture.md) section 14.
+
+Non-goals: a new roster role, a hosted memory service, changing the two-stage
+gate, retrofitting lessons into the archived history, or rewriting an archived
+record. Existing records keep their historical names; live references move.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-M17-1 | every team-created skill is named with the fixed prefix `tw-`; `skill create` refuses any other name, `harness lint` reports rule `PREFIX` for an unprefixed skill directory, and the two legacy skills are renamed with every live reference resolving | Developer | Reviewer |
+| AC-M17-2 | every agent records each mistake as a lesson (`lesson add`) with failure, cause, rule and evidence, and `teamwork load` surfaces that role's open lessons at startup | Developer | Reviewer |
+| AC-M17-3 | a lesson is closed with a recorded fix and, when the flow changes, a `tw-` skill created with `--from-lesson` that carries `kind: mistake` and `prevents: L-nnnn` in the file and the registry, with `lesson list` showing the link | Developer | Reviewer |
+| AC-M17-4 | agents create reusable `tw-` skills for repeated flows (`kind: workflow`); `skill candidates` surfaces repeated areas and review-failure mistake candidates; the shared-skill rules (branch, PR, review, merge) still apply | Developer | Reviewer |
+| AC-M17-5 | the prefix, the lesson loop and the two kinds are stated in the always-on surfaces (`SKILL.md`, `templates/AGENTS.md` and the root `AGENTS.md` block, `references/`, the CLI guide, `CHANGELOG.md`) and every published command executes | Technical Writer | Reviewer |
+
+Ids are namespaced (`AC-M17-n`) because the numeric `AC-<n>` space is bound to the
+pre-M17 definition-of-done table by `tests/unit/test_traceability_matrix.py`; a
+new milestone names its own ids instead of silently entering that matrix.
+
+Exit condition: AC-M17-1..AC-M17-5 verified by a role other than their owner on
+the merged revision, the four lane tasks archived with a Reviewer pass, and the
+M17 test layers recorded and passing.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
