@@ -174,7 +174,14 @@ F_AUDITREPORT = "AuditManifest.md"
 
 F_SKILLS = "Skills.md"
 
+F_LESSONS = "Lessons.md"
+
 SKILLS_DIR = (".agents", "skills")
+
+#: Every Teamwork-authored skill is recognisable by this fixed prefix. It is the
+#: recognition contract, so both the directory and the front-matter name carry it
+#: and `harness lint` refuses a tree where they do not (Architecture.md 14).
+SKILL_PREFIX = "tw-"
 
 DEFAULT_PROVIDER_LIMITS = {
     "ollama-cloud": 64,

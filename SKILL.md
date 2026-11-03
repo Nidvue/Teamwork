@@ -740,7 +740,7 @@ run `feature check` at the tree they are about to accept.
 
 ### 6. Close
 
-When the queue is empty and `loop` is about to report STOP, load the `ceo-audit-close`
+When the queue is empty and `loop` is about to report STOP, load the `tw-ceo-audit-close`
 skill and follow it exactly: freeze the revision, verify the chain before the gates,
 check the archive against the tree, export the manifest last, and report from records.
 A trigger line is what makes an on-demand skill exist - an unnamed skill is dead text

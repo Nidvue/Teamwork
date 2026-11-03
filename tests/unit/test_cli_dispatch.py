@@ -60,6 +60,7 @@ FROZEN_COMMANDS = frozenset(
         "imaging",
         "init",
         "ledger",
+        "lesson",
         "links",
         "load",
         "loop",

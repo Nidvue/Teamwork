@@ -30,6 +30,7 @@ from .config import (
     LONG_CAP,
     MAX_ROUNDS,
     PRIORITY_ORDER,
+    SKILL_PREFIX,
     STALE_DAYS,
     STATUSES,
     TEST_LAYERS,
@@ -65,7 +66,37 @@ SKILLS_HEADER = (
     "[reviews](Reviews.md)\n"
 )
 
-SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+SKILL_NAME_RE = re.compile(
+    rf"^{re.escape(SKILL_PREFIX)}[a-z0-9]+(-[a-z0-9]+)*$",
+    re.ASCII,
+)
+
+#: A skill is either a repeated flow or the workflow that stops one recorded
+#: mistake recurring (Architecture.md 14.1).
+SKILL_KINDS = ("workflow", "mistake")
+
+LESSONS_HEADER = (
+    "# Lessons - mistakes this role will not repeat\n\n"
+    "> One record per mistake: what went wrong, why, and the rule that stops it\n"
+    "> recurring. Manage with `teamwork.py lesson ...`.\n\n"
+    "Related: [task queue](TaskQueue.md) | [short-term](ShortTermMemory.md)\n"
+)
+
+LESSON_RE = re.compile(r"^##\s+(L-\d{4})\s*(?:-|:)?\s*(.*)$", re.ASCII)
+
+LESSON_FIELDS = (
+    "role",
+    "status",
+    "mistake",
+    "cause",
+    "rule",
+    "evidence",
+    "task",
+    "skill",
+    "by",
+    "created",
+    "updated",
+)
 
 DISPUTE_HEADER = (
     "# DISPUTES - design/decision challenges\n\n"
@@ -1558,7 +1589,15 @@ def find_dispute(disputes: list, handle: str):
     return None
 
 
-def new_skill(name: str, owner_role: str, description: str, by: str = "", path: str = "") -> dict:
+def new_skill(
+    name: str,
+    owner_role: str,
+    description: str,
+    by: str = "",
+    path: str = "",
+    kind: str = "workflow",
+    lesson: str = "",
+) -> dict:
     return {
         "id": "",
         "name": one_line(name),
@@ -1570,6 +1609,8 @@ def new_skill(name: str, owner_role: str, description: str, by: str = "", path: 
         "created": today_iso(),
         "updated": today_iso(),
         "shared_with": "",
+        "kind": kind if kind in SKILL_KINDS else "workflow",
+        "lesson": one_line(lesson),
         "notes": [],
     }
 
@@ -1615,8 +1656,11 @@ def render_skills(items: list) -> str:
             "created",
             "updated",
             "shared_with",
+            "kind",
         ):
             out.append(f"- {field}: {one_line(s.get(field, ''))}")
+        if s.get("lesson"):
+            out.append(f"- lesson: {one_line(s['lesson'])}")
         out.append("")
         out.append(f"- description: {one_line(s['description'])}")
         for n in s["notes"]:
@@ -1636,6 +1680,93 @@ def find_skill(items: list, handle: str):
             return i
     for i, s in enumerate(items):
         if want and want in s["name"].lower():
+            return i
+    return None
+
+
+# Lessons: one record per mistake a role will not repeat (Architecture.md 14.2).
+# The file is role-local state, written one line per field so a free-text value can
+# never forge the next record header.
+
+
+def new_lesson(
+    role: str,
+    mistake: str,
+    cause: str,
+    rule: str,
+    evidence: str,
+    by: str,
+    task: str = "",
+) -> dict:
+    return {
+        "id": "",
+        "role": one_line(role),
+        "status": "open",
+        "mistake": one_line(mistake),
+        "cause": one_line(cause),
+        "rule": one_line(rule),
+        "evidence": one_line(evidence),
+        "task": one_line(task),
+        "skill": "",
+        "by": one_line(by),
+        "created": today_iso(),
+        "updated": today_iso(),
+    }
+
+
+def parse_lessons(path: Path) -> list:
+    if not path.exists():
+        return []
+    out, cur = [], None
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        match = LESSON_RE.match(raw)
+        if match:
+            if cur:
+                out.append(cur)
+            cur = {field: "" for field in LESSON_FIELDS}
+            cur["id"] = match.group(1)
+            cur["status"] = "open"
+            cur["mistake"] = match.group(2).strip()
+            continue
+        if cur is None:
+            continue
+        meta = META_RE.match(raw)
+        if not meta:
+            continue
+        field, value = meta.group(1), meta.group(2).strip()
+        if field in cur:
+            cur[field] = value
+    if cur:
+        out.append(cur)
+    return out
+
+
+def render_lessons(items: list) -> str:
+    out = [LESSONS_HEADER, ""]
+    for item in sorted(items, key=lambda entry: entry["id"]):
+        out.append(f"## {item['id']} - {one_line(item['mistake'])}")
+        for field in LESSON_FIELDS:
+            if field in ("task", "skill") and not item.get(field):
+                continue
+            out.append(f"- {field}: {one_line(item.get(field, ''))}")
+        out.append("")
+    return "\n".join(out).rstrip() + "\n"
+
+
+def write_lessons(path: Path, items: list) -> None:
+    atomic_write(path, render_lessons(items))
+
+
+def find_lesson(items: list, handle: str):
+    want = (handle or "").strip()
+    if not want:
+        return None
+    for i, item in enumerate(items):
+        if item["id"].upper() == want.upper():
+            return i
+    needle = want.lower()
+    for i, item in enumerate(items):
+        if needle in item["id"].lower() or needle in item["mistake"].lower():
             return i
     return None
 

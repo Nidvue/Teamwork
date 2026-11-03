@@ -1,9 +1,10 @@
 ---
-name: ceo-audit-close
+name: tw-ceo-audit-close
 description: "when the queue is empty and loop is about to report STOP: verify the chain, the gates and the archive, export the audit manifest, and report from records"
+kind: workflow
 ---
 
-# ceo-audit-close
+# tw-ceo-audit-close
 
 Owner role: **ceo** (created by CEO on 2026-10-19).
 
