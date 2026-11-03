@@ -5612,7 +5612,7 @@ def cmd_load(args) -> int:
         print()
         for item in rank_knowledge(active)[:10]:
             print(
-                f"- [{item['id']}] {item['kind']} {one_line(item['topic'])}: "
+                f"- [{item['id']}] [{item['kind']}] {one_line(item['topic'])}: "
                 f"{one_line(item['statement'])} (uses={item['uses']}, tags={knowledge_tags(item)})"
             )
         print(
