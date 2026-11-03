@@ -144,8 +144,8 @@ under two roles is two tasks.
 | developer | T-0030 | - | todo | - | - |
 | developer | T-0031 | skills | done | P-0053 | 35b5695 |
 | developer | T-0032 | knowledge | done | P-0056 | 81ea5cd |
-| developer | T-0033 | - | todo | - | - |
-| developer | T-0034 | throughput | doing | - | - |
+| developer | T-0033 | context | doing | - | - |
+| developer | T-0034 | throughput | done | P-0058 | b9e5135 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | records | done | - | - |
 | technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
@@ -166,7 +166,7 @@ under two roles is two tasks.
 | tester | T-0003 | integration | doing | P-0043 | - |
 | tester | T-0004 | skills | done | P-0057 | 2fe28e2 |
 | tester | T-0005 | - | todo | - | - |
-| tester | T-0006 | - | todo | - | - |
+| tester | T-0006 | throughput | review | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -191,15 +191,14 @@ landed by commit without a PR record.
 | developer | T-0027 · Integrate the published line into integration/m15-m16 (PR #30): three conflicts, both sides' behaviour preserved | P0 | doing | - |
 | developer | T-0029 · CI annotates every ubuntu-latest job with a runner-image migration notice; pin the image or record why not | P2 | todo | - |
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
-| developer | T-0033 · M17 A11: implement the context tree (ctx:// navigation, L0/L1/L2, scoped find, stats, digest, unit tests) | P0 | todo | - |
-| developer | T-0034 · M18 A1: token-aware budget, archive --task, safe instance retirement, coordination oversupply and the preflight slice check | P0 | doing | - |
+| developer | T-0033 · M17 A11: implement the context tree (ctx:// navigation, L0/L1/L2, scoped find, stats, digest, unit tests) | P0 | doing | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
 | technical-writer | T-0011 · M17 A3: document lessons and the tw- skill prefix in every always-on surface | P1 | review | - |
 | technical-writer | T-0013 · M18 A2: document the throughput contract, read-by-id discipline and the token budget | P1 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 | tester | T-0005 · M17 A9: integration + acceptance proof of the knowledge accumulation loop (add, rank, search, duplicate, supersede, load) | P1 | todo | - |
-| tester | T-0006 · M18 A3: integration + acceptance proof of the token tools and the review-oversupply finding | P1 | todo | - |
+| tester | T-0006 · M18 A3: integration + acceptance proof of the token tools and the review-oversupply finding | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
