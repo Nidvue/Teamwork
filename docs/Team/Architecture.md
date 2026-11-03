@@ -2414,7 +2414,8 @@ prose conflict. A missing `Knowledge.md` is an empty store, never an error.
 Ids are global, `K-` plus four digits, allocated from the maximum in the file -
 a superseded record keeps its id, so the history stays readable. Every free-text
 field is one line (`one_line()`), so a record cannot break the file's structure.
-The command owns the id and the file; a hand edit is a defect, not a shortcut.
+An empty tag list is stored as `- tags: -`, never an empty cell. The command owns
+the id and the file; a hand edit is a defect, not a shortcut.
 
 ### 15.2 Commands (frozen, documented in `docs/guide/cli.md`)
 
@@ -2422,7 +2423,7 @@ The command owns the id and the file; a hand edit is a defect, not a shortcut.
 teamwork knowledge {add,list,search,show,touch} ...
 teamwork knowledge add --by BY --topic TEXT --statement TEXT --evidence TEXT [--tags TAGS] [--importance 1-5] [--supersedes K-ID] [--task T]
 teamwork knowledge list [--tag TAG] [--role ROLE] [--status active|superseded|all] [--limit N]
-teamwork knowledge search QUERY [--limit N]
+teamwork knowledge search QUERY [--status active|superseded|all] [--limit N]
 teamwork knowledge show K_ID
 teamwork knowledge touch K_ID --by BY
 ```
@@ -2432,44 +2433,66 @@ teamwork knowledge touch K_ID --by BY
   to 3; `--tags` defaults to empty; `--supersedes` and `--task` default to unset.
   Tags are normalised to a lower-case kebab comma list. Ids are `K-0001` upward,
   allocated from the file maximum.
-- The duplicate key is exact: `normalise(s) = " ".join(s.split()).casefold()`,
-  applied to `topic` and to `statement`; two records are duplicates iff **both**
-  normalised values are equal. No punctuation, accent or other folding applies.
-  A duplicate is one entry: `add` prints `# K-0003 already records this: <topic>`
-  and adds nothing, exit 0 (the same idempotent-intake rule M15 uses for tasks).
-  `--supersedes` never silently loses to a duplicate: when the content duplicates
-  K-0003 and `--supersedes K-0002` is also given, K-0002 is marked `superseded`
-  with `superseded_by: K-0003` and updated, then the duplicate line is printed;
-  when the duplicate is the supersedes target itself, nothing changes.
+- Duplicates are **active-only**. The key is exact:
+  `normalise(s) = " ".join(s.split()).casefold()`, applied to `topic` and to
+  `statement`; two records are duplicates iff both normalised values are equal
+  **and both are active**. No punctuation, accent or other folding applies.
+  `add` applies this precedence:
+  1. An exact **active** duplicate K-0003 returns the existing id and exits 0
+     with `# K-0003 already records this: <topic>` and adds no second entry. If
+     `--supersedes K-0002` is also given, K-0002 must be active: it is marked
+     `superseded` with `superseded_by: K-0003` and updated, then that line is
+     printed. A target that is the duplicate itself or is inactive exits 2.
+  2. Otherwise, an active record with the same normalised topic but a different
+     statement is refused, exit 2:
+     `topic '<topic>' is already claimed by K-0002; pass --supersedes K-0002 to replace it`.
+     Only the holder is an acceptable `--supersedes` target here.
+  3. Otherwise the new record is created active.
+  Re-adding a fact whose only matching record is **superseded** is not a
+  duplicate. When no active record claims the topic it creates a new active
+  record and the old fact stays history; when an active holder exists, rule 2
+  applies and that holder must be superseded. `--supersedes K-old` may name the
+  retired record only in the free-slot case and only when the new content
+  matches it exactly - the **re-instatement** case. The retired record's
+  `superseded_by` is not rewritten (it already names the record that retired
+  it); the new record's `supersedes` names it. Naming any other inactive record
+  exits 2.
 - A topic is a claim slot: at most one **active** record carries a given
-  normalised `topic`. `add` refuses a new record whose normalised topic is
-  already active on another record unless `--supersedes <that id>` is given:
-  `# knowledge: K-0003 already owns topic "<topic>"; use --supersedes K-0003 or a distinct topic`,
-  exit 2. This is the rule that keeps two contradictory beliefs from
-  coexisting - a replacing fact uses `--supersedes`, a different fact uses a
-  different topic.
+  normalised `topic`. A replacing fact uses `--supersedes` and retires the
+  current holder; a different fact uses a different topic.
 - On success `add` prints `# K-0001 recorded: <topic>` then
   `- path: <Knowledge.md>`.
 - `--supersedes K-0002` sets the new record's `supersedes`, marks the old record
   `status: superseded` and `superseded_by: K-new`, and updates it; the new
-  record's evidence is what justifies the replacement. An unknown or
-  already-superseded `--supersedes` id is refused, exit 2, so supersession is a
-  single link and every superseded record names exactly one replacement.
+  record's evidence is what justifies the replacement. A nonexistent target
+  exits 2; the record itself exits 2; an already-superseded target exits 2,
+  naming the active record at the end of its chain:
+  `K-0002 is already superseded by K-0004`. Only the re-instatement case above
+  may name an inactive record, and it rewrites no `superseded_by`. Therefore
+  each record has at most one `superseded_by` edge, that edge always points to a
+  later-created record, and an inactive record can never supersede another: a
+  cycle would need an id lower than itself, so the directed graph is acyclic by
+  construction and a re-instated fact always has an active record.
 - `list` defaults to `--status active` and `--limit 20` (`0` means all) with no
   role or tag filter until asked; `--role` matches the `owner` field (provenance,
   not a permission or read filter) and `--tag` matches one tag in the record's
   list. Rows are ordered by `importance` descending, then `uses` descending, then
   `updated` descending, then id **ascending**, one line each:
   `- K-0001 [active] importance=3 uses=2 tags=build,ci: <topic> - <statement>`
-  The last line is exactly `# knowledge: N active, M superseded, T use(s)`, where
-  `T` is the sum of `uses` over every record, active and superseded.
+  An empty tag list renders `tags=-`. The last line is exactly
+  `# knowledge: N active, M superseded, T use(s)`, where `T` is the sum of
+  `uses` over every record, active and superseded. `--status superseded|all`
+  reads the history.
 - `search QUERY` is a case-insensitive substring match over `topic`, `statement`
-  and `tags`, read-only, active only, `--limit 20` by default (`0` means all),
-  ranked like `list`, and prints the same row. No match prints
-  `# no knowledge matched "<query>"` and exits 0.
+  and `tags`, read-only; it uses the same row and ranking as `list`, defaults to
+  `--status active` and `--limit 20` (`0` means all), and accepts the same
+  `--status superseded|all` history switch. An empty tag list renders `tags=-`.
+  No match prints `# no knowledge matched "<query>"` and exits 0.
 - `show K_ID` prints `## K-0001 - <topic>`, then every field in record order as
-  `- field: value` (an unset optional field prints `-` as its value), then
-  `- path: <Knowledge.md>`; unknown id exits 2.
+  `- field: value` (an unset optional field prints `-`, and an empty tag list
+  prints `- tags: -`), then `- path: <Knowledge.md>`. A superseded record still
+  prints `status: superseded` and its `superseded_by`: history is readable, not
+  hidden. Unknown id exits 2.
 - `touch K_ID --by BY` increments `uses`, sets `updated` and prints
   `# K-0001 uses=N`; unknown id exits 2. It is how the team records that a fact
   was actually used, which is what makes the ranking follow need rather than
@@ -2477,7 +2500,8 @@ teamwork knowledge touch K_ID --by BY
 - Ledger events: `knowledge.add`, `knowledge.supersede` (when `--supersedes` is
   used), `knowledge.touch`.
 - `load` prints the top 10 **active** records project-wide, one line each:
-  `- [K-0001] <topic>: <statement> (uses=N, tags=...)`
+  `- [K-0001] <topic>: <statement> (uses=N, tags=...)`, where an empty tag list
+  renders `tags=-`.
   then `# project knowledge: N active, M superseded; search: teamwork.py knowledge search "<topic>"`.
   The cap is fixed at 10 and the ranking is `list`'s order, so what every agent
   reads at startup is the most important and most used knowledge, not the newest
