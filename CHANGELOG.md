@@ -36,6 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   index, cache or model sidecar. `project/docs` enumerates the work tree (an
   untracked doc appears, a tracked-deleted one disappears), and `digest` caps a
   proposed title at 120 characters and cause at 300.
+- **Throughput report and read-by-id** - `throughput` re-reads review latency,
+  verdict/rework share, queue depth, instances and surface bytes; `archive --task
+  T-ID` prints the entries for one task, and `decision list`, `board` and `trace`
+  answer a question without loading a whole `Archive.md`, `Decisions.md`,
+  `Plan.md` or task queue.
+- **Token-true budget** - `harness budget` measures the startup read and
+  `--recallable` reports the long/archive memory and fixed/superseded records
+  that `load` never prints; the 122880 B cap applies to startup, and an over row
+  is trimmed, never the cap raised.
+- **Right-sized roster and review first pass** - `slim` is the default, instances
+  scale on demand, and `instance retire` moves a lane to `Runtime/Retired/`
+  (never deletes evidence) after a cut verifies `HEAD` is at/after the move-only
+  revision. The author answers the first-pass checklist, the Tester records the
+  full suite once, the Reviewer credits it, and `preflight` warns past the
+  profile slice budget.
 - **Review-failure skill candidates** - `skill candidates` lists repeated areas
   and, per role, tasks with failed reviews plus paste-ready `lesson add` and
   `skill create --from-lesson` lines.
