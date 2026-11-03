@@ -3,7 +3,7 @@
 Owner: Project Manager. One row per task; `deps` must be `done` before it runs.
 Priority: P0 code, P1 tests, P2 docs.
 
-Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md)
+Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md) | [Throughput](Throughput.md)
 
 ## Status summary
 
@@ -837,6 +837,63 @@ there would have landed its work on another task's branch. `branch start
 | Tester | the social card was not rebuildable from a clone at `5fe89f9` (no generator); it is byte-identical now | recorded a fail, then the pass |
 | Reviewer-1 | three suite failures on main are pre-existing, not any lane's regression | filed as a bug task |
 | CEO | the publish gate is red on two of my own commit messages (an expanded shell variable) | security task, allowlist shape + control |
+
+## M17 - Institutional memory: lessons and prefixed skills (live)
+
+Intake: the operator requires that every agent remember the mistakes it made and
+work to stop them recurring, that a mistake can become a local skill that fixes
+the workflow, that an agent can create skills for any regularly performed task,
+and that every such skill carries one fixed prefix. Contract:
+[ARCHITECTURE](Architecture.md) section 14; criteria:
+[PROJECT](Project.md) M17; decisions: `D-20261103-Architect` (s14), `D-20261103-Architect-2` (s15) and `D-20261103-Architect-3` (s16) in
+[DECISIONS](Decisions.md).
+
+| task | role | deliverable | deps | state |
+|---|---|---|---|---|
+| T-0004 | architect | `Architecture.md` section 14 + technical decision | - | merged d6d178e |
+| T-0031 | developer | lesson records, `lesson` CLI, `tw-` enforcement, kinds, candidates, `PREFIX` rule, unit tests, two skills renamed | architect T-0004 | merged 35b5695 |
+| T-0005 | architect | `Architecture.md` section 15: the project knowledge store, its CLI, ranking, supersession and load surface | architect T-0004 | merged ee33a3d |
+| T-0006 | architect | `Architecture.md` section 16: the OpenViking-style `ctx://` tree, levels, scoped find, digest, knowledge kinds | architect T-0005 | merged d05763c |
+| T-0032 | developer | `Knowledge.md` records, `knowledge` CLI, ranked `load`, duplicate and supersession rules, `kind`, unit tests | architect T-0005, T-0006 | merged 81ea5cd |
+| T-0033 | developer | `context` tree: `ls`/`tree`/`read`/`find`/`stats`/`digest`, computed L0/L1/L2, scoped retrieval, unit tests | developer T-0032 | merged 92df95c |
+| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` for sections 14-16 | architect T-0004, T-0005, T-0006 | merged 723987c |
+| T-0004 | tester | integration and acceptance proof of the lesson -> skill loop, the knowledge accumulation loop and prefix enforcement | developer T-0031, T-0032 | merged 2fe28e2 (TS-0074) |
+| T-0005 | tester | integration and acceptance proof of the `ctx://` tree: levels, scoped find, digest, every node resolves | developer T-0033 | in progress (Tester-2) |
+| T-0019 | ceo | intake, criteria, records, migration check and close-out | all | records on the CEO branch |
+
+Parallel rules: the developer owns `src/teamwork/` and unit tests; the Technical
+Writer owns the always-on prose surfaces; the Tester owns the new integration and
+acceptance modules; the CEO owns `Project.md`, `Plan.md` and the close-out
+records. No two lanes share a writable file. The two legacy skill renames are the
+developer's, because the tests that trigger them are the developer's. The context
+tree (T-0033) is a view over the records T-0032 creates, so it starts after T-0032
+merges; both are serialised on `engine.py`.
+
+Exit condition: AC-M17-1..AC-M17-7 verified by a role other than the owner on the
+merged revision, the M17 layers recorded and passing, and the records exported.
+
+## M18 - Throughput and token economy (live)
+
+Intake: the operator asked to optimize roles, organization, structure, hierarchy,
+order and tasks so the team has no bottleneck, and to optimize token consumption
+against the team's history. The measured baseline, the bottleneck ranking and the
+token table are in [THROUGHPUT](Throughput.md); the criteria are AC-M18-1..3 in
+[PROJECT](Project.md).
+
+| task | role | deliverable | deps | state |
+|---|---|---|---|---|
+| T-0020 | ceo | measured baseline, `Throughput.md`, live roster right-sizing, criteria | - | report on this branch; AC-M18-1 verified |
+| T-0034 | developer | `harness budget` startup/recallable, `archive --task`, `C-REVIEW-OVERSUPPLY`, preflight slice warning, safe retirement, `throughput`, unit tests | developer T-0032 | merged b9e5135 |
+| T-0013 | technical-writer | read-by-id, right-sized slice, review first-pass, token budget in the always-on surfaces | T-0011, T-0034 | merged b4096f5 |
+| T-0006 | tester | integration/acceptance proof of the token tools and the oversupply finding | developer T-0034 | merged 4c28b85 |
+
+The ordering is deliberate: the report and the roster cut first (no code, no
+lane), the engine tools after the context tree lands on `engine.py`, the docs
+after the tools exist, and the proof last. No lane edits the same file twice.
+
+Exit condition: AC-M18-1..AC-M18-3 verified by a role other than the owner on the
+merged revision, the report's baseline re-readable by its commands, and the
+rework/oversupply numbers re-measured after the changes.
 
 ## Task-graph integrity
 

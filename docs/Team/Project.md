@@ -3,7 +3,7 @@
 Owner: CEO. Single source of truth for *what done means*. No task closes without
 mapping to an acceptance criterion here.
 
-Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [M9Acceptance](M9Acceptance.md)
+Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [M9Acceptance](M9Acceptance.md) | [Throughput](Throughput.md)
 
 ## Objective
 
@@ -259,6 +259,87 @@ review gate (the two-stage gate and the ledger stay exactly as they are).
 Exit condition: AC-8..AC-12 verified by a role other than their owner on the
 merged revision, `tests plan` with no gap in the touched areas, and the
 M14 and M15 criteria all closed in the same STOP.
+
+## M17 - Institutional memory: lessons and prefixed skills (this engagement)
+
+Objective, from the operator's directive: every agent remembers the useful
+knowledge and the mistakes it has made and works to stop the mistakes recurring;
+an agent can turn such a mistake into a local skill that fixes the workflow; the
+agents accumulate project knowledge and experience over time so they become
+fluent with the project and make better decisions; an agent can also create a
+skill for any regularly performed task by itself; and every skill the team
+creates carries one fixed prefix so a reader recognises it on sight.
+
+The mechanism is four records and one view. A **lesson** names a mistake the
+agent actually made, its cause, the rule now followed and the evidence - stored
+in the role's shared memory so every instance sees it at startup. A **skill** with
+`kind: mistake` cites that lesson (`prevents: L-nnnn`) and is created only from
+it; a skill with `kind: workflow` captures a repeated flow that is not a defect.
+A **knowledge entry** records one durable fact, experience, preference, gotcha or
+rule about this project with its evidence, tags and use count, so the team's
+understanding accumulates across sessions instead of evaporating. A **context
+tree** then addresses memory, lessons, knowledge, skills, docs and tasks as one
+`ctx://` view with three levels of detail and scoped retrieval, so an agent can
+find what the team already knows instead of re-asking; the design is adopted from
+[OpenViking](https://github.com/volcengine/OpenViking) (accessed 2026-11-03) and
+frozen in section 16. Both skill kinds are named `tw-*`, enforced at creation and
+linted on the tree. The full contract is [Architecture](Architecture.md) sections
+14, 15 and 16.
+
+Non-goals: a new roster role, a hosted memory service, changing the two-stage
+gate, retrofitting lessons into the archived history, or rewriting an archived
+record. Existing records keep their historical names; live references move.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-M17-1 | every team-created skill is named with the fixed prefix `tw-`; `skill create` refuses any other name, `harness lint` reports rule `PREFIX` for an unprefixed skill directory, and the two legacy skills are renamed with every live reference resolving | Developer | Reviewer |
+| AC-M17-2 | every agent records each mistake as a lesson (`lesson add`) with failure, cause, rule and evidence, and `teamwork load` surfaces that role's open lessons at startup | Developer | Reviewer |
+| AC-M17-3 | a lesson is closed with a recorded fix and, when the flow changes, a `tw-` skill created with `--from-lesson` that carries `kind: mistake` and `prevents: L-nnnn` in the file and the registry, with `lesson list` showing the link | Developer | Reviewer |
+| AC-M17-4 | agents create reusable `tw-` skills for repeated flows (`kind: workflow`); `skill candidates` surfaces repeated areas and review-failure mistake candidates; the shared-skill rules (branch, PR, review, merge) still apply | Developer | Reviewer |
+| AC-M17-5 | the prefix, the lesson loop and the two kinds are stated in the always-on surfaces (`SKILL.md`, `templates/AGENTS.md` and the root `AGENTS.md` block, `references/`, the CLI guide, `CHANGELOG.md`) and every published command executes | Technical Writer | Reviewer |
+| AC-M17-6 | every agent accumulates project knowledge as evidence-backed `K-` records in `Knowledge.md`; `load` surfaces the top-ranked entries at startup, `knowledge search` finds them, a duplicate is one entry, and a superseded entry is marked rather than silently contradicting the new one | Developer | Reviewer |
+| AC-M17-7 | one `ctx://` view addresses memory, lessons, knowledge, skills, docs and tasks at L0/L1/L2 with a directory-scoped deterministic `find` and a read-only `digest`; it adds no store, every node resolves to its existing source, and knowledge carries `kind` (`fact`/`experience`/`preference`/`gotcha`/`rule`) | Developer | Reviewer |
+
+Ids are namespaced (`AC-M17-n`) because the numeric `AC-<n>` space is bound to the
+pre-M17 definition-of-done table by `tests/unit/test_traceability_matrix.py`; a
+new milestone names its own ids instead of silently entering that matrix.
+
+Exit condition: AC-M17-1..AC-M17-7 verified by a role other than their owner on
+the merged revision, the lane tasks archived with a Reviewer pass, and the M17
+test layers recorded and passing.
+
+## M18 - Throughput and token economy (this engagement)
+
+Objective, from the operator's directive: optimize the roles, organization,
+structure, hierarchy, order and tasks so the whole team has no bottleneck, and
+optimize token consumption against the team's own history and track records. The
+measured baseline and every change are in [Throughput](Throughput.md); this
+section holds the criteria.
+
+The baseline says the bottleneck is **review rework**, not review capacity: 41%
+of verdicts fail and 47.7% of targets need a second verdict, while nine reviewer
+lanes at intake (four now) wait on two items. The second finding is roster
+over-supply: 34 instance directories for ten open tasks. The third is on-demand
+reads: one whole `Archive.md` read is ~635k tokens, five times the entire
+always-on prompt.
+
+Non-goals: a new org layer, a second store, a hosted dashboard, deleting history,
+or moving a cap to make a check pass.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-M18-1 | a measured baseline (review latency, rework share, queue depth, instance count, always-on bytes, on-demand document sizes) ranks the bottlenecks and every optimization is tied to a number a command re-reads | CEO | Reviewer |
+| AC-M18-2 | the roster is right-sized: idle instances retired, slim default, scale-on-demand; `harness budget` reports the bytes a startup actually loads separately from recall-only stores, so no lane is silently over the cap | CEO | Reviewer |
+| AC-M18-3 | token-aware navigation and review gates exist: `archive --task`, `coordination` reviewer-oversupply, `preflight` slice warning, and the read-by-id / right-sized-slice / review-first-pass rules are in the always-on surfaces | Developer | Reviewer |
+
+Exit condition: AC-M18-1..AC-M18-3 verified by a role other than their owner on
+the merged revision, the lane tasks archived, and the report's baseline
+re-readable by its commands.
+
+**Stage state at this cut:** AC-M18-1 and AC-M18-3 verified; AC-M18-2 **open** -
+the roster cut lost 102 artifact paths (`L-0001`) and the M17 docs pushed
+Developer/Reviewer startup over the cap. The context proof (T-0005) is still in
+progress. Do not read this milestone as closed.
 
 ## Scope
 
