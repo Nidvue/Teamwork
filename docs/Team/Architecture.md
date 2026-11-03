@@ -2290,11 +2290,14 @@ exemption.
 The registry row in `Skills.md` carries `kind:` and `lesson:` next to the
 existing fields (`name`, `status`, `owner_role`, `created_by`, `path`, `created`,
 `updated`, `shared_with`, `description`). `skill create --from-lesson` requires
-the lesson to exist, to belong to the same role as the skill and to be `open`; on
-success the lesson becomes `fixed` with the skill name and the actor recorded,
-and both records link to each other. `skill create --kind mistake` without
-`--from-lesson` is refused: a mistake skill names the record it fixes. A skill
-file read without a `kind:` field is a `workflow` (backward compatible).
+the lesson to exist, to belong to the same role as the skill and to be `open` or
+`fixed` with no `skill` yet; a lesson already fixed by a skill is refused,
+because the skill it names is its fix. On success the lesson becomes `fixed` with
+the skill name and the actor recorded, and both records link to each other. That
+makes both orders legal: skill-first fixes the lesson, lesson-first is closed by
+the skill, and AC-M17-3's link holds either way. `skill create --kind mistake`
+without `--from-lesson` is refused: a mistake skill names the record it fixes. A
+skill file read without a `kind:` field is a `workflow` (backward compatible).
 
 ### 14.2 Lesson records (`Roles/<Role>/Lessons.md`)
 
@@ -2321,10 +2324,24 @@ the maximum over every role's `Lessons.md`. Commands: `lesson add`,
 `lesson list [--role ROLE] [--status open|fixed|all]`, `lesson show <L-id>`,
 `lesson fix <L-id> --by <instance> [--rule TEXT] [--skill tw-name] [--evidence TEXT]`.
 `lesson add` requires `--by`, `--mistake`, `--cause`, `--rule` and `--evidence`;
-the role defaults to the actor's role. `lesson fix` requires a recorded
-`--evidence` (or keeps the existing one) and an existing `--skill` when given; it
-moves the lesson to `fixed`. `load` prints that role's open lessons (first 10)
-and a count of fixed ones, so every instance sees its mistakes at startup. A
+the role defaults to the actor's role.
+
+`lesson list` defaults to `--status all` with `--role` unset (every role), sorted
+by id, one line per lesson:
+
+```
+- L-0001 [open] <role>: <mistake> -> <rule> (skill: tw-name | no skill)
+```
+
+`lesson fix` requires a recorded `--evidence` (or keeps the existing one) and an
+existing `--skill` when given; on an `open` lesson it moves it to `fixed` and
+records `updated`. On an already `fixed` lesson it is allowed only when it
+carries new `--evidence` (a re-proof of the fix) and keeps or updates `--skill`;
+otherwise it is refused with
+`lesson L-0001 is already fixed by <skill>; pass --evidence to re-prove the fix`
+(the detail names the recorded skill, or `no skill` when the lesson was fixed
+without one) and changes nothing. `load` prints that role's open lessons (first
+10) and a count of fixed ones, so every instance sees its mistakes at startup. A
 missing file is an empty lesson list, never an error.
 
 ### 14.3 CLI shapes (frozen, documented in `docs/guide/cli.md`)
@@ -2335,8 +2352,13 @@ teamwork lesson add --by BY --mistake TEXT --cause TEXT --rule TEXT --evidence T
 teamwork lesson list [--role ROLE] [--status open|fixed|all]
 teamwork lesson show L_ID
 teamwork lesson fix L_ID --by BY [--rule RULE] [--skill SKILL] [--evidence EVIDENCE]
-teamwork skill create --name tw-NAME --for TEXT --by BY [--role ROLE] [--kind workflow|mistake] [--from-lesson L_ID] [--body BODY] [--body-file FILE]
+teamwork skill create --name tw-NAME --for TEXT --by BY [--role ROLE] [--kind workflow|mistake] [--from-lesson L_ID] [--body BODY] [--body-file FILE] [--force] [--allow-main]
 ```
+
+`--force` replaces an existing `<name>/SKILL.md`; `--allow-main` overrides the
+branch guard that refuses creation on `main`. Both keep their current meaning
+(section 4 changes no existing flag); the only new flags are `--kind` and
+`--from-lesson`.
 
 `SKILL_PREFIX = "tw-"` and `SKILL_NAME_RE = ^tw-[a-z0-9]+(-[a-z0-9]+)*$` are the
 single source of truth in `config.py`/`records.py`. `skill candidates` keeps its
