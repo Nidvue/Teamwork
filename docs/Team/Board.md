@@ -158,7 +158,7 @@ under two roles is two tasks.
 | technical-writer | T-0008 | - | dropped | - | - |
 | technical-writer | T-0009 | changelog | done | P-0047 | 4539796 |
 | technical-writer | T-0010 | release | done | P-0048 | 856ba14 |
-| technical-writer | T-0011 | docs | review | P-0054 | - |
+| technical-writer | T-0011 | docs | done | P-0054 | 723987c |
 | technical-writer | T-0012 | - | dropped | - | - |
 | technical-writer | T-0013 | - | todo | - | - |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
@@ -193,7 +193,6 @@ landed by commit without a PR record.
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
-| technical-writer | T-0011 · M17 A3: document lessons and the tw- skill prefix in every always-on surface | P1 | review | - |
 | technical-writer | T-0013 · M18 A2: document the throughput contract, read-by-id discipline and the token budget | P1 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 | tester | T-0005 · M17 A9: integration + acceptance proof of the knowledge accumulation loop (add, rank, search, duplicate, supersede, load) | P1 | doing | - |
