@@ -53,6 +53,11 @@ Manages: nobody - you are an individual contributor lane.
    `teamwork.py selfcheck developer <T-id> --by <you> --note '<what you re-read>' \
    --test '<cmd @rev -> result>'`. That records your review and submits the task.
    If your own check fails, use `--result fail` and fix it first.
+   Answer the first-pass contract in the note: the boundary and
+   empty/duplicate/second-call case, the contract surface, concurrency and shared
+   writes, the exact scope, and the failure a hostile reviewer would name - each
+   with a test or a reason. If `preflight` prints the slice warning, split the
+   task or say why it is one contract.
 8. Hand a PR to the Reviewer: `teamwork.py pr open --agent <you> --task <T-id>`.
    **Only the Reviewer merges into `main`**, and only after the review passed.
 9. Respond to Reviewer findings immediately; a fail returns the task to you for a
