@@ -317,10 +317,11 @@ measured baseline and every change are in [Throughput](Throughput.md); this
 section holds the criteria.
 
 The baseline says the bottleneck is **review rework**, not review capacity: 41%
-of verdicts fail and 46.6% of targets need a second verdict, while nine reviewer
-lanes wait on two items. The second finding is roster over-supply: 34 instance
-directories for ten open tasks. The third is on-demand reads: one whole
-`Archive.md` read is ~616k tokens, five times the entire always-on prompt.
+of verdicts fail and 47.7% of targets need a second verdict, while nine reviewer
+lanes at intake (four now) wait on two items. The second finding is roster
+over-supply: 34 instance directories for ten open tasks. The third is on-demand
+reads: one whole `Archive.md` read is ~635k tokens, five times the entire
+always-on prompt.
 
 Non-goals: a new org layer, a second store, a hosted dashboard, deleting history,
 or moving a cap to make a check pass.
@@ -334,6 +335,12 @@ or moving a cap to make a check pass.
 Exit condition: AC-M18-1..AC-M18-3 verified by a role other than their owner on
 the merged revision, the lane tasks archived, and the report's baseline
 re-readable by its commands.
+
+**Stage state at this cut:** AC-M18-1 verified by Reviewer-9 on the merged tools;
+AC-M18-2 **open** - the roster cut lost 102 artifact paths (`L-0001`) and the M17
+docs pushed Developer/Reviewer startup over the cap; AC-M18-3 open until the M18
+docs (P-0061) merge. The context proof (T-0005) is still in progress. Do not read
+this milestone as closed.
 
 ## Scope
 
