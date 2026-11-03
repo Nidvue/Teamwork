@@ -2551,3 +2551,173 @@ teamwork knowledge touch K_ID --by BY
   faster than the first one.
 - The knowledge count is a milestone metric: a project whose agents never add or
   use a record is not accumulating experience, whatever its archives say.
+
+## 16. Context tree: one navigable view of memory, lessons, knowledge and skills (frozen)
+
+Owner: Architect. This section freezes the **context-tree surface**: the `ctx://`
+view over the stores sections 14 and 15 created, the three computed levels, the
+`context` command family and the `kind` field on knowledge. The design is adopted
+from OpenViking; the dependency is not. Sources, the adopt/reject table and the
+vendor-claim caveat are in [Research](Research.md) section 11, accessed
+2026-11-03.
+
+**Measured baseline at `bcec6f1`** - none of this is implemented yet, and the
+section says so rather than describing an engine that does not exist:
+`python scripts/teamwork.py --help` -> no `context` and no `knowledge`
+subcommand; `python scripts/teamwork.py context --help` -> `invalid choice:
+'context'`, exit 2; `git grep -n "ctx://" -- src tests` -> 0 matches;
+`git ls-files .agents/skills` -> the two `tw-` skills; `python
+scripts/teamwork.py harness lint` in this lane's worktree -> `# problems found:
+0`. Section 15 is still a contract at this revision, so `kind` lands with it in
+T-0032 and `context` follows in T-0033. Until then `ctx://` is a rule, not a
+command.
+
+Adopted from OpenViking: one filesystem-shaped view, stable URIs, L0/L1/L2
+progressive loading, directory-scoped retrieval. Rejected: the server, the vector
+index, the embedding/VLM dependency and generated sidecars. This skill is
+stdlib-only, local and evidence-first; the tree adds no file, no index and no
+migration. **The tree is a read-only view over the existing files, never a
+second store.**
+
+### 16.1 URI scheme
+
+`ctx://` addresses the existing records and documents as one tree. A URI is a
+view: it always resolves to an existing file or record, never to a copy. `<role>`
+is the canonical role id (`developer`, `release-engineer`); `<name>` is a skill
+directory name.
+
+| URI | Resolves to | Levels |
+|---|---|---|
+| `ctx://` | the tree root: `project`, `role`, `global` | L0 count summary, L1 child list |
+| `ctx://project/knowledge`, `ctx://project/knowledge/K-0001` | `Knowledge.md` records | L0/L1 record, L2 full |
+| `ctx://project/skills`, `ctx://project/skills/tw-name` | `.agents/skills/<name>/SKILL.md` | L0 description, L1 headings, L2 file |
+| `ctx://project/docs`, `ctx://project/docs/Team/Project.md` | committed `docs/**/*.md` | L0 title + first paragraph, L1 heading tree, L2 file |
+| `ctx://role/<role>/lessons`, `.../L-0001` | `Roles/<Role>/Lessons.md` | L0/L1 record, L2 full |
+| `ctx://role/<role>/tasks`, `.../T-0001` | `Roles/<Role>/TaskQueue.md` | L0 title, L1 fields, L2 body |
+| `ctx://role/<role>/memory/short\|long\|archive`, `.../M-0001` | the role's memory files | L0 body, L1 fields, L2 entry |
+| `ctx://global/memory`, `.../M-0001` | `Global/GlobalMemory.md` | L0 body, L1 fields, L2 entry |
+| `ctx://project`, `ctx://role`, `ctx://global` | directory nodes | L0 count summary, L1 child list |
+
+`role/<role>/memory/short`, `long` and `archive` resolve to
+`Roles/<Role>/ShortTermMemory.md`, `LongTermMemory.md` and `ArchivedMemory.md`.
+`project/skills` lists every `.agents/skills/<name>/SKILL.md`, `tw-` or not, so a
+prefix lint finding stays visible instead of being hidden by the view.
+`project/docs` lists every committed `docs/**/*.md`, addressed by its path after
+`ctx://project/docs/`.
+
+Unknown URI, unknown level or a URI outside the scheme exits 2 and names the
+node. A segment that escapes its namespace (`..`, an absolute path, a backslash,
+a drive prefix) is an unknown URI and exits 2: a node never resolves outside the
+repository or the team root. A missing file reads as an empty store (the same
+rule section 15 uses), never an error, except an unknown URI.
+
+### 16.2 Levels (computed, never generated)
+
+- **L0** is one line derived deterministically at read time: knowledge
+  `[kind] topic: statement`; lesson `[status] mistake`; memory body; skill
+  description; doc H1 + first paragraph collapsed to one line; task title.
+- **L1** is the navigation layer: for a record, its fields as `- field: value`;
+  for a doc, the heading tree (first 20 headings); for a directory, the child
+  count plus each child's L0 (cap 20, then `... N more`).
+- **L2** is the full record or file.
+
+L0 and L1 are computed from the source at read time. There is no
+`.abstract.md`/`.overview.md` sidecar: a generated summary is a second copy that
+goes stale, and generating one needs a model. This is the one deliberate
+departure from OpenViking's storage design and the section states it. Levels are
+output formats, not files: nothing is cached and no level is written back.
+
+### 16.3 Commands (frozen, documented in `docs/guide/cli.md`)
+
+```
+teamwork context {ls,tree,read,find,stats,digest} ...
+teamwork context ls [URI] [--level 0|1] [--limit N]
+teamwork context tree [URI] [-L N]
+teamwork context read URI [--level 0|1|2]
+teamwork context find QUERY [--scope URI] [--limit N]
+teamwork context stats
+teamwork context digest T_ID
+```
+
+- `ls` defaults to `ctx://`, level 0, limit 20; one line per child:
+  `- <uri> [<type>] <L0>`, where `<type>` is one of `dir`, `doc`, `skill`,
+  `knowledge`, `lesson`, `memory`, `task`. `--level 1` prints each child's L1
+  instead of its L0. `--limit 0` means no cap; a missing store lists nothing and
+  exits 0.
+- `tree` defaults to `ctx://` and depth 2; indented two spaces per level,
+  `- <name> <L0>`; the same 20-child cap and `... N more` marker. `-L N` sets
+  that depth (`-L 1` prints the root and its children).
+- `read` defaults to level 1; L2 prints the full record or file. It prints the
+  computed level and nothing else.
+- `find` defaults to scope `ctx://` and limit 10; read-only.
+- `stats` prints one line per store (memory, lessons, knowledge, skills, docs,
+  tasks), live counts only, read from the files at call time; a missing store is
+  `0`, and knowledge reports active and superseded counts on its own line.
+- `digest T_ID` is read-only and prints candidate record templates: a failed
+  review or a task `findings` field produces a `lesson add` block (mistake from
+  the title, cause from the finding, rule left as a clear placeholder, evidence
+  from the review/branch), and a done task also produces a
+  `knowledge add --kind experience` block (statement from the title/result,
+  evidence from the branch/merge). It writes nothing and never claims a record;
+  the agent decides. A task that is neither failed nor done, and has no findings,
+  prints `# T-0007: nothing to digest` and exits 0; an unknown task exits 2.
+
+Every `context` subcommand is read-only: none writes a file, a record, a cache or
+a ledger event. `digest` in particular never claims the record it proposes.
+
+### 16.4 Retrieval: deterministic, no embeddings
+
+Tokenise the query on whitespace and casefold; the **normalised query** is those
+tokens joined by one space. A node matches if any token occurs in its L0 or L1
+text (casefolded substring). Score, highest first:
+
+```
+5 * (normalised query is a substring of L0)
++ 3 * (every token occurs in L0)
++ 2 * (token occurrences in L0)
++ 1 * (token occurrences in L1)
++ 1 * (a tag equals a query token)
+```
+
+An occurrence is a non-overlapping substring match in the casefolded text. Only
+positive scores are returned; ties break by URI ascending. `--scope` is a URI
+prefix (`ctx://role/developer`, `ctx://project/knowledge`), and a node outside
+the scope is never returned; an unknown scope exits 2. `find` prints one hit per
+line, `- <score> <uri> [<type>] <L0>`; no hit prints
+`# no context node matched "<query>"` and exits 0. `find` never reads L2. No
+model call, no network, no index: the same query over the same tree returns the
+same list.
+
+### 16.5 Knowledge kinds (the "experience" context type)
+
+OpenViking separates experiences from facts; section 15's records gain a `kind`
+field: `fact` (default), `experience`, `preference`, `gotcha`, `rule`.
+`knowledge add --kind`, `knowledge list --kind` and `knowledge search --kind` use
+it; `load` and the context L0 show it. A lesson remains the record of a mistake;
+an `experience` is a reusable approach that worked. This is the smallest change
+that gives the user's "experience" a first-class home without a second store.
+
+The field is written after `statement` and before `evidence`; a record without
+`kind:` reads as `fact`, so section 15's records need no migration. `add`
+defaults to `fact`, an unknown kind exits 2 naming the five values, and
+`list`/`search --kind` keep only that kind. `show` prints the field in record
+order. `load` renders it after the id -
+`- [K-0001] [experience] <topic>: <statement> (uses=N, tags=...)` - and the
+context L0 begins `[experience]`.
+
+### 16.6 Invariants
+
+- The tree is a view: no new file, no duplicated content, no migration, no
+  index. Every node resolves to a committed doc or a team-local record.
+- `context` is read-only: no subcommand writes a file, a record, a cache or a
+  ledger event, and `digest` never claims the record it proposes.
+- No secret is surfaced: the docs are privacy-scanned, the records obey the red
+  line, and `context` prints only what is already stored.
+- The tree never replaces `load`, the gates, the review or the evidence rule; it
+  is navigation and retrieval.
+- `find` is deterministic and reproducible; no model, no network.
+- **Section 5 gains no row.** Section 5 freezes files and workspace state, and
+  the tree adds neither: there is no `Context.md`, no index file and no new
+  directory, so a reader looking for a new path will not find one.
+- A new store is added to the tree only by amending this section, never by a
+  silent directory.
