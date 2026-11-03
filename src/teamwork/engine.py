@@ -230,6 +230,7 @@ from .layout import (
     project_of,
     project_path,
     project_root,
+    retired_dir,
     reviews_path,
     role_dir,
     roles_dir,
@@ -4873,7 +4874,9 @@ def cmd_instance(args) -> int:
 
     Roles differ in what they own, not in how many lanes may serve it: any role
     can run several instances, they share the role's memory and queue, and the
-    memory lease (`memory claim`) keeps exactly one of them revising it.
+    memory lease (`memory claim`) keeps exactly one of them revising it. A
+    retired lane's directory is MOVED to `Runtime/Retired/<Instance>/` so its
+    Artifacts/, Reports/ and WorkLog.md survive as evidence; nothing is deleted.
     """
     root = project_root(args)
     if not role_dir(root, "ceo").parent.is_dir() and not agents_dir(root).is_dir():
@@ -5066,7 +5069,33 @@ def _instance_list(root: Path, as_json: bool) -> int:
     return 0
 
 
+def _retire_destination(root: Path, name: str) -> Path:
+    """A path under ``Runtime/Retired`` that does not exist yet.
+
+    Retirement is move-only: the lane's Artifacts/, Reports/ and WorkLog.md are
+    evidence a ledger record or Archive entry may still cite, so a second
+    retirement of the same name gets a timestamped sibling instead of replacing
+    the first directory.
+    """
+    base = retired_dir(root) / safe_component(pascal(name))
+    if not base.exists():
+        return base
+    stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    candidate = base.with_name(f"{base.name}-{stamp}")
+    suffix = 1
+    while candidate.exists():
+        candidate = base.with_name(f"{base.name}-{stamp}-{suffix}")
+        suffix += 1
+    return candidate
+
+
 def _instance_retire(root: Path, args) -> int:
+    """Retire an idle lane by MOVING its directory, never by deleting it.
+
+    The instance directory holds Artifacts/, Reports/ and WorkLog.md, which the
+    ledger and docs/Team/Archive.md may cite as evidence. A failed move is a hard
+    error; there is deliberately no fallback to `rmtree`.
+    """
     name, role = validate_actor(root, args.name, "instance")
     d = agent_dir(root, name)
     if not d.is_dir():
@@ -5086,7 +5115,20 @@ def _instance_retire(root: Path, args) -> int:
             f'`--force "<why>"` so the record says what was abandoned.',
             2,
         )
-    shutil.rmtree(d)
+    destination = _retire_destination(root, name)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.move(str(d), str(destination))
+    except OSError as exc:
+        die(
+            f"could not move {name} to {destination}: {exc}. The command did not fall "
+            "back to deleting it; inspect both paths, fix the cause and retry.",
+            1,
+        )
+    try:
+        shown = destination.relative_to(project_of(root)).as_posix()
+    except ValueError:
+        shown = str(destination)
     ledger_append(
         root,
         "instance.retire",
@@ -5094,11 +5136,11 @@ def _instance_retire(root: Path, args) -> int:
         name,
         (args.reason or "no reason given")
         + (f" | forced past: {'; '.join(blockers)}" if blockers else "")
-        + f" | {role} memory kept at Roles/{pascal(role)}",
+        + f" | moved to {shown}; {role} memory kept at Roles/{pascal(role)}",
         "",
         role,
     )
-    print(f"teamwork: retired {name}; the {role} memory and queue stay in place")
+    print(f"teamwork: retired {name} -> {shown}; the {role} memory and queue stay in place")
     if not instances_of(root, role):
         print(
             f"#   WARNING no {role} instance left: that lane owns work nobody can take. "
@@ -9014,7 +9056,12 @@ def review_latency(root: Path) -> dict:
             return None
         return round(durations[min(len(durations) - 1, int(len(durations) * share))], 1)
 
-    return {"count": len(durations), "p50": pct(0.5), "p90": pct(0.9)}
+    return {
+        "count": len(durations),
+        "p50": pct(0.5),
+        "p90": pct(0.9),
+        "max": round(durations[-1], 1) if durations else None,
+    }
 
 
 def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
@@ -10350,21 +10397,37 @@ def coordination_report(root: Path) -> dict:
 
     open_reviews = open_review_items(root)
     review_lanes = len(instances_of(root, "reviewer"))
-    if open_reviews:
+    if open_reviews and len(open_reviews) > 2 * review_lanes:
         oldest_review = max(days_since(t.get("created") or "") for _, t in open_reviews)
-        if len(open_reviews) > 2 * max(review_lanes, 1) or oldest_review >= 2:
-            findings.append(
-                _coord_finding(
-                    "C-REVIEW-BACKLOG",
-                    "review",
-                    "medium",
-                    f"{len(open_reviews)} unclaimed / {review_lanes} lane(s), "
-                    f"oldest {oldest_review}d",
-                    "the Reviewer queue is the team's throughput limit",
-                    "staff another Reviewer lane, send prose-only items to a fast "
-                    "review, and renew claims instead of re-claiming",
-                )
+        findings.append(
+            _coord_finding(
+                "C-REVIEW-BACKLOG",
+                "review",
+                "medium",
+                f"{len(open_reviews)} unclaimed / {review_lanes} lane(s), oldest {oldest_review}d",
+                "the Reviewer queue is the team's throughput limit",
+                "staff another Reviewer lane, send prose-only items to a fast "
+                "review, and renew claims instead of re-claiming",
             )
+        )
+    if review_lanes > 2 * max(len(open_reviews), 1) and review_lanes > 2:
+        lanes = instances_of(root, "reviewer")
+        busy = busy_instances(root)
+        idle = [lane for lane in lanes if pascal(lane) not in busy]
+        findings.append(
+            _coord_finding(
+                "C-REVIEW-OVERSUPPLY",
+                "review",
+                "low",
+                f"{review_lanes} lane(s) / {len(open_reviews)} unclaimed",
+                "reviewer lanes ("
+                + ", ".join(lanes)
+                + f") exceed twice the {len(open_reviews)} unclaimed item(s); "
+                "idle reviewers: " + (", ".join(idle) or "none"),
+                "retire or reuse an idle Reviewer lane; scale back up when the "
+                "queue passes twice the lanes",
+            )
+        )
     expired = expired_review_claims(root)
     if expired:
         findings.append(
@@ -10489,6 +10552,157 @@ def _coordination_print(report: dict, root: Path) -> int:
         f"{metrics['review_duplicated_gates']} duplicated gate run(s)"
     )
     print(f"- reclaims in {COORD_RECLAIM_DAYS} days: {metrics['reclaims']}")
+    return 0
+
+
+def throughput_report(root: Path) -> dict:
+    """The measured token/throughput surface, read from the ledger and the tree.
+
+    Read-only by construction: every value is a count, a percentile or a file
+    size computed at call time. The report is the reproducible reader for
+    docs/Team/Throughput.md, so it must never append a ledger record.
+    """
+    from collections import Counter
+
+    records = ledger_read(root)
+    action_counts = Counter(str(record.get("action") or "") for record in records)
+    top_actions = [
+        {"action": action, "count": count}
+        for action, count in sorted(action_counts.items(), key=lambda item: (-item[1], item[0]))[
+            :10
+        ]
+    ]
+
+    verdicts = [
+        record for record in records if record.get("action") in ("review.pass", "review.fail")
+    ]
+    by_target: dict = {}
+    for record in verdicts:
+        key = (record.get("role") or "", record.get("target") or "")
+        by_target[key] = by_target.get(key, 0) + 1
+    latency = review_latency(root)
+
+    queue = []
+    for role in list_roles(root):
+        counts = {"todo": 0, "doing": 0, "review": 0}
+        for task in parse_tasks(task_file(root, role)):
+            status = task.get("status")
+            if status in counts:
+                counts[status] += 1
+        queue.append({"role": role, **counts})
+
+    project = project_of(root)
+    docs = docs_dir(root)
+
+    def size(path: Path) -> int:
+        return path.stat().st_size if path.is_file() else 0
+
+    docs_total = sum(size(path) for path in docs.glob("*.md")) if docs.is_dir() else 0
+    queue_sizes = [(role, size(task_file(root, role))) for role in list_roles(root)]
+    largest_role, largest_bytes = max(
+        queue_sizes, key=lambda row: (row[1], row[0]), default=("", 0)
+    )
+
+    from . import harness  # local: the command layer owns module registration
+
+    startup = [row.always_on for row in harness.budget_rows(project, root, None)[0]]
+
+    return {
+        "team": root.name,
+        "ledger_records": len(records),
+        "actions": top_actions,
+        "review": {
+            "count": latency["count"],
+            "p50_minutes": latency["p50"],
+            "p90_minutes": latency["p90"],
+            "max_minutes": latency["max"],
+            "pass": sum(1 for record in verdicts if record.get("action") == "review.pass"),
+            "fail": sum(1 for record in verdicts if record.get("action") == "review.fail"),
+            "targets": len(by_target),
+            "multi_verdict_targets": sum(1 for count in by_target.values() if count > 1),
+        },
+        "queue": queue,
+        "instances": len(list_agents(root)),
+        "surface": {
+            "agents_bytes": harness.file_size(project / "AGENTS.md"),
+            "skill_bytes": harness.file_size(project / "SKILL.md"),
+            "startup_min_bytes": min(startup) if startup else 0,
+            "startup_max_bytes": max(startup) if startup else 0,
+            "archive_bytes": size(docs / "Archive.md"),
+            "archive_tokens": size(docs / "Archive.md") // 4,
+            "decisions_bytes": size(docs / "Decisions.md"),
+            "decisions_tokens": size(docs / "Decisions.md") // 4,
+            "plan_bytes": size(docs / "Plan.md"),
+            "plan_tokens": size(docs / "Plan.md") // 4,
+            "docs_bytes": docs_total,
+            "docs_tokens": docs_total // 4,
+            "largest_task_queue": largest_role,
+            "largest_task_queue_bytes": largest_bytes,
+            "largest_task_queue_tokens": largest_bytes // 4,
+        },
+    }
+
+
+def _print_throughput(report: dict) -> None:
+    review = report["review"]
+    surface = report["surface"]
+
+    def minutes(value) -> str:
+        return "-" if value is None else f"{value}m"
+
+    print(f"# throughput ({report['team']})")
+    print(f"ledger records: {report['ledger_records']}")
+    print()
+    print("## top actions")
+    for row in report["actions"]:
+        print(f"- {row['action']}: {row['count']}")
+    print()
+    print("## review")
+    print(
+        f"review claim->verdict: n={review['count']} "
+        f"p50={minutes(review['p50_minutes'])} p90={minutes(review['p90_minutes'])} "
+        f"max={minutes(review['max_minutes'])}"
+    )
+    print(f"verdicts: {review['pass']} pass / {review['fail']} fail")
+    print(
+        f"targets: {review['multi_verdict_targets']}/{review['targets']} with more than one verdict"
+    )
+    print()
+    print("## queue")
+    for row in report["queue"]:
+        print(f"- {row['role']}: todo={row['todo']} doing={row['doing']} review={row['review']}")
+    print(f"instances: {report['instances']}")
+    print()
+    print("## surface")
+    print(
+        f"AGENTS {surface['agents_bytes']} B | SKILL {surface['skill_bytes']} B | "
+        f"startup {surface['startup_min_bytes']}..{surface['startup_max_bytes']} B"
+    )
+    print(
+        f"Archive {surface['archive_bytes']} B (~{surface['archive_tokens']} tokens) | "
+        f"Decisions {surface['decisions_bytes']} B (~{surface['decisions_tokens']} tokens)"
+    )
+    print(
+        f"Plan {surface['plan_bytes']} B (~{surface['plan_tokens']} tokens) | "
+        f"docs/Team {surface['docs_bytes']} B (~{surface['docs_tokens']} tokens)"
+    )
+    print(
+        f"largest TaskQueue {surface['largest_task_queue'] or '-'} "
+        f"{surface['largest_task_queue_bytes']} B "
+        f"(~{surface['largest_task_queue_tokens']} tokens)"
+    )
+
+
+def cmd_throughput(args) -> int:
+    """`teamwork throughput [--json]` - the report's own reproducible reader."""
+    import json
+
+    root = project_root(args)
+    report = throughput_report(root)
+    if getattr(args, "json", False):
+        print(json.dumps({"command": "throughput", **report}, indent=2, sort_keys=True))
+    else:
+        _print_throughput(report)
     return 0
 
 
@@ -12362,7 +12576,26 @@ PREFLIGHT_UNVERIFIED = "unverified"
 
 #: Report and digest order, fixed: a reader comparing two preflight runs compares
 #: the same line with the same check.
-PREFLIGHT_ORDER = ("branch", "identity", "evidence", "mergeable", "board", "features", "gate")
+PREFLIGHT_ORDER = (
+    "branch",
+    "identity",
+    "evidence",
+    "mergeable",
+    "board",
+    "features",
+    "slice",
+    "gate",
+)
+
+#: A review lease is sized per profile, so a diff beyond that profile's slice is
+#: a warning the author must see before the Reviewer spends the lease on it. The
+#: numbers are the ones Throughput.md section 4 rule 4 ships: fast 6/300,
+#: standard 12/600, deep 24/1200 (files / changed lines).
+SLICE_BUDGETS = {
+    "fast": (6, 300),
+    "standard": (12, 600),
+    "deep": (24, 1200),
+}
 
 #: The checks whose verdict rides in the digest. `gate` is deliberately absent: it
 #: is opt-in (`--run`), so its status describes this invocation rather than the
@@ -12805,6 +13038,44 @@ def _preflight_features(root: Path, project: Path, base: str, branch: str) -> Pr
     )
 
 
+def _preflight_slice(
+    project: Path, base: str, branch: str, root: Path, role: str, task: dict
+) -> PreflightCheck | None:
+    """Warn when this diff is larger than its review profile's slice.
+
+    A warning, never a failure: splitting a task is a scheduling decision, not a
+    correctness one. The check is omitted while the diff is inside the budget so
+    the ordinary seven-check report stays byte-identical.
+    """
+    diff = run_git(project, "diff", "--numstat", f"{base}...{branch}")
+    if diff.returncode != 0:
+        return None
+    files = 0
+    changed = 0
+    for line in diff.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        files += 1
+        for value in parts[:2]:
+            if value.isdigit():
+                changed += int(value)
+    profile_task = dict(task)
+    profile_task["base"] = base
+    profile, _reason = review_profile_for(root, role, profile_task)
+    file_budget, line_budget = SLICE_BUDGETS.get(profile, SLICE_BUDGETS["standard"])
+    if files <= file_budget and changed <= line_budget:
+        return None
+    return PreflightCheck(
+        "slice",
+        PREFLIGHT_WARN,
+        f"{files} files / {changed} changed lines vs {profile} budget; "
+        "split the task or record why it cannot be split",
+        "split the task into review-sized slices, or say in the self-check note "
+        "why it is one coherent change",
+    )
+
+
 def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
     """The project's own gate, if it configured one - the skill names no toolchain.
 
@@ -12927,6 +13198,9 @@ def run_preflight(
         checks.append(_preflight_mergeable(project, base, branch, role))
         checks.append(_preflight_board(root, project, base, branch))
         checks.append(_preflight_features(root, project, base, branch))
+        slice_check = _preflight_slice(project, base, branch, root, role, task)
+        if slice_check is not None:
+            checks.append(slice_check)
     checks.append(_preflight_gate(root, project, run_gate))
     return PreflightResult(role, task.get("id", ""), branch, base, revision, checks)
 
@@ -13121,11 +13395,48 @@ def cmd_archive(args) -> int:
     root = project_root(args)
     full = bool(getattr(args, "full", False))
     path = archive_path(root)
+    wanted_tasks = [
+        value.strip().upper() for value in (getattr(args, "task", None) or []) if value.strip()
+    ]
     if not path.exists():
+        if wanted_tasks:
+            for task in wanted_tasks:
+                print(f"# no archive entry for {task}")
+            return 0
         print(f"# no archive yet ({path.relative_to(project_of(root))})")
         print("# entries are appended automatically when a review passes")
         return 0
     text = path.read_text(encoding="utf-8")
+    if wanted_tasks:
+        body = text.rstrip().split("\n## ")[1:]
+        matches = [
+            block
+            for block in body
+            if any(
+                re.match(
+                    rf"^{re.escape(task)}(?:\s|$)",
+                    block.split("\n", 1)[0].strip(),
+                    re.IGNORECASE,
+                )
+                for task in wanted_tasks
+            )
+        ]
+        for task in wanted_tasks:
+            if not any(
+                re.match(
+                    rf"^{re.escape(task)}(?:\s|$)",
+                    block.split("\n", 1)[0].strip(),
+                    re.IGNORECASE,
+                )
+                for block in body
+            ):
+                print(f"# no archive entry for {task}")
+        if not matches:
+            return 0
+        limit = 0 if full or args.all else args.limit
+        shown = matches if not limit or len(matches) <= limit else matches[-limit:]
+        print(archive_view_text("\n\n".join("## " + b.rstrip() for b in shown), full))
+        return 0
     if args.agent:
         role = resolve_role(args.agent)
         blocks = text.split("\n## ")
@@ -15481,9 +15792,11 @@ def _parsers_workspace(sub, common) -> None:
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(func=cmd_instance)
     p = isub.add_parser(
-        "retire", parents=[common], help="remove an idle instance (the role's memory stays)"
+        "retire",
+        parents=[common],
+        help="move an idle instance to Runtime/Retired (artifacts and role memory stay)",
     )
-    p.add_argument("name", help="instance to remove, e.g. reviewer-3")
+    p.add_argument("name", help="instance to retire, e.g. reviewer-3")
     p.add_argument("--by", default="ceo", help="who retires it (provenance)")
     p.add_argument("--reason", default="", help="why it goes (required once it holds work)")
     p.add_argument("--force", action="store_true", help="retire even while it holds work")
@@ -16018,6 +16331,13 @@ def _parsers_quality(sub, common) -> None:
         help=f"list only the N most recent entries (default {ARCHIVE_VIEW_ENTRIES})",
     )
     s.add_argument("--all", action="store_true", help="list every entry")
+    s.add_argument(
+        "--task",
+        action="append",
+        default=[],
+        metavar="T-ID",
+        help="print only entries whose heading names this task id (repeatable)",
+    )
     s.set_defaults(func=cmd_archive)
 
     s = sub.add_parser(
@@ -16512,6 +16832,14 @@ def _parsers_audit(sub, common) -> None:
     )
     s.add_argument("--commit", action="store_true", help="append the result to the ledger")
     s.set_defaults(func=cmd_coordination)
+
+    s = sub.add_parser(
+        "throughput",
+        parents=[common],
+        help="read-only ledger latencies, rework share and context-surface bytes",
+    )
+    s.add_argument("--json", action="store_true", help="machine-readable report")
+    s.set_defaults(func=cmd_throughput)
 
     s = sub.add_parser(
         "links", parents=[common], help="check markdown cross-links, URLs and back-links"

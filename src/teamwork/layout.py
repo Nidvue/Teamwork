@@ -9,6 +9,7 @@ from .config import (
     DIR_AGENTS,
     DIR_DOCS,
     DIR_GLOBAL,
+    DIR_RETIRED,
     DIR_ROLES,
     DIR_RUNTIME,
     DIR_WORKTREES,
@@ -153,6 +154,16 @@ def role_dir(root: Path, role: str) -> Path:
 
 def global_dir(root: Path) -> Path:
     return root / DIR_GLOBAL
+
+
+def retired_dir(root: Path) -> Path:
+    """Where a retired instance directory is moved, never deleted.
+
+    The lane's ``Artifacts/``, ``Reports/`` and ``WorkLog.md`` are evidence the
+    ledger and Archive may still cite, so retirement preserves the whole
+    directory under ``Runtime/Retired/<Instance>/``.
+    """
+    return root / DIR_RUNTIME / DIR_RETIRED
 
 
 def list_agents(root: Path) -> list:
