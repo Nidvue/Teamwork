@@ -143,7 +143,7 @@ under two roles is two tasks.
 | developer | T-0029 | - | todo | - | - |
 | developer | T-0030 | - | todo | - | - |
 | developer | T-0031 | skills | done | P-0053 | 35b5695 |
-| developer | T-0032 | knowledge | doing | P-0056 | - |
+| developer | T-0032 | knowledge | done | P-0056 | 81ea5cd |
 | developer | T-0033 | - | todo | - | - |
 | developer | T-0034 | throughput | doing | - | - |
 | reviewer | T-0001 | - | done | - | - |
@@ -191,7 +191,6 @@ landed by commit without a PR record.
 | developer | T-0027 · Integrate the published line into integration/m15-m16 (PR #30): three conflicts, both sides' behaviour preserved | P0 | doing | - |
 | developer | T-0029 · CI annotates every ubuntu-latest job with a runner-image migration notice; pin the image or record why not | P2 | todo | - |
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
-| developer | T-0032 · M17 A7: implement the project knowledge store (records, CLI, ranked load, duplicate + supersession, unit tests) | P0 | doing | - |
 | developer | T-0033 · M17 A11: implement the context tree (ctx:// navigation, L0/L1/L2, scoped find, stats, digest, unit tests) | P0 | todo | - |
 | developer | T-0034 · M18 A1: token-aware budget, archive --task, safe instance retirement, coordination oversupply and the preflight slice check | P0 | doing | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
