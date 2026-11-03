@@ -85,7 +85,7 @@ under two roles is two tasks.
 | architect | T-0002 | contract | doing | P-0037 | - |
 | architect | T-0003 | - | todo | - | - |
 | architect | T-0004 | architecture | done | P-0051 | d6d178e |
-| architect | T-0005 | architecture | review | P-0052 | - |
+| architect | T-0005 | architecture | done | P-0052 | ee33a3d |
 | ceo | T-0001 | - | done | P-0005 | d36e731 |
 | ceo | T-0002 | - | done | P-0006 | cd561a5 |
 | ceo | T-0004 | - | done | P-0019 | f3a765f |
@@ -172,7 +172,6 @@ landed by commit without a PR record.
 |---|---|---|---|---|
 | architect | T-0002 · M15 A8: Architecture section 11 freezes nine release-consistency rules; R10 makes the frozen contract false | P2 | doing | - |
 | architect | T-0003 · Section 5 does not name Attention.md, the record T-0014 introduces; add the workspace-format row when it merges | P2 | todo | - |
-| architect | T-0005 · M17 A6: freeze the project knowledge store contract (Architecture.md section 15) and record the decision | P0 | review | - |
 | ceo | T-0008 · M15 plan: the surfaces table says four and lists five rows | P3 | doing | - |
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
