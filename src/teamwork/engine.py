@@ -106,6 +106,7 @@ from .config import (
     F_GLOBAL_ARCHIVE,
     F_HEAD,
     F_INBOX,
+    F_KNOWLEDGE,
     F_LEDGER,
     F_LESSONS,
     F_LONG,
@@ -133,6 +134,9 @@ from .config import (
     FEATURE_TERMINAL_STATES,
     GITIGNORE_LINES,
     IDENTITY_DOMAIN,
+    KNOWLEDGE_KINDS,
+    KNOWLEDGE_STATEMENT_MAX,
+    KNOWLEDGE_TOPIC_MAX,
     LAYER_CELL,
     LAYER_OWNER,
     LAYER_WHAT,
@@ -217,6 +221,7 @@ from .layout import (
     docs_dir,
     global_dir,
     instances_of,
+    knowledge_path,
     known_instances,
     lessons_path,
     link_fields,
@@ -263,6 +268,8 @@ from .records import (
     DISPUTE_RE,
     ENTRY_RE,
     HEADERS,
+    KNOWLEDGE_FIELDS,
+    KNOWLEDGE_OPTIONAL,
     LESSON_FIELDS,
     MANDATES,
     META_RE,
@@ -287,6 +294,7 @@ from .records import (
     find_criterion,
     find_dispute,
     find_feature,
+    find_knowledge,
     find_lesson,
     find_pr,
     find_pr_exact,
@@ -294,6 +302,9 @@ from .records import (
     find_task,
     find_test,
     header_for,
+    knowledge_row,
+    knowledge_tags,
+    knowledge_totals,
     load_task_queues,
     local_dep_map,
     merge_entries,
@@ -302,6 +313,7 @@ from .records import (
     new_dispute,
     new_entry,
     new_feature,
+    new_knowledge,
     new_lesson,
     new_pr,
     new_skill,
@@ -309,13 +321,17 @@ from .records import (
     new_test_record,
     next_feature_id,
     next_id,
+    next_knowledge_id,
     norm_path,
+    normalise_knowledge,
+    normalise_tags,
     open_records,
     parse_criteria,
     parse_date,
     parse_disputes,
     parse_features,
     parse_features_text,
+    parse_knowledge,
     parse_lessons,
     parse_memory,
     parse_reviews,
@@ -324,6 +340,7 @@ from .records import (
     parse_testplan,
     parse_tests,
     path_problems,
+    rank_knowledge,
     render,
     render_criteria,
     render_disputes,
@@ -341,6 +358,7 @@ from .records import (
     write_criteria,
     write_disputes,
     write_features,
+    write_knowledge,
     write_lessons,
     write_memory,
     write_reviews,
@@ -413,6 +431,10 @@ __all__ = [
     "F_AUDITREPORT",
     "F_SKILLS",
     "F_LESSONS",
+    "F_KNOWLEDGE",
+    "KNOWLEDGE_KINDS",
+    "KNOWLEDGE_TOPIC_MAX",
+    "KNOWLEDGE_STATEMENT_MAX",
     "SKILLS_DIR",
     "SKILL_PREFIX",
     "SKILL_KINDS",
@@ -480,6 +502,7 @@ __all__ = [
     "disputes_path",
     "skills_path",
     "lessons_path",
+    "knowledge_path",
     "task_file",
     "skills_dir",
     "skill_file",
@@ -512,6 +535,8 @@ __all__ = [
     "TASK_RE",
     "ENTRY_RE",
     "META_RE",
+    "KNOWLEDGE_FIELDS",
+    "KNOWLEDGE_OPTIONAL",
     "TASK_HEADER",
     "HEADERS",
     "new_pr",
@@ -3460,6 +3485,7 @@ Every run records command + revision + observed result, as the team requires.
 # one and waiting for the other would deadlock.
 LESSONS_LOCK = "lessons.lock"
 SKILLS_LOCK = "skills.lock"
+KNOWLEDGE_LOCK = "knowledge.lock"
 
 
 def lessons_lock_path(root: Path) -> Path:
@@ -3468,6 +3494,10 @@ def lessons_lock_path(root: Path) -> Path:
 
 def skills_lock_path(root: Path) -> Path:
     return root / DIR_RUNTIME / DIR_LOCKS / SKILLS_LOCK
+
+
+def knowledge_lock_path(root: Path) -> Path:
+    return root / DIR_RUNTIME / DIR_LOCKS / KNOWLEDGE_LOCK
 
 
 def cmd_skill(args) -> int:
@@ -3894,6 +3924,268 @@ def cmd_lesson(args) -> int:
         )
     print_lesson(changed)
     print(f"#   file: {path}")
+    return 0
+
+
+def _knowledge_kind(value: str, default: str = "") -> str:
+    """The five kinds, or `default` when the flag was not given (16.5)."""
+    raw = (value or default or "").strip().lower()
+    if not raw:
+        return default
+    if raw not in KNOWLEDGE_KINDS:
+        die(
+            f"unknown knowledge kind '{value}'; choose one of {', '.join(KNOWLEDGE_KINDS)}",
+            2,
+        )
+    return raw
+
+
+def _knowledge_chain_end(items: list, start: str) -> str:
+    """The id at the end of a superseded record's forward chain.
+
+    A record carries at most one ``superseded_by`` edge and that edge always names
+    a record created later (15.2), so walking it terminates; the guard is for a
+    hand-edited file, which the command never writes.
+    """
+    index = find_knowledge(items, start)
+    seen = set()
+    while index is not None:
+        current = items[index]
+        if current["status"] != "superseded":
+            break
+        nxt = (current.get("superseded_by") or "").strip()
+        if not nxt or nxt in seen:
+            break
+        seen.add(nxt)
+        index = find_knowledge(items, nxt)
+    if index is None:
+        return start
+    return items[index]["id"]
+
+
+def cmd_knowledge(args) -> int:
+    root = project_root(args)
+    path = knowledge_path(root)
+    verb = args.knowledge_cmd
+
+    if verb == "add":
+        actor, arole = validate_actor(root, args.by, "author")
+        topic = one_line(args.topic)
+        statement = one_line(args.statement)
+        evidence = one_line(args.evidence)
+        if not topic:
+            die("--topic is required: the one-line subject of the fact", 2)
+        if not statement:
+            die("--statement is required: the durable fact, rule or gotcha", 2)
+        if not evidence:
+            die("--evidence is required: command @rev -> result, path:line, or URL + date", 2)
+        if len(topic) > KNOWLEDGE_TOPIC_MAX:
+            die(f"--topic is {len(topic)} characters; the cap is {KNOWLEDGE_TOPIC_MAX}", 2)
+        if len(statement) > KNOWLEDGE_STATEMENT_MAX:
+            die(
+                f"--statement is {len(statement)} characters; the cap is {KNOWLEDGE_STATEMENT_MAX}",
+                2,
+            )
+        kind = _knowledge_kind(args.kind, "fact")
+        target_id = (args.supersedes or "").strip().upper()
+
+        with lock(knowledge_lock_path(root)):
+            items = parse_knowledge(path)
+            # Supersession is forward-only by construction: only an ACTIVE record
+            # may be superseded, a superseded record is never a target again, and
+            # every new record takes the next id. So each `superseded_by` edge
+            # points to a later-created record and a cycle would need an id lower
+            # than itself - the graph is acyclic by construction. The
+            # re-instatement link is the one case that may name an inactive
+            # record, and it writes no backward edge: the retired record keeps the
+            # successor that retired it.
+            target = None
+            if target_id:
+                index = find_knowledge(items, target_id)
+                if index is None:
+                    if target_id == next_knowledge_id(items):
+                        die(f"{target_id} cannot supersede itself", 2)
+                    die(f"no knowledge '{target_id}'", 2)
+                target = items[index]
+
+            duplicate = next(
+                (
+                    item
+                    for item in items
+                    if item["status"] == "active"
+                    and normalise_knowledge(item["topic"]) == normalise_knowledge(topic)
+                    and normalise_knowledge(item["statement"]) == normalise_knowledge(statement)
+                ),
+                None,
+            )
+
+            if duplicate is not None:
+                if target is not None:
+                    if target["id"] == duplicate["id"]:
+                        die(f"{target['id']} cannot supersede itself", 2)
+                    if target["status"] != "active":
+                        die(
+                            f"{target['id']} is already superseded by "
+                            f"{_knowledge_chain_end(items, target['id'])}",
+                            2,
+                        )
+                    target["status"] = "superseded"
+                    target["superseded_by"] = duplicate["id"]
+                    target["updated"] = today_iso()
+                    write_knowledge(path, items)
+                    ledger_append(
+                        root,
+                        "knowledge.supersede",
+                        actor,
+                        target["id"],
+                        f"superseded by {duplicate['id']}",
+                    )
+                print(f"# {duplicate['id']} already records this: {one_line(duplicate['topic'])}")
+                return 0
+
+            holder = next(
+                (
+                    item
+                    for item in items
+                    if item["status"] == "active"
+                    and normalise_knowledge(item["topic"]) == normalise_knowledge(topic)
+                ),
+                None,
+            )
+            if holder is not None:
+                if target is None:
+                    die(
+                        f"topic '{topic}' is already claimed by {holder['id']}; "
+                        f"pass --supersedes {holder['id']} to replace it",
+                        2,
+                    )
+                if target["id"] != holder["id"]:
+                    die(
+                        f"--supersedes {target['id']} does not hold topic '{topic}'; "
+                        f"pass --supersedes {holder['id']} to replace it",
+                        2,
+                    )
+
+            re_instated = False
+            if target is not None and target["status"] != "active":
+                # A retired record may be named only to re-instate the same fact
+                # into a free slot: same normalised topic AND statement. Its
+                # superseded_by already names the record that retired it and is
+                # never rewritten, so the chain stays forward-only.
+                re_instated = normalise_knowledge(target["topic"]) == normalise_knowledge(
+                    topic
+                ) and normalise_knowledge(target["statement"]) == normalise_knowledge(statement)
+                if not re_instated:
+                    die(
+                        f"{target['id']} is already superseded by "
+                        f"{_knowledge_chain_end(items, target['id'])}",
+                        2,
+                    )
+
+            item = new_knowledge(
+                topic,
+                statement,
+                evidence,
+                actor,
+                arole,
+                kind=kind,
+                tags=args.tags,
+                importance=args.importance,
+                task=args.task or "",
+            )
+            item["id"] = next_knowledge_id(items)
+            if target is not None:
+                item["supersedes"] = target["id"]
+                if not re_instated:
+                    target["status"] = "superseded"
+                    target["superseded_by"] = item["id"]
+                    target["updated"] = today_iso()
+            items.append(item)
+            write_knowledge(path, items)
+            ledger_append(root, "knowledge.add", actor, item["id"], one_line(item["topic"]))
+            if target is not None:
+                ledger_append(
+                    root,
+                    "knowledge.supersede",
+                    actor,
+                    target["id"],
+                    f"re-instated as {item['id']}"
+                    if re_instated
+                    else f"superseded by {item['id']}",
+                )
+        print(f"# {item['id']} recorded: {one_line(item['topic'])}")
+        print(f"- path: {path}")
+        return 0
+
+    if verb in ("list", "search"):
+        kind = _knowledge_kind(getattr(args, "kind", ""))
+        if args.limit < 0:
+            die("--limit must be 0 (all) or a positive count", 2)
+        records = parse_knowledge(path)
+        rows = [item for item in records if args.status == "all" or item["status"] == args.status]
+        if kind:
+            rows = [item for item in rows if item["kind"] == kind]
+        if verb == "list":
+            wanted_tags = set(normalise_tags(getattr(args, "tag", "")))
+            if wanted_tags:
+                rows = [item for item in rows if wanted_tags.intersection(item["tags"])]
+            role = resolve_role(getattr(args, "role", "") or "")
+            if role:
+                rows = [item for item in rows if resolve_role(item["owner"]) == role]
+        else:
+            needle = (args.query or "").casefold()
+            rows = [
+                item
+                for item in rows
+                if needle in item["topic"].casefold()
+                or needle in item["statement"].casefold()
+                or needle in ",".join(item["tags"]).casefold()
+            ]
+            if not rows:
+                print(f'# no knowledge matched "{args.query}"')
+                return 0
+        rows = rank_knowledge(rows)
+        if args.limit:
+            rows = rows[: args.limit]
+        for item in rows:
+            print(knowledge_row(item))
+        active, superseded, uses = knowledge_totals(records)
+        print(f"# knowledge: {active} active, {superseded} superseded, {uses} use(s)")
+        return 0
+
+    if verb == "show":
+        items = parse_knowledge(path)
+        index = find_knowledge(items, args.knowledge_id)
+        if index is None:
+            die(f"no knowledge '{args.knowledge_id}'", 2)
+        item = items[index]
+        print(f"## {item['id']} - {one_line(item['topic'])}")
+        for field in KNOWLEDGE_FIELDS:
+            if field in ("importance", "uses"):
+                value = str(int(item.get(field, 0)))
+            elif field == "tags":
+                value = knowledge_tags(item)
+            else:
+                value = one_line(item.get(field, ""))
+            if not value and field in ("task", "supersedes", "superseded_by"):
+                value = "-"
+            print(f"- {field}: {value}")
+        print(f"- path: {path}")
+        return 0
+
+    # touch
+    actor, _arole = validate_actor(root, args.by, "author")
+    with lock(knowledge_lock_path(root)):
+        items = parse_knowledge(path)
+        index = find_knowledge(items, args.knowledge_id)
+        if index is None:
+            die(f"no knowledge '{args.knowledge_id}'", 2)
+        item = items[index]
+        item["uses"] = int(item["uses"]) + 1
+        item["updated"] = today_iso()
+        write_knowledge(path, items)
+        ledger_append(root, "knowledge.touch", actor, item["id"], f"uses={item['uses']}")
+    print(f"# {item['id']} uses={item['uses']}")
     return 0
 
 
@@ -5312,6 +5604,21 @@ def cmd_load(args) -> int:
             skill = f" (fixed by {item['skill']})" if item.get("skill") else ""
             print(f"- [{item['id']}] {item['mistake']} -> {item['rule']}{skill}")
         print(f"# fixed: {len(fixed)}; full list: teamwork.py lesson list --role {role}")
+
+    knowledge = parse_knowledge(knowledge_path(root))
+    if knowledge:
+        active = [item for item in knowledge if item["status"] == "active"]
+        superseded = sum(1 for item in knowledge if item["status"] == "superseded")
+        print()
+        for item in rank_knowledge(active)[:10]:
+            print(
+                f"- [{item['id']}] {item['kind']} {one_line(item['topic'])}: "
+                f"{one_line(item['statement'])} (uses={item['uses']}, tags={knowledge_tags(item)})"
+            )
+        print(
+            f"# project knowledge: {len(active)} active, {superseded} superseded; "
+            f'search: teamwork.py knowledge search "<topic>"'
+        )
     return 0
 
 
@@ -16014,6 +16321,59 @@ def _parsers_governance(sub, common) -> None:
     s.add_argument("--skill", default="", metavar="TW_NAME", help="the mistake skill that fixes it")
     s.add_argument("--evidence", default="", help="command @rev -> result")
     s.set_defaults(func=cmd_lesson)
+
+    s = sub.add_parser(
+        "knowledge",
+        parents=[common],
+        help="accumulate, rank and supersede the project's evidence-backed facts",
+    )
+    ksub = s.add_subparsers(dest="knowledge_cmd", required=True)
+    s = ksub.add_parser("add", parents=[common], help="record one durable fact with its evidence")
+    s.add_argument("--by", required=True)
+    s.add_argument("--topic", required=True, help="one-line subject, at most 120 characters")
+    s.add_argument("--statement", required=True, help="the fact, at most 500 characters")
+    s.add_argument(
+        "--evidence", required=True, help="command @rev -> result, path:line, or URL + date"
+    )
+    s.add_argument("--tags", default="", help="comma list; stored lower-case kebab")
+    s.add_argument(
+        "--kind",
+        default="fact",
+        metavar="KIND",
+        help="one of " + ", ".join(KNOWLEDGE_KINDS) + " (default: fact)",
+    )
+    s.add_argument("--importance", type=int, choices=(1, 2, 3, 4, 5), default=3)
+    s.add_argument(
+        "--supersedes", default="", metavar="K_ID", help="retire the record this replaces"
+    )
+    s.add_argument("--task", default="", metavar="T_ID", help="optional provenance")
+    s.set_defaults(func=cmd_knowledge)
+    s = ksub.add_parser("list", parents=[common], help="list records in ranked order")
+    s.add_argument("--tag", default="", help="one tag the record must carry")
+    s.add_argument("--role", default="", help="the owning role (the record's owner field)")
+    s.add_argument(
+        "--kind", default="", metavar="KIND", help="one of " + ", ".join(KNOWLEDGE_KINDS)
+    )
+    s.add_argument("--status", default="active", choices=["active", "superseded", "all"])
+    s.add_argument("--limit", type=int, default=20, help="rows to print (0 = all)")
+    s.set_defaults(func=cmd_knowledge)
+    s = ksub.add_parser(
+        "search", parents=[common], help="substring search over topic, statement and tags"
+    )
+    s.add_argument("query", metavar="QUERY")
+    s.add_argument(
+        "--kind", default="", metavar="KIND", help="one of " + ", ".join(KNOWLEDGE_KINDS)
+    )
+    s.add_argument("--status", default="active", choices=["active", "superseded", "all"])
+    s.add_argument("--limit", type=int, default=20, help="rows to print (0 = all)")
+    s.set_defaults(func=cmd_knowledge)
+    s = ksub.add_parser("show", parents=[common], help="print one record with every field")
+    s.add_argument("knowledge_id", metavar="K_ID")
+    s.set_defaults(func=cmd_knowledge)
+    s = ksub.add_parser("touch", parents=[common], help="count one real use of a record")
+    s.add_argument("knowledge_id", metavar="K_ID")
+    s.add_argument("--by", required=True)
+    s.set_defaults(func=cmd_knowledge)
 
     s = sub.add_parser(
         "skill", parents=[common], help="create/share a reusable team skill with same-role peers"
