@@ -23,7 +23,7 @@ Snapshot, not a pinned census. The command column re-reads it.
 
 | Fact | Measured | Command |
 |---|---|---|
-| review claim -> verdict | p50 5.2 min, p90 24.5 min, max 69 min (n=95) | parse `Ledger.jsonl` `review.claim` -> `review.pass\|fail` |
+| review claim -> verdict | p50 5.2 min, p90 24.5 min, max 54.2 min (n=99; an earlier scratch pairing read 69) | `teamwork.py throughput` |
 | review verdicts | 56 pass, 39 fail (41% of verdicts fail) | `ledger show --tail` / the same parse |
 | targets needing more than one verdict | 27 of 58 (46.6%) | group verdicts by role+task |
 | worst rework | architect T-0002: 4 verdicts (3 fail, 1 pass) | `trace architect:T-0002` |
@@ -51,13 +51,16 @@ Snapshot, not a pinned census. The command column re-reads it.
 2. **The roster is over-supplied for the work.** 34 instance directories for ten
    open tasks, 17 developer and 9 reviewer instances. Every spawned idle lane
    still costs a startup read and a coordination surface; the org chart should
-   scale on demand, not be pre-staffed at the maximum ever used. **The cut is
-   blocked on a defect:** `instance retire` removes the instance directory with
-   `shutil.rmtree`, so retiring an idle lane would delete its `Artifacts/`,
-   `Reports/` and `WorkLog.md` - evidence the ledger and Archive may still cite.
-   The fix is part of T-0034: retirement moves the directory to
-   `Runtime/Retired/<instance>/` and records the path; only then is the live cut
-   safe.
+   scale on demand, not be pre-staffed at the maximum ever used. The cut was
+   executed **and it went wrong**: the shared checkout was detached at `ac92cf7`
+   (before the move-only retirement merged in `b9e5135`), so the 22 retirements
+   ran the inherited `rmtree` and deleted their `Artifacts/`, `Reports/` and
+   `WorkLog.md`. 102 evidence paths named by `Tests.md` are gone; the loss is
+   recorded as lesson `L-0001` and cannot be undone. The move-only code is now
+   merged and tested (`Runtime/Retired/<instance>/`), and no further cut runs
+   until the checkout is verified at or after that revision. This is the clearest
+   proof in this report that **the base checkout's revision is part of the
+   safety surface**, not an operational detail.
 3. **On-demand reads are the real token cost.** One whole `Archive.md` read is
    ~616k tokens - five times the entire always-on prompt - and `Decisions.md`
    adds ~81k, `Plan.md` ~22k, all `docs/Team` ~836k. The largest task queue is
@@ -141,11 +144,13 @@ Reviewer-2). A role joins only for a named deliverable, test layer or decision
 right; an instance is added only when the ready queue for its role exceeds the
 lanes, and retired when the queue is empty. **Retirement is move-only:** the
 instance directory is moved to `Runtime/Retired/<instance>/` so its artifacts,
-reports and worklog survive as evidence; the current `rmtree` behaviour is the
-defect T-0034 fixes before any live cut. The live tree is cut to the active
-lanes at this milestone once that fix lands; `teamwork instance list` is the
-source of truth, and `teamwork parallel` says how many lanes the ready work
-supports.
+reports and worklog survive as evidence. The first live cut (22 lanes) ran from a
+detached pre-fix checkout and lost its artifacts; lesson `L-0001` is the record.
+The move-only code is merged at `b9e5135`; the live tree now holds 12 instances,
+and every future cut verifies `git rev-parse HEAD` is at or after that revision
+and that `Runtime/Retired` is created before it retires one. `teamwork instance
+list` is the source of truth, and `teamwork parallel` says how many lanes the
+ready work supports.
 
 ## 8. How to re-measure
 
@@ -158,10 +163,10 @@ teamwork.py coordination --strict  # review oversupply, rework, merge health
 teamwork.py throughput             # ledger latencies, rework share, surface bytes
 ```
 
-The last command is the report's own reader: it parses `Ledger.jsonl` and the
-tree and prints the facts in section 2. A scratch probe may exist under
-`.pi/Scratch/`, but the report is reproducible from the shipped command, not
-from a gitignored file.
+The last command is the report's own reader: it prints the review, queue and
+surface facts in section 2 (latency, verdicts, rework, queue depth, instances,
+surface bytes). The remaining rows are read with the named command in their row;
+nothing in this file is a substitute for running it.
 
 ## 9. Falsifiers
 
@@ -173,3 +178,6 @@ from a gitignored file.
   cap or the prompt must shrink; do not move the cap to make it pass.
 - If a whole-archive read still appears in a close-out or review, rule 2 was not
   adopted and the report is wrong about the token win.
+- If a retirement runs from a checkout older than the move-only fix, or creates
+  no `Runtime/Retired/<instance>/`, stop the cut: the artifacts are the evidence,
+  and this report already owns one loss (`L-0001`) it will not repeat.
