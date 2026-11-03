@@ -369,6 +369,32 @@ def test_doc_levels(cli, ws: Path, capsys) -> None:
     assert "A node resolves to a file that already exists." in capsys.readouterr().out
 
 
+def test_doc_scans_skip_fenced_code(cli, ws: Path, capsys) -> None:
+    sections = "\n\n".join(f"## Real section {index}\n\nBody {index}." for index in range(1, 21))
+    (ws / "docs" / "Team" / "Fenced.md").write_text(
+        "# Fence proof\n"
+        "\n"
+        "The real first paragraph.\n"
+        "\n"
+        "```text\n"
+        "release consistency: 3 problem(s)\n"
+        "## Not a heading\n"
+        "```\n"
+        "\n" + sections + "\n",
+        encoding="utf-8",
+    )
+    uri = "ctx://project/docs/Team/Fenced.md"
+    assert run(cli, ws, "read", uri, "--level", "0") == 0
+    assert capsys.readouterr().out.strip() == "Fence proof: The real first paragraph."
+    assert run(cli, ws, "read", uri) == 0
+    lines = [line for line in capsys.readouterr().out.splitlines() if line.strip()]
+    assert lines[0] == "- Fence proof"
+    assert all("release consistency" not in line for line in lines)
+    assert all("Not a heading" not in line for line in lines)
+    assert "  - Real section 19" in lines
+    assert "  - Real section 20" not in lines
+
+
 def test_task_levels(cli, ws: Path, capsys) -> None:
     uri = "ctx://role/developer/tasks/T-0001"
     assert run(cli, ws, "read", uri, "--level", "0") == 0
