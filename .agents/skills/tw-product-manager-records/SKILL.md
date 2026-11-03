@@ -1,9 +1,10 @@
 ---
-name: product-manager-records
+name: tw-product-manager-records
 description: "writing or refreshing a team record: the Plan milestone rows, the Board snapshot, a risk row, a decision entry"
+kind: workflow
 ---
 
-# product-manager-records
+# tw-product-manager-records
 
 Owner role: **product-manager** (created by ProductManager on 2026-10-21).
 
