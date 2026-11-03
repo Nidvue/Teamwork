@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from .config import (
+    CONTEXT_MEMORY_FILES,
     DIR_AGENTS,
     DIR_DOCS,
     DIR_GLOBAL,
@@ -102,6 +103,51 @@ def work_docs_dir(root: Path, cwd: Path | None = None) -> Path:
     the file can be committed on the lane's branch.
     """
     return work_repo(root, cwd).joinpath(*DIR_DOCS)
+
+
+def _inside(base: Path, path: Path) -> bool:
+    """A computed node never escapes the directory it was enumerated from."""
+    try:
+        path.resolve().relative_to(base.resolve())
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def context_docs_dir(root: Path, cwd: Path | None = None) -> Path:
+    """The committed documentation root: every ``docs/**/*.md``, not only Team."""
+    return work_repo(root, cwd) / "docs"
+
+
+def context_doc_files(root: Path, cwd: Path | None = None) -> list:
+    """Every committed ``docs/**/*.md`` in the work tree, path-sorted."""
+    base = context_docs_dir(root, cwd)
+    if not base.is_dir():
+        return []
+    return sorted(path for path in base.rglob("*.md") if path.is_file() and _inside(base, path))
+
+
+def context_skill_files(root: Path, cwd: Path | None = None) -> list:
+    """Every ``.agents/skills/<name>/SKILL.md`` in the work tree, name-sorted.
+
+    Enumerated from disk, not from the ``Skills.md`` registry: a prefix lint
+    finding must stay visible in the view instead of being hidden by the
+    registry (Architecture.md 16.1).
+    """
+    base = work_repo(root, cwd).joinpath(*SKILLS_DIR)
+    if not base.is_dir():
+        return []
+    return sorted(
+        path for path in base.glob("*/SKILL.md") if path.is_file() and _inside(base, path)
+    )
+
+
+def memory_layer_path(root: Path, agent: str, layer: str) -> Path:
+    """``Roles/<Role>/{ShortTermMemory,LongTermMemory,ArchivedMemory}.md``."""
+    filename = CONTEXT_MEMORY_FILES.get(layer)
+    if filename is None:
+        raise ValueError(f"unknown memory layer '{layer}'")
+    return role_dir(root, agent) / filename
 
 
 def team_root_from_cwd(cwd: Path) -> Path | None:
