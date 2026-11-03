@@ -281,6 +281,8 @@ unproven rather than passing it.
   team can agree is collusion, not review.
 - A run of passes with no finding, or one lane holding most verdicts, is sampled
   by a second Reviewer (`C-TRUST-NOFAIL`, `C-TRUST-MONOCULTURE`).
+- Check that a repeated finding class has a lesson behind it - and a `tw-` mistake
+  skill when the flow changed; a recurring finding with neither is itself a defect.
 
 ## Rejection loop
 
