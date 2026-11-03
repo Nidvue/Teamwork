@@ -86,6 +86,7 @@ under two roles is two tasks.
 | architect | T-0003 | - | todo | - | - |
 | architect | T-0004 | architecture | done | P-0051 | d6d178e |
 | architect | T-0005 | architecture | done | P-0052 | ee33a3d |
+| architect | T-0006 | architecture | done | P-0055 | d05763c |
 | ceo | T-0001 | - | done | P-0005 | d36e731 |
 | ceo | T-0002 | - | done | P-0006 | cd561a5 |
 | ceo | T-0004 | - | done | P-0019 | f3a765f |
@@ -104,6 +105,7 @@ under two roles is two tasks.
 | ceo | T-0017 | records | done | P-0049 | d3a7988 |
 | ceo | T-0018 | records | done | P-0050 | 4d34851 |
 | ceo | T-0019 | plan | doing | - | - |
+| ceo | T-0020 | decisions | todo | - | - |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -141,7 +143,9 @@ under two roles is two tasks.
 | developer | T-0029 | - | todo | - | - |
 | developer | T-0030 | - | todo | - | - |
 | developer | T-0031 | skills | done | P-0053 | 35b5695 |
-| developer | T-0032 | - | todo | - | - |
+| developer | T-0032 | knowledge | doing | - | - |
+| developer | T-0033 | - | todo | - | - |
+| developer | T-0034 | - | todo | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | records | done | - | - |
 | technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
@@ -156,11 +160,13 @@ under two roles is two tasks.
 | technical-writer | T-0010 | release | done | P-0048 | 856ba14 |
 | technical-writer | T-0011 | docs | review | P-0054 | - |
 | technical-writer | T-0012 | - | dropped | - | - |
+| technical-writer | T-0013 | - | todo | - | - |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
 | tester | T-0004 | - | todo | - | - |
 | tester | T-0005 | - | todo | - | - |
+| tester | T-0006 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -177,6 +183,7 @@ landed by commit without a PR record.
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
 | ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | blocked | - |
 | ceo | T-0019 · M17 A5: intake, criteria, records, migration and close-out for lessons + tw- skills | P0 | doing | - |
+| ceo | T-0020 · M18 A0: measured throughput/token baseline, roster right-sizing and the Throughput report | P0 | todo | - |
 | developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | todo | - |
 | developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
 | developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |
@@ -184,13 +191,17 @@ landed by commit without a PR record.
 | developer | T-0027 · Integrate the published line into integration/m15-m16 (PR #30): three conflicts, both sides' behaviour preserved | P0 | doing | - |
 | developer | T-0029 · CI annotates every ubuntu-latest job with a runner-image migration notice; pin the image or record why not | P2 | todo | - |
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
-| developer | T-0032 · M17 A7: implement the project knowledge store (records, CLI, ranked load, duplicate + supersession, unit tests) | P0 | todo | - |
+| developer | T-0032 · M17 A7: implement the project knowledge store (records, CLI, ranked load, duplicate + supersession, unit tests) | P0 | doing | - |
+| developer | T-0033 · M17 A11: implement the context tree (ctx:// navigation, L0/L1/L2, scoped find, stats, digest, unit tests) | P0 | todo | - |
+| developer | T-0034 · M18 A1: token-aware budget, archive --task, safe instance retirement, coordination oversupply and the preflight slice check | P0 | todo | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
 | technical-writer | T-0011 · M17 A3: document lessons and the tw- skill prefix in every always-on surface | P1 | review | - |
+| technical-writer | T-0013 · M18 A2: document the throughput contract, read-by-id discipline and the token budget | P1 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 | tester | T-0004 · M17 A4: integration + acceptance proof of lesson -> tw- skill loop and prefix enforcement | P1 | todo | - |
 | tester | T-0005 · M17 A9: integration + acceptance proof of the knowledge accumulation loop (add, rank, search, duplicate, supersede, load) | P1 | todo | - |
+| tester | T-0006 · M18 A3: integration + acceptance proof of the token tools and the review-oversupply finding | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
