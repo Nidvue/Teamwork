@@ -4411,4 +4411,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit e17f208 (feature-team integration test; branch head)
 - reviewer evidence: pytest -q tests/integration/test_feature_team_flow.py @e17f208 -> 3 passed; pytest -q tests/unit/test_feature_teams.py @e17f208 -> 16 passed; pytest -q @e17f208 -> 1924 passed, 3 failed, 5 skipped (the 3 failures are test_board_matches_tool live-queue drift only: tester T-0007 in review and ceo T-0019 not on the committed board; the branch diff is this test file alone); ruff check . + ruff format --check . @e17f208 -> clean; mypy src/teamwork @e17f208 -> no issues in 19 files; scratch mutations of e17f208: M1 ready tasks claimable -> 1 red (held-until-active test), M2 foreign-squad claim allowed -> 1 red (other-team test), M3 overlapping path allowed at add -> 1 red (overlap test), baseline 3 green, scratch restored clean
 - findings history: 
-- branch / merge: tester/t-0007-integration-layer-for-t-0042-drive-the-f / pending
+- branch / merge: tester/t-0007-integration-layer-for-t-0042-drive-the-f / 6750ea7
