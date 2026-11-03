@@ -106,7 +106,7 @@ under two roles is two tasks.
 | ceo | T-0016 | - | dropped | - | - |
 | ceo | T-0017 | review | done | P-0057 | 13fb170 |
 | ceo | T-0018 | org | done | P-0069 | 911c064 |
-| ceo | T-0019 | - | todo | - | - |
+| ceo | T-0019 | plan | done | P-0091 | bff7c80 |
 | ceo | T-0020 | records | done | P-0058 | bcf48e7 |
 | ceo | T-0021 | org | done | P-0063 | 20e12ae |
 | ceo | T-0022 | records | done | P-0060 | e7e4768 |
@@ -205,11 +205,17 @@ Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
 landed by commit without a PR record.
 
+## Feature teams (rendered)
+
+Shared services serve every feature and are attached to none: Architect, CEO, CFO, COO, CTO, Project Manager, Release Engineer, Reviewer, Security Auditor.
+
+| feature | state | owner | squad | paths |
+|---|---|---|---|---|
+
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
