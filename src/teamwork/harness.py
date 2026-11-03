@@ -28,8 +28,11 @@ shipped sends the reader to nowhere. Each of those is a fact about the tree, so
 each is checked mechanically instead of being trusted to review.
 
 The always-on budget is the cost doctrine made measurable: SKILL.md, the managed
-teamwork block of AGENTS.md, the role charter and the role's memory files are in
-context on every run, so they are the expensive option and the only one capped.
+teamwork block of AGENTS.md, the role charter, the short-term memory, the open
+lessons and the ten highest-ranked active knowledge records are in context on
+every ``load``, so they are the expensive option and the only one capped.
+Long-term memory and the memory archive are recall-only: they are reported by
+``harness budget --recallable``, never charged to the startup row.
 ``AlwaysOnBudgetKb`` in the team ``Settings.json`` sets the cap; missing,
 unreadable or non-numeric settings fall back to
 :data:`teamwork.config.DEFAULT_ALWAYS_ON_BUDGET_KB`.
@@ -40,6 +43,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from collections.abc import Iterable
 from pathlib import Path
 from typing import NamedTuple
 
@@ -49,6 +53,7 @@ from .config import (
     DIR_ROLES,
     F_GLOBAL,
     F_LONG,
+    F_MEM_ARCHIVE,
     F_ROLE,
     F_SETTINGS,
     F_SHORT,
@@ -59,7 +64,9 @@ from .gitutil import hooks_dir as resolved_hooks_dir
 from .io import die
 from .layout import (
     global_dir,
+    knowledge_path,
     known_instances,
+    lessons_path,
     list_roles,
     project_of,
     project_path,
@@ -67,7 +74,7 @@ from .layout import (
     role_dir,
     skills_path,
 )
-from .names import resolve_role
+from .names import one_line, resolve_role
 from .records import parse_skills
 
 #: The three activation classes (12.3), cheapest to reason about first: always-on
@@ -647,14 +654,92 @@ def charter_path(repo: Path, root: Path, role: str) -> Path:
     return team_copy if team_copy.is_file() else repo / "roles" / f"{role}.md"
 
 
+#: How many open lessons and active knowledge records `teamwork load` prints.
+#: The budget counts exactly these, so its number is the startup read rather than
+#: a whole-store total.
+LOAD_LESSONS = 10
+LOAD_KNOWLEDGE = 10
+
+
+def _rendered_lines_bytes(lines: Iterable[str]) -> int:
+    """Bytes a `load` block costs, one newline per line, UTF-8 like the files."""
+    return sum(len(line.encode("utf-8")) + 1 for line in lines)
+
+
+def _lesson_line(item: dict) -> str:
+    skill = f" (fixed by {item['skill']})" if item.get("skill") else ""
+    return f"- [{item['id']}] {item['mistake']} -> {item['rule']}{skill}"
+
+
+def _knowledge_line(item: dict) -> str:
+    from .records import knowledge_tags
+
+    return (
+        f"- [{item['id']}] [{item['kind']}] {one_line(item['topic'])}: "
+        f"{one_line(item['statement'])} (uses={item['uses']}, "
+        f"tags={knowledge_tags(item)})"
+    )
+
+
+def _load_lessons(root: Path, role: str) -> list:
+    from .records import parse_lessons
+
+    lessons = parse_lessons(lessons_path(root, role))
+    return sorted(
+        [item for item in lessons if item["status"] != "fixed"],
+        key=lambda item: item["id"],
+    )
+
+
+def _fixed_lessons(root: Path, role: str) -> list:
+    from .records import parse_lessons
+
+    lessons = parse_lessons(lessons_path(root, role))
+    return sorted([item for item in lessons if item["status"] == "fixed"], key=lambda i: i["id"])
+
+
+def _load_knowledge(root: Path) -> tuple:
+    from .records import parse_knowledge, rank_knowledge
+
+    items = parse_knowledge(knowledge_path(root))
+    active = [item for item in items if item["status"] == "active"]
+    superseded = sorted(
+        [item for item in items if item["status"] == "superseded"], key=lambda i: i["id"]
+    )
+    return rank_knowledge(active)[:LOAD_KNOWLEDGE], superseded
+
+
 def instance_always_on(repo: Path, root: Path, role: str) -> int:
-    """What is in context on every run for one instance, in bytes."""
+    """What `teamwork load` prints on every run for one instance, in bytes.
+
+    Long-term memory and the memory archive are deliberately absent: `load` never
+    prints them (they are read with `recall`), so charging the cap for them made
+    a lane look OVER while its actual startup read was under the budget.
+    """
+    top_knowledge, _superseded = _load_knowledge(root)
     return (
         managed_block_size(repo / "AGENTS.md")
         + file_size(repo / "SKILL.md")
         + file_size(charter_path(repo, root, role))
         + file_size(role_dir(root, role) / F_SHORT)
-        + file_size(role_dir(root, role) / F_LONG)
+        + _rendered_lines_bytes(_lesson_line(i) for i in _load_lessons(root, role)[:LOAD_LESSONS])
+        + _rendered_lines_bytes(_knowledge_line(item) for item in top_knowledge)
+    )
+
+
+def instance_recallable(root: Path, role: str) -> int:
+    """Bytes a lane can read only by asking: long/archive memory and stale records.
+
+    These are `recall`/`ctx://` costs, not startup costs: the frozen cap applies
+    to `instance_always_on`, and this row keeps the on-demand surface visible so
+    the separation cannot hide a large store.
+    """
+    _top, superseded = _load_knowledge(root)
+    return (
+        file_size(role_dir(root, role) / F_LONG)
+        + file_size(role_dir(root, role) / F_MEM_ARCHIVE)
+        + _rendered_lines_bytes(_lesson_line(i) for i in _fixed_lessons(root, role))
+        + _rendered_lines_bytes(_knowledge_line(item) for item in superseded)
     )
 
 
@@ -673,6 +758,14 @@ def budget_rows(repo: Path, root: Path, limit_kb: int | None) -> tuple[list[Budg
         for instance in known_instances(root)
     ]
     return rows, cap, source
+
+
+def recallable_rows(root: Path) -> list:
+    """One ``(instance, bytes)`` row per lane for the recall-only surface."""
+    return [
+        (instance, instance_recallable(root, resolve_role(instance)))
+        for instance in known_instances(root)
+    ]
 
 
 def render_budget(rows: list[BudgetRow]) -> str:
@@ -729,6 +822,19 @@ def cmd_budget(args) -> int:
             f"no team workspace at {root}: `harness budget` measures the always-on "
             "context every instance loads, so it needs `teamwork.py init` first."
         )
+    if getattr(args, "recallable", False):
+        rows = recallable_rows(root)
+        print(f"# recallable budget for {root}")
+        print(
+            "# long-term + archived memory + fixed lessons + superseded knowledge: "
+            "read with recall, never printed by load"
+        )
+        if not rows:
+            print("# no agent instances in this team yet")
+        for instance, value in rows:
+            print(f"{instance} {value}")
+        print(f"total {sum(value for _instance, value in rows)}")
+        return 0
     rows, cap, source = budget_rows(repo, root, args.limit)
     print(f"# always-on budget for {root}")
     print(f"# cap: {cap} bytes per instance ({source})")
@@ -771,5 +877,10 @@ def add_parsers(sub, common) -> None:
         default=None,
         metavar="KB",
         help="override AlwaysOnBudgetKb for this run only",
+    )
+    parser.add_argument(
+        "--recallable",
+        action="store_true",
+        help="print the recall-only bytes per instance instead of the capped startup row",
     )
     parser.set_defaults(func=cmd_budget)
