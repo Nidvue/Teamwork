@@ -198,7 +198,7 @@ under two roles is two tasks.
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
 | tester | T-0004 | - | done | - | - |
 | tester | T-0005 | harness | done | P-0086 | 41b38f6 |
-| tester | T-0006 | - | todo | - | - |
+| tester | T-0006 | tests | done | P-0089 | 2c4ad7e |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -209,7 +209,6 @@ landed by commit without a PR record.
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
-| tester | T-0006 · Pin document structure rather than sentences in test_skill_contracts.py where wording is not the contract | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
