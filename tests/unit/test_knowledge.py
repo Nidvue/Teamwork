@@ -516,7 +516,7 @@ def test_supersede_marks_the_old_record_and_hides_it_from_list_and_load(cli, ws,
     assert cli("--project", ws, "load", "Developer-1") == 0
     load = capsys.readouterr().out
     assert (
-        "- [K-0002] fact Use the venv python: Run tests with the repo venv. (uses=0, tags=-)"
+        "- [K-0002] [fact] Use the venv python: Run tests with the repo venv. (uses=0, tags=-)"
         in load
     )
     assert "- [K-0001]" not in load
@@ -792,7 +792,7 @@ def test_load_shows_the_top_ten_active_and_a_footer(cli, ws, capsys) -> None:
     knowledge_rows = [line for line in rows if line.startswith("- [K-")]
     assert len(knowledge_rows) == 10
     assert knowledge_rows[0] == (
-        "- [K-0002] experience fact 2: statement 2 (uses=1, tags=build,ci)"
+        "- [K-0002] [experience] fact 2: statement 2 (uses=1, tags=build,ci)"
     )
     assert all("retired" not in line for line in knowledge_rows)
     assert rows[len(knowledge_rows)] == (
