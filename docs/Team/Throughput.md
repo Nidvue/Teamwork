@@ -67,9 +67,15 @@ Snapshot, not a pinned census. The command column re-reads it.
    `LongTermMemory.md`, which `load` never prints (it is recall-only) and does
    not count the lessons/knowledge that `load` now does print. The developer
    lane is reported OVER while its actual startup read is under the cap.
-5. **Review queue latency is second-order.** p90 24.5 min, max 69 min, with 13
-   renewals and 10 releases: some reviews are too large for one lease. That is a
-   slice-size problem (rule 4), not a lane-count problem.
+5. **Review queue latency is second-order - but duplicate full-suite runs are
+   not.** p90 is 24.5 min, max 69 min, with 13 renewals and 10 releases: some
+   reviews are too large for one lease. That is a slice-size problem (change 4).
+   The hidden latency is the ~30-minute full suite: the author, the Tester and
+   the Reviewer can each run it on one revision. The Tester's independent record
+   is creditable under the verify-once rule, so a Reviewer that re-runs it spends
+   30 minutes proving a fact another role already recorded. Current dispatch
+   starts the Reviewer before the Tester on a code task, so the duplication is
+   structural, not accidental.
 
 ## 4. Changes, each owned and measurable
 
@@ -82,6 +88,7 @@ Snapshot, not a pinned census. The command column re-reads it.
 | 5 | Token-true budget | `harness budget` reports `startup` (what `load` prints) separately from `recallable` (long/archive) and applies the cap to startup | OVER false alarms; startup bytes | Developer T-0034 |
 | 6 | Reviewer oversupply | `coordination` reports `C-REVIEW-OVERSUPPLY` when reviewer lanes exceed twice the unclaimed queue and the queue is small | idle reviewer lanes | Developer T-0034 |
 | 7 | One owner, one board, one feature | already frozen; re-stated at intake so a second manager or a second feature per leader is refused | queue conflicts, duplicate tasks | CEO, Architect |
+| 8 | Tester before Reviewer on a code task | the Tester records the full suite at the revision; the Reviewer packet cites it (`--credit`) and runs only its acceptance layer, the uncovered criteria and one sampled credit; no gate weakens | full-suite runs per revision; claim-to-verdict p90 | CEO dispatch order, Reviewer rubric |
 
 ## 5. The token budget
 
@@ -109,6 +116,13 @@ The author, before `selfcheck`, answers in the self-check note:
 A self-check that only says "re-read the diff" is not a self-check. The Reviewer
 still judges the requirement and the acceptance layer; this contract only stops
 the substantive failure the author could have found.
+
+**One full suite per revision.** On a code deliverable the Tester runs the full
+suite first and records it; the Reviewer cites that record (`--credit`) and runs
+its own acceptance layer, the uncovered criteria and one sampled credit. The
+Reviewer re-runs the full suite only when no Tester record exists at the revision
+or the record is failing. The dispatch order is Tester -> Reviewer, so the
+30-minute suite is paid once, not twice.
 
 Target: fail share <= 30% of verdicts and targets needing more than one verdict
 <= 35%, measured by the same ledger parse. At 41%/46.6% the first target is the
