@@ -14,7 +14,8 @@ PascalCase; one tree per team, so two teams in one repository never collide.
 ├── Tests.md              # one record per test layer and area
 ├── TestPlan.md          # required layers per area
 ├── Ledger.jsonl         # append-only, hash-chained audit trail
-├── Skills.md            # team-skill registry
+├── Skills.md            # team-skill registry (tw- names, kind, lesson)
+├── Knowledge.md         # project knowledge, K- records shared by every role
 ├── Disputes.md           # design/decision challenges
 ├── Reviews.md            # PRs awaiting / passed the Reviewer
 ├── Roles/<Role>/         # SHARED memory + queue for every instance of a role
@@ -22,6 +23,7 @@ PascalCase; one tree per team, so two teams in one repository never collide.
 │   ├── ShortTermMemory.md
 │   ├── LongTermMemory.md
 │   ├── ArchivedMemory.md
+│   ├── Lessons.md        # role-shared mistakes, L- records
 │   └── TaskQueue.md
 ├── Agents/<Instance>/    # private to one instance
 │   ├── StartHere.md  WorkLog.md  Inbox.md
@@ -32,6 +34,10 @@ PascalCase; one tree per team, so two teams in one repository never collide.
     ├── Worktrees/<Instance>/       # optional per-instance worktree
     └── Slots/<Provider>/<Agent>.slot
 ```
+
+Navigation over these files is read-only through `ctx://`: `context tree` for the
+shape, `context read <uri>` for one node, and `context find` for a query. The
+view adds no file, index or second store.
 
 Project output - code, tests and the reviewed documents in `{docs}/` - lives in
 the repository and is committed. The team tree above is local state and is
