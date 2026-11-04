@@ -186,7 +186,7 @@ them invalidates every existing workspace.
 
 ## 6. Portability contract
 
-* Runtime: CPython **3.9 - 3.13**, Linux, macOS, Windows. No third-party import
+* Runtime: CPython **3.11 - 3.13**, Linux, macOS, Windows. No third-party import
   at runtime.
 * Forbidden in the runtime path: `fcntl`, `termios`, `pwd`, `grp`, `os.fork`,
   `resource`, `shell=True`, POSIX-only signal use. The runtime path is every
@@ -219,7 +219,7 @@ def pid_alive(pid: int) -> bool   # Windows-safe; never kills anything
   `teamwork`; console script `teamwork`.
 * Canonical assets are force-included into the wheel at `teamwork/data/`:
   `SKILL.md`, `roles/`, `references/`, `templates/`.
-* Runtime dependencies: none (`dependencies = []`). `requires-python = ">=3.9"`.
+* Runtime dependencies: none (`dependencies = []`). `requires-python = ">=3.11"`.
 * The wheel must contain `teamwork/data/SKILL.md` and
   `teamwork/data/templates/AGENTS.md` - `scripts/verify_release.py` asserts this.
 
@@ -260,8 +260,8 @@ from the wrong role, so the two maps must not be conflated.
   `paths-ignore`; the filtering is a job, not a trigger.
   * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
-    matrix `{ubuntu,macos,windows} x {3.9,3.11,3.13}` plus ubuntu
-    `3.10`/`3.12`, `build` (sdist+wheel+verify_release), `privacy`
+    matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
+    (five cells), `build` (sdist+wheel+verify_release), `privacy`
     (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`:
     personal data, credentials, agent-host config and tracked local state),
     `committer-guard`, `release-consistency` (offline release gate),
@@ -461,10 +461,10 @@ payload_digest(root: Path, rev: Optional[str]) -> str  # 11.3; rev None = HEAD
 _http_get_json(url: str) -> object                  # the single network seam (11.1.4)
 ```
 
-* Python **3.9+**, standard library only, no third-party import, no `subprocess`
-  shell, and annotations written so they import on 3.9 (`from __future__ import
-  annotations`). It is linted and formatted like the engine (`ruff check`,
-  `ruff format --check`).
+* Python **3.11+**, standard library only, no third-party import, no `subprocess`
+  shell, with `from __future__ import annotations` kept as the one lazy
+  annotation convention. It is linted and formatted like the engine (`ruff
+  check`, `ruff format --check`).
 
 #### 11.1.1 Exit codes
 

@@ -48,7 +48,7 @@ Supporting helpers a test may use directly::
 
 Design notes
 ------------
-* Python 3.9+, standard library only, no third-party import, no ``shell=True``.
+* Python 3.11+, standard library only, no third-party import, no ``shell=True``.
 * Every HTTP call funnels through one seam, ``_http_get``; ``_http_get_json`` is
   the JSON face of it and ``_http_get_bytes`` the binary face (an npm ``.tgz`` is
   not JSON, so section 11.2.3's tarball download cannot ride a JSON function).
@@ -138,10 +138,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 __all__ = [
     "HttpError",

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "teamwork-agents"
 dynamic = ["version"]
 description = "Nidvue Teamwork - a coding-agent skill that runs an evidence-gated multi-agent team; optional stdlib-only engine (per-agent model configuration)."
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 readme = "README.md"
 authors = [{ name = "Nidvue contributors" }]
@@ -26,8 +26,6 @@ classifiers = [
   "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -39,7 +37,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = [
-  # Ranges keep Python 3.9 supported: pytest 9, mypy 2 and build 1.6 need 3.10+.
+  # Every dev tool runs on the 3.11 floor; the ranges keep the newest releases in.
   "pytest>=8,<10",
   "pytest-cov>=5,<8",
   "ruff>=0.9,<0.18",
@@ -128,7 +126,7 @@ exclude = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py311"
 src = ["src", "tests", "scripts"]
 extend-exclude = ["dist", "build", "site", ".venv"]
 
@@ -138,6 +136,9 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B011"]
+# The T-0002 lane owns this file; until it adopts zip(strict=), the one finding is
+# scoped here by name rather than edited from a lane that does not hold the file.
+"tests/unit/test_traceability_matrix.py" = ["B905"]
 "scripts/teamwork.py" = ["E402"]
 
 [tool.ruff.format]
@@ -155,10 +156,11 @@ exclude = ["src/teamwork/engine.py"]
 ignore = ["src/teamwork/engine.py"]
 
 [tool.mypy]
-# NOTE: mypy >= 1.19 no longer accepts `python_version = "3.9"`. The project still
-# supports 3.9 - that compatibility is enforced by `ruff` with
-# `target-version = "py39"` plus `from __future__ import annotations` - while mypy
-# types the code against the interpreter running it (3.12 in CI).
+# NOTE: the supported floor is 3.11, enforced by `requires-python`, the 3.11 CI
+# lane and `ruff` with `target-version = "py311"`. mypy customarily types the code
+# against the interpreter running it (3.12 in CI) rather than pinning
+# `python_version`; `from __future__ import annotations` stays as the one lazy
+# annotation convention across the tree.
 files = ["src/teamwork"]
 ignore_missing_imports = true
 check_untyped_defs = true
