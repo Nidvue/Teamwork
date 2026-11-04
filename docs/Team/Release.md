@@ -428,6 +428,37 @@ T-0010 and measured in section 4 above, not restated here. Items 1-2 are not cha
 this document: a branch-protection change is a forge governance event and belongs to the
 CEO. Item 3 is this lane's own file and is scheduled, not silently reverted.
 
+## CI failure classes (2026-11-04)
+
+Three `main` runs failed in a row after M18. They are two classes, and only one of
+them is code.
+
+| run | revision | failing jobs | failure | class |
+|---|---|---|---|---|
+| 41836583720 | `55742cf` (P-0073) | 11 `test (...)` lanes | `tests/integration/test_makefile_flow.py::test_lint_reports_a_real_style_error_and_goes_green_when_it_is_removed`: `can't open file '.../LintTree/scripts/check_comments.py'` - `lint` resolved the checker against the caller's working directory | code, fixed by `70ec392` |
+| 41845054809 | `1c89bba` (P-0074) | 11 `test (...)` lanes | `tests/unit/test_makefile_contracts.py::test_every_gate_command_ci_runs_has_a_makefile_target`: `AssertionError: assert [('check_comments.py',)] == []` - the cwd-safe `$(dir $(abspath ...))` made the gate invisible to the parity parser | code, fixed by `de9c9e4` |
+| 41854143232 | `b0471ae` (P-0075) | `test (macos-latest / py3.9)`, job `126728283476` | no runner was ever assigned: `steps: []`, `runner_name` empty, annotation "The job was not acquired by Runner of type hosted even after multiple attempts". The other 18 jobs passed. | infrastructure, re-run |
+
+The two code failures are one contract with two edges: the checker must resolve
+from the Makefile's directory *and* stay a literal gate the parity test can see.
+`b0471ae` holds both with one `HERE := $(dir $(abspath ...))` definition; `make lint`
+there exits 0 (250 files already formatted, 170 files with 0 explanatory commentary).
+
+The infrastructure cell was re-run, not suppressed: `gh run rerun 41854143232
+--failed` -> attempt 4. The run reports `conclusion=success` with 19/19 jobs
+`success` on `b0471ae`, including `test (macos-latest / py3.9)` job `126814976876`
+(24m54s wall clock against the original attempt's 15m37s). Measured with `gh run
+view 41854143232 --json status,conclusion,attempt,jobs`.
+
+A third class rides the two code-failure runs and is not fixed by the lint
+change: `test_every_deterministic_state_matches_a_real_run` hit
+`PROOF_TIMEOUT_SECONDS = 900` on `windows-latest` py3.9/py3.11 (job
+`126626380517`: `subprocess.TimeoutExpired ... timed out after 900 seconds`),
+while the same lanes pass at `b0471ae`. The CI privacy job takes 14m24s on a
+cold runner and the proof re-runs its history scan, so the budget is thin, not
+the proof. Filed: `developer` T-0002 - raise or platform-scale the budget, never
+exempt the row.
+
 ## Release assets: one manifest, one name
 
 A published Release carries exactly **one** asset per name. The build job writes
