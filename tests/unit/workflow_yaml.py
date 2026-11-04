@@ -137,8 +137,6 @@ def _sequence(lines: list[str], index: int, indent: int):
                 index += 1
             continue
         if _KEY.match(rest):
-            # An item that opens a mapping: keep the item's own keys and everything
-            # deeper-indented that belongs to it, at the item's key indentation.
             inner = [" " * (indent + 2) + rest]
             cursor = index + 1
             while cursor < len(lines):

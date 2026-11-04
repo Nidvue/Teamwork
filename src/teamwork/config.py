@@ -182,16 +182,11 @@ F_LESSONS = "Lessons.md"
 
 F_KNOWLEDGE = "Knowledge.md"
 
-#: The five kinds a K- record may carry (Architecture.md 16.5). `fact` is the
-#: default, so a record written before the field existed reads as a fact.
 KNOWLEDGE_KINDS = ("fact", "experience", "preference", "gotcha", "rule")
 
-#: Caps the `knowledge add` contract enforces on its two prose fields (15.2).
 KNOWLEDGE_TOPIC_MAX = 120
 KNOWLEDGE_STATEMENT_MAX = 500
 
-#: The read-only context view (Architecture.md 16). The tree is computed from
-#: the files at call time: these are output caps and URI parts, never storage.
 CONTEXT_ROOT = "ctx://"
 CONTEXT_NAMESPACES = ("project", "role", "global")
 CONTEXT_NODE_TYPES = ("dir", "doc", "skill", "knowledge", "lesson", "memory", "task")
@@ -203,9 +198,6 @@ CONTEXT_MEMORY_LAYERS = ("short", "long", "archive")
 
 SKILLS_DIR = (".agents", "skills")
 
-#: Every Teamwork-authored skill is recognisable by this fixed prefix. It is the
-#: recognition contract, so both the directory and the front-matter name carry it
-#: and `harness lint` refuses a tree where they do not (Architecture.md 14).
 SKILL_PREFIX = "tw-"
 
 DEFAULT_PROVIDER_LIMITS = {
@@ -220,28 +212,12 @@ SLOT_TTL_MINUTES = int(os.environ.get("TEAMWORK_SLOT_TTL_MINUTES", "90"))
 
 REVIEW_FAIL_LIMIT = int(os.environ.get("TEAMWORK_REVIEW_FAIL_LIMIT", "3"))
 
-# A review claim is a short work lease, not a provider slot. A lane that dies
-# mid-review must not freeze the deliverable for the 90-minute slot TTL.
 REVIEW_LEASE_MINUTES = int(os.environ.get("TEAMWORK_REVIEW_LEASE_MINUTES", "20"))
 
-# A role's shared memory has ONE revising instance at a time. The role file lock
-# makes a single write atomic; this lease is what holds the pen across several
-# commands, so an instance can finish one coherent memory update (`memory claim`
-# ... several `remember`/`forget` ... `memory release`) before a peer interleaves
-# its own view of the same file. A dead holder must not freeze the role forever,
-# so the lease expires and the next writer takes it over.
 MEMORY_LEASE_MINUTES = int(os.environ.get("TEAMWORK_MEMORY_LEASE_MINUTES", "30"))
 
-# A lease that outlives this long is "slow": the role's other instances may contest
-# it and the arbiter (the CTO) rules. The default is half a lease, so a normal
-# multi-entry update never trips it while a stuck lane is visible well before the
-# lease expires and frees itself.
 MEMORY_STALL_MINUTES = int(os.environ.get("TEAMWORK_MEMORY_STALL_MINUTES", "15"))
 
-# Who rules on a contested memory lease. The CTO owns engineering standards and the
-# build and lock policy, so a stuck writer is an engineering question rather than a
-# dispute between peers. The arbiter folds up the reporting line when the CTO is
-# unstaffed (a slim roster), and a party never rules its own lease.
 MEMORY_ARBITER_ROLE = os.environ.get("TEAMWORK_MEMORY_ARBITER", "cto")
 
 SHORT_CAP = int(os.environ.get("TEAMWORK_SHORT_CAP", "24"))
@@ -271,29 +247,15 @@ DOCS = {
     "Features.md": "ProjectManager",
 }
 
-# --------------------------------------------------------------------------- #
-# Feature teams (Architecture.md 13): one vertical slice per squad.
-# --------------------------------------------------------------------------- #
 
-#: The record's lifecycle (13.1). `proposed` is where every record starts, `ready`
-#: is the Architect's freeze and releases the record into the open set, `active`
-#: releases execution, and `done`/`dropped` are terminal.
 FEATURE_STATES = ("proposed", "ready", "active", "done", "dropped")
 
-#: The states rule 1-4 of 13.3 compare. A closed record's paths are released, not
-#: compared, or the path map would grow monotonically and serialise every feature.
 FEATURE_OPEN_STATES = ("ready", "active")
 
-#: The states a record never leaves (13.2: reopening is a new record with a new id).
 FEATURE_TERMINAL_STATES = ("done", "dropped")
 
-#: The role that owns a feature's squad and its `feature` test layer. The role is
-#: a workspace fact (`Roles/team-leader/`): `ROLE_PARENT` gains the edge that makes
-#: it a reporting line in the CEO's charter work, not in this engine change.
 FEATURE_TEAM_LEADER = "team-leader"
 
-#: Roles a squad instance may be attached to a team leader with
-#: `instance add <role> --under <team-leader>` (13.2, D-20261029-Architect-2).
 FEATURE_SQUAD_ROLES = (
     "data-engineer",
     "designer",
@@ -302,9 +264,6 @@ FEATURE_SQUAD_ROLES = (
     "tester",
 )
 
-#: Shared services and independent lanes: never attached. Each holds a standard
-#: that spans the teams it would be attached to, or audits the lane above it, so an
-#: `under:` edge would be a second manager - which one-manager-per-role forbids.
 FEATURE_SHARED_ROLES = (
     "architect",
     "ceo",
@@ -317,8 +276,6 @@ FEATURE_SHARED_ROLES = (
     "security-auditor",
 )
 
-#: Rendered on the base branch at the merge (throughput rule 8), so a feature that
-#: claims one is asking for a render riding its branch (13.3 rule 4).
 FEATURE_GENERATED_ARTIFACTS = (
     "docs/Team/Archive.md",
     "docs/Team/AuditManifest.json",
@@ -326,8 +283,6 @@ FEATURE_GENERATED_ARTIFACTS = (
     "docs/Team/Board.md",
 )
 
-#: Checkout state: gitignored, never merged, so two features cannot conflict there
-#: and claiming it is a design error rather than an overlap (13.3 rule 4).
 FEATURE_CHECKOUT_STATE = (
     ".pi/",
     ".pytest_cache/",
@@ -341,8 +296,6 @@ FEATURE_CHECKOUT_STATE = (
     "site/",
 )
 
-#: The one records file (13.1). It is refused as an owned path with its own finding
-#: because it is the map every other record's claim is judged against.
 FEATURE_RECORDS_REL = "docs/Team/Features.md"
 
 CODE_DIRS = ("src", "lib", "cmd", "internal", "app", "packages", "crates", "rust")
@@ -392,16 +345,6 @@ MAX_ROUNDS = int(os.environ.get("TEAMWORK_MAX_DISPUTE_ROUNDS", "3"))
 
 TRIBUNAL = ("ceo", "cto", "cfo")
 
-# Who each role reports to. One parent per role - a role with two managers answers
-# to neither - and the CEO is the only lane that reaches the user. The parent is
-# the role that owns the standard the child is judged by: technology work under the
-# CTO, execution and planning under the COO, product and documentation under the
-# Product Manager. Three roles stay with the CEO on purpose, because their job is
-# to disagree with everyone else: the Reviewer passes and merges (it must not be
-# managed by a lane whose work it reviews), the Security Auditor audits the whole
-# team, CTO included, and the CFO holds the budget cap that binds every lane.
-# `ROLE_PARENT` is the single source of truth; the docs, the charters, the
-# AGENTS.md block and the generated StartHere brief are checked against it.
 ROLE_PARENT = {
     "ceo": None,
     "cto": "ceo",
@@ -421,9 +364,6 @@ ROLE_PARENT = {
     "technical-writer": "product-manager",
 }
 
-# Reporting order, parents before children: the order the tree is rendered in and
-# the order an escalation walks. Kept explicit so `map`, the docs and the tests
-# agree without recomputing a graph from a plain dict.
 ROLE_REPORT_ORDER = (
     "ceo",
     "cto",
@@ -445,11 +385,6 @@ ROLE_REPORT_ORDER = (
 
 TRIBUNAL_MIN_SIGNERS = 2
 
-# Code-scanning findings are a release gate, not a nice-to-have: a red alert on
-# the default branch means the shipped revision has a known defect. The Release
-# Engineer owns the read and the routing because it already owns repository and CI
-# integrity (`references/Remotes.md`); the fix lands with whoever owns the file.
-# `SCAN_ROUTE` is the file-ownership map, most specific pattern first.
 SCAN_OWNER_ROLE = "release-engineer"
 
 SCAN_ROUTE = (
@@ -470,15 +405,8 @@ SCAN_ROUTE = (
     ("assets/**", "designer"),
 )
 
-# A scan alert at or above this severity blocks the release gate.
 SCAN_BLOCKING = ("error", "critical", "high")
 
-# Roster tiers, cheapest first. A role earns a seat only if it owns a deliverable,
-# a test layer and a decision right that no other role holds; everything else rides
-# as a lane. `slim` is the default because every extra role is another charter, queue
-# and memory set loaded at startup, and the gates do not need it: `staffed_layers`
-# already restricts the matrix to staffed roles, and `required_tribunal` stays at or
-# above TRIBUNAL_MIN_SIGNERS with the Reviewer as the neutral seat.
 ROSTER_TIERS = {
     "slim": (
         "ceo",
@@ -521,49 +449,29 @@ ROSTER_TIERS = {
 
 DEFAULT_ROSTER_TIER = "slim"
 
-# Roles the gates cannot do without, whichever tier is chosen.
 ROSTER_REQUIRED = ("ceo", "developer", "tester", "reviewer")
 
-# Instances per role for a tier: reviewers get two so the review queue fans out
-# and a sampled or high-risk deliverable gets a second independent verdict.
 ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1, "team-leader": 1}
 
-# Settings keys that are workspace policy, not provider concurrency limits: `slot`
-# reads every other key as a provider cap, so a new non-provider key must be
-# listed here or it becomes a phantom provider.
 SETTINGS_NON_PROVIDER = (
     "PulseMinutes",
-    # The accept mode for proactive work (off|observe|auto). A policy value, not a
-    # cap: a numeric typo for "off" (`"PulseMode": 0`) would otherwise become a
-    # provider with cap 0 and show up in `parallel`/`slot list`, which is what the
-    # end-to-end guard in tests/unit/test_pulse_authority.py measures.
     "PulseMode",
     "Criteria",
     "AlwaysOnBudgetKb",
     "ReviewLeaseMinutes",
     "ReviewLeaseMaxMinutes",
     "MemoryLeaseMinutes",
-    # `preflight --run` executes this one; it is a command string, not a cap.
     "PreflightCommand",
 )
 
-# The always-on context cap, per instance, in KB: SKILL.md + the managed teamwork
-# block of AGENTS.md + the role charter + the role memory. `harness budget` reads
-# `AlwaysOnBudgetKb` from the team Settings.json and falls back to this.
 DEFAULT_ALWAYS_ON_BUDGET_KB = 120
 
 DEFAULT_BASE = "main"
 
-# The two git hook stages `hooks install` writes. `status`, `uninstall` and the
-# overwrite refusal all key on HOOK_MARKER, so a hook without that line is never
-# touched: it belongs to someone else.
 HOOK_STAGES = ("pre-commit", "pre-push")
 
 HOOK_MARKER = "teamwork-managed hook"
 
-# Git LFS threshold shared by the pre-commit hook and `commit --check-lfs`: one
-# MiB, because "1 MB" in decimal and binary differ by 4.8% and a threshold that
-# moves with the reader is not a rule (D-20261020-Architect-7).
 LFS_MAX_BYTES = 1024 * 1024
 
 REVIEW_STATUSES = ("open", "approved", "changes-requested", "merged", "closed")

@@ -82,8 +82,6 @@ def test_pr_merge_by_task_id_reaches_the_live_record_after_a_rework(
     assert reopened[0]["status"] == "approved"
     live_branch = reopened[0]["branch"]
 
-    # the task id also matches the record that already names the first merge;
-    # the lookup narrows on the live branch, so the merge takes the reopened one
     assert cli("--project", project, "pr", "merge", "--pr", "T-0001", "--by", "reviewer-2") == 0
     assert f"# merged P-0001 {live_branch}" in capsys.readouterr().out
 
@@ -122,10 +120,8 @@ def test_merge_by_an_ambiguous_task_id_is_refused_not_guessed() -> None:
     ]
     assert engine._handle_is_ambiguous(prs, "T-0001") is True
     assert engine._handle_is_ambiguous(prs, "P-0002") is False
-    # A merged record no longer competes: the live one is unambiguous.
     prs[1]["status"] = "merged"
     assert engine._handle_is_ambiguous(prs, "T-0001") is False
-    # With a branch hint the right record is reached without any guessing.
     assert records.find_pr_exact(prs, "T-0001", "developer/t-0001-ship-it") == 0
 
 
@@ -158,7 +154,6 @@ def test_a_bare_task_id_skips_a_merged_sibling_instead_of_reporting_success(
     prs = [dead, live]
     assert engine._merge_pr_index(prs, "T-0001") == 1, "the live record wins, not the dead one"
     assert engine._merge_pr_index(prs, "P-0001") == 0, "an explicit PR id still resolves exactly"
-    # Every candidate dead: the caller may report the merge it already has.
     live["status"] = "closed"
     assert engine._merge_pr_index(prs, "T-0001") == 0
 

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **No comments in the code, enforced by the lint gate** - the code is the
+  comment: names, types, small functions and docstrings carry the meaning, and
+  only the directives a toolchain reads are allowed (`# noqa`, `# type: ignore`,
+  `# pragma: no cover`, `# fmt:`, a shebang). `scripts/check_comments.py` fails
+  on any other `#` with `path:line: text`; `--fix` removes or normalises them and
+  refuses any file whose AST would change. `make lint` and the CI lint job run
+  it, and the tree is comment-free.
 - **Lesson records and the `lesson` CLI** - `Roles/<Role>/Lessons.md` keeps one
   `L-nnnn` record per mistake (failure, cause, rule, evidence); `lesson
   add|list|show|fix` records and closes it, and `load` shows the role's open

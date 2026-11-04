@@ -48,9 +48,6 @@ from teamwork.names import git_identity_args
 
 BOARD = "docs/Team/Board.md"
 
-#: A board that carries the five anchors the renderer and the checker share, so a
-#: landing can re-render it. A fresh `init` writes a skeleton without the task
-#: tables; the render at the merge needs the tables to exist.
 BOARD_SKELETON = """# BOARD - live status
 
 Owner: Project Manager.
@@ -145,9 +142,6 @@ def pass_detail(project: Path) -> str:
     return records[-1].get("detail") or ""
 
 
-#: The length a real Reviewer writes: the 66 ``review.pass`` records in the live ledger
-#: carry 149-181-character details. A 23-character line would let a cap that eats the
-#: override pass, so the truncation is measured against a realistic one.
 REALISTIC_EVIDENCE = (
     "pytest -q @HEAD -> 1591 passed, 10 skipped, 0 failed; tests/unit/test_merge_board.py "
     "-> 6 passed; ruff check + ruff format --check clean; mypy Success; links 0"
@@ -199,7 +193,6 @@ def test_pr_merge_refuses_a_branch_that_no_longer_merges_and_changes_nothing(
     seed_board(project)
     ship(cli, project)
     branch = developer_task(project)["branch"]
-    # a verdict recorded against a base that was clean at pass time
     assert review_pass(cli, project, "--no-merge") == 0
     diverge_main(project)
     main_before = engine.run_git(project, "rev-parse", "main").stdout.strip()
@@ -233,15 +226,12 @@ def test_force_overrides_the_mergeability_probe_and_records_the_reason(
     diverge_main(project)
     reason = "the sibling branch must land before its rebase window closes"
     assert len(REALISTIC_EVIDENCE) >= 150, REALISTIC_EVIDENCE
-    # the claim frees a note into the detail as well, so take the deliverable first
     assert (
         cli("--project", project, "review", "developer", "T-0001", "--claim", "--by", "reviewer-1")
         == 0
     )
 
     capsys.readouterr()
-    # --no-merge: the override is about the verdict; git still cannot merge a
-    # conflict, and that failure is reported rather than counted as landed.
     assert (
         review_pass(cli, project, "--force", reason, "--no-merge", evidence=REALISTIC_EVIDENCE) == 0
     )
@@ -265,7 +255,6 @@ def test_a_merge_renders_the_board_from_queues_that_moved_after_the_branch_was_c
     """The landing leaves a board equal to the queues, whoever moved them."""
     seed_board(project)
     ship(cli, project)
-    # the queues move after the branch was cut: a second task nobody rendered
     assert cli("--project", project, "task", "add", "developer", "a later task") == 0
 
     capsys.readouterr()
@@ -285,7 +274,6 @@ def test_a_merge_renders_the_board_from_queues_that_moved_after_the_branch_was_c
     board = engine.run_git(project, "show", f"main:{BOARD}").stdout
     assert "| developer | T-0002 |" in board, board
     assert "| developer | T-0001 |" in board and "| done | P-0001 |" in board, board
-    # the rendered board is the product's own view of the queues, so --check is green
     capsys.readouterr()
     assert cli("--project", project, "board", "--check") == 0
     assert "matches the role queues" in capsys.readouterr().out

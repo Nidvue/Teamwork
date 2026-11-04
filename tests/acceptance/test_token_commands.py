@@ -62,7 +62,6 @@ def test_the_token_commands_run_end_to_end(project: Path) -> None:
     assert "workspace ready" in init.output
     root = team_root(project)
 
-    # 1. throughput on an empty ledger: a zero sample, not an error.
     ledger = root / "Ledger.jsonl"
     ledger.write_text("", encoding="utf-8")
     report = json.loads(assert_ok(cli(project, ["throughput", "--json"])).stdout)
@@ -71,7 +70,6 @@ def test_the_token_commands_run_end_to_end(project: Path) -> None:
     assert report["review"]["p50_minutes"] is None
     assert "n=0" in assert_ok(cli(project, ["throughput"])).stdout
 
-    # 2. archive --task on a real archive: one entry, no neighbour.
     archive = project / "docs" / "Team" / "Archive.md"
     archive.write_text(ARCHIVE, encoding="utf-8")
     selected = assert_ok(cli(project, ["archive", "--task", "T-0001"])).stdout
@@ -80,7 +78,6 @@ def test_the_token_commands_run_end_to_end(project: Path) -> None:
     missing = assert_ok(cli(project, ["archive", "--task", "T-9999"])).stdout
     assert missing.strip() == "# no archive entry for T-9999"
 
-    # 3. harness budget: startup excludes long-term memory; recallable carries it.
     before = startup_row(assert_ok(cli(project, ["harness", "budget"])).stdout, "Developer-1")
     assert_ok(
         cli(
@@ -109,7 +106,6 @@ def test_the_token_commands_run_end_to_end(project: Path) -> None:
     assert recallable_row(recallable, "CEO") > 0
     assert "total " in recallable
 
-    # 4. retirement is move-only and the ledger names where the evidence went.
     artifact = root / "Agents" / "Developer-1" / "Artifacts" / "T-0006-proof.txt"
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_text("the measured evidence\n", encoding="utf-8")

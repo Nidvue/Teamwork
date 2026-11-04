@@ -38,7 +38,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DIST_DIR = REPO_ROOT / "dist"
 
-#: Members that must exist inside the built wheel.
 REQUIRED_WHEEL_MEMBERS = (
     "teamwork/data/SKILL.md",
     "teamwork/data/templates/AGENTS.md",
@@ -102,7 +101,7 @@ def build_artefacts() -> None:
     """Run ``python -m build`` from the repository root."""
     try:
         import build  # noqa: F401
-    except ImportError as exc:  # pragma: no cover - environment-dependent
+    except ImportError as exc:  # pragma: no cover
         raise VerificationError(
             "'build' is not installed; run `make dev` or `python -m pip install build`"
         ) from exc
@@ -126,7 +125,7 @@ def find_artefacts() -> dict[str, Path]:
         raise VerificationError(f"no {version} wheel found in dist/ after build")
     if not sdists:
         raise VerificationError(f"no {version} sdist found in dist/ after build")
-    newest = lambda path: path.stat().st_mtime  # noqa: E731 - local key helper
+    newest = lambda path: path.stat().st_mtime  # noqa: E731
     return {"wheel": max(wheels, key=newest), "sdist": max(sdists, key=newest)}
 
 
@@ -176,8 +175,6 @@ def inspect_wheel(wheel: Path) -> None:
             raise VerificationError(
                 f"wheel version does not match src/teamwork/version.py ({expected_version})"
             )
-    # ``Requires-Dist`` is also emitted for optional extras; only an
-    # ungated requirement violates the zero-runtime-dependency contract.
     runtime = [
         line
         for line in metadata.splitlines()
@@ -221,8 +218,6 @@ def write_checksums(artefacts: dict[str, Path]) -> Path:
     for path in sorted(artefacts.values()):
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         lines.append(f"{digest}  {path.name}")
-    # ``Path.write_text(..., newline=...)`` is Python 3.10+ only; the project
-    # supports 3.9, so the file is opened directly (see ``engine.write_lf``).
     with manifest.open("w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(lines) + "\n")
     log(f"wrote {manifest.relative_to(REPO_ROOT)}")
@@ -231,7 +226,7 @@ def write_checksums(artefacts: dict[str, Path]) -> Path:
 
 def venv_paths(venv_dir: Path) -> tuple:
     """Return ``(python, bin_dir)`` for a virtual environment."""
-    if os.name == "nt":  # pragma: no cover - exercised on Windows CI
+    if os.name == "nt":  # pragma: no cover
         return venv_dir / "Scripts" / "python.exe", venv_dir / "Scripts"
     return venv_dir / "bin" / "python", venv_dir / "bin"
 
@@ -485,8 +480,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             with tempfile.TemporaryDirectory(prefix="teamwork-verify-") as tmp:
                 smoke_test(artefacts["wheel"], Path(tmp))
-        # Publish checksums only after every check passed: a failed run must not
-        # leave a manifest next to unverified artefacts.
         write_checksums(artefacts)
     except VerificationError as exc:
         log(f"FAILED: {exc}")

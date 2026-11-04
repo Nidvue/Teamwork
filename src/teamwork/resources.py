@@ -22,10 +22,6 @@ from pathlib import Path
 
 ENV_VAR = "TEAMWORK_SKILL_DIR"
 
-#: Arguments in this character set survive a POSIX shell and ``shlex.split``
-#: unquoted. Backslash is deliberately absent: shlex reads it as an escape, so a
-#: Windows interpreter path under a home directory lost every separator before
-#: T-0001.
 _SHELL_SAFE = re.compile(r"[A-Za-z0-9_@%+=:,./-]+")
 
 
@@ -40,7 +36,6 @@ def _shell_arg(part: str) -> str:
     return "'" + part.replace("'", "'\\''") + "'"
 
 
-#: A directory counts as the skill root when at least one of these is present.
 _MARKERS = ("SKILL.md", "roles", "references", "templates")
 
 
@@ -53,8 +48,8 @@ def _looks_like_skill(path: Path | None) -> bool:
 def _packaged_data() -> Path | None:
     """``teamwork/data/`` inside an installed wheel; ``None`` when unavailable."""
     try:
-        from importlib.resources import files  # Python 3.9+
-    except ImportError:  # pragma: no cover - 3.9 always has it
+        from importlib.resources import files
+    except ImportError:  # pragma: no cover
         return None
     try:
         return Path(str(files("teamwork").joinpath("data")))
@@ -89,9 +84,6 @@ def skill_root() -> Path:
     for candidate in _candidates():
         if _looks_like_skill(candidate):
             return candidate.resolve()
-    # Nothing matched: fall back to the first existing candidate so that the
-    # failure surfaces as "missing asset" on the command that needs it, not as
-    # an ImportError while loading the package.
     for candidate in _candidates():
         if candidate.is_dir():
             return candidate.resolve()

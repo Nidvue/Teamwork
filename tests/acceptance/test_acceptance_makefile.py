@@ -31,12 +31,8 @@ from tests.tooling import require_tool
 AREA = "makefile"
 MAKEFILE = REPO_ROOT / "Makefile"
 
-#: Targets a contributor needs before they can contribute at all. They are
-#: asserted to be *defined* in the Makefile and *documented* by ``make help``.
 REQUIRED_TARGETS = ("test", "lint", "build", "ci")
 
-#: Commands the documented one-shot pipeline must name, because the release
-#: documentation tells a reader those gates run.
 REQUIRED_GATE_COMMANDS = (
     "ruff check",
     "pytest",
@@ -60,7 +56,6 @@ def run_make(*args: str, cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess:
     )
 
 
-#: ``make help`` colourises the target column; strip the escapes before matching.
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -103,7 +98,6 @@ def test_ci_dry_run_names_the_gate_commands():
             f"`make -n ci` never runs {command!r}; the documented pipeline is incomplete:\n"
             + proc.stdout
         )
-    # A dry run prints commands; it does not run them (proved separately below).
     assert proc.stdout.strip(), proc.stdout
 
 
@@ -172,4 +166,4 @@ def test_the_real_pipeline_is_the_ci_alias():
         "`ci` is not the release-check pipeline:\n" + text
     )
     assert re.search(r"^release-check:.*\blint\b.*\btest\b.*\bverify\b", text, re.MULTILINE), text
-    assert sys.executable  # the interpreter the dry run above will use exists
+    assert sys.executable

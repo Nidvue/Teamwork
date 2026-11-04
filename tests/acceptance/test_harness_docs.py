@@ -30,9 +30,6 @@ from tests.gitenv import child_env
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 
-#: AC-H6, in the order the criterion states. Each entry is the stem the doc uses
-#: for that numbered step, so the test asserts the order and the identity of the
-#: step at once instead of five loose keyword hits.
 CRITERIA = [
     (1, "delivery"),
     (2, "fidelity"),
@@ -42,32 +39,17 @@ CRITERIA = [
     (6, "evidence reproduces"),
 ]
 
-#: AC-H7: the rule an agent must read before it treats task input as orders.
 UNTRUSTED = re.compile(r"data,?\s+never\s+instructions", re.IGNORECASE)
 
-#: AC-H7's second half: a claimed improvement needs a contrast and a verdict, and
-#: the four labels are the closed set a lesson may carry.
 CONTRAST = re.compile(
     r"claim of improvement needs a contrast(?:\s*,\s*|\s+)and a verdict", re.IGNORECASE
 )
 VERDICTS = ("helped", "hurt", "no observed effect", "confounded")
 
-#: The commands this bundle publishes for the new surface. Two shapes occur: a
-#: block spec on its own line (``teamwork hooks install [--force]``) and an inline
-#: reference in backticks (``teamwork.py harness lint``).
 DOC_BLOCK_SPEC = re.compile(r"^teamwork ((?:harness|hooks|hook)\b.*)$")
 DOC_INLINE_SPEC = re.compile(r"`teamwork(?:\.py)? ((?:harness|hooks|hook)\b[^`]*)`")
-#: A usage line is a *shape*, not a command to run verbatim: ``[--limit KB]``
-#: means "this flag may be given, optionally followed by its value". The
-#: placeholder is a name for a value, never the value itself, so it must never
-#: reach the parser as a literal argument.
-#: The value each known placeholder stands for. A placeholder the builder does
-#: not know is an error in the documentation, not something to guess at.
 PLACEHOLDER_VALUE = {"REMOTE": "origin", "URL": "https://example.invalid/repo.git"}
-#: One optional group: ``[--force]``, ``[--limit KB]``, ``[REMOTE] [URL]``.
 OPTIONAL_GROUP = re.compile(r"\[([^\[\]]*)\]")
-#: A required group: ``<remote> <url>`` - a placeholder the command cannot do
-#: without, so the builder fills it in rather than dropping it.
 REQUIRED_GROUP = re.compile(r"<([^<>\s]+)>")
 
 
@@ -213,9 +195,6 @@ def argv_of(spec: str) -> list:
             assert end != -1, f"unterminated optional group in {spec!r}"
             group = rest[1:end]
             rest = rest[end + 1 :]
-            # An optional group may hold a flag with its placeholder
-            # ("--limit KB"), a bare placeholder ("REMOTE") or nothing
-            # ("--force"). A flag-shaped group is dropped whole.
             if group.startswith("-"):
                 continue
             for name in group.split():
@@ -244,12 +223,6 @@ def argv_of(spec: str) -> list:
 
 def cli(project: Path, *args: str) -> subprocess.CompletedProcess:
     """The documented command, run against a throwaway repository."""
-    # The platform's own variables must survive (a hand-built environment that
-    # keeps PATH and HOME but drops SystemRoot/TEMP breaks Windows, where the
-    # interpreter's RNG is initialised from the OS), and the caller's git
-    # configuration must not (core.hooksPath, init.defaultBranch and
-    # commit.gpgsign would decide what this test measures). ``child_env``
-    # starts from the parent environment and re-asserts the hermeticity on top.
     child = child_env(
         HOME=str(project),
         GIT_AUTHOR_NAME="Tester",
@@ -297,7 +270,6 @@ def test_every_published_hook_command_actually_runs(tmp_path: Path) -> None:
             f"({argv_of(spec)} -> {done.returncode}):\n{done.stdout}{done.stderr}"
         )
 
-    # the operator verbs must not merely parse: they must succeed and be reversible
     assert cli(project, "hooks", "install").returncode == 0
     assert cli(project, "hooks", "status").returncode == 0
     assert cli(project, "hooks", "uninstall").returncode == 0
@@ -327,12 +299,10 @@ def test_the_argv_builder_never_lets_a_placeholder_become_an_argument() -> None:
     argument. A required argument (``<remote> <url>``) is the opposite case: it
     is filled in with a real value, because the command cannot do without it.
     """
-    # the documented line that broke the check: the placeholder must NOT survive
     assert argv_of("harness budget [--limit KB]") == ["harness", "budget"]
     assert argv_of("harness lint [--verbose]") == ["harness", "lint"]
     assert argv_of("hooks install [--force]") == ["hooks", "install"]
 
-    # a required argument is supplied, not dropped
     assert argv_of("hook pre-push <remote> <url>") == [
         "hook",
         "pre-push",
@@ -340,16 +310,12 @@ def test_the_argv_builder_never_lets_a_placeholder_become_an_argument() -> None:
         "https://example.invalid/repo.git",
     ]
 
-    # no placeholder ever reaches the argv
     for spec in published_commands():
         argv = argv_of(spec)
         assert not [token for token in argv if token.endswith("]")], (spec, argv)
         for token in argv:
             assert token.upper() not in PLACEHOLDER_VALUE, (spec, argv)
 
-    # a placeholder the builder does not know is a documentation defect, not a
-    # guess: the builder says so instead of inventing an argument. A flag group
-    # is dropped whole, so only a BARE placeholder can need a value.
     try:
         argv_of("hook pre-push [NOSUCHPLACEHOLDER]")
     except AssertionError as error:

@@ -105,5 +105,5 @@ def test_three_entrypoints_are_equivalent():
 def test_shim_also_works_when_pythonpath_contains_src():
     """The shim must win over its own directory even when src/ is already on
     sys.path (the editable-install / PYTHONPATH=src case)."""
-    env = build_env()  # PYTHONPATH = <repo>/src
+    env = build_env()
     _assert_version(run_shim(["--version"], env=env))

@@ -43,11 +43,6 @@ PYPROJECT = (
 )
 
 
-# --------------------------------------------------------------------------- #
-# Fixture repositories
-# --------------------------------------------------------------------------- #
-
-
 def git(root: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", "-C", str(root), *GIT_OPTIONS, *args],
@@ -112,11 +107,6 @@ def statuses(report: dict) -> dict[str, str]:
     return {rule["id"]: rule["status"] for rule in report["rules"]}
 
 
-# --------------------------------------------------------------------------- #
-# 0 - a consistent repository
-# --------------------------------------------------------------------------- #
-
-
 def test_a_consistent_repository_exits_zero(tmp_path: Path) -> None:
     root = make_repo(tmp_path / "clean")
 
@@ -134,14 +124,8 @@ def test_a_consistent_repository_exits_zero(tmp_path: Path) -> None:
     assert seen["R9"] == "ok"
 
 
-# --------------------------------------------------------------------------- #
-# 1 - drift
-# --------------------------------------------------------------------------- #
-
-
 def test_a_version_older_than_its_tag_is_drift_exit_1(tmp_path: Path) -> None:
     root = make_repo(tmp_path / "regressed")
-    # The tag says 2.0.0 but version.py at that commit says 1.0.0.
     git(root, "tag", "v2.0.0")
 
     code, report, stderr = gate(root)
@@ -181,11 +165,6 @@ def test_a_missing_changelog_section_is_drift_exit_1(tmp_path: Path) -> None:
     assert statuses(report)["R7"] == "DRIFT"
 
 
-# --------------------------------------------------------------------------- #
-# 2 - an input that could not be read
-# --------------------------------------------------------------------------- #
-
-
 def test_a_directory_that_is_not_a_git_work_tree_exits_2(tmp_path: Path) -> None:
     plain = tmp_path / "not-a-repo"
     plain.mkdir()
@@ -201,7 +180,6 @@ def test_a_directory_that_is_not_a_git_work_tree_exits_2(tmp_path: Path) -> None
 
 def test_a_malformed_exception_record_exits_2(tmp_path: Path) -> None:
     root = make_repo(tmp_path / "badexceptions")
-    # ``reason`` is empty: a reviewer cannot judge it, so the record is unreadable.
     commit(
         root,
         {
@@ -242,11 +220,6 @@ def test_offline_and_online_are_mutually_exclusive_exit_2(tmp_path: Path) -> Non
     assert "--offline and --online are mutually exclusive" in result.stderr
 
 
-# --------------------------------------------------------------------------- #
-# --offline behaviour: local rules evaluate, network rules SKIP with a reason
-# --------------------------------------------------------------------------- #
-
-
 def test_offline_skips_the_network_rules_and_still_evaluates_the_local_ones(
     tmp_path: Path,
 ) -> None:
@@ -278,16 +251,10 @@ def test_offline_drift_is_still_drift_not_a_skip(tmp_path: Path) -> None:
     assert report["problems"]
 
 
-# --------------------------------------------------------------------------- #
-# The gate must bite: the clean fixture, mutated, becomes drift
-# --------------------------------------------------------------------------- #
-
-
 def test_the_clean_fixture_turns_red_when_its_version_is_mutated(tmp_path: Path) -> None:
     root = make_repo(tmp_path / "mutable")
     assert gate(root)[0] == 0
 
-    # Mutation: the tag still says 1.0.0, the commit now says 9.9.9.
     commit(root, {"src/teamwork/version.py": VERSION_FILE.format(version="9.9.9")}, "mutate")
     git(root, "tag", "-f", "v1.0.0", "HEAD")
 

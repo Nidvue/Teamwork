@@ -18,7 +18,6 @@ import pytest
 
 from teamwork import engine
 
-# Two Reviewer lanes minimum: with a single lane the fan-out this file pins is inert.
 ROSTER = "ceo,developer-1,reviewer-1,reviewer-2,reviewer-3"
 
 
@@ -163,7 +162,6 @@ def test_the_pulse_stops_dispatching_reviews_when_every_lane_is_holding_one(lane
     assert "no Reviewer lane is idle" in out, out
     assert "developer/T-0001=Reviewer-1" in out, out
 
-    # a stalled lane stops pinning its deliverable once the lease runs out
     age_claim(root, "T-0001", 2 * engine.REVIEW_LEASE_MINUTES + 1)
     assert cli("--project", project, "pulse") == 0
     out = capsys.readouterr().out
@@ -315,7 +313,6 @@ def test_release_returns_the_work_and_only_the_holder_may_hand_it_back(lanes, ca
         == 2
     )
     err = capsys.readouterr().err
-    # an empty --force is not an override: same refusal, and it names the remedy
     assert "only that lane releases it" in err and "--force <reason>" in err, err
 
     assert (
@@ -331,7 +328,6 @@ def test_release_returns_the_work_and_only_the_holder_may_hand_it_back(lanes, ca
     out = capsys.readouterr().out
     assert "developer/T-0001 [P2/review] build the exporter  unclaimed" in out, out
 
-    # a live lane may pull a deliverable off a lane that stopped answering
     assert (
         cli("--project", project, "review", "developer", "T-0001", "--claim", "--by", "Reviewer-1")
         == 0
