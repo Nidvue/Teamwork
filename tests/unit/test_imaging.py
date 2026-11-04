@@ -20,11 +20,6 @@ def no_local_qimg(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(engine.shutil, "which", lambda _name: None)
 
 
-# --------------------------------------------------------------------------- #
-# ranking table
-# --------------------------------------------------------------------------- #
-
-
 def test_every_ranked_provider_has_a_detectable_credential():
     for provider, models in engine.IMAGE_MODEL_RANKING.items():
         if provider == "local":
@@ -37,18 +32,12 @@ def test_known_providers_are_ranked_and_ollama_cloud_is_honestly_empty():
     assert engine.IMAGE_MODEL_RANKING["openai"][0] == "gpt-image-1"
     assert engine.IMAGE_MODEL_RANKING["google"][0] == "imagen-4.0-ultra-generate-001"
     assert engine.IMAGE_MODEL_RANKING["local"][0] == "qwen-image-2.1"
-    # The provider this project actually runs on must not be reported as capable.
     assert engine.IMAGE_MODEL_RANKING["ollama-cloud"] == ()
 
 
 def test_provider_priority_is_declared_for_every_ranked_provider():
     for provider in engine.IMAGE_MODEL_RANKING:
         assert provider in engine.IMAGE_PROVIDER_PRIORITY
-
-
-# --------------------------------------------------------------------------- #
-# resolution
-# --------------------------------------------------------------------------- #
 
 
 def test_explicit_model_override_wins(monkeypatch):
@@ -92,7 +81,6 @@ def test_ambient_credential_selects_that_provider(monkeypatch):
 
 def test_a_provider_without_a_ranked_model_is_skipped(monkeypatch):
     no_local_qimg(monkeypatch)
-    # OLLAMA_API_KEY alone must not select ollama-cloud: it has no image model.
     decision = engine.resolve_image_model({"OLLAMA_API_KEY": "present"})
     assert decision["provider"] == ""
     assert decision["model"] == ""
@@ -131,11 +119,6 @@ def test_resolve_reads_the_process_environment_by_default(monkeypatch):
     assert decision["model"] == "from-env"
 
 
-# --------------------------------------------------------------------------- #
-# CLI
-# --------------------------------------------------------------------------- #
-
-
 def test_probe_json_is_machine_readable(cli, capsys, monkeypatch):
     no_local_qimg(monkeypatch)
     assert cli("imaging", "probe", "--json") == 0
@@ -154,13 +137,7 @@ def test_probe_exits_zero_without_a_model(cli, capsys, monkeypatch):
 
 
 def test_probe_requires_a_subcommand(cli):
-    # argparse exits 2 for a missing required subcommand; the fixture returns it.
     assert cli("imaging") != 0
-
-
-# --------------------------------------------------------------------------- #
-# the policy ships with the skill bundle
-# --------------------------------------------------------------------------- #
 
 
 def test_imaging_is_folded_into_the_designer_document(repo_root):
@@ -170,7 +147,6 @@ def test_imaging_is_folded_into_the_designer_document(repo_root):
     assert not (repo_root / "docs" / "Team" / "Imaging.md").exists()
     assert "Imaging.md" not in engine.DOCS
     assert engine.DOCS["Design.md"] == "Designer"
-    # and the Design doc/template carry the visual-asset sections instead
     template = (repo_root / "templates" / "Docs" / "Design.md").read_text(encoding="utf-8")
     for required in ("## Visual assets", "### Assets", "### Review log", "### Improvement log"):
         assert required in template, required
@@ -191,7 +167,6 @@ def test_designer_charter_is_the_policy_and_it_is_complete(repo_root):
         "Deciding what visual assets the deliverable needs",
     ):
         assert required in text, required
-    # "best quality" is prose; it appears capitalised at the start of a sentence.
     assert "best quality" in text.lower()
 
 

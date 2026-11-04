@@ -21,10 +21,8 @@ _ADDED = str(SCRIPTS) not in sys.path
 if _ADDED:
     sys.path.insert(0, str(SCRIPTS))
 try:
-    import privacy_scan as ps  # noqa: E402  (import after sys.path setup)
+    import privacy_scan as ps  # noqa: E402
 finally:
-    # Leaving scripts/ on sys.path would shadow the real ``teamwork`` package
-    # with ``scripts/teamwork.py`` for every later test in the session.
     if _ADDED:
         sys.path.remove(str(SCRIPTS))
 
@@ -39,7 +37,7 @@ def rules_hit(text: str) -> set:
 
 
 def test_planted_api_token_is_reported():
-    token = "sk-" + "A1b2C3d4E5f6G7h8I9j0"  # noqa: S105 - deliberately fake
+    token = "sk-" + "A1b2C3d4E5f6G7h8I9j0"  # noqa: S105
     assert "api-token" in rules_hit(f'API_KEY = "{token}"\n')
 
 
@@ -49,7 +47,6 @@ def test_planted_github_token_is_reported():
 
 
 def test_planted_private_key_header_is_reported():
-    # Assembled at runtime so the scanner does not flag this fixture file itself.
     header = "-----BEGIN " + "RSA PRIVATE KEY-----"
     assert "private-key" in rules_hit(header + "\n")
 
@@ -60,7 +57,6 @@ def test_planted_home_path_is_reported():
 
 
 def test_generic_home_user_is_not_reported():
-    # CI runners legitimately use a home directory named `runner` or `user`.
     generic = "/home/" + "runner/work/repo"
     also_generic = "/home/" + "user/src"
     assert "home-path" not in rules_hit(generic + "\n")
@@ -73,7 +69,6 @@ def test_personal_email_is_reported():
 
 
 def test_role_mailbox_is_allowed():
-    # The project's own commit identity must never be treated as a leak.
     assert ps._email_allowed("developer@agents.nidvue.com")
     assert "personal-email" not in rules_hit("author: Developer <developer@agents.nidvue.com>\n")
 
@@ -93,7 +88,6 @@ def test_forge_service_mailboxes_are_allowed():
 
 def test_a_personal_address_behind_the_service_mailbox_is_still_reported():
     """The service allowance is the exact host address, never its user domain."""
-    # Assembled at runtime: the scan must never read this file as a real address.
     address = "jane.doe" + "@" + "users.noreply.gitlab.com"
     assert "personal-email" in rules_hit(f"author: Jane <{address}>\n")
 
@@ -114,7 +108,6 @@ def test_identical_findings_are_deduped():
     token = "sk-" + "Zz9Yy8Xx7Ww6Vv5Uu4Tt"
     raw = findings_for(f'k = "{token}"\n')
     assert len(raw) == 1
-    # The same finding observed twice (e.g. tree scan + history scan) collapses.
     assert len(ps.dedupe(raw + raw)) == 1
 
 
@@ -169,7 +162,6 @@ def test_summarize_counts_by_severity_and_rule():
 
 
 def test_high_entropy_lookalike_is_not_a_false_positive():
-    # A git SHA-256 is high entropy but is a hash, not a credential.
     sha = "9f2c" * 16
     assert "high-entropy-secret" not in rules_hit(f"digest = {sha}\n")
 
@@ -204,8 +196,6 @@ def test_a_real_high_entropy_secret_is_still_reported():
         f'quoted "{probe}"\n',
     ):
         assert "high-entropy-secret" in rules_hit(line), line
-    # An assignment is reported by the assignment rule; the entropy rule still
-    # sees the same value, so it must not be the only thing that catches it.
     assert "env-secret" in rules_hit(f"API_KEY={probe}\n")
 
 
@@ -271,11 +261,8 @@ _RANDOM_32 = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6"
 @pytest.mark.parametrize(
     "token",
     [
-        # A one-letter word that is NOT fused to digits is still a fragment.
         "Abcdefghij/K/Lmnopqrst",
-        # The existing random-base64 fixture, which happens to contain a slash.
         _RANDOM_32 + "/Q7r8S9t0",
-        # Alternating letter/digit fragments that are not ids stay fragments.
         _RANDOM_32 + "/" + "Q7r8S9t0Ab1",
     ],
 )
@@ -352,18 +339,10 @@ def test_a_real_credential_value_is_still_reported_next_to_a_code_name():
     key = "AKIA" + "IOSFODNN7EXAMPLE"
     assert "env-secret" in rules_hit(f'API_KEY = "{key}"\n')
     assert "env-secret" in rules_hit(f"API_KEY = {key}\n")
-    # A name that says "secret" is a credential even when it is underscored.
-    # The fixture is fragmented so this test file does not trip the rule itself.
     assert "env-secret" in rules_hit("password = my_super_" + "secret_password\n")
 
 
-# --------------------------------------------------------------------------- #
-# agent-host configuration: the local secret most likely to reach a public tree
-# --------------------------------------------------------------------------- #
-
-
 def test_agent_host_config_path_in_a_line_is_reported():
-    # Fragmented so this test file does not trip the rule it is testing.
     line = "token_file = ~/.pi/" + "agent/auth.json\n"
     assert "agent-config" in rules_hit(line)
 
@@ -508,13 +487,9 @@ def test_forge_merge_predicate_is_narrow():
     github = "noreply@github.com"
     assert ps.is_forge_merge(merge, parents, github)
     assert ps.is_forge_merge(merge, parents, "noreply@" + "gitlab.com")
-    # The subject is attacker-controlled: without a documented host committer
-    # stamp the same commit is an ordinary one and must be scanned.
     assert not ps.is_forge_merge(merge, parents, "someone@" + "private-mail.example")
     assert not ps.is_forge_merge(merge, parents, "")
-    # A normal two-parent merge with a human message is still scanned, stamp or not.
     assert not ps.is_forge_merge("Merge branch 'feature'", ["a", "b"], github)
-    # A single-parent commit with that message is not a forge merge either.
     assert not ps.is_forge_merge(merge, ["a" * 40], github)
 
 
@@ -523,7 +498,6 @@ def test_gitignore_still_scans_json_credentials():
     line = '{"apiKey": "' + payload + '"}\n'
     assert "json-secret" in rules_hit(line)
     assert list(ps.scan_lines(line, ".gitignore", "unit-test", ps.RULES, allow=[]))
-    # The deny-list exemption stays narrow: a plain host path entry is still quiet.
     deny = ".claude/" + "settings.local.json\n"
     assert list(ps.scan_lines(deny, ".gitignore", "unit-test", ps.RULES, allow=[])) == []
 
@@ -574,9 +548,6 @@ def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path, mo
     token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
     message = f"Merge {feature} into {base}\n\nleaked {token}"
     run("git", "switch", "-q", "main")
-    # A real host merge keeps the pulled account's authorship and is *committed*
-    # by the host itself as `GitHub <noreply@github.com>`; deliver that identity
-    # through the environment, which beats `-c user.*` and the repository config.
     forge = {
         "GIT_AUTHOR_NAME": private["GIT_AUTHOR_NAME"],
         "GIT_AUTHOR_EMAIL": private["GIT_AUTHOR_EMAIL"],
@@ -585,7 +556,6 @@ def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path, mo
     }
     run("git", "merge", "--no-ff", "-m", message, "feature", extra_env=forge)
     merge_sha = run("git", "rev-parse", "HEAD").stdout.strip()
-    # Control: the same identity on an ordinary commit must still be reported.
     run("git", "commit", "-q", "--allow-empty", "-m", "ordinary", extra_env=private)
     control_sha = run("git", "rev-parse", "HEAD").stdout.strip()
 
@@ -633,8 +603,6 @@ def test_a_merge_subject_does_not_exempt_a_fabricated_identity(tmp_path, monkeyp
         "GIT_COMMITTER_NAME": "GitHub",
         "GIT_COMMITTER_EMAIL": "noreply@github.com",
     }
-    # The fabricated domain must count as *private* for the reported repro;
-    # `_private_domains()` reads the environment at call time.
     monkeypatch.setenv("TEAMWORK_PRIVATE_DOMAINS", "private-mail.example")
 
     def run(*args, extra_env=None):
@@ -803,7 +771,6 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
     ]
     for entry in entries:
         assert _is_one_escaped_literal(entry), f"{entry!r} is not one escaped literal"
-    # every exemption carries a reason next to it in the file
     assert any("T-0001" in ln for ln in lines if ln.startswith("#"))
     assert any("T-0034" in ln or "archived" in ln for ln in lines if ln.startswith("#"))
 
@@ -819,11 +786,11 @@ def test_the_narrowness_check_rejects_loose_entries():
     assert _is_one_escaped_literal(r"^\.pi/agent/npm$")
     assert _is_one_escaped_literal("^" + escaped + "$")
     loose = (
-        "^" + escaped + ".$",  # a wildcard where the last character is
-        "^" + escaped + ".*$",  # a wildcard tail
-        escaped,  # unanchored
-        "^" + escaped[:-1] + "(z)?$",  # a class
-        "^" + escaped + "$|^" + re.escape(".pi/agent/npm") + "$",  # alternation
+        "^" + escaped + ".$",
+        "^" + escaped + ".*$",
+        escaped,
+        "^" + escaped[:-1] + "(z)?$",
+        "^" + escaped + "$|^" + re.escape(".pi/agent/npm") + "$",
         "",
     )
     for entry in loose:
@@ -842,10 +809,8 @@ def test_a_fabricated_probe_value_is_exempted_but_its_neighbours_are_not():
 
     assert [f for f in ps.scan_lines(probe, "x.md", "unit-test", ps.RULES, allow)] == []
 
-    # one character different is a different secret, and is still reported
     sibling = probe[:-1] + "Z"
     assert [f["rule"] for f in ps.scan_lines(sibling, "x.md", "unit-test", ps.RULES, allow)]
-    # a real credential sharing the exempted line is still reported
     both = probe + " GITHUB_TOKEN=" + "ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789"
     rules = {f["rule"] for f in ps.scan_lines(both, "x.md", "unit-test", ps.RULES, allow)}
     assert "api-token" in rules
@@ -886,7 +851,6 @@ def test_reveal_never_prints_the_unmasked_secret(tmp_path, capsys):
     assert planted not in out, "the unmasked secret must not reach stdout"
     assert planted not in err, "the unmasked secret must not reach stderr"
     assert ps._fingerprint(planted) in out, "--reveal must yield a stable fingerprint"
-    # The fingerprint is not usable as the secret and does not embed it.
     assert planted[:12] not in out
 
 
@@ -913,11 +877,6 @@ def test_reveal_to_writes_a_0600_file_and_keeps_the_log_clean(tmp_path, capsys):
     assert "WARNING" in err, "the operator must be warned that a secret file exists"
     mode = stat.S_IMODE(export.stat().st_mode)
     if os.name == "nt":
-        # Windows has no POSIX mode bits: chmod only toggles read-only and a
-        # fresh file always reads back 0o666. The privacy guarantee there comes
-        # from the per-user profile ACL, not from a mode, so asserting 0o600
-        # would fail on a correct implementation. The exclusivity contract is
-        # pinned by test_reveal_to_refuses_to_clobber_an_existing_file instead.
         assert mode in (0o600, 0o666), mode
     else:
         assert mode == 0o600, f"reveal file must be 0600, got {oct(mode)}"
@@ -979,12 +938,9 @@ def test_the_quote_scope_is_what_drops_a_quoted_path_and_only_that():
         quoted = hits(f"{prefix}built {home} and {config}", "docs/Team/Archive.md")
         assert not {"agent-config", "home-path"} & quoted, (prefix, sorted(quoted))
 
-    # The same path in a document this repository authors is a real finding.
     authored = hits(f"built {home} and {config}", "docs/Team/Board.md")
     assert {"agent-config", "home-path"} <= authored, sorted(authored)
 
-    # And the scope is confined to Archive.md: the same quoted prefix elsewhere
-    # does not silence a path.
     elsewhere = hits(f"- reviewer evidence: built {home}", "docs/Team/Board.md")
     assert "home-path" in elsewhere, sorted(elsewhere)
 
@@ -1031,9 +987,6 @@ def test_every_shipped_allowlist_entry_matches_a_real_finding():
     allow = ps.load_allow(ROOT / ".github" / "privacy-allow.txt")
     assert allow, "no allowlist entries to check"
 
-    # A path-shaped entry is one whose literal carries a separator: the pi install
-    # tree, the POSIX home and (T-0018) the Windows home. The probe values are
-    # single words or a passphrase and stay out of this check.
     path_entries = [
         p
         for p in allow
@@ -1041,8 +994,6 @@ def test_every_shipped_allowlist_entry_matches_a_real_finding():
     ]
     assert len(path_entries) >= 3, "a path exemption disappeared"
 
-    # The probe value is rebuilt from each entry's own body, so this file never
-    # republishes the exempted string itself.
     values: set[str] = set()
     for pattern in path_entries:
         literal = re.sub(r"\\(.)", r"\1", entry_body(pattern.pattern))
@@ -1134,9 +1085,6 @@ def test_an_elided_home_path_identifies_nobody_and_is_not_reported():
         rules = {f["rule"] for f in ps.scan_lines(path, "commit:abc", "message", ps.RULES, allow)}
         assert "home-path" in rules, (path, sorted(rules))
 
-    # A name that only starts with dots is not an elision. `_RE_HOME` already
-    # requires an alphanumeric first character, so these never matched - the
-    # predicate is asked directly to prove it does not widen that.
     for name in (".hidden", "..", "." * 4 + "name"):
         assert not ps._user_is_elided(name), name
     assert ps._user_is_elided("...") and ps._user_is_elided("...\\gone")
@@ -1160,17 +1108,10 @@ def test_a_windows_user_name_ends_where_a_name_ends() -> None:
         matched = [m.group(0) for m in ps._RE_HOME.finditer(text)]
         assert matched == [expected], (text, matched)
 
-    # Ending the match earlier is precision, never permission: the name is still
-    # reported, so a code span cannot be used to smuggle a real account through.
     allow: list = []
     line = "path `C:/Users/" + "op" + "erator/x.py`"
     rules = {f["rule"] for f in ps.scan_lines(line, "file:doc.md", "text", ps.RULES, allow)}
     assert "home-path" in rules, sorted(rules)
-
-
-# --------------------------------------------------------------------------- #
-# the allowlist parser: a literal '#' is not a comment
-# --------------------------------------------------------------------------- #
 
 
 def test_an_allowlist_pattern_keeps_a_literal_hash(tmp_path: Path) -> None:
@@ -1257,11 +1198,6 @@ def test_an_allowlist_pattern_that_ends_mid_escape_is_refused(tmp_path: Path, ca
     assert "mid-escape" in capsys.readouterr().err
 
 
-# --------------------------------------------------------------------------- #
-# history: the commit walker and the blob walker cover the same set
-# --------------------------------------------------------------------------- #
-
-
 def _git(repo: Path, *argv: str, env=None) -> str:
     import subprocess
 
@@ -1304,14 +1240,10 @@ def _repo_with_a_rewritten_identity(tmp_path: Path) -> tuple:
     (repo / "a.txt").write_text("x\n", encoding="utf-8")
     _git(repo, "add", "a.txt")
     _git(repo, "commit", "-qm", "base", env=role)
-    # The commit that must be rewritten away: a personal author, then an amend
-    # that replaces it. The old object is unreferenced but still in the reflog.
     (repo / "b.txt").write_text("y\n", encoding="utf-8")
     _git(repo, "add", "b.txt")
     _git(repo, "commit", "-qm", "draft", env=leaked)
     rewritten = _git(repo, "rev-parse", "HEAD")
-    # --reset-author, not a bare --amend: an amend keeps the old author, so the
-    # rewrite only leaves the reflog behind when the author is reset too.
     _git(repo, "commit", "-q", "--amend", "--reset-author", "-m", "draft", env=role)
     current = _git(repo, "rev-parse", "HEAD")
     assert rewritten != current
@@ -1360,4 +1292,4 @@ def test_an_expired_reflog_leaves_no_identity_to_report(tmp_path: Path) -> None:
 
     assert ps.scan_commit_metadata(repo, allow=[]) == []
     assert [f for f in ps.scan_history(repo, allow=[]) if f["rule"] == "personal-email"] == []
-    assert current  # the branch tip is still there, with its role mailbox
+    assert current

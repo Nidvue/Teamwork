@@ -43,11 +43,8 @@ TESTS = Path(__file__).resolve().parents[1]
 UNIT = TESTS / "unit"
 INTEGRATION = TESTS / "integration"
 
-#: The ``subprocess`` entry points a test uses to execute a program.
 PROCESS_CALLS = frozenset({"run", "call", "check_call", "check_output", "Popen"})
 
-#: The two spellings of the guard: the direct call and the shared message builder
-#: (used where the tool's own resolution, not ``shutil.which``, is the authority).
 GUARD_CALLS = ("require_tool(", "skip_message(")
 
 
@@ -59,11 +56,6 @@ def absent(monkeypatch: pytest.MonkeyPatch) -> None:
 def present(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make every ``shutil.which`` lookup hit, as on a host with the tool."""
     monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
-
-
-# --------------------------------------------------------------------------- #
-# the guard's own contract
-# --------------------------------------------------------------------------- #
 
 
 def test_the_guard_skips_and_names_the_missing_tool(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -117,12 +109,7 @@ def test_the_guard_does_not_skip_when_the_tool_is_present(monkeypatch: pytest.Mo
     present(monkeypatch)
 
     assert not missing_tool("make")
-    require_tool("make")  # no ``pytest.raises``: falling through is the assertion
-
-
-# --------------------------------------------------------------------------- #
-# the defect itself: the make-driven modules skip instead of failing
-# --------------------------------------------------------------------------- #
+    require_tool("make")
 
 
 def guarded_test_module(directory: Path, name: str):
@@ -165,11 +152,6 @@ def test_the_integration_makefile_flow_skips_instead_of_failing_without_make(
         flow.make_required()
 
     assert "make" in str(skipped.value)
-
-
-# --------------------------------------------------------------------------- #
-# anti-vacuity: the guard cannot be dropped from an existing or a new test
-# --------------------------------------------------------------------------- #
 
 
 def guarded_tool_runs() -> list[tuple[Path, str]]:

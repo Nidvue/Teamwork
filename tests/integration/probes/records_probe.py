@@ -35,7 +35,7 @@ def load_records_module(repo: Path):
     if not (src / "teamwork" / "records.py").is_file():
         raise SystemExit(f"no src/teamwork/records.py under {repo}")
     sys.path.insert(0, str(src))
-    from teamwork import records  # noqa: PLC0415  (path must be set first)
+    from teamwork import records  # noqa: PLC0415
 
     return records
 
@@ -51,7 +51,7 @@ def engine_team_root(repo: Path) -> Path | None:
     src = repo / "src"
     if str(src) not in sys.path:
         sys.path.insert(0, str(src))
-    from teamwork import layout  # noqa: PLC0415  (the repo's src is on the path now)
+    from teamwork import layout  # noqa: PLC0415
 
     return layout.team_root_from_cwd(repo.resolve())
 
@@ -186,7 +186,6 @@ def main(argv: list[str] | None = None) -> int:
             parsed_ids[name] = []
             continue
         if name == "testplan":
-            # A mapping of area -> required layers, not a list of records.
             before = parse(path)
             again = parse_text(parse, render(before, path), path)
             if again != before:
@@ -202,7 +201,6 @@ def main(argv: list[str] | None = None) -> int:
         problems.extend(issues)
         parsed_ids[name] = [row["id"] for row in json.loads(canon)]
 
-    # The tool's own readers must see every record the files hold.
     commands = {
         "tasks": ("task", "list", "--all"),
         "criteria": ("criteria", "list"),
@@ -210,8 +208,6 @@ def main(argv: list[str] | None = None) -> int:
         "reviews": ("pr", "list"),
         "disputes": ("dispute", "list"),
     }
-    # `criteria list` exits 1 while any criterion is unverified: that is the STOP
-    # condition it reports, not a reader failure. Every other reader exits 0.
     allowed_exit = {"criteria": {0, 1}, "disputes": {0, 1}}
     for family, command in commands.items():
         code, out, err = cli(repo, team, *command)

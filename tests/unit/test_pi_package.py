@@ -43,19 +43,16 @@ def test_manifest_matches_the_shipped_tree(tmp_path: Path) -> None:
     assert manifest["license"] == "AGPL-3.0-or-later", "LICENSE is AGPL v3"
     assert "GNU AFFERO GENERAL PUBLIC LICENSE" in (pkg / "LICENSE").read_text(encoding="utf-8")
 
-    # every resource the pi manifest declares must exist in the tarball
     for paths in manifest["pi"].values():
         if not isinstance(paths, list):
-            continue  # pi.image is a URL, not a path
+            continue
         for pattern in paths:
             assert (pkg / pattern.lstrip("./")).exists(), pattern
 
-    # npm drops anything not named in `files`, including the notices
     for needed in ("README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md"):
         assert needed in manifest["files"], needed
         assert (pkg / needed).exists(), needed
 
-    # the gallery card is the description, and every link must reach the repo
     assert "Nidvue Teamwork" in manifest["description"]
     assert len(manifest["description"]) <= 256, "npm truncates the gallery card"
     assert manifest["homepage"] == "https://github.com/Nidvue/Teamwork"
@@ -63,7 +60,6 @@ def test_manifest_matches_the_shipped_tree(tmp_path: Path) -> None:
     assert manifest["bugs"]["url"].endswith("/issues")
     assert manifest["pi"]["image"].startswith("https://")
 
-    # host packages are peer-only: a physical copy duplicates pi's module registry
     for host in (
         "@earendil-works/pi-ai",
         "@earendil-works/pi-agent-core",
@@ -80,7 +76,6 @@ def test_the_pi_layer_is_not_shipped_twice(tmp_path: Path) -> None:
     assert adapter.is_file()
     duplicates = [p for p in (pkg / "skills" / "teamwork").rglob("teamwork-pi") if p.is_dir()]
     assert not duplicates, duplicates
-    # the portable skill must stay host-neutral; the pi names live in the adapter
     portable = (pkg / "skills" / "teamwork" / "SKILL.md").read_text(encoding="utf-8")
     for tool in ("subagent(", "schedule.create"):
         assert tool not in portable, tool
@@ -98,8 +93,6 @@ def test_engine_and_skill_are_runnable_from_the_tarball(tmp_path: Path) -> None:
     assert done.stdout.strip().startswith("teamwork "), done.stdout
 
 
-# Every argv[0] is refused (empty allowlist) before the shipped build runs, so a
-# step that needs an external binary fails on any host, not just on Windows.
 NO_EXTERNAL_BINARY = """\
 import runpy, subprocess, sys
 
@@ -149,11 +142,6 @@ def test_the_size_report_launches_nothing_and_still_names_the_tree(tmp_path: Pat
     total = sum(p.stat().st_size for p in pkg.rglob("*") if p.is_file())
     assert total > 0, "the build wrote no files"
     assert 0.9 * total <= amount <= 1.1 * total, (size, total)
-
-
-# --------------------------------------------------------------------------- #
-# The command line: asking what this script does must never build anything
-# --------------------------------------------------------------------------- #
 
 
 def dist_entries() -> set[str]:

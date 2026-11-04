@@ -22,8 +22,6 @@ from pathlib import Path
 
 from teamwork import engine
 
-#: Three files per lane: one ordinary scratch file (removed only by `--all`) and
-#: two that match `SCRATCH_PATTERNS` (removed by every clean).
 SCRATCH_FILES = ("render/in-flight.png", "in-flight.tmp", "notes.temp")
 
 
