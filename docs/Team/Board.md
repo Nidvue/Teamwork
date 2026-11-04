@@ -109,6 +109,7 @@ under two roles is two tasks.
 | ceo | T-0021 | privacy | done | P-0063 | ca608bf |
 | ceo | T-0022 | merge | done | P-0065 | 9c18b3c |
 | ceo | T-0023 | - | dropped | - | - |
+| ceo | T-0024 | - | done | P-0068 | 46b084f |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -135,7 +136,7 @@ under two roles is two tasks.
 | developer | T-0018 | release | done | P-0034 | 55ba101 |
 | developer | T-0019 | engine | done | P-0042 | 3b16a9c |
 | developer | T-0020 | - | done | - | - |
-| developer | T-0021 | - | todo | - | - |
+| developer | T-0021 | - | doing | - | - |
 | developer | T-0022 | - | dropped | - | - |
 | developer | T-0023 | review | done | P-0044 | 1d25519 |
 | developer | T-0024 | - | todo | - | - |
@@ -151,8 +152,11 @@ under two roles is two tasks.
 | developer | T-0034 | throughput | done | P-0058 | b9e5135 |
 | developer | T-0035 | - | todo | - | - |
 | developer | T-0036 | branch | blocked | - | - |
-| developer | T-0037 | - | doing | - | - |
+| developer | T-0037 | lint | doing | - | - |
 | developer | T-0038 | identity | done | P-0067 | 3ba9d4b |
+| developer | T-0039 | concurrency | review | P-0069 | - |
+| developer | T-0040 | - | todo | - | - |
+| developer | T-0041 | - | todo | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | records | done | - | - |
 | technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
@@ -169,6 +173,8 @@ under two roles is two tasks.
 | technical-writer | T-0012 | - | dropped | - | - |
 | technical-writer | T-0013 | docs | done | P-0061 | b4096f5 |
 | technical-writer | T-0014 | - | todo | - | - |
+| technical-writer | T-0015 | - | doing | - | - |
+| technical-writer | T-0016 | - | todo | - | - |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
@@ -198,7 +204,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
 | ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | blocked | - |
-| developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | todo | - |
+| developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | doing | - |
 | developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
 | developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |
 | developer | T-0026 · docs/Team/Decisions.md is a pure append point, so every lane's entry conflicts on every later merge and tasks are failed for it twice | P2 | todo | - |
@@ -208,9 +214,14 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0035 · Code scanning: py/incomplete-url-substring-sanitization in tests/unit/test_skill_contracts.py | P2 | todo | - |
 | developer | T-0036 · M20 B1: close branches that are no longer useful with branch prune | P0 | blocked | - |
 | developer | T-0037 · M20 C1: no comments in code, enforced by the lint gate | P0 | doing | - |
+| developer | T-0039 · M18 A6: make the lesson/knowledge concurrency tests tolerate a lock timeout while proving no lost record | P0 | review | - |
+| developer | T-0040 · M20 F2: cap agent-initiated follow-up chains at a recorded hop depth | P1 | todo | - |
+| developer | T-0041 · M20 F3: task text stays data - a task field can never set agent, cwd or access | P1 | todo | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
 | technical-writer | T-0014 · M20 A1: split README.md into a landing page and linked docs pages | P0 | todo | - |
+| technical-writer | T-0015 · M20 F1: research Agent Autoloop - what Teamwork should adopt, adapt or reject | P1 | doing | - |
+| technical-writer | T-0016 · M20 F4: tests name the failure they prevent, and the state modules stay pure | P2 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
