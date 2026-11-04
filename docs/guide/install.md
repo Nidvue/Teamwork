@@ -2,7 +2,7 @@
 
 Owner: Technical Writer.
 
-Related: [Home](../index.md) · [Quickstart](quickstart.md) · [CLI reference](cli.md) · [Releases](../releases.md)
+Related: [Home](../index.md) · [Quickstart](quickstart.md) · [For agents](for-agents.md) · [Usage patterns](usage.md) · [CLI reference](cli.md) · [Releases](../releases.md)
 
 Nidvue Teamwork is a **skill for your coding agent**, not a standalone app. You
 install it by cloning this repository into the directory your host reads skills
@@ -49,7 +49,7 @@ would contain an empty directory. The skill must be committed as plain files. A
 real submodule is a valid alternative:
 `git submodule add https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork`.
 
-That is the whole install: `SKILL.md`, the 15 role charters, `references/`,
+That is the whole install: `SKILL.md`, the 16 role charters, `references/`,
 `templates/`, the engine and the docs arrive in one directory.
 
 A skill is a directory. The only host-specific question is which directory that
