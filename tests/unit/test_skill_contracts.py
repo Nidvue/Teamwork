@@ -1407,7 +1407,9 @@ def test_demo_shows_the_skill_install_and_the_host_prompt(root):
     demo = read(root, "assets", "demo.svg")
     types = [demo.index(f'class="t{n}"') for n in (1, 2, 3)]
     assert types == sorted(types), "the demo must type its lines in reading order"
-    first, second, third = (demo[a:b] for a, b in zip(types, types[1:] + [len(demo)]))
+    first, second, third = (
+        demo[start:end] for start, end in zip(types, types[1:] + [len(demo)], strict=True)
+    )
     assert "git clone --depth 1 https://github.com/Nidvue/Teamwork.git" in first
     assert "&gt; " in second and "use the teamwork skill:" in second
     assert "teamwork loop" in third
@@ -1808,7 +1810,7 @@ def test_the_reviewer_charter_carries_the_ordered_criteria(root):
     positions = [section.find(name) for name in order]
     assert all(pos >= 0 for pos in positions), (
         f"roles/reviewer.md is missing an ordered criterion: "
-        f"{[name for name, pos in zip(order, positions) if pos < 0]}"
+        f"{[name for name, pos in zip(order, positions, strict=True) if pos < 0]}"
     )
     assert positions == sorted(positions), "the review criteria are out of order"
 

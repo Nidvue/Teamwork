@@ -915,7 +915,7 @@ def test_concurrent_adds_and_touches_serialise_under_one_lock(ws, tmp_path: Path
     codes = [process.returncode for process in processes]
     unexpected = [
         (index, code, out, err)
-        for index, (code, (out, err)) in enumerate(zip(codes, results))
+        for index, (code, (out, err)) in enumerate(zip(codes, results, strict=True))
         if code not in (0, 4)
     ]
     assert not unexpected, unexpected

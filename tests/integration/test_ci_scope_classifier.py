@@ -5,7 +5,7 @@ The classifier is not a module - it is the shell block of the ``scope`` job in
 ``code=true|false`` into ``$GITHUB_OUTPUT``. The matrix jobs then ask that one
 question ("did this push touch anything that ships?"). Nothing else tests it as
 a program, so a defect there is invisible until a documentation-only push burns
-the 3x3 matrix or a code push skips it.
+the test matrix or a code push skips it.
 
 This module therefore extracts the *real* block from the workflow (so the test
 cannot drift from the shipped classifier), runs it with a real POSIX ``bash``
