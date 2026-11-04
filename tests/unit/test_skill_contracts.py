@@ -208,10 +208,13 @@ def test_the_superseded_ceo_only_push_rule_is_marked_superseded(root):
         assert "status: superseded" in block, f"{title} is not marked superseded"
 
 
+ROLE_MAILBOX_HOST = re.compile(r"(?<![\w.-])agents\.nidvue\.com(?![\w.-])")
+
+
 def test_the_role_mailbox_domain_is_an_owner_decision(root):
     text = read(root, "docs", "Team", "Decisions.md")
     blocks = text.split("\n## ")
-    mailbox = [b for b in blocks if "role mailbox domain" in b and "agents.nidvue.com" in b]
+    mailbox = [b for b in blocks if "role mailbox domain" in b and ROLE_MAILBOX_HOST.search(b)]
     assert mailbox, "no decision records the role mailbox domain"
     assert any("status: accepted" in b for b in mailbox), "the owner decision is not accepted"
 
