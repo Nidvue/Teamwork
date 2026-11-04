@@ -92,10 +92,12 @@ under two roles is two tasks.
 | developer | T-0003 | skills | done | P-0001 | d93df1e |
 | developer | T-0004 | - | dropped | - | - |
 | developer | T-0005 | - | dropped | - | - |
-| developer | T-0006 | - | todo | - | - |
-| developer | T-0007 | evolution | review | P-0008 | - |
+| developer | T-0006 | - | doing | - | - |
+| developer | T-0007 | evolution | done | P-0008 | bead382 |
 | developer | T-0008 | readme | done | P-0006 | 38aa608 |
-| developer | T-0009 | - | doing | - | - |
+| developer | T-0009 | ci | review | P-0009 | - |
+| developer | T-0010 | tests | doing | - | - |
+| developer | T-0011 | - | dropped | - | - |
 | reviewer | T-0001 | records | done | - | - |
 | tester | T-0001 | - | done | - | - |
 | tester | T-0002 | - | dropped | - | - |
@@ -117,9 +119,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | ceo | T-0003 · Trim the always-on startup surface under the 122880 B cap (Reviewer-1/2 over by 11279 B) | P1 | todo | - |
 | ceo | T-0006 · Wire Evolution.md and tw-self-evolve to 'teamwork evolution check' | P1 | todo | - |
-| developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | todo | - |
-| developer | T-0007 · Code-enforce the self-evolution framework: evolution check + snapshot + audit wiring | P0 | review | - |
-| developer | T-0009 · Drop EOL Python 3.9/3.10 and cut the CI matrix to 5 jobs | P1 | doing | - |
+| developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | doing | - |
+| developer | T-0009 · Drop EOL Python 3.9/3.10 and cut the CI matrix to 5 jobs | P1 | review | - |
+| developer | T-0010 · Restore the provider-cap statement the README restructure dropped (test_provider_caps red on main) | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
