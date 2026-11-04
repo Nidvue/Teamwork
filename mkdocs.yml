@@ -59,8 +59,20 @@ nav:
   - Guide:
       - Installation: guide/install.md
       - Quickstart: guide/quickstart.md
-      - CLI reference: guide/cli.md
+      - For agents: guide/for-agents.md
+      - Usage patterns: guide/usage.md
+      - Operations: guide/operations.md
+      - How it works: guide/how-it-works.md
+      - Features: guide/features.md
       - Architecture: guide/architecture.md
+      - CLI reference:
+          - Overview: guide/cli.md
+          - Records and knowledge: guide/cli-records.md
+          - Review and governance: guide/cli-review.md
+          - Feature teams and git workflow: guide/cli-workflow.md
+          - Audit and control: guide/cli-audit.md
+      - Alternatives: guide/alternatives.md
+      - Roadmap: guide/roadmap.md
       - CI pipeline: guide/ci.md
   - Releases: releases.md
 

@@ -187,9 +187,11 @@ def main(argv: list[str] | None = None) -> int:
     index = control_work / "docs" / "index.md"
     text = index.read_text(encoding="utf-8")
     text = text.replace(
-        "## Why Teamwork\n", "## Why Teamwork\n\nSee [the pitch](#no-such-heading).\n", 1
+        "## What makes it different\n",
+        "## What makes it different\n\nSee [the pitch](#no-such-heading).\n",
+        1,
     )
-    text = text.rstrip() + '\n\n<h2 id="why-teamwork">Raw heading reusing an id</h2>\n'
+    text = text.rstrip() + ('\n\n<h2 id="what-makes-it-different">Raw heading reusing an id</h2>\n')
     index.write_text(text, encoding="utf-8")
     code2, _ = build(python, control_work)
     _s, control = scan(control_work / "site")
