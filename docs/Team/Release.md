@@ -300,10 +300,10 @@ the 11** equal the commit their file comment names
 for `attest-build-provenance`). The new pin is `actions/setup-node@949feb24...` (`v7`),
 which `gh api repos/actions/setup-node/git/ref/tags/v7` reports as a commit object with
 exactly that sha. The one that lagged, `actions/setup-python@v7`, moved on 2026-11-04:
-it was pinned `5fda3b95` (2026-07-20) and is now `6d4fd22b` (v7.1.0, 2026-10-22; the
-tag ref resolves to that commit) through dependabot PR #31, merged locally at `46b084f`
-(T-0024), so its comment and its tag agree again. A pin is frozen until a reviewed bump
-moves it; the next drift check starts from these 11.
+it was pinned `5fda3b95` (2026-07-20) and is now `6d4fd22b` (the action release
+7.1.0, 2026-10-22; its tag ref resolves to that commit) through dependabot PR #31,
+merged locally at `46b084f` (T-0024), so its comment and its tag agree again. A pin
+is frozen until a reviewed bump moves it; the next drift check starts from these 11.
 
 Annotations on the last five runs (`gh run list -L 5 --json databaseId,conclusion,headSha`
 then `gh api repos/Nidvue/Teamwork/check-runs/<id>/annotations`) carry **one** `notice`
