@@ -111,6 +111,7 @@ under two roles is two tasks.
 | ceo | T-0023 | - | dropped | - | - |
 | ceo | T-0024 | - | done | P-0068 | 46b084f |
 | ceo | T-0025 | release | done | P-0071 | c604aa5 |
+| ceo | T-0026 | release | done | P-0072 | c2c3b2e |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
