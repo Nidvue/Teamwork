@@ -112,11 +112,6 @@ def test_a_self_check_cannot_resurrect_a_closed_task(cli, project: Path) -> None
     assert "the close was a mistake" in reopened["T-0001"]["forced"]
 
 
-# --------------------------------------------------------------------------- #
-# T-0047: a bulk sweep must not erase live work silently
-# --------------------------------------------------------------------------- #
-
-
 def test_a_claimed_task_cannot_be_dropped_without_a_force_reason(cli, project, capsys):
     """A claimed task is live work: a sweep may not close it with a canned reason."""
     root = init(cli, project)

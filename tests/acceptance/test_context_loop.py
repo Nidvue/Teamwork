@@ -26,7 +26,6 @@ from cli_harness import assert_ok, build_env, cli
 
 ROSTER = "ceo,developer-1,tester-1,reviewer-1"
 
-#: Any HTTP attempt from the child must fail fast instead of reaching the network.
 OFFLINE_ENV = build_env(
     {
         "HTTP_PROXY": "http://127.0.0.1:9",

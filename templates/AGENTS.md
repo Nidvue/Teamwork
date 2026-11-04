@@ -650,11 +650,12 @@ Never wait for another role before doing work you can do yourself.
   committing and the checker in CI. Never hand-format, never weaken a rule to pass
   (no blanket `noqa`, no rule deleted from the config), and never merge code the
   formatter would change. Evidence: the command and its result.
-- **COMMENTS** - write only comments the code cannot give you: a non-obvious why,
-  a workaround with its reference, a public contract. Never restate the next line,
-  never banner self-evident sections, never leave commented-out code, never write
-  `TODO`/`FIXME`/`HACK` without a tracked task id, and never leave a comment that
-  the code has outgrown. Prefer a clear name or a smaller function to a comment.
+- **NO COMMENTS** - the code is the comment: names, types, small functions and
+  docstrings carry the meaning. Write no explanatory `#`; the only allowed
+  comments are the directives a toolchain reads (`# noqa`, `# type: ignore`,
+  `# pragma: no cover`, `# fmt:`, a shebang). `scripts/check_comments.py` fails
+  the gate on anything else, so a `TODO`/`FIXME`/`HACK` is a tracked task, not a
+  comment. When the code is hard to read, rename or split it - do not explain it.
 - **CLEAN WORKING TREE** - no temp or stale files: `*.orig`, `*.rej`, `*.bak`,
   `*~`, `*.tmp`, `*.log`, `.DS_Store`, scratch copies, superseded drafts, empty
   directories. Scratch lives in your gitignored `Scratch/` and is emptied before

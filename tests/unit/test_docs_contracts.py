@@ -47,14 +47,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_DIR = "docs"
 TEAM_DIR = "docs/Team"
 
-#: Directories outside `docs/` that documents link into. Measured.
 EXTRA_TREES = ("references",)
 
-#: Root-level files outside `docs/` that documents link to. A document may cite a
-#: top-level file (a CHANGELOG, a README); the copy must carry it or the link check
-#: reports a broken link that only the missing copy caused. Measured by resolving
-#: every relative link in `docs/` against the repository root; extend the list when
-#: a document starts linking to another root-level file.
 ROOT_LINK_FILES = ("CHANGELOG.md", "README.md", "CONTRIBUTING.md", "SKILL.md")
 
 OWNER_RE = re.compile(r"(?<![\w`])Owner:\s*(?P<owner>[^.,;\n]*)")
@@ -167,11 +161,6 @@ def docs_copy(tmp_path: Path) -> Path:
     return tmp_path
 
 
-# --------------------------------------------------------------------------- #
-# the real tree
-# --------------------------------------------------------------------------- #
-
-
 def test_every_document_has_one_title_an_owner_and_related_links():
     assert structure_problems(REPO_ROOT) == []
 
@@ -254,11 +243,6 @@ def test_the_design_asset_geometry_matches_the_files():
                 if match:
                     recorded.add((int(match.group(1)), int(match.group(2))))
         assert recorded == {expected}, (rel, expected, sorted(recorded))
-
-
-# --------------------------------------------------------------------------- #
-# mutants: each breaks one rule in a copy and must be reported
-# --------------------------------------------------------------------------- #
 
 
 def _append(docs_copy: Path, rel: str, line: str) -> None:

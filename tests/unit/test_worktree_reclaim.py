@@ -42,9 +42,6 @@ def _age(path: Path, minutes: int) -> None:
         try:
             os.utime(child, (stamp, stamp), follow_symlinks=False)
         except (OSError, NotImplementedError):
-            # Windows cannot set a symlink's own time (follow_symlinks=False is
-            # unimplemented there); the link target's time is enough for the
-            # freshness rule, so fall back to following instead of skipping.
             try:
                 os.utime(child, (stamp, stamp))
             except OSError:
@@ -134,8 +131,6 @@ def test_a_directory_sharing_the_pi_prefix_is_not_ours(cli, project: Path) -> No
     engine.run_git(project, "worktree", "add", "--detach", str(outside), "HEAD")
     _age(outside, 120)
     listed = engine.run_git(project, "worktree", "list", "--porcelain").stdout
-    # git prints worktree paths with forward slashes even on Windows, so compare
-    # paths, not strings: str(outside) carries backslashes there.
     assert any(
         Path(ln.split(" ", 1)[1]) == outside
         for ln in listed.splitlines()

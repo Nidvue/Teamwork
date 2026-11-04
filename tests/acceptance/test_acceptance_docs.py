@@ -35,11 +35,6 @@ DOCS_TEAM = Path("docs") / "Team"
 README = Path("README.md")
 PYPROJECT = Path("pyproject.toml")
 
-#: ``docs/Team/AuditManifest.md`` is *generated* by `ledger export`
-#: (`src/teamwork/engine.py`, ``_emit_manifest``) and opens with ``# Audit report``
-#: rather than an agent-owned H1 + ``Owner:`` line. It is excluded by name, and by
-#: name only: an exclusion list of one generated file cannot hide a hand-written
-#: document that lost its owner.
 GENERATED_DOCS = {"AuditManifest.md"}
 
 
@@ -61,9 +56,6 @@ def test_link_check_reports_zero_issues(tmp_path):
         f"{result.stdout}\n{result.stderr}"
     )
     assert "# issues: 0" in result.stdout, result.stdout
-    # A check that skips files is not an acceptance: the checkout is nothing but
-    # committed text, so the checker must have read *every* markdown file a
-    # reader can open, not a convenient subset.
     files = int(re.search(r"# (\d+) markdown file\(s\)", result.stdout).group(1))
     readable = len(list(tree.rglob("*.md")))
     assert files == readable, (
@@ -86,9 +78,6 @@ def test_every_team_doc_has_an_h1_and_an_owner(tmp_path):
         if h1 is None or not h1[2:].strip():
             offenders.append(f"{path.name}: no H1")
             continue
-        # Only the document preamble counts. A section-level `Owner:` further
-        # down attributes a section, not the document, so accepting it would let
-        # a doc lose its real owner and still pass.
         first_section = next(
             (i for i, line in enumerate(lines) if line.startswith("## ")), len(lines)
         )
@@ -118,8 +107,6 @@ def test_readme_install_commands_name_a_real_distribution(tmp_path):
     declared = _manifest(tree)["project"]["name"]
     readme = (tree / README).read_text(encoding="utf-8")
 
-    # `pip install <name>`, `pipx install <name>`, `uvx --from <name>` - the
-    # commands a reader copies. Flags and URLs are not distribution names.
     commands = re.findall(
         r"(?:pip|pipx)\s+install\s+(?:--[\w-]+\s+)*([A-Za-z0-9._/-]+)"
         r"|uvx\s+--from\s+([A-Za-z0-9._-]+)",
@@ -130,9 +117,6 @@ def test_readme_install_commands_name_a_real_distribution(tmp_path):
     assert declared in names, (
         f"the README never installs the declared distribution {declared!r}; it names {sorted(names)}"
     )
-    # And no phantom names: every distribution the README tells a reader to
-    # install is one this project actually builds. A local path or a URL is an
-    # install *source*, not a distribution name, so those are not checked.
     phantom = sorted(name for name in names - {declared} if _is_distribution_name(name))
     assert not phantom, (
         f"the README tells a reader to install {phantom}, which `pyproject.toml` does "

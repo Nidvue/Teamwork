@@ -14,15 +14,12 @@ from pathlib import Path
 
 _SRC = Path(__file__).resolve().parent.parent / "src"
 if _SRC.is_dir():
-    # Drop this script's own directory first: it contains ``teamwork.py``, which
-    # would otherwise shadow the real ``teamwork`` package on import. Python puts
-    # the script directory on sys.path[0], so this is not optional.
     _HERE = str(Path(__file__).resolve().parent)
     while _HERE in sys.path:
         sys.path.remove(_HERE)
     sys.path.insert(0, str(_SRC))
 
-from teamwork.cli import main  # noqa: E402  (import after sys.path fix)
+from teamwork.cli import main  # noqa: E402
 
 if __name__ == "__main__":
     sys.exit(main())

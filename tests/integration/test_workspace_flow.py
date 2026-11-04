@@ -29,11 +29,6 @@ def init_team(cli, project: Path, agents=AGENTS) -> Path:
     return root
 
 
-# --------------------------------------------------------------------------- #
-# bootstrap
-# --------------------------------------------------------------------------- #
-
-
 def test_init_creates_the_workspace_layout(cli, project: Path) -> None:
     root = init_team(cli, project)
 
@@ -72,11 +67,6 @@ def test_init_ledger_is_seeded_and_verifies(cli, project: Path) -> None:
     assert cli("--project", project, "ledger", "verify") == 0
 
 
-# --------------------------------------------------------------------------- #
-# memory
-# --------------------------------------------------------------------------- #
-
-
 def test_global_and_remember_write_memory(cli, project: Path) -> None:
     root = init_team(cli, project)
 
@@ -102,11 +92,6 @@ def test_global_and_remember_write_memory(cli, project: Path) -> None:
 
     role_entries = engine.parse_memory(root / "Roles" / "Developer" / "ShortTermMemory.md")
     assert [e["body"] for e in role_entries] == ["local fact"]
-
-
-# --------------------------------------------------------------------------- #
-# tasks
-# --------------------------------------------------------------------------- #
 
 
 def test_task_add_and_next_claims_the_task(cli, project: Path) -> None:
@@ -150,11 +135,6 @@ def test_task_add_does_not_duplicate_an_identical_title(cli, project: Path) -> N
     assert cli("--project", project, "task", "add", "developer-1", "same") == 0
     tasks = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")
     assert len(tasks) == 1
-
-
-# --------------------------------------------------------------------------- #
-# criteria + layered tests
-# --------------------------------------------------------------------------- #
 
 
 def test_criteria_add_and_independent_verify_via_passing_test(cli, project: Path) -> None:
@@ -253,7 +233,6 @@ def test_criteria_verify_rejects_the_owning_role(cli, project: Path) -> None:
         )
         == 0
     )
-    # The CEO owns AC-1, so the CEO may not verify it.
     assert (
         cli(
             "--project",
@@ -315,7 +294,6 @@ def test_tests_run_rejects_the_wrong_role(cli, project: Path) -> None:
         )
         == 0
     )
-    # A unit record belongs to the Developer; the Reviewer may not run it.
     assert (
         cli(
             "--project",
@@ -332,11 +310,6 @@ def test_tests_run_rejects_the_wrong_role(cli, project: Path) -> None:
         )
         != 0
     )
-
-
-# --------------------------------------------------------------------------- #
-# end-to-end + audit trail
-# --------------------------------------------------------------------------- #
 
 
 def test_full_lifecycle_and_clean_ledger(cli, project: Path) -> None:
@@ -365,7 +338,6 @@ def test_full_lifecycle_and_clean_ledger(cli, project: Path) -> None:
     for step in steps:
         assert cli("--project", project, *step) == 0, f"failed step: {step}"
 
-    # 9 + 2 bootstrap records minimum.
     records = engine.ledger_read(root)
     assert len(records) >= 10
     head = json.loads((root / "Runtime" / "LedgerHead.json").read_text(encoding="utf-8"))

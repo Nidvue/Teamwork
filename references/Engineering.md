@@ -409,30 +409,35 @@ a near-duplicate; delete superseded drafts; don't commit generated files, caches
 editor noise or local state. Every file in the repository should be something the
 project needs to build, run, test, document or ship.
 
-### Comments - write none that the code already says
+### No comments - the code is the comment
 
 A comment is a maintenance liability: it is not compiled, it is not tested, and
-it goes stale silently. Add one only when the *why* cannot be expressed in the
-code itself.
+it goes stale silently. The team's rule is therefore absolute: **write no
+comment.** A name, a type, a small function or a docstring carries the meaning,
+and when the code is hard to read the fix is to rename or split it, not to
+explain it.
 
-Write a comment **only** for: a non-obvious reason or constraint (a spec, a bug
-workaround with its reference, a platform quirk, a security decision), a public
-API contract that a caller cannot infer, or a unit that is genuinely ambiguous.
+The only allowed `#` lines are the directives a toolchain itself reads:
 
-Never write:
+| Directive | Why it must stay |
+|---|---|
+| `#!/usr/bin/env python3` | the operating system's shebang on line 1 |
+| `# noqa` / `# noqa: E501` | ruff must not report that line |
+| `# type: ignore[...]` | mypy must not report that line |
+| `# pragma: no cover` / `# pragma: no branch` | coverage excludes the branch |
+| `# fmt: off` / `# fmt: on` / `# fmt: skip` | the formatter must not touch the block |
+| `# -*- coding: ... -*-` | the interpreter's source encoding |
 
-- a comment that restates the next line (`# increment i`);
-- section banners for self-evident code (`# --- helpers ---` over three helpers);
-- a docstring that repeats the function name (`"""Return the name."""`);
-- changelog-in-code (`# added in v1.2`, `# removed the old branch`);
-- commented-out code - delete it, git remembers;
-- `TODO` / `FIXME` / `XXX` / `HACK` with no owner and no tracked task; if it
-  matters, file it as a task and cite the id, otherwise drop it;
-- a comment that contradicts the code. A stale comment is a defect: fix or delete
-  it in the same change that made it stale.
+Nothing else passes. `scripts/check_comments.py` scans every `.py` under `src/`,
+`scripts/` and `tests/`, prints `path:line: text` for each violation and exits 1;
+`make lint` and the CI lint job run it. `--fix` removes a whole-line comment,
+trims a trailing one and normalises a directive that carries prose, and it refuses
+any file whose parsed AST would change, so a fix can only remove comments.
 
-Prefer a clear name, a small function or an explicit type over an explanatory
-comment. When a comment is warranted, write what the code cannot say, in one line.
+A `TODO` / `FIXME` / `XXX` / `HACK` is a task, not a comment: file it and cite the
+id in the commit, the queue or the plan. Commented-out code is deleted - git
+remembers it. A docstring is not a comment: it is part of the object it documents
+and it stays.
 
 ### Working tree - clean, structured, current
 

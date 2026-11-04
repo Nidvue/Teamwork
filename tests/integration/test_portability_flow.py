@@ -49,14 +49,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TESTS_ROOT = REPO_ROOT / "tests"
 
-#: The bundle entries a checkout needs to run a real command (`--version`,
-#: `selftest`). Copied rather than moved: the fixture never touches the checkout.
 CHECKOUT_ENTRIES = ("src", "scripts", "roles", "references", "templates", "SKILL.md")
-
-
-# --------------------------------------------------------------------------- #
-# A checkout that lives under a path with a space
-# --------------------------------------------------------------------------- #
 
 
 @pytest.fixture(scope="module")
@@ -139,10 +132,6 @@ def console_script() -> Path | None:
     return Path(found) if found else None
 
 
-#: A generated entry point is a launcher for exactly one interpreter: the line
-#: after `#!` names it. POSIX writes a text script, Windows writes the same line
-#: into the executable, which also carries UTF-16 job-object strings - so a match
-#: must decode as printable ASCII and name an interpreter to count.
 SHEBANG = re.compile(rb"#!([ -~]{3,512})[\r\n]")
 INTERPRETER_NAME = re.compile(r"python[0-9.]*(?:\.exe)?$|\.py$", re.IGNORECASE)
 
@@ -232,27 +221,16 @@ def test_a_launcher_for_the_running_interpreter_is_still_measured(tmp_path: Path
     assert launcher_problem(unparsable) == "", "an unreadable launcher is measured, not excused"
 
 
-# --------------------------------------------------------------------------- #
-# The skip-guard policy
-# --------------------------------------------------------------------------- #
-
-#: Calls that need a privilege this host may not have (a symlink needs Developer
-#: Mode or SeCreateSymbolicLinkPrivilege on Windows).
 PRIVILEGE_CALLS = frozenset({"symlink", "symlink_to", "mkfifo", "mknod", "mknod_socket"})
 
-#: Programs the project does not depend on at runtime; CI installs them, a
-#: contributor's host may not have them.
 EXTERNAL_TOOLS = frozenset(
     {"make", "mkdocs", "npm", "npx", "node", "gh", "docker", "pandoc", "dot", "git-lfs", "lfs"}
 )
 
-#: `pytest` markers/attributes that carry a guard.
 GUARD_NAMES = frozenset({"skipif", "skip", "importorskip", "xfail"})
 
 SUBPROCESS_CALLS = frozenset({"run", "Popen", "check_output", "check_call", "call"})
 
-#: Tokens that mark a module-level name as a guard when it is used as a decorator
-#: (`needs_symlinks = pytest.mark.skipif(...)`).
 GUARD_SOURCE_TOKENS = ("skipif", "mark.skip", "importorskip")
 
 
@@ -280,7 +258,6 @@ def _argv0_tool(call: ast.Call) -> str | None:
     if not isinstance(first, (ast.List, ast.Tuple)) or not first.elts:
         return None
     head = first.elts[0]
-    # `[sys.executable, "-m", "mkdocs", ...]` runs an external *module*.
     if _dotted(head) == "sys.executable" or (_const_str(head) or "").endswith(
         ("python", "python3")
     ):
@@ -358,8 +335,6 @@ class ModuleGuards:
                     if _is_autouse(statement):
                         self.autouse_guard = True
                 else:
-                    # A `require_make()`-style helper that skips is a guard too: the
-                    # caller names the tool once and every test that calls it skips.
                     self.helper_guards.add(statement.name)
 
 
@@ -449,7 +424,6 @@ def unguarded_tests(root: Path = TESTS_ROOT) -> list[str]:
     return problems
 
 
-#: A module that needs both capabilities, in the three shapes the policy must catch.
 UNGUARDED_SOURCE = """
 import os
 import subprocess
@@ -509,16 +483,6 @@ def test_the_guard_scan_accepts_every_guard_shape_the_tree_uses(tmp_path: Path) 
     (tmp_path / "test_guarded.py").write_text(GUARDED_SOURCE, encoding="utf-8")
     assert unguarded_tests(tmp_path) == []
 
-
-# --- runtime-compatibility guard -------------------------------------------
-#
-# `pyproject.toml` still declares `requires-python = ">=3.9"`, but both modules
-# below carry `from __future__ import annotations`. That makes an annotation such
-# as `def f(node: ast.AST | None)` legal on 3.9, while the *same spelling in an
-# evaluated position* - `isinstance(x, ast.List | ast.Tuple)` - is a PEP 604
-# union and raises `TypeError: unsupported operand type(s) for |` on 3.9. That
-# is exactly how the 3.9 CI job went red on revision 20c7d23. This guard is a
-# static pass, so it fails on the developer's own interpreter too.
 
 UNION_GUARDED_MODULES = (
     Path(__file__).with_name("test_ci_release_flow.py"),

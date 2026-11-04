@@ -152,9 +152,6 @@ def test_gate_is_not_optional_in_the_workflow_text():
     code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
     assert "check_release_consistency.py" in code
     assert "continue-on-error" not in code, "a non-blocking release gate is not a gate"
-    # No step may discard the checker's exit code. (`|| true` is legitimate on
-    # the unrelated `grep -c` that counts tags, so the assertion is scoped to the
-    # lines that invoke the gate.)
     gate_lines = [line for line in code.splitlines() if "check_release_consistency" in line]
     assert gate_lines, code
     for line in gate_lines:
@@ -179,7 +176,6 @@ def test_rehearsal_refuses_a_missing_checker(tmp_path):
 def test_rehearsal_refuses_a_tag_that_is_not_at_head(tmp_path):
     """ACCEPT: the gate judges the revision being tagged, or it refuses."""
     repo = _fixture(tmp_path, "clean")
-    # A tag that does not point at HEAD: tag the first commit, then move HEAD on.
     first = git(repo, "rev-list", "--max-parents=0", "HEAD").stdout.strip()
     git(repo, "tag", "v1.0.1", first)
     commit_all(repo, "a later commit the tag does not cover", allow_empty=True)

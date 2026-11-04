@@ -27,11 +27,6 @@ from teamwork import engine
 TEAM = ("ceo", "architect-1", "team-leader-1", "team-leader-2", "developer-1")
 
 
-# --------------------------------------------------------------------------- #
-# fixtures
-# --------------------------------------------------------------------------- #
-
-
 def record(
     fid: str,
     owner: str = "Team-Leader-1",
@@ -69,11 +64,6 @@ def init(cli, project: Path) -> Path:
 
 def check_cli(cli, project: Path, *extra: str) -> int:
     return cli("--project", project, "feature", "check", *extra)
-
-
-# --------------------------------------------------------------------------- #
-# rule 1 - one writable path, one open feature
-# --------------------------------------------------------------------------- #
 
 
 def test_a_shared_file_is_red(cli, project, capsys) -> None:
@@ -150,11 +140,6 @@ def test_the_same_feature_listing_a_path_twice_is_green() -> None:
     assert findings(records) == []
 
 
-# --------------------------------------------------------------------------- #
-# rule 2 - a dependency is work, not an interface
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.parametrize("state", ["proposed", "ready", "active", "dropped"])
 def test_a_dependency_on_work_that_is_not_done_is_red(state: str) -> None:
     records = [
@@ -172,11 +157,6 @@ def test_a_dependency_on_a_done_feature_is_green() -> None:
     assert findings(records) == []
 
 
-# --------------------------------------------------------------------------- #
-# rule 3 - one open feature per leader
-# --------------------------------------------------------------------------- #
-
-
 def test_one_leader_cannot_hold_two_open_features() -> None:
     records = [
         record("F-0001", paths=["src/a.py"]),
@@ -185,11 +165,6 @@ def test_one_leader_cannot_hold_two_open_features() -> None:
     assert findings(records) == [
         "Team-Leader-1 owns 2 open features: F-0001, F-0002 (rule 2: one open feature per leader)"
     ]
-
-
-# --------------------------------------------------------------------------- #
-# rule 4 - the five frozen path findings
-# --------------------------------------------------------------------------- #
 
 
 @pytest.mark.parametrize(
@@ -249,11 +224,6 @@ def test_a_backslash_spelling_is_the_same_claim_as_the_slash_one() -> None:
     assert rules(records) == [1]
 
 
-# --------------------------------------------------------------------------- #
-# rule 5 - an id names one feature, over every record
-# --------------------------------------------------------------------------- #
-
-
 def test_a_duplicated_id_is_red_with_nothing_open() -> None:
     """The one rule over every record: a closed id still names one feature."""
     records = [
@@ -271,18 +241,11 @@ def test_rule_five_is_the_only_finding_a_named_closed_record_contributes() -> No
         record("F-0001", paths=["src/a.py"], state="done"),
         record("F-0002", "Team-Leader-2", paths=["src/a.py"], state="active"),
     ]
-    # A named `done` record is outside rules 1-4, so the shared path is not a
-    # finding; its duplicate id would be.
     assert findings(records, ["F-0001"]) == []
     assert findings(records + [record("F-0001", "Team-Leader-2", state="dropped")], ["F-0001"]) == [
         "F-0001 is allocated twice (Team-Leader-1, Team-Leader-2); "
         "renumber the arriving record before it lands"
     ]
-
-
-# --------------------------------------------------------------------------- #
-# the exit codes and the json object of the read verb
-# --------------------------------------------------------------------------- #
 
 
 def test_a_green_check_counts_the_open_features(cli, project, capsys) -> None:
@@ -331,11 +294,6 @@ def test_a_candidate_is_judged_before_it_is_created() -> None:
     assert [p.message for p in problems] == ["F-0002 F-0001 share a writable path: src/a.py"]
 
 
-# --------------------------------------------------------------------------- #
-# the merge path: the one place that sees both revisions
-# --------------------------------------------------------------------------- #
-
-
 def _repo(cli, project: Path) -> Path:
     assert cli("--project", project, "init", "--agents", ",".join(TEAM)) == 0
     return engine.work_repo(
@@ -374,7 +332,6 @@ def test_the_merged_tree_sees_both_branches(cli, project: Path) -> None:
         record("F-0002", "Team-Leader-2", paths=["src/a.py"], state="ready"),
     ]
     _write_and_commit(repo, arriving, "feat(records): F-0002")
-    # The lane's own revision is red too, but the point is the merged tree.
     assert engine.run_git(repo, "checkout", "-q", "main").returncode == 0
 
     problems = engine._feature_gate(repo, "main", "leader-2/t-0001-slice")

@@ -28,7 +28,6 @@ from cli_harness import (
 TEAM = "Acceptance"
 AREA = "core"
 
-#: layer -> the instance that owns and runs it (one instance per role here).
 LAYER_OWNER = {
     "goal": "ceo",
     "system": "architect",
@@ -105,7 +104,6 @@ def _drive_gate_loop(project) -> None:
         )
         test_ids[layer] = _id_from(added.output, "TS")
 
-    # Each layer is run and evidenced by its own owning role.
     for layer, owner in LAYER_OWNER.items():
         assert_ok(
             cli(
@@ -124,7 +122,6 @@ def _drive_gate_loop(project) -> None:
             )
         )
 
-    # Independent verification: owner is developer, verifier is the reviewer.
     assert_ok(
         cli(
             project,
@@ -233,7 +230,6 @@ def test_full_gate_loop_reports_stop(tmp_path):
     )
     assert "> STOP" in loop.stdout, loop.output
     assert "> CONTINUE" not in loop.stdout, loop.output
-    # A STOP with blockers must never happen.
     assert "  ! " not in loop.stdout, loop.output
 
 

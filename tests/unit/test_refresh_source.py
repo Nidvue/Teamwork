@@ -118,7 +118,6 @@ def test_a_tag_pin_resolves_to_the_tag_commit_and_survives_a_second_refresh(
     assert commit_sha == git(checkout, "rev-parse", "refs/tags/v1.1.2^{commit}")
     assert "tag v1.1.2" in detail, detail
 
-    # The update path, twice: a refresh that only works once is the old defect.
     ok, first = engine._update_source(checkout, "origin", "v1.1.2")
     assert ok, first
     assert "pinned to tag v1.1.2" in first, first

@@ -22,8 +22,6 @@ import tempfile
 from pathlib import Path
 
 CARD = "assets/social-preview.png"
-# An image-composition import, not a mention: the probe itself names the card and
-# the libraries, and a test never generates a shipped asset.
 GENERATOR_HINTS = ("import cairosvg", "from PIL", "import PIL", "ImageDraw")
 EXPECTED_CHUNKS = ["IHDR", "IDAT", "IDAT", "IEND"]
 

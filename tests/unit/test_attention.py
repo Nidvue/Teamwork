@@ -39,11 +39,6 @@ def ledger_actions(root: Path) -> list:
     return [json.loads(line)["action"] for line in path.read_text(encoding="utf-8").splitlines()]
 
 
-# --------------------------------------------------------------------------- #
-# the record
-# --------------------------------------------------------------------------- #
-
-
 def test_new_attention_defaults_to_an_open_blocker() -> None:
     item = engine.new_attention("  approve the release  ", by="CEO", task=" t-0007 ")
 
@@ -124,11 +119,6 @@ def test_find_attention_by_id_and_by_text() -> None:
     assert engine.find_attention(items, "licence") == 1
     assert engine.find_attention(items, "A-9999") is None
     assert engine.find_attention(items, "") is None
-
-
-# --------------------------------------------------------------------------- #
-# the commands
-# --------------------------------------------------------------------------- #
 
 
 def test_a_healthy_team_prints_nothing_from_attention_list(cli, project: Path, capsys) -> None:
@@ -374,11 +364,6 @@ def test_attention_resolve_refuses_an_unknown_item(cli, project: Path) -> None:
         )
         != 0
     )
-
-
-# --------------------------------------------------------------------------- #
-# the stop gate
-# --------------------------------------------------------------------------- #
 
 
 def _attention_section(root: Path) -> dict:
