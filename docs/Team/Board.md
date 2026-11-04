@@ -82,12 +82,12 @@ under two roles is two tasks.
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
 | ceo | T-0001 | records | done | P-0002 | d8809fa |
-| ceo | T-0002 | - | todo | - | - |
+| ceo | T-0002 | records | done | P-0003 | 26e09d0 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | - | todo | - | - |
 | developer | T-0003 | skills | review | P-0001 | - |
 | developer | T-0004 | - | todo | - | - |
-| reviewer | T-0001 | - | todo | - | - |
+| reviewer | T-0001 | records | review | - | - |
 | tester | T-0001 | - | done | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -105,11 +105,10 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0002 · Close merged and stale local and remote branches | P2 | todo | - |
 | developer | T-0002 · Platform-scale the traceability proof budget (900s) or the privacy proof it runs | P2 | todo | - |
 | developer | T-0003 · Close CodeQL alert 4 (py/incomplete-url-substring-sanitization in test_skill_contracts) | P0 | review | - |
 | developer | T-0004 · Stop the local suite from writing a Library/ cache into the repo root on macOS | P2 | todo | - |
-| reviewer | T-0001 · Independent acceptance of the CI restoration | P0 | todo | - |
+| reviewer | T-0001 · Independent acceptance of the CI restoration | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
