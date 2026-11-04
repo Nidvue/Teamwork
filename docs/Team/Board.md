@@ -149,6 +149,9 @@ under two roles is two tasks.
 | developer | T-0032 | knowledge | done | P-0056 | 81ea5cd |
 | developer | T-0033 | context | done | P-0060 | 92df95c |
 | developer | T-0034 | throughput | done | P-0058 | b9e5135 |
+| developer | T-0035 | - | todo | - | - |
+| developer | T-0036 | branch | blocked | - | - |
+| developer | T-0037 | - | doing | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | records | done | - | - |
 | technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
@@ -164,12 +167,14 @@ under two roles is two tasks.
 | technical-writer | T-0011 | docs | done | P-0054 | 723987c |
 | technical-writer | T-0012 | - | dropped | - | - |
 | technical-writer | T-0013 | docs | done | P-0061 | b4096f5 |
+| technical-writer | T-0014 | - | todo | - | - |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
 | tester | T-0004 | skills | done | P-0057 | 2fe28e2 |
 | tester | T-0005 | context | done | P-0064 | e35352a |
 | tester | T-0006 | throughput | done | P-0059 | 4c28b85 |
+| tester | T-0007 | context | done | P-0066 | 8f5f8e2 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -199,8 +204,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0027 · Integrate the published line into integration/m15-m16 (PR #30): three conflicts, both sides' behaviour preserved | P0 | doing | - |
 | developer | T-0029 · CI annotates every ubuntu-latest job with a runner-image migration notice; pin the image or record why not | P2 | todo | - |
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
+| developer | T-0035 · Code scanning: py/incomplete-url-substring-sanitization in tests/unit/test_skill_contracts.py | P2 | todo | - |
+| developer | T-0036 · M20 B1: close branches that are no longer useful with branch prune | P0 | blocked | - |
+| developer | T-0037 · M20 C1: no comments in code, enforced by the lint gate | P0 | doing | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
+| technical-writer | T-0014 · M20 A1: split README.md into a landing page and linked docs pages | P0 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
