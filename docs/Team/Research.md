@@ -453,3 +453,56 @@ author writes the lesson.
 
 The frozen contract is `docs/Team/Architecture.md` section 16; the knowledge
 record it extends is section 15.
+
+## 14. Agent Autoloop (KKKKhazix): what we adopt, what we reject
+
+The operator asked whether this repository offers useful knowledge and
+experience. The answer is **yes, four mechanisms worth adopting or adapting,
+and no reason to copy the architecture**.
+
+**What it is.** A local background loop for command-line agents: a deterministic
+kernel (about 1,650 lines, zero runtime dependencies, Node 24) surrounded by four
+swappable plugin sides - events, agents, channels and delivery. Work arrives as
+an event, a rule picks the agent and folder, the agent works one round and exits,
+and a sensitive decision becomes a card that resumes the original session when
+answered. All state derives from an append-only fact log.
+[README.en.md](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/README.en.md) - accessed 2026-11-04.
+
+| Their mechanism | What it fixes for us | Verdict | Surface here | Falsifier |
+|---|---|---|---|---|
+| **Zero-cost wait**: the agent process exits while a question waits in storage; the answer resumes the original session | our attention record blocks STOP, but nothing resumes a lane after the person answers | **Adapt** | `attention` already names the person question; record the resume hint on the item and name the lane that must pick it up | an answered attention item no lane can resume |
+| **Fact log as the only source of truth**: projections rebuild from it, no migrations | our `Ledger.jsonl` is an audit side-log, not authority; a queue can be hand-edited and no projection is rebuilt from it | **Adapt as a warning** | keep the state files authoritative and the ledger tamper-evident; never claim a queue can be rebuilt from it | a doc that calls the ledger the source of truth, or a rebuilt queue that differs from its file |
+| **Code/data split**: external text never enters the prompt; only typed ids and links do; an event carrying `cwd`/`agent`/`access` is rejected | our task titles, bodies and evidence enter prompts and packets, where a crafted string tries to redirect a lane | **Adopt** | render task text as an explicit data block with a not-instructions line; prove that `agent: reviewer` or `cwd: /` in a body cannot change routing (T-0041) | such a line changes the lane, folder, model or permissions chosen |
+| **Hop circuit breaker**: `MAX_HOPS = 8`, propagated through cards, timers and emitted events, unresetable by the agent | a task can create a task, a review finding another, and the chain has no depth limit | **Adopt** | engine-derived hop depth on the task record, a cap, and an attention blocker at the cap (T-0040) | a chain deeper than the cap still dispatches |
+| **Architecture as a test** and **failure-first tests**: `tests/purity.test.ts` fails on a vendor name, an outbound request, a dependency or a UI in the kernel; every test file opens by naming the failure it prevents | our boundaries are policy prose, and not every test module states what it prevents | **Adapt** | a purity guard for the pure state modules and the failure-first line in `references/Engineering.md` (T-0016) | a pure module imports `socket`/`subprocess`, or a test module names no failure |
+| **Four explicit plugin sides** (events, agents, channels, delivery) with one protocol | our host operations are listed in `references/Adapters.md` but not named as one contract | **Adapt, no new layer** | name the six host operations as the contract; no server, no second discovery path | a host operation with no adapter, or a second way to register one |
+| **One-tap cards in chat channels**, no web dashboard | a person must open the workspace to read an attention item | **Reject for now** | the attention record stays the interface; a channel is an optional view over it | a required external service or account enters the skill |
+| **Node 24 + SQLite + HTTP daemon, one-machine hub** | a durable queue and event log are proven at scale | **Reject** | stdlib Python, local files, no daemon, no inbound port | a runtime dependency or a listening service becomes required |
+| **Delivery isolation**: settings read only from `main`; PR code never checked out or run on the delivery host; review in a read-only snapshot | a delivery runner with credentials must not execute the code it is about to ship | **Adopt as policy** | the release policy in `docs/Team/Release.md`: settings from the base branch, no PR execution on the release host | a release step executes branch code with release credentials |
+
+**Vendor claims, not reproduced here.** The repository reports 1,942 stars at
+access, was created on 2026-11-03, ships a Chinese-first CLI and notifications,
+runs on macOS and Linux, and measured its benchmarks on one Apple M5 Pro (1.1
+million facts rebuild in 43.1 s, cold start 88.78 ms, 2,394 durable writes/s);
+its own README says several plugin templates were checked only against mocks,
+not real services. Those are adoption signals and vendor measurements, not this
+team's measurements.
+[README.en.md](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/README.en.md) - accessed 2026-11-04.
+
+**Adoption work.** T-0040 caps follow-up chains (hop depth); T-0041 makes task
+text data and proves routing cannot be steered by it; T-0016 adapts the
+failure-first and purity guards. The delivery-isolation line is a release-policy
+change with no task yet, recorded here so the Release Engineer's next edit to
+`docs/Team/Release.md` carries it.
+The rest is rejected because this skill ships as one stdlib-only directory that
+runs offline - a daemon, a SQLite hub, a chat channel or a web UI would each
+break that promise, and none of the adopted mechanisms needs one.
+
+**Sources.**
+
+- [KKKKhazix/agent-autoloop](https://github.com/KKKKhazix/agent-autoloop) - accessed 2026-11-04
+- [kernel/decide.ts at 2730941](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/kernel/decide.ts) - accessed 2026-11-04 (`MAX_HOPS`, hop propagation, cap notice)
+- [protocol/validate.ts at 2730941](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/protocol/validate.ts) - accessed 2026-11-04 (event field allowlist, subject and link constraints)
+- [tests/purity.test.ts at 2730941](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/tests/purity.test.ts) - accessed 2026-11-04 (the architecture as a test)
+- [AGENTS.md at 2730941](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/AGENTS.md) - accessed 2026-11-04 (principles, tests first, delivery boundaries)
+- [LICENSE (MIT)](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/LICENSE) - accessed 2026-11-04
