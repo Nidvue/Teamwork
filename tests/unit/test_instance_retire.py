@@ -85,3 +85,52 @@ def test_a_failed_move_is_a_hard_error_and_never_deletes_the_lane(
     assert code == 1
     assert (lane / "Artifacts" / "proof.txt").is_file()
     assert not (root / "Runtime" / "Retired" / "Developer-1").exists()
+
+
+def _append_fixture_task(path: Path, tid: str, status: str, claimed: str) -> None:
+    with path.open("a", encoding="utf-8", newline="\n") as fh:
+        fh.write(
+            f"\n## {tid} - fixture\n"
+            "- priority: P2\n"
+            f"- status: {status}\n"
+            f"- claimed_by: {claimed}\n"
+            "- updated: 2026-11-01\n\n"
+            "fixture body\n"
+        )
+
+
+def test_a_closed_task_claimed_by_a_retired_lane_is_not_a_phantom(
+    cli, project: Path, capsys
+) -> None:
+    root = init(cli, project)
+    _append_fixture_task(engine.task_file(root, "developer"), "T-9001", "done", "Developer-1")
+
+    assert cli("--project", project, "instance", "retire", "developer-1", "--reason", "idle") == 0
+    cli("--project", project, "audit")
+    out = capsys.readouterr().out
+
+    assert "unknown agent 'Developer-1'" not in out, out
+    assert "claimed by retired agent 'Developer-1'" not in out, out
+
+
+def test_an_open_task_claimed_by_a_retired_lane_is_reported(cli, project: Path, capsys) -> None:
+    root = init(cli, project)
+    _append_fixture_task(engine.task_file(root, "developer"), "T-9002", "doing", "Developer-1")
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "instance",
+            "retire",
+            "developer-1",
+            "--reason",
+            "test: abandoned lane",
+            "--force",
+        )
+        == 0
+    )
+    cli("--project", project, "audit")
+    out = capsys.readouterr().out
+
+    assert "T-9002 is doing but claimed by retired agent 'Developer-1'" in out, out
