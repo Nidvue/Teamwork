@@ -44,16 +44,6 @@ from __future__ import annotations
 
 import os
 
-#: The variables that decide which git configuration a child reads. They are
-#: removed from the inherited environment, then re-asserted where a site wants
-#: a specific value.
-#:
-#: ``GIT_CONFIG`` is git's ``--file`` pointer (a whole config file), and
-#: ``GIT_CONFIG_COUNT``/``GIT_CONFIG_PARAMETERS`` inject configuration straight
-#: into the child's git. The pins below do NOT neutralise any of them: git
-#: reads the environment-injected configuration with a higher precedence than
-#: the global file, so ``GIT_CONFIG_NOSYSTEM=1`` and a ``/dev/null`` global
-#: leave an injected ``commit.gpgsign`` in force.
 GIT_CONFIG_VARS = (
     "GIT_CONFIG_GLOBAL",
     "GIT_CONFIG_SYSTEM",
@@ -63,25 +53,11 @@ GIT_CONFIG_VARS = (
     "GIT_CONFIG_PARAMETERS",
 )
 
-#: The prefixes of the numbered environment-injected configuration pairs
-#: (``GIT_CONFIG_KEY_<n>`` / ``GIT_CONFIG_VALUE_<n>``). They are numbered, so
-#: they cannot be listed one by one: git pairs them with ``GIT_CONFIG_COUNT``,
-#: and an unmatched pair makes the child die with "missing config key".
 GIT_CONFIG_PAIR_PREFIXES = (
     "GIT_CONFIG_KEY_",
     "GIT_CONFIG_VALUE_",
 )
 
-#: The variables that point git at a repository. A developer shell can carry
-#: them (``git -C`` sets GIT_DIR, a script can export it), and a child that
-#: inherits them acts on that repository instead of the throwaway tree the test
-#: made - which is not a hermetic failure but a wrong-repository failure.
-#:
-#: ``GIT_QUARANTINE_PATH`` belongs here for the same reason as
-#: ``GIT_OBJECT_DIRECTORY``: it is git's quarantine object directory, and a
-#: child that inherits it refuses EVERY ref update ("error: ref updates
-#: forbidden inside quarantine environment", git exit 1), so the harness
-#: measures a clone's quarantine instead of the contract.
 GIT_REPO_VARS = (
     "GIT_DIR",
     "GIT_WORK_TREE",
@@ -93,17 +69,12 @@ GIT_REPO_VARS = (
     "GIT_QUARANTINE_PATH",
 )
 
-#: The pins that make a child's git configuration hermetic: no system config,
-#: no global config, and no credential prompt that could block a run.
 HERMETIC_GIT = {
     "GIT_CONFIG_NOSYSTEM": "1",
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_TERMINAL_PROMPT": "0",
 }
 
-#: The variables that make git read a caller's *template* directory, whose
-#: ``hooks/`` are installed into every fresh repository. It is the environment
-#: twin of ``init.templateDir``, so it belongs with the configuration.
 GIT_TEMPLATE_VAR = "GIT_TEMPLATE_DIR"
 
 

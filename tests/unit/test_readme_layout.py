@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 
-#: The ``##`` headings the designed information hierarchy requires, in order.
 BLOCK_ORDER = (
     "Why Teamwork",
     "Features",
@@ -31,8 +30,6 @@ BLOCK_ORDER = (
     "Star history",
 )
 
-#: A fenced block opens with three or more backticks or tildes and closes with the
-#: same character run; nothing inside one is markdown structure.
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 HEADING = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
 

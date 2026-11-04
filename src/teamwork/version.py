@@ -8,6 +8,4 @@ from __future__ import annotations
 
 __version__ = "1.5.2"
 
-#: Distribution name on PyPI. The name ``teamwork`` is already taken there, so
-#: the project ships as ``teamwork-agents`` while importing as ``teamwork``.
 DIST_NAME = "teamwork-agents"

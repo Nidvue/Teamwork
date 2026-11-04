@@ -26,8 +26,6 @@ from test_review_credit import seed, team_root
 from teamwork import engine, records
 
 DEFECT = "the limit check uses > where it must use >="
-#: A detector that answers HERO's two questions: the failure, and the input that
-#: reaches it through a documented interface.
 DETECTOR = "a request exactly at the limit is rejected instead of accepted"
 
 
@@ -59,11 +57,6 @@ def queue_text(project: Path) -> str:
 
 def fail_records(project: Path) -> list:
     return [r for r in engine.ledger_read(team_root(project)) if r.get("action") == "review.fail"]
-
-
-# --------------------------------------------------------------------------- #
-# The gate: a fail without a detector (or with a canned one) is refused
-# --------------------------------------------------------------------------- #
 
 
 def test_a_fail_with_no_detector_is_refused_and_records_nothing(cli, project, capsys) -> None:
@@ -137,11 +130,6 @@ def test_a_detector_that_repeats_the_defect_is_refused(cli, project, capsys) -> 
     assert task_record(project)["review_fails"] == 0
 
 
-# --------------------------------------------------------------------------- #
-# The control: a real, reachable detection passes and is recorded
-# --------------------------------------------------------------------------- #
-
-
 def test_a_reachable_detector_is_recorded_on_the_task_and_in_the_ledger(
     cli, project, capsys
 ) -> None:
@@ -165,7 +153,6 @@ def test_a_reachable_detector_is_recorded_on_the_task_and_in_the_ledger(
     detail = records_[0]["detail"]
     assert detail.startswith("mechanical: "), detail
     assert engine.ledger_detects(detail) == DETECTOR, detail
-    # The mechanical classification still leads, so the existing rate is countable.
     assert " | detects: " in detail
 
 
@@ -211,7 +198,6 @@ def test_a_pass_still_needs_no_detector(cli, project, capsys) -> None:
     """The gate is scoped to a finding: a clean pass has nothing to detect."""
     seed(cli, project)
     task = task_record(project)
-    # No branch and no PR: the verdict is what is under test here, not the merge.
     task["branch"] = ""
     task["base"] = ""
     engine.write_tasks(engine.task_file(team_root(project), "developer"), [task], "developer")
@@ -255,16 +241,10 @@ def test_a_pipe_in_the_detector_does_not_break_the_ledger_boundary(cli, project)
     ), detail
 
 
-# --------------------------------------------------------------------------- #
-# audit: count the fails with no reachable detector, never block on them
-# --------------------------------------------------------------------------- #
-
-
 def test_audit_counts_missing_and_restated_detectors_without_blocking(cli, project, capsys) -> None:
     """Three fails, three verdicts: reachable, legacy (no field), restatement."""
     root, _head = seed(cli, project)
     assert fail(cli, project, "--detects", DETECTOR) == 0
-    # Legacy: every fail recorded before the field existed looks exactly like this.
     engine.ledger_append(
         root,
         "review.fail",
@@ -274,8 +254,6 @@ def test_audit_counts_missing_and_restated_detectors_without_blocking(cli, proje
         "",
         "developer",
     )
-    # A canned detector can only reach the trail by a rewritten/older record now;
-    # the count is what makes that visible instead of silently acceptable.
     engine.ledger_append(
         root,
         "review.fail",
@@ -306,11 +284,6 @@ def test_audit_with_no_review_fails_reports_none(cli, project, capsys) -> None:
     capsys.readouterr()
     assert engine._audit_review_fails_without_a_reachable_detect(root, [], None) == 0
     assert "no review fails recorded" in capsys.readouterr().out
-
-
-# --------------------------------------------------------------------------- #
-# Compatibility: a record written before the field still reads
-# --------------------------------------------------------------------------- #
 
 
 def test_a_legacy_task_record_reads_with_an_empty_detector(cli, project) -> None:

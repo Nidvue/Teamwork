@@ -158,7 +158,7 @@ default; `--agents` overrides it for a roster you name exactly.
 |---|---|---|
 | `slim` (default) | 7 | 387 kB |
 | `standard` | 10 | 538 kB |
-| `full` | 17 | 884 kB |
+| `full` | 17 | 882 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.3x what `slim` costs.
@@ -453,7 +453,8 @@ Two duties that keep the remote and the confidence level honest:
   `roles/`, `references/`, `templates/` - always runs the full matrix. Never
   ignore a path that ships, and keep the two path lists in sync.
 
-- **Everyone keeps the tree clean.** No comment the code already gives you, no
+- **Everyone keeps the tree clean.** Write no comment: the code is the comment
+  (`scripts/check_comments.py` fails the gate on any explanatory `#`), no
   commented-out code, no `TODO`/`FIXME` without a tracked task id; delete temp and
   stale files in the same task (`teamwork.py clean` for your own lane's temp
   patterns, `--all` for its `Scratch/`, the rest by hand); keep one canonical home

@@ -21,27 +21,18 @@ import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-# ``tests/acceptance/cli_harness.py`` -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "src"
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 
-#: The exact line both ``--version`` and the ``version`` subcommand must print.
-#: Read from the source of truth rather than hard-coded, so a version bump cannot
-#: leave a stale expectation behind (a black-box harness must not import the
-#: package it is testing).
 _VERSION = re.search(
     r'__version__ = "([^"]+)"',
     (SRC_DIR / "teamwork" / "version.py").read_text(encoding="utf-8"),
 ).group(1)
 EXPECTED_VERSION = f"teamwork {_VERSION}"
 
-#: Roster used by the AC-10 flow. It deliberately staffs every layer that the
-#: core gate needs (goal/system/unit/integration/acceptance).
 DEFAULT_ROSTER = "ceo,architect,developer-1,tester-1,reviewer-1"
 
-#: Required layers the acceptance flow declares for its single area. This is the
-#: exact set of layers owned by the DEFAULT_ROSTER above.
 DEFAULT_LAYERS = "goal,system,unit,integration,acceptance"
 
 
@@ -58,7 +49,7 @@ class Result:
     def output(self) -> str:
         return (self.stdout or "") + (self.stderr or "")
 
-    def __repr__(self) -> str:  # keeps failure messages useful
+    def __repr__(self) -> str:
         return (
             f"Result(argv={self.argv!r}, rc={self.returncode},\n"
             f"  stdout={self.stdout!r},\n"
@@ -74,7 +65,7 @@ def build_env(extra: Mapping[str, str] | None = None) -> dict:
     env["PYTHONPATH"] = os.pathsep.join(p for p in (str(SRC_DIR), prior) if p)
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
-    env.pop("TEAMWORK_ROOT", None)  # never let an outer team tree leak in
+    env.pop("TEAMWORK_ROOT", None)
     if extra:
         env.update({key: str(value) for key, value in extra.items()})
     return env

@@ -48,11 +48,6 @@ def claim_file(root: Path, role: str) -> Path:
     return engine.memory_claim_path(root, role)
 
 
-# --------------------------------------------------------------------------- #
-# any role scales, and the role's state stays shared
-# --------------------------------------------------------------------------- #
-
-
 def test_any_role_can_add_instances_and_they_share_one_memory(cli, project: Path) -> None:
     root = init_team(cli, project)
 
@@ -63,7 +58,6 @@ def test_any_role_can_add_instances_and_they_share_one_memory(cli, project: Path
         "Architect-3",
     ]
 
-    # One memory set and one queue for the role, however many lanes serve it.
     assert (
         cli("--project", project, "remember", "architect", "one fact", "--by", "Architect-3") == 0
     )
@@ -78,7 +72,6 @@ def test_any_role_can_add_instances_and_they_share_one_memory(cli, project: Path
     )
     tasks = engine.parse_tasks(root / "Roles" / "Architect" / "TaskQueue.md")
     assert len(tasks) == 1
-    # Either instance may take the role's next task; the claim names the lane.
     assert cli("--project", project, "task", "next", "Architect-3") == 0
     assert (
         engine.parse_tasks(root / "Roles" / "Architect" / "TaskQueue.md")[0]["claimed_by"]
@@ -137,11 +130,6 @@ def test_an_instance_holding_work_is_not_retired_silently(cli, project: Path) ->
     assert (root / "Agents" / "Architect-2").exists() is False
 
 
-# --------------------------------------------------------------------------- #
-# one reviser per role
-# --------------------------------------------------------------------------- #
-
-
 def test_the_explicit_lease_makes_a_peer_read_only_until_release(cli, project: Path) -> None:
     root = init_team(cli, project)
     assert cli("--project", project, "instance", "add", "architect") == 0
@@ -163,7 +151,6 @@ def test_the_explicit_lease_makes_a_peer_read_only_until_release(cli, project: P
     live = engine.read_memory_claim(root, "architect")
     assert live["instance"] == "Architect-1" and live["explicit"] is True
 
-    # A peer may not revise the shared memory while the pen is out...
     assert cli("--project", project, "remember", "architect", "peer", "--by", "Architect-2") == 2
     assert cli("--project", project, "forget", "architect", "M-0001", "--by", "Architect-2") == 2
     assert (
@@ -171,7 +158,6 @@ def test_the_explicit_lease_makes_a_peer_read_only_until_release(cli, project: P
     )
     assert short_memory(root, "architect") == []
 
-    # ...but it may read, and the holder may write.
     assert cli("--project", project, "load", "Architect-2") == 0
     assert (
         cli("--project", project, "remember", "architect", "owner fact", "--by", "Architect-1") == 0
@@ -190,7 +176,6 @@ def test_a_single_write_takes_the_pen_for_its_own_duration_only(cli, project: Pa
     root = init_team(cli, project)
     assert cli("--project", project, "instance", "add", "architect") == 0
     assert cli("--project", project, "remember", "architect", "a", "--by", "Architect-1") == 0
-    # The implicit lease dies with the command: no state file left behind.
     assert not claim_file(root, "architect").exists()
     assert cli("--project", project, "remember", "architect", "b", "--by", "Architect-2") == 0
     assert short_memory(root, "architect") == ["a", "b"]
@@ -240,7 +225,6 @@ def test_a_stalled_holder_can_be_taken_over_on_the_record(cli, project: Path) ->
 def test_the_lease_is_named_per_role_and_cannot_cross_roles(cli, project: Path) -> None:
     root = init_team(cli, project)
     assert cli("--project", project, "memory", "claim", "architect", "--by", "Developer-1") != 0
-    # Different roles never contend: each takes its own pen in parallel.
     assert cli("--project", project, "memory", "claim", "architect", "--by", "Architect-1") == 0
     assert cli("--project", project, "memory", "claim", "developer", "--by", "Developer-1") == 0
     assert engine.read_memory_claim(root, "architect")["instance"] == "Architect-1"
@@ -270,10 +254,6 @@ def test_the_audit_trail_records_the_scaling_and_the_lease(cli, project: Path) -
     assert "memory.claim" in actions and "memory.release" in actions
 
 
-# --------------------------------------------------------------------------- #
-# a long update: a peer contests, the CTO rules
-# --------------------------------------------------------------------------- #
-
 ESCALATION_AGENTS = ("ceo", "cto", "architect-1", "architect-2", "developer-1", "reviewer-1")
 
 
@@ -301,7 +281,6 @@ def test_a_peer_contests_a_long_lease_and_the_cto_gets_the_case(cli, project: Pa
         )
         == 0
     )
-    # The contest is on the lease the arbiter will read, and on the CTO's queue.
     claim = engine.read_memory_claim(root, "architect")
     assert claim["contests"][-1]["by"] == "Architect-2"
     tasks = engine.parse_tasks(root / "Roles" / "CTO" / "TaskQueue.md")
@@ -309,7 +288,6 @@ def test_a_peer_contests_a_long_lease_and_the_cto_gets_the_case(cli, project: Pa
     assert tasks[0]["priority"] == "P0" and "architect memory lease" in tasks[0]["title"]
     assert "memory.contest" in [r["action"] for r in engine.ledger_read(root)]
 
-    # Contesting twice does not file a second copy of the same case.
     assert (
         cli(
             "--project",
@@ -467,7 +445,6 @@ def test_the_arbiter_folds_to_the_ceo_when_the_cto_holds_the_lease(cli, project:
         == 0
     )
 
-    # No party rules its own lease: the CTO's case goes to the CEO.
     assert (
         cli(
             "--project",

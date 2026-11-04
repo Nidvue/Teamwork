@@ -14,7 +14,6 @@ from pathlib import Path
 
 from teamwork import config
 
-# every page that states the provider cap to a reader
 CAP_PAGES = (
     "AGENTS.md",
     "templates/AGENTS.md",
@@ -25,7 +24,6 @@ CAP_PAGES = (
     "README.md",
 )
 
-# any stated cap must be the enforced one, in either word order
 RETIRED = re.compile(r"(?:ollama-cloud[^\n]{0,20}\b10\b|\b10\b[^\n]{0,20}Ollama Cloud)")
 
 
@@ -44,7 +42,6 @@ def test_every_page_that_states_the_cap_states_the_enforced_number(repo_root: Pa
         assert re.search(r"ollama-cloud|Ollama Cloud", text, re.I), (
             f"{rel} no longer states the provider cap"
         )
-        # the old bound was written as "~10" or "~10 concurrent agents"
         assert not re.search(r"Ollama Cloud[^\n]{0,40}~10\b", text), (
             f"{rel} still states the retired ~10 bound"
         )

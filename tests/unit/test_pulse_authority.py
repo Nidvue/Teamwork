@@ -24,7 +24,6 @@ import pytest
 
 from teamwork import engine
 
-# One developer lane is all the pulse needs to plan a dispatch.
 ROSTER = "ceo,developer-1"
 
 
@@ -119,7 +118,6 @@ def test_observe_records_the_would_accept_plan_and_claims_nothing(team, capsys) 
     assert len(observed) == 1, observed
     assert observed[0]["target"] == "T-0001"
     assert "Developer-1" in observed[0]["detail"] and "observe" in observed[0]["detail"]
-    # An unattributed ledger line cannot be audited: the record names its actor.
     assert observed[0]["actor"] == "ceo"
 
     assert cli("--project", project, "pulse", "--agent", "ceo-2") == 0
@@ -191,10 +189,8 @@ def test_pulse_mode_overrides_one_run_and_names_its_source(
     assert f"# accept mode: {override} (from --mode)" in out, out
     claimed = task_in(root, first)["status"] == "doing"
     assert claimed is (override == "auto"), "--mode must win over Settings.json"
-    # Only the record-taking mode writes an assessment.
     assert bool(records(root, "pulse.observe")) is (override == "observe")
 
-    # The override is one run only: the stored setting decides the next pulse.
     kept = json.loads(engine.providers_path(root).read_text(encoding="utf-8"))
     assert kept[engine.PULSE_MODE_KEY] == stored
     third = add_task(cli, project, "ship the reconciler")

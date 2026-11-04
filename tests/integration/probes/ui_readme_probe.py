@@ -247,7 +247,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"demo command: '{DEMO_COMMAND}' present in a rendered code block")
         print(f"images: {local} local, {external} external badge(s) not fetched")
 
-        # Control: an image that the page references but the site no longer serves.
         control = site / "assets" / "banner.svg"
         if control.is_file():
             control.unlink()

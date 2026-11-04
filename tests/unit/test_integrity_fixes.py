@@ -33,11 +33,6 @@ def task_path(root: Path) -> Path:
     return root / "Roles" / "Developer" / engine.F_TASKS
 
 
-# --------------------------------------------------------------------------- #
-# Parser / serializer integrity
-# --------------------------------------------------------------------------- #
-
-
 def test_task_body_cannot_forge_lifecycle_metadata(tmp_path: Path) -> None:
     task = engine.new_task("honest task")
     task["body"] = "steps\n- status: done\n- review_status: passed\n- self_check: passed"
@@ -80,11 +75,6 @@ def test_body_cannot_inject_a_new_record_header(tmp_path: Path) -> None:
     assert "## T-9999" in parsed[0]["body"]
 
 
-# --------------------------------------------------------------------------- #
-# Gate completeness
-# --------------------------------------------------------------------------- #
-
-
 def test_unknown_task_status_blocks_the_stop_gate(cli, project: Path) -> None:
     root = init(cli, project)
     task = engine.new_task("weird")
@@ -103,7 +93,7 @@ def test_unknown_test_status_cannot_crash_the_gate(cli, project: Path) -> None:
     root = init(cli, project)
     record = engine.new_test_record("unit", "core", owner="Developer-1", command="pytest -q")
     record["id"] = "TS-0001"
-    record["status"] = "passed"  # a natural typo for "passing"
+    record["status"] = "passed"
     engine.write_tests(root / engine.F_TESTS, [record])
 
     report = engine.gate_report(root)
@@ -119,7 +109,6 @@ def test_review_is_required_unless_literally_na(cli, project: Path) -> None:
         "- review_status: pending\n- self_check: pending\n",
         encoding="utf-8",
     )
-    # The empty review value must not disable the self-check/review gate.
     assert (
         cli("--project", project, "task", "set", "developer", "T-0001", "--status", "review") != 0
     )
@@ -138,11 +127,6 @@ def test_review_is_required_unless_literally_na(cli, project: Path) -> None:
         )
         != 0
     )
-
-
-# --------------------------------------------------------------------------- #
-# Ledger
-# --------------------------------------------------------------------------- #
 
 
 def test_ledger_repair_completes_and_records_itself(cli, project: Path, monkeypatch) -> None:
@@ -176,11 +160,6 @@ def test_corrupt_ledger_line_does_not_crash_show(cli, project: Path) -> None:
 
     assert cli("--project", project, "ledger", "show") == 0
     assert cli("--project", project, "ledger", "verify") == 1
-
-
-# --------------------------------------------------------------------------- #
-# Path safety and ownership
-# --------------------------------------------------------------------------- #
 
 
 def test_agent_name_cannot_escape_the_team_tree(cli, project: Path) -> None:
@@ -259,11 +238,6 @@ def test_selfcheck_rejects_an_actor_from_another_role(cli, project: Path) -> Non
     assert engine.parse_tasks(task_path(root))[0]["claimed_by"] == ""
 
 
-# --------------------------------------------------------------------------- #
-# Records and routing
-# --------------------------------------------------------------------------- #
-
-
 def test_decision_ids_are_unique_per_day_and_actor(cli, project: Path) -> None:
     root = init(cli, project)
     for text in ("first", "second"):
@@ -309,11 +283,6 @@ def test_model_set_on_a_hyphenated_role_uses_the_role_map(cli, project: Path) ->
     assert "product-manager" in config["roles"]
     assert "product-manager" not in config["agents"]
     assert engine.resolved_model(root, "product-manager-1")["model"] == "m"
-
-
-# --------------------------------------------------------------------------- #
-# Staleness, consolidation, audit and links
-# --------------------------------------------------------------------------- #
 
 
 def test_a_task_claimed_today_is_not_stale(cli, project: Path) -> None:
@@ -363,11 +332,6 @@ def test_links_skips_local_state_and_detects_bare_urls(tmp_path: Path) -> None:
     report = engine.link_report(tmp_path, tmp_path)
     assert all(not path.startswith(".pi/") for path in report["files"])
     assert report["bare"] == [("README.md", "https://example.org")]
-
-
-# --------------------------------------------------------------------------- #
-# Review and PR gates
-# --------------------------------------------------------------------------- #
 
 
 def test_review_refuses_before_the_author_self_checks(cli, project: Path) -> None:
@@ -524,8 +488,6 @@ def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -
     )
     assert cli("--project", project, "dispute", "escalate", "D-0001", "--by", "developer-1") == 0
     assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "developer-1") != 0
-    # The point of this test is that a NON-tribunal role is refused at both steps.
-    # The roster staffs a reviewer, so the panel is ceo+reviewer and BOTH must sign.
     assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "reviewer-1") == 0
     assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "ceo") == 0
     assert (
@@ -616,7 +578,6 @@ def test_a_party_to_a_dispute_cannot_rule_it(cli, project: Path) -> None:
         )
         != 0
     ), "a complete panel still let the CEO rule their own dispute"
-    # The same complete panel does rule, through the neutral member.
     assert (
         cli(
             "--project",
@@ -646,7 +607,6 @@ def test_the_neutral_signer_can_resolve_a_dispute_between_two_panel_roles(
     init(cli, project, agents="ceo,cto,developer-1,tester-1,reviewer-1,reviewer-2")
     _open_and_escalate(cli, project, "ceo", "cto")
     assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "reviewer-1") == 0
-    # Both parties are refused.
     for party in ("ceo", "cto"):
         assert (
             cli(
@@ -662,7 +622,6 @@ def test_the_neutral_signer_can_resolve_a_dispute_between_two_panel_roles(
             )
             != 0
         ), f"{party} ruled a dispute it is a party to"
-    # The neutral signer that signing accepted can also rule.
     assert (
         cli(
             "--project",
@@ -835,7 +794,6 @@ def test_links_command_measures_the_worktree_it_runs_in(cli, project: Path, caps
     init(cli, project)
     worktree = team_root(project) / engine.DIR_RUNTIME / engine.DIR_WORKTREES / "Dev"
     worktree.mkdir(parents=True)
-    # work_repo() recognises one of our worktrees by its .git entry.
     (worktree / ".git").mkdir()
     (worktree / "README.md").write_text("[gone](missing.md)\n", encoding="utf-8")
 
@@ -874,11 +832,6 @@ def test_audit_link_health_measures_the_tree_under_the_caller(cli, project: Path
     out = capsys.readouterr().out
     assert "- none" not in out, "a broken link in the worktree must be counted"
     assert "issue(s); run `teamwork.py links` for the list" in out
-
-
-# --------------------------------------------------------------------------- #
-# TEAMWORK_ROOT: a validated shape, never `IndexError: 3`
-# --------------------------------------------------------------------------- #
 
 
 def test_a_shallow_teamwork_root_dies_with_one_readable_line(

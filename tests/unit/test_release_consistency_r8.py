@@ -54,8 +54,6 @@ def _load_checker():
     spec = importlib.util.spec_from_file_location("check_release_consistency_r8", CHECKER_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    # The dataclasses in the checker resolve their own module, so it must be
-    # importable by name before the body runs.
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
@@ -104,20 +102,10 @@ RISK_ROW = (
 )
 
 
-# --------------------------------------------------------------------------- #
-# the loader
-# --------------------------------------------------------------------------- #
-
-
 def test_the_loader_works():
     """The module loaded by path exposes the rule the fix changed."""
     assert hasattr(crc, "rule_r8_install_channels")
     assert hasattr(crc, "WARNING_CONTEXT")
-
-
-# --------------------------------------------------------------------------- #
-# a hazard statement is not an advertisement
-# --------------------------------------------------------------------------- #
 
 
 def test_the_risk_row_is_not_drift(tmp_path):
@@ -170,11 +158,6 @@ def test_a_bare_wrong_is_not_a_hazard(tmp_path):
     assert "teamwork" in result.detail
 
 
-# --------------------------------------------------------------------------- #
-# the exemption is per claim
-# --------------------------------------------------------------------------- #
-
-
 def test_a_line_that_both_warns_and_advertises_keeps_the_good_name_checked(tmp_path):
     """The bad name is exempt, the good name is still an advertisement."""
     root = make_repo(
@@ -216,12 +199,6 @@ def test_the_shipped_name_on_a_hazard_line_is_still_checked(tmp_path):
     assert "wrongscript" in result.detail
 
 
-# --------------------------------------------------------------------------- #
-# a prose word after pip install is not a distribution (T-0004)
-# --------------------------------------------------------------------------- #
-
-#: The measured line: ``docs/Team/Decisions.md`` at 7c183e0, where R8 read the
-#: first word after ``pip install`` and reported ``channel names into``.
 MEASURED_PROSE_LINE = (
     "- options considered: pip install into the system interpreter (rejected: "
     "pollutes the operator host); venv/ which .gitignore already covers (chosen)"
@@ -273,11 +250,6 @@ def test_the_shipped_distribution_stays_a_silent_channel_claim(tmp_path):
     assert crc._channel_claims("`pip install teamwork-agents`") == [("teamwork-agents", None)]
     assert result.status != "DRIFT"
     assert "1 channel line(s)" in result.detail
-
-
-# --------------------------------------------------------------------------- #
-# the existing escapes are untouched
-# --------------------------------------------------------------------------- #
 
 
 def test_the_channel_unavailable_marker_still_works(tmp_path):

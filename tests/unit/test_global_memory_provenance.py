@@ -75,8 +75,6 @@ def test_a_merge_never_overwrites_the_author():
     entries, merged, added = merge_entries(entries, [second])
     assert merged == 1 and added == 0
     assert entries[0]["by"] == "CEO"
-    # the other two fields describe the SAME recording act as the author, so
-    # they must not be grafted onto someone else's record either
     assert entries[0]["src"] == "T-1"
     assert entries[0]["rev"] == "abc"
 
@@ -135,11 +133,6 @@ def test_a_writer_without_provenance_never_erases_an_author():
     assert entries[0]["by"] == "CEO"
     assert entries[0]["src"] == "T-1"
     assert entries[0]["rev"] == "abc"
-
-
-# --------------------------------------------------------------------------- #
-# The process boundary: the CLI, not the helper.
-# --------------------------------------------------------------------------- #
 
 
 def _global_file(project: Path) -> Path:
@@ -308,8 +301,6 @@ def test_the_audit_gate_is_satisfiable_by_a_global_entry(cli, project: Path, cap
     assert "memory entr(y/ies) without `by` provenance" not in out
     assert "lack provenance" not in out
 
-    # and an entry recorded WITHOUT provenance is still reported: the fix makes
-    # provenance achievable, it does not make the gate optional
     assert (
         cli(
             "--project",

@@ -62,11 +62,6 @@ def commit(project: Path, message: str) -> str:
     return git(project, "rev-parse", "--short", "HEAD")
 
 
-# --------------------------------------------------------------------------- #
-# records
-# --------------------------------------------------------------------------- #
-
-
 def test_new_test_record_starts_with_an_empty_packet() -> None:
     record = engine.new_test_record("unit", "parser")
 
@@ -122,11 +117,6 @@ def test_task_roundtrip_keeps_kind_and_artifacts(tmp_path: Path) -> None:
     assert out[0]["review_artifacts"] == "Reports/review.log:0a1b2c:8"
 
 
-# --------------------------------------------------------------------------- #
-# artifacts
-# --------------------------------------------------------------------------- #
-
-
 def test_artifact_digest_is_relative_bounded_and_stable(tmp_path: Path) -> None:
     project = tmp_path / "SampleProject"
     root = make_root(project)
@@ -179,11 +169,6 @@ def test_artifact_digests_is_empty_without_artifacts(tmp_path: Path) -> None:
 
     assert engine.artifact_digests(root, None) == ""
     assert engine.artifact_digests(root, []) == ""
-
-
-# --------------------------------------------------------------------------- #
-# which checkout a relative --artifact is read from (R-22, T-0011)
-# --------------------------------------------------------------------------- #
 
 
 def test_a_relative_artifact_is_read_from_the_lane_worktree(tmp_path: Path) -> None:
@@ -290,11 +275,6 @@ def test_a_copy_only_one_checkout_holds_still_binds(tmp_path: Path) -> None:
     ) == digest_of("Reports/new.log", b"only this lane has it\n")
 
 
-# --------------------------------------------------------------------------- #
-# repro ancestry
-# --------------------------------------------------------------------------- #
-
-
 def test_require_ancestor_is_a_no_op_outside_git(tmp_path: Path) -> None:
     engine.require_ancestor(tmp_path, "abc123", "def456")
 
@@ -327,11 +307,6 @@ def test_require_ancestor_rejects_an_unknown_revision(tmp_path: Path) -> None:
 
     with pytest.raises(SystemExit):
         engine.require_ancestor(tmp_path, "deadbeef", head)
-
-
-# --------------------------------------------------------------------------- #
-# task lookup for repro
-# --------------------------------------------------------------------------- #
 
 
 def test_find_task_anywhere_finds_the_owning_queue(tmp_path: Path) -> None:

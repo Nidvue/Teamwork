@@ -37,20 +37,14 @@ import shutil
 
 import pytest
 
-#: tool -> why a test needs it. The sentence is part of the skip message, so the
-#: report tells a reader what the tool is for instead of only that it is missing.
 TOOL_REASONS = {
     "make": "the Makefile contract executes the committed recipes through it",
     "sh": "the installed git hooks are POSIX shell scripts run with it",
     "bash": "the CI scope classifier is a POSIX shell script run with it",
 }
 
-#: The fallback reason for a tool with no entry above: it must still be stated.
 GENERIC_REASON = "the test executes it"
 
-#: The tools the suite guards. A tool outside this set is either a prerequisite
-#: the product itself cannot run without (the interpreter, ``git``) or is never
-#: executed by a test - see the module docstring.
 GUARDED_TOOLS = frozenset(TOOL_REASONS)
 
 

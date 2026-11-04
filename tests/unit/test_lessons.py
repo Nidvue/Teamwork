@@ -100,7 +100,7 @@ def test_lesson_add_writes_the_role_file_and_load_shows_it(cli, ws, capsys) -> N
     assert "- role: developer" in text
     assert "- status: open" in text
     assert "- task: T-9999" in text
-    assert "- skill:" not in text  # empty optional fields are not noise
+    assert "- skill:" not in text
 
     assert cli("--project", ws, "load", "Developer-1") == 0
     load = capsys.readouterr().out
