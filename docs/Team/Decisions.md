@@ -2216,3 +2216,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: gh run view 41854143232 --json jobs -> test (macos-latest / py3.9) job 126728283476 cancelled, annotation 'The job was not acquired by Runner of type hosted even after multiple attempts' @b0471ae; gh run rerun 41854143232 --failed -> job 126814976876 started 2026-11-04T19:42:17Z on runner 'GitHub Actions 1000003020'
 - falsified by: If the same cell fails to acquire a runner twice more on separate pushes, the constraint is systemic and the matrix policy returns to the CEO+Architect with the run ids.
 - consequences: -
+
+## D-20261104-CEO-2 - The two productmanager drafts are superseded; delete them
+
+- date: 2026-11-04
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0002
+- context: -
+- options considered: -
+- decision: Delete productmanager/t-0001-rebuild-the-traceability-matrix-for-ac-1 and productmanager/t-0001-requirements-layer-check-ac-to-task-to-t; their work is on main and their remote refs are stale pre-merge drafts.
+- why: The rebuild branch is recorded in the archive as merged at 96160cf, which is an ancestor of main, so its ref is residue after the rebase-merge; the requirements branch created the Traceability section that the archived rebuild superseded (docs/Team/Project.md:398). Neither has an open PR and both are 794/1426 commits behind.
+- evidence: docs/Team/Archive.md:2573 -> 'branch / merge: productmanager/t-0001-rebuild-the-traceability-matrix-for-ac-1 / 96160cf'; git merge-base --is-ancestor 96160cf main -> true; grep -c 'Traceability - AC to task to test' docs/Team/Project.md -> 1; gh pr list --state open -> empty; git rev-list --count main..origin/<branch> -> 1 and 2
+- falsified by: If the archive merge 96160cf is not on main, or the current Project.md traceability section is absent, the drafts are not superseded and the deletion reverses work: restore the refs from the archive record.
+- consequences: -
