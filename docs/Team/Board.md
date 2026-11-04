@@ -87,8 +87,9 @@ under two roles is two tasks.
 | developer | T-0002 | - | todo | - | - |
 | developer | T-0003 | skills | done | P-0001 | d93df1e |
 | developer | T-0004 | - | todo | - | - |
-| reviewer | T-0001 | records | review | - | - |
+| reviewer | T-0001 | records | done | - | - |
 | tester | T-0001 | - | done | - | - |
+| tester | T-0002 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -107,7 +108,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | developer | T-0002 · Platform-scale the traceability proof budget (900s) or the privacy proof it runs | P2 | todo | - |
 | developer | T-0004 · Stop the local suite from writing a Library/ cache into the repo root on macOS | P2 | todo | - |
-| reviewer | T-0001 · Independent acceptance of the CI restoration | P0 | review | - |
+| tester | T-0002 · Determine whether tests/integration/test_release_consistency_integration.py::test_every_rule_has_a_test_that_fails_before_the_rule_exists stalls on main as well | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
