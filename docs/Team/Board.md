@@ -159,6 +159,7 @@ under two roles is two tasks.
 | developer | T-0039 | concurrency | done | P-0069 | bc6502f |
 | developer | T-0040 | - | todo | - | - |
 | developer | T-0041 | - | todo | - | - |
+| developer | T-0042 | lint | done | P-0074 | 0808051 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | records | done | - | - |
 | technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
