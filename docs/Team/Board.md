@@ -107,6 +107,8 @@ under two roles is two tasks.
 | ceo | T-0019 | records | done | P-0062 | bace8e2 |
 | ceo | T-0020 | throughput | dropped | - | - |
 | ceo | T-0021 | privacy | done | P-0063 | ca608bf |
+| ceo | T-0022 | merge | selfcheck | - | - |
+| ceo | T-0023 | - | dropped | - | - |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -173,6 +175,13 @@ Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
 landed by commit without a PR record.
 
+## Feature teams (rendered)
+
+Shared services serve every feature and are attached to none: Architect, CEO, CFO, COO, CTO, Project Manager, Release Engineer, Reviewer, Security Auditor.
+
+| feature | state | owner | squad | paths |
+|---|---|---|---|---|
+
 ## In flight
 
 | agent | task | prio | state | artifact |
@@ -183,6 +192,7 @@ landed by commit without a PR record.
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
 | ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | blocked | - |
+| ceo | T-0022 · Integrate origin/main into main: reconcile the published 1.5.2 line with the local M17/M18 line, keep both sides' behaviour, and publish the merged revision | P0 | selfcheck | - |
 | developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | todo | - |
 | developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
 | developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |

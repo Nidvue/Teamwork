@@ -1240,8 +1240,10 @@ component order, with four whitespace-separated columns and no header line:
   git directory git reports, which differs per repository, per worktree and per
   `core.hooksPath`; the absolute directory that was actually probed is printed
   by `hooks status` (§12.6), never guessed here.
-- C3 is summed over every role directory and the global memory of the project,
-  because the command is not scoped to one instance.
+- C3 is summed over every role directory, because the command is not scoped to
+  one instance. It counts only `ShortTermMemory.md`: the one memory file startup
+  loads into context (`D-20261102-Architect-C3`). Long-term memory, the task queue,
+  the archive and the global memory are on-demand and sit outside this registry.
 - `role` is the owner of that path under section 2, or `-` where section 2
   assigns none.
 - exit code 0.
@@ -1250,7 +1252,7 @@ component order, with four whitespace-separated columns and no header line:
 |---|---|---|---|---|
 | C1 | system prompt | `SKILL.md` | always-on | ceo |
 | C2 | guardrails | managed block in `AGENTS.md` | always-on | ceo |
-| C3 | memory | `Roles/<Role>/*.md` + `Global/GlobalMemory.md` | always-on | - |
+| C3 | memory | `Roles/<Role>/ShortTermMemory.md` | always-on | - |
 | C4 | tool guidance | `references/*.md` | on-demand | ceo |
 | C5 | subagents | `n/a` (lane packet, no file) | - | - |
 | C6 | skills | `.agents/skills/*/SKILL.md` | on-demand | ceo |
@@ -1325,7 +1327,7 @@ total       <sum_bytes>        <budget_bytes x instances>  <ok|OVER>
 ```
 
 - `always_on_bytes` = managed `AGENTS.md` block + `SKILL.md` + that role's
-  charter + that role's memory. The unit is **one instance**, never the roster.
+  charter + that role's short-term memory (`ShortTermMemory.md`, C3). The unit is **one instance**, never the roster.
 - `budget_bytes` = `AlwaysOnBudgetKb` x **1024** (KiB, frozen so the number is
   reproducible). The key lives in the workspace `Settings.json`, defaults to
   `120` in `config.py`, and **must be listed in `config.SETTINGS_NON_PROVIDER`**:
@@ -2558,7 +2560,7 @@ Owner: Architect. This section freezes the **context-tree surface**: the `ctx://
 view over the stores sections 14 and 15 created, the three computed levels, the
 `context` command family and the `kind` field on knowledge. The design is adopted
 from OpenViking; the dependency is not. Sources, the adopt/reject table and the
-vendor-claim caveat are in [Research](Research.md) section 11, accessed
+vendor-claim caveat are in [Research](Research.md) section 13, accessed
 2026-11-03.
 
 **Measured baseline at `bcec6f1`** - none of this is implemented yet, and the
