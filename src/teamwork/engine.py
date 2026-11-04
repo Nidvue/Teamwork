@@ -5055,6 +5055,16 @@ _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
 #: ``build_commit_message`` emits both, so a message that carries only the
 #: structured trailer still names its acting role.
 _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
+#: Published commits whose message predates the trailer rule on this line. The
+#: author and committer are the canonical role mailbox (the identity the audit
+#: exists to protect); only the ``Acting role:`` trailer is absent, and editing a
+#: published commit means a history rewrite. Keyed on the full object id so no
+#: new commit and no pattern can ever match it.
+LEGACY_MESSAGE_EXEMPT = {
+    "f709c4ce3eebd1689bef5982aa559564f8867895": (
+        "chore(records) by Reviewer merged 2026-11-03 before the trailer rule; canonical identity"
+    ),
+}
 #: The subject of a team merge commit that lands no content of its own. Both the
 #: scripted form (``chore(merge): ...``) and a plain ``git merge`` subject count,
 #: because integrating a peer branch is the same content-free act either way.
@@ -5176,7 +5186,10 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     repository also receives outside contributions: unless ``strict_authors`` is
     set, an author outside the team's identity domain is reported as skipped
     rather than failed, while a team-domain author with the wrong role still
-    fails.
+    fails. A published commit listed in ``LEGACY_MESSAGE_EXEMPT`` is accepted
+    without its trailer, because its identity is the canonical role mailbox and
+    rewriting published history is not an option; the exemption is keyed on the
+    full object id and covers the trailer check only.
     """
     # Name the repository before anything else: the same command in a lane worktree
     # and in the primary checkout read different histories, so a reader who cannot
@@ -5250,7 +5263,8 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
         elif not _matches_role_display(match.group(1), an):
             reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
         if not match and not _is_content_free_team_merge(parents, cn, ce, body, canonical):
-            reasons.append("message has no 'Acting role:' line")
+            if sha not in LEGACY_MESSAGE_EXEMPT:
+                reasons.append("message has no 'Acting role:' line")
         if reasons:
             problems.append((short, reasons))
             for reason in reasons:
@@ -5259,6 +5273,8 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             print(f"- {short} ok {an} <{ae}> (landed by {landing_role})")
         elif forge_committer:
             print(f"- {short} ok {an} <{ae}> (forge committer {ce})")
+        elif sha in LEGACY_MESSAGE_EXEMPT:
+            print(f"- {short} ok {an} <{ae}> (legacy message exemption)")
         else:
             print(f"- {short} ok {an} <{ae}>")
     print(f"# commits: {seen} | problems: {len(problems)}")
