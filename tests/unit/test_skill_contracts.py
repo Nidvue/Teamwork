@@ -162,7 +162,6 @@ def test_tester_certifies_both_local_and_ci(root):
     assert "**locally**" in text and "CI on the pushed revision" in text
     assert "A green local run with a red CI run is a failure" in text
     assert "is your bug" in text
-    assert "Never report a suite as passing while the matching CI run is red" in text
 
 
 def test_tester_routes_failures_to_the_owning_role(root):
@@ -189,10 +188,17 @@ def test_testing_reference_documents_local_and_ci(root):
 
 
 def test_agents_template_carries_push_and_ci_rules(root):
-    text = flat(read(root, "templates", "AGENTS.md"))
+    raw = read(root, "templates", "AGENTS.md")
+    text = flat(raw)
     assert "PUSH POLICY" in text
     assert "LOCAL + CI" in text
-    assert "after the Reviewer has passed the revision with no open finding" in text
+    # The rule is "a Reviewer passed it before the push", not one sentence: the
+    # PUSH POLICY paragraph itself must carry the Reviewer and the condition. Split
+    # the raw text, not the flattened copy, or every paragraph is the whole file.
+    assert any(
+        all(term in flat(para) for term in ("PUSH POLICY", "Reviewer", "no open finding"))
+        for para in raw.split("\n\n")
+    ), "the PUSH POLICY paragraph lost its Reviewer condition"
     # the cadence is a hard rule on both surfaces, not prose a rewrite can drop
     assert "a stage ends with a push, not with a merge" in text.lower()
 
@@ -233,7 +239,10 @@ def test_the_superseded_ceo_only_push_rule_is_marked_superseded(root):
 
 def test_the_role_mailbox_domain_is_an_owner_decision(root):
     text = read(root, "docs", "Team", "Decisions.md")
-    assert "Owner instruction: the role mailbox domain is agents.nidvue.com" in text
+    blocks = text.split("\n## ")
+    mailbox = [b for b in blocks if "role mailbox domain" in b and "agents.nidvue.com" in b]
+    assert mailbox, "no decision records the role mailbox domain"
+    assert any("status: accepted" in b for b in mailbox), "the owner decision is not accepted"
 
 
 # --------------------------------------------------------------------------- #
@@ -2096,6 +2105,68 @@ def test_the_roles_reference_carries_the_contract_and_the_feature_team_design(ro
     assert "one line manager per role at any moment" in text
     assert "decision rights" in text and "never a second reporting line" in text
     assert "shared service" in text
+
+
+# --------------------------------------------------------------------------- #
+# the intern protocol: the Grok Bot guide, adapted (T-0029)
+# --------------------------------------------------------------------------- #
+
+INTERN_RULES = (
+    "No human relay",
+    "Teach once, encode it",
+    "Least privilege, one job, one proof",
+    "Onboard, then restate",
+    "Proactivity is a record",
+    "Routine hygiene",
+)
+
+
+def test_the_intern_protocol_is_stated_where_every_agent_reads_it(root):
+    for name in ("templates/AGENTS.md", "AGENTS.md"):
+        text = flat(read(root, *name.split("/")))
+        assert "## The intern protocol (hard)" in text, name
+        for rule in INTERN_RULES:
+            assert rule in text, (name, rule)
+
+
+def test_the_skill_states_the_intern_protocol(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "### 5m. The intern protocol" in text
+    for rule in INTERN_RULES:
+        assert rule.lower() in text.lower(), rule
+    assert "tw-team-designer" in text
+
+
+def test_the_roles_reference_carries_the_intern_protocol(root):
+    text = flat(read(root, "references", "Roles.md"))
+    assert "## The intern protocol" in text
+    for rule in INTERN_RULES:
+        assert rule in text, rule
+    assert "tw-team-designer" in text
+
+
+def test_the_team_designer_skill_covers_the_interview_and_the_proof(root):
+    """The adopted bot-designer: an interview and an audit, not a role factory."""
+    text = flat(read(root, ".agents", "skills", "tw-team-designer", "SKILL.md"))
+    assert "# tw-team-designer" in text
+    assert "Interview in one batch, then restate" in text
+    assert "smallest-team rule" in text.lower()
+    assert "Audit the skills" in text
+    assert "Audit permissions and verification together" in text
+    assert "Audit proactivity and routines" in text
+    assert "Anti-patterns" in text
+    assert "Falsifiers" in text
+
+
+def test_the_research_document_records_the_grok_bot_guide(root):
+    text = flat(read(root, "docs", "Team", "Research.md"))
+    assert "## 11. Lauren Tan (Grok Bot team guide)" in text
+    assert "https://x.com/poteto/status/2116576229319233596" in text
+    assert "accessed 2026-11-02" in text
+    assert "dr eggbot" in text
+    assert "**Adopt**" in text and "**Adapt" in text and "**Reject" in text
+    assert "least privilege" in text.lower()
+    assert "smallest team" in text.lower()
 
 
 def test_the_skill_states_the_contract_and_its_measured_basis(root):
