@@ -1318,14 +1318,14 @@ def test_automatic_routing_is_documented_everywhere(root):
     surfaces = {
         "README": root / "README.md",
         "docs home": root / "docs" / "index.md",
-        "CLI reference": root / "docs" / "guide" / "cli.md",
+        "CLI reference": root / "docs" / "guide" / "cli-audit.md",
         "adapters": root / "references" / "Adapters.md",
         "concurrency": root / "references" / "Concurrency.md",
         "SKILL": root / "SKILL.md",
     }
     for label, path in surfaces.items():
         assert mentions(path.read_text(encoding="utf-8")), label
-    cli = (root / "docs" / "guide" / "cli.md").read_text(encoding="utf-8")
+    cli = (root / "docs" / "guide" / "cli-audit.md").read_text(encoding="utf-8")
     assert "TEAMWORK_MODEL_STRONG" in cli
     for path in sorted((root / "roles").glob("*.md")):
         assert "### Your model (all roles)" in path.read_text(encoding="utf-8"), path.name
@@ -1373,20 +1373,25 @@ def test_install_is_one_clone_into_the_agent_host(root):
     """The install is a skill clone, and the engine package is only optional."""
     readme = read(root, "README.md")
     head, install = readme.split("## Install the skill", 1)
-    install, optional = install.split("### Optional", 1)
+    install = install.split("## 30-second quickstart", 1)[0]
 
     assert "not a standalone" in head, "the README must say what this is not"
     for host_path in (".agents/skills/teamwork", "~/.agents/skills/teamwork"):
         assert host_path in install, host_path
-    assert "use the teamwork skill" in install
-    assert "/teamwork <prompt>" in install
+    assert "git clone --depth 1 https://github.com/Nidvue/Teamwork.git" in install
+    assert "npm install @nidvue/teamwork" in install
+    assert "docs/guide/install.md" in install, "the README links the full comparison"
+    assert "use the teamwork skill" in readme
+    assert "/teamwork <prompt>" in read(root, "docs", "guide", "install.md")
+
+    guide = read(root, "docs", "guide", "install.md")
     for command in ("pipx install", "uvx --from", "pip install"):
-        assert command in optional, command
+        assert command in guide, command
 
 
 def test_quickstart_starts_with_the_skill_not_the_cli(root):
     readme = read(root, "README.md")
-    quickstart = readme.split("## 30-second quickstart", 1)[1].split("## How it works", 1)[0]
+    quickstart = readme.split("## 30-second quickstart", 1)[1].split("## What you get", 1)[0]
     assert ".agents/skills/teamwork" in quickstart
     assert "use the teamwork skill: Build a URL shortener" in quickstart
 
@@ -1422,9 +1427,8 @@ def test_docs_home_and_install_guide_are_skill_first(root):
     assert guide.index("## Install the skill") < guide.index("## Optional: install the engine")
 
 
-def test_readme_gives_agents_install_and_use_instructions(root):
-    readme = read(root, "README.md")
-    section = readme.split("## For agents", 1)[1].split("## Common ways to use it", 1)[0]
+def test_the_for_agents_guide_gives_install_and_use_instructions(root):
+    section = read(root, "docs", "guide", "for-agents.md")
 
     for host_path in (".agents/skills/teamwork", "~/.agents/skills/teamwork"):
         assert host_path in section, host_path
@@ -1435,9 +1439,8 @@ def test_readme_gives_agents_install_and_use_instructions(root):
     assert "Never fake a test run" in section
 
 
-def test_readme_shows_real_cases_for_common_ways_to_use_it(root):
-    readme = read(root, "README.md")
-    examples = readme.split("## Common ways to use it", 1)[1].split("## How it works", 1)[0]
+def test_the_usage_guide_shows_real_cases_for_the_recurring_jobs(root):
+    examples = read(root, "docs", "guide", "usage.md")
     assert examples.count("```console") == 8, "each of the eight cases needs a transcript"
     for command in (
         "teamwork init --agents",
@@ -1473,8 +1476,19 @@ def test_adoption_surfaces_stay_agent_agnostic(root):
         "docs/index.md",
         "docs/guide/install.md",
         "docs/guide/quickstart.md",
+        "docs/guide/for-agents.md",
+        "docs/guide/usage.md",
+        "docs/guide/operations.md",
+        "docs/guide/how-it-works.md",
+        "docs/guide/features.md",
         "docs/guide/cli.md",
+        "docs/guide/cli-records.md",
+        "docs/guide/cli-review.md",
+        "docs/guide/cli-workflow.md",
+        "docs/guide/cli-audit.md",
         "docs/guide/architecture.md",
+        "docs/guide/alternatives.md",
+        "docs/guide/roadmap.md",
         "docs/releases.md",
         "assets/demo.svg",
         "SKILL.md",
@@ -1690,7 +1704,7 @@ def test_no_surface_still_demands_a_second_reviewer_to_merge(root):
         ("templates", "AGENTS.md"),
         ("references", "Roles.md"),
         ("SKILL.md",),
-        ("docs", "guide", "cli.md"),
+        ("docs", "guide", "cli-review.md"),
         ("references", "Engineering.md"),
         ("roles", "reviewer.md"),
     )
@@ -1906,11 +1920,12 @@ def test_no_shipped_surface_still_says_the_old_from_scratch_rule(root):
     """The rule the economy replaced is gone from every surface an agent reads."""
     assert "reviews from scratch" not in flat(read(root, "README.md"))
     assert "re-verifies from scratch" not in flat(read(root, "src", "teamwork", "engine.py"))
-    assert "from scratch" not in flat(read(root, "docs", "guide", "cli.md"))
+    for page in sorted((root / "docs" / "guide").glob("cli*.md")):
+        assert "from scratch" not in flat(page.read_text(encoding="utf-8")), page.name
 
 
 def test_the_cli_guide_documents_the_credit_and_the_packet_lines(root):
-    text = flat(read(root, "docs", "guide", "cli.md"))
+    text = flat(read(root, "docs", "guide", "cli-review.md"))
     assert "--credit TS-0006[,TS-0007]" in text
     assert "credited: TS-0006 integration/harness by Tester" in text
     assert "the **credits** available at the revision under review" in text
