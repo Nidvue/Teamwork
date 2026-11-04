@@ -86,7 +86,7 @@ under two roles is two tasks.
 | ceo | T-0003 | - | todo | - | - |
 | ceo | T-0004 | records | done | P-0004 | a45847e |
 | ceo | T-0005 | records | done | P-0005 | df4c4d9 |
-| ceo | T-0006 | evolution | review | P-0010 | - |
+| ceo | T-0006 | evolution | done | P-0010 | e01cced |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | tests | done | P-0007 | 908a118 |
 | developer | T-0003 | skills | done | P-0001 | d93df1e |
@@ -118,7 +118,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0003 · Trim the always-on startup surface under the 122880 B cap (Reviewer-1/2 over by 11279 B) | P1 | todo | - |
-| ceo | T-0006 · Wire Evolution.md and tw-self-evolve to 'teamwork evolution check' | P1 | review | - |
 | developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | doing | - |
 | developer | T-0009 · Drop EOL Python 3.9/3.10 and cut the CI matrix to 5 jobs | P1 | doing | - |
 
