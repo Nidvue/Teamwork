@@ -23,7 +23,7 @@ Dropping the nested `.git` keeps the skill as plain tracked files instead of an
 empty submodule in a fresh clone. Re-scan or reload skills in the host. A
 user-level clone (`~/.agents/skills/teamwork`, keep `.git` to pull updates) works
 the same way; if the host names its own skills directory, clone there instead.
-Python 3.9+ runs the bundled engine; there are no dependencies to install.
+Python 3.11+ runs the bundled engine; there are no dependencies to install.
 Details: [Installation](install.md).
 
 If your host resolves skills from packages instead of a directory on disk, the

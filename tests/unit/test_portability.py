@@ -323,15 +323,13 @@ def test_self_invocation_quotes_only_what_needs_it() -> None:
 
 
 def _unsafe_text_writes(module_path):
-    """Return the line numbers of text writes that are unsafe for Python 3.9/Windows.
+    """Return the line numbers of text writes that emit CRLF on Windows.
 
-    Two traps, both found by CI on the 3x3 matrix:
-
-    * ``Path.write_text(..., newline=...)`` does not exist before Python 3.10, so
-      the package must not call it at all - it uses ``write_lf`` instead;
-    * ``open(..., "w"/"a")`` without ``newline="\\n"`` emits CRLF on Windows.
-
-    Both are checked statically, so the guard runs on every platform.
+    The 3.9-era ban on ``Path.write_text(..., newline=...)`` is retired by the
+    3.11 floor: the keyword exists from 3.10 and is a normal API here. What stays
+    a defect is ``open(..., "w"/"a")`` without ``newline="\\n"``, which emits
+    CRLF on Windows and breaks byte-identical output. Checked statically, so the
+    guard runs on every platform.
     """
     import ast
 
@@ -342,9 +340,7 @@ def _unsafe_text_writes(module_path):
             continue
         name = getattr(node.func, "attr", None)
         kwargs = {kw.arg for kw in node.keywords}
-        if name == "write_text":
-            offenders.append((node.lineno, "Path.write_text is Python 3.10+ only"))
-        elif name == "open":
+        if name == "open":
             mode = None
             if node.args and isinstance(node.args[0], ast.Constant):
                 mode = node.args[0].value
@@ -356,11 +352,11 @@ def _unsafe_text_writes(module_path):
     return offenders
 
 
-def test_no_python_310_only_or_crlf_text_writes():
+def test_no_crlf_text_writes():
     """Guard every shipped Python file, not just the engine package.
 
-    ``scripts/verify_release.py`` is part of the release pipeline and had the same
-    3.10-only call, so the scan is recursive over both directories.
+    ``scripts/verify_release.py`` is part of the release pipeline, so the scan is
+    recursive over both directories.
     """
     offenders = {}
     roots = [REPO_ROOT / "src" / "teamwork", REPO_ROOT / "scripts"]
@@ -409,23 +405,17 @@ def _python_310_only_writes_in(source):
     ]
 
 
-def test_no_fixture_uses_the_python_310_only_newline_keyword():
-    """The suite runs on the same 3x3 matrix as the package, 3.9 included.
+def test_the_retired_310_newline_guard_still_detects_its_pattern():
+    """The 3.11 floor retires the ban; the detector stays proven for a re-lower.
 
-    ``Path.write_text(newline=...)`` is 3.10+ only, so a *fixture* that pins its
-    newlines that way looks correct on a modern local interpreter and raises
-    ``TypeError`` in every 3.9 CI cell. Measured on the release-consistency
-    fixtures: the fix for a Windows CRLF defect broke nine matrix cells instead of
-    two. Only this one trap is scanned for ``tests/``; the broader
-    ``open()``-without-newline rule is a Windows-correctness rule the suite has
-    not adopted, and folding it in here would fail 50+ pre-existing call sites.
+    ``Path.write_text(newline=...)`` is legal from 3.10, so a fixture may use it
+    now. This asserts the scanner still names the spelling a future floor drop
+    would have to catch again, instead of keeping a tree-wide rule that no longer
+    protects a supported interpreter.
     """
-    offenders = {}
-    for module_path in sorted((REPO_ROOT / "tests").rglob("*.py")):
-        found = _python_310_only_writes(module_path)
-        if found:
-            offenders[str(module_path.relative_to(REPO_ROOT))] = found
-    assert offenders == {}, f"3.10-only write_text(newline=...) in tests: {offenders}"
+    sample = "from pathlib import Path\n\nPath('x').write_text('a', newline='\\n')\n"
+    assert _python_310_only_writes_in(sample) == [3]
+    assert _python_310_only_writes(REPO_ROOT / "tests" / "unit" / "test_portability.py") == []
 
 
 _HEREDOC_RE = re.compile(r"<<-?[ \t]*['\"]?(?P<tag>[A-Za-z_][A-Za-z0-9_]*)['\"]?[ \t]*$")
@@ -462,33 +452,29 @@ def _embedded_python_blocks(workflow_path):
     return blocks
 
 
-def test_no_workflow_python_uses_the_python_310_only_newline_keyword():
-    """The shipped workflow blocks run under every matrix interpreter too.
+def test_the_workflow_python_scanner_still_finds_the_retired_pattern(tmp_path):
+    """A workflow heredoc is not a module on disk, so the reader is tested here.
 
-    CI run 40728749217 on 98f41a2 failed ``ubuntu-latest / py3.9`` and
-    ``windows-latest / py3.9`` with ``TypeError: write_text() got an unexpected
-    keyword argument 'newline'`` raised from ``<publish-step>:25``: the npm
-    publish step wrote its userconfig with ``Path.write_text(..., newline="\\n")``,
-    which exists only from Python 3.10. The release job itself runs 3.12, but
-    ``tests/integration/test_release_workflow_flow.py`` executes the extracted
-    block under every matrix interpreter - correctly, because the shipped text is
-    what runs, so a block that only parses on the newest interpreter is a
-    portability defect in the product and not in the test.
-
-    The ``tests/`` scan above could not see it: the offending call is inside a
-    YAML heredoc. This guard closes that gap for every workflow file.
+    CI run 40728749217 once failed the 3.9 cells on
+    ``write_text(..., newline=...)`` inside the npm publish step. The 3.11 floor
+    makes that keyword legal, so the tree-wide ban is retired; the extractor and
+    the detector stay proven so a future floor drop re-enables the same scan
+    without re-deriving it.
     """
-    offenders = {}
-    for workflow_path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.y*ml")):
-        found = []
-        for first_line, source in _embedded_python_blocks(workflow_path):
-            found.extend(first_line + line - 1 for line in _python_310_only_writes_in(source))
-        if found:
-            offenders[str(workflow_path.relative_to(REPO_ROOT))] = sorted(found)
-    assert offenders == {}, (
-        "3.10-only Path.write_text(newline=...) in workflow python "
-        f"(use open(..., 'w', encoding='utf-8', newline='\\n') or write_bytes): {offenders}"
+    workflow = tmp_path / "ci.yml"
+    workflow.write_text(
+        "steps:\n"
+        "  - run: |\n"
+        "      python - <<'PY'\n"
+        "      from pathlib import Path\n"
+        "      Path('x').write_text('a', newline='\\n')\n"
+        "      PY\n",
+        encoding="utf-8",
     )
+    found = []
+    for first_line, source in _embedded_python_blocks(workflow):
+        found.extend(first_line + line - 1 for line in _python_310_only_writes_in(source))
+    assert found == [5], found
 
 
 def test_engine_exposes_the_lf_write_helper():

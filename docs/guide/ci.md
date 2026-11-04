@@ -102,7 +102,7 @@ configure the build. `NOTICE` beside `LICENSE` is the asymmetry to remember:
 | `lint` | ubuntu | `ruff check .`, then `ruff format --check .`, then `python scripts/check_comments.py` (the no-comment rule), then the commit identity audit on a full-history checkout |
 | `committer-guard` | ubuntu | `teamwork.py identity --guard-committer --range ...` on every push, naming a forge-stamped committer before it reaches `main` |
 | `typecheck` | ubuntu | `mypy src/teamwork` with `continue-on-error: true` - a report, not a gate |
-| `test` | ubuntu/macos/windows × Python 3.9/3.11/3.13, plus 3.10/3.12 on ubuntu | `make test` |
+| `test` | 5 cells: ubuntu 3.11/3.12/3.13, macOS 3.13, Windows 3.13 | `pytest -q`, with the coverage gate on ubuntu 3.11 only |
 | `build` | ubuntu | `make build` then `make verify` |
 | `privacy` | ubuntu | `make privacy`; runs when `code` **or** `prose` is true |
 | `release-consistency` | ubuntu | `check_release_consistency.py` offline: R1, R2, R6, R7 and R9 evaluate, R3/R4/R5/R8 print `SKIP` with the reason |
@@ -111,11 +111,40 @@ configure the build. `NOTICE` beside `LICENSE` is the asymmetry to remember:
 `docs.yml` builds and deploys the site to GitHub Pages on `main`; `release.yml`
 runs on `v*` tags and produces the wheel, sdist, checksums and SBOM.
 
+### Why five cells, not eleven
+
+The matrix used to run every supported interpreter on every OS. Dropping 3.9 and
+3.10 (both end-of-life) and testing the newest interpreter on macOS and Windows
+keeps the cross-platform signal while removing lanes that could only repeat it.
+Durations are the last recorded runs, in minutes; they estimate the saving rather
+than claim a measured wall time.
+
+| Lane | Before | After |
+|---|---:|---:|
+| ubuntu 3.9 / 3.10 | 24 / 24 | - |
+| ubuntu 3.11 | 22 | 22 |
+| ubuntu 3.12 | 22 | 22 |
+| ubuntu 3.13 | 23 | 23 |
+| macOS 3.9 | 25 | - |
+| macOS 3.11 | 18 | - |
+| macOS 3.13 | 17 | 17 |
+| Windows 3.9 | 32 | - |
+| Windows 3.11 | 51 | - |
+| Windows 3.13 | 40 | 40 |
+| **Total** | **298** | **124** |
+
+11 lanes to 5, and 298 to 124 runner-minutes: 174 minutes saved (58.4%). The
+critical path is **Windows 3.13 at about 40 minutes**, still the long pole; the old
+wall-clock bound was the Windows 3.11 lane at 51 minutes. The 3.12 and 3.13
+interpreters stay on ubuntu, and the single coverage gate rides the ubuntu 3.11
+lane.
+
 ## Reproduce a CI failure locally
 
 1. Check out the same revision.
 2. Run the target for the failing job, for example `make test`.
 3. Fix, then re-run `make ci` before opening a PR.
 
-The `test` job uses the same command as `make test`; a difference between local
+The `test` job runs pytest like `make test`; only the ubuntu 3.11 lane adds the
+coverage gate, so a coverage failure names that lane. A difference between local
 and CI usually means a missing dependency or a platform-specific path.

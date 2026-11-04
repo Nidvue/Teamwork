@@ -20,7 +20,7 @@ $ python -m pip install -e ".[dev]"
 $ python -m pip install -r docs/requirements.txt
 ```
 
-Requirements: Python 3.9 or newer. The runtime has no third-party dependencies.
+Requirements: Python 3.11 or newer. The runtime has no third-party dependencies.
 
 ## Make targets
 

@@ -1,7 +1,7 @@
 ---
 name: teamwork
 description: "Nidvue Teamwork - run a user prompt to completion with an autonomous multi-agent company: CEO, CTO, COO, CFO, Architect, Product Manager, Project Manager, Designer, Release Engineer, Technical Writer, Data Engineer, Developer(s), Tester(s), Reviewer and Security Auditor. Use when the user invokes /teamwork, asks for a team of sub-agents with roles, wants an org chart of agents that plans, builds, tests and iterates until the goal is met, or wants long-running parallel work with per-agent memory. The user talks only to the CEO; every other agent communicates internally."
-compatibility: "python3 3.9 or newer on PATH - the engine is stdlib-only, so there is no pip install and no venv; git is required for every branch, commit and PR operation."
+compatibility: "python3 3.11 or newer on PATH - the engine is stdlib-only, so there is no pip install and no venv; git is required for every branch, commit and PR operation."
 ---
 
 # Nidvue Teamwork - `teamwork` skill
