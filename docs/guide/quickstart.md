@@ -2,7 +2,7 @@
 
 Owner: Technical Writer.
 
-Related: [Home](../index.md) · [Installation](install.md) · [CLI reference](cli.md) · [Architecture](architecture.md) · [Releases](../releases.md)
+Related: [Home](../index.md) · [Installation](install.md) · [For agents](for-agents.md) · [Usage patterns](usage.md) · [Operations](operations.md) · [CLI reference](cli.md) · [Architecture](architecture.md) · [Releases](../releases.md)
 
 Start a team in an empty project in about a minute. Step 1 installs the skill in
 one clone, step 2 is a single prompt to your agent host. The later steps show the

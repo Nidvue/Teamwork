@@ -1,11 +1,14 @@
-"""README layout: the block order ``docs/Team/Design.md`` section 2 requires.
+"""README layout: the slim front door ``docs/Team/Design.md`` section 2 requires.
 
 The README is the product's first surface, so its hierarchy is a contract, not
-an accident: one pitch, one install block, the proof sections in a fixed order,
-no repeated heading and no section that promises content it does not carry.
-The order below is Design.md section 2 (blocks 3-13) plus the "30-second
-quickstart" heading that block 5 introduces; blocks 1-2 are the hero and the
-demo, which carry no ``##`` heading.
+an accident: one pitch, one install block, the proof blocks in a fixed order, no
+repeated heading and no section that promises content it does not carry. The
+order below is Design.md section 2 - the hero and the demo carry no ``##``
+heading - and the depth it used to carry now lives on the linked guide pages.
+
+Two properties are pinned besides the order: the README stays a front door
+(``MAX_BYTES`` = 10 KiB), and the documentation map it carries names every guide page in
+``mkdocs.yml``, so a moved section cannot become an orphan.
 """
 
 from __future__ import annotations
@@ -16,22 +19,19 @@ from pathlib import Path
 import pytest
 
 BLOCK_ORDER = (
-    "Why Teamwork",
-    "Features",
+    "What makes it different",
     "Install the skill",
     "30-second quickstart",
-    "For agents",
-    "Common ways to use it",
-    "How it works",
-    "Teamwork vs alternatives",
-    "Architecture at a glance",
-    "Roadmap",
+    "What you get",
+    "Documentation",
     "Contributing, security and license",
-    "Star history",
 )
+
+MAX_BYTES = 10 * 1024
 
 FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 HEADING = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
+NAV_PAGE = re.compile(r"^\s*-\s+[^:\n]+:\s+(guide/[^\s]+\.md)\s*$", re.MULTILINE)
 
 
 @pytest.fixture(scope="module")
@@ -53,7 +53,7 @@ def headings(lines: list[str]) -> list[tuple[int, int, str]]:
     """``(line number, level, title)`` for every ATX heading outside a fence.
 
     A ``##`` line inside a ``console`` transcript is output the reader is meant to
-    see, not a section: the README's ``## provider slots`` sample lives inside one.
+    see, not a section.
     """
     found: list[tuple[int, int, str]] = []
     fence: str | None = None
@@ -123,6 +123,49 @@ def test_the_sections_are_the_designed_blocks_in_the_designed_order(lines):
         "README.md's ## sections must follow Design.md section 2; expected "
         f"{list(BLOCK_ORDER)}, found {found}"
     )
+
+
+def test_the_readme_stays_a_front_door(readme):
+    """Depth moved to docs/: the README must not grow back into the manual."""
+    size = len(readme.encode("utf-8"))
+    assert size <= MAX_BYTES, f"README.md is {size} B, over the {MAX_BYTES} B front-door cap"
+
+
+def test_the_documentation_map_names_every_guide_page(root, readme):
+    """A page the nav publishes must be reachable from the README too."""
+    map_block = "\n".join(section(readme.splitlines(), "Documentation"))
+    nav = (root / "mkdocs.yml").read_text(encoding="utf-8")
+    pages = set(NAV_PAGE.findall(nav))
+    assert len(pages) >= 10, f"mkdocs.yml nav lists {len(pages)} guide pages"
+    missing = sorted(page for page in pages if f"(docs/{page})" not in map_block)
+    assert missing == [], f"README documentation map does not link {missing}"
+
+
+def test_the_differentiator_block_is_bounded_and_links_its_proof(lines):
+    """5-7 rows, each naming the page that proves it - no unsourced claim."""
+    body = section(lines, "What makes it different")
+    rows = [line for line in body if line.startswith("| **")]
+    assert 5 <= len(rows) <= 7, f"the differentiator table has {len(rows)} row(s)"
+    for row in rows:
+        assert re.search(r"\]\(docs/[^)\s]+\)", row), f"row has no proof link: {row}"
+
+
+def test_the_top_hooks_point_at_the_evidence(readme):
+    """The three hooks above the fold each carry a link, not a paragraph."""
+    intro = readme.split("## What makes it different", 1)[0]
+    for hook in (
+        "Developed by AI agents, for AI agents",
+        "One prompt in, a whole company out",
+        "It improves from its own failures",
+    ):
+        assert hook in intro, hook
+    assert "(docs/Team/Archive.md)" in intro
+    assert "(docs/Team/Evolution.md)" in intro
+    assert "(#30-second-quickstart)" in intro
+    assert "confounded" in intro, "EV-0004 is confounded, not no-observed-effect"
+    assert "no observed effect" not in intro
+    assert "refuses a close" not in intro, "a routine is not a gate at this revision"
+    assert "all but two commits" in intro, "the author claim must be bounded"
 
 
 def test_the_readme_has_one_title(lines, readme):

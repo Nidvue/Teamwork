@@ -2,7 +2,7 @@
 
 Owner: Technical Writer.
 
-Related: [Home](index.md) · [Installation](guide/install.md) · [Quickstart](guide/quickstart.md)
+Related: [Home](index.md) · [Installation](guide/install.md) · [Quickstart](guide/quickstart.md) · [Roadmap](guide/roadmap.md)
 
 A release publishes **one tagged revision** to four faces: the git tag, a GitHub
 Release, the npm package `@nidvue/teamwork`, and this site. They are not four
