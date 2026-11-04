@@ -49,7 +49,9 @@ QUEUE_GLOB = ".pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md"
 ARCHIVE = "docs/Team/Archive.md"
 TEAM_TESTS_GLOB = ".pi/Teamwork/Teams/*/Tests.md"
 
-PROOF_TIMEOUT_SECONDS = 900
+PROOF_TIMEOUT_SECONDS = 1800
+
+MEASURED_COLD_RUNNER_PROOF_SECONDS = 884
 
 
 def _section(project: str) -> str:
@@ -738,13 +740,26 @@ def test_a_row_this_host_cannot_measure_is_named_with_its_reason(repo_root: Path
 
 
 def test_the_proof_budget_is_a_generous_named_constant() -> None:
-    """The budget is a stated number with headroom, and still a finite one."""
+    """The budget covers a measured cold-runner scan with headroom, and stays finite.
+
+    The measured scan is the shipped privacy job at 884 s (run 41854143232,
+    `privacy scan (tree + history)`), and a proof re-running the same
+    `--tree --history` walk exceeded 900 s on three lanes of run 41916744357, so
+    900 was a measurement of one runner, not a budget. The floor is therefore
+    twice the measured scan, not a round number, and the ceiling keeps one hung
+    proof inside a CI job that has no `timeout-minutes` of its own.
+    """
     assert isinstance(PROOF_TIMEOUT_SECONDS, int) and not isinstance(PROOF_TIMEOUT_SECONDS, bool), (
         f"the proof budget must be an int number of seconds, not {PROOF_TIMEOUT_SECONDS!r}"
     )
-    assert PROOF_TIMEOUT_SECONDS >= 600, (
-        f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s leaves no headroom over the "
-        "300 s that timed out on a cold CI runner walking the full history"
+    assert MEASURED_COLD_RUNNER_PROOF_SECONDS > 0, (
+        f"the measured cold-runner scan must be a positive number of seconds, not "
+        f"{MEASURED_COLD_RUNNER_PROOF_SECONDS!r}"
+    )
+    assert PROOF_TIMEOUT_SECONDS >= 2 * MEASURED_COLD_RUNNER_PROOF_SECONDS, (
+        f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s must be at least twice the "
+        f"{MEASURED_COLD_RUNNER_PROOF_SECONDS} s cold-runner scan measured in CI, or the "
+        "next slower runner times the proof out instead of proving the row"
     )
     assert PROOF_TIMEOUT_SECONDS <= 1800, (
         f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s is long enough that a hung "
