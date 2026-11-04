@@ -665,7 +665,9 @@ def test_concurrent_lesson_adds_persist_one_record_per_success(ws, tmp_path: Pat
     The pre-lock code reads the file, allocates an id and writes with no
     serialisation, so concurrent adds overwrite each other and reuse ids. Every
     child loads the engine first, then waits on one barrier file, so the calls
-    enter the read-allocate-write sequence together.
+    enter the read-allocate-write sequence together. A child that times out
+    waiting for the lock exits 4: that is a refusal, not a lost record, so only
+    a code outside {0, 4} or a success without exactly one record fails here.
     """
     count = 12
     barrier = tmp_path / "lesson-race-start"
@@ -712,20 +714,22 @@ def test_concurrent_lesson_adds_persist_one_record_per_success(ws, tmp_path: Pat
     barrier.write_text("go", encoding="utf-8")
     results = [process.communicate(timeout=120) for process in processes]
     codes = [process.returncode for process in processes]
-    assert codes == [0] * count, [
+    unexpected = [
         (index, code, out, err)
         for index, (code, (out, err)) in enumerate(zip(codes, results))
-        if code != 0
+        if code not in (0, 4)
     ]
+    assert not unexpected, unexpected
+    ok = [index for index, code in enumerate(codes) if code == 0]
 
     records = []
     for role in ("developer", "tester"):
         records.extend(engine.parse_lessons(lessons_file(ws, role)))
-    assert len(records) == count, records
+    assert len(records) == len(ok), (len(records), ok, codes)
     ids = [item["id"] for item in records]
-    assert len(set(ids)) == count, ids
+    assert len(set(ids)) == len(ids), ids
     assert sorted(item["mistake"] for item in records) == sorted(
-        f"concurrent-{index}" for index in range(count)
+        f"concurrent-{index}" for index in ok
     )
 
     ledger = [
@@ -734,7 +738,7 @@ def test_concurrent_lesson_adds_persist_one_record_per_success(ws, tmp_path: Pat
         if line.strip()
     ]
     adds = [record for record in ledger if record["action"] == "lesson.add"]
-    assert len(adds) == count, adds
+    assert len(adds) == len(ok), adds
     assert {record["target"] for record in adds} == set(ids), adds
 
 
