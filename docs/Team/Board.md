@@ -166,7 +166,7 @@ under two roles is two tasks.
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
 | tester | T-0004 | skills | done | P-0057 | 2fe28e2 |
-| tester | T-0005 | context | doing | - | - |
+| tester | T-0005 | context | done | P-0064 | e35352a |
 | tester | T-0006 | throughput | done | P-0059 | 4c28b85 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -193,7 +193,6 @@ landed by commit without a PR record.
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
-| tester | T-0005 · M17 A9: integration + acceptance proof of the knowledge accumulation loop (add, rank, search, duplicate, supersede, load) | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
