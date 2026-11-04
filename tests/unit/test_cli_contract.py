@@ -29,22 +29,17 @@ from pathlib import Path
 
 import pytest
 
-# ``tests/unit/test_cli_contract.py`` -> parents[2] is the repository root.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARCHITECTURE = REPO_ROOT / "docs" / "Team" / "Architecture.md"
 
-#: The hook directory is one resolver, spelled as an atomic pair (D-0001 R2).
 RESOLVER = "git -C <root> rev-parse --path-format=absolute --git-path hooks"
 
-#: The relative form, correct only WITH the `-C <root>` pin beside it.
 RESOLVER_RELATIVE = "git -C <root> rev-parse --git-path hooks"
 
-#: The CEO's withdrawn amendment (D-0001 R2): unsafe alone, never a contract.
 WITHDRAWN = "resolved against the project root"
 
 SECTION = "## 12. Harness surface and hook contract (frozen)"
 
-#: The frozen surface, verb by verb, flag and positional included.
 FROZEN_COMMANDS = (
     ("harness", "list", (), ()),
     ("harness", "lint", ("--verbose",), ()),
@@ -56,10 +51,8 @@ FROZEN_COMMANDS = (
     ("hook", "pre-push", (), ("remote", "url")),
 )
 
-#: The closed set in 12.3, plus ``-`` for the component with no file (C5).
 ACTIVATION_CLASSES = ("always-on", "on-demand", "in-loop", "-")
 
-#: C1..C8 in registry order -> the class each one is frozen to.
 FROZEN_CLASSES = (
     ("C1", "always-on"),
     ("C2", "always-on"),
@@ -71,7 +64,6 @@ FROZEN_CLASSES = (
     ("C8", "in-loop"),
 )
 
-#: Clauses a lane would otherwise have to invent: each must be in the contract.
 REQUIRED_CLAUSES = (
     "TEAMWORK_SKIP_HOOKS",
     "TEAMWORK_ALLOW_MAIN=1",
@@ -180,11 +172,6 @@ def _group_gaps(group: str) -> list:
     return gaps
 
 
-# --------------------------------------------------------------------------- #
-# 12.1 the frozen command list
-# --------------------------------------------------------------------------- #
-
-
 def test_the_contract_freezes_exactly_the_eight_commands() -> None:
     assert _documented_commands() == list(FROZEN_COMMANDS)
 
@@ -193,11 +180,6 @@ def test_the_documented_flags_are_the_frozen_flags() -> None:
     documented = {f"{g} {v}": (flags, pos) for g, v, flags, pos in _documented_commands()}
     frozen = {f"{g} {v}": (flags, pos) for g, v, flags, pos in FROZEN_COMMANDS}
     assert documented == frozen
-
-
-# --------------------------------------------------------------------------- #
-# 12.2 / 12.3 the surface registry
-# --------------------------------------------------------------------------- #
 
 
 def test_the_registry_names_exactly_the_eight_components() -> None:
@@ -245,11 +227,6 @@ def test_the_activation_classes_are_defined_as_a_closed_set() -> None:
         assert name in section, f"section 12 does not define the class {name!r}"
 
 
-# --------------------------------------------------------------------------- #
-# 12.5 / 12.6 clauses a lane must not invent
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.parametrize("clause", REQUIRED_CLAUSES)
 def test_the_contract_states_each_clause_a_lane_could_invent(clause: str) -> None:
     assert clause in _section_text(), f"the contract no longer states {clause!r}"
@@ -267,11 +244,6 @@ def test_the_contract_records_the_hook_directory_git_is_asked_for() -> None:
     section = _section_text()
     assert "per **common git dir**" in section
     assert "prints the literal directory it probed" in section
-
-
-# --------------------------------------------------------------------------- #
-# 12.2 C8 / 12.6 / 12.9 one hook-directory resolver (ruling D-0001 R1-R6)
-# --------------------------------------------------------------------------- #
 
 
 def _rule_rows() -> list:
@@ -424,9 +396,6 @@ def test_the_ruling_is_recorded_as_a_decision() -> None:
         assert clause in body, f"the ruling entry does not carry {clause}"
 
 
-# --- the git facts the frozen resolver and the mandatory tests rest on ------- #
-
-
 def _git(cwd: Path, *args: str) -> str:
     result = subprocess.run(("git", *args), cwd=cwd, capture_output=True, text=True, check=False)
     return result.stdout.strip()
@@ -451,9 +420,6 @@ def test_the_documented_resolver_answers_from_a_linked_worktree(tmp_path: Path) 
     repo, wt = _hermetic_repo(tmp_path)
     assert (wt / ".git").is_file(), "a linked worktree's .git must be a gitfile"
     assert (wt / ".git" / "hooks").exists() is False
-    # Compare the RESOLVED paths, not the printed strings: git prints forward
-    # slashes on Windows, `str(Path)` renders backslashes, and the two spellings
-    # name the same directory.
     assert Path(_git(repo, "rev-parse", "--path-format=absolute", "--git-path", "hooks")) == Path(
         _git(wt, "-C", ".", "rev-parse", "--path-format=absolute", "--git-path", "hooks")
     )
@@ -509,8 +475,6 @@ def test_an_unborn_branch_is_readable_only_through_symbolic_ref(tmp_path: Path) 
     """A3: the root commit is the case `rev-parse --abbrev-ref HEAD` cannot answer."""
     fresh = tmp_path / "fresh"
     fresh.mkdir()
-    # Name the branch: the subject is the unborn HEAD, not the runner's
-    # `init.defaultBranch`, which is `master` wherever the config does not say.
     _git(fresh, "init", "-q", "-b", "main", ".")
     assert _git(fresh, "symbolic-ref", "--short", "HEAD") == "main"
     abbrev = subprocess.run(
@@ -524,11 +488,6 @@ def test_an_unborn_branch_is_readable_only_through_symbolic_ref(tmp_path: Path) 
     assert abbrev.stdout.strip() == "HEAD"
 
 
-# --------------------------------------------------------------------------- #
-# 12.4 / 12.8 the lint output and exit-code contract
-# --------------------------------------------------------------------------- #
-
-
 def test_the_lint_rules_and_their_order_are_frozen() -> None:
     section = _section_text()
     order = ["IDENTITY", "PREFIX", "TRIGGER", "SUBCOMMAND", "HELPER", "EVIDENCE"]
@@ -540,11 +499,6 @@ def test_the_exit_codes_are_frozen_for_the_new_surface() -> None:
     section = _section_text()
     assert "argparse usage error only" in section, "code 2 must stay argparse-only"
     assert "a hook refusal (R1, R2, P1, P2)" in section, "hook refusals are code 1"
-
-
-# --------------------------------------------------------------------------- #
-# 12.9 the CLI must register what the contract freezes
-# --------------------------------------------------------------------------- #
 
 
 def test_the_three_groups_land_atomically() -> None:

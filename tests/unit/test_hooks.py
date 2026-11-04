@@ -21,8 +21,6 @@ from tests.tooling import require_tool
 
 from teamwork import config, engine, hooks
 
-#: Ambient git/teamwork switches a developer shell may carry; every test starts
-#: without them so the hook reads the throwaway repository's own configuration.
 CLEARED = (
     "GIT_AUTHOR_NAME",
     "GIT_AUTHOR_EMAIL",
@@ -108,11 +106,6 @@ def feature(repo: Path) -> Path:
     return repo
 
 
-# --------------------------------------------------------------------------- #
-# install / status / uninstall
-# --------------------------------------------------------------------------- #
-
-
 def test_install_writes_both_stages_with_the_marker_and_mode(cli, repo, capsys) -> None:
     capsys.readouterr()
     assert cli("--project", repo, "hooks", "install") == 0
@@ -123,8 +116,6 @@ def test_install_writes_both_stages_with_the_marker_and_mode(cli, repo, capsys) 
         path = hook_dir(repo) / stage
         body = path.read_text(encoding="utf-8")
         if os.name != "nt":
-            # Windows has no executable bit and git for Windows ignores the file
-            # mode, so the 0755 contract only holds where POSIX modes exist.
             assert path.stat().st_mode & 0o777 == 0o755
         lines = body.splitlines()
         assert lines[0] == "#!/bin/sh"
@@ -316,11 +307,6 @@ def test_every_command_dies_outside_a_git_repository(cli, tmp_path, capsys, argv
     assert "not a git repository" in capsys.readouterr().err
 
 
-# --------------------------------------------------------------------------- #
-# R1 / R2 / R3 - pre-commit
-# --------------------------------------------------------------------------- #
-
-
 def test_pre_commit_refuses_on_the_default_branch(cli, repo, capsys) -> None:
     capsys.readouterr()
     assert cli("--project", repo, "hook", "pre-commit") == 1
@@ -444,11 +430,6 @@ def test_pre_commit_is_silent_for_a_role_mailbox(cli, feature, capsys) -> None:
     assert capsys.readouterr().err == ""
 
 
-# --------------------------------------------------------------------------- #
-# R2 measures the INDEX, not the work-tree file (T-0024, H5)
-# --------------------------------------------------------------------------- #
-
-
 def binary_bytes(size: int) -> bytes:
     return bytes(range(256)) * (size // 256) + b"\x00" * (size % 256)
 
@@ -534,11 +515,6 @@ def test_a_binary_routed_into_lfs_is_not_a_text_file_in_lfs(cli, feature, capsys
     assert "routed into Git LFS" not in capsys.readouterr().err
 
 
-# --------------------------------------------------------------------------- #
-# P1 / P2 - pre-push
-# --------------------------------------------------------------------------- #
-
-
 def diverged(repo: Path) -> tuple:
     """(base, side sha, main sha): ``side`` is not a descendant of ``main``."""
     base = git(repo, "rev-parse", "HEAD")
@@ -581,9 +557,9 @@ def test_pre_push_allows_a_fast_forward_new_branch_and_other_refs(
     zero = "0" * 40
 
     for line in (
-        f"refs/heads/main {main_sha} refs/heads/main {base}",  # fast-forward
-        f"refs/heads/main {main_sha} refs/heads/main {zero}",  # new remote branch
-        f"refs/heads/side {side} refs/heads/topic {main_sha}",  # not the default branch
+        f"refs/heads/main {main_sha} refs/heads/main {base}",
+        f"refs/heads/main {main_sha} refs/heads/main {zero}",
+        f"refs/heads/side {side} refs/heads/topic {main_sha}",
     ):
         assert prepush(cli, monkeypatch, repo, line + "\n") == 0, line
 
@@ -627,11 +603,6 @@ def test_hook_and_hooks_are_separate_subcommands() -> None:
     assert parser.parse_args(["hooks", "status"]).hooks_cmd == "status"
     with pytest.raises(SystemExit):
         parser.parse_args(["hookk", "status"])
-
-
-# --------------------------------------------------------------------------- #
-# the shim: fail closed, and chain a preserved foreign hook (F-6)
-# --------------------------------------------------------------------------- #
 
 
 def test_the_shim_never_fails_open() -> None:
@@ -773,11 +744,6 @@ def test_the_chained_shim_refuses_when_the_preserved_hook_is_gone(
     assert "pre-commit.teamwork-foreign" in run.stderr
 
 
-# --------------------------------------------------------------------------- #
-# the case the first draft got wrong: a linked worktree
-# --------------------------------------------------------------------------- #
-
-
 def engine_shim(repo_root: Path) -> str:
     return (
         "#!/usr/bin/env python3\n"
@@ -806,16 +772,12 @@ def test_install_from_a_linked_worktree_lands_in_the_common_git_dir_and_fires(
     assert cli("--project", linked, "hooks", "status") == 0
     assert stage_lines(capsys.readouterr().out) == ["pre-commit installed", "pre-push installed"]
 
-    # The hooks themselves are POSIX shell scripts, so running one needs `sh`:
-    # an absent shell is a skip that names it, not a FileNotFoundError.
     require_tool("sh")
 
     body = engine_shim(repo_root)
     write(linked / "scripts" / "teamwork.py", body)
     write(repo / "scripts" / "teamwork.py", body)
 
-    # The shim resolves the engine from the work tree it runs in, so it fires from
-    # the linked worktree and from the main one, on that tree's own branch.
     allowed = subprocess.run(
         ["sh", str(common / "pre-commit")],
         cwd=str(linked),

@@ -43,7 +43,6 @@ CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 
 ROSTER = "ceo,developer-1,release-engineer,tester-1"
 
-#: A committed-doc stand-in: the H1 plus one paragraph is the frozen L0 shape.
 DOC_PROJECT = """# Project
 
 The project builds the context tree and it is read-only.
@@ -267,11 +266,6 @@ def empty_team(tmp_path: Path) -> Path:
     return project
 
 
-# --------------------------------------------------------------------------- #
-# 16.3 ls and tree: children, types, directory levels and their defaults
-# --------------------------------------------------------------------------- #
-
-
 def test_ls_root_lists_the_three_namespaces(ws: Path) -> None:
     assert ok(ws, "context", "ls").splitlines() == [
         "- ctx://project [dir] 3 children",
@@ -323,10 +317,6 @@ def test_tree_depth_and_default(ws: Path) -> None:
     assert knowledge[0] == "- knowledge 2 records"
     assert knowledge[1].startswith("  - K-0001 [fact] Context tree: ")
 
-
-# --------------------------------------------------------------------------- #
-# 16.2 read: L0/L1/L2 for one node of every type
-# --------------------------------------------------------------------------- #
 
 READ_CASES = [
     (
@@ -458,7 +448,6 @@ def test_read_computes_l0_l1_l2(
     for needle in needles:
         assert needle in level_two, (name, needle)
 
-    # L2 of a doc or a skill is the file itself.
     if shape == "headings":
         if uri.startswith("ctx://project/docs/"):
             path = ws / "docs" / uri[len("ctx://project/docs/") :]
@@ -491,11 +480,6 @@ def test_read_root_level_one_counts_namespaces(ws: Path) -> None:
     assert lines[1] == "- project 3 children"
     assert lines[2] == "- role 4 roles"
     assert lines[3] == "- global 1 child"
-
-
-# --------------------------------------------------------------------------- #
-# 16.4 find: exact score, order, hard scope and no L2 read
-# --------------------------------------------------------------------------- #
 
 
 def expected_score(project: Path, uri: str, query: str) -> int:
@@ -550,7 +534,6 @@ def test_find_scope_is_a_hard_prefix(ws: Path) -> None:
     )
     assert not any("ctx://role/" in line for line in scoped)
 
-    # A token that lives only in Knowledge.md is invisible under the docs scope.
     assert (
         ok(ws, "context", "find", "zqxranktoken", "--scope", "ctx://project/docs").strip()
         == '# no context node matched "zqxranktoken"'
@@ -579,10 +562,6 @@ def test_find_never_reads_l2(ws: Path) -> None:
     finally:
         doc.write_text(DOC_PROJECT, encoding="utf-8")
 
-
-# --------------------------------------------------------------------------- #
-# 16.1 refusals: unsafe, unknown, bad level and bad scope exit 2
-# --------------------------------------------------------------------------- #
 
 UNSAFE_URIS = [
     "ctx://../Knowledge.md",
@@ -618,7 +597,6 @@ def test_unknown_uris_exit_2_and_name_the_node(ws: Path, uri: str) -> None:
 
 def test_unknown_level_and_scope_exit_2(ws: Path) -> None:
     level = refused(ws, "context", "read", "ctx://project/knowledge/K-0001", "--level", "3")
-    # argparse quotes the choice from Python 3.12 on; <3.12 prints it bare.
     assert re.search(r"argument --level: invalid choice: '?3'? ", level.stderr), level.stderr
     refused(
         ws,
@@ -645,11 +623,6 @@ def test_unknown_level_and_scope_exit_2(ws: Path) -> None:
         "ctx://project/../global",
         names="unknown context URI 'ctx://project/../global'",
     )
-
-
-# --------------------------------------------------------------------------- #
-# 16.1 a missing store is an empty store, never an error
-# --------------------------------------------------------------------------- #
 
 
 def test_missing_store_reads_as_empty(empty_team: Path) -> None:
@@ -679,11 +652,6 @@ def test_missing_store_reads_as_empty(empty_team: Path) -> None:
         "ctx://project/knowledge/K-0001",
         names="unknown context URI",
     )
-
-
-# --------------------------------------------------------------------------- #
-# 16.3 digest: the two templates, and it writes nothing
-# --------------------------------------------------------------------------- #
 
 
 def test_digest_failed_task_is_a_lesson_template(ws: Path) -> None:
@@ -721,11 +689,6 @@ def test_digest_writes_nothing_and_unknown_task_exits_2(ws: Path) -> None:
         assert tree_hash(ws) == before
 
 
-# --------------------------------------------------------------------------- #
-# 16.3 stats: one line per store, live counts, no store content echoed
-# --------------------------------------------------------------------------- #
-
-
 def test_stats_reports_one_line_per_store_with_live_counts(ws: Path) -> None:
     docs = len(list((ws / "docs").rglob("*.md")))
     lines = ok(ws, "context", "stats").splitlines()
@@ -740,9 +703,6 @@ def test_stats_reports_one_line_per_store_with_live_counts(ws: Path) -> None:
 
 
 def test_stats_echoes_no_stored_content_or_credential(ws: Path) -> None:
-    # The fixture deliberately carries no credential; what is asserted is that
-    # stats prints counts only, never a record body, and that a secret-shaped
-    # word is absent from the whole output.
     out = ok(ws, "context", "stats")
     assert len(out.splitlines()) == 6
     lowered = out.casefold()

@@ -80,7 +80,6 @@ def test_a_sliced_task_is_held_until_the_feature_is_active(cli, project, capsys)
     )
     capsys.readouterr()
 
-    # ready is still held: execution starts one state later
     assert cli("--project", project, "task", "next", "developer-3") == 3
 
     assert activate(cli, project, "F-0001", "team-leader-1") == 0

@@ -65,9 +65,6 @@ def _commit(repo: Path, name: str, email: str, subject: str) -> None:
     )
 
 
-# --- (b) a failed `git lfs install` is surfaced ------------------------------
-
-
 def _fake_probe_ok(**kwargs):
     return subprocess.CompletedProcess(
         args=kwargs.get("args", []), returncode=0, stdout="lfs/3.4.0", stderr=""
@@ -98,7 +95,6 @@ def test_ensure_lfs_warns_and_records_a_failed_install(repo, monkeypatch, capsys
     assert result["installed"] is False
     assert "Permission denied" in result["install_error"]
     assert "WARNING" in out and "git lfs install --local" in out
-    # The probe's wording is the style this warning copies: both name the cost.
     assert "large binaries will be committed as plain blobs" in out
 
 
@@ -129,9 +125,6 @@ def test_ensure_lfs_probe_failure_still_warns_once(repo, monkeypatch, capsys):
     assert result["installed"] is False
     assert out.count("WARNING") == 1
     assert "git-lfs is not installed" in out
-
-
-# --- (c) one hooks-directory contract, two policies --------------------------
 
 
 def test_both_hooks_dir_callers_agree_on_the_same_resolved_path(repo):
@@ -179,9 +172,6 @@ def test_harness_report_survives_a_git_that_cannot_answer(repo, monkeypatch):
     assert harness.hooks_dir(repo) is None
     with pytest.raises(SystemExit):
         hooks.hooks_dir(repo)
-
-
-# --- (d) identity --audit reads the repository that contains cwd -------------
 
 
 def _identity_args(**overrides) -> argparse.Namespace:

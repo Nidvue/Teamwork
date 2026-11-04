@@ -33,8 +33,6 @@ def _lock_owner_stale(path: Path) -> bool:
     pid = int(body.split(".", 1)[0]) if body.split(".", 1)[0].isdigit() else 0
     if pid <= 0:
         return True
-    # Portable liveness probe: on Windows os.kill(pid, 0) is not a probe, so
-    # this goes through the audited helper in teamwork.portable.
     return not pid_alive(pid)
 
 
@@ -93,7 +91,6 @@ def atomic_write(path: Path, text: str) -> None:
         except OSError:
             mode = 0o644
     else:
-        # Respect the caller's umask instead of forcing a world-readable file.
         current_umask = os.umask(0)
         os.umask(current_umask)
         mode = 0o666 & ~current_umask
@@ -114,7 +111,6 @@ def atomic_write(path: Path, text: str) -> None:
                     raise
                 time.sleep(0.05 * (attempt + 1))
             except OSError:
-                # Windows file-sharing violations are not always PermissionError.
                 if os.name != "nt" or attempt == 4:
                     raise
                 time.sleep(0.05 * (attempt + 1))

@@ -75,23 +75,6 @@ TABLE_HEAD = "| role | id | area | state | pr | merged revision |"
 FLIGHT_HEAD = "| agent | task | prio | state | artifact |"
 FEATURE_HEAD = "| feature | state | owner | squad | paths |"
 
-#: The board records one milestone's work, and task ids are allocated per role, so
-#: the same number under two roles is two tasks. Each queue numbers from 1, so the
-#: milestone needs a floor per role: ids at or above it are in this milestone and
-#: everything below it is an older record that the board keeps as labelled history.
-#: Listing the floor here is deliberate - a queue missing from this dict would
-#: silently drop out of the comparison, which is the failure this module prevents.
-#:
-#: Two stale floors made that filter lie. M11 re-initialised the queues, so every
-#: one of them was re-numbered from `T-0001` and the M9 ids survive only in the
-#: board's own close-record table; the floors still read as M9 (`ceo: 59`, ...) and
-#: hid all nine ceo tasks, P0 `developer T-0004` and P0 `reviewer T-0001`. Five keys
-#: were also spelled hyphenated while `queues()` looks them up through
-#: `norm_role()`, so `FLOOR.get("securityauditor")` was `0` and those floors never
-#: applied at all. Every floor is now 1 - no queue carries a pre-milestone id - and
-#: the keys are folded, which `test_the_floor_is_keyed_the_way_the_lookup_spells_it`
-#: pins. The dict stays because it is the roster the render order shares, and its
-#: keys are alphabetical by folded role so the render order is stable and reviewable.
 FLOOR = {
     "architect": 1,
     "ceo": 1,
@@ -111,15 +94,6 @@ FLOOR = {
     "tester": 1,
 }
 
-#: The folded queue directory name -> the hyphenated spelling the board's rows use.
-#: This is the roster: every role `config.ROLE_PARENT` can staff must appear here,
-#: because the board cannot spell a role this dict has no name for. A misspelt value
-#: is just as bad as a missing one: `board_rows()` folds the committed cell back with
-#: `norm_role()`, so a row the fold does not reproduce is unfindable. `cfo`, `coo`,
-#: `designer` and `data-engineer` were staffable but unlisted, so a roster that named
-#: one of them made `board --check`/`--write` exit 2 on `UnknownRole` even though the
-#: roster was legal; `test_every_staffable_role_has_a_board_spelling` pins the two
-#: maps to `config.ROLE_PARENT` so the next roster change cannot repeat it.
 DISPLAY = {
     "architect": "architect",
     "ceo": "ceo",
@@ -180,8 +154,6 @@ def parse_queues(root: Path) -> dict[tuple[str, str], dict[str, str]]:
     out: dict[tuple[str, str], dict[str, str]] = {}
     for path in sorted((root / "Roles").glob("*/TaskQueue.md")):
         role = norm_role(path.parent.name)
-        # A queue the board cannot spell is a defect here, so it fails naming the
-        # role instead of surfacing later as rows that are all absent.
         display_role(role)
         current: dict[str, str] | None = None
         for line in path.read_text(encoding="utf-8").splitlines():
@@ -320,8 +292,6 @@ def flight_mismatches(
     """The In-flight table versus the open set, minus the tasks that are landing."""
     landing = landing_keys(tasks, rows or {}, flight)
     tasks = {key: fields for key, fields in tasks.items() if key not in landing}
-    # both directions of the comparison, so a landing row is not reported as an
-    # In-flight entry whose queue status is no longer open
     flight = {key: state for key, state in flight.items() if key not in landing}
     want = {
         key: fields.get("status", "")
@@ -382,7 +352,6 @@ def _feature_rows(root: Path) -> list[str]:
     return rows
 
 
-#: Role ids whose prose spelling is an acronym, not title case.
 _ACRONYM_ROLES = {"ceo", "cfo", "coo", "cto"}
 
 
@@ -431,8 +400,6 @@ def _render_feature_table(text: str, root: Path) -> str:
         end += 1
     table = [FEATURE_HEAD, "|---|---|---|---|---|", *_feature_rows(root)]
     out = lines[:start] + table + lines[end:]
-    # The sentence is part of the render: a board written before this list grew
-    # must not keep a stale one while its table rows are correct.
     for i, line in enumerate(out):
         if line.startswith("Shared services serve every feature"):
             out[i] = _shared_services_line()

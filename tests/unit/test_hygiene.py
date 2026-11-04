@@ -1,6 +1,6 @@
 """Workspace hygiene: no unnecessary comments, no temp or stale debris.
 
-Every agent must keep the tree clean and organised (see the COMMENTS and CLEAN
+Every agent must keep the tree clean and organised (see the NO COMMENTS and CLEAN
 WORKING TREE rules in ``templates/AGENTS.md`` and the Working clean section of
 every role charter). These checks make the rule enforceable instead of aspirational.
 """
@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-#: Temp, editor and OS noise that must never be committed.
 TEMP_PATTERNS = (
     "*.orig",
     "*.rej",
@@ -32,12 +31,10 @@ TEMP_PATTERNS = (
     "*.pyo",
 )
 
-#: Names that suggest a draft or scratch file left behind.
 STRAY_NAMES = re.compile(
     r"^(?:untitled|draft|tmp|temp|scratch|wip|copy|old|new|backup)\b.*\.\w+$", re.IGNORECASE
 )
 
-#: Directives that are tooling instructions, not commented-out code.
 DIRECTIVE = re.compile(
     r"^(?:type:\s*ignore|noqa|pragma:|nosec|pyright:|ruff:|mypy:|"
     r"isort:|fmt:\s*(?:on|off)|fmt:|noqa\b)"
@@ -109,11 +106,6 @@ def attributes(root: Path, name: str, paths: list[str]) -> dict[str, str]:
         path, _, value = line.split(": ", 2)
         values[path] = value
     return values
-
-
-# --------------------------------------------------------------------------- #
-# no debris
-# --------------------------------------------------------------------------- #
 
 
 def test_no_temp_or_stale_files_are_tracked(root):
@@ -198,11 +190,6 @@ def test_assets_review_as_text_only_where_they_are_text(root):
     assert binary_reviewed == {}, f"PNG assets must stay binary: {binary_reviewed}"
 
 
-# --------------------------------------------------------------------------- #
-# no unnecessary comments
-# --------------------------------------------------------------------------- #
-
-
 def _commented_out_code(path: Path) -> list[tuple[int, str]]:
     """Comment lines whose body is a real Python statement (not a directive)."""
     found: list[tuple[int, str]] = []
@@ -284,28 +271,23 @@ def test_no_unowned_todo_markers(root):
     assert offenders == [], f"unowned TODO/FIXME markers: {offenders}"
 
 
-# --------------------------------------------------------------------------- #
-# the rule itself is documented for every agent
-# --------------------------------------------------------------------------- #
-
-
 def test_every_role_charter_documents_working_clean(root):
     for path in sorted((root / "roles").glob("*.md")):
         text = path.read_text(encoding="utf-8")
         assert "### Working clean (all roles)" in text, path.name
-        assert "Comments:" in text, path.name
+        assert "No comments:" in text, path.name
         assert "Working tree:" in text, path.name
 
 
 def test_agents_template_documents_comments_and_clean_tree(root):
     text = (root / "templates" / "AGENTS.md").read_text(encoding="utf-8")
-    assert "**COMMENTS**" in text
+    assert "**NO COMMENTS**" in text
     assert "**CLEAN WORKING TREE**" in text
 
 
 def test_engineering_reference_documents_the_comments_policy(root):
     text = (root / "references" / "Engineering.md").read_text(encoding="utf-8")
-    assert "### Comments - write none that the code already says" in text
+    assert "### No comments - the code is the comment" in text
     assert "### Working tree - clean, structured, current" in text
 
 

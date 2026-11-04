@@ -33,11 +33,6 @@ from workflow_yaml import parse_workflow
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_PATH = ".github/workflows/ci.yml"
 
-#: The job set the workflow header promises. Kept as an explicit tuple: a job that
-#: appears or disappears without the contract changing is a reviewable event, not
-#: a silent one.
-#: Workflow- and trigger-level filters that decide whether the workflow runs at
-#: all. Both are forbidden here; the `scope` job does the classifying.
 PATH_FILTERS = ("paths", "paths-ignore")
 
 EXPECTED_JOBS = (
@@ -52,32 +47,19 @@ EXPECTED_JOBS = (
     "docs",
 )
 
-#: Jobs that are cheap and unconditional by design: `scope` only classifies paths,
-#: `committer-guard` is one git call that must fire on every push, and
-#: `release-consistency` is the gate that must never be skipped.
 UNCONDITIONAL_JOBS = ("scope", "committer-guard", "release-consistency")
 
-#: The `if:` guard that ties an expensive job to the `scope` job's output.
 SCOPE_GUARD = "needs.scope.outputs.code"
 
-#: The second answer the classifier publishes: the change set is prose/media only.
 PROSE_GUARD = "needs.scope.outputs.prose"
 
-#: The `scope` outputs and the step output each one reads. Both must be published:
-#: "does this ship?" and "is this prose?" are different questions with different
-#: gates behind them, and collapsing them into one output makes one of the two
-#: gates wrong in one direction.
 SCOPE_OUTPUTS = {
     "code": "steps.diff.outputs.code",
     "prose": "steps.diff.outputs.prose",
 }
 
-#: A prose edit cannot change what the matrix measures, so these jobs read `code`
-#: alone - a prose-only push must not burn the 3x3 matrix.
 CODE_ONLY_JOBS = ("lint", "typecheck", "test", "build")
 
-#: A documentation leak is still a leak, and link health is about the prose itself,
-#: so these two read `code || prose`.
 CODE_OR_PROSE_JOBS = ("privacy", "docs")
 
 
@@ -113,12 +95,8 @@ def contract_problems(document: dict) -> list[str]:
     if tuple(found) != EXPECTED_JOBS:
         problems.append(f"job set is {tuple(found)}, contract says {EXPECTED_JOBS}")
 
-    # A workflow-level path filter is the defect this file exists to keep out: a
-    # prose-only push would skip the release-consistency gate.
     triggers = document.get("on") or document.get(True) or {}
     for filter_key in PATH_FILTERS:
-        # A filter written at the `on:` level applies to every trigger - the shape
-        # `paths-ignore` had when it silently skipped the gate on a prose push.
         if filter_key in triggers:
             problems.append(f"on carries {filter_key}, so a push can skip every job")
     for trigger, spec in triggers.items():
@@ -128,7 +106,6 @@ def contract_problems(document: dict) -> list[str]:
             if filter_key in spec:
                 problems.append(f"on.{trigger} carries {filter_key}, so a push can skip every job")
 
-    # The gate must be unconditional: no `needs:` it could be skipped with, no `if:`.
     gate = found.get("release-consistency")
     if gate is None:
         problems.append("release-consistency job is missing")
@@ -149,8 +126,6 @@ def contract_problems(document: dict) -> list[str]:
         if job.get("if"):
             problems.append(f"{name} carries if={job.get('if')!r} but must always run")
 
-    # Every other job is expensive and must (a) wait for `scope` and (b) read its
-    # output, so a prose-only push skips the matrix instead of the gate.
     for name, job in found.items():
         if name in UNCONDITIONAL_JOBS:
             continue
@@ -160,10 +135,6 @@ def contract_problems(document: dict) -> list[str]:
         if SCOPE_GUARD not in guard:
             problems.append(f"{name} has no `if:` guard on {SCOPE_GUARD}: {guard!r}")
 
-    # The classifier answers two questions, so each guard must ask the right one.
-    # A `privacy` or `docs` guard that reads `code` alone skips exactly the
-    # prose-only push those gates exist for; a matrix job that reads `prose` too
-    # burns the 3x3 matrix on a documentation edit.
     outputs = (found.get("scope") or {}).get("outputs") or {}
     for name, expression in SCOPE_OUTPUTS.items():
         if expression not in str(outputs.get(name) or ""):
@@ -250,11 +221,6 @@ def test_every_job_contract_clause_holds_for_the_real_workflow(ci):
     assert contract_problems(ci) == []
 
 
-# --------------------------------------------------------------------------- #
-# Mutants: each one breaks exactly one clause and must be reported
-# --------------------------------------------------------------------------- #
-
-
 def _mutate(old: str, new: str, count: int = 1) -> dict:
     text = workflow_text()
     assert text.count(old) == count, (
@@ -270,7 +236,7 @@ def _drop_line_of_job(job: str, prefix: str) -> dict:
     for index in range(start + 1, len(lines)):
         stripped = lines[index].strip()
         if stripped and not lines[index].startswith("    "):
-            break  # the next top-level job begins
+            break
         if lines[index].startswith(prefix):
             del lines[index]
             return parse_workflow("".join(lines))
@@ -342,25 +308,12 @@ def test_mutant_the_one_output_workflow_is_reported():
         ), problems
 
 
-# --------------------------------------------------------------------------- #
-# R2's scope flag (11.2.2.1, D-20261029-Architect)
-# --------------------------------------------------------------------------- #
-
-#: The flag 11.2.2.1 adds to the checker. A gate that forgets it is still
-#: *evaluated* (the checker's default is `yes`), so forgetting is a false red on
-#: every pull request, not a green: the fail-closed default is what makes this
-#: wiring a convenience rather than the contract.
 SCOPE_FLAG = "--head-is-default-branch"
 
-#: The only scope expression the workflow may use: a pull request publishes
-#: nothing (`no`), every other event publishes (`yes`). Matched exactly, with both
-#: arms captured, so a flipped pair is a visible edit rather than a silent one.
 SCOPE_EXPRESSION = re.compile(
     r"^\$\{\{\s*github\.event_name\s*==\s*'pull_request'\s*&&\s*'(yes|no)'\s*\|\|\s*'(yes|no)'\s*\}\}$"
 )
 
-#: The flag's value must be one environment expansion, never a literal or a
-#: shell `if`: both arms stay in one place a reviewer can read.
 SCOPE_ENV_REFERENCE = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
 
 
@@ -446,7 +399,6 @@ def test_the_non_pull_request_arm_keeps_r2_evaluated_with_head_is_default_branch
         arms = scope_arms(step)
         assert arms is not None, f"{job_name} passes no {SCOPE_FLAG} scope"
         assert arms[1] == "yes", (job_name, arms)
-    # Both literals stay in the workflow, in one expression a reader can grep.
     assert workflow_text().count("github.event_name == 'pull_request' && 'no' || 'yes'") == 1
 
 

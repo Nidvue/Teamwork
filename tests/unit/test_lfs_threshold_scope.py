@@ -26,8 +26,6 @@ import pytest
 
 from teamwork import config, engine, gitutil, hooks
 
-#: Ambient git/teamwork switches a developer shell may carry; every test starts
-#: without them so the gates read the throwaway repository's own configuration.
 CLEARED = (
     "GIT_AUTHOR_NAME",
     "GIT_AUTHOR_EMAIL",
@@ -110,11 +108,6 @@ def team_root(repo: Path) -> Path:
     return root
 
 
-# --------------------------------------------------------------------------- #
-# the predicate
-# --------------------------------------------------------------------------- #
-
-
 def test_the_binary_test_reads_the_content_not_the_name(tmp_path: Path) -> None:
     """A binary renamed `.md` is binary; a text file named `.bin` is text.
 
@@ -141,11 +134,6 @@ def test_an_empty_file_is_not_binary(tmp_path: Path) -> None:
     path.write_bytes(b"")
 
     assert gitutil.is_binary_content(path) is False
-
-
-# --------------------------------------------------------------------------- #
-# gate 1: the audit
-# --------------------------------------------------------------------------- #
 
 
 def test_the_audit_exempts_a_large_text_record(repo: Path, team_root: Path, capsys) -> None:
@@ -182,11 +170,6 @@ def test_the_audit_flags_a_binary_disguised_as_a_record(
 
     assert hits == 1
     assert "not LFS-tracked" in capsys.readouterr().out
-
-
-# --------------------------------------------------------------------------- #
-# gate 2: `commit --check-lfs`
-# --------------------------------------------------------------------------- #
 
 
 def commit_args(task: str, path: str) -> list:
@@ -250,11 +233,6 @@ def test_the_commit_threshold_default_is_the_one_constant() -> None:
     assert args.lfs_threshold == config.LFS_MAX_BYTES == 1048576
 
 
-# --------------------------------------------------------------------------- #
-# gate 3: the pre-commit rule R2
-# --------------------------------------------------------------------------- #
-
-
 def test_the_hook_accepts_a_large_text_record(cli, repo: Path, capsys) -> None:
     """R2 must not refuse the archive."""
     git(repo, "checkout", "-q", "-b", "feature")
@@ -288,11 +266,6 @@ def test_the_hook_refuses_a_binary_disguised_as_a_record(cli, repo: Path, capsys
 
     assert cli("--project", repo, "hook", "pre-commit") == 1
     assert blob.name in capsys.readouterr().err
-
-
-# --------------------------------------------------------------------------- #
-# the three gates agree
-# --------------------------------------------------------------------------- #
 
 
 def test_the_three_gates_agree_about_the_same_file(
@@ -386,11 +359,6 @@ def test_the_work_tree_fallback_is_the_only_path_that_reads_a_file(repo: Path, m
     assert hooks.staged_verdict(repo, "assets/unstaged.bin") == (4096, True)
     assert read == [blob], "the fallback did not ask the shared file predicate"
     assert hooks.staged_verdict(repo, "gone/missing.bin") == (None, False)
-
-
-# --------------------------------------------------------------------------- #
-# a TEXT file a .gitattributes pattern would route into LFS
-# --------------------------------------------------------------------------- #
 
 
 def test_a_text_file_captured_by_an_lfs_pattern_is_a_misconfiguration(

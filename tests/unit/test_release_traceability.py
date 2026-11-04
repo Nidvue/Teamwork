@@ -51,16 +51,13 @@ CHECKER = SCRIPTS / "check_release_consistency.py"
 VERSION_FILE = "src/teamwork/version.py"
 EXCEPTIONS_NAME = "release-exceptions.json"
 
-#: Keys the record must carry, per Architecture.md section 11.4.
 REQUIRED_KEYS = {"version", "reason", "evidence", "recorded"}
 
-#: A digest, a revision or a command is a measurement; a bare sentence is not.
 MEASUREMENT_RE = (
     r"sha256|sha1|\b[0-9a-f]{7,64}\b|`[^`]+`|\bgit\s+(?:rev-list|log|show|rev-parse|cat-file)\b"
     r"|\b(?:sha256sum|shasum|pytest|grep|npm\s+view)\b"
 )
 
-#: Reasons that admit nothing - they only restate that the record exists.
 EMPTY_REASONS = {"n/a", "na", "none", "unknown", "not applicable", "todo", "tbd", "see above"}
 
 
@@ -70,8 +67,6 @@ def load_checker():
     if spec is None or spec.loader is None:
         raise ImportError(f"{CHECKER}: not an importable Python file")
     module = importlib.util.module_from_spec(spec)
-    # `@dataclass` resolves annotations through `sys.modules[cls.__module__]`, so the
-    # module has to be registered before it executes; the checker defines dataclasses.
     sys.modules[spec.name] = module
     try:
         spec.loader.exec_module(module)
@@ -86,10 +81,6 @@ def checker():
     return load_checker()
 
 
-#: The record's version shape is the gate's, never a local copy: `record_problems`
-#: grades with the same compiled pattern `load_exceptions` enforces, so section
-#: 11.4's schema and this test cannot drift apart again (T-0016 widened it to admit
-#: a published-but-untaggable version such as npm's `0.0.0-stage`).
 PUBLISHED_VERSION = load_checker().PUBLISHED_VERSION
 
 
@@ -177,15 +168,6 @@ def record_problems(
     return problems
 
 
-# --------------------------------------------------------------------------- #
-# the published line (11.2.2.1)
-# --------------------------------------------------------------------------- #
-
-#: The branch that publishes a version; R2 is evaluated there and nowhere else.
-#: Spelled out, not imported from ``teamwork.config``: the release gate is a
-#: stand-alone script and 11.2.2.1 names the branch in the contract itself, so a
-#: test that read the engine's constant could pass while the contract's own name
-#: changed.
 DEFAULT_BRANCH = "main"
 
 
@@ -281,15 +263,10 @@ def probe_repo(
 @pytest.mark.parametrize(
     ("event", "ref", "expected"),
     [
-        # A pull request publishes nothing - the whole reason for the amendment -
-        # whatever ref the merge ref is compared against.
         ("pull_request", "refs/pull/42/merge", False),
         ("pull_request", "refs/heads/main", False),
-        # A push to the default branch is the published line.
         ("push", "refs/heads/main", True),
-        # A lane branch is not.
         ("push", "refs/heads/developer-10/t-0032", False),
-        # A tag push publishes the tag.
         ("push", "refs/tags/v1.4.3", True),
     ],
 )
@@ -316,11 +293,6 @@ def test_outside_ci_the_scope_is_asked_of_git(monkeypatch, tmp_path, branch, tag
         tmp_path, f"{branch or 'detached'}-{tag or 'untagged'}", branch=branch, tag=tag
     )
     assert published_line(root) is expected
-
-
-# --------------------------------------------------------------------------- #
-# the real record
-# --------------------------------------------------------------------------- #
 
 
 def test_the_record_is_tracked_valid_json_with_the_documented_schema(checker):
@@ -394,11 +366,6 @@ def test_the_locator_and_the_version_reader_are_not_vacuous():
     assert tags(), "no v* tags at all would make the stale-exception rule vacuous"
 
 
-# --------------------------------------------------------------------------- #
-# mutants: a bad record must be rejected by the same rules
-# --------------------------------------------------------------------------- #
-
-
 def _entry(**overrides) -> dict:
     base = {
         "version": "1.1.1",
@@ -464,8 +431,6 @@ def test_the_checker_accepts_the_empty_initial_state(tmp_path):
     """`[]` is legal; an absent file is not - the two must not be confused."""
     path = tmp_path / EXCEPTIONS_NAME
     path.write_text("[]", encoding="utf-8")
-    # Loaded once: `InputError` is defined by the loaded module, and a second load
-    # would produce a different class that `pytest.raises` cannot match.
     checker = load_checker()
     assert checker.load_exceptions(path) == []
     with pytest.raises(checker.InputError):

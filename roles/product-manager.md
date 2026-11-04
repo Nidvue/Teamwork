@@ -86,12 +86,11 @@ subject. One record per (layer, area). Details: `{references}/Testing.md`.
 
 ### Working clean (all roles)
 
-- **Comments:** write only what the code cannot say - a non-obvious *why*, a
-  workaround with its reference, a public contract. Never restate the next line,
-  never banner self-evident sections, never leave commented-out code, never write
-  `TODO`/`FIXME`/`HACK` without a tracked task id, and never leave a comment the
-  code has outgrown. Prefer a clear name or a smaller function to a comment; a
-  stale comment is a defect, fixed or deleted in the same change.
+- **No comments:** the code is the comment. Write no explanatory #; only the
+  directives a toolchain reads (# noqa, # type: ignore, # pragma: no
+  cover, # fmt:, a shebang) are allowed. scripts/check_comments.py fails
+  the gate on anything else, so rename or split the code instead of explaining
+  it, and file a TODO as a tracked task.
 - **Working tree:** delete temp and stale files as you go - `*.orig`, `*.rej`,
   `*.bak`, `*~`, `*.tmp`, `*.log`, `.DS_Store`, scratch copies, superseded drafts,
   empty directories. Scratch lives in your gitignored `Scratch/` and is emptied

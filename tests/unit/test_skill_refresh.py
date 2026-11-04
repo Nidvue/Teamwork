@@ -25,15 +25,6 @@ from tests.gitenv import child_env
 
 from teamwork import bundle, engine
 
-# The platform variables must survive: on Windows the interpreter's RNG is
-# initialised from the OS and fails without SystemRoot/TEMP.
-# Hermetic, not accidentally hermetic: the caller's git configuration must not
-# reach the child either, so a system ``/etc/gitconfig``, a ``~/.gitconfig`` or
-# an inherited ``GIT_CONFIG_GLOBAL`` cannot hand the fixtures a
-# ``commit.gpgsign``, ``core.hooksPath`` or ``init.templateDir``, and a
-# credential prompt cannot block a run. ``child_env`` starts from the parent
-# environment (the platform's variables survive) and re-asserts these pins on
-# top of it.
 GIT_ENV = child_env(
     GIT_AUTHOR_NAME="Tester",
     GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
@@ -154,7 +145,6 @@ def test_refresh_fast_forwards_the_source_and_carries_the_new_text(
     dest = tmp_path / "installed"
     assert refresh(cli, capsys, "--source", checkout, "--dest", dest)[0] == 0
 
-    # A peer pushes to the remote; the local checkout is one commit behind.
     peer = tmp_path / "peer"
     git(tmp_path, "clone", "-q", str(remote), str(peer))
     (peer / "SKILL.md").write_text("# SKILL.md v2\n", encoding="utf-8")
@@ -300,8 +290,6 @@ def test_the_engine_and_the_sync_script_share_one_manifest() -> None:
     import importlib.util
     import sys
 
-    # Loaded by path: putting ``scripts/`` on ``sys.path`` would shadow the real
-    # ``teamwork`` package for every later test in the session (T-0014).
     scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
 
     def load(name: str, filename: str):
