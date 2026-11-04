@@ -45,6 +45,7 @@ Teamwork/
 │   ├── cli.py                # main(argv) -> int, delegates to engine.main
 │   ├── config.py             # workspace paths, record names, caps
 │   ├── engine.py             # command layer: build_parser/main + gates, review/PR, memory, model
+│   ├── evolution.py          # the self-evolution books: check + snapshot, wired into audit
 │   ├── gitutil.py            # git plumbing (branch/merge/LFS)
 │   ├── harness.py            # harness surface: registry, whole-proposal lint, always-on budget
 │   ├── hooks.py              # the git hooks: install/status/uninstall + the pre-commit/pre-push rules
