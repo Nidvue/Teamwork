@@ -127,6 +127,7 @@ from .config import (
     F_SHORT,
     F_SKILLS,
     F_START,
+    F_TASK_ARCHIVE,
     F_TASKS,
     F_TEAM,
     F_WORKLOG,
@@ -4936,10 +4937,14 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
     prints the repair instead of leaving the next person to discover the red
     build.
 
-    Accepted committers: a role mailbox of this team, the host's own noreply
-    service address, and an author whose committer was rewritten by the host
-    (the host stamp is transport, not identity - but the *author* still has to be
-    a role mailbox, which ``identity --audit`` enforces separately).
+    Accepted committers: a role mailbox of this team, and the host's own noreply
+    service address when the author is a role mailbox or an allowlisted bot
+    dependency update. The host stamp is transport, not identity, but the
+    *author* still has to be the team or a bot the identity audit already
+    allows, which ``identity --audit`` enforces separately. A bot is not an
+    account: Dependabot authors its own commits and the host commits them as
+    ``GitHub <noreply@github.com>``, and failing that pair turned every
+    dependency pull request red on the guard.
     """
     canonical = canonical_identities()
     proc = run_git(
@@ -4989,13 +4994,14 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
             print(f"- {sha[:12]} skipped: forge pull-request merge ref")
             continue
         seen += 1
+        bot_author = an in BOT_IDENTITIES and _RE_BOT_EMAIL.match(ae) is not None
         if ce in canonical:
             continue
-        if _RE_FORGE_COMMITTER_EMAIL.match(ce) and ae in canonical:
+        if _RE_FORGE_COMMITTER_EMAIL.match(ce) and (ae in canonical or bot_author):
             continue
         problems.append((sha[:12], an, ae, cn, ce))
     if not problems:
-        print(f"# committer guard: {seen} commit(s) in {rev_range} carry a role committer")
+        print(f"# committer guard: {seen} commit(s) in {rev_range} carry no foreign committer")
         return 0
     print(f"# committer guard: {len(problems)} commit(s) in {rev_range} carry a foreign committer")
     for sha, an, ae, cn, ce in problems:
@@ -8055,6 +8061,95 @@ def cmd_task_list(args) -> int:
     return 0
 
 
+#: The fields a closed task carries that cost startup context. `forced` stays in
+#: the queue because the loop and the gate report read it.
+ARCHIVED_TASK_FIELDS = ("self_note", "review_evidence", "findings", "body")
+
+
+def _archived_section(t: dict) -> str:
+    """One archive section, carrying the fields the queue no longer stores."""
+    lines = [f"## {t['id']} · {one_line(t.get('title')) or 'task'}", ""]
+    lines.append(f"- status: {t['status']}")
+    for field in ARCHIVED_TASK_FIELDS:
+        value = (t.get(field) or "").strip()
+        if value:
+            lines.append(f"- {field}: {value}")
+    return "\n".join(lines)
+
+
+def _archived_evidence(root: Path, role: str, t: dict) -> bool:
+    """True when a task's evidence lives in the role's TaskArchive.md.
+
+    A section that carries only the status is not evidence: archiving must never
+    turn a fabricated completion into a clean record.
+    """
+    pointer = (t.get("archived") or "").strip()
+    if not pointer.startswith(F_TASK_ARCHIVE + "#"):
+        return False
+    path = role_dir(root, role) / F_TASK_ARCHIVE
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    header = f"## {t['id']} "
+    if header not in text:
+        return False
+    section = text.split(header, 1)[1].split("\n## ", 1)[0]
+    for field in ARCHIVED_TASK_FIELDS:
+        marker = f"- {field}: "
+        if marker in section and section.split(marker, 1)[1].split("\n", 1)[0].strip():
+            return True
+    return False
+
+
+def cmd_task_archive(args) -> int:
+    """Move a closed task's long evidence out of the queue, keeping its id."""
+    root = project_root(args)
+    role = resolve_role(args.agent)
+    path = task_file(root, role)
+    archive = role_dir(root, role) / F_TASK_ARCHIVE
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(path)
+        closed = [t for t in tasks if t["status"] in ("done", "dropped") and not t.get("archived")]
+        # A done task with no execution evidence is an audit finding, not history:
+        # archiving it would move the finding out of the queue that reports it.
+        kept = [t for t in closed if t["status"] == "done" and not _task_has_execution_evidence(t)]
+        closed = [t for t in closed if t not in kept]
+        for t in kept:
+            print(
+                f"# kept {role} {t['id']} in the queue: done without execution evidence,"
+                " which the audit must keep reporting"
+            )
+        if not closed:
+            print(f"# nothing to archive in {role}")
+            return 1 if kept else 0
+        for t in closed:
+            t["archived"] = f"{F_TASK_ARCHIVE}#{t['id'].lower()}"
+        existing = (
+            archive.read_text(encoding="utf-8")
+            if archive.is_file()
+            else f"# Task archive - {role}\n\nOwner: {role}. Closed evidence moved out of"
+            f" `{F_TASKS}` so the queue stays a starting point, not a history.\n\n"
+            f"Related: [{F_TASKS}]({F_TASKS})\n"
+        )
+        sections = [_archived_section(t) for t in closed]
+        write_lf(archive, existing.rstrip() + "\n\n" + "\n\n".join(sections) + "\n")
+        for t in closed:
+            for field in ARCHIVED_TASK_FIELDS:
+                t[field] = ""
+        write_tasks(path, tasks, role)
+    ledger_append(
+        root,
+        "task.archive",
+        args.agent,
+        role,
+        f"{len(closed)} task(s) -> {archive.name}",
+        "",
+        role,
+    )
+    print(f"# archived {len(closed)} closed task(s) from {role} into {archive}")
+    return 0
+
+
 def cmd_task_next(args) -> int:
     """Highest-priority executable task in the ROLE queue; claims it by default."""
     root = project_root(args)
@@ -8152,6 +8247,30 @@ def cmd_task_next(args) -> int:
     return 0
 
 
+def _task_drop_blockers(root: Path, task: dict) -> list[str]:
+    """Why dropping ``task`` would abandon live work (T-0047).
+
+    A bulk sweep must not be able to erase accepted, in-flight work with a canned
+    reason. The three live signals are the same ones `reclaim` and `instance retire`
+    already honour: a claim, an open branch, and the review gate. A drop that names
+    none of them is a normal decision and needs no reason.
+    """
+    blockers: list[str] = []
+    claimed = (task.get("claimed_by") or "").strip()
+    if claimed:
+        blockers.append(f"claimed_by {claimed}")
+    branch = (task.get("branch") or "").strip()
+    if branch:
+        project = project_of(root)
+        if is_git_repo(project) and not branch_merged(project, branch):
+            blockers.append(f"open branch {branch}")
+    if task.get("review", "required") != "na" and (
+        task.get("self_check") == "passed" or task.get("status") == "review"
+    ):
+        blockers.append("in the review gate")
+    return blockers
+
+
 def cmd_task_set(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
@@ -8166,6 +8285,19 @@ def cmd_task_set(args) -> int:
         t = tasks[idx]
         if args.force:
             t["forced"] = (t.get("forced", "") + f" | {args.force}").strip(" |")
+        drop_blockers: list[str] = []
+        if args.status == "dropped":
+            drop_blockers = _task_drop_blockers(root, t)
+            if drop_blockers and not args.force:
+                die(
+                    f"refusing to drop {t['id']}: it is live work ({'; '.join(drop_blockers)}).\n"
+                    "  Finish it, or drop it deliberately with\n"
+                    f"  task set {args.agent} {t['id']} --status dropped --force "
+                    "'<why this work is abandoned>'\n"
+                    "  A bulk sweep may not erase accepted work silently: the reason and "
+                    "the blockers are recorded and reported by `audit`.",
+                    2,
+                )
         if args.status:
             if args.status not in STATUSES:
                 die(f"status must be one of {', '.join(STATUSES)}")
@@ -8176,6 +8308,8 @@ def cmd_task_set(args) -> int:
                 if pascal(args.agent) != pascal(role):
                     t["claimed_by"] = check_claimant(root, args.agent, "claim", role)
             t["status"] = args.status
+            if args.status == "dropped" and drop_blockers:
+                t["dropped_under_live"] = "; ".join(drop_blockers)
         if getattr(args, "claimed_by", None) is not None:
             if str(args.claimed_by).strip():
                 t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
@@ -9550,9 +9684,11 @@ _RE_PREFLIGHT_EVIDENCE = re.compile(
 #: skipped the gate and the finding may well be mechanical;
 #: ``n/a`` - the task has no revision (a verdict, a records pass) and there is
 #: nothing to preflight.
-#: Why a verdict writes it at all: 38 of the 43 measured fails were mechanical, and
-#: that rate is the whole argument for the gate. A claim of improvement needs a
-#: contrast, so the rate has to stay measurable after the gate ships.
+#: Why a verdict writes it at all: at one ledger cut (n=1615) there were 44 review
+#: failures over 66 review targets and two independent readings classified the
+#: locally-decidable share differently (16-24 of 44). The share is contested, so a
+#: verdict records whether the author's preflight was green and the rate is
+#: measured prospectively; a claim of improvement needs a contrast.
 REVIEW_MECHANICAL_NO = "no"
 REVIEW_MECHANICAL_UNKNOWN = "unknown"
 REVIEW_MECHANICAL_NA = "n/a"
@@ -9642,9 +9778,13 @@ def detects_problem(detects: str, findings: str = "") -> str:
 
 
 #: `review.fail` detail -> its detector. The detail is one line that starts with the
-#: mechanical classification, and a pipe inside the detector is written as a slash
-#: there, so this boundary is exact and a finding's own prose cannot forge it.
-_RE_LEDGER_DETECTS = re.compile(r"^mechanical: [^|]*? \| detects: (.*?)(?: \| |$)")
+#: mechanical classification, then the review round, then the detector; a pipe
+#: inside the detector is written as a slash there, so this boundary is exact and a
+#: finding's own prose cannot forge it. The round is optional in the pattern so
+#: records written before it was added keep reading (legacy, not a defect).
+_RE_LEDGER_DETECTS = re.compile(
+    r"^mechanical: [^|]*? \| (?:round: \d+ \| )?detects: (.*?)(?: \| |$)"
+)
 
 
 def ledger_detects(detail: str) -> str | None:
@@ -13110,9 +13250,9 @@ def cmd_review(args) -> int:
             # the detector follows it, so `audit` counts per fail rather than per task
             # and a legacy record (no field) is counted as missing, never as a defect.
             else (
-                f"mechanical: {mechanical} | detects: {detects.replace('|', '/')} "
-                f"| {one_line(args.findings)[:120]}"
-            )[:200]
+                f"mechanical: {mechanical} | round: {int(t.get('review_fails') or 0)} "
+                f"| detects: {detects.replace('|', '/')} | {one_line(args.findings)[:150]}"
+            )[:260]
         ),
         "",
         role,
@@ -13272,14 +13412,15 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
 
 # Preflight: the author's mechanical gate, run before the self-check
 #
-# Measured from the ledger (43 `review.fail` records classified by their finding
-# text): 12 docs-surface, 11 branch-not-mergeable, 6 board drift, 5 red gate, 4
-# scope creep and 4 unreachable-evidence revision. 38 of the 43 are mechanical
-# and locally decidable in seconds, and 24 of 65 deliverables needed more than
-# one verdict - each extra round costs a Reviewer lease (p50 12.2 / p90 25.8
-# minutes) and serialises the author. So one command answers the questions a
-# Reviewer answers first, prints the exact fix for each miss, and `selfcheck`
-# refuses while it is red: the Reviewer's lease is then spent on judgement.
+# Measured from the ledger at one cut (n=1615): 44 review failures over 66 review
+# targets (one role + task), of which 26 needed more than one verdict and 11
+# needed three or more. Two independent readings put the failures a local check
+# could have caught at 16-24 of 44; the share is contested, so the `mechanical:`
+# field on every fail measures it prospectively instead of asserting it here.
+# Each extra round costs a Reviewer lease (p50 12.2 / p90 25.8 minutes) and
+# serialises the author. So one command answers the questions a Reviewer answers
+# first, prints the exact fix for each miss, and `selfcheck` refuses while it is
+# red: the Reviewer's lease is then spent on judgement.
 
 #: Settings.json key naming the project's OWN gate (`make check`, `npm test`, ...).
 #: The skill ships no toolchain, so an unset key is reported as UNVERIFIED rather
@@ -13295,6 +13436,11 @@ PREFLIGHT_GATE_TIMEOUT = 3600
 #: match. A claim bound to a revision that does not exist cannot be re-run, which
 #: is the four-in-43 "evidence names an unreachable revision" failure.
 _RE_EVIDENCE_REV = re.compile(r"@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])")
+
+#: The digest `selfcheck` appends to a note after preflight runs. It names the
+#: revision the gate measured, and a later rebase rewrites that revision: the
+#: tool's own record must not be the reason a resubmission is refused.
+_RE_PREFLIGHT_DIGEST = re.compile(r"preflight:\s*PF-[0-9a-f]+ @[0-9a-f]+[^|]*")
 
 #: The board is generated output, and this is the one path the check reads.
 PREFLIGHT_BOARD_PATH = "/".join(DIR_DOCS + ("Board.md",))
@@ -13598,11 +13744,19 @@ def _preflight_identity(project: Path, base: str, branch: str, role: str) -> Pre
     )
 
 
+def _rev_reachable(project: Path, sha: str) -> bool:
+    """True when some ref contains ``sha``, so a reader can check it out."""
+    result = run_git(project, "for-each-ref", "--contains", sha)
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
 def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> PreflightCheck:
     """Every ``@<sha>`` in the task's evidence and self-check note is a real commit.
 
     A claim bound to a revision nobody can check out is not evidence, and it is one
-    of the four classes a Reviewer has already failed a deliverable for.
+    of the four classes a Reviewer has already failed a deliverable for. Existing is
+    not enough: a rebase can leave the commit in the object store while no ref
+    contains it, so the reader cannot check it out.
 
     ``extra_text`` is the note `selfcheck` is ABOUT TO store, including its
     ``--test`` line: the stored ``self_note`` is only written after this runs, so
@@ -13611,20 +13765,69 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
     measurement nobody can reproduce.
     """
     name = "evidence"
-    text = "\n".join((task.get("evidence", ""), task.get("self_note", ""), extra_text))
-    named = sorted({match.lower() for match in _RE_EVIDENCE_REV.findall(text)})
+    # A note accumulates: every past self-check stays behind a ` || `. Only the note
+    # this run is about to store (extra_text) and the latest stored one are current;
+    # judging older sections would block the very re-check that fixes a rewrite.
+    latest = (task.get("self_note", "") or "").split(" || ")[-1]
+    digest = _RE_PREFLIGHT_DIGEST.sub("", task.get("evidence", ""))
+    note = _RE_PREFLIGHT_DIGEST.sub("", extra_text or latest)
+    evidence_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(digest)})
+    note_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(note)} - set(evidence_revs))
+    named = sorted(set(evidence_revs) | set(note_revs))
     if not named:
         return PreflightCheck(name, PREFLIGHT_OK, "the task names no @<rev> revision yet")
-    missing = [sha for sha in named if not _rev_commit_exists(project, sha)]
-    if missing:
+
+    evidence_missing = [sha for sha in evidence_revs if not _rev_commit_exists(project, sha)]
+    evidence_dangling = [
+        sha
+        for sha in evidence_revs
+        if sha not in evidence_missing and not _rev_reachable(project, sha)
+    ]
+    note_missing = [sha for sha in note_revs if not _rev_commit_exists(project, sha)]
+    note_dangling = [
+        sha for sha in note_revs if sha not in note_missing and not _rev_reachable(project, sha)
+    ]
+
+    problems = []
+    if evidence_dangling:
+        problems.append(
+            "the task evidence names "
+            + ", ".join(f"@{sha}" for sha in evidence_dangling[:5])
+            + ", which no ref contains (a rebase, amend or reset removed it)"
+        )
+    if evidence_missing:
+        problems.append(
+            "the task evidence names "
+            + ", ".join(f"@{sha}" for sha in evidence_missing[:5])
+            + ", which is not a commit in this repository"
+        )
+    if note_missing:
+        problems.append(
+            "the stored self-check names "
+            + ", ".join(f"@{sha}" for sha in note_missing[:5])
+            + ", which is not a commit in this repository"
+        )
+    if note_dangling:
+        problems.append(
+            "the stored self-check names "
+            + ", ".join(f"@{sha}" for sha in note_dangling[:5])
+            + ", which no ref contains after a rewrite"
+        )
+    if evidence_dangling or evidence_missing:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            "the task evidence names "
-            + ", ".join(f"@{sha}" for sha in missing[:5])
-            + ", which is not a commit in this repository",
-            "re-point the evidence at the revision you measured: git log --oneline -5,"
+            "; ".join(problems),
+            "re-point the evidence at the revision you measured now: git log --oneline -5,"
             " then task set <role> <T-id> --evidence '<cmd> @<sha> -> <result>'",
+        )
+    if note_dangling or note_missing:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            "; ".join(problems),
+            "refresh the note: selfcheck <agent> <T-id> --by <you> --note '<what you"
+            " re-read>' --test '<cmd> @<current-rev> -> <result>'",
         )
     shown = ", ".join(f"@{sha}" for sha in named[:5])
     return PreflightCheck(
@@ -13689,7 +13892,7 @@ def _board_problems(root: Path, text: str) -> list:
     if not tasks and not _queues_initialised(root):
         return [f"no task records under {roles_dir(root)}: run `teamwork.py init` first"]
     try:
-        return boardlib.problems(tasks, text)
+        return boardlib.problems(tasks, text, root)
     except (ValueError, StopIteration) as exc:
         # `render` raises StopIteration on a board that lost its anchors; a check
         # that crashes is not a check that passed.
@@ -14229,8 +14432,8 @@ def _board_tables(args, root: Path) -> int:
             2,
         )
     try:
-        after = boardlib.render(tasks, before)
-        found = boardlib.problems(tasks, before)
+        after = boardlib.render(tasks, before, root)
+        found = boardlib.problems(tasks, before, root)
     except ValueError as exc:
         die(f"cannot compare {path} with the queues: {exc}", 2)
     if getattr(args, "write", False):
@@ -14379,7 +14582,7 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
         tasks = boardlib.queues(root)
         if not tasks:
             raise ValueError(f"no task records under {roles_dir(root)}")
-        after = boardlib.render(tasks, before)
+        after = boardlib.render(tasks, before, root)
     except (OSError, ValueError, StopIteration) as exc:
         return _board_stale_warning(pr, rel, f"cannot render it from the queues: {exc}")
     if after == before:
@@ -14615,6 +14818,8 @@ def cmd_audit(args) -> int:
     problems += _audit_deliverables_awaiting_independent_review(root, names, args)
     problems += _audit_open_disputes_design_decision_challenges(root, names, args)
     problems += _audit_forced_gate_overrides(root, names, args)
+    problems += _audit_startup_read_over_the_cap(root, names, args)
+    problems += _audit_dropped_under_a_live_claim(root, names, args)
     problems += _audit_review_fails_without_a_reachable_detect(root, names, args)
     problems += _audit_roster_gaps_roles_with_no_instance(root, names, args)
     problems += _audit_ownership_sanity_phantom_agents_silent_o(root, names, args)
@@ -14756,7 +14961,11 @@ def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, arg
             # closed by hand relies on `evidence` alone. Any of the three is a
             # record of execution, so any of them satisfies the anti-hallucination
             # gate - testing `evidence` alone flagged every properly reviewed task.
-            if t["status"] == "done" and not _task_has_execution_evidence(t):
+            if (
+                t["status"] == "done"
+                and not _task_has_execution_evidence(t)
+                and not _archived_evidence(root, name, t)
+            ):
                 print(f"- {name} {t['id']} {t['title']}")
                 hits += 1
     if not hits:
@@ -14901,6 +15110,45 @@ def _audit_forced_gate_overrides(root: Path, names: list, args) -> int:
         for t in parse_tasks(task_file(root, name)):
             if t.get("forced") and t["status"] not in ("done", "dropped"):
                 print(f"- {name} {t['id']}: {t['forced']}")
+                hits += 1
+    if not hits:
+        print("- none")
+    return hits
+
+
+def _audit_startup_read_over_the_cap(root: Path, names: list, args) -> int:
+    """An instance whose always-on read exceeds the cap is a defect, not a metric.
+
+    `harness budget` reports the same numbers, but a budget nobody runs is not
+    enforced; the audit is where the team looks, so the overage is a problem here.
+    """
+    from . import harness as _harness
+
+    print("## startup read over the cap")
+    over = _harness.over_budget_rows(_harness.repo_root(args), root)
+    for row in over:
+        print(f"- {row.instance}: {row.always_on} bytes against a cap of {row.budget}")
+    if not over:
+        print("- none")
+    print()
+    return len(over)
+
+
+def _audit_dropped_under_a_live_claim(root: Path, names: list, args) -> int:
+    """A drop forced past a live claim must stay visible after the task closes.
+
+    A sweep can only erase work if nobody can see it happened. The task records the
+    blockers, so this section is the audit-side half of the guard (T-0047).
+    """
+    print("## dropped under a live claim")
+    hits = 0
+    for name in names:
+        for t in parse_tasks(task_file(root, name)):
+            if t.get("dropped_under_live"):
+                print(
+                    f"- {name} {t['id']}: {t['dropped_under_live']} "
+                    f"| forced: {t.get('forced') or '-'}"
+                )
                 hits += 1
     if not hits:
         print("- none")
@@ -16625,6 +16873,14 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--all", action="store_true")
     s.add_argument("--status", choices=list(STATUSES))
     s.set_defaults(func=cmd_task_list)
+
+    s = tsub.add_parser(
+        "archive",
+        parents=[common],
+        help="move closed task evidence into the role's TaskArchive.md, keeping the ids",
+    )
+    s.add_argument("agent")
+    s.set_defaults(func=cmd_task_archive)
 
     s = tsub.add_parser(
         "next", parents=[common], help="claim the highest-priority executable task of the role"
