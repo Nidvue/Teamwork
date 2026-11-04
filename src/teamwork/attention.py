@@ -34,13 +34,8 @@ from .config import REVIEW_FAIL_LIMIT, REVIEW_LEASE_MINUTES
 from .io import atomic_write
 from .names import one_line
 
-#: The kinds a person can be asked for. ``authorization`` is the only one that
-#: stops the team from finishing (``loop`` refuses STOP); the others are
-#: informational, because work can continue around them.
 ATTENTION_KINDS = ("authorization", "decision", "blocker", "review")
 
-#: The stage table, in the order it is read. A row is ``family/label``; every
-#: ``person/...`` row means the task is stopped until a person acts.
 STAGE_ROWS = (
     "person/answer",
     "person/review",
@@ -51,8 +46,6 @@ STAGE_ROWS = (
     "working",
 )
 
-#: Reading order for a panel: what needs a person, then what the machine can
-#: still do on its own, then what is simply parked.
 STAGE_ORDER = {
     "person/answer": 0,
     "person/review": 1,
@@ -63,7 +56,6 @@ STAGE_ORDER = {
     "idle": 6,
 }
 
-#: Hours without an update after which a ``doing`` task is parked, not working.
 IDLE_HOURS = 24
 
 ATTENTION_RE = re.compile(r"^##\s+(A-\d+)\s*(?:·|:)?\s*(.*)$")
@@ -80,8 +72,6 @@ ATTENTION_HEADER = (
     "[disputes](Disputes.md)\n"
 )
 
-#: The fields a rendered entry carries; ``parse_attention`` reads the same set,
-#: so a hand-edited entry can neither invent state nor lose it silently.
 ATTENTION_FIELDS = (
     "kind",
     "status",
@@ -133,8 +123,6 @@ def parse_attention(path: Path) -> list:
         if cur is None:
             continue
         if not raw.strip():
-            # The renderer puts one blank line after the metadata; anything below
-            # it is prose and must never forge a field.
             in_meta = False
             continue
         if in_meta:
@@ -295,10 +283,6 @@ def stage_of(
     if status == "todo" and deps_ready:
         return "working/queued", "todo, every dependency done"
 
-    # A deliverable sitting in review that no lane holds. Row 2 above already
-    # names the self-checked one - the hand-in a Reviewer acts on - so this row
-    # carries the submission whose self-check is not recorded as passed: the
-    # record is pending and nobody has claimed it, so a lane has to be staffed.
     if status == "review" and task.get("review_status") == "pending" and not live:
         return "person/review-lane", "in review, no reviewer lane holds it"
 

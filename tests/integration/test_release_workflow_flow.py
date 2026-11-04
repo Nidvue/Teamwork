@@ -55,11 +55,6 @@ GIT_OPTIONS = (
 VERSION_FILE = '__version__ = "{}"\nDIST_NAME = "teamwork-agents"\n'
 
 
-# --------------------------------------------------------------------------- #
-# Extracting the shipped gate block
-# --------------------------------------------------------------------------- #
-
-
 def extract_gate_block(workflow: Path = RELEASE_WORKFLOW) -> str:
     """The Python body of the release workflow's ``consistency`` gate step.
 
@@ -93,11 +88,6 @@ def offline_gate_block() -> str:
     code = extract_gate_block()
     assert '"--online"' in code, "the gate no longer passes --online"
     return code.replace('"--online"', '"--offline"')
-
-
-# --------------------------------------------------------------------------- #
-# Fixture repositories
-# --------------------------------------------------------------------------- #
 
 
 def git(root: Path, *args: str) -> str:
@@ -162,8 +152,6 @@ def run_gate(root: Path, code: str, tag: str = "v1.0.0") -> tuple[int, str]:
     """Run the extracted gate block inside ``root`` with ``RELEASE_TAG=tag``."""
     env = {key: value for key, value in os.environ.items() if not key.startswith("TEAMWORK_")}
     env["RELEASE_TAG"] = tag
-    # The gate retries an unreadable input three times, sleeping 20s between
-    # attempts; the retry policy is not what these tests measure.
     env["RELEASE_GATE_RETRY_SECONDS"] = "0"
     result = subprocess.run(
         [sys.executable, "-"],
@@ -176,11 +164,6 @@ def run_gate(root: Path, code: str, tag: str = "v1.0.0") -> tuple[int, str]:
         check=False,
     )
     return result.returncode, result.stdout + result.stderr
-
-
-# --------------------------------------------------------------------------- #
-# The real checker, offline: refuse and accept
-# --------------------------------------------------------------------------- #
 
 
 def test_the_gate_accepts_a_consistent_tagged_checkout(tmp_path: Path) -> None:
@@ -198,8 +181,6 @@ def test_the_gate_refuses_a_checkout_whose_version_disagrees_with_its_tag(
 ) -> None:
     """The consistency gate is not recorded: R1 drift must block the release."""
     root = make_release_tree(tmp_path / "drifted", version="1.0.0", tag="v1.0.0")
-    # The tag points at HEAD, so R2 is silent (`S = A - O`); version.py no
-    # longer carries the released version, which is exactly R1's subject.
     (root / "src" / "teamwork" / "version.py").write_text(
         VERSION_FILE.format("0.9.0"), encoding="utf-8"
     )
@@ -219,7 +200,7 @@ def test_the_gate_refuses_when_the_published_tag_does_not_point_at_head(
 ) -> None:
     """Otherwise the gate would judge a revision that is not being released."""
     root = make_release_tree(tmp_path / "wrongtag")
-    git(root, "tag", "v1.0.1")  # RELEASE_TAG below names v1.0.0
+    git(root, "tag", "v1.0.1")
 
     code, output = run_gate(root, offline_gate_block(), tag="v9.9.9")
 
@@ -255,11 +236,6 @@ def test_an_unexpected_exit_code_is_refused_not_treated_as_pass(tmp_path: Path) 
 
     assert code == 2, output
     assert "unexpected exit code" in output
-
-
-# --------------------------------------------------------------------------- #
-# The exemption: exactly the R5 finding of the tag being published
-# --------------------------------------------------------------------------- #
 
 
 def r5_report(tag: str) -> dict:
@@ -305,11 +281,6 @@ def test_the_exemption_does_not_cover_another_rule(tmp_path: Path) -> None:
 
     assert code == 1, output
     assert "R2 DRIFT" in output
-
-
-# --------------------------------------------------------------------------- #
-# The gate must bite: mutate the shipped block and watch it accept drift
-# --------------------------------------------------------------------------- #
 
 
 def test_the_gate_bites_when_its_drift_branch_is_removed(tmp_path: Path) -> None:
@@ -359,11 +330,6 @@ def test_the_online_gate_is_not_run_here() -> None:
     assert "--offline" not in code
 
 
-# --------------------------------------------------------------------------- #
-# The ordering contract: nothing is published before the gate is recorded
-# --------------------------------------------------------------------------- #
-
-
 def job_blocks(workflow: Path = RELEASE_WORKFLOW) -> dict[str, list[str]]:
     """Split the workflow's ``jobs:`` section into ``{job name: its lines}``."""
     lines = workflow.read_text(encoding="utf-8").splitlines()
@@ -379,8 +345,6 @@ def job_blocks(workflow: Path = RELEASE_WORKFLOW) -> dict[str, list[str]]:
             continue
         if current is None:
             continue
-        # A comment between two jobs (at the same indent) documents the job below
-        # and does not end the section: only a real top-level key does.
         if line.strip() and not line.lstrip().startswith("#") and not line.startswith("    "):
             break
         blocks[current].append(line)
@@ -393,11 +357,7 @@ def test_nothing_is_built_or_published_before_the_gate_has_run() -> None:
     jobs = job_blocks()
 
     assert "needs: [consistency]" in "\n".join(jobs["build"])
-    # `release` names the gate too: it reads the resolved tag from the
-    # `consistency` job's outputs, so the edge is explicit and not only transitive.
     assert "needs: [consistency, build, attest]" in "\n".join(jobs["release"])
-    # `npm` needs `attest` as well: an npm version is immutable, so a package must
-    # not be published while its provenance attestation is red (M13 F-5(d)).
     assert "needs: [consistency, build, attest]" in "\n".join(jobs["npm"])
     for name in ("build", "attest", "release", "npm"):
         assert "needs:" in "\n".join(jobs[name]), f"{name} has no dependency"
@@ -405,16 +365,11 @@ def test_nothing_is_built_or_published_before_the_gate_has_run() -> None:
 
 def test_the_gate_job_cannot_soft_fail() -> None:
     """``continue-on-error`` / ``|| true`` in the gate would make it advisory."""
-    # Comment lines explain the absence of these; the executable keys are the
-    # subject, so the YAML comments are stripped first.
     gate = "\n".join(
         line for line in job_blocks()["consistency"] if not line.lstrip().startswith("#")
     )
 
     assert "continue-on-error:" not in gate
-    # The checker invocation itself is not softened. (An unrelated `|| true`
-    # does exist in the tag-count step, where it guards `grep -c`; that is a
-    # count, not a verdict, so only the invocation line is asserted here.)
     invocation = [line for line in gate.splitlines() if 'CHECKER, "--online"' in line]
     assert invocation, "the checker invocation was not found in the gate job"
     for line in invocation:
@@ -433,11 +388,6 @@ def test_the_ordering_contract_bites_when_the_dependency_is_dropped(tmp_path: Pa
 
     assert "needs: [consistency]" not in build
     assert "needs: []" in build
-
-
-# --------------------------------------------------------------------------- #
-# ``scripts/verify_release.py`` - the local pre-flight
-# --------------------------------------------------------------------------- #
 
 
 def test_verify_release_refuses_when_its_builder_is_unavailable(tmp_path: Path) -> None:
@@ -478,18 +428,6 @@ def test_verify_release_does_not_read_the_consistency_gate_record() -> None:
 
     assert "check_release_consistency" not in source
 
-    # The full local pre-flight was executed once by hand on this revision:
-    # `python scripts/verify_release.py` -> exit 0, "OK - release verified"
-    # (wheel payload 43/43 bundle files, sdist 167 entries, installed-wheel
-    # loop -> STOP). It is NOT part of this suite: it runs `python -m build`,
-    # creates a virtualenv and installs the wheel (minutes, plus an isolated
-    # build environment that fetches hatchling), which is beyond the runtime
-    # and no-network budget of the integration layer. Marked NOT RUN here.
-
-
-# --------------------------------------------------------------------------- #
-# The workflow_dispatch path: an existing, released tag and nothing else
-# --------------------------------------------------------------------------- #
 
 RESOLVE_STEP = "Resolve the tag being published"
 
@@ -536,7 +474,7 @@ def posix_bash_or_skip() -> str:
         return posix_bash()
     except AssertionError as absent:
         pytest.skip(skip_message("bash", str(absent)))
-        raise  # unreachable: pytest.skip raises
+        raise
 
 
 def released_tree(tmp_path: Path, *, version: str = "1.0.0") -> tuple[Path, str]:
@@ -548,8 +486,6 @@ def released_tree(tmp_path: Path, *, version: str = "1.0.0") -> tuple[Path, str]
     git(root, "commit", "-q", "-m", "unreleased work")
     git(root, "tag", "v2.0.0")
     git(root, "checkout", "-q", "main")
-    # The dispatch path proves reachability against `origin/main` (a full
-    # `actions/checkout` fetches every branch) and falls back to `main`.
     git(root, "remote", "add", "origin", str(root))
     git(root, "fetch", "-q", "origin", "+refs/heads/*:refs/remotes/origin/*")
     return root, git(root, "rev-parse", "HEAD")
@@ -703,28 +639,11 @@ def test_the_resolve_step_publishes_the_inputs_the_jobs_read() -> None:
     text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
     assert "outputs:\n      tag: ${{ steps.resolve.outputs.tag }}" in text
     assert "version: ${{ steps.resolve.outputs.version }}" in text
-    # The gate reads the resolved tag, never the raw ref: on a dispatch the ref is
-    # the default branch, and `refs/heads/main` is not a release.
     assert "RELEASE_TAG: ${{ steps.resolve.outputs.tag }}" in text
     assert "RELEASE_TAG: ${{ github.ref_name }}" not in text
 
 
-# --------------------------------------------------------------------------- #
-# The npm publish child environment: the secret travels in the userconfig only
-#
-# Review finding F1 (P-0031): the step's `env:` carries secrets.NPM_TOKEN, and the
-# block used to hand `dict(os.environ)` straight to every npm child while popping
-# only NODE_AUTH_TOKEN - which nothing sets. The document claimed "The token never
-# enters the step environment", which was false. The block now writes the token to
-# an explicit userconfig and removes both names from the child environment; these
-# tests execute the shipped block and read the environment each child actually
-# receives, so the claim in docs/Team/Release.md is pinned by code.
-# --------------------------------------------------------------------------- #
-
 PUBLISH_STEP = "Publish (idempotent: verify an existing version instead of failing)"
-#: A placeholder, not a credential: it only has to be unique inside this file, and it
-#: must not look like one to `scripts/privacy_scan.py`, which reports an assignment to a
-#: credential-suggesting name even when the value is invented.
 MARKER = "userconfig-marker"
 
 
@@ -787,9 +706,6 @@ def run_publish_block(
             return _ChildResult(1, "", "npm error code E404")
         return _ChildResult(0, "published")
 
-    # A stand-in module: the block imports `subprocess` itself, so replacing the
-    # entry in sys.modules is what makes it call `fake_run`. The namespace is built
-    # from a dict because a ModuleType carries no such attributes statically.
     fake = types.ModuleType("subprocess", "stand-in for the publish step")
     vars(fake)["run"] = fake_run
     vars(fake)["CompletedProcess"] = _ChildResult
@@ -799,8 +715,6 @@ def run_publish_block(
     monkeypatch.setenv("TAG_NAME", "v9.9.9")
     monkeypatch.setenv("NPM_TOKEN", MARKER)
 
-    # The block exits 0 explicitly when the version is already published and falls
-    # off the end after a successful publish; both are a green step.
     try:
         exec(compile(code, "<publish-step>", "exec"), {"__name__": "__main__"})
     except SystemExit as exc:
@@ -827,8 +741,6 @@ def test_the_publish_child_environment_carries_no_token(
         assert MARKER not in json.dumps(env), (
             "the token marker appears somewhere in the child environment"
         )
-    # The token was available to the step and was deliberately moved into the file
-    # npm reads for auth, so the pop above removes a copy rather than the only copy.
     userconfig = (tmp_path / "npm-publish.npmrc").read_text(encoding="utf-8")
     assert f"_authToken={MARKER}" in userconfig, userconfig
     assert "registry=https://registry.npmjs.org/" in userconfig, userconfig
@@ -864,44 +776,14 @@ def test_the_token_guard_bites_when_the_pop_is_removed(
     )
 
 
-# --------------------------------------------------------------------------- #
-# The publish path runs the privacy gate, and nothing is public before its
-# checks: M13 security audit F-5 and F-9 (task `developer` T-0036)
-#
-# Measured at the audit's revision: `grep -n privacy
-# .github/workflows/release.yml` -> no output, so a release cut from that tree
-# published a revision the privacy gate rejects; `ci.yml`'s `privacy` job does
-# not run on a tag push (`scope` emits `code=false`/`prose=false` there) and
-# `docs.yml` is a separate workflow `Release` never waits for; `Create GitHub
-# Release` ran *before* the only post-publish R5 check, so a red gate could not
-# unpublish; `npm` needed `[consistency, build]` and not `attest`, so a package
-# could ship while its provenance attestation failed; and `concurrency.group`
-# was `release-${{ github.ref }}`, so a tag push (`refs/tags/vX.Y.Z`) and a
-# `workflow_dispatch` of the same tag (`refs/heads/main`) were two groups that
-# could publish the same version twice.
-#
-# The four checks below read the workflow through the suite's own parser
-# (`tests/unit/workflow_yaml.py`, the standard-library reader the CI contract
-# tests use - PyYAML is not in the `dev` extra), and each has a mutant twin that
-# edits the PARSED document in memory and asserts the same function reports the
-# defect, so the tracked workflow is never written and a rewrite that drops a
-# clause fails here instead of shipping.
-# --------------------------------------------------------------------------- #
-
 UNIT_DIR = Path(__file__).resolve().parents[1] / "unit"
 
-#: The shipped privacy gate, byte for byte the command `ci.yml`, `docs.yml` and
-#: `make privacy` run. A different spelling here would be a second gate.
 PRIVACY_COMMAND = (
     "python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt"
 )
 
-#: The release the concurrency contract is evaluated for.
 CONCURRENCY_TAG = "v1.2.3"
 
-#: The two ways one tag reaches this workflow, with the context values GitHub
-#: substitutes. A dispatch checks out the default branch and names the release in
-#: its `tag` input; a tag push names it in `github.ref_name`.
 CONCURRENCY_CONTEXTS = {
     "tag push": {
         "github.event.inputs.tag": "",
@@ -1121,8 +1003,6 @@ def test_the_consistency_job_runs_the_privacy_gate() -> None:
         for step in job_steps(release_jobs(document)["consistency"])
         if "scripts/privacy_scan.py" in step_run(step)
     ]
-    # Byte-identical to the command `ci.yml`, `docs.yml` and `make privacy` run: a
-    # second spelling here would be a second gate.
     assert runs == [PRIVACY_COMMAND], runs
 
 

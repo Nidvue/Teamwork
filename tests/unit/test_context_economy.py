@@ -23,9 +23,6 @@ from teamwork.names import clip
 AGENTS = ("ceo", "developer-1", "reviewer-1", "reviewer-2")
 LIMIT = engine.VIEW_CLIP_LIMIT
 
-# Long single-line evidence: the sentinel sits at the very end, so it is visible
-# only when nothing was omitted. No ``|`` or leading ``#`` - the values also have
-# to survive the markdown field round-trip in TaskQueue.md and Reviews.md.
 AUTHOR_HEAD = "author-head "
 AUTHOR_TAIL = "zulu-author-tail-sentinel-9f2c"
 AUTHOR_LONG = AUTHOR_HEAD + ("alpha-evidence-word " * 40) + AUTHOR_TAIL
@@ -34,12 +31,9 @@ REVIEWER_HEAD = "reviewer-head "
 REVIEWER_TAIL = "bravo-reviewer-tail-sentinel-4b1d"
 REVIEWER_LONG = REVIEWER_HEAD + ("bravo-verification-word " * 40) + REVIEWER_TAIL
 
-# Long findings written by a failing review (the trace/queue view under test).
 FINDINGS_HEAD = "finding-head "
 FINDINGS_TAIL = "delta-finding-tail-sentinel-7a3e"
 FINDINGS_LONG = FINDINGS_HEAD + ("charlie-finding-word " * 45) + FINDINGS_TAIL
-# A fail now records `detects: <x> | <defect>` (T-0023), so this is the stored
-# string the queue clips: the detector, then the defect the view is measured on.
 DETECTS = "a finding longer than the view is clipped with its tail left unprinted"
 FINDINGS_RECORDED = f"detects: {DETECTS} | {FINDINGS_LONG}"
 
@@ -198,11 +192,6 @@ def ship_task(cli, project: Path, handle: str, title: str, filename: str) -> Non
     assert cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle) == 0
 
 
-# --------------------------------------------------------------------------- #
-# the clip helper itself
-# --------------------------------------------------------------------------- #
-
-
 def test_clip_returns_short_text_unchanged() -> None:
     """Below the limit nothing is omitted, so nothing is added."""
     text = "x" * (LIMIT - 1)
@@ -231,13 +220,7 @@ def test_clip_keeps_the_head_and_counts_the_omitted_tail() -> None:
     assert out.startswith("q" * LIMIT)
     assert out.endswith("... (+400 chars: --full)")
     assert len(out) == LIMIT + len("... (+400 chars: --full)")
-    # a custom limit counts from the custom limit, not from 600
     assert clip("r" * 100, limit=60) == "r" * 60 + "... (+40 chars: --full)"
-
-
-# --------------------------------------------------------------------------- #
-# review --queue
-# --------------------------------------------------------------------------- #
 
 
 def test_review_queue_clips_author_evidence_by_default(cli, project: Path, capsys) -> None:
@@ -281,8 +264,6 @@ def test_review_queue_clips_findings_too_and_counts_them(cli, project: Path, cap
         )
         == 0
     )
-    # A fail returns the deliverable to the author; it re-enters the queue only on
-    # re-submission, still carrying the findings.
     assert (
         cli("--project", project, "task", "set", "developer", "T-0001", "--status", "selfcheck")
         == 0
@@ -313,11 +294,6 @@ def test_review_queue_clips_findings_too_and_counts_them(cli, project: Path, cap
     assert FINDINGS_LONG in out
 
 
-# --------------------------------------------------------------------------- #
-# trace
-# --------------------------------------------------------------------------- #
-
-
 def test_trace_clips_evidence_by_default(cli, project: Path, capsys) -> None:
     root = init_workspace(cli, project, git=False)
     task_to_review(cli, project, root)
@@ -336,11 +312,6 @@ def test_trace_full_prints_the_whole_evidence(cli, project: Path, capsys) -> Non
     assert "chars: --full)" not in out
 
 
-# --------------------------------------------------------------------------- #
-# archive
-# --------------------------------------------------------------------------- #
-
-
 def pass_review(cli, project: Path, capsys) -> None:
     """Ship T-0001 through an independent pass so the archive entry exists."""
     assert (
@@ -356,8 +327,6 @@ def pass_review(cli, project: Path, capsys) -> None:
             "pass",
             "--evidence",
             REVIEWER_LONG,
-            # this module tests the merge path separately (merge_pr below), so the
-            # pass records the verdict without landing it
             "--no-merge",
         )
         == 0
@@ -408,11 +377,6 @@ def test_archive_agent_view_clips_the_same_fields(cli, project: Path, capsys) ->
     assert AUTHOR_TAIL in out and REVIEWER_TAIL in out
 
 
-# --------------------------------------------------------------------------- #
-# the records keep what the view dropped
-# --------------------------------------------------------------------------- #
-
-
 def test_clipped_views_never_rewrite_the_stored_records(cli, project: Path, capsys) -> None:
     """Reading a clipped view is read-only: every record file is byte-identical."""
     root = init_workspace(cli, project, git=True)
@@ -439,16 +403,9 @@ def test_clipped_views_never_rewrite_the_stored_records(cli, project: Path, caps
     archive = engine.archive_path(root).read_text(encoding="utf-8")
     assert AUTHOR_LONG in archive and REVIEWER_LONG in archive
     ledger = (root / "Ledger.jsonl").read_text(encoding="utf-8")
-    # the ledger has its own (pre-existing, pre-clipping) detail cap, so assert the
-    # review event is still there with its own recorded summary and an intact chain
     assert "review.pass" in ledger
     assert REVIEWER_LONG[:60] in ledger
     assert cli("--project", project, "ledger", "verify") == 0
-
-
-# --------------------------------------------------------------------------- #
-# the archive merge sha
-# --------------------------------------------------------------------------- #
 
 
 def merge_pr(cli, project: Path, capsys) -> str:
@@ -497,14 +454,11 @@ def test_merged_branch_records_the_real_merge_sha_in_archive(cli, project: Path,
         "exactly one entry, updated in place"
     )
     assert "pending" not in "\n".join(archive_branch_merge_lines(root))
-    # only that field moved: every other archive line is untouched
     others_before = [ln for ln in before.split("\n") if not ln.startswith("- branch / merge: ")]
     others_after = [ln for ln in after.split("\n") if not ln.startswith("- branch / merge: ")]
     assert others_before == others_after
     task = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]
     assert task["merge_commit"] == sha
-    # the fix is in the branch's history, not only in the work tree: the base
-    # branch HEAD carries the real sha, and the work tree is left clean
     committed = committed_archive(project)
     assert f"- branch / merge: {branch} / {sha}" in committed
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
@@ -565,7 +519,6 @@ def test_two_consecutive_merges_both_succeed_in_one_work_repo(cli, project: Path
     first_branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
     first_sha = merge_pr(cli, project, capsys)
 
-    # the second merge must not be blocked by leftover changes from the first
     _, second_sha = add_and_ship_second_task(cli, project, capsys)
 
     committed = committed_archive(project)
@@ -597,7 +550,6 @@ def test_archive_rewrite_is_a_commit_by_the_reviewer(cli, project: Path, capsys)
     assert "record the merge revision" in subject, "the rewrite is its own recorded commit"
     assert branch in body and sha in body
     assert engine.run_git(project, "log", "-1", "--format=%an").stdout.strip() == "Reviewer"
-    # the rewrite is itself a ledger record, so the sha is traceable
     records = [r for r in engine.ledger_read(root) if r["action"] == "pr.merge.archive"]
     assert len(records) == 1
     assert records[0]["actor"] == "Reviewer-2"
@@ -733,7 +685,6 @@ def test_rewrite_leaves_an_earlier_merge_of_the_same_branch_intact(
     first_sha = merge_pr(cli, project, capsys)
     pr = engine.parse_reviews(root_reviews(project))[0]
 
-    # a second review round appends the same branch again, awaiting its merge
     path = engine.archive_path(root)
     text = path.read_text(encoding="utf-8")
     path.write_text(
@@ -786,7 +737,6 @@ def test_reworked_task_records_each_merge_revision_of_its_reused_branch(
     branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
     first_sha = merge_pr(cli, project, capsys)
 
-    # the Reviewer sends the merged task back, and the same owner takes it again
     assert (
         cli(
             "--project",
@@ -821,11 +771,6 @@ def test_reworked_task_records_each_merge_revision_of_its_reused_branch(
     assert f"- branch / merge: {branch} / {first_sha}" in committed
     assert f"- branch / merge: {branch} / {second_sha}" in committed
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
-
-
-# --------------------------------------------------------------------------- #
-# loop and archive: the two views read on every iteration
-# --------------------------------------------------------------------------- #
 
 
 def test_loop_collapses_passing_records_and_clips_long_lines(cli, project: Path, capsys) -> None:
@@ -920,11 +865,6 @@ def test_archive_listing_shows_the_most_recent_entries(cli, project: Path, capsy
     assert "entry-11-evidence" in limited and "entry-10-evidence" not in limited
 
 
-# --------------------------------------------------------------------------- #
-# quoted evidence is not authored markdown
-# --------------------------------------------------------------------------- #
-
-
 def test_archive_quoted_evidence_is_not_link_checked(tmp_path: Path) -> None:
     """A quoted finding must not fail the link check of the tree that quotes it.
 
@@ -981,7 +921,6 @@ def test_archive_masks_a_credential_shape_quoted_as_evidence(tmp_path: Path) -> 
     assert token not in text, "the raw token must never reach the archive"
     assert "hunter2 passphrase" not in text
     assert "<redacted-api-token>" in text and "<redacted-env-secret>" in text
-    # The claim the evidence makes survives, so the record is still worth reading.
     assert "still reported" in text and "-> api-token" in text
 
 
@@ -1120,8 +1059,6 @@ def test_the_archive_mask_follows_the_gate_for_json_config_shapes(tmp_path: Path
             f"the gate accepts this, so it must survive: {line}"
         )
 
-    # Built at runtime and not named like a credential: the gate would (rightly)
-    # report either a literal high-entropy value or a secret-named assignment.
     blob = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6"
     line = '{"apiKey": "' + blob + '"}'
     assert engine.mask_secret_shapes(line) == '{"apiKey": "<redacted-json-secret>"}'

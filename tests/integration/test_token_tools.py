@@ -33,8 +33,6 @@ from teamwork import config, engine
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 
-#: One fixed team name for every command, so ``--team`` can never drift between
-#: the in-process CLI and the shipped subprocess.
 TEAM = "TokenTools"
 
 ROSTER = "ceo,developer-1,tester-1,reviewer-1"
@@ -54,9 +52,6 @@ ARCHIVE = """# ARCHIVE - reviewed results
 - self-check: [pass] {long_note} | test: pytest -> 2 passed
 """
 
-#: claim -> verdict gaps of 10, 15, 40 and 5 minutes. Sorted, the 0-based
-#: percentile index ``int(n * share)`` gives p50 = index 2 -> 15.0 and
-#: p90 = index 3 -> 40.0; the test asserts those numbers, not the runner.
 SYNTHETIC_LEDGER = (
     ("2026-11-03T10:00:00", "review.claim", "T-0001"),
     ("2026-11-03T10:10:00", "review.fail", "T-0001"),
@@ -179,11 +174,6 @@ def commit_all(cli, project: Path, task: str) -> None:
     )
 
 
-# --------------------------------------------------------------------------- #
-# 1. archive --task
-# --------------------------------------------------------------------------- #
-
-
 def test_archive_task_selects_one_deliverable_and_keeps_the_view(cli, project, capsys):
     init_workspace(cli, project, "ceo,developer-1")
     archive = project / "docs" / "Team" / "Archive.md"
@@ -216,11 +206,6 @@ def test_archive_task_selects_one_deliverable_and_keeps_the_view(cli, project, c
     capsys.readouterr()
     assert cli_run(cli, project, "archive", "--task", "T-0002", "--full") == 0
     assert "x" * 900 in capsys.readouterr().out
-
-
-# --------------------------------------------------------------------------- #
-# 2. harness budget: startup vs recallable
-# --------------------------------------------------------------------------- #
 
 
 def test_harness_budget_charges_startup_not_the_recall_only_store(cli, project):
@@ -308,11 +293,6 @@ def test_harness_budget_charges_startup_not_the_recall_only_store(cli, project):
     assert startup_grown["CEO"] - startup_before["CEO"] == len(knowledge_line.encode("utf-8"))
 
 
-# --------------------------------------------------------------------------- #
-# 3-4. coordination: oversupply vs backlog
-# --------------------------------------------------------------------------- #
-
-
 def test_nine_reviewer_lanes_with_two_unclaimed_is_oversupply_not_backlog(cli, project, capsys):
     init_workspace(cli, project, "ceo,developer-1,tester-1,reviewer-1")
     assert cli_run(cli, project, "instance", "add", "reviewer", "--count", "8", "--by", "ceo") == 0
@@ -347,11 +327,6 @@ def test_five_unclaimed_with_two_lanes_is_backlog_not_oversupply(cli, project, c
     assert found["C-REVIEW-BACKLOG"]["subject"].startswith("5 unclaimed / 2 lane(s)")
     assert report["metrics"]["reviewer_lanes"] == 2
     assert report["metrics"]["review_queue"] == 5
-
-
-# --------------------------------------------------------------------------- #
-# 5. preflight slice warning
-# --------------------------------------------------------------------------- #
 
 
 def test_preflight_warns_on_an_oversized_slice_and_stays_green(cli, project, capsys):
@@ -391,11 +366,6 @@ def test_preflight_warns_on_an_oversized_slice_and_stays_green(cli, project, cap
     assert not re.search(r"^- \w+\s+slice\b", small, re.M), small
     assert "PREFLIGHT pass" in small
     assert "7 checks, 0 failed" in small
-
-
-# --------------------------------------------------------------------------- #
-# 6. throughput: exact arithmetic over a synthetic ledger
-# --------------------------------------------------------------------------- #
 
 
 def test_throughput_reports_exact_percentiles_and_surface_bytes(cli, project, capsys):
@@ -462,11 +432,6 @@ def test_throughput_reports_exact_percentiles_and_surface_bytes(cli, project, ca
     assert "targets: 1/3 with more than one verdict" in text.stdout
     assert "instances: 4" in text.stdout
     assert ledger.read_bytes() == before, "the report is read-only"
-
-
-# --------------------------------------------------------------------------- #
-# 7-8. retirement: move-only, and a failed move never deletes
-# --------------------------------------------------------------------------- #
 
 
 def test_retirement_moves_the_lane_and_its_artifacts(cli, project):

@@ -156,7 +156,6 @@ def test_tests_repro_proves_fail_then_pass_on_the_task(cli, project: Path) -> No
     assert task["repro_by"] == "Developer-1"
     assert "pre @aaa111" in task["repro"] and "post @bbb222" in task["repro"]
     assert [r["action"] for r in engine.ledger_read(root)].count("tests.repro") == 1
-    # the proof belongs to the defect, not to a layer record
     assert engine.parse_tests(_tests_md(root)) == []
 
 
@@ -330,7 +329,6 @@ def test_bug_task_cannot_self_check_without_a_repro_record(cli, project: Path) -
     assert refused != 0
     assert developer_task(root)["self_check"] == "pending"
 
-    # The repro is recorded on the defect task itself and unlocks the self-check.
     assert (
         cli(
             "--project",
@@ -495,7 +493,6 @@ def test_review_records_baseline_and_replay(cli, project: Path) -> None:
 def test_audit_reports_a_bug_task_closed_without_a_repro(cli, project: Path) -> None:
     init(cli, project)
     add_bug_task(cli, project)
-    # The only way past the gate is an explicit override, and the audit still says so.
     assert (
         cli(
             "--project",

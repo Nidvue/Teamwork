@@ -28,8 +28,6 @@ def test_slim_is_the_default_roster(cli, project: Path) -> None:
     roles = engine.list_roles(root)
     assert engine.DEFAULT_ROSTER_TIER == "slim"
     assert sorted(roles) == sorted(engine.ROSTER_TIERS["slim"])
-    # Two reviewers: the queue fans out one deliverable per lane, and a second
-    # lane can give a sampled or high-risk deliverable an independent verdict.
     assert len(engine.instances_of(root, "reviewer")) == 2
 
 
@@ -62,7 +60,6 @@ def test_a_slim_tier_reports_folded_lanes_and_no_phantom_layer_gaps(
         "acceptance",
         "feature",
     ]
-    # An unstaffed role cannot be asked for a layer it has no one to run.
     assert engine.instances_of(root, "designer") == []
     assert "ui" not in engine.staffed_layers(root)
 

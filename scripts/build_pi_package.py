@@ -29,12 +29,9 @@ REPO_BLOB = REPO_URL + "/blob/main/"
 REPO_RAW = REPO_URL.replace("github.com", "raw.githubusercontent.com") + "/main/"
 PREVIEW = REPO_RAW + "assets/social-preview.png"
 
-# The bundle manifest is engine state, not a build-tool constant: the installed
-# skill, the wheel and the tarball must contain the same files.
 sys.path.insert(0, str(ROOT / "src"))
 from teamwork import bundle as _bundle  # noqa: E402
 
-# Files the skill needs at runtime; tests, docs and build output stay out of the tarball.
 SKILL_TREES = ("references", "roles", "templates", "scripts", "src")
 SKILL_FILES = ("SKILL.md", "AGENTS.md")
 assert SKILL_FILES == _bundle.BUNDLE_FILES and SKILL_TREES == _bundle.BUNDLE_TREES, (
@@ -77,8 +74,6 @@ def package_json(ver: str) -> dict:
         "homepage": REPO_URL,
         "repository": {"type": "git", "url": "git+" + REPO_URL + ".git"},
         "bugs": {"url": REPO_URL + "/issues"},
-        # everything the runtime needs lives under skills/ and prompts/; the
-        # licence and the notices must ship too, or npm drops them silently
         "files": [
             "skills",
             "prompts",
@@ -91,11 +86,8 @@ def package_json(ver: str) -> dict:
         "pi": {
             "skills": ["./skills"],
             "prompts": ["./prompts"],
-            # gallery preview; a URL, so the image never enters the tarball
             "image": PREVIEW,
         },
-        # Host-provided packages are peers, never dependencies: a physical copy
-        # bypasses pi's module mapping and duplicates registries (docs/packages.md).
         "peerDependencies": {
             "@earendil-works/pi-ai": "*",
             "@earendil-works/pi-agent-core": "*",
@@ -125,7 +117,6 @@ def copy_skill(dest: Path) -> None:
             skill / name,
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info", "pi-package"),
         )
-    # the pi-native layer, shipped beside the portable skill
     shutil.copytree(
         ROOT / "templates" / "pi-package" / "skills" / "teamwork-pi",
         skill.parent / "teamwork-pi",
@@ -240,7 +231,6 @@ def main(argv: list[str]) -> int:
     copy_docs(dest)
     ship_readme(dest)
     manifest = json.loads((dest / "package.json").read_text(encoding="utf-8"))
-    # only the list-valued resources are paths on disk; ``pi.image`` is a URL
     declared = [p for v in manifest["pi"].values() if isinstance(v, list) for p in v]
     absent = [p for p in declared if not (dest / p.lstrip("./")).exists()]
     if absent:

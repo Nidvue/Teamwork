@@ -54,8 +54,6 @@ AGENTS = ("ceo", "developer-1", "reviewer-1", "reviewer-2")
 BOARD = "docs/Team/Board.md"
 DIGEST = re.compile(r"PREFLIGHT digest: (PF-[0-9a-f]+) @([0-9a-f]+)")
 
-#: A minimal board that carries the five anchors the renderer and the checker share.
-#: Anything less is "not a rendered board", which is a different failure than drift.
 BOARD_SKELETON = """# BOARD - live status
 
 Owner: Project Manager.
@@ -191,17 +189,9 @@ def selfcheck(cli, project: Path, *extra: str) -> int:
     )
 
 
-#: The preflight fragment a self-check writes into its own note, and the thing the
-#: verdict's `mechanical:` classification reads. Deleting it is how a test proves
-#: the classification is not reading something else.
 RECORDED_PREFLIGHT = re.compile(
     r"\s*\|\s*preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(\d+ checks, \d+ failed\)"
 )
-
-
-# --------------------------------------------------------------------------- #
-# The six checks
-# --------------------------------------------------------------------------- #
 
 
 def test_a_clean_single_commit_branch_is_green(cli, project, capsys):
@@ -397,11 +387,6 @@ def test_a_task_with_no_branch_is_a_warning_so_the_shipped_flow_still_runs(cli, 
     )
 
 
-# --------------------------------------------------------------------------- #
-# The project gate: reported unless asked for
-# --------------------------------------------------------------------------- #
-
-
 def portable_failing_gate() -> str:
     """A `PreflightCommand` that exits 1 on every host, quoted as `shlex` reads it.
 
@@ -530,11 +515,6 @@ def test_a_hanging_gate_is_red_with_its_budget_named(cli, project, capsys, monke
     assert "(gate)" in out
 
 
-# --------------------------------------------------------------------------- #
-# The self-check integration
-# --------------------------------------------------------------------------- #
-
-
 def test_selfcheck_refuses_a_red_preflight_and_records_a_forced_exception(cli, project, capsys):
     """An author cannot submit work the mechanical half already rejects.
 
@@ -564,8 +544,6 @@ def test_selfcheck_refuses_a_red_preflight_and_records_a_forced_exception(cli, p
     queue = (root / "Roles" / "Developer" / "TaskQueue.md").read_text(encoding="utf-8")
     assert "self_check: passed" in queue
     assert "preflight red (evidence): the sha is a doc link, tracked as T-0009" in queue
-    # The forced exception still records the measurement it overrode: a Reviewer
-    # reading the self-check sees how much of the mechanical half was green.
     assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(7 checks, 1 failed\)", queue)
 
 
@@ -634,7 +612,6 @@ def test_a_selfcheck_test_line_naming_an_unknown_revision_is_refused(cli, projec
     assert "not a commit in this repository" in refused
     queue = (root / "Roles" / "Developer" / "TaskQueue.md").read_text(encoding="utf-8")
     assert "self_check: pending" in queue
-    # Nothing was stored, so no digest certifies the bad measurement either.
     assert "preflight: PF-" not in queue
 
 
@@ -672,11 +649,6 @@ def test_a_green_selfcheck_digest_reproduces_at_its_own_revision(cli, project, c
     assert code == 0, live
     measured = DIGEST.search(live)
     assert measured and measured.group(1) == recorded.group(1)
-
-
-# --------------------------------------------------------------------------- #
-# The verdict records whether the fail was mechanical
-# --------------------------------------------------------------------------- #
 
 
 def review_fail(cli, project: Path, handle: str = "T-0001") -> int:
@@ -929,8 +901,6 @@ def test_the_tool_digest_survives_a_rewrite(cli, project, capsys):
     assert git(project, "add", "extra.txt").returncode == 0
     assert git_as(project, "developer", "commit", "--amend", "--no-edit").returncode == 0
     new_sha = git(project, "rev-parse", "--short", "HEAD").stdout.strip()
-    # Re-point the record at the new revision; the digest already in the note still
-    # names the old one, and that alone must not block the next self-check.
     assert (
         cli(
             "--project",
@@ -944,8 +914,6 @@ def test_the_tool_digest_survives_a_rewrite(cli, project, capsys):
         )
         == 0
     )
-    # A plain preflight after the rewrite still sees the stored note's old @sha and
-    # must say how to clear it: re-run the self-check, not re-point the evidence.
     code, out = preflight(cli, capsys, project)
     assert code == 1, out
     assert "stored self-check" in out and "refresh the note" in out
