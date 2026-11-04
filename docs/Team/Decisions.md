@@ -2088,6 +2088,56 @@ worktree until the slot expires - the safe direction to fail.
 - falsified by: A review of the landed revision finds a defect that changes behaviour, or CI on bb9866f is red: then the fix is repaired forward on a branch with the normal gate, never by rewriting the published commits.
 - consequences: T-0022 and T-0028 are dropped as duplicates; a retrospective review task carries the independent verdict; the release tags bb9866f only after CI on that SHA is green.
 
+## D-20261102-CTO - The mkdocs-material floor stays at 9.7.7 while Python 3.9/3.10 are supported
+
+- date: 2026-11-02
+- kind: technical
+- status: accepted
+- deciders: CTO (cto)
+- decided by: CTO
+- task: T-0048
+- context: Two open Dependabot PRs were red on 2026-11-02: #31 failed only the committer guard on a bot-authored commit (fixed by T-0048), #32 bumped docs/requirements.txt to >=9.8.0 and failed test_the_docs_builder_range_is_the_one_docs_requirements_pins until the dev extra moved with it. Moving the dev extra to 9.8.0 trades a one-line parity failure for six uninstallable matrix legs.
+- options considered: Raise the floor in both homes and accept a red py3.9/py3.10 matrix (rejected: breaks the advertised Python floor); add python_version markers to both homes (rejected: two floors in two files, and the parity test compares the strings, so the invariant gets weaker); pin 9.8.0 only in docs/requirements.txt (rejected: the parity test refuses drift by design).
+- decision: Keep both homes (pyproject dev extra and docs/requirements.txt) at the shared range mkdocs-material>=9.7.7,<10, and ignore the Dependabot /docs proposal for >=9.8.0 until Python 3.9 and 3.10 are dropped. The range already allows 9.8.0 where the interpreter supports it; only the floor bump is refused.
+- why: mkdocs-material 9.8.0 declares requires-python >=3.11; this project declares requires-python >=3.9 and its CI test job installs .[dev] on py3.9 and py3.10, so raising the floor makes pip resolution unsatisfiable on those legs. Dependabot PR #32 could not be landed as opened: its docs/requirements.txt bump is reachable only through the parity test that forces the dev extra to the same floor.
+- evidence: [mkdocs-material 9.8.0 metadata](https://pypi.org/pypi/mkdocs-material/9.8.0/json) - accessed 2026-11-02 -> requires_python '>=3.11'; [mkdocs-material 9.7.7 metadata](https://pypi.org/pypi/mkdocs-material/9.7.7/json) - accessed 2026-11-02 -> requires_python '>=3.8'; uv pip compile --python-version 3.9 on 'mkdocs-material>=9.8.0,<10' @170d89a -> 'No solution found ... 9.8.0 depends on Python>=3.11 ... unsatisfiable'; pyproject requires-python @170d89a -> '>=3.9'; .github/workflows/ci.yml test job @170d89a -> 'python -m pip install -e .[dev]' on the py3.9/py3.10 legs
+- falsified by: If mkdocs-material publishes a 9.8.x wheel with requires-python >=3.9, or the project raises requires-python to >=3.11, the floor can move and this ignore must be dropped.
+- consequences: Dependabot /docs will not propose mkdocs-material >=9.8.0 (ignore entry in .github/dependabot.yml); PR #32 is closed as not landable; the docs job on py3.12 still resolves 9.8.0 from the unchanged range
+
+## D-20261102-Architect-C3 - C3 is the startup memory only: ShortTermMemory.md per role, always-on; the rest of the memory is on-demand
+
+- date: 2026-11-02
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0007
+- context: C3 is classed `always-on` but its path spec was `Roles/<Role>/*.md + Global/GlobalMemory.md`, so it summed every role's TaskQueue, LongTermMemory and archive, plus the global memory. None of those is in context on every run: `load` prints only the short-term entries and the global entry count, long-term memory is queried with `recall`, and the queue is read by `task next`. The row therefore described a superset the class does not admit, and the per-instance budget (`instance_always_on`) counted the same two files, so the budget and this row disagreed about what startup costs.
+- options considered: Split C3 into an always-on row and an on-demand row (rejected: the frozen registry is exactly eight rows and `harness lint` pins that count, so a split changes the frozen contract for a labelling defect); reclassify C3 as `on-demand` (rejected: the short-term file is read on every run, so the always-on total would stop counting startup memory at all); keep the class and narrow the spec to the startup file (chosen).
+- decision: C3 stays `always-on` with spec `Roles/<Role>/ShortTermMemory.md`, summed over every role directory, and `instance_always_on` drops `LongTermMemory.md` from the per-instance sum. Global memory, long-term memory, the task queue and the archive are on-demand and sit outside the registry. C3 and the budget then count the same startup file.
+- why: `load` (engine `cmd_load`) reads `ShortTermMemory.md` and prints a count for `GlobalMemory.md`, never its text; AGENTS.md states long-term memory is never loaded; the reviewer's 19.5 KB long-term file was the measured gap in the budget defect. Narrowing the spec keeps the frozen row count and the class, and makes the printed number reproducible from the row.
+- evidence: `src/teamwork/engine.py` `cmd_load` reads `F_SHORT` and counts `GLOBAL` entries (grep, this revision); `AGENTS.md` line "Long-term memory (`LongTermMemory.md`) is never loaded"; the live reviewer read 133160 bytes with the long-term file and 113601 without it; `pytest test_harness_surface.py -k long_term` -> passes, and re-adding the file to `instance_always_on` fails it.
+- falsified by: If `load` or any startup path starts printing `GlobalMemory.md` or `LongTermMemory.md` text, the spec must add that file and the class must be re-ruled; a reader can check it by listing the reads in `cmd_load`; no test pins that list yet.
+- consequences: `harness list` reports C3 as the startup memory; `harness budget` caps the same short-term file per instance; Architecture 12.2 and 12.5 change; the spec string is pinned in the harness constant, the surface contract test and the CLI contract test, all updated together.
+
+## D-20261102-Architect-ADR - Segment the evidence archive by month and size behind a keyed index; split the remaining engine.py one command family per module
+
+- date: 2026-11-02
+- kind: technical
+- status: proposed
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0006
+- context: `docs/Team/Archive.md` was 2,495,354 bytes over 322 entries at `dffa325` and every merge appends to it (`MERGE_RECORD_NAMES = ("Archive.md",)`, `engine.py:1001`). Measured: 279 entries / 2,245,668 bytes fall in 2026-10 and 43 / 249,178 in 2026-11, so a month is already larger than any sane read unit. Record ids repeat - 322 entries carry 72 distinct ids (T-0001 appears 46 times) - so an index keyed by id alone cannot resolve an entry. `src/teamwork/engine.py` is 16,075 lines with 63 `cmd_*` handlers.
+- options considered: (a) keep one archive file and cap its size (rejected: the cap hides evidence that trace and review need); (b) segment by month only (rejected by measurement: the first segment is 2.25 MB and its own falsifier fires immediately); (c) segment by month and roll each month at a size limit behind an index keyed by (id, month, segment) (chosen); (d) move evidence out of git into a database (rejected: the archive is the committed, diffable proof the manifest hashes); (e) rewrite engine.py into packages in one change (rejected: a 16k-line change cannot be reviewed); (f) split one command family per PR behind `build_parser()` (chosen).
+- decision A - archive: entries move unchanged into `docs/Team/Archive/<YYYY-MM>-<n>.md`, rolled at 512 KiB or 200 entries, whichever comes first. `docs/Team/Archive.md` keeps the header, the rules and an index table keyed by `(record id, month, segment)`. A merge stages the index plus the segment that holds the merged task's entry, and `merge_record_paths` resolves that segment instead of naming one file. Every path-keyed reader is updated in the same change that moves entries: `strip_quoted_evidence` (`engine.py:10084`), the path list in `scripts/privacy_scan.py`, and `HISTORICAL_RECORDS` (`tests/unit/test_skill_contracts.py:1457`). A link check runs on the moved tree before the change is proposed: a probe that moved one entry without those updates produced 2 link issues from 0.
+- decision E - engine: the remaining `engine.py` moves one top-level command family per PR into `src/teamwork/commands/<family>.py` (task, review, audit, memory, merge, dispute, skill, tests), keeping `build_parser()` and every import path through re-exports. Each family proves the CLI output is unchanged on the traceability and CLI-contract tests before the next moves.
+- why: the measurements reject month-only segmentation and id-only indexing, and the probe shows the move is not free: three path-keyed gates read the archive by path and must move with it. A 512 KiB roll bounds one read; the (id, month, segment) key keeps repeated ids resolvable. A per-family split bounds each merge conflict to one module without changing the interface.
+- evidence: `git show dffa325:docs/Team/Archive.md | wc -c` -> 2495354; entries by month -> 2026-10: 279 / 2245668 bytes, 2026-11: 43 / 249178; distinct ids -> 72 of 322 (T-0001 x46); `wc -l src/teamwork/engine.py` -> 16075; `grep -c '^def cmd_'` -> 63; merge history of the archive across the last 40 merges -> 3 branch-side changes, 1 both-sided; move-one-entry probe -> links 0 -> 2.
+- assumption: a 512 KiB roll keeps a segment readable and a month holds no more than a few segments (UNVERIFIED for future months; the first segment's size is the measurement).
+- falsified by: a segment over 512 KiB after the roll, any entry whose (id, month) pair the index cannot resolve, any path-keyed gate red after a move, or a second merge conflict on the remaining `engine.py` within one week after family one moves.
+- consequences: no code changes in this entry; the archive move and each family move are separate tasks with their own review. Risks R-25 and R-26 stay open until the first segment and the first family land.
+
 ## D-20261103-Architect - M17: lessons and the tw- skill prefix are the institution for team mistakes
 
 - date: 2026-11-03

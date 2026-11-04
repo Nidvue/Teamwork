@@ -838,6 +838,24 @@ there would have landed its work on another task's branch. `branch start
 | Reviewer-1 | three suite failures on main are pre-existing, not any lane's regression | filed as a bug task |
 | CEO | the publish gate is red on two of my own commit messages (an expanded shell variable) | security task, allowlist shape + control |
 
+## M16 - Feature teams (live)
+
+Exit condition: the feature-team rules are records the engine enforces and the
+board renders - one open feature per Team Leader, disjoint writable paths, a squad
+attached to its leader, and the shared services printed once.
+
+| rule | enforced by | evidence |
+|---|---|---|
+| one open feature per Team Leader, disjoint writable paths | `feature add` / `feature check` (T-0042) | `tests/unit/test_feature_teams.py`, `tests/integration/test_feature_team_flow.py` |
+| a squad instance takes only its own team's work | `task next` / `pulse` scoping (T-0042) | the same two modules |
+| the board groups open features by owner and squad | `board --write` / `board --check` (T-0019) | `tests/unit/test_board_feature_section.py` |
+| shared services are never attached to a feature | `instance add --under` refuses them (T-0042) | `tests/unit/test_feature_teams.py` |
+
+The shared services - Architect, CEO, CFO, COO, CTO, Project Manager, Release
+Engineer, Reviewer, Security Auditor - serve every feature and are attached to
+none; the board's feature section prints them once (the same list as
+`FEATURE_SHARED_ROLES`).
+
 ## M17 - Institutional memory: lessons and prefixed skills (live)
 
 Intake: the operator requires that every agent remember the mistakes it made and
