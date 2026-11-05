@@ -49,7 +49,31 @@ EXPECTED_JOBS = (
     "privacy",
     "release-consistency",
     "docs",
+    "docs-contract",
 )
+
+TIMEOUT_MINUTES = {
+    "scope": 5,
+    "lint": 10,
+    "committer-guard": 5,
+    "typecheck": 10,
+    "test": 60,
+    "build": 15,
+    "privacy": 15,
+    "release-consistency": 10,
+    "docs": 10,
+    "docs-contract": 10,
+}
+
+DOCS_READING_TESTS = (
+    "tests/acceptance/test_acceptance_docs.py",
+    "tests/unit/test_readme_layout.py",
+    "tests/unit/test_provider_caps.py",
+    "tests/unit/test_docs_contracts.py",
+    "tests/unit/test_skill_contracts.py",
+)
+
+HISTORY_OPT_OUT = "TEAMWORK_CI_SKIP_HISTORY_PROOF"
 
 UNCONDITIONAL_JOBS = ("scope", "committer-guard", "release-consistency")
 
@@ -76,7 +100,7 @@ COVERAGE_CELL = ("ubuntu-latest", "3.11")
 
 COVERAGE_FLOOR = "--cov-fail-under=55"
 
-CODE_OR_PROSE_JOBS = ("privacy", "docs")
+CODE_OR_PROSE_JOBS = ("privacy", "docs", "docs-contract")
 
 
 def workflow_text(repo_root: Path = REPO_ROOT) -> str:
@@ -160,6 +184,56 @@ def matrix_problems(document: dict) -> list[str]:
     return problems
 
 
+def docs_reading_problems(document: dict) -> list[str]:
+    """The cheap docs job: it must run on a prose push and run all five files.
+
+    A prose-only push skips the matrix, which is right for the expensive lanes and
+    wrong for the tests that read the prose: the README rewrite that dropped the
+    install command and the provider-cap statement both landed as "prose" and were
+    only found later. This job is the cheap half that runs anyway, so its guard and
+    its file list are the contract.
+    """
+    problems: list[str] = []
+    job = jobs(document).get("docs-contract")
+    if job is None:
+        return ["the docs-contract job is missing, so a prose push runs none of the prose tests"]
+    if "scope" not in needs_of(job):
+        problems.append("docs-contract does not declare `needs: scope`")
+    guard = str(job.get("if") or "")
+    if SCOPE_GUARD not in guard or PROSE_GUARD not in guard:
+        problems.append(f"docs-contract does not gate on `code || prose`: {guard!r}")
+    if "strategy" in job:
+        problems.append("docs-contract expands a matrix; it is one cheap ubuntu job by design")
+    runs = "\n".join(str(step.get("run") or "") for step in job.get("steps") or [])
+    missing = [path for path in DOCS_READING_TESTS if path not in runs]
+    if missing:
+        problems.append(f"docs-contract does not run the prose tests {missing}")
+    if "--cov" in runs:
+        problems.append("docs-contract runs coverage, which the matrix's coverage lane owns")
+    return problems
+
+
+def timeout_problems(document: dict) -> list[str]:
+    """Every job is bounded, with the budget the contract names.
+
+    Without `timeout-minutes` GitHub holds a hung job for six hours of runner
+    time; the red run this task started from burned 51 minutes on one lane
+    because a proof waited out its own budget. The per-job numbers are the
+    contract: the matrix gets an hour, the static gates minutes.
+    """
+    problems: list[str] = []
+    for name, job in jobs(document).items():
+        value = job.get("timeout-minutes")
+        if value is None:
+            problems.append(f"{name} has no timeout-minutes, so a hang runs to the runner limit")
+            continue
+        if str(value) != str(TIMEOUT_MINUTES.get(name)):
+            problems.append(
+                f"{name} timeout-minutes is {value!r}, contract says {TIMEOUT_MINUTES.get(name)}"
+            )
+    return problems
+
+
 def contract_problems(document: dict) -> list[str]:
     """Every clause of the header's contract that the given document violates."""
     problems: list[str] = []
@@ -221,6 +295,8 @@ def contract_problems(document: dict) -> list[str]:
         if PROSE_GUARD in guard:
             problems.append(f"{name} gates on the prose output, so a prose push runs it: {guard!r}")
     problems.extend(matrix_problems(document))
+    problems.extend(docs_reading_problems(document))
+    problems.extend(timeout_problems(document))
     return problems
 
 
@@ -323,6 +399,49 @@ def test_the_matrix_jobs_gate_on_code_alone(ci):
         guard = str(jobs(ci)[name].get("if") or "")
         assert SCOPE_GUARD in guard, f"{name} does not read `code`: {guard!r}"
         assert PROSE_GUARD not in guard, f"{name} reads `prose` too: {guard!r}"
+
+
+def test_the_docs_contract_job_runs_the_prose_tests_on_a_prose_push(ci):
+    """The false economy: a prose push skips the matrix, so this job must run."""
+    assert docs_reading_problems(ci) == []
+
+
+def test_the_proof_once_lane_declares_the_history_choice(ci):
+    """One lane proves the history; the others say so, rather than inheriting it."""
+    steps = jobs(ci)["test"].get("steps") or []
+    coverage = [step for step in steps if "--cov" in str(step.get("run") or "")]
+    plain = [step for step in steps if str(step.get("name") or "") == "Run tests (plain)"]
+    assert len(coverage) == 1, "coverage and its history proof must be one step"
+    assert len(plain) == 1, "the non-coverage lanes need one explicit step"
+    assert (coverage[0].get("env") or {}).get(HISTORY_OPT_OUT) == "0"
+    assert (plain[0].get("env") or {}).get(HISTORY_OPT_OUT) == "1"
+
+
+def test_every_job_is_bounded_by_a_timeout(ci):
+    assert timeout_problems(ci) == []
+
+
+def test_mutant_a_dropped_docs_reading_file_is_reported():
+    document = _mutate("            tests/unit/test_readme_layout.py \\\n", "")
+    problems = docs_reading_problems(document)
+    assert any("test_readme_layout.py" in problem for problem in problems), problems
+
+
+def test_mutant_a_prose_blind_docs_contract_job_is_reported():
+    document = _mutate(
+        "    # seconds of work, so they run on `code || prose` and on every event.\n"
+        "    if: github.event_name != 'push' || needs.scope.outputs.code == 'true' || needs.scope.outputs.prose == 'true'",
+        "    # seconds of work, so they run on `code || prose` and on every event.\n"
+        "    if: github.event_name != 'push' || needs.scope.outputs.code == 'true'",
+    )
+    problems = docs_reading_problems(document)
+    assert any("code || prose" in problem for problem in problems), problems
+
+
+def test_mutant_a_job_without_a_timeout_is_reported():
+    document = _mutate("    timeout-minutes: 60\n", "")
+    problems = timeout_problems(document)
+    assert any("test has no timeout-minutes" in problem for problem in problems), problems
 
 
 def test_every_job_contract_clause_holds_for_the_real_workflow(ci):
