@@ -39,7 +39,16 @@ def _lock_owner_stale(path: Path) -> bool:
 @contextlib.contextmanager
 def lock(path: Path, timeout: float | None = None):
     """Exclusive lock via O_CREAT|O_EXCL. Never steals a live lock, and only
-    removes the lock file if this process owns it."""
+    removes the lock file if this process owns it.
+
+    A Windows waiter can see ``PermissionError`` instead of ``FileExistsError``
+    while another process creates, replaces or removes the file: the sharing
+    violation and the lost race carry the same errno as a locked file, and the
+    OS reports it on the ``open`` itself. It is the busy state, so it retries
+    inside the same timeout budget and never aborts the command - a lock that
+    was never acquired is still reported as a timeout with exit 4, not as a
+    crash.
+    """
     if timeout is None:
         timeout = LOCK_TIMEOUT
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -48,9 +57,6 @@ def lock(path: Path, timeout: float | None = None):
     while True:
         try:
             fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(fd, token.encode())
-            os.close(fd)
-            break
         except FileExistsError:
             if _lock_owner_stale(path):
                 try:
@@ -58,14 +64,20 @@ def lock(path: Path, timeout: float | None = None):
                     continue
                 except OSError:
                     pass
-            if time.monotonic() > deadline:
-                die(
-                    f"timed out after {int(timeout)}s waiting for {path.name}. "
-                    "Another agent holds it. Wait, or clear it only if the owner "
-                    "is gone. Never delete a lock that is still in use.",
-                    4,
-                )
-            time.sleep(0.05)
+        except PermissionError:
+            pass
+        else:
+            os.write(fd, token.encode())
+            os.close(fd)
+            break
+        if time.monotonic() > deadline:
+            die(
+                f"timed out after {int(timeout)}s waiting for {path.name}. "
+                "Another agent holds it. Wait, or clear it only if the owner "
+                "is gone. Never delete a lock that is still in use.",
+                4,
+            )
+        time.sleep(0.05)
     try:
         yield
     finally:
