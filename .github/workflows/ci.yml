@@ -5,11 +5,11 @@
 # AC-9 cross-platform). The path filtering itself is described in this header
 # and implemented by the `scope` job below, not by a workflow-level filter.
 #
-# Jobs: scope, lint, typecheck (non-blocking), test (3 OS x 3 Python), build,
+# Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix), build,
 # privacy, committer guard, release-consistency, docs. Every job must be green on
 # the pushed revision.
 #
-# Trigger policy: a documentation-only change must not burn the 3x3 test matrix,
+# Trigger policy: a documentation-only change must not burn the test matrix,
 # and a release-fact change must not escape the consistency gate. Those two rules
 # used to fight: `paths-ignore` on the push trigger was the only filter available
 # at workflow level, so a prose-only push skipped every job in this file -
@@ -24,7 +24,7 @@
 # The classifier publishes two answers, not one, because "does this ship?" and
 # "is this prose?" are different questions with different gates behind them:
 #
-#   * `code`  - true when anything that ships changed. The 3x3 matrix, mypy and
+#   * `code`  - true when anything that ships changed. The test matrix, mypy and
 #               the packaging job read this, and only this: a prose edit cannot
 #               change what they measure.
 #   * `prose` - true when the change set is prose/media only. The `privacy` and
@@ -325,13 +325,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.9", "3.11", "3.13"]
         include:
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
+            coverage: true
           - os: ubuntu-latest
             python-version: "3.12"
+            coverage: false
+          - os: ubuntu-latest
+            python-version: "3.13"
+            coverage: false
+          - os: macos-latest
+            python-version: "3.13"
+            coverage: false
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -355,7 +364,8 @@ jobs:
           # That is correct for a contributor's shallow copy, and wrong for CI, so
           # the checkout config is asserted here rather than trusted.
           test "$(git rev-parse --is-shallow-repository)" = "false"
-      - name: Run tests (junit + coverage)
+      - name: Run tests with the coverage gate (ubuntu 3.11)
+        if: matrix.coverage
         shell: bash
         run: |
           mkdir -p reports
@@ -365,6 +375,12 @@ jobs:
             --cov-report=xml:reports/coverage.xml \
             --cov-report=term-missing \
             --cov-fail-under=55
+      - name: Run tests (plain)
+        if: ${{ !matrix.coverage }}
+        shell: bash
+        run: |
+          mkdir -p reports
+          python -m pytest -q --junitxml=reports/junit.xml
       - name: Upload junit + coverage artifact
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

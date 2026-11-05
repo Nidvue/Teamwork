@@ -77,7 +77,7 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
   and `review --next` keep the Reviewer queue moving without lowering the
   evidence bar.
 - Provider slot leases for concurrency caps.
-- Portable runtime: CPython 3.9-3.13 on Linux, macOS and Windows.
+- Portable runtime: CPython 3.11-3.13 on Linux, macOS and Windows.
 
 ## Documentation
 
