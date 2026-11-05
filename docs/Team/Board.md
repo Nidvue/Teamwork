@@ -101,9 +101,9 @@ under two roles is two tasks.
 | developer | T-0010 | tests | done | P-0011 | 7470b72 |
 | developer | T-0011 | - | dropped | - | - |
 | developer | T-0012 | ci | done | P-0013 | 51102b0 |
-| developer | T-0013 | docs | review | P-0016 | - |
+| developer | T-0013 | docs | done | P-0016 | 3c74890 |
 | developer | T-0014 | acceptance | done | P-0012 | a191167 |
-| developer | T-0015 | hierarchy | doing | P-0015 | - |
+| developer | T-0015 | hierarchy | review | P-0015 | - |
 | developer | T-0016 | always-on | done | P-0017 | dc60760 |
 | developer | T-0017 | tests | doing | - | - |
 | developer | T-0018 | makefile-lint | done | P-0019 | 8947ae2 |
@@ -129,8 +129,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | review | - |
-| developer | T-0013 · Prose-contract tests must discover pages, not list them: kill the moved-content breakage class | P1 | review | - |
-| developer | T-0015 · Make the feature-team hierarchy visible and practical: CTO -> leaders -> squad | P1 | doing | - |
+| developer | T-0015 · Make the feature-team hierarchy visible and practical: CTO -> leaders -> squad | P1 | review | - |
 | developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
