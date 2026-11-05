@@ -41,70 +41,22 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 
 ## Non-negotiable contract
 
-1. **One voice to the user.** Only the CEO reports, asks, and accepts. No other
-   agent ever contacts the user.
-2. **Run to completion.** Work ends only when every acceptance criterion is
-   verified by executed evidence. Blocked is not done; idle with executable work
-   left is a bug.
-3. **Evidence or `UNVERIFIED`.** No claim about code, tests, CI, or the world
-   without a path/command/revision/result. This is enforced: a task cannot be
-   marked `done` without recorded evidence.
-4. **Independent parallel lanes.** Freeze interfaces first, then developer, tester
-   and designer lanes run concurrently against the same contract. Agents do not
-   wait for each other.
+1. **One voice to the user.** Only the CEO reports, asks, and accepts. No other agent contacts the user.
+2. **Run to completion.** Work ends only when every acceptance criterion is verified by executed evidence. Blocked is not done; idle with executable work left is a bug.
+3. **Evidence or `UNVERIFIED`.** No claim about code, tests, CI, or the world without a path/command/revision/result. The engine refuses `done` without recorded evidence.
+4. **Independent parallel lanes.** Freeze interfaces first, then developer, tester and designer lanes run concurrently against the same contract.
 5. **Code, then tests, then docs.** Documentation never blocks code or tests.
-6. **Role-shared state, private workspace.** Memory and the task queue belong to
-   the ROLE and are shared by all its instances; only the charter copy, worklog,
-   inbox, artifacts, reports and scratch are private to an instance.
-7. **Red lines are absolute.** Unsafe, illegal, irreversible or fabrication
-   actions stop the lane and escalate to the CEO (see RED LINES).
-8. **Nothing unnecessary is kept.** No duplicate docs, no scratch, no build
-   output, no secrets in the repository.
-9. **Style is automated.** Every role uses the language's canonical formatter,
-   linter and type checker (Python: `ruff format` + `ruff check` + `mypy`); the
-   fixer runs before the commit and the checker gates the merge. No hand
-   formatting, no competing config, no rule weakened to pass. The per-language
-   toolchain is in `references/Engineering.md`.
-10. **Names are deliberate.** Team directories are PascalCase; file names follow
-    the ecosystem, and PascalCase/camelCase are allowed wherever it permits them
-    (docs `Architecture.md`, components `ButtonGroup.tsx`). Python modules stay
-    `lower_snake_case` because the name is the import path, and tool-mandated
-    files are never renamed.
-11. **History is minimal and modular.** Commit while you work, then rebase and
-    squash before the review: one coherent change-set per commit, `wip`/`fixup`
-    commits squashed, rebased onto the latest default branch, one commit per task
-    before the merge. The Reviewer merges locally (`git merge --no-ff`), so `main`
-    records that commit plus the merge commit (`pr merge --squash` is the
-    single-commit option). Never rebase or force-push a shared branch, or
-    anything already on the default branch.
-12. **Each agent's model is its own.** The skill ships no model and calls no LLM
-    API; the engine configures a model per role and per instance
-    (`teamwork.py model set|get|list`), so a strong model can drive the Reviewer
-    while a cheap one drives mechanical lanes. `teamwork.py model auto --apply`
-    reads the runtime environment (the agent host and the model it exposes) and
-    routes the strongest available model to the decision lanes and the economy one
-    to the mechanical lanes, so quality is maximised where it compounds and cost is
-    minimised where it does not. This is cost-aware routing, never an invented
-    model id. Set `TEAMWORK_MODEL_ALT` when two verification lanes are staffed:
-    independent review on the same model twice is one check sampled twice
-    (`references/Coordination.md`). Model choice never changes the
-    protocol: the gates, the review and the ledger hold anyway.
-13. **Warnings are errors.** The toolchain fails on them by configuration, the
-    cause is fixed, and a third-party warning is suppressed narrowly with a
-    reason. CI annotations (a deprecated action, a cache notice, a runner banner)
-    count as warnings and are fixed, not ignored.
-14. **Independence is structural.** Verification lanes do not share a model when
-    a second one is available; a Reviewer records its own run, never the author's
-    line copied; one task owns one branch; a duplicate task, branch or shared
-    reference is a defect, not parallel efficiency.
-15. **No lane wars.** Never deny a peer a resource - no killing its process,
-    deleting its worktree, starving its lease or overwriting its files. A
-    conflicting directive is resolved by a measurable contest or by the CEO, never
-    by force. `reclaim` refuses a lane that still holds a live slot.
-16. **Consensus is not evidence.** A single source is provisional, a unanimous
-    zero-finding run is sampled, and lowering a gate so the team can agree is
-    collusion. Trust is conditional and recorded (`references/Coordination.md`).
-
+6. **Role-shared state, private workspace.** Memory and the task queue belong to the ROLE and are shared by its instances; only charter, worklog, inbox, artifacts, reports and scratch are private.
+7. **Red lines are absolute.** Unsafe, illegal, irreversible or fabrication actions stop the lane and escalate to the CEO (`references/Evidence.md`).
+8. **Nothing unnecessary is kept.** No duplicate docs, scratch, build output or secrets in the repository.
+9. **Style is automated.** Each role runs the language's canonical formatter, linter and type checker (Python: `ruff format` + `ruff check` + `mypy`); the fixer runs before the commit and the checker gates the merge. Never hand-format, never add a competing config, never weaken a rule to pass (`references/Engineering.md`).
+10. **Names are deliberate.** Team directories are PascalCase; file names follow the ecosystem (docs `Architecture.md`, components `ButtonGroup.tsx`); Python modules stay `lower_snake_case`; tool-mandated files are never renamed.
+11. **History is minimal and modular.** Commit while you work, then rebase and squash before review: one coherent change-set, `wip`/`fixup` squashed, rebased onto the default branch, one commit per task before the merge. The Reviewer merges locally (`git merge --no-ff`); `pr merge --squash` is the one-commit path. Never rebase or force-push shared history.
+12. **Each agent's model is its own.** The skill ships no model and calls no LLM API; the engine configures a model per role and instance (`model set|get|list`). `model auto --apply` reads the host's model and applies cost-aware routing: strongest on decision lanes, economy on mechanical lanes; set `TEAMWORK_MODEL_ALT` when two verification lanes are staffed. Model choice never changes the protocol, the gates, the review or the ledger (`references/Concurrency.md`).
+13. **Warnings are errors.** The toolchain fails on them by configuration, the cause is fixed, and a third-party warning is suppressed narrowly with a reason. CI annotations count as warnings.
+14. **Independence is structural.** Verification lanes do not share a model when a second is available; a Reviewer records its own run, never the author's line; one task owns one branch; duplicate work is a defect.
+15. **No lane wars.** Never deny a peer a resource - no killing its process, deleting its worktree, starving its lease or overwriting its files. Resolve a conflict by a measurable contest or the CEO; `reclaim` refuses a live lane.
+16. **Consensus is not evidence.** A single source is provisional, a unanimous zero-finding run is sampled, and lowering a gate to agree is collusion (`references/Coordination.md`).
 ## The org
 
 | Role | Instance names | Charter |
@@ -203,67 +155,30 @@ that verified the revision lands it.
 
 ## Workspace layout
 
-Two separate worlds: the team's own tree is **hidden** and local; project output
-is committed. All team-created names are **PascalCase**.
+Two separate worlds: the team's own tree is **hidden** and local; project output is committed. All team-created names are **PascalCase**.
 
 ```text
 <project>/
-├── AGENTS.md                        # team constitution (auto-loaded, managed block)
-├── .agents/skills/tw-<name>/SKILL.md # team skills extracted from repeated flows
-├── docs/Team/                       # committed project output
-│   ├── Project.md  Plan.md  Board.md  Archive.md  Decisions.md
-│   ├── Architecture.md  Research.md  Design.md  Risks.md  Costs.md  Release.md
-│   └── AuditManifest.json  AuditManifest.md      # written by `ledger export`
-├── <code/> <tests/>                 # committed project output
-└── .pi/Teamwork/Teams/<Team>/       # the team's own tree (hidden, gitignored)
-    ├── TeamMap.md                   # workspace map
-    ├── Settings.json                # provider caps + pulse interval
-    ├── Criteria.md                  # acceptance criteria + verification evidence
-    ├── Tests.md  TestPlan.md        # layered test records + required layers
-    ├── Reviews.md                   # PRs and review verdicts
-    ├── Disputes.md                  # design/decision challenges
-    ├── Skills.md                    # team-skill registry (tw- name, kind, lesson)
-    ├── Knowledge.md                 # project knowledge, K- records (never committed)
-    ├── Ledger.jsonl                 # append-only, hash-chained audit trail
-    ├── Global/                      # CEO-owned shared memory (+ its .gitignore)
-    │   ├── GlobalMemory.md
-    │   └── GlobalMemoryArchive.md   (created on the first eviction)
-    ├── Roles/<Role>/                # SHARED by every instance of the role
-    │   ├── ShortTermMemory.md  LongTermMemory.md  ArchivedMemory.md
-    │   ├── Role.md                  # charter copy
-    │   ├── Lessons.md               # role-shared mistakes, L- records (never committed)
-    │   └── TaskQueue.md
-    ├── Agents/<Instance>/           # private to one instance
-    │   ├── StartHere.md  WorkLog.md  Inbox.md
-    │   └── Artifacts/  Reports/  Scratch/
-    └── Runtime/                     # ephemeral
-        ├── LedgerHead.json          # fast-path checkpoint for the chain
-        ├── Locks/                   # per-file and per-role locks; memory-<Role>.claim
-        ├── Worktrees/<Instance>/    # created by `branch start --worktree`
-        └── Slots/<Provider>/<Agent>.slot
+├── AGENTS.md                         # team constitution (managed block, auto-loaded)
+├── .agents/skills/tw-<name>/SKILL.md # team skills
+├── docs/Team/                        # Project, Plan, Board, Archive, Decisions,
+│                                     # Architecture, Research, Design, Risks,
+│                                     # Costs, Release, AuditManifest.json/.md
+├── <code/> <tests/>                  # committed project output
+└── .pi/Teamwork/Teams/<Team>/        # hidden, gitignored team tree
+    ├── TeamMap.md  Settings.json  Criteria.md  Tests.md  TestPlan.md
+    ├── Reviews.md  Disputes.md  Skills.md  Knowledge.md  Ledger.jsonl
+    ├── Global/                       # CEO-owned GlobalMemory.md (+ Archive)
+    ├── Roles/<Role>/                 # SHARED: Short/Long/Archived memory,
+    │                                 # Role.md, Lessons.md, TaskQueue.md
+    ├── Agents/<Instance>/            # private: StartHere, WorkLog, Inbox,
+    │                                 # Artifacts/, Reports/, Scratch/
+    └── Runtime/                      # LedgerHead.json, Locks/, Worktrees/, Slots/
 ```
 
-Each team gets its own `<Team>` tree, named after the project, or `--team Name` / `TEAMWORK_TEAM=Name`,
-so several teams in one repository never collide.
+Every team gets its own `<Team>` tree, named after the project or by `--team`/`TEAMWORK_TEAM`, so several teams in one repository never collide. Memory and the queue belong to the ROLE: `Developer-1` and `Developer-2` share `Roles/Developer/` and claim from one queue.
 
-**Memory and the task queue belong to the ROLE, not the instance.** `Developer-1`
-and `Developer-2` read and write one `Roles/Developer/` memory and claim from one
-`Roles/Developer/TaskQueue.md`. `Role.md` is per role; only `StartHere.md`, `WorkLog.md`, `Inbox.md`,
-`Artifacts/`, `Reports/` and `Scratch/` are private to an instance.
-
-**Any role scales, and one instance at a time holds its memory pen.**
-`instance add <role> --count N` runs a second (third, fourth) instance of *any*
-role - CTO, Architect, Product Manager, whoever the brief needs - against the same
-shared memory and queue. Only one instance of a role may revise that memory at a
-time: `memory claim <role> --by <instance>` takes the pen for a multi-entry update
-and `memory release` gives it back, a single `remember` takes it only for its own
-duration, and every other instance of that role is read-only meanwhile (reads and
-`recall` always work). A dead holder's lease expires, and `memory status` shows who
-holds which role now. **A lease that runs long is contested, not waited out**: a
-peer of the role runs `memory contest <role> --by <instance> --reason '<why>'`,
-which puts a `P0` case on the arbiter's queue, and the **CTO** rules - more time
-(`memory extend`) or the lock removed (`memory revoke`) - on the record.
-
+Any role scales with `instance add <role> --count N`. Only one instance of a role revises its memory at a time: `memory claim <role> --by <instance>` takes the pen, `memory release` returns it, and a single `remember` holds it only for its own duration. A long lease is contested, not waited out: a peer runs `memory contest <role> --by <instance> --reason '<why>'` and the **CTO** rules with `memory extend` or `memory revoke`. Detail: `references/State.md`.
 ## Bootstrap procedure (CEO)
 
 Run these in order. Use `SKILL` for this skill's directory.
@@ -286,589 +201,212 @@ Then run the loop (section 5) and close (section 6).
 
 ### 5. Run the loop
 
-One iteration is: re-plan -> dispatch -> work in parallel -> independent review ->
-rework -> integrate. The loop repeats automatically until `teamwork.py loop`
-reports STOP.
+One iteration is: re-plan -> dispatch -> work in parallel -> independent review -> rework -> integrate. Repeat until `teamwork.py loop` reports STOP.
 
-- Teammates auto-claim the highest-priority unblocked task; when one finishes it
-  submits for review and takes the next one.
-- **Every deliverable is second-reviewed by the Reviewer**, independently: code,
-  unit tests, integration/E2E tests, docs, design specs, plans, research, cost
-  models and risk registers. A fail goes straight back to the owner with findings,
-  the owner fixes it, and it is re-reviewed. Review failures are counted: at
-  3 the Reviewer must open a dispute so the tribunal rules (see
-  `references/Dissent.md`), and `loop` blocks STOP until it does.
-- **Every agent tests its own layer, comprehensively and in parallel**: `goal`
-  CEO · `requirements` Product Manager · `plan` Project Manager · `tech` CTO ·
-  `release` Release Engineer · `data` Data Engineer · `process` COO · `cost` CFO ·
-  `system` Architect · `ui` Designer · `docs` Technical Writer · `unit` Developer ·
-  `integration` Tester · `acceptance` Reviewer · `security` Security Auditor. Each role designs, implements and executes its own tests and
-  evidences the run. `tests plan` shows the matrix, role coverage and gaps;
-  `loop` blocks STOP while a required layer is missing/failing or a role has
-  designed no tests at all.
-- **Review is a parallel lane.** `reviewer-1..N` claim *different* deliverables
-  from the shared review queue at the same time (`review --queue`); one claim per
-  deliverable, high-risk work gets two Reviewers on purpose, nobody reviews their
-  own contribution, and findings union - a deliverable passes only when no open
-  finding remains on the revision. **A pass is the merge**: the lane that verified
-  the revision lands it and deletes the branch, so an approved deliverable never
-  waits in a second queue.
-- The CEO keeps the interface contract stable, arbitrates conflicts, resolves
-  duplicate work, and updates global memory.
-- The Project Manager chases stalled tasks and duplicates and refreshes
-  `Plan.md`/`Board.md`; the COO keeps `Risks.md` honest; the Product Manager
-  keeps `Research.md` current.
-- The team is self-managing: the CEO resolves internal conflicts and disputes
-  (tribunal for escalations) without involving the user. The user is contacted
-  only for an authorization, a goal/scope/budget change, a blocking ambiguity,
-  or the final report.
-- Periodically:
+- Teammates auto-claim the highest-priority unblocked task; when one finishes it submits for review and takes the next.
+- **Every deliverable is second-reviewed by the Reviewer**, independently: code, unit tests, integration/E2E tests, docs, design specs, plans, research, cost models and risk registers. A fail returns it to the owner with findings; the owner fixes, re-checks and re-submits. Review failures are counted: at 3 the Reviewer must open a dispute so the tribunal rules (`references/Dissent.md`), and `loop` blocks STOP until it does.
+- **Every agent tests its own layer**: `goal` CEO, `requirements` Product Manager, `plan` Project Manager, `tech` CTO, `release` Release Engineer, `data` Data Engineer, `process` COO, `cost` CFO, `system` Architect, `ui` Designer, `docs` Technical Writer, `unit` Developer, `integration` Tester, `acceptance` Reviewer, `security` Security Auditor. `tests plan` shows the matrix and gaps; `loop` blocks STOP while a required layer is missing/failing.
+- **Review is a parallel lane.** `reviewer-1..N` claim different deliverables from the shared queue (`review --queue`); one claim per deliverable, high-risk work gets two Reviewers, nobody reviews their own work, findings union, and a pass is the merge.
+- The CEO keeps the interface contract stable and arbitrates; the Project Manager chases stalled tasks and refreshes `Plan.md`/`Board.md`; the COO keeps `Risks.md` honest; the Product Manager keeps `Research.md` current.
+- The team is self-managing: the CEO resolves internal conflicts and disputes without involving the user, who hears only an authorization, a goal/scope/budget change, a blocking ambiguity, or the final report.
+
+Periodically, and before every close:
 
 ```sh
-python3 "$SKILL/scripts/teamwork.py" criteria list    # are the goals actually met?
-python3 "$SKILL/scripts/teamwork.py" tests plan       # layered test coverage and gaps
-python3 "$SKILL/scripts/teamwork.py" board
-python3 "$SKILL/scripts/teamwork.py" review --queue   # priority/age, profile, capacity
-python3 "$SKILL/scripts/teamwork.py" coordination --strict   # conformity, trust, merge health
-python3 "$SKILL/scripts/teamwork.py" audit            # fabricated completions, stale work, duplicates, link health
-python3 "$SKILL/scripts/teamwork.py" links            # markdown links, URLs, back-links
-python3 "$SKILL/scripts/teamwork.py" pulse --commit   # idle lanes -> assignment
-python3 "$SKILL/scripts/teamwork.py" parallel         # free slots vs ready work
-python3 "$SKILL/scripts/teamwork.py" loop             # may we stop yet?
-python3 "$SKILL/scripts/teamwork.py" clean --team-wide  # every lane's temp files
+python3 "$SKILL/scripts/teamwork.py" criteria list && python3 "$SKILL/scripts/teamwork.py" tests plan
+python3 "$SKILL/scripts/teamwork.py" board && python3 "$SKILL/scripts/teamwork.py" review --queue
+python3 "$SKILL/scripts/teamwork.py" coordination --strict && python3 "$SKILL/scripts/teamwork.py" audit
+python3 "$SKILL/scripts/teamwork.py" links && python3 "$SKILL/scripts/teamwork.py" pulse --commit
+python3 "$SKILL/scripts/teamwork.py" parallel && python3 "$SKILL/scripts/teamwork.py" loop
 ```
 
-- Report to the user at milestones: what changed, evidence, blockers, next. Never
-  report progress that is not backed by evidence.
-
+Report to the user at milestones: what changed, evidence, blockers, next - never progress without evidence.
 ### 5a. Parallelism is the default, not the reward
 
-A team that runs one lane at a time is a slow single agent with extra records.
-Four rules keep every lane busy without inventing work:
+A team that runs one lane at a time is a slow single agent with extra records. Four rules keep every lane busy without inventing work:
 
 | Rule | Mechanism | Why |
 |---|---|---|
-| A lane holds more than one unit | `LANE_WIP` (2): one deliverable in review plus the next one in progress | a lane waiting for its own review is idle capacity |
-| `pulse` fills capacity, not idle lanes | it computes `LANE_WIP - held` per lane and assigns that many | the old one-task-per-idle-lane rule capped the team at one task per lane per wake |
-| A dependency can release early | `deps: role:T-id@review` (submitted) or `@started` (picked up) | the downstream lane needs a frozen interface, not a merged deliverable |
-| Reviews are the exception | a Reviewer lane holds exactly one claim; run several Reviewer lanes | a deep review is not divisible, and the queue is the concurrency limit |
+| A lane holds more than one unit | `LANE_WIP` (2): one deliverable in review plus the next in progress | a lane waiting for its own review is idle capacity |
+| `pulse` fills capacity, not idle lanes | it assigns `LANE_WIP - held` per lane | the old one-task-per-idle-lane rule capped the team |
+| A dependency can release early | `deps: role:T-id@review` or `@started` | the downstream lane needs a frozen interface, not a merge |
+| Reviews are the exception | one claim per Reviewer lane; run several lanes | a deep review is not divisible |
 
-Capacity is bounded by the provider caps in `Settings.json`, never by the number
-of lanes: `pulse` defers new-lane assignments beyond the free-slot count and
-prints the shortfall, so the team fills 64 Ollama Cloud lanes or 2500 DeepSeek
-lanes without over-subscribing either. A top-up for a lane that already holds a
-lease is not a new lane.
-
-The anti-patterns this replaces, all measured on a real run: a lane that took one
-task and then sat in review while nine lanes idled; a tester blocked for hours on
-`developer:T-0003` when the interface file had been frozen in the first hour; a
-pulse that handed the whole review backlog to one lane.
-
+Capacity is bounded by the provider caps in `Settings.json`, never by the lane count: `pulse` defers assignments beyond the free-slot count and prints the shortfall. Detail and the measured anti-patterns: `references/Concurrency.md`.
 ### 5b. Keep the lanes full: the CEO pulse
 
-After dispatching, the CEO **re-wakes on an interval**, looks for idle lanes, and
-hands them runnable work immediately. This is not optional and not manual: arm a
-recurring wake-up once, and act on every wake.
+After dispatching, the CEO **re-wakes on an interval**, finds idle lanes, and hands them runnable work. Arm a recurring wake-up once and act on every wake:
 
 ```sh
 python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5
 ```
 
-`pulse` prints idle lanes, ready work per role, and a dispatch plan; `--commit`
-applies the assignments (claiming the task and recording which instance owns it).
-Review deliverables are fanned out **one per idle Reviewer lane** and `--commit`
-pins each one with a review claim, so lanes never review the same deliverable and
-never queue the whole backlog on the first lane. Exit code 3 means "nothing to
-dispatch" - then check blocked tasks and disputes.
+`pulse` prints idle lanes, ready work and a dispatch plan; `--commit` applies it and pins review claims so lanes never review the same deliverable. Exit 3 means "nothing to dispatch" - then check blocked tasks and disputes. A review claim is a renewable profile lease (`ReviewLeaseMinutes`, default 20; x1 fast, x2 standard, x4 deep), separate from the 90-minute provider-slot TTL: verdict with `--result`, extend with `--renew`, or `--release`.
 
-An instance counts as **busy** when it holds a provider slot, has a task in
-`doing`/`selfcheck` claimed by it, or holds a live review claim. A review claim is
-a work lease scaled to its profile (`ReviewLeaseMinutes` base, default **20** min;
-×1 for a prose diff, ×2 standard, ×4 deep, capped by `ReviewLeaseMaxMinutes`),
-deliberately separate from the provider-slot TTL (`SlotTtlMinutes`, 90 min):
-verdict with `--result`, extend with `--renew`, or `--release`. A lane that dies
-mid-review stops holding a prose deliverable at 20 minutes, not 90, while a deep
-review keeps the longer lease its work needs. Everything else is idle and must be
-fed.
-
-Arm the recurring wake-up with the host's durable scheduler (the teammate
-package persists schedules per project):
-
-```text
-<scheduler>(id: "teamwork-pulse", every: "5m", prompt: "<the pulse prompt below>")
-```
-
-The scheduler is a host capability, not part of the protocol: whichever timer
-the host offers - a scheduler tool, a cron entry or a background loop - runs the
-same pulse prompt (`references/Adapters.md`).
-
-The workflow body is the pulse prompt: run `pulse --commit`; message every
-assigned lane to start now; give each idle lane its highest-priority unblocked
-task; unblock what is stuck; aim a DIFFERENT Reviewer lane at each unclaimed
-deliverable in `review --queue`; report one short line. Never stop the team while
-`loop` says CONTINUE.
-
-- Interval: `PulseMinutes` in `Settings.json`, default **5** minutes. Use a longer
-  interval for long-running lanes, a shorter one near the end of a milestone.
-- The pulse must never be the only thing keeping the team alive: instances
-  self-serve with `task next` between pulses.
-- Disarm it when the team closes: delete the schedule with the same host tool.
-- If a wake reports idle lanes *and* ready work and nothing moves, that is a
-  process defect: fix the assignment path, do not let the lane sit.
-
+An instance is **busy** only while it holds a slot, a `doing`/`selfcheck` task, or a live review claim; everything else is idle and must be fed. Interval: `PulseMinutes` (default 5). Instances also self-serve with `task next` between pulses. Disarm the schedule when the team closes. The scheduler adapter per host, and the pulse prompt, are in `references/Adapters.md`.
 ### 5c. Push in stages, and certify both signals
 
-Two duties that keep the remote and the confidence level honest:
+- **Release Engineer - push after review, stage by stage.** Only the Release Engineer pushes, and only after the Reviewer passed that revision with no open finding. **A stage ends with a push, not with a merge**: push each reviewed and merged stage instead of batching, so the remote never drifts far from local `main`. Before the push, build, tests, `privacy_scan.py --tree --history` and the link check are green on exactly that revision; after it, watch CI and confirm it is green **on that SHA**. A red run is routed from the log (code -> Developer, test -> Tester, contract -> Architect, workflow/packaging/flake -> Release Engineer, scope -> CEO) and re-run after the fix. A code-scanning alert is the same gate: `teamwork code-scanning` reads the open alerts, an `error`/`critical`/`high` one is red on the shipped revision, and `--commit` files a `P0` task with the file's owner. Force-push and published-history rewrites need the CEO's authorization; tags and releases are the CEO's step, prepared by the Release Engineer.
+- **Tester - certify local *and* CI.** Run the layers locally, then confirm the same result in CI on the pushed revision, job by job across the OS and Python matrix. A green local run with a red CI run is a failure, and so is the reverse; file every failure to its owner with the command, expected vs actual, log, SHA and run id.
+- **CI triggers are path-filtered: code in, prose and media out.** Docs and images get a cheap docs workflow (link health, privacy scan, `mkdocs build --strict`); anything that ships - `src/`, `scripts/`, `tests/`, packaging, workflows, `roles/`, `references/`, `templates/` - always runs the full matrix. Never ignore a path that ships, and keep the two lists in sync.
+- **Everyone keeps the tree clean.** No explanatory comment (`scripts/check_comments.py` fails the gate), no commented-out code, no `TODO` without a tracked task; delete temp and stale files in the same task (`clean` for your lane, `--all` for its `Scratch/`); one canonical home per file, cleaner than you found it.
 
-- **Release Engineer - push after review, stage by stage.** The Release Engineer is
-  the role that pushes commits to the shared remote, and only once the Reviewer
-  has passed that revision with no open finding. Push after each reviewed +
-  merged stage rather than batching everything to the end, so the remote never
-  drifts far from local `main`. **A stage ends with a push, not with a merge.** Locally, before the push: build, tests,
-  `privacy_scan.py --tree --history` and the link check must be green on exactly
-  that revision. After the push, watch CI and confirm it is green **on that SHA**.
-  A red run is routed to its owner from the log (code -> Developer, test ->
-  Tester, contract -> Architect, workflow/packaging/flake -> Release Engineer,
-  scope -> CEO) and re-run after the fix. **A GitHub (or GitLab / Azure)
-  code-scanning alert is part of the same gate**: `teamwork code-scanning` reads
-  the open alerts, an `error`/`critical`/`high` one is a red release signal on the
-  shipped revision, and `--commit` files a `P0` task with the role that owns the
-  file. It exits `1` while a blocking alert is open (filing the fix does not
-  close the gate), and `2` with `unreadable: ...` when the security tab could not
-  be read at all - an unread scanner is `UNVERIFIED`, never a green zero.
-  Dismissing an alert is a Security Auditor triage with a recorded reason, never
-  a way to silence the gate. Force-push and published-history rewrites need the
-  CEO's explicit authorization; tags and public releases are the CEO's step,
-  prepared and verified by the Release Engineer.
-- **Tester - certify local *and* CI.** The Tester runs the layers locally and then
-  confirms the same result in CI on the pushed revision, job by job across the OS
-  and Python matrix. A green local run with a red CI run is a failure, and so is
-  the reverse. Any failure - local or CI - is filed to the owning agent with the
-  exact command, expected vs actual, log excerpt, SHA and run id, and nobody
-  reports a suite as passing while the matching CI run is red.
-- **CI triggers are path-filtered: code in, prose and media out.** Documentation,
-  images and other non-code edits must not run the code matrix; they get a cheap
-  docs workflow instead (link health, privacy scan, `mkdocs build --strict`).
-  Anything that ships - `src/`, `scripts/`, `tests/`, packaging, workflows,
-  `roles/`, `references/`, `templates/` - always runs the full matrix. Never
-  ignore a path that ships, and keep the two path lists in sync.
-
-- **Everyone keeps the tree clean.** Write no comment: the code is the comment
-  (`scripts/check_comments.py` fails the gate on any explanatory `#`), no
-  commented-out code, no `TODO`/`FIXME` without a tracked task id; delete temp and
-  stale files in the same task (`teamwork.py clean` for your own lane's temp
-  patterns, `--all` for its `Scratch/`, the rest by hand); keep one canonical home
-  per file and an obvious structure, and leave the working tree cleaner than you
-  found it. A reviewer who cannot tell deliverable from debris fails the task.
-
-Both duties are evidence, not ceremony: `tests plan` and the task record must name
-the local result **and** the CI run (id + conclusion) for the certified revision.
-
+Both duties are evidence: `tests plan` and the task record name the local result **and** the CI run (id + conclusion) for the certified revision. Detail: `references/Engineering.md`.
 ### 5d. Any agent host, any git host
 
-- **Agent host.** The engine, the workspace format, the criteria records, the
-  two-stage gate, the ledger and the test matrix are host-independent. Only six
-  operations need a host mechanism - spawn a teammate, delegate one-shot work,
-  message an agent, inspect state, re-wake on a schedule, close the team. Name the
-  operation, then use the adapter in `references/Adapters.md` (a teammate tool, a
-  host CLI in a `bash` job, or the files themselves). Never hard-code a host tool
-  in a normative step, and never fake a tool the host lacks: record the degraded
-  mode.
-  The protocol must still complete with no scheduler and no teammate tool at all -
-  one agent wearing the hats sequentially, with the same gates.
-- **Git host.** The Release Engineer guarantees repository and CI integrity on
-  whatever host is in use: protected default branch, **no force-push**, no
-  deletion, required status checks on the exact revision, at least one non-author
-  approval, the host merge button off (rebase-only where the host requires at
-  least one method) - the Reviewer merges locally and the source branch is
-  deleted (`pr merge --squash` is the one-commit path) - protected `v*`
-  tags created only by the CEO, and least-privilege CI with no secret in the tree.
-  Policy and the per-host mapping are in `references/Remotes.md`. Record the actual
-  settings from the host API as evidence and re-read them to detect drift; an
-  unprotected setting is a defect on par with a red build.
-
+- **Agent host.** The engine, workspace, criteria, two-stage gate, ledger and test matrix are host-independent. Only six
+  operations need a host mechanism - spawn a teammate, delegate one-shot work, message an agent, inspect state, re-wake on a schedule, close the team. Name the operation, then use the adapter in `references/Adapters.md` (a teammate tool, a host CLI in a `bash` job, or the files themselves). Never hard-code a host tool in a normative step and never fake one the host lacks: record the degraded mode. With no scheduler or teammate tool the protocol still completes - one agent wearing the hats sequentially, with the same gates.
+- **Git host.** The Release Engineer guarantees repository and CI integrity on any host: a protected default branch, **no force-push**, no deletion, required status checks on the exact revision, at least one non-author approval, the host merge button off - the Reviewer merges locally and the source branch is deleted (`pr merge --squash` is the one-commit path) - protected `v*` tags created only by the CEO, and least-privilege CI with no secret in the tree. Record the actual settings from the host API and re-read them to detect drift; an unprotected setting is a defect on par with a red build. Per-host mapping: `references/Remotes.md`.
 ### 5e. Keep the installed skill on the remote's `main`
 
-The repository root *is* the skill, but the host loads a **copy** from its skills
-directory. Updating one without the other means the agent keeps reading an old
-`SKILL.md` - measured on a real machine as a stale `SKILL.md` plus eight engine
-modules that were simply absent from the copy.
-
-One command does both halves, and it is a startup and post-push step, not a
-manual chore:
-
-```sh
-python3 "$SKILL/scripts/teamwork.py" refresh              # fetch origin/main, then mirror into the skills dir
-python3 "$SKILL/scripts/teamwork.py" refresh --check       # drift only: writes nothing, exit 1 when stale
-python3 "$SKILL/scripts/teamwork.py" refresh --dry-run     # the file plan, no writes
-```
-
-- It fast-forwards a checkout source from `--remote/--branch` (default
-  `origin/main`), then mirrors the bundle into `--dest` (default the host's
-  skills directory). Files the source dropped are deleted so a renamed module
-  cannot shadow the new one; files outside the bundle trees are never touched.
-- **A dirty checkout is mirrored, never reset**: the operator's uncommitted work
-  is theirs, and the command says "fast-forward skipped".
-- With no checkout in use it keeps a tool-managed mirror at
-  `~/.pi/.teamwork-source`, created once with `--mirror --repo <url>`.
-- After a refresh the host must **reload** the skill (restart the session or
-  re-scan). The command prints that reminder whenever it wrote something.
-- Releasing the skill's own work ends with this: the Release Engineer pushes the
-  reviewed revision, then runs `refresh --check` so the machine that ships the
-  protocol also runs it. A failing `--check` is a defect on par with a red gate.
-
+The host loads a **copy** of the skill, so a copy that drifts from `origin/main` silently keeps reading an old protocol. `teamwork.py refresh` fast-forwards a checkout source and mirrors the bundle into the skills directory; `--check` reports drift and exits 1 when stale, `--dry-run` prints the plan. A dirty checkout is mirrored, never reset. Run it at startup and after every push, and reload the skill afterwards. Full behaviour: `references/Adapters.md`.
 ### 5f. Keep lanes decorrelated
 
 Identical lanes make identical mistakes: same model, same context, same queue.
-Measure and enforce independence at intake and at every milestone.
 
-- `model auto --apply` with `TEAMWORK_MODEL_ALT` set when two Reviewer, Tester or
-  Security Auditor lanes are staffed. `coordination` reports `C-DIV-MODEL` when
-  every verification lane resolves to one model.
-- `coordination --strict` is the milestone gate: duplicate branch/task, echoed
-  review evidence, reviewer monoculture, abandoned PRs, a merge fraction below
-  0.5, slot starvation. `--commit` records the check; exit 1 means a high finding
-  is open. Stale open PRs are already reported by `audit`.
-- A conflict is resolved by a measurable contest or the CEO, never by denying a
-  peer a resource. `reclaim` refuses a live lane; `--force <reason>` is only for a
-  confirmed dead one.
-- The Reviewer reads the artifact before the author's summary and records its own
-  run. Evidence identical to the author's line is `C-TRUST-ECHO`.
-- A user-facing deliverable is **shown** at the milestone - a running build, a
-  screenshot, a recording - because taste is not emergent.
+- `model auto --apply` with `TEAMWORK_MODEL_ALT` when two Reviewer, Tester or Security Auditor lanes are staffed; `coordination` reports `C-DIV-MODEL` when every verification lane shares one model.
+- `coordination --strict` is the milestone gate: duplicate branch/task, echoed evidence, reviewer monoculture, abandoned PRs, a merge fraction below 0.5, slot starvation. `--commit` records it; exit 1 means a high finding is open.
+- A conflict is resolved by a measurable contest or the CEO, never by denying a peer a resource. `reclaim` refuses a live lane; `--force <reason>` is only for a confirmed dead one.
+- The Reviewer reads the artifact before the author's summary and records its own run; identical evidence is `C-TRUST-ECHO`.
+- A user-facing deliverable is **shown** at the milestone - a build, screenshot or recording - because taste is not emergent.
 
-The mechanisms, the measured failure each one addresses, and the de-escalation
-ladder are in `references/Coordination.md`.
-
+Mechanisms and the de-escalation ladder: `references/Coordination.md`.
 ### 5g. Keep reviews fast
 
-The Reviewer is the gate every lane waits on; its queue, not its depth, is the
-team's throughput limit.
+The Reviewer is the gate every lane waits on; its queue, not its depth, is the throughput limit.
 
-- `review --queue` sorts by priority then age and prints the profile, the claim
-  state and the lane capacity. Add a Reviewer lane when the unclaimed queue is
-  deeper than twice the lanes; a deep review is not divisible.
-- `review <role> <T-id> --packet` gives the Reviewer the profile, changed files,
-  author self-check, gate set and ordered checklist in one screen. Start there.
-- The profile is inferred from the diff: `fast` for a prose-only change (link
-  check, docs/contract tests, tree privacy scan), `standard` for code (test suite,
-  lint, type-check; a green CI run on the branch SHA may be cited), `deep` for
-  security/release/data/workflow changes (also privacy history and the security
-  scan). `task add --review-profile` overrides it.
-- A claim is a **profile-aware renewable lease** (base `ReviewLeaseMinutes`,
-  default 20 min; ×1/×2/×4 for fast/standard/deep), not the 90-minute
-  provider-slot TTL. `review --next --by <lane>` claims the top deliverable and
-  prints its packet in one step. `--renew` extends a genuinely long review; do
-  not hold a claim while writing prose. `coordination` reports the
-  claim-to-verdict p50/p90 and every claim that outlived its lease, so the CEO can
-  see the bottleneck move.
-
+- `review --queue` sorts by priority then age and prints the profile, claim state and capacity. Add a Reviewer lane when the unclaimed queue is deeper than twice the lanes; a deep review is not divisible.
+- `review <role> <T-id> --packet` gives the profile, changed files, self-check, gates and checklist in one screen; start there.
+- The profile is inferred from the diff: `fast` for prose (link check, docs/contract tests, privacy scan), `standard` for code (suite, lint, type-check; a green CI run may be cited), `deep` for security/release/data/workflow (also privacy history and the security scan). `task add --review-profile` overrides it.
+- A claim is a **profile-aware renewable lease** (`ReviewLeaseMinutes`, default 20; x1/x2/x4 fast/standard/deep), not the slot TTL. `review --next --by <lane>` claims and prints the packet in one step; `--renew` extends a long review; do not hold a claim while writing prose. `coordination` reports claim-to-verdict p50/p90 and expired claims.
 ### 5h. Verify once, credit the rest
 
-The Reviewer is the lane every other lane waits on, and most of a slow review is
-work another role already did: the same suite, the same lint, the same privacy
-scan, run again at the same revision. Independence is about the **author**, not
-about repeating a peer - so a recorded result from another role at the revision
-under review is a fact to cite, and `review --packet` lists those facts.
+The Reviewer is the lane every other lane waits on, and most of a slow review repeats work another role already did at the same revision. Independence is about the **author**, not about repeating a peer: a recorded result from another role at the revision under review is a fact to cite, and `review --packet` lists it.
 
 | Rule | What it means in the loop |
 |---|---|
-| one run per fact per revision | a recorded result (`tests run --rev`, a CI run on the pushed SHA) is not run again at that revision; cite it with `--credit` |
-| the irreducible core | the reviewer runs the requirement conformance check, its own `acceptance` layer, every `uncovered` criterion the packet names, and **one sampled credit** |
-| creditable | a `passing` record at this revision, `by` a role other than the author's, with the command written down; not the author's self-check, not another revision, not a peer's opinion |
-| recorded, not implied | `review ... --result pass --credit TS-0006` writes `credited: TS-0006 integration/harness by Tester @sha` into the evidence; `--credit` refuses a stale, failing, author-role or unknown record and says why |
-| read the machine verdict | lint, format, type-check, suite, links, privacy and security scan are read once; re-executing a green record is `C-REVIEW-DUP`, not diligence |
-| a fix is a delta | a fail stores the failed revision; the next packet prints the round, the findings and `delta since <sha>`; re-review the delta and the failed criterion, and let the lane that raised the finding re-review it |
-| full re-review only on a contract change | the fix adds/removes a deliverable, changes a frozen interface, touches a security/release/data/workflow path, or is larger than the original diff |
-| budget | fast 10 / standard 20 / deep 40 minutes of reviewer work; when it is spent and the artefact is still unverifiable, fail it naming the missing evidence or escalate capacity |
-| batch the context | same author + area + profile may be reviewed in one sitting - one claim and one verdict each |
+| one run per fact per revision | a recorded result (`tests run --rev`, a CI run on the pushed SHA) is not run again; cite it with `--credit` |
+| the irreducible core | the reviewer runs requirement conformance, its own `acceptance` layer, every `uncovered` criterion, and **one sampled credit** |
+| creditable | a `passing` record at this revision, by a role other than the author's, with the command written down |
+| recorded, not implied | `review ... --result pass --credit TS-0006` writes `credited: ...`; a stale, failing, author-role or unknown record is refused with the reason |
+| read the machine verdict | lint, format, type-check, suite, links, privacy and security scan are read once; re-running a green record is `C-REVIEW-DUP` |
+| a fix is a delta review | a fail stores the revision; re-review the delta, the failed criterion and one fresh sampled credit |
+| full re-review only on a contract change | a new deliverable, a frozen interface, a security/release/data/workflow path, or a diff larger than the original |
+| budget | fast 10 / standard 20 / deep 40 minutes; when spent and unverifiable, fail naming the missing evidence |
+| batch the context | same author + area + profile may be one sitting - one claim and one verdict each |
 
-`coordination` reports the credit ratio, the delta re-reviews, `C-REVIEW-DUP` and
-`C-REVIEW-NOCREDIT` (a recent window of passes that cited nothing), so the same
-duplication never has to be argued about twice. **Every author pays this
-forward:** record a run with `--rev <sha>` and `--artifact`, because an
-unrecorded run is a run the Reviewer has to repeat.
-
+`coordination` reports the credit ratio, delta re-reviews, `C-REVIEW-DUP` and `C-REVIEW-NOCREDIT`. Every author records a run with `--rev <sha>` and `--artifact`: an unrecorded run is a run the Reviewer has to repeat.
 ### 5i. The throughput contract
 
-Speed is a property of the structure, not of working harder. Measured on this
-project's own trail (`Ledger.jsonl`, snapshot before this change):
-
-Every number below comes from **one** ledger cut, `n = 1615` (record ids are append-only,
-so the cut is reproducible with a filter at that id - do not mix cuts):
-
-| fact | value at n=1615 |
-|---|---|
-| review failures recorded | **44** |
-| review targets (one role + task) | **66**, of which **26** needed more than one verdict and **11** needed three or more |
-| verdict distribution | 1: 40, 2: 15, 3: 6, 4: 4, 5: 1 |
-| claim -> verdict | p50 10.8 min, p90 25.7 min |
-| failures in a class a local check could have caught before submission | **16-24 of 44** by two independent readings of the same records (36 %-55 %); the split is contested, so it is not the basis of this contract |
-
-Two readings disagree on how much of that block is machine-decidable, so the
-contract does not rest on the estimate: **every review fail now records whether
-the author had a green `preflight` at that revision** (`mechanical: no|unknown|n/a`),
-which measures it prospectively instead of classifying findings after the fact.
-Ten rules remove the duplicated work either way; the full text is
-`references/Roles.md`. `teamwork.py throughput` re-reads the current cut; 5l is
-the M18 response to that measurement, not a replacement for this historical table.
+Speed is a property of the structure, not of working harder. Measured on this project's own trail at **one** ledger cut, `n=1615` (append-only ids make the cut reproducible; never mix cuts): **44** review failures over **66** review targets (one role + task), 26 targets needing more than one verdict and 11 needing three or more; verdict distribution 40/15/6/4/1. Two independent readings put failures a local check could have caught at **16-24 of 44**, but the split is **contested**, so the contract does not rest on it: every fail now records whether the author had a green `preflight` at that revision (`mechanical: no|unknown|n/a`), measuring it prospectively. `teamwork.py throughput` re-reads the current cut.
 
 | Rule | What it forbids |
 |---|---|
-| one parent, one board | a second reporting line; three managers for one role - the board decides, it does not manage |
+| one parent, one board | a second reporting line; three managers for one role |
 | one feature, one team | a Team Leader owning two open features, or two teams on one slice |
-| one owner per artifact, one writer per file | two lanes editing `Architecture.md`, the board, a charter or one source file |
+| one owner per artifact, one writer per file | two lanes editing the same contract, board, charter or source file |
 | one verification per fact per revision | re-running a gate another role recorded green at that revision (5h) |
-| one gate, one place | CI and `docs.yml` running the same check; the Reviewer re-executing what `preflight` already proved |
-| definition of ready | starting a squad on a moving interface, a shared path, or an in-flight dependency |
+| one gate, one place | CI and docs running the same check; the Reviewer repeating `preflight` |
+| definition of ready | starting on a moving interface, a shared path, or an in-flight dependency |
 | definition of done | a done that is not preflight-green + independent pass + archived + merged |
-| generated artifacts render at the merge | a `Board.md` / `Archive.md` render riding a feature branch and conflicting with the next merge |
-| right-sized roster | one lane per task; 20 concurrent lanes for 60 tasks; a second Developer for a slice one can carry |
-| small slices, short leases | a task that cannot be verdict-ed inside one profile lease - split it instead |
+| generated artifacts render at the merge | a `Board.md`/`Archive.md` render riding a feature branch |
+| right-sized roster | one lane per task; a second Developer for a slice one can carry |
+| small slices, short leases | a task that cannot be verdict-ed inside one lease - split it |
 
-`teamwork.py preflight <role> <T-id>` turns rules 6-8 into one fail-closed command
-the author runs before `selfcheck`: identity, commit count, every `@<sha>` in the
-evidence and in the self-check test text must exist, `merge-tree` against the base
-must be clean, board drift is charged only when the branch edits the board, and
-the project's own gate runs from `Settings.json` → `PreflightCommand` (`--run`).
-A review fail now records whether it was `mechanical` (no green preflight at that
-revision) or not, so this table is re-measurable rather than asserted.
+`preflight <role> <T-id>` turns rules 6-8 into one fail-closed command: identity, commit count, every `@<sha>` in the evidence exists, `merge-tree` against the base is clean, board drift is charged only to a board edit, and the project gate runs from `Settings.json` -> `PreflightCommand` (`--run`). A fail records `mechanical`, so the table stays measurable.
 
-**Feature teams are live** (structure in `references/Roles.md`, engine
-`teamwork.py feature add|set|list|check`, contract in `Architecture.md` 13): a Team
-Leader owns one independent feature and the squad attached to it, several teams run
-in parallel, and the Architect and the Project Manager are shared services rather
-than per-team staff. `feature check` applies five rules - a shared writable path,
-an in-flight dependency, one open feature per leader, the owned-path shape (globs,
-paths outside the repository, another lane's checkout, generated artifacts, the
-records file itself), and a duplicate id over every record - and a feature cannot
-leave `proposed` without a frozen interface, refused by
-`feature set <F-nnnn> --state ready`. `preflight`, a review pass and the merge all
-run `feature check` at the tree they are about to accept.
-
+**Feature teams are live** (structure in `references/Roles.md`, engine `teamwork.py feature add|set|list|check`, contract in `Architecture.md` 13): a Team Leader owns one open feature per leader and its squad, teams run in parallel, and the Architect and Project Manager are shared services. `feature check` applies five rules - shared writable path, in-flight dependency, one open feature per leader, owned-path shape, duplicate id - and a feature cannot leave `proposed` without a frozen interface, refused by `feature set <F-nnnn> --state ready`. `preflight`, a review pass and the merge all run it.
 ### 5j. Learning is part of the work
 
-A failure you do not record is a failure the team pays for twice. Three things
-close the loop:
+A failure you do not record is one the team pays for twice.
 
-- **A lesson (`L-`)** after your own self-check or a review fails, and after any
-  mistake worth not repeating: the observable failure, its cause, the rule you
-  now follow, and the evidence that proved it. `lesson add` requires all four,
-  and `load` shows the role's open lessons at every startup. Record the lesson
-  before the re-submission; `lesson fix` closes it when the re-run proves the
-  rule works.
-- **A `tw-` mistake skill** when the fix is a flow, not a one-off: create it from
-  the lesson with `--kind mistake --from-lesson L-nnnn`. The lesson becomes
-  `fixed` and the two records link, so the skill names the failure it prevents
-  instead of repeating it. A review finding that keeps recurring with no lesson
-  and no skill behind it is itself a defect.
-- **A knowledge record (`K-`)** when you learn a durable project fact - an
-  interface, a command, a measured behaviour, a gotcha - with the evidence that
-  established it, tags, an importance from 1 to 5, and a kind (`fact` by default,
-  or `experience`, `preference`, `gotcha`, `rule`). One record is one fact.
-  Search before asking (`knowledge search "<topic>"`), `touch` a record you
-  actually used, and supersede an obsolete fact instead of silently believing two
-  things: `knowledge add --supersedes K-0002 ...`. Never store a secret,
-  credential, token or personal data.
-
-`load` prints your open lessons (first 10) and the top 10 active knowledge
-records, ranked by importance, uses and recency, so every agent reads the most
-useful experience first. The stores are team-local working state and are never
-committed: `Roles/<Role>/Lessons.md` is shared by the role's instances, and
-`Knowledge.md` at the team root is shared by every role. Both are written only
-through the commands - a hand edit is a defect, not a shortcut - and **a lesson
-or a skill never replaces a gate and never weakens one**.
-
-Classify a finding before recording it - tool defect, process, doc drift,
-governance or knowledge - and run the `tw-self-evolve` skill at every milestone
-close. A tool defect takes a code task with a failing reproduction, never a
-lesson: the project's `docs/Team/Evolution.md` holds the four books, the five
-classes and the promotion rules.
+- **A lesson (`L-`)** after your own self-check or a review fails, and after any mistake worth not repeating: the observable failure, cause, the rule you now follow, and the evidence that proved it. `lesson add` requires all four and `load` shows open lessons at every startup. Record it before re-submitting; `lesson fix` closes it when the re-run proves the rule.
+- **A `tw-` mistake skill** when the fix is a flow: `skill create --kind mistake --from-lesson L-nnnn` marks the lesson fixed, links both records and names the failure it prevents. A recurring finding with no skill behind it is a defect.
+- **A knowledge record (`K-`)** for a durable fact, command or gotcha: statement, evidence, tags, importance 1-5 and a kind (`fact`, `experience`, `preference`, `gotcha`, `rule`). Search before asking, `touch` what you used, and supersede an old fact with `knowledge add --supersedes K-0002`. Never store a secret or personal data.
 
 ```sh
-python3 "$SKILL/scripts/teamwork.py" lesson add --by <you> \
-    --mistake '<observable failure>' --cause '<why it happened>' \
-    --rule '<what you do instead>' --evidence '<command @rev -> result>'
+python3 "$SKILL/scripts/teamwork.py" lesson add --by <you> --mistake '<failure>' \
+    --cause '<why>' --rule '<what changes>' --evidence '<cmd @rev -> result>'
 python3 "$SKILL/scripts/teamwork.py" skill create --name tw-<slug> --role <role> \
-    --by <you> --kind mistake --from-lesson L-0001 --for '<when to use it>'
+    --by <you> --kind mistake --from-lesson L-0001 --for '<when>'
 python3 "$SKILL/scripts/teamwork.py" knowledge add --by <you> --topic '<topic>' \
-    --statement '<one durable fact>' --evidence '<command @rev -> result>' \
-    --tags '<tag,tag>' --importance 4
+    --statement '<one fact>' --evidence '<cmd @rev -> result>' --tags '<tag,tag>' --importance 4
 ```
 
+`load` prints the first 10 open lessons and the top 10 active knowledge records. Both stores are team-local, never committed, and written only through the commands: `Roles/<Role>/Lessons.md` is role-shared; `Knowledge.md` is team-wide. Classify a finding before recording it - tool defect, process, doc drift, governance or knowledge - and run `tw-self-evolve` at every milestone close. A tool defect takes a code task with a failing reproduction, never a lesson. Detail: `references/State.md`, `docs/Team/Evolution.md`.
 ### 5k. The context tree
 
-`ctx://` is one read-only view over the team's memory, lessons, knowledge,
-skills, docs and tasks, so an agent navigates what the project knows instead of
-re-reading files. It adds no store: every node resolves to an existing file or
-record, and no file, index, cache or summary sidecar is created.
-
-- **Levels**: L0 is the one-line summary, L1 the record fields, heading tree or
-  child list, and L2 the full record or file. They are computed at read time and
-  never written back.
-- **Commands**: `context ls`, `context tree`, `context read <uri>`,
-  `context find "<query>" [--scope <uri>]`, `context stats` and
-  `context digest <T-id>`.
-- **Retrieve by id, never by whole file**: start with
-  `context find "<topic>" --scope ctx://role/<role>` or `context ls`, then
-  `context read <uri>` at the level you need. Never read a whole archive, plan or
-  task queue to answer one question, and never read a file that a `ctx://` node
-  already addresses.
-- `context digest` proposes a lesson or knowledge block from a task; it writes
-  nothing and claims nothing. `context` never replaces `load`, the gates or the
-  evidence rule - it is navigation and retrieval.
-
+`ctx://` is one read-only view over memory, lessons, knowledge, skills, docs and tasks; every node resolves to an existing file or record and no sidecar is written. L0 is the one-line summary, L1 the record fields or child list, L2 the full record. Use `context ls`, `tree`, `read <uri>`, `find "<query>" [--scope <uri>]`, `stats`, `digest <T-id>`. Retrieve by id, never by whole file: start with `context find` or `context ls`, then read the level you need. `context digest` proposes a lesson or knowledge block and writes nothing. `context` never replaces `load`, the gates or the evidence rule. Detail: `references/State.md`.
 ### 5l. Throughput and the token budget
 
-`teamwork.py throughput` is the measured reader: review claim -> verdict
-latency, pass/fail and rework share, queue depth, instance count and the bytes of
-every surface. At the M18 cut it reported p50 5.8 min / p90 22.1 min and 31 of 65
-targets needing more than one verdict; re-run it at your revision instead of
-quoting these. The policy that follows:
+- **Right-size the roster.** `slim` is the default; add an instance for a named deliverable or a queue deeper than its lanes (`parallel`, `instance list`), and retire an idle one. Retirement is **move-only** to `Runtime/Retired/<Instance>/`; verify `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`) first - a stale cut lost 102 artifact paths (`L-0001`).
+- **Read by id, never by history.** `archive --task <T-id>`, `decision list`, `board`, `trace <id>` answer a question; a whole `Archive.md` is ~0.63M tokens against a ~0.11-0.15M startup, and `Decisions.md`, `Plan.md` and a `TaskQueue.md` are the same trap.
+- **Make the first pass review-ready.** The self-check note answers the boundary and empty/duplicate/second-call case, the contract surface, concurrency/shared writes, and the exact scope, each with a test or a reason. On a code task the Tester records the full suite first and the Reviewer cites it (`--credit`), so it is paid once.
+- **Keep the budget token-true.** `harness budget` measures what `load` prints; `--recallable` reports long-term/archived memory and fixed lessons that `load` never prints. The cap is `AlwaysOnBudgetKb` (122880 B default); when a row is over, trim what `load` prints and record why - never raise the cap.
+- **Split at the slice warning.** `preflight` warns past 6 files/300 lines (`fast`), 12/600 (`standard`), 24/1200 (`deep`); split, or say in the self-check why it is one contract.
 
-- **Right-size the roster.** `slim` is the default. Add an instance only for a
-  named deliverable or when the ready queue for its role is deeper than its lanes
-  (`teamwork parallel`, `teamwork instance list`), and retire an idle one.
-  Retirement is **move-only** to `Runtime/Retired/<Instance>/`: the artifacts,
-  reports and worklog are evidence, never deleted. Before a cut, verify
-  `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`); the
-  first cut ran from a stale checkout and lost 102 artifact paths (`L-0001`).
-- **Read by id, never by history.** `archive --task <T-id>`, `decision list`,
-  `board` and `trace <id>` answer a question; a whole `Archive.md` read is
-  ~0.63M tokens against a ~0.11-0.15M startup, and `Decisions.md`, `Plan.md` and
-  a `TaskQueue.md` are the same trap. Never read a whole record file.
-- **Make the first pass review-ready.** The self-check note answers the boundary
-  and empty/duplicate/second-call case, the contract surface (every existing
-  flag, field and transition), concurrency and shared-file writes, and the exact
-  scope - each with a test or a reason. The Reviewer judges the requirement and
-  its acceptance layer, not the lint; on a code task the Tester records the full
-  suite first and the Reviewer cites it (`--credit`), so the ~30-minute suite is
-  paid once (Tester before Reviewer).
-- **Keep the budget token-true.** `harness budget` measures what `load` prints at
-  startup; `harness budget --recallable` reports long-term/archived memory and
-  fixed lessons/superseded knowledge that `load` never prints. The cap is
-  `AlwaysOnBudgetKb` (122880 B default). When a startup row is over, trim what
-  `load` prints and record why - never raise the cap.
-- **Split at the slice warning.** `preflight` warns when a diff passes its
-  profile's slice: 6 files / 300 changed lines (`fast`), 12/600 (`standard`),
-  24/1,200 (`deep`). The warning does not fail a justified single-contract task;
-  split it or say in the self-check why it cannot be split.
-
-
+`teamwork.py throughput` is the measured reader for latency, pass/fail, rework, queue depth and surface bytes. Detail: `references/State.md`.
 ### 5m. The intern protocol
 
-Onboarding is a step, not a mood. The model is an intern: introduce the work,
-give it one job, prove the job, and remove every manual relay between it and the
-user. The full text is `references/Roles.md`; the audit is the `tw-team-designer`
-team skill.
+The model is an intern: introduce the work, give it one job, prove the job, and remove every manual relay. Full text: `references/Roles.md`; the audit is the `tw-team-designer` team skill.
 
 | Rule | What it forbids |
 |---|---|
-| no human relay | the user copying a fact between agents or re-stating repository state; record the relay (`attention add`) and automate it |
+| no human relay | the user copying a fact between agents or re-stating repository state; record it (`attention add`) and automate it |
 | teach once, encode it | a repeatable method living only in the conversation; `skill create`/`skill share` in the same task |
-| least privilege, one job, one proof | granting every connector "because you can"; every deliverable names its verifier and its proof |
-| onboard, then restate | planning before the agent has restated goal, acceptance and non-goals in its own words |
+| least privilege, one job, one proof | granting every connector; every deliverable names its verifier and proof |
+| onboard, then restate | planning before the agent restated goal, acceptance and non-goals |
 | proactivity is a record | silent autonomy; an idle lane proposes one automation/risk via `attention add` or a task |
-| routine hygiene | a schedule with no trigger, budget and stop condition, or a heavy routine sharing the main lane's context |
+| routine hygiene | a schedule with no trigger, budget and stop condition |
 
-Do not give a bot its own email or external accounts: that is an external,
-irreversible action and a red line. The least-privilege correction from the
-guide's top comment is the adopted form: the smallest team that can reliably get
-the work done, with a proof per seat, not the largest.
-
+Do not give a bot its own email or external accounts: that is external and irreversible. Adopt the smallest team that reliably does the work, with a proof per seat.
 ### 6. Close
 
-When the queue is empty and `loop` is about to report STOP, load the `tw-ceo-audit-close`
-skill and follow it exactly: freeze the revision, verify the chain before the gates,
-check the archive against the tree, export the manifest last, and report from records.
-A trigger line is what makes an on-demand skill exist - an unnamed skill is dead text
-nobody is told to load, and `teamwork.py harness lint` fails a tree that has one.
+When the queue is empty and `loop` is about to report STOP, load `tw-ceo-audit-close` and follow it exactly: freeze the revision, verify the chain before the gates, check the archive against the tree, export the manifest last, and report from records. An unnamed skill is dead text nobody loads, and `harness lint` fails a tree that has one.
 
 Completion gate - all of:
 
-- [ ] Every acceptance criterion in `docs/Team/Project.md` has evidence from a
-      revision.
-- [ ] Every deliverable passed its own self-check and an independent Reviewer
-      verdict with reproducible evidence (code, tests, docs, design, plans,
-      research), and appears in `docs/Team/Archive.md`.
-- [ ] Every required test layer for every area passes, each run by its owning
-      role (`tests plan` reports no gaps).
+- [ ] Every acceptance criterion in `docs/Team/Project.md` has evidence from a revision.
+- [ ] Every deliverable passed a self-check and an independent Reviewer verdict with reproducible evidence, and appears in `docs/Team/Archive.md`.
+- [ ] Every required test layer passes, run by its owning role (`tests plan` reports no gaps).
 - [ ] No open high-severity security finding; no unresolved red-line escalation.
-- [ ] Every task branch has been reviewed and merged into `main` by the
-      Reviewer, and the merged branch is deleted; no work remains only on a branch.
-- [ ] Every staffed role has designed, implemented and run its own test layer,
-      and every area's required layers pass (`tests plan` reports no gaps).
-- [ ] `ledger verify` reports an intact chain, `audit` reports no provenance gaps,
-      and the final `ledger export` manifest is committed with the milestone.
-- [ ] `teamwork.py loop` reports STOP and `teamwork.py audit` reports zero
-      problems.
-- [ ] Docs match merged code; no scratch or temp files left; nothing unnecessary
-      committed.
-- [ ] Final user report: deliverable, how to run it, evidence table, known
-      limitations, follow-ups.
+- [ ] Every task branch is reviewed, merged into `main` and deleted.
+- [ ] Every staffed role designed, implemented and ran its own test layer.
+- [ ] `ledger verify` is intact, `audit` reports no provenance gap, and the `ledger export` manifest is committed.
+- [ ] `loop` reports STOP and `audit` reports zero problems.
+- [ ] Docs match merged code; no scratch or temp files; nothing unnecessary committed.
+- [ ] Final report: deliverable, how to run it, evidence table, limitations, follow-ups.
 
-Then stop the team: end every live lane with the host's stop action, confirm
-`loop` still reports STOP on the final head, and deliver the report.
-
+Then end every live lane with the host's stop action, confirm `loop` still reports STOP on the final head, and deliver the report.
 ## Reference files (read on demand)
 
-`SKILL.md` is the operating procedure. The policy detail lives in `references/`;
-read the one you need instead of the whole skill.
+`SKILL.md` is the operating procedure; policy detail lives in `references/`. Read the one you need instead of the whole skill.
 
 | File | Read it for |
 |---|---|
-| `references/Bootstrap.md` | the one-time flows: intake, workspace, plan, staffing, and the close sequence |
-| `references/Evidence.md` | evidence shape, claim discipline, red lines, what to escalate |
-| `references/Dissent.md` | independent decisions, challenging a design, the 3-round cap, the CEO+CTO+CFO tribunal |
-| `references/State.md` | role-shared memory (short/long/global), lessons, project knowledge, the context tree and the priority task queue |
-| `references/Concurrency.md` | provider caps, slot leases, parallelism plan, reuse |
-| `references/Coordination.md` | multi-agent failure modes and their mechanisms: conformity, stampede, lane wars, trust, echo, merge collapse, taste |
-| `references/Docs.md` | markdown structure, concision rules, bidirectional links |
-| `references/Engineering.md` | commit identity, commit style, Git LFS, branch/PR/merge, worktrees, build economy |
-| `references/Roles.md` | the full roster, handoffs, decision rights and boundaries |
-| `references/Testing.md` | the 15 role-owned test layers, how each is designed/run, dedupe and required coverage |
-| `references/Audit.md` | what is recorded, provenance, the hash-chained ledger, internal and external audit |
-| `references/Adapters.md` | running the team on any agent host: the six operations, the optional per-host mapping, installation and degraded modes |
-| `references/Remotes.md` | repository and CI integrity on any git host: branch protection, required checks, merge strategy, protected tags, least privilege, and the GitHub / GitLab / Bitbucket / Gitea / Azure mapping |
+| `references/Bootstrap.md` | the one-time flows: intake, workspace, plan, staffing, close |
+| `references/Evidence.md` | evidence shape, claim discipline, red lines, escalation |
+| `references/Dissent.md` | independent decisions, challenges, the 3-round cap, the tribunal |
+| `references/State.md` | memory, lessons, knowledge, the context tree, the task queue |
+| `references/Concurrency.md` | provider caps, slot leases, parallelism, reuse, model routing |
+| `references/Coordination.md` | multi-agent failure modes and their mechanisms |
+| `references/Docs.md` | markdown structure, concision, bidirectional links |
+| `references/Engineering.md` | identity, commit style, LFS, branches/PRs/merges, worktrees |
+| `references/Roles.md` | the full roster, handoffs, decision rights, the intern protocol |
+| `references/Testing.md` | the role-owned test layers, dedupe, required coverage |
+| `references/Audit.md` | provenance, the hash-chained ledger, internal and external audit |
+| `references/Adapters.md` | host operations, installation, refresh, degraded modes |
+| `references/Remotes.md` | git-host integrity: protection, checks, merge, tags, least privilege |
 
-Team skills: every team skill is named `tw-<kebab-name>` - the directory
-`.agents/skills/tw-<name>/SKILL.md` and the front-matter `name:` both carry the
-prefix, `skill create` refuses any other name, and `harness lint` reports rule
-`PREFIX` for a directory that does not. There are two kinds: `workflow` (the
-default) is the one way to do a recurring job; `mistake` is created from a
-recorded lesson with `--from-lesson L-nnnn`, which marks the lesson fixed and
-links both records (`--kind mistake` without `--from-lesson` is refused). The
-owning role extracts one when a flow is repetitive, widely reused and must stay
-consistent, and shares it with its peers (`skill create`, `skill share`,
-`skill candidates` - which surfaces both repeated areas and tasks whose review
-failed, with a paste-ready `lesson add` and `skill create --from-lesson` line).
-The file is project output: it goes through the normal branch, commit, PR and
-review, and a skill never replaces this file, the red lines or a gate, and never
-weakens one.
+Team skills are named `tw-<kebab-name>` in `.agents/skills/tw-<name>/SKILL.md` and the front matter; `skill create` refuses any other name and `harness lint` reports `PREFIX`. Two kinds: `workflow` (the one way to do a recurring job) and `mistake` (from a lesson with `--from-lesson L-nnnn`, which marks it fixed and links both). A skill is project output, goes through the normal branch/PR/review, and never replaces this file, a red line or a gate.
 
-Recording and audit: every mutation appends to the hash-chained `Ledger.jsonl`
-(`ledger verify`, `ledger show`, `trace <id>`), and `ledger export` writes
-`docs/Team/AuditManifest.json` for verification by anyone. A broken chain blocks STOP.
-
-Stop condition: acceptance criteria are records, not checkboxes -
-`criteria add|verify|list`, `loop`. Reclaim stuck work with
-`task reclaim <role> <T-id> --as <Instance> --reason "..."`.
-
+Every mutation appends to the hash-chained `Ledger.jsonl` (`ledger verify`, `ledger show`, `trace <id>`); `ledger export` writes `docs/Team/AuditManifest.json`. A broken chain blocks STOP. Criteria are records, not checkboxes (`criteria add|verify|list`); reclaim stuck work with `task reclaim <role> <T-id> --as <Instance> --reason "..."`.
 ## Two-stage quality gate
 
-Every deliverable passes **two** gates, in this order, before it counts as done:
+Every deliverable passes **two** gates, in order:
 
-1. **Self-check (the author).** After finishing the work, the owner reviews their
-   own diff and *runs* a self-test, then records the result. This is mandatory -
-   you cannot submit work you have not checked yourself.
-2. **Independent review (the Reviewer).** The Reviewer judges the submitted
-   result against the requirement and either passes it (task becomes `done`,
-   result is archived) or fails it (task returns to the owner with findings). It
-   verifies what no independent lane verified at that revision - requirement
-   conformance, its own `acceptance` layer, the uncovered criteria and one
-   sampled credit - and cites the rest (5h).
-
-Task lifecycle for a deliverable:
+1. **Self-check (the author).** Re-read the diff, *run* a self-test and record the result. You cannot submit work you have not checked.
+2. **Independent review (the Reviewer).** The Reviewer judges the result against the requirement and either passes it (task `done`, result archived) or fails it (returns to the owner with findings). It verifies what no independent lane verified at that revision - requirement conformance, its own `acceptance` layer, the uncovered criteria and one sampled credit - and cites the rest (5h).
 
 ```text
 todo -> doing -> selfcheck -> review -> done (merged into main by the Reviewer)
@@ -877,72 +415,20 @@ todo -> doing -> selfcheck -> review -> done (merged into main by the Reviewer)
                   +-------- doing
 ```
 
-```sh
-# 1) owner finishes the work and starts their own check
-teamwork.py task set developer-1 T-0007 --status selfcheck
-# 2a) self-check found a problem -> back to doing
-teamwork.py selfcheck developer-1 T-0007 --by developer-1 --result fail \
-    --note "off-by-one at the empty-input boundary" \
-    --test "go test -run TestBoundary @abc123 -> FAIL"
-# 2b) self-check passed -> records the check AND submits for review
-teamwork.py selfcheck developer-1 T-0007 --by developer-1 \
-    --note "re-read the diff: boundary, error paths, docs updated" \
-    --test "go test ./internal/x @def456 -> ok 12 tests"
-# 3) a Reviewer lane takes the deliverable off the shared queue, then verdicts it
-teamwork.py review --queue                                   # submitted work only, priority/age, profile, capacity
-teamwork.py review --next --by reviewer-1                    # claim the top packet in one step
-teamwork.py review developer T-0007 --packet                 # diff, gates, checklist, self-check
-teamwork.py review developer T-0007 --claim --by reviewer-1   # pin it to that lane (profile lease: 20/40/80 min)
-teamwork.py review developer T-0007 --renew --by reviewer-1   # extend a genuinely long review
-# 3a) Reviewer-1 fails it -> task returns to the owner as `doing`, findings recorded
-teamwork.py review developer T-0007 --by reviewer-1 --result fail \
-    --findings "missing empty-input test; go test -run TestEmpty -> FAIL @abc123"
-# 3b) Reviewer-1 passes it -> task becomes `done` and is archived
-teamwork.py review developer T-0007 --by reviewer-1 --result pass \
-    --evidence "go test ./... @def456 -> ok 42 tests"
-# 3c) a lane that cannot finish hands it back so another lane can take it
-teamwork.py review developer T-0007 --release --by reviewer-1
-```
-
 Mechanical enforcement:
 
-- `task set --status review` is refused until `self_check: passed`; a passing
-  self-check requires a `--test` line - reading your own diff is not a test.
-- evidence is a packet: `--baseline`, `--artifact` (hashed into the ledger) and
-  `--replay` travel with the claim, on self-check and review as well as `tests run`.
-- a `--bug` task cannot pass its self-check without a `tests repro <T-id>` record
-  on that task showing the failing run before the passing one (`--force` with a
-  reason if the defect genuinely cannot be reproduced).
-- only the owner may self-check their own task (`--by <owner>`), and only the
-  Reviewer may review it; an author can never close a `review=required` task.
-- a review claim belongs to one lane: another Reviewer is refused while the lease
-  is live (`review <role> <T-id> --claim --by <lane>`), only the holder renews
-  (`--renew`) or releases it (`--release`, or `--force <reason>` when the holder is
-  dead), a verdict clears it, and an expired profile lease is open for take-over.
-  With several lanes `--by reviewer` is ambiguous - name the instance (`reviewer-1`).
-- a `review --result pass` appends the accepted result to
-  `docs/Team/Archive.md` (what, who, verified how, which revision) - the team's
-  evidence ledger. Read it by id with `teamwork.py archive --task <T-id>`.
-- a re-submitted fix is re-reviewed as a **delta**: its own findings, the changed
-  files since the failed revision, the failed criterion re-run, one fresh sampled
-  credit - fail, fix, self-check, re-submit, re-review until it passes - and the
-  failures are counted, so at 3 the Reviewer opens a dispute and the tribunal
-  rules instead of the loop spinning.
-- if a finding turns into a design disagreement, use the dispute protocol.
+- `task set --status review` is refused until `self_check: passed`, and a passing self-check needs a `--test` line - reading your own diff is not a test.
+- Evidence is a packet: `--baseline`, `--artifact` (hashed into the ledger) and `--replay` travel with the claim, on self-check and review as well as `tests run`.
+- A `--bug` task cannot pass without a `tests repro <T-id>` record showing the failing run before the passing one (`--force` with a reason only when it genuinely cannot be reproduced).
+- Only the owner may self-check, and only the Reviewer may review it; an author never closes a `review=required` task.
+- A review claim belongs to one lane: another Reviewer is refused while the lease is live, only the holder renews (`--renew`) or releases (`--release`, or `--force <reason>` for a dead holder), and a verdict clears it. With several lanes name the instance (`reviewer-1`).
+- A pass appends the accepted result to `docs/Team/Archive.md`; read it by id with `archive --task <T-id>`.
+- A re-submitted fix is a **delta**: its findings, the changed files, the failed criterion re-run, one fresh credit. Failures are counted, so at 3 the Reviewer opens a dispute and the tribunal rules.
+- A design disagreement goes through the dispute protocol.
 
-This applies to code, unit tests, integration/E2E tests, documentation, design
-specifications, plans, research briefs, architecture contracts, cost models and
-risk registers.
+This applies to code, unit tests, integration/E2E tests, documentation, design specs, plans, research, architecture contracts, cost models and risk registers. Full command sequence: `references/Roles.md` (Submission).
 
-**The Reviewer judges the artefact, not the author.** The verdict walks six
-ordered criteria - delivery and conformance, fidelity, internal consistency,
-operational fitness, finish, evidence reproduces - and stops at the first one the
-deliverable fails, because a later strength never pays for an earlier gap (the
-full rubric is the `## Ordered criteria` section of `roles/reviewer.md`). Length
-and polish are not merits; a shorter, exact
-answer beats a longer one with a gap; "this needs no change" is a real verdict;
-and the downside of a change is weighed as heavily as its upside.
-
+**The Reviewer judges the artefact, not the author.** The verdict walks six ordered criteria - delivery and conformance, fidelity, internal consistency, operational fitness, finish, evidence reproduces - and stops at the first failure (the full rubric is the `## Ordered criteria` section of `roles/reviewer.md`). Length and polish are not merits; a shorter exact answer beats a longer one with a gap; "this needs no change" is a real verdict; weigh the downside as heavily as the upside.
 ## Self-management charter
 
 The team manages and corrects itself. The user is not part of the loop.
@@ -982,34 +468,13 @@ it covers the same ground plus links, LFS, duplicates and ownership sanity.
 ```sh
 S=<this skill dir>/scripts/teamwork.py
 
-# bootstrap from a tier (slim is the default; two Reviewers always)
-python3 $S init --roster slim
-python3 $S init --agents ceo,architect,developer-1,developer-2,tester-1,reviewer-1,reviewer-2
+# bootstrap and shared state
+python3 $S init --roster slim                      # --agents for an exact list
 python3 $S agents-md && python3 $S repo && python3 $S map
-
-# plan and shared state
 python3 $S criteria add --id AC-1 --text "<verifiable statement>" --owner developer --by ceo
 python3 $S tests require --area auth --layers unit,integration,acceptance --by ceo --reason "core"
 python3 $S tests add --layer unit --area auth --command "go test ./internal/auth"
-python3 $S tests run TS-0001 --by developer-1 --result pass --evidence "<cmd> @<rev> -> <result>" \
-    --baseline "<state before>" --artifact <path> --replay "<cmd>"
-python3 $S tests repro T-0007 --by developer-1 --pre-rev <rev> \
-    --pre-evidence "<cmd> @<rev> -> 3 failed" --post-rev <rev> \
-    --post-evidence "<cmd> @<rev> -> 12 passed"
-python3 $S global "<shared fact>" --key k --importance 4
-python3 $S remember developer-1 "<fact>" --key k --importance 4 --by developer-1 --src T-0007 --rev <sha>
-python3 $S task add developer "<task>" --priority P0 --deps architect:T-0002
-
-# scale ANY role: instances share the role's memory + queue, one reviser at a time
-python3 $S instance add architect --count 2
-python3 $S instance list
-python3 $S instance retire architect-3 --reason "trimmed"   # move-only; verify HEAD at/after b9e5135 first
-python3 $S memory claim architect --by Architect-2 --reason "rewrite the contract"
-python3 $S memory contest architect --by Architect-3 --reason "three tasks blocked"
-python3 $S memory extend architect --by CTO --ttl 45 --reason "the rewrite is large"
-python3 $S memory revoke architect --by CTO --reason "that lane is wedged"
-python3 $S memory release architect --by Architect-2
-python3 $S memory status [architect]
+python3 $S tests run TS-0001 --by developer-1 --result pass --evidence "<cmd> @<rev> -> <result>"
 
 # work: own branch -> commit -> self-check -> PR -> review -> Reviewer merge
 python3 $S task next developer-1
@@ -1020,40 +485,20 @@ python3 $S selfcheck developer T-0007 --by developer-1 --note "<what you re-read
     --test "<cmd> @<rev> -> <result>"
 python3 $S pr open --agent developer-1 --task T-0007
 python3 $S review developer T-0007 --by reviewer-1 --result pass --evidence "<verify cmd @<rev> -> result>"
-python3 $S pr merge --pr P-0001 --by reviewer-1          # only if a pass was landed --no-merge
 
-# reuse: extract a repeated flow and share it with same-role peers
-python3 $S skill candidates
+# scale, coordinate and learn
+python3 $S instance add architect --count 2 && python3 $S instance list
+python3 $S memory claim architect --by Architect-2 --reason "rewrite the contract" \
+    && python3 $S memory release architect --by Architect-2
 python3 $S skill create --name tw-<kebab-name> --role developer --by developer-1 --for "<when to use>"
 python3 $S skill share tw-<kebab-name> --by developer-1
-
-# learn: a mistake becomes a lesson, and a flow fix becomes a tw- mistake skill
-python3 $S lesson add --by developer-1 --mistake "<failure>" --cause "<why>" \
-    --rule "<what changes>" --evidence "<cmd @<rev> -> result>"
-python3 $S skill create --name tw-<slug> --role developer --by developer-1 \
-    --kind mistake --from-lesson L-0001 --for "<when to use>"
-
-# keep the lanes full and the trail honest
-python3 $S board && python3 $S pulse --commit && python3 $S parallel
-python3 $S coordination --strict          # high finding -> exit 1; --commit records it
-TEAMWORK_MODEL_ALT=<second-model> python3 $S model auto --apply   # decorrelate verification lanes
-python3 $S ledger show --tail 20 && python3 $S ledger verify && python3 $S ledger export
-python3 $S trace T-0007
-python3 $S task reclaim developer T-0007 --as Developer-2 --reason "owner went silent"  # refuses a live lane; --force <reason> to override
-python3 $S tests plan && python3 $S audit && python3 $S links && python3 $S loop
-
-# throughput and token economy
-python3 $S throughput
-python3 $S archive --task <T-id>
-python3 $S harness budget --recallable
-python3 $S instance retire <instance> --reason "<why>"   # move-only; verify HEAD at/after b9e5135 first
 python3 $S dispute open --by developer-1 --against architect --topic "..." --evidence "..."
 python3 $S slot acquire --agent developer-3 --provider deepseek --task T-0012
-python3 $S slot renew --agent developer-3 && python3 $S slot release --agent developer-3
-python3 $S clean --team-wide              # every lane's temp files, plus Global/ and Roles/
+
+# close and audit
+python3 $S board && python3 $S pulse --commit && python3 $S parallel
+python3 $S coordination --strict && python3 $S audit && python3 $S links && python3 $S loop
+python3 $S ledger verify && python3 $S ledger export && python3 $S trace T-0007
 ```
 
-Team lifecycle: the teammate tool to staff a lane, the host's reply/steer
-channel to coordinate, its status view to inspect, its scheduler for the pulse
-and its stop action to close a lane. The exact names per host are in
-`references/Adapters.md`.
+Team lifecycle: the teammate tool to staff a lane, the reply/steer channel to coordinate, the status view to inspect, the scheduler for the pulse and the stop action to close. Per-host names: `references/Adapters.md`.
