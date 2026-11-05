@@ -94,7 +94,7 @@ under two roles is two tasks.
 | developer | T-0003 | skills | done | P-0001 | d93df1e |
 | developer | T-0004 | - | dropped | - | - |
 | developer | T-0005 | - | dropped | - | - |
-| developer | T-0006 | archive | review | P-0018 | - |
+| developer | T-0006 | archive | done | P-0018 | 715246b |
 | developer | T-0007 | evolution | done | P-0008 | bead382 |
 | developer | T-0008 | readme | done | P-0006 | 38aa608 |
 | developer | T-0009 | ci | done | P-0009 | 876d17d |
@@ -105,9 +105,10 @@ under two roles is two tasks.
 | developer | T-0014 | acceptance | done | P-0012 | a191167 |
 | developer | T-0015 | hierarchy | review | P-0015 | - |
 | developer | T-0016 | always-on | done | P-0017 | dc60760 |
-| developer | T-0017 | tests | doing | - | - |
+| developer | T-0017 | tests | review | P-0022 | - |
 | developer | T-0018 | makefile-lint | done | P-0019 | 8947ae2 |
 | developer | T-0019 | always-on | done | P-0021 | 9854301 |
+| developer | T-0020 | record-identity | doing | - | - |
 | reviewer | T-0001 | records | done | - | - |
 | tester | T-0001 | - | done | - | - |
 | tester | T-0002 | - | dropped | - | - |
@@ -128,9 +129,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | review | - |
 | developer | T-0015 · Make the feature-team hierarchy visible and practical: CTO -> leaders -> squad | P1 | review | - |
-| developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | doing | - |
+| developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | review | - |
+| developer | T-0020 · Records/merge commits must carry the Acting role trailer (prevent A-0010) | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
