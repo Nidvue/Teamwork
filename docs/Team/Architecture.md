@@ -2009,9 +2009,43 @@ leader it works for, and writes **one private file**, `Agents/<Instance>/Team.md
 - since: 2026-10-29
 ```
 
-`instance list` prints the attachment (`under=TeamLeader-1`) beside the instance
-and `map` is unchanged - the *line* is `ROLE_PARENT`, and the attachment is not a
-line (13.5). Refused (`2`):
+`instance list` prints each instance's manager beside it - `(under:<leader>)` when
+it is attached to a team, `(reports:<parent>)` on the line `ROLE_PARENT` gives its
+role - and `map` renders the **live team**, not just the roster. The *line* is
+still `ROLE_PARENT` and the attachment is not a line (13.5); what the tree adds is
+the team a leader actually holds, because a member that cannot read its own
+escalation path from the map cannot follow it. Under the CTO the map prints one
+row per `team-leader` instance carrying the record it owns - its open `F-nnnn`
+and state, the last record it owned when it is between slices, or `feature=none`
+when it has never owned one; the squad instances whose `Team.md` names that leader
+(`instance add <role> --under <leader>`, for the squad roles `data-engineer`,
+`designer`, `developer`, `technical-writer`, `tester`) are printed under it with
+`(under:<leader>)`; squad instances no leader owns are printed as the CTO's pool;
+and the independent lanes - `reviewer`, `security-auditor`, `cfo` - stay on the
+CEO's line, never under a leader, with the exception note: a verdict under the
+reviewed is not a verdict, and the Security Auditor audits the lane above it and
+cannot audit the lane it reports to. No attachment changes `ROLE_PARENT` or the
+number of managers an instance has: the map renders the private `Team.md`, and
+the one-manager rule is enforced by `instance add` - one name, one `under:` line,
+or none - not by the tree.
+
+```text
+CEO
+  CTO
+    Team Leader: TeamLeader-1  feature=F-0001 (active)
+      Developer-2  (under:TeamLeader-1)
+      Tester-2  (under:TeamLeader-1)
+    Team Leader: TeamLeader-2  feature=none
+    (squad pool - no leader attached)
+    Developer-1
+    Architect
+  Reviewer
+  Security Auditor
+  CFO
+  note: the Reviewer, the Security Auditor and the CFO serve every feature without reporting to a Team Leader - a verdict under the reviewed is not a verdict.
+```
+
+Refused (`2`):
 
 - `--under` naming anything that is not a `team-leader` instance;
 - `--under` on a **shared or independent** role - `architect`,
