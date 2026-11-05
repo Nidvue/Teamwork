@@ -67,9 +67,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 387 kB |
-| `standard` | 10 | 538 kB |
-| `full` | 17 | 882 kB |
+| `slim` (default) | 7 | 388 kB |
+| `standard` | 10 | 540 kB |
+| `full` | 17 | 885 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -216,7 +216,13 @@ CEO
 ```
 
 A Team Leader owns one feature record, cuts it into tasks that name the feature,
-and is accountable for the vertical slice. A specialist (Designer, Data Engineer,
+spawns the squad with `instance add <role> --under <leader>`, and is accountable
+for the vertical slice. **Escalation is one hop:** a squad member escalates to its
+Team Leader, the Team Leader escalates to the CTO, and a squad member takes no
+CTO, CEO or CFO line of its own. `teamwork.py map` prints that live team - the
+leader's `F-nnnn` and the instances under it - and `instance list` prints each
+instance's manager (`under:<leader>` or `reports:<parent>`), so the one-manager
+fact is visible rather than asserted. A specialist (Designer, Data Engineer,
 Technical Writer) belongs to the shared pool and **reports to one manager at a
 time**: the Team Leader for the duration of an assignment, and their discipline
 head outside it - never both. The Security Auditor is the exception: it is never
