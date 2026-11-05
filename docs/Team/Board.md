@@ -81,9 +81,10 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
+| architect | T-0001 | architecture | doing | - | - |
 | ceo | T-0001 | records | done | P-0002 | d8809fa |
 | ceo | T-0002 | records | done | P-0003 | 26e09d0 |
-| ceo | T-0003 | - | todo | - | - |
+| ceo | T-0003 | - | dropped | - | - |
 | ceo | T-0004 | records | done | P-0004 | a45847e |
 | ceo | T-0005 | records | done | P-0005 | df4c4d9 |
 | ceo | T-0006 | evolution | done | P-0010 | e01cced |
@@ -100,8 +101,12 @@ under two roles is two tasks.
 | developer | T-0010 | tests | done | P-0011 | 7470b72 |
 | developer | T-0011 | - | dropped | - | - |
 | developer | T-0012 | ci | done | P-0013 | 51102b0 |
-| developer | T-0013 | - | todo | - | - |
+| developer | T-0013 | docs | review | P-0016 | - |
 | developer | T-0014 | acceptance | done | P-0012 | a191167 |
+| developer | T-0015 | hierarchy | doing | P-0015 | - |
+| developer | T-0016 | always-on | done | P-0017 | dc60760 |
+| developer | T-0017 | - | doing | - | - |
+| developer | T-0018 | - | doing | - | - |
 | reviewer | T-0001 | records | done | - | - |
 | tester | T-0001 | - | done | - | - |
 | tester | T-0002 | - | dropped | - | - |
@@ -121,9 +126,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0003 · Trim the always-on startup surface under the 122880 B cap (Reviewer-1/2 over by 11279 B) | P1 | todo | - |
+| architect | T-0001 · Update Architecture 13.2 and freeze F-0001: the map is live, the CI contract is the interface | P1 | doing | - |
 | developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | doing | - |
-| developer | T-0013 · Prose-contract tests must discover pages, not list them: kill the moved-content breakage class | P1 | todo | - |
+| developer | T-0013 · Prose-contract tests must discover pages, not list them: kill the moved-content breakage class | P1 | review | - |
+| developer | T-0015 · Make the feature-team hierarchy visible and practical: CTO -> leaders -> squad | P1 | doing | - |
+| developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | doing | - |
+| developer | T-0018 · Restore the makefile lint contract after the gate change (CI red at 088e185) | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
