@@ -19,7 +19,7 @@ lives in the `/teamwork` skill.
 | Reviewer | deep independent second review of **every** deliverable (code, tests, docs, design, plans, research); the only role that may pass/merge | CEO |
 | Security Auditor | security assessment and remediation coordination; audits the whole team, CTO included | CEO |
 | Architect | system/module/API/data/deployment architecture, frozen interfaces, ADRs | CTO |
-| Team Leader | one feature end to end (`F-nnnn`), the squad attached to it (`instance add --under`), its `feature` test layer, and the proof that the feature is independent of every other open one | CTO |
+| Team Leader | one feature end to end (`F-nnnn`), the squad it spawns and coordinates (`instance add --under`) which escalates to it, its `feature` test layer, and the proof that the feature is independent of every other open one; it escalates to the CTO | CTO |
 | Developer (1..N) | production code, **its own unit tests**, inline docs, PRs | CTO |
 | Tester (1..N) | integration/system/E2E tests, monitoring real test/CI runs, defect routing, regression | CTO |
 | Release Engineer | build/release pipeline, CI gates, packaging, rollback, repository and CI integrity | CTO |

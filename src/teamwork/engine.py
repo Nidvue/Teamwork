@@ -142,6 +142,7 @@ from .config import (
     FEATURE_TERMINAL_STATES,
     GITIGNORE_LINES,
     IDENTITY_DOMAIN,
+    INDEPENDENT_LANES,
     KNOWLEDGE_KINDS,
     KNOWLEDGE_STATEMENT_MAX,
     KNOWLEDGE_TOPIC_MAX,
@@ -422,6 +423,7 @@ __all__ = [
     "FEATURE_TEAM_LEADER",
     "FEATURE_SQUAD_ROLES",
     "FEATURE_SHARED_ROLES",
+    "INDEPENDENT_LANES",
     "FEATURE_GENERATED_ARTIFACTS",
     "FEATURE_CHECKOUT_STATE",
     "FEATURE_RECORDS_REL",
@@ -5550,6 +5552,14 @@ def _instance_list(root: Path, as_json: bool) -> int:
                     for name in inst
                     if instance_under(root, name)
                 },
+                "manager": {
+                    name: (
+                        f"under:{pascal(instance_under(root, name))}"
+                        if instance_under(root, name)
+                        else f"reports:{pascal(ROLE_PARENT.get(role) or 'user')}"
+                    )
+                    for name in inst
+                },
                 "memory_writer": pascal(claim["instance"]) if claim else "",
                 "minutes_left": memory_claim_remaining(claim) if claim else 0,
                 "tasks": len(parse_tasks(task_file(root, role))),
@@ -5567,10 +5577,7 @@ def _instance_list(root: Path, as_json: bool) -> int:
             if row["memory_writer"]
             else "memory free"
         )
-        shown = [
-            f"{name} (under={row['under'][name]})" if name in row["under"] else name
-            for name in row["instances"]
-        ]
+        shown = [f"{name} ({row['manager'][name]})" for name in row["instances"]]
         print(
             f"{row['role']:20s} instances={len(row['instances']):2d} "
             f"[{', '.join(shown) or '-'}]  tasks={row['tasks']:3d}  {holder}"
@@ -8262,7 +8269,9 @@ def instance_under(root: Path, instance: str) -> str:
     """The team leader an instance is attached to, or "" when it has none.
 
     The attachment is one private file, `Agents/<Instance>/Team.md` (13.2): a fact
-    about the instance, not a reporting line, so `map` does not change.
+    about the instance, not a reporting line - `ROLE_PARENT` is the line - so
+    `map` prints it as the team a leader leads and `instance list` prints it as
+    the instance's manager, and neither changes the tree the role sits in.
     """
     path = agent_dir(root, instance) / F_TEAM
     if not path.exists():
@@ -15415,6 +15424,117 @@ def reporting_children(parent: str) -> list[str]:
     return [r for r in ROLE_REPORT_ORDER if ROLE_PARENT.get(r) == parent]
 
 
+def leader_feature(root: Path, leader: str) -> dict | None:
+    """The record a leader's line carries: its open feature, else the last it owns.
+
+    A leader owns one open feature (independence rule 3), so the open record is
+    the one the team is building; a leader between features still shows the last
+    record it owned, with its state, rather than looking unassigned.
+    """
+    owned = [r for r in parse_features(feature_record_path(root)) if r.get("owner") == leader]
+    if not owned:
+        return None
+    open_records = [r for r in owned if r.get("state") in FEATURE_OPEN_STATES]
+    return open_records[0] if open_records else owned[-1]
+
+
+def attached_squad(root: Path, leader: str) -> list[str]:
+    """Squad instances whose one private ``Team.md`` names ``leader``, by name."""
+    attached = []
+    for role in FEATURE_SQUAD_ROLES:
+        for name in instances_of(root, role):
+            if pascal(instance_under(root, name)) == pascal(leader):
+                attached.append(name)
+    return sorted(attached)
+
+
+def unattached_squad(root: Path) -> list[str]:
+    """The pool on the CTO's line: squad instances no leader owns.
+
+    Only the CTO's own line pools: an attachable role whose ``ROLE_PARENT`` is
+    another manager (a Designer or Technical Writer under the Product Manager) is
+    that manager's line, not a pool member, or the same seat would appear on two
+    lines. Only instances with no ``under:`` belong here as well - an attached
+    instance prints under its leader and nowhere else.
+    """
+    pool: list[str] = []
+    for role in FEATURE_SQUAD_ROLES:
+        if ROLE_PARENT.get(role) != "cto":
+            continue
+        pool.extend(sorted(n for n in instances_of(root, role) if not instance_under(root, n)))
+    return pool
+
+
+def reporting_tree_lines(root: Path) -> list[str]:
+    """The live reporting tree: the line, plus the team each leader actually has.
+
+    ``ROLE_PARENT`` is the reporting line and it does not change when a squad is
+    attached (13.2); what changes is the team a leader leads, so the tree prints
+    the leader's own instances with the feature they own and the squad attached
+    to them, the squad the CTO holds as a pool, and the three independent lanes
+    with the reason they serve features without joining a team.
+    """
+    lines: list[str] = []
+
+    def emit(depth: int, text: str) -> None:
+        lines.append("  " + "  " * depth + text)
+
+    def staffed(role: str) -> str:
+        names = [n for n in instances_of(root, role) if not instance_under(root, n)]
+        return (
+            f"{ROLE_DISPLAY.get(role, role)}: {', '.join(names)}"
+            if names
+            else ROLE_DISPLAY.get(role, role)
+        )
+
+    def under_ceo(depth: int) -> None:
+        for kid in reporting_children("ceo"):
+            if kid == "cto":
+                emit(depth, staffed("cto"))
+                under_cto(depth + 1)
+            elif kid in INDEPENDENT_LANES:
+                emit(depth, staffed(kid))
+            else:
+                emit(depth, staffed(kid))
+                role_children(kid, depth + 1)
+        emit(
+            depth,
+            "note: the Reviewer, the Security Auditor and the CFO serve every feature "
+            "without reporting to a Team Leader - a verdict under the reviewed is not a verdict.",
+        )
+
+    def role_children(role: str, depth: int) -> None:
+        for kid in reporting_children(role):
+            emit(depth, staffed(kid))
+            role_children(kid, depth + 1)
+
+    def under_cto(depth: int) -> None:
+        leaders = instances_of(root, FEATURE_TEAM_LEADER)
+        if not leaders:
+            emit(depth, f"{ROLE_DISPLAY[FEATURE_TEAM_LEADER]}: no instance")
+        for leader in leaders:
+            record = leader_feature(root, leader)
+            label = f"feature={record['id']} ({record['state']})" if record else "feature=none"
+            emit(depth, f"{ROLE_DISPLAY[FEATURE_TEAM_LEADER]}: {leader}  {label}")
+            for member in attached_squad(root, leader):
+                emit(depth + 1, f"{member}  (under:{leader})")
+        pool = unattached_squad(root)
+        emit(depth, "(squad pool - no leader attached)")
+        for unit in pool:
+            emit(depth, unit)
+        for kid in reporting_children("cto"):
+            if kid == FEATURE_TEAM_LEADER:
+                continue
+            if kid in FEATURE_SQUAD_ROLES and instances_of(root, kid):
+                continue
+            emit(depth, staffed(kid))
+            role_children(kid, depth + 1)
+
+    emit(0, ROLE_DISPLAY["ceo"])
+    under_ceo(1)
+    return lines
+
+
 def cmd_map(args) -> int:
     """Print the workspace map + where code/tests actually live in this repo."""
     root = project_root(args)
@@ -15448,13 +15568,11 @@ def cmd_map(args) -> int:
     )
     print()
     print("reporting lines (one parent per role; the CEO is the only lane to the user)")
-
-    def _tree(role: str, depth: int) -> None:
-        print("  " + "  " * depth + ROLE_DISPLAY.get(role, role))
-        for kid in reporting_children(role):
-            _tree(kid, depth + 1)
-
-    _tree("ceo", 0)
+    print(
+        "(live: a leader carries its feature and the squad attached to it; the line is ROLE_PARENT)"
+    )
+    for line in reporting_tree_lines(root):
+        print(line)
     print()
     print("roles (shared memory + queue) and their instances (private scratch)")
     for role in list_roles(root):
