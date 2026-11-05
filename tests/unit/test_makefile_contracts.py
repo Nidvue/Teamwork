@@ -297,8 +297,105 @@ def uncovered_gates(repo_root: Path = REPO_ROOT) -> list[tuple]:
     return sorted(sig for sig in all_ci_gates(repo_root) if sig not in covered)
 
 
+GATE_JOBS = ("lint", "docs", "release-consistency")
+
+
+def signatures_of_target(text: str, target: str) -> set[tuple]:
+    """Every gate signature a target runs, following its prerequisites.
+
+    ``make ci-fast`` and ``make docs`` inherit gates from a prerequisite, so a
+    comparison that read only the recipe would call a gate unreachable while
+    ``make`` still runs it. The walk ignores a name that is not a target (a file
+    prerequisite) and a name it has already visited (a cycle).
+    """
+    targets = make_targets(text)
+    found: set[tuple] = set()
+    seen: set[str] = set()
+    stack = [target]
+    while stack:
+        name = stack.pop()
+        if name in seen or name not in targets:
+            continue
+        seen.add(name)
+        for entry in targets[name]:
+            for argv in split_commands(entry):
+                sig = signature(argv)
+                if sig:
+                    found.add(sig)
+            if entry in targets and entry not in seen:
+                stack.append(entry)
+    return found
+
+
 def test_every_gate_command_ci_runs_has_a_makefile_target():
     assert uncovered_gates() == []
+
+
+def test_the_fast_local_gate_runs_the_documented_commands_in_one_place():
+    """`make ci-fast` is a contract: lint, link health and the docs contract.
+
+    The signature comparison above cannot tell `teamwork.py identity` from
+    `teamwork.py links` (both are the same script), so this asserts the two
+    commands the fast gate owes the developer are the ones it actually runs
+    rather than one standing in for the other.
+    """
+    text = makefile_text()
+    argv_lists = [
+        argv
+        for target in ("ci-fast", "lint")
+        for entry in make_targets(text)[target]
+        for argv in split_commands(entry)
+    ]
+    links = [argv for argv in argv_lists if signature(argv) == ("teamwork.py",) and "links" in argv]
+    docs_contract = [
+        argv
+        for argv in argv_lists
+        if (signature(argv) or ("",))[0] == "pytest"
+        and any("test_docs_contracts.py" in token for token in argv)
+    ]
+    assert links, "`make ci-fast` must run `teamwork.py links` itself"
+    assert docs_contract, "`make ci-fast` must run the docs-contract unit file"
+
+
+def test_each_named_job_is_exercised_by_its_namesake_make_target():
+    """`lint`, `docs` and `release-consistency` must run locally as CI runs them.
+
+    Reachability through *some* target is too weak for these three: a gate added
+    to the CI job could be covered by an unrelated target and the local run of
+    the same name would still not exercise it. Requiring the namesake target is
+    what makes "run the job locally" a true statement, which is the class of
+    drift that produced the red runs this task exists to remove.
+    """
+    text = makefile_text()
+    gates = ci_gates()
+    assert set(GATE_JOBS) <= set(gates), f"unknown job in GATE_JOBS: {set(GATE_JOBS) - set(gates)}"
+    problems: list[str] = []
+    for job in GATE_JOBS:
+        assert gates[job], f"{job} runs no recognised gate"
+        covered = signatures_of_target(text, job)
+        problems.extend(
+            f"{job}: CI runs {sig}, `make {job}` does not"
+            for sig in sorted(gates[job])
+            if sig not in covered
+        )
+    assert problems == [], "; ".join(problems)
+
+
+def test_the_fast_local_gate_runs_every_gate_the_lint_job_runs():
+    """`make ci-fast` is the one local gate, so it cannot be narrower than CI.
+
+    The preflight runs `make ci-fast`; if the lint job runs a command that the
+    fast target skips, a developer is told the tree is green by the only check
+    they were given and CI disagrees - the exact failure this file is for. The
+    lint job is the one every code push always runs, so it is the set the fast
+    gate has to match.
+    """
+    fast = signatures_of_target(makefile_text(), "ci-fast")
+    missing = sorted(sig for sig in ci_gates()["lint"] if sig not in fast)
+    assert missing == [], (
+        f"the lint job runs {missing}, which `make ci-fast` does not: a local gate that "
+        "skips a CI gate tells the developer the tree is green when CI disagrees"
+    )
 
 
 def test_no_gating_job_runs_a_command_this_comparison_cannot_see():
@@ -313,6 +410,7 @@ def test_no_gating_job_runs_a_command_this_comparison_cannot_see():
         "privacy",
         "release-consistency",
         "docs",
+        "docs-contract",
     }, f"unexpected gating job set: {sorted(gates)}"
     for job, sigs in gates.items():
         assert sigs, f"{job} runs no recognised gate, so its parity is never checked"

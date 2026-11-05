@@ -25,7 +25,7 @@ from pathlib import Path
 
 from tests.gitenv import child_env
 
-from teamwork import config, engine
+from teamwork import config, engine, io
 
 AGENTS = "ceo,developer-1,tester-1,reviewer-1"
 
@@ -40,6 +40,8 @@ PREFIX_REFUSAL = (
 MISTAKE_NEEDS_LESSON = (
     "--kind mistake requires --from-lesson L-nnnn: a mistake skill names the lesson it fixes"
 )
+
+MEASURED_STARVED_LOCK_WAIT_SECONDS = 60
 
 CONCURRENT_LOCK_WAIT_SECONDS = 360
 
@@ -651,3 +653,24 @@ def _env() -> dict:
     env.pop("TEAMWORK_ROOT", None)
     env.pop("TEAMWORK_TEAM", None)
     return env
+
+
+def test_the_concurrent_wait_budget_is_derived_from_the_measured_starvation() -> None:
+    """The wait is a measurement, not a round number: 2x what starved, past stale.
+
+    Run 41916744357 job 126878425913: eight `lesson add` processes, one of them
+    starved for the full 60 s default and exited 4 while the lock was correct.
+    The budget must stay above that measurement with headroom, and above
+    `io.LOCK_STALE_SECONDS` so a wait that long lets `_lock_owner_stale` reclaim
+    a dead owner's lock instead of calling it busy. Raising the measurement
+    without raising the budget fails here.
+    """
+    assert CONCURRENT_LOCK_WAIT_SECONDS >= 2 * MEASURED_STARVED_LOCK_WAIT_SECONDS, (
+        f"CONCURRENT_LOCK_WAIT_SECONDS={CONCURRENT_LOCK_WAIT_SECONDS}s must be at least twice "
+        f"the {MEASURED_STARVED_LOCK_WAIT_SECONDS}s wait a loaded runner starved, or the next "
+        "loaded runner fails the concurrency test again"
+    )
+    assert CONCURRENT_LOCK_WAIT_SECONDS > io.LOCK_STALE_SECONDS, (
+        f"CONCURRENT_LOCK_WAIT_SECONDS={CONCURRENT_LOCK_WAIT_SECONDS}s must outlast "
+        f"io.LOCK_STALE_SECONDS={io.LOCK_STALE_SECONDS}s, or an abandoned lock reports as busy"
+    )
