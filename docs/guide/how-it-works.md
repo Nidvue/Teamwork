@@ -42,10 +42,16 @@ flowchart TD
 Nothing is dispatched before the interfaces are frozen, and nothing reaches
 `main` without the Reviewer's own evidence. Everything else runs in parallel.
 
-A **Team Leader** owns one independent feature end to end - the squad attached
-to it (`instance add --under`) and its `feature` test layer - so several
-features run in parallel without sharing a writable path; the Architect and the
-Project Manager stay shared services ([Features](features.md)).
+A **Team Leader** owns one independent feature end to end - the squad it spawns
+and coordinates (`instance add <role> --under <leader>`) and its `feature` test
+layer - so several features run in parallel without sharing a writable path; the
+Architect and the Project Manager stay shared services ([Features](features.md)).
+Escalation is one hop: a squad member escalates to its Team Leader, the Team
+Leader to the CTO, and a member takes no CTO, CEO or CFO line of its own.
+`teamwork map` prints that live team - each leader with its `F-nnnn` and the
+instances under it, the unattached squad as the CTO's pool, and the Reviewer,
+Security Auditor and CFO as independent lanes that serve every feature without
+reporting to a leader.
 
 ## 2. What each stage leaves behind
 
