@@ -613,7 +613,7 @@ def test_eight_real_cli_adds_persist_one_record_each(project: Path, tmp_path: Pa
     codes = [process.returncode for process in processes]
     assert codes == [0] * count, [
         (index, code, out, err)
-        for index, (code, (out, err)) in enumerate(zip(codes, results))
+        for index, (code, (out, err)) in enumerate(zip(codes, results, strict=True))
         if code != 0
     ]
 

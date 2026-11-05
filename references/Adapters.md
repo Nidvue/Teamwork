@@ -104,7 +104,7 @@ required after a write and the command says so.
 
 ## Rules
 
-1. **The engine is the constant.** `teamwork.py` (stdlib only, Python 3.9-3.13) is
+1. **The engine is the constant.** `teamwork.py` (stdlib only, Python 3.11-3.13) is
    the only thing a host must be able to run. It never calls a host API.
 2. **State lives in git and in `.pi/`.** Nothing important lives in a host's
    private memory: a teammate that dies and is respawned on another host resumes
