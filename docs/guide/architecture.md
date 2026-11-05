@@ -118,7 +118,7 @@ existing workspace.
 
 ## Portability and packaging
 
-- Runtime: CPython 3.9 - 3.13 on Linux, macOS and Windows.
+- Runtime: CPython 3.11 - 3.13 on Linux, macOS and Windows.
 - No third-party import at runtime; file I/O is UTF-8 with `\n` newlines for
   byte-identical output.
 - Forbidden in the runtime path: `fcntl`, `termios`, `pwd`, `grp`, `os.fork`,

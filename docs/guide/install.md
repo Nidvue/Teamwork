@@ -15,7 +15,7 @@ built, nothing is daemonised, nothing is sent to a service of ours.
 | Requirement | Value |
 |---|---|
 | Agent host | any host that loads a skill directory, or that can run a script and read `AGENTS.md` |
-| Engine runtime | CPython 3.9 - 3.13, standard library only, no third-party dependencies |
+| Engine runtime | CPython 3.11 - 3.13, standard library only, no third-party dependencies |
 | Platforms | Linux, macOS, Windows |
 
 ## Four channels, one engine
