@@ -107,7 +107,7 @@ under two roles is two tasks.
 | developer | T-0016 | always-on | done | P-0017 | dc60760 |
 | developer | T-0017 | tests | doing | - | - |
 | developer | T-0018 | makefile-lint | done | P-0019 | 8947ae2 |
-| developer | T-0019 | - | doing | - | - |
+| developer | T-0019 | always-on | done | P-0021 | 9854301 |
 | reviewer | T-0001 | records | done | - | - |
 | tester | T-0001 | - | done | - | - |
 | tester | T-0002 | - | dropped | - | - |
@@ -132,7 +132,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0013 · Prose-contract tests must discover pages, not list them: kill the moved-content breakage class | P1 | review | - |
 | developer | T-0015 · Make the feature-team hierarchy visible and practical: CTO -> leaders -> squad | P1 | doing | - |
 | developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | doing | - |
-| developer | T-0019 · Restore the provider-cap statement in SKILL.md after the always-on trim | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
