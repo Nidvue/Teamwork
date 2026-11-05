@@ -27,6 +27,7 @@ Requirements: Python 3.11 or newer. The runtime has no third-party dependencies.
 | Target | Command | Purpose |
 |---|---|---|
 | `make lint` | `ruff check .` + `ruff format --check .` | Style, imports and formatting. |
+| `make ci-fast` | `make lint` + `teamwork links` + the docs-contract unit file | The one local gate the team preflight runs, in about two seconds. |
 | `make typecheck` | `mypy src/teamwork` | Type report. |
 | `make test` | `pytest -q` | Unit, integration and acceptance tests. |
 | `make build` | `python -m build` | Build sdist and wheel. |

@@ -72,6 +72,7 @@ jobs:
   scope:
     name: scope (code or prose only)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     # The workflow can no longer delegate the prose filter to `paths-ignore`
     # (see the header), so the changed-path set is computed here from git and the
     # matrix jobs ask one question: did this push touch anything that ships?
@@ -202,6 +203,7 @@ jobs:
   lint:
     name: lint (ruff)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # A prose-only push cannot change a file ruff reads, so this is pure waste
     # there; it was skipped entirely by the old `paths-ignore`, and it still is.
     needs: scope
@@ -249,6 +251,7 @@ jobs:
   committer-guard:
     name: committer guard (no account stamped into main)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     # The earliest signal for the one mistake that has rewritten this branch
     # three times: a host merge button (squash or rebase) writes the signed-in
     # account into the commit it creates, and the privacy gate then fails on that
@@ -295,6 +298,7 @@ jobs:
   typecheck:
     name: typecheck (mypy, non-blocking)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: scope
     if: github.event_name != 'push' || needs.scope.outputs.code == 'true'
     # mypy is a report, not a gate: keep the signal without blocking the lane.
@@ -320,6 +324,7 @@ jobs:
   test:
     name: test (${{ matrix.os }} / py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     needs: scope
     if: github.event_name != 'push' || needs.scope.outputs.code == 'true'
     strategy:
@@ -367,6 +372,8 @@ jobs:
       - name: Run tests with the coverage gate (ubuntu 3.11)
         if: matrix.coverage
         shell: bash
+        env:
+          TEAMWORK_CI_SKIP_HISTORY_PROOF: "0"
         run: |
           mkdir -p reports
           python -m pytest -q \
@@ -378,6 +385,8 @@ jobs:
       - name: Run tests (plain)
         if: ${{ !matrix.coverage }}
         shell: bash
+        env:
+          TEAMWORK_CI_SKIP_HISTORY_PROOF: "1"
         run: |
           mkdir -p reports
           python -m pytest -q --junitxml=reports/junit.xml
@@ -392,6 +401,7 @@ jobs:
   build:
     name: build (sdist + wheel + verify)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: scope
     if: github.event_name != 'push' || needs.scope.outputs.code == 'true'
     steps:
@@ -421,6 +431,7 @@ jobs:
   privacy:
     name: privacy scan (tree + history)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: scope
     # Prose-only pushes included: this gate reads the git history and every
     # commit message, and a merge commit is created at merge time - so a
@@ -445,6 +456,7 @@ jobs:
   release-consistency:
     name: release consistency (offline - docs + tags + version)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Blocking on purpose - no `continue-on-error`. Every published fact about
     # "what version is out" (a git tag, an npm tarball, a GitHub Release, a
     # sentence in README.md or docs/Team/Release.md, the CHANGELOG entry, the
@@ -549,6 +561,7 @@ jobs:
   docs:
     name: docs (mkdocs build --strict)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: scope
     # A prose-only push is exactly the change this job is about, so it runs on
     # `code || prose`: link health and the strict build are prose checks.
@@ -573,3 +586,38 @@ jobs:
         run: python scripts/teamwork.py links
       - name: mkdocs build --strict
         run: mkdocs build --strict
+
+  docs-contract:
+    name: docs contract (tests that read the prose)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: scope
+    # The expensive matrix reads code, and a prose-only push is right to skip it.
+    # But these five files read README.md and docs/, so a prose push can turn them
+    # red while the matrix is skipped: the README merge that dropped the install
+    # command and the provider-cap statement both landed as "prose". They are
+    # seconds of work, so they run on `code || prose` and on every event.
+    if: github.event_name != 'push' || needs.scope.outputs.code == 'true' || needs.scope.outputs.prose == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          lfs: true
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install package and test tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+      - name: Tests that read the prose
+        run: |
+          python -m pytest -q \
+            tests/acceptance/test_acceptance_docs.py \
+            tests/unit/test_readme_layout.py \
+            tests/unit/test_provider_caps.py \
+            tests/unit/test_docs_contracts.py \
+            tests/unit/test_skill_contracts.py

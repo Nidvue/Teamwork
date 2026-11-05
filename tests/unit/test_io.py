@@ -121,3 +121,52 @@ def test_lock_owner_stale_ignores_a_fresh_lock(
 def test_lock_owner_stale_treats_unreadable_lock_as_not_stale(tmp_path: Path) -> None:
     missing = tmp_path / "no.lock"
     assert engine._lock_owner_stale(missing) is False
+
+
+def test_lock_survives_a_permission_error_while_the_owner_removes_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The Windows race: the open() itself raises EACCES and the file then vanishes.
+
+    Run 41935895596 job 126945114504 failed eight concurrent `lesson add`
+    processes with `teamwork: PermissionError: [Errno 13] Permission denied:
+    '...lessons.lock'`. The OS reports a sharing violation on `open`, not
+    `FileExistsError`, so a waiter that only retried the latter aborted a command
+    whose lock was about to be free. Acquisition has to treat it as busy.
+    """
+    lock_path = tmp_path / "x.lock"
+    lock_path.write_text(f"{os.getpid()}.0", encoding="utf-8")
+    real_open = os.open
+    attempts = {"n": 0}
+
+    def racing_open(path, flags, *args, **kwargs):
+        if str(path) == str(lock_path) and attempts["n"] == 0:
+            attempts["n"] += 1
+            os.unlink(str(lock_path))
+            raise PermissionError(13, "Permission denied", str(path))
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", racing_open)
+    with engine.lock(lock_path, timeout=5):
+        assert attempts["n"] == 1, "the probe never reproduced the PermissionError"
+        assert lock_path.read_text(encoding="utf-8").startswith(f"{os.getpid()}.")
+
+
+def test_a_permission_error_that_never_clears_is_a_busy_timeout_not_a_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bounded, and still the lock's own verdict: exit 4, never an uncaught OSError."""
+    lock_path = tmp_path / "x.lock"
+    lock_path.write_text(f"{os.getpid()}.0", encoding="utf-8")
+    real_open = os.open
+
+    def denying_open(path, flags, *args, **kwargs):
+        if str(path) == str(lock_path):
+            raise PermissionError(13, "Permission denied", str(path))
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", denying_open)
+    with pytest.raises(SystemExit) as excinfo:
+        with engine.lock(lock_path, timeout=0.2):
+            pass
+    assert excinfo.value.code == 4

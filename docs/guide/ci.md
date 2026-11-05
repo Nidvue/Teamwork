@@ -25,6 +25,7 @@ gate, in CI as well as locally.
 | Target | Underlying command | What it proves |
 |---|---|---|
 | `make lint` | `ruff check .` + `ruff format --check .` + `python scripts/check_comments.py` | Style, import order, formatting and the no-comment rule. |
+| `make ci-fast` | `make lint` + `python scripts/teamwork.py links` + `pytest -q tests/unit/test_docs_contracts.py` | The single local gate the team preflight runs: the lint job's gates, link health and the docs contract, in about two seconds. It refuses an interpreter below the 3.11 floor, which is what CI runs. |
 | `make typecheck` | `mypy src/teamwork` | Type report (non-blocking in CI). |
 | `make test` | `pytest -q` | Unit, integration and acceptance tests. |
 | `make build` | `python -m build` | An sdist and a wheel are produced. |
