@@ -81,7 +81,7 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| architect | T-0001 | architecture | review | P-0020 | - |
+| architect | T-0001 | architecture | done | P-0020 | 1b2adc1 |
 | ceo | T-0001 | records | done | P-0002 | d8809fa |
 | ceo | T-0002 | records | done | P-0003 | 26e09d0 |
 | ceo | T-0003 | - | dropped | - | - |
@@ -107,6 +107,7 @@ under two roles is two tasks.
 | developer | T-0016 | always-on | done | P-0017 | dc60760 |
 | developer | T-0017 | tests | doing | - | - |
 | developer | T-0018 | makefile-lint | done | P-0019 | 8947ae2 |
+| developer | T-0019 | - | doing | - | - |
 | reviewer | T-0001 | records | done | - | - |
 | tester | T-0001 | - | done | - | - |
 | tester | T-0002 | - | dropped | - | - |
@@ -121,16 +122,17 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | feature | state | owner | squad | paths |
 |---|---|---|---|---|
+| F-0001 | ready | TeamLeader | Developer-4, Tester-2 | .github/workflows/, scripts/, tests/, docs/guide/ci.md, docs/Team/Evolution.md |
 
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0001 · Update Architecture 13.2 and freeze F-0001: the map is live, the CI contract is the interface | P1 | review | - |
 | developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | review | - |
 | developer | T-0013 · Prose-contract tests must discover pages, not list them: kill the moved-content breakage class | P1 | review | - |
 | developer | T-0015 · Make the feature-team hierarchy visible and practical: CTO -> leaders -> squad | P1 | doing | - |
 | developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | doing | - |
+| developer | T-0019 · Restore the provider-cap statement in SKILL.md after the always-on trim | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
