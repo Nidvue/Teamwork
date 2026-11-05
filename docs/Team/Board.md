@@ -87,6 +87,7 @@ under two roles is two tasks.
 | ceo | T-0004 | records | done | P-0004 | a45847e |
 | ceo | T-0005 | records | done | P-0005 | df4c4d9 |
 | ceo | T-0006 | evolution | done | P-0010 | e01cced |
+| ceo | T-0007 | how-it-works | doing | - | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | tests | done | P-0007 | 908a118 |
 | developer | T-0003 | skills | done | P-0001 | d93df1e |
@@ -98,7 +99,7 @@ under two roles is two tasks.
 | developer | T-0009 | ci | done | P-0009 | 876d17d |
 | developer | T-0010 | tests | done | P-0011 | 7470b72 |
 | developer | T-0011 | - | dropped | - | - |
-| developer | T-0012 | - | doing | - | - |
+| developer | T-0012 | ci | done | P-0013 | 51102b0 |
 | developer | T-0013 | - | todo | - | - |
 | developer | T-0014 | acceptance | done | P-0012 | a191167 |
 | reviewer | T-0001 | records | done | - | - |
@@ -121,8 +122,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0003 · Trim the always-on startup surface under the 122880 B cap (Reviewer-1/2 over by 11279 B) | P1 | todo | - |
+| ceo | T-0007 · Add the Team Leader and the feature-team layer to how-it-works.md | P1 | doing | - |
 | developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | doing | - |
-| developer | T-0012 · Make CI reproducible and bounded: one local gate, per-job timeouts, proof-once, measured budgets | P0 | doing | - |
 | developer | T-0013 · Prose-contract tests must discover pages, not list them: kill the moved-content breakage class | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
