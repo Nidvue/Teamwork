@@ -15,8 +15,9 @@ Accepted from the outside - the reader's tools, not the author's:
 2. every committed ``docs/Team/*.md`` opens with an ``# `` H1 and states a
    non-empty ``Owner:`` (the writing standard the team publishes as its
    contract), and the manifest's known shape is not silently exempted;
-3. the install commands the README prints name a distribution that exists in
-   ``pyproject.toml`` - parsed from both files, not hard-coded.
+3. the install commands a reader is pointed to - the README's own, or those on
+   the install page the README links - name a distribution that exists in
+   ``pyproject.toml``; parsed from both files, not hard-coded.
 
 Owner: reviewer. Task: T-0003. Requirement: acceptance layer, area ``docs``.
 """
@@ -101,27 +102,110 @@ def _is_distribution_name(name: str) -> bool:
     return not name.startswith((".", "/", "~", "http")) and name != "https"
 
 
-def test_readme_install_commands_name_a_real_distribution(tmp_path):
-    """ACCEPT: the README's install commands name a package `pyproject.toml` declares."""
-    tree = checkout(tmp_path / "clone")
-    declared = _manifest(tree)["project"]["name"]
-    readme = (tree / README).read_text(encoding="utf-8")
+INSTALL_COMMAND = re.compile(
+    r"(?:pip|pipx)\s+install\s+(?:--[\w-]+\s+)*([A-Za-z0-9._/][A-Za-z0-9._/-]*)"
+    r"|uvx\s+--from\s+([A-Za-z0-9._-]+)"
+)
 
-    commands = re.findall(
-        r"(?:pip|pipx)\s+install\s+(?:--[\w-]+\s+)*([A-Za-z0-9._/-]+)"
-        r"|uvx\s+--from\s+([A-Za-z0-9._-]+)",
-        readme,
-    )
-    names = {match[0] or match[1] for match in commands}
-    assert names, "the README documents no install command to accept:\n" + readme[:400]
-    assert declared in names, (
-        f"the README never installs the declared distribution {declared!r}; it names {sorted(names)}"
-    )
+MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
+
+
+def _install_commands(text: str) -> set[str]:
+    return {match[0] or match[1] for match in INSTALL_COMMAND.findall(text)}
+
+
+def _install_pages(tree: Path, readme: str) -> list[Path]:
+    """The install page(s) the README sends a reader to, in the checkout."""
+    pages = set()
+    for label, target in MARKDOWN_LINK.findall(readme):
+        if "://" in target or target.startswith(("#", "mailto:")):
+            continue
+        if "install" not in label.lower() and "install" not in target.lower():
+            continue
+        path = (tree / target.split("#", 1)[0]).resolve()
+        try:
+            path.relative_to(tree.resolve())
+        except ValueError:
+            continue
+        if path.suffix == ".md" and path.is_file():
+            pages.add(path)
+    return sorted(pages)
+
+
+def install_problems(tree: Path) -> list[str]:
+    """Every way the README's install route fails to name a declared package."""
+    readme = (tree / README).read_text(encoding="utf-8")
+    declared = _manifest(tree)["project"]["name"]
+    pages = _install_pages(tree, readme)
+    names = _install_commands(readme)
+    for page in pages:
+        names |= _install_commands(page.read_text(encoding="utf-8"))
+
+    problems = []
+    if not pages and not names:
+        problems.append("the README documents no install command and links no page that does")
+    if not names:
+        problems.append("the README's install route documents no install command to accept")
+    if names and declared not in names:
+        problems.append(
+            f"the README's install route never installs the declared distribution "
+            f"{declared!r}; it names {sorted(names)}"
+        )
     phantom = sorted(name for name in names - {declared} if _is_distribution_name(name))
-    assert not phantom, (
-        f"the README tells a reader to install {phantom}, which `pyproject.toml` does "
-        f"not declare (it builds {declared!r})"
+    if phantom:
+        problems.append(
+            f"a reader is told to install {phantom}, which `pyproject.toml` does not "
+            f"declare (it builds {declared!r})"
+        )
+    return problems
+
+
+def test_readme_install_commands_name_a_real_distribution(tmp_path):
+    """ACCEPT: the README, or the install page it links, names a declared package."""
+    tree = checkout(tmp_path / "clone")
+    problems = install_problems(tree)
+    assert problems == [], "\n".join(problems)
+
+
+def test_mutant_a_phantom_distribution_on_the_linked_page_is_reported(tmp_path):
+    """The link is followed: a page that names another package must fail."""
+    tree = checkout(tmp_path / "clone")
+    page = tree / "docs" / "guide" / "install.md"
+    text = page.read_text(encoding="utf-8")
+    assert "pipx install teamwork-agents" in text, "mutant anchor is gone"
+    page.write_text(
+        text.replace("pipx install teamwork-agents", "pipx install phantom-agents", 1),
+        encoding="utf-8",
     )
+
+    problems = install_problems(tree)
+    assert any("phantom-agents" in problem for problem in problems), problems
+
+
+def test_mutant_removing_the_install_link_is_reported(tmp_path):
+    """A README with no command must point at a page that has one."""
+    tree = checkout(tmp_path / "clone")
+    readme = tree / README
+    text = readme.read_text(encoding="utf-8")
+    mutant = text.replace("[Installation](docs/guide/install.md)", "Installation")
+    assert mutant != text, "mutant anchor is gone"
+    readme.write_text(mutant, encoding="utf-8")
+
+    problems = install_problems(tree)
+    assert any("links no page that does" in problem for problem in problems), problems
+
+
+def test_mutant_a_phantom_command_in_the_readme_is_still_reported(tmp_path):
+    """The README's own commands are checked too, not only the linked page."""
+    tree = checkout(tmp_path / "clone")
+    readme = tree / README
+    readme.write_text(
+        readme.read_text(encoding="utf-8") + "\n```bash\npip install phantom-readme\n```\n",
+        encoding="utf-8",
+    )
+
+    problems = install_problems(tree)
+    assert any("phantom-readme" in problem for problem in problems), problems
 
 
 def test_the_distribution_name_is_read_from_the_manifest_not_hard_coded(tmp_path):
