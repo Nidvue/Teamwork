@@ -37,6 +37,7 @@ never a silent pass.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -52,6 +53,40 @@ TEAM_TESTS_GLOB = ".pi/Teamwork/Teams/*/Tests.md"
 PROOF_TIMEOUT_SECONDS = 1800
 
 MEASURED_COLD_RUNNER_PROOF_SECONDS = 884
+
+HISTORY_CLAUSE = "--history"
+
+HISTORY_PROOF_OPT_OUT = "TEAMWORK_CI_SKIP_HISTORY_PROOF"
+
+CI_ENV_MARKER = "GITHUB_ACTIONS"
+
+HISTORY_OPT_OUT_VALUES = {"1", "true", "yes"}
+
+
+def _history_clause_dropped(env: dict) -> bool:
+    """Whether this lane drops the `--history` clause of a proof, and only that.
+
+    The history walk is the expensive half of the privacy proof - the same git
+    history on every lane - so the matrix proves it once, on the coverage lane,
+    and the other lanes run the tree half only. The opt-out is refused outside
+    CI: a developer who exports it locally would be hiding the gate from
+    themselves, which is the failure the shallow-clone guard prevents for the
+    archive check. The primary lane exports `0`, so it cannot inherit a skip.
+    """
+    opted_out = str(env.get(HISTORY_PROOF_OPT_OUT, "")).strip().lower() in HISTORY_OPT_OUT_VALUES
+    if not opted_out:
+        return False
+    if str(env.get(CI_ENV_MARKER, "")).strip().lower() != "true":
+        raise AssertionError(
+            f"{HISTORY_PROOF_OPT_OUT} is set but {CI_ENV_MARKER} is not 'true': the history "
+            "clause of a proof may only be dropped on a CI lane whose sibling runs it, so it "
+            "is refused outside CI"
+        )
+    return True
+
+
+def _without_history(argv: list[str]) -> list[str]:
+    return [token for token in argv if token != HISTORY_CLAUSE]
 
 
 def _section(project: str) -> str:
@@ -581,21 +616,33 @@ def _capability_present(capability: str) -> bool:
         return False
 
 
-def _replay(section: str, repo_root: Path) -> tuple[int, list[str], list[str]]:
+def _replay(
+    section: str, repo_root: Path, env: dict | None = None
+) -> tuple[int, list[str], list[str], list[str]]:
     """Re-run every non-exempt row's own proof command.
 
-    Returns ``(executed, skipped, disagreements)``. A row whose declared host
-    capability is absent is SKIPPED with its reason and counted by the caller's
-    arithmetic; a row that is neither exempt nor parseable, and a row whose command
-    runs but disagrees with its claimed state, are disagreements. Nothing here
-    raises because of the host: a reporter that crashes is not a guard (T-0003).
+    Returns ``(executed, skipped, disagreements, clause_skips)``. A row whose
+    declared host capability is absent is SKIPPED with its reason and counted by
+    the caller's arithmetic; a row that is neither exempt nor parseable, and a row
+    whose command runs but disagrees with its claimed state, are disagreements.
+    Nothing here raises because of the host: a reporter that crashes is not a
+    guard (T-0003).
+
+    A CI lane that opts out of the history clause still executes the row, one
+    clause short, and the drop is returned in ``clause_skips`` so the caller can
+    assert it is the only one; a local run cannot opt out at all.
     """
+    import os
+
+    env = dict(os.environ) if env is None else env
+    drop_history = _history_clause_dropped(env)
     _header, body = _matrix(section)
     claimed = {row[0]: row[5].lower() for row in body}
     proofs = {row[0]: row[4] for row in body}
     executed = 0
     skipped: list[str] = []
     disagreements: list[str] = []
+    clause_skips: list[str] = []
 
     for ac in sorted(claimed):
         if ac in EXEMPT:
@@ -614,7 +661,14 @@ def _replay(section: str, repo_root: Path) -> tuple[int, list[str], list[str]]:
             )
             continue
         try:
-            codes = [_run(repo_root, argv) for argv in commands]
+            runnable = [_without_history(argv) for argv in commands] if drop_history else commands
+            if drop_history and any(HISTORY_CLAUSE in argv for argv in commands):
+                clause_skips.append(
+                    f"{ac}: {HISTORY_CLAUSE} dropped on this lane "
+                    f"({HISTORY_PROOF_OPT_OUT}={env.get(HISTORY_PROOF_OPT_OUT)!r}); "
+                    "the tree half still ran"
+                )
+            codes = [_run(repo_root, argv) for argv in runnable]
         except ProofUnlaunchable as exc:
             disagreements.append(f"{ac}: {exc}")
             continue
@@ -624,7 +678,7 @@ def _replay(section: str, repo_root: Path) -> tuple[int, list[str], list[str]]:
         elif "green" not in claimed[ac] and not any(codes):
             disagreements.append(f"{ac} is claimed red, every clause exits 0")
 
-    return executed, skipped, disagreements
+    return executed, skipped, disagreements, clause_skips
 
 
 def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
@@ -699,7 +753,7 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
         f"the table dropped rows that HOST_CAPABILITY still names: {dropped_capability}"
     )
 
-    executed, skipped, disagreements = _replay(section, repo_root)
+    executed, skipped, disagreements, clause_skips = _replay(section, repo_root)
     host_skipped = sorted(entry.split(":", 1)[0] for entry in skipped)
     undeclared = sorted(set(host_skipped) - set(HOST_CAPABILITY))
     assert not undeclared, (
@@ -712,6 +766,16 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
         f"rows minus {len(EXEMPT)} exemptions is {expected}: a row was skipped or the parser drifted"
     )
     assert not disagreements, "the state column disagrees with the run: " + "; ".join(disagreements)
+    if _history_clause_dropped(dict(os.environ)):
+        assert len(clause_skips) == 1, (
+            f"this CI lane opted out of the history clause but {len(clause_skips)} row(s) "
+            f"report it: {clause_skips}"
+        )
+        assert clause_skips[0].startswith("AC-5:"), clause_skips[0]
+    else:
+        assert not clause_skips, (
+            "a proof dropped its history clause without this lane opting out: " + str(clause_skips)
+        )
 
 
 def test_a_row_this_host_cannot_measure_is_named_with_its_reason(repo_root: Path) -> None:
@@ -737,6 +801,58 @@ def test_a_row_this_host_cannot_measure_is_named_with_its_reason(repo_root: Path
     ]
     if missing:
         pytest.skip("; ".join(missing))
+
+
+def test_the_history_opt_out_is_refused_outside_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same shape as the shallow-clone guard: a local opt-out is a defect.
+
+    A developer who exports the skip locally would be hiding the history gate
+    from themselves and from the reviewer who trusts their run, so the switch is
+    refused unless the environment says this is CI.
+    """
+    monkeypatch.setenv(HISTORY_PROOF_OPT_OUT, "1")
+    monkeypatch.delenv(CI_ENV_MARKER, raising=False)
+    with pytest.raises(AssertionError) as excinfo:
+        _history_clause_dropped(dict(os.environ))
+    message = str(excinfo.value)
+    assert HISTORY_PROOF_OPT_OUT in message and "outside CI" in message, message
+    monkeypatch.setenv(CI_ENV_MARKER, "false")
+    with pytest.raises(AssertionError):
+        _history_clause_dropped(dict(os.environ))
+
+
+def test_the_history_opt_out_drops_only_the_history_clause(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exactly the `--history` token, on CI only, and the row is still re-run."""
+    monkeypatch.setenv(CI_ENV_MARKER, "true")
+    monkeypatch.setenv(HISTORY_PROOF_OPT_OUT, "1")
+    assert _without_history(["python", "scripts/privacy_scan.py", "--tree", "--history", "-x"]) == [
+        "python",
+        "scripts/privacy_scan.py",
+        "--tree",
+        "-x",
+    ]
+    section = (
+        "| AC | proof target | archived task(s) | test record | proof command (read the run) | state |\n"
+        "|---|---|---|---|---|---|\n"
+        '| AC-5 | `x` | none | none | `python -c "import sys; sys.exit(0)" --history` | green |\n'
+    )
+    executed, skipped, disagreements, clause_skips = _replay(section, tmp_path)
+    assert executed == 1, (executed, skipped, disagreements)
+    assert not disagreements, disagreements
+    assert len(clause_skips) == 1 and clause_skips[0].startswith("AC-5:"), clause_skips
+
+
+def test_the_primary_lane_runs_the_history_clause(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`0` is the explicit "run it" the coverage lane exports, never a skip."""
+    monkeypatch.setenv(CI_ENV_MARKER, "true")
+    monkeypatch.setenv(HISTORY_PROOF_OPT_OUT, "0")
+    assert _history_clause_dropped(dict(os.environ)) is False
+    monkeypatch.delenv(HISTORY_PROOF_OPT_OUT)
+    assert _history_clause_dropped(dict(os.environ)) is False
 
 
 def test_the_proof_budget_is_a_generous_named_constant() -> None:
@@ -849,7 +965,7 @@ def _synthetic_matrix(proof: str, state: str) -> str:
 
 def test_the_replay_still_fails_a_green_row_whose_command_disagrees(tmp_path: Path) -> None:
     """Teeth: the host handling must not soften the disagreement it exists around."""
-    executed, skipped, disagreements = _replay(
+    executed, skipped, disagreements, _clause_skips = _replay(
         _synthetic_matrix('`python -c "raise SystemExit(1)"`', "green"), tmp_path
     )
     assert executed == 1, (executed, skipped, disagreements)
@@ -869,7 +985,7 @@ def test_a_declared_host_capability_skips_its_row_with_a_reason(
         "|---|---|---|---|---|---|\n"
         "| AC-1 | `x` | none | none | `python scripts/verify_release.py` | green |\n"
     )
-    executed, skipped, disagreements = _replay(section, tmp_path)
+    executed, skipped, disagreements, _clause_skips = _replay(section, tmp_path)
     assert executed == 0, (executed, skipped)
     assert not disagreements, disagreements
     assert len(skipped) == 1 and skipped[0].startswith("AC-1: host skip"), skipped
@@ -895,7 +1011,7 @@ def test_a_declared_capability_does_not_excuse_a_cell_with_no_command(
         "|---|---|---|---|---|---|\n"
         "| AC-1 | `x` | none | none | the same verify_release.py run as AC-2 | green |\n"
     )
-    executed, skipped, disagreements = _replay(section, tmp_path)
+    executed, skipped, disagreements, _clause_skips = _replay(section, tmp_path)
     assert executed == 0, (executed, skipped)
     assert not skipped, skipped
     assert len(disagreements) == 1, disagreements
@@ -908,7 +1024,7 @@ def test_an_undeclared_proof_this_host_cannot_launch_is_a_disagreement(tmp_path:
     A typo or a host-only program with no declaration must fail the guard instead of
     quietly exempting the row - that is how a row stops being executed (T-0003).
     """
-    executed, skipped, disagreements = _replay(
+    executed, skipped, disagreements, _clause_skips = _replay(
         _synthetic_matrix("`bin/teamwork-no-such-proof-9c1f --check`", "green"), tmp_path
     )
     assert executed == 0, (executed, skipped, disagreements)
