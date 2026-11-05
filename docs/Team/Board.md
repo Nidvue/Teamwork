@@ -98,6 +98,9 @@ under two roles is two tasks.
 | developer | T-0009 | ci | done | P-0009 | 876d17d |
 | developer | T-0010 | tests | done | P-0011 | 7470b72 |
 | developer | T-0011 | - | dropped | - | - |
+| developer | T-0012 | - | doing | - | - |
+| developer | T-0013 | - | todo | - | - |
+| developer | T-0014 | acceptance | done | P-0012 | a191167 |
 | reviewer | T-0001 | records | done | - | - |
 | tester | T-0001 | - | done | - | - |
 | tester | T-0002 | - | dropped | - | - |
@@ -119,6 +122,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | ceo | T-0003 · Trim the always-on startup surface under the 122880 B cap (Reviewer-1/2 over by 11279 B) | P1 | todo | - |
 | developer | T-0006 · Fix the branchless archive render: the entry is written but not committed at the merge | P1 | doing | - |
+| developer | T-0012 · Make CI reproducible and bounded: one local gate, per-job timeouts, proof-once, measured budgets | P0 | doing | - |
+| developer | T-0013 · Prose-contract tests must discover pages, not list them: kill the moved-content breakage class | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
