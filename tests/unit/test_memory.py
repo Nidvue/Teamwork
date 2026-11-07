@@ -118,8 +118,45 @@ def test_load_refuses_a_name_the_team_does_not_know(cli, project: Path, capsys) 
     stray.mkdir()
     (stray / engine.F_SHORT).write_text("# Short-term memory - nope\n", encoding="utf-8")
     assert cli("--project", project, "load", "nope") == 1
-    assert "unknown role 'nope'" in capsys.readouterr().err
+    stray_refusal = capsys.readouterr().err
+    assert "unknown role 'nope'" in stray_refusal
+    listed = stray_refusal.split("Known roles: ", 1)[1].strip()
+    assert "nope" not in listed
+    assert listed == "ceo, developer"
     assert (stray / engine.F_SHORT).read_text(encoding="utf-8") == "# Short-term memory - nope\n"
 
     assert cli("--project", project, "load", "Developer-1") == 0
     assert cli("--project", project, "load", "Developer") == 0
+
+
+def test_remember_refuses_a_name_the_team_does_not_know(cli, project: Path, capsys) -> None:
+    """A typo must not invent a role on the write side either (T-0027).
+
+    `_memory_path` carried the same dead guard `cmd_load` did and then created
+    `Roles/<Name>/` for any spelling, so `remember QaEnginere note --by
+    QaEnginere` exited 0 and left a directory the rest of the tool then reported
+    as a role. A name this team cannot resolve is refused before the directory is
+    created, and a refusal for a foreign `--by` no longer leaves an empty one.
+    """
+    assert cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    root = project / config.TEAM_ROOT_DIR / config.TEAMS_SUBDIR / engine.team_slug(project)
+    roles = root / "Roles"
+    before = sorted(path.name for path in roles.iterdir())
+
+    assert cli("--project", project, "remember", "QaEnginere", "note", "--by", "QaEnginere") == 1
+    refusal = capsys.readouterr().err
+    assert "unknown role 'QaEnginere'" in refusal
+    assert sorted(path.name for path in roles.iterdir()) == before
+    assert not (roles / "Qaenginere").exists()
+
+    assert cli("--project", project, "remember", "Nope", "note", "--by", "nope") == 1
+    capsys.readouterr()
+    assert sorted(path.name for path in roles.iterdir()) == before
+    assert not (roles / "Nope").exists()
+
+    assert (
+        cli("--project", project, "remember", "Developer", "a real note", "--by", "Developer") == 0
+    )
+    assert (roles / "Developer" / engine.F_SHORT).is_file()
+    assert cli("--project", project, "load", "Developer") == 0
+    assert "a real note" in capsys.readouterr().out
