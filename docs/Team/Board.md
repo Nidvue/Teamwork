@@ -85,14 +85,14 @@ under two roles is two tasks.
 | architect | T-0002 | - | todo | - | - |
 | ceo | T-0001 | - | doing | - | - |
 | ceo | T-0002 | - | doing | - | - |
-| ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
+| ceo | T-0003 | context | doing | P-0001 | 2fcd9fd |
 | ceo | T-0004 | - | todo | - | - |
 | ceo | T-0005 | - | todo | - | - |
 | ceo | T-0006 | - | todo | - | - |
 | ceo | T-0007 | - | todo | - | - |
-| developer | T-0001 | - | review | - | - |
+| developer | T-0001 | - | doing | - | - |
 | developer | T-0002 | cli-records | review | P-0003 | - |
-| developer | T-0003 | memory | review | P-0005 | - |
+| developer | T-0003 | memory | done | P-0005 | 521e190 |
 | developer | T-0004 | - | todo | - | - |
 | developer | T-0005 | - | todo | - | - |
 | developer | T-0006 | io | done | P-0004 | c57e9d4 |
@@ -144,13 +144,13 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | architect | T-0002 · Ratify the Architecture.md census/pointer edits that accompany scripts/ci_scope.py (section 2 tree line, section 9 classifier wording, optional ownership row) | P1 | todo | - |
 | ceo | T-0001 · Own M19: intake, criteria, records, dispatch, arbitration and close-out (audit manifest + final report) | P0 | doing | - |
 | ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
+| ceo | T-0003 · Cut the always-on startup cost: rewrite templates/AGENTS.md managed block as pointer + invariants, measure harness budget before and after, keep every gate and red line | P0 | doing | - |
 | ceo | T-0004 · Write the M19 records: Project.md section, Plan.md rows, Board render, Throughput cut #3 and the record-store decision | P1 | todo | - |
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | todo | - |
 | ceo | T-0006 · Two record rows name the classifier as inline ci.yml text; T-0001 moved it to scripts/ci_scope.py (D-class drift in Plan.md and Release.md) | P2 | todo | - |
 | ceo | T-0007 · Primary checkout holds uncommitted lane work, so no Reviewer can land a pass: pr merge dies 'working tree has uncommitted work outside the reviewed records' on src/teamwork/config.py, src/teamwork/engine.py, src/teamwork/lanes.py, src/teamwork/lanerun.py, tests/unit/test_lanes.py (mtimes 16:52-16:55, unchanged since); T-0006/P-0004 is passed and waiting on one pr merge | P0 | todo | - |
-| developer | T-0001 · Systematic audit of src/teamwork/*.py and scripts/*.py: real defects, dead code, inconsistent invariants, non-portable code; rank with a reproduction each; no code changes | P0 | review | - |
+| developer | T-0001 · Systematic audit of src/teamwork/*.py and scripts/*.py: real defects, dead code, inconsistent invariants, non-portable code; rank with a reproduction each; no code changes | P0 | doing | - |
 | developer | T-0002 · test_probe_passes[records] is not hermetic: it reads the live .pi team tree, so it fails on an empty store and races a concurrent lane (baseline: 1 failed, 2221 passed on this host) | P0 | review | - |
-| developer | T-0003 · cmd_load's unknown-role guard is dead code: any typo silently creates Roles/<Typo>/ with memory files (observed: Roles/Nope/ in this workspace) | P0 | review | - |
 | developer | T-0004 · harness.instance_always_on documents itself as what 'teamwork load' prints, but load prints only the memory lines; the figure is a startup-read estimate including SKILL.md and the charter | P2 | todo | - |
 | developer | T-0005 · PreflightCommand is shlex-split and exec'd without a shell, so a natural 'a && b' gate reaches argv and ruff exits 2 - a configured gate reports FAIL for a spelling the docs invite | P1 | todo | - |
 | developer | T-0007 · Credential masking runs only in archive_append: task evidence, decision, lesson, memory text and Ledger.jsonl store a token verbatim (Reviewer-1 S-2, 5 record files measured) | P0 | review | - |
