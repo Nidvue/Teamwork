@@ -70,16 +70,14 @@ Speed is structural. Full text and the measured trail: `references/Roles.md`,
 
 | Rule | It forbids |
 |---|---|
-| one parent, one board | a second reporting line; three managers for one role |
-| one feature, one team | a Team Leader owning two open features; two teams on one slice |
-| one owner per artifact, one writer per file | two lanes editing one file, the board or a charter |
-| one verification per fact per revision | re-running a gate another role recorded green at that revision |
-| one gate, one place | CI and docs.yml running the same check; the Reviewer redoing preflight |
-| definition of ready | starting on a moving interface or an in-flight dependency |
-| definition of done | `preflight` green + independent pass + archived + merged |
-| generated artifacts render at the merge | a board/archive render riding a feature branch |
-| right-sized roster | a second Developer for work one can carry; idle lanes |
-| small slices, short leases | a task that cannot be verdict-ed inside one profile lease |
+| One parent, one board | a second reporting line; three managers for one role |
+| One feature, one team | a Team Leader owning two open features; two teams on one slice |
+| One owner per artifact, one writer per file | two lanes editing one file, the board or a charter |
+| One verification per fact per revision, one gate in one place | re-running a gate another role recorded green at that revision; CI and docs.yml running the same check; the Reviewer redoing preflight |
+| Definition of ready | starting on a moving interface or an in-flight dependency |
+| Definition of done | `preflight` green + independent pass + archived + merged |
+| Generated artifacts render at the merge | a board/archive render riding a feature branch |
+| Right-sized roster, small slices | a second Developer for work one can carry; idle lanes; a task that cannot be verdict-ed inside one profile lease |
 
 Authors run `teamwork.py preflight <you> <T-id> --run` before `selfcheck`; it fails
 closed on identity, commit shape, reachability of every `@<sha>`, mergeability,
@@ -115,7 +113,7 @@ manual relay.
   tooling defect: `attention add` it and automate it. Never normalise the step.
 - **Teach once, encode it.** A repeatable flow becomes a team skill in the same
   task. A method lives in a skill, not in a conversation.
-- **Least privilege, one proof.** A lane gets the tools its deliverable needs;
+- **Least privilege, one job, one proof.** A lane gets the tools its deliverable needs;
   every deliverable names its verifier and the command that proves it.
 - **Onboard, then restate.** Restate goal, criteria and non-goals in your own words
   before planning, then plan.
@@ -227,13 +225,13 @@ you cannot close a `review=required` task.
   the result to `docs/Team/Archive.md` and **merges at once** - the author never
   merges, and a reviewer is never its own author (`--no-merge` records a pass
   without landing it).
-- Verify once, credit the rest: `--credit TS-nnnn` cites a peer's passing record at
+- Verify once, credit the rest: `review --credit TS-nnnn` cites a peer's passing record at
   the same revision instead of re-running it. The Reviewer's own work is the
   requirement check, its `acceptance` layer, the uncovered criteria and one sampled
   credit.
-- A re-submitted fix is a **delta review**: the findings, the changed files since
-  the failed revision, the failed criterion re-run, one fresh credit. Three fails
-  on one task -> the Reviewer opens a dispute and the tribunal rules.
+- A re-submitted fix is re-reviewed as a **delta**: the findings, the changed files since
+  the failed revision, the failed criterion re-run, one fresh credit. Review
+  failures are counted: at 3 fails the Reviewer opens a dispute and the tribunal rules.
 
 This covers code, unit and integration tests, docs, design specs, plans, research,
 cost models and risk registers.
@@ -320,7 +318,7 @@ it and say so. A dispute never blocks unrelated work.
   finding.
 - **A claim of improvement needs a contrast and a verdict.** Name what was compared,
   on which task and revision, and label it `helped`, `hurt`, `no observed effect` or
-  `confounded`. Declining to record a lesson is valid.
+  `confounded`. Declining to record a lesson is a valid outcome.
 - **PUSH POLICY** - only the Release Engineer pushes, and only a revision the
   Reviewer passed with no open finding. **A stage ends with a push, not with a
   merge**: build, tests, privacy scan and link check green on that exact revision,
