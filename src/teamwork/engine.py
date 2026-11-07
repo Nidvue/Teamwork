@@ -65,6 +65,7 @@ except ImportError:  # pragma: no cover
     from version import __version__ as VERSION  # type: ignore
 
 
+from . import memorypack
 from .attention import (
     ATTENTION_KINDS,
     STAGE_ORDER,
@@ -4657,7 +4658,7 @@ def cmd_context(args) -> int:
         knowledge = [node.record for node in nodes.values() if node.type == "knowledge"]
         active = sum(1 for item in knowledge if item["status"] == "active")
         superseded = sum(1 for item in knowledge if item["status"] == "superseded")
-        open_lessons = sum(1 for item in lessons if item["status"] != "fixed")
+        open_lessons = sum(1 for item in lessons if item["status"] == "open")
         fixed_lessons = len(lessons) - open_lessons
         print(
             f"- memory: {memory} {_context_plural(memory, 'entry', 'entries')} "
@@ -6131,6 +6132,23 @@ def loadable_role(root: Path, role: str) -> bool:
     return role in ROLE_DISPLAY and role_dir(root, role).is_dir()
 
 
+def _pack_block(root: Path, role: str, task: str) -> str:
+    """`load --task` prints this instead of the static top-10 knowledge block.
+
+    Same collector and scorer as `memory pack`, so the number a lane sees on
+    startup is the number `memory pack` prints for the same task.
+    """
+    budget = memorypack.PACK_BUDGET_BYTES
+    query = memorypack.task_query(root, role, task)
+    items = memorypack.pack(_collected(root, role), query, budget, datetime.datetime.now())
+    header = f"# memory pack for {task} -> '{query}' (budget {budget} bytes; not the static top-10)"
+    return (
+        header
+        + "\n"
+        + memorypack.render_pack(items, memorypack.rendered_bytes(items), budget).rstrip("\n")
+    )
+
+
 def cmd_load(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
@@ -6187,7 +6205,7 @@ def cmd_load(args) -> int:
         )
     else:
         open_lessons = sorted(
-            [item for item in lessons if item["status"] != "fixed"],
+            [item for item in lessons if item["status"] == "open"],
             key=lambda item: item["id"],
         )
         fixed = [item for item in lessons if item["status"] == "fixed"]
@@ -6196,6 +6214,10 @@ def cmd_load(args) -> int:
             skill = f" (fixed by {item['skill']})" if item.get("skill") else ""
             print(f"- [{item['id']}] {item['mistake']} -> {item['rule']}{skill}")
         print(f"# fixed: {len(fixed)}; full list: teamwork.py lesson list --role {role}")
+
+    if getattr(args, "task", ""):
+        print(_pack_block(root, role, args.task))
+        return 0
 
     knowledge = parse_knowledge(knowledge_path(root))
     if knowledge:
@@ -6675,6 +6697,8 @@ def cmd_memory(args) -> int:
     sub = args.memory_cmd
     if sub == "status":
         return _memory_status(root, getattr(args, "agent", "") or "", args.json)
+    if sub in ("pack", "search", "dream"):
+        return _cmd_memory_read(root, args)
     role = resolve_role(args.agent)
     if not role_dir(root, role).is_dir() and not agents_dir(root).is_dir():
         die("no workspace here: run `teamwork.py init` first")
@@ -6697,6 +6721,90 @@ def cmd_memory(args) -> int:
     if sub == "release":
         return _memory_release(root, role, actor, args.force)
     die(f"unknown memory subcommand '{sub}'")
+
+
+def _cmd_memory_read(root: Path, args) -> int:
+    """`memory pack|search|dream`: the task-aware read side and the maintenance pass."""
+    sub = args.memory_cmd
+    role = resolve_role(args.role) if (args.role or "").strip() else ""
+    if sub == "pack":
+        if not role:
+            die("--role is required for `memory pack`: whose lessons and memory should it read?", 2)
+        return _memory_pack(root, role, args)
+    if sub == "search":
+        return _memory_search(root, role, args.query)
+    if args.apply and args.dry_run:
+        die("--apply and --dry-run contradict each other: pick one", 2)
+    if args.apply and not (args.by or "").strip():
+        die("--by is required with --apply: the ledger event names who ran the pass", 2)
+    return _memory_dream(root, role, args)
+
+
+def _collected(root: Path, role: str) -> list:
+    """Every store's records once: knowledge is project-wide, lessons and memory are per role."""
+    names = [role] if role else list_roles(root)
+    seen: dict[str, dict] = {}
+    for name in names:
+        for entry in memorypack.collect(root, name):
+            seen.setdefault(str(entry.get("pointer") or ""), entry)
+    return list(seen.values())
+
+
+def _memory_pack(root: Path, role: str, args) -> int:
+    budget = args.budget or memorypack.PACK_BUDGET_BYTES
+    if budget < 0:
+        die("--budget must be zero or more bytes", 2)
+    query = memorypack.task_query(root, role, args.task)
+    items = memorypack.pack(_collected(root, role), query, budget, datetime.datetime.now())
+    print(f"# task: {args.task} -> '{query}' (budget {budget} bytes)")
+    print(memorypack.render_pack(items, memorypack.rendered_bytes(items), budget), end="")
+    return 0
+
+
+def _memory_search(root: Path, role: str, query: str) -> int:
+    print(
+        memorypack.render_search(_collected(root, role), query, datetime.datetime.now()),
+        end="",
+    )
+    return 0
+
+
+def _print_dream_group(title: str, rows: list) -> None:
+    print(f"# {title}: {len(rows)}")
+    for row in rows:
+        print(row)
+
+
+def _memory_dream(root: Path, role: str, args) -> int:
+    entries = _collected(root, role)
+    proposals = memorypack.dream(entries, datetime.datetime.now())
+    duplicates = [
+        f"- {drop} -> superseded by {keep} (statement overlap {overlap})"
+        for keep, drop, overlap in proposals["duplicate"]
+    ]
+    contradictions = [
+        f"- {left} vs {right}: {reason}" for left, right, reason in proposals["contradiction"]
+    ]
+    scope = memorypack.proposal_scope(entries)
+    subject = role or "every role"
+    mode = "apply" if args.apply else "dry run"
+    print(f"# memory dream ({mode}) for {subject}: {len(entries)} record(s)")
+    _print_dream_group("duplicate", duplicates)
+    _print_dream_group("contradiction", contradictions)
+    _print_dream_group("stale", [f"- {record_id}" for record_id in proposals["stale"]])
+    _print_dream_group("no evidence", [f"- {record_id}" for record_id in proposals["no_evidence"]])
+    if not args.apply:
+        print(
+            "# dry run: nothing written; `--apply --by <you>` performs the duplicate and stale actions"
+        )
+        return 0
+    counts = memorypack.apply_dream(root, proposals, args.by, scope=scope)
+    print(
+        f"# applied: {counts['duplicate']} duplicate(s) superseded, {counts['stale']} stale archived,"
+        f" {counts['contradiction']} contradiction(s) reported, {counts['no_evidence']} record(s)"
+        f" without evidence; ledger bytes {counts['bytes']:+d}"
+    )
+    return 0
 
 
 def _memory_contest(root: Path, role: str, actor: str, reason: str) -> int:
@@ -16708,6 +16816,12 @@ def _parsers_memory(sub, common) -> None:
     )
     s.add_argument("agent", help="role or instance name (memory is per role)")
     s.add_argument("--limit", type=int, default=0)
+    s.add_argument(
+        "--task",
+        default="",
+        metavar="T-ID|TEXT",
+        help="print the task-aware memory pack instead of the static top-10 knowledge block",
+    )
     s.set_defaults(func=cmd_load)
     s = sub.add_parser(
         "remember", parents=[common], help="add/update an entry in the ROLE's shared memory"
@@ -16816,6 +16930,42 @@ def _parsers_memory(sub, common) -> None:
     p = msub.add_parser("status", parents=[common], help="who may revise which role's memory now")
     p.add_argument("agent", nargs="?", default="", help="one role (default: every role)")
     p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser(
+        "pack", parents=[common], help="inject the records a task needs, within a byte budget"
+    )
+    p.add_argument(
+        "--role", default="", help="role (or instance) whose lessons, memory and knowledge to pack"
+    )
+    p.add_argument(
+        "--task",
+        required=True,
+        metavar="T-ID|TEXT",
+        help="a task id (its title becomes the query) or free text",
+    )
+    p.add_argument(
+        "--budget", type=int, default=0, help="bytes the whole pack may use (default 4000)"
+    )
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser(
+        "search", parents=[common], help="rank lessons, knowledge and memory in one query"
+    )
+    p.add_argument("query")
+    p.add_argument("--role", default="", help="one role's lessons and memory (default: every role)")
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser(
+        "dream",
+        parents=[common],
+        help="maintain the stores: duplicates, contradictions, stale records, missing evidence",
+    )
+    p.add_argument(
+        "--role",
+        default="",
+        help="one role's lessons (default: every role); knowledge is project-wide",
+    )
+    p.add_argument("--dry-run", action="store_true", help="report only (this is the default)")
+    p.add_argument("--apply", action="store_true", help="perform the duplicate and stale mutations")
+    p.add_argument("--by", default="", help="who runs the pass (required by --apply)")
     p.set_defaults(func=cmd_memory)
 
 
