@@ -21,10 +21,12 @@ identity domain and not at a name RFC 2606 / RFC 6761 reserves for documentation
 home paths
 (``/home/<name>``, ``/Users/<name>``, ``C:\\Users\\<name>``); API keys and tokens
 (``sk-``, ``ghp_``/``gho_``/``ghu_``/``ghs_``/``ghr_``, ``github_pat_``, ``AIza``,
-``wandb_``, ``xoxb-``, ``Bearer`` tokens, provider keys such as ``gsk_``/``xai-``/
-``pplx-``/``glpat-``/``npm_``/``hf_``/``sk_live_``, standalone high-entropy
-secrets); private-key headers; ``.env``-style and JSON assignments of secret-named
-variables; ``TODO``/``FIXME`` comments that carry credentials.
+``wandb_``, ``xoxb-``, ``Bearer``/``Basic``/``Token`` credentials, provider keys such
+as ``gsk_``/``xai-``/``pplx-``/``glpat-``/``npm_``/``hf_``/``sk_live_``, Slack
+incoming-webhook URLs, database URLs with an inline password, standalone
+high-entropy secrets - including a value written straight after ``=``, as in
+``NAME=<base64>``); private-key headers; ``.env``-style and JSON assignments of
+secret-named variables; ``TODO``/``FIXME`` comments that carry credentials.
 
 Forge-generated merge refs are not repository history. A commit whose subject is
 exactly ``Merge <40-hex> into <40-hex>`` and that has two or more parents is a
@@ -108,7 +110,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-SCANNER_VERSION = "1.4.0"
+SCANNER_VERSION = "1.5.0"
 
 _HISTORY_REVISIONS = ("--all", "--reflog")
 
@@ -221,8 +223,15 @@ _RE_TOKEN = re.compile(
     r"|\bhf_[A-Za-z0-9]{30,}"
     r"|\bsk_live_[A-Za-z0-9]{20,}"
     r"|\bSG\.[A-Za-z0-9_\-]{16,}\.[A-Za-z0-9_\-]{16,}"
-    r"|\b(?i:Bearer)\s+[A-Za-z0-9._+/=\-]{16,}"
+    r"|\bhooks\.slack\.com/services/[A-Za-z0-9]{8,}/[A-Za-z0-9]{8,}/[A-Za-z0-9]{16,}"
+    r"|\b(?i:Bearer|Basic|Token)\s+[A-Za-z0-9._+/=\-]{16,}"
+    r"|(?<![A-Za-z0-9+.\-])"
+    r"(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|rediss?|amqps?|mssql|sqlserver)"
+    r"://[^:/@\s]{1,64}:[^@/\s]{6,}@[^\s\"'<>]+"
 )
+
+_RE_AUTH_PREFIX = re.compile(r"(?i)^(?:Bearer|Basic|Token)\s+(\S+)$")
+_RE_URL_CREDENTIAL = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.\-]*)://([^:/@\s]+):([^@/\s]+)@")
 
 _RE_CODE_LIKE = re.compile(r"[(){}\[\]<>,;'\"\s]")
 _CODE_KEYWORDS = {
@@ -289,6 +298,33 @@ def _looks_like_secret_value(value: str) -> bool:
     return not bool(_RE_CODE_LIKE.search(value))
 
 
+def _plausible_credential(value: str) -> bool:
+    """Reject the prose a credential rule would otherwise claim as a value.
+
+    ``Basic`` and ``Token`` are English words as well as HTTP schemes, and the
+    prose ``Basic interoperability`` reads to the pattern exactly like a scheme
+    followed by a base64 payload. A scheme-prefixed value is therefore only a
+    credential when its payload carries a credential signal: a digit, base64
+    padding, base64 punctuation, or 24+ characters that read as a secret rather
+    than as a word.
+
+    A URL with an inline password is a credential unless the password is a
+    placeholder (``user:password@host``, ``app:<pw>@db``, ``${DB_PASSWORD}``),
+    which is how every document writes an example.
+    """
+    auth = _RE_AUTH_PREFIX.match(value)
+    if auth is not None:
+        payload = auth.group(1)
+        if any(ch.isdigit() for ch in payload) or "=" in payload:
+            return True
+        return _looks_like_secret_value(payload)
+    url = _RE_URL_CREDENTIAL.match(value)
+    if url is not None:
+        password = url.group(2)
+        return len(password) >= 6 and not _PLACEHOLDERS.match(password)
+    return True
+
+
 _RE_ENV_SECRET = re.compile(
     r"(?i)(?:[A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|"
     r"ACCESS[_-]?KEY|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|"
@@ -296,7 +332,7 @@ _RE_ENV_SECRET = re.compile(
     r"(?:[\"']([^\"'\n]{8,})[\"']|([A-Za-z0-9+/=_\-.:@!#$%^&]{8,}))"
 )
 
-_RE_HIGH_ENTROPY = re.compile(r"(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{32,}={0,2}(?![A-Za-z0-9+/=])")
+_RE_HIGH_ENTROPY = re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{32,}={0,2}(?![A-Za-z0-9+/=])")
 
 _RE_TODO = re.compile(r"(?i)\b(?:TODO|FIXME|XXX|HACK)\b")
 
@@ -535,8 +571,18 @@ def _is_path_fragment(line: str, index: int, length: int) -> bool:
     as a path, and it must be a NAME (CamelCase, or cut out of a longer path).
     A random base64 run reads as neither: it has too many fragments to be a
     name, and it is a whole token.
+
+    ``=`` is part of the token (it is a base64 and an assignment character), so
+    the token around ``root=ProductManager/...`` carries the assignment too. The
+    value after the last ``=`` is the token under judgement, because that is the
+    token the rule actually matched into: ``conn=<base64>`` and
+    ``root=ProductManager/...`` are the same shape at this point, and only the
+    path exemption tells them apart.
     """
     whole = _token_around(line, index, length)
+    _, _, assigned = whole.rpartition("=")
+    if assigned:
+        whole = assigned
     if not _is_path_name(whole):
         return False
     if len(whole) > length:
@@ -735,6 +781,8 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                     elif _is_code_name(secret) or not _looks_like_secret_value(secret):
                         continue
                     value = secret
+                if rule["id"] == "api-token" and not _plausible_credential(value):
+                    continue
                 if rule["id"] == "high-entropy-secret":
                     prefix = line[: match.start()].lower()
                     if "data:" in prefix and "base64" in prefix:
@@ -752,9 +800,12 @@ def scan_lines(text, path, source, rules, allow, commit=None):
         if _RE_TODO.search(line):
             credential = None
             for probe in (_RE_TOKEN, _RE_PRIVATE_KEY):
-                match = probe.search(line)
-                if match:
+                for match in probe.finditer(line):
+                    if probe is _RE_TOKEN and not _plausible_credential(match.group(0)):
+                        continue
                     credential = match.group(0)
+                    break
+                if credential:
                     break
             if credential is None and private_re is not None:
                 match = private_re.search(line)
