@@ -26,6 +26,18 @@ finally:
     if _ADDED:
         sys.path.remove(str(SCRIPTS))
 
+_REAL_MAIL_DOMAIN = "gmail.com"
+_RESERVED_MAIL_DOMAINS = (
+    "example.com",
+    "example.net",
+    "example.org",
+    "personal.example",
+    "media.example",
+    "app.test",
+    "host.invalid",
+    "dev.localhost",
+)
+
 
 def findings_for(text: str, path: str = "sample.py"):
     """Run every rule over ``text`` exactly as the scanner does."""
@@ -64,8 +76,58 @@ def test_generic_home_user_is_not_reported():
 
 
 def test_personal_email_is_reported():
-    address = "someone@" + "private-mail.example"
+    address = "someone@" + _REAL_MAIL_DOMAIN
     assert "personal-email" in rules_hit(f"contact: {address}\n")
+
+
+@pytest.mark.parametrize("domain", _RESERVED_MAIL_DOMAINS)
+def test_a_reserved_example_name_is_not_a_personal_email(domain):
+    """RFC 2606 / RFC 6761 names identify nobody, so they are not personal data.
+
+    Until T-0030 the rule read ``ping@personal.example`` in a decision record as a
+    personal mailbox and turned the shipped tree gate red on the team's own
+    documentation, so a fixture could only carry an address that was reported.
+    """
+    address = "alice@" + domain
+    assert ps._email_allowed(address), address
+    assert "personal-email" not in rules_hit(f"contact: {address}\n"), address
+
+
+@pytest.mark.parametrize(
+    "domain",
+    [_REAL_MAIL_DOMAIN, "users.noreply.gitlab.com", "mailbox.org", "example" + ".dev"],
+)
+def test_a_real_domain_is_still_a_personal_email(domain):
+    """The other direction: the exemption is the reserved name, not a rule switch.
+
+    ``example.dev`` is the control that keeps the fix honest: a real TLD whose
+    label merely contains the word ``example`` is still a personal address.
+    """
+    address = "alice@" + domain
+    assert not ps._email_allowed(address), address
+    assert "personal-email" in rules_hit(f"contact: {address}\n"), address
+
+
+@pytest.mark.parametrize("domain", _RESERVED_MAIL_DOMAINS)
+def test_the_reserved_name_exemption_leaves_the_other_rules_armed(domain, monkeypatch):
+    """The exemption is the personal-email rule ONLY (T-0030).
+
+    A configured private domain is still reported under a reserved name, because
+    that rule reads the text and not the address, and a credential on the same
+    line is still a credential.
+    """
+    monkeypatch.setenv("TEAMWORK_PRIVATE_DOMAINS", domain)
+    token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
+    line = f"author: alice@{domain} with {token}\n"
+    rules = {f["rule"] for f in ps.scan_lines(line, "x.md", "unit-test", ps.RULES, allow=[])}
+    assert "personal-email" not in rules, sorted(rules)
+    assert {"private-domain", "api-token"} <= rules, sorted(rules)
+
+
+def test_the_reported_decision_record_line_is_not_a_finding():
+    """The regression as it was reported: the identity evidence in Decisions.md."""
+    assert ps._email_allowed("ping@" + "personal.example")
+    assert "personal-email" not in rules_hit("not a role mailbox: ping@" + "personal.example\n")
 
 
 def test_role_mailbox_is_allowed():
@@ -487,7 +549,7 @@ def test_forge_merge_predicate_is_narrow():
     github = "noreply@github.com"
     assert ps.is_forge_merge(merge, parents, github)
     assert ps.is_forge_merge(merge, parents, "noreply@" + "gitlab.com")
-    assert not ps.is_forge_merge(merge, parents, "someone@" + "private-mail.example")
+    assert not ps.is_forge_merge(merge, parents, "someone@" + _REAL_MAIL_DOMAIN)
     assert not ps.is_forge_merge(merge, parents, "")
     assert not ps.is_forge_merge("Merge branch 'feature'", ["a", "b"], github)
     assert not ps.is_forge_merge(merge, ["a" * 40], github)
@@ -518,9 +580,9 @@ def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path, mo
     }
     private = {
         "GIT_AUTHOR_NAME": "Private Person",
-        "GIT_AUTHOR_EMAIL": "someone@" + "private-mail.example",
+        "GIT_AUTHOR_EMAIL": "someone@" + _REAL_MAIL_DOMAIN,
         "GIT_COMMITTER_NAME": "Private Person",
-        "GIT_COMMITTER_EMAIL": "someone@" + "private-mail.example",
+        "GIT_COMMITTER_EMAIL": "someone@" + _REAL_MAIL_DOMAIN,
     }
 
     def run(*args, extra_env=None):
@@ -593,17 +655,17 @@ def test_a_merge_subject_does_not_exempt_a_fabricated_identity(tmp_path, monkeyp
     }
     private = {
         "GIT_AUTHOR_NAME": "Private Person",
-        "GIT_AUTHOR_EMAIL": "someone@" + "private-mail.example",
+        "GIT_AUTHOR_EMAIL": "someone@" + _REAL_MAIL_DOMAIN,
         "GIT_COMMITTER_NAME": "Private Person",
-        "GIT_COMMITTER_EMAIL": "someone@" + "private-mail.example",
+        "GIT_COMMITTER_EMAIL": "someone@" + _REAL_MAIL_DOMAIN,
     }
     forge = {
         "GIT_AUTHOR_NAME": "Private Person",
-        "GIT_AUTHOR_EMAIL": "someone@" + "private-mail.example",
+        "GIT_AUTHOR_EMAIL": "someone@" + _REAL_MAIL_DOMAIN,
         "GIT_COMMITTER_NAME": "GitHub",
         "GIT_COMMITTER_EMAIL": "noreply@github.com",
     }
-    monkeypatch.setenv("TEAMWORK_PRIVATE_DOMAINS", "private-mail.example")
+    monkeypatch.setenv("TEAMWORK_PRIVATE_DOMAINS", _REAL_MAIL_DOMAIN)
 
     def run(*args, extra_env=None):
         return subprocess.run(
@@ -1227,9 +1289,9 @@ def _repo_with_a_rewritten_identity(tmp_path: Path) -> tuple:
     }
     leaked = {
         "GIT_AUTHOR_NAME": "Leaky Author",
-        "GIT_AUTHOR_EMAIL": "leaky@" + "private-mail.example",
+        "GIT_AUTHOR_EMAIL": "leaky@" + _REAL_MAIL_DOMAIN,
         "GIT_COMMITTER_NAME": "Leaky Author",
-        "GIT_COMMITTER_EMAIL": "leaky@" + "private-mail.example",
+        "GIT_COMMITTER_EMAIL": "leaky@" + _REAL_MAIL_DOMAIN,
     }
     repo = tmp_path / "rewritten"
     repo.mkdir()
