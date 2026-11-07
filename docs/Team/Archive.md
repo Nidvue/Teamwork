@@ -5166,3 +5166,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: venv/bin/python -m pytest tests/unit @d96dda1 in a clean worktree -> 1897 passed, 7 skipped (8m22); tests/unit/test_skill_contracts.py @2fcd9fd -> 5 failed, 104 passed and @d96dda1 -> green; TS-0010 acceptance/context @d96dda1 -> 37 PASS 0 fail, 18 FAIL @2fcd9fd; ruff check + ruff format --check + mypy @d96dda1 -> all clean; teamwork.py links @d96dda1 -> 0 issues; cut kept: AGENTS.md 26002 B vs 25975 B at 2fcd9fd and 41191 B pre-cut; Board.md hunk is a status render only, re-rendered by pr merge (render_board_at_merge, engine.py:14131)
 - findings history: 
 - branch / merge: ceo/t-0010-the-always-on-cut-merged-2fcd9fd-renamed / 6ad1132
+
+## T-0009 · gitutil.run_git has no timeout: refresh/fetch/clone/push block a lane forever on a stalled remote (finding 3)  (developer)
+- date: 2026-11-07
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: git-timeout
+- self-check: [pass] Re-read the diff: run_git keeps (project, *argv) and adds keyword-only timeout; a timed-out call returns CompletedProcess(124) with one stderr line (callers report stderr.splitlines()[-1]) and never raises, so every returncode!=0 site is unchanged. Boundaries: empty/junk/0/negative/inf/nan env -> 120s default; a second call after a timeout is clean (test); verb-only text, no URL. Env read per call, not at import (a typo must not kill every command). Concurrency: no shared state, no new file; the bound is per call. Scope: gitutil.run_git + one new unit module; engine.py, config.py, the local cat-file/lfs probes untouched. Hostile reviewer: 'the helper's stdin EOF is what lets the call return' - measured, no git-remote-* survives; a future git that ignores it would block in the drain and is named in the docstring. | test: PYTHONPATH=src ./venv/bin/python -m pytest -q tests/unit/test_git_timeout.py @8ed6fc2 -> 16 passed in 5.42s | preflight: PF-21b69bee5eb6 @8ed6fc2557aa (7 checks, 0 failed)
+- author evidence: commit 8ed6fc2
+- reviewer evidence: @8ed6fc2: PYTHONPATH=src venv/bin/python -m pytest tests/unit -q -k "git or timeout" -> 84 passed; ruff check . -> All checks passed; ruff format --check -> 266 formatted; scripts/check_comments.py -> 0 explanatory commentary; tests/unit/test_skill_contracts.py -> 109 passed; the branch test module on main (fe1a996) -> 15 failed, 1 passed; TS-0024 acceptance on the shipped refresh CLI against a loopback peer that accepts and never answers -> exit 1 in 2.08s naming the knob @8ed6fc2 vs a 25s external kill, exit 124, empty stderr @fe1a996; diff = src/teamwork/gitutil.py + tests/unit/test_git_timeout.py only; 1 commit Developer <developer@agents.nidvue.com>; merge-tree probe clean | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer-3/Scratch/logs/accept_git_timeout-8ed6fc2.log:f7f5b395dfe443c1:1025, .pi/Teamwork/Teams/Teamwork/Agents/Reviewer-3/Scratch/logs/probe_orphan_8ed6fc2.log:3f7a9721c0a7891a:614
+- findings history: 
+- branch / merge: developer/t-0009-gitutil-run-git-has-no-timeout-refresh-f / pending
