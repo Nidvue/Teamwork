@@ -92,7 +92,7 @@ under two roles is two tasks.
 | ceo | T-0007 | - | doing | - | - |
 | ceo | T-0008 | - | todo | - | - |
 | ceo | T-0009 | - | todo | - | - |
-| ceo | T-0010 | context | doing | - | - |
+| ceo | T-0010 | context | selfcheck | - | - |
 | ceo | T-0011 | - | todo | - | - |
 | developer | T-0001 | - | doing | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
@@ -155,7 +155,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0007 · Primary checkout holds uncommitted lane work, so no Reviewer can land a pass: pr merge dies 'working tree has uncommitted work outside the reviewed records' on src/teamwork/config.py, src/teamwork/engine.py, src/teamwork/lanes.py, src/teamwork/lanerun.py, tests/unit/test_lanes.py (mtimes 16:52-16:55, unchanged since); T-0006/P-0004 is passed and waiting on one pr merge | P0 | doing | - |
 | ceo | T-0008 · AC-5 is red on main: privacy_scan --tree reports 3 high/personal-email findings in tracked docs (Board.md:179, Decisions.md:2295-2296), so the tree half of the AC-5 proof exits 1 on the merge target | P0 | todo | - |
 | ceo | T-0009 · Land P-0003 (T-0002, review PASSED by Reviewer-1) is blocked: the base checkout holds uncommitted edits to AGENTS.md, SKILL.md, references/Roles.md and templates/AGENTS.md - P-0001's own four files - so pr merge refuses any dirty path outside docs/ | P0 | todo | - |
-| ceo | T-0010 · The always-on cut (merged 2fcd9fd) renamed the rule labels five shipped contract tests pin, so main was red: rebuild the exact pinned text without losing the cut | P0 | doing | - |
+| ceo | T-0010 · The always-on cut (merged 2fcd9fd) renamed the rule labels five shipped contract tests pin, so main was red: rebuild the exact pinned text without losing the cut | P0 | selfcheck | - |
 | ceo | T-0011 · main 7e1e536 is red: the full suite has 8 failures that are not any single branch's (5 skill-contract tests, the docs privacy-scan test, the records probe, the AC-5 traceability row), so the standard gate cannot go green for any deliverable | P0 | todo | - |
 | developer | T-0001 · Systematic audit of src/teamwork/*.py and scripts/*.py: real defects, dead code, inconsistent invariants, non-portable code; rank with a reproduction each; no code changes | P0 | doing | - |
 | developer | T-0004 · harness.instance_always_on documents itself as what 'teamwork load' prints, but load prints only the memory lines; the figure is a startup-read estimate including SKILL.md and the charter | P2 | todo | - |
