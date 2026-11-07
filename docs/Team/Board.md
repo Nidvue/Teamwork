@@ -100,7 +100,7 @@ under two roles is two tasks.
 | developer | T-0004 | - | todo | - | - |
 | developer | T-0005 | - | todo | - | - |
 | developer | T-0006 | io | done | P-0004 | c57e9d4 |
-| developer | T-0007 | records | done | P-0009 | - |
+| developer | T-0007 | records | done | P-0009 | 9e3ed06 |
 | developer | T-0008 | identity | doing | P-0006 | - |
 | developer | T-0009 | git-timeout | selfcheck | P-0007 | - |
 | developer | T-0010 | - | todo | - | - |
@@ -126,7 +126,7 @@ under two roles is two tasks.
 | developer | T-0030 | privacy | done | P-0010 | 25f2c0c |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
-| team-leader | T-0001 | ci | review | P-0002 | - |
+| team-leader | T-0001 | ci | doing | P-0002 | - |
 | tester | T-0001 | - | doing | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -183,7 +183,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0028 · Ledger record 106 was hashed against an empty prev while the file already carried 105 records: concurrent writers entered ledger_append's critical section (S-1) and produced a silent chain corruption that 'ledger verify' now reports | P0 | doing | - |
 | developer | T-0029 · branch start --worktree returns Worktrees/<Instance> for every task, so a second lane of one instance silently shares the first lane's worktree and commits onto the wrong branch (A-0003) | P0 | todo | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
-| team-leader | T-0001 · Finish feature F-0001: prove docs-only pushes skip the code matrix, code pushes run it, the ci.yml prose set equals docs.yml paths, and a broken classifier fails a test | P0 | review | - |
+| team-leader | T-0001 · Finish feature F-0001: prove docs-only pushes skip the code matrix, code pushes run it, the ci.yml prose set equals docs.yml paths, and a broken classifier fails a test | P0 | doing | - |
 | tester | T-0001 · Systematic audit of tests/: vacuous or tautological tests, tests that pass when the code is broken, cross-platform hazards, uncovered critical paths; rank with a reproduction each | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
