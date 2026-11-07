@@ -5074,7 +5074,7 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit e46e8f6
 - reviewer evidence: acceptance TS-0009 @e46e8f6 -> 0/3 rounds of 8 processes on one abandoned lock overlapped, all exits 0, no leftover claim file; the same probe @c8af0e1 -> 3/3 rounds overlapped, so the detector bites on the pre-fix steal. pytest -q @e46e8f6 -> 2 failed, 2221 passed, 9 skipped, and both failures (test_probe_passes[records], traceability AC-5) fail identically @c8af0e1 -> pre-existing. ruff check/format, mypy src/teamwork, check_comments @e46e8f6 -> clean. One commit, Developer mailbox, scope io.py + tests/unit/test_io.py.
 - findings history: 
-- branch / merge: developer-2/t-0006-io-lock-stale-steal-is-check-then-unlink / pending
+- branch / merge: developer-2/t-0006-io-lock-stale-steal-is-check-then-unlink / c57e9d4
 
 ## T-0001 · Systematic audit: Architecture.md frozen contracts vs the code in src/teamwork and scripts; rank findings with a reproduction each; no code changes  (architect)
 - date: 2026-11-07
