@@ -6073,6 +6073,24 @@ Three steps, in order. You cannot skip any of them.
 """.replace("{max_rounds}", str(MAX_ROUNDS))
 
 
+def known_roles(root: Path) -> list:
+    """The role slugs a refusal may name: canonical ones this team actually has.
+
+    `list_roles` is a directory listing, and a directory under `Roles/` is not
+    proof of a role: `remember` created one for any spelling (T-0027), so the raw
+    listing can hold the very typo the refusal is about - that is how `load nope`
+    came to advertise `nope` as known in its own refusal (T-0003). Only a
+    canonical slug counts, from a role directory or from a registered instance.
+    """
+    return sorted(
+        {
+            role
+            for role in [*list_roles(root), *(resolve_role(inst) for inst in list_agents(root))]
+            if role in ROLE_DISPLAY
+        }
+    )
+
+
 def unknown_role_message(root: Path, name: str, role: str) -> str:
     """The refusal for a name that is neither a registered role nor an instance.
 
@@ -6082,7 +6100,7 @@ def unknown_role_message(root: Path, name: str, role: str) -> str:
     The message names what the team knows so the name can be corrected without a
     second command.
     """
-    known = list_roles(root)
+    known = known_roles(root)
     return (
         f"unknown role '{name}': no {role} instance is registered in this team, so"
         " nothing was created. Known roles: "
@@ -6190,8 +6208,10 @@ def cmd_load(args) -> int:
 def _memory_path(root: Path, agent: str, layer: str) -> tuple:
     role = resolve_role(agent)
     d = role_dir(root, role)
-    if not d.is_dir() and not agents_dir(root).is_dir():
+    if not roles_dir(root).is_dir() and not agents_dir(root).is_dir():
         die("no workspace here: run `teamwork.py init` first")
+    if not loadable_role(root, role):
+        die(unknown_role_message(root, agent, role))
     d.mkdir(parents=True, exist_ok=True)
     filename = F_SHORT if layer == "short" else F_LONG
     return d / filename, filename
