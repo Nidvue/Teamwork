@@ -95,7 +95,7 @@ under two roles is two tasks.
 | developer | T-0003 | memory | review | P-0005 | - |
 | developer | T-0004 | - | todo | - | - |
 | developer | T-0005 | - | todo | - | - |
-| developer | T-0006 | io | done | P-0004 | - |
+| developer | T-0006 | io | done | P-0004 | c57e9d4 |
 | developer | T-0007 | records | review | P-0009 | - |
 | developer | T-0008 | identity | review | P-0006 | - |
 | developer | T-0009 | git-timeout | selfcheck | P-0007 | - |
