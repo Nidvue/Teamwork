@@ -108,12 +108,12 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 388 kB |
-| `standard` | 10 | 540 kB |
-| `full` | 17 | 885 kB |
+| `slim` (default) | 7 | 282 kB |
+| `standard` | 10 | 388 kB |
+| `full` | 17 | 626 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
-the text a full roster pays for before any work starts, and 2.3x what `slim` costs.
+the text a full roster pays for before any work starts: 2.2x what `slim` costs.
 
 A role earns a seat only if it owns a deliverable, a test layer and a decision
 right no other role holds. Everything else is a **lane, not a role**: it costs no
