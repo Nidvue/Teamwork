@@ -5165,4 +5165,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit d96dda1; 200 passed @d96dda1 across every module the change or the Board render touches; the full unit layer (1890 passed, 2 skipped) was green on the identical tree before the base-only rebase; repro 5 failed @2fcd9fd -> green @d96dda1
 - reviewer evidence: venv/bin/python -m pytest tests/unit @d96dda1 in a clean worktree -> 1897 passed, 7 skipped (8m22); tests/unit/test_skill_contracts.py @2fcd9fd -> 5 failed, 104 passed and @d96dda1 -> green; TS-0010 acceptance/context @d96dda1 -> 37 PASS 0 fail, 18 FAIL @2fcd9fd; ruff check + ruff format --check + mypy @d96dda1 -> all clean; teamwork.py links @d96dda1 -> 0 issues; cut kept: AGENTS.md 26002 B vs 25975 B at 2fcd9fd and 41191 B pre-cut; Board.md hunk is a status render only, re-rendered by pr merge (render_board_at_merge, engine.py:14131)
 - findings history: 
-- branch / merge: ceo/t-0010-the-always-on-cut-merged-2fcd9fd-renamed / pending
+- branch / merge: ceo/t-0010-the-always-on-cut-merged-2fcd9fd-renamed / 6ad1132
