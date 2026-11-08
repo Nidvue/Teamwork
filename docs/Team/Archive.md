@@ -5711,4 +5711,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit bc25670 @bc25670 -> one commit over main, 4 record files
 - reviewer evidence: Reviewer-3's own run @bc25670: PYTHONPATH=src venv/bin/python -m pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> 19 passed; links -> 0; dispute list -> D-0001 and D-0002 resolved. Read the diff: the two rulings are recorded with their decider, evidence and falsifier, and the D-0001 entry names the neutral Reviewer as the decider because the CEO was a party - which is the rule the tribunal exists for. The manifest is the tool's export and states chain verified False rather than claiming a clean chain.
 - findings history: 
-- branch / merge: ceo/t-0020-record-the-two-tribunal-rulings-d-0001-t / pending
+- branch / merge: ceo/t-0020-record-the-two-tribunal-rulings-d-0001-t / f36e133
