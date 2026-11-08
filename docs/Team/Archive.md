@@ -5685,4 +5685,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 63bf78c @63bf78c -> one commit over main
 - reviewer evidence: Reviewer-2's own run @63bf78c: pytest tests/unit/test_preflight.py tests/unit/test_ledger_repair_tail_only.py tests/integration/test_clean_and_preflight_flow.py -> 34 passed; at c95afdf the preflight module is 5 failed on the verdict string. Read the diff: the verdict stays pass unless a check failed, and the unmeasured checks are named on the same line, so T-0012's disclosure is kept without breaking the shipped contract that five tests pin.
 - findings history: 
-- branch / merge: developer/t-0053-t-0052-s-preflight-verdict-broke-five-sh / pending
+- branch / merge: developer/t-0053-t-0052-s-preflight-verdict-broke-five-sh / 38112f9
