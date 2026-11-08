@@ -1508,7 +1508,7 @@ _PRE_EXISTING_SHAPES = (
     ("json-secret", '{"client_secret": "' + "AbCdEf0123456789GhIjKlMn" + '"}'),
     ("private-key", "-----BEGIN " + "RSA PRIVATE KEY-----"),
     ("home-path", "path = /home/" + "realperson/projects/x"),
-    ("personal-email", "mail = ping@" + "personal.example"),
+    ("personal-email", "mail = ping@" + _REAL_MAIL_DOMAIN),
 )
 
 
