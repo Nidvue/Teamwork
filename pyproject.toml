@@ -147,13 +147,10 @@ indent-style = "space"
 line-ending = "lf"
 
 [tool.pyright]
-# Mirrors the mypy override below. `engine.py` is the ported command layer and
-# keeps its v1.0 typing exemption; every other module is expected to be clean.
-# The canonical gate is `mypy src/teamwork` (Makefile / CI); this section stops a
-# second checker from reporting the same accepted exemption as 39 errors.
+# The canonical gate is `mypy src/teamwork` (Makefile / CI); this section keeps a
+# second checker on the same file set. No module is excluded: engine.py is
+# type-checked like every other module since T-0018 removed its exemption.
 include = ["src/teamwork"]
-exclude = ["src/teamwork/engine.py"]
-ignore = ["src/teamwork/engine.py"]
 
 [tool.mypy]
 # NOTE: the supported floor is 3.11, enforced by `requires-python`, the 3.11 CI
@@ -169,12 +166,9 @@ no_implicit_optional = true
 warn_redundant_casts = true
 show_error_codes = true
 
-# The package split moved records, paths, names, IO and git plumbing into typed
-# modules. The remaining command layer (engine.py) keeps its v1.0 typing
-# exemption; every other module must be clean.
-[[tool.mypy.overrides]]
-module = ["teamwork.engine"]
-ignore_errors = true
+# Every module under src/teamwork is checked, engine.py included. The command
+# layer carried a v1.0 `ignore_errors` exemption until T-0018 removed it;
+# tests/unit/test_typing_gate.py keeps a standing exemption from coming back.
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -192,7 +186,7 @@ omit = ["tests/*"]
 
 [tool.coverage.report]
 # A floor, not a target: it stops a large coverage regression while the engine
-# remains a tracked post-1.0 typing/splitting refactor.
+# remains a tracked post-1.0 splitting refactor.
 fail_under = 55
 show_missing = true
 skip_covered = true
