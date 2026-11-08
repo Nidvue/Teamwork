@@ -5789,4 +5789,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 804224a @804224a -> one commit over main
 - reviewer evidence: Reviewer-1's own run @804224a: pytest tests/unit/test_cli_contract.py -> 44 passed; a probe without --force is refused, and with --force the field is cleared; loop no longer names the two retired branches. Read the diff: same guard shape as --review-status, reason required.
 - findings history: 
-- branch / merge: developer/t-0057-task-set-cannot-clear-a-retired-branch-s / pending
+- branch / merge: developer/t-0057-task-set-cannot-clear-a-retired-branch-s / 0908643
