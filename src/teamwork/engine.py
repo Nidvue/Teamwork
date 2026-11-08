@@ -1181,6 +1181,17 @@ def _return_staged_entries(
             )
 
 
+def _merge_commit_env() -> dict:
+    """The environment a merge's own commit runs in.
+
+    The R1 pre-commit hook refuses a commit on the default branch so no lane can
+    land work there directly. A merge's records, board render and archive rewrite
+    are the one exception the rule names, so they carry the marker explicitly
+    instead of depending on whoever ran the command to export it.
+    """
+    return dict(os.environ, TEAMWORK_ALLOW_MAIN="1")
+
+
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "merge.lock"):
         hint = _merge_branch_hint(root, args.pr)
@@ -1349,6 +1360,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 input=rec_msg,
                 capture_output=True,
                 text=True,
+                env=_merge_commit_env(),
             )
             if rr.returncode != 0:
                 run_git(here, "reset", "-q", "--", *records)
@@ -1388,6 +1400,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                         input=message,
                         capture_output=True,
                         text=True,
+                        env=_merge_commit_env(),
                     )
                 merged = r
             else:
@@ -1397,6 +1410,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     + ["merge", "--no-ff", "-m", message, branch],
                     capture_output=True,
                     text=True,
+                    env=_merge_commit_env(),
                 )
             if merged.returncode != 0:
                 run_git(here, "merge", "--abort")
@@ -12514,6 +12528,7 @@ def commit_archive_merge_sha(
         input=close_msg,
         capture_output=True,
         text=True,
+        env=_merge_commit_env(),
     )
     if committed.returncode != 0:
         run_git(here, "reset", "-q", "--", rel)
@@ -14339,6 +14354,7 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
         input=message,
         capture_output=True,
         text=True,
+        env=_merge_commit_env(),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", rel)
