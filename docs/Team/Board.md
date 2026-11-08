@@ -130,7 +130,7 @@ under two roles is two tasks.
 | developer | T-0026 | - | todo | - | - |
 | developer | T-0027 | - | blocked | - | - |
 | developer | T-0028 | ledger | doing | P-0012 | - |
-| developer | T-0029 | lanes | review | P-0022 | - |
+| developer | T-0029 | lanes | done | P-0022 | 2722c27 |
 | developer | T-0030 | privacy | done | P-0010 | 25f2c0c |
 | developer | T-0031 | - | todo | - | - |
 | developer | T-0032 | preflight | review | P-0032 | - |
@@ -205,7 +205,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0027 · remember still invents Roles/<Typo>/: the hole T-0003 closed in load is open in remember (measured: remember QaEnginere note --by QaEnginere -> exit 0 and Roles/QaEnginere/ShortTermMemory.md created; board and loop then report qaenginere as a role with state), and a refused remember --by <other role> still leaves an empty Roles/<Typo>/ directory | P1 | blocked | - |
 | developer | T-0028 · Ledger record 106 was hashed against an empty prev while the file already carried 105 records: concurrent writers entered ledger_append's critical section (S-1) and produced a silent chain corruption that 'ledger verify' now reports | P0 | doing | - |
-| developer | T-0029 · branch start --worktree returns Worktrees/<Instance> for every task, so a second lane of one instance silently shares the first lane's worktree and commits onto the wrong branch (A-0003) | P0 | review | - |
 | developer | T-0031 · decision add clips the heading mid-word (D-20261107-TeamLeader renders as '... section 2 (c'), so a committed decision entry has an unreadable title | P2 | todo | - |
 | developer | T-0032 · Amending a branch after selfcheck permanently poisons the task: self-check notes are append-only and preflight requires every @sha in them to be reachable | P1 | review | - |
 | developer | T-0033 · gitutil timeout docstring and test comment name the wrong mechanism for the remote helper | P2 | todo | - |
