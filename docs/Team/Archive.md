@@ -5672,4 +5672,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit c69a75e @c69a75e -> one commit over main, 3 files
 - reviewer evidence: Reviewer-5's own run @c69a75e: pytest tests/unit/test_ledger_repair_tail_only.py tests/unit/test_ledger.py tests/integration/test_clean_and_preflight_flow.py tests/unit/test_cli_contract.py -> 83 passed; ruff check + format --check -> clean. Read the diff: the repair drops only the contiguous unreadable run at the tail and refuses (exit 2) with the file untouched for anything else, which is the finding's own distinction between a torn write and tampering; the preflight verdict is fail > partial > pass and names the unmeasured checks, so a review that quotes the line cannot quote a pass it did not measure. Requirement: findings 9 and 6 closed; conformance: each has a test that reproduces its failure mode, including the byte-identical file assertion.
 - findings history: 
-- branch / merge: developer/t-0052-burn-down-4-ledger-repair-drops-only-a-t / pending
+- branch / merge: developer/t-0052-burn-down-4-ledger-repair-drops-only-a-t / c95afdf
