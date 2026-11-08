@@ -5321,4 +5321,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit b3586b5 @b3586b5 -> one commit over main, 3 record files + board render
 - reviewer evidence: Reviewer-1's own run @b3586b5: PYTHONPATH=src venv/bin/python -m pytest -q tests/unit/test_docs_contracts.py -> 17 passed; scripts/teamwork.py links -> issues 0; criteria list -> AC-M21-1..6 registered with five verified and AC-M20-1..4 verified, AC-M20-5 open. Read the diff: the M21 rows name the two new tasks and say what the wave proves; AC-M21-6 states both halves so it cannot be satisfied by weakening R1; AC-M20-5 is deliberately left open because loop is CONTINUE on the pre-existing backlog, and the commit says so rather than claiming a green gate. The criteria are records now, which is what loop reads - the earlier prose-only milestone was invisible to the gate. Finish: 3 record files plus the tool-rendered board, one commit.
 - findings history: 
-- branch / merge: ceo/t-0018-m21-close-out-record-the-memory-loop-clo / pending
+- branch / merge: ceo/t-0018-m21-close-out-record-the-memory-loop-clo / 079ee66
