@@ -5699,3 +5699,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-1's own run @036cf3a: pytest over the eight modules the diff can reach -> 198 passed; ruff check + format --check -> clean; mypy -> Success, 23 files. At 22afb7a the same modules are 4 failed with the three symptoms the task names. Read the diff: file_size now separates 'missing' (0) from 'unreadable' (-1), both render paths print '-' for an unmeasurable value, the ledger guard re-seeds only an empty file and keeps refusing a partial truncation, and the test helper locates the worktree by its .git so T-0029's layout is respected. Requirement: the suite is green after the burn-down; conformance: the repro record shows fail->pass.
 - findings history: 
 - branch / merge: developer/t-0054-finish-the-regression-sweep-the-harness / 17bd3a9
+
+## T-0020 · Record the two tribunal rulings (D-0001: T-0013 is the decision-record vehicle, T-0004/T-0014/T-0015 dropped; D-0002: the audit's last stale row corrected and report-only deliverables close on their artifact) in docs/Team/Decisions.md, then export the manifest and close the stage  (ceo)
+- date: 2026-11-08
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the 4-file diff. Boundary: the two rulings are the tribunal's own text (deciders named: Reviewer-2 for D-0001 because the CEO was a party, CEO for D-0002 because the Reviewer raised it), each carries decision/why/evidence/falsified-by; the manifest is the tool's export and says chain verified False; the board is rendered. Scope: records only. Hostile reviewer: 'the CEO wrote the ruling it benefits from' - for D-0001 the neutral Reviewer signed and resolved it, and the file records that; for D-0002 the CEO was neutral. | test: pytest test_decision_ids+test_docs_contracts @bc25670 -> 19 passed; links -> 0; dispute list -> D-0001 and D-0002 resolved | preflight: PF-7ecdff9876b8 @bc2567013cb5 (7 checks, 0 failed)
+- author evidence: commit bc25670 @bc25670 -> one commit over main, 4 record files
+- reviewer evidence: Reviewer-3's own run @bc25670: PYTHONPATH=src venv/bin/python -m pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> 19 passed; links -> 0; dispute list -> D-0001 and D-0002 resolved. Read the diff: the two rulings are recorded with their decider, evidence and falsifier, and the D-0001 entry names the neutral Reviewer as the decider because the CEO was a party - which is the rule the tribunal exists for. The manifest is the tool's export and states chain verified False rather than claiming a clean chain.
+- findings history: 
+- branch / merge: ceo/t-0020-record-the-two-tribunal-rulings-d-0001-t / pending
