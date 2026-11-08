@@ -124,7 +124,7 @@ under two roles is two tasks.
 | developer | T-0020 | - | todo | - | - |
 | developer | T-0021 | - | todo | - | - |
 | developer | T-0022 | - | doing | - | - |
-| developer | T-0023 | privacy | review | P-0008 | - |
+| developer | T-0023 | privacy | done | P-0008 | 206c099 |
 | developer | T-0024 | - | todo | - | - |
 | developer | T-0025 | - | todo | - | - |
 | developer | T-0026 | - | todo | - | - |
@@ -200,7 +200,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0020 · Records/merge commits must carry the Acting role trailer (prevent A-0010) | P1 | todo | - |
 | developer | T-0021 · board's parsers raise bare exceptions (finding 15) | P3 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
-| developer | T-0023 · privacy scanner misses NAME=<base64>, Slack webhooks, Authorization: Basic and db://user:pw@host (S-4) | P1 | review | - |
 | developer | T-0024 · the v* tag ruleset protects update/delete but not creation, so 'CEO only' is convention (S-5) | P2 | todo | - |
 | developer | T-0025 · Remotes.md section 2 claims a merge is impossible while a required check is red; the measured flow permits it (S-7) | P2 | todo | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
