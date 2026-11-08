@@ -2635,7 +2635,10 @@ def _head_confirms_tail(root: Path, prev: str, n: int) -> None:
     chain and appending would extend the wrong one. A cache that names an earlier
     record of this chain is the crash artefact ``ledger verify --reconcile`` heals
     (the record reached the disk, the head write did not): it is named and healed
-    here rather than refused.
+    here rather than refused. An *empty* file with a cache is a fresh store (a new
+    workspace, or a deliberate reset that a test drives): nothing is chained onto,
+    so the append re-seeds the head instead of leaving the team permanently unable
+    to write.
     """
     import json
 
@@ -2648,6 +2651,14 @@ def _head_confirms_tail(root: Path, prev: str, n: int) -> None:
     except (ValueError, OSError, TypeError, AttributeError) as exc:
         die(_refused_append(f"the head cache {head} is unreadable ({exc})"))
     if cached_n == n and cached_hash == prev:
+        return
+    if n == 0 and cached_n > 0:
+        print(
+            f"teamwork: NOTE the ledger file is empty while the head cache names record "
+            f"{cached_n}: treating this as a fresh store and re-seeding the head "
+            "(nothing is chained onto, and the cache is rewritten by this append)",
+            file=sys.stderr,
+        )
         return
     if 0 <= cached_n < n and cached_hash == _ledger_until(root, cached_n):
         print(
