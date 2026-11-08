@@ -1,11 +1,11 @@
 # Audit report
 
-- generated: 2026-11-08T21:52:23
+- generated: 2026-11-08T21:53:10
 - team: Teamwork
-- ledger: 1218 records, chain verified: False
-- checkpoint: record #1218 (the ledger.export event behind this manifest; later records are work that happened after it)
-- head hash: `9daad5474e63129db3593dd61acad108`
-- git: 1767f7b63a0b on ceo/t-0020-record-the-two-tribunal-rulings-d-0001-t, dirty: True
+- ledger: 1230 records, chain verified: False
+- checkpoint: record #1230 (the ledger.export event behind this manifest; later records are work that happened after it)
+- head hash: `12c4cc7fa0e78153e80c3d2234621213`
+- git: 5913171a44bb on main, dirty: False
 - externally verifiable artifacts: 4
 - local-only state files: 30
 
