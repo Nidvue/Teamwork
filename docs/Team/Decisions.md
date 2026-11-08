@@ -2248,3 +2248,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git show developer/t-0015-make-the-feature-team-hierarchy-visible:src/teamwork/engine.py @7e57a65 -> reporting_tree_lines() emits the leader_feature label feature=F-nnnn (state) or feature=none, the attached_squad children (under:<leader>), the (squad pool - no leader attached) block and the CEO-line note naming Reviewer, Security Auditor and CFO; python3 scripts/teamwork.py feature set F-0001 --state ready --interface Architecture.md#9 --by architect @worktree -> teamwork: features ~ F-0001 [proposed] -> [ready] interface=Architecture.md#9; python3 scripts/teamwork.py feature check @worktree -> 1 open feature(s), 0 problem(s); python3 scripts/teamwork.py links @088e185 -> 0 issues; mkdocs build --strict @worktree -> exit 0 and the site built; PYTHONPATH=src .pi/venv311/bin/python -m pytest tests/unit/test_docs_contracts.py tests/unit/test_features.py tests/unit/test_feature_independence.py tests/unit/test_feature_teams.py tests/unit/test_reporting_hierarchy.py tests/unit/test_decision_ids.py tests/unit/test_cli_contract.py -q @worktree -> 168 passed
 - falsified by: if the map ever prints an attachment as a ROLE_PARENT edge, prints a squad instance under two leaders or twice, or prints reviewer, security-auditor or cfo under a team leader, the render contradicts the one-manager rule and this decision is wrong
 - consequences: Supersedes only the consequence of D-20261029-Architect-2 that the map does not show the attachment; that ADR is append-only and is not edited, and the rest of it stands - the CTO as the single line manager of every Team Leader, the board decision rights, one manager per specialist, and the independent lanes. Architecture.md 13.2 states the live render and P-0015/T-0015 ships the code.
+
+## D-20261108-CEO - Do not re-seal the ledger chain to repair record 106; keep t
+
+- date: 2026-11-08
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Do not re-seal the ledger chain to repair record 106; keep the chain flagged and treat every close-out claim as partial until an authorized repair exists
+- why: ledger verify reports record 106 (task.add, T-0025) digest mismatch; the only shipped repair (ledger repair) drops a torn tail, which here would discard records 106..562 - 456 evidence records; re-sealing the chain in place is a rewrite of the audit trail and is a red line without explicit authorization
+- evidence: scripts/teamwork.py ledger verify @533f695 -> records: 562 | head 33907b0657c3b20b | PROBLEM record 106 (task.add): digest mismatch (record altered) | the trail has been altered or truncated; scripts/teamwork.py ledger export @533f695 -> manifest docs/Team/AuditManifest.json, chain verified: False; ledger repair --help -> only --by/--reason/--force, torn-tail drop
+- falsified by: a repair tool that re-derives record 106 from an independent copy (git history of .pi, a backup, or a re-append from the source task file) and verifies the full chain, or an explicit user authorization to re-seal
+- consequences: -
+
+## D-20261108-Architect - Ratify the Architecture.md census edits that ship with scripts/ci_scope.py
+
+- date: 2026-11-08
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0002
+- context: -
+- options considered: -
+- decision: Ratify (a) the section-2 tree line "ci_scope.py # classify a change set into the code/prose gate answers" and (b) the section-9 wording that names scripts/ci_scope.py::prose_paths where it named the scope job PROSE regex; amend (c) by assigning scripts/ci_scope.py to the release-engineer ownership row, because the table has no blanket scripts/** row and an unowned writer is the exact defect the table prevents.
+- why: test_architecture_lists_exactly_the_shipped_scripts makes the section-2 census a gate on the shipping lane, so the Architect rules on the wording instead of leaving it a lane-local edit; the section-9 pointer names one executable home for the prose set.
+- evidence: git show 8719208 -- docs/Team/Architecture.md -> +1 tree line at the scripts comment column plus the section-9 scope bullet and prose/media set naming scripts/ci_scope.py; git show 8719208:scripts/ci_scope.py -> def prose_paths() line 61 returning PROSE_PATHS; grep -n ci_scope docs/Team/Architecture.md @2b5e8b3 -> no ownership row and no scripts/** blanket row
+- falsified by: If test_architecture_lists_exactly_the_shipped_scripts or test_architecture_ownership_table_assigns_every_shipped_file fails at the T-0001 merge revision, or the section-2 comment column drifts, this ratification is wrong.
+- consequences: release-engineer is the single writer for scripts/ci_scope.py; the TeamLeader lane remains author of the code and of the two ratified lines.
