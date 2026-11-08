@@ -150,7 +150,7 @@ under two roles is two tasks.
 | developer | T-0046 | clean | done | P-0042 | 4e31f14 |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
-| team-leader | T-0001 | ci | done | P-0002 | - |
+| team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
 
