@@ -96,6 +96,7 @@ LESSON_FIELDS = (
     "by",
     "created",
     "updated",
+    "superseded_by",
 )
 
 KNOWLEDGE_HEADER = (
@@ -1772,7 +1773,7 @@ def render_lessons(items: list) -> str:
     for item in sorted(items, key=lambda entry: entry["id"]):
         out.append(f"## {item['id']} - {one_line(item['mistake'])}")
         for field in LESSON_FIELDS:
-            if field in ("task", "skill") and not item.get(field):
+            if field in ("task", "skill", "superseded_by") and not item.get(field):
                 continue
             out.append(f"- {field}: {one_line(item.get(field, ''))}")
         out.append("")
@@ -1901,7 +1902,7 @@ def parse_knowledge(path: Path) -> list:
             except ValueError:
                 pass
         elif field == "status":
-            if value in ("active", "superseded"):
+            if value in ("active", "superseded", "archived"):
                 current["status"] = value
         elif field in current:
             current[field] = value
