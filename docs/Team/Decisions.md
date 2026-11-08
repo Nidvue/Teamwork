@@ -2280,3 +2280,73 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git show 8719208 -- docs/Team/Architecture.md -> +1 tree line at the scripts comment column plus the section-9 scope bullet and prose/media set naming scripts/ci_scope.py; git show 8719208:scripts/ci_scope.py -> def prose_paths() line 61 returning PROSE_PATHS; grep -n ci_scope docs/Team/Architecture.md @2b5e8b3 -> no ownership row and no scripts/** blanket row
 - falsified by: If test_architecture_lists_exactly_the_shipped_scripts or test_architecture_ownership_table_assigns_every_shipped_file fails at the T-0001 merge revision, or the section-2 comment column drifts, this ratification is wrong.
 - consequences: release-engineer is the single writer for scripts/ci_scope.py; the TeamLeader lane remains author of the code and of the two ratified lines.
+
+## D-20261107-CEO - Restore the local record store on a fresh clone
+
+- date: 2026-11-07
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: Recreate the old ledger (impossible: the chain bytes are gone); copy the manifest and claim continuity (dishonest); start a new chain and say so (chosen)
+- decision: Bootstrap a new team workspace at .pi/Teamwork/Teams/Teamwork with the slim roster; the committed docs/Team/AuditManifest.md stays the external evidence of the previous chain; every pre-existing task, criteria and test record is re-created only where a command can re-measure it now.
+- why: The .pi/ working state is gitignored and absent from this clone (fresh checkout at c8af0e1), so criteria, Tasks, Tests and Ledger were not carried over. The skill's stop condition reads records, so a restored store is a precondition for the engagement, not a shortcut around it.
+- evidence: ls -a .pi -> No such file or directory @c8af0e1; python3 scripts/teamwork.py loop @c8af0e1 -> CONTINUE 'no acceptance criteria recorded', 'no layered test records'; python3 scripts/teamwork.py init --roster slim -> workspace ready, docs/Team/*.md untouched (git status --short -> empty)
+- falsified by: If any pre-existing .pi record is found on this host, this decision is incomplete and the found store supersedes it.
+- consequences: The new ledger starts at record 1; audit/loop numbers for this engagement are cut #3 and must never be compared with cut #1/#2 without saying so.
+
+## D-20261107-TeamLeader - The lane updated docs/Team/Architecture.md section 2 census line, the guarded-tool sentence and two section 9 pointers inside the T-0001 commit
+
+- date: 2026-11-07
+- kind: technical
+- status: accepted
+- deciders: TeamLeader (team-leader)
+- decided by: TeamLeader
+- task: -
+- context: -
+- options considered: -
+- decision: The lane updated docs/Team/Architecture.md section 2 (ci_scope.py tree line), the guarded-tool sentence and two section 9 sentences that named the scope job's PROSE regex, inside the T-0001 commit, although F-0001's write set does not list Architecture.md
+- why: test_architecture_lists_exactly_the_shipped_scripts compares the section-2 tree with scripts/*.py and fails the moment a shipped script is absent, so the census line cannot lag the file; the same commit precedent exists (b106888 feat(packaging) added scripts/sync_skill.py together with its Architecture.md map and ownership row). Section 9 named the classifier by its old location, so leaving it would have made the frozen contract describe code that no longer exists. The edits are pointer/census only: the prose set's 11 members, the identity rule with docs.yml, the --no-renames rule, the undetermined rule, the tag-push and pull-request rules are unchanged. Ratification filed as architect T-0002.
+- evidence: git show dac7a09 --stat -> docs/Team/Architecture.md 14 +-; python -m pytest tests/unit/test_portability.py -k 'shipped_scripts or architecture_ownership' @dac7a09 -> passed (failed before the edit: 'At index 3 diff: privacy_scan.py != ci_scope.py'); python -m pytest tests/unit/test_ci_scope.py tests/integration/test_ci_scope_flow.py @dac7a09 -> 55 passed; python scripts/teamwork.py links @dac7a09 -> issues 0
+- falsified by: If the Architect rules that a lane may not touch section 2/9 without a prior record change, this commit is the wrong vehicle and the census line moves to an architect task before the next merge.
+- consequences: -
+
+## D-20261107-Developer - Commit identity auditing is strict by default; --allow-external is the only documented escape
+
+- date: 2026-11-07
+- kind: technical
+- status: accepted
+- deciders: Developer (developer)
+- decided by: Developer
+- task: -
+- context: -
+- options considered: -
+- decision: commit identity auditing is strict by default; --allow-external is the only documented escape
+- why: measured at c8af0e1: a commit authored Ping Operator <ping@personal.example> with an Acting role trailer was 'skipped: external contributor' with exit 0 under the form Makefile lint/identity and ci.yml ran (3 call sites), and the same commit failed with exit 1 under --strict-authors; a rule whose only enforcement is the lenient spelling enforces nothing, and the outside-contributor case it was protecting is rare enough to name with a flag. Default flip + explicit flags keeps fork PRs auditable (a maintainer adds --allow-external) without weakening the team-identity rule.
+- evidence: identity --audit --range HEAD on a scratch repo with a personal-identity commit @c8af0e1 -> exit 0 skipped; @5676297 -> exit 1 'not a role mailbox: ping@personal.example', --allow-external -> exit 0; pytest -q tests/unit/test_commit_identity.py @5676297 -> 45 passed, 3 of the new cases red on c8af0e1
+- falsified by: a real outside contribution to this repository that the strict default blocks with no acceptable escape (a fork PR whose author cannot be reached) would show the default is wrong for that flow
+- consequences: -
+
+## D-20261107-CEO-2 - Published-history rewrite authorised by the operator, declined on blast radius: accept the historical committer red with a scoped waiver
+
+- date: 2026-11-07
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: Rewrite published history (operator-authorised; declined: invalidates every cited @<sha>); waiver + recurrence fix (chosen); change the guard to ignore empty commits (rejected: weakens a gate)
+- decision: Do not rewrite published main to remove the three empty 'chore: hand edit' commits. Accept run 42400293015's committer-guard red as historical, record the waiver, keep the guard unchanged (it audits the pushed range only), and prove the next push green.
+- why: The commits are EMPTY, so a rewrite buys no content change - but every descendant SHA changes, and this tree cites old merge revisions in Archive.md, Plan.md evidence cells, task evidence and the audit manifest. Preflight fails closed on unreachable @<sha> evidence, so the rewrite would invalidate dozens of records to clear one historical red.
+- evidence: git show --stat b169c7d 17e3b4a f742b65 -> three headers, no file list (empty commits); committer 'Ping Operator <ping@personal.example>'; gh run 42400293015 committer guard -> failure on c8af0e1..fe1a996; hooks status @fe1a996 -> pre-commit absent (root cause, now installed)
+- falsified by: If a later push's committer guard still fails without a new non-role commit in its range, this decision is wrong.
+- consequences: Run 42400293015 stays red on the committer guard; every later revision is judged on its own range; the pre-commit hook now refuses a non-role committer locally.
+- ledger: record 395 and record 408 both carry this decision.add. 395 is filed under
+  D-20261107-CEO-2, the heading above, and its detail is 307 chars because it adds the
+  parenthetical on the guard's scope. 408 was written after the record file was reset during
+  recovery under the transient id D-20261107-CEO-3, 253 chars, and the heading was corrected
+  to -CEO-2 on ceo/T-0013 so the id the task names is the id committed. A reader holding
+  either record lands here; decision, evidence and falsifier are one.
