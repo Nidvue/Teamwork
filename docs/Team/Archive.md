@@ -5451,4 +5451,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 4835d86
 - reviewer evidence: Reviewer-4's own run in a throwaway worktree of developer-3/t-0010-clean-reports-files-as-removed-when-unli @4835d86: developer-3/t-0010-clean-reports-files-as-removed-when-unli: pytest[10 passed in 0.58s] ruff[All checks passed!] fmt[276 files already formatted] mypy[Success: no issues found in 23 source files]. Read the diff: fix(clean): cmd_clean records a removal only after a successful unlink and lists eac - the change is the one the task names, the test it adds is in the branch's tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
-- branch / merge: developer-3/t-0010-clean-reports-files-as-removed-when-unli / pending
+- branch / merge: developer-3/t-0010-clean-reports-files-as-removed-when-unli / a2da634
