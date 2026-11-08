@@ -473,6 +473,7 @@ def build_packet(
         f"- `tw load {instance} --task {task}` - your role memory plus the memory pack for",
         "  this assignment (docs/Team/Memory.md 4.1/4.5): lessons and knowledge ranked for the",
         "  task, inside a byte budget, instead of the same static top-10 for every lane.",
+        "  The pack is also injected below, so the first read is a re-read, not a discovery.",
         f"- `{role_dir(root, role) / 'Role.md'}` - your charter (read it, do not skim it).",
         f"- `{agent_dir(root, instance) / 'StartHere.md'}` - your lane directory.",
         "- Anchor-first reading: `rg -n '<anchor>' <path>` then about 30 lines around it.",
@@ -520,6 +521,11 @@ def build_packet(
             "",
         ]
     out += [
+        "## Memory pack for this assignment (injected)",
+        "```",
+        engine.memory_pack_block(root, role, task),
+        "```",
+        "",
         "## Rules that are not negotiable",
         "- One task, one branch; never commit on the default branch.",
         "- Evidence is a command and its observed result at a revision:",
