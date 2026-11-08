@@ -134,6 +134,8 @@ def test_the_packet_names_the_work_the_charter_the_budget_and_the_result_contrac
     assert "tw branch start --agent Developer-1 --task T-0001 --worktree" in packet
     assert "tw load Developer-1 --task T-0001" in packet
     assert "tw load Developer-1`" not in packet
+    assert "## Memory pack for this assignment (injected)" in packet
+    assert "# pack:" in packet
 
 
 def test_a_reviewer_packet_carries_the_review_flow_not_the_produce_flow(cli, project: Path) -> None:
