@@ -5660,3 +5660,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-4's own run @04d449e: pytest tests/unit/test_lanes.py tests/unit/test_cli_contract.py -> 75 passed; at the parent the lane suite is 22 failed with 'invalid choice: swarm'. build_parser lists swarm, lane and pulse, and pulse carries --spawn. The restored block is the one dd5904e introduced, and the new test reads the real parser, so a future rebase that drops either fails the suite.
 - findings history: 
 - branch / merge: developer/t-0051-a-lane-s-rebase-silently-deleted-the-lan / ad5753d
+
+## T-0052 · Burn-down 4: ledger repair drops only a torn tail (T-0015) and preflight stops printing pass while a check is unmeasured (T-0012)  (developer)
+- date: 2026-11-08
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-5
+- task / issue: -
+- area: audit
+- self-check: [pass] Re-read the 3-file diff. Boundary: a torn tail is still repaired (the repair event is appended and the chain re-heads - test_repair_drops_a_torn_tail); a middle corruption refuses with exit 2 and the file is byte-identical (test asserts that); a preflight with every check measured still reads pass. Second call: _trailing_run is pure. Scope: engine.py two sites, one test module, board render. Hostile reviewer: 'partial will break callers that grep pass' - that is the point of the finding: a run that measured 1 of 7 checks must not read pass; the pass string is unchanged when everything is measured. | test: pytest tests/unit/test_ledger_repair_tail_only.py tests/unit/test_ledger.py tests/integration/test_clean_and_preflight_flow.py tests/unit/test_cli_contract.py @c69a75e -> 83 passed; ruff+format clean | preflight: PF-329417f33a2a @c69a75ee392b (7 checks, 0 failed)
+- author evidence: commit c69a75e @c69a75e -> one commit over main, 3 files
+- reviewer evidence: Reviewer-5's own run @c69a75e: pytest tests/unit/test_ledger_repair_tail_only.py tests/unit/test_ledger.py tests/integration/test_clean_and_preflight_flow.py tests/unit/test_cli_contract.py -> 83 passed; ruff check + format --check -> clean. Read the diff: the repair drops only the contiguous unreadable run at the tail and refuses (exit 2) with the file untouched for anything else, which is the finding's own distinction between a torn write and tampering; the preflight verdict is fail > partial > pass and names the unmeasured checks, so a review that quotes the line cannot quote a pass it did not measure. Requirement: findings 9 and 6 closed; conformance: each has a test that reproduces its failure mode, including the byte-identical file assertion.
+- findings history: 
+- branch / merge: developer/t-0052-burn-down-4-ledger-repair-drops-only-a-t / pending
