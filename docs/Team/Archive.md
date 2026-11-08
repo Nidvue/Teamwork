@@ -5607,4 +5607,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 601a720
 - reviewer evidence: Reviewer-2's own run @601a720: pytest tests/unit/test_harness_surface.py tests/unit/test_decision_ids.py tests/unit/test_context_economy.py tests/unit/test_docs_contracts.py tests/unit/test_cli_contract.py -> 178 passed; ruff check + format --check -> clean; mypy src/teamwork -> Success, 23 files; TEAMWORK_MODEL_ALT=strata/qwen3.8-flash-next-iq3_xxs model auto -> Reviewer-2 and Reviewer-4 plan provider=strata with model qwen3.8-flash-next-iq3_xxs, Reviewer-1 stays deepinfra. Read the diff: five findings, each fixed at its own site with no collateral change; the budget change fails closed (unmeasurable -> OVER) rather than silently free; the doc change states the measured behaviour instead of a claim that is not true of a local merge. Requirement: the five findings are closed; conformance: each fix is the finding's own remedy.
 - findings history: 
-- branch / merge: developer/t-0047-burn-down-the-remaining-m19-audit-findin / pending
+- branch / merge: developer/t-0047-burn-down-the-remaining-m19-audit-findin / 8b5a3c9
