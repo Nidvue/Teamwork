@@ -136,7 +136,7 @@ under two roles is two tasks.
 | developer | T-0032 | preflight | review | P-0032 | - |
 | developer | T-0033 | - | todo | - | - |
 | developer | T-0034 | - | todo | - | - |
-| developer | T-0035 | merge | review | P-0033 | - |
+| developer | T-0035 | merge | done | P-0033 | 4895b2a |
 | developer | T-0036 | memory | done | P-0017 | a8ffd0e |
 | developer | T-0037 | branch | review | P-0034 | - |
 | developer | T-0038 | lanes | done | P-0020 | dd5904e |
@@ -207,7 +207,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0032 · Amending a branch after selfcheck permanently poisons the task: self-check notes are append-only and preflight requires every @sha in them to be reachable | P1 | review | - |
 | developer | T-0033 · gitutil timeout docstring and test comment name the wrong mechanism for the remote helper | P2 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
-| developer | T-0035 · the Reviewer merge dies on its own record commit while the pre-commit hook is installed | P1 | review | - |
 | developer | T-0037 · branch start --worktree decides 'worktree exists' by substring match on the porcelain listing, so instance 'Developer' matches 'Developer-2' and no worktree is created while the task records the path (A-0012) | P1 | review | - |
 | developer | T-0044 · model auto --apply writes a TEAMWORK_MODEL_ALT that carries a provider prefix into the provider field, so Reviewer-2/4 were routed provider=deepinfra model=strata/qwen3.8-flash-next-iq3_xxs and every lane they started died 404 model_not_found | P0 | todo | - |
 | developer | T-0045 · Recovered lane work: the pre-commit hook should scan staged content with the shipped privacy scanner, so a credential is refused before it enters a commit - the change was left uncommitted in the base checkout by a lane that did not finish (src/teamwork/hooks.py + tests/unit/test_hooks.py) | P1 | doing | - |
