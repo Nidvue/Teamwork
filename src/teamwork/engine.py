@@ -2547,16 +2547,18 @@ def _clean_detail(detail) -> str:
 
 
 def _ledger_tail(root: Path):
-    """(prev_hash, n) of the last complete record, scanning the file itself.
+    """``(head_hash, n, hash_before_head, head_record)`` of the last record.
 
-    The file is the source of truth; the head cache is only a fast path.
+    The file is the source of truth; the head cache is only a fast path. The hash
+    before the head and the head record itself let an append prove that the tail it
+    extends is a tail ``ledger verify`` accepts (T-0028).
     """
     import json
 
     path = ledger_path(root)
-    prev, n = "", 0
+    prev, n, before, last = "", 0, "", None
     if not path.exists():
-        return prev, n
+        return prev, n, before, last
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if not line:
@@ -2567,7 +2569,117 @@ def _ledger_tail(root: Path):
             continue
         if not isinstance(rec, dict):
             continue
-        prev, n = rec.get("hash", prev), n + 1
+        before, last, prev, n = prev, rec, rec.get("hash", prev), n + 1
+    return prev, n, before, last
+
+
+def _refused_append(reason: str) -> str:
+    """The one message an append prints when it refuses to extend a tail."""
+    return (
+        f"refusing to append a ledger record: {reason}. Nothing was written, "
+        "because a record chained onto a tail `ledger verify` does not accept hides "
+        "the break behind a fresh hash. Run `teamwork.py ledger verify`; a head "
+        "cache that is only behind the file is healed by `teamwork.py ledger verify "
+        "--reconcile` or `teamwork.py ledger repair`."
+    )
+
+
+def _ledger_until(root: Path, n: int) -> str:
+    """Hash of the ``n``th parseable record, ``""`` for 0 or past the end."""
+    import json
+
+    path = ledger_path(root)
+    if n <= 0 or not path.exists():
+        return ""
+    count = 0
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(rec, dict):
+            continue
+        count += 1
+        if count == n:
+            return rec.get("hash", "")
+    return ""
+
+
+def _head_confirms_tail(root: Path, prev: str, n: int) -> None:
+    """Refuse unless the head cache names the record the append builds on.
+
+    The cache is written in the same critical section as the record, so a cache
+    that names a *different* record means the file and the cache are not the same
+    chain and appending would extend the wrong one. A cache that names an earlier
+    record of this chain is the crash artefact ``ledger verify --reconcile`` heals
+    (the record reached the disk, the head write did not): it is named and healed
+    here rather than refused.
+    """
+    import json
+
+    head = ledger_head_path(root)
+    if not head.exists():
+        return
+    try:
+        cached = json.loads(head.read_text(encoding="utf-8"))
+        cached_n, cached_hash = int(cached.get("n", 0)), str(cached.get("hash") or "")
+    except (ValueError, OSError, TypeError, AttributeError) as exc:
+        die(_refused_append(f"the head cache {head} is unreadable ({exc})"))
+    if cached_n == n and cached_hash == prev:
+        return
+    if 0 <= cached_n < n and cached_hash == _ledger_until(root, cached_n):
+        print(
+            f"teamwork: NOTE the head cache named record {cached_n} while the "
+            f"ledger ends at {n}: reconciled before appending (a lost head write, "
+            "not a broken chain)",
+            file=sys.stderr,
+        )
+        return
+    die(
+        _refused_append(
+            f"the head cache names record {cached_n} ({cached_hash[:12] or '<none>'}) "
+            f"but the ledger file ends at record {n} ({prev[:12] or '<empty>'})"
+        )
+    )
+
+
+def _appendable_tail(root: Path) -> tuple[str, int]:
+    """The ``(prev, n)`` an append may extend, or a refusal that writes nothing.
+
+    ``ledger_append`` runs read-tail -> append -> head-write in one critical
+    section, so the tail it read must be the tail it extends. Two independent
+    checks make that true: the last record must verify against its own ``prev`` and
+    digest, and the head cache must name that same record. Both are needed for the
+    record-106 shape - a writer that escaped the lock hashed its record against
+    ``prev=""`` while the file already held 105 records, and the cache agreed with
+    the file the moment that record landed, so only the chain check can see it.
+    T-0006 closed the steal itself; this keeps the corruption unwritable if a
+    writer ever escapes the lock again.
+    """
+    prev, n, before, last = _ledger_tail(root)
+    if last is not None:
+        action = last.get("action")
+        link = str(last.get("prev", ""))
+        if link != before:
+            die(
+                _refused_append(
+                    f"the last record (#{n}, {action}) links to prev "
+                    f"{link[:12] or '<empty>'} instead of {before[:12] or '<empty>'} "
+                    "(the chain is broken at the tail)"
+                )
+            )
+        body = {k: v for k, v in last.items() if k != "hash"}
+        if last.get("hash") != _digest(before, body):
+            die(
+                _refused_append(
+                    f"the last record (#{n}, {action}) does not match its own "
+                    "digest (the tail was altered)"
+                )
+            )
+    _head_confirms_tail(root, prev, n)
     return prev, n
 
 
@@ -2615,8 +2727,11 @@ def ledger_append(
     """Append one tamper-evident record under a dedicated lock.
 
     The lock serialises read-prev -> append -> head-write, so concurrent writers
-    can neither fork the chain nor desynchronise the head cache. Callers already
-    holding ``ledger.lock`` pass ``_locked=True`` instead of deadlocking.
+    can neither fork the chain nor desynchronise the head cache, and the tail read
+    is re-checked against the file and the head cache before anything is written:
+    a writer that believed it held the lock but did not (M19 S-1, record 106) is
+    refused instead of chaining a record ``ledger verify`` would reject. Callers
+    already holding ``ledger.lock`` pass ``_locked=True`` instead of deadlocking.
     """
     import json
 
@@ -2644,7 +2759,7 @@ def ledger_append(
                 "before appending (a crash artefact; run `ledger verify`)",
                 file=sys.stderr,
             )
-        prev, n = _ledger_tail(root)
+        prev, n = _appendable_tail(root)
         record = {
             "ts": datetime.datetime.now().isoformat(timespec="seconds"),
             "n": n + 1,
@@ -2858,7 +2973,7 @@ def _ledger_repair_locked(args, root: Path, actor: str) -> int:
             print(f"- {pb}")
         return 1 if problems else 0
     atomic_write(path, "\n".join(good) + "\n")
-    prev, n = _ledger_tail(root)
+    prev, n, _before, _last = _ledger_tail(root)
     atomic_write(ledger_head_path(root), json.dumps({"n": n, "hash": prev}) + "\n")
     ledger_append(
         root,

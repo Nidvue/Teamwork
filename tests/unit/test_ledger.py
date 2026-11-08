@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 from teamwork import engine
 
@@ -288,3 +292,171 @@ def test_an_absent_manifest_is_not_a_finding(tmp_path: Path) -> None:
     engine.ledger_append(root, "a", "ceo", "x", "one")
     (project / "docs" / "Team").mkdir(parents=True)
     assert engine.ledger_verify(root) == []
+
+
+APPEND_WORKER = """
+import pathlib, sys, time
+sys.path.insert(0, {src!r})
+from teamwork import engine
+
+root = pathlib.Path({root!r})
+while not pathlib.Path({start!r}).exists():
+    time.sleep(0.001)
+record = engine.ledger_append(
+    root, "task.add", "developer", "T-" + sys.argv[1], "concurrent writer"
+)
+print(record["n"])
+"""
+
+
+def test_concurrent_appends_from_separate_processes_leave_a_verifiable_chain(
+    tmp_path: Path,
+) -> None:
+    """Eight writers appending at once leave one chain, one cache, no verify problem.
+
+    The lock serialises read-tail -> append -> head-write, and the append re-checks
+    under that lock that the tail it read is the tail it extends. A fork was
+    possible before (M19 S-1: two writers inside the section, record 106 hashed
+    against an empty ``prev`` while the file already held 105 records), and only
+    ``ledger verify`` noticed, long after the records were written (T-0028).
+    """
+    root = tmp_path / "team"
+    root.mkdir()
+    start = tmp_path / "start"
+    script = APPEND_WORKER.format(
+        src=str(Path(engine.__file__).resolve().parents[1]),
+        root=str(root),
+        start=str(start),
+    )
+    workers = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, str(index)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for index in range(8)
+    ]
+    start.touch()
+    written = []
+    for worker in workers:
+        out, err = worker.communicate(timeout=180)
+        assert worker.returncode == 0, err
+        written.append(int(out.strip().splitlines()[-1]))
+
+    records = engine.ledger_read(root)
+    assert sorted(written) == list(range(1, 9))
+    assert [record["n"] for record in records] == list(range(1, 9))
+    assert [record["prev"] for record in records] == [""] + [r["hash"] for r in records[:-1]]
+    assert engine.ledger_verify(root) == []
+    head = json.loads(engine.ledger_head_path(root).read_text(encoding="utf-8"))
+    assert head == {"n": 8, "hash": records[-1]["hash"]}
+
+
+@pytest.mark.parametrize(
+    "cache",
+    [
+        json.dumps({"n": 105, "hash": "a" * 64}),
+        json.dumps({"n": 3, "hash": "b" * 64}),
+        "{ not json",
+    ],
+    ids=["cache-ahead-of-the-file", "tail-hash-the-file-never-wrote", "unreadable"],
+)
+def test_a_desynchronised_head_cache_is_refused_instead_of_appended(
+    cache: str, tmp_path: Path, capsys
+) -> None:
+    """Record 106's precondition: the cache and the file are not the same chain.
+
+    Two writers inside ``ledger_append``'s critical section read a tail that was
+    not the tail, so a record was chained to an empty ``prev`` while the file held
+    105 records; ``ledger verify`` reported it afterwards. The append now refuses
+    and writes nothing, which is what keeps the class out of the trail (T-0028).
+    """
+    root = _seed(tmp_path / "team")
+    head = engine.ledger_head_path(root)
+    head.write_text(cache + "\n", encoding="utf-8")
+    ledger = engine.ledger_path(root)
+    before, cached = ledger.read_text(encoding="utf-8"), head.read_text(encoding="utf-8")
+
+    with pytest.raises(SystemExit) as refused:
+        engine.ledger_append(root, "task.add", "developer", "T-0002", "must not land")
+
+    assert refused.value.code == 1
+    assert ledger.read_text(encoding="utf-8") == before
+    assert head.read_text(encoding="utf-8") == cached
+    assert "refusing to append a ledger record" in capsys.readouterr().err
+
+
+def test_a_forked_tail_is_refused_rather_than_extended(tmp_path: Path, capsys) -> None:
+    """Record 106 on disk: the last record links to ``prev=""`` but hashes itself.
+
+    The cache agrees with the file the moment such a record lands, so the head
+    check alone is blind to it. Extending the tail would bury the fork under every
+    later record, so the append refuses on the chain check (T-0028).
+    """
+    root = _seed(tmp_path / "team")
+    ledger = engine.ledger_path(root)
+    forked = {
+        "ts": "2026-10-29T00:00:00",
+        "n": 4,
+        "actor": "developer",
+        "role": "developer",
+        "action": "task.add",
+        "target": "T-0002",
+        "detail": "hashed against an empty prev",
+        "rev": "",
+        "prev": "",
+    }
+    forked["hash"] = engine._digest("", forked)
+    with ledger.open("a", encoding="utf-8", newline="\n") as stream:
+        stream.write(json.dumps(forked, sort_keys=True) + "\n")
+    engine.ledger_head_path(root).write_text(
+        json.dumps({"n": 4, "hash": forked["hash"]}) + "\n", encoding="utf-8"
+    )
+    before = ledger.read_text(encoding="utf-8")
+
+    with pytest.raises(SystemExit) as refused:
+        engine.ledger_append(root, "task.add", "developer", "T-0003", "extension")
+
+    assert refused.value.code == 1
+    assert ledger.read_text(encoding="utf-8") == before
+    assert "the chain is broken at the tail" in capsys.readouterr().err
+
+
+def test_a_tail_whose_digest_no_longer_matches_is_refused(tmp_path: Path, capsys) -> None:
+    """An altered last record cannot be built on: the break would become permanent."""
+    root = _seed(tmp_path / "team")
+    ledger = engine.ledger_path(root)
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    record = json.loads(lines[-1])
+    record["detail"] = "altered tail"
+    lines[-1] = json.dumps(record, sort_keys=True)
+    ledger.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    before = ledger.read_text(encoding="utf-8")
+
+    with pytest.raises(SystemExit) as refused:
+        engine.ledger_append(root, "task.add", "developer", "T-0004", "extension")
+
+    assert refused.value.code == 1
+    assert ledger.read_text(encoding="utf-8") == before
+    assert "does not match its own digest" in capsys.readouterr().err
+
+
+def test_a_lagging_head_cache_is_reconciled_before_the_append(tmp_path: Path, capsys) -> None:
+    """A crash between the record and the head write must not block the trail.
+
+    A cache naming record 1 of a three-record chain is exactly that artefact: the
+    record reached the disk and the head write did not. The append names it and
+    carries on, so the guard cannot turn a recoverable crash into a dead team.
+    """
+    root = _seed(tmp_path / "team")
+    records = engine.ledger_read(root)
+    engine.ledger_head_path(root).write_text(
+        json.dumps({"n": 1, "hash": records[0]["hash"]}) + "\n", encoding="utf-8"
+    )
+
+    engine.ledger_append(root, "task.add", "developer", "T-0005", "after the crash")
+
+    assert engine.ledger_verify(root) == []
+    assert "reconciled before appending" in capsys.readouterr().err
+    assert engine.ledger_read(root)[-1]["prev"] == records[-1]["hash"]
