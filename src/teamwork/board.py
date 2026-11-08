@@ -72,6 +72,7 @@ FLIGHT_ROW = re.compile(
     r"^\| ([a-z-]+) \| (T-\d{4}) (.*?) \| (P\d) \| ([a-z]+) \| ([^|]*) \|$", re.M
 )
 TABLE_HEAD = "| role | id | area | state | pr | merged revision |"
+IN_FLIGHT_HEAD = "## In flight"
 FLIGHT_HEAD = "| agent | task | prio | state | artifact |"
 FEATURE_HEAD = "| feature | state | owner | squad | paths |"
 
@@ -204,7 +205,17 @@ def board_rows(board: str) -> dict[tuple[str, str], tuple[str, str, str]]:
 
 
 def in_flight(board: str) -> dict[tuple[str, str], str]:
-    start = board.index("## In flight")
+    """The In-flight rows; a board without that section names the skeleton it needs.
+
+    A bare ``str.index`` raised ``ValueError: substring not found`` (finding 15), which
+    reads as a crash rather than as "this document is not a board".
+    """
+    if IN_FLIGHT_HEAD not in board:
+        raise ValueError(
+            f"the board carries no {IN_FLIGHT_HEAD!r} section: the skeleton is "
+            "templates/Docs/Board.md"
+        )
+    start = board.index(IN_FLIGHT_HEAD)
     end = board.find("\n## ", start + 1)
     section = board[start:] if end == -1 else board[start:end]
     return {
@@ -440,8 +451,20 @@ def render(
             + " |"
         )
     lines = board.splitlines()
+    if TABLE_HEAD not in lines:
+        raise ValueError(
+            f"the board carries no {TABLE_HEAD!r} table: the skeleton is templates/Docs/Board.md"
+        )
     start = lines.index(TABLE_HEAD)
-    end = next(i for i, line in enumerate(lines) if line.startswith(TABLE_ANCHOR))
+    end = next(
+        (i for i, line in enumerate(lines) if line.startswith(TABLE_ANCHOR)),
+        None,
+    )
+    if end is None:
+        raise ValueError(
+            f"the board table is not closed by a {TABLE_ANCHOR!r} anchor: the skeleton "
+            "is templates/Docs/Board.md"
+        )
     lines = lines[:start] + table + [""] + lines[end:]
 
     listed = {}

@@ -855,6 +855,54 @@ def new_task(
     }
 
 
+TASK_META_FIELDS = (
+    "priority",
+    "status",
+    "deps",
+    "feature",
+    "shared",
+    "tags",
+    "mandate",
+    "mandate_basis",
+    "intake_key",
+    "created",
+    "updated",
+    "evidence",
+    "review",
+    "review_status",
+    "review_profile",
+    "reviewer",
+    "review_claim",
+    "review_claim_ts",
+    "review_claim_profile",
+    "review_claim_lease",
+    "findings",
+    "claimed_by",
+    "self_check",
+    "self_note",
+    "review_evidence",
+    "branch",
+    "base",
+    "worktree",
+    "pr",
+    "merge_commit",
+    "forced",
+    "area",
+    "kind",
+    "repro",
+    "repro_artifacts",
+    "repro_by",
+    "self_artifacts",
+    "review_artifacts",
+    "review_fails",
+    "review_fail_rev",
+    "review_mechanical",
+    "review_detects",
+    "dropped_under_live",
+    "archived",
+)
+
+
 def parse_tasks(path: Path) -> list:
     if not path.exists():
         return []
@@ -882,52 +930,7 @@ def parse_tasks(path: Path) -> list:
             mm = META_RE.match(raw)
             if mm:
                 field, value = mm.group(1), mm.group(2).strip()
-                if field in (
-                    "priority",
-                    "status",
-                    "deps",
-                    "feature",
-                    "shared",
-                    "tags",
-                    "mandate",
-                    "mandate_basis",
-                    "intake_key",
-                    "created",
-                    "updated",
-                    "evidence",
-                    "review",
-                    "review_status",
-                    "review_profile",
-                    "reviewer",
-                    "review_claim",
-                    "review_claim_ts",
-                    "review_claim_profile",
-                    "review_claim_lease",
-                    "findings",
-                    "claimed_by",
-                    "self_check",
-                    "self_note",
-                    "review_evidence",
-                    "branch",
-                    "base",
-                    "worktree",
-                    "pr",
-                    "merge_commit",
-                    "forced",
-                    "area",
-                    "kind",
-                    "repro",
-                    "repro_artifacts",
-                    "repro_by",
-                    "self_artifacts",
-                    "review_artifacts",
-                    "review_fails",
-                    "review_fail_rev",
-                    "review_mechanical",
-                    "review_detects",
-                    "dropped_under_live",
-                    "archived",
-                ):
+                if field in TASK_META_FIELDS:
                     if field in NUMERIC_FIELDS:
                         current[field] = int(value) if value.isdigit() else 0
                     else:
