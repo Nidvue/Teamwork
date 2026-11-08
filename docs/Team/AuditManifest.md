@@ -1,11 +1,11 @@
 # Audit report
 
-- generated: 2026-11-07T20:27:57
+- generated: 2026-11-08T16:14:55
 - team: Teamwork
-- ledger: 478 records, chain verified: False
-- checkpoint: record #478 (the ledger.export event behind this manifest; later records are work that happened after it)
-- head hash: `5e3fde578bd97e55544284095d6acbfa`
-- git: 7ee1691ace71 on main, dirty: True
+- ledger: 739 records, chain verified: False
+- checkpoint: record #739 (the ledger.export event behind this manifest; later records are work that happened after it)
+- head hash: `c7e78eb95cfc48c4b6f7efeb63304f52`
+- git: 60ae154356d8 on ceo/t-0017-m21-records-parallel-asynchronous-lanes, dirty: True
 - externally verifiable artifacts: 4
 - local-only state files: 30
 
@@ -21,10 +21,10 @@ teamwork.py trace <T-id>     # follow any claim end to end
 
 | path | bytes | sha256 |
 |---|---|---|
-| docs/Team/Architecture.md | 180162 | `a9576147d4876772…` |
-| docs/Team/Decisions.md | 349069 | `01490d7fac678ece…` |
-| docs/Team/Plan.md | 91248 | `aab6f909b0b5f4a9…` |
-| docs/Team/Project.md | 56228 | `008c406824295f32…` |
+| docs/Team/Architecture.md | 180454 | `7921dfeaeefac1c1…` |
+| docs/Team/Decisions.md | 352127 | `128322eaac180af8…` |
+| docs/Team/Plan.md | 93157 | `2006e672a5b3cf9d…` |
+| docs/Team/Project.md | 58262 | `ff8e1e0c1994a058…` |
 
 ## PROBLEMS
 
