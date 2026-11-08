@@ -153,7 +153,7 @@ under two roles is two tasks.
 | developer | T-0049 | audit | done | P-0045 | 6d4d6cd |
 | developer | T-0050 | memory | done | P-0046 | 0e88de8 |
 | developer | T-0051 | lanes | done | P-0047 | ad5753d |
-| developer | T-0052 | audit | selfcheck | - | - |
+| developer | T-0052 | audit | done | P-0048 | c95afdf |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -182,7 +182,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
-| developer | T-0052 · Burn-down 4: ledger repair drops only a torn tail (T-0015) and preflight stops printing pass while a check is unmeasured (T-0012) | P1 | selfcheck | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
