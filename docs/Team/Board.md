@@ -149,7 +149,7 @@ under two roles is two tasks.
 | developer | T-0045 | - | dropped | - | - |
 | developer | T-0046 | clean | done | P-0042 | 4e31f14 |
 | developer | T-0047 | audit | done | P-0043 | 8b5a3c9 |
-| developer | T-0048 | audit | selfcheck | - | - |
+| developer | T-0048 | audit | done | P-0044 | e24c38c |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -188,7 +188,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0027 · remember still invents Roles/<Typo>/: the hole T-0003 closed in load is open in remember (measured: remember QaEnginere note --by QaEnginere -> exit 0 and Roles/QaEnginere/ShortTermMemory.md created; board and loop then report qaenginere as a role with state), and a refused remember --by <other role> still leaves an empty Roles/<Typo>/ directory | P1 | blocked | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
-| developer | T-0048 · Burn-down 2: the task parser's allow-list bound to new_task (T-0020) and the board parsers naming the document they need (T-0021) | P2 | selfcheck | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
