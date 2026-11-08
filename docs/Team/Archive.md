@@ -5712,3 +5712,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-3's own run @bc25670: PYTHONPATH=src venv/bin/python -m pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> 19 passed; links -> 0; dispute list -> D-0001 and D-0002 resolved. Read the diff: the two rulings are recorded with their decider, evidence and falsifier, and the D-0001 entry names the neutral Reviewer as the decider because the CEO was a party - which is the rule the tribunal exists for. The manifest is the tool's export and states chain verified False rather than claiming a clean chain.
 - findings history: 
 - branch / merge: ceo/t-0020-record-the-two-tribunal-rulings-d-0001-t / f36e133
+
+## T-0021 · Close-out: the manifest re-export after the burn-down, the remaining loop reasons written down, and the stage report  (ceo)
+- date: 2026-11-08
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-4
+- task / issue: -
+- area: team-docs
+- self-check: [pass] Re-read the 4-file diff. Boundary: the row counts what the queues show (2 open at this head) and names both blockers; the manifest is the tool's export and says chain verified False; the board is rendered. Scope: records only. Hostile reviewer: 'a stage report with 2 open tasks' - the two are an external action awaiting authorization and unfinished lane work, both named. | test: pytest test_docs_contracts @b75c752 -> 17 passed; links -> 0 | preflight: PF-285732e50dab @b75c752c7191 (7 checks, 0 failed)
+- author evidence: commit b75c752 @b75c752 -> one commit over main
+- reviewer evidence: Reviewer-4's own run @b75c752: pytest tests/unit/test_docs_contracts.py -> 17 passed; links -> 0. Read the diff: the burn-down row states 22 tasks worked to a disposition with 11 delivered/merged, 9 closed with a reason, 2 open with their blocker named, and the suite number it quotes (2551 passed, 3 skipped) is the one this session measured on main; the manifest is the tool's export and states chain verified False rather than claiming a clean chain.
+- findings history: 
+- branch / merge: ceo/t-0021-close-out-the-manifest-re-export-after-t / pending
