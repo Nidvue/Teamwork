@@ -384,6 +384,7 @@ outside its own worktree.
 | AC-M21-3 | a lane that dies, times out or leaves no board change is reconciled: the outcome is recorded, the attempt is bounded (`LaneAttempts`), and the claim is left to the CEO instead of silently retried forever | Developer | Reviewer |
 | AC-M21-4 | every spawned lane's prompt carries the task-aware memory pack, bounded by the same 4,000-byte budget `memory pack` uses, so a parallel wave does not pay for the whole store per lane | Developer | Reviewer |
 | AC-M21-5 | a real wave on this host is recorded with its lanes, pids, outcomes and the board changes it produced, and the summary is re-derivable with `lane list --all` | CEO | Reviewer |
+| AC-M21-6 | a lane's own work can land unattended: the commands its packet teaches parse, and a Reviewer's pass merges with no ambient environment override while the R1 hook still refuses a lane committing on the default branch | Developer | Reviewer |
 
 Exit: AC-M21-1..AC-M21-5 verified by a role other than their owner on the merged
 revision, the wave evidence recorded in [Plan](Plan.md) M21, and the measured
