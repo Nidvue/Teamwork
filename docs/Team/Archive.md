@@ -5412,4 +5412,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit d3c52e6
 - reviewer evidence: Reviewer-1's own run in a throwaway worktree of developer-3/t-0035-the-reviewer-merge-dies-on-its-own-recor @d3c52e6: developer-3/t-0035-the-reviewer-merge-dies-on-its-own-recor: pytest[5 passed in 0.15s] ruff[All checks passed!] fmt[276 files already formatted] mypy[Success: no issues found in 23 source files]. Read the diff: fix(merge): src/teamwork/engine.py commit_records_entry passes env=_merge_commit_env - the change is the one the task names, the test it adds is in the branch's tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
-- branch / merge: developer-3/t-0035-the-reviewer-merge-dies-on-its-own-recor / pending
+- branch / merge: developer-3/t-0035-the-reviewer-merge-dies-on-its-own-recor / 4895b2a
