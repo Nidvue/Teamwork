@@ -177,6 +177,7 @@ branch, rebased on `main`) against the live team tree, 45 records: 2 lessons,
 | `memory dream --dry-run` | n/a | 0.069 s wall over 45 records, no model call | `time teamwork.py memory dream --dry-run` |
 | retrieval | `recall` reached only short/long memory | `memory search review` -> 7 of 7 records (lessons + knowledge), 1,795 B, capped at 2,000 B / 10 records | `memory search review \| wc -c` |
 | dream apply | n/a | 1 duplicate superseded, 31 records before and after (0 deleted), 2 lines changed, `bytes +28` in the ledger, second apply 0 actions and no new event | `memory dream --apply --by <you>` twice on a copy |
+| a spawned lane's prompt | n/a | 7,640 B packet, of which the injected pack is 3,938 B (16 records, budget 4,000) - measured on `Agents/CEO/Runs/L-0026.md` from the injection wave | `wc -c` on the packet; `grep -A1 'Memory pack for this assignment' <packet>` |
 
 The cap in `Settings.json` is **not** raised: the task-aware `load` is 584 B
 smaller than the static one it replaces, and the pack alone is 2,445 B smaller.
