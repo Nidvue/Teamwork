@@ -59,9 +59,7 @@ except ImportError:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import board as boardlib  # type: ignore
     import resources as _resources  # type: ignore
-    from portable import (
-        pid_alive,  # type: ignore
-    )
+    from portable import pid_alive  # type: ignore[no-redef]
     from version import __version__ as VERSION  # type: ignore
 
 
@@ -2028,17 +2026,19 @@ def artifact_digest(root: Path, raw: str, cwd: Path | None = None) -> str:
     trees = project_trees(root)
     path = (given if given.is_absolute() else tree / given).resolve()
     candidates = [t for t in [tree, *trees] if _inside(path, t)]
-    holder = max(candidates, key=lambda p: len(p.parts)) if candidates else None
+    holder: Path | None = max(candidates, key=lambda p: len(p.parts)) if candidates else None
     outside = holder is not None and holder != tree
-    twin = (tree / path.relative_to(holder)).resolve() if outside else None
-    if outside and not given.is_absolute():
+    twin: Path | None = None
+    if holder is not None and outside:
+        twin = (tree / path.relative_to(holder)).resolve()
+    if holder is not None and outside and not given.is_absolute():
         die(
             f"artifact {raw} resolves to {path}, outside the tree this command "
             f"runs in ({tree}), in {_tree_label(holder, project)}. A relative "
             "--artifact is read from your own tree, so pass a path inside it - or "
             "an absolute path if you mean another checkout's copy."
         )
-    if outside and twin.is_file():
+    if holder is not None and twin is not None and twin.is_file():
         die(
             f"artifact {raw} is {path}, in {_tree_label(holder, project)}, while "
             f"your own tree has the same name at {twin}. A lane binds its own "
@@ -3280,9 +3280,11 @@ def ledger_export(root: Path, args) -> int:
     problems = ledger_verify(root, reconcile=True)
     checkpoint_n = int(records[-1].get("n") or 0) if records else 0
     archive_rel = (docs / "Archive.md").relative_to(project).as_posix()
-    external = [a for a in tracked if not a["path"].startswith(".pi/") and a["path"] != archive_rel]
-    internal = [a for a in tracked if a["path"].startswith(".pi/")]
-    manifest = {
+    external = [
+        a for a in tracked if not str(a["path"]).startswith(".pi/") and a["path"] != archive_rel
+    ]
+    internal = [a for a in tracked if str(a["path"]).startswith(".pi/")]
+    manifest: dict = {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "team": root.name,
         "team_id": team_identity(root) or ensure_team_identity(root),
@@ -3295,8 +3297,8 @@ def ledger_export(root: Path, args) -> int:
             "problems": problems,
         },
         "git": git_info,
-        "artifacts": sorted(external, key=lambda x: x["path"]),
-        "local_state": sorted(internal, key=lambda x: x["path"]),
+        "artifacts": sorted(external, key=lambda x: str(x["path"])),
+        "local_state": sorted(internal, key=lambda x: str(x["path"])),
         "how_to_verify": [
             "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
             f"2. take record #{checkpoint_n} (the ledger.export event) and compare its "
@@ -3614,7 +3616,7 @@ def cmd_skill(args) -> int:
     if args.skill_cmd == "candidates":
         rows = []
         for role in list_roles(root):
-            per_area = {}
+            per_area: dict = {}
             for t in parse_tasks(task_file(root, role)):
                 if not t.get("area") or t["status"] not in ("done", "review"):
                     continue
@@ -7239,7 +7241,7 @@ def _memory_status(root: Path, agent: str, as_json: bool) -> int:
     if not roles:
         print("teamwork: no workspace here (run `teamwork.py init`)")
         return 0
-    rows = []
+    rows: list = []
     for role in roles:
         claim = read_memory_claim(root, role)
         age = memory_claim_age(claim) if claim else None
@@ -7870,7 +7872,7 @@ def cmd_clean(args) -> int:
     if not root.exists():
         die(f"no workspace at {root}")
     team_wide = bool(getattr(args, "team_wide", False))
-    if team_wide and getattr(args, "agent", ""):
+    if team_wide and str(getattr(args, "agent", "") or ""):
         die("--agent scopes the clean to one lane; --team-wide is the opposite: pick one", 2)
     agents = clean_scope(root, getattr(args, "agent", ""), team_wide)
     locations = clean_locations(root, agents, team_wide)
@@ -8098,7 +8100,7 @@ def cmd_task_list(args) -> int:
         if not tasks:
             continue
         lookup = local_dep_map(parse_tasks(task_file(root, name)))
-        cache = {}
+        cache: dict = {}
         tasks = sorted(
             tasks, key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"], t["id"])
         )
@@ -8205,7 +8207,7 @@ def cmd_task_next(args) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
         lookup = local_dep_map(tasks)
-        cache = {}
+        cache: dict = {}
         ready = [t for t in tasks if executable(t, lookup, cache, root)]
         mode, mode_source = load_pulse_mode(root)
         refused = [t for t in ready if task_is_inferred(t)] if mode != "auto" else []
@@ -9343,7 +9345,7 @@ def reap_slots(root: Path, provider: str = "") -> list:
     """Expire leases: the holder stopped renewing (died, crashed or finished
     without releasing). A slot is a lease with a TTL, not a process lock, so the
     budget stays honest across many short-lived CLI calls."""
-    reaped = []
+    reaped: list = []
     base = root / DIR_RUNTIME / DIR_SLOTS
     if not base.is_dir():
         return reaped
@@ -10062,7 +10064,7 @@ def idle_instances(root: Path) -> list:
 def _ready_for_role(root: Path, role: str) -> list:
     tasks = parse_tasks(task_file(root, role))
     lookup = local_dep_map(tasks)
-    cache = {}
+    cache: dict = {}
     ready = [t for t in tasks if executable(t, lookup, cache, root)]
     ready.sort(key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"], t["id"]))
     return ready
@@ -10272,7 +10274,7 @@ def _print_mode_refusals(refused: list, mode: str, source: str) -> None:
         )
 
 
-def stale_claims(root: Path, minutes: int = None) -> list:
+def stale_claims(root: Path, minutes: int | None = None) -> list:
     """Claims whose owner has no live lease and has not updated for the TTL.
 
     A task's ``updated`` field has day granularity, so it cannot express a
@@ -10360,7 +10362,7 @@ def memory_dream_line(root: Path) -> str:
     )
 
 
-def cmd_pulse(args: object) -> int:
+def cmd_pulse(args) -> int:
     """CEO wake-up: find idle lanes and hand them runnable work immediately."""
     root = project_root(args)
     if args.interval is not None:
@@ -10390,7 +10392,7 @@ def cmd_pulse(args: object) -> int:
 
     print(f"## idle lanes ({len(idle)})")
     if idle:
-        by_role = {}
+        by_role: dict = {}
         for a in idle:
             by_role.setdefault(resolve_role(a), []).append(a)
         for role, inst in sorted(by_role.items()):
@@ -10596,11 +10598,11 @@ def cmd_pulse(args: object) -> int:
             f"- accept mode {mode}: the plan is a report, not a dispatch - no lane has "
             "been given work"
         )
-    review_lanes = [a for a in idle if resolve_role(a) == "reviewer"]
-    if open_items and review_lanes:
+    review_idle = [a for a in idle if resolve_role(a) == "reviewer"]
+    if open_items and review_idle:
         print(
             f"- {len(open_items)} deliverable(s) unclaimed: hand each one to a DIFFERENT "
-            f"Reviewer lane ({', '.join(review_lanes)}) - never queue them all on one lane"
+            f"Reviewer lane ({', '.join(review_idle)}) - never queue them all on one lane"
         )
         print(
             "  review <role> <T-id> --claim --by <lane>   # take it, then verdict it; "
@@ -10647,12 +10649,12 @@ def cmd_parallel(args) -> int:
     print(f"- TOTAL free slots: {total_free}")
     print()
 
-    ready_by_role = {}
+    ready_by_role: dict = {}
     ready_total = 0
     for name in list_roles(root):
         tasks = parse_tasks(task_file(root, name))
         lookup = local_dep_map(tasks)
-        cache = {}
+        cache: dict = {}
         for t in tasks:
             if executable(t, lookup, cache, root):
                 role = resolve_role(name)
@@ -11748,7 +11750,7 @@ def all_tasks(root: Path) -> list:
     return list(iter_tasks(root))
 
 
-def idle_test_roles(root: Path, records: list = None) -> list:
+def idle_test_roles(root: Path, records: list | None = None) -> list:
     """Staffed roles that have designed no test of their own layer yet."""
     records = records if records is not None else parse_tests(tests_path(root))
     return [
@@ -11996,7 +11998,7 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     sections.append(s)
 
     s = _section("work", "work in flight")
-    buckets = {k: [] for k in ("todo", "doing", "selfcheck", "blocked", "review")}
+    buckets: dict = {k: [] for k in ("todo", "doing", "selfcheck", "blocked", "review")}
     invalid = []
     for role, t in tasks:
         if t["status"] in buckets:
@@ -12110,7 +12112,7 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
                 + f": reclaim with `task reclaim {role} {t['id']} --as "
                 "<other> --reason ...`"
             )
-    sources = [
+    sources: list[tuple[str, Path, Path | None]] = [
         (role, role_dir(root, role) / F_SHORT, role_dir(root, role) / F_LONG) for role in names
     ]
     sources.append(("global", global_dir(root) / F_GLOBAL, None))
@@ -14448,11 +14450,11 @@ def cmd_board(args) -> int:
         if not tasks:
             print(f"- {label} (empty)")
             continue
-        counts = {}
+        counts: dict = {}
         for t in tasks:
             counts[t["status"]] = counts.get(t["status"], 0) + 1
         lookup = local_dep_map(tasks)
-        cache = {}
+        cache: dict = {}
         ready = sorted(
             (t for t in tasks if executable(t, lookup, cache, root)),
             key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"]),
@@ -15292,7 +15294,7 @@ def _audit_team_skills(root: Path, names: list, args) -> int:
             )
             hits += 1
     if not skill_items:
-        roles_with_areas = {}
+        roles_with_areas: dict = {}
         for role in names:
             for t in parse_tasks(task_file(root, role)):
                 if t.get("area") and t["status"] in ("done", "review"):
@@ -15428,7 +15430,7 @@ def _audit_layered_tests(root: Path, names: list, args) -> int:
                 f"{r['evidence']}"
             )
             hits += 1
-    cmds = {}
+    cmds: dict = {}
     for r in records:
         if r["command"]:
             cmds.setdefault(r["command"].strip(), []).append(r)
@@ -15573,7 +15575,7 @@ def _print_dispute(d: dict) -> None:
         print(f"    ruling: signed=[{', '.join(d['signed'])}] {d['decision']}")
 
 
-def _dispute_party_instances(root: Path, dispute: dict = None) -> set:
+def _dispute_party_instances(root: Path, dispute: dict | None = None) -> set:
     """The instances a dispute is between, in their canonical spelling.
 
     A dispute names agents, not roles: ``raised_by``/``against`` hold the instance
@@ -15626,7 +15628,7 @@ def _actor_is_dispute_party(root: Path, dispute: dict, actor: str, role: str) ->
     return any(_dispute_party_instance(root, dispute, inst) for inst in instances)
 
 
-def _role_has_neutral_instance(root: Path, role: str, dispute: dict) -> bool:
+def _role_has_neutral_instance(root: Path, role: str, dispute: dict | None) -> bool:
     """True when the role has an instance that is not a party to the dispute.
 
     A role leaves the panel only when EVERY one of its instances is a party:
@@ -15640,14 +15642,14 @@ def _role_has_neutral_instance(root: Path, role: str, dispute: dict) -> bool:
     return any(not _dispute_party_instance(root, dispute, inst) for inst in instances)
 
 
-def _role_is_party_role(root: Path, role: str, dispute: dict) -> bool:
+def _role_is_party_role(root: Path, role: str, dispute: dict | None) -> bool:
     """True when at least one instance of the role is a party to the dispute."""
     if not dispute:
         return False
     return any(_dispute_party_instance(root, dispute, inst) for inst in instances_of(root, role))
 
 
-def required_tribunal(root: Path, dispute: dict = None) -> list:
+def required_tribunal(root: Path, dispute: dict | None = None) -> list:
     """The roles that must sign a ruling: at least two, and never only a party.
 
     The CEO always sits. CTO and CFO join when staffed. The Reviewer takes the
