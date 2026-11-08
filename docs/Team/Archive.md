@@ -5309,3 +5309,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-4's own run @8a6f8de: PYTHONPATH=src venv/bin/python -m pytest -q tests/unit/test_memorypack.py tests/integration/test_memory_pack_flow.py -> 57 passed in 4.25s; recall 'merge hook' --agent Developer -> 2 hits, both K- records, one of them the superseded K-0026 with its successor K-0030 visible; pulse -> '# memory: 50 record(s), nothing to consolidate (dream --dry-run is clean)'. Read the diff. Requirement: the operator's memory ask as the article states it - decide what to write, attach why, maintain off the hot path, inject only what the task needs - and the three measured gaps in Memory.md 3 are the requirement (uses inert, recall blind, no trigger). Conformance: each gap has a command and a test; the lesson file is compared byte-for-byte so the 'no format change' claim is measured, not asserted. Fidelity: the numbers in 5 are this reviewer's own run. Internal consistency: recall's old output stays first, the new sections follow, and the docstring of touch_used states why a lesson is skipped. Operational fitness: one write per store and one ledger event per pack, so the read path stays cheap; the dream trigger only reports. Finish: 7 files, one commit, tree clean apart from the team tree. Hostile reviewer: 'counting on the read path' - the alternative is the measured defect, and the write is bounded.
 - findings history: 
 - branch / merge: developer/t-0043-the-memory-loop-is-still-open-on-the-rea / 55c891c
+
+## T-0018 · M21 close-out: record the memory loop closure (T-0043), the unattended landing fix (T-0042) and the measured wave with a Reviewer merge, then re-export the manifest  (ceo)
+- date: 2026-11-08
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: team-docs
+- self-check: [pass] Delta: board re-rendered at selfcheck and committed into the same change-set; the note and evidence of the previous attempt stand. | test: ./venv/bin/python -m pytest -q tests/unit/test_docs_contracts.py tests/unit/test_hygiene.py @b3586b5 -> 28 passed; links -> 0 | preflight: PF-17232983a0e1 @b3586b5e46fb (7 checks, 0 failed)
+- author evidence: commit b3586b5 @b3586b5 -> one commit over main, 3 record files + board render
+- reviewer evidence: Reviewer-1's own run @b3586b5: PYTHONPATH=src venv/bin/python -m pytest -q tests/unit/test_docs_contracts.py -> 17 passed; scripts/teamwork.py links -> issues 0; criteria list -> AC-M21-1..6 registered with five verified and AC-M20-1..4 verified, AC-M20-5 open. Read the diff: the M21 rows name the two new tasks and say what the wave proves; AC-M21-6 states both halves so it cannot be satisfied by weakening R1; AC-M20-5 is deliberately left open because loop is CONTINUE on the pre-existing backlog, and the commit says so rather than claiming a green gate. The criteria are records now, which is what loop reads - the earlier prose-only milestone was invisible to the gate. Finish: 3 record files plus the tool-rendered board, one commit.
+- findings history: 
+- branch / merge: ceo/t-0018-m21-close-out-record-the-memory-loop-clo / pending
