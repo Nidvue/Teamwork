@@ -5686,3 +5686,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-2's own run @63bf78c: pytest tests/unit/test_preflight.py tests/unit/test_ledger_repair_tail_only.py tests/integration/test_clean_and_preflight_flow.py -> 34 passed; at c95afdf the preflight module is 5 failed on the verdict string. Read the diff: the verdict stays pass unless a check failed, and the unmeasured checks are named on the same line, so T-0012's disclosure is kept without breaking the shipped contract that five tests pin.
 - findings history: 
 - branch / merge: developer/t-0053-t-0052-s-preflight-verdict-broke-five-sh / 38112f9
+
+## T-0054 · Finish the regression sweep: the harness budget must print '-' for an unmeasurable size (T-0019 follow-up), a fresh/emptied ledger re-seeds its head instead of deadlocking the team, and the merge-base test finds the per-task worktree T-0029 introduced  (developer)
+- date: 2026-11-08
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] Re-read the 6-file diff. Boundary: a missing file is 0 bytes and an existing-but-unreadable file is -1; an empty ledger file re-seeds the head, a non-empty file shorter than the cache still refuses; the test helper finds the worktree by its .git file. Scope: harness render paths + file_size, one engine guard branch, one test helper, two pragma comments, board render. Hostile reviewer: re-seeding an empty ledger - nothing to chain onto, the note is printed, and a partial truncation is still refused. | test: pytest test_harness_cli test_token_commands test_token_tools test_harness_surface test_ledger test_ledger_repair_tail_only test_pr_merge_base_advance test_no_comments @036cf3a -> 198 passed; repro pre @22afb7a -> 4 failed | preflight: PF-0a39549b1f37 @036cf3a2ec58 (7 checks, 0 failed)
+- author evidence: commit 036cf3a @036cf3a -> one commit over main, 6 files
+- reviewer evidence: Reviewer-1's own run @036cf3a: pytest over the eight modules the diff can reach -> 198 passed; ruff check + format --check -> clean; mypy -> Success, 23 files. At 22afb7a the same modules are 4 failed with the three symptoms the task names. Read the diff: file_size now separates 'missing' (0) from 'unreadable' (-1), both render paths print '-' for an unmeasurable value, the ledger guard re-seeds only an empty file and keeps refusing a partial truncation, and the test helper locates the worktree by its .git so T-0029's layout is respected. Requirement: the suite is green after the burn-down; conformance: the repro record shows fail->pass.
+- findings history: 
+- branch / merge: developer/t-0054-finish-the-regression-sweep-the-harness / pending
