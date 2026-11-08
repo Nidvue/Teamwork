@@ -103,7 +103,7 @@ under two roles is two tasks.
 | ceo | T-0018 | team-docs | done | P-0031 | 079ee66 |
 | ceo | T-0019 | team-docs | done | P-0041 | 1724fd7 |
 | ceo | T-0020 | records | done | P-0051 | f36e133 |
-| ceo | T-0021 | team-docs | selfcheck | - | - |
+| ceo | T-0021 | team-docs | done | P-0052 | f187e21 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -181,7 +181,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| ceo | T-0021 · Close-out: the manifest re-export after the burn-down, the remaining loop reasons written down, and the stage report | P0 | selfcheck | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
