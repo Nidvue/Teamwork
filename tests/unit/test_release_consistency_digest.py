@@ -363,7 +363,7 @@ def test_r2_counts_the_reachable_version_tags_and_never_a_negative(tmp_path):
     at_head = crc._tags_at_head(root)
     assert reachable == ["v1.0.0"]
     assert at_head == set()
-    assert len(reachable) - len(at_head) >= 0
+    assert f"{len(reachable)} tag(s)" in result.detail
     assert result.status == "ok"
     assert result.detail == "HEAD 1.0.1 is newer than 1 tag(s)"
 
