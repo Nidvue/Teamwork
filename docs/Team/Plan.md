@@ -3,7 +3,7 @@
 Owner: Project Manager. One row per task; `deps` must be `done` before it runs.
 Priority: P0 code, P1 tests, P2 docs.
 
-Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md) | [Throughput](Throughput.md) · [Evolution](Evolution.md)
+Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md) | [Throughput](Throughput.md) · [Evolution](Evolution.md) · [Memory](Memory.md)
 
 ## Status summary
 
@@ -912,6 +912,22 @@ after the tools exist, and the proof last. No lane edits the same file twice.
 Exit condition: AC-M18-1..AC-M18-3 verified by a role other than the owner on the
 merged revision, the report's baseline re-readable by its commands, and the
 rework/oversupply numbers re-measured after the changes.
+
+## M20 - Agent memory lifecycle (live)
+
+Intake and criteria: [Project](Project.md) M20; research, design and budgets:
+[Memory](Memory.md). One writer per file, contract frozen before the lane starts.
+
+| lane | task | what it owns | artifact |
+|---|---|---|---|
+| Developer | T-0036 | `src/teamwork/memorypack.py` (scoring, pack, search, dream), the `memory pack|search|dream` CLI and `load --task`, unit + integration tests | `src/teamwork/memorypack.py`, `tests/unit/test_memorypack.py` |
+| Tester | T-0002 | the `integration` layer: a real team tree, pack/search/dream end to end, dream idempotency on a copy | `Tests.md` |
+| Reviewer | the T-0036 verdict | the `acceptance` layer against AC-M20-1..4 on the reviewed revision | `Tests.md`, `Archive.md` |
+| CEO | T-0016 | intake, criteria, the measured before/after, the memory records and the push | this file, `Memory.md` |
+
+Parallel rules: the Developer owns `src/teamwork/` and its tests; the Tester starts
+after the module lands (the contract in `Memory.md` 4 is frozen, so its test can be
+written in parallel); the CEO owns the three records. No lane edits another's file.
 
 ## Task-graph integrity
 
