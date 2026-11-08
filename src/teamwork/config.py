@@ -7,6 +7,7 @@ workspace, and no module imports the command layer to read it.
 from __future__ import annotations
 
 import os
+import sys
 
 from . import resources as _resources
 
@@ -208,29 +209,48 @@ DEFAULT_PROVIDER_LIMITS = {
     "default": 32,
 }
 
-SLOT_TTL_MINUTES = int(os.environ.get("TEAMWORK_SLOT_TTL_MINUTES", "90"))
 
-REVIEW_FAIL_LIMIT = int(os.environ.get("TEAMWORK_REVIEW_FAIL_LIMIT", "3"))
+def _env_int(name: str, default: int) -> int:
+    """Read an integer from the environment, or fail as a usage error.
 
-REVIEW_LEASE_MINUTES = int(os.environ.get("TEAMWORK_REVIEW_LEASE_MINUTES", "20"))
+    A malformed value used to raise ``ValueError`` while this module was still
+    being imported, so every command died with a traceback that named neither
+    the variable nor a fix (M19 engine audit, finding 5). The failure is now one
+    line naming the variable and exit 2 (usage). A blank value counts as unset.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        sys.stderr.write(f"teamwork.py: error: {name} must be an integer, got {raw!r}\n")
+        raise SystemExit(2) from None
 
-MEMORY_LEASE_MINUTES = int(os.environ.get("TEAMWORK_MEMORY_LEASE_MINUTES", "30"))
 
-MEMORY_STALL_MINUTES = int(os.environ.get("TEAMWORK_MEMORY_STALL_MINUTES", "15"))
+SLOT_TTL_MINUTES = _env_int("TEAMWORK_SLOT_TTL_MINUTES", 90)
+
+REVIEW_FAIL_LIMIT = _env_int("TEAMWORK_REVIEW_FAIL_LIMIT", 3)
+
+REVIEW_LEASE_MINUTES = _env_int("TEAMWORK_REVIEW_LEASE_MINUTES", 20)
+
+MEMORY_LEASE_MINUTES = _env_int("TEAMWORK_MEMORY_LEASE_MINUTES", 30)
+
+MEMORY_STALL_MINUTES = _env_int("TEAMWORK_MEMORY_STALL_MINUTES", 15)
 
 MEMORY_ARBITER_ROLE = os.environ.get("TEAMWORK_MEMORY_ARBITER", "cto")
 
-SHORT_CAP = int(os.environ.get("TEAMWORK_SHORT_CAP", "24"))
+SHORT_CAP = _env_int("TEAMWORK_SHORT_CAP", 24)
 
-LONG_CAP = int(os.environ.get("TEAMWORK_LONG_CAP", "64"))
+LONG_CAP = _env_int("TEAMWORK_LONG_CAP", 64)
 
-ARCHIVE_CAP = int(os.environ.get("TEAMWORK_ARCHIVE_CAP", "256"))
+ARCHIVE_CAP = _env_int("TEAMWORK_ARCHIVE_CAP", 256)
 
-STALE_DAYS = int(os.environ.get("TEAMWORK_STALE_DAYS", "3"))
+STALE_DAYS = _env_int("TEAMWORK_STALE_DAYS", 3)
 
-MIN_USES = int(os.environ.get("TEAMWORK_MIN_USES", "2"))
+MIN_USES = _env_int("TEAMWORK_MIN_USES", 2)
 
-PROMOTE_MIN_IMPORTANCE = int(os.environ.get("TEAMWORK_PROMOTE_MIN_IMPORTANCE", "2"))
+PROMOTE_MIN_IMPORTANCE = _env_int("TEAMWORK_PROMOTE_MIN_IMPORTANCE", 2)
 
 DOCS = {
     "Project.md": "CEO",
@@ -347,7 +367,7 @@ SCRATCH_DIRS = (DIR_SCRATCH,)
 
 SCRATCH_PATTERNS = ("*.tmp", "*.temp", "*.bak", "*.orig", "*.rej", "*.log")
 
-MAX_ROUNDS = int(os.environ.get("TEAMWORK_MAX_DISPUTE_ROUNDS", "3"))
+MAX_ROUNDS = _env_int("TEAMWORK_MAX_DISPUTE_ROUNDS", 3)
 
 TRIBUNAL = ("ceo", "cto", "cfo")
 
