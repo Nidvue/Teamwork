@@ -134,7 +134,7 @@ under two roles is two tasks.
 | developer | T-0033 | - | todo | - | - |
 | developer | T-0034 | - | todo | - | - |
 | developer | T-0035 | - | todo | - | - |
-| developer | T-0036 | memory | review | P-0017 | - |
+| developer | T-0036 | memory | done | P-0017 | a8ffd0e |
 | developer | T-0037 | - | todo | - | - |
 | developer | T-0038 | - | doing | - | - |
 | reviewer | T-0001 | - | doing | - | - |
@@ -203,7 +203,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0033 · gitutil timeout docstring and test comment name the wrong mechanism for the remote helper | P2 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
 | developer | T-0035 · the Reviewer merge dies on its own record commit while the pre-commit hook is installed | P1 | todo | - |
-| developer | T-0036 · Implement the agent-memory lifecycle: memorypack.py (score/pack/search/dream), the memory pack|search|dream CLI, load --task, unit + integration tests | P0 | review | - |
 | developer | T-0037 · branch start --worktree decides 'worktree exists' by substring match on the porcelain listing, so instance 'Developer' matches 'Developer-2' and no worktree is created while the task records the path (A-0012) | P1 | todo | - |
 | developer | T-0038 · Land the engine-owned lane runtime: src/teamwork/lanes.py + lanerun.py, teamwork lane/swarm CLI, seven Settings keys, Adapters/Concurrency/Pi-Packaging/SKILL/cli docs, tests/unit/test_lanes.py - so parallel agent lanes need no host plugin | P0 | doing | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
