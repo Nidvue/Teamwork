@@ -5516,4 +5516,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit b16fba5
 - reviewer evidence: Reviewer-5's own run in the branch worktree of architect/t-0002-ratify-the-architecture-md-census-pointe @b16fba5: BRANCH architect/t-0002-ratify-the-architecture-md-census-pointe pytest: 43 passed in 0.26s ruff: All checks passed! format: 274 files already formatted mypy: Success: no issues found in 23 source files  Read the diff: docs(architecture): release-engineer ownership row now covers scripts/ci_scope.py; decisio - the change is what the task names, its test is in the branch tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
-- branch / merge: architect/t-0002-ratify-the-architecture-md-census-pointe / pending
+- branch / merge: architect/t-0002-ratify-the-architecture-md-census-pointe / eea0824
