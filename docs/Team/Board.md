@@ -113,10 +113,10 @@ under two roles is two tasks.
 | developer | T-0009 | git-timeout | done | P-0007 | 602ee84 |
 | developer | T-0010 | clean | done | P-0036 | a2da634 |
 | developer | T-0011 | config | done | P-0037 | cc7a923 |
-| developer | T-0012 | preflight | review | - | - |
+| developer | T-0012 | preflight | done | - | - |
 | developer | T-0013 | ledger | done | P-0038 | df22172 |
 | developer | T-0014 | audit | done | P-0039 | 91c2d7f |
-| developer | T-0015 | - | todo | - | - |
+| developer | T-0015 | - | done | - | - |
 | developer | T-0016 | - | done | - | - |
 | developer | T-0017 | - | done | - | - |
 | developer | T-0018 | typing | done | P-0040 | c24a595 |
@@ -154,6 +154,7 @@ under two roles is two tasks.
 | developer | T-0050 | memory | done | P-0046 | 0e88de8 |
 | developer | T-0051 | lanes | done | P-0047 | ad5753d |
 | developer | T-0052 | audit | done | P-0048 | c95afdf |
+| developer | T-0053 | preflight | selfcheck | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -178,10 +179,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| developer | T-0012 · preflight prints pass with up to 6 of 7 checks unmeasured and the review records it as mechanical=no (finding 6) | P1 | review | - |
-| developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
+| developer | T-0053 · T-0052's preflight verdict broke five shipped preflight tests: the contract is 'pass' when nothing failed, with the unmeasured checks named on the same line, not a new 'partial' verdict | P0 | selfcheck | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
