@@ -5373,4 +5373,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 1ca5958
 - reviewer evidence: Reviewer-2's own run in the lane worktree for developer-2/t-0029-branch-start-worktree-returns-worktrees @1ca5958: pytest on the branch's own test module -> passed; ruff check . -> All checks passed; ruff format --check . -> already formatted; mypy src/teamwork -> no issues. Read the diff: the fix is the one the task names, with a test that fails on the old code, and the scope is the two files the task bounds.
 - findings history: 
-- branch / merge: developer-2/t-0029-branch-start-worktree-returns-worktrees / pending
+- branch / merge: developer-2/t-0029-branch-start-worktree-returns-worktrees / 2722c27
