@@ -122,12 +122,26 @@ over lessons and knowledge:
 byte delta, so the pass is auditable and repeatable. It never deletes a record and
 never rewrites a statement: the only mutations are `status` and `superseded_by`.
 
+**The pass has a trigger.** A maintenance step nobody schedules never runs, so
+every `pulse` and every `swarm run` prints one line before it dispatches:
+
+```text
+# memory: 49 record(s) -> 0 duplicate(s), 0 stale, 0 contradiction(s), 0 without evidence;
+  `memory dream --apply --by <you>` acts, nothing was written
+```
+
+The trigger reports and never writes: the mutation stays an explicit, named
+command, so no background process edits the stores and every change has an
+author.
+
 ### 4.3 `memory search` - one retrieval path over all four stores
 
 `memory search <query> [--role R]` ranks lessons, knowledge and memory together
 with the same score as the pack and prints the top 10 with their store and
-pointer. `recall` keeps its current contract (short/long memory only) so no
-existing script breaks; the new command is the one the docs point at.
+pointer. `recall <query> --agent R` reaches the same three stores: it keeps its
+short/long memory output and adds one section per role's `Lessons.md` and one for
+the project `Knowledge.md`, each hit naming its id and store. The old behaviour
+(the command agents call seeing only memory) is what made experience write-only.
 
 ### 4.4 Write discipline (the reason a note is trustworthy)
 
@@ -178,6 +192,9 @@ branch, rebased on `main`) against the live team tree, 45 records: 2 lessons,
 | retrieval | `recall` reached only short/long memory | `memory search review` -> 7 of 7 records (lessons + knowledge), 1,795 B, capped at 2,000 B / 10 records | `memory search review \| wc -c` |
 | dream apply | n/a | 1 duplicate superseded, 31 records before and after (0 deleted), 2 lines changed, `bytes +28` in the ledger, second apply 0 actions and no new event | `memory dream --apply --by <you>` twice on a copy |
 | a spawned lane's prompt | n/a | 7,640 B packet, of which the injected pack is 3,938 B (16 records, budget 4,000) - measured on `Agents/CEO/Runs/L-0026.md` from the injection wave | `wc -c` on the packet; `grep -A1 'Memory pack for this assignment' <packet>` |
+| `uses` on the read path | only `knowledge touch` incremented it | `load Developer --task T-0043` -> 15 injected records counted, one `memory.pack` ledger event, every injected record +1 and a second load +1 again | `grep -c 'memory.pack' Ledger.jsonl`; `grep -A 9 '^## K-' Knowledge.md \| grep uses` |
+| `recall` coverage | short/long memory only | `recall "merge hook" --agent Developer` -> the knowledge record; `recall "backtick" --agent Developer` -> the lesson; `--all` searches every role | `teamwork.py recall '<term>' --agent <role>` |
+| the maintenance trigger | none | `pulse` and `swarm run` print the dream line over 49 records in the same command that dispatches, and write nothing | `teamwork.py pulse \| grep '^# memory:'` |
 
 The cap in `Settings.json` is **not** raised: the task-aware `load` is 584 B
 smaller than the static one it replaces, and the pack alone is 2,445 B smaller.
