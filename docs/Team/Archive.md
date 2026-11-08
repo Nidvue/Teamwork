@@ -5724,4 +5724,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit b75c752 @b75c752 -> one commit over main
 - reviewer evidence: Reviewer-4's own run @b75c752: pytest tests/unit/test_docs_contracts.py -> 17 passed; links -> 0. Read the diff: the burn-down row states 22 tasks worked to a disposition with 11 delivered/merged, 9 closed with a reason, 2 open with their blocker named, and the suite number it quotes (2551 passed, 3 skipped) is the one this session measured on main; the manifest is the tool's export and states chain verified False rather than claiming a clean chain.
 - findings history: 
-- branch / merge: ceo/t-0021-close-out-the-manifest-re-export-after-t / pending
+- branch / merge: ceo/t-0021-close-out-the-manifest-re-export-after-t / f187e21
