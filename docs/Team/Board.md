@@ -137,6 +137,7 @@ under two roles is two tasks.
 | developer | T-0036 | memory | done | P-0017 | a8ffd0e |
 | developer | T-0037 | - | todo | - | - |
 | developer | T-0038 | - | doing | - | - |
+| developer | T-0039 | docs | done | P-0019 | 550118b |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | doing | P-0002 | - |
