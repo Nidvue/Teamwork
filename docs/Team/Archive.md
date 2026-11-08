@@ -5633,4 +5633,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 9f23299 @9f23299 -> one commit over main, 3 files
 - reviewer evidence: Reviewer-3's own run @9f23299: remember QaEnginere 'a note' --by QaEnginere -> exit 1 'unknown role ... Known roles: ...' and no Roles/QaEnginere directory; pytest tests/unit/test_memory.py tests/unit/test_lessons.py tests/unit/test_docs_contracts.py tests/unit/test_ci_contracts.py -> 81 passed; links -> 0. Read the diff: the guard calls the same loadable_role predicate load uses, so the two cannot drift; the Release row is the same 11 paths with the owner corrected to the module that carries them. Requirement: the remember hole is closed and the row is true.
 - findings history: 
-- branch / merge: developer/t-0049-burn-down-3-remember-refuses-an-unknown / pending
+- branch / merge: developer/t-0049-burn-down-3-remember-refuses-an-unknown / 6d4d6cd
