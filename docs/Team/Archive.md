@@ -5555,4 +5555,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit db1cfaa
 - reviewer evidence: Reviewer-4's own run in the branch worktree @db1cfaa: BRANCH developer-3/t-0018-mypy-exempts-engine-py-71-of-the-runtime pytest: 3 passed in 0.02s ruff: All checks passed! format: 277 files already formatted mypy: Success: no issues found in 23 source files  Read the diff: pyproject drops the ignore_errors override for teamwork.engine and the branch's own test asserts the override is gone while mypy stays green in 23 files - the requirement is 'mypy covers engine.py', and it does. The untracked test file I found in the worktree was T-0032's, already on main; I removed the duplicate so the reviewed revision is the branch's own tree.
 - findings history: 
-- branch / merge: developer-3/t-0018-mypy-exempts-engine-py-71-of-the-runtime / pending
+- branch / merge: developer-3/t-0018-mypy-exempts-engine-py-71-of-the-runtime / c24a595
