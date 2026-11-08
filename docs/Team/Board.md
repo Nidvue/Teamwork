@@ -82,7 +82,7 @@ under two roles is two tasks.
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
 | architect | T-0001 | - | done | - | - |
-| architect | T-0002 | architecture | review | P-0024 | - |
+| architect | T-0002 | architecture | done | P-0024 | eea0824 |
 | ceo | T-0001 | - | blocked | - | - |
 | ceo | T-0002 | throughput | doing | - | - |
 | ceo | T-0003 | context | review | P-0001 | 2fcd9fd |
@@ -169,7 +169,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0002 · Ratify the Architecture.md census/pointer edits that accompany scripts/ci_scope.py (section 2 tree line, section 9 classifier wording, optional ownership row) | P1 | review | - |
 | ceo | T-0001 · Own M19: intake, criteria, records, dispatch, arbitration and close-out (audit manifest + final report) | P0 | blocked | - |
 | ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
 | ceo | T-0003 · Cut the always-on startup cost: rewrite templates/AGENTS.md managed block as pointer + invariants, measure harness budget before and after, keep every gate and red line | P0 | review | - |
