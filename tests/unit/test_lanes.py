@@ -209,7 +209,7 @@ def test_every_command_the_packet_teaches_parses_with_the_real_parser(cli, proje
         for command in commands:
             try:
                 parser.parse_args(_concrete_argv(command))
-            except SystemExit as exc:  # pragma: no cover - the failure path
+            except SystemExit as exc:  # pragma: no cover
                 raise AssertionError(
                     f"the packet teaches a command the CLI refuses (exit {exc.code}): {command}"
                 ) from None
