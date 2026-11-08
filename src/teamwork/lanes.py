@@ -500,7 +500,9 @@ def build_packet(
         out += [
             "## Produce",
             "```sh",
-            f"tw branch start --agent {instance} --task {task}",
+            f"tw branch start --agent {instance} --task {task} --worktree",
+            "# your own worktree under Runtime/Worktrees: two lanes never share one",
+            "# checkout, so a parallel wave cannot check out over another lane.",
             "# ... the work: one coherent change-set, the test first where a defect is proved ...",
             f"tw commit --role {role} --paths <path>... --type feat --area <area> \\",
             f"    --summary '<what changed>' --task {task} --why '<the reason>'",
@@ -1128,8 +1130,8 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
                     adopted=True,
                 )
             )
-    for owner, task in engine.held_review_items(root):
-        lane = str(task.get("review_claim") or "").strip()
+    for owner, task, claim, _age in engine.held_review_items(root):
+        lane = str(claim or task.get("review_claim") or "").strip()
         if not lane or pascal(lane) in live:
             continue
         used = _attempts_used(runs, lane, task["id"])
