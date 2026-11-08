@@ -99,7 +99,7 @@ under two roles is two tasks.
 | ceo | T-0014 | - | doing | P-0015 | - |
 | ceo | T-0015 | records | review | P-0016 | - |
 | ceo | T-0016 | team-docs | done | P-0018 | a88e9d2 |
-| ceo | T-0017 | team-docs | selfcheck | - | - |
+| ceo | T-0017 | team-docs | done | P-0028 | ebc0c8b |
 | developer | T-0001 | - | review | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -177,7 +177,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0012 · CI is red on the pushed revision fe1a996: the committer guard found three 'chore: hand edit' commits made with the operator's configured identity because the team git hooks were never installed in this checkout | P0 | todo | - |
 | ceo | T-0014 · Re-file the M19 decision-record commit on a clean task: T-0013's evidence is poisoned because an amend left an unreachable @sha in its append-only self-check text | P0 | doing | - |
 | ceo | T-0015 · Decision-record ids and the committed file diverged during recovery: the ledger holds the waiver under one id while docs/Team/Decisions.md renders another, so a reader cannot trace one to the other (Reviewer-5, T-0014 round 1) | P1 | review | - |
-| ceo | T-0017 · M21 records: parallel asynchronous lanes and the memory injection point - intake and criteria in Project.md, rows in Plan.md, the measured wave in Memory.md, the lane-written decisions committed, board render and ledger export | P0 | selfcheck | - |
 | developer | T-0001 · Systematic audit of src/teamwork/*.py and scripts/*.py: real defects, dead code, inconsistent invariants, non-portable code; rank with a reproduction each; no code changes | P0 | review | - |
 | developer | T-0004 · harness.instance_always_on documents itself as what 'teamwork load' prints, but load prints only the memory lines; the figure is a startup-read estimate including SKILL.md and the charter | P2 | todo | - |
 | developer | T-0005 · PreflightCommand is shlex-split and exec'd without a shell, so a natural 'a && b' gate reaches argv and ruff exits 2 - a configured gate reports FAIL for a spelling the docs invite | P1 | review | - |
