@@ -5347,4 +5347,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 1512072 @1512072 -> one commit over main, 4 record files with the board render included
 - reviewer evidence: Reviewer-3's own run @1512072: PYTHONPATH=src venv/bin/python -m pytest -q tests/unit/test_docs_contracts.py -> 17 passed; links -> issues 0; lane list --all -> 48 records. Read the diff: two new wave rows carry lanes/waves/budget/outcome each, the close-out row states the queue depth and both Reviewer-lane failures, and the manifest is the tool's export (chain verified False, which the row says). Nothing claims a gate that is not green: loop is still CONTINUE and the row says the review queue is the limit. Records only, 4 files, board rendered by the tool.
 - findings history: 
-- branch / merge: ceo/t-0019-close-out-records-for-the-parallel-lane / pending
+- branch / merge: ceo/t-0019-close-out-records-for-the-parallel-lane / 1724fd7
