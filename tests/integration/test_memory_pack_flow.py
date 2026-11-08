@@ -334,3 +334,78 @@ def test_memory_dream_apply_requires_a_name(cli, project: Path, capsys) -> None:
     capsys.readouterr()
     assert cli("--project", project, "memory", "dream", "--apply") == 2
     assert "--by is required with --apply" in capsys.readouterr().err
+
+
+def pack_events(root: Path) -> list:
+    path = root / config.F_LEDGER
+    if not path.is_file():
+        return []
+    return [
+        record
+        for record in (json.loads(line) for line in path.read_text(encoding="utf-8").splitlines())
+        if record["action"] == "memory.pack"
+    ]
+
+
+def test_an_injected_record_counts_as_used_and_a_second_load_counts_again(
+    cli, project: Path, capsys
+) -> None:
+    """Ranking by usefulness was inert because nothing bumped `uses` on the read path."""
+    root = init_workspace(cli, project)
+    seed_store(cli, project, root)
+    store = root / config.F_KNOWLEDGE
+    before = {item["id"]: item.get("uses", 0) for item in records.parse_knowledge(store)}
+    capsys.readouterr()
+
+    assert cli("--project", project, "load", "Developer", "--task", "T-0001") == 0
+    injected = capsys.readouterr().out
+    lines = len([line for line in injected.splitlines() if line.startswith("- [K-")])
+    first = {item["id"]: item.get("uses", 0) for item in records.parse_knowledge(store)}
+    assert lines, "the pack injected no knowledge record, so there is nothing to count"
+    assert sum(first.values()) - sum(before.values()) == lines
+    assert len(pack_events(root)) == 1
+    assert pack_events(root)[0]["actor"] == "Developer"
+
+    assert cli("--project", project, "load", "Developer", "--task", "T-0001") == 0
+    second = {item["id"]: item.get("uses", 0) for item in records.parse_knowledge(store)}
+    assert sum(second.values()) - sum(first.values()) == lines
+    assert len(pack_events(root)) == 2
+
+
+def test_a_record_the_pack_did_not_inject_is_not_touched(cli, project: Path, capsys) -> None:
+    root = init_workspace(cli, project)
+    seed_store(cli, project, root)
+    store = root / config.F_KNOWLEDGE
+    before = {item["id"]: item.get("uses", 0) for item in records.parse_knowledge(store)}
+    capsys.readouterr()
+    assert cli("--project", project, "load", "Developer", "--task", "T-0001") == 0
+    capsys.readouterr()
+    after = {item["id"]: item.get("uses", 0) for item in records.parse_knowledge(store)}
+    untouched = [key for key in before if after[key] == before[key]]
+    assert untouched, "every record was injected, so this case cannot prove the boundary"
+
+
+def test_recall_reaches_lessons_and_knowledge_not_only_memory(cli, project: Path, capsys) -> None:
+    """`recall` was the command agents call, and it saw only short/long memory."""
+    root = init_workspace(cli, project)
+    seed_store(cli, project, root)
+    capsys.readouterr()
+
+    assert cli("--project", project, "recall", "lock-steal", "--agent", "developer") == 0
+    out = capsys.readouterr().out
+    assert "[K-" in out and "knowledge" in out
+
+    assert cli("--project", project, "recall", "branch start first", "--agent", "developer") == 0
+    out = capsys.readouterr().out
+    assert "[L-" in out and "lesson" in out
+
+
+def test_a_pulse_reports_the_dream_findings(cli, project: Path, capsys) -> None:
+    """The maintenance pass had no trigger: it ran only when a person typed it."""
+    root = init_workspace(cli, project)
+    seed_store(cli, project, root)
+    capsys.readouterr()
+    assert cli("--project", project, "pulse") in (0, 3)
+    pulse_out = capsys.readouterr().out
+    assert "# memory:" in pulse_out and "record(s)" in pulse_out
+    assert "nothing was written" in pulse_out or "nothing to consolidate" in pulse_out

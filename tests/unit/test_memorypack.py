@@ -614,3 +614,35 @@ def test_apply_dream_writes_nothing_when_the_proposals_are_empty(tmp_path: Path)
 
 def test_engine_reports_the_same_score_as_the_module() -> None:
     assert engine.memorypack is memorypack
+
+
+def test_touch_used_counts_knowledge_and_memory_but_never_a_lesson(tmp_path: Path) -> None:
+    """Injection is the use signal; a lesson has no counter and must stay byte-identical."""
+    root = team(tmp_path)
+    add_lesson(root, "developer", "committed on main", "branch start first")
+    add_knowledge(root, "lock-steal", "claim then re-read")
+    add_memory(root, "developer", "handoff", "the pen is free")
+    lessons_path = root / "Roles" / "Developer" / config.F_LESSONS
+    before_lessons = lessons_path.read_bytes()
+
+    items = memorypack.collect(root, "developer")
+    picked = [item for item in items if item["kind"] in ("knowledge", "memory")]
+    assert len(picked) == 2
+    assert memorypack.touch_used(root, items, "Developer") == 2
+    assert lessons_path.read_bytes() == before_lessons
+
+    after = {item["kind"]: item for item in memorypack.collect(root, "developer")}
+    assert after["knowledge"]["uses"] == 1
+    assert after["memory"]["uses"] == 1
+    assert after["lesson"]["uses"] == 0
+
+
+def test_touch_used_is_a_no_op_for_an_empty_pack(tmp_path: Path) -> None:
+    root = team(tmp_path)
+    assert memorypack.touch_used(root, [], "Developer") == 0
+
+
+def test_touch_used_skips_a_pointer_whose_store_is_gone(tmp_path: Path) -> None:
+    root = team(tmp_path)
+    ghost = entry(pointer="Knowledge.md#K-9999")
+    assert memorypack.touch_used(root, [ghost], "Developer") == 0
