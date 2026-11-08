@@ -159,7 +159,7 @@ under two roles is two tasks.
 | developer | T-0052 | audit | done | P-0048 | c95afdf |
 | developer | T-0053 | preflight | done | P-0049 | 38112f9 |
 | developer | T-0054 | audit | done | P-0050 | 17bd3a9 |
-| developer | T-0055 | privacy | selfcheck | - | - |
+| developer | T-0055 | privacy | done | P-0055 | 0d913cf |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -183,7 +183,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| developer | T-0055 · The new pre-commit privacy gate refused the merge's own board render: the high-entropy rule matches this repository's own .pi/Teamwork/... path because _PATH_SEGMENT rejects a leading dot, so a record quoting a deep evidence path reads as a secret | P0 | selfcheck | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
