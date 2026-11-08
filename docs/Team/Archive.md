@@ -5698,4 +5698,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 036cf3a @036cf3a -> one commit over main, 6 files
 - reviewer evidence: Reviewer-1's own run @036cf3a: pytest over the eight modules the diff can reach -> 198 passed; ruff check + format --check -> clean; mypy -> Success, 23 files. At 22afb7a the same modules are 4 failed with the three symptoms the task names. Read the diff: file_size now separates 'missing' (0) from 'unreadable' (-1), both render paths print '-' for an unmeasurable value, the ledger guard re-seeds only an empty file and keeps refusing a partial truncation, and the test helper locates the worktree by its .git so T-0029's layout is respected. Requirement: the suite is green after the burn-down; conformance: the repro record shows fail->pass.
 - findings history: 
-- branch / merge: developer/t-0054-finish-the-regression-sweep-the-harness / pending
+- branch / merge: developer/t-0054-finish-the-regression-sweep-the-harness / 17bd3a9
