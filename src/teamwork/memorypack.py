@@ -46,6 +46,7 @@ from .records import (
     parse_tasks,
     write_knowledge,
     write_lessons,
+    write_memory,
 )
 
 PACK_BUDGET_BYTES = 4000
@@ -502,6 +503,72 @@ def _apply_status(items: list, record_id: str, status: str, superseded_by: str) 
             item["superseded_by"] = superseded_by
         return True
     return False
+
+
+def _saver(path: Path):
+    """The writer for one store file, bound to that file and its owner."""
+    if path.name == F_KNOWLEDGE:
+        return lambda items: write_knowledge(path, items)
+    owner = path.parent.name
+    return lambda items: write_memory(path, items, path.name, owner)
+
+
+def touch_used(root: Path, items: list, by: str) -> int:
+    """Count the records a pack injected, so ranking by usefulness stops being inert.
+
+    Injection is the strongest signal that a record was worth its bytes: the pack
+    spends budget on it and the agent reads it. Knowledge and memory carry a
+    ``uses`` counter and a ``last_used`` date; a lesson has neither, so a lesson is
+    left byte-identical rather than given a field its store does not define.
+
+    One write per store file and one ``memory.pack`` ledger event per call, so the
+    read path stays cheap: ``n`` records cost two writes, not ``n``.
+    """
+    import datetime as _datetime
+
+    from .engine import ledger_append
+
+    wanted: dict[str, set] = {}
+    for entry in items:
+        if str(entry.get("kind") or "") not in ("knowledge", "memory"):
+            continue
+        pointer = str(entry.get("pointer") or "")
+        store, _, record_id = pointer.partition("#")
+        if not store or not record_id:
+            continue
+        wanted.setdefault(store, set()).add(record_id)
+    if not wanted:
+        return 0
+    today = _datetime.date.today().isoformat()
+    touched = 0
+    for store, ids in sorted(wanted.items()):
+        path = _store_file(root, store)
+        if not path.is_file():
+            continue
+        if path.name == F_KNOWLEDGE:
+            records = parse_knowledge(path)
+        else:
+            records = parse_memory(path)
+        save = _saver(path)
+        changed = 0
+        for record in records:
+            if str(record.get("id") or "") not in ids:
+                continue
+            record["uses"] = int(_number(record.get("uses"))) + 1
+            record["last_used"] = today
+            changed += 1
+        if changed:
+            save(records)
+            touched += changed
+    if touched:
+        ledger_append(
+            root,
+            "memory.pack",
+            by,
+            "",
+            f"injected {touched} record(s) from {len(wanted)} store(s)",
+        )
+    return touched
 
 
 def apply_dream(root: Path, proposals: dict, by: str, scope: dict | None = None) -> dict:
