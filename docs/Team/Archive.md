@@ -5659,4 +5659,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 04d449e @04d449e -> one commit over main, 3 files
 - reviewer evidence: Reviewer-4's own run @04d449e: pytest tests/unit/test_lanes.py tests/unit/test_cli_contract.py -> 75 passed; at the parent the lane suite is 22 failed with 'invalid choice: swarm'. build_parser lists swarm, lane and pulse, and pulse carries --spawn. The restored block is the one dd5904e introduced, and the new test reads the real parser, so a future rebase that drops either fails the suite.
 - findings history: 
-- branch / merge: developer/t-0051-a-lane-s-rebase-silently-deleted-the-lan / pending
+- branch / merge: developer/t-0051-a-lane-s-rebase-silently-deleted-the-lan / ad5753d
