@@ -929,6 +929,32 @@ Parallel rules: the Developer owns `src/teamwork/` and its tests; the Tester sta
 after the module lands (the contract in `Memory.md` 4 is frozen, so its test can be
 written in parallel); the CEO owns the three records. No lane edits another's file.
 
+## M21 - Parallel, asynchronous lanes (live)
+
+Intake and criteria: [Project](Project.md) M21; the injection point and the
+measured packet: [Memory](Memory.md) 4.5 and 5. One writer per file; the runtime
+contract in `src/teamwork/lanes.py` was frozen before the integration lanes ran.
+
+| lane | task | what it owns | artifact |
+|---|---|---|---|
+| Developer | T-0038 | the lane runtime and the swarm supervisor, the `lane`/`swarm` CLI, the seven Settings keys, the docs, 29 lane tests | `src/teamwork/lanes.py`, `src/teamwork/lanerun.py`, `tests/unit/test_lanes.py` |
+| Developer | T-0039 | the module census row that the memory merge left red on main | `docs/Team/Architecture.md` |
+| Developer | T-0040 | the packet's read-first step is `load --task` | `src/teamwork/lanes.py`, `Memory.md` 4.5 |
+| Developer | T-0041 | the pack is injected into the packet, not only named | `src/teamwork/engine.py`, `src/teamwork/lanes.py` |
+| CEO | T-0017 | intake, criteria, the measured waves, the lane-written decisions, the board render and the ledger export | this file, `Project.md`, `Memory.md` |
+
+Measured waves on this host (each re-derivable with `lane list --all`):
+
+| run | lanes | waves | budget | outcome |
+|---|---|---|---|---|
+| first real wave | 8 | 4 | 8m | 6 exited ok (T-0008 fix at 60f9a5c, T-0038 at 533f695), 1 failed with a named cause, 1 timed out |
+| second real wave | 17 | 10 | 6m | T-0029 fixed (per-task worktree) at 1ca5958, Tester T-0001 at a5f6b64, Architect T-0002 at b16fba5, three Reviewer verdicts recorded |
+| injection wave | 5 | 3 | 3m | every packet carries the injected pack; a Reviewer verdict blocked on A-0020, since cleared |
+
+Parallel rules: one lane per instance (a second `lane start` is refused), one
+worktree per task (`--worktree`), and the board is the arbiter - a lane claims
+with `task next` or a review claim, so two lanes cannot take one deliverable.
+
 ## Task-graph integrity
 
 The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.
