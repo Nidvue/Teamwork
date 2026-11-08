@@ -8536,6 +8536,10 @@ def cmd_task_set(args) -> int:
                 t["claimed_by"] = ""
         if args.priority:
             t["priority"] = args.priority.upper()
+        if getattr(args, "branch", None) is not None:
+            if not (args.force or "").strip():
+                die("--branch needs --force '<why the recorded branch is wrong>'", 2)
+            t["branch"] = args.branch.strip()
         if args.deps is not None:
             t["deps"] = args.deps
             require_runnable_task_graph(root, role, tasks)
@@ -17135,6 +17139,15 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--priority", choices=list(PRIORITY_ORDER))
     s.add_argument("--deps", default=None)
     s.add_argument("--title", default=None)
+    s.add_argument(
+        "--branch",
+        default=None,
+        help=(
+            "repair the recorded branch, with --force as the reason: a task whose "
+            "branch was retired after its work landed elsewhere otherwise keeps "
+            "loop reporting an unmerged branch that no longer exists"
+        ),
+    )
     s.add_argument(
         "--review-status",
         choices=("passed", "failed", "pending"),
