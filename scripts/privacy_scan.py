@@ -531,7 +531,7 @@ def _shannon_entropy(value: str) -> float:
 
 
 _TOKEN_CHARS = re.compile(r"[A-Za-z0-9._/+=-]+")
-_PATH_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+_PATH_SEGMENT = re.compile(r"\.?[A-Za-z0-9][A-Za-z0-9._-]*")
 _NAME_WORDS = re.compile(r"[A-Z][0-9]+|[A-Z]+(?![a-z])|[A-Z][a-z]*|[a-z]+|[0-9]+")
 _CAMEL_CASE = re.compile(r"[a-z][A-Z]")
 _MAX_NAME_WORDS = 3
@@ -550,7 +550,8 @@ def _is_path_name(token: str) -> bool:
     """Does this token read as a repository path rather than as a random string?
 
     Every segment must be a name: a word (or a few words in CamelCase) with an
-    optional extension. A lane or milestone id counts as one word, not as a
+    optional extension, and a leading dot is allowed so this repository's own
+    ``.pi/Teamwork/...`` layout reads as a path rather than as a secret. A lane or milestone id counts as one word, not as a
     one-letter fragment followed by digits (see ``_NAME_WORDS``), so a document
     path such as ``Agents/SecurityAuditor/Reports/M13-security-audit.md`` reads
     as a name. A random base64 run splits into many short fragments, which is
@@ -558,13 +559,13 @@ def _is_path_name(token: str) -> bool:
     """
     if "/" not in token:
         return False
-    segments = [segment for segment in token.split("/") if segment]
+    segments = [segment for segment in token.split("/") if segment and segment != "."]
     if not segments:
         return False
     for segment in segments:
         if not _PATH_SEGMENT.fullmatch(segment):
             return False
-        words = _NAME_WORDS.findall(segment.split(".")[0])
+        words = _NAME_WORDS.findall(segment.lstrip(".").split(".")[0])
         if not words or len(words) > _MAX_NAME_WORDS:
             return False
         if any(len(word) < _MIN_NAME_WORD and word.isalpha() for word in words):
