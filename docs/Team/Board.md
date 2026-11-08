@@ -121,8 +121,8 @@ under two roles is two tasks.
 | developer | T-0017 | - | todo | - | - |
 | developer | T-0018 | typing | done | P-0040 | c24a595 |
 | developer | T-0019 | - | done | - | - |
-| developer | T-0020 | - | todo | - | - |
-| developer | T-0021 | - | todo | - | - |
+| developer | T-0020 | - | done | - | - |
+| developer | T-0021 | - | done | - | - |
 | developer | T-0022 | - | doing | - | - |
 | developer | T-0023 | privacy | done | P-0008 | 206c099 |
 | developer | T-0024 | - | todo | - | - |
@@ -150,6 +150,7 @@ under two roles is two tasks.
 | developer | T-0046 | clean | done | P-0042 | 4e31f14 |
 | developer | T-0047 | audit | done | P-0043 | 8b5a3c9 |
 | developer | T-0048 | audit | done | P-0044 | e24c38c |
+| developer | T-0049 | audit | selfcheck | - | - |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -181,13 +182,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0016 · clean --worktrees is a no-op (finding 10) | P3 | todo | - |
 | developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | todo | - |
-| developer | T-0020 · Records/merge commits must carry the Acting role trailer (prevent A-0010) | P1 | todo | - |
-| developer | T-0021 · board's parsers raise bare exceptions (finding 15) | P3 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 | developer | T-0024 · the v* tag ruleset protects update/delete but not creation, so 'CEO only' is convention (S-5) | P2 | todo | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0027 · remember still invents Roles/<Typo>/: the hole T-0003 closed in load is open in remember (measured: remember QaEnginere note --by QaEnginere -> exit 0 and Roles/QaEnginere/ShortTermMemory.md created; board and loop then report qaenginere as a role with state), and a refused remember --by <other role> still leaves an empty Roles/<Typo>/ directory | P1 | blocked | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
+| developer | T-0049 · Burn-down 3: remember refuses an unknown role instead of inventing Roles/<Typo>/ (T-0027), the two stale classifier rows (T-0006) are corrected, and the accepted-by-design clean --worktrees flag is closed with its reason (T-0016) | P1 | selfcheck | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
