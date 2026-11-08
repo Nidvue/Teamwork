@@ -60,8 +60,14 @@ def add_task(
 
 
 def project_of_worktree(root: Path) -> Path:
-    """The one worktree under the team's ``Runtime/Worktrees``."""
-    worktrees = sorted((root / engine.DIR_RUNTIME / engine.DIR_WORKTREES).iterdir())
+    """The one worktree under the team's ``Runtime/Worktrees``.
+
+    T-0029 keys the worktree by (instance, task), so it sits one level deeper than
+    the instance directory: the search is for the directory that actually holds a
+    ``.git`` file, not for the first child.
+    """
+    base = root / engine.DIR_RUNTIME / engine.DIR_WORKTREES
+    worktrees = sorted(path.parent for path in base.rglob(".git"))
     assert len(worktrees) == 1, worktrees
     return worktrees[0]
 

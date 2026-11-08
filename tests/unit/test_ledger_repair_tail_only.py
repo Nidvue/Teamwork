@@ -53,7 +53,7 @@ def test_repair_refuses_a_middle_corruption_and_leaves_the_file_alone(tmp_path: 
         )
     except SystemExit as exc:
         assert exc.code == 2
-    else:  # pragma: no cover - the failure path
+    else:  # pragma: no cover
         raise AssertionError("repair accepted a middle corruption")
     assert path.read_text(encoding="utf-8") == before
 
@@ -68,5 +68,5 @@ def test_repair_drops_a_torn_tail(tmp_path: Path) -> None:
         type("A", (), {"reason": "probe", "force": "", "by": "ceo"})(), root, "CEO"
     )
     records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
-    assert len(records) == 3  # two original records + the repair event
+    assert len(records) == 3
     assert records[-1]["action"] == "ledger.repair"
