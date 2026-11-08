@@ -2952,6 +2952,17 @@ def ledger_verify(
     return problems
 
 
+def _trailing_run(dropped: list, total: int) -> set:
+    """The line numbers that form the contiguous unreadable run at the end of the file."""
+    run, expected = set(), total
+    for line_no in sorted(dropped, reverse=True):
+        if line_no != expected:
+            break
+        run.add(line_no)
+        expected -= 1
+    return run
+
+
 def cmd_ledger_repair(args) -> int:
     """Repair a torn tail: drop unreadable/partial trailing lines and log it."""
     root = project_root(args)
@@ -2985,6 +2996,16 @@ def _ledger_repair_locked(args, root: Path, actor: str) -> int:
             dropped.append(i)
             continue
         good.append(line)
+    if dropped and any(
+        i not in _trailing_run(dropped, total=len(good) + len(dropped)) for i in dropped
+    ):
+        die(
+            "refusing to repair: the unreadable line(s) at "
+            f"{dropped} are not at the tail of the chain, so this is not a torn write - "
+            "it is a record that was altered or a file that was spliced. Repair drops only "
+            "a trailing run; anything else is an investigation (ledger verify reports it).",
+            2,
+        )
     if not dropped:
         print("# nothing to repair: every line parses")
         problems = ledger_verify(root, reconcile=True, _locked=True)
@@ -13660,13 +13681,32 @@ class PreflightResult:
         return hashlib.sha256("\n".join(payload).encode("utf-8")).hexdigest()[:12]
 
     def summary(self) -> str:
+        """`fail` if any check failed, `partial` if any went unmeasured, else `pass`.
+
+        A `pass` while checks are `unverified` or `warn` is the finding T-0012
+        names: the line is recorded as the mechanical gate, so it must not read
+        green for a run that did not measure everything. `partial` is not a
+        refusal - `--run` measures the gate - but it is never quoted as a pass.
+        """
         failing = ", ".join(check.name for check in self.failed)
-        verdict = "fail" if failing else "pass"
+        unmeasured = ", ".join(
+            check.name for check in self.checks if check.status in ("unverified", "warn")
+        )
+        if failing:
+            verdict = "fail"
+        elif unmeasured:
+            verdict = "partial"
+        else:
+            verdict = "pass"
         line = (
             f"PREFLIGHT {verdict} @{self.short_revision} :: {len(self.checks)} checks, "
             f"{len(self.failed)} failed"
         )
-        return line + (f" ({failing})" if failing else "")
+        if failing:
+            return line + f" ({failing})"
+        if unmeasured:
+            return line + f" (unmeasured: {unmeasured})"
+        return line
 
     def digest_line(self) -> str:
         return f"PREFLIGHT digest: PF-{self.digest} @{self.short_revision}"
