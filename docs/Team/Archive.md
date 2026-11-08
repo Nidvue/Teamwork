@@ -5386,4 +5386,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 4761349
 - reviewer evidence: Reviewer-3's own run in the lane worktree for developer/t-0005-preflightcommand-is-shlex-split-and-exec @4761349: pytest on the branch's own test module -> passed; ruff check . -> All checks passed; ruff format --check . -> already formatted; mypy src/teamwork -> no issues. Read the diff: the fix is the one the task names, with a test that fails on the old code, and the scope is the two files the task bounds.
 - findings history: 
-- branch / merge: developer/t-0005-preflightcommand-is-shlex-split-and-exec / pending
+- branch / merge: developer/t-0005-preflightcommand-is-shlex-split-and-exec / ca60f28
