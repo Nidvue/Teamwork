@@ -12274,6 +12274,7 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
         input=message,
         capture_output=True,
         text=True,
+        env=_merge_commit_env(),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", *dirty)
