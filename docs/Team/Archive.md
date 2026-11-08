@@ -5764,3 +5764,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-3's own run @b7aafa7: scan_tree and scan_staged with the allow file -> 0 findings (the same calls report 1 high-entropy-secret at docs/Team/Decisions.md:2382 at b90089c); pytest tests/unit/test_privacy_scan.py -> 162 passed, including the case that a base64 run containing a slash is still reported. Read the diff: a path segment may begin with a dot and the name-word split strips it, so this repository's own .pi/Teamwork/... layout reads as a path; the exemption still requires every segment to be a word name and the match to be a cut-off piece of the token.
 - findings history: 
 - branch / merge: developer/t-0055-the-new-pre-commit-privacy-gate-refused / 0d913cf
+
+## T-0056 · task set cannot repair a review verdict: a task closed with --force keeps review_status=failed, so loop reports 23 deliverables not review-passed even though each was closed by a recorded override; add --review-status with a required reason so the record can say what happened  (developer)
+- date: 2026-11-08
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-5
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the two-hunk diff. Boundary: the flag refuses without --force (tested by the gate itself), appends to review_evidence instead of replacing it, and leaves status/self_check untouched; a task without the flag is unchanged. Scope: parser + one block, board render. Hostile reviewer: 'a flag that rewrites a verdict is tampering' - it cannot run without a recorded reason, and the reason lands in the same field the reviewer reads. | test: task set ceo T-0003 --review-status passed --force 'reason' -> accepted, review_evidence carries the repair; pytest test_cli_contract+test_preflight -> 69 passed | preflight: PF-e061a5a037ab @8734cc648254 (7 checks, 0 failed)
+- author evidence: commit 8734cc6 @8734cc6 -> one commit over main
+- reviewer evidence: Reviewer-5's own run @8734cc6: pytest tests/unit/test_cli_contract.py tests/unit/test_preflight.py -> 69 passed; ruff+format+mypy clean; a probe 'task set ceo T-0003 --review-status passed' without --force is refused with the reason requirement, and with --force the repair is appended to review_evidence. Read the diff: the flag cannot run without a recorded reason, it appends rather than replaces, and status/self_check are untouched - so the record keeps both the old verdict and the repair.
+- findings history: 
+- branch / merge: developer/t-0056-task-set-cannot-repair-a-review-verdict / pending
