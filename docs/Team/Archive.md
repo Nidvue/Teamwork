@@ -5620,4 +5620,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit b5034a2 @b5034a2 -> one commit over main, 5 files including the board render
 - reviewer evidence: Reviewer-1's own run @b5034a2: pytest tests/unit/test_task_meta_fields.py tests/unit/test_board_parser_messages.py tests/unit/test_board_matches_tool.py -> 21 passed; ruff check + format --check -> clean; mypy src/teamwork -> Success, 23 files. Read the diff: the allow-list is hoisted unchanged (44 names) and bound by a test that compares it with new_task's keys minus the three the parser assigns, so adding a field on either side without the other fails; the two board parsers now raise ValueError naming templates/Docs/Board.md, and the render guard uses next(..., None) with the same message. Requirement: findings 14 and 15 closed; conformance: each has a test that reproduces its failure mode.
 - findings history: 
-- branch / merge: developer/t-0048-burn-down-2-the-task-parser-s-allow-list / pending
+- branch / merge: developer/t-0048-burn-down-2-the-task-parser-s-allow-list / e24c38c
