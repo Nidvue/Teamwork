@@ -155,6 +155,7 @@ under two roles is two tasks.
 | developer | T-0051 | lanes | done | P-0047 | ad5753d |
 | developer | T-0052 | audit | done | P-0048 | c95afdf |
 | developer | T-0053 | preflight | done | P-0049 | 38112f9 |
+| developer | T-0054 | audit | selfcheck | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -181,6 +182,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
+| developer | T-0054 · Finish the regression sweep: the harness budget must print '-' for an unmeasurable size (T-0019 follow-up), a fresh/emptied ledger re-seeds its head instead of deadlocking the team, and the merge-base test finds the per-task worktree T-0029 introduced | P0 | selfcheck | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
