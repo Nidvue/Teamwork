@@ -19,8 +19,13 @@ prevent.
      and is recorded);
    - no deletion of the branch or of a tag;
    - linear history: no merge commits on the default branch.
-2. **Required status checks.** A merge is impossible while any required check is
-   red, on the exact merged revision:
+2. **Required status checks.** A *host-side* merge is refused while any required
+   check is red, on the exact merged revision. The engine's merge is a local
+   `git merge` run by the Reviewer, so a red check does not stop it: the gate is
+   that the Reviewer does not pass the revision, and the push policy (5c) holds
+   the push until the checks are green on that SHA. Measured at T-0025: a local
+   `pr merge` succeeds with the check red, which is why the rule is stated as
+   "the Reviewer does not pass" and not as "git refuses":
    - the test matrix (every supported OS x Python), lint, build + release
      verification, the privacy scan, and the strict docs build;
    - the checks are *required*, not advisory: "the release engineer saw it pass

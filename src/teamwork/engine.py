@@ -3062,6 +3062,20 @@ def all_branch_decision_ids(root: Path) -> set:
     return seen
 
 
+def _heading_clip(text: str, limit: int) -> str:
+    """A heading taken from the decision's own words, cut at a word boundary.
+
+    The finding (T-0031) was a committed entry rendering as "... section 2 (c": a
+    hard slice at 60 characters cut mid-word. A clip on whitespace keeps the
+    heading readable and never adds characters the author did not write.
+    """
+    clean = one_line(text)
+    if len(clean) <= limit:
+        return clean
+    cut = clean[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-")
+    return (cut or clean[:limit]).rstrip() + "..."
+
+
 def cmd_decision(args) -> int:
     """Record a decision as a first-class, traceable project record."""
     root = project_root(args)
@@ -3093,7 +3107,7 @@ def cmd_decision(args) -> int:
             n += 1
             ident = f"{base_ident}-{n}" if n > 1 else base_ident
         block = [
-            f"## {ident} - {one_line(args.title or args.decision[:60])}",
+            f"## {ident} - {one_line(args.title or _heading_clip(args.decision, 60))}",
             "",
             f"- date: {today_iso()}",
             f"- kind: {kind}",
@@ -16666,6 +16680,11 @@ def resolve_model_plan(root: Path, env=None) -> dict:
     ).strip()
     assignments, missing = {}, []
     alternate = (env.get("TEAMWORK_MODEL_ALT") or "").strip()
+    alternate_provider = provider
+    if alternate and "/" in alternate:
+        head, tail = alternate.split("/", 1)
+        if head and tail:
+            alternate_provider, alternate = head, tail
     for role in sorted(list_roles(root)):
         tier = LANE_TIER.get(role, "economy")
         model = strong if tier == "strong" else (economy or strong)
@@ -16676,7 +16695,7 @@ def resolve_model_plan(root: Path, env=None) -> dict:
         if role in COORD_VERIFICATION_ROLES and len(lanes) > 1 and alternate:
             for index, lane in enumerate(lanes):
                 assignments[lane] = {
-                    "provider": provider,
+                    "provider": alternate_provider if index % 2 else provider,
                     "model": alternate if index % 2 else model,
                     "tier": tier + ("-alt" if index % 2 else ""),
                     "scope": "agent",
