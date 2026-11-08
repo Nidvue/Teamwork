@@ -2350,3 +2350,35 @@ worktree until the slot expires - the safe direction to fail.
   recovery under the transient id D-20261107-CEO-3, 253 chars, and the heading was corrected
   to -CEO-2 on ceo/T-0013 so the id the task names is the id committed. A reader holding
   either record lands here; decision, evidence and falsifier are one.
+
+## D-20261108-CEO-2 - The tribunal's ruling on D-0001: T-0013 is the decision-record vehicle
+
+- date: 2026-11-08
+- kind: governance
+- status: accepted
+- deciders: Reviewer-2 (neutral seat; CEO is a party to the dispute)
+- decided by: reviewer
+- task: ceo T-0013
+- context: T-0004's review loop ran three rounds without a new revision, and three open branches each carried a variant of the same four D-20261107 records.
+- options considered: re-deliver all five T-0004 deliverables on a rebased branch; close T-0004 onto the record-store decision; name one vehicle for the records and drop the duplicates.
+- decision: T-0013 is the one vehicle and it has landed at 8835b16 with all four D-20261107 entries (ids -CEO, -TeamLeader, -Developer, -CEO-2) and full headings. T-0004, T-0014 and T-0015 are dropped as superseded, so the fourth round the raiser refused to pay is not owed. The M19 rows landed at 58d2ae5; the M19 section itself is out of scope because the live milestones are M20 and M21, whose rows and criteria are records the loop reads.
+- why: three branches for one record set is duplicate work, and a fourth identical review round is a cost with no new evidence; the raiser's own measurement showed the three variants shared the same ids.
+- evidence: git log --oneline -1 ceo/t-0013... -> 8835b16; grep -c '^## D-20261107' docs/Team/Decisions.md @8835b16 -> 4; teamwork.py dispute list -> D-0001 resolved
+- falsified by: if a reader cannot trace a D-20261107 id to the committed file, or if the M19 rows are found missing from Project.md/Plan.md at 58d2ae5, this ruling is wrong.
+- consequences: the losing side (the CEO) implements it and says so in its report; the three duplicate branches are closed, not merged.
+
+## D-20261108-CEO-3 - The tribunal's ruling on D-0002: a report-only deliverable closes on its artifact
+
+- date: 2026-11-08
+- kind: process
+- status: accepted
+- deciders: CEO (the dispute was raised by the Reviewer against the Developer, so the CEO is neutral)
+- decided by: ceo
+- task: developer T-0001
+- context: three review rounds left one stale row in a gitignored audit report, and the engine's review path requires a branch, which a report-only task does not have.
+- options considered: keep the loop open for a fourth round; rule the row out of scope; correct the row and close on the artifact.
+- decision: the one-row correction is in scope and delivered (row 7 now reads 75 actions written, 44 declared, 32 undeclared, 1 declared-never-written); a report-only deliverable closes on its artifact path and the Reviewer's reading of it, not on a merge, and the tool gap that forces this (review requires a branch) is a task, not a reason to leave a one-line defect open.
+- why: the audit's value is its measurements, not its merge history; the body and four of five corrections were verified sound, and the finding set it produced is realised on main (T-0003, T-0008, T-0010..T-0021).
+- evidence: grep -n '75 actions written' .pi/Teamwork/Teams/Teamwork/Agents/Developer/Reports/M19-engine-audit.md -> row 7; teamwork.py dispute list -> D-0002 resolved
+- falsified by: if a report-only deliverable is later merged through a branch, or if row 7 is found stale again, the ruling's premise is gone.
+- consequences: report-only tasks (audit reports, research notes) close on the artifact; the engine gap is filed.

@@ -1,38 +1,38 @@
 {
-  "generated_at": "2026-11-08T17:21:11",
+  "generated_at": "2026-11-08T21:52:23",
   "team": "Teamwork",
   "team_id": "aea4a50124554512a94761e991bb3f6f",
   "project": "Teamwork",
   "ledger": {
-    "records": 969,
-    "checkpoint_n": 969,
-    "head": "55fb5aad355d986e6c3de4fb7dbb313561e8b7ddbf3fc9a93fee3ba71b7ed693",
+    "records": 1218,
+    "checkpoint_n": 1218,
+    "head": "9daad5474e63129db3593dd61acad108b8d13f81df0b17325937c41087708897",
     "verified": false,
     "problems": [
       "record 106 (task.add): digest mismatch (record altered)"
     ]
   },
   "git": {
-    "head": "aa80a59ad4aff159118ed934778e93519c039021",
-    "branch": "main",
+    "head": "1767f7b63a0b7d095e22dae5350e6e73094f0bc0",
+    "branch": "ceo/t-0020-record-the-two-tribunal-rulings-d-0001-t",
     "dirty": true,
     "lfs_files": 0
   },
   "artifacts": [
     {
       "path": "docs/Team/Architecture.md",
-      "sha256": "7921dfeaeefac1c17e09d6f5212cc56e628c58efc947c3ebe3adec1d4472865d",
-      "bytes": 180454
+      "sha256": "9c747f17348338719e51bf6d971c4bd29964106cf8203eec1a136f0ccc590736",
+      "bytes": 180681
     },
     {
       "path": "docs/Team/Decisions.md",
-      "sha256": "128322eaac180af8dc2837e3e5107680ac9724a4442f01f2a5eda3210b0c5dd8",
-      "bytes": 352127
+      "sha256": "278d1b9b94b494aa6fbc0420c85d1a6d6df8449ad29df0ea8d08f97dd4c87135",
+      "bytes": 362724
     },
     {
       "path": "docs/Team/Plan.md",
-      "sha256": "f78dddce9ff148341bf9a3c587a0e7b68237f86ae52b828e779bf13801530890",
-      "bytes": 94053
+      "sha256": "d62a40b698f19f30c9d9cdaba578bd559fb30212eff8ecb10e5dc704c8006048",
+      "bytes": 94557
     },
     {
       "path": "docs/Team/Project.md",
@@ -48,8 +48,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Disputes.md",
-      "sha256": "a06e3238b86e6b4cb432ee5225a78099c7d2e6aa3327f8f3d0c7dc8b0eabcbaa",
-      "bytes": 5761
+      "sha256": "70017cb5cc6f2523691cc96744a21472ab02085222c22e2b3d3dfb0c496aa5eb",
+      "bytes": 6936
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Global/GlobalMemory.md",
@@ -58,8 +58,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "62beba1be8578dbf94990798970427fe2284eb72fc2c5602bdeb6d48f2fda441",
-      "bytes": 124736
+      "sha256": "88de41b8f2bed730f029b6be98c150ac191611d09673c72e086b97e861719e75",
+      "bytes": 147736
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Architect/ArchivedMemory.md",
@@ -78,8 +78,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Architect/TaskQueue.md",
-      "sha256": "f7b21beae824a8b696cd0a1738700ae970259b6796bd08d92ae8b30a1c3c83b2",
-      "bytes": 10931
+      "sha256": "a49fdcfe6bccbcbefb787e541362f0a379491f9a05f3494b9f7e5d75e58fd156",
+      "bytes": 11505
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/ArchivedMemory.md",
@@ -98,8 +98,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "633098e270973627be8145b8b55ba664b16909634cfc189fd83cfc721e0ca377",
-      "bytes": 85355
+      "sha256": "426672f3d1af4a10b6895dcab735a74568de316e0c3f4e08703cc225ca976043",
+      "bytes": 92527
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/ArchivedMemory.md",
@@ -118,8 +118,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/TaskQueue.md",
-      "sha256": "51cef9b3cff6226906fb882b28f0a3054dfa559a882bd2707cf098c9ab78aeb5",
-      "bytes": 176634
+      "sha256": "e81aa18059f1b55a1317200cabac16cf6c4e7da47af2efbe4f89167785e1479c",
+      "bytes": 215242
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Reviewer/ArchivedMemory.md",
@@ -138,8 +138,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Reviewer/TaskQueue.md",
-      "sha256": "800101abf47d3fe9e6c6fc4faf3f8e731a6a16e2be166531e936997023c67e99",
-      "bytes": 13402
+      "sha256": "749159e144f2a22b0f712bff00f4e26e6f998f121a90505b6ef677480b0e50bc",
+      "bytes": 13924
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/TeamLeader/ArchivedMemory.md",
@@ -158,8 +158,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/TeamLeader/TaskQueue.md",
-      "sha256": "aa71357aea7b06e08389367331434f5dd53c84cb4c252776c05004fe2c3ad9fc",
-      "bytes": 11393
+      "sha256": "7055fdab654f541e9416814c1da1bd6db041a20010d2cc41348c0d60e4ab9b02",
+      "bytes": 11400
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Tester/ArchivedMemory.md",
@@ -178,8 +178,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Tester/TaskQueue.md",
-      "sha256": "6204ce5175391c4d8029c4a2ea693da82a3315cc28ac3d3e6ac21869f62f3a9c",
-      "bytes": 10348
+      "sha256": "5d94737f67170216e6fd2f725560b8f598a298603c10107597e8b7694e212010",
+      "bytes": 11349
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/TestPlan.md",
@@ -194,7 +194,7 @@
   ],
   "how_to_verify": [
     "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
-    "2. take record #969 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
+    "2. take record #1218 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
     "3. sha256sum each artifact in this manifest",
     "4. git cat-file -t <git.head>   # the reviewed revision still exists",
     "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
