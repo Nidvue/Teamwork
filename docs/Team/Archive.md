@@ -5802,4 +5802,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 4072446 @4072446 -> one commit over main
 - reviewer evidence: Reviewer-2's own run @4072446: pytest tests/unit/test_privacy_scan.py tests/unit/test_hooks.py tests/unit/test_no_comments.py tests/integration/test_makefile_flow.py -> 237 passed; privacy_scan --tree --allow -> PASS 0 findings; ruff+format+mypy clean. The diff moves the reason into docstrings and calls the builders in place, so neither gate has to be excused.
 - findings history: 
-- branch / merge: developer/t-0058-the-two-bounded-privacy-patterns-carry-e / pending
+- branch / merge: developer/t-0058-the-two-bounded-privacy-patterns-carry-e / 567402a
