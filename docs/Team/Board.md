@@ -115,7 +115,7 @@ under two roles is two tasks.
 | developer | T-0011 | config | review | P-0037 | - |
 | developer | T-0012 | preflight | review | - | - |
 | developer | T-0013 | ledger | review | P-0038 | - |
-| developer | T-0014 | audit | review | P-0039 | - |
+| developer | T-0014 | audit | done | P-0039 | 91c2d7f |
 | developer | T-0015 | - | todo | - | - |
 | developer | T-0016 | - | todo | - | - |
 | developer | T-0017 | - | todo | - | - |
@@ -190,7 +190,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0011 · a bad TEAMWORK_* integer kills every command with a traceback at import (finding 5) | P2 | review | - |
 | developer | T-0012 · preflight prints pass with up to 6 of 7 checks unmeasured and the review records it as mechanical=no (finding 6) | P1 | review | - |
 | developer | T-0013 · LEDGER_ACTIONS is dead code and wrong: 31 actions written, 7 declared, 3 undeclared (finding 7) | P2 | review | - |
-| developer | T-0014 · audit's truncation check silently skips an unreadable AuditManifest.json (finding 8) | P2 | review | - |
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0016 · clean --worktrees is a no-op (finding 10) | P3 | todo | - |
 | developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | todo | - |
