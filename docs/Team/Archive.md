@@ -5790,3 +5790,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-1's own run @804224a: pytest tests/unit/test_cli_contract.py -> 44 passed; a probe without --force is refused, and with --force the field is cleared; loop no longer names the two retired branches. Read the diff: same guard shape as --review-status, reason required.
 - findings history: 
 - branch / merge: developer/t-0057-task-set-cannot-clear-a-retired-branch-s / 0908643
+
+## T-0058 · The two bounded privacy patterns carry explanatory comments the tree forbids, and the builder assignment read as an env-secret to the gate itself; carry the reason in docstrings and call the builders in place  (developer)
+- date: 2026-11-08
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: privacy
+- self-check: [pass] Re-read the 3-file diff. Boundary: the patterns are byte-identical to the previous version (the tests that pin the four shapes and the base64-with-slash case pass); the builders are pure and called once at table construction; the PEM fixture builds the same string. Scope: two builders + one call site each + one test fixture function. Hostile reviewer: 'a function call per scan' - the rule table is built once at import. | test: pytest test_privacy_scan+test_hooks+test_no_comments+test_makefile_flow @4072446 -> 237 passed; privacy_scan --tree --allow -> PASS 0 findings | preflight: PF-053922440c47 @40724469f6ae (7 checks, 0 failed)
+- author evidence: commit 4072446 @4072446 -> one commit over main
+- reviewer evidence: Reviewer-2's own run @4072446: pytest tests/unit/test_privacy_scan.py tests/unit/test_hooks.py tests/unit/test_no_comments.py tests/integration/test_makefile_flow.py -> 237 passed; privacy_scan --tree --allow -> PASS 0 findings; ruff+format+mypy clean. The diff moves the reason into docstrings and calls the builders in place, so neither gate has to be excused.
+- findings history: 
+- branch / merge: developer/t-0058-the-two-bounded-privacy-patterns-carry-e / pending
