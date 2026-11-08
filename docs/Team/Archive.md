@@ -5464,4 +5464,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 476c48b
 - reviewer evidence: Reviewer-5's own run in a throwaway worktree of developer-3/t-0011-a-bad-teamwork-integer-kills-every-comma @476c48b: developer-3/t-0011-a-bad-teamwork-integer-kills-every-comma: pytest[26 passed in 8.13s] ruff[All checks passed!] fmt[277 files already formatted] mypy[Success: no issues found in 23 source files]. Read the diff: fix(config): src/teamwork/config.py (_env_int helper, 12 integer reads routed through - the change is the one the task names, the test it adds is in the branch's tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
-- branch / merge: developer-3/t-0011-a-bad-teamwork-integer-kills-every-comma / pending
+- branch / merge: developer-3/t-0011-a-bad-teamwork-integer-kills-every-comma / cc7a923
