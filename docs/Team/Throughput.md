@@ -4,7 +4,7 @@ Owner: CEO. This is the optimization record: what the team's own history says is
 slow, what it costs in context, and the change each number justifies. Re-read a
 row with its command; do not trust a count in this file.
 
-Related: [Project](Project.md) | [Plan](Plan.md) | [Evolution](Evolution.md)
+Related: [Project](Project.md) | [Plan](Plan.md) | [Evolution](Evolution.md) | [Memory](Memory.md)
 
 ## 1. Objective
 
