@@ -824,6 +824,24 @@ def retire_branch(root: Path, here: Path, branch: str, force: bool = False) -> b
     return False
 
 
+def _safe_ref(project: Path, ref: str) -> str:
+    """A ref from a record, validated before git sees it (S-9).
+
+    A task's ``branch`` field is written by the engine but a record file can be
+    edited by hand, and ``git checkout``/``branch``/``worktree add`` accept a value
+    that starts with ``-`` as an option. ``git check-ref-format`` on the fully
+    qualified ref is git's own answer to "is this a branch name", so the gate is
+    git's rule, not a second implementation of it, and it needs no repository.
+    """
+    value = (ref or "").strip()
+    if not value or value.startswith("-"):
+        die(f"refusing a branch name from a record: {ref!r} is empty or looks like an option")
+    check = run_git(project, "check-ref-format", f"refs/heads/{value}")
+    if check.returncode != 0:
+        die(f"refusing a branch name from a record: {value!r} is not a valid branch name")
+    return value
+
+
 def cmd_branch(args) -> int:
     root = project_root(args)
     project = project_of(root)
@@ -871,6 +889,7 @@ def cmd_branch(args) -> int:
         base = current_branch(project) or "HEAD"
     branch = task.get("branch") or branch_name(args.agent, task["id"], task["title"])
     if not branch_exists(project, branch):
+        branch = _safe_ref(project, branch)
         r = run_git(project, "branch", branch, base)
         if r.returncode != 0:
             die(f"could not create {branch} from {base}: {r.stderr.strip()}")
@@ -880,7 +899,7 @@ def cmd_branch(args) -> int:
         wt = lane_worktree(root, args.agent, task["id"])
         wt.parent.mkdir(parents=True, exist_ok=True)
         if not _worktree_registered(project, wt):
-            r = run_git(project, "worktree", "add", str(wt), branch)
+            r = run_git(project, "worktree", "add", "--", str(wt), branch)
             if r.returncode != 0:
                 die(f"worktree add failed for {branch}: {r.stderr.strip()}")
         worktree_note = str(wt)
@@ -10756,6 +10775,32 @@ def cmd_pulse(args) -> int:
         f"- re-arm this pulse: schedule the next wake every {minutes} min "
         "(see the /teamwork skill: schedule.create)"
     )
+    if getattr(args, "spawn", False):
+        print()
+        if mode != "auto":
+            print(
+                f"# spawn skipped: the accept mode is {mode}, so the swarm would dispatch "
+                "nothing. Nothing was started."
+            )
+            return 0 if plan else 3
+        from . import lanes as lane_runtime
+
+        return lane_runtime.cmd_swarm(
+            argparse.Namespace(
+                project=getattr(args, "project", None),
+                team=getattr(args, "team", None),
+                lanes=0,
+                fixed=False,
+                waves=0,
+                minutes=None,
+                lane_minutes=None,
+                poll=0.0,
+                mode=mode,
+                host="",
+                by=getattr(args, "agent", "") or "ceo",
+                dry_run=False,
+            )
+        )
     return 0 if plan else 3
 
 
@@ -18179,6 +18224,11 @@ def _parsers_scheduling(sub, common) -> None:
         default="",
         help="lane running this pulse, recorded on a pulse.observe line (default: ceo)",
     )
+    s.add_argument(
+        "--spawn",
+        action="store_true",
+        help="after --commit, size and run the engine's swarm now (needs accept mode auto)",
+    )
     s.set_defaults(func=cmd_pulse)
 
 
@@ -18263,6 +18313,10 @@ def _parsers_meta(sub, common) -> None:
     from .evolution import add_parsers as _add_evolution_parsers
 
     _add_evolution_parsers(sub, common)
+
+    from .lanes import add_parsers as _add_lane_parsers
+
+    _add_lane_parsers(sub, common)
 
 
 def main(argv=None) -> int:

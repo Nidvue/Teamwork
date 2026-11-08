@@ -538,3 +538,24 @@ def test_the_parser_registers_what_the_contract_freezes() -> None:
         gaps = _group_gaps(group)
         assert gaps == [], f"the `{group}` group is documented but not fully registered: {gaps}"
     print(f"walked: {landed or 'none'} | NOT LANDED: {absent or 'none'}")
+
+
+def test_the_lane_runtime_surface_is_registered() -> None:
+    """A registered command cannot disappear in a rebase without failing here.
+
+    T-0051: a lane's rebase deleted `from .lanes import add_parsers` and the
+    `pulse --spawn` block, so `teamwork swarm` and `teamwork lane` became
+    "invalid choice" on main while every lane test still expected them. The
+    surface is the contract; this pins it.
+    """
+    from teamwork import engine
+
+    parser = engine.build_parser()
+    choices = [a.choices for a in parser._actions if getattr(a, "choices", None)][0]
+    for command in ("swarm", "lane", "pulse"):
+        assert command in choices, f"the CLI lost the {command!r} command"
+    pulse = choices["pulse"]
+    flags = {
+        option for action in pulse._actions for option in getattr(action, "option_strings", [])
+    }
+    assert "--spawn" in flags, "pulse lost its --spawn flag"
