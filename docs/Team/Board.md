@@ -105,7 +105,7 @@ under two roles is two tasks.
 | developer | T-0001 | - | doing | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
-| developer | T-0004 | harness | review | P-0035 | - |
+| developer | T-0004 | harness | done | P-0035 | b2e5f10 |
 | developer | T-0005 | preflight | done | P-0025 | ca60f28 |
 | developer | T-0006 | io | done | P-0004 | c57e9d4 |
 | developer | T-0007 | records | done | P-0009 | 9e3ed06 |
@@ -184,7 +184,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0014 · Re-file the M19 decision-record commit on a clean task: T-0013's evidence is poisoned because an amend left an unreachable @sha in its append-only self-check text | P0 | doing | - |
 | ceo | T-0015 · Decision-record ids and the committed file diverged during recovery: the ledger holds the waiver under one id while docs/Team/Decisions.md renders another, so a reader cannot trace one to the other (Reviewer-5, T-0014 round 1) | P1 | review | - |
 | developer | T-0001 · Systematic audit of src/teamwork/*.py and scripts/*.py: real defects, dead code, inconsistent invariants, non-portable code; rank with a reproduction each; no code changes | P0 | doing | - |
-| developer | T-0004 · harness.instance_always_on documents itself as what 'teamwork load' prints, but load prints only the memory lines; the figure is a startup-read estimate including SKILL.md and the charter | P2 | review | - |
 | developer | T-0008 · identity --audit reports a personal-identity commit as 'skipped: external contributor' and exits 0; make lint and ci.yml run that non-strict form, so the identity rule has no gate | P0 | review | - |
 | developer | T-0010 · clean reports files as removed when unlink failed (finding 4) | P2 | review | - |
 | developer | T-0011 · a bad TEAMWORK_* integer kills every command with a traceback at import (finding 5) | P2 | review | - |
