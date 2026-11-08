@@ -5542,4 +5542,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 652d490
 - reviewer evidence: Reviewer-2's own run in the branch worktree of developer-3/t-0032-amending-a-branch-after-selfcheck-perman @652d490: BRANCH developer-3/t-0032-amending-a-branch-after-selfcheck-perman pytest: 5 passed in 0.10s ruff: All checks passed! format: 277 files already formatted mypy: Success: no issues found in 23 source files  Read the diff: fix(preflight): engine._preflight_evidence honours a "superseded" marker in the evidence - the change is what the task names, its test is in the branch tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
-- branch / merge: developer-3/t-0032-amending-a-branch-after-selfcheck-perman / pending
+- branch / merge: developer-3/t-0032-amending-a-branch-after-selfcheck-perman / 0cbcb03
