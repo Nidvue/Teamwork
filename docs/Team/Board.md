@@ -152,7 +152,7 @@ under two roles is two tasks.
 | developer | T-0048 | audit | done | P-0044 | e24c38c |
 | developer | T-0049 | audit | done | P-0045 | 6d4d6cd |
 | developer | T-0050 | memory | done | P-0046 | 0e88de8 |
-| developer | T-0051 | lanes | selfcheck | - | - |
+| developer | T-0051 | lanes | done | P-0047 | ad5753d |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -182,7 +182,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
-| developer | T-0051 · A lane's rebase silently deleted the lane runtime's CLI registration: commit 4761349 (merged via T-0005) removed 'from .lanes import add_parsers', the pulse --spawn argument and its block, so 'teamwork swarm'/'lane' became 'invalid choice' on main while the lane suite still expected them | P0 | selfcheck | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
