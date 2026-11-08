@@ -5815,4 +5815,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 6fd56f2 @6fd56f2 -> one commit over main
 - reviewer evidence: Reviewer-4's own run @6fd56f2 in a stripped environment (PATH=/usr/bin:/bin, no host CLI): pytest tests/unit/test_lanes.py -> 31 passed; the full suite in that environment -> 2554 passed, 3 skipped; with the host present the same tests pass unchanged. Read the diff: only the print path is tolerant, the start path keeps its refusal, and the unknown-host case returns the prompt template.
 - findings history: 
-- branch / merge: developer/t-0059-ci-is-red-on-the-lane-tests-lane-start-p / pending
+- branch / merge: developer/t-0059-ci-is-red-on-the-lane-tests-lane-start-p / b060209
