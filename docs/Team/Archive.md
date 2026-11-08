@@ -5438,4 +5438,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 1a5db3e
 - reviewer evidence: Reviewer-3's own run in a throwaway worktree of developer-3/t-0004-harness-instance-always-on-documents-its @1a5db3e: developer-3/t-0004-harness-instance-always-on-documents-its: pytest[8 passed in 0.47s] ruff[All checks passed!] fmt[276 files already formatted] mypy[Success: no issues found in 23 source files]. Read the diff: fix(harness): src/teamwork/harness.py instance_always_on docstring and the tests/unit/ - the change is the one the task names, the test it adds is in the branch's tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
-- branch / merge: developer-3/t-0004-harness-instance-always-on-documents-its / pending
+- branch / merge: developer-3/t-0004-harness-instance-always-on-documents-its / b2e5f10
