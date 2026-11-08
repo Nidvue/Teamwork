@@ -72,6 +72,9 @@ ZERO_SHA = "0" * 40
 ALLOW_MAIN = "TEAMWORK_ALLOW_MAIN"
 ALLOW_FORCE = "TEAMWORK_ALLOW_FORCE"
 
+PRIVACY_ALLOWLIST = Path(".github") / "privacy-allow.txt"
+PRIVACY_FIX = "python3 scripts/privacy_scan.py --staged --allow .github/privacy-allow.txt --reveal"
+
 CHAIN_SUFFIX = ".teamwork-foreign"
 
 SHIM_INTERPRETER = "python3"
@@ -474,8 +477,36 @@ def head_branch(project: Path) -> str:
     return symbolic or branch
 
 
+def staged_privacy_findings(project: Path) -> list:
+    """The privacy gate's findings on the index, the exact set ``--staged`` reports.
+
+    The scanner is the shipped one, loaded by path through ``engine._privacy_scan`` so
+    a checkout and a bundle scan with the same rules; a bundle that dropped
+    ``scripts/`` yields no findings rather than a guessed verdict. The project's own
+    allowlist is honoured when it exists, so a value CI already accepts does not
+    block the same commit locally.
+    """
+    from .engine import _privacy_scan
+
+    scanner = _privacy_scan()
+    if scanner is None:
+        return []
+    allowlist = project / PRIVACY_ALLOWLIST
+    allow = scanner.load_allow(allowlist if allowlist.is_file() else None)
+    return scanner.dedupe(scanner.scan_staged(project, allow))
+
+
+def privacy_report(findings: list) -> str:
+    """One line per finding: rule, severity and location - never the matched value."""
+    return "\n".join(
+        f"  {finding['rule']} ({finding['severity']}): "
+        f"{finding.get('location') or finding.get('path') or '?'}"
+        for finding in findings
+    )
+
+
 def check_commit(project: Path) -> int:
-    """R1 default branch, R2 large non-LFS blob, R3 identity (a warning, never a block)."""
+    """R1 default branch, R2 large non-LFS blob, R3 privacy, R4 identity (warning)."""
     branch = head_branch(project)
     if branch == DEFAULT_BASE and not os.environ.get(ALLOW_MAIN):
         print(
@@ -505,6 +536,26 @@ def check_commit(project: Path) -> int:
             + "\n  this file is text but a LFS pattern captures its name; LFS is for "
             "binaries, and a document in LFS is unreadable without a client.\n"
             "  drop the pattern from .gitattributes, or make the content binary.",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        findings = staged_privacy_findings(project)
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(
+            "teamwork: refusing to commit: the privacy gate could not scan the index "
+            f"({type(exc).__name__}: {exc}).\n"
+            "  a gate that cannot run is not a gate; fix the scanner or the index and retry.",
+            file=sys.stderr,
+        )
+        return 1
+    if findings:
+        print(
+            "teamwork: refusing to commit staged content the privacy gate reports:\n"
+            + privacy_report(findings)
+            + "\n  the matched value is never printed here. Fingerprint it with\n"
+            f"  {PRIVACY_FIX}\n"
+            "  then remove the secret, or add one narrow allowlist line with its reason.",
             file=sys.stderr,
         )
         return 1
