@@ -112,7 +112,7 @@ under two roles is two tasks.
 | developer | T-0008 | identity | review | P-0006 | - |
 | developer | T-0009 | git-timeout | done | P-0007 | 602ee84 |
 | developer | T-0010 | clean | done | P-0036 | a2da634 |
-| developer | T-0011 | config | review | P-0037 | - |
+| developer | T-0011 | config | done | P-0037 | cc7a923 |
 | developer | T-0012 | preflight | review | - | - |
 | developer | T-0013 | ledger | review | P-0038 | - |
 | developer | T-0014 | audit | done | P-0039 | 91c2d7f |
@@ -185,7 +185,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0015 · Decision-record ids and the committed file diverged during recovery: the ledger holds the waiver under one id while docs/Team/Decisions.md renders another, so a reader cannot trace one to the other (Reviewer-5, T-0014 round 1) | P1 | review | - |
 | developer | T-0001 · Systematic audit of src/teamwork/*.py and scripts/*.py: real defects, dead code, inconsistent invariants, non-portable code; rank with a reproduction each; no code changes | P0 | doing | - |
 | developer | T-0008 · identity --audit reports a personal-identity commit as 'skipped: external contributor' and exits 0; make lint and ci.yml run that non-strict form, so the identity rule has no gate | P0 | review | - |
-| developer | T-0011 · a bad TEAMWORK_* integer kills every command with a traceback at import (finding 5) | P2 | review | - |
 | developer | T-0012 · preflight prints pass with up to 6 of 7 checks unmeasured and the review records it as mechanical=no (finding 6) | P1 | review | - |
 | developer | T-0013 · LEDGER_ACTIONS is dead code and wrong: 31 actions written, 7 declared, 3 undeclared (finding 7) | P2 | review | - |
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
