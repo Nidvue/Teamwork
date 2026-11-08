@@ -150,7 +150,7 @@ under two roles is two tasks.
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | - |
-| tester | T-0001 | - | review | P-0023 | - |
+| tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | review | P-0026 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -205,7 +205,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0044 · model auto --apply writes a TEAMWORK_MODEL_ALT that carries a provider prefix into the provider field, so Reviewer-2/4 were routed provider=deepinfra model=strata/qwen3.8-flash-next-iq3_xxs and every lane they started died 404 model_not_found | P0 | todo | - |
 | developer | T-0045 · Recovered lane work: the pre-commit hook should scan staged content with the shipped privacy scanner, so a credential is refused before it enters a commit - the change was left uncommitted in the base checkout by a lane that did not finish (src/teamwork/hooks.py + tests/unit/test_hooks.py) | P1 | doing | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
-| tester | T-0001 · Systematic audit of tests/: vacuous or tautological tests, tests that pass when the code is broken, cross-platform hazards, uncovered critical paths; rank with a reproduction each | P0 | review | - |
 | tester | T-0002 · M20 integration layer: pack/search/dream end to end on a real team tree (init --no-git in a tmp dir): determinism, byte budget, dream idempotency on a copy, provenance preserved, load without --task unchanged | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
