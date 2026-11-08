@@ -5634,3 +5634,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-3's own run @9f23299: remember QaEnginere 'a note' --by QaEnginere -> exit 1 'unknown role ... Known roles: ...' and no Roles/QaEnginere directory; pytest tests/unit/test_memory.py tests/unit/test_lessons.py tests/unit/test_docs_contracts.py tests/unit/test_ci_contracts.py -> 81 passed; links -> 0. Read the diff: the guard calls the same loadable_role predicate load uses, so the two cannot drift; the Release row is the same 11 paths with the owner corrected to the module that carries them. Requirement: the remember hole is closed and the row is true.
 - findings history: 
 - branch / merge: developer/t-0049-burn-down-3-remember-refuses-an-unknown / 6d4d6cd
+
+## T-0050 · T-0049 added a second role guard in cmd_remember that duplicates the one in _memory_path (loadable_role + unknown_role_message); remove the duplicate so one refusal is the canonical one  (developer)
+- date: 2026-11-08
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: memory
+- self-check: [pass] Delta: board render included; note stands. | test: remember QaEnginere @05ba951 -> exit 1, canonical message, nothing created; pytest tests/unit/test_memory.py tests/unit/test_lessons.py -> 31 passed | preflight: PF-ac0b114d07b7 @05ba951dd4c0 (7 checks, 0 failed)
+- author evidence: commit 05ba951 @05ba951 -> one commit over main, 2 files
+- reviewer evidence: Reviewer-3's own run @05ba951: grep -n loadable_role src/teamwork/engine.py -> one refusal on the remember path; remember QaEnginere -> exit 1 with the canonical message, no directory created; pytest tests/unit/test_memory.py tests/unit/test_lessons.py -> 31 passed. The delta is exactly the reviewer's finding: the duplicate is gone and the canonical message is what a user sees.
+- findings history: 
+- branch / merge: developer/t-0050-t-0049-added-a-second-role-guard-in-cmd / pending
