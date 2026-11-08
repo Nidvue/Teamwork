@@ -19,6 +19,7 @@ next wave.
 from __future__ import annotations
 
 import json
+import re
 import shlex
 import sys
 import time
@@ -136,6 +137,82 @@ def test_the_packet_names_the_work_the_charter_the_budget_and_the_result_contrac
     assert "tw load Developer-1`" not in packet
     assert "## Memory pack for this assignment (injected)" in packet
     assert "# pack:" in packet
+
+
+def _packet_commands(packet: str) -> list:
+    """Every `tw ...` command in a packet, with its line continuations joined."""
+    lines = packet.splitlines()
+    out: list = []
+    index = 0
+    while index < len(lines):
+        line = lines[index].strip()
+        index += 1
+        if not line.startswith("tw "):
+            continue
+        while line.endswith("\\") and index < len(lines):
+            line = line[:-1].rstrip() + " " + lines[index].strip()
+            index += 1
+        out.append(line)
+    return out
+
+
+def _concrete_argv(command: str) -> list:
+    """Replace the packet's <placeholders> with values the parser accepts."""
+    argv = []
+    for token in shlex.split(command)[1:]:
+        if "<" in token:
+            token = re.sub(r"<[^>]*>", "x", token)
+        argv.append(token)
+    return argv
+
+
+def test_every_command_the_packet_teaches_parses_with_the_real_parser(cli, project: Path) -> None:
+    """A packet that teaches a flag the CLI does not accept strands the lane.
+
+    Measured on the 2026-11-08 waves: two lanes spent their budget on
+    `tw commit ... --summary` (unrecognized) and left their fix uncommitted, and a
+    Reviewer packet taught `review <role> <T-id> pass --by ...`, which is not the
+    CLI shape. Every command the packet prints must parse.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "produce the contract")
+    review_ready(root)
+    parser = engine.build_parser()
+
+    packets = []
+    for agent, extra in (
+        ("developer-1", ()),
+        ("reviewer-1", ("--review-owner", "developer")),
+    ):
+        assert (
+            cli(
+                "--project",
+                project,
+                "lane",
+                "start",
+                "--agent",
+                agent,
+                "--task",
+                "T-0001",
+                *extra,
+                "--print",
+            )
+            == 0
+        )
+        written = sorted((Path(lanes.agent_dir(root, agent)) / "Runs").glob("*.md"))
+        assert written, f"no packet was written for {agent}"
+        packets.append(written[-1])
+    for packet in packets:
+        text = packet.read_text(encoding="utf-8")
+        commands = _packet_commands(text)
+        assert commands, "the packet teaches no command at all"
+        for command in commands:
+            try:
+                parser.parse_args(_concrete_argv(command))
+            except SystemExit as exc:  # pragma: no cover - the failure path
+                raise AssertionError(
+                    f"the packet teaches a command the CLI refuses (exit {exc.code}): {command}"
+                ) from None
 
 
 def test_a_reviewer_packet_carries_the_review_flow_not_the_produce_flow(cli, project: Path) -> None:
