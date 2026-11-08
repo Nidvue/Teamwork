@@ -456,6 +456,53 @@ def test_the_posix_false_gate_reports_its_exit_where_the_host_has_a_sh(cli, proj
     assert "(gate)" in out
 
 
+def test_a_compound_gate_reaches_the_host_shell(cli, project, capsys):
+    """`a && b` is the spelling the docs invite, so `&&` must reach a shell (T-0005).
+
+    `shlex` alone hands `&&` to the first program as an argument, so the gate ran
+    only `a`: a green `a` masked a red `b` and a configured gate reported PASS for
+    a command that fails - the same exit-2-on-a-typo class the author reads as a
+    broken gate. Both sides are pinned here: a red second command is a red gate and
+    a green compound is still OK, so the shell is not bought with a false red.
+    """
+    root = init_team(cli, project)
+    start_branch(cli, project)
+    commit_as_author(cli, project)
+    settings = root / engine.F_SETTINGS
+    green = f'"{sys.executable}" -c "print(1)"'
+    red = f'"{sys.executable}" -c "raise SystemExit(1)"'
+
+    settings.write_text(
+        json.dumps({"PreflightCommand": f"{green} && {red}"}) + "\n", encoding="utf-8"
+    )
+    code, out = preflight(cli, capsys, project, "--run")
+    assert code == 1, out
+    assert f"{green} && {red} -> exit 1" in out
+    assert "(gate)" in out
+
+    settings.write_text(
+        json.dumps({"PreflightCommand": f"{green} && {green}"}) + "\n", encoding="utf-8"
+    )
+    code, out = preflight(cli, capsys, project, "--run")
+    assert code == 0, out
+    assert f"{green} && {green} -> exit 0" in out
+
+
+def test_a_single_command_keeps_the_no_shell_argv():
+    """Only a compound command takes the shell; a plain one stays `shlex` argv.
+
+    The unlaunchable-gate contract (a missing program reports "could not start",
+    not a shell's exit 127) rests on this split, and an unquotable single command
+    still reports itself as unquotable rather than being handed to the shell.
+    """
+    assert engine._gate_argv("make check") == ["make", "check"]
+    assert engine._gate_argv('"a b/py" -c "print(1)"')[0] == "a b/py"
+    assert engine._gate_argv('"a b/py" -m ruff check .')[0] == "a b/py"
+    assert engine._gate_argv("a && b")[-1] == "a && b"
+    with pytest.raises(ValueError):
+        engine._gate_argv('make "check')
+
+
 def test_an_unlaunchable_gate_command_is_red_with_its_reason(cli, project, capsys):
     """An unlaunchable gate must never escape the engine and never pass silently.
 
