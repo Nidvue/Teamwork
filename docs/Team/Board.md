@@ -151,7 +151,7 @@ under two roles is two tasks.
 | developer | T-0047 | audit | done | P-0043 | 8b5a3c9 |
 | developer | T-0048 | audit | done | P-0044 | e24c38c |
 | developer | T-0049 | audit | done | P-0045 | 6d4d6cd |
-| developer | T-0050 | memory | selfcheck | - | - |
+| developer | T-0050 | memory | done | P-0046 | 0e88de8 |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -184,7 +184,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0024 · the v* tag ruleset protects update/delete but not creation, so 'CEO only' is convention (S-5) | P2 | todo | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
-| developer | T-0050 · T-0049 added a second role guard in cmd_remember that duplicates the one in _memory_path (loadable_role + unknown_role_message); remove the duplicate so one refusal is the canonical one | P1 | selfcheck | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
