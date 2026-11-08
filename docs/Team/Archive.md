@@ -5529,4 +5529,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: 
 - reviewer evidence: Reviewer-1's own run in the branch worktree of tester/t-0002-m20-integration-layer-pack-search-dream @d032a65: BRANCH tester/t-0002-m20-integration-layer-pack-search-dream pytest: 8 passed in 2.20s ruff: All checks passed! format: 274 files already formatted mypy: Success: no issues found in 23 source files  Read the diff: test(memory): cover dream --apply on a copied team tree - the change is what the task names, its test is in the branch tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
-- branch / merge: tester/t-0002-m20-integration-layer-pack-search-dream / pending
+- branch / merge: tester/t-0002-m20-integration-layer-pack-search-dream / 4c857a4
