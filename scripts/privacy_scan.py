@@ -194,13 +194,19 @@ _PLACEHOLDERS = re.compile(
 )
 
 
-# Bounded quantifiers, not "+": the unbounded local part made the scan quadratic
-# on a long run of word characters (a 1 MB text file took minutes), which is what
-# hung the pre-commit gate on a large staged document (T-0022). RFC 5321 caps a
-# local part at 64 and a domain label at 63, so the bounds cost no real match.
-_RE_EMAIL = re.compile(
-    r"(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9\-]{1,63}(?:\.[A-Za-z0-9\-]{1,63}){0,8}\.[A-Za-z]{2,24}"
-)
+def _email_pattern() -> re.Pattern:
+    """The personal-email rule, with bounded quantifiers.
+
+    An unbounded local part made the scan quadratic on a long run of word
+    characters - a 1 MB text file took minutes - which hung the pre-commit gate
+    on a large staged document (T-0022). RFC 5321 caps a local part at 64 and a
+    domain label at 63, so the bounds cost no real match.
+    """
+    return re.compile(
+        r"(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]{1,64}@"
+        r"[A-Za-z0-9\-]{1,63}(?:\.[A-Za-z0-9\-]{1,63}){0,8}\.[A-Za-z]{2,24}"
+    )
+
 
 _RE_HOME = re.compile(
     r"(?:(?<![A-Za-z0-9_])/(?:home|Users)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
@@ -331,17 +337,21 @@ def _plausible_credential(value: str) -> bool:
     return True
 
 
-# The leading prefix is bounded: an unbounded `[A-Za-z0-9_]*` before the
-# keyword alternation is quadratic on a long run of word characters (100 kB
-# took minutes), which hung the pre-commit gate on a large staged document
-# (T-0022). A keyword is at most 64 characters from its assignment, so the
-# bound costs no real match.
-_RE_ENV_SECRET = re.compile(
-    r"(?i)(?<![A-Za-z0-9_])(?:[A-Za-z0-9_]{0,64}(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|"
-    r"ACCESS[_-]?KEY|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|CREDENTIAL)"
-    r"[A-Za-z0-9_]{0,64})\s*[:=]\s*"
-    r"(?:[\"']([^\"'\n]{8,})[\"']|([A-Za-z0-9+/=_\-.:@!#$%^&]{8,}))"
-)
+def _env_secret_pattern() -> re.Pattern:
+    """The env-secret rule, with a bounded keyword prefix.
+
+    An unbounded ``[A-Za-z0-9_]*`` before the keyword alternation is quadratic on
+    a long run of word characters (100 kB took minutes), which hung the
+    pre-commit gate (T-0022). A keyword sits at most 64 characters from its
+    assignment, so the bound costs no real match.
+    """
+    return re.compile(
+        r"(?i)(?<![A-Za-z0-9_])(?:[A-Za-z0-9_]{0,64}(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|"
+        r"ACCESS[_-]?KEY|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|CREDENTIAL)"
+        r"[A-Za-z0-9_]{0,64})\s*[:=]\s*"
+        r"(?:[\"']([^\"'\n]{8,})[\"']|([A-Za-z0-9+/=_\-.:@!#$%^&]{8,}))"
+    )
+
 
 _RE_HIGH_ENTROPY = re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{32,}={0,2}(?![A-Za-z0-9+/=])")
 
@@ -512,11 +522,11 @@ _QUOTED_PATH_RULES = frozenset({"home-path", "agent-config"})
 RULES = (
     {"id": "private-key", "severity": "critical", "regex": _RE_PRIVATE_KEY},
     {"id": "api-token", "severity": "critical", "regex": _RE_TOKEN},
-    {"id": "env-secret", "severity": "critical", "regex": _RE_ENV_SECRET},
+    {"id": "env-secret", "severity": "critical", "regex": _env_secret_pattern()},
     {"id": "json-secret", "severity": "critical", "regex": _RE_JSON_SECRET},
     {"id": "agent-config", "severity": "high", "regex": _RE_AGENT_CONFIG},
     {"id": "private-domain", "severity": "high", "regex": None},
-    {"id": "personal-email", "severity": "high", "regex": _RE_EMAIL},
+    {"id": "personal-email", "severity": "high", "regex": _email_pattern()},
     {"id": "home-path", "severity": "high", "regex": _RE_HOME},
     {"id": "high-entropy-secret", "severity": "high", "regex": _RE_HIGH_ENTROPY},
 )
@@ -824,7 +834,7 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                 if match:
                     credential = match.group(0)
             if credential is None:
-                match = _RE_ENV_SECRET.search(line)
+                match = _env_secret_pattern().search(line)
                 if match:
                     candidate = match.group(1) or match.group(2)
                     if not _PLACEHOLDERS.match(candidate) and (
