@@ -5425,4 +5425,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 62691aa
 - reviewer evidence: Reviewer-2's own run in a throwaway worktree of developer-3/t-0037-branch-start-worktree-decides-worktree-e @4d6f282: developer-3/t-0037-branch-start-worktree-decides-worktree-e: pytest[3 passed in 0.63s] ruff[All checks passed!] fmt[277 files already formatted] mypy[Success: no issues found in 23 source files]. Read the diff: fix(branch): decide worktree existence on the whole path, not a substring - the change is the one the task names, the test it adds is in the branch's tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
-- branch / merge: developer-3/t-0037-branch-start-worktree-decides-worktree-e / pending
+- branch / merge: developer-3/t-0037-branch-start-worktree-decides-worktree-e / b914ae4
