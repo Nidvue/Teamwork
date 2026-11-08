@@ -131,6 +131,7 @@ def test_the_packet_names_the_work_the_charter_the_budget_and_the_result_contrac
     assert "tw selfcheck developer T-0001" in packet
     assert "Never merge your own work" in packet
     assert "16 tool calls and 25 minutes" in packet
+    assert "tw branch start --agent Developer-1 --task T-0001 --worktree" in packet
 
 
 def test_a_reviewer_packet_carries_the_review_flow_not_the_produce_flow(cli, project: Path) -> None:
@@ -311,6 +312,38 @@ def test_swarm_hands_a_ready_review_to_a_reviewer_lane(
     )
     claimed = engine.parse_tasks(engine.task_file(root, "developer"))[0]
     assert claimed.get("review_claim") == "Reviewer-1"
+
+
+def test_a_held_review_claim_is_adopted_without_crashing_the_wave(
+    cli, project: Path, capsys
+) -> None:
+    """A claim the engine records as a 4-tuple must not be unpacked as a pair.
+
+    Regression for the reviewer's F-1 at 5475b8e: adopted_plan read
+    engine.held_review_items as (owner, task) while it returns
+    (owner_role, task, lane, age), so `swarm run --dry-run` raised
+    "too many values to unpack (expected 2, got 4)" on any board holding a claim.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "produce the contract")
+    review_ready(root)
+    task_file = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(task_file)
+    tasks[0]["review_claim"] = "Reviewer-2"
+    tasks[0]["review_claim_ts"] = engine.claim_stamp()
+    engine.write_tasks(task_file, tasks, "developer")
+    held = engine.held_review_items(root)
+    assert [(owner, task["id"], lane) for owner, task, lane, _age in held] == [
+        ("developer", "T-0001", "Reviewer-2")
+    ]
+    adopted = lanes.adopted_plan(root)
+    assert [(item.instance, item.task, item.review_owner) for item in adopted] == [
+        ("Reviewer-2", "T-0001", "developer")
+    ]
+    assert lanes.measure(root, 8).adopted >= 1
+    capsys.readouterr()
+    assert cli("--project", project, "swarm", "run", "--dry-run") in (0, 3)
+    assert "too many values" not in capsys.readouterr().out
 
 
 def test_the_runner_records_a_timeout_instead_of_hanging(tmp_path: Path) -> None:
