@@ -5568,4 +5568,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 96b4eb6
 - reviewer evidence: Reviewer-5's own run @96b4eb6: PYTHONPATH=src venv/bin/python -m mypy src/teamwork -> Success, 23 files (at the parent 8a9c33d the same command exits 1 with the reported error); pytest tests/unit/test_clean_scope.py tests/unit/test_instance_retire.py -> 15 passed; ruff check + format --check -> clean. Requirement: main is green on the type gate that every review runs, without changing clean's behaviour. Conformance: the repro record proves fail->pass, and the diff is two identifiers. Scope: engine.py, one loop.
 - findings history: 
-- branch / merge: developer/t-0046-main-is-red-on-mypy-engine-py-clean-s-re / pending
+- branch / merge: developer/t-0046-main-is-red-on-mypy-engine-py-clean-s-re / 4e31f14
