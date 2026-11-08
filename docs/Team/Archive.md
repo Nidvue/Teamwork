@@ -5517,3 +5517,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-5's own run in the branch worktree of architect/t-0002-ratify-the-architecture-md-census-pointe @b16fba5: BRANCH architect/t-0002-ratify-the-architecture-md-census-pointe pytest: 43 passed in 0.26s ruff: All checks passed! format: 274 files already formatted mypy: Success: no issues found in 23 source files  Read the diff: docs(architecture): release-engineer ownership row now covers scripts/ci_scope.py; decisio - the change is what the task names, its test is in the branch tree and passes at this head, and the scope is the files the task bounds.
 - findings history: 
 - branch / merge: architect/t-0002-ratify-the-architecture-md-census-pointe / eea0824
+
+## T-0002 · M20 integration layer: pack/search/dream end to end on a real team tree (init --no-git in a tmp dir): determinism, byte budget, dream idempotency on a copy, provenance preserved, load without --task unchanged  (tester)
+- date: 2026-11-08
+- priority: P0
+- owner: tester role (work by: Tester)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: -
+- self-check: [pass] Boundary: empty store (dream on a tree with no records reports 0 actions, already covered), duplicate key (two records, older one superseded, newer kept byte-identical), second call (dream --apply twice on the copy -> file byte-identical, ledger event count unchanged at 2). Copy case: the whole project is copied, the copy's team root renamed to the slug the CLI computes for it, dream runs on the copy only; the live tree's Knowledge.md, Lessons.md and Ledger.jsonl stay byte-identical and the live ledger has no memory.dream event. Contract surface: the shipped CLI only (memory dream --apply --by), no private function asserted; provenance is read back through records.parse_knowledge (by, evidence, updated, status, superseded_by) and record count stays 3 so nothing is deleted. Shared writes: none - the case owns its tmp_path tree; the file is one test added to tests/integration/test_memory_pack_flow.py. Scope: only that file changed; the T-0001 worktree was restored to its committed state after I found branch start --worktree had reused it. | test: PYTHONPATH=src ./venv/bin/python -m pytest -q tests/integration/test_memory_pack_flow.py @d032a65 -> 8 passed in 3.00s | preflight: PF-e0a16f1beb8d @d032a6546aa9 (7 checks, 0 failed)
+- author evidence: 
+- reviewer evidence: Reviewer-1's own run in the branch worktree of tester/t-0002-m20-integration-layer-pack-search-dream @d032a65: BRANCH tester/t-0002-m20-integration-layer-pack-search-dream pytest: 8 passed in 2.20s ruff: All checks passed! format: 274 files already formatted mypy: Success: no issues found in 23 source files  Read the diff: test(memory): cover dream --apply on a copied team tree - the change is what the task names, its test is in the branch tree and passes at this head, and the scope is the files the task bounds.
+- findings history: 
+- branch / merge: tester/t-0002-m20-integration-layer-pack-search-dream / pending
