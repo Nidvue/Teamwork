@@ -85,24 +85,24 @@ under two roles is two tasks.
 | architect | T-0002 | architecture | done | P-0024 | eea0824 |
 | ceo | T-0001 | - | blocked | - | - |
 | ceo | T-0002 | throughput | doing | - | - |
-| ceo | T-0003 | context | review | P-0001 | 2fcd9fd |
-| ceo | T-0004 | records | doing | P-0011 | - |
+| ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
+| ceo | T-0004 | records | dropped | P-0011 | - |
 | ceo | T-0005 | - | doing | - | - |
 | ceo | T-0006 | - | todo | - | - |
-| ceo | T-0007 | - | doing | - | - |
+| ceo | T-0007 | - | done | - | - |
 | ceo | T-0008 | - | todo | - | - |
-| ceo | T-0009 | - | todo | - | - |
+| ceo | T-0009 | - | done | - | - |
 | ceo | T-0010 | context | done | P-0013 | 6ad1132 |
-| ceo | T-0011 | - | todo | - | - |
-| ceo | T-0012 | - | todo | - | - |
+| ceo | T-0011 | - | done | - | - |
+| ceo | T-0012 | - | dropped | - | - |
 | ceo | T-0013 | records | done | P-0014 | 8835b16 |
-| ceo | T-0014 | - | doing | P-0015 | - |
-| ceo | T-0015 | records | review | P-0016 | - |
+| ceo | T-0014 | - | dropped | P-0015 | - |
+| ceo | T-0015 | records | dropped | P-0016 | - |
 | ceo | T-0016 | team-docs | done | P-0018 | a88e9d2 |
 | ceo | T-0017 | team-docs | done | P-0028 | ebc0c8b |
 | ceo | T-0018 | team-docs | done | P-0031 | 079ee66 |
 | ceo | T-0019 | team-docs | done | P-0041 | 1724fd7 |
-| developer | T-0001 | - | doing | - | - |
+| developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
 | developer | T-0004 | harness | done | P-0035 | b2e5f10 |
@@ -146,8 +146,9 @@ under two roles is two tasks.
 | developer | T-0042 | lanes | done | P-0029 | bc29abe |
 | developer | T-0043 | memory | done | P-0030 | 55c891c |
 | developer | T-0044 | - | todo | - | - |
-| developer | T-0045 | - | doing | - | - |
+| developer | T-0045 | - | dropped | - | - |
 | developer | T-0046 | clean | done | P-0042 | 4e31f14 |
+| developer | T-0047 | audit | done | P-0043 | 8b5a3c9 |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -172,18 +173,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | ceo | T-0001 · Own M19: intake, criteria, records, dispatch, arbitration and close-out (audit manifest + final report) | P0 | blocked | - |
 | ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
-| ceo | T-0003 · Cut the always-on startup cost: rewrite templates/AGENTS.md managed block as pointer + invariants, measure harness budget before and after, keep every gate and red line | P0 | review | - |
-| ceo | T-0004 · Write the M19 records: Project.md section, Plan.md rows, Board render, Throughput cut #3 and the record-store decision | P1 | doing | - |
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
 | ceo | T-0006 · Two record rows name the classifier as inline ci.yml text; T-0001 moved it to scripts/ci_scope.py (D-class drift in Plan.md and Release.md) | P2 | todo | - |
-| ceo | T-0007 · Primary checkout holds uncommitted lane work, so no Reviewer can land a pass: pr merge dies 'working tree has uncommitted work outside the reviewed records' on src/teamwork/config.py, src/teamwork/engine.py, src/teamwork/lanes.py, src/teamwork/lanerun.py, tests/unit/test_lanes.py (mtimes 16:52-16:55, unchanged since); T-0006/P-0004 is passed and waiting on one pr merge | P0 | doing | - |
 | ceo | T-0008 · AC-5 is red on main: privacy_scan --tree reports 3 high/personal-email findings in tracked docs (Board.md:179, Decisions.md:2295-2296), so the tree half of the AC-5 proof exits 1 on the merge target | P0 | todo | - |
-| ceo | T-0009 · Land P-0003 (T-0002, review PASSED by Reviewer-1) is blocked: the base checkout holds uncommitted edits to AGENTS.md, SKILL.md, references/Roles.md and templates/AGENTS.md - P-0001's own four files - so pr merge refuses any dirty path outside docs/ | P0 | todo | - |
-| ceo | T-0011 · main 7e1e536 is red: the full suite has 8 failures that are not any single branch's (5 skill-contract tests, the docs privacy-scan test, the records probe, the AC-5 traceability row), so the standard gate cannot go green for any deliverable | P0 | todo | - |
-| ceo | T-0012 · CI is red on the pushed revision fe1a996: the committer guard found three 'chore: hand edit' commits made with the operator's configured identity because the team git hooks were never installed in this checkout | P0 | todo | - |
-| ceo | T-0014 · Re-file the M19 decision-record commit on a clean task: T-0013's evidence is poisoned because an amend left an unreachable @sha in its append-only self-check text | P0 | doing | - |
-| ceo | T-0015 · Decision-record ids and the committed file diverged during recovery: the ledger holds the waiver under one id while docs/Team/Decisions.md renders another, so a reader cannot trace one to the other (Reviewer-5, T-0014 round 1) | P1 | review | - |
-| developer | T-0001 · Systematic audit of src/teamwork/*.py and scripts/*.py: real defects, dead code, inconsistent invariants, non-portable code; rank with a reproduction each; no code changes | P0 | doing | - |
 | developer | T-0012 · preflight prints pass with up to 6 of 7 checks unmeasured and the review records it as mechanical=no (finding 6) | P1 | review | - |
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0016 · clean --worktrees is a no-op (finding 10) | P3 | todo | - |
@@ -200,7 +192,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0033 · gitutil timeout docstring and test comment name the wrong mechanism for the remote helper | P2 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
 | developer | T-0044 · model auto --apply writes a TEAMWORK_MODEL_ALT that carries a provider prefix into the provider field, so Reviewer-2/4 were routed provider=deepinfra model=strata/qwen3.8-flash-next-iq3_xxs and every lane they started died 404 model_not_found | P0 | todo | - |
-| developer | T-0045 · Recovered lane work: the pre-commit hook should scan staged content with the shipped privacy scanner, so a credential is refused before it enters a commit - the change was left uncommitted in the base checkout by a lane that did not finish (src/teamwork/hooks.py + tests/unit/test_hooks.py) | P1 | doing | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
