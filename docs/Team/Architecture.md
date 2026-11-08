@@ -66,6 +66,7 @@ Teamwork/
 │   ├── build_pi_package.py   # assemble the pi-teamwork tarball (make package)
 │   ├── check_release_consistency.py  # the release-truth gate (make release-consistency)
 │   ├── check_comments.py      # the no-comment gate (make lint)
+│   ├── ci_scope.py            # classify a change set into the code/prose gate answers
 │   ├── sync_skill.py         # mirror this checkout into an installed skills dir (make sync-skill)
 │   ├── render_social_preview.py  # draw assets/social-preview.png from the README pitch
 │   └── privacy_scan.py       # tree + history privacy gate
@@ -242,7 +243,7 @@ A test that executes an external tool guards on it first, through
 `tests/tooling.py` (`require_tool`): an absent tool produces a **skip that names
 the tool and states why the test needs it** - never a failure, never a silent
 pass. The guarded set is the convenience path only (`make`, and `sh`/`bash` for
-the hook and classifier scripts). Tools the product itself cannot run without -
+the git hooks and the workflow run-block fixtures). Tools the product itself cannot run without -
 the interpreter and `git` - are deliberately **not** guarded: a skip there would
 report a green build for a host that can never work. Pinned by
 [tests/unit/test_tool_guards.py](https://github.com/nidvue/teamwork/blob/main/tests/unit/test_tool_guards.py).
@@ -269,8 +270,8 @@ from the wrong role, so the two maps must not be conflated.
     personal data, credentials, agent-host config and tracked local state),
     `committer-guard`, `release-consistency` (offline release gate),
     `docs` (mkdocs build --strict).
-  * The `scope` job computes the changed-path set from git and publishes **two**
-    outputs, because the filtered jobs ask two different questions and a
+  * The `scope` job runs `scripts/ci_scope.py`, which computes the changed-path
+    set from git, and publishes **two** outputs, because the filtered jobs ask two different questions and a
     prose-only push answers them differently: `code` (`true` = something that
     ships changed) and `prose` (`true` = something in the prose/media set below
     changed). On a prose-only push `code=false` and `prose=true`, so the jobs
@@ -303,12 +304,13 @@ from the wrong role, so the two maps must not be conflated.
   * The prose/media set the classifier uses is `docs/**`, `assets/**` and the
     root prose files `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
     `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`
-    and `mkdocs.yml`. This set is what the `scope` job's `PROSE` pattern matches
-    to raise the `prose` output, and it and `.github/workflows/docs.yml`'s
+    and `mkdocs.yml`. This set is what the classifier's prose list
+    (`scripts/ci_scope.py::prose_paths`, run by the `scope` job) matches to
+    raise the `prose` output, and it and `.github/workflows/docs.yml`'s
     `paths:` list **must stay identical** - a path that leaves one list without
     joining
     the other is a hole in one of the two gates. The identity is checkable
-    without a stored count: expand the `scope` job's `PROSE` regex and the
+    without a stored count: expand the classifier's prose list and the
     `paths:` list of `.github/workflows/docs.yml` over the tree and compare the
     two sets - they must be equal, with no path in one list only. Every
     shipping path (`src/`, `scripts/`, `tests/`, `roles/`, `references/`,
