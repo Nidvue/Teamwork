@@ -5646,4 +5646,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 05ba951 @05ba951 -> one commit over main, 2 files
 - reviewer evidence: Reviewer-3's own run @05ba951: grep -n loadable_role src/teamwork/engine.py -> one refusal on the remember path; remember QaEnginere -> exit 1 with the canonical message, no directory created; pytest tests/unit/test_memory.py tests/unit/test_lessons.py -> 31 passed. The delta is exactly the reviewer's finding: the duplicate is gone and the canonical message is what a user sees.
 - findings history: 
-- branch / merge: developer/t-0050-t-0049-added-a-second-role-guard-in-cmd / pending
+- branch / merge: developer/t-0050-t-0049-added-a-second-role-guard-in-cmd / 0e88de8
