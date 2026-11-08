@@ -5608,3 +5608,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-2's own run @601a720: pytest tests/unit/test_harness_surface.py tests/unit/test_decision_ids.py tests/unit/test_context_economy.py tests/unit/test_docs_contracts.py tests/unit/test_cli_contract.py -> 178 passed; ruff check + format --check -> clean; mypy src/teamwork -> Success, 23 files; TEAMWORK_MODEL_ALT=strata/qwen3.8-flash-next-iq3_xxs model auto -> Reviewer-2 and Reviewer-4 plan provider=strata with model qwen3.8-flash-next-iq3_xxs, Reviewer-1 stays deepinfra. Read the diff: five findings, each fixed at its own site with no collateral change; the budget change fails closed (unmeasurable -> OVER) rather than silently free; the doc change states the measured behaviour instead of a claim that is not true of a local merge. Requirement: the five findings are closed; conformance: each fix is the finding's own remedy.
 - findings history: 
 - branch / merge: developer/t-0047-burn-down-the-remaining-m19-audit-findin / 8b5a3c9
+
+## T-0048 · Burn-down 2: the task parser's allow-list bound to new_task (T-0020) and the board parsers naming the document they need (T-0021)  (developer)
+- date: 2026-11-08
+- priority: P2
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] Delta: the board render for this task is now in the same commit; the note stands. | test: pytest tests/unit/test_task_meta_fields.py tests/unit/test_board_parser_messages.py tests/unit/test_board_matches_tool.py @b5034a2 -> 21 passed; ruff+format+mypy -> clean | preflight: PF-a69536f9eeff @b5034a2a1547 (7 checks, 0 failed)
+- author evidence: commit b5034a2 @b5034a2 -> one commit over main, 5 files including the board render
+- reviewer evidence: Reviewer-1's own run @b5034a2: pytest tests/unit/test_task_meta_fields.py tests/unit/test_board_parser_messages.py tests/unit/test_board_matches_tool.py -> 21 passed; ruff check + format --check -> clean; mypy src/teamwork -> Success, 23 files. Read the diff: the allow-list is hoisted unchanged (44 names) and bound by a test that compares it with new_task's keys minus the three the parser assigns, so adding a field on either side without the other fails; the two board parsers now raise ValueError naming templates/Docs/Board.md, and the render guard uses next(..., None) with the same message. Requirement: findings 14 and 15 closed; conformance: each has a test that reproduces its failure mode.
+- findings history: 
+- branch / merge: developer/t-0048-burn-down-2-the-task-parser-s-allow-list / pending
