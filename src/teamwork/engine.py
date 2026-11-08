@@ -2749,8 +2749,10 @@ def ledger_verify(
                     f"the last audit export recorded {recorded} records, "
                     f"the ledger has {len(records)}: truncated after export"
                 )
-        except (ValueError, OSError, TypeError):
-            pass
+        except (ValueError, OSError, TypeError, AttributeError):
+            problems.append(
+                f"the audit manifest ({F_MANIFEST}) is unreadable: the truncation check cannot run"
+            )
     return problems
 
 
@@ -15240,8 +15242,12 @@ def _audit_audit_trail_append_only_hash_chained(root: Path, names: list, args) -
                     f"audit export recorded ({recorded}): it was truncated"
                 )
                 hits += 1
-        except (ValueError, OSError, TypeError):
-            pass
+        except (ValueError, OSError, TypeError, AttributeError):
+            print(
+                f"- the audit manifest ({F_MANIFEST}) is unreadable: the "
+                "truncation check cannot run"
+            )
+            hits += 1
     unprovenanced = [
         r
         for role in names
