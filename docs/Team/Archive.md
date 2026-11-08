@@ -5556,3 +5556,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-4's own run in the branch worktree @db1cfaa: BRANCH developer-3/t-0018-mypy-exempts-engine-py-71-of-the-runtime pytest: 3 passed in 0.02s ruff: All checks passed! format: 277 files already formatted mypy: Success: no issues found in 23 source files  Read the diff: pyproject drops the ignore_errors override for teamwork.engine and the branch's own test asserts the override is gone while mypy stays green in 23 files - the requirement is 'mypy covers engine.py', and it does. The untracked test file I found in the worktree was T-0032's, already on main; I removed the duplicate so the reviewed revision is the branch's own tree.
 - findings history: 
 - branch / merge: developer-3/t-0018-mypy-exempts-engine-py-71-of-the-runtime / c24a595
+
+## T-0046 · main is red on mypy: engine.py clean's reclaim loop reuses the name 'path', already bound as str earlier in the function, so mypy reports 'Incompatible types in assignment (expression Any | list[str], variable str)' at the merge of T-0010  (developer)
+- date: 2026-11-08
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-5
+- task / issue: -
+- area: clean
+- self-check: [pass] Re-read the one-line diff. Boundary: the rename is local to the worktree-reclaim loop; the removal logic, its dry-run path and the scratch loop above are untouched. Scope: engine.py only. Hostile reviewer: a rename cannot change behaviour, and the repro shows the gate it repairs (mypy at main -> FAIL, at this head -> Success). | test: PYTHONPATH=src venv/bin/python -m mypy src/teamwork @96b4eb6 -> PASS, 23 files; pytest tests/unit/test_clean_scope.py tests/unit/test_instance_retire.py -> 15 passed; ruff check + format --check -> clean | preflight: PF-207a2d1cdfed @96b4eb6f2250 (7 checks, 0 failed)
+- author evidence: commit 96b4eb6
+- reviewer evidence: Reviewer-5's own run @96b4eb6: PYTHONPATH=src venv/bin/python -m mypy src/teamwork -> Success, 23 files (at the parent 8a9c33d the same command exits 1 with the reported error); pytest tests/unit/test_clean_scope.py tests/unit/test_instance_retire.py -> 15 passed; ruff check + format --check -> clean. Requirement: main is green on the type gate that every review runs, without changing clean's behaviour. Conformance: the repro record proves fail->pass, and the diff is two identifiers. Scope: engine.py, one loop.
+- findings history: 
+- branch / merge: developer/t-0046-main-is-red-on-mypy-engine-py-clean-s-re / pending
