@@ -6704,10 +6704,16 @@ def _role_memory_paths(root: Path, role: str) -> tuple:
 
 def cmd_remember(args) -> int:
     root = project_root(args)
+    role = resolve_role(args.agent)
+    if not loadable_role(root, role):
+        die(
+            f"unknown role {args.agent!r}: no {args.agent} instance is registered in this "
+            "team, so nothing was created. Known roles: " + ", ".join(sorted(list_roles(root))),
+            1,
+        )
     path, filename = _memory_path(root, args.agent, args.layer)
     if not args.text.strip():
         die("empty memory text")
-    role = resolve_role(args.agent)
     with memory_session(root, role, args.by or args.agent, reason=f"remember {args.key or 'note'}"):
         entries = parse_memory(path)
         entry = new_entry(
