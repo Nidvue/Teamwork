@@ -628,12 +628,18 @@ def _knowledge_line(item: dict) -> str:
     )
 
 
-def _load_lessons(root: Path, role: str) -> list:
+def _load_lessons(root: Path, role: str, statuses: tuple = ("open",)) -> list:
+    """The role's lessons in the given statuses; `load` reads exactly the open ones.
+
+    A parked lesson (``superseded``/``archived``) is deliberately not injection
+    material, so the always-on block and the pack spend nothing on it; the dream
+    pass asks for the parked statuses so it can see what it already parked.
+    """
     from .records import parse_lessons
 
     lessons = parse_lessons(lessons_path(root, role))
     return sorted(
-        [item for item in lessons if item["status"] != "fixed"],
+        [item for item in lessons if item["status"] in statuses],
         key=lambda item: item["id"],
     )
 
@@ -645,15 +651,22 @@ def _fixed_lessons(root: Path, role: str) -> list:
     return sorted([item for item in lessons if item["status"] == "fixed"], key=lambda i: i["id"])
 
 
-def _load_knowledge(root: Path) -> tuple:
+def _load_knowledge(root: Path, limit: int | None = LOAD_KNOWLEDGE) -> tuple:
+    """The ranked active records, and every parked one (superseded or archived).
+
+    ``limit`` is the always-on cut; ``None`` returns the whole active store, which
+    is what the memory pack and the dream pass need to see every record.
+    """
     from .records import parse_knowledge, rank_knowledge
 
     items = parse_knowledge(knowledge_path(root))
     active = [item for item in items if item["status"] == "active"]
-    superseded = sorted(
-        [item for item in items if item["status"] == "superseded"], key=lambda i: i["id"]
+    parked = sorted(
+        [item for item in items if item["status"] in ("superseded", "archived")],
+        key=lambda i: i["id"],
     )
-    return rank_knowledge(active)[:LOAD_KNOWLEDGE], superseded
+    ranked = rank_knowledge(active)
+    return (ranked if limit is None else ranked[:limit], parked)
 
 
 def instance_always_on(repo: Path, root: Path, role: str) -> int:
