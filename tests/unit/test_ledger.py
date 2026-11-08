@@ -248,3 +248,43 @@ def test_loop_does_not_write_runtime_state(cli, project: Path, capsys) -> None:
     assert head.read_text(encoding="utf-8") == stale
     assert "teamwork.py ledger verify --reconcile" in out, out
     assert "head cache is behind" not in out, out
+
+
+def test_an_unreadable_manifest_is_reported_by_ledger_verify(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    root = project / ".pi" / "Teamwork" / "Teams" / "T"
+    root.mkdir(parents=True)
+    (root / "Settings.json").write_text('{"TeamId": "team-a"}\n', encoding="utf-8")
+    engine.ledger_append(root, "a", "ceo", "x", "one")
+    docs = project / "docs" / "Team"
+    docs.mkdir(parents=True)
+    manifest = docs / "AuditManifest.json"
+    manifest.write_text("{not json", encoding="utf-8")
+    assert any("unreadable" in p and "manifest" in p for p in engine.ledger_verify(root))
+    manifest.write_text('{"team_id": "team-a", "ledger": []}\n', encoding="utf-8")
+    assert any("unreadable" in p and "manifest" in p for p in engine.ledger_verify(root))
+
+
+def test_audit_trail_reports_an_unreadable_manifest(tmp_path: Path, capsys) -> None:
+    project = tmp_path / "project"
+    root = project / ".pi" / "Teamwork" / "Teams" / "T"
+    root.mkdir(parents=True)
+    (root / "Settings.json").write_text('{"TeamId": "team-a"}\n', encoding="utf-8")
+    engine.ledger_append(root, "a", "ceo", "x", "one")
+    docs = project / "docs" / "Team"
+    docs.mkdir(parents=True)
+    (docs / "AuditManifest.json").write_text("{not json", encoding="utf-8")
+    hits = engine._audit_audit_trail_append_only_hash_chained(root, ["ceo"], None)
+    out = capsys.readouterr().out
+    assert hits >= 1
+    assert "unreadable" in out
+
+
+def test_an_absent_manifest_is_not_a_finding(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    root = project / ".pi" / "Teamwork" / "Teams" / "T"
+    root.mkdir(parents=True)
+    (root / "Settings.json").write_text('{"TeamId": "team-a"}\n', encoding="utf-8")
+    engine.ledger_append(root, "a", "ceo", "x", "one")
+    (project / "docs" / "Team").mkdir(parents=True)
+    assert engine.ledger_verify(root) == []
