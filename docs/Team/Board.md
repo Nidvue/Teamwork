@@ -119,7 +119,7 @@ under two roles is two tasks.
 | developer | T-0015 | - | todo | - | - |
 | developer | T-0016 | - | todo | - | - |
 | developer | T-0017 | - | todo | - | - |
-| developer | T-0018 | typing | review | P-0040 | - |
+| developer | T-0018 | typing | done | P-0040 | c24a595 |
 | developer | T-0019 | - | todo | - | - |
 | developer | T-0020 | - | todo | - | - |
 | developer | T-0021 | - | todo | - | - |
@@ -187,7 +187,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0016 · clean --worktrees is a no-op (finding 10) | P3 | todo | - |
 | developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | todo | - |
-| developer | T-0018 · mypy exempts engine.py, 71% of the runtime (finding 12, also Reviewer-1 S-8) | P2 | review | - |
 | developer | T-0019 · the budget measures an unreadable file as 0 bytes (finding 13) | P3 | todo | - |
 | developer | T-0020 · Records/merge commits must carry the Acting role trailer (prevent A-0010) | P1 | todo | - |
 | developer | T-0021 · board's parsers raise bare exceptions (finding 15) | P3 | todo | - |
