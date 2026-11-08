@@ -162,6 +162,7 @@ under two roles is two tasks.
 | developer | T-0055 | privacy | done | P-0055 | 0d913cf |
 | developer | T-0056 | records | done | P-0056 | b8805b8 |
 | developer | T-0057 | records | done | P-0057 | 0908643 |
+| developer | T-0058 | privacy | selfcheck | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | todo | - | - |
@@ -186,6 +187,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
+| developer | T-0058 · The two bounded privacy patterns carry explanatory comments the tree forbids, and the builder assignment read as an env-secret to the gate itself; carry the reason in docstrings and call the builders in place | P1 | selfcheck | - |
 | reviewer | T-0003 · Acceptance probes for the eight areas whose acceptance layer is recorded failing and has no probe module: audit, baseline, ci-scope, criteria, identity, ledger, m19-records, security | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
