@@ -1,9 +1,12 @@
-"""The budget must count what `teamwork load` prints, not the whole memory store.
+"""The budget must count the whole startup read, not the whole memory store.
 
-Throughput.md section 3 item 4: the budget charged `LongTermMemory.md`, which
-`load` never prints, and did not charge the open lessons and ranked knowledge that
-`load` does print. The developer lane was reported OVER while its real startup
-read was under the cap. These tests pin both directions:
+`load` prints only the memory lines; the row also charges the managed `AGENTS.md`
+block, `SKILL.md` and the charter, which an instance reads before any command runs
+and no command prints, so the row is a startup-read estimate rather than a
+measurement of `load`'s output. Throughput.md section 3 item 4: the budget charged
+`LongTermMemory.md`, which `load` never prints, and did not charge the open lessons
+and ranked knowledge that `load` does print. The developer lane was reported OVER
+while its real startup read was under the cap. These tests pin every direction:
 
 * long-term and archived memory never move the startup row;
 * an open lesson and a top-ten active knowledge record do;
@@ -176,3 +179,16 @@ def test_the_default_budget_output_keeps_the_frozen_four_columns(
         assert len(cells) == 4, line
         assert cells[2].isdigit()
         assert cells[3] in ("ok", "OVER")
+
+
+def test_the_startup_row_is_not_the_bytes_load_prints(cli, project: Path, capsys) -> None:
+    root = init(cli, project)
+    capsys.readouterr()
+    assert cli("--project", project, "load", "developer-1") == 0
+    printed = capsys.readouterr().out
+
+    skill = REPO_ROOT / "SKILL.md"
+    charter = harness.charter_path(REPO_ROOT, root, "developer")
+    assert startup(root) >= skill.stat().st_size + charter.stat().st_size
+    assert skill.read_text(encoding="utf-8") not in printed
+    assert charter.read_text(encoding="utf-8") not in printed
