@@ -173,6 +173,7 @@ TARBALL_LAYOUT = (
     ("skills/teamwork", ""),
     ("skills/teamwork-pi", "templates/pi-package/skills/teamwork-pi"),
     ("prompts", "templates/pi-package/prompts"),
+    ("extensions", "templates/pi-package/extensions"),
 )
 
 GITHUB_BEARER_ENV = ("GITHUB_TOKEN", "GH_TOKEN")

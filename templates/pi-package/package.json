@@ -1,0 +1,12 @@
+{
+  "name": "@nidvue/teamwork-pi",
+  "version": "1.5.2",
+  "private": true,
+  "description": "pi native layer for the Nidvue Teamwork skill: prompts, the host charter and a live lane-status extension",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./extensions/teamwork-lanes.ts"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"]
+  }
+}

@@ -1346,10 +1346,60 @@ def _claim(root: Path, assignment: Assignment) -> bool:
     return _claim_task(root, assignment)
 
 
+def lane_status_payload(root: Path, live_only: bool = False) -> list:
+    """The lane table as data: one dict per record, reconciled with its process.
+
+    The host UI (a pi extension, a dashboard) renders this; the engine owns the
+    reconciliation, so the display cannot disagree with `lane status`. Fields are
+    the ones a person watching a wave needs: who, what, since when, how long is
+    left, and how it ended.
+    """
+    runs = settle(root)
+    if live_only:
+        runs = [run for run in runs if run.get("state") in LIVE]
+    out = []
+    now = time.time()
+    for run in runs:
+        result = run.get("result") or {}
+        deadline = float(run.get("deadline") or 0)
+        out.append(
+            {
+                "id": run.get("id"),
+                "agent": run.get("agent"),
+                "role": run.get("role"),
+                "task": work_handle(run),
+                "title": run.get("title") or "",
+                "state": run.get("state"),
+                "live": run.get("state") in LIVE,
+                "pid": run.get("pid"),
+                "started": run.get("started"),
+                "finished": run.get("finished"),
+                "elapsed_seconds": round(max(now - float(run.get("created") or now), 0), 1),
+                "minutes": run.get("minutes"),
+                "seconds_left": max(round(deadline - now), 0) if deadline else None,
+                "attempt": run.get("attempt"),
+                "attempts": run.get("attempts"),
+                "profile": run.get("profile"),
+                "review_owner": run.get("review_owner") or "",
+                "verdict": result.get("verdict") or "",
+                "note": result.get("note") or "",
+                "error": run.get("error") or "",
+                "log": run.get("log") or "",
+            }
+        )
+    return out
+
+
 def cmd_lane(args) -> int:
     root = project_root(args)
     verb = args.lane_cmd
     if verb == "list":
+        if getattr(args, "json", False):
+            payload = lane_status_payload(root, live_only=not args.all)
+            if args.limit:
+                payload = payload[-args.limit :]
+            print(json.dumps(payload, indent=2, sort_keys=True))
+            return 0 if payload else 3
         runs = load_runs(root)
         if not args.all:
             runs = [run for run in runs if run.get("state") in LIVE]
@@ -1370,6 +1420,10 @@ def cmd_lane(args) -> int:
         print(body or "# (no output yet)")
         return 0
     if verb == "status":
+        if getattr(args, "json", False):
+            payload = lane_status_payload(root, live_only=args.live)
+            print(json.dumps(payload, indent=2, sort_keys=True))
+            return 0 if payload else 3
         if args.handle:
             runs = [refresh(root, find_run(root, args.handle))]
         else:
@@ -1806,9 +1860,11 @@ def add_parsers(sub, common) -> None:
     p.add_argument("--all", action="store_true", help="include ended lanes")
     p.add_argument("--limit", type=int, default=0, help="show the last N records")
     p.add_argument("--full", action="store_true", help="include the log path")
+    p.add_argument("--json", action="store_true", help="machine-readable rows for a host UI")
     p.set_defaults(func=cmd_lane)
     p = lsub.add_parser("status", parents=[common], help="reconcile and print lane state")
     p.add_argument("handle", nargs="?", default="", help="run id or instance name")
+    p.add_argument("--json", action="store_true", help="machine-readable rows for a host UI")
     p.add_argument("--live", action="store_true", help="only lanes still running")
     p.set_defaults(func=cmd_lane)
     p = lsub.add_parser("logs", parents=[common], help="tail a lane's log")
