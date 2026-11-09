@@ -5867,4 +5867,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 7c49565 @7c49565 -> one commit over main
 - reviewer evidence: Reviewer-4's own run @7c49565: pytest tests/unit/test_ci_contracts.py -> 33 passed (the mutant that removes the timeout and the drift check that compares the workflow with the constant); test_docs_contracts -> 17 passed; ruff+format clean; links 0. The diff is one workflow value, the doc paragraph stating the bound is capacity with the measurement, and the two constants that read it, so workflow, doc and test agree by construction. No test is skipped and no required check is removed.
 - findings history: 
-- branch / merge: developer/t-0061-the-windows-test-job-hits-its-60-minute / pending
+- branch / merge: developer/t-0061-the-windows-test-job-hits-its-60-minute / 0096027
