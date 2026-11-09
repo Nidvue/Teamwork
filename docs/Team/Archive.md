@@ -5868,3 +5868,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-4's own run @7c49565: pytest tests/unit/test_ci_contracts.py -> 33 passed (the mutant that removes the timeout and the drift check that compares the workflow with the constant); test_docs_contracts -> 17 passed; ruff+format clean; links 0. The diff is one workflow value, the doc paragraph stating the bound is capacity with the measurement, and the two constants that read it, so workflow, doc and test agree by construction. No test is skipped and no required check is removed.
 - findings history: 
 - branch / merge: developer/t-0061-the-windows-test-job-hits-its-60-minute / 0096027
+
+## T-0062 · The parallel lanes have no live picture in the pi UI: the engine exposes the reconciled table only as text, so a host cannot render a wave without re-implementing the reconciliation  (developer)
+- date: 2026-11-09
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: lanes
+- self-check: [pass] Re-read the 9-file diff. Boundary: --json with no records prints [] and exits 3 (the same 'nothing to show' code the text form uses); --all includes ended lanes; a record with no deadline reports seconds_left null rather than a fake zero; the extension polls at most once per interval (a poll flag drops an overlapping tick), clears the widget when nothing is live, and clears both surfaces on session_shutdown; a missing CLI yields no widget rather than an error. Second call: lane_status_payload is a pure read of settle(). Scope: engine (payload + two flags), the pi extension, the package manifest and the two scripts that ship it, one test, two docs. Hostile reviewer: 'a display that re-implements state' - it shells out to the engine's own command and renders its fields, and the tsc build plus a headless pi load prove it runs. | test: pytest tests/unit/test_lanes.py @1307d3f -> 32 passed; PYTHONPATH=src scripts/teamwork.py lane list --all --json -> 48 rows; tsc --noEmit on the extension -> clean; pi -p -e <extension> 'Reply with exactly: LOADED' -> LOADED; scripts/build_pi_package.py -> dist/.../extensions/teamwork-lanes.ts | preflight: PF-050d9d076046 @1307d3f3b1e9 (7 checks, 0 failed)
+- author evidence: commit 1307d3f @1307d3f -> one commit over main, 9 files
+- reviewer evidence: Reviewer-3's own run @1307d3f: PYTHONPATH=src scripts/teamwork.py lane list --all --json -> 48 rows, each carrying the documented fields (id, agent, role, task, state, live, elapsed_seconds, minutes, seconds_left, attempt, attempts, verdict, note, error, log); pytest tests/unit/test_lanes.py -> 32 passed; tsc --noEmit on templates/pi-package/extensions/teamwork-lanes.ts -> clean; pi -p -e <extension> -> loads and replies; scripts/build_pi_package.py -> dist/@nidvue/teamwork/extensions/teamwork-lanes.ts and pi.extensions declared. Read the extension: it resolves the CLI, runs 'lane list --all --json', renders a footer status and a widget below the editor, drops an overlapping tick, clears both surfaces when nothing is live and on session_shutdown - it never starts or steers a lane. Requirement: realtime lane status in the pi UI without duplicating the engine's reconciliation.
+- findings history: 
+- branch / merge: developer/t-0062-the-parallel-lanes-have-no-live-picture / pending
