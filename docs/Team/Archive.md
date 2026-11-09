@@ -5842,3 +5842,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-2's own run @8beb238: teamwork.py ledger verify -> 'chain intact, every digest matches'; ledger export -> 'chain verified: True'; pytest tests/unit/test_ledger_actions.py tests/unit/test_ledger.py -> 35 passed; ruff+format+mypy clean. Read the diff: the cut copies the trail and head, empties the live file, and appends one ledger.cut record naming the preserved file, its record count and head - so the break is stated in the new chain, not hidden. CEO-only and reason-required; an empty ledger is refused.
 - findings history: 
 - branch / merge: developer/t-0060-the-ledger-s-only-non-destructive-repair / 8a50ec9
+
+## T-0023 · Record the ledger-cut ruling (D-20261109-CEO): the fresh cut, the preserved file, and the two refused alternatives; resolve A-0016  (ceo)
+- date: 2026-11-09
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the 4-file diff. Boundary: the entry states the three options, the chosen one, the preserved path and the head, and the falsifier; the manifest is the tool's export against cut 4 and says verified True. Scope: records only. Hostile reviewer: 'the CEO chose the option that lets the team pass' - the other two destroy or rewrite evidence, and the preserved file plus the cut record keep the break visible. | test: ledger verify @1a9f9a6 -> chain intact; ledger export -> chain verified True; pytest test_decision_ids+test_docs_contracts -> 19 passed; links -> 0 | preflight: PF-d0699aa2cad9 @1a9f9a6302b2 (7 checks, 0 failed)
+- author evidence: commit 1a9f9a6 @1a9f9a6 -> one commit over main
+- reviewer evidence: Reviewer-3's own run @1a9f9a6: ledger verify -> chain intact, every digest matches; ledger export -> chain verified True; pytest tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> 19 passed; links -> 0. Read the entry: three options, the chosen cut with the preserved path and head, the reason each alternative was refused, and a falsifier. The manifest is the tool's export and says verified True - the claim is measured, not asserted.
+- findings history: 
+- branch / merge: ceo/t-0023-record-the-ledger-cut-ruling-d-20261109 / pending
