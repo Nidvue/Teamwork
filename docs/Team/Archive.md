@@ -5854,4 +5854,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 1a9f9a6 @1a9f9a6 -> one commit over main
 - reviewer evidence: Reviewer-3's own run @1a9f9a6: ledger verify -> chain intact, every digest matches; ledger export -> chain verified True; pytest tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> 19 passed; links -> 0. Read the entry: three options, the chosen cut with the preserved path and head, the reason each alternative was refused, and a falsifier. The manifest is the tool's export and says verified True - the claim is measured, not asserted.
 - findings history: 
-- branch / merge: ceo/t-0023-record-the-ledger-cut-ruling-d-20261109 / pending
+- branch / merge: ceo/t-0023-record-the-ledger-cut-ruling-d-20261109 / 55817f9
