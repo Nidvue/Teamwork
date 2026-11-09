@@ -637,3 +637,56 @@ def test_group_launches_keeps_one_lane_per_instance_and_prefers_the_retry() -> N
     assert len(groups) == 1
     assert [item.task for item in groups[0]] == ["T-0001", "T-0002"]
     assert groups[0][0].source_run == "L-0001"
+
+
+def test_the_lane_table_is_available_as_json_for_a_host_ui(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    """A host UI renders the engine's reconciliation; it never re-implements it."""
+    import json as _json
+
+    init(cli, project)
+    add_task(cli, project, "developer", "produce the contract")
+    capsys.readouterr()
+    assert cli("--project", project, "lane", "list", "--json") in (0, 3)
+    assert _json.loads(capsys.readouterr().out) == []
+
+    launcher(monkeypatch, fake_lane(tmp_path, body="print('LANE-RESULT: ok done')\n"))
+    assert (
+        cli(
+            "--project",
+            project,
+            "lane",
+            "start",
+            "--agent",
+            "developer-1",
+            "--task",
+            "T-0001",
+            "--minutes",
+            "1",
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert cli("--project", project, "lane", "list", "--all", "--json") == 0
+    rows = _json.loads(capsys.readouterr().out)
+    assert len(rows) == 1
+    row = rows[0]
+    for field in (
+        "id",
+        "agent",
+        "role",
+        "task",
+        "state",
+        "live",
+        "elapsed_seconds",
+        "minutes",
+        "attempt",
+        "attempts",
+        "verdict",
+        "log",
+    ):
+        assert field in row, (field, sorted(row))
+    assert row["agent"] == "Developer-1"
+    assert row["task"] == "T-0001"
+    assert row["minutes"] == 1
