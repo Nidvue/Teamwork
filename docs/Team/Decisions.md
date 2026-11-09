@@ -2382,3 +2382,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: grep -n '75 actions written' .pi/Teamwork/Teams/Teamwork/Agents/Developer/Reports/M19-engine-audit.md -> row 7; teamwork.py dispute list -> D-0002 resolved
 - falsified by: if a report-only deliverable is later merged through a branch, or if row 7 is found stale again, the ruling's premise is gone.
 - consequences: report-only tasks (audit reports, research notes) close on the artifact; the engine gap is filed.
+
+## D-20261109-CEO - A fresh ledger cut (cut 4), not a re-seal and not a truncation
+
+- date: 2026-11-09
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo T-0023, developer T-0060
+- context: record 106 of cut 3 (task.add, T-0025) was altered by the pre-fix concurrent-writer race. Its stored digest does not match its own fields, and every later record links to the stored hash, so the chain cannot be verified.
+- options considered: (a) truncate to record 105 and re-append from source records - destroys 1425 evidence records; (b) re-seal from 106 forward - rewrites 1531 digests, a history rewrite; (c) declare a fresh cut - preserve the old trail byte-identical and seed a new chain whose first record names it.
+- decision: (c). Cut 3 is preserved at `Ledger.cut2.jsonl` in the team tree with its head cache beside it (1531 records, head 92a2f864fb61), and cut 4 was seeded by `teamwork.py ledger cut --by CEO --reason '...'`, whose first record names the preserved file, its record count, its head and this ruling. The audit manifest is re-exported against cut 4 and says `chain verified: True`.
+- why: the skill's own ruling is that a fresh cut bound to the manifest is a CEO decision, not a red line; a re-seal or a truncation would destroy or rewrite evidence, and the break is stated in the new chain rather than hidden.
+- evidence: `teamwork.py ledger cut --by CEO --reason '...' @8a50ec9 -> preserved 1531 record(s) at Ledger.cut2.jsonl (head 92a2f864fb61), new chain seeded`; `teamwork.py ledger verify @db87643 -> chain intact, every digest matches`; `teamwork.py ledger export -> chain verified: True`; `pytest tests/unit/test_ledger_actions.py tests/unit/test_ledger.py -> 35 passed`
+- falsified by: if any record of cut 3 is found altered on disk, or cut 4 fails verify, or a reader cannot trace a cut-4 record to the cut record that precedes it, this ruling is wrong.
+- consequences: A-0016 is answered; audit no longer reports an altered trail; the manifest binds to cut 4; cut 3 stays readable as an artifact and is never edited.
