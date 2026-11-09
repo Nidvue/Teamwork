@@ -5828,4 +5828,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 174d8f3 @174d8f3 -> one commit over main
 - reviewer evidence: Reviewer-2's own run @174d8f3: PYTHONPATH=src venv/bin/python -m pytest -q tests/acceptance/test_operator_contracts.py -> 8 passed in 1.52s; ruff check + format --check -> clean. Read the file before the note: each case drives the module entrypoint as a subprocess against its own workspace, asserts what an operator sees (the audit's named sections, the zero-sample throughput, prose vs code from ci_scope, the criteria refusal text, the personal-author refusal naming the address, the ledger write+export, archive/decision by id, the privacy gate refusing a planted token and never printing it). No case reads the live team tree, so the probes are independent of this workspace.
 - findings history: 
-- branch / merge: reviewer-1/t-0004-acceptance-probes-for-the-eight-areas-th / pending
+- branch / merge: reviewer-1/t-0004-acceptance-probes-for-the-eight-areas-th / 59c240f
