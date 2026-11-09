@@ -164,7 +164,7 @@ under two roles is two tasks.
 | developer | T-0057 | records | done | P-0057 | 0908643 |
 | developer | T-0058 | privacy | done | P-0058 | 567402a |
 | developer | T-0059 | lanes | done | P-0059 | b060209 |
-| developer | T-0060 | ledger | selfcheck | - | - |
+| developer | T-0060 | ledger | done | P-0061 | 8a50ec9 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | done | - | - |
@@ -191,7 +191,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| developer | T-0060 · The ledger's only non-destructive repair (a fresh cut) exists as a documented CEO command: ledger cut preserves the old trail byte-identical and seeds a new chain whose first record names it | P0 | selfcheck | - |
 | tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
