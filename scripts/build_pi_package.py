@@ -77,6 +77,7 @@ def package_json(ver: str) -> dict:
         "files": [
             "skills",
             "prompts",
+            "extensions",
             "README.md",
             "LICENSE",
             "NOTICE",
@@ -86,6 +87,7 @@ def package_json(ver: str) -> dict:
         "pi": {
             "skills": ["./skills"],
             "prompts": ["./prompts"],
+            "extensions": ["./extensions"],
             "image": PREVIEW,
         },
         "peerDependencies": {
@@ -122,6 +124,7 @@ def copy_skill(dest: Path) -> None:
         skill.parent / "teamwork-pi",
     )
     shutil.copytree(ROOT / "templates" / "pi-package" / "prompts", dest / "prompts")
+    shutil.copytree(ROOT / "templates" / "pi-package" / "extensions", dest / "extensions")
 
 
 def ship_readme(dest: Path) -> None:
