@@ -5855,3 +5855,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-3's own run @1a9f9a6: ledger verify -> chain intact, every digest matches; ledger export -> chain verified True; pytest tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> 19 passed; links -> 0. Read the entry: three options, the chosen cut with the preserved path and head, the reason each alternative was refused, and a falsifier. The manifest is the tool's export and says verified True - the claim is measured, not asserted.
 - findings history: 
 - branch / merge: ceo/t-0023-record-the-ledger-cut-ruling-d-20261109 / 55817f9
+
+## T-0061 · The Windows test job hits its 60-minute timeout: the same suite is 18 minutes on ubuntu 3.13 and 30 on macos, and Windows spawns processes several times slower, so the matrix cannot certify the stage on that SHA  (developer)
+- date: 2026-11-09
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-4
+- task / issue: -
+- area: ci
+- self-check: [pass] Re-read the 4-file diff. Boundary: the bound only stops a hung run - every job still runs its whole check, no test is skipped and no required check is dropped; the contract test and the mutant anchor read the same constant, so workflow/doc drift fails; the doc states the measurement. Scope: one workflow value, one doc paragraph, two test constants, board render. Hostile reviewer: 'raising a timeout hides a hang' - the hang hypothesis is named in the Tester task, the measurement is in the doc, and 90 minutes still fails a real hang. | test: pytest tests/unit/test_ci_contracts.py @7c49565 -> 33 passed; repro pre -> the windows job timed out twice | preflight: PF-15b720e78414 @7c49565306b1 (7 checks, 0 failed)
+- author evidence: commit 7c49565 @7c49565 -> one commit over main
+- reviewer evidence: Reviewer-4's own run @7c49565: pytest tests/unit/test_ci_contracts.py -> 33 passed (the mutant that removes the timeout and the drift check that compares the workflow with the constant); test_docs_contracts -> 17 passed; ruff+format clean; links 0. The diff is one workflow value, the doc paragraph stating the bound is capacity with the measurement, and the two constants that read it, so workflow, doc and test agree by construction. No test is skipped and no required check is removed.
+- findings history: 
+- branch / merge: developer/t-0061-the-windows-test-job-hits-its-60-minute / pending
