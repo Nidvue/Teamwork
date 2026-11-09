@@ -5816,3 +5816,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-4's own run @6fd56f2 in a stripped environment (PATH=/usr/bin:/bin, no host CLI): pytest tests/unit/test_lanes.py -> 31 passed; the full suite in that environment -> 2554 passed, 3 skipped; with the host present the same tests pass unchanged. Read the diff: only the print path is tolerant, the start path keeps its refusal, and the unknown-host case returns the prompt template.
 - findings history: 
 - branch / merge: developer/t-0059-ci-is-red-on-the-lane-tests-lane-start-p / b060209
+
+## T-0004 · Acceptance probes for the eight areas that had none: audit, baseline, ci-scope, criteria, identity, ledger, m19-records, security - one black-box CLI case each, recorded as the acceptance layer  (reviewer)
+- date: 2026-11-09
+- priority: P1
+- owner: reviewer role (work by: Reviewer-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: security
+- self-check: [pass] Re-read the 8-case file. Boundary: each case builds its own workspace in tmp_path, so no case reads the live team tree; the identity case makes its own commit with a personal author and asserts the refusal names the address; the privacy case plants a token and asserts the value is absent from the output; the audit/criteria cases accept the exit code the command really uses (1 while something is open) and assert the sections and the message. Second call: every case is independent and repeatable. Scope: one new test module plus the board render. Hostile reviewer: 'a probe that accepts exit 1 cannot fail' - it asserts the named sections and the exact refusal text, which is the contract; the exit code is a separate, measured fact. | test: PYTHONPATH=src venv/bin/python -m pytest -q tests/acceptance/test_operator_contracts.py @174d8f3 -> 8 passed in 1.52s; ruff+format clean | preflight: PF-d5317864f446 @174d8f3f92c6 (7 checks, 0 failed)
+- author evidence: commit 174d8f3 @174d8f3 -> one commit over main
+- reviewer evidence: Reviewer-2's own run @174d8f3: PYTHONPATH=src venv/bin/python -m pytest -q tests/acceptance/test_operator_contracts.py -> 8 passed in 1.52s; ruff check + format --check -> clean. Read the file before the note: each case drives the module entrypoint as a subprocess against its own workspace, asserts what an operator sees (the audit's named sections, the zero-sample throughput, prose vs code from ci_scope, the criteria refusal text, the personal-author refusal naming the address, the ledger write+export, archive/decision by id, the privacy gate refusing a planted token and never printing it). No case reads the live team tree, so the probes are independent of this workspace.
+- findings history: 
+- branch / merge: reviewer-1/t-0004-acceptance-probes-for-the-eight-areas-th / pending
