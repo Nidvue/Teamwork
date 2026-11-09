@@ -57,7 +57,7 @@ TIMEOUT_MINUTES = {
     "lint": 10,
     "committer-guard": 5,
     "typecheck": 10,
-    "test": 60,
+    "test": 90,
     "build": 15,
     "privacy": 15,
     "release-consistency": 10,
@@ -439,7 +439,7 @@ def test_mutant_a_prose_blind_docs_contract_job_is_reported():
 
 
 def test_mutant_a_job_without_a_timeout_is_reported():
-    document = _mutate("    timeout-minutes: 60\n", "")
+    document = _mutate("    timeout-minutes: 90\n", "")
     problems = timeout_problems(document)
     assert any("test has no timeout-minutes" in problem for problem in problems), problems
 
