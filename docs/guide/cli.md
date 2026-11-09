@@ -468,14 +468,18 @@ session on a retry. The launcher is the detected host, `LaneHost`, or a
 #### `lane list`, `lane status`, `lane logs`
 
 ```text
-teamwork lane list [--all] [--limit N] [--full]
-teamwork lane status [HANDLE] [--live]
+teamwork lane list [--all] [--limit N] [--full] [--json]
+teamwork lane status [HANDLE] [--live] [--json]
 teamwork lane logs HANDLE [--lines N]
 ```
 
 Inspect lanes: `list` shows live records by default, `status` reconciles each
 record with its process, outcome file and budget before printing, and `logs` tails
-a lane's output.
+a lane's output. `--json` prints the same reconciled table as data - `id`, `agent`,
+`role`, `task`, `state`, `live`, `elapsed_seconds`, `minutes`, `seconds_left`,
+`attempt`, `attempts`, `verdict`, `note`, `error`, `log` - which is what a host UI
+renders; the shipped pi extension polls it to draw the footer status and the lane
+widget, so the picture and the command cannot disagree.
 
 #### `lane wait`, `lane stop`, `lane reap`
 

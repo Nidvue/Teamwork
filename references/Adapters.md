@@ -24,6 +24,15 @@ fact is the whole adapter surface - the engine detects the host, or takes a
 template. Nothing in a normative step depends on a plugin, an extension, or a
 host-private teammate tool.
 
+**A display adapter is optional and one-way.** `lane list --json` / `lane status
+--json` emit the reconciled table (id, agent, task, state, elapsed, budget left,
+attempt, verdict, log path) so a host can *show* the wave. The shipped pi package
+carries one such renderer, `extensions/teamwork-lanes.ts`: a footer status and a
+widget above the editor, polling that command. It reads and draws only - it never
+starts, steers or stops a lane, so the engine stays the single source of truth and
+a host without it loses nothing but the picture. `TEAMWORK_LANES_POLL` sets the
+interval in ms (`0` disables), `TEAMWORK_CLI` pins the command.
+
 ## Host mapping for operation 1
 
 | Host | Default launcher | Notes |
