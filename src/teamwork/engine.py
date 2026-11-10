@@ -5298,7 +5298,7 @@ _RE_BOT_EMAIL = re.compile(
 _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
 _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
-LEGACY_MESSAGE_EXEMPT = {}
+LEGACY_MESSAGE_EXEMPT: dict[str, str] = {}
 _RE_MERGE_SUBJECT = re.compile(
     r"^(?:"
     r"chore\(merge\):"
