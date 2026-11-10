@@ -65,18 +65,6 @@ except ImportError:  # pragma: no cover - executed as a plain script
     from version import __version__ as VERSION  # type: ignore
 
 
-from .attention import (
-    ATTENTION_KINDS,
-    STAGE_ORDER,
-    attention_line,
-    authorization_count,
-    find_attention,
-    new_attention,
-    open_attention,
-    parse_attention,
-    stage_of,
-    write_attention,
-)
 from .config import (
     ALL_LAYERS_SENTINEL,
     ARCHIVE_CAP,
@@ -199,7 +187,6 @@ from .layout import (
     _rel,
     agent_dir,
     agents_dir,
-    attention_path,
     criteria_path,
     disputes_path,
     docs_dir,
@@ -8961,101 +8948,6 @@ def _section(key: str, title: str):
     return {"key": key, "title": title, "lines": [], "blockers": []}
 
 
-def _stage_now(raw: str) -> datetime.datetime:
-    """The clock the stage table is read at (``--now`` makes the panel replayable)."""
-    text = (raw or "").strip()
-    if not text:
-        return datetime.datetime.now()
-    try:
-        return datetime.datetime.fromisoformat(text)
-    except ValueError:
-        die(f"--now must be an ISO date or datetime, e.g. 2026-11-01 (got {text!r})")
-
-
-def cmd_stage(args) -> int:
-    """One line per in-flight task: the stage the frozen table gives its record.
-
-    Read-only: it classifies the queues as they are on disk and writes nothing.
-    """
-    root = project_root(args)
-    now = _stage_now(getattr(args, "now", ""))
-    open_items = open_attention(parse_attention(attention_path(root)))
-    cache: dict = {}
-    rows = []
-    for role in list_roles(root):
-        tasks = parse_tasks(role_dir(root, role) / F_TASKS)
-        lookup = local_dep_map(tasks)
-        for task in tasks:
-            if task["status"] in ("done", "dropped"):
-                continue
-            stage, fact = stage_of(
-                task,
-                open_items=open_items,
-                deps_ready=executable(task, lookup, cache, root),
-                now=now,
-            )
-            rows.append((stage, role, task["id"], fact))
-    for stage, role, task_id, fact in sorted(
-        rows, key=lambda row: (STAGE_ORDER.get(row[0], 9), row[1], row[2])
-    ):
-        print(f"{task_id} {role} {stage} - {fact}")
-    return 0
-
-
-def cmd_attention(args) -> int:
-    """Record, list or resolve an item that needs a person."""
-    root = project_root(args)
-    path = attention_path(root)
-    if args.attention_cmd == "list":
-        # A healthy team prints nothing: the panel is paid for by the items on it.
-        for item in open_attention(parse_attention(path)):
-            print(attention_line(item))
-        return 0
-    if args.attention_cmd == "add":
-        actor, _role = validate_actor(root, args.by, "attention author")
-        text = (args.text or "").strip()
-        if not text:
-            die("attention add needs --text '<what a person must answer or grant>'")
-        with lock(root / DIR_RUNTIME / DIR_LOCKS / "attention.lock"):
-            items = parse_attention(path)
-            item = new_attention(text, args.kind, actor, args.task)
-            items.append(item)
-            write_attention(path, items)
-        ledger_append(
-            root,
-            "attention.add",
-            actor,
-            item["id"],
-            f"[{item['kind']}]"
-            + (f" {item['task']}" if item["task"] else "")
-            + f" {one_line(text)[:90]}",
-        )
-        print(f"teamwork: opened {attention_line(item)}")
-        return 0
-    actor, _role = validate_actor(root, args.by, "resolver")
-    if args.attention_cmd != "resolve":
-        die(f"unknown attention command '{args.attention_cmd}'")
-    resolution = (getattr(args, "resolution", "") or "").strip()
-    if not resolution:
-        die("attention resolve needs --resolution '<what the person decided>'")
-    with lock(root / DIR_RUNTIME / DIR_LOCKS / "attention.lock"):
-        items = parse_attention(path)
-        index = find_attention(items, args.id)
-        if index is None:
-            die(f"no attention item '{args.id}'")
-        item = items[index]
-        if item["status"] != "open":
-            die(f"{item['id']} is already {item['status']} (by {item['resolved_by'] or '-'})")
-        item["status"] = "resolved"
-        item["resolved_by"] = actor
-        item["resolved"] = today_iso()
-        item["resolution"] = one_line(resolution)
-        write_attention(path, items)
-    ledger_append(root, "attention.resolve", actor, item["id"], one_line(resolution)[:120])
-    print(f"teamwork: resolved {item['id']} by {actor}: {item['resolution']}")
-    return 0
-
-
 def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     """Every completion gate, with the detail a human needs to act on it.
 
@@ -9105,31 +8997,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
             f"human view: {len(unchecked)} unchecked box(es) in the "
             "project docs (advisory; `criteria` is the gate)"
         )
-    sections.append(s)
-
-    s = _section("attention", "what needs a person")
-    open_items = open_attention(parse_attention(attention_path(root)))
-    for item in open_items:
-        s["lines"].append(
-            f"{item['id']} [{item['kind']}]"
-            + (f" {item['task']}" if item["task"] else "")
-            + f" {brief(item['text'])}"
-        )
-    if open_items:
-        authorized = authorization_count(open_items)
-        s["lines"].append(
-            f"{len(open_items)} open attention item(s): {authorized} authorization, "
-            f"{len(open_items) - authorized} informational"
-        )
-        if authorized:
-            # An authorization is the one kind a person must grant before the
-            # team may act; the other kinds are recorded and can be worked around.
-            s["blockers"].append(
-                f"{authorized} open attention item(s) need authorization: "
-                + ", ".join(i["id"] for i in open_items if i["kind"] == "authorization")
-            )
-    else:
-        s["lines"].append("none")
     sections.append(s)
 
     s = _section("tests", "test layers (each owned and run by its own role)")
@@ -13587,24 +13454,6 @@ def _parsers_workspace(sub, common) -> None:
     s.set_defaults(func=cmd_dispute_list)
 
     s = sub.add_parser(
-        "attention", parents=[common], help="record/list/resolve what needs a person"
-    )
-    asub = s.add_subparsers(dest="attention_cmd", required=True)
-    s = asub.add_parser("add", parents=[common], help="record an item that needs a person")
-    s.add_argument("--text", required=True, help="what the person must answer or grant")
-    s.add_argument("--kind", required=True, choices=list(ATTENTION_KINDS))
-    s.add_argument("--task", default="", help="the task it blocks, e.g. T-0014")
-    s.add_argument("--by", required=True)
-    s.set_defaults(func=cmd_attention)
-    s = asub.add_parser("list", parents=[common], help="the open items, oldest first")
-    s.set_defaults(func=cmd_attention)
-    s = asub.add_parser("resolve", parents=[common], help="close an item with its decision")
-    s.add_argument("id")
-    s.add_argument("--by", required=True)
-    s.add_argument("--resolution", required=True, help="what the person decided")
-    s.set_defaults(func=cmd_attention)
-
-    s = sub.add_parser(
         "repo", parents=[common], help="ensure a git repository exists and report status"
     )
     s.add_argument("--no-commit", action="store_true", help="do not create the initial commit")
@@ -14318,18 +14167,6 @@ def _parsers_scheduling(sub, common) -> None:
         help=f"print every line whole (default: clip detail past {LOOP_CLIP_LIMIT} chars)",
     )
     s.set_defaults(func=cmd_loop)
-
-    s = sub.add_parser(
-        "stage",
-        parents=[common],
-        help="what every in-flight task is waiting for (a person stage needs a human)",
-    )
-    s.add_argument(
-        "--now",
-        default="",
-        help="ISO timestamp the 24h idle rule is read at (default: now)",
-    )
-    s.set_defaults(func=cmd_stage)
 
     s = sub.add_parser("slot", parents=[common], help="reserve/release a provider concurrency slot")
     ssub = s.add_subparsers(dest="slot_cmd", required=True)
