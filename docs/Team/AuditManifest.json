@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-09T20:05:10",
+  "generated_at": "2026-11-09T20:36:17",
   "team": "Teamwork",
   "team_id": "c65e94b8d0394f4fb472ca30e6a7bfa8",
   "project": "Teamwork",
   "ledger": {
-    "records": 3947,
-    "checkpoint_n": 3947,
-    "head": "37cb2b3b9ea4447855092ee2b01dfb853b6e476fee44202568e2c58284729c36",
+    "records": 3975,
+    "checkpoint_n": 3975,
+    "head": "1fdafc311bd1fbc80adce782262712db9ab6a7105a0eb830bf02948c5fa8388a",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "b1e547fd1e95601d32b2e2c1e4e6d4e5b106f16b",
+    "head": "76e736d7dee31dfd3ea91542e273bf0408b75c5a",
     "branch": "main",
     "dirty": false,
     "lfs_files": 0
@@ -19,8 +19,8 @@
   "artifacts": [
     {
       "path": "docs/Team/Architecture.md",
-      "sha256": "05da19a9a8b53f51aaaf51ef05fbdd8f692dba9a6153c9676a7fef149e968722",
-      "bytes": 181387
+      "sha256": "0a5dafb143fa8894a09a5233f09eff0e800e6d8a032b7fb74a035367124b874d",
+      "bytes": 181477
     },
     {
       "path": "docs/Team/Decisions.md",
@@ -56,8 +56,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "e5caccf628f5b2ffa73ffe391b2c37bdc535595364d9699d02155cb6b8953d01",
-      "bytes": 950657
+      "sha256": "26e03d80725da1c476f3017a694e61eae58e1b5f130773b0f7eda92003214749",
+      "bytes": 953315
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Architect/ArchivedMemory.md",
@@ -136,8 +136,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/TaskQueue.md",
-      "sha256": "6fe73cfbccad6c03c989212acbc35bc1117fafbe5b5e6130c8faa70d690c4886",
-      "bytes": 254269
+      "sha256": "bc16b84fae248f2ac0608429c49e9ac38df96c02a67fb39a7c600cf213f06360",
+      "bytes": 258293
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/ProductManager/ArchivedMemory.md",
@@ -226,13 +226,13 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Tests.md",
-      "sha256": "cd46c9d99ebea05ac8f57e3b192fc13ea9108271662b9fe3587c198116d51dbd",
-      "bytes": 71414
+      "sha256": "2b7c28a271f624add279e80f73e36dae9b1735a528defe19ad6be79f6d2a8738",
+      "bytes": 72671
     }
   ],
   "how_to_verify": [
     "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
-    "2. take record #3947 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
+    "2. take record #3975 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
     "3. sha256sum each artifact in this manifest",
     "4. git cat-file -t <git.head>   # the reviewed revision still exists",
     "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
