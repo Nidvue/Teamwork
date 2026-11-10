@@ -87,7 +87,7 @@ under two roles is two tasks.
 | ceo | T-0002 | - | doing | - | - |
 | ceo | T-0003 | context | doing | P-0001 | 2fcd9fd |
 | ceo | T-0004 | records | doing | P-0011 | - |
-| ceo | T-0005 | - | done | - | - |
+| ceo | T-0005 | - | doing | - | - |
 | ceo | T-0006 | - | todo | - | - |
 | ceo | T-0007 | - | doing | - | - |
 | ceo | T-0008 | - | todo | - | - |
@@ -98,6 +98,7 @@ under two roles is two tasks.
 | ceo | T-0013 | records | doing | P-0014 | - |
 | ceo | T-0014 | - | doing | P-0015 | - |
 | ceo | T-0015 | records | doing | P-0016 | - |
+| ceo | T-0016 | team-docs | done | P-0018 | a88e9d2 |
 | developer | T-0001 | - | doing | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -132,10 +133,15 @@ under two roles is two tasks.
 | developer | T-0032 | - | todo | - | - |
 | developer | T-0033 | - | todo | - | - |
 | developer | T-0034 | - | todo | - | - |
+| developer | T-0035 | - | todo | - | - |
+| developer | T-0036 | memory | review | P-0017 | - |
+| developer | T-0037 | - | todo | - | - |
+| developer | T-0038 | - | doing | - | - |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | doing | P-0002 | - |
 | tester | T-0001 | - | doing | - | - |
+| tester | T-0002 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -158,6 +164,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
 | ceo | T-0003 · Cut the always-on startup cost: rewrite templates/AGENTS.md managed block as pointer + invariants, measure harness budget before and after, keep every gate and red line | P0 | doing | - |
 | ceo | T-0004 · Write the M19 records: Project.md section, Plan.md rows, Board render, Throughput cut #3 and the record-store decision | P1 | doing | - |
+| ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
 | ceo | T-0006 · Two record rows name the classifier as inline ci.yml text; T-0001 moved it to scripts/ci_scope.py (D-class drift in Plan.md and Release.md) | P2 | todo | - |
 | ceo | T-0007 · Primary checkout holds uncommitted lane work, so no Reviewer can land a pass: pr merge dies 'working tree has uncommitted work outside the reviewed records' on src/teamwork/config.py, src/teamwork/engine.py, src/teamwork/lanes.py, src/teamwork/lanerun.py, tests/unit/test_lanes.py (mtimes 16:52-16:55, unchanged since); T-0006/P-0004 is passed and waiting on one pr merge | P0 | doing | - |
 | ceo | T-0008 · AC-5 is red on main: privacy_scan --tree reports 3 high/personal-email findings in tracked docs (Board.md:179, Decisions.md:2295-2296), so the tree half of the AC-5 proof exits 1 on the merge target | P0 | todo | - |
@@ -195,9 +202,14 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0032 · Amending a branch after selfcheck permanently poisons the task: self-check notes are append-only and preflight requires every @sha in them to be reachable | P1 | todo | - |
 | developer | T-0033 · gitutil timeout docstring and test comment name the wrong mechanism for the remote helper | P2 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
+| developer | T-0035 · the Reviewer merge dies on its own record commit while the pre-commit hook is installed | P1 | todo | - |
+| developer | T-0036 · Implement the agent-memory lifecycle: memorypack.py (score/pack/search/dream), the memory pack|search|dream CLI, load --task, unit + integration tests | P0 | review | - |
+| developer | T-0037 · branch start --worktree decides 'worktree exists' by substring match on the porcelain listing, so instance 'Developer' matches 'Developer-2' and no worktree is created while the task records the path (A-0012) | P1 | todo | - |
+| developer | T-0038 · Land the engine-owned lane runtime: src/teamwork/lanes.py + lanerun.py, teamwork lane/swarm CLI, seven Settings keys, Adapters/Concurrency/Pi-Packaging/SKILL/cli docs, tests/unit/test_lanes.py - so parallel agent lanes need no host plugin | P0 | doing | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
 | team-leader | T-0001 · Finish feature F-0001: prove docs-only pushes skip the code matrix, code pushes run it, the ci.yml prose set equals docs.yml paths, and a broken classifier fails a test | P0 | doing | - |
 | tester | T-0001 · Systematic audit of tests/: vacuous or tautological tests, tests that pass when the code is broken, cross-platform hazards, uncovered critical paths; rank with a reproduction each | P0 | doing | - |
+| tester | T-0002 · M20 integration layer: pack/search/dream end to end on a real team tree (init --no-git in a tmp dir): determinism, byte budget, dream idempotency on a copy, provenance preserved, load without --task unchanged | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
