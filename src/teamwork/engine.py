@@ -6508,12 +6508,65 @@ def _pack_block(root: Path, role: str, task: str, touch_by: str = "") -> str:
     return header + "\n" + memory_pack_block(root, role, task, limit, touch_by)
 
 
+def _ledger_ready_before_render(root: Path) -> None:
+    """Settle the audit trail before a read command renders anything (T-0065).
+
+    ``load`` renders the packet and *then* appends (consolidation, ``memory.pack``),
+    so a crash-torn tail used to surface as exit 1 after the packet was printed:
+    the reader got half a result and an error. A trailing unreadable run is what a
+    crash during ``write`` leaves - ``ledger repair`` already drops it - so it is
+    dropped here, before the first byte, and the head cache is re-headed to the
+    record that actually reached the disk. A chain broken anywhere else stops the
+    command before it renders.
+    """
+    path = ledger_path(root)
+    if not path.exists():
+        return
+    import json
+
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
+        dropped = _trim_torn_tail(path)
+        records = ledger_read(root)
+        problems = ledger_verify(root, records=records, report_cache_lag=False)
+        head_only = [p for p in problems if p.startswith("head cache")]
+        chain = [
+            p
+            for p in problems
+            if not p.startswith(("head cache", "the last audit export recorded"))
+        ]
+        if chain:
+            die(
+                "the ledger is not usable, so nothing was rendered: "
+                + "; ".join(chain)
+                + ". Run `teamwork.py ledger verify`."
+            )
+        if not dropped and head_only:
+            die(
+                "the ledger is not usable, so nothing was rendered: "
+                + "; ".join(head_only)
+                + ". Run `teamwork.py ledger verify`."
+            )
+        if not dropped:
+            return
+        valid = _ledger_valid(records)
+        atomic_write(
+            ledger_head_path(root),
+            json.dumps({"n": len(valid), "hash": valid[-1]["hash"] if valid else ""}) + "\n",
+        )
+        print(
+            f"teamwork: WARNING dropped {dropped} torn trailing ledger line(s) "
+            "before rendering (a crash artefact; `ledger repair` records it)",
+            file=sys.stderr,
+        )
+
+
 def cmd_load(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
     d = role_dir(root, role)
     if not loadable_role(root, role):
         die(unknown_role_message(root, args.agent, role))
+    _ledger_ready_before_render(root)
     consolidate_agent(root, role, dry_run=False, quiet=True, actor=args.agent, strict=False)
     limit = args.limit or SHORT_CAP
     entries = parse_memory(d / F_SHORT)
