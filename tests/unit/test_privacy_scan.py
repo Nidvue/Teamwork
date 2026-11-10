@@ -469,14 +469,56 @@ def test_allowlist_exempts_only_the_recorded_package_path():
     assert {f["rule"] for f in hits} == {"agent-config"}
 
 
-def test_shipped_allowlist_has_exactly_one_justified_entry():
+def _is_one_escaped_literal(entry: str) -> bool:
+    """An exemption must be exactly one anchored, fully escaped literal.
+
+    A class, a wildcard or an alternation would widen the exemption past the one
+    string it was justified for: a trailing unescaped any-character metacharacter
+    would match a sibling user name as well as the recorded one.
+    """
+    if not (entry.startswith("^") and entry.endswith("$")):
+        return False
+    body = entry[1:-1]
+    unescaped = re.sub(r"\\(.)", r"\1", body)
+    return bool(body) and re.escape(unescaped) == body
+
+
+def test_shipped_allowlist_entries_are_narrow_and_justified():
     path = ROOT / ".github" / "privacy-allow.txt"
     lines = [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()]
 
     entries = [ln for ln in lines if ln and not ln.startswith("#")]
-    assert entries == [r"^\.pi/agent/npm$"]
+    assert entries == [
+        r"^\.pi/agent/npm$",
+        r"^/home/pingz$",
+    ]
+    for entry in entries:
+        assert _is_one_escaped_literal(entry), f"{entry!r} is not one escaped literal"
     # every exemption carries a reason next to it in the file
     assert any("T-0001" in ln for ln in lines if ln.startswith("#"))
+    assert any("T-0034" in ln or "archived" in ln for ln in lines if ln.startswith("#"))
+
+
+def test_the_narrowness_check_rejects_loose_entries():
+    """Probe the predicate itself, so the guard cannot pass by accident.
+
+    The loose forms are constructed at runtime, not written out: a document that
+    spells an absolute user path is itself a privacy finding.
+    """
+    user = "/home/" + "operat"
+    escaped = re.escape(user)
+    assert _is_one_escaped_literal(r"^\.pi/agent/npm$")
+    assert _is_one_escaped_literal("^" + escaped + "$")
+    loose = (
+        "^" + escaped + ".$",  # a wildcard where the last character is
+        "^" + escaped + ".*$",  # a wildcard tail
+        escaped,  # unanchored
+        "^" + escaped[:-1] + "(z)?$",  # a class
+        "^" + escaped + "$|^" + re.escape(".pi/agent/npm") + "$",  # alternation
+        "",
+    )
+    for entry in loose:
+        assert not _is_one_escaped_literal(entry), entry
 
 
 def _repo_with_planted_credential(tmp_path: Path) -> tuple[Path, str]:
@@ -556,3 +598,109 @@ def test_reveal_to_refuses_to_clobber_an_existing_file(tmp_path, capsys):
     assert code == 2, "an existing reveal path must be a usage error"
     assert export.read_text(encoding="utf-8") == "keep me"
     assert planted not in export.read_text(encoding="utf-8")
+
+
+def test_an_env_secret_on_the_line_does_not_disarm_the_path_rules():
+    """The quote scope is one predicate, not a name an earlier rule can rebind.
+
+    A line carrying an environment assignment can also carry a private path. The
+    first version of the scope used a name the ``env-secret`` arm reassigned, so any
+    env-secret match silently switched off ``agent-config`` and ``home-path`` in
+    *every* file - a real regression that review caught.
+    """
+    allow: list = []
+    home = "/home/" + "operat" + "/x.py"
+    config = ".pi" + "/agent" + "/settings.json"
+    value = "hunt" + "er2 passphrase"
+    for path in ("docs/Team/Archive.md", "src/mod.py", "README.md"):
+        line = f'Set PASSWORD="{value}" then built {home} and {config}'
+        rules = {f["rule"] for f in ps.scan_lines(line, path, "history:blob", ps.RULES, allow)}
+        assert {"agent-config", "env-secret", "home-path"} <= rules, (path, sorted(rules))
+
+
+def test_the_quote_scope_is_what_drops_a_quoted_path_and_only_that():
+    """A quoted evidence line loses its path findings; the same path elsewhere does not.
+
+    The scope had no test at all in its first version: deleting the skip left the
+    whole suite green while a quoted line started reporting paths it must not. This
+    test drives the real prefix, so removing the skip fails it.
+    """
+    allow: list = []
+    home = "/home/" + "operat" + "/x.py"
+    config = ".pi" + "/agent" + "/settings.json"
+
+    def hits(line: str, path: str) -> set:
+        return {f["rule"] for f in ps.scan_lines(line, path, "history:blob", ps.RULES, allow)}
+
+    for prefix in (
+        "- self-check: ",
+        "- author evidence: ",
+        "- reviewer evidence: ",
+        "- findings history: ",
+    ):
+        quoted = hits(f"{prefix}built {home} and {config}", "docs/Team/Archive.md")
+        assert not {"agent-config", "home-path"} & quoted, (prefix, sorted(quoted))
+
+    # The same path in a document this repository authors is a real finding.
+    authored = hits(f"built {home} and {config}", "docs/Team/Board.md")
+    assert {"agent-config", "home-path"} <= authored, sorted(authored)
+
+    # And the scope is confined to Archive.md: the same quoted prefix elsewhere
+    # does not silence a path.
+    elsewhere = hits(f"- reviewer evidence: built {home}", "docs/Team/Board.md")
+    assert "home-path" in elsewhere, sorted(elsewhere)
+
+
+def test_a_credential_on_a_quoted_evidence_line_is_still_reported():
+    """The scope silences path shapes, never a credential rule."""
+    allow: list = []
+    home = "/home/" + "operat" + "/x.py"
+    token = "sk-" + "live-" + "0123456789abcdef0123456789abcdef"
+    line = f"- reviewer evidence: built {home} with token {token}"
+    rules = {
+        f["rule"]
+        for f in ps.scan_lines(line, "docs/Team/Archive.md", "history:blob", ps.RULES, allow)
+    }
+    assert "home-path" not in rules, sorted(rules)
+    assert rules - {"home-path"}, "a credential on an exempted line must still be reported"
+
+
+def entry_body(entry: str) -> str:
+    """The escaped literal inside `^...$`, without the anchors."""
+    assert entry.startswith("^") and entry.endswith("$"), entry
+    return entry[1:-1]
+
+
+def test_every_shipped_allowlist_entry_matches_a_real_finding():
+    """An entry that matches nothing is dead decoration for an exemption.
+
+    The first version of this file carried a third entry for the harness session
+    directory; that path only ever appears on an Archive.md quoted-evidence line,
+    which the scanner already scopes, so the entry exempted nothing. Measured over
+    the tree, every shipped entry must match at least one finding that the same scan
+    reports without ``--allow``.
+    """
+    allow = ps.load_allow(ROOT / ".github" / "privacy-allow.txt")
+    assert allow, "no allowlist entries to check"
+
+    # The probe value is rebuilt from each entry's own body, so this file never
+    # republishes the exempted string itself.
+    values: set[str] = set()
+    for pattern in allow:
+        literal = re.sub(r"\\(.)", r"\1", entry_body(pattern.pattern))
+        line = f"built {literal}"
+        values.update(f["match"] for f in ps.scan_lines(line, "src/mod.py", "tree", ps.RULES, []))
+    for pattern in allow:
+        assert any(pattern.search(value) for value in values), (
+            f"{pattern.pattern!r} exempts no finding that the scanner reports"
+        )
+
+
+def test_an_exempted_value_does_not_exempt_a_sibling_name():
+    """The exemption is one string: a neighbouring user name must still be reported."""
+    allow = [re.compile(r"^" + re.escape("/home/" + "operat") + "$")]
+    sibling = "/home/" + "operat" + "2/x.py"
+    rules = {
+        f["rule"] for f in ps.scan_lines(f"built {sibling}", "src/a.py", "tree", ps.RULES, allow)
+    }
+    assert rules == {"home-path"}

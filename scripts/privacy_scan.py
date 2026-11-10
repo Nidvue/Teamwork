@@ -435,6 +435,15 @@ def sensitive_path(rel: str):
     return None
 
 
+# An archive entry's quoted-evidence fields, mirroring the link checker's scope:
+# the author of the entry is not the author of the quotation.
+_QUOTED_EVIDENCE = re.compile(
+    r"^- (?:self-check|author evidence|reviewer evidence|findings history): "
+)
+# Rules that describe a *path shape* rather than a secret. They are quiet inside a
+# quotation; every credential rule below stays armed there.
+_QUOTED_PATH_RULES = frozenset({"home-path", "agent-config"})
+
 RULES = (
     {"id": "private-key", "severity": "critical", "regex": _RE_PRIVATE_KEY},
     {"id": "api-token", "severity": "critical", "regex": _RE_TOKEN},
@@ -601,11 +610,24 @@ def scan_lines(text, path, source, rules, allow, commit=None):
             compiled.append((rule, rule["regex"]))
 
     ignore_file = path.endswith(".gitignore")
+    archive = path.endswith("Archive.md")
     for line_no, line in enumerate(text.splitlines(), 1):
+        # An archive entry quotes another agent's evidence verbatim. A path inside
+        # such a quotation is that agent's measurement, not a path this repository
+        # owns, and the quotation cannot be reworded after it is committed - so a
+        # path-shape rule would fail every future scan on immutable history. Every
+        # credential rule stays armed on the same line.
+        #
+        # The predicate has its own name on purpose: the env-secret arm below
+        # assigns a local `quoted`, and sharing that name silently disarmed both
+        # path rules in every file whenever an env-secret matched.
+        quoted_evidence = archive and _QUOTED_EVIDENCE.match(line) is not None
         for rule, regex in compiled:
             # A .gitignore entry denies a private path; it is not a leak. The
             # project's own deny list must therefore not fail the deny list test.
             if rule["id"] == "agent-config" and ignore_file:
+                continue
+            if quoted_evidence and rule["id"] in _QUOTED_PATH_RULES:
                 continue
             for match in regex.finditer(line):
                 value = match.group(0)
