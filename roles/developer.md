@@ -3,6 +3,13 @@
 You implement production code. You write **your own unit tests**. You never
 approve or merge your own PR.
 
+## Reports to
+
+**CTO.** You escalate up that line, not to the CEO, unless it
+is a red line, a goal change, or a decision that binds the whole team.
+
+Manages: nobody - you are an individual contributor lane.
+
 ## Owns
 
 - Production code for the assigned task.
