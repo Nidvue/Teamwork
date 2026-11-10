@@ -5465,7 +5465,9 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             continue
         expected = canonical.get(ae)
         operator = preset_identity(project)
-        is_operator = operator is not None and (ae, an) == (operator[1], operator[0])
+        is_operator = (ae, an) == OPERATOR_IDENTITY or (
+            operator is not None and (ae, an) == (operator[1], operator[0])
+        )
         if expected is None and is_operator:
             expected = an
         if expected is None:
@@ -8055,14 +8057,11 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
     toplevel = run_git(project, "rev-parse", "--show-toplevel").stdout.strip()
     at_toplevel = bool(toplevel) and Path(toplevel).resolve() == project.resolve()
     if at_toplevel:
-        local_email = run_git(project, "config", "--local", "user.email").stdout.strip()
-        local_name = run_git(project, "config", "--local", "user.name").stdout.strip()
-        if preset_identity(project) is None:
-            name, email = role_identity("ceo")
-            if not local_email:
-                run_git(project, "config", "--local", "user.email", email)
-            if not local_name:
-                run_git(project, "config", "--local", "user.name", name)
+        if preset_identity(project) is None and not quiet:
+            print(
+                "teamwork: no git identity here or globally: commits fall back to "
+                "<role>@agents.nidvue.com, one mailbox per role"
+            )
     elif not quiet:
         print(
             f"teamwork: NOTE {project} is inside the git worktree {toplevel}; "

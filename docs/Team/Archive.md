@@ -6395,3 +6395,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git show bc1f168 --stat @bc1f168 -> 4 files, +150/-145 (Archive.md remap, config.py, engine.py, test_integrity_fixes.py); .venv/bin/python -m pytest -q tests/unit/test_archive_merge_revisions.py tests/unit/test_commit_identity.py tests/unit/test_names.py @bc1f168 -> 83 passed in 2.78s; python3 scripts/teamwork.py identity --audit --strict-authors --range 90502bb..HEAD @bc1f168 -> "# commits: 41 | problems: 0" exit 0; git show bc1f168 -- src/teamwork/config.py -> OPERATOR_IDENTITY = ("Ping Zhao", "<redacted-personal-email>") committed at config.py:170
 - findings history: 
 - branch / merge: developer-1/t-0081-archive-remap / b9dc113
+
+## T-0082 · CI must accept the operator-authored history and the committed identity  (developer)
+- date: 2026-11-10
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-6
+- task / issue: -
+- area: identity
+- self-check: [pass] Five consequences of moving the author to the operator identity, each fixed at its cause. (1) identity --audit treated the operator as a display-name mismatch; is_operator now accepts OPERATOR_IDENTITY (a committed constant) as well as the resolved preset, so the check is environment-independent and the role is still required in the 'Acting role:' trailer. (2) init wrote the CEO mailbox into local config, which then became the 'preset' for every role and authored a developer commit as CEO; it now writes nothing and the per-role mailbox is the fallback in commit_identity. (3) the privacy tree scan flagged the operator address in config.py; it is exempted as one escaped literal with a written reason and a decision id, and the allowlist guard test pins it. (4) two acceptance tests read the live team stores, which CI does not have; they skip with that reason instead of failing. (5) two tests asserted a role mailbox as the author; they now assert the accepted-identity set and the trailer, and the operator-contract test passes PATH so git resolves. Scope: engine, names, allowlist, four tests. | test: .venv/bin/python -m pytest -q tests/unit tests/integration tests/acceptance @eaee551 -> 2705 passed, 4 skipped; python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt -> PASS - 0; preflight developer T-0082 --run @eaee551 -> 8 checks, 0 failed | preflight: PF-118fb9eaeed2 @eaee5515a3eb (8 checks, 0 failed)
+- author evidence: commit eaee551
+- reviewer evidence: git diff --stat main...eaee551 @eaee551 -> 8 files, +60/-20, merge-base 0c3aa4e, fast-forward (0 behind / 1 ahead), git merge-tree clean; .venv/bin/python -m pytest -q tests/unit/test_privacy_scan.py tests/integration/test_clean_and_preflight_flow.py tests/integration/test_context_economy_contract.py tests/acceptance/test_operator_contracts.py tests/acceptance/test_acceptance_memory_pi_package.py @eaee551 -> 200 passed in 9.16s; python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt @eaee551 -> PASS - 0 finding(s) in tree; python3 scripts/teamwork.py identity --audit --strict-authors --range 90502bb..eaee551 @eaee551 -> 47 commits, problems: 0
+- findings history: 
+- branch / merge: developer-1/t-0082-ci-identity / 077044f

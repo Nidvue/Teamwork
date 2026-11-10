@@ -261,8 +261,10 @@ def test_the_archive_rewrite_is_its_own_reviewer_commit(cli, project: Path, caps
 
     head_sha, _name, head_email, head_subject = rows[0].split("\x00", 3)
     assert "Archive.md" in head_subject
-    assert head_email.endswith("@agents.nidvue.com"), head_email
-    assert head_email.startswith("reviewer"), f"archive commit author: {head_email}"
+    accepted = {email for email in engine.canonical_identities(project)}
+    assert head_email in accepted, head_email
+    body = engine.run_git(project, "log", "-1", "--format=%B", head_sha).stdout
+    assert "Acting role: Reviewer" in body, body
     changed = engine.run_git(project, "show", "--name-only", "--format=", head_sha).stdout.split()
     assert changed == ["docs/Team/Archive.md"], changed
 
