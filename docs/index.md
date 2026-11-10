@@ -2,7 +2,7 @@
 
 Owner: Technical Writer.
 
-Related: [Installation](guide/install.md) · [Quickstart](guide/quickstart.md) · [CLI reference](guide/cli.md) · [Architecture](guide/architecture.md) · [CI pipeline](guide/ci.md)
+Related: [Installation](guide/install.md) · [Quickstart](guide/quickstart.md) · [CLI reference](guide/cli.md) · [Architecture](guide/architecture.md) · [CI pipeline](guide/ci.md) · [Releases](releases.md)
 
 Nidvue Teamwork turns one prompt into a self-organising team of AI agents that plans,
 builds, tests and reviews a project until every acceptance criterion is verified.
@@ -20,7 +20,7 @@ installing the engine as a Python package is optional.
 | Face | What it means |
 |---|---|
 | **Skill** (the product) | `SKILL.md`, `roles/`, `references/`, `templates/` and the engine in one directory, cloned into the skills directory an agent host scans (project `.agents/skills/teamwork/` or user `~/.agents/skills/teamwork/`). Hosts without a skill loader use the same protocol through `AGENTS.md`. Invoked by naming the skill in the request. |
-| **Engine** (optional CLI) | `src/teamwork/`, exposing the `teamwork` console script and `python -m teamwork`. No third-party runtime dependencies. The skill runs the same engine from its own directory. Install it from the GitHub-release wheel or from source - the `teamwork-agents` distribution name exists but is **not yet on PyPI**, so index commands do not resolve. |
+| **Engine** (optional CLI) | `src/teamwork/`, exposing the `teamwork` console script and `python -m teamwork`. No third-party runtime dependencies. The skill runs the same engine from its own directory. It ships through three package channels - npm (`@nidvue/teamwork`), the GitHub-release wheel, and source - and the `teamwork-agents` distribution name exists but is **not yet on PyPI**, so index commands do not resolve. [Releases](releases.md) says what each channel carries. |
 | **Workspace format** | Markdown and JSON under `<project>/.pi/Teamwork/Teams/<Team>/`, hidden and local; project output is committed. |
 
 One engine backs all three; the skill is how people install and use it.
@@ -86,10 +86,12 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
 | [CLI reference](guide/cli.md) | Every command, subcommand, flag and exit code. |
 | [Architecture](guide/architecture.md) | Package layout, resource resolution, workspace and ledger. |
 | [CI pipeline](guide/ci.md) | Run the full lint/test/build/docs pipeline locally. |
+| [Releases](releases.md) | What a release publishes (GitHub Release, npm package, site), how to read the current version, and what it does not publish. |
 
 ## Repository
 
 - Source and releases: [github.com/Nidvue/Teamwork](https://github.com/Nidvue/Teamwork)
+- npm package: [@nidvue/teamwork](https://www.npmjs.com/package/@nidvue/teamwork) - accessed 2026-10-28
 - README and demo: [README.md](https://github.com/Nidvue/Teamwork/blob/main/README.md)
 - Contributions: [CONTRIBUTING.md](https://github.com/Nidvue/Teamwork/blob/main/CONTRIBUTING.md)
 - Security policy: [SECURITY.md](https://github.com/Nidvue/Teamwork/blob/main/SECURITY.md)
