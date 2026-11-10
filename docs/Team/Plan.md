@@ -780,6 +780,64 @@ Two verifiers refused to verify and were right to:
 Neither verifier passed a criterion it could not reproduce, and neither invented a
 record to fill the matrix.
 
+## M15 - Authority and attention: adopting the dsh-superagent model (live)
+
+Intake: the operator asked this team to study
+[dsh-superagent](https://github.com/deepseek-ai/dsh-superagent-prototype) and
+adopt what it proves. The comparison and the reject list are [RESEARCH](Research.md)
+section 10; the criteria are AC-8..AC-12 in [PROJECT](Project.md).
+
+The gap it names is one this tree had: every deliverable here is verified, and
+nothing records **who was allowed to start the work** or **what is waiting for a
+person**. Four surfaces close it, and each is a record, not a convention.
+
+| surface | rule it enforces | task |
+|---|---|---|
+| Mandate + intake key | a task states `explicit`/`inferred` and why; the same key twice is one task | developer T-0013 |
+| Accept mode | `PulseMode` `off`/`observe`/`auto`; `observe` records what it would have assigned and claims nothing | developer T-0015 |
+| Attention | an escalation is a record (`A-0001`) with a kind, and an open `authorization` blocks STOP | developer T-0014 |
+| Stage table | first-match over records: who is a person-stage, who is working | developer T-0014 |
+| Frozen contract | `Architecture.md` section 11 said nine release-consistency rules; R10 makes it ten | architect T-0002 |
+
+Exit condition: AC-8..AC-12 verified by a role other than the owner on the merged
+revision, `tests plan` with no gap in `records`, `attention` and `engine`, the
+push of the reviewed stage with green CI on that SHA (CEO T-0006), and `loop` STOP.
+
+Dependencies: T-0015 and the documentation (technical-writer T-0006) depend on
+T-0013's fields; T-0014 is independent; the integration proof (tester T-0003)
+depends on all three; the contract amendment (architect T-0002) depends on the
+rule it describes (developer T-0009), because an amendment that lands before its
+rule would freeze a promise nothing implements; the push is last.
+
+### M15.1 - Parallel rules for this milestone
+
+Two lanes never share a writable *region*: T-0013 owns `records.py` and
+`cmd_task_add`, T-0015 owns `cmd_pulse` and `cmd_task_next`, T-0014 owns the new
+attention module, `layout.py` and `cmd_attention`/`cmd_stage`. Three lanes still
+touch one file - `src/teamwork/engine.py` - so the rule is one function per lane
+plus a rebase onto `main` before the PR, not one file per lane.
+
+Every implementation lane works in its **own worktree** under
+`Runtime/Worktrees/<Instance>`. That is not a preference here, it is a repair:
+`branch start` without `--worktree` checks the branch out in the *shared*
+checkout, and at the start of this milestone the shared checkout sat on the
+CEO's branch with two peer lanes' uncommitted files in it:
+`scripts/check_release_consistency.py` (Developer-5 T-0009 recorded handing that
+path back) and `src/teamwork/engine.py`. No work was lost - every lane was given
+a worktree and the shared tree was handed back clean - but a lane that committed
+there would have landed its work on another task's branch. `branch start
+--worktree` is the default from now on.
+
+### M15.2 - What the first wave measured
+
+| lane | what it proved | state |
+|---|---|---|
+| Reviewer-3 | the README `<img>` `style` never applies on github.com, so the 820 px claim was false there | failed T-0004, artifact-only fix |
+| Reviewer-2 | the merge-path records commit was still index-wide, so a *staged* foreign file rides into it | failed T-0010, pathspec fix |
+| Tester | the social card was not rebuildable from a clone at `5fe89f9` (no generator); it is byte-identical now | recorded a fail, then the pass |
+| Reviewer-1 | three suite failures on main are pre-existing, not any lane's regression | filed as a bug task |
+| CEO | the publish gate is red on two of my own commit messages (an expanded shell variable) | security task, allowlist shape + control |
+
 ## Task-graph integrity
 
 The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.
