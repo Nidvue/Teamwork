@@ -152,6 +152,7 @@ under two roles is two tasks.
 | developer | T-0035 | - | todo | - | - |
 | developer | T-0036 | branch | blocked | - | - |
 | developer | T-0037 | - | doing | - | - |
+| developer | T-0038 | identity | done | P-0067 | 3ba9d4b |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | records | done | - | - |
 | technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
