@@ -902,3 +902,198 @@ def test_an_elided_home_path_identifies_nobody_and_is_not_reported():
     for name in (".hidden", "..", "." * 4 + "name"):
         assert not ps._user_is_elided(name), name
     assert ps._user_is_elided("...") and ps._user_is_elided("...\\gone")
+
+
+# --------------------------------------------------------------------------- #
+# the allowlist parser: a literal '#' is not a comment
+# --------------------------------------------------------------------------- #
+
+
+def test_an_allowlist_pattern_keeps_a_literal_hash(tmp_path: Path) -> None:
+    """Only a whitespace-separated trailing comment is a comment (T-0024, H4).
+
+    The first parser split on the first ``#`` before compiling, so ``^ab#cd$``
+    silently became ``^ab`` - a shorter, *more permissive* expression that still
+    compiles, so nothing anywhere said a word. A truncated anchor over-exempts
+    every match of the prefix, which is the one direction a security gate must
+    never fail in.
+    """
+    allow_file = tmp_path / "privacy-allow.txt"
+    allow_file.write_text("^ab#cd$  # the reason goes here\n", encoding="utf-8")
+
+    patterns = [p.pattern for p in ps.load_allow(allow_file)]
+
+    assert patterns == ["^ab#cd$"], "the literal '#' must survive the parser"
+    assert [p for p in ps.load_allow(allow_file) if p.search("ab#cd")], (
+        "the entry must match itself"
+    )
+    assert not [p for p in ps.load_allow(allow_file) if p.search("abcde")], (
+        "the prefix must not be exempted"
+    )
+
+
+def test_a_truncated_allowlist_entry_cannot_exempt_a_real_credential(tmp_path: Path) -> None:
+    """The defect as it would be exploited: truncation exempts a live token.
+
+    ``^ghp_abc#def$`` is a pattern for a *fabricated* probe value. Truncated at
+    the ``#`` it becomes ``^ghp_abc``, which is a prefix of a real token - so the
+    gate that exists to catch a leaked token silently passes it.
+    """
+    allow_file = tmp_path / "privacy-allow.txt"
+    allow_file.write_text("^ghp_abc#def$  # a fabricated probe value\n", encoding="utf-8")
+    allow = ps.load_allow(allow_file)
+    token = "ghp_" + "abcdef" + "0123456789abcdefghijklmnopqrstuvwxyz"
+
+    rules = {
+        f["rule"] for f in ps.scan_lines(f"TOKEN={token}", "x.py", "unit-test", ps.RULES, allow)
+    }
+
+    assert "api-token" in rules, "a pattern for a different literal must not exempt this token"
+
+
+def test_a_whitespace_separated_comment_is_still_stripped(tmp_path: Path) -> None:
+    """The documented suffix keeps working: `^entry$  # reason` compiles to the entry."""
+    allow_file = tmp_path / "privacy-allow.txt"
+    allow_file.write_text(
+        "^a\\.b$\n^c\\.d$  # reason after two spaces\n^e\\.f$\t# reason after a tab\n",
+        encoding="utf-8",
+    )
+
+    assert [p.pattern for p in ps.load_allow(allow_file)] == ["^a\\.b$", "^c\\.d$", "^e\\.f$"]
+
+
+def test_the_shipped_allowlist_entries_compile_byte_identically() -> None:
+    """Every shipped entry is its own line, verbatim: the parser adds nothing.
+
+    The three fabricated probe entries are what a truncating parser would have
+    changed; a whole-file round-trip is the same assertion for every entry.
+    """
+    allow_path = ROOT / ".github" / "privacy-allow.txt"
+    lines = allow_path.read_text(encoding="utf-8").splitlines()
+    expected = [ln.strip() for ln in lines if ln.strip() and not ln.strip().startswith("#")]
+
+    assert len(expected) >= 5, "the shipped allowlist lost its entries"
+    assert [p.pattern for p in ps.load_allow(allow_path)] == expected
+
+
+def test_an_allowlist_pattern_that_ends_mid_escape_is_refused(tmp_path: Path, capsys) -> None:
+    """A trailing backslash means the comment strip ate part of the pattern.
+
+    ``^ab\\ # reason`` - a space inside the pattern, then the comment marker. The
+    remainder ends mid-escape, so the file is rejected instead of compiled into
+    something nobody wrote.
+    """
+    allow_file = tmp_path / "privacy-allow.txt"
+    allow_file.write_text("^ab\\ # reason\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as caught:
+        ps.load_allow(allow_file)
+
+    assert caught.value.code == 2
+    assert "mid-escape" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- #
+# history: the commit walker and the blob walker cover the same set
+# --------------------------------------------------------------------------- #
+
+
+def _git(repo: Path, *argv: str, env=None) -> str:
+    import subprocess
+
+    done = subprocess.run(
+        ["git", "-C", str(repo), *argv],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "HOME": str(repo.parent), **(env or {})},
+    )
+    assert done.returncode == 0, (argv, done.stderr)
+    return done.stdout.strip()
+
+
+def _repo_with_a_rewritten_identity(tmp_path: Path) -> tuple:
+    """A repo whose personal author survives only in the reflog, after an amend.
+
+    This is exactly the state the documented repair leaves behind: the identity
+    is rewritten out of the branch, and the old commit is still an object the
+    reflog names - so a blob scan with ``--reflog`` finds it and a commit walk
+    without ``--reflog`` does not.
+    """
+    role = {
+        "GIT_AUTHOR_NAME": "Technical Writer",
+        "GIT_AUTHOR_EMAIL": "technicalwriter@agents.nidvue.com",
+        "GIT_COMMITTER_NAME": "Technical Writer",
+        "GIT_COMMITTER_EMAIL": "technicalwriter@agents.nidvue.com",
+    }
+    leaked = {
+        "GIT_AUTHOR_NAME": "Leaky Author",
+        "GIT_AUTHOR_EMAIL": "leaky@" + "private-mail.example",
+        "GIT_COMMITTER_NAME": "Leaky Author",
+        "GIT_COMMITTER_EMAIL": "leaky@" + "private-mail.example",
+    }
+    repo = tmp_path / "rewritten"
+    repo.mkdir()
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "config", "user.name", "Technical Writer")
+    _git(repo, "config", "user.email", "technicalwriter@agents.nidvue.com")
+    _git(repo, "config", "commit.gpgsign", "false")
+    (repo / "a.txt").write_text("x\n", encoding="utf-8")
+    _git(repo, "add", "a.txt")
+    _git(repo, "commit", "-qm", "base", env=role)
+    # The commit that must be rewritten away: a personal author, then an amend
+    # that replaces it. The old object is unreferenced but still in the reflog.
+    (repo / "b.txt").write_text("y\n", encoding="utf-8")
+    _git(repo, "add", "b.txt")
+    _git(repo, "commit", "-qm", "draft", env=leaked)
+    rewritten = _git(repo, "rev-parse", "HEAD")
+    # --reset-author, not a bare --amend: an amend keeps the old author, so the
+    # rewrite only leaves the reflog behind when the author is reset too.
+    _git(repo, "commit", "-q", "--amend", "--reset-author", "-m", "draft", env=role)
+    current = _git(repo, "rev-parse", "HEAD")
+    assert rewritten != current
+    assert (
+        _git(repo, "log", "--all", "--format=%ae")
+        == "technicalwriter@agents.nidvue.com\ntechnicalwriter@agents.nidvue.com"
+    )
+    return repo, rewritten, current
+
+
+def test_a_rewritten_away_identity_in_the_reflog_is_reported(tmp_path: Path) -> None:
+    """``--history`` must cover the set its blob walk already covered (T-0024, H7).
+
+    The blob walker ran ``rev-list --objects --all --reflog`` while the commit
+    walker ran ``git log --all``: the reflog-only commit had its blobs scanned
+    and its author/committer metadata skipped, so a personal mailbox survived the
+    repair the scanner's own docstring recommends.
+    """
+    repo, rewritten, current = _repo_with_a_rewritten_identity(tmp_path)
+
+    findings = ps.scan_commit_metadata(repo, allow=[])
+
+    assert {f["commit"] for f in findings} == {rewritten}
+    assert {f["rule"] for f in findings} == {"personal-email"}
+    assert not [f for f in findings if f["commit"] == current], "a role mailbox is not a finding"
+
+
+def test_the_history_scan_reports_the_reflog_identity_end_to_end(tmp_path: Path) -> None:
+    """The full history scan agrees with the commit walker about the same set."""
+    repo, rewritten, _current = _repo_with_a_rewritten_identity(tmp_path)
+
+    findings = ps.scan_history(repo, allow=[])
+
+    assert "personal-email" in {f["rule"] for f in findings}
+    assert rewritten in {f.get("commit") for f in findings if f["rule"] == "personal-email"}
+
+
+def test_an_expired_reflog_leaves_no_identity_to_report(tmp_path: Path) -> None:
+    """The other direction: once the reflog is gone, nothing is left to find.
+
+    The gate must be quiet about the repaired repository - a check that reports
+    an identity nobody can recover is a check that cannot be made green.
+    """
+    repo, _rewritten, current = _repo_with_a_rewritten_identity(tmp_path)
+    _git(repo, "reflog", "expire", "--expire=now", "--all")
+
+    assert ps.scan_commit_metadata(repo, allow=[]) == []
+    assert [f for f in ps.scan_history(repo, allow=[]) if f["rule"] == "personal-email"] == []
+    assert current  # the branch tip is still there, with its role mailbox
