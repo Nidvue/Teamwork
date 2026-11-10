@@ -333,3 +333,119 @@ def test_agents_md_template_uses_the_portable_placeholder():
     assert "<script>" in template
     for machine_path in ("/home/", "/Users/", "C:\\Users"):
         assert machine_path not in template, machine_path
+
+
+# --------------------------------------------------------------------------- #
+# Architecture.md section 2 map: the module map must match the shipped tree
+# --------------------------------------------------------------------------- #
+
+
+def _architecture_tree_section() -> str:
+    """Return the frozen repository-layout block from Architecture section 2."""
+    text = (REPO_ROOT / "docs" / "Team" / "Architecture.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"```[a-z]*\n(.*?)```", text, re.S)
+    return next(block for block in blocks if block.lstrip().startswith("Teamwork/"))
+
+
+def _tree_children(block: str, head: str) -> list[str]:
+    """Nested entries of the top-level ``head`` branch, in document order."""
+    lines = block.splitlines()
+    start = next(
+        index
+        for index, line in enumerate(lines)
+        if line.startswith(("├── ", "└── ")) and line.strip()[4:].startswith(head)
+    )
+    nested: list[str] = []
+    for line in lines[start + 1 :]:
+        if not line.startswith("│"):
+            break  # the next top-level branch closes this one
+        if re.search(r"[├└]── ", line):
+            nested.append(line)
+    return nested
+
+
+def test_architecture_lists_exactly_the_shipped_modules():
+    block = _architecture_tree_section()
+    listed = sorted(
+        re.findall(r"[├└]── ([a-z_]+\.py)", " ".join(_tree_children(block, "src/teamwork/")))
+    )
+    shipped = sorted(path.name for path in SRC_TEAMWORK.glob("*.py"))
+    assert listed == shipped
+
+
+def test_architecture_lists_exactly_the_shipped_scripts():
+    block = _architecture_tree_section()
+    listed = sorted(
+        re.findall(r"[├└]── ([a-z_]+\.py)", " ".join(_tree_children(block, "scripts/")))
+    )
+    shipped = sorted(path.name for path in (REPO_ROOT / "scripts").glob("*.py"))
+    assert listed == shipped
+
+
+def test_architecture_section_2_does_not_quote_a_version():
+    """The falsifier of D-20261019-Architect, enforced as a test.
+
+    Section 2 must never restate ``__version__``: a map that repeats a value it
+    does not own drifts silently at the next bump (it said 1.0.2 while the code
+    shipped 1.1.0). ``version.py`` is named as the single source instead.
+    """
+    text = (REPO_ROOT / "docs" / "Team" / "Architecture.md").read_text(encoding="utf-8")
+    section = text.split("## 2. Frozen repository layout")[1].split("## 3.")[0]
+    assert "version.py            # the single version source" in section
+    assert not re.search(r'version\.py\s+#[^\n]*__version__ = "\d', section), (
+        "section 2 quotes a version literal; D-20261019-Architect forbids it"
+    )
+
+
+def test_architecture_dependency_direction_matches_the_imports():
+    """Section 3's arrows must describe the real level-1 relative imports."""
+    allowed = {
+        "config.py": {"resources"},
+        "io.py": {"portable"},
+        "names.py": {"config"},
+        "layout.py": {"config", "io", "names"},
+        "records.py": {"config", "io", "layout", "names"},
+    }
+    for name, permitted in allowed.items():
+        tree = _parse(SRC_TEAMWORK / name)
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.level == 1:
+                if node.module:
+                    imported.add(node.module.split(".")[0])
+                else:
+                    imported.update(alias.name.split(".")[0] for alias in node.names)
+        imported -= {"__future__"}
+        assert imported <= permitted, f"{name} imports {sorted(imported - permitted)}"
+
+
+def test_architecture_ownership_table_assigns_every_shipped_file():
+    """No committed deliverable may be left without exactly one writer lane."""
+    text = (REPO_ROOT / "docs" / "Team" / "Architecture.md").read_text(encoding="utf-8")
+    table = text.split("**File ownership (one writer per file) is binding for parallel work:**")[1]
+    table = table.split("## ")[0]
+    owned = " ".join(
+        match.group(2) for match in re.finditer(r"^\| ([a-z0-9-]+) \| (.+?) \|$", table, re.M)
+    )
+    for required in (
+        "src/teamwork/**",
+        "tests/unit/**",
+        "tests/integration/**",
+        "tests/acceptance/**",
+        "scripts/privacy_scan.py",
+        "scripts/build_pi_package.py",
+        "templates/pi-package",
+        "references/",
+        ".agents/skills/",
+        "docs/Team/Architecture.md",
+        "docs/Team/Plan.md",
+        "docs/Team/Board.md",
+        "docs/Team/Research.md",
+        "docs/Team/Risks.md",
+        "docs/Team/Costs.md",
+        "docs/Team/Release.md",
+        "docs/Team/Design.md",
+        "README.md",
+    ):
+        assert required in owned, f"no ownership row covers {required}"
+    assert owned.count("docs/Team/Architecture.md") == 1
