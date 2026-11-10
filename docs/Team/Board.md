@@ -88,7 +88,7 @@ under two roles is two tasks.
 | ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
 | ceo | T-0004 | records | dropped | P-0011 | - |
 | ceo | T-0005 | - | doing | - | - |
-| ceo | T-0006 | - | todo | - | - |
+| ceo | T-0006 | - | done | - | - |
 | ceo | T-0007 | - | done | - | - |
 | ceo | T-0008 | - | todo | - | - |
 | ceo | T-0009 | - | done | - | - |
@@ -117,8 +117,8 @@ under two roles is two tasks.
 | developer | T-0013 | ledger | done | P-0038 | df22172 |
 | developer | T-0014 | audit | done | P-0039 | 91c2d7f |
 | developer | T-0015 | - | todo | - | - |
-| developer | T-0016 | - | todo | - | - |
-| developer | T-0017 | - | todo | - | - |
+| developer | T-0016 | - | done | - | - |
+| developer | T-0017 | - | done | - | - |
 | developer | T-0018 | typing | done | P-0040 | c24a595 |
 | developer | T-0019 | - | done | - | - |
 | developer | T-0020 | - | done | - | - |
@@ -128,7 +128,7 @@ under two roles is two tasks.
 | developer | T-0024 | - | todo | - | - |
 | developer | T-0025 | - | done | - | - |
 | developer | T-0026 | - | todo | - | - |
-| developer | T-0027 | - | blocked | - | - |
+| developer | T-0027 | - | done | - | - |
 | developer | T-0028 | ledger | done | P-0012 | e252fcc |
 | developer | T-0029 | lanes | done | P-0022 | 2722c27 |
 | developer | T-0030 | privacy | done | P-0010 | 25f2c0c |
@@ -151,6 +151,7 @@ under two roles is two tasks.
 | developer | T-0047 | audit | done | P-0043 | 8b5a3c9 |
 | developer | T-0048 | audit | done | P-0044 | e24c38c |
 | developer | T-0049 | audit | done | P-0045 | 6d4d6cd |
+| developer | T-0050 | memory | done | P-0046 | 0e88de8 |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -176,16 +177,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0001 · Own M19: intake, criteria, records, dispatch, arbitration and close-out (audit manifest + final report) | P0 | blocked | - |
 | ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| ceo | T-0006 · Two record rows name the classifier as inline ci.yml text; T-0001 moved it to scripts/ci_scope.py (D-class drift in Plan.md and Release.md) | P2 | todo | - |
 | ceo | T-0008 · AC-5 is red on main: privacy_scan --tree reports 3 high/personal-email findings in tracked docs (Board.md:179, Decisions.md:2295-2296), so the tree half of the AC-5 proof exits 1 on the merge target | P0 | todo | - |
 | developer | T-0012 · preflight prints pass with up to 6 of 7 checks unmeasured and the review records it as mechanical=no (finding 6) | P1 | review | - |
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
-| developer | T-0016 · clean --worktrees is a no-op (finding 10) | P3 | todo | - |
-| developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 | developer | T-0024 · the v* tag ruleset protects update/delete but not creation, so 'CEO only' is convention (S-5) | P2 | todo | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
-| developer | T-0027 · remember still invents Roles/<Typo>/: the hole T-0003 closed in load is open in remember (measured: remember QaEnginere note --by QaEnginere -> exit 0 and Roles/QaEnginere/ShortTermMemory.md created; board and loop then report qaenginere as a role with state), and a refused remember --by <other role> still leaves an empty Roles/<Typo>/ directory | P1 | blocked | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
 
