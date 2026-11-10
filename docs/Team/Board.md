@@ -127,6 +127,7 @@ under two roles is two tasks.
 | ceo | T-0037 | lane-proof | done | P-0110 | 91dec22 |
 | ceo | T-0038 | pi-packaging | done | P-0105 | 227af23 |
 | ceo | T-0039 | memory | done | P-0119 | 697203b |
+| ceo | T-0040 | records | done | P-0125 | 346256a |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
