@@ -104,9 +104,32 @@ Large and binary content is stored through Git LFS, not the object store.
   `.gitattributes` with the LFS patterns: images, audio/video, archives, model
   weights, datasets, fonts, native libraries, 3D assets.
 - `.gitattributes` is committed; it is part of the project output.
-- `teamwork.py commit` refuses to commit a file above `--lfs-threshold`
-  (default 1 MB) that no LFS pattern covers.
-- `teamwork.py audit` reports LFS readiness and any untracked large file.
+- The threshold is a **binary** threshold (1 MiB = 1048576 bytes), and it is
+  decided by **content**, not by the file name: a file is binary when its first
+  8192 bytes contain a NUL byte, **except** a head that decodes as printable
+  UTF-16 (a UTF-16 document also contains NUL bytes and is still text).
+- `teamwork.py commit` refuses to commit a **binary** file above
+  `--lfs-threshold` (default 1 MiB) that no LFS pattern covers. A **text**
+  record is never refused by the threshold, at any size: it stays a plain file.
+- `teamwork.py commit` also refuses a **text** file that a `.gitattributes`
+  LFS pattern would route into Git LFS. `.gitattributes` routes a file into
+  LFS **by name**, so a text file can be routed there by accident - and a
+  document in LFS is a pointer for every reader without an LFS client. The
+  check is size-independent, because a text file in LFS is broken at any size.
+- The pre-commit hook rule R2 applies the same threshold, the same binary test
+  and the same text/LFS mismatch check, so the hook and `commit` agree about
+  every file.
+- `teamwork.py audit` reports LFS readiness, any large **binary** file no LFS
+  pattern covers, and any **text** file a pattern routes into LFS. A large text
+  record that no pattern captures (the growing `docs/Team/Archive.md` is the
+  standing example) is not a finding.
+- A large text record is a **document**: it is committed as a plain file, it
+  grows, and the threshold says nothing about it. LFS is for binaries
+  (weights, datasets, fonts, native libraries, 3D assets) - a text record in
+  LFS is unreadable without a client, and the link check would follow a
+  pointer instead of a document.
+- The rule, the three gates and the one shared predicate are frozen in
+  [Architecture.md](../docs/Team/Architecture.md) section 11.10.
 
 ## Branch, PR and merge flow
 

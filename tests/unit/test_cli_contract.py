@@ -1,6 +1,6 @@
 """System-layer conformance test for the frozen harness/hook CLI contract.
 
-Covers [Architecture](../../../docs/Team/Architecture.md) section 11, which is the
+Covers [Architecture](../../../docs/Team/Architecture.md) section 12, which is the
 contract the `harness`, `hooks` and `hook` lanes build against:
 
 1. the documented command and flag list is exactly the frozen list;
@@ -15,7 +15,7 @@ contract the `harness`, `hooks` and `hook` lanes build against:
    R1-R6), and the git facts under that ruling hold on this machine;
 5. the CLI registers what the document freezes, group by group: a group that
    has landed must be complete, and a group this revision has not landed is
-   reported as NOT LANDED instead of failing the whole test (11.9).
+   reported as NOT LANDED instead of failing the whole test (12.9).
 
 Owner: architect. Task: T-0001. Layer: system (area cli-contract).
 """
@@ -42,7 +42,7 @@ RESOLVER_RELATIVE = "git -C <root> rev-parse --git-path hooks"
 #: The CEO's withdrawn amendment (D-0001 R2): unsafe alone, never a contract.
 WITHDRAWN = "resolved against the project root"
 
-SECTION = "## 11. Harness surface and hook contract (frozen)"
+SECTION = "## 12. Harness surface and hook contract (frozen)"
 
 #: The frozen surface, verb by verb, flag and positional included.
 FROZEN_COMMANDS = (
@@ -56,7 +56,7 @@ FROZEN_COMMANDS = (
     ("hook", "pre-push", (), ("remote", "url")),
 )
 
-#: The closed set in 11.3, plus ``-`` for the component with no file (C5).
+#: The closed set in 12.3, plus ``-`` for the component with no file (C5).
 ACTIVATION_CLASSES = ("always-on", "on-demand", "in-loop", "-")
 
 #: C1..C8 in registry order -> the class each one is frozen to.
@@ -92,7 +92,7 @@ GROUP = ("harness", "hooks", "hook")
 
 
 def _section_text() -> str:
-    """The text of Architecture.md section 11, up to the next level-2 heading."""
+    """The text of Architecture.md section 12, up to the next level-2 heading."""
     text = ARCHITECTURE.read_text(encoding="utf-8")
     assert SECTION in text, f"Architecture.md lost its section heading: {SECTION!r}"
     body = text.split(SECTION, 1)[1]
@@ -100,9 +100,9 @@ def _section_text() -> str:
 
 
 def _documented_commands() -> list:
-    """Parse the fenced command block of 11.1 into (group, verb, flags, positionals)."""
+    """Parse the fenced command block of 12.1 into (group, verb, flags, positionals)."""
     block = re.search(r"```text\n(.*?)```", _section_text(), re.S)
-    assert block, "section 11.1 must keep its fenced command block"
+    assert block, "section 12.1 must keep its fenced command block"
     parsed = []
     for line in block.group(1).splitlines():
         line = line.strip()
@@ -125,17 +125,17 @@ def _flowed() -> str:
 
 
 def _frozen_body() -> str:
-    """The one fenced `sh` block of 11.6: the hook body, verbatim."""
+    """The one fenced `sh` block of 12.6: the hook body, verbatim."""
     section = _section_text()
     marker = "and exactly this body:"
-    assert marker in section, "11.6 must keep its 'and exactly this body' fence"
+    assert marker in section, "12.6 must keep its 'and exactly this body' fence"
     tail = section.split(marker, 1)[1]
-    assert "```sh\n" in tail, "11.6's body fence is gone"
+    assert "```sh\n" in tail, "12.6's body fence is gone"
     return tail.split("```sh\n", 1)[1].split("```", 1)[0]
 
 
 def _registry_rows() -> list:
-    """Parse the C1..C8 markdown table of 11.2 into (component, path cell, class, role)."""
+    """Parse the C1..C8 markdown table of 12.2 into (component, path cell, class, role)."""
     rows = []
     for line in _section_text().splitlines():
         if not re.match(r"\| C\d ", line):
@@ -160,7 +160,7 @@ def _group_gaps(group: str) -> list:
     """Every frozen verb/flag/positional this group's parser is missing.
 
     Empty means the group landed whole; anything else on a registered group is
-    the half-landing 11.9 forbids. An unregistered group is not asked.
+    the half-landing 12.9 forbids. An unregistered group is not asked.
     """
     parser = _top_level_choices()[group]
     subparsers = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
@@ -181,7 +181,7 @@ def _group_gaps(group: str) -> list:
 
 
 # --------------------------------------------------------------------------- #
-# 11.1 the frozen command list
+# 12.1 the frozen command list
 # --------------------------------------------------------------------------- #
 
 
@@ -196,7 +196,7 @@ def test_the_documented_flags_are_the_frozen_flags() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 11.2 / 11.3 the surface registry
+# 12.2 / 12.3 the surface registry
 # --------------------------------------------------------------------------- #
 
 
@@ -223,7 +223,7 @@ def test_every_registry_path_that_is_a_repository_file_exists() -> None:
     """The registry describes the tree; a path it names must be in the tree.
 
     Workspace state (`Roles/<Role>/`, `Global/`) and C8 - which is measured
-    through the hook-directory resolver, not as a repository path (11.6) - are
+    through the hook-directory resolver, not as a repository path (12.6) - are
     asserted by their spelling instead, one section each.
     """
     checked = 0
@@ -242,11 +242,11 @@ def test_every_registry_path_that_is_a_repository_file_exists() -> None:
 def test_the_activation_classes_are_defined_as_a_closed_set() -> None:
     section = _section_text()
     for name in ("always-on", "on-demand", "in-loop", "`n/a`"):
-        assert name in section, f"section 11 does not define the class {name!r}"
+        assert name in section, f"section 12 does not define the class {name!r}"
 
 
 # --------------------------------------------------------------------------- #
-# 11.5 / 11.6 clauses a lane must not invent
+# 12.5 / 12.6 clauses a lane must not invent
 # --------------------------------------------------------------------------- #
 
 
@@ -270,14 +270,14 @@ def test_the_contract_records_the_hook_directory_git_is_asked_for() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 11.2 C8 / 11.6 / 11.9 one hook-directory resolver (ruling D-0001 R1-R6)
+# 12.2 C8 / 12.6 / 12.9 one hook-directory resolver (ruling D-0001 R1-R6)
 # --------------------------------------------------------------------------- #
 
 
 def _rule_rows() -> list:
-    """The hook-rule table of 11.7: (id, stage, rule, override)."""
+    """The hook-rule table of 12.7: (id, stage, rule, override)."""
     rows = []
-    for block in _section_text().split("### 11.7", 1)[1].split("\n### ", 1)[0].splitlines():
+    for block in _section_text().split("### 12.7", 1)[1].split("\n### ", 1)[0].splitlines():
         if not re.match(r"\| [RP]\d ", block):
             continue
         cells = [c.strip() for c in block.strip().strip("|").split("|")]
@@ -368,7 +368,7 @@ def test_the_frozen_shim_body_writes_the_merged_marker_line_verbatim() -> None:
 
     body = _frozen_body()
     assert body.strip("\n") == shim("pre-commit").strip("\n"), (
-        "11.6 has drifted from the shim the code writes"
+        "12.6 has drifted from the shim the code writes"
     )
     assert shim("pre-push").replace("pre-push", "pre-commit") == shim("pre-commit")
 
@@ -510,7 +510,7 @@ def test_an_unborn_branch_is_readable_only_through_symbolic_ref(tmp_path: Path) 
 
 
 # --------------------------------------------------------------------------- #
-# 11.4 / 11.8 the lint output and exit-code contract
+# 12.4 / 12.8 the lint output and exit-code contract
 # --------------------------------------------------------------------------- #
 
 
@@ -528,14 +528,14 @@ def test_the_exit_codes_are_frozen_for_the_new_surface() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# 11.9 the CLI must register what the contract freezes
+# 12.9 the CLI must register what the contract freezes
 # --------------------------------------------------------------------------- #
 
 
 def test_the_three_groups_land_atomically() -> None:
     """Atomicity is PER GROUP: a landed group is whole, an absent one is reported.
 
-    Architecture 11.9 freezes the landing per group, not across the three, so a
+    Architecture 12.9 freezes the landing per group, not across the three, so a
     revision that ships `hooks` + `hook` while `harness` is still pending is
     legal - which lane lands first is not this contract's business. What is
     forbidden is half of one group: a `hooks` group without `uninstall`, or
@@ -556,7 +556,7 @@ def test_the_parser_registers_what_the_contract_freezes() -> None:
     """Every documented verb, flag, positional - for each group that has landed.
 
     A group this revision has not shipped is reported as NOT LANDED and skipped,
-    not failed: 11.9's atomicity is per group. `hook` and `hooks` are two
+    not failed: 12.9's atomicity is per group. `hook` and `hooks` are two
     subcommands, not one aliased over the other: an agent-facing group and git's
     entry point must never share a parser.
     """
