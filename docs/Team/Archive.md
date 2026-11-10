@@ -4256,3 +4256,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff --stat main...cdea1bc -> 7 files: AGENTS.md, templates/AGENTS.md, SKILL.md, references/Roles.md, docs/Team/Research.md, .agents/skills/team-designer/SKILL.md, tests/unit/test_skill_contracts.py; the six intern rules are present in template + AGENTS + SKILL (5j) + Roles, and the five new tests pin them; the team-designer skill has the interview, roster, skills, permission/verification, proactivity/routine, anti-patterns and falsifiers steps and its guardrails forbid bypassing self-check/review/merge; Research.md section 11 cites both URLs with accessed 2026-11-02 and carries the adopt/adapt/reject table; the least-privilege correction replaces 'all tools' and bot-owned accounts are rejected as a red line; pytest -q the four contract/roster/docs/harness files @cdea1bc -> 166 passed; links -> 0 issues; privacy tree -> PASS 0; the roster tier numbers 353/491/805 kB re-derive from the test formula; skill list -> S-0002 file=ok; no engine behaviour changed.
 - findings history: 
 - branch / merge: ceo/t-0029-adopt-the-grok-bot-team-guide-a-team-des / c571e2b
+
+## T-0051 · fix(test): make the npm verify contract test cross-platform (Windows CI red)  (developer)
+- date: 2026-11-02
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: release
+- self-check: [pass] Re-read the test against the Windows failure. The old test wrote a POSIX shell shim and put it on PATH; Windows cannot execute it, so the embedded script's npm call raised FileNotFoundError. The new test executes the embedded script in-process and fakes both subprocess calls (git -> a fixed 40-hex head, npm -> the real flat payload), so the parsing under test runs identically on Linux, macOS and Windows. The flat-key assertion and the 240 s retry window are untouched. | test: pytest -q tests/unit/test_release_workflow.py @b154f71 -> 31 passed; ruff check + format --check -> clean; CI run 41459695478 windows py3.9/3.11/3.13 failed with FileNotFoundError [WinError 2], the other 17 jobs success | preflight: PF-19837b088abe @b154f7186828 (7 checks, 0 failed)
+- author evidence: commit b154f71
+- reviewer evidence: git diff --stat main...b154f71 -> tests/unit/test_release_workflow.py only; the test no longer writes any executable, it executes the embedded verify script in-process with fake_run returning a fixed git head and the real flat npm payload; the flat-key assertion (version, dist.integrity, gitHead) is unchanged; pytest -q tests/unit/test_release_workflow.py @b154f71 -> 31 passed; ruff check + format --check -> clean; the failing CI run 41459695478 shows only the three Windows legs red with FileNotFoundError [WinError 2] and the other 17 jobs green, which the removed shim explains.
+- findings history: 
+- branch / merge: developer/t-0051-fix-test-make-the-npm-verify-contract-te / d2e7f62
