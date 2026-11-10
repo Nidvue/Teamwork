@@ -2410,93 +2410,51 @@ def _tests_list(args, root: Path, records: list) -> int:
 
 
 LEDGER_ACTIONS = (
-    "attention.add",
-    "attention.resolve",
-    "branch.retire",
-    "branch.start",
-    "commit",
-    "coordination.check",
-    "criteria.add",
-    "criteria.reopen",
-    "criteria.rm",
-    "criteria.verify",
-    "decision.add",
-    "dispute.escalate",
-    "dispute.open",
-    "dispute.resolve",
-    "dispute.round",
-    "dispute.sign",
-    "feature.add",
-    "feature.set",
-    "hooks.install",
-    "instance.add",
-    "instance.retire",
-    "knowledge.add",
-    "knowledge.supersede",
-    "knowledge.touch",
-    "lane.finish",
-    "lane.start",
-    "lane.stop",
-    "ledger.export",
-    "ledger.repair",
-    "lesson.add",
-    "lesson.fix",
     "memory.add",
+    "memory.update",
+    "memory.touch",
+    "memory.forget",
+    "memory.promote",
+    "memory.drop",
+    "memory.merge",
+    "memory.evict",
     "memory.claim",
     "memory.claim.force",
-    "memory.contest",
-    "memory.dream",
-    "memory.drop",
-    "memory.evict",
-    "memory.forget",
-    "memory.global",
-    "memory.grant",
-    "memory.merge",
-    "memory.pack",
-    "memory.promote",
-    "memory.release",
     "memory.renew",
+    "memory.release",
+    "memory.contest",
+    "memory.grant",
     "memory.revoke",
-    "memory.touch",
-    "memory.update",
-    "model.auto",
-    "model.set",
+    "instance.add",
+    "instance.retire",
+    "task.add",
+    "task.duplicate",
+    "task.claim",
+    "task.status",
+    "task.evidence",
+    "task.reclaim",
+    "pulse.observe",
+    "selfcheck",
+    "review.pass",
+    "review.fail",
+    "pr.open",
     "pr.merge",
     "pr.merge.archive",
-    "pr.merge.forced",
-    "pr.open",
-    "pulse.observe",
-    "redline.close",
-    "redline.record",
-    "review.claim",
-    "review.fail",
-    "review.pass",
-    "review.release",
-    "review.renew",
-    "review.reopen",
-    "selfcheck",
-    "skill.create",
-    "skill.rm",
-    "skill.share",
-    "swarm.scale",
-    "swarm.start",
-    "swarm.stop",
-    "swarm.wave",
-    "task.add",
-    "task.archive",
-    "task.claim",
-    "task.duplicate",
-    "task.reclaim",
-    "task.rm",
-    "task.status",
+    "branch.start",
+    "branch.retire",
+    "criteria.add",
+    "criteria.verify",
     "tests.add",
-    "tests.repro",
-    "tests.require",
-    "tests.rm",
     "tests.run",
+    "dispute.open",
+    "dispute.round",
+    "dispute.escalate",
+    "dispute.sign",
+    "dispute.resolve",
+    "decision.add",
+    "commit",
+    "ledger.export",
 )
-
-UNDECLARED_ACTION_WARNED: set[str] = set()
 
 
 def ledger_path(root: Path) -> Path:
@@ -2607,14 +2565,6 @@ def ledger_append(
     holding ``ledger.lock`` pass ``_locked=True`` instead of deadlocking.
     """
     import json
-
-    if action not in LEDGER_ACTIONS and action not in UNDECLARED_ACTION_WARNED:
-        UNDECLARED_ACTION_WARNED.add(action)
-        print(
-            f"teamwork: WARNING undeclared ledger action {action!r}; declare it in "
-            "LEDGER_ACTIONS (tests/unit/test_ledger_actions.py gates the drift)",
-            file=sys.stderr,
-        )
 
     path = ledger_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -2799,8 +2749,10 @@ def ledger_verify(
                     f"the last audit export recorded {recorded} records, "
                     f"the ledger has {len(records)}: truncated after export"
                 )
-        except (ValueError, OSError, TypeError):
-            pass
+        except (ValueError, OSError, TypeError, AttributeError):
+            problems.append(
+                f"the audit manifest ({F_MANIFEST}) is unreadable: the truncation check cannot run"
+            )
     return problems
 
 
@@ -15290,8 +15242,12 @@ def _audit_audit_trail_append_only_hash_chained(root: Path, names: list, args) -
                     f"audit export recorded ({recorded}): it was truncated"
                 )
                 hits += 1
-        except (ValueError, OSError, TypeError):
-            pass
+        except (ValueError, OSError, TypeError, AttributeError):
+            print(
+                f"- the audit manifest ({F_MANIFEST}) is unreadable: the "
+                "truncation check cannot run"
+            )
+            hits += 1
     unprovenanced = [
         r
         for role in names
