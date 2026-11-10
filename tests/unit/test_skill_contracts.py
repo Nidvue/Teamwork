@@ -827,6 +827,8 @@ def test_auto_reads_the_environment_and_never_invents_a_model(cli, project, caps
     assert "model=strong" not in out and "claude-" not in out
 
     # an environment model is routed: strong lanes first, economy elsewhere
+    # explicit override: detection infers, this decides
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", "claude")
     monkeypatch.setenv("CLAUDECODE", "1")
     monkeypatch.setenv("TEAMWORK_MODEL_STRONG", "a-strong-model")
     monkeypatch.setenv("TEAMWORK_MODEL_ECONOMY", "a-cheap-model")
