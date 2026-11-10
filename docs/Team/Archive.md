@@ -6447,3 +6447,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git diff --stat main...5480630 -> docs/Team/Project.md only; pytest -q tests/unit/test_traceability_matrix.py @5480630 -> 24 passed, 1 skipped; git merge-tree --write-tree main 5480630 -> CLEAN
 - findings history: 
 - branch / merge: developer-1/t-0085-ac5-row-proof / 871847f
+
+## T-0086 · AC-5 is green again on the shipped history, so the row must say so  (developer)
+- date: 2026-11-10
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-6
+- task / issue: -
+- area: records
+- self-check: [pass] The row was true of the pre-rewrite history and false of the shipped one. A fresh clone of origin/main runs --tree --history to PASS - 0, exit 0, because the D-20261110-CEO-8 rewrite removed the blob from every commit above the published tip; the row still said red (G-8), so the traceability guard failed on 'every clause exits 0'. The row is green with the full command as its proof again, and G-8 keeps the cause plus the one caveat that matters: a checkout still holding the pre-rewrite object store can report the blob until it is re-cloned. This checkout's store was replaced with the shipped one, so the local run and the clone now agree. | test: python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt @2ccb15e -> PASS - 0 finding(s) in tree, history, exit 0; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py -> 24 passed, 1 skipped; preflight developer T-0086 --run @2ccb15e -> 8 checks, 0 failed | preflight: PF-57730926b3de @2ccb15eaf104 (8 checks, 0 failed)
+- author evidence: commit 2ccb15e
+- reviewer evidence: python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt @2ccb15e -> PASS - 0 finding(s) in tree, history, exit 0; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py @2ccb15e -> 24 passed, 1 skipped; git merge-tree --write-tree main 2ccb15e -> CLEAN. Degraded-mode verdict (A-0011): four reviewer lanes timed out, so the CEO ran the three commands itself and recorded the run.
+- findings history: 
+- branch / merge: developer-1/t-0086-ac5-green / 874e76d
