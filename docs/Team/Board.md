@@ -71,7 +71,7 @@ under two roles is two tasks.
 | architect | T-0001 | - | doing | - | - |
 | developer | T-0001 | - | review | P-0001 | - |
 | developer | T-0002 | - | doing | - | - |
-| developer | T-0003 | test-portability | selfcheck | - | - |
+| developer | T-0003 | test-portability | review | P-0004 | - |
 | developer | T-0004 | - | todo | - | - |
 | developer | T-0005 | - | todo | - | - |
 | developer | T-0006 | - | todo | - | - |
@@ -79,7 +79,7 @@ under two roles is two tasks.
 | reviewer | T-0001 | - | todo | - | - |
 | reviewer | T-0002 | - | todo | - | - |
 | product-manager | T-0001 | - | doing | - | - |
-| project-manager | T-0001 | - | doing | - | - |
+| project-manager | T-0001 | plan | review | - | - |
 | release-engineer | T-0001 | ci | review | P-0003 | - |
 | release-engineer | T-0002 | - | todo | - | - |
 | release-engineer | T-0003 | - | todo | - | - |
@@ -106,7 +106,7 @@ landed by commit without a PR record.
 | architect | T-0001 · Code and logic review of src/teamwork and scripts: find real defects, dead code, inconsistent invariants; file each finding as a task and record contract changes in Architecture.md | P0 | doing | - |
 | developer | T-0001 · Fix resources.self_invocation(): the returned command is unusable on Windows when a path has a space or backslash | P0 | review | P-0001 |
 | developer | T-0002 · Guard every symlink-dependent test so the suite is green on a host without symlink privilege | P0 | doing | - |
-| developer | T-0003 · Make every test that needs an external tool honest: skip with a stated reason when the tool is absent | P0 | selfcheck | - |
+| developer | T-0003 · Make every test that needs an external tool honest: skip with a stated reason when the tool is absent | P0 | review | P-0004 |
 | developer | T-0004 · Remove the personal absolute path from commit a4c726f (message + resources.py docstrings) before it can merge | P0 | todo | - |
 | developer | T-0005 · Reword the developer-1 T-0001 commit message: it carries the operator home path and turns the privacy gate red | P0 | todo | - |
 | developer | T-0006 · Re-point the board gate at the live milestone: tests/unit/test_board_matches_tool.py cannot see the M11 queues | P1 | todo | - |
@@ -114,7 +114,7 @@ landed by commit without a PR record.
 | reviewer | T-0001 · Serve the review queue and own the acceptance layer for the M11 deliverables | P0 | todo | - |
 | reviewer | T-0002 · Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | todo | - |
 | product-manager | T-0001 · Rebuild the traceability matrix for AC-19..AC-21 and re-key the machine criteria store (gap G-1) | P1 | doing | - |
-| project-manager | T-0001 · Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | doing | - |
+| project-manager | T-0001 · Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | review | - |
 | release-engineer | T-0001 · Workflow and release-gate integrity: workflows match the tree, hooks install, branch protection matches policy | P0 | review | P-0003 |
 | release-engineer | T-0002 · Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | todo | - |
 | release-engineer | T-0003 · ci.yml skips the privacy job (and every code job) on a prose-only push to main | P2 | todo | - |
