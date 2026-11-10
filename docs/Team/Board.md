@@ -20,7 +20,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   (`home-path`) - and no credential rule fires. The no-allow count is read from the
   run and never pinned: most of those hits are the justification text that documents
   the exemption, so the commit that documents the count raises it.
-  `tests/unit/test_privacy_scan.py` pins both entries as fully escaped literals,
+  `tests/unit/test_privacy_scan.py` pins every entry as one fully escaped literal,
   rejects a wildcard or a sibling name, and proves a credential on an exempted line
   is still reported. The alternatives (rewriting
   unpublished history, deleting a real reviewer finding) were refused in
