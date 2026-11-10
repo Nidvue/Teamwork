@@ -5351,10 +5351,12 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
     # Set the repo-local fallback to the CEO role mailbox unless the repository
     # already has its own identity.
     local_email = run_git(project, "config", "--local", "user.email").stdout.strip()
+    local_name = run_git(project, "config", "--local", "user.name").stdout.strip()
     if not local_email:
         name, email = role_identity("ceo")
-        run_git(project, "config", "--local", "user.name", name)
         run_git(project, "config", "--local", "user.email", email)
+        if not local_name:
+            run_git(project, "config", "--local", "user.name", name)
     has_identity = True  # team commits always carry the ROLE identity
 
     if commit and not created and is_git_repo(project):
