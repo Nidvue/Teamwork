@@ -48,7 +48,8 @@ screen.
    finding is a flow, `skill create` (workflow) or `--kind mistake --from-lesson`;
    if it is a tool, the task is the fix and the lesson is retired.
 4. **Take the milestone snapshot, at one cut.** Run
-   `teamwork throughput`, `teamwork coordination --strict`, `teamwork audit`,
+   `teamwork evolution snapshot --json`, `teamwork throughput`,
+   `teamwork coordination --strict`, `teamwork audit`,
    `teamwork harness budget`, `teamwork tests plan`, `teamwork links`,
    `teamwork skill candidates`, `teamwork ledger verify`. Write one row per book
    in Evolution.md 9; never mix cuts.
@@ -60,8 +61,10 @@ screen.
    projects and a clean guardrail check, then a release and
    `teamwork refresh --check`. Roll back on a guardrail regression or two
    unmeasured cuts.
-7. **Close the books.** No `KI-` row past `re_measure_by`, every `EV-` row has a
-   verdict, every `PB-` row names a level, and the ledger chain verifies.
+7. **Close the books.** Run `teamwork evolution check`: it exits 1 on a `KI-`
+   row past `re_measure_by`, an `EV-` row without a valid verdict, a `PB-` row
+   without a level, an empty metric command, or a missing/empty table. Then
+   `teamwork ledger verify`.
 
 ## Guardrails
 
