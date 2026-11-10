@@ -144,12 +144,12 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 226 kB |
-| `standard` | 9 | 336 kB |
-| `full` | 16 | 586 kB |
+| `slim` (default) | 6 | 238 kB |
+| `standard` | 9 | 351 kB |
+| `full` | 16 | 607 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
-the text a full roster pays for before any work starts, and 2.6x what `slim` costs.
+the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
 
 A role earns a seat only if it owns a deliverable, a test layer and a decision
 right no other role holds. Everything else is a **lane, not a role**: it costs no
@@ -576,6 +576,12 @@ python3 "$SKILL/scripts/teamwork.py" refresh --dry-run     # the file plan, no w
 
 ### 6. Close
 
+When the queue is empty and `loop` is about to report STOP, load the `ceo-audit-close`
+skill and follow it exactly: freeze the revision, verify the chain before the gates,
+check the archive against the tree, export the manifest last, and report from records.
+A trigger line is what makes an on-demand skill exist - an unnamed skill is dead text
+nobody is told to load, and `teamwork.py harness lint` fails a tree that has one.
+
 Completion gate - all of:
 
 - [ ] Every acceptance criterion in `docs/Team/Project.md` has evidence from a
@@ -705,6 +711,15 @@ Mechanical enforcement:
 This applies to code, unit tests, integration/E2E tests, documentation, design
 specifications, plans, research briefs, architecture contracts, cost models and
 risk registers.
+
+**The Reviewer judges the artefact, not the author.** The verdict walks six
+ordered criteria - delivery and conformance, fidelity, internal consistency,
+operational fitness, finish, evidence reproduces - and stops at the first one the
+deliverable fails, because a later strength never pays for an earlier gap (the
+full rubric is the `## Ordered criteria` section of `roles/reviewer.md`). Length
+and polish are not merits; a shorter, exact
+answer beats a longer one with a gap; "this needs no change" is a real verdict;
+and the downside of a change is weighed as heavily as its upside.
 
 ## Self-management charter
 
