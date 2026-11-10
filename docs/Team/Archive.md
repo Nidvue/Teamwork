@@ -5621,3 +5621,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-1's own run @b5034a2: pytest tests/unit/test_task_meta_fields.py tests/unit/test_board_parser_messages.py tests/unit/test_board_matches_tool.py -> 21 passed; ruff check + format --check -> clean; mypy src/teamwork -> Success, 23 files. Read the diff: the allow-list is hoisted unchanged (44 names) and bound by a test that compares it with new_task's keys minus the three the parser assigns, so adding a field on either side without the other fails; the two board parsers now raise ValueError naming templates/Docs/Board.md, and the render guard uses next(..., None) with the same message. Requirement: findings 14 and 15 closed; conformance: each has a test that reproduces its failure mode.
 - findings history: 
 - branch / merge: developer/t-0048-burn-down-2-the-task-parser-s-allow-list / e24c38c
+
+## T-0049 · Burn-down 3: remember refuses an unknown role instead of inventing Roles/<Typo>/ (T-0027), the two stale classifier rows (T-0006) are corrected, and the accepted-by-design clean --worktrees flag is closed with its reason (T-0016)  (developer)
+- date: 2026-11-08
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: audit
+- self-check: [pass] Delta: board render included; note stands. | test: remember QaEnginere @9f23299 -> exit 1, nothing created; pytest test_memory+test_lessons+test_docs_contracts+test_ci_contracts -> 81 passed; links 0 | preflight: PF-47de9d7d135d @9f232993ef9a (7 checks, 0 failed)
+- author evidence: commit 9f23299 @9f23299 -> one commit over main, 3 files
+- reviewer evidence: Reviewer-3's own run @9f23299: remember QaEnginere 'a note' --by QaEnginere -> exit 1 'unknown role ... Known roles: ...' and no Roles/QaEnginere directory; pytest tests/unit/test_memory.py tests/unit/test_lessons.py tests/unit/test_docs_contracts.py tests/unit/test_ci_contracts.py -> 81 passed; links -> 0. Read the diff: the guard calls the same loadable_role predicate load uses, so the two cannot drift; the Release row is the same 11 paths with the owner corrected to the module that carries them. Requirement: the remember hole is closed and the row is true.
+- findings history: 
+- branch / merge: developer/t-0049-burn-down-3-remember-refuses-an-unknown / 6d4d6cd
