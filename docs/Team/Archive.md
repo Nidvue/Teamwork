@@ -271,3 +271,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest tests/unit/test_integrity_fixes.py @f2e3b5a -> 32 passed; Windows skip is platform-scoped
 - findings history: -
 - branch / merge: ceo/t-0012-skip-the-posix-umask-test-on-windows / pending
+
+## T-0013 · Fix import order in the Windows skip test  (ceo)
+- date: 2026-10-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: engine
+- self-check: [pass] re-read import order and lint | test: ruff check . @b7fe03b -> clean; pytest tests/unit/test_integrity_fixes.py -> 32 passed
+- author evidence: commit b7fe03b
+- reviewer evidence: ruff check . @b7fe03b -> clean; pytest tests/unit/test_integrity_fixes.py -> 32 passed
+- findings history: -
+- branch / merge: ceo/t-0013-fix-import-order-in-the-windows-skip-tes / pending
