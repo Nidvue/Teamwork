@@ -197,9 +197,7 @@ class BudgetRow(NamedTuple):
         return self.always_on > self.budget
 
 
-# --------------------------------------------------------------------------- #
 # Measuring the tree
-# --------------------------------------------------------------------------- #
 
 
 def repo_root(args) -> Path:
@@ -368,9 +366,7 @@ def class_totals(rows: list[Surface]) -> dict:
     return {klass: sum(row.size or 0 for row in rows if row.klass == klass) for klass in CLASSES}
 
 
-# --------------------------------------------------------------------------- #
 # lint: the whole-proposal invalidators
-# --------------------------------------------------------------------------- #
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -598,9 +594,7 @@ def evidence_findings(repo: Path, registry: Path) -> tuple[list[Finding], list[s
     return findings, evaluated, checked
 
 
-# --------------------------------------------------------------------------- #
 # budget: the always-on cap, per instance
-# --------------------------------------------------------------------------- #
 
 
 def settings_budget_kb(root: Path) -> int | None:
@@ -664,9 +658,7 @@ def render_budget(rows: list[BudgetRow]) -> str:
     return "\n".join(lines)
 
 
-# --------------------------------------------------------------------------- #
 # Commands
-# --------------------------------------------------------------------------- #
 
 
 def cmd_list(args) -> int:
