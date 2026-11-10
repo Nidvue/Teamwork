@@ -12,7 +12,7 @@ package and runtime.
 
 | Face | Entry point | Contents |
 |---|---|---|
-| Pi skill | `SKILL.md` at the repository root | `SKILL.md`, `roles/*.md`, `references/*.md`, `templates/` |
+| Skill | `SKILL.md` at the repository root | `SKILL.md`, `roles/*.md`, `references/*.md`, `templates/` |
 | Python package | `python -m teamwork` / `teamwork` console script | `src/teamwork/` |
 | Workspace format | `<project>/.pi/Teamwork/Teams/<Team>/` | Markdown + JSON |
 

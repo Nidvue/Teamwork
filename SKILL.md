@@ -18,7 +18,8 @@ parallel. Nothing is ever declared done on an unverified claim.
 ## Usage
 
 ```
-/teamwork <prompt>                     # staff and run the project described by <prompt>
+use the teamwork skill: <prompt>       # any host: the skill is loaded by its description
+/teamwork <prompt>                     # where the host maps skills to commands
 /teamwork --team <Name>                # use a specific per-team tree
 ```
 
@@ -31,12 +32,11 @@ The prompt is the product brief. If it is genuinely ambiguous in a way that
 changes what gets built, the CEO asks **one** consolidated round of questions and
 then proceeds on recorded assumptions.
 
-The skill is **agent-agnostic and remote-agnostic**: it runs on Pi, Claude Code,
-opencode, Codex, Cursor, Windsurf, Gemini CLI or any host that can run
-`teamwork.py` and read `AGENTS.md`, and against GitHub, GitLab, Bitbucket,
-Gitea/Forgejo, Azure DevOps or a bare server. The protocol is identical; only the
-six host operations and the integrity settings are adapted
-(`references/Adapters.md`, `references/Remotes.md`).
+The skill is **agent-agnostic and remote-agnostic**: it runs on any agent host
+that loads a skill directory, or that can run `teamwork.py` and read `AGENTS.md`,
+and against GitHub, GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps or a bare
+server. The protocol is identical; only the six host operations and the integrity
+settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 
 ## Non-negotiable contract
 
@@ -84,7 +84,7 @@ six host operations and the integrity settings are adapted
     minimised where it does not. Model choice never changes the
     protocol: the gates, the review and the ledger hold anyway.
     The CEO sets the lanes in one step with `teamwork.py model auto --apply`, which
-    detects the agent host (pi, claude, opencode, codex, cursor, gemini) and routes
+    detects the running agent host where the environment identifies it and routes
     the strongest available model to the decision lanes and the economy model to
     the mechanical lanes - automatic cost-aware routing, never an invented model id.
 13. **Warnings are errors.** The toolchain fails on them by configuration, the
@@ -421,10 +421,10 @@ the local result **and** the CI run (id + conclusion) for the certified revision
   two-stage gate, the ledger and the test matrix are host-independent. Only six
   operations need a host mechanism - spawn a teammate, delegate one-shot work,
   message an agent, inspect state, re-wake on a schedule, close the team. Name the
-  operation, then use the adapter in `references/Adapters.md` (Pi `teams`/`subagent`/
-  `schedule_prompt`, Claude Code agents + host cron, opencode agents, a host CLI in
-  a `bash` job, or the files themselves). Never hard-code a host tool in a
-  normative step, and never fake a tool the host lacks: record the degraded mode.
+  operation, then use the adapter in `references/Adapters.md` (a teammate tool, a
+  host CLI in a `bash` job, or the files themselves). Never hard-code a host tool
+  in a normative step, and never fake a tool the host lacks: record the degraded
+  mode.
   The protocol must still complete with no scheduler and no teammate tool at all -
   one agent wearing the hats sequentially, with the same gates.
 - **Git host.** The Release Engineer guarantees repository and CI integrity on
@@ -479,7 +479,7 @@ read the one you need instead of the whole skill.
 | `references/Roles.md` | the full roster, handoffs, decision rights and boundaries |
 | `references/Testing.md` | the 15 role-owned test layers, how each is designed/run, dedupe and required coverage |
 | `references/Audit.md` | what is recorded, provenance, the hash-chained ledger, internal and external audit |
-| `references/Adapters.md` | running the team on any agent host: the six operations, the Pi / Claude Code / opencode / Codex / Cursor / generic mapping, installation and degraded modes |
+| `references/Adapters.md` | running the team on any agent host: the six operations, the optional per-host mapping, installation and degraded modes |
 | `references/Remotes.md` | repository and CI integrity on any git host: branch protection, required checks, merge strategy, protected tags, least privilege, and the GitHub / GitLab / Bitbucket / Gitea / Azure mapping |
 
 Team skills: when a flow is repetitive, widely reused and must stay consistent,

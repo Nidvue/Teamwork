@@ -4,7 +4,7 @@ Owner: Designer. The developer-ready brief for `README.md` and `assets/**`:
 audience, information hierarchy, tokens, accessibility and the conversion
 checklist a Tester can assert on.
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [README](https://github.com/VisionPZ/Teamwork/blob/main/README.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [README](https://github.com/Nidvue/Teamwork/blob/main/README.md)
 
 ## 0. Principles and typography
 
@@ -36,7 +36,7 @@ the reader's own size settings, which is the most user-centred default available
 | A1 | Developers already using a coding agent | "multi-agent frameworks are demos, not teams" | Decide in 15 s whether this is a real, runnable system | Copies the install or quickstart command |
 | A2 | Engineers evaluating CrewAI/AutoGen/MetaGPT/LangGraph/Aider | "I need a comparison, not a slogan" | See the one structural difference that matters | Reads the comparison row and the evidence gate |
 | A3 | Tooling and security reviewers | "agent tools have no audit trail" | Confirm provenance, licensing and privacy posture | Opens the ledger and privacy claims |
-| A4 | Pi users | "is this just a prompt?" | Recognise a skill + package they can load | Loads `SKILL.md` as `~/.pi/agent/skills/teamwork` |
+| A4 | Users of any coding agent | "is this just a prompt?" | Recognise a skill they can clone into the host | Clones the skill to `.agents/skills/teamwork` and names it in a request |
 
 Primary job: **convert a skeptical developer into a first command run.** Everything
 above the fold serves A1; the proof sections serve A2-A4.
@@ -48,16 +48,18 @@ Order is deliberate: claim, proof, action, depth.
 | # | README block | Purpose | Serves |
 |---|---|---|---|
 | 1 | Centered hero: banner SVG, H1, one-line pitch, badges | State what it is and that it is real in one screen | A1-A4 |
-| 2 | Animated terminal demo | Show the CEO starting a company, not tell | A1, A4 |
+| 2 | Animated terminal demo | Show the skill install and the one-prompt start, not tell | A1, A4 |
 | 3 | Why Teamwork (3 differentiators) | The three structural claims a competitor cannot copy cheaply | A2, A3 |
 | 4 | Features table | Depth without scrolling walls of prose | A1-A4 |
-| 5 | Install (pipx / uvx / pip / source) + 30-second quickstart | Remove every excuse not to run it | A1 |
-| 6 | How it works (mermaid flowchart) | Make the loop legible: lanes -> self-check -> review -> STOP | A1, A2 |
-| 7 | Teamwork vs alternatives | Meet the evaluation frame honestly, with sources | A2 |
-| 8 | Architecture at a glance | Prove it is engineered, not a prompt file | A2, A3 |
-| 9 | Roadmap | Signal stewardship and direction | A1 |
-| 10 | Contributing / security / license / no personal data | Answer the trust and contribution questions | A3 |
-| 11 | Star history | Social proof, honestly framed as not guaranteed | A1 |
+| 5 | Install the skill (one clone) + optional engine + 30-second quickstart | Remove every excuse not to run it; make the skill, not an app, the thing you install | A1 |
+| 6 | For agents: host detection, install, verify, startup routine, hard rules | Let the agent install and drive the skill without a human relaying instructions | A1, A4 |
+| 7 | Common ways to use it: eight trimmed real transcripts (new project, feature, red CI, manual steering, pulse, resume, audit proof, model routing) | Show the recurring jobs, not only the first command | A1, A2 |
+| 8 | How it works (mermaid flowchart) | Make the loop legible: lanes -> self-check -> review -> STOP | A1, A2 |
+| 9 | Teamwork vs alternatives | Meet the evaluation frame honestly, with sources | A2 |
+| 10 | Architecture at a glance | Prove it is engineered, not a prompt file | A2, A3 |
+| 11 | Roadmap | Signal stewardship and direction | A1 |
+| 12 | Contributing / security / license / no personal data | Answer the trust and contribution questions | A3 |
+| 13 | Star history | Social proof, honestly framed as not guaranteed | A1 |
 
 ## 3. Visual system
 
@@ -68,7 +70,7 @@ All assets are hand-authored SVG (text, no raster), so nothing enters Git LFS
 |---|---|---|
 | `assets/banner.svg` | 1280 x 360 | Wordmark, pitch, role chips, mini org chart |
 | `assets/logo.svg` | 128 x 128 | Compact mark for docs/favicons |
-| `assets/demo.svg` | 960 x 560 | Animated terminal transcript of `init` -> task -> loop |
+| `assets/demo.svg` | 960 x 560 | Animated terminal transcript: skill clone (nested `.git` dropped) -> skill-named request -> loop gate |
 
 ### Tokens
 
@@ -90,7 +92,7 @@ All assets are hand-authored SVG (text, no raster), so nothing enters Git LFS
 | CI | Build is green | The first credential a developer checks | Actions `ci.yml` | "CI status" |
 | License | AGPL-3.0 | Copyleft is a deliberate decision (R-11); state it up front | `LICENSE` | "License: AGPL-3.0" |
 | Python | 3.9-3.13 | Compatibility is a purchase decision | Architecture | "Python 3.9 to 3.13" |
-| PyPI-ready | Packaging is prepared | Sets install expectations honestly | Install guide | "PyPI: ready" |
+| Skill install | One clone, nothing to build | Sets the install expectation correctly: this is a skill, not an app | Install guide | "Skill: one clone to install" |
 | PRs welcome | Contributions open | Lowers the barrier for the first PR | `CONTRIBUTING.md` | "PRs welcome" |
 | Stars | Social proof | Requested conversion signal; never promised (R-1) | Stargazers | "GitHub stars" |
 
@@ -131,7 +133,7 @@ Assertable by a Tester on the merged README.
 - [ ] Pitch and project name visible before the first scroll (hero block).
 - [ ] Animated demo is the first element after the hero and needs no JS/network.
 - [ ] Six badges present, each with alt text and a working link target.
-- [ ] Install section covers pipx, uvx, pip and source, copy-pasteable.
+- [ ] Install section installs the skill first (project or user skills directory, or `AGENTS.md` where the host has no skill loader) and demotes pipx/uvx/pip/source to an optional engine.
 - [ ] Quickstart is no more than four commands and names the workspace path.
 - [ ] Comparison table has 5 alternatives x 6 decision columns, with sources.
 - [ ] License (AGPL-3.0) and the "no personal data" statement are present.
@@ -141,15 +143,20 @@ Assertable by a Tester on the merged README.
 
 ## 7. Implementation notes
 
-- The demo is one SVG with CSS keyframes: a stepped `clip-path` types the
+- The demo is one SVG with CSS keyframes: a stepped `clip-path` types each
   command, `fade` reveals output lines, `blink` drives the cursor. Delays are
-  absolute so the transcript reads in order in ~6 s.
+  absolute so the transcript reads in order in ~7 s.
+- The demo's first line is the skill install (one clone) and its second is the
+  host request `use the teamwork skill: ...` - the product is a skill, so the demo must not open
+  with an app-style `teamwork` subcommand. The engine transcript follows as
+  evidence of what the skill does.
 - The banner org chart shows the CEO delegating to Architect, Developer and
   Reviewer, with Tester and the Ledger below - the same shape as the mermaid
   flowchart in the README.
-- Repository URLs use the public namespace `VisionPZ/Teamwork` (the same value
-  already used by `pyproject.toml`, `mkdocs.yml` and `CONTRIBUTING.md`). If the
-  owner handle is ever treated as private, substitute it before publishing.
+- Repository URLs use the public namespace `Nidvue/Teamwork` after the move from
+  the former personal handle; the same value is used by `pyproject.toml`,
+  `mkdocs.yml`, `CITATION.cff` and `CONTRIBUTING.md`. GitHub redirects the old
+  paths, but nothing in the tree relies on that redirect.
 
 ## 8. Verification (this deliverable)
 
@@ -181,7 +188,7 @@ needs and owns the asset end to end. The policy - medium choice, the
 `imaging probe`, the model ranking, the review of every candidate, the
 improvement loop and the privacy/licence red lines - lives in the Designer's
 charter,
-[`roles/designer.md`](https://github.com/VisionPZ/Teamwork/blob/main/roles/designer.md).
+[`roles/designer.md`](https://github.com/Nidvue/Teamwork/blob/main/roles/designer.md).
 
 ### Capability
 

@@ -6,7 +6,9 @@ Related: [Installation](guide/install.md) Â· [Quickstart](guide/quickstart.md) Â
 
 Nidvue Teamwork turns one prompt into a self-organising team of AI agents that plans,
 builds, tests and reviews a project until every acceptance criterion is verified.
-It ships as a Pi skill, an installable Python package, and a workspace format.
+It is a **skill for your coding agent** - not a standalone app and not a hosted
+service. The stdlib-only engine and the workspace format ship inside the skill;
+installing the engine as a Python package is optional.
 
 - **Automatic model routing** - `teamwork model auto` detects the agent
   host and routes the strongest available model to the decision lanes and
@@ -17,11 +19,11 @@ It ships as a Pi skill, an installable Python package, and a workspace format.
 
 | Face | What it means |
 |---|---|
-| **Pi skill** | `SKILL.md`, `roles/`, `references/` and `templates/` at the repository root; loadable as `~/.pi/agent/skills/teamwork`. |
-| **Python package** | `src/teamwork/`, installed as `teamwork-agents`, exposing the `teamwork` console script and `python -m teamwork`. No third-party runtime dependencies. |
+| **Skill** (the product) | `SKILL.md`, `roles/`, `references/`, `templates/` and the engine in one directory, cloned into the skills directory an agent host scans (project `.agents/skills/teamwork/` or user `~/.agents/skills/teamwork/`). Hosts without a skill loader use the same protocol through `AGENTS.md`. Invoked by naming the skill in the request. |
+| **Engine** (optional CLI) | `src/teamwork/`, installable as `teamwork-agents`, exposing the `teamwork` console script and `python -m teamwork`. No third-party runtime dependencies. The skill runs the same engine from its own directory. |
 | **Workspace format** | Markdown and JSON under `<project>/.pi/Teamwork/Teams/<Team>/`, hidden and local; project output is committed. |
 
-One engine backs all three, with the original skill behaviour unchanged.
+One engine backs all three; the skill is how people install and use it.
 
 ## Why
 
@@ -36,19 +38,25 @@ One engine backs all three, with the original skill behaviour unchanged.
 - **Auditable by design.** Every mutation is appended to a hash-chained ledger
   (`Ledger.jsonl`) you can verify without trusting the team.
 
-## 60-second quickstart
-
-Requires Python 3.9 or newer; nothing else at runtime.
+## 30-second quickstart
 
 ```console
-$ mkdir demo && cd demo
-$ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-1,developer-1,tester-1
+$ mkdir -p .agents/skills && git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork && rm -rf .agents/skills/teamwork/.git
+$ cd my-project
+> use the teamwork skill: build a URL shortener with a CLI, tests and docs
+```
+
+One clone installs the skill; the prompt starts the company. The CEO writes
+`AGENTS.md`, staffs the roster and opens the lanes, and `init` creates the
+workspace under `.pi/Teamwork/Teams/<Team>/` without touching your tree. When you
+want to see or steer the engine yourself:
+
+```console
 $ teamwork map
 $ teamwork criteria add --id AC-1 --text "CLI prints the version and exits 0" --owner developer --by ceo
 $ teamwork loop
 ```
 
-`init` creates the workspace and writes `AGENTS.md`. `map` prints the layout.
 `criteria add` records what "done" means; `loop` is the mechanical stop check and
 reports `CONTINUE` until every criterion and test layer passes. Full walkthrough:
 [Quickstart](guide/quickstart.md).
@@ -69,7 +77,7 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
 
 | Page | Read it for |
 |---|---|
-| [Installation](guide/install.md) | pip, pipx, uvx, from source; verifying the install. |
+| [Installation](guide/install.md) | Install the skill into the directory your agent host scans; optional engine package. |
 | [Quickstart](guide/quickstart.md) | Bootstrap a team in an empty project and run the CEO loop. |
 | [CLI reference](guide/cli.md) | Every command, subcommand, flag and exit code. |
 | [Architecture](guide/architecture.md) | Package layout, resource resolution, workspace and ledger. |
@@ -77,9 +85,9 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
 
 ## Repository
 
-- Source and releases: [github.com/VisionPZ/Teamwork](https://github.com/VisionPZ/Teamwork)
-- README and demo: [README.md](https://github.com/VisionPZ/Teamwork/blob/main/README.md)
-- Contributions: [CONTRIBUTING.md](https://github.com/VisionPZ/Teamwork/blob/main/CONTRIBUTING.md)
-- Security policy: [SECURITY.md](https://github.com/VisionPZ/Teamwork/blob/main/SECURITY.md)
-- Changelog: [CHANGELOG.md](https://github.com/VisionPZ/Teamwork/blob/main/CHANGELOG.md)
-- License: [AGPL-3.0](https://github.com/VisionPZ/Teamwork/blob/main/LICENSE)
+- Source and releases: [github.com/Nidvue/Teamwork](https://github.com/Nidvue/Teamwork)
+- README and demo: [README.md](https://github.com/Nidvue/Teamwork/blob/main/README.md)
+- Contributions: [CONTRIBUTING.md](https://github.com/Nidvue/Teamwork/blob/main/CONTRIBUTING.md)
+- Security policy: [SECURITY.md](https://github.com/Nidvue/Teamwork/blob/main/SECURITY.md)
+- Changelog: [CHANGELOG.md](https://github.com/Nidvue/Teamwork/blob/main/CHANGELOG.md)
+- License: [AGPL-3.0](https://github.com/Nidvue/Teamwork/blob/main/LICENSE)
