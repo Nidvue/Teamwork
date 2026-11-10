@@ -732,6 +732,82 @@ def test_r9_illustrative_marker_exempts_the_token(tmp_path):
     assert "1 illustrative" in result.detail
 
 
+def test_r9_marker_exempts_a_line_that_denies_a_tag(tmp_path):
+    """A historical *denial* of a tag is exempt only through the marker.
+
+    The prose says the tag does not exist; the rule cannot tell a denial from a
+    claim, so the documented escape - the illustrative marker - is what makes the
+    line pass. Without the marker the very same line is drift (see the next
+    test).
+    """
+    root = make_repo(
+        tmp_path / "repo",
+        version="1.1.0",
+        files={
+            "CHANGELOG.md": (
+                "# Changelog\n\n## [1.1.0]\n\n"
+                "- Its rollback pointed at a `v0.9.0` tag that was never cut. "
+                f"{ILLUSTRATIVE}\n"
+            )
+        },
+    )
+    git(root, "tag", "v1.1.0")
+
+    result = crc.rule_r9_markdown_tags(root)
+
+    assert result.status == "ok"
+    assert "1 illustrative" in result.detail
+
+
+def test_r9_a_denial_without_the_marker_is_still_drift(tmp_path):
+    """The rule does not understand negations - the limitation, pinned.
+
+    ``v0.9.0`` is named on a line that says the tag does not exist. R9 reports
+    it anyway: it matches the frozen tag-claim pattern and does not parse
+    English. The marker is therefore the only escape, which is why a
+    denying line must carry it.
+    """
+    root = make_repo(
+        tmp_path / "repo",
+        version="1.1.0",
+        files={
+            "CHANGELOG.md": (
+                "# Changelog\n\n## [1.1.0]\n\n"
+                "- Its rollback pointed at a `v0.9.0` tag that was never cut.\n"
+            )
+        },
+    )
+    git(root, "tag", "v1.1.0")
+
+    result = crc.rule_r9_markdown_tags(root)
+
+    assert result.status == "DRIFT"
+    assert "CHANGELOG.md:5" in result.detail
+    assert "v0.9.0" in result.detail
+
+
+def test_r9_marker_on_one_line_does_not_exempt_a_genuine_claim(tmp_path):
+    """The marker exempts its own line only; a real claim beside it is drift."""
+    root = make_repo(
+        tmp_path / "repo",
+        version="1.1.0",
+        files={
+            "README.md": (
+                "# Teamwork\n\n"
+                f"The v0.9.0 tag was never cut. {ILLUSTRATIVE}\n\n"
+                "Install with `--branch v9.9.9`\n"
+            )
+        },
+    )
+    git(root, "tag", "v1.1.0")
+
+    result = crc.rule_r9_markdown_tags(root)
+
+    assert result.status == "DRIFT"
+    assert "README.md:5" in result.detail
+    assert "v9.9.9" in result.detail
+
+
 def test_r9_archive_is_out_of_scope_for_every_scanner(tmp_path):
     root = make_repo(tmp_path / "repo", version="1.1.0")
     git(root, "tag", "v1.1.0")
