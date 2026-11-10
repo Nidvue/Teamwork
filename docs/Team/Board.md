@@ -81,100 +81,134 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| architect | T-0001 | - | done | - | - |
-| architect | T-0002 | architecture | done | P-0024 | eea0824 |
-| ceo | T-0001 | - | dropped | - | - |
-| ceo | T-0002 | throughput | done | - | - |
-| ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
-| ceo | T-0004 | records | dropped | P-0011 | - |
-| ceo | T-0005 | - | doing | - | - |
-| ceo | T-0006 | - | done | - | - |
-| ceo | T-0007 | - | done | - | - |
-| ceo | T-0008 | - | done | - | - |
-| ceo | T-0009 | - | done | - | - |
-| ceo | T-0010 | context | done | P-0013 | 6ad1132 |
+| architect | T-0001 | architecture | done | P-0003 | bef4e02 |
+| architect | T-0002 | - | dropped | - | - |
+| architect | T-0003 | - | done | P-0036 | 90eb61c |
+| architect | T-0004 | architecture | done | P-0042 | be2c868 |
+| architect | T-0005 | architecture | done | P-0067 | bb7c34f |
+| architect | T-0006 | - | done | P-0082 | f4cd70f |
+| architect | T-0007 | - | done | P-0081 | 0340949 |
+| ceo | T-0001 | review | done | P-0001 | 2f44f00 |
+| ceo | T-0002 | docs | done | P-0008 | 28c1133 |
+| ceo | T-0003 | - | done | - | - |
+| ceo | T-0004 | - | dropped | - | - |
+| ceo | T-0005 | records | done | P-0010 | f91bf1b |
+| ceo | T-0006 | - | dropped | - | - |
+| ceo | T-0007 | - | dropped | - | - |
+| ceo | T-0008 | records | done | P-0016 | 51b8235 |
+| ceo | T-0009 | audit | done | P-0019 | bbbe525 |
+| ceo | T-0010 | - | done | - | - |
 | ceo | T-0011 | - | done | - | - |
-| ceo | T-0012 | - | dropped | - | - |
-| ceo | T-0013 | records | done | P-0014 | 8835b16 |
-| ceo | T-0014 | - | dropped | P-0015 | - |
-| ceo | T-0015 | records | dropped | P-0016 | - |
-| ceo | T-0016 | team-docs | done | P-0018 | a88e9d2 |
-| ceo | T-0017 | team-docs | done | P-0028 | ebc0c8b |
-| ceo | T-0018 | team-docs | done | P-0031 | 079ee66 |
-| ceo | T-0019 | team-docs | done | P-0041 | 1724fd7 |
-| ceo | T-0020 | records | done | P-0051 | f36e133 |
-| ceo | T-0021 | team-docs | done | P-0052 | f187e21 |
-| ceo | T-0022 | records | done | P-0053 | c2bed4b |
-| ceo | T-0023 | records | done | P-0062 | 55817f9 |
-| developer | T-0001 | - | done | - | - |
-| developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
-| developer | T-0003 | memory | done | P-0005 | 521e190 |
-| developer | T-0004 | harness | done | P-0035 | b2e5f10 |
-| developer | T-0005 | preflight | done | P-0025 | ca60f28 |
-| developer | T-0006 | io | done | P-0004 | c57e9d4 |
-| developer | T-0007 | records | done | P-0009 | 9e3ed06 |
-| developer | T-0008 | identity | done | P-0006 | 76bc10a |
-| developer | T-0009 | git-timeout | done | P-0007 | 602ee84 |
-| developer | T-0010 | clean | done | P-0036 | a2da634 |
-| developer | T-0011 | config | done | P-0037 | cc7a923 |
-| developer | T-0012 | preflight | done | - | - |
-| developer | T-0013 | ledger | done | P-0038 | df22172 |
-| developer | T-0014 | audit | done | P-0039 | 91c2d7f |
-| developer | T-0015 | - | done | - | - |
-| developer | T-0016 | - | done | - | - |
-| developer | T-0017 | - | done | - | - |
-| developer | T-0018 | typing | done | P-0040 | c24a595 |
-| developer | T-0019 | - | done | - | - |
-| developer | T-0020 | - | done | - | - |
-| developer | T-0021 | - | done | - | - |
-| developer | T-0022 | hooks | done | P-0054 | b90089c |
-| developer | T-0023 | privacy | done | P-0008 | 206c099 |
-| developer | T-0024 | - | dropped | - | - |
-| developer | T-0025 | - | done | - | - |
-| developer | T-0026 | - | done | - | - |
-| developer | T-0027 | - | done | - | - |
-| developer | T-0028 | ledger | done | P-0012 | e252fcc |
-| developer | T-0029 | lanes | done | P-0022 | 2722c27 |
-| developer | T-0030 | privacy | done | P-0010 | 25f2c0c |
-| developer | T-0031 | - | done | - | - |
-| developer | T-0032 | preflight | done | P-0032 | 0cbcb03 |
-| developer | T-0033 | - | done | - | - |
-| developer | T-0034 | - | done | - | - |
-| developer | T-0035 | merge | done | P-0033 | 4895b2a |
-| developer | T-0036 | memory | done | P-0017 | a8ffd0e |
-| developer | T-0037 | branch | done | P-0034 | b914ae4 |
-| developer | T-0038 | lanes | done | P-0020 | dd5904e |
-| developer | T-0039 | docs | done | P-0019 | 550118b |
-| developer | T-0040 | lanes | done | P-0021 | d47922d |
-| developer | T-0041 | lanes | done | P-0027 | cca7654 |
-| developer | T-0042 | lanes | done | P-0029 | bc29abe |
-| developer | T-0043 | memory | done | P-0030 | 55c891c |
-| developer | T-0044 | - | done | - | - |
-| developer | T-0045 | - | dropped | - | - |
-| developer | T-0046 | clean | done | P-0042 | 4e31f14 |
-| developer | T-0047 | audit | done | P-0043 | 8b5a3c9 |
-| developer | T-0048 | audit | done | P-0044 | e24c38c |
-| developer | T-0049 | audit | done | P-0045 | 6d4d6cd |
-| developer | T-0050 | memory | done | P-0046 | 0e88de8 |
-| developer | T-0051 | lanes | done | P-0047 | ad5753d |
-| developer | T-0052 | audit | done | P-0048 | c95afdf |
-| developer | T-0053 | preflight | done | P-0049 | 38112f9 |
-| developer | T-0054 | audit | done | P-0050 | 17bd3a9 |
-| developer | T-0055 | privacy | done | P-0055 | 0d913cf |
-| developer | T-0056 | records | done | P-0056 | b8805b8 |
-| developer | T-0057 | records | done | P-0057 | 0908643 |
-| developer | T-0058 | privacy | done | P-0058 | 567402a |
-| developer | T-0059 | lanes | done | P-0059 | b060209 |
-| developer | T-0060 | ledger | done | P-0061 | 8a50ec9 |
-| developer | T-0061 | ci | done | P-0063 | 0096027 |
-| reviewer | T-0001 | - | done | - | - |
-| reviewer | T-0002 | - | done | - | - |
+| ceo | T-0012 | audit | done | P-0029 | e74cde1 |
+| ceo | T-0013 | - | done | - | - |
+| ceo | T-0014 | audit | done | P-0034 | 67e0b0a |
+| ceo | T-0015 | plan | done | P-0056 | 22c817d |
+| ceo | T-0016 | - | dropped | - | - |
+| ceo | T-0017 | review | done | P-0057 | 13fb170 |
+| ceo | T-0018 | org | done | P-0069 | 911c064 |
+| ceo | T-0019 | plan | done | P-0091 | bff7c80 |
+| ceo | T-0020 | records | done | P-0058 | bcf48e7 |
+| ceo | T-0021 | org | done | P-0063 | 20e12ae |
+| ceo | T-0022 | records | done | P-0060 | e7e4768 |
+| ceo | T-0023 | records | done | P-0061 | 7c96192 |
+| ceo | T-0024 | records | done | P-0062 | 394a386 |
+| ceo | T-0025 | records | done | P-0064 | 3a489fb |
+| ceo | T-0026 | records | done | P-0065 | 2fab37e |
+| ceo | T-0027 | release | done | P-0071 | 786041c |
+| ceo | T-0028 | release | done | P-0074 | 38bcef8 |
+| ceo | T-0029 | skill | done | P-0078 | c571e2b |
+| ceo | T-0030 | skill | done | P-0084 | aa98609 |
+| ceo | T-0031 | records | done | P-0085 | 7bc4f15 |
+| ceo | T-0032 | docs | done | P-0087 | 3179a8a |
+| ceo | T-0033 | memory | doing | P-0092 | - |
+| developer | T-0001 | harness | done | P-0004 | b33120c |
+| developer | T-0002 | hooks | done | P-0007 | 49cd42e |
+| developer | T-0003 | - | dropped | - | - |
+| developer | T-0004 | tests | done | P-0012 | 1380163 |
+| developer | T-0005 | records | done | P-0013 | 1592195 |
+| developer | T-0006 | privacy | done | P-0015 | 0343b28 |
+| developer | T-0007 | records | done | P-0014 | ba947c0 |
+| developer | T-0008 | audit | done | P-0018 | 6d090aa |
+| developer | T-0009 | governance | done | P-0025 | 5a705ba |
+| developer | T-0010 | tests | done | P-0031 | f405c4e |
+| developer | T-0011 | harness | done | P-0032 | 5177a25 |
+| developer | T-0012 | - | done | P-0033 | 7f2184e |
+| developer | T-0013 | - | done | P-0035 | 90eb61c |
+| developer | T-0014 | - | dropped | - | - |
+| developer | T-0015 | ci | done | P-0039 | d18a1b8 |
+| developer | T-0016 | review | done | P-0038 | f849f2a |
+| developer | T-0017 | release | done | P-0037 | 3f8b6dc |
+| developer | T-0018 | coordination | done | P-0050 | cb232e5 |
+| developer | T-0019 | records | dropped | P-0044 | - |
+| developer | T-0020 | engine | done | P-0041 | 171b2cf |
+| developer | T-0021 | tooling | done | P-0047 | 2f8be75 |
+| developer | T-0022 | - | dropped | - | - |
+| developer | T-0023 | - | dropped | - | - |
+| developer | T-0024 | security | done | P-0040 | 343941f |
+| developer | T-0025 | - | dropped | - | - |
+| developer | T-0026 | records | done | P-0046 | 53ed4f1 |
+| developer | T-0027 | release | done | P-0043 | a3aab49 |
+| developer | T-0028 | board | done | P-0045 | a74aee4 |
+| developer | T-0029 | - | dropped | - | - |
+| developer | T-0030 | hooks | dropped | P-0049 | - |
+| developer | T-0031 | - | dropped | - | - |
+| developer | T-0032 | release | done | P-0048 | abbb067 |
+| developer | T-0033 | - | dropped | - | - |
+| developer | T-0034 | security | done | P-0053 | b1eabef |
+| developer | T-0035 | security | done | P-0054 | 937d0d0 |
+| developer | T-0036 | release | done | P-0052 | 7c1e2a5 |
+| developer | T-0037 | hooks | done | P-0051 | d71a5ee |
+| developer | T-0038 | - | dropped | - | - |
+| developer | T-0039 | - | dropped | - | - |
+| developer | T-0040 | records | done | P-0055 | 5d93c2c |
+| developer | T-0041 | - | dropped | - | - |
+| developer | T-0042 | t-0042 | done | P-0068 | fb8eae0 |
+| developer | T-0043 | board | done | P-0066 | 321d0c4 |
+| developer | T-0044 | deliver | done | P-0059 | e9eaacf |
+| developer | T-0045 | records | done | P-0075 | f1aec91 |
+| developer | T-0046 | records | done | P-0076 | 0e3f5f8 |
+| developer | T-0047 | records | done | P-0077 | 4445f52 |
+| developer | T-0048 | privacy | done | P-0070 | fc6da3a |
+| developer | T-0049 | release | done | P-0072 | 982dfa6 |
+| developer | T-0050 | release | done | P-0073 | bce6f07 |
+| developer | T-0051 | release | done | P-0079 | d2e7f62 |
+| developer | T-0052 | harness | done | P-0080 | ff62638 |
+| developer | T-0053 | deliver | done | P-0088 | 82241bb |
+| developer | T-0054 | - | doing | - | - |
+| developer | T-0055 | - | todo | - | - |
+| developer | T-0056 | - | todo | - | - |
+| developer | T-0057 | - | todo | - | - |
+| developer | T-0058 | - | todo | - | - |
+| product-manager | T-0001 | research | done | P-0005 | 73be637 |
+| product-manager | T-0002 | records | done | P-0009 | 148c3de |
+| product-manager | T-0003 | records | done | P-0017 | 49ad40e |
+| product-manager | T-0004 | records | done | P-0020 | fe0afb9 |
+| product-manager | T-0005 | records | done | P-0021 | 80f0cfa |
+| product-manager | T-0006 | records | done | P-0027 | cd516f1 |
+| product-manager | T-0007 | records | done | P-0028 | bd52cb8 |
+| product-manager | T-0008 | records | done | P-0030 | 6a8a072 |
+| product-manager | T-0009 | - | dropped | - | - |
+| product-manager | T-0010 | memory | done | P-0093 | 91adb70 |
+| reviewer | T-0001 | records | dropped | P-0023 | - |
+| reviewer | T-0002 | records | done | P-0026 | e3fa290 |
 | reviewer | T-0003 | - | done | - | - |
-| reviewer | T-0004 | security | done | P-0060 | 59c240f |
-| team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
-| tester | T-0001 | - | done | P-0023 | dadd920 |
-| tester | T-0002 | - | done | P-0026 | 4c857a4 |
-| tester | T-0003 | - | doing | - | - |
+| reviewer | T-0004 | - | done | - | - |
+| reviewer | T-0005 | - | done | - | - |
+| security-auditor | T-0001 | audit | dropped | P-0022 | - |
+| security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
+| security-auditor | T-0003 | - | dropped | - | - |
+| security-auditor | T-0004 | - | done | - | - |
+| security-auditor | T-0005 | - | done | - | - |
+| security-auditor | T-0006 | audit | done | P-0083 | 98232a8 |
+| security-auditor | T-0007 | security | review | P-0094 | - |
+| tester | T-0001 | harness | done | P-0011 | 47db23d |
+| tester | T-0002 | tests | done | P-0002 | 090910a |
+| tester | T-0003 | tests | done | P-0006 | cc86e6d |
+| tester | T-0004 | - | done | - | - |
+| tester | T-0005 | harness | done | P-0086 | 41b38f6 |
+| tester | T-0006 | tests | done | P-0089 | 2c4ad7e |
+| tester | T-0007 | t-0042 | done | P-0090 | 6750ea7 |
+| tester | T-0008 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -192,8 +226,14 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | doing | - |
+| ceo | T-0033 · M22 intake, the frozen memory contract, criteria and the measured close-out records | P0 | doing | - |
+| developer | T-0054 · memory verify: re-resolve record evidence against ground truth, and a drifted group in memory dream | P0 | doing | - |
+| developer | T-0055 · memory verify --focus: goal-scoped verification order and selection | P0 | todo | - |
+| developer | T-0056 · transcript reach: context find and recall search the ledger and worklogs | P0 | todo | - |
+| developer | T-0057 · memory index header in load and the lane packet, capped | P0 | todo | - |
+| developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | todo | - |
+| security-auditor | T-0007 · privacy and secret audit of the memory stores and the injected pack | P1 | review | - |
+| tester | T-0008 · integration layer: verify, focus, transcript reach and the index header on a real team tree | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.

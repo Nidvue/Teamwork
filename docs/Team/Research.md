@@ -506,3 +506,57 @@ break that promise, and none of the adopted mechanisms needs one.
 - [tests/purity.test.ts at 2730941](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/tests/purity.test.ts) - accessed 2026-11-04 (the architecture as a test)
 - [AGENTS.md at 2730941](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/AGENTS.md) - accessed 2026-11-04 (principles, tests first, delivery boundaries)
 - [LICENSE (MIT)](https://github.com/KKKKhazix/agent-autoloop/blob/2730941e85723ca2b8e2b2629fa428832b810ffa/LICENSE) - accessed 2026-11-04
+
+## M22 - memory components re-verified (2026-11-09)
+
+Owner: Product Manager. Related: [Plan](Plan.md) · [Architecture](Architecture.md) ·
+[Design](Design.md) · [Risks](Risks.md)
+
+The memory milestone (M22, AC-M22-5) rests on an outside article. Rather than
+carry forward a summary of it, every claim the milestone leans on was re-checked
+against the live page on 2026-11-09 and is recorded here with the fragment it
+rests on. Fetch evidence: HTTP 200, 242,698 bytes of HTML, 24,861 characters of
+extracted text; all six claim areas located in that text.
+
+| claim | what the page says (quote) | status | what it changes here |
+|---|---|---|---|
+| C1 dreaming = reflecting on logs to fix mistakes and produce notes/representations | "reflecting on logs to fix mistakes or produce new notes and representations. This process is often called dreaming" | verified | Dreaming is a maintenance pass over logs we already keep, not a new subsystem. It needs no daemon and no vector store. |
+| C2 a note is trustworthy when it carries the rule AND how the agent knew the rule was true | "Most of its entries included a rule (and also how it knew the rule was true)" | verified | Our memory records must carry their own evidence, not just the conclusion. A rule without its warrant is a note we cannot re-check later. |
+| C3 too much memory is worse than too little | "413 memory files across 225 folders and earned one badge" · "Fable 5, by comparison, wrote nine files in two folders ... and earned four badges" | verified (numbers only) | The numbers hold. The page's reason is stale-state cost, not volume as such; "worse than too little" is our inference, not its wording. |
+| C4 a wiki helps most combined with search, and a wiki can outgrow the corpus it abstracts | "the wiki helped Claude the most when we also gave it access to a search tool" · "the wiki grew larger than the documents themselves" | verified, with a correction | The task brief said 53% -> 61%. The page says the aggregate score rose from 54% to 61% with search plus wiki as the wiki grew, against 53% for search alone, and 48% for the wiki alone. Corrected here. |
+| C5 injected memory costs tokens, a wrong note is carried into every session, and Claude Code loads only the first 200 lines / 25 KB of MEMORY.md as an index | "Injected memories use up valuable tokens, and an incorrect note can be carried into every session." · "It loads only the first 200 lines or 25 KB of MEMORY.md." | verified | Our injected memory file is an index with a hard size ceiling, not a store. Everything else stays on disk and is searched on demand. |
+| C6 "it's reasonable to consider transcript search as the foundation" of memory | "It's also reasonable to consider transcript search as the foundation of Claude's memory." | verified | Search is the baseline we build first and measure against; representations are the optional layer above it. |
+
+Two further fragments bear directly on the decision below and are quoted for that
+reason: "could be retrieved with a text search from a single document, and the
+wiki showed no clear gain in performance relative to search", and "Using search
+and the wiki also saved about 20,000 tokens per question."
+
+### Why no wiki yet
+
+The CEO's decision, recorded here on 2026-11-09, is to **defer** any wiki
+representation of our memory store. This is a recorded decision with a falsifier,
+not an omission.
+
+The reasoning is C4 read honestly. A wiki paid off only when it was combined with
+search, and only on questions that needed synthesis across a corpus; where a
+single record answered, the page found no clear gain. A wiki also has an unbounded
+failure mode - it grew larger than the raw files and abstracted nothing, which the
+page compares to Borges's map at the scale of the empire. Building one now would
+add a maintained artifact, and a maintained artifact can drift and be wrong in the
+way C2 warns about, to buy a gain we have no evidence we need at our size.
+
+**Falsifier - build the wiki when either trigger fires:**
+
+1. the active memory store exceeds **200 active records**; or
+2. real questions **require synthesis across records**, so that search over single
+   records demonstrably cannot answer them.
+
+When a trigger fires, the wiki is built behind a measurement, not on fashion: an
+A/B on our own questions showing search-plus-wiki above search alone, and a size
+check showing the representation stays smaller than the store it abstracts. If the
+measurement shows no gain, the decision stands and the trigger is re-recorded.
+
+**Sources.**
+
+- [The components of agent memory](https://www.anthropic.com/research/components-of-agent-memory) - accessed 2026-11-09
