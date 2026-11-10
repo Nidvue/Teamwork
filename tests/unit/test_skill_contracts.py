@@ -1488,15 +1488,69 @@ def _delete_repository(path: Path) -> None:
     """Delete a checkout, including a repository git has made read-only.
 
     git marks its objects and refs read-only, and ``shutil.rmtree`` stops at the
-    first one on Windows (``PermissionError: [WinError 5]``), so the write bit is
-    restored before the tree goes. The documented recipe says ``rm -rf``, but that
-    is a documentation surface asserted further down - not a tool this test needs
+    first one on Windows (``PermissionError: [WinError 5]``), so owner access is
+    restored before the tree goes. Directories need owner read+write+execute and
+    files owner read+write: on POSIX a directory without the execute bit cannot
+    be traversed, so restoring ``stat.S_IWRITE`` alone leaves it unremovable
+    (``PermissionError`` on ``.git/info``/``.git/refs``), while on Windows
+    ``chmod`` only toggles the read-only attribute, which those bits do exactly
+    as well. Symlinks are never followed or chmodded - ``rmtree`` unlinks the
+    link itself (T-0014). The documented recipe says ``rm -rf``, but that is a
+    documentation surface asserted further down - not a tool this test needs
     installed (T-0003).
     """
+    directory_mode = stat.S_IRWXU  # owner rwx: a POSIX directory must stay traversable
+    file_mode = stat.S_IRUSR | stat.S_IWUSR  # owner rw
     for parent, directories, files in os.walk(path, topdown=False):
-        for name in [*files, *directories]:
-            Path(parent, name).chmod(stat.S_IWRITE)
+        for name in files:
+            entry = Path(parent, name)
+            if not entry.is_symlink():
+                entry.chmod(file_mode)
+        for name in directories:
+            entry = Path(parent, name)
+            if not entry.is_symlink():
+                entry.chmod(directory_mode)
+    path.chmod(directory_mode)
     shutil.rmtree(path)
+
+
+def test_delete_repository_restores_traversable_directories(tmp_path, monkeypatch):
+    """A read-only checkout must be deletable on POSIX as well as on Windows.
+
+    ``git`` marks its objects and refs read-only and the removal helper has to
+    restore access before ``shutil.rmtree`` runs. Restoring only
+    :data:`stat.S_IWRITE` is enough on Windows, where ``chmod`` merely toggles
+    the read-only attribute, but on POSIX a directory without the execute bit
+    cannot be traversed, so ``rmtree`` then dies with ``PermissionError`` on
+    ``.git/info``/``.git/refs``. The helper must therefore restore owner
+    read+write+execute on directories and owner read+write on files (T-0014).
+    """
+    tree = tmp_path / "checkout"
+    locked = tree / ".git" / "refs"
+    locked.mkdir(parents=True)
+    reference = locked / "heads-main"
+    reference.write_text("ref: refs/heads/main\n", encoding="utf-8")
+    reference.chmod(0o444)
+    locked.chmod(0o500)
+
+    requested: dict[str, int] = {}
+    real_chmod = os.chmod
+
+    def spy(path, mode, *args, **kwargs):
+        requested[Path(path).name] = mode
+        return real_chmod(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(os, "chmod", spy)
+    _delete_repository(tree)
+
+    assert not tree.exists(), "the read-only tree must be gone"
+    for name in ("refs", "checkout"):
+        mode = requested[name]
+        assert mode & stat.S_IRUSR, f"{name} must regain owner read"
+        assert mode & stat.S_IWUSR, f"{name} must regain owner write"
+        assert mode & stat.S_IXUSR, f"{name} must regain owner execute to be traversable"
+    assert requested["heads-main"] & stat.S_IRUSR
+    assert requested["heads-main"] & stat.S_IWUSR
 
 
 def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path):
