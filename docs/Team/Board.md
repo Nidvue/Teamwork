@@ -183,15 +183,19 @@ under two roles is two tasks.
 | developer | T-0055 | memory | done | P-0096 | 81dcf8f |
 | developer | T-0056 | memory | done | P-0099 | f644054 |
 | developer | T-0057 | memory | done | P-0100 | 7bd7a68 |
-| developer | T-0058 | preflight | review | P-0104 | - |
-| developer | T-0059 | privacy | review | P-0103 | - |
-| developer | T-0060 | - | doing | - | - |
-| developer | T-0061 | - | todo | - | - |
-| developer | T-0062 | - | todo | - | - |
+| developer | T-0058 | preflight | doing | P-0104 | - |
+| developer | T-0059 | privacy | doing | P-0103 | - |
+| developer | T-0060 | records | done | P-0108 | 2570cec |
+| developer | T-0061 | - | doing | - | - |
+| developer | T-0062 | - | doing | - | - |
 | developer | T-0063 | - | todo | - | - |
 | developer | T-0064 | - | done | - | - |
 | developer | T-0065 | - | todo | - | - |
 | developer | T-0066 | - | todo | - | - |
+| developer | T-0067 | worktree | review | P-0106 | - |
+| developer | T-0068 | - | dropped | - | - |
+| developer | T-0069 | - | doing | - | - |
+| developer | T-0070 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -207,7 +211,7 @@ under two roles is two tasks.
 | reviewer | T-0003 | - | done | - | - |
 | reviewer | T-0004 | - | done | - | - |
 | reviewer | T-0005 | - | done | - | - |
-| reviewer | T-0006 | - | review | - | - |
+| reviewer | T-0006 | - | doing | - | - |
 | security-auditor | T-0001 | audit | dropped | P-0022 | - |
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
@@ -215,7 +219,7 @@ under two roles is two tasks.
 | security-auditor | T-0005 | - | done | - | - |
 | security-auditor | T-0006 | audit | done | P-0083 | 98232a8 |
 | security-auditor | T-0007 | security | done | P-0094 | 90c5ecf |
-| security-auditor | T-0008 | - | todo | - | - |
+| security-auditor | T-0008 | security | doing | P-0107 | - |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
@@ -225,6 +229,7 @@ under two roles is two tasks.
 | tester | T-0007 | t-0042 | done | P-0090 | 6750ea7 |
 | tester | T-0008 | memory | done | P-0097 | e34d6f7 |
 | tester | T-0009 | - | done | - | - |
+| tester | T-0010 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -243,16 +248,19 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0037 · prove the plugin-free native fan-out: a repeatable parallel proof at the engine's maximum lane count | P1 | doing | - |
-| developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | review | - |
-| developer | T-0059 · privacy scan does not cover the team memory stores | P1 | review | - |
-| developer | T-0060 · scrub absolute host paths from the role stores | P2 | doing | - |
-| developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | todo | - |
-| developer | T-0062 · memory verify checks only the first evidence kind, so a drifted path behind a valid revision passes | P2 | todo | - |
+| developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | doing | - |
+| developer | T-0059 · privacy scan does not cover the team memory stores | P1 | doing | - |
+| developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | doing | - |
+| developer | T-0062 · memory verify checks only the first evidence kind, so a drifted path behind a valid revision passes | P2 | doing | - |
 | developer | T-0063 · tests/unit/test_memory_index.py fails when run alone: no record mask installed | P2 | todo | - |
 | developer | T-0065 · `load` prints the packet, then exits 1 on a torn ledger tail: validate the ledger before rendering, not after | P2 | todo | - |
 | developer | T-0066 · A purpose-built zero-open-lesson fixture: prove the index header bounds and additivity on a synthetic tree, not only on the live team tree | P2 | todo | - |
-| reviewer | T-0006 · record the acceptance layer for memory and pi-package, and verify AC-M22-1..5 on the merged revision | P1 | review | - |
-| security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | todo | - |
+| developer | T-0067 · every instance works in its own worktree by default, shared only when the task needs it | P0 | review | - |
+| developer | T-0069 · teamwork.py status: compact live state of every instance (busy/idle, task, elapsed, progress) with --json | P1 | doing | - |
+| developer | T-0070 · pi extension teamwork-status: live agent widget + footer status from status --json, packaged | P1 | todo | - |
+| reviewer | T-0006 · record the acceptance layer for memory and pi-package, and verify AC-M22-1..5 on the merged revision | P1 | doing | - |
+| security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | doing | - |
+| tester | T-0010 · integration layer: status contract and packaged extension smoke test | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
