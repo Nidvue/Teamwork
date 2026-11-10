@@ -9,9 +9,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.2.0...HEAD)
+## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.2.1...HEAD)
 
-Compares from the newest tag, `v1.2.0`.
+Compares from the newest tag, `v1.2.1`.
+
+## [1.2.1](https://github.com/Nidvue/Teamwork/compare/v1.2.0...v1.2.1) - 2026-10-27
+
+### Fixed
+
+- **A tag push audits the tagged commit, not the whole history.** The committer
+  guard used the all-zero `before` of a tag event as "no range" and then audited
+  `HEAD`, which is every ancestor; an old non-role merge commit failed every
+  release even though the tagged commit was clean. The job now uses the tagged
+  commit only, the explicit PR base for pull requests, and the tip for a first
+  branch push.
 
 ## [1.2.0](https://github.com/Nidvue/Teamwork/compare/v1.1.2...v1.2.0) - 2026-10-27
 
