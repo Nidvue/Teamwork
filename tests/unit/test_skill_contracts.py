@@ -667,7 +667,7 @@ def test_master_brand_precedes_the_product_name(root):
 
     readme = (root / "README.md").read_text(encoding="utf-8")
     assert "<h1>Nidvue Teamwork</h1>" in readme
-    assert "Nidvue Teamwork turns one prompt" in readme
+    assert "Nidvue Teamwork is **a skill" in readme
 
     mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
     assert "site_name: Nidvue Teamwork" in mkdocs
@@ -728,3 +728,127 @@ def test_the_mark_is_attributed_and_not_lfs_tracked(root):
     assert "trademarks of" in notice and "Nidvue" in notice
     attrs = (root / ".gitattributes").read_text(encoding="utf-8")
     assert "docs/assets/*" in attrs
+
+
+# --------------------------------------------------------------------------- #
+# skill-first positioning and per-agent models
+# --------------------------------------------------------------------------- #
+
+
+def test_the_project_is_positioned_as_a_skill(root):
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "a skill for your coding agent" in readme
+    assert "installing it as a package is optional" in readme
+    assert (
+        "every agent's model\nis configured independently" in readme
+        or "configured independently" in readme
+    )
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert "coding-agent skill" in pyproject
+
+
+def test_skill_states_it_ships_no_model_and_calls_no_llm_api(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "This is a **skill**, not a standalone application" in text
+    assert "Each agent's model is its own" in text
+    assert "ships no model and calls no LLM" in text
+
+
+def test_the_model_is_configurable_per_role_and_per_instance(cli, project, capsys, monkeypatch):
+    monkeypatch.chdir(project)
+    assert cli("init", "--no-git", "--agents", "ceo,reviewer-1,reviewer-2,developer-1") == 0
+    capsys.readouterr()
+    assert cli("model", "set", "reviewer", "--provider", "anthropic", "--model", "strong") == 0
+    assert cli("model", "set", "developer-1", "--provider", "deepseek", "--model", "cheap") == 0
+    # the instance override wins...
+    assert cli("model", "get", "developer-1") == 0
+    out = capsys.readouterr().out
+    assert "deepseek" in out and "cheap" in out
+    # ...and a sibling instance inherits the role default
+    assert cli("model", "get", "reviewer-2") == 0
+    out = capsys.readouterr().out
+    assert "anthropic" in out and "strong" in out
+    # and both show up in the roster view
+    assert cli("model", "list") == 0
+    listing = capsys.readouterr().out
+    assert "developer-1" in listing.lower() and "reviewer-2" in listing.lower()
+
+
+def test_concurrency_reference_documents_per_agent_models(root):
+    text = flat(read(root, "references", "Concurrency.md"))
+    assert "## Per-agent model configuration" in text
+    assert "model set reviewer" in text
+    assert "instance" in text and "wins over the **role** default" in text
+    assert "ships no model" in text.lower() or "does **not** ship a model" in text
+
+
+# --------------------------------------------------------------------------- #
+# automatic, cost-aware model routing from the runtime environment
+# --------------------------------------------------------------------------- #
+
+
+def test_host_detection_and_lane_tiers(root):
+    import sys
+
+    sys.path.insert(0, str(root / "src"))
+    from teamwork import engine
+
+    assert engine.detect_agent_host({"PI_SESSION_ID": "x"}) == "pi"
+    assert engine.detect_agent_host({"CLAUDECODE": "1"}) == "claude"
+    assert engine.detect_agent_host({"OPENCODE_MODEL": "m"}) == "opencode"
+    assert engine.detect_agent_host({"CODEX_HOME": "/x"}) == "codex"
+    assert engine.detect_agent_host({}) == "unknown"
+    # decision lanes are strong, mechanical lanes are economy
+    assert engine.LANE_TIER["reviewer"] == "strong"
+    assert engine.LANE_TIER["architect"] == "strong"
+    assert engine.LANE_TIER["security-auditor"] == "strong"
+    assert engine.LANE_TIER["developer"] == "economy"
+    assert engine.LANE_TIER["technical-writer"] == "economy"
+
+
+def test_auto_reads_the_environment_and_never_invents_a_model(cli, project, capsys, monkeypatch):
+    monkeypatch.chdir(project)
+    assert cli("init", "--no-git", "--agents", "ceo,architect,reviewer-1,developer-1") == 0
+    capsys.readouterr()
+
+    # nothing in the environment -> dry plan, every lane reported unset with advice
+    for var in (
+        "TEAMWORK_MODEL_STRONG",
+        "TEAMWORK_MODEL_ECONOMY",
+        "ANTHROPIC_MODEL",
+        "PI_MODEL",
+        "OPENCODE_MODEL",
+        "CODEX_MODEL",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    assert cli("model", "auto") == 0
+    out = capsys.readouterr().out
+    assert "dry run" in out and "TEAMWORK_MODEL_STRONG" in out
+    assert "model=strong" not in out and "claude-" not in out
+
+    # an environment model is routed: strong lanes first, economy elsewhere
+    monkeypatch.setenv("CLAUDECODE", "1")
+    monkeypatch.setenv("TEAMWORK_MODEL_STRONG", "a-strong-model")
+    monkeypatch.setenv("TEAMWORK_MODEL_ECONOMY", "a-cheap-model")
+    assert cli("model", "auto", "--apply") == 0
+    assert cli("model", "get", "reviewer-1") == 0
+    assert "a-strong-model" in capsys.readouterr().out
+    assert cli("model", "get", "developer-1") == 0
+    assert "a-cheap-model" in capsys.readouterr().out
+
+    # and the JSON form is a single valid document
+    import json
+
+    assert cli("model", "auto", "--json") == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["host"] == "claude"
+    assert payload["assignments"]["reviewer"]["tier"] == "strong"
+    assert payload["assignments"]["developer"]["tier"] == "economy"
+
+
+def test_concurrency_reference_documents_automatic_routing(root):
+    text = flat(read(root, "references", "Concurrency.md"))
+    assert "### Automatic cost-aware routing" in text
+    assert "model auto --apply" in text
+    assert "never invents a model id" in text
+    assert "quality where it compounds" in text.lower()

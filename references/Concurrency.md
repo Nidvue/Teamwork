@@ -71,3 +71,50 @@ instances to the available capacity rather than to a fixed number.
 - The Reviewer, the Project Manager and the CEO are lanes too - keep them fed.
 - Never exceed a provider cap to "go faster": the extra lanes fail, and the
   failure costs more than the parallelism gains.
+
+
+## Per-agent model configuration
+
+The skill does **not** ship a model and does not call an LLM API itself. Each
+agent runs through the host's own API, so the model is a property of the *agent*,
+not of the project, and every lane can pick one independently:
+
+```sh
+teamwork.py model set reviewer   --provider anthropic --model <strong>   # role default
+teamwork.py model set developer-1 --provider deepseek --model <cheap>   # instance override
+teamwork.py model get developer-1
+teamwork.py model list
+```
+
+- An **instance** setting wins over the **role** default; an unset agent uses the
+  host's own default and records `unset`.
+- Give the reasoning-heavy lanes the stronger model (Reviewer, Architect,
+  Security Auditor) and the mechanical ones a cheaper or faster one (bulk edits,
+  formatting, link checks). Cost and latency are a per-lane choice, not a global one.
+- A model change is a recorded act (`Settings.json` + the ledger); the CEO sets the
+  lanes at intake, and an agent never changes another agent's model.
+- Model choice never changes the protocol: the evidence gates, the two-stage
+  review and the ledger hold whatever model produced the work.
+
+### Automatic cost-aware routing
+
+```sh
+teamwork.py model auto            # dry run: the plan, per lane
+teamwork.py model auto --apply    # write it into Settings.json
+teamwork.py model auto --json
+```
+
+`model auto` reads the *runtime environment* - which agent host is running (Pi,
+Claude Code, opencode, Codex, Cursor, Gemini CLI) and which model that host already
+exposes - and routes **the strongest available model to the lanes where a mistake
+is expensive** (Reviewer, Architect, Security Auditor, CEO, CTO) and **the economy
+model to the mechanical lanes** (developers, testers, writers, formatting, link
+checks). Quality where it compounds, cheapness where it does not.
+
+- It never invents a model id: `TEAMWORK_MODEL_STRONG` (or the host's own
+  `ANTHROPIC_MODEL` / `PI_MODEL` / `OPENCODE_MODEL` / ...) supplies the strong tier,
+  `TEAMWORK_MODEL_ECONOMY` the cheap one, and a lane with neither is reported as
+  `unset` together with the variable to set.
+- `--apply` is explicit: the plan is a dry run by default, and applying it is
+  recorded in the ledger.
+- Re-run it when the host or the budget changes; it is idempotent.

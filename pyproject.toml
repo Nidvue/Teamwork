@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "teamwork-agents"
 dynamic = ["version"]
-description = "Turn one prompt into an autonomous multi-agent company - package, skill bundle and CLI for the /teamwork Pi skill."
+description = "Nidvue Teamwork - a coding-agent skill that runs an evidence-gated multi-agent team; optional stdlib-only engine (per-agent model configuration)."
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 readme = "README.md"
