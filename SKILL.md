@@ -343,6 +343,28 @@ python3 "$SKILL/scripts/teamwork.py" clean            # remove temp files
 - Report to the user at milestones: what changed, evidence, blockers, next. Never
   report progress that is not backed by evidence.
 
+### 5a. Parallelism is the default, not the reward
+
+A team that runs one lane at a time is a slow single agent with extra records.
+Four rules keep every lane busy without inventing work:
+
+| Rule | Mechanism | Why |
+|---|---|---|
+| A lane holds more than one unit | `LANE_WIP` (2): one deliverable in review plus the next one in progress | a lane waiting for its own review is idle capacity |
+| `pulse` fills capacity, not idle lanes | it computes `LANE_WIP - held` per lane and assigns that many | the old one-task-per-idle-lane rule capped the team at one task per lane per wake |
+| A dependency can release early | `deps: role:T-id@review` (submitted) or `@started` (picked up) | the downstream lane needs a frozen interface, not a merged deliverable |
+| Reviews are the exception | a Reviewer lane holds exactly one claim; run several Reviewer lanes | a deep review is not divisible, and the queue is the concurrency limit |
+
+Capacity is bounded by the provider caps in `Settings.json`, never by the number
+of lanes: `pulse` refuses to plan more assignments than there are free slots and
+prints the shortfall, so the team fills 10 Ollama Cloud lanes or 2500 DeepSeek
+lanes without over-subscribing either.
+
+The anti-patterns this replaces, all measured on a real run: a lane that took one
+task and then sat in review while nine lanes idled; a tester blocked for hours on
+`developer:T-0003` when the interface file had been frozen in the first hour; a
+pulse that handed the whole review backlog to one lane.
+
 ### 5b. Keep the lanes full: the CEO pulse
 
 After dispatching, the CEO **re-wakes on an interval**, looks for idle lanes, and

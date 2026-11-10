@@ -1050,7 +1050,7 @@ HOST_PATTERNS = {
 
 
 def test_adoption_surfaces_stay_agent_agnostic(root):
-    surfaces = (
+    surfaces = [
         "README.md",
         "docs/index.md",
         "docs/guide/install.md",
@@ -1059,11 +1059,19 @@ def test_adoption_surfaces_stay_agent_agnostic(root):
         "docs/guide/architecture.md",
         "assets/demo.svg",
         "SKILL.md",
-    )
+    ]
     for name in surfaces:
         text = (root / name).read_text(encoding="utf-8").lower()
         for host, pattern in HOST_PATTERNS.items():
             assert not re.search(pattern, text), f"{name} still names the host {host!r}"
+
+    # every role charter ships inside the pi package: a concrete host tool call
+    # there is the same portability regression as one in SKILL.md. Provider and
+    # model names are content, not a host dependency, so they are not scanned.
+    for charter in sorted((root / "roles").glob("*.md")):
+        text = charter.read_text(encoding="utf-8")
+        for tool in ("subagent(", "subagent_supervisor(", "schedule.create", "teams("):
+            assert tool not in text, f"{charter.name} hard-codes the host tool {tool!r}"
 
 
 def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path):
