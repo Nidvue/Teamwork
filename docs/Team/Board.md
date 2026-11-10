@@ -127,7 +127,7 @@ under two roles is two tasks.
 | developer | T-0023 | privacy | done | P-0008 | 206c099 |
 | developer | T-0024 | - | dropped | - | - |
 | developer | T-0025 | - | done | - | - |
-| developer | T-0026 | - | todo | - | - |
+| developer | T-0026 | - | done | - | - |
 | developer | T-0027 | - | done | - | - |
 | developer | T-0028 | ledger | done | P-0012 | e252fcc |
 | developer | T-0029 | lanes | done | P-0022 | 2722c27 |
@@ -153,6 +153,7 @@ under two roles is two tasks.
 | developer | T-0049 | audit | done | P-0045 | 6d4d6cd |
 | developer | T-0050 | memory | done | P-0046 | 0e88de8 |
 | developer | T-0051 | lanes | done | P-0047 | ad5753d |
+| developer | T-0052 | audit | done | P-0048 | c95afdf |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -180,7 +181,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0012 · preflight prints pass with up to 6 of 7 checks unmeasured and the review records it as mechanical=no (finding 6) | P1 | review | - |
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
-| developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
