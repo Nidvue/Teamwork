@@ -9,6 +9,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- **The Reviewer stops re-running what an independent lane already proved.**
+  Independence is about the author, so a `tests run` record that is passing at the
+  revision under review, run by a role other than the author's, is now a **credit**:
+  `review --packet` lists the creditable records, the layers left uncovered, the
+  review round, the previous findings and the delta since the failed revision;
+  `review --result pass --credit TS-nnnn` validates the citation (unknown, failing,
+  stale or author-role records are refused with the reason) and records it as
+  `credited: <id> <layer>/<area> by <role> @<sha>`. A fail stores the failed
+  revision, so a re-submitted fix is re-reviewed as a **delta** instead of from
+  scratch. `coordination` reports the credit ratio, the delta re-reviews,
+  `C-REVIEW-DUP` (a gate re-run that was already green at the same revision) and
+  `C-REVIEW-NOCREDIT` (a recent window of passes that cited nothing). Contract: the
+  *Review economy* section of `roles/reviewer.md` and 5h in `SKILL.md`; the author's
+  side (`tests run --rev` makes a result creditable) is in `references/Testing.md`.
+
 ## [1.4.3](https://github.com/Nidvue/Teamwork/compare/v1.4.2...v1.4.3) - 2026-10-29
 
 Compares from the previous tag, `v1.4.2`.
