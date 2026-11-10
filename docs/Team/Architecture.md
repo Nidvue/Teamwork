@@ -199,6 +199,15 @@ Tests must run with `pytest -q` from the repo root and also with an installed
 wheel (no reliance on the source tree). `conftest.py` sets
 `TEAMWORK_SKILL_DIR` to the repo root and runs each test in a `tmp_path`.
 
+A test that executes an external tool guards on it first, through
+`tests/tooling.py` (`require_tool`): an absent tool produces a **skip that names
+the tool and states why the test needs it** - never a failure, never a silent
+pass. The guarded set is the convenience path only (`make`, and `sh`/`bash` for
+the hook and classifier scripts). Tools the product itself cannot run without -
+the interpreter and `git` - are deliberately **not** guarded: a skip there would
+report a green build for a host that can never work. Pinned by
+[tests/unit/test_tool_guards.py](https://github.com/nidvue/teamwork/blob/main/tests/unit/test_tool_guards.py).
+
 The table above assigns **file writers**. Who must *certify* a layer is a
 separate frozen map, `config.LAYER_OWNER`: `unit` -> developer, `integration` ->
 tester, `acceptance` -> reviewer, `system` -> architect, plus one owner for each
