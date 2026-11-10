@@ -1876,7 +1876,9 @@ def cmd_testplan_unused(args) -> int:
 F_LEDGER = "Ledger.jsonl"
 F_HEAD = "LedgerHead.json"
 F_MANIFEST = "AuditManifest.json"
-F_AUDITREPORT = "AuditReport.md"
+# The generated manifest is AuditManifest.md; AuditReport.md belongs to the
+# Security Auditor's findings report and must never be overwritten.
+F_AUDITREPORT = "AuditManifest.md"
 
 LEDGER_ACTIONS = (
     "memory.add",
