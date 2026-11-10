@@ -221,16 +221,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "paths",
         nargs="*",
-        default=list(DEFAULT_PATHS),
-        help="files or directories to scan (default: src scripts tests)",
+        help="files or directories to scan (default: src scripts tests that exist)",
     )
     parser.add_argument("--fix", action="store_true", help="remove or normalise the findings")
     args = parser.parse_args(argv)
-    roots = [Path(path) for path in args.paths]
-    missing = [str(root) for root in roots if not root.exists()]
-    if missing:
-        print(f"no such path: {', '.join(missing)}", file=sys.stderr)
-        return 2
+    if args.paths:
+        roots = [Path(path) for path in args.paths]
+        missing = [str(root) for root in roots if not root.exists()]
+        if missing:
+            print(f"no such path: {', '.join(missing)}", file=sys.stderr)
+            return 2
+    else:
+        roots = [Path(path) for path in DEFAULT_PATHS if Path(path).exists()]
     return fix(roots) if args.fix else check(roots)
 
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import ast
 import importlib.util
 import io
+import subprocess
+import sys
 import tokenize
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -226,9 +228,29 @@ def test_a_new_comment_turns_the_gate_red(tmp_path: Path) -> None:
 def test_make_lint_and_the_ci_lint_job_run_the_checker() -> None:
     makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
     assert "scripts/check_comments.py" in makefile
+    assert "MAKEFILE_LIST" in makefile, (
+        "the checker must resolve from the Makefile, not the caller's cwd"
+    )
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "scripts/check_comments.py" in workflow
     assert "check_comments.py" in workflow.split("lint:", 1)[1]
+
+
+def test_a_tree_without_the_default_roots_is_a_clean_noop(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "0 file(s)" in result.stdout
+
+
+def test_an_explicit_missing_path_is_an_error(tmp_path: Path) -> None:
+    assert checker.main([str(tmp_path / "absent")]) == 2
 
 
 def test_the_rule_is_documented_where_every_agent_reads_it() -> None:
