@@ -853,19 +853,23 @@ and that every such skill carries one fixed prefix. Contract:
 | T-0004 | architect | `Architecture.md` section 14 + technical decision | - | frozen contract |
 | T-0031 | developer | lesson records, `lesson` CLI, `tw-` enforcement, kinds, candidates, `PREFIX` rule, unit tests, two skills renamed | architect T-0004 | implementation |
 | T-0005 | architect | `Architecture.md` section 15: the project knowledge store, its CLI, ranking, supersession and load surface | architect T-0004 | contract |
-| T-0032 | developer | `Knowledge.md` records, `knowledge` CLI, ranked `load`, duplicate and supersession rules, unit tests | architect T-0005 | implementation |
-| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` for sections 14-15 | architect T-0004, T-0005 | documentation |
-| T-0012 | technical-writer | knowledge chapter: the accumulation loop, ranking, supersession, and the fluency measure in the guide and the constitution | developer T-0032 | documentation |
+| T-0006 | architect | `Architecture.md` section 16: the OpenViking-style `ctx://` tree, levels, scoped find, digest, knowledge kinds | architect T-0005 | contract |
+| T-0032 | developer | `Knowledge.md` records, `knowledge` CLI, ranked `load`, duplicate and supersession rules, `kind`, unit tests | architect T-0005, T-0006 | implementation |
+| T-0033 | developer | `context` tree: `ls`/`tree`/`read`/`find`/`stats`/`digest`, computed L0/L1/L2, scoped retrieval, unit tests | developer T-0032 | implementation |
+| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` for sections 14-16 | architect T-0004, T-0005, T-0006 | documentation |
 | T-0004 | tester | integration and acceptance proof of the lesson -> skill loop, the knowledge accumulation loop and prefix enforcement | developer T-0031, T-0032 | proof |
+| T-0005 | tester | integration and acceptance proof of the `ctx://` tree: levels, scoped find, digest, every node resolves | developer T-0033 | proof |
 | T-0019 | ceo | intake, criteria, records, migration check and close-out | all | records |
 
 Parallel rules: the developer owns `src/teamwork/` and unit tests; the Technical
 Writer owns the always-on prose surfaces; the Tester owns the new integration and
 acceptance modules; the CEO owns `Project.md`, `Plan.md` and the close-out
 records. No two lanes share a writable file. The two legacy skill renames are the
-developer's, because the tests that trigger them are the developer's.
+developer's, because the tests that trigger them are the developer's. The context
+tree (T-0033) is a view over the records T-0032 creates, so it starts after T-0032
+merges; both are serialised on `engine.py`.
 
-Exit condition: AC-M17-1..AC-M17-6 verified by a role other than the owner on the
+Exit condition: AC-M17-1..AC-M17-7 verified by a role other than the owner on the
 merged revision, the M17 layers recorded and passing, and the records exported.
 
 ## Task-graph integrity
