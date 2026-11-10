@@ -31,13 +31,8 @@ from pathlib import Path
 
 import pytest
 
-# ``tests/unit/test_release_consistency.py`` -> parents[2] is the repository root.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: The checker is a script, not a package module, and it lands in its own lane
-#: (T-0005). A plain ``import check_release_consistency`` therefore fails to
-#: collect on every revision that does not carry the script yet, which makes
-#: this file unrunnable on its own. It is loaded *by path* instead.
 CHECKER_FILENAME = "check_release_consistency.py"
 
 
@@ -88,11 +83,6 @@ CHECKER_MISSING_REASON = f"{CHECKER_FILENAME} has not landed yet; looked in " + 
     str(path) for path in candidate_checker_paths()
 )
 
-#: ``None`` when the checker is nowhere to be found. The tests that need it
-#: are then *skipped with that reason* - never the whole file, and never
-#: silently: ``test_the_checker_surface_is_available`` still runs and asserts
-#: that the loader either found a checker with the documented surface or
-#: reported precisely which paths it looked at.
 _CHECKER_MODULE = load_checker(CHECKER_PATH) if CHECKER_PATH is not None else None
 
 
@@ -119,11 +109,9 @@ class _MissingChecker:
 crc = _CHECKER_MODULE if _CHECKER_MODULE is not None else _MissingChecker()
 
 
-#: The two exact marker literals of Architecture 11.2.4; nothing else is a marker.
 ILLUSTRATIVE = "<!-- release-consistency: illustrative -->"
 CHANNEL_UNAVAILABLE = "<!-- release-consistency: channel-unavailable -->"
 
-#: Rules whose published half needs the network, so ``fetch=None`` is a SKIP.
 NETWORK_RULES = frozenset({"R3", "R4", "R5", "R8"})
 
 VERSION_FILE = '__version__ = "{version}"\nDIST_NAME = "teamwork-agents"\n'
@@ -132,8 +120,6 @@ PYPROJECT = (
     '[project]\nname = "teamwork-agents"\n\n[project.scripts]\nteamwork = "teamwork.cli:main"\n'
 )
 
-#: Identity and signing are pinned per call: the fixture must not depend on the
-#: operator's git config, and a global gpgsign setting must not fail the commit.
 GIT_OPTIONS = (
     "-c",
     "user.email=developer@agents.nidvue.com",
@@ -144,11 +130,6 @@ GIT_OPTIONS = (
     "-c",
     "tag.gpgSign=false",
 )
-
-
-# --------------------------------------------------------------------------- #
-# Fixture repository
-# --------------------------------------------------------------------------- #
 
 
 def git(root: Path, *args: str) -> str:
@@ -174,9 +155,6 @@ def write(root: Path, files: Mapping[str, str]) -> None:
     for rel, text in files.items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        # ``Path.write_text(newline=...)`` is Python 3.10+ and CI runs this file
-        # on 3.9, so the file is opened directly - the same reason
-        # ``teamwork.io.write_lf`` opens it instead of calling ``write_text``.
         with path.open("w", encoding="utf-8", newline="\n") as handle:
             handle.write(text)
         assert b"\r\n" not in path.read_bytes(), f"fixture {rel} must be LF on every platform"
@@ -263,18 +241,12 @@ def npm_registry(versions: Mapping[str, str]) -> dict[str, object]:
     }
 
 
-#: The payload subtree of the fixture used by the R3 digest test.
 PAYLOAD = {
     "SKILL.md": "# Skill\n",
     "AGENTS.md": "# Agents\n",
     "roles/developer.md": "# Developer\n",
     "src/teamwork/version.py": VERSION_FILE.format(version="1.1.0"),
 }
-
-
-# --------------------------------------------------------------------------- #
-# R1 - a tag must carry its own version
-# --------------------------------------------------------------------------- #
 
 
 def test_r1_reports_a_tag_whose_version_py_disagrees(tmp_path):
@@ -322,11 +294,6 @@ def test_r1_accepts_agreeing_tags_and_ignores_names_that_are_not_versions(tmp_pa
 
     assert result.status == "ok"
     assert "1 tag(s) agree" in result.detail
-
-
-# --------------------------------------------------------------------------- #
-# R2 - HEAD must be strictly newer than every tag
-# --------------------------------------------------------------------------- #
 
 
 def test_r2_ignores_the_tag_that_points_at_head(tmp_path):
@@ -429,12 +396,6 @@ def test_r2_excludes_the_tag_that_points_at_head_from_the_count(tmp_path):
     assert "v1.3.0" not in result.detail
 
 
-# --------------------------------------------------------------------------- #
-# R2's scope (11.2.2.1, D-20261029-Architect): the published line
-# --------------------------------------------------------------------------- #
-
-#: 11.2.2.1's exact detail. The status is ``SKIP``, never ``ok``: nothing was
-#: proved about this checkout, and the detail says why (11.1.2).
 R2_SCOPE_SKIP = "not the default branch: the published line is evaluated on main only"
 
 
@@ -573,11 +534,6 @@ def test_the_scope_flag_is_documented_in_help():
     assert result.returncode == 0
     assert "--head-is-default-branch" in result.stdout
     assert "11.2.2.1" in result.stdout, "the help must name the amendment it implements"
-
-
-# --------------------------------------------------------------------------- #
-# R3 - npm versions must resolve to a tagged payload or a recorded exception
-# --------------------------------------------------------------------------- #
 
 
 def test_r3_offline_skips_and_never_claims_ok(tmp_path):
@@ -736,11 +692,6 @@ def test_r3_an_admitted_non_semver_published_version_is_ok_end_to_end(tmp_path):
     assert "0.0.0-stage admitted by exception" in result.detail
 
 
-# --------------------------------------------------------------------------- #
-# R4 / R5 - the GitHub Release list and the tag list must agree
-# --------------------------------------------------------------------------- #
-
-
 def test_r4_release_without_a_tag_is_drift(tmp_path):
     root = make_repo(tmp_path / "repo", version="1.1.0")
     git(root, "tag", "v1.1.0")
@@ -773,11 +724,6 @@ def test_r4_and_r5_are_ok_when_the_two_lists_agree(tmp_path):
 
     assert crc.rule_r4_releases_have_tags(root, fetch).status == "ok"
     assert crc.rule_r5_tags_have_releases(root, fetch).status == "ok"
-
-
-# --------------------------------------------------------------------------- #
-# R6 - committed prose must not print a stale project version
-# --------------------------------------------------------------------------- #
 
 
 def test_r6_reports_an_older_project_version(tmp_path):
@@ -1064,11 +1010,6 @@ def test_r6_skips_a_foreign_tool_version(tmp_path):
     assert "3.12.13" in unmarked.detail
 
 
-# --------------------------------------------------------------------------- #
-# R7 - every tagged version needs exactly one CHANGELOG section
-# --------------------------------------------------------------------------- #
-
-
 def test_r7_missing_section_is_drift(tmp_path):
     root = make_repo(tmp_path / "repo", version="1.1.0")
     git(root, "tag", "v1.1.0")
@@ -1123,11 +1064,6 @@ def test_r7_unreleased_and_untagged_headings_are_fine(tmp_path):
 
     assert result.status == "ok"
     assert "1 tagged version(s)" in result.detail
-
-
-# --------------------------------------------------------------------------- #
-# R8 - advertised install channels must name what the repository ships
-# --------------------------------------------------------------------------- #
 
 
 def test_r8_unshipped_name_is_drift_offline(tmp_path):
@@ -1197,11 +1133,6 @@ def test_r8_negated_install_line_is_not_a_channel(tmp_path):
 
     assert result.status == "SKIP"
     assert "0 channel line(s)" in result.detail
-
-
-# --------------------------------------------------------------------------- #
-# R9 - a vX.Y.Z token must name a real tag
-# --------------------------------------------------------------------------- #
 
 
 def test_r9_token_naming_no_tag_is_drift(tmp_path):
@@ -1332,11 +1263,6 @@ def test_r9_archive_is_out_of_scope_for_every_scanner(tmp_path):
     assert crc.rule_r6_markdown_versions(root).status == "ok"
 
 
-# --------------------------------------------------------------------------- #
-# Exit codes and the JSON contract
-# --------------------------------------------------------------------------- #
-
-
 def clean_root(tmp_path: Path) -> Path:
     """R1/R2/R7 clean, exceptions empty; the network rules can only SKIP."""
     root = make_repo(tmp_path / "repo", version="1.1.0")
@@ -1415,11 +1341,6 @@ def test_json_exit_code_is_two_when_an_input_is_unreadable(tmp_path):
     assert json.loads(stdout)["exit_code"] == 2
 
 
-# --------------------------------------------------------------------------- #
-# The whole gate on one fixture, rule by rule
-# --------------------------------------------------------------------------- #
-
-
 def test_offline_run_never_reports_ok_for_a_network_rule(tmp_path):
     """A silent ``ok`` on a rule that never queried the registry would be a lie."""
     root = clean_root(tmp_path)
@@ -1432,9 +1353,6 @@ def test_offline_run_never_reports_ok_for_a_network_rule(tmp_path):
     for rule in NETWORK_RULES:
         assert statuses[rule] == "SKIP", f"{rule} must not pass offline: {statuses[rule]}"
     for line in stdout.splitlines()[:-1]:
-        # The "offline" wording is the network switch's excuse. R10 is an offline
-        # rule that skips because this fixture carries no licence surface, so it
-        # states its own reason instead.
         if line.split()[0] in NETWORK_RULES and line.split()[1] == "SKIP":
             assert "offline" in line, line
 
@@ -1465,7 +1383,6 @@ def test_every_scanner_is_evaluated_on_a_fixture_with_a_tag(tmp_path):
 def _no_socket(monkeypatch: Iterator[None]) -> Iterator[None]:
     """No test may reach the network: the seam raises instead of opening a socket."""
     if _CHECKER_MODULE is None:
-        # The checker is absent; nothing can open a socket through it.
         yield
         return
 
@@ -1476,11 +1393,6 @@ def _no_socket(monkeypatch: Iterator[None]) -> Iterator[None]:
     monkeypatch.setattr(crc, "_http_get_json", refuse)
     monkeypatch.setattr(crc, "_http_get_bytes", refuse)
     yield
-
-
-# --------------------------------------------------------------------------- #
-# The loader: the file must be collectible and runnable wherever the checker is
-# --------------------------------------------------------------------------- #
 
 
 def test_the_checker_surface_is_available():
@@ -1497,7 +1409,6 @@ def test_the_checker_surface_is_available():
             assert str(candidate) in CHECKER_MISSING_REASON
         assert not candidate_checker_paths()[0].exists()
         return
-    # The checker is present: it must expose the documented surface.
     for name in (
         "main",
         "payload_digest",
@@ -1544,12 +1455,6 @@ def test_an_explicit_override_points_the_loader_at_one_file(monkeypatch):
     assert candidate_checker_paths() == [Path("/nonexistent/checker.py")]
 
 
-# --------------------------------------------------------------------------- #
-# 11.3 - the payload digest and the symlink policy
-# --------------------------------------------------------------------------- #
-
-#: A link cannot be created without privileges on Windows, so the link policy
-#: is only exercised where the platform supports it.
 needs_symlinks = pytest.mark.skipif(
     os.name == "nt", reason="creating a symlink needs Developer Mode on Windows"
 )
@@ -1579,9 +1484,6 @@ def test_11_3_a_link_in_the_commit_resolves_to_its_target_bytes(tmp_path):
 
     digest = crc.payload_digest(root, None)
 
-    # The link resolves to SKILL.md's bytes, so the digest is the digest of the
-    # tree with that file *in place of* the link - not the digest of a tree
-    # where the link is simply absent.
     plain = payload_repo(tmp_path / "plain")
     commit(plain, {"roles/link.md": "# Skill\n"}, message="the same bytes as a file")
     assert digest == crc.payload_digest(plain, None)
@@ -1712,11 +1614,6 @@ def test_11_3_a_self_referential_link_is_refused(tmp_path):
         crc.payload_digest(root, None)
 
 
-# --------------------------------------------------------------------------- #
-# 11.2.4 R8 - an install line in inline code names a script too
-# --------------------------------------------------------------------------- #
-
-
 def test_r8_an_inline_code_install_line_names_the_script_it_runs(tmp_path):
     """The inline-code form of an install line is a channel like any other.
 
@@ -1782,11 +1679,6 @@ def test_r8_a_flag_before_the_script_is_not_the_script(tmp_path):
     assert "3.12" not in result.detail
 
 
-# --------------------------------------------------------------------------- #
-# 11.2.3 R3 - an exception admits one version, never every version
-# --------------------------------------------------------------------------- #
-
-
 def test_r3_an_exception_admits_one_version_and_not_another(tmp_path):
     """One exception must not admit the whole registry.
 
@@ -1811,8 +1703,6 @@ def test_r3_an_exception_admits_one_version_and_not_another(tmp_path):
     assert result.status == "DRIFT"
     assert any("8.8.8" in finding for finding in result.findings)
     assert not any("9.9.9" in finding for finding in result.findings)
-    # The admitted version is still *visible* in the detail - it is a note, not
-    # a finding, so the reader sees what was excused.
     assert "9.9.9 admitted by exception" in result.detail
 
 
@@ -1901,12 +1791,9 @@ def test_r3_an_exception_admits_exactly_its_own_version_and_no_other(tmp_path):
     result = crc.rule_r3_npm_payloads(root, exceptions, fetch, lambda url: tarball(PAYLOAD))
 
     assert result.status == "DRIFT"
-    # The untraceable version is named, and named as untraceable.
     assert any("1.1.2" in finding for finding in result.findings)
     assert any("no tag v1.1.2" in finding for finding in result.findings)
-    # The admitted version produces no finding at all - it is excused, not drifted.
     assert not any("1.1.1" in finding for finding in result.findings)
-    # The admission stays visible on every run.
     assert "1.1.1 admitted by exception" in result.detail
 
 
@@ -1985,10 +1872,6 @@ def test_r3_a_missing_exception_file_is_an_input_error(tmp_path):
     assert "missing" in stdout
 
 
-#: The bundled payload of the fixture below, exactly as 11.3 defines it: the two
-#: files plus the two trees, with nothing else. The root files of the fixture
-#: (pyproject.toml, CHANGELOG.md, README.md, release-exceptions.json) are not
-#: payload and are therefore not in the digest.
 FIXTURE_PAYLOAD = (
     "AGENTS.md",
     "SKILL.md",
@@ -2064,11 +1947,6 @@ def test_11_3_a_link_into_a_git_directory_inside_the_tree_is_refused(tmp_path):
     message = str(caught.value)
     assert "config" not in message
     assert "link.md" in message
-
-
-# --------------------------------------------------------------------------- #
-# 11.2.2 - R2's tag set is the *reachable* tags, minus the tags at HEAD
-# --------------------------------------------------------------------------- #
 
 
 def branched_repo(root: Path) -> Path:
@@ -2171,11 +2049,6 @@ def test_r2_contract_a_non_ancestor_tag_is_invisible_to_r2(tmp_path):
     assert "v2.0.0" not in result.detail
 
 
-# --------------------------------------------------------------------------- #
-# 11.2.2 - a shallow clone is an input error, never a clean run
-# --------------------------------------------------------------------------- #
-
-
 def test_a_shallow_clone_is_an_input_error(tmp_path):
     """A blind checkout must not turn the gate green.
 
@@ -2267,18 +2140,12 @@ def test_11_3_each_kind_of_link_refusal_says_a_different_reason(tmp_path):
     assert len(set(reasons.values())) == 4, reasons
 
 
-# --------------------------------------------------------------------------- #
-# 11.5 R10 - one licence grant across every surface that states one
-# --------------------------------------------------------------------------- #
-
 GRANT = "AGPL-3.0-or-later"
 ONLY = "AGPL-3.0-only"
 CLASSIFIER_OR_LATER = (
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)"
 )
 CLASSIFIER_ONLY = "License :: OSI Approved :: GNU Affero General Public License v3"
-#: The licence's own grant boilerplate, as NOTICE carries it (wrapped over lines,
-#: which is why the reader parses a paragraph) and the one-word variant.
 NOTICE_OR_LATER = "either version 3 of the License, or (at your option) any later version"
 NOTICE_ONLY = "version 3 of the License only"
 
@@ -2414,8 +2281,6 @@ def test_r10_the_readme_bullet_is_read_and_a_comparison_row_is_not(tmp_path):
     assert "AGPL-3.0-only" in result.findings[0], result.findings[0]
 
 
-#: The review's M2: the link is ``-only`` while the bullet's prose still grants
-#: "or any later version". One sentence, two grants, so the rule must read both.
 README_MIXED = (
     "# Teamwork\n"
     "\n"

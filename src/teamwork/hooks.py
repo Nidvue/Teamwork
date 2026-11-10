@@ -72,14 +72,8 @@ ZERO_SHA = "0" * 40
 ALLOW_MAIN = "TEAMWORK_ALLOW_MAIN"
 ALLOW_FORCE = "TEAMWORK_ALLOW_FORCE"
 
-#: Where a foreign hook is preserved before the teamwork shim takes its place:
-#: ``pre-push`` -> ``pre-push.teamwork-foreign``. One suffix derived from the stage
-#: name, so ``install``, ``status`` and ``uninstall`` cannot disagree about it.
 CHAIN_SUFFIX = ".teamwork-foreign"
 
-#: The interpreter the shim runs the engine with. A hook is a machine-local file
-#: (nothing is committed), so an absolute path would be safe; ``python3`` stays the
-#: documented spelling here and T-0030 owns the interpreter-resolution question.
 SHIM_INTERPRETER = "python3"
 
 
@@ -88,16 +82,6 @@ def chained_hook(path: Path) -> Path:
     return path.parent / f"{path.name}{CHAIN_SUFFIX}"
 
 
-#: The head of every shim: the marker line, the bypass, and the two fail-closed
-#: guards. Literal shell with ``@MARKER@``/``@STAGE@`` as the only substitutions, so
-#: the frozen body in ``docs/Team/Architecture.md`` section 12.6 can be read beside
-#: this text. Two constructs here are contract, not style:
-#:
-#: * ``[ -n "${TEAMWORK_SKIP_HOOKS:-}" ]`` - the ``:-`` keeps the expansion total,
-#:   so an inherited ``set -u`` cannot turn the bypass into a blocker;
-#: * the two ``exit 1`` blocks - a guard that cannot run must refuse loudly. The
-#:   previous ``|| exit 0`` disabled every rule when the engine file was renamed
-#:   or the checkout was broken, while ``hooks status`` still said ``installed``.
 SHIM_HEAD = """\
 #!/bin/sh
 # @MARKER@ (stage: @STAGE@) - remove with: teamwork.py hooks uninstall
@@ -119,13 +103,8 @@ if [ ! -f "$root/scripts/teamwork.py" ]; then
 fi
 """
 
-#: The tail of a normal shim: the engine replaces the shell, so git reads its exit
-#: code directly.
 SHIM_EXEC = 'exec @INTERP@ "$root/scripts/teamwork.py" hook @STAGE@ "$@"\n'
 
-#: The ``pre-push`` preamble for a chained stage. git hands the refspec list to the
-#: hook on stdin and BOTH hooks need it, so it is copied once and each hook is fed
-#: from the copy; a pipe would give the list to whichever hook read first.
 SHIM_REFSPECS = """\
 # git hands pre-push the refspec list on stdin and BOTH hooks need it: copy it
 # once, then feed each hook from the copy
@@ -138,9 +117,6 @@ cat > "$refspecs"
 @INTERP@ "$root/scripts/teamwork.py" hook @STAGE@ "$@" < "$refspecs"
 """
 
-#: The tail of a chained shim: the rules first, then the preserved foreign hook.
-#: The preserved file is named beside this one and found through this file's own
-#: directory, which is the hooks directory whatever path git used to reach it.
 SHIM_CHAIN = """\
 # this stage had a foreign hook when teamwork installed over it: it is kept
 # beside this file as @STAGE@@SUFFIX@ and runs after the rules pass
@@ -282,7 +258,7 @@ def record_force(project: Path, stages: list, reason: str) -> None:
             target=", ".join(stages),
             detail=f"replaced a foreign hook with --force; reason: {reason}",
         )
-    except (OSError, SystemExit):  # pragma: no cover - the install must not die here
+    except (OSError, SystemExit):  # pragma: no cover
         return
 
 
@@ -358,8 +334,6 @@ def status(project: Path) -> int:
         if shim_chains(path):
             line += f" (chained: {chained_hook(path).name})"
         print(line)
-    # The directory is part of the answer: in a linked worktree the hooks are not
-    # under <toplevel>/.git, so a reader must be able to see where we looked.
     print(f"# hooks directory: {target_dir}")
     return 0
 
@@ -559,7 +533,7 @@ def pushed_refspecs() -> list:
         if stream.isatty():
             return []
         data = stream.read()
-    except (OSError, ValueError):  # pragma: no cover - a closed stdin reads as empty
+    except (OSError, ValueError):  # pragma: no cover
         return []
     return [line.split() for line in data.splitlines() if line.strip()]
 

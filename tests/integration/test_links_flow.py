@@ -31,18 +31,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 SRC_DIR = REPO_ROOT / "src"
 
-#: Installed sha at the time this module was written; the fix below lives here.
 BASELINE = "781b1b4"
 
 RELEASE_ASSET = (
     "https://github.com/Nidvue/Teamwork/releases/download/v9.9.9/"
     "teamwork_agents-9.9.9-py3-none-any.whl"
 )
-
-
-# --------------------------------------------------------------------------- #
-# Driving the command
-# --------------------------------------------------------------------------- #
 
 
 def run_links(cwd: Path, *args: str, timeout: int = 180) -> tuple[int, str]:
@@ -92,11 +86,6 @@ def home(root: Path, body: str) -> Path:
     return root
 
 
-# --------------------------------------------------------------------------- #
-# 1 - a clean tree
-# --------------------------------------------------------------------------- #
-
-
 def test_a_clean_tree_exits_zero_and_prints_the_count_it_measured(tmp_path: Path) -> None:
     root = tmp_path / "Clean"
     write(
@@ -111,15 +100,9 @@ def test_a_clean_tree_exits_zero_and_prints_the_count_it_measured(tmp_path: Path
 
     assert code == 0, text
     assert issues(text) == 0, text
-    # Two documents that link to each other: a measured count, not a blank run.
     assert "# 2 markdown file(s), 2 internal link(s)" in text, text
     assert f"# Link check ({root.resolve()})" in text, text
     assert "- none" in section(text, "broken internal links")
-
-
-# --------------------------------------------------------------------------- #
-# 2 - a broken internal link
-# --------------------------------------------------------------------------- #
 
 
 def test_a_broken_internal_link_exits_one_and_names_file_and_target(tmp_path: Path) -> None:
@@ -132,11 +115,6 @@ def test_a_broken_internal_link_exits_one_and_names_file_and_target(tmp_path: Pa
     assert issues(text) == 1, text
 
 
-# --------------------------------------------------------------------------- #
-# 3 - a bare URL
-# --------------------------------------------------------------------------- #
-
-
 def test_a_bare_url_is_reported_under_bare_urls_and_fails(tmp_path: Path) -> None:
     root = home(tmp_path / "Bare", "Source: https://example.org/report")
 
@@ -147,11 +125,6 @@ def test_a_bare_url_is_reported_under_bare_urls_and_fails(tmp_path: Path) -> Non
         text, "bare URLs (wrap them as [title](url))"
     )
     assert issues(text) == 1, text
-
-
-# --------------------------------------------------------------------------- #
-# 4 - a stale release asset
-# --------------------------------------------------------------------------- #
 
 
 def test_a_release_asset_path_that_does_not_exist_is_reported_broken(tmp_path: Path) -> None:
@@ -169,10 +142,8 @@ def test_a_release_asset_path_that_does_not_exist_is_reported_broken(tmp_path: P
         "README.md: [the wheel]"
         "(releases/download/v9.9.9/teamwork_agents-9.9.9-py3-none-any.whl) - target does not exist"
     ) in text, text
-    # The fenced command is illustrative text, not a maintained link: one issue only.
     assert issues(text) == 1, text
 
-    # Bite check: the same link with the asset present is clean.
     write(
         root,
         {"releases/download/v9.9.9/teamwork_agents-9.9.9-py3-none-any.whl": "wheel\n"},
@@ -191,11 +162,6 @@ def test_a_remote_release_asset_url_is_not_checked_offline(tmp_path: Path) -> No
     assert "- none" in section(text, "external links that are not valid direct URLs"), text
 
 
-# --------------------------------------------------------------------------- #
-# 5 - reciprocity
-# --------------------------------------------------------------------------- #
-
-
 def test_a_doc_nothing_links_back_to_is_a_missing_back_link(tmp_path: Path) -> None:
     root = tmp_path / "Reciprocity"
     write(
@@ -211,20 +177,14 @@ def test_a_doc_nothing_links_back_to_is_a_missing_back_link(tmp_path: Path) -> N
 
     assert code == 1, text
     assert "docs/index.md links to docs/page.md but docs/page.md does not link back" in text, text
-    assert issues(text) == 2, text  # the missing back-link plus README's broken link
+    assert issues(text) == 2, text
 
-    # --no-reciprocity suppresses exactly that section, and still fails on the link.
     code, text = run_links(root, "--no-reciprocity")
 
     assert code == 1, text
     assert "missing back-links" not in text, text
     assert "README.md: [broken](missing.md) - target does not exist" in text, text
     assert issues(text) == 1, text
-
-
-# --------------------------------------------------------------------------- #
-# 6 - quoted evidence in Archive.md
-# --------------------------------------------------------------------------- #
 
 
 def test_a_link_quoted_inside_archive_evidence_is_not_reported(tmp_path: Path) -> None:
@@ -249,7 +209,6 @@ def test_a_link_quoted_inside_archive_evidence_is_not_reported(tmp_path: Path) -
     assert "missing.md" not in text and "nope.md" not in text, text
     assert "example.org/q" not in text, text
 
-    # Bite check: the same broken link outside the quoted field is reported.
     write(
         root,
         {"docs/Team/Archive.md": "# Archive\n\n## P-1\n\nAuthored: [gone](missing.md).\n"},
@@ -257,11 +216,6 @@ def test_a_link_quoted_inside_archive_evidence_is_not_reported(tmp_path: Path) -
     code, text = run_links(root)
     assert code == 1, text
     assert "target does not exist" in text, text
-
-
-# --------------------------------------------------------------------------- #
-# 7 - the worktree regression (781b1b4)
-# --------------------------------------------------------------------------- #
 
 
 def worktree(tmp_path: Path, files: dict[str, str]) -> Path:

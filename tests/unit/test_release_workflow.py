@@ -42,7 +42,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_PATH = ".github/workflows/release.yml"
 GATE_JOB = "consistency"
 
-#: Actions that put something in front of the world.
 PUBLISH_ACTIONS = {
     "softprops/action-gh-release",
     "actions/create-release",
@@ -52,13 +51,10 @@ PUBLISH_ACTIONS = {
     "docker/build-push-action",
 }
 
-#: The npm publish invocation, in either shape the workflow may use: the argv list
-#: `["npm", "publish", ...]` or a `npm("publish", ...)` helper call.
 NPM_PUBLISH_CALL = re.compile(
     r"""npm\s*\(\s*["']publish["']|\[\s*["']npm["']\s*,\s*["']publish["']"""
 )
 
-#: Conditions that make a job run *despite* a failed dependency.
 BYPASS_IF_RE = r"always\(\)|failure\(\)|cancelled\(\)"
 
 
@@ -147,13 +143,8 @@ def publishes(job: dict) -> bool:
         return True
     if str(permissions_of(job).get("contents", "")).strip() == "write":
         return True
-    # A registry upload is a publish even though it writes nothing to the
-    # repository: `npm publish` ships a tarball the world installs.
     if any(NPM_PUBLISH_CALL.search(str(step.get("run") or "")) for step in job.get("steps") or []):
         return True
-    # An upload of the release asset bundle is a publish step only when it goes
-    # to a Release; `actions/upload-artifact` feeds the job that does that, so it
-    # is not counted here (the job that consumes it is).
     return False
 
 
@@ -216,11 +207,6 @@ def gate_reachable(document: dict) -> list[str]:
             if isinstance(step, dict)
         )
     )
-
-
-# --------------------------------------------------------------------------- #
-# the real workflow
-# --------------------------------------------------------------------------- #
 
 
 def test_the_gate_job_exists_and_is_unconditional():
@@ -305,11 +291,6 @@ def test_the_analysis_sees_the_workflow_it_claims_to_grade():
     assert set(needs_of(jobs(document)["release"])) == {"consistency", "build", "attest"}
 
 
-# --------------------------------------------------------------------------- #
-# mutants
-# --------------------------------------------------------------------------- #
-
-
 def test_mutant_a_publisher_that_does_not_need_the_gate_is_reported():
     document = release()
     document["jobs"]["release"]["needs"] = ["attest"]
@@ -356,7 +337,6 @@ def test_mutant_a_dropped_gate_job_is_reported(tmp_path):
     document = parse_workflow((tmp_path / "release.yml").read_text(encoding="utf-8"))
     assert GATE_JOB not in jobs(document)
     assert not blocked_by(GATE_JOB, "release", document)
-    # The leftover `needs: [consistency]` must be reported, not read as an edge.
     assert "build -> consistency" in dangling_needs(document), dangling_needs(document)
     assert bypass_problems(document), "a dangling publisher dependency must be reported"
 
@@ -384,15 +364,8 @@ def test_each_bypassing_condition_is_recognised(condition):
     assert bypass_problems(document), condition
 
 
-# --------------------------------------------------------------------------- #
-# the npm publish job
-# --------------------------------------------------------------------------- #
-
 NPM_JOB = "npm"
 
-#: The npm CLI floor for trusted publishing, from
-#: https://docs.npmjs.com/trusted-publishers/ (accessed 2026-10-28):
-#: "requires npm CLI version 11.5.1 or later and Node version 22.14.0 or higher".
 NPM_TRUSTED_PUBLISHING_FLOOR = (11, 5, 1)
 
 
@@ -441,8 +414,6 @@ def test_the_npm_job_never_swallows_a_publish_failure():
     for step in job["steps"]:
         assert step.get("continue-on-error") not in (True, "true"), step.get("name")
         assert "|| true" not in str(step.get("run") or ""), step.get("name")
-    # The failure path must name both ways to authorise the publish, and must exit
-    # non-zero: a release that cannot publish is a red run, never a green skip.
     publish = next(run for run in npm_runs().values() if 'npm("publish"' in run)
     assert "raise SystemExit(1)" in publish, publish
     assert "Trusted Publishing" in publish and "NPM_TOKEN" in publish, publish
@@ -475,9 +446,7 @@ def test_the_npm_version_floor_and_node_floor_are_pinned_in_the_job():
         f"trusted publishing needs Node >= 22.14.0, the job asks for {with_.get('node-version')!r}"
     )
     assert with_.get("registry-url") == "https://registry.npmjs.org", with_
-    # A publish job with `id-token: write` must not restore an npm cache.
     assert str(with_.get("package-manager-cache")).lower() == "false", with_
-    # The two external floors are cited where the pin lives, with an access date.
     assert "https://docs.npmjs.com/trusted-publishers/" in text
     assert "accessed 2026-10-28" in text
 
@@ -493,8 +462,6 @@ def test_the_npm_job_falls_back_to_the_token_only_when_the_secret_exists():
     text = release_text()
     assert "NPM_TOKEN: ${{ secrets.NPM_TOKEN }}" in text
     publish = next(run for run in npm_runs().values() if 'npm("publish"' in run)
-    # The userconfig is written with a token line only when the secret is set;
-    # otherwise npm falls through to the OIDC exchange.
     assert "if token:" in publish, publish
     assert "_authToken" in publish, publish
 
@@ -513,7 +480,6 @@ def test_the_workflow_dispatch_path_exists_and_still_needs_a_tag():
 def test_a_dispatch_never_creates_a_tag():
     """`git tag` with an argument would be the workflow tagging a revision."""
     text = release_text()
-    # `git tag -l` (list) is a read; anything else creates, moves or deletes a tag.
     assert not re.search(r"git tag (?!-l|--list)[^-]", text), (
         "the workflow must never create, move or delete a tag"
     )

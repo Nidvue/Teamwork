@@ -24,7 +24,7 @@ gate, in CI as well as locally.
 
 | Target | Underlying command | What it proves |
 |---|---|---|
-| `make lint` | `ruff check .` + `ruff format --check .` | Style, import order and formatting. |
+| `make lint` | `ruff check .` + `ruff format --check .` + `python scripts/check_comments.py` | Style, import order, formatting and the no-comment rule. |
 | `make typecheck` | `mypy src/teamwork` | Type report (non-blocking in CI). |
 | `make test` | `pytest -q` | Unit, integration and acceptance tests. |
 | `make build` | `python -m build` | An sdist and a wheel are produced. |
@@ -99,7 +99,7 @@ configure the build. `NOTICE` beside `LICENSE` is the asymmetry to remember:
 | Job | Matrix | Step |
 |---|---|---|
 | `scope` | ubuntu | classifies the changed paths and publishes `code=true/false` and `prose=true/false` |
-| `lint` | ubuntu | `ruff check .`, then `ruff format --check .`, then the commit identity audit on a full-history checkout |
+| `lint` | ubuntu | `ruff check .`, then `ruff format --check .`, then `python scripts/check_comments.py` (the no-comment rule), then the commit identity audit on a full-history checkout |
 | `committer-guard` | ubuntu | `teamwork.py identity --guard-committer --range ...` on every push, naming a forge-stamped committer before it reaches `main` |
 | `typecheck` | ubuntu | `mypy src/teamwork` with `continue-on-error: true` - a report, not a gate |
 | `test` | ubuntu/macos/windows × Python 3.9/3.11/3.13, plus 3.10/3.12 on ubuntu | `make test` |

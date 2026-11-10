@@ -95,7 +95,6 @@ def team_tree() -> Path | None:
     return None
 
 
-#: probe script, area, modules it needs, why, and whether it reads the team tree.
 CASES = (
     (
         "readme_layout_probe.py",
@@ -127,7 +126,6 @@ CASES = (
     ),
 )
 
-#: Which extra installs each probe's toolchain, as pyproject.toml declares it.
 EXTRAS = {"mkdocs": "dev", "cairosvg + PIL": "imaging"}
 
 

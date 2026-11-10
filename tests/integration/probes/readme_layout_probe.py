@@ -180,7 +180,6 @@ def main(argv: list[str] | None = None) -> int:
     _scanner, layout = scan(work / "site")
     problems.extend(layout)
 
-    # Control: the same pipeline on a README that must fail the check.
     control_work = work / "control"
     if control_work.exists():
         shutil.rmtree(control_work)

@@ -23,9 +23,6 @@ from types import ModuleType
 
 import pytest
 
-# ``scripts/`` is not on the import path: these are build tools, not a package.
-# Putting it there would shadow the real ``teamwork`` package for every later
-# test in the session, so they are loaded by path instead (T-0014).
 SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
 
 
@@ -124,7 +121,7 @@ def test_an_unmanaged_file_in_the_skills_directory_is_never_deleted(tmp_path: Pa
     sync_skill.sync(source, dest, dry_run=False, quiet=True)
     note = dest / "README.md"
     note.write_text("operator notes\n", encoding="utf-8")
-    (source / "references" / "one.txt").unlink()  # a managed file disappears
+    (source / "references" / "one.txt").unlink()
 
     _added, _updated, removed = sync_skill.plan(source, dest)
     assert Path("README.md") not in removed

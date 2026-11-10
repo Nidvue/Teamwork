@@ -25,8 +25,6 @@ def write_claim(root: Path, role: str, **fields) -> Path:
         "role": role,
         "instance": "Architect-1",
         "token": "1.0",
-        # Relative to now, never a fixed date: a hard-coded stamp turns "fresh"
-        # into "held for hours" the moment the wall clock passes it.
         "acquired": datetime.datetime.now().isoformat(timespec="seconds"),
         "expires_ts": time.time() + 600,
         "minutes": 10,
@@ -87,7 +85,6 @@ def test_the_next_instance_name_never_reuses_a_name(tmp_path: Path) -> None:
     make_role(tmp_path, "architect")
     assert engine.next_instance_name(tmp_path, "architect") == "Architect"
     make_instance(tmp_path, "Architect")
-    # A bare role name is that role's first instance, so the second lane is -2.
     assert engine.next_instance_name(tmp_path, "architect") == "Architect-2"
     make_instance(tmp_path, "Architect-2")
     make_instance(tmp_path, "Architect-4")
@@ -118,11 +115,6 @@ def test_the_ceo_may_hold_the_pen_of_any_role(tmp_path: Path) -> None:
     assert engine.memory_actor(tmp_path, "architect", "ceo") == "CEO"
 
 
-# --------------------------------------------------------------------------- #
-# a stalled lease: contest, then the arbiter rules
-# --------------------------------------------------------------------------- #
-
-
 def test_a_lease_older_than_the_stall_threshold_is_slow(tmp_path: Path) -> None:
     started = (datetime.datetime.now() - datetime.timedelta(minutes=20)).isoformat(
         timespec="seconds"
@@ -148,7 +140,6 @@ def test_the_arbiter_is_the_cto_and_folds_up_when_it_is_unstaffed(tmp_path: Path
     make_instance(tmp_path, "CEO")
     assert engine.memory_arbiter(tmp_path, "architect") == ("cto", [])
     (tmp_path / "Roles" / "CTO").rmdir()
-    # A slim roster has no CTO: the request folds up to the CEO and says so.
     assert engine.memory_arbiter(tmp_path, "architect") == ("ceo", ["cto"])
 
 
@@ -157,7 +148,6 @@ def test_a_party_never_rules_its_own_lease(tmp_path: Path) -> None:
         make_role(tmp_path, role)
     make_instance(tmp_path, "CTO")
     make_instance(tmp_path, "CEO")
-    # A CTO's own memory goes to the CEO, and the skipped seat is stated.
     assert engine.memory_arbiter(tmp_path, "cto") == ("ceo", ["cto"])
     assert engine.memory_arbiter(tmp_path, "architect") == ("cto", [])
 

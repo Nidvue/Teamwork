@@ -33,8 +33,6 @@ AREA = "links"
 DOCS = Path("docs") / "Team"
 AGENTS = Path("AGENTS.md")
 
-#: The line a broken link must produce. CI and a reviewer both read this string,
-#: so it is pinned exactly rather than by keyword.
 BROKEN_LINE = "- docs/Team/A.md: [gone](Missing.md) - target does not exist"
 
 
@@ -94,8 +92,6 @@ def test_a_clean_committed_tree_passes(tmp_path):
         f"{result.stdout}\n{result.stderr}"
     )
     assert issues(result) == 0, result.stdout
-    # A check that reads nothing is not an acceptance. The pair we added must be
-    # visible in the count, or the "clean" verdict means "not looked at".
     assert files_scanned(result) >= len(list(tree.rglob("*.md")))
 
 
@@ -141,8 +137,6 @@ def test_a_malformed_external_url_is_caught(tmp_path):
 
     assert result.returncode == 1, result.stdout
     assert "- docs/Team/B.md: [www](www.example.com) - use a full https:// URL" in result.stdout
-    # A bare domain is not a URL either, but it is caught on the other path: it
-    # resolves as a relative file that does not exist, which is the honest reason.
     assert "- docs/Team/B.md: [bare](example.org) - target does not exist" in result.stdout
     assert "https://example.com/guide" not in result.stdout, (
         f"a valid https:// URL was reported as a defect:\n{result.stdout}"
@@ -186,7 +180,6 @@ def test_reciprocity_is_a_separate_promise(tmp_path):
     """
     tree = tmp_path / "tree"
     reciprocal_pair(tree)
-    # Orphan links to A; nothing links to Orphan, so A owes Orphan a back-link.
     write(tree, DOCS / "Orphan.md", doc("Orphan", "Related: [A](A.md)"))
     write(tree, DOCS / "A.md", doc("A", "Related: [B](B.md) and [gone](Missing.md)"))
 

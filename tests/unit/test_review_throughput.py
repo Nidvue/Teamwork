@@ -97,9 +97,6 @@ def test_review_lease_is_short_expires_and_renews(cli, project: Path) -> None:
     assert task["review_claim_lease"] == str(2 * engine.REVIEW_LEASE_MINUTES)
     assert engine.review_claim_state(task)[2] is True
 
-    # The stored lease is the one the claim was granted: a standard claim is still
-    # held at 21 minutes, where the flat 20-minute rule used to free it (and let
-    # the other lane take the same deliverable over).
     age_claim(root, handle, 21)
     task = [
         t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == handle
@@ -107,7 +104,6 @@ def test_review_lease_is_short_expires_and_renews(cli, project: Path) -> None:
     assert engine.review_claim_state(task)[2] is True
     assert engine.review_claim_state(task, engine.REVIEW_LEASE_MINUTES)[2] is False
 
-    # A lane that died past its own lease no longer blocks the deliverable.
     age_claim(root, handle, 41)
     task = [
         t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == handle
@@ -118,7 +114,6 @@ def test_review_lease_is_short_expires_and_renews(cli, project: Path) -> None:
         == 0
     )
 
-    # Only the holder renews, and renewal resets the clock.
     age_claim(root, handle, 15)
     assert (
         cli("--project", project, "review", "developer", handle, "--renew", "--by", "reviewer-1")
@@ -332,8 +327,6 @@ def test_a_deep_review_claims_a_longer_lease_than_a_prose_review(cli, project: P
     assert fast == engine.REVIEW_LEASE_MINUTES
     assert fast < standard < deep
     assert engine.review_lease_for_profile(root, "fast") == engine.REVIEW_LEASE_MINUTES
-    # The cap wins over the multiplier, so a misconfigured base cannot freeze work.
-    # Written through the real Settings file: the base lease is what the cap caps.
     import json
 
     settings = engine.providers_path(root)
@@ -378,10 +371,8 @@ def test_review_next_claims_and_prints_the_top_packet_in_one_step(
     assert claimed["review_claim"] == "Reviewer-1"
     assert engine.review_is_held(claimed)
 
-    # One lane, one deliverable: a deep review is not divisible.
     assert cli("--project", project, "review", "--next", "--by", "reviewer-1") == 2
     capsys.readouterr()
-    # The other lane takes the next item.
     assert cli("--project", project, "review", "--next", "--by", "reviewer-2") == 0
     out = capsys.readouterr().out
     assert low in out
@@ -437,7 +428,6 @@ def test_a_claim_after_a_release_gets_the_current_profiles_lease(cli, project: P
     assert (
         cli("--project", project, "review", "developer", deep, "--claim", "--by", "reviewer-1") == 0
     )
-    # The claim was explicitly deep: 4x the base, and the stored lease says so.
     task = [t for t in engine.parse_tasks(engine.task_file(root, "developer")) if t["id"] == deep][
         0
     ]

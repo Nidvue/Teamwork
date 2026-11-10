@@ -34,12 +34,10 @@ SOURCES = "## 7. Sources"
 ADOPTED = "## 8. Harness^2"
 VERDICTS = ("Adopt", "Adapt", "Reject")
 TECHNIQUES = [f"H{n}" for n in range(1, 11)]
-# `- [title](https://url) - accessed YYYY-MM-DD`
 ACCESS_DATE = re.compile(r"accessed \d{4}-\d{2}-\d{2}")
 LINK = re.compile(r"\[[^\]]*\]\((https?://[^)\s]+)\)")
 CODE_SPAN = re.compile(r"`([^`\n]+)`")
 SEPARATOR = re.compile(r"^[\s|:-]+$")
-# the surface column must name something a reader can open: a command or a path
 SURFACE = re.compile(r"`(?:teamwork\.py|python3|[\w./<>*-]+\.(?:py|md|jsonl))")
 
 

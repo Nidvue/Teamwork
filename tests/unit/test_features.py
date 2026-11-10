@@ -102,11 +102,6 @@ def add(cli, project: Path, *extra: str) -> int:
     )
 
 
-# --------------------------------------------------------------------------- #
-# 13.1 the record
-# --------------------------------------------------------------------------- #
-
-
 def test_a_feature_record_round_trips_through_the_file(tmp_path: Path) -> None:
     """The file's shape is one header row and one metadata block per record."""
     path = tmp_path / "Features.md"
@@ -133,7 +128,6 @@ def test_a_feature_record_round_trips_through_the_file(tmp_path: Path) -> None:
     assert records[1]["paths"] == ["tools/"]
     assert records[1]["depends_on"] == ["F-0001"]
     assert records[1]["state"] == "ready"
-    # Rendering is pure and idempotent: the second render is byte-identical.
     first = engine.render_features(records, path)
     assert engine.render_features(engine.parse_features(path), path) == first
 
@@ -172,11 +166,6 @@ def test_the_task_feature_field_renders_only_when_it_is_set(tmp_path: Path) -> N
 
     engine.write_tasks(path, [engine.new_task("unsliced repair")], "developer")
     assert path.read_text(encoding="utf-8") == without
-
-
-# --------------------------------------------------------------------------- #
-# 13.2 add
-# --------------------------------------------------------------------------- #
 
 
 def test_add_files_the_callers_own_slice_in_proposed(cli, project, capsys) -> None:
@@ -380,11 +369,6 @@ def test_an_unknown_caller_is_refused_by_name(cli, project, capsys) -> None:
     assert code == 2
     assert "unknown actor 'ghost-1'. Known agents: " in out
     assert "CEO" in out and "Team-Leader-1" in out
-
-
-# --------------------------------------------------------------------------- #
-# 13.2 set: the state machine and its refusals
-# --------------------------------------------------------------------------- #
 
 
 def test_only_the_architect_opens_a_record_and_the_freeze_is_required(cli, project, capsys) -> None:
@@ -735,11 +719,6 @@ def test_a_set_prints_one_field_per_changed_field_in_record_order(cli, project, 
     )
 
 
-# --------------------------------------------------------------------------- #
-# 13.1 depends-on
-# --------------------------------------------------------------------------- #
-
-
 def test_a_dependency_must_already_be_done(cli, project, capsys) -> None:
     init(cli, project)
     capsys.readouterr()
@@ -784,11 +763,6 @@ def test_a_dependency_on_an_unknown_record_names_it(cli, project, capsys) -> Non
 
     assert code == 2
     assert "teamwork: no feature added: unknown feature F-0003" in capsys.readouterr().out
-
-
-# --------------------------------------------------------------------------- #
-# 13.2 list / check: the read verbs and their exit codes
-# --------------------------------------------------------------------------- #
 
 
 def test_list_prints_the_frozen_block_and_dates_it(cli, project, capsys) -> None:
@@ -957,11 +931,6 @@ def test_a_read_misuse_prints_one_error_object(cli, project, capsys) -> None:
     assert payload["error"] == "unknown feature F-0009"
 
 
-# --------------------------------------------------------------------------- #
-# 13.4 the `feature` test layer
-# --------------------------------------------------------------------------- #
-
-
 def test_the_feature_layer_is_registered_like_every_other_layer() -> None:
     assert "feature" in TEST_LAYERS
     assert LAYER_OWNER["feature"] == "team-leader"
@@ -969,7 +938,6 @@ def test_the_feature_layer_is_registered_like_every_other_layer() -> None:
         "feature isolation: the slice's diff, its standalone build and its frozen interface"
     )
     assert LAYER_CELL["feature"] == "feat"
-    # Every other layer keeps its owner: the new layer is additive.
     assert set(LAYER_OWNER) == set(TEST_LAYERS)
 
 
@@ -1000,8 +968,6 @@ def test_a_feature_layer_record_needs_the_team_leader_owner(cli, project, capsys
         "--owner",
         "developer-1",
     )
-    # A test-layer ownership refusal keeps `die`'s default code, as every other
-    # role-owned write in the engine does; only the feature verbs are frozen at 2.
     assert code == 1
     assert "feature tests belong to the team-leader role" in said(capsys)
 

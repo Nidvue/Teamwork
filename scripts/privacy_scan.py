@@ -107,21 +107,11 @@ from pathlib import Path
 
 SCANNER_VERSION = "1.4.0"
 
-#: What ``--history`` means, in one place: every object reachable from every ref
-#: AND from the reflog. The reflog is the half that matters after a repair - an
-#: amended commit or a reset branch is unreachable but still recoverable through
-#: the reflog, so a scan that skipped it would report PASS on exactly the history
-#: the documented repair leaves behind. Both walkers (``rev-list --objects`` for
-#: blobs and ``git log`` for commit metadata) pass this same pair, because a
-#: walker that drifts from the other scans a different history.
 _HISTORY_REVISIONS = ("--all", "--reflog")
 
-# Neutral identity / allowlisted email domains
 
 IDENTITY_DOMAIN = os.environ.get("TEAMWORK_IDENTITY_DOMAIN", "agents.nidvue.com")
 
-# Documentation / RFC 6761-2606 placeholders and service mailboxes. These are
-# not personal data: they are reserved names used in examples and by git hosts.
 _ALLOWED_EMAIL_DOMAINS = {
     IDENTITY_DOMAIN,
     "example.com",
@@ -146,26 +136,14 @@ _ALLOWED_SERVICE_EMAILS = re.compile(
     r"git@(?:github\.com|gitlab\.com|bitbucket\.org))$"
 )
 
-# Retired private domains
-#
-# Kept out of plain text on purpose: this file ships in the public tree and the
-# history, and must not itself contain the string it is meant to detect. The
-# list is built from code points and can be extended at runtime with the
-# comma-separated TEAMWORK_PRIVATE_DOMAINS environment variable.
-
 
 def _decode(*codes: int) -> str:
     return "".join(chr(c) for c in codes)
 
 
 _DEFAULT_PRIVATE_DOMAINS = (
-    # The role-mailbox domain is the project's own (IDENTITY_DOMAIN, agents.nidvue.com) and
-    # is allowed above; the domains below are the *personal* ones that must never
-    # appear. The operator's decision is recorded in docs/Team/Decisions.md.
-    _decode(122, 104, 97, 111, 46, 110, 111),  # personal identity domain
-    _decode(
-        98, 117, 108, 98, 105, 116, 101, 99, 104, 46, 99, 111, 109
-    ),  # personal work-mail domain
+    _decode(122, 104, 97, 111, 46, 110, 111),
+    _decode(98, 117, 108, 98, 105, 116, 101, 99, 104, 46, 99, 111, 109),
 )
 
 
@@ -179,8 +157,6 @@ def _private_domains() -> list:
     return seen
 
 
-# Non-personal CI / placeholder usernames that may legitimately appear in a home
-# path (GitHub Actions uses /home/runner). Everything else is reported.
 _GENERIC_HOME_USERS = {
     "runner",
     "runneradmin",
@@ -202,7 +178,6 @@ _GENERIC_HOME_USERS = {
     "teamwork",
 }
 
-# Placeholder values that are obviously not real secrets.
 _PLACEHOLDERS = re.compile(
     r"^(?:\$\{?[A-Za-z0-9_]+\}?|%[A-Za-z0-9_]+%|<[^>]+>|your[-_].*|"
     r".*[-_]here|xxx+|\.\.\.|redacted|placeholder|dummy|fake|changeme|change_me|"
@@ -212,24 +187,15 @@ _PLACEHOLDERS = re.compile(
     re.IGNORECASE,
 )
 
-# Detection rules
 
 _RE_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 
 _RE_HOME = re.compile(
     r"(?:(?<![A-Za-z0-9_])/(?:home|Users)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
-    # The Windows user name ends where a name ends, like the POSIX branch above. The
-    # old class accepted every character but a separator, space or quote, so the
-    # reported value swallowed whatever followed it - a closing backtick, or the
-    # `$` of an anchored allowlist line - and no anchored literal could express the
-    # value it was meant to exempt, including this file's own entry.
     r"|(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]Users[\\/]([A-Za-z0-9][A-Za-z0-9._\-]*))"
-    # WSL and container mounts of a real home directory
     r"|(?:(?<![A-Za-z0-9])/mnt/[A-Za-z]/(?:Users|home)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
 )
 
-# Built from fragments so the scanner's own source does not contain the
-# contiguous header it is meant to detect.
 _RE_PRIVATE_KEY = re.compile(
     r"-{5}BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-{5}"
     r"|-{5}BEGIN SSH2 ENCRYPTED PRIVATE KEY-{5}"
@@ -254,8 +220,6 @@ _RE_TOKEN = re.compile(
     r"|\b(?i:Bearer)\s+[A-Za-z0-9._+/=\-]{16,}"
 )
 
-# Assignment values that contain code punctuation (calls, indexing, punctuation) are
-# not credentials - they are source lines such as ``API_KEY = re.compile(...)``.
 _RE_CODE_LIKE = re.compile(r"[(){}\[\]<>,;'\"\s]")
 _CODE_KEYWORDS = {
     "function",
@@ -282,11 +246,8 @@ _CODE_KEYWORDS = {
 
 _RE_DOTTED_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 
-# A bare Python name: letters, digits and underscores only, no punctuation.
 _RE_PY_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-# Words that mark a name as a credential in its own right even when it is shaped
-# like a code name (``my_super_secret_password``).
 _SECRET_WORDS = ("secret", "password", "passwd", "passphrase", "credential")
 
 
@@ -311,25 +272,19 @@ def _is_code_name(value: str) -> bool:
 def _looks_like_secret_value(value: str) -> bool:
     if value.startswith(("re.", "os.", "self.", "match.", "str(", "Path(")):
         return False
-    # A dotted identifier is code (``tokenize.generate_tokens``), not a credential.
     if _RE_DOTTED_IDENT.match(value):
         return False
     if value.lower() in _CODE_KEYWORDS:
         return False
-    # Paths, URLs and pure digit strings are configuration, not credentials.
     if value.startswith(("/", "\\", "http://", "https://")) or "://" in value:
         return False
     if value.isdigit():
         return False
-    # A bare word such as ``candidate`` is an identifier, not a credential.
     if value.isalpha() and len(value) < 24:
         return False
     return not bool(_RE_CODE_LIKE.search(value))
 
 
-# .env-style assignment of a secret-named variable to a non-placeholder value.
-# The value is restricted to a credential charset so that a call expression is
-# not mistaken for an assignment.
 _RE_ENV_SECRET = re.compile(
     r"(?i)(?:[A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|"
     r"ACCESS[_-]?KEY|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|"
@@ -337,14 +292,10 @@ _RE_ENV_SECRET = re.compile(
     r"(?:[\"']([^\"'\n]{8,})[\"']|([A-Za-z0-9+/=_\-.:@!#$%^&]{8,}))"
 )
 
-# Standalone high-entropy secret: 32+ base64-ish characters, not pure hex (a raw
-# hash such as a git sha must not be reported). Hex secrets are still caught when
-# they are assigned to a secret-named variable by the .env rule above.
 _RE_HIGH_ENTROPY = re.compile(r"(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{32,}={0,2}(?![A-Za-z0-9+/=])")
 
 _RE_TODO = re.compile(r"(?i)\b(?:TODO|FIXME|XXX|HACK)\b")
 
-# A forge-created PR merge commit: "Merge <sha> into <sha>" with two parents.
 _RE_FORGE_MERGE = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 
 
@@ -355,11 +306,6 @@ _RE_FORGE_MERGE_SUBJECTS = (
     re.compile(r"^Merge remote-tracking branch '[^']+'$"),
 )
 
-#: The committer a git host stamps on a merge it performs itself. It is the one
-#: part of a host merge a local commit cannot claim by writing a subject line:
-#: the subject is whatever the author types, the committer is what the host's own
-#: merge machinery writes. Mirrors ``engine._RE_FORGE_COMMITTER_EMAIL`` so the two
-#: gates agree on which addresses are transport rather than identity.
 _RE_FORGE_COMMITTER_STAMP = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\.com)$")
 
 
@@ -404,8 +350,6 @@ def _host_state(*parts: str) -> str:
     return "".join(parts)
 
 
-# Private state of an agent host. The skill directory itself
-# (``<agent-dir>/skills/<name>``) is a normal install target and is not listed.
 _AGENT_CONFIG_NAMES = (
     r"auth(?:[^\s\"'`]*)?|settings\.json|trust\.json|"
     r"mcp(?:-auth|-adapter|-onboarding)?\.json|models(?:-store)?\.json|"
@@ -425,16 +369,12 @@ _RE_AGENT_CONFIG = re.compile(
     re.IGNORECASE,
 )
 
-# JSON config object carrying a live credential: ``"apiKey": "..."``. A
-# placeholder (``${TOKEN}``, ``<your-key>``) is filtered like ``.env`` values.
 _RE_JSON_SECRET = re.compile(
     r"(?i)[\"'][A-Za-z0-9_.\-]*(?:api[_-]?key|apikey|access[_-]?token|"
     r"refresh[_-]?token|id[_-]?token|client[_-]?secret|private[_-]?key|secret|"
     r"password|passwd|token)[\"']\s*:\s*[\"']([^\"'\n]{8,})[\"']"
 )
 
-# A tracked path that must never be published: host config, credentials, keys,
-# environment files, history. ``.env.example`` and friends stay allowed.
 _SENSITIVE_NAME = re.compile(
     r"(?i)^(?:\.env(?:\.(?!example$|sample$|template$|dist$)[^/]+)?"
     r"|auth(?:\.json)?(?:\.bak)?|auth\.json|credentials\.json|secrets?\.json"
@@ -444,10 +384,8 @@ _SENSITIVE_NAME = re.compile(
     r"|\.git-credentials|\.htpasswd)$"
 )
 _SENSITIVE_SUFFIX = re.compile(r"(?i)\.(?:pem|p12|pfx|keystore|jks)$")
-# Local working state: an agent workspace, a virtualenv, build output or a cache.
-# None of it is project source, so a tracked file here leaked by accident.
 _LOCAL_STATE_PARTS = (
-    ".pi",  # the team workspace; a project skill under .agents/ stays tracked
+    ".pi",
     ".venv",
     "venv",
     "node_modules",
@@ -479,8 +417,6 @@ _SENSITIVE_PARTS = (
     _host_state(".docker/", "config.json"),
     _host_state(".ssh/", ""),
 )
-# Shell history and dotfile names above are matched on the basename only; a
-# project source file called ``auth.py`` must stay allowed.
 _SENSITIVE_BASENAMES = {
     "auth.json",
     "auth.json.bak",
@@ -488,7 +424,6 @@ _SENSITIVE_BASENAMES = {
     _host_state(".aider.", "input.history"),
 }
 
-# Editor and build residue: local artefacts that are never project source.
 _LOCAL_JUNK = re.compile(r"(?i)^(?:\.DS_Store|Thumbs\.db|.*\.(?:swp|swo|orig|rej|bak|pyc|pyo))$")
 
 
@@ -518,13 +453,9 @@ def sensitive_path(rel: str):
     return None
 
 
-# An archive entry's quoted-evidence fields, mirroring the link checker's scope:
-# the author of the entry is not the author of the quotation.
 _QUOTED_EVIDENCE = re.compile(
     r"^- (?:self-check|author evidence|reviewer evidence|findings history): "
 )
-# Rules that describe a *path shape* rather than a secret. They are quiet inside a
-# quotation; every credential rule below stays armed there.
 _QUOTED_PATH_RULES = frozenset({"home-path", "agent-config"})
 
 RULES = (
@@ -533,7 +464,7 @@ RULES = (
     {"id": "env-secret", "severity": "critical", "regex": _RE_ENV_SECRET},
     {"id": "json-secret", "severity": "critical", "regex": _RE_JSON_SECRET},
     {"id": "agent-config", "severity": "high", "regex": _RE_AGENT_CONFIG},
-    {"id": "private-domain", "severity": "high", "regex": None},  # compiled in scan()
+    {"id": "private-domain", "severity": "high", "regex": None},
     {"id": "personal-email", "severity": "high", "regex": _RE_EMAIL},
     {"id": "home-path", "severity": "high", "regex": _RE_HOME},
     {"id": "high-entropy-secret", "severity": "high", "regex": _RE_HIGH_ENTROPY},
@@ -548,24 +479,11 @@ def _shannon_entropy(value: str) -> float:
     return -sum((n / length) * math.log2(n / length) for n in counts.values())
 
 
-#: A token that may continue past the match: the high-entropy rule matches 32+
-#: base64-ish characters, and a path segment may continue with a file name, a
-#: second extension or another segment.
 _TOKEN_CHARS = re.compile(r"[A-Za-z0-9._/+=-]+")
-#: One path segment of a repository path: a name, optionally with an extension.
 _PATH_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
-#: The words of a name: a CamelCase run splits into its parts, a trailing digit
-#: group is its own part - except that a capital letter fused to digits is one
-#: part, because that is how a lane, milestone or chapter id is written (``M13``,
-#: ``C5``, ``T0034``). Without this alternative ``M13`` splits into ``M`` + ``13``
-#: and the one-letter word makes a real document path look like a random string.
 _NAME_WORDS = re.compile(r"[A-Z][0-9]+|[A-Z]+(?![a-z])|[A-Z][a-z]*|[a-z]+|[0-9]+")
-#: A lower-case letter followed by an upper-case one: the CamelCase mark that
-#: separates a name like ``ProductManager`` from a random mix of letters.
 _CAMEL_CASE = re.compile(r"[a-z][A-Z]")
-#: How many words a path segment may have before it stops reading as a name.
 _MAX_NAME_WORDS = 3
-#: A one-letter alphabetic part means a random mix, not a name.
 _MIN_NAME_WORD = 2
 
 
@@ -628,18 +546,13 @@ def _looks_like_secret(value: str, line: str = "", index: int = 0) -> bool:
     """Filter out hashes, identifiers, URL paths and natural words."""
     if len(value) < 32:
         return False
-    if re.fullmatch(r"[0-9a-fA-F]+", value):  # pure hex -> treat as a hash
+    if re.fullmatch(r"[0-9a-fA-F]+", value):
         return False
-    # A long run inside a URL path is not a credential. A separate token later
-    # on the same line (after whitespace) is still checked.
     scheme = line.find("://")
     if scheme != -1 and index > scheme:
         between = line[scheme + 3 : index]
         if not re.search(r"[\s\"']", between):
             return False
-    # A relative path is a path, not a secret. The rule matches the first 32+
-    # characters of a longer path, so the match has to be checked against the
-    # whole token it was cut from.
     if _is_path_fragment(line, index, len(value)):
         return False
     has_digit = any(c.isdigit() for c in value)
@@ -709,16 +622,12 @@ def write_reveal_file(path, pairs):
                 written += 1
         os.chmod(str(target), 0o600)
     except BaseException:
-        # Do not leave a half-written plaintext secrets file behind.
         try:
             os.unlink(str(target))
         except OSError:
             pass
         raise
     return written
-
-
-# Findings
 
 
 class Finding(dict):
@@ -741,10 +650,6 @@ class Finding(dict):
 
 
 def make_finding(rule_id, severity, path, line_no, value, line, source, commit=None):
-    # Not one character of the value, and never the surrounding line: the report
-    # names the rule the way the archive mask does, because a partly masked
-    # preview still hands the first and last characters of a credential to
-    # everyone who can read the log.
     return Finding(
         {
             "rule": rule_id,
@@ -777,7 +682,7 @@ def scan_lines(text, path, source, rules, allow, commit=None):
     compiled = []
     for rule in rules:
         if rule["id"] == "json-secret":
-            continue  # whole-text pass below: pretty-printed values span lines
+            continue
         if rule["id"] == "private-domain":
             if private_re is None:
                 continue
@@ -788,19 +693,8 @@ def scan_lines(text, path, source, rules, allow, commit=None):
     ignore_file = path.endswith(".gitignore")
     archive = path.endswith("Archive.md")
     for line_no, line in enumerate(text.splitlines(), 1):
-        # An archive entry quotes another agent's evidence verbatim. A path inside
-        # such a quotation is that agent's measurement, not a path this repository
-        # owns, and the quotation cannot be reworded after it is committed - so a
-        # path-shape rule would fail every future scan on immutable history. Every
-        # credential rule stays armed on the same line.
-        #
-        # The predicate has its own name on purpose: the env-secret arm below
-        # assigns a local `quoted`, and sharing that name silently disarmed both
-        # path rules in every file whenever an env-secret matched.
         quoted_evidence = archive and _QUOTED_EVIDENCE.match(line) is not None
         for rule, regex in compiled:
-            # A .gitignore entry denies a private path; it is not a leak. The
-            # project's own deny list must therefore not fail the deny list test.
             if rule["id"] == "agent-config" and ignore_file:
                 continue
             if quoted_evidence and rule["id"] in _QUOTED_PATH_RULES:
@@ -821,11 +715,9 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                     if _PLACEHOLDERS.match(secret):
                         continue
                     if quoted:
-                        # A quoted passphrase may legitimately contain spaces.
                         if not re.search(r"\s", secret) and not _looks_like_secret_value(secret):
                             continue
                     elif _is_code_name(secret) or not _looks_like_secret_value(secret):
-                        # An unquoted name is a reference to a value, not the value.
                         continue
                     value = secret
                 if rule["id"] == "high-entropy-secret":
@@ -842,7 +734,6 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                     rule["id"], rule["severity"], path, line_no, value, line, source, commit
                 )
 
-        # A marker that carries a credential next to it is reported too.
         if _RE_TODO.search(line):
             credential = None
             for probe in (_RE_TOKEN, _RE_PRIVATE_KEY):
@@ -869,10 +760,6 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                     "todo-credential", "medium", path, line_no, credential, line, source, commit
                 )
 
-    # A JSON config may put the key and the value on different lines; matching the
-    # whole text keeps a pretty-printed `"apiKey":` from slipping through. This is
-    # deliberately not skipped for `.gitignore`: only the agent-config line rule is
-    # a deny list, and a pasted JSON credential is a leak in any file.
     for match in _RE_JSON_SECRET.finditer(text):
         value = match.group(1)
         if _PLACEHOLDERS.match(value):
@@ -917,9 +804,6 @@ def scan_commit_metadata(root, allow, stats=None):
         body = parts[6] if len(parts) > 6 else ""
         short = sha[:12]
         subject = body.splitlines()[0] if body else ""
-        # The committer - not the subject - decides whether this is host transport
-        # (see ``is_forge_merge``): a forged merge subject under a personal mailbox
-        # must be reported like any other commit.
         if not is_forge_merge(subject, parents, ce):
             for label, value in (
                 ("author name", an),
@@ -941,9 +825,6 @@ def scan_commit_metadata(root, allow, stats=None):
             finding["detail"] = "message"
             findings.append(finding)
     return findings
-
-
-# Git helpers
 
 
 def _run(args, input_bytes=None):
@@ -984,10 +865,7 @@ def _cat_file_batch(root, shas):
         except ValueError as exc:
             raise RuntimeError(f"invalid git object size in {header!r}") from exc
         payload = out[pos : pos + size]
-        # Skip the payload of every object type. Previously a tree payload was
-        # re-read as headers, which desynchronised the stream and could hide a
-        # real blob (or crash on a crafted tree entry name).
-        pos += size + 1  # git writes a trailing LF after each payload
+        pos += size + 1
         if kind == "blob":
             result[sha] = payload
     return result
@@ -1005,8 +883,6 @@ def _scan_bytes(data, path, source, allow, commit=None):
     if head.startswith((b"\xff\xfe", b"\xfe\xff")):
         text = data.decode("utf-16", "replace")
     elif b"\x00" in head and head.count(b"\x00") / max(len(head), 1) > 0.01:
-        # UTF-16 without a BOM: try both byte orders and accept only a decode
-        # that is overwhelmingly printable. A real binary file stays skipped.
         text = ""
         for encoding in ("utf-16-le", "utf-16-be"):
             candidate = data.decode(encoding, "replace")
@@ -1040,7 +916,6 @@ def config_path_finding(rel, source, allow=(), commit=None):
             "source": source,
             "commit": commit,
             "location": rel,
-            # A path is the finding, not a credential: naming it is the report.
             "evidence": rel,
             "context": reason,
         },
@@ -1117,10 +992,6 @@ def scan_staged(root, allow, stats=None):
 
 
 def scan_history(root, allow, stats=None):
-    # --reflog reaches objects a reset, an amend or a deleted branch left behind,
-    # which a plain --all scan reports as PASS even though `git fsck` still finds
-    # them. `scan_commit_metadata` walks the same `_HISTORY_REVISIONS` pair: the
-    # two must agree about what the history is, or one of them is a blind spot.
     proc = _run(["git", "-C", str(root), "rev-list", "--objects", *_HISTORY_REVISIONS])
     if proc.returncode != 0:
         raise RuntimeError("git rev-list failed: " + proc.stderr.decode("utf-8", "replace").strip())
@@ -1151,9 +1022,6 @@ def scan_history(root, allow, stats=None):
             findings.extend(_scan_bytes(data, rel, "history:blob", allow, commit=sha))
     findings.extend(scan_commit_metadata(root, allow, stats=stats))
     return findings
-
-
-# Allowlist
 
 
 def allow_expression(line):
@@ -1201,9 +1069,6 @@ def load_allow(path):
             print(f"privacy_scan: {path}:{line_no}: bad allow regex: {exc}", file=sys.stderr)
             raise SystemExit(2) from exc
     return patterns
-
-
-# Reporting
 
 
 def summarize(findings):
@@ -1265,7 +1130,7 @@ def main(argv=None):
     if args.all:
         args.tree = args.staged = args.history = True
     if not (args.tree or args.staged or args.history):
-        args.tree = True  # safe default
+        args.tree = True
 
     root = _git_root(args.root)
     if root is None:
@@ -1297,9 +1162,6 @@ def main(argv=None):
         return 2
 
     findings = dedupe(findings)
-    # Unmasked values are never printed. A log line - CI output, a terminal, a
-    # `tee`d file - is a broadcast sink: --reveal only adds a stable fingerprint
-    # and --reveal-to exports the raw values to a file the operator names.
     reveal_path = args.reveal_to
     reveal_values = []
     for finding in findings:
@@ -1332,11 +1194,8 @@ def main(argv=None):
 
     report = {
         "scanner_version": SCANNER_VERSION,
-        # The absolute root is deliberately not emitted: a privacy scanner must
-        # not republish the operator's home path into public CI logs.
         "root": root.name,
         "modes": modes,
-        # Never publish an absolute (possibly home) path in the report.
         "allow_file": Path(args.allow).name if args.allow else None,
         "identity_domain": IDENTITY_DOMAIN,
         "scanned": stats,
@@ -1350,9 +1209,6 @@ def main(argv=None):
     else:
         if not args.quiet:
             for finding in findings:
-                # The value is never printed in any form: stdout is a broadcast
-                # sink, so the report names the rule instead. --reveal only adds
-                # a non-usable fingerprint.
                 shown = finding["evidence"]
                 fingerprint = finding.get("fingerprint")
                 if fingerprint:

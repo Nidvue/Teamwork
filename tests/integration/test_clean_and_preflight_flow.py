@@ -142,8 +142,6 @@ def test_the_lifecycle_runs_end_to_end_on_a_real_repository(fixture_project: Pat
     assert (team / "Global" / "GlobalMemory.md").is_file()
     assert (fixture_project / "AGENTS.md").is_file()
 
-    # The board contract T-0007 landed: the board `init` writes renders and checks
-    # clean in a fresh project, before its first task and after it.
     empty_write = engine_cli(fixture_project, "board", "--write")
     assert empty_write.returncode == 0, output(empty_write)
     empty_check = engine_cli(fixture_project, "board", "--check")
@@ -180,8 +178,6 @@ def test_the_lifecycle_runs_end_to_end_on_a_real_repository(fixture_project: Pat
     assert ledger.returncode == 0, output(ledger)
     assert "chain intact" in ledger.stdout
 
-    # The same ledger read from outside the project: project resolution must not
-    # depend on the cwd, or a lane that runs from anywhere reports the wrong file.
     far = engine_cli(fixture_project, "ledger", "verify", cwd=fixture_project.parent)
     assert far.returncode == 0, output(far)
     assert "chain intact" in far.stdout
@@ -328,9 +324,6 @@ def test_preflight_fails_closed_and_goes_green_on_a_real_branch(fixture_project:
         == 0
     )
 
-    # A gate this host cannot start is a red check naming the command - not a
-    # traceback out of the engine, and not a silent pass on a platform that has
-    # the POSIX tool but not the project's.
     data["PreflightCommand"] = "teamwork-no-such-gate-command --check"
     settings.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     absent = engine_cli(fixture_project, "preflight", "Developer", "T-0001", "--run")

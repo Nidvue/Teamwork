@@ -18,9 +18,6 @@ from pathlib import Path
 
 from teamwork import engine
 
-# Assembled at run time so this test file does not itself contain the strings it
-# proves are redacted: the private domain the gate reports and the local part of
-# the address that quotes it.
 PRIVATE_DOMAIN = "zhao" + ".no"
 PRIVATE_LOCAL = "qxz7v2m9"
 PRIVATE_ADDRESS = PRIVATE_LOCAL + "@" + PRIVATE_DOMAIN
@@ -78,8 +75,6 @@ def test_the_mask_covers_the_identity_rules_the_gate_arms(tmp_path: Path) -> Non
     }
     gate_rule_ids = {rule["id"] for rule in scanner.RULES}
     assert set(engine.CREDENTIAL_RULES) <= gate_rule_ids, "every masked rule must exist in the gate"
-    # The gate silences exactly two path-shape rules inside a quotation; the
-    # mask covers the other seven, so the two sets are complementary.
     assert set(engine.CREDENTIAL_RULES) | scanner._QUOTED_PATH_RULES == gate_rule_ids
     assert not set(engine.CREDENTIAL_RULES) & scanner._QUOTED_PATH_RULES
 
@@ -97,7 +92,6 @@ def test_an_address_in_the_evidence_is_rewritten_in_the_stored_record(tmp_path: 
     assert PRIVATE_DOMAIN not in text, "not one character of the private domain may survive"
     assert not _surviving_windows(PRIVATE_LOCAL, text), "no run of the address may survive"
     assert not _surviving_windows(PRIVATE_DOMAIN, text), "no run of the domain may survive"
-    # The claim the evidence makes survives, so the record is still worth reading.
     assert "the reviewer quoted" in text
     assert "measured: the tree scan reports" in text
 

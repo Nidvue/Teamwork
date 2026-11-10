@@ -68,11 +68,6 @@ def slice_(
     )
 
 
-# --------------------------------------------------------------------------- #
-# 13.2 the attachment
-# --------------------------------------------------------------------------- #
-
-
 def test_a_squad_instance_is_attached_by_one_private_file(cli, project, capsys) -> None:
     root = init(cli, project)
     capsys.readouterr()
@@ -172,11 +167,6 @@ def test_under_must_name_a_team_leader_instance(cli, project, capsys) -> None:
         "--under must name an existing team-leader instance: 'team-leader-9' has no "
         "instance in this team" in capsys.readouterr().err
     )
-
-
-# --------------------------------------------------------------------------- #
-# 13.2 the claim scoping
-# --------------------------------------------------------------------------- #
 
 
 def test_a_squad_instance_takes_its_own_teams_task(cli, project, capsys) -> None:
@@ -287,11 +277,6 @@ def test_pulse_prints_the_team_lines_and_the_shared_services_once(cli, project, 
     assert out.count("# shared services:") == 1
 
 
-# --------------------------------------------------------------------------- #
-# 13.1 the merge path: a pass and a merge both refuse the tree that would land
-# --------------------------------------------------------------------------- #
-
-
 def _ship(cli, project: Path) -> None:
     """One developer task through branch, commit, self-check and an open PR."""
     init_workspace(cli, project)
@@ -350,7 +335,6 @@ def test_a_review_pass_refuses_an_independence_violation(cli, project, capsys) -
 def test_a_pr_merge_refuses_an_independence_violation(cli, project, capsys) -> None:
     _ship(cli, project)
     root = team_root(project)
-    # An approved-but-unmerged PR: the state a second Reviewer merges from.
     prs = engine.parse_reviews(root / engine.F_REVIEWS)
     prs[0]["status"] = "approved"
     engine.write_reviews(root / engine.F_REVIEWS, prs)

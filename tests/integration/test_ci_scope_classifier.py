@@ -35,8 +35,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 SCOPE_STEP = "Classify the changed paths"
 
-#: Pinned identity and signing: the fixture must not depend on the operator's
-#: git config, and a global ``tag.gpgSign`` must not break a fixture commit.
 GIT_OPTIONS = (
     "-c",
     "user.email=tester@agents.nidvue.com",
@@ -47,11 +45,6 @@ GIT_OPTIONS = (
     "-c",
     "tag.gpgSign=false",
 )
-
-
-# --------------------------------------------------------------------------- #
-# Extracting the real classifier out of the workflow
-# --------------------------------------------------------------------------- #
 
 
 def extract_run_block(workflow: Path, step_name: str) -> str:
@@ -88,11 +81,6 @@ def write_script(tmp_path: Path, text: str, name: str = "scope.sh") -> Path:
     path = tmp_path / name
     path.write_text(text, encoding="utf-8")
     return path
-
-
-# --------------------------------------------------------------------------- #
-# Real fixture repositories
-# --------------------------------------------------------------------------- #
 
 
 def git(repo: Path, *args: str) -> str:
@@ -143,7 +131,7 @@ def _posix_bash_or_skip() -> str:
         return posix_bash()
     except AssertionError as absent:
         pytest.skip(skip_message("bash", str(absent)))
-        raise  # unreachable: pytest.skip raises Skipped; keeps the return type honest
+        raise
 
 
 def classify(
@@ -193,15 +181,6 @@ def classify(
     return pairs
 
 
-# --------------------------------------------------------------------------- #
-# A POSIX shell, not a bare ``bash``
-# --------------------------------------------------------------------------- #
-
-#: A ``bash`` on PATH can be the WSL launcher in two places: the System32
-#: shim and the Store app-execution alias. Neither is a POSIX shell - with no
-#: distribution installed they exit 1 and print a UTF-16LE "no installed
-#: distributions" message, which surfaces here as a mysterious "classifier
-#: failed: exit 1" instead of a harness defect. Reject both by path.
 WSL_LAUNCHER_DIRS = ("c:/windows/system32",)
 WSL_LAUNCHER_SUFFIXES = ("/windowsapps/bash.exe",)
 
@@ -244,7 +223,6 @@ def _git_install_bash() -> list[str]:
         return []
     exec_path = Path(result.stdout.strip())
     candidates: list[str] = []
-    # git-core -> libexec -> mingw64 -> install root
     for root in list(exec_path.parents)[:4]:
         candidates.append(str(root / "bin" / "bash.exe"))
         candidates.append(str(root / "usr" / "bin" / "bash.exe"))
@@ -287,8 +265,6 @@ def posix_bash(
     git_candidates = (_git_install_bash if git_shells is None else git_shells)()
     tried.extend(f"git --exec-path -> {c!r}" for c in git_candidates)
 
-    # Git-derived shells first (the install root, never System32), then any
-    # PATH candidate that is not the WSL launcher.
     for candidate in [*git_candidates, on_path]:
         if candidate and not _is_wsl_launcher(candidate) and present(candidate):
             return candidate
@@ -315,9 +291,6 @@ def test_posix_bash_rejects_the_wsl_launcher_on_windows() -> None:
             """``which`` for a host whose only bash is this launcher."""
             return hit
 
-        # ``exists`` answers True so the ONLY thing that can reject the
-        # launcher is the guard: delete the guard (stub _is_wsl_launcher to
-        # False) and this test fails instead of passing for the wrong reason.
         with pytest.raises(AssertionError, match="no usable POSIX bash"):
             posix_bash(
                 os_name="nt",
@@ -346,9 +319,6 @@ def test_posix_bash_prefers_a_git_install_shell_on_windows() -> None:
         == real
     ), "a Git install shell must win over the launcher on PATH"
 
-    # The complement: with only the launcher available and it SAYING it exists,
-    # the guard is the sole reason nothing is returned. This is the case the
-    # ordering alone does not cover.
     with pytest.raises(AssertionError, match="no usable POSIX bash"):
         posix_bash(
             os_name="nt",
@@ -369,11 +339,6 @@ def offset_origin_main(repo: Path, sha: str) -> None:
     what CI checks out, so a local ref is the faithful stand-in.
     """
     git(repo, "update-ref", "refs/remotes/origin/main", sha)
-
-
-# --------------------------------------------------------------------------- #
-# The five change sets the task names
-# --------------------------------------------------------------------------- #
 
 
 def test_prose_only_change_is_not_code(tmp_path: Path) -> None:
@@ -425,8 +390,6 @@ def test_unresolvable_before_defaults_to_code(tmp_path: Path) -> None:
     script = write_script(tmp_path, extract_run_block(CI_WORKFLOW, SCOPE_STEP))
     repo, _ = new_repo(tmp_path, {"README.md": "# Prose\n"})
     head = commit(repo, {"docs/guide/page.md": "# page\n"}, message="prose only")
-    # The remote already holds HEAD, so the fork point is HEAD itself and the
-    # pre-push state is gone: undetermined, therefore code=true.
     offset_origin_main(repo, head)
 
     assert classify(repo, script, before=ZERO_SHA, head=head)["code"] == "true"
@@ -440,11 +403,6 @@ def test_pull_request_and_tag_push_short_circuit(tmp_path: Path) -> None:
     assert (
         classify(repo, script, before=root, ref="refs/tags/v1.0.0", event="push")["code"] == "false"
     )
-
-
-# --------------------------------------------------------------------------- #
-# The classifier must bite: mutate it and watch the verdict flip
-# --------------------------------------------------------------------------- #
 
 
 def test_the_rename_case_bites_when_rename_detection_is_enabled(tmp_path: Path) -> None:
@@ -462,8 +420,6 @@ def test_the_rename_case_bites_when_rename_detection_is_enabled(tmp_path: Path) 
     git(repo, "commit", "-q", "-m", "move code into prose")
     head = git(repo, "rev-parse", "HEAD")
 
-    # The defect the shipped classifier exists to prevent: the shipped-block
-    # test above asserts "true" for exactly this change set.
     assert classify(repo, script, before=root, head=head)["code"] == "false"
 
 

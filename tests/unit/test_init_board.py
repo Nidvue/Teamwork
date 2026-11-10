@@ -46,8 +46,6 @@ COMMITTED = REPO / "docs" / "Team" / "Board.md"
 AGENTS = ("ceo", "architect", "developer-1", "tester-1", "reviewer-1")
 BOARD = Path("docs") / "Team" / "Board.md"
 
-#: Every anchor the renderer and both gates need, not only the three `--check`
-#: names: `render` locates each table by its head and stops at its anchor sentence.
 ANCHORS = engine.BOARD_ANCHORS + (boardlib.TABLE_ANCHOR, boardlib.FLIGHT_ANCHOR)
 
 

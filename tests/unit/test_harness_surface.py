@@ -113,11 +113,6 @@ def init_repo(path: Path) -> Path:
     return path
 
 
-# --------------------------------------------------------------------------- #
-# harness list
-# --------------------------------------------------------------------------- #
-
-
 def test_list_names_every_component_with_class_bytes_and_role(cli, project, capsys) -> None:
     build_tree(project)
     assert cli("--project", project, "init", "--no-git") == 0
@@ -144,17 +139,11 @@ def test_list_prints_exactly_eight_rows_in_component_order(cli, project, capsys)
 
     table = [line for line in out.splitlines() if not line.startswith("#")]
     assert len(table) == 8, f"one row per Harness^2 component, got:\n{out}"
-    # parse_surface_row raises unless the line is four columns, so this also pins
-    # "four whitespace-separated columns" - the spec cells may contain one space.
     for line in table:
         cells = harness.parse_surface_row(line)
         assert cells[0] in harness.CLASS_CELLS, f"unknown activation class: {line!r}"
         assert cells[1] == harness.NO_VALUE or cells[1].isdigit(), f"bytes: {line!r}"
 
-    # The frozen path column of Architecture 12.2, spelled out and not read from
-    # the product's own constants: `AGENTS.md` alone would not let a reader
-    # recompute the 27 kB managed block, and `scripts/*.py` alone would not explain
-    # a count that also sums `src/teamwork/*.py`.
     specs = [harness.parse_surface_row(line)[2] for line in table]
     assert specs == [
         "SKILL.md",
@@ -187,8 +176,6 @@ def test_every_row_bytes_recompute_from_its_own_path_cell(cli, project, capsys) 
             assert size == harness.NO_VALUE, f"C5 has no file and no bytes: {klass} {size}"
             continue
         if spec == "hook_dir(root)/{pre-commit,pre-push}":
-            # The hook directory is git's answer, not a repository path; the
-            # linked-worktree test recomputes this row instead.
             assert size.isdigit(), f"C8 must still be a measurement: {size}"
             continue
         assert int(size) == recompute(spec, project, root), f"{klass} {spec} -> {size}"
@@ -218,8 +205,6 @@ def test_list_marks_the_lane_packet_as_a_non_file(cli, project, capsys) -> None:
     assert cli("--project", project, "harness", "list") == 0
     out = capsys.readouterr().out
 
-    # 12.2: C5 has no file, so its class, byte and role cells are `-`; the path
-    # cell says what it is, so nobody reads `n/a` as a path named n/a.
     assert row_by_path(out, "n/a - lane packet, no file") == ("-", "-", harness.LANE_PACKET, "-")
     assert [row[0] for row in rows(out) if row[0] == harness.NO_VALUE] == [harness.NO_VALUE]
 
@@ -292,11 +277,6 @@ def test_class_totals_sum_the_eight_rows(cli, project, capsys) -> None:
     assert harness.class_totals(harness.collect(project, team_root(project))) == measured
 
 
-# --------------------------------------------------------------------------- #
-# harness lint - the clean tree
-# --------------------------------------------------------------------------- #
-
-
 def test_lint_is_clean_on_a_wired_tree(cli, project, capsys) -> None:
     build_tree(project)
     capsys.readouterr()
@@ -319,7 +299,7 @@ def test_lint_skips_evidence_when_there_is_no_team_workspace(cli, project, capsy
 def test_lint_verbose_lists_every_file_checked_with_its_rule_outcomes(cli, project, capsys) -> None:
     """12.4: ``--verbose`` lists every file checked - not a count the reader trusts."""
     assert cli("--project", project, "init", "--no-git") == 0
-    build_tree(project)  # after init: init regenerates AGENTS.md from the template
+    build_tree(project)
     write(
         project / ".agents" / "skills" / "tw-other-skill" / "SKILL.md",
         skill_text("tw-other-skill", body="Run `teamwork.py nosuchcommand` now."),
@@ -330,8 +310,6 @@ def test_lint_verbose_lists_every_file_checked_with_its_rule_outcomes(cli, proje
     out = capsys.readouterr().out
     checked = [line for line in out.splitlines() if line.startswith("# checked: ")]
 
-    # One line per file the run read: every always-on surface (TRIGGER's corpus),
-    # every skill file, and the team registry when there is one.
     surfaces = harness.always_on_surfaces(project)
     skills = harness.skill_files(project)
     registry = harness.skills_path(team_root(project))
@@ -349,18 +327,11 @@ def test_lint_verbose_lists_every_file_checked_with_its_rule_outcomes(cli, proje
         )
         for line in checked
     ), out
-    # The rule that did fire says so on the file's own line, not only in the
-    # PROBLEM block: the verdict and the detail stay one grep apart.
     fired = [line for line in checked if "SUBCOMMAND fail" in line]
     assert fired == [
         "# checked: .agents/skills/tw-other-skill/SKILL.md -> "
         "IDENTITY ok, PREFIX ok, TRIGGER fail, SUBCOMMAND fail, HELPER ok, EVIDENCE n/a"
     ], fired
-
-
-# --------------------------------------------------------------------------- #
-# harness lint - one failing tree per rule
-# --------------------------------------------------------------------------- #
 
 
 def lint_out(cli, capsys, project: Path) -> str:
@@ -439,8 +410,6 @@ def test_subcommand_list_is_derived_from_the_parser() -> None:
     commands = harness.cli_subcommands()
     assert {"harness", "ledger", "tests", "skill"} <= commands
     assert "nosuchcommand" not in commands
-    # `harness` is accepted only because this module registered itself there, so a
-    # subcommand the parser does not know and this set does are the same question.
     assert engine.build_parser().parse_args(["harness", "list"]).cmd == "harness"
 
 
@@ -564,11 +533,6 @@ def test_lint_reports_rule_major_and_path_sorted(cli, project, capsys) -> None:
         ".agents/skills/tw-zeta-skill/SKILL.md",
         ".agents/skills/tw-zeta-skill/SKILL.md",
     ]
-
-
-# --------------------------------------------------------------------------- #
-# harness budget
-# --------------------------------------------------------------------------- #
 
 
 def budget_lines(out: str) -> list[str]:

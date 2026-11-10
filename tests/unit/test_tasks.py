@@ -110,7 +110,6 @@ def test_parse_tasks_drops_entries_without_title_or_body(tmp_path: Path) -> None
         "# Task queue\n\n## T-0001 · \n- priority: P2\n- status: todo\n\n",
         encoding="utf-8",
     )
-    # An entry with neither title nor body is not a real task.
     assert engine.parse_tasks(path) == []
 
 
