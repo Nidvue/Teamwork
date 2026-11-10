@@ -22,6 +22,17 @@ role is unlisted used to reach this render path as `KeyError: 'technicalwriter'`
 which named a dict key instead of the missing role, so the documented repair
 recipe could not run at all. An unlisted role now raises `UnknownRole` naming
 itself and the two maps to extend.
+
+The floor that separates this milestone's ids from an older one is the one filter
+between the queues and the board, and it hid 10 open tasks: five floors were
+spelled hyphenated while `queues()` looked them up folded (so they never applied),
+and the rest were written for M9 ids that M11's re-numbered queues no longer
+carry. `queues()` is the renderer's only view, so a record dropped there is
+dropped from both sides of the comparison and the invariant cannot see it. The
+floor therefore may only decide whether a *closed* record is history: an open task
+is always in scope, the keys are folded the way the lookup spells them, and
+`test_no_queued_task_is_silently_hidden` counts the raw queues instead of trusting
+the view that does the hiding.
 """
 
 from __future__ import annotations
@@ -50,24 +61,32 @@ FLIGHT_HEAD = "| agent | task | prio | state | artifact |"
 
 #: The board records one milestone's work, and task ids are allocated per role, so
 #: the same number under two roles is two tasks. Each queue numbers from 1, so the
-#: milestone needs a floor per role: ids at or above it are M9, everything below
-#: predates M9 and lives in the board's Closed-history table instead. Listing the
-#: floor here is deliberate - a queue that is missing from this dict would silently
-#: drop out of the comparison, which is the failure this file exists to prevent.
+#: milestone needs a floor per role: ids at or above it are in this milestone and
+#: everything below it is an older record that the board keeps as labelled history.
+#: Listing the floor here is deliberate - a queue missing from this dict would
+#: silently drop out of the comparison, which is the failure this file prevents.
+#:
+#: Two stale floors made that filter lie. M11 re-initialised the queues, so every
+#: one of them was re-numbered from `T-0001` and the M9 ids survive only in the
+#: board's own close-record table; the floors still read as M9 (`ceo: 59`, ...) and
+#: hid all nine ceo tasks, P0 `developer T-0004` and P0 `reviewer T-0001`. Five keys
+#: were also spelled hyphenated while `queues()` looks them up through
+#: `norm_role()`, so `FLOOR.get("securityauditor")` was `0` and those floors never
+#: applied at all. Every floor is now 1 - no queue carries a pre-milestone id - and
+#: the keys are folded, which `test_the_floor_is_keyed_the_way_the_lookup_spells_it`
+#: pins. The dict stays because it is the roster the render order shares.
 FLOOR = {
-    "architect": 2,
-    "ceo": 59,
+    "architect": 1,
+    "ceo": 1,
     "cto": 1,
-    "developer": 5,
-    "product-manager": 2,
-    "project-manager": 2,
-    "release-engineer": 3,
-    "reviewer": 2,
-    "security-auditor": 5,
-    # technical-writer has no pre-milestone history - its queue was created with
-    # the milestone it works in - so every task it has is in scope.
-    "technical-writer": 1,
-    "tester": 3,
+    "developer": 1,
+    "productmanager": 1,
+    "projectmanager": 1,
+    "releaseengineer": 1,
+    "reviewer": 1,
+    "securityauditor": 1,
+    "technicalwriter": 1,
+    "tester": 1,
 }
 
 #: The folded queue directory name -> the hyphenated spelling the board's rows use.
@@ -144,8 +163,13 @@ def live_tasks() -> dict[tuple[str, str], dict[str, str]]:
     return tasks
 
 
-def queues(root: Path) -> dict[tuple[str, str], dict[str, str]]:
-    """The milestone's tasks, keyed by (folded role, id), with their fields."""
+def parse_queues(root: Path) -> dict[tuple[str, str], dict[str, str]]:
+    """Every record in the queues, keyed by (folded role, id), floor or no floor.
+
+    The unfiltered view exists so a test can compare the board against the queues
+    themselves rather than against `queues()`, which is the view that can hide a
+    record from both sides of the comparison.
+    """
     out: dict[tuple[str, str], dict[str, str]] = {}
     for path in sorted((root / "Roles").glob("*/TaskQueue.md")):
         role = norm_role(path.parent.name)
@@ -156,11 +180,7 @@ def queues(root: Path) -> dict[tuple[str, str], dict[str, str]]:
         for line in path.read_text(encoding="utf-8").splitlines():
             head = TASK_RE.match(line)
             if head:
-                tid = head.group(1)
-                if int(tid[2:]) < FLOOR.get(role, 0):
-                    current = None
-                    continue
-                current = out.setdefault((role, tid), {})
+                current = out.setdefault((role, head.group(1)), {})
                 current["title"] = head.group(2).strip()
                 continue
             if current is None:
@@ -169,6 +189,23 @@ def queues(root: Path) -> dict[tuple[str, str], dict[str, str]]:
             if field:
                 current[field.group(1)] = field.group(2).strip()
     return out
+
+
+def in_scope(key: tuple[str, str], fields: dict[str, str]) -> bool:
+    """Whether a queue record belongs in this milestone's comparison.
+
+    A task that is open is always in scope, whatever the floor says. That is the
+    fix for the M9 floors outliving the M9 ids: a floor may decide only whether a
+    *closed* record is history, never whether live work reaches the board.
+    """
+    if fields.get("status", "") in OPEN:
+        return True
+    return int(key[1][2:]) >= FLOOR.get(key[0], 1)
+
+
+def queues(root: Path) -> dict[tuple[str, str], dict[str, str]]:
+    """The milestone's tasks, keyed by (folded role, id), with their fields."""
+    return {key: fields for key, fields in parse_queues(root).items() if in_scope(key, fields)}
 
 
 def expected_row(fields: dict[str, str]) -> tuple[str, str, str]:
@@ -361,10 +398,47 @@ def test_an_empty_field_is_a_dash_not_a_value() -> None:
     ]
 
 
-def test_an_earlier_milestone_task_is_outside_the_comparison() -> None:
-    """A queue keeps its whole history; the board records one milestone."""
-    assert FLOOR["ceo"] > 1
-    assert int("T-0058"[2:]) < FLOOR["ceo"] <= int("T-0059"[2:])
+def test_the_floor_is_keyed_the_way_the_lookup_spells_it() -> None:
+    """Five floors were spelled hyphenated, so `FLOOR.get('securityauditor')` was 0."""
+    assert set(FLOOR) == {norm_role(role) for role in FLOOR}, sorted(FLOOR)
+    for role in FLOOR:
+        assert FLOOR[role] > 0, role
+        assert FLOOR.get(norm_role(role), 0) == FLOOR[role], role
+
+
+def test_a_stale_floor_cannot_hide_an_open_task(tmp_path: Path, monkeypatch) -> None:
+    """The regression: an M9 floor must not be able to hide an M11 task."""
+    queue = tmp_path / "Roles" / "CEO" / "TaskQueue.md"
+    queue.parent.mkdir(parents=True)
+    queue.write_text(
+        "## T-0001 the P0 intake, open under a stale floor\n- status: doing\n"
+        "## T-0058 a closed M9-era record\n- status: done\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(FLOOR, "ceo", 59)
+    found = queues(tmp_path)
+    assert ("ceo", "T-0001") in found, "an open task was hidden by a stale floor"
+    assert ("ceo", "T-0058") not in found, "a closed record below the floor is history"
+    assert parse_queues(tmp_path)[("ceo", "T-0058")]["status"] == "done"
+
+
+def test_no_queued_task_is_silently_hidden() -> None:
+    """Every task in every queue reaches the board, or this fails naming it.
+
+    The floor is the one filter between the queues and the board, and `queues()` is
+    the renderer's only view of them, so a record dropped there is dropped from both
+    sides of the comparison and no assertion in this file can see it - which is how
+    the board went on claiming to be the queues' state while hiding 10 open tasks.
+    So this counts the raw queues and the open set independently of that view.
+    """
+    raw = parse_queues(live_root())
+    hidden = sorted(set(raw) - set(queues(live_root())))
+    assert not hidden, hidden
+    board = BOARD.read_text(encoding="utf-8")
+    rows, flight = board_rows(board), in_flight(board)
+    open_ids = {key for key, fields in raw.items() if fields.get("status") in OPEN}
+    assert not open_ids - set(rows), sorted(open_ids - set(rows))
+    assert not open_ids - set(flight), sorted(open_ids - set(flight))
 
 
 def test_the_regeneration_round_trips() -> None:

@@ -70,8 +70,10 @@ Liam ERD "What We Did to Gain 3,000 GitHub Stars" (2025-04-18); GitDevTool
   release). See [Risks](Risks.md) R-1.
 * The name `teamwork` is taken on PyPI; the distribution ships as
   `teamwork-agents` while importing as `teamwork`.
-* The engine keeps a 7k-line module for now; splitting it is a post-1.0
-  refactor, listed in the roadmap and in [Decisions](Decisions.md).
+* The engine still keeps one oversized module - `src/teamwork/engine.py`, the
+  largest file in `src/` (re-measure it with `wc -l src/teamwork/engine.py` rather
+  than quoting a number that moves); splitting it is a post-1.0 refactor, listed in
+  the roadmap and in [Decisions](Decisions.md).
 
 ## 5. Recommendation
 
@@ -110,7 +112,7 @@ The difference is *what counts as evidence* and *what the gate is bound to*:
 | A4 | Tiered review + sampling | **Adapt** | `task add --tier docs\|code\|critical` derived from `area`/paths; `review --sample`; keep Reviewer-only merge and independence, reject unattended auto-merge |
 | A5 | Gardener + encode-lessons-in-structure | **Adopt** | `teamwork garden` scan -> `docs/Team/Garden.md` queue; third repeat of one finding must cite a lint/CI/test record id |
 | A6 | Blinded skill/role evals | **Adopt (later)** | `skill eval` with 3-6 criteria, N isolated worktrees, judge on a **different model family** (`teamwork model` already sets one model per agent) |
-| A7 | Make the right path the easiest (architecture as constraint) | **Adopt** | split `engine.py` (7,972 lines) into command modules behind an explicit registry; add an import-boundary lint so parallel lanes never edit one file |
+| A7 | Make the right path the easiest (architecture as constraint) | **Adopt** | split the oversized `src/teamwork/engine.py` into command modules behind an explicit registry (`src/teamwork/harness.py`, `records.py`, `layout.py` are the start); add an import-boundary lint so parallel lanes never edit one file |
 | A8 | Guard the context window | **Adopt (cheap)** | `load --brief` and pulse digests that emit facts, not full files |
 | A9 | Loop-closure metrics, not volume | **Adopt (cheap)** | `audit --metrics`: verification coverage, reproducibility rate, first-pass evidence completeness, review-fail rate, regression escapes |
 | A10 | `reflect` at task close | **Adopt (cheap)** | `teamwork reflect <T-id>` proposes memory / skill / lint entries from findings and review fails |
@@ -118,7 +120,7 @@ The difference is *what counts as evidence* and *what the gate is bound to*:
 | A12 | Explain the number | **Adapt** | `decision add` demands baseline, method and variance for any measured number |
 | - | 2,500 PR/month, agent count as maturity | **Reject** | volume is an output; our gate is loop closure |
 | - | Agents merge their own code | **Reject** | collides with Reviewer-only merge and independence; sampling (A4) captures most of the speedup |
-| - | Dune-specific bans (no `useEffect`, no comments) | **Reject** | project-specific policy, not a principle; our 8 lint suppressions (`src`+`scripts`) each carry a reason |
+| - | Dune-specific bans (no `useEffect`, no comments) | **Reject** | project-specific policy, not a principle; every lint suppression in `src`+`scripts` carries a reason or a narrow rule (count them with `grep -rn noqa src scripts` and `grep -rn "type: ignore" src scripts`) |
 | - | Cloud VMs per worker | **Out of scope** | the host supplies execution; the engine stays stdlib-only and host-agnostic |
 
 ### 6.2 Adopt first, in this order
@@ -132,7 +134,7 @@ review findings into CI rules and shows whether the human is still the loop.
 4. **A4** (medium): tiering and sampling. Only after A1/A9, because sampling
 without verification coverage is just less review.
 5. **A7** (medium-large): engine split. Its value is that lanes stop colliding on
-one 8k-line file; measure before/after on review-fail rate and merge conflicts.
+one oversized module; measure before/after on review-fail rate and merge conflicts.
 
 **Falsifiers.** A2/A3 fail if first-pass review acceptance does not rise after ten
 tasks. A1 fails if Feature Map maintenance costs more reviewer time than it saves
@@ -198,11 +200,11 @@ Source set: [google-research/harness2](https://github.com/google-research/harnes
 
 ### 8.3 Verdicts
 
-Every `teamwork.py` subcommand named below exists in this revision; `tests/unit/test_research_sources.py` fails if this section ever names one the CLI does not have. The brief proposes a `harness` command group (`list`, `lint`, `budget`) and `hooks install`; neither existed when this section was written (`python3 scripts/teamwork.py harness --help` -> exit 2, `invalid choice: 'harness'`), so H1, H3 and H4 are pinned to the surfaces above and belong on that group the day it lands. A surface marked **new** is where the verdict lands, not what ships today: H1's inventory, H3's earlier gate and H5's written order are additions this section orders, and 8.4 sequences them.
+Every `teamwork.py` subcommand named below exists in this revision; `tests/unit/test_research_sources.py` fails if this section ever names one the CLI does not have. The `harness` group and `hooks install` that this section used to call "the day it lands" **have landed**: `python scripts/teamwork.py harness --help` exits 0 listing `list`, `lint` and `budget`, and `python scripts/teamwork.py hooks install --help` exits 0, so H1, H3 and H4 are pinned to those real surfaces instead of to a promise. What is still an addition is the *content*, not the command: H1's inventory of activation classes and costs is printed by `teamwork.py harness list`, its budget verdict by `harness budget`, and H5's review order is prose in `roles/reviewer.md` - 8.4 sequences the rest.
 
 | # | Technique | Verdict | Concrete surface in this repo | Falsifier |
 |---|---|---|---|---|
-| H1 | The harness as a named surface with an activation class and a cost | **Adopt** | **new** inventory over `AGENTS.md` (managed block, always-on), `roles/<role>.md` (startup read), `references/*.md` and `.agents/skills/<name>/SKILL.md` (on demand), `src/teamwork/` (acts instead of instructing); `teamwork.py map` prints the layout, `teamwork.py stats` the memory size and cap violations | the inventory names a surface no test reads, or the tree grows one nobody listed - a list that drifts is worse than none |
+| H1 | The harness as a named surface with an activation class and a cost | **Adopt** | `python scripts/teamwork.py harness list` prints every surface with its activation class (always-on / on-demand / in-loop) and size - `AGENTS.md` managed block, `roles/<role>.md`, `references/*.md`, `.agents/skills/<name>/SKILL.md`, `scripts/*.py` + `src/teamwork/*.py`, the git hooks; `teamwork.py map` prints the layout, `teamwork.py stats` the memory size and cap violations | the inventory names a surface no test reads, or the tree grows one nobody listed - a list that drifts is worse than none |
 | H2 | Always-on budget: cut something to pay for it | **Adopt** | `references/Docs.md` ("cap each section at roughly one screen"), the `AGENTS.md` writing standard, `teamwork.py stats` (per-agent size and cap violations) | the cap is raised instead of the text cut, twice in a row |
 | H3 | Whole-proposal invalidators, checked before a rollout | **Adopt** | `teamwork.py links` (a broken link, a malformed or bare URL, a missing back-link fails it), `teamwork.py audit`, `teamwork.py loop` (refuses the stop condition while a required layer is missing or failing) - **new**: the same checks moved earlier, to submit time | `teamwork.py links` reports 0 on a revision a Reviewer then finds a dead link or a skill nobody can reach |
 | H4 | Middleware: enforce, do not instruct | **Adopt** | already in the engine, not in git hooks: `teamwork.py commit` (refuses the default branch, applies the role identity), `teamwork.py review` (refuses the author's own verdict), `teamwork.py tests repro` (refuses a fix with no failing run before the passing one) | a check fires on a legitimate workflow, agents learn the bypass, and the rule has to move back into prose |
