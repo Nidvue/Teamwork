@@ -214,6 +214,7 @@ under two roles is two tasks.
 | developer | T-0084 | identity | done | P-0132 | ec681f7 |
 | developer | T-0085 | records | done | P-0133 | 871847f |
 | developer | T-0086 | records | done | P-0134 | 874e76d |
+| developer | T-0087 | identity | done | P-0135 | c345df0 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
