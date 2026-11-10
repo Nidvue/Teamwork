@@ -74,9 +74,10 @@ message, schedule) is in
     instead and says so), deletes files the source no longer ships (a renamed
     engine module must not shadow the new one), and never touches a file outside
     the bundle trees, so an operator note in the skills directory survives. With no
-    checkout in use it keeps a tool-managed mirror at
-    `~/.pi/.teamwork-source`, created once with `--repo <url>` and updated from then
-    on:
+    checkout in use it keeps a tool-managed mirror beside the skills directory,
+    created once with `--repo <url>` and updated from then on - for the default
+    `pi` destination that is `~/.pi/agent/.teamwork-source`, and for
+    `--host agents` it is `~/.agents/.teamwork-source`:
 
     ```console
     $ teamwork refresh --mirror --repo https://github.com/Nidvue/Teamwork.git
