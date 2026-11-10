@@ -15,6 +15,9 @@ These tests are behavioural, one per class the command claims to remove:
 * a commit whose author is not the acting role mailbox - the identity gate;
 * a branch that edits the generated board into a drift - 6-in-43, charged only
   when the branch itself carries the file;
+* the feature-independence rule at the tree the branch would LAND (`features`):
+  a lane's own `feature check` can be green while the merged tree is red, because
+  the record it collides with may live on another branch;
 * the project gate, which is reported UNVERIFIED unless the author asks for it;
 * and the three integration points: `selfcheck` refuses a red preflight (with
   `--force <reason>` as the honest exception), the note it is about to store - its
@@ -213,7 +216,7 @@ def test_a_clean_single_commit_branch_is_green(cli, project, capsys):
     code, out = preflight(cli, capsys, project)
 
     assert code == 0, out
-    assert f"PREFLIGHT pass @{sha[:12]} :: 6 checks, 0 failed" in out
+    assert f"PREFLIGHT pass @{sha[:12]} :: 7 checks, 0 failed" in out
     assert "1 commit over main" in out
     assert "UNVERIFIED: no PreflightCommand configured" in out
     assert "does not carry docs/Team/Board.md" in out
@@ -373,7 +376,7 @@ def test_a_task_with_no_branch_is_a_warning_so_the_shipped_flow_still_runs(cli, 
     assert code == 0, out
     assert "warn" in out
     assert "names no branch" in out
-    assert "PREFLIGHT pass @- :: 6 checks, 0 failed" in out
+    assert "PREFLIGHT pass @- :: 7 checks, 0 failed" in out
     assert "teamwork.py branch start --agent developer" in out
     assert (
         cli(
@@ -562,7 +565,7 @@ def test_selfcheck_refuses_a_red_preflight_and_records_a_forced_exception(cli, p
     assert "preflight red (evidence): the sha is a doc link, tracked as T-0009" in queue
     # The forced exception still records the measurement it overrode: a Reviewer
     # reading the self-check sees how much of the mechanical half was green.
-    assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(6 checks, 1 failed\)", queue)
+    assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(7 checks, 1 failed\)", queue)
 
 
 def test_the_digest_is_stable_and_moves_when_a_check_flips(cli, project, capsys):
@@ -662,7 +665,7 @@ def test_a_green_selfcheck_digest_reproduces_at_its_own_revision(cli, project, c
     recorded = re.search(r"preflight: (PF-[0-9a-f]+) @([0-9a-f]+) ", queue)
     assert recorded, queue
     assert recorded.group(2) == sha[:12]
-    assert "(6 checks, 0 failed)" in queue
+    assert "(7 checks, 0 failed)" in queue
 
     code, live = preflight(cli, capsys, project)
     assert code == 0, live
@@ -762,7 +765,7 @@ def test_the_recorded_value_flips_when_the_preflight_line_leaves_the_evidence(cl
         == 0
     )
     queue = queue_text(root)
-    assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(6 checks, 0 failed\)", queue)
+    assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(7 checks, 0 failed\)", queue)
 
     assert review_fail(cli, project) == 0
     assert "review_mechanical: no" in queue_text(root)
