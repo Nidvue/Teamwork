@@ -176,14 +176,17 @@ condition. This is the same test the harness lint applies to a skill.
 ## 11. Verification
 
 ```sh
+teamwork evolution snapshot --json && teamwork evolution check
 teamwork throughput && teamwork coordination --strict && teamwork audit
 teamwork harness budget && teamwork tests plan && teamwork links
 teamwork skill candidates && teamwork ledger verify
 ```
 
-A close-out checks: no `KI-` row past its date, every `EV-` row has a verdict,
-every `PB-` row has a level, the metrics snapshot is a new cut, and the ledger
-chain is intact.
+A close-out checks: `teamwork evolution check` exits 0 - no `KI-` row past its
+date, every `EV-` row has a verdict, every `PB-` row has a level, every metric
+row names its command, and no required table is missing or empty - the snapshot
+names a new cut, and the ledger chain is intact. The check is the gate; the other
+rows are the readers it aggregates.
 
 ## 12. Sources
 
