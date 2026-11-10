@@ -154,9 +154,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 263 kB |
-| `standard` | 9 | 384 kB |
-| `full` | 16 | 660 kB |
+| `slim` (default) | 6 | 264 kB |
+| `standard` | 9 | 386 kB |
+| `full` | 16 | 663 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
@@ -475,11 +475,13 @@ dispatch" - then check blocked tasks and disputes.
 
 An instance counts as **busy** when it holds a provider slot, has a task in
 `doing`/`selfcheck` claimed by it, or holds a live review claim. A review claim is
-a short work lease (`ReviewLeaseMinutes`, default **20** min), deliberately
-separate from the provider-slot TTL (`SlotTtlMinutes`, 90 min): verdict with
-`--result`, extend with `--renew`, or `--release`. A lane that dies mid-review
-stops holding the deliverable at 20 minutes, not 90. Everything else is idle and
-must be fed.
+a work lease scaled to its profile (`ReviewLeaseMinutes` base, default **20** min;
+×1 for a prose diff, ×2 standard, ×4 deep, capped by `ReviewLeaseMaxMinutes`),
+deliberately separate from the provider-slot TTL (`SlotTtlMinutes`, 90 min):
+verdict with `--result`, extend with `--renew`, or `--release`. A lane that dies
+mid-review stops holding a prose deliverable at 20 minutes, not 90, while a deep
+review keeps the longer lease its work needs. Everything else is idle and must be
+fed.
 
 Arm the recurring wake-up with the host's durable scheduler (the teammate
 package persists schedules per project):
@@ -642,10 +644,13 @@ team's throughput limit.
   lint, type-check; a green CI run on the branch SHA may be cited), `deep` for
   security/release/data/workflow changes (also privacy history and the security
   scan). `task add --review-profile` overrides it.
-- A claim is a **20-minute renewable lease** (`ReviewLeaseMinutes`), not the
-  90-minute provider-slot TTL. `--renew` extends a genuinely long review; do not
-  hold a claim while writing prose. `coordination` reports the claim-to-verdict
-  p50/p90 so the CEO can see the bottleneck move.
+- A claim is a **profile-aware renewable lease** (base `ReviewLeaseMinutes`,
+  default 20 min; ×1/×2/×4 for fast/standard/deep), not the 90-minute
+  provider-slot TTL. `review --next --by <lane>` claims the top deliverable and
+  prints its packet in one step. `--renew` extends a genuinely long review; do
+  not hold a claim while writing prose. `coordination` reports the
+  claim-to-verdict p50/p90 and every claim that outlived its lease, so the CEO can
+  see the bottleneck move.
 
 ### 6. Close
 
@@ -746,9 +751,10 @@ teamwork.py selfcheck developer-1 T-0007 --by developer-1 \
     --note "re-read the diff: boundary, error paths, docs updated" \
     --test "go test ./internal/x @def456 -> ok 12 tests"
 # 3) a Reviewer lane takes the deliverable off the shared queue, then verdicts it
-teamwork.py review --queue                                   # priority/age, profile, capacity
+teamwork.py review --queue                                   # submitted work only, priority/age, profile, capacity
+teamwork.py review --next --by reviewer-1                    # claim the top packet in one step
 teamwork.py review developer T-0007 --packet                 # diff, gates, checklist, self-check
-teamwork.py review developer T-0007 --claim --by reviewer-1   # pins it to that lane (20 min lease)
+teamwork.py review developer T-0007 --claim --by reviewer-1   # pin it to that lane (profile lease: 20/40/80 min)
 teamwork.py review developer T-0007 --renew --by reviewer-1   # extend a genuinely long review
 # 3a) Reviewer-1 fails it -> task returns to the owner as `doing`, findings recorded
 teamwork.py review developer T-0007 --by reviewer-1 --result fail \
@@ -774,7 +780,7 @@ Mechanical enforcement:
 - a review claim belongs to one lane: another Reviewer is refused while the lease
   is live (`review <role> <T-id> --claim --by <lane>`), only the holder renews
   (`--renew`) or releases it (`--release`, or `--force <reason>` when the holder is
-  dead), a verdict clears it, and an expired 20-minute lease is open for take-over.
+  dead), a verdict clears it, and an expired profile lease is open for take-over.
   With several lanes `--by reviewer` is ambiguous - name the instance (`reviewer-1`).
 - a `review --result pass` appends the accepted result to
   `docs/Team/Archive.md` (what, who, verified how, which revision) - the team's
