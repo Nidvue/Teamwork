@@ -117,6 +117,23 @@ On STOP, write the final report to the user: what was built and how to run it,
 the evidence table (criterion -> artifact -> command -> revision -> result),
 known limitations, and follow-ups. Then close the team.
 
+## Review throughput
+
+The Reviewer is the gate every lane waits on; keep the queue moving.
+
+- `review --queue` sorts by priority then age and prints the profile and lane
+  capacity. Add a Reviewer lane when unclaimed deliverables exceed twice the
+  lanes (`init` with the expanded `--agents` list, or spawn one on the host).
+- Send Reviewers to `review <role> <T-id> --packet`: it names the profile, diff,
+  self-check, gates and checklist. A prose-only diff is a `fast` review - link
+  check and docs/contract tests, not the full code matrix; code is `standard`;
+  security/release/data/workflow is `deep`.
+- A claim is a 20-minute renewable lease (`ReviewLeaseMinutes`), not the
+  90-minute slot TTL. Tell a Reviewer to `--renew` a genuinely long review and
+  never to hold a claim while writing prose.
+- `coordination` reports the claim-to-verdict p50/p90; if it rises while the
+  queue grows, staff a lane before adding review depth.
+
 ## Decision rights
 
 - You decide: scope, priority conflicts, staffing, when a lane is blocked on a
