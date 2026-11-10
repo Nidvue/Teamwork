@@ -558,6 +558,7 @@ def new_task(
         "pr": "",
         "merge_commit": "",
         "review_fails": 0,
+        "review_fail_rev": "",
         "findings": "",
         "created": today_iso(),
         "updated": today_iso(),
@@ -631,6 +632,7 @@ def parse_tasks(path: Path) -> list:
                     "self_artifacts",
                     "review_artifacts",
                     "review_fails",
+                    "review_fail_rev",
                 ):
                     if field in NUMERIC_FIELDS:
                         current[field] = int(value) if value.isdigit() else 0
@@ -681,6 +683,7 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("pr", t.get("pr", "")),
             ("merge_commit", t.get("merge_commit", "")),
             ("review_fails", str(t.get("review_fails") or 0)),
+            ("review_fail_rev", t.get("review_fail_rev", "")),
             ("forced", t.get("forced", "")),
             ("evidence", t.get("evidence", "")),
             ("findings", t.get("findings", "")),
