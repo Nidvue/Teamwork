@@ -2399,6 +2399,22 @@ worktree until the slot expires - the safe direction to fail.
 - falsified by: if any record of cut 3 is found altered on disk, or cut 4 fails verify, or a reader cannot trace a cut-4 record to the cut record that precedes it, this ruling is wrong.
 - consequences: A-0016 is answered; audit no longer reports an altered trail; the manifest binds to cut 4; cut 3 stays readable as an artifact and is never edited.
 
+## D-20261109-CEO-2 - M22 memory index: the criterion was the defect (D-0009)
+
+- date: 2026-11-09
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0057
+- context: -
+- options considered: keep the unconditional AC and force a shrink for zero-lesson roles (rejected: impossible without deleting the index feature for exactly the roles that need it); exempt zero-lesson roles with no test (rejected: the regression survives); revise the AC and pin the bound (chosen)
+- decision: AC-M22-4 revised: the index is capped (800 B, 8 lines), charged against the pack budget (index + pack <= 4000), net <= 0 where verbose content exists to displace, and at most 800 bytes where a role has no open lessons, pinned by a zero-lesson fixture test. The unconditional "whole load output must not grow" is withdrawn as unsatisfiable for a zero-lesson role.
+- why: The reviewer measured the unconditional form failing on a role with no lessons (nothing to displace), and the article caps the injected layer rather than requiring it to shrink.
+- evidence: D-0009 measurements at 7c33af0: load Developer 1823 -> 1814, --task 2246 -> 2237, load CEO 1081 -> 1206; the article: Claude Code loads only the first 200 lines or 25 KB of MEMORY.md (https://www.anthropic.com/research/components-of-agent-memory - accessed 2026-11-09); revised criterion AC-M22-4 in the store 2026-11-09
+- falsified by: if a lane never acts on the index in three waves, the index is ceremony and is deleted rather than capped differently
+- consequences: -
+
 ## D-20261109-CEO-3 - No host plugin is a dependency of the team: the engine launches every lane
 
 - date: 2026-11-09
@@ -2413,4 +2429,36 @@ worktree until the slot expires - the safe direction to fail.
 - why: operator instruction 2026-11-09: all agents must run independently and in parallel natively in pi with no external plugin or extension dependency
 - evidence: built manifest @621a290 -> peerDependencies = 5 host packages, dependencies/devDependencies/optionalDependencies/bundledDependencies absent; three lanes ran concurrently at 12:14-12:16 on 2026-11-09 (L-0004 pid 925500 -> pi 925501, L-0005 pid 925504 -> pi 925513, L-0006 reviewer) with results ok/ok/ok; L-0002.log @c3e4e2d -> 'Error: --provider requires --model', the defect the launcher fix removes; tests/unit/test_pi_package.py::test_the_package_declares_no_third_party_package and test_skill_contracts.py::test_no_normative_step_requires_a_pi_only_tool pin it
 - falsified by: a lane that needs a plugin to start, or a manifest entry naming a third-party package, would falsify it
+- consequences: -
+
+## D-20261109-CEO-4 - The @nidvue/teamwork package ships its own optional pi...
+
+- date: 2026-11-09
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0070
+- context: -
+- options considered: -
+- decision: The @nidvue/teamwork package ships its own optional pi extension (extensions/teamwork-status.ts) that renders live agent status from a new 'teamwork.py status --json'; it is the package's own code, imports only host peer packages, and its absence changes nothing in the protocol. This supersedes the 'the package loads no extension' assertion in tests/unit/test_pi_package.py, which is rewritten to pin the extension instead of forbidding it. Also: Settings.json PreflightCommand now names absolute .venv binaries so the gate can run in a lane worktree (closes A-0003).
+- why: -
+- evidence: user brief 2026-11-09: 'current active/idle agents realtime status with compact information about what they are doing and progress should be displayed in pi agent ui'; measured: pi -p --no-session 'Reply with exactly: LANE-OK' @85c8b8e -> LANE-OK, exit 0, so the lane runtime works again in this session
+- falsified by: -
+- consequences: -
+
+## D-20261109-CEO-5 - AC-M22-5 is satisfied by its two measurable clauses - the...
+
+- date: 2026-11-09
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0039
+- context: -
+- options considered: -
+- decision: AC-M22-5 is satisfied by its two measurable clauses - the always-on budget unchanged and the measured before/after recorded in Memory.md 13 plus the verify contract in references/State.md; its third clause ('loop/audit stay green') is asserted at the M22 close, not at a mid-milestone docs deliverable, because at T-0039's revision 11 other lanes' branches are unmerged and audit carries 73 problems that no documentation task can clear.
+- why: The reviewer measured at f7e9840 that loop and audit are red for reasons owned by other tasks (11 unmerged branches, 8 gate overrides, 1 dispute, 73 audit problems); asserting them here would either block the docs indefinitely or force a false claim, and the milestone close is the point where loop STOP is the exit test.
+- evidence: teamwork.py loop @0c896b1 -> 11 branch(es) not merged into main, 8 gate override(s) in force, 1 unresolved dispute; teamwork.py audit @0c896b1 -> 73 problems; the PreflightCommand (ruff format --check + ruff check + 5 contract suites) in the lane worktree @0c896b1 -> 226 passed, all checks passed
+- falsified by: if the M22 close records AC-M22-5 met while loop or audit are still red, this relocation hid a real failure and the clause was a deliverable gate after all
 - consequences: -
