@@ -222,3 +222,43 @@ Keep only what the project needs. Update an existing document instead of creatin
 a near-duplicate; delete superseded drafts; don't commit generated files, caches,
 editor noise or local state. Every file in the repository should be something the
 project needs to build, run, test, document or ship.
+
+### Comments - write none that the code already says
+
+A comment is a maintenance liability: it is not compiled, it is not tested, and
+it goes stale silently. Add one only when the *why* cannot be expressed in the
+code itself.
+
+Write a comment **only** for: a non-obvious reason or constraint (a spec, a bug
+workaround with its reference, a platform quirk, a security decision), a public
+API contract that a caller cannot infer, or a unit that is genuinely ambiguous.
+
+Never write:
+
+- a comment that restates the next line (`# increment i`);
+- section banners for self-evident code (`# --- helpers ---` over three helpers);
+- a docstring that repeats the function name (`"""Return the name."""`);
+- changelog-in-code (`# added in v1.2`, `# removed the old branch`);
+- commented-out code - delete it, git remembers;
+- `TODO` / `FIXME` / `XXX` / `HACK` with no owner and no tracked task; if it
+  matters, file it as a task and cite the id, otherwise drop it;
+- a comment that contradicts the code. A stale comment is a defect: fix or delete
+  it in the same change that made it stale.
+
+Prefer a clear name, a small function or an explicit type over an explanatory
+comment. When a comment is warranted, write what the code cannot say, in one line.
+
+### Working tree - clean, structured, current
+
+- **One canonical home per file.** Do not scatter drafts next to the real thing.
+- **Delete temp and stale files as you go**: `*.orig`, `*.rej`, `*.bak`, `*~`,
+  `*.tmp`, `*.log`, `.DS_Store`, `Thumbs.db`, generated caches, scratch copies,
+  superseded drafts, empty directories. `teamwork.py clean` removes the patterns
+  it knows; do the rest by hand in the same task, not "later".
+- **Never commit** build output, caches, local state, editor noise, secrets, or a
+  file whose only purpose is to be regenerated.
+- **Scratch stays private and ephemeral**: `Agents/<Instance>/Scratch/`, gitignored,
+  emptied before the task closes. If a scratch artefact is worth keeping, move it
+  to its canonical path and commit it; if not, delete it.
+- **Leave the tree cleaner than you found it.** A reviewer who cannot tell
+  deliverable from debris will fail the task.

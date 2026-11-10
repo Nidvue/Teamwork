@@ -323,6 +323,13 @@ def test_portable_invocation_never_contains_a_machine_path():
 
 
 def test_agents_md_template_uses_the_portable_placeholder():
+    """The committed constitution must not embed a machine path.
+
+    It uses the ``<script>`` placeholder, which ``agents-md`` substitutes with the
+    portable command; an absolute checkout path here reached AGENTS.md 13 times
+    before the split (CI's privacy job caught it).
+    """
     template = (REPO_ROOT / "templates" / "AGENTS.md").read_text(encoding="utf-8")
     assert "<script>" in template
-    assert "teamwork.py" not in template
+    for machine_path in ("/home/", "/Users/", "C:\\Users"):
+        assert machine_path not in template, machine_path

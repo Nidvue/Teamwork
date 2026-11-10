@@ -355,6 +355,13 @@ Two duties that keep the remote and the confidence level honest:
   `roles/`, `references/`, `templates/` - always runs the full matrix. Never
   ignore a path that ships, and keep the two path lists in sync.
 
+- **Everyone keeps the tree clean.** No comment the code already gives you, no
+  commented-out code, no `TODO`/`FIXME` without a tracked task id; delete temp and
+  stale files in the same task (`teamwork.py clean` plus the rest by hand); keep
+  one canonical home per file and an obvious structure, and leave the working tree
+  cleaner than you found it. A reviewer who cannot tell deliverable from debris
+  fails the task.
+
 Both duties are evidence, not ceremony: `tests plan` and the task record must name
 the local result **and** the CI run (id + conclusion) for the certified revision.
 

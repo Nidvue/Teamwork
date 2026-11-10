@@ -380,6 +380,17 @@ Never wait for another role before doing work you can do yourself.
   `dist/`, `build/`, `.venv/`). Build only the touched scope; reuse or cite an
   existing green run on the same revision. Report
   `BUILD: <command> · built|reused · <seconds>`.
+- **COMMENTS** - write only comments the code cannot give you: a non-obvious why,
+  a workaround with its reference, a public contract. Never restate the next line,
+  never banner self-evident sections, never leave commented-out code, never write
+  `TODO`/`FIXME`/`HACK` without a tracked task id, and never leave a comment that
+  the code has outgrown. Prefer a clear name or a smaller function to a comment.
+- **CLEAN WORKING TREE** - no temp or stale files: `*.orig`, `*.rej`, `*.bak`,
+  `*~`, `*.tmp`, `*.log`, `.DS_Store`, scratch copies, superseded drafts, empty
+  directories. Scratch lives in your gitignored `Scratch/` and is emptied before
+  the task closes; `<script> clean` sweeps what it knows and you sweep the rest
+  in the same task. Keep one canonical home per file, keep the structure obvious,
+  and leave the tree cleaner than you found it.
 
 ## Safety boundaries
 

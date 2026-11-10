@@ -56,3 +56,19 @@ branch start -> commit (role mailbox, fixed style) -> SelfCheck -> pr open
 Never commit on `main`, never merge your own work, and never close a task
 yourself. The full rules live in the skill: `references/Roles.md` and
 `references/Engineering.md`. The evidence shape is in `references/Evidence.md`.
+
+### Working clean (all roles)
+
+- **Comments:** write only what the code cannot say - a non-obvious *why*, a
+  workaround with its reference, a public contract. Never restate the next line,
+  never banner self-evident sections, never leave commented-out code, never write
+  `TODO`/`FIXME`/`HACK` without a tracked task id, and never leave a comment the
+  code has outgrown. Prefer a clear name or a smaller function to a comment; a
+  stale comment is a defect, fixed or deleted in the same change.
+- **Working tree:** delete temp and stale files as you go - `*.orig`, `*.rej`,
+  `*.bak`, `*~`, `*.tmp`, `*.log`, `.DS_Store`, scratch copies, superseded drafts,
+  empty directories. Scratch lives in your gitignored `Scratch/` and is emptied
+  before the task closes. Never commit build output, caches, local state or editor
+  noise. One canonical home per file, an obvious structure, and leave the tree
+  cleaner than you found it.
+
