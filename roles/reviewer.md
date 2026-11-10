@@ -16,11 +16,13 @@ like any other: it runs alongside the developer, tester and designer lanes.
 - **One claim per deliverable.** Take a deliverable off the queue before you
   review it: `review <owner> <T-id> --claim --by <you>`. The claim names you on
   the task and in the ledger, blocks another lane from taking the same item, and
-  counts you as busy so the pulse stops dispatching you. It is a short work
-  lease (`ReviewLeaseMinutes`, default 20 min): verdict with `--result pass|fail`,
-  extend it with `--renew`, or hand it back with `--release`. If you die holding
-  it the lease expires and another lane takes it over - a 90-minute provider-slot
-  lease is not a review lease. Two verdicts on one item is duplicate work, not
+  counts you as busy so the pulse stops dispatching you. It is a work lease scaled
+  to the review profile (`ReviewLeaseMinutes` base, default 20 min, x1 prose, x2
+  standard, x4 deep, capped by `ReviewLeaseMaxMinutes`): verdict with
+  `--result pass|fail`, extend it with `--renew`, or hand it back with `--release`.
+  If you die holding it the lease expires and another lane takes it over - a
+  90-minute provider-slot lease is not a review lease. `review --next --by <you>`
+  claims the top item and prints its packet in one step. Two verdicts on one item is duplicate work, not
   extra safety - never review what another Reviewer holds.
 - **Scale with the critical path.** One Reviewer per independent lane (code, unit
   tests, acceptance tests, docs, design, release) keeps the loop moving; the queue
