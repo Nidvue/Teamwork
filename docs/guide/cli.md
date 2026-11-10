@@ -459,7 +459,7 @@ List test records.
 ### `review`
 
 ```text
-teamwork review [AGENT] [HANDLE] [--queue] [--by BY]
+teamwork review [AGENT] [HANDLE] [--queue] [--full] [--by BY]
     [--result {pass,fail}] [--evidence EVIDENCE] [--artifact PATH]...
     [--baseline BASELINE] [--replay REPLAY] [--findings FINDINGS]
     [--force REASON]
@@ -470,6 +470,9 @@ awaiting review. A pass archives the result; a fail returns the task to its
 owner. `--artifact` binds a verification artifact (hashed into the ledger) to the
 verdict; `--baseline` and `--replay` record where the verification started and
 how to rerun it. `--force` overrides the review gates and requires a recorded reason.
+`--queue` clips each evidence and findings line at 600 characters and marks what it
+omitted (`... (+N chars: --full)`); `--full` prints them whole - the stored records
+always keep the full text.
 
 ### `selfcheck`
 
@@ -487,10 +490,15 @@ requires a `--test` line; `--note` records what was re-read, and
 ### `archive`
 
 ```text
-teamwork archive [--agent AGENT]
+teamwork archive [--agent AGENT] [--full]
 ```
 
-Show the reviewed-result archive (the team's evidence ledger).
+Show the reviewed-result archive (the team's evidence ledger). The
+`self-check`/`author evidence`/`reviewer evidence`/`findings history` lines are
+clipped at 600 characters with an `... (+N chars: --full)` marker; `--full`
+prints them whole. `docs/Team/Archive.md` itself always stores the full text, and
+`pr merge` rewrites only the `branch / merge` line of the matching entry so it
+records the real merge revision instead of `pending`.
 
 ## Decisions, disputes and governance
 
@@ -782,10 +790,12 @@ Write an externally verifiable audit manifest (`docs/Team/AuditManifest.json`).
 ### `trace`
 
 ```text
-teamwork trace HANDLE
+teamwork trace HANDLE [--full]
 ```
 
-Follow one task, criterion, test or PR through every record.
+Follow one task, criterion, test or PR through every record. Free-text evidence
+(evidence, findings, review notes, dispute rounds, rulings) is clipped at 600
+characters with an `... (+N chars: --full)` marker; `--full` prints it whole.
 
 ### `links`
 

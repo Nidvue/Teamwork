@@ -198,6 +198,7 @@ from .names import (
     ROLE_DISPLAY,
     _norm_key,
     body_text,
+    clip,
     git_identity_args,
     identity_string,
     one_line,
@@ -1041,6 +1042,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             root, "pr.merge", merger, pr["task"], f"{pr['id']} {branch} -> {base} at {sha}", sha
         )
         print(f"# merged {pr['id']} {branch} -> {base} at {sha} by {merger}")
+        print(archive_set_merge_sha(root, branch, sha))
         if not args.keep_branch:
             if retire_branch(root, here, branch, force=args.squash):
                 ledger_append(
@@ -2353,9 +2355,51 @@ def cmd_decision_list(args) -> int:
     return 0
 
 
+# Machine views: the records keep the full text, the listing does not need it.
+# A findings line can run past 10 KB, which is what makes `review --queue`,
+# `trace` and `archive` expensive for an agent that has to read them, so those
+# three views clip free-text evidence by default and `--full` turns it off.
+VIEW_CLIP_LIMIT = 600
+
+# The evidence-bearing lines of a docs/Team/Archive.md entry (archive_append).
+ARCHIVE_CLIP_FIELDS = (
+    "- self-check: ",
+    "- author evidence: ",
+    "- reviewer evidence: ",
+    "- findings history: ",
+)
+
+
+def view_text(value, full: bool) -> str:
+    """Render one free-text evidence field for a machine view.
+
+    Clipped to ``VIEW_CLIP_LIMIT`` characters unless the caller passed ``--full``;
+    the stored record always holds the whole value, so nothing is lost - the
+    clipped view only defers the detail to ``--full``.
+    """
+    text = str(value or "")
+    return text if full else clip(text, VIEW_CLIP_LIMIT)
+
+
+def archive_view_text(text: str, full: bool) -> str:
+    """Clip the evidence-bearing lines of an archive listing, keep the rest."""
+    if full:
+        return text
+    lines = []
+    for line in text.split("\n"):
+        for field in ARCHIVE_CLIP_FIELDS:
+            if line.startswith(field):
+                lines.append(field + clip(line[len(field) :], VIEW_CLIP_LIMIT))
+                break
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def cmd_trace(args) -> int:
     """Follow one handle through every record: the internal audit view."""
     root = project_root(args)
+    full = bool(getattr(args, "full", False))
     handle = args.handle.strip()
     up = handle.upper()
     print(f"# Trace {handle} ({root})")
@@ -2383,9 +2427,9 @@ def cmd_trace(args) -> int:
                 "forced",
             ):
                 if t.get(field):
-                    print(f"- {field}: {t[field]}")
+                    print(f"- {field}: {view_text(t[field], full)}")
             if t.get("findings"):
-                print(f"- findings: {t['findings']}")
+                print(f"- findings: {view_text(t['findings'], full)}")
             if t.get("branch"):
                 prj = work_repo(root)
                 base = t.get("base") or DEFAULT_BASE
@@ -2399,13 +2443,13 @@ def cmd_trace(args) -> int:
             found = True
             print(f"\n## criterion {c['id']} [{c['status']}] {c['text']}")
             print(f"- owner: {c['owner']} | verified by: {c['verified_by']} {c['verified']}")
-            print(f"- evidence: {c['evidence']}")
+            print(f"- evidence: {view_text(c['evidence'], full)}")
     for r in parse_tests(tests_path(root)):
         if up == r["id"].upper() or up == r["area"].upper():
             found = True
             print(f"\n## test {r['id']} [{r['layer']}/{r['area']}] {r['status']}")
             print(f"- owner: {r['owner']} | run by: {r['by']} | cmd: {r['command']}")
-            print(f"- evidence: {r['evidence'] or '-'}")
+            print(f"- evidence: {view_text(r['evidence'] or '-', full)}")
     for r in parse_reviews(reviews_path(root)):
         if up in (r["id"].upper(), r["task"].upper()):
             found = True
@@ -2415,7 +2459,7 @@ def cmd_trace(args) -> int:
                 f" | reviewer: {r['reviewer'] or '-'} | merge: {r['merge_commit'] or '-'}"
             )
             for n in r["notes"]:
-                print(f"    note: {n}")
+                print(f"    note: {view_text(n, full)}")
     for d in parse_disputes(disputes_path(root)):
         if up in (d["id"].upper(), (d["task"] or "").upper()):
             found = True
@@ -2425,9 +2469,11 @@ def cmd_trace(args) -> int:
                 f"escalated: {'yes' if d['escalated'] else 'no'}"
             )
             for r in d["rounds"]:
-                print(f"    r{r['n']} {r['by']} {r['date']}: {r['text']}")
+                print(f"    r{r['n']} {r['by']} {r['date']}: {view_text(r['text'], full)}")
             if d["decision"]:
-                print(f"- ruling: signed[{', '.join(d['signed'])}] {d['decision']}")
+                print(
+                    f"- ruling: signed[{', '.join(d['signed'])}] {view_text(d['decision'], full)}"
+                )
 
     events = [
         r
@@ -5692,6 +5738,50 @@ def archive_append(root: Path, owner: str, t: dict) -> str:
     return str(path.relative_to(project_of(root)))
 
 
+def archive_set_merge_sha(root: Path, branch: str, sha: str) -> str:
+    """Point the archive entry of a merged branch at the real merge revision.
+
+    ``archive_append`` runs when the review passes - before anyone has merged -
+    so it can only write ``pending`` in the ``branch / merge`` field. Once
+    ``pr merge`` has produced the revision, that one field is rewritten in
+    place: the entry is located by the branch written in its own
+    ``- branch / merge:`` line, no other line is touched, and a repeat call
+    with the same sha changes nothing (a re-run of the close-out is safe).
+    Returns the line the caller prints, including the no-match case.
+    """
+    path = archive_path(root)
+    if not path.exists():
+        return f"# archive: no archive file yet, so {branch} has no entry to update"
+    separator = " / "
+    prefix = "- branch / merge: "
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "archive.lock"):
+        lines = path.read_text(encoding="utf-8").split("\n")
+        matched: list = []
+        rewritten: list = []
+        for index, line in enumerate(lines):
+            if not line.startswith(prefix):
+                continue
+            field = line[len(prefix) :].rstrip()
+            entry_branch, _, entry_merge = field.rpartition(separator)
+            if entry_branch != branch:
+                continue
+            matched.append(index)
+            if entry_merge != sha:
+                lines[index] = f"{prefix}{branch}{separator}{sha}"
+                rewritten.append(index)
+        if rewritten:
+            write_lf(path, "\n".join(lines))
+    if not matched:
+        return (
+            f"# archive: no entry names branch {branch}, so nothing points at {sha} "
+            "(the entry is written by the review pass)"
+        )
+    if not rewritten:
+        return f"# archive: {branch} already records the merge at {sha} (no change)"
+    plural = "entries" if len(rewritten) > 1 else "entry"
+    return f"# archive: {plural} for {branch} now record the merge at {sha}"
+
+
 def find_review_role_unused(root: Path, handle: str):
     """(role, task) for a task id / title across every role queue."""
     for role in list_roles(root):
@@ -5809,7 +5899,7 @@ def _review_claim(root: Path, args) -> int:
 def cmd_review(args) -> int:
     root = project_root(args)
     if args.queue:
-        return _review_queue(root)
+        return _review_queue(root, full=bool(getattr(args, "full", False)))
     if getattr(args, "claim", False) or getattr(args, "release", False):
         return _review_claim(root, args)
     if not (args.agent and args.handle):
@@ -6032,7 +6122,7 @@ def cmd_review(args) -> int:
     return 0
 
 
-def _review_queue(root: Path) -> int:
+def _review_queue(root: Path, full: bool = False) -> int:
     rows = []
     for name in list_roles(root):
         for t in parse_tasks(task_file(root, name)):
@@ -6056,9 +6146,9 @@ def _review_queue(root: Path) -> int:
             + (f" pr={t['pr']}" if t.get("pr") else "")
         )
         if t.get("evidence"):
-            print(f"    author evidence: {t['evidence']}")
+            print(f"    author evidence: {view_text(t['evidence'], full)}")
         if t.get("findings"):
-            print(f"    findings so far: {t['findings']}")
+            print(f"    findings so far: {view_text(t['findings'], full)}")
     print()
     lanes = review_lane_notes(root)
     unclaimed = sum(1 for _prio, _name, t in rows if not review_is_held(t))
@@ -6189,6 +6279,7 @@ def cmd_selfcheck(args) -> int:
 
 def cmd_archive(args) -> int:
     root = project_root(args)
+    full = bool(getattr(args, "full", False))
     path = archive_path(root)
     if not path.exists():
         print(f"# no archive yet ({path.relative_to(project_of(root))})")
@@ -6205,11 +6296,11 @@ def cmd_archive(args) -> int:
         ]
         print(f"# Archived results for {role} ({path.relative_to(project_of(root))})")
         for b in hits:
-            print("\n## " + b.rstrip())
+            print(archive_view_text("\n## " + b.rstrip(), full))
         if not hits:
             print("- none")
         return 0
-    print(text.rstrip())
+    print(archive_view_text(text.rstrip(), full))
     return 0
 
 
@@ -7969,6 +8060,11 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("handle", nargs="?", help="T-0002, title or substring")
     s.add_argument("--queue", action="store_true", help="list everything awaiting review")
     s.add_argument(
+        "--full",
+        action="store_true",
+        help="with --queue, print evidence and findings unclipped (default: 600 chars)",
+    )
+    s.add_argument(
         "--claim",
         action="store_true",
         help="take the deliverable off the shared queue for your lane",
@@ -8027,6 +8123,11 @@ def _parsers_quality(sub, common) -> None:
         "archive", parents=[common], help="show the reviewed-result archive (evidence ledger)"
     )
     s.add_argument("--agent")
+    s.add_argument(
+        "--full",
+        action="store_true",
+        help="print the evidence fields unclipped (default: 600 chars)",
+    )
     s.set_defaults(func=cmd_archive)
 
     s = sub.add_parser(
@@ -8387,6 +8488,11 @@ def _parsers_audit(sub, common) -> None:
         "trace", parents=[common], help="follow one task/criterion/test/PR through every record"
     )
     s.add_argument("handle")
+    s.add_argument(
+        "--full",
+        action="store_true",
+        help="print the evidence fields unclipped (default: 600 chars)",
+    )
     s.set_defaults(func=cmd_trace)
 
 
