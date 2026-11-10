@@ -790,7 +790,7 @@ teamwork selftest
 
 Offline smoke test of the install; no network, no workspace required.
 
-### `model`
+### `model` - per-agent configuration and automatic routing
 
 ```text
 teamwork model set <role|instance> --provider P --model M
@@ -816,7 +816,7 @@ own API, so the model is a property of the **agent**, not of the project.
   with the variable to set (`TEAMWORK_MODEL_STRONG`, `TEAMWORK_MODEL_ECONOMY`).
   `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous.
 
-Policy: [references/Concurrency.md](https://github.com/VisionPZ/Teamwork/blob/main/references/Concurrency.md).
+Automatic routing policy: [references/Concurrency.md](https://github.com/VisionPZ/Teamwork/blob/main/references/Concurrency.md).
 
 ### `imaging probe`
 
