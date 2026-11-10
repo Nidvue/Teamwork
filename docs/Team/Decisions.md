@@ -1587,3 +1587,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: npm view @nidvue/teamwork dist-tags -> latest: 1.1.2; git tag -l --sort=-v:refname | head -1 -> v1.3.0; grep -c 'npm publish' .github/workflows/release.yml -> 0; gh api repos/Nidvue/Teamwork/environments/github-pages/deployment-branch-policies -> main type=branch; the CEO added v* type=tag and re-read it -> main type=branch, v* type=tag (2026-10-28).
 - falsified by: If npm Trusted Publishing cannot authenticate for this repository/workflow, the job fails loudly and the NPM_TOKEN fallback or the secret is used instead - the gate is not softened to green.
 - consequences: AC-22 and AC-23 are added; release-engineer T-0011/T-0013/T-0014 carry the work and technical-writer T-0005 the site truth; the operator owes one one-time npm configuration before the first tag publishes.
+
+## D-20261028-ReleaseEngineer - The npm job calls scripts/build_pi_package.py without --out dist
+
+- date: 2026-10-28
+- kind: technical
+- status: accepted
+- deciders: ReleaseEngineer (release-engineer)
+- decided by: ReleaseEngineer
+- task: T-0013
+- context: -
+- options considered: restore the flag by making build_pi_package.py document it (developer T-0018, out of this lane's boundary); weaken the tester's gate (refused: that is a red line)
+- decision: release.yml's npm job builds the bundle with 'python3 scripts/build_pi_package.py' (no --out flag) instead of the frozen contract's '--out dist', because tests/integration/test_ci_release_flow.py refuses a workflow that passes a flag the target script's --help does not document, and scripts/build_pi_package.py implements neither --help nor a usage text. dist/ is that script's default output directory, so the produced bundle is identical. The flag returns when the script gains --help (developer T-0018).
+- why: A red required check is not a style opinion: the alternative was a workflow that fails tests/integration/test_ci_release_flow.py on every run, or editing a script outside this task's boundary.
+- evidence: tests/integration/test_ci_release_flow.py::test_every_flag_a_workflow_passes_a_script_is_documented @release.yml with --out dist -> FAILED 'a workflow passes --out but scripts/build_pi_package.py --help does not document it'; with the flag removed @ the same tree -> 208 passed, 9 skipped over the six touched modules; scripts/build_pi_package.py main() @HEAD: out = Path(argv[argv.index('--out') + 1]) if '--out' in argv else ROOT / 'dist'
+- falsified by: If python3 scripts/build_pi_package.py ever writes outside <checkout>/dist, or the bundle built that way differs from an --out dist run at the same revision, this decision is wrong and the workflow must restore the flag another way.
+- consequences: -
