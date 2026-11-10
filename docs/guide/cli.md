@@ -1289,15 +1289,17 @@ is `origin/main..HEAD`, then `HEAD~1..HEAD`, then `HEAD`; a range beginning with
 `--guard-committer` is the narrower gate CI runs on every push (the
 `committer-guard` job). It passes a commit when its **committer** is a role
 mailbox, and it also passes the host stamp a forge writes into the commit it
-creates - a `users.noreply.github.com` committer - but only when the **author**
-of that commit is a role mailbox. The host stamp is transport, not identity; the
-author still has to be the team. So the guard does read an author fact: a
-host-stamped commit with a personal author fails. Measured on a commit authored
-by `jane@example.com` and committed by `123456+jane@users.noreply.github.com`,
-`guard_committer_identity()` exits 1 with `- 0851b9bd6493 FAIL committer
-123456+jane <123456+jane@users.noreply.github.com> (author Jane Doe
-<jane@example.com>)`. The full author check is `--audit`, which CI runs on every
-pull request and every push to `main`.
+creates - `noreply@github.com` (or `noreply@gitlab.com`) - but only when the
+**author** of that commit is a role mailbox or an allowlisted bot dependency
+update (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]` with their
+`users.noreply.github.com` mailbox). The host stamp is transport, not identity;
+the author still has to be the team or a bot. So the guard does read an author
+fact: a host-stamped commit with a personal author fails. Measured on a commit
+authored by `jane@example.com` and committed by `GitHub <noreply@github.com>`,
+`guard_committer_identity()` exits 1 with `- 5d4b5393b3d1 FAIL committer GitHub
+<noreply@github.com> (author Jane Doe <jane@example.com>)`. The full author
+check is `--audit`, which CI runs on every pull request and every push to
+`main`.
 
 ### `harness`
 

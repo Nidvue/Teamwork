@@ -3588,10 +3588,14 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
     prints the repair instead of leaving the next person to discover the red
     build.
 
-    Accepted committers: a role mailbox of this team, the host's own noreply
-    service address, and an author whose committer was rewritten by the host
-    (the host stamp is transport, not identity - but the *author* still has to be
-    a role mailbox, which ``identity --audit`` enforces separately).
+    Accepted committers: a role mailbox of this team, and the host's own noreply
+    service address when the author is a role mailbox or an allowlisted bot
+    dependency update. The host stamp is transport, not identity, but the
+    *author* still has to be the team or a bot the identity audit already
+    allows, which ``identity --audit`` enforces separately. A bot is not an
+    account: Dependabot authors its own commits and the host commits them as
+    ``GitHub <noreply@github.com>``, and failing that pair turned every
+    dependency pull request red on the guard.
     """
     canonical = canonical_identities()
     proc = run_git(
@@ -3641,13 +3645,14 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
             print(f"- {sha[:12]} skipped: forge pull-request merge ref")
             continue
         seen += 1
+        bot_author = an in BOT_IDENTITIES and _RE_BOT_EMAIL.match(ae) is not None
         if ce in canonical:
             continue
-        if _RE_FORGE_COMMITTER_EMAIL.match(ce) and ae in canonical:
+        if _RE_FORGE_COMMITTER_EMAIL.match(ce) and (ae in canonical or bot_author):
             continue
         problems.append((sha[:12], an, ae, cn, ce))
     if not problems:
-        print(f"# committer guard: {seen} commit(s) in {rev_range} carry a role committer")
+        print(f"# committer guard: {seen} commit(s) in {rev_range} carry no foreign committer")
         return 0
     print(f"# committer guard: {len(problems)} commit(s) in {rev_range} carry a foreign committer")
     for sha, an, ae, cn, ce in problems:
