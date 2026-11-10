@@ -166,3 +166,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest -q @043d483 -> 338 passed; links -> 0; privacy -> PASS
 - findings history: -
 - branch / merge: - / pending
+
+## T-0005 · Fix dispute sign AttributeError and cover it  (ceo)
+- date: 2026-10-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read dispute sign and the new regression test | test: pytest tests/unit/test_integrity_fixes.py @61eecc9 -> 30 passed
+- author evidence: commit 61eecc9
+- reviewer evidence: pytest tests/unit/test_integrity_fixes.py @61eecc9 -> 30 passed; dispute sign by developer -> exit 2, no traceback
+- findings history: -
+- branch / merge: - / pending
