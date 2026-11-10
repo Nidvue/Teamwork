@@ -6866,6 +6866,8 @@ def archive_append(root: Path, owner: str, t: dict) -> str:
         if not path.exists():
             write_lf(path, ARCHIVE_HEADER + "\n")
         with path.open("a", encoding="utf-8", newline="\n") as fh:
+            if not path.read_text(encoding="utf-8").endswith("\n\n"):
+                fh.write("\n")
             fh.write("\n".join(lines))
     return str(path.relative_to(project_of(root)))
 
