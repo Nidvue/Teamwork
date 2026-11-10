@@ -1443,3 +1443,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: reviewer del_mviuyqhj_p6b1: pytest tests/unit/test_board_matches_tool.py @908671e -> '2 failed, 4 passed' with AssertionError "ceo T-0074: In flight says 'todo', the queue says 'review'"; after regenerating the board the same file -> 6 passed; full suite after the regeneration -> 1255 passed, 1 skipped
 - falsified by: If the committed 908671e board rows already read 'review' for T-0074, the correction is wrong and the numbers were reproducible.
 - consequences: -
+
+## D-20261025-CEO-2 - Authorise a local reflog expiry to drop an unreachable leaked commit
+
+- date: 2026-10-25
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Authorise 'git reflog expire --expire=now --all && git gc --prune=now' in this repository, once, so the superseded commit a4c726f (whose message quotes the operator home path) stops being reachable through the reflog. It is unreachable from every branch already; nothing pushed exists that contains it, so no published history is rewritten and no reachable object is deleted.
+- why: The privacy gate scans --reflog on purpose; an unreachable-but-reflogged leak is still a leak in this clone and would block AC-5 forever.
+- evidence: git merge-base --is-ancestor a4c726f developer-1/t-0001-... -> 1 (not an ancestor); privacy_scan.py --history --allow -> still reports commit:a4c726f4b2ca:8 because the scan walks --reflog; git branch --contains a4c726f -> none
+- falsified by: After the expiry, privacy_scan --tree --history still names a4c726f, or a reachable commit disappears (both measurable)
+- consequences: Run it in the main repo, then re-run the gate; P-0001's reviewer verifies the clean run; the Security Auditor checks no reachable object was lost

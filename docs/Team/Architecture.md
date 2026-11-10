@@ -18,9 +18,13 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Decis
    `<project>/.pi/Teamwork/Teams/<Team>/`.
 
 The three share one engine. The engine started as a behaviour-preserving port of
-the original 7,416-line `teamwork.py` monolith. It is now a thin command layer
-over typed modules; the move was behaviour-preserving and is covered by the same
-suite.
+the original 7,416-line `teamwork.py` monolith. It is now a command layer over
+typed modules - `config`, `io`, `names`, `layout`, `records`, `gitutil`,
+`imaging` were moved out (D-20261018-CEO-3) and `engine.py` re-exports them - but
+it is not thin: `wc -l src/teamwork/engine.py` -> **10,566**, i.e. 3,150 lines
+(+42%) more than the monolith it replaced, because every command still lives in
+it. The move was behaviour-preserving and is covered by the same suite; "one
+module" describes the command layer's ownership, not its size.
 
 ## 2. Frozen repository layout
 
@@ -198,6 +202,15 @@ def pid_alive(pid: int) -> bool   # Windows-safe; never kills anything
 Tests must run with `pytest -q` from the repo root and also with an installed
 wheel (no reliance on the source tree). `conftest.py` sets
 `TEAMWORK_SKILL_DIR` to the repo root and runs each test in a `tmp_path`.
+
+A test that executes an external tool guards on it first, through
+`tests/tooling.py` (`require_tool`): an absent tool produces a **skip that names
+the tool and states why the test needs it** - never a failure, never a silent
+pass. The guarded set is the convenience path only (`make`, and `sh`/`bash` for
+the hook and classifier scripts). Tools the product itself cannot run without -
+the interpreter and `git` - are deliberately **not** guarded: a skip there would
+report a green build for a host that can never work. Pinned by
+[tests/unit/test_tool_guards.py](https://github.com/nidvue/teamwork/blob/main/tests/unit/test_tool_guards.py).
 
 The table above assigns **file writers**. Who must *certify* a layer is a
 separate frozen map, `config.LAYER_OWNER`: `unit` -> developer, `integration` ->
