@@ -63,7 +63,15 @@ The full pipeline is documented in [docs/guide/ci.md](docs/guide/ci.md).
 4. **Open a pull request** describing the artifact, the evidence and the
    revision.
 5. **Independent review.** A different maintainer reviews and merges; you never
-   merge your own change.
+   merge your own change. **Merge locally as the reviewing role and push; do not
+   use the forge's squash button.** A forge squash merge stamps the *signed-in
+   account's* mailbox on the resulting commit, and the privacy gate scans history:
+   it fails on the personal address, and because that gate is also an acceptance
+   proof, the traceability guard fails with it. This has cost two rewrites of
+   `main` (see the 2026-10-20 entries in [Decisions](docs/Team/Decisions.md)). If a
+   rewrite is forced on you anyway, amend the tip to a role mailbox, verify its
+   tree is byte-identical to the commit it replaces, push it with
+   `--force-with-lease`, and restore the branch protection you relaxed to do it.
 
 ## Evidence rule
 
