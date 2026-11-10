@@ -12274,6 +12274,7 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
         input=message,
         capture_output=True,
         text=True,
+        env=_merge_commit_env(),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", *dirty)
@@ -13307,10 +13308,6 @@ PREFLIGHT_SETTINGS_KEY = "PreflightCommand"
 PREFLIGHT_GATE_TIMEOUT = 3600
 
 _RE_EVIDENCE_REV = re.compile(r"@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])")
-_RE_SUPERSEDED_REV = re.compile(
-    r"@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])[^@|]{0,40}?\bsuperseded\b"
-    r"|\bsuperseded\b[^@|]{0,20}?@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])"
-)
 
 _RE_PREFLIGHT_DIGEST = re.compile(r"preflight:\s*PF-[0-9a-f]+ @[0-9a-f]+[^|]*")
 
@@ -13621,25 +13618,13 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
     without it a self-check whose ``--test`` names a missing revision is the one
     text this gate never reads - and the digest it records then certifies a
     measurement nobody can reproduce.
-
-    The note is append-only, so the LAST segment is the only authoritative one: an
-    earlier round's ``--test`` line names the revision that round measured, and a
-    rewrite legitimately removes it. Reading the whole history would make every
-    amendment after a self-check permanently red, so only the newest segment is
-    checked. A revision the newest text itself marks ``superseded`` is accepted too:
-    a record may say "@<old> superseded by @<new>" and the old commit is then
-    allowed to be gone from every ref, because the marker is the record's own
-    statement that nobody should check it out.
     """
     name = "evidence"
     latest = (task.get("self_note", "") or "").split(" || ")[-1]
     digest = _RE_PREFLIGHT_DIGEST.sub("", task.get("evidence", ""))
     note = _RE_PREFLIGHT_DIGEST.sub("", extra_text or latest)
-    superseded = _superseded_revs(digest) | _superseded_revs(note)
-    evidence_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(digest)} - superseded)
-    note_revs = sorted(
-        {m.lower() for m in _RE_EVIDENCE_REV.findall(note)} - superseded - set(evidence_revs)
-    )
+    evidence_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(digest)})
+    note_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(note)} - set(evidence_revs))
     named = sorted(set(evidence_revs) | set(note_revs))
     if not named:
         return PreflightCheck(name, PREFLIGHT_OK, "the task names no @<rev> revision yet")
@@ -13694,26 +13679,12 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
             PREFLIGHT_FAIL,
             "; ".join(problems),
             "refresh the note: selfcheck <agent> <T-id> --by <you> --note '<what you"
-            " re-read>' --test '<cmd> @<current-rev> -> <result>'; if the revision was"
-            " rewritten away on purpose, name it in the new note as"
-            " '@<old> superseded by @<current-rev>' and the gate stops checking it",
+            " re-read>' --test '<cmd> @<current-rev> -> <result>'",
         )
     shown = ", ".join(f"@{sha}" for sha in named[:5])
-    detail = f"{len(named)} evidence revision(s) reachable: {shown}"
-    if superseded:
-        accepted = ", ".join(f"@{sha}" for sha in sorted(superseded)[:5])
-        detail += f"; {len(superseded)} marked superseded and not checked: {accepted}"
-    return PreflightCheck(name, PREFLIGHT_OK, detail)
-
-
-def _superseded_revs(text: str) -> set:
-    """Revisions a record deliberately marks ``superseded``, so a rewrite may drop them."""
-    found = set()
-    for match in _RE_SUPERSEDED_REV.finditer(text or ""):
-        sha = match.group(1) or match.group(2)
-        if sha:
-            found.add(sha.lower())
-    return found
+    return PreflightCheck(
+        name, PREFLIGHT_OK, f"{len(named)} evidence revision(s) reachable: {shown}"
+    )
 
 
 def _preflight_mergeable(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
