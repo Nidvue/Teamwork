@@ -4737,3 +4737,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff main..70ec392 @70ec392 -> only Makefile (lint line), scripts/check_comments.py (argument handling) and tests/unit/test_no_comments.py (MAKEFILE_LIST assertion + 2 tests); from an empty temp dir, python <repo>/scripts/check_comments.py -> '0 file(s)', exit 0; an explicitly named missing path -> 'no such path', exit 2; from the repo -> 170 file(s), 0 explanatory, exit 0; pytest -q tests/unit/test_no_comments.py -> 16 passed; the makefile-flow lint test skips here because make is not installed, and the Makefile expression \Clouds Projectsscripts/check_comments.py resolves to <repo>/scripts/check_comments.py when CI runs make -f <repo>/Makefile lint from a scratch tree (lastword is the repo Makefile; abspath makes it absolute; dir adds the slash; cwd remains the scratch tree, so the checker sees no default roots and returns 0); ruff check + format --check + mypy clean; check_release_consistency --offline -> 0.
 - findings history: 
 - branch / merge: developer-4/t-0042-m20-c2-make-lint-fails-in-a-scratch-tree / 0808051
+
+## T-0043 · M20 C3: make lint is invisible to the CI parity test after the cwd fix  (developer)
+- date: 2026-11-04
+- priority: P0
+- owner: developer role (work by: Developer-4)
+- reviewer: Reviewer-6
+- task / issue: -
+- area: lint
+- self-check: [pass] The parity test reads argv[1] as the script; an inline make function put the directory in argv[1] and hid the gate. HERE is one token that expands to the Makefile's directory, so the recipe still resolves from any cwd and the parser sees check_comments.py as the script. Verified both sides: uncovered_gates() is empty, the two modules pass, and the empty-tree run still exits 0; the makefile-flow path remains CI-owned because make is absent here. | test: pytest -q tests/unit/test_makefile_contracts.py tests/unit/test_no_comments.py @de9c9e4 -> 34 passed, 1 skipped; uncovered_gates() -> []; empty temp tree: python <repo>/scripts/check_comments.py -> 0 file(s), exit 0; ruff check + ruff format --check @de9c9e4 -> clean | preflight: PF-111bb5a08733 @de9c9e4b6a79 (7 checks, 0 failed)
+- author evidence: CI run 41845054809 ubuntu py3.13 log: test_every_gate_command_ci_runs_has_a_makefile_target -> assert [(check_comments.py,)] == []; the Makefile recipe's second token after the interpreter is a make function, so the parity parser sees no signature; commit f439284
+- reviewer evidence: git diff main..de9c9e4 @de9c9e4 -> Makefile only, two hunks (HERE := dir abspath lastword MAKEFILE_LIST and the lint recipe $(PYTHON) $(HERE)scripts/check_comments.py); pytest -q tests/unit/test_makefile_contracts.py tests/unit/test_no_comments.py -> 34 passed, 1 skipped (the make-help case: make is not installed); the test helper uncovered_gates() -> [] and make_signatures includes check_comments.py; the token after the interpreter is a single word ending scripts/check_comments.py, and HERE expands to the Makefile directory, so the T-0042 scratch-tree path still runs the absolute checker and no-ops there; ruff check + ruff format --check clean; scripts/check_comments.py -> 170 files/0; check_release_consistency --offline -> 0.
+- findings history: 
+- branch / merge: developer-4/t-0043-m20-c3-make-lint-is-invisible-to-the-ci / b6ef53f
