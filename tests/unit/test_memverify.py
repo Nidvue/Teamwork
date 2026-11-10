@@ -449,3 +449,72 @@ def test_the_focused_default_keeps_the_highest_scoring_records(
     lines = capsys.readouterr().out.splitlines()
     assert lines[0].startswith("- [K-0001]")
     assert lines[-1] == "# verify: 0 deferred by --focus"
+
+
+def test_kinds_names_every_kind_the_evidence_carries(tmp_path: Path) -> None:
+    evidence = "pytest -q tests/unit/test_x.py @0123456 -> 4 passed (2026-01-02)"
+    assert memverify.kinds(evidence) == [memverify.REVISION, memverify.PATH]
+    assert memverify.kinds("https://example.invalid/a accessed 2026-01-02") == [memverify.SOURCE]
+    assert memverify.kinds("no idea") == []
+
+
+def test_a_bad_path_behind_a_valid_revision_drifts(tmp_path: Path) -> None:
+    project = tmp_path / "repo"
+    sha = _repo(project)
+    (project / "tests").mkdir()
+    (project / "tests" / "here.py").write_text("one\n", encoding="utf-8")
+    status, reason = memverify.verify_record(
+        {"evidence": f"pytest -q tests/here.py:99 @{sha} -> 1 passed"}, project, TODAY
+    )
+    assert status == memverify.DRIFTED
+    assert reason == (
+        f"revision: {sha} is a commit here; path: tests/here.py has 1 line(s), wanted 99"
+    )
+    assert (
+        memverify.verify_record(
+            {"evidence": f"pytest -q tests/gone.py @{sha} -> 1 passed"}, project, TODAY
+        )[0]
+        == memverify.DRIFTED
+    )
+    assert memverify.verify_record(
+        {"evidence": f"pytest -q tests/here.py @{sha} -> 1 passed"}, project, TODAY
+    ) == (
+        memverify.VERIFIED,
+        f"revision: {sha} is a commit here; path: tests/here.py exists",
+    )
+
+
+def test_the_worst_kind_decides_the_status_and_an_undated_source_never_drifts(
+    tmp_path: Path,
+) -> None:
+    project = _tree(tmp_path)
+    status, reason = memverify.verify_record(
+        {"evidence": "README.md https://example.invalid/a"}, project, TODAY
+    )
+    assert status == memverify.UNVERIFIABLE
+    assert reason == (
+        "path: README.md exists; source: https://example.invalid/a carries no access date"
+    )
+    assert (
+        memverify.verify_record(
+            {"evidence": "docs/gone.md https://example.invalid/a (2020-01-01)"}, project, TODAY
+        )[0]
+        == memverify.DRIFTED
+    )
+
+
+def test_a_path_resolves_against_the_checkout_not_the_team_root(tmp_path: Path) -> None:
+    project = tmp_path / "repo"
+    _repo(project)
+    (project / "src").mkdir()
+    (project / "src" / "x.py").write_text("one\n", encoding="utf-8")
+    team_root = project / ".pi" / "Teamwork" / "Teams" / "T"
+    team_root.mkdir(parents=True)
+    assert memverify.verify_record({"evidence": "src/x.py:1"}, team_root, TODAY) == (
+        memverify.VERIFIED,
+        "src/x.py has 1 line(s)",
+    )
+    assert memverify.verify_record({"evidence": "src/gone.py"}, team_root, TODAY) == (
+        memverify.DRIFTED,
+        "src/gone.py is missing",
+    )
