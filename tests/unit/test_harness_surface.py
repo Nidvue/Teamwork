@@ -710,3 +710,28 @@ def test_the_audit_reports_an_instance_over_the_cap(cli, project, capsys) -> Non
     section = flagged.split("## startup read over the cap", 1)[1].split("\n## ", 1)[0]
     assert "bytes against a cap of 1024" in section, section
     assert "- none" not in section
+
+
+COMMITTED_SKILLS = Path(__file__).resolve().parents[2] / ".agents" / "skills"
+
+
+def test_every_committed_skill_carries_a_verdict() -> None:
+    """A committed skill is visible to every instance, so it is shared.
+
+    The EVIDENCE rule reads the shared-skill registry (`Skills.md`), which is
+    gitignored team state, so CI never ran it. This check needs no registry: each
+    skill file in the repository must carry an evidence row.
+    """
+    skills = sorted(COMMITTED_SKILLS.glob("*/SKILL.md"))
+    assert skills, "the repository ships no skill to check"
+    missing = [
+        path.parent.name
+        for path in skills
+        if not harness.VERDICT_RE.search(path.read_text(encoding="utf-8"))
+    ]
+    assert not missing, f"committed skill(s) without a verdict row: {missing}"
+
+
+def test_a_skill_without_a_verdict_is_refused() -> None:
+    assert harness.VERDICT_RE.search("verdict: no observed effect\n")
+    assert not harness.VERDICT_RE.search("## Verdict on this skill\n\nto be measured\n")
