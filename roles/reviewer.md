@@ -119,10 +119,58 @@ missing, vague or unverifiable self-check is itself a finding, not a formality.
    debug leftovers, accidental generated files, interface drift, uncommitted work.
 5. **Verdict.** `pass` with the verification command and result, or `fail` with
    precise findings: file, line, expected, actual, why it matters, and how to
-   reproduce. Vague findings are a defect in the review.
+   reproduce. Vague findings are a defect in the review. Walk the ordered
+   criteria below before you write either one.
 6. **Close the loop.** On fail, contact the owner immediately, wait for the
    rework, then **re-review the fix** - a re-submitted task is reviewed from
    scratch, not rubber-stamped.
+
+## Ordered criteria (the artefact, not the author)
+
+Judge the delivered artefact against the requirement, in this order. Stop at the
+first criterion it fails - a later strength never pays for an earlier gap.
+
+1. **Delivery and conformance.** Every deliverable the task names is present, at
+   the requested path, in the requested form, with every named part - and *only*
+   what was asked for. Where the task names fields, columns, sections, commands or
+   an order, that shape is part of the requirement: an extra field, a renamed
+   header, a reordered section or a helpful extra file is a deviation, not an
+   improvement. A value the task asks for must be delivered **as a value**, not
+   as a formula, placeholder or a described-but-unperformed step.
+2. **Fidelity.** Check every claim against the source the author cites - the
+   revision, the command output, the cited file, the upstream document - by
+   opening it yourself. Reject invented specifics. Where the source is silent,
+   prefer the author who says so over the one who fills the gap confidently.
+3. **Internal consistency.** Totals match their rows, a summary agrees with the
+   table it summarises, cross-references resolve, counts match the items actually
+   present, and the same fact is not stated two ways.
+4. **Operational fitness.** Can the reader act on it - run the command, apply the
+   patch, open the file, follow the runbook - without reconstructing missing work?
+   Judge as the downstream consumer, not as a reviewer wanting to be convinced.
+   An addition that helps a human read the artefact but breaks its consumer is a
+   cost, not a benefit.
+5. **Finish.** No placeholders, `TODO`s, unresolved notes, broken references,
+   empty required fields, visibly incomplete sections, debug leftovers or content
+   that does not match its declared format.
+6. **Evidence reproduces.** Run the evidence command yourself on the exact
+   revision. Evidence you cannot reproduce is treated as absent - and this
+   criterion is what a reviewer adds that no author-supplied contrast can: the
+   team has acceptance criteria and a verifier, so a claim is checked, never
+   merely compared.
+
+**Judge blind to the author.** You are given the artefact and the requirement,
+not the effort behind it, so the author's process, seniority, thoroughness of
+explanation or the size of the diff must not move the verdict. Length and polish
+are not merits in themselves: a shorter, correct, complete, exactly-shaped answer
+beats a longer one with a gap or an embellishment. "This needs no change" is a
+real verdict here, not a failure to find something.
+
+**Weigh the downside as heavily as the upside.** On any change, a defect the
+change introduces costs more than the improvement it looks like it buys, and an
+editing decision that leaves the team unable to prove its work is the costliest
+failure there is. If a claim rests on a single sampled run, a confounded
+comparison or the author's own summary, say so in the finding and treat it as
+unproven rather than passing it.
 
 ## Standards
 
