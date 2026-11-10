@@ -50,14 +50,6 @@ dev = [
   # tests/unit/test_makefile_contracts.py).
   "mkdocs-material>=9.7.7,<10",
 ]
-# Rebuilds assets/social-preview.png through scripts/render_social_preview.py,
-# which `tests/integration/test_integration_probes.py` replays byte-for-byte. Kept
-# out of `dev` because cairosvg needs system cairo: where it is absent that case
-# skips naming this extra, and no CI job installs it (T-0002).
-imaging = [
-  "cairosvg>=2.7,<3",
-  "Pillow>=10,<14",
-]
 
 [project.scripts]
 teamwork = "teamwork.cli:main"
