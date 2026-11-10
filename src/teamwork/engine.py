@@ -12275,7 +12275,7 @@ def _board_problems(root: Path, text: str) -> list:
     if not tasks and not _queues_initialised(root):
         return [f"no task records under {roles_dir(root)}: run `teamwork.py init` first"]
     try:
-        return boardlib.problems(tasks, text)
+        return boardlib.problems(tasks, text, root)
     except (ValueError, StopIteration) as exc:
         # `render` raises StopIteration on a board that lost its anchors; a check
         # that crashes is not a check that passed.
@@ -12737,8 +12737,8 @@ def _board_tables(args, root: Path) -> int:
             2,
         )
     try:
-        after = boardlib.render(tasks, before)
-        found = boardlib.problems(tasks, before)
+        after = boardlib.render(tasks, before, root)
+        found = boardlib.problems(tasks, before, root)
     except ValueError as exc:
         die(f"cannot compare {path} with the queues: {exc}", 2)
     if getattr(args, "write", False):
@@ -12887,7 +12887,7 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
         tasks = boardlib.queues(root)
         if not tasks:
             raise ValueError(f"no task records under {roles_dir(root)}")
-        after = boardlib.render(tasks, before)
+        after = boardlib.render(tasks, before, root)
     except (OSError, ValueError, StopIteration) as exc:
         return _board_stale_warning(pr, rel, f"cannot render it from the queues: {exc}")
     if after == before:
