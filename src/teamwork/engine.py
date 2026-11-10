@@ -6146,25 +6146,29 @@ def loadable_role(root: Path, role: str) -> bool:
     return role in ROLE_DISPLAY and role_dir(root, role).is_dir()
 
 
-def memory_pack_block(root: Path, role: str, task: str, budget: int = 0) -> str:
+def memory_pack_block(root: Path, role: str, task: str, budget: int = 0, touch_by: str = "") -> str:
     """The task-aware pack as text, for `load --task` and for a lane packet.
 
     Same collector and scorer as `memory pack`, so the bytes a lane receives are
     the bytes `memory pack` prints for the same task. A caller that injects it
-    into a prompt passes its own budget; the CLI keeps the default.
+    into a prompt passes its own budget; the CLI keeps the default. ``touch_by``
+    counts the injected records, because an injected record is a used record and
+    ranking by usefulness is otherwise inert.
     """
     limit = budget or memorypack.PACK_BUDGET_BYTES
     query = memorypack.task_query(root, role, task)
     items = memorypack.pack(_collected(root, role), query, limit, datetime.datetime.now())
+    if touch_by:
+        memorypack.touch_used(root, items, touch_by)
     return memorypack.render_pack(items, memorypack.rendered_bytes(items), limit).rstrip("\n")
 
 
-def _pack_block(root: Path, role: str, task: str) -> str:
+def _pack_block(root: Path, role: str, task: str, touch_by: str = "") -> str:
     """`load --task` prints this instead of the static top-10 knowledge block."""
     budget = memorypack.PACK_BUDGET_BYTES
     query = memorypack.task_query(root, role, task)
     header = f"# memory pack for {task} -> '{query}' (budget {budget} bytes; not the static top-10)"
-    return header + "\n" + memory_pack_block(root, role, task, budget)
+    return header + "\n" + memory_pack_block(root, role, task, budget, touch_by)
 
 
 def cmd_load(args) -> int:
@@ -6234,7 +6238,7 @@ def cmd_load(args) -> int:
         print(f"# fixed: {len(fixed)}; full list: teamwork.py lesson list --role {role}")
 
     if getattr(args, "task", ""):
-        print(_pack_block(root, role, args.task))
+        print(_pack_block(root, role, args.task, getattr(args, "agent", "") or role))
         return 0
 
     knowledge = parse_knowledge(knowledge_path(root))
@@ -6635,9 +6639,73 @@ def cmd_recall(args) -> int:
             )
             total += 1
         print()
+    total += _recall_lessons_and_knowledge(root, args, pattern)
     if total == 0:
         print(f"teamwork: no memory matched {args.query!r}")
     return 0
+
+
+def _tags_text(tags) -> str:
+    """A record's tags as one searchable string: the file stores a list."""
+    return (
+        " ".join(str(tag) for tag in tags) if isinstance(tags, (list, tuple)) else str(tags or "")
+    )
+
+
+def _recall_lessons_and_knowledge(root: Path, args, pattern) -> int:
+    """The other two stores the same query must reach.
+
+    Experience was written and never read: `recall` searched only short and long
+    memory, so a role's lessons and the project's knowledge were invisible to the
+    command an agent actually calls. A hit names its id and its store, so the
+    reader can open the full record instead of guessing where it lives.
+    """
+    if pattern is None:
+        return 0
+    roles = list_roles(root) if args.all else []
+    if args.agent and not args.all:
+        roles = [resolve_role(args.agent)]
+    if not (args.all or args.agent):
+        return 0
+    total = 0
+    for role in roles:
+        path = role_dir(root, role) / F_LESSONS
+        if not path.is_file():
+            continue
+        hits = [
+            item
+            for item in parse_lessons(path)
+            if pattern.search(item.get("mistake", ""))
+            or pattern.search(item.get("cause", ""))
+            or pattern.search(item.get("rule", ""))
+        ]
+        if not hits:
+            continue
+        print(f"## {role} / {F_LESSONS}")
+        for item in hits:
+            print(
+                f"- [{item['id']}] lesson ({item.get('status', 'open')}): {one_line(item.get('rule', ''))}"
+            )
+            total += 1
+        print()
+    knowledge = parse_knowledge(knowledge_path(root))
+    hits = [
+        item
+        for item in knowledge
+        if pattern.search(item.get("topic", ""))
+        or pattern.search(item.get("statement", ""))
+        or pattern.search(_tags_text(item.get("tags")))
+    ]
+    if hits:
+        print(f"## project / {F_KNOWLEDGE}")
+        for item in hits:
+            print(
+                f"- [{item['id']}] knowledge ({item.get('status', 'active')}, "
+                f"uses={item.get('uses', 0)}): {one_line(item.get('statement', ''))}"
+            )
+            total += 1
+        print()
+    return total
 
 
 def _find_entry(entries: list, handle: str):
@@ -10170,6 +10238,32 @@ def _pulse_feature_teams(root: Path, records: list) -> None:
     print()
 
 
+def memory_dream_line(root: Path) -> str:
+    """One line a pulse or a swarm prints: what the maintenance pass would do.
+
+    The article's "dreaming" is maintenance off the hot path, and a pass nobody
+    schedules never runs. This makes the trigger structural - every pulse and every
+    swarm wave reports the findings - while the mutation stays explicit
+    (`memory dream --apply --by <you>`), so no background process writes the stores.
+    """
+    role = ""
+    items = _collected(root, role)
+    proposals = memorypack.dream(items, datetime.datetime.now())
+    duplicates = len(proposals.get("duplicate") or [])
+    stale = len(proposals.get("stale") or [])
+    contradictions = len(proposals.get("contradiction") or [])
+    no_evidence = len(proposals.get("no_evidence") or [])
+    if not (duplicates or stale or contradictions or no_evidence):
+        return (
+            f"# memory: {len(items)} record(s), nothing to consolidate (dream --dry-run is clean)"
+        )
+    return (
+        f"# memory: {len(items)} record(s) -> {duplicates} duplicate(s), {stale} stale, "
+        f"{contradictions} contradiction(s), {no_evidence} without evidence; "
+        "`memory dream --apply --by <you>` acts, nothing was written"
+    )
+
+
 def cmd_pulse(args: object) -> int:
     """CEO wake-up: find idle lanes and hand them runnable work immediately."""
     root = project_root(args)
@@ -10195,6 +10289,7 @@ def cmd_pulse(args: object) -> int:
     print(f"# Pulse ({root})")
     print(f"# interval: every {minutes} min | {len(busy)} busy, {len(idle)} idle lane(s)")
     print(f"# accept mode: {mode} (from {mode_source})")
+    print(memory_dream_line(root))
     print()
 
     print(f"## idle lanes ({len(idle)})")
