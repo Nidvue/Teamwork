@@ -25,12 +25,12 @@ Owner: release-engineer. Task: T-0011.
 from __future__ import annotations
 
 import hashlib
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from tests.tooling import require_tool
 from workflow_yaml import parse_workflow
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -352,14 +352,12 @@ def test_the_clean_removes_a_preseeded_bundle_directory(tmp_path: Path) -> None:
     assert "non-file entries" in refused.stdout + refused.stderr, refused.stdout
 
     clean = build_commands(release())[0]
-    if shutil.which("bash") is None:
-        pytest.skip("no bash on this host, so the shipped clean cannot be executed here")
+    require_tool("bash", "the release build step is a POSIX shell script; CI runs it on ubuntu")
     probe = subprocess.run(["bash", "-c", "true"], capture_output=True, check=False)
     if probe.returncode != 0:
         pytest.skip(
             "bash on this host is not a POSIX shell that can run the workflow's step "
-            f"(it answered {probe.returncode} and said {probe.stderr.decode('utf-8', 'replace').strip()[:120]!r}); "
-            "CI runs this step on ubuntu"
+            f"(it answered {probe.returncode}); CI runs this step on ubuntu"
         )
     subprocess.run(["bash", "-c", clean], cwd=str(workspace), check=True)
     assert not (workspace / "dist" / "@nidvue").exists(), "the clean did not remove the residue"
