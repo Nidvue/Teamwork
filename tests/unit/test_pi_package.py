@@ -6,8 +6,10 @@ pi layer shipped twice).
 
 Pinned here: the built manifest carries the repository's licence, every declared
 path exists, npm's `files` list covers what the tarball needs, the host-provided
-packages stay peers, the pi adapter tree is not duplicated inside the portable
-skill, and the command line answers `--help` without assembling a package.
+packages stay peers, `pi-subagents` is declared as an optional peer and never as
+a dependency the package cannot load, the pi adapter tree is not duplicated
+inside the portable skill, and the command line answers `--help` without
+assembling a package.
 """
 
 from __future__ import annotations
@@ -68,6 +70,32 @@ def test_manifest_matches_the_shipped_tree(tmp_path: Path) -> None:
     ):
         assert host in manifest["peerDependencies"], host
         assert host not in manifest.get("dependencies", {}), host
+
+
+def test_pi_subagents_is_an_optional_peer_not_a_dependency(tmp_path: Path) -> None:
+    """Why: the pi layer offers `subagent`/`subagent_supervisor`/`schedule.*` as an
+    accelerator, so the package has to say it supports `pi-subagents`.
+
+    It says so as an optional peer, never as a `dependency`. Pi installs a
+    package's `dependencies`, but an extension that lands in our `node_modules/`
+    is not loaded unless the manifest points at `./node_modules/...`, and this
+    package declares no extension: `lane start` and `swarm run` need only the
+    host CLI. A dependency entry would therefore promise a tool the install
+    cannot deliver, and a `bundledDependencies` one would ship a second copy of
+    a package the user may already have installed.
+    """
+    pkg = build(tmp_path)
+    manifest = json.loads((pkg / "package.json").read_text(encoding="utf-8"))
+
+    assert manifest["peerDependencies"]["pi-subagents"].startswith("^")
+    assert manifest["peerDependenciesMeta"]["pi-subagents"] == {"optional": True}
+    assert "pi-subagents" not in manifest.get("dependencies", {})
+    assert "pi-subagents" not in manifest.get("bundledDependencies", [])
+    assert "pi-subagents" not in manifest.get("devDependencies", {})
+    assert "extensions" not in manifest["pi"], "this package loads no extension"
+
+    adapter = (pkg / "skills" / "teamwork-pi" / "SKILL.md").read_text(encoding="utf-8")
+    assert "pi-subagents" in adapter, "the peer is declared where the layer explains it"
 
 
 def test_the_pi_layer_is_not_shipped_twice(tmp_path: Path) -> None:

@@ -122,6 +122,7 @@ under two roles is two tasks.
 | ceo | T-0032 | docs | done | P-0087 | 3179a8a |
 | ceo | T-0033 | memory | done | P-0092 | 6143378 |
 | ceo | T-0034 | - | todo | - | - |
+| ceo | T-0035 | pi-package | done | P-0098 | 9a61ca8 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -177,7 +178,7 @@ under two roles is two tasks.
 | developer | T-0053 | deliver | done | P-0088 | 82241bb |
 | developer | T-0054 | memory | done | P-0095 | a42b13b |
 | developer | T-0055 | memory | done | P-0096 | 81dcf8f |
-| developer | T-0056 | - | todo | - | - |
+| developer | T-0056 | - | doing | - | - |
 | developer | T-0057 | - | todo | - | - |
 | developer | T-0058 | - | todo | - | - |
 | developer | T-0059 | - | todo | - | - |
@@ -214,6 +215,7 @@ under two roles is two tasks.
 | tester | T-0006 | tests | done | P-0089 | 2c4ad7e |
 | tester | T-0007 | t-0042 | done | P-0090 | 6750ea7 |
 | tester | T-0008 | memory | done | P-0097 | e34d6f7 |
+| tester | T-0009 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -232,13 +234,14 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0034 · M22 close-out: the measured before/after, the layer matrix, the board render and the ledger export | P1 | todo | - |
-| developer | T-0056 · transcript reach: context find and recall search the ledger and worklogs | P0 | todo | - |
+| developer | T-0056 · transcript reach: context find and recall search the ledger and worklogs | P0 | doing | - |
 | developer | T-0057 · memory index header in load and the lane packet, capped | P0 | todo | - |
 | developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | todo | - |
 | developer | T-0059 · privacy scan does not cover the team memory stores | P1 | todo | - |
 | developer | T-0060 · scrub absolute host paths from the role stores | P2 | todo | - |
 | developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | todo | - |
 | security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | todo | - |
+| tester | T-0009 · integration layer part 2: transcript reach and the index header on a real tree | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
