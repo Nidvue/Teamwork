@@ -7779,8 +7779,6 @@ def cmd_clean(args) -> int:
     or the team-shared working state (`Global/`, `Roles/`) requires `--team-wide`,
     which prints every location before the first unlink. `--all` empties
     `Scratch/` only - `Global/` and `Roles/` just lose their temp-pattern files.
-    A file whose `unlink` fails is listed as not removed and is never counted in
-    the removed total: the summary states what happened, not what was attempted.
     """
     root = project_root(args)
     project = project_of(root)
@@ -7800,7 +7798,6 @@ def cmd_clean(args) -> int:
         r = run_git(project, "ls-files", "-z")
         tracked = {p for p in r.stdout.split("\0") if p}
     removed = []
-    stuck = []
     freed = 0
     for base in locations:
         if not base.is_dir():
@@ -7816,24 +7813,14 @@ def cmd_clean(args) -> int:
             if not empty_scratch and not any(p.match(pat) for pat in SCRATCH_PATTERNS):
                 continue
             try:
-                size = p.stat().st_size
-            except OSError as exc:
-                stuck.append((rel, exc.strerror or exc.__class__.__name__))
-                continue
-            if not args.dry_run:
-                try:
+                freed += p.stat().st_size
+                removed.append(rel)
+                if not args.dry_run:
                     p.unlink()
-                except OSError as exc:
-                    stuck.append((rel, exc.strerror or exc.__class__.__name__))
-                    continue
-            freed += size
-            removed.append(rel)
+            except OSError:
+                pass
     verb = "would remove" if args.dry_run else "removed"
     print(f"teamwork: {verb} {len(removed)} scratch/temp file(s), {freed / 1024:.1f} KiB")
-    if stuck:
-        print(f"teamwork: {len(stuck)} scratch/temp file(s) could not be removed:")
-        for rel, why in stuck[:10]:
-            print(f"  - {rel}: {why}")
     reclaimed = [] if args.no_worktrees else reclaimable_worktrees(root, args.stale_minutes)
     failed = []
     for wt in reclaimed:
