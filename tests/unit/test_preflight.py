@@ -494,6 +494,38 @@ def test_an_unlaunchable_gate_command_is_red_with_its_reason(cli, project, capsy
     assert "install it, or point PreflightCommand at a command this host has" in out
 
 
+def test_a_hanging_gate_is_red_with_its_budget_named(cli, project, capsys, monkeypatch):
+    """A gate that never exits is a failure, not a stall and not an exception.
+
+    The reviewer's F1 on T-0003: the timeout branch of `_preflight_gate` shipped
+    with no test, so deleting it left every check green. This pins the whole
+    branch - status `fail`, the exact `no exit` line naming the budget, the advice
+    that a hang is not a pass - and calls the check directly so a raise out of the
+    engine fails here rather than escaping as a traceback. The budget is patched
+    to one second, so the case is proved in about two rather than in an hour.
+    """
+    root = init_team(cli, project)
+    start_branch(cli, project)
+    commit_as_author(cli, project)
+    gate = f'"{sys.executable}" -c "import time; time.sleep(30)"'
+    settings = root / engine.F_SETTINGS
+    settings.write_text(json.dumps({"PreflightCommand": gate}) + "\n", encoding="utf-8")
+    monkeypatch.setattr(engine, "PREFLIGHT_GATE_TIMEOUT", 1)
+
+    check = engine._preflight_gate(root, project, run=True)
+
+    assert check.status == engine.PREFLIGHT_FAIL, check.detail
+    assert check.detail == f"{gate} -> no exit: still running after 1s", check.detail
+    assert "a gate that hangs is not a pass" in check.fix, check.fix
+
+    code, out = preflight(cli, capsys, project, "--run")
+
+    assert code == 1, out
+    assert re.search(r"^- fail\s+gate\s+", out, re.MULTILINE), out
+    assert f"{gate} -> no exit: still running after 1s" in out
+    assert "(gate)" in out
+
+
 # --------------------------------------------------------------------------- #
 # The self-check integration
 # --------------------------------------------------------------------------- #
