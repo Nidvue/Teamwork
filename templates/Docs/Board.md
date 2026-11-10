@@ -21,13 +21,6 @@ the queues' state and not an opinion about it.
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table.
 
-## Feature teams (rendered)
-
-Shared services serve every feature and are attached to none: Architect, CEO, CFO, COO, CTO, Project Manager, Release Engineer, Reviewer, Security Auditor.
-
-| feature | state | owner | squad | paths |
-|---|---|---|---|---|
-
 ## In flight
 
 | agent | task | prio | state | artifact |

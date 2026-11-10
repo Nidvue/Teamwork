@@ -1289,17 +1289,15 @@ is `origin/main..HEAD`, then `HEAD~1..HEAD`, then `HEAD`; a range beginning with
 `--guard-committer` is the narrower gate CI runs on every push (the
 `committer-guard` job). It passes a commit when its **committer** is a role
 mailbox, and it also passes the host stamp a forge writes into the commit it
-creates - `noreply@github.com` (or `noreply@gitlab.com`) - but only when the
-**author** of that commit is a role mailbox or an allowlisted bot dependency
-update (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]` with their
-`users.noreply.github.com` mailbox). The host stamp is transport, not identity;
-the author still has to be the team or a bot. So the guard does read an author
-fact: a host-stamped commit with a personal author fails. Measured on a commit
-authored by `jane@example.com` and committed by `GitHub <noreply@github.com>`,
-`guard_committer_identity()` exits 1 with `- 5d4b5393b3d1 FAIL committer GitHub
-<noreply@github.com> (author Jane Doe <jane@example.com>)`. The full author
-check is `--audit`, which CI runs on every pull request and every push to
-`main`.
+creates - a `users.noreply.github.com` committer - but only when the **author**
+of that commit is a role mailbox. The host stamp is transport, not identity; the
+author still has to be the team. So the guard does read an author fact: a
+host-stamped commit with a personal author fails. Measured on a commit authored
+by `jane@example.com` and committed by `123456+jane@users.noreply.github.com`,
+`guard_committer_identity()` exits 1 with `- 0851b9bd6493 FAIL committer
+123456+jane <123456+jane@users.noreply.github.com> (author Jane Doe
+<jane@example.com>)`. The full author check is `--audit`, which CI runs on every
+pull request and every push to `main`.
 
 ### `harness`
 
@@ -1317,7 +1315,7 @@ group names that surface, validates it, and prices it.
 |---|---|
 | `list` | eight rows, one per component (C1..C8), each with its activation class, the bytes it costs and the role that owns it. `always-on` is paid on every run, `on-demand` only when invoked, `in-loop` is enforced rather than instructed. C5 (subagents) is a lane packet, not a file, so its class and bytes are `-`. |
 | `lint` | the whole-proposal checks, before anything is probed: `IDENTITY` (frontmatter `name:` equals the directory, `description:` non-empty), `TRIGGER` (the skill is named in an always-on surface - an unnamed skill is dead text nobody is told to load), `SUBCOMMAND` (every `teamwork.py <verb>` in a skill exists in the CLI), `HELPER` (every repo-relative path a skill references is shipped), `EVIDENCE` (a registered `shared` skill carries a verdict row). Exit 1 with one `- PROBLEM <RULE> <path>: <detail>` line per finding. `--verbose` also prints one `# checked: <file> -> <RULE> verdict` line per file read. |
-| `budget` | always-on bytes per instance - `AGENTS.md` block + `SKILL.md` + the role charter + that role's short-term memory (`ShortTermMemory.md`) - against `AlwaysOnBudgetKb` in `Settings.json` (default 120 KiB, `--limit` overrides). Exit 1 when any instance is `OVER`: always-on prose is the expensive option, so the cap is what makes "cut something to pay for it" a rule rather than an intention. |
+| `budget` | always-on bytes per instance - `AGENTS.md` block + `SKILL.md` + the role charter + that role's memory - against `AlwaysOnBudgetKb` in `Settings.json` (default 120 KiB, `--limit` overrides). Exit 1 when any instance is `OVER`: always-on prose is the expensive option, so the cap is what makes "cut something to pay for it" a rule rather than an intention. |
 
 `list` and `lint` work from any checkout; `budget` needs the team workspace
 because it measures it. A hook installed by `hooks install` is measured through

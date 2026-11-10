@@ -9,39 +9,9 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.2](https://github.com/Nidvue/Teamwork/compare/v1.5.1...v1.5.2) - 2026-11-02
-
-Compares from the previous tag, `v1.5.1`.
-
-### Fixed
-
-- The release workflow's npm verification reads the flat `dist.integrity` key
-  `npm view` prints, so a published version is verified instead of failing with
-  `dist.integrity is None` on its own payload shape.
-- The same verification waits up to four minutes for npm's eventual
-  consistency, so a successful publish no longer leaves the run red while the
-  registry catches up.
-
-No shipped package behaviour changes: both fixes are in the release workflow and
-its tests.
-
 ## [1.5.1](https://github.com/Nidvue/Teamwork/compare/v1.5.0...v1.5.1) - 2026-11-02
 
 Compares from the previous tag, `v1.5.0`.
-
-### Fixed
-
-- `identity --guard-committer` accepts an allowlisted bot dependency update
-  (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`) when the committer
-  is the forge's own `noreply` stamp, so a bot pull request no longer fails the
-  identity gate. A bot behind a personal committer, and a personal author behind
-  the forge stamp, still fail.
-- The privacy scan allows the GitLab host stamp `noreply@gitlab.com` as a service
-  mailbox, matching the committer guard, with a control that a personal address
-  under the same user domain is still reported.
-- `mkdocs-material` stays at the shared `>=9.7.7,<10` range: 9.8.0 requires
-  Python >= 3.11 while the project supports 3.9, so the `/docs` Dependabot entry
-  ignores the floor bump until 3.9 and 3.10 are dropped.
 
 ### Changed
 

@@ -115,35 +115,6 @@ branch itself caused, and the project gate from `Settings.json` →
 `PreflightCommand`. A fail records whether it was `mechanical`, so the numbers
 above stay measured rather than asserted. Full text: `references/Roles.md`.
 
-## The intern protocol (hard)
-
-The model is an intern, not a search box: onboard it, give it one job, prove the
-job, and remove every manual relay. Derived from the Grok Bot team guide (T-0029;
-`docs/Team/Research.md` 11) and its least-privilege review.
-
-- **No human relay.** If the user must copy a fact between agents, or re-state
-  what the repository already holds, that is a tooling defect: record it
-  (`attention add`) and automate it. Never normalise a manual step.
-- **Teach once, encode it.** An instruction that defines a repeatable flow becomes
-  a team skill in the same task (`skill create`, `skill share`); the conversation
-  is not where a method lives.
-- **Least privilege, one job, one proof.** A lane gets only the tools its
-  deliverable needs, and every deliverable names its verifier and the command or
-  artifact that proves it. Do not grant "all tools" because you can; a
-  self-verified deliverable is not verified.
-- **Onboard, then restate.** A new agent or task starts by restating the goal,
-  acceptance criteria and non-goals in its own words before planning; the CEO
-  confirms, or the task packet already carries the restatement. No plan before it.
-- **Proactivity is a record.** An idle lane proposes one automation or risk it can
-  remove (`attention add` or a task); the pulse routes it. No silent autonomy.
-- **Routine hygiene.** Periodic work names its trigger, budget and stop condition,
-  runs in its own lane when it is heavy, and is audited for context cost
-  (`harness budget`). A routine without those three is not created.
-
-The `team-designer` team skill (`.agents/skills/team-designer/SKILL.md`) runs the
-interview and audits the roster, skills, permissions and routines against these
-rules; the smallest team that reliably ships is the target, not the largest.
-
 ## Writing standard (hard)
 
 All memory, plans, designs, research, decisions and docs are **markdown**,

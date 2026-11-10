@@ -180,33 +180,6 @@ def test_the_detector_renders_before_the_defect_in_the_packet(cli, project) -> N
     assert f"previous findings: detects: {DETECTOR} | {DEFECT}" in packet, packet
 
 
-def test_a_second_fail_records_its_own_round_and_findings(cli, project) -> None:
-    """The ledger detail carries THIS round: the round number and its finding.
-
-    Measured on P-0063 (ceo T-0021): ledger n=1616 and n=1622 both opened with the
-    same round-2 preamble, so the round-3 finding could not be read from the ledger
-    at all.
-    """
-    root, _head = seed(cli, project)
-    first = "the first defect: a missing header"
-    second = "the second defect: a wrong column order"
-    assert fail(cli, project, "--detects", DETECTOR, findings=first) == 0
-    path = engine.task_file(root, "developer")
-    tasks = engine.parse_tasks(path)
-    tasks[0]["status"] = "review"
-    tasks[0]["self_check"] = "passed"
-    engine.write_tasks(path, tasks, "developer")
-    assert fail(cli, project, "--detects", DETECTOR, findings=second) == 0
-
-    records_ = fail_records(project)
-    assert len(records_) == 2
-    assert "round: 1 |" in records_[0]["detail"], records_[0]["detail"]
-    assert "round: 2 |" in records_[1]["detail"], records_[1]["detail"]
-    assert engine.ledger_detects(records_[1]["detail"]) == DETECTOR
-    assert second in records_[1]["detail"], records_[1]["detail"]
-    assert first not in records_[1]["detail"], records_[1]["detail"]
-
-
 def test_a_pass_still_needs_no_detector(cli, project, capsys) -> None:
     """The gate is scoped to a finding: a clean pass has nothing to detect."""
     seed(cli, project)

@@ -67,9 +67,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 353 kB |
-| `standard` | 10 | 491 kB |
-| `full` | 17 | 805 kB |
+| `slim` (default) | 7 | 340 kB |
+| `standard` | 10 | 473 kB |
+| `full` | 17 | 774 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -198,46 +198,6 @@ attached to a team, because it audits the lane above and the team it would join
 (D-20261029-Architect-2). That keeps **one line manager per
 role at any moment**, which is why a supervision board can sit above a leader
 without breaking the invariant.
-
-## The intern protocol
-
-Owner: CEO. Six rules for onboarding and running an agent like an intern, not a
-search box. They are the adopted form of Lauren Tan's Grok Bot team guide (see
-[RESEARCH](../docs/Team/Research.md) 11); the top comment's least-privilege
-correction is part of rule 3.
-
-1. **No human relay.** A fact the user must copy from one agent to another, or
-   re-state from a file the repository already holds, is a tooling defect. Record
-   it (`attention add --kind tooling`), automate the shortest path, and never
-   present the manual step as the workflow.
-2. **Teach once, encode it.** An instruction that defines a repeatable flow is
-   turned into a team skill in the same task (`skill create`, `skill share`), not
-   left in the conversation. Long context is not a storage medium; the skill file
-   is. `skill candidates` is the audit.
-3. **Least privilege, one job, one proof.** A lane gets only the tools, paths and
-   accounts its deliverable needs. Every deliverable names its verifier and the
-   command or artifact that proves it. "Give every bot every tool" is rejected;
-   the adopted form is the smallest set that completes the job, with a proof per
-   seat. Never give a bot its own email or external account: that is an external,
-   irreversible action and a red line (AGENTS.md).
-4. **Onboard, then restate.** Before planning, a new agent or task restates the
-   goal, acceptance criteria and non-goals in its own words. The CEO confirms it,
-   or the task packet carries the restatement. This is the voice-mode "restate
-   this in your own words" check applied to the brief; a restatement that changes
-   the scope is a requirement change, not a misunderstanding.
-5. **Proactivity is a record.** An idle lane proposes one automation or risk it
-   can remove (`attention add`, or a task with `--mandate inferred --basis`); the
-   pulse routes it. Silent autonomy is not proactivity: a proposal is recorded,
-   approved and measured.
-6. **Routine hygiene.** Every periodic task names its trigger, its budget and its
-   stop condition, and a heavy routine runs in its own lane instead of carrying
-   the main context. Audit the cost with `harness budget`; a routine that cannot
-   state those three is not created.
-
-The `team-designer` team skill runs the interview and the audit: roster (each seat
-names a deliverable, a test layer and a decision right), skills, permissions and
-verification, proactivity and routines. Its output is a one-page design with
-adopt/adapt/reject rows and tasks - not a new bot by default.
 
 ## Handoff chain
 

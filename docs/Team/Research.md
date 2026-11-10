@@ -3,7 +3,7 @@
 Owner: Product Manager. Market context, comparable projects and the reasoning
 behind the positioning. Every claim carries a source and an access date.
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [Roles](../../references/Roles.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md)
 
 ## 1. The gap
 
@@ -309,91 +309,3 @@ work from any caller, `pulse` assigns proactively with no authority test, and
   The review gate and the criterion records still carry the quality claim.
 - An attention queue is only honest if it is drained: an item resolved with a
   free-text "ok" is the same failure as a rubber-stamped review.
-
-## 11. Lauren Tan (Grok Bot team guide): what we adopt, what we reject
-
-Source: [Lauren Tan, Grok Bot team guide](https://x.com/poteto/status/2116576229319233596) - accessed 2026-11-02; [dr eggbot](https://x.ai/bot/_jOdbfkB16zxu7MRcmReE) - accessed 2026-11-02. The guide is seven operating tips from the xAI Grok Bot team; the replies add the least-privilege correction, the proactivity/SOUL thread and five field complaints. It is operational experience, not a benchmark: no number in it measures this project.
-
-**The thesis is ours already:** the unit is the team, not the prompt. Six tips map
-to an existing surface, two are adapted, one is rejected in its literal form.
-
-| Tip | Teamwork surface | Verdict | Concrete rule |
-|---|---|---|---|
-| Add a bot designer (dr eggbot) | no meta-agent | **Adopt** | `team-designer` team skill: interview, roster/skills/permission/routine audit, one-page design |
-| Few good bots, not many | slim roster; `audit` roster gaps | **Adopt, strengthen** | every seat names a deliverable, a test layer and a decision right; the designer audits it |
-| Bots write their own skills | `.agents/skills/`, `skill create`/`share`/`candidates` | **Adopt, strengthen** | an instruction that defines a repeatable flow becomes a skill in the same task |
-| Connectors, vault, all tools | red lines and the review gate | **Adapt - reject "all tools"** | least privilege, one job, one proof per deliverable; no bot-owned email or accounts |
-| Remove copy-paste | board, memory, records | **Adopt** | no human relay: a manual relay is a tooling defect, recorded with `attention` |
-| Onboard an intern | startup routine and task packet | **Adopt** | restate goal, acceptance and non-goals before planning; the CEO confirms |
-| Voice dump + restate | text-only host | **Adapt** | the restatement check applies to the brief; a scope-changing restatement is a requirement change |
-| Proactivity / SOUL.md | `pulse`, `attention`, inferred tasks | **Adapt** | proactivity is a record: an idle lane proposes one automation/risk, never silent autonomy |
-| Routines | loop/pulse, `harness budget` | **Adopt (cheap)** | trigger + budget + stop condition; a heavy routine gets its own lane |
-
-**The correction that matters.** The guide says to give a bot access to all the
-tools. The top reply (CobaltHere) is right for any team with more than one agent:
-a clear job, limited permissions, and a way to prove the task was completed;
-skills help consistency, verification helps trust; the goal is the smallest team
-that reliably ships, not the largest. We adopt the correction and reject the
-literal tip. The guide's own field complaints point the same way - routines that
-do not fire, agents that skip steps, one persistent thread that burns tokens -
-are verification, reliability and context-budget problems, not prompt problems.
-
-**Adoption order.** (1) the `team-designer` skill and the intern protocol (this
-change); (2) the skills trigger, now hard; (3) the per-role permission and
-verification matrix inside the designer; (4) the proactivity and routine audit on
-the pulse. The first two change behaviour cheaply; the last two are audits, not
-new machinery.
-
-**Falsifiers.** The designer failed if, after ten designs, the roster does not
-shrink or the first-pass review rate does not rise. The intern protocol failed if
-the no-relay rule produces no automation task in a week. The routine rule failed
-if `harness budget` does not fall for the lanes that move routines out. Each is
-measured from the records, not asserted.
-
-### 11.1 What this does not fix
-
-- The guide assumes a hosted chat product with connectors and a voice mode. We
-  have one repository, one operator and a red line on external actions; the
-  "own email and accounts" tip is exactly the line we do not cross.
-- A bot designer is an interview and an audit, not an org chart generator. It can
-  recommend the smallest roster; it cannot prove the model will execute it.
-- Proactivity is bounded by the pulse and the attention record. A designer that
-  proposes work no lane approved is the rubber-stamp failure in another costume.
-
-## 12. Framework comparison (2026-11-02): what we learn, adapt and adopt
-
-Method: three official documentation pages, read in full, compared against the
-mechanisms this repository ships (measured in the project review, see
-[Risks](Risks.md) R-25 to R-32). Sources: [CrewAI processes](https://docs.crewai.com/en/concepts/processes) - accessed 2026-11-02;
-[OpenAI Agents SDK, handoffs](https://openai.github.io/openai-agents-python/handoffs/) - accessed 2026-11-02;
-[LangGraph, persistence](https://docs.langchain.com/oss/python/langgraph/durable-execution) - accessed 2026-11-02.
-
-| Framework | What the documentation says | Our equivalent | Verdict |
-|---|---|---|---|
-| CrewAI | Sequential or hierarchical process; in the hierarchical case a manager agent plans, delegates, "reviews outputs, and assesses task completion". | CEO decomposition plus an independent Reviewer who is never on the author's line. | **Keep ours.** A manager that judges its own team's output is the failure our Reviewer-only merge exists to prevent. |
-| OpenAI Agents SDK | A handoff is a tool, one per destination; `input_type` validates the handoff's arguments locally; `input_filter` controls what history the next agent sees; input guardrails apply only to the first agent and output guardrails only to the final one. | Task packets and CLI records; actor and role validation; review and preflight on every deliverable. | **Adapt.** Our gates are stronger (every deliverable, not the first and last agent). Typed input validation at the handoff is a real gap: a task packet is free text until the review reads it. |
-| OpenAI Agents SDK, history | Filters choose what the receiving agent sees; the SDK warns that a summary can still carry redacted content. | the root `AGENTS.md` managed block loaded in full, SKILL.md always-on (R-31). | **Adopt the principle.** Decide per section what every instance loads; move the rest to on-demand references. |
-| LangGraph | Checkpointers persist thread state for resume, human-in-the-loop, time travel and fault tolerance; stores hold cross-thread memory; the docs warn that checkpoints "accumulate" and recommend "prune old checkpoints ... or set a retention policy". | Hash-chained `Ledger.jsonl` and the records; the evidence archive has no retention (R-25). | **Adopt the retention warning, keep our chain.** LangGraph state is not tamper-evident; ours is, which is the strength to keep. The warning describes our own R-25 exactly. |
-| LangGraph, resume | A run resumes from the last checkpoint after an interruption. | Task status and the slot lease; a lane that dies loses its in-flight state unless it wrote a record. | **Adapt.** A lane's progress should be a record written before risky steps, so a reclaimed task resumes from its last record rather than from a summary. |
-
-**Conclusions for this repository.**
-
-1. Our differentiator is the independence and the tamper evidence, not the agent
-   graph. Two of the three frameworks put review in the same agent graph; we do
-   not, and the comparison says that choice is right.
-2. The weaknesses the comparison exposes are the ones the project review already
-   found: unbounded evidence growth (the LangGraph retention warning), context that
-   every instance pays for (the SDK's history filters), and free-text handoffs (the
-   SDK's typed `input_type`).
-3. Candidate work, not yet scheduled: validated fields on a task packet at
-   `task add` (the handoff analogue), and a per-lane progress record written before
-   each risky step (the resume analogue). Each needs an owner and a falsifier before
-   it becomes a task.
-
-**Falsifiers.** The retention decision (R-25) fails if a records read over the new
-segments is slower than the current whole-file read. The typed packet fails if
-review rounds per task do not fall within ten tasks.
-
-**What this does not cover.** Benchmarks. None of the three pages reports a
-measured outcome for a multi-agent team, so the comparison ranks design choices,
-not performance.

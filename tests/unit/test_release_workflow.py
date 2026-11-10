@@ -30,9 +30,7 @@ text) and re-run the same analysis, so the tracked workflow is never written.
 
 from __future__ import annotations
 
-import json
 import re
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -532,80 +530,3 @@ def test_every_action_in_the_release_workflow_is_pinned_to_a_full_sha():
         if spec and not re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}( # v\d+)?", spec)
     ]
     assert unpinned == [], unpinned
-
-
-def test_the_npm_verify_window_outlasts_registry_propagation():
-    """A publish that succeeded must not leave the run red on a stale replica.
-
-    Measured on release run 41439789453 (v1.5.1): the publish step printed
-    ``published @nidvue/teamwork@1.5.1`` and the tarball is on the registry, but
-    the verify step's 4x20 s window still saw E404 at 61 s. The window must cover
-    npm's propagation delay, not only the first minute.
-    """
-    text = release_text()
-    marker = "Verify the published version"
-    assert marker in text, "the npm verify step disappeared from the release workflow"
-    step = text[text.index(marker) :]
-    attempts = re.search(r"ATTEMPTS = (\d+)", step)
-    seconds = re.search(r"RETRY_SECONDS = (\d+)", step)
-    assert attempts and seconds, "the verify step no longer declares its retry budget"
-    window = int(attempts.group(1)) * int(seconds.group(1))
-    assert window >= 180, (
-        f"the npm verify window is {window}s; a fresh publish was still missing "
-        "after 61 s on release run 41439789453"
-    )
-    assert "time.sleep(RETRY_SECONDS)" in step, "the verify step no longer sleeps between attempts"
-
-
-def npm_verify_script() -> str:
-    """The embedded Python of the verify step, with the heredoc wrapper removed."""
-    steps = [
-        step
-        for step in npm_job().get("steps") or []
-        if isinstance(step, dict)
-        and str(step.get("name") or "").startswith("Verify the published version")
-    ]
-    assert len(steps) == 1, f"expected one verify step, found {len(steps)}"
-    run = str(steps[0].get("run") or "")
-    assert "<<'PY'" in run, run[:120]
-    body = run.split("<<'PY'", 1)[1]
-    return body.rsplit("\nPY", 1)[0]
-
-
-def test_the_npm_verify_reads_the_flat_dist_integrity_field(monkeypatch, capsys):
-    """``npm view`` returns ``dist.integrity`` as a flat key, not a nested object.
-
-    Measured on release run 41443890248: the version was visible and the publish
-    had taken the idempotent path, but the verify step failed with
-    "dist.integrity is None" because it read ``payload["dist"]["integrity"]`` while
-    npm printed the dotted field as ``payload["dist.integrity"]``.
-
-    The embedded script is executed in this process with both commands faked at the
-    subprocess boundary: a fake executable cannot be cross-platform (Windows cannot
-    run the POSIX ``npm`` shim the first version of this test wrote), and the
-    parsing is what is under test.
-    """
-    head = "a" * 40
-    payload = json.dumps(
-        {
-            "version": "1.5.1",
-            "dist.integrity": "sha512-" + "A" * 86,
-            "gitHead": head,
-        }
-    )
-    real_run = subprocess.run
-
-    def fake_run(command, *args, **kwargs):
-        if isinstance(command, list) and command:
-            if command[0] == "git":
-                return subprocess.CompletedProcess(command, 0, stdout=head + "\n", stderr="")
-            if command[0] == "npm":
-                return subprocess.CompletedProcess(command, 0, stdout=payload, stderr="")
-        return real_run(command, *args, **kwargs)
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
-    monkeypatch.setenv("PACKAGE_VERSION", "1.5.1")
-    monkeypatch.setenv("TAG_NAME", "v1.5.1")
-    exec(npm_verify_script(), {"__name__": "__main__"})
-    out = capsys.readouterr().out
-    assert "verified @nidvue/teamwork@1.5.1" in out

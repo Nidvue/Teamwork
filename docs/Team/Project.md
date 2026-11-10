@@ -195,7 +195,7 @@ because it had become the team's bottleneck.
 Non-goals: new product features, a roster re-tier, changing a published tag, or
 any history rewrite.
 
-Exit condition: AC-R1..AC-R9 verified by a role other than the author on the
+Exit condition: AC-R1..AC-R7 verified by a role other than the author on the
 merged revision, `teamwork.py coordination --strict` exits 0, and CI is green on
 the pushed revision.
 
@@ -208,8 +208,6 @@ the pushed revision.
 | AC-R5 | `coordination --strict` has no high finding; an abandoned PR is one still open | Developer | Reviewer |
 | AC-R6 | `docs/Team/Board.md` is equal to the queues and `test_board_matches_tool.py` passes | CEO | Reviewer |
 | AC-R7 | every change here was independently reviewed and archived | Reviewer | CEO |
-| AC-R8 | the feature-team rules are enforced end to end: a ready feature holds its sliced task, a foreign squad cannot claim it, an overlapping path is refused | Tester | Reviewer |
-| AC-R9 | `docs/Team/Board.md` renders the open features once with their owner and squad, and `board --check` fails on drift | CEO | Reviewer |
 
 The measured baseline and the audit lanes are in [Plan](Plan.md) M13. Findings
 that this engagement does not fix carry a task with the audit row as evidence;

@@ -154,20 +154,3 @@ def test_a_corrupt_review_fails_line_parses_to_zero(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     assert engine.parse_tasks(path)[0]["review_fails"] == 0
-
-
-def test_a_new_task_round_trips_through_the_renderer(tmp_path: Path) -> None:
-    """Every field the renderer writes must have a `new_task` default.
-
-    A field added to the renderer alone reappears as a new key after
-    parse -> render -> parse, which is what the records probe measures on the live
-    tree. The probe skips in CI (no team tree), so the default set is pinned here.
-    """
-    task = engine.new_task("Round trip")
-    path = tmp_path / "TaskQueue.md"
-    engine.write_tasks(path, [task], "developer")
-    reparsed = engine.parse_tasks(path)[0]
-
-    assert set(reparsed) == set(task), set(reparsed) ^ set(task)
-    for field in ("dropped_under_live", "review_claim_profile", "review_claim_lease"):
-        assert task[field] == ""
