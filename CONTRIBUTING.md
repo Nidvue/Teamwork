@@ -139,7 +139,7 @@ Signed-off-by: Your Name <you@example.com>
 ```
 
 Signing off certifies that you wrote the contribution, or have the right to
-submit it under the project license (AGPL-3.0); by contributing you agree to
+submit it under the project license (AGPL-3.0-or-later); by contributing you agree to
 release your work under that license either way.
 
 What guarantees provenance here is not a sign-off line but two records the
