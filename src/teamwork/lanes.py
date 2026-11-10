@@ -528,7 +528,7 @@ def build_packet(
     out += [
         "## Memory pack for this assignment (injected)",
         "```",
-        engine.memory_pack_block(root, role, task),
+        engine.memory_pack_block(root, role, task, touch_by=instance),
         "```",
         "",
         "## Rules that are not negotiable",
@@ -1594,6 +1594,7 @@ def cmd_swarm(args) -> int:
     )
     for line in measurement.lines():
         print(line)
+    print(engine.memory_dream_line(root))
     print()
     if args.dry_run:
         return _swarm_dry_run(root, measurement, cap, fixed, attempts)
