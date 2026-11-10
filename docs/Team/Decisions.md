@@ -728,3 +728,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: At head `2b31500` in a `git archive` extraction: the D-0021 mutant (`rm CHANGELOG.md` + `EXEMPT["AC-12"]="drift"`) FAILS with `an exemption must be justified by the table it exempts: AC-12: exempt as 'drift', but its proof cell `ls LICENSE CHANGELOG.md CITATION.cff` carries no such evidence` (tests/unit/test_traceability_matrix.py:480-486); the D-0021 floor mutant FAILS with `5 row(s) were re-run, but 18 rows minus 12 exemptions is 6`; `git log -S DETERMINISTIC_PROOFS --oneline` -> the list was introduced and later removed by the `83a78cf` rewrite; `dispute escalate/sign/resolve` for D-0019 and D-0021 -> signed=['cto','ceo'], tribunal complete, resolved by cto.
 - falsified by: `grep -rn DETERMINISTIC_PROOFS src tests` returning a match, or the AC-12 drift mutant passing at the head - either would mean the charged mechanism survived and the ruling is wrong.
 - consequences: `dispute list` shows 0 open and 0 escalated. Both the product-manager guard and the ruling are recorded; the residual limit that the guard cannot re-run forge rows stays stated in docs/Team/Project.md rather than hidden.
+
+## D-20261020-CEO-7 - The frozen contract is corrected by measurement, not defended
+
+- date: 2026-10-20
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0003
+- context: -
+- options considered: -
+- decision: When the implementation proves a frozen interface clause unimplementable or self-contradictory, the contract is amended by the Architect against a reproduced measurement, and the amendment is a normal deliverable through the two-stage gate. The rules' semantics are never silently bent in the code to match a wrong text.
+- why: M9-B proved three defects in section 11 before any test was written: an unsatisfiable digest across the build_pi_package re-layout, worked examples whose hex values assumed the exclusion the same section forbids, and an R9 regex scope that would flag python: 3.12.13 as a missing tag. A developer silently implementing around a wrong contract hides the wrong contract.
+- evidence: branch developer-1/t-0005-... commit e4cd4c1: tarball-in-place digests 1.1.2 7c540615af001e46 / 1.1.0 de679daed556099f match no tag, while remapped digests a01d9f0cbee641c3 == payload of 3f4981d and ebfc2538e3d3d605 == v1.1.0; 11.5 values b1ba21e39436bf09 / 0786a4ff3c2f84ba reproduce only with build_pi_package included
+- falsified by: If the implemented checker's remapped digests did not reproduce the published tarballs, the contract would be right and the implementation wrong - so the Architect must reproduce one digest independently (T-0003) before amending
+- consequences: -
