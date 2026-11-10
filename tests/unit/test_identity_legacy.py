@@ -91,10 +91,17 @@ def test_a_different_commit_with_the_same_shape_still_fails(tmp_path: Path, monk
     assert "message has no 'Acting role:' line" in output
 
 
-def test_the_shipped_exemption_is_one_full_object_id() -> None:
-    assert len(engine.LEGACY_MESSAGE_EXEMPT) == 1
-    for sha in engine.LEGACY_MESSAGE_EXEMPT:
+def test_every_shipped_exemption_is_one_full_object_id_with_a_reason() -> None:
+    """The list is published history, so each entry is a SHA and a written reason.
+
+    The count is deliberately not pinned: an entry is added only for a commit that
+    is already published and cannot be rewritten, and each one carries the reason
+    the audit prints.
+    """
+    assert engine.LEGACY_MESSAGE_EXEMPT, "an empty exemption list is fine; a silent one is not"
+    for sha, reason in engine.LEGACY_MESSAGE_EXEMPT.items():
         assert re.fullmatch(r"[0-9a-f]{40}", sha), sha
+        assert len(reason) > 20, (sha, reason)
 
 
 def test_the_published_range_is_clean() -> None:
