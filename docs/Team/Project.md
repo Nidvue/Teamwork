@@ -88,6 +88,12 @@ git history.
       treat divergence as a defect, route failures to the owning agent, and forbid
       reporting a suite green while the matching CI run is red - proof:
       `tests/unit/test_skill_contracts.py`
+- [ ] AC-17 CI triggers are path-filtered: a documentation or image-only change
+      never runs the code matrix, while every shipping path (src, scripts, tests,
+      roles, references, templates, packaging, workflows) always does; the
+      ignored prose/media paths run a cheap docs check (links, privacy,
+      `mkdocs --strict`) so a documentation leak is still caught - proof:
+      `tests/unit/test_skill_contracts.py`, `docs/Team/Release.md`
 
 ## Scope
 

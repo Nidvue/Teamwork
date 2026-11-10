@@ -225,26 +225,28 @@ def test_self_invocation_command_is_runnable():
 # --------------------------------------------------------------------------- #
 
 
-def _text_writes_missing_newline(module_path):
-    """Return the line numbers of text writes that do not pin ``newline``.
+def _unsafe_text_writes(module_path):
+    """Return the line numbers of text writes that are unsafe for Python 3.9/Windows.
 
-    ``Path.write_text`` and ``open(..., "w"/"a")`` translate ``\\n`` to the
-    platform default, which is CRLF on Windows. Every generated file must be
-    written with an explicit ``newline="\\n"`` so a clone on any OS is identical
-    (CI found 37 files with CR bytes on windows-latest before this was pinned).
+    Two traps, both found by CI on the 3x3 matrix:
+
+    * ``Path.write_text(..., newline=...)`` does not exist before Python 3.10, so
+      the package must not call it at all - it uses ``write_lf`` instead;
+    * ``open(..., "w"/"a")`` without ``newline="\\n"`` emits CRLF on Windows.
+
+    Both are checked statically, so the guard runs on every platform.
     """
     import ast
 
-    source = module_path.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    missing = []
+    tree = ast.parse(module_path.read_text(encoding="utf-8"))
+    offenders = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         name = getattr(node.func, "attr", None)
         kwargs = {kw.arg for kw in node.keywords}
-        if name == "write_text" and "newline" not in kwargs:
-            missing.append(node.lineno)
+        if name == "write_text":
+            offenders.append((node.lineno, "Path.write_text is Python 3.10+ only"))
         elif name == "open":
             mode = None
             if node.args and isinstance(node.args[0], ast.Constant):
@@ -253,19 +255,23 @@ def _text_writes_missing_newline(module_path):
                 if kw.arg == "mode" and isinstance(kw.value, ast.Constant):
                     mode = kw.value.value
             if isinstance(mode, str) and any(c in mode for c in "wa") and "newline" not in kwargs:
-                missing.append(node.lineno)
-    return missing
+                offenders.append((node.lineno, "open() without newline='\\n'"))
+    return offenders
 
 
-def test_every_generated_text_write_pins_lf_newlines():
+def test_no_python_310_only_or_crlf_text_writes():
     offenders = {}
     for module_path in sorted((REPO_ROOT / "src" / "teamwork").glob("*.py")):
-        lines = _text_writes_missing_newline(module_path)
-        if lines:
-            offenders[module_path.name] = lines
-    assert offenders == {}, (
-        f'text writes must pass newline="\\n" so Windows does not emit CRLF: {offenders}'
-    )
+        found = _unsafe_text_writes(module_path)
+        if found:
+            offenders[module_path.name] = found
+    assert offenders == {}, f"unsafe text writes: {offenders}"
+
+
+def test_engine_exposes_the_lf_write_helper():
+    from teamwork import engine
+
+    assert callable(engine.write_lf)
 
 
 def test_engine_writes_a_generated_workspace_without_cr_bytes(tmp_path):
