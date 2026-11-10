@@ -194,14 +194,17 @@ def repo_root(args) -> Path:
 
 
 def file_size(path: Path) -> int:
-    """The file's size in bytes, or -1 when it cannot be read.
+    """The file's size in bytes; 0 when it does not exist; -1 when it cannot be read.
 
-    Measuring an unreadable file as 0 bytes made the startup budget under-report a
-    lane whose `SKILL.md` or charter could not be stat'ed (T-0019). -1 says
-    "unmeasurable", and the budget treats it as over the cap rather than free.
+    A missing optional file is genuinely zero bytes, so it stays 0. A file that
+    exists but cannot be read is not free: measuring it as 0 made the startup
+    budget under-report a lane whose `SKILL.md` or charter was unreadable (T-0019),
+    so -1 says "unmeasurable" and the budget treats it as over the cap.
     """
     try:
         return path.stat().st_size
+    except FileNotFoundError:
+        return 0
     except OSError:
         return -1
 
@@ -321,7 +324,7 @@ def render_surfaces(rows: list[Surface]) -> str:
     class_width = max(len(row.klass) for row in rows)
     lines = []
     for row in rows:
-        size = NO_VALUE if row.size is None else str(row.size)
+        size = NO_VALUE if row.size is None or row.size < 0 else str(row.size)
         lines.append(f"{row.klass:<{class_width}}  {size:>9}  {row.path:<{path_width}}  {row.role}")
     return "\n".join(lines)
 
@@ -760,10 +763,12 @@ def render_budget(rows: list[BudgetRow]) -> str:
         for row in rows
     ]
     state = "OVER" if any(row.over for row in rows) else "ok"
-    lines.append(
-        f"total {sum(max(row.always_on, 0) for row in rows)} "
-        f"{sum(row.budget for row in rows)} {state}"
+    total = (
+        NO_VALUE
+        if any(row.always_on < 0 for row in rows)
+        else str(sum(row.always_on for row in rows))
     )
+    lines.append(f"total {total} {sum(row.budget for row in rows)} {state}")
     return "\n".join(lines)
 
 
