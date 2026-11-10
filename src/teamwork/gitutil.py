@@ -150,6 +150,25 @@ def ensure_lfs(project: Path, quiet: bool = False) -> dict:
     return result
 
 
+#: Bytes git inspects when deciding whether a file is binary (see ``buffer_is_binary``).
+BINARY_SNIFF_BYTES = 8000
+
+
+def is_binary_file(path: Path) -> bool:
+    """True when the file holds a NUL byte in its prefix, which is git's own test.
+
+    A large *text* file - a record, a generated report, a long markdown document -
+    is not LFS material: LFS stores a pointer, so the diff, the merge and
+    ``git show <rev>:<path>`` all stop working, and those are exactly the
+    operations a record file depends on. Only real binaries belong in LFS.
+    """
+    try:
+        with path.open("rb") as handle:
+            return b"\0" in handle.read(BINARY_SNIFF_BYTES)
+    except OSError:
+        return False
+
+
 def lfs_tracked(project: Path, rel: str) -> bool:
     path = project / ".gitattributes"
     if not path.exists():
