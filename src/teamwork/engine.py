@@ -10413,9 +10413,35 @@ def cmd_pulse(args: object) -> int:
     if not idle and not total_ready:
         print("- nothing to dispatch: check blocked tasks and open disputes")
     print(
-        f"- re-arm this pulse: schedule the next wake every {minutes} min "
-        "(see the /teamwork skill: schedule.create)"
+        f"- keep the lanes fed: `teamwork.py swarm run` computes the next wave every "
+        f"{minutes} min, or run pulse --commit again per wake"
     )
+    if getattr(args, "spawn", False):
+        print()
+        if mode != "auto":
+            print(
+                f"# spawn skipped: the accept mode is {mode}, so the swarm would dispatch "
+                "nothing. Nothing was started."
+            )
+            return 0 if plan else 3
+        from . import lanes as lane_runtime
+
+        return lane_runtime.cmd_swarm(
+            argparse.Namespace(
+                project=getattr(args, "project", None),
+                team=getattr(args, "team", None),
+                lanes=0,
+                fixed=False,
+                waves=0,
+                minutes=None,
+                lane_minutes=None,
+                poll=0.0,
+                mode=mode,
+                host="",
+                by=getattr(args, "agent", "") or "ceo",
+                dry_run=False,
+            )
+        )
     return 0 if plan else 3
 
 
@@ -17777,7 +17803,16 @@ def _parsers_scheduling(sub, common) -> None:
         default="",
         help="lane running this pulse, recorded on a pulse.observe line (default: ceo)",
     )
+    s.add_argument(
+        "--spawn",
+        action="store_true",
+        help="after --commit, size and run the engine's swarm now (needs accept mode auto)",
+    )
     s.set_defaults(func=cmd_pulse)
+
+    from .lanes import add_parsers as _add_lane_parsers
+
+    _add_lane_parsers(sub, common)
 
 
 def _parsers_model(sub, common) -> None:
