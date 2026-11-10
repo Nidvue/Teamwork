@@ -2494,3 +2494,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: python3 scripts/teamwork.py audit @09e7dad -> '# problems found: 3': (1) developer T-0072 dropped under a live claim, with its forced reason printed; (2) 110 review fail(s), 51 without a recorded detector, which the audit itself labels 'non-blocking: the count is a health metric, not a gate'; (3) P-0010 approved 20d ago, not merged, whose branch and merge commit were rewritten away by the authorized local-history rewrite
 - falsified by: -
 - consequences: -
+
+## D-20261110-CEO - HISTORY REWRITE (operator-authorized, recorded because it...
+
+- date: 2026-11-10
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0080
+- context: -
+- options considered: -
+- decision: HISTORY REWRITE (operator-authorized, recorded because it is a red line): the 209 unpublished commits above origin/main were regrouped into 39 commits, one per feature, each authored and committed by 'Ping Zhao <<redacted-personal-email>>' with Task/Acting role/Goal trailers and a Squashed count. The published base (2001 commits) and all 14 release tags are untouched, so the push was a fast-forward, not a force-push. Consequences accepted and named: (1) every SHA above 90502bb changed, so the revisions cited in docs/Team/Archive.md, the ledger's rev fields and the AuditManifest refer to the pre-rewrite history, which is preserved in refs/heads/backup/pre-rewrite and Runtime/pre-rewrite.bundle; (2) the commit identity policy changed with T-0080 - the operator's preset identity authors commits, and the role is carried by the 'Acting role:' trailer; (3) the push bypassed the remote's PR and required-check rules because the pushing account holds bypass rights - CI must be green on c55da9c before the next stage. Not done, and why: the published base was not rewritten, because that would move 14 release tags and rewrite public history; it is a separate authorization.
+- why: -
+- evidence: git rev-list --count origin/main..main before the rewrite -> 209; after -> 39 feature commits; git diff --quiet main(c55da9c) backup/pre-rewrite -> empty (identical tree); python3 scripts/teamwork.py identity --audit --range origin/main..main -> 39 commits, 0 problems; git push origin main -> '90502bb..c55da9c main -> main' (fast-forward); git ls-remote --tags origin -> 28 tag refs unchanged; gh run list -> CI and Docs queued on c55da9c
+- falsified by: -
+- consequences: -

@@ -167,6 +167,8 @@ LAYER_CELL = {
     "feature": "feat",
 }
 
+OPERATOR_IDENTITY = ("Ping Zhao", "ping.zhao@nidvue.com")
+
 TEST_STATUSES = ("pending", "passing", "failing", "na")
 
 F_LEDGER = "Ledger.jsonl"
