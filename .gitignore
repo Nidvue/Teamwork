@@ -1,6 +1,10 @@
 # --- teamwork: local working state (never commit) ---
 .pi/
 Scratch/
+# The team's runtime dir (locks, slots, worktrees) belongs inside the team tree,
+# but a misconfigured TEAMWORK_ROOT can land it on the project root. Ignoring it
+# here makes that mistake harmless instead of a hygiene failure.
+Runtime/
 
 # --- teamwork: scratch, editor and OS noise ---
 *.tmp
