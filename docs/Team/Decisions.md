@@ -1891,3 +1891,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: reviewer-4 acceptance/release @7f82302 -> privacy_scan --tree --history --allow PASS 0 with the entry, FAIL 2 without; narrowness probe with the shipped --allow -> different user reported, exempt prefix + ghp_ token reports api-token only, one-char sibling reported; git rev-list --count e4b046f..main -> 44 commits above the first cited commit
 - falsified by: a credential on a line carrying the exempt prefix is not reported, or the exemption silences a sibling user name, or the allowlist grows past this one shape without a new decision
 - consequences: -
+
+## D-20261101-Reviewer-5-2 - T-0015/AC-9: accept all five author judgement calls - a non-
+
+- date: 2026-11-01
+- kind: technical
+- status: accepted
+- deciders: Reviewer-5 (reviewer)
+- decided by: Reviewer-5
+- task: -
+- context: -
+- options considered: -
+- decision: T-0015/AC-9: accept all five author judgement calls - a non-string or unrecognised PulseMode reads as observe (not auto, not a hard error); one pulse.observe per planned assignment per run; task next exits 3 when only refused inferred work remains (the command pre-existing nothing-executable code); pulse --agent names the ledger actor with ceo as the default; the +5 lines in config.py SETTINGS_NON_PROVIDER are the settings-reader invariant and are required, not scope creep
+- why: measured, not deferred to the author: each call is exercised by my own CLI probe and pinned by a test that goes red when the behaviour is removed. observe is the only fail-closed middle for a typo (auto authorises proactive claims, off silences the report); the ledger shape my probe produced carries target=task, role=lane and detail naming the lane+mode, which is the (task, lane, mode) content the task names; exit 3 is the exit code the command already returned for an empty executable queue, so a refusal is not a new contract; the config entry is what keeps a numeric typo from becoming a cap=0 provider in parallel, measured both ways
+- evidence: pytest -q tests/unit/test_pulse_authority.py @0778e52 -> 18 passed; with the SETTINGS_NON_PROVIDER entry reverted in a scratch worktree of 0778e52 -> 2 failed, 16 passed (registration assertion + test_parallel_prints_no_pulse_mode_provider[0]) and restored -> 18 passed; Artifacts/T-0015/t0015_probe_delta.py @0778e52 -> 11/11 PASS and @7c4530f -> 9/11 (numeric 0 and 2 phantom=True); git diff 0778e52 HEAD -- src/teamwork/config.py src/teamwork/engine.py tests/unit/test_pulse_authority.py -> empty, so main 482736c carries the reviewed bytes and 18 passed there; pytest -q over the 7 pulse/parallel/slot/dispatch modules @0778e52 -> 125 passed; ruff check + ruff format --check -> clean, mypy src/teamwork -> 18 files, no issues; preflight @0778e52 -> 6 checks 0 failed, merge-tree clean
+- falsified by: a numeric PulseMode 0 or 2 that prints a provider row in parallel, a typo read as auto, an inferred task claimed outside auto, or an explicit task blocked by a refused one - any of the 11 probe checks flipping on this revision
+- consequences: -
