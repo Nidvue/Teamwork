@@ -342,6 +342,28 @@ def test_review_queue_clips_the_findings_of_a_failing_verdict(cli, project: Path
     add_task(cli, project)
     ship(cli, project)
     fail_review(cli, project)
+    # A failed verdict returns the deliverable to its author: it is back in the
+    # queue only once the author re-submits, carrying the findings of the fail.
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--status", "selfcheck")
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            "--note",
+            "fix the finding",
+            "--test",
+            "pytest @HEAD -> 1 passed",
+        )
+        == 0
+    )
 
     root = team_root(project)
     clipped = render(cli, capsys, "--project", project, "review", "--queue")
@@ -397,6 +419,26 @@ def test_a_short_value_is_printed_whole_with_no_omission_marker(cli, project: Pa
         == 0
     )
     assert cli("--project", project, "task", "next", "developer-1") == 0
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--status", "selfcheck")
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            "--note",
+            "re-read the diff",
+            "--test",
+            "pytest @HEAD -> 1 passed",
+        )
+        == 0
+    )
 
     queue = render(cli, capsys, "--project", project, "review", "--queue")
     assert f"    author evidence: {short}" in queue
