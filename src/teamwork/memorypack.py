@@ -390,7 +390,11 @@ def _sort_stamp(entry: dict) -> tuple:
     return (str(entry.get("updated") or ""), str(entry.get("id") or ""))
 
 
-def dream(entries: list[dict], now: datetime.date | datetime.datetime) -> dict:
+def dream(
+    entries: list[dict],
+    now: datetime.date | datetime.datetime,
+    project: Path | None = None,
+) -> dict:
     """The four maintenance reports of 4.2 over lessons and knowledge.
 
     ``duplicate`` pairs same-key active records whose statements overlap at 0.8 or
@@ -398,7 +402,10 @@ def dream(entries: list[dict], now: datetime.date | datetime.datetime) -> dict:
     records that share too little (under 0.5) to be the same claim and reports
     both without choosing; ``stale`` lists active records with no uses, older than
     90 days and not pinned; ``no_evidence`` lists records whose evidence is
-    missing or under 20 characters. Nothing is mutated here.
+    missing or under 20 characters. ``drifted`` names the records whose evidence
+    no longer resolves against the tree, computed by :func:`memverify.verify_all`
+    - the same function ``memory verify`` reports - and empty when the caller
+    passes no ``project`` to resolve against. Nothing is mutated here.
     """
     scoped = [entry for entry in entries if str(entry.get("kind") or "") in DREAM_KINDS]
     groups: dict[tuple, list[dict]] = {}
@@ -451,7 +458,27 @@ def dream(entries: list[dict], now: datetime.date | datetime.datetime) -> dict:
         "contradiction": contradictions,
         "stale": stale,
         "no_evidence": no_evidence,
+        "drifted": drifted(scoped, project, now),
     }
+
+
+def drifted(
+    entries: list[dict], project: Path | None, now: datetime.date | datetime.datetime
+) -> list[tuple[str, str, str]]:
+    """``(id, evidence kind, reason)`` for every record whose evidence no longer resolves.
+
+    The computation lives in :mod:`teamwork.memverify` so ``memory verify`` and
+    the dream pass can never disagree about what drifted.
+    """
+    if project is None:
+        return []
+    from .memverify import DRIFTED, verify_all
+
+    return [
+        (str(row["id"]), str(row["kind"]), str(row["reason"]))
+        for row in verify_all(entries, project, now)
+        if row["verify_status"] == DRIFTED
+    ]
 
 
 def _is_active(entry: dict) -> bool:
