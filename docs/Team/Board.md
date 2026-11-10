@@ -81,111 +81,14 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| architect | T-0001 | portability | done | P-0012 | 0cac9bd |
-| architect | T-0002 | contract | doing | P-0037 | - |
-| architect | T-0003 | - | todo | - | - |
-| architect | T-0004 | architecture | done | P-0051 | d6d178e |
-| architect | T-0005 | architecture | done | P-0052 | ee33a3d |
-| architect | T-0006 | architecture | done | P-0055 | d05763c |
-| ceo | T-0001 | - | done | P-0005 | d36e731 |
-| ceo | T-0002 | - | done | P-0006 | cd561a5 |
-| ceo | T-0004 | - | done | P-0019 | f3a765f |
-| ceo | T-0005 | plan | done | P-0024 | eed95de |
-| ceo | T-0006 | - | done | - | - |
-| ceo | T-0007 | plan | done | P-0030 | dacd0f3 |
-| ceo | T-0008 | records | doing | P-0033 | - |
-| ceo | T-0009 | - | todo | - | - |
-| ceo | T-0010 | records | done | P-0036 | 5ffaf70 |
-| ceo | T-0011 | release | done | P-0040 | 1c91255 |
-| ceo | T-0012 | records | review | P-0041 | - |
-| ceo | T-0013 | - | blocked | - | - |
-| ceo | T-0014 | - | done | - | - |
-| ceo | T-0015 | records | done | P-0045 | bbdffbf |
-| ceo | T-0016 | release | done | P-0046 | 2893940 |
-| ceo | T-0017 | records | done | P-0049 | d3a7988 |
-| ceo | T-0018 | records | done | P-0050 | 4d34851 |
-| ceo | T-0019 | records | done | P-0062 | bace8e2 |
-| ceo | T-0020 | throughput | dropped | - | - |
-| ceo | T-0021 | privacy | done | P-0063 | ca608bf |
-| ceo | T-0022 | merge | done | P-0065 | 9c18b3c |
-| ceo | T-0023 | - | dropped | - | - |
-| ceo | T-0024 | - | done | P-0068 | 46b084f |
-| ceo | T-0025 | release | done | P-0071 | c604aa5 |
-| ceo | T-0026 | release | done | P-0072 | c2c3b2e |
-| designer | T-0001 | - | done | P-0002 | 7783953 |
-| designer | T-0002 | docs | done | P-0004 | aeb5d62 |
-| designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
-| designer | T-0004 | ui-readme | done | P-0020 | a5294b3 |
-| designer | T-0005 | ui-assets | done | P-0023 | 94f3e40 |
-| designer | T-0006 | ui-readme | done | P-0035 | 0a80105 |
-| developer | T-0001 | - | done | P-0008 | 304d757 |
-| developer | T-0002 | - | done | P-0003 | 381bb5c |
-| developer | T-0003 | - | done | P-0009 | cf26e96 |
-| developer | T-0004 | - | done | P-0007 | 252e9d4 |
-| developer | T-0005 | clean | done | P-0010 | 6111b1a |
-| developer | T-0006 | - | done | P-0017 | 5895411 |
-| developer | T-0007 | board | done | P-0018 | 4895f66 |
-| developer | T-0008 | assets | done | P-0021 | baa2cdb |
-| developer | T-0009 | release | done | P-0027 | 938aad4 |
-| developer | T-0010 | records | done | P-0022 | dbe19a8 |
-| developer | T-0011 | records | done | P-0032 | 6877247 |
-| developer | T-0012 | - | dropped | - | - |
-| developer | T-0013 | records | done | P-0026 | 9789d84 |
-| developer | T-0014 | attention | done | P-0031 | 02fcdbf |
-| developer | T-0015 | engine | done | P-0039 | 326e4cf |
-| developer | T-0016 | docs | done | P-0029 | 7decc35 |
-| developer | T-0017 | records | done | P-0038 | b260682 |
-| developer | T-0018 | release | done | P-0034 | 55ba101 |
-| developer | T-0019 | engine | done | P-0042 | 3b16a9c |
-| developer | T-0020 | - | done | - | - |
-| developer | T-0021 | - | doing | - | - |
-| developer | T-0022 | - | dropped | - | - |
-| developer | T-0023 | review | done | P-0044 | 1d25519 |
-| developer | T-0024 | - | todo | - | - |
-| developer | T-0025 | - | todo | - | - |
-| developer | T-0026 | - | todo | - | - |
-| developer | T-0027 | - | doing | - | - |
-| developer | T-0028 | - | dropped | - | - |
-| developer | T-0029 | - | todo | - | - |
-| developer | T-0030 | - | todo | - | - |
-| developer | T-0031 | skills | done | P-0053 | 35b5695 |
-| developer | T-0032 | knowledge | done | P-0056 | 81ea5cd |
-| developer | T-0033 | context | done | P-0060 | 92df95c |
-| developer | T-0034 | throughput | done | P-0058 | b9e5135 |
-| developer | T-0035 | - | todo | - | - |
-| developer | T-0036 | branch | blocked | - | - |
-| developer | T-0037 | lint | done | P-0073 | b679d84 |
-| developer | T-0038 | identity | done | P-0067 | 3ba9d4b |
-| developer | T-0039 | concurrency | done | P-0069 | bc6502f |
-| developer | T-0040 | - | todo | - | - |
-| developer | T-0041 | - | todo | - | - |
-| developer | T-0042 | lint | done | P-0074 | 0808051 |
-| developer | T-0043 | lint | done | P-0075 | b6ef53f |
-| reviewer | T-0001 | - | done | - | - |
-| reviewer | T-0002 | records | done | - | - |
-| technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
-| technical-writer | T-0002 | - | done | P-0011 | 543c665 |
-| technical-writer | T-0003 | - | done | P-0014 | a1929ba |
-| technical-writer | T-0004 | - | done | P-0016 | aeed914 |
-| technical-writer | T-0005 | docs | done | P-0025 | b29a8bc |
-| technical-writer | T-0006 | - | doing | - | - |
-| technical-writer | T-0007 | - | todo | - | - |
-| technical-writer | T-0008 | - | dropped | - | - |
-| technical-writer | T-0009 | changelog | done | P-0047 | 4539796 |
-| technical-writer | T-0010 | release | done | P-0048 | 856ba14 |
-| technical-writer | T-0011 | docs | done | P-0054 | 723987c |
-| technical-writer | T-0012 | - | dropped | - | - |
-| technical-writer | T-0013 | docs | done | P-0061 | b4096f5 |
-| technical-writer | T-0014 | - | todo | - | - |
-| technical-writer | T-0015 | research | done | P-0070 | 1bdc25a |
-| technical-writer | T-0016 | - | todo | - | - |
-| tester | T-0001 | integration | done | P-0015 | 8b5db3f |
-| tester | T-0002 | integration | done | P-0028 | 4198781 |
-| tester | T-0003 | integration | doing | P-0043 | - |
-| tester | T-0004 | skills | done | P-0057 | 2fe28e2 |
-| tester | T-0005 | context | done | P-0064 | e35352a |
-| tester | T-0006 | throughput | done | P-0059 | 4c28b85 |
-| tester | T-0007 | context | done | P-0066 | 8f5f8e2 |
+| ceo | T-0001 | records | done | P-0002 | d8809fa |
+| ceo | T-0002 | - | todo | - | - |
+| developer | T-0001 | - | done | - | - |
+| developer | T-0002 | - | todo | - | - |
+| developer | T-0003 | skills | review | P-0001 | - |
+| developer | T-0004 | - | todo | - | - |
+| reviewer | T-0001 | - | todo | - | - |
+| tester | T-0001 | - | done | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -202,28 +105,11 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0002 · M15 A8: Architecture section 11 freezes nine release-consistency rules; R10 makes the frozen contract false | P2 | doing | - |
-| architect | T-0003 · Section 5 does not name Attention.md, the record T-0014 introduces; add the workspace-format row when it merges | P2 | todo | - |
-| ceo | T-0008 · M15 plan: the surfaces table says four and lists five rows | P3 | doing | - |
-| ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
-| ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
-| ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | blocked | - |
-| developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | doing | - |
-| developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
-| developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |
-| developer | T-0026 · docs/Team/Decisions.md is a pure append point, so every lane's entry conflicts on every later merge and tasks are failed for it twice | P2 | todo | - |
-| developer | T-0027 · Integrate the published line into integration/m15-m16 (PR #30): three conflicts, both sides' behaviour preserved | P0 | doing | - |
-| developer | T-0029 · CI annotates every ubuntu-latest job with a runner-image migration notice; pin the image or record why not | P2 | todo | - |
-| developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
-| developer | T-0035 · Code scanning: py/incomplete-url-substring-sanitization in tests/unit/test_skill_contracts.py | P2 | todo | - |
-| developer | T-0036 · M20 B1: close branches that are no longer useful with branch prune | P0 | blocked | - |
-| developer | T-0040 · M20 F2: cap agent-initiated follow-up chains at a recorded hop depth | P1 | todo | - |
-| developer | T-0041 · M20 F3: task text stays data - a task field can never set agent, cwd or access | P1 | todo | - |
-| technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
-| technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
-| technical-writer | T-0014 · M20 A1: split README.md into a landing page and linked docs pages | P0 | todo | - |
-| technical-writer | T-0016 · M20 F4: tests name the failure they prevent, and the state modules stay pure | P2 | todo | - |
-| tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
+| ceo | T-0002 · Close merged and stale local and remote branches | P2 | todo | - |
+| developer | T-0002 · Platform-scale the traceability proof budget (900s) or the privacy proof it runs | P2 | todo | - |
+| developer | T-0003 · Close CodeQL alert 4 (py/incomplete-url-substring-sanitization in test_skill_contracts) | P0 | review | - |
+| developer | T-0004 · Stop the local suite from writing a Library/ cache into the repo root on macOS | P2 | todo | - |
+| reviewer | T-0001 · Independent acceptance of the CI restoration | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
