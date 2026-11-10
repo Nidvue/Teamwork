@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.0.2...HEAD)
 
-## [1.1.0](https://github.com/Nidvue/Teamwork/compare/v1.0.2...v1.1.0) - release pending (tag is created at publish)
+## [1.1.0](https://github.com/Nidvue/Teamwork/releases/tag/v1.1.0) - 2026-10-20
 
 ### Added
 
