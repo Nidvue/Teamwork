@@ -8,12 +8,22 @@
 # prose still run - `teamwork links`, the privacy scan (a documentation leak is
 # still a leak) and `mkdocs build --strict`. Code changes do not need this
 # workflow: the site content did not change.
+#
+# A `v*` tag push builds and deploys the site from the *released* revision too.
+# The `paths:` list below is a branch-push filter and nothing else, because
+# "Path filters are not evaluated for pushes of tags." - quoted from
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpull_requestpull_request_targetpathspaths-ignore
+# (accessed 2026-10-28). So `tags: ["v*"]` fires on a tag whatever the changed
+# paths are, and the deployed site stops being whatever `main` happened to hold
+# on the last prose edit.
 
 name: Docs
 
 on:
   push:
     branches: [main]
+    # A release deploys the site from the tag, not from an arbitrary later `main`.
+    tags: ["v*"]
     paths:
       - "docs/**"
       - "README.md"
@@ -70,14 +80,20 @@ jobs:
       - name: Build site (strict)
         run: mkdocs build --strict
       - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
+        # The deploy guard below accepts a tag as well as `main`; this one must
+        # agree with it, or a tag run would deploy an artifact nobody built.
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: site
 
   deploy:
     name: deploy to GitHub Pages
-    if: github.ref == 'refs/heads/main'
+    # `main` for a prose push, `v*` for a release: the Pages environment allows
+    # both (`gh api repos/Nidvue/Teamwork/environments/github-pages/deployment-branch-policies`
+    # -> `main` type=branch and `v*` type=tag, measured 2026-10-28). A pull
+    # request matches neither and never deploys.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     needs: check
     runs-on: ubuntu-latest
     permissions:

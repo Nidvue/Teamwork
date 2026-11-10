@@ -599,6 +599,78 @@ def test_the_release_consistency_gate_is_never_filtered(root):
     assert "check_release_consistency.py" in gate, "the gate must run the consistency checker"
 
 
+def docs_push_tags(text: str) -> list[str]:
+    """The `tags:` entries under `push:` in a workflow text (``[]`` when absent)."""
+    push = workflow_triggers(text).get("push", "")
+    lines = push.splitlines()
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped.startswith("tags:"):
+            continue
+        inline = stripped[len("tags:") :].strip()
+        if inline:
+            return [
+                part.strip().strip("\"'") for part in inline.strip("[]").split(",") if part.strip()
+            ]
+        found: list[str] = []
+        for follow in lines[index + 1 :]:
+            item = follow.strip()
+            if not item.startswith("- "):
+                break
+            found.append(item[2:].strip().strip("\"'"))
+        return found
+    return []
+
+
+def test_the_docs_workflow_builds_the_site_from_a_release_tag(root):
+    """A release rebuilds and deploys Pages from the tagged revision.
+
+    The `paths:` list is a branch-push filter only: GitHub's workflow syntax says
+    "Path filters are not evaluated for pushes of tags", so the tag trigger needs
+    no path of its own - and a tag trigger that relied on one would never fire.
+    """
+    text = read(root, ".github", "workflows", "docs.yml")
+    push = workflow_triggers(text)["push"]
+    assert "paths" in push, "the branch-push prose filter belongs in this workflow"
+    assert docs_push_tags(text) == ["v*"], docs_push_tags(text)
+    # The citation that makes the answer auditable, not assumed.
+    assert "Path filters are not evaluated for pushes of tags" in flat(text)
+    assert "workflow-syntax-for-github-actions" in text
+    assert "accessed 2026-10-28" in text
+
+
+def test_the_docs_tag_trigger_bites_only_because_the_entry_is_there(root):
+    """Delete the `tags:` entry and the same reader reports no tag trigger."""
+    text = read(root, ".github", "workflows", "docs.yml")
+    assert docs_push_tags(text) == ["v*"]
+    mutated = text.replace('    tags: ["v*"]\n', "", 1)
+    assert mutated != text, 'docs.yml no longer spells the tag trigger as `tags: ["v*"]`'
+    assert docs_push_tags(mutated) == [], docs_push_tags(mutated)
+
+
+def test_the_docs_deploy_guards_accept_a_tag_ref_and_agree(root):
+    """The deploy job and its artifact upload must accept the same refs.
+
+    A guard that accepted `main` only would silently skip every release; an
+    upload guard that disagreed with the deploy guard would deploy an artifact
+    that was never built.
+    """
+    guard = "github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')"
+    jobs = workflow_jobs(read(root, ".github", "workflows", "docs.yml"))
+    assert jobs["deploy"].count(guard) == 1, jobs["deploy"][:400]
+    assert jobs["check"].count(guard) == 1, "the Pages artifact upload guard disagrees"
+    # A pull request matches neither branch and never deploys.
+    assert "pull_request" not in jobs["deploy"], jobs["deploy"][:200]
+
+
+def test_the_pages_environment_policy_is_recorded_where_it_is_relied_on(root):
+    """The `v*` deploy depends on a forge setting this lane may not change."""
+    text = flat(read(root, "docs", "Team", "Release.md"))
+    assert "environments/github-pages/deployment-branch-policies" in text
+    assert "main" in text and "v*" in text
+    assert "type=branch" in text and "type=tag" in text
+
+
 def test_the_docs_workflow_covers_the_ignored_paths_with_cheap_checks(root):
     text = read(root, ".github", "workflows", "docs.yml")
     assert "paths:" in text
