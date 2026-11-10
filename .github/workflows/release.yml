@@ -3,10 +3,12 @@
 # Contract: docs/Team/Architecture.md (the CI/release contract and the
 # release-consistency contract, the nine rules R1-R9) and docs/Team/Project.md
 # AC-7.
-# Triggered only by a `v*` tag. Produces sdist + wheel, exactly one SHA256SUMS
-# manifest, a CycloneDX JSON and an SPDX JSON SBOM, attests build provenance, and
-# publishes a GitHub Release with every asset. Nothing is pushed by an agent; the
-# CEO owns the tag.
+# Triggered by a `v*` tag push, and by a `workflow_dispatch` that names an
+# EXISTING `vX.Y.Z` tag reachable from `main` (the npm backfill path - it never
+# creates, moves or re-points a tag). Produces sdist + wheel, exactly one
+# SHA256SUMS manifest, a CycloneDX JSON and an SPDX JSON SBOM, attests build
+# provenance, publishes a GitHub Release with every asset and publishes
+# `@nidvue/teamwork` to npm. Nothing is pushed by an agent; the CEO owns the tag.
 #
 # One manifest, one name. The `v1.3.0` Release run - named by
 # `gh run list --workflow Release --json attempt,headBranch,headSha -L 3`, never by a
@@ -38,6 +40,21 @@ on:
   push:
     tags:
       - "v*"
+  # A backfill path for a tag that is already published: it runs the same gate
+  # and the same npm publish for an EXISTING `vX.Y.Z` tag reachable from `main`.
+  # No command in this file creates, moves, deletes or re-points a tag: the only
+  # `git tag` invocation is `git tag -l` (list) in the completeness check above,
+  # which reads. It refuses a tag that does not exist, a
+  # tag that is not reachable from `main`, and a tag whose `version.py`
+  # disagrees. Dispatch needs the file to be on the default branch
+  # (https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatch
+  # - accessed 2026-10-28).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing vX.Y.Z tag to publish (never created or moved by this workflow)"
+        required: true
+        type: string
 
 concurrency:
   group: release-${{ github.ref }}
@@ -56,6 +73,13 @@ jobs:
   consistency:
     name: release consistency gate (online, before anything is published)
     runs-on: ubuntu-latest
+    # The tag being published is resolved once, in the `resolve` step below, and
+    # every downstream job reads it from here: a tag push names it in
+    # `github.ref_name`, a `workflow_dispatch` names it in the `tag` input, and
+    # nothing else may decide which revision is published.
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
     # `contents: read` is the workflow default; it is stated here because the
     # gate's GitHub API read needs a token to be authenticated (see the gate
     # step). The token is never written to the tree.
@@ -73,11 +97,75 @@ jobs:
       - name: Checkout (the complete tag set - R1/R2/R4/R5 read git tags)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # On a tag push this is `refs/tags/vX.Y.Z`; on a dispatch it is the
+          # tag named in the input. `github.event.inputs` is empty on a push, so
+          # the `&&`/`||` pair falls through to `github.ref` there.
+          ref: ${{ github.event.inputs.tag && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
           # Architecture.md 11.2.2: a workflow that evaluates R1, R2, R4 or R5
           # must check out the complete tag set. A shallow checkout turns the
           # tag rules vacuous, which is a green gate on a blind build.
           fetch-depth: 0
           lfs: true
+      - name: Resolve the tag being published (a dispatch must name an existing, released tag)
+        id: resolve
+        shell: bash
+        env:
+          # `github.event.inputs.tag` rather than the `inputs` context: this
+          # workflow also runs on a push, where `inputs` is not defined at all.
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="${INPUT_TAG}"
+            if [ -z "${tag}" ]; then
+              echo "::error::a workflow_dispatch needs the 'tag' input: an existing vX.Y.Z tag to publish"
+              exit 2
+            fi
+          else
+            tag="${REF_NAME}"
+          fi
+
+          # A tag name this workflow will never create: it only ever publishes a
+          # tag a human already made. Rejecting anything else keeps the dispatch
+          # input from being a way to publish an unreleased revision.
+          if ! printf '%s' "${tag}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::'${tag}' is not a vX.Y.Z tag; this workflow publishes an existing tag and never creates one"
+            exit 2
+          fi
+          if ! git rev-parse --verify --quiet "refs/tags/${tag}^{commit}" >/dev/null; then
+            echo "::error::tag ${tag} does not exist in this checkout: nothing is published for a tag that is not there"
+            exit 2
+          fi
+
+          # Only a revision that is already on `main` may be published: a release
+          # is a tag on a commit that is already green, never a branch of its own.
+          base=""
+          for candidate in origin/main main origin/HEAD; do
+            if git rev-parse --verify --quiet "${candidate}^{commit}" >/dev/null; then
+              base="${candidate}"
+              break
+            fi
+          done
+          if [ -z "${base}" ]; then
+            echo "::error::neither origin/main nor main resolves, so it cannot be proven that ${tag} is reachable from main: refused rather than published"
+            exit 2
+          fi
+          if ! git merge-base --is-ancestor "${tag}" "${base}"; then
+            echo "::error::tag ${tag} is not an ancestor of ${base}: only a released revision may be published"
+            exit 2
+          fi
+
+          version="$(grep -oE '__version__ = "[^"]+"' src/teamwork/version.py | head -1 | cut -d'"' -f2)"
+          if [ "${tag#v}" != "${version}" ]; then
+            echo "::error::tag ${tag} disagrees with src/teamwork/version.py (${version}); bump the version before tagging"
+            exit 2
+          fi
+
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "resolved ${EVENT_NAME} -> ${tag} (version ${version}, ancestor of ${base})"
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -102,7 +190,9 @@ jobs:
       - name: Release consistency gate (online)
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          # The tag `resolve` settled on; never the raw ref, which is
+          # `refs/heads/main` on a dispatch.
+          RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
           # The GitHub API read of the checker is anonymous by design
           # (x-ratelimit-limit 60 for an anonymous request), and an
           # anonymous read of api.github.com/repos/Nidvue/Teamwork/releases
@@ -248,6 +338,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # Same ref rule as the `consistency` job: the tag `resolve` settled on.
+          ref: ${{ github.event.inputs.tag && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
           # The complete tag set, for the same reason as in the `consistency`
           # job: a shallow checkout hides the tags the release is judged on.
           fetch-depth: 0
@@ -264,12 +356,21 @@ jobs:
           python -m pip install -e '.[dev]'
       - name: Assert the tag matches the package version
         shell: bash
+        env:
+          # The resolved tag, not `GITHUB_REF_NAME`: on a dispatch the ref is the
+          # default branch. Repeats the check `resolve` makes on purpose - the
+          # build must not proceed on a mismatch even if the gate is edited.
+          RELEASE_TAG: ${{ needs.consistency.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.consistency.outputs.version }}
         run: |
           python - <<'PY'
-          import re, pathlib, os
-          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          import os, re, pathlib
+          tag = os.environ["RELEASE_TAG"].lstrip("v")
           version = re.search(r'__version__ = "([^"]+)"',
                               pathlib.Path("src/teamwork/version.py").read_text()).group(1)
+          if version != os.environ["RELEASE_VERSION"]:
+              raise SystemExit(f"resolve reported version {os.environ['RELEASE_VERSION']} but "
+                               f"src/teamwork/version.py says {version}")
           if tag != version:
               raise SystemExit(f"tag v{tag} != package version {version}: bump "
                                "src/teamwork/version.py and CHANGELOG.md before tagging")
@@ -382,7 +483,14 @@ jobs:
 
   release:
     name: publish GitHub Release
-    needs: [build, attest]
+    needs: [consistency, build, attest]
+    # The GitHub Release belongs to a tag push. A `workflow_dispatch` run is the
+    # npm backfill for a tag that is already published, so its Release already
+    # exists: this job would re-upload the asset set for no reason, and the R5
+    # re-check it performs has already passed on the tag push that created it.
+    # This is a narrowing condition, not a bypass: it can only *remove* runs, and
+    # `consistency` is still in `needs`, so nothing here runs when the gate fails.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -409,6 +517,9 @@ jobs:
       - name: Checkout (the complete tag set - R5 reads git tags)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # Same ref rule as the other jobs; this job only runs on a tag push,
+          # so `github.ref` is `refs/tags/vX.Y.Z` here.
+          ref: ${{ github.event.inputs.tag && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
           fetch-depth: 0
           lfs: true
       - name: Set up Python
@@ -418,7 +529,7 @@ jobs:
       - name: Verify the published release (R5 for the published tag)
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.consistency.outputs.tag }}
           # Same token and same reason as in the `consistency` job: the GitHub
           # API read must be authenticated or it answers HTTP 403 from a
           # shared runner address.
@@ -508,4 +619,271 @@ jobs:
               print(f"::error::R5 is not ok after the publish: {r5.get('detail')}", file=sys.stderr)
               raise SystemExit(1)
           print(f"the Release of {tag} exists and every version tag has one")
+          PY
+
+  # Publish the pi package to npm. Contract (docs/Team/Release.md, section
+  # "Publishing @nidvue/teamwork"):
+  #
+  #   * the bundle is built by `scripts/build_pi_package.py`; `dist/` is that
+  #     script's default output directory, so `--out dist` is the same place and is
+  #     not spelled out here. `tests/integration/test_ci_release_flow.py` requires
+  #     every flag a workflow passes to appear in the script's own `--help`, and
+  #     `--out` does not yet: filed as `developer` T-0018 for the script's
+  #     owner. Do not "fix" this by passing a flag the gate cannot see;
+  #   * the credential is **npm Trusted Publishing over OIDC** (`id-token: write`,
+  #     `https://docs.npmjs.com/trusted-publishers/` - accessed 2026-10-28). A
+  #     long-lived `secrets.NPM_TOKEN` is used, when that secret exists, only inside
+  #     an explicit npm userconfig - never as a variable in a child's environment;
+  #     it is never required;
+  #   * a version that is already on the registry is verified, not republished, so
+  #     a re-run of a failed release converges instead of failing again;
+  #   * the job fails loudly when it cannot publish. There is no
+  #     `continue-on-error` and no `|| true`: an unauthenticated publish is a red
+  #     run with the two ways to authorise it printed, never a green skip.
+  npm:
+    name: publish @nidvue/teamwork to npm
+    needs: [consistency, build]
+    runs-on: ubuntu-latest
+    # `id-token: write` is the whole credential for trusted publishing; `contents:
+    # read` is all the checkout needs. Nothing is written to the repository.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout the released revision (complete tag set)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.inputs.tag && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+          # `gitHead` is what the post-publish verification compares against, so
+          # the checkout must be the tagged commit and the tag must be present.
+          fetch-depth: 0
+          lfs: true
+      - name: Set up Node (the npm trusted-publishing floor is Node 22.14.0)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "22.14.0"
+          registry-url: "https://registry.npmjs.org"
+          # A poisoned npm cache can hand a publish job attacker-controlled code
+          # with `id-token: write` in scope
+          # (https://github.com/actions/setup-node/blob/main/docs/advanced-usage.md#publishing-to-npm-with-trusted-publisher-oidc
+          # - accessed 2026-10-28). This job installs nothing, so cache no npm data.
+          package-manager-cache: false
+      - name: Pin npm to 11.5.1 (trusted publishing requires >= 11.5.1)
+        shell: bash
+        run: |
+          # "Trusted publishing requires npm CLI version 11.5.1 or later and Node
+          # version 22.14.0 or higher."
+          # (https://docs.npmjs.com/trusted-publishers/ - accessed 2026-10-28).
+          # The version is pinned, not floated: an unpinned `npm install -g npm`
+          # is the same drift that makes a gate run a different linter tomorrow.
+          npm install -g npm@11.5.1
+          installed="$(npm --version)"
+          echo "npm ${installed} (node $(node --version))"
+          if [ "${installed}" != "11.5.1" ]; then
+            echo "::error::npm ${installed} is not the pinned 11.5.1; trusted publishing needs >= 11.5.1"
+            exit 1
+          fi
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - name: Build the pi bundle
+        # No flag: `dist/` is the script's documented default output directory, and
+        # a workflow may only pass a flag the script's `--help` lists (see `developer` T-0018).
+        run: python3 scripts/build_pi_package.py
+      - name: Assert the built bundle carries the released version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.consistency.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          manifest = pathlib.Path("dist/@nidvue/teamwork/package.json")
+          if not manifest.is_file():
+              print(f"::error::{manifest} is missing: scripts/build_pi_package.py did not build the bundle", file=sys.stderr)
+              raise SystemExit(1)
+          payload = json.loads(manifest.read_text(encoding="utf-8"))
+          if payload.get("name") != "@nidvue/teamwork":
+              print(f"::error::the bundle is named {payload.get('name')!r}, not '@nidvue/teamwork'", file=sys.stderr)
+              raise SystemExit(1)
+          expected = os.environ["RELEASE_VERSION"]
+          if payload.get("version") != expected:
+              print(
+                  f"::error::the bundle version is {payload.get('version')!r} but the tag is v{expected}",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+          print(f"bundle ok: @nidvue/teamwork {expected}")
+          PY
+      - name: "Publish (idempotent: verify an existing version instead of failing)"
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ needs.consistency.outputs.version }}
+          TAG_NAME: ${{ needs.consistency.outputs.tag }}
+          # An empty string when the repository has no such secret: GitHub
+          # substitutes nothing for an unset secret.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import subprocess
+          import sys
+
+          PACKAGE = "@nidvue/teamwork"
+          version = os.environ["PACKAGE_VERSION"]
+          tag = os.environ["TAG_NAME"]
+          token = (os.environ.get("NPM_TOKEN") or "").strip()
+          package_dir = pathlib.Path("dist") / PACKAGE
+
+          # npm reads the *project* `.npmrc` of the directory it runs in, and it
+          # runs in the built bundle - not in this checkout. setup-node's own
+          # `.npmrc` therefore does not apply, so the credential is written to an
+          # explicit userconfig: with a token when the secret exists, and with no
+          # `_authToken` line at all otherwise, so npm falls through to the OIDC
+          # exchange that `id-token: write` enables.
+          userconfig = pathlib.Path(os.environ.get("RUNNER_TEMP", ".")) / "npm-publish.npmrc"
+          lines = ["registry=https://registry.npmjs.org/"]
+          if token:
+              lines.append("//registry.npmjs.org/:_authToken=" + token)
+              mechanism = "secrets.NPM_TOKEN in an explicit userconfig"
+          else:
+              mechanism = "npm Trusted Publishing over OIDC (id-token: write)"
+          userconfig.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+          print(f"credential mechanism: {mechanism}")
+
+          env = dict(os.environ)
+          env["NPM_CONFIG_USERCONFIG"] = str(userconfig.resolve())
+          # `env` is exactly what every npm child process receives. The secret is
+          # in the userconfig above, so both of its possible names are removed here:
+          # a token that is not in a child's environment cannot be printed by that
+          # child, captured in a crash dump or inherited by a lifecycle script.
+          # NODE_AUTH_TOKEN is not set by this workflow today - the pop keeps the
+          # child environment clean if an `env:` line ever adds it, which is the
+          # mistake this step made once and
+          # tests/integration/test_release_workflow_flow.py now pins.
+          env.pop("NPM_TOKEN", None)
+          env.pop("NODE_AUTH_TOKEN", None)
+
+          def npm(*args: str) -> subprocess.CompletedProcess:
+              print("+ npm " + " ".join(args))
+              result = subprocess.run(
+                  ["npm", *args],
+                  cwd=str(package_dir),
+                  env=env,
+                  text=True,
+                  capture_output=True,
+              )
+              for stream in (result.stdout, result.stderr):
+                  if stream.strip():
+                      print(stream.strip())
+              return result
+
+          existing = npm("view", f"{PACKAGE}@{version}", "version", "--json")
+          if existing.returncode == 0 and existing.stdout.strip() not in ("", "null"):
+              # Idempotent re-run: the version is already on the registry, so the
+              # job verifies it in the next step instead of failing here.
+              print(f"{PACKAGE}@{version} is already on the registry: verifying it instead of publishing")
+              raise SystemExit(0)
+
+          published = npm("publish", "--access", "public", "--provenance")
+          if published.returncode != 0:
+              print(
+                  f"::error::{PACKAGE}@{tag} could not be published (npm exit {published.returncode}). "
+                  "Authorise it with one of: (a) npm Trusted Publishing - npmjs.com -> the package -> "
+                  "Settings -> Trusted Publisher -> GitHub Actions, repository Nidvue/Teamwork, workflow "
+                  "release.yml; or (b) a repository secret NPM_TOKEN. This run is red on purpose: a "
+                  "release that cannot publish is never a green skip.",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+          print(f"published {PACKAGE}@{version}")
+          PY
+      - name: "Verify the published version (version, dist.integrity, gitHead)"
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ needs.consistency.outputs.version }}
+          TAG_NAME: ${{ needs.consistency.outputs.tag }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import time
+
+          PACKAGE = "@nidvue/teamwork"
+          version = os.environ["PACKAGE_VERSION"]
+          tag = os.environ["TAG_NAME"]
+          # The registry is eventually consistent: a version published seconds ago
+          # can still be missing. Poll for a bounded time (~60 s) and fail after it.
+          ATTEMPTS = 4
+          RETRY_SECONDS = 20
+
+          head = subprocess.run(
+              ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
+          ).stdout.strip()
+          if not head:
+              print("::error::cannot read HEAD: gitHead cannot be verified", file=sys.stderr)
+              raise SystemExit(2)
+
+          payload = None
+          for attempt in range(1, ATTEMPTS + 1):
+              result = subprocess.run(
+                  [
+                      "npm",
+                      "view",
+                      f"{PACKAGE}@{version}",
+                      "version",
+                      "dist.integrity",
+                      "gitHead",
+                      "--json",
+                  ],
+                  text=True,
+                  capture_output=True,
+              )
+              if result.returncode == 0 and result.stdout.strip():
+                  payload = json.loads(result.stdout)
+                  print(
+                      f"npm view {PACKAGE}@{version} version dist.integrity gitHead"
+                      f" -> {json.dumps(payload, sort_keys=True)}"
+                  )
+                  break
+              print(
+                  f"{PACKAGE}@{version} is not visible on the registry yet "
+                  f"(attempt {attempt}/{ATTEMPTS}): {(result.stderr or result.stdout).strip()[:300]}"
+              )
+              if attempt < ATTEMPTS:
+                  time.sleep(RETRY_SECONDS)
+
+          if payload is None:
+              print(
+                  f"::error::{PACKAGE}@{version} was not published: `npm view` never returned it",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+
+          recorded = payload.get("version")
+          dist = payload.get("dist")
+          integrity = dist.get("integrity") if isinstance(dist, dict) else None
+          git_head = payload.get("gitHead")
+          problems = []
+          if recorded != version:
+              problems.append(f"version is {recorded!r}, expected {version!r}")
+          if not integrity or not str(integrity).startswith("sha512-"):
+              problems.append(f"dist.integrity is {integrity!r}: the tarball has no recorded digest")
+          if git_head != head:
+              problems.append(
+                  f"gitHead is {git_head!r}, expected the tagged commit {head} ({tag}): "
+                  "the registry copy is not the artefact of this tag"
+              )
+          if problems:
+              for problem in problems:
+                  print(f"::error::{problem}", file=sys.stderr)
+              raise SystemExit(1)
+          print(f"verified {PACKAGE}@{version}: version, dist.integrity, gitHead {git_head} ({tag})")
           PY

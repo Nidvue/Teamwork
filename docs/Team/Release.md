@@ -276,6 +276,10 @@ path they name exists - `scripts/teamwork.py`, `scripts/privacy_scan.py`,
 - and every flag is in the script's own `--help` (`privacy_scan.py --tree --history
 --allow`, `check_release_consistency.py --offline|--online --json`,
 `teamwork.py identity --audit|--guard-committer --range`, `teamwork.py links`).
+Re-measured 2026-10-28 after the npm publish job landed: `ci.yml` 19, `docs.yml` 4,
+`release.yml` **14** `run` blocks (`python3 scripts/build_pi_package.py` and
+`npm install -g npm@11.5.1` are the two new commands, both in the tree and in `PATH` on a
+GitHub-hosted runner).
 `pytest`, `build` and `mkdocs` come from `.[dev]` (`pytest>=8,<10`, `pytest-cov>=5,<8`,
 `build>=1.2,<2`) and `docs/requirements.txt` (`mkdocs-material>=9.7.7,<10`). No workflow
 invokes `make`, and every target named on this page exists in the `Makefile`.
@@ -288,10 +292,14 @@ day 0.18.0 ships - on a revision that changed nothing. Filed: `release-engineer`
 
 ### 3. Actions are pinned, and no deprecation is pending
 
-Every `uses:` in the three workflows is a 40-hex SHA - 10 distinct pins, each resolving
-to a real commit (`gh api repos/<owner>/<repo>/commits/<sha>`), and 9 of the 10 equal the
-commit their file comment names (`gh api repos/<owner>/<repo>/git/ref/tags/<v>`, which
-needs the tag object dereferenced for `attest-build-provenance`). The one that lags is
+Every `uses:` in the three workflows is a 40-hex SHA. Measured 2026-10-28 with
+`grep -hoE "uses: [^ ]+" .github/workflows/*.yml | sort -u | wc -l`: **11** distinct pins,
+each resolving to a real commit (`gh api repos/<owner>/<repo>/commits/<sha>`), and **10 of
+the 11** equal the commit their file comment names
+(`gh api repos/<owner>/<repo>/git/ref/tags/<v>`, which needs the tag object dereferenced
+for `attest-build-provenance`). The new pin is `actions/setup-node@949feb24...` (`v7`),
+which `gh api repos/actions/setup-node/git/ref/tags/v7` reports as a commit object with
+exactly that sha. The one that lags is
 `actions/setup-python@v7`: pinned `5fda3b95` (2026-07-20), tag tip `6d4fd22b`
 (2026-10-22), and no update is queued (`gh pr list --state open` -> empty) although
 `.github/dependabot.yml` watches `github-actions` weekly. A frozen pin is what pinning
@@ -389,6 +397,31 @@ Rollback needs no index: install the wheel asset of the tag you want.
 | 2 | `required_linear_history=false`, rationale not in `Decisions.md` | `ceo` T-0005 |
 | 3 | the lint job installs an unpinned ruff | `release-engineer` T-0002 |
 
+### Closed: R2 was red off the release tag
+
+Not current drift any more - the 1.4.0 intake moved `src/teamwork/version.py` ahead of the
+newest tag again, so `R2` reports `ok` on a branch. The measurement is kept because the
+failure mode recurs at every release: a release that tags the tip of `main` closes the
+"unreleased window" `R2` assumes, and the next branch commit is then red on a required
+check. The next release must bump the version before it tags, or every lane after that tag
+pays this again.
+
+Measured 2026-10-28, while HEAD's version still equalled the newest tag - a worktree of
+untouched `main` plus one **empty** commit, no file changed:
+
+<!-- release-consistency: illustrative -->
+```
+python scripts/check_release_consistency.py --offline
+-> R2 DRIFT HEAD version 1.3.0 is not greater than tag v1.3.0
+-> # release consistency: 1 problem(s)
+```
+
+`R2` compares HEAD against `A - O` (11.2.2), so once the version equals the newest tag the
+set is never empty off the tag: the gate was structurally red until a version bump, not
+red because of a code change. The same probe on the tag itself was 0 problems. Owner of
+the rule and the checker: `architect` and `developer` (T-0005); the release-order policy is
+the CEO's.
+
 The three forge drifts this table used to carry - the two matrix lanes that ran without
 blocking, the unprotected `v*` tag and the CodeQL/SHA-pinning pair - are closed by `ceo`
 T-0010 and measured in section 4 above, not restated here. Items 1-2 are not changed by
@@ -431,27 +464,133 @@ Read the current asset set, never a count:
 grep -n -A4 'path:\|subject-path:\|files:' .github/workflows/release.yml
 ```
 
+## Publishing to npm
+
+The `npm` job in `.github/workflows/release.yml` publishes the pi package from the
+same tagged revision as the wheel. It is a release step like the GitHub Release:
+this lane builds and verifies it, the pipeline publishes it, and the credential is
+the operator's.
+
+| fact | value | where |
+| --- | --- | --- |
+| package | `@nidvue/teamwork` | `scripts/build_pi_package.py` (`NAME`) |
+| version | `__version__` in `src/teamwork/version.py` - one source | read by the `resolve` step and by the bundle build |
+| bundle | `python3 scripts/build_pi_package.py` -> `dist/@nidvue/teamwork` (`dist/` is the script's default output) | the `npm` job |
+| publish | `npm publish --access public --provenance` inside that directory | the `npm` job |
+| credential | npm Trusted Publishing over OIDC (`id-token: write`); `secrets.NPM_TOKEN`, when that secret exists, is written into an explicit npm userconfig and removed from every child's environment | the `npm` job |
+| proof | `npm view @nidvue/teamwork@<v> version dist.integrity gitHead` must name the tag's version and the tagged commit | the last `npm` step |
+
+`--out dist` is the same directory - `dist/` is the script's default - and it is the
+form the script's own docstring documents. The workflow omits it because a workflow may
+only pass a flag the target script's `--help` lists
+(`tests/integration/test_ci_release_flow.py::test_every_flag_a_workflow_passes_a_script_is_documented`),
+and `scripts/build_pi_package.py` documents `--out` only in its module docstring, not in
+`--help`. Filed as `developer` T-0018 for the script's owner; until then the
+workflow uses the default rather than a gate the flag would fail.
+
+Two version floors, both pinned and both cited where they are pinned:
+
+- **npm CLI >= 11.5.1** - "Trusted publishing requires npm CLI version 11.5.1 or later
+  and Node version 22.14.0 or higher."
+  ([Trusted publishing for npm packages](https://docs.npmjs.com/trusted-publishers/) -
+  accessed 2026-10-28). The job installs `npm@11.5.1` explicitly and fails if
+  `npm --version` is not that string; an unpinned `npm install -g npm` is the same
+  drift that would make a required check run a different linter tomorrow.
+- **Node >= 22.14.0** - `actions/setup-node` asks for `node-version: "22.14.0"` with
+  `registry-url: https://registry.npmjs.org` and `package-manager-cache: false` (a
+  publish job holding `id-token: write` must not restore an npm cache).
+
+Mechanics that are easy to get wrong:
+
+- **The project `.npmrc` does not apply.** `npm publish` runs in the built bundle, so
+  npm reads `dist/@nidvue/teamwork/.npmrc` (absent) rather than the checkout's. The
+  publish step therefore writes an explicit userconfig: with an `_authToken` line when
+  `NPM_TOKEN` exists, and with **no** `_authToken` line at all otherwise, so npm falls
+  through to the OIDC exchange that `id-token: write` enables.
+- **The token reaches the npm child only through that file.** The step does read the
+  secret into its own process (`NPM_TOKEN` in its `env:`), but the child environment is
+  built as `dict(os.environ)` and then has `NPM_TOKEN` **and** `NODE_AUTH_TOKEN` removed
+  before the first `npm` call, so no npm child - and no lifecycle script it runs - has
+  the value in its environment; it is only in the userconfig file, which npm reads for
+  auth. `tests/integration/test_release_workflow_flow.py` executes the shipped block with
+  a fake npm and fails if either name is in what the child receives.
+- **A re-run converges.** If the version is already on the registry the publish step
+  prints that and exits 0 instead of failing; the verification step then proves the
+  published tarball. Nothing here is `continue-on-error` and nothing is `|| true`.
+- **It fails loudly.** An unauthenticated or unauthorised publish is a red run whose
+  `::error::` line names both ways to authorise it. A release that cannot publish is
+  never a green skip.
+
+### The dispatch path (backfill)
+
+`workflow_dispatch` takes one input, `tag`, and publishes an **existing**
+`vX.Y.Z` tag. It never creates, moves or re-points a tag, and it refuses, with exit 2
+and a named reason, a tag that
+
+1. is not of the form `vX.Y.Z`,
+2. does not exist in the checkout,
+3. is not an ancestor of `origin/main` (or `main`) - only a revision that is already
+   released may be published, and
+4. disagrees with `src/teamwork/version.py`.
+
+The resolved tag is a job output, and every checkout in the file uses the same ref
+expression, so a dispatch publishes the tag rather than the default branch it was
+dispatched from. The GitHub Release job is limited to a tag push: on a backfill the
+Release already exists. Dispatch needs the workflow file to be on the default branch
+([workflow syntax](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatch)
+- accessed 2026-10-28).
+
+### What is UNVERIFIED, and the operator step
+
+Nothing above has been published by this lane, and none of it can be: publishing is an
+external action the CEO owns. Two facts are still open, and they are recorded rather
+than assumed.
+
+1. **The trusted publisher is not registered.** Measured 2026-10-28:
+   `npm view @nidvue/teamwork versions dist-tags --json` answers with four published
+   versions whose `dist-tags.latest` names a version older than the newest tag, so no
+   tag of this pipeline has ever exercised the `npm` job. **Operator / CEO step:**
+   npmjs.com -> `@nidvue/teamwork` -> Settings -> Trusted Publisher -> GitHub Actions,
+   organization `Nidvue`, repository `Teamwork`, workflow filename `release.yml`; or a
+   repository secret named `NPM_TOKEN`.
+2. **`gitHead` and the provenance attestation are produced by the publish itself.**
+   The local dry run `npm publish --dry-run --json` in `dist/@nidvue/teamwork` (npm
+   11.19.1, node 24.22.1, 2026-10-28) prints the tarball - 74 entries, integrity
+   `sha512-...` - but not `gitHead`, which the registry adds on publish. The registry
+   does record it: `npm view @nidvue/teamwork gitHead` on the newest published version
+   answers `4de397e6827594fac847a90fc9aa4f871ced75ad`, and `git cat-file -t` cannot
+   resolve that sha in this repository (the pre-release history rewrite). That is
+   exactly the condition the verification step treats as red, and the reason it
+   compares `gitHead` with `git rev-parse HEAD` instead of only printing it. The first
+   real tag run is the first proof; until then this is `UNVERIFIED`.
+
 ## Deploy
 
 - Environments: none for the package. The artefact is a Python package; the
   "deployment" is a GitHub Release. `teamwork-agents` is **not on PyPI** (measured:
   `https://pypi.org/pypi/teamwork-agents/json` -> `404`, `pip index versions
   teamwork-agents` -> `No matching distribution found`), so the release asset is the
-  only install source and a user needs no index at all:
+  only install source for the *Python package* and a user needs no index at all:
   `pip install https://github.com/Nidvue/Teamwork/releases/download/<tag>/teamwork_agents-<version>-py3-none-any.whl`.
+  The pi package is the one thing that does have an index: `@nidvue/teamwork` on npm
+  ([Publishing to npm](#publishing-to-npm)).
 - Order of operations: `main` green -> push `main` -> CI green on that SHA ->
   CEO tags `v<version>` -> the Release workflow asserts the tag equals
   `src/teamwork/version.py`, re-runs the tests, builds sdist+wheel, extends the one
-  `SHA256SUMS` over the artefacts and both SBOMs, **attests** build provenance and
-  publishes the GitHub Release (asset set: [Release assets](#release-assets-one-manifest-one-name)).
+  `SHA256SUMS` over the artefacts and both SBOMs, **attests** build provenance,
+  publishes the GitHub Release (asset set: [Release assets](#release-assets-one-manifest-one-name)),
+  and publishes `@nidvue/teamwork` to npm from the same revision
+  ([Publishing to npm](#publishing-to-npm)).
   It does not sign: provenance is the sigstore attestation, verified with
   `gh attestation verify <file> --repo Nidvue/Teamwork` (measured on the published
   `v1.1.0` wheel -> pass, workflow ref `release.yml@refs/tags/v1.1.0`). History
   rewrites are not part of the flow; the pre-release privacy rewrite already happened
   before the first public tag.
-- Configuration and secrets *mechanism* (never values): no publish credential exists at
-  all. There is no PyPI job in any workflow and no secret in the repository; Trusted
-  Publishing (OIDC) would be the mechanism if a PyPI upload were ever enabled. Only the
+- Configuration and secrets *mechanism* (never values): the only publish credential is
+  npm Trusted Publishing over OIDC (`id-token: write`), with a repository secret
+  `NPM_TOKEN` as the fallback; there is no PyPI job and no long-lived token in the
+  repository or the tree. See
+  [Publishing to npm](#publishing-to-npm). Only the
   operator's local `gh` credential pushes.
 
 ## Rollback
