@@ -10959,7 +10959,7 @@ def cmd_pulse(args) -> int:
         print("- nothing to dispatch: check blocked tasks and open disputes")
     print(
         f"- re-arm this pulse: schedule the next wake every {minutes} min "
-        "(see the /teamwork skill: schedule.create)"
+        "(swarm run --waves 0 owns the loop; pulse --commit is one wake)"
     )
     if getattr(args, "spawn", False):
         print()

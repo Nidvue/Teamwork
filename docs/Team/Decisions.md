@@ -2398,3 +2398,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `teamwork.py ledger cut --by CEO --reason '...' @8a50ec9 -> preserved 1531 record(s) at Ledger.cut2.jsonl (head 92a2f864fb61), new chain seeded`; `teamwork.py ledger verify @db87643 -> chain intact, every digest matches`; `teamwork.py ledger export -> chain verified: True`; `pytest tests/unit/test_ledger_actions.py tests/unit/test_ledger.py -> 35 passed`
 - falsified by: if any record of cut 3 is found altered on disk, or cut 4 fails verify, or a reader cannot trace a cut-4 record to the cut record that precedes it, this ruling is wrong.
 - consequences: A-0016 is answered; audit no longer reports an altered trail; the manifest binds to cut 4; cut 3 stays readable as an artifact and is never edited.
+
+## D-20261109-CEO-3 - No host plugin is a dependency of the team: the engine launches every lane
+
+- date: 2026-11-09
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0036
+- context: -
+- options considered: -
+- decision: The team declares no third-party package of any kind (the pi manifest lists only the five host-provided packages as peers), and no normative surface names a host teammate, scheduler or messaging tool. Every lane is a detached child of 'teamwork.py lane start' / 'swarm run', which launches the host CLI itself ('pi -p --no-session <packet>'); the provider is a lease bucket and reaches the command line only beside the model it scopes. This supersedes T-0035 (pi-subagents as an optional peer, added on an earlier operator request).
+- why: operator instruction 2026-11-09: all agents must run independently and in parallel natively in pi with no external plugin or extension dependency
+- evidence: built manifest @621a290 -> peerDependencies = 5 host packages, dependencies/devDependencies/optionalDependencies/bundledDependencies absent; three lanes ran concurrently at 12:14-12:16 on 2026-11-09 (L-0004 pid 925500 -> pi 925501, L-0005 pid 925504 -> pi 925513, L-0006 reviewer) with results ok/ok/ok; L-0002.log @c3e4e2d -> 'Error: --provider requires --model', the defect the launcher fix removes; tests/unit/test_pi_package.py::test_the_package_declares_no_third_party_package and test_skill_contracts.py::test_no_normative_step_requires_a_pi_only_tool pin it
+- falsified by: a lane that needs a plugin to start, or a manifest entry naming a third-party package, would falsify it
+- consequences: -

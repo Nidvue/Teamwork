@@ -277,14 +277,50 @@ def test_the_launcher_template_is_split_without_a_shell_and_the_packet_is_an_arg
     assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
     log = Path(runs(root)[0]["log"]).read_text(encoding="utf-8")
     assert "'one', 'Developer-1'" in log, log
-    assert "ollama-cloud" in log
+    assert "default" in log, "no model is configured, so the lease bucket is the default one"
+
+
+def test_the_pi_launcher_never_passes_a_provider_without_a_model(
+    cli, project: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    """Why: pi answers `--provider requires --model`, so a lane started with a
+    provider lease and no configured model used to die in its first second.
+
+    The provider stays a lease bucket; it reaches the command line only beside the
+    model it scopes.
+    """
+    init(cli, project)
+    monkeypatch.delenv("TEAMWORK_LANE_CMD", raising=False)
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", "pi")
+
+    bare = lanes._builtin_argv("pi", "pi", "the packet", "", "ollama-cloud", "")
+    assert bare == ["pi", "-p", "--no-session", "the packet"]
+
+    scoped = lanes._builtin_argv("pi", "pi", "the packet", "m", "ollama-cloud", "")
+    assert scoped == [
+        "pi",
+        "-p",
+        "--no-session",
+        "--provider",
+        "ollama-cloud",
+        "--model",
+        "m",
+        "the packet",
+    ]
+
+    resumed = lanes._builtin_argv("pi", "pi", "the packet", "", "", "teamwork-x")
+    assert resumed == ["pi", "-p", "--session-id", "teamwork-x", "the packet"]
+
+    assert cli("--project", project, "lane", "start", "--agent", "developer-1", "--print") == 0
+    printed = capsys.readouterr().out.split("# argv:", 1)[1]
+    assert "--provider" not in printed, printed
 
 
 def test_the_provider_cap_refuses_a_second_lane_and_leaves_it_queued(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = init(cli, project)
-    (root / engine.F_SETTINGS).write_text(json.dumps({"ollama-cloud": 1}), encoding="utf-8")
+    (root / engine.F_SETTINGS).write_text(json.dumps({"default": 1}), encoding="utf-8")
     launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
     assert cli("--project", project, "lane", "start", "--agent", "developer-1") == 0
     assert cli("--project", project, "lane", "start", "--agent", "developer-2") == 3
@@ -482,7 +518,7 @@ def test_a_lane_that_cannot_start_releases_the_claim_it_took(
 ) -> None:
     """A claim with no process behind it looks like a busy lane forever."""
     root = init(cli, project)
-    (root / engine.F_SETTINGS).write_text(json.dumps({"ollama-cloud": 1}), encoding="utf-8")
+    (root / engine.F_SETTINGS).write_text(json.dumps({"default": 1}), encoding="utf-8")
     launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
     assert cli("--project", project, "lane", "start", "--agent", "developer-1") == 0
     add_task(cli, project, "developer", "queued behind the cap")

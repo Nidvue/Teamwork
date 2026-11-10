@@ -309,12 +309,20 @@ def child_env(root: Path, agent: str, run_id: str) -> dict:
 def _builtin_argv(
     host: str, binary: str, prompt: str, model: str, provider: str, session: str
 ) -> list:
+    """The launcher command line for a host CLI, with the host's own rules applied.
+
+    Pi refuses `--provider` on its own ("--provider requires --model"), so the
+    provider is only passed when a model is configured; with no model the lane
+    runs on the host's default and the provider stays a lease bucket, not a flag.
+    A lane that dies in the first second on a rejected argument is the failure this
+    rule prevents.
+    """
     if host == "pi":
         argv = [binary, "-p"]
         argv += ["--session-id", session] if session else ["--no-session"]
-        if provider:
-            argv += ["--provider", provider]
         if model:
+            if provider:
+                argv += ["--provider", provider]
             argv += ["--model", model]
         return argv + [prompt]
     if host == "claude":
@@ -688,7 +696,7 @@ def spawn(
         provider
         or str(resolved.get("provider") or "")
         or os.environ.get("TEAMWORK_PROVIDER", "")
-        or "ollama-cloud"
+        or "default"
     )
     session = f"teamwork-{root.name}-{agent}".lower() if resume else ""
     text = prompt or build_packet(

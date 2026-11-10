@@ -696,15 +696,19 @@ def test_the_skill_states_that_it_is_host_agnostic(root):
 def test_no_normative_step_requires_a_pi_only_tool(root):
     """The protocol must not depend on one host's tool names.
 
-    ``subagent``/``schedule.create`` may appear only as an adapter example,
-    never as the definition of an operation.
+    The engine's lane runtime is the mechanism on every host, so no normative
+    surface may name a host plugin: a `subagent`/`schedule.create`/`teams` tool
+    that disappears removes no parallelism.
     """
     text = read(root, "SKILL.md")
     assert "Only six\n  operations need a host mechanism" in text or "six\n  operations" in text
+    for surface in (("SKILL.md",), ("references", "Adapters.md"), ("references", "Bootstrap.md")):
+        body = read(root, *surface)
+        for tool in ("subagent(", "subagent_supervisor(", "schedule.create", "teams("):
+            assert tool not in body, f"{'/'.join(surface)} hard-codes the host tool {tool!r}"
     adapters = read(root, "references", "Adapters.md")
-    for tool in ("subagent(", "schedule.create"):
-        assert tool in adapters, tool
-    assert "Never hard-code a host tool" in flat(adapters)
+    assert "the\nengine now provides all six itself" in adapters
+    assert "swarm run" in flat(adapters)
 
 
 REMOTE_HOSTS = ("GitHub", "GitLab", "Bitbucket", "Gitea", "Azure DevOps")

@@ -86,24 +86,27 @@ Everything else waits only on the interface freeze, not on each other.
 
 ### 4. Staff and dispatch
 
-The host may offer a long-lived teammate tool or none at all; either way each lane is a bounded `subagent`-style run that
-reads the role charter and the queue and takes its own work, so the fan-out is
-one call per lane and the CEO stays free while they run:
+The engine dispatches; the host only has to run a CLI. Each lane is one detached
+child process launched as `<host> -p "<packet>"`, so the fan-out needs no
+plugin, no extension and no live teammate object:
 
-```text
-<teammate tool>(agent: "architect", task: "<packet>", background: true)
-<teammate tool>(agent: "developer", task: "<packet>", background: true)
-<teammate tool>(agent: "tester",    task: "<packet>", background: true)
+```sh
+python3 "$SKILL/scripts/teamwork.py" swarm run --dry-run   # the wave the board justifies
+python3 "$SKILL/scripts/teamwork.py" swarm run             # waves until nothing is runnable
+python3 "$SKILL/scripts/teamwork.py" lane list             # what is live right now
 ```
 
-The concrete name per host - `subagent`, `Task`, a CLI job - is the adapter table
-in `references/Adapters.md`; the packet and the queue are the same everywhere.
+`swarm run` sizes the wave from the records (ready tasks, unclaimed reviews, free
+provider slots, unfinished assignments), starts one `pi -p` child per lane with its
+own packet and record, waits for one to end and re-measures. `lane start --agent
+<instance> --task <T-id>` starts a single lane when the CEO wants to choose the
+unit by hand. The launcher per host - `pi -p`, `claude -p`, `codex exec` - is the
+table in `references/Adapters.md`; the packet and the queue are the same
+everywhere.
 
-A dependent multi-step batch is one workflow call: the workflow owns the fan-out,
-each child gets its own task text and the parent gets every child's output back
-(`runs.all([...])` on hosts that offer workflows). Use worktree isolation only on
-a clean tree; otherwise run the lanes in the shared checkout and require
-`commit --paths` so no lane sweeps a peer's uncommitted work.
+A dependency can release early (`deps: role:T-id@review` or `@started`), so a
+multi-step batch does not need one process to own the fan-out: the downstream
+lane starts from the frozen interface, not from a merge.
 
 Each dispatched task packet must contain: task id, objective, the frozen
 interface to build against, file/component boundary, acceptance evidence, the
@@ -119,8 +122,9 @@ Start that task immediately. Work only in your lane. Report evidence, then take
 the next executable task yourself.
 ```
 
-For bounded one-shot work (a review, a research brief, a verification pass), use
-`subagent` with a matching role agent instead of a long-lived teammate.
+For bounded one-shot work (a review, a research brief, a verification pass), start
+one lane with `lane start --review-owner <role> --task <T-id>`: it claims from the
+shared queue, so two lanes never take the same deliverable.
 
 ## Step 5 stays in SKILL.md
 
