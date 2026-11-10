@@ -394,6 +394,26 @@ def test_remote_integrity_reference_covers_hosts_and_rules(root):
     assert "Drift check" in text
 
 
+def test_the_merge_policy_forbids_the_host_merge_button(root):
+    """The host's merge button stamps the signed-in account into the history.
+
+    Measured on this repository (2026-10-20): three rewrites of ``main`` came from
+    one cause - a host squash (and a host rebase) wrote the merging account's
+    personal mailbox into the commit, the privacy gate failed on history, and the
+    traceability guard that re-runs that gate failed with it. The doctrine must
+    therefore name the local merge + push as the canonical path, or the next
+    contributor follows it and rewrites ``main`` again.
+    """
+    text = flat(read(root, "references", "Remotes.md"))
+    assert "merged **locally" in text or "merge is performed" in text, (
+        "the merge strategy must state that the merge is done locally and pushed"
+    )
+    assert "signed-in" in text, "the policy must name the cause: the signed-in account"
+    contributing = flat(read(root, "CONTRIBUTING.md"))
+    assert "squash" in contributing.lower()
+    assert "local" in contributing.lower() or "locally" in contributing.lower()
+
+
 def test_release_engineer_owns_repo_and_ci_integrity(root):
     text = flat(read(root, "roles", "release-engineer.md"))
     assert "Repository and CI integrity" in text
