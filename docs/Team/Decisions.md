@@ -2103,3 +2103,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git ls-files .agents/skills @5bcf231 -> 2 files, both unprefixed (ceo-audit-close/SKILL.md, product-manager-records/SKILL.md); python scripts/teamwork.py skill create --help @5bcf231 -> no --kind and no --from-lesson; Get-ChildItem .pi/Teamwork/Teams/Teamwork/Roles -Recurse -Filter Lessons.md @5bcf231 -> 0 files; python scripts/teamwork.py harness lint @5bcf231 -> # problems found: 0 (PREFIX does not exist yet)
 - falsified by: A host skill collides with tw-* in .agents/skills, or a fresh clone repeats a recorded mistake although the tw- skill exists - then the prefix or the lesson placement is wrong
 - consequences: Developer T-0031 implements; Technical Writer T-0011 documents; Tester T-0004 proves the loop; existing two skills rename in T-0031
+
+## D-20261103-Architect-2 - M17: project knowledge is a ranked, evidence-backed store that accumulates
+
+- date: 2026-11-03
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0005
+- context: M17 second half: the knowledge/experience accumulation the operator asked for, after section 14 froze the mistake half
+- options considered: A: dedicated ranked K- store (chosen) - evidence, uses, supersession, one writer; B: reuse role long-term memory - capped, recall-only, not project-wide, no use ranking; C: reuse Global memory - CEO-only prose, no ids, no evidence column; D: a committed docs/Team/Knowledge.md - auditable but a shared-document conflict on every append and not local working state
+- decision: Adopt one project-scoped Knowledge.md of K- records, written only through the knowledge command, ranked by importance and use, surfaced top-10 at every load, deduplicated on intake, and superseded rather than deleted.
+- why: The operator requires knowledge and experience to accumulate per project so agents become more fluent and decide better. Existing memory is capped working memory, long-term memory is recall-only by name, and Global memory is CEO-owned prose - none of them ranks what the team actually uses or keeps two contradictory beliefs from coexisting. A K- record carries evidence, a use count and a supersession link, so the accumulation is measurable and self-correcting.
+- evidence: Get-ChildItem src/teamwork -Filter *.py | Select-String -Pattern Knowledge.md | Measure-Object @308190b -> Count 0; python scripts/teamwork.py load architect @308190b -> memory output only, no '# project knowledge:' line; python scripts/teamwork.py recall --help @308190b -> --agent/--all/--global/--layer only, no knowledge source; python scripts/teamwork.py --help @308190b -> no knowledge subcommand; git ls-files Knowledge.md @308190b -> empty; python scripts/teamwork.py harness lint @308190b -> 2 pre-existing HELPER findings (S-0001/S-0002 tw- registry rows pending T-0031), no knowledge rule
+- falsified by: Agents cannot name a K- record they used in a decision, or the store grows as a duplicate of memory without changing what any agent does - then the store is ceremony, not fluency
+- consequences: Developer T-0032 implements; Technical Writer T-0012 documents; Tester T-0005 proves the loop; load ordering changes for every agent

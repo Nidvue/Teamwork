@@ -40,7 +40,7 @@ Manages: Designer, Technical Writer.
 - Give the Designer the user flows and the Architect the constraints early, so
   their lanes are not blocked on you.
 - When you write or refresh a team record - the Plan milestone rows, the Board
-  snapshot, a risk row, a decision entry - load the `product-manager-records`
+  snapshot, a risk row, a decision entry - load the `tw-product-manager-records`
   skill and follow it exactly. It is the extracted flow, so every instance runs
   the same steps.
 

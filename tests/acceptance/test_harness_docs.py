@@ -160,11 +160,11 @@ def test_the_contrast_and_verdict_rule_is_stated_where_agents_read_it() -> None:
 def test_the_skill_names_the_close_skill_that_makes_lint_exit_zero() -> None:
     """AC-H3 + SKILL.md section 6: the trigger line is what makes the skill exist."""
     skill = read("SKILL.md")
-    assert "ceo-audit-close" in skill, (
-        "SKILL.md names no trigger for the ceo-audit-close skill, so `harness lint` "
+    assert "tw-ceo-audit-close" in skill, (
+        "SKILL.md names no trigger for the tw-ceo-audit-close skill, so `harness lint` "
         "fails this tree with a true-positive TRIGGER finding"
     )
-    assert (REPO_ROOT / ".agents" / "skills" / "ceo-audit-close" / "SKILL.md").is_file(), (
+    assert (REPO_ROOT / ".agents" / "skills" / "tw-ceo-audit-close" / "SKILL.md").is_file(), (
         "SKILL.md names a skill that is not shipped"
     )
 

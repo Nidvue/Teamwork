@@ -17,6 +17,7 @@ from .config import (
     F_GLOBAL,
     F_GLOBAL_ARCHIVE,
     F_INBOX,
+    F_LESSONS,
     F_LONG,
     F_MAP,
     F_MEM_ARCHIVE,
@@ -271,6 +272,22 @@ def task_file(root: Path, agent: str) -> Path:
             )
     d.mkdir(parents=True, exist_ok=True)
     return d / F_TASKS
+
+
+def lessons_path(root: Path, agent: str) -> Path:
+    """The role's shared lesson record. A missing file reads as no lessons."""
+    role = resolve_role(agent)
+    d = role_dir(root, role)
+    if not d.is_dir() and not agents_dir(root).is_dir():
+        die("no workspace here: run `teamwork.py init` first")
+    if agents_dir(root).is_dir() and not d.is_dir():
+        known = list_roles(root)
+        if role not in known:
+            die(
+                f"no '{role}' role in this team. Known roles: "
+                + (", ".join(known) if known else "(none)")
+            )
+    return d / F_LESSONS
 
 
 def skills_dir(root: Path) -> Path:
