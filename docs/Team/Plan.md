@@ -962,6 +962,18 @@ Parallel rules: one lane per instance (a second `lane start` is refused), one
 worktree per task (`--worktree`), and the board is the arbiter - a lane claims
 with `task next` or a review claim, so two lanes cannot take one deliverable.
 
+### The burn-down (2026-11-08, after the lane waves)
+
+Twenty-two open tasks were worked to a disposition: eleven delivered and merged
+(the five mechanical findings, the parser allow-list, the board messages, the
+remember guard, the ledger tail-only repair, the preflight disclosure, the lane
+CLI restore and the regression sweep), nine closed with a recorded reason
+(superseded, verified-fixed, or not executable from this host), and two remain
+open - the push (an external action) and the pre-commit privacy scan (unfinished
+work preserved in its lane worktree). Two disputes were resolved by the tribunal
+and recorded in [Decisions](Decisions.md). The full suite is green at the closing
+head: `pytest -q` -> 2551 passed, 3 skipped.
+
 ## Task-graph integrity
 
 The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.

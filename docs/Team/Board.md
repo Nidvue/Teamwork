@@ -103,6 +103,8 @@ under two roles is two tasks.
 | ceo | T-0018 | team-docs | done | P-0031 | 079ee66 |
 | ceo | T-0019 | team-docs | done | P-0041 | 1724fd7 |
 | ceo | T-0020 | records | done | P-0051 | f36e133 |
+| ceo | T-0021 | team-docs | done | P-0052 | f187e21 |
+| ceo | T-0022 | records | done | P-0053 | c2bed4b |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
