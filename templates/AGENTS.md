@@ -27,6 +27,15 @@ Instance names are `<role>` or `<role>-<n>` (`developer-2`, `tester-1`,
 `designer-1`). Every instance has its own directory; **memory and the task queue
 are shared by every instance of a role** (`Roles/<Role>/`).
 
+**A slim roster is the default.** Staff a role only if it owns a deliverable, a
+test layer and a decision right no other role holds; everything else is a lane.
+The default tier is `ceo, architect, developer, tester, reviewer-1, reviewer-2`,
+and Product Manager, Project Manager, Release Engineer, Designer, Technical
+Writer, Data Engineer, Security Auditor, CTO, COO and CFO are added when the brief
+justifies them. Two invariants survive any trim: a test layer is only required
+when its owning role is staffed, and the tribunal keeps a neutral seat (the
+Reviewer when no CTO/CFO is staffed) so **no party ever rules its own dispute**.
+
 ## Where things live
 
 - Committed team documents: `docs/Team/` (`Project.md`, `Plan.md`, `Board.md`,
