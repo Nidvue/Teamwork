@@ -787,18 +787,6 @@ def _find_task_anywhere(root: Path, handle: str, role_hint: str = ""):
     return None, None, None, None
 
 
-def lane_worktree(root: Path, agent: str, task_id: str) -> Path:
-    """The one worktree a (instance, task) lane owns.
-
-    Keyed by task as well as instance: handing a second task of one instance
-    back the checkout a first task is still using makes two lanes share one
-    writable tree, so the second commit lands on the first task's branch and
-    `commit` refuses (one task, one branch) - A-0003.
-    """
-    base = root / DIR_RUNTIME / DIR_WORKTREES / safe_component(pascal(agent))
-    return base / safe_component(str(task_id))
-
-
 def retire_branch(root: Path, here: Path, branch: str, force: bool = False) -> bool:
     """Delete a merged branch, retiring the worktree that holds it if needed."""
     flag = "-D" if force else "-d"
@@ -879,7 +867,7 @@ def cmd_branch(args) -> int:
 
     worktree_note = ""
     if args.worktree:
-        wt = lane_worktree(root, args.agent, task["id"])
+        wt = root / DIR_RUNTIME / DIR_WORKTREES / safe_component(pascal(args.agent))
         wt.parent.mkdir(parents=True, exist_ok=True)
         listing = run_git(project, "worktree", "list", "--porcelain").stdout
         if str(wt) not in listing:
@@ -1968,9 +1956,8 @@ def project_trees(root: Path) -> list:
         return trees
     wt_root = root / DIR_RUNTIME / DIR_WORKTREES
     if wt_root.is_dir():
-        for marker in sorted(wt_root.rglob(".git")):
-            cand = marker.parent
-            if cand.resolve() not in trees:
+        for cand in sorted(wt_root.iterdir()):
+            if (cand / ".git").exists() and cand.resolve() not in trees:
                 trees.append(cand.resolve())
     return trees
 
