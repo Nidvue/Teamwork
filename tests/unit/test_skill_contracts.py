@@ -32,6 +32,7 @@ ROLES = (
     "security-auditor",
     "technical-writer",
     "tester",
+    "team-leader",
 )
 
 
@@ -2087,7 +2088,7 @@ def test_the_throughput_contract_is_stated_where_every_agent_reads_it(root):
 def test_the_roles_reference_carries_the_contract_and_the_feature_team_design(root):
     text = flat(read(root, "references", "Roles.md"))
     assert "## Throughput contract" in text
-    assert "Feature teams (design; engine support in T-0042)" in text
+    assert "Feature teams (merged; engine `teamwork.py feature`" in text
     assert "one line manager per role at any moment" in text
     assert "decision rights" in text and "never a second reporting line" in text
     assert "shared service" in text
@@ -2096,6 +2097,11 @@ def test_the_roles_reference_carries_the_contract_and_the_feature_team_design(ro
 def test_the_skill_states_the_contract_and_its_measured_basis(root):
     text = flat(read(root, "SKILL.md"))
     assert "### 5i. The throughput contract" in text
+    # the rules feature check actually applies, named in the skill, not a
+    # transition refusal attributed to the check (review round 1 on T-0018)
+    assert "five rules" in text
+    assert "one open feature per leader" in text
+    assert "`feature set <F-nnnn> --state ready`" in text
     # the numbers must be the reproducible ones, with their unit and their method;
     # an estimate presented as a measurement is what the first review failed.
     assert "66" in text and "one role + task" in text

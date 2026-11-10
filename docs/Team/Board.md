@@ -103,7 +103,7 @@ under two roles is two tasks.
 | ceo | T-0015 | plan | done | P-0056 | 22c817d |
 | ceo | T-0016 | - | dropped | - | - |
 | ceo | T-0017 | review | done | P-0057 | 13fb170 |
-| ceo | T-0018 | - | todo | - | - |
+| ceo | T-0018 | org | done | P-0069 | 911c064 |
 | ceo | T-0019 | - | todo | - | - |
 | ceo | T-0020 | records | done | P-0058 | bcf48e7 |
 | ceo | T-0021 | org | done | P-0063 | 20e12ae |
@@ -177,6 +177,7 @@ under two roles is two tasks.
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
 | security-auditor | T-0004 | - | done | - | - |
+| security-auditor | T-0005 | - | todo | - | - |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
@@ -190,12 +191,12 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0018 · Add the Team Leader charter and redraw the org in the constitution, the skill and the roster tiers | P1 | todo | - |
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
 | developer | T-0045 · fix(docs): the preflight surface still quotes the retired 38/43 figure | P2 | todo | - |
 | developer | T-0046 · fix(records): a review fail must record its own findings, not the accumulated first 200 characters | P2 | todo | - |
 | developer | T-0047 · fix(records): a bulk sweep must not be able to drop live work silently | P1 | todo | - |
 | reviewer | T-0005 · Acceptance: the feature-team model is enforced by the engine, not only documented | P1 | todo | - |
+| security-auditor | T-0005 · fix(privacy): the history gate is red on main from a superseded doc example and an archived finding | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
