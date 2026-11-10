@@ -61,8 +61,9 @@ batched to the end.
 1. **Wait for the verdict.** A revision is pushable only when the Reviewer has
    passed it and no finding is open against it. A passing self-check alone is not
    enough, and a failing or pending review blocks the push outright.
-2. **Push per milestone.** After each reviewed + merged deliverable, push the
-   integration branch so the remote never drifts far behind local `main`. Do not
+2. **Push per stage.** A stage ends with a push, not with a merge: once a
+   coherent stage is squashed, rebased and merged, push the integration branch
+   so the remote never drifts behind local `main`. Do not
    sit on a stack of unreviewed commits and do not wait for the release to push.
 3. **Pre-push gates, locally, on the exact revision:** the build, the test suite,
    the privacy scan (`privacy_scan.py --tree --history`) and the link check must

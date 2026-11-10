@@ -171,11 +171,11 @@ F_SKILLS = "Skills.md"
 SKILLS_DIR = (".agents", "skills")
 
 DEFAULT_PROVIDER_LIMITS = {
-    "ollama-cloud": 10,
+    "ollama-cloud": 64,
     "deepseek": 2500,
     "openai": 64,
     "anthropic": 64,
-    "default": 8,
+    "default": 32,
 }
 
 SLOT_TTL_MINUTES = int(os.environ.get("TEAMWORK_SLOT_TTL_MINUTES", "90"))
