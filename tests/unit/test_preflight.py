@@ -689,6 +689,8 @@ def review_fail(cli, project: Path, handle: str = "T-0001") -> int:
         "fail",
         "--findings",
         "the guide still describes the old flag",
+        "--detects",
+        "a reader who copies the documented flag gets 'unrecognized arguments'",
     )
 
 
