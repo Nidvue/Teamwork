@@ -33,25 +33,35 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | privacy | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | yes |
 | docs | `teamwork links` + `mkdocs build --strict` (in `docs.yml`) | yes |
 | release consistency | `python scripts/check_release_consistency.py --offline` (the `release-consistency` job in `ci.yml`) | yes (a registered required check) |
-| release consistency (online) | `python scripts/check_release_consistency.py --online` (the `consistency` job in `release.yml`, which lands with task T-0007) | yes (on a `v*` tag) |
+| release consistency (online) | `python scripts/check_release_consistency.py --online` (the `consistency` job in `release.yml`) | yes (on a `v*` tag) |
 
 The `release consistency (offline - docs + tags + version)` context **is
 registered** in the branch protection of `main` (16 contexts, `strict=true`).
-It must not be *blocking* until `scripts/check_release_consistency.py` and
-`release-exceptions.json` are merged (developer task **T-0005**): without the
-checker the job cannot run and exits 2, so a merge to `main` would be blocked
-by a check that has nothing to run. The same landing must carry the R6/R8/R9
-prose repairs (CEO task **T-0061**), because `main` is red on those rules
-today. The CEO owns that sequencing; the gate itself is not softened to
-compensate.
+It can only be *blocking* when the gate can actually run, and that is a
+re-runnable condition, not a date:
+
+- the checker and its exception file must be in the tree -
+  `git ls-tree HEAD scripts/check_release_consistency.py release-exceptions.json`
+  prints one line for each. Without the checker the job cannot run and exits
+  2, so a merge to `main` would be blocked by a check that has nothing to run.
+- the gate must be green - `python3 scripts/check_release_consistency.py --offline`
+  prints `# release consistency: 0 problem(s)` and exits 0. A red gate is
+  repaired, never softened; the gate is not weakened with `|| true` or
+  `continue-on-error` to let a merge through.
+
+Read those two commands instead of trusting a sentence about what has landed.
 
 The consistency gate runs twice on purpose. In `ci.yml` it runs **offline**: R1,
 R2, R6, R7 and R9 evaluate from the tree and the tags, and R3/R4/R5/R8 print
 `SKIP` with the reason, because the npm registry, the GitHub API and PyPI need
 credentials and rate-limit headroom that do not belong in every pull request.
-The **online** half - the same checker with `--online` - lands with the release
-task **T-0007**; it is not in `release.yml` on `main` today, so R3/R4/R5 are
-still permanently `SKIP` in every automated run until that task lands.
+The **online** half - the same checker with `--online` - runs in
+`.github/workflows/release.yml`, in the `consistency` job named `release
+consistency gate (online, before anything is published)`, before anything is
+published; `git grep -c 'release consistency gate (online, before anything is
+published)' .github/workflows/release.yml` prints `1`. R3/R4/R5 therefore
+evaluate there, where the registry credentials and the rate-limit headroom are
+available, and print `SKIP` only in the offline runs of `ci.yml`.
 
 ## Release candidate gate
 

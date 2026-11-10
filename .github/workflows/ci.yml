@@ -26,8 +26,8 @@
 #
 # The consistency gate in this file runs `--offline`, so R3/R4/R5/R8 (npm, the
 # GitHub API, PyPI) print SKIP here. The online half - the same checker with
-# `--online` - lands with the release task T-0007; it is not in this file and
-# this file does not claim to run it.
+# `--online` - runs in `.github/workflows/release.yml` (the `consistency` job),
+# not in this file; this file does not claim to run it.
 
 name: CI
 
@@ -388,8 +388,9 @@ jobs:
     # belong in every pull request, and an unauthenticated 403 would turn a gate
     # into a flake. Offline they print SKIP with the reason, and every local rule
     # (R1, R2, R6, R7, R9) still evaluates from the tree and the tags. The online
-    # half - the same checker with `--online` - lands with the release task
-    # T-0007; nothing in this file claims to run it.
+    # half - the same checker with `--online` - runs in
+    # `.github/workflows/release.yml` (the `consistency` job); nothing in this
+    # file claims to run it.
     #
     # R2 is not re-implemented here. R2 compares HEAD only against the version
     # tags reachable from HEAD minus the tags that point at HEAD (`S = A - O`);
