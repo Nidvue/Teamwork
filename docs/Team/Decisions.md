@@ -2590,3 +2590,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: gh run view --json jobs on 894e71c -> privacy scan (tree + history) cancelled at 15m, test (windows-latest / py3.13) cancelled at 90m; both logs end 'The operation was canceled' with no test line; the same tree passes locally (2707 passed) and the same privacy command exits 0 locally in 3m
 - falsified by: -
 - consequences: -
+
+## D-20261110-CEO-7 - FULL HISTORY REWRITE (operator-authorized in two steps...
+
+- date: 2026-11-10
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0091
+- context: -
+- options considered: -
+- decision: FULL HISTORY REWRITE (operator-authorized in two steps: 'reset all commit messages ... Ping Zhao' then 'yes, rewrite commits'): all 2052 commits became 595 - 592 feature commits plus 3 record commits - grouped by task inside tag-delimited segments, so each of the 14 release tags sits on a commit whose tree is byte-identical to the tag it replaces. Authors are Ping Zhao <<redacted-personal-email>> except the dependabot commits, which keep the bot identity because they are not the operator's. The four fabricated fixture authors that needed a legacy exemption are gone, so LEGACY_MESSAGE_EXEMPT is empty. Two protections were relaxed for the push and restored and re-read: allow_force_pushes (branch) and the v* tag ruleset (update/deletion/non-fast-forward). Consequences accepted: every SHA in the project changes, so external references to old commits (npm provenance, GitHub release notes pointing at old SHAs, any clone that fetched before this) no longer resolve; the release *content* is unchanged and each tag still builds the same tree.
+- why: -
+- evidence: git rev-list --count HEAD -> 595 (was 2052); git log --format=%an | sort -u -> 'Ping Zhao <<redacted-personal-email>>' and 'dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>'; python3 scripts/teamwork.py identity --audit --strict-authors --range HEAD -> 594 commits, 0 problems; git diff --quiet <old head> <new head> -> identical tree before the records commit; every tag re-created on a commit whose tree equals the old tag's tree (14/14); git push --force-with-lease origin main -> a7ddf72...5b2ea4c; git push --force --tags -> 14 forced updates; gh api branches/main/protection -> force=false, 15 checks, 1 review; gh api rulesets/25840176 -> active, no bypass actors
+- falsified by: -
+- consequences: -
