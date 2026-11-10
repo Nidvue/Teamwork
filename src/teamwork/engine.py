@@ -2486,6 +2486,12 @@ def cmd_decision_list(args) -> int:
 # three views clip free-text evidence by default and `--full` turns it off.
 VIEW_CLIP_LIMIT = 600
 
+# How many archive entries a listing shows by default. The file is the team's
+# evidence ledger and grows with every accepted result, so an unbounded listing
+# costs more on each read than the decision it supports; the records are
+# untouched and `--all`/`--full` still print everything.
+ARCHIVE_VIEW_ENTRIES = 8
+
 # The evidence-bearing lines of a docs/Team/Archive.md entry (archive_append).
 ARCHIVE_CLIP_FIELDS = (
     "- self-check: ",
@@ -5391,8 +5397,36 @@ def iter_markdown(project: Path) -> list:
     return sorted(out)
 
 
-def _link_targets(path: Path):
-    text = strip_code(path.read_text(encoding="utf-8", errors="replace"))
+# The quoted-evidence fields of an Archive.md entry (archive_append writes them).
+QUOTED_EVIDENCE_RE = re.compile(
+    r"^(- (?:self-check|author evidence|reviewer evidence|findings history): ).*$", re.M
+)
+
+
+def strip_quoted_evidence(rel: str, text: str) -> str:
+    """Drop quoted evidence lines: a quotation is not a link the team maintains.
+
+    ``archive_append`` copies another agent's findings and evidence verbatim, so an
+    entry can contain any markdown the original had - including a link whose target
+    exists in the author's revision but not in this tree, or a bare URL inside a
+    quoted changelog. Checking those as authored links is wrong twice over: it fails
+    a revision for text it did not write, and the remedy (hand-backticking every
+    quotation) is a manual tax that already cost T-0032 and T-0035 and broke again on
+    the next entry. The authored text of the document - titles, sections, every other
+    line - is still checked in full.
+    """
+    if not rel.endswith("Archive.md"):
+        return text
+    return QUOTED_EVIDENCE_RE.sub(lambda m: m.group(1), text)
+
+
+def _document_text(path: Path, rel: str) -> str:
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    return strip_code(strip_quoted_evidence(rel, raw))
+
+
+def _link_targets(path: Path, rel: str = ""):
+    text = _document_text(path, rel or path.name)
     for m in LINK_RE.finditer(text):
         yield m.group(1).strip(), m.group(2).strip()
 
@@ -5408,11 +5442,10 @@ def link_report(project: Path, root: Path) -> dict:
     graph = {}
     files = iter_markdown(project)
     for path in files:
-        raw = path.read_text(encoding="utf-8", errors="replace")
-        text = strip_code(raw)
         rel = path.relative_to(project).as_posix()
+        text = _document_text(path, rel)
         outs = set()
-        for label, target in _link_targets(path):
+        for label, target in _link_targets(path, rel):
             if target.startswith("#"):
                 continue
             if target.startswith(EXTERNAL_SCHEMES):
@@ -5546,8 +5579,16 @@ def _section(key: str, title: str):
     return {"key": key, "title": title, "lines": [], "blockers": []}
 
 
-def gate_report(root: Path, stale_days: int = 2) -> dict:
-    """Every completion gate, with the detail a human needs to act on it."""
+def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
+    """Every completion gate, with the detail a human needs to act on it.
+
+    Evidence fields are clipped to ``VIEW_CLIP_LIMIT`` unless ``full`` is set: the
+    records keep the whole value, and the gate only needs enough to decide.
+    """
+
+    def brief(value) -> str:
+        return view_text(value, full)
+
     docs = docs_dir(root)
     sections = []
     names = list_roles(root)
@@ -5569,7 +5610,7 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
                 done += 1
                 s["lines"].append(
                     f"[x] {c['id']} {c['text']} "
-                    f"({c['verified_by']} {c['verified']}: {c['evidence']})"
+                    f"({c['verified_by']} {c['verified']}: {brief(c['evidence'])})"
                 )
             else:
                 s["lines"].append(f"[ ] {c['id']} {c['text']} (status={c['status']})")
@@ -5607,7 +5648,7 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
             s["lines"].append(
                 f"{mark} {r['id']} {r['layer']}/{r['area']} "
                 f"owner={r['owner']} by={r['by'] or '-'}"
-                + (f"  {r['evidence']}" if r["evidence"] else "")
+                + (f"  {brief(r['evidence'])}" if r["evidence"] else "")
             )
         failing = [r for r in records if r["status"] == "failing"]
         if failing:
@@ -5846,16 +5887,41 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
     }
 
 
+# A stop check is read on every iteration, so its listing is the most repeated
+# view in the workspace. Section lines are clipped for reading; `--full` (or a
+# redirect) prints the stored text unchanged.
+LOOP_CLIP_LIMIT = 220
+
+
 def cmd_loop(args) -> int:
     """Stop-condition check: may the team stop, or must the loop continue?"""
     root = project_root(args)
-    report = gate_report(root)
+    full = bool(getattr(args, "full", False))
+    report = gate_report(root, full=full)
     print(f"# Loop status ({root})")
     print()
+    clipped = 0
+    passed = 0
     for sec in report["sections"]:
         print(f"## {sec['title']}")
         for line in sec["lines"]:
-            print(f"- {line}")
+            # A passing record is a count, not a task: the gate only needs the
+            # failures, the gaps and the blockers to decide, so the default view
+            # collapses the passing rows and `--full` lists them.
+            if not full and line.startswith("[x] "):
+                passed += 1
+                continue
+            view = line if full else clip(line, LOOP_CLIP_LIMIT)
+            clipped += view != line
+            print(f"- {view}")
+        print()
+    if passed or clipped:
+        detail = []
+        if passed:
+            detail.append(f"{passed} passing record(s)")
+        if clipped:
+            detail.append(f"{clipped} line(s) clipped")
+        print(f"# {' and '.join(detail)}: `loop --full` prints them whole")
         print()
     blockers = report["blockers"]
     print(
@@ -6645,7 +6711,17 @@ def cmd_archive(args) -> int:
         if not hits:
             print("- none")
         return 0
-    print(archive_view_text(text.rstrip(), full))
+    entries = text.rstrip().split("\n## ")
+    header, body = entries[0], entries[1:]
+    limit = 0 if full or args.all else args.limit
+    shown = body if not limit or len(body) <= limit else body[-limit:]
+    out = "\n## ".join([header] + shown) if shown else header
+    print(archive_view_text(out.rstrip(), full))
+    if len(shown) < len(body):
+        print(
+            f"\n# {len(shown)} of {len(body)} entries (most recent first): "
+            "`archive --all` lists them all, `archive --full` prints evidence whole"
+        )
     return 0
 
 
@@ -8477,8 +8553,16 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument(
         "--full",
         action="store_true",
-        help="print the evidence fields unclipped (default: 600 chars)",
+        help="print the evidence fields unclipped (default: 600 chars) and every entry",
     )
+    s.add_argument(
+        "--limit",
+        type=int,
+        default=ARCHIVE_VIEW_ENTRIES,
+        metavar="N",
+        help=f"list only the N most recent entries (default {ARCHIVE_VIEW_ENTRIES})",
+    )
+    s.add_argument("--all", action="store_true", help="list every entry")
     s.set_defaults(func=cmd_archive)
 
     s = sub.add_parser(
@@ -8850,6 +8934,11 @@ def _parsers_audit(sub, common) -> None:
 def _parsers_scheduling(sub, common) -> None:
     """`scheduling` command surface."""
     s = sub.add_parser("loop", parents=[common], help="stop-condition check: may the team stop?")
+    s.add_argument(
+        "--full",
+        action="store_true",
+        help=f"print every line whole (default: clip detail past {LOOP_CLIP_LIMIT} chars)",
+    )
     s.set_defaults(func=cmd_loop)
 
     s = sub.add_parser("slot", parents=[common], help="reserve/release a provider concurrency slot")

@@ -70,6 +70,13 @@ def render(cli, capsys, *argv) -> str:
     return capsys.readouterr().out
 
 
+def render_any(cli, capsys, *argv) -> str:
+    """Like ``render`` but tolerant of the exit code (``loop`` returns 1 on CONTINUE)."""
+    capsys.readouterr()
+    cli(*argv)
+    return capsys.readouterr().out
+
+
 def task_to_review(cli, project: Path, root: Path) -> None:
     """Claim T-0001 with long author evidence and park it awaiting review."""
     assert (
@@ -758,3 +765,133 @@ def test_reworked_task_records_each_merge_revision_of_its_reused_branch(
     assert f"- branch / merge: {branch} / {first_sha}" in committed
     assert f"- branch / merge: {branch} / {second_sha}" in committed
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+
+
+# --------------------------------------------------------------------------- #
+# loop and archive: the two views read on every iteration
+# --------------------------------------------------------------------------- #
+
+
+def test_loop_collapses_passing_records_and_clips_long_lines(cli, project: Path, capsys) -> None:
+    """A stop check needs the failures, not the successes, and not 600 chars each."""
+    root = init_workspace(cli, project, git=False)
+    assert (
+        cli(
+            "--project",
+            project,
+            "tests",
+            "add",
+            "--layer",
+            "unit",
+            "--area",
+            "core",
+            "--command",
+            "pytest -q",
+        )
+        == 0
+    )
+    record = engine.parse_tests(engine.tests_path(root))[0]
+    record["status"] = "passing"
+    record["evidence"] = AUTHOR_LONG
+    engine.write_tests(engine.tests_path(root), [record])
+
+    out = render_any(cli, capsys, "--project", project, "loop")
+    assert AUTHOR_TAIL not in out, "a passing record's evidence is not needed to decide"
+    assert "passing record(s)" in out, "the collapsed count must be stated, not hidden"
+    assert "`loop --full`" in out
+
+    full = render_any(cli, capsys, "--project", project, "loop", "--full")
+    assert AUTHOR_LONG in full, "--full must print the record whole"
+    assert "passing record(s)" not in full
+
+
+def test_loop_clips_a_long_failing_line_and_names_the_flag(cli, project: Path, capsys) -> None:
+    root = init_workspace(cli, project, git=False)
+    assert (
+        cli(
+            "--project",
+            project,
+            "tests",
+            "add",
+            "--layer",
+            "unit",
+            "--area",
+            "core",
+            "--command",
+            "pytest -q",
+        )
+        == 0
+    )
+    record = engine.parse_tests(engine.tests_path(root))[0]
+    record["status"] = "failing"
+    record["evidence"] = REVIEWER_LONG
+    engine.write_tests(engine.tests_path(root), [record])
+
+    out = render_any(cli, capsys, "--project", project, "loop")
+    assert "line(s) clipped" in out
+    assert REVIEWER_TAIL not in out
+    assert REVIEWER_HEAD in out, "a clipped line keeps its head: it must still be triageable"
+    assert REVIEWER_LONG in render_any(cli, capsys, "--project", project, "loop", "--full")
+
+
+def test_archive_listing_shows_the_most_recent_entries(cli, project: Path, capsys) -> None:
+    """The evidence ledger grows forever; a listing shows the tail by default."""
+    init_workspace(cli, project, git=False)
+    target = project / "docs" / "Team" / "Archive.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    body = [engine.ARCHIVE_HEADER.rstrip(), ""]
+    for i in range(1, 13):
+        body += [
+            f"## T-{i:04d} · entry {i}  (developer)",
+            "- date: 2026-10-19",
+            f"- author evidence: entry-{i}-evidence",
+            f"- branch / merge: b{i} / sha{i}",
+            "",
+        ]
+    target.write_text("\n".join(body), encoding="utf-8")
+
+    out = render(cli, capsys, "--project", project, "archive")
+    assert "of 12 entries" in out and "`archive --all`" in out
+    assert "entry-12-evidence" in out, "the newest entry must always be listed"
+    assert "entry-1-evidence" not in out, "the oldest entry is what the default drops"
+
+    everything = render(cli, capsys, "--project", project, "archive", "--all")
+    assert "of 12 entries" not in everything
+    assert "entry-1-evidence" in everything and "entry-12-evidence" in everything
+
+    limited = render(cli, capsys, "--project", project, "archive", "--limit", "2")
+    assert "of 12 entries" in limited
+    assert "entry-11-evidence" in limited and "entry-10-evidence" not in limited
+
+
+# --------------------------------------------------------------------------- #
+# quoted evidence is not authored markdown
+# --------------------------------------------------------------------------- #
+
+
+def test_archive_quoted_evidence_is_not_link_checked(tmp_path: Path) -> None:
+    """A quoted finding must not fail the link check of the tree that quotes it.
+
+    ``archive_append`` copies another agent's verdict verbatim, so the entry can
+    carry a link whose target lived in the author's revision (``compare/v1.0.2...HEAD``
+    in a quoted changelog) or a bare URL inside quoted prose. That text is evidence,
+    not a link the team maintains: T-0032 and T-0035 each hand-backticked instances
+    and the next accepted result re-broke the check.
+    """
+    docs = tmp_path / "docs" / "Team"
+    docs.mkdir(parents=True)
+    (docs / "Archive.md").write_text(
+        engine.ARCHIVE_HEADER + "\n## T-0001 · shipped  (developer)\n"
+        "- date: 2026-10-19\n"
+        "- findings history: FAIL @abc123. CHANGELOG.md:12 links "
+        "[Unreleased](compare/v1.0.2...HEAD) and see https://github.com/Nidvue/Teamwork\n"
+        "- reviewer evidence: PASS. Quoted [changelog](compare/v1.0.2...v1.1.0) too.\n"
+        "\n## Authored section\n"
+        "[real](missing.md)\n",
+        encoding="utf-8",
+    )
+
+    report = engine.link_report(tmp_path, tmp_path)
+    assert report["bare"] == [], "a URL inside quoted evidence is not an authored bare URL"
+    broken_targets = [target for _, _, target, _ in report["broken"]]
+    assert broken_targets == ["missing.md"], "authored links must still be checked"
