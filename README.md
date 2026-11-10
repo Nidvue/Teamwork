@@ -118,7 +118,7 @@ git clone https://github.com/Nidvue/Teamwork.git
 cd Teamwork && python -m pip install .
 
 # the wheel attached to the newest GitHub release
-python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.2.0/teamwork_agents-1.2.0-py3-none-any.whl
+python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.2.1/teamwork_agents-1.2.1-py3-none-any.whl
 ```
 
 That URL names a **release**, and a wheel lags the checkout by design: a version
