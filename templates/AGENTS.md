@@ -380,6 +380,21 @@ Never wait for another role before doing work you can do yourself.
   `dist/`, `build/`, `.venv/`). Build only the touched scope; reuse or cite an
   existing green run on the same revision. Report
   `BUILD: <command> · built|reused · <seconds>`.
+- **NAMING** - team-created directories are PascalCase; file names follow the
+  ecosystem, and PascalCase/camelCase are fine wherever it allows them (docs
+  `Architecture.md`, components `ButtonGroup.tsx`). Python modules stay
+  `lower_snake_case` because the name *is* the import path, and tool-mandated files
+  (`pyproject.toml`, `Makefile`, `AGENTS.md`) are never renamed.
+- **COMMIT HYGIENE** - commit while you work, then rebase and squash before the
+  review: one coherent change-set per commit, `wip`/`fixup` commits squashed,
+  rebased onto the latest default branch, target one commit per task. Never rebase
+  or force-push a shared branch or anything already on `main`.
+- **LINT AND FORMAT** - style is automated, never argued. Use the language's one
+  canonical formatter and linter (Python: `ruff format` + `ruff check` + `mypy`;
+  see `references/Engineering.md` for the full table), run the fixer before
+  committing and the checker in CI. Never hand-format, never weaken a rule to pass
+  (no blanket `noqa`, no rule deleted from the config), and never merge code the
+  formatter would change. Evidence: the command and its result.
 - **COMMENTS** - write only comments the code cannot give you: a non-obvious why,
   a workaround with its reference, a public contract. Never restate the next line,
   never banner self-evident sections, never leave commented-out code, never write
