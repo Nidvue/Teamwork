@@ -30,8 +30,12 @@ like any other: it runs alongside the developer, tester and designer lanes.
   code, a release, an irreversible decision - assign *two* Reviewers on purpose.
   Both must pass; on a split, resolve it on evidence before either verdict stands.
   A disagreement is a signal, not a coin toss.
-- **The merger is always a different Reviewer** from the one who approved, and
-  nobody reviews or merges their own work.
+- **A pass is the merge.** The Reviewer that verified the revision runs
+  `review --result pass` and that command lands the PR and deletes its branch,
+  so an approved deliverable never waits in a second queue. Independence is
+  about the **author**: nobody reviews or merges their own work, and a Reviewer
+  who co-authored a deliverable cannot review it. `--keep-branch` keeps the
+  branch, `--no-merge` lands only the verdict.
 - **Conflict of interest.** A Reviewer who produced or co-authored a deliverable
   cannot review it. If every Reviewer contributed to it, escalate to the tribunal
   (CEO + CTO + CFO) instead of self-approving.

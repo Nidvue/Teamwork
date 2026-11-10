@@ -492,14 +492,24 @@ List test records.
 teamwork review [AGENT] [HANDLE] [--queue] [--full] [--by BY]
     [--result {pass,fail}] [--evidence EVIDENCE] [--artifact PATH]...
     [--baseline BASELINE] [--replay REPLAY] [--findings FINDINGS]
-    [--force REASON]
+    [--keep-branch] [--no-merge] [--force REASON]
 ```
 
 Reviewer: independent second review of a deliverable. `--queue` lists everything
-awaiting review. A pass archives the result; a fail returns the task to its
-owner. `--artifact` binds a verification artifact (hashed into the ledger) to the
-verdict; `--baseline` and `--replay` record where the verification started and
-how to rerun it. `--force` overrides the review gates and requires a recorded reason.
+awaiting review. **A pass merges the PR at once** and closes its branch: the
+Reviewer that verified the revision runs the merge itself, so a passing review
+never waits in a second queue. `--keep-branch` keeps the branch; `--no-merge`
+lands only the verdict and leaves the merge to `pr merge`. A fail returns the
+task to its owner. `--artifact` binds a verification artifact (hashed into the
+ledger) to the verdict; `--baseline` and `--replay` record where the
+verification started and how to rerun it. `--force` overrides the review gates
+and requires a recorded reason.
+
+Independence is about the **author**, not about a second Reviewer: the author
+never reviews or merges its own work, and a Reviewer who co-authored a
+deliverable cannot review it. A pass that cannot merge (a conflict, a dirty
+tree) keeps the verdict and prints the exact `pr merge` to finish - the work is
+then not in the base branch yet, and the message says so.
 `--queue` clips each evidence and findings line at 600 characters and marks what it
 omitted (`... (+N chars: --full)`); `--full` prints them whole - the stored records
 always keep the full text.
