@@ -4178,3 +4178,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff --stat main...8109dd7 -> src/teamwork/version.py, CITATION.cff, CHANGELOG.md only; check_release_consistency.py --offline @8109dd7 -> 0 problems (main at 982dfa6 was R2 DRIFT HEAD 1.5.1 not greater than tag v1.5.1) and --online @8109dd7 -> 0 problems; pytest -q tests/unit/test_docs_contracts.py tests/unit/test_release_traceability.py tests/unit/test_release_workflow.py @8109dd7 -> 73 passed, 1 skipped; teamwork.py links -> 0 issues; ruff check + format --check -> clean; git rev-parse v1.5.1 -> 530bc13 (the tag is untouched); the 1.5.2 section names only the two workflow fixes and states no shipped behaviour change.
 - findings history: 
 - branch / merge: ceo/t-0028-chore-release-bump-to-1-5-2-on-main-afte / 38bcef8
+
+## T-0045 · fix(docs): the preflight surface still quotes the retired 38/43 figure  (developer)
+- date: 2026-11-02
+- priority: P2
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the four rewritten passages against D-20261029-CEO-3/4 and the AGENTS.md throughput contract: all now use the n=1615 cut (44 failures, 66 targets, 26 >1, 11 >=3) and call the mechanical share contested at 16-24 of 44, with the prospective measurement named. The check logic and every constant are untouched; the change is comments and docstrings only. | test: pytest -q tests/unit/test_preflight.py @ebadac6 -> 18 passed; grep -rn '38 of 43|38/43' src tests -> 0 (the remaining hits are the historical archive and the T-0045 task title); ruff check + format --check -> clean | preflight: PF-9513c66bf882 @ebadac625075 (7 checks, 0 failed)
+- author evidence: Reviewer-1 round 3 on P-0063: engine.py:9930-9938 and test_preflight.py:3,599 still assert 38/43 as measured; docs withdrew it in D-20261029-CEO-3/4; commit ebadac6
+- reviewer evidence: git diff --stat main...ebadac6 -> src/teamwork/engine.py and tests/unit/test_preflight.py only, comments and docstrings; the four passages now state the n=1615 cut (44 review failures, 66 targets, 26 >1 verdict, 11 >=3) and the contested 16-24 of 44, matching D-20261029-CEO-3; pytest -q tests/unit/test_preflight.py @ebadac6 -> 18 passed; grep -rn '38 of 43' src tests -> 0 hits (historical archive/task title only); ruff check + format --check -> clean; no check logic, constant or assertion changed.
+- findings history: 
+- branch / merge: developer/t-0045-fix-docs-the-preflight-surface-still-quo / f1aec91
