@@ -8117,8 +8117,6 @@ def cmd_dispute_sign(args) -> int:
         d = disputes[idx]
         if not d["escalated"] and d["status"] != "escalated":
             die(f"{d['id']} is not escalated; the two agents resolve it themselves")
-        if args.force:
-            args.force = require_reason(args.force, "the tribunal signature rule")
         who = arole
         members = required_tribunal(root, d)
         if who not in members:
