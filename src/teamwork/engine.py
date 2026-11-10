@@ -22,7 +22,8 @@ Usage
     teamwork.py load AGENT [--limit N]
     teamwork.py remember AGENT TEXT [--layer short|long] [--key K]
                                   [--importance 0-5] [--tags a,b] [--pin]
-    teamwork.py global TEXT [--key K] [--importance N] [--tags a,b] [--pin]
+    teamwork.py global TEXT [--by BY] [--src SRC] [--rev REV]
+                            [--key K] [--importance N] [--tags a,b] [--pin]
     teamwork.py recall QUERY [--agent A] [--all] [--global] [--layer both|short|long]
     teamwork.py touch AGENT ID|KEY [--layer short|long]
     teamwork.py forget AGENT ID|KEY [--layer short|long]
@@ -199,6 +200,7 @@ from .layout import (
     teams_root_unused,
     testplan_path,
     tests_path,
+    work_docs_dir,
     work_repo,
 )
 from .names import (
@@ -380,6 +382,7 @@ __all__ = [
     "project_of",
     "docs_dir",
     "work_repo",
+    "work_docs_dir",
     "team_root_from_cwd",
     "project_root",
     "teams_root_unused",
@@ -2375,7 +2378,7 @@ def ledger_verify(root: Path, reconcile: bool = False, _locked: bool = False) ->
         except (ValueError, OSError, TypeError):
             problems.append("head cache is unreadable")
     # external anchor: the last exported checkpoint must not be ahead of us
-    manifest = docs_dir(root) / F_MANIFEST
+    manifest = work_docs_dir(root) / F_MANIFEST
     if manifest.exists():
         try:
             import json
@@ -2790,37 +2793,50 @@ def _file_digest(path: Path) -> str:
         return ""
 
 
-def manifest_path_hint(root: Path) -> Path:
-    return docs_dir(root) / F_MANIFEST
-
-
 def ledger_export(root: Path, args) -> int:
-    """Emit an externally verifiable manifest of the whole trail."""
+    """Emit an externally verifiable manifest of the whole trail.
+
+    The manifest is project output, so it is written in the work tree the
+    command acts on: a lane that exports from its own worktree gets a file it
+    can commit on its branch, and the manifest describes that work tree's
+    revision. Writing it into the project that owns the team tree instead left
+    the lane's worktree clean and the main checkout dirty - the very state the
+    manifest's own ``dirty`` field then misreported - and pinned the main
+    checkout's head, a revision the committing branch does not have.
+    """
     import json
 
-    project = project_of(root)
+    # The work tree the command acts on: a lane that exports from its own
+    # worktree gets a file it can commit on its branch, and the manifest
+    # describes that work tree's revision.
+    project = work_repo(root)
+    docs = work_docs_dir(root)
+    # The team's hidden tree (ledger, memory, task queues) lives in the project
+    # that owns it, not in the work tree, so its entries stay relative to that
+    # project.
+    state_root = project_of(root)
     problems = ledger_verify(root, reconcile=True)
     records = ledger_read(root)
     tracked = []
-    for path in (
-        criteria_path(root),
-        tests_path(root),
-        testplan_path(root),
-        reviews_path(root),
-        disputes_path(root),
-        global_dir(root) / F_GLOBAL,
-        docs_dir(root) / "Project.md",
-        docs_dir(root) / "Plan.md",
-        docs_dir(root) / "Architecture.md",
-        docs_dir(root) / "Decisions.md",
-        docs_dir(root) / "Archive.md",
+    for path, base in (
+        (criteria_path(root), state_root),
+        (tests_path(root), state_root),
+        (testplan_path(root), state_root),
+        (reviews_path(root), state_root),
+        (disputes_path(root), state_root),
+        (global_dir(root) / F_GLOBAL, state_root),
+        (docs / "Project.md", project),
+        (docs / "Plan.md", project),
+        (docs / "Architecture.md", project),
+        (docs / "Decisions.md", project),
+        (docs / "Archive.md", project),
     ):
         if path.exists():
             tracked.append(
                 {
                     # posix form: the manifest is published, so a Windows
                     # backslash would make the same revision hash differently.
-                    "path": path.relative_to(project).as_posix(),
+                    "path": path.relative_to(base).as_posix(),
                     "sha256": _file_digest(path),
                     "bytes": path.stat().st_size,
                 }
@@ -2831,7 +2847,7 @@ def ledger_export(root: Path, args) -> int:
             if p.exists():
                 tracked.append(
                     {
-                        "path": p.relative_to(project).as_posix(),
+                        "path": p.relative_to(state_root).as_posix(),
                         "sha256": _file_digest(p),
                         "bytes": p.stat().st_size,
                     }
@@ -2859,7 +2875,7 @@ def ledger_export(root: Path, args) -> int:
         root,
         "ledger.export",
         export_actor,
-        str(manifest_path_hint(root)),
+        str(docs / F_MANIFEST),
         f"manifest export ({len(records)} records before this event)",
     )
     records = ledger_read(root)
@@ -2873,7 +2889,7 @@ def ledger_export(root: Path, args) -> int:
     # Archive.md is the accepted-results ledger: it gains an entry for this very
     # deliverable when the review passes, so a digest committed beside it is stale
     # by construction. Its entries are verified through the ledger, not a snapshot.
-    archive_rel = archive_path(root).relative_to(project).as_posix()
+    archive_rel = (docs / "Archive.md").relative_to(project).as_posix()
     external = [a for a in tracked if not a["path"].startswith(".pi/") and a["path"] != archive_rel]
     internal = [a for a in tracked if a["path"].startswith(".pi/")]
     manifest = {
@@ -2882,8 +2898,9 @@ def ledger_export(root: Path, args) -> int:
         "team_id": team_identity(root) or ensure_team_identity(root),
         # Never embed the absolute checkout path: the manifest is committed and
         # published, and a machine path is both a privacy leak and useless to a
-        # verifier on another host.
-        "project": project.name,
+        # verifier on another host. The name is the project's, never the work
+        # tree's: a lane worktree is named after the instance that owns it.
+        "project": state_root.name,
         "ledger": {
             "records": len(records),
             "checkpoint_n": checkpoint_n,
@@ -2911,7 +2928,7 @@ def ledger_export(root: Path, args) -> int:
             "pinned as an artifact; follow its entries with `trace`.",
         ],
     }
-    out_dir = docs_dir(root)
+    out_dir = docs
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = out_dir / F_MANIFEST
     report_path = out_dir / F_AUDITREPORT
@@ -4237,7 +4254,16 @@ def cmd_global(args) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "global.lock"):
         entries = parse_memory(path)
-        entry = new_entry(args.text, args.key, args.importance, args.tags, args.pin)
+        entry = new_entry(
+            args.text,
+            args.key,
+            args.importance,
+            args.tags,
+            args.pin,
+            by=args.by or "",
+            src=args.src or "",
+            rev=args.rev or "",
+        )
         entries, merged, added = merge_entries(entries, [entry])
         entries.sort(key=score, reverse=True)
         pinned = [e for e in entries if e["pinned"]]
@@ -4254,9 +4280,10 @@ def cmd_global(args) -> int:
     ledger_append(
         root,
         "memory.global",
-        "ceo",
+        args.by or "ceo",
         args.key or "global",
         f"{added} new / {merged} merged: {args.text[:80]}",
+        args.rev,
     )
     print(f"teamwork: global memory {added} new / {merged} merged ({path})")
     return 0
@@ -6674,17 +6701,27 @@ def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = No
     return f"# archive: wrote the accepted-results entry for {branch} on the base"
 
 
-#: Credential rules of the shipped privacy gate. The archive mask borrows the
-#: gate's own rule table rather than re-declaring shapes: a hand-written mask
-#: drifted from the scanner twice (it covered 2 of the 5 credential rules and
-#: masked ``sk-learn-pipeline``, which the gate never reports), and the archive is
-#: the one place where a divergence between mask and gate is unrecoverable.
+#: Rules of the shipped privacy gate that the archive mask covers. The mask
+#: borrows the gate's own rule table rather than re-declaring shapes: a
+#: hand-written mask drifted from the scanner twice (it covered 2 of the 5
+#: credential rules and masked ``sk-learn-pipeline``, which the gate never
+#: reports), and the archive is the one place where a divergence between mask
+#: and gate is unrecoverable.
+#:
+#: The set is every rule the gate reports except the two it silences inside a
+#: quotation (``_QUOTED_PATH_RULES``): a path *shape* is not personal data, but
+#: an address is, and the gate keeps the identity rules armed on a quoted
+#: evidence line on purpose. Naming the two identity rules here is what stops
+#: the engine from writing an archive record the gate rejects - the review
+#: record is where a quoted address becomes permanent.
 CREDENTIAL_RULES = (
     "private-key",
     "api-token",
     "env-secret",
     "json-secret",
     "high-entropy-secret",
+    "personal-email",
+    "private-domain",
 )
 
 
@@ -6722,14 +6759,17 @@ def mask_secret_shapes(text: str) -> str:
 
     An archive entry quotes another agent's words verbatim, so a verdict that
     proved a credential rule fires by quoting a fake token puts that token into
-    history. The mask is exactly the gate's own finding set: a value the gate
-    reports becomes ``<redacted-RULE>``, and a value it does not report is left
-    byte-identical, so ordinary prose, commit shas, ``sk-something`` helper names
-    and a JSON placeholder the gate accepts survive. Every value comes from the
-    gate's own ``scan_lines`` - the JSON rule included - so the mask cannot drift
-    by taking a regex directly and skipping the gate's placeholder, code-shape and
-    allow filters. The quoted claim ("a token on the exempted line is still
-    reported") remains readable.
+    history. The mask is the gate's own finding set minus the two path *shapes*
+    the gate itself silences inside a quotation (``home-path``,
+    ``agent-config``): a value the gate reports becomes ``<redacted-RULE>``, and
+    a value it does not report is left byte-identical, so ordinary prose, commit
+    shas, ``sk-something`` helper names, a JSON placeholder the gate accepts and
+    a role mailbox survive. Every value comes from the gate's own ``scan_lines``
+    - the JSON rule included - so the mask cannot drift by taking a regex
+    directly and skipping the gate's placeholder, code-shape and allow filters.
+    The quoted claim ("a token on the exempted line is still reported") remains
+    readable, and so does the finding around a redacted address: the ADDRESS is
+    replaced, not the evidence.
     """
     if not text:
         return text
@@ -8220,7 +8260,7 @@ def _audit_audit_trail_append_only_hash_chained(root: Path, names: list, args) -
         hits += 1
     if records and not problems_ledger:
         print(f"- {len(records)} records, chain intact, head {records[-1]['hash'][:16]}")
-    manifest = docs_dir(root) / F_MANIFEST
+    manifest = work_docs_dir(root) / F_MANIFEST
     if manifest.exists():
         try:
             import json
@@ -8409,14 +8449,78 @@ def _print_dispute(d: dict) -> None:
         print(f"    ruling: signed=[{', '.join(d['signed'])}] {d['decision']}")
 
 
-def _dispute_parties(dispute: dict = None) -> set:
-    """The roles a dispute is between; neither may rule it."""
+def _dispute_party_instances(root: Path, dispute: dict = None) -> set:
+    """The instances a dispute is between, in their canonical spelling.
+
+    A dispute names agents, not roles: ``raised_by``/``against`` hold the instance
+    that opened it and the instance it was opened against. Comparing them at role
+    level (the old ``resolve_role`` test) dropped a whole role from the panel as
+    soon as one of its instances was a party, which locked the uninvolved
+    instances of that same role out of the neutral seat.
+
+    A dispute raised against a bare role name speaks for every instance of that
+    role, so the whole role counts as a party here.
+    """
     if not dispute:
         return set()
-    return {
-        resolve_role(dispute.get("raised_by") or ""),
-        resolve_role(dispute.get("against") or ""),
-    }
+    out = set()
+    for field in ("raised_by", "against"):
+        name = pascal(dispute.get(field) or "")
+        if not name:
+            continue
+        role = resolve_role(name)
+        instances = {pascal(i) for i in instances_of(root, role)}
+        if name in instances:
+            out.add(name)
+        else:
+            out.update(instances)
+    return out
+
+
+def _dispute_party_instance(root: Path, dispute: dict, instance: str) -> bool:
+    """True when *this instance* is named in ``raised_by``/``against``.
+
+    The guarantee is per agent, not per role: Reviewer-2 may be a party to a
+    dispute while Reviewer-1 is not, and only Reviewer-2 is locked out of it.
+    """
+    if not dispute:
+        return False
+    return pascal(instance or "") in _dispute_party_instances(root, dispute)
+
+
+def _actor_is_dispute_party(root: Path, dispute: dict, actor: str, role: str) -> bool:
+    """True when the actor may not sign or rule the dispute it is party to.
+
+    A concrete instance is a party when it is named in the dispute. A bare role
+    name speaks for the whole role, so it is a party when ANY of its instances
+    is - otherwise a party could sign under its role name and slip past the
+    instance-level rule.
+    """
+    instances = instances_of(root, role)
+    if pascal(actor or "") in {pascal(i) for i in instances}:
+        return _dispute_party_instance(root, dispute, actor)
+    return any(_dispute_party_instance(root, dispute, inst) for inst in instances)
+
+
+def _role_has_neutral_instance(root: Path, role: str, dispute: dict) -> bool:
+    """True when the role has an instance that is not a party to the dispute.
+
+    A role leaves the panel only when EVERY one of its instances is a party:
+    then no agent of that role can sit, so the role cannot be staffed neutrally.
+    """
+    instances = instances_of(root, role)
+    if not instances:
+        return False
+    if not dispute:
+        return True
+    return any(not _dispute_party_instance(root, dispute, inst) for inst in instances)
+
+
+def _role_is_party_role(root: Path, role: str, dispute: dict) -> bool:
+    """True when at least one instance of the role is a party to the dispute."""
+    if not dispute:
+        return False
+    return any(_dispute_party_instance(root, dispute, inst) for inst in instances_of(root, role))
 
 
 def required_tribunal(root: Path, dispute: dict = None) -> list:
@@ -8424,17 +8528,38 @@ def required_tribunal(root: Path, dispute: dict = None) -> list:
 
     The CEO always sits. CTO and CFO join when staffed. The Reviewer takes the
     remaining neutral seat, because a slim roster staffs neither CTO nor CFO and a
-    panel of one would let the CEO sign and resolve their own case. A role that is
-    itself a party never sits, so a ruling is never issued by the side it decides
-    for. Only roles that really have an instance are returned - an invented signer
-    cannot sign and would deadlock every escalated dispute.
+    panel of one would let the CEO sign and resolve their own case. A role is
+    excluded only when EVERY one of its instances is a party, so an uninvolved
+    instance of a party role can still take the neutral seat - the case that
+    locked the third Reviewer out of a Reviewer-vs-Reviewer dispute. Only roles
+    that really have an instance are returned - an invented signer cannot sign and
+    would deadlock every escalated dispute.
     """
-    parties = _dispute_parties(dispute)
-    members = [r for r in ("ceo", "cto", "cfo") if r not in parties and instances_of(root, r)]
-    if len(members) < TRIBUNAL_MIN_SIGNERS and "reviewer" not in parties:
-        if instances_of(root, "reviewer"):
-            members.append("reviewer")
+    members = [r for r in ("ceo", "cto", "cfo") if _role_has_neutral_instance(root, r, dispute)]
+    if _role_has_neutral_instance(root, "reviewer", dispute) and (
+        len(members) < TRIBUNAL_MIN_SIGNERS or _role_is_party_role(root, "reviewer", dispute)
+    ):
+        # The Reviewer takes the neutral seat. It also takes it when it is a party
+        # role with an uninvolved instance: the role was only on the panel by
+        # accident then, and that instance is the neutral seat the charter names.
+        members.append("reviewer")
     return members
+
+
+def _neutral_signer(root: Path, dispute: dict, members: list) -> str:
+    """A concrete instance that may sign and rule: on the panel, not a party.
+
+    The panel lists roles, but the party rule is per instance, so a role on the
+    panel can still be the party - and the notice must not name it as the signer.
+    """
+    for role in members:
+        instances = instances_of(root, role)
+        if not any(_dispute_party_instance(root, dispute, inst) for inst in instances):
+            return role
+        for inst in instances:
+            if not _dispute_party_instance(root, dispute, inst):
+                return inst
+    return ""
 
 
 def _dispute_tribunal_notice(root: Path, d: dict) -> None:
@@ -8444,9 +8569,9 @@ def _dispute_tribunal_notice(root: Path, d: dict) -> None:
     print(f"  1) python3 teamwork.py dispute escalate {d['id']} --by {d['raised_by']}")
     print(f"  2) the tribunal ({', '.join(members)}) discusses and each signs:")
     print(f"     dispute sign {d['id']} --by {'|'.join(members)}")
-    signers = [r for r in members if r not in _dispute_parties(d)] or members
-    if signers:
-        print(f"  3) dispute resolve {d['id']} --by {signers[0]} --decision '<binding ruling>'")
+    signer = _neutral_signer(root, d, members)
+    if signer:
+        print(f"  3) dispute resolve {d['id']} --by {signer} --decision '<binding ruling>'")
     else:
         print("  3) nobody independent is staffed: add a reviewer, then resolve")
     print("  4) record the ruling in docs/Team/Decisions.md")
@@ -8559,6 +8684,16 @@ def cmd_dispute_sign(args) -> int:
         members = required_tribunal(root, d)
         if who not in members:
             die(f"only the tribunal may sign: {', '.join(members)}")
+        if _actor_is_dispute_party(root, d, actor, arole):
+            # The party rule is per instance: a role-mate is not a party, but the
+            # agent the dispute was raised against never signs its own case. The
+            # panel check runs first, so an actor off the panel still gets the
+            # panel message it always got.
+            die(
+                f"{d['id']}: {actor} is a party to this dispute and cannot sign it. "
+                f"Escalate it and let {', '.join(members)} decide",
+                2,
+            )
         if who not in d["signed"]:
             d["signed"].append(who)
         d["updated"] = today_iso()
@@ -8590,19 +8725,16 @@ def cmd_dispute_resolve(args) -> int:
         panel = required_tribunal(root, d)
         if arole not in panel:
             die(f"only the tribunal may resolve: {', '.join(panel)}")
-        parties = {
-            resolve_role(d.get("raised_by") or ""),
-            resolve_role(d.get("against") or ""),
-        }
-        if who in parties:
-            # A dispute is never decided by the side it decides for. Escalate it so a
-            # neutral member signs first; forcing it needs a written reason (F3).
-            what = (
-                f"{d['id']}: {who} is a party to this dispute and cannot rule it. "
-                f"Escalate it and let {', '.join(required_tribunal(root, d))} decide"
+        if _actor_is_dispute_party(root, d, actor, arole):
+            # A dispute is never decided by the side it decides for. The party test
+            # is per instance (a role-mate is not a party), and it is absolute:
+            # --force waives the signature requirement, never the party rule, so
+            # no party can rule its own dispute however good its reason reads.
+            die(
+                f"{d['id']}: {actor} is a party to this dispute and cannot rule it. "
+                f"Escalate it and let {', '.join(panel)} decide",
+                2,
             )
-            if not (args.force or "").strip():
-                die(f"{what}. Forcing it needs a written reason.", 2)
         if d["escalated"]:
             members = required_tribunal(root, d)
             missing = [r for r in members if r not in d["signed"]]
@@ -9610,6 +9742,9 @@ def _parsers_memory(sub, common) -> None:
     s.add_argument("--importance", type=int, default=3)
     s.add_argument("--tags", default="")
     s.add_argument("--pin", action="store_true")
+    s.add_argument("--by", default="", help="who recorded it (provenance)")
+    s.add_argument("--src", default="", help="what it comes from (task, doc, run)")
+    s.add_argument("--rev", default="", help="revision it was verified at")
     s.set_defaults(func=cmd_global)
 
     s = sub.add_parser("recall", parents=[common], help="search memory")
@@ -9960,6 +10095,12 @@ def _parsers_integration(sub, common) -> None:
     )
     s.set_defaults(func=cmd_commit)
 
+    # `hooks` installs and inspects the git hooks; `hook` is what those hooks call
+    # back into. The rules act on the commit/push flow, so they register here.
+    from .hooks import add_parsers as _add_hook_parsers
+
+    _add_hook_parsers(sub, common)
+
 
 def _parsers_governance(sub, common) -> None:
     """`governance` command surface."""
@@ -10238,6 +10379,12 @@ def _parsers_meta(sub, common) -> None:
     )
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(func=cmd_imaging)
+
+    # The harness surface registry and its lint live in their own module: they
+    # measure the tree at run time and must not grow this command layer.
+    from .harness import add_parsers as _add_harness_parsers
+
+    _add_harness_parsers(sub, common)
 
 
 def main(argv=None) -> int:
