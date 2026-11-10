@@ -1,6 +1,7 @@
 ---
 name: teamwork
 description: "Nidvue Teamwork - run a user prompt to completion with an autonomous multi-agent company: CEO, CTO, COO, CFO, Architect, Product Manager, Project Manager, Designer, Release Engineer, Technical Writer, Data Engineer, Developer(s), Tester(s), Reviewer and Security Auditor. Use when the user invokes /teamwork, asks for a team of sub-agents with roles, wants an org chart of agents that plans, builds, tests and iterates until the goal is met, or wants long-running parallel work with per-agent memory. The user talks only to the CEO; every other agent communicates internally."
+compatibility: "python3 3.9 or newer on PATH - the engine is stdlib-only, so there is no pip install and no venv; git is required for every branch, commit and PR operation."
 ---
 
 # Nidvue Teamwork - `teamwork` skill
@@ -696,8 +697,9 @@ Mechanical enforcement:
 - a `review --result pass` appends the accepted result to
   `docs/Team/Archive.md` (what, who, verified how, which revision) - the team's
   evidence ledger. Read it with `teamwork.py archive [--agent X]`.
-- a re-submitted fix is reviewed from scratch; there is no round limit, but at
-  fail, fix, re-check, re-submit, re-review until it passes.
+- a re-submitted fix is reviewed from scratch - fail, fix, self-check, re-submit,
+  re-review until it passes - and the failures are counted, so at 3 the Reviewer
+  opens a dispute and the tribunal rules instead of the loop spinning.
 - if a finding turns into a design disagreement, use the dispute protocol.
 
 This applies to code, unit tests, integration/E2E tests, documentation, design
