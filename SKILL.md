@@ -154,9 +154,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 264 kB |
-| `standard` | 9 | 386 kB |
-| `full` | 16 | 663 kB |
+| `slim` (default) | 6 | 277 kB |
+| `standard` | 9 | 401 kB |
+| `full` | 16 | 682 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
@@ -195,9 +195,9 @@ Two rules keep a slim roster honest, and both are enforced:
 Scale writers with the critical path: add `developer-N`/`tester-N` before adding a
 coordination role. **The Reviewer is not optional**, and two Reviewer lanes are the
 minimum: the review queue fans one deliverable per lane, a re-submitted fix is
-reviewed from scratch, and a second lane gives a sampled or high-risk deliverable
-an independent verdict. A pass merges - the lane that verified the revision lands
-it.
+re-reviewed as a delta (the lane that raised the finding), and a second lane gives
+a sampled or high-risk deliverable an independent verdict. A pass merges - the lane
+that verified the revision lands it.
 
 ## Workspace layout
 
@@ -652,6 +652,32 @@ team's throughput limit.
   claim-to-verdict p50/p90 and every claim that outlived its lease, so the CEO can
   see the bottleneck move.
 
+### 5h. Verify once, credit the rest
+
+The Reviewer is the lane every other lane waits on, and most of a slow review is
+work another role already did: the same suite, the same lint, the same privacy
+scan, run again at the same revision. Independence is about the **author**, not
+about repeating a peer - so a recorded result from another role at the revision
+under review is a fact to cite, and `review --packet` lists those facts.
+
+| Rule | What it means in the loop |
+|---|---|
+| one run per fact per revision | a recorded result (`tests run --rev`, a CI run on the pushed SHA) is not run again at that revision; cite it with `--credit` |
+| the irreducible core | the reviewer runs the requirement conformance check, its own `acceptance` layer, every `uncovered` criterion the packet names, and **one sampled credit** |
+| creditable | a `passing` record at this revision, `by` a role other than the author's, with the command written down; not the author's self-check, not another revision, not a peer's opinion |
+| recorded, not implied | `review ... --result pass --credit TS-0006` writes `credited: TS-0006 integration/harness by Tester @sha` into the evidence; `--credit` refuses a stale, failing, author-role or unknown record and says why |
+| read the machine verdict | lint, format, type-check, suite, links, privacy and security scan are read once; re-executing a green record is `C-REVIEW-DUP`, not diligence |
+| a fix is a delta | a fail stores the failed revision; the next packet prints the round, the findings and `delta since <sha>`; re-review the delta and the failed criterion, and let the lane that raised the finding re-review it |
+| full re-review only on a contract change | the fix adds/removes a deliverable, changes a frozen interface, touches a security/release/data/workflow path, or is larger than the original diff |
+| budget | fast 10 / standard 20 / deep 40 minutes of reviewer work; when it is spent and the artefact is still unverifiable, fail it naming the missing evidence or escalate capacity |
+| batch the context | same author + area + profile may be reviewed in one sitting - one claim and one verdict each |
+
+`coordination` reports the credit ratio, the delta re-reviews, `C-REVIEW-DUP` and
+`C-REVIEW-NOCREDIT` (a recent window of passes that cited nothing), so the same
+duplication never has to be argued about twice. **Every author pays this
+forward:** record a run with `--rev <sha>` and `--artifact`, because an
+unrecorded run is a run the Reviewer has to repeat.
+
 ### 6. Close
 
 When the queue is empty and `loop` is about to report STOP, load the `ceo-audit-close`
@@ -726,9 +752,12 @@ Every deliverable passes **two** gates, in this order, before it counts as done:
 1. **Self-check (the author).** After finishing the work, the owner reviews their
    own diff and *runs* a self-test, then records the result. This is mandatory -
    you cannot submit work you have not checked yourself.
-2. **Independent review (the Reviewer).** The Reviewer verifies the submitted
-   result from scratch and either passes it (task becomes `done`, result is
-   archived) or fails it (task returns to the owner with findings).
+2. **Independent review (the Reviewer).** The Reviewer judges the submitted
+   result against the requirement and either passes it (task becomes `done`,
+   result is archived) or fails it (task returns to the owner with findings). It
+   verifies what no independent lane verified at that revision - requirement
+   conformance, its own `acceptance` layer, the uncovered criteria and one
+   sampled credit - and cites the rest (5h).
 
 Task lifecycle for a deliverable:
 
@@ -785,9 +814,11 @@ Mechanical enforcement:
 - a `review --result pass` appends the accepted result to
   `docs/Team/Archive.md` (what, who, verified how, which revision) - the team's
   evidence ledger. Read it with `teamwork.py archive [--agent X]`.
-- a re-submitted fix is reviewed from scratch - fail, fix, self-check, re-submit,
-  re-review until it passes - and the failures are counted, so at 3 the Reviewer
-  opens a dispute and the tribunal rules instead of the loop spinning.
+- a re-submitted fix is re-reviewed as a **delta**: its own findings, the changed
+  files since the failed revision, the failed criterion re-run, one fresh sampled
+  credit - fail, fix, self-check, re-submit, re-review until it passes - and the
+  failures are counted, so at 3 the Reviewer opens a dispute and the tribunal
+  rules instead of the loop spinning.
 - if a finding turns into a design disagreement, use the dispute protocol.
 
 This applies to code, unit tests, integration/E2E tests, documentation, design

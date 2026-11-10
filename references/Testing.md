@@ -67,8 +67,9 @@ same thing is not tested twice by accident.
 # each role declares its own layer for an area it is accountable for
 teamwork.py tests add --layer unit --area auth --command "go test ./internal/auth"
 teamwork.py tests add --layer system --area auth --command "check-boundaries ./..."
-# the owning role runs it and records evidence
-teamwork.py tests run TS-0002 --by tester-1 --result pass \
+# the owning role runs it and records evidence AT A REVISION - --rev is what makes
+# the result creditable, so the Reviewer does not have to run it a second time
+teamwork.py tests run TS-0002 --by tester-1 --result pass --rev a1b2c3d \
     --evidence "go test ./test/integration -run Auth @a1b2c3d -> ok 4 tests" \
     --baseline "empty auth table" --artifact Reports/auth-run.log --replay "go test ./test/integration -run Auth"
 
@@ -87,6 +88,14 @@ declared yet (nothing to check).
 
 `tests add` refuses a duplicate `(layer, area)` and warns when the same command
 would run in two layers.
+
+**Record the revision, the command and the artifact.** A passing record at the
+revision under review is a **credit**: the Reviewer cites it
+(`review --result pass --credit TS-0002`) instead of running the same command
+again. A record with no `--rev` cannot be matched to a revision, so it cannot be
+credited and the Reviewer has to repeat the run - the author pays twice for the
+same fact. `coordination` reports a recent window of reviews that cited nothing as
+`C-REVIEW-NOCREDIT`, and a review that re-ran a green record as `C-REVIEW-DUP`.
 
 ## Required coverage
 

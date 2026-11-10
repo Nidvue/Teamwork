@@ -32,7 +32,8 @@ team is judged by its records rather than its intentions.
 | Stampede | 2.4M job requests for 117 accepted slots | slot leases, `LANE_WIP`, pulse defers past free capacity |
 | Turf war | agents killed each other's processes and locked accounts | reclaim refuses a live lane; de-escalation ladder; resource-denial red line |
 | Gullibility | listener trusted a lying scout; group converged on shared facts | independent evidence, source+date for external claims, blind-first review |
-| Echo / rubber-stamp | peer review that repeats the author | reviewer's own run; echo and monoculture checks; sampled second review |
+| Echo / rubber-stamp | peer review that repeats the author | reviewer's own run for the irreducible core; echo and monoculture checks; sampled second review |
+| Duplicated review work | every review re-runs a suite another lane already ran at the same revision | credits (`--credit`), delta re-review after a fail, `C-REVIEW-DUP` / `C-REVIEW-NOCREDIT` |
 | Collusion | price floors agreed through a public board | no author approval, no gate lowered by agreement, one claim per deliverable |
 | Merge collapse | 80 agents opened 980 PRs and merged few | branch per task, rebase before review, one writer per file, pass = merge |
 | Taste | playable games that were unplayable | user-facing demo at the milestone; Designer owns visual assets |
@@ -127,14 +128,31 @@ Mechanisms:
 
 - **Blind first.** Read the artifact and form a verdict before reading the
   author's summary. Then record your own command and result.
-- **The reviewer's evidence is its own run.** If it matches the author's line
-  verbatim, `coordination` reports `C-TRUST-ECHO`; re-run and record the
-  reviewer's result.
+- **Independence is about the author, not about repetition.** A result another
+  role recorded at the revision under review (a `tests run --rev` record, a CI run
+  on the pushed SHA) is a **credit**: cite it with `review --credit TS-nnnn`, do not
+  run it again. Re-running a green record at the same revision is duplicated work
+  and is reported as `C-REVIEW-DUP` - the mirror image of `C-TRUST-ECHO`.
+- **The reviewer's own evidence is the irreducible core.** The requirement
+  conformance judgement, the `acceptance` layer, the criteria the packet lists as
+  uncovered, and **one sampled credit** re-run by the reviewer. That sample is what
+  makes a citation safe: a lane that cites without ever sampling is trusting a
+  single source, which is the gullibility failure this section exists for.
+- **Echo is still a failure.** Evidence character-identical to the author's line,
+  or a citation that names no record, is not verification; `C-TRUST-ECHO` is
+  reported and the reviewer must record its own run.
+- **A fix is a delta.** A fail stores the failed revision; the next packet prints
+  the round, the previous findings and `delta since <sha>`. Re-review the delta and
+  re-run the failed criterion - a full second pass per rejection is the largest
+  duplicated cost a team can carry. Full review again only on a changed contract,
+  a new/removed deliverable, or a security/release/data/workflow path.
 - **No collusion.** Do not agree a verdict with the author, or with another
   Reviewer, before it is recorded. One claim per deliverable; findings union.
 - **Sample the green.** A lane with many passes and no finding
   (`C-TRUST-NOFAIL`) or one lane holding most verdicts
-  (`C-TRUST-MONOCULTURE`) gets a sampled second review. Lowering a gate so the
+  (`C-TRUST-MONOCULTURE`) gets a sampled second review. A recent window of passes
+  that cited no credit at all (`C-REVIEW-NOCREDIT`) means the team is paying twice
+  for every check, and is reported for the same reason. Lowering a gate so the
   team can agree is a red line, not teamwork.
 
 ## 8. Merge health
@@ -188,6 +206,8 @@ python3 "$SKILL/scripts/teamwork.py" coordination --json     # machine-readable
 | `C-TRUST-ECHO` | medium | the Reviewer records its own run |
 | `C-TRUST-MONOCULTURE` | medium | review queue fanned across lanes |
 | `C-TRUST-NOFAIL` | low | a sampled second review |
+| `C-REVIEW-DUP` | low | the reviewer cites the recorded gate instead of re-running it |
+| `C-REVIEW-NOCREDIT` | medium | recent passes cite credits instead of re-deriving every gate |
 | `C-TURF-RECLAIM` | low | reclaims follow the ladder |
 | `C-MERGE-RATE` | medium | merge fraction recovers |
 | `C-MERGE-ABANDONED` | high | the branch is restored, or the PR record and its task finish (merged/closed/superseded, task done/dropped) |
