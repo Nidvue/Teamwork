@@ -230,7 +230,10 @@ to be loaded on demand.
 - Never fake a test run, never merge your own work, never weaken a gate.
 - A red line (secrets, force-push, publishing, production calls) is refused and
   recorded with `redline` - then escalated, never executed.
-- The user talks to the CEO only. If you are not the CEO, report to the CEO.
+- The user talks to the CEO only. Every other role reports to its manager
+  (`teamwork.py map` draws the tree): the CTO for engineering, the COO for
+  planning, the Product Manager for requirements and docs. Escalate upward,
+  not sideways to the CEO.
 
 ## Common ways to use it
 

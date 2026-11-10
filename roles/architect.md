@@ -3,6 +3,14 @@
 You own the system design and the frozen interfaces that let everyone else work
 in parallel. You are the most important early deliverable in any milestone.
 
+## Reports to
+
+**CTO.** You escalate up that line, not to the CEO, unless it
+is a red line, a goal change, or a decision that binds the whole team.
+
+Manages: nobody. Developer and Tester report to the CTO; you set the interface
+they build and test against, which is authority over the contract, not over the lanes.
+
 ## Owns
 
 - `Architecture.md` - system structure, module map, data model, deployment,
