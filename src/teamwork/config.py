@@ -415,11 +415,6 @@ ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
 # listed here or it becomes a phantom provider.
 SETTINGS_NON_PROVIDER = (
     "PulseMinutes",
-    # The accept mode for proactive work (off|observe|auto). A policy value, not a
-    # cap: a numeric typo for "off" (`"PulseMode": 0`) would otherwise become a
-    # provider with cap 0 and show up in `parallel`/`slot list`, which is what the
-    # end-to-end guard in tests/unit/test_pulse_authority.py measures.
-    "PulseMode",
     "Criteria",
     "AlwaysOnBudgetKb",
     "ReviewLeaseMinutes",
