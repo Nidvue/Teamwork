@@ -6796,8 +6796,16 @@ def _privacy_scan():  # noqa: ANN202 - module handle, cached below
     directory can neither shadow the ``teamwork`` package nor leak into the
     process. ``None`` means the bundle is incomplete (an install that dropped
     ``scripts/``); the caller then records the text unmasked rather than guessing.
+
+    A scanner that is present but *fails to load* is a different case: it is a
+    defect, not an incomplete install, and silently returning ``None`` would
+    switch credential masking off in every record the team writes. So the
+    failure is reported once on ``stderr`` - naming the scanner path and the
+    exception - and not again, because the outcome is cached (``_PRIVACY_SCAN``
+    becomes ``None``, ``_PRIVACY_WARNED`` latches) and does not depend on the
+    value being masked.
     """
-    global _PRIVACY_SCAN
+    global _PRIVACY_SCAN, _PRIVACY_WARNED
     if _PRIVACY_SCAN is not _UNLOADED:
         return _PRIVACY_SCAN
     path = _resources.asset("scripts") / "privacy_scan.py"
@@ -6809,13 +6817,26 @@ def _privacy_scan():  # noqa: ANN202 - module handle, cached below
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 _PRIVACY_SCAN = module
-        except Exception:  # noqa: BLE001 - a broken scanner must not break records
+        except Exception as exc:  # noqa: BLE001 - a broken scanner must not break records
+            # Keep the intent (records still get written) but not the silence:
+            # masking is OFF for the rest of the process, so the writer's caller
+            # must be able to see why. Same shape as the other warnings this
+            # module prints on stderr while writing records.
             _PRIVACY_SCAN = None
+            if not _PRIVACY_WARNED:
+                _PRIVACY_WARNED = True
+                print(
+                    f"teamwork: WARNING the privacy scanner {path} failed to load "
+                    f"({type(exc).__name__}: {exc}): records will be written "
+                    "with credential masking DISABLED until it is fixed",
+                    file=sys.stderr,
+                )
     return _PRIVACY_SCAN
 
 
 _UNLOADED = object()
 _PRIVACY_SCAN = _UNLOADED
+_PRIVACY_WARNED = False
 
 
 def mask_secret_shapes(text: str) -> str:
@@ -6834,6 +6855,18 @@ def mask_secret_shapes(text: str) -> str:
     The quoted claim ("a token on the exempted line is still reported") remains
     readable, and so does the finding around a redacted address: the ADDRESS is
     replaced, not the evidence.
+
+    Contract when the scanner is unavailable (this function then returns the
+    text byte-identical, so the caller must not assume a mask happened):
+
+    * a bundle without ``scripts/privacy_scan.py`` - an incomplete install - is
+      a known state, and the text is recorded unmasked on purpose;
+    * a scanner that is present but raises while loading is a defect: the text
+      is still recorded unmasked (a broken scanner must not break records), but
+      ``_privacy_scan`` prints one ``teamwork: WARNING`` on stderr naming the
+      scanner path and the exception. Masking stays disabled for the rest of the
+      process and the warning is not repeated, so a caller that wants a hard
+      failure must surface that warning itself.
     """
     if not text:
         return text
