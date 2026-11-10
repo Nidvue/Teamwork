@@ -245,3 +245,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: ledger export @384df6a -> 94 records, chain verified; privacy PASS; links 0
 - findings history: -
 - branch / merge: ceo/t-0010-export-the-current-audit-manifest-with-a / pending
+
+## T-0011 · Split engine.py into typed modules  (ceo)
+- date: 2026-10-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: engine
+- self-check: [pass] re-read the split, the import DAG and the re-exported API | test: pytest -q @c8fb469 -> 350 passed; mypy clean; make ci all gates passed
+- author evidence: commit c8fb469
+- reviewer evidence: pytest -q @c8fb469 -> 350 passed; mypy -> clean; make ci -> all gates passed; import DAG config<-names/layout<-records<-engine
+- findings history: -
+- branch / merge: ceo/t-0011-split-engine-py-into-typed-modules / pending

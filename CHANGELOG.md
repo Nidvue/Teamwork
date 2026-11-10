@@ -101,6 +101,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the binary actually returns - `2` for usage and the gates that opt into it,
   `1` for a generic error / role refusal / `loop` CONTINUE, `3` for nothing to
   dispatch, `4` for a lock timeout.
+- **Modular engine**: the 9.6k-line `engine.py` is now a thin command layer over
+  typed `config`, `io`, `names`, `layout`, `records`, `gitutil` and `imaging`
+  modules. Behaviour is unchanged; the suite and coverage floor guard the split.
 - **Release verification**: `verify_release.py` now checks the artefact version,
   inspects the sdist, drops every ambient `TEAMWORK_*` variable in the smoke test,
   and writes `SHA256SUMS` only after every check passes.
