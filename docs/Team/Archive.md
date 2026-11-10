@@ -232,3 +232,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest tests/integration/test_workspace_flow.py @9e1ab8f -> 14 passed; merge trailer Reviewer
 - findings history: -
 - branch / merge: ceo/t-0009-fix-the-pr-merge-commit-message-acting-r / pending
+
+## T-0010 · Export the current audit manifest with a workspace TeamId  (ceo)
+- date: 2026-10-19
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the manifest TeamId, record count and checksums | test: ledger export @HEAD -> chain verified 94 records; audit/loop after merge
+- author evidence: commit 384df6a
+- reviewer evidence: ledger export @384df6a -> 94 records, chain verified; privacy PASS; links 0
+- findings history: -
+- branch / merge: ceo/t-0010-export-the-current-audit-manifest-with-a / pending
