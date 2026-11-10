@@ -1459,3 +1459,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git merge-base --is-ancestor a4c726f developer-1/t-0001-... -> 1 (not an ancestor); privacy_scan.py --history --allow -> still reports commit:a4c726f4b2ca:8 because the scan walks --reflog; git branch --contains a4c726f -> none
 - falsified by: After the expiry, privacy_scan --tree --history still names a4c726f, or a reachable commit disappears (both measurable)
 - consequences: Run it in the main repo, then re-run the gate; P-0001's reviewer verifies the clean run; the Security Auditor checks no reachable object was lost
+
+## D-20261025-CEO - M11 is review-and-repair, not feature work
+
+- date: 2026-10-25
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0001
+- context: User asked for a systematic review that makes code, logic, workflow, docs and files solid, cleans the tree and updates stale files
+- options considered: -
+- decision: M11 is a review-and-repair engagement over the existing product: no new features. Its exit is AC-3/5/6/11/19/20/21 verified on the merged revision; a finding is closed by a fix plus a test, or by a recorded reason here.
+- why: The suite is red on a stock Windows host while CI is green, so the product's central claim (portable, evidence-gated) is only true on a privileged host.
+- evidence: pytest -q @7db810a -> 11 failed, 1217 passed, 28 skipped; ruff check -> clean; teamwork.py links -> 0 issues; privacy_scan --tree --history -> PASS; check_release_consistency -> 0 problems
+- falsified by: A reviewer reproduces 'pytest -q' green on a plain Windows host with Developer Mode off and no GNU make, at the merged revision
+- consequences: Findings become tasks; docs state claims are re-measured; the tree census is owned by the project manager
