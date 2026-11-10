@@ -92,6 +92,13 @@ Two invariants hold at every tier, and both are tested:
 - `required_tribunal` never drops below `TRIBUNAL_MIN_SIGNERS`: with no CTO/CFO,
   the Reviewer is the neutral seat, and a party to a dispute can never rule it.
 
+The party rule is per **instance**, not per role: a dispute names the two agents
+between it, so an instance is a party when it is named in `raised_by`/`against`.
+A role leaves the panel only when EVERY one of its instances is a party, so the
+uninvolved third Reviewer can seat a Reviewer-vs-Reviewer dispute - that
+instance is the neutral seat the invariant above promises. A party may never sign
+or resolve, and `--force` waives the signature requirement, never the party rule.
+
 `init` prints the folded lanes and warns when `ceo`, `developer`, `tester` or
 `reviewer` is missing (`ROSTER_REQUIRED`).
 
