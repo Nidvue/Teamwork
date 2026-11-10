@@ -170,3 +170,52 @@ def test_no_stale_claim_that_only_the_ceo_may_push(root):
         if "Nothing is pushed, tagged or released by any agent other than the CEO" in text:
             offenders.append(str(path))
     assert offenders == []
+
+
+# --------------------------------------------------------------------------- #
+# CI trigger policy: code in, prose and media out
+# --------------------------------------------------------------------------- #
+
+#: Paths that must NOT run the code matrix (prose and media).
+PROSE_AND_MEDIA = ('"docs/**"', '"assets/**"', '"README.md"', '"LICENSE"', '"mkdocs.yml"')
+
+#: Paths that must ALWAYS run the code matrix when they change.
+SHIPPED = ("src/**", "scripts/**", "tests/**", "roles/**", "references/**", "templates/**")
+
+
+def test_ci_ignores_prose_and_media_paths(root):
+    text = read(root, ".github", "workflows", "ci.yml")
+    assert "paths-ignore:" in text, "ci.yml must filter documentation-only changes"
+    for marker in PROSE_AND_MEDIA:
+        assert marker in text, f"ci.yml paths-ignore is missing {marker}"
+
+
+def test_ci_does_not_ignore_anything_that_ships(root):
+    text = read(root, ".github", "workflows", "ci.yml")
+    ignore_block = text.split("paths-ignore:", 1)[1].split("workflow_dispatch", 1)[0]
+    for shipped in SHIPPED:
+        assert shipped not in ignore_block, f"ci.yml must not ignore shipping path {shipped}"
+    assert "pyproject.toml" not in ignore_block
+    assert ".github/" not in ignore_block
+
+
+def test_the_docs_workflow_covers_the_ignored_paths_with_cheap_checks(root):
+    text = read(root, ".github", "workflows", "docs.yml")
+    assert "paths:" in text
+    assert '"docs/**"' in text and '"assets/**"' in text
+    # the cheap checks that still matter for prose
+    assert "teamwork.py links" in text
+    assert "privacy_scan.py --tree --history" in text
+    assert "mkdocs build --strict" in text
+
+
+def test_release_engineer_charter_documents_the_trigger_policy(root):
+    text = flat(read(root, "roles", "release-engineer.md"))
+    assert "## CI trigger policy - code in, prose and media out" in text
+    assert "Never ignore a path that ships" in text
+    assert "Keep the two lists in sync" in text
+
+
+def test_skill_documents_the_trigger_policy(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "CI triggers are path-filtered: code in, prose and media out" in text
