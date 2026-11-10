@@ -390,6 +390,31 @@ Exit: AC-M21-1..AC-M21-5 verified by a role other than their owner on the merged
 revision, the wave evidence recorded in [Plan](Plan.md) M21, and the measured
 packet bytes in [Memory](Memory.md) 5.
 
+## M22 - Memory that corrects itself, finds its transcripts and shows its index (this engagement)
+
+Intake: the operator asked that the team's memory system follow the components the
+Anthropic agent-memory research names. The previous milestone built the write side
+(notes, pack, search, dream). This one builds the three components that were still
+missing and records why the fourth is deferred: **correction against ground truth**,
+**transcript reach**, and a **small injected index**. Contract, measurements and
+falsifiers: [MEMORY](Memory.md) 8-12. Research record: [RESEARCH](Research.md).
+
+Non-goals: a wiki page store, embeddings or a vector index, a network service, a
+second store, a background daemon, an LLM in the retrieval path, an edit to a
+record's statement or evidence by any pass, and raising the always-on cap.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-M22-1 | `memory verify` re-resolves every record's evidence against ground truth (a git revision, a `path:line`, a URL with an access date) and reports `verified`/`drifted`/`unverifiable` per record deterministically with no model call; `memory dream` reports the drifted set | Developer | Reviewer |
+| AC-M22-2 | `memory dream --focus <goal\|T-id>` narrows which records are verified and in what order, while a plain run is byte-identical to the unfocused one | Developer | Reviewer |
+| AC-M22-3 | `context find` and `recall` reach the transcripts (`Ledger.jsonl` and `Agents/*/WorkLog.md`) under the same capped, pointer-citing contract as the other stores, so a session log is retrievable and not only written | Developer | Reviewer |
+| AC-M22-4 | `load` and every lane packet open with a memory index header (topic -> pointer, capped) that shows what the role knows and where it lives, and the injected bytes stay at or below the pre-change bytes on the same revision | Developer | Reviewer |
+| AC-M22-5 | [MEMORY](Memory.md) and [STATE](../../references/State.md) describe the merged behaviour with a measured before/after, `loop` and `audit` are green on the merged revision, and no pass deletes or rewrites a record | CEO | Reviewer |
+
+Exit: AC-M22-1..AC-M22-5 verified by a role other than their owner on the merged
+revision, the layers recorded in `Tests.md`, and the measured delta written into
+[MEMORY](Memory.md) 13.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
