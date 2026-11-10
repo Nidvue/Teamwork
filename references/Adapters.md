@@ -37,11 +37,11 @@ points here, so a new host is a new column, never a rewrite of the instructions.
 | 6 close | a bounded run ends with its own task; stop a live one with `subagent({action:"stop", id})` and list what still runs with `subagent_supervisor({action:"list"})` | stop the subagents / end the session | stop sessions | kill the processes | `pkill` the lanes, `teamwork.py clean` |
 | skill install | `~/.pi/agent/skills/<name>/SKILL.md` | `.claude/skills/<name>/SKILL.md` (Agent Skills format - this file already matches: `name` + `description` frontmatter) | `AGENTS.md` + `.opencode/command/<name>.md` | `AGENTS.md` (every one of these reads it) | `AGENTS.md` + this directory |
 
-The Pi column was verified against the install this skill ships with (pi 1.3.0 +
-`pi-subagents`, checked 2026-10-19 in `~/.pi/agent/npm/node_modules/pi-subagents`):
-it exposes `subagent`, `subagents_enable`, `subagent_supervisor`,
-`contact_supervisor` and `structured_output`, and **no `teams(...)` tool**. A host
-that does provide a teams-style tool maps the same four operations to
+The Pi column was verified against the installed `pi-subagents` package on
+2026-10-19 (pi 1.3.0): it exposes `subagent`, `subagents_enable`,
+`subagent_supervisor`, `contact_supervisor` and `structured_output`, and **no
+`teams(...)` tool**. A host that does provide a teams-style tool maps the same
+four operations to
 `teams({action:"delegate"/"message_dm"/"member_status"/"team_done"})`.
 
 `AGENTS.md` at the project root is the universal contract: Claude Code, opencode,
