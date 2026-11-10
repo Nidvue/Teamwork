@@ -716,7 +716,7 @@ def test_concurrent_lesson_adds_persist_one_record_per_success(ws, tmp_path: Pat
     codes = [process.returncode for process in processes]
     unexpected = [
         (index, code, out, err)
-        for index, (code, (out, err)) in enumerate(zip(codes, results))
+        for index, (code, (out, err)) in enumerate(zip(codes, results, strict=True))
         if code not in (0, 4)
     ]
     assert not unexpected, unexpected

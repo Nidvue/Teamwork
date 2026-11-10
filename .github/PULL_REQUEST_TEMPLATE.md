@@ -48,7 +48,7 @@ $ <command>
 - [ ] No secrets, tokens, personal paths, personal emails or private domains
 - [ ] No tests weakened or deleted to make the change pass
 - [ ] Evidence (command @ revision -> result) is recorded on the task
-- [ ] Runtime stays standard-library only and Python 3.9-3.13 compatible
+- [ ] Runtime stays standard-library only and Python 3.11-3.13 compatible
 
 ## Reviewer notes
 
