@@ -17,6 +17,8 @@ flowchart TD
     CEO --> RM[Product Manager: research and gaps]
     CEO --> AR[Architect: frozen interfaces and ADRs]
     CEO --> PJ[Project Manager: dependency-ordered tasks]
+    CEO --> TL[Team Leader: one feature, its squad, its feature layer]
+    TL -.->|instance add --under| LANES
     AR --> LANES
     PJ --> LANES
     CEO -.->|model auto: strong lanes, economy lanes| LANES
@@ -40,6 +42,11 @@ flowchart TD
 Nothing is dispatched before the interfaces are frozen, and nothing reaches
 `main` without the Reviewer's own evidence. Everything else runs in parallel.
 
+A **Team Leader** owns one independent feature end to end - the squad attached
+to it (`instance add --under`) and its `feature` test layer - so several
+features run in parallel without sharing a writable path; the Architect and the
+Project Manager stay shared services ([Features](features.md)).
+
 ## 2. What each stage leaves behind
 
 | Stage | Record | Who owns it |
@@ -48,6 +55,7 @@ Nothing is dispatched before the interfaces are frozen, and nothing reaches
 | Research | `docs/Team/Research.md` with a direct URL and access date per external claim | Product Manager |
 | Interfaces | `docs/Team/Architecture.md`, ADRs in `docs/Team/Decisions.md` | Architect |
 | Decomposition | dependency-ordered tasks on each role's `TaskQueue.md`; `docs/Team/Plan.md` | Project Manager |
+| Feature team | one open `F-nnnn`, its squad and its `feature` test layer | Team Leader |
 | Work | code and its unit tests on the task branch | Developer |
 | Test layers | `tests run --layer <l> --area <a>` records with a baseline and an artifact | layer owner |
 | Self-check | the author's own run, recorded before review | author |
