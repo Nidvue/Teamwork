@@ -340,6 +340,34 @@ def test_swarm_dry_run_names_the_next_wave_and_starts_nothing(cli, project: Path
     assert runs(root) == []
 
 
+def test_a_swarm_wave_reports_the_dream_findings(cli, project: Path, capsys) -> None:
+    """The maintenance pass needs a trigger: a wave prints what it would consolidate."""
+    init(cli, project)
+    add_task(cli, project, "developer", "produce the contract")
+    assert (
+        cli(
+            "--project",
+            project,
+            "knowledge",
+            "add",
+            "--by",
+            "Developer-1",
+            "--topic",
+            "pack note",
+            "--statement",
+            "a note the wave should count",
+            "--evidence",
+            "true @rev -> ok",
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert cli("--project", project, "swarm", "run", "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "# memory:" in out and "record(s)" in out
+    assert "nothing was written" in out or "nothing to consolidate" in out
+
+
 def test_swarm_refuses_to_dispatch_when_the_accept_mode_is_not_auto(cli, project: Path) -> None:
     root = init(cli, project)
     (root / engine.F_SETTINGS).write_text(json.dumps({"PulseMode": "observe"}), encoding="utf-8")
