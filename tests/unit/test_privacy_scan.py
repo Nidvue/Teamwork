@@ -8,6 +8,7 @@ no side effects at import time.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -455,3 +456,24 @@ def test_bom_less_utf16_text_is_scanned():
     data = f"GITHUB_TOKEN={token}\n".encode("utf-16-le")
     findings = ps._scan_bytes(data, "win.ps1", "unit-test", allow=[])
     assert any(f["rule"] == "api-token" for f in findings)
+
+
+def test_allowlist_exempts_only_the_recorded_package_path():
+    """The shipped exemption is one exact host-state prefix, not a rule switch."""
+    allow = [re.compile(r"^\.pi/agent/npm$")]
+    quoted = "verified against ~/.pi/agent/npm/node_modules/pi-subagents"
+    assert [f for f in ps.scan_lines(quoted, "x.md", "unit-test", ps.RULES, allow)] == []
+
+    sibling = "token stored in ~/.pi/agent/auth.json"
+    hits = ps.scan_lines(sibling, "x.md", "unit-test", ps.RULES, allow)
+    assert {f["rule"] for f in hits} == {"agent-config"}
+
+
+def test_shipped_allowlist_has_exactly_one_justified_entry():
+    path = ROOT / ".github" / "privacy-allow.txt"
+    lines = [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines()]
+
+    entries = [ln for ln in lines if ln and not ln.startswith("#")]
+    assert entries == [r"^\.pi/agent/npm$"]
+    # every exemption carries a reason next to it in the file
+    assert any("T-0001" in ln for ln in lines if ln.startswith("#"))
