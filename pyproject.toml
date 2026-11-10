@@ -170,7 +170,7 @@ omit = ["tests/*"]
 [tool.coverage.report]
 # A floor, not a target: it stops a large coverage regression while the engine
 # remains a tracked post-1.0 typing/splitting refactor.
-fail_under = 38
+fail_under = 55
 show_missing = true
 skip_covered = true
 exclude_lines = [

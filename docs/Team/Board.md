@@ -5,6 +5,18 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md)
 
+## Audit snapshot (2026-10-18)
+
+- Milestone: full-project code/design/workflow/CI audit
+- Result: `main` @ `81301d9`; `loop` STOP, `audit` 0 problems, ledger chain intact,
+  `make ci` green, privacy PASS, links 0
+- Tasks: T-0001..T-0007 done (engine integrity, ledger, paths, locks, privacy,
+  CI/docs, local identity, exit-code docs)
+- Residual: engine split/typing remains the tracked post-1.0 refactor; coverage
+  floor is 38% and the measured value is 51.45%
+- Push: local `main` is ahead of `origin/main`; remote push is a Release Engineer /
+  owner action, not done by this audit
+
 ## Snapshot
 
 - Date: 2026-10-17
