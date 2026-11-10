@@ -10774,7 +10774,7 @@ def _status_elapsed(seconds: int) -> str:
     return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
 
 
-def _status_row(instance: str, now: float, live: dict, held: dict) -> dict:
+def _status_row(instance: str, now: float, live: dict, held: dict, titles: dict) -> dict:
     """One instance's live state: the lane record if it runs, else the claim."""
     run = live.get(pascal(instance)) or {}
     task = ""
@@ -10785,12 +10785,14 @@ def _status_row(instance: str, now: float, live: dict, held: dict) -> dict:
         task = held.get(pascal(instance), "")
     elapsed = None
     progress = "idle"
+    progress_pct = None
     if run:
         elapsed = max(int(now - float(run.get("created") or now)), 0)
         minutes = int(run.get("minutes") or 0)
         budget = minutes * 60
         percent = min(int(elapsed * 100 / budget), 100) if budget else 0
         progress = f"attempt {run.get('attempt')}/{run.get('attempts')}, {percent}% of {minutes}m"
+        progress_pct = percent if budget else None
     elif task:
         progress = "claimed, no lane record"
     return {
@@ -10798,9 +10800,11 @@ def _status_row(instance: str, now: float, live: dict, held: dict) -> dict:
         "role": resolve_role(instance),
         "state": "busy" if (task or run) else "idle",
         "task": task,
+        "title": str(titles.get(task.rsplit("/", 1)[-1], "")),
         "elapsed": elapsed,
         "elapsed_text": _status_elapsed(elapsed) if elapsed is not None else "-",
         "progress": progress,
+        "progress_pct": progress_pct,
         "lane": str(run.get("id") or ""),
         "lane_state": str(run.get("state") or ""),
     }
@@ -10834,13 +10838,25 @@ def status_rows(root: Path) -> list:
                 held[pascal(task["claimed_by"])] = task["id"]
             elif review_is_held(task):
                 held[pascal(task["review_claim"])] = task["id"]
-    return [_status_row(name, now, live, held) for name in known_instances(root)]
+    titles = {str(t["id"]): str(t.get("title") or "") for _role, t in iter_tasks(root)}
+    return [_status_row(name, now, live, held, titles) for name in known_instances(root)]
+
+
+def _status_counts(root: Path, rows: list) -> dict:
+    """Team-wide totals for the UI header, not the narrowed --agent view."""
+    return {
+        "busy": sum(1 for row in rows if row["state"] == "busy"),
+        "idle": sum(1 for row in rows if row["state"] == "idle"),
+        "ready": sum(len(_ready_for_role(root, role)) for role in list_roles(root)),
+        "review": len(awaiting_review(root)),
+    }
 
 
 def cmd_status(args) -> int:
     """Compact live state of every instance: the operator panel and the UI feed."""
     root = project_root(args)
     rows = status_rows(root)
+    counts = _status_counts(root, rows)
     wanted = (getattr(args, "agent", "") or "").strip()
     if wanted:
         rows = [row for row in rows if pascal(row["instance"]) == pascal(wanted)]
@@ -10848,8 +10864,10 @@ def cmd_status(args) -> int:
             die(f"no instance named {wanted!r}", 2)
     if getattr(args, "json", False):
         payload = {
+            "schema": 1,
             "generated": datetime.datetime.now().isoformat(timespec="seconds"),
             "count": len(rows),
+            "counts": counts,
             "instances": rows,
         }
         print(json.dumps(payload, indent=2))
@@ -10860,11 +10878,12 @@ def cmd_status(args) -> int:
         print("- no instance")
         return 3
     for row in rows:
-        print(
-            f"- {row['instance']:16s} {row['role']:12s} {row['state']:5s} "
-            f"task={row['task'] or '-':10s} elapsed={row['elapsed_text']:8s} "
-            f"progress={row['progress']}"
+        percent = "-" if row["progress_pct"] is None else f"{row['progress_pct']}%"
+        head = (
+            f"- {row['instance']:16s} {row['state']:5s} {row['task'] or '-':13s} "
+            f"{row['title'][:40]:40s} {row['elapsed_text']:>7s} {percent:>4s} "
         )
+        print((head + str(row["progress"]))[:110])
     return 0
 
 

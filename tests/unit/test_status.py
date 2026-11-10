@@ -80,9 +80,11 @@ def test_every_instance_appears_exactly_once(cli, project: Path, capsys) -> None
             "role",
             "state",
             "task",
+            "title",
             "elapsed",
             "elapsed_text",
             "progress",
+            "progress_pct",
             "lane",
             "lane_state",
         }
@@ -146,6 +148,54 @@ def test_an_instance_free_team_reports_zero_rows(cli, project: Path, capsys) -> 
     assert data["count"] == 0 and data["instances"] == []
     assert cli("--project", project, "status") == 3
     assert "no instance" in capsys.readouterr().out
+
+
+def test_the_payload_names_its_schema_and_counts(cli, project: Path, capsys) -> None:
+    build(cli, project)
+    assert cli("--project", project, "task", "add", "developer", "a second ready job") == 0
+    data = payload(cli, project, capsys)
+    assert data["schema"] == 1
+    assert data["counts"] == {"busy": 1, "idle": 3, "ready": 1, "review": 0}
+
+
+def test_each_row_names_the_work_its_task_is(cli, project: Path, capsys) -> None:
+    build(cli, project)
+    rows = {row["instance"]: row for row in payload(cli, project, capsys)["instances"]}
+    assert rows["Developer-1"]["title"] == "produce the contract"
+    assert rows["Developer-2"]["title"] == ""
+    assert cli("--project", project, "status") == 0
+    line = next(line for line in capsys.readouterr().out.splitlines() if "Developer-1" in line)
+    assert "produce the contract" in line
+
+
+def test_progress_pct_is_an_int_with_a_lane_and_null_without_one(
+    cli, project: Path, capsys
+) -> None:
+    build(cli, project)
+    rows = {row["instance"]: row for row in payload(cli, project, capsys)["instances"]}
+    assert rows["Developer-1"]["progress_pct"] == 25
+    assert rows["Developer-2"]["progress_pct"] is None
+    root = build(cli, project)
+    for path in lanes.lanes_dir(root).glob("*.json"):
+        path.unlink()
+    row = {row["instance"]: row for row in payload(cli, project, capsys)["instances"]}[
+        "Developer-1"
+    ]
+    assert row["progress_pct"] is None
+
+
+def test_a_long_title_is_truncated_and_every_line_stays_within_110_columns(
+    cli, project: Path, capsys
+) -> None:
+    root = build(cli, project)
+    task_file = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(task_file)
+    tasks[0]["title"] = "x" * 60
+    engine.write_tasks(task_file, tasks, "developer")
+    assert cli("--project", project, "status") == 0
+    lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("- ")]
+    assert all(len(line) <= 110 for line in lines)
+    assert any("x" * 40 in line and "x" * 41 not in line for line in lines)
 
 
 def test_the_text_form_prints_one_line_per_instance(cli, project: Path, capsys) -> None:
