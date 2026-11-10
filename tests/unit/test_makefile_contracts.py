@@ -651,7 +651,8 @@ def _tree(tmp_path: Path, makefile: str | None = None) -> Path:
 
 def test_mutant_a_dropped_gate_recipe_line_is_reported(tmp_path):
     line = (
-        "\t$(PYTHON) scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt\n"
+        "\t$(PYTHON) scripts/privacy_scan.py --tree --history --stores "
+        "--allow .github/privacy-allow.txt\n"
     )
     text = makefile_text()
     assert line in text, "the privacy gate recipe line was not found"

@@ -30,7 +30,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | coverage | `pytest --cov=teamwork --cov-fail-under=55` | yes, as part of `test` |
 | matrix | ubuntu py3.11/3.12/3.13, macOS py3.13, Windows py3.13 (five cells) | yes |
 | build | `python -m build && python scripts/verify_release.py` | yes |
-| privacy | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | yes |
+| privacy | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt`; `make privacy` adds `--stores`, the gitignored team memory stores every lane injects, which no CI job can see | yes (CI covers the three git sources; the store scan runs in the local gate) |
 | docs | `teamwork links` + `mkdocs build --strict` (in `docs.yml`) | yes |
 | release consistency | `python scripts/check_release_consistency.py --offline` (the `release-consistency` job in `ci.yml`) | yes (a registered required check) |
 | release consistency (online) | `python scripts/check_release_consistency.py --online` (the `consistency` job in `release.yml`) | yes (on a `v*` tag) |
@@ -84,7 +84,7 @@ on that head before a tag and read each result from the command, never from this
 | unit + integration + acceptance | `pytest -q` | every test passes; the only legitimate skips are the console-script check (covered by `verify_release.py`) and the two that need the gitignored team tree, so read the skip reasons rather than a count |
 | lint + format | `ruff check . && ruff format --check .` | `All checks passed!`; `... files already formatted` |
 | typecheck | `mypy src/teamwork` | `Success: no issues found` |
-| privacy | `privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | `PASS - 0 finding(s) in tree, history`, exit 0 |
+| privacy | `privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | `PASS - 0 finding(s) in tree, history`, exit 0; `privacy_scan.py --stores` -> `PASS - 0 finding(s) in stores` |
 | docs | `teamwork links` + `mkdocs build --strict` | `# issues: 0`; the strict build finishes without a warning |
 | identity | `teamwork identity --audit --range origin/main..main` | `# commits: 0 | problems: 0` on a clean push, and `problems: 0` otherwise |
 | code scanning | `teamwork code-scanning` | `- no open alert`. Any open `error`/`critical`/`high` alert is a red gate and is filed to the role that owns the file, never dismissed (`D-20261020-SEC-1`, below) |
