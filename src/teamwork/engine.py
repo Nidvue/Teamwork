@@ -6073,43 +6073,12 @@ Three steps, in order. You cannot skip any of them.
 """.replace("{max_rounds}", str(MAX_ROUNDS))
 
 
-def unknown_role_message(root: Path, name: str, role: str) -> str:
-    """The refusal for a name that is neither a registered role nor an instance.
-
-    `load` reads a role's shared memory, so a name it cannot resolve is a typo or a
-    role this team never staffed: writing `Roles/<Name>/` there would invent a role
-    and make the typo look staffed, which is what `cmd_load` used to do (T-0003).
-    The message names what the team knows so the name can be corrected without a
-    second command.
-    """
-    known = list_roles(root)
-    return (
-        f"unknown role '{name}': no {role} instance is registered in this team, so"
-        " nothing was created. Known roles: "
-        + (", ".join(known) if known else "(none initialised - run `teamwork.py init`)")
-    )
-
-
-def loadable_role(root: Path, role: str) -> bool:
-    """True when `load` may print memory for `role` in this team.
-
-    A registered instance always qualifies. So does a known role that still owns a
-    memory set with no instance left (every instance retired). A directory on its
-    own does not: the old guard trusted `Agents/` existing (always true after
-    `init`), and `Roles/Nope/` is exactly what that wrote, so a stray directory may
-    not keep itself alive (T-0003).
-    """
-    if instances_of(root, role):
-        return True
-    return role in ROLE_DISPLAY and role_dir(root, role).is_dir()
-
-
 def cmd_load(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
     d = role_dir(root, role)
-    if not loadable_role(root, role):
-        die(unknown_role_message(root, args.agent, role))
+    if not d.is_dir() and not agents_dir(root).is_dir():
+        die(f"unknown role '{role}' (run init or check `agents`)")
     consolidate_agent(root, role, dry_run=False, quiet=True, actor=args.agent, strict=False)
     limit = args.limit or SHORT_CAP
     entries = parse_memory(d / F_SHORT)
@@ -16619,14 +16588,12 @@ def _parsers_workspace(sub, common) -> None:
 def _parsers_memory(sub, common) -> None:
     """`memory` command surface."""
     s = sub.add_parser(
-        "load",
-        parents=[common],
-        help="print the ROLE's short-term memory (startup context); a name this team"
-        " has no role directory and no instance for is refused (1) and creates nothing",
+        "load", parents=[common], help="print the ROLE's short-term memory (startup context)"
     )
     s.add_argument("agent", help="role or instance name (memory is per role)")
     s.add_argument("--limit", type=int, default=0)
     s.set_defaults(func=cmd_load)
+
     s = sub.add_parser(
         "remember", parents=[common], help="add/update an entry in the ROLE's shared memory"
     )
