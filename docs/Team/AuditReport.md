@@ -96,9 +96,10 @@ and never pinned here, because the commit that documents a count raises it
 - **Two surfaces are measured separately**, because they have different answers
   and different remediations: the **local** repository (the branch that is about
   to be pushed) and the **published** repository (every ref the forge holds,
-  measured in a clone of the forge). The published surface is clean; the local
-  history is red. A single "the repository is clean" sentence cannot carry both,
-  which is why this report states them in a table.
+  measured in a clone of the forge). At the audited revision the published
+  surface was clean and the local history was red; a single "the repository is
+  clean" sentence cannot carry both, which is why this report states them in a
+  table. Both are clean now (the local side since R5).
 - Revision audited: `main` at the tip `git rev-parse main` reported when this
   report was refreshed; the counts below are re-read on every refresh rather than
   pinned, because the commit that documents a count raises it. The same applies
@@ -186,7 +187,7 @@ dispositioned (Architecture §9, `privacy` CI job).
 | F-6 | low | supply-chain | `.github/workflows/*.yml` | actions pinned to mutable major tags (`@v4`, `@v5`, `@v0`, `@v2`) | resolved - every action is pinned to a full commit SHA (`grep -hoE 'uses: [^ ]+' .github/workflows/*.yml \| grep -vE '@[0-9a-f]{40}$'` -> nothing) |
 | F-7 | info | hygiene | `.pi/` and `.venv/` (gitignored) | home paths, private domain, personal mailboxes | residual risk |
 | F-8 | info | boundary | the published side of the same object | no address, no name, no private domain | **measured boundary, not a finding of a leak** - the published side is clean and the object is **not reachable from any published ref**, and the content of the offending commit is already published safely under the role mailbox (identical tree, and that role-mailbox commit **is** in `origin/main`). So the published history carries no personal identity, and the disclosure is of the **identity** of the retained object, not of its content. This row is what keeps the risk proportionate: it bounds F-1 and F-2, and it is the reason the report distinguishes *reachability*, *service* and *disclosure* instead of compressing them into one adjective |
-| F-9 | high | personal-email + private-domain | the **decision record of the ruling that governs this report** (`D-20261021-Reviewer-1`), on the Reviewer's own unmerged branch | `pin******.no` | **CLOSED** - the decision entry names the rule, not the value. Verified: `grep -nE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' docs/Team/Decisions.md | grep -v 'agents\.nidvue\.com'` prints nothing, while the same pattern over a control line carrying an address prints it (`grep -cE` -> 1). Note the earlier revision of this row cited an ERE with `\w`, which GNU grep does not expand, so that command matched nothing and proved nothing. **Measured at the audited revision, and it is a NEW occurrence, not the old one.** The decision entry quotes the operator's address **literally** in its `evidence:` line, and the commit that carries it quotes the same address in its **commit message**. Measured on that branch's tree: the shipped tree scan is `FAIL` (the address, the private domain and two high-entropy false positives on the same line), where `main` is `PASS`. The occurrence is in the record that documents this very disclosure, so it reproduces the exact failure the gate exists to catch. It is not on `main` and not on any published ref, so it is **not published** and it is **not disclosed** to anyone who does not already have that branch - but it will become published the moment the ruling is merged, and the shipped `privacy` CI job will refuse that push. **Remediation: the decision entry must name the rule, not the value** - the same treatment the archive mask already gives the review records (`docs/Team/Archive.md` carries `[redacted-personal-email]` where it used to carry the value) - and the commit message must do the same. Owner: the Reviewer who wrote the entry, with the CEO as the routing lane. This report does not edit that file; it is not in this lane's scope |
+| F-9 | high | personal-email + private-domain | the **decision record of the ruling that governs this report** (`D-20261021-Reviewer-1`), on the Reviewer's own unmerged branch | `pin******.no` | **CLOSED** - the decision entry names the rule, not the value. Verified: `grep -nE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' docs/Team/Decisions.md | grep -v 'agents\.nidvue\.com'` prints nothing, while the same pattern over a control line carrying an address prints it (`grep -cE` -> 1). Note the earlier revision of this row cited an ERE with `\w`, which GNU grep does not expand, so that command matched nothing and proved nothing. **As measured at the audited revision this was a NEW occurrence, not the old one.** The decision entry quoted the operator's address **literally** in its `evidence:` line, and the commit that carried it quoted the same address in its **commit message**. On that branch's tree the shipped tree scan was `FAIL` (the address, the private domain and two high-entropy false positives on the same line) where `main` was `PASS`: the occurrence was in the record that documents this very disclosure, so it reproduced the exact failure the gate exists to catch. It was never on `main` or on any published ref, so it was not published; had the ruling been merged as it stood, the shipped `privacy` CI job would have refused the push. **Remediation, since performed:** the entry names the rule instead of the value - the same treatment the archive mask already gives the review records (`docs/Team/Archive.md` carries `[redacted-personal-email]` where it used to carry the value) - and the commit message does the same |
 
 F-1/F-2 root cause: the author of the squash-merged commit is the **account that
 was signed in to the forge** when the merge button was pressed, not the role
@@ -254,14 +255,14 @@ measure and what it answers.
 | full clone + `+refs/pull/*/head`, object-by-object sweep | no address, no name, no private domain | the **published** side is clean |
 | `git rev-parse <rev>^{tree} <role-mailbox-rev>^{tree}` | the same tree id | the **content** is already published under the role mailbox; the disclosure is of the **identity** |
 
-**What the request is for.** Rewrite the local commits so that the personal
-address is not reachable from the branch that is about to be pushed: rebase the
+**What the request was for.** Rewrite the local commits so that the personal
+address was not reachable from the branch about to be pushed: rebase the
 local branches onto the **published** tip, rewrite the archive blob revisions
 that quote the address so the value is redacted, and re-point the commit ids
 that `docs/Team/Archive.md`, `docs/Team/Decisions.md` and the ledger cite. No
 published ref, tag or release changes, and nothing is force-pushed.
 
-**What the request is not, and cannot be.** The rewrite **does not undo the
+**What the request was not, and could not be.** The rewrite **does not undo the
 disclosure**. The identity is already disclosed at the object level: the forge
 serves the retained object with the name and the address attached, and that fact
 cannot be un-disclosed by anything this team does to its own history. What the
@@ -271,15 +272,16 @@ refs, and it removes the address from the local archive blob revisions. The
 disclosure and the rewrite are two different problems, and only the second one is
 in this team's hands.
 
-**Authorization: the user's, through the CEO.** `AGENTS.md`'s red-line list names
-"history rewrite" without a *published* qualifier, and the conservative reading
-applies; the PUSH POLICY names "force-push, published-history rewrite and
-retagging" as needing the CEO's explicit authorization. The request therefore
-needs the **user's** authorization, and it is carried by `ceo T-0003`. This
-report records the request and the evidence; it does not authorize the rewrite
-and does not perform it. The base of the rewrite is fixed by
-D-20261020-CEO-8 (in `docs/Team/Decisions.md`): the **published** tip, not the
-local tip or the local merge base.
+**Authorization: the user's, through the CEO - and it was given.** `AGENTS.md`'s
+red-line list names "history rewrite" without a *published* qualifier, and the
+conservative reading applies; the PUSH POLICY names "force-push,
+published-history rewrite and retagging" as needing the CEO's explicit
+authorization. The request therefore needed the **user's** authorization, and it
+was carried by `ceo T-0003` and recorded as gap G-8 of `docs/Team/Project.md`.
+This report recorded the request and the evidence; it did not itself authorize or
+perform the rewrite. The base of the rewrite was fixed by D-20261020-CEO-8 (in
+`docs/Team/Decisions.md`): the **published** tip, not the local tip or the local
+merge base.
 
 **What holds regardless of the rewrite.** R1 sets the repository-local identity
 to a role mailbox, so a plain `git commit` cannot inherit an operator identity;
@@ -489,8 +491,8 @@ grepping this report for a withdrawn phrase does not find it:
 | a risk row that said the exposure lay ahead of us rather than behind us | the disclosure happened at the object level, when the forge served the object with the identity attached |
 | a risk row that reduced this to a containment task rather than a disclosure | the same reason - the disclosure happened; the rewrite does not undo it |
 
-The disclosure happened; the rewrite is still needed; the rewrite does not undo
-it.
+The disclosure happened. The rewrite was then performed; it did not undo the
+disclosure.
 
 ### 7.2.1 The ruling's own record (F-9)
 
@@ -518,14 +520,13 @@ private domain, quoted literally in the `evidence:` line of the entry that
 documents the disclosure. The commit message of the same commit quotes the
 address as well.
 
-The two facts that keep this proportionate: the occurrence is **not on `main`
-and not on any published ref**, so it is not published and not disclosed to
-anyone who does not already have that branch; and the fix is the one the team
-already uses elsewhere - **name the rule, not the value**. The archive mask
+The two facts that keep this proportionate: the occurrence was **never on `main`
+and never on any published ref**, so it was not published and not disclosed to
+anyone who did not already have that branch; and the fix is the one the team
+already uses elsewhere - **name the rule, not the value**. The archive mask had
 replaced the quoted address with `[redacted-personal-email]` in exactly this way
-(`docs/Team/Archive.md`), and the ruling entry needs the same treatment in both
-the record and the commit message. The owner is the author of the entry; this
-lane does not edit that file.
+(`docs/Team/Archive.md`). The ruling entry received the same treatment in both
+the record and the commit message, which is why the finding is closed.
 
 ### 7.3 Without the allowlist
 
