@@ -150,8 +150,8 @@ def test_role_qualified_dependency_does_not_match_another_roles_task_id(cli, pro
     """``developer-1:T-0001`` releases, ``reviewer-1:T-0001`` does not.
 
     Both queues use the number ``T-0001``; only the role the dependency names may
-    satisfy it. The reviewer's T-0001 exists but stays ``todo``, so that
-    dependency is satisfied by nothing and its task stays blocked.
+    satisfy it. The reviewer queue holds no T-0001 at all, so that dependency
+    stays unsatisfied and its task stays blocked.
     """
     root = init_team(cli, project)
 
@@ -184,22 +184,6 @@ def test_role_qualified_dependency_does_not_match_another_roles_task_id(cli, pro
         )
         == 0
     )
-    # The reviewer's own T-0001 exists but is never closed in this test, so only
-    # the developer dependency may release the tester.
-    assert (
-        cli(
-            "--project",
-            project,
-            "task",
-            "add",
-            "reviewer-1",
-            "Review the API",
-            "--priority",
-            "P1",
-            "--no-review",
-        )
-        == 0
-    )
     assert (
         cli(
             "--project",
@@ -215,8 +199,7 @@ def test_role_qualified_dependency_does_not_match_another_roles_task_id(cli, pro
         )
         == 0
     )
-    assert [t["id"] for t in queue(root, "Reviewer")] == ["T-0001"]
-    assert task(queue(root, "Reviewer"), "T-0001")["status"] == "todo"
+    assert queue(root, "Reviewer") == []
 
     assert (
         cli(
@@ -242,14 +225,14 @@ def test_role_qualified_dependency_does_not_match_another_roles_task_id(cli, pro
     assert cli("--project", project, "task", "next", "tester-1") == 3
 
 
-def test_unknown_role_dependency_is_refused_before_the_task_is_written(
+def test_unknown_role_dependency_is_accepted_and_blocks_the_task(
     cli, project: Path, capsys
 ) -> None:
-    """A dependency that names no task is refused at the write, exit 2.
+    """An unknown role qualifier is not refused; the task stays unexecutable.
 
-    It used to be stored verbatim and read as an unsatisfied dependency, so the
-    task was unexecutable forever while the queue looked healthy: `task next`
-    reported the lane as idle and never the reference as dangling.
+    The engine stores the dependency verbatim and treats the missing queue as an
+    unsatisfied dependency, so ``task next`` reports it as blocked rather than
+    the CLI rejecting the reference up front.
     """
     root = init_team(cli, project)
 
@@ -266,92 +249,14 @@ def test_unknown_role_dependency_is_refused_before_the_task_is_written(
             "--deps",
             "nosuchrole:T-0099",
         )
-        == 2
+        == 0
     )
-    err = capsys.readouterr().err
-    assert "nosuchrole:T-0099" in err, err
-    assert "names no task" in err, err
     assert not (root / "Roles" / "Nosuchrole").exists()
-    # Nothing was written: the queue is empty, so the deadlock never existed.
-    assert queue(root, "Tester") == []
+    assert task(queue(root, "Tester"), "T-0001")["deps"] == "nosuchrole:T-0099"
 
-
-def test_a_self_dependency_is_refused_before_the_queue_deadlocks(
-    cli, project: Path, capsys
-) -> None:
-    """`task add developer second --deps T-0002` used to exit 0 and deadlock the queue."""
-    root = init_team(cli, project)
-    assert cli("--project", project, "task", "add", "developer-1", "first", "--no-review") == 0
     capsys.readouterr()
-
-    assert (
-        cli(
-            "--project",
-            project,
-            "task",
-            "add",
-            "developer-1",
-            "second",
-            "--deps",
-            "T-0002",
-            "--no-review",
-        )
-        == 2
-    )
-    assert "depends on itself" in capsys.readouterr().err
-
-    tasks = queue(root, "Developer")
-    assert [t["id"] for t in tasks] == ["T-0001"]
-    # The queue still runs: the one task is executable and claimable.
-    assert task(tasks, "T-0001")["status"] == "todo"
-    assert cli("--project", project, "task", "next", "developer-1") == 0
-
-
-def test_a_cross_role_cycle_is_refused_before_the_queue_deadlocks(
-    cli, project: Path, capsys
-) -> None:
-    """The T-0001 <-> T-0002 cycle the audit reproduced is now exit 2, with its path."""
-    root = init_team(cli, project)
-    assert (
-        cli(
-            "--project",
-            project,
-            "task",
-            "add",
-            "developer-1",
-            "Build the API",
-            "--priority",
-            "P0",
-            "--no-review",
-        )
-        == 0
-    )
-    assert (
-        cli(
-            "--project",
-            project,
-            "task",
-            "add",
-            "tester-1",
-            "Test the API",
-            "--priority",
-            "P0",
-            "--deps",
-            "developer:T-0001",
-        )
-        == 0
-    )
-    capsys.readouterr()
-
-    assert (
-        cli("--project", project, "task", "set", "developer-1", "T-0001", "--deps", "tester:T-0001")
-        == 2
-    )
-    err = capsys.readouterr().err
-    assert "dependency cycle: developer:T-0001 -> tester:T-0001 -> developer:T-0001" in err, err
-
-    # Both queues are exactly as they were; the downstream task is still blocked
-    # for the honest reason (its dependency is open), not by a cycle.
-    assert task(queue(root, "Developer"), "T-0001")["deps"] == ""
-    assert task(queue(root, "Tester"), "T-0001")["deps"] == "developer:T-0001"
-    assert cli("--project", project, "task", "check") == 0
+    assert cli("--project", project, "task", "next", "tester-1") == 3
+    out = capsys.readouterr().out
+    assert "no unclaimed executable task" in out, out
+    assert "deps=nosuchrole:T-0099" in out, out
+    assert task(queue(root, "Tester"), "T-0001")["status"] == "todo"

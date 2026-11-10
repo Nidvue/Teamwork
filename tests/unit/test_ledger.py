@@ -220,3 +220,56 @@ def test_the_manifest_checkpoint_survives_later_ledger_work(tmp_path: Path, caps
     assert "checkpoint_n" in manifest["ledger"]
     report = (docs / engine.F_AUDITREPORT).read_text(encoding="utf-8")
     assert f"checkpoint: record #{checkpoint}" in report
+
+
+def test_a_corrupt_middle_line_does_not_fake_a_lagging_head_cache(tmp_path: Path) -> None:
+    """The cache counts *valid* records; a torn middle line is not a lag.
+
+    ``ledger_read`` inserts a ``<corrupt>`` placeholder for an unreadable line, so
+    comparing the cache with its length made "the head cache is behind" permanent:
+    ``--reconcile`` wrote the inflated number and the next append the valid one, so
+    every later verify reported it again (T-0020/A8).
+    """
+    root = _seed(tmp_path / "team")
+    path = engine.ledger_path(root)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    lines.insert(1, "{ not json")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # the torn line is the only problem; the cache still matches the last good record
+    problems = engine.ledger_verify(root)
+    assert problems == ["record 2: unreadable line in the ledger"], problems
+    # reconciling repairs the cache by the valid count, never the placeholder
+    assert engine.ledger_verify(root, reconcile=True) == ["record 2: unreadable line in the ledger"]
+    head = json.loads(engine.ledger_head_path(root).read_text(encoding="utf-8"))
+    assert head["n"] == 3
+    engine.ledger_append(root, "task.add", "ceo", "T-0004", "after the corrupt line")
+    assert engine.ledger_verify(root) == ["record 2: unreadable line in the ledger"]
+
+
+def test_loop_does_not_write_runtime_state(cli, project: Path, capsys) -> None:
+    """``loop`` is a read: a lagging head cache is reported, never repaired there.
+
+    The stop gate called ``ledger_verify(reconcile=True)``, so asking "may we
+    stop?" rewrote ``Runtime/LedgerHead.json`` from a status command and parsed the
+    ledger three times per call (T-0020/A14).
+    """
+    assert cli("--project", project, "init", "--agents", "ceo,reviewer-1", "--no-git") == 0
+    slug = engine.team_slug(project)
+    root = (project / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / slug).resolve()
+    engine.ledger_append(root, "task.add", "ceo", "T-0001", "one")
+    head = engine.ledger_head_path(root)
+    current = json.loads(head.read_text(encoding="utf-8"))
+    stale = json.dumps({"n": current["n"] - 1, "hash": current["hash"]}) + "\n"
+    head.write_text(stale, encoding="utf-8")
+    before = head.stat().st_mtime_ns
+
+    capsys.readouterr()
+    cli("--project", project, "loop")
+    out = capsys.readouterr().out
+
+    assert head.stat().st_mtime_ns == before, "a read-only status command rewrote the head cache"
+    assert head.read_text(encoding="utf-8") == stale
+    # the lag is a note with the repair command, not a stop blocker
+    assert "teamwork.py ledger verify --reconcile" in out, out
+    assert "head cache is behind" not in out, out

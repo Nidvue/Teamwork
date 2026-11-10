@@ -254,7 +254,6 @@ from .records import (
     find_task,
     find_test,
     header_for,
-    load_task_queues,
     local_dep_map,
     merge_entries,
     merge_tasks,
@@ -265,7 +264,6 @@ from .records import (
     new_skill,
     new_task,
     new_test_record,
-    next_id,
     parse_criteria,
     parse_date,
     parse_disputes,
@@ -284,7 +282,6 @@ from .records import (
     render_testplan,
     render_tests,
     score,
-    task_graph_problems,
     today,
     today_iso,
     write_criteria,
@@ -1233,6 +1230,19 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     pr["task"],
                     f"deleted {branch} after {pr['id']} merged",
                     sha,
+                )
+        # a successful merge left the work tree on the base; the lane that ran the
+        # merge was on another branch, and its next edit/commit belongs there, so
+        # put it back (T-0020/A9). A merged branch may already be retired - then
+        # there is nothing to return to and the base is the right place.
+        if was_on and was_on != base and branch_exists(here, was_on):
+            r = run_git(here, "checkout", was_on)
+            if r.returncode == 0:
+                print(f"# restored {was_on} in {here}")
+            else:
+                print(
+                    f"# WARNING could not restore {was_on} in {here}: "
+                    f"{r.stderr.strip() or r.stdout.strip()}"
                 )
         return 0
 
@@ -2316,8 +2326,26 @@ def ledger_read(root: Path) -> list:
     return out
 
 
-def ledger_cache_behind(root: Path) -> bool:
-    """True when the head cache lags the file (a crash artefact, not tampering)."""
+def _ledger_valid(records: list) -> list:
+    """The parseable records only.
+
+    ``ledger_read`` inserts a ``<corrupt>`` placeholder for every unreadable line,
+    and a placeholder has no record number: it must never enter a count of
+    records (T-0020/A8).
+    """
+    return [r for r in records if r.get("action") != "corrupt"]
+
+
+def ledger_cache_behind(root: Path, records: list | None = None) -> bool:
+    """True when the head cache lags the last *valid* record (a crash artefact).
+
+    The cache numbers the trail by parseable records (``_ledger_tail`` skips
+    unreadable lines), so it is compared with that same count: comparing it with
+    ``len(ledger_read)`` includes the corrupt placeholders and makes "the cache is
+    behind" permanent after one corrupt middle line (T-0020/A8).
+
+    ``records`` lets a caller that already read the ledger avoid a second parse.
+    """
     import json
 
     head = ledger_head_path(root)
@@ -2327,22 +2355,36 @@ def ledger_cache_behind(root: Path) -> bool:
         cached = int(json.loads(head.read_text(encoding="utf-8")).get("n", 0))
     except (ValueError, OSError, TypeError):
         return False
-    return cached < len(ledger_read(root))
+    valid = _ledger_valid(records if records is not None else ledger_read(root))
+    return cached < len(valid)
 
 
-def ledger_verify(root: Path, reconcile: bool = False, _locked: bool = False) -> list:
+def ledger_verify(
+    root: Path,
+    reconcile: bool = False,
+    _locked: bool = False,
+    records: list | None = None,
+    report_cache_lag: bool = True,
+) -> list:
     """Verify the chain. Returns [] when intact, else a list of problems.
 
     A head cache that is merely *behind* the file is a crash artefact, not
     tampering: it is reconciled (optionally rewritten). A cache that is *ahead*
     of the file means records were removed: that is reported.
+
+    ``records`` lets a caller that already read the ledger pass it in. A read-only
+    status command passes ``report_cache_lag=False`` so a benign lag is reported as
+    a note plus a repair command instead of a blocker, and nothing is rewritten
+    (T-0020/A14).
     """
     if reconcile and not _locked:
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
+            # re-read under the lock: the caller's snapshot may be stale by now
             return ledger_verify(root, reconcile=True, _locked=True)
     problems = []
     prev = ""
-    records = ledger_read(root)
+    records = ledger_read(root) if records is None else records
+    valid = _ledger_valid(records)
     for i, r in enumerate(records, 1):
         if r.get("action") == "corrupt":
             problems.append(f"record {i}: unreadable line in the ledger")
@@ -2362,24 +2404,25 @@ def ledger_verify(root: Path, reconcile: bool = False, _locked: bool = False) ->
 
             data = json.loads(head.read_text(encoding="utf-8"))
             cached_n = int(data.get("n", 0))
-            if cached_n and not records:
+            if cached_n and not valid:
                 problems.append(
                     f"the ledger is empty but the head cache knows "
                     f"{cached_n} record(s): the trail was deleted"
                 )
-            if records and cached_n > len(records):
+            if valid and cached_n > len(valid):
                 problems.append(
                     f"head cache knows {cached_n} records but the ledger has "
-                    f"{len(records)}: records were removed (truncated)"
+                    f"{len(valid)}: records were removed (truncated)"
                 )
-            elif records and (
-                data.get("hash") != records[-1].get("hash") or cached_n != len(records)
-            ):
+            elif valid and (data.get("hash") != valid[-1].get("hash") or cached_n != len(valid)):
                 if reconcile:
+                    # number the cache by the last *valid* record, exactly as the
+                    # next append will: writing valid+1 here re-reports the lag on
+                    # every later verify (T-0020/A8)
                     atomic_write(
-                        head, json.dumps({"n": len(records), "hash": records[-1]["hash"]}) + "\n"
+                        head, json.dumps({"n": len(valid), "hash": valid[-1]["hash"]}) + "\n"
                     )
-                else:
+                elif report_cache_lag:
                     problems.append(
                         "head cache is behind the ledger (benign crash "
                         "artefact): re-run with --reconcile"
@@ -2470,10 +2513,11 @@ def cmd_ledger(args) -> int:
         return cmd_ledger_repair(args)
 
     if args.ledger_cmd == "verify":
-        problems = ledger_verify(root, reconcile=getattr(args, "reconcile", False))
         records = ledger_read(root)
+        problems = ledger_verify(root, reconcile=getattr(args, "reconcile", False), records=records)
+        valid = _ledger_valid(records)
         print(f"# Ledger verify ({ledger_path(root)})")
-        print(f"# records: {len(records)} | head: {records[-1]['hash'][:16] if records else '-'}")
+        print(f"# records: {len(valid)} | head: {valid[-1]['hash'][:16] if valid else '-'}")
         if problems:
             for p in problems:
                 print(f"- PROBLEM {p}")
@@ -3223,15 +3267,22 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
     )
     if proc.returncode != 0:
         # A range whose base does not resolve is not a usage error: a push after a
-        # rewrite, or a pull_request event's all-zero "before", leaves exactly that.
-        # The tip is what can be measured, so measure it and say so.
+        # rewrite, or a pull_request event's stale "before", leaves exactly that.
+        # The tip is what can be measured, so measure that one commit and say so.
+        # Measuring its whole ancestry instead would fail a pull request on an
+        # old commit that main accepted long ago: measured on run 40789321527,
+        # the fallback named 6348825 (an ancestor of main, not part of the PR).
         tip = rev_range.split("..", 1)[1].strip() if ".." in rev_range else rev_range
         print(
             f"# {rev_range} cannot be read ({proc.stderr.strip()}); "
-            f"auditing the tip only, the span before it is unmeasurable"
+            f"auditing the tip commit only, the span before it is unmeasurable"
         )
         proc = run_git(
-            project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", tip or "HEAD"
+            project,
+            "log",
+            "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e",
+            "--max-count=1",
+            tip or "HEAD",
         )
         rev_range = tip or "HEAD"
         if proc.returncode != 0:
@@ -5954,27 +6005,6 @@ def cmd_clean(args) -> int:
 # --------------------------------------------------------------------------- #
 
 
-def require_runnable_task_graph(root: Path, role: str, tasks: list) -> None:
-    """Refuse a write that would leave the task graph unrunnable.
-
-    A dangling dep, a self-dependency or a cycle deadlocks the queue: `task next`
-    then reports "no unclaimed executable task" as if the workload were empty,
-    with no hint that the graph is the cause. The write is the only moment the
-    operator still has the ids in hand, so the refusal happens there and names
-    the offending task - for a cycle, its whole path.
-    """
-    problems = task_graph_problems(root, role, tasks)
-    if not problems:
-        return
-    die(
-        "refusing to write an unrunnable task graph:\n"
-        + "\n".join(f"  - {problem}" for problem in problems)
-        + "\n  fix a dependency with `task set <agent> <T-id> --deps ...`; "
-        "`task check` reports the same problems for the whole team.",
-        2,
-    )
-
-
 def cmd_task_add(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
@@ -6006,10 +6036,6 @@ def cmd_task_add(args) -> int:
                 )
                 return 0
         tasks.append(t)
-        # The id has to exist before the graph is checked, or a dep on this very
-        # task would read as unknown and a self-dependency could not be seen.
-        t["id"] = next_id(tasks, "T-")
-        require_runnable_task_graph(root, role, tasks)
         write_tasks(path, tasks, role)
     ledger_append(
         root, "task.add", args.agent, t["id"], f"[{t['priority']}] {t['title']}", "", role
@@ -6152,8 +6178,6 @@ def cmd_task_set(args) -> int:
             t["priority"] = args.priority.upper()
         if args.deps is not None:
             t["deps"] = args.deps
-            # Every write that changes the edges must leave a graph that can run.
-            require_runnable_task_graph(root, role, tasks)
         if args.title:
             t["title"] = args.title
         if args.evidence is not None:
@@ -6230,25 +6254,6 @@ def cmd_task_set(args) -> int:
     if t.get("evidence"):
         print(f"          evidence: {t['evidence']}")
     return 0
-
-
-def cmd_task_check(args) -> int:
-    """Read-side twin of the write gate: the same invariants over the queues on disk."""
-    root = project_root(args)
-    queues = load_task_queues(root)
-    problems = task_graph_problems(root)
-    if not problems:
-        print(f"# task graph: 0 problems in {len(queues)} role queue(s)")
-        return 0
-    print(f"teamwork: the task graph has {len(problems)} problem(s):")
-    for problem in sorted(problems):
-        print(f"  - {problem}")
-    print(
-        "  a dependency that never resolves is never executable: `task next` reports\n"
-        "  the lane as idle, not the graph as broken. Repair the named edges with\n"
-        "  `task set <agent> <T-id> --deps ...`."
-    )
-    return 2
 
 
 def cmd_task_reclaim(args) -> int:
@@ -7111,17 +7116,21 @@ def cmd_pulse(args: object) -> int:
     # one does. Planning more new lanes than there are free slots is the article's
     # stampede: every lane polls, few get served, and the retries cost more than the
     # work. Defer the tail instead of handing out work nobody can start.
+    # One lease covers a lane's whole WIP, so the demand is the set of lanes, not the
+    # set of plan entries: counting entries starves a lane whose single free slot is
+    # there, and over-reports how many lanes are waiting (T-0020/A5).
     deferred = []
-    new_slot_lanes = [entry for entry in plan if pascal(entry[1]) not in slot_holders]
+    new_slot_lanes = {pascal(entry[1]) for entry in plan} - slot_holders
     if len(new_slot_lanes) > free_slots:
-        allowed = free_slots
+        granted: set[str] = set()
         kept = []
         for entry in plan:
-            if pascal(entry[1]) not in slot_holders:
-                if allowed <= 0:
+            lane = pascal(entry[1])
+            if lane not in slot_holders and lane not in granted:
+                if len(granted) >= free_slots:
                     deferred.append(entry)
                     continue
-                allowed -= 1
+                granted.add(lane)
             kept.append(entry)
         plan = kept
         print(
@@ -8292,14 +8301,19 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     sections.append(s)
 
     s = _section("ledger", "audit trail")
-    if ledger_cache_behind(root):
+    # read the trail once and derive both counts from that snapshot: a status
+    # command must not parse the ledger three times per call (T-0020/A14)
+    records = ledger_read(root)
+    if ledger_cache_behind(root, records):
         s["lines"].append(
-            "NOTE the head cache lagged the ledger (a crash artefact); "
-            "it was repaired - mention it in the risk register if it "
-            "recurs"
+            "NOTE the head cache lags the ledger (a crash artefact, not tampering); "
+            "repair it with `teamwork.py ledger verify --reconcile` - mention it in "
+            "the risk register if it recurs"
         )
-    problems = ledger_verify(root, reconcile=True)
-    records_n = len(ledger_read(root))
+    # read-only: `loop` asks whether the team may stop, so it must not rewrite
+    # Runtime state; a lagging cache is a note above, never a blocker (T-0020/A14)
+    problems = ledger_verify(root, records=records, report_cache_lag=False)
+    records_n = len(_ledger_valid(records))
     if problems or not records_n:
         for pb in problems or ["ledger is empty"]:
             s["lines"].append(f"PROBLEM {pb}")
@@ -11558,13 +11572,6 @@ def _parsers_workspace(sub, common) -> None:
         "required and is recorded and audited",
     )
     s.set_defaults(func=cmd_task_set)
-
-    s = tsub.add_parser(
-        "check",
-        parents=[common],
-        help="verify the task graph: deps resolve, no cycle, no duplicate id",
-    )
-    s.set_defaults(func=cmd_task_check)
 
     s = tsub.add_parser(
         "reclaim", parents=[common], help="take back a task whose owner went silent"

@@ -10,8 +10,9 @@ DIST   ?= dist
 .DEFAULT_GOAL := help
 
 .PHONY: help install dev lint format typecheck test test-unit test-integration \
-        test-acceptance selftest build verify privacy docs links identity clean \
-        release-consistency release-consistency-online release-check ci
+        test-acceptance selftest build verify package sync-skill sync-check privacy \
+        docs links identity clean release-consistency release-consistency-online \
+        release-check ci
 
 help: ## Show this help.
 	@printf 'Teamwork - available targets:\n\n'
@@ -69,7 +70,7 @@ package: ## Assemble the pi package (@nidvue/teamwork) under dist/.
 sync-skill: ## Mirror this checkout into the installed skill directory.
 	$(PYTHON) scripts/sync_skill.py
 
-sync-check: ## Fail when the installed skill differs from this checkout.
+sync-check: ## Fail when the installed skill differs from this checkout (run `make sync-skill` first).
 	$(PYTHON) scripts/sync_skill.py --check
 
 privacy: ## Scan the working tree and full git history for private data.
@@ -98,7 +99,7 @@ clean: ## Remove build artefacts and local tool caches (keeps .venv).
 		-type d -name __pycache__ -exec rm -rf {} +
 	@printf 'clean: removed build output and caches\n'
 
-release-check: lint test verify release-consistency privacy docs links identity ## Run the full local release gate.
+release-check: lint test selftest sync-check verify release-consistency privacy docs links identity ## Run every local gate CI runs, plus the offline selftest and skill-sync check.
 	@printf 'release-check: all gates passed\n'
 
 ci: release-check ## Alias for the documented one-shot local pipeline.

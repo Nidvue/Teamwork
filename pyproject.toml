@@ -45,6 +45,10 @@ dev = [
   "ruff>=0.9,<0.18",
   "mypy>=1.14,<3",
   "build>=1.2,<2",
+  # `make docs` is part of `make release-check`, so its builder must arrive with
+  # the other gates; the range is the one docs/requirements.txt pins (asserted in
+  # tests/unit/test_makefile_contracts.py).
+  "mkdocs-material>=9.7.7,<10",
 ]
 
 [project.scripts]
