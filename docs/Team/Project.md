@@ -3,7 +3,7 @@
 Owner: CEO. Single source of truth for *what done means*. No task closes without
 mapping to an acceptance criterion here.
 
-Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [M9Acceptance](M9Acceptance.md)
+Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [M9Acceptance](M9Acceptance.md) | [Throughput](Throughput.md)
 
 ## Objective
 
@@ -307,6 +307,33 @@ new milestone names its own ids instead of silently entering that matrix.
 Exit condition: AC-M17-1..AC-M17-7 verified by a role other than their owner on
 the merged revision, the lane tasks archived with a Reviewer pass, and the M17
 test layers recorded and passing.
+
+## M18 - Throughput and token economy (this engagement)
+
+Objective, from the operator's directive: optimize the roles, organization,
+structure, hierarchy, order and tasks so the whole team has no bottleneck, and
+optimize token consumption against the team's own history and track records. The
+measured baseline and every change are in [Throughput](Throughput.md); this
+section holds the criteria.
+
+The baseline says the bottleneck is **review rework**, not review capacity: 41%
+of verdicts fail and 46.6% of targets need a second verdict, while nine reviewer
+lanes wait on two items. The second finding is roster over-supply: 34 instance
+directories for ten open tasks. The third is on-demand reads: one whole
+`Archive.md` read is ~616k tokens, five times the entire always-on prompt.
+
+Non-goals: a new org layer, a second store, a hosted dashboard, deleting history,
+or moving a cap to make a check pass.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-M18-1 | a measured baseline (review latency, rework share, queue depth, instance count, always-on bytes, on-demand document sizes) ranks the bottlenecks and every optimization is tied to a number a command re-reads | CEO | Reviewer |
+| AC-M18-2 | the roster is right-sized: idle instances retired, slim default, scale-on-demand; `harness budget` reports the bytes a startup actually loads separately from recall-only stores, so no lane is silently over the cap | CEO | Reviewer |
+| AC-M18-3 | token-aware navigation and review gates exist: `archive --task`, `coordination` reviewer-oversupply, `preflight` slice warning, and the read-by-id / right-sized-slice / review-first-pass rules are in the always-on surfaces | Developer | Reviewer |
+
+Exit condition: AC-M18-1..AC-M18-3 verified by a role other than their owner on
+the merged revision, the lane tasks archived, and the report's baseline
+re-readable by its commands.
 
 ## Scope
 

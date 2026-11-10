@@ -3,7 +3,7 @@
 Owner: Project Manager. One row per task; `deps` must be `done` before it runs.
 Priority: P0 code, P1 tests, P2 docs.
 
-Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md)
+Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md) | [Throughput](Throughput.md)
 
 ## Status summary
 
@@ -871,6 +871,29 @@ merges; both are serialised on `engine.py`.
 
 Exit condition: AC-M17-1..AC-M17-7 verified by a role other than the owner on the
 merged revision, the M17 layers recorded and passing, and the records exported.
+
+## M18 - Throughput and token economy (live)
+
+Intake: the operator asked to optimize roles, organization, structure, hierarchy,
+order and tasks so the team has no bottleneck, and to optimize token consumption
+against the team's history. The measured baseline, the bottleneck ranking and the
+token table are in [THROUGHPUT](Throughput.md); the criteria are AC-M18-1..3 in
+[PROJECT](Project.md).
+
+| task | role | deliverable | deps | state |
+|---|---|---|---|---|
+| T-0020 | ceo | measured baseline, `Throughput.md`, live roster right-sizing, criteria | - | report |
+| T-0034 | developer | `harness budget` startup/recallable, `archive --task`, `C-REVIEW-OVERSUPPLY`, preflight slice warning, unit tests | developer T-0033 | implementation |
+| T-0013 | technical-writer | read-by-id, right-sized slice, review first-pass, token budget in the always-on surfaces | T-0011, T-0034 | documentation |
+| T-0006 | tester | integration/acceptance proof of the token tools and the oversupply finding | developer T-0034 | proof |
+
+The ordering is deliberate: the report and the roster cut first (no code, no
+lane), the engine tools after the context tree lands on `engine.py`, the docs
+after the tools exist, and the proof last. No lane edits the same file twice.
+
+Exit condition: AC-M18-1..AC-M18-3 verified by a role other than the owner on the
+merged revision, the report's baseline re-readable by its commands, and the
+rework/oversupply numbers re-measured after the changes.
 
 ## Task-graph integrity
 
