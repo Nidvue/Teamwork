@@ -8,8 +8,8 @@ Related: [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md
 
 | Version | Supported |
 |---|---|
-| 1.0.x | Yes |
-| < 1.0 | No |
+| 1.4.x | Yes |
+| < 1.4 | No |
 
 Security fixes are released for the latest minor line.
 
@@ -51,11 +51,14 @@ machine.
 
 `scripts/privacy_scan.py` runs with `--allow .github/privacy-allow.txt` in
 `make privacy` and in CI. The file holds one regular expression per line plus a
-reason; it exists so a false positive cannot force a history rewrite. It carries
-exactly one entry today (`^\.pi/agent/npm$`, a package path quoted by T-0001; the tree still carries the scanner's own
-fixture for it, and three history blobs match, so the gate needs the entry). A second entry needs a recorded decision and, if it
-masks a credential rule, the Security Auditor's review - growing the list is
-weakening the gate.
+reason; it exists so a false positive cannot force a history rewrite. The file
+carries the list - five anchored literals today, two path families
+(`^\.pi/agent/npm$` and the operator user name) and three fabricated probe values
+a reviewer quoted while proving that the gate catches a credential - and
+`tests/unit/test_privacy_scan.py` pins those five entries by name, so a sixth
+cannot arrive silently. A new entry needs a recorded decision and, if it masks a
+credential rule, the Security Auditor's review, and that test updated in the same
+change - growing the list is weakening the gate.
 
 ## Safe harbour
 
