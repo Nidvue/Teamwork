@@ -65,13 +65,22 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 256 kB |
-| `standard` | 9 | 374 kB |
-| `full` | 16 | 641 kB |
+| `slim` (default) | 6 | 263 kB |
+| `standard` | 9 | 384 kB |
+| `full` | 16 | 660 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
 justifies, and prefer an extra `developer-N`/`tester-N` over a coordination role.
+
+**Any role scales after the roster is written.** `teamwork.py instance add <role>
+--count N` adds instances of a role at any point - `architect-2`, `cto-2`, a second
+Product Manager - against the role's existing `Roles/<Role>/` memory and queue,
+and `instance retire` takes an idle one back out without touching that memory. The
+instances of a role are peers on one queue, and **only one of them revises the
+role's memory at a time** (`memory claim <role> --by <instance>`, `release` when
+the update is complete) - so a lane never has to reason about a file a peer was
+half-way through editing.
 
 A tier drops **lanes**, not gates:
 

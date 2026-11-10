@@ -9,9 +9,42 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.2.1...HEAD)
+## [1.3.0](https://github.com/Nidvue/Teamwork/compare/v1.2.1...v1.3.0) - 2026-10-28
 
-Compares from the newest tag, `v1.2.1`.
+Compares from the previous tag, `v1.2.1`.
+
+### Added
+
+- **Any role can run multiple instances, and exactly one of them revises the
+  role's shared memory at a time.** `teamwork instance add <role> --count N`
+  scales a role at any point - CTO, Architect, Product Manager and every other
+  seat, not just Developer/Tester/Reviewer/Designer - and the new instances share
+  the role's one `Roles/<Role>/` memory set and one `TaskQueue.md`; `instance
+  list` shows role, instances and the current memory writer, and `instance retire`
+  removes an idle lane while keeping the role's memory (a lane that still holds
+  work needs `--force "<reason>"`, recorded).
+- **The role memory lease.** `teamwork memory claim <role> --by <instance>` holds
+  the pen for a multi-entry update (`Runtime/Locks/memory-<Role>.claim`), `memory
+  release` gives it back, `memory renew` extends it and `memory status` shows who
+  holds which role. A single `remember`/`forget`/`touch`/`consolidate` takes the
+  lease implicitly for its own duration, so two peers serialise instead of
+  interleaving edits. A peer is read-only meanwhile (exit `2`, naming the holder
+  and the minutes left) while `load` and `recall` always work; an expired lease
+  frees the role, and a stalled holder can be taken over on the record with
+  `--force "<why>"` (`memory.claim.force` in the ledger). A role's memory is only
+  writable by that role's own instances (or the CEO).
+- `instance add|list|retire` and `memory claim|release|renew|status`; the lease
+  duration is `MemoryLeaseMinutes` in `Settings.json` (default 30).
+- **A long lease is contested and arbitrated, not waited out.** `memory status`
+  marks a lease held past `MemoryStallMinutes` (default 15) as `SLOW`; any other
+  instance of the role then runs `memory contest <role> --by <you> --reason`,
+  which records `memory.contest` and files one `P0` `memory-lease` task on the
+  **CTO**'s queue (the arbiter folds up the reporting line to the CEO when the CTO
+  is unstaffed, and a party never rules its own lease). The arbiter answers with
+  `memory extend <role> --by CTO --ttl N` (the holder keeps the pen, contests
+  cleared, `memory.grant`) or `memory revoke <role> --by CTO` (the lock is removed,
+  `memory.revoke`). Only the arbiter or the CEO may rule; a peer's attempt exits
+  `2`, and a holder cannot contest itself.
 
 ## [1.2.1](https://github.com/Nidvue/Teamwork/compare/v1.2.0...v1.2.1) - 2026-10-27
 
