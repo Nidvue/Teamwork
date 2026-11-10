@@ -223,7 +223,12 @@ jobs:
   test:
     name: test (${{ matrix.os }} / py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # Capacity, not a gate: every test still runs. Measured 18 min on ubuntu 3.13
+    # and 30 on macos 3.13; windows hit the old 60-minute cap twice (runs
+    # 42530928486, 42533590196) because this suite spawns hundreds of processes
+    # and Windows spawns them several times slower. Sharding the Windows lane is
+    # tracked as a Tester task; the bound is re-read from Architecture.md 9.
+    timeout-minutes: 90
     needs: scope
     if: github.event_name != 'push' || needs.scope.outputs.code == 'true'
     strategy:
