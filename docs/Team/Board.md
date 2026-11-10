@@ -102,12 +102,14 @@ under two roles is two tasks.
 | release-engineer | T-0007 | ci | done | P-0013 | 183cf0d |
 | release-engineer | T-0008 | - | dropped | - | - |
 | release-engineer | T-0009 | - | done | P-0025 | c6ac201 |
+| release-engineer | T-0010 | ci | done | P-0028 | cf31e7d |
 | reviewer | T-0001 | records | dropped | - | - |
 | reviewer | T-0002 | - | dropped | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
 | security-auditor | T-0001 | - | done | P-0007 | f31b26e |
 | security-auditor | T-0002 | - | dropped | - | - |
 | security-auditor | T-0003 | audit-posture | done | P-0019 | 57231b7 |
+| security-auditor | T-0004 | audit-posture | done | P-0029 | 3ab759b |
 | technical-writer | T-0001 | docs-truth | done | P-0006 | 641e610 |
 | technical-writer | T-0002 | - | dropped | - | - |
 | technical-writer | T-0003 | docs-truth | done | P-0014 | 8b9fac8 |
