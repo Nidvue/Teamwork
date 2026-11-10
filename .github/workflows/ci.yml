@@ -5,13 +5,32 @@
 #
 # Jobs: lint, typecheck (non-blocking), test (3 OS x 3 Python), build, privacy,
 # docs. Every job must be green on the pushed revision.
+#
+# Trigger policy: a documentation-only change must not burn the 3x3 test matrix.
+# Prose paths are ignored here and validated by `.github/workflows/docs.yml`
+# instead (links, privacy scan, mkdocs --strict). Anything that ships - `src/`,
+# `scripts/`, `tests/`, `roles/`, `references/`, `templates/`, packaging, CI
+# itself - always runs this workflow.
 
 name: CI
 
 on:
   push:
     branches: [main]
+    paths-ignore: &documentation-only
+      - "docs/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "CODE_OF_CONDUCT.md"
+      - "CITATION.cff"
+      - "LICENSE"
+      - "AGENTS.md"
+      - "assets/**"
+      - "mkdocs.yml"
   pull_request:
+    paths-ignore: *documentation-only
   workflow_dispatch:
 
 # Cancel superseded runs on the same ref, but never a run on main.
