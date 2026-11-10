@@ -390,3 +390,61 @@ def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path, mo
     assert "personal-email" not in on_merge, "the forge merge identity must be skipped"
     assert "api-token" in on_merge, "the merge message must still be scanned"
     assert "personal-email" in on_control, "the control commit proves the assertion can fail"
+
+
+def test_report_context_does_not_republish_a_neighbour_secret():
+    first = "AAAA" + "BBBBCCCC1111222"
+    second = "DDDD" + "EEEEFFFF3333444"
+    text = f'{{"apiKey": "{first}", "clientSecret": "{second}"}}\n'
+    findings = findings_for(text)
+    assert findings
+    assert all(f["context"] == "" for f in findings)
+
+
+def test_paths_urls_and_digits_are_not_credentials():
+    text = "PWD=/usr/local/bin\nAPI_KEY=https://api.example.com/v1/keys\nTOKEN=0000000000\n"
+    assert "env-secret" not in rules_hit(text)
+
+
+def test_quoted_passphrase_with_spaces_is_reported():
+    passphrase = "correct " + "horse " + "battery " + "staple"
+    assert "env-secret" in rules_hit(f'PASSWORD="{passphrase}"\n')
+
+
+def test_base64_data_uri_and_integrity_hash_are_not_secrets():
+    text = (
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lQn5VwAAAABJRU5ErkJggg==\n"
+        "sha512-K3f8Qw9vJ2mXpLdRtYuIoPaSdFgHjKlZxCvBnM7qWeRtY=\n"
+    )
+    assert "high-entropy-secret" not in rules_hit(text)
+
+
+def test_utf16_text_is_scanned():
+    token = "ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789"
+    data = f"GITHUB_TOKEN={token}\n".encode("utf-16")
+    findings = ps._scan_bytes(data, "win.ps1", "unit-test", allow=[])
+    assert any(f["rule"] == "api-token" for f in findings)
+
+
+def test_cat_file_batch_skips_tree_payloads_without_desync(tmp_path: Path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main", "."], cwd=repo, check=True)
+    (repo / "hello.txt").write_text("hello blob\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=A", "-c", "user.email=a@example.com", "commit", "-qm", "x"],
+        cwd=repo,
+        check=True,
+    )
+    shas = subprocess.run(
+        ["git", "-C", str(repo), "rev-list", "--objects", "--all"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    shas = [line.split()[0] for line in shas if line.strip()]
+    blobs = ps._cat_file_batch(repo, shas)
+    assert any(b"hello blob" in payload for payload in blobs.values())

@@ -56,7 +56,7 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 | Concurrency control | Provider slot leases respect per-provider caps, so N agents never overload a model endpoint. |
 | Disputes and tribunal | A challenged design goes through evidence rounds; a 3-round deadlock is ruled on by the CEO + CTO + CFO and recorded. |
 | Portable, dependency-free | CPython 3.9-3.13 on Linux, macOS and Windows. **Zero third-party runtime dependencies.** |
-| Enforced standards | One canonical toolchain per language, run by the team and gated in CI: `ruff format` + `ruff check` + `mypy` here, with the full per-language table in `references/Engineering.md`. |
+| Enforced standards | One canonical toolchain per language, run by the team: `ruff format` + `ruff check` gate CI, `mypy` runs as a non-blocking report (the engine is a tracked post-1.0 typing refactor); the full per-language table is in `references/Engineering.md`. |
 | Automatic model routing | `teamwork model auto` detects the running agent host where the environment identifies it and routes the strongest available model to the decision lanes and the economy model to the mechanical lanes - best output where it compounds, lowest cost where it does not. Every lane's model is configurable independently (`model set <agent>`). |
 | Clean, modular history | Work commits are rebased and squashed before review, feature work squash-merges into `main`, and the naming policy (PascalCase directories, ecosystem-correct files) is written down rather than argued about. |
 | Skill first, engine optional | The product is a skill: `SKILL.md`, role charters, references, templates and the stdlib-only engine in one directory. Any agent host that loads skills or reads `AGENTS.md` runs the same protocol (optional adapter mapping: `references/Adapters.md`); the Python package is only a convenience for driving the engine from a terminal. |
@@ -129,7 +129,7 @@ cd Teamwork && python -m pip install .
 Run it straight from a checkout without installing anything:
 
 ```bash
-python3 scripts/teamwork.py --version    # teamwork 1.0.0
+python3 scripts/teamwork.py --version    # teamwork 1.0.2
 ```
 
 > The distribution name is `teamwork-agents` (the name `teamwork` is taken on
@@ -426,8 +426,8 @@ this README and its visuals lives in [`docs/Team/Design.md`](docs/Team/Design.md
 
 | Version | Status | Focus |
 |---|---|---|
-| `v1.0.0` | this release | Package, skill bundle, CLI, 15 role charters, layered tests, CI/release workflows, docs site. |
-| `v1.x` | planned | Enable PyPI trusted publishing; ship the release wheel, checksums and SBOM. |
+| `v1.0.0` | released | Package, skill bundle, CLI, 15 role charters, layered tests, CI/release workflows, docs site. |
+| `v1.x` | current | Release wheel, checksums and SBOMs are shipped; the remaining step is PyPI trusted publishing. |
 | next | exploring | More provider adapters, end-to-end worked examples, an opt-in ledger dashboard. |
 
 Direction, not a promise: no hosted service, and stars cannot be bought - this

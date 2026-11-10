@@ -37,7 +37,7 @@ target a specific workspace.
 | `1` | Generic error, or a gate refusal (e.g. `loop` says CONTINUE). |
 | `3` | Nothing to dispatch (`pulse`). |
 | `4` | Lock timeout. |
-| `5` | Evidence/gate refusal. |
+| `2` | Usage error or a gate refusal (missing evidence, wrong reviewer, ...). |
 
 ## Setup and workspace
 
@@ -53,7 +53,7 @@ Create the team workspace and memory files; creates the git repository unless
 | Option | Meaning |
 |---|---|
 | `--agents` | Comma-separated instance names, e.g. `ceo,architect,developer-1,tester-1`. |
-| `--force` | Overwrite existing files. |
+| `--force` | Rewrite generated scaffolding; existing memory, task records and team documents are preserved. |
 | `--no-git` | Do not create or check the git repository. |
 
 ### `repo`

@@ -28,6 +28,7 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 import venv
 import zipfile
@@ -53,17 +54,24 @@ def run(
     cwd: Path = REPO_ROOT,
     env: dict[str, str] | None = None,
     capture: bool = False,
+    timeout: int = 900,
 ) -> subprocess.CompletedProcess:
     """Run a command, echoing it, and return the completed process."""
     rendered = " ".join(str(part) for part in command)
     log(f"run: {rendered}")
-    result = subprocess.run(
-        [str(part) for part in command],
-        cwd=str(cwd),
-        env=env,
-        capture_output=capture,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [str(part) for part in command],
+            cwd=str(cwd),
+            env=env,
+            capture_output=capture,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise VerificationError(f"command timed out after {timeout}s: {rendered}") from exc
+    except OSError as exc:
+        raise VerificationError(f"could not run {rendered}: {exc}") from exc
     if capture:
         for stream in (result.stdout, result.stderr):
             if stream:
@@ -101,14 +109,23 @@ def build_artefacts() -> None:
     run_ok([sys.executable, "-m", "build"])
 
 
+def project_version() -> str:
+    text = (REPO_ROOT / "src" / "teamwork" / "version.py").read_text(encoding="utf-8")
+    match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+    if not match:
+        raise VerificationError("cannot read __version__ from src/teamwork/version.py")
+    return match.group(1)
+
+
 def find_artefacts() -> dict[str, Path]:
-    """Return the newest sdist and wheel from ``dist/``."""
-    wheels = list(DIST_DIR.glob("teamwork_agents-*.whl"))
-    sdists = list(DIST_DIR.glob("teamwork_agents-*.tar.gz"))
+    """Return the newest sdist and wheel *for this source tree's version*."""
+    version = project_version()
+    wheels = list(DIST_DIR.glob(f"teamwork_agents-{version}-*.whl"))
+    sdists = list(DIST_DIR.glob(f"teamwork_agents-{version}.tar.gz"))
     if not wheels:
-        raise VerificationError("no wheel found in dist/ after build")
+        raise VerificationError(f"no {version} wheel found in dist/ after build")
     if not sdists:
-        raise VerificationError("no sdist found in dist/ after build")
+        raise VerificationError(f"no {version} sdist found in dist/ after build")
     newest = lambda path: path.stat().st_mtime  # noqa: E731 - local key helper
     return {"wheel": max(wheels, key=newest), "sdist": max(sdists, key=newest)}
 
@@ -152,6 +169,13 @@ def inspect_wheel(wheel: Path) -> None:
         if not metadata_names:
             raise VerificationError("wheel has no METADATA file")
         metadata = archive.read(metadata_names[0]).decode("utf-8", "replace")
+        expected_version = project_version()
+        if "Name: teamwork-agents" not in metadata:
+            raise VerificationError("wheel metadata does not name teamwork-agents")
+        if f"Version: {expected_version}" not in metadata:
+            raise VerificationError(
+                f"wheel version does not match src/teamwork/version.py ({expected_version})"
+            )
     # ``Requires-Dist`` is also emitted for optional extras; only an
     # ungated requirement violates the zero-runtime-dependency contract.
     runtime = [
@@ -165,6 +189,29 @@ def inspect_wheel(wheel: Path) -> None:
         )
     log(f"wheel payload ok ({len(names)} entries, {len(expected)}/{len(expected)} bundle files)")
     log("wheel metadata ok (no ungated Requires-Dist)")
+
+
+def inspect_sdist(sdist: Path) -> None:
+    """Assert the sdist carries the same bundle and metadata contract."""
+    import tarfile
+
+    expected = set(expected_bundle_members())
+    expected_dirs = {name[len("teamwork/data/") :] for name in expected}
+    with tarfile.open(sdist, "r:gz") as archive:
+        names = archive.getnames()
+    roots = {name.split("/", 1)[0] for name in names if "/" in name}
+    if len(roots) != 1:
+        raise VerificationError(f"sdist has an unexpected root layout: {sorted(roots)[:3]}")
+    root = roots.pop()
+    present = {name[len(root) + 1 :] for name in names}
+    missing = sorted(expected_dirs - present)
+    if missing:
+        raise VerificationError(
+            f"sdist is missing {len(missing)} skill bundle file(s): " + ", ".join(missing[:5])
+        )
+    if not any(name.endswith("PKG-INFO") for name in names):
+        raise VerificationError("sdist has no PKG-INFO")
+    log(f"sdist payload ok ({len(names)} entries)")
 
 
 def write_checksums(artefacts: dict[str, Path]) -> Path:
@@ -190,13 +237,17 @@ def venv_paths(venv_dir: Path) -> tuple:
 
 
 def fresh_env() -> dict[str, str]:
-    """Environment without test overrides so packaged assets are resolved.
+    """Environment without ambient Teamwork overrides.
 
-    ``PYTHONPATH`` is dropped too: otherwise a source checkout on the path could
-    shadow the installed package and defeat the point of the smoke test.
+    ``TEAMWORK_ROOT`` redirects workspace commands unconditionally, so leaving
+    it set would make the smoke test mutate the operator's live team tree.
+    Every ``TEAMWORK_*`` variable is dropped; the smoke test sets only the ones
+    it needs. ``PYTHONPATH`` is dropped so the checkout cannot shadow the wheel.
     """
     env = dict(os.environ)
-    env.pop("TEAMWORK_SKILL_DIR", None)
+    for key in list(env):
+        if key.startswith("TEAMWORK_"):
+            env.pop(key, None)
     env.pop("PYTHONPATH", None)
     return env
 
@@ -221,8 +272,11 @@ def smoke_test(wheel: Path, workdir: Path) -> None:
         raise VerificationError(f"console script not installed: {console}")
 
     result = run_ok([console, "--version"], env=env)
-    if "teamwork" not in result.stdout:
-        raise VerificationError(f"unexpected --version output: {result.stdout!r}")
+    expected = f"teamwork {project_version()}"
+    if result.stdout.strip() != expected:
+        raise VerificationError(
+            f"unexpected --version output: {result.stdout!r} (expected {expected!r})"
+        )
 
     run_ok([console, "selftest"], env=env)
 
@@ -332,14 +386,23 @@ def full_loop_smoke(console: Path, workdir: Path, env: dict[str, str]) -> None:
     add_and_run("unit", "python -m pytest tests/unit", "Developer-1")
     add_and_run("acceptance", "python -m pytest tests/acceptance", "Reviewer-1")
 
-    cli(console, ["task", "add", "developer", "ship the widget", "--priority", "P0"], project, env)
-    cli(console, ["task", "set", "Developer-1", "T-0001", "--status", "selfcheck"], project, env)
+    added = cli(
+        console,
+        ["task", "add", "developer", "ship the widget", "--priority", "P0"],
+        project,
+        env,
+    )
+    match = re.search(r"(T-\d+)", added)
+    if not match:
+        raise VerificationError(f"`task add` printed no id: {added.strip()[:200]}")
+    task_id = match.group(1)
+    cli(console, ["task", "set", "Developer-1", task_id, "--status", "selfcheck"], project, env)
     cli(
         console,
         [
             "selfcheck",
             "developer",
-            "T-0001",
+            task_id,
             "--by",
             "Developer-1",
             "--note",
@@ -350,13 +413,13 @@ def full_loop_smoke(console: Path, workdir: Path, env: dict[str, str]) -> None:
         project,
         env,
     )
-    cli(console, ["task", "set", "Developer-1", "T-0001", "--status", "review"], project, env)
+    cli(console, ["task", "set", "Developer-1", task_id, "--status", "review"], project, env)
     cli(
         console,
         [
             "review",
             "developer",
-            "T-0001",
+            task_id,
             "--by",
             "Reviewer-1",
             "--result",
@@ -411,7 +474,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         build_artefacts()
         artefacts = find_artefacts()
         inspect_wheel(artefacts["wheel"])
-        write_checksums(artefacts)
+        inspect_sdist(artefacts["sdist"])
 
         if args.keep:
             workdir = Path(tempfile.mkdtemp(prefix="teamwork-verify-"))
@@ -422,8 +485,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             with tempfile.TemporaryDirectory(prefix="teamwork-verify-") as tmp:
                 smoke_test(artefacts["wheel"], Path(tmp))
+        # Publish checksums only after every check passed: a failed run must not
+        # leave a manifest next to unverified artefacts.
+        write_checksums(artefacts)
     except VerificationError as exc:
         log(f"FAILED: {exc}")
+        return 1
+    except (OSError, ValueError, tarfile.TarError, zipfile.BadZipFile) as exc:
+        log(f"FAILED: {type(exc).__name__}: {exc}")
         return 1
     log("OK - release verified")
     return 0
