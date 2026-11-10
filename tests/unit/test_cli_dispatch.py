@@ -49,6 +49,7 @@ FROZEN_COMMANDS = frozenset(
         "commit",
         "consolidate",
         "criteria",
+        "coordination",
         "decision",
         "dispute",
         "forget",

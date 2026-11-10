@@ -195,10 +195,12 @@ Update status, priority or dependencies. `--force` overrides evidence/self-check
 #### `task reclaim`
 
 ```text
-teamwork task reclaim AGENT HANDLE --as BY --reason REASON
+teamwork task reclaim AGENT HANDLE --as BY --reason REASON [--force REASON]
 ```
 
-Take back a task whose owner went silent.
+Take back a task whose owner went silent. It refuses while the owner still holds
+a live slot (a working lane is not a silent one); `--force` with a reason takes
+over a confirmed dead lane and is recorded.
 
 #### `task rm`
 
@@ -950,6 +952,21 @@ teamwork trace HANDLE [--full]
 Follow one task, criterion, test or PR through every record. Free-text evidence
 (evidence, findings, review notes, dispute rounds, rulings) is clipped at 600
 characters with an `... (+N chars: --full)` marker; `--full` prints it whole.
+
+### `coordination`
+
+```text
+teamwork coordination [--strict] [--json] [--commit]
+```
+
+Coordination health from the records the team already writes: duplicate
+branches/tasks/shared references, verification lanes on one model, review
+evidence copied from the author, reviewer monoculture, abandoned PRs, merge
+fraction, and slot starvation. Stale open PRs remain `audit`'s check. The default
+report is diagnostic; `--strict` exits `1` while a high-severity finding is open
+and is the milestone gate; `--commit` appends the result to the ledger; `--json`
+is machine-readable. Mechanisms and the failure each check addresses:
+`references/Coordination.md`.
 
 ### `links`
 

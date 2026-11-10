@@ -231,6 +231,26 @@ The CEO re-wakes on an interval, finds idle lanes and feeds them:
 - Instances do not wait for the pulse: `task next <you>` claims the next task of
   your role directly.
 
+## Coordination safety (hard)
+
+Coordination does not emerge from capable agents; it is designed into the
+environment. Four rules (mechanisms in `references/Coordination.md`):
+
+- **Independence is structural.** Verification lanes do not share a model when a
+  second is available (`TEAMWORK_MODEL_ALT`, `model auto --apply`). One task owns
+  one branch; duplicate tasks, branches or shared references are defects. A
+  Reviewer records its own run, never the author's line.
+- **No lane wars.** Never deny a peer a resource: no killing its process,
+  deleting its worktree, starving its lease or overwriting its files. Resolve a
+  conflicting directive with a measurable contest or the CEO. `reclaim` refuses
+  a lane that still holds a live slot; `--force <reason>` is only for a dead one.
+- **Consensus is not evidence.** A single source is provisional; a unanimous
+  zero-finding run is sampled; lowering a gate to agree is collusion. External
+  claims need a direct URL and an access date.
+- **Measure it.** `coordination --strict` at every milestone (exit 1 on a high
+  finding); `--commit` records the check. Merge fraction, echoed evidence,
+  reviewer monoculture and slot starvation are health metrics.
+
 ## Decision quality and dissent (hard)
 
 - **Decide independently.** Form your own position from the facts, not from what

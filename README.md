@@ -234,7 +234,9 @@ failure with the command and its output, and stop. Do not improvise a replacemen
 
 Read [`references/Adapters.md`](references/Adapters.md) for the six host
 operations, [`references/Concurrency.md`](references/Concurrency.md) for slot
-leases and model routing, and [`docs/guide/quickstart.md`](docs/guide/quickstart.md)
+leases and model routing, [`references/Coordination.md`](references/Coordination.md)
+for the multi-agent failure modes and the checks that catch them, and
+[`docs/guide/quickstart.md`](docs/guide/quickstart.md)
 for the workspace layout. Do not read the whole tree first; the skill is written
 to be loaded on demand.
 
