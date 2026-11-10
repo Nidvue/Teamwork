@@ -2,7 +2,7 @@
 
 Owner: Technical Writer.
 
-Related: [Home](../index.md) · [Quickstart](quickstart.md) · [CLI reference](cli.md) · [CI pipeline](ci.md) · [Team architecture](https://github.com/Nidvue/Teamwork/blob/main/docs/Team/Architecture.md)
+Related: [Home](../index.md) · [Quickstart](quickstart.md) · [For agents](for-agents.md) · [How it works](how-it-works.md) · [Features](features.md) · [CLI reference](cli.md) · [CI pipeline](ci.md) · [Team architecture](https://github.com/Nidvue/Teamwork/blob/main/docs/Team/Architecture.md)
 
 The frozen interface contract for the engine lives in the team's
 [Architecture.md](https://github.com/Nidvue/Teamwork/blob/main/docs/Team/Architecture.md). This page describes the shipped
