@@ -1,8 +1,10 @@
 # Layered testing - every agent tests its own work
 
+Owner: CEO.
+
 Reference for the /teamwork skill. Loaded on demand.
 
-Related: [Roles](Roles.md) | [Engineering](Engineering.md) | [Evidence](Evidence.md) | [State](State.md) | [Docs](Docs.md) | [Concurrency](Concurrency.md) | [Audit](Audit.md)
+Related: [Roles](Roles.md) | [Engineering](Engineering.md) | [Evidence](Evidence.md) | [State](State.md) | [Docs](Docs.md) | [Concurrency](Concurrency.md) | [Audit](Audit.md) | [Coordination](Coordination.md)
 
 ## One layer per role
 

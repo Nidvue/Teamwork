@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import struct
 from pathlib import Path
 
 import pytest
@@ -68,7 +69,10 @@ def generated_documents() -> set[str]:
 
 
 def markdown_files(root: Path) -> list[Path]:
-    return sorted(path for path in (root / DOCS_DIR).rglob("*.md") if path.is_file())
+    """Committed prose: the team documents and the skill's references."""
+    paths = list((root / DOCS_DIR).rglob("*.md"))
+    paths += list((root / "references").rglob("*.md"))
+    return sorted(path for path in paths if path.is_file())
 
 
 def authored_text(path: Path, root: Path) -> str:
@@ -218,6 +222,38 @@ def test_the_checks_reach_a_tree_that_is_not_empty():
     """A guard over an empty walk passes vacuously; both sets must be non-trivial."""
     assert len(markdown_files(REPO_ROOT)) >= len(DOCS), "fewer documents than the config names"
     assert len(relative_links(REPO_ROOT)) >= 20, "the link walk found almost no links"
+
+
+def test_the_design_asset_geometry_matches_the_files():
+    """A figure table that disagrees with its file is a stale record.
+
+    Every raster and SVG in ``assets/`` is measured (`viewBox` for SVG, the PNG
+    IHDR for raster) and must appear with that exact size in ``Design.md``. A new
+    figure without a record, or a record that drifts after a re-export, fails.
+    """
+    design = (REPO_ROOT / TEAM_DIR / "Design.md").read_text(encoding="utf-8")
+    measured = {}
+    for path in sorted((REPO_ROOT / "assets").iterdir()):
+        rel = f"assets/{path.name}"
+        if path.suffix == ".svg":
+            match = re.search(r'viewBox="0 0 (\d+) (\d+)"', path.read_text(encoding="utf-8"))
+            if match:
+                measured[rel] = (int(match.group(1)), int(match.group(2)))
+        elif path.suffix == ".png":
+            data = path.read_bytes()
+            if data[:8] == b"\x89PNG\r\n\x1a\n":
+                measured[rel] = struct.unpack(">II", data[16:24])
+    assert measured, "no measurable asset found under assets/"
+    for rel, expected in measured.items():
+        rows = [line for line in design.splitlines() if f"`{rel}`" in line]
+        assert rows, f"{rel} is not recorded in Design.md"
+        recorded = set()
+        for line in rows:
+            for cell in (part.strip() for part in line.strip().strip("|").split("|")):
+                match = re.fullmatch(r"(\d+)\s*[x×]\s*(\d+)", cell)
+                if match:
+                    recorded.add((int(match.group(1)), int(match.group(2))))
+        assert recorded == {expected}, (rel, expected, sorted(recorded))
 
 
 # --------------------------------------------------------------------------- #
