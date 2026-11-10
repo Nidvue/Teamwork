@@ -753,7 +753,16 @@ jobs:
               mechanism = "secrets.NPM_TOKEN in an explicit userconfig"
           else:
               mechanism = "npm Trusted Publishing over OIDC (id-token: write)"
-          userconfig.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+          # Written through open(..., newline="\n"), not
+          # Path.write_text(..., newline="\n"): that keyword is Python 3.10+ and
+          # this block is executed under every interpreter in the CI matrix by
+          # tests/integration/test_release_workflow_flow.py, so the 3.9 cells
+          # died on `TypeError: write_text() got an unexpected keyword argument
+          # 'newline'` (CI run 40728749217). The build job above writes its
+          # manifest the same way. tests/unit/test_portability.py now scans the
+          # embedded python of every workflow, so the trap cannot come back.
+          with userconfig.open("w", encoding="utf-8", newline="\n") as handle:
+              handle.write("\n".join(lines) + "\n")
           print(f"credential mechanism: {mechanism}")
 
           env = dict(os.environ)
