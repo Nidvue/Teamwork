@@ -16,7 +16,7 @@ keywords = [
   "agents",
   "orchestration",
   "automation",
-  "pi",
+  "agent-skills",
   "skill",
 ]
 classifiers = [
