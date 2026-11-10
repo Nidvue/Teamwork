@@ -1,11 +1,11 @@
 # Audit report
 
-- generated: 2026-11-08T17:21:11
+- generated: 2026-11-08T21:52:23
 - team: Teamwork
-- ledger: 969 records, chain verified: False
-- checkpoint: record #969 (the ledger.export event behind this manifest; later records are work that happened after it)
-- head hash: `55fb5aad355d986e6c3de4fb7dbb3135`
-- git: aa80a59ad4af on main, dirty: True
+- ledger: 1218 records, chain verified: False
+- checkpoint: record #1218 (the ledger.export event behind this manifest; later records are work that happened after it)
+- head hash: `9daad5474e63129db3593dd61acad108`
+- git: 1767f7b63a0b on ceo/t-0020-record-the-two-tribunal-rulings-d-0001-t, dirty: True
 - externally verifiable artifacts: 4
 - local-only state files: 30
 
@@ -21,9 +21,9 @@ teamwork.py trace <T-id>     # follow any claim end to end
 
 | path | bytes | sha256 |
 |---|---|---|
-| docs/Team/Architecture.md | 180454 | `7921dfeaeefac1c1…` |
-| docs/Team/Decisions.md | 352127 | `128322eaac180af8…` |
-| docs/Team/Plan.md | 94053 | `f78dddce9ff14834…` |
+| docs/Team/Architecture.md | 180681 | `9c747f1734833871…` |
+| docs/Team/Decisions.md | 362724 | `278d1b9b94b494aa…` |
+| docs/Team/Plan.md | 94557 | `d62a40b698f19f30…` |
 | docs/Team/Project.md | 58516 | `59e078842ed8f127…` |
 
 ## PROBLEMS
