@@ -744,3 +744,83 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: main 4de397e: pytest tests/unit/test_traceability_matrix.py -q -> 2 failed, 8 passed ('AC-1: TS-0018 is not a record in Tests.md' x9); branch with a fresh 2-record tree: 9 passed, 1 skipped with 'the team tree holds 2 test record(s) and none carries an id and layer/area claimed by the 9 records cited here'; scratch tree carrying TS-0018 release/release passing: hard failure naming the id collision and the 8 missing records; same tree with TS-0018 failing: hard failure "AC-1: TS-0018 has status 'failing', not 'passing'"; no tree at all (CI shape): skip
 - falsified by: A committed, non-invented source for the cited records would make option (b) available and this skip obsolete - e.g. if 'teamwork.py ledger export' published the tests add/run records into docs/Team/AuditManifest.json; likewise if 'teamwork.py init' stopped re-numbering TS ids from TS-0001, the id+layer/area identity test could be replaced by a workspace digest
 - consequences: -
+
+## D-20261020-Reviewer-1 - P-0007 pass evidence: correct the R3 clause mangled by shell expansion
+
+- date: 2026-10-20
+- kind: process
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: T-0002
+- context: -
+- options considered: -
+- decision: The R3 statement in the P-0007 review evidence (ledger record #0167) must be read as: the shim keeps root=$(git rev-parse --show-toplevel). The stored text shows the shell-expanded value of that substitution because the evidence was passed in double quotes; the deliverable is not affected.
+- why: I verified the shim body myself: src/teamwork/hooks.py:50 contains "root=$(git rev-parse --show-toplevel) || exit 0" and the module docstring at hooks.py:13-17 says the same. The mangled clause is a transcription defect in my evidence string, not a finding about the code; leaving it uncorrected would misstate what was verified.
+- evidence: grep -n "root=" src/teamwork/hooks.py @main a9c4081 -> 50: "root=$(git rev-parse --show-toplevel) || exit 0\n"; ledger record #0167 evidence clause R3; same class as the Architect transcription note at ledger #0165
+- falsified by: A hooks.py shim that hardcodes the root instead of resolving it with git rev-parse --show-toplevel would overturn this correction; none exists at 2fbd126.
+- consequences: -
+
+## D-20261020-CEO-5 - Hook marker and shim body: the code and Architecture 11.6 must say one thing
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The shim's line 2 carries the literal 'teamwork-managed hook' plus the human instruction, one HOOK_MARKER constant keys install/status/uninstall/overwrite, and Architecture 11.6 is amended to the shipped body: '[ -f ]' instead of '[ -x ]' and '${TEAMWORK_SKIP_HOOKS:-}' for the bypass.
+- why: A frozen interface the code silently reinterprets is what the freeze exists to prevent, but the frozen text was also wrong twice: '[ -x ]' would make every installed hook a silent no-op because scripts/teamwork.py is committed 100644, and the two-line marker it fixed was never implemented.
+- evidence: tester T-0001 process-boundary suite -> tests/integration/test_harness_cli.py: test_the_installed_hook_carries_the_marker_literal FAILED (config.py:411 HOOK_MARKER='Installed by teamwork.py hooks install', the literal never appears) and test_the_root_commit_on_the_default_branch_is_refused FAILED ('git commit -m first' succeeds on an unborn main, second commit refused, because gitutil.current_branch() is empty on an unborn branch); 21 other assertions passed. The -x defect: git ls-files -s scripts/teamwork.py -> 100644.
+- falsified by: A hook installed by 'hooks install' that is skipped by git, or a status/uninstall that touches a foreign hook, or a first commit on the default base that the hook allows.
+- consequences: -
+
+## D-20261020-CEO-6 - harness list: the code conforms to Architecture 11.2, not the other way round
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: harness.py renders exactly eight data rows in C1..C8 order, '-' for C5's class and bytes, the section-2 owner in the role column, no header lines; the per-class byte sums move under --verbose. The Architect does not amend 11.2 to match an eleven-row output.
+- why: The point of the registry is a 1:1 inventory of the eight Harness^2 components, which is what makes it auditable row by row against Research section 8 and the paper. Eleven rows (C3 per role, C7 and C8 split) would make the 'exactly eight' claim in Architecture and in the research verdict false, and would leave no column a reader can check against the source taxonomy.
+- evidence: Developer branch a26f5db: python3 scripts/teamwork.py harness list -> '# harness surfaces' + a column header + 12 data rows + '#' per-class totals; Architecture.md section 11.2 (frozen, D-20261020-Architect-2) -> 'exactly eight rows, no header line, - for C5'; reviewer fail on developer T-0001 P-0004 quoted the same delta.
+- falsified by: A reader cannot map row to component without a lookup, or a harness.py test asserts a row count other than 8 at the merged revision.
+- consequences: -
+
+## D-20261020-CEO-7 - A new module may carry its own one-line entry in the Architecture module list
+
+- date: 2026-10-20
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: When a lane adds a module under src/teamwork/, that lane may add the single line for it to the frozen module list in Architecture.md section 2 inside its own task branch, disclosed in the commit body, the PR and the self-check, instead of waiting for the Architect. Anything beyond that one line is still the Architect's file.
+- why: tests/unit/test_portability.py::test_architecture_lists_exactly_the_shipped_modules turns main RED the moment the new module merges, and no other lane can repair it in the same commit because the Architect is not building that module. A merge that is red on arrival is worse than a one-line, disclosed, reviewed cross-boundary edit.
+- evidence: developer T-0001 branch: pytest -q -> tests/unit/test_portability.py::test_architecture_lists_exactly_the_shipped_modules FAILED 'At index 7 diff: imaging.py != harness.py'; same for developer T-0002 hooks.py; both fixed by one line in section 2 and re-verified green.
+- falsified by: A lane uses the exception to edit Architecture.md beyond its own module line, or a module line lands without the other module's tests passing at the merged revision.
+- consequences: -
+
+## D-20261020-Reviewer-1-2 - No dispute on architect T-0001's third fail: the counter counts a task handle, not a deliverable
+
+- date: 2026-10-20
+- kind: process
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: T-0001
+- context: -
+- options considered: -
+- decision: Reviewer-1 fails architect T-0001 at f476b82 without opening a dispute. The engine's 'failure #3' warning counts fails by task handle, and four different deliverables share the handle T-0001: ceo T-0001 (rubric docs, merged), developer/tester T-0001 (harness lane), architect T-0001 (this contract). This deliverable has two fails: Reviewer-2's F1-F4 round (ledger #0176) and mine, so the loop is not spinning on one artefact.
+- why: A dispute exists for a design disagreement between roles, not for concrete defects with a named owner and a stated remedy. Every one of my four blockers is mechanical and reproducible on demand: a merge-tree rc=1 (rebase), an author/committer mismatch (squash), a layer test that is red at the merged tree and stricter than the text it enforces (make it per-group), and a frozen shim body that the merged hooks.py does not write (align the text or route a Developer task). None of them requires the tribunal to choose between two defensible designs - the deliverable is the only side that is wrong in each case, and the ruling it implements (D-0001) is already binding.
+- evidence: teamwork.py review --queue @main e1ea14f -> architect T-0001 review_status=failed, findings name four blockers; git merge-tree --write-tree main f476b82 -> rc=1 CONFLICT docs/Team/Decisions.md; teamwork.py identity --audit --range main..f476b82 -> 2 commits, 1 problem; probe merge main+f476b82 pytest -q -> 3 failed, 701 passed, 3 skipped (2 of the failures are the new contract test); main:src/teamwork/hooks.py shim() -> one combined marker line and no 2>/dev/null, while Architecture 11.6 freezes two lines plus 2>/dev/null; ledger #0124 and #0174 and #0176 are the fails this handle has accumulated across four owners.
+- falsified by: If the architect re-submits the same revision with the same findings, or argues the two-line marker and the all-or-nothing landing are the correct design, that is a design disagreement and the tribunal decides it; equally if the merged-tree failure turns out to depend on which lane lands first rather than on the text, the per-group wording is the wrong remedy and this decision is wrong.
+- consequences: P-0003 stays changes-requested with four recorded blockers; the Architect owns the rework, not the Reviewer.
