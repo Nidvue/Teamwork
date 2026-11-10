@@ -48,11 +48,13 @@ Design notes
 * Stdlib only, no network, no third-party import.
 * The scanner is itself published, so it must not become the leak it detects.
   Private domains are therefore not stored as plain text (they are reconstructed
-  from code points at runtime) and matched values are **masked by default** so a
-  failing CI log cannot republish the secret. Unmasked values are **never**
-  printed: ``--reveal`` prints a stable fingerprint (SHA-256 prefix) instead and
-  ``--reveal-to PATH`` exports the raw values to a ``0600`` file for local
-  remediation only.
+  from code points at runtime) and a matched value never reaches a log in any
+  form: the report names the rule (``<redacted-rule>``) and no more, so a failing
+  CI log cannot republish the secret, not even a prefix of it. The raw value is
+  held outside the report record (see ``Finding``), so no reporting sink can
+  serialise it by accident. ``--reveal`` prints a stable fingerprint (SHA-256
+  prefix) instead and ``--reveal-to PATH`` exports the raw values to a ``0600``
+  file for local remediation only.
 * The allowlist file (``--allow``) holds one regular expression per line with an
   optional ``# reason`` suffix. A finding is exempt when its matched text matches
   any allowlist expression. Keep it minimal and justify each entry.
@@ -63,6 +65,11 @@ Unmasked values are **never** written to stdout or stderr. A log line is a
 broadcast sink - CI logs are public, terminals are recorded, and ``tee``ed
 output outlives the session - so the scanner has no flag that prints a secret.
 
+* The report line for a finding is
+  ``<location>: [<severity>/<rule>] <redacted-<rule>>``: it says which rule fired
+  where, and deliberately no character of the value - a partly masked preview
+  still publishes the first and last characters of a credential to every reader
+  of the log, which is the disclosure this scanner exists to prevent.
 * ``--reveal`` adds ``(sha256:<12 hex>)`` to each finding line. The fingerprint
   is a stable, unsalted SHA-256 prefix: it identifies which finding is which and
   lets an operator confirm a rotated value, but it cannot be used as the
@@ -91,7 +98,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-SCANNER_VERSION = "1.3.0"
+SCANNER_VERSION = "1.4.0"
 
 # --------------------------------------------------------------------------- #
 # Neutral identity / allowlisted email domains
@@ -511,14 +518,6 @@ def _email_allowed(value: str) -> bool:
     return any(domain.endswith(suffix) for suffix in _ALLOWED_EMAIL_SUFFIXES)
 
 
-def _mask(value: str) -> str:
-    if len(value) <= 4:
-        return "*" * len(value)
-    if len(value) <= 10:
-        return value[0] + "*" * (len(value) - 2) + value[-1]
-    return value[:3] + "*" * (len(value) - 6) + value[-3:]
-
-
 def _fingerprint(value: str, length: int = 12) -> str:
     """A stable, non-usable identifier for a matched value.
 
@@ -562,43 +561,49 @@ def write_reveal_file(path, pairs):
     return written
 
 
-def _clip(line: str, value: str, width: int = 160) -> str:
-    """A short, single-line context snippet around the match."""
-    index = line.find(value)
-    if index < 0:
-        return line[:width]
-    start = max(0, index - 40)
-    end = min(len(line), index + len(value) + 40)
-    snippet = line[start:end].strip()
-    if start > 0:
-        snippet = "..." + snippet
-    if end < len(line):
-        snippet = snippet + "..."
-    return snippet[:width]
-
-
 # --------------------------------------------------------------------------- #
 # Findings
 # --------------------------------------------------------------------------- #
 
 
+class Finding(dict):
+    """One report row, with the raw matched value held outside the mapping.
+
+    Every reporting sink serialises *items*: ``json.dumps(report)`` walks the
+    dict, the text report reads ``evidence``, and both end up in a CI log. A
+    value kept as an attribute therefore cannot be published by any of them, so
+    "the log never carries a secret" is a property of the shape rather than a
+    promise held by one ``pop`` before one ``print``. Everything that needs the
+    value itself - ``--reveal``, ``--reveal-to`` and the archive mask - reads
+    ``.raw`` explicitly, which is greppable and reviewable in one place each.
+    """
+
+    __slots__ = ("raw",)
+
+    def __init__(self, items, raw=""):
+        super().__init__(items)
+        self.raw = raw
+
+
 def make_finding(rule_id, severity, path, line_no, value, line, source, commit=None):
-    masked = _mask(value)
-    # Never ship the surrounding line: a second credential in the same window
-    # would be republished in plaintext (the scanner is published too).
-    context = ""
-    return {
-        "rule": rule_id,
-        "severity": severity,
-        "path": path,
-        "line": line_no,
-        "source": source,
-        "commit": commit,
-        "location": location(path, line_no, commit),
-        "evidence": masked,
-        "match": value,
-        "context": context,
-    }
+    # Not one character of the value, and never the surrounding line: the report
+    # names the rule the way the archive mask does, because a partly masked
+    # preview still hands the first and last characters of a credential to
+    # everyone who can read the log.
+    return Finding(
+        {
+            "rule": rule_id,
+            "severity": severity,
+            "path": path,
+            "line": line_no,
+            "source": source,
+            "commit": commit,
+            "location": location(path, line_no, commit),
+            "evidence": f"<redacted-{rule_id}>",
+            "context": "",
+        },
+        value,
+    )
 
 
 def location(path, line_no, commit=None):
@@ -861,18 +866,21 @@ def config_path_finding(rel, source, allow=(), commit=None):
     if any(pattern.search(rel) for pattern in allow):
         return None
     local_state = reason.startswith("local state")
-    return {
-        "rule": "local-state" if local_state else "local-config",
-        "severity": "high" if local_state else "critical",
-        "path": rel,
-        "line": 0,
-        "source": source,
-        "commit": commit,
-        "location": rel,
-        "evidence": rel,
-        "match": rel,
-        "context": reason,
-    }
+    return Finding(
+        {
+            "rule": "local-state" if local_state else "local-config",
+            "severity": "high" if local_state else "critical",
+            "path": rel,
+            "line": 0,
+            "source": source,
+            "commit": commit,
+            "location": rel,
+            # A path is the finding, not a credential: naming it is the report.
+            "evidence": rel,
+            "context": reason,
+        },
+        rel,
+    )
 
 
 def scan_tree(root, allow, stats=None):
@@ -888,18 +896,20 @@ def scan_tree(root, allow, stats=None):
             data = full.read_bytes()
         except OSError as exc:
             findings.append(
-                {
-                    "rule": "unreadable-tracked-file",
-                    "severity": "medium",
-                    "path": rel,
-                    "line": 0,
-                    "source": "tree",
-                    "commit": None,
-                    "location": rel,
-                    "evidence": rel,
-                    "match": rel,
-                    "context": f"tracked file could not be read: {exc}",
-                }
+                Finding(
+                    {
+                        "rule": "unreadable-tracked-file",
+                        "severity": "medium",
+                        "path": rel,
+                        "line": 0,
+                        "source": "tree",
+                        "commit": None,
+                        "location": rel,
+                        "evidence": rel,
+                        "context": f"tracked file could not be read: {exc}",
+                    },
+                    rel,
+                )
             )
             continue
         findings.extend(_scan_bytes(data, rel, "tree", allow))
@@ -1016,7 +1026,7 @@ def dedupe(findings):
     seen = set()
     unique = []
     for finding in findings:
-        key = (finding["rule"], finding["location"], finding["match"], finding.get("commit") or "")
+        key = (finding["rule"], finding["location"], finding.raw, finding.get("commit") or "")
         if key in seen:
             continue
         seen.add(key)
@@ -1103,13 +1113,12 @@ def main(argv=None):
     reveal_path = args.reveal_to
     reveal_values = []
     for finding in findings:
-        match = finding.pop("match", None)
-        if match is None:
+        if not finding.raw:
             continue
         if args.reveal:
-            finding["fingerprint"] = _fingerprint(match)
+            finding["fingerprint"] = _fingerprint(finding.raw)
         if reveal_path:
-            reveal_values.append((finding, match))
+            reveal_values.append((finding, finding.raw))
 
     reveal_written = 0
     if reveal_path:
@@ -1151,16 +1160,18 @@ def main(argv=None):
     else:
         if not args.quiet:
             for finding in findings:
-                # The unmasked value is never printed: stdout is a broadcast
-                # sink. --reveal only adds a non-usable fingerprint.
+                # The value is never printed in any form: stdout is a broadcast
+                # sink, so the report names the rule instead. --reveal only adds
+                # a non-usable fingerprint.
                 shown = finding["evidence"]
                 fingerprint = finding.get("fingerprint")
                 if fingerprint:
                     shown = f"{shown} ({fingerprint})"
-                print(
-                    f"{finding['location']}: [{finding['severity']}/"
-                    f"{finding['rule']}] {shown}  {finding.get('detail', '')}"
-                )
+                line = f"{finding['location']}: [{finding['severity']}/{finding['rule']}] {shown}"
+                detail = finding.get("detail", "")
+                if detail:
+                    line = f"{line}  {detail}"
+                print(line)
         state = "FAIL" if findings else "PASS"
         print(f"privacy_scan: {state} - {len(findings)} finding(s) in {', '.join(modes)}")
     return 1 if findings else 0
