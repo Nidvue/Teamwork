@@ -105,7 +105,6 @@ def tree(cli, tmp_path: Path, capsys) -> dict:
     assert root.is_dir()
     capsys.readouterr()
 
-    # A real revision the pass can re-resolve, and a real file it can line-count.
     git(tmp_path, "init", "-b", "main")
     (tmp_path / "README.md").write_text("# throwaway\n", encoding="utf-8")
     git(tmp_path, "add", "-A")
@@ -200,15 +199,13 @@ def test_apply_writes_two_fields_and_nothing_else(tree, cli, capsys) -> None:
     ]
     assert added, "apply wrote nothing"
     assert all(line.startswith(("- checked: ", "- verify_status: ")) for line in added), added
-    assert len(added) == 6, added  # two fields on each of the three records
+    assert len(added) == 6, added
 
-    # No statement or evidence line was rewritten, and no record was deleted.
     for line in before.splitlines():
         assert line in after.splitlines(), f"apply changed: {line!r}"
     for kind, record_id in tree["ids"].items():
         assert f"## {record_id} - {kind} probe for memory verify" in after
 
-    # Lessons carry no such field: every lesson store stays byte-identical.
     for path, blob in tree["lessons_before"].items():
         assert path.read_bytes() == blob, f"apply touched {path}"
 
@@ -231,6 +228,5 @@ def test_dream_reports_drift_and_keeps_its_four_groups(tree, cli, capsys) -> Non
     assert drifted.group(1) == "1", out
     assert tree["ids"]["path"] in drifted.group(2)
     assert "(path)" in drifted.group(2)
-    # The two records the verify pass called clean are not drift.
     assert tree["ids"]["revision"] not in drifted.group(2)
     assert tree["ids"]["source"] not in drifted.group(2)
