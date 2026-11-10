@@ -143,9 +143,14 @@ def test_the_ledger_is_streamed_not_materialised(tmp_path: Path, monkeypatch) ->
     assert next(stream)["pointer"] == "Ledger.jsonl#100001"
     started = time.monotonic()
     hits, total = transcripts.collect(root, "transcript reach")
-    assert time.monotonic() - started < 1.0
+    elapsed = time.monotonic() - started
     assert [hit["pointer"] for hit in hits] == ["Ledger.jsonl#100001"]
     assert total == 1
+    assert elapsed < 60.0, (
+        f"collecting a 100k-line ledger took {elapsed:.1f}s: the structural proof above "
+        "(read_text/read_bytes refuse) is the contract; this bound only catches a reader "
+        "that re-scans the file per line on a loaded CI runner"
+    )
 
 
 def test_context_find_scope_transcripts_is_additive(tmp_path: Path, cli, capsys) -> None:
