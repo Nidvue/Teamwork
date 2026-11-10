@@ -124,7 +124,7 @@ under two roles is two tasks.
 | ceo | T-0034 | memory | done | P-0101 | 26cff20 |
 | ceo | T-0035 | pi-package | done | P-0098 | 9a61ca8 |
 | ceo | T-0036 | pi-package | done | P-0102 | e49e8b0 |
-| ceo | T-0037 | - | doing | - | - |
+| ceo | T-0037 | lane-proof | review | P-0110 | - |
 | ceo | T-0038 | pi-packaging | done | P-0105 | 227af23 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
@@ -186,11 +186,11 @@ under two roles is two tasks.
 | developer | T-0058 | preflight | doing | P-0104 | - |
 | developer | T-0059 | privacy | doing | P-0103 | - |
 | developer | T-0060 | records | done | P-0108 | 2570cec |
-| developer | T-0061 | - | doing | - | - |
-| developer | T-0062 | - | doing | - | - |
-| developer | T-0063 | - | todo | - | - |
+| developer | T-0061 | links | doing | P-0109 | - |
+| developer | T-0062 | memory-verify | done | P-0111 | 046cb40 |
+| developer | T-0063 | tests | review | P-0112 | - |
 | developer | T-0064 | - | done | - | - |
-| developer | T-0065 | - | todo | - | - |
+| developer | T-0065 | - | doing | - | - |
 | developer | T-0066 | - | todo | - | - |
 | developer | T-0067 | worktree | review | P-0106 | - |
 | developer | T-0068 | - | dropped | - | - |
@@ -247,13 +247,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0037 · prove the plugin-free native fan-out: a repeatable parallel proof at the engine's maximum lane count | P1 | doing | - |
+| ceo | T-0037 · prove the plugin-free native fan-out: a repeatable parallel proof at the engine's maximum lane count | P1 | review | - |
 | developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | doing | - |
 | developer | T-0059 · privacy scan does not cover the team memory stores | P1 | doing | - |
 | developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | doing | - |
-| developer | T-0062 · memory verify checks only the first evidence kind, so a drifted path behind a valid revision passes | P2 | doing | - |
-| developer | T-0063 · tests/unit/test_memory_index.py fails when run alone: no record mask installed | P2 | todo | - |
-| developer | T-0065 · `load` prints the packet, then exits 1 on a torn ledger tail: validate the ledger before rendering, not after | P2 | todo | - |
+| developer | T-0063 · tests/unit/test_memory_index.py fails when run alone: no record mask installed | P2 | review | - |
+| developer | T-0065 · `load` prints the packet, then exits 1 on a torn ledger tail: validate the ledger before rendering, not after | P2 | doing | - |
 | developer | T-0066 · A purpose-built zero-open-lesson fixture: prove the index header bounds and additivity on a synthetic tree, not only on the live team tree | P2 | todo | - |
 | developer | T-0067 · every instance works in its own worktree by default, shared only when the task needs it | P0 | review | - |
 | developer | T-0069 · teamwork.py status: compact live state of every instance (busy/idle, task, elapsed, progress) with --json | P1 | doing | - |
