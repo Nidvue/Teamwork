@@ -88,9 +88,9 @@ message, schedule) is in
 
     After a refresh, **reload the skill** (restart the host session, or re-scan
     skills) so the new ``SKILL.md`` is read - the command prints that reminder
-    whenever it wrote something. Pin a tag (`--branch v1.1.2`) when you want a
+    whenever it wrote something. Pin a tag (`--branch v1.2.0`) when you want a
     fixed protocol revision instead of `main`: the checkout is then moved onto
-    that tag's commit *detached* and the refresh prints `pinned to tag v1.1.2`.
+    that tag's commit *detached* and the refresh prints `pinned to tag v1.2.0`.
     It is a read-only mirror of that revision - re-run with `--branch main` to
     follow the branch again, or name another tag to move the pin.
 
@@ -120,7 +120,7 @@ bumped before it is tagged, so read both rather than assuming they agree:
 ```console
 $ gh release list --limit 1
 $ python3 scripts/teamwork.py --version
-$ python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.2/teamwork_agents-1.1.2-py3-none-any.whl
+$ python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.2.0/teamwork_agents-1.2.0-py3-none-any.whl
 ```
 
 If you need the tree's exact engine instead of the released one, install from the
