@@ -85,7 +85,7 @@ under two roles is two tasks.
 | architect | T-0002 | contract | doing | P-0037 | - |
 | architect | T-0003 | - | todo | - | - |
 | architect | T-0004 | architecture | done | P-0051 | d6d178e |
-| architect | T-0005 | architecture | review | P-0052 | - |
+| architect | T-0005 | architecture | done | P-0052 | ee33a3d |
 | ceo | T-0001 | - | done | P-0005 | d36e731 |
 | ceo | T-0002 | - | done | P-0006 | cd561a5 |
 | ceo | T-0004 | - | done | P-0019 | f3a765f |
@@ -140,7 +140,7 @@ under two roles is two tasks.
 | developer | T-0028 | - | dropped | - | - |
 | developer | T-0029 | - | todo | - | - |
 | developer | T-0030 | - | todo | - | - |
-| developer | T-0031 | - | doing | - | - |
+| developer | T-0031 | skills | done | P-0053 | 35b5695 |
 | developer | T-0032 | - | todo | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | records | done | - | - |
@@ -149,13 +149,13 @@ under two roles is two tasks.
 | technical-writer | T-0003 | - | done | P-0014 | a1929ba |
 | technical-writer | T-0004 | - | done | P-0016 | aeed914 |
 | technical-writer | T-0005 | docs | done | P-0025 | b29a8bc |
-| technical-writer | T-0006 | - | todo | - | - |
+| technical-writer | T-0006 | - | doing | - | - |
 | technical-writer | T-0007 | - | todo | - | - |
 | technical-writer | T-0008 | - | dropped | - | - |
 | technical-writer | T-0009 | changelog | done | P-0047 | 4539796 |
 | technical-writer | T-0010 | release | done | P-0048 | 856ba14 |
-| technical-writer | T-0011 | - | todo | - | - |
-| technical-writer | T-0012 | - | todo | - | - |
+| technical-writer | T-0011 | docs | review | P-0054 | - |
+| technical-writer | T-0012 | - | dropped | - | - |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
@@ -172,7 +172,6 @@ landed by commit without a PR record.
 |---|---|---|---|---|
 | architect | T-0002 · M15 A8: Architecture section 11 freezes nine release-consistency rules; R10 makes the frozen contract false | P2 | doing | - |
 | architect | T-0003 · Section 5 does not name Attention.md, the record T-0014 introduces; add the workspace-format row when it merges | P2 | todo | - |
-| architect | T-0005 · M17 A6: freeze the project knowledge store contract (Architecture.md section 15) and record the decision | P0 | review | - |
 | ceo | T-0008 · M15 plan: the surfaces table says four and lists five rows | P3 | doing | - |
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
@@ -185,12 +184,10 @@ landed by commit without a PR record.
 | developer | T-0027 · Integrate the published line into integration/m15-m16 (PR #30): three conflicts, both sides' behaviour preserved | P0 | doing | - |
 | developer | T-0029 · CI annotates every ubuntu-latest job with a runner-image migration notice; pin the image or record why not | P2 | todo | - |
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
-| developer | T-0031 · M17 A2: implement lessons + prefixed team skills (records, engine, CLI, harness PREFIX rule, unit tests) | P0 | doing | - |
 | developer | T-0032 · M17 A7: implement the project knowledge store (records, CLI, ranked load, duplicate + supersession, unit tests) | P0 | todo | - |
-| technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | todo | - |
+| technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
-| technical-writer | T-0011 · M17 A3: document lessons and the tw- skill prefix in every always-on surface | P1 | todo | - |
-| technical-writer | T-0012 · M17 A8: document the knowledge accumulation loop (guide chapter, constitution, references, changelog) | P1 | todo | - |
+| technical-writer | T-0011 · M17 A3: document lessons and the tw- skill prefix in every always-on surface | P1 | review | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 | tester | T-0004 · M17 A4: integration + acceptance proof of lesson -> tw- skill loop and prefix enforcement | P1 | todo | - |
 | tester | T-0005 · M17 A9: integration + acceptance proof of the knowledge accumulation loop (add, rank, search, duplicate, supersede, load) | P1 | todo | - |

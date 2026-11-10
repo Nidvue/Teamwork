@@ -16,14 +16,14 @@ import pytest
 
 from teamwork import config, engine, harness
 
-SKILL_NAME = "demo-skill"
+SKILL_NAME = "tw-demo-skill"
 
 AGENTS_MD = """# Agents
 
 <!-- BEGIN teamwork -->
 ## Guardrails
 
-demo-skill is the extracted flow. Never commit on main.
+tw-demo-skill is the extracted flow. Never commit on main.
 <!-- END teamwork -->
 
 Outside the managed block.
@@ -323,8 +323,8 @@ def test_lint_verbose_lists_every_file_checked_with_its_rule_outcomes(cli, proje
     assert cli("--project", project, "init", "--no-git") == 0
     build_tree(project)  # after init: init regenerates AGENTS.md from the template
     write(
-        project / ".agents" / "skills" / "other-skill" / "SKILL.md",
-        skill_text("other-skill", body="Run `teamwork.py nosuchcommand` now."),
+        project / ".agents" / "skills" / "tw-other-skill" / "SKILL.md",
+        skill_text("tw-other-skill", body="Run `teamwork.py nosuchcommand` now."),
     )
     capsys.readouterr()
 
@@ -345,15 +345,18 @@ def test_lint_verbose_lists_every_file_checked_with_its_rule_outcomes(cli, proje
         assert [line for line in checked if line.startswith(f"# checked: {rel} ")], rel
         assert any(line == f"# checked: {rel} -> TRIGGER corpus" for line in checked), rel
     assert any(
-        line.startswith("# checked: .agents/skills/demo-skill/SKILL.md -> IDENTITY ok, TRIGGER ok,")
+        line.startswith(
+            "# checked: .agents/skills/tw-demo-skill/SKILL.md -> "
+            "IDENTITY ok, PREFIX ok, TRIGGER ok,"
+        )
         for line in checked
     ), out
     # The rule that did fire says so on the file's own line, not only in the
     # PROBLEM block: the verdict and the detail stay one grep apart.
     fired = [line for line in checked if "SUBCOMMAND fail" in line]
     assert fired == [
-        "# checked: .agents/skills/other-skill/SKILL.md -> IDENTITY ok, TRIGGER fail, "
-        "SUBCOMMAND fail, HELPER ok, EVIDENCE n/a"
+        "# checked: .agents/skills/tw-other-skill/SKILL.md -> "
+        "IDENTITY ok, PREFIX ok, TRIGGER fail, SUBCOMMAND fail, HELPER ok, EVIDENCE n/a"
     ], fired
 
 
@@ -371,7 +374,7 @@ def lint_out(cli, capsys, project: Path) -> str:
 def test_identity_fails_when_the_frontmatter_name_disagrees_with_the_directory(
     cli, project, capsys
 ) -> None:
-    build_tree(project, skill=skill_text(SKILL_NAME, name_field="other-skill"))
+    build_tree(project, skill=skill_text(SKILL_NAME, name_field="tw-other-skill"))
     out = lint_out(cli, capsys, project)
     assert f"- PROBLEM {harness.RULE_IDENTITY} .agents/skills/{SKILL_NAME}/SKILL.md" in out
     assert "does not match the directory" in out
@@ -386,19 +389,43 @@ def test_identity_fails_without_a_description(cli, project, capsys) -> None:
 
 
 def test_identity_fails_without_a_name_field(cli, project, capsys) -> None:
-    build_tree(project, skill='---\ndescription: "x"\n---\n# demo-skill\n')
+    build_tree(project, skill='---\ndescription: "x"\n---\n# tw-demo-skill\n')
     out = lint_out(cli, capsys, project)
     assert f"- PROBLEM {harness.RULE_IDENTITY}" in out
     assert "no `name:`" in out
 
 
-def test_trigger_fails_when_no_always_on_surface_names_the_skill(cli, project, capsys) -> None:
-    build_tree(project, name="dead-skill", skill=skill_text("dead-skill"))
+def test_prefix_fails_on_an_unprefixed_skill_even_when_identity_passes(
+    cli, project, capsys
+) -> None:
+    """14.4: the same name and directory still need the fixed ``tw-`` prefix."""
+    build_tree(project, name="demo-skill", skill=skill_text("demo-skill"))
+    write(project / "AGENTS.md", AGENTS_MD.replace("tw-demo-skill", "demo-skill"))
     out = lint_out(cli, capsys, project)
-    assert f"- PROBLEM {harness.RULE_TRIGGER} .agents/skills/dead-skill/SKILL.md" in out
+    assert f"- PROBLEM {harness.RULE_PREFIX} .agents/skills/demo-skill/SKILL.md" in out
+    assert "skill name 'demo-skill' does not carry the required prefix 'tw-'" in out
+    assert out.count("- PROBLEM ") == 1, out
+
+
+def test_prefix_fails_when_the_directory_alone_lacks_the_prefix(cli, project, capsys) -> None:
+    """The rule checks both halves: a prefixed name in an unprefixed dir is refused."""
+    build_tree(
+        project,
+        name="demo-skill",
+        skill=skill_text("demo-skill", name_field="tw-demo-skill"),
+    )
+    out = lint_out(cli, capsys, project)
+    assert f"- PROBLEM {harness.RULE_PREFIX} .agents/skills/demo-skill/SKILL.md" in out
+    assert "skill directory 'demo-skill' does not carry the required prefix 'tw-'" in out
+
+
+def test_trigger_fails_when_no_always_on_surface_names_the_skill(cli, project, capsys) -> None:
+    build_tree(project, name="tw-dead-skill", skill=skill_text("tw-dead-skill"))
+    out = lint_out(cli, capsys, project)
+    assert f"- PROBLEM {harness.RULE_TRIGGER} .agents/skills/tw-dead-skill/SKILL.md" in out
     assert "silently dead" in out
 
-    write(project / "roles" / "developer.md", "# Developer\n\nRun `dead-skill` here.\n")
+    write(project / "roles" / "developer.md", "# Developer\n\nRun `tw-dead-skill` here.\n")
     capsys.readouterr()
     assert cli("--project", project, "harness", "lint") == 0
 
@@ -508,12 +535,15 @@ def test_lint_reports_rule_major_and_path_sorted(cli, project, capsys) -> None:
     """Findings are ordered by rule first, path second: a reader reads a rule at a time."""
     build_tree(project)
     write(
-        project / ".agents" / "skills" / "zeta-skill" / "SKILL.md",
-        skill_text("zeta-skill", body="Run `teamwork.py nosuchcommand` on `scripts/Ghost.py`."),
+        project / ".agents" / "skills" / "tw-zeta-skill" / "SKILL.md",
+        skill_text(
+            "tw-zeta-skill",
+            body="Run `teamwork.py nosuchcommand` on `scripts/Ghost.py`.",
+        ),
     )
     write(
-        project / ".agents" / "skills" / "alpha-skill" / "SKILL.md",
-        skill_text("alpha-skill", body="Run `teamwork.py nosuchcommand` too."),
+        project / ".agents" / "skills" / "tw-alpha-skill" / "SKILL.md",
+        skill_text("tw-alpha-skill", body="Run `teamwork.py nosuchcommand` too."),
     )
 
     out = lint_out(cli, capsys, project)
@@ -528,13 +558,13 @@ def test_lint_reports_rule_major_and_path_sorted(cli, project, capsys) -> None:
     ]
     paths = [line.split()[3].rstrip(":") for line in problems]
     assert paths[:2] == [
-        ".agents/skills/alpha-skill/SKILL.md",
-        ".agents/skills/zeta-skill/SKILL.md",
+        ".agents/skills/tw-alpha-skill/SKILL.md",
+        ".agents/skills/tw-zeta-skill/SKILL.md",
     ]
     assert paths[2:] == [
-        ".agents/skills/alpha-skill/SKILL.md",
-        ".agents/skills/zeta-skill/SKILL.md",
-        ".agents/skills/zeta-skill/SKILL.md",
+        ".agents/skills/tw-alpha-skill/SKILL.md",
+        ".agents/skills/tw-zeta-skill/SKILL.md",
+        ".agents/skills/tw-zeta-skill/SKILL.md",
     ]
 
 
@@ -637,32 +667,29 @@ def test_budget_settings_key_is_not_read_as_a_provider_cap(cli, project) -> None
     assert limits["ollama-cloud"] == config.DEFAULT_PROVIDER_LIMITS["ollama-cloud"]
 
 
-def test_lint_on_this_repository_reports_only_the_routed_dead_skill(repo_root: Path) -> None:
-    """Our own tree is the first real customer of the TRIGGER rule.
+def test_lint_on_this_repository_is_clean(repo_root: Path) -> None:
+    """Our own tree is the first real customer of the TRIGGER and PREFIX rules.
 
-    `ceo-audit-close` is shipped but named in no always-on surface, so the rule
-    must fire here - it has been silently dead since it was created. The one-line
-    trigger fix belongs to the docs lane, so this test pins the exact routed
-    finding instead of hiding it, and keeps working (asserting silence) once that
-    line lands. Any *other* problem on our own tree is a regression.
+    `tw-ceo-audit-close` is shipped and named in an always-on surface, so the rule
+    must be silent here. Any problem on our own tree is a regression.
     """
     findings, _stats = harness.lint(repo_root, repo_root / ".pi" / "no-team-workspace")
     others = [
         finding
         for finding in findings
-        if finding.rule != harness.RULE_TRIGGER or "ceo-audit-close" not in finding.detail
+        if finding.rule != harness.RULE_TRIGGER or "tw-ceo-audit-close" not in finding.detail
     ]
     assert others == [], f"unexpected lint problems in this repository: {others}"
 
-    if not (repo_root / ".agents" / "skills" / "ceo-audit-close" / "SKILL.md").is_file():
+    if not (repo_root / ".agents" / "skills" / "tw-ceo-audit-close" / "SKILL.md").is_file():
         return
-    named = "ceo-audit-close" in "\n".join(
+    named = "tw-ceo-audit-close" in "\n".join(
         path.read_text(encoding="utf-8") for path in harness.always_on_surfaces(repo_root)
     )
     dead = [finding for finding in findings if finding.rule == harness.RULE_TRIGGER]
     if named:
         assert dead == [], "the skill is named in an always-on surface: TRIGGER must be silent"
     else:
-        assert [finding.path for finding in dead] == [".agents/skills/ceo-audit-close/SKILL.md"], (
-            "the unnamed ceo-audit-close skill is the only TRIGGER finding this tree allows"
-        )
+        assert [finding.path for finding in dead] == [
+            ".agents/skills/tw-ceo-audit-close/SKILL.md"
+        ], "the unnamed tw-ceo-audit-close skill is the only TRIGGER finding this tree allows"

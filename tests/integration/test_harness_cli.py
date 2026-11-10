@@ -230,8 +230,8 @@ def test_harness_list_measures_the_tree_at_run_time(tmp_path: Path) -> None:
 
 def test_harness_lint_passes_a_clean_tree(tmp_path: Path) -> None:
     project = scaffold(tmp_path)
-    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ndemo-skill\n")
-    skill(project, "demo-skill", "# demo\n")
+    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ntw-demo-skill\n")
+    skill(project, "tw-demo-skill", "# demo\n")
     out = ok(project, "harness", "lint")
     assert "# problems found: 0" in out, out
 
@@ -240,61 +240,61 @@ def test_harness_lint_fails_a_skill_whose_name_differs_from_its_directory(
     tmp_path: Path,
 ) -> None:
     project = scaffold(tmp_path)
-    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ndemo\n")
+    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ntw-demo\n")
     write(
-        project / ".agents" / "skills" / "demo" / "SKILL.md",
-        "---\nname: other\ndescription: does one thing\n---\n# demo\n",
+        project / ".agents" / "skills" / "tw-demo" / "SKILL.md",
+        "---\nname: tw-other\ndescription: does one thing\n---\n# demo\n",
     )
     done = run(project, "harness", "lint")
     assert done.returncode == 1, done.stdout
-    assert "- PROBLEM IDENTITY .agents/skills/demo/SKILL.md:" in done.stdout, done.stdout
+    assert "- PROBLEM IDENTITY .agents/skills/tw-demo/SKILL.md:" in done.stdout, done.stdout
 
 
 def test_harness_lint_fails_a_skill_no_always_on_surface_names(tmp_path: Path) -> None:
     project = scaffold(tmp_path)
-    skill(project, "orphan-skill", "# orphan\n")
+    skill(project, "tw-orphan-skill", "# orphan\n")
     done = run(project, "harness", "lint")
     assert done.returncode == 1, done.stdout
-    assert "- PROBLEM TRIGGER .agents/skills/orphan-skill/SKILL.md:" in done.stdout, done.stdout
+    assert "- PROBLEM TRIGGER .agents/skills/tw-orphan-skill/SKILL.md:" in done.stdout, done.stdout
 
 
 def test_harness_lint_fails_a_teamwork_subcommand_the_parser_does_not_register(
     tmp_path: Path,
 ) -> None:
     project = scaffold(tmp_path)
-    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ndemo\n")
-    skill(project, "demo", "# demo\n\nRun `teamwork.py nosuchcommand` first.\n")
+    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ntw-demo\n")
+    skill(project, "tw-demo", "# demo\n\nRun `teamwork.py nosuchcommand` first.\n")
     done = run(project, "harness", "lint")
     assert done.returncode == 1, done.stdout
-    assert "- PROBLEM SUBCOMMAND .agents/skills/demo/SKILL.md:" in done.stdout, done.stdout
+    assert "- PROBLEM SUBCOMMAND .agents/skills/tw-demo/SKILL.md:" in done.stdout, done.stdout
 
 
 def test_harness_lint_fails_a_helper_path_that_does_not_exist(tmp_path: Path) -> None:
     project = scaffold(tmp_path)
-    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ndemo\n")
-    skill(project, "demo", "# demo\n\nSee `references/never-shipped.md`.\n")
+    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ntw-demo\n")
+    skill(project, "tw-demo", "# demo\n\nSee `references/never-shipped.md`.\n")
     done = run(project, "harness", "lint")
     assert done.returncode == 1, done.stdout
-    assert "- PROBLEM HELPER .agents/skills/demo/SKILL.md:" in done.stdout, done.stdout
+    assert "- PROBLEM HELPER .agents/skills/tw-demo/SKILL.md:" in done.stdout, done.stdout
 
 
 def test_harness_lint_fails_a_shared_skill_with_no_evidence_row(tmp_path: Path) -> None:
     project = scaffold(tmp_path)
-    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ndemo\n")
-    skill(project, "demo", "# demo\n")
+    write(project / "AGENTS.md", (project / "AGENTS.md").read_text() + "\ntw-demo\n")
+    skill(project, "tw-demo", "# demo\n")
     skills_md = next(project.glob(".pi/Teamwork/Teams/*/Skills.md"))
     write(
         skills_md,
-        skills_md.read_text(encoding="utf-8")
-        + "\n## S-0001 · demo\n- name: demo\n- path: .agents/skills/demo/SKILL.md\n"
+        skills_md.read_text(encoding="utf-8") + "\n## S-0001 · tw-demo\n- name: tw-demo\n"
+        "- path: .agents/skills/tw-demo/SKILL.md\n"
         "- status: shared\n",
     )
     done = run(project, "harness", "lint")
     assert done.returncode == 1, done.stdout
-    assert "- PROBLEM EVIDENCE .agents/skills/demo/SKILL.md:" in done.stdout, done.stdout
+    assert "- PROBLEM EVIDENCE .agents/skills/tw-demo/SKILL.md:" in done.stdout, done.stdout
 
     # the same tree with the verdict the rule asks for is clean
-    skill(project, "demo", "# demo\n\nverdict: helped\n")
+    skill(project, "tw-demo", "# demo\n\nverdict: helped\n")
     assert "# problems found: 0" in ok(project, "harness", "lint")
 
 
@@ -308,8 +308,9 @@ def test_harness_lint_verbose_names_what_it_checked(tmp_path: Path) -> None:
 
 #: 12.4: one ``# checked: <file> -> <RULE verdict, ...>`` line per skill file read.
 CHECKED_SKILL_RE = re.compile(
-    r"^# checked: \S.* -> IDENTITY (?:ok|fail), TRIGGER (?:ok|fail), "
-    r"SUBCOMMAND (?:ok|fail), HELPER (?:ok|fail), EVIDENCE (?:ok|fail|n/a|skipped)$"
+    r"^# checked: \S.* -> IDENTITY (?:ok|fail), PREFIX (?:ok|fail), "
+    r"TRIGGER (?:ok|fail), SUBCOMMAND (?:ok|fail), HELPER (?:ok|fail), "
+    r"EVIDENCE (?:ok|fail|n/a|skipped)$"
 )
 
 
@@ -317,10 +318,10 @@ def test_the_shipped_tree_lints_clean_and_accounts_for_every_file_it_read() -> N
     """12.4 on the repository itself: `harness lint` exits 0 at this revision.
 
     The one skill in this tree is ``on-demand``, so it only exists while an
-    always-on surface names it (``SKILL.md`` section 6 names ``ceo-audit-close``).
-    Deleting that trigger line turns this test red - which is the point: an
-    unnamed skill is dead text, and the rule that says so must stay enforced on
-    the tree the team actually ships.
+    always-on surface names it (``SKILL.md`` section 6 names
+    ``tw-ceo-audit-close``). Deleting that trigger line turns this test red -
+    which is the point: an unnamed skill is dead text, and the rule that says so
+    must stay enforced on the tree the team actually ships.
     """
     done = run(REPO_ROOT, "harness", "lint")
     assert done.returncode == 0, done.stdout + done.stderr
@@ -338,7 +339,8 @@ def test_the_shipped_tree_lints_clean_and_accounts_for_every_file_it_read() -> N
 
     assert any(
         line.startswith(
-            "# checked: .agents/skills/ceo-audit-close/SKILL.md -> IDENTITY ok, TRIGGER ok"
+            "# checked: .agents/skills/tw-ceo-audit-close/SKILL.md -> "
+            "IDENTITY ok, PREFIX ok, TRIGGER ok"
         )
         for line in checked
     ), f"the shipped skill is not named by an always-on surface:\n{verbose}"
