@@ -16611,16 +16611,24 @@ def cmd_dispute_resolve(args) -> int:
         d = disputes[idx]
         who = resolve_role(args.by)
         panel = required_tribunal(root, d)
-        if arole not in panel:
-            die(f"only the tribunal may resolve: {', '.join(panel)}")
-        if _actor_is_dispute_party(root, d, actor, arole):
-            die(
-                f"{d['id']}: {actor} is a party to this dispute and cannot rule it. "
-                f"Escalate it and let {', '.join(panel)} decide",
-                2,
-            )
-        if d["escalated"]:
-            members = required_tribunal(root, d)
+        party_refusal = (
+            f"{d['id']}: {actor} is a party to this dispute and cannot rule it. "
+            f"Escalate it and let {', '.join(panel)} decide"
+        )
+        if not d["escalated"]:
+            if who != "ceo":
+                die(
+                    f"{d['id']} is not escalated: only the CEO resolves it (you are "
+                    f"{who}). Escalate it first if it needs the tribunal."
+                )
+            if _actor_is_dispute_party(root, d, actor, arole):
+                die(party_refusal, 2)
+        else:
+            if arole not in panel:
+                die(f"only the tribunal may resolve: {', '.join(panel)}")
+            if _actor_is_dispute_party(root, d, actor, arole):
+                die(party_refusal, 2)
+            members = panel
             missing = [r for r in members if r not in d["signed"]]
             if not members and not (args.force or "").strip():
                 die(
@@ -16641,11 +16649,6 @@ def cmd_dispute_resolve(args) -> int:
                     f"{', '.join(members)} must sign first (missing: "
                     f"{', '.join(missing)})"
                 )
-        elif who != "ceo":
-            die(
-                f"{d['id']} is not escalated: only the CEO resolves it (you are "
-                f"{who}). Escalate it first if it needs the tribunal."
-            )
         d["status"] = "resolved"
         d["decision"] = args.decision.strip()
         d["updated"] = today_iso()

@@ -201,7 +201,7 @@ under two roles is two tasks.
 | developer | T-0072 | - | dropped | - | - |
 | developer | T-0073 | - | dropped | - | - |
 | developer | T-0074 | gate | done | P-0120 | 2fa4dee |
-| developer | T-0075 | - | doing | P-0123 | - |
+| developer | T-0075 | - | done | P-0123 | c714345 |
 | developer | T-0076 | preflight | done | P-0122 | 4f034b3 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
@@ -254,7 +254,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0075 · dispute resolve refuses the CEO: the panel gate runs before the non-escalated owner rule, so no dispute can be resolved by the role that owns arbitration | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
