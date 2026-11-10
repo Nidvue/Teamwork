@@ -1731,3 +1731,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: ledger filter at n<=1615 -> 44 review.fail, 66 distinct (role,target) review targets, 26 with >1 verdict, 11 with >=3, distribution {1:40,2:15,3:6,4:4,5:1}, claim->verdict p50 10.8 / p90 25.7 (46 pairs, engine.review_latency algorithm); grep '38 of 43' over SKILL.md, AGENTS.md, templates/AGENTS.md, CHANGELOG.md, references/Roles.md -> no hit; preflight ceo T-0021 --run -> see the self-check line
 - falsified by: if a reader cannot reproduce 44/66/26/11 at n=1615 with a ledger filter, or if any surface still states a mechanical point estimate as measured, this correction is wrong
 - consequences: engine.py and tests/unit/test_preflight.py still describe the change with the retired 38/43 figure - filed as a developer follow-up (T-0045); the fail-record ledger detail truncation is filed as T-0046
+
+## D-20261030-CEO - The gate runs from a Windows venv at venv/ because the shipped .venv is a WSL virtualenv
+
+- date: 2026-10-30
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: pip install into the system interpreter (rejected: pollutes the operator host); a new .venv-win directory (rejected: not gitignored, dirties the tree); venv/ which .gitignore already covers (chosen)
+- decision: On this win32 host the project gate is venv\\Scripts\\python.exe (pytest 9.2.0, ruff 0.17.3) with the package installed editable; venv/ stays gitignored and the WSL .venv is left untouched.
+- why: No pytest or ruff exists on the host PATH and the repository .venv is a Linux virtualenv with bin/ and no Scripts/, so the documented gate could not run at all; one test (tests/unit/test_sys_path_hygiene.py) passes only after the editable install, which proves the setup step, not a code defect.
+- evidence: python -m pytest -> No module named pytest; Test-Path .venv\\Scripts\\python.exe -> False; .venv\\bin exists -> WSL venv; venv\\Scripts\\python.exe -m pytest -q @333c08a -> 10 failed 1540 passed 46 skipped before pip install -e . and the sys-path module green after
+- falsified by: the repository gains a documented cross-platform bootstrap that needs none of this, or CI proves the same result without a venv
+- consequences: every lane on this host uses venv\\Scripts\\python.exe; the fact is in global memory under key build
+
+## D-20261030-CEO-2 - DCO signoff stays voluntary: correct the document, not the history
+
+- date: 2026-10-30
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: add a DCO CI gate (rejected: 1062 historical commits non-conforming, fix needs a history rewrite); drop the requirement from the doc (chosen); leave the contradiction (rejected: violates AC-1)
+- decision: CONTRIBUTING.md states that a Signed-off-by line is welcome but not required by any gate; the provenance guarantee is the role commit identity plus the hash-chained ledger.
+- why: CONTRIBUTING.md required Signed-off-by on every commit while 11 of 1073 commits carry one and no gate checks it, so the document asserted a rule the project does not enforce and cannot retroactively satisfy: enforcing it now would mark 1062 commits non-conforming, and rewriting published history is a red line.
+- evidence: git rev-list --count HEAD -> 1073; git log --format=%B | grep -c 'Signed-off-by:' -> 11; grep -rn 'Signed-off-by' .github/workflows/*.yml Makefile scripts/*.py -> 0 hits
+- falsified by: a gate appears that requires signoff, or the requirement is restored with a recorded adoption date and a grandfather clause
+- consequences: one clause rewritten in CONTRIBUTING.md; nothing in the commit protocol changes
