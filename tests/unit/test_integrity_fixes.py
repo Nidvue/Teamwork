@@ -798,3 +798,55 @@ def test_a_slot_command_refuses_a_root_that_is_not_a_workspace(
     monkeypatch.setenv("TEAMWORK_ROOT", str(bare))
     assert cli("--project", project, "slot", "acquire", "--agent", "ceo") != 0
     assert not (bare / engine.DIR_RUNTIME).exists(), "no working state may be written there"
+
+
+def test_links_scans_a_worktree_that_lives_under_a_dot_pi_directory(
+    tmp_path: Path,
+) -> None:
+    """A per-instance worktree sits at <.pi>/Teamwork/Teams/<T>/Runtime/Worktrees/<I>.
+
+    ``iter_markdown`` skipped a file when *any* part of its absolute path was a
+    skip directory, so every document in a worktree matched ``.pi`` and the check
+    reported zero files while exiting 0 - the lane's own links were never checked.
+    """
+    worktree = tmp_path / ".pi" / "Teamwork" / "Teams" / "X" / "Runtime" / "Worktrees" / "Dev"
+    worktree.mkdir(parents=True)
+    (worktree / "README.md").write_text("[gone](missing.md)\n", encoding="utf-8")
+    inner = worktree / ".pi" / "Scratch"
+    inner.mkdir(parents=True)
+    (inner / "Note.md").write_text("[also gone](missing2.md)\n", encoding="utf-8")
+
+    report = engine.link_report(worktree, worktree)
+
+    assert report["files"] == ["README.md"], "a worktree document must be scanned"
+    assert [entry[0] for entry in report["broken"]] == ["README.md"]
+    assert all("Scratch" not in path for path in report["files"]), (
+        "the worktree's own .pi/ state is still skipped"
+    )
+
+
+def test_links_command_measures_the_worktree_it_runs_in(cli, project: Path, capsys) -> None:
+    """`links` must answer for the tree under the caller, not the main checkout.
+
+    It used ``project_of(root)``, the project that owns the team tree, so a lane
+    running it inside its own worktree silently measured main and passed while
+    its own document held a broken link.
+    """
+    init(cli, project)
+    worktree = team_root(project) / engine.DIR_RUNTIME / engine.DIR_WORKTREES / "Dev"
+    worktree.mkdir(parents=True)
+    # work_repo() recognises one of our worktrees by its .git entry.
+    (worktree / ".git").mkdir()
+    (worktree / "README.md").write_text("[gone](missing.md)\n", encoding="utf-8")
+
+    cwd = Path.cwd()
+    os.chdir(worktree)
+    try:
+        code = cli("--project", project, "links")
+    finally:
+        os.chdir(cwd)
+
+    out = capsys.readouterr().out
+    assert f"# Link check ({worktree.resolve()})" in out
+    assert "README.md: [gone](missing.md) - target does not exist" in out
+    assert code == 1, "the worktree's broken link must fail the check"
