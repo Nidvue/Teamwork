@@ -14552,7 +14552,41 @@ def _gate_argv(command: str) -> list[str]:
     return shlex.split(command)
 
 
-def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
+def _gate_tree(root: Path, project: Path, task: dict) -> Path:
+    """The tree the gate must run in: the lane's worktree when the task records one.
+
+    The tree a command acts on is its cwd, and a lane that invokes `preflight --run`
+    from the main checkout while its work lives in `Runtime/Worktrees/<Instance>/<T-id>`
+    measured the wrong tree: a syntax error in the lane passed its own gate (T-0058).
+    A recorded worktree that is gone is not a tree to run in, so the checkout wins.
+    A store records a path relative to the team root (K-0008), and records written
+    before that rule carry the project-relative form, so both are tried; resolving
+    either against the process cwd made a lane invoked from anywhere but the
+    checkout fall back to the checkout silently (T-0058).
+    """
+    recorded = (task.get("worktree") or "").strip()
+    if recorded:
+        stored = Path(recorded)
+        candidates = [stored] if stored.is_absolute() else [root / stored, project / stored]
+        for tree in candidates:
+            if tree.is_dir():
+                return tree
+    return project
+
+
+def _gate_tree_label(project: Path, tree: Path) -> str:
+    """Which tree the gate ran in, in the shortest form a reader can act on."""
+    if tree.resolve() == project.resolve():
+        return "the project checkout"
+    try:
+        return str(tree.resolve().relative_to(project.resolve()))
+    except ValueError:
+        return str(tree)
+
+
+def _preflight_gate(
+    root: Path, project: Path, run: bool, task: dict | None = None
+) -> PreflightCheck:
     """The project's own gate, if it configured one - the skill names no toolchain.
 
     `--run` is explicit because the command is the project's, not the skill's: a
@@ -14560,8 +14594,11 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
     one that ran it silently would make every self-check pay for a full suite.
     A command this host cannot start is reported as a FAILED gate carrying the
     command and the reason, never raised: a gate nobody can read is a gate that
-    taught the lane to skip it (T-0003).
+    taught the lane to skip it (T-0003). The command runs in the tree that holds
+    the branch under test, and every line names that tree (T-0058).
     """
+    tree = _gate_tree(root, project, task or {})
+    where = _gate_tree_label(project, tree)
     name = "gate"
     command = _settings_string(root, PREFLIGHT_SETTINGS_KEY)
     if not command:
@@ -14587,7 +14624,7 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
     try:
         proc = subprocess.run(
             argv,
-            cwd=str(project),
+            cwd=str(tree),
             capture_output=True,
             text=True,
             timeout=PREFLIGHT_GATE_TIMEOUT,
@@ -14596,7 +14633,7 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            f"{command} -> no exit: still running after {PREFLIGHT_GATE_TIMEOUT}s",
+            f"{command} -> no exit in {where}: still running after {PREFLIGHT_GATE_TIMEOUT}s",
             f"{command}   # a gate that hangs is not a pass; make it finish, then re-run"
             " preflight --run",
         )
@@ -14604,17 +14641,17 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            f"{command} -> could not start: {exc}",
+            f"{command} -> could not start in {where}: {exc}",
             "install it, or point PreflightCommand at a command this host has"
             "   # then re-run preflight --run",
         )
     if proc.returncode == 0:
-        return PreflightCheck(name, PREFLIGHT_OK, f"{command} -> exit 0")
+        return PreflightCheck(name, PREFLIGHT_OK, f"{command} -> exit 0 in {where}")
     tail = (proc.stdout + proc.stderr).strip().splitlines()[-3:]
     return PreflightCheck(
         name,
         PREFLIGHT_FAIL,
-        f"{command} -> exit {proc.returncode}: " + " / ".join(tail or ["no output"]),
+        f"{command} -> exit {proc.returncode} in {where}: " + " / ".join(tail or ["no output"]),
         f"{command}   # then re-run preflight --run",
     )
 
@@ -14668,7 +14705,7 @@ def run_preflight(
         slice_check = _preflight_slice(project, base, branch, root, role, task)
         if slice_check is not None:
             checks.append(slice_check)
-    checks.append(_preflight_gate(root, project, run_gate))
+    checks.append(_preflight_gate(root, project, run_gate, task))
     return PreflightResult(role, task.get("id", ""), branch, base, revision, checks)
 
 
