@@ -78,20 +78,28 @@ The full pipeline is documented in [docs/guide/ci.md](docs/guide/ci.md).
    (`_RE_FORGE_COMMITTER_EMAIL`) and the privacy gate already treats it as a
    service address; a committer that is *not* the host's is still a defect.
 
-   **A rebase merge is what the remote is set up for**, and it is the one forge
-   action that needs no local ceremony: it replays the commits unchanged, the
-   author stays the role that did the work, and only the committer becomes the
-   host's `noreply@github.com` — which the identity audit accepts for a
-   role-authored commit and the privacy gate already treats as a service address.
-   A commit merged that way reads, in `git log`:
+   **A rebase merge is the one forge action left enabled**, because a host
+   requires at least one merge method — but it is not safe on its own: measured
+   on this repository, the rebase button wrote the *merging account* as the
+   committer, exactly as the squash button wrote it as the author. Both then fail
+   the privacy gate on history. So the local merge stays the canonical path:
 
-   ```text
-   Author:    Security Auditor <securityauditor@agents.nidvue.com>
-   Committer: GitHub <noreply@github.com>
+   ```sh
+   teamwork.py pr merge --pr P-0001 --by reviewer-1   # commits as a role mailbox
+   git push origin main
    ```
 
-   Both gates stay green on it: `privacy_scan --tree --history` -> PASS 0 and
-   `teamwork.py identity --audit` -> 0 problems.
+   **The committer guard catches it if you forget.** Every push to `main` runs
+   `identity --guard-committer`, which fails the build the moment a commit
+   carries a committer outside the team domain and prints the repair:
+
+   ```text
+   - 0cf6278ae261 FAIL committer <someone> <...> (author Security Auditor <...>)
+   # Repair: merge locally as the reviewing role and push ...
+   ```
+
+   Run it yourself before you push: `python3 scripts/teamwork.py identity
+   --guard-committer --range HEAD~1..HEAD`.
 
    If a rewrite is forced on you anyway, amend the tip to a role mailbox, verify
    its tree is byte-identical to the commit it replaces, push it with
