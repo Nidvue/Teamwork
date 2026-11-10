@@ -138,6 +138,7 @@ under two roles is two tasks.
 | developer | T-0037 | - | todo | - | - |
 | developer | T-0038 | lanes | done | P-0020 | dd5904e |
 | developer | T-0039 | docs | done | P-0019 | 550118b |
+| developer | T-0040 | lanes | done | P-0021 | d47922d |
 | reviewer | T-0001 | - | review | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | review | P-0002 | - |
