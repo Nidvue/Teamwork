@@ -79,12 +79,41 @@ by tag boundary.
   `teamwork.py` verb that does not exist, a path a skill names but does not ship,
   and a `shared` skill with no verdict row. `harness budget` prices what every
   instance pays before it does any work and fails above `AlwaysOnBudgetKb`
-  (default 120 KiB): every instance of the seven-role roster lands between 86 kB
-  and 94 kB, all inside the cap, and `--limit 60` makes every one of them `OVER`
-  with exit 1. The per-surface byte counts are printed by `harness list` on the
+  (default 120 KiB): every instance of the seven-role roster lands inside the cap
+  (measured on the `1.1.3` tree: 83 kB to 94 kB), and `--limit 60` makes every one
+  of them `OVER` with exit 1. The per-surface byte counts are printed by
+  `harness list` on the
   revision you run it on - read them there rather than from a changelog, because
   the role memory surface grows with the queue. Documented in
   [`docs/guide/cli.md`](docs/guide/cli.md); the contract is Architecture section 12.
+
+### Fixed
+
+- **The documentation set re-measured against the `1.1.3` tree.** Every claim
+  below was re-run, not recalled. `docs/guide/cli.md` now documents the three
+  flags an operator needed and the reference had dropped: `review --claim` /
+  `--release` (the shared-queue lease, with `--force <reason>` reserved for a
+  dead holder), `identity --guard-committer` (the narrower push gate the
+  `committer-guard` CI job runs) and `loop --full` (detail past 220 characters).
+  `docs/guide/architecture.md` listed 7 of the package's 17 modules and claimed
+  `build_parser()` lives in `cli.py`: it is `engine.build_parser()`, and
+  `cli.main` is a thin face on `engine.main`; the page also now names
+  `portable_invocation()` and the absolute interpreter path that keeps
+  `self_invocation()` out of committed files. `docs/guide/ci.md`
+  claimed `make ci` runs a type-check (it does not - `ci` is an alias of
+  `release-check`, which runs lint, test, verify, release-consistency, privacy,
+  docs, links and identity) and its job table omitted `scope`,
+  `committer-guard` and `release-consistency`. `docs/guide/install.md` and
+  `cli.md` placed the `refresh` mirror at `~/.pi/.teamwork-source`; for the
+  default `pi` destination it is `~/.pi/agent/.teamwork-source` (one level above
+  a directory literally named `skills`), measured by
+  `python -c "from teamwork import bundle; ..."` on the `1.1.3` tree. README's
+  roadmap named `v1.0.0` as the only released version, so it now names no bare
+  version at all: it points at `git tag -l --sort=-v:refname` and
+  `teamwork.py --version`, the two commands that answer the question, because
+  `scripts/check_release_consistency.py` R6/R9 reject a prose token that is
+  either older than HEAD or newer than every tag. This CHANGELOG's `harness
+  budget` byte range was stale by three kilobytes.
 
 ## [1.1.3](https://github.com/Nidvue/Teamwork/compare/v1.1.2...v1.1.3) - 2026-10-20
 
