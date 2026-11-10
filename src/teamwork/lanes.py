@@ -44,7 +44,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import engine, lanerun
+from . import engine, lanerun, messages
 from .config import DIR_LOCKS, DIR_RUNTIME, F_SETTINGS, PRIORITY_ORDER
 from .io import die, lock, write_lf
 from .layout import (
@@ -497,6 +497,11 @@ def build_packet(
         f"## Assignments (attempt {attempt} of {attempts})",
         *_assignment_lines(assignments),
         "",
+        *(
+            [*messages.packet_lines(root, instance), ""]
+            if messages.packet_lines(root, instance)
+            else []
+        ),
         "## Read first, in this order",
         f"- `tw load {instance} --task {task}` - your role memory plus the memory pack for",
         "  this assignment (docs/Team/Memory.md 4.1/4.5): lessons and knowledge ranked for the",
@@ -1465,7 +1470,70 @@ def cmd_lane(args) -> int:
                 pass
         print(f"# reaped {touched} lane(s); {len(live_runs(root))} still running")
         return 0
+    if verb == "preempt":
+        return _lane_preempt(root, args)
+    if verb == "resume":
+        return _lane_resume(root, args)
     return _lane_start(root, args)
+
+
+def _lane_preempt(root: Path, args) -> int:
+    """Stop a lane for an urgent message and pause the task it was working on.
+
+    Preemption is the supervisor's action, never a peer's: one process cannot
+    interrupt another agent mid-turn, so the lane is stopped, its task is marked
+    ``paused`` with the message that displaced it, and the next wave runs the
+    urgent work. ``lane resume`` puts the task back on the queue.
+    """
+    run = find_run(root, args.handle)
+    refresh(root, run)
+    message_id = (args.message or "").strip()
+    agent = str(run.get("agent") or "")
+    task_id = str(run.get("task") or "")
+    if run.get("state") not in LIVE:
+        print(f"# {run['id']} already {run.get('state')}; nothing to preempt")
+        return 0
+    reason = (args.reason or "").strip() or f"urgent message {message_id or '(unnamed)'}"
+    terminate(int(run.get("pid") or 0))
+    for _ in range(100):
+        if not pid_alive(int(run.get("pid") or 0)):
+            break
+        time.sleep(0.05)
+    run["state"] = STOPPED
+    run["finished"] = _stamp()
+    run["stopped_by"] = args.by or "supervisor"
+    run["reason"] = reason
+    run["preempted_by"] = message_id
+    release_slot(root, str(run.get("provider") or ""), agent, time.time())
+    write_run(root, run)
+    paused = None
+    if task_id:
+        note = f"paused for {message_id} ({reason})" if message_id else f"paused ({reason})"
+        paused = engine.set_task_status(
+            root, task_id, "paused", note=note, by=run["stopped_by"], paused_by=message_id
+        )
+    engine.ledger_append(
+        root,
+        "lane.preempt",
+        str(run["stopped_by"]),
+        str(run["id"]),
+        f"{agent} {task_id or '-'} paused for {message_id or reason}",
+        "",
+        str(run.get("role") or ""),
+    )
+    print(f"# {run['id']} stopped; {agent}" + (f" task {task_id} paused" if paused else " freed"))
+    print(f"#   next: run the urgent message, then `tw lane resume {task_id}`")
+    return 0
+
+
+def _lane_resume(root: Path, args) -> int:
+    """Put a paused task back on its queue at `doing`, which is where preemption found it."""
+    task = engine.set_task_status(root, args.task, "doing", note="", by=args.by or "supervisor")
+    if task is None:
+        print(f"# no task '{args.task}' on any queue")
+        return 2
+    print(f"# {args.task} resumed: doing ({task.get('claimed_by') or 'unclaimed'})")
+    return 0
 
 
 def _lane_start(root: Path, args) -> int:
@@ -1661,6 +1729,32 @@ def cmd_swarm(args) -> int:
         if args.waves and wave >= args.waves:
             break
         settle(root)
+        preempt_urgent(root, actor)
+        busy_now = {
+            pascal(str(run.get("agent") or ""))
+            for run in live_runs(root)
+            if run.get("state") in LIVE
+        }
+        for name in urgent_instances(root):
+            if pascal(name) in busy_now:
+                continue
+            role = resolve_role(name)
+            started_message = spawn(
+                root,
+                [
+                    Assignment(
+                        instance=name,
+                        role=role,
+                        task="",
+                        title="drain the urgent mailbox",
+                        profile="standard",
+                    )
+                ],
+                prompt=message_packet(root, name, unit_minutes(root, "standard")),
+                minutes=unit_minutes(root, "standard"),
+            )
+            if started_message:
+                print(f"- {name:14s} <- urgent mailbox ({started_message['id']})")
         measurement = measure(root, cap)
         retries = retry_plan(root, attempts)
         target = _wave_target(measurement, len(retries), cap, fixed)
@@ -1844,6 +1938,22 @@ def add_parsers(sub, common) -> None:
     p.set_defaults(func=cmd_lane)
     p = lsub.add_parser("reap", parents=[common], help="reconcile dead lanes and free slots")
     p.set_defaults(func=cmd_lane)
+    p = lsub.add_parser(
+        "preempt",
+        parents=[common],
+        help="stop a lane for an urgent message and pause the task it was working on",
+    )
+    p.add_argument("handle")
+    p.add_argument("--message", default="", help="the urgent message id that displaces it")
+    p.add_argument("--reason", default="", help="why (recorded)")
+    p.add_argument("--by", default="", help="who preempted it")
+    p.set_defaults(func=cmd_lane)
+    p = lsub.add_parser(
+        "resume", parents=[common], help="put a paused task back on its queue at doing"
+    )
+    p.add_argument("task")
+    p.add_argument("--by", default="", help="who resumed it")
+    p.set_defaults(func=cmd_lane)
 
     s = sub.add_parser(
         "swarm",
@@ -1872,3 +1982,115 @@ def add_parsers(sub, common) -> None:
     p.add_argument("--by", default="", help="supervisor identity (default: ceo)")
     p.add_argument("--dry-run", action="store_true", help="print the next wave only")
     p.set_defaults(func=cmd_swarm)
+
+
+def _mailbox_block(root: Path, instance: str) -> list:
+    """The packet lines for the recipient's mailbox, or nothing when it is empty."""
+    lines = messages.packet_lines(root, instance)
+    return [*lines, ""] if lines else []
+
+
+def urgent_instances(root: Path) -> list:
+    """Instances holding a pending urgent message: they preempt, then run."""
+    out = []
+    for name in engine.list_agents(root):
+        if messages.urgent_for(root, name):
+            out.append(name)
+    return out
+
+
+def preempt_urgent(root: Path, actor: str) -> list:
+    """Stop the live lane of every instance with an urgent message; pause its task.
+
+    Returns the instances that were preempted. The caller starts their lanes for
+    the message, so the paused task resumes only after the urgent work is closed.
+    """
+    freed = []
+    for name in urgent_instances(root):
+        live = [
+            run for run in live_runs(root) if pascal(str(run.get("agent") or "")) == pascal(name)
+        ]
+        if not live:
+            continue
+        run = live[0]
+        message = messages.urgent_for(root, name)[0]
+        print(
+            f"# preempt: {name} is on {run['id']} ({run.get('task') or '-'}) and holds "
+            f"{message['id']} [urgent] {message['subject']}"
+        )
+        terminate(int(run.get("pid") or 0))
+        for _ in range(100):
+            if not pid_alive(int(run.get("pid") or 0)):
+                break
+            time.sleep(0.05)
+        run["state"] = STOPPED
+        run["finished"] = _stamp()
+        run["stopped_by"] = actor
+        run["reason"] = f"preempted by {message['id']} [urgent]"
+        run["preempted_by"] = message["id"]
+        release_slot(root, str(run.get("provider") or ""), name, time.time())
+        write_run(root, run)
+        if run.get("task"):
+            engine.set_task_status(
+                root,
+                str(run["task"]),
+                "paused",
+                note=f"paused for {message['id']} [urgent]: {message['subject']}",
+                by=actor,
+                paused_by=message["id"],
+            )
+        engine.ledger_append(
+            root,
+            "lane.preempt",
+            actor,
+            str(run["id"]),
+            f"{name} {run.get('task') or '-'} paused for {message['id']} [urgent]",
+            "",
+            str(run.get("role") or ""),
+        )
+        freed.append(name)
+    return freed
+
+
+def message_packet(root: Path, instance: str, minutes: int) -> str:
+    """The packet for a lane that exists only to drain an urgent mailbox."""
+    role = resolve_role(instance)
+    pending = messages.urgent_for(root, instance)
+    cli = cli_command()
+    lines = [
+        f"# Mailbox lane · {instance} ({role})",
+        "",
+        f"You are **{instance}** of the **{root.name}** team. The supervisor stopped your "
+        "previous assignment because an urgent message arrived; that task is `paused` and "
+        "resumes when this mailbox is empty.",
+        "",
+        f"The CLI is `{cli}`; this packet calls it `tw`.",
+        "",
+        "## Do this, in priority order",
+    ]
+    for message in pending:
+        lines.append(
+            f"1. `tw message take {message['id']} --for {instance} --by {instance}` - "
+            f"from {message['from']}, task {message['task'] or '-'}: {message['subject']}"
+        )
+        if message.get("body"):
+            lines.append(f"   body: {message['body']}")
+    lines += [
+        "",
+        "Do the work each message asks for, then close it:",
+        f"`tw message done <id> --for {instance} --by {instance} --result '<what you did + evidence>'`",
+        "",
+        "If a message needs a code change, do it on a task branch as usual "
+        "(`tw branch start --agent {0} --task <T-id>`, commit, self-check, PR). "
+        "A message that asks for a fact is answered with `tw message send` back to its sender.",
+        "",
+        "When the mailbox is empty, print the result line and exit; the supervisor resumes the "
+        "paused task on its next wave.",
+        "",
+        f"## Budget\n- at most 10 tool calls and {minutes} minutes.",
+        "",
+        "## Report back",
+        f"`{RESULT_MARKER} <ok|blocked|failed> <one sentence naming the messages you closed>`",
+        "",
+    ]
+    return "\n".join(lines)

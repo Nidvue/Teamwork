@@ -512,4 +512,4 @@ REVIEW_STATUSES = ("open", "approved", "changes-requested", "merged", "closed")
 
 PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 
-STATUSES = ("todo", "doing", "selfcheck", "review", "blocked", "done", "dropped")
+STATUSES = ("todo", "doing", "paused", "selfcheck", "review", "blocked", "done", "dropped")

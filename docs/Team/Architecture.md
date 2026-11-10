@@ -56,6 +56,7 @@ Teamwork/
 │   ├── layout.py             # team tree paths and cross-links
 │   ├── memorypack.py         # task-aware memory: score, pack, search, dream (Memory.md 4)
 │   ├── memverify.py          # memory verify: the focused, score-ranked check pass
+│   ├── messages.py           # the agent mailbox: priority queue, take/done, preemption
 │   ├── names.py              # names, roles, commit identities
 │   ├── records.py            # task/memory/criteria/tests/PR/dispute records
 │   ├── resources.py          # locate the skill bundle (checkout or wheel)

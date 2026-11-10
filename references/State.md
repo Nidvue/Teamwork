@@ -421,3 +421,44 @@ Rules: dependencies are explicit (`agent:T-0001` for cross-agent), a task with
 unmet dependencies is never started, a finished task is marked `done` with
 evidence before the agent looks for the next one, and an agent with executable
 work never idles.
+
+## The agent mailbox: queued, prioritised, preemptible
+
+`Inbox.md` is prose; the mailbox is the channel agents actually use. One message is
+one JSON record under `Runtime/Mailbox/<Instance>/<M-id>.json`, mutated under
+`Runtime/Locks/mailbox.lock`; ids are per recipient and never reused.
+
+```sh
+teamwork.py message send --from <you> --to <instance> --priority <p> \
+    --subject '<one line>' [--body '<detail>'] [--task <T-id>] [--reply-to <M-id>]
+teamwork.py message inbox --for <instance> [--all] [--json]
+teamwork.py message take <M-id> --for <instance> --by <you>
+teamwork.py message done <M-id> --for <instance> --by <you> --result '<what you did>'
+teamwork.py lane preempt <run> --message <M-id> [--reason '<why>']
+teamwork.py lane resume <T-id>
+```
+
+| priority | rank | delivery |
+|---|---|---|
+| `urgent` | 0 | preemption: the supervisor stops the recipient's lane, sets the task `paused` with the message id, and starts a mailbox lane |
+| `high` | 1 | the recipient's next read, before any new long work |
+| `normal` | 2 | the recipient's next read, in order |
+| `low` | 3 | the recipient's next read, in order |
+
+Order is `(priority rank, created)`. A lane packet opens with
+`## Messages for you (<n> pending: ...)` and the rows in that order; `message inbox`
+is the same list on demand, so a long lane re-checks between steps.
+
+State machine: `pending -> taken -> done | dropped`. `take` refuses a message another
+lane holds and refuses one already closed, so one message is processed once; `done`
+records the result the sender reads. `lane resume` returns a paused task to `doing`;
+a `paused` task is in flight, so `loop` will not report STOP while one waits.
+
+Why preemption is the supervisor's and not a peer's: an agent is one process and
+cannot be interrupted mid-turn by another process. The cheap path is the queue (the
+recipient reads it at its next step, nothing is lost); the expensive path is the
+supervisor stopping the lane, because it is the only component that owns process
+lifecycle. A message never carries authority - it carries a request, and the
+recipient still records its own evidence.
+
+Ledger actions: `message.send`, `message.take`, `message.done`, `lane.preempt`.
