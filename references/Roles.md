@@ -159,12 +159,12 @@ they are designed for.
 7. **Definition of done.** `preflight` green at the revision, an independent
    Reviewer pass, archived, merged. Nothing else counts; a status the board does
    not show does not exist.
-8. **Generated artifacts render at the merge** *(target; engine support in T-0043)*.
+8. **Generated artifacts render at the merge** *(T-0043)*.
    `Board.md` and the archive belong to the base branch and are written by the
-   merging Reviewer. Until the merge path does that, a branch that must carry a
-   board render re-renders it as its **last** act, after every other task change,
-   because a render riding a feature branch conflicts with the next merge by
-   construction.
+   merging Reviewer, so a branch does not carry a board render: the merge
+   re-renders it as its **last** act, after the merge commit and its records
+   commit, because a render riding a feature branch conflicts with the next merge
+   by construction.
 9. **Right-sized roster.** One Developer and one Tester per feature team; a second
    Developer only for a genuinely parallel slice; specialists join the squad only
    for the features that need their layer; Reviewer lanes sized to the queue, not
