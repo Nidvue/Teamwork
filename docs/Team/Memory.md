@@ -249,7 +249,10 @@ anything smarter.
 tw memory verify [--role R] [--focus '<goal | T-id>'] [--limit N] [--json] [--apply] [--by X]
 ```
 
-Evidence is parsed into exactly one kind, first match wins:
+Evidence is parsed into **every** kind it carries, and the worst status wins
+(`drifted` > `unverifiable` > `verified`); the reason names each kind that was
+checked. Before T-0062 the pass stopped at the first match, so a drifted path
+behind a valid revision passed:
 
 | kind | shape | verified when | drifted when |
 |---|---|---|---|
@@ -381,6 +384,25 @@ is why a count here is never reused as a constant elsewhere.
 | integration layer on a real tree | n/a | `1 verified, 3 drifted, 1 unverifiable`; `--apply` stamps 4 records and a second run writes nothing | `TS-0068` |
 | the drift the pass found on the live store | n/a | `L-0003` reports `path drifted` (its evidence names a line that no longer exists) | `memory dream` |
 
+Re-measured at `8a34759`, same method, on the store as it stands (7 CEO lessons,
+one of them `L-0019`, written after the first reading) - the table above stays as it
+was measured and this block is the current reading of the same surfaces:
+
+| surface | before (`90502bb`) | after (`8a34759`) | command |
+|---|---|---|---|
+| `load CEO` | 8112 B | 5455 B (-2657) | both renderers, same store, back to back |
+| `load Developer` | 5746 B | 5776 B (+30) | same |
+| `load Tester` | 4995 B | 5415 B (+420) | same |
+| the index block itself | n/a | 523 B / 8 topic lines for CEO | `load CEO \| sed -n '1,/^# index:/p' \| wc -c` |
+| the task pack for `T-0039` | n/a | 13 record(s), 3194 B (budget 3437) | `load CEO --task T-0039 \| tail -1` |
+
+The two readings are the measurement, not noise: between them exactly one lesson was
+written (`L-0019`), and `load CEO` moved +354 B on the `90502bb` renderer (7758 ->
+8112) and **0 B** on the merged one (5455 -> 5455). A verbose renderer pays for every
+record the store gains; the capped index does not, which is the behaviour `AC-M22-4`
+was ruled to buy and the reason a number here names its store state.
+| every kind checked, worst wins (T-0062) | at `be86be4` the first matching kind decided, so `K-0011` (`@493219a` plus a path that is gone) read `revision verified` | `memory verify --role Developer` prints `- [K-0011] revision drifted \| revision: 493219a is a commit here; path: teamwork.py is missing`, and the footer counts it as drifted | `python3 scripts/teamwork.py memory verify --role Developer` |
+
 What the four mechanisms do on this team, in one line each:
 
 - **correction** (`memory verify`): a record is `verified` only when its own evidence still resolves - a commit that exists, a path and line that exist, a source with a fresh access date. Everything else is `unverifiable`, and only a resolved-but-stale evidence is `drifted`.
@@ -392,7 +414,7 @@ What the four mechanisms do on this team, in one line each:
 
 | # | limitation | evidence | follow-up |
 |---|---|---|---|
-| 1 | `memory verify` checks only the **first** evidence kind it recognises, so a valid `@sha` hides a drifted `path:line` in the same evidence string | live: `K-0001` carries both and reports `verified` | `T-0062` |
+| 1 | fixed by `T-0062` and measured in 13: every kind the evidence names is checked and the worst status wins, so a valid `@sha` no longer hides a drifted `path:line` | `memory verify --role Developer` -> `K-0011` reports `revision drifted` naming both kinds | closed |
 | 2 | a lesson's index topic is its mistake sentence clipped at 60 characters, which reads as a fragment ("wrote "the five existing groups keep their rules" in the") | `load CEO` output | a follow-up only if a lane reports it unreadable |
 | 3 | the stores are team-local and gitignored, and `privacy_scan` skips `.pi`, so no gate covers them | `scripts/privacy_scan.py:449`; security audit F3 | `T-0059` |
 | 4 | the verification pass has no scheduler of its own: `pulse` prints the dream line, but nothing forces a `verify` run | `memory dream` output | acceptable - a pass nobody names is a pass that hides its cost |
