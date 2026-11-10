@@ -1859,3 +1859,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: pytest -q tests/integration/test_release_consistency_integration.py @2a15514 -> 7 failed, 6 passed, 5 failures at :147 'the line does not match the contract format: R10 SKIP ...' plus :177 and :390 rule-id set; pytest -q tests/acceptance/test_acceptance_release_consistency.py @2a15514 -> 2 failed, 3 passed at :79; scripts/check_release_consistency.py --offline @2a15514 -> R10 ok 5 licence surface(s) agree on AGPL-3.0-or-later, 0 problem(s), exit 0; my own fixture probes (17 shapes) in .pi/Teamwork/Reviewer-5/t0009_probe.py -> drift names both files/values/lines, one surface = SKIP, unreadable = exit 2, README comparison rows and the NOTICE trademark paragraph are not read; artifacts Agents/Reviewer-5/Artifacts/T-0009-layers-2a15514.txt, T-0009-r10-probes-2a15514.txt
 - falsified by: If a T-0009 revision at review shows the four sites green with R10 present and Architecture 11 amended, this ordering cost was unnecessary; it says nothing about R10's extractor logic, which measured correct.
 - consequences: -
+
+## D-20261101-Designer - README badges declare intrinsic size wherever the size is a
+
+- date: 2026-11-01
+- kind: technical
+- status: accepted
+- deciders: Designer (designer)
+- decided by: Designer
+- task: T-0006
+- context: -
+- options considered: -
+- decision: README badges declare intrinsic size wherever the size is a constant of the URL: height=20 on all six, width exactly on the four fixed-text badges (160/228/144/90); the CI and stars badges declare no width and are exempt with a measured bound, and R-18 is narrowed to the images whose intrinsic size the repository owns
+- why: Measured per URL: height is 20 px in all 9 states, so it is honest everywhere; CI width is 91 passing / 101 no status / 201 not found and stars 76/90/94 px, so a declared pair would be stale the moment CI fails or a star arrives and would distort the badge (stale-ci variant holds a 91x20 box over a 201 px file). The four fixed-text badges are constants (160/228/144/90, unchanged across fetches). Sizing them cuts the page shift from 0/101 to 73/101 stable column widths and makes every width >= 820 px shift-free, leaving exactly one 26 px line at 28 mobile widths - a bound, not a claim of stability. Sizing all six is only possible by inventing a width, which is worse than an absent one for the reader
+- evidence: badge_sizes.py + camo_badges.py 2026-11-01 -> 6/6 same size through camo (91x20, 160x20, 228x20, 144x20, 90x20, 76x20), CI variants 91/101/201 px, stars 76/90/94/146 px; badge_harness.py + Chrome headless + sweep_shift.py @26eb7a2 vs @6b3366d -> 0/101 stable (+2/+28/+54/+80 px) before, 73/101 stable with worst +26.00 px after; report_boxes.py 1280 -> dW 0.00 dH 0.00 on the four sized badges; TS-0043 passing @6b3366d; teamwork links -> 0 issues
+- falsified by: A badge whose width is a constant of its URL but is served at a different width would break the decision: re-fetch the six URLs and compare against badge_served.json (check_badge_tags.py fails on a mismatch), or a reader-visible distortion of a sized badge on the rendered page
+- consequences: -
+
+## D-20261101-CEO-3 - The Windows operator-path shape is exempted by one literal; the history rewrite it avoids is the larger action
+
+- date: 2026-11-01
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0011
+- context: -
+- options considered: rewrite the two commits (red-line history rewrite, invalidates cited SHAs, --reflog still exposes them); leave the gate red and never push (blocks release); exempt the Windows shape by literal (chosen, bounded, reversible)
+- decision: Amend D-20261019-CEO-8/-15 and AuditReport F-P1: .github/privacy-allow.txt may carry one anchored literal for the operator's Windows home prefix (^C:\\Users\\<name>$), because the two commit messages that carry it (e4b046f, 5b63723) are ancestors of main with 44 commits and 40 cited SHAs above them, so the source fix is a published-history rewrite. The exemption is one shape, anchored and escaped; a sibling user name, a forward-slash form and every credential rule stay armed, and the control is committed.
+- why: SECURITY.md requires a recorded decision for a new entry and calls growth weakening. The ruling it amends assumed the source fix was cheap; measured, it is not - rewriting those commits rewrites every descendant SHA that Archive.md, Decisions.md and the ledger cite as evidence, and --reflog keeps the old messages reportable anyway. Between a bounded literal and a history rewrite, the literal is the smaller exposure and the reversible one.
+- evidence: reviewer-4 acceptance/release @7f82302 -> privacy_scan --tree --history --allow PASS 0 with the entry, FAIL 2 without; narrowness probe with the shipped --allow -> different user reported, exempt prefix + ghp_ token reports api-token only, one-char sibling reported; git rev-list --count e4b046f..main -> 44 commits above the first cited commit
+- falsified by: a credential on a line carrying the exempt prefix is not reported, or the exemption silences a sibling user name, or the allowlist grows past this one shape without a new decision
+- consequences: -
