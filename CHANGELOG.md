@@ -9,6 +9,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4](https://github.com/Nidvue/Teamwork/compare/v1.4.3...v1.4.4) - 2026-10-31
+
+Compares from the previous tag, `v1.4.3`.
+
+### Changed
+
+- `version.py` and `CITATION.cff` move to `1.4.4` on `main` immediately after the
+  `v1.4.3` tag. The release consistency rule R2 compares the checked-out version
+  with every tag reachable from it, so the next commit on `main` - or on any branch
+  cut from it - would be drift without this bump, because `v1.4.3` would no longer
+  be older than `HEAD`. The release order this keeps: tag the payload commit, then
+  bump on `main`.
+- **Still owed: the npm publish for `v1.4.3`.** Its run published the GitHub Release
+  and failed the `npm` job with `ENEEDAUTH` because no publisher credential exists -
+  neither a registered Trusted Publisher nor an `NPM_TOKEN` secret. The two remedies
+  and the re-run are recorded in `docs/Team/Release.md`; this bump changes nothing
+  about what is already published.
+
+
 ## [1.4.3](https://github.com/Nidvue/Teamwork/compare/v1.4.2...v1.4.3) - 2026-10-31
 
 Compares from the previous tag, `v1.4.2`.
