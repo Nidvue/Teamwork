@@ -126,9 +126,7 @@ def tree(cli, tmp_path: Path, capsys) -> dict:
         assert match, f"knowledge add printed no id: {out!r}"
         ids[kind] = match.group(1)
 
-    lessons_before = {
-        path: path.read_bytes() for path in sorted(root.glob("Roles/*/Lessons.md"))
-    }
+    lessons_before = {path: path.read_bytes() for path in sorted(root.glob("Roles/*/Lessons.md"))}
     return {
         "project": tmp_path,
         "root": root,
@@ -198,14 +196,10 @@ def test_apply_writes_two_fields_and_nothing_else(tree, cli, capsys) -> None:
 
     after = knowledge.read_text(encoding="utf-8")
     added = [
-        line
-        for line in after.splitlines()
-        if line not in before.splitlines() and line.strip()
+        line for line in after.splitlines() if line not in before.splitlines() and line.strip()
     ]
     assert added, "apply wrote nothing"
-    assert all(
-        line.startswith(("- checked: ", "- verify_status: ")) for line in added
-    ), added
+    assert all(line.startswith(("- checked: ", "- verify_status: ")) for line in added), added
     assert len(added) == 6, added  # two fields on each of the three records
 
     # No statement or evidence line was rewritten, and no record was deleted.

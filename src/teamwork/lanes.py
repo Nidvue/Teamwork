@@ -541,7 +541,10 @@ def build_packet(
     out += [
         "## Memory pack for this assignment (injected)",
         "```",
-        engine.memory_pack_block(root, role, task, touch_by=instance),
+        engine.memorypack.index_block(root, role, task),
+        engine.memory_pack_block(
+            root, role, task, engine.memorypack.injected_budget(root, role, task), instance
+        ),
         "```",
         "",
         "## Rules that are not negotiable",
