@@ -267,7 +267,9 @@ def test_repository_svgs_depend_on_no_external_font_or_resource(root):
         assert "@font-face" not in body, svg
         assert "xlink:href" not in body, svg
         assert 'href="http' not in body, svg
-        # a font stack with a generic family fallback, in either the attribute or
-        # the CSS form (the terminal demo uses a <style> block)
-        assert "font-family" in body, svg
-        assert re.search(r"(sans-serif|monospace)", body), svg
+        # An SVG that renders text must declare a font stack with a generic
+        # fallback (the terminal demo uses a <style> block); a pure-graphic SVG
+        # such as the logo has no text and therefore needs none.
+        if "<text" in body or "font-family" in body:
+            assert "font-family" in body, svg
+            assert re.search(r"(sans-serif|monospace)", body), svg
