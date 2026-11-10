@@ -6063,10 +6063,19 @@ EXTERNAL_SCHEMES = ("http://", "https://", "mailto:", "doi:", "ftp://")
 
 
 def iter_markdown(project: Path) -> list:
-    """Every markdown file a human might read, excluding caches and dependencies."""
+    """Every markdown file a human might read, excluding caches and dependencies.
+
+    The skip test is relative to ``project``. Testing the absolute parts instead
+    silently skipped every file when the project itself lives under ``.pi`` (a
+    per-instance worktree), which made ``links`` pass vacuously there.
+    """
     out = []
     for p in project.rglob("*.md"):
-        if any(part in SKIP_DIRS for part in p.parts):
+        try:
+            parts = p.relative_to(project).parts
+        except ValueError:
+            parts = p.parts
+        if any(part in SKIP_DIRS for part in parts):
             continue
         out.append(p)
     return sorted(out)
@@ -6180,7 +6189,9 @@ def link_report(project: Path, root: Path) -> dict:
 
 def cmd_links(args) -> int:
     root = project_root(args)
-    project = project_of(root)
+    # Inside one of our worktrees this is the worktree, so a lane checks the links
+    # it is about to submit rather than the checkout it happens to share.
+    project = work_repo(root)
     rep = link_report(project, root)
     issues = len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"])
     if not args.no_reciprocity:
@@ -7832,6 +7843,16 @@ def _audit_section(root: Path, names: list, args) -> int:
     return hits
 
 
+def _task_has_execution_evidence(t: dict) -> bool:
+    """True when the task record carries proof that something was executed.
+
+    A review pass writes review_evidence and a self-check writes self_note; a task
+    closed by hand writes evidence. The audit's question is "was this verified?",
+    not "was the evidence field used?", so all three count.
+    """
+    return any((t.get(key) or "").strip() for key in ("evidence", "review_evidence", "self_note"))
+
+
 def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, args) -> int:
     print("## submitted for review without a self-check (skipped their own test)")
     hits = 0
@@ -7841,6 +7862,9 @@ def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, arg
                 t.get("review", "required") != "na"
                 and t.get("self_check") not in ("passed", "na")
                 and t["status"] in ("review", "done")
+                # A forced review pass records why the self-check was skipped; the
+                # force is the audit trail, so re-reporting it every run is noise.
+                and not (t.get("forced") or "").strip()
             ):
                 print(
                     f"- {name} {t['id']} [{t['status']}] {t['title']} "
@@ -7857,7 +7881,12 @@ def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, arg
     hits = 0
     for name in names:
         for t in parse_tasks(task_file(root, name)):
-            if t["status"] == "done" and not t.get("evidence"):
+            # `done` is normally set by a review pass, which records its proof in
+            # review_evidence (and self_note for the author's own run); only a task
+            # closed by hand relies on `evidence` alone. Any of the three is a
+            # record of execution, so any of them satisfies the anti-hallucination
+            # gate - testing `evidence` alone flagged every properly reviewed task.
+            if t["status"] == "done" and not _task_has_execution_evidence(t):
                 print(f"- {name} {t['id']} {t['title']}")
                 hits += 1
     if not hits:
