@@ -445,7 +445,7 @@ this README and its visuals lives in [`docs/Team/Design.md`](docs/Team/Design.md
 | Version | Status | Focus |
 |---|---|---|
 | `v1.0.0` | released | Package, skill bundle, CLI, 15 role charters, layered tests, CI/release workflows, docs site. |
-| `v1.x` | current | Release wheel, checksums and SBOMs are shipped; the remaining step is PyPI trusted publishing. |
+| `v1.x` | current | Release wheel, checksums and SBOMs shipped; the remaining step is PyPI trusted publishing. Read the newest tag with `git tag -l --sort=-v:refname` and the tree's version with `teamwork.py --version`: the two differ by design between a version bump and its tag. |
 | next | exploring | More provider adapters, end-to-end worked examples, an opt-in ledger dashboard. |
 
 Direction, not a promise: no hosted service, and stars cannot be bought - this
