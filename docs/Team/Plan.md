@@ -730,7 +730,7 @@ revision, `teamwork.py tests plan` with no gap for a staffed role, `loop` STOP.
 | Developer-2 | T-0005 | `clean --all` being team-wide, so one lane emptied every peer's `Scratch/` | `6111b1a` |
 | Developer-3 | T-0003 | an unlaunchable gate escaping, and POSIX-only proof cells crashing the matrix guard | `cf26e96` |
 | Developer-3 | T-0006 | the board renderer's missing role spellings | `5895411` |
-| Developer-4 | T-0007 | a fresh project could not render the board `init` had just written | [FILL] |
+| Developer-4 | T-0007 | a fresh project could not render the board `init` had just written | `4895f66` |
 | Architect | T-0001 | the `system` layer: no POSIX-only launch, every failure guarded or red | `0cac9bd` |
 | Tester | T-0001 | the gate certification, both `integration` layers, and the red it refused to waive | `8b5db3f` |
 | CEO | T-0001, T-0002 | the merge contract three public surfaces still claimed | `d36e731`, `cd561a5` |
@@ -749,8 +749,10 @@ failure, one POSIX proof cell. Nothing was waived; each of the three real
 classes became a task above.
 
 The decision is `D-20261030-CEO`; the host fact is in global memory under
-`build`. `mypy` is **UNVERIFIED** on this host (not installed in either
-interpreter).
+`build`. `mypy` is installed in the same `venv/` and `make typecheck`'s command
+(`mypy src/teamwork`) reports `Success: no issues found in 18 source files`
+(mypy 2.4.1, run on 2026-10-31); before that install the type gate was the one
+`UNVERIFIED` line on this host.
 
 ### M14.2 - What the reviews cost and caught
 
