@@ -123,9 +123,11 @@ KNOWLEDGE_FIELDS = (
     "superseded_by",
     "created",
     "updated",
+    "checked",
+    "verify_status",
 )
 
-KNOWLEDGE_OPTIONAL = ("task", "supersedes", "superseded_by")
+KNOWLEDGE_OPTIONAL = ("task", "supersedes", "superseded_by", "checked", "verify_status")
 
 DISPUTE_HEADER = (
     "# DISPUTES - design/decision challenges\n\n"

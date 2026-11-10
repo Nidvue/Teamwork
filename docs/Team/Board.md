@@ -121,6 +121,7 @@ under two roles is two tasks.
 | ceo | T-0031 | records | done | P-0085 | 7bc4f15 |
 | ceo | T-0032 | docs | done | P-0087 | 3179a8a |
 | ceo | T-0033 | memory | done | P-0092 | 6143378 |
+| ceo | T-0034 | - | todo | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -174,7 +175,7 @@ under two roles is two tasks.
 | developer | T-0051 | release | done | P-0079 | d2e7f62 |
 | developer | T-0052 | harness | done | P-0080 | ff62638 |
 | developer | T-0053 | deliver | done | P-0088 | 82241bb |
-| developer | T-0054 | - | doing | - | - |
+| developer | T-0054 | memory | done | P-0095 | a42b13b |
 | developer | T-0055 | - | todo | - | - |
 | developer | T-0056 | - | todo | - | - |
 | developer | T-0057 | - | todo | - | - |
@@ -203,7 +204,7 @@ under two roles is two tasks.
 | security-auditor | T-0004 | - | done | - | - |
 | security-auditor | T-0005 | - | done | - | - |
 | security-auditor | T-0006 | audit | done | P-0083 | 98232a8 |
-| security-auditor | T-0007 | security | review | P-0094 | - |
+| security-auditor | T-0007 | security | done | P-0094 | 90c5ecf |
 | security-auditor | T-0008 | - | todo | - | - |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
@@ -230,7 +231,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0054 · memory verify: re-resolve record evidence against ground truth, and a drifted group in memory dream | P0 | doing | - |
+| ceo | T-0034 · M22 close-out: the measured before/after, the layer matrix, the board render and the ledger export | P1 | todo | - |
 | developer | T-0055 · memory verify --focus: goal-scoped verification order and selection | P0 | todo | - |
 | developer | T-0056 · transcript reach: context find and recall search the ledger and worklogs | P0 | todo | - |
 | developer | T-0057 · memory index header in load and the lane packet, capped | P0 | todo | - |
@@ -238,7 +239,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0059 · privacy scan does not cover the team memory stores | P1 | todo | - |
 | developer | T-0060 · scrub absolute host paths from the role stores | P2 | todo | - |
 | developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | todo | - |
-| security-auditor | T-0007 · privacy and secret audit of the memory stores and the injected pack | P1 | review | - |
 | security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | todo | - |
 | tester | T-0008 · integration layer: verify, focus, transcript reach and the index header on a real team tree | P1 | todo | - |
 

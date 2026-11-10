@@ -437,6 +437,7 @@ def test_dream_covers_lessons_and_knowledge_but_not_memory() -> None:
         "contradiction": [],
         "stale": [],
         "no_evidence": [],
+        "drifted": [],
     }
 
 
