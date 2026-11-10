@@ -13,6 +13,7 @@ Usage: ``python3 scripts/build_pi_package.py [--out dist]``
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -111,8 +112,31 @@ def copy_skill(dest: Path) -> None:
     shutil.copytree(ROOT / "templates" / "pi-package" / "prompts", dest / "prompts")
 
 
+REPO_URL = "https://github.com/Nidvue/Teamwork/blob/main/"
+
+
+def ship_readme(dest: Path) -> None:
+    """Rewrite repo-relative links to absolute ones.
+
+    The tarball ships the skill and the notices, not ``docs/`` or the test tree,
+    so a relative link that works in the repository is dead for a package user.
+    """
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    def absolute(match: re.Match[str]) -> str:
+        target = match.group(2)
+        if target.startswith(("http:", "https:", "#", "mailto:")):
+            return match.group(0)
+        return f"[{match.group(1)}]({REPO_URL}{target.lstrip('./')})"
+
+    rewritten = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", absolute, text)
+    Path(dest / "README.md").open("w", encoding="utf-8", newline="\n").write(rewritten)
+
+
 def copy_docs(dest: Path) -> None:
     for name in TARBALL_FILES:
+        if name == "README.md":
+            continue
         source = ROOT / name
         if source.is_file():
             shutil.copy2(source, dest / name)
@@ -130,6 +154,7 @@ def main(argv: list[str]) -> int:
     )
     copy_skill(dest)
     copy_docs(dest)
+    ship_readme(dest)
     manifest = json.loads((dest / "package.json").read_text(encoding="utf-8"))
     missing = [p for p in json.loads(json.dumps(manifest["pi"])).values() for p in p]
     absent = [p for p in missing if not (dest / p.lstrip("./")).exists()]
