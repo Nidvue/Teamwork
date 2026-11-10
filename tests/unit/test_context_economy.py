@@ -1084,3 +1084,47 @@ def test_the_archive_mask_and_the_gate_agree_on_every_probe(tmp_path: Path) -> N
         assert engine.mask_secret_shapes(line) == line, (
             f"the gate is silent, so the mask must be too: {line}"
         )
+
+
+def test_archive_multiline_quoted_evidence_is_not_link_checked(tmp_path: Path) -> None:
+    """A quoted field runs past its bullet: its continuation lines are evidence too.
+
+    T-0061: an accepted result's evidence is often one bullet followed by
+    ``DELIVERY:``/``FIDELITY:`` paragraphs, so a bare URL there was read as an
+    authored link and ``links`` failed at every merge that carried one.
+    """
+    docs = tmp_path / "docs" / "Team"
+    docs.mkdir(parents=True)
+    (docs / "Archive.md").write_text(
+        engine.ARCHIVE_HEADER + "\n## T-0001 · shipped  (developer)\n"
+        "- date: 2026-10-19\n"
+        "- reviewer evidence: PASS. Fetched the page for the quoted fragment.\n"
+        "FIDELITY: my own curl -sL https://www.anthropic.com/research/x -> HTTP 200\n"
+        "\n"
+        "## T-0002 · shipped  (developer)\n"
+        "- date: 2026-10-20\n"
+        "- area: docs\n"
+        "Authored prose with https://example.com/authored -> still a bare URL\n",
+        encoding="utf-8",
+    )
+
+    report = engine.link_report(tmp_path, tmp_path)
+    assert [url for _, url in report["bare"]] == ["https://example.com/authored"], (
+        "a quoted continuation is evidence; the next entry's authored prose is not"
+    )
+
+
+def test_archive_quoted_field_stops_at_the_next_bullet(tmp_path: Path) -> None:
+    """The quote ends at the entry's next field bullet, so no field is swallowed."""
+    docs = tmp_path / "docs" / "Team"
+    docs.mkdir(parents=True)
+    (docs / "Archive.md").write_text(
+        engine.ARCHIVE_HEADER + "\n## T-0001 · shipped  (developer)\n"
+        "- date: 2026-10-19\n"
+        "- author evidence: commit abc123\n"
+        "- area: https://example.com/authored\n",
+        encoding="utf-8",
+    )
+
+    report = engine.link_report(tmp_path, tmp_path)
+    assert [url for _, url in report["bare"]] == ["https://example.com/authored"]
