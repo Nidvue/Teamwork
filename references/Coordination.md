@@ -227,3 +227,26 @@ and does not block a lane. `--commit` records the check in the ledger.
 - The article's systems ran without a shared repository protocol. This skill's
   branch, review and ledger rules are stricter than what it measured; the
   mechanisms above cover the failures those rules do not.
+
+## Direct agent-to-agent messages (the mailbox)
+
+A coordination failure the board cannot fix: one agent holds a fact another needs
+*now* - a review finding that invalidates the peer's branch, an interface change
+that lands mid-flight, a blocked question only that role can answer. Opening a task
+loses the "do this before that" intent and waits behind the queue; shouting into a
+worklog nobody reads loses it entirely.
+
+`teamwork.py message` is the channel. It is deliberately small:
+
+| property | mechanism | failure it prevents |
+|---|---|---|
+| no interruption for ordinary work | the message queues; the packet opens with the pending list and `message inbox` re-reads it between steps | a peer stopping another agent's turn, and a request that evaporates because the recipient was busy |
+| priority, not arrival order | `urgent` > `high` > `normal` > `low`, oldest first inside a priority | a low-value ping displacing a review finding |
+| one processor | `message take` marks it in progress; a second lane is refused | two lanes of one role doing the same work |
+| preemption is the supervisor's | `urgent` makes the supervisor stop the lane, mark the task `paused` with the message id, and run a mailbox lane; `lane resume` restores it | a peer killing another peer's process, and an urgent fact waiting 25 minutes for a lane to finish |
+| no authority transfer | the message carries a request; the recipient still records its own evidence and self-check | "the other agent told me to", which is not evidence |
+
+The rule that keeps it honest: a message is for a **fact or an ask between peers**.
+Work that belongs on the board is a task; progress is the worklog; the user is the
+CEO's channel alone. `lane.preempt` is recorded in the ledger, so a preemption is
+auditable like any other action.

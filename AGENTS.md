@@ -385,6 +385,21 @@ only for a fact or artifact only they hold, a duplicate-work warning, a blocking
 interface change or a review finding on their work - 1-3 lines: task id, path, exact
 ask, needed by. No acknowledgements. Never contact the user; escalate to the CEO.
 
+A message to another agent goes through the mailbox, never through a worklog:
+
+```sh
+teamwork.py message send --from <you> --to <instance> --priority urgent|high|normal|low \
+    --subject '<one line>' [--body '<detail>'] [--task <T-id>]
+teamwork.py message inbox --for <you>          # the same list the packet opens with
+teamwork.py message take <M-id> --for <you> --by <you>
+teamwork.py message done <M-id> --for <you> --by <you> --result '<what you did>'
+```
+
+Higher priority first, oldest inside a priority; `urgent` is the only one that
+preempts, and only the supervisor may preempt (`lane preempt`, then `lane resume`
+when the urgent work is closed). A message is a request, never an authority: you
+still record your own evidence.
+
 ## Repository and file discipline
 
 Code, tests, docs and required assets live in the repository; `.pi/` is gitignored

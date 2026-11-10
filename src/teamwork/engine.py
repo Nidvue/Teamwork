@@ -786,6 +786,51 @@ def _find_task_anywhere(root: Path, handle: str, role_hint: str = ""):
     return None, None, None, None
 
 
+def set_task_status(
+    root: Path,
+    handle: str,
+    status: str,
+    *,
+    note: str = "",
+    by: str = "",
+    paused_by: str = "",
+) -> dict | None:
+    """Set one task's status on whichever queue holds it; returns the record.
+
+    Used by preemption (``paused``) and resume, which are supervisor actions on a
+    task whose lane is gone: the role queue is the single writer, under its lock.
+    ``paused_by`` is the message id that displaced the task, kept on the record so
+    an operator reading the queue sees why it stopped, not only in the ledger.
+    """
+    task, path, role, idx = _find_task_anywhere(root, handle)
+    if task is None:
+        return None
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(path)
+        idx = find_task(tasks, handle)
+        tasks[idx]["status"] = status
+        if status == "paused":
+            tasks[idx]["paused_by"] = paused_by
+            tasks[idx]["paused_note"] = note
+        else:
+            tasks[idx]["paused_by"] = ""
+            tasks[idx]["paused_note"] = ""
+        tasks[idx]["updated"] = today_iso()
+        write_tasks(path, tasks, role)
+        updated = tasks[idx]
+    ledger_append(
+        root,
+        "task.status",
+        by or "ceo",
+        handle,
+        f"{status} [{updated.get('priority', 'P2')}] {updated.get('title', '')}"
+        + (f" ({note})" if note else ""),
+        "",
+        role,
+    )
+    return updated
+
+
 def lane_worktree(root: Path, agent: str, task_id: str) -> Path:
     """The one worktree a (instance, task) lane owns.
 
@@ -2527,6 +2572,7 @@ LEDGER_ACTIONS = (
     "knowledge.supersede",
     "knowledge.touch",
     "lane.finish",
+    "lane.preempt",
     "lane.start",
     "lane.stop",
     "ledger.cut",
@@ -2553,6 +2599,9 @@ LEDGER_ACTIONS = (
     "memory.touch",
     "memory.update",
     "memory.verify",
+    "message.done",
+    "message.send",
+    "message.take",
     "model.auto",
     "model.set",
     "pr.merge",
@@ -8645,7 +8694,7 @@ def cmd_task_next(args) -> int:
             blocked = [
                 t
                 for t in tasks
-                if t["status"] in ("todo", "doing", "selfcheck") and t not in refused
+                if t["status"] in ("todo", "doing", "paused", "selfcheck") and t not in refused
             ]
             print(
                 f"teamwork: {args.agent} ({role}) has no unclaimed executable task"
@@ -11309,7 +11358,7 @@ def cmd_parallel(args) -> int:
     return 0
 
 
-COORD_OPEN = ("todo", "doing", "selfcheck", "blocked", "review")
+COORD_OPEN = ("todo", "doing", "paused", "selfcheck", "blocked", "review")
 COORD_PR_TERMINAL = ("merged", "closed", "superseded")
 COORD_TASK_TERMINAL = ("done", "dropped", "superseded")
 COORD_VERIFICATION_ROLES = ("reviewer", "security-auditor", "tester")
@@ -12613,7 +12662,7 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     sections.append(s)
 
     s = _section("work", "work in flight")
-    buckets: dict = {k: [] for k in ("todo", "doing", "selfcheck", "blocked", "review")}
+    buckets: dict = {k: [] for k in ("todo", "doing", "paused", "selfcheck", "blocked", "review")}
     invalid = []
     for role, t in tasks:
         if t["status"] in buckets:
@@ -18999,6 +19048,10 @@ def _parsers_meta(sub, common) -> None:
     from .lanes import add_parsers as _add_lane_parsers
 
     _add_lane_parsers(sub, common)
+
+    from .messages import add_parsers as _add_message_parsers
+
+    _add_message_parsers(sub, common)
 
 
 def main(argv=None) -> int:
