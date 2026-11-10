@@ -83,6 +83,10 @@ six host operations and the integrity settings are adapted
     to the mechanical lanes, so quality is maximised where it compounds and cost is
     minimised where it does not. Model choice never changes the
     protocol: the gates, the review and the ledger hold anyway.
+    The CEO sets the lanes in one step with `teamwork.py model auto --apply`, which
+    detects the agent host (pi, claude, opencode, codex, cursor, gemini) and routes
+    the strongest available model to the decision lanes and the economy model to
+    the mechanical lanes - automatic cost-aware routing, never an invented model id.
 13. **Warnings are errors.** The toolchain fails on them by configuration, the
     cause is fixed, and a third-party warning is suppressed narrowly with a
     reason. CI annotations (a deprecated action, a cache notice, a runner banner)
