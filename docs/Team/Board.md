@@ -95,6 +95,9 @@ under two roles is two tasks.
 | ceo | T-0010 | records | done | P-0036 | 5ffaf70 |
 | ceo | T-0011 | release | done | P-0040 | 1c91255 |
 | ceo | T-0012 | records | review | P-0041 | - |
+| ceo | T-0013 | - | todo | - | - |
+| ceo | T-0014 | - | done | - | - |
+| ceo | T-0015 | records | done | P-0045 | bbdffbf |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -122,12 +125,15 @@ under two roles is two tasks.
 | developer | T-0019 | engine | done | P-0042 | 3b16a9c |
 | developer | T-0020 | - | done | - | - |
 | developer | T-0021 | - | todo | - | - |
-| developer | T-0022 | - | todo | - | - |
+| developer | T-0022 | - | dropped | - | - |
 | developer | T-0023 | review | done | P-0044 | 1d25519 |
 | developer | T-0024 | - | todo | - | - |
 | developer | T-0025 | - | todo | - | - |
 | developer | T-0026 | - | todo | - | - |
 | developer | T-0027 | - | doing | - | - |
+| developer | T-0028 | - | dropped | - | - |
+| developer | T-0029 | - | todo | - | - |
+| developer | T-0030 | - | todo | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | records | done | - | - |
 | technical-writer | T-0001 | - | done | P-0001 | ff9a708 |
@@ -137,6 +143,7 @@ under two roles is two tasks.
 | technical-writer | T-0005 | docs | done | P-0025 | b29a8bc |
 | technical-writer | T-0006 | - | todo | - | - |
 | technical-writer | T-0007 | - | todo | - | - |
+| technical-writer | T-0008 | - | dropped | - | - |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
@@ -155,13 +162,15 @@ landed by commit without a PR record.
 | ceo | T-0008 · M15 plan: the surfaces table says four and lists five rows | P3 | doing | - |
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
+| ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | todo | - |
 | developer | T-0012 · T-0043: the merge path does not render the board, so a merged revision's board is stale until a manual records commit | P1 | todo | - |
 | developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | todo | - |
-| developer | T-0022 · unit guard test_ui_readme is RED on main: the badge-set parse pins the alt text as the last table column | P1 | todo | - |
 | developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
 | developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |
 | developer | T-0026 · docs/Team/Decisions.md is a pure append point, so every lane's entry conflicts on every later merge and tasks are failed for it twice | P2 | todo | - |
 | developer | T-0027 · Integrate the published line into integration/m15-m16 (PR #30): three conflicts, both sides' behaviour preserved | P0 | doing | - |
+| developer | T-0029 · CI annotates every ubuntu-latest job with a runner-image migration notice; pin the image or record why not | P2 | todo | - |
+| developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | todo | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
