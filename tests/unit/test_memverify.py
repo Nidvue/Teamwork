@@ -6,11 +6,12 @@ import datetime
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from teamwork import engine, memorypack, memverify, records
-from teamwork.layout import knowledge_path
+from teamwork import config, engine, memorypack, memverify, records
+from teamwork.layout import knowledge_path, role_dir
 
 TODAY = datetime.date(2026, 3, 1)
 NOW = datetime.datetime(2026, 3, 1, 12, 0, 0)
@@ -326,3 +327,125 @@ def test_dream_keeps_its_four_groups_and_adds_drifted(tmp_path: Path) -> None:
 def test_dream_without_a_project_reports_no_drift() -> None:
     entries = [_entry(id="K-0001", evidence="docs/missing.md")]
     assert memorypack.dream(entries, NOW)["drifted"] == []
+
+
+def _team(tmp_path: Path) -> Path:
+    project = _tree(tmp_path)
+    role_dir(project, "developer").mkdir(parents=True, exist_ok=True)
+    knowledge_path(project).write_text(KNOWLEDGE_FILE, encoding="utf-8")
+    return project
+
+
+def _verify_args(**overrides) -> SimpleNamespace:
+    base = {
+        "role": "developer",
+        "focus": "",
+        "limit": None,
+        "json": False,
+        "apply": False,
+        "by": "",
+    }
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+BASELINE = """- [K-0001] path verified | README.md exists | Knowledge.md#K-0001
+- [K-0002] path drifted | docs/missing.md is missing | Knowledge.md#K-0002
+# verify: 2 record(s), 1 verified, 1 drifted, 0 unverifiable (limit all)
+"""
+
+
+def test_without_focus_the_report_is_byte_identical_to_the_baseline(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    project = _team(tmp_path)
+    assert engine._memory_verify(project, "developer", _verify_args()) == 0
+    assert capsys.readouterr().out == BASELINE
+
+
+def test_focus_ranks_by_the_frozen_score_not_pointer_order(tmp_path: Path) -> None:
+    project = _tree(tmp_path)
+    entries = [
+        _entry(id="K-0001", statement="an unrelated note", importance=1, updated="2020-01-01"),
+        _entry(
+            id="K-0002",
+            statement="the parser budget",
+            importance=5,
+            uses=5,
+            updated="2026-02-25",
+        ),
+        _entry(id="K-0003", statement="the parser", importance=3, updated="2020-01-01"),
+    ]
+    rows, deferred = memverify.select(entries, project, "parser", NOW, 2)
+    assert [row["id"] for row in rows] == ["K-0002", "K-0003"]
+    assert deferred == 1
+    whole, none_deferred = memverify.select(entries, project, "parser", NOW, 0)
+    assert [row["id"] for row in whole] == ["K-0002", "K-0003", "K-0001"]
+    assert none_deferred == 0
+    assert [row["id"] for row in memverify.verify_all(entries, project, NOW)] == [
+        "K-0001",
+        "K-0002",
+        "K-0003",
+    ]
+
+
+def test_focus_resolves_a_task_id_to_its_title(tmp_path: Path) -> None:
+    project = _tree(tmp_path)
+    queue = role_dir(project, "developer") / config.F_TASKS
+    task = records.new_task("Repair the parser budget leak", priority="P1")
+    records.write_tasks(queue, [task], "developer")
+    task_id = records.parse_tasks(queue)[0]["id"]
+    entries = [
+        _entry(id="K-0001", statement="an unrelated note", importance=1, updated="2020-01-01"),
+        _entry(id="K-0002", statement="the parser budget", importance=3, updated="2020-01-01"),
+    ]
+    query = memorypack.task_query(project, "developer", task_id)
+    assert query == "Repair the parser budget leak"
+    rows, deferred = memverify.select(entries, project, query, NOW, 1)
+    assert [row["id"] for row in rows] == ["K-0002"]
+    assert deferred == 1
+
+
+def test_the_focused_footer_reports_the_deferred_records(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    project = _team(tmp_path)
+    assert (
+        engine._memory_verify(
+            project, "developer", _verify_args(focus="readme entry point", limit=1)
+        )
+        == 0
+    )
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "- [K-0001] path verified | README.md exists | Knowledge.md#K-0001"
+    assert lines[-2] == "# verify: 1 record(s), 1 verified, 0 drifted, 0 unverifiable (limit 1)"
+    assert lines[-1] == "# verify: 1 deferred by --focus"
+
+
+def test_focus_with_limit_zero_keeps_every_record(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    project = _team(tmp_path)
+    assert (
+        engine._memory_verify(
+            project, "developer", _verify_args(focus="readme entry point", limit=0)
+        )
+        == 0
+    )
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split("]")[0] for line in lines[:2]] == ["- [K-0001", "- [K-0002"]
+    assert lines[-2] == "# verify: 2 record(s), 1 verified, 1 drifted, 0 unverifiable (limit all)"
+    assert lines[-1] == "# verify: 0 deferred by --focus"
+
+
+def test_the_focused_default_keeps_the_highest_scoring_records(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    project = _team(tmp_path)
+    assert memverify.FOCUS_LIMIT == 25
+    assert (
+        engine._memory_verify(project, "developer", _verify_args(focus="readme entry point")) == 0
+    )
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("- [K-0001]")
+    assert lines[-1] == "# verify: 0 deferred by --focus"

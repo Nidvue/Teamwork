@@ -141,8 +141,17 @@ is `unverifiable`, never `drifted`.
 
 ```sh
 teamwork.py memory verify [--role R] [--limit N] [--json]
+teamwork.py memory verify --focus <text | T-ID> [--limit N]   # the best 25, by the 4.1 score
 teamwork.py memory verify --apply --by <you>   # stamp the knowledge records it reported
 ```
+
+`--focus` tunes the pass to a goal (9.1): the text - or a task id, resolved to its
+title through `memorypack.task_query` - ranks every record with the frozen 4.1
+score, and the first `--limit` (default 25, `0` still means all) are verified in
+score order, highest first. The rest are reported as
+`# verify: N deferred by --focus`, one line after the footer. Without `--focus`
+every record is verified in pointer order and the output is byte-identical to the
+pass before the flag.
 
 `--apply` writes exactly two fields on knowledge records, `checked` and
 `verify_status`, and appends one `memory.verify` ledger event with the counts:
