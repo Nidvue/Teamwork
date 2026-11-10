@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.1.2...HEAD)
 
+Compares from the newest **tag**, `v1.1.2`. The `1.1.3` section below is dated but
+not yet tagged, so this range covers it too; the ordering below is by change, not
+by tag boundary.
+
 ### Added
 
 - **The Reviewer judges the artefact, not the author.** `roles/reviewer.md` gains
