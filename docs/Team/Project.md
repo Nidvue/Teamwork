@@ -11,10 +11,11 @@ Turn the private `teamwork` skill into a self-contained, reusable,
 cross-platform open-source **skill for coding agents**: one directory cloned into
 the host's skill location, with the stdlib-only engine bundled inside it and also
 distributable as the optional `teamwork-agents` package (built and released as a
-GitHub-release wheel; not yet published to PyPI), a full development → test →
-build → verify → release pipeline, polished documentation aimed at adoption, and a
-public GitHub repository at `Nidvue/Teamwork` that is safe to open (zero private
-information). The skill is the product; the package is a convenience face on the
+GitHub-release wheel; not yet published to PyPI) and as the `@nidvue/teamwork`
+package on npm, a full development → test → build → verify → release pipeline that
+ships every tag to GitHub **and** npm and refreshes the published site from the
+released revision, polished documentation aimed at adoption, and a public GitHub
+repository at `Nidvue/Teamwork` that is safe to open (zero private information). The skill is the product; the package is a convenience face on the
 same engine.
 
 "Finished" means: a stranger can clone the skill into the skills directory of any
@@ -127,8 +128,19 @@ released artifact — with no personal data anywhere in the tree or in git histo
       Developer Mode off and no GNU make, because each such test works there or
       skips with a stated reason, and a regression test pins each guard - proof:
       `python3 -m pytest -q`
+- [ ] AC-22 npm parity: every `v*` tag publishes `@nidvue/teamwork` at exactly the
+      tag's version to the npm registry from that tagged revision
+      (`npm publish --access public --provenance`), a re-run of the same tag is
+      idempotent, and the online release gate reports R3 ok against the published
+      tarball digest - proof: the release run's npm job for the tag plus
+      `scripts/check_release_consistency.py --online`
+- [ ] AC-23 Pages on release: a `v*` tag rebuilds and deploys the GitHub Pages
+      site from the released revision, the site builds `--strict`, and it names npm
+      as an install channel without a stale or pinned version claim - proof: the
+      release run's pages job for the tag, `mkdocs build --strict`,
+      `teamwork.py links`
 
-## M11 - Solid review pass (this engagement)
+## M11 - Solid review pass (closed)
 
 Objective restated from the user brief: review code, logic, workflow, documents
 and files systematically; make each of them solid for its purpose; remove
@@ -146,21 +158,52 @@ tree. The failures reproduce a single class: tests that need a privilege or tool
 the host does not have, plus one real engine defect (`resources.self_invocation()`
 returns a command `shlex.split` mangles on Windows).
 
+## M12 - Release parity: GitHub, npm, Pages (this engagement)
+
+Objective, from the operator's directive: a release goes to **both** GitHub and
+[npm](https://www.npmjs.com/package/@nidvue/teamwork) (accessed 2026-10-28), and
+the GitHub Pages site is updated accordingly, so all three faces describe one
+tagged revision.
+
+Non-goals: a PyPI publication, a new engine feature, a roster change, and
+re-tagging or moving any published tag.
+
+Exit condition: AC-22 and AC-23 verified by a role other than the author on the
+merged revision, and the two open release defects (release-engineer T-0011,
+T-0012) closed.
+
+Baseline measured before any lane started (`df97067`, the `v1.3.0` head):
+`npm view @nidvue/teamwork dist-tags` -> `latest: 1.1.2` while
+`git tag -l --sort=-v:refname | head -1` -> `v1.3.0`; `.github/workflows/release.yml`
+has no npm job (`grep -c 'npm publish' -> 0`); `.github/workflows/docs.yml`
+triggers on `main` pushes and pull requests only, so a tag deploys nothing; the
+`github-pages` environment allowed the `main` branch only - the CEO added `v*`
+during intake (D-20261028-CEO-3), so that sentence describes the state the lanes
+started from, not the state today. The `v1.3.0` publish job failed on its first
+attempt with `Not Found - releases/assets#update-a-release-asset` and succeeded on
+attempt 2 of the same run (`gh run list --workflow Release --json attempt,headBranch
+-L 1` -> `"attempt": 2` for `v1.3.0`), because two assets were named `SHA256SUMS`;
+and the pushed `main` was briefly red on the release-consistency gate because the
+tag was pushed after the branch.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
   compatibility shim, the bundled skill bundle (`SKILL.md`, `roles/`,
   `references/`, `templates/`), tests (unit/integration/acceptance), CI/release
-  workflows, docs site, community files, privacy scanner, release artefacts,
-  GitHub repository metadata, and the published `v1.0.0` release.
+  workflows for GitHub, npm and Pages, the docs site, community files, privacy
+  scanner, release artefacts, GitHub repository metadata, and the published
+  `v1.0.0` release.
 - Out (not doing): rewriting the engine's behaviour; new team features; a hosted
   service; a web UI; PyPI publication (prepared via trusted publishing but not
   enabled without the owner's token); paid promotion; bot-driven star farming
   (stars cannot be bought or guaranteed - see Risks).
 - Constraints (time / budget / technical): Python >= 3.9, standard library only
-  at runtime; no secrets in the repo; must install by cloning one directory into
-  the agent host's skill location (`SKILL.md` at the repository root), with the
-  pip package kept as an optional engine over the same code.
+  at runtime; no secrets in the repo, so npm publishes through Trusted Publishing
+  (OIDC) with an `NPM_TOKEN` secret only as a fallback; must install by cloning one
+  directory into the agent host's skill location (`SKILL.md` at the repository
+  root), with the pip package and the npm package kept as optional faces over the
+  same code.
 - Invariants that must not break: the existing CLI surface and on-disk team
   workspace format (`.pi/Teamwork/Teams/<Team>/`) stay backward compatible;
   the ledger hash chain stays intact; no user-visible command is removed.

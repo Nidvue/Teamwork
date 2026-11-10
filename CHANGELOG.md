@@ -9,6 +9,41 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0](https://github.com/Nidvue/Teamwork/compare/v1.3.0...v1.4.0) - 2026-10-28
+
+Compares from the previous tag, `v1.3.0`.
+
+### Added
+
+- **A release reaches npm as well as GitHub, and the published site follows the
+  released revision.** A `v*` tag now runs an `npm` job in `release.yml`: it
+  asserts the tag equals `src/teamwork/version.py`, builds the
+  `@nidvue/teamwork` bundle with `scripts/build_pi_package.py`, publishes it with
+  `npm publish --access public --provenance` and verifies the result
+  (`npm view @nidvue/teamwork@<version> version dist.integrity gitHead`). The
+  credential is npm Trusted Publishing over OIDC (`id-token: write`), with a
+  repository `NPM_TOKEN` secret as the only fallback - there is no long-lived
+  credential in the tree, and a version that is already on the registry is
+  verified instead of republished, so a re-run converges.
+- A `workflow_dispatch` backfill path for a tag that is already published. It
+  refuses a tag that does not exist, a tag that is not reachable from `main`, and
+  a tag whose `version.py` disagrees, and it never creates or moves a tag.
+- `docs.yml` builds and deploys the Pages site on a `v*` tag as well as on a
+  `main` push, so the site is built from the released revision. The
+  `github-pages` environment allows `v*` tags for that deployment.
+
+### Fixed
+
+- The GitHub Release carries exactly one `SHA256SUMS` - `dist/SHA256SUMS`, covering
+  the wheel, the sdist and both SBOMs. `v1.3.0` uploaded two files with that name
+  and the second upload failed with `Not Found -
+  releases/assets#update-a-release-asset`, leaving the release incomplete until a
+  re-run.
+
+This section is written for the tag, not for whichever commit happens to carry
+it: the pipeline change-set it describes lands in the same milestone, and the tag
+is cut only once it is merged and green.
+
 ## [1.3.0](https://github.com/Nidvue/Teamwork/compare/v1.2.1...v1.3.0) - 2026-10-28
 
 Compares from the previous tag, `v1.2.1`.
