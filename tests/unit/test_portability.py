@@ -16,6 +16,7 @@ import re
 import shlex
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -379,7 +380,23 @@ def _python_310_only_writes(module_path):
     reviewer catches, rather than turning this into a type checker.
     """
     try:
-        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        source = module_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        # An unreadable file is another gate's finding, not a newline finding.
+        return []
+    return _python_310_only_writes_in(source)
+
+
+def _python_310_only_writes_in(source):
+    """Line numbers of 3.10-only ``write_text(newline=...)`` calls in ``source``.
+
+    Split out from the path-based scanner because the same trap hides inside the
+    Python heredocs of ``.github/workflows/*.yml``: the text is never a module on
+    disk, so a file walk cannot see it (see
+    ``test_no_workflow_python_uses_the_python_310_only_newline_keyword``).
+    """
+    try:
+        tree = ast.parse(source)
     except SyntaxError:
         # A file that does not parse under the running interpreter is another
         # matrix cell's problem; this guard only speaks about newline keywords.
@@ -410,6 +427,71 @@ def test_no_fixture_uses_the_python_310_only_newline_keyword():
         if found:
             offenders[str(module_path.relative_to(REPO_ROOT))] = found
     assert offenders == {}, f"3.10-only write_text(newline=...) in tests: {offenders}"
+
+
+#: A shell heredoc opener such as ``<<'PY'``; the tag names its closing line.
+_HEREDOC_RE = re.compile(r"<<-?[ \t]*['\"]?(?P<tag>[A-Za-z_][A-Za-z0-9_]*)['\"]?[ \t]*$")
+
+
+def _embedded_python_blocks(workflow_path):
+    """Every Python heredoc in a workflow, as ``(first line number, source)``.
+
+    A workflow's Python is not a module on disk: it is a ``python - <<'PY'`` body
+    inside YAML, extracted at run time by the integration test that executes it.
+    Nothing static ever read it, so ``release.yml`` shipped a
+    ``Path.write_text(..., newline="\\n")`` that raised ``TypeError`` in every
+    3.9 matrix cell while this file's other guards were green. Only heredocs
+    whose opener line invokes ``python`` are collected; ``python -c`` one-liners
+    are not scanned - an accepted gap, stated here rather than hidden.
+    """
+    lines = workflow_path.read_text(encoding="utf-8").splitlines()
+    blocks = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        match = _HEREDOC_RE.search(line)
+        if match is None or "python" not in line:
+            index += 1
+            continue
+        tag = match.group("tag")
+        body = []
+        cursor = index + 1
+        while cursor < len(lines) and lines[cursor].strip() != tag:
+            body.append(lines[cursor])
+            cursor += 1
+        # ``index`` is 0-based, so the first body line is 1-based ``index + 2``.
+        blocks.append((index + 2, textwrap.dedent("\n".join(body))))
+        index = cursor + 1
+    return blocks
+
+
+def test_no_workflow_python_uses_the_python_310_only_newline_keyword():
+    """The shipped workflow blocks run under every matrix interpreter too.
+
+    CI run 40728749217 on 98f41a2 failed ``ubuntu-latest / py3.9`` and
+    ``windows-latest / py3.9`` with ``TypeError: write_text() got an unexpected
+    keyword argument 'newline'`` raised from ``<publish-step>:25``: the npm
+    publish step wrote its userconfig with ``Path.write_text(..., newline="\\n")``,
+    which exists only from Python 3.10. The release job itself runs 3.12, but
+    ``tests/integration/test_release_workflow_flow.py`` executes the extracted
+    block under every matrix interpreter - correctly, because the shipped text is
+    what runs, so a block that only parses on the newest interpreter is a
+    portability defect in the product and not in the test.
+
+    The ``tests/`` scan above could not see it: the offending call is inside a
+    YAML heredoc. This guard closes that gap for every workflow file.
+    """
+    offenders = {}
+    for workflow_path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.y*ml")):
+        found = []
+        for first_line, source in _embedded_python_blocks(workflow_path):
+            found.extend(first_line + line - 1 for line in _python_310_only_writes_in(source))
+        if found:
+            offenders[str(workflow_path.relative_to(REPO_ROOT))] = sorted(found)
+    assert offenders == {}, (
+        "3.10-only Path.write_text(newline=...) in workflow python "
+        f"(use open(..., 'w', encoding='utf-8', newline='\\n') or write_bytes): {offenders}"
+    )
 
 
 def test_engine_exposes_the_lf_write_helper():
