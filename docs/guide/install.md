@@ -84,7 +84,7 @@ message, schedule) is in
 
     After a refresh, **reload the skill** (restart the host session, or re-scan
     skills) so the new ``SKILL.md`` is read - the command prints that reminder
-    whenever it wrote something. Pin a tag (`--branch v1.1.0`) when you want a
+    whenever it wrote something. Pin a tag (`--branch v1.0.2`) when you want a
     fixed protocol revision instead of `main`.
 
 ## Optional: install the engine on PATH
@@ -96,42 +96,30 @@ your host cannot run a bundled script.
 The distribution name is `teamwork-agents` (the name `teamwork` is taken on
 PyPI); the import name is `teamwork` and the console script is `teamwork`.
 
-!!! warning "The package index is not live yet"
-    The distribution is **not published to PyPI**:
-    `https://pypi.org/pypi/teamwork-agents/json` returns not-found. Every index
-    command in this section fails for now. They are recorded here so the channel
-    is described, and `scripts/check_release_consistency.py` rule R8 reads the
-    marker below - an unmarked index command would be a claim that does not
-    resolve. Install from the GitHub-release wheel or from source instead.
+!!! note "PyPI status"
+    PyPI publishing is prepared but not enabled for this release. Until the
+    package is published, install from the [GitHub release](https://github.com/Nidvue/Teamwork/releases)
+    wheel or from source. The `pip`/`pipx`/`uvx` commands below apply once the
+    release is on PyPI.
 
-### Install from the GitHub release wheel
-
-Each tag publishes a wheel and an sdist with checksums and SBOMs:
+### Install with pip
 
 ```console
-$ python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.0/teamwork_agents-1.1.0-py3-none-any.whl
+$ python -m pip install teamwork-agents
 ```
 
-### Index commands (unavailable until PyPI publishing is enabled)
-
-<!-- release-consistency: channel-unavailable -->
-```console
-$ python -m pip install teamwork-agents      # unavailable: not on PyPI yet
-```
-
-Verify (once the channel is live):
+Verify:
 
 ```console
 $ teamwork --version
-teamwork 1.1.3
+teamwork 1.0.2
 ```
 
 ### Install with pipx (isolated, on PATH)
 
 [pipx](https://pipx.pypa.io/) installs the CLI into its own environment and puts
-`teamwork` on your PATH. **Unavailable until the package is on PyPI:**
+`teamwork` on your PATH:
 
-<!-- release-consistency: channel-unavailable -->
 ```console
 $ pipx install teamwork-agents
 $ teamwork --version
@@ -140,9 +128,8 @@ $ teamwork --version
 ### Run without installing (uvx)
 
 [uv](https://docs.astral.sh/uv/) can run the console script from an ephemeral
-environment. **Unavailable until the package is on PyPI:**
+environment:
 
-<!-- release-consistency: channel-unavailable -->
 ```console
 $ uvx --from teamwork-agents teamwork --version
 ```
@@ -167,7 +154,7 @@ directory, without installing anything:
 
 ```console
 $ python3 scripts/teamwork.py --version
-teamwork 1.1.3
+teamwork 1.0.2
 ```
 
 ## Platform notes
@@ -176,9 +163,8 @@ teamwork 1.1.3
 
     Use `python3` if `python` is not on PATH. No system packages are needed.
 
-    <!-- release-consistency: channel-unavailable -->
     ```console
-    $ python3 -m pip install teamwork-agents   # unavailable: not on PyPI yet
+    $ python3 -m pip install teamwork-agents
     ```
 
 === "macOS"
@@ -186,10 +172,9 @@ teamwork 1.1.3
     Use the python.org installer or Homebrew Python. If `pip` refuses with an
     "externally managed environment" error, use `pipx` or a virtual environment.
 
-    <!-- release-consistency: channel-unavailable -->
     ```console
     $ python3 -m venv .venv && . .venv/bin/activate
-    $ python -m pip install teamwork-agents   # unavailable: not on PyPI yet
+    $ python -m pip install teamwork-agents
     ```
 
 === "Windows"
@@ -197,9 +182,8 @@ teamwork 1.1.3
     Use the Python launcher or PowerShell. Quote the extras when installing from
     source.
 
-    <!-- release-consistency: channel-unavailable -->
     ```powershell
-    PS> py -m pip install teamwork-agents   # unavailable: not on PyPI yet
+    PS> py -m pip install teamwork-agents
     PS> py -m pip install -e ".[dev]"
     ```
 
@@ -217,7 +201,7 @@ $ python3 .agents/skills/teamwork/scripts/teamwork.py selftest
   PASS  stop-condition gate    ok
 
 teamwork selftest: 5/5 checks passed
-  version:   1.1.3
+  version:   1.0.2
   python:    3.12.13 (posix)
   skill:     /path/to/Teamwork
 ```
