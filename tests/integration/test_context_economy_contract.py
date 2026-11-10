@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from support import in_lane, lane_cli
 from teamwork import engine
 
 AGENTS = "ceo,developer-1,reviewer-1,reviewer-2"
@@ -88,55 +89,63 @@ def ship(cli, project: Path, handle: str = "T-0001") -> None:
         cli("--project", project, "branch", "start", "--agent", "developer-1", "--task", handle)
         == 0
     )
-    (project / "feature.txt").write_text("done\n", encoding="utf-8")
-    assert (
-        cli(
-            "--project",
-            project,
-            "commit",
-            "--role",
-            "developer",
-            "--type",
-            "feat",
-            "--task",
-            handle,
-            "--area",
-            "core",
-            "--goal",
-            "ship the clip helper",
-            "--deliverable",
-            "feature.txt",
-            "--why",
-            "the task asked for it",
-            "--status",
-            "implemented",
-            "--result",
-            "pytest @HEAD -> 1 passed",
-            "--all",
+    author = lane_cli(cli, project, handle)
+    with in_lane(project, handle) as tree:
+        (tree / "feature.txt").write_text("done\n", encoding="utf-8")
+        assert (
+            author(
+                "--project",
+                project,
+                "commit",
+                "--role",
+                "developer",
+                "--type",
+                "feat",
+                "--task",
+                handle,
+                "--area",
+                "core",
+                "--goal",
+                "ship the clip helper",
+                "--deliverable",
+                "feature.txt",
+                "--why",
+                "the task asked for it",
+                "--status",
+                "implemented",
+                "--result",
+                "pytest @HEAD -> 1 passed",
+                "--all",
+            )
+            == 0
         )
-        == 0
-    )
-    assert (
-        cli("--project", project, "task", "set", "developer", handle, "--status", "selfcheck") == 0
-    )
-    assert (
-        cli(
-            "--project",
-            project,
-            "selfcheck",
-            "developer",
-            handle,
-            "--by",
-            "developer-1",
-            "--note",
-            "re-read the diff",
-            "--test",
-            "pytest @HEAD -> 1 passed",
+        assert (
+            cli("--project", project, "task", "set", "developer", handle, "--status", "selfcheck")
+            == 0
         )
-        == 0
-    )
-    assert cli("--project", project, "task", "set", "developer", handle, "--status", "review") == 0
-    assert cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle) == 0
+        assert (
+            author(
+                "--project",
+                project,
+                "selfcheck",
+                "developer",
+                handle,
+                "--by",
+                "developer-1",
+                "--note",
+                "re-read the diff",
+                "--test",
+                "pytest @HEAD -> 1 passed",
+            )
+            == 0
+        )
+        assert (
+            cli("--project", project, "task", "set", "developer", handle, "--status", "review") == 0
+        )
+        assert (
+            author("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle)
+            == 0
+        )
 
 
 def pass_review(cli, project: Path, handle: str = "T-0001", evidence: str = REVIEWER_LONG) -> None:
@@ -326,7 +335,7 @@ def test_review_queue_clips_the_findings_of_a_failing_verdict(cli, project: Path
         == 0
     )
     assert (
-        cli(
+        lane_cli(cli, project)(
             "--project",
             project,
             "selfcheck",
