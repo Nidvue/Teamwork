@@ -37,7 +37,7 @@ lint: ## Static checks: ruff check, ruff format --check, the no-comment rule and
 	$(PYTHON) -m ruff check .
 	$(PYTHON) -m ruff format --check .
 	$(PYTHON) $(HERE)scripts/check_comments.py
-	$(PYTHON) $(HERE)scripts/teamwork.py identity --audit
+	$(PYTHON) $(HERE)scripts/teamwork.py identity --audit --strict-authors
 
 format: ## Auto-format the tree and apply safe lint fixes.
 	$(PYTHON) -m ruff format .
@@ -83,7 +83,7 @@ links: ## Check markdown links, URLs and back-links.
 	$(PYTHON) scripts/teamwork.py links
 
 identity: ## Fail when a commit is not authored/committed by the acting role.
-	$(PYTHON) scripts/teamwork.py identity --audit
+	$(PYTHON) scripts/teamwork.py identity --audit --strict-authors
 
 release-consistency: ## Fail when a published fact disagrees with the tree (offline).
 	$(PYTHON) scripts/check_release_consistency.py

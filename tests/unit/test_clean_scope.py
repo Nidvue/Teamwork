@@ -180,3 +180,30 @@ def test_team_wide_and_agent_are_mutually_exclusive(cli, project: Path) -> None:
     for path in [*peer, *mine, *shared]:
         assert path.exists(), f"a refused clean still unlinked {path}"
     assert code == 2
+
+
+def test_a_file_whose_unlink_fails_is_reported_not_counted(cli, project: Path, capsys) -> None:
+    """Finding 4: a permission failure must not be counted as a removal.
+
+    The lane's `Scratch/` is made read-only for the run, so `unlink` raises
+    `OSError` for the file inside it. The summary may not claim it, and the
+    command has to name it as not removed - a janitor that lies about what is
+    still on disk is worse than one that fails loudly.
+    """
+    root, _peer, _mine, _shared = seed(cli, project)
+    locked = root / "Agents" / "Developer-2" / "Scratch" / "locked" / "keep.tmp"
+    locked.parent.mkdir(parents=True, exist_ok=True)
+    locked.write_text("locked\n", encoding="utf-8")
+    rel = locked.relative_to(project).as_posix()
+    capsys.readouterr()
+    locked.parent.chmod(0o500)
+    try:
+        code = clean(cli, project, "--agent", "developer-2", "--all")
+        out = capsys.readouterr().out
+    finally:
+        locked.parent.chmod(0o700)
+    assert locked.exists(), "the fixture did not block the unlink, so nothing is proved"
+    assert code == 0
+    assert "removed 4 scratch/temp file(s)" in out, out
+    assert "1 scratch/temp file(s) could not be removed:" in out, out
+    assert f"  - {rel}: " in out, out
