@@ -89,7 +89,11 @@ def has_asset(name: str) -> bool:
 
 
 def self_invocation() -> str:
-    """The command prefix a teammate should use to run this CLI.
+    """The command prefix a teammate should use to run this CLI, machine-local.
+
+    Returns an absolute path when running from a checkout, so it is only safe for
+    files that are never committed (``.pi/`` state such as ``StartHere.md``).
+    For anything that lands in the repository use :func:`portable_invocation`.
 
     Preference order:
 
@@ -104,3 +108,13 @@ def self_invocation() -> str:
     if shim.is_file():
         return f"{sys.executable} {shim}"
     return f"{sys.executable} -m teamwork"
+
+
+def portable_invocation() -> str:
+    """A command prefix that is safe to commit - never a machine path.
+
+    The team constitution (``AGENTS.md``) is committed and may be published, so
+    it must not embed an absolute home path. Teammates on another machine install
+    the package; a checkout runs the shim relative to the project root.
+    """
+    return "teamwork"
