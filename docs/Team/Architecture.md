@@ -52,6 +52,7 @@ Teamwork/
 │   ├── imaging.py            # offline image-model probe
 │   ├── io.py                 # atomic writes, the lock, die()
 │   ├── layout.py             # team tree paths and cross-links
+│   ├── memorypack.py         # task-aware memory: score, pack, search, dream (Memory.md 4)
 │   ├── names.py              # names, roles, commit identities
 │   ├── records.py            # task/memory/criteria/tests/PR/dispute records
 │   ├── resources.py          # locate the skill bundle (checkout or wheel)
