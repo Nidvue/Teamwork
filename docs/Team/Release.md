@@ -25,10 +25,11 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 | typecheck | `mypy src/teamwork` | no (report only for v1.0.0) |
 | unit + integration | `pytest tests/unit tests/integration -q` | yes |
 | acceptance | `pytest tests/acceptance -q` | yes |
-| matrix | same tests on ubuntu/macos/windows x py3.9/3.11/3.13 | yes |
+| matrix | ubuntu/macos/windows x py3.9/3.11/3.13, plus py3.10/3.12 on ubuntu | yes |
 | build | `python -m build && python scripts/verify_release.py` | yes |
 | privacy | `python3 scripts/privacy_scan.py --tree --history` | yes |
-| docs | `mkdocs build --strict` | yes |
+| docs | `teamwork links` + `mkdocs build --strict` | yes |
+| identity | `scripts/teamwork.py identity --audit` | yes (team-domain commits) |
 
 ### Trigger policy - code in, prose and media out
 
@@ -58,7 +59,7 @@ prose-only change when it is genuinely warranted.
   GitHub Release plus, optionally, a PyPI upload by the owner.
 - Order of operations: `main` green -> CEO rewrites history for privacy -> CEO
   pushes `main` -> CI green -> CEO tags `v1.0.0` -> release workflow builds,
-  signs, attests and publishes the release assets.
+  signs, attests and publishes the release assets. The tag build runs the test suite and `scripts/verify_release.py` before publishing.
 - Configuration and secrets *mechanism* (never values): PyPI publishing uses
   Trusted Publishing (OIDC) and is deliberately not enabled; no secret is stored
   in the repository. Only the owner's local `gh` credential is used to push.
