@@ -164,9 +164,7 @@ Unchanged from the skill: `.pi/Teamwork/Teams/<Team>/` with `Roles/<Role>/`
 (shared memory, `TaskQueue.md`, and `Lessons.md` - created lazily by the first
 `lesson add`, local state like memory and never committed), `Agents/<Instance>/` (private), `Global/`,
 `Runtime/`, `Ledger.jsonl` (hash-chained), `Criteria.md`, `Tests.md`,
-`TestPlan.md`, `Reviews.md`, `Disputes.md`, and `Knowledge.md` - the project-wide
-`K-` records (section 15), created lazily by the first `knowledge add`, local
-state like memory and never committed.
+`TestPlan.md`, `Reviews.md`, `Disputes.md`.
 
 Additive, and the only state `instance`/`memory` introduce:
 `Runtime/Locks/memory-<Role>.claim` is the role memory lease - one JSON object
@@ -2292,11 +2290,14 @@ exemption.
 The registry row in `Skills.md` carries `kind:` and `lesson:` next to the
 existing fields (`name`, `status`, `owner_role`, `created_by`, `path`, `created`,
 `updated`, `shared_with`, `description`). `skill create --from-lesson` requires
-the lesson to exist, to belong to the same role as the skill and to be `open`; on
-success the lesson becomes `fixed` with the skill name and the actor recorded,
-and both records link to each other. `skill create --kind mistake` without
-`--from-lesson` is refused: a mistake skill names the record it fixes. A skill
-file read without a `kind:` field is a `workflow` (backward compatible).
+the lesson to exist, to belong to the same role as the skill and to be `open` or
+`fixed` with no `skill` yet; a lesson already fixed by a skill is refused,
+because the skill it names is its fix. On success the lesson becomes `fixed` with
+the skill name and the actor recorded, and both records link to each other. That
+makes both orders legal: skill-first fixes the lesson, lesson-first is closed by
+the skill, and AC-M17-3's link holds either way. `skill create --kind mistake`
+without `--from-lesson` is refused: a mistake skill names the record it fixes. A
+skill file read without a `kind:` field is a `workflow` (backward compatible).
 
 ### 14.2 Lesson records (`Roles/<Role>/Lessons.md`)
 
@@ -2323,10 +2324,24 @@ the maximum over every role's `Lessons.md`. Commands: `lesson add`,
 `lesson list [--role ROLE] [--status open|fixed|all]`, `lesson show <L-id>`,
 `lesson fix <L-id> --by <instance> [--rule TEXT] [--skill tw-name] [--evidence TEXT]`.
 `lesson add` requires `--by`, `--mistake`, `--cause`, `--rule` and `--evidence`;
-the role defaults to the actor's role. `lesson fix` requires a recorded
-`--evidence` (or keeps the existing one) and an existing `--skill` when given; it
-moves the lesson to `fixed`. `load` prints that role's open lessons (first 10)
-and a count of fixed ones, so every instance sees its mistakes at startup. A
+the role defaults to the actor's role.
+
+`lesson list` defaults to `--status all` with `--role` unset (every role), sorted
+by id, one line per lesson:
+
+```
+- L-0001 [open] <role>: <mistake> -> <rule> (skill: tw-name | no skill)
+```
+
+`lesson fix` requires a recorded `--evidence` (or keeps the existing one) and an
+existing `--skill` when given; on an `open` lesson it moves it to `fixed` and
+records `updated`. On an already `fixed` lesson it is allowed only when it
+carries new `--evidence` (a re-proof of the fix) and keeps or updates `--skill`;
+otherwise it is refused with
+`lesson L-0001 is already fixed by <skill>; pass --evidence to re-prove the fix`
+(the detail names the recorded skill, or `no skill` when the lesson was fixed
+without one) and changes nothing. `load` prints that role's open lessons (first
+10) and a count of fixed ones, so every instance sees its mistakes at startup. A
 missing file is an empty lesson list, never an error.
 
 ### 14.3 CLI shapes (frozen, documented in `docs/guide/cli.md`)
@@ -2337,8 +2352,13 @@ teamwork lesson add --by BY --mistake TEXT --cause TEXT --rule TEXT --evidence T
 teamwork lesson list [--role ROLE] [--status open|fixed|all]
 teamwork lesson show L_ID
 teamwork lesson fix L_ID --by BY [--rule RULE] [--skill SKILL] [--evidence EVIDENCE]
-teamwork skill create --name tw-NAME --for TEXT --by BY [--role ROLE] [--kind workflow|mistake] [--from-lesson L_ID] [--body BODY] [--body-file FILE]
+teamwork skill create --name tw-NAME --for TEXT --by BY [--role ROLE] [--kind workflow|mistake] [--from-lesson L_ID] [--body BODY] [--body-file FILE] [--force] [--allow-main]
 ```
+
+`--force` replaces an existing `<name>/SKILL.md`; `--allow-main` overrides the
+branch guard that refuses creation on `main`. Both keep their current meaning
+(section 4 changes no existing flag); the only new flags are `--kind` and
+`--from-lesson`.
 
 `SKILL_PREFIX = "tw-"` and `SKILL_NAME_RE = ^tw-[a-z0-9]+(-[a-z0-9]+)*$` are the
 single source of truth in `config.py`/`records.py`. `skill candidates` keeps its
@@ -2361,120 +2381,3 @@ the kind and the lesson.
 - `harness lint` rule `PREFIX` (12.4): every `.agents/skills/<dir>/SKILL.md` must
   have `name:` and `<dir>` starting with `tw-`; one finding per file, detail
   naming the offending value.
-
-## 15. Project knowledge: accumulation, ranking and supersession (frozen)
-
-Owner: Architect. This section freezes the **knowledge-accumulation surface**: the
-`K-` record, the `knowledge` command and the ranked `load` section T-0032
-implements. Section 14 is the mistake half (`L-` lessons and `tw-` mistake
-skills); this is the experience half - what the project has learned to do.
-
-**Measured baseline at `308190b`** - none of this is implemented yet, and the
-section says so rather than describing an engine that does not exist:
-`Get-ChildItem src/teamwork -Filter *.py | Select-String -Pattern Knowledge.md`
--> 0 matches; `python scripts/teamwork.py load architect` -> memory output only,
-no `# project knowledge:` line; `python scripts/teamwork.py recall --help` ->
-`--agent`/`--all`/`--global`/`--layer` only, no knowledge source;
-`python scripts/teamwork.py --help` -> no `knowledge` subcommand;
-`git ls-files Knowledge.md` -> empty; `python scripts/teamwork.py harness lint`
--> `# problems found: 2`, both pre-existing `HELPER` findings (the live S-0001 /
-S-0002 registry rows point at `tw-` names T-0031 has not renamed yet), and no
-rule covers the store. Until T-0032 lands, `Knowledge.md` is a rule, not a
-command.
-
-Every agent accumulates durable project knowledge as `K-` records in
-`Knowledge.md` at the team root. This is not a mistake log and not a task note:
-one record is one fact, rule, gotcha or measured behaviour that makes the next
-decision faster or better, with the evidence that established it. The store is
-project-local working state (never committed), shared by every role, and written
-only through the `knowledge` command, which allocates the id and rewrites the
-file atomically under the team's file lock - so two lanes can append without a
-prose conflict. A missing `Knowledge.md` is an empty store, never an error.
-
-### 15.1 Record shape
-
-```
-## K-0001 - <topic>
-- statement: <one durable fact, rule or gotcha about THIS project, <= 500 chars>
-- evidence: <command @rev -> result | path:line | URL + access date>
-- tags: <comma list, lower-case kebab>
-- owner: <role that first recorded it>
-- by: <instance>
-- task: <T-id>              (optional provenance, set by --task)
-- importance: 1-5
-- uses: N
-- status: active | superseded
-- supersedes: K-0002        (optional)
-- superseded_by: K-0004     (set on the old record)
-- created: YYYY-MM-DD
-- updated: YYYY-MM-DD
-```
-
-Ids are global, `K-` plus four digits, allocated from the maximum in the file -
-a superseded record keeps its id, so the history stays readable. Every free-text
-field is one line (`one_line()`), so a record cannot break the file's structure.
-The command owns the id and the file; a hand edit is a defect, not a shortcut.
-
-### 15.2 Commands (frozen, documented in `docs/guide/cli.md`)
-
-```
-teamwork knowledge {add,list,search,show,touch} ...
-teamwork knowledge add --by BY --topic TEXT --statement TEXT --evidence TEXT [--tags TAGS] [--importance 1-5] [--supersedes K-ID] [--task T]
-teamwork knowledge list [--tag TAG] [--role ROLE] [--status active|superseded|all] [--limit N]
-teamwork knowledge search QUERY [--limit N]
-teamwork knowledge show K_ID
-teamwork knowledge touch K_ID --by BY
-```
-
-- `add` requires `--by`, `--topic`, `--statement` and `--evidence`; `--statement`
-  is at most 500 characters; `--importance` defaults to 3; tags are normalised
-  to a lower-case comma list. A duplicate is one entry: when the normalised
-  `topic` and `statement` already exist the command prints the existing id and
-  adds nothing (the same idempotent-intake rule M15 uses for tasks).
-  `--supersedes K-0002` sets the new record's `supersedes`, marks the old record
-  `status: superseded` and `superseded_by: K-new`, and updates it; the new
-  record's evidence is what justifies the replacement. An unknown or
-  already-superseded `--supersedes` id is refused, so supersession is a single
-  link and every superseded record names exactly one replacement.
-- `list` defaults to `--status active`, ordered by `importance` descending, then
-  `uses` descending, then `updated` descending, then id; `--tag` and `--role`
-  filter; `--limit` caps. The last line is a totals line:
-  `# knowledge: N active, M superseded, T use(s)`, where `T` is the sum of
-  `uses` over every record, active and superseded.
-- `search QUERY` is a case-insensitive substring match over `topic`, `statement`
-  and `tags`, ranked like `list`, read-only.
-- `show K_ID` prints every field and the file path; unknown id is an error.
-- `touch K_ID --by BY` increments `uses` and sets `updated`; it is how the team
-  records that a fact was actually used, which is what makes the ranking follow
-  need rather than volume.
-- Ledger events: `knowledge.add`, `knowledge.supersede` (when `--supersedes` is
-  used), `knowledge.touch`.
-- `load` prints the top 10 **active** records project-wide, one line each:
-  `- [K-0001] <topic>: <statement> (uses=N, tags=...)`
-  then `# project knowledge: N active, M superseded; search: teamwork.py knowledge search "<topic>"`.
-  The cap is fixed at 10 and the ranking is `list`'s order, so what every agent
-  reads at startup is the most important and most used knowledge, not the newest
-  ten.
-- A record is never silently deleted: obsolete knowledge is **superseded**, so
-  the team can see what changed, when and on whose evidence.
-
-### 15.3 Evidence and privacy
-
-- No knowledge without evidence: `add` requires a non-empty `--evidence`, and a
-  statement whose evidence names no command, path or dated source is refused at
-  review, not accepted as opinion. The evidence column is what separates
-  accumulated knowledge from opinion.
-- Never store a secret, credential, token or personal data. `Knowledge.md` is
-  gitignored, but the red line applies to every store the team writes.
-- Knowledge is not an argument: a decision cites the `K-` record **and its
-  evidence**, never the record's authority.
-
-### 15.4 Fluency
-
-- The store is the project's accumulating experience: `list` reports active,
-  superseded and total uses, so growth is measurable rather than asserted.
-- `load` surfaces the top-ranked records, `knowledge search` answers a concrete
-  question, and `touch` feeds the ranking - the loop that makes a later agent
-  faster than the first one.
-- The knowledge count is a milestone metric: a project whose agents never add or
-  use a record is not accumulating experience, whatever its archives say.
