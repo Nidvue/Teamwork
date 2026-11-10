@@ -797,6 +797,22 @@ def lane_worktree(root: Path, agent: str, task_id: str) -> Path:
     return base / safe_component(str(task_id))
 
 
+def team_relative(root: Path, path: Path) -> str:
+    """A path as a store records it: relative to the team root, portable (K-0008).
+
+    A record is read on another host and by a mask that redacts a high-entropy
+    segment, so an absolute host path either breaks or points at nothing. The
+    reader joins the stored form onto the team root (`resolve_team_relative`).
+    """
+    return path.relative_to(root).as_posix()
+
+
+def resolve_team_relative(root: Path, value: str) -> Path:
+    """The tree a stored path names, absolute on this host."""
+    p = Path(value)
+    return p if p.is_absolute() else root / p
+
+
 def retire_branch(root: Path, here: Path, branch: str, force: bool = False) -> bool:
     """Delete a merged branch, retiring the worktree that holds it if needed."""
     flag = "-D" if force else "-d"
@@ -895,6 +911,7 @@ def cmd_branch(args) -> int:
             die(f"could not create {branch} from {base}: {r.stderr.strip()}")
 
     worktree_note = ""
+    worktree_abs = ""
     if args.worktree:
         wt = lane_worktree(root, args.agent, task["id"])
         wt.parent.mkdir(parents=True, exist_ok=True)
@@ -902,7 +919,8 @@ def cmd_branch(args) -> int:
             r = run_git(project, "worktree", "add", "--", str(wt), branch)
             if r.returncode != 0:
                 die(f"worktree add failed for {branch}: {r.stderr.strip()}")
-        worktree_note = str(wt)
+        worktree_note = team_relative(root, wt)
+        worktree_abs = str(wt)
     else:
         r = run_git(here, "checkout", branch)
         if r.returncode != 0:
@@ -935,7 +953,7 @@ def cmd_branch(args) -> int:
     print(f"# branch {branch} for {args.agent} on {task['id']} ({task_role})")
     print(f"#   commit: teamwork.py commit --role {task_role} --task {task['id']} ...")
     if worktree_note:
-        print(f"#   worktree: {worktree_note}")
+        print(f"#   worktree: {worktree_abs}")
     print(f"#   submit: teamwork.py pr open --agent {args.agent} --task {task['id']}")
     return 0
 
@@ -5658,9 +5676,7 @@ def scaffold_role(root: Path, role: str, staffed: set | None = None, force: bool
     role_file = ROLES_DIR / f"{role}.md"
     shared_charter = rd / F_ROLE
     if role_file.exists() and (force or not shared_charter.exists()):
-        body = role_file.read_text(encoding="utf-8").replace(
-            "{references}", str(SKILL_DIR / "references")
-        )
+        body = role_file.read_text(encoding="utf-8").replace("{references}", "references")
         folded = charter_reports_line(role, staffed)
         if folded:
             body = fold_charter_reports(body, folded)
