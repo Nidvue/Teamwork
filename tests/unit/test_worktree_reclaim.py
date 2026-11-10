@@ -41,8 +41,14 @@ def _age(path: Path, minutes: int) -> None:
     for child in [path, *path.rglob("*")]:
         try:
             os.utime(child, (stamp, stamp), follow_symlinks=False)
-        except OSError:
-            continue
+        except (OSError, NotImplementedError):
+            # Windows cannot set a symlink's own time (follow_symlinks=False is
+            # unimplemented there); the link target's time is enough for the
+            # freshness rule, so fall back to following instead of skipping.
+            try:
+                os.utime(child, (stamp, stamp))
+            except OSError:
+                continue
 
 
 def test_a_clean_merged_worktree_is_reclaimed(cli, project: Path) -> None:
