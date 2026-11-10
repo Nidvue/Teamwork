@@ -113,8 +113,6 @@ from .config import (
     PROMOTE_MIN_IMPORTANCE,
     REVIEW_FAIL_LIMIT,
     REVIEW_STATUSES,
-    ROLE_PARENT,
-    ROLE_REPORT_ORDER,
     ROLES_DIR,
     ROSTER_INSTANCE_COUNT,
     ROSTER_REQUIRED,
@@ -3524,9 +3522,6 @@ def cmd_init(args) -> int:
 
     created = []
     roles_seen = []
-    # A slim roster folds lanes away, so a charter that names an unstaffed
-    # parent would send the lane to a seat nobody holds.
-    staffed = {resolve_role(n) for n in names}
     for name in names:
         role = resolve_role(name)
         # role scope: memory + task queue, shared by every instance of the role
@@ -3549,13 +3544,12 @@ def cmd_init(args) -> int:
         role_file = ROLES_DIR / f"{role}.md"
         shared_charter = rd / F_ROLE
         if role_file.exists() and (args.force or not shared_charter.exists()):
-            body = role_file.read_text(encoding="utf-8").replace(
-                "{references}", str(SKILL_DIR / "references")
+            write_lf(
+                shared_charter,
+                role_file.read_text(encoding="utf-8").replace(
+                    "{references}", str(SKILL_DIR / "references")
+                ),
             )
-            folded = charter_reports_line(role, staffed)
-            if folded:
-                body = fold_charter_reports(body, folded)
-            write_lf(shared_charter, body)
         elif not shared_charter.exists():
             write_lf(
                 shared_charter,
@@ -3565,12 +3559,7 @@ def cmd_init(args) -> int:
             )
         brief = d / F_START
         if args.force or not brief.exists():
-            write_lf(
-                brief,
-                start_here(
-                    name, role, root, docs_dir(root), staffed={resolve_role(n) for n in names}
-                ),
-            )
+            write_lf(brief, start_here(name, role, root, docs_dir(root)))
         for extra in (F_WORKLOG, F_INBOX):
             p = d / extra
             if not p.exists():
@@ -3632,71 +3621,6 @@ def cmd_init(args) -> int:
     return 0
 
 
-def resolve_manager(role: str, staffed: set[str] | None = None) -> tuple:
-    """Resolve who a role reports to on THIS roster.
-
-    ``ROLE_PARENT`` is the designed tree; a slim roster does not staff every
-    lane in it, so the brief and the charter must name the manager that is
-    actually there. Returns ``(reachable_parent, vacancy)`` where ``vacancy``
-    lists the unstaffed ancestors that were skipped. An unbundled role gets
-    ``(None, [])`` so no caller can mistake it for the CEO.
-    """
-    if role not in ROLE_PARENT:
-        return None, []
-    parent = ROLE_PARENT[role]
-    if parent is None or staffed is None:
-        return parent, []
-    reachable = parent
-    vacancy: list = []
-    while reachable != "ceo" and reachable not in staffed:
-        vacancy.append(reachable)
-        reachable = ROLE_PARENT.get(reachable) or "ceo"
-    return reachable, vacancy
-
-
-def fold_charter_reports(body: str, folded: str) -> str:
-    """Replace the manager paragraph under ``## Reports to`` with ``folded``."""
-    lines = body.splitlines()
-    try:
-        start = next(i for i, ln in enumerate(lines) if ln.strip() == "## Reports to")
-    except StopIteration:
-        return body
-    end = next(
-        (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
-        len(lines),
-    )
-    # "Manages:" is a different statement about the same role and must survive
-    # the rewrite - folding the manager line must not erase the span of control.
-    keeps = [ln for ln in lines[start + 1 : end] if ln.startswith("Manages:")]
-    mid = ["", *folded.splitlines()]
-    if keeps:
-        mid += ["", *keeps]
-    return "\n".join(lines[: start + 1] + mid + [""] + lines[end:]) + (
-        "" if body.endswith("\n") else "\n"
-    )
-
-
-def charter_reports_line(role: str, staffed: set[str] | None) -> str | None:
-    """The one-line manager statement to substitute into a charter, or None.
-
-    The bundled charters are a designed tree too; on a roster that does not
-    staff the parent they would tell a lane to escalate to a seat nobody holds.
-    Returns None when the charter's own text is already true.
-    """
-    if role not in ROLE_PARENT:
-        return None
-    reachable, vacancy = resolve_manager(role, staffed)
-    if not vacancy:
-        return None
-    vac = ", ".join(ROLE_DISPLAY.get(r, r) for r in vacancy)
-    name = ROLE_DISPLAY.get(reachable, reachable)
-    return (
-        f"**{name}** - your line runs through the {vac}, which this team does not\n"
-        f"staff, so it folds to the {name} until a {vac} instance exists. Escalate\n"
-        f"up that line; the user talks only to the CEO."
-    )
-
-
 def migrate_instance_memory(root: Path, name: str, role: str) -> int:
     """Fold legacy per-instance memory/tasks into the shared role directory."""
     moved = 0
@@ -3731,69 +3655,16 @@ def migrate_instance_memory(root: Path, name: str, role: str) -> int:
     return moved
 
 
-def start_here(name: str, role: str, root: Path, docs: Path, staffed: set | None = None) -> str:
+def start_here(name: str, role: str, root: Path, docs: Path) -> str:
     global_mem = global_dir(root) / F_GLOBAL
     agents_md = project_of(root) / "AGENTS.md"
     script = _resources.self_invocation()
     disputes = disputes_path(root)
     charter = role_dir(root, role) / F_ROLE
-    parent = ROLE_PARENT.get(role)
-    # The brief is generated for every instance and is read BEFORE the charter, so
-    # it has to state the same line the charter does. Two things it must not do:
-    # hard-code the CEO for a role that reports to a CTO (# the whole reason this
-    # tree exists), and name a manager the team does not staff - a slim roster has
-    # no CTO, so a developer told to "report to the CTO" has nobody to report to.
-    # A vacancy folds upward to the nearest staffed ancestor, and the brief says so
-    # instead of pretending the lane is there.
-    if role == "ceo":
-        line = (
-            f"You are the **{role}** of an autonomous team. You are the only lane that "
-            f"reaches the user. Talk to your direct reports, and to any peer when a "
-            f"fact or interface needs them."
-        )
-        report_line = "Report to the user"
-    elif parent is None:
-        # Not a bundled role: the fallback charter says report to the CEO, so the
-        # brief must not hand an unknown lane the CEO's user-facing authority.
-        line = (
-            f"You are the **{role}** of an autonomous team. You have no line in the "
-            f"reporting tree (this team bundles no charter for '{role}'), so you report "
-            f"to the **CEO** and keep to the lane your task packet defines. The user "
-            f"talks only to the CEO."
-        )
-        report_line = "Report to the CEO"
-    else:
-        reachable, vacancy = resolve_manager(role, staffed)
-        parent_name = ROLE_DISPLAY.get(reachable, reachable)
-        if vacancy:
-            vacant = ", ".join(ROLE_DISPLAY.get(r, r) for r in vacancy)
-            line = (
-                f"You are the **{role}** of an autonomous team. Your line runs through "
-                f"the {vacant}, which this team does not staff, so it folds to the "
-                f"**{parent_name}** - report there until a {vacant} instance exists. "
-                f"Escalate to the CEO only for a red line, a goal or scope change, or a "
-                f"decision that binds the whole team. The user talks only to the CEO."
-            )
-            report_line = f"Report to the {parent_name} ({vacant} not staffed here)"
-        elif reachable == "ceo":
-            line = (
-                f"You are the **{role}** of an autonomous team. You report to the "
-                f"**CEO**. Escalate to the CEO only for a red line, a goal or scope "
-                f"change, or a decision that binds the whole team - never for work you "
-                f"can resolve inside your own lane. The user talks only to the CEO."
-            )
-            report_line = "Report to the CEO"
-        else:
-            line = (
-                f"You are the **{role}** of an autonomous team. You report to the "
-                f"**{parent_name}**; escalate up that line, not to the CEO (the user talks "
-                f"only to the CEO). Talk to your manager, to the roles below you, and to "
-                f"peers when a fact or interface needs them."
-            )
-            report_line = f"Report to the {parent_name}"
     return f"""# START HERE - {name} ({role})
 
-{line}
+You are the **{role}** of an autonomous team. The user talks only to the CEO;
+you talk to the CEO and, when needed, to peers.
 
 ## Startup routine (every time you are activated)
 
@@ -3880,8 +3751,7 @@ Three steps, in order. You cannot skip any of them.
    On a pass the result is archived to `{docs}/Archive.md`, and a *different*
    Reviewer merges it into `main`.
 4. `{script} consolidate --agent {name}`
-5. {report_line}: task id, status, artifact path, evidence, blockers, next.
-   The report goes to your manager; the CEO reads the board, not your inbox.
+5. Report to the CEO: task id, status, artifact path, evidence, blockers, next.
 6. Immediately run `task next {name}` and start the next executable task. Stop
    only when no executable task exists for your role.
 """.replace("{max_rounds}", str(MAX_ROUNDS))
@@ -4440,6 +4310,162 @@ def cmd_repo(args) -> int:
     return 0
 
 
+def _worktree_is_busy(root: Path, path: str) -> bool:
+    """True when a lane is working here: a live slot lease or a claimed task.
+
+    Liveness outranks every other signal. A lane that took a slot and is mid-task
+    may hold nothing but an uncommitted file in a subdirectory, so the only honest
+    test is "is an agent still attached to this worktree".
+    """
+    here = Path(path)
+    # A lease names the task, and a task names the lane that claimed it. Compare both
+    # the worktree path and its agent name, because the slot file records the agent.
+    # Instance names are written both ways in the records (`Developer-1` in a claim,
+    # `developer-1` in a slot), so every comparison is case-folded.
+    rel = here.name
+    names = {rel.casefold(), safe_component(rel).casefold()}
+    slots = root / DIR_RUNTIME / DIR_SLOTS
+    for provider_dir in slots.glob("*") if slots.is_dir() else []:
+        for slot in provider_dir.glob("*.slot"):
+            if slot.stem.casefold() in names:
+                return True
+            try:
+                body = slot.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if rel and rel.casefold() in body.casefold():
+                return True
+    for role in list_roles(root):
+        path_q = role_dir(root, role) / F_TASKS
+        for task in parse_tasks(path_q):
+            if task.get("status") not in ("doing", "selfcheck"):
+                continue
+            claimed = str(task.get("claimed_by") or "")
+            if claimed and claimed.casefold() in names:
+                return True
+            branch = str(task.get("branch") or "")
+            if branch and branch == _worktree_branch(root, path):
+                return True
+    return False
+
+
+def _worktree_recently_written(here: Path, now: float, stale_minutes: int) -> bool:
+    """True when anything inside the worktree changed within the stale window.
+
+    The top directory's mtime only moves when an entry is added or removed, so a
+    lane that keeps editing files inside `build/` (often gitignored) looks idle.
+    Walk a bounded sample of the tree and take the newest mtime instead: a live
+    lane is by definition writing, and reclaiming a busy lane destroys work that
+    no commit can restore.
+    """
+    newest = here.stat().st_mtime
+    seen = 0
+    for child in here.rglob("*"):
+        seen += 1
+        if seen > 5000:
+            break
+        try:
+            newest = max(newest, child.stat().st_mtime)
+        except OSError:
+            continue
+        if (now - newest) / 60 < stale_minutes:
+            return True
+    return (now - newest) / 60 < stale_minutes
+
+
+def _worktree_locked(project: Path, path: str) -> bool:
+    """True when `git worktree lock` marks this worktree as pinned."""
+    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
+    current = ""
+    for line in listing:
+        if line.startswith("worktree "):
+            current = line[len("worktree ") :].strip()
+        elif line.startswith("locked") and current == path:
+            return True
+    return False
+
+
+def _worktree_branch(root: Path, path: str) -> str:
+    """The branch a worktree has checked out, or '' when detached."""
+    project = project_of(root)
+    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
+    current = ""
+    for line in listing:
+        if line.startswith("worktree "):
+            current = line[len("worktree ") :].strip()
+        elif line.startswith("branch ") and current == path:
+            return line[len("branch ") :].strip().removeprefix("refs/heads/")
+    return ""
+
+
+def reclaimable_worktrees(root: Path, stale_minutes: int) -> list:
+    """Worktrees under our own runtime/scratch dirs that hold nothing anyone needs.
+
+    A worktree is reclaimable when it is ours (under `.pi/`), NOT the main checkout,
+    has a clean `git status`, and its HEAD is already reachable from main - so
+    removing it cannot lose a commit. Age only decides when we look; reachability
+    and a clean tree are what make the removal safe.
+    """
+    project = project_of(root)
+    if not is_git_repo(project):
+        return []
+    now = time.time()
+    out = []
+    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
+    path = ""
+    head = ""
+    branch = ""
+    for line in listing + ["worktree "]:
+        if line.startswith("worktree "):
+            if path and _worktree_reclaimable(root, path, head, branch, now, stale_minutes):
+                out.append({"path": path, "head": head, "branch": branch})
+            path = line[len("worktree ") :].strip()
+            head = branch = ""
+        elif line.startswith("HEAD "):
+            head = line[len("HEAD ") :].strip()
+        elif line.startswith("branch "):
+            branch = line[len("branch ") :].strip().removeprefix("refs/heads/")
+    return out
+
+
+def _worktree_reclaimable(
+    root: Path, path: str, head: str, branch: str, now: float, stale_minutes: int
+) -> bool:
+    project = project_of(root)
+    here = Path(path)
+    if not here.is_dir() or here.resolve() == project.resolve():
+        return False
+    # Ours means inside the repository's own `.pi/` tree: both the runtime worktrees
+    # and the reviewer scratch worktrees live there. Never the main checkout. Compare
+    # resolved paths, not string prefixes: `.pi-evil/x` shares the prefix but is not
+    # ours, and a symlinked `.pi` must still resolve inside the repository.
+    pi_root = (project / TEAM_ROOT_DIR.split("/")[0]).resolve()
+    try:
+        if not here.resolve().is_relative_to(pi_root):
+            return False
+    except OSError:
+        return False
+    try:
+        if _worktree_recently_written(here, now, stale_minutes):
+            return False
+    except OSError:
+        return False
+    # Ignored files count as work: a lane's build cache, venv or object files live
+    # exactly here, and reclaiming them forces an expensive rebuild for a live lane.
+    status = run_git(here, "status", "--porcelain", "--ignored")
+    if status.returncode != 0 or status.stdout.strip():
+        return False
+    if not head:
+        return False
+    if _worktree_is_busy(root, path):
+        return False
+    # A locked worktree is pinned on purpose (a lane holding it, or a bisect):
+    # removing it would need --force twice and would defeat the lock.
+    if _worktree_locked(project, path):
+        return False
+    return run_git(project, "merge-base", "--is-ancestor", head, DEFAULT_BASE).returncode == 0
+
+
 def cmd_clean(args) -> int:
     """Remove scratch/temp files inside the team tree. Never touches tracked files."""
     root = project_root(args)
@@ -4486,6 +4512,32 @@ def cmd_clean(args) -> int:
             pass
     verb = "would remove" if args.dry_run else "removed"
     print(f"teamwork: {verb} {len(removed)} scratch/temp file(s), {freed / 1024:.1f} KiB")
+    reclaimed = [] if args.no_worktrees else reclaimable_worktrees(root, args.stale_minutes)
+    failed = []
+    for wt in reclaimed:
+        if args.dry_run:
+            continue
+        r = run_git(project, "worktree", "remove", "--force", wt["path"])
+        if r.returncode != 0 or Path(wt["path"]).exists():
+            # Never report a reclaim that did not happen: a lock or a permission
+            # problem is a finding, not a silent success.
+            failed.append((wt["path"], (r.stderr or "").strip().splitlines()[:1]))
+    if failed:
+        print(f"teamwork: {len(failed)} worktree(s) could not be reclaimed:")
+        for path, why in failed[:10]:
+            print(f"  - {path}: {why[0] if why else 'still present after remove'}")
+        reclaimed = [wt for wt in reclaimed if wt["path"] not in {p for p, _ in failed}]
+    if reclaimed:
+        wverb = "would reclaim" if args.dry_run else "reclaimed"
+        print(
+            f"teamwork: {wverb} {len(reclaimed)} merged, clean worktree(s) "
+            f"older than {args.stale_minutes}m (commits reachable from {DEFAULT_BASE})"
+        )
+    else:
+        print(
+            f"teamwork: no worktree to reclaim (only clean worktrees whose HEAD is "
+            f"reachable from {DEFAULT_BASE}, older than {args.stale_minutes}m)"
+        )
     for rel in removed[: args.limit]:
         print(f"  - {rel}")
     if len(removed) > args.limit:
@@ -7940,16 +7992,6 @@ def cmd_dispute_list(args) -> int:
     return 0
 
 
-def reporting_order() -> list[str]:
-    """Roles in reporting order, parents before children."""
-    return [r for r in ROLE_REPORT_ORDER if r in ROLE_PARENT]
-
-
-def reporting_children(parent: str) -> list[str]:
-    """Direct reports of ``parent``, in reporting order."""
-    return [r for r in ROLE_REPORT_ORDER if ROLE_PARENT.get(r) == parent]
-
-
 def cmd_map(args) -> int:
     """Print the workspace map + where code/tests actually live in this repo."""
     root = project_root(args)
@@ -7981,15 +8023,6 @@ def cmd_map(args) -> int:
         f"  open={len(open_d)}"
         + (f"  escalated={sum(1 for d in open_d if d['escalated'])}" if open_d else "")
     )
-    print()
-    print("reporting lines (one parent per role; the CEO is the only lane to the user)")
-
-    def _tree(role: str, depth: int) -> None:
-        print("  " + "  " * depth + ROLE_DISPLAY.get(role, role))
-        for kid in reporting_children(role):
-            _tree(kid, depth + 1)
-
-    _tree("ceo", 0)
     print()
     print("roles (shared memory + queue) and their instances (private scratch)")
     for role in list_roles(root):
@@ -8704,6 +8737,20 @@ def _parsers_workspace(sub, common) -> None:
     )
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--limit", type=int, default=40)
+    s.add_argument(
+        "--stale-minutes",
+        type=int,
+        default=60,
+        help="age before a merged, clean worktree is reclaimed (default 60)",
+    )
+    s.add_argument(
+        "--worktrees",
+        action="store_true",
+        help="reclaim merged, clean worktrees (the default; stated for clarity)",
+    )
+    s.add_argument(
+        "--no-worktrees", action="store_true", help="leave worktrees alone, only temp files"
+    )
     s.set_defaults(func=cmd_clean)
 
     s = sub.add_parser(
