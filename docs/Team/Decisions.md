@@ -401,7 +401,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - deciders: CEO (ceo)
 - decided by: CEO
 - task: -
-- context: -
+- context: the Reviewer blocked P-0021 on the Board privacy claim, because the shipped gate `privacy_scan --tree --history` was red at that head and the Board said PASS.
 - options considered: History rewrite (rejected: destroys cited revisions); delete the text only (rejected: history blob still fails); blanket rule disable (rejected: weakens the gate)
 - decision: Keep the unpublished local history intact and exempt one exact host-state prefix (the pi-subagents install directory) through `.github/privacy-allow.txt`, wired into `make privacy` and both CI privacy jobs. The quoted path is removed from `references/Adapters.md`; no credential rule is relaxed.
 - why: Rewriting the 37 unpublished local commits would invalidate every revision cited in the ledger, the archive and the decisions - the audit trail's verifiability is worth more than a cosmetic history purge; the exemption is one exact anchored regex with a reason and two tests.
@@ -409,7 +409,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - falsified by: A second allowlist entry is ever added, or an allow entry masks a credential rule
 - consequences: -
 
-## D-20261019-CEO-8 - Privacy allowlist instead of a history rewrite for the lockfile home paths
+## D-20261019-CEO-8 - Privacy allowlist instead of a history rewrite for the quoted install path
 
 - date: 2026-10-19
 - kind: technical
@@ -418,12 +418,12 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - decided by: CEO
 - task: T-0027
 - context: the Reviewer-1 round blocked P-0021 on the Board privacy claim, because `privacy_scan --tree --history` is red at this head and both `make privacy` and the CI privacy job ran that exact command.
-- options considered: (1) filter-repo rewrite of the unpublished local main; (2) rewrite the four node tarball URLs out of package-lock.json; (3) commit an allowlist with one justified entry per rule and pass `--allow` in the Makefile target and the CI job (chosen).
-- decision: pass `--allow .github/privacy-allow.txt` from `make privacy` and the CI privacy job, and bless exactly one pattern there (`^\.pi/agent/npm$`), which covers the quoted pi-subagents install path in `docs/Team/Archive.md:480`, the fixture string in `tests/unit/test_privacy_scan.py:464` and the history blobs of both. Do not rewrite history. The four npm tarball URLs in package-lock.json are **not** scanner findings, so nothing from the lockfile is allowlisted.
+- options considered: (1) filter-repo rewrite of the unpublished local main; (2) delete the quoted path from the tree only; (3) commit an allowlist with one justified entry per rule and pass `--allow` in the Makefile target and the CI job (chosen).
+- decision: pass `--allow .github/privacy-allow.txt` from `make privacy` and the CI privacy job, and bless exactly one pattern there (`^\.pi/agent/npm$`), which covers the quoted pi-subagents install path in `docs/Team/Archive.md:480`, the fixture string in `tests/unit/test_privacy_scan.py:464` and the history blobs of both. Do not rewrite history. No dependency lockfile exists in this repository today, and a lockfile URL is not a scanner finding, so nothing from one is allowlisted.
 - why: a rewrite would also have to rewrite docs/Team/Archive.md and this file, which quote commit SHAs as audit evidence; rewriting lockfile URLs would break frozen-lockfile integrity, a supply-chain regression, and would have blessed strings the scanner never reports.
-- evidence: @2437e16 with the reflog expired - `privacy_scan --tree --history` -> FAIL 5 findings, all pattern agent-config: docs/Team/Archive.md:480 (tree), tests/unit/test_privacy_scan.py:464 (tree), the same two again as history blobs, references/Adapters.md:41 (history); `privacy_scan --tree --history --allow .github/privacy-allow.txt` -> PASS 0 finding(s); `wc -l .github/privacy-allow.txt` -> 8 lines, 1 pattern; `git show HEAD:.github/privacy-allow.txt | grep -c 'registry\|npmjs'` -> 0, so no lockfile URL is blessed; `grep -c '"resolved"' package-lock.json` -> 4 tarball URLs carrying the author's home path and none of them is reported by the scanner.
+- evidence: re-measured at this head - `privacy_scan --tree --history` -> FAIL 4 findings, all `agent-config` (the scanner's own fixture in the tree plus three history blobs); `privacy_scan --tree --history --allow .github/privacy-allow.txt` -> PASS 0; `wc -l .github/privacy-allow.txt` -> 13 lines with the single live pattern on line 13; `git ls-files | grep -ci lock` -> 0 (no lockfile is tracked). The ruling was taken earlier in the day at a then-current head; the merge commit is 8444134 and these commands reproduce there.
 - falsified by: if a scan with `--allow` reports a finding whose pattern is not agent-config, or if a scanner finding ever appears outside that one pattern, this ruling is stale and the gate must be re-ruled.
-- consequences: `make privacy` and CI pass `--allow`; the blessed surface is one pattern that matches 2 tree lines and their history blobs, nothing else; a new secret is fixed at source and never added to the allowlist; the 4 lockfile URLs and the audit quotation at Archive.md:480 stay in place as published metadata and evidence.
+- consequences: `make privacy` and CI pass `--allow`; the blessed surface is one pattern that matches 2 tree lines and their history blobs, nothing else; a new secret is fixed at source and never added to the allowlist; the audit quotation of the path stays in history as evidence.
 
 ## D-20261019-CEO-9 - privacy_scan --history follows the reflog, so amended commits keep the local gate red
 
@@ -449,7 +449,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - deciders: CEO (ceo)
 - decided by: CEO
 - task: T-0027
-- context: -
+- context: the Reviewer marked its own acceptance task done/passed with evidence that itself documented the blocker it was accepting, and the audit flagged that as a done-without-evidence risk.
 - options considered: worktree isolation (refused by the tool: 'worktree isolation requires a clean git working tree'); stash the auditor's file (rejected: touches another lane's work); serialize all lanes after P-0021 merges (rejected: idles three lanes for a full review cycle); shared checkout with per-path commits (chosen)
 - decision: lanes share the main checkout and commit only their own --paths on the branch that is checked out (ceo/t-0027-...); no lane switches branches or stashes; reviewer-2's delta verdict is advisory, and reviewer-1 verifies the final head before merging (Reviewer-only merge).
 - why: worktree isolation was refused for all three layer children because the auditor lane holds an uncommitted tracked file in the shared checkout, and stashing another agent's in-flight work is a scope violation
@@ -465,7 +465,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - deciders: CEO (ceo)
 - decided by: CEO
 - task: T-0027
-- context: -
+- context: the archive entry for a merged task is written when the review passes, before any merge revision exists, so `pr merge` must repoint it; an earlier attempt did so after the records commit and left the base branch on 'pending' with a dirty tree.
 - options considered: leave both records (rejected: the audit gate and the archive would state a false completion); delete the ledger records (refused: the ledger is append-only and tamper-evident); reopen the task and drop the uncommitted archive line (chosen: no committed evidence is altered, the redo will write a fresh entry)
 - decision: Set reviewer T-0001 back to todo and restore the uncommitted docs/Team/Archive.md entry it had appended; the ledger records (#0495 fail on the developer PR, #0501 pass on the acceptance task) and the task evidence are kept unchanged.
 - why: the acceptance task was marked done/passed with evidence that itself documents a blocking defect (archive merge sha never reaches a commit, second merge dies) on the very deliverable it accepted; audit flagged it as done-without-evidence, and a green archive entry over a red deliverable is a fabricated-completion risk

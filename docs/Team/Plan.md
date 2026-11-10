@@ -5,7 +5,7 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Status summary (2026-10-19, `main` @ `3934690`)
+## Status summary (2026-10-19, `main` @ `8444134`)
 
 | milestone | exit condition | state |
 |---|---|---|
@@ -59,6 +59,15 @@ who holds it as a record; review is parallel, not serialised by the dispatcher.
 | id | task | role | prio | artifact | status | evidence |
 |---|---|---|---|---|---|---|
 | T-0001 | Fan review out across Reviewer lanes | developer | P0 | `engine.py`, `records.py`, `tests/unit/test_review_fanout.py`, docs | done | merge `8f210bc`; 10 new unit tests; repro `479742d` -> `76d5f76` |
+
+## Closed milestones (evidence on file)
+
+| id | task | role | result | evidence |
+|---|---|---|---|---|
+| T-0001 | Full-project audit: parser, ledger, paths, locks, privacy, CI | ceo | done | `make ci` -> all gates passed; 336 passed, 1 skipped |
+| T-0002 | Scope the audit-manifest anchor to the workspace id | ceo | done | `pytest tests/unit/test_ledger.py` -> 17 passed; `audit` -> 0 |
+| T-0003 | Repo-local role identity, `--strict-authors`, exit-code docs | ceo | done | commit `1e646a9` |
+| T-0004 | Accurate exit-code table; identity guard tests | ceo | done | commit `043d483` |
 
 ## Closed milestones (evidence on file)
 
