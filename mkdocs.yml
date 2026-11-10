@@ -62,6 +62,7 @@ nav:
       - CLI reference: guide/cli.md
       - Architecture: guide/architecture.md
       - CI pipeline: guide/ci.md
+  - Releases: releases.md
 
 markdown_extensions:
   - admonition
