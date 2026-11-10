@@ -205,6 +205,25 @@ a pass.
   push, and `identity --audit` accepts a forge rebase committer
   (`noreply@github.com`) only when the author is a canonical role mailbox.
 
+### What the identity audit accepts, and why (T-0010)
+
+`identity --audit --range origin/main..main` on the unpublished line reported 16
+problems that the team's own merge policy produces, so the gate was red on a clean
+policy-conforming history. The four cases below are now accepted by
+`audit_commit_identities` (`src/teamwork/engine.py`); each is proved by a named test
+in `tests/unit/test_commit_identity.py`. See [Architecture](Architecture.md#11-release-consistency-contract)
+for the contract this gate belongs to.
+
+| # | Case | Decision | Reason |
+|---|---|---|---|
+| 1 | `committer differs from author` where the committer is a **canonical role mailbox** (`ROLE_DISPLAY` -> `role_identity`, e.g. `Reviewer <reviewer@agents.nidvue.com>`) | **accepted**, and the output still prints `(landed by <role>)` | A lane landing a peer's reviewed work commits as its own role mailbox: that *is* the local merge policy. A committer that is not a role mailbox (a personal address) and differs from the author stays a **FAIL**. |
+| 2 | missing `Acting role:` line while the body carries `Role: <role>` | **accepted** as equivalent, provided the `Role:` value resolves to the author's own role | `build_commit_message` (`engine.py:3460-3484`) writes *both* trailers; a commit produced by the tool is never missing the acting role. A commit with neither line stays a **FAIL**, and a `Role:` naming another role stays a **FAIL**. |
+| 3 | a **two-parent** `chore(merge): ...` commit with an **empty body** | **exempt** from the acting-role line | It adds no content of its own, so there is no acting role to name (measured: `f5ef807`, parents `bdcc588`+`93f6f4b`, empty body, Reviewer committer). |
+| 4 | a **single-parent** `chore(merge)` commit with an empty body | **not exempt** - still a **FAIL** | A squash/fast-forward commit *does* add content, so the exemption above must stay discriminable from it. |
+
+Re-stamping the existing history was refused: it rewrites every descendant sha, and
+`docs/Team/Archive.md` pins each landed PR's merge revision.
+
 ## Deploy
 
 - Environments: none for the package. The artefact is a Python package; the
