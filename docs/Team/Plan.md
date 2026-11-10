@@ -954,6 +954,9 @@ Measured waves on this host (each re-derivable with `lane list --all`):
 | second real wave | 17 | 10 | 6m | T-0029 fixed (per-task worktree) at 1ca5958, Tester T-0001 at a5f6b64, Architect T-0002 at b16fba5, three Reviewer verdicts recorded |
 | injection wave | 5 | 3 | 3m | every packet carries the injected pack; a Reviewer verdict blocked on A-0020, since cleared |
 | unattended landing | see `lane list --all` | - | - | T-0042 and T-0043 were landed by a Reviewer's pass with no ambient override, the proof that the merge path carries its own marker |
+| producer wave | 6 | 4 | 10m | T-0032, T-0035, T-0037, T-0004 self-checked with PRs open; 1 timeout, 1 blocked |
+| review wave | 10 | 7 | 12m | 4 Developer deliverables self-checked, 1 Reviewer fail verdict plus dispute D-0002, 4 lanes ended on their budget |
+| close-out state | 48 lane records | - | - | the review queue, not the lane count, is now the limit: 19 deliverables wait for a Reviewer, and the two Reviewer lanes started by hand failed on model routing (T-0044) and on an 8-minute budget |
 
 Parallel rules: one lane per instance (a second `lane start` is refused), one
 worktree per task (`--worktree`), and the board is the arbiter - a lane claims

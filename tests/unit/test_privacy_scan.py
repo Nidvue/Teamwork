@@ -1355,3 +1355,164 @@ def test_an_expired_reflog_leaves_no_identity_to_report(tmp_path: Path) -> None:
     assert ps.scan_commit_metadata(repo, allow=[]) == []
     assert [f for f in ps.scan_history(repo, allow=[]) if f["rule"] == "personal-email"] == []
     assert current
+
+
+_EQUALS_VALUE = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6"
+_DB_PASSWORD = "Zq7Xt9" + "Lm2Pw4"
+_AUTH_BLOB = "ZGVwbG95" + "OlpxN1h0" + "OUxtMlB3NA=="
+_SLACK_WEBHOOK = (
+    "https://hooks.slack.com/services/" + "T024BE7LD/B06ABCDEF/" + "XXxxXXxxXXxxXXxxXXxxXXxx"
+)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"conn={_EQUALS_VALUE}",
+        f"AccountKey={_EQUALS_VALUE}",
+        f"SECRET={_EQUALS_VALUE}",
+        f"conn={_EQUALS_VALUE} ",
+    ],
+)
+def test_a_high_entropy_value_written_straight_after_the_equals_is_reported(line):
+    """T-0023 S-4: the ``=`` lookbehind made ``NAME=<base64>`` invisible.
+
+    ``_RE_HIGH_ENTROPY`` refused to start a match right after ``=``, so the same
+    value was caught when it was written ``NAME = <value>`` and skipped when it
+    was written ``NAME=<value>``. The lookbehind no longer excludes ``=``.
+    """
+    assert "high-entropy-secret" in rules_hit(line + "\n")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [f"conn = {_EQUALS_VALUE}", f"conn: {_EQUALS_VALUE}", f"conn= {_EQUALS_VALUE}"],
+)
+def test_the_spaced_forms_are_still_reported(line):
+    """The fix must not trade the old miss for a new one in the other direction."""
+    assert "high-entropy-secret" in rules_hit(line + "\n")
+
+
+def test_an_equals_assignment_of_a_path_is_still_not_a_secret():
+    """Dropping ``=`` from the lookbehind does not make every value a secret."""
+    line = "root=ProductManager/Artifacts/" + "Harness2" + "\n"
+    assert "high-entropy-secret" not in rules_hit(line)
+
+
+def test_a_slack_incoming_webhook_is_reported():
+    assert "api-token" in rules_hit(f"SLACK_WEBHOOK={_SLACK_WEBHOOK}\n")
+
+
+def test_a_documented_slack_webhook_shape_is_not_reported():
+    line = "https://hooks.slack.com/services/<id>/<id>/<token>\n"
+    assert "api-token" not in rules_hit(line)
+
+
+@pytest.mark.parametrize("scheme", ["Bearer", "Basic", "Token"])
+def test_an_authorization_credential_is_reported(scheme):
+    """``Basic`` was the measured hole; ``Token`` is the same shape."""
+    assert "api-token" in rules_hit(f"Authorization: {scheme} {_AUTH_BLOB}\n")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Basic interoperability is explained in the next section.",
+        "Token interoperability matters here.",
+        "Bearer authentication is required.",
+    ],
+)
+def test_the_scheme_word_in_prose_is_not_a_credential(line):
+    """``Basic``/``Token`` are English words: a payload needs a credential signal."""
+    assert "api-token" not in rules_hit(line + "\n")
+
+
+@pytest.mark.parametrize(
+    "scheme",
+    [
+        "postgresql",
+        "postgres",
+        "mysql",
+        "mariadb",
+        "mongodb",
+        "mongodb+srv",
+        "redis",
+        "rediss",
+        "amqp",
+        "amqps",
+        "mssql",
+        "sqlserver",
+    ],
+)
+def test_a_database_url_with_an_inline_password_is_reported(scheme):
+    url = f"{scheme}://app:{_DB_PASSWORD}@db.internal:5432/app"
+    assert "api-token" in rules_hit(f"DATABASE_URL={url}\n")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql://user:password@localhost:5432/app",
+        "postgresql://app:<password>@db.internal:5432/app",
+        "postgresql://${DB_USER}:${DB_PASSWORD}@db.internal:5432/app",
+        "postgresql://app" + "@db.internal:5432/app",
+        "redis://cache.internal:6379/0",
+        "https://example.com/a/b?c=d",
+    ],
+)
+def test_a_documented_connection_string_is_not_a_credential(url):
+    """Every example in a manual is one of these: no credential signal, no finding."""
+    assert "api-token" not in rules_hit(f"DATABASE_URL={url}\n")
+
+
+def test_the_allowlist_still_exempts_a_new_shape_and_only_what_it_matches():
+    """The allowlist contract is unchanged: it exempts the matched TEXT, no more."""
+    url = "postgresql://app:" + _DB_PASSWORD + "@10.0.0.5:5432/app"
+    allow = [re.compile("^" + re.escape(url) + "$")]
+    assert list(ps.scan_lines(f"DATABASE_URL={url}\n", "x.md", "unit-test", ps.RULES, allow)) == []
+    sibling = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
+    hits = ps.scan_lines(f"URL={url} HANDLE={sibling}\n", "x.md", "unit-test", ps.RULES, allow)
+    assert [f["rule"] for f in hits] == ["api-token"]
+
+
+_PRE_EXISTING_SHAPES = (
+    ("api-token", "AWS_ACCESS_KEY_ID=" + "AKIA" + "IOSFODNN7EXAMPLE"),
+    ("api-token", "GH_TOKEN=ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"),
+    (
+        "api-token",
+        "GITHUB_TOKEN=github_pat_" + "11ABCDEFG0" + "123456789_abcdefghijklmnopqrstuvwxyz",
+    ),
+    ("api-token", "CI_JOB_TOKEN=glpat-" + "0123456789abcdefghij"),
+    (
+        "api-token",
+        "//registry.npmjs.org/:_authToken=npm_" + "0123456789abcdefghijklmnopqrstuvwxyz01",
+    ),
+    ("api-token", "HF_TOKEN=hf_" + "0123456789abcdefghijklmnopqrstuvwxyz0123"),
+    ("api-token", "STRIPE=sk_live_" + "0123456789abcdefghijABCD"),
+    ("api-token", "MAIL=SG." + "0123456789abcdefghijkl" + "." + "0123456789abcdefghijABCD"),
+    ("api-token", "xoxb-" + "1234567890-1234567890123-" + "AbCdEfGhIjKlMnOpQrStUvWx"),
+    ("api-token", 'API_KEY="AIza' + "SyA1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + '"'),
+    ("api-token", "OPENAI_API_KEY=sk-" + "A1b2C3d4E5f6G7h8I9j0"),
+    (
+        "high-entropy-secret",
+        "eyJhbGciOiJIUzI1"
+        + "NiIsInR5cCI6IkpXVCJ9."
+        + "eyJzdWIiOiIxMjM0"
+        + "NTY3ODkwIn0."
+        + "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+    ),
+    (
+        "env-secret",
+        'AWS_SECRET_ACCESS_KEY="' + "wJalrXUtnFEMI" + "/K7MDENG/" + "bPxRfiCYEXAMPLEKEY" + '"',
+    ),
+    ("json-secret", '{"client_secret": "' + "AbCdEf0123456789GhIjKlMn" + '"}'),
+    ("private-key", "-----BEGIN " + "RSA PRIVATE KEY-----"),
+    ("home-path", "path = /home/" + "realperson/projects/x"),
+    ("personal-email", "mail = ping@" + _REAL_MAIL_DOMAIN),
+)
+
+
+@pytest.mark.parametrize("rule,line", _PRE_EXISTING_SHAPES)
+def test_a_shape_the_gate_already_caught_is_still_caught(rule, line):
+    """The four new holes must be closed without opening one in the old coverage."""
+    assert rule in rules_hit(line + "\n")

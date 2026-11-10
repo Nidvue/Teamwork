@@ -59,9 +59,7 @@ except ImportError:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import board as boardlib  # type: ignore
     import resources as _resources  # type: ignore
-    from portable import (
-        pid_alive,  # type: ignore
-    )
+    from portable import pid_alive  # type: ignore[no-redef]
     from version import __version__ as VERSION  # type: ignore
 
 
@@ -787,6 +785,18 @@ def _find_task_anywhere(root: Path, handle: str, role_hint: str = ""):
     return None, None, None, None
 
 
+def lane_worktree(root: Path, agent: str, task_id: str) -> Path:
+    """The one worktree a (instance, task) lane owns.
+
+    Keyed by task as well as instance: handing a second task of one instance
+    back the checkout a first task is still using makes two lanes share one
+    writable tree, so the second commit lands on the first task's branch and
+    `commit` refuses (one task, one branch) - A-0003.
+    """
+    base = root / DIR_RUNTIME / DIR_WORKTREES / safe_component(pascal(agent))
+    return base / safe_component(str(task_id))
+
+
 def retire_branch(root: Path, here: Path, branch: str, force: bool = False) -> bool:
     """Delete a merged branch, retiring the worktree that holds it if needed."""
     flag = "-D" if force else "-d"
@@ -867,10 +877,9 @@ def cmd_branch(args) -> int:
 
     worktree_note = ""
     if args.worktree:
-        wt = root / DIR_RUNTIME / DIR_WORKTREES / safe_component(pascal(args.agent))
+        wt = lane_worktree(root, args.agent, task["id"])
         wt.parent.mkdir(parents=True, exist_ok=True)
-        listing = run_git(project, "worktree", "list", "--porcelain").stdout
-        if str(wt) not in listing:
+        if not _worktree_registered(project, wt):
             r = run_git(project, "worktree", "add", str(wt), branch)
             if r.returncode != 0:
                 die(f"worktree add failed for {branch}: {r.stderr.strip()}")
@@ -1970,8 +1979,9 @@ def project_trees(root: Path) -> list:
         return trees
     wt_root = root / DIR_RUNTIME / DIR_WORKTREES
     if wt_root.is_dir():
-        for cand in sorted(wt_root.iterdir()):
-            if (cand / ".git").exists() and cand.resolve() not in trees:
+        for marker in sorted(wt_root.rglob(".git")):
+            cand = marker.parent
+            if cand.resolve() not in trees:
                 trees.append(cand.resolve())
     return trees
 
@@ -2016,17 +2026,19 @@ def artifact_digest(root: Path, raw: str, cwd: Path | None = None) -> str:
     trees = project_trees(root)
     path = (given if given.is_absolute() else tree / given).resolve()
     candidates = [t for t in [tree, *trees] if _inside(path, t)]
-    holder = max(candidates, key=lambda p: len(p.parts)) if candidates else None
+    holder: Path | None = max(candidates, key=lambda p: len(p.parts)) if candidates else None
     outside = holder is not None and holder != tree
-    twin = (tree / path.relative_to(holder)).resolve() if outside else None
-    if outside and not given.is_absolute():
+    twin: Path | None = None
+    if holder is not None and outside:
+        twin = (tree / path.relative_to(holder)).resolve()
+    if holder is not None and outside and not given.is_absolute():
         die(
             f"artifact {raw} resolves to {path}, outside the tree this command "
             f"runs in ({tree}), in {_tree_label(holder, project)}. A relative "
             "--artifact is read from your own tree, so pass a path inside it - or "
             "an absolute path if you mean another checkout's copy."
         )
-    if outside and twin.is_file():
+    if holder is not None and twin is not None and twin.is_file():
         die(
             f"artifact {raw} is {path}, in {_tree_label(holder, project)}, while "
             f"your own tree has the same name at {twin}. A lane binds its own "
@@ -2410,51 +2422,93 @@ def _tests_list(args, root: Path, records: list) -> int:
 
 
 LEDGER_ACTIONS = (
-    "memory.add",
-    "memory.update",
-    "memory.touch",
-    "memory.forget",
-    "memory.promote",
-    "memory.drop",
-    "memory.merge",
-    "memory.evict",
-    "memory.claim",
-    "memory.claim.force",
-    "memory.renew",
-    "memory.release",
-    "memory.contest",
-    "memory.grant",
-    "memory.revoke",
+    "attention.add",
+    "attention.resolve",
+    "branch.retire",
+    "branch.start",
+    "commit",
+    "coordination.check",
+    "criteria.add",
+    "criteria.reopen",
+    "criteria.rm",
+    "criteria.verify",
+    "decision.add",
+    "dispute.escalate",
+    "dispute.open",
+    "dispute.resolve",
+    "dispute.round",
+    "dispute.sign",
+    "feature.add",
+    "feature.set",
+    "hooks.install",
     "instance.add",
     "instance.retire",
-    "task.add",
-    "task.duplicate",
-    "task.claim",
-    "task.status",
-    "task.evidence",
-    "task.reclaim",
-    "pulse.observe",
-    "selfcheck",
-    "review.pass",
-    "review.fail",
-    "pr.open",
+    "knowledge.add",
+    "knowledge.supersede",
+    "knowledge.touch",
+    "lane.finish",
+    "lane.start",
+    "lane.stop",
+    "ledger.export",
+    "ledger.repair",
+    "lesson.add",
+    "lesson.fix",
+    "memory.add",
+    "memory.claim",
+    "memory.claim.force",
+    "memory.contest",
+    "memory.dream",
+    "memory.drop",
+    "memory.evict",
+    "memory.forget",
+    "memory.global",
+    "memory.grant",
+    "memory.merge",
+    "memory.pack",
+    "memory.promote",
+    "memory.release",
+    "memory.renew",
+    "memory.revoke",
+    "memory.touch",
+    "memory.update",
+    "model.auto",
+    "model.set",
     "pr.merge",
     "pr.merge.archive",
-    "branch.start",
-    "branch.retire",
-    "criteria.add",
-    "criteria.verify",
+    "pr.merge.forced",
+    "pr.open",
+    "pulse.observe",
+    "redline.close",
+    "redline.record",
+    "review.claim",
+    "review.fail",
+    "review.pass",
+    "review.release",
+    "review.renew",
+    "review.reopen",
+    "selfcheck",
+    "skill.create",
+    "skill.rm",
+    "skill.share",
+    "swarm.scale",
+    "swarm.start",
+    "swarm.stop",
+    "swarm.wave",
+    "task.add",
+    "task.archive",
+    "task.claim",
+    "task.duplicate",
+    "task.reclaim",
+    "task.rm",
+    "task.status",
     "tests.add",
+    "tests.repro",
+    "tests.require",
+    "tests.rm",
     "tests.run",
-    "dispute.open",
-    "dispute.round",
-    "dispute.escalate",
-    "dispute.sign",
-    "dispute.resolve",
-    "decision.add",
-    "commit",
-    "ledger.export",
 )
+
+UNDECLARED_ACTION_WARNED: set[str] = set()
 
 
 def ledger_path(root: Path) -> Path:
@@ -2565,6 +2619,14 @@ def ledger_append(
     holding ``ledger.lock`` pass ``_locked=True`` instead of deadlocking.
     """
     import json
+
+    if action not in LEDGER_ACTIONS and action not in UNDECLARED_ACTION_WARNED:
+        UNDECLARED_ACTION_WARNED.add(action)
+        print(
+            f"teamwork: WARNING undeclared ledger action {action!r}; declare it in "
+            "LEDGER_ACTIONS (tests/unit/test_ledger_actions.py gates the drift)",
+            file=sys.stderr,
+        )
 
     path = ledger_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -2749,8 +2811,10 @@ def ledger_verify(
                     f"the last audit export recorded {recorded} records, "
                     f"the ledger has {len(records)}: truncated after export"
                 )
-        except (ValueError, OSError, TypeError):
-            pass
+        except (ValueError, OSError, TypeError, AttributeError):
+            problems.append(
+                f"the audit manifest ({F_MANIFEST}) is unreadable: the truncation check cannot run"
+            )
     return problems
 
 
@@ -3216,9 +3280,11 @@ def ledger_export(root: Path, args) -> int:
     problems = ledger_verify(root, reconcile=True)
     checkpoint_n = int(records[-1].get("n") or 0) if records else 0
     archive_rel = (docs / "Archive.md").relative_to(project).as_posix()
-    external = [a for a in tracked if not a["path"].startswith(".pi/") and a["path"] != archive_rel]
-    internal = [a for a in tracked if a["path"].startswith(".pi/")]
-    manifest = {
+    external = [
+        a for a in tracked if not str(a["path"]).startswith(".pi/") and a["path"] != archive_rel
+    ]
+    internal = [a for a in tracked if str(a["path"]).startswith(".pi/")]
+    manifest: dict = {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "team": root.name,
         "team_id": team_identity(root) or ensure_team_identity(root),
@@ -3231,8 +3297,8 @@ def ledger_export(root: Path, args) -> int:
             "problems": problems,
         },
         "git": git_info,
-        "artifacts": sorted(external, key=lambda x: x["path"]),
-        "local_state": sorted(internal, key=lambda x: x["path"]),
+        "artifacts": sorted(external, key=lambda x: str(x["path"])),
+        "local_state": sorted(internal, key=lambda x: str(x["path"])),
         "how_to_verify": [
             "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
             f"2. take record #{checkpoint_n} (the ledger.export event) and compare its "
@@ -3550,7 +3616,7 @@ def cmd_skill(args) -> int:
     if args.skill_cmd == "candidates":
         rows = []
         for role in list_roles(root):
-            per_area = {}
+            per_area: dict = {}
             for t in parse_tasks(task_file(root, role)):
                 if not t.get("area") or t["status"] not in ("done", "review"):
                     continue
@@ -7175,7 +7241,7 @@ def _memory_status(root: Path, agent: str, as_json: bool) -> int:
     if not roles:
         print("teamwork: no workspace here (run `teamwork.py init`)")
         return 0
-    rows = []
+    rows: list = []
     for role in roles:
         claim = read_memory_claim(root, role)
         age = memory_claim_age(claim) if claim else None
@@ -7614,6 +7680,25 @@ def _worktree_recently_written(here: Path, now: float, stale_minutes: int) -> bo
     return (now - newest) / 60 < stale_minutes
 
 
+def _worktree_registered(project: Path, path: Path) -> bool:
+    """True when this exact path is a registered worktree of the repository.
+
+    `git worktree list --porcelain` prints one `worktree <path>` record per
+    checkout, so testing the whole listing for the path as a substring matches a
+    sibling whose name merely starts with ours (`Developer-1` inside
+    `Developer-10`) and skips the `git worktree add` the task then records as done.
+    """
+    wanted = {str(path), str(path.resolve())}
+    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
+    for line in listing:
+        if not line.startswith("worktree "):
+            continue
+        raw = line[len("worktree ") :].strip()
+        if raw in wanted or str(Path(raw).resolve()) in wanted:
+            return True
+    return False
+
+
 def _worktree_locked(project: Path, path: str) -> bool:
     """True when `git worktree lock` marks this worktree as pinned."""
     listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
@@ -7779,13 +7864,15 @@ def cmd_clean(args) -> int:
     or the team-shared working state (`Global/`, `Roles/`) requires `--team-wide`,
     which prints every location before the first unlink. `--all` empties
     `Scratch/` only - `Global/` and `Roles/` just lose their temp-pattern files.
+    A file whose `unlink` fails is listed as not removed and is never counted in
+    the removed total: the summary states what happened, not what was attempted.
     """
     root = project_root(args)
     project = project_of(root)
     if not root.exists():
         die(f"no workspace at {root}")
     team_wide = bool(getattr(args, "team_wide", False))
-    if team_wide and getattr(args, "agent", ""):
+    if team_wide and str(getattr(args, "agent", "") or ""):
         die("--agent scopes the clean to one lane; --team-wide is the opposite: pick one", 2)
     agents = clean_scope(root, getattr(args, "agent", ""), team_wide)
     locations = clean_locations(root, agents, team_wide)
@@ -7798,6 +7885,7 @@ def cmd_clean(args) -> int:
         r = run_git(project, "ls-files", "-z")
         tracked = {p for p in r.stdout.split("\0") if p}
     removed = []
+    stuck = []
     freed = 0
     for base in locations:
         if not base.is_dir():
@@ -7813,14 +7901,24 @@ def cmd_clean(args) -> int:
             if not empty_scratch and not any(p.match(pat) for pat in SCRATCH_PATTERNS):
                 continue
             try:
-                freed += p.stat().st_size
-                removed.append(rel)
-                if not args.dry_run:
+                size = p.stat().st_size
+            except OSError as exc:
+                stuck.append((rel, exc.strerror or exc.__class__.__name__))
+                continue
+            if not args.dry_run:
+                try:
                     p.unlink()
-            except OSError:
-                pass
+                except OSError as exc:
+                    stuck.append((rel, exc.strerror or exc.__class__.__name__))
+                    continue
+            freed += size
+            removed.append(rel)
     verb = "would remove" if args.dry_run else "removed"
     print(f"teamwork: {verb} {len(removed)} scratch/temp file(s), {freed / 1024:.1f} KiB")
+    if stuck:
+        print(f"teamwork: {len(stuck)} scratch/temp file(s) could not be removed:")
+        for rel, why in stuck[:10]:
+            print(f"  - {rel}: {why}")
     reclaimed = [] if args.no_worktrees else reclaimable_worktrees(root, args.stale_minutes)
     failed = []
     for wt in reclaimed:
@@ -8002,7 +8100,7 @@ def cmd_task_list(args) -> int:
         if not tasks:
             continue
         lookup = local_dep_map(parse_tasks(task_file(root, name)))
-        cache = {}
+        cache: dict = {}
         tasks = sorted(
             tasks, key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"], t["id"])
         )
@@ -8109,7 +8207,7 @@ def cmd_task_next(args) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
         lookup = local_dep_map(tasks)
-        cache = {}
+        cache: dict = {}
         ready = [t for t in tasks if executable(t, lookup, cache, root)]
         mode, mode_source = load_pulse_mode(root)
         refused = [t for t in ready if task_is_inferred(t)] if mode != "auto" else []
@@ -9247,7 +9345,7 @@ def reap_slots(root: Path, provider: str = "") -> list:
     """Expire leases: the holder stopped renewing (died, crashed or finished
     without releasing). A slot is a lease with a TTL, not a process lock, so the
     budget stays honest across many short-lived CLI calls."""
-    reaped = []
+    reaped: list = []
     base = root / DIR_RUNTIME / DIR_SLOTS
     if not base.is_dir():
         return reaped
@@ -9966,7 +10064,7 @@ def idle_instances(root: Path) -> list:
 def _ready_for_role(root: Path, role: str) -> list:
     tasks = parse_tasks(task_file(root, role))
     lookup = local_dep_map(tasks)
-    cache = {}
+    cache: dict = {}
     ready = [t for t in tasks if executable(t, lookup, cache, root)]
     ready.sort(key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"], t["id"]))
     return ready
@@ -10176,7 +10274,7 @@ def _print_mode_refusals(refused: list, mode: str, source: str) -> None:
         )
 
 
-def stale_claims(root: Path, minutes: int = None) -> list:
+def stale_claims(root: Path, minutes: int | None = None) -> list:
     """Claims whose owner has no live lease and has not updated for the TTL.
 
     A task's ``updated`` field has day granularity, so it cannot express a
@@ -10264,7 +10362,7 @@ def memory_dream_line(root: Path) -> str:
     )
 
 
-def cmd_pulse(args: object) -> int:
+def cmd_pulse(args) -> int:
     """CEO wake-up: find idle lanes and hand them runnable work immediately."""
     root = project_root(args)
     if args.interval is not None:
@@ -10294,7 +10392,7 @@ def cmd_pulse(args: object) -> int:
 
     print(f"## idle lanes ({len(idle)})")
     if idle:
-        by_role = {}
+        by_role: dict = {}
         for a in idle:
             by_role.setdefault(resolve_role(a), []).append(a)
         for role, inst in sorted(by_role.items()):
@@ -10500,11 +10598,11 @@ def cmd_pulse(args: object) -> int:
             f"- accept mode {mode}: the plan is a report, not a dispatch - no lane has "
             "been given work"
         )
-    review_lanes = [a for a in idle if resolve_role(a) == "reviewer"]
-    if open_items and review_lanes:
+    review_idle = [a for a in idle if resolve_role(a) == "reviewer"]
+    if open_items and review_idle:
         print(
             f"- {len(open_items)} deliverable(s) unclaimed: hand each one to a DIFFERENT "
-            f"Reviewer lane ({', '.join(review_lanes)}) - never queue them all on one lane"
+            f"Reviewer lane ({', '.join(review_idle)}) - never queue them all on one lane"
         )
         print(
             "  review <role> <T-id> --claim --by <lane>   # take it, then verdict it; "
@@ -10526,35 +10624,9 @@ def cmd_pulse(args: object) -> int:
     if not idle and not total_ready:
         print("- nothing to dispatch: check blocked tasks and open disputes")
     print(
-        f"- keep the lanes fed: `teamwork.py swarm run` computes the next wave every "
-        f"{minutes} min, or run pulse --commit again per wake"
+        f"- re-arm this pulse: schedule the next wake every {minutes} min "
+        "(see the /teamwork skill: schedule.create)"
     )
-    if getattr(args, "spawn", False):
-        print()
-        if mode != "auto":
-            print(
-                f"# spawn skipped: the accept mode is {mode}, so the swarm would dispatch "
-                "nothing. Nothing was started."
-            )
-            return 0 if plan else 3
-        from . import lanes as lane_runtime
-
-        return lane_runtime.cmd_swarm(
-            argparse.Namespace(
-                project=getattr(args, "project", None),
-                team=getattr(args, "team", None),
-                lanes=0,
-                fixed=False,
-                waves=0,
-                minutes=None,
-                lane_minutes=None,
-                poll=0.0,
-                mode=mode,
-                host="",
-                by=getattr(args, "agent", "") or "ceo",
-                dry_run=False,
-            )
-        )
     return 0 if plan else 3
 
 
@@ -10577,12 +10649,12 @@ def cmd_parallel(args) -> int:
     print(f"- TOTAL free slots: {total_free}")
     print()
 
-    ready_by_role = {}
+    ready_by_role: dict = {}
     ready_total = 0
     for name in list_roles(root):
         tasks = parse_tasks(task_file(root, name))
         lookup = local_dep_map(tasks)
-        cache = {}
+        cache: dict = {}
         for t in tasks:
             if executable(t, lookup, cache, root):
                 role = resolve_role(name)
@@ -11678,7 +11750,7 @@ def all_tasks(root: Path) -> list:
     return list(iter_tasks(root))
 
 
-def idle_test_roles(root: Path, records: list = None) -> list:
+def idle_test_roles(root: Path, records: list | None = None) -> list:
     """Staffed roles that have designed no test of their own layer yet."""
     records = records if records is not None else parse_tests(tests_path(root))
     return [
@@ -11926,7 +11998,7 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     sections.append(s)
 
     s = _section("work", "work in flight")
-    buckets = {k: [] for k in ("todo", "doing", "selfcheck", "blocked", "review")}
+    buckets: dict = {k: [] for k in ("todo", "doing", "selfcheck", "blocked", "review")}
     invalid = []
     for role, t in tasks:
         if t["status"] in buckets:
@@ -12040,7 +12112,7 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
                 + f": reclaim with `task reclaim {role} {t['id']} --as "
                 "<other> --reason ...`"
             )
-    sources = [
+    sources: list[tuple[str, Path, Path | None]] = [
         (role, role_dir(root, role) / F_SHORT, role_dir(root, role) / F_LONG) for role in names
     ]
     sources.append(("global", global_dir(root) / F_GLOBAL, None))
@@ -12274,6 +12346,7 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
         input=message,
         capture_output=True,
         text=True,
+        env=_merge_commit_env(),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", *dirty)
@@ -13307,6 +13380,10 @@ PREFLIGHT_SETTINGS_KEY = "PreflightCommand"
 PREFLIGHT_GATE_TIMEOUT = 3600
 
 _RE_EVIDENCE_REV = re.compile(r"@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])")
+_RE_SUPERSEDED_REV = re.compile(
+    r"@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])[^@|]{0,40}?\bsuperseded\b"
+    r"|\bsuperseded\b[^@|]{0,20}?@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])"
+)
 
 _RE_PREFLIGHT_DIGEST = re.compile(r"preflight:\s*PF-[0-9a-f]+ @[0-9a-f]+[^|]*")
 
@@ -13617,13 +13694,25 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
     without it a self-check whose ``--test`` names a missing revision is the one
     text this gate never reads - and the digest it records then certifies a
     measurement nobody can reproduce.
+
+    The note is append-only, so the LAST segment is the only authoritative one: an
+    earlier round's ``--test`` line names the revision that round measured, and a
+    rewrite legitimately removes it. Reading the whole history would make every
+    amendment after a self-check permanently red, so only the newest segment is
+    checked. A revision the newest text itself marks ``superseded`` is accepted too:
+    a record may say "@<old> superseded by @<new>" and the old commit is then
+    allowed to be gone from every ref, because the marker is the record's own
+    statement that nobody should check it out.
     """
     name = "evidence"
     latest = (task.get("self_note", "") or "").split(" || ")[-1]
     digest = _RE_PREFLIGHT_DIGEST.sub("", task.get("evidence", ""))
     note = _RE_PREFLIGHT_DIGEST.sub("", extra_text or latest)
-    evidence_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(digest)})
-    note_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(note)} - set(evidence_revs))
+    superseded = _superseded_revs(digest) | _superseded_revs(note)
+    evidence_revs = sorted({m.lower() for m in _RE_EVIDENCE_REV.findall(digest)} - superseded)
+    note_revs = sorted(
+        {m.lower() for m in _RE_EVIDENCE_REV.findall(note)} - superseded - set(evidence_revs)
+    )
     named = sorted(set(evidence_revs) | set(note_revs))
     if not named:
         return PreflightCheck(name, PREFLIGHT_OK, "the task names no @<rev> revision yet")
@@ -13678,12 +13767,26 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
             PREFLIGHT_FAIL,
             "; ".join(problems),
             "refresh the note: selfcheck <agent> <T-id> --by <you> --note '<what you"
-            " re-read>' --test '<cmd> @<current-rev> -> <result>'",
+            " re-read>' --test '<cmd> @<current-rev> -> <result>'; if the revision was"
+            " rewritten away on purpose, name it in the new note as"
+            " '@<old> superseded by @<current-rev>' and the gate stops checking it",
         )
     shown = ", ".join(f"@{sha}" for sha in named[:5])
-    return PreflightCheck(
-        name, PREFLIGHT_OK, f"{len(named)} evidence revision(s) reachable: {shown}"
-    )
+    detail = f"{len(named)} evidence revision(s) reachable: {shown}"
+    if superseded:
+        accepted = ", ".join(f"@{sha}" for sha in sorted(superseded)[:5])
+        detail += f"; {len(superseded)} marked superseded and not checked: {accepted}"
+    return PreflightCheck(name, PREFLIGHT_OK, detail)
+
+
+def _superseded_revs(text: str) -> set:
+    """Revisions a record deliberately marks ``superseded``, so a rewrite may drop them."""
+    found = set()
+    for match in _RE_SUPERSEDED_REV.finditer(text or ""):
+        sha = match.group(1) or match.group(2)
+        if sha:
+            found.add(sha.lower())
+    return found
 
 
 def _preflight_mergeable(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
@@ -13863,6 +13966,26 @@ def _preflight_slice(
     )
 
 
+GATE_SHELL_METACHARACTERS = "&|;<>\n"
+
+
+def _gate_argv(command: str) -> list[str]:
+    """The argv `_preflight_gate` starts, raising `ValueError` for an unquotable one.
+
+    A `PreflightCommand` is a shell line as the docs spell it (`make check`,
+    `ruff check . && mypy src`), so a compound command is handed to the host shell:
+    `shlex` alone passes `&&` to the first program as an argument, and
+    `ruff check . && ...` then exits 2 on a spelling the docs invite (T-0005). A
+    single command keeps the no-shell path, so a missing program still reports
+    "could not start" instead of a shell's exit 127.
+    """
+    if any(char in command for char in GATE_SHELL_METACHARACTERS):
+        if os.name == "nt":
+            return ["cmd", "/c", command]
+        return ["/bin/sh", "-c", command]
+    return shlex.split(command)
+
+
 def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
     """The project's own gate, if it configured one - the skill names no toolchain.
 
@@ -13890,7 +14013,7 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
             f"UNVERIFIED: PreflightCommand not run (pass --run): {command}",
         )
     try:
-        argv = shlex.split(command)
+        argv = _gate_argv(command)
     except ValueError as exc:
         return PreflightCheck(name, PREFLIGHT_FAIL, f"PreflightCommand is not quotable: {exc}")
     if not argv:
@@ -14327,11 +14450,11 @@ def cmd_board(args) -> int:
         if not tasks:
             print(f"- {label} (empty)")
             continue
-        counts = {}
+        counts: dict = {}
         for t in tasks:
             counts[t["status"]] = counts.get(t["status"], 0) + 1
         lookup = local_dep_map(tasks)
-        cache = {}
+        cache: dict = {}
         ready = sorted(
             (t for t in tasks if executable(t, lookup, cache, root)),
             key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"]),
@@ -15171,7 +15294,7 @@ def _audit_team_skills(root: Path, names: list, args) -> int:
             )
             hits += 1
     if not skill_items:
-        roles_with_areas = {}
+        roles_with_areas: dict = {}
         for role in names:
             for t in parse_tasks(task_file(root, role)):
                 if t.get("area") and t["status"] in ("done", "review"):
@@ -15240,8 +15363,12 @@ def _audit_audit_trail_append_only_hash_chained(root: Path, names: list, args) -
                     f"audit export recorded ({recorded}): it was truncated"
                 )
                 hits += 1
-        except (ValueError, OSError, TypeError):
-            pass
+        except (ValueError, OSError, TypeError, AttributeError):
+            print(
+                f"- the audit manifest ({F_MANIFEST}) is unreadable: the "
+                "truncation check cannot run"
+            )
+            hits += 1
     unprovenanced = [
         r
         for role in names
@@ -15303,7 +15430,7 @@ def _audit_layered_tests(root: Path, names: list, args) -> int:
                 f"{r['evidence']}"
             )
             hits += 1
-    cmds = {}
+    cmds: dict = {}
     for r in records:
         if r["command"]:
             cmds.setdefault(r["command"].strip(), []).append(r)
@@ -15448,7 +15575,7 @@ def _print_dispute(d: dict) -> None:
         print(f"    ruling: signed=[{', '.join(d['signed'])}] {d['decision']}")
 
 
-def _dispute_party_instances(root: Path, dispute: dict = None) -> set:
+def _dispute_party_instances(root: Path, dispute: dict | None = None) -> set:
     """The instances a dispute is between, in their canonical spelling.
 
     A dispute names agents, not roles: ``raised_by``/``against`` hold the instance
@@ -15501,7 +15628,7 @@ def _actor_is_dispute_party(root: Path, dispute: dict, actor: str, role: str) ->
     return any(_dispute_party_instance(root, dispute, inst) for inst in instances)
 
 
-def _role_has_neutral_instance(root: Path, role: str, dispute: dict) -> bool:
+def _role_has_neutral_instance(root: Path, role: str, dispute: dict | None) -> bool:
     """True when the role has an instance that is not a party to the dispute.
 
     A role leaves the panel only when EVERY one of its instances is a party:
@@ -15515,14 +15642,14 @@ def _role_has_neutral_instance(root: Path, role: str, dispute: dict) -> bool:
     return any(not _dispute_party_instance(root, dispute, inst) for inst in instances)
 
 
-def _role_is_party_role(root: Path, role: str, dispute: dict) -> bool:
+def _role_is_party_role(root: Path, role: str, dispute: dict | None) -> bool:
     """True when at least one instance of the role is a party to the dispute."""
     if not dispute:
         return False
     return any(_dispute_party_instance(root, dispute, inst) for inst in instances_of(root, role))
 
 
-def required_tribunal(root: Path, dispute: dict = None) -> list:
+def required_tribunal(root: Path, dispute: dict | None = None) -> list:
     """The roles that must sign a ruling: at least two, and never only a party.
 
     The CEO always sits. CTO and CFO join when staffed. The Reviewer takes the
@@ -17918,16 +18045,7 @@ def _parsers_scheduling(sub, common) -> None:
         default="",
         help="lane running this pulse, recorded on a pulse.observe line (default: ceo)",
     )
-    s.add_argument(
-        "--spawn",
-        action="store_true",
-        help="after --commit, size and run the engine's swarm now (needs accept mode auto)",
-    )
     s.set_defaults(func=cmd_pulse)
-
-    from .lanes import add_parsers as _add_lane_parsers
-
-    _add_lane_parsers(sub, common)
 
 
 def _parsers_model(sub, common) -> None:

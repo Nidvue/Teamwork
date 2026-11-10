@@ -241,11 +241,11 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-            python scripts/teamwork.py identity --audit --range "origin/${BASE_REF}..HEAD"
+            python scripts/teamwork.py identity --audit --strict-authors --range "origin/${BASE_REF}..HEAD"
           elif [ -n "${BEFORE_SHA}" ] && [ "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
-            python scripts/teamwork.py identity --audit --range "${BEFORE_SHA}..${HEAD_SHA}"
+            python scripts/teamwork.py identity --audit --strict-authors --range "${BEFORE_SHA}..${HEAD_SHA}"
           else
-            python scripts/teamwork.py identity --audit --range HEAD
+            python scripts/teamwork.py identity --audit --strict-authors --range HEAD
           fi
 
   committer-guard:
