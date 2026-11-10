@@ -2818,7 +2818,9 @@ def ledger_export(root: Path, args) -> int:
         if path.exists():
             tracked.append(
                 {
-                    "path": str(path.relative_to(project)),
+                    # posix form: the manifest is published, so a Windows
+                    # backslash would make the same revision hash differently.
+                    "path": path.relative_to(project).as_posix(),
                     "sha256": _file_digest(path),
                     "bytes": path.stat().st_size,
                 }
@@ -2829,7 +2831,7 @@ def ledger_export(root: Path, args) -> int:
             if p.exists():
                 tracked.append(
                     {
-                        "path": str(p.relative_to(project)),
+                        "path": p.relative_to(project).as_posix(),
                         "sha256": _file_digest(p),
                         "bytes": p.stat().st_size,
                     }
@@ -2865,7 +2867,7 @@ def ledger_export(root: Path, args) -> int:
     # Archive.md is the accepted-results ledger: it gains an entry for this very
     # deliverable when the review passes, so a digest committed beside it is stale
     # by construction. Its entries are verified through the ledger, not a snapshot.
-    archive_rel = str(archive_path(root).relative_to(project))
+    archive_rel = archive_path(root).relative_to(project).as_posix()
     external = [a for a in tracked if not a["path"].startswith(".pi/") and a["path"] != archive_rel]
     internal = [a for a in tracked if a["path"].startswith(".pi/")]
     manifest = {
