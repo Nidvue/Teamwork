@@ -559,6 +559,8 @@ def new_task(
         "merge_commit": "",
         "review_fails": 0,
         "review_fail_rev": "",
+        # Whether the last fail was mechanical: no | unknown | n/a (see cmd_review).
+        "review_mechanical": "",
         "findings": "",
         "created": today_iso(),
         "updated": today_iso(),
@@ -633,6 +635,7 @@ def parse_tasks(path: Path) -> list:
                     "review_artifacts",
                     "review_fails",
                     "review_fail_rev",
+                    "review_mechanical",
                 ):
                     if field in NUMERIC_FIELDS:
                         current[field] = int(value) if value.isdigit() else 0
@@ -684,6 +687,7 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("merge_commit", t.get("merge_commit", "")),
             ("review_fails", str(t.get("review_fails") or 0)),
             ("review_fail_rev", t.get("review_fail_rev", "")),
+            ("review_mechanical", t.get("review_mechanical", "")),
             ("forced", t.get("forced", "")),
             ("evidence", t.get("evidence", "")),
             ("findings", t.get("findings", "")),
