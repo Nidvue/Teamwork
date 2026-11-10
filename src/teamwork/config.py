@@ -379,6 +379,7 @@ ROLE_PARENT = {
     "reviewer": "ceo",
     "security-auditor": "ceo",
     "architect": "cto",
+    "team-leader": "cto",
     "developer": "cto",
     "tester": "cto",
     "release-engineer": "cto",
@@ -395,6 +396,7 @@ ROLE_REPORT_ORDER = (
     "ceo",
     "cto",
     "architect",
+    "team-leader",
     "developer",
     "tester",
     "release-engineer",
@@ -449,6 +451,7 @@ ROSTER_TIERS = {
     "slim": (
         "ceo",
         "architect",
+        "team-leader",
         "developer",
         "tester",
         "reviewer",
@@ -456,6 +459,7 @@ ROSTER_TIERS = {
     "standard": (
         "ceo",
         "architect",
+        "team-leader",
         "product-manager",
         "project-manager",
         "developer",
@@ -469,6 +473,7 @@ ROSTER_TIERS = {
         "coo",
         "cfo",
         "architect",
+        "team-leader",
         "product-manager",
         "project-manager",
         "designer",
@@ -489,7 +494,7 @@ ROSTER_REQUIRED = ("ceo", "developer", "tester", "reviewer")
 
 # Instances per role for a tier: reviewers get two so the review queue fans out
 # and a sampled or high-risk deliverable gets a second independent verdict.
-ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
+ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1, "team-leader": 1}
 
 # Settings keys that are workspace policy, not provider concurrency limits: `slot`
 # reads every other key as a provider cap, so a new non-provider key must be
