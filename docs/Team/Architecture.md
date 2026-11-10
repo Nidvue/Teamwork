@@ -35,7 +35,7 @@ Teamwork/
 ├── references/*.md           # policy detail
 ├── templates/                # AGENTS.md, Docs/*.md, TeamMap.md skeletons
 │   └── pi-package/           # pi manifest fragments: skills/teamwork-pi/SKILL.md, prompts/*.md
-├── .agents/skills/           # repo-local skills a session can load (ceo-audit-close)
+├── .agents/skills/           # repo-local skills a session can load (tw-ceo-audit-close)
 ├── src/teamwork/
 │   ├── __init__.py           # re-exports __version__ only (no lazy re-exports)
 │   ├── __main__.py           # python -m teamwork -> cli.main()
@@ -161,7 +161,8 @@ of the contract:
 ## 5. Workspace-format contract (frozen)
 
 Unchanged from the skill: `.pi/Teamwork/Teams/<Team>/` with `Roles/<Role>/`
-(shared memory + `TaskQueue.md`), `Agents/<Instance>/` (private), `Global/`,
+(shared memory, `TaskQueue.md`, and `Lessons.md` - created lazily by the first
+`lesson add`, local state like memory and never committed), `Agents/<Instance>/` (private), `Global/`,
 `Runtime/`, `Ledger.jsonl` (hash-chained), `Criteria.md`, `Tests.md`,
 `TestPlan.md`, `Reviews.md`, `Disputes.md`.
 
@@ -1237,10 +1238,8 @@ component order, with four whitespace-separated columns and no header line:
   git directory git reports, which differs per repository, per worktree and per
   `core.hooksPath`; the absolute directory that was actually probed is printed
   by `hooks status` (§12.6), never guessed here.
-- C3 is summed over every role directory, because the command is not scoped to
-  one instance. It counts only `ShortTermMemory.md`: the one memory file startup
-  loads into context (`D-20261102-Architect-C3`). Long-term memory, the task queue,
-  the archive and the global memory are on-demand and sit outside this registry.
+- C3 is summed over every role directory and the global memory of the project,
+  because the command is not scoped to one instance.
 - `role` is the owner of that path under section 2, or `-` where section 2
   assigns none.
 - exit code 0.
@@ -1249,7 +1248,7 @@ component order, with four whitespace-separated columns and no header line:
 |---|---|---|---|---|
 | C1 | system prompt | `SKILL.md` | always-on | ceo |
 | C2 | guardrails | managed block in `AGENTS.md` | always-on | ceo |
-| C3 | memory | `Roles/<Role>/ShortTermMemory.md` | always-on | - |
+| C3 | memory | `Roles/<Role>/*.md` + `Global/GlobalMemory.md` | always-on | - |
 | C4 | tool guidance | `references/*.md` | on-demand | ceo |
 | C5 | subagents | `n/a` (lane packet, no file) | - | - |
 | C6 | skills | `.agents/skills/*/SKILL.md` | on-demand | ceo |
@@ -1289,13 +1288,14 @@ finding exists, 0 on a clean tree.
 | Rule | Refuses |
 |---|---|
 | `IDENTITY` | frontmatter `name` differs from the skill's directory, or `description` is empty |
+| `PREFIX` | a `.agents/skills/<dir>/SKILL.md` has no frontmatter `name:` line, or `<dir>` does not start with `tw-`; one finding per file, detail naming the offending value (section 14) |
 | `TRIGGER` | the skill name appears in no always-on surface (`AGENTS.md`, `SKILL.md`, `roles/*.md`) |
 | `SUBCOMMAND` | a `teamwork.py <word>` in a skill file names a command the parser does not register |
 | `HELPER` | a repo-relative path a skill file references does not exist |
 | `EVIDENCE` | a `status: shared` skill carries no `verdict: helped\|hurt\|no observed effect\|confounded` |
 
-Output, one line per finding, in rule order `IDENTITY`, `TRIGGER`, `SUBCOMMAND`,
-`HELPER`, `EVIDENCE` and sorted by path within a rule:
+Output, one line per finding, in rule order `IDENTITY`, `PREFIX`, `TRIGGER`,
+`SUBCOMMAND`, `HELPER`, `EVIDENCE` and sorted by path within a rule:
 
 ```text
 - PROBLEM <RULE> <path>: <detail>
@@ -1303,13 +1303,14 @@ Output, one line per finding, in rule order `IDENTITY`, `TRIGGER`, `SUBCOMMAND`,
 ```
 
 `--verbose` also lists every file checked. `EVIDENCE` is skipped when no
-workspace exists, because `Skills.md` lives in the team tree; the other four
+workspace exists, because `Skills.md` lives in the team tree; the other five
 rules are pure tree checks and always run. The `SUBCOMMAND` vocabulary is the
 parser itself, never a list (D-20261020-Architect-3).
 
-On this tree the rule fires: `ceo-audit-close` appears in no always-on surface.
-That is a true positive (a skill with no trigger line), fixed in the always-on
-text that the CEO owns, never by weakening the rule.
+The `TRIGGER` rule fired on this tree before the skill had a trigger line:
+`tw-ceo-audit-close` appeared in no always-on surface. That was a true positive
+(a skill with no trigger line), fixed in the always-on text that the CEO owns,
+never by weakening the rule.
 
 ### 12.5 `harness budget`
 
@@ -1322,7 +1323,7 @@ total       <sum_bytes>        <budget_bytes x instances>  <ok|OVER>
 ```
 
 - `always_on_bytes` = managed `AGENTS.md` block + `SKILL.md` + that role's
-  charter + that role's short-term memory (`ShortTermMemory.md`, C3). The unit is **one instance**, never the roster.
+  charter + that role's memory. The unit is **one instance**, never the roster.
 - `budget_bytes` = `AlwaysOnBudgetKb` x **1024** (KiB, frozen so the number is
   reproducible). The key lives in the workspace `Settings.json`, defaults to
   `120` in `config.py`, and **must be listed in `config.SETTINGS_NON_PROVIDER`**:
@@ -2254,3 +2255,107 @@ the repository stays green. The probe prints rule 4's five findings
 **from the frozen strings of this section**, so the wording a `feature`-layer
 record asserts is the wording the predicate emits. The evidence line is in
 `D-20261029-Architect-3`, which also carries the corrected count.
+
+## 14. Lessons and prefixed team skills (frozen)
+
+Owner: Architect. This section freezes the **mistake-memory surface**: the `tw-`
+prefix every team skill carries, the two skill kinds, the role-local lesson
+record, and the `lesson`/`skill` CLI shapes T-0031 implements. The
+constitution text (`SKILL.md`, `roles/`, `references/`) belongs to the CEO; what
+is frozen here is the engine surface and the rules a Tester can assert on.
+
+**Measured baseline at `5bcf231`** - none of this is implemented yet, and the
+section says so rather than describing an engine that does not exist:
+`git ls-files .agents/skills` -> `ceo-audit-close/SKILL.md` and
+`product-manager-records/SKILL.md`, i.e. two unprefixed skills;
+`skill create --help` has no `--kind` and no `--from-lesson`;
+`harness lint` -> `# problems found: 0`, so `PREFIX` does not exist yet;
+no `Roles/*/Lessons.md` exists and `teamwork.py lesson` is not a subcommand.
+Until T-0031 lands, `tw-` and `Lessons.md` are a rule, not a command.
+
+Every team-created skill carries the fixed prefix `tw-`. The prefix is the
+recognition contract: a directory under `.agents/skills/tw-*`, and a registry row
+whose name starts `tw-`, is a Teamwork-authored local skill - never a host or
+third-party skill. `skill create` refuses any other name, and `harness lint`
+reports rule `PREFIX` for a directory that does not carry it. There is no legacy
+exemption.
+
+### 14.1 Skill kinds
+
+| kind | created from | front matter | purpose |
+|---|---|---|---|
+| `workflow` (default) | a repeated task flow | `kind: workflow` | the one way to do a recurring job |
+| `mistake` | a recorded lesson via `--from-lesson L-nnnn` | `kind: mistake` plus `prevents: L-nnnn` | the workflow fix that stops one recorded failure recurring |
+
+The registry row in `Skills.md` carries `kind:` and `lesson:` next to the
+existing fields (`name`, `status`, `owner_role`, `created_by`, `path`, `created`,
+`updated`, `shared_with`, `description`). `skill create --from-lesson` requires
+the lesson to exist, to belong to the same role as the skill and to be `open`; on
+success the lesson becomes `fixed` with the skill name and the actor recorded,
+and both records link to each other. `skill create --kind mistake` without
+`--from-lesson` is refused: a mistake skill names the record it fixes. A skill
+file read without a `kind:` field is a `workflow` (backward compatible).
+
+### 14.2 Lesson records (`Roles/<Role>/Lessons.md`)
+
+Local working state, shared by every instance of a role, never committed (like
+memory). One record per mistake:
+
+```
+## L-0001 - <one line: what went wrong>
+- role: <role>
+- status: open | fixed
+- mistake: <the observable failure>
+- cause: <why it happened>
+- rule: <what the agent now does instead>
+- evidence: <command @rev -> result>
+- task: <T-id>            (optional)
+- skill: <tw-name>        (set when a skill fixes it)
+- by: <instance>
+- created: YYYY-MM-DD
+- updated: YYYY-MM-DD
+```
+
+Ids are globally unique across the team: `L-` plus four digits, allocated from
+the maximum over every role's `Lessons.md`. Commands: `lesson add`,
+`lesson list [--role ROLE] [--status open|fixed|all]`, `lesson show <L-id>`,
+`lesson fix <L-id> --by <instance> [--rule TEXT] [--skill tw-name] [--evidence TEXT]`.
+`lesson add` requires `--by`, `--mistake`, `--cause`, `--rule` and `--evidence`;
+the role defaults to the actor's role. `lesson fix` requires a recorded
+`--evidence` (or keeps the existing one) and an existing `--skill` when given; it
+moves the lesson to `fixed`. `load` prints that role's open lessons (first 10)
+and a count of fixed ones, so every instance sees its mistakes at startup. A
+missing file is an empty lesson list, never an error.
+
+### 14.3 CLI shapes (frozen, documented in `docs/guide/cli.md`)
+
+```
+teamwork lesson {add,list,show,fix} ...
+teamwork lesson add --by BY --mistake TEXT --cause TEXT --rule TEXT --evidence TEXT [--role ROLE] [--task TASK]
+teamwork lesson list [--role ROLE] [--status open|fixed|all]
+teamwork lesson show L_ID
+teamwork lesson fix L_ID --by BY [--rule RULE] [--skill SKILL] [--evidence EVIDENCE]
+teamwork skill create --name tw-NAME --for TEXT --by BY [--role ROLE] [--kind workflow|mistake] [--from-lesson L_ID] [--body BODY] [--body-file FILE]
+```
+
+`SKILL_PREFIX = "tw-"` and `SKILL_NAME_RE = ^tw-[a-z0-9]+(-[a-z0-9]+)*$` are the
+single source of truth in `config.py`/`records.py`. `skill candidates` keeps its
+repeated-area list and adds a mistake section: for each role, tasks whose
+`review_fails` is greater than zero, with the count and the findings text, plus a
+paste-ready `lesson add` line and `skill create --from-lesson` line. `skill list`
+prints `kind` and, for a mistake skill, the lesson id. `skill share` tells peers
+the kind and the lesson.
+
+### 14.4 Invariants
+
+- Renaming a skill moves the directory, the front-matter `name:`, the registry
+  row and every live trigger in one reviewed change.
+- The two skills that predate this section are renamed `tw-ceo-audit-close` and
+  `tw-product-manager-records`; every live reference (SKILL.md, roles/, tests,
+  Plan.md) moves with them. Records in `Archive.md` and `Decisions.md` are
+  history and are not rewritten.
+- A lesson never replaces a gate and a skill never weakens one: the normal
+  branch, commit, PR, review and Reviewer-only merge apply to both.
+- `harness lint` rule `PREFIX` (12.4): every `.agents/skills/<dir>/SKILL.md` must
+  have `name:` and `<dir>` starting with `tw-`; one finding per file, detail
+  naming the offending value.

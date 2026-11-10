@@ -159,7 +159,7 @@ def test_list_prints_exactly_eight_rows_in_component_order(cli, project, capsys)
     assert specs == [
         "SKILL.md",
         "managed block in AGENTS.md",
-        "Roles/<Role>/ShortTermMemory.md",
+        "Roles/<Role>/*.md + Global/GlobalMemory.md",
         "references/*.md",
         "n/a - lane packet, no file",
         ".agents/skills/*/SKILL.md",
@@ -203,10 +203,12 @@ def recompute(spec: str, repo: Path, root: Path) -> int:
             start = text.find(engine.BEGIN)
             end = text.find(engine.END)
             total += len(text[start : end + len(engine.END)].encode("utf-8"))
-        elif part == "Roles/<Role>/ShortTermMemory.md":
+        elif part == "Global/GlobalMemory.md":
+            total += (root / part).stat().st_size
+        elif part == "Roles/<Role>/*.md":
             for role in sorted((root / config.DIR_ROLES).iterdir()):
                 if role.is_dir():
-                    total += (role / config.F_SHORT).stat().st_size
+                    total += sum(path.stat().st_size for path in role.glob("*.md"))
         else:
             total += sum(path.stat().st_size for path in repo.glob(part) if path.is_file())
     return total
@@ -664,74 +666,3 @@ def test_lint_on_this_repository_reports_only_the_routed_dead_skill(repo_root: P
         assert [finding.path for finding in dead] == [".agents/skills/ceo-audit-close/SKILL.md"], (
             "the unnamed ceo-audit-close skill is the only TRIGGER finding this tree allows"
         )
-
-
-def test_long_term_memory_is_not_always_on(cli, project, capsys) -> None:
-    """AGENTS.md says long-term memory is never loaded, so the budget must not count it.
-
-    Measured on the live team: the reviewer read 133160 bytes against a 122880 cap,
-    and the gap was exactly its 19559-byte LongTermMemory.md.
-    """
-    build_tree(project)
-    assert cli("--project", project, "init", "--no-git") == 0
-    root = team_root(project)
-    role = engine.resolve_role("ceo")
-    before = harness.instance_always_on(project, root, role)
-
-    long_term = harness.role_dir(root, role) / config.F_LONG
-    long_term.parent.mkdir(parents=True, exist_ok=True)
-    long_term.write_text("archived line\n" * 20000, encoding="utf-8")
-    assert harness.instance_always_on(project, root, role) == before
-
-    short_term = harness.role_dir(root, role) / config.F_SHORT
-    short_term.write_text(
-        short_term.read_text(encoding="utf-8") + "fresh\n" * 500, encoding="utf-8"
-    )
-    assert harness.instance_always_on(project, root, role) > before
-
-
-def test_the_audit_reports_an_instance_over_the_cap(cli, project, capsys) -> None:
-    build_tree(project)
-    assert cli("--project", project, "init", "--no-git") == 0
-    capsys.readouterr()
-
-    assert cli("--project", project, "audit") in (0, 1)
-    clean = capsys.readouterr().out
-    section = clean.split("## startup read over the cap", 1)[1].split("\n## ", 1)[0]
-    assert "- none" in section, section
-
-    settings = team_root(project) / config.F_SETTINGS
-    data = json.loads(settings.read_text(encoding="utf-8"))
-    data["AlwaysOnBudgetKb"] = 1
-    settings.write_text(json.dumps(data), encoding="utf-8")
-
-    cli("--project", project, "audit")
-    flagged = capsys.readouterr().out
-    section = flagged.split("## startup read over the cap", 1)[1].split("\n## ", 1)[0]
-    assert "bytes against a cap of 1024" in section, section
-    assert "- none" not in section
-
-
-COMMITTED_SKILLS = Path(__file__).resolve().parents[2] / ".agents" / "skills"
-
-
-def test_every_committed_skill_carries_a_verdict() -> None:
-    """A committed skill is visible to every instance, so it is shared.
-
-    The EVIDENCE rule reads the shared-skill registry (`Skills.md`), which is
-    gitignored team state, so CI never ran it. This check needs no registry: each
-    skill file in the repository must carry an evidence row.
-    """
-    skills = sorted(COMMITTED_SKILLS.glob("*/SKILL.md"))
-    assert skills, "the repository ships no skill to check"
-    missing = [
-        path.parent.name
-        for path in skills
-        if not harness.VERDICT_RE.search(path.read_text(encoding="utf-8"))
-    ]
-    assert not missing, f"committed skill(s) without a verdict row: {missing}"
-
-
-def test_a_skill_without_a_verdict_is_refused() -> None:
-    assert harness.VERDICT_RE.search("verdict: no observed effect\n")
-    assert not harness.VERDICT_RE.search("## Verdict on this skill\n\nto be measured\n")

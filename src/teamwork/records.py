@@ -759,8 +759,6 @@ def new_task(
         "reviewer": "",
         "review_claim": "",
         "review_claim_ts": "",
-        "review_claim_profile": "",
-        "review_claim_lease": "",
         "claimed_by": "",
         "branch": "",
         "base": "",
@@ -773,12 +771,6 @@ def new_task(
         "review_mechanical": "",
         # The last fail's --detects: the specific failure it would catch (HERO).
         "review_detects": "",
-        # Set only by a forced drop past a live claim (task set --status dropped).
-        "dropped_under_live": "",
-        # A gate override reason, when one was forced (see the audit).
-        "forced": "",
-        # Where a closed task's long evidence lives once it is archived.
-        "archived": "",
         "findings": "",
         "created": today_iso(),
         "updated": today_iso(),
@@ -859,8 +851,6 @@ def parse_tasks(path: Path) -> list:
                     "review_fail_rev",
                     "review_mechanical",
                     "review_detects",
-                    "dropped_under_live",
-                    "archived",
                 ):
                     if field in NUMERIC_FIELDS:
                         current[field] = int(value) if value.isdigit() else 0
@@ -924,15 +914,12 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("review_fail_rev", t.get("review_fail_rev", "")),
             ("review_mechanical", t.get("review_mechanical", "")),
             ("review_detects", t.get("review_detects", "")),
-            ("dropped_under_live", t.get("dropped_under_live", "")),
             ("forced", t.get("forced", "")),
             ("evidence", t.get("evidence", "")),
             ("findings", t.get("findings", "")),
             ("created", t["created"]),
             ("updated", t["updated"]),
         ]
-        if t.get("archived"):
-            meta.append(("archived", t.get("archived")))
         for field, value in meta:
             out.append(f"- {field}: {one_line(value)}")
         out.append("")

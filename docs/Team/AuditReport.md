@@ -5,28 +5,7 @@ Related: [Project](Project.md) · [Architecture](Architecture.md) · [Risks](Ris
 
 ## Status
 
-Dated facts, measured 2026-11-02 on `main` at `dffa325`. A claim without a date is
-not current; re-run the command before relying on it.
-
-| Claim | State on 2026-11-02 | Measured by |
-|---|---|---|
-| Tree holds no personal data | PASS, 0 findings | `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` |
-| Tree and history hold no personal data (gate) | PASS, 0 findings, exit 0 | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` |
-| R5, the local history rewrite | Closed, performed under the CEO's authorization | `docs/Team/Project.md` gap G-8 |
-| F-P1, the red gate from the unpublished commit | Closed (2026-10-25) | section 0 |
-| Author identity of that commit | Disclosed at the object level; not undone by the rewrite | section 0, 2026-10-25 |
-| F-P2, privacy job skipped on a prose-only push | Open at its last measurement, 2026-10-25 | section 0 |
-| F-P3, wording asymmetries | Open at its last measurement, 2026-10-25 | section 0 |
-
-The last two rows were not re-measured on 2026-11-02; they stay open until a
-dated re-measurement closes them.
-
-Sections 0 to 8 are the dated record of the audit. Where a statement reads "is
-red", "is open" or "remains to be done", it was true on the date of its own
-measurement, not today. The record below is kept as measured.
-
-## Status record (2026-10-21 to 2026-10-25, kept as measured)
-**Superseded in part by the table above.** This is a dated measurement, not a
+**Superseded in part - read this first.** This is a dated measurement, not a
 live dashboard. It was written against the revision whose local history still
 carried the disclosed commit, and its conclusions have since been closed:
 
