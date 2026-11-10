@@ -8449,14 +8449,78 @@ def _print_dispute(d: dict) -> None:
         print(f"    ruling: signed=[{', '.join(d['signed'])}] {d['decision']}")
 
 
-def _dispute_parties(dispute: dict = None) -> set:
-    """The roles a dispute is between; neither may rule it."""
+def _dispute_party_instances(root: Path, dispute: dict = None) -> set:
+    """The instances a dispute is between, in their canonical spelling.
+
+    A dispute names agents, not roles: ``raised_by``/``against`` hold the instance
+    that opened it and the instance it was opened against. Comparing them at role
+    level (the old ``resolve_role`` test) dropped a whole role from the panel as
+    soon as one of its instances was a party, which locked the uninvolved
+    instances of that same role out of the neutral seat.
+
+    A dispute raised against a bare role name speaks for every instance of that
+    role, so the whole role counts as a party here.
+    """
     if not dispute:
         return set()
-    return {
-        resolve_role(dispute.get("raised_by") or ""),
-        resolve_role(dispute.get("against") or ""),
-    }
+    out = set()
+    for field in ("raised_by", "against"):
+        name = pascal(dispute.get(field) or "")
+        if not name:
+            continue
+        role = resolve_role(name)
+        instances = {pascal(i) for i in instances_of(root, role)}
+        if name in instances:
+            out.add(name)
+        else:
+            out.update(instances)
+    return out
+
+
+def _dispute_party_instance(root: Path, dispute: dict, instance: str) -> bool:
+    """True when *this instance* is named in ``raised_by``/``against``.
+
+    The guarantee is per agent, not per role: Reviewer-2 may be a party to a
+    dispute while Reviewer-1 is not, and only Reviewer-2 is locked out of it.
+    """
+    if not dispute:
+        return False
+    return pascal(instance or "") in _dispute_party_instances(root, dispute)
+
+
+def _actor_is_dispute_party(root: Path, dispute: dict, actor: str, role: str) -> bool:
+    """True when the actor may not sign or rule the dispute it is party to.
+
+    A concrete instance is a party when it is named in the dispute. A bare role
+    name speaks for the whole role, so it is a party when ANY of its instances
+    is - otherwise a party could sign under its role name and slip past the
+    instance-level rule.
+    """
+    instances = instances_of(root, role)
+    if pascal(actor or "") in {pascal(i) for i in instances}:
+        return _dispute_party_instance(root, dispute, actor)
+    return any(_dispute_party_instance(root, dispute, inst) for inst in instances)
+
+
+def _role_has_neutral_instance(root: Path, role: str, dispute: dict) -> bool:
+    """True when the role has an instance that is not a party to the dispute.
+
+    A role leaves the panel only when EVERY one of its instances is a party:
+    then no agent of that role can sit, so the role cannot be staffed neutrally.
+    """
+    instances = instances_of(root, role)
+    if not instances:
+        return False
+    if not dispute:
+        return True
+    return any(not _dispute_party_instance(root, dispute, inst) for inst in instances)
+
+
+def _role_is_party_role(root: Path, role: str, dispute: dict) -> bool:
+    """True when at least one instance of the role is a party to the dispute."""
+    if not dispute:
+        return False
+    return any(_dispute_party_instance(root, dispute, inst) for inst in instances_of(root, role))
 
 
 def required_tribunal(root: Path, dispute: dict = None) -> list:
@@ -8464,17 +8528,38 @@ def required_tribunal(root: Path, dispute: dict = None) -> list:
 
     The CEO always sits. CTO and CFO join when staffed. The Reviewer takes the
     remaining neutral seat, because a slim roster staffs neither CTO nor CFO and a
-    panel of one would let the CEO sign and resolve their own case. A role that is
-    itself a party never sits, so a ruling is never issued by the side it decides
-    for. Only roles that really have an instance are returned - an invented signer
-    cannot sign and would deadlock every escalated dispute.
+    panel of one would let the CEO sign and resolve their own case. A role is
+    excluded only when EVERY one of its instances is a party, so an uninvolved
+    instance of a party role can still take the neutral seat - the case that
+    locked the third Reviewer out of a Reviewer-vs-Reviewer dispute. Only roles
+    that really have an instance are returned - an invented signer cannot sign and
+    would deadlock every escalated dispute.
     """
-    parties = _dispute_parties(dispute)
-    members = [r for r in ("ceo", "cto", "cfo") if r not in parties and instances_of(root, r)]
-    if len(members) < TRIBUNAL_MIN_SIGNERS and "reviewer" not in parties:
-        if instances_of(root, "reviewer"):
-            members.append("reviewer")
+    members = [r for r in ("ceo", "cto", "cfo") if _role_has_neutral_instance(root, r, dispute)]
+    if _role_has_neutral_instance(root, "reviewer", dispute) and (
+        len(members) < TRIBUNAL_MIN_SIGNERS or _role_is_party_role(root, "reviewer", dispute)
+    ):
+        # The Reviewer takes the neutral seat. It also takes it when it is a party
+        # role with an uninvolved instance: the role was only on the panel by
+        # accident then, and that instance is the neutral seat the charter names.
+        members.append("reviewer")
     return members
+
+
+def _neutral_signer(root: Path, dispute: dict, members: list) -> str:
+    """A concrete instance that may sign and rule: on the panel, not a party.
+
+    The panel lists roles, but the party rule is per instance, so a role on the
+    panel can still be the party - and the notice must not name it as the signer.
+    """
+    for role in members:
+        instances = instances_of(root, role)
+        if not any(_dispute_party_instance(root, dispute, inst) for inst in instances):
+            return role
+        for inst in instances:
+            if not _dispute_party_instance(root, dispute, inst):
+                return inst
+    return ""
 
 
 def _dispute_tribunal_notice(root: Path, d: dict) -> None:
@@ -8484,9 +8569,9 @@ def _dispute_tribunal_notice(root: Path, d: dict) -> None:
     print(f"  1) python3 teamwork.py dispute escalate {d['id']} --by {d['raised_by']}")
     print(f"  2) the tribunal ({', '.join(members)}) discusses and each signs:")
     print(f"     dispute sign {d['id']} --by {'|'.join(members)}")
-    signers = [r for r in members if r not in _dispute_parties(d)] or members
-    if signers:
-        print(f"  3) dispute resolve {d['id']} --by {signers[0]} --decision '<binding ruling>'")
+    signer = _neutral_signer(root, d, members)
+    if signer:
+        print(f"  3) dispute resolve {d['id']} --by {signer} --decision '<binding ruling>'")
     else:
         print("  3) nobody independent is staffed: add a reviewer, then resolve")
     print("  4) record the ruling in docs/Team/Decisions.md")
@@ -8599,6 +8684,16 @@ def cmd_dispute_sign(args) -> int:
         members = required_tribunal(root, d)
         if who not in members:
             die(f"only the tribunal may sign: {', '.join(members)}")
+        if _actor_is_dispute_party(root, d, actor, arole):
+            # The party rule is per instance: a role-mate is not a party, but the
+            # agent the dispute was raised against never signs its own case. The
+            # panel check runs first, so an actor off the panel still gets the
+            # panel message it always got.
+            die(
+                f"{d['id']}: {actor} is a party to this dispute and cannot sign it. "
+                f"Escalate it and let {', '.join(members)} decide",
+                2,
+            )
         if who not in d["signed"]:
             d["signed"].append(who)
         d["updated"] = today_iso()
@@ -8630,19 +8725,16 @@ def cmd_dispute_resolve(args) -> int:
         panel = required_tribunal(root, d)
         if arole not in panel:
             die(f"only the tribunal may resolve: {', '.join(panel)}")
-        parties = {
-            resolve_role(d.get("raised_by") or ""),
-            resolve_role(d.get("against") or ""),
-        }
-        if who in parties:
-            # A dispute is never decided by the side it decides for. Escalate it so a
-            # neutral member signs first; forcing it needs a written reason (F3).
-            what = (
-                f"{d['id']}: {who} is a party to this dispute and cannot rule it. "
-                f"Escalate it and let {', '.join(required_tribunal(root, d))} decide"
+        if _actor_is_dispute_party(root, d, actor, arole):
+            # A dispute is never decided by the side it decides for. The party test
+            # is per instance (a role-mate is not a party), and it is absolute:
+            # --force waives the signature requirement, never the party rule, so
+            # no party can rule its own dispute however good its reason reads.
+            die(
+                f"{d['id']}: {actor} is a party to this dispute and cannot rule it. "
+                f"Escalate it and let {', '.join(panel)} decide",
+                2,
             )
-            if not (args.force or "").strip():
-                die(f"{what}. Forcing it needs a written reason.", 2)
         if d["escalated"]:
             members = required_tribunal(root, d)
             missing = [r for r in members if r not in d["signed"]]
