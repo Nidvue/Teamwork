@@ -19,9 +19,10 @@ comment. This file grades the graph:
   created) and it is the same checker, not a second implementation.
 
 The publisher set is *computed* from what each job actually does, not hard-coded:
-a new job that uses `softprops/action-gh-release` or asks for `contents: write`
-joins the graded set automatically. A test asserts the computed set is non-empty,
-so a workflow with no publishers at all cannot make the invariant vacuous.
+a new job that uses `softprops/action-gh-release`, asks for `contents: write`
+or runs `npm publish` joins the graded set automatically. A test asserts the
+computed set is non-empty, so a workflow with no publishers at all cannot make
+the invariant vacuous.
 
 Mutants edit the parsed workflow in memory (or a `tmp_path` copy of the YAML
 text) and re-run the same analysis, so the tracked workflow is never written.
@@ -29,6 +30,7 @@ text) and re-run the same analysis, so the tracked workflow is never written.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -47,6 +49,12 @@ PUBLISH_ACTIONS = {
     "actions/upload-release-asset",
     "docker/build-push-action",
 }
+
+#: The npm publish invocation, in either shape the workflow may use: the argv list
+#: `["npm", "publish", ...]` or a `npm("publish", ...)` helper call.
+NPM_PUBLISH_CALL = re.compile(
+    r"""npm\s*\(\s*["']publish["']|\[\s*["']npm["']\s*,\s*["']publish["']"""
+)
 
 #: Conditions that make a job run *despite* a failed dependency.
 BYPASS_IF_RE = r"always\(\)|failure\(\)|cancelled\(\)"
@@ -136,6 +144,10 @@ def publishes(job: dict) -> bool:
     if any(action_name(spec) in PUBLISH_ACTIONS for spec in actions_of(job)):
         return True
     if str(permissions_of(job).get("contents", "")).strip() == "write":
+        return True
+    # A registry upload is a publish even though it writes nothing to the
+    # repository: `npm publish` ships a tarball the world installs.
+    if any(NPM_PUBLISH_CALL.search(str(step.get("run") or "")) for step in job.get("steps") or []):
         return True
     # An upload of the release asset bundle is a publish step only when it goes
     # to a Release; `actions/upload-artifact` feeds the job that does that, so it
@@ -284,11 +296,11 @@ def test_the_release_job_rechecks_after_it_publishes():
 def test_the_analysis_sees_the_workflow_it_claims_to_grade():
     """Guard against a parser that silently reads nothing."""
     document = release()
-    assert set(jobs(document)) == {"consistency", "build", "attest", "release"}
-    assert publishers(document) == ["release"], publishers(document)
+    assert set(jobs(document)) == {"consistency", "build", "attest", "release", "npm"}
+    assert publishers(document) == ["npm", "release"], publishers(document)
     assert len(checkouts(jobs(document)["consistency"])) == 1
     assert needs_of(jobs(document)["attest"]) == ["build"]
-    assert set(needs_of(jobs(document)["release"])) == {"build", "attest"}
+    assert set(needs_of(jobs(document)["release"])) == {"consistency", "build", "attest"}
 
 
 # --------------------------------------------------------------------------- #
@@ -368,3 +380,146 @@ def test_each_bypassing_condition_is_recognised(condition):
     document = release()
     document["jobs"]["release"]["if"] = condition
     assert bypass_problems(document), condition
+
+
+# --------------------------------------------------------------------------- #
+# the npm publish job
+# --------------------------------------------------------------------------- #
+
+NPM_JOB = "npm"
+
+#: The npm CLI floor for trusted publishing, from
+#: https://docs.npmjs.com/trusted-publishers/ (accessed 2026-10-28):
+#: "requires npm CLI version 11.5.1 or later and Node version 22.14.0 or higher".
+NPM_TRUSTED_PUBLISHING_FLOOR = (11, 5, 1)
+
+
+def npm_job(document: dict | None = None) -> dict:
+    job = jobs(document if document is not None else release()).get(NPM_JOB)
+    assert isinstance(job, dict), sorted(jobs(release()))
+    return job
+
+
+def npm_runs(document: dict | None = None) -> dict[str, str]:
+    """The `run:` bodies of the npm job, keyed by step name."""
+    return {
+        str(step.get("name") or ""): re.sub(r"\s+", " ", str(step.get("run") or ""))
+        for step in npm_job(document).get("steps") or []
+        if isinstance(step, dict) and step.get("run")
+    }
+
+
+def test_the_npm_job_needs_the_gate_and_the_build():
+    assert set(needs_of(npm_job())) == {GATE_JOB, "build"}, needs_of(npm_job())
+
+
+def test_the_npm_job_holds_the_oidc_token_and_no_write_permission():
+    """Trusted publishing is the credential; nothing may write to the repository."""
+    perms = permissions_of(npm_job())
+    assert perms == {"contents": "read", "id-token": "write"}, perms
+
+
+def test_the_npm_job_publishes_publicly_with_provenance():
+    published = [run for run in npm_runs().values() if 'npm("publish"' in run]
+    assert len(published) == 1, sorted(npm_runs())
+    call = published[0]
+    assert 'npm("publish", "--access", "public", "--provenance")' in call, call
+
+
+def test_the_npm_job_never_swallows_a_publish_failure():
+    job = npm_job()
+    assert "continue-on-error" not in job
+    for step in job["steps"]:
+        assert step.get("continue-on-error") not in (True, "true"), step.get("name")
+        assert "|| true" not in str(step.get("run") or ""), step.get("name")
+    # The failure path must name both ways to authorise the publish, and must exit
+    # non-zero: a release that cannot publish is a red run, never a green skip.
+    publish = next(run for run in npm_runs().values() if 'npm("publish"' in run)
+    assert "raise SystemExit(1)" in publish, publish
+    assert "Trusted Publishing" in publish and "NPM_TOKEN" in publish, publish
+
+
+def test_the_npm_job_pins_an_npm_version_at_or_above_the_floor():
+    installs = [run for run in npm_runs().values() if "npm install -g npm@" in run]
+    assert len(installs) == 1, sorted(npm_runs())
+    match = re.search(r"npm install -g npm@(\d+)\.(\d+)\.(\d+)", installs[0])
+    assert match is not None, installs[0]
+    pinned = tuple(int(part) for part in match.groups())
+    assert pinned >= NPM_TRUSTED_PUBLISHING_FLOOR, (
+        f"npm {'.'.join(match.groups())} is below the trusted-publishing floor "
+        f"{'.'.join(str(p) for p in NPM_TRUSTED_PUBLISHING_FLOOR)}"
+    )
+
+
+def test_the_npm_version_floor_and_node_floor_are_pinned_in_the_job():
+    text = release_text()
+    steps = {
+        str(step.get("name") or ""): step for step in npm_job()["steps"] if isinstance(step, dict)
+    }
+    node = next(
+        step
+        for step in steps.values()
+        if action_name(str(step.get("uses") or "")) == "actions/setup-node"
+    )
+    with_ = node.get("with") or {}
+    assert with_.get("node-version") == "22.14.0", (
+        f"trusted publishing needs Node >= 22.14.0, the job asks for {with_.get('node-version')!r}"
+    )
+    assert with_.get("registry-url") == "https://registry.npmjs.org", with_
+    # A publish job with `id-token: write` must not restore an npm cache.
+    assert str(with_.get("package-manager-cache")).lower() == "false", with_
+    # The two external floors are cited where the pin lives, with an access date.
+    assert "https://docs.npmjs.com/trusted-publishers/" in text
+    assert "accessed 2026-10-28" in text
+
+
+def test_the_npm_job_builds_the_bundle_with_the_shipped_script():
+    runs = npm_runs()
+    built = [run for run in runs.values() if run.startswith("python3 scripts/build_pi_package.py")]
+    assert len(built) == 1, sorted(runs)
+    assert built[0] == "python3 scripts/build_pi_package.py", built[0]
+
+
+def test_the_npm_job_falls_back_to_the_token_only_when_the_secret_exists():
+    text = release_text()
+    assert "NPM_TOKEN: ${{ secrets.NPM_TOKEN }}" in text
+    publish = next(run for run in npm_runs().values() if 'npm("publish"' in run)
+    # The userconfig is written with a token line only when the secret is set;
+    # otherwise npm falls through to the OIDC exchange.
+    assert "if token:" in publish, publish
+    assert "_authToken" in publish, publish
+
+
+def test_the_workflow_dispatch_path_exists_and_still_needs_a_tag():
+    document = release()
+    triggers = document.get("on")
+    assert isinstance(triggers, dict), triggers
+    assert "workflow_dispatch" in triggers, sorted(triggers)
+    dispatch = triggers["workflow_dispatch"]
+    inputs = (dispatch or {}).get("inputs") or {}
+    assert "tag" in inputs, inputs
+    assert str(inputs["tag"].get("required")).lower() == "true", inputs["tag"]
+
+
+def test_a_dispatch_never_creates_a_tag():
+    """`git tag` with an argument would be the workflow tagging a revision."""
+    text = release_text()
+    # `git tag -l` (list) is a read; anything else creates, moves or deletes a tag.
+    assert not re.search(r"git tag (?!-l|--list)[^-]", text), (
+        "the workflow must never create, move or delete a tag"
+    )
+    assert "git push" not in text, "the workflow must never push a ref"
+
+
+def test_every_action_in_the_release_workflow_is_pinned_to_a_full_sha():
+    unpinned = [
+        spec
+        for spec in (
+            str(step.get("uses") or "")
+            for job in jobs(release()).values()
+            for step in job.get("steps") or []
+            if isinstance(step, dict)
+        )
+        if spec and not re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}( # v\d+)?", spec)
+    ]
+    assert unpinned == [], unpinned

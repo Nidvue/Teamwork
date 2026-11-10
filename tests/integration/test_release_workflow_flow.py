@@ -34,6 +34,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+from tests.gitenv import child_env
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 CHECKER = REPO_ROOT / "scripts" / "check_release_consistency.py"
@@ -370,12 +373,15 @@ def job_blocks(workflow: Path = RELEASE_WORKFLOW) -> dict[str, list[str]]:
     for line in lines[jobs_at + 1 :]:
         match = re.match(r"^  ([a-z][a-z0-9_-]*):\s*$", line)
         if match:
-            current = match.group(1)
-            blocks[current] = []
+            name = match.group(1)
+            current = name
+            blocks[name] = []
             continue
         if current is None:
             continue
-        if line.strip() and not line.startswith("    "):
+        # A comment between two jobs (at the same indent) documents the job below
+        # and does not end the section: only a real top-level key does.
+        if line.strip() and not line.lstrip().startswith("#") and not line.startswith("    "):
             break
         blocks[current].append(line)
     assert blocks, "no jobs parsed"
@@ -387,8 +393,11 @@ def test_nothing_is_built_or_published_before_the_gate_has_run() -> None:
     jobs = job_blocks()
 
     assert "needs: [consistency]" in "\n".join(jobs["build"])
-    assert "needs: [build, attest]" in "\n".join(jobs["release"])
-    for name in ("build", "attest", "release"):
+    # `release` names the gate too: it reads the resolved tag from the
+    # `consistency` job's outputs, so the edge is explicit and not only transitive.
+    assert "needs: [consistency, build, attest]" in "\n".join(jobs["release"])
+    assert "needs: [consistency, build]" in "\n".join(jobs["npm"])
+    for name in ("build", "attest", "release", "npm"):
         assert "needs:" in "\n".join(jobs[name]), f"{name} has no dependency"
 
 
@@ -474,3 +483,380 @@ def test_verify_release_does_not_read_the_consistency_gate_record() -> None:
     # creates a virtualenv and installs the wheel (minutes, plus an isolated
     # build environment that fetches hatchling), which is beyond the runtime
     # and no-network budget of the integration layer. Marked NOT RUN here.
+
+
+# --------------------------------------------------------------------------- #
+# The workflow_dispatch path: an existing, released tag and nothing else
+# --------------------------------------------------------------------------- #
+
+RESOLVE_STEP = "Resolve the tag being published"
+
+
+def extract_step_block(step_name: str, workflow: Path = RELEASE_WORKFLOW) -> str:
+    """The `run:` body of the named step, dedented to column 0.
+
+    Line-based, so the code under test is the shipped text: the `run:` value is a
+    block scalar and its body starts on the line after `run: |`.
+    """
+    lines = workflow.read_text(encoding="utf-8").splitlines()
+    start = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.strip().startswith(f"- name: {step_name}")
+        ),
+        None,
+    )
+    assert start is not None, f"{workflow}: no step named {step_name!r}"
+    run_at = next(
+        (index for index in range(start, len(lines)) if lines[index].strip() == "run: |"),
+        None,
+    )
+    assert run_at is not None, f"{step_name}: no 'run: |' block"
+    indent = len(lines[run_at + 1]) - len(lines[run_at + 1].lstrip())
+    body: list[str] = []
+    for line in lines[run_at + 1 :]:
+        if line.strip() and len(line) - len(line.lstrip()) < indent:
+            break
+        body.append(line[indent:] if line.strip() else "")
+    code = "\n".join(body) + "\n"
+    for marker in ("EVENT_NAME", "GITHUB_OUTPUT", "version.py", "merge-base"):
+        assert marker in code, f"{step_name}: extracted block is missing {marker!r}"
+    return code
+
+
+def posix_bash_or_skip() -> str:
+    """A real POSIX shell, or a skip that names it (the classifier's rule)."""
+    from test_ci_scope_classifier import posix_bash
+    from tests.tooling import skip_message
+
+    try:
+        return posix_bash()
+    except AssertionError as absent:
+        pytest.skip(skip_message("bash", str(absent)))
+        raise  # unreachable: pytest.skip raises
+
+
+def released_tree(tmp_path: Path, *, version: str = "1.0.0") -> tuple[Path, str]:
+    """A checkout with `main`, a tag on it, and a tag that is *not* on `main`."""
+    root = make_release_tree(tmp_path / "dispatch", version=version, tag="v1.0.0")
+    git(root, "checkout", "-q", "-b", "feature")
+    (root / "feature.txt").write_text("unreleased\n", encoding="utf-8")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "unreleased work")
+    git(root, "tag", "v2.0.0")
+    git(root, "checkout", "-q", "main")
+    # The dispatch path proves reachability against `origin/main` (a full
+    # `actions/checkout` fetches every branch) and falls back to `main`.
+    git(root, "remote", "add", "origin", str(root))
+    git(root, "fetch", "-q", "origin", "+refs/heads/*:refs/remotes/origin/*")
+    return root, git(root, "rev-parse", "HEAD")
+
+
+def run_resolve(
+    root: Path,
+    *,
+    event_name: str = "workflow_dispatch",
+    ref_name: str = "main",
+    input_tag: str = "",
+) -> tuple[int, str, dict[str, str]]:
+    """Run the shipped resolve step and return its exit code, output and records."""
+    shell = posix_bash_or_skip()
+    output_file = root / "github-output.txt"
+    output_file.write_text("", encoding="utf-8")
+    env = child_env(event_name=event_name, ref_name=ref_name, input_tag=input_tag)
+    env["EVENT_NAME"] = event_name
+    env["REF_NAME"] = ref_name
+    env["INPUT_TAG"] = input_tag
+    env["GITHUB_OUTPUT"] = str(output_file)
+    result = subprocess.run(
+        [shell, "-c", extract_step_block(RESOLVE_STEP)],
+        cwd=str(root),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    recorded: dict[str, str] = {}
+    for line in output_file.read_text(encoding="utf-8").splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            recorded[key.strip()] = value.strip()
+    return result.returncode, result.stdout + result.stderr, recorded
+
+
+def test_the_dispatch_path_accepts_an_existing_released_tag(tmp_path: Path) -> None:
+    root, head = released_tree(tmp_path)
+
+    code, output, recorded = run_resolve(root, input_tag="v1.0.0")
+
+    assert code == 0, output
+    assert recorded["tag"] == "v1.0.0", recorded
+    assert recorded["version"] == "1.0.0", recorded
+    assert head == git(root, "rev-parse", "v1.0.0^{commit}")
+    assert "resolved workflow_dispatch -> v1.0.0" in output, output
+
+
+def test_a_tag_push_resolves_the_pushed_tag(tmp_path: Path) -> None:
+    """The same step must serve the tag-push path, where the ref is the tag."""
+    root, _ = released_tree(tmp_path)
+
+    code, output, recorded = run_resolve(root, event_name="push", ref_name="v1.0.0")
+
+    assert code == 0, output
+    assert recorded["tag"] == "v1.0.0", recorded
+    assert "resolved push -> v1.0.0" in output, output
+
+
+def test_the_dispatch_path_refuses_a_tag_that_does_not_exist(tmp_path: Path) -> None:
+    root, _ = released_tree(tmp_path)
+
+    code, output, recorded = run_resolve(root, input_tag="v9.9.9")
+
+    assert code == 2, output
+    assert "does not exist in this checkout" in output, output
+    assert recorded == {}, recorded
+
+
+def test_the_dispatch_path_refuses_a_tag_that_is_not_reachable_from_main(
+    tmp_path: Path,
+) -> None:
+    """A tag on an unreleased branch is refused: only a released revision publishes."""
+    root, _ = released_tree(tmp_path)
+
+    code, output, recorded = run_resolve(root, input_tag="v2.0.0")
+
+    assert code == 2, output
+    assert "not an ancestor of" in output, output
+    assert recorded == {}, recorded
+
+
+def test_the_dispatch_path_refuses_a_tag_whose_version_disagrees(tmp_path: Path) -> None:
+    root, _ = released_tree(tmp_path)
+    (root / "src" / "teamwork" / "version.py").write_text(
+        VERSION_FILE.format("2.5.0"), encoding="utf-8"
+    )
+
+    code, output, _ = run_resolve(root, input_tag="v1.0.0")
+
+    assert code == 2, output
+    assert "disagrees with src/teamwork/version.py (2.5.0)" in output, output
+
+
+def test_the_dispatch_path_refuses_something_that_is_not_a_version_tag(tmp_path: Path) -> None:
+    root, _ = released_tree(tmp_path)
+
+    code, output, _ = run_resolve(root, input_tag="main")
+
+    assert code == 2, output
+    assert "is not a vX.Y.Z tag" in output, output
+
+
+def test_the_dispatch_path_refuses_an_empty_tag(tmp_path: Path) -> None:
+    root, _ = released_tree(tmp_path)
+
+    code, output, _ = run_resolve(root, input_tag="")
+
+    assert code == 2, output
+    assert "needs the 'tag' input" in output, output
+
+
+def test_the_reachability_refusal_bites_only_because_the_tag_is_off_main(
+    tmp_path: Path,
+) -> None:
+    """Move the very same tag onto `main` and it is accepted."""
+    root, _ = released_tree(tmp_path, version="2.0.0")
+    code, output, _ = run_resolve(root, input_tag="v2.0.0")
+    assert code == 2, output
+    assert "not an ancestor of" in output, output
+
+    git(root, "tag", "-f", "v2.0.0", "main")
+
+    code, output, recorded = run_resolve(root, input_tag="v2.0.0")
+
+    assert code == 0, output
+    assert recorded == {"tag": "v2.0.0", "version": "2.0.0"}, recorded
+
+
+def test_every_checkout_reads_the_resolved_tag() -> None:
+    """One ref rule for every job: a dispatch must not check out the default branch."""
+    blocks = job_blocks()
+    checkouts = {
+        name: block
+        for name, block in blocks.items()
+        if any("actions/checkout@" in line for line in block)
+    }
+    assert len(checkouts) >= 4, sorted(checkouts)
+    for name, block in checkouts.items():
+        refs = [
+            line.split("ref:", 1)[1].strip() for line in block if line.strip().startswith("ref:")
+        ]
+        assert len(refs) == 1, (name, refs)
+        assert "github.event.inputs.tag" in refs[0], (name, refs[0])
+        assert "format('refs/tags/{0}'" in refs[0], (name, refs[0])
+
+
+def test_the_resolve_step_publishes_the_inputs_the_jobs_read() -> None:
+    text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    assert "outputs:\n      tag: ${{ steps.resolve.outputs.tag }}" in text
+    assert "version: ${{ steps.resolve.outputs.version }}" in text
+    # The gate reads the resolved tag, never the raw ref: on a dispatch the ref is
+    # the default branch, and `refs/heads/main` is not a release.
+    assert "RELEASE_TAG: ${{ steps.resolve.outputs.tag }}" in text
+    assert "RELEASE_TAG: ${{ github.ref_name }}" not in text
+
+
+# --------------------------------------------------------------------------- #
+# The npm publish child environment: the secret travels in the userconfig only
+#
+# Review finding F1 (P-0031): the step's `env:` carries secrets.NPM_TOKEN, and the
+# block used to hand `dict(os.environ)` straight to every npm child while popping
+# only NODE_AUTH_TOKEN - which nothing sets. The document claimed "The token never
+# enters the step environment", which was false. The block now writes the token to
+# an explicit userconfig and removes both names from the child environment; these
+# tests execute the shipped block and read the environment each child actually
+# receives, so the claim in docs/Team/Release.md is pinned by code.
+# --------------------------------------------------------------------------- #
+
+PUBLISH_STEP = "Publish (idempotent: verify an existing version instead of failing)"
+#: A placeholder, not a credential: it only has to be unique inside this file, and it
+#: must not look like one to `scripts/privacy_scan.py`, which reports an assignment to a
+#: credential-suggesting name even when the value is invented.
+MARKER = "userconfig-marker"
+
+
+def publish_step_block(workflow: Path = RELEASE_WORKFLOW) -> str:
+    """The Python body of the npm publish step, dedented to column 0.
+
+    Line-based, so the subject is the shipped text rather than a copy of it.
+    """
+    lines = workflow.read_text(encoding="utf-8").splitlines()
+    start = next(
+        (i for i, line in enumerate(lines) if line.strip() == f'- name: "{PUBLISH_STEP}"'),
+        None,
+    )
+    assert start is not None, f"{workflow}: no step named {PUBLISH_STEP!r}"
+    heredoc = next(
+        (i for i in range(start, len(lines)) if lines[i].strip() == "python3 - <<'PY'"),
+        None,
+    )
+    assert heredoc is not None, "the publish step has no python heredoc"
+    end = next((i for i in range(heredoc + 1, len(lines)) if lines[i].strip() == "PY"), None)
+    assert end is not None, "the publish heredoc is not closed"
+    body = lines[heredoc + 1 : end]
+    indent = min(len(line) - len(line.lstrip()) for line in body if line.strip())
+    code = "\n".join(line[indent:] if line.strip() else "" for line in body) + "\n"
+    for marker in ("NPM_TOKEN", "NPM_CONFIG_USERCONFIG", "npm(", "subprocess.run"):
+        assert marker in code, f"extracted block is not the publish step: no {marker!r}"
+    return code
+
+
+class _ChildResult:
+    """What a fake npm returns: the two fields the block reads."""
+
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def run_publish_block(
+    code: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, version_published: bool
+) -> tuple[list[list[str]], list[dict[str, str]]]:
+    """Execute the shipped block with a fake npm; return the argv and env of each child.
+
+    ``subprocess`` is replaced in ``sys.modules`` *before* the block imports it, so the
+    block's own ``subprocess.run`` calls land in :func:`fake_run` and the environment it
+    was given is recorded verbatim. That is the only honest way to read what a child
+    process would receive, and it works on every host (no PATH shim, no npm needed).
+    """
+    import types
+
+    argv_seen: list[list[str]] = []
+    env_seen: list[dict[str, str]] = []
+
+    def fake_run(argv, **kwargs):
+        argv_seen.append([str(part) for part in argv])
+        env_seen.append(dict(kwargs.get("env") or {}))
+        if "view" in argv:
+            if version_published:
+                return _ChildResult(0, json.dumps("9.9.9"))
+            return _ChildResult(1, "", "npm error code E404")
+        return _ChildResult(0, "published")
+
+    # A stand-in module: the block imports `subprocess` itself, so replacing the
+    # entry in sys.modules is what makes it call `fake_run`. The namespace is built
+    # from a dict because a ModuleType carries no such attributes statically.
+    fake = types.ModuleType("subprocess", "stand-in for the publish step")
+    vars(fake)["run"] = fake_run
+    vars(fake)["CompletedProcess"] = _ChildResult
+    monkeypatch.setitem(sys.modules, "subprocess", fake)
+    monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
+    monkeypatch.setenv("PACKAGE_VERSION", "9.9.9")
+    monkeypatch.setenv("TAG_NAME", "v9.9.9")
+    monkeypatch.setenv("NPM_TOKEN", MARKER)
+
+    # The block exits 0 explicitly when the version is already published and falls
+    # off the end after a successful publish; both are a green step.
+    try:
+        exec(compile(code, "<publish-step>", "exec"), {"__name__": "__main__"})
+    except SystemExit as exc:
+        assert exc.code in (0, None), exc.code
+    return argv_seen, env_seen
+
+
+def test_the_publish_child_environment_carries_no_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The secret is in the userconfig file, never in a child's environment."""
+    argv_seen, env_seen = run_publish_block(
+        publish_step_block(), tmp_path, monkeypatch, version_published=True
+    )
+
+    assert argv_seen, "the block never invoked npm: the harness is not measuring anything"
+    assert argv_seen[0][1] == "view", argv_seen
+    for env in env_seen:
+        assert "NPM_TOKEN" not in env, (
+            "the publish child inherited NPM_TOKEN: a lifecycle script or a crash dump "
+            "could print the secret"
+        )
+        assert "NODE_AUTH_TOKEN" not in env, "the publish child inherited NODE_AUTH_TOKEN"
+        assert MARKER not in json.dumps(env), (
+            "the token marker appears somewhere in the child environment"
+        )
+    # The token was available to the step and was deliberately moved into the file
+    # npm reads for auth, so the pop above removes a copy rather than the only copy.
+    userconfig = (tmp_path / "npm-publish.npmrc").read_text(encoding="utf-8")
+    assert f"_authToken={MARKER}" in userconfig, userconfig
+    assert "registry=https://registry.npmjs.org/" in userconfig, userconfig
+
+
+def test_the_publish_child_environment_is_clean_on_the_publish_call_too(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A first publish goes through `npm publish`: that child must be clean as well."""
+    argv_seen, env_seen = run_publish_block(
+        publish_step_block(), tmp_path, monkeypatch, version_published=False
+    )
+
+    assert [argv[1] for argv in argv_seen] == ["view", "publish"], argv_seen
+    assert argv_seen[1][2:] == ["--access", "public", "--provenance"], argv_seen[1]
+    for env in env_seen:
+        assert "NPM_TOKEN" not in env and "NODE_AUTH_TOKEN" not in env, sorted(env)
+
+
+def test_the_token_guard_bites_when_the_pop_is_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Remove the pop and the very same harness finds the token: the test is not vacuous."""
+    code = publish_step_block()
+    mutated = code.replace('env.pop("NPM_TOKEN", None)', "pass  # mutant: the pop is gone", 1)
+    assert mutated != code, "the shipped block no longer pops NPM_TOKEN"
+
+    _, env_seen = run_publish_block(mutated, tmp_path, monkeypatch, version_published=True)
+
+    assert any(MARKER in json.dumps(env) for env in env_seen), (
+        "without the pop the token must still reach the child, or the guard is not what "
+        "keeps it out"
+    )
