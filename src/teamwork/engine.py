@@ -8543,6 +8543,19 @@ def cmd_task_set(args) -> int:
             t["title"] = args.title
         if args.evidence is not None:
             t["evidence"] = args.evidence.strip()
+        if getattr(args, "review_status", None):
+            if not (args.force or "").strip():
+                die(
+                    "--review-status needs --force '<why the stored verdict is wrong>': "
+                    "a review verdict is evidence, and rewriting one without a reason "
+                    "is the record tampering the ledger exists to expose.",
+                    2,
+                )
+            t["review_status"] = args.review_status
+            t["review_evidence"] = (
+                (t.get("review_evidence") or "")
+                + f" | verdict repaired to {args.review_status} by {args.agent}: {args.force}"
+            ).strip(" |")
         if args.force and not str(args.force).strip():
             die(
                 "--force needs a reason: --force '<why this gate must be bypassed>'. "
@@ -17122,6 +17135,15 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--priority", choices=list(PRIORITY_ORDER))
     s.add_argument("--deps", default=None)
     s.add_argument("--title", default=None)
+    s.add_argument(
+        "--review-status",
+        choices=("passed", "failed", "pending"),
+        help=(
+            "repair the stored review verdict, with --force as the reason: a task "
+            "closed by a governance override keeps the old failed verdict otherwise, "
+            "and loop reports it as an unreviewed deliverable"
+        ),
+    )
     s.add_argument(
         "--evidence", default=None, help="command + revision + observed result, or artifact path"
     )
