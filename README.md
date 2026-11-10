@@ -54,6 +54,7 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 | Designed images | The Designer owns every visual asset, raster **and** vector, and decides what the deliverable needs: vector first (SVG, diagram-as-code), and for a raster `imaging probe` picks the best available text-to-image model (cloud first, else local, else SVG), then plan -> 4+ candidates -> visual review -> improve until it passes -> integrate, with privacy and licence rules. |
 | Stop condition as a record | Acceptance criteria are machine records, not checkboxes. The loop stops only when they are all verified. |
 | Role-shared state | One memory and one priority queue per role, shared by any number of its instances, with one revising instance at a time (`memory claim`); a private, disposable workspace per instance. |
+| Learning loop | Every role keeps its own `Lessons.md` for mistakes it will not repeat, and the team keeps one `Knowledge.md`; a repeated failure can become a `tw-` mistake skill, and `load` surfaces open lessons and the top-ranked project knowledge. |
 | Concurrency control | Provider slot leases respect per-provider caps, so N agents never overload a model endpoint. |
 | Disputes and tribunal | A challenged design goes through evidence rounds; a 3-round deadlock is ruled on by the CEO + CTO + CFO and recorded. |
 | Portable, dependency-free | CPython 3.9-3.13 on Linux, macOS and Windows. **Zero third-party runtime dependencies.** |

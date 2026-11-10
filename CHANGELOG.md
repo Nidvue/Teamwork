@@ -9,6 +9,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Lesson records and the `lesson` CLI** - `Roles/<Role>/Lessons.md` keeps one
+  `L-nnnn` record per mistake (failure, cause, rule, evidence); `lesson
+  add|list|show|fix` records and closes it, and `load` shows the role's open
+  lessons at startup.
+- **The fixed `tw-` skill prefix** - every team skill is `tw-<name>` in its
+  directory and front matter; `skill create` refuses any other name and
+  `harness lint` adds rule `PREFIX`.
+- **Skill kinds and `--from-lesson`** - a skill is `workflow` (default) or
+  `mistake`, created from an `L-nnnn` record; the lesson becomes `fixed` and both
+  records link. `skill list` shows kind and lesson, and `skill share` tells peers.
+- **The project knowledge store** - `Knowledge.md` at the team root keeps
+  `K-nnnn` records with evidence, tags and importance; `knowledge
+  add|list|search|show|touch` writes and queries them, `load` prints the top 10
+  active records, and an obsolete fact is superseded instead of contradicted.
+- **Knowledge kinds** - `fact` (default), `experience`, `preference`, `gotcha`
+  and `rule`; `knowledge add|list|search --kind`, and `load` plus the context L0
+  show the kind. A record without it reads as `fact`, so no migration is needed.
+- **The context tree** - `ctx://` is a read-only view over memory, lessons,
+  knowledge, skills, docs and tasks; `context ls|tree|read|find|stats|digest`
+  navigates L0/L1/L2, `find --scope` is deterministic, and the view adds no file,
+  index, cache or model sidecar. `project/docs` enumerates the work tree (an
+  untracked doc appears, a tracked-deleted one disappears), and `digest` caps a
+  proposed title at 120 characters and cause at 300.
+- **Review-failure skill candidates** - `skill candidates` lists repeated areas
+  and, per role, tasks with failed reviews plus paste-ready `lesson add` and
+  `skill create --from-lesson` lines.
+
 ## [1.5.1](https://github.com/Nidvue/Teamwork/compare/v1.5.0...v1.5.1) - 2026-11-02
 
 Compares from the previous tag, `v1.5.0`.
