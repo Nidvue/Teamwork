@@ -10,7 +10,6 @@ we changed, and how the published artefact is built.
 
 | Package | Shape | What it does well | What it lacks for a team |
 |---|---|---|---|
-| [`pi-subagents`](../../references/Adapters.md) | extension + skills + prompts, `pi.extensions`/`skills`/`prompts` | real host primitives: `subagent`, `subagent_supervisor`, `contact_supervisor`, durable `schedule.*`, workflows with `runs.all` | no team protocol: no queue, no gate, no audit trail, and a lane exists only while that extension does |
 | `@tmustier/pi-agent-teams` | extension + one skill | team-shaped prompts and hooks | no evidence gate, no ledger, no role-owned test layers |
 | this skill, before the pi layer | skill + stdlib engine | the protocol: two-stage gate, hash-chained ledger, layered tests, disputes | pi-hostile wording (`teams()`, `schedule_prompt`) and no npm artefact |
 
@@ -118,5 +117,5 @@ package and every `scripts/teamwork.py` reference already point there.
   so no lane sweeps a peer's uncommitted work.
 - The pi package ships the engine under `skills/teamwork/src`, so `python3` and
   the standard library are the only runtime requirements - no node dependency.
-- `pi-subagents` is not declared, not required and not suggested: every lane
-  runs through `lane start` / `swarm run`, which launch the host CLI.
+- No third-party package is declared, required or suggested: every lane runs
+  through `lane start` / `swarm run`, which launch the host CLI itself.

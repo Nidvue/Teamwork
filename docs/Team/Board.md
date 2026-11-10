@@ -124,6 +124,8 @@ under two roles is two tasks.
 | ceo | T-0034 | memory | done | P-0101 | 26cff20 |
 | ceo | T-0035 | pi-package | done | P-0098 | 9a61ca8 |
 | ceo | T-0036 | pi-package | done | P-0102 | e49e8b0 |
+| ceo | T-0037 | - | doing | - | - |
+| ceo | T-0038 | pi-packaging | done | P-0105 | 227af23 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -181,8 +183,8 @@ under two roles is two tasks.
 | developer | T-0055 | memory | done | P-0096 | 81dcf8f |
 | developer | T-0056 | memory | done | P-0099 | f644054 |
 | developer | T-0057 | memory | done | P-0100 | 7bd7a68 |
-| developer | T-0058 | preflight | doing | - | - |
-| developer | T-0059 | - | doing | - | - |
+| developer | T-0058 | preflight | review | P-0104 | - |
+| developer | T-0059 | privacy | review | P-0103 | - |
 | developer | T-0060 | - | doing | - | - |
 | developer | T-0061 | - | todo | - | - |
 | developer | T-0062 | - | todo | - | - |
@@ -240,8 +242,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | doing | - |
-| developer | T-0059 · privacy scan does not cover the team memory stores | P1 | doing | - |
+| ceo | T-0037 · prove the plugin-free native fan-out: a repeatable parallel proof at the engine's maximum lane count | P1 | doing | - |
+| developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | review | - |
+| developer | T-0059 · privacy scan does not cover the team memory stores | P1 | review | - |
 | developer | T-0060 · scrub absolute host paths from the role stores | P2 | doing | - |
 | developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | todo | - |
 | developer | T-0062 · memory verify checks only the first evidence kind, so a drifted path behind a valid revision passes | P2 | todo | - |
