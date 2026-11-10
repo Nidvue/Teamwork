@@ -304,6 +304,35 @@ final diff; the intermediate noise is your problem, not theirs.
 - Rebasing is not a way to hide a review: the Reviewer sees the squashed diff and
   the conversation that produced it.
 
+## Warnings are errors
+
+A warning is a defect that has not broken anything **yet**. Treat every one as a
+failure: the build, the tests, the linter, the type checker, the compiler and the
+CI annotations must all come out clean, and "it is only a warning" is not an
+argument a reviewer accepts.
+
+- **Make the tool fail on warnings**, in the config, not in a habit:
+  `ruff check` (any finding fails), `mypy --warn-unused-ignores` +
+  `--warn-redundant-casts`, `pytest -W error` (plus
+  `filterwarnings = ["error"]` in `pyproject.toml`), `cargo clippy -- -D warnings`,
+  `go vet ./...`, `eslint --max-warnings 0`, `tsc --noEmit` (strict),
+  `-Wall -Wextra -Werror`, `shellcheck -S style`, `hadolint --failure-threshold style`.
+- **Fix the cause.** Upgrade the dependency, replace the deprecated call, delete the
+  dead branch, annotate the type. A warning whose root cause is fixable is not
+  exempted.
+- **Suppress narrowly when the cause is genuinely external** (a third-party
+  deprecation that no version fixes yet): one line, one rule, one path - never a
+  project-wide blanket - always with a reason and, where possible, the version or
+  date at which the exemption is re-checked. A blanket `# noqa`, a global
+  `filterwarnings = ["ignore"]` or a deleted rule is a red line.
+- **CI annotations count.** A "Node.js 20 is deprecated", an unpinned action, a
+  cache-path notice or a deprecation banner in a workflow log is a warning: bump
+  the action, add the cache step or remove the step that produces it.
+- **Test output counts.** Warnings raised by the project's own code fail the suite;
+  warnings from a dependency get a narrow, reasoned filter entry.
+- **Evidence**: the clean run - `pytest -q` with zero warnings, `ruff check` clean,
+  `mypy` clean - goes in the task evidence on the same revision as the tests.
+
 ## File discipline
 
 Keep only what the project needs. Update an existing document instead of creating
