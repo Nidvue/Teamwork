@@ -178,7 +178,7 @@ under two roles is two tasks.
 | developer | T-0053 | deliver | done | P-0088 | 82241bb |
 | developer | T-0054 | memory | done | P-0095 | a42b13b |
 | developer | T-0055 | memory | done | P-0096 | 81dcf8f |
-| developer | T-0056 | - | doing | - | - |
+| developer | T-0056 | memory | done | P-0099 | f644054 |
 | developer | T-0057 | - | todo | - | - |
 | developer | T-0058 | - | todo | - | - |
 | developer | T-0059 | - | todo | - | - |
@@ -234,7 +234,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0034 · M22 close-out: the measured before/after, the layer matrix, the board render and the ledger export | P1 | todo | - |
-| developer | T-0056 · transcript reach: context find and recall search the ledger and worklogs | P0 | doing | - |
 | developer | T-0057 · memory index header in load and the lane packet, capped | P0 | todo | - |
 | developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | todo | - |
 | developer | T-0059 · privacy scan does not cover the team memory stores | P1 | todo | - |

@@ -55,10 +55,12 @@ Teamwork/
 │   ├── lanes.py              # the engine's own lane runtime: spawn, supervise, dynamic waves
 │   ├── layout.py             # team tree paths and cross-links
 │   ├── memorypack.py         # task-aware memory: score, pack, search, dream (Memory.md 4)
+│   ├── memverify.py          # memory verify: the focused, score-ranked check pass
 │   ├── names.py              # names, roles, commit identities
 │   ├── records.py            # task/memory/criteria/tests/PR/dispute records
 │   ├── resources.py          # locate the skill bundle (checkout or wheel)
 │   ├── portable.py           # OS portability seam
+│   ├── transcripts.py        # transcript reach: the ledger and the worklogs (Memory.md 10)
 │   └── version.py            # the single version source; pyproject and the pi package read it
 ├── scripts/
 │   ├── teamwork.py           # thin compat shim -> teamwork.cli.main
