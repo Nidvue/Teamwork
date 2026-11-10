@@ -941,7 +941,10 @@ contract in `src/teamwork/lanes.py` was frozen before the integration lanes ran.
 | Developer | T-0039 | the module census row that the memory merge left red on main | `docs/Team/Architecture.md` |
 | Developer | T-0040 | the packet's read-first step is `load --task` | `src/teamwork/lanes.py`, `Memory.md` 4.5 |
 | Developer | T-0041 | the pack is injected into the packet, not only named | `src/teamwork/engine.py`, `src/teamwork/lanes.py` |
+| Developer | T-0042 | unattended landing: the packet teaches the real flags, and the merge path marks its own base-branch commits so the R1 hook permits exactly a Reviewer's merge | `src/teamwork/lanes.py`, `src/teamwork/engine.py`, `tests/integration/test_unattended_landing_flow.py` |
+| Developer | T-0043 | the memory loop closes: injection counts as use, `recall` reaches lessons and knowledge, the dream pass has a trigger in `pulse`/`swarm` | `src/teamwork/memorypack.py`, `src/teamwork/engine.py`, `Memory.md` 4.2/4.3/5 |
 | CEO | T-0017 | intake, criteria, the measured waves, the lane-written decisions, the board render and the ledger export | this file, `Project.md`, `Memory.md` |
+| CEO | T-0018 | close-out: the memory-loop and unattended-landing rows, the wave that merged its own deliverable, the manifest re-export | this file, `Memory.md`, `Archive.md` |
 
 Measured waves on this host (each re-derivable with `lane list --all`):
 
@@ -950,6 +953,7 @@ Measured waves on this host (each re-derivable with `lane list --all`):
 | first real wave | 8 | 4 | 8m | 6 exited ok (T-0008 fix at 60f9a5c, T-0038 at 533f695), 1 failed with a named cause, 1 timed out |
 | second real wave | 17 | 10 | 6m | T-0029 fixed (per-task worktree) at 1ca5958, Tester T-0001 at a5f6b64, Architect T-0002 at b16fba5, three Reviewer verdicts recorded |
 | injection wave | 5 | 3 | 3m | every packet carries the injected pack; a Reviewer verdict blocked on A-0020, since cleared |
+| unattended landing | see `lane list --all` | - | - | T-0042 and T-0043 were landed by a Reviewer's pass with no ambient override, the proof that the merge path carries its own marker |
 
 Parallel rules: one lane per instance (a second `lane start` is refused), one
 worktree per task (`--worktree`), and the board is the arbiter - a lane claims
