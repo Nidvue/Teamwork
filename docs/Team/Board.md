@@ -85,7 +85,7 @@ under two roles is two tasks.
 | architect | T-0002 | - | dropped | - | - |
 | architect | T-0003 | - | done | P-0036 | 90eb61c |
 | architect | T-0004 | architecture | done | P-0042 | be2c868 |
-| architect | T-0005 | - | dropped | - | - |
+| architect | T-0005 | architecture | done | P-0067 | bb7c34f |
 | ceo | T-0001 | review | done | P-0001 | 2f44f00 |
 | ceo | T-0002 | docs | done | P-0008 | 28c1133 |
 | ceo | T-0003 | - | done | - | - |
@@ -103,8 +103,8 @@ under two roles is two tasks.
 | ceo | T-0015 | plan | done | P-0056 | 22c817d |
 | ceo | T-0016 | - | dropped | - | - |
 | ceo | T-0017 | review | done | P-0057 | 13fb170 |
-| ceo | T-0018 | - | dropped | - | - |
-| ceo | T-0019 | - | dropped | - | - |
+| ceo | T-0018 | - | todo | - | - |
+| ceo | T-0019 | - | todo | - | - |
 | ceo | T-0020 | records | done | P-0058 | bcf48e7 |
 | ceo | T-0021 | org | done | P-0063 | 20e12ae |
 | ceo | T-0022 | records | done | P-0060 | e7e4768 |
@@ -153,12 +153,12 @@ under two roles is two tasks.
 | developer | T-0039 | - | dropped | - | - |
 | developer | T-0040 | records | done | P-0055 | 5d93c2c |
 | developer | T-0041 | - | dropped | - | - |
-| developer | T-0042 | - | dropped | - | - |
+| developer | T-0042 | - | todo | - | - |
 | developer | T-0043 | board | done | P-0066 | 321d0c4 |
 | developer | T-0044 | deliver | done | P-0059 | e9eaacf |
 | developer | T-0045 | - | todo | - | - |
 | developer | T-0046 | - | todo | - | - |
-| developer | T-0047 | - | dropped | - | - |
+| developer | T-0047 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -172,7 +172,7 @@ under two roles is two tasks.
 | reviewer | T-0002 | records | done | P-0026 | e3fa290 |
 | reviewer | T-0003 | - | done | - | - |
 | reviewer | T-0004 | - | done | - | - |
-| reviewer | T-0005 | - | dropped | - | - |
+| reviewer | T-0005 | - | todo | - | - |
 | security-auditor | T-0001 | audit | dropped | P-0022 | - |
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
@@ -190,8 +190,13 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0018 · Add the Team Leader charter and redraw the org in the constitution, the skill and the roster tiers | P1 | todo | - |
+| ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
+| developer | T-0042 · Engine: feature teams, per-instance team scoping, feature records and the feature-layer test | P1 | todo | - |
 | developer | T-0045 · fix(docs): the preflight surface still quotes the retired 38/43 figure | P2 | todo | - |
 | developer | T-0046 · fix(records): a review fail must record its own findings, not the accumulated first 200 characters | P2 | todo | - |
+| developer | T-0047 · fix(records): a bulk sweep must not be able to drop live work silently | P1 | todo | - |
+| reviewer | T-0005 · Acceptance: the feature-team model is enforced by the engine, not only documented | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
