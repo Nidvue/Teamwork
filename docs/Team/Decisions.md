@@ -472,3 +472,35 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: teamwork.py audit @6c8d818 before -> 'done without evidence (fabricated-completion risk): reviewer T-0001'; task set reviewer T-0001 --status todo -> rc 0, ledger #0515; git status --porcelain before the restore -> ' M docs/Team/Archive.md' (the appended '## T-0001 Acceptance pass over the M8 context-economy change' block, never committed); after -> 0 lines
 - falsified by: if an acceptance record can pass while the PR it covers is changes-requested, this decision is unnecessary and should be reversed
 - consequences: the acceptance pass over M8 must be redo ne after P-0022 merges; no other role may mark its own acceptance done while the covered PR is red
+
+## D-20261019-CEO-12 - A reviewer verdict is void unless it names the head it measured
+
+- date: 2026-10-19
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0031
+- context: -
+- options considered: accept the stale verdict (rejected: it names files that no longer exist on the branch); ignore the review and merge on the CEO's own evidence (refused: self-approval); re-verify the head myself and require the reviewer to assert the sha first (chosen)
+- decision: Reject review.fail recorded at 2e338b6 for T-0031: the branch was rebuilt as ceo/t-0031-pi-teamwork-only and its head is c9de7d3; 2e338b6 belongs to the discarded branch. Re-dispatch with 'git rev-parse --short HEAD must print c9de7d3' as step 1.
+- why: five of the last review rounds measured a stale or wrong revision, so the verdict described code that is not under review; accepting it would force rework of already-correct code and accepting the pass would leave the real head unmeasured
+- evidence: git rev-parse --short ceo/t-0031-pi-teamwork-only -> c9de7d3; git log --oneline -1 2e338b6 -> 'feat(packaging): package.json manifest builder' on the deleted branch; ledger #0675 review.fail names '@2e338b6' while T-0031's branch field is ceo/t-0031-pi-teamwork-only
+- falsified by: if 2e338b6 is an ancestor of c9de7d3, the verdict is valid and this decision is wrong (git merge-base --is-ancestor 2e338b6 c9de7d3)
+- consequences: every review packet starts with the sha assertion; a verdict that does not name a head on the reviewed branch is re-dispatched, not fixed against
+
+## D-20261019-CEO-13 - Correct D-20261019-CEO-12: the round-5 verdict did name c9de7d3; the stale-sha premise was a ledger-display artefact
+
+- date: 2026-10-19
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0031
+- context: -
+- options considered: keep the retraction silent (refused: the ledger is append-only evidence and the record must stand); rewrite D-12 (refused: never edit a recorded decision); append a correction that names the error and the measurement (chosen)
+- decision: D-20261019-CEO-12 is retracted on its premise. The round-5 review.fail names '@c9de7d3 (base main 31c03b5, round 5)'; the '@2e338b6' seen in the ledger display is a rendering artefact of the record's rev field, not the head the reviewer measured. The three findings it raised were real and are fixed in 8b45af1.
+- why: a wrong premise in a decision is worse than the defect it tried to explain: it would have let the branch merge with two live document defects and would have blamed a reviewer for a display bug
+- evidence: jq -r 'select(.action=="review.fail" and .target=="T-0031") | .detail' Ledger.jsonl | tail -1 -> 'FAIL @c9de7d3 (base main 31c03b5, round 5)'; git rev-parse c9de7d3^{tree} == git rev-parse HEAD^{tree} before 8b45af1 -> 32a14aa9 (the re-dispatched review measured the same tree, correctly); git log --oneline -1 8b45af1 -> 'docs(packaging): CHANGELOG one Added block in 1.1.0 ...'
+- falsified by: if any recorded round-5 verdict names a head that is not an ancestor of the reviewed branch, the retraction is wrong
+- consequences: verdict text is read from the record's detail, never from the rendered rev column; the round-5 findings were fixed rather than dismissed
