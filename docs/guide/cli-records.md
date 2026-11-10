@@ -194,6 +194,34 @@ whose evidence names no command, path or dated source is refused at review.
 Never store a secret, credential, token or personal data. A decision cites the
 `K-` record **and its evidence**, never the record's authority.
 
+## Acceptance criteria
+
+```text
+teamwork criteria {add,list,verify,reopen,rm} ...
+```
+
+An `AC-` record is one line of "done": `criteria add` writes it, an independent
+role `criteria verify` it with evidence and a revision, and `loop` refuses to stop
+while one is `open`. Ids are `AC-` plus a word (letters, digits, dot, dash,
+underscore), so `AC-1` and `AC-login` are both legal; `--owner` names the role that
+must satisfy it, and the owner's own role cannot verify it.
+
+`criteria list` is the read side, and its exit code says how finished the store
+is - the three states are deliberately different codes:
+
+| Exit | Meaning |
+|---|---|
+| `0` | every criterion is `verified` |
+| `1` | at least one criterion is still `open` |
+| `3` | the store holds **no** criteria yet: `# no criteria yet (<path>)` plus the hint that the CEO writes them from the user prompt |
+
+An empty store exits `3`, never `0`: "nothing recorded yet" is not "everything
+verified", and a `0` there would let a run with no acceptance criteria read as
+green. `criteria verify` and `criteria reopen` of an unknown id exit `1`;
+`criteria add` of an existing id exits `1`. The `records` probe accepts exit `3`
+only when the store also holds no criterion - an id the CLI cannot see is a
+defect, an absent one is a state (`tests/integration/probes/records_probe.py`).
+
 
 ## The rest of the reference
 

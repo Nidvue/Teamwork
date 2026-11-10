@@ -86,18 +86,22 @@ under two roles is two tasks.
 | ceo | T-0001 | - | doing | - | - |
 | ceo | T-0002 | - | doing | - | - |
 | ceo | T-0003 | context | doing | P-0001 | 2fcd9fd |
-| ceo | T-0004 | - | todo | - | - |
+| ceo | T-0004 | records | doing | P-0011 | - |
 | ceo | T-0005 | - | todo | - | - |
 | ceo | T-0006 | - | todo | - | - |
-| ceo | T-0007 | - | todo | - | - |
+| ceo | T-0007 | - | doing | - | - |
+| ceo | T-0008 | - | todo | - | - |
+| ceo | T-0009 | - | todo | - | - |
+| ceo | T-0010 | context | doing | - | - |
+| ceo | T-0011 | - | todo | - | - |
 | developer | T-0001 | - | doing | - | - |
-| developer | T-0002 | cli-records | review | P-0003 | - |
+| developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
 | developer | T-0004 | - | todo | - | - |
 | developer | T-0005 | - | todo | - | - |
 | developer | T-0006 | io | done | P-0004 | c57e9d4 |
-| developer | T-0007 | records | review | P-0009 | - |
-| developer | T-0008 | identity | review | P-0006 | - |
+| developer | T-0007 | records | done | P-0009 | 9e3ed06 |
+| developer | T-0008 | identity | doing | P-0006 | - |
 | developer | T-0009 | git-timeout | selfcheck | P-0007 | - |
 | developer | T-0010 | - | todo | - | - |
 | developer | T-0011 | - | todo | - | - |
@@ -112,18 +116,18 @@ under two roles is two tasks.
 | developer | T-0020 | - | todo | - | - |
 | developer | T-0021 | - | todo | - | - |
 | developer | T-0022 | - | todo | - | - |
-| developer | T-0023 | privacy | review | P-0008 | - |
+| developer | T-0023 | privacy | doing | P-0008 | - |
 | developer | T-0024 | - | todo | - | - |
 | developer | T-0025 | - | todo | - | - |
 | developer | T-0026 | - | todo | - | - |
 | developer | T-0027 | - | blocked | - | - |
-| developer | T-0028 | - | todo | - | - |
+| developer | T-0028 | ledger | doing | P-0012 | - |
 | developer | T-0029 | - | todo | - | - |
-| developer | T-0030 | - | doing | - | - |
-| reviewer | T-0001 | - | review | - | - |
-| reviewer | T-0002 | - | review | - | - |
-| team-leader | T-0001 | ci | review | P-0002 | - |
-| tester | T-0001 | - | review | - | - |
+| developer | T-0030 | privacy | done | P-0010 | 25f2c0c |
+| reviewer | T-0001 | - | doing | - | - |
+| reviewer | T-0002 | - | done | - | - |
+| team-leader | T-0001 | ci | doing | P-0002 | - |
+| tester | T-0001 | - | doing | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -145,16 +149,18 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0001 · Own M19: intake, criteria, records, dispatch, arbitration and close-out (audit manifest + final report) | P0 | doing | - |
 | ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
 | ceo | T-0003 · Cut the always-on startup cost: rewrite templates/AGENTS.md managed block as pointer + invariants, measure harness budget before and after, keep every gate and red line | P0 | doing | - |
-| ceo | T-0004 · Write the M19 records: Project.md section, Plan.md rows, Board render, Throughput cut #3 and the record-store decision | P1 | todo | - |
+| ceo | T-0004 · Write the M19 records: Project.md section, Plan.md rows, Board render, Throughput cut #3 and the record-store decision | P1 | doing | - |
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | todo | - |
 | ceo | T-0006 · Two record rows name the classifier as inline ci.yml text; T-0001 moved it to scripts/ci_scope.py (D-class drift in Plan.md and Release.md) | P2 | todo | - |
-| ceo | T-0007 · Primary checkout holds uncommitted lane work, so no Reviewer can land a pass: pr merge dies 'working tree has uncommitted work outside the reviewed records' on src/teamwork/config.py, src/teamwork/engine.py, src/teamwork/lanes.py, src/teamwork/lanerun.py, tests/unit/test_lanes.py (mtimes 16:52-16:55, unchanged since); T-0006/P-0004 is passed and waiting on one pr merge | P0 | todo | - |
+| ceo | T-0007 · Primary checkout holds uncommitted lane work, so no Reviewer can land a pass: pr merge dies 'working tree has uncommitted work outside the reviewed records' on src/teamwork/config.py, src/teamwork/engine.py, src/teamwork/lanes.py, src/teamwork/lanerun.py, tests/unit/test_lanes.py (mtimes 16:52-16:55, unchanged since); T-0006/P-0004 is passed and waiting on one pr merge | P0 | doing | - |
+| ceo | T-0008 · AC-5 is red on main: privacy_scan --tree reports 3 high/personal-email findings in tracked docs (Board.md:179, Decisions.md:2295-2296), so the tree half of the AC-5 proof exits 1 on the merge target | P0 | todo | - |
+| ceo | T-0009 · Land P-0003 (T-0002, review PASSED by Reviewer-1) is blocked: the base checkout holds uncommitted edits to AGENTS.md, SKILL.md, references/Roles.md and templates/AGENTS.md - P-0001's own four files - so pr merge refuses any dirty path outside docs/ | P0 | todo | - |
+| ceo | T-0010 · The always-on cut (merged 2fcd9fd) renamed the rule labels five shipped contract tests pin, so main was red: rebuild the exact pinned text without losing the cut | P0 | doing | - |
+| ceo | T-0011 · main 7e1e536 is red: the full suite has 8 failures that are not any single branch's (5 skill-contract tests, the docs privacy-scan test, the records probe, the AC-5 traceability row), so the standard gate cannot go green for any deliverable | P0 | todo | - |
 | developer | T-0001 · Systematic audit of src/teamwork/*.py and scripts/*.py: real defects, dead code, inconsistent invariants, non-portable code; rank with a reproduction each; no code changes | P0 | doing | - |
-| developer | T-0002 · test_probe_passes[records] is not hermetic: it reads the live .pi team tree, so it fails on an empty store and races a concurrent lane (baseline: 1 failed, 2221 passed on this host) | P0 | review | - |
 | developer | T-0004 · harness.instance_always_on documents itself as what 'teamwork load' prints, but load prints only the memory lines; the figure is a startup-read estimate including SKILL.md and the charter | P2 | todo | - |
 | developer | T-0005 · PreflightCommand is shlex-split and exec'd without a shell, so a natural 'a && b' gate reaches argv and ruff exits 2 - a configured gate reports FAIL for a spelling the docs invite | P1 | todo | - |
-| developer | T-0007 · Credential masking runs only in archive_append: task evidence, decision, lesson, memory text and Ledger.jsonl store a token verbatim (Reviewer-1 S-2, 5 record files measured) | P0 | review | - |
-| developer | T-0008 · identity --audit reports a personal-identity commit as 'skipped: external contributor' and exits 0; make lint and ci.yml run that non-strict form, so the identity rule has no gate | P0 | review | - |
+| developer | T-0008 · identity --audit reports a personal-identity commit as 'skipped: external contributor' and exits 0; make lint and ci.yml run that non-strict form, so the identity rule has no gate | P0 | doing | - |
 | developer | T-0009 · gitutil.run_git has no timeout: refresh/fetch/clone/push block a lane forever on a stalled remote (finding 3) | P1 | selfcheck | - |
 | developer | T-0010 · clean reports files as removed when unlink failed (finding 4) | P2 | todo | - |
 | developer | T-0011 · a bad TEAMWORK_* integer kills every command with a traceback at import (finding 5) | P2 | todo | - |
@@ -169,18 +175,16 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0020 · Records/merge commits must carry the Acting role trailer (prevent A-0010) | P1 | todo | - |
 | developer | T-0021 · board's parsers raise bare exceptions (finding 15) | P3 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | todo | - |
-| developer | T-0023 · privacy scanner misses NAME=<base64>, Slack webhooks, Authorization: Basic and db://user:pw@host (S-4) | P1 | review | - |
+| developer | T-0023 · privacy scanner misses NAME=<base64>, Slack webhooks, Authorization: Basic and db://user:pw@host (S-4) | P1 | doing | - |
 | developer | T-0024 · the v* tag ruleset protects update/delete but not creation, so 'CEO only' is convention (S-5) | P2 | todo | - |
 | developer | T-0025 · Remotes.md section 2 claims a merge is impossible while a required check is red; the measured flow permits it (S-7) | P2 | todo | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0027 · remember still invents Roles/<Typo>/: the hole T-0003 closed in load is open in remember (measured: remember QaEnginere note --by QaEnginere -> exit 0 and Roles/QaEnginere/ShortTermMemory.md created; board and loop then report qaenginere as a role with state), and a refused remember --by <other role> still leaves an empty Roles/<Typo>/ directory | P1 | blocked | - |
-| developer | T-0028 · Ledger record 106 was hashed against an empty prev while the file already carried 105 records: concurrent writers entered ledger_append's critical section (S-1) and produced a silent chain corruption that 'ledger verify' now reports | P0 | todo | - |
+| developer | T-0028 · Ledger record 106 was hashed against an empty prev while the file already carried 105 records: concurrent writers entered ledger_append's critical section (S-1) and produced a silent chain corruption that 'ledger verify' now reports | P0 | doing | - |
 | developer | T-0029 · branch start --worktree returns Worktrees/<Instance> for every task, so a second lane of one instance silently shares the first lane's worktree and commits onto the wrong branch (A-0003) | P0 | todo | - |
-| developer | T-0030 · privacy_scan flags reserved example domains: docs/Team/Decisions.md quoting 'ping@personal.example' turns the tree gate red, and tests/unit/test_privacy_scan.py cannot hold a fixture without a finding | P0 | doing | - |
-| reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | review | - |
-| reviewer | T-0002 · Independent docs-claims audit: every measurable claim in README, docs/**, docs/Team/Project.md and Plan.md re-measured with its command, state claims flagged; no code changes | P1 | review | - |
-| team-leader | T-0001 · Finish feature F-0001: prove docs-only pushes skip the code matrix, code pushes run it, the ci.yml prose set equals docs.yml paths, and a broken classifier fails a test | P0 | review | - |
-| tester | T-0001 · Systematic audit of tests/: vacuous or tautological tests, tests that pass when the code is broken, cross-platform hazards, uncovered critical paths; rank with a reproduction each | P0 | review | - |
+| reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
+| team-leader | T-0001 · Finish feature F-0001: prove docs-only pushes skip the code matrix, code pushes run it, the ci.yml prose set equals docs.yml paths, and a broken classifier fails a test | P0 | doing | - |
+| tester | T-0001 · Systematic audit of tests/: vacuous or tautological tests, tests that pass when the code is broken, cross-platform hazards, uncovered critical paths; rank with a reproduction each | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.

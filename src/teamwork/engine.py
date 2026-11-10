@@ -317,6 +317,7 @@ from .records import (
     find_task,
     find_test,
     header_for,
+    install_mask,
     knowledge_row,
     knowledge_tags,
     knowledge_totals,
@@ -2466,8 +2467,14 @@ LEDGER_DETAIL_CHARS = 400
 
 
 def _clean_detail(detail) -> str:
+    """One line, masked, then clipped: the order is the whole point.
+
+    The mask runs BEFORE the clip. Clipping first would leave the head of a value
+    that straddles ``LEDGER_DETAIL_CHARS`` in the chain, and the chain is
+    append-only - that fragment could never be removed.
+    """
     text = " ".join(str(detail or "").split())
-    return text[:LEDGER_DETAIL_CHARS]
+    return mask_secret_shapes(text)[:LEDGER_DETAIL_CHARS]
 
 
 def _ledger_tail(root: Path):
@@ -2567,7 +2574,7 @@ def ledger_append(
             "actor": actor or "system",
             "role": role or (resolve_role(actor) if actor and actor != "system" else ""),
             "action": action,
-            "target": target,
+            "target": mask_secret_shapes(str(target or "")),
             "detail": _clean_detail(detail),
             "rev": rev or "",
             "prev": prev,
@@ -2909,7 +2916,7 @@ def cmd_decision(args) -> int:
             f"- consequences: {one_line(args.consequences) or '-'}",
             "",
         ]
-        atomic_write(path, existing.rstrip() + "\n\n" + "\n".join(block))
+        atomic_write(path, existing.rstrip() + "\n\n" + mask_secret_shapes("\n".join(block)))
     ledger_append(
         root,
         "decision.add",
@@ -3436,15 +3443,17 @@ def cmd_skill(args) -> int:
                 die(f"{target} already exists; edit it on a branch instead")
             atomic_write(
                 target,
-                skill_body(
-                    name,
-                    owner,
-                    args.description,
-                    body,
-                    actor,
-                    kind=kind,
-                    lesson=lesson_id,
-                    context=context,
+                mask_secret_shapes(
+                    skill_body(
+                        name,
+                        owner,
+                        args.description,
+                        body,
+                        actor,
+                        kind=kind,
+                        lesson=lesson_id,
+                        context=context,
+                    )
                 ),
             )
             canonical = f"{'/'.join(SKILLS_DIR)}/{name}/SKILL.md"
@@ -12087,6 +12096,48 @@ _UNLOADED = object()
 _PRIVACY_SCAN = _UNLOADED
 _PRIVACY_WARNED = False
 
+_MASK_TOKEN_CHARS = re.compile(r"[A-Za-z0-9._/+=-]+")
+
+
+def _mask_token(text: str, index: int, length: int) -> str:
+    """The whole token a match at ``index`` sits in (the gate's ``_TOKEN_CHARS``)."""
+    for match in _MASK_TOKEN_CHARS.finditer(text):
+        if match.start() <= index and index + length <= match.end():
+            return match.group(0)
+    return text[index : index + length]
+
+
+def _path_shaped(token: str) -> bool:
+    """Does this whole token read as a path, rather than as a credential?
+
+    The gate's ``_is_path_fragment`` already silences a name-shaped path, but its
+    ``_is_path_name`` refuses a first segment that starts with a separator or a
+    dot (``/home/...``, ``.pi/...``) - exactly the form this project writes, so a
+    long CamelCase path such as ``.pi/Teamwork/.../Reports/M19-engine-audit.md``
+    is reported as ``high-entropy-secret``. Masking that finding would rewrite a
+    path inside an immutable record and point it at a file that does not exist.
+    The gate's own name test is applied to the token without its leading ``./``,
+    and a value that names a path is never masked. A random base64 run is not
+    name-shaped, so it stays a credential.
+    """
+    scanner = _privacy_scan()
+    check = getattr(scanner, "_is_path_name", None)
+    if scanner is None or check is None or "/" not in token:
+        return False
+    return bool(check(token.lstrip("./")))
+
+
+def _every_occurrence_is_a_path(text: str, value: str) -> bool:
+    """True when every occurrence of ``value`` sits inside a path-shaped token."""
+    start = 0
+    while True:
+        index = text.find(value, start)
+        if index < 0:
+            return True
+        if not _path_shaped(_mask_token(text, index, len(value))):
+            return False
+        start = index + len(value)
+
 
 def mask_secret_shapes(text: str) -> str:
     """Rewrite a value the privacy gate would report, and nothing else.
@@ -12104,6 +12155,12 @@ def mask_secret_shapes(text: str) -> str:
     The quoted claim ("a token on the exempted line is still reported") remains
     readable, and so does the finding around a redacted address: the ADDRESS is
     replaced, not the evidence.
+
+    A ``high-entropy-secret`` finding that names a path is left alone: the mask
+    runs over a whole record file now, not just an archive quotation, and a path
+    rewritten by the mask makes the record point at a file that does not exist
+    (see ``_path_shaped``). A credential that merely sits *inside* a path is
+    still masked, because its own token is not path-shaped.
 
     Contract when the scanner is unavailable (this function then returns the
     text byte-identical, so the caller must not assume a mask happened):
@@ -12132,8 +12189,13 @@ def mask_secret_shapes(text: str) -> str:
         values = [pair for pair in values if pair[0] != value]
         values.append((value, rule))
     for value, rule in sorted(values, key=lambda pair, /: -len(pair[0])):
+        if rule == "high-entropy-secret" and _every_occurrence_is_a_path(text, value):
+            continue
         text = text.replace(value, f"<redacted-{rule}>")
     return text
+
+
+install_mask(mask_secret_shapes)
 
 
 def _quoted(t: dict, field: str) -> str:
@@ -14392,7 +14454,7 @@ def cmd_redline(args) -> int:
                 "[disputes](../Disputes.md)\n",
             )
         with path.open("a", encoding="utf-8", newline="\n") as fh:
-            fh.write("\n".join(block))
+            fh.write(mask_secret_shapes("\n".join(block)))
         ledger_append(
             root,
             "redline.record",
