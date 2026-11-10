@@ -45,23 +45,22 @@ above the fold serves A1; the proof sections serve A2-A4.
 
 ## 2. Information hierarchy
 
-Order is deliberate: claim, proof, action, depth.
+Order is deliberate: claim, proof, action, depth. The README is the front door,
+not the manual: it carries the claim, the one install command and the map, and
+each depth block links to its own guide page. The target size is 10 KiB (10,240
+bytes) - a reader
+who wants the manual follows the documentation map rather than scrolling.
 
 | # | README block | Purpose | Serves |
 |---|---|---|---|
 | 1 | Centered hero: banner SVG, H1, one-line pitch, badges | State what it is and that it is real in one screen | A1-A4 |
 | 2 | Animated terminal demo | Show the skill install and the one-prompt start, not tell | A1, A4 |
-| 3 | Why Teamwork (3 differentiators) | The three structural claims a competitor cannot copy cheaply | A2, A3 |
-| 4 | Features table | Depth without scrolling walls of prose | A1-A4 |
-| 5 | Install the skill (one clone) + optional engine + 30-second quickstart | Remove every excuse not to run it; make the skill, not an app, the thing you install | A1 |
-| 6 | For agents: host detection, install, verify, startup routine, hard rules | Let the agent install and drive the skill without a human relaying instructions | A1, A4 |
-| 7 | Common ways to use it: eight trimmed real transcripts (new project, feature, red CI, manual steering, pulse, resume, audit proof, model routing) | Show the recurring jobs, not only the first command | A1, A2 |
-| 8 | How it works (mermaid flowchart) | Make the loop legible: lanes -> self-check -> review -> STOP | A1, A2 |
-| 9 | Teamwork vs alternatives | Meet the evaluation frame honestly, with sources | A2 |
-| 10 | Architecture at a glance | Prove it is engineered, not a prompt file | A2, A3 |
-| 11 | Roadmap | Signal stewardship and direction | A1 |
-| 12 | Contributing / security / license / no personal data | Answer the trust and contribution questions | A3 |
-| 13 | Star history | Social proof, honestly framed as not guaranteed | A1 |
+| 3 | What makes it different (7 rows: what, why, proof link) | The structural claims a competitor cannot copy cheaply, each with the page that proves it; no unsourced competitor fact | A2, A3 |
+| 4 | Install the skill (one clone, one path) | Make the skill, not an app, the thing you install; link to the four-channel comparison | A1, A4 |
+| 5 | 30-second quickstart | One runnable block from empty directory to first request | A1 |
+| 6 | What you get (five bullets) | The five capabilities that decide adoption, without the full table | A1-A4 |
+| 7 | Documentation map | Route each reader to the page that answers their next question | A1-A4 |
+| 8 | Contributing / security / license / no personal data | Answer the trust and contribution questions; the star chart closes the page | A3 |
 
 ## 3. Visual system
 
