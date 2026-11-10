@@ -603,6 +603,96 @@ def test_r6_version_inside_a_url_is_not_a_claim(tmp_path):
     assert "0 illustrative" in result.detail
 
 
+def _wheel_url(tag: str) -> str:
+    version = tag[1:]
+    return (
+        "https://github.com/Nidvue/Teamwork/releases/download/"
+        f"{tag}/teamwork_agents-{version}-py3-none-any.whl"
+    )
+
+
+def test_r6_release_asset_url_is_a_version_claim(tmp_path):
+    """A ``releases/download/<tag>/`` asset link names a released version (T-0017).
+
+    A general URL is not a claim, but this one URL shape is: the tag in the path
+    says *which release* the wheel came from, so a stale tag sends the reader to
+    a superseded asset. R6 was blind to it because a ``/`` abuts the token, and
+    measured on this repository it reported ``ok no version older than 1.1.3``
+    while README.md and docs/guide/install.md both installed the v1.1.0 wheel.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.2",
+        {
+            "README.md": f"# Teamwork\n\nTeamwork wheel: {_wheel_url('v1.1.0')}\n",
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.2]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+    git(root, "tag", "v1.1.2")
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "DRIFT"
+    assert "README.md:3" in result.detail
+    assert "v1.1.0" in result.detail
+    assert "v1.1.2" in result.detail
+
+
+def test_r6_release_asset_url_at_the_newest_tag_is_ok(tmp_path):
+    """The asset yardstick is the newest *tag*, not HEAD (T-0017).
+
+    ``version.py`` legitimately leads the newest tag between releases (the
+    repository measured at this task has HEAD ``1.1.3`` and newest tag
+    ``v1.1.2``), and an install command can only name a released asset. Judging
+    the URL against HEAD would make the correct URL unfixable without an
+    illustrative marker, which would hide exactly the staleness this rule is
+    for. Judging it against the newest tag reports v1.1.0 while v1.1.2 is out
+    and stays quiet on v1.1.2.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.3",
+        {
+            "README.md": f"# Teamwork\n\nTeamwork wheel: {_wheel_url('v1.1.2')}\n",
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.3]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+    git(root, "tag", "v1.1.2")
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "ok"
+    assert "0 illustrative" in result.detail
+
+
+def test_r6_release_asset_url_naming_no_tag_is_drift(tmp_path):
+    """A release asset tag that does not exist is an install command that cannot work.
+
+    AC-REL-4's "no install command that cannot work" half: newer than the newest
+    tag is not enough, the tag must be in ``git tag -l``.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.1",
+        {
+            "README.md": f"# Teamwork\n\nTeamwork wheel: {_wheel_url('v1.1.1')}\n",
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.1]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "DRIFT"
+    assert "no such tag" in result.detail
+    assert "v1.1.1" in result.detail
+
+
 def test_r6_skips_a_foreign_tool_version(tmp_path):
     root = make_repo(tmp_path / "repo", version="1.1.0")
     git(root, "tag", "v1.1.0")
