@@ -164,7 +164,9 @@ Unchanged from the skill: `.pi/Teamwork/Teams/<Team>/` with `Roles/<Role>/`
 (shared memory, `TaskQueue.md`, and `Lessons.md` - created lazily by the first
 `lesson add`, local state like memory and never committed), `Agents/<Instance>/` (private), `Global/`,
 `Runtime/`, `Ledger.jsonl` (hash-chained), `Criteria.md`, `Tests.md`,
-`TestPlan.md`, `Reviews.md`, `Disputes.md`.
+`TestPlan.md`, `Reviews.md`, `Disputes.md`, and `Knowledge.md` - the project-wide
+`K-` records (section 15), created lazily by the first `knowledge add`, local
+state like memory and never committed.
 
 Additive, and the only state `instance`/`memory` introduce:
 `Runtime/Locks/memory-<Role>.claim` is the role memory lease - one JSON object
@@ -2381,3 +2383,171 @@ the kind and the lesson.
 - `harness lint` rule `PREFIX` (12.4): every `.agents/skills/<dir>/SKILL.md` must
   have `name:` and `<dir>` starting with `tw-`; one finding per file, detail
   naming the offending value.
+
+## 15. Project knowledge: accumulation, ranking and supersession (frozen)
+
+Owner: Architect. This section freezes the **knowledge-accumulation surface**: the
+`K-` record, the `knowledge` command and the ranked `load` section T-0032
+implements. Section 14 is the mistake half (`L-` lessons and `tw-` mistake
+skills); this is the experience half - what the project has learned to do.
+
+**Measured baseline at `308190b`** - none of this is implemented yet, and the
+section says so rather than describing an engine that does not exist:
+`Get-ChildItem src/teamwork -Filter *.py | Select-String -Pattern Knowledge.md`
+-> 0 matches; `python scripts/teamwork.py load architect` -> memory output only,
+no `# project knowledge:` line; `python scripts/teamwork.py recall --help` ->
+`--agent`/`--all`/`--global`/`--layer` only, no knowledge source;
+`python scripts/teamwork.py --help` -> no `knowledge` subcommand;
+`git ls-files Knowledge.md` -> empty; `python scripts/teamwork.py harness lint`
+-> `# problems found: 0` in this lane's worktree with an isolated empty team
+registry (`TEAMWORK_ROOT` under the worktree), and no rule covers the store (the
+shared live root still reports 2 pre-existing `HELPER` findings for the S-0001 /
+S-0002 `tw-` rows awaiting T-0031). Until T-0032 lands, `Knowledge.md` is a
+rule, not a command.
+
+Every agent accumulates durable project knowledge as `K-` records in
+`Knowledge.md` at the team root. This is not a mistake log and not a task note:
+one record is one fact, rule, gotcha or measured behaviour that makes the next
+decision faster or better, with the evidence that established it. The store is
+project-local working state (never committed), shared by every role, and written
+only through the `knowledge` command, which allocates the id and rewrites the
+file atomically under the team's file lock - so two lanes can append without a
+prose conflict. A missing `Knowledge.md` is an empty store, never an error.
+
+### 15.1 Record shape
+
+```
+## K-0001 - <topic>
+- statement: <one durable fact, rule or gotcha about THIS project, <= 500 chars>
+- evidence: <command @rev -> result | path:line | URL + access date>
+- tags: <comma list, lower-case kebab>
+- owner: <role that first recorded it>
+- by: <instance>
+- task: <T-id>              (optional provenance, set by --task)
+- importance: 1-5
+- uses: N
+- status: active | superseded
+- supersedes: K-0002        (optional)
+- superseded_by: K-0004     (set on the old record)
+- created: YYYY-MM-DD
+- updated: YYYY-MM-DD
+```
+
+Ids are global, `K-` plus four digits, allocated from the maximum in the file -
+a superseded record keeps its id, so the history stays readable. Every free-text
+field is one line (`one_line()`), so a record cannot break the file's structure.
+An empty tag list is stored as `- tags: -`, never an empty cell. The command owns
+the id and the file; a hand edit is a defect, not a shortcut.
+
+### 15.2 Commands (frozen, documented in `docs/guide/cli.md`)
+
+```
+teamwork knowledge {add,list,search,show,touch} ...
+teamwork knowledge add --by BY --topic TEXT --statement TEXT --evidence TEXT [--tags TAGS] [--importance 1-5] [--supersedes K-ID] [--task T]
+teamwork knowledge list [--tag TAG] [--role ROLE] [--status active|superseded|all] [--limit N]
+teamwork knowledge search QUERY [--status active|superseded|all] [--limit N]
+teamwork knowledge show K_ID
+teamwork knowledge touch K_ID --by BY
+```
+
+- `add` requires `--by`, `--topic`, `--statement` and `--evidence`; `--topic` is
+  at most 120 characters and `--statement` at most 500; `--importance` defaults
+  to 3; `--tags` defaults to empty; `--supersedes` and `--task` default to unset.
+  Tags are normalised to a lower-case kebab comma list. Ids are `K-0001` upward,
+  allocated from the file maximum.
+- Duplicates are **active-only**. The key is exact:
+  `normalise(s) = " ".join(s.split()).casefold()`, applied to `topic` and to
+  `statement`; two records are duplicates iff both normalised values are equal
+  **and both are active**. No punctuation, accent or other folding applies.
+  `add` applies this precedence:
+  1. An exact **active** duplicate K-0003 returns the existing id and exits 0
+     with `# K-0003 already records this: <topic>` and adds no second entry. If
+     `--supersedes K-0002` is also given, K-0002 must be active: it is marked
+     `superseded` with `superseded_by: K-0003` and updated, then that line is
+     printed. A target that is the duplicate itself or is inactive exits 2.
+  2. Otherwise, an active record with the same normalised topic but a different
+     statement is refused, exit 2:
+     `topic '<topic>' is already claimed by K-0002; pass --supersedes K-0002 to replace it`.
+     Only the holder is an acceptable `--supersedes` target here.
+  3. Otherwise the new record is created active.
+  Re-adding a fact whose only matching record is **superseded** is not a
+  duplicate. When no active record claims the topic it creates a new active
+  record and the old fact stays history; when an active holder exists, rule 2
+  applies and that holder must be superseded. `--supersedes K-old` may name the
+  retired record only in the free-slot case and only when the new content
+  matches it exactly - the **re-instatement** case. The retired record's
+  `superseded_by` is not rewritten (it already names the record that retired
+  it); the new record's `supersedes` names it. Naming any other inactive record
+  exits 2.
+- A topic is a claim slot: at most one **active** record carries a given
+  normalised `topic`. A replacing fact uses `--supersedes` and retires the
+  current holder; a different fact uses a different topic.
+- On success `add` prints `# K-0001 recorded: <topic>` then
+  `- path: <Knowledge.md>`.
+- `--supersedes K-0002` sets the new record's `supersedes`, marks the old record
+  `status: superseded` and `superseded_by: K-new`, and updates it; the new
+  record's evidence is what justifies the replacement. A nonexistent target
+  exits 2; the record itself exits 2; an already-superseded target exits 2,
+  naming the active record at the end of its chain:
+  `K-0002 is already superseded by K-0004`. Only the re-instatement case above
+  may name an inactive record, and it rewrites no `superseded_by`. Therefore
+  each record has at most one `superseded_by` edge, that edge always points to a
+  later-created record, and an inactive record can never supersede another: a
+  cycle would need an id lower than itself, so the directed graph is acyclic by
+  construction and a re-instated fact always has an active record.
+- `list` defaults to `--status active` and `--limit 20` (`0` means all) with no
+  role or tag filter until asked; `--role` matches the `owner` field (provenance,
+  not a permission or read filter) and `--tag` matches one tag in the record's
+  list. Rows are ordered by `importance` descending, then `uses` descending, then
+  `updated` descending, then id **ascending**, one line each:
+  `- K-0001 [active] importance=3 uses=2 tags=build,ci: <topic> - <statement>`
+  An empty tag list renders `tags=-`. The last line is exactly
+  `# knowledge: N active, M superseded, T use(s)`, where `T` is the sum of
+  `uses` over every record, active and superseded. `--status superseded|all`
+  reads the history.
+- `search QUERY` is a case-insensitive substring match over `topic`, `statement`
+  and `tags`, read-only; it uses the same row and ranking as `list`, defaults to
+  `--status active` and `--limit 20` (`0` means all), and accepts the same
+  `--status superseded|all` history switch. An empty tag list renders `tags=-`.
+  No match prints `# no knowledge matched "<query>"` and exits 0.
+- `show K_ID` prints `## K-0001 - <topic>`, then every field in record order as
+  `- field: value` (an unset optional field prints `-`, and an empty tag list
+  prints `- tags: -`), then `- path: <Knowledge.md>`. A superseded record still
+  prints `status: superseded` and its `superseded_by`: history is readable, not
+  hidden. Unknown id exits 2.
+- `touch K_ID --by BY` increments `uses`, sets `updated` and prints
+  `# K-0001 uses=N`; unknown id exits 2. It is how the team records that a fact
+  was actually used, which is what makes the ranking follow need rather than
+  volume.
+- Ledger events: `knowledge.add`, `knowledge.supersede` (when `--supersedes` is
+  used), `knowledge.touch`.
+- `load` prints the top 10 **active** records project-wide, one line each:
+  `- [K-0001] <topic>: <statement> (uses=N, tags=...)`, where an empty tag list
+  renders `tags=-`.
+  then `# project knowledge: N active, M superseded; search: teamwork.py knowledge search "<topic>"`.
+  The cap is fixed at 10 and the ranking is `list`'s order, so what every agent
+  reads at startup is the most important and most used knowledge, not the newest
+  ten.
+- A record is never silently deleted: obsolete knowledge is **superseded**, so
+  the team can see what changed, when and on whose evidence.
+
+### 15.3 Evidence and privacy
+
+- No knowledge without evidence: `add` requires a non-empty `--evidence`, and a
+  statement whose evidence names no command, path or dated source is refused at
+  review, not accepted as opinion. The evidence column is what separates
+  accumulated knowledge from opinion.
+- Never store a secret, credential, token or personal data. `Knowledge.md` is
+  gitignored, but the red line applies to every store the team writes.
+- Knowledge is not an argument: a decision cites the `K-` record **and its
+  evidence**, never the record's authority.
+
+### 15.4 Fluency
+
+- The store is the project's accumulating experience: `list` reports active,
+  superseded and total uses, so growth is measurable rather than asserted.
+- `load` surfaces the top-ranked records, `knowledge search` answers a concrete
+  question, and `touch` feeds the ranking - the loop that makes a later agent
+  faster than the first one.
+- The knowledge count is a milestone metric: a project whose agents never add or
+  use a record is not accumulating experience, whatever its archives say.

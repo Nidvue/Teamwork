@@ -21,10 +21,11 @@ managed block's size from a file that also holds text outside the block, and
 it.
 
 ``harness lint`` is the whole-proposal invalidator. A skill that no always-on
-file names is silently dead, a ``teamwork.py <word>`` the CLI does not implement
-is a broken instruction, and a referenced path that was never shipped sends the
-reader to nowhere. Each of those is a fact about the tree, so each is checked
-mechanically instead of being trusted to review.
+file names is silently dead, a skill that does not carry the team's ``tw-``
+prefix cannot be told apart from a host skill, a ``teamwork.py <word>`` the CLI
+does not implement is a broken instruction, and a referenced path that was never
+shipped sends the reader to nowhere. Each of those is a fact about the tree, so
+each is checked mechanically instead of being trusted to review.
 
 The always-on budget is the cost doctrine made measurable: SKILL.md, the managed
 teamwork block of AGENTS.md, the role charter and the role's memory files are in
@@ -51,6 +52,7 @@ from .config import (
     F_ROLE,
     F_SETTINGS,
     F_SHORT,
+    SKILL_PREFIX,
 )
 from .gitutil import HooksDirUnresolved, run_git
 from .gitutil import hooks_dir as resolved_hooks_dir
@@ -106,11 +108,19 @@ SPEC_HOOKS = "hook_dir(root)/{pre-commit,pre-push}"
 HOOK_STAGES = ("pre-commit", "pre-push")
 
 RULE_IDENTITY = "IDENTITY"
+RULE_PREFIX = "PREFIX"
 RULE_TRIGGER = "TRIGGER"
 RULE_SUBCOMMAND = "SUBCOMMAND"
 RULE_HELPER = "HELPER"
 RULE_EVIDENCE = "EVIDENCE"
-RULES = (RULE_IDENTITY, RULE_TRIGGER, RULE_SUBCOMMAND, RULE_HELPER, RULE_EVIDENCE)
+RULES = (
+    RULE_IDENTITY,
+    RULE_PREFIX,
+    RULE_TRIGGER,
+    RULE_SUBCOMMAND,
+    RULE_HELPER,
+    RULE_EVIDENCE,
+)
 
 SKILLS_DIRNAME = Path(".agents") / "skills"
 
@@ -482,6 +492,26 @@ def lint(repo: Path, root: Path) -> tuple[list[Finding], LintStats]:
                 Finding(RULE_IDENTITY, rel, "frontmatter `description:` is missing or empty")
             )
 
+        # 14.4: the prefix is the recognition contract. Only a file that has a
+        # name reaches this rule - a nameless file already failed IDENTITY.
+        if name and not name.startswith(SKILL_PREFIX):
+            mine.append(
+                Finding(
+                    RULE_PREFIX,
+                    rel,
+                    f"skill name '{name}' does not carry the required prefix '{SKILL_PREFIX}'",
+                )
+            )
+        elif name and not directory.startswith(SKILL_PREFIX):
+            mine.append(
+                Finding(
+                    RULE_PREFIX,
+                    rel,
+                    f"skill directory '{directory}' does not carry the required "
+                    f"prefix '{SKILL_PREFIX}'",
+                )
+            )
+
         if directory and directory not in corpus:
             mine.append(
                 Finding(
@@ -529,7 +559,7 @@ def _outcomes(
 ) -> tuple:
     """The verdict of each rule on one skill file, in frozen rule order."""
     failed = {finding.rule for finding in mine}
-    out = [(rule, FAIL if rule in failed else OK) for rule in RULES[:4]]
+    out = [(rule, FAIL if rule in failed else OK) for rule in RULES[:-1]]
     if not has_registry:
         out.append((RULE_EVIDENCE, SKIPPED))
     elif rel not in evaluated:
@@ -551,7 +581,7 @@ def render_checked(checked: list[CheckedFile]) -> list[str]:
 
 
 def ordered(findings: list[Finding]) -> list[Finding]:
-    """Rule order first (IDENTITY..EVIDENCE), path order inside a rule."""
+    """Rule order first (IDENTITY, PREFIX..EVIDENCE), path order inside a rule."""
     rank = {rule: index for index, rule in enumerate(RULES)}
     return sorted(findings, key=lambda finding: (rank.get(finding.rule, len(rank)), finding.path))
 
@@ -725,7 +755,7 @@ def add_parsers(sub, common) -> None:
     parser = hsub.add_parser(
         "lint",
         parents=[common],
-        help="whole-proposal checks: identity, trigger, subcommand, helper, evidence",
+        help="whole-proposal checks: identity, prefix, trigger, subcommand, helper, evidence",
     )
     parser.add_argument(
         "--verbose", action="store_true", help="print what was checked and what was skipped"
