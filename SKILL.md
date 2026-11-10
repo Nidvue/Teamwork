@@ -26,6 +26,13 @@ The prompt is the product brief. If it is genuinely ambiguous in a way that
 changes what gets built, the CEO asks **one** consolidated round of questions and
 then proceeds on recorded assumptions.
 
+The skill is **agent-agnostic and remote-agnostic**: it runs on Pi, Claude Code,
+opencode, Codex, Cursor, Windsurf, Gemini CLI or any host that can run
+`teamwork.py` and read `AGENTS.md`, and against GitHub, GitLab, Bitbucket,
+Gitea/Forgejo, Azure DevOps or a bare server. The protocol is identical; only the
+six host operations and the integrity settings are adapted
+(`references/Adapters.md`, `references/Remotes.md`).
+
 ## Non-negotiable contract
 
 1. **One voice to the user.** Only the CEO reports, asks, and accepts. No other
@@ -62,7 +69,7 @@ then proceeds on recorded assumptions.
 | Designer | `designer-1..N` | `roles/designer.md` - also owns every visual asset, raster **and** vector (recorded in `Design.md`), and decides what is needed |
 | Developer | `developer-1..N` | `roles/developer.md` |
 | Tester | `tester-1..N` | `roles/tester.md` |
-| Release Engineer | `release-engineer` | `roles/release-engineer.md` |
+| Release Engineer | `release-engineer` | `roles/release-engineer.md` - also owns repository and CI integrity: branch protection, required checks, merge strategy and protected tags, on any git host |
 | Technical Writer | `technical-writer` | `roles/technical-writer.md` |
 | Data Engineer (conditional) | `data-engineer` | `roles/data-engineer.md` |
 | Reviewer | `reviewer` or `reviewer-1..N` | `roles/reviewer.md` - deep independent second review of every deliverable; only role that may pass/merge |
@@ -365,6 +372,27 @@ Two duties that keep the remote and the confidence level honest:
 Both duties are evidence, not ceremony: `tests plan` and the task record must name
 the local result **and** the CI run (id + conclusion) for the certified revision.
 
+### 5d. Any agent host, any git host
+
+- **Agent host.** The engine, the workspace format, the criteria records, the
+  two-stage gate, the ledger and the test matrix are host-independent. Only six
+  operations need a host mechanism - spawn a teammate, delegate one-shot work,
+  message an agent, inspect state, re-wake on a schedule, close the team. Name the
+  operation, then use the adapter in `references/Adapters.md` (Pi `teams`/`subagent`/
+  `schedule_prompt`, Claude Code agents + host cron, opencode agents, a host CLI in
+  a `bash` job, or the files themselves). Never hard-code a host tool in a
+  normative step, and never fake a tool the host lacks: record the degraded mode.
+  The protocol must still complete with no scheduler and no teammate tool at all -
+  one agent wearing the hats sequentially, with the same gates.
+- **Git host.** The Release Engineer guarantees repository and CI integrity on
+  whatever host is in use: protected default branch, **no force-push**, no
+  deletion, required status checks on the exact revision, at least one non-author
+  approval, squash-only merges with the source branch deleted, protected `v*`
+  tags created only by the CEO, and least-privilege CI with no secret in the tree.
+  Policy and the per-host mapping are in `references/Remotes.md`. Record the actual
+  settings from the host API as evidence and re-read them to detect drift; an
+  unprotected setting is a defect on par with a red build.
+
 ### 6. Close
 
 Completion gate - all of:
@@ -408,6 +436,8 @@ read the one you need instead of the whole skill.
 | `references/Roles.md` | the full roster, handoffs, decision rights and boundaries |
 | `references/Testing.md` | the 15 role-owned test layers, how each is designed/run, dedupe and required coverage |
 | `references/Audit.md` | what is recorded, provenance, the hash-chained ledger, internal and external audit |
+| `references/Adapters.md` | running the team on any agent host: the six operations, the Pi / Claude Code / opencode / Codex / Cursor / generic mapping, installation and degraded modes |
+| `references/Remotes.md` | repository and CI integrity on any git host: branch protection, required checks, merge strategy, protected tags, least privilege, and the GitHub / GitLab / Bitbucket / Gitea / Azure mapping |
 
 Team skills: when a flow is repetitive, widely reused and must stay consistent,
 the owning role extracts it into `<project>/.agents/skills/<name>/SKILL.md` and
