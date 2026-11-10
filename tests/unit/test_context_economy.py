@@ -303,6 +303,9 @@ def pass_review(cli, project: Path, capsys) -> None:
             "pass",
             "--evidence",
             REVIEWER_LONG,
+            # this module tests the merge path separately (merge_pr below), so the
+            # pass records the verdict without landing it
+            "--no-merge",
         )
         == 0
     )

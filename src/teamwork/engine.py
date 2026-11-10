@@ -996,28 +996,12 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "'approved'. The Reviewer must pass the review first.",
                 2,
             )
-        same_as_verdict = pascal(pr.get("reviewer") or "") == pascal(merger)
-        other_reviewers = [i for i in instances_of(root, "reviewer") if pascal(i) != pascal(merger)]
-        if same_as_verdict and other_reviewers:
-            die(
-                f"{merger} passed the review of {pr['id']} and cannot also merge it; "
-                f"another Reviewer must merge: {', '.join(other_reviewers)}"
-            )
         if args.force:
             args.force = require_reason(args.force, "merging without a passing review")
-        if same_as_verdict and not other_reviewers:
-            print(
-                f"# NOTE {merger} both verified and merged {pr['id']}: it is the only "
-                "Reviewer instance. Add reviewer-2 to separate the two duties."
-            )
-            ledger_append(
-                root,
-                "review.merge_self",
-                merger,
-                pr["task"],
-                f"{pr['id']}: the sole Reviewer instance verified and merged "
-                "(no second reviewer to separate the duties)",
-            )
+        # The Reviewer that passed the verdict is the one that merges it: a pass
+        # is the merge trigger (see ``merge_after_pass``), so this is the normal
+        # path, not an exception. Independence still means the AUTHOR never
+        # reviews or merges its own work.
         role = resolve_role(pr["role"] or pr["author"])
         if not role:
             die(f"{pr['id']} has no role or author: the PR record is incomplete")
@@ -1240,6 +1224,85 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
         return 0
 
 
+def _merge_args(pr_id: str, reviewer: str, *, keep_branch: bool = False) -> argparse.Namespace:
+    """The ``pr merge`` argument set a passing review triggers.
+
+    A pass is the merge trigger, so the two-stage gate collapses into one
+    command: the Reviewer that verified the revision also lands it, and the
+    branch is deleted. The defaults match ``pr merge`` exactly - no squash, no
+    forced gate, branch retired - so the recorded merge is the one a human
+    would have produced by hand.
+    """
+    return argparse.Namespace(
+        pr=pr_id,
+        by=reviewer,
+        squash=False,
+        keep_branch=keep_branch,
+        delete_branch=not keep_branch,
+        force="",
+    )
+
+
+def merge_after_pass(
+    root: Path, role: str, t: dict, reviewer: str, *, keep_branch: bool = False
+) -> bool:
+    """Merge the reviewed PR now that it passed, and close its branch.
+
+    Returning ``True`` means the work is in the base branch. A ``False`` return
+    never loses the verdict: the pass, its evidence and the archive entry are
+    already recorded, so the merge can be re-run by hand and the review is not
+    submitted twice.
+
+    The merge is skipped - not failed - when the deliverable has no PR, when
+    there is no git repository, or when the branch is already gone (a re-review
+    of merged work). A real git failure is reported as a merge defect, because a
+    passing review that cannot land is exactly the bottleneck this removes.
+    """
+    pr_id = t.get("pr") or ""
+    if not pr_id:
+        print(
+            "# no PR to merge: the deliverable is review-passed and done "
+            f"('pr open --agent {t.get('claimed_by') or role} --task {t['id']}' "
+            "opens one if it ships a branch)"
+        )
+        return False
+    project = project_of(root)
+    if not is_git_repo(project):
+        print("# no git repository: nothing to merge, the verdict stands")
+        return False
+    path = reviews_path(root)
+    prs = parse_reviews(path)
+    idx = _merge_pr_index(prs, pr_id, t.get("branch") or "")
+    if idx is None:
+        print(f"# PR {pr_id} is not in {path.name}: nothing to merge")
+        return False
+    pr = prs[idx]
+    if pr.get("status") == "merged":
+        print(f"# {pr['id']} already merged at {pr.get('merge_commit') or 'an earlier revision'}")
+        return True
+    branch = pr.get("branch") or ""
+    if branch and not branch_exists(project, branch):
+        print(f"# branch {branch} no longer exists; nothing to merge")
+        return False
+    try:
+        _pr_merge(
+            _merge_args(pr["id"], reviewer, keep_branch=keep_branch),
+            root,
+            project,
+            work_repo(root),
+            path,
+        )
+    except SystemExit as exc:  # ``die`` inside the merge: keep the pass, report it
+        code = exc.code if isinstance(exc.code, int) else 1
+        print(
+            f"# the pass is recorded but the merge did not run (exit {code}). The work "
+            "is NOT in the base branch yet; fix the cause and land it with:\n"
+            f"#   teamwork.py pr merge --pr {pr['id']} --by {reviewer}"
+        )
+        return False
+    return True
+
+
 def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str) -> int:
     tpath = task_file(root, role)
     lock_path = root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"
@@ -1319,7 +1382,10 @@ def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str)
         f"#   Reviewer: teamwork.py review {role} {t['id']} --by <Reviewer instance> "
         "--result pass|fail ..."
     )
-    print(f"#   merge: teamwork.py pr merge --pr {pr['id']} --by <another Reviewer>")
+    print(
+        f"#   a passing review merges it: teamwork.py review {role} {t['id']} "
+        f"--by <Reviewer instance> --result pass --evidence ..."
+    )
     return 0
 
 
@@ -3273,7 +3339,7 @@ def cmd_commit(args) -> int:
             "  start a branch for this task first:\n"
             "    teamwork.py branch start --agent <you> --task <T-id>\n"
             "  or merge through the Reviewer:\n"
-            "    teamwork.py pr open ... && teamwork.py pr merge --by <another Reviewer>",
+            "    teamwork.py pr open ... then the Reviewer's pass merges it",
             2,
         )
 
@@ -3652,10 +3718,10 @@ def cmd_init(args) -> int:
     roles_now = [resolve_role(n) for n in created]
     if len(instances_of(root, "reviewer")) == 1:
         print(
-            "teamwork: WARNING one Reviewer instance: it must verify and merge the "
-            "same PR (logged as a review.merge_self exception) and every review "
-            "serialises onto that one lane. Add reviewer-2 (and reviewer-3) so the "
-            "pulse can fan reviews out and a different Reviewer can merge."
+            "teamwork: WARNING one Reviewer instance: that one lane verifies and merges "
+            "every deliverable, so the queue serialises onto it and the Reviewer is "
+            "the throughput ceiling. Add reviewer-2 (and reviewer-3) so the pulse can "
+            "fan reviews out and one lane's stall does not stop the gate."
         )
     for required, why in (
         ("reviewer", "nothing can pass review or be merged"),
@@ -6944,16 +7010,8 @@ def cmd_review(args) -> int:
             t["id"],
             f"reopens work merged at {t['merge_commit']}: {args.findings[:110]}",
         )
-    if t.get("pr"):
-        print(
-            f"          PR {t['pr']}: "
-            + (
-                f"approved - merge with: teamwork.py pr merge --pr {t['pr']} "
-                "--by <another-Reviewer>"
-                if args.result == "pass"
-                else "changes requested - fix and re-submit"
-            )
-        )
+    if t.get("pr") and args.result == "fail":
+        print(f"          PR {t['pr']}: changes requested - fix and re-submit")
     if args.result == "pass":
         print(
             f"teamwork: REVIEW PASS {role} {t['id']} by {reviewer}: {t['title']}"
@@ -6961,6 +7019,22 @@ def cmd_review(args) -> int:
         )
         print(f"          reviewer evidence: {t.get('review_evidence')}")
         print(f"          archived to: {archived}")
+        # A pass is the merge trigger: the lane that verified the revision lands
+        # it and deletes the branch, so a passing review never waits in a queue.
+        if t.get("pr") and not getattr(args, "no_merge", False):
+            print(
+                f"          merging {t['pr']} now (--keep-branch opts out of deleting the branch)"
+            )
+            merge_after_pass(
+                root, role, t, reviewer, keep_branch=bool(getattr(args, "keep_branch", False))
+            )
+        elif t.get("pr"):
+            print(
+                f"          PR {t['pr']}: approved, not merged (--no-merge). Land it with:\n"
+                f"            teamwork.py pr merge --pr {t['pr']} --by {reviewer}"
+            )
+        else:
+            merge_after_pass(root, role, t, reviewer)
     else:
         print(
             f"teamwork: REVIEW FAIL {role} {t['id']} by {reviewer}: {t['title']}"
@@ -9342,6 +9416,16 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--baseline", default="", help="the state the verification started from")
     s.add_argument("--replay", default="", help="command or path that reproduces the verdict")
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
+    s.add_argument(
+        "--keep-branch",
+        action="store_true",
+        help="a pass merges the PR; keep its branch instead of deleting it",
+    )
+    s.add_argument(
+        "--no-merge",
+        action="store_true",
+        help="a pass does not merge (default: the passing Reviewer merges and closes the branch)",
+    )
     s.add_argument(
         "--force",
         default="",
