@@ -21,7 +21,7 @@ import datetime
 import re
 from pathlib import Path
 
-from teamwork import config, memorypack, records
+from teamwork import config, engine, memorypack, records
 
 NOW = datetime.datetime(2026, 11, 7, 12, 0, 0)
 EVIDENCE = "pytest tests/unit/test_memory_index.py @abc1234 -> 6 passed"
@@ -366,6 +366,16 @@ def test_a_role_with_no_open_lessons_stays_within_the_index_budget(cli, project,
     index = int(re.search(r"# index: (\d+) bytes", tasked).group(1))
     pack = int(re.search(r"# pack: \d+ record\(s\), (\d+) bytes", tasked).group(1))
     assert index + pack <= memorypack.PACK_BUDGET_BYTES
+
+
+def test_record_writes_do_not_depend_on_another_test_importing_the_engine() -> None:
+    """The store mask is installed by this module's own import, not by test order.
+
+    ``records.write_knowledge`` refuses to write an unmasked record until
+    ``teamwork.engine`` has installed the mask, so this file has to import the
+    engine itself: run alone it must not rely on another module having done it.
+    """
+    assert records._MASK is engine.mask_secret_shapes
 
 
 def test_index_and_pack_share_one_budget(cli, project, capsys) -> None:
