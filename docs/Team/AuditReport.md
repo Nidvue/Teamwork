@@ -5,7 +5,7 @@ Related: [Project](Project.md) · [Architecture](Architecture.md) · [Risks](Ris
 
 ## Status
 
-Dated facts, measured 2026-11-02 on `main` at `dffa325`. A claim without a date is
+Dated facts, measured 2026-11-02 on `main` at `392b41d`. A claim without a date is
 not current; re-run the command before relying on it.
 
 | Claim | State on 2026-11-02 | Measured by |
@@ -41,7 +41,7 @@ are the pre-rewrite state kept as evidence of what was measured and why.
   --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s) in tree,
   history`, exit 0, at the head of `securityauditor/t-0001-security-and-privacy-posture-audit-tree` (2026-10-25). The red that section 0
   below was written against is history, kept as measured: the same command at
-  `7db810a` (main, 2026-10-25) -> `FAIL - 2 finding(s)`, a **commit message plus
+  `de331a6` (main, 2026-10-25) -> `FAIL - 2 finding(s)`, a **commit message plus
   one code comment on an unmerged branch** (**F-P1**), and the commit named there
   (`a4c726f`) has since been dropped and its reflog expired under
   `D-20261025-CEO`, so the disclosure is gone from every ref rather than
@@ -121,7 +121,7 @@ Owner: Security Auditor.
 Related: [Risks](Risks.md) · [Project](Project.md).
 
 This is the **live** posture, measured on this host. Audited revision
-`7db810a05f515420f319d4d513f605c8760f9624` (main), all refs included because
+`de331a6b0547b5ee63ab08d15a18729d596fd88e` (main), all refs included because
 `--history` sweeps every blob and every commit message reachable from every ref;
 measured 2026-10-25T14:43Z. Where an older section of this file states a
 different state, this section is the current one.
@@ -146,7 +146,7 @@ marked closed; every other row was re-run unchanged and still holds.
 | 3 | credentials in the tree | `git ls-files \| grep -iE '(\.env\|credential\|secret\|id_rsa\|\.pem\|\.key\|\.netrc\|\.npmrc)'` | empty; `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.p12`, `*.pfx` |
 | 3 | credentials in history | full-blob and all-commit-message sweep (row 1) | not one `private-key`, `personal-email`, `json-secret` or `.env`-file hit among the findings reported there; every hit is a path or a fabricated probe value (0.3) |
 | 4 | code scanning | `teamwork.py code-scanning`; `gh api repos/Nidvue/Teamwork/code-scanning/alerts?state=open` | **readable, not unreadable** - `[]`, 0 open |
-| 4 | the zero is live, not stale | `gh api .../code-scanning/alerts?state=all`; `.../code-scanning/analyses?per_page=5` | 3 historical alerts, **all `state: fixed`, none dismissed** (`py/clear-text-logging-sensitive-data`, scripts/privacy_scan.py:1008,1150,1161); python and actions analyses at `7db810a` with `results_count: 0`, 2026-10-24T11:44Z |
+| 4 | the zero is live, not stale | `gh api .../code-scanning/alerts?state=all`; `.../code-scanning/analyses?per_page=5` | 3 historical alerts, **all `state: fixed`, none dismissed** (`py/clear-text-logging-sensitive-data`, scripts/privacy_scan.py:1008,1150,1161); python and actions analyses at `de331a6` with `results_count: 0`, 2026-10-24T11:44Z |
 | 4 | adjacent scanners | `gh api .../dependabot/alerts?state=open`; `.../secret-scanning/alerts?state=open` | both `[]` |
 | 5 | hooks, installed | `teamwork.py hooks install` in a throwaway clone, then a plain `git commit` on `main` | **refused**, exit 1: "refusing to commit on 'main'" (**A-1**) |
 | 5 | hooks, bypass 1 | `git commit --no-verify` on `main` | **accepted**, exit 0 - git cannot be stopped by a hook (**A-1**) |
@@ -158,7 +158,7 @@ marked closed; every other row was re-run unchanged and still holds.
 | ID | Severity | What, with evidence | Owner | State |
 |---|---|---|---|---|
 | F-P1 | **high** - gate red | Commit `a4c726f4b2ca` carries an absolute build path under the operator home directory **twice**: in its `Why:` line and in the comment at `src/teamwork/resources.py:27` of its own tree (a new blob, not the shipped one). `--tree --history --allow` -> `commit:a4c726f4b2ca:8 [high/home-path] message` **and** `src/teamwork/resources.py:27 [high/home-path]`; `--tree` alone is still **PASS**, so the shipped source is clean and the leak is on that branch only (`git branch -a --contains a4c726f4b2ca` -> `developer-1/t-0001-...`; the Windows form is absent from `origin/main` -> 0 occurrences of that shape). Unpublished, so the fix is free now; after the merge it needs a history rewrite. | Developer (`developer:T-0005`, P0 filed) | **closed** - the commit was dropped and the reflog expired (`D-20261025-CEO`), the consumer-email illustration was removed from the docs, and `--tree --history --allow` re-measures **PASS 0** at that head; nothing was exempted to get there |
-| F-P2 | medium | The `privacy` job is skipped on a prose-only push to main: `gh api .../commits/7db810a/check-runs` -> 6 skipped, including `privacy scan (tree + history)`; the only run at that sha is docs.yml (`actions/runs/39712543491`). Cause: `ci.yml:359` `if: github.event_name != 'push' \|\| needs.scope.outputs.code == 'true'`. Mitigated at PR time (any non-push event forces `code=true`) and by branch protection, but a merge commit created at merge time is never scanned by the PR run. `committer-guard` is **not** gated and did run. | Release Engineer (`release-engineer:T-0003`, P2 filed) | open |
+| F-P2 | medium | The `privacy` job is skipped on a prose-only push to main: `gh api .../commits/de331a6/check-runs` -> 6 skipped, including `privacy scan (tree + history)`; the only run at that sha is docs.yml (`actions/runs/39712543491`). Cause: `ci.yml:359` `if: github.event_name != 'push' \|\| needs.scope.outputs.code == 'true'`. Mitigated at PR time (any non-push event forces `code=true`) and by branch protection, but a merge commit created at merge time is never scanned by the PR run. `committer-guard` is **not** gated and did run. | Release Engineer (`release-engineer:T-0003`, P2 filed) | open |
 | F-P3 | low | Two wording asymmetries, no live conflict: `scope violation` appears only in AGENTS.md, and AGENTS.md forbids **logging** secrets while `references/Evidence.md` says "reading, printing or storing". The allowlist header also states the wrong mechanism (0.3). | Release Engineer / Technical Writer (`release-engineer:T-0004`, P3 filed) | open |
 | A-1 | accepted | Local hooks are client-side and cannot stop `--no-verify`; that is git's own flag, not a defect of the hook. The control that holds is on the forge, and the forge was hardened after the audited revision - re-measured 2026-10-25: `gh api repos/Nidvue/Teamwork/branches/main/protection` -> `strict: true`, 20 required contexts including `privacy scan (tree + history)`, `committer guard` and the two `Analyze` lanes, 1 approving review, `allow_force_pushes: false`, `allow_deletions: false`, `required_conversation_resolution: true`; `gh api repos/Nidvue/Teamwork/actions/permissions` -> `sha_pinning_required: true`, so an action reference without a full commit SHA cannot be merged (the tree's 37 `uses:` were all 40-hex at the same reading); `gh api repos/Nidvue/Teamwork/rulesets` -> one active tag ruleset, `protect v* release tags` (on `refs/tags/v*`: deletion, non-fast-forward and update blocked, `bypass_actors: []`). Residual: `enforce_admins: false` (an admin bypasses every check) and `required_signatures: false`. | CTO / Release Engineer | accepted policy |
 
@@ -519,7 +519,7 @@ clone of the advertised refs answers only the first.
 ```
 $ git ls-remote origin | wc -l
 40
-$ git ls-remote origin | grep -c 3f4981d
+$ git ls-remote origin | grep -c a5b0cd6
 0
 
 $ git merge-base --is-ancestor <rev> origin/main; echo $?
@@ -764,7 +764,7 @@ opinion: `tests/unit/test_privacy_scan.py::test_reveal_never_prints_the_unmasked
 
 Owner: Security Auditor. Related: [Risks](Risks.md) · [Project](Project.md) · AC-M22-5.
 
-Measured at 90502bb, team root `.pi/Teamwork/Teams/Teamwork`, stores = `Global/*.md` + `Roles/<Role>/*.md`; the counts below are that baseline - 8 store files were rewritten between 09:55 and 10:01 the same morning, which is why a re-run of the same commands sees 71 lines in 13 files instead of the 68 in 12 recorded here.
+Measured at bc9b981, team root `.pi/Teamwork/Teams/Teamwork`, stores = `Global/*.md` + `Roles/<Role>/*.md`; the counts below are that baseline - 8 store files were rewritten between 09:55 and 10:01 the same morning, which is why a re-run of the same commands sees 71 lines in 13 files instead of the 68 in 12 recorded here.
 
 - `rg -n -i 'api[_-]?key|token|secret|password|passwd|bearer|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}' $TEAMWORK_ROOT/Global $TEAMWORK_ROOT/Roles --glob '*.md'` -> 68 lines in 12 files, **0 live credentials**: every hit is the word in prose or a rule name. High-risk shapes alone (`BEGIN ... PRIVATE KEY`, `sk-`, `ghp_`, `AKIA`, JWT) -> **0 hits**.
 - `rg -n '/home/[a-z]|/Users/[A-Za-z]|C:\\Users' ...` -> **136 lines**, 133 of them the `/home/<operator>` prefix, in 20 files under `Roles/`; `Global/GlobalMemory.md` -> **0**.
