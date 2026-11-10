@@ -207,6 +207,7 @@ under two roles is two tasks.
 | developer | T-0077 | gate | done | P-0124 | 10dd51b |
 | developer | T-0078 | messaging | done | P-0126 | ee66695 |
 | developer | T-0079 | records | done | P-0127 | dc36df0 |
+| developer | T-0080 | identity | done | P-0128 | 2b19c07 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |

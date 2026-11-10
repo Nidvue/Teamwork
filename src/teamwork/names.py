@@ -188,6 +188,36 @@ def identity_string(role: str) -> str:
     return f"{name} <{email}>"
 
 
-def git_identity_args(role: str) -> list:
-    name, email = role_identity(role)
+def preset_identity(project=None) -> tuple | None:
+    """The operator's preset identity: the repository's local config, else global.
+
+    A team that runs on a developer's machine should commit as that developer when
+    the repository says who they are; the role mailbox is the fallback for a host
+    with no identity at all, not an override of the person who owns the checkout.
+    """
+    import subprocess
+
+    def read(scope: str, key: str) -> str:
+        return subprocess.run(
+            ["git", "config", scope, key],
+            cwd=str(project) if project else None,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    def resolve(key: str) -> str:
+        return read("--local", key) or read("--global", key)
+
+    name, email = resolve("user.name"), resolve("user.email")
+    return (name, email) if name and email else None
+
+
+def commit_identity(role: str, project=None) -> tuple:
+    """(name, email) a commit is authored with: preset first, role mailbox last."""
+    preset = preset_identity(project)
+    return preset if preset else role_identity(role)
+
+
+def git_identity_args(role: str, project=None) -> list:
+    name, email = commit_identity(role, project)
     return ["-c", f"user.name={name}", "-c", f"user.email={email}"]

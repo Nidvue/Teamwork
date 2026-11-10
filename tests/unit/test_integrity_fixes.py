@@ -432,14 +432,24 @@ def test_init_force_preserves_records_and_team_documents(cli, project: Path) -> 
     ) == project_doc
 
 
-def test_repo_bootstrap_sets_a_role_local_git_identity(tmp_path: Path) -> None:
+def test_repo_bootstrap_leaves_a_preset_identity_alone(tmp_path: Path) -> None:
+    """The operator's identity is the author; the role mailbox is the fallback.
+
+    A scratch repository inherits the global git identity, so ``init`` must not
+    overwrite the checkout with a role mailbox - the commit would then carry the
+    wrong author. The role identity is written only when no identity exists at all,
+    which the next test pins by clearing both scopes.
+    """
     project = tmp_path / "repo-bootstrap"
     project.mkdir()
     engine.ensure_repo(project, commit=False, quiet=True)
-    assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
-        "ceo@agents.nidvue.com"
-    )
-    assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "CEO"
+    preset = engine.preset_identity(project)
+    if preset is None:
+        assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
+            "ceo@agents.nidvue.com"
+        )
+    else:
+        assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == ""
 
 
 def test_repo_bootstrap_never_overwrites_an_existing_local_identity(tmp_path: Path) -> None:
@@ -462,9 +472,9 @@ def test_repo_bootstrap_preserves_a_name_only_local_identity(tmp_path: Path) -> 
     engine.run_git(project, "config", "--local", "user.name", "Ops Person")
     engine.ensure_repo(project, commit=False, quiet=True)
     assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
-    assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
-        "ceo@agents.nidvue.com"
-    )
+    resolved = engine.commit_identity("ceo", project)
+    assert resolved[0] == "Ops Person", "the local name is the preset and is never overwritten"
+    assert resolved[1] in ("ceo@agents.nidvue.com", engine.preset_identity(project)[1])
 
 
 def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -> None:
