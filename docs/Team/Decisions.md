@@ -349,7 +349,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 
 - date: 2026-10-19
 - kind: technical
-- status: accepted
+- status: superseded by D-20261019-CEO-6 (evidence re-bound to the merged revision)
 - deciders: CEO (ceo)
 - decided by: CEO
 - task: T-0020
@@ -389,6 +389,6 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - options considered: -
 - decision: The pstack-derived evidence packet and the repro-first gate are adopted as shipped: tests run/selfcheck/review record baseline, artifact (hashed) and replay; tests repro proves a defect fail->pass on the defect task with an ancestry check, and a --bug task cannot pass self-check without it. D-20261019-CEO-3 was recorded before the first commit; this entry binds the adoption to the merged revision.
 - why: The original decision's evidence was bound to @working-tree, which is not a reproducible revision; the closing record must cite a merge anyone can check.
-- evidence: pytest -q @3934690 -> 383 passed, 1 skipped; ledger verify @3934690 -> chain intact; git log 9d59976..3934690 -> T-0020, T-0021, T-0022, T-0024, T-0025 merged
+- evidence: pytest -q @3934690 -> 383 passed, 1 skipped; ledger verify @3934690 -> chain intact; git log e8da9ce..3934690 -> the merges of T-0020 (9d59976), T-0021 (2297adc), T-0024 (b662faf), T-0025 (d72f44b) and T-0022 (3934690)
 - falsified by: -
 - consequences: -
