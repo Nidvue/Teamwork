@@ -185,7 +185,7 @@ under two roles is two tasks.
 | developer | T-0056 | memory | done | P-0099 | f644054 |
 | developer | T-0057 | memory | done | P-0100 | 7bd7a68 |
 | developer | T-0058 | preflight | done | P-0104 | dfad857 |
-| developer | T-0059 | privacy | done | P-0103 | - |
+| developer | T-0059 | privacy | done | P-0103 | f706d5e |
 | developer | T-0060 | records | done | P-0108 | 2570cec |
 | developer | T-0061 | links | done | P-0109 | b9caf26 |
 | developer | T-0062 | memory-verify | done | P-0111 | 046cb40 |
@@ -224,7 +224,7 @@ under two roles is two tasks.
 | security-auditor | T-0005 | - | done | - | - |
 | security-auditor | T-0006 | audit | done | P-0083 | 98232a8 |
 | security-auditor | T-0007 | security | done | P-0094 | 90c5ecf |
-| security-auditor | T-0008 | security | doing | P-0107 | - |
+| security-auditor | T-0008 | security | review | P-0107 | - |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
@@ -234,7 +234,7 @@ under two roles is two tasks.
 | tester | T-0007 | t-0042 | done | P-0090 | 6750ea7 |
 | tester | T-0008 | memory | done | P-0097 | e34d6f7 |
 | tester | T-0009 | - | done | - | - |
-| tester | T-0010 | status | doing | - | - |
+| tester | T-0010 | status | done | P-0121 | 9e8c3b3 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -257,8 +257,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0067 · every instance works in its own worktree by default, shared only when the task needs it | P0 | doing | - |
 | developer | T-0074 · main's full suite is red: extensions missing from the hygiene allowlist, 26 explanatory comments in engine.py, board drift, and two tests read a relative worktree as absolute | P0 | doing | - |
 | reviewer | T-0006 · record the acceptance layer for memory and pi-package, and verify AC-M22-1..5 on the merged revision | P1 | doing | - |
-| security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | doing | - |
-| tester | T-0010 · integration layer: status contract and packaged extension smoke test | P2 | doing | - |
+| security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
