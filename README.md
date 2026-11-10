@@ -39,7 +39,7 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 | # | Differentiator | What it means in practice |
 |---|---|---|
 | 1 | **Evidence or `UNVERIFIED`** | A task cannot reach `done` without a recorded `command @revision -> result`. Evidence is a packet - baseline, action, result, hashed artifact, replay - and a bug fix must prove the failure before the fix. `teamwork loop` refuses `STOP` while any criterion or required test layer is unverified. |
-| 2 | **Role-shared memory** | Memory and the priority queue belong to the **role**, not the instance (`Roles/Developer/` is shared by `Developer-1..N`). Agents reuse verified facts instead of re-asking, and the CEO pulse feeds every idle lane. |
+| 2 | **Role-shared memory** | Memory and the priority queue belong to the **role**, not the instance (`Roles/Developer/` is shared by `Developer-1..N`). Any role can run several instances, and **one instance at a time revises that role's memory** (`memory claim` / `memory release`), so peers never interleave edits; a lease that runs long is **contested by a peer and ruled by the CTO** (more time, or the lock removed). Agents reuse verified facts instead of re-asking, and the CEO pulse feeds every idle lane. |
 | 3 | **Hash-chained audit trail** | Every mutation is appended to `Ledger.jsonl` with `by` / `src` / `rev` provenance. `ledger verify` detects tampering, `trace T-0007` follows a claim end to end, and `ledger export` writes a manifest anyone can check without trusting the team. |
 
 ## Features
@@ -53,7 +53,7 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 | Layered tests | Each role designs, builds and runs its own test layer (`unit`, `integration`, `acceptance`, `ui`, `security`, ...); `tests plan` shows coverage and gaps. |
 | Designed images | The Designer owns every visual asset, raster **and** vector, and decides what the deliverable needs: vector first (SVG, diagram-as-code), and for a raster `imaging probe` picks the best available text-to-image model (cloud first, else local, else SVG), then plan -> 4+ candidates -> visual review -> improve until it passes -> integrate, with privacy and licence rules. |
 | Stop condition as a record | Acceptance criteria are machine records, not checkboxes. The loop stops only when they are all verified. |
-| Role-shared state | One memory and one priority queue per role; a private, disposable workspace per instance. |
+| Role-shared state | One memory and one priority queue per role, shared by any number of its instances, with one revising instance at a time (`memory claim`); a private, disposable workspace per instance. |
 | Concurrency control | Provider slot leases respect per-provider caps, so N agents never overload a model endpoint. |
 | Disputes and tribunal | A challenged design goes through evidence rounds; a 3-round deadlock is ruled on by the CEO + CTO + CFO and recorded. |
 | Portable, dependency-free | CPython 3.9-3.13 on Linux, macOS and Windows. **Zero third-party runtime dependencies.** |
@@ -118,7 +118,7 @@ git clone https://github.com/Nidvue/Teamwork.git
 cd Teamwork && python -m pip install .
 
 # the wheel attached to the newest GitHub release
-python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.2.1/teamwork_agents-1.2.1-py3-none-any.whl
+python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.3.0/teamwork_agents-1.3.0-py3-none-any.whl
 ```
 
 That URL names a **release**, and a wheel lags the checkout by design: a version
@@ -326,7 +326,24 @@ $ teamwork parallel
 ```
 
 `pulse --commit` dispatches to idle instances. `parallel` shows how many lanes may
-start without exceeding a provider cap.
+start without exceeding a provider cap. `instance add <role> --count N` scales any
+role later without touching the shared memory file:
+
+```bash
+# any role, at any point: the instances share one memory set and one queue
+teamwork instance add architect --count 2
+teamwork instance list
+
+# exactly one instance of a role revises that role's memory at a time
+teamwork memory claim architect --by Architect-2 --reason "rewrite the contract"
+teamwork memory status architect
+
+# and a lease that runs long is contested, not waited out: the CTO rules
+teamwork memory contest architect --by Architect-3 --reason "three tasks are blocked"
+teamwork memory extend architect --by CTO --ttl 45 --reason "the rewrite is large"
+#   or: teamwork memory revoke architect --by CTO --reason "that lane is wedged"
+teamwork memory release architect --by Architect-2
+```
 
 ### F. Resume after a crash or a new session
 

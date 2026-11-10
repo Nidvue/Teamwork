@@ -121,7 +121,73 @@ counted as success.
 teamwork agents
 ```
 
-List agent directories in the workspace.
+List agent directories in the workspace, with each role's memory writer.
+
+## Instances and the memory pen
+
+Every role can run several instances. They share the role's one memory set and
+one `TaskQueue.md`; only one of them revises that memory at a time.
+
+### `instance`
+
+```text
+teamwork instance add ROLE [--count N] [--name NAME] [--new-role] [--by BY] [--json]
+teamwork instance list [--json]
+teamwork instance retire NAME --reason WHY [--by BY] [--force]
+```
+
+- `add` scaffolds `Agents/<Role>-N` against the existing `Roles/<Role>/`, so a
+  fourth architect costs one directory, not a second memory. A role the team does
+  not staff needs `--new-role`: it then gets the shared memory set and charter
+  copy like any other.
+- `list` prints role, instances, task count and the current memory writer.
+- `retire` removes an idle instance's private directory and always keeps the
+  role's memory and queue. An instance that still claims a `doing`/`selfcheck`/
+  `review` task, holds a provider slot or holds the memory pen is refused until it
+  is idle, or requires `--reason` plus `--force` so the record says what was
+  abandoned.
+
+### `memory`
+
+```text
+teamwork memory claim AGENT --by INSTANCE [--ttl MIN] [--reason WHY] [--force REASON]
+teamwork memory renew AGENT --by INSTANCE [--ttl MIN]
+teamwork memory release AGENT --by INSTANCE [--force REASON]
+teamwork memory contest AGENT --by INSTANCE --reason WHY
+teamwork memory extend AGENT --by ARBITER --ttl MIN --reason WHY
+teamwork memory revoke AGENT --by ARBITER --reason WHY
+teamwork memory status [AGENT] [--json]
+```
+
+The lease is `Runtime/Locks/memory-<Role>.claim`. `claim` holds the pen until
+`release` or expiry, so a coherent multi-entry update lands whole; a single
+`remember`, `forget`, `touch` or `consolidate` takes the lease implicitly for its
+own duration and gives it back. While a peer holds an explicit lease every other
+instance of that role is read-only: `load`, `recall` and `board` keep working, and
+a mutating command exits `2` naming the holder and the minutes left. An expired
+lease frees the role; a stalled holder is taken over with `--force "<why>"`,
+recorded as `memory.claim.force` in the ledger. Only that role's own instances -
+or the CEO - may write its memory.
+
+**A lease that runs long goes to the CTO.** `memory status` marks a lease held
+longer than `MemoryStallMinutes` (default 15) as `SLOW`. Any *other* instance of
+the role then runs `memory contest <role> --by <you> --reason "<why>"`: that
+records the contest on the lease (`memory.contest`), files one `P0`
+`memory-lease` task on the arbiter's queue, and names who rules. The **CTO** rules,
+because a stuck writer is an engineering question and the CTO owns the build and
+lock policy:
+
+| Ruling | Command | Effect |
+|---|---|---|
+| more time is fair | `memory extend <role> --by CTO --ttl 45 --reason "<why>"` | the holder keeps the pen for another N minutes, contests answered (`memory.grant`) |
+| the pen is removed | `memory revoke <role> --by CTO --reason "<why>"` | the lease is cleared and the role is free at once (`memory.revoke`) |
+
+Only the arbiter or the CEO may rule; a peer cannot extend or remove another
+instance's lease and exits `2`. On a roster without a CTO the request folds up to
+the CEO and the command says which seat was folded. A party never rules its own
+lease: a CTO's memory goes to the CEO, and when the holder is the top of the chain
+too the peers are told to open a dispute instead. A holder cannot contest itself -
+it releases the pen or finishes the update.
 
 ## Tasks, board and scheduling
 
@@ -305,7 +371,10 @@ teamwork remember AGENT TEXT [--by BY] [--src SRC] [--rev REV]
     [--tags TAGS] [--pin]
 ```
 
-Add or update an entry in the ROLE's shared memory.
+Add or update an entry in the ROLE's shared memory. It takes the role's memory
+pen for the duration of the write (and the consolidation that follows it), so a
+peer's concurrent write waits its turn instead of interleaving; `--by` should name
+the instance, because that is who the implicit lease names.
 
 ### `global`
 
@@ -339,7 +408,7 @@ Search memory.
 ### `touch`
 
 ```text
-teamwork touch AGENT HANDLE [--layer {short,long}]
+teamwork touch AGENT HANDLE [--layer {short,long}] [--by INSTANCE]
 ```
 
 Mark an entry as used; `HANDLE` is an `M-0003` id, a key, or a substring.
@@ -347,7 +416,7 @@ Mark an entry as used; `HANDLE` is an `M-0003` id, a key, or a substring.
 ### `forget`
 
 ```text
-teamwork forget AGENT HANDLE [--layer {short,long}]
+teamwork forget AGENT HANDLE [--layer {short,long}] [--by INSTANCE]
 ```
 
 Delete an entry.
@@ -355,10 +424,12 @@ Delete an entry.
 ### `consolidate`
 
 ```text
-teamwork consolidate [--agent AGENT] [--all] [--dry-run]
+teamwork consolidate [--agent AGENT] [--all] [--dry-run] [--by INSTANCE]
 ```
 
-Promote stale short-term entries and evict long-term overflow.
+Promote stale short-term entries and evict long-term overflow. It needs the role's
+memory pen like any other write; `load` runs it opportunistically and skips it
+silently while a peer holds the pen.
 
 ### `stats`
 
