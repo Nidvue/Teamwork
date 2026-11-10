@@ -154,9 +154,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 249 kB |
-| `standard` | 9 | 366 kB |
-| `full` | 16 | 631 kB |
+| `slim` (default) | 6 | 256 kB |
+| `standard` | 9 | 374 kB |
+| `full` | 16 | 641 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
@@ -407,7 +407,7 @@ reports STOP.
 python3 "$SKILL/scripts/teamwork.py" criteria list    # are the goals actually met?
 python3 "$SKILL/scripts/teamwork.py" tests plan       # layered test coverage and gaps
 python3 "$SKILL/scripts/teamwork.py" board
-python3 "$SKILL/scripts/teamwork.py" review --queue   # Reviewer's work list
+python3 "$SKILL/scripts/teamwork.py" review --queue   # priority/age, profile, capacity
 python3 "$SKILL/scripts/teamwork.py" coordination --strict   # conformity, trust, merge health
 python3 "$SKILL/scripts/teamwork.py" audit            # fabricated completions, stale work, duplicates, link health
 python3 "$SKILL/scripts/teamwork.py" links            # markdown links, URLs, back-links
@@ -461,10 +461,12 @@ never queue the whole backlog on the first lane. Exit code 3 means "nothing to
 dispatch" - then check blocked tasks and disputes.
 
 An instance counts as **busy** when it holds a provider slot, has a task in
-`doing`/`selfcheck` claimed by it, or holds a live review claim. A claim is a
-lease (`SlotTtlMinutes`, default **90** min): a lane that dies mid-review stops
-holding the deliverable when the lease expires and another lane takes it over.
-Everything else is idle and must be fed.
+`doing`/`selfcheck` claimed by it, or holds a live review claim. A review claim is
+a short work lease (`ReviewLeaseMinutes`, default **20** min), deliberately
+separate from the provider-slot TTL (`SlotTtlMinutes`, 90 min): verdict with
+`--result`, extend with `--renew`, or `--release`. A lane that dies mid-review
+stops holding the deliverable at 20 minutes, not 90. Everything else is idle and
+must be fed.
 
 Arm the recurring wake-up with the host's durable scheduler (the teammate
 package persists schedules per project):
@@ -612,6 +614,26 @@ Measure and enforce independence at intake and at every milestone.
 The mechanisms, the measured failure each one addresses, and the de-escalation
 ladder are in `references/Coordination.md`.
 
+### 5g. Keep reviews fast
+
+The Reviewer is the gate every lane waits on; its queue, not its depth, is the
+team's throughput limit.
+
+- `review --queue` sorts by priority then age and prints the profile, the claim
+  state and the lane capacity. Add a Reviewer lane when the unclaimed queue is
+  deeper than twice the lanes; a deep review is not divisible.
+- `review <role> <T-id> --packet` gives the Reviewer the profile, changed files,
+  author self-check, gate set and ordered checklist in one screen. Start there.
+- The profile is inferred from the diff: `fast` for a prose-only change (link
+  check, docs/contract tests, tree privacy scan), `standard` for code (test suite,
+  lint, type-check; a green CI run on the branch SHA may be cited), `deep` for
+  security/release/data/workflow changes (also privacy history and the security
+  scan). `task add --review-profile` overrides it.
+- A claim is a **20-minute renewable lease** (`ReviewLeaseMinutes`), not the
+  90-minute provider-slot TTL. `--renew` extends a genuinely long review; do not
+  hold a claim while writing prose. `coordination` reports the claim-to-verdict
+  p50/p90 so the CEO can see the bottleneck move.
+
 ### 6. Close
 
 When the queue is empty and `loop` is about to report STOP, load the `ceo-audit-close`
@@ -711,8 +733,10 @@ teamwork.py selfcheck developer-1 T-0007 --by developer-1 \
     --note "re-read the diff: boundary, error paths, docs updated" \
     --test "go test ./internal/x @def456 -> ok 12 tests"
 # 3) a Reviewer lane takes the deliverable off the shared queue, then verdicts it
-teamwork.py review --queue                                   # who holds what, what is free
-teamwork.py review developer T-0007 --claim --by reviewer-1   # pins it to that lane (90 min lease)
+teamwork.py review --queue                                   # priority/age, profile, capacity
+teamwork.py review developer T-0007 --packet                 # diff, gates, checklist, self-check
+teamwork.py review developer T-0007 --claim --by reviewer-1   # pins it to that lane (20 min lease)
+teamwork.py review developer T-0007 --renew --by reviewer-1   # extend a genuinely long review
 # 3a) Reviewer-1 fails it -> task returns to the owner as `doing`, findings recorded
 teamwork.py review developer T-0007 --by reviewer-1 --result fail \
     --findings "missing empty-input test; go test -run TestEmpty -> FAIL @abc123"
@@ -735,10 +759,10 @@ Mechanical enforcement:
 - only the owner may self-check their own task (`--by <owner>`), and only the
   Reviewer may review it; an author can never close a `review=required` task.
 - a review claim belongs to one lane: another Reviewer is refused while the lease
-  is live (`review <role> <T-id> --claim --by <lane>`), only the holder releases
-  it (`--release`, or `--force <reason>` when the holder is dead), a verdict clears
-  it, and an expired lease is open for take-over. With several lanes `--by reviewer`
-  is ambiguous - name the instance (`reviewer-1`).
+  is live (`review <role> <T-id> --claim --by <lane>`), only the holder renews
+  (`--renew`) or releases it (`--release`, or `--force <reason>` when the holder is
+  dead), a verdict clears it, and an expired 20-minute lease is open for take-over.
+  With several lanes `--by reviewer` is ambiguous - name the instance (`reviewer-1`).
 - a `review --result pass` appends the accepted result to
   `docs/Team/Archive.md` (what, who, verified how, which revision) - the team's
   evidence ledger. Read it with `teamwork.py archive [--agent X]`.

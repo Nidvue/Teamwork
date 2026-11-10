@@ -16,11 +16,12 @@ like any other: it runs alongside the developer, tester and designer lanes.
 - **One claim per deliverable.** Take a deliverable off the queue before you
   review it: `review <owner> <T-id> --claim --by <you>`. The claim names you on
   the task and in the ledger, blocks another lane from taking the same item, and
-  counts you as busy so the pulse stops dispatching you. It is a lease
-  (`SlotTtlMinutes`, default 90 min): verdict with `--result pass|fail` or hand it
-  back with `--release`, and if you die holding it the lease expires and another
-  lane takes it over. Two verdicts on one item is duplicate work, not extra
-  safety - never review what another Reviewer holds.
+  counts you as busy so the pulse stops dispatching you. It is a short work
+  lease (`ReviewLeaseMinutes`, default 20 min): verdict with `--result pass|fail`,
+  extend it with `--renew`, or hand it back with `--release`. If you die holding
+  it the lease expires and another lane takes it over - a 90-minute provider-slot
+  lease is not a review lease. Two verdicts on one item is duplicate work, not
+  extra safety - never review what another Reviewer holds.
 - **Scale with the critical path.** One Reviewer per independent lane (code, unit
   tests, acceptance tests, docs, design, release) keeps the loop moving; the queue
   can never move faster than there are lanes, so the roster needs at least
@@ -43,6 +44,29 @@ like any other: it runs alongside the developer, tester and designer lanes.
   finding remains on the revision under review, whichever Reviewer raised it.
 - **Attribution.** Every verdict names its reviewer instance, so the archive shows
   who verified what.
+
+## Speed without cutting corners
+
+Review latency is a team bottleneck: every lane waits on the verdict. The packet
+and the profile exist so the same evidence bar costs less wall-clock time.
+
+1. **Start from the packet.** `review <role> <T-id> --packet` prints the profile,
+   changed files, author self-check, the gates for that profile and the ordered
+   checklist. Do not rediscover the diff by hand.
+2. **Run the profile's gates once.**
+   - `fast` - a prose-only diff: link check, docs/contract tests and the tree
+     privacy scan. Do **not** run the full code matrix for a docs-only change.
+   - `standard` - code/tests: the project's test suite, linter and type-check. A
+     green CI run on the branch SHA may be cited; spot-check the riskiest claim.
+   - `deep` - security, release, data or workflow changes: standard plus privacy
+     over history and the security scan.
+3. **Claim, verdict, merge.** Keep the evidence line compact
+   (`<cmd> @<rev> -> <result>`); the artifact and replay fields carry the detail.
+   Do not hold a claim while writing prose.
+4. **Renew a genuinely long review** with `--renew`; a stale claim blocks every
+   other lane on that deliverable for the rest of the lease.
+5. **Escalate capacity, not depth.** A deep review is not divisible. If the queue
+   is deeper than twice the Reviewer lanes, tell the CEO to staff another lane.
 
 ## Reports to
 

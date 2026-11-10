@@ -17,6 +17,21 @@ by tag boundary.
 
 ### Added
 
+- **Review throughput: a short lease, a packet and risk profiles.** A review
+  claim no longer inherits the 90-minute provider-slot TTL: `ReviewLeaseMinutes`
+  (default 20, `TEAMWORK_REVIEW_LEASE_MINUTES`) is a work lease, `review --renew`
+  extends it, and an expired claim is takeable by the next lane. `review <role>
+  <T-id> --packet` prints the profile, changed files, author self-check, gate set
+  and ordered checklist, so the Reviewer does not rediscover the diff. The profile
+  is inferred from the diff: `fast` for prose-only (link check, docs/contract
+  tests, tree privacy scan), `standard` for code (test suite, lint, type-check; a
+  green CI run on the branch SHA may be cited), `deep` for security/release/data/
+  workflow (also privacy history and the security scan); `task add
+  --review-profile` overrides. The queue sorts by priority then age and prints
+  lane capacity, `pulse`/`parallel` recommend another Reviewer lane when the
+  backlog exceeds twice the lanes, and `coordination` reports the review queue,
+  live claims and claim-to-verdict p50/p90. Tests:
+  `tests/unit/test_review_throughput.py`.
 - **Coordination safety: the failure modes are measured, not exhorted.**
   `teamwork coordination [--strict] [--json] [--commit]` reads the records the
   team already writes and reports the multi-agent failures Anthropic measured in
@@ -123,6 +138,11 @@ by tag boundary.
   [`docs/guide/cli.md`](docs/guide/cli.md); the contract is Architecture section 12.
 
 ### Fixed
+
+- **The second type checker reads the engine's existing exemption.** `pyproject.toml`
+  now mirrors the `teamwork.engine` override in `[tool.mypy]` for pyright, so the
+  canonical `mypy src/teamwork` gate stays the one that decides; no rule was
+  weakened for any other module.
 
 - **The documentation set re-measured against the `1.1.3` tree.** Every claim
   below was re-run, not recalled. `docs/guide/cli.md` now documents the three
