@@ -2135,3 +2135,18 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: @bcec6f1 in this lane's worktree: python scripts/teamwork.py --help -> no context and no knowledge subcommand; python scripts/teamwork.py context --help -> invalid choice 'context', exit 2; python scripts/teamwork.py knowledge list -> invalid choice 'knowledge', exit 2; python scripts/teamwork.py recall --help -> --agent/--all/--global/--layer only (one memory silo); python scripts/teamwork.py lesson list --role architect -> role lessons only, '# no lessons recorded'; python scripts/teamwork.py skill list -> .agents/skills only, S-0001/S-0002; git grep -n OpenViking -- docs/Team @bcec6f1 -> 0 matches (Research.md section 11 is on the CEO branch); python scripts/teamwork.py harness lint -> '# problems found: 0'. Research.md section 11 (CEO branch) cites [OpenViking](https://github.com/volcengine/OpenViking), [architecture](https://docs.openviking.ai/en/concepts/01-architecture), [context types](https://docs.openviking.ai/en/concepts/02-context-types), [context layers](https://docs.openviking.ai/en/concepts/03-context-layers) and [retrieval](https://docs.openviking.ai/en/concepts/07-retrieval), all accessed 2026-11-03; license AGPL-3.0 (README, accessed 2026-11-03).
 - falsified by: context find returns no node for a query whose fact is stored, or a node resolves to a copy rather than the source, or an agent still re-asks a question the tree answers
 - consequences: Developer T-0032 adds kind to knowledge; Developer T-0033 implements the context tree; Technical Writer T-0011 documents it; Tester T-0005 proves the loop; load is unchanged
+## D-20261103-CEO - A local main reset to the CEO branch was detected and reverted before any merge
+
+- date: 2026-11-03
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0020
+- context: -
+- options considered: -
+- decision: Restore main to bcec6f1, the last reviewed merge tip, and keep the three CEO intake commits on ceo/t-0019 for the normal review gate. No content was lost and no published history was touched.
+- why: The reflog shows main was reset to ceo/t-0019 at 20:33:07, after the T-0006 and T-0032 lanes had branched from the correct tip. main must never carry an unreviewed commit: the next merge would have published three CEO records without a Reviewer verdict.
+- evidence: git reflog show main --date=iso -> 2a48711 main@{2026-11-03 20:33:07}: branch: Reset to ceo/t-0019...; git log --oneline bcec6f1..2a48711 -> 34d6ebe, 2a48711, 2dd3d1c (all CEO, none reviewed); git branch -f main bcec6f1 -> main is bcec6f1; git rev-list --parents -n1 bd16bca -> parent bcec6f1; developer-9 branch parent bcec6f1
+- falsified by: A merge lands a commit on main with no review.pass record for its revision, or the reflog shows main moving without a merge
+- consequences: T-0006 and T-0032 remain based on the correct tip; CEO T-0019 submits the three intake commits through PR; add a guard that refreshes/merges only through the engine, never a manual branch -f
