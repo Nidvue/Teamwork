@@ -52,7 +52,8 @@ from .config import (
     F_SETTINGS,
     F_SHORT,
 )
-from .gitutil import run_git
+from .gitutil import HooksDirUnresolved, run_git
+from .gitutil import hooks_dir as resolved_hooks_dir
 from .io import die
 from .layout import (
     global_dir,
@@ -246,12 +247,18 @@ def managed_block_size(path: Path) -> int:
 
 
 def hooks_dir(repo: Path) -> Path | None:
-    """``<git-dir>/hooks``, resolved through git so a worktree finds the shared one."""
-    result = run_git(repo, "rev-parse", "--git-path", "hooks")
-    if result.returncode != 0 or not result.stdout.strip():
+    """``<git-dir>/hooks`` resolved by git, or ``None`` when git cannot answer.
+
+    This is the tolerant face of the one contract in :func:`teamwork.gitutil.hooks_dir`
+    - same ``rev-parse``, same resolution through the common git directory, so a
+    worktree row and the installer row name the same directory. A report must not
+    abort because a directory is missing, so a failure here is a reported absence;
+    the installer, which writes into the directory, lets it die instead.
+    """
+    try:
+        return resolved_hooks_dir(repo)
+    except HooksDirUnresolved:
         return None
-    located = Path(result.stdout.strip())
-    return located if located.is_absolute() else repo / located
 
 
 def display(path: Path, base: Path) -> str:
