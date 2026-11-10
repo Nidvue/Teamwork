@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Compares from the previous tag, `v1.5.0`.
 
+### Fixed
+
+- `identity --guard-committer` accepts an allowlisted bot dependency update
+  (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`) when the committer
+  is the forge's own `noreply` stamp, so a bot pull request no longer fails the
+  identity gate. A bot behind a personal committer, and a personal author behind
+  the forge stamp, still fail.
+- The privacy scan allows the GitLab host stamp `noreply@gitlab.com` as a service
+  mailbox, matching the committer guard, with a control that a personal address
+  under the same user domain is still reported.
+- `mkdocs-material` stays at the shared `>=9.7.7,<10` range: 9.8.0 requires
+  Python >= 3.11 while the project supports 3.9, so the `/docs` Dependabot entry
+  ignores the floor bump until 3.9 and 3.10 are dropped.
+
 ### Changed
 
 - `version.py` and `CITATION.cff` move to `1.5.1` on `main` immediately after the
