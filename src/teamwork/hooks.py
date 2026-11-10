@@ -144,7 +144,7 @@ def protected_ref() -> str:
 
     A legacy ``master`` fallback was tried and dropped: it made the two stages
     disagree (R1 refused only the configured base while P1/P2 also guarded
-    ``master``), and Architecture 11.7 freezes one constant for both.
+    ``master``), and Architecture 12.7 freezes one constant for both.
     """
     return f"refs/heads/{DEFAULT_BASE}"
 
