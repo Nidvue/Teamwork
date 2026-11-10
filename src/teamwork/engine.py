@@ -43,25 +43,440 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from typing import NoReturn
 
 try:  # normal package import
     from . import resources as _resources
-    from .portable import newline_for, pid_alive
+    from .portable import pid_alive
     from .version import __version__ as VERSION
 except ImportError:  # pragma: no cover - executed as a plain script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import resources as _resources  # type: ignore
     from portable import (
-        newline_for,  # type: ignore
         pid_alive,  # type: ignore
     )
     from version import __version__ as VERSION  # type: ignore
+
+
+from .config import (
+    ALL_LAYERS_SENTINEL,
+    ARCHIVE_CAP,
+    CODE_DIRS,
+    DEFAULT_BASE,
+    DEFAULT_PROVIDER_LIMITS,
+    DEFAULT_REQUIRED_LAYERS,
+    DIR_AGENTS,
+    DIR_ARTIFACTS,
+    DIR_DOCS,
+    DIR_GLOBAL,
+    DIR_LOCKS,
+    DIR_REPORTS,
+    DIR_ROLES,
+    DIR_RUNTIME,
+    DIR_SCRATCH,
+    DIR_SLOTS,
+    DIR_TEAM_MAP_TPL,
+    DIR_WORKTREES,
+    DOCS,
+    F_AUDITREPORT,
+    F_CRITERIA,
+    F_DISPUTES,
+    F_GLOBAL,
+    F_GLOBAL_ARCHIVE,
+    F_HEAD,
+    F_INBOX,
+    F_LEDGER,
+    F_LONG,
+    F_MANIFEST,
+    F_MAP,
+    F_MEM_ARCHIVE,
+    F_REDLINES,
+    F_REVIEWS,
+    F_ROLE,
+    F_SETTINGS,
+    F_SHORT,
+    F_SKILLS,
+    F_START,
+    F_TASKS,
+    F_WORKLOG,
+    GITIGNORE_LINES,
+    IDENTITY_DOMAIN,
+    LAYER_CELL,
+    LAYER_OWNER,
+    LAYER_WHAT,
+    LONG_CAP,
+    MAX_ROUNDS,
+    MIN_USES,
+    PRIORITY_ORDER,
+    PROMOTE_MIN_IMPORTANCE,
+    REVIEW_FAIL_LIMIT,
+    REVIEW_STATUSES,
+    ROLES_DIR,
+    SCRATCH_DIRS,
+    SCRATCH_PATTERNS,
+    SETTINGS_NON_PROVIDER,
+    SHORT_CAP,
+    SKILL_DIR,
+    SKILLS_DIR,
+    SLOT_TTL_MINUTES,
+    STALE_DAYS,
+    STATUSES,
+    TEAM_ROOT_DIR,
+    TEAMS_SUBDIR,
+    TEMPLATES_DIR,
+    TEST_HINTS,
+    TEST_LAYERS,
+    TEST_STATUSES,
+    TRIBUNAL,
+    TRIBUNAL_MIN_SIGNERS,
+)
+from .gitutil import (
+    LFS_PATTERNS,
+    branch_exists,
+    branch_merged,
+    branch_name,
+    branch_worktree,
+    current_branch,
+    ensure_lfs,
+    is_git_repo,
+    lfs_tracked,
+    run_git,
+)
+from .imaging import (
+    IMAGE_FALLBACK_HINT,
+    IMAGE_MODEL_RANKING,
+    IMAGE_PROVIDER_CREDENTIALS,
+    IMAGE_PROVIDER_PRIORITY,
+    cmd_imaging,
+    detect_image_provider,
+    resolve_image_model,
+)
+from .io import (
+    LOCK_STALE_SECONDS,
+    LOCK_TIMEOUT,
+    _lock_owner_stale,
+    atomic_write,
+    die,
+    lock,
+    write_lf,
+)
+from .layout import (
+    _rel,
+    agent_dir,
+    agents_dir,
+    criteria_path,
+    disputes_path,
+    docs_dir,
+    global_dir,
+    instances_of,
+    known_instances,
+    link_fields,
+    list_agents,
+    list_roles,
+    project_of,
+    project_path,
+    project_root,
+    reviews_path,
+    role_dir,
+    roles_dir,
+    skill_file,
+    skills_dir,
+    skills_path,
+    task_file,
+    team_root_from,
+    team_root_from_cwd,
+    teams_root_unused,
+    testplan_path,
+    tests_path,
+    work_repo,
+)
+from .names import (
+    _ALIAS_NORM,
+    ACRONYMS,
+    ROLE_ALIASES,
+    ROLE_DISPLAY,
+    _norm_key,
+    body_text,
+    git_identity_args,
+    identity_string,
+    one_line,
+    pascal,
+    resolve_role,
+    role_identity,
+    safe_component,
+    slugify,
+    team_slug,
+)
+from .records import (
+    AGENT_LINKS,
+    DISPUTE_HEADER,
+    DISPUTE_RE,
+    ENTRY_RE,
+    HEADERS,
+    META_RE,
+    REVIEWS_HEADER,
+    ROLE_LINKS,
+    ROUND_RE,
+    SKILL_NAME_RE,
+    SKILLS_HEADER,
+    TASK_HEADER,
+    TASK_RE,
+    assign_ids,
+    criteria_header,
+    days_since,
+    dep_satisfied,
+    executable,
+    find_criterion,
+    find_dispute,
+    find_pr,
+    find_pr_exact,
+    find_skill,
+    find_task,
+    find_test,
+    header_for,
+    local_dep_map,
+    merge_entries,
+    merge_tasks,
+    new_criterion,
+    new_dispute,
+    new_entry,
+    new_pr,
+    new_skill,
+    new_task,
+    new_test_record,
+    parse_criteria,
+    parse_date,
+    parse_disputes,
+    parse_memory,
+    parse_reviews,
+    parse_skills,
+    parse_tasks,
+    parse_testplan,
+    parse_tests,
+    render,
+    render_criteria,
+    render_disputes,
+    render_reviews,
+    render_skills,
+    render_tasks,
+    render_testplan,
+    render_tests,
+    score,
+    today,
+    today_iso,
+    write_criteria,
+    write_disputes,
+    write_memory,
+    write_reviews,
+    write_skills,
+    write_tasks,
+    write_testplan,
+    write_tests,
+)
+
+__all__ = [
+    "SKILL_DIR",
+    "ROLES_DIR",
+    "TEMPLATES_DIR",
+    "DIR_TEAM_MAP_TPL",
+    "TEAM_ROOT_DIR",
+    "TEAMS_SUBDIR",
+    "DIR_GLOBAL",
+    "DIR_ROLES",
+    "DIR_AGENTS",
+    "DIR_RUNTIME",
+    "DIR_LOCKS",
+    "DIR_SLOTS",
+    "DIR_ARTIFACTS",
+    "DIR_REPORTS",
+    "DIR_SCRATCH",
+    "DIR_DOCS",
+    "F_SHORT",
+    "F_LONG",
+    "F_MEM_ARCHIVE",
+    "F_TASKS",
+    "F_ROLE",
+    "F_START",
+    "F_WORKLOG",
+    "F_INBOX",
+    "F_GLOBAL",
+    "F_GLOBAL_ARCHIVE",
+    "F_DISPUTES",
+    "F_REDLINES",
+    "F_MAP",
+    "F_REVIEWS",
+    "F_CRITERIA",
+    "DIR_WORKTREES",
+    "F_SETTINGS",
+    "IDENTITY_DOMAIN",
+    "TEST_LAYERS",
+    "LAYER_OWNER",
+    "LAYER_WHAT",
+    "DEFAULT_REQUIRED_LAYERS",
+    "ALL_LAYERS_SENTINEL",
+    "LAYER_CELL",
+    "TEST_STATUSES",
+    "F_LEDGER",
+    "F_HEAD",
+    "F_MANIFEST",
+    "F_AUDITREPORT",
+    "F_SKILLS",
+    "SKILLS_DIR",
+    "DEFAULT_PROVIDER_LIMITS",
+    "SLOT_TTL_MINUTES",
+    "REVIEW_FAIL_LIMIT",
+    "SHORT_CAP",
+    "LONG_CAP",
+    "ARCHIVE_CAP",
+    "STALE_DAYS",
+    "MIN_USES",
+    "PROMOTE_MIN_IMPORTANCE",
+    "DOCS",
+    "CODE_DIRS",
+    "TEST_HINTS",
+    "GITIGNORE_LINES",
+    "SCRATCH_DIRS",
+    "SCRATCH_PATTERNS",
+    "MAX_ROUNDS",
+    "TRIBUNAL",
+    "TRIBUNAL_MIN_SIGNERS",
+    "SETTINGS_NON_PROVIDER",
+    "DEFAULT_BASE",
+    "REVIEW_STATUSES",
+    "PRIORITY_ORDER",
+    "STATUSES",
+    "ROLE_DISPLAY",
+    "ACRONYMS",
+    "ROLE_ALIASES",
+    "_ALIAS_NORM",
+    "pascal",
+    "safe_component",
+    "slugify",
+    "one_line",
+    "body_text",
+    "team_slug",
+    "_norm_key",
+    "resolve_role",
+    "role_identity",
+    "identity_string",
+    "git_identity_args",
+    "project_path",
+    "project_of",
+    "docs_dir",
+    "work_repo",
+    "team_root_from_cwd",
+    "project_root",
+    "teams_root_unused",
+    "agents_dir",
+    "agent_dir",
+    "roles_dir",
+    "role_dir",
+    "global_dir",
+    "list_agents",
+    "list_roles",
+    "instances_of",
+    "known_instances",
+    "team_root_from",
+    "_rel",
+    "link_fields",
+    "criteria_path",
+    "tests_path",
+    "testplan_path",
+    "reviews_path",
+    "disputes_path",
+    "skills_path",
+    "task_file",
+    "skills_dir",
+    "skill_file",
+    "LOCK_TIMEOUT",
+    "LOCK_STALE_SECONDS",
+    "_lock_owner_stale",
+    "lock",
+    "atomic_write",
+    "write_lf",
+    "die",
+    "LFS_PATTERNS",
+    "run_git",
+    "is_git_repo",
+    "current_branch",
+    "branch_exists",
+    "branch_merged",
+    "branch_worktree",
+    "ensure_lfs",
+    "lfs_tracked",
+    "branch_name",
+    "REVIEWS_HEADER",
+    "SKILLS_HEADER",
+    "SKILL_NAME_RE",
+    "DISPUTE_HEADER",
+    "DISPUTE_RE",
+    "ROUND_RE",
+    "ROLE_LINKS",
+    "AGENT_LINKS",
+    "TASK_RE",
+    "ENTRY_RE",
+    "META_RE",
+    "TASK_HEADER",
+    "HEADERS",
+    "new_pr",
+    "parse_reviews",
+    "render_reviews",
+    "write_reviews",
+    "find_pr",
+    "find_pr_exact",
+    "criteria_header",
+    "new_criterion",
+    "parse_criteria",
+    "render_criteria",
+    "write_criteria",
+    "find_criterion",
+    "new_test_record",
+    "parse_tests",
+    "render_tests",
+    "write_tests",
+    "parse_testplan",
+    "render_testplan",
+    "write_testplan",
+    "find_test",
+    "new_task",
+    "parse_tasks",
+    "render_tasks",
+    "write_tasks",
+    "merge_tasks",
+    "find_task",
+    "dep_satisfied",
+    "local_dep_map",
+    "executable",
+    "today",
+    "today_iso",
+    "parse_date",
+    "days_since",
+    "new_entry",
+    "parse_memory",
+    "render",
+    "write_memory",
+    "score",
+    "assign_ids",
+    "merge_entries",
+    "header_for",
+    "new_dispute",
+    "parse_disputes",
+    "render_disputes",
+    "write_disputes",
+    "find_dispute",
+    "new_skill",
+    "parse_skills",
+    "render_skills",
+    "write_skills",
+    "find_skill",
+    "IMAGE_MODEL_RANKING",
+    "IMAGE_PROVIDER_PRIORITY",
+    "IMAGE_PROVIDER_CREDENTIALS",
+    "IMAGE_FALLBACK_HINT",
+    "detect_image_provider",
+    "resolve_image_model",
+    "cmd_imaging",
+]
 
 # --------------------------------------------------------------------------- #
 # Paths and tunables
@@ -71,10 +486,6 @@ except ImportError:  # pragma: no cover - executed as a plain script
 # wheel (`teamwork/data/`) and from an explicit $TEAMWORK_SKILL_DIR override.
 # --------------------------------------------------------------------------- #
 
-SKILL_DIR = _resources.skill_root()
-ROLES_DIR = _resources.asset("roles")
-TEMPLATES_DIR = _resources.asset("templates")
-DIR_TEAM_MAP_TPL = "TeamMap.md"
 
 # --------------------------------------------------------------------------- #
 # Layout: the team's own tree is hidden and independent of project output.
@@ -91,36 +502,6 @@ DIR_TEAM_MAP_TPL = "TeamMap.md"
 # never mixed with this tree. Team-created names are PascalCase.
 # --------------------------------------------------------------------------- #
 
-TEAM_ROOT_DIR = ".pi/Teamwork"
-TEAMS_SUBDIR = "Teams"
-DIR_GLOBAL = "Global"
-DIR_ROLES = "Roles"
-DIR_AGENTS = "Agents"
-DIR_RUNTIME = "Runtime"
-DIR_LOCKS = "Locks"
-DIR_SLOTS = "Slots"
-DIR_ARTIFACTS = "Artifacts"
-DIR_REPORTS = "Reports"
-DIR_SCRATCH = "Scratch"
-DIR_DOCS = ("docs", "Team")
-
-F_SHORT = "ShortTermMemory.md"
-F_LONG = "LongTermMemory.md"
-F_MEM_ARCHIVE = "ArchivedMemory.md"
-F_TASKS = "TaskQueue.md"
-F_ROLE = "Role.md"
-F_START = "StartHere.md"
-F_WORKLOG = "WorkLog.md"
-F_INBOX = "Inbox.md"
-F_GLOBAL = "GlobalMemory.md"
-F_GLOBAL_ARCHIVE = "GlobalMemoryArchive.md"
-F_DISPUTES = "Disputes.md"
-F_REDLINES = "RedLines.md"
-F_MAP = "TeamMap.md"
-F_REVIEWS = "Reviews.md"
-F_CRITERIA = "Criteria.md"
-DIR_WORKTREES = "Worktrees"
-F_SETTINGS = "Settings.json"
 
 # --------------------------------------------------------------------------- #
 # Git identity, commit style and Git LFS
@@ -129,7 +510,6 @@ F_SETTINGS = "Settings.json"
 # "Developer <developer@agents.nidvue.com>", never "Developer-1 <developer-1@...>".
 # --------------------------------------------------------------------------- #
 
-IDENTITY_DOMAIN = os.environ.get("TEAMWORK_IDENTITY_DOMAIN", "agents.nidvue.com")
 
 COMMIT_TYPES = (
     "feat",
@@ -147,160 +527,6 @@ COMMIT_TYPES = (
 )
 
 # Paths tracked with Git LFS: binaries, media, models, datasets, archives.
-LFS_PATTERNS = (
-    "*.png",
-    "*.jpg",
-    "*.jpeg",
-    "*.gif",
-    "*.webp",
-    "*.ico",
-    "*.bmp",
-    "*.tif",
-    "*.tiff",
-    "*.psd",
-    "*.ai",
-    "*.sketch",
-    "*.fig",
-    "*.mp4",
-    "*.mov",
-    "*.webm",
-    "*.mkv",
-    "*.avi",
-    "*.mp3",
-    "*.wav",
-    "*.flac",
-    "*.ogg",
-    "*.pdf",
-    "*.zip",
-    "*.tar",
-    "*.tar.gz",
-    "*.tgz",
-    "*.gz",
-    "*.bz2",
-    "*.7z",
-    "*.rar",
-    "*.whl",
-    "*.so",
-    "*.dylib",
-    "*.dll",
-    "*.a",
-    "*.o",
-    "*.jar",
-    "*.wasm",
-    "*.onnx",
-    "*.pt",
-    "*.pth",
-    "*.safetensors",
-    "*.ckpt",
-    "*.bin",
-    "*.gguf",
-    "*.parquet",
-    "*.arrow",
-    "*.feather",
-    "*.sqlite",
-    "*.db",
-    "*.ttf",
-    "*.otf",
-    "*.woff",
-    "*.woff2",
-    "*.glb",
-    "*.gltf",
-    "*.obj",
-    "*.fbx",
-    "*.blend",
-    "*.exr",
-    "*.hdr",
-    "*.unitypackage",
-)
-
-ROLE_DISPLAY = {
-    "ceo": "CEO",
-    "cto": "CTO",
-    "coo": "COO",
-    "cfo": "CFO",
-    "architect": "Architect",
-    "product-manager": "Product Manager",
-    "project-manager": "Project Manager",
-    "designer": "Designer",
-    "developer": "Developer",
-    "tester": "Tester",
-    "reviewer": "Reviewer",
-    "security-auditor": "Security Auditor",
-    "release-engineer": "Release Engineer",
-    "technical-writer": "Technical Writer",
-    "data-engineer": "Data Engineer",
-}
-
-
-def role_identity(role: str) -> tuple:
-    """('Developer', 'developer@agents.nidvue.com') - role based, never instance based."""
-    slug = resolve_role(role)
-    name = ROLE_DISPLAY.get(slug) or pascal(slug).replace("-", " ")
-    email = re.sub(r"[^a-z0-9]", "", slug) + "@" + IDENTITY_DOMAIN
-    return name, email
-
-
-def identity_string(role: str) -> str:
-    name, email = role_identity(role)
-    return f"{name} <{email}>"
-
-
-def git_identity_args(role: str) -> list:
-    name, email = role_identity(role)
-    return ["-c", f"user.name={name}", "-c", f"user.email={email}"]
-
-
-def ensure_lfs(project: Path, quiet: bool = False) -> dict:
-    """Enable Git LFS locally and keep .gitattributes in sync."""
-    result = {"available": False, "installed": False, "patterns_added": 0}
-    probe = subprocess.run(["git", "lfs", "version"], capture_output=True, text=True)
-    if probe.returncode != 0:
-        if not quiet:
-            print(
-                "teamwork: WARNING git-lfs is not installed; large binaries will be"
-                " committed as plain blobs. Install git-lfs for archival."
-            )
-        return result
-    result["available"] = True
-    inst = subprocess.run(
-        ["git", "-C", str(project), "lfs", "install", "--local"], capture_output=True, text=True
-    )
-    result["installed"] = inst.returncode == 0
-
-    path = project / ".gitattributes"
-    existing = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
-    have = {line.split()[0] for line in existing if line.strip() and not line.startswith("#")}
-    missing = [pat for pat in LFS_PATTERNS if pat not in have]
-    if missing:
-        lines = list(existing)
-        if not any("teamwork: LFS" in line for line in lines):
-            lines += ["", "# --- teamwork: Git LFS tracked content ---"]
-        lines += [f"{pat} filter=lfs diff=lfs merge=lfs -text" for pat in missing]
-        write_lf(path, "\n".join(lines).rstrip() + "\n")
-        result["patterns_added"] = len(missing)
-    if not quiet:
-        print(
-            f"teamwork: git-lfs ready (local install={result['installed']}, "
-            f"{result['patterns_added']} pattern(s) added to .gitattributes)"
-        )
-    return result
-
-
-def lfs_tracked(project: Path, rel: str) -> bool:
-    path = project / ".gitattributes"
-    if not path.exists():
-        return False
-    name = Path(rel).name
-    for line in path.read_text(encoding="utf-8").splitlines():
-        parts = line.split()
-        if len(parts) >= 2 and "filter=lfs" in line:
-            pattern = parts[0]
-            if pattern.startswith("*."):
-                if name.endswith(pattern[1:]):
-                    return True
-            elif Path(rel).match(pattern):
-                return True
-    return False
 
 
 # --------------------------------------------------------------------------- #
@@ -309,182 +535,6 @@ def lfs_tracked(project: Path, rel: str) -> bool:
 # main only ever receives merges performed by the Reviewer. Every instance works
 # on its own branch and hands a PR to the Reviewer.
 # --------------------------------------------------------------------------- #
-
-DEFAULT_BASE = "main"
-REVIEW_STATUSES = ("open", "approved", "changes-requested", "merged", "closed")
-
-REVIEWS_HEADER = (
-    "# Reviews - PRs awaiting the Reviewer\n\n"
-    "> One entry per pull request. A branch may only be merged into `main` by the\n"
-    "> Reviewer, after its review passed. Manage with `teamwork.py pr ...`.\n\n"
-    "Related: [team map](TeamMap.md) | [disputes](Disputes.md)\n"
-)
-
-
-def reviews_path(root: Path) -> Path:
-    return root / F_REVIEWS
-
-
-def new_pr(title: str, **kw) -> dict:
-    pr = {
-        "id": "",
-        "title": one_line(title),
-        "status": "open",
-        "task": "",
-        "role": "",
-        "author": "",
-        "branch": "",
-        "base": DEFAULT_BASE,
-        "opened": today_iso(),
-        "updated": today_iso(),
-        "reviewer": "",
-        "merge_commit": "",
-        "summary": "",
-        "notes": [],
-    }
-    pr.update({k: one_line(v) if k != "notes" else v for k, v in kw.items() if v})
-    return pr
-
-
-def parse_reviews(path: Path) -> list:
-    if not path.exists():
-        return []
-    out, cur, section = [], None, "meta"
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^##\s+(P-\d+)\s*(?:·|:)?\s*(.*)$", raw)
-        if m:
-            if cur:
-                out.append(cur)
-            cur = new_pr(m.group(2))
-            cur["id"] = m.group(1)
-            section = "meta"
-            continue
-        if cur is None:
-            continue
-        if raw.startswith("### "):
-            section = raw[4:].strip().lower()
-            continue
-        if section == "notes":
-            if raw.startswith("- "):
-                cur["notes"].append(raw[2:].strip())
-            continue
-        mm = META_RE.match(raw)
-        if mm:
-            field, value = mm.group(1), mm.group(2).strip()
-            if field in cur and field != "notes":
-                cur[field] = value
-    if cur:
-        out.append(cur)
-    return out
-
-
-def render_reviews(prs: list) -> str:
-    assign_ids(prs, "P-")
-    out = [REVIEWS_HEADER, ""]
-    for pr in sorted(prs, key=lambda x: x["id"]):
-        out.append(f"## {pr['id']} · {one_line(pr['title']) or 'PR'}")
-        for field in (
-            "status",
-            "task",
-            "role",
-            "author",
-            "branch",
-            "base",
-            "opened",
-            "updated",
-            "reviewer",
-            "merge_commit",
-        ):
-            out.append(f"- {field}: {one_line(pr.get(field, ''))}")
-        out.append("")
-        if pr["summary"]:
-            out.append(f"- summary: {one_line(pr['summary'])}")
-            out.append("")
-        out.append("### notes")
-        for note in pr["notes"]:
-            out.append(f"- {one_line(note)}")
-        out.append("")
-    return "\n".join(out).rstrip() + "\n"
-
-
-def write_reviews(path: Path, prs: list) -> None:
-    atomic_write(path, render_reviews(prs))
-
-
-def find_pr(prs: list, handle: str):
-    want = (handle or "").strip().upper()
-    for i, pr in enumerate(prs):
-        if pr["id"].upper() == want or pr["task"].upper() == want:
-            return i
-    for i, pr in enumerate(prs):
-        if want and want.lower() in pr["title"].lower():
-            return i
-    return None
-
-
-def find_pr_exact(prs: list, handle: str):
-    """Exact id/task match only: a merge must never hit a fuzzy title match."""
-    want = (handle or "").strip().upper()
-    for i, pr in enumerate(prs):
-        if pr["id"].upper() == want or pr["task"].upper() == want:
-            return i
-    return None
-
-
-def slugify(text: str, limit: int = 40) -> str:
-    s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
-    return s[:limit].rstrip("-") or "work"
-
-
-def one_line(value, limit: int = 0) -> str:
-    """Collapse every newline/run of whitespace so a value cannot inject a
-    second markdown metadata line (and therefore a forged gate state)."""
-    text = " ".join(str(value or "").split())
-    return text[:limit].rstrip() if limit else text
-
-
-def body_text(value) -> str:
-    """Body text that cannot forge a new record header.
-
-    A body line beginning with ``##`` would otherwise be parsed as the next
-    task/memory/dispute entry and could hide or duplicate state. The parser
-    already stops reading metadata at the first blank line; this closes the
-    remaining header-injection path while keeping the body readable.
-    """
-    lines = str(value or "").strip().splitlines()
-    return "\n".join((" " + line) if re.match(r"^##\s", line) else line for line in lines)
-
-
-def branch_name(instance: str, task_id: str, title: str) -> str:
-    who = re.sub(r"[^a-z0-9]+", "-", (instance or "agent").lower()).strip("-")
-    return f"{who}/{task_id.lower()}-{slugify(title)}"
-
-
-def current_branch(project: Path) -> str:
-    return run_git(project, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
-
-
-def branch_exists(project: Path, branch: str) -> bool:
-    r = run_git(project, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}")
-    return r.returncode == 0
-
-
-def branch_merged(project: Path, branch: str, base: str = DEFAULT_BASE) -> bool:
-    if not branch or not branch_exists(project, branch):
-        return False
-    r = run_git(project, "branch", "--merged", base)
-    return any(line.strip().lstrip("* ").strip() == branch for line in r.stdout.splitlines())
-
-
-def branch_worktree(project: Path, branch: str):
-    """The worktree that has ``branch`` checked out, or ``None``."""
-    current = ""
-    for line in run_git(project, "worktree", "list", "--porcelain").stdout.splitlines():
-        if line.startswith("worktree "):
-            current = line.split(" ", 1)[1].strip()
-        elif line.strip() == f"branch refs/heads/{branch}" and current:
-            return Path(current)
-    return None
 
 
 def require_reason(force: str, what: str) -> str:
@@ -571,10 +621,6 @@ def check_claimant(root: Path, value: str, kind: str = "claim", role: str = "") 
         f"({', '.join(known)}); it is recorded but `audit` will flag it"
     )
     return name
-
-
-def known_instances(root: Path) -> list:
-    return sorted(i for r in list_roles(root) for i in instances_of(root, r))
 
 
 def _find_task_anywhere(root: Path, handle: str, role_hint: str = ""):
@@ -1076,92 +1122,6 @@ def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str)
 # Acceptance criteria as records: `loop` cannot report STOP without them
 # --------------------------------------------------------------------------- #
 
-F_CRITERIA = "Criteria.md"
-
-
-def criteria_header(path: Path) -> str:
-    f = link_fields(path, "ceo")
-    return (
-        "# Criteria - acceptance criteria with verification evidence\n\n"
-        "> Machine-checkable definition of done. `loop` refuses to STOP while a\n"
-        "> criterion is unverified. The CEO writes them from the user's prompt; the\n"
-        "> verifier must not come from the owning role.\n\n"
-        f"Related: [project]({f['project']}) | [plan]({f['plan']}) | "
-        f"[archive ledger]({f['archive']}) | [team map]({f['map']}) | "
-        f"[reviews]({_rel(path, reviews_path(team_root_from(path)))}) | "
-        f"[disputes]({f['disputes']})\n"
-    )
-
-
-def criteria_path(root: Path) -> Path:
-    return root / F_CRITERIA
-
-
-def new_criterion(cid: str, text: str, owner: str = "", evidence: str = "") -> dict:
-    return {
-        "id": cid.strip().upper(),
-        "text": one_line(text),
-        "owner": one_line(owner),
-        "status": "open",
-        "evidence": one_line(evidence),
-        "verified_by": "",
-        "verified": "",
-        "rev": "",
-    }
-
-
-def parse_criteria(path: Path) -> list:
-    if not path.exists():
-        return []
-    out, cur = [], None
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^##\s+(AC-[A-Za-z0-9._-]+)\s*(?:·|:)?\s*(.*)$", raw)
-        if m:
-            if cur:
-                out.append(cur)
-            cur = new_criterion(m.group(1), m.group(2))
-            continue
-        if cur is None:
-            continue
-        mm = META_RE.match(raw)
-        if mm:
-            field, value = mm.group(1), mm.group(2).strip()
-            if field in cur:
-                cur[field] = value
-    if cur:
-        out.append(cur)
-    return out
-
-
-def render_criteria(items: list, path: Path = None) -> str:
-    header = (
-        criteria_header(path)
-        if path is not None
-        else "# Criteria - acceptance criteria with verification evidence\n"
-    )
-    out = [header, ""]
-    for c in items:
-        out.append(f"## {c['id']} · {one_line(c['text']) or 'criterion'}")
-        for field in ("status", "owner", "verified_by", "verified", "evidence", "rev"):
-            out.append(f"- {field}: {one_line(c.get(field, ''))}")
-        out.append("")
-    return "\n".join(out).rstrip() + "\n"
-
-
-def write_criteria(path: Path, items: list) -> None:
-    atomic_write(path, render_criteria(items, path))
-
-
-def find_criterion(items: list, handle: str):
-    want = (handle or "").strip().upper()
-    for i, c in enumerate(items):
-        if c["id"].upper() == want:
-            return i
-    for i, c in enumerate(items):
-        if want and want in c["text"].upper():
-            return i
-    return None
-
 
 def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
     """add/verify/reopen/rm under criteria.lock, with a ledger record each."""
@@ -1392,240 +1352,11 @@ F_TESTS = "Tests.md"
 F_TESTPLAN = "TestPlan.md"
 # Every role owns a test layer. Nobody delegates their own layer, and every
 # layer is designed, developed, executed and evidenced by its owner.
-TEST_LAYERS = (
-    "goal",
-    "requirements",
-    "plan",
-    "tech",
-    "release",
-    "data",
-    "process",
-    "cost",
-    "system",
-    "ui",
-    "docs",
-    "unit",
-    "integration",
-    "acceptance",
-    "security",
-)
-LAYER_OWNER = {
-    "goal": "ceo",
-    "requirements": "product-manager",
-    "plan": "project-manager",
-    "tech": "cto",
-    "release": "release-engineer",
-    "data": "data-engineer",
-    "process": "coo",
-    "cost": "cfo",
-    "system": "architect",
-    "ui": "designer",
-    "docs": "technical-writer",
-    "unit": "developer",
-    "integration": "tester",
-    "acceptance": "reviewer",
-    "security": "security-auditor",
-}
-LAYER_WHAT = {
-    "goal": "black-box verification that the delivered result meets the user's objective",
-    "requirements": "requirement coverage and traceability: every requirement maps to a passing check",
-    "plan": "plan integrity: dependency graph, duplicate work, milestone exit criteria",
-    "tech": "technology validation: toolchain and dependency upgrades, feasibility spikes, version drills",
-    "release": "release tests: reproducible build, CI gates, packaging, upgrade and rollback",
-    "data": "data tests: schema and migration correctness, backfill, backup and restore drills",
-    "process": "process and automation tests: the documented workflow and tooling actually run",
-    "cost": "cost and budget tests: metering, cap enforcement, unit-economics assertions",
-    "system": "architecture-conformance tests (boundaries, dependency direction, contract, ADR)",
-    "ui": "UI use-case tests (flows, component states, accessibility)",
-    "docs": "documentation tests: every documented command and claim is executed as written",
-    "unit": "unit tests for the code the Developer wrote",
-    "integration": "integration / system / end-to-end tests",
-    "acceptance": "acceptance tests over every role's output",
-    "security": "security tests (auth, input handling, secrets, red lines)",
-}
-DEFAULT_REQUIRED_LAYERS = ("unit", "integration", "acceptance")
-ALL_LAYERS_SENTINEL = "__all__"
-LAYER_CELL = {
-    "goal": "goal",
-    "requirements": "req",
-    "plan": "plan",
-    "tech": "tech",
-    "release": "rel",
-    "data": "data",
-    "process": "proc",
-    "cost": "cost",
-    "system": "sys",
-    "ui": "ui",
-    "docs": "docs",
-    "unit": "unit",
-    "integration": "int",
-    "acceptance": "acc",
-    "security": "sec",
-}
 
 
 def staffed_layers(root: Path) -> list:
     """Layers whose owning role actually has an instance."""
     return [ly for ly in TEST_LAYERS if instances_of(root, LAYER_OWNER[ly])]
-
-
-TEST_STATUSES = ("pending", "passing", "failing", "na")
-
-
-def tests_path(root: Path) -> Path:
-    return root / F_TESTS
-
-
-def testplan_path(root: Path) -> Path:
-    return root / F_TESTPLAN
-
-
-def new_test_record(
-    layer: str, area: str, owner: str = "", command: str = "", task: str = ""
-) -> dict:
-    return {
-        "id": "",
-        "layer": one_line(layer).lower(),
-        "area": one_line(area).lower(),
-        "owner": one_line(owner),
-        "command": one_line(command),
-        "task": one_line(task),
-        "status": "pending",
-        "evidence": "",
-        "rev": "",
-        "forced": "",
-        "updated": today_iso(),
-        "by": "",
-    }
-
-
-def parse_tests(path: Path) -> list:
-    if not path.exists():
-        return []
-    out, cur = [], None
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^##\s+(TS-\d+)\s*(?:·|:)?\s*(.*)$", raw)
-        if m:
-            if cur:
-                out.append(cur)
-            title = m.group(2)
-            parts = [p.strip() for p in title.split("·")]
-            cur = new_test_record(parts[0] if parts else "", parts[1] if len(parts) > 1 else "")
-            cur["id"] = m.group(1)
-            continue
-        if cur is None:
-            continue
-        mm = META_RE.match(raw)
-        if mm:
-            field, value = mm.group(1), mm.group(2).strip()
-            if field in cur:
-                cur[field] = value
-    if cur:
-        out.append(cur)
-    return out
-
-
-def render_tests(records: list, path: Path = None) -> str:
-    assign_ids(records, "TS-")
-    if path is not None:
-        f = link_fields(path, "ceo")
-        header = (
-            "# Tests - one record per test layer and area\n\n"
-            "> A (layer, area) pair appears once: that is what prevents duplicate\n"
-            "> testing. Each layer is designed, implemented and run by its owning role.\n\n"
-            f"Related: [test plan]({_rel(path, testplan_path(team_root_from(path)))}) | "
-            f"[criteria]({_rel(path, criteria_path(team_root_from(path)))}) | "
-            f"[reviews]({_rel(path, reviews_path(team_root_from(path)))}) | "
-            f"[archive ledger]({f['archive']}) | [team map]({f['map']})\n"
-        )
-    out = [header, ""]
-    order = {ly: i for i, ly in enumerate(TEST_LAYERS)}
-    for r in sorted(records, key=lambda x: (order.get(x["layer"], 9), x["area"], x["id"])):
-        out.append(f"## {r['id']} · {one_line(r['layer'])} · {one_line(r['area'])}")
-        for field in (
-            "layer",
-            "area",
-            "owner",
-            "status",
-            "task",
-            "command",
-            "evidence",
-            "rev",
-            "by",
-            "forced",
-            "updated",
-        ):
-            out.append(f"- {field}: {one_line(r.get(field, ''))}")
-        out.append("")
-    return "\n".join(out).rstrip() + "\n"
-
-
-def write_tests(path: Path, records: list) -> None:
-    atomic_write(path, render_tests(records, path))
-
-
-def parse_testplan(path: Path) -> dict:
-    """{area: [layers]} - which layers an area must cover."""
-    plan = {}
-    if not path.exists():
-        return plan
-    area = None
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^##\s+(.+?)\s*$", raw)
-        if m:
-            area = m.group(1).strip().lower()
-            plan.setdefault(area, [])
-            continue
-        mm = META_RE.match(raw)
-        if mm and area and mm.group(1) == "layers":
-            value = mm.group(2).strip()
-            if value in ("", "(all staffed role layers)", ALL_LAYERS_SENTINEL):
-                plan[area] = [ALL_LAYERS_SENTINEL] if value else []
-            else:
-                plan[area] = [x.strip() for x in value.split(",") if x.strip()]
-    return plan
-
-
-def render_testplan(plan: dict, path: Path = None) -> str:
-    lines = [
-        "# Test plan - required layers per area",
-        "",
-        "> Declared by the Architect with the CEO. `loop` refuses to STOP while a",
-        "> required layer is missing, pending or failing.",
-        "> Default when an area is not listed: the proportionate core set",
-        f"> ({', '.join(DEFAULT_REQUIRED_LAYERS)}) restricted to staffed roles; use",
-        "> `__all__` to demand every staffed role's layer for that area.",
-        "",
-    ]
-    if path is not None:
-        f = link_fields(path, "ceo")
-        lines.append(
-            f"Related: [tests]({_rel(path, tests_path(team_root_from(path)))}) | "
-            f"[criteria]({_rel(path, criteria_path(team_root_from(path)))}) | "
-            f"[architecture]({f['architecture']}) | [plan]({f['plan']})"
-        )
-        lines.append("")
-    for area in sorted(plan):
-        lines.append(f"## {area}")
-        value = ALL_LAYERS_SENTINEL if plan[area] == [ALL_LAYERS_SENTINEL] else ",".join(plan[area])
-        lines.append(f"- layers: {value}")
-        lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def write_testplan(path: Path, plan: dict) -> None:
-    atomic_write(path, render_testplan(plan, path))
-
-
-def find_test(records: list, handle: str):
-    want = (handle or "").strip().upper()
-    for i, r in enumerate(records):
-        if r["id"].upper() == want:
-            return i
-    for i, r in enumerate(records):
-        if want and (want == r["area"].upper() or want in r["area"].upper()):
-            return i
-    return None
 
 
 def areas_in_use(root: Path) -> list:
@@ -1975,12 +1706,8 @@ def cmd_testplan_unused(args) -> int:
 # without trusting the team: `teamwork.py ledger export`, then re-run the checks.
 # --------------------------------------------------------------------------- #
 
-F_LEDGER = "Ledger.jsonl"
-F_HEAD = "LedgerHead.json"
-F_MANIFEST = "AuditManifest.json"
 # The generated manifest is AuditManifest.md; AuditReport.md belongs to the
 # Security Auditor's findings report and must never be overwritten.
-F_AUDITREPORT = "AuditManifest.md"
 
 LEDGER_ACTIONS = (
     "memory.add",
@@ -2763,120 +2490,6 @@ def ledger_export(root: Path, args) -> int:
 # Registry: <team>/Skills.md (who owns it, who was told, current state)
 # --------------------------------------------------------------------------- #
 
-F_SKILLS = "Skills.md"
-SKILLS_DIR = (".agents", "skills")
-SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-
-SKILLS_HEADER = (
-    "# Team skills - extracted, shared flows\n\n"
-    "> A skill is created when a flow is repetitive, widely reused and must stay\n"
-    "> consistent across instances of a role. The file lives in the project\n"
-    "> (`.agents/skills/<name>/SKILL.md`) so every agent and worktree sees it.\n"
-    "> Manage with `teamwork.py skill ...`.\n\n"
-    "Related: [team map](TeamMap.md) | [tests](Tests.md) | [criteria](Criteria.md) | "
-    "[reviews](Reviews.md)\n"
-)
-
-
-def skills_dir(root: Path) -> Path:
-    """Where team skills are written: the work tree this agent is actually in."""
-    return work_repo(root).joinpath(*SKILLS_DIR)
-
-
-def skill_file(root: Path, rel: str) -> Path:
-    """Locate a registered skill file from either the work tree or the project."""
-    for base in (work_repo(root), project_of(root)):
-        p = base / rel
-        if p.exists():
-            return p
-    return work_repo(root) / rel
-
-
-def skills_path(root: Path) -> Path:
-    return root / F_SKILLS
-
-
-def new_skill(name: str, owner_role: str, description: str, by: str = "", path: str = "") -> dict:
-    return {
-        "id": "",
-        "name": one_line(name),
-        "owner_role": one_line(owner_role),
-        "status": "draft",
-        "description": one_line(description),
-        "created_by": one_line(by),
-        "path": one_line(path),
-        "created": today_iso(),
-        "updated": today_iso(),
-        "shared_with": "",
-        "notes": [],
-    }
-
-
-def parse_skills(path: Path) -> list:
-    if not path.exists():
-        return []
-    out, cur = [], None
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^##\s+(S-\d+)\s*(?:·|:)?\s*(.*)$", raw)
-        if m:
-            if cur:
-                out.append(cur)
-            cur = new_skill(m.group(2).strip(), "", "")
-            cur["id"] = m.group(1)
-            continue
-        if cur is None:
-            continue
-        mm = META_RE.match(raw)
-        if not mm:
-            continue
-        field, value = mm.group(1), mm.group(2).strip()
-        if field in cur:
-            cur[field] = value
-        elif field == "note":
-            cur["notes"].append(value)
-    if cur:
-        out.append(cur)
-    return out
-
-
-def render_skills(items: list) -> str:
-    assign_ids(items, "S-")
-    out = [SKILLS_HEADER, ""]
-    for s in items:
-        out.append(f"## {s['id']} · {one_line(s['name'])}")
-        for field in (
-            "name",
-            "status",
-            "owner_role",
-            "created_by",
-            "path",
-            "created",
-            "updated",
-            "shared_with",
-        ):
-            out.append(f"- {field}: {one_line(s.get(field, ''))}")
-        out.append("")
-        out.append(f"- description: {one_line(s['description'])}")
-        for n in s["notes"]:
-            out.append(f"- note: {one_line(n)}")
-        out.append("")
-    return "\n".join(out).rstrip() + "\n"
-
-
-def write_skills(path: Path, items: list) -> None:
-    atomic_write(path, render_skills(items))
-
-
-def find_skill(items: list, handle: str):
-    want = (handle or "").strip().lower()
-    for i, s in enumerate(items):
-        if s["id"].lower() == want or s["name"].lower() == want:
-            return i
-    for i, s in enumerate(items):
-        if want and want in s["name"].lower():
-            return i
-    return None
-
 
 def skill_body(name: str, owner_role: str, description: str, body: str, by: str) -> str:
     """A skill file that is safe to share: it cannot replace the team rules."""
@@ -3388,658 +3001,21 @@ def cmd_commit(args) -> int:
     return 0
 
 
-DEFAULT_PROVIDER_LIMITS = {
-    "ollama-cloud": 10,
-    "deepseek": 2500,
-    "openai": 64,
-    "anthropic": 64,
-    "default": 8,
-}
-
-ACRONYMS = {
-    "ceo": "CEO",
-    "cto": "CTO",
-    "coo": "COO",
-    "cfo": "CFO",
-    "pm": "PM",
-    "qa": "QA",
-    "ui": "UI",
-    "ux": "UX",
-    "api": "API",
-}
-
-
-def pascal(name: str) -> str:
-    """developer-2 -> Developer-2 ; product-manager -> ProductManager."""
-    parts = [p for p in re.split(r"[-_\s]+", (name or "").strip()) if p]
-    out = []
-    for part in parts:
-        low = part.lower()
-        if low in ACRONYMS:
-            out.append(ACRONYMS[low])
-        elif part.isdigit():
-            out.append(part)
-        else:
-            out.append(part[:1].upper() + part[1:])
-    if len(out) > 1 and out[-1].isdigit():
-        return "-".join(out[:-1]) + "-" + out[-1]
-    return "".join(out) or "Team"
-
-
-def safe_component(name: str) -> str:
-    """A single filesystem path component derived from a user-supplied name.
-
-    ``pascal`` is a display helper and deliberately preserves characters; a
-    name such as ``../../escape`` must never turn into a path traversal when it
-    becomes a directory or a slot filename. Normal names (``Developer-1``,
-    ``ProductManager``) are unchanged.
-    """
-    text = re.sub(r"[^A-Za-z0-9._-]+", "-", str(name or "")).strip(".-")
-    return text[:80] or "Team"
-
-
-def team_slug(project: Path, explicit: str = "") -> str:
-    raw = explicit or os.environ.get("TEAMWORK_TEAM") or project.name
-    return pascal(re.sub(r"[^A-Za-z0-9_-]+", "-", raw)) or "Team"
-
-
-SLOT_TTL_MINUTES = int(os.environ.get("TEAMWORK_SLOT_TTL_MINUTES", "90"))
-REVIEW_FAIL_LIMIT = int(os.environ.get("TEAMWORK_REVIEW_FAIL_LIMIT", "3"))
-SHORT_CAP = int(os.environ.get("TEAMWORK_SHORT_CAP", "24"))
-LONG_CAP = int(os.environ.get("TEAMWORK_LONG_CAP", "64"))
-ARCHIVE_CAP = int(os.environ.get("TEAMWORK_ARCHIVE_CAP", "256"))
-STALE_DAYS = int(os.environ.get("TEAMWORK_STALE_DAYS", "3"))
-MIN_USES = int(os.environ.get("TEAMWORK_MIN_USES", "2"))
-PROMOTE_MIN_IMPORTANCE = int(os.environ.get("TEAMWORK_PROMOTE_MIN_IMPORTANCE", "2"))
-
 # Shared project documents: single owner, single canonical path, no duplicates.
 # code first, tests second, docs third - see PRIORITY in the skill.
-DOCS = {
-    "Project.md": "CEO",
-    "Plan.md": "ProjectManager",
-    "Board.md": "ProjectManager",
-    "Decisions.md": "Architect",
-    "Architecture.md": "Architect",
-    "Research.md": "ProductManager",
-    "Design.md": "Designer",
-    "Risks.md": "COO",
-    "Costs.md": "CFO",
-    "Release.md": "Release Engineer",
-    "Archive.md": "CEO",
-}
-CODE_DIRS = ("src", "lib", "cmd", "internal", "app", "packages", "crates", "rust")
-TEST_HINTS = ("test", "tests", "spec", "specs", "e2e", "integration")
 
 # Files/dirs the team must never commit: local working state, caches, secrets.
-GITIGNORE_LINES = (
-    "# --- teamwork: local working state (never commit) ---",
-    ".pi/",
-    "# --- teamwork: scratch and editor noise ---",
-    "*.tmp",
-    "*.temp",
-    "*.bak",
-    "*.orig",
-    "*.rej",
-    "*.swp",
-    "*~",
-    ".DS_Store",
-    "Thumbs.db",
-    "# --- teamwork: secrets ---",
-    ".env",
-    ".env.local",
-    ".env.*.local",
-    "*.pem",
-    "*.key",
-    "# --- teamwork: caches / build output (keep them on disk, just uncommitted) ---",
-    "__pycache__/",
-    "*.py[cod]",
-    ".pytest_cache/",
-    ".mypy_cache/",
-    ".ruff_cache/",
-    "node_modules/",
-    "dist/",
-    "build/",
-    "target/",
-    ".venv/",
-    "venv/",
-    "coverage/",
-    ".coverage",
-)
 
 # Only these are removed by `clean`; everything else is left alone.
-SCRATCH_DIRS = (DIR_SCRATCH,)
-SCRATCH_PATTERNS = ("*.tmp", "*.temp", "*.bak", "*.orig", "*.rej", "*.log")
 
 # --------------------------------------------------------------------------- #
 # Disputes: independent decisions, rebuttal, 3-round cap, CEO+CTO+CFO tribunal
 # --------------------------------------------------------------------------- #
 
-MAX_ROUNDS = int(os.environ.get("TEAMWORK_MAX_DISPUTE_ROUNDS", "3"))
-TRIBUNAL = ("ceo", "cto", "cfo")
-TRIBUNAL_MIN_SIGNERS = 2
-DISPUTE_HEADER = (
-    "# DISPUTES - design/decision challenges\n\n"
-    "> Every non-trivial decision needs an evidence chain. When you find a design\n"
-    "> or decision unreasonable, open a dispute here with counter-evidence.\n"
-    "> Max {rounds} rounds between the two agents; after that the CEO + CTO + CFO\n"
-    "> tribunal rules and the ruling is binding (record it in docs/Team/Decisions.md).\n"
-)
-DISPUTE_RE = re.compile(r"^##\s+(D-\d+)\s*(?:·|:)?\s*(.*)$")
-ROUND_RE = re.compile(r"^-\s+r(\d+)\s+(\S+)\s+(\S+):\s*(.*)$")
-
-
-def new_dispute(
-    topic: str,
-    raised_by: str = "",
-    against: str = "",
-    evidence: str = "",
-    position: str = "",
-    task: str = "",
-) -> dict:
-    return {
-        "id": "",
-        "topic": one_line(topic),
-        "status": "open",
-        "raised_by": one_line(raised_by),
-        "against": one_line(against),
-        "task": one_line(task),
-        "round": 0,
-        "escalated": False,
-        "created": today_iso(),
-        "updated": today_iso(),
-        "evidence": one_line(evidence),
-        "position": one_line(position),
-        "rounds": [],
-        "signed": [],
-        "decision": "",
-    }
-
-
-def parse_disputes(path: Path) -> list:
-    if not path.exists():
-        return []
-    out = []
-    cur = None
-    section = "meta"
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        m = DISPUTE_RE.match(raw)
-        if m:
-            if cur:
-                out.append(cur)
-            cur = new_dispute(m.group(2))
-            cur["id"] = m.group(1)
-            section = "meta"
-            continue
-        if cur is None:
-            continue
-        if raw.startswith("### "):
-            section = raw[4:].strip().lower()
-            continue
-        if section == "rounds":
-            rm = ROUND_RE.match(raw)
-            if rm:
-                cur["rounds"].append(
-                    {
-                        "n": int(rm.group(1)),
-                        "by": rm.group(2),
-                        "date": rm.group(3),
-                        "text": rm.group(4).strip(),
-                    }
-                )
-                cur["round"] = max(cur["round"], int(rm.group(1)))
-            continue
-        if section == "ruling":
-            if raw.startswith("- signed:"):
-                cur["signed"] = [s.strip() for s in raw.split(":", 1)[1].split(",") if s.strip()]
-            elif raw.startswith("- decision:"):
-                cur["decision"] = raw.split(":", 1)[1].strip()
-            continue
-        mm = META_RE.match(raw)
-        if mm:
-            field, value = mm.group(1), mm.group(2).strip()
-            if field in (
-                "status",
-                "raised_by",
-                "against",
-                "task",
-                "created",
-                "updated",
-                "evidence",
-                "position",
-            ):
-                cur[field] = value
-            elif field == "round":
-                try:
-                    cur["round"] = int(value)
-                except ValueError:
-                    pass
-            elif field == "escalated":
-                cur["escalated"] = value.lower() in ("yes", "true", "1")
-    if cur:
-        out.append(cur)
-    return out
-
-
-def render_disputes(disputes: list) -> str:
-    assign_ids(disputes, "D-")
-    out = [DISPUTE_HEADER.format(rounds=MAX_ROUNDS), ""]
-    for d in sorted(disputes, key=lambda x: x["id"]):
-        out.append(f"## {d['id']} · {one_line(d['topic']) or 'dispute'}")
-        for field, value in (
-            ("status", d["status"]),
-            ("raised_by", d["raised_by"]),
-            ("against", d["against"]),
-            ("task", d["task"]),
-            ("round", str(d["round"])),
-            ("escalated", "yes" if d["escalated"] else "no"),
-            ("created", d["created"]),
-            ("updated", d["updated"]),
-        ):
-            out.append(f"- {field}: {one_line(value)}")
-        out.append("")
-        if d["position"]:
-            out.append(f"- position: {one_line(d['position'])}")
-        if d["evidence"]:
-            out.append(f"- evidence: {one_line(d['evidence'])}")
-        out.append("")
-        out.append("### rounds")
-        for r in d["rounds"]:
-            out.append(
-                f"- r{r['n']} {one_line(r['by'])} {one_line(r['date'])}: {one_line(r['text'])}"
-            )
-        out.append("")
-        out.append("### ruling")
-        out.append(f"- signed: {', '.join(one_line(s) for s in d['signed'])}")
-        out.append(f"- decision: {one_line(d['decision'])}")
-        out.append("")
-    return "\n".join(out).rstrip() + "\n"
-
-
-def write_disputes(path: Path, disputes: list) -> None:
-    atomic_write(path, render_disputes(disputes))
-
-
-def disputes_path(root: Path) -> Path:
-    return root / F_DISPUTES
-
-
-def find_dispute(disputes: list, handle: str):
-    if re.fullmatch(r"D-\d+", (handle or "").upper()):
-        for i, d in enumerate(disputes):
-            if d["id"].upper() == handle.upper():
-                return i
-        return None
-    for i, d in enumerate(disputes):
-        if handle.lower() in (d["topic"] + " " + d["position"]).lower():
-            return i
-    return None
-
-
-ROLE_ALIASES = {
-    "dev": "developer",
-    "developer": "developer",
-    "qa": "tester",
-    "test": "tester",
-    "tester": "tester",
-    "design": "designer",
-    "designer": "designer",
-    "arch": "architect",
-    "architect": "architect",
-    "software-architect": "architect",
-    "pm": "project-manager",
-    "project-manager": "project-manager",
-    "product-manager": "product-manager",
-    "po": "product-manager",
-    "ceo": "ceo",
-    "cto": "cto",
-    "rel": "release-engineer",
-    "release-engineer": "release-engineer",
-    "devops": "release-engineer",
-    "sre": "release-engineer",
-    "writer": "technical-writer",
-    "tech-writer": "technical-writer",
-    "technical-writer": "technical-writer",
-    "docs": "technical-writer",
-    "data": "data-engineer",
-    "data-engineer": "data-engineer",
-    "dba": "data-engineer",
-    "coo": "coo",
-    "cfo": "cfo",
-    "reviewer": "reviewer",
-    "security-auditor": "security-auditor",
-}
 
 # Cross-links every generated markdown file carries, relative to its own dir.
 # Depth: .pi/Teamwork/Teams/<Team>/Roles/<Role>/ = 5 below the project root;
 #        .pi/Teamwork/Teams/<Team>/Agents/<Instance>/ = 6.
-ROLE_LINKS = (
-    "Related: [task queue]({tasks}) | [short-term]({short}) | "
-    "[long-term]({long}) | [memory archive]({mem_archive}) | "
-    "[global memory]({global_mem}) | [team map]({map}) | "
-    "[project]({project}) | [plan]({plan}) | "
-    "[architecture]({architecture}) | [archive ledger]({archive})"
-)
-AGENT_LINKS = (
-    "Related: [role charter]({role}) | [shared queue]({tasks}) | "
-    "[shared short-term]({short}) | [shared long-term]({long}) | "
-    "[shared memory archive]({mem_archive}) | "
-    "[worklog]({worklog}) | [inbox]({inbox}) | "
-    "[global memory]({global_mem}) | [team map]({map}) | "
-    "[project]({project}) | [plan]({plan})"
-)
-
-
-TASK_RE = re.compile(r"^##\s+(T-\d+)\s*(?:·|:)?\s*(.*)$")
-ENTRY_RE = re.compile(r"^##\s+(M-\d+)\s*(?:·|:)?\s*(.*)$")
-META_RE = re.compile(r"^-\s+([a-z_]+):\s*(.*)$")
-PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
-STATUSES = ("todo", "doing", "selfcheck", "review", "blocked", "done", "dropped")
-TASK_HEADER = (
-    "# Task queue - {owner} (shared by every {owner} instance)\n\n"
-    "> Priority ordered (P0 highest). `task next <instance>` atomically claims the\n"
-    "> highest-priority unblocked task and records who is on it, so two instances\n"
-    "> never pick the same work. Lifecycle: `doing -> selfcheck -> review -> done`;\n"
-    "> a passed review is archived to docs/Team/Archive.md.\n\n" + ROLE_LINKS + "\n"
-)
-
-
-HEADERS = {
-    F_SHORT: (
-        "# Short-term memory - {owner} (shared by every {owner} instance)\n\n"
-        "> Working memory. Loaded at task start, updated continuously. Entries not\n"
-        "> used for {stale} days consolidate into long-term memory automatically.\n\n"
-        + ROLE_LINKS
-        + "\n"
-    ),
-    F_LONG: (
-        "# Long-term memory - {owner} (shared by every {owner} instance)\n\n"
-        "> Never loaded automatically. Query with "
-        '`teamwork.py recall "<query>" --agent {owner}`.\n'
-        "> Capped at {cap} entries; the least important overflow is archived.\n\n"
-        + ROLE_LINKS
-        + "\n"
-    ),
-    F_MEM_ARCHIVE: (
-        "# Archived memory - {owner} (shared)\n\n"
-        "> Overflow evicted from long-term memory. Searchable, never loaded.\n\n"
-        + ROLE_LINKS
-        + "\n"
-    ),
-    F_GLOBAL: (
-        "# Global memory (CEO-owned)\n\n"
-        "> Shared facts, interfaces and conventions for every agent. Read this\n"
-        "> before asking a question another agent may have already answered.\n"
-        "> Only the CEO writes here; propose additions through the CEO.\n\n"
-        "Related: [disputes]({disputes}) | [team map]({map}) | "
-        "[project]({project}) | [decisions]({decisions}) | "
-        "[archive ledger]({archive})\n"
-    ),
-    F_GLOBAL_ARCHIVE: (
-        "# Global memory archive\n\n"
-        "> Overflow evicted from global memory. Searchable, never loaded.\n\n"
-        "Related: [global memory]({global_mem}) | [team map]({map}) | "
-        "[project]({project}) | [archive ledger]({archive})\n"
-    ),
-    F_TASKS: TASK_HEADER,
-}
-
-
-def new_task(
-    title: str,
-    priority: str = "P2",
-    shared: str = "",
-    deps: str = "",
-    tags: str = "",
-    status: str = "todo",
-    body: str = "",
-    evidence: str = "",
-    review: str = "required",
-) -> dict:
-    priority = (priority or "P2").upper()
-    if priority not in PRIORITY_ORDER:
-        priority = "P2"
-    return {
-        "id": "",
-        "title": one_line(title),
-        "priority": priority,
-        "status": status if status in STATUSES else "todo",
-        "deps": one_line(deps),
-        "shared": one_line(shared),
-        "tags": one_line(tags),
-        "area": "",
-        "evidence": one_line(evidence),
-        "review": review if review in ("required", "na") else "required",
-        "review_status": "na" if review == "na" else "pending",
-        "self_check": "na" if review == "na" else "pending",
-        "self_note": "",
-        "review_evidence": "",
-        "reviewer": "",
-        "claimed_by": "",
-        "branch": "",
-        "base": "",
-        "worktree": "",
-        "pr": "",
-        "merge_commit": "",
-        "review_fails": 0,
-        "findings": "",
-        "created": today_iso(),
-        "updated": today_iso(),
-        "body": body_text(body),
-    }
-
-
-def parse_tasks(path: Path) -> list:
-    if not path.exists():
-        return []
-    tasks = []
-    current = None
-    in_body = False
-    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        m = TASK_RE.match(raw)
-        if m:
-            if current:
-                tasks.append(current)
-            current = new_task(m.group(2))
-            current["id"] = m.group(1)
-            in_body = False
-            continue
-        if current is None:
-            continue
-        if not raw.strip():
-            # The renderer puts one blank line between metadata and body. From
-            # here on nothing is metadata: a body line such as
-            # ``- status: done`` must never forge the task state.
-            if in_body:
-                current["body"] = current["body"] + "\n"
-            else:
-                in_body = True
-            continue
-        if not in_body:
-            mm = META_RE.match(raw)
-            if mm:
-                field, value = mm.group(1), mm.group(2).strip()
-                if field in (
-                    "priority",
-                    "status",
-                    "deps",
-                    "shared",
-                    "tags",
-                    "created",
-                    "updated",
-                    "evidence",
-                    "review",
-                    "review_status",
-                    "reviewer",
-                    "findings",
-                    "claimed_by",
-                    "self_check",
-                    "self_note",
-                    "review_evidence",
-                    "branch",
-                    "base",
-                    "worktree",
-                    "pr",
-                    "merge_commit",
-                    "forced",
-                    "area",
-                    "review_fails",
-                ):
-                    current[field] = value
-                continue
-            in_body = True
-        current["body"] = (current["body"] + "\n" + raw).strip()
-    if current:
-        tasks.append(current)
-    return [t for t in tasks if t["title"] or t["body"]]
-
-
-def render_tasks(tasks: list, owner: str, path: Path = None) -> str:
-    assign_ids(tasks, "T-")
-    ordered = sorted(tasks, key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["id"]))
-    out = [header_for(F_TASKS, owner, path), ""]
-    for t in ordered:
-        out.append(f"## {t['id']} · {one_line(t['title']) or 'task'}")
-        meta = [
-            ("priority", t["priority"]),
-            ("status", t["status"]),
-            ("deps", t["deps"]),
-            ("shared", t["shared"]),
-            ("tags", t["tags"]),
-            ("area", t.get("area", "")),
-            ("review", t.get("review", "required")),
-            ("review_status", t.get("review_status", "pending")),
-            ("self_check", t.get("self_check", "pending")),
-            ("self_note", t.get("self_note", "")),
-            ("reviewer", t.get("reviewer", "")),
-            ("review_evidence", t.get("review_evidence", "")),
-            ("claimed_by", t.get("claimed_by", "")),
-            ("branch", t.get("branch", "")),
-            ("base", t.get("base", "")),
-            ("worktree", t.get("worktree", "")),
-            ("pr", t.get("pr", "")),
-            ("merge_commit", t.get("merge_commit", "")),
-            ("review_fails", str(t.get("review_fails") or 0)),
-            ("forced", t.get("forced", "")),
-            ("evidence", t.get("evidence", "")),
-            ("findings", t.get("findings", "")),
-            ("created", t["created"]),
-            ("updated", t["updated"]),
-        ]
-        for field, value in meta:
-            out.append(f"- {field}: {one_line(value)}")
-        out.append("")
-        if t["body"]:
-            out.append(body_text(t["body"]))
-            out.append("")
-    return "\n".join(out).rstrip() + "\n"
-
-
-def write_tasks(path: Path, tasks: list, owner: str) -> None:
-    atomic_write(path, render_tasks(tasks, owner, path))
-
-
-def task_file(root: Path, agent: str) -> Path:
-    """The role's shared queue. Any instance of the role may claim from it."""
-    role = resolve_role(agent)
-    d = role_dir(root, role)
-    if not d.is_dir() and not agents_dir(root).is_dir():
-        die("no workspace here: run `teamwork.py init` first")
-    if agents_dir(root).is_dir() and not d.is_dir():
-        known = list_roles(root)
-        if role not in known:
-            die(
-                f"no '{role}' role in this team. Known roles: "
-                + (", ".join(known) if known else "(none)")
-            )
-    d.mkdir(parents=True, exist_ok=True)
-    return d / F_TASKS
-
-
-def merge_tasks(dst: list, incoming: list) -> tuple:
-    """Fold duplicate tasks (same lowercased title) into one."""
-    index = {t["title"].strip().lower(): t for t in dst if t["title"]}
-    added = 0
-    for src in incoming:
-        key = src["title"].strip().lower()
-        if key in index and key:
-            existing = index[key]
-            if PRIORITY_ORDER.get(src["priority"], 9) < PRIORITY_ORDER.get(existing["priority"], 9):
-                existing["priority"] = src["priority"]
-            for field, value in src.items():
-                if field in ("id", "title", "priority", "created", "updated"):
-                    continue
-                if value in ("", None, [], 0) or value == "pending":
-                    continue
-                if not existing.get(field):
-                    existing[field] = value
-            if src["updated"] >= existing["updated"]:
-                existing["updated"] = src["updated"]
-            if existing["status"] in ("todo",) and src["status"] not in ("todo", "dropped"):
-                existing["status"] = src["status"]
-            continue
-        dst.append(dict(src))
-        if key:
-            index[key] = dst[-1]
-        added += 1
-    return dst, added
-
-
-def find_task(tasks: list, handle: str):
-    if re.fullmatch(r"T-\d+", handle.upper()):
-        wanted = handle.upper()
-        for i, t in enumerate(tasks):
-            if t["id"].upper() == wanted:
-                return i
-        return None
-    for i, t in enumerate(tasks):
-        if t["title"].lower() == handle.lower():
-            return i
-    for i, t in enumerate(tasks):
-        if handle.lower() in (t["title"] + " " + t["body"] + " " + t["shared"]).lower():
-            return i
-    return None
-
-
-def dep_satisfied(root: Path, dep: str, cache: dict) -> bool:
-    dep = dep.strip()
-    if not dep:
-        return True
-    if ":" in dep:
-        other_agent, other_id = dep.split(":", 1)
-        other_agent, other_id = other_agent.strip(), other_id.strip()
-        key = ("x", other_agent, other_id)
-        if key not in cache:
-            path = role_dir(root, other_agent) / F_TASKS
-            tasks = parse_tasks(path)
-            idx = find_task(tasks, other_id)
-            cache[key] = bool(idx is not None and tasks[idx]["status"] == "done")
-        return cache[key]
-    key = ("l", dep.lower())
-    if key not in cache:
-        cache[key] = None
-    return cache[key] is True  # filled by caller for local deps
-
-
-def local_dep_map(tasks: list) -> dict:
-    by_title = {}
-    for t in tasks:
-        by_title[t["id"].lower()] = t["status"]
-        if t["title"]:
-            by_title[t["title"].lower()] = t["status"]
-    return by_title
-
-
-def executable(t: dict, lookup: dict, cache: dict, root: Path) -> bool:
-    if t["status"] != "todo":
-        return False
-    for dep in [d for d in re.split(r"[,\s]+", t["deps"]) if d.strip()]:
-        if ":" in dep:
-            if not dep_satisfied(root, dep, cache):
-                return False
-        else:
-            if lookup.get(dep.lower()) != "done":
-                return False
-    return True
 
 
 # --------------------------------------------------------------------------- #
@@ -4047,529 +3023,14 @@ def executable(t: dict, lookup: dict, cache: dict, root: Path) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def today() -> date:
-    return date.today()
-
-
-def today_iso() -> str:
-    return today().isoformat()
-
-
-def parse_date(value: str) -> date:
-    try:
-        return date.fromisoformat((value or "").strip())
-    except ValueError:
-        return today()
-
-
-def days_since(value: str) -> int:
-    return max((today() - parse_date(value)).days, 0)
-
-
-LOCK_TIMEOUT = float(os.environ.get("TEAMWORK_LOCK_TIMEOUT", "60"))
-LOCK_STALE_SECONDS = float(os.environ.get("TEAMWORK_LOCK_STALE_SECONDS", "300"))
-
-
-def _lock_owner_stale(path: Path) -> bool:
-    """True only when the lock is clearly abandoned: old AND its owner is gone."""
-    try:
-        age = time.time() - path.stat().st_mtime
-        body = path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return False
-    if age < LOCK_STALE_SECONDS:
-        return False
-    pid = int(body.split(".", 1)[0]) if body.split(".", 1)[0].isdigit() else 0
-    if pid <= 0:
-        return True
-    # Portable liveness probe: on Windows os.kill(pid, 0) is not a probe, so
-    # this goes through the audited helper in teamwork.portable.
-    return not pid_alive(pid)
-
-
-@contextlib.contextmanager
-def lock(path: Path, timeout: float = None):
-    """Exclusive lock via O_CREAT|O_EXCL. Never steals a live lock, and only
-    removes the lock file if this process owns it."""
-    if timeout is None:
-        timeout = LOCK_TIMEOUT
-    path.parent.mkdir(parents=True, exist_ok=True)
-    token = f"{os.getpid()}.{time.time():.6f}"
-    deadline = time.monotonic() + max(timeout, 0.0)
-    while True:
-        try:
-            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(fd, token.encode())
-            os.close(fd)
-            break
-        except FileExistsError:
-            if _lock_owner_stale(path):
-                try:
-                    os.unlink(str(path))
-                    continue
-                except OSError:
-                    pass
-            if time.monotonic() > deadline:
-                die(
-                    f"timed out after {int(timeout)}s waiting for {path.name}. "
-                    "Another agent holds it. Wait, or clear it only if the owner "
-                    "is gone. Never delete a lock that is still in use.",
-                    4,
-                )
-            time.sleep(0.05)
-    try:
-        yield
-    finally:
-        try:
-            if path.read_text(encoding="utf-8").strip() == token:
-                path.unlink()
-        except OSError:
-            pass
-
-
-def atomic_write(path: Path, text: str) -> None:
-    """Write via a unique temp file in the same directory, then rename.
-
-    Windows rejects ``os.replace`` while another process has the target open, so
-    the rename is retried briefly. The original mode is preserved because
-    ``mkstemp`` creates a 0600 file, which would otherwise make a previously
-    group-readable workspace file private after the first rewrite.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        try:
-            mode = path.stat().st_mode & 0o777
-        except OSError:
-            mode = 0o644
-    else:
-        # Respect the caller's umask instead of forcing a world-readable file.
-        current_umask = os.umask(0)
-        os.umask(current_umask)
-        mode = 0o666 & ~current_umask
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline=newline_for()) as fh:
-            fh.write(text)
-        try:
-            os.chmod(tmp, mode)
-        except OSError:
-            pass
-        for attempt in range(5):
-            try:
-                os.replace(tmp, str(path))
-                break
-            except PermissionError:
-                if attempt == 4:
-                    raise
-                time.sleep(0.05 * (attempt + 1))
-            except OSError:
-                # Windows file-sharing violations are not always PermissionError.
-                if os.name != "nt" or attempt == 4:
-                    raise
-                time.sleep(0.05 * (attempt + 1))
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
-
-
-def write_lf(path: Path, text: str, encoding: str = "utf-8") -> None:
-    """Write ``text`` with LF newlines on every platform and every Python >= 3.9.
-
-    ``Path.write_text(..., newline=...)`` only exists from Python 3.10, and this
-    package supports 3.9 (CI runs the matrix on 3.9), so the file is opened here
-    directly. On Windows the default text mode would translate ``\n`` to CRLF and
-    a clone would no longer be byte-identical across platforms.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding=encoding, newline="\n") as handle:
-        handle.write(text)
-
-
-def die(msg: str, code: int = 1) -> NoReturn:
-    print(f"teamwork: {msg}", file=sys.stderr)
-    raise SystemExit(code)
-
-
 # --------------------------------------------------------------------------- #
 # Workspace
 # --------------------------------------------------------------------------- #
 
 
-def project_path(args) -> Path:
-    if getattr(args, "project", None):
-        return Path(args.project).expanduser().resolve()
-    return Path.cwd()
-
-
-def work_repo(root: Path, cwd: Path = None) -> Path:
-    """The git work tree this command should act on.
-
-    Inside one of our per-instance worktrees that worktree is the answer;
-    otherwise it is the project that owns the team tree.
-    """
-    cwd = (cwd or Path.cwd()).resolve()
-    wt_root = root / DIR_RUNTIME / DIR_WORKTREES
-    if wt_root.is_dir():
-        for parent in [cwd, *cwd.parents]:
-            try:
-                rel = parent.relative_to(wt_root)
-            except ValueError:
-                continue
-            if rel.parts:
-                cand = wt_root / rel.parts[0]
-                if (cand / ".git").exists():
-                    return cand
-    return project_of(root)
-
-
-def team_root_from_cwd(cwd: Path) -> Path:
-    """If we are inside one of our own worktrees, use the team that owns it.
-
-    `<team>/Runtime/Worktrees/<Instance>/...` -> `<team>`; anything else -> None.
-    Without this, running a command from a worktree would look for (and create)
-    a second, unrelated team tree.
-    """
-    for parent in [cwd, *cwd.parents]:
-        if parent.name == DIR_WORKTREES and parent.parent.name == DIR_RUNTIME:
-            candidate = parent.parent.parent
-            if (candidate / DIR_ROLES).is_dir() or (candidate / F_MAP).exists():
-                return candidate
-    return None
-
-
-def project_root(args) -> Path:
-    """The current team's hidden tree:
-    <project>/.pi/Teamwork/Teams/<Team>/"""
-    if os.environ.get("TEAMWORK_ROOT"):
-        return Path(os.environ["TEAMWORK_ROOT"]).expanduser().resolve()
-    if not getattr(args, "project", None):
-        found = team_root_from_cwd(Path.cwd().resolve())
-        if found is not None:
-            return found
-    project = project_path(args)
-    slug = team_slug(project, getattr(args, "team", "") or "")
-    return (project / TEAM_ROOT_DIR / TEAMS_SUBDIR / slug).resolve()
-
-
-def teams_root_unused(project: Path) -> Path:
-    return project / TEAM_ROOT_DIR / TEAMS_SUBDIR
-
-
-def agents_dir(root: Path) -> Path:
-    return root / DIR_AGENTS
-
-
-def agent_dir(root: Path, agent: str) -> Path:
-    """An instance directory: private scratch, artifacts, reports, worklog."""
-    return agents_dir(root) / safe_component(pascal(agent))
-
-
-def roles_dir(root: Path) -> Path:
-    return root / DIR_ROLES
-
-
-def role_dir(root: Path, role: str) -> Path:
-    """A role directory: memory and the task list, SHARED by every instance of
-    that role. developer-1 and developer-2 share one memory and one queue."""
-    return roles_dir(root) / safe_component(pascal(resolve_role(role)))
-
-
-def global_dir(root: Path) -> Path:
-    return root / DIR_GLOBAL
-
-
-def project_of(root: Path) -> Path:
-    """<project>/.pi/Teamwork/Teams/<Team> -> <project>."""
-    return root.parents[3]
-
-
-def docs_dir(root: Path) -> Path:
-    """Committed project output. The team's own tree stays in .pi/Teamwork."""
-    return project_of(root).joinpath(*DIR_DOCS)
-
-
-def _norm_key(value: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", (value or "").lower())
-
-
-_ALIAS_NORM = {_norm_key(k): v for k, v in ROLE_ALIASES.items()}
-
-
-def resolve_role(name: str) -> str:
-    """Map any spelling to the canonical role slug.
-
-    Accepts instance names, PascalCase directory names and aliases:
-    Developer-2 -> developer, ProductManager -> product-manager, dev -> developer.
-    """
-    raw = (name or "").strip()
-    n = _norm_key(raw)
-    if n in _ALIAS_NORM:
-        return _ALIAS_NORM[n]
-    n2 = re.sub(r"\d+$", "", n)
-    if n2 in _ALIAS_NORM:
-        return _ALIAS_NORM[n2]
-    return re.sub(r"[^a-z0-9]+", "-", raw.lower()).strip("-") or raw.lower()
-
-
-def list_agents(root: Path) -> list:
-    """Instance names (developer-1, developer-2, ...)."""
-    d = agents_dir(root)
-    if not d.is_dir():
-        return []
-    return sorted(p.name for p in d.iterdir() if p.is_dir())
-
-
-def list_roles(root: Path) -> list:
-    """Canonical role slugs that own a shared memory + task queue."""
-    d = roles_dir(root)
-    if not d.is_dir():
-        return []
-    return sorted({resolve_role(p.name) for p in d.iterdir() if p.is_dir()})
-
-
-def instances_of(root: Path, role: str) -> list:
-    role = resolve_role(role)
-    return [n for n in list_agents(root) if resolve_role(n) == role]
-
-
 # --------------------------------------------------------------------------- #
 # Entry parsing / serialising
 # --------------------------------------------------------------------------- #
-
-
-def new_entry(
-    body: str,
-    key: str = "",
-    importance: int = 2,
-    tags: str = "",
-    pinned: bool = False,
-    by: str = "",
-    src: str = "",
-    rev: str = "",
-) -> dict:
-    return {
-        "id": "",
-        "key": one_line(key),
-        "importance": max(0, min(int(importance), 5)),
-        "uses": 0,
-        "created": today_iso(),
-        "last_used": today_iso(),
-        "tags": one_line(tags),
-        "pinned": bool(pinned),
-        "body": body_text(body),
-        # provenance: who recorded it, for what, at which revision
-        "by": one_line(by),
-        "src": one_line(src),
-        "rev": one_line(rev),
-    }
-
-
-def parse_memory(path: Path) -> list:
-    if not path.exists():
-        return []
-    entries = []
-    current = None
-    in_body = False
-    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        m = ENTRY_RE.match(raw)
-        if m:
-            if current:
-                entries.append(current)
-            current = new_entry("")
-            current["id"] = m.group(1)
-            current["key"] = m.group(2).strip()
-            in_body = False
-            continue
-        if current is None:
-            continue
-        if not raw.strip():
-            if in_body:
-                current["body"] = current["body"] + "\n"
-            else:
-                in_body = True
-            continue
-        if not in_body:
-            mm = META_RE.match(raw)
-            if mm:
-                field, value = mm.group(1), mm.group(2).strip()
-                if field == "importance":
-                    try:
-                        current["importance"] = int(value)
-                    except ValueError:
-                        pass
-                elif field == "uses":
-                    try:
-                        current["uses"] = int(value)
-                    except ValueError:
-                        pass
-                elif field in ("created", "last_used", "tags", "key", "by", "src", "rev"):
-                    current[field] = value
-                elif field == "pinned":
-                    current["pinned"] = value.lower() in ("yes", "true", "1")
-                continue
-            in_body = True
-        current["body"] = (current["body"] + "\n" + raw).strip()
-    if current:
-        entries.append(current)
-    return [e for e in entries if e["body"] or e["key"]]
-
-
-def team_root_from(path: Path) -> Path:
-    """Recover the team root from any generated file inside the team tree.
-
-    Roles/<Role>/X -> root ; Agents/<I>/X -> root ; Global/X -> root ; root/X -> root
-    """
-    parent = path.parent
-    if parent.parent.name in (DIR_ROLES, DIR_AGENTS):
-        return parent.parent.parent
-    if parent.name == DIR_GLOBAL:
-        return parent.parent
-    return parent
-
-
-def _rel(path: Path, target: Path) -> str:
-    return os.path.relpath(target, start=path.parent).replace(os.sep, "/")
-
-
-def link_fields(path: Path, owner: str) -> dict:
-    """Relative links that stay correct at any depth in the team tree."""
-    root = team_root_from(path)
-    role = resolve_role(owner)
-    docs = docs_dir(root) if root.parent.name == TEAMS_SUBDIR else root
-    return {
-        "tasks": _rel(path, role_dir(root, role) / F_TASKS),
-        "short": _rel(path, role_dir(root, role) / F_SHORT),
-        "long": _rel(path, role_dir(root, role) / F_LONG),
-        "mem_archive": _rel(path, role_dir(root, role) / F_MEM_ARCHIVE),
-        "role": _rel(path, role_dir(root, role) / F_ROLE),
-        "global_mem": _rel(path, global_dir(root) / F_GLOBAL),
-        "global_archive": _rel(path, global_dir(root) / F_GLOBAL_ARCHIVE),
-        "disputes": _rel(path, root / F_DISPUTES),
-        "map": _rel(path, root / F_MAP),
-        "project": _rel(path, docs / "Project.md"),
-        "plan": _rel(path, docs / "Plan.md"),
-        "architecture": _rel(path, docs / "Architecture.md"),
-        "decisions": _rel(path, docs / "Decisions.md"),
-        "archive": _rel(path, docs / "Archive.md"),
-        "board": _rel(path, docs / "Board.md"),
-        "worklog": _rel(path, path.parent / F_WORKLOG),
-        "inbox": _rel(path, path.parent / F_INBOX),
-        "Role": pascal(role),
-    }
-
-
-def header_for(filename: str, owner: str, path: Path = None) -> str:
-    """Render a file header; link fields are real relative paths when we know the
-    file's location (which every writer does)."""
-    tpl = HEADERS.get(filename, "# Memory - {owner}\n")
-    if path is None:
-        die("internal: header_for needs the file path so its links resolve")
-    fields = link_fields(path, owner)
-    fields.update(owner=owner, cap=LONG_CAP, stale=STALE_DAYS)
-    return tpl.format(**fields)
-
-
-def render(entries: list, filename: str, owner: str, path: Path = None) -> str:
-    assign_ids(entries, "M-")
-    out = [header_for(filename, owner, path), ""]
-    for e in entries:
-        label = one_line(e["key"]) or "note"
-        out.append(f"## {e['id']} · {label}")
-        meta = [
-            ("key", e["key"]),
-            ("importance", str(e["importance"])),
-            ("uses", str(e["uses"])),
-            ("created", e["created"]),
-            ("last_used", e["last_used"]),
-            ("tags", e["tags"]),
-            ("pinned", "yes" if e["pinned"] else "no"),
-            ("by", e.get("by", "")),
-            ("src", e.get("src", "")),
-            ("rev", e.get("rev", "")),
-        ]
-        for field, value in meta:
-            out.append(f"- {field}: {one_line(value)}")
-        out.append("")
-        out.append(body_text(e["body"]).strip())
-        out.append("")
-    return "\n".join(out).rstrip() + "\n"
-
-
-def write_memory(path: Path, entries: list, filename: str, owner: str) -> None:
-    atomic_write(path, render(entries, filename, owner, path))
-
-
-def score(entry: dict) -> int:
-    d = days_since(entry["last_used"])
-    recency = 3 if d <= 1 else 2 if d <= 3 else 1 if d <= 7 else 0
-    return (
-        entry["importance"] * 10
-        + min(entry["uses"], 12) * 3
-        + recency
-        + (100 if entry["pinned"] else 0)
-    )
-
-
-def assign_ids(items: list, prefix: str) -> None:
-    """Keep existing ids stable; allocate fresh, collision-free ids for the rest."""
-    used = set()
-    for it in items:
-        i = it.get("id", "")
-        if i and i not in used:
-            used.add(i)
-        else:
-            it["id"] = ""
-    counter = 0
-    for it in items:
-        if it["id"]:
-            try:
-                counter = max(counter, int(it["id"].split("-")[1]))
-            except (IndexError, ValueError):
-                pass
-    for it in items:
-        if it["id"]:
-            continue
-        while True:
-            counter += 1
-            candidate = f"{prefix}{counter:04d}"
-            if candidate not in used:
-                break
-        it["id"] = candidate
-        used.add(candidate)
-
-
-def merge_entries(target: list, incoming: list, prefix: str = "M-") -> tuple:
-    """Merge incoming into target by key. Returns (target, merged, added)."""
-    merged = 0
-    added = 0
-    index = {}
-    for e in target:
-        if e["key"]:
-            index.setdefault(e["key"], e)
-    for src in incoming:
-        existing = index.get(src["key"]) if src["key"] else None
-        if existing is None:
-            copy = dict(src)
-            copy["id"] = ""  # reassigned by render/assign_ids
-            target.append(copy)
-            added += 1
-            if src["key"]:
-                index[src["key"]] = target[-1]
-            continue
-        existing["importance"] = max(existing["importance"], src["importance"])
-        existing["uses"] = existing["uses"] + src["uses"]
-        existing["pinned"] = existing["pinned"] or src["pinned"]
-        if parse_date(src["last_used"]) >= parse_date(existing["last_used"]):
-            existing["last_used"] = src["last_used"]
-            existing["body"] = src["body"] or existing["body"]
-        existing["tags"] = ",".join(
-            sorted({t for t in (existing["tags"] + "," + src["tags"]).split(",") if t.strip()})
-        )
-        merged += 1
-    return target, merged, added
 
 
 # --------------------------------------------------------------------------- #
@@ -5306,15 +3767,6 @@ def cmd_agents(args) -> int:
 # --------------------------------------------------------------------------- #
 
 
-def run_git(project: Path, *argv: str):
-    return subprocess.run(["git", "-C", str(project), *argv], capture_output=True, text=True)
-
-
-def is_git_repo(project: Path) -> bool:
-    r = run_git(project, "rev-parse", "--is-inside-work-tree")
-    return r.returncode == 0 and r.stdout.strip() == "true"
-
-
 def ensure_gitignore(project: Path) -> list:
     """Add the teamwork entries that are missing. Never removes lines."""
     path = project / ".gitignore"
@@ -5788,9 +4240,6 @@ def cmd_task_rm(args) -> int:
 
 def providers_path(root: Path) -> Path:
     return root / F_SETTINGS
-
-
-SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria")
 
 
 def load_providers(root: Path) -> dict:
@@ -8326,7 +6775,6 @@ def cmd_selftest(args) -> int:
     resolve, that the core helpers behave, and that a workspace can be
     initialised and read back. It writes only inside a temporary directory.
     """
-    import tempfile
 
     checks = []
 
@@ -8439,125 +6887,9 @@ def cmd_selftest(args) -> int:
 # means the first generally available model listed. Checked 2026-10-17; add a new
 # provider with a source and a date before using it - an unknown provider is
 # never assumed to be the best.
-IMAGE_MODEL_RANKING = {
-    "openai": ("gpt-image-1", "dall-e-3"),
-    "google": (
-        "imagen-4.0-ultra-generate-001",
-        "imagen-4.0-generate-001",
-        "gemini-2.5-flash-image",
-    ),
-    "black-forest-labs": ("flux-1.1-pro", "flux-1-dev", "flux-1-schnell"),
-    "stability": ("stable-image-ultra", "sd3.5-large", "sd3.5-medium"),
-    "replicate": (
-        "black-forest-labs/flux-1.1-pro",
-        "stability-ai/stable-diffusion-3.5-large",
-    ),
-    "local": ("qwen-image-2.1", "sdxl", "sd3.5-large"),
-    "ollama-cloud": (),  # text/vision INPUT only as of 2026-10-17
-}
 
 # Ambient-credential detection order. A provider is only selected when it has a
 # ranked image model, so holding an OpenAI key does not pretend to be a model.
-IMAGE_PROVIDER_PRIORITY = (
-    "openai",
-    "google",
-    "black-forest-labs",
-    "stability",
-    "replicate",
-    "local",
-    "ollama-cloud",
-)
-
-IMAGE_PROVIDER_CREDENTIALS = {
-    "openai": ("OPENAI_API_KEY",),
-    "google": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
-    "black-forest-labs": ("BFL_API_KEY", "BLACK_FOREST_LABS_API_KEY"),
-    "stability": ("STABILITY_API_KEY",),
-    "replicate": ("REPLICATE_API_TOKEN",),
-    "ollama-cloud": ("OLLAMA_API_KEY",),
-}
-
-IMAGE_FALLBACK_HINT = (
-    "no cloud image model detected: fall back to a local model, then to a "
-    "hand-authored SVG (roles/designer.md, fallback ladder). Do not stall, and "
-    "do not report an image that was never generated."
-)
-
-
-def detect_image_provider(env=None) -> str:
-    """First provider in priority order that is configured and has a model."""
-    env = os.environ if env is None else env
-    for provider in IMAGE_PROVIDER_PRIORITY:
-        if provider == "local":
-            if shutil.which("qimg") or any(key.startswith("QIMG_") for key in env):
-                return provider
-            continue
-        if not IMAGE_MODEL_RANKING.get(provider):
-            continue
-        if any(env.get(name) for name in IMAGE_PROVIDER_CREDENTIALS.get(provider, ())):
-            return provider
-    return ""
-
-
-def resolve_image_model(env=None) -> dict:
-    """Decide which image generator to use, without touching the network."""
-    env = os.environ if env is None else env
-    override = (env.get("TEAMWORK_IMAGE_MODEL") or "").strip()
-    if override:
-        provider = (env.get("TEAMWORK_IMAGE_PROVIDER") or "custom").strip() or "custom"
-        return {
-            "provider": provider,
-            "model": override,
-            "ranked": [],
-            "source": "TEAMWORK_IMAGE_MODEL override",
-            "fallback": "",
-        }
-    explicit = (env.get("TEAMWORK_IMAGE_PROVIDER") or "").strip()
-    if explicit:
-        ranked = list(IMAGE_MODEL_RANKING.get(explicit, ()))
-        return {
-            "provider": explicit,
-            "model": ranked[0] if ranked else "",
-            "ranked": ranked,
-            "source": "TEAMWORK_IMAGE_PROVIDER",
-            "fallback": "" if ranked else IMAGE_FALLBACK_HINT,
-        }
-    provider = detect_image_provider(env)
-    ranked = list(IMAGE_MODEL_RANKING.get(provider, ()))
-    return {
-        "provider": provider,
-        "model": ranked[0] if ranked else "",
-        "ranked": ranked,
-        "source": "ambient environment" if provider else "none detected",
-        "fallback": "" if provider else IMAGE_FALLBACK_HINT,
-    }
-
-
-def cmd_imaging(args) -> int:
-    """`teamwork imaging probe` - which image model, if any, is available."""
-    import json
-
-    decision = resolve_image_model()
-    if getattr(args, "json", False):
-        print(json.dumps({"command": "imaging.probe", **decision}, indent=2))
-        return 0
-    print("# imaging probe (offline: environment + PATH only)")
-    print(f"  provider:  {decision['provider'] or '-'}")
-    print(f"  model:     {decision['model'] or '-'}")
-    print(f"  source:    {decision['source']}")
-    if decision["ranked"]:
-        print("  ranked:    " + " > ".join(decision["ranked"]))
-    if decision["model"]:
-        print("  supports:  text-to-image, image-to-image")
-    else:
-        print("  supports:  none")
-    if decision["fallback"]:
-        print(f"  fallback:  {decision['fallback']}")
-    print(
-        "  policy:    roles/designer.md (plan, 4+ candidates, visual review,"
-        " improvement, privacy and licence red lines)"
-    )
-    return 0
 
 
 # --------------------------------------------------------------------------- #
