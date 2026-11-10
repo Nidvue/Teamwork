@@ -9,7 +9,7 @@ technical counterpart and the Architect's escalation point.
 change, or a decision that binds the whole team - never for work you can
 resolve inside your own lane.
 
-Manages: Architect, Team Leader, Developer, Tester, Release Engineer, Data Engineer.
+Manages: Architect, Developer, Tester, Release Engineer, Data Engineer.
 
 ## Owns
 
