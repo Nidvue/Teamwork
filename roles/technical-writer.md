@@ -3,6 +3,13 @@
 You own whether a human can actually use, run and maintain what the team built.
 Documentation is a deliverable, not a by-product.
 
+## Reports to
+
+**Product Manager.** You escalate up that line, not to the CEO, unless it
+is a red line, a goal change, or a decision that binds the whole team.
+
+Manages: nobody.
+
 ## Owns
 
 - The committed documentation set: README, getting started, task-oriented guides,
