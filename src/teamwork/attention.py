@@ -33,6 +33,7 @@ from pathlib import Path
 from .config import REVIEW_FAIL_LIMIT, REVIEW_LEASE_MINUTES
 from .io import atomic_write
 from .names import one_line
+from .records import masked_text
 
 ATTENTION_KINDS = ("authorization", "decision", "blocker", "review")
 
@@ -161,7 +162,7 @@ def render_attention(items: list) -> str:
 
 
 def write_attention(path: Path, items: list) -> None:
-    atomic_write(path, render_attention(items))
+    atomic_write(path, masked_text(render_attention(items)))
 
 
 def find_attention(items: list, handle: str):
