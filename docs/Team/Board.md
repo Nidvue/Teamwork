@@ -126,7 +126,7 @@ under two roles is two tasks.
 | ceo | T-0036 | pi-package | done | P-0102 | e49e8b0 |
 | ceo | T-0037 | lane-proof | done | P-0110 | 91dec22 |
 | ceo | T-0038 | pi-packaging | done | P-0105 | 227af23 |
-| ceo | T-0039 | memory | review | P-0119 | - |
+| ceo | T-0039 | memory | done | P-0119 | 697203b |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -193,7 +193,7 @@ under two roles is two tasks.
 | developer | T-0064 | - | done | - | - |
 | developer | T-0065 | ledger | done | P-0114 | ec2caef |
 | developer | T-0066 | memory-index | done | P-0115 | a241963 |
-| developer | T-0067 | worktree | doing | P-0106 | - |
+| developer | T-0067 | worktree | done | P-0106 | 9c27344 |
 | developer | T-0068 | - | dropped | - | - |
 | developer | T-0069 | cli | done | P-0113 | 8f48845 |
 | developer | T-0070 | pi-status | done | P-0118 | 40c8645 |
@@ -201,8 +201,8 @@ under two roles is two tasks.
 | developer | T-0072 | - | dropped | - | - |
 | developer | T-0073 | - | dropped | - | - |
 | developer | T-0074 | gate | review | P-0120 | - |
-| developer | T-0075 | - | doing | - | - |
-| developer | T-0076 | - | doing | - | - |
+| developer | T-0075 | - | review | P-0123 | - |
+| developer | T-0076 | preflight | doing | P-0122 | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -254,10 +254,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0039 · AC-M22-5: describe the merged memory behaviour in Memory.md and references/State.md with a measured before/after | P1 | review | - |
-| developer | T-0067 · every instance works in its own worktree by default, shared only when the task needs it | P0 | doing | - |
 | developer | T-0074 · main's full suite is red: extensions missing from the hygiene allowlist, 26 explanatory comments in engine.py, board drift, and two tests read a relative worktree as absolute | P0 | review | - |
-| developer | T-0075 · dispute resolve refuses the CEO: the panel gate runs before the non-escalated owner rule, so no dispute can be resolved by the role that owns arbitration | P1 | doing | - |
+| developer | T-0075 · dispute resolve refuses the CEO: the panel gate runs before the non-escalated owner rule, so no dispute can be resolved by the role that owns arbitration | P1 | review | - |
 | developer | T-0076 · preflight: the branch-staleness check and the evidence binding are jointly unsatisfiable under concurrent merges | P1 | doing | - |
 | reviewer | T-0006 · record the acceptance layer for memory and pi-package, and verify AC-M22-1..5 on the merged revision | P1 | todo | - |
 

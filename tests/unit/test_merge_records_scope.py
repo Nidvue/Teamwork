@@ -39,12 +39,16 @@ ARCHIVE = "docs/Team/Archive.md"
 
 
 def ship(cli, project: Path) -> Path:
-    """One task through branch, commit, self-check and a review-passed PR."""
+    """One task through branch, commit, self-check and a review-passed PR.
+
+    Returns the project: the author's worktree is retired when the pass merges,
+    so the tree this helper hands back must be the one that survives.
+    """
     init_workspace(cli, project)
     work = Path(add_task(cli, project, "ship the records-scope fix", "feature.txt"))
     commit_self_check_and_open(cli, project, work=work, filename="feature.txt")
     pass_review(cli, project)
-    return work
+    return project
 
 
 def task_record(cli, project: Path) -> dict:

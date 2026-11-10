@@ -1,6 +1,6 @@
 # pi packaging - `@nidvue/teamwork`
 
-Owner: CEO. Related: [Plan](Plan.md) · [Board](Board.md) · [Release](Release.md) · [Architecture](Architecture.md)
+Owner: CEO. Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Release](Release.md) · [Architecture](Architecture.md)
 
 Why this file: the skill was written host-agnostic and said "Pi" in places where
 Pi 1.3.0 has no such tool. This records what a comparable pi package does, what
