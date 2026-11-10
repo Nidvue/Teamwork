@@ -5325,13 +5325,30 @@ def cmd_task_reclaim(args) -> int:
             die(f"no task '{args.handle}' for {role}")
         t = tasks[idx]
         previous = t.get("claimed_by") or "-"
+        # A live lease is the one honest signal that the owner is working, not
+        # silent. Denying it turns a takeover into a turf war: two lanes undoing
+        # each other's work while both are alive.
+        if t.get("claimed_by") and pascal(t["claimed_by"]) != pascal(actor):
+            reap_slots(root)
+            provider = find_slot_provider(root, t["claimed_by"])
+            if provider and not args.force:
+                die(
+                    f"refusing to reclaim {role}/{t['id']} from {t['claimed_by']}: "
+                    f"that lane still holds a live {provider} slot, so it is working, "
+                    "not silent. Coordinate with it; if you have confirmed the lane "
+                    "is dead, repeat with --force <reason>.",
+                    2,
+                )
+            if provider:
+                args.force = require_reason(args.force, "reclaiming from a live lane")
         t["status"] = "todo"
         t["claimed_by"] = ""
         t["branch"] = t.get("branch") or ""
         t["updated"] = today_iso()
         prev_note = t.get("findings", "")
+        forced_note = f" (forced: {args.force})" if args.force else ""
         t["findings"] = (
-            prev_note + f" | reclaimed from {previous} by {actor}: {args.reason}"
+            prev_note + f" | reclaimed from {previous} by {actor}{forced_note}: {args.reason}"
         ).strip(" |")
         write_tasks(path, tasks, role)
     ledger_append(
@@ -5481,9 +5498,9 @@ def find_slot_provider(root: Path, agent: str) -> str:
     base = root / DIR_RUNTIME / DIR_SLOTS
     if not base.is_dir():
         return ""
-    wanted = safe_component(agent)
+    wanted = {safe_component(agent).lower(), safe_component(pascal(agent)).lower()}
     for prov in sorted(p.name for p in base.iterdir() if p.is_dir()):
-        if wanted in used_slots(root, prov):
+        if any(name.lower() in wanted for name in used_slots(root, prov)):
             return prov
     return ""
 
@@ -5966,15 +5983,33 @@ def cmd_pulse(args: object) -> int:
                 capacity[inst] -= 1
 
     limits = load_providers(root)
+    slot_holders = {pascal(a) for a in list_agents(root) if find_slot_provider(root, a)}
     free_slots = sum(
         max(cap - len(used_slots(root, prov)), 0)
         for prov, cap in limits.items()
         if prov != "default"
     )
-    if len(plan) > free_slots:
+    # A lane that already holds a lease does not need a second one; a lane without
+    # one does. Planning more new lanes than there are free slots is the article's
+    # stampede: every lane polls, few get served, and the retries cost more than the
+    # work. Defer the tail instead of handing out work nobody can start.
+    deferred = []
+    new_slot_lanes = [entry for entry in plan if pascal(entry[1]) not in slot_holders]
+    if len(new_slot_lanes) > free_slots:
+        allowed = free_slots
+        kept = []
+        for entry in plan:
+            if pascal(entry[1]) not in slot_holders:
+                if allowed <= 0:
+                    deferred.append(entry)
+                    continue
+                allowed -= 1
+            kept.append(entry)
+        plan = kept
         print(
-            f"# capacity: {len(plan)} assignment(s) ready, {free_slots} free provider "
-            "slot(s) - the rest waits for a lease to free"
+            f"# capacity: {len(new_slot_lanes)} lane(s) need a new slot, {free_slots} "
+            f"free - deferring {len(deferred)} assignment(s) instead of "
+            "over-subscribing the provider"
         )
     print("## dispatch plan")
     if not plan:
@@ -5982,6 +6017,13 @@ def cmd_pulse(args: object) -> int:
     for role, inst, task, title, review_owner in plan:
         tid = f"{review_owner}/{task['id']}" if review_owner else (task["id"] if task else "Review")
         print(f"- {inst:16s} <- {tid} [{role}] {title}")
+    if deferred:
+        print(
+            "# deferred until a lease frees: "
+            + ", ".join(
+                f"{entry[1]}<-{entry[2]['id'] if entry[2] else 'review'}" for entry in deferred
+            )
+        )
     print()
 
     if args.commit and plan:
@@ -6137,6 +6179,443 @@ def cmd_parallel(args) -> int:
         "- independent sub-tasks only: one writer per file, no two agents on the"
         " same file, and never more lanes than the provider cap allows"
     )
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# Coordination health
+#
+# Source: Anthropic, "Measuring multiagent systems" (accessed 2026-10-27),
+# https://www.anthropic.com/research/multiagent-systems - see
+# references/Coordination.md. The finding that shaped these checks is structural:
+# lanes that share a model, a context and a queue fail together, and a review
+# lane with no cross-check turns one blind spot into a systemic one. So this is
+# instrumentation, not advice: every check reads records the team already writes.
+# --------------------------------------------------------------------------- #
+
+COORD_OPEN = ("todo", "doing", "selfcheck", "blocked", "review")
+COORD_VERIFICATION_ROLES = ("reviewer", "security-auditor", "tester")
+COORD_VERDICT_FLOOR = 6
+COORD_MERGE_FLOOR = 4
+COORD_TRUST_FLOOR = 8
+COORD_VERDICT_SHARE = 0.75
+COORD_RECLAIM_DAYS = 7
+
+COORD_CHECK_TITLE = {
+    "diversity": "diversity - lanes that share a model, a context and a queue fail together",
+    "trust": "trust - a single source is provisional, a copied check is no check",
+    "turf": "turf - a conflicting directive is not a hostile agent",
+    "merge": "merge health - work that conflicts gets abandoned, not fixed",
+    "capacity": "capacity - a starved queue makes every lane poll and race",
+}
+
+
+def _coord_finding(
+    code: str, check: str, severity: str, subject: str, detail: str, fix: str
+) -> dict:
+    return {
+        "code": code,
+        "check": check,
+        "severity": severity,
+        "subject": subject,
+        "detail": detail,
+        "fix": fix,
+    }
+
+
+def _signal(text) -> str:
+    """A comparison key that survives wording noise: lowercase words only."""
+    return re.sub(r"[^a-z0-9]+", " ", str(text or "").lower()).strip()
+
+
+def _evidence_body(value) -> str:
+    """The command/result line without the engine's appended evidence packet."""
+    text = str(value or "")
+    return re.split(r"\s\|\s(?:artifacts|baseline|replay):", text, maxsplit=1)[0].strip()
+
+
+def _ledger_verdicts(root: Path) -> dict:
+    """Reviewer verdicts by instance, from the append-only trail."""
+    out: dict = {}
+    for record in ledger_read(root):
+        action = record.get("action")
+        if action not in ("review.pass", "review.fail"):
+            continue
+        actor = pascal(record.get("actor") or "")
+        if not actor:
+            continue
+        row = out.setdefault(actor, {"pass": 0, "fail": 0})
+        row["pass" if action.endswith("pass") else "fail"] += 1
+    return out
+
+
+def _model_label(root: Path, lane: str) -> str:
+    entry = resolved_model(root, lane)
+    provider = (entry.get("provider") or "").strip()
+    model = (entry.get("model") or "").strip()
+    if provider and model:
+        return f"{provider}/{model}"
+    return model or provider
+
+
+def duplicate_task_pairs(root: Path, threshold: float = 0.6) -> list:
+    """Near-duplicate open tasks, as ``(percent, role, task, role, task)``.
+
+    One implementation for both `audit` (which prints them) and `coordination`
+    (which counts them as a diversity failure): two detectors drifting apart is
+    how a duplicate survives one gate and passes the other.
+    """
+    items = []
+    for name in list_roles(root):
+        for task in parse_tasks(task_file(root, name)):
+            if task["status"] in ("done", "dropped"):
+                continue
+            words = {w for w in re.findall(r"[a-z0-9]+", task["title"].lower()) if len(w) > 3}
+            items.append((name, task, words))
+    pairs = []
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            name1, task1, words1 = items[i]
+            name2, task2, words2 = items[j]
+            if not words1 or not words2:
+                continue
+            jaccard = len(words1 & words2) / len(words1 | words2)
+            if jaccard >= threshold:
+                pairs.append((int(jaccard * 100), name1, task1, name2, task2))
+    return pairs
+
+
+def _recent_reclaims(root: Path) -> list:
+    cutoff = datetime.datetime.now() - datetime.timedelta(days=COORD_RECLAIM_DAYS)
+    rows = []
+    for record in ledger_read(root):
+        if record.get("action") != "task.reclaim":
+            continue
+        try:
+            stamp = datetime.datetime.fromisoformat(record.get("ts") or "")
+        except ValueError:
+            continue
+        if stamp >= cutoff:
+            rows.append(record)
+    return rows
+
+
+def coordination_report(root: Path) -> dict:
+    """Measure the multi-agent failure modes the records can actually show.
+
+    Every finding names the record it came from and the action that clears it;
+    nothing here invents a metric the team does not already write down.
+    """
+    tasks = all_tasks(root)
+    open_tasks = [(role, t) for role, t in tasks if t.get("status") in COORD_OPEN]
+    findings: list = []
+
+    # --- diversity: the same branch, the same work, the same blind spot -------
+    branches: dict = {}
+    shared_refs: dict = {}
+    for role, task in open_tasks:
+        branch = (task.get("branch") or "").strip()
+        if branch:
+            branches.setdefault(branch, []).append(f"{role}/{task['id']}")
+        shared = _signal(task.get("shared") or "")
+        if shared:
+            shared_refs.setdefault(shared, []).append(f"{role}/{task['id']}")
+
+    for branch, holders in sorted(branches.items()):
+        if len(holders) > 1:
+            findings.append(
+                _coord_finding(
+                    "C-DIV-BRANCH",
+                    "diversity",
+                    "high",
+                    branch,
+                    f"one branch is attached to {len(holders)} open task(s): " + ", ".join(holders),
+                    "give each task its own branch (`branch start` names it from the "
+                    "task id); a shared branch guarantees the second PR conflicts",
+                )
+            )
+    for pct, role1, task1, role2, task2 in duplicate_task_pairs(root):
+        findings.append(
+            _coord_finding(
+                "C-DIV-TASK",
+                "diversity",
+                "medium",
+                f"{role1}/{task1['id']} vs {role2}/{task2['id']}",
+                f"{pct}% similar titles: {task1['title']!r} / {task2['title']!r}",
+                "merge or re-scope the duplicate before two lanes produce the same "
+                "artifact; `task add` a link to the original instead",
+            )
+        )
+    for shared, holders in sorted(shared_refs.items()):
+        if len(holders) > 1:
+            findings.append(
+                _coord_finding(
+                    "C-DIV-SHARED",
+                    "diversity",
+                    "medium",
+                    shared,
+                    "one shared board/PR reference is claimed by " + ", ".join(holders),
+                    "one task per reference, or record which lane owns which part",
+                )
+            )
+
+    # A verification lane is independent only if it does not share the base
+    # model's blind spot; two Reviewer lanes on one model is the article's
+    # measured conformity failure, not a stylistic preference.
+    for role in COORD_VERIFICATION_ROLES:
+        lanes = instances_of(root, role)
+        if len(lanes) < 2:
+            continue
+        labels = {lane: _model_label(root, lane) for lane in lanes}
+        known = {label for label in labels.values() if label}
+        if len(known) == 1:
+            label = next(iter(known))
+            findings.append(
+                _coord_finding(
+                    "C-DIV-MODEL",
+                    "diversity",
+                    "high" if role == "reviewer" else "medium",
+                    ", ".join(lanes),
+                    f"every {role} lane resolves to the same model ({label}), so the "
+                    "independent check shares one set of blind spots",
+                    "set TEAMWORK_MODEL_ALT to a second model and run `model auto "
+                    "--apply`, or pin one lane with `model set <lane> --provider ... "
+                    "--model ...`",
+                )
+            )
+
+    # --- trust: echo, monoculture, no-finding-ever ---------------------------
+    for role, task in tasks:
+        if task.get("review_status") != "passed":
+            continue
+        author = _signal(_evidence_body(task.get("evidence") or ""))
+        reviewer = _signal(_evidence_body(task.get("review_evidence") or ""))
+        if len(author) >= 20 and author == reviewer:
+            findings.append(
+                _coord_finding(
+                    "C-TRUST-ECHO",
+                    "trust",
+                    "medium",
+                    f"{role}/{task['id']}",
+                    "the reviewer's evidence is the author's evidence verbatim, so the "
+                    "check may have been copied instead of run",
+                    "re-run the verification yourself and record your own command and "
+                    "result; the reviewer's line is the independent signal",
+                )
+            )
+
+    verdicts = _ledger_verdicts(root)
+    total_verdicts = sum(row["pass"] + row["fail"] for row in verdicts.values())
+    if total_verdicts >= COORD_VERDICT_FLOOR:
+        top_lane, top_row = max(
+            verdicts.items(), key=lambda item: item[1]["pass"] + item[1]["fail"]
+        )
+        top_total = top_row["pass"] + top_row["fail"]
+        if top_total / total_verdicts >= COORD_VERDICT_SHARE:
+            findings.append(
+                _coord_finding(
+                    "C-TRUST-MONOCULTURE",
+                    "trust",
+                    "medium",
+                    top_lane,
+                    f"{top_total} of {total_verdicts} verdicts came from one Reviewer lane",
+                    "fan the review queue across the Reviewer lanes (`pulse --commit` "
+                    "does this one per lane); one lane is one blind spot",
+                )
+            )
+    for lane, row in sorted(verdicts.items()):
+        if row["pass"] >= COORD_TRUST_FLOOR and row["fail"] == 0:
+            findings.append(
+                _coord_finding(
+                    "C-TRUST-NOFAIL",
+                    "trust",
+                    "low",
+                    lane,
+                    f"{row['pass']} passes and no finding ever recorded",
+                    "sample one passed deliverable end to end with a second Reviewer, "
+                    "or confirm the sample is genuinely defect-free",
+                )
+            )
+
+    # --- turf: reclaims are the visible edge of a lane war --------------------
+    reclaims = _recent_reclaims(root)
+    if reclaims:
+        who = ", ".join(
+            f"{record.get('actor') or '?'}->{record.get('target') or '?'}"
+            for record in reclaims[-4:]
+        )
+        findings.append(
+            _coord_finding(
+                "C-TURF-RECLAIM",
+                "turf",
+                "low",
+                f"{len(reclaims)} reclaim(s) in {COORD_RECLAIM_DAYS} days",
+                "recent take-overs: " + who,
+                "reclaim only a silent lane; the engine now refuses while the owner "
+                "holds a live slot. A disputed scope goes to the CEO, never to force",
+            )
+        )
+
+    # --- merge health: the article's measured collapse ------------------------
+    prs = parse_reviews(reviews_path(root))
+    live_states = ("open", "approved", "changes-requested")
+    total_prs = sum(1 for pr in prs if pr.get("status") in live_states + ("merged",))
+    merged = sum(1 for pr in prs if pr.get("status") == "merged")
+    if total_prs >= COORD_MERGE_FLOOR and merged / total_prs < 0.5:
+        findings.append(
+            _coord_finding(
+                "C-MERGE-RATE",
+                "merge",
+                "medium",
+                f"{merged}/{total_prs} merged",
+                "most opened PRs never landed; conflicting work is being abandoned "
+                "instead of rebased",
+                "rebase each branch on the default branch before review, keep one "
+                "writer per file, and re-scope a PR that conflicts twice",
+            )
+        )
+    project = project_of(root)
+    if is_git_repo(project):
+        abandoned = [
+            pr
+            for pr in prs
+            if pr.get("status") != "merged"
+            and pr.get("branch")
+            and not branch_exists(project, pr["branch"])
+        ]
+        if abandoned:
+            findings.append(
+                _coord_finding(
+                    "C-MERGE-ABANDONED",
+                    "merge",
+                    "high",
+                    f"{len(abandoned)} abandoned PR(s)",
+                    "branch gone while the PR is open: "
+                    + ", ".join(pr["id"] for pr in abandoned[:6]),
+                    "re-open the branch from the PR head or close the PR with a reason; "
+                    "silent abandonment is how work disappears",
+                )
+            )
+
+    # --- capacity: starved lanes race, over-subscribed lanes fail -------------
+    limits = load_providers(root)
+    reap_slots(root)
+    over, free = [], 0
+    for provider, cap in sorted(limits.items()):
+        if provider == "default":
+            continue
+        used = len(used_slots(root, provider))
+        free += max(cap - used, 0)
+        if used > cap:
+            over.append(f"{provider} {used}>{cap}")
+    if over:
+        findings.append(
+            _coord_finding(
+                "C-CAP-OVER",
+                "capacity",
+                "high",
+                ", ".join(over),
+                "more leases are held than the provider cap allows",
+                "release stale leases (`slot reap`) and never acquire past the cap",
+            )
+        )
+    ready = 0
+    for role in list_roles(root):
+        queue = parse_tasks(task_file(root, role))
+        lookup = local_dep_map(queue)
+        cache: dict = {}
+        ready += sum(1 for task in queue if executable(task, lookup, cache, root))
+    if ready and free == 0:
+        findings.append(
+            _coord_finding(
+                "C-CAP-STARVED",
+                "capacity",
+                "medium",
+                f"{ready} ready / 0 free",
+                "executable work exists but every provider slot is leased",
+                "release finished leases, take work that needs no model call, or fan "
+                "out on another provider; do not let lanes poll for a slot",
+            )
+        )
+
+    return {
+        "findings": findings,
+        "metrics": {
+            "open_tasks": len(open_tasks),
+            "ready_tasks": ready,
+            "prs": total_prs,
+            "merged": merged,
+            "merge_fraction": round(merged / total_prs, 2) if total_prs else None,
+            "verdicts": total_verdicts,
+            "reviewer_lanes": len(instances_of(root, "reviewer")),
+            "free_slots": free,
+            "reclaims": len(reclaims),
+        },
+    }
+
+
+def _coordination_print(report: dict, root: Path) -> int:
+    findings = report["findings"]
+    severity_rank = {"high": 0, "medium": 1, "low": 2}
+    counts = {key: 0 for key in severity_rank}
+    for finding in findings:
+        counts[finding["severity"]] += 1
+    print(f"# Coordination health ({root})")
+    print(f"# {counts['high']} high, {counts['medium']} medium, {counts['low']} low finding(s)")
+    print()
+    for check, title in COORD_CHECK_TITLE.items():
+        rows = [f for f in findings if f["check"] == check]
+        rows.sort(key=lambda f: (severity_rank.get(f["severity"], 9), f["code"]))
+        print(f"## {check}")
+        print(f"# {title}")
+        if not rows:
+            print("- no finding")
+        for finding in rows:
+            print(
+                f"- [{finding['severity']}] {finding['code']} {finding['subject']}: "
+                f"{finding['detail']}"
+            )
+            print(f"  fix: {finding['fix']}")
+        print()
+    metrics = report["metrics"]
+    fraction = metrics["merge_fraction"]
+    print("## metrics")
+    print(f"- open tasks: {metrics['open_tasks']} ({metrics['ready_tasks']} ready)")
+    print(
+        f"- PRs: {metrics['merged']}/{metrics['prs']} merged"
+        + (f" ({fraction})" if fraction is not None else "")
+    )
+    print(
+        f"- Reviewer lanes: {metrics['reviewer_lanes']} | verdicts: "
+        f"{metrics['verdicts']} | free slots: {metrics['free_slots']}"
+    )
+    print(f"- reclaims in {COORD_RECLAIM_DAYS} days: {metrics['reclaims']}")
+    return 0
+
+
+def cmd_coordination(args) -> int:
+    """`teamwork coordination [--strict] [--json] [--commit]` - health, not ceremony."""
+    import json
+
+    root = project_root(args)
+    report = coordination_report(root)
+    if getattr(args, "json", False):
+        print(json.dumps({"command": "coordination", **report}, indent=2, sort_keys=True))
+    else:
+        _coordination_print(report, root)
+    counts = {key: 0 for key in ("high", "medium", "low")}
+    for finding in report["findings"]:
+        counts[finding["severity"]] += 1
+    if getattr(args, "commit", False):
+        ledger_append(
+            root,
+            "coordination.check",
+            "ceo",
+            "",
+            f"{counts['high']} high / {counts['medium']} medium / {counts['low']} low finding(s)",
+        )
+    if getattr(args, "strict", False) and counts["high"]:
+        return 1
     return 0
 
 
@@ -8057,31 +8536,16 @@ def _audit_stale_in_progress(root: Path, names: list, args) -> int:
 
 def _audit_possible_duplicate_tasks_across_agents(root: Path, names: list, args) -> int:
     print("## possible duplicate tasks across agents")
-    items = []
-    for name in names:
-        for t in parse_tasks(task_file(root, name)):
-            if t["status"] in ("done", "dropped"):
-                continue
-            words = {w for w in re.findall(r"[a-z0-9]+", t["title"].lower()) if len(w) > 3}
-            items.append((name, t, words))
-    hits = 0
-    for i in range(len(items)):
-        for j in range(i + 1, len(items)):
-            n1, t1, w1 = items[i]
-            n2, t2, w2 = items[j]
-            if not w1 or not w2:
-                continue
-            jaccard = len(w1 & w2) / len(w1 | w2)
-            if jaccard >= 0.6:
-                print(
-                    f"- {int(jaccard * 100)}% similar: {n1}:{t1['id']} "
-                    f"{t1['title']!r}  <->  {n2}:{t2['id']} {t2['title']!r}"
-                )
-                hits += 1
-    if not hits:
+    pairs = duplicate_task_pairs(root)
+    for pct, name1, task1, name2, task2 in pairs:
+        print(
+            f"- {pct}% similar: {name1}:{task1['id']} "
+            f"{task1['title']!r}  <->  {name2}:{task2['id']} {task2['title']!r}"
+        )
+    if not pairs:
         print("- none")
     print()
-    return hits
+    return len(pairs)
 
 
 def _audit_memory_caps(root: Path, names: list, args) -> int:
@@ -9443,8 +9907,10 @@ def save_model_config(root: Path, config: dict) -> None:
 def resolved_model(root: Path, agent: str) -> dict:
     """The model the given instance should use: agent override, else role default."""
     config = load_model_config(root)
-    if agent in config["agents"]:
-        return dict(config["agents"][agent], source="agent")
+    wanted = pascal(agent)
+    for key, entry in config["agents"].items():
+        if pascal(key) == wanted:
+            return dict(entry, source="agent")
     role = resolve_role(agent) if agent else ""
     if role and role in config["roles"]:
         return dict(config["roles"][role], source="role")
@@ -9540,14 +10006,37 @@ def resolve_model_plan(root: Path, env=None) -> dict:
         env.get("PI_PROVIDER") or ""
     ).strip()
     assignments, missing = {}, []
+    alternate = (env.get("TEAMWORK_MODEL_ALT") or "").strip()
     for role in sorted(list_roles(root)):
         tier = LANE_TIER.get(role, "economy")
         model = strong if tier == "strong" else (economy or strong)
         if not model:
             missing.append(role)
             continue
-        assignments[role] = {"provider": provider, "model": model, "tier": tier}
+        lanes = instances_of(root, role)
+        if role in COORD_VERIFICATION_ROLES and len(lanes) > 1 and alternate:
+            # Two lanes that share weights, context and queue make the same
+            # mistake; independent verification needs a second model when one is
+            # available (references/Coordination.md).
+            for index, lane in enumerate(lanes):
+                assignments[lane] = {
+                    "provider": provider,
+                    "model": alternate if index % 2 else model,
+                    "tier": tier + ("-alt" if index % 2 else ""),
+                    "scope": "agent",
+                }
+        assignments[role] = {
+            "provider": provider,
+            "model": model,
+            "tier": tier,
+            "scope": "role",
+        }
     notes = [f"host: {host}"]
+    if len(instances_of(root, "reviewer")) > 1 and not alternate:
+        notes.append(
+            "reviewer lanes share one model: set TEAMWORK_MODEL_ALT to a second "
+            "model so `model auto --apply` decorrelates independent review"
+        )
     if missing:
         notes.append(
             "no model found in the environment for: "
@@ -9589,7 +10078,8 @@ def cmd_model_auto(args) -> int:
         die("nothing to apply: no model found in the environment")
     config = load_model_config(root)
     for role, entry in plan["assignments"].items():
-        config["roles"][role] = {"provider": entry["provider"], "model": entry["model"]}
+        target = config["agents"] if entry.get("scope") == "agent" else config["roles"]
+        target[role] = {"provider": entry["provider"], "model": entry["model"]}
     save_model_config(root, config)
     ledger_append(
         root,
@@ -9816,6 +10306,12 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("handle")
     s.add_argument("--as", dest="by", required=True, help="instance taking it over")
     s.add_argument("--reason", required=True)
+    s.add_argument(
+        "--force",
+        default="",
+        metavar="REASON",
+        help="take over from a lane that still holds a live slot; reason required",
+    )
     s.set_defaults(func=cmd_task_reclaim)
 
     s = tsub.add_parser("rm", parents=[common], help="remove a task (own role only)")
@@ -10410,6 +10906,20 @@ def _parsers_governance(sub, common) -> None:
 
 def _parsers_audit(sub, common) -> None:
     """`audit` command surface."""
+    s = sub.add_parser(
+        "coordination",
+        parents=[common],
+        help="coordination health: conformity, rubber-stamping, turf, merge rate",
+    )
+    s.add_argument("--json", action="store_true", help="machine-readable report")
+    s.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit 1 when a high-severity finding is open (default: report only)",
+    )
+    s.add_argument("--commit", action="store_true", help="append the result to the ledger")
+    s.set_defaults(func=cmd_coordination)
+
     s = sub.add_parser(
         "links", parents=[common], help="check markdown cross-links, URLs and back-links"
     )
