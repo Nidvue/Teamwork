@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The throughput contract.** Ten binding rules that remove duplicated work
+  instead of absorbing it: one parent plus a supervision board (decision rights,
+  not a second reporting line), one feature per team, one owner per artifact and
+  one writer per file, one verification per fact per revision, one gate in one
+  place, a definition of ready and of done, generated artifacts rendered at the
+  merge, a right-sized roster and small slices. Measured basis, at one ledger cut
+  (`n=1615`): 44 review failures, 66 review targets of which 26 needed more than
+  one verdict and 11 needed three or more; the mechanical share is a contested
+  16-24 of 44 and is measured prospectively by the `mechanical:` field. Generated
+  artifacts rendering at the merge is a target owned by T-0043, not current
+  behaviour. `teamwork.py preflight` makes rules 6-8 executable, and a review fail
+  now records whether it was `mechanical`. Text: `references/Roles.md`, SKILL.md
+  5i, the AGENTS.md managed block. Feature teams (Team Leader per independent
+  feature, shared Architect and Project Manager) are the structure it is designed
+  for; the engine surface lands with T-0042.
 - **The Reviewer stops re-running what an independent lane already proved.**
   Independence is about the author, so a `tests run` record that is passing at the
   revision under review, run by a role other than the author's, is now a **credit**:
