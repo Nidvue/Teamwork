@@ -11,14 +11,21 @@ one role with one shared queue, not a single serialized gate, and review is a la
 like any other: it runs alongside the developer, tester and designer lanes.
 
 - **The queue is shared.** `teamwork.py review --queue` lists every deliverable
-  waiting for an independent verdict; Reviewers claim *different* items from it
-  simultaneously.
-- **One claim per deliverable.** `--by <you>` on the verdict records who owns it
-  and the queue shows it as taken. Two verdicts on one item is duplicate work, not
-  extra safety - never review what another Reviewer holds.
+  waiting for an independent verdict, which lane holds it, and which lanes are
+  free. The CEO's `pulse` fans unclaimed deliverables out **one per lane**.
+- **One claim per deliverable.** Take a deliverable off the queue before you
+  review it: `review <owner> <T-id> --claim --by <you>`. The claim names you on
+  the task and in the ledger, blocks another lane from taking the same item, and
+  counts you as busy so the pulse stops dispatching you. It is a lease
+  (`SlotTtlMinutes`, default 90 min): verdict with `--result pass|fail` or hand it
+  back with `--release`, and if you die holding it the lease expires and another
+  lane takes it over. Two verdicts on one item is duplicate work, not extra
+  safety - never review what another Reviewer holds.
 - **Scale with the critical path.** One Reviewer per independent lane (code, unit
-  tests, acceptance tests, docs, design, release) keeps the loop moving; add
-  instances when the queue backs up, and let the CEO pulse feed idle ones.
+  tests, acceptance tests, docs, design, release) keeps the loop moving; the queue
+  can never move faster than there are lanes, so the roster needs at least
+  `reviewer-1` and `reviewer-2`, add instances when the queue backs up, and let
+  the CEO pulse feed idle ones.
 - **Double review is explicit.** For a high-risk deliverable - security-critical
   code, a release, an irreversible decision - assign *two* Reviewers on purpose.
   Both must pass; on a split, resolve it on evidence before either verdict stands.
@@ -45,10 +52,16 @@ like any other: it runs alongside the developer, tester and designer lanes.
 ## Review queue
 
 ```sh
-teamwork.py review --queue                    # everything awaiting your verdict
-teamwork.py review <owner> <T-id> --by reviewer --result pass --evidence "..."
-teamwork.py review <owner> <T-id> --by reviewer --result fail --findings "..."
+teamwork.py review --queue                     # what is open, who holds it, who is free
+teamwork.py review <owner> <T-id> --claim --by reviewer-1        # take it for your lane
+teamwork.py review <owner> <T-id> --by reviewer-1 --result pass --evidence "..."
+teamwork.py review <owner> <T-id> --by reviewer-1 --result fail --findings "..."
+teamwork.py review <owner> <T-id> --release --by reviewer-1      # hand an unfinished one back
 ```
+
+Name your instance: with more than one lane staffed, `--by reviewer` is refused as
+ambiguous. A claim is not a verdict - verdict it yourself or release it, and never
+leave a claim sitting on a deliverable you are no longer reviewing.
 
 The tool enforces the gate: an author cannot submit for review before recording
 their own self-check, cannot close a `review=required` task themselves, and your

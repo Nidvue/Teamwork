@@ -113,7 +113,10 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 | Security Auditor | `security-auditor` | `roles/security-auditor.md` |
 
 Minimum viable roster: `ceo, architect, product-manager, project-manager,
-reviewer, developer-1, tester-1`. Add `release-engineer` as soon as anything must
+reviewer-1, reviewer-2, developer-1, tester-1` - **two Reviewer lanes minimum**,
+because the pulse fans reviews out one deliverable per lane and a single lane
+both serialises the gate and merges its own passes (`review.merge_self`). Add
+`release-engineer` as soon as anything must
 ship, `technical-writer` when someone other than the author must read the output,
 and `data-engineer` only when the project owns persistent state. Add CTO/COO/CFO/designer/security-auditor and
 extra developer/tester instances when the brief justifies it. Scale writers with
@@ -209,7 +212,7 @@ Run these in order. Use `SKILL` for this skill's directory.
 
 ```sh
 python3 "$SKILL/scripts/teamwork.py" init --agents ceo,cto,coo,cfo,architect,\
-product-manager,project-manager,designer-1,developer-1,developer-2,tester-1,reviewer
+product-manager,project-manager,designer-1,developer-1,developer-2,tester-1,reviewer-1,reviewer-2
 python3 "$SKILL/scripts/teamwork.py" agents-md          # write/patch <project>/AGENTS.md
 python3 "$SKILL/scripts/teamwork.py" map                # confirm layout + repo structure
 ```
@@ -344,10 +347,16 @@ python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5
 
 `pulse` prints idle lanes, ready work per role, and a dispatch plan; `--commit`
 applies the assignments (claiming the task and recording which instance owns it).
-Exit code 3 means "nothing to dispatch" - then check blocked tasks and disputes.
+Review deliverables are fanned out **one per idle Reviewer lane** and `--commit`
+pins each one with a review claim, so lanes never review the same deliverable and
+never queue the whole backlog on the first lane. Exit code 3 means "nothing to
+dispatch" - then check blocked tasks and disputes.
 
-An instance counts as **busy** when it holds a provider slot or has a task in
-`doing`/`selfcheck` claimed by it. Everything else is idle and must be fed.
+An instance counts as **busy** when it holds a provider slot, has a task in
+`doing`/`selfcheck` claimed by it, or holds a live review claim. A claim is a
+lease (`SlotTtlMinutes`, default **90** min): a lane that dies mid-review stops
+holding the deliverable when the lease expires and another lane takes it over.
+Everything else is idle and must be fed.
 
 Arm the recurring wake-up from the leader session:
 
@@ -361,7 +370,9 @@ schedule_prompt({
            Then: (1) for every assignment it reports, message that agent to start it now; \
            (2) for every idle lane it reports with no matching work, assign the highest-\
            priority unblocked task of its role, or fold the lane; (3) unblock anything \
-           stuck; (4) if the Reviewer has deliverables waiting, tell it to review them. \
+           stuck; (4) for every unclaimed deliverable in `review --queue`, aim a \
+           DIFFERENT Reviewer lane at it (`review <role> <T-id> --claim --by <lane>`) and \
+           never stack the backlog on one lane. \
            Report one short line. Never stop the team while `loop` says CONTINUE."
 })
 ```
@@ -526,12 +537,17 @@ teamwork.py selfcheck developer-1 T-0007 --by developer-1 --result fail \
 teamwork.py selfcheck developer-1 T-0007 --by developer-1 \
     --note "re-read the diff: boundary, error paths, docs updated" \
     --test "go test ./internal/x @def456 -> ok 12 tests"
-# 3a) Reviewer fails it -> task returns to the owner as `doing`, findings recorded
-teamwork.py review developer-1 T-0007 --by reviewer --result fail \
+# 3) a Reviewer lane takes the deliverable off the shared queue, then verdicts it
+teamwork.py review --queue                                   # who holds what, what is free
+teamwork.py review developer T-0007 --claim --by reviewer-1   # pins it to that lane (90 min lease)
+# 3a) Reviewer-1 fails it -> task returns to the owner as `doing`, findings recorded
+teamwork.py review developer T-0007 --by reviewer-1 --result fail \
     --findings "missing empty-input test; go test -run TestEmpty -> FAIL @abc123"
-# 3b) Reviewer passes it -> task becomes `done` and is archived
-teamwork.py review developer-1 T-0007 --by reviewer --result pass \
+# 3b) Reviewer-1 passes it -> task becomes `done` and is archived
+teamwork.py review developer T-0007 --by reviewer-1 --result pass \
     --evidence "go test ./... @def456 -> ok 42 tests"
+# 3c) a lane that cannot finish hands it back so another lane can take it
+teamwork.py review developer T-0007 --release --by reviewer-1
 ```
 
 Mechanical enforcement:
@@ -545,6 +561,11 @@ Mechanical enforcement:
   reason if the defect genuinely cannot be reproduced).
 - only the owner may self-check their own task (`--by <owner>`), and only the
   Reviewer may review it; an author can never close a `review=required` task.
+- a review claim belongs to one lane: another Reviewer is refused while the lease
+  is live (`review <role> <T-id> --claim --by <lane>`), only the holder releases
+  it (`--release`, or `--force <reason>` when the holder is dead), a verdict clears
+  it, and an expired lease is open for take-over. With several lanes `--by reviewer`
+  is ambiguous - name the instance (`reviewer-1`).
 - a `review --result pass` appends the accepted result to
   `docs/Team/Archive.md` (what, who, verified how, which revision) - the team's
   evidence ledger. Read it with `teamwork.py archive [--agent X]`.
