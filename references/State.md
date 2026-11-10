@@ -283,6 +283,18 @@ the evidence rule.
   `ctx://project/knowledge`; a node outside it is never returned, and an unknown
   scope exits `2`. Retrieval is deterministic token matching over L0/L1 - no
   embeddings, network or index - and it never reads L2.
+- **Transcripts**: `--scope transcripts` is the one non-URI scope, and it is
+  additive - every other scope's output stays byte-identical. It searches the two
+  append-only sources the engine writes and otherwise never reads, one hit per
+  unit: `Ledger.jsonl#<n>` for one ledger event (rendered from its
+  action/actor/target/detail, not the raw JSON) and
+  `Agents/<Instance>/WorkLog.md:<line>` for one worklog line. Ranking is the same
+  4.1 score, the output is capped at 10 hits and 2,000 bytes with the
+  `# search:` footer `memory search` prints, a hit's text clips at 200
+  characters, and a query that shares no term returns an honest empty result.
+  The reader streams the file line by line, so a 100k-line ledger costs a line of
+  memory, not the file. `recall --transcripts` appends the same block under
+  `## transcripts`; without the flag `recall` prints exactly what it did before.
 - **Docs**: `ctx://project/docs` enumerates the work tree at read time (an
   untracked doc appears, a tracked file deleted from the work tree disappears),
   never the git index.

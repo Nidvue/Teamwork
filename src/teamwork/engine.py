@@ -63,7 +63,7 @@ except ImportError:  # pragma: no cover
     from version import __version__ as VERSION  # type: ignore
 
 
-from . import memorypack, memverify
+from . import memorypack, memverify, transcripts
 from .attention import (
     ATTENTION_KINDS,
     STAGE_ORDER,
@@ -4932,9 +4932,13 @@ def cmd_context(args) -> int:
         return 0
 
     if verb == "find":
-        scope = _context_require(nodes, args.scope or CONTEXT_ROOT)
         if args.limit < 0:
             die("--limit must be 0 (all) or a positive count", 2)
+        if (args.scope or "") == transcripts.SCOPE:
+            limit = min(args.limit or transcripts.SEARCH_LIMIT, transcripts.SEARCH_LIMIT)
+            print(transcripts.search(root, args.query, limit=limit), end="")
+            return 0
+        scope = _context_require(nodes, args.scope or CONTEXT_ROOT)
         tokens = [token.casefold() for token in (args.query or "").split()]
         normalised = " ".join(tokens)
         hits = []
@@ -6921,7 +6925,7 @@ def cmd_recall(args) -> int:
         ):
             f = role_dir(root, role) / (F_SHORT if layer == "short" else F_LONG)
             targets.append((role, f, f.name))
-    if not targets:
+    if not targets and not getattr(args, "transcripts", False):
         die("nothing to search: pass --agent A, --global, or --all")
 
     total = 0
@@ -6946,9 +6950,24 @@ def cmd_recall(args) -> int:
             total += 1
         print()
     total += _recall_lessons_and_knowledge(root, args, pattern)
+    total += _recall_transcripts(root, args)
     if total == 0:
         print(f"teamwork: no memory matched {args.query!r}")
     return 0
+
+
+def _recall_transcripts(root: Path, args) -> int:
+    """The ledger and the worklogs, printed additively under ``--transcripts``.
+
+    Additive by contract: without the flag this returns before printing anything,
+    so every other store's bytes in ``recall`` stay identical.
+    """
+    if not getattr(args, "transcripts", False) or not args.query:
+        return 0
+    hits, found = transcripts.collect(root, args.query)
+    print(f"## {transcripts.SCOPE} / {transcripts.SOURCES}")
+    print(transcripts.render(hits, found), end="")
+    return len(hits)
 
 
 def _tags_text(tags) -> str:
@@ -17489,6 +17508,11 @@ def _parsers_memory(sub, common) -> None:
     s.add_argument("--agent")
     s.add_argument("--all", action="store_true", help="every agent + global")
     s.add_argument("--global", dest="global_", action="store_true")
+    s.add_argument(
+        "--transcripts",
+        action="store_true",
+        help="also search the ledger and the worklogs (additive)",
+    )
     s.add_argument("--layer", choices=["both", "short", "long"], default="both")
     s.set_defaults(func=cmd_recall)
 
@@ -18148,7 +18172,12 @@ def _parsers_governance(sub, common) -> None:
     s.set_defaults(func=cmd_context)
     s = csub.add_parser("find", parents=[common], help="deterministic search over the tree")
     s.add_argument("query", metavar="QUERY")
-    s.add_argument("--scope", default=CONTEXT_ROOT, metavar="URI")
+    s.add_argument(
+        "--scope",
+        default=CONTEXT_ROOT,
+        metavar="URI",
+        help=f"a context URI, or '{transcripts.SCOPE}' for the ledger and the worklogs",
+    )
     s.add_argument("--limit", type=int, default=CONTEXT_FIND_LIMIT, help="hits to print (0 = all)")
     s.set_defaults(func=cmd_context)
     s = csub.add_parser("stats", parents=[common], help="live counts for every store")
