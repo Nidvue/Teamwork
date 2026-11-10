@@ -245,7 +245,14 @@ def find_run(root: Path, handle: str) -> dict:
 
 
 def live_runs(root: Path) -> list:
-    return [run for run in load_runs(root) if run.get("state") in LIVE]
+    """Runs that are still working: the record says so and no outcome file has landed.
+
+    The wrapper writes ``<id>.outcome.json`` at exit and never rewrites the record, so a
+    finished lane keeps ``state: running`` forever. The outcome file is the authority.
+    """
+    return [
+        run for run in load_runs(root) if run.get("state") in LIVE and not read_outcome(root, run)
+    ]
 
 
 def read_outcome(root: Path, run: dict) -> dict:
@@ -675,8 +682,8 @@ def spawn(
     """Start one lane for ``assignments``; return its record, or ``{}`` when not started."""
     first = assignments[0]
     agent = first.instance
-    for live in load_runs(root):
-        if live.get("state") in LIVE and pascal(str(live.get("agent") or "")) == pascal(agent):
+    for live in live_runs(root):
+        if pascal(str(live.get("agent") or "")) == pascal(agent):
             print(
                 f"# {agent} already runs lane {live['id']} - one lane per instance; "
                 f"wait for it (`lane wait {live['id']}`) or stop it first"

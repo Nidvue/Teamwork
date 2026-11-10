@@ -29,8 +29,6 @@ from pathlib import Path
 
 import pytest
 
-from support import lane_tree
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENGINE = REPO_ROOT / "scripts" / "teamwork.py"
 ROSTER = "ceo,architect,developer,tester,reviewer-1"
@@ -109,8 +107,7 @@ def start_task(project: Path) -> subprocess.CompletedProcess:
 
 
 def commit_widget(project: Path, *paths: str) -> subprocess.CompletedProcess:
-    tree = lane_tree(project, "T-0001")
-    (tree / "widget.py").write_text("WIDGET = 1\n", encoding="utf-8")
+    (project / "widget.py").write_text("WIDGET = 1\n", encoding="utf-8")
     staging = ("--paths", ",".join(paths)) if paths else ("--all",)
     return engine_cli(
         project,
@@ -134,7 +131,6 @@ def commit_widget(project: Path, *paths: str) -> subprocess.CompletedProcess:
         "--result",
         "unit @HEAD -> ok",
         *staging,
-        cwd=tree,
     )
 
 
@@ -169,9 +165,9 @@ def test_the_lifecycle_runs_end_to_end_on_a_real_repository(fixture_project: Pat
     committed = commit_widget(fixture_project)
     assert committed.returncode == 0, output(committed)
     assert "Developer <developer@agents.nidvue.com>" in committed.stdout
-    log = git(lane_tree(fixture_project, "T-0001"), "log", "-1", "--format=%an <%ae>|%s")
+    log = git(fixture_project, "log", "-1", "--format=%an <%ae>|%s")
     assert log.startswith("Developer <developer@agents.nidvue.com>|feat(widget):")
-    body = git(lane_tree(fixture_project, "T-0001"), "log", "-1", "--format=%B")
+    body = git(fixture_project, "log", "-1", "--format=%B")
     assert "Task: T-0001" in body and "Acting role: Developer" in body
 
     audit = engine_cli(fixture_project, "identity", "--audit", "--range", "main..HEAD")
@@ -293,7 +289,7 @@ def test_preflight_fails_closed_and_goes_green_on_a_real_branch(fixture_project:
     start_task(fixture_project)
     committed = commit_widget(fixture_project, "widget.py")
     assert committed.returncode == 0, output(committed)
-    sha = git(lane_tree(fixture_project, "T-0001"), "rev-parse", "HEAD").strip()
+    sha = git(fixture_project, "rev-parse", "HEAD").strip()
 
     settings = team / "Settings.json"
     data = json.loads(settings.read_text(encoding="utf-8"))
@@ -307,14 +303,7 @@ def test_preflight_fails_closed_and_goes_green_on_a_real_branch(fixture_project:
         == 0
     )
 
-    green = engine_cli(
-        fixture_project,
-        "preflight",
-        "Developer",
-        "T-0001",
-        "--run",
-        cwd=lane_tree(fixture_project, "T-0001"),
-    )
+    green = engine_cli(fixture_project, "preflight", "Developer", "T-0001", "--run")
     assert green.returncode == 0, output(green)
     assert "PREFLIGHT pass" in green.stdout and "0 failed" in green.stdout
 
@@ -325,14 +314,7 @@ def test_preflight_fails_closed_and_goes_green_on_a_real_branch(fixture_project:
         ).returncode
         == 0
     )
-    red = engine_cli(
-        fixture_project,
-        "preflight",
-        "Developer",
-        "T-0001",
-        "--run",
-        cwd=lane_tree(fixture_project, "T-0001"),
-    )
+    red = engine_cli(fixture_project, "preflight", "Developer", "T-0001", "--run")
     assert red.returncode == 1, output(red)
     assert "evidence" in red.stdout and "@deadbeefdeadbeef" in red.stdout
     assert (
@@ -344,40 +326,19 @@ def test_preflight_fails_closed_and_goes_green_on_a_real_branch(fixture_project:
 
     data["PreflightCommand"] = "teamwork-no-such-gate-command --check"
     settings.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    absent = engine_cli(
-        fixture_project,
-        "preflight",
-        "Developer",
-        "T-0001",
-        "--run",
-        cwd=lane_tree(fixture_project, "T-0001"),
-    )
+    absent = engine_cli(fixture_project, "preflight", "Developer", "T-0001", "--run")
     assert absent.returncode == 1, output(absent)
     assert "could not start" in absent.stdout and "teamwork-no-such-gate-command" in absent.stdout
 
     data["PreflightCommand"] = "git rev-parse --verify refs/heads/no-such-branch"
     settings.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    failing = engine_cli(
-        fixture_project,
-        "preflight",
-        "Developer",
-        "T-0001",
-        "--run",
-        cwd=lane_tree(fixture_project, "T-0001"),
-    )
+    failing = engine_cli(fixture_project, "preflight", "Developer", "T-0001", "--run")
     assert failing.returncode == 1, output(failing)
     assert "-> exit" in failing.stdout and "gate" in failing.stdout
 
     data["PreflightCommand"] = f'"{sys.executable}" -c "print(1)"'
     settings.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    again = engine_cli(
-        fixture_project,
-        "preflight",
-        "Developer",
-        "T-0001",
-        "--run",
-        cwd=lane_tree(fixture_project, "T-0001"),
-    )
+    again = engine_cli(fixture_project, "preflight", "Developer", "T-0001", "--run")
     assert again.returncode == 0, output(again)
     assert "PREFLIGHT pass" in again.stdout
 
@@ -388,23 +349,16 @@ def test_preflight_refuses_a_team_domain_author_with_the_wrong_display_name(
     """An inside contributor does not get the external-contributor skip."""
     init_workspace(fixture_project)
     start_task(fixture_project)
-    tree = lane_tree(fixture_project, "T-0001")
-    (tree / "widget.py").write_text("WIDGET = 2\n", encoding="utf-8")
-    git(tree, "add", "widget.py")
+    (fixture_project / "widget.py").write_text("WIDGET = 2\n", encoding="utf-8")
+    git(fixture_project, "add", "widget.py")
     git(
-        tree,
+        fixture_project,
         "commit",
         "-qm",
         "feat: widget",
         identity=("Wrong Name", "developer@agents.nidvue.com"),
     )
-    red = engine_cli(
-        fixture_project,
-        "preflight",
-        "Developer",
-        "T-0001",
-        cwd=lane_tree(fixture_project, "T-0001"),
-    )
+    red = engine_cli(fixture_project, "preflight", "Developer", "T-0001")
     assert red.returncode == 1, output(red)
     assert "identity" in red.stdout
     assert "does not match role 'Developer'" in red.stdout

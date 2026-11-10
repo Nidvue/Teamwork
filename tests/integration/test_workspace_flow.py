@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from support import in_lane, lane_cli
 from teamwork import engine
 
 AGENTS = ("ceo", "developer-1", "reviewer-1")
@@ -384,11 +383,9 @@ def test_reviewed_branch_is_merged_and_deleted(cli, project: Path) -> None:
         )
         == 0
     )
-    author = lane_cli(cli, project, "T-0001")
-    with in_lane(project, "T-0001") as tree:
-        (tree / "feature.txt").write_text("done\n", encoding="utf-8")
+    (project / "feature.txt").write_text("done\n", encoding="utf-8")
     assert (
-        author(
+        cli(
             "--project",
             project,
             "commit",
@@ -419,7 +416,7 @@ def test_reviewed_branch_is_merged_and_deleted(cli, project: Path) -> None:
         == 0
     )
     assert (
-        author(
+        cli(
             "--project",
             project,
             "selfcheck",
