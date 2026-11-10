@@ -31,11 +31,11 @@ Teamwork/
 ├── references/*.md           # policy detail
 ├── templates/                # AGENTS.md, Docs/*.md, TeamMap.md skeletons
 ├── src/teamwork/
-│   ├── __init__.py           # __version__, lazy re-exports
+│   ├── __init__.py           # re-exports __version__ only (no lazy re-exports)
 │   ├── __main__.py           # python -m teamwork -> cli.main()
-│   ├── cli.py                # build_parser() + main(argv) -> int
+│   ├── cli.py                # main(argv) -> int, delegates to engine.main
 │   ├── config.py             # workspace paths, record names, caps
-│   ├── engine.py             # command layer (gates, review/PR, memory, model)
+│   ├── engine.py             # command layer: build_parser/main + gates, review/PR, memory, model
 │   ├── gitutil.py            # git plumbing (branch/merge/LFS)
 │   ├── imaging.py            # offline image-model probe
 │   ├── io.py                 # atomic writes, the lock, die()
@@ -104,9 +104,9 @@ has_asset(name: str) -> bool
 
 `config.py` calls `resources.skill_root()`; `engine.py` and every other module
 import the resolved paths from `config`. The dependency direction is
-`config <- io/names <- layout <- records`, and `engine` sits on top. No module
-imports `engine` at import time, so the command layer can be exercised without a
-cycle.
+`config <- io/names <- layout <- records`, and `engine` sits on top. Only the
+`cli` entry point imports `engine` at import time, so the command layer can be
+exercised without a cycle.
 
 ## 4. CLI contract (frozen, backward compatible)
 
