@@ -850,16 +850,16 @@ and that every such skill carries one fixed prefix. Contract:
 
 | task | role | deliverable | deps | state |
 |---|---|---|---|---|
-| T-0004 | architect | `Architecture.md` section 14 + technical decision | - | frozen contract |
-| T-0031 | developer | lesson records, `lesson` CLI, `tw-` enforcement, kinds, candidates, `PREFIX` rule, unit tests, two skills renamed | architect T-0004 | implementation |
-| T-0005 | architect | `Architecture.md` section 15: the project knowledge store, its CLI, ranking, supersession and load surface | architect T-0004 | contract |
-| T-0006 | architect | `Architecture.md` section 16: the OpenViking-style `ctx://` tree, levels, scoped find, digest, knowledge kinds | architect T-0005 | contract |
-| T-0032 | developer | `Knowledge.md` records, `knowledge` CLI, ranked `load`, duplicate and supersession rules, `kind`, unit tests | architect T-0005, T-0006 | implementation |
-| T-0033 | developer | `context` tree: `ls`/`tree`/`read`/`find`/`stats`/`digest`, computed L0/L1/L2, scoped retrieval, unit tests | developer T-0032 | implementation |
-| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` for sections 14-16 | architect T-0004, T-0005, T-0006 | documentation |
-| T-0004 | tester | integration and acceptance proof of the lesson -> skill loop, the knowledge accumulation loop and prefix enforcement | developer T-0031, T-0032 | proof |
-| T-0005 | tester | integration and acceptance proof of the `ctx://` tree: levels, scoped find, digest, every node resolves | developer T-0033 | proof |
-| T-0019 | ceo | intake, criteria, records, migration check and close-out | all | records |
+| T-0004 | architect | `Architecture.md` section 14 + technical decision | - | merged d6d178e |
+| T-0031 | developer | lesson records, `lesson` CLI, `tw-` enforcement, kinds, candidates, `PREFIX` rule, unit tests, two skills renamed | architect T-0004 | merged 35b5695 |
+| T-0005 | architect | `Architecture.md` section 15: the project knowledge store, its CLI, ranking, supersession and load surface | architect T-0004 | merged ee33a3d |
+| T-0006 | architect | `Architecture.md` section 16: the OpenViking-style `ctx://` tree, levels, scoped find, digest, knowledge kinds | architect T-0005 | merged d05763c |
+| T-0032 | developer | `Knowledge.md` records, `knowledge` CLI, ranked `load`, duplicate and supersession rules, `kind`, unit tests | architect T-0005, T-0006 | merged 81ea5cd |
+| T-0033 | developer | `context` tree: `ls`/`tree`/`read`/`find`/`stats`/`digest`, computed L0/L1/L2, scoped retrieval, unit tests | developer T-0032 | committed 3e8fd7e, PR pending |
+| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` for sections 14-16 | architect T-0004, T-0005, T-0006 | in review P-0054 |
+| T-0004 | tester | integration and acceptance proof of the lesson -> skill loop, the knowledge accumulation loop and prefix enforcement | developer T-0031, T-0032 | merged 2fe28e2 (TS-0074) |
+| T-0005 | tester | integration and acceptance proof of the `ctx://` tree: levels, scoped find, digest, every node resolves | developer T-0033 | pending T-0033 |
+| T-0019 | ceo | intake, criteria, records, migration check and close-out | all | records on the CEO branch |
 
 Parallel rules: the developer owns `src/teamwork/` and unit tests; the Technical
 Writer owns the always-on prose surfaces; the Tester owns the new integration and
@@ -882,10 +882,10 @@ token table are in [THROUGHPUT](Throughput.md); the criteria are AC-M18-1..3 in
 
 | task | role | deliverable | deps | state |
 |---|---|---|---|---|
-| T-0020 | ceo | measured baseline, `Throughput.md`, live roster right-sizing, criteria | - | report |
-| T-0034 | developer | `harness budget` startup/recallable, `archive --task`, `C-REVIEW-OVERSUPPLY`, preflight slice warning, unit tests | developer T-0033 | implementation |
+| T-0020 | ceo | measured baseline, `Throughput.md`, live roster right-sizing, criteria | - | report on the CEO branch; AC-M18-1 open |
+| T-0034 | developer | `harness budget` startup/recallable, `archive --task`, `C-REVIEW-OVERSUPPLY`, preflight slice warning, safe retirement, `throughput`, unit tests | developer T-0032 | in review P-0058 |
 | T-0013 | technical-writer | read-by-id, right-sized slice, review first-pass, token budget in the always-on surfaces | T-0011, T-0034 | documentation |
-| T-0006 | tester | integration/acceptance proof of the token tools and the oversupply finding | developer T-0034 | proof |
+| T-0006 | tester | integration/acceptance proof of the token tools and the oversupply finding | developer T-0034 | in progress (Tester-3) |
 
 The ordering is deliberate: the report and the roster cut first (no code, no
 lane), the engine tools after the context tree lands on `engine.py`, the docs
