@@ -81,85 +81,88 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
-| architect | T-0001 | code-review | done | P-0008 | e47f5d5 |
-| architect | T-0002 | - | done | P-0027 | f0ada67 |
-| architect | T-0003 | - | todo | - | - |
-| ceo | T-0001 | intake | done | P-0020 | 6fa2726 |
-| ceo | T-0002 | - | dropped | - | - |
-| ceo | T-0003 | - | dropped | - | - |
+| architect | T-0001 | architecture | done | P-0003 | bef4e02 |
+| architect | T-0002 | - | dropped | - | - |
+| architect | T-0003 | - | done | P-0036 | 90eb61c |
+| architect | T-0004 | architecture | doing | P-0042 | - |
+| ceo | T-0001 | review | done | P-0001 | 2f44f00 |
+| ceo | T-0002 | docs | done | P-0008 | 28c1133 |
+| ceo | T-0003 | - | done | - | - |
 | ceo | T-0004 | - | dropped | - | - |
-| ceo | T-0005 | - | dropped | - | - |
+| ceo | T-0005 | records | done | P-0010 | f91bf1b |
 | ceo | T-0006 | - | dropped | - | - |
-| ceo | T-0007 | - | done | P-0002 | 991dff1 |
-| ceo | T-0008 | - | dropped | - | - |
-| ceo | T-0009 | - | dropped | - | - |
+| ceo | T-0007 | - | dropped | - | - |
+| ceo | T-0008 | records | done | P-0016 | 51b8235 |
+| ceo | T-0009 | audit | done | P-0019 | bbbe525 |
 | ceo | T-0010 | - | done | - | - |
-| ceo | T-0011 | - | todo | - | - |
-| ceo | T-0012 | intake | done | P-0033 | bd7467d |
-| ceo | T-0013 | docs | done | P-0034 | 1793013 |
-| developer | T-0001 | - | done | P-0001 | fdd95a6 |
-| developer | T-0002 | - | done | P-0011 | 5648f4c |
-| developer | T-0003 | test-portability | done | P-0004 | dfb4d64 |
-| developer | T-0004 | - | dropped | - | - |
-| developer | T-0005 | - | dropped | - | - |
-| developer | T-0006 | plan | done | P-0017 | 15e5988 |
-| developer | T-0007 | engine | done | P-0010 | 0071014 |
-| developer | T-0008 | - | dropped | - | - |
-| developer | T-0009 | - | dropped | - | - |
-| developer | T-0010 | - | dropped | - | - |
-| developer | T-0011 | - | dropped | - | - |
-| developer | T-0012 | plan | done | P-0015 | 17927a5 |
-| developer | T-0013 | plan | done | P-0018 | cfc09cf |
-| developer | T-0014 | test-portability | done | P-0021 | 1a7f9e5 |
-| developer | T-0015 | - | dropped | - | - |
-| developer | T-0016 | - | done | P-0023 | 280627e |
-| developer | T-0017 | - | done | P-0026 | 521a7d6 |
-| developer | T-0018 | - | todo | - | - |
-| developer | T-0019 | - | done | P-0036 | 65392da |
-| developer | T-0020 | traceability | done | P-0041 | b350119 |
-| product-manager | T-0001 | traceability | done | P-0009 | 96160cf |
-| product-manager | T-0002 | - | todo | - | - |
-| project-manager | T-0001 | plan | done | P-0005 | 1bf629a |
-| project-manager | T-0002 | - | dropped | - | - |
-| project-manager | T-0003 | plan | done | P-0016 | cfba521 |
-| project-manager | T-0004 | plan | dropped | - | - |
-| project-manager | T-0005 | plan | done | P-0039 | 4a9d988 |
-| project-manager | T-0006 | plan | done | P-0042 | 660f09e |
-| release-engineer | T-0001 | ci | done | P-0003 | c781596 |
-| release-engineer | T-0002 | - | dropped | - | - |
-| release-engineer | T-0003 | - | dropped | - | - |
-| release-engineer | T-0004 | - | dropped | - | - |
-| release-engineer | T-0005 | - | dropped | - | - |
-| release-engineer | T-0006 | - | dropped | - | - |
-| release-engineer | T-0007 | ci | done | P-0013 | 183cf0d |
-| release-engineer | T-0008 | - | dropped | - | - |
-| release-engineer | T-0009 | - | done | P-0025 | c6ac201 |
-| release-engineer | T-0010 | ci | done | P-0028 | cf31e7d |
-| release-engineer | T-0011 | release | done | P-0030 | 7908d44 |
-| release-engineer | T-0012 | - | todo | - | - |
-| release-engineer | T-0013 | release | done | P-0031 | d3f9b7a |
-| release-engineer | T-0014 | release | done | P-0032 | c41ecfe |
-| release-engineer | T-0015 | - | blocked | - | - |
-| release-engineer | T-0016 | release | done | P-0040 | a5c1874 |
-| release-engineer | T-0017 | - | todo | - | - |
-| reviewer | T-0001 | records | dropped | - | - |
-| reviewer | T-0002 | - | dropped | - | - |
-| reviewer | T-0003 | - | dropped | - | - |
-| reviewer | T-0004 | - | done | P-0038 | e038181 |
-| security-auditor | T-0001 | - | done | P-0007 | f31b26e |
-| security-auditor | T-0002 | - | dropped | - | - |
-| security-auditor | T-0003 | audit-posture | done | P-0019 | 57231b7 |
-| security-auditor | T-0004 | audit-posture | done | P-0029 | 3ab759b |
-| technical-writer | T-0001 | docs-truth | done | P-0006 | 641e610 |
-| technical-writer | T-0002 | - | dropped | - | - |
-| technical-writer | T-0003 | docs-truth | done | P-0014 | 8b9fac8 |
-| technical-writer | T-0004 | - | done | P-0024 | 8ad3467 |
-| technical-writer | T-0005 | docs | done | P-0035 | 1d94e18 |
-| technical-writer | T-0006 | docs | done | P-0043 | e78074e |
-| tester | T-0001 | ci-release | done | P-0012 | aabff63 |
-| tester | T-0002 | - | done | P-0022 | ee05c22 |
-| tester | T-0003 | - | done | P-0037 | 3627c7d |
-| tester | T-0004 | - | todo | - | - |
+| ceo | T-0011 | - | done | - | - |
+| ceo | T-0012 | audit | done | P-0029 | e74cde1 |
+| ceo | T-0013 | - | done | - | - |
+| ceo | T-0014 | audit | done | P-0034 | 67e0b0a |
+| ceo | T-0015 | plan | doing | - | - |
+| ceo | T-0016 | - | todo | - | - |
+| developer | T-0001 | harness | done | P-0004 | b33120c |
+| developer | T-0002 | hooks | done | P-0007 | 49cd42e |
+| developer | T-0003 | - | dropped | - | - |
+| developer | T-0004 | tests | done | P-0012 | 1380163 |
+| developer | T-0005 | records | done | P-0013 | 1592195 |
+| developer | T-0006 | privacy | done | P-0015 | 0343b28 |
+| developer | T-0007 | records | done | P-0014 | ba947c0 |
+| developer | T-0008 | audit | done | P-0018 | 6d090aa |
+| developer | T-0009 | governance | done | P-0025 | 5a705ba |
+| developer | T-0010 | tests | done | P-0031 | f405c4e |
+| developer | T-0011 | harness | done | P-0032 | 5177a25 |
+| developer | T-0012 | - | done | P-0033 | 7f2184e |
+| developer | T-0013 | - | done | P-0035 | 90eb61c |
+| developer | T-0014 | - | dropped | - | - |
+| developer | T-0015 | ci | done | P-0039 | d18a1b8 |
+| developer | T-0016 | review | review | P-0038 | - |
+| developer | T-0017 | release | done | P-0037 | 3f8b6dc |
+| developer | T-0018 | coordination | review | P-0050 | - |
+| developer | T-0019 | records | dropped | P-0044 | - |
+| developer | T-0020 | engine | done | P-0041 | 171b2cf |
+| developer | T-0021 | tooling | done | P-0047 | 2f8be75 |
+| developer | T-0022 | - | todo | - | - |
+| developer | T-0023 | - | todo | - | - |
+| developer | T-0024 | security | done | P-0040 | 343941f |
+| developer | T-0025 | - | todo | - | - |
+| developer | T-0026 | records | done | P-0046 | 53ed4f1 |
+| developer | T-0027 | release | done | P-0043 | a3aab49 |
+| developer | T-0028 | board | review | P-0045 | - |
+| developer | T-0029 | - | todo | - | - |
+| developer | T-0030 | hooks | review | P-0049 | - |
+| developer | T-0031 | - | todo | - | - |
+| developer | T-0032 | release | review | P-0048 | - |
+| developer | T-0033 | - | todo | - | - |
+| developer | T-0034 | security | review | P-0053 | - |
+| developer | T-0035 | security | review | P-0054 | - |
+| developer | T-0036 | release | review | P-0052 | - |
+| developer | T-0037 | hooks | review | P-0051 | - |
+| developer | T-0038 | - | todo | - | - |
+| developer | T-0039 | - | todo | - | - |
+| developer | T-0040 | - | doing | - | - |
+| developer | T-0041 | - | todo | - | - |
+| product-manager | T-0001 | research | done | P-0005 | 73be637 |
+| product-manager | T-0002 | records | done | P-0009 | 148c3de |
+| product-manager | T-0003 | records | done | P-0017 | 49ad40e |
+| product-manager | T-0004 | records | done | P-0020 | fe0afb9 |
+| product-manager | T-0005 | records | done | P-0021 | 80f0cfa |
+| product-manager | T-0006 | records | done | P-0027 | cd516f1 |
+| product-manager | T-0007 | records | done | P-0028 | bd52cb8 |
+| product-manager | T-0008 | records | done | P-0030 | 6a8a072 |
+| product-manager | T-0009 | - | dropped | - | - |
+| reviewer | T-0001 | records | dropped | P-0023 | - |
+| reviewer | T-0002 | records | done | P-0026 | e3fa290 |
+| reviewer | T-0003 | - | review | - | - |
+| reviewer | T-0004 | - | review | - | - |
+| security-auditor | T-0001 | audit | dropped | P-0022 | - |
+| security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
+| security-auditor | T-0003 | - | dropped | - | - |
+| security-auditor | T-0004 | - | todo | - | - |
+| tester | T-0001 | harness | done | P-0011 | 47db23d |
+| tester | T-0002 | tests | done | P-0002 | 090910a |
+| tester | T-0003 | tests | done | P-0006 | cc86e6d |
+| tester | T-0004 | - | review | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -169,14 +172,32 @@ landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0003 · Architecture.md no longer describes what docs.yml does: it omits the v* tag trigger | P1 | todo | - |
-| ceo | T-0011 · Allow v* tags to deploy the github-pages environment so a release can refresh the site | P0 | todo | - |
-| developer | T-0018 · scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | todo | - |
-| product-manager | T-0002 · CI red on 3 more cells: the traceability guard's 300s subprocess timeout expires on the AC-5 full-history privacy scan (ubuntu py3.11/py3.12, windows py3.11) | P0 | todo | - |
-| release-engineer | T-0012 · Push the branch and its tag together (git push --atomic): pushing main first made the main CI release-consistency gate run without the new tag and fail R6 until the job was re-run | P1 | todo | - |
-| release-engineer | T-0015 · Backfill the already-tagged release to npm once the operator configures the publisher credential | P1 | blocked | - |
-| release-engineer | T-0017 · Re-push main (P-0040 merge is local only) and retire the merged t-0016 branch: your Runtime worktree still holds it | P0 | todo | - |
-| tester | T-0004 · Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at 3627c7d could not retire it | P2 | todo | - |
+| architect | T-0004 · Record the decision on R2 semantics on a feature branch and the committer-guard fallback | P0 | doing | - |
+| ceo | T-0015 · Record M13 in Plan/Project and regenerate docs/Team/Board.md from the queues | P0 | doing | - |
+| ceo | T-0016 · fix(ci): de-duplicate the privacy/links/mkdocs gates across ci.yml and docs.yml (needs the protected-context change) | P2 | todo | - |
+| developer | T-0016 · feat(review): measure submitted work only, lease by profile, claim and packet in one step | P0 | review | - |
+| developer | T-0018 · scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | review | - |
+| developer | T-0022 · perf(engine): stop re-reading every queue and the whole ledger per command | P2 | todo | - |
+| developer | T-0023 · fix(trace): scope disputes and gate churn to a role+id, not a bare task id | P3 | todo | - |
+| developer | T-0025 · perf(review): surface an existing green gate run for the branch revision in the packet | P2 | todo | - |
+| developer | T-0028 · feat(board): a product producer and checker for docs/Team/Board.md | P1 | review | - |
+| developer | T-0029 · fix(tests): make the entrypoint version assertion hermetic and isolate the history proof | P2 | todo | - |
+| developer | T-0030 · fix(hooks): the installed hook must exec the running interpreter, not python3 | P2 | review | - |
+| developer | T-0031 · test(acceptance): prove merge-on-pass and ledger verify on a real git loop | P3 | todo | - |
+| developer | T-0032 · feat(release): implement the R2 scope flag per D-20261029-Architect and Architecture 11.2.2.1 | P1 | review | - |
+| developer | T-0033 · docs(release): state the shipped committer-guard range and add the 1.4.3 changelog entries | P2 | todo | - |
+| developer | T-0034 · fix(privacy): the plan-row path is a false positive and the history gate must pass | P0 | review | - |
+| developer | T-0035 · fix(security): a commit subject must not exempt its identity from the history scan | P0 | review | - |
+| developer | T-0036 · fix(release): the publish path must run the privacy gate and never publish before its checks | P1 | review | - |
+| developer | T-0037 · fix(hooks): install per stage, chain a foreign hook, and fail closed | P1 | review | - |
+| developer | T-0038 · fix(privacy): URL-shaped credentials and annotated tag messages are unscanned | P2 | todo | - |
+| developer | T-0039 · docs(release): Release.md must describe the privacy gate, the draft-then-publish order and the attest edge | P2 | todo | - |
+| developer | T-0040 · fix(records): a blank handle must be not-found and a self-check must not resurrect a closed task | P0 | doing | - |
+| developer | T-0041 · fix(records): a removed task id must never be reissued | P2 | todo | - |
+| reviewer | T-0003 · Audit the engine's task, queue, review, pulse and loop paths for correctness and throughput defects | P0 | review | - |
+| reviewer | T-0004 · Audit the support modules, scripts and CI workflows for defects | P0 | review | - |
+| security-auditor | T-0004 · Audit scripts/privacy_scan.py and the release trust boundary for correctness and false-negative risk | P1 | todo | - |
+| tester | T-0004 · Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at 3627c7d could not retire it | P2 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.

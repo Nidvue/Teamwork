@@ -49,11 +49,13 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 try:  # normal package import
+    from . import board as boardlib
     from . import resources as _resources
     from .portable import pid_alive
     from .version import __version__ as VERSION
 except ImportError:  # pragma: no cover - executed as a plain script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import board as boardlib  # type: ignore
     import resources as _resources  # type: ignore
     from portable import (
         pid_alive,  # type: ignore
@@ -6660,41 +6662,11 @@ def claim_age_minutes(value: str) -> int | None:
 
 # Review throughput: the queue, not the depth, is the limit.
 def review_lease_minutes(root: Path) -> int:
-    """The base review lease; a claim is scaled by its review profile below."""
+    """A review claim is a short work lease; Settings may override the default."""
     try:
         return max(int(_load_settings(root).get("ReviewLeaseMinutes", REVIEW_LEASE_MINUTES)), 1)
     except (TypeError, ValueError):
         return REVIEW_LEASE_MINUTES
-
-
-#: Multiplier on the base lease, one per review profile. Measured on this team's
-#: own ledger (2026-10-29): claim -> verdict was p50 42.4 min / p90 125.2 min
-#: against a flat 20-minute lease, so a standard or deep review's claim expired
-#: mid-flight and the other lane could take the same deliverable over - duplicated
-#: work on the one lane the team waits on. A prose-only review still gets the
-#: short lease, so a dead fast lane frees its item in 20 minutes, not 80.
-PROFILE_LEASE_MULTIPLIER = {"fast": 1, "standard": 2, "deep": 4}
-REVIEW_LEASE_MAX_MINUTES = 240
-
-
-def review_lease_for_profile(root: Path, profile: str) -> int:
-    """The lease a claim of this profile is granted, stored on the claim itself."""
-    factor = PROFILE_LEASE_MULTIPLIER.get(profile, PROFILE_LEASE_MULTIPLIER["standard"])
-    try:
-        cap = max(
-            int(_load_settings(root).get("ReviewLeaseMaxMinutes", REVIEW_LEASE_MAX_MINUTES)), 1
-        )
-    except (TypeError, ValueError):
-        cap = REVIEW_LEASE_MAX_MINUTES
-    return min(review_lease_minutes(root) * factor, cap)
-
-
-def stored_claim_lease(t: dict) -> int | None:
-    """The lease written on a claim, when one was; old claims carry no profile."""
-    raw = str(t.get("review_claim_lease") or "").strip()
-    if raw.isdigit() and int(raw) > 0:
-        return int(raw)
-    return None
 
 
 PROSE_REVIEW_PREFIXES = ("docs/", "assets/", "references/")
@@ -6795,7 +6767,7 @@ def review_latency(root: Path) -> dict:
 def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
     """Everything a Reviewer needs to start, in one screen."""
     profile, reason = review_profile_for(root, role, task)
-    lease = review_lease_for_profile(root, profile)
+    lease = review_lease_minutes(root)
     lines = [
         f"# Review packet: {role}/{task['id']} - {task['title']}",
         f"- priority: {task['priority']} | status: {task['status']} | "
@@ -6831,7 +6803,7 @@ def review_packet(root: Path, role: str, task: dict, full: bool = False) -> str:
         "- checklist: delivery/conformance; fidelity; internal consistency; "
         "operational fitness; finish; evidence reproduces",
         f"- claim: review {role} {task['id']} --claim --by <lane>  "
-        f"({profile} profile, lease {lease}m; --renew to extend)",
+        f"(lease {lease}m; --renew to extend)",
         f"- verdict: review {role} {task['id']} --by <lane> --result pass "
         "--evidence '<cmd @rev -> result>'",
     ]
@@ -6843,8 +6815,6 @@ def review_claim_state(t: dict, minutes: int | None = None) -> tuple:
 
     A claim is a lease, not a lock: an undated or unreadable stamp counts as
     expired, so a lane that died holding a deliverable cannot freeze it forever.
-    The lease length is the one the claim was granted for its profile; ``minutes``
-    overrides it for a caller that asks about a specific limit (the tests do).
     """
     lane = (t.get("review_claim") or "").strip()
     if not lane:
@@ -6852,8 +6822,7 @@ def review_claim_state(t: dict, minutes: int | None = None) -> tuple:
     age = claim_age_minutes(t.get("review_claim_ts") or "")
     if age is None:
         return lane, None, False
-    limit = minutes if minutes is not None else (stored_claim_lease(t) or REVIEW_LEASE_MINUTES)
-    return lane, age, age <= limit
+    return lane, age, age <= (REVIEW_LEASE_MINUTES if minutes is None else minutes)
 
 
 def review_is_held(t: dict, minutes: int | None = None) -> bool:
@@ -6863,7 +6832,7 @@ def review_is_held(t: dict, minutes: int | None = None) -> bool:
 
 def _claim_note(t: dict, minutes: int | None = None) -> str:
     """One line of claim state for the pulse and queue listings."""
-    limit = minutes if minutes is not None else (stored_claim_lease(t) or REVIEW_LEASE_MINUTES)
+    limit = REVIEW_LEASE_MINUTES if minutes is None else minutes
     lane, age, held = review_claim_state(t, limit)
     if not lane:
         return "unclaimed"
@@ -6888,8 +6857,9 @@ def busy_instances(root: Path) -> set:
             continue
         for agent in used_slots(root, prov):
             busy.add(pascal(agent))
+    lease = review_lease_minutes(root)
     for _role, t in iter_tasks(root):
-        if review_is_held(t):
+        if review_is_held(t, lease):
             busy.add(pascal(t["review_claim"]))
     return busy
 
@@ -6927,7 +6897,8 @@ def open_review_items(root: Path) -> list:
     Highest priority first, then oldest: a P0 prose fix must not wait behind a
     P2 code review just because its role sorts later.
     """
-    items = [(name, t) for name, t in awaiting_review(root) if not review_is_held(t)]
+    lease = review_lease_minutes(root)
+    items = [(name, t) for name, t in awaiting_review(root) if not review_is_held(t, lease)]
     items.sort(
         key=lambda item: (
             PRIORITY_ORDER.get(item[1]["priority"], 9),
@@ -6976,23 +6947,19 @@ def _pulse_review_claim(root: Path, owner: str, handle: str, lane: str) -> bool:
             t.get("review", "required") == "na"
             or t.get("review_status") == "passed"
             or t["status"] not in ("review", "done")
-            or review_is_held(t)
+            or review_is_held(t, review_lease_minutes(root))
             or pascal(t.get("claimed_by") or "") == pascal(lane)
         ):
             return False
-        profile, _reason = review_profile_for(root, owner, t)
-        lease = review_lease_for_profile(root, profile)
         t["review_claim"] = lane
         t["review_claim_ts"] = claim_stamp()
-        t["review_claim_profile"] = profile
-        t["review_claim_lease"] = str(lease)
         write_tasks(path, tasks, owner)
     ledger_append(
         root,
         "review.claim",
         lane,
         handle,
-        f"pulse dispatch: {owner}/{handle} ({profile} profile, lease {lease}m)",
+        f"pulse dispatch: {owner}/{handle} (lease {review_lease_minutes(root)}m)",
         "",
         owner,
     )
@@ -7001,21 +6968,13 @@ def _pulse_review_claim(root: Path, owner: str, handle: str, lane: str) -> bool:
 
 def held_review_items(root: Path) -> list:
     """Every claim on the board, live or expired: (owner_role, task, lane, age)."""
+    lease = review_lease_minutes(root)
     out = []
     for name, t in awaiting_review(root):
-        lane, age, _held = review_claim_state(t)
+        lane, age, _held = review_claim_state(t, lease)
         if lane:
             out.append((name, t, lane, age))
     return out
-
-
-def expired_review_claims(root: Path) -> list:
-    """Claims whose lease ran out: a lane died, or the lease is still too short."""
-    return [
-        (name, t, lane, age)
-        for name, t, lane, age in held_review_items(root)
-        if not review_is_held(t)
-    ]
 
 
 def team_identity(root: Path) -> str:
@@ -7151,7 +7110,8 @@ def cmd_pulse(args: object) -> int:
         print(f"## deliverables awaiting review ({len(awaiting)})")
         for name, t in awaiting:
             print(
-                f"- {name}/{t['id']} [{t['priority']}/{t['status']}] {t['title']}  {_claim_note(t)}"
+                f"- {name}/{t['id']} [{t['priority']}/{t['status']}] {t['title']}  "
+                f"{_claim_note(t, review_lease_minutes(root))}"
             )
         print()
 
@@ -7161,7 +7121,9 @@ def cmd_pulse(args: object) -> int:
     # parallel instead of one task per lane per wake.
     # only a live claim blocks a lane; an expired one is up for takeover, which
     # is exactly the work the next pulse should hand out
-    claim_holders = {pascal(lane) for _own, t, lane, _age in claims if review_is_held(t)}
+    claim_holders = {
+        pascal(lane) for _own, _t, lane, age in claims if age < review_lease_minutes(root)
+    }
     capacity: dict[str, int] = {}
     for a in list_agents(root):
         role_name = resolve_role(a)
@@ -7777,23 +7739,6 @@ def coordination_report(root: Path) -> dict:
                     "review, and renew claims instead of re-claiming",
                 )
             )
-    expired = expired_review_claims(root)
-    if expired:
-        findings.append(
-            _coord_finding(
-                "C-REVIEW-LEASE",
-                "review",
-                "medium",
-                ", ".join(
-                    f"{lane} on {name}/{t['id']} {age}m" for name, t, lane, age in expired[:3]
-                ),
-                "a review claim outlived the lease it was granted, so the other lane "
-                "may take the same deliverable over - duplicated review work",
-                "renew the claim while reviewing, take the next one with "
-                "`review --next`, and treat a repeated expiry as a lease that is too "
-                "short for that profile",
-            )
-        )
 
     return {
         "findings": findings,
@@ -7806,10 +7751,13 @@ def coordination_report(root: Path) -> dict:
             "verdicts": total_verdicts,
             "reviewer_lanes": len(instances_of(root, "reviewer")),
             "review_queue": len(
-                [item for item in awaiting_review(root) if not review_is_held(item[1])]
+                [
+                    item
+                    for item in awaiting_review(root)
+                    if not review_is_held(item[1], review_lease_minutes(root))
+                ]
             ),
             "review_claims": len(held_review_items(root)),
-            "review_expired_claims": len(expired_review_claims(root)),
             "review_p50_minutes": latency["p50"],
             "review_p90_minutes": latency["p90"],
             "free_slots": free,
@@ -8905,6 +8853,7 @@ def _review_claim(root: Path, args) -> int:
     if rrole != "reviewer":
         die(f"only the Reviewer role may hold a review (you passed {reviewer}).", 2)
     verb = "renew" if renew else ("claim" if claim else "release")
+    lease = review_lease_minutes(root)
     path = task_file(root, role)
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
@@ -8926,17 +8875,7 @@ def _review_claim(root: Path, args) -> int:
             die(
                 f"{reviewer} produced {t['id']} and cannot review it; another lane must take it.", 2
             )
-        lane, age, held = review_claim_state(t)
-        profile, _reason = review_profile_for(root, role, t)
-        # A claim always gets the lease its profile earns; only --renew reuses the
-        # lease written on the existing claim. A released claim must not lend its
-        # old lease to the next lane's claim of the same task. A claim that predates
-        # the stored lease still renews with the lease its profile earns now.
-        lease = (
-            (stored_claim_lease(t) or review_lease_for_profile(root, profile))
-            if renew
-            else review_lease_for_profile(root, profile)
-        )
+        lane, age, held = review_claim_state(t, lease)
         if renew:
             if not lane:
                 die(f"{role}/{t['id']} is not claimed; take it with --claim", 2)
@@ -8970,15 +8909,13 @@ def _review_claim(root: Path, args) -> int:
             )
             t["review_claim"] = reviewer
             t["review_claim_ts"] = claim_stamp()
-            t["review_claim_profile"] = profile
-            t["review_claim_lease"] = str(lease)
             write_tasks(path, tasks, role)
             ledger_append(
                 root,
                 "review.claim",
                 reviewer,
                 t["id"],
-                f"{role}/{t['id']} claimed for review ({profile} profile, lease {lease}m){took_over}",
+                f"{role}/{t['id']} claimed for review (lease {lease}m){took_over}",
                 "",
                 role,
             )
@@ -9006,8 +8943,6 @@ def _review_claim(root: Path, args) -> int:
             forced = f" forced by {reviewer}: {args.force}"
         t["review_claim"] = ""
         t["review_claim_ts"] = ""
-        t["review_claim_profile"] = ""
-        t["review_claim_lease"] = ""
         write_tasks(path, tasks, role)
         ledger_append(
             root,
@@ -9022,87 +8957,12 @@ def _review_claim(root: Path, args) -> int:
         return 0
 
 
-def _review_next(root: Path, args) -> int:
-    """Claim the highest-priority unclaimed deliverable and print its packet.
-
-    One step instead of two (read the queue, then claim): the reviewer lane's
-    setup cost is the thing that makes the queue the bottleneck. The claim is
-    re-checked and written under the owner's role lock, so two lanes racing for
-    the same item cannot both win it.
-    """
-    reviewer, rrole = validate_actor(root, args.by or "reviewer", "reviewer", allow_role=False)
-    if rrole != "reviewer":
-        die(f"only the Reviewer role may claim a review (you passed {reviewer}).", 2)
-    for _owner, t, lane, _age in held_review_items(root):
-        if review_is_held(t) and pascal(lane) == pascal(reviewer):
-            die(
-                f"{reviewer} already holds {t['id']}. Finish it, --renew it, or "
-                "--release it before taking another: a deep review is not divisible.",
-                2,
-            )
-    for owner, t in open_review_items(root):
-        if pascal(t.get("claimed_by") or "") == pascal(reviewer):
-            continue
-        path = task_file(root, owner)
-        with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{owner}.lock"):
-            tasks = parse_tasks(path)
-            idx = find_task(tasks, t["id"])
-            if idx is None:
-                continue
-            fresh = tasks[idx]
-            if (
-                fresh.get("review_status") == "passed"
-                or fresh["status"] not in ("review", "done")
-                or review_is_held(fresh)
-            ):
-                continue
-            profile, reason = review_profile_for(root, owner, fresh)
-            lease = review_lease_for_profile(root, profile)
-            fresh["review_claim"] = reviewer
-            fresh["review_claim_ts"] = claim_stamp()
-            fresh["review_claim_profile"] = profile
-            fresh["review_claim_lease"] = str(lease)
-            write_tasks(path, tasks, owner)
-        ledger_append(
-            root,
-            "review.claim",
-            reviewer,
-            fresh["id"],
-            f"{owner}/{fresh['id']} claimed by --next ({profile} profile, lease {lease}m)",
-            "",
-            owner,
-        )
-        print(
-            f"# {reviewer} claims {owner}/{fresh['id']} "
-            f"({profile} profile, lease {lease}m, reason: {reason})"
-        )
-        print()
-        print(review_packet(root, owner, fresh, full=bool(getattr(args, "full", False))))
-        return 0
-    print("# nothing awaiting review: the queue is empty")
-    return 3
-
-
 def cmd_review(args) -> int:
     root = project_root(args)
     if getattr(args, "packet", False) and (
-        args.claim
-        or args.release
-        or getattr(args, "renew", False)
-        or getattr(args, "next", False)
-        or args.result
+        args.claim or args.release or getattr(args, "renew", False) or args.result
     ):
         die("--packet is read-only; claim or verdict separately", 2)
-    if getattr(args, "next", False):
-        if args.queue or args.claim or args.release or getattr(args, "renew", False) or args.result:
-            die("--next is its own mode; it claims one deliverable and prints its packet", 2)
-        if args.agent or args.handle:
-            die(
-                "--next picks the highest-priority unclaimed deliverable itself; "
-                "take a specific one with review <role> <T-id> --claim",
-                2,
-            )
-        return _review_next(root, args)
     if args.queue:
         return _review_queue(
             root,
@@ -9159,7 +9019,7 @@ def cmd_review(args) -> int:
                 f"{reviewer} produced {t['id']} and cannot review it; "
                 "an independent instance must review."
             )
-        lane, age, held = review_claim_state(t)
+        lane, age, held = review_claim_state(t, review_lease_minutes(root))
         if lane and pascal(lane) != pascal(reviewer):
             print(
                 f"teamwork: NOTE {role}/{t['id']} is held by {lane} "
@@ -9243,8 +9103,6 @@ def cmd_review(args) -> int:
             claim_note = f" | claim by {t['review_claim']} released"
             t["review_claim"] = ""
             t["review_claim_ts"] = ""
-            t["review_claim_profile"] = ""
-            t["review_claim_lease"] = ""
         archived = None
         if args.result == "pass":
             artifacts = artifact_digests(root, getattr(args, "artifact", None))
@@ -9356,12 +9214,15 @@ def cmd_review(args) -> int:
 
 
 def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
-    # Only work the author has submitted is a deliverable: a todo task has no
-    # frozen diff to review, and counting it inflated the queue, the "oldest" age
-    # and the "add a lane" advice - the number a CEO scales on.
+    lease = review_lease_minutes(root)
     rows = []
-    for name, t in awaiting_review(root):
-        rows.append((PRIORITY_ORDER.get(t["priority"], 9), t.get("created") or "", name, t))
+    for name in list_roles(root):
+        for t in parse_tasks(task_file(root, name)):
+            if t.get("review", "required") == "na":
+                continue
+            if t.get("review_status") == "passed" or t["status"] == "dropped":
+                continue
+            rows.append((PRIORITY_ORDER.get(t["priority"], 9), t.get("created") or "", name, t))
     print(f"# Reviewer queue ({root})")
     if not rows:
         print("- nothing awaiting review")
@@ -9377,9 +9238,9 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
         age = days_since(t.get("created") or "") if t.get("created") else 0
         print(
             f"- {name} {t['id']} [{t['priority']}/{t['status']}] {t['title']}"
-            f"  profile={profile} lease={review_lease_for_profile(root, profile)}m aged={age}d"
+            f"  profile={profile} aged={age}d"
             f" review_status={t.get('review_status', 'pending')}"
-            f" claim: {_claim_note(t)}"
+            f" claim: {_claim_note(t, lease)}"
             f" self_check={t.get('self_check', 'pending')}"
             + (f" branch={t['branch']}" if t.get("branch") else "")
             + (f" pr={t['pr']}" if t.get("pr") else "")
@@ -9391,32 +9252,19 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
     print()
     lanes = review_lane_notes(root)
     lane_count = len(instances_of(root, "reviewer"))
-    unclaimed = sum(1 for _prio, _created, _name, t in rows if not review_is_held(t))
-    expired = len(expired_review_claims(root))
+    unclaimed = sum(1 for _prio, _created, _name, t in rows if not review_is_held(t, lease))
     oldest = max(
         (days_since(t.get("created") or "") for _p, _c, _n, t in rows if t.get("created")),
         default=0,
     )
-    print(
-        f"# {len(rows)} deliverable(s) to review ({unclaimed} unclaimed, {expired} expired "
-        f"claim(s)), oldest {oldest}d"
-    )
+    print(f"# {len(rows)} deliverable(s) to review ({unclaimed} unclaimed), oldest {oldest}d")
     print("# lanes: " + (", ".join(lanes) if lanes else "no Reviewer instance staffed"))
     print(
-        "# capacity: "
-        f"{lane_count} lane(s); add a Reviewer lane when unclaimed > {2 * max(lane_count, 1)}"
-    )
-    print(
-        "# lease: "
-        + ", ".join(
-            f"{name} {review_lease_for_profile(root, name)}m"
-            for name in ("fast", "standard", "deep")
-        )
-        + " (base ReviewLeaseMinutes x profile, capped by ReviewLeaseMaxMinutes)"
+        f"# capacity: {lane_count} lane(s); add a Reviewer lane when unclaimed > "
+        f"{2 * max(lane_count, 1)}"
     )
     print("# a review is claimed work: one lane takes one deliverable, then verdicts it")
-    print("#   review --next --by <Reviewer-instance>   # claim the top packet in one step")
-    print("#   review <role> <T-id> --packet            # profile, diff, gates, checklist")
+    print("#   review <role> <T-id> --packet   # profile, diff, gates, checklist")
     print("#   review <role> <T-id> --claim --by <Reviewer-instance>   # pin it to your lane")
     print(
         "#   review <role> <T-id> --by <Reviewer-instance> --result pass --evidence '<cmd @rev -> result>'"
@@ -9426,8 +9274,8 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
     )
     print("#   review <role> <T-id> --renew --by <Reviewer-instance>   # extend a long review")
     print(
-        "#   review <role> <T-id> --release --by <Reviewer-instance>   # hand it back "
-        "(a claim lapses after its profile lease)"
+        f"#   review <role> <T-id> --release --by <Reviewer-instance>   # hand it back "
+        f"(a claim lapses after {lease}m)"
     )
     return 0
 
@@ -9577,9 +9425,92 @@ def cmd_archive(args) -> int:
     return 0
 
 
+def _board_tables(args, root: Path) -> int:
+    """Render or check ``docs/Team/Board.md``'s task tables against the queues.
+
+    ``--write`` replaces both tables in the work tree this lane is in and exits 0;
+    ``--check`` leaves the file untouched and exits 1 naming every differing row.
+    The committed board is the projection of the queues, so an unreadable or empty
+    queue set is an error (2), never a clean check.
+    """
+    import json
+
+    path = work_docs_dir(root) / "Board.md"
+    if not path.is_file():
+        die(f"no board at {path}: the committed projection is docs/Team/Board.md", 2)
+    try:
+        tasks = boardlib.queues(root)
+    except ValueError as exc:
+        die(f"cannot read the role queues under {roles_dir(root)}: {exc}", 2)
+    if not tasks:
+        die(f"no task records under {roles_dir(root)}: run `teamwork.py init` first", 2)
+    before = path.read_text(encoding="utf-8")
+    required = (boardlib.TABLE_HEAD, boardlib.FLIGHT_HEAD, "## In flight")
+    missing = [anchor for anchor in required if anchor not in before]
+    if missing:
+        die(
+            f"{path} is not a rendered board: missing "
+            + ", ".join(repr(anchor) for anchor in missing)
+            + "; start from the committed docs/Team/Board.md",
+            2,
+        )
+    try:
+        after = boardlib.render(tasks, before)
+        found = boardlib.problems(tasks, before)
+    except ValueError as exc:
+        die(f"cannot compare {path} with the queues: {exc}", 2)
+    if getattr(args, "write", False):
+        changed = after != before
+        if changed:
+            write_lf(path, after)
+        # Name every row that left the table: it had no in-scope queue record, so
+        # the projection dropped it. A row removed in silence is the stale-board
+        # defect. In --json the same list travels in the payload, so stdout stays
+        # parseable exactly when a drop happens.
+        dropped = sorted(set(boardlib.board_rows(before)) - set(boardlib.board_rows(after)))
+        queues_read = len({key[0] for key in tasks})
+        if getattr(args, "json", False):
+            print(
+                json.dumps(
+                    {
+                        "board": str(path),
+                        "written": changed,
+                        "tasks": len(tasks),
+                        "queues": queues_read,
+                        "dropped": [f"{role} {tid}" for role, tid in dropped],
+                    }
+                )
+            )
+        else:
+            verb = "wrote" if changed else "unchanged"
+            print(f"{verb} {path}: {len(tasks)} task(s) across {queues_read} queue(s)")
+            for role, tid in dropped:
+                print(f"note: {role} {tid} left the table - no in-scope queue record for it now")
+        return 0
+
+    if getattr(args, "json", False):
+        print(json.dumps({"board": str(path), "ok": not found, "problems": found}))
+    elif found:
+        print(f"{path} does not match the role queues:")
+        print("\n".join(found))
+    else:
+        print(f"{path} matches the role queues: {len(tasks)} task(s)")
+    return 1 if found else 0
+
+
 def cmd_board(args) -> int:
-    """One line per role: status counts, the next executable task, slot usage."""
+    """One line per role: status counts, the next executable task, slot usage.
+
+    ``--write``/``--check`` act on the committed board's two task tables instead,
+    which is what makes the board a product invariant rather than a test-only one.
+    """
     root = project_root(args)
+    if getattr(args, "json", False) and not (
+        getattr(args, "write", False) or getattr(args, "check", False)
+    ):
+        die("--json reports --write or --check; it has no meaning for the summary view", 2)
+    if getattr(args, "write", False) or getattr(args, "check", False):
+        return _board_tables(args, root)
     names = list_roles(root)
     print("# priority-ordered; READY = todo with all dependencies done")
     print("# one shared queue per ROLE; several instances may serve it")
@@ -11808,6 +11739,16 @@ def _parsers_workspace(sub, common) -> None:
     s = sub.add_parser(
         "board", parents=[common], help="cross-agent board with counts and next task"
     )
+    board_mode = s.add_mutually_exclusive_group()
+    board_mode.add_argument(
+        "--write", action="store_true", help="rewrite docs/Team/Board.md's task tables"
+    )
+    board_mode.add_argument(
+        "--check",
+        action="store_true",
+        help="exit 1 naming every board row that differs from the role queues",
+    )
+    s.add_argument("--json", action="store_true", help="machine-readable --write/--check output")
     s.set_defaults(func=cmd_board)
 
     s = sub.add_parser(
@@ -12038,11 +11979,6 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("agent", nargs="?", help="owner of the deliverable")
     s.add_argument("handle", nargs="?", help="T-0002, title or substring")
     s.add_argument("--queue", action="store_true", help="list everything awaiting review")
-    s.add_argument(
-        "--next",
-        action="store_true",
-        help="claim the highest-priority unclaimed deliverable and print its packet",
-    )
     s.add_argument(
         "--full",
         action="store_true",
