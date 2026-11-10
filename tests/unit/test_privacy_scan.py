@@ -127,3 +127,18 @@ def test_high_entropy_lookalike_is_not_a_false_positive():
 )
 def test_source_expressions_are_not_treated_as_secrets(line):
     assert "env-secret" not in rules_hit(line + "\n")
+
+
+def test_the_role_mailbox_domain_is_allowed_and_not_private():
+    """The team's own mailbox domain is legitimate, not a leak (owner decision)."""
+    assert ps.IDENTITY_DOMAIN == "agents.nidvue.com"
+    assert ps.IDENTITY_DOMAIN not in ps._private_domains()
+    assert ps._email_allowed("ceo@" + ps.IDENTITY_DOMAIN)
+    assert ps._email_allowed("developer-1@" + ps.IDENTITY_DOMAIN)
+
+
+def test_the_personal_domains_are_still_private():
+    private = ps._private_domains()
+    assert len(private) >= 2
+    for domain in private:
+        assert not ps._email_allowed("someone@" + domain)
