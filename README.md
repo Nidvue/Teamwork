@@ -210,8 +210,9 @@ failure with the command and its output, and stop. Do not improvise a replacemen
 
 1. Read `<skill>/SKILL.md` completely, then `<skill>/roles/<your-role>.md` for the
    role you are acting as.
-2. Run `scripts/teamwork.py init --agents ...` (the skill usually does this for
-   you) and `agents-md` so the constitution is in place before any work starts.
+2. Run `scripts/teamwork.py init --roster slim` (or `standard`/`full`, or
+   `--agents` for an exact list; the skill usually does this for you) and
+   `agents-md` so the constitution is in place before any work starts.
 3. Claim work with `task next <you>`; never sit idle while ready work exists.
 4. Record evidence as `command @revision -> result`; submit with `selfcheck`, then
    `pr open`. A different role reviews and merges - you never merge your own work.
@@ -275,7 +276,7 @@ switches hats, and the evidence gates still hold (`references/Adapters.md`).
 The skill calls these for you; run them when you want to see or change the plan.
 
 ```console
-$ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-1,developer-1,tester-1
+$ teamwork init --roster slim          # or: teamwork init --agents ceo,architect,developer-1,tester-1,reviewer-1
 $ teamwork criteria add --id AC-1 --text "shorten then expand returns the original URL" --owner developer --by ceo
 $ teamwork criteria add --id AC-2 --text "pytest -q passes on the matrix" --owner tester --by ceo
 $ teamwork task add developer "Implement shorten/expand with tests" --priority P0

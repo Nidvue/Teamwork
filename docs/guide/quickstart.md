@@ -41,23 +41,27 @@ Behind that prompt the skill runs the engine. These are the commands you can typ
 yourself to see the same workspace it created:
 
 ```console
-$ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-1,developer-1,tester-1
+$ teamwork init --roster slim
 teamwork: workspace ready at .pi/Teamwork/Teams/Demo
 teamwork: global memory .pi/Teamwork/Teams/Demo/Global/GlobalMemory.md
 teamwork: memory + task lists are per ROLE (shared by its instances)
+teamwork: roster slim - 6 instance(s)
+teamwork: folded lanes (no seat, no separate charter to load): product-manager, project-manager, release-engineer, designer, technical-writer, data-engineer, security-auditor, cto, coo, cfo
   - ceo              shared: .pi/Teamwork/Teams/Demo/Roles/CEO  instances: CEO
   - architect        shared: .pi/Teamwork/Teams/Demo/Roles/Architect  instances: Architect
-  - product-manager  shared: .pi/Teamwork/Teams/Demo/Roles/ProductManager  instances: ProductManager
-  - project-manager  shared: .pi/Teamwork/Teams/Demo/Roles/ProjectManager  instances: ProjectManager
-  - reviewer         shared: .pi/Teamwork/Teams/Demo/Roles/Reviewer  instances: Reviewer-1
-  - developer        shared: .pi/Teamwork/Teams/Demo/Roles/Developer  instances: Developer-1
-  - tester           shared: .pi/Teamwork/Teams/Demo/Roles/Tester  instances: Tester-1
+  - developer        shared: .pi/Teamwork/Teams/Demo/Roles/Developer  instances: Developer
+  - tester           shared: .pi/Teamwork/Teams/Demo/Roles/Tester  instances: Tester
+  - reviewer         shared: .pi/Teamwork/Teams/Demo/Roles/Reviewer  instances: Reviewer-1, Reviewer-2
 
 teamwork: created AGENTS.md
 ```
 
-Add a second Reviewer (`reviewer-2`) whenever you want one Reviewer to verify and
-a different one to merge; with a single Reviewer the tool records the combined
+The default tier is deliberately small: two Reviewers (one verifies, a different
+one merges) and the lanes the gates cannot do without. `--roster standard` adds
+the Product Manager, Project Manager and Release Engineer, `--roster full` adds
+the remaining seven, and `--agents` takes an exact list.
+
+With a single Reviewer the tool records the combined
 duty as an explicit exception.
 
 `teamwork agents-md` writes or patches the constitution in an existing project, so

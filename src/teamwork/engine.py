@@ -66,6 +66,7 @@ from .config import (
     DEFAULT_BASE,
     DEFAULT_PROVIDER_LIMITS,
     DEFAULT_REQUIRED_LAYERS,
+    DEFAULT_ROSTER_TIER,
     DIR_AGENTS,
     DIR_ARTIFACTS,
     DIR_DOCS,
@@ -113,6 +114,9 @@ from .config import (
     REVIEW_FAIL_LIMIT,
     REVIEW_STATUSES,
     ROLES_DIR,
+    ROSTER_INSTANCE_COUNT,
+    ROSTER_REQUIRED,
+    ROSTER_TIERS,
     SCRATCH_DIRS,
     SCRATCH_PATTERNS,
     SETTINGS_NON_PROVIDER,
@@ -315,6 +319,10 @@ __all__ = [
     "LAYER_OWNER",
     "LAYER_WHAT",
     "DEFAULT_REQUIRED_LAYERS",
+    "DEFAULT_ROSTER_TIER",
+    "ROSTER_INSTANCE_COUNT",
+    "ROSTER_REQUIRED",
+    "ROSTER_TIERS",
     "ALL_LAYERS_SENTINEL",
     "LAYER_CELL",
     "TEST_STATUSES",
@@ -3381,12 +3389,64 @@ def cmd_commit(args) -> int:
 # --------------------------------------------------------------------------- #
 
 
+def expand_roster(tier: str) -> dict:
+    """Instances, roles and the gates a tier leaves uncovered.
+
+    A tier is the supported way to staff a project: listing fifteen roles by hand
+    was the default, and each one costs a charter copy, a shared queue, two memory
+    files and the startup read. The expansion states what the tier gives up so the
+    CEO records the omission instead of discovering it in `tests plan`.
+    """
+    roles = list(ROSTER_TIERS.get(tier, ROSTER_TIERS[DEFAULT_ROSTER_TIER]))
+    instances = []
+    for role in roles:
+        count = ROSTER_INSTANCE_COUNT.get(role, 1)
+        for n in range(1, count + 1):
+            # Numbered roles are numbered from 1 so `reviewer-1` exists by that name.
+            instances.append(role if count == 1 else f"{role}-{n}")
+    missing = [r for r in ROSTER_REQUIRED if r not in roles]
+    folded = {
+        "product-manager": "requirements ride with the CEO",
+        "project-manager": "plan and board ride with the CEO",
+        "release-engineer": "release and CI ride with the CEO",
+        "designer": "ui layer unstaffed",
+        "technical-writer": "docs layer unstaffed",
+        "data-engineer": "data layer unstaffed",
+        "security-auditor": "security layer unstaffed",
+        "cto": "tech layer unstaffed",
+        "coo": "process layer unstaffed",
+        "cfo": "cost layer unstaffed",
+    }
+    return {
+        "tier": tier,
+        "roles": roles,
+        "instances": instances,
+        "missing_required": missing,
+        "unstaffed": [r for r in folded if r not in roles],
+    }
+
+
+def roster_for(names: list) -> dict:
+    """Describe an explicit roster the same way a tier is described."""
+    roles = []
+    for name in names:
+        role = resolve_role(name)
+        if role not in roles:
+            roles.append(role)
+    missing = [r for r in ROSTER_REQUIRED if r not in roles]
+    return {"tier": "explicit", "roles": roles, "instances": names, "missing_required": missing}
+
+
 def cmd_init(args) -> int:
     root = project_root(args)
     project = project_of(root)
     names = [n.strip() for n in (args.agents or "").split(",") if n.strip()]
-    if not names:
-        names = ["ceo"]
+    if names:
+        roster = roster_for(names)
+    else:
+        tier = getattr(args, "roster", DEFAULT_ROSTER_TIER) or DEFAULT_ROSTER_TIER
+        roster = expand_roster(tier)
+        names = roster["instances"]
     root.mkdir(parents=True, exist_ok=True)
     (root / DIR_RUNTIME / DIR_LOCKS).mkdir(parents=True, exist_ok=True)
     (root / DIR_RUNTIME / DIR_SLOTS).mkdir(parents=True, exist_ok=True)
@@ -3517,6 +3577,12 @@ def cmd_init(args) -> int:
     print(f"teamwork: workspace ready at {root}")
     print(f"teamwork: global memory {gpath}")
     print("teamwork: memory + task lists are per ROLE (shared by its instances)")
+    print(f"teamwork: roster {roster.get('tier', 'explicit')} - {len(names)} instance(s)")
+    folded = roster.get("unstaffed") or []
+    if folded:
+        print("teamwork: folded lanes (no seat, no separate charter to load): " + ", ".join(folded))
+    for role in roster.get("missing_required") or []:
+        print(f"teamwork: WARNING the roster has no '{role}': that gate cannot be closed")
     for role in roles_seen:
         inst = instances_of(root, role)
         print(f"  - {role:16s} shared: {role_dir(root, role)}  instances: {', '.join(inst)}")
@@ -7488,33 +7554,46 @@ def _print_dispute(d: dict) -> None:
         print(f"    ruling: signed=[{', '.join(d['signed'])}] {d['decision']}")
 
 
-def required_tribunal(root: Path, dispute: dict = None) -> list:
-    """CEO plus whichever of CTO/CFO are staffed.
+def _dispute_parties(dispute: dict = None) -> set:
+    """The roles a dispute is between; neither may rule it."""
+    if not dispute:
+        return set()
+    return {
+        resolve_role(dispute.get("raised_by") or ""),
+        resolve_role(dispute.get("against") or ""),
+    }
 
-    If the CEO is a party to the dispute, the Reviewer joins as an independent
-    arbiter, so the tribunal never rules on the CEO's own case.
+
+def required_tribunal(root: Path, dispute: dict = None) -> list:
+    """The roles that must sign a ruling: at least two, and never only a party.
+
+    The CEO always sits. CTO and CFO join when staffed. The Reviewer takes the
+    remaining neutral seat, because a slim roster staffs neither CTO nor CFO and a
+    panel of one would let the CEO sign and resolve their own case. A role that is
+    itself a party never sits, so a ruling is never issued by the side it decides
+    for. Only roles that really have an instance are returned - an invented signer
+    cannot sign and would deadlock every escalated dispute.
     """
-    members = ["ceo"]
-    for role in ("cto", "cfo"):
-        if instances_of(root, role):
-            members.append(role)
-    if dispute:
-        parties = {
-            resolve_role(dispute.get("raised_by") or ""),
-            resolve_role(dispute.get("against") or ""),
-        }
-        if "ceo" in parties and instances_of(root, "reviewer"):
+    parties = _dispute_parties(dispute)
+    members = [r for r in ("ceo", "cto", "cfo") if r not in parties and instances_of(root, r)]
+    if len(members) < TRIBUNAL_MIN_SIGNERS and "reviewer" not in parties:
+        if instances_of(root, "reviewer"):
             members.append("reviewer")
     return members
 
 
-def _dispute_tribunal_notice(d: dict) -> None:
+def _dispute_tribunal_notice(root: Path, d: dict) -> None:
+    members = required_tribunal(root, d)
     print("teamwork: this dispute needs the tribunal - escalate it now.")
     print(f"  {d['id']}: {d['topic']}")
     print(f"  1) python3 teamwork.py dispute escalate {d['id']} --by {d['raised_by']}")
-    print("  2) the tribunal discusses and each signs:")
-    print(f"     dispute sign {d['id']} --by ceo|cto|cfo")
-    print(f"  3) dispute resolve {d['id']} --by ceo --decision '<binding ruling>'")
+    print(f"  2) the tribunal ({', '.join(members)}) discusses and each signs:")
+    print(f"     dispute sign {d['id']} --by {'|'.join(members)}")
+    signers = [r for r in members if r not in _dispute_parties(d)] or members
+    if signers:
+        print(f"  3) dispute resolve {d['id']} --by {signers[0]} --decision '<binding ruling>'")
+    else:
+        print("  3) nobody independent is staffed: add a reviewer, then resolve")
     print("  4) record the ruling in docs/Team/Decisions.md")
     print("  The ruling is final: the losing side implements it and says so in its report.")
 
@@ -7569,7 +7648,7 @@ def cmd_dispute_round(args) -> int:
             d["escalated"] = True
             d["updated"] = today_iso()
             write_disputes(path, disputes)
-            _dispute_tribunal_notice(d)
+            _dispute_tribunal_notice(root, d)
             return 2
         d["rounds"].append(
             {"n": next_round, "by": args.by, "date": today_iso(), "text": args.message}
@@ -7583,7 +7662,7 @@ def cmd_dispute_round(args) -> int:
     print(f"teamwork: {d['id']} round {next_round}/{MAX_ROUNDS} by {args.by}")
     if next_round >= MAX_ROUNDS:
         print("teamwork: this was the final round. If the two of you still disagree, escalate now.")
-        _dispute_tribunal_notice(d)
+        _dispute_tribunal_notice(root, d)
     return 0
 
 
@@ -7604,7 +7683,7 @@ def cmd_dispute_escalate(args) -> int:
         write_disputes(path, disputes)
     ledger_append(root, "dispute.escalate", args.by, d["id"], f"to the tribunal: {d['topic']}")
     print(f"teamwork: {d['id']} escalated by {args.by} to the CEO+CTO+CFO tribunal")
-    _dispute_tribunal_notice(d)
+    _dispute_tribunal_notice(root, d)
     return 0
 
 
@@ -7642,10 +7721,7 @@ def cmd_dispute_resolve(args) -> int:
     root = project_root(args)
     actor, arole = validate_actor(root, args.by, "tribunal member")
     args.by = actor
-    if arole not in required_tribunal(root):
-        die(f"only the tribunal may resolve: {', '.join(required_tribunal(root))}")
     path = disputes_path(root)
-    _resolve_actor_role = arole
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "disputes.lock"):
         disputes = parse_disputes(path)
         idx = find_dispute(disputes, args.id)
@@ -7653,9 +7729,42 @@ def cmd_dispute_resolve(args) -> int:
             die(f"no dispute '{args.id}'")
         d = disputes[idx]
         who = resolve_role(args.by)
+        # Gate on the panel this dispute actually has, not on the staffed roles in
+        # general: a party is dropped from the panel, so the no-dispute list would
+        # admit the party and lock out the neutral signer that signing accepted.
+        panel = required_tribunal(root, d)
+        if arole not in panel:
+            die(f"only the tribunal may resolve: {', '.join(panel)}")
+        parties = {
+            resolve_role(d.get("raised_by") or ""),
+            resolve_role(d.get("against") or ""),
+        }
+        if who in parties:
+            # A dispute is never decided by the side it decides for. Escalate it so a
+            # neutral member signs first; forcing it needs a written reason (F3).
+            what = (
+                f"{d['id']}: {who} is a party to this dispute and cannot rule it. "
+                f"Escalate it and let {', '.join(required_tribunal(root, d))} decide"
+            )
+            if not (args.force or "").strip():
+                die(f"{what}. Forcing it needs a written reason.", 2)
         if d["escalated"]:
             members = required_tribunal(root, d)
             missing = [r for r in members if r not in d["signed"]]
+            if not members and not (args.force or "").strip():
+                # Every role that could sign is a party: nobody independent is left.
+                die(
+                    f"{d['id']}: no independent signer exists (every staffed panel "
+                    "role is a party). Staff a reviewer, or pass --force '<why no "
+                    "independent ruling is possible>'.",
+                    2,
+                )
+            if len(members) < TRIBUNAL_MIN_SIGNERS:
+                print(
+                    f"teamwork: WARNING {d['id']}: the ruling comes from a "
+                    f"{len(members)}-member panel ({', '.join(members)}); no "
+                    "CTO/CFO/Reviewer is staffed as an independent signer.",
+                )
             if missing and not args.force:
                 die(
                     f"{d['id']} is an escalated dispute: "
@@ -8241,8 +8350,16 @@ def _parsers_workspace(sub, common) -> None:
         "--agents",
         default="",
         help="comma-separated agent instance names, e.g. "
-        "ceo,cto,coo,cfo,architect,product-manager,project-manager,"
-        "designer-1,developer-1,tester-1",
+        "ceo,architect,developer-1,tester-1,reviewer-1,reviewer-2",
+    )
+    s.add_argument(
+        "--roster",
+        default=DEFAULT_ROSTER_TIER,
+        choices=list(ROSTER_TIERS),
+        help=(
+            f"who to staff when --agents is omitted (default: "
+            f"{DEFAULT_ROSTER_TIER}; tiers: {', '.join(ROSTER_TIERS)})"
+        ),
     )
     s.add_argument("--force", action="store_true", help="overwrite existing files")
     s.add_argument("--no-git", action="store_true", help="do not create/check the git repository")
