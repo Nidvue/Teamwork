@@ -7,82 +7,135 @@ Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.m
 The team is a **protocol**, not a product feature. Everything normative in this
 skill - the workspace format, acceptance-criteria records, the two-stage gate,
 the hash-chained ledger, the test-layer matrix, `AGENTS.md` - is host-independent
-and lives in files the team owns. Only six operations need a host to provide a
-mechanism, and this file maps each one to the concrete tool of a given host.
+and lives in files the team owns. Only six operations need a mechanism, and the
+engine now provides all six itself:
 
-Never hard-code a host tool in a normative step. Name the operation, then use the
-adapter. If a host cannot provide an operation, use its documented degraded mode -
-the gates still hold, only the concurrency drops.
-
-This file is the only **adoption surface** that names a concrete host. Every other surface
-(`SKILL.md`, README, install guide, quickstart) describes one generic protocol and
-points here, so a new host is a new column, never a rewrite of the instructions.
-
-## The six operations
-
-| # | Operation | What the team needs |
+| # | Operation | Engine mechanism |
 |---|---|---|
-| 1 | **Spawn a teammate** | start a long-lived agent with a persona and its own context |
-| 2 | **Delegate one-shot work** | run a bounded, isolated task and take its result |
-| 3 | **Message an agent** | send a direct or broadcast instruction |
-| 4 | **Inspect teammate state** | see who is idle, busy, stuck; read their last output |
-| 5 | **Re-wake on a schedule** (pulse) | periodic trigger to feed idle lanes |
-| 6 | **Close the team** | stop the teammates and release the lanes |
+| 1 | **Spawn a teammate** | `teamwork.py lane start --agent <instance>` - one detached child process, its packet and its record |
+| 2 | **Delegate one-shot work** | the same `lane start --task <T-id>` / `--prompt-file <packet>` |
+| 3 | **Message an agent** | `Agents/<Name>/Inbox.md` (always was a file), read at the start of every run |
+| 4 | **Inspect teammate state** | `teamwork.py lane list|status|logs`, `pulse`, `board`, `WorkLog.md` |
+| 5 | **Re-wake on a schedule** | `teamwork.py swarm run` (waves until idle) and `pulse --commit` (one wake) |
+| 6 | **Close the team** | `teamwork.py lane stop <run>` per live lane, then the final report |
 
-## Host mapping
+A host is now only a **launcher**: a CLI that accepts a prompt and exits. That one
+fact is the whole adapter surface - the engine detects the host, or takes a
+template. Nothing in a normative step depends on a plugin, an extension, or a
+host-private teammate tool.
 
-| Operation | Pi | Claude Code | opencode | Codex / Cursor / Windsurf / Gemini CLI | Generic (no agent runtime) |
-|---|---|---|---|---|---|
-| 1 spawn | `subagent({agent, task})` - one call per lane, `async: true` keeps the CEO free while it runs; a *persistent* teammate needs a teams-style extension, the default host gives bounded runs | `Agent`/`Task` tool with a `.claude/agents/<name>.md` persona | `.opencode/agent/<name>.md` + the Task tool | run the CLI as a subprocess (`codex exec`, `cursor-agent`) | `bash` background process + a prompt file |
-| 2 one-shot | `subagent({agent,task})` | `Task` tool, single agent | Task tool / a separate `opencode run` | `codex exec "<task>"` | one `bash` invocation, result to a file |
-| 3 message | child to parent: `contact_supervisor` / `subagent_supervisor({action:"reply"})`; parent to child: `subagent({action:"steer"/"resume", id, message})` | `SendMessage` / prompt injection | agent-to-agent message | write to the agent's inbox file | append to `Agents/<Name>/Inbox.md` |
-| 4 inspect | `subagent({action:"status", id})` and `subagent_supervisor({action:"list"/"pending"})` for the runs | agent status / task list | session list | process list + worklog | `teamwork.py board` + `pulse` + `WorkLog.md` |
-| 5 pulse | `subagent({action:"schedule.create", options:{every:"5m"}})` | no built-in scheduler: `Bash` background loop, `/loop`, or host `cron` running `claude -p` | no scheduler: `cron`/systemd running `opencode run` | host `cron` / `watch` / CI schedule | `cron`, `systemd` timer, or a `while` loop running `teamwork.py pulse --commit` |
-| 6 close | a bounded run ends with its own task; stop a live one with `subagent({action:"stop", id})` and list what still runs with `subagent_supervisor({action:"list"})` | stop the subagents / end the session | stop sessions | kill the processes | `pkill` the lanes, `teamwork.py clean --team-wide` |
-| skill install | `~/.pi/agent/skills/<name>/SKILL.md` | `.claude/skills/<name>/SKILL.md` (Agent Skills format - this file already matches: `name` + `description` frontmatter) | `AGENTS.md` + `.opencode/command/<name>.md` | `AGENTS.md` (every one of these reads it) | `AGENTS.md` + this directory |
+## Host mapping for operation 1
 
-The Pi column was verified against the installed `pi-subagents` package on
-2026-10-19 (pi 1.3.0): it exposes `subagent`, `subagents_enable`,
-`subagent_supervisor`, `contact_supervisor` and `structured_output`, and **no
-`teams(...)` tool**. A host that does provide a teams-style tool maps the same
-four operations to
-`teams({action:"delegate"/"message_dm"/"member_status"/"team_done"})`.
+| Host | Default launcher | Notes |
+|---|---|---|
+| Pi | `pi -p --no-session [--provider P] [--model M] "<packet>"` | `--session-id` instead of `--no-session` with `lane start --resume` |
+| Claude Code | `claude -p [--model M] "<packet>"` | |
+| opencode | `opencode run [--model M] "<packet>"` | |
+| Codex | `codex exec [--model M] "<packet>"` | |
+| Gemini CLI | `gemini -p [--model M] "<packet>"` | |
+| Cursor | `cursor-agent -p "<packet>"` | |
+| Generic (no agent runtime) | `TEAMWORK_LANE_CMD` / `LaneCommand` | a template split **without a shell**; the fallback every host has |
 
-`AGENTS.md` at the project root is the universal contract: Claude Code, opencode,
-Codex, Cursor, Windsurf, Gemini CLI, Aider and Pi all read it. Write the team
-constitution there once (`teamwork.py agents-md`) and every host inherits it.
+The template takes whole-argument placeholders - `{prompt}` `{packet}` `{log}`
+`{agent}` `{model}` `{provider}` `{cwd}` `{run}` - for example
+`"my-agent --task {packet} {model}"`. With no placeholder the prompt is appended
+as the last argument. `LaneHost` pins the detected host; `TEAMWORK_AGENT_HOST`
+does the same from the environment.
+
+A host that offers a native teammate tool - a `subagent(...)` call, a `teams(...)`
+call, a `schedule.create` entry - may still use it as an accelerator. It is never
+required:
+the engine's lane runtime is the mechanism, and a host tool that disappears must
+not remove parallelism. When a host tool *is* used, the lane still takes its work
+with `task next` or `review --claim`, so the board - not the tool - decides who
+owns what.
+
+## How a lane runs
+
+1. **The board decides who works.** `swarm run` computes a wave from the records:
+   ready tasks by priority, unclaimed reviews, free provider slots, unfinished
+   assignments. A wave is a fact about the board at that moment, never a plan
+   written in advance.
+2. **One lane, one assignment.** A lane is one child process with its own context;
+   a wave hands each idle instance one unit and fans the rest out to other idle
+   instances. `LANE_WIP` still lets a lane the CEO dispatches hold two units in its
+   own run - that is a different shape from a supervised wave.
+3. **The wave is sized by the work.** Ready tasks and unclaimed reviews are
+   weighted 1 (prose), 2 (code) and 3 (security/release/data, +1 for a bug); the
+   wave runs `ceil(weight / 3)` lanes, re-measured every wave and bounded by the
+   free provider slots and `LaneMax`. One prose task is one lane; a board of code
+   fans out. A unit's own budget follows its profile (10/10, 16/25, 24/40 tool
+   calls/minutes), so a lane is never given a deep unit's time for a prose edit.
+4. **The packet is the prompt.** `Agents/<Instance>/Runs/<run>.md` names the
+   assignment, the charter, the exact commands, the budget and the result contract
+   (`LANE-RESULT: <ok|blocked|failed> ...`). The packet is written before the
+   process starts, so it is auditable even when the lane dies.
+5. **The record is the state.** `Runtime/Lanes/<run>.json` carries the pid, the
+   provider lease, the budget deadline, and the outcome; `Runtime/Lanes/<run>.outcome.json`
+   is written by the wrapper (`teamwork.lanerun`) with the exit status. A missing
+   outcome with a dead pid reads as `lost`, never as success.
+6. **The supervisor does not need to survive.** A lane keeps running when the CLI
+   exits, and a later `lane reap` / `swarm run` reconciles it from the records.
+7. **An unfinished assignment is retried, then left to the CEO.** `LaneAttempts`
+   (default 2) bounds the retries; progress is read from the task record
+   (self-check, PR, status), never from an exit code. Past the budget the claim
+   stays on the board and the CEO decides.
+8. **A claim with no live lane is adopted.** `pulse --commit` (or a lane that
+   died) can leave a claim owned by an instance with no process behind it; the
+   supervisor launches it for that instance instead of planning around it, but only
+   while the attempt budget allows. That is what makes `pulse --commit --spawn`
+   one safe command.
+9. **A review becomes a lane.** When a deliverable reaches `review`, the next wave
+   claims it for a Reviewer instance and starts that lane - the dynamic hand-off
+   the protocol depends on.
+
+## Settings and environment
+
+| Key | Default | Meaning |
+|---|---|---|
+| `LaneMinutes` / `TEAMWORK_LANE_MINUTES` | 25 | wall-clock budget per lane; the wrapper kills it and records `timeout` |
+| `LaneAttempts` | 2 | attempts per assignment before the CEO is asked |
+| `LaneToolBudget` | 16 | tool calls the packet allows |
+| `LanePollSeconds` / `TEAMWORK_LANE_POLL` | 2 | supervisor poll interval |
+| `LaneMax` | 8 | ceiling on lanes per wave, whatever the measured complexity |
+| `LaneHost` / `TEAMWORK_LANE_HOST` | detected | which host's CLI to launch |
+| `LaneCommand` / `TEAMWORK_LANE_CMD` | - | launcher template, overrides the host |
+| `SwarmMinutes` | 60 | swarm budget; `swarm run --minutes 0` means none |
+
+Every lane child gets `TEAMWORK_ROOT`, `TEAMWORK_TEAM`, `TEAMWORK_LANE` and
+`TEAMWORK_LANE_AGENT`, so an instance started from any cwd acts on this team.
 
 ## Degraded modes (still complete, just slower)
 
-- **No scheduler** (operation 5): run `teamwork.py pulse --commit` on a host `cron`
-  entry, or have the CEO re-issue the pulse prompt at milestones, or simply have
-  each lane self-serve with `teamwork.py task next <name>` between turns. The rule
-  "never let an idle lane sit while runnable work exists" is unchanged; only the
-  automation of the wake-up differs.
-- **No teammate tool** (operation 1/2): the same role charters are executed
-  sequentially by one agent that switches hats, claiming tasks from the same
-  shared queues. The evidence gates, the Reviewer separation and the ledger are
-  unaffected - which is the point: the protocol does not depend on parallelism.
-- **No message tool** (operation 3): the mailbox is already a file
+- **No launcher for the host** (operation 1/2): the same role charters are
+  executed sequentially by one agent that switches hats, claiming tasks from the
+  same shared queues. The evidence gates, the Reviewer separation and the ledger
+  are unaffected - which is the point: the protocol does not depend on parallelism.
+- **No scheduler** (operation 5): `pulse --commit` once per wake by hand, or let
+  every lane self-serve with `task next` between turns. The rule "never let an
+  idle lane sit while runnable work exists" is unchanged; only the automation of
+  the wake-up differs.
+- **No message tool** (operation 3): the mailbox is a file
   (`Agents/<Name>/Inbox.md`); writing to it is a valid message on every host.
-- **No `teams` tool**: spawn with the host's own CLI in a `bash` job and point it
-  at `Agents/<Name>/StartHere.md` - the startup routine is identical.
-- **Only bounded runs** (Pi's `subagent`, a CLI job): fan the lanes out as
-  concurrent calls instead of persistent teammates - one Reviewer instance per
-  call, each starting from its own `StartHere.md`. Bounded runs cannot see each
-  other, so the **board is what keeps them apart**: the CEO fans deliverables out
-  with `pulse --commit` and every lane takes work with
-  `review ... --claim --by <lane>` / `task next`, which is exactly why a claim is
-  a record and not a handshake. Two Reviewer lanes that skip the claim will
-  review the same deliverable twice.
+- **A bounded host run** (`pi -p`, a CLI job): fan the lanes out as concurrent
+  processes instead of persistent teammates - one Reviewer instance per lane, each
+  starting from its own packet. Bounded runs cannot see each other, so the **board
+  is what keeps them apart**: the CEO fans deliverables out with `pulse --commit`
+  or `swarm run`, and every lane takes work with `task next` /
+  `review ... --claim --by <lane>`, which is exactly why a claim is a record and
+  not a handshake. Two Reviewer lanes that skip the claim will review the same
+  deliverable twice.
+- **No `teams` tool**: nothing is lost - a team-style tool maps onto the four
+  operations the engine already implements (`lane start`, `Inbox.md`, `lane
+  status`, `lane stop`).
 
 ## Host detection also drives model routing
 
-The same detection that picks the adapter picks the model: `teamwork.py model auto`
-reads the host (pi, claude, opencode, codex, cursor, gemini) and the model that host
-exposes, then routes the strongest available model to the decision lanes and the
-economy model to the mechanical lanes; `TEAMWORK_AGENT_HOST` pins the detection when
-the markers are ambiguous. Policy: [Concurrency](Concurrency.md).
+The same detection that picks the launcher picks the model: `model auto` reads
+the host (pi, claude, opencode, codex, cursor, gemini) and the model
+that host exposes, then routes the strongest available model to the decision lanes
+and the economy model to the mechanical lanes; `TEAMWORK_AGENT_HOST` pins the
+detection when the markers are ambiguous. Policy: [Concurrency](Concurrency.md).
 
 ## The skill copy is the thing that runs
 
@@ -105,12 +158,15 @@ required after a write and the command says so.
 ## Rules
 
 1. **The engine is the constant.** `teamwork.py` (stdlib only, Python 3.11-3.13) is
-   the only thing a host must be able to run. It never calls a host API.
+   the only thing a host must be able to run. It never calls a host API; it starts
+   a host CLI as a child process.
 2. **State lives in git and in `.pi/`.** Nothing important lives in a host's
-   private memory: a teammate that dies and is respawned on another host resumes
-   from `StartHere.md`, the task queue and the ledger.
+   private memory: a lane that dies and is respawned resumes from its packet, the
+   task queue and the ledger.
 3. **One voice to the user** stays true on every host: only the CEO reports.
-4. **A missing capability is not a red line.** Record the adapter used and the
-   degradation in the task evidence; never fake a tool call that the host lacks.
-5. **Adding a host** means adding a column here plus a smoke test that the six
-   operations exist in some form - not changing the protocol.
+4. **Never hard-code a host tool in a normative step**, and never fake one the
+   host lacks. A missing capability is not a red line: record the adapter used and
+   the degradation in the task evidence.
+5. **Adding a host** means adding a launcher row (or a `LaneCommand` template)
+   plus a smoke test that a lane started and reconciled - not changing the
+   protocol.

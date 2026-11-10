@@ -64,12 +64,11 @@ scope -> lint -> committer-guard -> typecheck -> test -> build -> privacy
       -> release-consistency -> docs
 ```
 
-`scope` is the classifier the rest hang off. The logic lives in
-`scripts/ci_scope.py`; the `scope` job runs it with the event, ref and push range,
-and it answers two questions: `code` (did anything that ships change?) and `prose`
-(did anything in the documentation set below change?). They are separate because a
-prose-only push answers them differently - `code=false`, `prose=true` - and the
-jobs they gate must be a different set.
+`scope` is the classifier the rest hang off, and it answers two questions: `code`
+(did anything that ships change?) and `prose` (did anything in the documentation
+set below change?). They are separate because a prose-only push answers them
+differently - `code=false`, `prose=true` - and the jobs they gate must be a
+different set.
 
 * `lint`, `typecheck`, `test` and `build` follow `code`. A prose-only push skips
 them: nothing they read changed.
@@ -82,12 +81,11 @@ check plus the strict site build of the very pages the push edited.
 tagged commit already passed the matrix as a `main` push (neither of those two
 jobs is filtered by `scope`, so neither can be skipped).
 
-Prose is exactly `scripts/ci_scope.py::prose_paths()`: `docs/`, `assets/`, and
-these root files - `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`,
-`CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`, `mkdocs.yml`. There
-is no `*.md` wildcard. The `paths:` list of `docs.yml` is pinned to those globs by
-`tests/unit/test_ci_scope.py`, so a path that leaves one list without joining the
-other fails a test instead of becoming a hole in a gate.
+Prose is exactly this set: `docs/`, `assets/`, and these root files - `README.md`,
+`CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
+`CITATION.cff`, `LICENSE`, `AGENTS.md`, `mkdocs.yml`. There is no `*.md` wildcard.
+The `PROSE` pattern in `ci.yml` and the `paths:` list of `docs.yml` must hold the
+same set, so this is the whole story.
 
 **`SKILL.md` is not prose.** It ships inside the wheel (`pyproject.toml`,
 `[tool.hatch.build.targets.wheel.force-include]`: `"SKILL.md" =
@@ -101,7 +99,7 @@ configure the build. `NOTICE` beside `LICENSE` is the asymmetry to remember:
 
 | Job | Matrix | Step |
 |---|---|---|
-| `scope` | ubuntu | `scripts/ci_scope.py` classifies the changed paths and publishes `code=true/false` and `prose=true/false` |
+| `scope` | ubuntu | classifies the changed paths and publishes `code=true/false` and `prose=true/false` |
 | `lint` | ubuntu | `ruff check .`, then `ruff format --check .`, then `python scripts/check_comments.py` (the no-comment rule), then the commit identity audit on a full-history checkout |
 | `committer-guard` | ubuntu | `teamwork.py identity --guard-committer --range ...` on every push, naming a forge-stamped committer before it reaches `main` |
 | `typecheck` | ubuntu | `mypy src/teamwork` with `continue-on-error: true` - a report, not a gate |

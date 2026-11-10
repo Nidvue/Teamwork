@@ -1,21 +1,21 @@
 """Integration: the ci-release surface, executed instead of read.
 
 `tests/unit/test_ci_contracts.py` asserts the *shape* of `ci.yml` from its text,
-and `tests/integration/test_ci_scope_flow.py` runs the classifier on single change
-sets. Two claims are still unproved there, and both are the kind that only bites
-after a push:
+and `tests/integration/test_ci_scope_classifier.py` runs the classifier on single
+change sets. Two claims are still unproved there, and both are the kind that only
+bites after a push:
 
 1. **The prose set and the `docs.yml` trigger list are the same set.** A path that
    leaves one list without joining the other is a hole in one of the two gates:
    prose classified as code burns the 3x3 matrix, code classified as prose skips
    it. The unit side of this claim is a *paper* comparison: `test_skill_contracts`
-   reads the classifier's prose set and compares it with the globs in
-   `docs.yml`'s `paths:` list - two lists that agree on paper can still disagree
-   about a real path, and no unit test says what the shipped classifier prints.
-   This module compares their *behaviour*: it materialises one real file per
-   entry of the `docs.yml` list and per entry of the classifier's prose set, one
-   real file per near-miss boundary, runs the shipped classifier on each
-   single-path git change set, and requires the verdict to equal `docs.yml`'s
+   expands the `PROSE` alternation into globs and compares that pattern set with the
+   globs in `docs.yml`'s `paths:` list - two lists that agree on paper can still
+   disagree about a real path, and no unit test says what the shipped classifier
+   prints. This module compares their *behaviour*: it materialises one real file per
+   entry of the `docs.yml` list and per alternative of the `PROSE` regex the `scope`
+   job carries, one real file per near-miss boundary, runs the shipped classifier on
+   each single-path git change set, and requires the verdict to equal `docs.yml`'s
    answer in both directions. The probe set is built from the shipped files, never
    only from the pair under test, so an entry deleted from *either* side is still
    probed and reported. The comparison is then shown to bite: dropping one entry
@@ -40,11 +40,16 @@ import sys
 from pathlib import Path
 
 import pytest
-from test_ci_scope_flow import classify, commit, load_module, new_repo
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
-SCRIPT = REPO_ROOT / "scripts" / "ci_scope.py"
+from test_ci_scope_classifier import (
+    CI_WORKFLOW,
+    REPO_ROOT,
+    SCOPE_STEP,
+    classify,
+    commit,
+    extract_run_block,
+    new_repo,
+    write_script,
+)
 
 DOCS_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "docs.yml"
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
@@ -114,9 +119,28 @@ CODE_PROBES = (
 )
 
 
-def prose_paths(script: Path) -> list[str]:
-    """The prose set the shipped classifier module implements."""
-    return list(load_module(script).prose_paths())
+PROSE_REGEX_RE = re.compile(r"PROSE='(?P<regex>[^']*)'")
+
+
+def prose_alternatives(ci_text: str) -> list[str]:
+    """The alternatives of the `PROSE` regex the shipped `scope` job carries."""
+    match = PROSE_REGEX_RE.search(ci_text)
+    assert match is not None, "ci.yml: the scope job no longer states a `PROSE` regex"
+    body = match.group("regex").strip()
+    if body.startswith("^(") and body.endswith(")$"):
+        body = body[2:-2]
+    elif body.startswith("^") and body.endswith("$"):
+        body = body[1:-1]
+    alternatives = [alt for alt in body.split("|") if alt]
+    assert alternatives, "ci.yml: the `PROSE` regex has no alternatives"
+    return alternatives
+
+
+def sample_for_prose(alternative: str) -> str:
+    """A concrete changed path that one `PROSE` alternative matches."""
+    if alternative.endswith("/"):
+        return alternative + "probe/page.md"
+    return alternative.rstrip("$").replace("\\.", ".")
 
 
 def verdict(tmp_path: Path, repo: Path, script: Path, before: str, head: str) -> str:
@@ -127,39 +151,47 @@ def verdict(tmp_path: Path, repo: Path, script: Path, before: str, head: str) ->
     would be committed and would turn the next change set into a two-path diff - a
     defect in the harness that reads exactly like a defect in the classifier.
     """
-    return classify(repo, script=script, before=before, head=head)["code"]
+    sink = tmp_path / "github-output.txt"
+    return classify(repo, script, before=before, head=head, output_name=str(sink))["code"]
 
 
 def mismatch_report(
     tmp_path: Path,
     *,
-    script: Path | None = None,
+    ci_text: str | None = None,
     docs_text: str | None = None,
     only: tuple[str, ...] | None = None,
 ) -> list[str]:
     """Compare the classifier's verdict with `docs.yml`'s answer for every probe.
 
     The trigger side comes from the `docs.yml` text under test; the prose side is
-    read out of the *shipped classifier module*. Probing both sources is the point:
-    the shipped prose set still names an entry that a real edit removed from
+    read out of the *shipped* `ci.yml` run block. Probing both sources is the point:
+    the shipped prose list still names an entry that a real edit removed from
     `docs.yml`, so the removed path is probed and the disagreement is named.
     Deriving the probe set from the file under test alone, or from a fixed tuple of
     code paths, lets a deletion pass silently - exactly the hole this module exists
     to close.
 
-    ``script`` / ``docs_text`` default to the shipped files and exist so a mutant
+    ``ci_text`` / ``docs_text`` default to the shipped files and exist so a mutant
     can be fed in. ``only`` narrows the probe set to the given paths; the mutant
     tests use it so that the full sweep stays in the one test that needs it and the
     module stays in the seconds, not the minutes. Returns one line per disagreement;
     an empty list means the two lists agree on every probed path.
     """
-    classifier = SCRIPT if script is None else script
+    workflow = CI_WORKFLOW
+    if ci_text is not None:
+        workflow = tmp_path / "ci-mutant.yml"
+        workflow.write_text(ci_text, encoding="utf-8")
     docs = DOCS_WORKFLOW.read_text(encoding="utf-8") if docs_text is None else docs_text
     markers = docs_trigger_markers(docs)
+    script = write_script(tmp_path, extract_run_block(workflow, SCOPE_STEP))
     repo, previous = new_repo(tmp_path, {"README.md": "# root\n"}, name="agreement-repo")
 
     shipped = docs_trigger_markers(DOCS_WORKFLOW.read_text(encoding="utf-8"))
-    prose = [sample_for_marker(marker) for marker in prose_paths(classifier)]
+    prose = [
+        sample_for_prose(alternative)
+        for alternative in prose_alternatives(CI_WORKFLOW.read_text(encoding="utf-8"))
+    ]
     if only is None:
         selected = (*shipped, *markers, *prose)
     else:
@@ -170,7 +202,7 @@ def mismatch_report(
     problems: list[str] = []
     for rel in dict.fromkeys(probes):
         head = commit(repo, {rel: "probe\n"}, message=f"touch {rel}")
-        code = verdict(tmp_path, repo, classifier, previous, head) == "true"
+        code = verdict(tmp_path, repo, script, previous, head) == "true"
         expected = not any(marker_matches(rel, marker) for marker in markers)
         if code != expected:
             problems.append(
@@ -206,18 +238,16 @@ def test_the_agreement_bites_when_the_docs_list_drops_an_entry(tmp_path: Path) -
     )
 
 
-def test_the_agreement_bites_when_the_prose_set_drops_an_entry(tmp_path: Path) -> None:
-    """Delete an entry from the classifier's prose set: same hole, other side."""
-    source = SCRIPT.read_text(encoding="utf-8")
-    mutated = source.replace('    "AGENTS.md",\n', "", 1)
-    assert mutated != source, "the classifier's PROSE_PATHS no longer names AGENTS.md"
-    script = tmp_path / "ci_scope_no_agents.py"
-    script.write_text(mutated, encoding="utf-8")
+def test_the_agreement_bites_when_the_prose_regex_drops_an_entry(tmp_path: Path) -> None:
+    """Delete an entry from the classifier's PROSE regex: same hole, other side."""
+    ci_text = CI_WORKFLOW.read_text(encoding="utf-8")
+    mutated = ci_text.replace(r"AGENTS\.md$|", "", 1)
+    assert mutated != ci_text, "the classifier's PROSE regex no longer carries AGENTS\\.md$"
 
-    problems = mismatch_report(tmp_path, script=script, only=("AGENTS.md",))
+    problems = mismatch_report(tmp_path, ci_text=mutated, only=("AGENTS.md",))
 
     assert any("AGENTS.md" in problem for problem in problems), (
-        "dropping AGENTS.md from the classifier's prose set produced no mismatch, so the "
+        "dropping AGENTS.md from the classifier's PROSE regex produced no mismatch, so the "
         f"comparison does not actually compare: {problems}"
     )
 
