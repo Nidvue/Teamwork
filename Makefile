@@ -58,7 +58,7 @@ build: ## Build the sdist and wheel into dist/.
 verify: ## Build, assert the wheel payload and smoke-test it in a throwaway venv.
 	$(PYTHON) scripts/verify_release.py
 
-package: ## Assemble the pi package (pi-teamwork) under dist/.
+package: ## Assemble the pi package (@nidvue/teamwork) under dist/.
 	$(PYTHON) scripts/build_pi_package.py
 
 sync-skill: ## Mirror this checkout into the installed skill directory.
