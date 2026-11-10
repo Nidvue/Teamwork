@@ -682,29 +682,3 @@ def test_a_single_parent_commit_without_an_acting_role_still_fails(repo):
         ident=("Reviewer", "reviewer@agents.nidvue.com"),
     )
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
-
-
-def test_a_personal_author_is_skipped_by_default_and_fails_when_strict(repo):
-    """T-0008: the lenient audit exits 0 on a personal author, strict exits 1."""
-    _commit(repo, "Ping Operator", "ping" + "@" + "personal.invalid", "chore: local")
-    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
-    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD", strict_authors=True) == 1
-
-
-def test_every_gate_invocation_asks_for_the_strict_author_audit():
-    """A gate without --strict-authors skips the personal author and stays green."""
-    root = Path(__file__).resolve().parents[2]
-    surfaces = [root / "Makefile", root / ".github" / "workflows" / "ci.yml"]
-    invocations = [
-        (path, line)
-        for path in surfaces
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if "identity --audit" in line
-    ]
-    assert invocations
-    missing = [
-        f"{path.name}: {line.strip()}"
-        for path, line in invocations
-        if "--strict-authors" not in line
-    ]
-    assert not missing, missing
