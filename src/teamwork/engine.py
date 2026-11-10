@@ -1287,20 +1287,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 + "\n  commit it on its task branch first (branch start + commit)"
             )
         was_on = current_branch(here)
-        owned = merge_record_paths()
-        rendered = [rel for rel in owned if rel in dirty]
-        if was_on != base and rendered:
-            blocked = (
-                run_git(here, "diff", "--quiet", was_on or "HEAD", base, "--", *rendered).returncode
-                != 0
-            )
-            if blocked:
-                run_git(here, "checkout", "--", *rendered)
-                print(
-                    "# discarded this pass's uncommitted render of "
-                    + ", ".join(rendered)
-                    + f"; it is re-rendered on {base}"
-                )
         base_sha = run_git(here, "rev-parse", base).stdout.strip()
         r = run_git(here, "checkout", base)
         if r.returncode != 0:
@@ -1313,6 +1299,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 2,
             )
         print(archive_ensure_entry(root, role, t, repo=here))
+        owned = merge_record_paths()
         dirty_docs = _uncommitted_paths(here, docs_prefix)
         records = [rel for rel in owned if rel in dirty_docs]
         foreign = [rel for rel in dirty_docs if rel not in owned]
@@ -11884,7 +11871,7 @@ def archive_write_repo(root: Path, t: dict) -> Path:
 
 
 def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = None) -> str:
-    """Guarantee ``repo``'s archive names the task, appending if needed.
+    """Guarantee ``repo``'s archive names the task's branch, appending if needed.
 
     The review pass writes the entry, but it writes it in whatever work tree it
     ran in - historically a lane branch. By merge time the base branch then has
@@ -11893,82 +11880,21 @@ def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = No
     switches to the base: when the entry is already there nothing changes, and
     when it is missing the accepted-results entry is appended on the base and
     rides along in the same ``chore(records)`` commit as the other records.
-
-    A task with no branch is deduplicated by its own heading (``## T-0001 ``)
-    rather than by a ``- branch / merge:`` line, because its entry has no branch
-    to match: it is written once and a second ensure is a no-op.
     """
     branch = (t.get("branch") or "").strip()
+    if not branch:
+        return "# archive: the task has no branch, so no entry was added"
     path = (repo or project_of(root)).joinpath(*DIR_DOCS) / "Archive.md"
-    heading = f"## {t['id']} "
     prefix = "- branch / merge: "
     if path.exists():
-        text = path.read_text(encoding="utf-8")
-        if not branch and any(line.startswith(heading) for line in text.split("\n")):
-            return f"# archive: {t['id']} already has an entry on the base"
-        for line in text.split("\n"):
+        for line in path.read_text(encoding="utf-8").split("\n"):
             if not line.startswith(prefix):
                 continue
             entry_branch, _, _merge = line[len(prefix) :].rstrip().rpartition(" / ")
-            if branch and entry_branch == branch:
+            if entry_branch == branch:
                 return f"# archive: {branch} already has an entry on the base"
     archive_append(root, owner, t, repo=repo)
-    return f"# archive: wrote the accepted-results entry for {branch or t['id']} on the base"
-
-
-def commit_records_entry(root: Path, t: dict, by: str) -> str:
-    """Commit a branchless pass's archive entry on the base branch.
-
-    A task with no branch never reaches ``pr merge``: nothing integrates, so the
-    entry the pass wrote stays uncommitted in whichever work tree held the base
-    and the base archives nothing (L-0001: two accepted deliverables with no
-    entry, restored by a reviewer's hand). The pass commits it itself, with the
-    same ``chore(records)`` commit the merge writes, and only that one path.
-    """
-    repo = archive_write_repo(root, t)
-    base = (t.get("base") or "").strip() or DEFAULT_BASE
-    if current_branch(repo) != base:
-        return (
-            f"# archive: entry written, but {base} is not checked out here, so it "
-            "stays uncommitted until a merge or a rebase lands it"
-        )
-    owned = merge_record_paths()
-    dirty = [rel for rel in owned if rel in _uncommitted_paths(repo)]
-    if not dirty:
-        return "# archive: entry already committed on the base"
-    message = build_commit_message(
-        "reviewer",
-        {
-            "type": "chore",
-            "area": "records",
-            "task": t["id"],
-            "producers": t.get("claimed_by") or by,
-            "goal": f"record the accepted result of {t['id']}",
-            "deliverable": ", ".join(dirty),
-            "why": "a branchless deliverable never merges, so its entry needs its own commit",
-            "status": "recorded",
-            "result": f"review {t.get('review_status')} by {by}",
-        },
-    )
-    run_git(repo, "add", "--", *dirty)
-    committed = subprocess.run(
-        ["git", "-C", str(repo)]
-        + git_identity_args("reviewer")
-        + ["commit", "-q", "-F", "-", "--", *dirty],
-        input=message,
-        capture_output=True,
-        text=True,
-    )
-    if committed.returncode != 0:
-        run_git(repo, "reset", "-q", "--", *dirty)
-        die(
-            "could not commit the accepted-results entry (a hook or config blocked it); "
-            "the entry stays in the work tree for a retry:\n  "
-            + (committed.stderr.strip() or committed.stdout.strip() or "(no output)").replace(
-                "\n", "\n  "
-            )
-        )
-    return f"# archive: committed the accepted-results entry for {t['id']} on {base}"
+    return f"# archive: wrote the accepted-results entry for {branch} on the base"
 
 
 CREDENTIAL_RULES = (
@@ -12765,8 +12691,6 @@ def cmd_review(args) -> int:
                 write_reviews(reviews_path(root), prs)
         if args.result == "pass":
             archived = archive_append(root, role, t)
-            if not (t.get("branch") or "").strip():
-                print(commit_records_entry(root, t, reviewer))
 
     ledger_append(
         root,
