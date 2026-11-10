@@ -923,11 +923,8 @@ jobs:
           version = os.environ["PACKAGE_VERSION"]
           tag = os.environ["TAG_NAME"]
           # The registry is eventually consistent: a version published seconds ago
-          # can still be missing. Poll for a bounded time (4 min) and fail after it.
-          # Measured on release run 41439789453: a fresh 1.5.1 publish was still
-          # E404 at 61 s, so the old 4x20 s window left the run red on a version
-          # that was already published.
-          ATTEMPTS = 12
+          # can still be missing. Poll for a bounded time (~60 s) and fail after it.
+          ATTEMPTS = 4
           RETRY_SECONDS = 20
 
           head = subprocess.run(
@@ -974,13 +971,8 @@ jobs:
               raise SystemExit(1)
 
           recorded = payload.get("version")
-          # `npm view` prints a dotted field as a FLAT key:
-          # {"version": ..., "dist.integrity": ..., "gitHead": ...}. Reading only
-          # a nested "dist" object made every visible version fail with
-          # "dist.integrity is None" (release run 41443890248); accept both shapes.
-          integrity = payload.get("dist.integrity")
-          if integrity is None and isinstance(payload.get("dist"), dict):
-              integrity = payload["dist"].get("integrity")
+          dist = payload.get("dist")
+          integrity = dist.get("integrity") if isinstance(dist, dict) else None
           git_head = payload.get("gitHead")
           problems = []
           if recorded != version:

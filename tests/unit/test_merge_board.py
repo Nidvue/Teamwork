@@ -302,7 +302,7 @@ def test_a_board_render_that_cannot_land_is_reported_without_un_recording_the_me
     ship(cli, project)
     main_before_board = engine.run_git(project, "show", f"main:{BOARD}").stdout
 
-    def explode(tasks, board, root=None):
+    def explode(tasks, board):
         raise ValueError("queues are unreadable in this test")
 
     monkeypatch.setattr(engine.boardlib, "render", explode)

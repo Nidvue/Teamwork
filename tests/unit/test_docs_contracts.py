@@ -55,7 +55,7 @@ EXTRA_TREES = ("references",)
 #: reports a broken link that only the missing copy caused. Measured by resolving
 #: every relative link in `docs/` against the repository root; extend the list when
 #: a document starts linking to another root-level file.
-ROOT_LINK_FILES = ("CHANGELOG.md", "README.md", "CONTRIBUTING.md", "SKILL.md")
+ROOT_LINK_FILES = ("CHANGELOG.md", "README.md", "CONTRIBUTING.md")
 
 OWNER_RE = re.compile(r"(?<![\w`])Owner:\s*(?P<owner>[^.,;\n]*)")
 RELATED_RE = re.compile(r"(?<![\w`])Related:\s*(?P<targets>[^\n]*)")
