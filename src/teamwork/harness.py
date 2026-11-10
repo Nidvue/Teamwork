@@ -180,7 +180,8 @@ class BudgetRow(NamedTuple):
 
     @property
     def over(self) -> bool:
-        return self.always_on > self.budget
+        """Unmeasurable (-1) counts as over: a gate that cannot read its input is not green."""
+        return self.always_on < 0 or self.always_on > self.budget
 
 
 def repo_root(args) -> Path:
@@ -193,10 +194,16 @@ def repo_root(args) -> Path:
 
 
 def file_size(path: Path) -> int:
+    """The file's size in bytes, or -1 when it cannot be read.
+
+    Measuring an unreadable file as 0 bytes made the startup budget under-report a
+    lane whose `SKILL.md` or charter could not be stat'ed (T-0019). -1 says
+    "unmeasurable", and the budget treats it as over the cap rather than free.
+    """
     try:
         return path.stat().st_size
     except OSError:
-        return 0
+        return -1
 
 
 def glob_size(base: Path, pattern: str) -> int:
@@ -683,11 +690,16 @@ def instance_always_on(repo: Path, root: Path, role: str) -> int:
     a lane look OVER while its actual startup read was under the budget.
     """
     top_knowledge, _superseded = _load_knowledge(root)
+    parts = [
+        managed_block_size(repo / "AGENTS.md"),
+        file_size(repo / "SKILL.md"),
+        file_size(charter_path(repo, root, role)),
+        file_size(role_dir(root, role) / F_SHORT),
+    ]
+    if any(size < 0 for size in parts):
+        return -1
     return (
-        managed_block_size(repo / "AGENTS.md")
-        + file_size(repo / "SKILL.md")
-        + file_size(charter_path(repo, root, role))
-        + file_size(role_dir(root, role) / F_SHORT)
+        sum(parts)
         + _rendered_lines_bytes(_lesson_line(i) for i in _load_lessons(root, role)[:LOAD_LESSONS])
         + _rendered_lines_bytes(_knowledge_line(item) for item in top_knowledge)
     )
@@ -743,12 +755,14 @@ def over_budget_rows(repo: Path, root: Path) -> list[BudgetRow]:
 def render_budget(rows: list[BudgetRow]) -> str:
     """``<instance> <always_on> <budget> <ok|OVER>`` per row, then the total line."""
     lines = [
-        f"{row.instance} {row.always_on} {row.budget} {'OVER' if row.over else 'ok'}"
+        f"{row.instance} {'unmeasurable' if row.always_on < 0 else row.always_on} "
+        f"{row.budget} {'OVER' if row.over else 'ok'}"
         for row in rows
     ]
     state = "OVER" if any(row.over for row in rows) else "ok"
     lines.append(
-        f"total {sum(row.always_on for row in rows)} {sum(row.budget for row in rows)} {state}"
+        f"total {sum(max(row.always_on, 0) for row in rows)} "
+        f"{sum(row.budget for row in rows)} {state}"
     )
     return "\n".join(lines)
 
