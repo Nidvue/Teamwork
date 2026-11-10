@@ -36,10 +36,14 @@ in this published report (see the note before the findings table).
 - Eight rule families: personal email, retired private domain, absolute home
   path, API token/known prefix, `.env`-style secret assignment, standalone
   high-entropy secret, PEM private-key header, `TODO`/`FIXME` carrying a credential.
-- **The tool is itself published**, so it masks matched values by default
-  (`--reveal` for local remediation), redacts the absolute repo root, and keeps
-  the private domains out of plain text (reconstructed at runtime; extend with
-  `TEAMWORK_PRIVATE_DOMAINS`). A privacy scanner must not become the leak.
+- **The tool is itself published**, so it masks matched values by default,
+  redacts the absolute repo root, and keeps the private domains out of plain
+  text (reconstructed at runtime; extend with `TEAMWORK_PRIVATE_DOMAINS`). A
+  privacy scanner must not become the leak. It has **no flag that prints a
+  secret**: `--reveal` adds a stable `sha256:<12 hex>` fingerprint per finding,
+  and `--reveal-to PATH` exports the raw values to a `0600` file the operator
+  names (created `O_EXCL`, never overwritten, warned about on stderr). See
+  section 7.1.
 - Independent pass: the same rules were run over the full working tree (111
   files, excluding `.git`, `.pi`, `.venv`, caches); plus manual review of
   `pyproject.toml`, `CITATION.cff`, `mkdocs.yml`, `.github/**` and the community files.
@@ -90,7 +94,7 @@ clean. `--history` reports the 2 findings above.
 |---|---|---|
 | R1 | Repository-local git identity set to a **role** mailbox (`CEO <ceo@agents.nidvue.com>`) so an accidental plain `git commit` cannot inherit the operator identity; per-commit role identities (`git -c user.name=... -c user.email=...`) still override it | `git config --local user.email` -> `ceo@agents.nidvue.com`; `git log --format='%an <%ae>'` -> `ceo@agents.nidvue.com`, `teamwork@agents.nidvue.com` |
 | R2 | Engine default identity domain is the `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> `Developer <developer@agents.nidvue.com>` |
-| R3 | Scanner masks all matched values, redacts the absolute root, and keeps private domains out of plain text | `scripts/privacy_scan.py`; see section 7 output |
+| R3 | Scanner masks all matched values, has no flag that prints a secret (`--reveal` prints a `sha256:` fingerprint; `--reveal-to` exports to a `0600` file), redacts the absolute root, and keeps private domains out of plain text | `scripts/privacy_scan.py`; `tests/unit/test_privacy_scan.py::test_reveal_never_prints_the_unmasked_secret`; see sections 7 and 7.1 |
 | R4 | This report redacts every personal value so it cannot re-leak what it documents | this file passes `scripts/privacy_scan.py --tree` |
 | R8 | The audit-manifest anchor is scoped to the workspace `TeamId`; a legacy manifest without one is historical and cannot make a new workspace look truncated | `ledger_verify`/`_audit_audit_trail` compare `team_id`; `tests/unit/test_ledger.py` covers same/foreign ids |
 
@@ -187,6 +191,71 @@ tree: 20 findings spanning all eight rule families (`api-token`, `env-secret`,
 `high-entropy-secret`, `home-path`, `personal-email`, `private-domain`,
 `private-key`, `todo-credential`). `--allow` was proven to suppress exactly one
 matched value, and a malformed allow regex exits `2`.
+
+### 7.1 Code-scanning remediation: `py/clear-text-logging-sensitive-data`
+
+Two CodeQL alerts (numbers **1** and **2**, severity `high`, rule
+`py/clear-text-logging-sensitive-data`) were open on `refs/heads/main` against
+`scripts/privacy_scan.py`. Both were **true positives, not dismissed**.
+
+| Alert | Reported line | Code path |
+|---|---|---|
+| 1 | `scripts/privacy_scan.py:1008` | `shown = finding.get("match", finding["evidence"]) if args.reveal else finding["evidence"]` in the non-JSON report loop |
+| 2 | `scripts/privacy_scan.py:1018` | the `print(...)` that emitted `shown` |
+
+**Why it was a real finding.** The value is masked by `_mask`
+(`scripts/privacy_scan.py:489`, `_mask`) so a failing CI log cannot republish a secret -
+that intent is stated in the module docstring. `--reveal`
+(`scripts/privacy_scan.py:1012` before the fix: line 948) bypassed it and sent the raw `match` to stdout.
+stdout is a broadcast sink, not a terminal: `.github/workflows/ci.yml:201` and
+`.github/workflows/docs.yml:68` run the scanner in Actions where stdout is a
+retained, world-readable log; operators routinely pipe it through `tee`; and
+shell scrollback is captured by session recorders. A control that relies on the
+operator *not* redirecting output is not a control at all - and the very next
+person to debug a CI failure has an incentive to do exactly that.
+
+**Fix (option A).** The unmasked value can no longer reach a log:
+
+- `--reveal` now appends a stable, unsalted `sha256:<12 hex>` fingerprint
+  (`_fingerprint`, `scripts/privacy_scan.py:497`) to each finding line.
+  Enough to distinguish findings and confirm a rotation; not usable as the
+  credential and does not embed any prefix of it.
+- `--reveal-to PATH` (`write_reveal_file`, `scripts/privacy_scan.py:509`)
+  preserves the remediation workflow: raw values go to a file the operator
+  explicitly names, created `O_EXCL` with mode `0600`, one
+  `location<TAB>rule<TAB>fingerprint<TAB>value` line per finding, a stderr
+  `WARNING` naming the file, an existing path refused as a usage error (exit 2),
+  and the partial file unlinked on error. `finding["match"]` is popped from every
+  finding before the report is built, so `--json` cannot leak it either.
+- `SCANNER_VERSION` bumped `1.2.0` -> `1.3.0`: the output contract changed.
+
+**Regression tests** (4 new, 51 total in `tests/unit/test_privacy_scan.py`):
+`test_reveal_never_prints_the_unmasked_secret`,
+`test_plain_report_omits_the_fingerprint`,
+`test_reveal_to_writes_a_0600_file_and_keeps_the_log_clean`,
+`test_reveal_to_refuses_to_clobber_an_existing_file`.
+
+**Mutation proof.** `git show HEAD:scripts/privacy_scan.py` restored in place and
+the suite re-run: 3 failed / 48 passed, the primary failure being
+
+```
+assert planted not in out, "the unmasked secret must not reach stdout"
+E   AssertionError: the unmasked secret must not reach stdout
+E   assert 'ghp_0123...opqrstuvwxyz' not in 'leak.py:1: ...s) in tree\n'
+E     the planted credential is contained here:
+E       leak.py:1: [critical/api-token] <the planted credential>
+```
+
+The planted value is synthetic - `ghp_` followed by the lowercase alphabet - and
+this report does not reproduce it in full, because the scanner (now correctly)
+reports this file too. With the fix restored: 51 passed.
+
+**Residual risk.** `--reveal-to` still creates a plaintext secrets file on disk,
+by design - the operator asked for it. Mitigations: mode `0600`, no overwrite,
+no default path (it must be named), an explicit warning, and one-line-per-finding
+formatting. Backup/snapshot copies and an operator who commits or pastes the file
+remain outside the tool's control; the warning and this section are the
+compensating controls. CI never passes `--reveal-to`.
 
 ## 8. Sources
 
