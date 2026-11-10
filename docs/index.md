@@ -1,10 +1,10 @@
-# Teamwork
+# Nidvue Teamwork
 
 Owner: Technical Writer.
 
 Related: [Installation](guide/install.md) · [Quickstart](guide/quickstart.md) · [CLI reference](guide/cli.md) · [Architecture](guide/architecture.md) · [CI pipeline](guide/ci.md)
 
-Teamwork turns one prompt into a self-organising team of AI agents that plans,
+Nidvue Teamwork turns one prompt into a self-organising team of AI agents that plans,
 builds, tests and reviews a project until every acceptance criterion is verified.
 It ships as a Pi skill, an installable Python package, and a workspace format.
 

@@ -35,7 +35,7 @@ duty as an explicit exception.
 
 ```console
 $ teamwork map
-# Team map  (.pi/Teamwork/Teams/Demo)
+# Team map  (.pi/Nidvue Teamwork/Teams/Demo)
 project docs (committed, one owner each, no duplicates)
   [x] Project.md           owner=CEO
   [x] Plan.md              owner=ProjectManager
