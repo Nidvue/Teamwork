@@ -163,6 +163,7 @@ under two roles is two tasks.
 | developer | T-0056 | records | done | P-0056 | b8805b8 |
 | developer | T-0057 | records | done | P-0057 | 0908643 |
 | developer | T-0058 | privacy | done | P-0058 | 567402a |
+| developer | T-0059 | lanes | done | P-0059 | b060209 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | todo | - | - |
