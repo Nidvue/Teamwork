@@ -352,6 +352,96 @@ def test_pre_commit_is_silent_for_a_role_mailbox(cli, feature, capsys) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# R2 measures the INDEX, not the work-tree file (T-0024, H5)
+# --------------------------------------------------------------------------- #
+
+
+def binary_bytes(size: int) -> bytes:
+    return bytes(range(256)) * (size // 256) + b"\x00" * (size % 256)
+
+
+def test_pre_commit_refuses_a_blob_staged_large_then_shrunk_in_the_work_tree(
+    cli, feature, capsys
+) -> None:
+    """The commit records the INDEX blob, so the gate must measure the index.
+
+    `git diff --cached --name-only` names an index path, and the gate used to
+    `stat()` the work-tree file of the same name: a 1 MiB+ binary staged as a
+    normal file and then truncated to one byte in the work tree committed the
+    large blob with the hook green - a false negative in the one gate that exists
+    to keep a binary out of a plain commit.
+    """
+    staged = stage_blob(feature / "movie.bin", config.LFS_MAX_BYTES + 1)
+    staged.write_bytes(b"\x00")
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 1
+    err = capsys.readouterr().err
+    assert "large file(s) that no Git LFS pattern covers" in err
+    assert "movie.bin" in err
+    assert str(config.LFS_MAX_BYTES + 1) in err, "the size reported must be the staged size"
+
+
+def test_pre_commit_accepts_a_small_staged_blob_behind_a_large_work_tree_file(
+    cli, feature, capsys
+) -> None:
+    """The other direction: what is not committed cannot be refused.
+
+    A one-byte blob is staged and the work-tree copy is then grown past the
+    threshold; the commit carries one byte, so the gate must pass. Refusing here
+    is a false positive on a commit that stores nothing large.
+    """
+    path = feature / "movie.bin"
+    path.write_bytes(b"\x00")
+    git(feature, "add", "movie.bin")
+    path.write_bytes(binary_bytes(config.LFS_MAX_BYTES + 1))
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 0
+    assert "large file(s)" not in capsys.readouterr().err
+
+
+def test_pre_commit_sniffs_the_staged_bytes_not_the_work_tree(cli, feature, capsys) -> None:
+    """The binary sniff reads the staged content too, not the file on disk.
+
+    A large TEXT record staged, then overwritten with binary bytes in the work
+    tree: the commit still holds the document, so no LFS filter is needed and R2
+    must stay quiet. The pre-fix gate refused it with no cause the author could
+    see - the working copy it described was not the one being committed.
+    """
+    path = feature / "docs" / "Archive.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("x" * (config.LFS_MAX_BYTES + 1), encoding="utf-8")
+    git(feature, "add", "docs/Archive.md")
+    path.write_bytes(binary_bytes(config.LFS_MAX_BYTES + 1))
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 0
+    assert "large file(s)" not in capsys.readouterr().err
+
+
+def test_a_binary_routed_into_lfs_is_not_a_text_file_in_lfs(cli, feature, capsys) -> None:
+    """The text-in-LFS check keeps reading the working copy, and must.
+
+    With the `lfs` filter installed, staging a pattern-matched file stores a
+    ~130-byte POINTER in the index, so the index holds no content to classify:
+    sniffing it would call every correctly-tracked binary a text file. The
+    content whose kind decides the question survives only in the working copy,
+    so that is what `lfs_text_mismatch` reads - a binary there is what LFS is for.
+    """
+    write(feature / ".gitattributes", "*.bin filter=lfs diff=lfs merge=lfs -text\n")
+    git(feature, "add", ".gitattributes")
+    path = feature / "assets" / "weights.bin"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(binary_bytes(config.LFS_MAX_BYTES + 1))
+    git(feature, "add", "assets/weights.bin")
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 0
+    assert "routed into Git LFS" not in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- #
 # P1 / P2 - pre-push
 # --------------------------------------------------------------------------- #
 

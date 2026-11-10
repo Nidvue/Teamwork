@@ -32,10 +32,12 @@ from .config import (
 from .gitutil import (
     HooksDirUnresolved,
     current_branch,
+    is_binary_bytes,
     is_binary_content,
     lfs_text_mismatch,
     lfs_tracked,
     run_git,
+    staged_blob_meta,
 )
 from .gitutil import hooks_dir as resolved_hooks_dir
 from .io import die, write_lf
@@ -181,13 +183,33 @@ def is_role_mailbox(project: Path) -> bool:
     return bool(email) and email == expected_email and name in ("", expected_name)
 
 
+def staged_verdict(project: Path, rel: str) -> tuple:
+    """``(size, is_binary)`` for what the commit would record, or ``(None, False)``.
+
+    ``git diff --cached`` names an INDEX path, so R2 must measure the index: a
+    blob staged large and then shrunk in the work tree still commits the large
+    blob, and text staged then overwritten with binary bytes still commits text.
+    The work-tree file is read only when the index has no entry for the path - the
+    deletion case, where there is nothing to commit and nothing to refuse.
+    """
+    staged = staged_blob_meta(project, rel)
+    if staged is not None:
+        size, head = staged
+        return size, is_binary_bytes(head)
+    path = project / rel
+    try:
+        return path.stat().st_size, is_binary_content(path)
+    except OSError:
+        return None, False
+
+
 def large_staged_files(project: Path) -> list:
     """Staged BINARY blobs above the LFS threshold that no pattern covers.
 
     The threshold is a binary threshold (Architecture 11.10): a text record is a
     document, so it is never refused however large it grows. The binary test is
-    the shared `gitutil.is_binary_content`, the same one `commit --check-lfs`
-    and the audit ask, so the three gates cannot disagree about a file.
+    the shared `gitutil.is_binary_bytes`, the same one `commit --check-lfs` and
+    the audit ask, so the three gates cannot disagree about a file.
     """
     staged = run_git(project, "diff", "--cached", "--name-only", "--diff-filter=ACMR")
     blocked = []
@@ -195,12 +217,10 @@ def large_staged_files(project: Path) -> list:
         rel = rel.strip()
         if not rel:
             continue
-        path = project / rel
-        try:
-            size = path.stat().st_size
-        except OSError:
+        size, binary = staged_verdict(project, rel)
+        if size is None:
             continue
-        if size > LFS_MAX_BYTES and is_binary_content(path) and not lfs_tracked(project, rel):
+        if size > LFS_MAX_BYTES and binary and not lfs_tracked(project, rel):
             blocked.append((rel, size))
     return blocked
 
@@ -212,6 +232,12 @@ def text_files_routed_into_lfs(project: Path) -> list:
     routed there by accident - and a document in LFS is a pointer for every
     reader without an LFS client. The check is size-independent, because a text
     file in LFS is broken at any size (Architecture 11.10).
+
+    This is the one check that reads the WORKING copy rather than the index, and
+    deliberately: with the `lfs` filter installed, staging a pattern-matched file
+    stores a POINTER in the index, so the index cannot say whether the content the
+    pointer replaced was text. The content decides, and only the work tree still
+    has it.
     """
     staged = run_git(project, "diff", "--cached", "--name-only", "--diff-filter=ACMR")
     mismatched = []
