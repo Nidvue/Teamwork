@@ -702,6 +702,82 @@ the lease follow the review profile.
 Findings that are real but not fixed in this engagement carry a task with the
 audit row as evidence and the reason they wait; they are not dropped silently.
 
+## M14 - Tree truth: claims, assets, hygiene, and the gate on this host (live)
+
+Intake: the operator asked to continue the project and get the rest of the job
+done. The M11-M13 judgements that the tree was true, the assets sound and the
+code clean were carried by prose; this engagement re-measures them as four
+machine criteria (`criteria list`, AC-1..AC-4) and repairs what disagrees.
+
+Non-goals: a new engine feature, a roster change, a published tag, npm
+publication (blocked on the operator credential - G-11), and any history rewrite.
+
+Exit condition: AC-1..AC-4 verified by a role other than the owner on the merged
+revision, `teamwork.py tests plan` with no gap for a staffed role, `loop` STOP.
+
+| lane | task | what it owned | merged |
+|---|---|---|---|
+| Technical Writer | T-0001 | every public claim in README, root policies, mkdocs config, `docs/**` except internal records | `ff9a708` |
+| Technical Writer | T-0002 | the six surfaces that described the old team-wide `clean` | `543c665` |
+| Technical Writer | T-0003 | the licence contradiction in `CITATION.cff` and the quickstart ordering | `a1929ba` |
+| Technical Writer-2 | T-0004 | the roster-tier table a doc change invalidated | `aeed914` |
+| Designer | T-0001 | every asset in `assets/`, `docs/assets/` and the README mermaid diagram | `7783953` |
+| Designer | T-0002 | the geometry cells its own rewrite moved out of the docs contract | `aeb5d62` |
+| Designer | T-0003 | the connectors below the 3:1 bar | `1f648fd` |
+| Developer-1 | T-0001 | dead files and comments in `src/` and `scripts/` | `304d757` |
+| Developer-2 | T-0002 | `scripts/build_pi_package.py` shelling out to `du -sh` | `381bb5c` |
+| Developer-2 | T-0004 | R8 reading any word after `pip install` as a distribution claim | `252e9d4` |
+| Developer-2 | T-0005 | `clean --all` being team-wide, so one lane emptied every peer's `Scratch/` | `6111b1a` |
+| Developer-3 | T-0003 | an unlaunchable gate escaping, and POSIX-only proof cells crashing the matrix guard | `cf26e96` |
+| Developer-3 | T-0006 | the board renderer's missing role spellings | `5895411` |
+| Developer-4 | T-0007 | a fresh project could not render the board `init` had just written | [FILL] |
+| Architect | T-0001 | the `system` layer: no POSIX-only launch, every failure guarded or red | `0cac9bd` |
+| Tester | T-0001 | the gate certification, both `integration` layers, and the red it refused to waive | `8b5db3f` |
+| CEO | T-0001, T-0002 | the merge contract three public surfaces still claimed | `d36e731`, `cd561a5` |
+
+### M14.1 - The gate was not runnable on this host
+
+Baseline before any lane started, on `333c08a`, win32, python 3.15.2:
+`pytest -q` -> **10 failed, 1540 passed, 46 skipped** (14m01s). The repository
+`.venv` is a WSL virtualenv (`bin/`, no `Scripts/`) and no `pytest`/`ruff` exists
+on the PATH, so the findings were read from a fresh `venv/` (gitignored, already
+covered by `.gitignore`). Nine of the ten survived the editable install the
+documented `make dev` step performs; the tenth (`test_sys_path_hygiene`) *was*
+that missing step, not a defect. The nine: four board rows against the
+re-initialised queues (the closing render), three `du` failures, one `sh`
+failure, one POSIX proof cell. Nothing was waived; each of the three real
+classes became a task above.
+
+The decision is `D-20261030-CEO`; the host fact is in global memory under
+`build`. `mypy` is **UNVERIFIED** on this host (not installed in either
+interpreter).
+
+### M14.2 - What the reviews cost and caught
+
+Seven deliverables were failed and re-reviewed as deltas, and two criteria were
+refused by their independent verifier. Every fail named a defect that the author
+could have found locally - one of them in the author's own evidence line:
+
+| fail | finding | closed by |
+|---|---|---|
+| designer T-0001 | no PR, so the branch could never merge | `pr open`, content unchanged |
+| technical-writer T-0001 | a new sentence claimed nothing else pins the allowlist; a test pins its exact five entries | corrected sentence + the pinning test in the same change |
+| developer-2 T-0005 | the scope fix left an unfiltered `*.tmp` sweep that still deleted a peer's file, and 4 of 5 tests failed on argparse rather than on behaviour | every unlink routed through the scope; tests rewritten to assert effects |
+| developer-3 T-0003 | a new timeout branch with no test anywhere | one test that fails when the branch is deleted |
+| technical-writer-2 T-0004 | the commit's "measured" figure was one byte off at the revision it pinned | message corrected, tree unchanged |
+| tester T-0001 | a certification with no branch: `--no-merge` would have left a `pending` archive line on a clean tree | a real commit closing the positive `--team-wide` coverage gap |
+| ceo T-0002 | the new sentence claimed a post-merge history the merge does not produce | `--no-ff` named, `main` keeps both commits |
+
+Two verifiers refused to verify and were right to:
+
+| criterion | what the verifier found | closed by |
+|---|---|---|
+| AC-1 | `CITATION.cff` said `AGPL-3.0-only` while `NOTICE`, `pyproject.toml` and the npm metadata grant or-later | `P-0014`; no gate reads the licence field, so `R-23` is the real defect |
+| AC-2 | three banner connectors at 2.78:1 against a 3:1 bar; the author's own probe had classified them as decoration | `P-0013`, after the CEO ruled the connectors meaningful and the outlines decorative |
+
+Neither verifier passed a criterion it could not reproduce, and neither invented a
+record to fill the matrix.
+
 ## Task-graph integrity
 
 The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.
