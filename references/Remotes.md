@@ -1,6 +1,10 @@
 # Remotes - repository and CI integrity on any git host
 
-Owner: Release Engineer. The skill is remote-agnostic: the *policy* below is the
+Owner: Release Engineer.
+
+Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.md) | [State](State.md) | [Concurrency](Concurrency.md) | [Coordination](Coordination.md) | [Roles](Roles.md) | [Testing](Testing.md) | [Audit](Audit.md) | [Adapters](Adapters.md)
+
+The skill is remote-agnostic: the *policy* below is the
 contract, and the host table says how to configure it on GitHub, GitLab,
 Bitbucket, Gitea/Forgejo, Azure DevOps or a bare server. Configuration is not
 optional decoration - unprotected integrity is the failure this file exists to
