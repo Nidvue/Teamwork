@@ -163,10 +163,23 @@ def git(root: Path, *args: str) -> str:
 
 
 def write(root: Path, files: Mapping[str, str]) -> None:
+    """Write fixture content as LF on every platform.
+
+    The digest is computed over committed bytes and the recipe pins
+    ``core.autocrlf=false``, so a fixture that held CRLF on Windows (which an
+    unpinned ``write_text`` does) would make the working-tree digest disagree
+    with the ``git archive`` digest. The assertion makes that Windows-only
+    regression fail at the write that causes it, for every caller at once.
+    """
     for rel, text in files.items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        # ``Path.write_text(newline=...)`` is Python 3.10+ and CI runs this file
+        # on 3.9, so the file is opened directly - the same reason
+        # ``teamwork.io.write_lf`` opens it instead of calling ``write_text``.
+        with path.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+        assert b"\r\n" not in path.read_bytes(), f"fixture {rel} must be LF on every platform"
 
 
 def commit(root: Path, files: Mapping[str, str] | None = None, message: str = "edit") -> None:
@@ -1402,7 +1415,8 @@ def test_11_3_the_working_tree_contributes_no_byte_to_the_digest(tmp_path):
     commit(root, message="a link to it")
 
     before = crc.payload_digest(root, None)
-    (root / "secret.txt").write_text("CHANGED ON DISK\n", encoding="utf-8")
+    with (root / "secret.txt").open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write("CHANGED ON DISK\n")
 
     assert crc.payload_digest(root, None) == before
     assert crc.payload_digest(root, "HEAD") == before

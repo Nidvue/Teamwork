@@ -275,6 +275,49 @@ def test_no_python_310_only_or_crlf_text_writes():
     assert offenders == {}, f"unsafe text writes: {offenders}"
 
 
+def _python_310_only_writes(module_path):
+    """Line numbers of ``write_text`` calls that may pass the 3.10-only kwarg.
+
+    ``kw.arg is None`` is a ``**kwargs`` splat, which can carry ``newline`` just
+    as easily as a literal keyword, so it is reported too. An alias
+    (``wt = Path.write_text``), a ``getattr`` lookup or the positional fourth
+    argument are not detected; those are rare enough to accept as a gap that a
+    reviewer catches, rather than turning this into a type checker.
+    """
+    try:
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+    except SyntaxError:
+        # A file that does not parse under the running interpreter is another
+        # matrix cell's problem; this guard only speaks about newline keywords.
+        return []
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and getattr(node.func, "attr", None) == "write_text"
+        and any(kw.arg == "newline" or kw.arg is None for kw in node.keywords)
+    ]
+
+
+def test_no_fixture_uses_the_python_310_only_newline_keyword():
+    """The suite runs on the same 3x3 matrix as the package, 3.9 included.
+
+    ``Path.write_text(newline=...)`` is 3.10+ only, so a *fixture* that pins its
+    newlines that way looks correct on a modern local interpreter and raises
+    ``TypeError`` in every 3.9 CI cell. Measured on the release-consistency
+    fixtures: the fix for a Windows CRLF defect broke nine matrix cells instead of
+    two. Only this one trap is scanned for ``tests/``; the broader
+    ``open()``-without-newline rule is a Windows-correctness rule the suite has
+    not adopted, and folding it in here would fail 50+ pre-existing call sites.
+    """
+    offenders = {}
+    for module_path in sorted((REPO_ROOT / "tests").rglob("*.py")):
+        found = _python_310_only_writes(module_path)
+        if found:
+            offenders[str(module_path.relative_to(REPO_ROOT))] = found
+    assert offenders == {}, f"3.10-only write_text(newline=...) in tests: {offenders}"
+
+
 def test_engine_exposes_the_lf_write_helper():
     from teamwork import engine
 

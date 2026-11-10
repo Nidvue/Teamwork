@@ -107,14 +107,14 @@ def test_dry_run_prints_without_executing(tmp_path):
     """ACCEPT: `make -n` expands a recipe and produces none of its effects."""
     marker = tmp_path / "executed.marker"
     (tmp_path / "Makefile").write_text(
-        f"gate:\n\t@printf '%s' ran > {marker}\n",
+        f"gate:\n\t@printf '%s' ran > '{marker.as_posix()}'\n",
         encoding="utf-8",
     )
 
     dry = run_make("-n", "gate", cwd=tmp_path)
 
     assert dry.returncode == 0, dry.stderr
-    assert str(marker) in dry.stdout, dry.stdout
+    assert marker.as_posix() in dry.stdout, dry.stdout
     assert not marker.exists(), "make -n executed the recipe"
 
     real = run_make("gate", cwd=tmp_path)
