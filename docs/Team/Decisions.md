@@ -264,3 +264,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: `git log --format='%an <%ae>' @a307cc0 -> 36 CEO, 1 Teamwork, 1 Reviewer`; the operator selected option 3 in the session of 2026-10-18.
 - falsified by: a rewritten commit whose author does not own its dominant paths, or any red gate on the rewritten tree.
 - consequences: every SHA changes, the three release tags move, existing clones and forks must re-fetch; the CI identity audit makes the rule enforceable from here on.
+
+## D-20261018-CEO-2 - Harden the engine's state parser, ledger, locks and path boundaries
+
+- date: 2026-10-18
+- kind: technical
+- status: accepted
+- deciders: CEO, independent Reviewer audit
+- decided by: ceo
+- task: code-audit-2026-10-18
+- context: A full code audit found gate-forging metadata injection, a `ledger repair` self-deadlock, torn-tail ledger corruption, path traversal via agent/provider names, cross-role work claims, lock-order races in `pr open/merge`, stale-claim false positives, duplicate decision ids, and CI/docs integrity gaps.
+- options considered: A - fix only the reported symptoms (small diff; leaves the parser and lock classes exploitable); B - fix the trust boundaries and add regression tests (larger diff; the gates become verifiable); C - defer to a post-1.0 refactor (no protection in the current release).
+- decision: B. Stop metadata parsing at the body boundary, collapse scalar values to one line, escape record headers, validate unknown statuses at the gate, make ledger append/repair reentrant-safe and torn-tail tolerant, sanitize every name that becomes a path, enforce role ownership on claims and self-checks, use one lock order for task/review/PR writes, fix stale-claim day granularity, and pin CI actions to commit SHAs.
+- why: the engine's plain-markdown state is the trust boundary for every evidence gate; a value a worker can write must never be able to forge `review_status`, `status` or a path outside the workspace.
+- evidence: `pytest -q --cov=teamwork` @ code-audit-fixes -> 332 passed / 39.8% (floor 38%); `ruff check .` -> clean; `mypy src/teamwork` -> clean; `make ci PYTHON=.venv/bin/python` -> all gates passed; `scripts/verify_release.py` -> wheel+sdist inspected, installed-wheel full loop STOP; `privacy_scan.py --tree --history` -> PASS; `teamwork links` -> 0 issues.
+- falsified by: a metadata value that changes a gate field after a round-trip, a ledger repair that deadlocks, a name that escapes its directory, or a regression in the new `tests/unit/test_integrity_fixes.py`.
+- consequences: existing task/memory records remain readable; `init --force` no longer destroys records; review/merge now require an approved PR and an author; CI matrix adds 3.10/3.12; docs and Makefile expose `links`, `identity` and `ci`.

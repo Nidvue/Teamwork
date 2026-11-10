@@ -89,7 +89,7 @@ Verify:
 
 ```console
 $ teamwork --version
-teamwork 1.0.0
+teamwork 1.0.2
 ```
 
 ### Install with pipx (isolated, on PATH)
@@ -131,7 +131,7 @@ directory, without installing anything:
 
 ```console
 $ python3 scripts/teamwork.py --version
-teamwork 1.0.0
+teamwork 1.0.2
 ```
 
 ## Platform notes
@@ -178,7 +178,7 @@ $ python3 .agents/skills/teamwork/scripts/teamwork.py selftest
   PASS  stop-condition gate    ok
 
 teamwork selftest: 5/5 checks passed
-  version:   1.0.0
+  version:   1.0.2
   python:    3.12.13 (posix)
   skill:     /path/to/Teamwork
 ```

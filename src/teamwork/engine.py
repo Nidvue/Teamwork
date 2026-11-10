@@ -328,7 +328,7 @@ def reviews_path(root: Path) -> Path:
 def new_pr(title: str, **kw) -> dict:
     pr = {
         "id": "",
-        "title": title.strip(),
+        "title": one_line(title),
         "status": "open",
         "task": "",
         "role": "",
@@ -342,7 +342,7 @@ def new_pr(title: str, **kw) -> dict:
         "summary": "",
         "notes": [],
     }
-    pr.update({k: v for k, v in kw.items() if v})
+    pr.update({k: one_line(v) if k != "notes" else v for k, v in kw.items() if v})
     return pr
 
 
@@ -382,7 +382,7 @@ def render_reviews(prs: list) -> str:
     assign_ids(prs, "P-")
     out = [REVIEWS_HEADER, ""]
     for pr in sorted(prs, key=lambda x: x["id"]):
-        out.append(f"## {pr['id']} · {pr['title'] or 'PR'}")
+        out.append(f"## {pr['id']} · {one_line(pr['title']) or 'PR'}")
         for field in (
             "status",
             "task",
@@ -395,14 +395,14 @@ def render_reviews(prs: list) -> str:
             "reviewer",
             "merge_commit",
         ):
-            out.append(f"- {field}: {pr.get(field, '')}")
+            out.append(f"- {field}: {one_line(pr.get(field, ''))}")
         out.append("")
         if pr["summary"]:
-            out.append(f"- summary: {pr['summary']}")
+            out.append(f"- summary: {one_line(pr['summary'])}")
             out.append("")
         out.append("### notes")
         for note in pr["notes"]:
-            out.append(f"- {note}")
+            out.append(f"- {one_line(note)}")
         out.append("")
     return "\n".join(out).rstrip() + "\n"
 
@@ -422,9 +422,37 @@ def find_pr(prs: list, handle: str):
     return None
 
 
+def find_pr_exact(prs: list, handle: str):
+    """Exact id/task match only: a merge must never hit a fuzzy title match."""
+    want = (handle or "").strip().upper()
+    for i, pr in enumerate(prs):
+        if pr["id"].upper() == want or pr["task"].upper() == want:
+            return i
+    return None
+
+
 def slugify(text: str, limit: int = 40) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
     return s[:limit].rstrip("-") or "work"
+
+
+def one_line(value, limit: int = 0) -> str:
+    """Collapse every newline/run of whitespace so a value cannot inject a
+    second markdown metadata line (and therefore a forged gate state)."""
+    text = " ".join(str(value or "").split())
+    return text[:limit].rstrip() if limit else text
+
+
+def body_text(value) -> str:
+    """Body text that cannot forge a new record header.
+
+    A body line beginning with ``##`` would otherwise be parsed as the next
+    task/memory/dispute entry and could hide or duplicate state. The parser
+    already stops reading metadata at the first blank line; this closes the
+    remaining header-injection path while keeping the body readable.
+    """
+    lines = str(value or "").strip().splitlines()
+    return "\n".join((" " + line) if re.match(r"^##\s", line) else line for line in lines)
 
 
 def branch_name(instance: str, task_id: str, title: str) -> str:
@@ -446,6 +474,17 @@ def branch_merged(project: Path, branch: str, base: str = DEFAULT_BASE) -> bool:
         return False
     r = run_git(project, "branch", "--merged", base)
     return any(line.strip().lstrip("* ").strip() == branch for line in r.stdout.splitlines())
+
+
+def branch_worktree(project: Path, branch: str):
+    """The worktree that has ``branch`` checked out, or ``None``."""
+    current = ""
+    for line in run_git(project, "worktree", "list", "--porcelain").stdout.splitlines():
+        if line.startswith("worktree "):
+            current = line.split(" ", 1)[1].strip()
+        elif line.strip() == f"branch refs/heads/{branch}" and current:
+            return Path(current)
+    return None
 
 
 def require_reason(force: str, what: str) -> str:
@@ -504,18 +543,28 @@ def validate_actor(
     return pascal(raw), role
 
 
-def check_claimant(root: Path, value: str, kind: str = "claim") -> str:
-    """A holder must be a real instance; a phantom leaks work and capacity."""
+def check_claimant(root: Path, value: str, kind: str = "claim", role: str = "") -> str:
+    """A holder must be a real instance (and, where relevant, of this role).
+
+    A phantom leaks work and capacity; a holder from another role means the task
+    silently left its own shared queue. The role check is only applied when the
+    caller names the queue it belongs to (task/branch operations).
+    """
     name = (value or "").strip()
     if not name or name == "-":
         return ""
+    resolved = resolve_role(name)
+    if role and resolved != resolve_role(role) and pascal(name) != pascal(role):
+        die(
+            f"{kind} '{name}' belongs to the {resolved} role, but this work is on "
+            f"the {resolve_role(role)} queue. Claimants must come from the owning role."
+        )
     known = known_instances(root)
     if not known:
         return name
     if pascal(name) in {pascal(i) for i in known}:
         return name
-    role = resolve_role(name)
-    if pascal(name) == pascal(role) and instances_of(root, role):
+    if pascal(name) == pascal(resolved) and instances_of(root, resolved):
         return name  # the role itself = shared pool
     print(
         f"# WARNING {kind} '{name}' is not an instance in this team "
@@ -599,6 +648,17 @@ def cmd_branch(args) -> int:
     task, task_path, task_role, _idx = _find_task_anywhere(root, args.task, args.agent)
     if task is None:
         die(f"no task '{args.task}' on the {resolve_role(args.agent)} queue")
+    actor, arole = validate_actor(root, args.agent, "branch owner")
+    if arole != task_role:
+        die(f"{actor} is {arole}, but {task['id']} belongs to the {task_role} queue")
+    if task.get("claimed_by") and pascal(task["claimed_by"]) != pascal(actor):
+        if pascal(actor) != pascal(task_role):
+            die(
+                f"{task['id']} is already claimed by {task['claimed_by']}; "
+                f"{actor} cannot start a branch for it. Reclaim it deliberately "
+                f"(`task reclaim {task_role} {task['id']} --as {actor} --reason ...`)."
+            )
+    args.agent = actor
     base = args.base or DEFAULT_BASE
     if not branch_exists(project, base):
         base = current_branch(project) or "HEAD"
@@ -612,7 +672,7 @@ def cmd_branch(args) -> int:
     if args.worktree:
         # a worktree checks the branch out itself; checking it out here first
         # would make `git worktree add` fail with "already used by worktree"
-        wt = root / DIR_RUNTIME / DIR_WORKTREES / pascal(args.agent)
+        wt = root / DIR_RUNTIME / DIR_WORKTREES / safe_component(pascal(args.agent))
         wt.parent.mkdir(parents=True, exist_ok=True)
         listing = run_git(project, "worktree", "list", "--porcelain").stdout
         if str(wt) not in listing:
@@ -633,7 +693,7 @@ def cmd_branch(args) -> int:
         if worktree_note:
             tasks[idx]["worktree"] = worktree_note
         tasks[idx]["claimed_by"] = tasks[idx].get("claimed_by") or check_claimant(
-            root, args.agent, "claim"
+            root, args.agent, "claim", task_role
         )
         if tasks[idx]["status"] == "todo":
             tasks[idx]["status"] = "doing"
@@ -685,18 +745,20 @@ def cmd_pr(args) -> int:
         return _pr_merge(args, root, project, here, path)
 
     # open
-    role = resolve_role(args.agent)
+    actor, role = validate_actor(root, args.agent, "PR author", allow_role=False)
+    args.agent = actor
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "merge.lock"):
         return _pr_open(args, root, project, here, path, role)
 
 
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "merge.lock"):
-        prs = parse_reviews(path)
-        idx = find_pr(prs, args.pr)
-        if idx is None:
-            die(f"no PR '{args.pr}'")
-        pr = prs[idx]
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
+            prs = parse_reviews(path)
+            idx = find_pr_exact(prs, args.pr)
+            if idx is None:
+                die(f"no PR '{args.pr}'")
+            pr = prs[idx]
         merger, mrole = validate_actor(root, args.by or "reviewer", "merger", allow_role=False)
         if mrole != "reviewer":
             die(
@@ -708,6 +770,17 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             die(
                 f"{merger} authored {pr['id']} and cannot merge it; a different "
                 "instance must review and merge."
+            )
+        if pr["status"] == "merged":
+            print(f"# {pr['id']} already merged at {pr['merge_commit']}")
+            if args.delete_branch and branch_exists(project, pr["branch"]):
+                retire_branch(root, here, pr["branch"], force=True)
+            return 0
+        if pr["status"] != "approved" and not args.force:
+            die(
+                f"refusing to merge {pr['id']}: PR status is {pr['status']}, not "
+                "'approved'. The Reviewer must pass the review first.",
+                2,
             )
         same_as_verdict = pascal(pr.get("reviewer") or "") == pascal(merger)
         other_reviewers = [i for i in instances_of(root, "reviewer") if pascal(i) != pascal(merger)]
@@ -732,14 +805,16 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "(no second reviewer to separate the duties)",
             )
         role = resolve_role(pr["role"] or pr["author"])
+        if not role:
+            die(f"{pr['id']} has no role or author: the PR record is incomplete")
         tpath = task_file(root, role)
-        tasks = parse_tasks(tpath)
-        tidx = find_task(tasks, pr["task"]) if pr["task"] else None
-        t = tasks[tidx] if tidx is not None else None
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+            tasks = parse_tasks(tpath)
+            tidx = find_task(tasks, pr["task"]) if pr["task"] else None
+            t = tasks[tidx] if tidx is not None else None
         if t is None:
             die(f"task {pr['task']} not found on the {role} queue")
         if args.force:
-            pr["notes"].append(f"FORCED merge by {merger}: {args.force}")
             ledger_append(
                 root,
                 "pr.merge.forced",
@@ -755,11 +830,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "--result pass --evidence '<verify cmd @rev -> result>'",
                 2,
             )
-        if pr["status"] == "merged":
-            print(f"# {pr['id']} already merged at {pr['merge_commit']}")
-            if args.delete_branch and branch_exists(project, pr["branch"]):
-                retire_branch(root, here, pr["branch"], force=True)
-            return 0
         base = pr["base"] or DEFAULT_BASE
         branch = pr["branch"]
         if not branch_exists(project, branch):
@@ -872,20 +942,36 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             run_git(here, "reset", "--hard", base_sha)
             die("squash merge produced no change; nothing merged")
         sha = run_git(here, "rev-parse", "--short", "HEAD").stdout.strip()
-        pr["status"] = "merged"
-        pr["reviewer"] = merger
-        pr["merge_commit"] = sha
-        pr["updated"] = today_iso()
-        pr["notes"].append(f"merged into {base} at {sha} by {merger}")
-        write_reviews(path, prs)
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
             tasks = parse_tasks(tpath)
             tidx = find_task(tasks, pr["task"])
+            if tidx is not None and tasks[tidx].get("review_status") != "passed" and not args.force:
+                run_git(here, "reset", "--hard", base_sha)
+                die(
+                    f"review of {pr['task']} changed during the merge; the merge was "
+                    "rolled back and nothing was integrated.",
+                    2,
+                )
             if tidx is not None:
                 tasks[tidx]["merge_commit"] = sha
                 tasks[tidx]["status"] = "done"
                 tasks[tidx]["updated"] = today_iso()
                 write_tasks(tpath, tasks, role)
+            # Reviews.md is written under the same lock order as `cmd_review`:
+            # role -> reviews. Re-read before writing so a verdict issued during
+            # the git merge is not lost.
+            with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
+                fresh_prs = parse_reviews(path)
+                pidx = find_pr_exact(fresh_prs, pr["id"])
+                if pidx is not None:
+                    fresh_prs[pidx]["status"] = "merged"
+                    fresh_prs[pidx]["reviewer"] = merger
+                    fresh_prs[pidx]["merge_commit"] = sha
+                    fresh_prs[pidx]["updated"] = today_iso()
+                    fresh_prs[pidx]["notes"].append(f"merged into {base} at {sha} by {merger}")
+                    if args.force:
+                        fresh_prs[pidx]["notes"].append(f"FORCED merge by {merger}: {args.force}")
+                    write_reviews(path, fresh_prs)
         ledger_append(
             root, "pr.merge", merger, pr["task"], f"{pr['id']} {branch} -> {base} at {sha}", sha
         )
@@ -905,12 +991,14 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
 
 def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str) -> int:
     tpath = task_file(root, role)
-    tasks = parse_tasks(tpath)
-    tidx = find_task(tasks, args.task)
-    if tidx is None:
-        die(f"no task '{args.task}' on the {role} queue")
-    t = tasks[tidx]
-    if t.get("review", "required") == "required" and t.get("self_check") != "passed":
+    lock_path = root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"
+    with lock(lock_path):
+        tasks = parse_tasks(tpath)
+        tidx = find_task(tasks, args.task)
+        if tidx is None:
+            die(f"no task '{args.task}' on the {role} queue")
+        t = tasks[tidx]
+    if t.get("review", "required") != "na" and t.get("self_check") != "passed":
         die(
             f"run your own self-check before opening a PR on {t['id']}:\n"
             f"  1) task set {role} {t['id']} --status selfcheck\n"
@@ -923,32 +1011,39 @@ def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str)
             f"{t['id']} has no branch; start one: "
             f"teamwork.py branch start --agent {args.agent} --task {t['id']}"
         )
-    prs = parse_reviews(path)
-    existing = find_pr(prs, t["id"])
-    if existing is not None:
-        pr = prs[existing]
-        pr["status"] = "open"
-        pr["updated"] = today_iso()
-        if args.summary:
-            pr["summary"] = args.summary
-        pr["notes"].append(f"re-submitted by {args.agent} after rework")
-    else:
-        pr = new_pr(
-            args.title or t["title"],
-            task=t["id"],
-            role=role,
-            author=args.agent,
-            branch=t["branch"],
-            base=args.base or t.get("base") or DEFAULT_BASE,
-            summary=args.summary or t.get("self_note", ""),
-        )
-        pr["notes"].append(f"opened by {args.agent}")
-        prs.append(pr)
-    write_reviews(path, prs)
-    t["pr"] = pr["id"]
-    t["status"] = "review"
-    t["updated"] = today_iso()
-    write_tasks(tpath, tasks, role)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
+        prs = parse_reviews(path)
+        existing = find_pr(prs, t["id"])
+        if existing is not None:
+            pr = prs[existing]
+            pr["status"] = "open"
+            pr["updated"] = today_iso()
+            if args.summary:
+                pr["summary"] = one_line(args.summary)
+            pr["notes"].append(f"re-submitted by {args.agent} after rework")
+        else:
+            pr = new_pr(
+                args.title or t["title"],
+                task=t["id"],
+                role=role,
+                author=args.agent,
+                branch=t["branch"],
+                base=args.base or t.get("base") or DEFAULT_BASE,
+                summary=args.summary or t.get("self_note", ""),
+            )
+            pr["notes"].append(f"opened by {args.agent}")
+            prs.append(pr)
+        write_reviews(path, prs)
+    with lock(lock_path):
+        fresh = parse_tasks(tpath)
+        idx = find_task(fresh, t["id"])
+        if idx is None:
+            die(f"task {t['id']} disappeared while the PR was being opened")
+        fresh[idx]["pr"] = pr["id"]
+        fresh[idx]["status"] = "review"
+        fresh[idx]["updated"] = today_iso()
+        t = fresh[idx]
+        write_tasks(tpath, fresh, role)
 
     pushed = ""
     if args.push:
@@ -1005,10 +1100,10 @@ def criteria_path(root: Path) -> Path:
 def new_criterion(cid: str, text: str, owner: str = "", evidence: str = "") -> dict:
     return {
         "id": cid.strip().upper(),
-        "text": text.strip(),
-        "owner": owner.strip(),
+        "text": one_line(text),
+        "owner": one_line(owner),
         "status": "open",
-        "evidence": evidence.strip(),
+        "evidence": one_line(evidence),
         "verified_by": "",
         "verified": "",
         "rev": "",
@@ -1046,9 +1141,9 @@ def render_criteria(items: list, path: Path = None) -> str:
     )
     out = [header, ""]
     for c in items:
-        out.append(f"## {c['id']} · {c['text'] or 'criterion'}")
+        out.append(f"## {c['id']} · {one_line(c['text']) or 'criterion'}")
         for field in ("status", "owner", "verified_by", "verified", "evidence", "rev"):
-            out.append(f"- {field}: {c.get(field, '')}")
+            out.append(f"- {field}: {one_line(c.get(field, ''))}")
         out.append("")
     return "\n".join(out).rstrip() + "\n"
 
@@ -1390,14 +1485,15 @@ def new_test_record(
 ) -> dict:
     return {
         "id": "",
-        "layer": layer.strip().lower(),
-        "area": area.strip().lower(),
-        "owner": owner.strip(),
-        "command": command.strip(),
-        "task": task.strip(),
+        "layer": one_line(layer).lower(),
+        "area": one_line(area).lower(),
+        "owner": one_line(owner),
+        "command": one_line(command),
+        "task": one_line(task),
         "status": "pending",
         "evidence": "",
         "rev": "",
+        "forced": "",
         "updated": today_iso(),
         "by": "",
     }
@@ -1445,7 +1541,7 @@ def render_tests(records: list, path: Path = None) -> str:
     out = [header, ""]
     order = {ly: i for i, ly in enumerate(TEST_LAYERS)}
     for r in sorted(records, key=lambda x: (order.get(x["layer"], 9), x["area"], x["id"])):
-        out.append(f"## {r['id']} · {r['layer']} · {r['area']}")
+        out.append(f"## {r['id']} · {one_line(r['layer'])} · {one_line(r['area'])}")
         for field in (
             "layer",
             "area",
@@ -1456,9 +1552,10 @@ def render_tests(records: list, path: Path = None) -> str:
             "evidence",
             "rev",
             "by",
+            "forced",
             "updated",
         ):
-            out.append(f"- {field}: {r.get(field, '')}")
+            out.append(f"- {field}: {one_line(r.get(field, ''))}")
         out.append("")
     return "\n".join(out).rstrip() + "\n"
 
@@ -1794,7 +1891,12 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
                 if r is None:
                     row.append(f"{cells[layer]}·" if layer not in req else f"{cells[layer]}?")
                 else:
-                    mark = {"passing": "+", "failing": "!", "pending": ".", "na": "-"}[r["status"]]
+                    mark = {
+                        "passing": "+",
+                        "failing": "!",
+                        "pending": ".",
+                        "na": "-",
+                    }.get(r["status"], "?")
                     row.append(f"{cells[layer]}{mark}")
             print(f"- {area:16s} " + " ".join(row))
         print("# marks: + passing   ! failing   . pending   ? missing   · not required")
@@ -1953,7 +2055,7 @@ def _ledger_tail(root: Path):
     prev, n = "", 0
     if not path.exists():
         return prev, n
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if not line:
             continue
@@ -1961,8 +2063,41 @@ def _ledger_tail(root: Path):
             rec = json.loads(line)
         except ValueError:
             continue  # a torn line is skipped, never fatal
+        if not isinstance(rec, dict):
+            continue
         prev, n = rec.get("hash", prev), n + 1
     return prev, n
+
+
+def _trim_torn_tail(path: Path) -> int:
+    """Drop unparseable trailing lines before appending a new record.
+
+    A crash during ``write`` can leave a partial line without a newline. The
+    next append would concatenate onto it and permanently break the chain, so
+    the torn tail is removed first. A corrupt line in the *middle* is never
+    removed: that is tampering, and ``ledger verify`` must report it.
+    """
+    import json
+
+    if not path.exists():
+        return 0
+    text = path.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    dropped = 0
+    while lines:
+        try:
+            rec = json.loads(lines[-1])
+        except ValueError:
+            rec = None
+        if isinstance(rec, dict):
+            break
+        lines.pop()
+        dropped += 1
+    if dropped or not text.endswith("\n"):
+        atomic_write(path, "\n".join(lines) + "\n")
+    return dropped
 
 
 def ledger_append(
@@ -1973,18 +2108,32 @@ def ledger_append(
     detail: str = "",
     rev: str = "",
     role: str = "",
+    _locked: bool = False,
 ) -> dict:
     """Append one tamper-evident record under a dedicated lock.
 
     The lock serialises read-prev -> append -> head-write, so concurrent writers
-    can neither fork the chain nor desynchronise the head cache.
+    can neither fork the chain nor desynchronise the head cache. Callers already
+    holding ``ledger.lock`` pass ``_locked=True`` instead of deadlocking.
     """
     import json
 
     path = ledger_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     head = ledger_head_path(root)
-    with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
+    ctx = (
+        contextlib.nullcontext()
+        if _locked
+        else lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock")
+    )
+    with ctx:
+        dropped = _trim_torn_tail(path)
+        if dropped:
+            print(
+                f"teamwork: WARNING dropped {dropped} torn trailing ledger line(s) "
+                "before appending (a crash artefact; run `ledger verify`)",
+                file=sys.stderr,
+            )
         prev, n = _ledger_tail(root)
         record = {
             "ts": datetime.datetime.now().isoformat(timespec="seconds"),
@@ -2014,12 +2163,30 @@ def ledger_read(root: Path) -> list:
     if not path.exists():
         return []
     out = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            try:
-                out.append(json.loads(line))
-            except ValueError:
-                out.append({"action": "corrupt", "detail": line[:80], "hash": "", "prev": ""})
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            record = None
+        if not isinstance(record, dict):
+            out.append(
+                {
+                    "n": 0,
+                    "ts": "",
+                    "actor": "<corrupt>",
+                    "role": "",
+                    "action": "corrupt",
+                    "target": "",
+                    "detail": line[:80],
+                    "rev": "",
+                    "hash": "",
+                    "prev": "",
+                }
+            )
+            continue
+        out.append(record)
     return out
 
 
@@ -2037,20 +2204,24 @@ def ledger_cache_behind(root: Path) -> bool:
     return cached < len(ledger_read(root))
 
 
-def ledger_verify(root: Path, reconcile: bool = False) -> list:
+def ledger_verify(root: Path, reconcile: bool = False, _locked: bool = False) -> list:
     """Verify the chain. Returns [] when intact, else a list of problems.
 
     A head cache that is merely *behind* the file is a crash artefact, not
     tampering: it is reconciled (optionally rewritten). A cache that is *ahead*
     of the file means records were removed: that is reported.
     """
+    if reconcile and not _locked:
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
+            return ledger_verify(root, reconcile=True, _locked=True)
     problems = []
     prev = ""
     records = ledger_read(root)
     for i, r in enumerate(records, 1):
         if r.get("action") == "corrupt":
             problems.append(f"record {i}: unreadable line in the ledger")
-            prev = r.get("hash", prev)
+            # Do not reset `prev`: the next complete record still links to the
+            # last good hash, so a torn line must not be reported as a chain fork.
             continue
         if r.get("prev", "") != prev:
             problems.append(f"record {i}: prev hash mismatch (chain broken)")
@@ -2118,30 +2289,31 @@ def cmd_ledger_repair(args) -> int:
         )
     if args.force:
         args.force = require_reason(args.force, "repairing the audit trail")
+    if not ledger_path(root).exists():
+        die("no ledger to repair")
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
         return _ledger_repair_locked(args, root, actor)
-    path = ledger_path(root)
-    if not path.exists():
-        die("no ledger to repair")
-    return _ledger_repair_locked(args, root, actor)
 
 
 def _ledger_repair_locked(args, root: Path, actor: str) -> int:
     path = ledger_path(root)
     good, dropped = [], []
-    for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    for i, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
         if not line.strip():
             continue
         try:
             import json
 
-            json.loads(line)
-            good.append(line)
+            record = json.loads(line)
         except ValueError:
+            record = None
+        if not isinstance(record, dict):
             dropped.append(i)
+            continue
+        good.append(line)
     if not dropped:
         print("# nothing to repair: every line parses")
-        problems = ledger_verify(root, reconcile=True)
+        problems = ledger_verify(root, reconcile=True, _locked=True)
         for pb in problems:
             print(f"- {pb}")
         return 1 if problems else 0
@@ -2155,6 +2327,7 @@ def _ledger_repair_locked(args, root: Path, actor: str) -> int:
         str(path),
         f"dropped {len(dropped)} unreadable line(s) at {dropped}: "
         f"{args.reason}" + (f" FORCED: {args.force}" if args.force else ""),
+        _locked=True,
     )
     print(f"# repaired: dropped {len(dropped)} unreadable line(s) {dropped}")
     print(f"# reason recorded in the ledger as ledger.repair by {actor}")
@@ -2196,7 +2369,8 @@ def cmd_ledger(args) -> int:
         print(f"# Ledger ({len(records)} match, showing {len(tail)})")
         for r in tail:
             print(
-                f"- {r['ts']} #{r['n']:04d} {r.get('action', '?'):16s} "
+                f"- {r.get('ts', '')} #{int(r.get('n') or 0):04d} "
+                f"{r.get('action', '?'):16s} "
                 f"{r.get('actor', '-'):16s} {r.get('target', '-'):10s} "
                 f"{r.get('detail', '')}"
             )
@@ -2224,33 +2398,38 @@ def cmd_decision(args) -> int:
     path = docs_dir(root) / "Decisions.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     kind = args.kind
-    ident = f"D-{today_iso().replace('-', '')}-{pascal(actor)}"
-    ev = (args.evidence or "").strip()
+    ev = one_line(args.evidence)
     if not ev:
         die(
             "--evidence is required: a decision without evidence is not auditable "
             "(give a command @rev -> result, or the document that settles it)"
         )
-    block = [
-        f"## {ident} - {args.title or args.decision[:60]}",
-        "",
-        f"- date: {today_iso()}",
-        f"- kind: {kind}",
-        f"- status: {args.status}",
-        f"- deciders: {actor} ({role})",
-        f"- decided by: {args.by}",
-        f"- task: {args.task or '-'}",
-        f"- context: {args.context or '-'}",
-        f"- options considered: {args.options or '-'}",
-        f"- decision: {args.decision}",
-        f"- why: {args.why or '-'}",
-        f"- evidence: {ev}",
-        f"- falsified by: {args.falsify or '-'}",
-        f"- consequences: {args.consequences or '-'}",
-        "",
-    ]
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "decisions.lock"):
         existing = path.read_text(encoding="utf-8") if path.exists() else "# DECISIONS\n"
+        base_ident = f"D-{today_iso().replace('-', '')}-{pascal(actor)}"
+        ident = base_ident
+        suffix = 2
+        while re.search(rf"^##\s+{re.escape(ident)}\b", existing, re.MULTILINE):
+            ident = f"{base_ident}-{suffix}"
+            suffix += 1
+        block = [
+            f"## {ident} - {one_line(args.title or args.decision[:60])}",
+            "",
+            f"- date: {today_iso()}",
+            f"- kind: {kind}",
+            f"- status: {args.status}",
+            f"- deciders: {actor} ({role})",
+            f"- decided by: {actor}",
+            f"- task: {one_line(args.task) or '-'}",
+            f"- context: {one_line(args.context) or '-'}",
+            f"- options considered: {one_line(args.options) or '-'}",
+            f"- decision: {one_line(args.decision)}",
+            f"- why: {one_line(args.why) or '-'}",
+            f"- evidence: {ev}",
+            f"- falsified by: {one_line(args.falsify) or '-'}",
+            f"- consequences: {one_line(args.consequences) or '-'}",
+            "",
+        ]
         atomic_write(path, existing.rstrip() + "\n\n" + "\n".join(block))
     ledger_append(
         root,
@@ -2395,7 +2574,11 @@ def cmd_trace(args) -> int:
         found = True
         print(f"\n## ledger events ({len(events)})")
         for r in events:
-            print(f"- #{r['n']:04d} {r['ts']} {r['action']:16s} {r['actor']:16s} {r['detail']}")
+            print(
+                f"- #{int(r.get('n') or 0):04d} {r.get('ts', '')} "
+                f"{r.get('action', '?'):16s} {r.get('actor', '-'):16s} "
+                f"{r.get('detail', '')}"
+            )
     if not found:
         print(f"- nothing references {handle}")
         return 3
@@ -2611,12 +2794,12 @@ def skills_path(root: Path) -> Path:
 def new_skill(name: str, owner_role: str, description: str, by: str = "", path: str = "") -> dict:
     return {
         "id": "",
-        "name": name,
-        "owner_role": owner_role,
+        "name": one_line(name),
+        "owner_role": one_line(owner_role),
         "status": "draft",
-        "description": description.strip(),
-        "created_by": by.strip(),
-        "path": path,
+        "description": one_line(description),
+        "created_by": one_line(by),
+        "path": one_line(path),
         "created": today_iso(),
         "updated": today_iso(),
         "shared_with": "",
@@ -2655,7 +2838,7 @@ def render_skills(items: list) -> str:
     assign_ids(items, "S-")
     out = [SKILLS_HEADER, ""]
     for s in items:
-        out.append(f"## {s['id']} · {s['name']}")
+        out.append(f"## {s['id']} · {one_line(s['name'])}")
         for field in (
             "name",
             "status",
@@ -2666,11 +2849,11 @@ def render_skills(items: list) -> str:
             "updated",
             "shared_with",
         ):
-            out.append(f"- {field}: {s.get(field, '')}")
+            out.append(f"- {field}: {one_line(s.get(field, ''))}")
         out.append("")
-        out.append(f"- description: {s['description']}")
+        out.append(f"- description: {one_line(s['description'])}")
         for n in s["notes"]:
-            out.append(f"- note: {n}")
+            out.append(f"- note: {one_line(n)}")
         out.append("")
     return "\n".join(out).rstrip() + "\n"
 
@@ -2891,7 +3074,11 @@ def cmd_identity(args) -> int:
     root = project_root(args)
     if args.audit:
         project = project_of(root)
-        return audit_commit_identities(project, args.rev_range or default_audit_range(project))
+        return audit_commit_identities(
+            project,
+            args.rev_range or default_audit_range(project),
+            strict_authors=getattr(args, "strict_authors", False),
+        )
     if args.role:
         print(identity_string(args.role))
         return 0
@@ -2926,12 +3113,16 @@ def default_audit_range(project: Path) -> str:
     return "HEAD"
 
 
-def audit_commit_identities(project: Path, rev_range: str) -> int:
+def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool = False) -> int:
     """Fail when a commit is not authored and committed by the acting role.
 
     The role that does the work commits it. A forge-created pull-request merge ref
     carries the forge account identity, so it is skipped; its own history is
-    audited by the caller's range. Bot dependency updates are allowed.
+    audited by the caller's range. Bot dependency updates are allowed. A public
+    repository also receives outside contributions: unless ``strict_authors`` is
+    set, an author outside the team's identity domain is reported as skipped
+    rather than failed, while a team-domain author with the wrong role still
+    fails.
     """
     if rev_range.startswith("-"):
         print(f"teamwork: invalid revision range {rev_range!r}")
@@ -2968,6 +3159,10 @@ def audit_commit_identities(project: Path, rev_range: str) -> int:
             continue
         expected = canonical.get(ae)
         if expected is None:
+            team_domain = ae.lower().endswith("@" + IDENTITY_DOMAIN.lower())
+            if not strict_authors and not team_domain and an not in BOT_IDENTITIES:
+                print(f"- {short} skipped: external contributor {an} <{ae}>")
+                continue
             reasons.append(f"not a role mailbox: {ae}")
         elif an != expected:
             reasons.append(f"display name {an!r} does not match role {expected!r}")
@@ -2993,9 +3188,9 @@ def build_commit_message(role: str, meta: dict) -> str:
     typ = (meta.get("type") or "chore").lower()
     if typ not in COMMIT_TYPES:
         typ = "chore"
-    area = meta.get("area") or meta.get("task") or role
-    summary = (meta.get("deliverable") or meta.get("goal") or "update").strip()
-    summary = summary.splitlines()[0][:72]
+    area = one_line(meta.get("area") or meta.get("task") or role)
+    summary = one_line(meta.get("deliverable") or meta.get("goal") or "update")
+    summary = summary[:72]
     lines = [f"{typ}({area}): {summary}", ""]
     fields = [
         ("Task", meta.get("task")),
@@ -3011,7 +3206,7 @@ def build_commit_message(role: str, meta: dict) -> str:
     ]
     for key, value in fields:
         if value:
-            lines.append(f"{key}: {str(value).strip()}")
+            lines.append(f"{key}: {one_line(value)}")
     lines += ["", f"Acting role: {name}"]
     return "\n".join(lines) + "\n"
 
@@ -3226,6 +3421,18 @@ def pascal(name: str) -> str:
     return "".join(out) or "Team"
 
 
+def safe_component(name: str) -> str:
+    """A single filesystem path component derived from a user-supplied name.
+
+    ``pascal`` is a display helper and deliberately preserves characters; a
+    name such as ``../../escape`` must never turn into a path traversal when it
+    becomes a directory or a slot filename. Normal names (``Developer-1``,
+    ``ProductManager``) are unchanged.
+    """
+    text = re.sub(r"[^A-Za-z0-9._-]+", "-", str(name or "")).strip(".-")
+    return text[:80] or "Team"
+
+
 def team_slug(project: Path, explicit: str = "") -> str:
     raw = explicit or os.environ.get("TEAMWORK_TEAM") or project.name
     return pascal(re.sub(r"[^A-Za-z0-9_-]+", "-", raw)) or "Team"
@@ -3326,17 +3533,17 @@ def new_dispute(
 ) -> dict:
     return {
         "id": "",
-        "topic": topic.strip(),
+        "topic": one_line(topic),
         "status": "open",
-        "raised_by": raised_by.strip(),
-        "against": against.strip(),
-        "task": task.strip(),
+        "raised_by": one_line(raised_by),
+        "against": one_line(against),
+        "task": one_line(task),
         "round": 0,
         "escalated": False,
         "created": today_iso(),
         "updated": today_iso(),
-        "evidence": evidence.strip(),
-        "position": position.strip(),
+        "evidence": one_line(evidence),
+        "position": one_line(position),
         "rounds": [],
         "signed": [],
         "decision": "",
@@ -3412,7 +3619,7 @@ def render_disputes(disputes: list) -> str:
     assign_ids(disputes, "D-")
     out = [DISPUTE_HEADER.format(rounds=MAX_ROUNDS), ""]
     for d in sorted(disputes, key=lambda x: x["id"]):
-        out.append(f"## {d['id']} · {d['topic'] or 'dispute'}")
+        out.append(f"## {d['id']} · {one_line(d['topic']) or 'dispute'}")
         for field, value in (
             ("status", d["status"]),
             ("raised_by", d["raised_by"]),
@@ -3423,20 +3630,22 @@ def render_disputes(disputes: list) -> str:
             ("created", d["created"]),
             ("updated", d["updated"]),
         ):
-            out.append(f"- {field}: {value}")
+            out.append(f"- {field}: {one_line(value)}")
         out.append("")
         if d["position"]:
-            out.append(f"- position: {d['position']}")
+            out.append(f"- position: {one_line(d['position'])}")
         if d["evidence"]:
-            out.append(f"- evidence: {d['evidence']}")
+            out.append(f"- evidence: {one_line(d['evidence'])}")
         out.append("")
         out.append("### rounds")
         for r in d["rounds"]:
-            out.append(f"- r{r['n']} {r['by']} {r['date']}: {r['text']}")
+            out.append(
+                f"- r{r['n']} {one_line(r['by'])} {one_line(r['date'])}: {one_line(r['text'])}"
+            )
         out.append("")
         out.append("### ruling")
-        out.append(f"- signed: {', '.join(d['signed'])}")
-        out.append(f"- decision: {d['decision']}")
+        out.append(f"- signed: {', '.join(one_line(s) for s in d['signed'])}")
+        out.append(f"- decision: {one_line(d['decision'])}")
         out.append("")
     return "\n".join(out).rstrip() + "\n"
 
@@ -3560,6 +3769,12 @@ HEADERS = {
         "[project]({project}) | [decisions]({decisions}) | "
         "[archive ledger]({archive})\n"
     ),
+    F_GLOBAL_ARCHIVE: (
+        "# Global memory archive\n\n"
+        "> Overflow evicted from global memory. Searchable, never loaded.\n\n"
+        "Related: [global memory]({global_mem}) | [team map]({map}) | "
+        "[project]({project}) | [archive ledger]({archive})\n"
+    ),
     F_TASKS: TASK_HEADER,
 }
 
@@ -3580,14 +3795,14 @@ def new_task(
         priority = "P2"
     return {
         "id": "",
-        "title": title.strip(),
+        "title": one_line(title),
         "priority": priority,
         "status": status if status in STATUSES else "todo",
-        "deps": deps.strip(),
-        "shared": shared.strip(),
-        "tags": tags.strip(),
+        "deps": one_line(deps),
+        "shared": one_line(shared),
+        "tags": one_line(tags),
         "area": "",
-        "evidence": evidence.strip(),
+        "evidence": one_line(evidence),
         "review": review if review in ("required", "na") else "required",
         "review_status": "na" if review == "na" else "pending",
         "self_check": "na" if review == "na" else "pending",
@@ -3604,7 +3819,7 @@ def new_task(
         "findings": "",
         "created": today_iso(),
         "updated": today_iso(),
-        "body": body.strip(),
+        "body": body_text(body),
     }
 
 
@@ -3613,47 +3828,60 @@ def parse_tasks(path: Path) -> list:
         return []
     tasks = []
     current = None
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    in_body = False
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
         m = TASK_RE.match(raw)
         if m:
             if current:
                 tasks.append(current)
             current = new_task(m.group(2))
             current["id"] = m.group(1)
+            in_body = False
             continue
         if current is None:
             continue
-        mm = META_RE.match(raw)
-        if mm:
-            field, value = mm.group(1), mm.group(2).strip()
-            if field in (
-                "priority",
-                "status",
-                "deps",
-                "shared",
-                "tags",
-                "created",
-                "updated",
-                "evidence",
-                "review",
-                "review_status",
-                "reviewer",
-                "findings",
-                "claimed_by",
-                "self_check",
-                "self_note",
-                "review_evidence",
-                "branch",
-                "base",
-                "worktree",
-                "pr",
-                "merge_commit",
-                "forced",
-                "area",
-                "review_fails",
-            ):
-                current[field] = value
+        if not raw.strip():
+            # The renderer puts one blank line between metadata and body. From
+            # here on nothing is metadata: a body line such as
+            # ``- status: done`` must never forge the task state.
+            if in_body:
+                current["body"] = current["body"] + "\n"
+            else:
+                in_body = True
             continue
+        if not in_body:
+            mm = META_RE.match(raw)
+            if mm:
+                field, value = mm.group(1), mm.group(2).strip()
+                if field in (
+                    "priority",
+                    "status",
+                    "deps",
+                    "shared",
+                    "tags",
+                    "created",
+                    "updated",
+                    "evidence",
+                    "review",
+                    "review_status",
+                    "reviewer",
+                    "findings",
+                    "claimed_by",
+                    "self_check",
+                    "self_note",
+                    "review_evidence",
+                    "branch",
+                    "base",
+                    "worktree",
+                    "pr",
+                    "merge_commit",
+                    "forced",
+                    "area",
+                    "review_fails",
+                ):
+                    current[field] = value
+                continue
+            in_body = True
         current["body"] = (current["body"] + "\n" + raw).strip()
     if current:
         tasks.append(current)
@@ -3665,7 +3893,7 @@ def render_tasks(tasks: list, owner: str, path: Path = None) -> str:
     ordered = sorted(tasks, key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["id"]))
     out = [header_for(F_TASKS, owner, path), ""]
     for t in ordered:
-        out.append(f"## {t['id']} · {t['title'] or 'task'}")
+        out.append(f"## {t['id']} · {one_line(t['title']) or 'task'}")
         meta = [
             ("priority", t["priority"]),
             ("status", t["status"]),
@@ -3693,10 +3921,10 @@ def render_tasks(tasks: list, owner: str, path: Path = None) -> str:
             ("updated", t["updated"]),
         ]
         for field, value in meta:
-            out.append(f"- {field}: {value}")
+            out.append(f"- {field}: {one_line(value)}")
         out.append("")
         if t["body"]:
-            out.append(t["body"])
+            out.append(body_text(t["body"]))
             out.append("")
     return "\n".join(out).rstrip() + "\n"
 
@@ -3855,9 +4083,11 @@ def _lock_owner_stale(path: Path) -> bool:
 
 
 @contextlib.contextmanager
-def lock(path: Path, timeout: float = LOCK_TIMEOUT):
+def lock(path: Path, timeout: float = None):
     """Exclusive lock via O_CREAT|O_EXCL. Never steals a live lock, and only
     removes the lock file if this process owns it."""
+    if timeout is None:
+        timeout = LOCK_TIMEOUT
     path.parent.mkdir(parents=True, exist_ok=True)
     token = f"{os.getpid()}.{time.time():.6f}"
     deadline = time.monotonic() + max(timeout, 0.0)
@@ -3893,13 +4123,41 @@ def lock(path: Path, timeout: float = LOCK_TIMEOUT):
 
 
 def atomic_write(path: Path, text: str) -> None:
-    """Write via a unique temp file in the same directory, then rename."""
+    """Write via a unique temp file in the same directory, then rename.
+
+    Windows rejects ``os.replace`` while another process has the target open, so
+    the rename is retried briefly. The original mode is preserved because
+    ``mkstemp`` creates a 0600 file, which would otherwise make a previously
+    group-readable workspace file private after the first rewrite.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
+    mode = 0o644
+    try:
+        if path.exists():
+            mode = path.stat().st_mode & 0o777
+    except OSError:
+        pass
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline=newline_for()) as fh:
             fh.write(text)
-        os.replace(tmp, str(path))
+        try:
+            os.chmod(tmp, mode)
+        except OSError:
+            pass
+        for attempt in range(5):
+            try:
+                os.replace(tmp, str(path))
+                break
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
+            except OSError:
+                # Windows file-sharing violations are not always PermissionError.
+                if os.name != "nt" or attempt == 4:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
     except BaseException:
         try:
             os.unlink(tmp)
@@ -3997,7 +4255,7 @@ def agents_dir(root: Path) -> Path:
 
 def agent_dir(root: Path, agent: str) -> Path:
     """An instance directory: private scratch, artifacts, reports, worklog."""
-    return agents_dir(root) / pascal(agent)
+    return agents_dir(root) / safe_component(pascal(agent))
 
 
 def roles_dir(root: Path) -> Path:
@@ -4007,7 +4265,7 @@ def roles_dir(root: Path) -> Path:
 def role_dir(root: Path, role: str) -> Path:
     """A role directory: memory and the task list, SHARED by every instance of
     that role. developer-1 and developer-2 share one memory and one queue."""
-    return roles_dir(root) / pascal(resolve_role(role))
+    return roles_dir(root) / safe_component(pascal(resolve_role(role)))
 
 
 def global_dir(root: Path) -> Path:
@@ -4085,18 +4343,18 @@ def new_entry(
 ) -> dict:
     return {
         "id": "",
-        "key": key.strip(),
+        "key": one_line(key),
         "importance": max(0, min(int(importance), 5)),
         "uses": 0,
         "created": today_iso(),
         "last_used": today_iso(),
-        "tags": tags.strip(),
+        "tags": one_line(tags),
         "pinned": bool(pinned),
-        "body": body.strip(),
+        "body": body_text(body),
         # provenance: who recorded it, for what, at which revision
-        "by": by.strip(),
-        "src": src.strip(),
-        "rev": rev.strip(),
+        "by": one_line(by),
+        "src": one_line(src),
+        "rev": one_line(rev),
     }
 
 
@@ -4105,7 +4363,8 @@ def parse_memory(path: Path) -> list:
         return []
     entries = []
     current = None
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    in_body = False
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
         m = ENTRY_RE.match(raw)
         if m:
             if current:
@@ -4113,27 +4372,36 @@ def parse_memory(path: Path) -> list:
             current = new_entry("")
             current["id"] = m.group(1)
             current["key"] = m.group(2).strip()
+            in_body = False
             continue
         if current is None:
             continue
-        mm = META_RE.match(raw)
-        if mm:
-            field, value = mm.group(1), mm.group(2).strip()
-            if field == "importance":
-                try:
-                    current["importance"] = int(value)
-                except ValueError:
-                    pass
-            elif field == "uses":
-                try:
-                    current["uses"] = int(value)
-                except ValueError:
-                    pass
-            elif field in ("created", "last_used", "tags", "key", "by", "src", "rev"):
-                current[field] = value
-            elif field == "pinned":
-                current["pinned"] = value.lower() in ("yes", "true", "1")
+        if not raw.strip():
+            if in_body:
+                current["body"] = current["body"] + "\n"
+            else:
+                in_body = True
             continue
+        if not in_body:
+            mm = META_RE.match(raw)
+            if mm:
+                field, value = mm.group(1), mm.group(2).strip()
+                if field == "importance":
+                    try:
+                        current["importance"] = int(value)
+                    except ValueError:
+                        pass
+                elif field == "uses":
+                    try:
+                        current["uses"] = int(value)
+                    except ValueError:
+                        pass
+                elif field in ("created", "last_used", "tags", "key", "by", "src", "rev"):
+                    current[field] = value
+                elif field == "pinned":
+                    current["pinned"] = value.lower() in ("yes", "true", "1")
+                continue
+            in_body = True
         current["body"] = (current["body"] + "\n" + raw).strip()
     if current:
         entries.append(current)
@@ -4199,7 +4467,7 @@ def render(entries: list, filename: str, owner: str, path: Path = None) -> str:
     assign_ids(entries, "M-")
     out = [header_for(filename, owner, path), ""]
     for e in entries:
-        label = e["key"] or "note"
+        label = one_line(e["key"]) or "note"
         out.append(f"## {e['id']} · {label}")
         meta = [
             ("key", e["key"]),
@@ -4214,9 +4482,9 @@ def render(entries: list, filename: str, owner: str, path: Path = None) -> str:
             ("rev", e.get("rev", "")),
         ]
         for field, value in meta:
-            out.append(f"- {field}: {value}")
+            out.append(f"- {field}: {one_line(value)}")
         out.append("")
-        out.append(e["body"].strip())
+        out.append(body_text(e["body"]).strip())
         out.append("")
     return "\n".join(out).rstrip() + "\n"
 
@@ -4321,9 +4589,8 @@ def cmd_init(args) -> int:
         write_lf(gi, "*\n!.gitignore\n")
 
     gpath = global_dir(root) / F_GLOBAL
-    if not gpath.exists() or args.force:
-        entries = [] if args.force else parse_memory(gpath)
-        write_memory(gpath, entries, F_GLOBAL, "all agents")
+    if not gpath.exists():
+        write_memory(gpath, [], F_GLOBAL, "all agents")
 
     # records are never destroyed: --force re-scaffolds only what is missing
     dpath = disputes_path(root)
@@ -4361,7 +4628,7 @@ def cmd_init(args) -> int:
     src_docs = TEMPLATES_DIR / "Docs"
     for filename, owner in DOCS.items():
         p = public / filename
-        if p.exists() and not args.force:
+        if p.exists():
             continue
         src = src_docs / filename
         if src.exists():
@@ -4369,7 +4636,7 @@ def cmd_init(args) -> int:
         else:
             write_lf(p, f"# {filename[:-3]}\n\nOwner: {owner}\n")
     readme = root / F_MAP
-    if not readme.exists() or args.force:
+    if not readme.exists():
         src = TEMPLATES_DIR / DIR_TEAM_MAP_TPL
         text = src.read_text(encoding="utf-8") if src.exists() else "# Team workspace\n"
         write_lf(
@@ -4388,12 +4655,11 @@ def cmd_init(args) -> int:
         rd.mkdir(parents=True, exist_ok=True)
         for filename in (F_SHORT, F_LONG, F_MEM_ARCHIVE):
             p = rd / filename
-            if args.force or not p.exists():
-                entries = [] if args.force else parse_memory(p)
-                write_memory(p, entries, filename, role)
+            if not p.exists():
+                write_memory(p, [], filename, role)
         tp = rd / F_TASKS
-        if args.force or not tp.exists():
-            write_tasks(tp, [] if args.force else parse_tasks(tp), role)
+        if not tp.exists():
+            write_tasks(tp, [], role)
         if role not in roles_seen:
             roles_seen.append(role)
 
@@ -4706,7 +4972,7 @@ def cmd_global(args) -> int:
             archived = parse_memory(archive_path)
             archived, _, _ = merge_entries(archived, rest[cap:])
             archived.sort(key=score, reverse=True)
-            write_memory(archive_path, archived[:ARCHIVE_CAP], F_MEM_ARCHIVE, "all agents")
+            write_memory(archive_path, archived[:ARCHIVE_CAP], F_GLOBAL_ARCHIVE, "all agents")
             rest = rest[:cap]
         write_memory(path, pinned + rest, F_GLOBAL, "all agents")
     ledger_append(
@@ -4899,14 +5165,14 @@ def _consolidate_locked(
         archive, _, _ = merge_entries(archive, evicted)
         archive.sort(key=score, reverse=True)
         if len(archive) > ARCHIVE_CAP:
-            dropped = len(archive) - ARCHIVE_CAP
+            archive_dropped = len(archive) - ARCHIVE_CAP
             archive = archive[:ARCHIVE_CAP]
             (root / DIR_RUNTIME).mkdir(parents=True, exist_ok=True)
             with (root / DIR_RUNTIME / "MemoryLog.md").open(
                 "a", encoding="utf-8", newline="\n"
             ) as fh:
                 fh.write(
-                    f"- {today_iso()} {agent}: evicted {dropped} archive "
+                    f"- {today_iso()} {agent}: evicted {archive_dropped} archive "
                     f"entr(y/ies) beyond ARCHIVE_CAP={ARCHIVE_CAP}\n"
                 )
     long_entries = pinned + rest
@@ -5204,7 +5470,7 @@ def cmd_task_add(args) -> int:
             "na" if args.no_review else "required",
         )
         if args.claimed_by:
-            t["claimed_by"] = check_claimant(root, args.claimed_by, "claim")
+            t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
         wanted = t["title"].strip().lower()
         for existing in tasks:
             if existing["title"].strip().lower() == wanted:
@@ -5286,7 +5552,7 @@ def cmd_task_next(args) -> int:
         best = ready[0]
         if not args.peek:
             best["status"] = "doing"
-            best["claimed_by"] = check_claimant(root, args.agent, "claim")
+            best["claimed_by"] = check_claimant(root, args.agent, "claim", role)
             best["updated"] = today_iso()
             write_tasks(path, tasks, role)
     if not args.peek:
@@ -5328,11 +5594,16 @@ def cmd_task_set(args) -> int:
                 die(f"status must be one of {', '.join(STATUSES)}")
             if args.status == "doing" and not t.get("claimed_by"):
                 if pascal(args.agent) != pascal(role):
-                    t["claimed_by"] = check_claimant(root, args.agent, "claim")
+                    t["claimed_by"] = check_claimant(root, args.agent, "claim", role)
             if args.status in ("done", "dropped") and not t.get("claimed_by"):
                 if pascal(args.agent) != pascal(role):
-                    t["claimed_by"] = check_claimant(root, args.agent, "claim")
+                    t["claimed_by"] = check_claimant(root, args.agent, "claim", role)
             t["status"] = args.status
+        if getattr(args, "claimed_by", None) is not None:
+            if str(args.claimed_by).strip():
+                t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
+            else:
+                t["claimed_by"] = ""
         if args.priority:
             t["priority"] = args.priority.upper()
         if args.deps is not None:
@@ -5361,7 +5632,7 @@ def cmd_task_set(args) -> int:
         # Self-check gate: review and test your own work before submitting it.
         if (
             args.status == "review"
-            and t.get("review", "required") == "required"
+            and t.get("review", "required") != "na"
             and t.get("self_check") != "passed"
             and not args.force
         ):
@@ -5379,7 +5650,7 @@ def cmd_task_set(args) -> int:
         # by its author.
         if (
             args.status == "done"
-            and t.get("review", "required") == "required"
+            and t.get("review", "required") != "na"
             and t.get("review_status") != "passed"
             and not args.force
         ):
@@ -5524,11 +5795,11 @@ def load_providers(root: Path) -> dict:
 
 
 def slots_dir(root: Path, provider: str) -> Path:
-    return root / DIR_RUNTIME / DIR_SLOTS / provider
+    return root / DIR_RUNTIME / DIR_SLOTS / safe_component(provider)
 
 
 def slot_file(root: Path, provider: str, agent: str) -> Path:
-    return slots_dir(root, provider) / f"{agent}.slot"
+    return slots_dir(root, provider) / f"{safe_component(agent)}.slot"
 
 
 def slot_renewed(root: Path, provider: str, agent: str) -> float:
@@ -5589,8 +5860,9 @@ def find_slot_provider(root: Path, agent: str) -> str:
     base = root / DIR_RUNTIME / DIR_SLOTS
     if not base.is_dir():
         return ""
+    wanted = safe_component(agent)
     for prov in sorted(p.name for p in base.iterdir() if p.is_dir()):
-        if agent in used_slots(root, prov):
+        if wanted in used_slots(root, prov):
             return prov
     return ""
 
@@ -5688,7 +5960,7 @@ def cmd_slot(args) -> int:
         with lock(lock_path):
             reaped = reap_slots(root, provider)
             used = used_slots(root, provider)
-            if args.agent in used:
+            if safe_component(args.agent) in used:
                 f = slot_file(root, provider, args.agent)
                 parts = f.read_text(encoding="utf-8").strip().split("|")
                 while len(parts) < 4:
@@ -5701,7 +5973,10 @@ def cmd_slot(args) -> int:
                 d = slots_dir(root, provider)
                 d.mkdir(parents=True, exist_ok=True)
                 now = f"{time.time():.3f}"
-                write_lf(d / f"{args.agent}.slot", f"{args.agent}|{now}|{now}|{args.task or '-'}\n")
+                write_lf(
+                    slot_file(root, provider, args.agent),
+                    f"{safe_component(args.agent)}|{now}|{now}|{args.task or '-'}\n",
+                )
                 print(
                     f"# acquired {provider} slot for {args.agent}"
                     f" ({len(used) + 1}/{cap} used, {cap - len(used) - 1} free)"
@@ -5735,8 +6010,11 @@ def busy_instances(root: Path) -> set:
         for t in parse_tasks(task_file(root, role)):
             if t["status"] in ("doing", "selfcheck") and t.get("claimed_by"):
                 busy.add(pascal(t["claimed_by"]))
-    limits = load_providers(root)
-    for prov in limits:
+    providers = set(load_providers(root))
+    slots_root = root / DIR_RUNTIME / DIR_SLOTS
+    if slots_root.is_dir():
+        providers |= {p.name for p in slots_root.iterdir() if p.is_dir()}
+    for prov in providers:
         if prov == "default":
             continue
         for agent in used_slots(root, prov):
@@ -5763,7 +6041,7 @@ def awaiting_review(root: Path) -> list:
     for name in list_roles(root):
         for t in parse_tasks(task_file(root, name)):
             if (
-                t.get("review", "required") == "required"
+                t.get("review", "required") != "na"
                 and t.get("review_status") != "passed"
                 and t["status"] in ("review", "done")
             ):
@@ -5800,21 +6078,24 @@ def set_pulse_minutes(root: Path, minutes: int) -> None:
 
 
 def stale_claims(root: Path, minutes: int = None) -> list:
-    """Claims whose owner has no live lease and has not updated within the TTL."""
+    """Claims whose owner has no live lease and has not updated for the TTL.
+
+    A task's ``updated`` field has day granularity, so it cannot express a
+    90-minute lease. Comparing a midnight-based age against the slot TTL made
+    every task updated earlier today look abandoned after 01:30; this compares
+    whole days instead and stays conservative.
+    """
     limit = minutes if minutes is not None else SLOT_TTL_MINUTES
+    limit_days = max(1, (max(limit, 0) + 1439) // 1440)
     out = []
     for role, t in iter_tasks(root, statuses=("doing", "selfcheck")):
         if not t.get("claimed_by"):
             continue
-        age_min = (
-            (time.time() - time.mktime(time.strptime(t["updated"], "%Y-%m-%d"))) / 60
-            if t.get("updated")
-            else 0
-        )
+        age_days = days_since(t["updated"]) if t.get("updated") else 0
         if find_slot_provider(root, t["claimed_by"]):
             continue
-        if age_min >= limit:
-            out.append((role, t, int(age_min)))
+        if age_days >= limit_days:
+            out.append((role, t, age_days * 1440))
     return out
 
 
@@ -5990,7 +6271,7 @@ def cmd_parallel(args) -> int:
     for name in list_roles(root):
         for t in parse_tasks(task_file(root, name)):
             if (
-                t.get("review", "required") == "required"
+                t.get("review", "required") != "na"
                 and t.get("review_status") != "passed"
                 and t["status"] in ("review", "done")
             ):
@@ -6040,10 +6321,16 @@ def strip_code(text: str) -> str:
 
 SKIP_DIRS = {
     ".git",
+    ".pi",
     "node_modules",
     "target",
     "dist",
     "build",
+    "site",
+    "htmlcov",
+    ".tox",
+    ".nox",
+    ".eggs",
     ".venv",
     "venv",
     "__pycache__",
@@ -6111,11 +6398,13 @@ def link_report(project: Path, root: Path) -> dict:
                 except ValueError:
                     pass
         graph[rel] = outs
-        for m in BARE_URL_RE.finditer(text):
+        # Strip link destinations before looking for bare URLs: a URL that is
+        # already a markdown target is not a bare URL, and a bare duplicate of a
+        # linked URL must still be reported.
+        text_without_links = LINK_RE.sub("", text)
+        for m in BARE_URL_RE.finditer(text_without_links):
             url = m.group(1).rstrip(".,;")
-            # a bare URL is one that is not the target of a markdown link
-            if f"]({url})" not in text:
-                bare.append((rel, url))
+            bare.append((rel, url))
 
     # reciprocity only among committed, human-facing documents
     committed = set()
@@ -6272,7 +6561,9 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
         s["blockers"].append("no layered test records")
     else:
         for r in records:
-            mark = {"passing": "[x]", "failing": "[!]", "pending": "[ ]", "na": "[-]"}[r["status"]]
+            mark = {"passing": "[x]", "failing": "[!]", "pending": "[ ]", "na": "[-]"}.get(
+                r["status"], "[?]"
+            )
             s["lines"].append(
                 f"{mark} {r['id']} {r['layer']}/{r['area']} "
                 f"owner={r['owner']} by={r['by'] or '-'}"
@@ -6281,6 +6572,10 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
         failing = [r for r in records if r["status"] == "failing"]
         if failing:
             s["blockers"].append(f"{len(failing)} test layer(s) failing")
+        unknown_tests = [r for r in records if r["status"] not in TEST_STATUSES]
+        if unknown_tests:
+            s["lines"].append("UNKNOWN TEST STATUS: " + ", ".join(r["id"] for r in unknown_tests))
+            s["blockers"].append(f"{len(unknown_tests)} test record(s) have an unknown status")
     gaps = test_gaps(root)
     for area, layer, why in gaps:
         s["lines"].append(f"GAP {area}/{layer}: {why}")
@@ -6288,16 +6583,11 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
         s["blockers"].append(f"{len(gaps)} required test layer(s) missing or not passing")
     idle = idle_test_roles(root, records)
     has_work = bool(areas_in_use(root)) or bool(records)
-    if idle and has_work and len(staffed_layers(root)) > 3:
+    if idle and has_work:
         s["lines"].append(
             f"every staffed role must test its own layer; no tests yet from: {', '.join(idle)}"
         )
         s["blockers"].append(f"{len(idle)} role(s) have not designed or run any test")
-    elif idle and has_work:
-        s["lines"].append(
-            f"note: {len(idle)} role(s) have no tests yet; with a small "
-            "roster only the core layers block completion"
-        )
     elif idle:
         s["lines"].append(
             f"{len(idle)} role(s) have no tests yet; nothing to test until work starts"
@@ -6307,9 +6597,14 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
     # 3 - work in flight ------------------------------------------------------
     s = _section("work", "work in flight")
     buckets = {k: [] for k in ("todo", "doing", "selfcheck", "blocked", "review")}
+    invalid = []
     for role, t in tasks:
         if t["status"] in buckets:
             buckets[t["status"]].append((role, t))
+        elif t["status"] not in ("done", "dropped"):
+            # A typo or a hand-edited/forged value must never make a task
+            # invisible to the stop gate.
+            invalid.append((role, t))
     open_work = 0
     for status, items in buckets.items():
         open_work += len(items)
@@ -6318,6 +6613,10 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
             s["lines"].append(f"    {role} {t['id']} [{t['priority']}] {t['title']}")
     if open_work:
         s["blockers"].append(f"{open_work} task(s) not finished")
+    for role, t in invalid:
+        s["lines"].append(f"INVALID STATUS {role} {t['id']} status={t['status']!r} {t['title']}")
+    if invalid:
+        s["blockers"].append(f"{len(invalid)} task(s) have an unknown status")
     sections.append(s)
 
     # 4 - awaiting review -----------------------------------------------------
@@ -6325,7 +6624,7 @@ def gate_report(root: Path, stale_days: int = 2) -> dict:
     awaiting = [
         (r, t)
         for r, t in tasks
-        if t.get("review", "required") == "required"
+        if t.get("review", "required") != "na"
         and t.get("review_status") != "passed"
         and t["status"] in ("review", "done")
     ]
@@ -6619,6 +6918,25 @@ def cmd_review(args) -> int:
                 f"{reviewer} produced {t['id']} and cannot review it; "
                 "an independent instance must review."
             )
+        if args.result == "pass" and not args.force:
+            if not t.get("claimed_by"):
+                die(
+                    f"refusing to pass {t['id']}: no author is recorded (claimed_by is "
+                    "empty), so independence cannot be checked.",
+                    2,
+                )
+            if t.get("pr"):
+                with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
+                    prs_now = parse_reviews(reviews_path(root))
+                    pidx_now = find_pr_exact(prs_now, t["pr"])
+                if pidx_now is not None and pascal(prs_now[pidx_now].get("author") or "") == pascal(
+                    reviewer
+                ):
+                    die(
+                        f"{reviewer} is the author of {prs_now[pidx_now]['id']} and cannot "
+                        "pass its review; a different Reviewer must verify it.",
+                        2,
+                    )
 
         project = project_of(root)
         if args.result == "pass" and not args.force:
@@ -6644,23 +6962,31 @@ def cmd_review(args) -> int:
                     2,
                 )
             if is_git_repo(project) and t.get("branch"):
+                if not branch_exists(project, t["branch"]):
+                    die(f"refusing to pass: branch {t['branch']} no longer exists", 2)
                 docs_prefix = "/".join(DIR_DOCS)
-                dirty = [
-                    ln[3:].strip()
-                    for ln in run_git(project, "status", "--porcelain").stdout.splitlines()
-                    if ln.strip()
-                ]
-                dirty = [
-                    d for d in dirty if not (d == docs_prefix or d.startswith(docs_prefix + "/"))
-                ]
-                if dirty:
-                    die(
-                        "refusing to pass: the artifact is not committed on its "
-                        "branch:\n  "
-                        + "\n  ".join(dirty)
-                        + "\n  Review binds to a revision; the author must commit.",
-                        2,
-                    )
+                review_root = branch_worktree(project, t["branch"])
+                if review_root is None and current_branch(project) == t["branch"]:
+                    review_root = project
+                if review_root is not None:
+                    dirty = [
+                        ln[3:].strip()
+                        for ln in run_git(review_root, "status", "--porcelain").stdout.splitlines()
+                        if ln.strip()
+                    ]
+                    dirty = [
+                        d
+                        for d in dirty
+                        if not (d == docs_prefix or d.startswith(docs_prefix + "/"))
+                    ]
+                    if dirty:
+                        die(
+                            "refusing to pass: the artifact is not committed on its "
+                            "branch:\n  "
+                            + "\n  ".join(dirty)
+                            + "\n  Review binds to a revision; the author must commit.",
+                            2,
+                        )
 
         t["reviewer"] = reviewer
         t["updated"] = today_iso()
@@ -6761,7 +7087,7 @@ def _review_queue(root: Path) -> int:
     rows = []
     for name in list_roles(root):
         for t in parse_tasks(task_file(root, name)):
-            if t.get("review", "required") != "required":
+            if t.get("review", "required") == "na":
                 continue
             if t.get("review_status") == "passed" or t["status"] == "dropped":
                 continue
@@ -6798,7 +7124,13 @@ def cmd_selfcheck(args) -> int:
     root = project_root(args)
     role = resolve_role(args.agent)
     path = task_file(root, role)
-    actor, _arole = validate_actor(root, args.by or args.agent, "self-check actor")
+    actor, arole = validate_actor(root, args.by or args.agent, "self-check actor")
+    if arole != role and not args.force:
+        die(
+            f"{actor} is {arole}; only the owning {role} role may self-check a "
+            f"{role} task. Use --force <reason> only to hand the work over deliberately.",
+            2,
+        )
     if args.result not in ("pass", "fail"):
         die("--result must be pass or fail")
     if not args.note.strip():
@@ -6958,6 +7290,7 @@ def cmd_audit(args) -> int:
     problems += _audit_possible_duplicate_tasks_across_agents(root, names, args)
     problems += _audit_memory_caps(root, names, args)
     problems += _audit_blocked_tasks(root, names, args)
+    problems += _audit_stale_in_progress(root, names, args)
     problems += _audit_deliverables_awaiting_independent_review(root, names, args)
     problems += _audit_open_disputes_design_decision_challenges(root, names, args)
     problems += _audit_forced_gate_overrides(root, names, args)
@@ -7063,7 +7396,7 @@ def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, arg
     for name in names:
         for t in parse_tasks(task_file(root, name)):
             if (
-                t.get("review", "required") == "required"
+                t.get("review", "required") != "na"
                 and t.get("self_check") not in ("passed", "na")
                 and t["status"] in ("review", "done")
             ):
@@ -7075,7 +7408,6 @@ def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, arg
     if not hits:
         print("- none")
     return hits
-    print()
 
 
 def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, args) -> int:
@@ -7088,9 +7420,11 @@ def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, arg
                 hits += 1
     if not hits:
         print("- none")
-    return hits
     print()
+    return hits
 
+
+def _audit_stale_in_progress(root: Path, names: list, args) -> int:
     print(f"## in progress with no update for >= {args.stale_days} days")
     hits = 0
     for name in names:
@@ -7106,8 +7440,8 @@ def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, arg
                 hits += 1
     if not hits:
         print("- none")
-    return hits
     print()
+    return hits
 
 
 def _audit_possible_duplicate_tasks_across_agents(root: Path, names: list, args) -> int:
@@ -7154,8 +7488,8 @@ def _audit_memory_caps(root: Path, names: list, args) -> int:
             hits += 1
     if not hits:
         print("- none")
-    return hits
     print()
+    return hits
 
 
 def _audit_blocked_tasks(root: Path, names: list, args) -> int:
@@ -7178,7 +7512,7 @@ def _audit_deliverables_awaiting_independent_review(root: Path, names: list, arg
     for name in names:
         for t in parse_tasks(task_file(root, name)):
             if (
-                t.get("review", "required") == "required"
+                t.get("review", "required") != "na"
                 and t.get("review_status") != "passed"
                 and t["status"] in ("review", "done")
             ):
@@ -7190,7 +7524,6 @@ def _audit_deliverables_awaiting_independent_review(root: Path, names: list, arg
     if not hits:
         print("- none")
     return hits
-    print()
 
 
 def _audit_open_disputes_design_decision_challenges(root: Path, names: list, args) -> int:
@@ -7212,7 +7545,6 @@ def _audit_open_disputes_design_decision_challenges(root: Path, names: list, arg
         hits += 1
     if not hits:
         print("- none")
-    hits += sum(1 for d in open_d if d["escalated"] or d["round"] >= MAX_ROUNDS)
     print()
     return hits
 
@@ -7228,7 +7560,6 @@ def _audit_forced_gate_overrides(root: Path, names: list, args) -> int:
     if not hits:
         print("- none")
     return hits
-    print()
 
 
 def _audit_roster_gaps_roles_with_no_instance(root: Path, names: list, args) -> int:
@@ -7245,7 +7576,6 @@ def _audit_roster_gaps_roles_with_no_instance(root: Path, names: list, args) -> 
     if not hits:
         print("- none")
     return hits
-    print()
 
 
 def _audit_ownership_sanity_phantom_agents_silent_o(root: Path, names: list, args) -> int:
@@ -7281,7 +7611,6 @@ def _audit_ownership_sanity_phantom_agents_silent_o(root: Path, names: list, arg
     if not hits:
         print("- none")
     return hits
-    print()
 
 
 def _audit_branch_pr_flow(root: Path, names: list, args) -> int:
@@ -7329,7 +7658,6 @@ def _audit_branch_pr_flow(root: Path, names: list, args) -> int:
     if not hits:
         print("- none")
     return hits
-    print()
 
 
 def _audit_red_lines(root: Path, names: list, args) -> int:
@@ -7356,7 +7684,6 @@ def _audit_red_lines(root: Path, names: list, args) -> int:
     if not hits:
         print("- no unresolved refusals")
     return hits
-    print()
 
 
 def _audit_team_skills(root: Path, names: list, args) -> int:
@@ -7393,17 +7720,8 @@ def _audit_team_skills(root: Path, names: list, args) -> int:
             print("    teamwork.py skill candidates")
     if not hits:
         print("- ok")
-    return hits
     print()
-
-    if ledger_cache_behind(root):
-        print("## audit trail")
-        print(
-            "- NOTE the head cache lagged the ledger (a crash artefact); it was "
-            "repaired. Mention it in the risk register if it recurs."
-        )
-        ledger_verify(root, reconcile=True)
-        print()
+    return hits
 
 
 def _audit_completion_gates_shared_with_loop(root: Path, names: list, args) -> int:
@@ -7490,7 +7808,6 @@ def _audit_audit_trail_append_only_hash_chained(root: Path, names: list, args) -
     if not hits:
         print("- ok")
     return hits
-    print()
 
 
 def _audit_layered_tests(root: Path, names: list, args) -> int:
@@ -7521,7 +7838,7 @@ def _audit_layered_tests(root: Path, names: list, args) -> int:
         hits += 1
     has_work = bool(areas_in_use(root)) or records
     idle = idle_test_roles(root, records)
-    if idle and has_work and len(staffed_layers(root)) > 3:
+    if idle and has_work:
         for who in idle:
             print(
                 f"- the {who} role has designed no tests; every agent owns and runs its own layer"
@@ -7530,13 +7847,11 @@ def _audit_layered_tests(root: Path, names: list, args) -> int:
     elif idle:
         print(
             f"- informational: {len(idle)} role(s) have no tests yet "
-            f"({', '.join(idle)}); with a small roster only the core layers block "
-            "completion"
+            f"({', '.join(idle)}); nothing to test until work starts"
         )
     if not hits:
         print("- none")
     return hits
-    print()
 
 
 def _audit_merged_branches_still_open(root: Path, names: list, args) -> int:
@@ -7555,7 +7870,6 @@ def _audit_merged_branches_still_open(root: Path, names: list, args) -> int:
     if not hits:
         print("- none")
     return hits
-    print()
 
 
 def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
@@ -7594,7 +7908,6 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
     if not hits:
         print("- ok")
     return hits
-    print()
 
 
 def _audit_markdown_link_health_broken_malformed_ba(root: Path, names: list, args) -> int:
@@ -8420,9 +8733,16 @@ def cmd_model(args) -> int:
         model = (args.model or "").strip()
         if not provider and not model:
             die("give at least --provider or --model")
-        entry = {"provider": provider, "model": model}
-        target = config["agents"] if args.agent and "-" in args.agent else config["roles"]
-        key = args.agent if target is config["agents"] else resolve_role(args.agent)
+        entry = {"provider": one_line(provider), "model": one_line(model)}
+        wanted = pascal(args.agent)
+        instance = next(
+            (i for i in known_instances(root) if pascal(i) == wanted),
+            "",
+        )
+        if instance:
+            target, key = config["agents"], instance
+        else:
+            target, key = config["roles"], resolve_role(args.agent)
         if not key:
             die("name an agent or a role (e.g. reviewer-1, reviewer)")
         target[key] = entry
@@ -8946,6 +9266,11 @@ def _parsers_integration(sub, common) -> None:
         metavar="REV..REV",
         help="revision range for --audit (default: origin/main..HEAD)",
     )
+    s.add_argument(
+        "--strict-authors",
+        action="store_true",
+        help="also fail commits authored outside the team identity domain",
+    )
     s.set_defaults(func=cmd_identity)
 
     s = sub.add_parser(
@@ -9219,7 +9544,19 @@ def _parsers_meta(sub, common) -> None:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except SystemExit:
+        raise
+    except (OSError, ValueError, KeyError, IndexError) as exc:
+        # Malformed workspace state must produce one actionable line, never a
+        # traceback that hides the real gate state.
+        print(
+            f"teamwork: {type(exc).__name__}: {exc}. "
+            "Inspect the workspace with `teamwork audit` and `teamwork ledger verify`.",
+            file=sys.stderr,
+        )
+        return 2
 
 
 if __name__ == "__main__":
