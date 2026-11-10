@@ -20,7 +20,6 @@ lives in the `/teamwork` skill.
 | Reviewer | deep independent second review of **every** deliverable (code, tests, docs, design, plans, research); the only role that may pass/merge | CEO |
 | Security Auditor | security assessment and remediation coordination; audits the whole team, CTO included | CEO |
 | Architect | system/module/API/data/deployment architecture, frozen interfaces, ADRs | CTO |
-| Team Leader | one feature end to end (`F-nnnn`), the squad attached to it (`instance add --under`), its `feature` test layer, and the proof that the feature is independent of every other open one | CTO |
 | Developer (1..N) | production code, **its own unit tests**, inline docs, PRs | CTO |
 | Tester (1..N) | integration/system/E2E tests, monitoring real test/CI runs, defect routing, regression | CTO |
 | Release Engineer | build/release pipeline, CI gates, packaging, rollback, repository and CI integrity | CTO |
@@ -100,9 +99,9 @@ caught at 16-24 of 44. The share is contested, so `preflight` plus the
   another feature's in-flight code. That goes back to the Architect.
 - **Definition of done.** `preflight` green, independent pass, archived, merged -
   nothing else, and a status the board does not show does not exist.
-- **Generated artifacts render at the merge** *(T-0043)*. `Board.md` and
-  the archive are written on the base branch by the merging Reviewer, so a branch
-  does not carry a board render: the merge re-renders it from the queues.
+- **Generated artifacts render at the merge** *(target; T-0043)*. `Board.md` and
+  the archive belong on the base branch, written by the merging Reviewer; until the
+  merge path does it, a branch that must carry a board render re-renders it last.
 - **Right-sized roster, small slices.** One Developer and one Tester per feature
   team; a task fits one review **lease** (20/40/80 min for fast/standard/deep) whose
   reviewer **budget** is 10/20/40 min, or it is split; a fix after a fail is a delta

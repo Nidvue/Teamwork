@@ -24,7 +24,6 @@ ROLE_DISPLAY = {
     "release-engineer": "Release Engineer",
     "technical-writer": "Technical Writer",
     "data-engineer": "Data Engineer",
-    "team-leader": "Team Leader",
 }
 
 ACRONYMS = {
@@ -71,10 +70,6 @@ ROLE_ALIASES = {
     "cfo": "cfo",
     "reviewer": "reviewer",
     "security-auditor": "security-auditor",
-    # `team-leader` is a role slug of its own (Architecture.md 13.1): without this
-    # alias `TeamLeader-1` resolves to `teamleader-1`, so `instances_of` would find
-    # no instance of the role that owns a feature's squad.
-    "team-leader": "team-leader",
 }
 
 
