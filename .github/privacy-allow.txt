@@ -43,6 +43,21 @@
 # exempted; anything secret on such a line is still caught by its own rule.
 ^/home/pingz$
 
+# ^C:\\Users\\Ping$ - the same operator user name on the Windows host, opened by
+# T-0018 under D-20261101-CEO-3 (ceo T-0011), which amends D-20261019-CEO-8/-15
+# and AuditReport F-P1 rather than being re-argued here: that ruling assumed the
+# source fix was cheap, and it is not - a PowerShell variable expanded into an
+# absolute path inside the --result line of two commit messages (e4b046f, 5b63723)
+# that are ancestors of main with 44 commits and 40 cited SHAs above them, and
+# --reflog keeps the old messages reportable after any rewrite. The exemption is
+# fixed by SHAPE (this one user name under the Windows user directory), never by
+# count: neither line carries a credential, a sibling user name, the forward-slash
+# form of the same path and every credential rule stay armed, and the control is
+# committed in tests/unit/test_privacy_scan.py. The cause is fixed at source as
+# well - a --result line is single-quoted, so no shell variable expands into a
+# home path.
+^C:\\Users\\Ping$
+
 # The three fabricated probe values below are what a reviewer's own evidence
 # quoted while proving that the gate CATCHES a credential; they are not secrets,
 # they were invented to be caught. They reached docs/Team/Archive.md through the
