@@ -2,8 +2,9 @@
 #
 # Contract: docs/Team/Architecture.md (section 9), docs/Team/Project.md AC-6.
 #
-# Trigger policy: the `ci.yml` scope job classifies the change and skips the
-# 3x3 test matrix on a prose-only push, so a prose edit never runs the matrix.
+# Trigger policy: `scripts/ci_scope.py` classifies the change and the `ci.yml`
+# scope job skips the 3x3 test matrix on a prose-only push, so a prose edit never
+# runs the matrix.
 # Those paths land here instead, where the cheap checks that actually matter for
 # prose still run - `teamwork links`, the privacy scan (a documentation leak is
 # still a leak) and `mkdocs build --strict`. Code changes do not need this
@@ -24,6 +25,9 @@ on:
     branches: [main]
     # A release deploys the site from the tag, not from an arbitrary later `main`.
     tags: ["v*"]
+    # This list is pinned to `scripts/ci_scope.py::prose_paths` by
+    # tests/unit/test_ci_scope.py: a path that leaves one list without joining
+    # the other is a hole in one of the two gates.
     paths:
       - "docs/**"
       - "README.md"

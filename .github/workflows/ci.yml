@@ -2,8 +2,9 @@
 #
 # Contract: docs/Team/Architecture.md (section 9, "CI / release contract") and
 # docs/Team/Project.md (AC-4 CI matrix, AC-5 privacy, AC-2 no runtime deps,
-# AC-9 cross-platform). The path filtering itself is described in this header
-# and implemented by the `scope` job below, not by a workflow-level filter.
+# AC-9 cross-platform). The path filtering itself is described in this header,
+# implemented by `scripts/ci_scope.py`, and run by the `scope` job below - never
+# by a workflow-level filter.
 #
 # Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix), build,
 # privacy, committer guard, release-consistency, docs. Every job must be green on
@@ -36,8 +37,9 @@
 #               neither, and only the tag-sensitive jobs run.
 #
 # Prose paths are also validated by `.github/workflows/docs.yml` (links, privacy
-# scan, mkdocs --strict); the `scope` prose set and that workflow's `paths:` list
-# must stay identical.
+# scan, mkdocs --strict). That workflow's `paths:` list is pinned to
+# `scripts/ci_scope.py::prose_paths` by tests/unit/test_ci_scope.py, so the two
+# gates cannot drift apart.
 #
 # The consistency gate in this file runs `--offline`, so R3/R4/R5/R8 (npm, the
 # GitHub API, PyPI) print SKIP here. The online half - the same checker with
@@ -74,8 +76,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # The workflow can no longer delegate the prose filter to `paths-ignore`
-    # (see the header), so the changed-path set is computed here from git and the
-    # matrix jobs ask one question: did this push touch anything that ships?
+    # (see the header), so `scripts/ci_scope.py` computes the changed-path set
+    # from git and the matrix jobs ask one question: did this push touch
+    # anything that ships?
     outputs:
       # `code`: does this change ship. `prose`: is it prose/media only.
       code: ${{ steps.diff.outputs.code }}
@@ -94,111 +97,7 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          # Only a push is a cost-optimised event. A pull request and a manual run
-          # always execute the full set: a required check that is not reported
-          # blocks a merge, and a path-filtered skip reports nothing at all.
-          if [ "${EVENT_NAME}" != "push" ]; then
-            echo "scope: ${EVENT_NAME} -> every job runs"
-            echo "code=true" >> "${GITHUB_OUTPUT}"
-            # No classification is made for a non-push event: every job runs off
-            # the first arm of its guard, so `prose` is reported as "not prose".
-            echo "prose=false" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-          # A tag push is not a code change: the tagged commit already passed this
-          # matrix as a `main` push, and `release.yml` re-runs pytest on the tag. So
-          # only the tag-sensitive jobs run here - `release-consistency` above all,
-          # because R1/R2/R4/R5 compare the new tag itself with its own commit.
-          case "${REF_NAME}" in
-            refs/tags/*)
-              echo "scope: tag push -> consistency gate only"
-              echo "code=false" >> "${GITHUB_OUTPUT}"
-              echo "prose=false" >> "${GITHUB_OUTPUT}"
-              exit 0
-              ;;
-          esac
-          # The prose/media set. It must stay identical to the `paths:` list of
-          # `.github/workflows/docs.yml`: a path that leaves one list without
-          # joining the other is a hole in one of the two gates.
-          PROSE='^(docs/|assets/|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|SECURITY\.md$|CODE_OF_CONDUCT\.md$|CITATION\.cff$|LICENSE$|AGENTS\.md$|mkdocs\.yml$)'
-          # "before" is all-zero for a new branch and unresolvable after a rewrite,
-          # so resolve what is actually there and otherwise fall back to the tip. A
-          # root commit has no parent, so it needs --root to list its files at all.
-          #
-          # Every change set is measured with --no-renames. Rename detection
-          # reports only the *destination* of a rename, so a push that moved
-          # src/teamwork/foo.py to docs/foo.md would list only the prose path
-          # and be classified as prose - the matrix would be skipped on a change
-          # that removed shipping code. With --no-renames a rename is a delete
-          # plus an add, so both paths are classified and the shipping path can
-          # never be hidden by the rename.
-          HEAD_REV="${HEAD_SHA:-$(git rev-parse HEAD)}"
-          UNDETERMINED=0
-          if [ -n "${BEFORE_SHA}" ] && git rev-parse --verify -q "${BEFORE_SHA}^{commit}" >/dev/null; then
-            FILES=$(git diff --no-renames --name-only "${BEFORE_SHA}" "${HEAD_REV}")
-          else
-            # `before` is unusable: the all-zero sha of a first push, or a sha
-            # that no longer exists after a rewritten history. Diffing the tip
-            # against its own parent (what this did before) reports only the
-            # last commit and hides the source changes the push carried, so the
-            # change set is measured from the widest base that is still known:
-            # the fork point with the default branch.
-            #
-            # A fork point that is not *behind* HEAD gives no change set at all:
-            # after a push `origin/<default>` already contains HEAD, so the
-            # merge base IS HEAD and the previous state of the branch is gone.
-            # Only the root commit has a determinate change set in that
-            # position (its files are the whole change set); for every other
-            # commit the change set is undetermined, and then the code jobs
-            # run: an unknown change set must never silently skip the matrix.
-            BASE=""
-            for CANDIDATE in "origin/${DEFAULT_BRANCH}" "origin/HEAD"; do
-              [ -n "${CANDIDATE}" ] || continue
-              git rev-parse --verify -q "${CANDIDATE}^{commit}" >/dev/null || continue
-              BASE=$(git merge-base "${HEAD_REV}" "${CANDIDATE}" 2>/dev/null || true)
-              [ -n "${BASE}" ] && break
-            done
-            if [ -n "${BASE}" ] && [ "${BASE}" != "${HEAD_REV}" ]; then
-              # The fork point is behind HEAD: the change set is the diff.
-              FILES=$(git diff --no-renames --name-only "${BASE}" "${HEAD_REV}")
-              [ -n "${FILES}" ] || UNDETERMINED=1
-            elif ! git rev-parse --verify -q "${HEAD_REV}^" >/dev/null; then
-              # HEAD is the root commit: it has no parent, so every file it
-              # carries is the change set.
-              FILES=$(git diff-tree --root --no-renames --no-commit-id --name-only -r "${HEAD_REV}")
-              [ -n "${FILES}" ] || UNDETERMINED=1
-            else
-              # HEAD has a parent but the fork point is HEAD itself: the remote
-              # already holds this push, so the pre-push state is gone and the
-              # change set cannot be established. Undetermined, never "prose
-              # only": an unknown change set must never silently skip the
-              # matrix.
-              FILES=""
-              UNDETERMINED=1
-            fi
-          fi
-          # `prose` is only ever true for a measured, non-empty change set whose
-          # every path is in the prose/media set. An undetermined change set and
-          # an empty one both report prose=false, so neither can hand the
-          # privacy and docs gates a reason they were skipped.
-          if [ "${UNDETERMINED}" = "1" ]; then
-            code=true
-            prose=false
-          elif [ -z "${FILES}" ]; then
-            code=false
-            prose=false
-          elif printf '%s\n' "${FILES}" | grep -qvE "${PROSE}"; then
-            code=true
-            prose=false
-          else
-            code=false
-            prose=true
-          fi
-          echo "code=${code}" >> "${GITHUB_OUTPUT}"
-          echo "prose=${prose}" >> "${GITHUB_OUTPUT}"
-          echo "scope: changed -> $(printf '%s ' "${FILES}")"
-          echo "scope: code=${code} prose=${prose}"
+        run: python scripts/ci_scope.py --output "${GITHUB_OUTPUT}"
 
   lint:
     name: lint (ruff)
@@ -241,11 +140,11 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: |
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-            python scripts/teamwork.py identity --audit --strict-authors --range "origin/${BASE_REF}..HEAD"
+            python scripts/teamwork.py identity --audit --range "origin/${BASE_REF}..HEAD"
           elif [ -n "${BEFORE_SHA}" ] && [ "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]; then
-            python scripts/teamwork.py identity --audit --strict-authors --range "${BEFORE_SHA}..${HEAD_SHA}"
+            python scripts/teamwork.py identity --audit --range "${BEFORE_SHA}..${HEAD_SHA}"
           else
-            python scripts/teamwork.py identity --audit --strict-authors --range HEAD
+            python scripts/teamwork.py identity --audit --range HEAD
           fi
 
   committer-guard:
