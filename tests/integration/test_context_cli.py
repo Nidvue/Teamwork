@@ -618,7 +618,8 @@ def test_unknown_uris_exit_2_and_name_the_node(ws: Path, uri: str) -> None:
 
 def test_unknown_level_and_scope_exit_2(ws: Path) -> None:
     level = refused(ws, "context", "read", "ctx://project/knowledge/K-0001", "--level", "3")
-    assert "argument --level: invalid choice: '3'" in level.stderr
+    # argparse quotes the choice from Python 3.12 on; <3.12 prints it bare.
+    assert re.search(r"argument --level: invalid choice: '?3'? ", level.stderr), level.stderr
     refused(
         ws,
         "context",
