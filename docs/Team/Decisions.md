@@ -1779,3 +1779,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: venv\Scripts\python.exe scripts\check_release_consistency.py @0c49c3b (main repo root) -> 1 problem(s), R8 DRIFT docs/Team/Decisions.md:1744: "channel names into, the project ships teamwork-agents"; _channel_claims on that line's "pip install" plus "into" pair -> [('into', None)]; pytest -q tests/unit/test_traceability_matrix.py @44bdf92 -> 1 failed (AC-20 is claimed green, the run exits [1, 0])
 - falsified by: check_release_consistency.py exits 0 on main, or AC-20's row carries a red state owned by a gap, or the guard passes on main with the row still claiming green
 - consequences: -
+
+## D-20261031-Designer - Fix the banner's CEO connectors with stroke-opacity 0.7 -> 1
+
+- date: 2026-10-31
+- kind: technical
+- status: accepted
+- deciders: Designer (designer)
+- decided by: Designer
+- task: T-0003
+- context: -
+- options considered: -
+- decision: Fix the banner's CEO connectors with stroke-opacity 0.7 -> 1 on that one group, rather than recolouring to #a5b4fc or dimming the glow
+- why: All three candidates clear 3:1, so the tie breaks on the smallest change and the preserved look: opacity 1 changes one attribute and no colour token (so #818cf8 stays the single indigo token the record already lists), keeps the glow that the banner's background is built on, and makes the connectors read at the same weight as the accent that fills the CEO node above them; #a5b4fc would add a colour to the token set for a 0.2:1 smaller margin, and dimming the glow changes every other pixel of the canvas
+- evidence: probe_marks.py + render_marks.py @d7aa9d2 -> 4.05 / 4.31 / 4.18:1 analytic worst per line and 3.94 / 4.10 / 4.07:1 rendered, 3/3 >= 3:1; render diff @d7aa9d2 -> 1090 px changed, all inside the connector strips; verify_assets.py @d7aa9d2 -> PROBLEMS 0 with the worst text pair 5.62:1 and worst mark 3.20:1 unchanged
+- falsified by: A reviewer shows a point on any of the three lines still under 3:1, or the pixel diff moving outside the connector strips, or the banner's look regressing against the before render
+- consequences: -
