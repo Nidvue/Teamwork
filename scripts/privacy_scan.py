@@ -194,7 +194,13 @@ _PLACEHOLDERS = re.compile(
 )
 
 
-_RE_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+# Bounded quantifiers, not "+": the unbounded local part made the scan quadratic
+# on a long run of word characters (a 1 MB text file took minutes), which is what
+# hung the pre-commit gate on a large staged document (T-0022). RFC 5321 caps a
+# local part at 64 and a domain label at 63, so the bounds cost no real match.
+_RE_EMAIL = re.compile(
+    r"(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9\-]{1,63}(?:\.[A-Za-z0-9\-]{1,63}){0,8}\.[A-Za-z]{2,24}"
+)
 
 _RE_HOME = re.compile(
     r"(?:(?<![A-Za-z0-9_])/(?:home|Users)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
@@ -325,10 +331,15 @@ def _plausible_credential(value: str) -> bool:
     return True
 
 
+# The leading prefix is bounded: an unbounded `[A-Za-z0-9_]*` before the
+# keyword alternation is quadratic on a long run of word characters (100 kB
+# took minutes), which hung the pre-commit gate on a large staged document
+# (T-0022). A keyword is at most 64 characters from its assignment, so the
+# bound costs no real match.
 _RE_ENV_SECRET = re.compile(
-    r"(?i)(?:[A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|"
-    r"ACCESS[_-]?KEY|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|"
-    r"CREDENTIAL)[A-Za-z0-9_]*)\s*[:=]\s*"
+    r"(?i)(?<![A-Za-z0-9_])(?:[A-Za-z0-9_]{0,64}(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|"
+    r"ACCESS[_-]?KEY|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|CREDENTIAL)"
+    r"[A-Za-z0-9_]{0,64})\s*[:=]\s*"
     r"(?:[\"']([^\"'\n]{8,})[\"']|([A-Za-z0-9+/=_\-.:@!#$%^&]{8,}))"
 )
 
