@@ -688,3 +688,25 @@ def test_long_term_memory_is_not_always_on(cli, project, capsys) -> None:
         short_term.read_text(encoding="utf-8") + "fresh\n" * 500, encoding="utf-8"
     )
     assert harness.instance_always_on(project, root, role) > before
+
+
+def test_the_audit_reports_an_instance_over_the_cap(cli, project, capsys) -> None:
+    build_tree(project)
+    assert cli("--project", project, "init", "--no-git") == 0
+    capsys.readouterr()
+
+    assert cli("--project", project, "audit") in (0, 1)
+    clean = capsys.readouterr().out
+    section = clean.split("## startup read over the cap", 1)[1].split("\n## ", 1)[0]
+    assert "- none" in section, section
+
+    settings = team_root(project) / config.F_SETTINGS
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    data["AlwaysOnBudgetKb"] = 1
+    settings.write_text(json.dumps(data), encoding="utf-8")
+
+    cli("--project", project, "audit")
+    flagged = capsys.readouterr().out
+    section = flagged.split("## startup read over the cap", 1)[1].split("\n## ", 1)[0]
+    assert "bytes against a cap of 1024" in section, section
+    assert "- none" not in section
