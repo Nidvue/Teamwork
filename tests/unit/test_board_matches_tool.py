@@ -55,6 +55,7 @@ equal, and a `done` task must still match when both sides say `done`.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -77,11 +78,13 @@ from teamwork.board import (
     render,
     without_landing,
 )
+from teamwork.config import ROLE_PARENT
 
 REPO = Path(__file__).resolve().parents[2]
 TEAM_REL = Path(".pi") / "Teamwork" / "Teams" / "Teamwork"
 BOARD = REPO / "docs" / "Team" / "Board.md"
 OPEN = {"todo", "doing", "selfcheck", "review", "blocked"}
+ROLE_CELL = re.compile(r"[a-z][a-z-]*")
 
 
 def team_root() -> Path | None:
@@ -367,6 +370,35 @@ def test_display_and_floor_list_the_same_roster() -> None:
     """One map without the other is how a queued role becomes unrenderable."""
     assert {norm_role(role) for role in DISPLAY} == {norm_role(role) for role in FLOOR}
     assert display_role("TechnicalWriter") == display_role("technical-writer")
+
+
+def test_every_staffable_role_has_a_board_spelling() -> None:
+    """`config.ROLE_PARENT` is the roster; both maps must name every role on it.
+
+    No team tree is needed, because the comparison is between the two constants and
+    the engine's own role list - so the check runs in CI and on a fresh clone. A
+    roster that gained a role without a board spelling used to fail only when a
+    team tree happened to staff it: `designer` was staffed and queued while DISPLAY
+    listed the older roles, and `board --check`/`--write` then exited 2 for the
+    whole team on `UnknownRole`. A misspelt value is the same defect in a quieter
+    form - `board_rows()` folds the committed cell back with `norm_role()`, so a row
+    whose fold does not reproduce its role is unfindable even though it renders.
+    """
+    roster = {norm_role(role) for role in ROLE_PARENT}
+    unspelled = sorted(roster - set(DISPLAY))
+    unfloored = sorted(roster - set(FLOOR))
+    assert not unspelled, f"staffable role(s) with no board spelling in DISPLAY: {unspelled}"
+    assert not unfloored, f"staffable role(s) with no milestone floor in FLOOR: {unfloored}"
+    assert set(DISPLAY) == roster, sorted(set(DISPLAY) ^ roster)
+    assert set(FLOOR) == roster, sorted(set(FLOOR) ^ roster)
+    for folded in sorted(roster):
+        spelled = DISPLAY[folded]
+        assert ROLE_CELL.fullmatch(spelled), (
+            f"{folded!r} renders as {spelled!r}, which is not a role cell a board row can carry"
+        )
+        assert norm_role(spelled) == folded, (
+            f"{folded!r} renders as {spelled!r}, which folds back to {norm_role(spelled)!r}"
+        )
 
 
 def test_every_queued_role_has_a_board_spelling() -> None:
