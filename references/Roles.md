@@ -65,9 +65,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 292 kB |
-| `standard` | 9 | 423 kB |
-| `full` | 16 | 721 kB |
+| `slim` (default) | 6 | 293 kB |
+| `standard` | 9 | 425 kB |
+| `full` | 16 | 725 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
