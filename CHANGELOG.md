@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the repository, are hashed (`path:sha256:bytes`) and the digest is appended to
   the hash-chained ledger, so evidence is a replayable packet instead of a
   sentence.
+- **Verifiable closing manifest**: `ledger export` stops pinning the append-only
+  `docs/Team/Archive.md` (its entry lands at review time, so a committed digest was
+  stale by construction) and says why in `how_to_verify`; the other artifacts and
+  the ledger head still verify with `sha256sum -c`.
 - **Repro-first gate**: `tests repro <T-id> --pre-rev ... --post-rev ...` records
   a fail -> pass transition on the defect task and refuses a single revision, a
   pre-run that does not read as failing, or a pre-revision that is not an
