@@ -34,14 +34,14 @@ CLASSES = {"always-on", "on-demand", "in-loop", "n/a"}
 NO_VALUE = "-"
 #: 12.2, in component order (C1..C8): the ``path`` spec each row must print,
 #: frozen so a row explains its own byte count. C2 is the managed *block* (the
-#: file holds text outside it), C3 is every role plus the global memory the run
-#: sums, C7 is the scripts *and* the engine package, and C8 is both hook stages
+#: file holds text outside it), C3 is every role's short-term memory (the
+#: startup file), C7 is the scripts *and* the engine package, and C8 is both hook stages
 #: found through the resolver the hooks are installed through - spelled as the
 #: resolver call, because ``<toplevel>/.git`` is a file in a linked worktree.
 SPECS = [
     "SKILL.md",
     "managed block in AGENTS.md",
-    "Roles/<Role>/*.md + Global/GlobalMemory.md",
+    "Roles/<Role>/ShortTermMemory.md",
     "references/*.md",
     "n/a - lane packet, no file",
     ".agents/skills/*/SKILL.md",

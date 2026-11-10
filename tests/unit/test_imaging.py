@@ -211,6 +211,7 @@ def test_no_document_still_links_to_a_removed_imaging_file(repo_root):
 
 def test_skill_entry_point_documents_the_designer_ownership(repo_root):
     text = (repo_root / "SKILL.md").read_text(encoding="utf-8")
+    text += (repo_root / "references" / "Bootstrap.md").read_text(encoding="utf-8")
     assert "Visual assets are the Designer's call" in text
     assert "roles/designer.md" in text
     assert "Imaging.md" not in text
