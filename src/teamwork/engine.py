@@ -2374,6 +2374,29 @@ def kind_is_governance(kind: str) -> bool:
     return kind in ("governance", "redline", "tribunal")
 
 
+def _decision_ids_in(text: str) -> list:
+    return re.findall(r"^##\s+(D-\d{8}-[A-Za-z0-9-]+)", text, re.MULTILINE)
+
+
+def all_branch_decision_ids(root: Path) -> set:
+    """Every decision id reachable from a branch tip, so ids are unique team-wide.
+
+    A decision id is a project-wide identifier quoted by the archive and the ledger;
+    allocating it from the current checkout alone lets two lanes on two branches
+    write the same number and cite each other's record.
+    """
+    project = work_repo(root)
+    if not is_git_repo(project):
+        return set()
+    names = run_git(project, "for-each-ref", "--format=%(refname:short)", "refs/heads").stdout
+    seen: set = set()
+    for branch in (n.strip() for n in names.splitlines() if n.strip()):
+        show = run_git(project, "show", f"{branch}:docs/Team/Decisions.md")
+        if show.returncode == 0:
+            seen.update(_decision_ids_in(show.stdout))
+    return seen
+
+
 def cmd_decision(args) -> int:
     """Record a decision as a first-class, traceable project record."""
     root = project_root(args)
@@ -2398,11 +2421,15 @@ def cmd_decision(args) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "decisions.lock"):
         existing = path.read_text(encoding="utf-8") if path.exists() else "# DECISIONS\n"
         base_ident = f"D-{today_iso().replace('-', '')}-{pascal(actor)}"
+        # Take the highest id in use across every branch, not just this checkout, so
+        # two lanes recording at once never pick the same number (T-0038: two open
+        # branches both took D-...-CEO-14 and the archive then cited a duplicate).
+        taken = set(_decision_ids_in(existing)) | all_branch_decision_ids(root)
         ident = base_ident
-        suffix = 2
-        while re.search(rf"^##\s+{re.escape(ident)}\b", existing, re.MULTILINE):
-            ident = f"{base_ident}-{suffix}"
-            suffix += 1
+        n = 1
+        while ident in taken:
+            n += 1
+            ident = f"{base_ident}-{n}" if n > 1 else base_ident
         block = [
             f"## {ident} - {one_line(args.title or args.decision[:60])}",
             "",
