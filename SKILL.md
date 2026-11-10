@@ -154,9 +154,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 256 kB |
-| `standard` | 9 | 374 kB |
-| `full` | 16 | 641 kB |
+| `slim` (default) | 6 | 263 kB |
+| `standard` | 9 | 384 kB |
+| `full` | 16 | 660 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.5x what `slim` costs.
@@ -234,7 +234,7 @@ is committed. All team-created names are **PascalCase**.
     │   └── Artifacts/  Reports/  Scratch/
     └── Runtime/                     # ephemeral
         ├── LedgerHead.json          # fast-path checkpoint for the chain
-        ├── Locks/                   # per-file and per-role locks
+        ├── Locks/                   # per-file and per-role locks; memory-<Role>.claim
         ├── Worktrees/<Instance>/    # created by `branch start --worktree`
         └── Slots/<Provider>/<Agent>.slot
 ```
@@ -246,6 +246,19 @@ so several teams in one repository never collide.
 and `Developer-2` read and write one `Roles/Developer/` memory and claim from one
 `Roles/Developer/TaskQueue.md`. `Role.md` is per role; only `StartHere.md`, `WorkLog.md`, `Inbox.md`,
 `Artifacts/`, `Reports/` and `Scratch/` are private to an instance.
+
+**Any role scales, and one instance at a time holds its memory pen.**
+`instance add <role> --count N` runs a second (third, fourth) instance of *any*
+role - CTO, Architect, Product Manager, whoever the brief needs - against the same
+shared memory and queue. Only one instance of a role may revise that memory at a
+time: `memory claim <role> --by <instance>` takes the pen for a multi-entry update
+and `memory release` gives it back, a single `remember` takes it only for its own
+duration, and every other instance of that role is read-only meanwhile (reads and
+`recall` always work). A dead holder's lease expires, and `memory status` shows who
+holds which role now. **A lease that runs long is contested, not waited out**: a
+peer of the role runs `memory contest <role> --by <instance> --reason '<why>'`,
+which puts a `P0` case on the arbiter's queue, and the **CTO** rules - more time
+(`memory extend`) or the lock removed (`memory revoke`) - on the record.
 
 ## Bootstrap procedure (CEO)
 
@@ -840,6 +853,17 @@ python3 $S tests repro T-0007 --by developer-1 --pre-rev <rev> \
 python3 $S global "<shared fact>" --key k --importance 4
 python3 $S remember developer-1 "<fact>" --key k --importance 4 --by developer-1 --src T-0007 --rev <sha>
 python3 $S task add developer "<task>" --priority P0 --deps architect:T-0002
+
+# scale ANY role: instances share the role's memory + queue, one reviser at a time
+python3 $S instance add architect --count 2
+python3 $S instance list
+python3 $S instance retire architect-3 --reason "trimmed"
+python3 $S memory claim architect --by Architect-2 --reason "rewrite the contract"
+python3 $S memory contest architect --by Architect-3 --reason "three tasks blocked"
+python3 $S memory extend architect --by CTO --ttl 45 --reason "the rewrite is large"
+python3 $S memory revoke architect --by CTO --reason "that lane is wedged"
+python3 $S memory release architect --by Architect-2
+python3 $S memory status [architect]
 
 # work: own branch -> commit -> self-check -> PR -> review -> Reviewer merge
 python3 $S task next developer-1
