@@ -7,8 +7,10 @@ the body boundary and every scalar is written on one line.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date
 from pathlib import Path
+from typing import NamedTuple
 
 from .config import (
     ALL_LAYERS_SENTINEL,
@@ -20,6 +22,11 @@ from .config import (
     F_MEM_ARCHIVE,
     F_SHORT,
     F_TASKS,
+    FEATURE_CHECKOUT_STATE,
+    FEATURE_GENERATED_ARTIFACTS,
+    FEATURE_OPEN_STATES,
+    FEATURE_RECORDS_REL,
+    FEATURE_STATES,
     LONG_CAP,
     MAX_ROUNDS,
     PRIORITY_ORDER,
@@ -518,6 +525,191 @@ def find_test(records: list, handle: str):
     return None
 
 
+# --------------------------------------------------------------------------- #
+# Feature records: docs/Team/Features.md (Architecture.md 13.1)
+#
+# One file, one authority per field: the row belongs to the feature's owner, the
+# `interface` and the `ready` transition belong to the Architect, and the id, the
+# timestamps and every validation belong to the command. The file is an ordinary
+# committed document - the caller commits its own edit on its own branch.
+# --------------------------------------------------------------------------- #
+
+FEATURE_RE = re.compile(r"^##\s+(F-\d{4})\s*(?:·|:)?\s*(.*)$")
+
+#: `META_RE` matches `[a-z_]+`, and one frozen field of 13.1 is spelled
+#: `depends-on`. A hyphen is part of the field name here, so the feature records
+#: parse with their own metadata pattern rather than a renamed field.
+FEATURE_META_RE = re.compile(r"^-\s+([a-z][a-z_-]*):\s*(.*)$")
+
+
+def feature_header(path: Path | None = None) -> str:
+    """The records file's header: the frozen set of fields, and who owns which."""
+    return (
+        "# Features - feature teams (one record per vertical slice)\n\n"
+        "Owner: Project Manager.\n\n"
+        "> The independence map (docs/Team/Architecture.md 13). Every record's\n"
+        "> `paths` is its whole write set; `feature check` refuses two open records\n"
+        "> that own one path. Field authority: `owner`, `statement`, `paths`,\n"
+        "> `depends-on` and the `active`/`done`/`dropped` transitions belong to the\n"
+        "> record's owner; `interface` and the `ready` transition belong to the\n"
+        "> Architect; the id, the dates and every validation belong to the command.\n\n"
+        # A plain pointer, not a markdown link: this file is generated into every
+        # initialised project, where `docs/guide/cli.md` need not exist, and a link
+        # to a file that is not there is a broken link in `teamwork.py links`.
+        "Related: docs/Team/Architecture.md (the frozen rules) and "
+        "docs/guide/cli.md (this command surface)\n"
+    )
+
+
+def new_feature(
+    statement: str,
+    owner: str = "",
+    paths=(),
+    interface: str = "-",
+    depends_on=(),
+    state: str = "proposed",
+) -> dict:
+    """One feature record, in the field order of Architecture.md 13.1."""
+    return {
+        "id": "",
+        "statement": one_line(statement),
+        "owner": one_line(owner),
+        "interface": one_line(interface) or "-",
+        "paths": [one_line(p) for p in paths if one_line(p)],
+        "depends_on": [one_line(d).upper() for d in depends_on if one_line(d)],
+        "state": state if state in FEATURE_STATES else "proposed",
+        "created": today_iso(),
+        "updated": today_iso(),
+    }
+
+
+def _split_list(value: str) -> list:
+    """`a,b , c` -> ['a', 'b', 'c']; `-` and the empty string are the empty list."""
+    text = (value or "").strip()
+    if not text or text == "-":
+        return []
+    return [part.strip() for part in text.split(",") if part.strip()]
+
+
+def parse_features(path: Path) -> list:
+    """Every record in the file, in file order (the order every finding uses)."""
+    if not path.exists():
+        return []
+    return parse_features_text(path.read_text(encoding="utf-8", errors="replace"))
+
+
+def parse_features_text(text: str) -> list:
+    """The same parse over a string: the working copy or a `git show` blob."""
+    out: list = []
+    current = None
+    for raw in (text or "").splitlines():
+        m = FEATURE_RE.match(raw)
+        if m:
+            if current:
+                out.append(current)
+            current = new_feature(m.group(2))
+            current["id"] = m.group(1).upper()
+            continue
+        if current is None:
+            continue
+        mm = FEATURE_META_RE.match(raw)
+        if not mm:
+            continue
+        field, value = mm.group(1), mm.group(2).strip()
+        if field == "paths":
+            current["paths"] = _split_list(value)
+        elif field == "depends-on":
+            current["depends_on"] = [d.upper() for d in _split_list(value)]
+        elif field == "owner":
+            current["owner"] = one_line(value)
+        elif field == "interface":
+            current["interface"] = one_line(value) or "-"
+        elif field == "state":
+            if value in FEATURE_STATES:
+                current["state"] = value
+        elif field in ("created", "updated"):
+            current[field] = value
+    if current:
+        out.append(current)
+    return out
+
+
+def assign_feature_ids(records: list) -> None:
+    """Number any record that has no id yet, in file order, from the highest in use.
+
+    The id is the command's field (13.1) and `feature add` allocates it before the
+    record is written; this is the same max+1 rule for a caller that hands the
+    renderer a record it built itself (`seed`, a merge replay, a test fixture).
+    """
+    highest = 0
+    for record in records:
+        digits = str(record.get("id") or "").split("F-")[-1]
+        if digits.isdigit():
+            highest = max(highest, int(digits))
+    for record in records:
+        if not record.get("id"):
+            highest += 1
+            record["id"] = f"F-{highest:04d}"
+
+
+def render_features(records: list, path: Path | None = None) -> str:
+    assign_feature_ids(records)
+    out = [feature_header(path), ""]
+    for r in records:
+        out.append(f"## {r['id']} · {one_line(r['statement']) or 'feature'}")
+        out.append(f"- owner: {one_line(r.get('owner', ''))}")
+        out.append(f"- interface: {one_line(r.get('interface', '-')) or '-'}")
+        out.append(f"- paths: {', '.join(r.get('paths') or [])}")
+        out.append(f"- depends-on: {', '.join(r.get('depends_on') or []) or '-'}")
+        out.append(f"- state: {r.get('state', 'proposed')}")
+        out.append(f"- created: {r.get('created', '')}")
+        out.append(f"- updated: {r.get('updated', '')}")
+        out.append("")
+    return "\n".join(out).rstrip() + "\n"
+
+
+def write_features(path: Path, records: list) -> None:
+    atomic_write(path, render_features(records, path))
+
+
+def find_feature(records: list, handle: str):
+    want = (handle or "").strip().upper()
+    for i, r in enumerate(records):
+        if r["id"].upper() == want:
+            return i
+    return None
+
+
+def next_feature_id(records: list) -> str:
+    """One more than the highest number in the records visible at this revision.
+
+    There is no counter file and no reservation (13.1): a refused `add` writes
+    nothing and consumes nothing, so the next successful add from the same
+    revision offers the same number.
+    """
+    highest = 0
+    for r in records:
+        digits = r["id"].split("F-")[-1]
+        if digits.isdigit():
+            highest = max(highest, int(digits))
+    return f"F-{highest + 1:04d}"
+
+
+def feature_as_json(record: dict) -> dict:
+    """The frozen `--json` object of one record (Architecture.md 13.2)."""
+    return {
+        "id": record["id"],
+        "statement": record["statement"],
+        "owner": record["owner"],
+        "interface": record["interface"],
+        "paths": list(record.get("paths") or []),
+        "depends_on": list(record.get("depends_on") or []),
+        "state": record["state"],
+        "created": record["created"],
+        "updated": record["updated"],
+    }
+
+
 def new_task(
     title: str,
     priority: str = "P2",
@@ -532,6 +724,7 @@ def new_task(
     mandate: str = "explicit",
     mandate_basis: str = "",
     intake_key: str = "",
+    feature: str = "",
 ) -> dict:
     priority = (priority or "P2").upper()
     if priority not in PRIORITY_ORDER:
@@ -543,6 +736,7 @@ def new_task(
         "priority": priority,
         "status": status if status in STATUSES else "todo",
         "deps": one_line(deps),
+        "feature": one_line(feature),
         "shared": one_line(shared),
         "tags": one_line(tags),
         "mandate": mandate if mandate in MANDATES else "explicit",
@@ -618,6 +812,7 @@ def parse_tasks(path: Path) -> list:
                     "priority",
                     "status",
                     "deps",
+                    "feature",
                     "shared",
                     "tags",
                     "mandate",
@@ -679,6 +874,13 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("priority", t["priority"]),
             ("status", t["status"]),
             ("deps", t["deps"]),
+        ]
+        # The feature slice (Architecture.md 13.2) is written only when it exists:
+        # a queue without `--feature` renders byte-identically to one from before
+        # the field did, so every existing record and test is untouched.
+        if t.get("feature"):
+            meta.append(("feature", t["feature"]))
+        meta += [
             ("shared", t["shared"]),
             ("tags", t["tags"]),
             ("mandate", t.get("mandate", "explicit")),
@@ -1436,3 +1638,300 @@ def find_skill(items: list, handle: str):
         if want and want in s["name"].lower():
             return i
     return None
+
+
+# --------------------------------------------------------------------------- #
+# The independence rule (Architecture.md 13.3), as an executable test
+#
+# Rules 1-4 are one predicate over the OPEN records (`state` in `ready`, `active`),
+# evaluated in one read of one file, because a feature is a vertical slice one squad
+# can build, test and ship without another squad's merge. Rule 5 - two records
+# carrying one id - is the one rule over EVERY record, open or closed, because a
+# closed id still names one feature.
+#
+# Everything here is a string test on the normalised spelling. Nothing is `stat`'ed
+# and no glob is expanded, so a dirty worktree and a fresh clone answer the same
+# question and CI cannot disagree with the lane. The wording of every finding is
+# frozen in section 13.3 verbatim: a `feature`-layer record asserts these strings,
+# so there is no paraphrase to drift from.
+# --------------------------------------------------------------------------- #
+
+#: `* ? [ ] { }` - refused rather than expanded: overlap between two globs is
+#: undecidable without expanding both, and an unexpanded glob silently claims
+#: nothing (`src/*.py` reads as "all of src" and behaves as "no file at all").
+GLOB_CHARS = "*?[]{}"
+
+#: A drive prefix (`C:`) after the one normalisation. Windows spellings are
+#: absolute whatever the platform the check runs on.
+DRIVE_RE = re.compile(r"^[a-z]:")
+
+
+class FeatureProblem(NamedTuple):
+    """One finding: the record it names, the rule number, and the frozen line."""
+
+    feature: str
+    rule: int
+    message: str
+
+
+def norm_path(value: str) -> str:
+    """Normalise a claimed path exactly once (13.3's matching rule).
+
+    `NFKC` runs first so a full-width `／` and a full-width `．` cannot disagree
+    with their ASCII spellings - the containment paragraph of 13.3 says so - then
+    `\\` becomes `/`, a leading `./` and a repeated `/` go, the trailing `/` is
+    optional noise, and the comparison is case-folded on every platform.
+    """
+    text = unicodedata.normalize("NFKC", str(value or "")).strip()
+    text = text.replace("\\", "/")
+    while text.startswith("./"):
+        text = text[2:]
+    while "//" in text:
+        text = text.replace("//", "/")
+    text = text.rstrip("/")
+    return text.casefold()
+
+
+def covers(owner: str, claimed: str) -> bool:
+    """`owner` covers `claimed`: the same path, or a directory above it."""
+    return claimed == owner or claimed.startswith(owner + "/")
+
+
+def overlap(left: str, right: str) -> bool:
+    """Two normalised claims name at least one common path."""
+    return covers(left, right) or covers(right, left)
+
+
+def _outside_repository(normalised: str) -> bool:
+    """The containment rule, decided without the filesystem (13.3)."""
+    if not normalised:
+        return False
+    if normalised.startswith("/"):
+        return True
+    if DRIVE_RE.match(normalised):
+        return True
+    return ".." in normalised.split("/")
+
+
+def _is_checkout_state(normalised: str) -> bool:
+    for entry in FEATURE_CHECKOUT_STATE:
+        prefix = norm_path(entry)
+        if normalised == prefix or normalised.startswith(prefix + "/"):
+            return True
+    return False
+
+
+def path_problems(feature: str, raw: str) -> list:
+    """Rule 4 for one claimed path, with the path exactly as it was written."""
+    written = str(raw or "")
+    normalised = norm_path(written)
+    if any(char in written for char in GLOB_CHARS):
+        return [
+            FeatureProblem(
+                feature,
+                4,
+                f"{feature} claims a glob ({written}); name the directory instead",
+            )
+        ]
+    if _outside_repository(normalised):
+        return [
+            FeatureProblem(
+                feature,
+                4,
+                f"{feature} claims a path outside the repository ({written}); "
+                "the claim is relative to the repository root",
+            )
+        ]
+    if _is_checkout_state(normalised):
+        return [
+            FeatureProblem(
+                feature, 4, f"{feature} claims checkout state ({written}); it never merges"
+            )
+        ]
+    if normalised in {norm_path(a) for a in FEATURE_GENERATED_ARTIFACTS}:
+        return [
+            FeatureProblem(
+                feature,
+                4,
+                f"{feature} claims a generated artifact ({written}); it is written at the merge",
+            )
+        ]
+    if normalised == norm_path(FEATURE_RECORDS_REL):
+        return [
+            FeatureProblem(
+                feature,
+                4,
+                f"{feature} claims the records file ({FEATURE_RECORDS_REL}); "
+                "it is the map every claim is judged against",
+            )
+        ]
+    return []
+
+
+def open_records(records: list) -> list:
+    """The records rules 1-4 compare: `ready` and `active`, in file order."""
+    return [r for r in records if r.get("state") in FEATURE_OPEN_STATES]
+
+
+def _dep_state(records: list, target: str) -> str:
+    """The state of the record a dependency names, or `-` when none is visible."""
+    for record in records:
+        if record["id"] == target:
+            return record.get("state") or "-"
+    return "-"
+
+
+def check_records(records: list, only=()) -> list:
+    """Every finding over the records, in rule order, with the frozen wording.
+
+    `only` restricts the check to the named records - `feature check F-0003` -
+    under one scope rule: every rule compares the open set except rule 5, which is
+    evaluated over every record. A named `done`/`dropped` record therefore
+    contributes no finding except a rule-5 duplicate.
+    """
+    wanted = {str(i).strip().upper() for i in only if str(i).strip()}
+    named = [r for r in records if not wanted or r["id"] in wanted]
+    opened = open_records(named)
+    problems: list = []
+
+    # rule 1 - no two open features own overlapping writable paths
+    for i, left in enumerate(opened):
+        for right in opened[i + 1 :]:
+            for raw_left in left.get("paths") or []:
+                for raw_right in right.get("paths") or []:
+                    shared = norm_path(raw_left)
+                    other = norm_path(raw_right)
+                    if not overlap(shared, other):
+                        continue
+                    path = raw_left if covers(shared, other) else raw_right
+                    problems.append(
+                        FeatureProblem(
+                            left["id"],
+                            1,
+                            f"{left['id']} {right['id']} share a writable path: {path}",
+                        )
+                    )
+
+    # rule 2 - no open feature depends on another feature's in-flight work
+    for record in opened:
+        for dep in record.get("depends_on") or []:
+            state = _dep_state(records, dep)
+            if state == "done":
+                continue
+            problems.append(
+                FeatureProblem(
+                    record["id"],
+                    2,
+                    f"{record['id']} depends on in-flight {dep} (state={state})",
+                )
+            )
+
+    # rule 3 - one open feature per leader
+    by_owner: dict = {}
+    for record in opened:
+        by_owner.setdefault(record.get("owner") or "-", []).append(record["id"])
+    for owner, ids in by_owner.items():
+        if len(ids) < 2:
+            continue
+        problems.append(
+            FeatureProblem(
+                ids[1],
+                3,
+                f"{owner} owns {len(ids)} open features: {', '.join(ids)} "
+                "(rule 2: one open feature per leader)",
+            )
+        )
+
+    # rule 4 - every owned path is a real, non-generated, in-repository path
+    for record in opened:
+        for raw in record.get("paths") or []:
+            problems.extend(path_problems(record["id"], raw))
+
+    # rule 5 - no two records carry the same id (every record, open or closed)
+    seen: dict = {}
+    for record in named:
+        seen.setdefault(record["id"], []).append(record.get("owner") or "-")
+    for fid, owners in seen.items():
+        if len(owners) < 2:
+            continue
+        problems.append(
+            FeatureProblem(
+                fid,
+                5,
+                f"{fid} is allocated twice ({owners[0]}, {owners[1]}); "
+                "renumber the arriving record before it lands",
+            )
+        )
+    return problems
+
+
+def candidate_problems(records: list, candidate: dict, previous: dict | None = None) -> list:
+    """The rules applied to a record that is about to be written (13.3).
+
+    A record is judged before it is created and the same rules judge it again at
+    the transition that opens it, so the candidate's own paths and dependencies
+    are compared against **every open record** whichever state it is created in.
+    `previous` is the record as it stands today on a `feature set` edit, so a
+    record never collides with itself.
+    """
+    fid = candidate["id"]
+    # Drop the copy of the record being edited: a record never collides with the
+    # row it is replacing.
+    others = [r for r in records if not (previous and r["id"] == previous["id"])]
+    opened = open_records(others)
+    problems: list = []
+
+    # rule 1 - the candidate's paths against every open record's paths
+    for record in opened:
+        for raw_mine in candidate.get("paths") or []:
+            for raw_theirs in record.get("paths") or []:
+                mine = norm_path(raw_mine)
+                theirs = norm_path(raw_theirs)
+                if not overlap(mine, theirs):
+                    continue
+                path = raw_mine if covers(mine, theirs) else raw_theirs
+                problems.append(
+                    FeatureProblem(
+                        fid,
+                        1,
+                        f"{fid} {record['id']} share a writable path: {path}",
+                    )
+                )
+
+    # rule 2 - a dependency is green only when its target is done
+    for dep in candidate.get("depends_on") or []:
+        state = _dep_state(others, dep)
+        if state == "done":
+            continue
+        problems.append(FeatureProblem(fid, 2, f"{fid} depends on in-flight {dep} (state={state})"))
+
+    # rule 3 - the leader's slot, counting the record being written
+    same_owner = [r["id"] for r in opened if (r.get("owner") or "-") == candidate.get("owner")]
+    if same_owner:
+        ids = same_owner + [fid]
+        problems.append(
+            FeatureProblem(
+                fid,
+                3,
+                f"{candidate.get('owner')} owns {len(ids)} open features: "
+                f"{', '.join(ids)} (rule 2: one open feature per leader)",
+            )
+        )
+
+    # rule 4 - the candidate's own paths
+    for raw in candidate.get("paths") or []:
+        problems.extend(path_problems(fid, raw))
+
+    # rule 5 - the candidate's id against every record, open or closed
+    clash = [r for r in others if r["id"] == fid]
+    if clash:
+        owners = [clash[0].get("owner") or "-", candidate.get("owner") or "-"]
+        problems.append(
+            FeatureProblem(
+                fid,
+                5,
+                f"{fid} is allocated twice ({owners[0]}, {owners[1]}); "
+                "renumber the arriving record before it lands",
+            )
+        )
+    return problems

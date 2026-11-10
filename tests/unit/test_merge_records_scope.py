@@ -323,7 +323,7 @@ def test_a_partially_staged_foreign_record_keeps_its_exact_index_blob(cli, proje
 
 
 def test_a_failed_merge_gives_the_peer_its_index_back(cli, project, capsys) -> None:
-    """A real conflict fails after the lift: the peer's staged entry comes back."""
+    """A branch that cannot merge is refused before the work tree, peer index intact."""
     ship(cli, project)
     commit_on_main(project, "feature.txt", "main side\n")
     decisions = project / "docs" / "Team" / "Decisions.md"
@@ -335,10 +335,12 @@ def test_a_failed_merge_gives_the_peer_its_index_back(cli, project, capsys) -> N
     staged_blob = index_blob(project, "docs/Team/Decisions.md")
 
     capsys.readouterr()
-    assert cli("--project", project, "pr", "merge", "--pr", "P-0001", "--by", "reviewer-2") == 1
+    assert cli("--project", project, "pr", "merge", "--pr", "P-0001", "--by", "reviewer-2") == 2
     captured = capsys.readouterr()
 
-    # refused, no conflict left behind, and the peer's index entry byte exact
+    # refused by the mergeability probe, no conflict left behind, and the peer's
+    # index entry byte exact
+    assert "does not merge into" in captured.err, captured
     assert "owner must rebase" in captured.err, captured
     assert engine.run_git(project, "ls-files", "-u").stdout.strip() == ""
     assert index_blob(project, "docs/Team/Decisions.md") == staged_blob
