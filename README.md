@@ -297,9 +297,9 @@ $ teamwork parallel
 ## provider slots
 - anthropic        used=0    cap=64    free=64
 - deepseek         used=0    cap=2500  free=2500
-- ollama-cloud     used=0    cap=10    free=10
+- ollama-cloud     used=0    cap=64    free=64
 - openai           used=0    cap=64    free=64
-- TOTAL free slots: 2638
+- TOTAL free slots: 2692
 
 ## executable work
 - developer        1 ready  next: developer/T-0001 [P0] Implement shorten/expand with tests

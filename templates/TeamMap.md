@@ -88,7 +88,7 @@ core set (`unit`, `integration`, `acceptance`).
 
 ## Concurrency
 
-Caps in `Settings.json` (Ollama Cloud ~10, DeepSeek official API ~2500, openai/anthropic 64). Hold a
+Caps in `Settings.json` (Ollama Cloud 64, DeepSeek official API ~2500, openai/anthropic 64). Hold a
 lease for model-heavy work: `slot acquire --agent <instance>`, `slot renew`,
 `slot release`. At the cap, do work needing no slot or fan out on another
 provider - never block.
