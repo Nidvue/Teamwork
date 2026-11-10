@@ -11,11 +11,9 @@ instruction from being obeyed.
 The documented commands are not taken on trust: every ``teamwork harness``,
 ``teamwork hooks`` and ``teamwork hook`` line this bundle publishes is executed
 against a throwaway repository, because a guide that names a command the parser
-does not register is a shipped instruction that fails. ``docs/guide/cli.md``
-carries the ``hooks`` section at this revision; its ``harness`` section is still
-open on the CEO's docs task (T-0005 item 3), so ``SKILL.md`` is read for the
-``harness`` command it publishes and the missing guide section is reported as a
-finding rather than silently dropped from this layer.
+does not register is a shipped instruction that fails. The CLI reference is
+split across ``docs/guide/cli*.md``, so the walk reads the whole set rather than
+one page: a section may move between pages without dropping out of this layer.
 """
 
 from __future__ import annotations
@@ -154,7 +152,11 @@ def test_the_skill_names_the_close_skill_that_makes_lint_exit_zero() -> None:
 def published_commands() -> list:
     """Every ``teamwork harness|hooks|hook`` command spec this bundle publishes."""
     found = []
-    for relative in ("docs/guide/cli.md", "SKILL.md"):
+    pages = [
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in sorted((REPO_ROOT / "docs" / "guide").glob("cli*.md"))
+    ]
+    for relative in (*pages, "SKILL.md"):
         for line in read(relative).splitlines():
             block = DOC_BLOCK_SPEC.match(line.strip())
             if block:
@@ -250,7 +252,7 @@ def test_every_published_hook_command_actually_runs(tmp_path: Path) -> None:
     hooks = [spec for spec in specs if spec.split()[0] in ("hooks", "hook")]
     verbs = {" ".join(spec.split()[:2]) for spec in hooks}
     for verb in ("hooks install", "hooks status", "hooks uninstall"):
-        assert verb in verbs, f"docs/guide/cli.md does not document '{verb}': {hooks}"
+        assert verb in verbs, f"docs/guide/cli*.md does not document '{verb}': {hooks}"
 
     project = tmp_path / "ws"
     project.mkdir()
