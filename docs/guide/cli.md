@@ -434,7 +434,10 @@ Drop dead or stale slots.
 teamwork load AGENT [--limit LIMIT]
 ```
 
-Print the ROLE's short-term memory (startup context).
+Print the ROLE's short-term memory (startup context), then its open lessons
+(first 10) and the top 10 active project knowledge records, with the counts of
+fixed lessons and superseded knowledge. The ranking and caps are the memory
+model's; the full lifecycle is in `references/State.md`.
 
 ### `remember`
 
@@ -511,6 +514,332 @@ teamwork stats [--agent AGENT] [--all]
 ```
 
 Show memory sizes and cap violations.
+
+## Learning
+
+Two team-local stores turn a run into experience: `Roles/<Role>/Lessons.md` for
+the mistakes a role will not repeat, and `Knowledge.md` at the team root for
+durable project facts. Both are gitignored and never committed, and both are
+written only through the commands below - a hand edit is a defect, not a
+shortcut.
+
+### `lesson`
+
+```text
+teamwork lesson {add,list,show,fix} ...
+```
+
+A lesson is one recorded mistake: the observable failure, its cause, the rule the
+role now follows, and the evidence that proved it. Ids are `L-` plus four digits
+and are globally unique across the team (allocated from the maximum over every
+role's file). `load` prints the role's open lessons at startup.
+
+#### `lesson add`
+
+```text
+teamwork lesson add --by BY --mistake TEXT --cause TEXT --rule TEXT --evidence TEXT
+    [--role ROLE] [--task TASK]
+```
+
+Record a mistake. `--by`, `--mistake`, `--cause`, `--rule` and `--evidence` are
+all required; `--role` defaults to the actor's role, and `--task` records the
+`T-` id it happened on. A missing required flag is an argparse usage error
+(`2`); an empty value or a role with no instance exits `1`.
+
+#### `lesson list`
+
+```text
+teamwork lesson list [--role ROLE] [--status open|fixed|all]
+```
+
+List lessons, one line each, sorted by id. Defaults: every role, `--status all`.
+Each row is:
+
+```text
+- L-0001 [open] developer: <mistake> -> <rule> (skill: tw-name | no skill)
+```
+
+#### `lesson show`
+
+```text
+teamwork lesson show L_ID
+```
+
+Print one lesson, every field in record order, then its file. An unknown id exits
+`1`.
+
+#### `lesson fix`
+
+```text
+teamwork lesson fix L_ID --by BY [--rule RULE] [--skill TW_NAME] [--evidence EVIDENCE]
+```
+
+Close a lesson. On an `open` lesson it sets `status: fixed` and updates the date;
+`--rule` replaces the rule, `--skill` must name a registered `tw-` skill of kind
+`mistake` (exit `1` otherwise), and the evidence stays unless `--evidence` is
+given. On an already `fixed` lesson the command is allowed only with new
+`--evidence` - a re-proof of the fix - and otherwise exits `1` naming the skill
+that fixed it, changing nothing.
+
+The other order is equally valid: `skill create --from-lesson L-0001` creates the
+mistake skill and marks the lesson `fixed` in the same command. Either way the two
+records link to each other.
+
+### `knowledge`
+
+```text
+teamwork knowledge {add,list,search,show,touch} ...
+```
+
+The shapes are frozen in `docs/Team/Architecture.md` sections 15.2 and 16.5. The
+records live in `Knowledge.md` at the team root, shared by every role, gitignored
+and never committed; a missing file is an empty store, never an error.
+
+#### `knowledge add`
+
+```text
+teamwork knowledge add --by BY --topic TEXT --statement TEXT --evidence TEXT
+    [--kind KIND] [--tags TAGS] [--importance 1-5] [--supersedes K-ID] [--task T]
+```
+
+Record one durable fact, rule, command or measured behaviour. `--by`, `--topic`,
+`--statement` and `--evidence` are required; `--topic` is at most 120 characters
+and `--statement` at most 500 (one line each); `--tags` defaults to empty and is
+normalised to a lower-case kebab comma list; `--importance` defaults to `3`. On
+success it prints `# K-0001 recorded: <topic>` then `- path: <Knowledge.md>`.
+
+`--kind` is `fact` (default), `experience`, `preference`, `gotcha` or `rule`. An
+unknown value exits `2`; a record written without the field reads as `fact`, so
+older records need no migration. The field is written after `statement`. `list`
+and `search` accept `--kind` to filter; `show`, `load` and the context L0 display
+it. The duplicate key is unchanged: kind is metadata, not identity.
+
+A duplicate is **active-only** and exact: both the normalised `topic` and the
+normalised `statement` are equal (whitespace collapsed, case-folded). `add`
+applies this precedence:
+
+1. An exact active duplicate returns the existing id and exits `0` with
+   `# K-0003 already records this: <topic>`, adding no second entry. If
+   `--supersedes K-0002` is also given, K-0002 must be active; it is marked
+   `superseded` with `superseded_by: K-0003`. A target that is the duplicate
+   itself or already inactive exits `2`.
+2. Otherwise an active record with the same topic and a different statement is
+   refused with exit `2`:
+   `topic '<topic>' is already claimed by K-0002; pass --supersedes K-0002 to replace it`.
+3. Otherwise the new record is created active.
+
+Re-adding a fact whose only match is `superseded` is not a duplicate: when no
+active record claims the topic the command creates a new active record and the
+old fact stays history. `--supersedes` retires the current holder and records the
+edge on the new record; a nonexistent target, the record itself, or an
+already-superseded target exits `2` naming the active record at the end of its
+chain. The one exception is reinstating an exactly matching retired fact, whose
+id may be named; it rewrites no `superseded_by`. Knowledge is never silently
+deleted, only superseded.
+
+#### `knowledge list`
+
+```text
+teamwork knowledge list [--tag TAG] [--role ROLE] [--kind KIND]
+    [--status active|superseded|all] [--limit N]
+```
+
+List records, default `--status active` and `--limit 20` (`0` means all), with no
+role, kind or tag filter until asked. `--role` matches the `owner` field
+(provenance, not a permission), `--kind` keeps only that kind, and `--tag`
+matches one tag in the record's list. Rows are ordered by importance descending,
+then uses descending, then updated descending, then id ascending:
+
+```text
+- K-0001 [active] importance=3 uses=2 tags=build,ci: <topic> - <statement>
+```
+
+An empty tag list renders `tags=-`. The last line is exactly
+`# knowledge: N active, M superseded, T use(s)`.
+
+#### `knowledge search`
+
+```text
+teamwork knowledge search QUERY [--kind KIND] [--status active|superseded|all] [--limit N]
+```
+
+Case-insensitive substring match over `topic`, `statement` and `tags`, read-only,
+with the same rows and ranking as `list`. It defaults to active records and
+`--limit 20`; `--kind` keeps only that kind; `--status superseded|all` reads the
+history. No match prints `# no knowledge matched "<query>"` and exits `0`.
+
+#### `knowledge show`
+
+```text
+teamwork knowledge show K_ID
+```
+
+Print one record's fields in record order, including `kind`, and its file. A
+superseded record still prints its status and `superseded_by`: history is
+readable, not hidden. An unknown id exits `2`.
+
+#### `knowledge touch`
+
+```text
+teamwork knowledge touch K_ID --by BY
+```
+
+Increment `uses`, update the date and print `# K-0001 uses=N`; an unknown id
+exits `2`. Touch a record you actually used - it is what makes the ranking follow
+need rather than volume.
+
+Startup ranking: `load` prints the top 10 **active** records project-wide, one
+line each (`- [K-0001] [experience] <topic>: <statement> (uses=N, tags=...)`),
+then
+`# project knowledge: N active, M superseded; search: teamwork.py knowledge search "<topic>"`.
+The cap is fixed at 10 and the order is `list`'s, so every agent reads the most
+important and most used facts, not the newest ten.
+
+Evidence and privacy: a record without evidence is opinion, and a statement
+whose evidence names no command, path or dated source is refused at review.
+Never store a secret, credential, token or personal data. A decision cites the
+`K-` record **and its evidence**, never the record's authority.
+
+## Context tree
+
+`ctx://` is a read-only view over the team's memory, lessons, knowledge, skills,
+docs and tasks. Every node resolves to an existing file or record; the view adds
+no file, index, cache or summary sidecar, and a missing store reads as an empty
+node, never an error.
+
+| URI | Resolves to |
+|---|---|
+| `ctx://` | the tree root: `project`, `role`, `global` |
+| `ctx://project/knowledge`, `.../K-0001` | `Knowledge.md` records |
+| `ctx://project/skills`, `.../tw-<name>` | `.agents/skills/<name>/SKILL.md` |
+| `ctx://project/docs`, `.../<path>.md` | the work tree's `docs/**/*.md` |
+| `ctx://role/<role>/lessons`, `.../L-0001` | `Roles/<Role>/Lessons.md` |
+| `ctx://role/<role>/tasks`, `.../T-0001` | `Roles/<Role>/TaskQueue.md` |
+| `ctx://role/<role>/memory/{short,long,archive}`, `.../M-0001` | the role's memory files |
+| `ctx://global/memory`, `.../M-0001` | `Global/GlobalMemory.md` |
+
+`ctx://project/docs` enumerates the work tree at read time: an untracked doc
+appears, a tracked file deleted from the work tree disappears, and a stale index
+cannot hide either. It does not run `git ls-files`.
+
+An unknown URI, an unknown level or a segment that escapes its namespace (`..`,
+an absolute path, a backslash, a drive prefix) exits `2` and names the node.
+
+Levels are computed at read time, never written back:
+
+| Level | What it prints |
+|---|---|
+| L0 | one line: knowledge `[kind] topic: statement`; lesson `[status] mistake`; memory body; skill description; doc H1 + first paragraph; task title |
+| L1 | the navigation layer: a record's fields, a doc's heading tree (first 20), or a directory's child count plus each child's L0 (cap 20, then `... N more`) |
+| L2 | the full record or file |
+
+There is no `.abstract.md`/`.overview.md` sidecar and no model call: a generated
+summary is a second copy that goes stale. The tree adds no store - no
+`Context.md`, no index file, no new directory.
+
+### `context`
+
+```text
+teamwork context {ls,tree,read,find,stats,digest} ...
+```
+
+The shapes are frozen in `docs/Team/Architecture.md` sections 16.3-16.4. Every
+subcommand is read-only: none writes a file, record, cache or ledger event.
+
+#### `context ls`
+
+```text
+teamwork context ls [URI] [--level 0|1] [--limit N]
+```
+
+List a directory node. Defaults: `ctx://`, level 0, limit 20. One line per child:
+
+```text
+- <uri> [<type>] <L0>
+```
+
+`<type>` is one of `dir`, `doc`, `skill`, `knowledge`, `lesson`, `memory` or
+`task`. `--level 1` prints the URI/type line plus that child's L1 fields indented
+under it; `--limit 0` means no cap, and a missing store lists nothing and exits
+`0`.
+
+#### `context tree`
+
+```text
+teamwork context tree [URI] [-L N]
+```
+
+Print the tree shape. Defaults: `ctx://`, depth 2; two spaces of indentation per
+level, `- <name> <L0>`, the same 20-child cap and `... N more` marker. `-L 1`
+prints the root and its children.
+
+#### `context read`
+
+```text
+teamwork context read URI [--level 0|1|2]
+```
+
+Read one node by id. The default is level 1; L2 prints the full record or file.
+It prints the computed level and nothing else. An unknown URI or level exits `2`.
+
+#### `context find`
+
+```text
+teamwork context find QUERY [--scope URI] [--limit N]
+```
+
+Search L0 and L1 text only. Defaults: scope `ctx://`, limit 10. One hit per line:
+
+```text
+- <score> <uri> [<type>] <L0>
+```
+
+Scoring is deterministic: a normalised-query substring of L0 scores 5, every
+token present in L0 3, each L0 token occurrence 2, and each L1 occurrence or an
+exact tag 1. Only positive scores are returned; ties break by URI ascending.
+`--scope` is a URI prefix (`ctx://role/developer`,
+`ctx://project/knowledge`); a node outside it is never returned, and an unknown
+scope exits `2`. No hit prints `# no context node matched "<query>"` and exits
+`0`. `find` never reads L2, calls no model, uses no network and keeps no index:
+the same query over the same tree returns the same list.
+
+#### `context stats`
+
+```text
+teamwork context stats
+```
+
+One line per store (memory, lessons, knowledge, skills, docs, tasks) with live
+counts read from the files at call time:
+
+```text
+- memory: N entries (roles X, global Y)
+- lessons: N (O open, F fixed)
+- knowledge: A active, S superseded
+- skills: N
+- docs: N
+- tasks: N
+```
+
+A missing store is `0`.
+
+#### `context digest`
+
+```text
+teamwork context digest T_ID
+```
+
+Propose record templates for a task without writing anything. A failed review
+or a task `findings` field prints `# lesson candidate for T-nnnn ...` followed by
+a paste-ready `teamwork.py lesson add ...` line (mistake from the title, cause
+from the finding, rule as a placeholder, evidence from the review or branch); a
+done task prints `# knowledge candidate for T-nnnn (done)` followed by
+`teamwork.py knowledge add --by <you> --kind experience ...` (statement from the
+title/result, evidence from the branch/merge). The proposed title is silently
+capped at 120 characters and the cause at 300; longer text is truncated, not
+rejected. It writes no record, cache or ledger event. A task that is neither
+failed nor done, and has no findings, prints `# T-0007: nothing to digest` and
+exits `0`; an unknown task exits `2`.
 
 ## Criteria and tests
 
@@ -931,14 +1260,35 @@ Close a resolved red line.
 teamwork skill {create,share,candidates,rm,list} ...
 ```
 
-Team skills: extract repeated flows into `<project>/.agents/skills/<name>/SKILL.md`.
+Team skills: extract repeated flows into `<project>/.agents/skills/tw-<name>/SKILL.md`.
+Every team skill carries the fixed `tw-` prefix - `skill create` refuses any other
+name, and `harness lint` reports rule `PREFIX` for a directory that does not. The
+prefix is the recognition contract: a `tw-*` directory and a `tw-*` registry row
+is a Teamwork-authored skill, never a host or third-party one.
 
 #### `skill create`
 
 ```text
-teamwork skill create --name NAME [--role ROLE] --for DESCRIPTION --by BY
+teamwork skill create --name tw-NAME [--role ROLE] --for DESCRIPTION --by BY
+    [--kind workflow|mistake] [--from-lesson L_ID]
     [--body BODY] [--body-file BODY_FILE] [--force] [--allow-main]
 ```
+
+`--name` must be `tw-` followed by kebab-case (`tw-<name>`); `--for` is the
+description shown as the trigger. Two kinds:
+
+| Kind | Created from | Front matter | Purpose |
+|---|---|---|---|
+| `workflow` (default) | a repeated task flow | `kind: workflow` | the one way to do a recurring job |
+| `mistake` | a recorded lesson via `--from-lesson L-nnnn` | `kind: mistake`, `prevents: L-nnnn` | the workflow fix that stops one recorded failure recurring |
+
+`--kind mistake` without `--from-lesson` exits `1`: a mistake skill names the
+record it fixes. `--from-lesson` implies `--kind mistake`, requires the lesson to
+exist, to belong to the same role as the skill, and to be `open` or `fixed` with
+no skill yet; on success the lesson becomes `fixed` with this skill and the actor
+recorded. `--force` replaces an existing `SKILL.md`; `--allow-main` overrides the
+branch guard that refuses creation on `main`. A skill is project output: create it
+on a branch, then commit, PR and review it like any deliverable.
 
 #### `skill share`
 
@@ -947,7 +1297,8 @@ teamwork skill share NAME --by BY [--to TO]
 ```
 
 Notify same-role peers so they reuse it. `--to` is a comma list of roles,
-defaulting to the owner role.
+defaulting to the owner role. The note carries the skill's kind and, for a
+mistake skill, the lesson it fixes.
 
 #### `skill candidates`
 
@@ -955,7 +1306,11 @@ defaulting to the owner role.
 teamwork skill candidates [--min-tasks MIN_TASKS]
 ```
 
-Find flows worth extracting.
+Find flows worth extracting. The first section lists repeated areas (at least
+`--min-tasks` finished tasks for one role) with a paste-ready `skill create` line.
+The second section lists, per role, every task carrying a failed review, with the
+count, the findings text, a paste-ready `lesson add` line and a
+`skill create --kind mistake --from-lesson L-nnnn` line.
 
 #### `skill rm`
 
@@ -963,11 +1318,21 @@ Find flows worth extracting.
 teamwork skill rm NAME --by BY
 ```
 
+Unregister a skill. The file is not deleted: remove it on a branch through the
+normal review flow.
+
 #### `skill list`
 
 ```text
 teamwork skill list
 ```
+
+List the registry: id, name, status, `kind`, `lesson` (or `-`), owner and whether
+the file exists.
+
+A skill never replaces the constitution, the red lines or the gates, and never
+weakens one: it goes through the same self-check, review, PR and Reviewer-only
+merge as any other change.
 
 ## Feature teams
 
