@@ -8057,11 +8057,14 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
     toplevel = run_git(project, "rev-parse", "--show-toplevel").stdout.strip()
     at_toplevel = bool(toplevel) and Path(toplevel).resolve() == project.resolve()
     if at_toplevel:
-        if preset_identity(project) is None and not quiet:
-            print(
-                "teamwork: no git identity here or globally: commits fall back to "
-                "<role>@agents.nidvue.com, one mailbox per role"
-            )
+        local_email = run_git(project, "config", "--local", "user.email").stdout.strip()
+        local_name = run_git(project, "config", "--local", "user.name").stdout.strip()
+        if preset_identity(project) is None:
+            name, email = role_identity("ceo")
+            if not local_email:
+                run_git(project, "config", "--local", "user.email", email)
+            if not local_name:
+                run_git(project, "config", "--local", "user.name", name)
     elif not quiet:
         print(
             f"teamwork: NOTE {project} is inside the git worktree {toplevel}; "
