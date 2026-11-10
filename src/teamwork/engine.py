@@ -4136,12 +4136,16 @@ def atomic_write(path: Path, text: str) -> None:
     group-readable workspace file private after the first rewrite.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    mode = 0o644
-    try:
-        if path.exists():
+    if path.exists():
+        try:
             mode = path.stat().st_mode & 0o777
-    except OSError:
-        pass
+        except OSError:
+            mode = 0o644
+    else:
+        # Respect the caller's umask instead of forcing a world-readable file.
+        current_umask = os.umask(0)
+        os.umask(current_umask)
+        mode = 0o666 & ~current_umask
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline=newline_for()) as fh:
@@ -5350,13 +5354,21 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
     # A plain `git commit` must never inherit the operator's personal identity.
     # Set the repo-local fallback to the CEO role mailbox unless the repository
     # already has its own identity.
-    local_email = run_git(project, "config", "--local", "user.email").stdout.strip()
-    local_name = run_git(project, "config", "--local", "user.name").stdout.strip()
-    if not local_email:
-        name, email = role_identity("ceo")
-        run_git(project, "config", "--local", "user.email", email)
-        if not local_name:
-            run_git(project, "config", "--local", "user.name", name)
+    toplevel = run_git(project, "rev-parse", "--show-toplevel").stdout.strip()
+    at_toplevel = bool(toplevel) and Path(toplevel).resolve() == project.resolve()
+    if at_toplevel:
+        local_email = run_git(project, "config", "--local", "user.email").stdout.strip()
+        local_name = run_git(project, "config", "--local", "user.name").stdout.strip()
+        if not local_email:
+            name, email = role_identity("ceo")
+            run_git(project, "config", "--local", "user.email", email)
+            if not local_name:
+                run_git(project, "config", "--local", "user.name", name)
+    elif not quiet:
+        print(
+            f"teamwork: NOTE {project} is inside the git worktree {toplevel}; "
+            "the team uses that repository and will not rewrite its local identity."
+        )
     has_identity = True  # team commits always carry the ROLE identity
 
     if commit and not created and is_git_repo(project):
