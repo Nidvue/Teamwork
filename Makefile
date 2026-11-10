@@ -35,7 +35,7 @@ dev: ## Editable install with the dev extras (pytest, pytest-cov, ruff, mypy, bu
 lint: ## Static checks: ruff check, ruff format --check and the no-comment rule.
 	$(PYTHON) -m ruff check .
 	$(PYTHON) -m ruff format --check .
-	$(PYTHON) scripts/check_comments.py
+	$(PYTHON) $(dir $(abspath $(lastword $(MAKEFILE_LIST))))scripts/check_comments.py
 
 format: ## Auto-format the tree and apply safe lint fixes.
 	$(PYTHON) -m ruff format .
