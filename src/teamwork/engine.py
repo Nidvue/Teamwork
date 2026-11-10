@@ -5465,7 +5465,7 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             continue
         expected = canonical.get(ae)
         operator = preset_identity(project)
-        is_operator = (ae, an) == OPERATOR_IDENTITY or (
+        is_operator = (an, ae) == OPERATOR_IDENTITY or (
             operator is not None and (ae, an) == (operator[1], operator[0])
         )
         if expected is None and is_operator:
