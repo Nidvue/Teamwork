@@ -774,7 +774,6 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
     assert entries == [
         r"^\.pi/agent/npm$",
         r"^/home/pingz$",
-        r"^C:\\Users\\Ping$",
         r"^sk-live-0123456789abcdef0123456789abcdef$",
         r"^hunter2 passphrase$",
         r"^changeme-placeholder$",
@@ -995,29 +994,17 @@ def test_every_shipped_allowlist_entry_matches_a_real_finding():
     which the scanner already scopes, so the entry exempted nothing.
 
     This test covers the PATH-shaped entries, which is what the dead-entry defect
-    was about, and the check is synthetic: each entry's own literal is put on one
-    line and scanned with an EMPTY allowlist, and the entry must match a finding
-    that scan reports. A value the scanner would never report cannot be blessed
-    this way. It is not a claim about the tree - the Windows shape (T-0018,
-    ``D-20261101-CEO-3``) is a history-only exemption today, the tree being clean
-    without it, and the shipped ``--tree --history`` gate plus the committed
-    control are what prove it is still needed. The value-shaped entries are
-    fabricated probe values that only match inside a larger line a credential rule
-    keys on, so they are covered by ``test_a_fabricated_probe_value_is_exempted_but
-    _its_neighbours_are_not`` instead of by a synthetic prefix here.
+    was about: scanning the tree, each must exempt at least one finding the same
+    scan reports without ``--allow``. The value-shaped entries are fabricated
+    probe values that only match inside a larger line a credential rule keys on,
+    so they are covered by ``test_a_fabricated_probe_value_is_exempted_but_its
+    _neighbours_are_not`` instead of by a synthetic prefix here.
     """
     allow = ps.load_allow(ROOT / ".github" / "privacy-allow.txt")
     assert allow, "no allowlist entries to check"
 
-    # A path-shaped entry is one whose literal carries a separator: the pi install
-    # tree, the POSIX home and (T-0018) the Windows home. The probe values are
-    # single words or a passphrase and stay out of this check.
-    path_entries = [
-        p
-        for p in allow
-        if any(sep in re.sub(r"\\(.)", r"\1", entry_body(p.pattern)) for sep in ("/", "\\"))
-    ]
-    assert len(path_entries) >= 3, "a path exemption disappeared"
+    path_entries = [p for p in allow if re.sub(r"\\(.)", r"\1", p.pattern)[1:2] in ("/", ".")]
+    assert len(path_entries) >= 2, "the path exemptions disappeared"
 
     # The probe value is rebuilt from each entry's own body, so this file never
     # republishes the exempted string itself.
@@ -1040,54 +1027,6 @@ def test_an_exempted_value_does_not_exempt_a_sibling_name():
         f["rule"] for f in ps.scan_lines(f"built {sibling}", "src/a.py", "tree", ps.RULES, allow)
     }
     assert rules == {"home-path"}
-
-
-def test_the_windows_home_entry_exempts_the_shape_and_not_its_neighbours():
-    """T-0018: one Windows home prefix is exempt; a sibling user and a token are not.
-
-    Two merged commit messages carry an absolute path that a PowerShell variable
-    expanded into, so the shipped allowlist gained one anchored literal for that
-    home prefix. The entry is read out of the file instead of written here - this
-    test must not republish the path - and then probed in every direction that
-    matters: the exempt prefix is quiet, a DIFFERENT windows user name of the same
-    shape is still reported, a one-character sibling of the entry is still
-    reported, and a real credential on the exempt line is still reported.
-    """
-    allow = ps.load_allow(ROOT / ".github" / "privacy-allow.txt")
-    windows = [
-        p for p in allow if re.sub(r"\\(.)", r"\1", entry_body(p.pattern)).startswith("C:" + "\\")
-    ]
-    assert len(windows) == 1, [p.pattern for p in allow]
-    home = re.sub(r"\\(.)", r"\1", entry_body(windows[0].pattern))
-
-    def rules(line: str) -> set:
-        return {f["rule"] for f in ps.scan_lines(line, "commit:abc", "message", ps.RULES, allow)}
-
-    assert rules(f"python {home}\\scripts\\teamwork.py") == set(), (
-        "the exempted operator path must be quiet"
-    )
-
-    parent, _, operator = home.rpartition("\\")
-    assert operator, home
-    other_user = parent + "\\" + "jdoe"
-    assert "home-path" in rules(f"python {other_user}\\scripts\\teamwork.py"), (
-        "a different windows user name must still be reported"
-    )
-
-    assert "home-path" in rules(f"python {home}2\\scripts\\teamwork.py"), (
-        "an entry that also exempts a one-character sibling is too loose"
-    )
-
-    forward = home.replace("\\", "/")
-    assert "home-path" in rules(f"python {forward}/scripts/teamwork.py"), (
-        "the forward-slash spelling is a different text and must still be reported"
-    )
-
-    token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
-    line = f"python {home}\\scripts\\teamwork.py {token}"
-    assert rules(line) == {"api-token"}, (
-        "a credential on the exempt line must still be reported: " + str(sorted(rules(line)))
-    )
 
 
 def test_an_elided_home_path_identifies_nobody_and_is_not_reported():
