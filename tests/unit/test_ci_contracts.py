@@ -340,3 +340,136 @@ def test_mutant_the_one_output_workflow_is_reported():
         assert any(
             problem.startswith(f"{name} does not gate on `code || prose`") for problem in problems
         ), problems
+
+
+# --------------------------------------------------------------------------- #
+# R2's scope flag (11.2.2.1, D-20261029-Architect)
+# --------------------------------------------------------------------------- #
+
+#: The flag 11.2.2.1 adds to the checker. A gate that forgets it is still
+#: *evaluated* (the checker's default is `yes`), so forgetting is a false red on
+#: every pull request, not a green: the fail-closed default is what makes this
+#: wiring a convenience rather than the contract.
+SCOPE_FLAG = "--head-is-default-branch"
+
+#: The only scope expression the workflow may use: a pull request publishes
+#: nothing (`no`), every other event publishes (`yes`). Matched exactly, with both
+#: arms captured, so a flipped pair is a visible edit rather than a silent one.
+SCOPE_EXPRESSION = re.compile(
+    r"^\$\{\{\s*github\.event_name\s*==\s*'pull_request'\s*&&\s*'(yes|no)'\s*\|\|\s*'(yes|no)'\s*\}\}$"
+)
+
+#: The flag's value must be one environment expansion, never a literal or a
+#: shell `if`: both arms stay in one place a reviewer can read.
+SCOPE_ENV_REFERENCE = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
+
+
+def checker_steps(document: dict) -> list[tuple[str, dict]]:
+    """Every ``(job, step)`` whose ``run:`` invokes the release checker."""
+    found: list[tuple[str, dict]] = []
+    for job_name, job in jobs(document).items():
+        for step in job.get("steps") or []:
+            if "check_release_consistency.py" in str(step.get("run") or ""):
+                found.append((job_name, step))
+    return found
+
+
+def scope_arms(step: dict) -> tuple[str, str] | None:
+    """The ``(pull_request, other)`` values the step's flag resolves to, or ``None``.
+
+    ``None`` is every shape the contract forbids: no flag, two flags, a literal
+    value, or an expression that is not the two-armed ternary above.
+    """
+    run = str(step.get("run") or "")
+    values = re.findall(SCOPE_FLAG + r"=(\S+)", run)
+    if len(values) != 1:
+        return None
+    reference = SCOPE_ENV_REFERENCE.match(values[0].strip("'\""))
+    if reference is None:
+        return None
+    env = step.get("env")
+    if not isinstance(env, dict):
+        return None
+    expression = SCOPE_EXPRESSION.match(str(env.get(reference.group(1)) or ""))
+    if expression is None:
+        return None
+    pull_request, other = expression.groups()
+    return (pull_request, other)
+
+
+def scope_problems(document: dict) -> list[str]:
+    """Every clause of the 11.2.2.1 wiring the workflow violates."""
+    problems: list[str] = []
+    steps = checker_steps(document)
+    if not steps:
+        problems.append("no step invokes check_release_consistency.py")
+    for job_name, step in steps:
+        run = str(step.get("run") or "")
+        count = run.count(SCOPE_FLAG)
+        if count != 1:
+            problems.append(f"{job_name} passes {SCOPE_FLAG} {count}x, want exactly 1")
+            continue
+        arms = scope_arms(step)
+        if arms is None:
+            problems.append(
+                f"{job_name} does not carry the {SCOPE_FLAG} scope in one env expression"
+            )
+            continue
+        pull_request, other = arms
+        if pull_request != "no":
+            problems.append(
+                f"{job_name} passes {SCOPE_FLAG}={pull_request} on a pull request, want no"
+            )
+        if other != "yes":
+            problems.append(f"{job_name} passes {SCOPE_FLAG}={other} on the other arm, want yes")
+    return problems
+
+
+def test_every_checker_invocation_passes_head_is_default_branch_no_on_a_pull_request(ci):
+    """11.2.2.1: a pull-request merge ref publishes nothing, so R2 must SKIP."""
+    steps = checker_steps(ci)
+    assert steps, "no step invokes the release checker, so the scope is untested"
+    for job_name, step in steps:
+        arms = scope_arms(step)
+        assert arms is not None, f"{job_name} passes no {SCOPE_FLAG} scope"
+        assert arms[0] == "no", (job_name, arms)
+
+
+def test_the_non_pull_request_arm_keeps_r2_evaluated_with_head_is_default_branch_yes(ci):
+    """Both arms are greppable, and the non-pull-request arm is the evaluating one.
+
+    A push to `main` and a `v*` tag push both publish, so the flag must say `yes`
+    there: the amendment's catch for a tag placed on an older commit depends on
+    R2 still being evaluated.
+    """
+    for job_name, step in checker_steps(ci):
+        arms = scope_arms(step)
+        assert arms is not None, f"{job_name} passes no {SCOPE_FLAG} scope"
+        assert arms[1] == "yes", (job_name, arms)
+    # Both literals stay in the workflow, in one expression a reader can grep.
+    assert workflow_text().count("github.event_name == 'pull_request' && 'no' || 'yes'") == 1
+
+
+def test_the_r2_scope_wiring_holds_for_the_real_workflow(ci):
+    assert scope_problems(ci) == []
+
+
+def test_mutant_the_swapped_scope_arms_are_reported():
+    """Flip the two literals: the pull request would evaluate, main would not."""
+    text = workflow_text()
+    mutant = text.replace("&& 'no' || 'yes'", "&& 'yes' || 'no'")
+    assert mutant != text, "mutant anchor is gone: the workflow no longer spells both arms"
+
+    problems = scope_problems(parse_workflow(mutant))
+    assert any("on a pull request, want no" in problem for problem in problems), problems
+    assert any("on the other arm, want yes" in problem for problem in problems), problems
+
+
+def test_mutant_a_dropped_scope_flag_is_reported():
+    """A gate that forgets the flag pays R2's false red on every pull request."""
+    text = workflow_text()
+    mutant = text.replace(' --head-is-default-branch="${HEAD_IS_DEFAULT_BRANCH}"', "")
+    assert mutant != text, "mutant anchor is gone: the flag is written differently now"
+
+    problems = scope_problems(parse_workflow(mutant))
+    assert any("passes --head-is-default-branch 0x" in problem for problem in problems), problems
