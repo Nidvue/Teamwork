@@ -53,6 +53,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   told to load it - the exact defect the harness validator exists to catch. `SKILL.md`
   section 6 now carries the trigger line that names it.
 
+- **The harness has a name, a validator and a price: `teamwork harness`.**
+  `harness list` prints the eight components around the model - C1..C8, one row
+  each, in component order - with the activation class that decides when it costs
+  anything (`always-on`, `on-demand`, `in-loop`) and the bytes it costs, measured
+  on disk so every number can be recomputed from the row. `harness lint` rejects a
+  proposal *before* it is probed: a skill whose frontmatter name is not its
+  directory, a skill named in no always-on surface (dead text no agent is told to
+  load - it found `ceo-audit-close` in this very repository on the first run), a
+  `teamwork.py` verb that does not exist, a path a skill names but does not ship,
+  and a `shared` skill with no verdict row. `harness budget` prices what every
+  instance pays before it does any work and fails above `AlwaysOnBudgetKb`
+  (default 120 KiB): every instance of the seven-role roster lands between 86 kB
+  and 94 kB, all inside the cap, and `--limit 60` makes every one of them `OVER`
+  with exit 1. The per-surface byte counts are printed by `harness list` on the
+  revision you run it on - read them there rather than from a changelog, because
+  the role memory surface grows with the queue. Documented in
+  [`docs/guide/cli.md`](docs/guide/cli.md); the contract is Architecture section 11.
+
 ## [1.1.2](https://github.com/Nidvue/Teamwork/compare/v1.1.1...v1.1.2) - 2026-10-20
 
 ### Fixed
