@@ -264,6 +264,12 @@ FEATURE_SQUAD_ROLES = (
     "tester",
 )
 
+INDEPENDENT_LANES = (
+    "reviewer",
+    "security-auditor",
+    "cfo",
+)
+
 FEATURE_SHARED_ROLES = (
     "architect",
     "ceo",

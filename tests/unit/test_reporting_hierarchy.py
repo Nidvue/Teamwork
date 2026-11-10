@@ -346,3 +346,167 @@ def test_resolve_manager_is_the_single_resolver() -> None:
     assert engine.resolve_manager("ceo", {"ceo"}) == (None, [])
     assert engine.resolve_manager("auditor", {"ceo", "auditor"}) == (None, [])
     assert engine.resolve_manager("developer", None) == ("cto", [])
+
+
+def _tree_of(out: str) -> list[str]:
+    """The reporting section of `map`, one line per row."""
+    section = out.split("reporting lines", 1)[1].split("\nroles (", 1)[0]
+    return [line for line in section.splitlines() if line.strip()]
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def test_map_renders_the_live_team_under_its_leader(project: Path, cli, capsys) -> None:
+    """The tree is the live team, not the roster: one leader, its feature, its squad.
+
+    `ROLE_PARENT` is still the line (a squad member has one manager, and the
+    attachment never rewrites the tree), but a leader with an attached instance
+    has to be legible as a team: its `F-nnnn`, the instance under it, and the
+    instances the CTO holds as a pool. A tree that cannot show that is a tree a
+    squad member cannot read its own escalation path from.
+    """
+    from teamwork import engine
+
+    assert (
+        cli("--project", project, "init", "--agents", "ceo,cto,team-leader-1,tester-1", "--no-git")
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "instance",
+            "add",
+            "tester",
+            "--under",
+            "team-leader-1",
+            "--name",
+            "tester-2",
+        )
+        == 0
+    )
+    records = [
+        engine.new_feature(
+            "the slice", "Team-Leader-1", ["src/a.py"], "Architecture.md#13", [], "active"
+        )
+    ]
+    records[0]["id"] = "F-0001"
+    engine.write_features(project / "docs" / "Team" / "Features.md", records)
+
+    capsys.readouterr()
+    assert cli("--project", project, "map") == 0
+    lines = _tree_of(capsys.readouterr().out)
+
+    leader = next(line for line in lines if "Team Leader:" in line)
+    assert "Team-Leader-1" in leader and "feature=F-0001 (active)" in leader, leader
+    member = next(line for line in lines if "Tester-2" in line)
+    assert "(under:Team-Leader-1)" in member, member
+    assert _indent(member) > _indent(leader), (leader, member)
+    pool = next(line for line in lines if "squad pool" in line)
+    pooled = next(line for line in lines if line.strip() == "Tester-1")
+    assert _indent(pooled) == _indent(pool) and _indent(pooled) < _indent(member), lines
+    note = next(line for line in lines if line.strip().startswith("note:"))
+    for role in ("Reviewer", "Security Auditor", "CFO"):
+        assert role in note, note
+    assert "without reporting to a Team Leader" in note, note
+    assert ROLE_PARENT["team-leader"] == "cto" and ROLE_PARENT["tester"] == "cto"
+
+
+def test_map_renders_a_leader_with_no_feature_as_none(project: Path, cli, capsys) -> None:
+    """A leader between features says so; silence would read as no team."""
+    assert cli("--project", project, "init", "--agents", "ceo,cto,team-leader-1", "--no-git") == 0
+    capsys.readouterr()
+    assert cli("--project", project, "map") == 0
+    lines = _tree_of(capsys.readouterr().out)
+    leader = next(line for line in lines if "Team Leader:" in line)
+    assert "feature=none" in leader, leader
+
+
+def test_an_attached_off_line_specialist_renders_under_its_leader_only(
+    project: Path, cli, capsys
+) -> None:
+    """One instance, one manager - including a Designer, whose line is the PM's.
+
+    Reviewer-3 on T-0015: the pool took every attachable role regardless of
+    `ROLE_PARENT`, and `staffed()` listed every instance regardless of `under:`,
+    so an attached Designer-9 printed under its leader AND under
+    `Product Manager: Designer, Designer-9`, while an unattached Designer was
+    pooled on the CTO's line. The tree that exists to show one manager printed
+    two - for exactly the two roles whose designed parent is not the CTO.
+    """
+    assert cli("--project", project, "init", "--roster", "full", "--no-git") == 0
+    assert (
+        cli(
+            "--project",
+            project,
+            "feature",
+            "add",
+            "x",
+            "--owner",
+            "TeamLeader",
+            "--paths",
+            "src/a.py",
+            "--by",
+            "TeamLeader",
+        )
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "instance",
+            "add",
+            "designer",
+            "--name",
+            "Designer-9",
+            "--under",
+            "TeamLeader",
+            "--by",
+            "ceo",
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert cli("--project", project, "map") == 0
+    tree = _tree_of(capsys.readouterr().out)
+
+    assert sum("Designer-9" in line for line in tree) == 1, tree
+    leader = next(line for line in tree if "Team Leader:" in line)
+    member = next(line for line in tree if "Designer-9" in line)
+    assert _indent(member) > _indent(leader), (leader, member)
+    assert not any(line.strip() == "Designer" for line in tree), (
+        "an unattached Designer is pooled on the CTO's line, but its parent is the "
+        "Product Manager: " + "\n".join(tree)
+    )
+
+
+def test_a_leader_whose_only_feature_is_closed_shows_its_state(project: Path, cli, capsys) -> None:
+    """`leader_feature` falls back to the last owned record; the map must say so.
+
+    A leader between features is not an unassigned leader: the record it owned is
+    printed with its terminal state, so the line distinguishes "no feature yet"
+    from "shipped one".
+    """
+    from teamwork import engine
+
+    assert cli("--project", project, "init", "--agents", "ceo,cto,team-leader-1", "--no-git") == 0
+    records = [
+        engine.new_feature(
+            "the slice", "Team-Leader-1", ["src/a.py"], "Architecture.md#13", [], "done"
+        )
+    ]
+    records[0]["id"] = "F-0007"
+    engine.write_features(project / "docs" / "Team" / "Features.md", records)
+    root = (
+        project / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / engine.team_slug(project)
+    ).resolve()
+    assert engine.leader_feature(root, "Team-Leader-1")["state"] == "done"
+    assert engine.leader_feature(root, "Team-Leader-9") is None
+
+    capsys.readouterr()
+    assert cli("--project", project, "map") == 0
+    leader = next(line for line in _tree_of(capsys.readouterr().out) if "Team Leader:" in line)
+    assert "feature=F-0007 (done)" in leader, leader
