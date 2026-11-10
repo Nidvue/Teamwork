@@ -5829,3 +5829,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-2's own run @174d8f3: PYTHONPATH=src venv/bin/python -m pytest -q tests/acceptance/test_operator_contracts.py -> 8 passed in 1.52s; ruff check + format --check -> clean. Read the file before the note: each case drives the module entrypoint as a subprocess against its own workspace, asserts what an operator sees (the audit's named sections, the zero-sample throughput, prose vs code from ci_scope, the criteria refusal text, the personal-author refusal naming the address, the ledger write+export, archive/decision by id, the privacy gate refusing a planted token and never printing it). No case reads the live team tree, so the probes are independent of this workspace.
 - findings history: 
 - branch / merge: reviewer-1/t-0004-acceptance-probes-for-the-eight-areas-th / 59c240f
+
+## T-0060 · The ledger's only non-destructive repair (a fresh cut) exists as a documented CEO command: ledger cut preserves the old trail byte-identical and seeds a new chain whose first record names it  (developer)
+- date: 2026-11-09
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: ledger
+- self-check: [pass] Re-read the diff. Boundary: a cut with an empty ledger is refused; a second cut picks the next free suffix; the head cache is copied aside and re-seeded by the append; the preserved file is a copy, so the original bytes survive. The command is CEO-only and requires a reason. Scope: cmd_ledger_cut + parser + LEDGER_ACTIONS + board render. Hostile reviewer: 'a cut is a way to hide a break' - the new chain's first record names the preserved file, its record count, its head hash and the reason, and the preserved file stays in the team tree. | test: ledger verify @8beb238 -> chain intact, every digest matches; ledger export -> chain verified True; pytest test_ledger_actions+test_ledger -> 35 passed | preflight: PF-05b6b567edff @8beb23808545 (7 checks, 0 failed)
+- author evidence: commit 8beb238 @8beb238 -> one commit over main
+- reviewer evidence: Reviewer-2's own run @8beb238: teamwork.py ledger verify -> 'chain intact, every digest matches'; ledger export -> 'chain verified: True'; pytest tests/unit/test_ledger_actions.py tests/unit/test_ledger.py -> 35 passed; ruff+format+mypy clean. Read the diff: the cut copies the trail and head, empties the live file, and appends one ledger.cut record naming the preserved file, its record count and head - so the break is stated in the new chain, not hidden. CEO-only and reason-required; an empty ledger is refused.
+- findings history: 
+- branch / merge: developer/t-0060-the-ledger-s-only-non-destructive-repair / 8a50ec9
