@@ -94,3 +94,105 @@ def test_pr_merge_by_task_id_reaches_the_live_record_after_a_rework(
     assert f"- branch / merge: {live_branch} / {first_sha}" in archive
     assert f"- branch / merge: {live_branch} / {merged['merge_commit']}" in archive
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+
+
+def test_merge_by_an_ambiguous_task_id_is_refused_not_guessed() -> None:
+    """Two lanes can each own a T-0001, so a bare task id is ambiguous.
+
+    Reviewer-1 proved at 6c8d818 that `pr merge --pr T-0001` silently consumed
+    the developer's record and answered "already merged" for the security lane,
+    which could then never merge its own PR by task id. The hint lookup took the
+    first role's branch, so the wrong record matched by construction.
+    """
+    prs = [
+        {
+            "id": "P-0001",
+            "task": "T-0001",
+            "title": "developer ship",
+            "branch": "developer/t-0001-ship-it",
+            "status": "open",
+        },
+        {
+            "id": "P-0002",
+            "task": "T-0001",
+            "title": "security rescan",
+            "branch": "securityauditor/t-0001-rescan",
+            "status": "open",
+        },
+    ]
+    assert engine._handle_is_ambiguous(prs, "T-0001") is True
+    assert engine._handle_is_ambiguous(prs, "P-0002") is False
+    # A merged record no longer competes: the live one is unambiguous.
+    prs[1]["status"] = "merged"
+    assert engine._handle_is_ambiguous(prs, "T-0001") is False
+    # With a branch hint the right record is reached without any guessing.
+    assert records.find_pr_exact(prs, "T-0001", "developer/t-0001-ship-it") == 0
+
+
+def test_a_bare_task_id_skips_a_merged_sibling_instead_of_reporting_success(
+    cli, project: Path, capsys
+) -> None:
+    """A merged record must not shadow its lane's live PR (round-3 MAJOR).
+
+    Reviewer-3 measured at e82a6fe: developer-1's T-0001 was already merged, the
+    security lane's T-0001 was approved, and `pr merge --pr T-0001` printed
+    "# P-0001 already merged at <sha>" rc 0 while leaving the approved PR
+    unmerged - so that lane could never land its work by task id. The lookup now
+    prefers the single live record and only reports "already merged" when every
+    candidate is dead.
+    """
+    dead = {
+        "id": "P-0001",
+        "task": "T-0001",
+        "title": "developer ship",
+        "branch": "developer-1/t-0001-ship-it",
+        "status": "merged",
+    }
+    live = {
+        "id": "P-0002",
+        "task": "T-0001",
+        "title": "security rescan",
+        "branch": "securityauditor/t-0001-rescan",
+        "status": "approved",
+    }
+    prs = [dead, live]
+    assert engine._merge_pr_index(prs, "T-0001") == 1, "the live record wins, not the dead one"
+    assert engine._merge_pr_index(prs, "P-0001") == 0, "an explicit PR id still resolves exactly"
+    # Every candidate dead: the caller may report the merge it already has.
+    live["status"] = "closed"
+    assert engine._merge_pr_index(prs, "T-0001") == 0
+
+
+def test_an_ambiguous_task_id_is_refused_through_the_cli(cli, project: Path, capsys) -> None:
+    """The refusal itself must be measured, not only the predicate (MAJOR-2).
+
+    Reviewer-3 showed at e82a6fe that disabling the CALLER (`if False and
+    _handle_is_ambiguous(...)`) left the suite fully green, so nothing proved a
+    merge is refused rather than guessed. This drives the CLI and asserts the
+    non-zero exit, both PR ids in stderr and both records untouched.
+    """
+    init_workspace(cli, project, git=True)
+    reviews = root_reviews(project)
+    reviews.parent.mkdir(parents=True, exist_ok=True)
+    reviews.write_text(
+        "\n\n".join(
+            [
+                "## P-0001 · developer ship\n- status: approved\n- task: T-0001\n"
+                "- role: developer\n- author: Developer\n"
+                "- branch: developer-1/t-0001-ship-it\n- base: main",
+                "## P-0002 · security rescan\n- status: approved\n- task: T-0001\n"
+                "- role: security-auditor\n- author: SecurityAuditor\n"
+                "- branch: securityauditor/t-0001-rescan\n- base: main",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    capsys.readouterr()
+
+    assert cli("--project", project, "pr", "merge", "--pr", "T-0001", "--by", "reviewer-2") != 0
+    err = capsys.readouterr().err
+    assert "names more than one open PR" in err, err
+    assert "P-0001" in err and "P-0002" in err, err
+    after = engine.parse_reviews(reviews)
+    assert [pr["status"] for pr in after] == ["approved", "approved"], "nothing was merged"
