@@ -54,14 +54,18 @@ into `Ledger.jsonl`, so editing the file after the fact breaks the match):
 | replay | how does another agent reproduce it? | `--replay '<cmd or path>'` |
 
 A **defect fix adds a sixth**: the failing run must precede the passing one.
-`task add ... --bug` marks the task, and its self-check is refused until a test
-record carries the transition:
+`task add ... --bug` marks the defect, and its self-check is refused until the
+task itself carries the transition:
 
 ```sh
-teamwork.py tests repro TS-0002 --by developer-1 \
+teamwork.py tests repro T-0007 --by developer-1 \
     --pre-rev aaa111 --pre-evidence "pytest tests/unit/test_x.py @aaa111 -> 3 failed" \
     --post-rev bbb222 --post-evidence "pytest tests/unit/test_x.py @bbb222 -> 12 passed"
 ```
+
+The proof lives on the task, not on a layer record: a repro names one defect, so
+it cannot leak to a sibling bug in the same area. `tests list` shows layer
+evidence; `task list` shows the repro line.
 
 `tests repro` refuses a single revision, a pre-run that does not read as failing,
 and (in a git workspace) a pre-revision that is not an ancestor of the
