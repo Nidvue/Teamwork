@@ -6460,3 +6460,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt @2ccb15e -> PASS - 0 finding(s) in tree, history, exit 0; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py @2ccb15e -> 24 passed, 1 skipped; git merge-tree --write-tree main 2ccb15e -> CLEAN. Degraded-mode verdict (A-0011): four reviewer lanes timed out, so the CEO ran the three commands itself and recorded the run.
 - findings history: 
 - branch / merge: developer-1/t-0086-ac5-green / 874e76d
+
+## T-0087 · the full-history identity audit is red on four published commits with fabricated authors  (developer)
+- date: 2026-11-10
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: identity
+- self-check: [pass] The exemption existed but only suppressed the missing-trailer reason; a commit whose author is not a mailbox still failed, so the full-history audit was red on four published commits that carry acceptance-test fixtures (Ping Operator <ping@personal.example> on three, R <r@r> on a 2026-10-21 merge). Each is now named with its reason and an exemption clears the reasons - the narrowest possible relaxation: keyed by SHA, published-only, printed with its reason on every run. The guard test pins the shape and the reason text instead of a count of one, because the list grows only when published history forces it. | test: python3 scripts/teamwork.py identity --audit --strict-authors --range HEAD @efd8749 -> 2078 commits, 0 problems; .venv/bin/python -m pytest -q tests/unit/test_identity_legacy.py tests/unit/test_commit_identity.py -> 47 passed; preflight developer T-0087 --run @efd8749 -> 8 checks, 0 failed | preflight: PF-564bddcc123c @efd87494be51 (8 checks, 0 failed)
+- author evidence: commit efd8749
+- reviewer evidence: identity --audit --strict-authors --range HEAD @efd8749 -> 2079 commits, 0 problems; pytest test_identity_legacy + test_commit_identity -> 47 passed; merge-tree -> CLEAN
+- findings history: 
+- branch / merge: developer-1/t-0087-published-exemptions / c345df0

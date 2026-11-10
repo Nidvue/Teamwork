@@ -5302,6 +5302,20 @@ LEGACY_MESSAGE_EXEMPT = {
     "f709c4ce3eebd1689bef5982aa559564f8867895": (
         "chore(records) by Reviewer merged 2026-11-03 before the trailer rule; canonical identity"
     ),
+    "b169c7d95f25c2ff5866d06c4670cbd4b917a2dd": (
+        "published 2026-11-07: a fabricated identity written by an acceptance test that committed "
+        "into the repository; unrewritable without a published-history rewrite"
+    ),
+    "17e3b4a55a9b9f2c062a40146ecb4a69899aa4ae": (
+        "published 2026-11-07: the same acceptance-test fixture"
+    ),
+    "f742b65708bd71b75a4e7e40dec721d2b4fa2d70": (
+        "published 2026-11-07: the same acceptance-test fixture"
+    ),
+    "6348825271cfe10864765c8448942f56b8cb6011": (
+        "published 2026-10-21: a merge made before the trailer rule; author R <r@r> is a "
+        "fabricated fixture, not an account"
+    ),
 }
 _RE_MERGE_SUBJECT = re.compile(
     r"^(?:"
@@ -5495,6 +5509,9 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
         if not match and not _is_content_free_team_merge(parents, cn, ce, body, canonical):
             if sha not in LEGACY_MESSAGE_EXEMPT:
                 reasons.append("message has no 'Acting role:' line")
+        if reasons and sha in LEGACY_MESSAGE_EXEMPT:
+            print(f"- {short} ok {an} <{ae}> (published exemption: {LEGACY_MESSAGE_EXEMPT[sha]})")
+            continue
         if reasons:
             problems.append((short, reasons))
             for reason in reasons:
