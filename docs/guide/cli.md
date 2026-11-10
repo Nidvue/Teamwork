@@ -806,9 +806,9 @@ own API, so the model is a property of the **agent**, not of the project.
   instance suffix (`developer-1`). The instance wins over the role.
 - `get` prints the effective model and where it came from (`agent`, `role` or
   `unset`); `list` prints the whole roster.
-- `auto` reads the **runtime environment** - which agent host is running (pi,
-  claude, opencode, codex, cursor, gemini) and which model it exposes - and routes
-  the strongest available model to the decision lanes (Reviewer, Architect,
+- `auto` reads the **runtime environment** - the running agent host and the model
+  it exposes - and routes the strongest available model to the decision lanes
+  (Reviewer, Architect,
   Security Auditor, CEO, CTO) and the economy model to the mechanical lanes
   (developers, testers, writers, formatting, link checks). It is a dry run by
   default; `--apply` writes it and records `model.auto` in the ledger. It never
@@ -816,7 +816,7 @@ own API, so the model is a property of the **agent**, not of the project.
   with the variable to set (`TEAMWORK_MODEL_STRONG`, `TEAMWORK_MODEL_ECONOMY`).
   `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous.
 
-Automatic routing policy: [references/Concurrency.md](https://github.com/VisionPZ/Teamwork/blob/main/references/Concurrency.md).
+Automatic routing policy: [references/Concurrency.md](https://github.com/Nidvue/Teamwork/blob/main/references/Concurrency.md).
 
 ### `imaging probe`
 
@@ -840,4 +840,4 @@ asset in `docs/Team/Design.md`, generate at least four candidates off one seed
 base, review every candidate visually, improve the winner until it passes,
 integrate, record evidence - plus the privacy and licence red lines, is the
 Designer's own policy in
-[`roles/designer.md`](https://github.com/VisionPZ/Teamwork/blob/main/roles/designer.md).
+[`roles/designer.md`](https://github.com/Nidvue/Teamwork/blob/main/roles/designer.md).

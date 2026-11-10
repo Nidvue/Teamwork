@@ -7,18 +7,19 @@ Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md)
 
 ## Objective
 
-Turn the private `teamwork` Pi skill (a 7,416-line stdlib-only `teamwork.py`
-engine plus role charters, references and templates) into a self-contained,
-reusable, cross-platform open-source project: an installable Python package that
-ships the skill bundle, a full development → test → build → verify → release
-pipeline, polished documentation aimed at adoption, and a public GitHub
-repository that is safe to open (zero private information).
+Turn the private `teamwork` skill into a self-contained, reusable,
+cross-platform open-source **skill for coding agents**: one directory cloned into
+the host's skill location, with the stdlib-only engine bundled inside it and also
+published as the optional `teamwork-agents` package, a full development → test →
+build → verify → release pipeline, polished documentation aimed at adoption, and a
+public GitHub repository at `Nidvue/Teamwork` that is safe to open (zero private
+information). The skill is the product; the package is a convenience face on the
+same engine.
 
-"Finished" means: a stranger can `pip install teamwork-agents` (or run the repo
-in place) on Linux, macOS or Windows, bootstrap an autonomous multi-agent team
-workspace in any project, and every claim in the README is backed by a CI run, a
-test, or a released artifact — with no personal data anywhere in the tree or in
-git history.
+"Finished" means: a stranger can clone the skill into the skills directory of any
+agent host, or run the repo in place, on Linux, macOS or Windows, name the skill
+in a request to bootstrap an autonomous multi-agent team workspace, and every claim in the README is backed by a CI run, a test, or a
+released artifact — with no personal data anywhere in the tree or in git history.
 
 ## Definition of done
 
@@ -39,9 +40,12 @@ git history.
       privacy scan; every job is green on the pushed revision - proof:
       `gh run list --json displayTitle,conclusion`
 - [ ] AC-5 Privacy: `scripts/privacy_scan.py` exits 0 over the working tree and
-      over full git history; no personal email, no API key, no absolute personal
-      path, no personal domain in any tracked file or commit - proof:
-      `python3 scripts/privacy_scan.py --history`
+      over full git history; no personal email, no API key or provider token, no
+      absolute personal path (including mounted homes), no personal domain, no
+      agent-host configuration (auth, settings, sessions, model stores) and no
+      tracked local state (`.pi/`, virtualenvs, build output, caches, `Scratch/`)
+      in any tracked file or commit - proof:
+      `python3 scripts/privacy_scan.py --tree --staged --history`
 - [ ] AC-6 Documentation: README plus a docs site (mkdocs) plus CONTRIBUTING,
       SECURITY, CODE_OF_CONDUCT, CHANGELOG, CITATION; `teamwork.py links`
       reports zero broken links - proof: `teamwork.py links`
@@ -73,10 +77,10 @@ git history.
       records each asset with a review log and an improvement log; there is no
       separate `Imaging.md` - proof: `tests/unit/test_imaging.py`
 - [ ] AC-14 The updated skill is installed and runnable: `teamwork imaging probe`
-      exits 0 from the repo and from `~/.pi/agent/skills/teamwork`, and `init`
+      exits 0 from the repo and from an installed skill directory, and `init`
       creates `Design.md` (and no `Imaging.md`) whose template carries the
       visual-asset sections - proof:
-      `python3 ~/.pi/agent/skills/teamwork/scripts/teamwork.py imaging probe`
+      `python3 <skill-dir>/scripts/teamwork.py imaging probe`
 - [ ] AC-15 Staged, review-gated push: `roles/release-engineer.md` and
       `references/Engineering.md` require the Release Engineer to push per
       reviewed + merged milestone only after the Reviewer passes with no open
@@ -95,6 +99,16 @@ git history.
       `mkdocs --strict`) so a documentation leak is still caught - proof:
       `tests/unit/test_skill_contracts.py`, `docs/Team/Release.md`
 
+- [ ] AC-18 Skill-first presentation and public namespace: every adoption surface
+      (README, `docs/index.md`, `docs/guide/install.md`, `docs/guide/quickstart.md`,
+      `docs/guide/architecture.md`, `assets/demo.svg`, mkdocs nav) installs Teamwork
+      by cloning the skill into the host (plain files, nested `.git` dropped) and
+      invokes it by naming the skill - `use the teamwork skill: <prompt>`, or
+      `/teamwork <prompt>` where the host maps skills to commands; the Python
+      package appears only as an optional engine; repository URLs use
+      `Nidvue/Teamwork` in every tracked file except the historical audit records -
+      proof: `tests/unit/test_skill_contracts.py`, `python3 scripts/teamwork.py links`
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
@@ -107,8 +121,9 @@ git history.
   enabled without the owner's token); paid promotion; bot-driven star farming
   (stars cannot be bought or guaranteed - see Risks).
 - Constraints (time / budget / technical): Python >= 3.9, standard library only
-  at runtime; no secrets in the repo; must keep working as a Pi skill
-  (`SKILL.md` at the repository root) *and* as a pip package.
+  at runtime; no secrets in the repo; must install by cloning one directory into
+  the agent host's skill location (`SKILL.md` at the repository root), with the
+  pip package kept as an optional engine over the same code.
 - Invariants that must not break: the existing CLI surface and on-disk team
   workspace format (`.pi/Teamwork/Teams/<Team>/`) stay backward compatible;
   the ledger hash chain stays intact; no user-visible command is removed.
@@ -139,6 +154,6 @@ git history.
 
 ## Sources
 
-- [The /teamwork skill](https://github.com/VisionPZ/Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
+- [The /teamwork skill](https://github.com/Nidvue/Teamwork/blob/main/SKILL.md) - accessed 2026-10-17
 - [GitHub Actions matrix builds](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs) - accessed 2026-10-17
 - [PyPA: packaging a Python project](https://packaging.python.org/en/latest/tutorials/packaging-projects/) - accessed 2026-10-17

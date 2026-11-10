@@ -16,7 +16,7 @@ keywords = [
   "agents",
   "orchestration",
   "automation",
-  "pi",
+  "agent-skills",
   "skill",
 ]
 classifiers = [
@@ -44,11 +44,11 @@ dev = ["pytest", "pytest-cov", "ruff", "mypy", "build"]
 teamwork = "teamwork.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/VisionPZ/Teamwork"
-Documentation = "https://github.com/VisionPZ/Teamwork#readme"
-Repository = "https://github.com/VisionPZ/Teamwork"
-Changelog = "https://github.com/VisionPZ/Teamwork/blob/main/CHANGELOG.md"
-Issues = "https://github.com/VisionPZ/Teamwork/issues"
+Homepage = "https://github.com/Nidvue/Teamwork"
+Documentation = "https://github.com/Nidvue/Teamwork#readme"
+Repository = "https://github.com/Nidvue/Teamwork"
+Changelog = "https://github.com/Nidvue/Teamwork/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Nidvue/Teamwork/issues"
 
 # --------------------------------------------------------------------------- #
 # Build: src layout + the canonical skill bundle force-included into the wheel
