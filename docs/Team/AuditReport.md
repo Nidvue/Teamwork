@@ -767,18 +767,84 @@ Owner: Security Auditor. Related: [Risks](Risks.md) · [Project](Project.md) · 
 Measured at 90502bb, team root `.pi/Teamwork/Teams/Teamwork`, stores = `Global/*.md` + `Roles/<Role>/*.md`; the counts below are that baseline - 8 store files were rewritten between 09:55 and 10:01 the same morning, which is why a re-run of the same commands sees 71 lines in 13 files instead of the 68 in 12 recorded here.
 
 - `rg -n -i 'api[_-]?key|token|secret|password|passwd|bearer|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}' $TEAMWORK_ROOT/Global $TEAMWORK_ROOT/Roles --glob '*.md'` -> 68 lines in 12 files, **0 live credentials**: every hit is the word in prose or a rule name. High-risk shapes alone (`BEGIN ... PRIVATE KEY`, `sk-`, `ghp_`, `AKIA`, JWT) -> **0 hits**.
-- `rg -n '/home/[a-z]|/Users/[A-Za-z]|C:\\Users' ...` -> **136 lines**, 133 of them the `/home/pingz` prefix, in 20 files under `Roles/`; `Global/GlobalMemory.md` -> **0**.
-- `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` -> **PASS, 0 findings, rc 0** - but `.pi` is a skipped local-state dir (`scripts/privacy_scan.py:449`), so this gate does not cover the stores.
+- `rg -n '/home/[a-z]|/Users/[A-Za-z]|C:\\Users' ...` -> **136 lines**, 133 of them the `/home/<operator>` prefix, in 20 files under `Roles/`; `Global/GlobalMemory.md` -> **0**.
+- `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` -> **PASS, 0 findings, rc 0** - `.pi` is a skipped local-state dir for this mode (`scripts/privacy_scan.py:449`), so the tree mode alone does not cover the stores; the store mode does (`--stores`, below).
 - `teamwork.py memory pack --role ceo --task T-0021` -> 2 record lines + footer, 518 record bytes; `--budget 320` -> 1 record (M-0001 dropped, 259+45 = 304 <= 320); `--budget 4000` -> both. Record lines are `- [id] kind | statement clipped to 200 chars | pointer` (`memorypack.py:280-284`, `STATEMENT_CLIP = 200`): never a full body.
 - Parked records: candidates are filtered to `INJECTABLE_STATUSES = ("active","open")` (`memorypack.py:315-317`) against `PARKED_STATUSES = ("superseded","archived")`. The stores hold 2 injectable records for `ceo` (M-0001, M-0002, both `active`) and 0 for `developer`, so no parked record exists to observe; the exclusion was therefore measured on the packer itself - `pack([superseded, archived, active, open])` -> renders only `L-3`, `L-4` (0 parked).
 - The pack carries no `/home/`, no `token`/`secret`/`password`, and pointers are store-relative (`memorypack.py:152-158`).
 
 | # | Finding | Scope | Sev | Status |
 |---|---------|-------|-----|--------|
-| F1 | 133 absolute `/home/pingz/...` host paths in 20 `Roles/*.md` files (worktree/TaskQueue lines) | stores | low-med | open - route to CEO for a scrub rule |
-| F2 | a personal mail address (pattern `<local>@<domain>.<tld>`), 7 lines, `Roles/CEO/TaskArchive.md:19,25,36,163` | stores | med | open - personal data, not a credential; the value is named by pattern and location only, never quoted |
-| F3 | `privacy_scan` skips `.pi`, so no gate covers the stores; only a hand-run rg does | gate | med | open - needs a store-scan mode |
+| F1 | 133 absolute `/home/<operator>/...` host paths in 20 `Roles/*.md` files (worktree/TaskQueue lines) | stores | low-med | open - route to CEO for a scrub rule |
+| F2 | a personal mail address (pattern `<local>@<domain>.<tld>`), 7 lines, `Roles/CEO/TaskArchive.md:19,25,36,163` | stores | med | **closed 2026-11-09** - the value class (address, private domain, operator name, forge account handle) is scrubbed from every team-local store; it is named by class and location only, never quoted |
+| F3 | `privacy_scan` skips `.pi`, so no gate covers the stores; only a hand-run rg does | gate | med | **closed 2026-11-09** - the store scan shipped as `privacy_scan.py --stores` (`scripts/privacy_scan.py:1089` `scan_stores`, the flag at `:1271`, developer-1 T-0059) and `make privacy` runs it (`Makefile:80`: `--tree --history --stores --allow .github/privacy-allow.txt`); measured on the live stores -> `privacy_scan: PASS - 0 finding(s) in stores`, exit 0 |
 | F4 | `_pointer` falls back to `path.as_posix()` when a record lives outside the team root, which would render an absolute host path | pack | low | accepted - no such store today |
 | F5 | no live secret, no private key, no token in any store or in any rendered pack line | stores+pack | - | **verified** |
 
 Residual: the stores are gitignored team state, not published files, so F1/F2 are disclosure to every lane that reads memory, not to the public repository; the injected pack (the standing leak surface) is clean on all five checks.
+
+## Redaction of the operator datum (T-0008)
+
+Owner: Security Auditor. Related: [Risks](Risks.md) · F1, F2.
+
+- 2026-11-09: every `/home/<operator>` occurrence in this report was replaced by
+  the `<operator>` placeholder. The finding, its counts and its locations are
+  unchanged; only the host account name is gone, because a report about personal
+  data must not be the copy that discloses it.
+- Store scrub, same pass: 674 `/home/<operator>` lines in 62 files under
+  `Roles/` and `Agents/` rewritten to team-root-relative paths (`Role.md`,
+  `TaskQueue.md`, `TaskArchive.md`, memory and lesson stores). Re-measured
+  `rg -c '/home/[a-z]' -g '*.md'` over the team root excluding `Runtime/` -> 0.
+- Second pass, re-measured: the host-path class REGENERATES from the lane
+  launcher, and the count grows by one lane run at a time - measured
+  `rg -c '/home/[a-z]' -g '*.md'` over the team root excluding `Runtime/`
+  at 2026-11-09T16:35Z -> **24 lines in 6 files**, every one a lane run
+  transcript of the wave launched after the second scrub
+  (`Agents/*/Runs/L-0141..L-0146.md`, 4 lines each, this lane included). The
+  window is "lanes launched after the last scrub", so the number is a function
+  of how many lanes started, not of how well the scrub ran: the same command read
+  12 lines in 3 files (`L-0141..L-0143`) at the previous review revision. The
+  earlier figure of 250 lines in 50 files does not reproduce at this revision
+  and is withdrawn in favour of this command, this count and the artifact
+  `Agents/SecurityAuditor/Artifacts/T-0008-regeneration-measurement.txt`. A
+  scrub is not the fix; the generator that writes the lane start line is (F1,
+  open).
+- Personal data, second pass (this finding): the address, its private domain,
+  the operator name and the forge account handle are replaced by
+  `<redacted-personal-address>`, `<redacted-private-domain>`,
+  `<redacted-personal-name>` and `<redacted-account-handle>` in 11 stores
+  (`Roles/*/TaskArchive.md`, `Roles/Reviewer/LongTermMemory.md`, `Reviews.md`,
+  `Disputes.md`, `Agents/*/Inbox.md`,
+  `Agents/SecurityAuditor/Reports/M8-privacy-audit.md`,
+  `Agents/Reviewer-1/Reports/D-0003-ruling.md`,
+  `Agents/Reviewer-6/Runs/L-0019.log`). The evidence rows keep their `file:line`,
+  their commands and their findings: the VALUE is replaced by its class marker,
+  never the line, and the report itself keeps naming the class, never the value.
+- The rule the next audit runs (security layer record TS-0075), measured on this
+  revision: the personal-data class - `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}`
+  plus the operator's name, private domain and account handle - -> **0 real
+  lines in any store**. Every remaining hit of the mail pattern is a role
+  mailbox (`*@agents.nidvue.com`), a host stamp (`noreply@github.com`,
+  `noreply@gitlab.com`) or a fabricated `@example.com` fixture string quoted
+  inside review evidence (4 lines), and one false positive on a git range
+  (`t-0058-...@b370de4..main`). The host-path class
+  `'/home/[a-z]'` -> **24 lines in 6 lane run transcripts**, all in the
+  regeneration window above: that is F1, open, not a regression of this scrub.
+  The gate that now covers the memory stores is
+  `python3 scripts/privacy_scan.py --stores --allow .github/privacy-allow.txt`
+  -> PASS, 0 findings, exit 0. What it covers is exact, not "both classes
+  everywhere": `store_paths()` (`scripts/privacy_scan.py:1067-1086`) returns the
+  role and team stores - 30 files - and **no** file under `Agents/`, so a host
+  path in a lane transcript (`Agents/<Instance>/Runs/*.md`) is still covered by
+  no gate. That gap is F1 above and it is why the 24 transcript lines remain
+  open. A non-zero line in `Ledger.jsonl` or `Settings.json` is the residual
+  below.
+- Residual, not scrubbed by design: 111 `/home/<operator>` lines in
+  `Ledger.jsonl` and 1 in `Settings.json`, which are hash-chained or
+  machine-read; rewriting them breaks `teamwork.py ledger verify`. The earlier
+  figure of 197 was not reproducible at the rework revision and is withdrawn in
+  favour of this measurement.
+- F1 stays open: the scrub rule belongs in the generator that writes the lane
+  start line and the `worktree:` record, so a fresh lane cannot reintroduce an
+  absolute host path. Until it lands, every lane launch adds 4 such lines and
+  the count above is stale the moment the next lane starts.
