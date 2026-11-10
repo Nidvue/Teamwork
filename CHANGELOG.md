@@ -37,6 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and report an embedded instruction as a finding. This is the untrusted-material
   rule every agent needed and no rule stated.
 
+- **Global memory entries carry provenance.** `teamwork global` takes the same
+  `--by` / `--src` / `--rev` flags as `teamwork remember` and stores them in the
+  entry, and the ledger record for a global write names its author instead of
+  hardcoding `ceo`. The audit gate reports a memory entry without a `by` as a
+  blocker, so a global entry could never satisfy the rule it was audited
+  against; now it can. A merge never drops or steals provenance: the three
+  fields describe one recording act and travel together, so a later writer can
+  complete an entry that was recorded without an author, an entry that already
+  has an author keeps it, and a later writer who is not the author can neither
+  take it over nor graft their own `src` and `rev` onto it. Documented in
+  [`docs/guide/cli.md`](docs/guide/cli.md).
 - **In-loop enforcement: `teamwork hooks`.** `hooks install|status|uninstall`
   writes `pre-commit` and `pre-push` into the directory git actually reads hooks
   from (`git -C <root> rev-parse --path-format=absolute --git-path hooks`, so a
