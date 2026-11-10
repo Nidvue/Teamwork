@@ -157,6 +157,12 @@ Rules enforced mechanically:
 - generated records (Archive.md, Board.md, Plan.md) are committed by the Reviewer
   as `chore(records): ...` immediately before the merge, so the ledger matches the
   merged revision.
+- the archive entry is written at review time, before the merge revision exists,
+  so its `branch / merge` field says `pending`; `pr merge` repoints that one line
+  to the merge revision and commits the rewrite as a second `chore(records): ...`
+  on the base branch (ledger `pr.merge.archive`). The rewrite is never left as an
+  uncommitted edit, which would keep `pending` in HEAD and block the next merge
+  on a dirty tree.
 - PR records live in `.pi/Teamwork/Teams/<Team>/Reviews.md` (hidden local state);
   the merged revision is recorded on the task as `merge_commit`.
 
