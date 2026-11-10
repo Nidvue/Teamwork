@@ -3,7 +3,7 @@
 Owner: CEO. Single source of truth for *what done means*. No task closes without
 mapping to an acceptance criterion here.
 
-Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [M9Acceptance](M9Acceptance.md) | [Throughput](Throughput.md) · [Evolution](Evolution.md)
+Related: [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [AuditReport](AuditReport.md) · [M9Acceptance](M9Acceptance.md) | [Throughput](Throughput.md) · [Evolution](Evolution.md) · [Memory](Memory.md)
 
 ## Objective
 
@@ -342,6 +342,29 @@ re-readable by its commands.
 the roster cut lost 102 artifact paths (`L-0001`) and the M17 docs pushed
 Developer/Reviewer startup over the cap. The context proof (T-0005) is still in
 progress. Do not read this milestone as closed.
+
+## M20 - Agent memory: accumulate experience, spend less context (this engagement)
+
+Intake: the operator asked for a deep research pass on agent-memory design and then
+a refactor of this team's own memory system so agents accumulate knowledge and
+experience, decide and act better over time, without exploding the token cost of
+retrieval or the time cost of "thinking about what they know".
+
+Research, design, budgets and falsifiers: [MEMORY](Memory.md). Non-goals: a vector
+database, an embedding or network service, a second store, a background daemon, an
+LLM in the retrieval path, or raising the always-on cap.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-M20-1 | `memory pack` injects task-relevant lessons/knowledge within a byte budget, deterministically, and is smaller than the `load` it replaces | Developer | Reviewer |
+| AC-M20-2 | one `memory search` reaches lessons, knowledge and memory, ranked by the same score, and caps its output | Developer | Reviewer |
+| AC-M20-3 | `memory dream --apply` merges duplicates, archives stale records and reports contradictions without deleting or rewriting a record, is idempotent, and records one auditable ledger event per action | Developer | Reviewer |
+| AC-M20-4 | no store grows unbounded: every record keeps provenance and the dream report proves the byte delta | Developer | Reviewer |
+| AC-M20-5 | the always-on cap is unchanged, `loop`/`audit` stay green on the merged revision, and the measured before/after is recorded in [MEMORY](Memory.md) 5 | CEO | Reviewer |
+
+Exit: AC-M20-1..AC-M20-5 verified by a role other than their owner on the merged
+revision, the layers recorded in `Tests.md`, and the measured delta written into
+[MEMORY](Memory.md).
 
 ## Scope
 
