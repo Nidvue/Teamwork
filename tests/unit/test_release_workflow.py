@@ -530,3 +530,26 @@ def test_every_action_in_the_release_workflow_is_pinned_to_a_full_sha():
         if spec and not re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}( # v\d+)?", spec)
     ]
     assert unpinned == [], unpinned
+
+
+def test_the_npm_verify_window_outlasts_registry_propagation():
+    """A publish that succeeded must not leave the run red on a stale replica.
+
+    Measured on release run 41439789453 (v1.5.1): the publish step printed
+    ``published @nidvue/teamwork@1.5.1`` and the tarball is on the registry, but
+    the verify step's 4x20 s window still saw E404 at 61 s. The window must cover
+    npm's propagation delay, not only the first minute.
+    """
+    text = release_text()
+    marker = "Verify the published version"
+    assert marker in text, "the npm verify step disappeared from the release workflow"
+    step = text[text.index(marker) :]
+    attempts = re.search(r"ATTEMPTS = (\d+)", step)
+    seconds = re.search(r"RETRY_SECONDS = (\d+)", step)
+    assert attempts and seconds, "the verify step no longer declares its retry budget"
+    window = int(attempts.group(1)) * int(seconds.group(1))
+    assert window >= 180, (
+        f"the npm verify window is {window}s; a fresh publish was still missing "
+        "after 61 s on release run 41439789453"
+    )
+    assert "time.sleep(RETRY_SECONDS)" in step, "the verify step no longer sleeps between attempts"
