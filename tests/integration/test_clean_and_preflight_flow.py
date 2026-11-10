@@ -142,7 +142,20 @@ def test_the_lifecycle_runs_end_to_end_on_a_real_repository(fixture_project: Pat
     assert (team / "Global" / "GlobalMemory.md").is_file()
     assert (fixture_project / "AGENTS.md").is_file()
 
+    # The board contract T-0007 landed: the board `init` writes renders and checks
+    # clean in a fresh project, before its first task and after it.
+    empty_write = engine_cli(fixture_project, "board", "--write")
+    assert empty_write.returncode == 0, output(empty_write)
+    empty_check = engine_cli(fixture_project, "board", "--check")
+    assert empty_check.returncode == 0, output(empty_check)
+
     start_task(fixture_project)
+
+    open_write = engine_cli(fixture_project, "board", "--write")
+    assert open_write.returncode == 0, output(open_write)
+    open_check = engine_cli(fixture_project, "board", "--check")
+    assert open_check.returncode == 0, output(open_check)
+
     queue = (team / "Roles" / "Developer" / "TaskQueue.md").read_text(encoding="utf-8")
     assert "T-0001" in queue and "P0" in queue
     assert "claimed_by: Developer" in queue and "status: doing" in queue
@@ -150,11 +163,6 @@ def test_the_lifecycle_runs_end_to_end_on_a_real_repository(fixture_project: Pat
     board = engine_cli(fixture_project, "board")
     assert board.returncode == 0, output(board)
     assert "developer" in board.stdout and "doing=1" in board.stdout
-    # `board --write`/`--check` are deliberately not asserted here: in a fresh
-    # project `init` writes a docs/Team/Board.md without the renderer's table head,
-    # so both refuse with exit 2 (developer T-0007). Landing that contract belongs
-    # to that task; asserting it here would make this module red for a defect that
-    # is not its own.
 
     committed = commit_widget(fixture_project)
     assert committed.returncode == 0, output(committed)

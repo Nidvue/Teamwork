@@ -123,10 +123,20 @@ def test_write_renders_the_tables_and_a_second_render_is_equal(cli, project: Pat
 
 
 def test_the_board_commands_refuse_a_board_without_the_tables(cli, project: Path) -> None:
-    """`init` writes a prose board; the gate names the missing tables instead of crashing."""
+    """A prose board is named (exit 2), never crashed and never rewritten.
+
+    `init` now writes the conforming skeleton (T-0007), so the prose board is built
+    here explicitly: the gate must still refuse an older or hand-written one, and a
+    refused `--write` must leave it untouched.
+    """
     one_open_task(cli, project)
+    path = project / "docs" / "Team" / "Board.md"
+    prose = "# BOARD\n\nOwner: Project Manager.\n"
+    path.write_text(prose, encoding="utf-8")
+
     assert cli("--project", project, "board", "--check") == 2
     assert cli("--project", project, "board", "--write") == 2
+    assert path.read_text(encoding="utf-8") == prose, "a refused board was rewritten"
 
 
 def test_write_reports_every_row_it_drops(cli, project: Path, capsys) -> None:
