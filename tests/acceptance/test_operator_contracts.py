@@ -203,3 +203,38 @@ def test_the_privacy_gate_refuses_a_planted_credential(tmp_path: Path) -> None:
     assert done.returncode == 1, done.stdout
     assert "api-token" in done.stdout
     assert "ghp_" + "a" * 36 not in done.stdout, "the matched value must never be printed"
+
+
+def test_the_operator_identity_is_accepted_without_a_local_preset(tmp_path: Path) -> None:
+    """CI has no local or global identity: the operator must be a committed constant.
+
+    The preset clause alone is not enough on a runner, where the only identity git
+    knows is the checkout action's bot - so an operator-authored commit has to be
+    accepted from ``config.OPERATOR_IDENTITY`` or every operator push is red.
+    """
+    project = git_project(tmp_path)
+    (project / "f.txt").write_text("x\n", encoding="utf-8")
+    operator = {
+        "GIT_AUTHOR_NAME": "Ping Zhao",
+        "GIT_AUTHOR_EMAIL": "ping.zhao@nidvue.com",
+        "GIT_COMMITTER_NAME": "Ping Zhao",
+        "GIT_COMMITTER_EMAIL": "ping.zhao@nidvue.com",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    }
+    subprocess.run(["git", "-C", str(project), "add", "f.txt"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(project),
+            "commit",
+            "-q",
+            "-m",
+            "feat(core): operator authored\n\nTask: T-0001\nActing role: Developer",
+        ],
+        check=True,
+        env=operator,
+    )
+    accepted = cli(project, ["identity", "--audit", "--range", "HEAD^..HEAD"])
+    assert accepted.returncode == 0, accepted.output
+    assert "problems: 0" in accepted.output
