@@ -9,6 +9,13 @@ scorer, no model call and no second store:
 * ``pack`` turns a task query into the smallest set of rendered pointer lines
   that fits a byte budget. It is the injected-context layer: one line per
   record, never a copy of the statement's home.
+* ``index_block`` is the header above that pack: the distinct topics of the
+  active knowledge records and open lessons as ``- <topic> -> <pointer>`` lines,
+  capped at 8 lines and ``INDEX_BUDGET_BYTES`` (Memory.md 11), so the injected
+  layer opens with an index instead of a dump. A topic is a label, not a
+  sentence: it is clipped to ``TOPIC_CLIP`` characters at a word boundary, and
+  ``load`` prints this index *instead of* the verbose lesson rows, so the whole
+  command output does not grow by the index's bytes (AC-M22-4).
 * ``search`` is the single retrieval path over those three stores, capped.
 * ``dream`` and ``apply_dream`` are the off-hot-path maintenance pass: duplicate
   and contradiction detection, stale archiving, missing evidence reported. The
@@ -50,9 +57,13 @@ from .records import (
 )
 
 PACK_BUDGET_BYTES = 4000
+INDEX_BUDGET_BYTES = 800
+INDEX_MAX_LINES = 8
+INDEX_KINDS = ("knowledge", "lesson")
 SEARCH_BUDGET_BYTES = 2000
 SEARCH_LIMIT = 10
 STATEMENT_CLIP = 200
+TOPIC_CLIP = 60
 HALF_LIFE_DAYS = 30.0
 STALE_AFTER_DAYS = 90
 SHORT_EVIDENCE = 20
@@ -335,6 +346,126 @@ def render_pack(items: list[dict], total_bytes: int, budget: int | None = None) 
     lines = [render_record(entry) for entry in items]
     lines.append(_footer(len(items), total_bytes, budget))
     return "\n".join(lines) + "\n"
+
+
+def clip_topic(topic: str, limit: int = TOPIC_CLIP) -> str:
+    """A topic as the index may print it: at most ``limit`` chars, cut at a word boundary.
+
+    The index points at a record, so its line carries the record's *label*, not the
+    record's sentence: a 168-character lesson mistake is clipped to a phrase and the
+    statement (and the rule) stay in their home, which the pointer names. The cut
+    lands on the last whole word inside ``limit`` and drops any trailing
+    punctuation, so a clipped topic never ends in a dangling ``...`` or comma.
+    """
+    text = " ".join(str(topic or "").split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    if " " in cut.rstrip():
+        cut = cut[: cut.rstrip().rfind(" ")]
+    return cut.strip().rstrip(" .,;:-\u2026").strip() or text[:limit].strip()
+
+
+def index_topics(
+    entries: list[dict], query: str, now: datetime.date | datetime.datetime
+) -> list[tuple[str, dict]]:
+    """The index's topics in rank order: one ``(normalised topic, record)`` per distinct topic.
+
+    A topic is the distinct normalised ``topic`` of an active knowledge record plus
+    an open lesson's title (4.1 order, so the same task and the same clock give the
+    same list). The first record of a topic is the one its pointer names; a record
+    with an empty topic contributes no line, because a bare pointer is not an index.
+    """
+    seen: dict[str, dict] = {}
+    for entry in rank([item for item in entries if _is_index_record(item)], query, now):
+        topic = clip_topic(normalise_knowledge(entry.get("title", "")))
+        if topic and topic not in seen:
+            seen[topic] = entry
+    return list(seen.items())
+
+
+def _is_index_record(entry: dict) -> bool:
+    return str(entry.get("kind") or "") in INDEX_KINDS and _is_active(entry)
+
+
+def _index_footer(body_bytes: int, budget: int) -> str:
+    """The ``# index:`` footer, its own byte count solved so the number is exact."""
+    guess = body_bytes + 1
+    text = ""
+    for _ in range(4):
+        text = f"# index: {guess} bytes (budget {budget})"
+        size = len(text.encode("utf-8")) + 1
+        if body_bytes + size == guess:
+            return text
+        guess = body_bytes + size
+    return text
+
+
+def _index_text(topics: int, records: int, lines: list[str], budget: int) -> str:
+    header = f"# memory index: {topics} topic(s), {records} record(s)"
+    body = len(header.encode("utf-8")) + 1 + sum(len(line.encode("utf-8")) + 1 for line in lines)
+    return "\n".join([header, *lines, _index_footer(body, budget)])
+
+
+def index_block(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = INDEX_BUDGET_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> str:
+    """The memory index: a capped pointer list of the topics a task will need.
+
+    The small top layer of the hierarchy (docs/Team/Memory.md 11): at most
+    ``INDEX_MAX_LINES`` topic lines, in the 4.1 order for the task's query, and the
+    whole block - header, lines and footer - kept at or under ``budget`` bytes by
+    dropping any line that would overspend. It points at a record, never at its
+    statement, so the header costs bytes once and the statement is still read from
+    its home. An empty store prints ``0 topic(s), 0 record(s)`` and no line.
+
+    ``records`` counts the active knowledge records and open lessons the index
+    ranks; ``topics`` counts the distinct lines actually printed.
+    """
+    moment = now or datetime.date.today()
+    entries = collect(root, role)
+    records = sum(1 for entry in entries if _is_index_record(entry))
+    lines: list[str] = []
+    for topic, entry in index_topics(entries, task_query(root, role, task), moment)[
+        :INDEX_MAX_LINES
+    ]:
+        line = f"- {topic} -> {entry.get('pointer', '')}"
+        trial = _index_text(len(lines) + 1, records, [*lines, line], budget)
+        if len(trial.encode("utf-8")) + 1 > budget:
+            continue
+        lines.append(line)
+    return _index_text(len(lines), records, lines, budget)
+
+
+def index_bytes(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = INDEX_BUDGET_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> int:
+    """The UTF-8 bytes the index costs when injected, its own newline included."""
+    return len(index_block(root, role, task, budget, now).encode("utf-8")) + 1
+
+
+def injected_budget(
+    root: Path,
+    role: str,
+    task: str = "",
+    now: datetime.date | datetime.datetime | None = None,
+) -> int:
+    """The pack budget left after the index: ``PACK_BUDGET_BYTES - index bytes``.
+
+    The index and the pack are one injected layer, so they share one budget: the
+    second guard on AC-M22-4 is that ``index + pack <= PACK_BUDGET_BYTES`` even on
+    a store whose pack would otherwise fill the whole 4000 bytes. Never negative -
+    an index at or over the budget leaves the pack its one-record minimum.
+    """
+    return max(PACK_BUDGET_BYTES - index_bytes(root, role, task, now=now), 1)
 
 
 def render_search(

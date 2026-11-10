@@ -74,9 +74,7 @@ def test_the_lessons_to_skill_loop_end_to_end(project: Path) -> None:
 
     loaded = assert_ok(cli(project, ["load", "Developer-1"]))
     assert "# Lessons (developer) - open mistakes to avoid:" in loaded.stdout
-    assert "- [L-0001] committed on main -> run branch start before the first edit" in (
-        loaded.stdout
-    )
+    assert "- committed on main -> Roles/Developer/Lessons.md#L-0001" in loaded.stdout
 
     created = assert_ok(
         cli(
