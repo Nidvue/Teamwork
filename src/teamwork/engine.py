@@ -5347,6 +5347,14 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
         print(f"teamwork: added {len(added)} rule(s) to .gitignore")
 
     ensure_lfs(project, quiet=quiet)
+    # A plain `git commit` must never inherit the operator's personal identity.
+    # Set the repo-local fallback to the CEO role mailbox unless the repository
+    # already has its own identity.
+    local_email = run_git(project, "config", "--local", "user.email").stdout.strip()
+    if not local_email:
+        name, email = role_identity("ceo")
+        run_git(project, "config", "--local", "user.name", name)
+        run_git(project, "config", "--local", "user.email", email)
     has_identity = True  # team commits always carry the ROLE identity
 
     if commit and not created and is_git_repo(project):

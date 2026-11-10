@@ -115,7 +115,8 @@ Additions to the original surface (no removals, no renames):
 
 Every existing subcommand, flag and exit code is unchanged. Exit codes: `0`
 success, `1` generic error, `3` "nothing to dispatch" (pulse), `4` lock timeout,
-`2` usage or gate refusal (the same code `die()` uses).
+`2` usage or gate refusal (gate refusals call `die(..., 2)`; `die()` defaults to
+`1` for a generic error).
 
 ## 5. Workspace-format contract (frozen)
 
