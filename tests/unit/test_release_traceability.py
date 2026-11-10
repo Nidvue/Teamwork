@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -76,6 +77,13 @@ def checker():
     return load_checker()
 
 
+#: The record's version shape is the gate's, never a local copy: `record_problems`
+#: grades with the same compiled pattern `load_exceptions` enforces, so section
+#: 11.4's schema and this test cannot drift apart again (T-0016 widened it to admit
+#: a published-but-untaggable version such as npm's `0.0.0-stage`).
+PUBLISHED_VERSION = load_checker().PUBLISHED_VERSION
+
+
 def tracked_exceptions_path(repo_root: Path = REPO_ROOT) -> Path:
     """The record's location, asked of git rather than assumed."""
     result = subprocess.run(
@@ -118,10 +126,15 @@ def tags(repo_root: Path = REPO_ROOT) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
-def record_problems(entries: list[dict], tagged: set[str], current: str) -> list[str]:
+def record_problems(
+    entries: list[dict],
+    tagged: set[str],
+    current: str,
+    *,
+    version_pattern: re.Pattern[str] = PUBLISHED_VERSION,
+) -> list[str]:
     """Every reason a *record* is not a measurement, given the tags and version."""
     problems: list[str] = []
-    import re
 
     seen: set[str] = set()
     for index, entry in enumerate(entries):
@@ -133,8 +146,8 @@ def record_problems(entries: list[dict], tagged: set[str], current: str) -> list
             problems.append(f"{label}: keys {sorted(entry)} != {sorted(REQUIRED_KEYS)}")
             continue
         version = entry["version"]
-        if not re.fullmatch(r"\d+\.\d+\.\d+", str(version)):
-            problems.append(f"{label}: version {version!r} is not X.Y.Z")
+        if not version_pattern.fullmatch(str(version)):
+            problems.append(f"{label}: version {version!r} is not an npm version")
         if version in seen:
             problems.append(f"{label}: duplicate version {version}")
         seen.add(version)
@@ -223,7 +236,8 @@ def test_the_clean_synthetic_entry_is_accepted():
     [
         ({"evidence": "the commit could not be pushed"}, "names no measurement"),
         ({"reason": "n/a"}, "admits nothing"),
-        ({"version": "1.1"}, "is not X.Y.Z"),
+        ({"version": "1.1"}, "is not an npm version"),
+        ({"version": "not-a-version"}, "is not an npm version"),
         ({"recorded": "20-10-2026"}, "is not YYYY-MM-DD"),
         ({"version": "1.1.2"}, "is tagged"),
         ({"version": "1.1.5"}, "must never be excepted"),
@@ -232,6 +246,17 @@ def test_the_clean_synthetic_entry_is_accepted():
 def test_each_bad_field_is_reported(mutation, expected):
     problems = record_problems([_entry(**mutation)], {"v1.1.2"}, "1.1.5")
     assert any(expected in problem for problem in problems), problems
+
+
+def test_a_prerelease_version_is_accepted_because_the_gate_admits_it():
+    """Deliberate, not accidental: section 11.4's schema is `PUBLISHED_VERSION`.
+
+    T-0016 widened the frozen contract so npm's staged-publish placeholder
+    (`0.0.0-stage`) can be named in the record; T-0015's local `X.Y.Z` literal had
+    not caught up. This case pins the widening to the gate's own pattern.
+    """
+    problems = record_problems([_entry(version="0.0.0-stage")], {"v1.1.2"}, "1.1.5")
+    assert problems == []
 
 
 def test_a_missing_key_and_a_duplicate_version_are_reported():
