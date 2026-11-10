@@ -25,7 +25,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0023 bind the adoption decision + export the closing manifest | P3 | in review (P-0018) | `Decisions.md`, `AuditManifest.json` |
+| ceo | T-0026 close the M6 records | P2 | in review | `Plan.md`, `Board.md`, `AuditManifest.json` |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
