@@ -20,113 +20,26 @@ LOCK_TIMEOUT = float(os.environ.get("TEAMWORK_LOCK_TIMEOUT", "60"))
 
 LOCK_STALE_SECONDS = float(os.environ.get("TEAMWORK_LOCK_STALE_SECONDS", "300"))
 
-STEAL_CLAIM_ATTEMPTS = 3
-
-
-def _read_lock_body(path: Path) -> str | None:
-    """Return the trimmed body of a lock file, or ``None`` when it cannot be read."""
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-
 
 def _lock_owner_stale(path: Path) -> bool:
     """True only when the lock is clearly abandoned: old AND its owner is gone."""
     try:
         age = time.time() - path.stat().st_mtime
+        body = path.read_text(encoding="utf-8").strip()
     except OSError:
         return False
-    body = _read_lock_body(path)
-    if body is None or age < LOCK_STALE_SECONDS:
+    if age < LOCK_STALE_SECONDS:
         return False
-    head = body.split(".", 1)[0]
-    pid = int(head) if head.isdigit() else 0
+    pid = int(body.split(".", 1)[0]) if body.split(".", 1)[0].isdigit() else 0
     if pid <= 0:
         return True
     return not pid_alive(pid)
-
-
-def _steal_claim_path(path: Path, body: str) -> Path:
-    """Name of the claim file that serialises the thieves of one lock body."""
-    key = "".join(char if char.isalnum() or char in ".-" else "_" for char in body)
-    return path.with_name(f"{path.name}.steal-{key[:80] or 'empty'}")
-
-
-def _claim_stale_steal(path: Path, body: str) -> Path | None:
-    """Take the right to remove the abandoned lock whose body is ``body``.
-
-    ``os.unlink`` cannot be conditioned on the file it removes, so two waiters
-    that judged the same lock abandoned both removed it, and the second one deleted
-    the live lock the first had just created: both then ran inside the critical
-    section (M19 S-1, 400 ms of overlap). The claim file is created with
-    ``O_EXCL`` and named after the body that was judged, so exactly one waiter can
-    hold it for that body; the lock name cannot be recreated while it still
-    exists, and therefore the claim holder is the only process that removes it. A
-    claim left behind by a killed waiter is taken over by an atomic rename under
-    the same staleness rule the lock itself uses.
-    """
-    claim = _steal_claim_path(path, body)
-    for _ in range(STEAL_CLAIM_ATTEMPTS):
-        try:
-            fd = os.open(str(claim), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            if not _lock_owner_stale(claim):
-                return None
-            abandoned = claim.with_name(f"{claim.name}.gone-{os.getpid()}-{time.time_ns()}")
-            try:
-                os.rename(str(claim), str(abandoned))
-            except OSError:
-                return None
-            with contextlib.suppress(OSError):
-                os.unlink(str(abandoned))
-            continue
-        except OSError:
-            return None
-        try:
-            with contextlib.suppress(OSError):
-                os.write(fd, f"{os.getpid()}.{time.time():.6f}".encode())
-        finally:
-            os.close(fd)
-        return claim
-    return None
-
-
-def _steal_stale(path: Path) -> bool:
-    """Remove the abandoned lock at ``path``; report whether it was removed.
-
-    Both halves of the old check-then-act window are closed: the claim serialises
-    the waiters that judged the same body, and the body is re-read while the claim
-    is held, so a waiter that lost the race cannot unlink the lock that has
-    already replaced the abandoned one.
-    """
-    body = _read_lock_body(path)
-    if body is None or not _lock_owner_stale(path):
-        return False
-    claim = _claim_stale_steal(path, body)
-    if claim is None:
-        return False
-    try:
-        if _read_lock_body(path) != body:
-            return False
-        try:
-            os.unlink(str(path))
-        except OSError:
-            return False
-        return True
-    finally:
-        with contextlib.suppress(OSError):
-            os.unlink(str(claim))
 
 
 @contextlib.contextmanager
 def lock(path: Path, timeout: float | None = None):
     """Exclusive lock via O_CREAT|O_EXCL. Never steals a live lock, and only
     removes the lock file if this process owns it.
-
-    The abandoned-lock steal is atomic in two steps: a claim file names the body
-    that was judged stale so exactly one waiter may remove it, and the body is
-    re-read under that claim so a lock that replaced the stale one is left alone.
 
     A Windows waiter can see ``PermissionError`` instead of ``FileExistsError``
     while another process creates, replaces or removes the file: the sharing
@@ -145,8 +58,12 @@ def lock(path: Path, timeout: float | None = None):
         try:
             fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
-            if _steal_stale(path):
-                continue
+            if _lock_owner_stale(path):
+                try:
+                    os.unlink(str(path))
+                    continue
+                except OSError:
+                    pass
         except PermissionError:
             pass
         else:

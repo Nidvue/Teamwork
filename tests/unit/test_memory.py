@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from teamwork import engine
+from teamwork import config, engine
 
 
 def test_new_entry_defaults() -> None:
@@ -87,3 +87,39 @@ def test_parse_memory_ignores_header_only_file(tmp_path: Path) -> None:
     path = tmp_path / "m.md"
     path.write_text("# Memory - developer\n\n> nothing here\n", encoding="utf-8")
     assert engine.parse_memory(path) == []
+
+
+def test_load_refuses_a_name_the_team_does_not_know(cli, project: Path, capsys) -> None:
+    """A typo must not invent a role: `load nope` exits 1 and writes no directory.
+
+    The old guard only fired when `Agents/` was missing, and `init` always creates
+    it, so `load nope` wrote `Roles/Nope/` with two memory files and made the typo
+    look like a staffed role (T-0003). An unstaffed role is refused the same way,
+    and so is a stray directory the old bug left behind: a directory may not keep
+    itself alive, while a registered instance and its role name still load.
+    """
+    assert cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    root = project / config.TEAM_ROOT_DIR / config.TEAMS_SUBDIR / engine.team_slug(project)
+    roles = root / "Roles"
+    before = sorted(path.name for path in roles.iterdir())
+
+    assert cli("--project", project, "load", "nope") == 1
+    refusal = capsys.readouterr().err
+    assert "unknown role 'nope': no nope instance is registered" in refusal
+    assert "nothing was created" in refusal
+    assert "Known roles: ceo, developer" in refusal
+    assert cli("--project", project, "load", "Architect") == 1
+    capsys.readouterr()
+    assert sorted(path.name for path in roles.iterdir()) == before
+    assert not (roles / "Nope").exists()
+    assert not (roles / "Architect").exists()
+
+    stray = roles / "Nope"
+    stray.mkdir()
+    (stray / engine.F_SHORT).write_text("# Short-term memory - nope\n", encoding="utf-8")
+    assert cli("--project", project, "load", "nope") == 1
+    assert "unknown role 'nope'" in capsys.readouterr().err
+    assert (stray / engine.F_SHORT).read_text(encoding="utf-8") == "# Short-term memory - nope\n"
+
+    assert cli("--project", project, "load", "Developer-1") == 0
+    assert cli("--project", project, "load", "Developer") == 0
