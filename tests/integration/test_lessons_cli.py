@@ -142,7 +142,7 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
     assert cli("--project", project, "load", "Developer-1") == 0
     loaded = capsys.readouterr().out
     assert "# Lessons (developer) - open mistakes to avoid:" in loaded
-    assert "- [L-0001] committed on main -> run the guard first" in loaded
+    assert "- committed on main -> Roles/Developer/Lessons.md#L-0001" in loaded
     assert "certified without CI" not in loaded
     assert "# fixed: 0; full list: teamwork.py lesson list --role developer" in loaded
 

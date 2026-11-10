@@ -262,6 +262,15 @@ teamwork knowledge touch K_ID --by <you>
   `- [K-0001] [experience] <topic>: <statement> (uses=N, tags=...)` and the
   active/superseded counts, so the startup read is the most important and most
   used knowledge, not the newest ten.
+- `load` and every lane packet open with the memory index (Memory.md 11): a capped
+  pointer list `- <topic> -> <file>#<id>` over the active knowledge topics and the
+  open lesson titles, in the 4.1 score order for the task, at most 8 lines, and
+  `# memory index: N topic(s), M record(s)` / `# index: B bytes (budget 800)` around
+- The index replaces the verbose `- [L-0001] mistake -> rule` rows `load` used to
+  print and is charged against the pack budget (`index + pack <= 4000`), so the
+  whole `load` output does not grow by the index's bytes (AC-M22-4, T-0057).
+  them. It points, it never copies a statement, and a line that would overspend
+  `INDEX_BUDGET_BYTES` (800) is dropped rather than truncated.
 
 ### Context tree
 

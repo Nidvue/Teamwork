@@ -121,8 +121,9 @@ under two roles is two tasks.
 | ceo | T-0031 | records | done | P-0085 | 7bc4f15 |
 | ceo | T-0032 | docs | done | P-0087 | 3179a8a |
 | ceo | T-0033 | memory | done | P-0092 | 6143378 |
-| ceo | T-0034 | - | todo | - | - |
+| ceo | T-0034 | - | doing | - | - |
 | ceo | T-0035 | pi-package | done | P-0098 | 9a61ca8 |
+| ceo | T-0036 | pi-package | doing | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -179,11 +180,13 @@ under two roles is two tasks.
 | developer | T-0054 | memory | done | P-0095 | a42b13b |
 | developer | T-0055 | memory | done | P-0096 | 81dcf8f |
 | developer | T-0056 | memory | done | P-0099 | f644054 |
-| developer | T-0057 | - | todo | - | - |
+| developer | T-0057 | memory | done | P-0100 | 7bd7a68 |
 | developer | T-0058 | - | todo | - | - |
 | developer | T-0059 | - | todo | - | - |
 | developer | T-0060 | - | todo | - | - |
 | developer | T-0061 | - | todo | - | - |
+| developer | T-0062 | - | todo | - | - |
+| developer | T-0063 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -233,12 +236,14 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0034 · M22 close-out: the measured before/after, the layer matrix, the board render and the ledger export | P1 | todo | - |
-| developer | T-0057 · memory index header in load and the lane packet, capped | P0 | todo | - |
+| ceo | T-0034 · M22 close-out: the measured before/after, the layer matrix, the board render and the ledger export | P1 | doing | - |
+| ceo | T-0036 · drop the last host-plugin dependencies: every lane runs natively on the engine lane runtime | P1 | doing | - |
 | developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | todo | - |
 | developer | T-0059 · privacy scan does not cover the team memory stores | P1 | todo | - |
 | developer | T-0060 · scrub absolute host paths from the role stores | P2 | todo | - |
 | developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | todo | - |
+| developer | T-0062 · memory verify checks only the first evidence kind, so a drifted path behind a valid revision passes | P2 | todo | - |
+| developer | T-0063 · tests/unit/test_memory_index.py fails when run alone: no record mask installed | P2 | todo | - |
 | security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | todo | - |
 | tester | T-0009 · integration layer part 2: transcript reach and the index header on a real tree | P1 | todo | - |
 

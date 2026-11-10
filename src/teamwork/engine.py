@@ -6474,11 +6474,21 @@ def memory_pack_block(root: Path, role: str, task: str, budget: int = 0, touch_b
 
 
 def _pack_block(root: Path, role: str, task: str, touch_by: str = "") -> str:
-    """`load --task` prints this instead of the static top-10 knowledge block."""
-    budget = memorypack.PACK_BUDGET_BYTES
+    """`load --task` prints this instead of the static top-10 knowledge block.
+
+    The index above and this pack are one injected layer, so the pack only gets
+    what the index left of ``PACK_BUDGET_BYTES``: ``index + pack`` stays at or
+    under the budget however full the store is (AC-M22-4).
+    """
+    limit = memorypack.injected_budget(root, role, task)
     query = memorypack.task_query(root, role, task)
-    header = f"# memory pack for {task} -> '{query}' (budget {budget} bytes; not the static top-10)"
-    return header + "\n" + memory_pack_block(root, role, task, budget, touch_by)
+    # The header names the injected layer's cap (index + pack); the pack footer
+    # names what the pack itself got after the index was charged (AC-M22-4).
+    header = (
+        f"# memory pack for {task} -> '{query}'"
+        f" (budget {memorypack.PACK_BUDGET_BYTES} bytes; not the static top-10)"
+    )
+    return header + "\n" + memory_pack_block(root, role, task, limit, touch_by)
 
 
 def cmd_load(args) -> int:
@@ -6494,31 +6504,32 @@ def cmd_load(args) -> int:
     keep = entries[:limit]
     gcount = len(parse_memory(global_dir(root) / F_GLOBAL))
     inst = instances_of(root, role)
+    print(memorypack.index_block(root, role, getattr(args, "task", "") or ""))
+    # Two preamble lines, not five (Memory.md 11, AC-M22-4): the index above is
+    # only free if it displaces boilerplate as well as the verbose lesson rows,
+    # so one line carries the counts and one carries the commands. Every fact the
+    # five lines stated is still stated - the entry count, who shares the memory,
+    # the pen command, the recall hint and the global count; only the words went.
     print(
-        f"# Short-term memory loaded for {args.agent} -> shared {role} memory"
-        f" ({len(keep)}/{len(entries)} entries)"
+        f"# {args.agent} (shared {role} memory): {len(keep)}/{len(entries)} entries;"
+        f" shared by {', '.join(inst) or role}; global {gcount}"
     )
-    print(f"# shared by: {', '.join(inst) or role}")
     claim = read_memory_claim(root, role)
     if claim:
-        print(
-            f"# READ-ONLY right now: {memory_holder_line(claim)}. "
-            f"Remember/touch/forget will be refused until that lease is released "
-            f"(`memory status {role}`); reads and `recall` always work."
+        pen = (
+            f"READ-ONLY: {memory_holder_line(claim)}; remember/touch/forget are refused"
+            f" until the lease is released (`memory status {role}`), reads and `recall`"
+            f" always work"
         )
     else:
-        print(
-            f"# memory is free: `memory claim {role} --by {args.agent} --reason '<what you "
-            f"are about to update>'` holds the pen for a multi-entry update; a single "
-            f"`remember` takes it automatically."
+        pen = (
+            f"memory is free: `memory claim {role} --by {args.agent} --reason '<what you"
+            f" are about to update>'` holds the pen for a multi-entry update (a single"
+            f" `remember` takes it)"
         )
     print(
-        f"# Long-term entries are NOT loaded; query them with:"
-        f' teamwork.py recall "<query>" --agent {role}'
-    )
-    print(
-        f"# Global shared memory has {gcount} entries; read with:"
-        f' teamwork.py recall "<query>" --global'
+        f"# {pen}; long-term NOT loaded -> teamwork.py recall"
+        f' "<query>" --agent {role}; global -> teamwork.py recall "<query>" --global'
     )
     print()
     for e in keep:
@@ -6536,16 +6547,19 @@ def cmd_load(args) -> int:
             f"(record one with: teamwork.py lesson add --by {args.agent} --mistake ...)"
         )
     else:
-        open_lessons = sorted(
-            [item for item in lessons if item["status"] == "open"],
-            key=lambda item: item["id"],
+        open_lessons = [item for item in lessons if item["status"] == "open"]
+        fixed = sum(1 for item in lessons if item["status"] == "fixed")
+        # An open lesson is already a topic line in the memory index this command
+        # opened with (Memory.md 11): the topic and the pointer are there, so the
+        # count and the pointer to the list are all that is left to say. Printing
+        # every ``mistake -> rule`` row again is what made `load` grow by the
+        # index's bytes (AC-M22-4); the rule itself stays in Lessons.md, which the
+        # index line names.
+        print(
+            f"# Lessons ({role}) - open mistakes to avoid: {len(open_lessons)} open,"
+            f" listed in the memory index above (the rule stays in Lessons.md)"
         )
-        fixed = [item for item in lessons if item["status"] == "fixed"]
-        print(f"# Lessons ({role}) - open mistakes to avoid:")
-        for item in open_lessons[:10]:
-            skill = f" (fixed by {item['skill']})" if item.get("skill") else ""
-            print(f"- [{item['id']}] {item['mistake']} -> {item['rule']}{skill}")
-        print(f"# fixed: {len(fixed)}; full list: teamwork.py lesson list --role {role}")
+        print(f"# fixed: {fixed}; full list: teamwork.py lesson list --role {role}")
 
     if getattr(args, "task", ""):
         print(_pack_block(root, role, args.task, getattr(args, "agent", "") or role))

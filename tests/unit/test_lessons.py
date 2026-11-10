@@ -105,7 +105,7 @@ def test_lesson_add_writes_the_role_file_and_load_shows_it(cli, ws, capsys) -> N
     assert cli("--project", ws, "load", "Developer-1") == 0
     load = capsys.readouterr().out
     assert "# Lessons (developer) - open mistakes to avoid:" in load
-    assert "- [L-0001] committed on main -> run branch start before the first edit" in load
+    assert "- committed on main -> Roles/Developer/Lessons.md#L-0001" in load
     assert "# fixed: 0; full list: teamwork.py lesson list --role developer" in load
 
 
