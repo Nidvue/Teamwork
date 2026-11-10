@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -10,6 +12,87 @@ from .io import write_lf
 from .names import slugify
 
 DEFAULT_BASE = "main"
+
+GIT_TIMEOUT_SECONDS = 120.0
+GIT_TIMEOUT_ENV = "TEAMWORK_GIT_TIMEOUT"
+GIT_TIMEOUT_EXIT = 124
+_SAFE_GIT_WORD = re.compile(r"[a-z][a-z-]*")
+_VALUE_TAKING_OPTIONS = frozenset(
+    {"-c", "-C", "-P", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"}
+)
+
+
+def git_timeout() -> float:
+    """The default budget one git call gets, in seconds.
+
+    Read on every call rather than at import: a bad ``TEAMWORK_GIT_TIMEOUT``
+    (unparsable, infinite, zero or negative) falls back to :data:`GIT_TIMEOUT_SECONDS`
+    instead of failing the command at import time, because the seam is imported
+    by every entry point and a typo in a local variable must not make
+    ``teamwork`` unrunnable.
+    """
+    raw = os.environ.get(GIT_TIMEOUT_ENV, "").strip()
+    if not raw:
+        return GIT_TIMEOUT_SECONDS
+    try:
+        limit = float(raw)
+    except ValueError:
+        return GIT_TIMEOUT_SECONDS
+    return limit if math.isfinite(limit) and limit > 0 else GIT_TIMEOUT_SECONDS
+
+
+def _git_verb(argv: tuple[str, ...]) -> str:
+    """The subcommand, for the error text - never the arguments.
+
+    A git argument carries the remote URL, and a URL carries credentials
+    (``https://<token>@host/repo``); the timeout message is printed and stored
+    by the callers, so it names the verb and nothing else. The global options
+    that precede the verb are skipped with their values (``-c http.proxy=`` is
+    not the verb), and only a plain lowercase word may be echoed.
+    """
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token in _VALUE_TAKING_OPTIONS:
+            index += 2
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        return token if _SAFE_GIT_WORD.fullmatch(token) else "command"
+    return "command"
+
+
+def _captured_text(value: bytes | str | None) -> str:
+    """The captured output of a timed-out call as text.
+
+    ``text=True`` makes this a ``str``, but the exception types it as
+    ``bytes | str | None``, so the seam decodes rather than assuming.
+    """
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    return value or ""
+
+
+def _timeout_failure(
+    command: list[str], argv: tuple[str, ...], limit: float, expired: subprocess.TimeoutExpired
+) -> subprocess.CompletedProcess:
+    """The failed ``CompletedProcess`` a timed-out call returns.
+
+    Returning it instead of raising keeps every caller's existing
+    ``returncode != 0`` handling intact, and the message is the last line of
+    ``stderr`` because the callers report ``stderr.splitlines()[-1]``.
+    """
+    captured = _captured_text(expired.stderr).strip()
+    message = (
+        f"git {_git_verb(argv)} timed out after {limit:g}s: the remote did not answer "
+        f"(raise the limit with ${GIT_TIMEOUT_ENV} or run_git(timeout=...))"
+    )
+    stderr = f"{captured}\n{message}\n" if captured else f"{message}\n"
+    return subprocess.CompletedProcess(
+        command, GIT_TIMEOUT_EXIT, _captured_text(expired.stdout), stderr
+    )
+
 
 LFS_PATTERNS = (
     "*.png",
@@ -78,8 +161,29 @@ LFS_PATTERNS = (
 )
 
 
-def run_git(project: Path, *argv: str):
-    return subprocess.run(["git", "-C", str(project), *argv], capture_output=True, text=True)
+def run_git(project: Path, *argv: str, timeout: float | None = None):
+    """Run git in ``project`` with a bounded wall clock.
+
+    ``refresh`` (``fetch``/``clone``), ``push`` and every other git call goes
+    through here, so this is where a stalled remote or an unanswerable
+    credential prompt has to stop: without a bound, one dead remote parks a lane
+    forever with no output and nothing to interrupt. ``timeout`` defaults to
+    :func:`git_timeout` (``$TEAMWORK_GIT_TIMEOUT``, 120s) and a caller that owns a
+    genuinely long operation - a large clone, a slow link - passes a larger one.
+
+    A timed-out call is not an exception: it returns a ``CompletedProcess`` with
+    ``returncode == 124`` (the ``timeout(1)`` convention) and the reason on the
+    last line of ``stderr``, so the caller reports it exactly as it reports any
+    other git refusal. The child is killed by ``subprocess.run``; git's own
+    remote helpers exit on the stdin EOF that kill leaves behind (measured: no
+    ``git-remote-*`` survived a timed-out ``fetch``), so the call itself returns.
+    """
+    limit = git_timeout() if timeout is None else float(timeout)
+    command = ["git", "-C", str(project), *argv]
+    try:
+        return subprocess.run(command, capture_output=True, text=True, timeout=limit)
+    except subprocess.TimeoutExpired as expired:
+        return _timeout_failure(command, argv, limit, expired)
 
 
 def is_git_repo(project: Path) -> bool:
