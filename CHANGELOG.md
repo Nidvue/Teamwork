@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.0.2...HEAD)
 
+### Added
+
+- **Evidence packets**: `tests run`, `selfcheck` and `review` accept
+  `--baseline`, `--artifact` (repeatable) and `--replay`. Artifacts must exist in
+  the repository, are hashed (`path:sha256:bytes`) and the digest is appended to
+  the hash-chained ledger, so evidence is a replayable packet instead of a
+  sentence.
+- **Repro-first gate**: `tests repro <TS-id> --pre-rev ... --post-rev ...` records
+  a fail -> pass transition and refuses a single revision, a pre-run that does not
+  read as failing, or a pre-revision that is not an ancestor of the post-revision.
+  `task add --bug` marks a defect fix, whose self-check is refused until that
+  record exists; `audit` reports a closed bug task without one.
+
 ### Changed
 
 - **GitHub Actions bumps**: `anchore/sbom-action` 0.24.3,
