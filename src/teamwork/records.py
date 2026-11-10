@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from typing import NamedTuple
@@ -295,8 +296,44 @@ def render_reviews(prs: list) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
+_MASK = None
+
+
+def install_mask(mask: Callable[[str], str]) -> None:
+    """Install the credential mask every record writer applies.
+
+    The mask itself (``engine.mask_secret_shapes``) needs the shipped privacy
+    scanner, which the engine loads; this module is below the engine in the
+    dependency direction (Architecture.md 3), so the engine installs the mask
+    here at import time instead of this module importing it. It is fail-closed:
+    a writer with no mask installed refuses rather than publishing a raw value.
+    """
+    global _MASK
+    _MASK = mask
+
+
+def masked_text(text: str) -> str:
+    """The text of a record file, with every value the privacy gate reports masked.
+
+    A value the gate reports becomes ``<redacted-RULE>``; everything else - a
+    path, a commit sha, ordinary prose - comes back byte-identical, and the mask
+    is idempotent, so a second write of the same record changes nothing.
+    """
+    if _MASK is None:
+        raise RuntimeError(
+            "no record mask installed: import teamwork.engine before writing a record "
+            "(an unmasked record must never reach the store)"
+        )
+    return _MASK(text)
+
+
+def write_record(path: Path, text: str) -> None:
+    """The one write chokepoint: mask the rendered record, then write it atomically."""
+    atomic_write(path, masked_text(text))
+
+
 def write_reviews(path: Path, prs: list) -> None:
-    atomic_write(path, render_reviews(prs))
+    write_record(path, render_reviews(prs))
 
 
 def _branch_matches(pr: dict, branch: str | None) -> bool:
@@ -406,7 +443,7 @@ def render_criteria(items: list, path: Path | None = None) -> str:
 
 
 def write_criteria(path: Path, items: list) -> None:
-    atomic_write(path, render_criteria(items, path))
+    write_record(path, render_criteria(items, path))
 
 
 def find_criterion(items: list, handle: str):
@@ -509,7 +546,7 @@ def render_tests(records: list, path: Path | None = None) -> str:
 
 
 def write_tests(path: Path, records: list) -> None:
-    atomic_write(path, render_tests(records, path))
+    write_record(path, render_tests(records, path))
 
 
 def parse_testplan(path: Path) -> dict:
@@ -562,7 +599,7 @@ def render_testplan(plan: dict, path: Path | None = None) -> str:
 
 
 def write_testplan(path: Path, plan: dict) -> None:
-    atomic_write(path, render_testplan(plan, path))
+    write_record(path, render_testplan(plan, path))
 
 
 def find_test(records: list, handle: str):
@@ -705,7 +742,7 @@ def render_features(records: list, path: Path | None = None) -> str:
 
 
 def write_features(path: Path, records: list) -> None:
-    atomic_write(path, render_features(records, path))
+    write_record(path, render_features(records, path))
 
 
 def find_feature(records: list, handle: str):
@@ -968,7 +1005,7 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
 
 
 def write_tasks(path: Path, tasks: list, owner: str) -> None:
-    atomic_write(path, render_tasks(tasks, owner, path))
+    write_record(path, render_tasks(tasks, owner, path))
 
 
 def merge_tasks(dst: list, incoming: list) -> tuple:
@@ -1342,7 +1379,7 @@ def render(entries: list, filename: str, owner: str, path: Path | None = None) -
 
 
 def write_memory(path: Path, entries: list, filename: str, owner: str) -> None:
-    atomic_write(path, render(entries, filename, owner, path))
+    write_record(path, render(entries, filename, owner, path))
 
 
 def score(entry: dict) -> int:
@@ -1566,7 +1603,7 @@ def render_disputes(disputes: list) -> str:
 
 
 def write_disputes(path: Path, disputes: list) -> None:
-    atomic_write(path, render_disputes(disputes))
+    write_record(path, render_disputes(disputes))
 
 
 def find_dispute(disputes: list, handle: str):
@@ -1664,7 +1701,7 @@ def render_skills(items: list) -> str:
 
 
 def write_skills(path: Path, items: list) -> None:
-    atomic_write(path, render_skills(items))
+    write_record(path, render_skills(items))
 
 
 def find_skill(items: list, handle: str):
@@ -1743,7 +1780,7 @@ def render_lessons(items: list) -> str:
 
 
 def write_lessons(path: Path, items: list) -> None:
-    atomic_write(path, render_lessons(items))
+    write_record(path, render_lessons(items))
 
 
 def find_lesson(items: list, handle: str):
@@ -1892,7 +1929,7 @@ def render_knowledge(items: list) -> str:
 
 
 def write_knowledge(path: Path, items: list) -> None:
-    atomic_write(path, render_knowledge(items))
+    write_record(path, render_knowledge(items))
 
 
 def find_knowledge(items: list, handle: str):
