@@ -1516,3 +1516,92 @@ _PRE_EXISTING_SHAPES = (
 def test_a_shape_the_gate_already_caught_is_still_caught(rule, line):
     """The four new holes must be closed without opening one in the old coverage."""
     assert rule in rules_hit(line + "\n")
+
+
+def store_tree(root: Path, team: str = "Teamwork", role: str = "Developer") -> Path:
+    """A minimal team workspace: the layout ``--stores`` discovers by."""
+    workspace = root / ".pi" / "Teamwork" / "Teams" / team
+    (workspace / "Global").mkdir(parents=True)
+    (workspace / "Roles" / role).mkdir(parents=True)
+    return workspace
+
+
+def test_store_paths_cover_every_named_store(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    written = {
+        "Knowledge.md",
+        "Global/GlobalMemory.md",
+        "Roles/Developer/ShortTermMemory.md",
+        "Roles/Developer/LongTermMemory.md",
+        "Roles/Developer/ArchivedMemory.md",
+        "Roles/Developer/Lessons.md",
+    }
+    for rel in written:
+        (workspace / rel).write_text("# store\n")
+    assert set(ps.store_paths(tmp_path)) == {
+        f".pi/Teamwork/Teams/Teamwork/{rel}" for rel in written
+    }
+
+
+def test_a_workspace_with_no_team_directory_yields_no_store(tmp_path: Path) -> None:
+    assert ps.store_paths(tmp_path) == []
+    assert ps.scan_stores(tmp_path, allow=[]) == []
+
+
+def test_a_secret_in_a_memory_store_is_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    (workspace / "Global" / "GlobalMemory.md").write_text(
+        "the deploy key is ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz" + "\n"
+    )
+    findings = ps.scan_stores(tmp_path, allow=[])
+    assert [f["rule"] for f in findings] == ["api-token"]
+    assert findings[0]["source"] == "stores"
+    assert findings[0]["location"].endswith("Global/GlobalMemory.md:1")
+
+
+def test_a_personal_address_in_a_role_store_is_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    (workspace / "Roles" / "Developer" / "Lessons.md").write_text(
+        "mail " + "someone@" + _REAL_MAIL_DOMAIN + "\n"
+    )
+    assert {f["rule"] for f in ps.scan_stores(tmp_path, allow=[])} >= {"personal-email"}
+
+
+def test_a_clean_store_under_the_workspace_is_not_reported_for_its_location(
+    tmp_path: Path,
+) -> None:
+    workspace = store_tree(tmp_path)
+    (workspace / "Knowledge.md").write_text(
+        "- [K-0001] evidence | scripts/privacy_scan.py --stores -> 0 findings\n"
+    )
+    assert ps.scan_stores(tmp_path, allow=[]) == []
+
+
+def test_the_store_scan_counts_the_files_it_read(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    (workspace / "Knowledge.md").write_text("# knowledge\n")
+    (workspace / "Roles" / "Developer" / "Lessons.md").write_text("# lessons\n")
+    stats = {"store_files": 0}
+    ps.scan_stores(tmp_path, allow=[], stats=stats)
+    assert stats["store_files"] == 2
+
+
+def test_a_host_path_cited_in_a_store_record_is_not_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    cited = ps._host_state(".pi/", "agent/", "npm/") + "package.json"
+    (workspace / "Knowledge.md").write_text(f"- statement: the extension was removed ({cited})\n")
+    assert ps.scan_stores(tmp_path, allow=[]) == []
+
+
+def test_the_same_host_path_outside_a_record_field_is_still_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    cited = ps._host_state(".pi/", "agent/", "npm/") + "package.json"
+    (workspace / "Knowledge.md").write_text(f"see {cited}\n")
+    assert {f["rule"] for f in ps.scan_stores(tmp_path, allow=[])} >= {"agent-config"}
+
+
+def test_a_secret_on_a_store_record_field_is_still_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
+    (workspace / "Knowledge.md").write_text(f"- evidence: export TOKEN={token}\n")
+    assert {f["rule"] for f in ps.scan_stores(tmp_path, allow=[])} >= {"api-token"}
