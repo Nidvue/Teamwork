@@ -96,6 +96,21 @@ def tracked(root: Path) -> list[str]:
     return [line for line in result.stdout.splitlines() if line]
 
 
+def attributes(root: Path, name: str, paths: list[str]) -> dict[str, str]:
+    result = subprocess.run(
+        ["git", "check-attr", name, "--", *paths],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    values = {}
+    for line in result.stdout.splitlines():
+        path, _, value = line.split(": ", 2)
+        values[path] = value
+    return values
+
+
 # --------------------------------------------------------------------------- #
 # no debris
 # --------------------------------------------------------------------------- #
@@ -160,6 +175,27 @@ def test_no_editor_or_os_noise_on_disk(root):
         ):
             offenders.append(str(path.relative_to(root)))
     assert offenders == [], f"editor/OS noise present: {offenders}"
+
+
+def test_assets_review_as_text_only_where_they_are_text(root):
+    """An SVG change must review as a diff; a PNG change must stay binary (T-0008).
+
+    ``docs/assets/*`` carried ``-diff``, so a banner or icon edit reviewed as
+    "Binary files differ" and a Reviewer had to reach for ``git diff --text``. An
+    SVG is text and must render; a PNG is genuinely binary, and forcing it through
+    a text diff would be a lie about the file.
+    """
+    assets = [rel for rel in tracked(root) if rel.startswith("docs/assets/")]
+    svgs = [rel for rel in assets if rel.endswith(".svg")]
+    rasters = [rel for rel in assets if rel.endswith(".png")]
+    assert svgs, "expected at least one tracked SVG under docs/assets"
+    assert rasters, "expected at least one tracked PNG under docs/assets"
+
+    values = attributes(root, "diff", svgs + rasters)
+    text_reviewed = {rel: values[rel] for rel in svgs if values[rel] != "set"}
+    assert text_reviewed == {}, f"SVG assets must diff as text: {text_reviewed}"
+    binary_reviewed = {rel: values[rel] for rel in rasters if values[rel] != "unset"}
+    assert binary_reviewed == {}, f"PNG assets must stay binary: {binary_reviewed}"
 
 
 # --------------------------------------------------------------------------- #
