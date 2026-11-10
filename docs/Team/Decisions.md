@@ -1892,3 +1892,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: Reviewer-1 probe+render @4445d4e -> connectors 2.66-2.79:1 (bar 3:1); after stroke-opacity=1 @f497f62 -> 3.83/4.09/3.96 analytic, 3.94/4.10/4.09 rendered; pill/box outlines 2.47-2.97:1 with labels 11.18:1 and ~14:1; git diff 4445d4e..f497f62 -- assets/banner.svg -> one hunk, one attribute
 - falsified by: a reader who cannot tell which seat hangs off which without the line colour - i.e. a label or ordering change that removes the connectors' role
 - consequences: Design.md records both sets of numbers and the one-attribute cost for anyone who disagrees
+
+## D-20261031-CEO-2 - Exempt the fabricated example path C:/Users/x.py instead of rewriting history
+
+- date: 2026-10-31
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0042
+- context: -
+- options considered: A: rebase/redact the unpublished local history (rejected: it re-cuts the four merge revisions the archive records - 321d0c4, bb7c34f, fb8eae0, 911c064 - which tests/unit/test_archive_merge_revisions.py exists to catch); B: quiet home-path on all continuation lines (rejected: stops reporting real paths pasted into evidence); C: this one literal plus the match-boundary fix (chosen)
+- decision: Add ONE anchored allowlist literal, ^C:/Users/x\.py$, and make the Windows home-path rule stop at a markdown backtick. The two Archive.md hits sit on continuation lines of a '- reviewer evidence:' field and quote a synthetic example ('C:/Users/x.py'); the third hit is a superseded reflog-only blob of Architecture.md section 13 whose merged text already reads 'C:/temp/x.py'. No real account is named: the 'user' segment is the file name x.py.
+- why: The scanner declares path-shape rules quiet inside a quotation; these values are quoted evidence that cannot be reworded after it is committed, which is exactly the allowlist's stated purpose. Exempting the one literal preserves detection - a real pasted home path, on any line, still reports - while quieting continuation lines generally would stop reporting real paths pasted into evidence.
+- evidence: scripts/privacy_scan.py --history --allow .github/privacy-allow.txt -> FAIL 3 finding(s) (blobs aa68329/e46a71f Archive.md:3390, 9274ff34 Architecture.md:1934); same scan in a fresh clone (file:// clone, no reflog) -> FAIL 2, so the 2 published-history hits are real and the third is local reflog only; temp allowlist probe: adding ^C:/Users/x\.py$ -> 3 -> 1 (the remaining one matched C:/Users/x.py plus a swallowed closing backtick); after excluding the backtick from the Windows user segment, re.finditer gives 'see `C:/Users/x.py` here' -> C:/Users/x.py and a real profile name is still reported
+- falsified by: If any account is actually named by C:/Users/x.py, or if a real home path on a quoted-evidence continuation line stops being reported after this change, this decision is wrong.
+- consequences: The pinned allowlist test grows from five entries to six; the allowlist's own prose counts four fabricated values; AC-5's green claim becomes true again in a fresh clone and in this checkout.
+
+## D-20261031-CEO-3 - Corrects D-20261031-CEO-2: the Windows home-path name charset, and two allowlist literals not one
+
+- date: 2026-10-31
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0042
+- context: -
+- options considered: -
+- decision: What shipped, replacing the two details D-20261031-CEO-2 got wrong: (1) _RE_HOME's Windows branch takes the SAME user-name charset as the POSIX branch, [A-Za-z0-9][A-Za-z0-9._-]*, instead of excluding only a backtick from a catch-all class - the name now ends where a name ends, so a closing backtick, comma or the dollar of an anchored line is never part of the value; (2) TWO anchored literals, ^C:/Users/x$ and ^C:/Users/x\.py$, because the rule reports the bare C:/Users/x wherever a backslash follows the name - including inside this allowlist's own entry line, which reported itself under one entry.
+- why: One entry was not expressible: the escaped dot in ^C:/Users/x\.py$ puts a backslash after the name, so the entry line's own value is the shorter C:/Users/x, which no single pattern could cover. Making the Windows charset symmetric with POSIX removes the punctuation-swallowing class entirely rather than special-casing one delimiter.
+- evidence: before: privacy_scan --tree --history -> FAIL 7 (3 history blobs + allowlist:59,68 + Decisions.md:1906,1908,1909 + test_privacy_scan.py:780); with the symmetric charset and both entries -> PASS 0 finding(s) in tree, history; pytest tests/unit/test_privacy_scan.py -> 86 passed; the new test asserts 'see `C:/Users/x.py` here' -> C:/Users/x.py, '^C:/Users/x$' -> C:/Users/x, 'C:/Users/x.py,' -> C:/Users/x.py, 'C:\\Users\\first.last\\x' -> C:\\Users\\first.last, and that a real name is still reported
+- falsified by: If a real home path on a quoted-evidence continuation line, or a Windows path with a dotted profile name, stops being reported by this charset change, this correction is wrong.
+- consequences: The pinned allowlist list is seven entries; the test_privacy_scan suite grew the boundary test; no rule was relaxed - the value got shorter, never exempt.
