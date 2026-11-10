@@ -20,7 +20,7 @@ are the pre-rewrite state kept as evidence of what was measured and why.
   --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s) in tree,
   history`, exit 0, at the head of `securityauditor/t-0001-security-and-privacy-posture-audit-tree` (2026-10-25). The red that section 0
   below was written against is history, kept as measured: the same command at
-  `7db810a` (main, 2026-10-25) -> `FAIL - 1 finding(s)`, a **commit message plus
+  `7db810a` (main, 2026-10-25) -> `FAIL - 2 finding(s)`, a **commit message plus
   one code comment on an unmerged branch** (**F-P1**), and the commit named there
   (`a4c726f`) has since been dropped and its reflog expired under
   `D-20261025-CEO`, so the disclosure is gone from every ref rather than
