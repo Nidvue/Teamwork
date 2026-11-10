@@ -670,13 +670,7 @@ def _load_knowledge(root: Path, limit: int | None = LOAD_KNOWLEDGE) -> tuple:
 
 
 def instance_always_on(repo: Path, root: Path, role: str) -> int:
-    """The startup read of one instance, in bytes: an estimate, not `load`'s output.
-
-    `load` prints only the memory lines - the short-term entries, the open
-    lessons and the ranked knowledge records. This row also charges the managed
-    `AGENTS.md` block, `SKILL.md` and the charter, which an instance reads before
-    any command runs and which no command prints, so the figure is larger than
-    what `load` writes and smaller than the whole memory store.
+    """What `teamwork load` prints on every run for one instance, in bytes.
 
     Long-term memory and the memory archive are deliberately absent: `load` never
     prints them (they are read with `recall`), so charging the cap for them made
