@@ -106,7 +106,6 @@ FLOOR = {
     "reviewer": 1,
     "securityauditor": 1,
     "technicalwriter": 1,
-    "teamleader": 1,
     "tester": 1,
 }
 
@@ -134,7 +133,6 @@ DISPLAY = {
     "reviewer": "reviewer",
     "securityauditor": "security-auditor",
     "technicalwriter": "technical-writer",
-    "teamleader": "team-leader",
     "tester": "tester",
 }
 
