@@ -156,9 +156,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 340 kB |
-| `standard` | 10 | 473 kB |
-| `full` | 17 | 774 kB |
+| `slim` (default) | 7 | 353 kB |
+| `standard` | 10 | 491 kB |
+| `full` | 17 | 805 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.3x what `slim` costs.
@@ -737,6 +737,27 @@ records file itself), and a duplicate id over every record - and a feature canno
 leave `proposed` without a frozen interface, refused by
 `feature set <F-nnnn> --state ready`. `preflight`, a review pass and the merge all
 run `feature check` at the tree they are about to accept.
+
+### 5j. The intern protocol
+
+Onboarding is a step, not a mood. The model is an intern: introduce the work,
+give it one job, prove the job, and remove every manual relay between it and the
+user. The full text is `references/Roles.md`; the audit is the `team-designer`
+team skill.
+
+| Rule | What it forbids |
+|---|---|
+| no human relay | the user copying a fact between agents or re-stating repository state; record the relay (`attention add`) and automate it |
+| teach once, encode it | a repeatable method living only in the conversation; `skill create`/`skill share` in the same task |
+| least privilege, one job, one proof | granting every connector "because you can"; every deliverable names its verifier and its proof |
+| onboard, then restate | planning before the agent has restated goal, acceptance and non-goals in its own words |
+| proactivity is a record | silent autonomy; an idle lane proposes one automation/risk via `attention add` or a task |
+| routine hygiene | a schedule with no trigger, budget and stop condition, or a heavy routine sharing the main lane's context |
+
+Do not give a bot its own email or external accounts: that is an external,
+irreversible action and a red line. The least-privilege correction from the
+guide's top comment is the adopted form: the smallest team that can reliably get
+the work done, with a proof per seat, not the largest.
 
 ### 6. Close
 
