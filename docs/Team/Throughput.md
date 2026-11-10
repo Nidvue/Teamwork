@@ -17,6 +17,11 @@ made for each, and the command that re-reads it.
 Non-goals: a new org layer, a hosted dashboard, a second store, deleting history,
 or a gate weakened to make a number look better.
 
+**State at this cut (2026-11-04):** AC-M18-1 and AC-M18-3 verified; AC-M18-2 is
+**open** - the roster cut lost 102 artifact paths (`L-0001`) and the M17 docs
+pushed Developer/Reviewer startup over the cap. The report is a baseline and a
+change list, not a completion claim; `loop` is CONTINUE.
+
 ## 2. Baseline (ledger n=1859, measured 2026-11-04)
 
 Snapshot, not a pinned census. The command column re-reads it.
@@ -42,7 +47,8 @@ Snapshot, not a pinned census. The command column re-reads it.
 
 1. **Review rework, not review capacity.** 41% of verdicts fail and 47.7% of
    targets need a second verdict; the p90 wait is 22.1 min with nine reviewer
-   lanes for two unclaimed items. The queue is not starved - the first pass is
+   lanes at intake (four now) for two unclaimed items. The queue is not starved -
+   the first pass is
    not review-ready. Of the 29 fails that carry the `review_mechanical` field,
    25 are `no` (a green preflight existed at that revision): the failures are
    substantive - a missing existing flag, an undefined second-call transition, a
