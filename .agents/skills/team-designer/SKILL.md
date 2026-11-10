@@ -112,3 +112,26 @@ Every run records command + revision + observed result, as the team requires.
   merge. It may not weaken or skip a test layer.
 - Changing this skill is normal work: branch, commit with the fixed message style,
   PR, review, merge. Never edit it on `main`.
+
+## Verdict on this skill
+
+verdict: no observed effect
+
+- **What was compared:** one team audit done ad hoc against the same audit run
+  through the eight steps above, on the live team during the 2026-11-02 project
+  review.
+- **On which task and revision:** T-0052 at `4c9410a`, the commit that adds this
+  section; the team state audited was `dffa325` plus that review's own queue
+  changes.
+- **What the run produced, with the command that shows it:** `harness budget`
+  exposed a measurement defect - the always-on sum counted `LongTermMemory.md`,
+  which `AGENTS.md` says is never loaded: 133160 bytes against a 122880 cap, and
+  113610 without it. A shared skill without a verdict row passed CI because the
+  EVIDENCE rule reads the gitignored registry. `skill candidates` listed seven
+  areas with at least three finished tasks. The review's findings became T-0005
+  to T-0007, T-0030 and T-0031.
+- **Why this label and not `helped`:** one audit cannot show a change in roster
+  size, first-pass review rate or routine cost, and that same review raised five
+  findings against the change that carried this skill. The falsifiers above are
+  measured over ten designs. `confounded` is not used: it is one run compared with
+  one ad hoc pass, with no separate review of the two.

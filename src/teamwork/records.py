@@ -759,6 +759,8 @@ def new_task(
         "reviewer": "",
         "review_claim": "",
         "review_claim_ts": "",
+        "review_claim_profile": "",
+        "review_claim_lease": "",
         "claimed_by": "",
         "branch": "",
         "base": "",
@@ -771,6 +773,10 @@ def new_task(
         "review_mechanical": "",
         # The last fail's --detects: the specific failure it would catch (HERO).
         "review_detects": "",
+        # Set only by a forced drop past a live claim (task set --status dropped).
+        "dropped_under_live": "",
+        # A gate override reason, when one was forced (see the audit).
+        "forced": "",
         "findings": "",
         "created": today_iso(),
         "updated": today_iso(),
