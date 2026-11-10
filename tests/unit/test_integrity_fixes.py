@@ -442,9 +442,9 @@ def test_repo_bootstrap_leaves_a_preset_identity_alone(tmp_path: Path) -> None:
     """
     project = tmp_path / "repo-bootstrap"
     project.mkdir()
+    before = engine.preset_identity(project)
     engine.ensure_repo(project, commit=False, quiet=True)
-    preset = engine.preset_identity(project)
-    if preset is None:
+    if before is None:
         assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
             "ceo@agents.nidvue.com"
         )

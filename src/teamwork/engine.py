@@ -156,6 +156,7 @@ from .config import (
     MEMORY_LEASE_MINUTES,
     MEMORY_STALL_MINUTES,
     MIN_USES,
+    OPERATOR_IDENTITY,
     PRIORITY_ORDER,
     PROMOTE_MIN_IMPORTANCE,
     REVIEW_FAIL_LIMIT,
@@ -487,6 +488,7 @@ __all__ = [
     "REVIEW_STATUSES",
     "PRIORITY_ORDER",
     "STATUSES",
+    "OPERATOR_IDENTITY",
     "ROLE_DISPLAY",
     "ACRONYMS",
     "ROLE_ALIASES",
@@ -5320,6 +5322,7 @@ def canonical_identities(project=None) -> dict:
     (`names.commit_identity`) rather than overriding the person with a role.
     """
     out = {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
+    out[OPERATOR_IDENTITY[1]] = OPERATOR_IDENTITY[0]
     preset = preset_identity(project) if project else preset_identity()
     if preset:
         out[preset[1]] = preset[0]
