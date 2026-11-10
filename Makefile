@@ -13,7 +13,7 @@ HERE   := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 .PHONY: help install dev lint format typecheck test test-unit test-integration \
         test-acceptance selftest build verify package sync-skill sync-check privacy \
         docs links identity clean release-consistency release-consistency-online \
-        release-check ci
+        release-check ci ci-fast python-floor
 
 help: ## Show this help.
 	@printf 'Teamwork - available targets:\n\n'
@@ -33,10 +33,11 @@ install: ## Install the package (runtime, zero dependencies).
 dev: ## Editable install with the dev extras (pytest, pytest-cov, ruff, mypy, build).
 	$(PIP) install -e ".[dev]"
 
-lint: ## Static checks: ruff check, ruff format --check and the no-comment rule.
+lint: ## Static checks: ruff check, ruff format --check, the no-comment rule and the role-mailbox audit.
 	$(PYTHON) -m ruff check .
 	$(PYTHON) -m ruff format --check .
 	$(PYTHON) $(HERE)scripts/check_comments.py
+	$(PYTHON) $(HERE)scripts/teamwork.py identity --audit
 
 format: ## Auto-format the tree and apply safe lint fixes.
 	$(PYTHON) -m ruff format .
@@ -90,7 +91,7 @@ release-consistency: ## Fail when a published fact disagrees with the tree (offl
 release-consistency-online: ## Same gate, plus the npm/GitHub/PyPI rules (needs network).
 	$(PYTHON) scripts/check_release_consistency.py --online
 
-docs: ## Build the documentation site in strict mode.
+docs: links ## Build the documentation site in strict mode (link health first, as CI does).
 	$(PYTHON) -m mkdocs build --strict
 
 clean: ## Remove build artefacts and local tool caches (keeps .venv).
@@ -103,6 +104,13 @@ clean: ## Remove build artefacts and local tool caches (keeps .venv).
 
 release-check: lint test selftest sync-check verify release-consistency privacy docs links identity ## Run every local gate CI runs, plus the offline selftest and skill-sync check.
 	@printf 'release-check: all gates passed\n'
+
+python-floor: ## Fail when $(PYTHON) is below the supported 3.11 floor.
+	@$(PYTHON) -c "import sys; got = '%d.%d' % sys.version_info[:2]; sys.exit('python-floor: ' + sys.executable + ' is Python ' + got + ', but this project requires 3.11 or newer (pyproject requires-python); pass PYTHON=<interpreter> or run make dev') if sys.version_info < (3, 11) else None"
+
+ci-fast: python-floor lint ## The single local gate: lint, link health and the docs contract, in one pass.
+	$(PYTHON) $(HERE)scripts/teamwork.py links
+	$(PYTHON) -m pytest -q tests/unit/test_docs_contracts.py
 
 ci: release-check ## Alias for the documented one-shot local pipeline.
 	@printf 'ci: all gates passed\n'
