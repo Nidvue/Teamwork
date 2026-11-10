@@ -88,25 +88,30 @@ under two roles is two tasks.
 | developer | T-0019 | - | done | P-0107 | 3404a42 |
 | developer | T-0020 | - | done | P-0106 | 3fad639 |
 | developer | T-0021 | - | done | P-0109 | 6962dfb |
+| developer | T-0022 | ci | review | P-0112 | - |
+| developer | T-0023 | ci | review | P-0113 | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | done | P-0093 | f6242c9 |
 | reviewer | T-0004 | - | done | P-0102 | 44259cb |
 | tester | T-0003 | - | done | P-0087 | a43e61e |
 | tester | T-0004 | - | done | P-0092 | c84932e |
 | tester | T-0005 | - | done | P-0103 | b91084d |
+| tester | T-0006 | - | todo | - | - |
 | product-manager | T-0001 | traceability | done | P-0037 | eeab44c |
 | project-manager | T-0001 | - | done | P-0034 | 69116cc |
 | project-manager | T-0002 | plan | done | P-0086 | 203b515 |
 | release-engineer | T-0001 | - | done | - | - |
 | release-engineer | T-0002 | release | done | P-0062 | d0c4c4a |
 | release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
-| release-engineer | T-0004 | - | blocked | - | - |
+| release-engineer | T-0004 | - | dropped | - | - |
 | release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
 | release-engineer | T-0006 | - | done | - | - |
 | release-engineer | T-0007 | release | done | P-0078 | 6fa8930 |
 | release-engineer | T-0008 | ci | done | - | - |
 | release-engineer | T-0009 | - | done | P-0090 | e3a2476 |
 | release-engineer | T-0010 | - | done | P-0104 | 3b0fbfa |
+| release-engineer | T-0011 | - | dropped | - | - |
+| release-engineer | T-0012 | - | todo | - | - |
 | security-auditor | T-0001 | core | dropped | P-0023 | - |
 | security-auditor | T-0002 | - | dropped | - | - |
 | security-auditor | T-0003 | security | done | P-0051 | 4e1e53f |
@@ -121,7 +126,10 @@ deliverable landed by commit without a PR record.
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| release-engineer | T-0004 · M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | blocked | - |
+| developer | T-0022 · M10-D1 the checkout is LF on every platform (ruff format --check + git archive digest must not depend on core.autocrlf) | P0 | review | - |
+| developer | T-0023 · M10-D2 the make-help target list must survive a Windows path | P0 | review | - |
+| tester | T-0006 · M10-T1 the CI scope-classifier suite must run under Git Bash, not WSL bash, on windows-latest | P0 | todo | - |
+| release-engineer | T-0012 · M10-R2 record the committer-guard decision and push the reviewed M10 revision, then certify CI on the pushed SHA | P0 | todo | - |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.

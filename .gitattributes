@@ -1,4 +1,16 @@
 
+# --- teamwork: text normalisation ---
+# Tools that read bytes must see the same bytes on Windows as on Linux: ruff
+# format --check, git archive and the bash gates all assume LF. Force LF in the
+# working tree everywhere. The LFS `-text` patterns further down still override
+# this for binaries, so keep this rule first.
+* text=auto eol=lf
+# cmd.exe cannot parse an LF-only batch file, so the one format that must keep
+# CRLF keeps it. No .bat/.cmd/.ps1 is tracked today; the rule is here so the
+# first one cannot break.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
 # --- teamwork: Git LFS tracked content ---
 *.png filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
