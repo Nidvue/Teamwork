@@ -75,14 +75,14 @@ under two roles is two tasks.
 | developer | T-0003 | test-portability | done | P-0004 | dfb4d64 |
 | developer | T-0004 | - | selfcheck | - | - |
 | developer | T-0005 | - | dropped | - | - |
-| developer | T-0006 | - | doing | - | - |
+| developer | T-0006 | plan | done | P-0017 | 15e5988 |
 | developer | T-0007 | engine | done | P-0010 | 0071014 |
 | developer | T-0008 | - | doing | - | - |
 | developer | T-0009 | - | doing | - | - |
 | developer | T-0010 | - | doing | - | - |
 | developer | T-0011 | - | doing | - | - |
 | developer | T-0012 | plan | done | P-0015 | 17927a5 |
-| product-manager | T-0001 | traceability | doing | P-0009 | - |
+| product-manager | T-0001 | traceability | done | P-0009 | 96160cf |
 | project-manager | T-0001 | plan | done | P-0005 | 1bf629a |
 | project-manager | T-0002 | - | doing | - | - |
 | project-manager | T-0003 | plan | doing | P-0016 | - |
@@ -96,7 +96,7 @@ under two roles is two tasks.
 | reviewer | T-0001 | - | todo | - | - |
 | reviewer | T-0002 | - | todo | - | - |
 | reviewer | T-0003 | - | todo | - | - |
-| security-auditor | T-0001 | - | review | P-0007 | - |
+| security-auditor | T-0001 | - | done | P-0007 | f31b26e |
 | security-auditor | T-0002 | - | review | - | - |
 | technical-writer | T-0001 | docs-truth | done | P-0006 | 641e610 |
 | technical-writer | T-0002 | - | review | - | - |
@@ -120,12 +120,10 @@ landed by commit without a PR record.
 | ceo | T-0008 · Remove the two stale tier-init instance dirs .pi/Teamwork/Teams/Teamwork/Agents/Developer and Agents/Tester | P2 | todo | - |
 | ceo | T-0009 · Project.md AC-5 row says green while the shipped privacy gate is FAIL at 7db810a | P1 | todo | - |
 | developer | T-0004 · Remove the personal absolute path from commit a4c726f (message + resources.py docstrings) before it can merge | P0 | selfcheck | - |
-| developer | T-0006 · Re-point the board gate at the live milestone: tests/unit/test_board_matches_tool.py cannot see the M11 queues | P1 | doing | - |
 | developer | T-0008 · harness.py:248 duplicates hooks_dir from hooks.py:76 with a divergent contract: None vs die, and unresolved repo/located vs .resolve | P1 | doing | - |
 | developer | T-0009 · portable.py:53 stale type-ignore makes mypy red: 1 error on the tree | P2 | doing | - |
 | developer | T-0010 · gitutil.py:132 ensure_lfs records a failed git lfs install silently, while the probe failure at 120-127 warns | P2 | doing | - |
 | developer | T-0011 · identity --audit --range resolves against the primary checkout, so a worktree lane cannot audit its own branch | P0 | doing | - |
-| product-manager | T-0001 · Rebuild the traceability matrix for AC-19..AC-21 and re-key the machine criteria store (gap G-1) | P1 | doing | - |
 | project-manager | T-0002 · Reconcile the two M11 sections in Plan.md after the intake merges (one section, tool-derived state, no duplicated milestone) | P0 | doing | - |
 | project-manager | T-0003 · Regenerate docs/Team/Board.md from the live queues (the board gate is 2 of the 3 remaining red tests) | P0 | doing | - |
 | release-engineer | T-0002 · Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | doing | - |
@@ -136,7 +134,6 @@ landed by commit without a PR record.
 | reviewer | T-0001 · Serve the review queue and own the acceptance layer for the M11 deliverables | P0 | todo | - |
 | reviewer | T-0002 · Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | todo | - |
 | reviewer | T-0003 · Resolve the contradiction between AGENTS.md (commit as the acting role mailbox) and the Tester/Reviewer charter clause (use the locally configured identity) | P1 | todo | - |
-| security-auditor | T-0001 · Security and privacy posture audit: tree, history, workflows, hooks, scanning alerts | P0 | review | - |
 | security-auditor | T-0002 · Re-commit P-0007 under the Security Auditor role identity and refresh the gate line now that the leak is fixed | P0 | review | - |
 | technical-writer | T-0002 · Remove the consumer email illustration and the matching commit-message line from P-0006 (privacy gate red) | P0 | review | - |
 
