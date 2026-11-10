@@ -679,6 +679,12 @@ committed: `Roles/<Role>/Lessons.md` is shared by the role's instances, and
 through the commands - a hand edit is a defect, not a shortcut - and **a lesson
 or a skill never replaces a gate and never weakens one**.
 
+Classify a finding before recording it - tool defect, process, doc drift,
+governance or knowledge - and run the `tw-self-evolve` skill at every milestone
+close. A tool defect takes a code task with a failing reproduction, never a
+lesson: the project's `docs/Team/Evolution.md` holds the four books, the five
+classes and the promotion rules.
+
 ```sh
 python3 "$SKILL/scripts/teamwork.py" lesson add --by <you> \
     --mistake '<observable failure>' --cause '<why it happened>' \
