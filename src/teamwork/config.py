@@ -418,7 +418,6 @@ SETTINGS_NON_PROVIDER = (
     "Criteria",
     "AlwaysOnBudgetKb",
     "ReviewLeaseMinutes",
-    "ReviewLeaseMaxMinutes",
     "MemoryLeaseMinutes",
 )
 
