@@ -39,6 +39,34 @@ Claim discipline, per message and per artifact:
    before merge, and the CEO only closes an acceptance criterion with evidence
    produced or reproduced by a role other than the author.
 
+### The evidence packet
+
+A one-line claim is a pointer, not proof. Stronger evidence has five parts, and
+`tests run` / `selfcheck` / `review` record them as fields (artifacts are hashed
+into `Ledger.jsonl`, so editing the file after the fact breaks the match):
+
+| Part | Question it answers | Flag |
+|---|---|---|
+| baseline | what state did the run start from? | `--baseline '<empty cache>'` |
+| action | what exactly was executed? | `--evidence '<cmd> @<rev> -> <result>'` |
+| result | what did the real artifact return? | same line |
+| artifact | where is the proof a later agent can re-open? | `--artifact <path>` (repeatable) |
+| replay | how does another agent reproduce it? | `--replay '<cmd or path>'` |
+
+A **defect fix adds a sixth**: the failing run must precede the passing one.
+`task add ... --bug` marks the task, and its self-check is refused until a test
+record carries the transition:
+
+```sh
+teamwork.py tests repro TS-0002 --by developer-1 \
+    --pre-rev aaa111 --pre-evidence "pytest tests/unit/test_x.py @aaa111 -> 3 failed" \
+    --post-rev bbb222 --post-evidence "pytest tests/unit/test_x.py @bbb222 -> 12 passed"
+```
+
+`tests repro` refuses a single revision, a pre-run that does not read as failing,
+and (in a git workspace) a pre-revision that is not an ancestor of the
+post-revision. `audit` reports a `--bug` task that closed with no repro record.
+
 Mechanical enforcement: a task cannot reach `done` without evidence, a recorded
 self-check, a PR and a passing review. Every gate override needs a reason:
 
