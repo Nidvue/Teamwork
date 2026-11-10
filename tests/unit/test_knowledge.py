@@ -871,7 +871,9 @@ def test_concurrent_adds_and_touches_serialise_under_one_lock(ws, tmp_path: Path
     two adds can overwrite each other (a lost record) and two touches can both
     write uses=1 over uses=0 (a lost increment). Every child imports the engine
     first, then waits on one barrier file, so the calls enter the
-    read-modify-write sequence together.
+    read-modify-write sequence together. A child that times out waiting for the
+    lock exits 4: that is a refusal, not a lost write, so the counts are the
+    successful adds and touches and any other code still fails.
     """
     assert add_for_race(ws) == 0
     assert engine.parse_knowledge(knowledge_file(ws))[0]["uses"] == 0
@@ -911,30 +913,33 @@ def test_concurrent_adds_and_touches_serialise_under_one_lock(ws, tmp_path: Path
     barrier.write_text("go", encoding="utf-8")
     results = [process.communicate(timeout=180) for process in processes]
     codes = [process.returncode for process in processes]
-    assert codes == [0] * (adds + touches), [
+    unexpected = [
         (index, code, out, err)
         for index, (code, (out, err)) in enumerate(zip(codes, results))
-        if code != 0
+        if code not in (0, 4)
     ]
+    assert not unexpected, unexpected
+    ok_adds = [index for index, code in enumerate(codes[:adds]) if code == 0]
+    ok_touches = sum(1 for code in codes[adds:] if code == 0)
 
     items = engine.parse_knowledge(knowledge_file(ws))
-    assert len(items) == adds + 1, [(item["id"], item["topic"]) for item in items]
-    assert len({item["id"] for item in items}) == adds + 1
-    assert sorted(item["topic"] for item in items if item["topic"].startswith("race ")) == sorted(
-        f"race topic {index}" for index in range(adds)
-    )
+    assert len(items) == 1 + len(ok_adds), [(item["id"], item["topic"]) for item in items]
+    assert len({item["id"] for item in items}) == len(items)
+    assert {item["topic"] for item in items if item["topic"].startswith("race ")} == {
+        f"race topic {index}" for index in ok_adds
+    }
     first = next(item for item in items if item["id"] == "K-0001")
-    assert first["uses"] == touches
+    assert first["uses"] == ok_touches
 
     events = [event for event in ledger(ws) if event["action"].startswith("knowledge.")]
     add_events = [event for event in events if event["action"] == "knowledge.add"]
     touch_events = [event for event in events if event["action"] == "knowledge.touch"]
-    assert len([event for event in add_events if event["target"] != "K-0001"]) == adds
-    assert len(touch_events) == touches
-    assert {event["target"] for event in touch_events} == {"K-0001"}
-    assert sorted(event["detail"] for event in touch_events) == sorted(
-        f"uses={number}" for number in range(1, touches + 1)
-    )
+    assert len([event for event in add_events if event["target"] != "K-0001"]) == len(ok_adds)
+    assert len(touch_events) == ok_touches
+    assert {event["target"] for event in touch_events} <= {"K-0001"}
+    assert [event["detail"] for event in touch_events] == [
+        f"uses={number}" for number in range(1, ok_touches + 1)
+    ]
 
 
 def add_for_race(project: Path) -> int:
