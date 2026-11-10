@@ -232,7 +232,8 @@ A team that runs one lane at a time is a slow single agent with extra records. F
 | A dependency can release early | `deps: role:T-id@review` or `@started` | the downstream lane needs a frozen interface, not a merge |
 | Reviews are the exception | one claim per Reviewer lane; run several lanes | a deep review is not divisible |
 
-Capacity is bounded by the provider caps in `Settings.json`, never by the lane count: `pulse` defers assignments beyond the free-slot count and prints the shortfall. Detail and the measured anti-patterns: `references/Concurrency.md`.
+Capacity is bounded by the provider caps in `Settings.json`, never by the lane count: Ollama Cloud 64, DeepSeek 2500, OpenAI 64, Anthropic 64 and 32 default concurrent lanes. `pulse` defers assignments beyond the free-slot count and prints the shortfall. Detail and the measured anti-patterns: `references/Concurrency.md`.
+
 ### 5b. Keep the lanes full: the CEO pulse
 
 After dispatching, the CEO **re-wakes on an interval**, finds idle lanes, and hands them runnable work. Arm a recurring wake-up once and act on every wake:
