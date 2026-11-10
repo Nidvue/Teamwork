@@ -103,9 +103,9 @@ under two roles is two tasks.
 | developer | T-0012 | ci | done | P-0013 | 51102b0 |
 | developer | T-0013 | docs | done | P-0016 | 3c74890 |
 | developer | T-0014 | acceptance | done | P-0012 | a191167 |
-| developer | T-0015 | hierarchy | review | P-0015 | - |
+| developer | T-0015 | hierarchy | done | P-0015 | 9fd990f |
 | developer | T-0016 | always-on | done | P-0017 | dc60760 |
-| developer | T-0017 | tests | review | P-0022 | - |
+| developer | T-0017 | tests | doing | P-0022 | - |
 | developer | T-0018 | makefile-lint | done | P-0019 | 8947ae2 |
 | developer | T-0019 | always-on | done | P-0021 | 9854301 |
 | developer | T-0020 | record-identity | doing | - | - |
@@ -129,8 +129,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0015 · Make the feature-team hierarchy visible and practical: CTO -> leaders -> squad | P1 | review | - |
-| developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | review | - |
+| developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | doing | - |
 | developer | T-0020 · Records/merge commits must carry the Acting role trailer (prevent A-0010) | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's

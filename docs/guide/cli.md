@@ -162,8 +162,11 @@ teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
 - `--under TEAM_LEADER` attaches a squad specialist (`developer`, `tester`,
   `designer`, `data-engineer`, `technical-writer`) to the team leader it works
   for. The attachment is **one private file**, `Agents/<Instance>/Team.md`: it is
-  a fact about that instance, not a reporting line, so `map` and `ROLE_PARENT` do
-  not change and a specialist has exactly one manager at a time. It is refused
+  a fact about that instance and never a reporting line, so `ROLE_PARENT` does not
+  change and a specialist has exactly one manager at a time. What it does change
+  is the team a leader visibly leads: `map` prints the leader's `F-nnnn` and the
+  instances under it, and a squad member escalates to that leader, who escalates
+  to the CTO. It is refused
   (`2`) for a target that is not a team-leader instance, for a team-leader (a
   leader's only manager is the CTO - more teams is `instance add team-leader`
   with no `--under`), for the shared services and the independent lanes
@@ -173,7 +176,8 @@ teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
   exists - moving a specialist is `instance retire` then `instance add --under`,
   so no command can write a second `under:` line.
 - `list` prints role, instances, task count and the current memory writer, with
-  `(under=<TeamLeader>)` beside every attached instance.
+  each instance's manager: `(under:<TeamLeader>)` when it is attached to a team,
+  `(reports:<CTO|CEO|User>)` on the line `ROLE_PARENT` gives its role.
 - `retire` **moves** an idle instance's private directory to
   `Runtime/Retired/<Instance>/` and always keeps the role's memory and queue. Its
   `Artifacts/`, `Reports/` and `WorkLog.md` are evidence and are never deleted; a
