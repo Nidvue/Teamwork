@@ -510,16 +510,7 @@ __all__ = [
     "cmd_imaging",
 ]
 
-# --------------------------------------------------------------------------- #
-# Paths and tunables
-#
-# The bundled skill (SKILL.md, roles/, references/, templates/) is located by
-# `resources`, so the same engine works from a git checkout, from an installed
-# wheel (`teamwork/data/`) and from an explicit $TEAMWORK_SKILL_DIR override.
-# --------------------------------------------------------------------------- #
 
-
-# --------------------------------------------------------------------------- #
 # Layout: the team's own tree is hidden and independent of project output.
 #
 #   <project>/.pi/Teamwork/Teams/<Team>/
@@ -532,15 +523,12 @@ __all__ = [
 #
 # Project output (code, tests, docs/Team/*.md) lives in the repository and is
 # never mixed with this tree. Team-created names are PascalCase.
-# --------------------------------------------------------------------------- #
 
 
-# --------------------------------------------------------------------------- #
 # Git identity, commit style and Git LFS
 #
 # Team commits are authored by the ROLE, never by an instance: the mailbox is
 # "Developer <developer@agents.nidvue.com>", never "Developer-1 <developer-1@...>".
-# --------------------------------------------------------------------------- #
 
 
 COMMIT_TYPES = (
@@ -558,15 +546,11 @@ COMMIT_TYPES = (
     "revert",
 )
 
-# Paths tracked with Git LFS: binaries, media, models, datasets, archives.
 
-
-# --------------------------------------------------------------------------- #
 # Branch -> PR -> Reviewer merge
 #
 # main only ever receives merges performed by the Reviewer. Every instance works
 # on its own branch and hands a PR to the Reviewer.
-# --------------------------------------------------------------------------- #
 
 
 def require_reason(force: str, what: str) -> str:
@@ -1421,9 +1405,7 @@ def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str)
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Acceptance criteria as records: `loop` cannot report STOP without them
-# --------------------------------------------------------------------------- #
 
 
 def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
@@ -1636,20 +1618,6 @@ def cmd_criteria(args) -> int:
             print(f"    {c['evidence']}")
     return 0 if done == len(items) else 1
 
-
-# --------------------------------------------------------------------------- #
-# Layered tests: each layer is designed, developed and run by its owning role
-#
-#   unit        -> Developer      (its own unit tests)
-#   integration -> Tester         (its own integration/system/E2E suites)
-#   system      -> Architect      (architecture-conformance tests: boundaries, deps, contracts)
-#   ui          -> Designer       (UI use-case / flow / a11y tests)
-#   acceptance  -> Reviewer       (acceptance tests over every role's output)
-#   security    -> Security Auditor
-#
-# Layers are independent and run in parallel. A (layer, area) pair is unique, so
-# the same thing is never tested twice by accident.
-# --------------------------------------------------------------------------- #
 
 F_TESTS = "Tests.md"
 F_TESTPLAN = "TestPlan.md"
@@ -2102,7 +2070,6 @@ def _tests_list(args, root: Path, records: list) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Audit trail: append-only hash-chained ledger + provenance + external export
 #
 # Every mutation writes one JSON line to Ledger.jsonl:
@@ -2110,7 +2077,6 @@ def _tests_list(args, root: Path, records: list) -> int:
 # hash = sha256(prev_hash + canonical_json(record)) so the chain is tamper-evident.
 # A third party can verify the chain, the record digests and the git revision
 # without trusting the team: `teamwork.py ledger export`, then re-run the checks.
-# --------------------------------------------------------------------------- #
 
 # The generated manifest is AuditManifest.md; AuditReport.md belongs to the
 # Security Auditor's findings report and must never be overwritten.
@@ -3040,7 +3006,6 @@ def ledger_export(root: Path, args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Team skills: agents extract repeated, consistency-critical flows into a skill
 # inside the project and share it with the peers of the same role.
 #
@@ -3048,7 +3013,6 @@ def ledger_export(root: Path, args) -> int:
 #   - committed project output, so every instance (and every worktree) sees it
 #   - Pi discovers project .agents/skills/ from the working directory upward
 # Registry: <team>/Skills.md (who owns it, who was told, current state)
-# --------------------------------------------------------------------------- #
 
 
 def skill_body(name: str, owner_role: str, description: str, body: str, by: str) -> str:
@@ -3798,43 +3762,6 @@ def cmd_commit(args) -> int:
     return 0
 
 
-# Shared project documents: single owner, single canonical path, no duplicates.
-# code first, tests second, docs third - see PRIORITY in the skill.
-
-# Files/dirs the team must never commit: local working state, caches, secrets.
-
-# Only these are removed by `clean`; everything else is left alone.
-
-# --------------------------------------------------------------------------- #
-# Disputes: independent decisions, rebuttal, 3-round cap, CEO+CTO+CFO tribunal
-# --------------------------------------------------------------------------- #
-
-
-# Cross-links every generated markdown file carries, relative to its own dir.
-# Depth: .pi/Teamwork/Teams/<Team>/Roles/<Role>/ = 5 below the project root;
-#        .pi/Teamwork/Teams/<Team>/Agents/<Instance>/ = 6.
-
-
-# --------------------------------------------------------------------------- #
-# Small helpers
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# Workspace
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# Entry parsing / serialising
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# Commands
-# --------------------------------------------------------------------------- #
-
-
 def expand_roster(tier: str) -> dict:
     """Instances, roles and the gates a tier leaves uncovered.
 
@@ -4197,7 +4124,7 @@ def cmd_init(args) -> int:
         )
         ledger_append(root, "ledger.export", "system", "init", "ledger seeded at bootstrap")
 
-    # --- shared project documents (one owner, one canonical path) --------- #
+    # Shared project documents: one owner, one canonical path.
     # Committed project output, under <project>/docs/Team/.
     public = docs_dir(root)
     public.mkdir(parents=True, exist_ok=True)
@@ -4600,9 +4527,8 @@ def _memory_path(root: Path, agent: str, layer: str) -> tuple:
     return d / filename, filename
 
 
-# --------------------------------------------------------------------------- #
 # Role memory: ONE revising instance at a time
-# --------------------------------------------------------------------------- #
+#
 # `Runtime/Locks/role-<Role>.lock` makes a single write atomic, and that is all it
 # does. Two instances of one role can still interleave their edits: A adds entry
 # 1, B consolidates and evicts it, A adds entry 2 against a file it never saw - and
@@ -5637,11 +5563,6 @@ def cmd_agents(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
-# Git repository bootstrap + cleanup
-# --------------------------------------------------------------------------- #
-
-
 def ensure_gitignore(project: Path) -> list:
     """Add the teamwork entries that are missing. Never removes lines.
 
@@ -6010,11 +5931,6 @@ def cmd_clean(args) -> int:
     if not args.all:
         print("teamwork: only temp patterns were removed; pass --all to empty scratch/ entirely.")
     return 0
-
-
-# --------------------------------------------------------------------------- #
-# Tasks
-# --------------------------------------------------------------------------- #
 
 
 def require_runnable_task_graph(root: Path, role: str, tasks: list) -> None:
@@ -6402,11 +6318,6 @@ def cmd_task_rm(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
-# Concurrency: provider limits and a file-based slot semaphore
-# --------------------------------------------------------------------------- #
-
-
 def providers_path(root: Path) -> Path:
     return root / F_SETTINGS
 
@@ -6597,7 +6508,6 @@ def cmd_slot(args) -> int:
                 args.force = require_reason(args.force, "releasing another lane's lease")
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"slots-{provider}.lock"):
             return _slot_release(args, root, provider, cap)
-    # (removed: unreachable release0 branch)
 
     if args.slot_cmd == "renew":
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"slots-{provider}.lock"):
@@ -6647,11 +6557,6 @@ def cmd_slot(args) -> int:
                 3,
             )
         time.sleep(1.0)
-
-
-# --------------------------------------------------------------------------- #
-# CEO pulse: periodic wake-up, idle lanes, immediate dispatch
-# --------------------------------------------------------------------------- #
 
 
 def claim_stamp() -> str:
@@ -6780,7 +6685,7 @@ def review_gate_hint(profile: str) -> str:
     return "the full test suite, lint and type-check; a green CI run on the branch SHA may be cited"
 
 
-# --- review economy: verify once, credit the rest -------------------------
+# Review economy: verify once, credit the rest.
 #
 # A review that re-runs a suite another role already ran at the same revision
 # is not independent, it is duplicated: independence is about the AUTHOR. A
@@ -7655,7 +7560,6 @@ def cmd_parallel(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Coordination health
 #
 # Source: Anthropic, "Measuring multiagent systems" (accessed 2026-10-27),
@@ -7664,7 +7568,6 @@ def cmd_parallel(args) -> int:
 # lanes that share a model, a context and a queue fail together, and a review
 # lane with no cross-check turns one blind spot into a systemic one. So this is
 # instrumentation, not advice: every check reads records the team already writes.
-# --------------------------------------------------------------------------- #
 
 COORD_OPEN = ("todo", "doing", "selfcheck", "blocked", "review")
 # PR record states that no longer expect anybody to touch the forge. `merged`
@@ -7940,7 +7843,7 @@ def coordination_report(root: Path) -> dict:
     open_tasks = [(role, t) for role, t in tasks if t.get("status") in COORD_OPEN]
     findings: list = []
 
-    # --- diversity: the same branch, the same work, the same blind spot -------
+    # Diversity: the same branch, the same work, the same blind spot.
     branches: dict = {}
     shared_refs: dict = {}
     for role, task in open_tasks:
@@ -8014,7 +7917,7 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # --- trust: echo, monoculture, no-finding-ever ---------------------------
+    # Trust: echo, monoculture, no-finding-ever.
     for role, task in tasks:
         if task.get("review_status") != "passed":
             continue
@@ -8067,7 +7970,7 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # --- turf: reclaims are the visible edge of a lane war --------------------
+    # Turf: reclaims are the visible edge of a lane war.
     reclaims = _recent_reclaims(root)
     if reclaims:
         who = ", ".join(
@@ -8086,7 +7989,7 @@ def coordination_report(root: Path) -> dict:
             )
         )
 
-    # --- merge health: the article's measured collapse ------------------------
+    # Merge health: the article's measured collapse.
     prs = parse_reviews(reviews_path(root))
     live_states = ("open", "approved", "changes-requested")
     total_prs = sum(1 for pr in prs if pr.get("status") in live_states + ("merged",))
@@ -8128,7 +8031,7 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # --- capacity: starved lanes race, over-subscribed lanes fail -------------
+    # Capacity: starved lanes race, over-subscribed lanes fail.
     limits = load_providers(root)
     reap_slots(root)
     over, free = [], 0
@@ -8205,7 +8108,7 @@ def coordination_report(root: Path) -> dict:
             )
         )
 
-    # --- review economy: is the reviewer re-running a lane's recorded result? --
+    # Review economy: is the reviewer re-running a lane's recorded result?
     economy = review_economy(root, tasks)
     if economy["duplicated"]:
         rows = economy["duplicated"][:3]
@@ -8541,13 +8444,11 @@ def cmd_links(args) -> int:
     return 1 if issues else 0
 
 
-# --------------------------------------------------------------------------- #
 # The completion gates, in one place.
 #
 # `loop` (may the team stop?) and `audit` (is the team healthy?) both read this
 # single report, so the documented stop condition and the enforced one can never
 # drift apart again.
-# --------------------------------------------------------------------------- #
 
 
 def iter_tasks(root: Path, statuses=None):
@@ -8844,7 +8745,7 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["lines"].append("none")
     sections.append(s)
 
-    # 8b - roster gaps (a missing instance silently removes a layer) ----------
+    # 8b - roster gaps (a missing instance silently removes a layer)
     s = _section("roster", "roster gaps")
     for role in names:
         if not instances_of(root, role):
@@ -8932,10 +8833,6 @@ def cmd_loop(args) -> int:
         print(f"  ! {b}")
     return 1 if blockers else 0
 
-
-# --------------------------------------------------------------------------- #
-# Archive: the accepted-results ledger (committed project output)
-# --------------------------------------------------------------------------- #
 
 ARCHIVE_HEADER = (
     "# ARCHIVE - accepted results\n\n"
@@ -9926,7 +9823,6 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
 # Preflight: the author's mechanical gate, run before the self-check
 #
 # Measured from the ledger (43 `review.fail` records classified by their finding
@@ -9937,7 +9833,6 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
 # minutes) and serialises the author. So one command answers the questions a
 # Reviewer answers first, prints the exact fix for each miss, and `selfcheck`
 # refuses while it is red: the Reviewer's lease is then spent on judgement.
-# --------------------------------------------------------------------------- #
 
 #: Settings.json key naming the project's OWN gate (`make check`, `npm test`, ...).
 #: The skill ships no toolchain, so an unset key is reported as UNVERIFIED rather
@@ -12115,10 +12010,6 @@ def cmd_map(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
-# AGENTS.md
-# --------------------------------------------------------------------------- #
-
 BEGIN = "<!-- BEGIN teamwork -->"
 END = "<!-- END teamwork -->"
 
@@ -12459,14 +12350,12 @@ def cmd_selftest(args) -> int:
     return 1 if failed else 0
 
 
-# --------------------------------------------------------------------------- #
 # Imaging: is a text-to-image / image-to-image model available, and which one?
 #
 # Policy: the Designer's charter (roles/designer.md), Visual assets section.
 # The probe is deliberately OFFLINE: it reads environment variables and PATH
 # only, never the network, so it cannot leak a prompt, cannot hang, and cannot
 # claim a model that is not there.
-# --------------------------------------------------------------------------- #
 
 # Ranked best-first per provider (quality over speed and cost). "Best quality"
 # means the first generally available model listed. Checked 2026-10-17; add a new
@@ -12477,14 +12366,12 @@ def cmd_selftest(args) -> int:
 # ranked image model, so holding an OpenAI key does not pretend to be a model.
 
 
-# --------------------------------------------------------------------------- #
 # Per-agent model configuration
 #
 # The team is a skill, not an application: every agent runs through its own LLM
 # API, and the model is a property of the AGENT, not of the project. A role may
 # have a default and an instance may override it, so a cheap model can drive the
 # mechanical lanes while a strong one drives the Reviewer.
-# --------------------------------------------------------------------------- #
 
 
 def load_model_config(root: Path) -> dict:
@@ -12538,7 +12425,6 @@ def resolved_model(root: Path, agent: str) -> dict:
     return {"provider": "", "model": "", "source": "unset"}
 
 
-# --------------------------------------------------------------------------- #
 # Automatic model routing: best quality per lane at the lowest cost
 #
 # The skill ships no model ids. It reads the runtime environment - which agent
@@ -12546,7 +12432,6 @@ def resolved_model(root: Path, agent: str) -> dict:
 # STRONG model to the lanes where a mistake is expensive and the ECONOMY model to
 # the mechanical lanes. Nothing is invented: a lane with no available model is
 # reported as `unset` with the exact variable to set.
-# --------------------------------------------------------------------------- #
 
 AGENT_HOSTS = {
     "pi": ("PI_SESSION_ID", "PI_PROVIDER", "PI_MODEL"),
@@ -12761,11 +12646,6 @@ def cmd_model(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
-# CLI
-# --------------------------------------------------------------------------- #
-
-
 def build_parser() -> argparse.ArgumentParser:
     # `--project` is accepted both before and after the subcommand.
     common = argparse.ArgumentParser(add_help=False)
@@ -12873,7 +12753,6 @@ def _parsers_workspace(sub, common) -> None:
     p.add_argument("--force", action="store_true", help="retire even while it holds work")
     p.set_defaults(func=cmd_instance)
 
-    # --- tasks ----------------------------------------------------------- #
     st = sub.add_parser("task", parents=[common], help="manage an agent's priority task list")
     tsub = st.add_subparsers(dest="task_cmd", required=True)
 
@@ -13010,7 +12889,6 @@ def _parsers_workspace(sub, common) -> None:
     s = sub.add_parser("map", parents=[common], help="print the workspace map and repo layout")
     s.set_defaults(func=cmd_map)
 
-    # --- disputes -------------------------------------------------------- #
     sd = sub.add_parser(
         "dispute", parents=[common], help="challenge a design/decision with counter-evidence"
     )
