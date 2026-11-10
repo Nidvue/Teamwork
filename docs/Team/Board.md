@@ -60,32 +60,48 @@ under two roles is two tasks.
 
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
+| architect | T-0001 | code-review | done | P-0008 | e47f5d5 |
 | ceo | T-0001 | intake | doing | - | - |
-| ceo | T-0007 | - | review | P-0002 | - |
-| ceo | T-0002 | - | todo | - | - |
+| ceo | T-0002 | - | doing | - | - |
 | ceo | T-0003 | - | todo | - | - |
 | ceo | T-0004 | - | todo | - | - |
 | ceo | T-0005 | - | todo | - | - |
 | ceo | T-0006 | - | todo | - | - |
+| ceo | T-0007 | - | done | P-0002 | 991dff1 |
 | ceo | T-0008 | - | todo | - | - |
-| architect | T-0001 | - | doing | - | - |
-| developer | T-0001 | - | review | P-0001 | - |
-| developer | T-0002 | - | doing | - | - |
-| developer | T-0003 | test-portability | review | P-0004 | - |
-| developer | T-0004 | - | todo | - | - |
-| developer | T-0005 | - | todo | - | - |
-| developer | T-0006 | - | todo | - | - |
-| tester | T-0001 | - | doing | - | - |
-| reviewer | T-0001 | - | todo | - | - |
-| reviewer | T-0002 | - | todo | - | - |
-| product-manager | T-0001 | - | doing | - | - |
-| project-manager | T-0001 | plan | review | - | - |
-| release-engineer | T-0001 | ci | review | P-0003 | - |
-| release-engineer | T-0002 | - | todo | - | - |
+| ceo | T-0009 | - | todo | - | - |
+| developer | T-0001 | - | done | P-0001 | fdd95a6 |
+| developer | T-0002 | - | done | P-0011 | 5648f4c |
+| developer | T-0003 | test-portability | done | P-0004 | dfb4d64 |
+| developer | T-0004 | - | selfcheck | - | - |
+| developer | T-0005 | - | dropped | - | - |
+| developer | T-0006 | - | doing | - | - |
+| developer | T-0007 | engine | done | P-0010 | 0071014 |
+| developer | T-0008 | - | doing | - | - |
+| developer | T-0009 | - | doing | - | - |
+| developer | T-0010 | - | doing | - | - |
+| developer | T-0011 | - | doing | - | - |
+| developer | T-0012 | plan | done | P-0015 | 17927a5 |
+| product-manager | T-0001 | traceability | doing | P-0009 | - |
+| project-manager | T-0001 | plan | done | P-0005 | 1bf629a |
+| project-manager | T-0002 | - | doing | - | - |
+| project-manager | T-0003 | plan | doing | P-0016 | - |
+| release-engineer | T-0001 | ci | done | P-0003 | c781596 |
+| release-engineer | T-0002 | - | doing | - | - |
 | release-engineer | T-0003 | - | todo | - | - |
 | release-engineer | T-0004 | - | todo | - | - |
-| security-auditor | T-0001 | - | doing | - | - |
-| technical-writer | T-0001 | - | doing | - | - |
+| release-engineer | T-0005 | - | doing | - | - |
+| release-engineer | T-0006 | - | todo | - | - |
+| release-engineer | T-0007 | ci | done | P-0013 | 183cf0d |
+| reviewer | T-0001 | - | todo | - | - |
+| reviewer | T-0002 | - | todo | - | - |
+| reviewer | T-0003 | - | todo | - | - |
+| security-auditor | T-0001 | - | review | P-0007 | - |
+| security-auditor | T-0002 | - | review | - | - |
+| technical-writer | T-0001 | docs-truth | done | P-0006 | 641e610 |
+| technical-writer | T-0002 | - | review | - | - |
+| technical-writer | T-0003 | docs-truth | done | P-0014 | 8b9fac8 |
+| tester | T-0001 | ci-release | done | P-0012 | aabff63 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -96,31 +112,33 @@ landed by commit without a PR record.
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0001 · Own M11: intake, criteria, goal-layer tests, arbitration, close-out (manifest + final report) | P0 | doing | - |
-| ceo | T-0007 · Record the M11 solid-review engagement intake (objective, criteria, milestone, decision) | P0 | review | P-0002 |
-| ceo | T-0002 · Register the two include: matrix lanes as required checks (py3.10, py3.12 run but do not block) | P1 | todo | - |
+| ceo | T-0002 · Register the two include: matrix lanes as required checks (py3.10, py3.12 run but do not block) | P1 | doing | - |
 | ceo | T-0003 · Protect the v* tag pattern (no ruleset, no tag protection rule today) | P1 | todo | - |
 | ceo | T-0004 · Clear the R8 drift at docs/Team/Decisions.md:1284 - it blocks the online release gate, so no tag can be released | P1 | todo | - |
 | ceo | T-0005 · Decide required_linear_history on main (off; policy says no merge commits on the default branch) | P2 | todo | - |
 | ceo | T-0006 · Make CodeQL a merge gate, and either enforce SHA pinning on actions or record why not | P2 | todo | - |
 | ceo | T-0008 · Remove the two stale tier-init instance dirs .pi/Teamwork/Teams/Teamwork/Agents/Developer and Agents/Tester | P2 | todo | - |
-| architect | T-0001 · Code and logic review of src/teamwork and scripts: find real defects, dead code, inconsistent invariants; file each finding as a task and record contract changes in Architecture.md | P0 | doing | - |
-| developer | T-0001 · Fix resources.self_invocation(): the returned command is unusable on Windows when a path has a space or backslash | P0 | review | P-0001 |
-| developer | T-0002 · Guard every symlink-dependent test so the suite is green on a host without symlink privilege | P0 | doing | - |
-| developer | T-0003 · Make every test that needs an external tool honest: skip with a stated reason when the tool is absent | P0 | review | P-0004 |
-| developer | T-0004 · Remove the personal absolute path from commit a4c726f (message + resources.py docstrings) before it can merge | P0 | todo | - |
-| developer | T-0005 · Reword the developer-1 T-0001 commit message: it carries the operator home path and turns the privacy gate red | P0 | todo | - |
-| developer | T-0006 · Re-point the board gate at the live milestone: tests/unit/test_board_matches_tool.py cannot see the M11 queues | P1 | todo | - |
-| tester | T-0001 · Certify the suite locally on this host and in CI on the pushed revision; own integration-layer records for portability and ci-release | P0 | doing | - |
-| reviewer | T-0001 · Serve the review queue and own the acceptance layer for the M11 deliverables | P0 | todo | - |
-| reviewer | T-0002 · Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | todo | - |
+| ceo | T-0009 · Project.md AC-5 row says green while the shipped privacy gate is FAIL at 7db810a | P1 | todo | - |
+| developer | T-0004 · Remove the personal absolute path from commit a4c726f (message + resources.py docstrings) before it can merge | P0 | selfcheck | - |
+| developer | T-0006 · Re-point the board gate at the live milestone: tests/unit/test_board_matches_tool.py cannot see the M11 queues | P1 | doing | - |
+| developer | T-0008 · harness.py:248 duplicates hooks_dir from hooks.py:76 with a divergent contract: None vs die, and unresolved repo/located vs .resolve | P1 | doing | - |
+| developer | T-0009 · portable.py:53 stale type-ignore makes mypy red: 1 error on the tree | P2 | doing | - |
+| developer | T-0010 · gitutil.py:132 ensure_lfs records a failed git lfs install silently, while the probe failure at 120-127 warns | P2 | doing | - |
+| developer | T-0011 · identity --audit --range resolves against the primary checkout, so a worktree lane cannot audit its own branch | P0 | doing | - |
 | product-manager | T-0001 · Rebuild the traceability matrix for AC-19..AC-21 and re-key the machine criteria store (gap G-1) | P1 | doing | - |
-| project-manager | T-0001 · Tree census: classify every tracked file as live, superseded, duplicate or unreferenced; delete or justify each hit | P0 | review | - |
-| release-engineer | T-0001 · Workflow and release-gate integrity: workflows match the tree, hooks install, branch protection matches policy | P0 | review | P-0003 |
-| release-engineer | T-0002 · Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | todo | - |
+| project-manager | T-0002 · Reconcile the two M11 sections in Plan.md after the intake merges (one section, tool-derived state, no duplicated milestone) | P0 | doing | - |
+| project-manager | T-0003 · Regenerate docs/Team/Board.md from the live queues (the board gate is 2 of the 3 remaining red tests) | P0 | doing | - |
+| release-engineer | T-0002 · Pin the lint job's ruff to the project pin instead of installing the newest release | P1 | doing | - |
 | release-engineer | T-0003 · ci.yml skips the privacy job (and every code job) on a prose-only push to main | P2 | todo | - |
 | release-engineer | T-0004 · privacy-allow.txt: correct the exemption-mechanism sentence and record that the file is self-exempting | P3 | todo | - |
-| security-auditor | T-0001 · Security and privacy posture audit: tree, history, workflows, hooks, scanning alerts | P0 | doing | - |
-| technical-writer | T-0001 · Docs truth pass: remove every stale or self-contradicting state claim in docs/Team, README, CHANGELOG and docs/guide | P0 | doing | - |
+| release-engineer | T-0005 · CITATION.cff pins version 1.0.0 while version.py is 1.1.3 and the newest tag is v1.1.2 | P1 | doing | - |
+| release-engineer | T-0006 · The commit-identity gate conflicts with the role mailbox: agents whose producer role differs from the repo-configured identity must fake 'Acting role:' | P1 | todo | - |
+| reviewer | T-0001 · Serve the review queue and own the acceptance layer for the M11 deliverables | P0 | todo | - |
+| reviewer | T-0002 · Second review seat: fan out the review queue, merge on pass, and cover the acceptance layer independently | P0 | todo | - |
+| reviewer | T-0003 · Resolve the contradiction between AGENTS.md (commit as the acting role mailbox) and the Tester/Reviewer charter clause (use the locally configured identity) | P1 | todo | - |
+| security-auditor | T-0001 · Security and privacy posture audit: tree, history, workflows, hooks, scanning alerts | P0 | review | - |
+| security-auditor | T-0002 · Re-commit P-0007 under the Security Auditor role identity and refresh the gate line now that the leak is fixed | P0 | review | - |
+| technical-writer | T-0002 · Remove the consumer email illustration and the matching commit-message line from P-0006 (privacy gate red) | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
