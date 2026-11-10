@@ -73,6 +73,7 @@ FLIGHT_ROW = re.compile(
 )
 TABLE_HEAD = "| role | id | area | state | pr | merged revision |"
 FLIGHT_HEAD = "| agent | task | prio | state | artifact |"
+FEATURE_HEAD = "| feature | state | owner | squad | paths |"
 
 #: The board records one milestone's work, and task ids are allocated per role, so
 #: the same number under two roles is two tasks. Each queue numbers from 1, so the
@@ -359,7 +360,89 @@ def without_landing(board: str, keys: set[tuple[str, str]]) -> str:
     return "\n".join(kept) + "\n"
 
 
-def render(tasks: dict[tuple[str, str], dict[str, str]], board: str) -> str:
+def _feature_rows(root: Path) -> list[str]:
+    """One row per open feature: its owner and the squad attached under that owner."""
+    from . import config, engine
+
+    records = engine.visible_feature_records(root)
+    squads: dict[str, list[str]] = {}
+    for role in engine.list_roles(root):
+        for instance in engine.instances_of(root, role):
+            under = engine.instance_under(root, instance)
+            if under:
+                squads.setdefault(under.lower(), []).append(instance)
+    rows = []
+    for record in sorted(records, key=lambda r: r.get("id", "")):
+        if record.get("state") not in config.FEATURE_OPEN_STATES:
+            continue
+        owner = record.get("owner") or "-"
+        squad = ", ".join(sorted(squads.get(owner.lower(), []))) or "-"
+        paths = ", ".join(record.get("paths") or []) or "-"
+        rows.append(f"| {record['id']} | {record['state']} | {owner} | {squad} | {paths} |")
+    return rows
+
+
+#: Role ids whose prose spelling is an acronym, not title case.
+_ACRONYM_ROLES = {"ceo", "cfo", "coo", "cto"}
+
+
+def _shared_services() -> str:
+    """The roles attached to no feature, as the config lists them."""
+    from . import config
+
+    return ", ".join(
+        role.upper() if role in _ACRONYM_ROLES else role.replace("-", " ").title()
+        for role in config.FEATURE_SHARED_ROLES
+    )
+
+
+def _shared_services_line() -> str:
+    return f"Shared services serve every feature and are attached to none: {_shared_services()}."
+
+
+def _render_feature_table(text: str, root: Path) -> str:
+    """Rewrite the feature table, inserting the section on a board that lacks it.
+
+    The board is written on the base branch at the merge, so a feature branch never
+    carries it; the first merge after this change is what adds the section.
+    """
+    lines = text.splitlines()
+    if FEATURE_HEAD not in lines:
+        marker = "## In flight"
+        if marker not in lines:
+            return text
+        at = lines.index(marker)
+        section = [
+            "## Feature teams (rendered)",
+            "",
+            _shared_services_line(),
+            "",
+            FEATURE_HEAD,
+            "|---|---|---|---|---|",
+            *_feature_rows(root),
+            "",
+        ]
+        return "\n".join(lines[:at] + section + lines[at:]) + "\n"
+    start = lines.index(FEATURE_HEAD)
+    end = start + 1
+    if end < len(lines) and re.fullmatch(r"\|[-| ]+\|", lines[end]):
+        end += 1
+    while end < len(lines) and lines[end].startswith("|"):
+        end += 1
+    table = [FEATURE_HEAD, "|---|---|---|---|---|", *_feature_rows(root)]
+    out = lines[:start] + table + lines[end:]
+    # The sentence is part of the render: a board written before this list grew
+    # must not keep a stale one while its table rows are correct.
+    for i, line in enumerate(out):
+        if line.startswith("Shared services serve every feature"):
+            out[i] = _shared_services_line()
+            break
+    return "\n".join(out) + "\n"
+
+
+def render(
+    tasks: dict[tuple[str, str], dict[str, str]], board: str, root: Path | None = None
+) -> str:
     """Rewrite both tables from `tasks`, leaving every other section verbatim.
 
     It reuses the same accessors the assertions read through, so the generator and
@@ -422,10 +505,15 @@ def render(tasks: dict[tuple[str, str], dict[str, str]], board: str) -> str:
         flight.append("| " + " | ".join(cells) + " |")
     i = lines.index(FLIGHT_HEAD)
     j = next(i for i, line in enumerate(lines) if line.startswith(FLIGHT_ANCHOR))
-    return "\n".join(lines[:i] + flight + [""] + lines[j:]) + "\n"
+    after = "\n".join(lines[:i] + flight + [""] + lines[j:]) + "\n"
+    if root is not None:
+        after = _render_feature_table(after, root)
+    return after
 
 
-def problems(tasks: dict[tuple[str, str], dict[str, str]], board: str) -> list[str]:
+def problems(
+    tasks: dict[tuple[str, str], dict[str, str]], board: str, root: Path | None = None
+) -> list[str]:
     """Every row that contradicts the queues, named, plus any render drift.
 
     The row comparators run first because they name the cells; the render equality
@@ -440,7 +528,7 @@ def problems(tasks: dict[tuple[str, str], dict[str, str]], board: str) -> list[s
     landing = landing_keys(tasks, rows, flight)
     rest = {key: fields for key, fields in tasks.items() if key not in landing}
     stable = without_landing(board, landing)
-    after = render(rest, stable)
+    after = render(rest, stable, root)
     if after == stable:
         return []
     return [
