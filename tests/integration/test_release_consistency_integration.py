@@ -43,8 +43,46 @@ CHECKER = Path(
 )
 
 #: The contract's line format: a rule id, one of three statuses, a detail.
-LINE = re.compile(r"^R(?P<rule>[1-9]) (?P<status>ok|DRIFT|SKIP) (?P<detail>.+)$")
+#: Architecture.md 11.1.2 (frozen, amended by P-0037 for R10) fixes the id as "`R`
+#: plus the rule number, so it is two characters for R1..R9 and three for R10",
+#: and says the format is not narrowed to keep a single-digit parser green. Hence
+#: `[1-9][0-9]*` and not `[1-9]`: every rule number from 1 up, at any width, but
+#: still no `R0` and no leading zero, which are not rule numbers.
+LINE = re.compile(r"^R(?P<rule>[1-9][0-9]*) (?P<status>ok|DRIFT|SKIP) (?P<detail>.+)$")
 SUMMARY = re.compile(r"^# release consistency: (?P<count>\d+) problem\(s\)$")
+
+#: The contract's rule set, in contract order (Architecture 11.2, amended to ten
+#: rules by P-0037). Written out literally, never derived from the checker: a rule
+#: missing from the report must fail here, which a derived list would hide. Adding
+#: a rule is an Architecture amendment, and this tuple changes with it - the next
+#: rule extends one literal instead of moving a `range()` bound. The name is part
+#: of the identity: an id reused by an unrelated rule is a contract change, not a
+#: pass.
+CONTRACT_RULES = (
+    ("R1", "tagged version"),
+    ("R2", "HEAD is newer"),
+    ("R3", "npm payloads"),
+    ("R4", "releases have tags"),
+    ("R5", "tags have releases"),
+    ("R6", "markdown versions"),
+    ("R7", "changelog"),
+    ("R8", "install channels"),
+    ("R9", "markdown tags"),
+    ("R10", "licence grant"),
+)
+
+
+def assert_contract_rule_set(rules: list[tuple[str, str, str]]) -> None:
+    """The report carries exactly the contract rules, in contract order.
+
+    Comparing ids and not a count is what makes a missing rule visible; R10's
+    detail always names a licence surface, so the name side of the tuple is
+    checked where the report's vocabulary is fixed.
+    """
+    assert [rule_id for rule_id, _, _ in rules] == [rule_id for rule_id, _ in CONTRACT_RULES]
+    detail_of = {rule_id: detail for rule_id, _, detail in rules}
+    assert "licence" in detail_of["R10"], detail_of["R10"]
+
 
 VERSION_FILE = '__version__ = "{version}"\nDIST_NAME = "teamwork-agents"\n'
 PYPROJECT = (
@@ -125,9 +163,17 @@ def bump(root: Path, version: str) -> None:
 
 
 def run_gate(root: Path, *flags: str) -> tuple[int, str, str]:
-    """Run the merged checker in a subprocess and return (code, stdout, stderr)."""
+    """Run the merged checker in a subprocess and return (code, stdout, stderr).
+
+    ``-S`` keeps the measurement on the gate and not on the host: an editable
+    install's stale ``.pth`` writes a startup warning to stderr (Reviewer-3
+    measured exactly that at this suite's ``assert stderr == ""`` on a base
+    checkout, T-0009 @2a15514), which is not the checker's output. Section 11.1
+    makes the checker standard-library only, so ``-S`` changes nothing it does and
+    the assertion stays exactly as strict.
+    """
     proc = subprocess.run(
-        [sys.executable, str(CHECKER), *flags, "--repo-root", str(root)],
+        [sys.executable, "-S", str(CHECKER), *flags, "--repo-root", str(root)],
         capture_output=True,
         text=True,
         check=False,
@@ -165,7 +211,7 @@ def checker():
 # --------------------------------------------------------------------------- #
 
 
-def test_a_clean_tree_exits_zero_with_nine_rule_lines(tmp_path):
+def test_a_clean_tree_exits_zero_with_every_contract_rule_line(tmp_path):
     root = make_repo(tmp_path / "repo", version="1.1.0")
     git(root, "tag", "v1.1.0")
     bump(root, "1.2.0")
@@ -174,10 +220,31 @@ def test_a_clean_tree_exits_zero_with_nine_rule_lines(tmp_path):
 
     assert (code, stderr) == (0, "")
     rules, problems = parse_report(stdout)
-    assert [rule for rule, _, _ in rules] == [f"R{index}" for index in range(1, 10)]
+    assert_contract_rule_set(rules)
     assert problems == 0
     assert all(status in ("ok", "SKIP") for _, status, _ in rules)
     assert all(detail.strip() for _, _, detail in rules)
+
+
+def test_the_contract_rule_set_rejects_a_report_that_drops_the_newest_rule():
+    """The id assertion is discriminating: the ten-rule report minus R10 must fail.
+
+    Built from ``CONTRACT_RULES`` itself, so this stays true when the next rule
+    arrives; it fails only if the assertion stops comparing the whole set.
+    """
+    nine = [(rule_id, "ok", f"{name}: ok") for rule_id, name in CONTRACT_RULES[:-1]]
+
+    with pytest.raises(AssertionError):
+        assert_contract_rule_set(nine)
+
+
+@pytest.mark.parametrize(
+    "line", ["R10 broken detail", "RX ok detail", "R10 ok ", "R0 ok detail", "R01 ok detail"]
+)
+def test_the_report_parser_still_rejects_a_malformed_rule_line(line):
+    """Widening the id to two digits does not make the line format optional."""
+    with pytest.raises(AssertionError):
+        parse_report(f"{line}\n# release consistency: 0 problem(s)\n")
 
 
 def test_every_rule_line_carries_a_status_and_a_detail(tmp_path):
@@ -387,7 +454,9 @@ def test_the_json_report_carries_the_three_contract_keys(checker, tmp_path):
     assert code == 0
     assert sorted(payload) == ["exit_code", "problems", "rules"]
     assert payload["exit_code"] == 0
-    assert [rule["id"] for rule in payload["rules"]] == [f"R{index}" for index in range(1, 10)]
+    assert_contract_rule_set(
+        [(rule["id"], rule["status"], rule["detail"]) for rule in payload["rules"]]
+    )
     assert all(rule["status"] in ("ok", "DRIFT", "SKIP") for rule in payload["rules"])
     assert all(rule["detail"] for rule in payload["rules"])
 
@@ -408,6 +477,7 @@ MUTANTS = {
     "R7": "def rule_r7_changelog(repo_root):\n    return RuleResult('R7', 'ok', 'mutant: the rule does not exist')\n",
     "R8": "def rule_r8_install_channels(repo_root, fetch=None):\n    return RuleResult('R8', 'ok', 'mutant: the rule does not exist')\n",
     "R9": "def rule_r9_markdown_tags(repo_root):\n    return RuleResult('R9', 'ok', 'mutant: the rule does not exist')\n",
+    "R10": "def rule_r10_licence_grant(repo_root):\n    return RuleResult('R10', 'ok', 'mutant: the rule does not exist')\n",
 }
 
 #: The layer that owns the per-rule tests. The mutant is measured against the
