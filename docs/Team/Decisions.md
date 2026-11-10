@@ -1268,3 +1268,34 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `docs/Team/M9Acceptance.md` @28d6a4d -> §4 states exit 0 with the three named skips and explicitly refuses a count, §5 states `sync_skill.py --check` exits 1 and names the class of drift with no count; `grep -nE "790 passed|777 passed|1 missing, 3 stale"` -> no hits; `pytest -q` @28d6a4d -> 1198 passed, 3 skipped, exit 0; `teamwork.py links` -> `# issues: 0`; the deliverable passed review and merged at `a43e61e`.
 - falsified by: a later `docs/Team/M9Acceptance.md` revision that pins a pass count again, or a review verdict that fails a proof for a count it re-measured on a different revision than the one named.
 - consequences: the dispute is moot by delivery and closed; the same rule governs every later acceptance proof, and a count that does appear must name the revision it was taken at.
+## D-20261017-CEO - Ship as teamwork-agents on PyPI, import as teamwork
+
+- date: 2026-10-17
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: ceo
+- task: T-0001
+- context: -
+- options considered: -
+- decision: The distribution name is teamwork-agents; the import package and console script are teamwork.
+- why: The PyPI name 'teamwork' is already taken, and the import name is part of the public API.
+- evidence: pyproject name = teamwork-agents; README states the install command.
+- falsified by: pip install teamwork-agents does not expose the teamwork command.
+- consequences: -
+
+## D-20261021-Developer - The unborn-HEAD test names its branch explicitly ('git init
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Developer (developer)
+- decided by: Developer
+- task: T-0010
+- context: CI on the pushed revision 4fb1e09 is RED in all eight test jobs: 'AssertionError: assert master == main' at tests/unit/test_cli_contract.py:495. The test created its repository with 'git init -q .', so the branch name came from the runner's init.defaultBranch - git's own default, 'master', wherever that setting is absent.
+- options considered: (A) name the branch explicitly with '-b main' (chosen); (B) assert whatever branch the machine produced (rejected: the assertion would measure the runner's config, not the unborn HEAD, and the test's subject would change); (C) set init.defaultBranch in the CI workflow (rejected: it fixes the runner, not the test, and the defect is in the test)
+- decision: The unborn-HEAD test names its branch explicitly ('git init -q -b main .') instead of inheriting the runner's init.defaultBranch; the suite's other 'git init' calls that do not pass -b were each measured and none of them depends on the default branch name.
+- why: The test's subject is the unborn HEAD (symbolic-ref answers, rev-parse --abbrev-ref cannot); the branch NAME is incidental, so it must be pinned rather than inherited. Measured by running the whole suite with a git config that has no [init] section: pre-fix 1 failed (the only failure is this test, 'assert master == main'), post-fix 838 passed / 2 skipped / 0 failed - so no other test in the suite depends on the default branch name, and the fix is complete rather than partial. The other no--b sites were read individually: tests/unit/test_skill_refresh.py:130 asserts the branch is NOT 'trunk' (a leak check, so naming the branch would weaken it - left as is); tests/unit/test_cli_contract.py:424, tests/unit/test_skill_contracts.py:1192/1200 and tests/unit/test_evidence_packets.py:35 never name a branch (left as is).
+- evidence: GIT_CONFIG_GLOBAL=<~/.gitconfig without the [init] section> .venv/bin/python -m pytest -q @4fb1e09 -> 1 failed, 837 passed, 2 skipped; same config @4dfedf9 -> 838 passed, 2 skipped, 0 failed; .venv/bin/python -m pytest -q tests/unit/test_cli_contract.py @4dfedf9 -> 42 passed
+- falsified by: A CI run on the pushed revision that still reports test_an_unborn_branch_is_readable_only_through_symbolic_ref failing, or a local run with a git config lacking [init] that turns any OTHER test red, would overturn this.
+- consequences: -

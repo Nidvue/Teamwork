@@ -121,7 +121,10 @@ def test_install_writes_both_stages_with_the_marker_and_mode(cli, repo, capsys) 
     for stage in ("pre-commit", "pre-push"):
         path = hook_dir(repo) / stage
         body = path.read_text(encoding="utf-8")
-        assert path.stat().st_mode & 0o777 == 0o755
+        if os.name != "nt":
+            # Windows has no executable bit and git for Windows ignores the file
+            # mode, so the 0755 contract only holds where POSIX modes exist.
+            assert path.stat().st_mode & 0o777 == 0o755
         lines = body.splitlines()
         assert lines[0] == "#!/bin/sh"
         assert config.HOOK_MARKER == "teamwork-managed hook"
