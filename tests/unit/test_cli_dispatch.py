@@ -26,16 +26,12 @@ import pytest
 from teamwork import engine
 from teamwork.version import __version__ as VERSION
 
-# ``tests/unit/test_cli_dispatch.py`` -> parents[2] is the repository root.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPO_SRC = REPO_ROOT / "src"
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 
-#: The single line ``--version`` and ``version`` both owe the caller.
 VERSION_LINE = f"teamwork {VERSION}"
 
-#: Every top-level command the frozen contract ships. Section 4 allows additions
-#: and forbids removals and renames, so this list may only ever grow.
 FROZEN_COMMANDS = frozenset(
     {
         "agents",
@@ -107,11 +103,6 @@ def _top_level_commands() -> set[str]:
     raise AssertionError("the parser registers no subcommands at all")
 
 
-# --------------------------------------------------------------------------- #
-# the invocation forms are equivalent
-# --------------------------------------------------------------------------- #
-
-
 def test_the_checkout_shim_prints_the_version_line_and_exits_zero(tmp_path: Path) -> None:
     """Form 3 of section 4: ``python scripts/teamwork.py --version``."""
     done = _run([sys.executable, str(CLI_SHIM), "--version"], tmp_path)
@@ -149,11 +140,6 @@ def test_the_version_subcommand_returns_zero_and_prints_the_same_line(
     """Same constant, same bytes: two surfaces must not drift apart."""
     assert engine.main(["version"]) == 0
     assert capsys.readouterr().out.strip() == VERSION_LINE
-
-
-# --------------------------------------------------------------------------- #
-# the documented exit codes
-# --------------------------------------------------------------------------- #
 
 
 def test_an_unknown_subcommand_is_the_documented_usage_error(
@@ -198,11 +184,6 @@ def test_nothing_to_do_is_exit_code_three(capsys: pytest.CaptureFixture[str]) ->
     assert engine.main(["tests", "plan"]) == 3, "an undeclared plan must say 'nothing', not 'green'"
     assert engine.main(["trace", "T-9999"]) == 3
     assert engine.main(["task", "next", "ceo"]) == 3, "an empty queue must not read as 'claimed'"
-
-
-# --------------------------------------------------------------------------- #
-# no removals, no renames
-# --------------------------------------------------------------------------- #
 
 
 def test_every_frozen_command_is_still_registered() -> None:

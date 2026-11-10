@@ -43,7 +43,6 @@ def test_task_next_capacity_claims_several_at_once(cli, project: Path) -> None:
     assert [t["status"] for t in tasks] == ["doing", "doing", "doing"]
     assert {t["claimed_by"].lower() for t in tasks} == {"developer-1"}
 
-    # nothing left: a second call must not re-claim or invent work
     assert cli("--project", project, "task", "next", "developer-1", "--capacity", "3") == 3
 
 
@@ -54,17 +53,14 @@ def test_dependency_can_release_at_review_or_started(cli, project: Path) -> None
     add(cli, project, "tester", "test against it", "developer:T-0001@review")
     add(cli, project, "tester", "shadow the work", "developer:T-0001@started")
 
-    # not started yet: both downstream tasks wait
     tester = engine.parse_tasks(engine.task_file(root, "tester"))
     assert [t["status"] for t in tester] == ["todo", "todo"]
 
     assert cli("--project", project, "task", "next", "developer-1") == 0
-    # started: the shadow task may begin, the review-gated one still waits
     assert cli("--project", project, "task", "next", "tester-1", "--capacity", "2") == 0
     tester = engine.parse_tasks(engine.task_file(root, "tester"))
     assert tester[1]["status"] == "doing" and tester[0]["status"] == "todo"
 
-    # submitted: the review-gated task unblocks without waiting for `done`
     assert (
         cli(
             "--project",
@@ -98,8 +94,6 @@ def test_pulse_fills_a_lane_up_to_its_wip_limit(cli, project: Path) -> None:
     assert len(claimed) == engine.LANE_WIP, [t["status"] for t in tasks]
     assert {t["claimed_by"].lower() for t in claimed} == {"developer-1"}
 
-    # a full lane means there is nothing to dispatch (exit 3), and it never
-    # over-claims: the limit holds across wakes
     assert cli("--project", project, "pulse", "--commit") in (0, 3)
     tasks = engine.parse_tasks(engine.task_file(root, "developer"))
     assert len([t for t in tasks if t["status"] == "doing"]) == engine.LANE_WIP
@@ -130,7 +124,6 @@ def test_peek_and_zero_capacity_do_not_mutate_or_claim(cli, project: Path) -> No
     add(cli, project, "developer", "unit 0")
     add(cli, project, "developer", "unit 1")
 
-    # a peek reports, it does not claim
     assert (
         cli("--project", project, "task", "next", "developer-1", "--peek", "--capacity", "2") == 0
     )
@@ -138,7 +131,6 @@ def test_peek_and_zero_capacity_do_not_mutate_or_claim(cli, project: Path) -> No
     assert [t["status"] for t in tasks] == ["todo", "todo"]
     assert all(not t["claimed_by"] for t in tasks)
 
-    # capacity 0 is a typo: claim exactly one, never silently claim all
     assert cli("--project", project, "task", "next", "developer-1", "--capacity", "0") == 0
     tasks = engine.parse_tasks(engine.task_file(root, "developer"))
     assert [t["status"] for t in tasks] == ["doing", "todo"]
@@ -161,8 +153,6 @@ def test_one_lane_needs_one_slot_for_its_whole_wip(cli, project: Path, capsys) -
     add(cli, project, "developer", "unit 0")
     add(cli, project, "developer", "unit 1")
 
-    # no free slot: the two units of ONE lane are two deferred assignments, and
-    # the lane is counted once, not twice
     capsys.readouterr()
     assert cli("--project", project, "pulse", "--commit") == 3
     out = capsys.readouterr().out
@@ -172,7 +162,6 @@ def test_one_lane_needs_one_slot_for_its_whole_wip(cli, project: Path, capsys) -
         t["status"] == "todo" for t in engine.parse_tasks(engine.task_file(root, "developer"))
     )
 
-    # one free slot serves the whole lane: nothing is deferred, both units are given
     settings["ollama-cloud"] = 1
     settings_path.write_text(json.dumps(settings), encoding="utf-8")
     capsys.readouterr()

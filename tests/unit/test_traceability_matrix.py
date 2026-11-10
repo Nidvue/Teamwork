@@ -44,29 +44,11 @@ import pytest
 
 SECTION = "## Traceability - AC to task to test"
 DOD = "## Definition of done"
-# the six columns, matched as prefixes so a column may carry a hint in parentheses
 COLUMNS = ["ac", "proof target", "archived task(s)", "test record", "proof command", "state"]
-# task ids are per-role queues; closed ones are archived, so both are searched
 QUEUE_GLOB = ".pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md"
 ARCHIVE = "docs/Team/Archive.md"
-# gitignored working state: absent in CI, present in a working checkout
 TEAM_TESTS_GLOB = ".pi/Teamwork/Teams/*/Tests.md"
 
-# Per-command budget, in seconds, for re-running one row's proof command (T-0020).
-# The costliest proof in the table is the AC-5 row's full history walk
-# (`privacy_scan.py --tree --history`, every blob reachable from every ref plus
-# every commit's identity fields), so its runtime follows the *history*, not the
-# code: a fixed 300 s budget was green at one revision and timed out at the next
-# pushed one after nothing changed in this guard or in the scanner (CI run
-# 40728749217, ubuntu py3.11/py3.12 and windows py3.11). The budget must therefore
-# cover a COLD runner walking a history already larger than the one measured here:
-# an empty object cache, no warmed `git cat-file --batch`, and a filesystem with
-# antivirus interception are all slower than a developer's checkout with a local
-# object store, where the same command measured 149 s over 944 commits / 6236
-# objects. 900 s is ~6x that measurement, so ordinary history growth and a slower
-# runner are not failures. It stays finite on purpose: a proof that hangs must
-# still fail, only later, and the failure names this budget so the next reader can
-# tell slow from hung.
 PROOF_TIMEOUT_SECONDS = 900
 
 
@@ -113,8 +95,6 @@ def _matrix(section: str) -> tuple[list[str], list[list[str]]]:
                     break
                 body.append(candidate)
             return [c.lower() for c in cells], body
-    # `pytest.fail` raises, but it is a callable object, so a static return-checker
-    # cannot see the `NoReturn`; raising directly keeps the sentinel analysable.
     raise AssertionError(f"the traceability section has no table headed by {COLUMNS}")
 
 
@@ -232,7 +212,7 @@ def test_every_cited_test_record_exists_passes_and_matches_its_layer_and_area(
 ) -> None:
     project = (repo_root / "docs/Team/Project.md").read_text(encoding="utf-8")
     _header, body = _matrix(_section(project))
-    cited = []  # (ac, record id, claimed 'layer/area')
+    cited = []
     for row in body:
         for rec, claim in re.findall(r"(TS-\d{4})(?:\s*\(([^)]*)\))?", row[3]):
             cited.append((row[0], rec, claim.strip() if claim else ""))
@@ -373,7 +353,6 @@ def _blames(text: str, ac: str) -> bool:
     for history) is a closed gap and must not justify a current red row.
     """
     if "closed" in text.lower():
-        # a gap that records its own closure explains history, not the current state
         return False
     for sentence in re.split(r"(?<=[.;])\s+", text):
         if not re.search(rf"\b{re.escape(ac)}\b", sentence):
@@ -415,7 +394,6 @@ def test_a_green_row_is_not_blamed_by_a_gap_and_a_red_row_is(repo_root: Path) ->
                 unblamed_red.append(
                     f"{ac}: names {undefined}, which the gaps table does not define"
                 )
-            # a row may cite several related gaps; at least one must own this failure
             elif not any(_blames(gaps[g], ac) for g in named):
                 unblamed_red.append(f"{ac}: names {sorted(named)}, but none of them blames {ac}")
         elif "green" in state and blamed:
@@ -425,13 +403,6 @@ def test_a_green_row_is_not_blamed_by_a_gap_and_a_red_row_is(repo_root: Path) ->
     assert not blamed_green, "green rows and the gaps table disagree: " + "; ".join(blamed_green)
 
 
-# Why a row is not re-run here, keyed by AC id. Every exemption must name a
-# REASON from `EXEMPT_REASONS`; anything else is re-run from the table's own
-# proof column. A hand-kept allow-list of rows to re-run was defeated in review
-# round six: deleting one row from the dict left every guard green while the
-# tree contradicted that row, because the dict - not the table - decided what to
-# execute. The table is the source now, and an exemption is a claim the reviewer
-# can read and challenge.
 EXEMPT_REASONS = {
     "self": "the proof is this pytest run, which is already the suite hosting the guard",
     "forge": "the proof reads the forge and a CI job without credentials cannot re-run it",
@@ -443,11 +414,6 @@ EXEMPT_REASONS = {
     ),
 }
 
-# Evidence a reason must find in the row's OWN proof cell. An exemption is not a
-# bare dict entry: it is a claim about what that cell reads, and the table has to
-# carry the evidence for it. Round 8 failed here - adding `"AC-12": "drift"` and
-# deleting `CHANGELOG.md` left the suite green while the table still called AC-12
-# green and its proof (`ls LICENSE CHANGELOG.md CITATION.cff`) exited 2.
 EXEMPT_EVIDENCE: dict[str, str] = {
     "self": r"\bpytest\b",
     "forge": r"\bgh\b|verify_release\.py|\bci\.ya?ml\b|\brelease\.ya?ml\b|\bCI job\b",
@@ -457,7 +423,7 @@ EXEMPT_EVIDENCE: dict[str, str] = {
 
 EXEMPT: dict[str, str] = {
     "AC-2": "self",
-    "AC-3": "self",  # clause 1 is this pytest run; clause 2 is the drifting team tree
+    "AC-3": "self",
     "AC-4": "forge",
     "AC-7": "forge",
     "AC-8": "forge",
@@ -467,13 +433,8 @@ EXEMPT: dict[str, str] = {
     "AC-13": "self",
     "AC-15": "self",
     "AC-16": "self",
-    "AC-17": "self",  # the pytest half; its `ls` half is covered by AC-12
+    "AC-17": "self",
     "AC-18": "self",
-    # AC-22 and AC-23 are proved by a release run, which exists only after a tag:
-    # the npm publish job's run and the Pages job of the same tag. Their proof
-    # cells name the forge command and the CI job, which is what the `forge`
-    # evidence pattern asks for, and neither row may be claimed green by editing
-    # this dict - each is red against a gap that owns it (G-11, G-12).
     "AC-22": "forge",
     "AC-23": "forge",
 }
@@ -534,9 +495,6 @@ def _run(repo_root: Path, argv: list[str]) -> int:
         key, _, value = tokens.pop(0).partition("=")
         env[key] = value
     tokens = _portable(tokens)
-    # the table says `python`; that must mean the interpreter hosting this suite,
-    # not whatever `python` happens to be first on PATH (a bare interpreter has no
-    # dependencies and turned AC-1 red for the wrong reason in review round six)
     if tokens and tokens[0] == "python":
         tokens[0] = sys.executable
     elif tokens and tokens[0].endswith(".py"):
@@ -574,11 +532,6 @@ class ProofUnlaunchable(Exception):
     """
 
 
-#: `ls` is the one POSIX-only program the proof table names, and its contract in a
-#: proof cell is the exit status: 0 when every named path exists, non-zero when one
-#: does not. A win32 host ships no `ls`, so the same paths are checked with this
-#: interpreter - a deleted file still turns the row non-zero, so the translation
-#: cannot certify a row the POSIX command would refuse (T-0003).
 _EXISTS_CHECK = (
     "import pathlib, sys\n"
     "missing = [p for p in sys.argv[1:] if not pathlib.Path(p).exists()]\n"
@@ -606,20 +559,8 @@ def _portable(argv: list[str]) -> list[str]:
     return argv
 
 
-#: A proof this host may be unable to run at all, keyed by AC, with the capability
-#: that decides it. `build` is the dev extra that `scripts/verify_release.py` needs
-#: to produce the sdist and the wheel: a host without that extra cannot measure the
-#: row and must say so instead of reporting a defect it never found (T-0003). The
-#: row is still certified in CI on every code push, by both jobs in
-#: `.github/workflows/ci.yml`: the `test` job installs `.[dev]`, so the guard's own
-#: run there executes this row like any other, and the `build` job runs
-#: `python scripts/verify_release.py` itself with `build` installed (the same
-#: command the row names). Naming the jobs, not their line numbers: those rot.
 HOST_CAPABILITY: dict[str, str] = {"AC-1": "module:build"}
 
-#: Evidence a declared capability must find in the row's OWN proof cell, so the
-#: declaration is a claim about what that cell runs - not a bare dict entry that
-#: could excuse any row. A capability with no pattern here fails the guard.
 HOST_CAPABILITY_EVIDENCE: dict[str, str] = {
     "module:build": r"verify_release\.py|python -m build",
 }
@@ -657,10 +598,6 @@ def _replay(section: str, repo_root: Path) -> tuple[int, list[str], list[str]]:
     for ac in sorted(claimed):
         if ac in EXEMPT:
             continue
-        # Parse before the capability check, so a declaration excuses only a row
-        # that has a command to run: a cell rewritten into prose that merely *names*
-        # the proof (reviewer F2 on T-0003) is a disagreement for every row, declared
-        # or not - otherwise "declared" would become a way to stop parsing a cell.
         commands = _proof_commands(proofs[ac])
         if not commands:
             disagreements.append(
@@ -737,7 +674,6 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
     assert not bad_reason, f"these exemptions name an unknown reason: {bad_reason}"
     unknown = sorted(set(EXEMPT) - set(claimed))
     assert not unknown, f"the table dropped rows that EXEMPT still names: {unknown}"
-    # an exemption must be proved by the row it exempts, not asserted in this dict
     unjustified = sorted(
         f"{ac}: exempt as {reason!r}, but its proof cell {proofs[ac]!r} carries no such evidence"
         for ac, reason in EXEMPT.items()
@@ -746,8 +682,6 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
     assert not unjustified, "an exemption must be justified by the table it exempts: " + "; ".join(
         unjustified
     )
-    # a declared host capability is the same kind of claim: it names a row AND the
-    # evidence for it lives in that row's own proof cell
     unbacked_capability = sorted(
         f"{ac}: declares {capability!r}, but its proof cell {proofs[ac]!r} carries no evidence"
         for ac, capability in HOST_CAPABILITY.items()
@@ -776,9 +710,6 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
         f"rows minus {len(EXEMPT)} exemptions is {expected}: a row was skipped or the parser drifted"
     )
     assert not disagreements, "the state column disagrees with the run: " + "; ".join(disagreements)
-    # A row this host cannot measure is not hidden here: the arithmetic above has
-    # already charged it, and the next test states it as a skip with its AC and
-    # reason - so the guard's own verdict stays a verdict about the rows it measured.
 
 
 def test_a_row_this_host_cannot_measure_is_named_with_its_reason(repo_root: Path) -> None:
@@ -806,29 +737,15 @@ def test_a_row_this_host_cannot_measure_is_named_with_its_reason(repo_root: Path
         pytest.skip("; ".join(missing))
 
 
-# T-0020: the re-run guard's per-command budget, proved rather than trusted. The
-# defect these three tests pin was a bare `timeout=300` in `_run`: it was green at
-# one revision and timed out on the next pushed one in three CI jobs, because the
-# AC-5 proof walks the whole history and nothing in the guard or the scanner had
-# changed. Two things had to stay true afterwards - the budget is generous enough
-# that a slow cold runner is not a failure, and a proof that genuinely hangs still
-# fails instead of being skipped - so each is asserted here in milliseconds rather
-# than by letting the suite hang for the real budget.
-
-
 def test_the_proof_budget_is_a_generous_named_constant() -> None:
     """The budget is a stated number with headroom, and still a finite one."""
     assert isinstance(PROOF_TIMEOUT_SECONDS, int) and not isinstance(PROOF_TIMEOUT_SECONDS, bool), (
         f"the proof budget must be an int number of seconds, not {PROOF_TIMEOUT_SECONDS!r}"
     )
-    # 300 s is the value that timed out on CI, so the ceiling of the defect is the
-    # floor of the fix; 900 is the chosen headroom over the measured history walk.
     assert PROOF_TIMEOUT_SECONDS >= 600, (
         f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s leaves no headroom over the "
         "300 s that timed out on a cold CI runner walking the full history"
     )
-    # Finite on purpose: an unbounded or hour-long budget would turn a hung proof
-    # into a stalled job instead of a failed one.
     assert PROOF_TIMEOUT_SECONDS <= 1800, (
         f"PROOF_TIMEOUT_SECONDS={PROOF_TIMEOUT_SECONDS}s is long enough that a hung "
         "proof reads as a slow one; a hang must fail well inside a CI job"
@@ -855,7 +772,6 @@ def test_a_proof_command_runs_under_the_named_budget(
         f"the proof ran with timeout={seen['timeout']!r}, not the named budget "
         f"{PROOF_TIMEOUT_SECONDS} - a literal in `_run` is how T-0020 happened"
     )
-    # the interpreter substitution `_run` exists for must survive the budget change
     assert seen["command"][0] == sys.executable
 
 
@@ -877,20 +793,9 @@ def test_a_hung_proof_command_fails_and_names_the_budget(
     assert "teamwork.py" in message, message
 
 
-# T-0003: two host assumptions were the guard's own defects. It launched `ls` on a
-# host that has none, so the suite died with `FileNotFoundError` before it could
-# disagree with any row, and it would have measured a build proof on a host without
-# the `dev` extra. Each fix is pinned here in milliseconds: the translation keeps
-# the POSIX command's contract, a launch failure is a named disagreement instead of
-# an exception, a skip is a declared capability with a reason, and the disagreement
-# itself still has teeth.
-
-
 def test_an_ls_proof_is_an_existence_check_over_the_same_paths(repo_root: Path) -> None:
     """`ls a b c` means "these exist": the translation must keep that, both ways."""
     assert _run(repo_root, ["ls", "LICENSE", "CHANGELOG.md", "CITATION.cff"]) == 0
-    # a deleted path must still turn the row non-zero, or the translation would
-    # certify a green row that the POSIX command refuses
     assert _run(repo_root, ["ls", "LICENSE", "no-such-proof-path-9c1f"]) != 0
 
 

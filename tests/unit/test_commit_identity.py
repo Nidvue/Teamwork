@@ -158,7 +158,6 @@ def test_product_identity_is_rejected(repo):
 
 
 def test_acting_role_must_match_the_author(repo):
-    # A Developer-authored commit that claims the Tester role is misattributed.
     _git(
         repo,
         "commit",
@@ -301,8 +300,6 @@ def test_the_committer_guard_catches_the_host_merge_stamp(repo):
     acceptance proof that re-runs the gate.
     """
     _forge_commit(repo, "Security Auditor", "securityauditor@agents.nidvue.com", "fix(x): done")
-    # The host rebase: the author stays the role, the committer becomes the account.
-    # The address is assembled at runtime so the repository never holds one.
     _amend_committer(repo, "Some One", "personal" + "@" + "example.invalid")
     assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 1
 
@@ -559,7 +556,6 @@ def test_role_is_accepted_as_equivalent_to_acting_role(repo):
         ident=("Developer", "developer@agents.nidvue.com"),
     )
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
-    # A Role: line naming someone else is still a misattribution.
     _git(
         repo,
         "commit",

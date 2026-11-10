@@ -174,15 +174,12 @@ def test_the_comparison_bites_on_a_stale_row() -> None:
     """The synthetic half: this logic runs in CI, where the team tree is absent."""
     tasks = {
         ("developer", "T-0005"): {"status": "done", "pr": "P-0001", "merge_commit": "abc1234"},
-        # a task mid-work, not landing: open on both sides, one side stale
         ("tester", "T-0003"): {"status": "doing", "pr": "P-0002"},
         ("ceo", "T-0059"): {"status": "doing"},
     }
     rows = {
         ("developer", "T-0005"): ("done", "P-0001", "abc1234"),
-        # a stale row that no landing can explain: still todo after the claim
         ("tester", "T-0003"): ("todo", "-", "-"),
-        # a board row for a task that does not exist
         ("reviewer", "T-0009"): ("done", "-", "-"),
     }
     found = mismatches(tasks, rows)
@@ -210,14 +207,12 @@ def test_a_landing_task_is_excluded_and_a_drift_is_not() -> None:
     landing evidence - the same two states as `projectmanager T-0003` - still fails,
     so the exemption cannot be used to wave through a stale board.
     """
-    # (a) the measured shape: the row rendered while P-0016 was open, queue merged
     landed = {
         ("projectmanager", "T-0003"): {"status": "done", "pr": "P-0016", "merge_commit": "cfba521"}
     }
     stale_row = {("projectmanager", "T-0003"): ("doing", "P-0016", "-")}
     assert mismatches(landed, stale_row) == []
     assert flight_mismatches(landed, {("projectmanager", "T-0003"): "doing"}, stale_row) == []
-    # (a) the earlier window: the queue is at review, the board still says doing
     assert (
         mismatches(
             {("tester", "T-0004"): {"status": "review", "pr": "P-0003"}},
@@ -225,16 +220,12 @@ def test_a_landing_task_is_excluded_and_a_drift_is_not() -> None:
         )
         == []
     )
-    # (b) a non-landing task that really drifted: open on both sides, states differ
     assert mismatches(
         {("tester", "T-0006"): {"status": "doing"}}, {("tester", "T-0006"): ("todo", "-", "-")}
     ) == ["tester T-0006: board says ('todo', '-', '-'), queue says ('doing', '-', '-')"]
-    # (c) done in the queue, doing on the board, and no merge record either side
     assert mismatches(
         {("ceo", "T-0002"): {"status": "done"}}, {("ceo", "T-0002"): ("doing", "-", "-")}
     ) == ["ceo T-0002: board says ('doing', '-', '-'), queue says ('done', '-', '-')"]
-    # (c) the same two states, but the two sides name different PRs: two PRs is not
-    # one PR observed twice, so this is a drift and not a landing
     assert mismatches(
         {("ceo", "T-0004"): {"status": "done", "pr": "P-0001", "merge_commit": "abc1234"}},
         {("ceo", "T-0004"): ("doing", "P-0009", "-")},

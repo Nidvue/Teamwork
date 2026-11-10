@@ -9,10 +9,6 @@ import pytest
 
 from teamwork import engine
 
-# --------------------------------------------------------------------------- #
-# atomic_write
-# --------------------------------------------------------------------------- #
-
 
 def test_atomic_write_is_byte_identical(tmp_path: Path) -> None:
     path = tmp_path / "out.txt"
@@ -59,14 +55,8 @@ def test_atomic_write_never_writes_through_to_target_on_failure(
     with pytest.raises(RuntimeError):
         engine.atomic_write(path, "new content")
 
-    # The original file is untouched and the temp file was cleaned up.
     assert path.read_text(encoding="utf-8") == "original"
     assert list(tmp_path.glob("out.txt.*")) == []
-
-
-# --------------------------------------------------------------------------- #
-# lock
-# --------------------------------------------------------------------------- #
 
 
 def test_lock_is_exclusive_and_removed_on_exit(tmp_path: Path) -> None:

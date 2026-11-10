@@ -34,7 +34,7 @@ _SCRIPTS_ADDED = str(SCRIPTS) not in sys.path
 if _SCRIPTS_ADDED:
     sys.path.insert(0, str(SCRIPTS))
 
-import check_release_consistency as crc  # noqa: E402  (import after sys.path setup)
+import check_release_consistency as crc  # noqa: E402
 
 if _SCRIPTS_ADDED:
     sys.path.remove(str(SCRIPTS))
@@ -96,15 +96,6 @@ def both_refuse(root: Path) -> list[str]:
     return messages
 
 
-# --------------------------------------------------------------------------- #
-# 11.3 - the digest is a function of the commit
-# --------------------------------------------------------------------------- #
-
-
-#: A link cannot be created without privileges on Windows (Developer Mode), so the
-#: 11.3 link policy is only exercised where the platform supports it. The same
-#: marker guards ``tests/unit/test_release_consistency.py``; the meta test at the
-#: bottom of this file fails when a symlink-creating test lacks it (T-0002).
 needs_symlinks = pytest.mark.skipif(
     os.name == "nt", reason="creating a symlink needs Developer Mode on Windows"
 )
@@ -166,8 +157,6 @@ def test_a_link_to_a_tracked_but_gitignored_file_resolves_and_is_stable(tmp_path
     root = make_repo(tmp_path / "repo")
     write(root, ".gitignore", "references/keep.md\n")
     write(root, "references/keep.md", "# keep\n")
-    # ``-f``: the path is gitignored, but it is *in the commit* - that is the
-    # point of the fixture.
     git(root, "add", "-f", "references/keep.md")
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "track a gitignored target")
@@ -200,7 +189,6 @@ def test_a_link_into_the_git_directory_is_refused_on_both_paths(tmp_path):
 def test_a_link_out_of_the_tree_is_refused_on_both_paths(tmp_path):
     """A relative target above the tree is refused, and named as such."""
     root = make_repo(tmp_path / "repo")
-    # The file exists and is readable, so only the refusal can stop it.
     (tmp_path / "outside.md").write_text("# outside\n", encoding="utf-8")
     (root / "references" / "l").symlink_to("../../outside.md")
     git(root, "add", "-A")
@@ -263,11 +251,6 @@ def test_a_broken_cyclic_or_self_link_is_refused_on_both_paths(tmp_path):
         assert "references/self" in message
 
 
-# --------------------------------------------------------------------------- #
-# R8 - the script is read out of an inline-code command
-# --------------------------------------------------------------------------- #
-
-
 def test_an_inline_code_install_line_names_the_script():
     claims = crc._channel_claims("`uvx --from teamwork-agents wrongscript`")
 
@@ -313,11 +296,6 @@ def test_r8_reports_an_inline_code_install_line(tmp_path):
     assert "wrongscript" in result.detail
 
 
-# --------------------------------------------------------------------------- #
-# 11.2.2 - the frozen contract: R2's tag set, R9's pattern, the shallow guard
-# --------------------------------------------------------------------------- #
-
-#: The contract's frozen pattern (Architecture.md 11.2.4), byte for byte.
 CONTRACT_TAGGED_TOKEN = (
     r"(?:(?<![\w./-])v"
     r"|(?<![\w./-])(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+"
@@ -531,7 +509,6 @@ def test_a_real_shallow_clone_is_an_input_error_not_a_pass(tmp_path):
     assert result.returncode == 0, result.stderr
     assert cgit(clone, "rev-parse", "--is-shallow-repository").strip() == "true"
 
-    # The clone sees only the tag it was branched on - the blind build the guard exists for.
     assert crc._version_tags(clone) == ["v1.1.2"]
     assert "v1.1.0" not in crc._version_tags(clone)
 
@@ -574,11 +551,6 @@ def test_a_tarball_without_git_is_an_input_error(tmp_path):
     assert crc.main(["--offline", "--repo-root", str(root)]) == 2
 
 
-# --------------------------------------------------------------------------- #
-# T-0002 - no symlink-creating test may run on a host that cannot create links
-# --------------------------------------------------------------------------- #
-
-#: Calls that need the symlink privilege, by the attribute they are reached through.
 SYMLINK_CALLS = frozenset({"symlink", "symlink_to"})
 
 TESTS_ROOT = REPO_ROOT / "tests"

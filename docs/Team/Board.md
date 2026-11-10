@@ -154,7 +154,7 @@ under two roles is two tasks.
 | developer | T-0034 | throughput | done | P-0058 | b9e5135 |
 | developer | T-0035 | - | todo | - | - |
 | developer | T-0036 | branch | blocked | - | - |
-| developer | T-0037 | lint | doing | - | - |
+| developer | T-0037 | lint | done | P-0073 | b679d84 |
 | developer | T-0038 | identity | done | P-0067 | 3ba9d4b |
 | developer | T-0039 | concurrency | done | P-0069 | bc6502f |
 | developer | T-0040 | - | todo | - | - |
@@ -215,7 +215,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
 | developer | T-0035 · Code scanning: py/incomplete-url-substring-sanitization in tests/unit/test_skill_contracts.py | P2 | todo | - |
 | developer | T-0036 · M20 B1: close branches that are no longer useful with branch prune | P0 | blocked | - |
-| developer | T-0037 · M20 C1: no comments in code, enforced by the lint gate | P0 | doing | - |
 | developer | T-0040 · M20 F2: cap agent-initiated follow-up chains at a recorded hop depth | P1 | todo | - |
 | developer | T-0041 · M20 F3: task text stays data - a task field can never set agent, cwd or access | P1 | todo | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |

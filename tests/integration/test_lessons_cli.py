@@ -32,9 +32,6 @@ AGENTS = "ceo,developer-1,tester-1,reviewer-1"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 
-#: The frozen refusals (Architecture.md 14.1/14.3). A free-text paraphrase here
-#: would let the message drift silently, so the whole line after ``teamwork: `` is
-#: asserted.
 ALREADY_FIXED = "lesson L-0001 is already fixed by no skill; pass --evidence to re-prove the fix"
 PREFIX_REFUSAL = (
     "skill name 'foo' must start with tw-: every team skill is recognisable by the "
@@ -110,11 +107,6 @@ def ledger_records(root: Path) -> list:
     ]
 
 
-# --------------------------------------------------------------------------- #
-# 1. two roles, load, list, show, fix and the re-fix gate
-# --------------------------------------------------------------------------- #
-
-
 def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> None:
     init_workspace(cli, project)
     capsys.readouterr()
@@ -134,7 +126,6 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
     assert "# L-0002 recorded for tester: certified without CI" in printed
     assert f"#   file: {lessons_file(project, 'tester')}" in printed
 
-    # Each role's file holds its own record, and the id is global across roles.
     developer = engine.parse_lessons(lessons_file(project, "developer"))
     tester = engine.parse_lessons(lessons_file(project, "tester"))
     assert [(item["id"], item["role"], item["status"]) for item in developer] == [
@@ -170,7 +161,6 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
     assert "- role: tester" in shown
     assert "- evidence: pytest @abc -> 1 passed" in shown
 
-    # A fix without a skill closes the lesson and keeps the evidence.
     assert (
         cli(
             "--project",
@@ -190,9 +180,6 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
     assert "- status: fixed" in fixed
     assert "- evidence: pytest @def -> 2 passed" in fixed
 
-    # A second fix without new evidence is refused at the frozen line and
-    # changes nothing. The implementation's ``die`` default is 1, not the 2 the
-    # task brief predicted; the observed code is frozen here.
     assert cli("--project", project, "lesson", "fix", "L-0001", "--by", "Developer-1") == 1
     refusal = capsys.readouterr().err
     assert refusal.startswith("teamwork: ")
@@ -201,7 +188,6 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
     assert still["status"] == "fixed"
     assert still["evidence"] == "pytest @def -> 2 passed"
 
-    # New evidence re-proves the fix.
     assert (
         cli(
             "--project",
@@ -220,11 +206,6 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
     assert engine.parse_lessons(lessons_file(project, "developer"))[0]["evidence"] == (
         "pytest @ghi -> 3 passed"
     )
-
-
-# --------------------------------------------------------------------------- #
-# 2. --from-lesson links the skill and the lesson, in both legal orders
-# --------------------------------------------------------------------------- #
 
 
 def test_skill_from_lesson_links_both_ways_and_the_late_skill_order(
@@ -257,7 +238,6 @@ def test_skill_from_lesson_links_both_ways_and_the_late_skill_order(
     )
     capsys.readouterr()
 
-    # Order A: the skill closes the open lesson.
     assert (
         cli(
             "--project",
@@ -310,8 +290,6 @@ def test_skill_from_lesson_links_both_ways_and_the_late_skill_order(
     assert cli("--project", project, "lesson", "list") == 0
     assert "(skill: tw-fix-x)" in capsys.readouterr().out
 
-    # Order B: the lesson was fixed with evidence and no skill, then a skill
-    # links to it - the late link is legal and adds the skill field.
     assert (
         cli(
             "--project",
@@ -351,11 +329,6 @@ def test_skill_from_lesson_links_both_ways_and_the_late_skill_order(
     assert late["evidence"] == "pytest @def -> 2 passed"
 
 
-# --------------------------------------------------------------------------- #
-# 3. the refusals: prefix, kind without a lesson, a second fixing skill
-# --------------------------------------------------------------------------- #
-
-
 def test_skill_create_refuses_the_illegal_shapes(cli, project: Path, capsys) -> None:
     init_workspace(cli, project)
     assert (
@@ -385,7 +358,6 @@ def test_skill_create_refuses_the_illegal_shapes(cli, project: Path, capsys) -> 
     assert not (project / ".agents" / "skills" / "foo").exists()
     assert engine.parse_skills(registry(project)) == []
 
-    # A workflow needs no lesson and is accepted.
     assert (
         cli(
             "--project",
@@ -479,18 +451,12 @@ def test_skill_create_refuses_the_illegal_shapes(cli, project: Path, capsys) -> 
     assert not skill_md(project, "tw-second-fix").exists()
 
 
-# --------------------------------------------------------------------------- #
-# 4. candidates turns a failed review into a lesson/skill suggestion
-# --------------------------------------------------------------------------- #
-
-
 def test_candidates_names_a_review_failure_as_a_mistake(cli, project: Path, capsys) -> None:
     init_workspace(cli, project)
     capsys.readouterr()
     queue = engine.task_file(team_root(project), "developer")
     queue.write_text(
         "# Tasks - developer\n\n"
-        # The renderer's own separator: a hand-written queue a lane can edit.
         "## T-0001 · Fix the parser\n"
         "- priority: P0\n"
         "- status: done\n"
@@ -513,7 +479,6 @@ def test_candidates_names_a_review_failure_as_a_mistake(cli, project: Path, caps
         "--kind mistake --from-lesson L-nnnn" in out
     )
 
-    # Once a lesson exists, the skill hint names it instead of the placeholder.
     assert (
         add_lesson(cli, project, by="Developer-1", role="developer", mistake="accepted a bare flag")
         == 0
@@ -521,11 +486,6 @@ def test_candidates_names_a_review_failure_as_a_mistake(cli, project: Path, caps
     capsys.readouterr()
     assert cli("--project", project, "skill", "candidates") == 0
     assert "--from-lesson L-0001" in capsys.readouterr().out
-
-
-# --------------------------------------------------------------------------- #
-# 5. share tells the same-role peers; rm unregisters without deleting the file
-# --------------------------------------------------------------------------- #
 
 
 def test_skill_share_notifies_a_peer_and_rm_unregisters(cli, project: Path, capsys) -> None:
@@ -577,11 +537,6 @@ def test_skill_share_notifies_a_peer_and_rm_unregisters(cli, project: Path, caps
     assert skill_md(project, "tw-flow").exists()
 
 
-# --------------------------------------------------------------------------- #
-# 6. eight real CLI processes, one record and one ledger row per success
-# --------------------------------------------------------------------------- #
-
-
 def test_eight_real_cli_adds_persist_one_record_each(project: Path, tmp_path: Path) -> None:
     """The process-boundary twin of the unit lock test (TS-0071).
 
@@ -624,8 +579,6 @@ def test_eight_real_cli_adds_persist_one_record_each(project: Path, tmp_path: Pa
             "import pathlib, runpy, sys, time\n"
             f"while not pathlib.Path({str(barrier)!r}).exists():\n"
             "    time.sleep(0.002)\n"
-            # run_path executes the shipped shim itself as __main__, so the
-            # process is the file a lane runs, not a re-implementation.
             f"sys.argv = [{str(CLI_SHIM)!r}, *{argv!r}]\n"
             f"runpy.run_path({str(CLI_SHIM)!r}, run_name='__main__')\n"
         )
@@ -660,7 +613,6 @@ def test_eight_real_cli_adds_persist_one_record_each(project: Path, tmp_path: Pa
         f"race-{index}" for index in range(count)
     )
 
-    # Every exit-0 add printed exactly one recorded line, naming its own id.
     printed = []
     for out, _err in results:
         found = re.findall(r"^# (L-\d{4}) recorded for \w+: (race-\d+)$", out, re.MULTILINE)

@@ -43,22 +43,20 @@ OUTPUT = REPO / "assets" / "social-preview.png"
 WIDTH, HEIGHT = 1280, 640
 SUPERSAMPLE = 4
 
-# The mark's own raster is 600 px (Design.md, round 3); it is pasted at 168 px
-# after the card is downsampled.
 MARK_SOURCE = 600
 MARK_SIZE = 168
 MARK_TOP_LEFT = (556, 118)
 
 NAME = "Nidvue Teamwork"
 NAME_SIZE = 72
-NAME_FILL = (17, 17, 38)  # #111126
+NAME_FILL = (17, 17, 38)
 NAME_CENTER = (639.5, 362)
 
-RULE = (276, 400, 1004, 407)  # left, top, right, bottom (inclusive) in final pixels
-RULE_FILL = (88, 87, 232)  # #5857e8
+RULE = (276, 400, 1004, 407)
+RULE_FILL = (88, 87, 232)
 
 BODY_SIZE = 32
-BODY_FILL = (76, 76, 102)  # #4c4c66
+BODY_FILL = (76, 76, 102)
 PITCH_CENTER = (639.5, 456.5)
 DESC = "An evidence-gated, auditable multi-agent team for any repository."
 DESC_CENTER = (639.5, 501.5)

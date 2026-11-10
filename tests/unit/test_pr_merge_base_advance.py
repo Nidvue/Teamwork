@@ -137,8 +137,6 @@ def pass_review(cli, project: Path) -> None:
             "pass",
             "--evidence",
             "pytest @HEAD -> 1 passed @be762bf",
-            # these tests drive the merge themselves and rewrite the recorded
-            # base first, so the pass records the verdict only
             "--no-merge",
         )
         == 0
@@ -193,17 +191,13 @@ def test_merge_into_a_revision_base_still_advances_the_base_branch(cli, project,
     out = merge(cli, project, capsys)
 
     branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
-    # the reported base is the branch, not the revision it was recorded as
     assert f"# merged P-0001 {branch} -> main at " in out
     assert f"-> {base_sha[:7]} at" not in out.splitlines()[0]
-    # HEAD is on the branch, not detached, so the merge commit is on main
     assert head_branch(cli, project) == "main"
     main_sha = engine.run_git(project, "rev-parse", "main").stdout.strip()
     assert main_sha != base_sha, "the base branch never advanced"
     assert engine.run_git(project, "merge-base", "--is-ancestor", base_sha, "main").returncode == 0
-    # the merged work is reachable from main
     assert engine.run_git(project, "cat-file", "-e", "main:feature.txt").returncode == 0
-    # the record now names the branch, so the next merge has a branch to advance
     assert engine.parse_reviews(root / "Reviews.md")[0]["base"] == "main"
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
 
@@ -222,7 +216,6 @@ def test_merge_refuses_a_base_revision_that_no_branch_points_at(cli, project, ca
     err = capsys.readouterr().err
     assert "not a local branch" in err
     assert "detached HEAD" in err
-    # nothing moved and nothing was merged
     assert engine.run_git(project, "rev-parse", "main").stdout.strip() == before
     assert engine.parse_reviews(team_root(project) / "Reviews.md")[0]["status"] == "approved"
 
@@ -256,8 +249,6 @@ def test_merge_writes_the_missing_archive_entry_on_the_base(cli, project, capsys
     pass_review(cli, project)
     branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
 
-    # drop the entry the pass left in this work tree: the base branch has none,
-    # which is the state the per-instance layout produced on its own
     engine.run_git(project, "checkout", "--", "docs/Team/Archive.md")
     assert branch not in engine.archive_path(root).read_text(encoding="utf-8")
 
@@ -268,7 +259,6 @@ def test_merge_writes_the_missing_archive_entry_on_the_base(cli, project, capsys
     archive = committed_archive(project)
     assert f"- branch / merge: {branch} / {sha}" in archive
     assert " / pending" not in archive
-    # the entry arrived in the same records commit the merge makes before merging
     assert cli("--project", project, "archive") == 0
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
 
@@ -324,7 +314,6 @@ def test_merge_base_branch_maps_a_revision_to_the_branch_at_it(cli, project) -> 
     assert engine._merge_base_branch(project, "main", {}) == "main"
     assert engine._merge_base_branch(project, "", {}) == "main"
     assert engine._merge_base_branch(project, main_tip, {}) == "main"
-    # a second branch at the same commit loses to the default base
     engine.run_git(project, "branch", "side", "main")
     assert engine._merge_base_branch(project, main_tip, {}) == "main"
     assert engine._merge_base_branch(project, "side", {}) == "side"
@@ -341,13 +330,10 @@ def test_archive_write_repo_targets_the_work_tree_holding_the_base(cli, project)
     )
     assert work.is_dir()
     root = team_root(project)
-    # main is checked out at the project root, so that is where its records belong
     assert engine.archive_write_repo(root, {"base": "main"}) == project.resolve()
-    # a base branch parked in a work tree is written there, not in the command's cwd
     side_wt = project / "side-checkout"
     assert engine.run_git(project, "worktree", "add", str(side_wt), "side").returncode == 0
     assert engine.archive_write_repo(root, {"base": "side"}) == side_wt
-    # a base that no work tree holds falls back to the project root
     assert engine.archive_write_repo(root, {"base": ""}) == project.resolve()
 
 
@@ -364,8 +350,6 @@ def test_the_merge_restores_the_branch_the_work_tree_was_on(cli, project, capsys
     pass_review(cli, project)
     branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
 
-    # the base is checked out nowhere and the work repo sits on its own branch, so
-    # the merge runs here: exactly the case that used to leave the tree on main
     assert engine.run_git(project, "checkout", "-b", "lane/scratch").returncode == 0
     out = merge(cli, project, capsys)
 

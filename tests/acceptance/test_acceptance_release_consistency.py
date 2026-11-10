@@ -25,11 +25,6 @@ from gate_fixtures import commit_all, git, make_repo, run_checker, write_release
 AREA = "release-consistency"
 STATUSES = {"ok", "DRIFT", "SKIP"}
 
-#: The contract's rule ids, in contract order (Architecture 11.2, amended to ten
-#: rules by P-0037; 11.1.2 admits `R10` as a three-character RULE-ID). Written out
-#: literally, never derived from the checker or a ``range()`` bound: a rule the
-#: report drops must fail, and the next rule extends this tuple instead of moving
-#: a bound. Adding a rule is an Architecture amendment and updates this line.
 CONTRACT_RULE_IDS = (
     "R1",
     "R2",
@@ -84,7 +79,7 @@ def test_json_verdict_agrees_with_the_exit_code(tmp_path, builder, expected_rc, 
     )
     try:
         payload = json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:  # pragma: no cover - the assertion below reports it
+    except json.JSONDecodeError as exc:  # pragma: no cover
         pytest.fail(f"--json did not print a JSON object ({exc}):\n{proc.stdout}")
 
     assert set(payload) == {"problems", "rules", "exit_code"}, sorted(payload)

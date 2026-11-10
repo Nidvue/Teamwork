@@ -125,8 +125,6 @@ def test_a_foreign_uncommitted_record_stays_out_of_the_records_commit(cli, proje
 
     task = task_record(cli, project)
     records = engine.run_git(project, "rev-parse", f"{task['merge_commit']}^1").stdout.strip()
-    # the commit the merge made before it merged carries the archive it wrote,
-    # and nothing else
     assert changed_paths(project, records) == ["docs/Team/Archive.md"]
     archive = engine.run_git(project, "show", f"{records}:docs/Team/Archive.md").stdout
     assert f"- branch / merge: {branch} / pending" in archive, archive
@@ -134,12 +132,9 @@ def test_a_foreign_uncommitted_record_stays_out_of_the_records_commit(cli, proje
         engine.run_git(project, "cat-file", "-e", f"{records}:docs/Team/PeerNotes.md").returncode
         != 0
     )
-    # the close-out commit that repoints the entry is scoped the same way
     assert changed_paths(project, "HEAD") == ["docs/Team/Archive.md"]
-    # the peer's work is not on the base branch ...
     committed = engine.run_git(project, "show", "HEAD:docs/Team/Decisions.md").stdout
     assert "D-20261030-Developer-3" not in committed
-    # ... and is still uncommitted, exactly as the peer left it
     status = engine.run_git(project, "status", "--porcelain").stdout
     assert "docs/Team/Decisions.md" in status, status
     assert "docs/Team/PeerNotes.md" in status, status
@@ -172,7 +167,6 @@ def test_a_staged_foreign_record_is_left_staged_and_out_of_the_records_commit(
 
     task = task_record(cli, project)
     records = engine.run_git(project, "rev-parse", f"{task['merge_commit']}^1").stdout.strip()
-    # the commit the pass made before merging carries the archive and nothing else
     assert changed_paths(project, records) == ["docs/Team/Archive.md"]
     assert (
         f"- branch / merge: {branch} / pending"
@@ -182,19 +176,14 @@ def test_a_staged_foreign_record_is_left_staged_and_out_of_the_records_commit(
         "D-20261031-Designer"
         not in engine.run_git(project, "show", f"{records}:docs/Team/Decisions.md").stdout
     )
-    # the close-out commit that repoints the entry is scoped the same way
     assert changed_paths(project, "HEAD") == ["docs/Team/Archive.md"]
     assert (
         "D-20261031-Designer"
         not in engine.run_git(project, "show", "HEAD:docs/Team/Decisions.md").stdout
     )
-    # the peer's staged work is still staged and uncommitted, exactly as left
     status = engine.run_git(project, "status", "--porcelain").stdout
     assert "M  docs/Team/Decisions.md" in status, status
     assert "D-20261031-Designer" in decisions.read_text(encoding="utf-8")
-    # and the run's own line is not a lie: "left ... uncommitted" is said only
-    # about a path git still holds that way (this case used to print it about a
-    # path the records commit had just swallowed)
     left_claim = "left docs/Team/Decisions.md uncommitted" in out
     assert left_claim == ("M  docs/Team/Decisions.md" in status), (out, status)
     assert root.is_dir()
@@ -225,11 +214,9 @@ def test_a_foreign_record_staged_as_new_comes_back_staged(cli, project, capsys) 
     records = engine.run_git(project, "rev-parse", f"{task['merge_commit']}^1").stdout.strip()
     assert changed_paths(project, records) == [ARCHIVE]
     assert "WARNING" not in out, out
-    # the peer's staging survives: same entry, same blob, same shape
     assert index_rows(project, "docs/Team/PeerNew.md") == before
     assert "A  docs/Team/PeerNew.md" in porcelain_status(project), porcelain_status(project)
     assert fresh.read_text(encoding="utf-8") == "# peer new record\n"
-    # and it did not ride onto the base branch
     assert not main_blob(project, "docs/Team/PeerNew.md")
 
 
@@ -260,12 +247,10 @@ def test_a_foreign_record_staged_as_a_rename_comes_back_staged(cli, project, cap
     assert changed_paths(project, records) == [ARCHIVE]
     assert "owner must rebase" not in out, out
     assert "WARNING" not in out, out
-    # both ends came back: the index still holds the renamed blob, not the old
     assert index_rows(project, "docs/Team/Costs.md", "docs/Team/CostsRenamed.md") == before
     assert renamed in porcelain_status(project), porcelain_status(project)
     assert (project / "docs" / "Team" / "CostsRenamed.md").is_file()
     assert not (project / "docs" / "Team" / "Costs.md").exists()
-    # the rename is the peer's work, not the merge's: the base keeps the old path
     assert main_blob(project, "docs/Team/Costs.md")
     assert not main_blob(project, "docs/Team/CostsRenamed.md")
 
@@ -289,7 +274,6 @@ def test_a_foreign_record_staged_as_a_deletion_comes_back_staged(cli, project, c
     assert index_rows(project, "docs/Team/Costs.md") == before
     assert "D  docs/Team/Costs.md" in porcelain_status(project), porcelain_status(project)
     assert not victim.exists()
-    # the deletion stayed the peer's: the base branch still carries the file
     assert main_blob(project, "docs/Team/Costs.md")
 
 
@@ -338,8 +322,6 @@ def test_a_failed_merge_gives_the_peer_its_index_back(cli, project, capsys) -> N
     assert cli("--project", project, "pr", "merge", "--pr", "P-0001", "--by", "reviewer-2") == 2
     captured = capsys.readouterr()
 
-    # refused by the mergeability probe, no conflict left behind, and the peer's
-    # index entry byte exact
     assert "does not merge into" in captured.err, captured
     assert "owner must rebase" in captured.err, captured
     assert engine.run_git(project, "ls-files", "-u").stdout.strip() == ""
@@ -381,7 +363,6 @@ def test_the_lift_and_restore_keep_a_record_staged_as_new(tmp_path) -> None:
     rows, deleted = engine._lift_staged_entries(repo, ["docs/Team/PeerNew.md"])
     assert rows == [("100644", before["docs/Team/PeerNew.md"][1], "docs/Team/PeerNew.md")], rows
     assert deleted == []
-    # lifted: the index matches HEAD again (the work tree keeps the file)
     assert porcelain_status(repo) == "?? docs/Team/PeerNew.md\n", porcelain_status(repo)
 
     engine._return_staged_entries(repo, rows, deleted)
@@ -448,7 +429,6 @@ def test_a_merge_with_nothing_to_record_makes_no_records_commit(cli, project, ca
         "a records commit was made with nothing to record: "
         + engine.run_git(project, "log", "--oneline", "-4").stdout
     )
-    # the close-out still repoints the entry, and touches only the archive
     assert changed_paths(project, "HEAD") == ["docs/Team/Archive.md"]
     assert (
         f"- branch / merge: {task['branch']} / {task['merge_commit']}"

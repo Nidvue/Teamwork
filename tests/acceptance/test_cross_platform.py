@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from cli_harness import DEFAULT_ROSTER, assert_ok, cli
 
-TEAM = "Ünï Team"  # non-ASCII team name
-PROJECT_NAME = "Pröject with Spacé"  # non-ASCII + space in the path
+TEAM = "Ünï Team"
+PROJECT_NAME = "Pröject with Spacé"
 
 
 def _make_project(tmp_path):

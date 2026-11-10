@@ -43,10 +43,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MAKEFILE = "Makefile"
 CI_PATH = ".github/workflows/ci.yml"
 
-#: Jobs that run no gate. `scope` only classifies the changed paths.
 NON_GATE_JOBS = {"scope"}
 
-#: Shell words that begin a line which is not a gate invocation.
 SHELL_WORDS = {
     "set",
     "if",
@@ -106,13 +104,10 @@ SHELL_WORDS = {
     "which",
 }
 
-#: Module-style tools whose subcommand is part of the identity.
 SUBTYPED_MODULES = {"ruff", "mypy", "pytest", "mkdocs", "build", "unittest", "sphinx"}
 
-#: Modules that install things rather than check them.
 SETUP_MODULES = {"pip", "wheel", "setuptools", "ensurepip", "venv", "virtualenv"}
 
-#: Tools CI and the Makefile invoke directly (`ruff check .`, not `python -m ruff`).
 DIRECT_TOOLS = {"ruff", "mypy", "pytest", "mkdocs", "coverage", "shellcheck", "actionlint"}
 
 TARGET_RE = re.compile(r"^(?P<name>[A-Za-z0-9_.-]+):(?!=)\s*(?P<rest>.*)$")
@@ -135,7 +130,7 @@ def signature(argv: list[str]) -> tuple[str, ...] | None:
     """
     argv = [normalise(word) for word in argv if word]
     while argv and "=" in argv[0] and not argv[0].startswith("-"):
-        argv.pop(0)  # leading VAR=value assignment
+        argv.pop(0)
     while argv and argv[0] in {"sudo", "env"}:
         argv.pop(0)
     if not argv or Path(argv[0]).name in SHELL_WORDS:
@@ -159,7 +154,7 @@ def signature(argv: list[str]) -> tuple[str, ...] | None:
             return (module, rest[0])
         return (module,)
     if argv[1].startswith("-"):
-        return None  # `python -` is a stdin heredoc body, not a gate
+        return None
     script = Path(argv[1]).name
     return (script,) if script.endswith(".py") else None
 
@@ -302,11 +297,6 @@ def uncovered_gates(repo_root: Path = REPO_ROOT) -> list[tuple]:
     return sorted(sig for sig in all_ci_gates(repo_root) if sig not in covered)
 
 
-# --------------------------------------------------------------------------- #
-# the real tree
-# --------------------------------------------------------------------------- #
-
-
 def test_every_gate_command_ci_runs_has_a_makefile_target():
     assert uncovered_gates() == []
 
@@ -443,13 +433,6 @@ def test_release_check_chains_the_gates_it_claims():
         assert gate in recipe, f"release-check no longer runs {gate}: {recipe}"
 
 
-# --------------------------------------------------------------------------- #
-# The advertised release gate must be runnable after a plain `make dev`
-# --------------------------------------------------------------------------- #
-
-#: Module -> the distribution that provides it. A module the gate runs but this
-#: map does not name fails the test below, so a new gate cannot slip past the
-#: installability claim by being unknown.
 MODULE_DISTRIBUTIONS = {
     "pytest": "pytest",
     "ruff": "ruff",
@@ -458,7 +441,6 @@ MODULE_DISTRIBUTIONS = {
     "mkdocs": "mkdocs-material",
 }
 
-#: Modules that install things rather than check them; never a gate.
 INSTALL_MODULES = {"pip", "wheel", "setuptools", "ensurepip", "venv", "virtualenv"}
 
 REQUIREMENT_RE = re.compile(r"^(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?P<spec>.*)$")
@@ -558,11 +540,6 @@ def test_the_docs_builder_range_is_the_one_docs_requirements_pins():
         f"the dev extra pins {dev.get('mkdocs-material')!r} but docs/requirements.txt "
         f"pins {docs['mkdocs-material']!r}"
     )
-
-
-# --------------------------------------------------------------------------- #
-# mutants: break the parity and assert the comparison reports it
-# --------------------------------------------------------------------------- #
 
 
 def _tree(tmp_path: Path, makefile: str | None = None) -> Path:

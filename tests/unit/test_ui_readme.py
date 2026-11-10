@@ -24,7 +24,6 @@ from pathlib import Path
 
 import pytest
 
-#: An attribute on an `<img>` tag; the README only uses double quotes.
 ATTRIBUTE = re.compile(r"([\w-]+)\s*=\s*\"([^\"]*)\"")
 IMAGE = re.compile(r"<img\b([^>]*)>", re.IGNORECASE)
 BADGE_LINK = re.compile(r"<a\b[^>]*href=\"([^\"]+)\"[^>]*>\s*<img\b([^>]*)>", re.IGNORECASE)

@@ -28,16 +28,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 AGENTS = "ceo,developer-1"
 
-#: 12.2: the closed set of activation classes, and the one row that is not a file.
 CLASSES = {"always-on", "on-demand", "in-loop", "n/a"}
-#: 12.3: C5 is an inference context, so its class cell is ``-`` like its bytes.
 NO_VALUE = "-"
-#: 12.2, in component order (C1..C8): the ``path`` spec each row must print,
-#: frozen so a row explains its own byte count. C2 is the managed *block* (the
-#: file holds text outside it), C3 is every role's short-term memory (the
-#: startup file), C7 is the scripts *and* the engine package, and C8 is both hook stages
-#: found through the resolver the hooks are installed through - spelled as the
-#: resolver call, because ``<toplevel>/.git`` is a file in a linked worktree.
 SPECS = [
     "SKILL.md",
     "managed block in AGENTS.md",
@@ -49,9 +41,6 @@ SPECS = [
     "hook_dir(root)/{pre-commit,pre-push}",
 ]
 
-#: 12.2 freezes four columns, and two of its frozen path specs contain a single
-#: space, so the cells are separated by a run of two or more spaces. ``split()``
-#: tears ``managed block in AGENTS.md`` into three cells and loses the shape.
 CELL_SEPARATOR = re.compile(r"\s{2,}")
 
 
@@ -63,14 +52,8 @@ def run(
     cwd: Path | None = None,
 ) -> subprocess.CompletedProcess:
     """``python3 scripts/teamwork.py --project <project> <args>`` as a process."""
-    # The platform's own variables must survive (a hand-built environment that
-    # keeps PATH and HOME but drops SystemRoot/TEMP breaks Windows, where the
-    # interpreter's RNG is initialised from the OS), and the caller's git
-    # configuration must not (core.hooksPath, init.defaultBranch and
-    # commit.gpgsign would decide what this test measures). ``child_env``
-    # starts from the parent environment and re-asserts the hermeticity on top.
     child = child_env(
-        HOME=str(project),  # no developer git config reaches the scaffold
+        HOME=str(project),
         PYTHONPATH=str(REPO_ROOT / "src"),
         PYTHONIOENCODING="utf-8",
         PYTHONUTF8="1",
@@ -167,11 +150,6 @@ def said(done: subprocess.CompletedProcess) -> str:
     return done.stdout + done.stderr
 
 
-# --------------------------------------------------------------------------- #
-# AC-H2: harness list
-# --------------------------------------------------------------------------- #
-
-
 def test_harness_list_is_the_eight_row_registry_measured_on_disk(tmp_path: Path) -> None:
     """12.2: eight rows, one per component, four columns, no header, exit 0."""
     project = scaffold(tmp_path)
@@ -190,8 +168,6 @@ def test_harness_list_is_the_eight_row_registry_measured_on_disk(tmp_path: Path)
             f"bytes must be a count or '-', got {row[1]!r}"
         )
 
-    # C1..C8 order, pinned by the frozen spec of each component: the registry
-    # prints no component id, so the path column is what carries the order.
     assert [row[2] for row in table] == SPECS, out
     assert table[0][1] == str(skill_md.stat().st_size), table[0]
     assert table[1][1] == str(len(block.encode("utf-8"))), table[1]
@@ -221,11 +197,6 @@ def test_harness_list_measures_the_tree_at_run_time(tmp_path: Path) -> None:
     added = write(project / "references" / "second.md", "y" * 512)
     after = references_row()
     assert int(after[1]) == int(before[1]) + added.stat().st_size, (before, after)
-
-
-# --------------------------------------------------------------------------- #
-# AC-H3: harness lint, one purpose-built tree per rule
-# --------------------------------------------------------------------------- #
 
 
 def test_harness_lint_passes_a_clean_tree(tmp_path: Path) -> None:
@@ -293,7 +264,6 @@ def test_harness_lint_fails_a_shared_skill_with_no_evidence_row(tmp_path: Path) 
     assert done.returncode == 1, done.stdout
     assert "- PROBLEM EVIDENCE .agents/skills/tw-demo/SKILL.md:" in done.stdout, done.stdout
 
-    # the same tree with the verdict the rule asks for is clean
     skill(project, "tw-demo", "# demo\n\nverdict: helped\n")
     assert "# problems found: 0" in ok(project, "harness", "lint")
 
@@ -306,7 +276,6 @@ def test_harness_lint_verbose_names_what_it_checked(tmp_path: Path) -> None:
     assert "# EVIDENCE:" in out, out
 
 
-#: 12.4: one ``# checked: <file> -> <RULE verdict, ...>`` line per skill file read.
 CHECKED_SKILL_RE = re.compile(
     r"^# checked: \S.* -> IDENTITY (?:ok|fail), PREFIX (?:ok|fail), "
     r"TRIGGER (?:ok|fail), SUBCOMMAND (?:ok|fail), HELPER (?:ok|fail), "
@@ -345,18 +314,13 @@ def test_the_shipped_tree_lints_clean_and_accounts_for_every_file_it_read() -> N
         for line in checked
     ), f"the shipped skill is not named by an always-on surface:\n{verbose}"
 
-    surfaces = len(list((REPO_ROOT / "roles").glob("*.md"))) + 2  # AGENTS.md + SKILL.md
+    surfaces = len(list((REPO_ROOT / "roles").glob("*.md"))) + 2
     skills = len(list((REPO_ROOT / ".agents" / "skills").glob("*/SKILL.md")))
     registry = 1 if any("Skills.md" in line for line in checked) else 0
     assert len(checked) == surfaces + skills + registry, (
         f"{len(checked)} checked lines for {surfaces} surfaces + {skills} skills "
         f"+ {registry} registry:\n{verbose}"
     )
-
-
-# --------------------------------------------------------------------------- #
-# AC-H4: harness budget
-# --------------------------------------------------------------------------- #
 
 
 def test_harness_budget_reports_every_instance_against_the_cap(tmp_path: Path) -> None:
@@ -379,7 +343,7 @@ def test_harness_budget_goes_over_and_exits_non_zero(tmp_path: Path) -> None:
     done = run(project, "harness", "budget", "--limit", "1")
     assert done.returncode == 1, done.stdout
     body = [line.split() for line in done.stdout.splitlines() if line.split()[-1:] in (["OVER"],)]
-    assert len(body) == 3, done.stdout  # two instances plus the total line
+    assert len(body) == 3, done.stdout
     assert all(line[3] == "OVER" for line in body), done.stdout
     per_instance = [line for line in body if line[0] != "total"]
     assert all(line[2] == str(1 * 1024) for line in per_instance), f"12.5: KiB: {body}"
@@ -391,11 +355,6 @@ def test_harness_budget_without_a_workspace_says_to_init(tmp_path: Path) -> None
     done = run(empty, "harness", "budget")
     assert done.returncode == 1, done.stdout
     assert "init" in said(done), said(done)
-
-
-# --------------------------------------------------------------------------- #
-# AC-H5: the hooks, against a real git repository
-# --------------------------------------------------------------------------- #
 
 
 def installable(tmp_path: Path) -> Path:
@@ -420,8 +379,6 @@ def test_hooks_install_status_uninstall_round_trip(tmp_path: Path) -> None:
         path = hook_path(project, stage)
         assert path.is_file(), f"{stage} not written to git's hooks dir"
         if os.name != "nt":
-            # Windows has no executable bit and git for Windows ignores the file
-            # mode, so the 0755 contract only holds where POSIX modes exist.
             mode = stat.S_IMODE(path.stat().st_mode)
             assert mode == 0o755, f"12.6 says mode 0755, got {oct(mode)}"
         assert path.read_text(encoding="utf-8").startswith("#!/bin/sh\n")
@@ -449,14 +406,9 @@ def test_the_shim_body_is_the_contract_body(tmp_path: Path) -> None:
     project = installable(tmp_path)
     ok(project, "hooks", "install")
     text = hook_path(project, "pre-commit").read_text(encoding="utf-8")
-    # -f, not -x: scripts/teamwork.py is committed 100644, so an executable-bit
-    # test would make every hook a silent no-op.
     assert '[ ! -f "$root/scripts/teamwork.py" ]' in text, text
     assert "[ -x" not in text, text
-    # :-, so an inherited `set -u` cannot turn the bypass into a refusal.
     assert '[ -n "${TEAMWORK_SKIP_HOOKS:-}" ]' in text, text
-    # no failure path may exit 0: an unresolvable root and a missing engine both
-    # refuse with a message (security audit F-6, D-20261029-Developer-16).
     assert "root=$(git rev-parse --show-toplevel)" in text, text
     assert "|| exit 0" not in text, text
     assert "2>/dev/null" not in text, text
@@ -482,8 +434,6 @@ def test_hooks_install_from_a_linked_worktree_reaches_the_common_git_dir(
     assert "pre-commit installed" in ok(lane, "hooks", "status")
     assert "pre-commit installed" in ok(project, "hooks", "status")
 
-    # C8 is measured through the same resolver, so it counts both stages from
-    # inside the worktree instead of reporting 0 for a hook that is executing.
     hooks_size = sum(
         hook_path(project, stage).stat().st_size for stage in ("pre-commit", "pre-push")
     )
@@ -506,7 +456,6 @@ def test_hooks_are_written_where_core_hooks_path_points(tmp_path: Path) -> None:
         assert not (project / ".git" / "hooks" / stage).exists(), f"{stage} ignored the config"
     assert str(custom) in ok(project, "hooks", "status")
 
-    # git must actually run the hook from the configured directory.
     write(project / "notes.txt", "hello\n")
     git_ok(project, "add", "notes.txt")
     refused = git(project, "commit", "-m", "on main")
@@ -533,7 +482,6 @@ def test_hooks_install_preserves_and_chains_a_foreign_hook(tmp_path: Path) -> No
     assert preserved.read_text(encoding="utf-8") == "#!/bin/sh\nexit 0\n"
     assert "chained: pre-commit.teamwork-foreign" in ok(project, "hooks", "status")
 
-    # ``--force --reason`` is the deliberate replacement, and it is recorded.
     ok(project, "hooks", "uninstall")
     assert hook_path(project, "pre-commit").read_text(encoding="utf-8") == "#!/bin/sh\nexit 0\n"
     forced = run(project, "hooks", "install", "--force")
@@ -593,7 +541,6 @@ def test_skip_hooks_bypasses_both_hooks(tmp_path: Path) -> None:
     assert done.returncode == 0, done.stderr
     assert git_ok(project, "log", "-1", "--format=%s").strip() == "bypassed"
 
-    # the push side: a rewrite R1..P2 would refuse goes through under the bypass
     git_ok(project, "remote", "add", "origin", str(remote))
     git_ok(project, "push", "-q", "origin", "main", env={"TEAMWORK_SKIP_HOOKS": "1"})
     pushed = git_ok(remote, "rev-parse", "main").strip()
@@ -645,7 +592,7 @@ def test_a_force_push_to_the_default_branch_is_refused(tmp_path: Path) -> None:
     git_ok(project, "push", "-q", "origin", "main")
     pushed = git_ok(remote, "rev-parse", "main").strip()
 
-    git_ok(project, "reset", "--hard", "HEAD~1")  # drop the pushed tip locally
+    git_ok(project, "reset", "--hard", "HEAD~1")
     write(project / "notes.txt", "three\n")
     git_ok(project, "commit", "-am", "three", env=allowed)
     assert git(project, "merge-base", "--is-ancestor", pushed, "HEAD").returncode != 0
@@ -664,10 +611,6 @@ def test_a_delete_of_the_default_branch_is_refused(tmp_path: Path) -> None:
     remote = tmp_path / "remote.git"
     remote.mkdir()
     git_ok(remote, "init", "--bare", "-q", "-b", "main")
-    # git's own protection is switched OFF on purpose. A default bare remote
-    # refuses the delete by itself ("deletion of the current branch
-    # prohibited"), and then the refusal under test would be git's, not the
-    # hook's - the assertion would hold for the wrong reason.
     git_ok(remote, "config", "receive.denyDeleteCurrent", "ignore")
     ok(project, "hooks", "install")
     allowed = {"TEAMWORK_ALLOW_MAIN": "1"}
@@ -680,9 +623,6 @@ def test_a_delete_of_the_default_branch_is_refused(tmp_path: Path) -> None:
 
     refused = git(project, "push", "origin", "--delete", "main")
     assert refused.returncode != 0, refused.stdout + refused.stderr
-    # the ENGINE's own words. Asserting the word "delete" alone would be
-    # vacuous: the pytest tmp path carries it too, so the assertion would hold
-    # even with the refusal message deleted.
     assert "refusing to delete refs/heads/main" in said(refused), said(refused)
     assert "deleting the default branch is a red line" in said(refused), said(refused)
     assert git_ok(remote, "rev-parse", "main").strip() == pushed, "the remote lost main"
@@ -692,8 +632,6 @@ def test_a_delete_of_the_default_branch_is_refused(tmp_path: Path) -> None:
     assert "refusing to delete refs/heads/main" in said(still), said(still)
     assert git_ok(remote, "rev-parse", "main").strip() == pushed
 
-    # CONTROL: the same push with the hook bypassed goes through, because the
-    # remote no longer refuses it. So the two refusals above are the hook's.
     control = git(project, "push", "origin", "--delete", "main", env={"TEAMWORK_SKIP_HOOKS": "1"})
     assert control.returncode == 0, control.stdout + control.stderr
     assert git(remote, "rev-parse", "--verify", "main").returncode != 0, "the delete went through"

@@ -30,8 +30,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# One source of truth for what a skill bundle contains: the engine module that
-# also serves ``teamwork.py refresh`` and the pi package build.
 sys.path.insert(0, str(ROOT / "src"))
 from teamwork import bundle  # noqa: E402
 

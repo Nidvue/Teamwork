@@ -19,13 +19,10 @@ import os
 import shutil
 from pathlib import Path
 
-#: Files the skill needs at runtime, at the bundle root.
 BUNDLE_FILES = ("SKILL.md", "AGENTS.md")
 
-#: Trees the skill needs at runtime. Tests, docs and build output stay out.
 BUNDLE_TREES = ("references", "roles", "templates", "scripts", "src")
 
-#: Where a host scans skills from. Only a default - any directory works.
 HOST_DEFAULTS = {
     "pi": Path("~/.pi/agent/skills/teamwork"),
     "agents": Path("~/.agents/skills/teamwork"),
@@ -109,7 +106,6 @@ def sync(source: Path, dest: Path, *, dry_run: bool, quiet: bool = False) -> int
         shutil.copy2(source / rel, target)
     for rel in removed:
         (dest / rel).unlink()
-    # A stale __pycache__ would keep importing a module the source dropped.
     for path in sorted(dest.rglob("__pycache__"), reverse=True):
         shutil.rmtree(path, ignore_errors=True)
     for directory in sorted((p for p in dest.rglob("*") if p.is_dir()), reverse=True):

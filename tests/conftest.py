@@ -22,8 +22,6 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
 
-# 1 + 2: import path and bundle root. Force the override (do not setdefault) so a
-# stale value inherited from the caller can never redirect the engine elsewhere.
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 os.environ["TEAMWORK_SKILL_DIR"] = str(REPO_ROOT)
@@ -58,7 +56,7 @@ def cli():
         args = [str(a) for a in argv]
         try:
             return engine.main(args)
-        except SystemExit as exc:  # ``die()`` raises SystemExit(code)
+        except SystemExit as exc:
             code = exc.code
             return code if isinstance(code, int) else 1
 

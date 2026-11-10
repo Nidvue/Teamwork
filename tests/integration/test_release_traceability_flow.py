@@ -49,11 +49,6 @@ GIT_OPTIONS = (
 VERSION_FILE = '__version__ = "{}"\nDIST_NAME = "teamwork-agents"\n'
 
 
-# --------------------------------------------------------------------------- #
-# Building the chain
-# --------------------------------------------------------------------------- #
-
-
 def git(root: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", "-C", str(root), *GIT_OPTIONS, *args],
@@ -133,11 +128,6 @@ def problems(report: dict) -> str:
     return " | ".join(f"{p['rule']}: {p['detail']}" for p in report.get("problems", []))
 
 
-# --------------------------------------------------------------------------- #
-# Link 1 - version.py <-> tag (R1)
-# --------------------------------------------------------------------------- #
-
-
 def test_the_tag_and_version_py_agree_is_a_pass(tmp_path: Path) -> None:
     root = make_chain(tmp_path / "agreed")
 
@@ -194,11 +184,6 @@ def test_a_tag_without_a_changelog_section_is_drift(tmp_path: Path) -> None:
     assert "v2.0.0 has no '## [2.0.0]' section" in problems(report)
 
 
-# --------------------------------------------------------------------------- #
-# Link 2 - the exception record
-# --------------------------------------------------------------------------- #
-
-
 def measured_exception(version: str = "0.9.0") -> dict[str, str]:
     return {
         "version": version,
@@ -215,7 +200,7 @@ def test_an_exception_with_a_measured_reason_admits_the_version(tmp_path: Path) 
 
     assert code == 0, problems(report)
     assert "0.9.0 admitted by exception" in detail(report, "R3")
-    assert verdict(report, "R3") == "SKIP"  # offline: admitted, not verified
+    assert verdict(report, "R3") == "SKIP"
 
 
 def test_an_exception_without_a_reason_is_an_unreadable_input(tmp_path: Path) -> None:
@@ -261,11 +246,6 @@ def test_an_exception_still_measured_after_the_version_became_traceable_is_drift
     assert "exception names a traceable version, tag v1.0.0 exists" in problems(report)
 
 
-# --------------------------------------------------------------------------- #
-# Link 4 - R5 must never claim a release that was not checked
-# --------------------------------------------------------------------------- #
-
-
 def test_r5_never_claims_a_release_offline(tmp_path: Path) -> None:
     root = make_chain(tmp_path / "r5offline")
 
@@ -299,11 +279,6 @@ def test_the_online_link_of_the_chain_is_not_run_here() -> None:
     assert "--online" in result.stdout
 
 
-# --------------------------------------------------------------------------- #
-# The chain must bite: break one link and the verdict flips
-# --------------------------------------------------------------------------- #
-
-
 def test_repairing_the_broken_link_turns_the_verdict_green(tmp_path: Path) -> None:
     """The same repository, mutated and then repaired: drift -> pass."""
     root = make_chain(tmp_path / "reversible", version="1.0.0", tags=("v2.0.0",))
@@ -312,7 +287,6 @@ def test_repairing_the_broken_link_turns_the_verdict_green(tmp_path: Path) -> No
     assert broken_code == 1
     assert verdict(broken_report, "R1") == "DRIFT"
 
-    # Repair the chain: make the declared version match the published tag.
     commit(
         root,
         {

@@ -156,7 +156,6 @@ def test_a_failed_merge_keeps_the_verdict_and_names_the_retry(cli, project, caps
     ship(cli, project)
     root = team_root(project)
     pass_review(cli, project, "--no-merge")
-    # a base no local branch points at: the merge refuses before touching git
     rework_records(cli, project, base="0" * 40)
     main_before = engine.run_git(project, "rev-parse", "main").stdout.strip()
 

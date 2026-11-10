@@ -58,7 +58,6 @@ CLEAN = """# Queue
 - deps: T-0001
 """
 
-# A second role, so the fixture never plants the duplicate this suite looks for.
 CLEAN_TESTER = """# Queue
 ## T-0011 · test the contract
 - priority: P1
@@ -137,7 +136,6 @@ def test_a_two_node_cycle_is_reported(synthetic):
     found = named(synthetic, "dependency cycle")
     assert len(found) == 1, found
     assert "tester:T-0001" in found[0] and "tester:T-0002" in found[0]
-    # The path starts and ends on the same task: it is a loop, not a chain.
     path = found[0].split(": ", 1)[1].split(" -> ")
     assert path[0] == path[-1], path
 
@@ -227,11 +225,6 @@ def test_a_task_without_a_priority_is_reported(synthetic):
     assert named(synthetic, "tester:T-0001", "has no priority")
 
 
-# --------------------------------------------------------------------------- #
-# the write gates: a broken graph must be refused before it exists
-# --------------------------------------------------------------------------- #
-
-
 def init_team(cli, project: Path) -> Path:
     assert cli("--project", project, "init", "--agents", ROSTER, "--no-git") == 0
     root = (
@@ -250,7 +243,6 @@ def test_task_add_refuses_a_self_dependency(cli, project: Path, capsys) -> None:
     assert cli("--project", project, "task", "add", "developer", "first", "--no-review") == 0
     capsys.readouterr()
 
-    # The new task gets T-0002, so depending on T-0002 is depending on itself.
     assert (
         cli(
             "--project",
@@ -319,7 +311,6 @@ def test_task_set_refuses_a_two_node_cycle(cli, project: Path, capsys) -> None:
     )
     err = capsys.readouterr().err
     assert "dependency cycle: developer:T-0001 -> tester:T-0001 -> developer:T-0001" in err, err
-    # The refused write changed nothing: the queue on disk still has no deps.
     assert queue(root, "Developer")[0]["deps"] == ""
 
 
@@ -407,11 +398,6 @@ def test_task_check_reports_a_cycle_that_arrived_on_disk(cli, project: Path, cap
     assert "dependency cycle: tester:T-0001 -> tester:T-0002 -> tester:T-0001" in out, out
 
 
-# --------------------------------------------------------------------------- #
-# the committed claim
-# --------------------------------------------------------------------------- #
-
-
 def test_the_plan_states_the_same_invariants():
     """The document and these checks must not drift apart."""
     plan = (REPO / "docs" / "Team" / "Plan.md").read_text(encoding="utf-8")
@@ -437,8 +423,6 @@ def test_the_plan_section_pins_no_census():
     """
     plan = (REPO / "docs" / "Team" / "Plan.md").read_text(encoding="utf-8")
     body = plan.split("## Task-graph integrity", 1)[1].split("\n## ", 1)[0]
-    # Any count of graph objects, in either order ("44 tasks", "61 rows", "done 31")
-    # and any phrasing - a fixed word list only catches the words it was written for.
     census = [
         line
         for line in body.splitlines()

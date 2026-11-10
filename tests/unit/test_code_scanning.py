@@ -75,13 +75,13 @@ def test_each_alert_is_routed_to_the_role_that_owns_the_file(monkeypatch, worksp
         alert(3, ".github/workflows/ci.yml"),
         alert(4, "docs/guide/cli.md"),
     ]
-    assert run(monkeypatch, workspace, alerts) == 1  # blocking severities
+    assert run(monkeypatch, workspace, alerts) == 1
     out = capsys.readouterr().out
     assert "scripts/privacy_scan.py:12 -> security-auditor" in out
     assert "src/teamwork/engine.py:12 -> developer" in out
     assert ".github/workflows/ci.yml:12 -> release-engineer" in out
     assert "docs/guide/cli.md:12 -> technical-writer" in out
-    assert "2 blocking alert(s)" not in out  # four, all blocking
+    assert "2 blocking alert(s)" not in out
     assert "4 blocking alert(s)" in out
 
 
@@ -160,7 +160,7 @@ def test_commit_stays_red_while_a_blocking_alert_is_open(monkeypatch, workspace,
 def test_commit_files_one_task_per_owner_rule_and_file(monkeypatch, workspace, capsys):
     alerts = [
         alert(1, "scripts/privacy_scan.py"),
-        alert(2, "scripts/privacy_scan.py"),  # same rule and file -> one task
+        alert(2, "scripts/privacy_scan.py"),
         alert(3, "src/teamwork/engine.py"),
     ]
     assert run(monkeypatch, workspace, alerts, "--commit") == 1

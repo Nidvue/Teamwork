@@ -21,7 +21,6 @@ from teamwork.records import new_task, parse_tasks, write_tasks
 
 ROSTER = "ceo,developer-1"
 
-#: Enough bytes to pass the 1 MiB LFS threshold without being slow to write.
 BIG = 1_200_000
 
 
@@ -217,7 +216,6 @@ def test_a_large_binary_is_still_an_lfs_candidate(cli, project: Path):
     root = make_root(cli, project)
     (root / "Roles" / "Developer").mkdir(parents=True, exist_ok=True)
     git_repo(project)
-    # LFS rules exist but none covers *.bin, so the blob itself is the finding.
     (project / ".gitattributes").write_text(
         "*.dat filter=lfs diff=lfs merge=lfs -text\n", encoding="utf-8"
     )

@@ -40,10 +40,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
-# Same-directory import: `tests/integration` is a pytest rootdir entry (no
-# `__init__.py`), so the sibling module is importable by name. Reusing it keeps
-# one extractor for the shipped classifier instead of a second copy that drifts.
 from test_ci_scope_classifier import (
     CI_WORKFLOW,
     REPO_ROOT,
@@ -59,11 +55,6 @@ DOCS_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "docs.yml"
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 WORKFLOWS = (CI_WORKFLOW, DOCS_WORKFLOW, RELEASE_WORKFLOW)
 MAKEFILE = REPO_ROOT / "Makefile"
-
-
-# --------------------------------------------------------------------------- #
-# The docs.yml trigger list
-# --------------------------------------------------------------------------- #
 
 
 def docs_trigger_markers(text: str) -> list[str]:
@@ -104,10 +95,6 @@ def sample_for_marker(marker: str) -> str:
     return marker
 
 
-#: Paths that ship, or that the site does not read, so the matrix must run for
-#: them. The near-misses (`docs-notes/`, `assets2/`, `LICENSE.md`) are the point:
-#: they prove the two lists agree on the *boundary* of `docs/` and `assets/`, not
-#: only on their members.
 CODE_PROBES = (
     "src/teamwork/engine.py",
     "scripts/teamwork.py",
@@ -132,13 +119,6 @@ CODE_PROBES = (
 )
 
 
-#: The classifier states its prose set as one alternation in the `scope` job:
-#: `PROSE='^(docs/|assets/|README\.md$|...|mkdocs\.yml$)'`. Reading the alternatives
-#: back out of the shipped run block is what gives the comparison its prose side: an
-#: entry deleted from `docs.yml` is *still* probed, as a path the classifier calls
-#: prose and `docs.yml` no longer covers. A fixed tuple of probes cannot do this - it
-#: would have to be edited by hand exactly when the list moved, which is the edit that
-#: opens the hole.
 PROSE_REGEX_RE = re.compile(r"PROSE='(?P<regex>[^']*)'")
 
 
@@ -147,8 +127,6 @@ def prose_alternatives(ci_text: str) -> list[str]:
     match = PROSE_REGEX_RE.search(ci_text)
     assert match is not None, "ci.yml: the scope job no longer states a `PROSE` regex"
     body = match.group("regex").strip()
-    # A whole-path alternation is written `^(a|b|c)$`; peel the anchors before
-    # splitting, without assuming the parens are there.
     if body.startswith("^(") and body.endswith(")$"):
         body = body[2:-2]
     elif body.startswith("^") and body.endswith("$"):
@@ -209,9 +187,6 @@ def mismatch_report(
     script = write_script(tmp_path, extract_run_block(workflow, SCOPE_STEP))
     repo, previous = new_repo(tmp_path, {"README.md": "# root\n"}, name="agreement-repo")
 
-    # Sample the *shipped* trigger list as well as the given one, and the *shipped*
-    # prose set as well: a path that a mutant has removed from either file must still
-    # be probed, or the comparison falls silent exactly on the hole it exists to find.
     shipped = docs_trigger_markers(DOCS_WORKFLOW.read_text(encoding="utf-8"))
     prose = [
         sample_for_prose(alternative)
@@ -220,8 +195,6 @@ def mismatch_report(
     if only is None:
         selected = (*shipped, *markers, *prose)
     else:
-        # Narrow, but never blind: the paths asked for, plus any prose alternative
-        # that names the same path - which is what a one-entry mutant needs.
         selected = (*only, *(probe for probe in prose if probe in only))
     probes = [sample_for_marker(marker) for marker in selected]
     if only is None:
@@ -279,16 +252,8 @@ def test_the_agreement_bites_when_the_prose_regex_drops_an_entry(tmp_path: Path)
     )
 
 
-# --------------------------------------------------------------------------- #
-# Every command a workflow runs exists in the tree
-# --------------------------------------------------------------------------- #
-
-#: A repository-relative path mentioned by a workflow command. Shell comments are
-#: stripped first (the classifier's own comment illustrates a moved
-#: `src/teamwork/foo.py`, which is prose, not a command).
 WORKFLOW_PATH_RE = re.compile(r"(?<![\w/.-])((?:scripts|docs|\.github|src|tests|roles)/[\w./@-]+)")
 INVOKED_SCRIPT_RE = re.compile(r"python3?\s+((?:scripts|\.github)/[\w./@-]+\.py)")
-#: The Makefile spells its interpreter `$(PYTHON)`, which is the same process.
 MAKE_SCRIPT_RE = re.compile(r"\$\(PYTHON\)\s+((?:scripts|\.github)/[\w./@-]+\.py)")
 LONG_FLAG_RE = re.compile(r"(?<![\w-])(--[a-z][a-z0-9-]+)")
 PYTHON_MODULE_RE = re.compile(r"python3?\s+-m\s+([A-Za-z_][\w.]*)")
@@ -446,15 +411,6 @@ def test_every_flag_a_workflow_passes_a_script_is_documented() -> None:
     )
 
 
-# --------------------------------------------------------------------------- #
-# The gates Makefile and CI run are the real ones
-# --------------------------------------------------------------------------- #
-
-#: Tool -> the argv that reports its presence. Each entry is a gate the Makefile
-#: or CI executes; a missing tool is a skipped test naming it, never a pass.
-#: The probe is per-tool and parametrized: a single probe that skipped when *any*
-#: tool was absent would never bite on a host without GNU make, which is most
-#: Windows contributors and is how the absent-tool hole went unnoticed.
 GATE_TOOLS = {
     "ruff": ("ruff", "--version"),
     "mypy": ("mypy", "--version"),
@@ -464,8 +420,6 @@ GATE_TOOLS = {
     "make": ("make", "--version"),
 }
 
-#: `make` is a binary the project drives but never imports; the rest are
-#: `python -m <tool>` gates CI installs from the dev extra.
 BINARY_GATES = frozenset({"make"})
 
 
@@ -526,10 +480,6 @@ def test_the_ci_test_invocation_is_a_real_pytest_invocation() -> None:
     assert run_block is not None, "ci.yml no longer runs pytest with a coverage floor"
     assert "--cov-fail-under=55" in run_block, "the documented coverage floor (55) is gone"
 
-    # `run: |` keeps the shell's line continuations, so the pytest command spans
-    # several lines and ends each one with a backslash. Joining them first is what
-    # stops that backslash from being read as a path argument - which made pytest
-    # collect the whole filesystem instead of this repository.
     joined = re.sub(r"\\\n\s*", " ", run_block)
     command = next((line for line in joined.splitlines() if "pytest" in line), None)
     assert command is not None, "could not find the pytest command in the CI run block"
@@ -543,8 +493,6 @@ def test_the_ci_test_invocation_is_a_real_pytest_invocation() -> None:
         for arg in args
         if not arg.startswith(("--junitxml", "--cov-report", "--cov=", "--cov-fail-under"))
     ]
-    # Do not pass `-q` twice: two of them (`-qq`) suppress the summary line this
-    # test counts, so a real collection would read as zero collected tests.
     collected_args = [*kept, "--collect-only"] if "-q" in kept else [*kept, "--collect-only", "-q"]
     result = subprocess.run(
         [sys.executable, "-m", "pytest", *collected_args],

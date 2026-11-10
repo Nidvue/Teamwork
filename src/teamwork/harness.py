@@ -75,9 +75,6 @@ from .layout import (
 from .names import one_line, resolve_role
 from .records import parse_skills
 
-#: The three activation classes (12.3), cheapest to reason about first: always-on
-#: text is in context on every call, on-demand text is opened when a skill or a
-#: reference is needed, and in-loop code runs inside the tool loop.
 ALWAYS_ON = "always-on"
 ON_DEMAND = "on-demand"
 IN_LOOP = "in-loop"
@@ -85,22 +82,10 @@ CLASSES = (ALWAYS_ON, ON_DEMAND, IN_LOOP)
 
 NO_VALUE = "-"
 
-#: C5 is an inference context, not an artifact: it has no file, so its class, byte
-#: and role cells are ``-`` (12.2: ``-`` is the value for the component with no
-#: file) and its path cell says what it is instead of naming a path.
 LANE_PACKET = "n/a - lane packet, no file"
 
-#: The closed set of values the class column may print: the three activation
-#: classes plus `-`, the one component that is an inference context, not a file.
 CLASS_CELLS = CLASSES + (NO_VALUE,)
 
-#: The path column, verbatim from the frozen registry table of Architecture 12.2.
-#: Each string is the spec the row's bytes are measured through, so the number can
-#: be recomputed from the cell alone: the managed block (not the file that holds
-#: it), the union of both globs (not one member of it), both hook stages
-#: through the resolver (not one file under a path that does not exist in a
-#: worktree). A prettier spelling would describe the component and hide the
-#: measurement, which is the defect this column exists to prevent.
 SPEC_SYSTEM_PROMPT = "SKILL.md"
 SPEC_GUARDRAILS = "managed block in AGENTS.md"
 SPEC_MEMORY = "Roles/<Role>/ShortTermMemory.md"
@@ -109,7 +94,6 @@ SPEC_SKILLS = ".agents/skills/*/SKILL.md"
 SPEC_SCRIPTS = "scripts/*.py + src/teamwork/*.py"
 SPEC_HOOKS = "hook_dir(root)/{pre-commit,pre-push}"
 
-#: The two stages the `hooks` command group writes; C8 measures both.
 HOOK_STAGES = ("pre-commit", "pre-push")
 
 RULE_IDENTITY = "IDENTITY"
@@ -129,8 +113,6 @@ RULES = (
 
 SKILLS_DIRNAME = Path(".agents") / "skills"
 
-#: The four verdicts an evidence row may carry. ``NO_ENTRY`` - no row at all - is a
-#: valid answer for a draft skill and only becomes a failure once it is shared.
 VERDICT_RE = re.compile(
     r"verdict:\s*(?:helped|hurt|no\s+observed\s+effect|confounded)\b",
     re.IGNORECASE,
@@ -138,16 +120,10 @@ VERDICT_RE = re.compile(
 
 _COMMAND_RE = re.compile(r"teamwork\.py\s+([a-z][a-z0-9_-]*)")
 
-#: A token that looks like a repository-relative path: at least two segments and a
-#: file extension. The lookbehind keeps URL host names (``https://host/a/b.md``)
-#: and shell-variable roots (``$SKILL/scripts/x.py``) out: their existence cannot
-#: be decided from the repository, so the match may not start mid-token.
 _PATH_RE = re.compile(
     r"(?<![\w/.$-])([A-Za-z0-9_][A-Za-z0-9_./-]*/[A-Za-z0-9_./-]*\.[A-Za-z][A-Za-z0-9]{0,7})"
 )
 
-#: Characters that make a path token a template, a glob or a shell variable rather
-#: than a file the skill promises to ship.
 _PLACEHOLDER_CHARS = ("<", ">", "{", "}", "$", "*", "?", "~")
 
 
@@ -169,11 +145,6 @@ class Finding(NamedTuple):
     detail: str
 
 
-#: What one rule said about one file, for ``lint --verbose``. ``ok``/``fail`` are
-#: verdicts; ``corpus`` marks a file read as evidence for a rule that reasons over
-#: several files at once (TRIGGER reads every always-on surface, EVIDENCE reads the
-#: team registry); ``n/a`` marks a rule that does not apply to that file; ``skipped``
-#: marks a rule that could not run at all.
 OK = "ok"
 FAIL = "fail"
 CORPUS = "corpus"
@@ -212,9 +183,6 @@ class BudgetRow(NamedTuple):
         return self.always_on > self.budget
 
 
-# Measuring the tree
-
-
 def repo_root(args) -> Path:
     """The work tree the command acts on: the git toplevel, else the project dir."""
     here = project_path(args)
@@ -235,7 +203,7 @@ def glob_size(base: Path, pattern: str) -> int:
     """Bytes of every file ``base/pattern`` matches right now; no match is 0."""
     try:
         matches = sorted(base.glob(pattern))
-    except OSError:  # pragma: no cover - only an unreadable directory gets here
+    except OSError:  # pragma: no cover
         return 0
     return sum(file_size(path) for path in matches if path.is_file())
 
@@ -246,7 +214,7 @@ def managed_block_size(path: Path) -> int:
     The markers are the engine's own pair (`agents-md` writes them): a second copy
     of a marker literal is a second source of truth.
     """
-    from . import engine  # local: the command layer registers this module
+    from . import engine
 
     try:
         text = path.read_text(encoding="utf-8")
@@ -337,9 +305,6 @@ def memory_bytes(root: Path) -> int:
     return sum(file_size(role_dir(root, role) / F_SHORT) for role in list_roles(root))
 
 
-#: A row's third cell is a spec, and the frozen specs contain single spaces
-#: (``managed block in AGENTS.md``), so the cells are separated by two or more
-#: spaces and split on that: ``split()`` would tear a spec in half.
 _CELL_SEPARATOR_RE = re.compile(r"\s{2,}")
 
 
@@ -376,9 +341,6 @@ def class_totals(rows: list[Surface]) -> dict:
     appended to the table the frozen format fixes.
     """
     return {klass: sum(row.size or 0 for row in rows if row.klass == klass) for klass in CLASSES}
-
-
-# lint: the whole-proposal invalidators
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -424,7 +386,7 @@ def cli_subcommands() -> set:
     Read off the parser, never copied: the scripts *are* the engine, so a
     hardcoded list would drift the first time a command is renamed.
     """
-    from . import engine  # local: the command layer is what registers this module
+    from . import engine
 
     parser = engine.build_parser()
     names: set = set()
@@ -459,8 +421,6 @@ def lint(repo: Path, root: Path) -> tuple[list[Finding], LintStats]:
     registry = skills_path(root)
     has_registry = registry.is_file()
 
-    # Files read for a rule that reasons across files rather than per file: the
-    # always-on corpus TRIGGER searches, and the team registry EVIDENCE reads.
     checked: list[CheckedFile] = [
         CheckedFile(display(path, repo), ((RULE_TRIGGER, CORPUS),)) for path in surfaces
     ]
@@ -494,8 +454,6 @@ def lint(repo: Path, root: Path) -> tuple[list[Finding], LintStats]:
                 Finding(RULE_IDENTITY, rel, "frontmatter `description:` is missing or empty")
             )
 
-        # 14.4: the prefix is the recognition contract. Only a file that has a
-        # name reaches this rule - a nameless file already failed IDENTITY.
         if name and not name.startswith(SKILL_PREFIX):
             mine.append(
                 Finding(
@@ -626,9 +584,6 @@ def evidence_findings(repo: Path, registry: Path) -> tuple[list[Finding], list[s
     return findings, evaluated, checked
 
 
-# budget: the always-on cap, per instance
-
-
 def settings_budget_kb(root: Path) -> int | None:
     """``AlwaysOnBudgetKb`` from the team settings, or ``None`` when unusable."""
     try:
@@ -649,9 +604,6 @@ def charter_path(repo: Path, root: Path, role: str) -> Path:
     return team_copy if team_copy.is_file() else repo / "roles" / f"{role}.md"
 
 
-#: How many open lessons and active knowledge records `teamwork load` prints.
-#: The budget counts exactly these, so its number is the startup read rather than
-#: a whole-store total.
 LOAD_LESSONS = 10
 LOAD_KNOWLEDGE = 10
 
@@ -782,9 +734,6 @@ def render_budget(rows: list[BudgetRow]) -> str:
     return "\n".join(lines)
 
 
-# Commands
-
-
 def cmd_list(args) -> int:
     repo = repo_root(args)
     root = project_root(args)
@@ -805,8 +754,6 @@ def cmd_lint(args) -> int:
             print(f"# EVIDENCE: {stats.shared_checked} shared skill(s) checked")
         else:
             print("# EVIDENCE: skipped (no team workspace / no Skills.md)")
-        # 12.4: --verbose also lists every file checked, so a clean run is
-        # auditable file by file instead of being a count the reader must trust.
         for line in render_checked(stats.checked):
             print(line)
     for finding in findings:
