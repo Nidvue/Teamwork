@@ -5,7 +5,7 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-19, `main` @ `31c03b5`)
+## Snapshot (2026-10-19, `main` @ `8444134`)
 
 - Milestone: M6 and M7 are merged into `main` (T-0003 landed at `8444134`);
   `v1.0.2` is the latest release and the next records pass is this PR.
@@ -16,9 +16,10 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
   console-script acceptance test (covered by `verify_release.py`).
 - Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
   -> PASS, 0 findings; the shipped gate passes that one justified allow file
-  (`Makefile`, `ci.yml`, `docs.yml`). Without it the same scan reports nine
-  findings, all pattern `agent-config`, because every commit that quotes the path
-  adds another history blob; the tree itself carries only the scanner's own fixture
+  (`Makefile`, `ci.yml`, `docs.yml`). Without it the same scan reports four
+  findings, all pattern `agent-config`: the scanner's own fixture in the tree and
+  its history blob, the pre-fix `references/Adapters.md` blob, and the audit
+  quotation of the path
 - Links: `teamwork.py links` -> 0 problems
 - Gate: `teamwork.py loop` -> CONTINUE while any task branch is unmerged, and
   STOP only after the last review lands; `teamwork.py audit` lists one entry per
@@ -28,11 +29,13 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 - Remote: `origin/main` is behind the local merges until the Release Engineer
   pushes the reviewed revision; CI on the pushed SHA is the certification step.
 
+- pi packaging: [Pi-Packaging](Pi-Packaging.md)
+
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0028 archive repair | P1 | in review (P-0027) | `Plan.md`, `Board.md`, `Archive.md`, `AuditManifest.json` |
+| ceo | T-0027 privacy remediation, T-0028 archive repair | P1 | in review (P-0026, P-0027) | `Board.md`, `Archive.md`, `Decisions.md`, `AuditManifest.json` |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
@@ -61,8 +64,7 @@ created so Dependabot can label future PRs.
 | M4 publish | done | releases `v1.0.0`, `v1.0.1`, `v1.0.2` with wheel, sdist, `SHA256SUMS`, SBOM |
 | M5a engine split + Windows green | done | commits `c8fb469`, `f2e3b5a`, `b7fe03b`; CI `39173857076` |
 | M5b dependency upkeep + governance refresh | done | `9b56f1b` (T-0014), `1d49c21` (T-0015), `4cd8afc` (T-0016) |
-| M8 records hygiene | done | ceo T-0028, merge fields repaired, Plan de-duplicated, manifest re-pinned |
-| M7 review fan-out + claims | done | Developer T-0001, merge `8f210bc`, 10 new unit tests |
+| M7 review fan-out + claims | done | Developer T-0001, merge `8444134`, 10 new unit tests |
 | M6 evidence packets + repro gate | done | T-0020..T-0025, `docs/Team/Archive.md`, merge `3934690` |
 
 ## Blocked
