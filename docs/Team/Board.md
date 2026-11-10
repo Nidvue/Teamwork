@@ -285,71 +285,71 @@ the PR record `teamwork.py pr list` holds for that branch.
 | role | id | area | state at the M9 close | pr | merged revision |
 |---|---|---|---|---|---|
 | architect | M9 T-0002 | architecture | dropped | P-0068 | - |
-| architect | M9 T-0003 | architecture | done | P-0075 | b02ed38 |
-| architect | M9 T-0004 | architecture | done | P-0079 | cf95b98 |
+| architect | M9 T-0003 | architecture | done | P-0075 | e98c85a |
+| architect | M9 T-0004 | architecture | done | P-0079 | e05cb02 |
 | architect | M9 T-0005 | ci | dropped | P-0081 | - |
-| ceo | M9 T-0059 | release | done | P-0069 | 3078c48 |
+| ceo | M9 T-0059 | release | done | P-0069 | b917f0e |
 | ceo | M9 T-0060 | - | done | - | - |
-| ceo | M9 T-0061 | release | done | P-0070 | 135ae06 |
-| ceo | M9 T-0062 | release | done | P-0067 | e4b141c |
+| ceo | M9 T-0061 | release | done | P-0070 | b917f0e |
+| ceo | M9 T-0062 | release | done | P-0067 | 37571ec |
 | ceo | M9 T-0063 | - | done | - | - |
-| ceo | M9 T-0064 | docs | done | P-0082 | def7b1c |
-| ceo | M9 T-0065 | - | done | P-0096 | df3de8c |
-| ceo | M9 T-0066 | links | done | P-0098 | b6c0817 |
-| ceo | M9 T-0067 | - | done | P-0097 | 143e192 |
+| ceo | M9 T-0064 | docs | done | P-0082 | 59f42ed |
+| ceo | M9 T-0065 | - | done | P-0096 | 98877f2 |
+| ceo | M9 T-0066 | links | done | P-0098 | bae3fda |
+| ceo | M9 T-0067 | - | done | P-0097 | adf5d57 |
 | ceo | M9 T-0068 | - | done | - | - |
 | ceo | M9 T-0069 | - | done | - | - |
-| ceo | M9 T-0070 | links | done | P-0100 | 4e2fda5 |
-| ceo | M9 T-0071 | - | done | P-0108 | 9099e51 |
-| ceo | M9 T-0072 | - | done | P-0110 | 4af8b2e |
-| ceo | M9 T-0073 | - | done | P-0111 | 25f8f3e |
+| ceo | M9 T-0070 | links | done | P-0100 | ac7e6eb |
+| ceo | M9 T-0071 | - | done | P-0108 | 18a6dc8 |
+| ceo | M9 T-0072 | - | done | P-0110 | 1383315 |
+| ceo | M9 T-0073 | - | done | P-0111 | 6c83d23 |
 | ceo | M9 T-0074 | - | review | P-0115 | - |
-| developer | M9 T-0005 | release | done | P-0073 | 5fa73ef |
-| developer | M9 T-0006 | release | done | P-0074 | 74740be |
-| developer | M9 T-0007 | makefile | done | P-0071 | 3ee1d35 |
-| developer | M9 T-0009 | release-consistency | done | P-0085 | f8dd596 |
+| developer | M9 T-0005 | release | done | P-0073 | 59f42ed |
+| developer | M9 T-0006 | release | done | P-0074 | b75a05a |
+| developer | M9 T-0007 | makefile | done | P-0071 | 35d9578 |
+| developer | M9 T-0009 | release-consistency | done | P-0085 | e05cb02 |
 | developer | M9 T-0010 | release | done | - | - |
-| developer | M9 T-0011 | ci-contracts | done | P-0083 | a1a04bc |
-| developer | M9 T-0012 | release-consistency | done | P-0080 | 5fa73ef |
-| developer | M9 T-0013 | release-consistency | done | P-0084 | 602c56d |
-| developer | M9 T-0014 | - | done | P-0089 | 2cbb2e7 |
-| developer | M9 T-0015 | - | done | P-0091 | cc2f50f |
-| developer | M9 T-0016 | - | done | P-0095 | 03c7fbf |
-| developer | M9 T-0017 | - | done | P-0094 | b5fbc93 |
-| developer | M9 T-0018 | - | done | P-0101 | 35b6f2d |
-| developer | M9 T-0019 | - | done | P-0107 | 3404a42 |
-| developer | M9 T-0020 | - | done | P-0106 | 3fad639 |
-| developer | M9 T-0021 | - | done | P-0109 | 6962dfb |
-| developer | M9 T-0022 | ci | done | P-0112 | 8e87b9e |
-| developer | M9 T-0023 | ci | done | P-0113 | f3330c4 |
-| developer | M9 T-0024 | - | done | P-0114 | dc260d7 |
+| developer | M9 T-0011 | ci-contracts | done | P-0083 | 59f42ed |
+| developer | M9 T-0012 | release-consistency | done | P-0080 | 59f42ed |
+| developer | M9 T-0013 | release-consistency | done | P-0084 | 35d9578 |
+| developer | M9 T-0014 | - | done | P-0089 | 64e0eee |
+| developer | M9 T-0015 | - | done | P-0091 | c3e28f0 |
+| developer | M9 T-0016 | - | done | P-0095 | aec3043 |
+| developer | M9 T-0017 | - | done | P-0094 | aec3043 |
+| developer | M9 T-0018 | - | done | P-0101 | 87151b1 |
+| developer | M9 T-0019 | - | done | P-0107 | a86e389 |
+| developer | M9 T-0020 | - | done | P-0106 | a86e389 |
+| developer | M9 T-0021 | - | done | P-0109 | 1383315 |
+| developer | M9 T-0022 | ci | done | P-0112 | a0cf4dd |
+| developer | M9 T-0023 | ci | done | P-0113 | a0cf4dd |
+| developer | M9 T-0024 | - | done | P-0114 | 5cad380 |
 | reviewer | M9 T-0002 | - | done | - | - |
-| reviewer | M9 T-0003 | - | done | P-0093 | f6242c9 |
-| reviewer | M9 T-0004 | - | done | P-0102 | 44259cb |
-| tester | M9 T-0003 | - | done | P-0087 | a43e61e |
-| tester | M9 T-0004 | - | done | P-0092 | c84932e |
-| tester | M9 T-0005 | - | done | P-0103 | b91084d |
+| reviewer | M9 T-0003 | - | done | P-0093 | f39e150 |
+| reviewer | M9 T-0004 | - | done | P-0102 | ac7e6eb |
+| tester | M9 T-0003 | - | done | P-0087 | 8ce051f |
+| tester | M9 T-0004 | - | done | P-0092 | c3e28f0 |
+| tester | M9 T-0005 | - | done | P-0103 | 87151b1 |
 | tester | M9 T-0006 | - | done | - | - |
-| product-manager | M9 T-0001 | traceability | done | P-0037 | eeab44c |
+| product-manager | M9 T-0001 | traceability | done | P-0037 | a67ea65 |
 | project-manager | M9 T-0001 | - | done | P-0034 | 69116cc |
-| project-manager | M9 T-0002 | plan | done | P-0086 | 203b515 |
+| project-manager | M9 T-0002 | plan | done | P-0086 | 935e536 |
 | release-engineer | M9 T-0001 | - | done | - | - |
-| release-engineer | M9 T-0002 | release | done | P-0062 | d0c4c4a |
-| release-engineer | M9 T-0003 | ci | done | P-0076 | 46c4aeb |
+| release-engineer | M9 T-0002 | release | done | P-0062 | 41f3368 |
+| release-engineer | M9 T-0003 | ci | done | P-0076 | 35d9578 |
 | release-engineer | M9 T-0004 | - | dropped | - | - |
-| release-engineer | M9 T-0005 | release | done | P-0072 | 8fcf3fc |
+| release-engineer | M9 T-0005 | release | done | P-0072 | 37571ec |
 | release-engineer | M9 T-0006 | - | done | - | - |
-| release-engineer | M9 T-0007 | release | done | P-0078 | 6fa8930 |
+| release-engineer | M9 T-0007 | release | done | P-0078 | 35d9578 |
 | release-engineer | M9 T-0008 | ci | done | - | - |
-| release-engineer | M9 T-0009 | - | done | P-0090 | e3a2476 |
-| release-engineer | M9 T-0010 | - | done | P-0104 | 3b0fbfa |
+| release-engineer | M9 T-0009 | - | done | P-0090 | b917f0e |
+| release-engineer | M9 T-0010 | - | done | P-0104 | 649310d |
 | release-engineer | M9 T-0011 | - | dropped | - | - |
 | release-engineer | M9 T-0012 | - | done | - | - |
 | security-auditor | M9 T-0001 | core | dropped | P-0023 | - |
 | security-auditor | M9 T-0002 | - | dropped | - | - |
 | security-auditor | M9 T-0003 | security | done | P-0051 | 4e1e53f |
-| security-auditor | M9 T-0004 | - | done | P-0058 | d40a5db |
-| security-auditor | M9 T-0005 | privacy | done | P-0088 | e2c18a5 |
+| security-auditor | M9 T-0004 | - | done | P-0058 | 21fe796 |
+| security-auditor | M9 T-0005 | privacy | done | P-0088 | c0e5c03 |
 
 In flight at the M9 close, kept with the record:
 
@@ -360,12 +360,12 @@ In flight at the M9 close, kept with the record:
 
 | PR | bump | outcome |
 |---|---|---|
-| #11 | `anchore/sbom-action` 0.24.0 -> 0.24.3 | closed; landed in `9b56f1b` via #17 |
-| #12 | `actions/attest-build-provenance` -> `4d101475` | closed; landed in `9b56f1b` via #17 |
-| #13 | `softprops/action-gh-release` -> `efb35369` | closed; landed in `9b56f1b` via #17 |
+| #11 | `anchore/sbom-action` 0.24.0 -> 0.24.3 | closed; landed in `d47a164` via #17 |
+| #12 | `actions/attest-build-provenance` -> `4d101475` | closed; landed in `d47a164` via #17 |
+| #13 | `softprops/action-gh-release` -> `efb35369` | closed; landed in `d47a164` via #17 |
 
-The three branches were rebased onto `6905869` (the earlier red Windows jobs came
-from the retired umask assertion, fixed in `f2e3b5a`), each passed 17/17 checks,
+The three branches were rebased onto `d47a164` (the earlier red Windows jobs came
+from the retired umask assertion, fixed in `05a2a4c`), each passed 17/17 checks,
 and they were landed as one reviewed commit. All refs keep the SHA-pinned style
 (`uses: owner/action@<sha> # vN`). Missing `ci` and `dependencies` labels were
 created so Dependabot can label future PRs.
@@ -378,11 +378,11 @@ created so Dependabot can label future PRs.
 | M2 attractive docs | done | `mkdocs build --strict` green; `links` -> 0 |
 | M3 independent verification | done | `docs/Team/Archive.md` verdicts |
 | M4 publish | done | releases `v1.0.0`, `v1.0.1`, `v1.0.2` with wheel, sdist, `SHA256SUMS`, SBOM |
-| M5a engine split + Windows green | done | commits `c8fb469`, `f2e3b5a`, `b7fe03b`; CI `39173857076` |
-| M5b dependency upkeep + governance refresh | done | `9b56f1b` (T-0014), `1d49c21` (T-0015), `4cd8afc` (T-0016) |
+| M5a engine split + Windows green | done | commits `5bd1219`, `05a2a4c`, `31f0aba`; CI `39173857076` |
+| M5b dependency upkeep + governance refresh | done | `d47a164` (T-0014), `d47a164` (T-0015), `d47a164` (T-0016) |
 | M8 records hygiene | done | ceo T-0028, merge fields repaired, Plan de-duplicated, manifest re-pinned |
-| M7 review fan-out + claims | done | Developer T-0001, merge `8f210bc`, 10 new unit tests |
-| M6 evidence packets + repro gate | done | T-0020..T-0025, `docs/Team/Archive.md`, merge `3934690` |
+| M7 review fan-out + claims | done | Developer T-0001, merge `1ea5a2f`, 10 new unit tests |
+| M6 evidence packets + repro gate | done | T-0020..T-0025, `docs/Team/Archive.md`, merge `29f0537` |
 
 ## Blocked
 
