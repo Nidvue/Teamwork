@@ -41,6 +41,8 @@ MISTAKE_NEEDS_LESSON = (
     "--kind mistake requires --from-lesson L-nnnn: a mistake skill names the lesson it fixes"
 )
 
+CONCURRENT_LOCK_WAIT_SECONDS = 360
+
 
 def team_root(project: Path) -> Path:
     return (
@@ -544,6 +546,16 @@ def test_eight_real_cli_adds_persist_one_record_each(project: Path, tmp_path: Pa
     barrier file so their read-allocate-write sequences overlap. An unlocked
     engine loses records and reuses ids; the lock makes every exit-0 add leave
     exactly one record and one ledger row that names it.
+
+    The wait budget is the only thing ``CONCURRENT_LOCK_WAIT_SECONDS`` changes,
+    and it is deliberately above ``io.LOCK_STALE_SECONDS`` (300): eight waiters
+    re-poll every 50 ms with no fairness, so on a loaded Windows runner one of
+    them can lose the race for the 60 s default and exit 4 even though the lock
+    itself is correct (run 41916744357, job 126878425913). Waiting past the
+    stale window also lets ``_lock_owner_stale`` reclaim a lock whose owner died
+    instead of reporting it as a busy timeout. No assertion is relaxed: every
+    process must still exit 0, every lesson must still be recorded exactly once
+    with its own id, and the ledger must still carry one row per record.
     """
     code = [sys.executable, str(CLI_SHIM), "--project", str(project), "init", "--agents", AGENTS]
     code += ["--no-git"]
@@ -553,6 +565,7 @@ def test_eight_real_cli_adds_persist_one_record_each(project: Path, tmp_path: Pa
     count = 8
     barrier = tmp_path / "lesson-race-start"
     env = _env()
+    env["TEAMWORK_LOCK_TIMEOUT"] = str(CONCURRENT_LOCK_WAIT_SECONDS)
     processes = []
     for index in range(count):
         role = "developer" if index % 2 == 0 else "tester"
@@ -594,7 +607,9 @@ def test_eight_real_cli_adds_persist_one_record_each(project: Path, tmp_path: Pa
             )
         )
     barrier.write_text("go", encoding="utf-8")
-    results = [process.communicate(timeout=240) for process in processes]
+    results = [
+        process.communicate(timeout=CONCURRENT_LOCK_WAIT_SECONDS + 120) for process in processes
+    ]
     codes = [process.returncode for process in processes]
     assert codes == [0] * count, [
         (index, code, out, err)
