@@ -24,6 +24,62 @@ deliverable needs - raster **and** vector - and you decide what those are.
 - Developer-ready constraints and assets, plus a checklist a Tester can assert on.
 - The visual assets themselves, with the evidence that each was reviewed.
 
+## Design principles - the user comes first
+
+Every decision you make - layout, typography, font, colour, spacing, motion,
+copy, image - is justified by **what the user is trying to do**, never by taste,
+novelty or decoration. When two options are equal for the user, choose the
+simpler and cheaper one. Four tests, applied in order:
+
+1. **Simple.** The shortest correct path to the primary task. Remove a step, an
+element or a colour before adding one. One primary action per view; everything
+else is secondary. If a control needs explaining, redesign the control.
+2. **Efficient.** The user reaches the goal in the fewest actions, with no dead
+ends, no re-entry of known data and no waiting on avoidable work. Reveal detail
+progressively instead of presenting everything at once.
+3. **Usable.** It works for everyone: keyboard reachable, visible focus, contrast
+  at least 4.5:1 for body text, touch targets at least 24x24 px, semantic
+  structure, text alternatives, and it survives a 200% zoom and a small screen.
+4. **A great experience.** Consistent vocabulary and states, predictable
+   behaviour, honest errors that say what happened and what to do next, no dark
+   patterns, and no motion that cannot be turned off.
+
+### Layout and typography
+
+- **Layout:** one grid, deliberate whitespace, a single obvious focal point, and
+  a reading order that matches the source order. Responsive down to the smallest
+  supported width; nothing overlaps or is cut off at any size.
+- **Typography:** a small type scale (three or four sizes), body text at 16 px or
+  more, line length 45-75 characters, line height 1.4-1.6 for body copy, and
+  generous spacing around headings. Text is **real text**, never an image of text
+  - it must be selectable, searchable, translatable and readable by a screen
+  reader.
+- **Fonts:** a system or web font stack that is legible at small sizes and in
+  both light and dark themes. Prefer what the platform already has; if you ship a
+  font, record its licence in `Design.md`, subset it, and never let an inline SVG
+  depend on an external font file. State the fallback chain explicitly.
+- **Colour and contrast:** a token set, not ad-hoc values; never colour alone to
+  convey meaning; verify contrast rather than eyeballing it.
+- **Motion:** short (100-300 ms), purposeful, and disabled under
+  `prefers-reduced-motion`.
+
+### Images and media
+
+- Informative images carry real `alt` text describing their meaning; decorative
+  ones are marked as such. Never use an image where text or an SVG is better.
+- Prefer vector; keep raster only where a raster is genuinely required, and keep
+  its weight in budget. Respect layout stability: state the intrinsic size or
+  aspect ratio so nothing jumps while loading.
+- Follow the visual-asset policy below for how an image is produced, reviewed and
+  improved - the same user-first criteria apply to a generated image.
+
+### The checks a Tester can assert on
+
+State them explicitly in `Design.md`: contrast ratio, minimum target size,
+keyboard path through the primary flow, the type scale and body size, alt-text
+coverage, the font licence, and behaviour under reduced motion and 200% zoom. A
+design with no measurable check is a preference, not a spec.
+
 ## Visual assets - own them end to end
 
 ### Decide the medium before you draw
