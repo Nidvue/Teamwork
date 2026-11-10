@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-11-08T21:52:23",
+  "generated_at": "2026-11-08T21:53:36",
   "team": "Teamwork",
   "team_id": "aea4a50124554512a94761e991bb3f6f",
   "project": "Teamwork",
   "ledger": {
-    "records": 1218,
-    "checkpoint_n": 1218,
-    "head": "9daad5474e63129db3593dd61acad108b8d13f81df0b17325937c41087708897",
+    "records": 1242,
+    "checkpoint_n": 1242,
+    "head": "077fba32b4edd9a9cc4d6ef2bdb5917be359ef2382b0b19360d92dcc46753c2b",
     "verified": false,
     "problems": [
       "record 106 (task.add): digest mismatch (record altered)"
     ]
   },
   "git": {
-    "head": "1767f7b63a0b7d095e22dae5350e6e73094f0bc0",
-    "branch": "ceo/t-0020-record-the-two-tribunal-rulings-d-0001-t",
-    "dirty": true,
+    "head": "d5a8270c1671075f64a489b9dcc846516a3f68d4",
+    "branch": "main",
+    "dirty": false,
     "lfs_files": 0
   },
   "artifacts": [
@@ -31,8 +31,8 @@
     },
     {
       "path": "docs/Team/Plan.md",
-      "sha256": "d62a40b698f19f30c9d9cdaba578bd559fb30212eff8ecb10e5dc704c8006048",
-      "bytes": 94557
+      "sha256": "f2b41f46c8923d09ec24682cf17a65a0b58e47a1c627d5eee131f77d2cd42e0c",
+      "bytes": 95292
     },
     {
       "path": "docs/Team/Project.md",
@@ -58,8 +58,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "88de41b8f2bed730f029b6be98c150ac191611d09673c72e086b97e861719e75",
-      "bytes": 147736
+      "sha256": "30894d524086843aa72ffadd78a09b67f551a1def830d6d2ee6e5760fd27c357",
+      "bytes": 149615
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Architect/ArchivedMemory.md",
@@ -98,8 +98,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "426672f3d1af4a10b6895dcab735a74568de316e0c3f4e08703cc225ca976043",
-      "bytes": 92527
+      "sha256": "081d6bb9d7d7df6673f58ca97c2faa2f8eaf4611577800f9a9a4b6104244faaf",
+      "bytes": 96067
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/ArchivedMemory.md",
@@ -118,8 +118,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/TaskQueue.md",
-      "sha256": "e81aa18059f1b55a1317200cabac16cf6c4e7da47af2efbe4f89167785e1479c",
-      "bytes": 215242
+      "sha256": "5eebf12c208773ec2117643d86ec8b91bacd12dfe743d330695a709dac98123c",
+      "bytes": 215441
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Reviewer/ArchivedMemory.md",
@@ -194,7 +194,7 @@
   ],
   "how_to_verify": [
     "1. teamwork.py ledger verify   # recompute the sha256 chain over Ledger.jsonl",
-    "2. take record #1218 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
+    "2. take record #1242 (the ledger.export event) and compare its hash with ledger.head above: the chain up to this checkpoint must reproduce, and any record after it is work that happened later (a rebuilt or truncated trail cannot reproduce the checkpoint)",
     "3. sha256sum each artifact in this manifest",
     "4. git cat-file -t <git.head>   # the reviewed revision still exists",
     "5. teamwork.py trace <T-id|AC-id|P-id>   # follow any single claim",
