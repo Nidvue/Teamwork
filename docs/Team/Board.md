@@ -110,7 +110,7 @@ under two roles is two tasks.
 | ceo | T-0022 | merge | done | P-0065 | 9c18b3c |
 | ceo | T-0023 | - | dropped | - | - |
 | ceo | T-0024 | - | done | P-0068 | 46b084f |
-| ceo | T-0025 | - | doing | - | - |
+| ceo | T-0025 | release | done | P-0071 | c604aa5 |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -205,7 +205,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
 | ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | blocked | - |
-| ceo | T-0025 · M20 G1: Release.md still pins setup-python at 5fda3b95 after the v7.1.0 bump | P1 | doing | - |
 | developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | doing | - |
 | developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
 | developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |
