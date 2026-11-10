@@ -66,10 +66,21 @@ Snapshot, not a pinned census. The command column re-reads it.
 4. **Always-on accounting is wrong in one direction.** The budget counts
    `LongTermMemory.md`, which `load` never prints (it is recall-only) and does
    not count the lessons/knowledge that `load` now does print. The developer
-   lane is reported OVER while its actual startup read is under the cap.
-5. **Review queue latency is second-order.** p90 24.5 min, max 69 min, with 13
-   renewals and 10 releases: some reviews are too large for one lease. That is a
-   slice-size problem (rule 4), not a lane-count problem.
+   lane is reported OVER while its actual startup read is under the cap. The
+   corrected measurement (T-0034) shows the live split: Developer-10 startup
+   119,500 B / recallable 5,077 B (ok), Reviewer-1 startup **142,774 B** (OVER by
+   19,894) because the role-shared short memory sits at its 24-entry cap. The
+   fix is to trim what `load` prints (or record why an entry stays), not to raise
+   the cap; the roster cut alone does not reduce a shared-memory read.
+5. **Review queue latency is second-order - but duplicate full-suite runs are
+   not.** p90 is 24.5 min, max 69 min, with 13 renewals and 10 releases: some
+   reviews are too large for one lease. That is a slice-size problem (change 4).
+   The hidden latency is the ~30-minute full suite: the author, the Tester and
+   the Reviewer can each run it on one revision. The Tester's independent record
+   is creditable under the verify-once rule, so a Reviewer that re-runs it spends
+   30 minutes proving a fact another role already recorded. Current dispatch
+   starts the Reviewer before the Tester on a code task, so the duplication is
+   structural, not accidental.
 
 ## 4. Changes, each owned and measurable
 
@@ -82,6 +93,8 @@ Snapshot, not a pinned census. The command column re-reads it.
 | 5 | Token-true budget | `harness budget` reports `startup` (what `load` prints) separately from `recallable` (long/archive) and applies the cap to startup | OVER false alarms; startup bytes | Developer T-0034 |
 | 6 | Reviewer oversupply | `coordination` reports `C-REVIEW-OVERSUPPLY` when reviewer lanes exceed twice the unclaimed queue and the queue is small | idle reviewer lanes | Developer T-0034 |
 | 7 | One owner, one board, one feature | already frozen; re-stated at intake so a second manager or a second feature per leader is refused | queue conflicts, duplicate tasks | CEO, Architect |
+| 8 | Tester before Reviewer on a code task | the Tester records the full suite at the revision; the Reviewer packet cites it (`--credit`) and runs only its acceptance layer, the uncovered criteria and one sampled credit; no gate weakens | full-suite runs per revision; claim-to-verdict p90 | CEO dispatch order, Reviewer rubric |
+| 9 | Every lane works in a worktree, including the CEO | the base checkout stays on `main`, so the merge path, the host skill scan and every lane see the integrated tree; no lane checks out its branch in the shared tree | checkout switches, stale skill scans, merge-target confusion | CEO, all lanes |
 
 ## 5. The token budget
 
@@ -110,6 +123,13 @@ A self-check that only says "re-read the diff" is not a self-check. The Reviewer
 still judges the requirement and the acceptance layer; this contract only stops
 the substantive failure the author could have found.
 
+**One full suite per revision.** On a code deliverable the Tester runs the full
+suite first and records it; the Reviewer cites that record (`--credit`) and runs
+its own acceptance layer, the uncovered criteria and one sampled credit. The
+Reviewer re-runs the full suite only when no Tester record exists at the revision
+or the record is failing. The dispatch order is Tester -> Reviewer, so the
+30-minute suite is paid once, not twice.
+
 Target: fail share <= 30% of verdicts and targets needing more than one verdict
 <= 35%, measured by the same ledger parse. At 41%/46.6% the first target is the
 gap; a later report re-reads it rather than asserting it.
@@ -135,11 +155,13 @@ teamwork.py parallel               # free slots vs ready work
 teamwork.py instance list          # roster size
 teamwork.py harness budget         # startup vs recallable bytes
 teamwork.py coordination --strict  # review oversupply, rework, merge health
-python .pi/Scratch/ceo/throughput_probe.py   # ledger latencies and rework (gitignored probe)
+teamwork.py throughput             # ledger latencies, rework share, surface bytes
 ```
 
-The probe is scratch and gitignored; the report's facts are reproduced by the
-commands above, not by trusting a number in this file.
+The last command is the report's own reader: it parses `Ledger.jsonl` and the
+tree and prints the facts in section 2. A scratch probe may exist under
+`.pi/Scratch/`, but the report is reproducible from the shipped command, not
+from a gitignored file.
 
 ## 9. Falsifiers
 
