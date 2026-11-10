@@ -814,3 +814,40 @@ def test_install_from_a_linked_worktree_is_visible_to_every_worktree(cli, repo, 
     assert cli("--project", other, "hooks", "status") == 0
     assert (hook_dir(repo) / "pre-commit").is_file()
     assert hooks.is_managed(hook_dir(repo) / "pre-commit")
+
+
+# Assembled at run time: a literal PEM header is a private-key finding in the
+# tree, and the gate this test exercises would refuse the commit that adds it.
+KEY_BODY = "-----BEGIN RSA " + "PRIVATE KEY-----\nMIIEowIBAAKCAQEAx7Q\n"
+
+
+def test_pre_commit_refuses_staged_content_the_privacy_gate_reports(cli, feature, capsys) -> None:
+    """The staged bytes are what gets recorded, so the gate reads the index, not the tree."""
+    write(feature / "notes.txt", KEY_BODY)
+    git(feature, "add", "notes.txt")
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 1
+    err = capsys.readouterr().err
+    assert "the privacy gate reports" in err
+    assert "private-key (critical)" in err
+    assert "MIIEowIBAAKCAQEAx7Q" not in err, "the hook must never print the secret it blocks"
+
+
+def test_pre_commit_allows_staged_content_the_gate_does_not_report(cli, feature, capsys) -> None:
+    write(feature / "notes.txt", "# notes\n")
+    git(feature, "add", "notes.txt")
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 0
+    assert "the privacy gate reports" not in capsys.readouterr().err
+
+
+def test_pre_commit_honours_the_project_privacy_allowlist(cli, feature, capsys) -> None:
+    """A value CI already accepts must not block the same commit locally."""
+    write(feature / ".github" / "privacy-allow.txt", "BEGIN RSA PRIVATE KEY\n")
+    write(feature / "notes.txt", KEY_BODY)
+    git(feature, "add", ".github/privacy-allow.txt", "notes.txt")
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 0
