@@ -8212,8 +8212,16 @@ LANE_TIER = {
 
 
 def detect_agent_host(env=None) -> str:
-    """Which agent host is running us, from the environment it exports."""
+    """Which agent host is running us, from the environment it exports.
+
+    ``TEAMWORK_AGENT_HOST`` wins when set: detection is inference, and an explicit
+    override is how you make it deterministic (CI, a wrapper script, or a host
+    whose markers are ambiguous).
+    """
     env = os.environ if env is None else env
+    override = (env.get("TEAMWORK_AGENT_HOST") or "").strip().lower()
+    if override:
+        return override
     for host, markers in AGENT_HOSTS.items():
         if any(env.get(marker) for marker in markers):
             return host

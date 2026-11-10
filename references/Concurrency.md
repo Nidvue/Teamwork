@@ -118,3 +118,5 @@ checks). Quality where it compounds, cheapness where it does not.
 - `--apply` is explicit: the plan is a dry run by default, and applying it is
   recorded in the ledger.
 - Re-run it when the host or the budget changes; it is idempotent.
+- `TEAMWORK_AGENT_HOST=claude|pi|opencode|codex|cursor|gemini` overrides
+  detection when the markers are ambiguous (CI, wrapper scripts).

@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/VisionPZ/Teamwork/compare/v1.0.0...HEAD)
 
+## [1.0.2](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.2) - 2026-10-17
+
+### Added
+
+- **Automatic model routing** from the runtime environment: `teamwork model auto`
+  detects the agent host (pi, claude, opencode, codex, cursor, gemini), routes the
+  strongest available model to the decision lanes and the economy model to the
+  mechanical lanes, and never invents a model id (`--apply`, `--json`).
+- `TEAMWORK_AGENT_HOST` to pin host detection deterministically.
+- The site is served from the custom domain **teamwork.nidvue.com**.
+
+### Changed
+
+- Positioning: Nidvue Teamwork is published as a **skill for any coding agent**;
+  the stdlib-only engine is the tool the skill calls and the package is optional.
+- Branding: the master brand **Nidvue** precedes the product name in the README,
+  the site, the docs, the package metadata and the file headers; the Nidvue mark
+  from nidvue.com is bundled and used in the README and the site (with a trademark
+  note in NOTICE).
+
+### Fixed
+
+- The release workflow fails when the tag and the package version disagree.
+
 ## [1.0.1](https://github.com/VisionPZ/Teamwork/releases/tag/v1.0.1) - 2026-10-17
 
 ### Added
