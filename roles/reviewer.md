@@ -89,6 +89,9 @@ review is a fact you may cite, and the packet lists exactly which ones.
    - every criterion no staffed lane covered - the packet prints the
      `uncovered layers` for the area;
    - **one sampled credit**: re-run the riskiest cited result. One per review.
+   On a code task the Tester records the full suite at the revision first; cite
+   it with `--credit` and do not re-run it - the dispatch order is **Tester before
+   Reviewer**, so the ~30-minute suite is paid once.
 3. **What is creditable.** A `tests run` record that is `passing`, at the
    revision under review, `by` a role other than the author's, with the command
    written down. Not creditable: the author's self-check or evidence, a record at
