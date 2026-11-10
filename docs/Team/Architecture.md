@@ -86,7 +86,7 @@ Teamwork/
 | developer-2 | `tests/unit/**`, `tests/integration/**`, `tests/conftest.py` |
 | tester-1 | `tests/acceptance/**` |
 | developer-3 | `pyproject.toml`, `Makefile`, `scripts/verify_release.py`, `.editorconfig` |
-| release-engineer | `.github/**`, `docs/Team/Release.md` |
+| release-engineer | `.github/**`, `docs/Team/Release.md`, `scripts/ci_scope.py` |
 | technical-writer | `docs/index.md`, `docs/guide/**`, `mkdocs.yml`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `CITATION.cff` |
 | designer-1 | `README.md`, `assets/**`, `templates/Docs/**`, `docs/Team/Design.md` |
 | security-auditor | `scripts/privacy_scan.py`, `docs/Team/AuditReport.md` |
