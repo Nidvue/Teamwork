@@ -31,7 +31,7 @@ BADGE_LINK = re.compile(r"<a\b[^>]*href=\"([^\"]+)\"[^>]*>\s*<img\b([^>]*)>", re
 SVG_ROOT = re.compile(r"<svg\b([^>]*)>", re.IGNORECASE)
 SVG_TEXT = re.compile(r"<text\b[^>]*>(.*?)</text>", re.IGNORECASE | re.DOTALL)
 TAG = re.compile(r"<[^>]+>")
-BADGE_TABLE_ROW = re.compile(r"^\|\s*(?!Badge|---).+?\|\s*\"([^\"]+)\"\s*\|\s*$")
+BADGE_TABLE_ROW = re.compile(r"^\|\s*(?!Badge|---).+?\|\s*\"([^\"]+)\"\s*\|")
 BADGE_HOST = "https://img.shields.io/"
 STAR_CHART = "https://api.star-history.com/"
 
@@ -129,12 +129,28 @@ def test_every_in_tree_image_reserves_a_box_in_its_own_aspect_ratio(root, readme
     assert defects == [], "README images must reserve their intrinsic box: " + "; ".join(defects)
 
 
+def designed_badges(path: Path) -> set[str]:
+    """The Alt text column of the badge table, read by header rather than by shape.
+
+    The table gained a `Declared box` column in M15, so a row-shaped regex either
+    missed every row or matched rows of the neighbouring comparison table.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("| Badge |"))
+    header = [cell.strip() for cell in lines[start].strip("|").split("|")]
+    column = header.index("Alt text")
+    names: set[str] = set()
+    for line in lines[start + 2 :]:
+        if not line.startswith("|"):
+            break
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) > column:
+            names.add(cells[column].strip('"'))
+    return names
+
+
 def test_every_badge_is_the_designed_one_and_resolves(root, readme):
-    designed = set()
-    for line in (root / "docs" / "Team" / "Design.md").read_text(encoding="utf-8").splitlines():
-        match = BADGE_TABLE_ROW.match(line)
-        if match:
-            designed.add(match.group(1))
+    designed = designed_badges(root / "docs" / "Team" / "Design.md")
     assert len(designed) == 6, (
         f"Design.md section 4 should name 6 badges, parsed {sorted(designed)}"
     )
