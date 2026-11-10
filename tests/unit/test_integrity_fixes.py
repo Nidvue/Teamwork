@@ -759,3 +759,26 @@ def test_a_neutral_signer_unblocks_the_ruling(cli, project: Path) -> None:
         )
         == 0
     )
+
+
+def test_a_finished_task_override_does_not_hold_the_stop_gate(cli, project: Path) -> None:
+    """A forced override explains how a task closed; it is not a live blocker.
+
+    Counting overrides on finished tasks made the stop condition unreachable: the
+    audit trail is append-only, so every past override would block STOP forever.
+    """
+    root = init(cli, project)
+    stale = engine.new_task("closed with an override")
+    stale["id"] = "T-0001"
+    stale["status"] = "done"
+    stale["forced"] = "closed past the evidence gate for a measured reason"
+    engine.write_tasks(task_path(root), [stale], "developer")
+    assert not any("gate override" in b for b in engine.gate_report(root)["blockers"])
+
+    live = engine.new_task("still open with an override")
+    live["id"] = "T-0002"
+    live["status"] = "review"
+    live["forced"] = "open past the evidence gate for a measured reason"
+    engine.write_tasks(task_path(root), [stale, live], "developer")
+    blockers = engine.gate_report(root)["blockers"]
+    assert any("gate override" in b for b in blockers), blockers
