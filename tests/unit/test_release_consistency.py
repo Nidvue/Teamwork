@@ -693,6 +693,130 @@ def test_r6_release_asset_url_naming_no_tag_is_drift(tmp_path):
     assert "v1.1.1" in result.detail
 
 
+def _install_guide(pin: str) -> str:
+    """A console block that pins a revision and never spells the project name.
+
+    That is the measured shape of ``docs/guide/install.md:87``: the fence holds
+    only ``$ teamwork refresh --branch v1.1.2`` in surrounding prose that names no
+    project, so the project-context gate never read the line at all.
+    """
+    return f"# Install\n\n```console\n$ refresh --branch {pin}\n```\n"
+
+
+def test_r6_pin_naming_an_older_tag_is_drift(tmp_path):
+    """A ``--branch vX.Y.Z`` pin is a version claim, judged against the tags (T-0020).
+
+    Measured before the fix: ``docs/guide/install.md:87`` pinned ``v1.1.2`` and
+    rewriting it to ``v1.1.0`` still printed ``R6 ok no version older than 1.1.3``
+    with 0 problems, because the line named no "teamwork" (project context) and R9
+    only asks whether a tag exists, never whether it is superseded.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.4",
+        {
+            "docs/guide/install.md": _install_guide("v1.1.0"),
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.4]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+    git(root, "tag", "v1.1.2")
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "DRIFT"
+    assert "docs/guide/install.md:4" in result.detail
+    assert "older than the newest tag v1.1.2" in result.detail
+    assert "v1.1.0" in result.detail
+
+
+def test_r6_pin_naming_the_newest_tag_is_ok(tmp_path):
+    """The asset baseline, applied to a pin: the newest tag is correct, HEAD is not."""
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.3",
+        {
+            "docs/guide/install.md": _install_guide("v1.1.2"),
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.3]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+    git(root, "tag", "v1.1.2")
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "ok"
+    assert "0 illustrative" in result.detail
+
+
+def test_r6_pin_naming_no_tag_is_drift(tmp_path):
+    """A pin to a tag that does not exist documents a revision nobody can fetch."""
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.1",
+        {
+            "docs/guide/install.md": _install_guide("v1.9.9"),
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.1]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "DRIFT"
+    assert "git tag -l has no such tag" in result.detail
+    assert "v1.9.9" in result.detail
+
+
+def test_r6_pin_with_a_bare_semver_is_still_a_claim(tmp_path):
+    """``--branch 1.1.0`` is the same claim as ``--branch v1.1.0`` (11.2.4).
+
+    R9 already reads a bare semver in a pin context; R6 does the same, so a pin
+    cannot escape the tag baseline by dropping the ``v``.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.4",
+        {
+            "docs/guide/install.md": _install_guide("1.1.0"),
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.4]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+    git(root, "tag", "v1.1.2")
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "DRIFT"
+    assert "older than the newest tag v1.1.2" in result.detail
+
+
+def test_r6_illustrative_marker_still_exempts_a_pin(tmp_path):
+    """The marker must keep working on the newly-read shapes."""
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    bump(
+        root,
+        "1.1.4",
+        {
+            "docs/guide/install.md": (
+                f"# Install\n\n{ILLUSTRATIVE}\n```console\n$ refresh --branch v1.0.0\n```\n"
+            ),
+            "CHANGELOG.md": ("# Changelog\n\n## [1.1.4]\n\n- next\n\n## [1.1.0]\n\n- initial\n"),
+        },
+    )
+    git(root, "tag", "v1.1.2")
+
+    result = crc.rule_r6_markdown_versions(root)
+
+    assert result.status == "ok"
+    assert "1 illustrative" in result.detail
+
+
 def test_r6_skips_a_foreign_tool_version(tmp_path):
     root = make_repo(tmp_path / "repo", version="1.1.0")
     git(root, "tag", "v1.1.0")
