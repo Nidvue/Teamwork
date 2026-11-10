@@ -89,6 +89,7 @@ the file count and the unpacked size move with every edit, so they are read from
 ├── skills/teamwork/                 # SKILL.md + references/ roles/ templates/ scripts/ src/
 ├── skills/teamwork-pi/SKILL.md      # the pi adapter layer (six operations, packet shape)
 ├── prompts/                         # teamwork-pulse.md, teamwork-review.md
+├── extensions/teamwork-status.ts    # the optional live agent widget (no dependency)
 └── README.md CHANGELOG.md LICENSE NOTICE SECURITY.md
 ```
 
@@ -119,3 +120,34 @@ package and every `scripts/teamwork.py` reference already point there.
   the standard library are the only runtime requirements - no node dependency.
 - No third-party package is declared, required or suggested: every lane runs
   through `lane start` / `swarm run`, which launch the host CLI itself.
+
+## The status extension
+
+The package ships one optional pi extension of its own,
+`extensions/teamwork-status.ts`. It renders live agent state from
+`teamwork.py status --json` in the smallest shape that answers "who is working on
+what, and is it moving":
+
+```text
+teamwork · 17 instance(s) · 8 busy · 2 in review
+● Developer-2    T-0070 pi extension teamwork-status  12m ███░░  60%
+● Reviewer-2     ↳T-0071 status: name the work         8m ██░░░  35%
+○ idle: Architect, CTO, ProductManager, Reviewer-5 +4
+```
+
+Busy instances come first, ordered by progress; a review handle prints as `↳T-0071`
+so the role prefix does not eat the column; every idle instance collapses into one
+line that counts the names it hides; the widget never exceeds 12 lines or 100
+columns, and a footer status line carries the busy/total count. It refreshes every 5 s by
+`execFile`-ing `python3 <engine> status --json` at the team tree found by walking up
+from the session cwd, is silent when no engine is found, and `/teamwork-status`
+toggles it off and on.
+
+It imports only `node:` built-ins and the host peer packages, so installing the
+package adds no dependency; removing the file changes nothing in the protocol.
+`tests/unit/test_pi_package.py::test_the_status_extension_ships_and_imports_only_host_peers`
+pins the shipped path, the manifest entries and the import allowlist, and
+`tests/unit/test_pi_status_render.py` **executes** `render()` through node's type
+stripping on a synthetic payload and on the bare payload `status --json` emitted
+before titles existed - the round-1 defect was an extension whose only test read
+its source text, so a renderer that threw on the first refresh passed.
