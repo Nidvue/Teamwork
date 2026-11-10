@@ -5,17 +5,17 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-19, `main` @ `3934690`)
+## Snapshot (2026-10-19, `main` @ `ae80950`)
 
 - Milestone: M6 evidence packets + repro gate closed (M1-M5 delivered; `v1.0.2` is
-  the latest release); the closing records are in review on P-0018.
-- Local gate: `pytest -q` -> 383 passed, 1 skipped, coverage 67.52% (floor 55%,
+  the latest release); the last record pass is in review on P-0019.
+- Local gate: `pytest -q` -> 384 passed, 1 skipped, coverage 67.52% (floor 55%,
   enforced in `pyproject.toml` and `ci.yml`). The local skip is the console-script
   acceptance test (covered by `verify_release.py`).
 - Privacy: `privacy_scan.py --tree --history` -> PASS, 0 findings
 - Links: `teamwork.py links` -> 0 problems
 - Gate: `teamwork.py audit` -> 0 problems and `teamwork.py loop` -> STOP once
-  P-0018 merges; the closing export is `docs/Team/AuditManifest.json` (chain
+  P-0019 merges; the closing export is `docs/Team/AuditManifest.json` (chain
   verified, exported from a clean tree, four pinned artifacts plus the ledger
   head)
 - Remote: `origin/main` is behind the local merges until the Release Engineer
