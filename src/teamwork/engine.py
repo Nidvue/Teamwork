@@ -7929,8 +7929,8 @@ def cmd_clean(args) -> int:
             failed.append((wt["path"], (r.stderr or "").strip().splitlines()[:1]))
     if failed:
         print(f"teamwork: {len(failed)} worktree(s) could not be reclaimed:")
-        for path, why in failed[:10]:
-            print(f"  - {path}: {why[0] if why else 'still present after remove'}")
+        for wt_path, why_lines in failed[:10]:
+            print(f"  - {wt_path}: {why_lines[0] if why_lines else 'still present after remove'}")
         reclaimed = [wt for wt in reclaimed if wt["path"] not in {p for p, _ in failed}]
     if reclaimed:
         wverb = "would reclaim" if args.dry_run else "reclaimed"

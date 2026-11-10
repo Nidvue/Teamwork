@@ -129,7 +129,7 @@ under two roles is two tasks.
 | developer | T-0025 | - | todo | - | - |
 | developer | T-0026 | - | todo | - | - |
 | developer | T-0027 | - | blocked | - | - |
-| developer | T-0028 | ledger | doing | P-0012 | - |
+| developer | T-0028 | ledger | review | P-0012 | - |
 | developer | T-0029 | lanes | done | P-0022 | 2722c27 |
 | developer | T-0030 | privacy | done | P-0010 | 25f2c0c |
 | developer | T-0031 | - | todo | - | - |
@@ -147,6 +147,7 @@ under two roles is two tasks.
 | developer | T-0043 | memory | done | P-0030 | 55c891c |
 | developer | T-0044 | - | todo | - | - |
 | developer | T-0045 | - | doing | - | - |
+| developer | T-0046 | clean | done | P-0042 | 4e31f14 |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | - |
@@ -195,7 +196,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0025 · Remotes.md section 2 claims a merge is impossible while a required check is red; the measured flow permits it (S-7) | P2 | todo | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0027 · remember still invents Roles/<Typo>/: the hole T-0003 closed in load is open in remember (measured: remember QaEnginere note --by QaEnginere -> exit 0 and Roles/QaEnginere/ShortTermMemory.md created; board and loop then report qaenginere as a role with state), and a refused remember --by <other role> still leaves an empty Roles/<Typo>/ directory | P1 | blocked | - |
-| developer | T-0028 · Ledger record 106 was hashed against an empty prev while the file already carried 105 records: concurrent writers entered ledger_append's critical section (S-1) and produced a silent chain corruption that 'ledger verify' now reports | P0 | doing | - |
+| developer | T-0028 · Ledger record 106 was hashed against an empty prev while the file already carried 105 records: concurrent writers entered ledger_append's critical section (S-1) and produced a silent chain corruption that 'ledger verify' now reports | P0 | review | - |
 | developer | T-0031 · decision add clips the heading mid-word (D-20261107-TeamLeader renders as '... section 2 (c'), so a committed decision entry has an unreadable title | P2 | todo | - |
 | developer | T-0033 · gitutil timeout docstring and test comment name the wrong mechanism for the remote helper | P2 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
