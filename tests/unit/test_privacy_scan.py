@@ -781,7 +781,7 @@ def test_bom_less_utf16_text_is_scanned():
 def test_allowlist_exempts_only_the_recorded_package_path():
     """The shipped exemption is one exact host-state prefix, not a rule switch."""
     allow = [re.compile(r"^\.pi/agent/npm$")]
-    quoted = "verified against ~/.pi/agent/npm/node_modules/pi-subagents"
+    quoted = "verified against ~/.pi/agent/npm/node_modules/example-package"
     assert [f for f in ps.scan_lines(quoted, "x.md", "unit-test", ps.RULES, allow)] == []
 
     sibling = "token stored in ~/.pi/agent/auth.json"

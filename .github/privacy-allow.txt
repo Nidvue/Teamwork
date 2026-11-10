@@ -27,11 +27,14 @@
 # a security change - justify the entry in the same commit and have it reviewed as
 # one, never to make a run green.
 
-# ^\.pi/agent/npm$ - opened by T-0001. The quoted pi-subagents install path: the
-# scanner's own fixture at tests/unit/test_privacy_scan.py, the pre-fix blob of
-# references/Adapters.md and the audit quotations of it in history, so `--tree`
-# alone is red by design. Rewriting that unpublished history would invalidate
-# commit SHAs quoted as evidence in docs/Team/Archive.md and docs/Team/Decisions.md.
+# ^\.pi/agent/npm$ - opened by T-0001. It exempts one host install prefix that is
+# quoted twice: the scanner's own fixture at tests/unit/test_privacy_scan.py (the
+# tree), and a pre-fix blob of references/Adapters.md with the audit quotations of
+# it (history), so `--tree` and `--history` are both red without it. What the tree
+# no longer carries is any reference to the package that path once held (T-0038):
+# no shipped surface, package manifest or fixture names it. Rewriting that
+# unpublished history would invalidate commit SHAs quoted as evidence in
+# docs/Team/Archive.md and docs/Team/Decisions.md.
 # Nothing from package-lock.json is blessed: the scanner does not report its
 # "resolved" tarball URLs.
 ^\.pi/agent/npm$
