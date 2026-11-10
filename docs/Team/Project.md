@@ -186,6 +186,33 @@ attempt 2 of the same run (`gh run list --workflow Release --json attempt,headBr
 and the pushed `main` was briefly red on the release-consistency gate because the
 tag was pushed after the branch.
 
+## M13 - Code integrity, CI truth and reviewer throughput (this engagement)
+
+Objective, from the operator's directive: a systematic review of the code that
+fixes what it finds, the CI errors fixed, and the reviewer lane made faster
+because it had become the team's bottleneck.
+
+Non-goals: new product features, a roster re-tier, changing a published tag, or
+any history rewrite.
+
+Exit condition: AC-R1..AC-R7 verified by a role other than the author on the
+merged revision, `teamwork.py coordination --strict` exits 0, and CI is green on
+the pushed revision.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-R1 | the full local gate and CI are green on the merged revision | Developer | Tester |
+| AC-R2 | `check_release_consistency.py --offline` is 0 on main after `v1.4.2` and on a branch cut from it | Developer | Reviewer |
+| AC-R3 | the committer guard audits the PR change-set, and an unreadable range reads the tip commit only | Developer | Reviewer |
+| AC-R4 | `review --queue` lists submitted work, the claim lease follows the profile, `review --next` claims + packets atomically, each tested | Developer | Reviewer |
+| AC-R5 | `coordination --strict` has no high finding; an abandoned PR is one still open | Developer | Reviewer |
+| AC-R6 | `docs/Team/Board.md` is equal to the queues and `test_board_matches_tool.py` passes | CEO | Reviewer |
+| AC-R7 | every change here was independently reviewed and archived | Reviewer | CEO |
+
+The measured baseline and the audit lanes are in [Plan](Plan.md) M13. Findings
+that this engagement does not fix carry a task with the audit row as evidence;
+none is dropped silently.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
