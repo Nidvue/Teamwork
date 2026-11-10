@@ -1811,3 +1811,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: Reviewer-1 probe+render @4445d4e -> connectors 2.66-2.79:1 (bar 3:1); after stroke-opacity=1 @f497f62 -> 3.83/4.09/3.96 analytic, 3.94/4.10/4.09 rendered; pill/box outlines 2.47-2.97:1 with labels 11.18:1 and ~14:1; git diff 4445d4e..f497f62 -- assets/banner.svg -> one hunk, one attribute
 - falsified by: a reader who cannot tell which seat hangs off which without the line colour - i.e. a label or ordering change that removes the connectors' role
 - consequences: Design.md records both sets of numbers and the one-attribute cost for anyone who disagrees
+
+## D-20261101-CEO - adopt the dsh-superagent authorization/attention model, reject its domain vocabulary
+
+- date: 2026-11-01
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0005
+- context: -
+- options considered: adopt the full domain model (a second vocabulary for the same units); adopt only the prose (no enforcement); do nothing (any caller adds work, pulse assigns without authority, duplicates, free-text attention)
+- decision: Add a task mandate (explicit/inferred + basis), PulseMode off/observe/auto, idempotent intake keys, attention records and a stage table. Reject Source/Trigger/Thread/Subscription, the effect queue, the per-Source allow-list and a web panel.
+- why: their gate is an authorization model, ours is a verification model; the four surfaces below are the overlap we lack, the rest would duplicate units the engine already owns
+- evidence: docs/Team/Research.md section 10 @e4b046f vs docs 000-003 of the prototype (accessed 2026-11-01): Mandate = strength + scope + policy version; accept mode off/observe/auto; accepting a Trigger twice creates one Ticket; the stage table is first-match over stored facts
+- falsified by: an inferred task is claimed outside auto, a duplicate key creates two tasks, or an open authorization is invisible at STOP
+- consequences: -
