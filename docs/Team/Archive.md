@@ -1017,3 +1017,16 @@ No blockers; no unrelated changes; branch mergeable.
 - reviewer evidence: git rev-parse --short 540e5ca -> 540e5ca; git diff main 540e5ca -> 1 line, CHANGELOG.md:14 only; git merge-tree --write-tree main 540e5ca -> rc=0; grep -n "^## \[" CHANGELOG.md -> 1.0.2/1.0.1/1.0.0 all releases/tag/vX.Y.Z - YYYY-MM-DD, new 1.1.0 identical shape; date -u +%F -> 2026-10-20; version.py=1.1.0, package.json=1.1.0; teamwork links -> 0 issues; pytest -q -> 616 passed, 1 skipped; ruff check/format --check -> clean; privacy_scan.py --tree --history -> PASS 0 findings; git log main..540e5ca -> CEO <ceo@agents.nidvue.com>
 - findings history: 
 - branch / merge: ceo/t-0058-tag-v1-1-0-date-the-release-section-inst / e0ab0b6
+
+## T-0062 · M9-0 open the milestone: criteria, task graph and decisions  (ceo)
+- date: 2026-10-20
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: release
+- self-check: [pass] Re-read both decision records: D-CEO-5 carries the measured npm/git digests it rests on and a falsifier; D-CEO-6 records which lanes are folded and why, so the ownership table stays honest with no technical-writer/designer staffed. Criteria use AC-<word> ids and do not collide with Project.md's AC-1..AC-18. | test: python3 scripts/teamwork.py criteria list @48e562a -> 6 AC-REL open; teamwork.py links -> # issues: 0
+- author evidence: commit 48e562a
+- reviewer evidence: single-file scope: `git show --name-only --format= 48e562a` -> docs/Team/Decisions.md only. Every quoted measurement re-derived from scratch and TRUE: `git tag -l` -> v1.0.0 v1.0.1 v1.0.2 v1.1.0 (no v1.1.1/v1.1.2); `grep -n __version__ src/teamwork/version.py` -> 9:1.1.2; `grep -n v0.9.0 docs/Team/Release.md` -> 116: `(or `git checkout v0.9.0`)`; `grep -rn 1\.0\.2 README.md docs/guide/install.md` -> README.md:132, install.md:87,115,157,204; `curl registry.npmjs.org/@nidvue%2Fteamwork` @48e562a -> 200, versions [0.0.0-stage,1.1.1,1.1.0,1.1.2]; `curl pypi.org/pypi/teamwork-agents/json` -> {"message": "Not Found"}; `gh release list` -> v1.1.0 v1.0.2 v1.0.1 v1.0.0. Payload digests independently reproduced at 64/64 identical files: commit 3f4981d -> b1ba21e39436bf09 and npm 1.1.2 tarball -> b1ba21e39436bf09 (equal); npm 1.1.1 -> 0786a4ff3c2f84ba absent from all 99 distinct payload digests over `git rev-list --all` (392 commits) -> matches NO commit, so an exception not a tag is the correct consequence; npm 1.1.0 vs tag v1.1.0 differ only in scripts/build_pi_package.py. `teamwork.py criteria list` -> AC-REL-1..6 all [open], owners CEO/Developer/ReleaseEngineer, no collision with Project.md AC-1..AC-18; `teamwork.py trace T-0062` + `ledger show` -> decision.add #1612/#1613 carry D-20261020-CEO-5/6 into the hash chain; D-CEO-5 scope does not contradict Project.md:120 (no PyPI publish promised; README pip line is repaired by M9-H); both entries carry evidence, falsified-by and consequences; `git archive 48e562a` extraction `pytest -q tests/unit/test_decision_ids.py` -> 2 passed; branch is a fast-forward of main.
+- findings history: 
+- branch / merge: ceo/t-0062-m9-0-open-the-milestone-criteria-task-gr / pending
