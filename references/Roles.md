@@ -30,9 +30,9 @@ Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.m
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 213 kB |
-| `standard` | 9 | 316 kB |
-| `full` | 16 | 552 kB |
+| `slim` (default) | 6 | 215 kB |
+| `standard` | 9 | 318 kB |
+| `full` | 16 | 555 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief

@@ -24,7 +24,7 @@ the final claim that the project is done.
    contracts in `Architecture.md`. These two artifacts are what let every other
    lane run in parallel.
 4. **Staff.** Check `teamwork.py parallel` and fill every free slot with
-   independent ready work: Ollama Cloud takes ~10 concurrent lanes, the DeepSeek
+   independent ready work: Ollama Cloud takes 64 concurrent lanes, the DeepSeek
    API ~2500. Scale `developer-*` / `tester-*` / `designer-*` to the available
    capacity, not to a fixed number, and hand the next task to a lane that is
    already running before spawning a new one.
