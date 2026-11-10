@@ -1943,3 +1943,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: the failing run is recorded on T-0019 (tests repro, fail at bd03949 -> pass at this branch head): the console-script case at bd03949 exits 1 with empty stdout and stderr, and at this head the module is 9 passed, 1 skipped with the skip naming D:\Code\Nidvue\Teamwork\venv\Scripts\python.exe; venv python -m pytest -q tests/unit/test_sys_path_hygiene.py at this head -> 5 passed
 - falsified by: A commit that makes the installed launcher quote a spaced path wrongly while its interpreter exists would now be executed by this case and must fail; if it skips instead, the guard is wrong
 - consequences: -
+
+## D-20261101-Developer-4 - The stage table's person/review-lane row is narrowed to a submission in review with no live claim
+
+- date: 2026-11-01
+- kind: technical
+- status: accepted
+- deciders: Developer-4 (developer)
+- decided by: Developer-4
+- task: T-0014
+- context: -
+- options considered: -
+- decision: stage_of matches person/review on self_check=passed and review_status=pending, and person/review-lane on status=review with review_status=pending, no live claim, and no recorded pass - so every row of the specified table stays reachable
+- why: read literally, row 5's 'pending deliverable with no live claim' is satisfied by every unfinished record, because review_status defaults to pending; the first-match order then swallows idle and working and labels almost the whole queue person/review-lane. Narrowing 'pending deliverable' to a record in review keeps the specified row order, keeps person/review as the awaiting-review row (dsh 003-execution 'the latest Report is ready'), and leaves idle reachable for a doing task
+- evidence: tests/unit/test_stage.py::test_every_row_of_the_table_is_reachable @568e237 -> 7 rows, one constructed record each, all pass; stage --now on a 4-task fixture before the narrowing -> T-0004 (doing, stale) read person/review-lane, after it -> idle
+- falsified by: a real queue where a record in review with self_check=passed and a live claim should read person/review-lane rather than person/review; or a reviewer showing the literal row 5 is intended to own the whole awaiting-review set
+- consequences: -

@@ -575,6 +575,8 @@ def new_task(
         "review_fail_rev": "",
         # Whether the last fail was mechanical: no | unknown | n/a (see cmd_review).
         "review_mechanical": "",
+        # The last fail's --detects: the specific failure it would catch (HERO).
+        "review_detects": "",
         "findings": "",
         "created": today_iso(),
         "updated": today_iso(),
@@ -653,6 +655,7 @@ def parse_tasks(path: Path) -> list:
                     "review_fails",
                     "review_fail_rev",
                     "review_mechanical",
+                    "review_detects",
                 ):
                     if field in NUMERIC_FIELDS:
                         current[field] = int(value) if value.isdigit() else 0
@@ -708,6 +711,7 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("review_fails", str(t.get("review_fails") or 0)),
             ("review_fail_rev", t.get("review_fail_rev", "")),
             ("review_mechanical", t.get("review_mechanical", "")),
+            ("review_detects", t.get("review_detects", "")),
             ("forced", t.get("forced", "")),
             ("evidence", t.get("evidence", "")),
             ("findings", t.get("findings", "")),

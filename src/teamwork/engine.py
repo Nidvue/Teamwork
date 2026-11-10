@@ -65,6 +65,18 @@ except ImportError:  # pragma: no cover - executed as a plain script
     from version import __version__ as VERSION  # type: ignore
 
 
+from .attention import (
+    ATTENTION_KINDS,
+    STAGE_ORDER,
+    attention_line,
+    authorization_count,
+    find_attention,
+    new_attention,
+    open_attention,
+    parse_attention,
+    stage_of,
+    write_attention,
+)
 from .config import (
     ALL_LAYERS_SENTINEL,
     ARCHIVE_CAP,
@@ -187,6 +199,7 @@ from .layout import (
     _rel,
     agent_dir,
     agents_dir,
+    attention_path,
     criteria_path,
     disputes_path,
     docs_dir,
@@ -6554,7 +6567,8 @@ def cmd_task_set(args) -> int:
                 f"refusing to close {t['id']}: it needs an independent review.\n"
                 f"  1) {args.agent}: task set {args.agent} {t['id']} --status review\n"
                 f"  2) reviewer: review {args.agent} {t['id']} --by <Reviewer instance> \\\n"
-                "       --result fail --findings '<what is wrong, with evidence>'\n"
+                "       --result fail --findings '<what is wrong, with evidence>' \\\n"
+                "       --detects '<the specific failure that finding catches>'\n"
                 f"  3) reviewer: review {args.agent} {t['id']} --by <Reviewer instance> \\\n"
                 "       --result pass --evidence '<verification command @rev -> result>'\n"
                 "  Use --force only for a chore that is explicitly review=na.",
@@ -7131,6 +7145,80 @@ def review_mechanical(task: dict, revision: str) -> tuple:
         f"no green preflight is recorded for @{revision[:12]}: the author did not run"
         " the mechanical gate",
     )
+
+
+# HERO's reachability test (Anti-OverDefense, rules 1-5): before running a check,
+# name the specific failure it would catch and what would change if it occurred.
+# The failure has to be reachable in this project's supported use, so adopting the
+# test turns a review finding into a claim someone can falsify - not a defence
+# against an input nobody can supply.
+
+#: The rule itself, printed with every refusal: one line, so it is read once.
+REVIEW_REACHABILITY_RULE = (
+    "a finding must be reachable in this project's supported use - its documented "
+    "inputs, published interface or real data - and constructible in principle is "
+    "not enough"
+)
+
+#: A detector that answers HERO's question with a worry instead of a failure.
+#: Deliberately narrow: the whole answer must be the canned phrase, because a false
+#: refusal sends a real finding back untouched, while a vague one that slips through
+#: is only counted by `audit` - a measurable cost, not a blocked lane.
+_VAGUE_DETECT_RE = re.compile(
+    r"^(?:"
+    r"(?:(?:an?|the|this|that|some) )?"
+    r"(?:(?:typical|classic|strange|weird|unusual|common|rare|obscure|nasty|tricky|possible"
+    r"|potential) )?"
+    r"(?:rare|obscure|possible|potential|edge|corner|similar) cases?"
+    r"|(?:it )?(?:could|might|may|can)(?: also)?(?: still)? "
+    r"(?:break|fail|go wrong|be wrong|regress)"
+    r"|there (?:could|might|may) be (?:a )?(?:bugs?|problems?|issues?|failures?)"
+    r"|(?:not|never|isn'?t) (?:tested|covered|verified|checked)"
+    r"|(?:no|lacks?|lack of|missing) tests?"
+    r"|(?:some |a )?(?:bugs?|errors?|issues?|regressions?|problems?)"
+    r"|(?:general|overall|potential|possible) (?:risks?|issues?|problems?|failures?)"
+    r"|(?:unknown|unclear|none|n/?a|maybe|probably|various|misc)"
+    r")[.!]*$"
+)
+
+
+def detects_problem(detects: str, findings: str = "") -> str:
+    """Why a ``--detects`` fails the reachability test; ``''`` when it passes.
+
+    Two shapes are refused: an empty answer, and a canned phrase that names no
+    failure at all ("edge case", "it could break", "not tested"). A detector that
+    merely repeats the defect is refused too - it says the work is wrong, not what
+    would have caught it.
+    """
+    text = one_line(detects)
+    if not text:
+        return "missing"
+    if _VAGUE_DETECT_RE.match(text.lower()):
+        return f"a restatement: {text!r} names a worry, not a failure"
+    if findings and one_line(findings).lower().rstrip(".") == text.lower().rstrip("."):
+        return (
+            f"a restatement of the defect: {text!r} repeats the finding instead of "
+            "naming the failure it would catch"
+        )
+    return ""
+
+
+#: `review.fail` detail -> its detector. The detail is one line that starts with the
+#: mechanical classification, and a pipe inside the detector is written as a slash
+#: there, so this boundary is exact and a finding's own prose cannot forge it.
+_RE_LEDGER_DETECTS = re.compile(r"^mechanical: [^|]*? \| detects: (.*?)(?: \| |$)")
+
+
+def ledger_detects(detail: str) -> str | None:
+    """The detector on a ``review.fail`` ledger line; ``None`` when none is recorded.
+
+    None is the legacy shape - every fail recorded before the field existed - and
+    the audit counts those rather than treating them as a defect in the record.
+    """
+    if not detail or "detects:" not in detail:
+        return None
+    match = _RE_LEDGER_DETECTS.search(detail)
+    return match.group(1).strip() if match else None
 
 
 def record_revision(record: dict) -> str:
@@ -8948,6 +9036,121 @@ def _section(key: str, title: str):
     return {"key": key, "title": title, "lines": [], "blockers": []}
 
 
+def _stage_now(raw: str) -> datetime.datetime:
+    """The clock the stage table is read at (``--now`` makes the panel replayable)."""
+    text = (raw or "").strip()
+    if not text:
+        return datetime.datetime.now()
+    try:
+        return datetime.datetime.fromisoformat(text)
+    except ValueError:
+        die(f"--now must be an ISO date or datetime, e.g. 2026-11-01 (got {text!r})")
+
+
+def cmd_stage(args) -> int:
+    """One line per in-flight task: the stage the frozen table gives its record.
+
+    Read-only: it classifies the queues as they are on disk and writes nothing.
+    """
+    root = project_root(args)
+    now = _stage_now(getattr(args, "now", ""))
+    open_items = open_attention(parse_attention(attention_path(root)))
+    cache: dict = {}
+    rows = []
+    for role in list_roles(root):
+        tasks = parse_tasks(role_dir(root, role) / F_TASKS)
+        lookup = local_dep_map(tasks)
+        for task in tasks:
+            if task["status"] in ("done", "dropped"):
+                continue
+            stage, fact = stage_of(
+                task,
+                open_items=open_items,
+                deps_ready=executable(task, lookup, cache, root),
+                now=now,
+            )
+            rows.append((stage, role, task["id"], fact))
+    for stage, role, task_id, fact in sorted(
+        rows, key=lambda row: (STAGE_ORDER.get(row[0], 9), row[1], row[2])
+    ):
+        print(f"{task_id} {role} {stage} - {fact}")
+    return 0
+
+
+def _task_exists(root: Path, task_id: str) -> bool:
+    """True when some role queue holds this exact task id.
+
+    An attention item that names a task is what releases that task in `stage`,
+    so an id no queue holds would put a line on the panel that can never match.
+    """
+    wanted = task_id.upper()
+    for role in list_roles(root):
+        if any(t["id"].upper() == wanted for t in parse_tasks(role_dir(root, role) / F_TASKS)):
+            return True
+    return False
+
+
+def cmd_attention(args) -> int:
+    """Record, list or resolve an item that needs a person."""
+    root = project_root(args)
+    path = attention_path(root)
+    if args.attention_cmd == "list":
+        # A healthy team prints nothing: the panel is paid for by the items on it.
+        for item in open_attention(parse_attention(path)):
+            print(attention_line(item))
+        return 0
+    if args.attention_cmd == "add":
+        actor, _role = validate_actor(root, args.by, "attention author")
+        text = (args.text or "").strip()
+        if not text:
+            die("attention add needs --text '<what a person must answer or grant>'")
+        named = (args.task or "").strip().upper()
+        if named and not _task_exists(root, named):
+            die(
+                f"no task '{args.task}' in any role queue: the id is what releases that "
+                "task in `stage`, so it must exist - drop --task for an item that names "
+                "no task"
+            )
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / "attention.lock"):
+            items = parse_attention(path)
+            item = new_attention(text, args.kind, actor, named)
+            items.append(item)
+            write_attention(path, items)
+        ledger_append(
+            root,
+            "attention.add",
+            actor,
+            item["id"],
+            f"[{item['kind']}]"
+            + (f" {item['task']}" if item["task"] else "")
+            + f" {one_line(text)[:90]}",
+        )
+        print(f"teamwork: opened {attention_line(item)}")
+        return 0
+    actor, _role = validate_actor(root, args.by, "resolver")
+    if args.attention_cmd != "resolve":
+        die(f"unknown attention command '{args.attention_cmd}'")
+    resolution = (getattr(args, "resolution", "") or "").strip()
+    if not resolution:
+        die("attention resolve needs --resolution '<what the person decided>'")
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "attention.lock"):
+        items = parse_attention(path)
+        index = find_attention(items, args.id)
+        if index is None:
+            die(f"no attention item '{args.id}'")
+        item = items[index]
+        if item["status"] != "open":
+            die(f"{item['id']} is already {item['status']} (by {item['resolved_by'] or '-'})")
+        item["status"] = "resolved"
+        item["resolved_by"] = actor
+        item["resolved"] = today_iso()
+        item["resolution"] = one_line(resolution)
+        write_attention(path, items)
+    ledger_append(root, "attention.resolve", actor, item["id"], one_line(resolution)[:120])
+    print(f"teamwork: resolved {item['id']} by {actor}: {item['resolution']}")
+    return 0
+
+
 def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     """Every completion gate, with the detail a human needs to act on it.
 
@@ -8997,6 +9200,31 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
             f"human view: {len(unchecked)} unchecked box(es) in the "
             "project docs (advisory; `criteria` is the gate)"
         )
+    sections.append(s)
+
+    s = _section("attention", "what needs a person")
+    open_items = open_attention(parse_attention(attention_path(root)))
+    for item in open_items:
+        s["lines"].append(
+            f"{item['id']} [{item['kind']}]"
+            + (f" {item['task']}" if item["task"] else "")
+            + f" {brief(item['text'])}"
+        )
+    if open_items:
+        authorized = authorization_count(open_items)
+        s["lines"].append(
+            f"{len(open_items)} open attention item(s): {authorized} authorization, "
+            f"{len(open_items) - authorized} informational"
+        )
+        if authorized:
+            # An authorization is the one kind a person must grant before the
+            # team may act; the other kinds are recorded and can be worked around.
+            s["blockers"].append(
+                f"{authorized} open attention item(s) need authorization: "
+                + ", ".join(i["id"] for i in open_items if i["kind"] == "authorization")
+            )
+    else:
+        s["lines"].append("none")
     sections.append(s)
 
     s = _section("tests", "test layers (each owned and run by its own role)")
@@ -9954,6 +10182,14 @@ def cmd_review(args) -> int:
         die("--result must be pass or fail")
     if args.result == "fail" and not args.findings.strip():
         die("a fail needs --findings '<what is wrong, with evidence>'")
+    if args.result == "fail":
+        problem = detects_problem(args.detects, args.findings)
+        if problem:
+            die(
+                "a fail needs --detects '<the specific failure this would catch>': "
+                f"{REVIEW_REACHABILITY_RULE}.\n"
+                f"  the --detects is {problem}."
+            )
     if (getattr(args, "credit", "") or "").strip() and args.result != "pass":
         die("--credit belongs to a pass: it names the record a passing verdict cited", 2)
     if args.force:
@@ -10069,6 +10305,7 @@ def cmd_review(args) -> int:
         credited: list = []
         mechanical = ""
         mechanical_why = ""
+        detects = ""
         if args.result == "pass":
             available, _stale = creditable_tests(root, role, t)
             for raw in [x.strip() for x in (getattr(args, "credit", "") or "").split(",")]:
@@ -10107,8 +10344,13 @@ def cmd_review(args) -> int:
             # once, and classify the fail against the same revision.
             failed_rev = review_revision(root, t) or (t.get("review_fail_rev") or "")
             mechanical, mechanical_why = review_mechanical(t, failed_rev)
+            detects = one_line(args.detects)
             prev = t.get("findings", "")
-            t["findings"] = (prev + " | " + args.findings).strip(" |")
+            # The detector leads its defect so a reader judges proportionality
+            # without reading the whole report (HERO rules 1-5).
+            finding = f"detects: {detects} | {args.findings.strip()}"
+            t["findings"] = f"{prev} | {finding}" if prev else finding
+            t["review_detects"] = detects
             t["review_status"] = "failed"
             t["status"] = "doing"
             t["review_fails"] = int(t.get("review_fails") or 0) + 1
@@ -10140,8 +10382,13 @@ def cmd_review(args) -> int:
             ((t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note)[:200]
             if args.result == "pass"
             # The classification leads the detail so the mechanical-fail rate can be
-            # counted off the append-only ledger long after the task record moves on.
-            else (f"mechanical: {mechanical} | " + (t.get("findings") or "")[:150])[:200]
+            # counted off the append-only ledger long after the task record moves on;
+            # the detector follows it, so `audit` counts per fail rather than per task
+            # and a legacy record (no field) is counted as missing, never as a defect.
+            else (
+                f"mechanical: {mechanical} | detects: {detects.replace('|', '/')} "
+                f"| {one_line(args.findings)[:120]}"
+            )[:200]
         ),
         "",
         role,
@@ -10192,6 +10439,7 @@ def cmd_review(args) -> int:
             f"teamwork: REVIEW FAIL {role} {t['id']} by {reviewer}: {t['title']}"
             + (f" [work by {t['claimed_by']}]" if t.get("claimed_by") else "")
         )
+        print(f"          detects: {t.get('review_detects') or '-'}")
         print(f"          findings: {t['findings']}")
         print(f"          mechanical: {mechanical} ({mechanical_why})")
         if t.get("merge_commit"):
@@ -10282,7 +10530,8 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
         "#   review <role> <T-id> --by <Reviewer-instance> --result pass --evidence '<cmd @rev -> result>'"
     )
     print(
-        "#   review <role> <T-id> --by <Reviewer-instance> --result fail --findings '<defect + evidence>'"
+        "#   review <role> <T-id> --by <Reviewer-instance> --result fail "
+        "--findings '<defect + evidence>' --detects '<failure it catches>'"
     )
     print("#   review <role> <T-id> --renew --by <Reviewer-instance>   # extend a long review")
     print(
@@ -11379,6 +11628,7 @@ def cmd_audit(args) -> int:
     problems += _audit_deliverables_awaiting_independent_review(root, names, args)
     problems += _audit_open_disputes_design_decision_challenges(root, names, args)
     problems += _audit_forced_gate_overrides(root, names, args)
+    problems += _audit_review_fails_without_a_reachable_detect(root, names, args)
     problems += _audit_roster_gaps_roles_with_no_instance(root, names, args)
     problems += _audit_ownership_sanity_phantom_agents_silent_o(root, names, args)
     problems += _audit_branch_pr_flow(root, names, args)
@@ -11668,6 +11918,47 @@ def _audit_forced_gate_overrides(root: Path, names: list, args) -> int:
     if not hits:
         print("- none")
     return hits
+
+
+def _audit_review_fails_without_a_reachable_detect(root: Path, names: list, args) -> int:
+    """Count review fails with no reachable detector; never a problem, always a count.
+
+    HERO's reachability test is adopted as a required field, but the gate can only
+    police fails recorded after it: every earlier `review.fail` in the trail has no
+    detector, and a record is a fact about what happened, not something to fail the
+    team for later. So the section reports the rate and returns 0 - the number is
+    the measurement, and `preflight`/`review` keep the gate itself.
+    """
+    print("## review fails without a reachable --detects (proportionality)")
+    records = [r for r in ledger_read(root) if r.get("action") == "review.fail"]
+    if not records:
+        print("- no review fails recorded")
+        print()
+        return 0
+    missing, vague = [], []
+    for record in records:
+        detects = ledger_detects(record.get("detail") or "")
+        if detects is None or not detects.strip():
+            missing.append(record)
+            continue
+        problem = detects_problem(detects)
+        if problem:
+            vague.append((record, detects, problem))
+    ok = len(records) - len(missing) - len(vague)
+    print(
+        f"- {len(records)} review fail(s): {ok} reachable, {len(missing)} no detector "
+        f"recorded, {len(vague)} a restatement"
+    )
+    for record in missing[:5]:
+        print(
+            f"  - {record.get('ts') or '?'} {record.get('target') or '-'}: "
+            "no --detects on record (legacy fail, before the field was required)"
+        )
+    for _record, detects, problem in vague[:5]:
+        print(f"  - {detects!r}: {problem}")
+    print("- non-blocking: the count is a health metric, not a gate (the gate is review)")
+    print()
+    return 0
 
 
 def _audit_roster_gaps_roles_with_no_instance(root: Path, names: list, args) -> int:
@@ -13454,6 +13745,24 @@ def _parsers_workspace(sub, common) -> None:
     s.set_defaults(func=cmd_dispute_list)
 
     s = sub.add_parser(
+        "attention", parents=[common], help="record/list/resolve what needs a person"
+    )
+    asub = s.add_subparsers(dest="attention_cmd", required=True)
+    s = asub.add_parser("add", parents=[common], help="record an item that needs a person")
+    s.add_argument("--text", required=True, help="what the person must answer or grant")
+    s.add_argument("--kind", required=True, choices=list(ATTENTION_KINDS))
+    s.add_argument("--task", default="", help="the task it blocks, e.g. T-0014")
+    s.add_argument("--by", required=True)
+    s.set_defaults(func=cmd_attention)
+    s = asub.add_parser("list", parents=[common], help="the open items, oldest first")
+    s.set_defaults(func=cmd_attention)
+    s = asub.add_parser("resolve", parents=[common], help="close an item with its decision")
+    s.add_argument("id")
+    s.add_argument("--by", required=True)
+    s.add_argument("--resolution", required=True, help="what the person decided")
+    s.set_defaults(func=cmd_attention)
+
+    s = sub.add_parser(
         "repo", parents=[common], help="ensure a git repository exists and report status"
     )
     s.add_argument("--no-commit", action="store_true", help="do not create the initial commit")
@@ -13668,6 +13977,12 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--baseline", default="", help="the state the verification started from")
     s.add_argument("--replay", default="", help="command or path that reproduces the verdict")
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
+    s.add_argument(
+        "--detects",
+        default="",
+        help="with --result fail: the specific failure this finding catches, reachable "
+        "in this project's supported use (required; 'edge case' is refused)",
+    )
     s.add_argument(
         "--credit",
         default="",
@@ -14167,6 +14482,18 @@ def _parsers_scheduling(sub, common) -> None:
         help=f"print every line whole (default: clip detail past {LOOP_CLIP_LIMIT} chars)",
     )
     s.set_defaults(func=cmd_loop)
+
+    s = sub.add_parser(
+        "stage",
+        parents=[common],
+        help="what every in-flight task is waiting for (a person stage needs a human)",
+    )
+    s.add_argument(
+        "--now",
+        default="",
+        help="ISO timestamp the 24h idle rule is read at (default: now)",
+    )
+    s.set_defaults(func=cmd_stage)
 
     s = sub.add_parser("slot", parents=[common], help="reserve/release a provider concurrency slot")
     ssub = s.add_subparsers(dest="slot_cmd", required=True)
