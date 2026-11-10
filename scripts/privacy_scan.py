@@ -730,12 +730,20 @@ def _scan_bytes(data, path, source, allow, commit=None):
     head = data[:8192]
     if head.startswith((b"\xff\xfe", b"\xfe\xff")):
         text = data.decode("utf-16", "replace")
-    elif b"\x00" in head:
-        # UTF-16 without a BOM still has a high NUL ratio; a short NUL in an
-        # otherwise textual file is not enough to call it binary.
-        if head.count(b"\x00") / max(len(head), 1) > 0.01:
+    elif b"\x00" in head and head.count(b"\x00") / max(len(head), 1) > 0.01:
+        # UTF-16 without a BOM: try both byte orders and accept only a decode
+        # that is overwhelmingly printable. A real binary file stays skipped.
+        text = ""
+        for encoding in ("utf-16-le", "utf-16-be"):
+            candidate = data.decode(encoding, "replace")
+            printable = sum(1 for ch in candidate if ch.isprintable() or ch in "\n\r\t") / max(
+                len(candidate), 1
+            )
+            if printable > 0.9 and "\x00" not in candidate:
+                text = candidate
+                break
+        if not text:
             return []
-        text = data.decode("utf-8", "replace")
     else:
         text = data.decode("utf-8", "replace")
     return list(scan_lines(text, path, source, RULES, allow, commit=commit))

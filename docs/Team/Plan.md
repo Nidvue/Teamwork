@@ -5,6 +5,20 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
+## Audit follow-up (2026-10-18)
+
+| id | task | role | status | evidence |
+|---|---|---|---|---|
+| T-0001 | Full-project audit: parser, ledger, paths, locks, privacy, CI | ceo | done | `make ci` @ `81301d9` -> all gates passed; 339 tests |
+| T-0002 | Scope the audit-manifest anchor to the workspace id | ceo | done | ledger tests 17 passed; `audit` -> 0 |
+| T-0003 | Repo-local role identity, `--strict-authors`, exit-code docs | ceo | done | identity tests 36 passed |
+| T-0004 | Accurate exit-code table; identity guard tests | ceo | done | 338 tests |
+| T-0005 | Fix `dispute sign` undeclared `--force` | ceo | done | regression test 30 passed |
+| T-0006 | Correct the exit-code example; tribunal sign coverage | ceo | done | sign/resolve tests |
+| T-0007 | Correct the T-0005 archive evidence | ceo | done | measured exit 1 |
+
+Exit: `teamwork loop` STOP and `teamwork audit` 0 problems on `main`.
+
 ## M1 - Package the engine (parallel with everything else)
 
 Exit: `python3 scripts/teamwork.py selftest` passes and `python -m teamwork --version`

@@ -206,3 +206,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: dispute sign by developer @b05d04a -> exit 1; archive line matches
 - findings history: -
 - branch / merge: - / pending
+
+## T-0008 · Resolve residual audit items: umask, BOM-less UTF-16, nested repo, coverage, stale board  (ceo)
+- date: 2026-10-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read umask, UTF-16 heuristic, nested repo, command-surface tests | test: pytest -q @e7a7d4d -> 350 passed; coverage 62.14%
+- author evidence: commit e7a7d4d
+- reviewer evidence: pytest -q @e7a7d4d -> 350 passed; coverage 62.14%; ruff/mypy/links/privacy clean
+- findings history: -
+- branch / merge: ceo/t-0008-resolve-residual-audit-items-umask-bom-l / pending

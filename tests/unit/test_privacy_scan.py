@@ -448,3 +448,10 @@ def test_cat_file_batch_skips_tree_payloads_without_desync(tmp_path: Path):
     shas = [line.split()[0] for line in shas if line.strip()]
     blobs = ps._cat_file_batch(repo, shas)
     assert any(b"hello blob" in payload for payload in blobs.values())
+
+
+def test_bom_less_utf16_text_is_scanned():
+    token = "ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789"
+    data = f"GITHUB_TOKEN={token}\n".encode("utf-16-le")
+    findings = ps._scan_bytes(data, "win.ps1", "unit-test", allow=[])
+    assert any(f["rule"] == "api-token" for f in findings)
