@@ -1034,8 +1034,10 @@ plus 8 engine modules that were simply missing.
    use when it is a git checkout, else the tool-managed mirror checkout
    `.teamwork-source` (`--mirror` forces that case). The mirror sits beside the
    skills directory, one level higher when that directory is literally named
-   `skills`: the default `pi` destination `~/.pi/agent/skills/teamwork` mirrors
-   through `~/.pi/agent/.teamwork-source`, and `--host agents` uses
+   `skills`. The destination is resolved from the host's skills directory -
+   `--dest` names one directly, `--host` selects a host's default - so
+   `~/.pi/agent/skills/teamwork` mirrors through
+   `~/.pi/agent/.teamwork-source`, and `--host agents` uses
    `~/.agents/.teamwork-source`.
 2. In a checkout: fetch `--remote/--branch` and fast-forward. A dirty tree is
    never clobbered - the checkout is mirrored as it stands and the command says
