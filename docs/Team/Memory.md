@@ -224,11 +224,11 @@ retrieval path.
 
 ## 8. M22 - what the article says that this engine still did not do (2026-11-09)
 
-Read at `90502bb`, against the same page as section 1. Five mechanisms the article
+Read at `bc9b981`, against the same page as section 1. Five mechanisms the article
 names were absent here; the sixth (a wiki representation) is deliberately deferred
 with a falsifier rather than copied.
 
-| # | component the article names | what the article says | this engine at `90502bb` | M22 |
+| # | component the article names | what the article says | this engine at `bc9b981` | M22 |
 |---|---|---|---|---|
 | 1 | transcripts as the foundation | "it's reasonable to consider transcript search as the foundation" of memory | `context find` and `recall` reach memory, lessons, knowledge, skills, docs and tasks - **not** `Ledger.jsonl` or `WorkLog.md`, so the transcript is written and never read | AC-M22-3 |
 | 2 | a note carries how it was known | Opus 5 "included a rule (and also how it knew the rule was true)" | `evidence` is a free string; nothing ever re-checks it, so a note that was wrong from the start is trusted forever | AC-M22-1 |
@@ -358,23 +358,23 @@ zero-lesson bound is now a test.
 Falsifiers: if `memory verify` reports `drifted` on a record whose evidence is
 true, the parser is wrong and the record is not; if the index header does not
 change a lane's first action in three waves, it is ceremony and is deleted; if the
-injected block grows past `90502bb`, the header is over budget.
+injected block grows past `bc9b981`, the header is over budget.
 
 ## 13. M22 - measured, on the merged revision
 
 Every row is a command and its observed result. "Same store, back to back" means the
-`90502bb` renderer (`.pi/Scratch/ceo/baseline`) and the merged renderer were run one
+`bc9b981` renderer (`.pi/Scratch/ceo/baseline`) and the merged renderer were run one
 after the other against one unchanged store, so the only difference is the code.
 The store was live during the milestone (it grew from 0 knowledge records to 3), which
 is why a count here is never reused as a constant elsewhere.
 
-| surface | before (`90502bb`) | after (merged) | command |
+| surface | before (`bc9b981`) | after (merged) | command |
 |---|---|---|---|
 | `load Developer` (1 open lesson) | 2110 B | 1942 B (-168) | both renderers, same store, back to back |
 | `load Developer --task T-0056` | 2309 B | 2141 B (-168) | same |
 | `load CEO` (2 open lessons) | 2482 B | 1959 B (-523) | same |
 | `load Tester` (no open lessons) | 1609 B | 1734 B (+125) | same; the index is 228 B, inside the revised 800 B bound |
-| a 3-knowledge / 5-lesson fixture | 1827 B | 1177 B (-650) | `tests/unit/test_memory_index.py`, the literal captured from the `90502bb` renderer on that fixture |
+| a 3-knowledge / 5-lesson fixture | 1827 B | 1177 B (-650) | `tests/unit/test_memory_index.py`, the literal captured from the `bc9b981` renderer on that fixture |
 | a zero-lesson fixture | 1137 B | 1262 B (+125) | `tests/unit/test_memory_index.py`, bound `1137 + 800` |
 | the index block itself | n/a | 403 B / 5 topic lines for CEO; 325 B / 4 for Developer | `load <Instance> \| sed -n '1,/^# index:/p' \| wc -c` |
 | `memory verify --role ceo` | n/a | 68 ms, 5 record(s), 5 verified | `time` in a Python harness over the CLI |
@@ -388,7 +388,7 @@ Re-measured at `8a34759`, same method, on the store as it stands (7 CEO lessons,
 one of them `L-0019`, written after the first reading) - the table above stays as it
 was measured and this block is the current reading of the same surfaces:
 
-| surface | before (`90502bb`) | after (`8a34759`) | command |
+| surface | before (`bc9b981`) | after (`8a34759`) | command |
 |---|---|---|---|
 | `load CEO` | 8112 B | 5455 B (-2657) | both renderers, same store, back to back |
 | `load Developer` | 5746 B | 5776 B (+30) | same |
@@ -397,7 +397,7 @@ was measured and this block is the current reading of the same surfaces:
 | the task pack for `T-0039` | n/a | 13 record(s), 3194 B (budget 3437) | `load CEO --task T-0039 \| tail -1` |
 
 The two readings are the measurement, not noise: between them exactly one lesson was
-written (`L-0019`), and `load CEO` moved +354 B on the `90502bb` renderer (7758 ->
+written (`L-0019`), and `load CEO` moved +354 B on the `bc9b981` renderer (7758 ->
 8112) and **0 B** on the merged one (5455 -> 5455). A verbose renderer pays for every
 record the store gains; the capped index does not, which is the behaviour `AC-M22-4`
 was ruled to buy and the reason a number here names its store state.

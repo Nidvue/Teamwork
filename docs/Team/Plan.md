@@ -35,14 +35,14 @@ run, and the governance records match the merged revision.
 
 | id | task | role | prio | deps | artifact | status | evidence |
 |---|---|---|---|---|---|---|---|
-| T-0010 | Export the audit manifest with a workspace `TeamId` | ceo | P2 | - | `docs/Team/AuditManifest.json` | done | commit `384df6a` |
-| T-0011 | Split `engine.py` into typed modules | ceo | P1 | - | `src/teamwork/*.py` | done | commit `c8fb469` |
-| T-0012 | Skip the POSIX umask test on Windows | ceo | P1 | T-0011 | `tests/unit/test_integrity_fixes.py` | done | commit `f2e3b5a`; CI `39173857076` windows jobs green |
-| T-0013 | Fix import order in the Windows skip test | ceo | P1 | T-0012 | `tests/unit/test_integrity_fixes.py` | done | commit `b7fe03b` |
-| T-0014 | Land the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/release.yml` | done | commit `9b56f1b`; PR #17 17/17 checks; supersedes #11-#13 |
-| T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | done | commit `1d49c21`; passed on round 3 after two evidence-backed fails |
-| T-0016 | `ensure_gitignore` orphan headers and glob-covered entries | ceo | P1 | - | `src/teamwork/engine.py`, `tests/unit/test_gitignore_bootstrap.py` | done | commit `4cd8afc`; 5 regression tests, 3 of which fail on the pre-fix engine |
-| T-0017 | Close M5: board done + audit manifest export | ceo | P1 | T-0014..T-0016 | this file, `Board.md`, `AuditManifest.json` | done | merge `ff419fa` |
+| T-0010 | Export the audit manifest with a workspace `TeamId` | ceo | P2 | - | `docs/Team/AuditManifest.json` | done | commit `f87381d` |
+| T-0011 | Split `engine.py` into typed modules | ceo | P1 | - | `src/teamwork/*.py` | done | commit `5bd1219` |
+| T-0012 | Skip the POSIX umask test on Windows | ceo | P1 | T-0011 | `tests/unit/test_integrity_fixes.py` | done | commit `05a2a4c`; CI `39173857076` windows jobs green |
+| T-0013 | Fix import order in the Windows skip test | ceo | P1 | T-0012 | `tests/unit/test_integrity_fixes.py` | done | commit `31f0aba` |
+| T-0014 | Land the three Dependabot action bumps | ceo | P0 | - | `.github/workflows/release.yml` | done | commit `d47a164`; PR #17 17/17 checks; supersedes #11-#13 |
+| T-0015 | Refresh stale governance docs to the merged revision | ceo | P1 | - | this file, `Board.md`, `Risks.md`, `Release.md` | done | commit `d47a164`; passed on round 3 after two evidence-backed fails |
+| T-0016 | `ensure_gitignore` orphan headers and glob-covered entries | ceo | P1 | - | `src/teamwork/engine.py`, `tests/unit/test_gitignore_bootstrap.py` | done | commit `d47a164`; 5 regression tests, 3 of which fail on the pre-fix engine |
+| T-0017 | Close M5: board done + audit manifest export | ceo | P1 | T-0014..T-0016 | this file, `Board.md`, `AuditManifest.json` | done | merge `d47a164` |
 
 No M5 task is open; the role queue (`teamwork.py task list ceo`) is the only
 authoritative source for a task's exact state.
@@ -55,12 +55,12 @@ the fix, and both passed independent review. Source: [Research](Research.md) 6
 
 | id | task | role | prio | artifact | status | evidence |
 |---|---|---|---|---|---|---|
-| T-0020 | Evidence packets + repro-first gate | ceo | P1 | `src/teamwork/{engine,records}.py`, two test modules | done | `8694073`..`9d59976`; `Archive.md` |
-| T-0021 | Review records baseline + replay | ceo | P2 | `engine.py`, `docs/guide/cli.md` | done | `2297adc` |
-| T-0022 | The repro proof belongs to the defect task | ceo | P3 | `engine.py`, `records.py`, docs | done | `3934690`; 1 fail + 2 review rounds |
-| T-0024 | Close-out audit flow as a team skill | ceo | P2 | `.agents/skills/ceo-audit-close/SKILL.md` | done | `b662faf` |
-| T-0025 | Fix-forward: allow `.agents` at the root | ceo | P0 | `tests/unit/test_hygiene.py` | done | `d72f44b`; repro `b662faf` -> `a4ead34` |
-| T-0023 | Bind the adoption decision + closing manifest | ceo | P3 | `Decisions.md`, `AuditManifest.json` | done | merge `ae80950`; reviewed after 1 fail + 1 pass |
+| T-0020 | Evidence packets + repro-first gate | ceo | P1 | `src/teamwork/{engine,records}.py`, two test modules | done | `3b56fba`..`3b56fba`; `Archive.md` |
+| T-0021 | Review records baseline + replay | ceo | P2 | `engine.py`, `docs/guide/cli.md` | done | `5b03799` |
+| T-0022 | The repro proof belongs to the defect task | ceo | P3 | `engine.py`, `records.py`, docs | done | `29f0537`; 1 fail + 2 review rounds |
+| T-0024 | Close-out audit flow as a team skill | ceo | P2 | `.agents/skills/ceo-audit-close/SKILL.md` | done | `929f938` |
+| T-0025 | Fix-forward: allow `.agents` at the root | ceo | P0 | `tests/unit/test_hygiene.py` | done | `29f0537`; repro `929f938` -> `723c24e` |
+| T-0023 | Bind the adoption decision + closing manifest | ceo | P3 | `Decisions.md`, `AuditManifest.json` | done | merge `064f0ed`; reviewed after 1 fail + 1 pass |
 
 ## M7 - reviewer fan-out + claims (closed)
 
@@ -69,7 +69,7 @@ who holds it as a record; review is parallel, not serialised by the dispatcher.
 
 | id | task | role | prio | artifact | status | evidence |
 |---|---|---|---|---|---|---|
-| T-0001 | Fan review out across Reviewer lanes | developer | P0 | `engine.py`, `records.py`, `tests/unit/test_review_fanout.py`, docs | done | merge `8f210bc`; 10 new unit tests; repro `479742d` -> `76d5f76` |
+| T-0001 | Fan review out across Reviewer lanes | developer | P0 | `engine.py`, `records.py`, `tests/unit/test_review_fanout.py`, docs | done | merge `1ea5a2f`; 10 new unit tests; repro `49b7dad` -> `1ea5a2f` |
 
 ## M8 - records hygiene (closed)
 
@@ -78,7 +78,7 @@ lists each milestone once, and the export names the head it was taken from.
 
 | id | task | role | prio | artifact | status | evidence |
 |---|---|---|---|---|---|---|
-| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | done | merge `62ef5db`; 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
+| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | done | merge `26f6159`; 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
 
 ## M9 - release truth (closed)
 
@@ -207,17 +207,17 @@ as `dropped` is listed in the drops table below with its reason.
 
 | id | task | role | prio | deps | artifact | status | evidence |
 |---|---|---|---|---|---|---|---|
-| T-0001 | Research section 8: verdict table, adoption order, falsifiers, sources | product-manager | P1 | - | `docs/Team/Research.md` 8, `tests/unit/test_research_sources.py` | done | merge `3ce409a` (P-0005); 5 passed @ `eecc406` |
-| T-0001 | Freeze the harness-surface and hooks CLI contract; record the decisions | architect | P1 | - | `docs/Team/Architecture.md` 11, `docs/Team/Decisions.md` | done | merge `811065b` (P-0003); the contract landed as Architecture 11.1-11.9 around one `hook_dir(root)` resolver |
-| T-0001 | Engine: `harness list`, `harness lint`, `harness budget` + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/harness.py`, `tests/unit/test_harness_surface.py` | done | merge `5dc7f6b` (P-0004); the eight-row registry landed in `aad25f3` |
-| T-0002 | Engine: git hooks (in-loop enforcement) + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/hooks.py`, `tests/unit/test_hooks.py` | done | merge `1c99bb1` (P-0007); 30 passed @ `0795f26` |
-| T-0001 | Integration + acceptance tests for the harness surface and hooks | tester | P0 | developer:T-0001, developer:T-0002 | `tests/integration/test_harness_cli.py`, `tests/acceptance/test_harness_docs.py` | done | merge `4b3e6dd` (P-0011); the argv-builder defect the first round found was fixed in `5355b0b` |
-| T-0001 | Docs: reviewer rubric, untrusted-material rule, SKILL.md and CHANGELOG | ceo | P1 | - | `roles/reviewer.md`, `references/Evidence.md`, `SKILL.md` | done | merge `e82075d` (P-0001), after 2 fail + 1 pass rounds |
-| T-0002 | Docs pass for the new surface: cli guide, CHANGELOG, dead-skill trigger line | ceo | P1 | developer:T-0001, developer:T-0002 | `docs/guide/cli.md`, `CHANGELOG.md`, `SKILL.md` | done | merge `915f84f` (P-0008); `hooks` documented at `829bc45`, `harness` documented after the engine merged |
+| T-0001 | Research section 8: verdict table, adoption order, falsifiers, sources | product-manager | P1 | - | `docs/Team/Research.md` 8, `tests/unit/test_research_sources.py` | done | merge `68c6a0f` (P-0005); 5 passed @ `68c6a0f` |
+| T-0001 | Freeze the harness-surface and hooks CLI contract; record the decisions | architect | P1 | - | `docs/Team/Architecture.md` 11, `docs/Team/Decisions.md` | done | merge `c171531` (P-0003); the contract landed as Architecture 11.1-11.9 around one `hook_dir(root)` resolver |
+| T-0001 | Engine: `harness list`, `harness lint`, `harness budget` + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/harness.py`, `tests/unit/test_harness_surface.py` | done | merge `df452b3` (P-0004); the eight-row registry landed in `d43e6e3` |
+| T-0002 | Engine: git hooks (in-loop enforcement) + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/hooks.py`, `tests/unit/test_hooks.py` | done | merge `00b4727` (P-0007); 30 passed @ `00b4727` |
+| T-0001 | Integration + acceptance tests for the harness surface and hooks | tester | P0 | developer:T-0001, developer:T-0002 | `tests/integration/test_harness_cli.py`, `tests/acceptance/test_harness_docs.py` | done | merge `0dbc13d` (P-0011); the argv-builder defect the first round found was fixed in `0dbc13d` |
+| T-0001 | Docs: reviewer rubric, untrusted-material rule, SKILL.md and CHANGELOG | ceo | P1 | - | `roles/reviewer.md`, `references/Evidence.md`, `SKILL.md` | done | merge `00b4727` (P-0001), after 2 fail + 1 pass rounds |
+| T-0002 | Docs pass for the new surface: cli guide, CHANGELOG, dead-skill trigger line | ceo | P1 | developer:T-0001, developer:T-0002 | `docs/guide/cli.md`, `CHANGELOG.md`, `SKILL.md` | done | merge `df452b3` (P-0008); `hooks` documented at `df452b3`, `harness` documented after the engine merged |
 
 Every M9p row above is `done` and every merge named in the evidence column is an
 ancestor of `main` (`git merge-base --is-ancestor <sha> main` -> rc 0 for
-`3ce409a`, `811065b`, `5dc7f6b`, `1c99bb1`, `4b3e6dd`, `e82075d`, `915f84f`).
+`68c6a0f`, `c171531`, `df452b3`, `00b4727`, `0dbc13d`, `00b4727`, `df452b3`).
 The one M9p task with no merge is the reviewer row, which the queue records as
 `dropped`; it is in the drops table below, and the acceptance coverage it
 wanted is in place under other ids (TS-0003 integration/harness, TS-0005
@@ -234,35 +234,35 @@ work, which is outside this milestone's scope and is listed in the table below.
 
 | id | task | role | why dropped |
 |---|---|---|---|
-| T-0003 | Three measured defects on the harness/hooks branches (list shape, hook marker, root-commit hole) | developer | covered by the fixes it named: the eight-row list landed in developer T-0001 `aad25f3`, the marker literal and root-commit refusal in developer T-0002 `0795f26` |
+| T-0003 | Three measured defects on the harness/hooks branches (list shape, hook marker, root-commit hole) | developer | covered by the fixes it named: the eight-row list landed in developer T-0001 `d43e6e3`, the marker literal and root-commit refusal in developer T-0002 `00b4727` |
 | T-0002 | Architecture 11.2/11.6 drifted from the two branches in four measured ways | architect | superseded: reconciled inside architect T-0001's review rework `f476b82` as amendments A1-A3 and rulings R1-R6 (D-20261020-Architect-8, -9) |
-| T-0001 | Run the acceptance record TS-0004 for area harness | reviewer | a queue-hygiene chore, not a deliverable: the mis-filed duplicate was resolved by renumbering - TS-0004 is the CEO's goal/milestone record, and the acceptance layer for area harness is TS-0005, owned and run by the Reviewer role, with TS-0003 (integration/harness) covering the process boundary. Its branch carried the D-0003 ruling, which moved to reviewer T-0002 and merged as `6a35198` (P-0026); the branch itself is superseded and is not merged |
+| T-0001 | Run the acceptance record TS-0004 for area harness | reviewer | a queue-hygiene chore, not a deliverable: the mis-filed duplicate was resolved by renumbering - TS-0004 is the CEO's goal/milestone record, and the acceptance layer for area harness is TS-0005, owned and run by the Reviewer role, with TS-0003 (integration/harness) covering the process boundary. Its branch carried the D-0003 ruling, which moved to reviewer T-0002 and merged as `3588732` (P-0026); the branch itself is superseded and is not merged |
 
 Landed in the same window, outside this milestone's scope:
 
 | id | task | role | status | evidence |
 |---|---|---|---|---|
-| T-0002 | Fix the hardcoded POSIX `PATH` in `tests/unit/test_skill_refresh.py` | tester | done | merge `fdc75d1` (P-0002) |
-| T-0003 | Make the traceability record-resolution guard honest about an empty team tree | tester | done | merge `9a333fe` (P-0006); it is why product-manager T-0002 exists |
+| T-0002 | Fix the hardcoded POSIX `PATH` in `tests/unit/test_skill_refresh.py` | tester | done | merge `d26d9b1` (P-0002) |
+| T-0003 | Make the traceability record-resolution guard honest about an empty team tree | tester | done | merge `2e00eb8` (P-0006); it is why product-manager T-0002 exists |
 | T-0003 | RED gate: the privacy scan fails at HEAD on a forge squash merge | ceo | blocked | needs the user's authorization for a history rewrite; see [Board](Board.md) |
 | T-0004 | AC-5's claimed green is false on `main` | ceo | dropped | superseded by ceo T-0005, which corrected the claim in the records; see [Board](Board.md) |
 | T-0006 | The privacy red is local: the published history is clean | ceo | dropped | the answer it produced is recorded in [Risks](Risks.md) R-16 and in the T-0003 record |
-| T-0007 | Fix the archive mask so it covers every rule the shipped gate reports | ceo | dropped | done on the developer lane as developer T-0007, merge `bd59121` (P-0014) |
-| T-0005 | Records truth: AC-5 must not claim green | ceo | done | merge `05a4e4f` (P-0010) |
-| T-0008 | Re-review P-0010 after the archive-mask fix | ceo | done | merge `9d96c95` (P-0016) |
-| T-0009 | Export the audit manifest for the M9 milestone | ceo | done | merge `4078296` (P-0019) |
-| T-0010 | Ledger export writes to the project root even inside a lane worktree | ceo | done | closed on the developer lane's reviewed work: merge `f3e8d31` (P-0018) |
-| T-0011 | The published branch carries a committer guard the local main lacks | ceo | done | the measurement and the decision are committed in [Decisions](Decisions.md) as D-20261020-CEO-8 (merge `3dbd3ad`, P-0021); the queue records the task `done` with a passed review. The rewrite it gates is still the user's to authorize; see [Board](Board.md) |
-| T-0004 | Design, declare and run the unit-layer test record for every area | developer | done | merge `b48015e` (P-0012) |
-| T-0005 | Global memory entries must carry provenance, and a merge must never drop it | developer | done | merge `4552e07` (P-0013) |
-| T-0006 | The privacy gate false-positives on a relative path | developer | done | merge `f9ce145` (P-0015) |
-| T-0008 | Ledger export must act on the work tree the command runs in | developer | done | merge `f3e8d31` (P-0018) |
-| T-0003 | Write the committed record of the privacy-audit answer | product-manager | done | merge `36f268d` (P-0017) |
-| T-0001 | The audit report's conclusion is stale | security-auditor | dropped | superseded by security-auditor T-0002, which re-stated the report under the D-0003 ruling; merge `4d39f20` (P-0024) |
-| T-0003 | The merged commit message of P-0024 carries a 40-hex tree id | security-auditor | dropped | the rule it produced is committed in [Decisions](Decisions.md) as D-20261021-CEO-1 (merge `57a71c8`, P-0027) |
-| T-0002 | Re-state the Audit Report's disclosure claim | security-auditor | done | merge `4d39f20` (P-0024) |
-| T-0009 | The dispute panel is computed at role level, so the neutral seat is locked out of a dispute between two instances of one role | developer | done | merge `4fdb2c4` (P-0025) |
-| T-0002 | Carry the D-0003 tribunal ruling into the committed decision record | reviewer | done | merge `6a35198` (P-0026) |
+| T-0007 | Fix the archive mask so it covers every rule the shipped gate reports | ceo | dropped | done on the developer lane as developer T-0007, merge `8888a7c` (P-0014) |
+| T-0005 | Records truth: AC-5 must not claim green | ceo | done | merge `c171531` (P-0010) |
+| T-0008 | Re-review P-0010 after the archive-mask fix | ceo | done | merge `ff59de4` (P-0016) |
+| T-0009 | Export the audit manifest for the M9 milestone | ceo | done | merge `92b1049` (P-0019) |
+| T-0010 | Ledger export writes to the project root even inside a lane worktree | ceo | done | closed on the developer lane's reviewed work: merge `99ae8e3` (P-0018) |
+| T-0011 | The published branch carries a committer guard the local main lacks | ceo | done | the measurement and the decision are committed in [Decisions](Decisions.md) as D-20261020-CEO-8 (merge `dddee8f`, P-0021); the queue records the task `done` with a passed review. The rewrite it gates is still the user's to authorize; see [Board](Board.md) |
+| T-0004 | Design, declare and run the unit-layer test record for every area | developer | done | merge `5e79734` (P-0012) |
+| T-0005 | Global memory entries must carry provenance, and a merge must never drop it | developer | done | merge `5e79734` (P-0013) |
+| T-0006 | The privacy gate false-positives on a relative path | developer | done | merge `8888a7c` (P-0015) |
+| T-0008 | Ledger export must act on the work tree the command runs in | developer | done | merge `99ae8e3` (P-0018) |
+| T-0003 | Write the committed record of the privacy-audit answer | product-manager | done | merge `119ab7a` (P-0017) |
+| T-0001 | The audit report's conclusion is stale | security-auditor | dropped | superseded by security-auditor T-0002, which re-stated the report under the D-0003 ruling; merge `dddee8f` (P-0024) |
+| T-0003 | The merged commit message of P-0024 carries a 40-hex tree id | security-auditor | dropped | the rule it produced is committed in [Decisions](Decisions.md) as D-20261021-CEO-1 (merge `a79135c`, P-0027) |
+| T-0002 | Re-state the Audit Report's disclosure claim | security-auditor | done | merge `dddee8f` (P-0024) |
+| T-0009 | The dispute panel is computed at role level, so the neutral seat is locked out of a dispute between two instances of one role | developer | done | merge `ffa2f03` (P-0025) |
+| T-0002 | Carry the D-0003 tribunal ruling into the committed decision record | reviewer | done | merge `3588732` (P-0026) |
 
 ## Closed milestones (evidence on file)
 
@@ -270,13 +270,13 @@ Landed in the same window, outside this milestone's scope:
 |---|---|---|---|---|
 | T-0001 | Full-project audit: parser, ledger, paths, locks, privacy, CI | ceo | done | `make ci` -> all gates passed; 336 passed, 1 skipped |
 | T-0002 | Scope the audit-manifest anchor to the workspace id | ceo | done | `pytest tests/unit/test_ledger.py` -> 17 passed; `audit` -> 0 |
-| T-0003 | Repo-local role identity, `--strict-authors`, exit-code docs | ceo | done | commit `1e646a9` |
-| T-0004 | Accurate exit-code table; identity guard tests | ceo | done | commit `043d483` |
-| T-0005 | Fix `dispute sign` undeclared `--force` | ceo | done | commit `61eecc9` |
-| T-0006 | Correct the exit-code example; tribunal sign coverage | ceo | done | commit `29dc42f` |
-| T-0007 | Correct the T-0005 archive evidence | ceo | done | commit `b05d04a` |
-| T-0008 | Residual audit items: umask, UTF-16 BOM, nested repo, coverage, stale board | ceo | done | commit `e7a7d4d` |
-| T-0009 | Fix the `pr merge` commit message acting role | ceo | done | commit `9e1ab8f` |
+| T-0003 | Repo-local role identity, `--strict-authors`, exit-code docs | ceo | done | commit `7c3bb66` |
+| T-0004 | Accurate exit-code table; identity guard tests | ceo | done | commit `93ac26b` |
+| T-0005 | Fix `dispute sign` undeclared `--force` | ceo | done | commit `9251801` |
+| T-0006 | Correct the exit-code example; tribunal sign coverage | ceo | done | commit `f417f1d` |
+| T-0007 | Correct the T-0005 archive evidence | ceo | done | commit `54fea73` |
+| T-0008 | Residual audit items: umask, UTF-16 BOM, nested repo, coverage, stale board | ceo | done | commit `22fd179` |
+| T-0009 | Fix the `pr merge` commit message acting role | ceo | done | commit `54a92d0` |
 
 ## M11 - solid review and tree truth (live)
 
@@ -605,7 +605,7 @@ Zero duplicates, measured two ways: no two tracked files share a digest
    the folded role name (`norm_role`) while the table is keyed by the hyphenated
    one, so every hyphenated role silently gets floor 0. Measured: in a linked
    worktree the file skips (`4 passed, 2 skipped`) because a worktree has no team
-   tree; in the main checkout at `7db810a` it fails (`2 failed, 4 passed`). After
+   tree; in the main checkout at `de331a6` it fails (`2 failed, 4 passed`). After
    the re-initialisation for M11 the queues restart at T-0001, so no floor above 1
    can match. Re-run through the gate's own functions against the board below:
    `mismatches()` and `flight_mismatches()` report only tasks the floor excludes
@@ -648,21 +648,21 @@ view of the queues - the defect the board gate exists to prevent.
 |---|---|---|---|---|---|---|---|---|
 | architect | T-0003 | Architecture.md no longer describes what docs.yml does: it omits the v* tag trigger | P1 | - | todo | - | - | - |
 | ceo | T-0011 | Allow v* tags to deploy the github-pages environment so a release can refresh the site | P0 | - | todo | - | - | - |
-| ceo | T-0012 | Record the M12 intake, AC-22/AC-23 and the governance decision; own their acceptance | P0 | intake | done | CEO | P-0033 | bd7467d |
-| ceo | T-0013 | Add the AC-22/AC-23 rows to the traceability matrix: main's suite is red without them | P0 | docs | done | CEO | P-0034 | 1793013 |
+| ceo | T-0012 | Record the M12 intake, AC-22/AC-23 and the governance decision; own their acceptance | P0 | intake | done | CEO | P-0033 | f900d0f |
+| ceo | T-0013 | Add the AC-22/AC-23 rows to the traceability matrix: main's suite is red without them | P0 | docs | done | CEO | P-0034 | 2865dfe |
 | developer | T-0018 | scripts/build_pi_package.py documents --out only in its module docstring, not in --help, so no workflow may pass it and release.yml builds the bundle with the default out dir instead | P2 | - | todo | - | - | - |
-| developer | T-0019 | Record the release area's unit layer from the release tests that exist | P1 | - | done | Developer-1 | P-0036 | 65392da |
+| developer | T-0019 | Record the release area's unit layer from the release tests that exist | P1 | - | done | Developer-1 | P-0036 | acd0487 |
 | project-manager | T-0004 | Add M12 (release parity: GitHub, npm, Pages) to Plan.md and refresh the board | P1 | plan | dropped | - | - | - |
-| project-manager | T-0005 | Release blocker: docs/Team/Board.md is stale against the live queues so the full suite is red at ee75c4a (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | plan | review | project-manager | P-0039 | - |
-| release-engineer | T-0011 | release.yml uploads SHA256SUMS twice (dist/* and the explicit entry): the duplicate-name race made the v1.3.0 publish job fail with 'Not Found - releases/assets#update-a-release-asset' and need a re-run | P0 | release | done | release-engineer | P-0030 | 7908d44 |
+| project-manager | T-0005 | Release blocker: docs/Team/Board.md is stale against the live queues so the full suite is red at acd0487 (3 failed in test_board_matches_tool.py) - re-render Board.md only | P0 | plan | review | project-manager | P-0039 | - |
+| release-engineer | T-0011 | release.yml uploads SHA256SUMS twice (dist/* and the explicit entry): the duplicate-name race made the v1.3.0 publish job fail with 'Not Found - releases/assets#update-a-release-asset' and need a re-run | P0 | release | done | release-engineer | P-0030 | 8a62a0b |
 | release-engineer | T-0012 | Push the branch and its tag together (git push --atomic): pushing main first made the main CI release-consistency gate run without the new tag and fail R6 until the job was re-run | P1 | - | todo | - | - | - |
-| release-engineer | T-0013 | Publish @nidvue/teamwork to npm from every v* tag, and make the release asset set unique (supersedes T-0011) | P0 | release | done | release-engineer | P-0031 | d3f9b7a |
-| release-engineer | T-0014 | Pages rebuilds and deploys from the released revision on a v* tag | P0 | release | done | release-engineer | P-0032 | c41ecfe |
+| release-engineer | T-0013 | Publish @nidvue/teamwork to npm from every v* tag, and make the release asset set unique (supersedes T-0011) | P0 | release | done | release-engineer | P-0031 | 2865dfe |
+| release-engineer | T-0014 | Pages rebuilds and deploys from the released revision on a v* tag | P0 | release | done | release-engineer | P-0032 | aefe8a6 |
 | release-engineer | T-0015 | Backfill the already-tagged release to npm once the operator configures the publisher credential | P1 | - | blocked | - | - | - |
-| reviewer | T-0004 | Land the D-0004 tribunal ruling in Decisions.md on main (commit 4645118) | P0 | - | done | Reviewer-2 | P-0038 | e038181 |
-| technical-writer | T-0005 | Site and README: npm as a first-class install channel plus a releases page | P0 | docs | done | technical-writer | P-0035 | 1d94e18 |
-| tester | T-0003 | Record the release area's integration layer on the merged revision | P1 | - | done | tester-1 | P-0037 | 3627c7d |
-| tester | T-0004 | Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at 3627c7d could not retire it | P2 | - | todo | - | - | - |
+| reviewer | T-0004 | Land the D-0004 tribunal ruling in Decisions.md on main (commit acd0487) | P0 | - | done | Reviewer-2 | P-0038 | acd0487 |
+| technical-writer | T-0005 | Site and README: npm as a first-class install channel plus a releases page | P0 | docs | done | technical-writer | P-0035 | acd0487 |
+| tester | T-0003 | Record the release area's integration layer on the merged revision | P1 | - | done | tester-1 | P-0037 | acd0487 |
+| tester | T-0004 | Delete the merged branch tester-1/t-0003-record-the-release-area-s-integration-la: your Runtime worktree still has it checked out, so the merge at acd0487 could not retire it | P2 | - | todo | - | - | - |
 
 Both proofs the exit condition asks for come from a tag run of the merged
 pipeline, and no commit can supply that measurement: `grep -c 'npm publish'
@@ -717,27 +717,27 @@ revision, `teamwork.py tests plan` with no gap for a staffed role, `loop` STOP.
 
 | lane | task | what it owned | merged |
 |---|---|---|---|
-| Technical Writer | T-0001 | every public claim in README, root policies, mkdocs config, `docs/**` except internal records | `ff9a708` |
-| Technical Writer | T-0002 | the six surfaces that described the old team-wide `clean` | `543c665` |
-| Technical Writer | T-0003 | the licence contradiction in `CITATION.cff` and the quickstart ordering | `a1929ba` |
-| Technical Writer-2 | T-0004 | the roster-tier table a doc change invalidated | `aeed914` |
-| Designer | T-0001 | every asset in `assets/`, `docs/assets/` and the README mermaid diagram | `7783953` |
-| Designer | T-0002 | the geometry cells its own rewrite moved out of the docs contract | `aeb5d62` |
-| Designer | T-0003 | the connectors below the 3:1 bar | `1f648fd` |
-| Developer-1 | T-0001 | dead files and comments in `src/` and `scripts/` | `304d757` |
-| Developer-2 | T-0002 | `scripts/build_pi_package.py` shelling out to `du -sh` | `381bb5c` |
-| Developer-2 | T-0004 | R8 reading any word after `pip install` as a distribution claim | `252e9d4` |
-| Developer-2 | T-0005 | `clean --all` being team-wide, so one lane emptied every peer's `Scratch/` | `6111b1a` |
-| Developer-3 | T-0003 | an unlaunchable gate escaping, and POSIX-only proof cells crashing the matrix guard | `cf26e96` |
-| Developer-3 | T-0006 | the board renderer's missing role spellings | `5895411` |
-| Developer-4 | T-0007 | a fresh project could not render the board `init` had just written | `4895f66` |
-| Architect | T-0001 | the `system` layer: no POSIX-only launch, every failure guarded or red | `0cac9bd` |
-| Tester | T-0001 | the gate certification, both `integration` layers, and the red it refused to waive | `8b5db3f` |
-| CEO | T-0001, T-0002 | the merge contract three public surfaces still claimed | `d36e731`, `cd561a5` |
+| Technical Writer | T-0001 | every public claim in README, root policies, mkdocs config, `docs/**` except internal records | `645fb01` |
+| Technical Writer | T-0002 | the six surfaces that described the old team-wide `clean` | `ec41fd6` |
+| Technical Writer | T-0003 | the licence contradiction in `CITATION.cff` and the quickstart ordering | `9c5b744` |
+| Technical Writer-2 | T-0004 | the roster-tier table a doc change invalidated | `a8d2380` |
+| Designer | T-0001 | every asset in `assets/`, `docs/assets/` and the README mermaid diagram | `2e07294` |
+| Designer | T-0002 | the geometry cells its own rewrite moved out of the docs contract | `2bbcd45` |
+| Designer | T-0003 | the connectors below the 3:1 bar | `9c5b744` |
+| Developer-1 | T-0001 | dead files and comments in `src/` and `scripts/` | `80007f7` |
+| Developer-2 | T-0002 | `scripts/build_pi_package.py` shelling out to `du -sh` | `645fb01` |
+| Developer-2 | T-0004 | R8 reading any word after `pip install` as a distribution claim | `80007f7` |
+| Developer-2 | T-0005 | `clean --all` being team-wide, so one lane emptied every peer's `Scratch/` | `d7774dd` |
+| Developer-3 | T-0003 | an unlaunchable gate escaping, and POSIX-only proof cells crashing the matrix guard | `af88147` |
+| Developer-3 | T-0006 | the board renderer's missing role spellings | `e87a3db` |
+| Developer-4 | T-0007 | a fresh project could not render the board `init` had just written | `5af3d14` |
+| Architect | T-0001 | the `system` layer: no POSIX-only launch, every failure guarded or red | `ec41fd6` |
+| Tester | T-0001 | the gate certification, both `integration` layers, and the red it refused to waive | `e87a3db` |
+| CEO | T-0001, T-0002 | the merge contract three public surfaces still claimed | `a8d72ab`, `bc45500` |
 
 ### M14.1 - The gate was not runnable on this host
 
-Baseline before any lane started, on `333c08a`, win32, python 3.15.2:
+Baseline before any lane started, on `8166513`, win32, python 3.15.2:
 `pytest -q` -> **10 failed, 1540 passed, 46 skipped** (14m01s). The repository
 `.venv` is a WSL virtualenv (`bin/`, no `Scripts/`) and no `pytest`/`ruff` exists
 on the PATH, so the findings were read from a fresh `venv/` (gitignored, already
@@ -834,7 +834,7 @@ there would have landed its work on another task's branch. `branch start
 |---|---|---|
 | Reviewer-3 | the README `<img>` `style` never applies on github.com, so the 820 px claim was false there | failed T-0004, artifact-only fix |
 | Reviewer-2 | the merge-path records commit was still index-wide, so a *staged* foreign file rides into it | failed T-0010, pathspec fix |
-| Tester | the social card was not rebuildable from a clone at `5fe89f9` (no generator); it is byte-identical now | recorded a fail, then the pass |
+| Tester | the social card was not rebuildable from a clone at `9e9ddbf` (no generator); it is byte-identical now | recorded a fail, then the pass |
 | Reviewer-1 | three suite failures on main are pre-existing, not any lane's regression | filed as a bug task |
 | CEO | the publish gate is red on two of my own commit messages (an expanded shell variable) | security task, allowlist shape + control |
 
@@ -868,14 +868,14 @@ and that every such skill carries one fixed prefix. Contract:
 
 | task | role | deliverable | deps | state |
 |---|---|---|---|---|
-| T-0004 | architect | `Architecture.md` section 14 + technical decision | - | merged d6d178e |
-| T-0031 | developer | lesson records, `lesson` CLI, `tw-` enforcement, kinds, candidates, `PREFIX` rule, unit tests, two skills renamed | architect T-0004 | merged 35b5695 |
-| T-0005 | architect | `Architecture.md` section 15: the project knowledge store, its CLI, ranking, supersession and load surface | architect T-0004 | merged ee33a3d |
-| T-0006 | architect | `Architecture.md` section 16: the OpenViking-style `ctx://` tree, levels, scoped find, digest, knowledge kinds | architect T-0005 | merged d05763c |
-| T-0032 | developer | `Knowledge.md` records, `knowledge` CLI, ranked `load`, duplicate and supersession rules, `kind`, unit tests | architect T-0005, T-0006 | merged 81ea5cd |
-| T-0033 | developer | `context` tree: `ls`/`tree`/`read`/`find`/`stats`/`digest`, computed L0/L1/L2, scoped retrieval, unit tests | developer T-0032 | merged 92df95c |
-| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` for sections 14-16 | architect T-0004, T-0005, T-0006 | merged 723987c |
-| T-0004 | tester | integration and acceptance proof of the lesson -> skill loop, the knowledge accumulation loop and prefix enforcement | developer T-0031, T-0032 | merged 2fe28e2 (TS-0074) |
+| T-0004 | architect | `Architecture.md` section 14 + technical decision | - | merged e1298cb |
+| T-0031 | developer | lesson records, `lesson` CLI, `tw-` enforcement, kinds, candidates, `PREFIX` rule, unit tests, two skills renamed | architect T-0004 | merged a3d6edd |
+| T-0005 | architect | `Architecture.md` section 15: the project knowledge store, its CLI, ranking, supersession and load surface | architect T-0004 | merged a3d6edd |
+| T-0006 | architect | `Architecture.md` section 16: the OpenViking-style `ctx://` tree, levels, scoped find, digest, knowledge kinds | architect T-0005 | merged d6aeca4 |
+| T-0032 | developer | `Knowledge.md` records, `knowledge` CLI, ranked `load`, duplicate and supersession rules, `kind`, unit tests | architect T-0005, T-0006 | merged 7bb58cb |
+| T-0033 | developer | `context` tree: `ls`/`tree`/`read`/`find`/`stats`/`digest`, computed L0/L1/L2, scoped retrieval, unit tests | developer T-0032 | merged 724fc76 |
+| T-0011 | technical-writer | `SKILL.md`, `templates/AGENTS.md` + root block, `references/`, `roles/`, `docs/guide/cli.md`, `CHANGELOG.md` for sections 14-16 | architect T-0004, T-0005, T-0006 | merged 96c0f8c |
+| T-0004 | tester | integration and acceptance proof of the lesson -> skill loop, the knowledge accumulation loop and prefix enforcement | developer T-0031, T-0032 | merged 60d3dec (TS-0074) |
 | T-0005 | tester | integration and acceptance proof of the `ctx://` tree: levels, scoped find, digest, every node resolves | developer T-0033 | in progress (Tester-2) |
 | T-0019 | ceo | intake, criteria, records, migration check and close-out | all | records on the CEO branch |
 
@@ -901,9 +901,9 @@ token table are in [THROUGHPUT](Throughput.md); the criteria are AC-M18-1..3 in
 | task | role | deliverable | deps | state |
 |---|---|---|---|---|
 | T-0020 | ceo | measured baseline, `Throughput.md`, live roster right-sizing, criteria | - | report on this branch; AC-M18-1 verified |
-| T-0034 | developer | `harness budget` startup/recallable, `archive --task`, `C-REVIEW-OVERSUPPLY`, preflight slice warning, safe retirement, `throughput`, unit tests | developer T-0032 | merged b9e5135 |
-| T-0013 | technical-writer | read-by-id, right-sized slice, review first-pass, token budget in the always-on surfaces | T-0011, T-0034 | merged b4096f5 |
-| T-0006 | tester | integration/acceptance proof of the token tools and the oversupply finding | developer T-0034 | merged 4c28b85 |
+| T-0034 | developer | `harness budget` startup/recallable, `archive --task`, `C-REVIEW-OVERSUPPLY`, preflight slice warning, safe retirement, `throughput`, unit tests | developer T-0032 | merged 91e3b12 |
+| T-0013 | technical-writer | read-by-id, right-sized slice, review first-pass, token budget in the always-on surfaces | T-0011, T-0034 | merged bdc2ca9 |
+| T-0006 | tester | integration/acceptance proof of the token tools and the oversupply finding | developer T-0034 | merged e4a5a4e |
 
 The ordering is deliberate: the report and the roster cut first (no code, no
 lane), the engine tools after the context tree lands on `engine.py`, the docs
@@ -950,8 +950,8 @@ Measured waves on this host (each re-derivable with `lane list --all`):
 
 | run | lanes | waves | budget | outcome |
 |---|---|---|---|---|
-| first real wave | 8 | 4 | 8m | 6 exited ok (T-0008 fix at 60f9a5c, T-0038 at 533f695), 1 failed with a named cause, 1 timed out |
-| second real wave | 17 | 10 | 6m | T-0029 fixed (per-task worktree) at 1ca5958, Tester T-0001 at a5f6b64, Architect T-0002 at b16fba5, three Reviewer verdicts recorded |
+| first real wave | 8 | 4 | 8m | 6 exited ok (T-0008 fix at 1e3eed2, T-0038 at 953206e), 1 failed with a named cause, 1 timed out |
+| second real wave | 17 | 10 | 6m | T-0029 fixed (per-task worktree) at 5ebc249, Tester T-0001 at 0627962, Architect T-0002 at 9892c29, three Reviewer verdicts recorded |
 | injection wave | 5 | 3 | 3m | every packet carries the injected pack; a Reviewer verdict blocked on A-0020, since cleared |
 | unattended landing | see `lane list --all` | - | - | T-0042 and T-0043 were landed by a Reviewer's pass with no ambient override, the proof that the merge path carries its own marker |
 | producer wave | 6 | 4 | 10m | T-0032, T-0035, T-0037, T-0004 self-checked with PRs open; 1 timeout, 1 blocked |
