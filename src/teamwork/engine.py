@@ -113,6 +113,8 @@ from .config import (
     PROMOTE_MIN_IMPORTANCE,
     REVIEW_FAIL_LIMIT,
     REVIEW_STATUSES,
+    ROLE_PARENT,
+    ROLE_REPORT_ORDER,
     ROLES_DIR,
     ROSTER_INSTANCE_COUNT,
     ROSTER_REQUIRED,
@@ -3661,10 +3663,37 @@ def start_here(name: str, role: str, root: Path, docs: Path) -> str:
     script = _resources.self_invocation()
     disputes = disputes_path(root)
     charter = role_dir(root, role) / F_ROLE
+    parent = ROLE_PARENT.get(role)
+    # The brief is generated for every instance and is read BEFORE the charter, so
+    # it has to state the same line the charter does. A hard-coded "report to the
+    # CEO" told every developer and tester to escalate past their own manager.
+    if parent == "ceo":
+        line = (
+            f"You are the **{role}** of an autonomous team. You report to the **CEO**. "
+            f"Escalate to the CEO only for a red line, a goal or scope change, or a "
+            f"decision that binds the whole team - never for work you can resolve "
+            f"inside your own lane. The user talks only to the CEO."
+        )
+        report_line = "Report to the CEO"
+    elif parent:
+        parent_name = ROLE_DISPLAY.get(parent, parent)
+        line = (
+            f"You are the **{role}** of an autonomous team. You report to the "
+            f"**{parent_name}**; escalate up that line, not to the CEO (the user talks "
+            f"only to the CEO). Talk to your manager, to the roles below you, and to "
+            f"peers when a fact or interface needs them."
+        )
+        report_line = f"Report to the {parent_name}"
+    else:
+        line = (
+            f"You are the **{role}** of an autonomous team. You are the only lane that "
+            f"reaches the user. Talk to your direct reports, and to any peer when a "
+            f"fact or interface needs them."
+        )
+        report_line = "Report to the user"
     return f"""# START HERE - {name} ({role})
 
-You are the **{role}** of an autonomous team. The user talks only to the CEO;
-you talk to the CEO and, when needed, to peers.
+{line}
 
 ## Startup routine (every time you are activated)
 
@@ -3751,7 +3780,8 @@ Three steps, in order. You cannot skip any of them.
    On a pass the result is archived to `{docs}/Archive.md`, and a *different*
    Reviewer merges it into `main`.
 4. `{script} consolidate --agent {name}`
-5. Report to the CEO: task id, status, artifact path, evidence, blockers, next.
+5. {report_line}: task id, status, artifact path, evidence, blockers, next.
+   The report goes to your manager; the CEO reads the board, not your inbox.
 6. Immediately run `task next {name}` and start the next executable task. Stop
    only when no executable task exists for your role.
 """.replace("{max_rounds}", str(MAX_ROUNDS))
@@ -7810,6 +7840,16 @@ def cmd_dispute_list(args) -> int:
     return 0
 
 
+def reporting_order() -> list[str]:
+    """Roles in reporting order, parents before children."""
+    return [r for r in ROLE_REPORT_ORDER if r in ROLE_PARENT]
+
+
+def reporting_children(parent: str) -> list[str]:
+    """Direct reports of ``parent``, in reporting order."""
+    return [r for r in ROLE_REPORT_ORDER if ROLE_PARENT.get(r) == parent]
+
+
 def cmd_map(args) -> int:
     """Print the workspace map + where code/tests actually live in this repo."""
     root = project_root(args)
@@ -7841,6 +7881,15 @@ def cmd_map(args) -> int:
         f"  open={len(open_d)}"
         + (f"  escalated={sum(1 for d in open_d if d['escalated'])}" if open_d else "")
     )
+    print()
+    print("reporting lines (one parent per role; the CEO is the only lane to the user)")
+
+    def _tree(role: str, depth: int) -> None:
+        print("  " + "  " * depth + ROLE_DISPLAY.get(role, role))
+        for kid in reporting_children(role):
+            _tree(kid, depth + 1)
+
+    _tree("ceo", 0)
     print()
     print("roles (shared memory + queue) and their instances (private scratch)")
     for role in list_roles(root):

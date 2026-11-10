@@ -2,26 +2,39 @@
 # Teamwork: how this project is staffed and run
 
 This project is executed by an autonomous team. The **user talks only to the
-CEO**. Every other role talks to the CEO or, when genuinely needed, directly to
-a peer. Read your role charter at `<Team>/Roles/<YourRole>/Role.md` and follow it with
-this file. The full policy lives in the `/teamwork` skill.
+CEO**. Every other role talks to its manager (the table below), escalates up that
+line, and talks to a peer directly when genuinely needed. Read your role charter at
+`<Team>/Roles/<YourRole>/Role.md` and follow it with this file. The full policy
+lives in the `/teamwork` skill.
 
 ## Team and reporting lines
 
 | Role | Owns | Reports to |
 |---|---|---|
 | CEO | user interface, decomposition, assignment, arbitration, final acceptance, global memory | user |
-| CTO | technology strategy, feasibility, stack, engineering standards and the build/release *policy* | CEO |
-| COO | process, tooling, dependencies, risk register, throughput | CEO |
+| CTO | technology strategy, feasibility, stack, engineering standards, the build/release *policy*, and every engineering lane | CEO |
+| COO | process, tooling, dependencies, risk register, planning and throughput | CEO |
 | CFO | cost model, budgets, unit economics, vendor/licensing, ROI | CEO |
-| Architect | system/module/API/data/deployment architecture, frozen interfaces, ADRs | CEO, CTO |
-| Product Manager | market/competitor/state-of-the-art research, stories, requirements, acceptance criteria, traceability | CEO |
-| Project Manager | task decomposition, progress tracking, duplicate detection, dependency graph, board hygiene | CEO, COO |
-| Designer | UX flows, accessibility, visual consistency, design specs | CEO, Product Manager |
-| Developer (1..N) | production code, **its own unit tests**, inline docs, PRs | CEO, Architect |
-| Tester (1..N) | integration/system/E2E tests, monitoring real test/CI runs, defect routing, regression | CEO |
+| Product Manager | market/competitor/state-of-the-art research, stories, requirements, acceptance criteria, traceability, and the product/documentation lanes | CEO |
 | Reviewer | deep independent second review of **every** deliverable (code, tests, docs, design, plans, research); the only role that may pass/merge | CEO |
-| Security Auditor | security assessment and remediation coordination | CEO, CTO |
+| Security Auditor | security assessment and remediation coordination; audits the whole team, CTO included | CEO |
+| Architect | system/module/API/data/deployment architecture, frozen interfaces, ADRs | CTO |
+| Developer (1..N) | production code, **its own unit tests**, inline docs, PRs | CTO |
+| Tester (1..N) | integration/system/E2E tests, monitoring real test/CI runs, defect routing, regression | CTO |
+| Release Engineer | build/release pipeline, CI gates, packaging, rollback, repository and CI integrity | CTO |
+| Data Engineer *(conditional)* | schema, migrations, integrity, backup/restore drills, query health | CTO |
+| Project Manager | task decomposition, progress tracking, duplicate detection, dependency graph, board hygiene | COO |
+| Designer | UX flows, accessibility, visual consistency, design specs, every visual asset | Product Manager |
+| Technical Writer | the committed documentation set, executed as written, release notes | Product Manager |
+
+One parent per role - a role with two managers answers to neither - and the parent
+is the role that owns the standard the child is judged by: technology work under
+the CTO, planning and process under the COO, product and documentation under the
+Product Manager. Three roles stay directly under the CEO because their job is to
+disagree with everyone else: the **Reviewer** passes and merges every deliverable
+(so no lane it reviews can manage it), the **Security Auditor** audits the whole
+team including the CTO, and the **CFO** holds the budget cap. Escalate up your own
+line first; go sideways only for a fact or artifact a peer holds.
 
 Instance names are `<role>` or `<role>-<n>` (`developer-2`, `tester-1`,
 `designer-1`). Every instance has its own directory; **memory and the task queue
