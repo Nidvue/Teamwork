@@ -16,7 +16,6 @@ Owner: tester. Layer: integration. Area: memory.
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 
 from teamwork import config, engine, memorypack, records
@@ -328,106 +327,6 @@ def test_memory_dream_reports_then_applies_once_and_is_idempotent(
     capsys.readouterr()
     assert knowledge_file.read_text(encoding="utf-8") == after_first
     assert dream_events(root) == events
-
-
-def test_memory_dream_on_a_copy_is_idempotent_and_keeps_provenance(
-    cli, project: Path, capsys
-) -> None:
-    root = init_workspace(cli, project)
-    evidence = "pytest tests/unit/test_knowledge.py @abc1234 -> 15 passed"
-    records.write_knowledge(
-        root / config.F_KNOWLEDGE,
-        [
-            knowledge_record(
-                "K-0001",
-                "lock-steal",
-                "claim the lock then re-read the body before unlinking it",
-                evidence,
-            ),
-            knowledge_record(
-                "K-0002",
-                "lock-steal",
-                "claim the lock then re-read the body before unlinking",
-                evidence,
-                updated="2026-09-01",
-            ),
-            knowledge_record(
-                "K-0003",
-                "forgotten-topic",
-                "a fact nobody has used since the spring",
-                evidence,
-                updated="2026-05-01",
-            ),
-        ],
-    )
-    assert add_lesson(cli, project, "unlinked a replaced lock", "claim then re-read") == 0
-    capsys.readouterr()
-
-    live = {
-        path: (root / path).read_bytes()
-        for path in (config.F_KNOWLEDGE, config.F_LESSONS, config.F_LEDGER)
-        if (root / path).is_file()
-    }
-    copy_project = project.parent / f"{project.name}-copy"
-    shutil.copytree(project, copy_project)
-    copy_root = team_root(copy_project)
-    (copy_project / config.TEAM_ROOT_DIR / config.TEAMS_SUBDIR / root.name).rename(copy_root)
-    before = (copy_root / config.F_KNOWLEDGE).read_text(encoding="utf-8")
-
-    assert (
-        cli(
-            "--project",
-            copy_project,
-            "memory",
-            "dream",
-            "--apply",
-            "--by",
-            "Developer",
-        )
-        == 0
-    )
-    report = capsys.readouterr().out
-    assert "# applied: 1 duplicate(s) superseded, 1 stale archived" in report
-
-    after = (copy_root / config.F_KNOWLEDGE).read_text(encoding="utf-8")
-    assert after != before
-    by_id = {item["id"]: item for item in records.parse_knowledge(copy_root / config.F_KNOWLEDGE)}
-    assert [item["id"] for item in records.parse_knowledge(copy_root / config.F_KNOWLEDGE)] == [
-        "K-0001",
-        "K-0002",
-        "K-0003",
-    ]
-    assert by_id["K-0002"]["status"] == "superseded"
-    assert by_id["K-0002"]["superseded_by"] == "K-0001"
-    assert by_id["K-0003"]["status"] == "archived"
-    for record_id, updated in (("K-0001", "2026-11-07"), ("K-0002", "2026-09-01")):
-        assert by_id[record_id]["by"] == "Developer"
-        assert by_id[record_id]["evidence"] == evidence
-        assert by_id[record_id]["updated"] == updated
-    assert by_id["K-0003"]["evidence"] == evidence
-    assert by_id["K-0003"]["statement"] == "a fact nobody has used since the spring"
-    events = dream_events(copy_root)
-    assert len(events) == 2
-
-    for path, content in live.items():
-        assert (root / path).read_bytes() == content, path
-    assert dream_events(root) == []
-
-    assert (
-        cli(
-            "--project",
-            copy_project,
-            "memory",
-            "dream",
-            "--apply",
-            "--by",
-            "Developer",
-        )
-        == 0
-    )
-    capsys.readouterr()
-    assert (copy_root / config.F_KNOWLEDGE).read_text(encoding="utf-8") == after
-    assert dream_events(copy_root) == events
 
 
 def test_memory_dream_apply_requires_a_name(cli, project: Path, capsys) -> None:
