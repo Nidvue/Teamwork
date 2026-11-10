@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from support import in_lane, lane_cli
 from teamwork import engine
 from teamwork.names import clip
 
@@ -141,9 +142,11 @@ def ship_task(cli, project: Path, handle: str, title: str, filename: str) -> Non
         )
         == 0
     )
-    (project / filename).write_text("done\n", encoding="utf-8")
+    author = lane_cli(cli, project, handle)
+    with in_lane(project, handle) as tree:
+        (tree / filename).write_text("done\n", encoding="utf-8")
     assert (
-        cli(
+        author(
             "--project",
             project,
             "commit",
@@ -173,7 +176,7 @@ def ship_task(cli, project: Path, handle: str, title: str, filename: str) -> Non
         cli("--project", project, "task", "set", "developer", handle, "--status", "selfcheck") == 0
     )
     assert (
-        cli(
+        author(
             "--project",
             project,
             "selfcheck",
@@ -189,7 +192,9 @@ def ship_task(cli, project: Path, handle: str, title: str, filename: str) -> Non
         == 0
     )
     assert cli("--project", project, "task", "set", "developer", handle, "--status", "review") == 0
-    assert cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle) == 0
+    assert (
+        author("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle) == 0
+    )
 
 
 def test_clip_returns_short_text_unchanged() -> None:
@@ -269,7 +274,7 @@ def test_review_queue_clips_findings_too_and_counts_them(cli, project: Path, cap
         == 0
     )
     assert (
-        cli(
+        lane_cli(cli, project, "T-0001")(
             "--project",
             project,
             "selfcheck",
