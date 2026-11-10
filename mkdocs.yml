@@ -1,0 +1,77 @@
+# MkDocs configuration for the Teamwork documentation site.
+#
+# Build locally (strict mode turns warnings into errors):
+#   python -m pip install -r docs/requirements.txt
+#   python -m mkdocs build --strict
+#
+# `validation.links.not_found` is relaxed because docs/Team/ holds the team's
+# internal working documents, which still cite pages that are written later in
+# the project (for example Testing.md, AuditReport.md). Link health for the
+# whole repository is enforced by `teamwork links`, not by MkDocs.
+
+site_name: Teamwork
+site_description: Autonomous multi-agent project teams for any repository.
+site_url: https://visionpz.github.io/Teamwork/
+repo_url: https://github.com/VisionPZ/Teamwork
+repo_name: VisionPZ/Teamwork
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; The Teamwork contributors
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Guide:
+      - Installation: guide/install.md
+      - Quickstart: guide/quickstart.md
+      - CLI reference: guide/cli.md
+      - Architecture: guide/architecture.md
+      - CI pipeline: guide/ci.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+validation:
+  nav:
+    omitted_files: ignore
+  links:
+    not_found: ignore
