@@ -13,6 +13,7 @@ skill, and the command line answers `--help` without assembling a package.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -95,6 +96,59 @@ def test_engine_and_skill_are_runnable_from_the_tarball(tmp_path: Path) -> None:
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip().startswith("teamwork "), done.stdout
+
+
+# Every argv[0] is refused (empty allowlist) before the shipped build runs, so a
+# step that needs an external binary fails on any host, not just on Windows.
+NO_EXTERNAL_BINARY = """\
+import runpy, subprocess, sys
+
+def refuse(argv, *args, **kwargs):
+    name = argv[0] if isinstance(argv, (list, tuple)) else argv
+    print(f"launched an external binary: {name}", file=sys.stderr)
+    raise SystemExit(97)
+
+subprocess.run = refuse
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name="__main__")
+"""
+
+
+def test_the_size_report_launches_nothing_and_still_names_the_tree(tmp_path: Path) -> None:
+    """Regression: the build closed with ``du -sh``, which Windows does not have.
+
+    The subprocess raised ``FileNotFoundError`` after the package had been copied,
+    so the build exited 1 and every test that shells out to it failed on win32.
+    The report is display-only, so the size is now the tree's own apparent size.
+
+    Pinned: the shipped file, run in a child whose ``subprocess.run`` refuses every
+    argv[0], still exits 0; the line keeps its shape and its size tracks the tree
+    the build actually wrote (rounding to two significant digits, hence 10%).
+    """
+    out = tmp_path / "dist"
+    done = subprocess.run(
+        [sys.executable, "-c", NO_EXTERNAL_BINARY, str(BUILD), "--out", str(out)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, (done.returncode, done.stderr)
+    assert "launched an external binary" not in done.stderr, done.stderr
+
+    line = re.search(
+        r"^built .+ \(@nidvue/teamwork \d+\.\d+\.\d+, (\d+(?:\.\d)?[KMGTPE]?)\)$",
+        done.stdout,
+        re.MULTILINE,
+    )
+    assert line, done.stdout
+
+    size = line.group(1)
+    unit = size[-1] if size[-1] in "KMGTPE" else ""
+    amount = float(size[: len(size) - len(unit)]) * 1024 ** " KMGTPE".index(unit or " ")
+    pkg = out / "@nidvue" / "teamwork"
+    total = sum(p.stat().st_size for p in pkg.rglob("*") if p.is_file())
+    assert total > 0, "the build wrote no files"
+    assert 0.9 * total <= amount <= 1.1 * total, (size, total)
 
 
 # --------------------------------------------------------------------------- #
