@@ -366,6 +366,29 @@ Exit: AC-M20-1..AC-M20-5 verified by a role other than their owner on the merged
 revision, the layers recorded in `Tests.md`, and the measured delta written into
 [MEMORY](Memory.md).
 
+## M21 - Parallel, asynchronous lanes: the team runs itself (this engagement)
+
+Intake: the operator asked that the team's agents work in true parallel and
+asynchronously on their own, without an extra host plugin, and that they use the
+memory system the way the Anthropic agent-memory components describe.
+
+Design and measured waves: [Memory](Memory.md) 4.5, [Architecture](Architecture.md)
+(src/teamwork/lanes.py), [Plan](Plan.md) M21. Non-goals: a hosted service, a
+scheduler daemon, a second state store, a host plugin, or a lane that writes
+outside its own worktree.
+
+| criterion | state it asserts | owner | verifier |
+|---|---|---|---|
+| AC-M21-1 | `teamwork swarm run` starts detached agent lanes from the board's own records, recomputes every wave from those records, and `lane list`/`lane status` reconcile each lane with its process and outcome - with no host plugin and no new runtime dependency | Developer | Reviewer |
+| AC-M21-2 | a lane takes its work from the board (`task next` or a review claim) and owns one packet, one record and one log per run; two lanes never share a checkout, because the packet starts the branch with `--worktree` | Developer | Reviewer |
+| AC-M21-3 | a lane that dies, times out or leaves no board change is reconciled: the outcome is recorded, the attempt is bounded (`LaneAttempts`), and the claim is left to the CEO instead of silently retried forever | Developer | Reviewer |
+| AC-M21-4 | every spawned lane's prompt carries the task-aware memory pack, bounded by the same 4,000-byte budget `memory pack` uses, so a parallel wave does not pay for the whole store per lane | Developer | Reviewer |
+| AC-M21-5 | a real wave on this host is recorded with its lanes, pids, outcomes and the board changes it produced, and the summary is re-derivable with `lane list --all` | CEO | Reviewer |
+
+Exit: AC-M21-1..AC-M21-5 verified by a role other than their owner on the merged
+revision, the wave evidence recorded in [Plan](Plan.md) M21, and the measured
+packet bytes in [Memory](Memory.md) 5.
+
 ## Scope
 
 - In: packaging (`pyproject.toml`, `src/teamwork/`), a thin `scripts/teamwork.py`
