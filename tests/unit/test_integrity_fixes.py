@@ -473,8 +473,34 @@ def test_repo_bootstrap_preserves_a_name_only_local_identity(tmp_path: Path) -> 
     engine.ensure_repo(project, commit=False, quiet=True)
     assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
     resolved = engine.commit_identity("ceo", project)
-    assert resolved[0] == "Ops Person", "the local name is the preset and is never overwritten"
-    assert resolved[1] in ("ceo@agents.nidvue.com", engine.preset_identity(project)[1])
+    preset = engine.preset_identity(project)
+    if preset is None:
+        assert resolved == ("CEO", "ceo@agents.nidvue.com"), "role mailbox is the fallback"
+    else:
+        assert resolved == preset, "a complete preset pair wins, per key"
+    assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
+
+
+def test_a_team_mailbox_in_the_local_config_is_never_a_preset(tmp_path: Path) -> None:
+    """The rule that keeps CI honest, pinned so deleting it fails here.
+
+    ``init`` writes the CEO mailbox into local config on a host with no identity.
+    If ``preset_identity`` returned it, every role would commit as CEO - the exact
+    regression this pins. The assertion names the mailbox and the expected fallback
+    directly, so removing the team-domain exclusion in ``names.preset_identity``
+    turns this test red.
+    """
+    project = tmp_path / "role-mailbox-local"
+    project.mkdir()
+    engine.run_git(project, "init", "-q", "-b", "main")
+    engine.run_git(project, "config", "--local", "user.name", "CEO")
+    engine.run_git(project, "config", "--local", "user.email", "ceo@agents.nidvue.com")
+    assert engine.preset_identity(project) is None, "a team mailbox is not an operator"
+    assert engine.commit_identity("developer", project) == (
+        "Developer",
+        "developer@agents.nidvue.com",
+    ), "the acting role's mailbox is the fallback"
+    assert engine.commit_identity("ceo", project) == ("CEO", "ceo@agents.nidvue.com")
 
 
 def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -> None:

@@ -212,7 +212,11 @@ def preset_identity(project=None) -> tuple | None:
         return read("--local", key) or read("--global", key)
 
     name, email = resolve("user.name"), resolve("user.email")
-    return (name, email) if name and email else None
+    if not (name and email):
+        return None
+    if email.lower().endswith("@" + IDENTITY_DOMAIN.lower()):
+        return None
+    return name, email
 
 
 def commit_identity(role: str, project=None) -> tuple:
