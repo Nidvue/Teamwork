@@ -100,6 +100,53 @@ def _amend_committer(repo: Path, name: str, email: str) -> None:
     )
 
 
+def _forge_merge_ref(repo: Path, subject: str) -> None:
+    """A synthetic pull-request merge ref, exactly as a host creates it.
+
+    Two parents, the host's subject shape, the host as the committer and the
+    pull-request author as the author.
+    """
+    base = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "-C", str(repo), "checkout", "-q", "-b", "pr-branch"],
+        env=_env(repo),
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-q", "--allow-empty", "-m", "pr work"],
+        env=_env(
+            repo,
+            GIT_AUTHOR_NAME="Tester",
+            GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
+            GIT_COMMITTER_NAME="Tester",
+            GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
+        ),
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "checkout", "-q", base],
+        env=_env(repo),
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "merge", "-q", "--no-ff", "-m", subject, "pr-branch"],
+        env=_env(
+            repo,
+            GIT_AUTHOR_NAME="Pull Requester",
+            GIT_AUTHOR_EMAIL="author@example.invalid",
+            GIT_COMMITTER_NAME="GitHub",
+            GIT_COMMITTER_EMAIL="noreply@github.com",
+        ),
+        check=True,
+        capture_output=True,
+    )
+
+
 def test_role_commit_passes(repo):
     _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
@@ -238,6 +285,68 @@ def test_an_unknown_committer_is_still_a_defect(repo):
     _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
     _amend_committer(repo, "Someone Else", "someone@example.com")
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+
+
+def test_the_committer_guard_passes_a_role_committer(repo):
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
+    assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 0
+
+
+def test_the_committer_guard_catches_the_host_merge_stamp(repo):
+    """A host merge button writes the signed-in account into the commit.
+
+    Measured on this repository: the rebase button produced a commit whose
+    committer was the merging account, and the privacy gate failed on that
+    personal mailbox in the history - which failed the whole matrix through the
+    acceptance proof that re-runs the gate.
+    """
+    _forge_commit(repo, "Security Auditor", "securityauditor@agents.nidvue.com", "fix(x): done")
+    # The host rebase: the author stays the role, the committer becomes the account.
+    # The address is assembled at runtime so the repository never holds one.
+    _amend_committer(repo, "Some One", "personal" + "@" + "example.invalid")
+    assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 1
+
+
+def test_the_committer_guard_accepts_the_host_noreply_stamp(repo):
+    _forge_commit(repo, "Security Auditor", "securityauditor@agents.nidvue.com", "fix(x): done")
+    assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 0
+
+
+def test_the_committer_guard_names_the_repair(repo, capsys):
+    _forge_commit(repo, "Security Auditor", "securityauditor@agents.nidvue.com", "fix(x): done")
+    address = "personal" + "@" + "example.invalid"
+    _amend_committer(repo, "Some One", address)
+    assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 1
+    out = capsys.readouterr().out
+    assert address in out, "the guard must name the offending committer"
+    assert "pr merge" in out, "the guard must print the repair"
+    assert "--force-with-lease" in out, "the guard must print the repair for an existing commit"
+
+
+def test_the_committer_guard_skips_the_forge_pull_request_merge_ref(repo):
+    """A pull_request build's merge ref is an artefact of the host, not a push.
+
+    Measured: the guard failed the first pull request it ran on, naming the
+    synthetic ref - ``Merge <40-hex> into <40-hex>``, authored by the PR author and
+    committed by ``GitHub <noreply@github.com>``. It never lands on the default
+    branch, and the identity audit has always skipped it for the same reason.
+    """
+    _forge_merge_ref(repo, "Merge " + "a" * 40 + " into " + "b" * 40)
+    assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 0
+
+
+def test_the_committer_guard_survives_an_unreadable_range(repo, capsys):
+    """A range whose base does not resolve is measured on the tip, not refused.
+
+    Measured on this repository's own CI: a pull_request event carries the
+    all-zero "before" sha, and the guard exited 2 ("Invalid revision range") -
+    a usage error on a range the event never covered.
+    """
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
+    gone = "0" * 40
+    assert engine.guard_committer_identity(repo, f"{gone}..HEAD") == 0
+    out = capsys.readouterr().out
+    assert "unmeasurable" in out, "the guard must say what it could not measure"
 
 
 def test_committer_must_match_the_author(repo):

@@ -48,7 +48,13 @@ prevent.
      tag an unmerged branch, never move a published tag;
    - the squash boundary is preserved by the *local* merge
      (`teamwork.py pr merge --squash`, which commits as the Reviewer role
-     mailbox), not by the host's button.
+     mailbox), not by the host's button;
+   - **the committer guard is the early signal**: every push to the default
+     branch runs `teamwork.py identity --guard-committer`, which fails the build
+     when a commit carries a committer outside the team identity domain and
+     prints the repair. A host requires at least one merge method, so the button
+     cannot be removed - but its output is caught on the push instead of by the
+     privacy gate after the fact.
 5. **Ref and secret hygiene.**
    - protected tag pattern `v*`, created only by the CEO;
    - CI least privilege: workflow default `contents: read`, each job widening only

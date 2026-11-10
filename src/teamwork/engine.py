@@ -3171,8 +3171,97 @@ def cmd_skill(args) -> int:
     return 0
 
 
+def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
+    """Fail when a commit on the default branch carries a non-role committer.
+
+    A host merge button - squash or rebase - writes the *signed-in account* into
+    the commit it creates, as author (squash) or as committer (rebase). The privacy
+    gate scans the history and fails on that personal mailbox; because the same
+    gate is an acceptance proof, the traceability guard fails with it and the
+    whole test matrix goes red. Measured on this repository: three rewrites of
+    ``main`` on 2026-10-20, all from this one cause.
+
+    This is the early signal for it: it reads the *committer* of the commits in
+    the range, so it fires the moment a merge button stamps the account, and it
+    prints the repair instead of leaving the next person to discover the red
+    build.
+
+    Accepted committers: a role mailbox of this team, the host's own noreply
+    service address, and an author whose committer was rewritten by the host
+    (the host stamp is transport, not identity - but the *author* still has to be
+    a role mailbox, which ``identity --audit`` enforces separately).
+    """
+    canonical = canonical_identities()
+    proc = run_git(
+        project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", rev_range
+    )
+    if proc.returncode != 0:
+        # A range whose base does not resolve is not a usage error: a push after a
+        # rewrite, or a pull_request event's all-zero "before", leaves exactly that.
+        # The tip is what can be measured, so measure it and say so.
+        tip = rev_range.split("..", 1)[1].strip() if ".." in rev_range else rev_range
+        print(
+            f"# {rev_range} cannot be read ({proc.stderr.strip()}); "
+            f"auditing the tip only, the span before it is unmeasurable"
+        )
+        proc = run_git(
+            project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", tip or "HEAD"
+        )
+        rev_range = tip or "HEAD"
+        if proc.returncode != 0:
+            print(f"teamwork: cannot read {rev_range}: {proc.stderr.strip()}")
+            return 2
+    problems = []
+    seen = 0
+    for record in proc.stdout.split("\x1e"):
+        record = record.strip("\n")
+        if not record:
+            continue
+        parts = record.split("\x1f")
+        if len(parts) < 5:
+            continue
+        sha, an, ae, cn, ce = parts[0], parts[1], parts[2], parts[3], parts[4]
+        subject = parts[6].splitlines()[0] if len(parts) > 6 and parts[6] else ""
+        parents = parts[5].split() if len(parts) > 5 and parts[5] else []
+        # A forge's synthetic pull-request merge ref is an artefact of the forge,
+        # not a commit anyone pushed: the host authors it as the PR author and
+        # commits it as itself, and it never lands on the default branch. Guarding
+        # it would fail every pull request on a repository that merges through the
+        # host - the same reason the identity audit skips it.
+        if len(parents) >= 2 and _RE_FORGE_MERGE_SUBJECT.match(subject.strip()):
+            print(f"- {sha[:12]} skipped: forge pull-request merge ref")
+            continue
+        seen += 1
+        if ce in canonical:
+            continue
+        if _RE_FORGE_COMMITTER_EMAIL.match(ce) and ae in canonical:
+            continue
+        problems.append((sha[:12], an, ae, cn, ce))
+    if not problems:
+        print(f"# committer guard: {seen} commit(s) in {rev_range} carry a role committer")
+        return 0
+    print(f"# committer guard: {len(problems)} commit(s) in {rev_range} carry a foreign committer")
+    for sha, an, ae, cn, ce in problems:
+        print(f"- {sha} FAIL committer {cn} <{ce}> (author {an} <{ae}>)")
+    print(
+        "# A host merge button (squash or rebase) writes the signed-in account into "
+        "the commit it creates, and the privacy gate fails on that personal mailbox "
+        "in the history."
+    )
+    print(
+        "# Repair: merge locally as the reviewing role and push - "
+        "`teamwork.py pr merge --pr <id> --by <reviewer>` commits as a role "
+        "mailbox. To repair an existing commit, amend it to a role mailbox, prove "
+        "its tree is byte-identical, and push it with --force-with-lease."
+    )
+    return 1
+
+
 def cmd_identity(args) -> int:
     root = project_root(args)
+    if getattr(args, "guard_committer", False):
+        project = project_of(root)
+        return guard_committer_identity(project, args.rev_range or "HEAD")
     if args.audit:
         project = project_of(root)
         return audit_commit_identities(
@@ -9826,6 +9915,11 @@ def _parsers_integration(sub, common) -> None:
         "--strict-authors",
         action="store_true",
         help="also fail commits authored outside the team identity domain",
+    )
+    s.add_argument(
+        "--guard-committer",
+        action="store_true",
+        help="fail when a commit carries a committer outside the team identity domain",
     )
     s.set_defaults(func=cmd_identity)
 
