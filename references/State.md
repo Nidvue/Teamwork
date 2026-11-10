@@ -130,6 +130,26 @@ approaches in long-term; team-wide facts in global memory (CEO), proposed by the
 owner who discovered them; a mistake the role must not repeat in its
 `Lessons.md`; a durable project fact in the shared `Knowledge.md`.
 
+### Re-resolving the evidence: `memory verify`
+
+A record's `evidence` line names its ground truth, and `memory verify` re-reads
+that ground truth now: `@<sha>` or `rev <sha>` through `git cat-file -e`, a
+`path/to/file[:LINE]` against the working tree, an `https://` source against its
+access date (`accessed YYYY-MM-DD` or `(YYYY-MM-DD)`, at most 400 days old). The
+first kind that matches wins, and a record whose evidence names none of the three
+is `unverifiable`, never `drifted`.
+
+```sh
+teamwork.py memory verify [--role R] [--limit N] [--json]
+teamwork.py memory verify --apply --by <you>   # stamp the knowledge records it reported
+```
+
+`--apply` writes exactly two fields on knowledge records, `checked` and
+`verify_status`, and appends one `memory.verify` ledger event with the counts:
+statements and evidence are never rewritten, no record is deleted, and lessons or
+short-term entries are reported only. `memory dream` prints the same `drifted`
+group from the same function, so the pass and the command cannot disagree.
+
 ## Lessons and project knowledge
 
 Two stores sit beside memory. Both are team-local working state, gitignored and
