@@ -28,6 +28,17 @@ Rules:
 - **Never** use an instance-numbered identity: no `Developer-1`, no
   `developer-1@agents.nidvue.com`.
 - Never use the operator's personal git identity for team work.
+- **The role that does the work commits it.** Developer commits code and unit
+  tests, Tester integration/E2E tests, Technical Writer documentation, Architect
+  contracts and ADRs, Release Engineer workflows and release changes, Reviewer
+  merge commits. The CEO commits only CEO-owned documents (`Project.md`,
+  `Plan.md`, `Board.md`, `Decisions.md`) and the bootstrap commit - never another
+  role's deliverable in its place.
+- The product identity `Teamwork <teamwork@agents.nidvue.com>` is **never** a valid
+  commit identity: it names the skill, not a role.
+- CI enforces this with `teamwork.py identity --audit --range <base>..HEAD`; it
+  checks the author, the committer and the `Acting role:` trailer, and allows bot
+  dependency updates (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`).
 - Apply it per commit, without changing the repository config:
 
 ```sh
