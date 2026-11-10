@@ -267,10 +267,12 @@ from .names import (
     _norm_key,
     body_text,
     clip,
+    commit_identity,
     git_identity_args,
     identity_string,
     one_line,
     pascal,
+    preset_identity,
     resolve_role,
     role_identity,
     safe_component,
@@ -500,6 +502,8 @@ __all__ = [
     "role_identity",
     "identity_string",
     "git_identity_args",
+    "commit_identity",
+    "preset_identity",
     "project_path",
     "project_of",
     "docs_dir",
@@ -5199,7 +5203,7 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
     ``GitHub <noreply@github.com>``, and failing that pair turned every
     dependency pull request red on the guard.
     """
-    canonical = canonical_identities()
+    canonical = canonical_identities(project)
     proc = run_git(
         project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", rev_range
     )
@@ -5308,9 +5312,18 @@ _RE_MERGE_SUBJECT = re.compile(
 _RE_FORGE_COMMITTER_EMAIL = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\.com)$")
 
 
-def canonical_identities() -> dict:
-    """email -> display name for every role the team may commit as."""
-    return {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
+def canonical_identities(project=None) -> dict:
+    """email -> display name for every identity the team may commit as.
+
+    The role mailboxes are the portable set; the operator's preset identity is
+    accepted as well, because a checkout that names its owner commits as them
+    (`names.commit_identity`) rather than overriding the person with a role.
+    """
+    out = {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
+    preset = preset_identity(project) if project else preset_identity()
+    if preset:
+        out[preset[1]] = preset[0]
+    return out
 
 
 def audit_repository(root: Path, args) -> Path:
@@ -5423,7 +5436,7 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     if proc.returncode != 0:
         print(f"teamwork: cannot read {rev_range}: {proc.stderr.strip()}")
         return 2
-    canonical = canonical_identities()
+    canonical = canonical_identities(project)
     problems = []
     seen = 0
     print(f"# Commit identity audit ({rev_range})")
@@ -5448,13 +5461,17 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             print(f"- {short} ok: bot {an}")
             continue
         expected = canonical.get(ae)
+        operator = preset_identity(project)
+        is_operator = operator is not None and (ae, an) == (operator[1], operator[0])
+        if expected is None and is_operator:
+            expected = an
         if expected is None:
             team_domain = ae.lower().endswith("@" + IDENTITY_DOMAIN.lower())
             if not strict_authors and not team_domain and an not in BOT_IDENTITIES:
                 print(f"- {short} skipped: external contributor {an} <{ae}>")
                 continue
             reasons.append(f"not a role mailbox: {ae}")
-        elif not _matches_role_display(an, expected):
+        elif not is_operator and not _matches_role_display(an, expected):
             reasons.append(f"display name {an!r} does not match role {expected!r}")
         forge_committer = expected is not None and _RE_FORGE_COMMITTER_EMAIL.match(ce) is not None
         landing_role = canonical.get(ce) if ce in canonical and (ce != ae or cn != an) else None
@@ -5468,7 +5485,7 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
                 if not _matches_role_display(an, role_identity(fallback_role)[0]):
                     reasons.append(f"'Role: {match.group(1)}' does not match author {an!r}")
                     match = None
-        elif not _matches_role_display(match.group(1), an):
+        elif not is_operator and not _matches_role_display(match.group(1), an):
             reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
         if not match and not _is_content_free_team_merge(parents, cn, ce, body, canonical):
             if sha not in LEGACY_MESSAGE_EXEMPT:
@@ -5574,7 +5591,7 @@ def cmd_commit(args) -> int:
             2,
         )
 
-    name, email = role_identity(role)
+    name, email = commit_identity(role, project_of(root))
 
     producers = args.producers
     if not producers:
@@ -5675,7 +5692,7 @@ def cmd_commit(args) -> int:
             )
 
     r = subprocess.run(
-        ["git", "-C", str(project)] + git_identity_args(role) + ["commit", "-F", "-"],
+        ["git", "-C", str(project)] + git_identity_args(role, project) + ["commit", "-F", "-"],
         input=message,
         capture_output=True,
         text=True,
@@ -8037,9 +8054,10 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
     if at_toplevel:
         local_email = run_git(project, "config", "--local", "user.email").stdout.strip()
         local_name = run_git(project, "config", "--local", "user.name").stdout.strip()
-        if not local_email:
+        if preset_identity(project) is None:
             name, email = role_identity("ceo")
-            run_git(project, "config", "--local", "user.email", email)
+            if not local_email:
+                run_git(project, "config", "--local", "user.email", email)
             if not local_name:
                 run_git(project, "config", "--local", "user.name", name)
     elif not quiet:
