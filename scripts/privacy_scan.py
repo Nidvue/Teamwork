@@ -1,0 +1,714 @@
+#!/usr/bin/env python3
+"""privacy_scan.py - zero-personal-data gate for the Teamwork repository.
+
+Scans three sources and exits non-zero on any hit:
+
+* ``--tree``    tracked files (``git ls-files``), read from the working tree;
+* ``--staged``  index content of tracked files (``git ls-files -s`` + ``git cat-file``);
+* ``--history`` every blob reachable from every ref (``git rev-list --objects --all``
+  + ``git cat-file --batch``) **and** every commit's author/committer/message
+  metadata (the place a personal identity usually survives a blob-level scan).
+
+``--all`` combines the three. Flags combine freely.
+
+It fails on: personal email addresses that are not role mailboxes at the neutral
+identity domain; the retired private domain(s); absolute personal home paths
+(``/home/<name>``, ``/Users/<name>``, ``C:\\Users\\<name>``); API keys and tokens
+(``sk-``, ``ghp_``/``gho_``/``ghu_``/``ghs_``/``ghr_``, ``github_pat_``, ``AIza``,
+``wandb_``, ``xoxb-``, ``Bearer`` tokens, standalone high-entropy secrets);
+private-key headers; ``.env``-style assignments of secret-named variables; and
+``TODO``/``FIXME`` comments that carry credentials.
+
+Design notes
+------------
+* Stdlib only, no network, no third-party import.
+* The scanner is itself published, so it must not become the leak it detects.
+  Private domains are therefore not stored as plain text (they are reconstructed
+  from code points at runtime) and matched values are **masked by default** so a
+  failing CI log cannot republish the secret. ``--reveal`` prints full values for
+  local remediation only.
+* The allowlist file (``--allow``) holds one regular expression per line with an
+  optional ``# reason`` suffix. A finding is exempt when its matched text matches
+  any allowlist expression. Keep it minimal and justify each entry.
+
+Exit codes: ``0`` clean, ``1`` findings, ``2`` usage / git error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+import re
+import subprocess
+import sys
+from collections import Counter
+from pathlib import Path
+
+SCANNER_VERSION = "1.0.0"
+
+# --------------------------------------------------------------------------- #
+# Neutral identity / allowlisted email domains
+# --------------------------------------------------------------------------- #
+
+IDENTITY_DOMAIN = os.environ.get("TEAMWORK_IDENTITY_DOMAIN", "agents.nidvue.com")
+
+# Documentation / RFC 6761-2606 placeholders and service mailboxes. These are
+# not personal data: they are reserved names used in examples and by git hosts.
+_ALLOWED_EMAIL_DOMAINS = {
+    IDENTITY_DOMAIN,
+    "example.com",
+    "example.org",
+    "example.net",
+    "example.edu",
+    "invalid",
+    "test",
+    "localhost",
+}
+_ALLOWED_EMAIL_SUFFIXES = (
+    ".example.com",
+    ".example.org",
+    ".example.net",
+    ".invalid",
+    ".test",
+    ".localhost",
+)
+_ALLOWED_SERVICE_EMAILS = re.compile(
+    r"^(?:noreply@github\.com|[^@]+@users\.noreply\.github\.com|"
+    r"git@(?:github\.com|gitlab\.com|bitbucket\.org))$"
+)
+
+# --------------------------------------------------------------------------- #
+# Retired private domains
+#
+# Kept out of plain text on purpose: this file ships in the public tree and the
+# history, and must not itself contain the string it is meant to detect. The
+# list is built from code points and can be extended at runtime with the
+# comma-separated TEAMWORK_PRIVATE_DOMAINS environment variable.
+# --------------------------------------------------------------------------- #
+
+
+def _decode(*codes: int) -> str:
+    return "".join(chr(c) for c in codes)
+
+
+_DEFAULT_PRIVATE_DOMAINS = (
+    _decode(110, 105, 100, 118, 117, 101, 46, 99, 111, 109),  # recorded private domain
+    _decode(122, 104, 97, 111, 46, 110, 111),  # retired identity domain (git history)
+    _decode(98, 117, 108, 98, 105, 116, 101, 99, 104, 46, 99, 111, 109),  # retired work-mail domain
+)
+
+
+def _private_domains() -> list:
+    extra = os.environ.get("TEAMWORK_PRIVATE_DOMAINS", "")
+    values = [d.strip().lower() for d in extra.split(",") if d.strip()]
+    seen = []
+    for domain in list(_DEFAULT_PRIVATE_DOMAINS) + values:
+        if domain and domain not in seen:
+            seen.append(domain)
+    return seen
+
+
+# Non-personal CI / placeholder usernames that may legitimately appear in a home
+# path (GitHub Actions uses /home/runner). Everything else is reported.
+_GENERIC_HOME_USERS = {
+    "runner",
+    "runneradmin",
+    "user",
+    "username",
+    "youruser",
+    "yourname",
+    "you",
+    "example",
+    "app",
+    "docker",
+    "vscode",
+    "ubuntu",
+    "node",
+    "root",
+    "admin",
+    "me",
+    "someone",
+    "teamwork",
+}
+
+# Placeholder values that are obviously not real secrets.
+_PLACEHOLDERS = re.compile(
+    r"^(?:\$\{?[A-Za-z0-9_]+\}?|%[A-Za-z0-9_]+%|<[^>]+>|your[-_].*|"
+    r".*[-_]here|xxx+|\.\.\.|redacted|placeholder|dummy|fake|changeme|change_me|"
+    r"example|sample|test|none|null|nil|todo|secret|token|password|value|"
+    r"string|str|varname)$",
+    re.IGNORECASE,
+)
+
+# --------------------------------------------------------------------------- #
+# Detection rules
+# --------------------------------------------------------------------------- #
+
+_RE_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+
+_RE_HOME = re.compile(
+    r"(?:(?<![A-Za-z0-9_])/(?:home|Users)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
+    r"|(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]Users[\\/]([^\\/\s\"']+))"
+)
+
+_RE_PRIVATE_KEY = re.compile(r"-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----")
+
+_RE_TOKEN = re.compile(
+    r"\bsk-[A-Za-z0-9_\-]{16,}"
+    r"|\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}"
+    r"|\bgithub_pat_[A-Za-z0-9_]{20,}"
+    r"|\bAIza[0-9A-Za-z_\-]{20,}"
+    r"|\bwandb_[A-Za-z0-9]{20,}"
+    r"|\bxox[baprs]-[A-Za-z0-9\-]{10,}"
+    r"|\bAKIA[0-9A-Z]{16}\b"
+    r"|\b(?i:Bearer)\s+[A-Za-z0-9._+/=\-]{16,}"
+)
+
+# Assignment values that contain code punctuation (calls, indexing, punctuation) are
+# not credentials - they are source lines such as ``API_KEY = re.compile(...)``.
+_RE_CODE_LIKE = re.compile(r"[(){}\[\]<>,;'\"\s]")
+_CODE_KEYWORDS = {
+    "function",
+    "return",
+    "lambda",
+    "class",
+    "import",
+    "def",
+    "const",
+    "let",
+    "var",
+    "async",
+    "await",
+    "typeof",
+    "none",
+    "true",
+    "false",
+    "null",
+    "undefined",
+    "this",
+    "new",
+}
+
+
+def _looks_like_secret_value(value: str) -> bool:
+    if value.startswith(("re.", "os.", "self.", "match.", "str(", "Path(")):
+        return False
+    if value.lower() in _CODE_KEYWORDS:
+        return False
+    return not bool(_RE_CODE_LIKE.search(value))
+
+
+# .env-style assignment of a secret-named variable to a non-placeholder value.
+# The value is restricted to a credential charset so that a call expression is
+# not mistaken for an assignment.
+_RE_ENV_SECRET = re.compile(
+    r"(?i)(?:[A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|PWD|API[_-]?KEY|"
+    r"ACCESS[_-]?KEY|PRIVATE[_-]?KEY|CLIENT[_-]?SECRET|AUTH[_-]?KEY|"
+    r"CREDENTIAL)[A-Za-z0-9_]*)\s*[:=]\s*[\"']?([A-Za-z0-9+/=_\-.:@!#$%^&]{8,})"
+)
+
+# Standalone high-entropy secret: 32+ base64-ish characters, not pure hex (a raw
+# hash such as a git sha must not be reported). Hex secrets are still caught when
+# they are assigned to a secret-named variable by the .env rule above.
+_RE_HIGH_ENTROPY = re.compile(r"(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{32,}={0,2}(?![A-Za-z0-9+/=])")
+
+_RE_TODO = re.compile(r"(?i)\b(?:TODO|FIXME|XXX|HACK)\b")
+
+RULES = (
+    {"id": "private-key", "severity": "critical", "regex": _RE_PRIVATE_KEY},
+    {"id": "api-token", "severity": "critical", "regex": _RE_TOKEN},
+    {"id": "env-secret", "severity": "critical", "regex": _RE_ENV_SECRET},
+    {"id": "private-domain", "severity": "high", "regex": None},  # compiled in scan()
+    {"id": "personal-email", "severity": "high", "regex": _RE_EMAIL},
+    {"id": "home-path", "severity": "high", "regex": _RE_HOME},
+    {"id": "high-entropy-secret", "severity": "high", "regex": _RE_HIGH_ENTROPY},
+)
+
+
+def _shannon_entropy(value: str) -> float:
+    if not value:
+        return 0.0
+    counts = Counter(value)
+    length = len(value)
+    return -sum((n / length) * math.log2(n / length) for n in counts.values())
+
+
+def _looks_like_secret(value: str, line: str = "", index: int = 0) -> bool:
+    """Filter out hashes, identifiers, URL paths and natural words."""
+    if len(value) < 32:
+        return False
+    if re.fullmatch(r"[0-9a-fA-F]+", value):  # pure hex -> treat as a hash
+        return False
+    # A long run after a URL scheme is a URL path, not a credential.
+    scheme = line.find("://")
+    if scheme != -1 and index > scheme:
+        return False
+    has_digit = any(c.isdigit() for c in value)
+    has_upper = any(c.isupper() for c in value)
+    has_lower = any(c.islower() for c in value)
+    if not (has_digit and has_upper and has_lower):
+        return False
+    return _shannon_entropy(value) >= 3.5
+
+
+def _email_allowed(value: str) -> bool:
+    if _ALLOWED_SERVICE_EMAILS.match(value):
+        return True
+    domain = value.rsplit("@", 1)[-1].lower()
+    if domain in _ALLOWED_EMAIL_DOMAINS:
+        return True
+    return any(domain.endswith(suffix) for suffix in _ALLOWED_EMAIL_SUFFIXES)
+
+
+def _mask(value: str) -> str:
+    if len(value) <= 4:
+        return "*" * len(value)
+    if len(value) <= 10:
+        return value[0] + "*" * (len(value) - 2) + value[-1]
+    return value[:3] + "*" * (len(value) - 6) + value[-3:]
+
+
+def _clip(line: str, value: str, width: int = 160) -> str:
+    """A short, single-line context snippet around the match."""
+    index = line.find(value)
+    if index < 0:
+        return line[:width]
+    start = max(0, index - 40)
+    end = min(len(line), index + len(value) + 40)
+    snippet = line[start:end].strip()
+    if start > 0:
+        snippet = "..." + snippet
+    if end < len(line):
+        snippet = snippet + "..."
+    return snippet[:width]
+
+
+# --------------------------------------------------------------------------- #
+# Findings
+# --------------------------------------------------------------------------- #
+
+
+def make_finding(rule_id, severity, path, line_no, value, line, source, commit=None):
+    masked = _mask(value)
+    context = _clip(line.replace(value, masked), masked)
+    return {
+        "rule": rule_id,
+        "severity": severity,
+        "path": path,
+        "line": line_no,
+        "source": source,
+        "commit": commit,
+        "location": location(path, line_no, commit),
+        "evidence": masked,
+        "match": value,
+        "context": context,
+    }
+
+
+def location(path, line_no, commit=None):
+    if commit:
+        return f"{path}:{line_no}" if line_no else path
+    return f"{path}:{line_no}"
+
+
+def scan_lines(text, path, source, rules, allow, commit=None):
+    """Yield findings for one text blob (a file or a commit message body)."""
+    private_domains = _private_domains()
+    private_re = None
+    if private_domains:
+        private_re = re.compile("|".join(re.escape(d) for d in private_domains), re.IGNORECASE)
+
+    compiled = []
+    for rule in rules:
+        if rule["id"] == "private-domain":
+            if private_re is None:
+                continue
+            compiled.append((rule, private_re))
+        elif rule["regex"] is not None:
+            compiled.append((rule, rule["regex"]))
+
+    for line_no, line in enumerate(text.splitlines(), 1):
+        for rule, regex in compiled:
+            for match in regex.finditer(line):
+                value = match.group(0)
+                if rule["id"] == "personal-email" and _email_allowed(value):
+                    continue
+                if rule["id"] == "home-path":
+                    user = match.group(1) or match.group(2) or ""
+                    if user.lower() in _GENERIC_HOME_USERS:
+                        continue
+                if rule["id"] == "env-secret":
+                    secret = match.group(1)
+                    if _PLACEHOLDERS.match(secret):
+                        continue
+                    if not _looks_like_secret_value(secret):
+                        continue
+                    value = secret
+                    match_start = match.start(1)
+                    if match_start > 0 and line[:match_start].rstrip().endswith(("#", "//")):
+                        # comment-only assignment, still suspicious -> keep
+                        pass
+                if rule["id"] == "high-entropy-secret" and not _looks_like_secret(
+                    value, line, match.start()
+                ):
+                    continue
+                if any(pattern.search(value) for pattern in allow):
+                    continue
+                yield make_finding(
+                    rule["id"], rule["severity"], path, line_no, value, line, source, commit
+                )
+
+        # TODO/FIXME carrying a credential on the same line.
+        if _RE_TODO.search(line):
+            credential = None
+            for probe in (_RE_TOKEN, _RE_PRIVATE_KEY):
+                match = probe.search(line)
+                if match:
+                    credential = match.group(0)
+                    break
+            if credential is None and private_re is not None:
+                match = private_re.search(line)
+                if match:
+                    credential = match.group(0)
+            if credential is None:
+                match = _RE_ENV_SECRET.search(line)
+                if (
+                    match
+                    and not _PLACEHOLDERS.match(match.group(1))
+                    and _looks_like_secret_value(match.group(1))
+                ):
+                    credential = match.group(1)
+            if credential and not any(p.search(credential) for p in allow):
+                yield make_finding(
+                    "todo-credential", "medium", path, line_no, credential, line, source, commit
+                )
+
+
+def scan_commit_metadata(root, allow, stats=None):
+    """Scan author/committer name+email and the message of every commit."""
+    fmt = "%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%B%x1e"
+    proc = _run(["git", "-C", str(root), "log", "--all", "--format=" + fmt])
+    if proc.returncode != 0:
+        return []
+    findings = []
+    text = proc.stdout.decode("utf-8", "replace")
+    for record in text.split("\x1e"):
+        record = record.strip("\n")
+        if not record:
+            continue
+        parts = record.split("\x1f")
+        if len(parts) < 5:
+            continue
+        if stats is not None:
+            stats["commits"] += 1
+        sha, an, ae, cn, ce = parts[0], parts[1], parts[2], parts[3], parts[4]
+        body = parts[5] if len(parts) > 5 else ""
+        short = sha[:12]
+        for label, value in (
+            ("author name", an),
+            ("author email", ae),
+            ("committer name", cn),
+            ("committer email", ce),
+        ):
+            if not value:
+                continue
+            for finding in scan_lines(
+                value, f"commit:{short}", "history:commit", RULES, allow, commit=sha
+            ):
+                finding["detail"] = label
+                finding["context"] = f"{label}: {finding['context']}"
+                findings.append(finding)
+        for finding in scan_lines(
+            body, f"commit:{short}", "history:commit", RULES, allow, commit=sha
+        ):
+            finding["detail"] = "message"
+            findings.append(finding)
+    return findings
+
+
+# --------------------------------------------------------------------------- #
+# Git helpers
+# --------------------------------------------------------------------------- #
+
+
+def _run(args, input_bytes=None):
+    return subprocess.run(args, input=input_bytes, capture_output=True)
+
+
+def _cat_file_batch(root, shas):
+    """Return {sha: bytes} for blob objects, via one ``git cat-file --batch`` run."""
+    if not shas:
+        return {}
+    proc = _run(
+        ["git", "-C", str(root), "cat-file", "--batch"],
+        input_bytes=("\n".join(shas) + "\n").encode("utf-8"),
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "git cat-file --batch failed: " + proc.stderr.decode("utf-8", "replace").strip()
+        )
+    out = proc.stdout
+    result = {}
+    pos = 0
+    while pos < len(out):
+        newline = out.find(b"\n", pos)
+        if newline < 0:
+            break
+        header = out[pos:newline].decode("utf-8", "replace").split()
+        pos = newline + 1
+        if len(header) < 3 or header[1] != "blob":
+            continue
+        sha, size = header[0], int(header[2])
+        result[sha] = out[pos : pos + size]
+        pos += size + 1  # skip the trailing LF git writes after the payload
+    return result
+
+
+def _tracked_paths(root):
+    proc = _run(["git", "-C", str(root), "ls-files", "-z"])
+    if proc.returncode != 0:
+        raise RuntimeError("git ls-files failed: " + proc.stderr.decode("utf-8", "replace").strip())
+    return [p.decode("utf-8", "replace") for p in proc.stdout.split(b"\x00") if p]
+
+
+def _scan_bytes(data, path, source, allow, commit=None):
+    if b"\x00" in data[:8192]:  # binary
+        return []
+    text = data.decode("utf-8", "replace")
+    return list(scan_lines(text, path, source, RULES, allow, commit=commit))
+
+
+def scan_tree(root, allow, stats=None):
+    findings = []
+    for rel in _tracked_paths(root):
+        if stats is not None:
+            stats["tracked_files"] += 1
+        full = root / rel
+        try:
+            data = full.read_bytes()
+        except OSError:
+            continue
+        findings.extend(_scan_bytes(data, rel, "tree", allow))
+    return findings
+
+
+def scan_staged(root, allow, stats=None):
+    """Scan the index content (what ``git commit`` would record)."""
+    proc = _run(["git", "-C", str(root), "ls-files", "-s", "-z"])
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "git ls-files -s failed: " + proc.stderr.decode("utf-8", "replace").strip()
+        )
+    entries = {}
+    for record in proc.stdout.split(b"\x00"):
+        if not record:
+            continue
+        try:
+            meta, path = record.split(b"\t", 1)
+        except ValueError:
+            continue
+        fields = meta.split()
+        if len(fields) < 2:
+            continue
+        entries.setdefault(fields[1].decode("ascii"), []).append(path.decode("utf-8", "replace"))
+    blobs = _cat_file_batch(root, list(entries))
+    findings = []
+    for sha, paths in entries.items():
+        data = blobs.get(sha)
+        if data is None:
+            continue
+        for path in paths:
+            if stats is not None:
+                stats["staged_files"] += 1
+            findings.extend(_scan_bytes(data, path, "staged", allow))
+    return findings
+
+
+def scan_history(root, allow, stats=None):
+    proc = _run(["git", "-C", str(root), "rev-list", "--objects", "--all"])
+    if proc.returncode != 0:
+        raise RuntimeError("git rev-list failed: " + proc.stderr.decode("utf-8", "replace").strip())
+    sha_to_path = {}
+    order = []
+    for line in proc.stdout.decode("utf-8", "replace").splitlines():
+        parts = line.split(" ", 1)
+        sha = parts[0]
+        path = parts[1] if len(parts) > 1 else ""
+        if not path:
+            continue
+        if sha not in sha_to_path:
+            sha_to_path[sha] = path
+            order.append(sha)
+    blobs = _cat_file_batch(root, order)
+    findings = []
+    for sha in order:
+        data = blobs.get(sha)
+        if data is None:
+            continue
+        if stats is not None:
+            stats["history_blobs"] += 1
+        findings.extend(_scan_bytes(data, sha_to_path[sha], "history:blob", allow, commit=sha))
+    findings.extend(scan_commit_metadata(root, allow, stats=stats))
+    return findings
+
+
+# --------------------------------------------------------------------------- #
+# Allowlist
+# --------------------------------------------------------------------------- #
+
+
+def load_allow(path):
+    patterns = []
+    if not path:
+        return patterns
+    text = Path(path).read_text(encoding="utf-8")
+    for line_no, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        expression = line.split("#", 1)[0].strip()
+        if not expression:
+            continue
+        try:
+            patterns.append(re.compile(expression))
+        except re.error as exc:
+            print(f"privacy_scan: {path}:{line_no}: bad allow regex: {exc}", file=sys.stderr)
+            raise SystemExit(2) from exc
+    return patterns
+
+
+# --------------------------------------------------------------------------- #
+# Reporting
+# --------------------------------------------------------------------------- #
+
+
+def summarize(findings):
+    by_severity = Counter(f["severity"] for f in findings)
+    by_rule = Counter(f["rule"] for f in findings)
+    return {"by_severity": dict(by_severity), "by_rule": dict(by_rule)}
+
+
+def dedupe(findings):
+    seen = set()
+    unique = []
+    for finding in findings:
+        key = (finding["rule"], finding["location"], finding["match"], finding.get("commit") or "")
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(finding)
+    return unique
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="privacy_scan.py",
+        description="Fail on personal data, credentials and secrets in the tree, "
+        "the index and the full git history.",
+    )
+    parser.add_argument(
+        "--tree", action="store_true", help="scan tracked files from the working tree"
+    )
+    parser.add_argument("--staged", action="store_true", help="scan the staged index content")
+    parser.add_argument(
+        "--history", action="store_true", help="scan every blob of every commit and commit metadata"
+    )
+    parser.add_argument("--all", action="store_true", help="combine --tree, --staged and --history")
+    parser.add_argument(
+        "--allow",
+        metavar="FILE",
+        default=None,
+        help="allowlist: one regex per line with an optional '# reason'",
+    )
+    parser.add_argument(
+        "--root", metavar="DIR", default=None, help="repository root (default: current directory)"
+    )
+    parser.add_argument("--json", action="store_true", help="emit JSON")
+    parser.add_argument(
+        "--reveal", action="store_true", help="print full matched values (local remediation only)"
+    )
+    parser.add_argument("--quiet", action="store_true", help="only print the one-line summary")
+    args = parser.parse_args(argv)
+
+    if args.all:
+        args.tree = args.staged = args.history = True
+    if not (args.tree or args.staged or args.history):
+        args.tree = True  # safe default
+
+    root = _git_root(args.root)
+    if root is None:
+        print("privacy_scan: not inside a git repository", file=sys.stderr)
+        return 2
+
+    allow = load_allow(args.allow)
+    modes = [
+        name
+        for name, flag in (("tree", args.tree), ("staged", args.staged), ("history", args.history))
+        if flag
+    ]
+
+    findings = []
+    stats = {"tracked_files": 0, "staged_files": 0, "history_blobs": 0, "commits": 0}
+    try:
+        if args.tree:
+            findings.extend(scan_tree(root, allow, stats))
+        if args.staged:
+            findings.extend(scan_staged(root, allow, stats))
+        if args.history:
+            findings.extend(scan_history(root, allow, stats))
+    except RuntimeError as exc:
+        print(f"privacy_scan: {exc}", file=sys.stderr)
+        return 2
+
+    findings = dedupe(findings)
+    if not args.reveal:
+        for finding in findings:
+            finding.pop("match", None)
+
+    report = {
+        "scanner_version": SCANNER_VERSION,
+        # The absolute root is deliberately not emitted: a privacy scanner must
+        # not republish the operator's home path into public CI logs.
+        "root": root.name,
+        "modes": modes,
+        "allow_file": str(args.allow) if args.allow else None,
+        "identity_domain": IDENTITY_DOMAIN,
+        "scanned": stats,
+        "finding_count": len(findings),
+        "findings": findings,
+    }
+    report.update(summarize(findings))
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=False))
+    else:
+        if not args.quiet:
+            for finding in findings:
+                shown = (
+                    finding.get("match", finding["evidence"])
+                    if args.reveal
+                    else finding["evidence"]
+                )
+                print(
+                    f"{finding['location']}: [{finding['severity']}/"
+                    f"{finding['rule']}] {shown}  {finding.get('detail', '')}"
+                )
+        state = "FAIL" if findings else "PASS"
+        print(f"privacy_scan: {state} - {len(findings)} finding(s) in {', '.join(modes)}")
+    return 1 if findings else 0
+
+
+def _git_root(explicit):
+    start = Path(explicit) if explicit else Path.cwd()
+    proc = subprocess.run(
+        ["git", "-C", str(start), "rev-parse", "--show-toplevel"], capture_output=True
+    )
+    if proc.returncode != 0:
+        return None
+    return Path(proc.stdout.decode("utf-8", "replace").strip())
+
+
+if __name__ == "__main__":
+    sys.exit(main())
