@@ -459,6 +459,11 @@ Print the ROLE's short-term memory (startup context), then its open lessons
 fixed lessons and superseded knowledge. The ranking and caps are the memory
 model's; the full lifecycle is in `references/State.md`.
 
+A name this team cannot resolve - no registered instance, and no role directory
+for a canonical role - is refused with exit `1` and creates nothing, and the
+refusal lists the roles the team does know (`Roles/<Name>/` on its own is not
+proof: an old `remember` bug could create one for any spelling).
+
 ### `remember`
 
 ```text
@@ -470,7 +475,9 @@ teamwork remember AGENT TEXT [--by BY] [--src SRC] [--rev REV]
 Add or update an entry in the ROLE's shared memory. It takes the role's memory
 pen for the duration of the write (and the consolidation that follows it), so a
 peer's concurrent write waits its turn instead of interleaving; `--by` should name
-the instance, because that is who the implicit lease names.
+the instance, because that is who the implicit lease names. A name the team
+cannot resolve is refused with exit `1` before any directory is created, so a
+typo never becomes a role.
 
 ### `global`
 
