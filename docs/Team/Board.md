@@ -200,7 +200,7 @@ under two roles is two tasks.
 | developer | T-0071 | - | done | P-0116 | 2da10cd |
 | developer | T-0072 | - | dropped | - | - |
 | developer | T-0073 | - | dropped | - | - |
-| developer | T-0074 | gate | review | P-0120 | - |
+| developer | T-0074 | gate | done | P-0120 | 2fa4dee |
 | developer | T-0075 | - | review | P-0123 | - |
 | developer | T-0076 | preflight | doing | P-0122 | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
@@ -218,7 +218,7 @@ under two roles is two tasks.
 | reviewer | T-0003 | - | done | - | - |
 | reviewer | T-0004 | - | done | - | - |
 | reviewer | T-0005 | - | done | - | - |
-| reviewer | T-0006 | acceptance | todo | P-0117 | - |
+| reviewer | T-0006 | acceptance | done | P-0117 | 2174360 |
 | security-auditor | T-0001 | audit | dropped | P-0022 | - |
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
@@ -254,10 +254,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0074 · main's full suite is red: extensions missing from the hygiene allowlist, 26 explanatory comments in engine.py, board drift, and two tests read a relative worktree as absolute | P0 | review | - |
 | developer | T-0075 · dispute resolve refuses the CEO: the panel gate runs before the non-escalated owner rule, so no dispute can be resolved by the role that owns arbitration | P1 | review | - |
 | developer | T-0076 · preflight: the branch-staleness check and the evidence binding are jointly unsatisfiable under concurrent merges | P1 | doing | - |
-| reviewer | T-0006 · record the acceptance layer for memory and pi-package, and verify AC-M22-1..5 on the merged revision | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
