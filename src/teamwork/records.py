@@ -27,6 +27,7 @@ from .config import (
     FEATURE_OPEN_STATES,
     FEATURE_RECORDS_REL,
     FEATURE_STATES,
+    KNOWLEDGE_KINDS,
     LONG_CAP,
     MAX_ROUNDS,
     PRIORITY_ORDER,
@@ -97,6 +98,42 @@ LESSON_FIELDS = (
     "created",
     "updated",
 )
+
+#: Project knowledge (Architecture.md 15.1): one K- record per durable fact.
+#: The file is project-wide team-local state; `topic` lives in the header and
+#: every other field is one `- field: value` line, so a value can never forge a
+#: record boundary. `kind` follows `statement` exactly where 16.5 puts it, and a
+#: record without the line reads as `fact`, so section 15 records need no
+#: migration.
+KNOWLEDGE_HEADER = (
+    "# Knowledge - what this project has learned\n\n"
+    "> One record per durable fact, rule or gotcha, with the evidence that\n"
+    "> established it. Team-local, never committed. Manage with\n"
+    "> `teamwork.py knowledge ...`.\n"
+)
+
+KNOWLEDGE_RE = re.compile(r"^##\s+(K-\d{4})\s*(?:-|:)?\s*(.*)$", re.ASCII)
+
+KNOWLEDGE_FIELDS = (
+    "statement",
+    "kind",
+    "evidence",
+    "tags",
+    "owner",
+    "by",
+    "task",
+    "importance",
+    "uses",
+    "status",
+    "supersedes",
+    "superseded_by",
+    "created",
+    "updated",
+)
+
+#: Fields 15.1 marks optional: absent from the file when unset, and rendered as
+#: a bare `-` by `show` so a reader can tell "unset" from "empty string".
+KNOWLEDGE_OPTIONAL = ("task", "supersedes", "superseded_by")
 
 DISPUTE_HEADER = (
     "# DISPUTES - design/decision challenges\n\n"
@@ -1769,6 +1806,200 @@ def find_lesson(items: list, handle: str):
         if needle in item["id"].lower() or needle in item["mistake"].lower():
             return i
     return None
+
+
+# --------------------------------------------------------------------------- #
+# Project knowledge: the project's accumulating experience (Architecture.md 15)
+# --------------------------------------------------------------------------- #
+
+
+def normalise_knowledge(value) -> str:
+    """The frozen duplicate/key spelling: collapse whitespace, then casefold.
+
+    No punctuation, accent or other folding applies - the key is exact, so two
+    records that differ only by letter case or by runs of whitespace are the
+    same fact (15.2).
+    """
+    return " ".join(str(value or "").split()).casefold()
+
+
+def normalise_tags(value) -> list:
+    """A comma list as stored: lower-case kebab tags, de-duplicated, order kept.
+
+    `Build, CI ,build` -> ['build', 'ci']. `-` and the empty string are the
+    empty list, so `show` can render an empty cell as `-` without inventing a
+    tag called "-".
+    """
+    text = (value or "").strip()
+    if not text or text == "-":
+        return []
+    tags = []
+    for part in text.split(","):
+        tag = re.sub(r"[^a-z0-9]+", "-", part.casefold()).strip("-")
+        if tag and tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def knowledge_tags(item: dict) -> str:
+    """The rendered tag cell: `build,ci`, or `-` for an empty list."""
+    return ",".join(item.get("tags") or []) or "-"
+
+
+def new_knowledge(
+    topic: str,
+    statement: str,
+    evidence: str,
+    by: str,
+    owner: str,
+    kind: str = "fact",
+    tags="",
+    importance: int = 3,
+    task: str = "",
+) -> dict:
+    now = today_iso()
+    return {
+        "id": "",
+        "topic": one_line(topic),
+        "statement": one_line(statement),
+        "kind": kind if kind in KNOWLEDGE_KINDS else "fact",
+        "evidence": one_line(evidence),
+        "tags": normalise_tags(tags),
+        "owner": one_line(owner),
+        "by": one_line(by),
+        "task": one_line(task),
+        "importance": int(importance),
+        "uses": 0,
+        "status": "active",
+        "supersedes": "",
+        "superseded_by": "",
+        "created": now,
+        "updated": now,
+    }
+
+
+def parse_knowledge(path: Path) -> list:
+    """Every K- record in the file, in file order. A missing file is empty."""
+    if not path.exists():
+        return []
+    out: list = []
+    current: dict | None = None
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        match = KNOWLEDGE_RE.match(raw)
+        if match:
+            if current:
+                out.append(current)
+            current = {field: "" for field in KNOWLEDGE_FIELDS}
+            current.update(
+                id=match.group(1),
+                topic=one_line(match.group(2)),
+                kind="fact",
+                tags=[],
+                importance=3,
+                uses=0,
+                status="active",
+            )
+            continue
+        if current is None:
+            continue
+        meta = META_RE.match(raw)
+        if not meta:
+            continue
+        field, value = meta.group(1), meta.group(2).strip()
+        if field == "tags":
+            current["tags"] = normalise_tags(value)
+        elif field == "kind":
+            if value in KNOWLEDGE_KINDS:
+                current["kind"] = value
+        elif field in ("importance", "uses"):
+            try:
+                current[field] = int(value)
+            except ValueError:
+                pass
+        elif field == "status":
+            if value in ("active", "superseded"):
+                current["status"] = value
+        elif field in current:
+            current[field] = value
+    if current:
+        out.append(current)
+    return out
+
+
+def render_knowledge(items: list) -> str:
+    out = [KNOWLEDGE_HEADER.rstrip(), ""]
+    for item in sorted(items, key=lambda entry: entry["id"]):
+        out.append(f"## {item['id']} - {one_line(item['topic'])}")
+        for field in KNOWLEDGE_FIELDS:
+            if field in KNOWLEDGE_OPTIONAL and not item.get(field):
+                continue
+            if field in ("importance", "uses"):
+                value = str(int(item.get(field, 0)))
+            elif field == "tags":
+                value = knowledge_tags(item)
+            else:
+                value = one_line(item.get(field, ""))
+            out.append(f"- {field}: {value}")
+        out.append("")
+    return "\n".join(out).rstrip() + "\n"
+
+
+def write_knowledge(path: Path, items: list) -> None:
+    atomic_write(path, render_knowledge(items))
+
+
+def find_knowledge(items: list, handle: str):
+    """Locate one K- id, case-insensitively. No substring match: ids are exact."""
+    want = (handle or "").strip().upper()
+    if not want:
+        return None
+    for i, item in enumerate(items):
+        if item["id"].upper() == want:
+            return i
+    return None
+
+
+def next_knowledge_id(items: list) -> str:
+    """`K-` plus four digits, allocated from the maximum already in the file."""
+    highest = 0
+    for item in items:
+        match = re.fullmatch(r"K-(\d{4})", item["id"])
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return f"K-{highest + 1:04d}"
+
+
+def rank_knowledge(items: list) -> list:
+    """The frozen order: importance desc, uses desc, updated desc, id asc.
+
+    Two stable passes give a total order without a sort key that has to invert a
+    date string: sort by id ascending first, then by the three descending keys.
+    The id tie-break keeps the output reproducible when two records share every
+    ranking field.
+    """
+    ordered = sorted(items, key=lambda item: item["id"])
+    ordered.sort(
+        key=lambda item: (int(item["importance"]), int(item["uses"]), item["updated"]),
+        reverse=True,
+    )
+    return ordered
+
+
+def knowledge_totals(items: list) -> tuple:
+    """(active, superseded, total uses) over EVERY record, filters included."""
+    active = sum(1 for item in items if item["status"] == "active")
+    superseded = sum(1 for item in items if item["status"] == "superseded")
+    uses = sum(int(item["uses"]) for item in items)
+    return active, superseded, uses
+
+
+def knowledge_row(item: dict) -> str:
+    """One `list`/`search` row, frozen in 15.2."""
+    return (
+        f"- {item['id']} [{item['status']}] importance={item['importance']} "
+        f"uses={item['uses']} tags={knowledge_tags(item)}: "
+        f"{one_line(item['topic'])} - {one_line(item['statement'])}"
+    )
 
 
 # --------------------------------------------------------------------------- #

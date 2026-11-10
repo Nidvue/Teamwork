@@ -176,6 +176,16 @@ F_SKILLS = "Skills.md"
 
 F_LESSONS = "Lessons.md"
 
+F_KNOWLEDGE = "Knowledge.md"
+
+#: The five kinds a K- record may carry (Architecture.md 16.5). `fact` is the
+#: default, so a record written before the field existed reads as a fact.
+KNOWLEDGE_KINDS = ("fact", "experience", "preference", "gotcha", "rule")
+
+#: Caps the `knowledge add` contract enforces on its two prose fields (15.2).
+KNOWLEDGE_TOPIC_MAX = 120
+KNOWLEDGE_STATEMENT_MAX = 500
+
 SKILLS_DIR = (".agents", "skills")
 
 #: Every Teamwork-authored skill is recognisable by this fixed prefix. It is the
