@@ -790,6 +790,34 @@ teamwork selftest
 
 Offline smoke test of the install; no network, no workspace required.
 
+### `model`
+
+```text
+teamwork model set <role|instance> --provider P --model M
+teamwork model get <role|instance>
+teamwork model list
+teamwork model auto [--apply] [--json]
+```
+
+The skill ships no model and calls no LLM API: every agent runs through the host's
+own API, so the model is a property of the **agent**, not of the project.
+
+- `set` writes a role default, or an instance override when the name carries an
+  instance suffix (`developer-1`). The instance wins over the role.
+- `get` prints the effective model and where it came from (`agent`, `role` or
+  `unset`); `list` prints the whole roster.
+- `auto` reads the **runtime environment** - which agent host is running (pi,
+  claude, opencode, codex, cursor, gemini) and which model it exposes - and routes
+  the strongest available model to the decision lanes (Reviewer, Architect,
+  Security Auditor, CEO, CTO) and the economy model to the mechanical lanes
+  (developers, testers, writers, formatting, link checks). It is a dry run by
+  default; `--apply` writes it and records `model.auto` in the ledger. It never
+  invents a model id: a lane with nothing available is reported `unset` together
+  with the variable to set (`TEAMWORK_MODEL_STRONG`, `TEAMWORK_MODEL_ECONOMY`).
+  `TEAMWORK_AGENT_HOST` pins host detection when the markers are ambiguous.
+
+Policy: [references/Concurrency.md](https://github.com/VisionPZ/Teamwork/blob/main/references/Concurrency.md).
+
 ### `imaging probe`
 
 ```text

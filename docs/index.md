@@ -8,6 +8,11 @@ Nidvue Teamwork turns one prompt into a self-organising team of AI agents that p
 builds, tests and reviews a project until every acceptance criterion is verified.
 It ships as a Pi skill, an installable Python package, and a workspace format.
 
+- **Automatic model routing** - `teamwork model auto` detects the agent
+  host and routes the strongest available model to the decision lanes and
+  the economy one to the mechanical lanes: best output where it compounds,
+  lowest cost where it does not.
+
 ## What it is
 
 | Face | What it means |
