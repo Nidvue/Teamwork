@@ -12,7 +12,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | clean checkout | `git clone https://github.com/Nidvue/Teamwork && cd Teamwork` | clean tree |
 | dev setup | `make dev` | editable install with dev extras |
 | selftest | `python3 scripts/teamwork.py selftest` | `5/5 checks passed`, exit 0 |
-| build | `make build` | `dist/teamwork_agents-1.0.0.tar.gz` and `dist/teamwork_agents-1.0.0-py3-none-any.whl` |
+| build | `make build` | `dist/teamwork_agents-1.1.0.tar.gz` and `dist/teamwork_agents-1.1.0-py3-none-any.whl` |
 | verify | `make verify` | wheel contains `teamwork/data/SKILL.md`; clean-venv install; `teamwork --version`, `teamwork selftest`, temp-dir `teamwork init` all pass |
 | package | `python3 scripts/verify_release.py` | `SHA256SUMS` written next to the artefacts |
 | provenance | GitHub Actions attestation (release workflow) | `gh attestation verify <file> --repo Nidvue/Teamwork` |
@@ -30,6 +30,29 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | privacy | `python3 scripts/privacy_scan.py --tree --history` | yes |
 | docs | `teamwork links` + `mkdocs build --strict` | yes |
 | identity | `scripts/teamwork.py identity --audit` | yes (team-domain commits) |
+
+## Release candidate gate
+
+The gate is measured on a revision that is reachable from the default branch - never
+on a detached head or a discarded amend, because such a revision can never ship. The
+revision below is the tip of `main` when the gate was run; re-run the table on the
+current tip before a tag, and read each result from the command, never from this page.
+
+| gate | command | measured at `1a6d21c` |
+|---|---|---|
+| build | `python -m build && python scripts/verify_release.py` | `OK - release verified`, `SHA256SUMS` written; wheel `553adf4921dcb236`, sdist `e8a453daaa6d55ff` |
+| selftest | `python3 scripts/teamwork.py selftest` | `5/5 checks passed`, exit 0 |
+| unit + integration + acceptance | `pytest -q` | 600 passed, 1 skipped (the skip is the console-script check, covered by `verify_release.py`) |
+| lint + format | `ruff check . && ruff format --check .` | clean, 137 files formatted |
+| typecheck | `mypy src/teamwork` | no issues in 15 files |
+| privacy | `privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | `PASS - 0 finding(s)`, exit 0 |
+| docs | `teamwork links` + `mkdocs build --strict` | `# issues: 0`; strict build succeeds |
+| identity | `teamwork identity --audit --range origin/main..main` | 0 commits, 0 problems |
+| code scanning | `teamwork code-scanning` | 2 open `error` alerts, both `py/clear-text-logging-sensitive-data` on `scripts/privacy_scan.py`, triaged false positive by the Security Auditor (`D-20261020-SEC-1`) - the gate reads the triage, not a zero |
+
+The privacy row is quoted with `--allow` because that is what CI and `make privacy`
+run: the allowlist exempts three path shapes that appear only as quoted evidence,
+and every pattern rule still fires on the same line.
 
 ### Trigger policy - code in, prose and media out
 
