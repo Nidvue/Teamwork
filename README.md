@@ -66,8 +66,22 @@ library only) ships inside the skill and is what the CEO calls; installing it as
 ## Install the skill
 
 Teamwork is a directory with a `SKILL.md`, the role charters, the references and
-the engine - no package manager, no daemon, no hosted service. Clone it where
-your agent discovers skills:
+the engine - no daemon, no hosted service. **One engine ships behind four
+channels**, and each release builds every one of them from the same tagged
+revision:
+
+| Channel | Get it with | What you receive | Pick it when |
+|---|---|---|---|
+| **Skill clone** (the product) | the `git clone` below | `SKILL.md`, the role charters, `references/`, `templates/` and the engine, as plain tracked files | Your agent host loads a skill directory |
+| **npm package** | `npm install @nidvue/teamwork`, or your host's own package command | the same skill tree under `skills/teamwork/`, the prompts that ship beside it, and the project notices | Your host resolves skills from the npm registry |
+| **GitHub-release wheel** | one command under [Optional: put the engine on your PATH](#optional-put-the-engine-on-your-path) | the Python package: the `teamwork` console script and `python -m teamwork` | You want `teamwork` on your PATH |
+| **Source** | `git clone` then `python -m pip install .` | everything, editable | You are working on the engine |
+
+`src/teamwork/version.py` is the one version string behind all four, so no channel
+can quietly serve a different engine. What a release publishes, how to read the
+version it carries, and what it does not publish: [`docs/releases.md`](docs/releases.md).
+
+Clone it where your agent discovers skills:
 
 | Scope | Path | Use it when |
 |---|---|---|
@@ -117,8 +131,9 @@ bundled script.
 git clone https://github.com/Nidvue/Teamwork.git
 cd Teamwork && python -m pip install .
 
-# the wheel attached to the newest GitHub release
-python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.3.0/teamwork_agents-1.3.0-py3-none-any.whl
+# the wheel attached to the newest GitHub release; the tag is read, never typed
+tag="$(git tag -l --sort=-v:refname | head -1)"
+python -m pip install "https://github.com/Nidvue/Teamwork/releases/download/$tag/teamwork_agents-${tag#v}-py3-none-any.whl"
 ```
 
 That URL names a **release**, and a wheel lags the checkout by design: a version
@@ -126,9 +141,14 @@ is bumped in `src/teamwork/version.py` before it is tagged, so the two numbers c
 differ. Read both rather than assuming they match:
 
 ```bash
-gh release list --limit 1                   # the newest published release
-python3 scripts/teamwork.py --version       # the version in this checkout
+tag="$(git tag -l --sort=-v:refname | head -1)"   # the newest published release
+python3 scripts/teamwork.py --version              # the version in this checkout
+npm view @nidvue/teamwork version                  # the version the npm channel serves
 ```
+
+The same skill is available from the npm registry as the package
+`@nidvue/teamwork`; [`docs/releases.md`](docs/releases.md) describes every face of
+a release and what none of them contains.
 
 If you need the tree's exact engine, install from source
 (`python -m pip install .`) instead of from a release asset.
@@ -465,7 +485,7 @@ this README and its visuals lives in [`docs/Team/Design.md`](docs/Team/Design.md
 | Version | Status | Focus |
 |---|---|---|
 | `v1.0.0` | released | Package, skill bundle, CLI, 15 role charters, layered tests, CI/release workflows, docs site. |
-| `v1.x` | current | Release wheel, checksums and SBOMs shipped; the remaining step is PyPI trusted publishing. Read the newest tag with `git tag -l --sort=-v:refname` and the tree's version with `teamwork.py --version`: the two differ by design between a version bump and its tag. |
+| `v1.x` | current | A `v*` tag publishes the wheel, the checksums, the SBOMs and the `@nidvue/teamwork` npm package from one revision and rebuilds the site from it ([`docs/releases.md`](docs/releases.md)); the remaining step is PyPI trusted publishing. Read the newest tag with `git tag -l --sort=-v:refname` and the tree's version with `teamwork.py --version`: the two differ by design between a version bump and its tag. |
 | next | exploring | More provider adapters, end-to-end worked examples, an opt-in ledger dashboard. |
 
 Direction, not a promise: no hosted service, and stars cannot be bought - this
