@@ -4,7 +4,7 @@ Layer ``integration``, area ``harness``, owner Tester (T-0001). Every assertion
 is made by *running* ``scripts/teamwork.py`` as a subprocess against a scaffolded
 temp workspace - never by importing the engine - so the tests prove what an
 operator gets, and each one quotes the clause of the frozen interface it holds
-(``docs/Team/Architecture.md`` section 12, AC-H2..AC-H5).
+(``docs/Team/Architecture.md`` section 11, AC-H2..AC-H5).
 
 The scaffold is a real git repository with the team tree, a managed ``AGENTS.md``
 block and a minimal skill bundle, so every byte ``harness list`` prints can be
@@ -22,16 +22,17 @@ import sys
 from pathlib import Path
 
 import pytest
+from tests.gitenv import child_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 AGENTS = "ceo,developer-1"
 
-#: 12.2: the closed set of activation classes, and the one row that is not a file.
+#: 11.2: the closed set of activation classes, and the one row that is not a file.
 CLASSES = {"always-on", "on-demand", "in-loop", "n/a"}
-#: 12.3: C5 is an inference context, so its class cell is ``-`` like its bytes.
+#: 11.3: C5 is an inference context, so its class cell is ``-`` like its bytes.
 NO_VALUE = "-"
-#: 12.2, in component order (C1..C8): the ``path`` spec each row must print,
+#: 11.2, in component order (C1..C8): the ``path`` spec each row must print,
 #: frozen so a row explains its own byte count. C2 is the managed *block* (the
 #: file holds text outside it), C3 is every role plus the global memory the run
 #: sums, C7 is the scripts *and* the engine package, and C8 is both hook stages
@@ -48,7 +49,7 @@ SPECS = [
     "hook_dir(root)/{pre-commit,pre-push}",
 ]
 
-#: 12.2 freezes four columns, and two of its frozen path specs contain a single
+#: 11.2 freezes four columns, and two of its frozen path specs contain a single
 #: space, so the cells are separated by a run of two or more spaces. ``split()``
 #: tears ``managed block in AGENTS.md`` into three cells and loses the shape.
 CELL_SEPARATOR = re.compile(r"\s{2,}")
@@ -62,14 +63,19 @@ def run(
     cwd: Path | None = None,
 ) -> subprocess.CompletedProcess:
     """``python3 scripts/teamwork.py --project <project> <args>`` as a process."""
-    child = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": str(project),  # no developer git config reaches the scaffold
-        "PYTHONPATH": str(REPO_ROOT / "src"),
-        "PYTHONIOENCODING": "utf-8",
-        "PYTHONUTF8": "1",
-        "LC_ALL": "C.UTF-8",
-    }
+    # The platform's own variables must survive (a hand-built environment that
+    # keeps PATH and HOME but drops SystemRoot/TEMP breaks Windows, where the
+    # interpreter's RNG is initialised from the OS), and the caller's git
+    # configuration must not (core.hooksPath, init.defaultBranch and
+    # commit.gpgsign would decide what this test measures). ``child_env``
+    # starts from the parent environment and re-asserts the hermeticity on top.
+    child = child_env(
+        HOME=str(project),  # no developer git config reaches the scaffold
+        PYTHONPATH=str(REPO_ROOT / "src"),
+        PYTHONIOENCODING="utf-8",
+        PYTHONUTF8="1",
+        LC_ALL="C.UTF-8",
+    )
     child.update(env or {})
     return subprocess.run(
         [sys.executable, str(CLI_SHIM), "--project", str(project), *args],
@@ -90,16 +96,13 @@ def ok(project: Path, *args: str, **kwargs) -> str:
 
 def git(project: Path, *args: str, stdin: str | None = None, env: dict | None = None):
     """Run git in the scaffold with an explicit, hermetic environment."""
-    child = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": str(project),
-        "GIT_AUTHOR_NAME": "Tester",
-        "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
-        "GIT_COMMITTER_NAME": "Tester",
-        "GIT_COMMITTER_EMAIL": "tester@agents.nidvue.com",
-        "GIT_CONFIG_NOSYSTEM": "1",
-        "GIT_CONFIG_GLOBAL": os.devnull,
-    }
+    child = child_env(
+        HOME=str(project),
+        GIT_AUTHOR_NAME="Tester",
+        GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
+        GIT_COMMITTER_NAME="Tester",
+        GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
+    )
     child.update(env or {})
     return subprocess.run(
         ["git", "-C", str(project), *args],
@@ -155,7 +158,7 @@ def managed_block(path: Path) -> str:
 
 
 def rows(output: str) -> list[list[str]]:
-    """The printed table as cells, on the frozen cell separator (12.2)."""
+    """The printed table as cells, on the frozen cell separator (11.2)."""
     return [CELL_SEPARATOR.split(line.strip()) for line in output.splitlines() if line.strip()]
 
 
@@ -170,7 +173,7 @@ def said(done: subprocess.CompletedProcess) -> str:
 
 
 def test_harness_list_is_the_eight_row_registry_measured_on_disk(tmp_path: Path) -> None:
-    """12.2: eight rows, one per component, four columns, no header, exit 0."""
+    """11.2: eight rows, one per component, four columns, no header, exit 0."""
     project = scaffold(tmp_path)
     skill_md = project / "SKILL.md"
     skill_md.write_text("# skill\n" + "x" * 100, encoding="utf-8")
@@ -179,9 +182,9 @@ def test_harness_list_is_the_eight_row_registry_measured_on_disk(tmp_path: Path)
     out = ok(project, "harness", "list")
     table = rows(out)
 
-    assert len(table) == 8, f"12.2 says exactly eight rows, got {len(table)}:\n{out}"
+    assert len(table) == 8, f"11.2 says exactly eight rows, got {len(table)}:\n{out}"
     for row in table:
-        assert len(row) == 4, f"12.2 says four columns, got {row!r}"
+        assert len(row) == 4, f"11.2 says four columns, got {row!r}"
         assert row[0] in CLASSES | {NO_VALUE}, f"unknown activation class {row[0]!r}"
         assert row[1].isdigit() or row[1] == NO_VALUE, (
             f"bytes must be a count or '-', got {row[1]!r}"
@@ -192,17 +195,17 @@ def test_harness_list_is_the_eight_row_registry_measured_on_disk(tmp_path: Path)
     assert [row[2] for row in table] == SPECS, out
     assert table[0][1] == str(skill_md.stat().st_size), table[0]
     assert table[1][1] == str(len(block.encode("utf-8"))), table[1]
-    assert table[2][3] == NO_VALUE, f"12.2: C3 is owned by no single role: {table[2]}"
+    assert table[2][3] == NO_VALUE, f"11.2: C3 is owned by no single role: {table[2]}"
     assert table[3][2] == "references/*.md", table[3]
-    assert table[4][1] == NO_VALUE, f"12.2: only C5 has no bytes, and it prints '-': {table[4]}"
-    assert table[4][0] == NO_VALUE, f"12.2: C5 is not a file, so its class is '-': {table[4]}"
+    assert table[4][1] == NO_VALUE, f"11.2: only C5 has no bytes, and it prints '-': {table[4]}"
+    assert table[4][0] == NO_VALUE, f"11.2: C5 is not a file, so its class is '-': {table[4]}"
     assert table[5][2] == ".agents/skills/*/SKILL.md", table[5]
     assert table[6][3] == "developer", table[6]
-    assert table[7][3] == NO_VALUE, f"12.2: C8 has no section-2 owner: {table[7]}"
+    assert table[7][3] == NO_VALUE, f"11.2: C8 has no section-2 owner: {table[7]}"
 
 
 def test_harness_list_measures_the_tree_at_run_time(tmp_path: Path) -> None:
-    """12.2: C4 is the size of ``references/*.md`` *now*, not a stored manifest."""
+    """11.2: C4 is the size of ``references/*.md`` *now*, not a stored manifest."""
     project = scaffold(tmp_path)
 
     def references_row() -> list[str]:
@@ -303,7 +306,7 @@ def test_harness_lint_verbose_names_what_it_checked(tmp_path: Path) -> None:
     assert "# EVIDENCE:" in out, out
 
 
-#: 12.4: one ``# checked: <file> -> <RULE verdict, ...>`` line per skill file read.
+#: 11.4: one ``# checked: <file> -> <RULE verdict, ...>`` line per skill file read.
 CHECKED_SKILL_RE = re.compile(
     r"^# checked: \S.* -> IDENTITY (?:ok|fail), TRIGGER (?:ok|fail), "
     r"SUBCOMMAND (?:ok|fail), HELPER (?:ok|fail), EVIDENCE (?:ok|fail|n/a|skipped)$"
@@ -311,7 +314,7 @@ CHECKED_SKILL_RE = re.compile(
 
 
 def test_the_shipped_tree_lints_clean_and_accounts_for_every_file_it_read() -> None:
-    """12.4 on the repository itself: `harness lint` exits 0 at this revision.
+    """11.4 on the repository itself: `harness lint` exits 0 at this revision.
 
     The one skill in this tree is ``on-demand``, so it only exists while an
     always-on surface names it (``SKILL.md`` section 6 names ``ceo-audit-close``).
@@ -331,7 +334,7 @@ def test_the_shipped_tree_lints_clean_and_accounts_for_every_file_it_read() -> N
             line.endswith("TRIGGER corpus")
             or line.endswith("EVIDENCE corpus")
             or (CHECKED_SKILL_RE.match(line))
-        ), f"12.4: not a '# checked: <file> -> RULE verdict' line: {line!r}"
+        ), f"11.4: not a '# checked: <file> -> RULE verdict' line: {line!r}"
 
     assert any(
         line.startswith(
@@ -369,7 +372,7 @@ def test_harness_budget_reports_every_instance_against_the_cap(tmp_path: Path) -
 
 
 def test_harness_budget_goes_over_and_exits_non_zero(tmp_path: Path) -> None:
-    """12.5: ``--limit`` overrides the workspace value; any OVER row exits 1."""
+    """11.5: ``--limit`` overrides the workspace value; any OVER row exits 1."""
     project = scaffold(tmp_path)
     done = run(project, "harness", "budget", "--limit", "1")
     assert done.returncode == 1, done.stdout
@@ -377,7 +380,7 @@ def test_harness_budget_goes_over_and_exits_non_zero(tmp_path: Path) -> None:
     assert len(body) == 3, done.stdout  # two instances plus the total line
     assert all(line[3] == "OVER" for line in body), done.stdout
     per_instance = [line for line in body if line[0] != "total"]
-    assert all(line[2] == str(1 * 1024) for line in per_instance), f"12.5: KiB: {body}"
+    assert all(line[2] == str(1 * 1024) for line in per_instance), f"11.5: KiB: {body}"
 
 
 def test_harness_budget_without_a_workspace_says_to_init(tmp_path: Path) -> None:
@@ -407,7 +410,7 @@ def hook_path(project: Path, stage: str) -> Path:
 
 
 def test_hooks_install_status_uninstall_round_trip(tmp_path: Path) -> None:
-    """12.6: written into git's own hooks dir, marked, 0755, LF, reversible."""
+    """11.6: written into git's own hooks dir, marked, 0755, LF, reversible."""
     project = installable(tmp_path)
     ok(project, "hooks", "install")
 
@@ -418,9 +421,9 @@ def test_hooks_install_status_uninstall_round_trip(tmp_path: Path) -> None:
             # Windows has no executable bit and git for Windows ignores the file
             # mode, so the 0755 contract only holds where POSIX modes exist.
             mode = stat.S_IMODE(path.stat().st_mode)
-            assert mode == 0o755, f"12.6 says mode 0755, got {oct(mode)}"
+            assert mode == 0o755, f"11.6 says mode 0755, got {oct(mode)}"
         assert path.read_text(encoding="utf-8").startswith("#!/bin/sh\n")
-        assert b"\r" not in path.read_bytes(), "12.6: LF endings"
+        assert b"\r" not in path.read_bytes(), "11.6: LF endings"
 
     status = ok(project, "hooks", "status")
     assert "pre-commit installed" in status and "pre-push installed" in status, status
@@ -431,16 +434,16 @@ def test_hooks_install_status_uninstall_round_trip(tmp_path: Path) -> None:
 
 
 def test_the_installed_hook_carries_the_marker_literal(tmp_path: Path) -> None:
-    """12.6: status, uninstall and the overwrite refusal all key on one literal."""
+    """11.6: status, uninstall and the overwrite refusal all key on one literal."""
     project = installable(tmp_path)
     ok(project, "hooks", "install")
     for stage in ("pre-commit", "pre-push"):
         line = hook_path(project, stage).read_text(encoding="utf-8").splitlines()[1]
-        assert "teamwork-managed hook" in line, f"12.6 marker missing on line 2: {line!r}"
+        assert "teamwork-managed hook" in line, f"11.6 marker missing on line 2: {line!r}"
 
 
 def test_the_shim_body_is_the_contract_body(tmp_path: Path) -> None:
-    """12.6 freezes three constructs in the shim, each for a measured reason."""
+    """11.6 freezes three constructs in the shim, each for a measured reason."""
     project = installable(tmp_path)
     ok(project, "hooks", "install")
     text = hook_path(project, "pre-commit").read_text(encoding="utf-8")
@@ -458,7 +461,7 @@ def test_the_shim_body_is_the_contract_body(tmp_path: Path) -> None:
 def test_hooks_install_from_a_linked_worktree_reaches_the_common_git_dir(
     tmp_path: Path,
 ) -> None:
-    """12.6: a lane worktree has no hooks dir of its own - its ``.git`` is a file."""
+    """11.6: a lane worktree has no hooks dir of its own - its ``.git`` is a file."""
     project = installable(tmp_path)
     allowed = {"TEAMWORK_ALLOW_MAIN": "1"}
     write(project / "notes.txt", "one\n")
@@ -487,7 +490,7 @@ def test_hooks_install_from_a_linked_worktree_reaches_the_common_git_dir(
 
 
 def test_hooks_are_written_where_core_hooks_path_points(tmp_path: Path) -> None:
-    """12.6: the directory is git's answer, so a configured ``core.hooksPath`` wins."""
+    """11.6: the directory is git's answer, so a configured ``core.hooksPath`` wins."""
     project = installable(tmp_path)
     custom = tmp_path / "custom-hooks"
     git_ok(project, "config", "core.hooksPath", str(custom))
@@ -510,7 +513,7 @@ def test_hooks_are_written_where_core_hooks_path_points(tmp_path: Path) -> None:
 
 
 def test_hooks_install_refuses_a_foreign_hook_without_force(tmp_path: Path) -> None:
-    """12.6: overwrite needs ``--force``; a foreign hook is never silently replaced."""
+    """11.6: overwrite needs ``--force``; a foreign hook is never silently replaced."""
     project = installable(tmp_path)
     hook_path(project, "pre-commit").parent.mkdir(parents=True, exist_ok=True)
     write(hook_path(project, "pre-commit"), "#!/bin/sh\nexit 0\n")
@@ -560,7 +563,7 @@ def test_a_later_commit_on_the_default_branch_is_refused(tmp_path: Path) -> None
 
 
 def test_skip_hooks_bypasses_both_hooks(tmp_path: Path) -> None:
-    """12.6: the bypass is documented and exits 0 before anything else fires."""
+    """11.6: the bypass is documented and exits 0 before anything else fires."""
     project = installable(tmp_path)
     remote = tmp_path / "remote.git"
     remote.mkdir()
@@ -670,7 +673,7 @@ def test_a_delete_of_the_default_branch_is_refused(tmp_path: Path) -> None:
     assert git_ok(remote, "rev-parse", "main").strip() == pushed, "the remote lost main"
 
     still = git(project, "push", "origin", "--delete", "main", env={"TEAMWORK_ALLOW_FORCE": "1"})
-    assert still.returncode != 0, "12.7: P2 has no override"
+    assert still.returncode != 0, "11.7: P2 has no override"
     assert "refusing to delete refs/heads/main" in said(still), said(still)
     assert git_ok(remote, "rev-parse", "main").strip() == pushed
 
@@ -682,7 +685,7 @@ def test_a_delete_of_the_default_branch_is_refused(tmp_path: Path) -> None:
 
 
 def test_hook_and_hooks_coexist_and_a_typo_is_a_usage_error() -> None:
-    """12.1: ``hook`` and ``hooks`` both resolve; an unknown word exits 2."""
+    """11.1: ``hook`` and ``hooks`` both resolve; an unknown word exits 2."""
     bare = REPO_ROOT
     assert run(bare, "hooks", "status", cwd=REPO_ROOT).returncode in (0, 1)
     assert run(bare, "hook", "--help", cwd=REPO_ROOT).returncode == 0
@@ -691,7 +694,7 @@ def test_hook_and_hooks_coexist_and_a_typo_is_a_usage_error() -> None:
 
 
 def test_hooks_outside_a_git_repository_say_so(tmp_path: Path) -> None:
-    """12.6: every ``hooks`` subcommand dies with 1 and names the missing repository."""
+    """11.6: every ``hooks`` subcommand dies with 1 and names the missing repository."""
     plain = tmp_path / "plain"
     plain.mkdir()
     for verb in ("install", "status", "uninstall"):
@@ -702,7 +705,7 @@ def test_hooks_outside_a_git_repository_say_so(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("stage", ["pre-commit", "pre-push"])
 def test_the_installed_hook_is_a_shim_not_a_copy_of_the_rules(tmp_path: Path, stage: str) -> None:
-    """12.6: the file execs the engine, so one engine serves every worktree."""
+    """11.6: the file execs the engine, so one engine serves every worktree."""
     project = installable(tmp_path)
     ok(project, "hooks", "install")
     text = hook_path(project, stage).read_text(encoding="utf-8")

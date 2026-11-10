@@ -20,11 +20,12 @@ finding rather than silently dropped from this layer.
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+from tests.gitenv import child_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
@@ -243,19 +244,22 @@ def argv_of(spec: str) -> list:
 
 def cli(project: Path, *args: str) -> subprocess.CompletedProcess:
     """The documented command, run against a throwaway repository."""
-    child = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": str(project),
-        "GIT_CONFIG_NOSYSTEM": "1",
-        "GIT_CONFIG_GLOBAL": os.devnull,
-        "GIT_AUTHOR_NAME": "Tester",
-        "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
-        "GIT_COMMITTER_NAME": "Tester",
-        "GIT_COMMITTER_EMAIL": "tester@agents.nidvue.com",
-        "PYTHONPATH": str(REPO_ROOT / "src"),
-        "PYTHONIOENCODING": "utf-8",
-        "PYTHONUTF8": "1",
-    }
+    # The platform's own variables must survive (a hand-built environment that
+    # keeps PATH and HOME but drops SystemRoot/TEMP breaks Windows, where the
+    # interpreter's RNG is initialised from the OS), and the caller's git
+    # configuration must not (core.hooksPath, init.defaultBranch and
+    # commit.gpgsign would decide what this test measures). ``child_env``
+    # starts from the parent environment and re-asserts the hermeticity on top.
+    child = child_env(
+        HOME=str(project),
+        GIT_AUTHOR_NAME="Tester",
+        GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
+        GIT_COMMITTER_NAME="Tester",
+        GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
+        PYTHONPATH=str(REPO_ROOT / "src"),
+        PYTHONIOENCODING="utf-8",
+        PYTHONUTF8="1",
+    )
     return subprocess.run(
         [sys.executable, str(CLI_SHIM), "--project", str(project), *args],
         cwd=str(project),
@@ -279,7 +283,7 @@ def test_every_published_hook_command_actually_runs(tmp_path: Path) -> None:
     project.mkdir()
     git = subprocess.run(
         ["git", "init", "-q", "-b", "main", str(project)],
-        env={"PATH": os.environ.get("PATH", ""), "HOME": str(project)},
+        env=child_env(HOME=str(project)),
         capture_output=True,
         text=True,
         check=False,

@@ -150,7 +150,6 @@ from .gitutil import (
     branch_worktree,
     current_branch,
     ensure_lfs,
-    is_binary_file,
     is_git_repo,
     lfs_tracked,
     run_git,
@@ -3306,21 +3305,6 @@ _RE_BOT_EMAIL = re.compile(
 )
 _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
-#: ``Role: <display name>`` is the same machine-written fact as ``Acting role:``:
-#: ``build_commit_message`` emits both, so a message that carries only the
-#: structured trailer still names its acting role.
-_RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
-#: The subject of a team merge commit that lands no content of its own. Both the
-#: scripted form (``chore(merge): ...``) and a plain ``git merge`` subject count,
-#: because integrating a peer branch is the same content-free act either way.
-_RE_MERGE_SUBJECT = re.compile(
-    r"^(?:"
-    r"chore\(merge\):"
-    r"|Merge branch '[^']+'(?: into [^\s]+)?"
-    r"|Merge commit '[0-9a-f]{7,40}'"
-    r")",
-    re.IGNORECASE,
-)
 #: The committer a git host stamps on a merge it performs itself. It is transport,
 #: not identity: a forge rebase merge rewrites the committer to this account and
 #: leaves the author untouched, so the role that did the work is still the author -
@@ -3370,33 +3354,6 @@ def rewrite_safe_range(project: Path, rev_range: str) -> str:
     # history the event never covered - one rewrite then turns every old blemish
     # red at once. The span that can be measured is exactly the new tip.
     return f"{tip}^..{tip}"
-
-
-def _matches_role_display(name: str, canonical_display: str) -> bool:
-    """A role mailbox may display its role spaced or run together.
-
-    ``role_identity`` yields the spaced form (``Project Manager``), while the team
-    commits with ``git -c user.name=ProjectManager`` - the same canonical role,
-    written without spaces. Accept both; anything else is a different name.
-    """
-    return name.replace(" ", "") == canonical_display.replace(" ", "")
-
-
-def _is_content_free_team_merge(
-    parents: list, name: str, email: str, body: str, canonical: dict
-) -> bool:
-    """A two-parent integration merge with no body adds no content, so it
-    carries no acting role. Single-parent commits are never exempt: they do add
-    content and must say who acted.
-    """
-    if len(parents) < 2 or email not in canonical:
-        return False
-    if not _matches_role_display(name, canonical[email]):
-        return False
-    lines = body.splitlines()
-    if not lines or not _RE_MERGE_SUBJECT.match(lines[0].strip()):
-        return False
-    return not "".join(lines[1:]).strip()
 
 
 def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool = False) -> int:
@@ -3454,40 +3411,23 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
                 print(f"- {short} skipped: external contributor {an} <{ae}>")
                 continue
             reasons.append(f"not a role mailbox: {ae}")
-        elif not _matches_role_display(an, expected):
+        elif an != expected:
             reasons.append(f"display name {an!r} does not match role {expected!r}")
         # A forge-side merge stamps its own noreply committer - but only for a
         # commit whose author is a canonical role mailbox, so the identity that
         # matters (the acting role) is still enforced by every check here.
         forge_committer = expected is not None and _RE_FORGE_COMMITTER_EMAIL.match(ce) is not None
-        # A merge commit lands a peer's reviewed work, so the committer need not be
-        # the author. That is only acceptable when the committer is itself a
-        # canonical role mailbox (the reviewer/CEO who merged): a personal address
-        # stamping someone else's commit is exactly the privacy defect this gate
-        # exists for, so it stays a failure.
-        landing_role = canonical.get(ce) if ce in canonical and (ce != ae or cn != an) else None
-        if (ce != ae or cn != an) and not forge_committer and landing_role is None:
+        if (ce != ae or cn != an) and not forge_committer:
             reasons.append(f"committer {cn} <{ce}> differs from author {an} <{ae}>")
         match = _RE_ACTING_ROLE.search(body)
         if not match:
-            # The structured ``Role:`` trailer carries the same machine-written
-            # fact; accept it, but only when it names the author's own role.
-            match = _RE_ROLE_FIELD.search(body)
-            if match:
-                fallback_role = resolve_role(match.group(1))
-                if not _matches_role_display(an, role_identity(fallback_role)[0]):
-                    reasons.append(f"'Role: {match.group(1)}' does not match author {an!r}")
-                    match = None
-        elif not _matches_role_display(match.group(1), an):
-            reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
-        if not match and not _is_content_free_team_merge(parents, cn, ce, body, canonical):
             reasons.append("message has no 'Acting role:' line")
+        elif match.group(1) != an:
+            reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
         if reasons:
             problems.append((short, reasons))
             for reason in reasons:
                 print(f"- {short} FAIL {an} <{ae}>: {reason}")
-        elif landing_role is not None:
-            print(f"- {short} ok {an} <{ae}> (landed by {landing_role})")
         elif forge_committer:
             print(f"- {short} ok {an} <{ae}> (forge committer {ce})")
         else:
@@ -3643,7 +3583,6 @@ def cmd_commit(args) -> int:
                 if (
                     fp.is_file()
                     and fp.stat().st_size > args.lfs_threshold
-                    and is_binary_file(fp)
                     and not lfs_tracked(project, line)
                 ):
                     big.append(f"{line} ({fp.stat().st_size // 1024} KiB)")
@@ -6151,19 +6090,10 @@ EXTERNAL_SCHEMES = ("http://", "https://", "mailto:", "doi:", "ftp://")
 
 
 def iter_markdown(project: Path) -> list:
-    """Every markdown file a human might read, excluding caches and dependencies.
-
-    The skip test is relative to ``project``. Testing the absolute parts instead
-    silently skipped every file when the project itself lives under ``.pi`` (a
-    per-instance worktree), which made ``links`` pass vacuously there.
-    """
+    """Every markdown file a human might read, excluding caches and dependencies."""
     out = []
     for p in project.rglob("*.md"):
-        try:
-            parts = p.relative_to(project).parts
-        except ValueError:
-            parts = p.parts
-        if any(part in SKIP_DIRS for part in parts):
+        if any(part in SKIP_DIRS for part in p.parts):
             continue
         out.append(p)
     return sorted(out)
@@ -6277,9 +6207,7 @@ def link_report(project: Path, root: Path) -> dict:
 
 def cmd_links(args) -> int:
     root = project_root(args)
-    # Inside one of our worktrees this is the worktree, so a lane checks the links
-    # it is about to submit rather than the checkout it happens to share.
-    project = work_repo(root)
+    project = project_of(root)
     rep = link_report(project, root)
     issues = len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"])
     if not args.no_reciprocity:
@@ -7944,16 +7872,6 @@ def _audit_section(root: Path, names: list, args) -> int:
     return hits
 
 
-def _task_has_execution_evidence(t: dict) -> bool:
-    """True when the task record carries proof that something was executed.
-
-    A review pass writes review_evidence and a self-check writes self_note; a task
-    closed by hand writes evidence. The audit's question is "was this verified?",
-    not "was the evidence field used?", so all three count.
-    """
-    return any((t.get(key) or "").strip() for key in ("evidence", "review_evidence", "self_note"))
-
-
 def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, args) -> int:
     print("## submitted for review without a self-check (skipped their own test)")
     hits = 0
@@ -7963,9 +7881,6 @@ def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, arg
                 t.get("review", "required") != "na"
                 and t.get("self_check") not in ("passed", "na")
                 and t["status"] in ("review", "done")
-                # A forced review pass records why the self-check was skipped; the
-                # force is the audit trail, so re-reporting it every run is noise.
-                and not (t.get("forced") or "").strip()
             ):
                 print(
                     f"- {name} {t['id']} [{t['status']}] {t['title']} "
@@ -7982,12 +7897,7 @@ def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, arg
     hits = 0
     for name in names:
         for t in parse_tasks(task_file(root, name)):
-            # `done` is normally set by a review pass, which records its proof in
-            # review_evidence (and self_note for the author's own run); only a task
-            # closed by hand relies on `evidence` alone. Any of the three is a
-            # record of execution, so any of them satisfies the anti-hallucination
-            # gate - testing `evidence` alone flagged every properly reviewed task.
-            if t["status"] == "done" and not _task_has_execution_evidence(t):
+            if t["status"] == "done" and not t.get("evidence"):
                 print(f"- {name} {t['id']} {t['title']}")
                 hits += 1
     if not hits:
@@ -8482,7 +8392,7 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
                 ):
                     continue
                 try:
-                    if p_.stat().st_size >= 1_000_000 and is_binary_file(p_):
+                    if p_.stat().st_size >= 1_000_000:
                         big.append(p_.relative_to(project).as_posix())
                 except OSError:
                     pass
@@ -8506,10 +8416,7 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
 def _audit_markdown_link_health_broken_malformed_ba(root: Path, names: list, args) -> int:
     hits = 0
     print("## markdown link health (broken / malformed / bare / missing back-links)")
-    # Same rule as cmd_links: measure the tree the caller is in. project_of()
-    # answers for the main checkout, so inside a worktree this section reported
-    # "none" no matter what the lane's own documents contained.
-    rep = link_report(work_repo(root), root)
+    rep = link_report(project_of(root), root)
     link_issues = (
         len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"]) + len(rep["missing_back"])
     )
@@ -9013,64 +8920,20 @@ def cmd_agents_md(args) -> int:
     return 0
 
 
-def _source_ref(source: Path, remote: str, branch: str) -> tuple[str, str]:
-    """Resolve a refresh pin to ``(kind, commit)``, or ``("", "")``.
-
-    A pin names either a **branch** - fetched into ``refs/remotes/<remote>/<name>``
-    by a plain ``git fetch`` - or a **tag**, which a fetch by name leaves in
-    ``FETCH_HEAD`` only (``git fetch origin v1.1.2`` never creates
-    ``refs/remotes/origin/v1.1.2``, and ``git clone --branch`` accepts a tag
-    exactly once). Both spellings are tried, branch first, and the caller is told
-    which one answered so it can move the checkout the way that kind allows.
-    """
-    for kind, ref in (
-        ("branch", f"refs/remotes/{remote}/{branch}"),
-        ("tag", f"refs/tags/{branch}"),
-    ):
-        got = run_git(source, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
-        if got.returncode == 0 and got.stdout.strip():
-            return kind, got.stdout.strip()
-    return "", ""
-
-
-def _fetch_source(source: Path, remote: str, branch: str) -> tuple[bool, str, str, str]:
-    """Fetch the ``branch`` pin into ``source`` -> ``(ok, detail, kind, commit)``.
-
-    ``kind`` is ``"branch"`` or ``"tag"`` and ``commit`` the full sha, so
-    ``_update_source`` can pick a fast-forward or a detached move without guessing
-    from the printed detail.
-    """
+def _fetch_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
+    """Fetch ``remote/branch`` into ``source``. Returns ``(ok, detail)``."""
     got = run_git(source, "fetch", "--prune", "--quiet", remote, branch)
     if got.returncode != 0:
         tail = (got.stderr or got.stdout).strip().splitlines()
-        missing = tail[-1] if tail else "fetch failed"
-        return False, f"no branch or tag {branch} on {remote}: {missing}", "", ""
-    kind, commit = _source_ref(source, remote, branch)
-    if not kind:
-        # The name exists (the fetch above succeeded) but is not a branch: fetch it
-        # as a tag ref so ``refs/tags/<name>`` resolves and stays identifiable.
-        tagged = run_git(
-            source, "fetch", "--quiet", remote, f"refs/tags/{branch}:refs/tags/{branch}"
-        )
-        if tagged.returncode == 0:
-            kind, commit = _source_ref(source, remote, branch)
-    if not kind:
-        return False, f"no branch {remote}/{branch} and no tag {branch} after fetch", "", ""
-    short = run_git(source, "rev-parse", "--short", commit).stdout.strip() or commit[:7]
-    if kind == "tag":
-        return True, f"pinned to tag {branch} {short}", kind, commit
-    return True, short, kind, commit
+        return False, tail[-1] if tail else "fetch failed"
+    rev = run_git(source, "rev-parse", "--short", f"{remote}/{branch}")
+    if rev.returncode != 0:
+        return False, f"no {remote}/{branch} after fetch"
+    return True, rev.stdout.strip()
 
 
 def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
-    """Move ``source`` to the ``branch`` pin without touching a dirty tree.
-
-    A branch pin fast-forwards. A **tag** pin is a fixed revision, so the checkout
-    is moved onto that commit *detached* - the only move that can go backwards (an
-    older tag, a rollback) as well as forwards. Neither path is ``reset --hard``,
-    a clean tree loses nothing because the commits stay in the refs, and a dirty
-    tree keeps the "mirror it as it stands" behaviour above.
-    """
+    """Move ``source`` to ``remote/branch`` without touching a dirty tree."""
     dirty = run_git(source, "status", "--porcelain").stdout.strip()
     if dirty:
         # Never clobber uncommitted work, but do not refuse to mirror either: the
@@ -9079,38 +8942,14 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
             f"local changes ({dirty.splitlines()[0]}) - fast-forward skipped, "
             "mirroring this checkout as it stands"
         )
-    ok, detail, kind, commit = _fetch_source(source, remote, branch)
+    ok, detail = _fetch_source(source, remote, branch)
     if not ok:
         return False, detail
     head = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
-    target = run_git(source, "rev-parse", "--short", commit).stdout.strip()
-    if kind == "tag":
-        # A tag pin is a fixed revision, not a line of development, so the
-        # checkout has to sit on it rather than on a tracking branch. Detaching
-        # is the only move that can go backwards as well as forwards; the tree is
-        # clean here, so nothing is lost (the commits stay in the refs).
-        moved = run_git(source, "checkout", "--quiet", "--detach", commit)
-        if moved.returncode != 0:
-            tail = (moved.stderr or moved.stdout).strip().splitlines()
-            return False, f"cannot move {head} -> {detail}: {tail[-1] if tail else '?'}"
-        after = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
-        if after == head:
-            return True, detail
-        return True, f"{head} -> {after} ({detail})"
-    label = f"{remote}/{branch} {detail}"
-    detached = run_git(source, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() == "HEAD"
-    if detached:
-        # Leaving a tag pin for a branch: re-attach first, or the fast-forward
-        # would only move a detached HEAD and the branch pin would not stick.
-        reattach = run_git(source, "checkout", "--quiet", branch)
-        if reattach.returncode != 0:
-            tail = (reattach.stderr or reattach.stdout).strip().splitlines()
-            return False, (
-                f"cannot re-attach {branch} from the detached tag pin: {tail[-1] if tail else '?'}"
-            )
+    target = detail
     if head == target:
-        return True, f"already at {label}"
-    pulled = run_git(source, "merge", "--ff-only", commit)
+        return True, f"already at {remote}/{branch} {target}"
+    pulled = run_git(source, "merge", "--ff-only", f"{remote}/{branch}")
     if pulled.returncode != 0:
         tail = (pulled.stderr or pulled.stdout).strip().splitlines()
         return False, f"cannot fast-forward {head} -> {target}: {tail[-1] if tail else '?'}"
