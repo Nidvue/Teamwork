@@ -1029,14 +1029,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             t = tasks[tidx] if tidx is not None else None
         if t is None:
             die(f"task {pr['task']} not found on the {role} queue")
-        if args.force:
-            ledger_append(
-                root,
-                "pr.merge.forced",
-                merger,
-                pr["task"],
-                f"{pr['id']} merged with review_status={t.get('review_status')}: {args.force}",
-            )
         if t.get("review_status") != "passed" and not args.force:
             die(
                 f"refusing to merge {pr['id']}: review_status={t.get('review_status')}.\n"
@@ -1057,6 +1049,34 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 f"{pr['id']} merges {branch} into itself: the base and the PR branch "
                 "are the same branch, so there is nothing to integrate.",
                 2,
+            )
+        # The same probe the pass runs, re-measured at the base the merge will
+        # actually advance: a verdict recorded a moment ago is not a promise that
+        # the merge still applies, and a conflict here must be named before git
+        # touches the work tree (P-0057 passed and then died on Board.md here).
+        code, measured, paths, detail = merge_tree_probe(project, base, branch)
+        forced_note = ""
+        if code != 0:
+            forced_note = _conflict_note(code, measured, paths, detail)
+            if not args.force:
+                die(
+                    f"refusing to merge {pr['id']}: {branch} does not merge into "
+                    f"{base}:\n  {forced_note}\n"
+                    f"  Nothing was merged and {base} is unchanged. The owner must "
+                    "rebase, resolve and re-submit:\n"
+                    f"  git rebase {base}   # then re-submit\n"
+                    "  (--force <reason> records a deliberate override)",
+                    2,
+                )
+        if args.force:
+            ledger_append(
+                root,
+                "pr.merge.forced",
+                merger,
+                pr["task"],
+                f"{pr['id']} merged with review_status={t.get('review_status')}"
+                + (f"; mergeability overridden: {forced_note}" if forced_note else "")
+                + f": {args.force}",
             )
         # ``git checkout`` only switches the work tree it runs in, and git refuses
         # to check one branch out twice, so the merge has to run in the work tree
@@ -1227,6 +1247,11 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             root, "pr.merge", merger, pr["task"], f"{pr['id']} {branch} -> {base} at {sha}", sha
         )
         print(f"# merged {pr['id']} {branch} -> {base} at {sha} by {merger}")
+        # The board is generated output and belongs on the base branch: the landing
+        # has just moved this task to done/merged, so the merging Reviewer renders
+        # it here, after the merge and its records, and commits it as its own
+        # chore(records) change. A render that cannot land is reported, never fatal.
+        print(render_board_at_merge(root, here, pr))
         print(commit_archive_merge_sha(root, here, branch, sha, pr, merger))
         if not args.keep_branch:
             if retire_branch(root, here, branch, force=args.squash):
@@ -1254,7 +1279,9 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
         return 0
 
 
-def _merge_args(pr_id: str, reviewer: str, *, keep_branch: bool = False) -> argparse.Namespace:
+def _merge_args(
+    pr_id: str, reviewer: str, *, keep_branch: bool = False, force: str = ""
+) -> argparse.Namespace:
     """The ``pr merge`` argument set a passing review triggers.
 
     A pass is the merge trigger, so the two-stage gate collapses into one
@@ -1269,12 +1296,18 @@ def _merge_args(pr_id: str, reviewer: str, *, keep_branch: bool = False) -> argp
         squash=False,
         keep_branch=keep_branch,
         delete_branch=not keep_branch,
-        force="",
+        force=force,
     )
 
 
 def merge_after_pass(
-    root: Path, role: str, t: dict, reviewer: str, *, keep_branch: bool = False
+    root: Path,
+    role: str,
+    t: dict,
+    reviewer: str,
+    *,
+    keep_branch: bool = False,
+    force: str = "",
 ) -> bool:
     """Merge the reviewed PR now that it passed, and close its branch.
 
@@ -1287,6 +1320,10 @@ def merge_after_pass(
     there is no git repository, or when the branch is already gone (a re-review
     of merged work). A real git failure is reported as a merge defect, because a
     passing review that cannot land is exactly the bottleneck this removes.
+
+    ``force`` is the pass's own ``--force`` reason, forwarded so a deliberate
+    override of the mergeability probe is the same recorded decision at the merge
+    as it was at the verdict instead of a second, silent refusal.
     """
     pr_id = t.get("pr") or ""
     if not pr_id:
@@ -1316,7 +1353,7 @@ def merge_after_pass(
         return False
     try:
         _pr_merge(
-            _merge_args(pr["id"], reviewer, keep_branch=keep_branch),
+            _merge_args(pr["id"], reviewer, keep_branch=keep_branch, force=force),
             root,
             project,
             work_repo(root),
@@ -2182,9 +2219,15 @@ def _digest(prev: str, record: dict) -> str:
     return hashlib.sha256((prev + _canon(record)).encode("utf-8")).hexdigest()
 
 
+#: The ledger's own width for a record's ``detail`` field (``_clean_detail``). A
+#: caller may cut its text shorter, but never below the point where the part that
+#: matters - an override marker - would be the part the cut removes.
+LEDGER_DETAIL_CHARS = 400
+
+
 def _clean_detail(detail) -> str:
     text = " ".join(str(detail or "").split())
-    return text[:400]
+    return text[:LEDGER_DETAIL_CHARS]
 
 
 def _ledger_tail(root: Path):
@@ -9535,6 +9578,26 @@ def _review_next(root: Path, args) -> int:
     return 3
 
 
+def _review_pass_detail(t: dict, args, claim_note: str, probe_note: str) -> str:
+    """The ``review.pass`` ledger detail, with any override in front of the evidence.
+
+    The task queue is local and gitignored, so the hash-chained ledger is the only
+    durable proof that a safety override happened - and it is what a reader consults
+    long after the queue has moved on. So the override markers LEAD the detail and
+    the cut is the ledger's own field width (``LEDGER_DETAIL_CHARS``): building
+    ``evidence + markers`` and cutting the tail swallowed the whole override as soon
+    as a Reviewer wrote the ~160-character evidence line a real review carries, which
+    made the durable record disagree with the task's ``forced`` field.
+    """
+    override = f"FORCED: {args.force}" if getattr(args, "force", "") else ""
+    if probe_note:
+        marker = f"mergeability overridden: {probe_note}"
+        override = f"{override} | {marker}" if override else marker
+    tail = (t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note
+    detail = f"{override} | {tail}" if override else tail
+    return detail[:LEDGER_DETAIL_CHARS]
+
+
 def cmd_review(args) -> int:
     root = project_root(args)
     if getattr(args, "packet", False) and (
@@ -9690,6 +9753,28 @@ def cmd_review(args) -> int:
                             2,
                         )
 
+        # A pass is the merge trigger, so the verdict may only be recorded when the
+        # revision can actually land: P-0057 passed and then died in ``_pr_merge`` on
+        # a Board.md conflict, leaving reviewed work unlanded behind a green verdict.
+        probe_note = ""
+        if args.result == "pass" and is_git_repo(project) and t.get("branch"):
+            probe_base = (t.get("base") or "").strip() or DEFAULT_BASE
+            if branch_exists(project, t["branch"]):
+                code, measured, paths, detail = merge_tree_probe(project, probe_base, t["branch"])
+                if code != 0:
+                    probe_note = _conflict_note(code, measured, paths, detail)
+                    if not args.force:
+                        die(
+                            f"refusing to pass {t['id']}: {t['branch']} does not merge "
+                            f"into {probe_base}:\n  {probe_note}\n"
+                            "  No verdict was recorded, the PR is unchanged and the task "
+                            "is still awaiting review. The owner must rebase, resolve "
+                            "and re-submit:\n"
+                            f"  git rebase {probe_base}   # then push/re-submit\n"
+                            "  (--force <reason> records a deliberate override)",
+                            2,
+                        )
+
         t["reviewer"] = reviewer
         t["updated"] = today_iso()
         claim_note = ""
@@ -9732,9 +9817,10 @@ def cmd_review(args) -> int:
             t["status"] = "done"
             t["review_fail_rev"] = ""
             if args.force:
-                t["forced"] = (
-                    t.get("forced", "") + f" | review pass forced by {reviewer}: {args.force}"
-                ).strip(" |")
+                forced = f"review pass forced by {reviewer}: {args.force}"
+                if probe_note:
+                    forced += f" (mergeability overridden: {probe_note})"
+                t["forced"] = (t.get("forced", "") + f" | {forced}").strip(" |")
         if args.result == "fail":
             # The revision that failed is what the next round is compared against:
             # a fix is re-reviewed as a delta, not re-derived from scratch. Read it
@@ -9771,7 +9857,7 @@ def cmd_review(args) -> int:
         reviewer,
         t["id"],
         (
-            ((t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note)[:200]
+            _review_pass_detail(t, args, claim_note, probe_note)
             if args.result == "pass"
             # The classification leads the detail so the mechanical-fail rate can be
             # counted off the append-only ledger long after the task record moves on.
@@ -9812,7 +9898,12 @@ def cmd_review(args) -> int:
                 f"          merging {t['pr']} now (--keep-branch opts out of deleting the branch)"
             )
             merge_after_pass(
-                root, role, t, reviewer, keep_branch=bool(getattr(args, "keep_branch", False))
+                root,
+                role,
+                t,
+                reviewer,
+                keep_branch=bool(getattr(args, "keep_branch", False)),
+                force=args.force or "",
             )
         elif t.get("pr"):
             print(
@@ -10111,6 +10202,34 @@ def _merge_tree_conflicts(stdout: str) -> list:
     return paths
 
 
+def merge_tree_probe(project: Path, base: str, branch: str) -> tuple:
+    """``git merge-tree --write-tree <base> <branch>``: (exit, command, paths, detail).
+
+    One probe for the author's preflight, the Reviewer's verdict and the merge
+    itself. A pass must never precede a merge that cannot happen, and three
+    implementations of that probe would be three answers to one question.
+
+    ``paths`` is filled only for exit 1, which is git saying "this conflicts"; any
+    other non-zero exit means the probe could not answer (git < 2.38, an unknown
+    revision), and ``detail`` carries git's first line so the caller can say why.
+    """
+    proc = run_git(project, "merge-tree", "--write-tree", "--name-only", base, branch)
+    measured = f"git merge-tree --write-tree {base} {branch}"
+    paths = _merge_tree_conflicts(proc.stdout) if proc.returncode == 1 else []
+    detail = ""
+    if proc.returncode not in (0, 1):
+        lines = (proc.stderr or proc.stdout).strip().splitlines()
+        detail = lines[0] if lines else ""
+    return proc.returncode, measured, paths, detail
+
+
+def _conflict_note(code: int, measured: str, paths: list, detail: str) -> str:
+    """The one-line measurement of a failed probe, naming the paths when git knew them."""
+    if paths:
+        return f"{measured} -> CONFLICT in " + ", ".join(paths)
+    return f"{measured} -> exit {code} ({detail or 'no output'})"
+
+
 def _preflight_branch(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
     """Branch and base exist, and the branch carries exactly one commit over the base.
 
@@ -10251,24 +10370,21 @@ def _preflight_mergeable(project: Path, base: str, branch: str, role: str) -> Pr
     verdict. It is fail-closed - a git too old to answer is a failure, never a pass.
     """
     name = "mergeable"
-    proc = run_git(project, "merge-tree", "--write-tree", "--name-only", base, branch)
-    measured = f"git merge-tree --write-tree {base} {branch}"
-    if proc.returncode == 0:
+    code, measured, paths, detail = merge_tree_probe(project, base, branch)
+    if code == 0:
         return PreflightCheck(name, PREFLIGHT_OK, f"{measured} -> clean")
-    if proc.returncode != 1:
-        detail = (proc.stderr or proc.stdout).strip().splitlines()
+    if code != 1:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            f"{measured} -> exit {proc.returncode} ({detail[0] if detail else 'no output'})"
+            f"{measured} -> exit {code} ({detail or 'no output'})"
             ": mergeability cannot be proved here; git >= 2.38 is required",
             "upgrade git: a probe that cannot answer is a failure, never a pass",
         )
-    paths = _merge_tree_conflicts(proc.stdout)
     return PreflightCheck(
         name,
         PREFLIGHT_FAIL,
-        f"{measured} -> CONFLICT in " + (", ".join(paths) if paths else "unknown paths"),
+        _conflict_note(code, measured, paths, detail),
         "git " + " ".join(git_identity_args(role)) + f" rebase {base}   # resolve, commit,"
         " re-run preflight",
     )
@@ -10801,6 +10917,111 @@ def cmd_board(args) -> int:
     print(f"# slots: {slots}")
     print("# parallelism: teamwork.py parallel    idle lanes: teamwork.py pulse")
     return 0
+
+
+def _board_stale_warning(pr: dict, rel: str, why: str) -> str:
+    """The loud report for a merge that landed but could not re-render the board.
+
+    Failing the command here would un-record a merge that already happened, so the
+    render is reported instead - but never silently: the base branch is left with a
+    board that contradicts the queues, and nothing else re-renders it (D-0006: the
+    engine has no post-merge render besides this one).
+    """
+    base = pr.get("base") or DEFAULT_BASE
+    return (
+        f"# WARNING: the merge of {pr.get('id')} is LANDED, but {rel} on {base} is STALE.\n"
+        f"#   {why}\n"
+        "#   the merge is recorded; repair the board on the base branch with:\n"
+        f"#     teamwork.py board --write   # in the work tree that holds {base}\n"
+        f"#     git commit -m 'chore(records): re-render {rel}' -- {rel}"
+    )
+
+
+def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
+    """Re-render ``docs/Team/Board.md`` from the queues on the base and commit it.
+
+    The board is a projection of the role queues, so a copy riding a feature branch
+    conflicts with the next board merge by construction (P-0057 vs P-0058 conflicted
+    in three regions because each branch carried its own render). The merging
+    Reviewer is the one writer: the task and PR records have just moved to
+    ``done``/``merged``, so this render is the only one that can make the landed
+    board equal the queues, and it runs after the merge commit and the records
+    commit that precede it.
+
+    Returns the lines to print. A missing board or one that carries no task tables
+    is a note, not a failure: there is no table to be stale. A render that cannot be
+    written or committed is reported loudly and never un-records the merge.
+    """
+    rel = "/".join(DIR_DOCS) + "/Board.md"
+    path = repo.joinpath(*DIR_DOCS) / "Board.md"
+    if not path.is_file():
+        return f"# board: no {rel} in the work tree holding the base; nothing to render"
+    try:
+        before = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return _board_stale_warning(pr, rel, f"cannot read it: {exc}")
+    missing = [anchor for anchor in BOARD_ANCHORS if anchor not in before]
+    if missing:
+        return (
+            f"# board: {rel} carries no task tables (missing "
+            + ", ".join(repr(anchor) for anchor in missing)
+            + "); nothing to render"
+        )
+    try:
+        tasks = boardlib.queues(root)
+        if not tasks:
+            raise ValueError(f"no task records under {roles_dir(root)}")
+        after = boardlib.render(tasks, before)
+    except (OSError, ValueError, StopIteration) as exc:
+        return _board_stale_warning(pr, rel, f"cannot render it from the queues: {exc}")
+    if after == before:
+        return f"# board: {rel} already matches the queues at the merge"
+    try:
+        write_lf(path, after)
+    except OSError as exc:
+        return _board_stale_warning(pr, rel, f"cannot write it: {exc}")
+    staged = run_git(repo, "add", "--", rel)
+    if staged.returncode != 0:
+        run_git(repo, "checkout", "--", rel)
+        return _board_stale_warning(
+            pr, rel, "cannot stage it: " + (staged.stderr.strip() or staged.stdout.strip())
+        )
+    message = build_commit_message(
+        "reviewer",
+        {
+            "type": "chore",
+            "area": "records",
+            "task": pr.get("task"),
+            "producers": pr.get("author"),
+            "goal": f"the landed board equals the queues after {pr.get('id')}",
+            "deliverable": f"re-render {rel} at the merge",
+            "why": (
+                "the board is a projection of the queues, so the merging Reviewer "
+                "writes it once the landing has moved them"
+            ),
+            "status": f"landed on {pr.get('base') or DEFAULT_BASE}",
+            "result": f"{pr.get('id')} merged; board rendered from the live queues",
+        },
+    )
+    committed = subprocess.run(
+        ["git", "-C", str(repo)]
+        + git_identity_args("reviewer")
+        + ["commit", "-q", "-F", "-", "--", rel],
+        input=message,
+        capture_output=True,
+        text=True,
+    )
+    if committed.returncode != 0:
+        run_git(repo, "reset", "-q", "--", rel)
+        run_git(repo, "checkout", "--", rel)
+        return _board_stale_warning(
+            pr,
+            rel,
+            "cannot commit it (a hook or config blocked it): "
+            + (committed.stderr.strip() or committed.stdout.strip() or "(no output)"),
+        )
+    sha = run_git(repo, "rev-parse", "--short", "HEAD").stdout.strip()
+    return f"# board: rendered {rel} from the queues at the merge ({sha})"
 
 
 #: Prefix on a provenance string that means "no alert was read", never "zero alerts".
