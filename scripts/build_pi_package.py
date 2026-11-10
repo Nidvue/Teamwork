@@ -39,6 +39,15 @@ assert SKILL_FILES == _bundle.BUNDLE_FILES and SKILL_TREES == _bundle.BUNDLE_TRE
 )
 TARBALL_FILES = ("README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md")
 
+HOST_PACKAGES = (
+    "@earendil-works/pi-ai",
+    "@earendil-works/pi-agent-core",
+    "@earendil-works/pi-coding-agent",
+    "@earendil-works/pi-tui",
+    "typebox",
+)
+SUPPORTED_PEERS = {"pi-subagents": "^0.87.0"}
+
 
 def version() -> str:
     """The single source is ``src/teamwork/version.py``; pyproject reads it too."""
@@ -88,19 +97,9 @@ def package_json(ver: str) -> dict:
             "prompts": ["./prompts"],
             "image": PREVIEW,
         },
-        "peerDependencies": {
-            "@earendil-works/pi-ai": "*",
-            "@earendil-works/pi-agent-core": "*",
-            "@earendil-works/pi-coding-agent": "*",
-            "@earendil-works/pi-tui": "*",
-            "typebox": "*",
-        },
+        "peerDependencies": {**{name: "*" for name in HOST_PACKAGES}, **SUPPORTED_PEERS},
         "peerDependenciesMeta": {
-            "@earendil-works/pi-ai": {"optional": True},
-            "@earendil-works/pi-agent-core": {"optional": True},
-            "@earendil-works/pi-coding-agent": {"optional": True},
-            "@earendil-works/pi-tui": {"optional": True},
-            "typebox": {"optional": True},
+            name: {"optional": True} for name in (*HOST_PACKAGES, *SUPPORTED_PEERS)
         },
         "engines": {"node": ">=20"},
     }
