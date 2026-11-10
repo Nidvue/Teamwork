@@ -152,3 +152,35 @@ def test_verify_reconciles_a_cache_that_is_behind(tmp_path: Path) -> None:
     # ``reconcile=True`` repairs the crash artefact instead of reporting it.
     assert engine.ledger_verify(root, reconcile=True) == []
     assert engine.ledger_cache_behind(root) is False
+
+
+def test_manifest_anchor_is_scoped_to_the_workspace_id(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    root = project / ".pi" / "Teamwork" / "Teams" / "T"
+    root.mkdir(parents=True)
+    (root / "Settings.json").write_text('{"TeamId": "team-a"}\n', encoding="utf-8")
+    engine.ledger_append(root, "a", "ceo", "x", "one")
+    docs = project / "docs" / "Team"
+    docs.mkdir(parents=True)
+    manifest = docs / "AuditManifest.json"
+    manifest.write_text('{"team_id": "team-a", "ledger": {"records": 99}}\n', encoding="utf-8")
+    assert any("truncated after export" in p for p in engine.ledger_verify(root))
+
+    manifest.write_text('{"team_id": "team-b", "ledger": {"records": 99}}\n', encoding="utf-8")
+    assert not any("truncated after export" in p for p in engine.ledger_verify(root))
+
+
+def test_audit_trail_ignores_a_foreign_workspace_manifest(tmp_path: Path, capsys) -> None:
+    project = tmp_path / "project"
+    root = project / ".pi" / "Teamwork" / "Teams" / "T"
+    root.mkdir(parents=True)
+    (root / "Settings.json").write_text('{"TeamId": "team-a"}\n', encoding="utf-8")
+    engine.ledger_append(root, "a", "ceo", "x", "one")
+    docs = project / "docs" / "Team"
+    docs.mkdir(parents=True)
+    (docs / "AuditManifest.json").write_text(
+        '{"team_id": "team-b", "ledger": {"records": 99}}\n', encoding="utf-8"
+    )
+    hits = engine._audit_audit_trail_append_only_hash_chained(root, ["ceo"], None)
+    assert hits == 0
+    assert "FEWER records" not in capsys.readouterr().out
