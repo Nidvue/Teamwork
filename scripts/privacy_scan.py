@@ -355,13 +355,48 @@ _RE_FORGE_MERGE_SUBJECTS = (
     re.compile(r"^Merge remote-tracking branch '[^']+'$"),
 )
 
+#: The committer a git host stamps on a merge it performs itself. It is the one
+#: part of a host merge a local commit cannot claim by writing a subject line:
+#: the subject is whatever the author types, the committer is what the host's own
+#: merge machinery writes. Mirrors ``engine._RE_FORGE_COMMITTER_EMAIL`` so the two
+#: gates agree on which addresses are transport rather than identity.
+_RE_FORGE_COMMITTER_STAMP = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\.com)$")
 
-def is_forge_merge(subject: str, parents: list) -> bool:
-    """True for the synthetic merge ref a forge creates for a pull request."""
+
+def is_forge_merge(subject: str, parents: list, committer: str) -> bool:
+    """True for the synthetic merge ref a forge creates for a pull request.
+
+    The subject alone is not evidence. Any commit can be written with
+    ``-m "Merge <sha> into <sha>"`` and two parents, and its author/committer
+    identity is then exempt from this scan while its tree is still scanned - so a
+    fabricated merge message used to be enough to hide a personal mailbox from
+    the history gate. The exemption therefore requires the documented forge
+    committer stamp as well: the subject says what the commit claims to be, the
+    committer says what actually created it.
+
+    Residual risks, stated rather than hidden:
+
+    * A committer address is settable locally (``GIT_COMMITTER_EMAIL=...``), so an
+      author who deliberately stamps a host service address *and* a forged merge
+      subject can still keep an identity out of this scan. That is a second,
+      deliberate act of forgery rather than a typo in a subject line; the forged
+      stamp is itself the finding to look for when a history is suspected.
+    * A real host merge whose committer is not one of the two documented stamps -
+      for example a forge that commits a merge as the account that clicked the
+      button instead of as itself - is now scanned and may be reported. That is
+      the intended trade (identity over convenience): the remedy is a dated
+      ``--allow`` entry for a value that is genuinely not personal, never an
+      exemption keyed on a message the committer can type.
+
+    The commit *message* is scanned unconditionally by the caller; this predicate
+    only decides whether the author/committer fields are skipped.
+    """
     if len(parents) < 2:
         return False
     text = subject.strip()
-    return any(pattern.match(text) for pattern in _RE_FORGE_MERGE_SUBJECTS)
+    if not any(pattern.match(text) for pattern in _RE_FORGE_MERGE_SUBJECTS):
+        return False
+    return _RE_FORGE_COMMITTER_STAMP.match(committer.strip().lower()) is not None
 
 
 def _host_state(*parts: str) -> str:
@@ -884,7 +919,10 @@ def scan_commit_metadata(root, allow, stats=None):
         body = parts[6] if len(parts) > 6 else ""
         short = sha[:12]
         subject = body.splitlines()[0] if body else ""
-        if not is_forge_merge(subject, parents):
+        # The committer - not the subject - decides whether this is host transport
+        # (see ``is_forge_merge``): a forged merge subject under a personal mailbox
+        # must be reported like any other commit.
+        if not is_forge_merge(subject, parents, ce):
             for label, value in (
                 ("author name", an),
                 ("author email", ae),

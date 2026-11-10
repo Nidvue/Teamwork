@@ -484,11 +484,18 @@ def test_gitignore_deny_entries_are_not_agent_config_findings():
 
 def test_forge_merge_predicate_is_narrow():
     merge = "Merge " + "a" * 40 + " into " + "b" * 40
-    assert ps.is_forge_merge(merge, ["a" * 40, "b" * 40])
-    # A normal two-parent merge with a human message is still scanned.
-    assert not ps.is_forge_merge("Merge branch 'feature'", ["a", "b"])
+    parents = ["a" * 40, "b" * 40]
+    github = "noreply@github.com"
+    assert ps.is_forge_merge(merge, parents, github)
+    assert ps.is_forge_merge(merge, parents, "noreply@" + "gitlab.com")
+    # The subject is attacker-controlled: without a documented host committer
+    # stamp the same commit is an ordinary one and must be scanned.
+    assert not ps.is_forge_merge(merge, parents, "someone@" + "private-mail.example")
+    assert not ps.is_forge_merge(merge, parents, "")
+    # A normal two-parent merge with a human message is still scanned, stamp or not.
+    assert not ps.is_forge_merge("Merge branch 'feature'", ["a", "b"], github)
     # A single-parent commit with that message is not a forge merge either.
-    assert not ps.is_forge_merge(merge, ["a" * 40])
+    assert not ps.is_forge_merge(merge, ["a" * 40], github)
 
 
 def test_gitignore_still_scans_json_credentials():
@@ -547,9 +554,16 @@ def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path, mo
     token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
     message = f"Merge {feature} into {base}\n\nleaked {token}"
     run("git", "switch", "-q", "main")
-    # The forge authors its merge ref with the PR account identity; deliver that
-    # identity through the environment, which beats `-c user.*`.
-    run("git", "merge", "--no-ff", "-m", message, "feature", extra_env=private)
+    # A real host merge keeps the pulled account's authorship and is *committed*
+    # by the host itself as `GitHub <noreply@github.com>`; deliver that identity
+    # through the environment, which beats `-c user.*` and the repository config.
+    forge = {
+        "GIT_AUTHOR_NAME": private["GIT_AUTHOR_NAME"],
+        "GIT_AUTHOR_EMAIL": private["GIT_AUTHOR_EMAIL"],
+        "GIT_COMMITTER_NAME": "GitHub",
+        "GIT_COMMITTER_EMAIL": "noreply@github.com",
+    }
+    run("git", "merge", "--no-ff", "-m", message, "feature", extra_env=forge)
     merge_sha = run("git", "rev-parse", "HEAD").stdout.strip()
     # Control: the same identity on an ordinary commit must still be reported.
     run("git", "commit", "-q", "--allow-empty", "-m", "ordinary", extra_env=private)
@@ -561,6 +575,92 @@ def test_forge_merge_identity_is_skipped_but_its_message_is_scanned(tmp_path, mo
     assert "personal-email" not in on_merge, "the forge merge identity must be skipped"
     assert "api-token" in on_merge, "the merge message must still be scanned"
     assert "personal-email" in on_control, "the control commit proves the assertion can fail"
+
+
+def test_a_merge_subject_does_not_exempt_a_fabricated_identity(tmp_path, monkeypatch):
+    """F-3/T-0035: the subject is attacker-controlled, the committer stamp is not.
+
+    Two commits carry the *same* forge-merge subject shape. The first is a real
+    host merge (pulled account as author, `GitHub <noreply@github.com>` as
+    committer) and must stay exempt. The second is fabricated: a plain `-m`
+    string and a two-parent merge under a private mailbox, with no host stamp.
+    Before the fix that second commit made `privacy_scan --history` print
+    `PASS - 0 finding(s)` and exit 0, so one message line hid an identity from the
+    gate while the blob walker still scanned the same commit's tree.
+    """
+    import os
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    env = {
+        **os.environ,
+        "HOME": str(tmp_path),
+        "GIT_AUTHOR_NAME": "Technical Writer",
+        "GIT_AUTHOR_EMAIL": "technicalwriter@agents.nidvue.com",
+        "GIT_COMMITTER_NAME": "Technical Writer",
+        "GIT_COMMITTER_EMAIL": "technicalwriter@agents.nidvue.com",
+    }
+    private = {
+        "GIT_AUTHOR_NAME": "Private Person",
+        "GIT_AUTHOR_EMAIL": "someone@" + "private-mail.example",
+        "GIT_COMMITTER_NAME": "Private Person",
+        "GIT_COMMITTER_EMAIL": "someone@" + "private-mail.example",
+    }
+    forge = {
+        "GIT_AUTHOR_NAME": "Private Person",
+        "GIT_AUTHOR_EMAIL": "someone@" + "private-mail.example",
+        "GIT_COMMITTER_NAME": "GitHub",
+        "GIT_COMMITTER_EMAIL": "noreply@github.com",
+    }
+    # The fabricated domain must count as *private* for the reported repro;
+    # `_private_domains()` reads the environment at call time.
+    monkeypatch.setenv("TEAMWORK_PRIVATE_DOMAINS", "private-mail.example")
+
+    def run(*args, extra_env=None):
+        return subprocess.run(
+            args,
+            cwd=repo,
+            env={**env, **(extra_env or {})},
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    def merge_feature(name, ident):
+        """Branch off the current tip, add a file, and merge it with `ident`."""
+        base = run("git", "rev-parse", "HEAD").stdout.strip()
+        run("git", "switch", "-qc", name)
+        (repo / f"{name}.txt").write_text(name, encoding="utf-8")
+        run("git", "add", ".")
+        run("git", "commit", "-qm", f"work on {name}")
+        feature = run("git", "rev-parse", name).stdout.strip()
+        run("git", "switch", "-q", "main")
+        run(
+            "git",
+            "merge",
+            "--no-ff",
+            "-m",
+            f"Merge {feature} into {base}",
+            name,
+            extra_env=ident,
+        )
+        return run("git", "rev-parse", "HEAD").stdout.strip()
+
+    run("git", "init", "-q", "-b", "main", ".")
+    (repo / "a.txt").write_text("x", encoding="utf-8")
+    run("git", "add", ".")
+    run("git", "commit", "-qm", "base")
+
+    real = merge_feature("real", forge)
+    spoof = merge_feature("spoof", private)
+
+    findings = ps.scan_commit_metadata(repo, allow=[])
+    on_real = {f["rule"] for f in findings if f.get("commit") == real}
+    on_spoof = {f["rule"] for f in findings if f.get("commit") == spoof}
+    assert "personal-email" not in on_real, "a genuine host merge stays exempt"
+    assert "personal-email" in on_spoof, "a forged subject must not hide an identity"
+    assert "private-domain" in on_spoof, "the fabricated private domain is reported too"
 
 
 def test_report_context_does_not_republish_a_neighbour_secret():
