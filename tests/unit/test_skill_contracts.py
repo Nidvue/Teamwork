@@ -2060,3 +2060,61 @@ def test_the_cli_guide_documents_the_credit_and_the_packet_lines(root):
     assert "credited: TS-0006 integration/harness by Tester" in text
     assert "the **credits** available at the revision under review" in text
     assert "the layers left **uncovered**" in text
+
+
+# --------------------------------------------------------------------------- #
+# the throughput contract: the rules that remove duplicated work
+# --------------------------------------------------------------------------- #
+
+
+def test_the_throughput_contract_is_stated_where_every_agent_reads_it(root):
+    for name in ("templates/AGENTS.md", "AGENTS.md"):
+        text = flat(read(root, *name.split("/")))
+        assert "## Throughput contract (hard)" in text, name
+        for rule in (
+            "One parent, one board",
+            "One feature, one team",
+            "One owner per artifact, one writer per file",
+            "One verification per fact per revision, one gate in one place",
+            "Definition of ready",
+            "Definition of done",
+            "Generated artifacts render at the merge",
+            "Right-sized roster, small slices",
+        ):
+            assert rule in text, (name, rule)
+
+
+def test_the_roles_reference_carries_the_contract_and_the_feature_team_design(root):
+    text = flat(read(root, "references", "Roles.md"))
+    assert "## Throughput contract" in text
+    assert "Feature teams (design; engine support in T-0042)" in text
+    assert "one line manager per role at any moment" in text
+    assert "decision rights" in text and "never a second reporting line" in text
+    assert "shared service" in text
+
+
+def test_the_skill_states_the_contract_and_its_measured_basis(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "### 5i. The throughput contract" in text
+    # the numbers must be the reproducible ones, with their unit and their method;
+    # an estimate presented as a measurement is what the first review failed.
+    assert "66" in text and "one role + task" in text
+    assert "n=1615" in text and "16-24 of 44" in text
+    assert "mechanical: no|unknown|n/a" in text
+    assert "contested" in text
+    assert "references/Roles.md" in text
+
+
+def test_the_withdrawn_basis_figure_cannot_come_back(root):
+    """The retraction is enforced, not remembered.
+
+    `templates/AGENTS.md` is the source `teamwork agents-md` renders into every
+    project's constitution, which is exactly how the withdrawn sentence survived a
+    round of review: a positive assertion about the new numbers cannot catch the old
+    ones coming back. `docs/Team/Decisions.md` is exempt - it is the append-only
+    history of the correction itself.
+    """
+    for name in ("SKILL.md", "AGENTS.md", "templates/AGENTS.md", "CHANGELOG.md"):
+        text = flat(read(root, *name.split("/")))
+        assert "38 of 43" not in text, name
+        assert "24 of 65" not in text, name
