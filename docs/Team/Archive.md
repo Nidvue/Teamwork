@@ -193,3 +193,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest tests/unit/test_integrity_fixes.py @29dc42f -> 30 passed; sign by ceo 0; resolve unsigned nonzero
 - findings history: -
 - branch / merge: - / pending
+
+## T-0007 · Correct the T-0005 archive exit-code evidence  (ceo)
+- date: 2026-10-19
+- priority: P2
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: archive
+- self-check: [pass] re-measured the dispute sign refusal and corrected the archive line | test: dispute sign by developer @b05d04a -> exit 1
+- author evidence: commit b05d04a
+- reviewer evidence: dispute sign by developer @b05d04a -> exit 1; archive line matches
+- findings history: -
+- branch / merge: - / pending
