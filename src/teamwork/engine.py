@@ -10245,6 +10245,12 @@ def _parsers_meta(sub, common) -> None:
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(func=cmd_imaging)
 
+    # The harness surface registry and its lint live in their own module: they
+    # measure the tree at run time and must not grow this command layer.
+    from .harness import add_parsers as _add_harness_parsers
+
+    _add_harness_parsers(sub, common)
+
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)

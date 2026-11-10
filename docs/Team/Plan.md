@@ -5,7 +5,7 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md)
 
-## Status summary (2026-10-19, `main` @ `31c03b5`)
+## Status summary (2026-10-20, `main` @ `74b5522`)
 
 | milestone | exit condition | state |
 |---|---|---|
@@ -13,9 +13,12 @@ Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architectu
 | M1 Package the engine | `selftest` + installed wheel `--version` | done |
 | M2 Make it attractive | README demo, strict docs site, 0 broken links | done |
 | M3 Independent verification | every deliverable has a Reviewer verdict | done |
-| M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - now at `v1.0.2` |
+| M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - latest tag `v1.1.0` (`CHANGELOG` 1.1.1 and 1.1.2 written, untagged) |
 | M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | done - T-0010..T-0016, closing T-0017 |
 | M6 Evidence packets + repro gate | hashed evidence artifacts, repro-first bug gate, Reviewer verdicts | done - T-0020..T-0025 |
+| M7 Reviewer fan-out + claims | `pulse` hands each unclaimed deliverable to a different idle Reviewer lane | done - developer T-0001, merge `8f210bc` |
+| M8 Records hygiene | archive merge fields proved or `pending`, Plan lists each milestone once, export names its head | done - ceo T-0028, merge `62ef5db` (P-0027, Reviewer-4); the Plan row below still said `review` and is corrected here |
+| M9 Harness^2 adoption | AC-H1..AC-H8 verified on the merged revision | open - 3 lanes unmerged, `pytest -q` red on AC-5 |
 
 ## M5 - post-1.0 hardening (closed)
 
@@ -67,7 +70,49 @@ lists each milestone once, and the export names the head it was taken from.
 
 | id | task | role | prio | artifact | status | evidence |
 |---|---|---|---|---|---|---|
-| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | review | 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
+| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | done | merge `62ef5db` (P-0027, Reviewer-4); 20 of 37 merge fields proved then, the rest say `pending` and later entries fill their own field per PR |
+
+## M9 - Harness^2 adoption (open)
+
+Exit: AC-H1..AC-H8 in `Criteria.md` verified on the merged revision - `harness`
+and `hooks` registered and documented, the ordered review rubric and the
+untrusted-material rule stated where agents read them, and `pytest -q` clean on
+`main`. Source: [Research](Research.md) 8, whose adoption order is H10+H5+H2,
+then H1+H3+H8, then H4, then the doctrine rows H6/H7/H9.
+
+The intake brief numbers this milestone M8. The M8 above is the records-hygiene
+milestone and its own exit condition requires each milestone to be listed once,
+so the Harness^2 adoption is M9. A row is `done` only when its merge is on
+`main`; an open PR is `review`, a PR sent back for rework is `doing`.
+
+| id | task | role | prio | deps | artifact | status | evidence |
+|---|---|---|---|---|---|---|---|
+| T-0001 | Research section 8: verdict table, adoption order, falsifiers, sources | product-manager | P1 | - | `docs/Team/Research.md` 8, `tests/unit/test_research_sources.py` | done | merge `73be637` (P-0005); 5 passed @ `38e6890` |
+| T-0001 | Freeze the harness-surface and hooks CLI contract; record the decisions | architect | P1 | - | `docs/Team/Architecture.md` 11, `docs/Team/Decisions.md` | doing | P-0003 changes-requested after 2 rework rounds; head `f476b82` unmerged |
+| T-0001 | Engine: `harness list`, `harness lint`, `harness budget` + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/harness.py`, `tests/unit/test_harness_surface.py` | doing | P-0004 changes-requested after 2 rounds (@`a26f5db`, @`5eabdc9`); `harness` absent from `main` |
+| T-0002 | Engine: git hooks (in-loop enforcement) + unit tests | developer | P0 | architect:T-0001 | `src/teamwork/hooks.py`, `tests/unit/test_hooks.py` | done | merge `49cd42e` (P-0007); 30 passed @ `2fbd126` |
+| T-0001 | Integration + acceptance tests for the harness surface and hooks | tester | P0 | developer:T-0001, developer:T-0002 | `tests/integration/test_harness_cli.py`, `tests/acceptance/test_harness_docs.py` | blocked | branch `21bfcd3` unmerged: 29 failed on `main` (groups and docs absent), 26 passed / 3 failed on the probe merge |
+| T-0001 | Docs: reviewer rubric, untrusted-material rule, SKILL.md and CHANGELOG | ceo | P1 | - | `roles/reviewer.md`, `references/Evidence.md`, `SKILL.md` | done | merge `2f44f00` (P-0001), after 2 fail + 1 pass rounds |
+| T-0002 | Docs pass for the new surface: cli guide, CHANGELOG, dead-skill trigger line | ceo | P1 | developer:T-0001, developer:T-0002 | `docs/guide/cli.md`, `CHANGELOG.md`, `SKILL.md` | review | P-0008 open at `20a99fd`: `hooks` documented, `harness` deliberately not |
+| T-0001 | Run the acceptance record TS-0004 for area harness | reviewer | P2 | tester:T-0001 | acceptance record TS-0004 | todo | filed with owner `tester` by mistake; only the reviewer role can run or remove it |
+
+Two tasks were dropped in this milestone; they are the only `- status: dropped`
+rows in the six live queues (`grep -c '^- status: dropped'
+.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`).
+
+| id | task | role | why dropped |
+|---|---|---|---|
+| T-0003 | Three measured defects on the harness/hooks branches (list shape, hook marker, root-commit hole) | developer | covered by the fixes it named: the eight-row list landed in developer T-0001 `5eabdc9`, the marker literal and root-commit refusal in developer T-0002 `2fbd126` |
+| T-0002 | Architecture 11.2/11.6 drifted from the two branches in four measured ways | architect | superseded: reconciled inside architect T-0001's review rework `f476b82` as amendments A1-A3 and rulings R1-R6 (D-20261020-Architect-8, -9) |
+
+Landed in the same window, outside this milestone's scope:
+
+| id | task | role | status | evidence |
+|---|---|---|---|---|
+| T-0002 | Fix the hardcoded POSIX `PATH` in `tests/unit/test_skill_refresh.py` | tester | done | merge `090910a` (P-0002) |
+| T-0003 | Make the traceability record-resolution guard honest about an empty team tree | tester | done | merge `cc86e6d` (P-0006); it is why product-manager T-0002 exists |
+| T-0003 | RED gate: the privacy scan fails at HEAD on a forge squash merge | ceo | blocked | needs a ruling on the three options in the task record |
+| T-0004 | AC-5's claimed green is false on `main` | ceo | todo | the one failure left in `pytest -q`; see [Board](Board.md) |
 
 ## Closed milestones (evidence on file)
 
