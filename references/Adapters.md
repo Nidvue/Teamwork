@@ -42,13 +42,13 @@ The template takes whole-argument placeholders - `{prompt}` `{packet}` `{log}`
 as the last argument. `LaneHost` pins the detected host; `TEAMWORK_AGENT_HOST`
 does the same from the environment.
 
-A host that offers a native teammate tool - a `subagent(...)` call, a `teams(...)`
-call, a `schedule.create` entry - may still use it as an accelerator. It is never
-required:
-the engine's lane runtime is the mechanism, and a host tool that disappears must
-not remove parallelism. When a host tool *is* used, the lane still takes its work
-with `task next` or `review --claim`, so the board - not the tool - decides who
-owns what.
+A host that also offers its own teammate, scheduler or messaging tool does not
+change this protocol: such a tool is not part of it, and no surface may require
+one. The engine's lane runtime is the mechanism - `lane start` and `swarm run`
+detach the host CLI - so a session with no plugin installed runs the whole team,
+and a host tool that appears or disappears changes nothing. A lane always takes
+its work with `task next` or `review --claim`, so the board - not a host tool -
+decides who owns what.
 
 ## How a lane runs
 

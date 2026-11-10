@@ -123,7 +123,7 @@ under two roles is two tasks.
 | ceo | T-0033 | memory | done | P-0092 | 6143378 |
 | ceo | T-0034 | memory | done | P-0101 | 26cff20 |
 | ceo | T-0035 | pi-package | done | P-0098 | 9a61ca8 |
-| ceo | T-0036 | pi-package | doing | - | - |
+| ceo | T-0036 | pi-package | done | P-0102 | e49e8b0 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -181,13 +181,15 @@ under two roles is two tasks.
 | developer | T-0055 | memory | done | P-0096 | 81dcf8f |
 | developer | T-0056 | memory | done | P-0099 | f644054 |
 | developer | T-0057 | memory | done | P-0100 | 7bd7a68 |
-| developer | T-0058 | - | todo | - | - |
-| developer | T-0059 | - | todo | - | - |
-| developer | T-0060 | - | todo | - | - |
+| developer | T-0058 | preflight | doing | - | - |
+| developer | T-0059 | - | doing | - | - |
+| developer | T-0060 | - | doing | - | - |
 | developer | T-0061 | - | todo | - | - |
 | developer | T-0062 | - | todo | - | - |
 | developer | T-0063 | - | todo | - | - |
-| developer | T-0064 | - | doing | - | - |
+| developer | T-0064 | - | done | - | - |
+| developer | T-0065 | - | todo | - | - |
+| developer | T-0066 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -203,7 +205,7 @@ under two roles is two tasks.
 | reviewer | T-0003 | - | done | - | - |
 | reviewer | T-0004 | - | done | - | - |
 | reviewer | T-0005 | - | done | - | - |
-| reviewer | T-0006 | - | todo | - | - |
+| reviewer | T-0006 | - | review | - | - |
 | security-auditor | T-0001 | audit | dropped | P-0022 | - |
 | security-auditor | T-0002 | audit | done | P-0024 | 72c56ca |
 | security-auditor | T-0003 | - | dropped | - | - |
@@ -220,7 +222,7 @@ under two roles is two tasks.
 | tester | T-0006 | tests | done | P-0089 | 2c4ad7e |
 | tester | T-0007 | t-0042 | done | P-0090 | 6750ea7 |
 | tester | T-0008 | memory | done | P-0097 | e34d6f7 |
-| tester | T-0009 | - | review | - | - |
+| tester | T-0009 | - | done | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -238,17 +240,16 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0036 · drop the last host-plugin dependencies: every lane runs natively on the engine lane runtime | P1 | doing | - |
-| developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | todo | - |
-| developer | T-0059 · privacy scan does not cover the team memory stores | P1 | todo | - |
-| developer | T-0060 · scrub absolute host paths from the role stores | P2 | todo | - |
+| developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | doing | - |
+| developer | T-0059 · privacy scan does not cover the team memory stores | P1 | doing | - |
+| developer | T-0060 · scrub absolute host paths from the role stores | P2 | doing | - |
 | developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | todo | - |
 | developer | T-0062 · memory verify checks only the first evidence kind, so a drifted path behind a valid revision passes | P2 | todo | - |
 | developer | T-0063 · tests/unit/test_memory_index.py fails when run alone: no record mask installed | P2 | todo | - |
-| developer | T-0064 · record the unit layer for memory and the pi-package layers the plan requires | P1 | doing | - |
-| reviewer | T-0006 · record the acceptance layer for memory and pi-package, and verify AC-M22-1..5 on the merged revision | P1 | todo | - |
+| developer | T-0065 · `load` prints the packet, then exits 1 on a torn ledger tail: validate the ledger before rendering, not after | P2 | todo | - |
+| developer | T-0066 · A purpose-built zero-open-lesson fixture: prove the index header bounds and additivity on a synthetic tree, not only on the live team tree | P2 | todo | - |
+| reviewer | T-0006 · record the acceptance layer for memory and pi-package, and verify AC-M22-1..5 on the merged revision | P1 | review | - |
 | security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | todo | - |
-| tester | T-0009 · integration layer part 2: transcript reach and the index header on a real tree | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.

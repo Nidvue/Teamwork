@@ -46,7 +46,6 @@ HOST_PACKAGES = (
     "@earendil-works/pi-tui",
     "typebox",
 )
-SUPPORTED_PEERS = {"pi-subagents": "^0.87.0"}
 
 
 def version() -> str:
@@ -97,10 +96,8 @@ def package_json(ver: str) -> dict:
             "prompts": ["./prompts"],
             "image": PREVIEW,
         },
-        "peerDependencies": {**{name: "*" for name in HOST_PACKAGES}, **SUPPORTED_PEERS},
-        "peerDependenciesMeta": {
-            name: {"optional": True} for name in (*HOST_PACKAGES, *SUPPORTED_PEERS)
-        },
+        "peerDependencies": {name: "*" for name in HOST_PACKAGES},
+        "peerDependenciesMeta": {name: {"optional": True} for name in HOST_PACKAGES},
         "engines": {"node": ">=20"},
     }
 
