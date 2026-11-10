@@ -24,6 +24,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = REPO_ROOT / "docs" / "Team" / "Archive.md"
 
@@ -47,12 +49,19 @@ def resolves(rev: str) -> bool:
     return git("cat-file", "-t", rev).returncode == 0
 
 
+def shallow() -> bool:
+    """A shallow clone cannot answer these questions, and saying so beats a red."""
+    return git("rev-parse", "--is-shallow-repository").stdout.strip() == "true"
+
+
 def reachable(rev: str) -> bool:
     return resolves(rev) and git("merge-base", "--is-ancestor", rev, "main").returncode == 0
 
 
 def test_every_archive_merge_revision_resolves() -> None:
     """A recorded revision must be an object this repository still has."""
+    if shallow():
+        pytest.skip("shallow clone: the recorded revisions are truncated away, not missing")
     missing = [f"{branch} / {rev}" for branch, rev in filled_fields() if not resolves(rev)]
     assert missing == [], (
         "the archive names merge revisions git cannot resolve, so those claims "
@@ -62,6 +71,8 @@ def test_every_archive_merge_revision_resolves() -> None:
 
 def test_every_archive_merge_revision_is_on_main() -> None:
     """A merge that landed on the default branch must be reachable from it."""
+    if shallow():
+        pytest.skip("shallow clone: ancestry is not walkable, fetch the full history")
     unreachable = [f"{branch} / {rev}" for branch, rev in filled_fields() if not reachable(rev)]
     assert unreachable == [], (
         "the archive records these branches as merged, but their revision is not "
@@ -78,6 +89,8 @@ def test_the_archive_still_has_fields_to_check() -> None:
 
 def test_a_bad_revision_would_be_caught() -> None:
     """Prove the checks discriminate, without editing the archive."""
+    if shallow():
+        pytest.skip("shallow clone: the discriminating probes need real objects")
     # a revision this repository does not have (all-zeros is never a commit)
     assert not resolves("0" * 40)
     assert not reachable("0" * 40)
