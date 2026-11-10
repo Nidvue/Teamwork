@@ -802,3 +802,75 @@ def test_a_fail_on_a_task_with_no_revision_is_recorded_as_not_applicable(cli, pr
     assert "nothing to preflight" in out
     assert "review_mechanical: n/a" in queue_text(root)
     assert last_fail_detail(root).startswith("mechanical: n/a | ")
+
+
+def test_the_slice_warning_uses_the_profiles_file_budget(tmp_path: Path) -> None:
+    """A diff past the profile's slice warns; the same diff under it is silent."""
+    repo = tmp_path / "slice-repo"
+    repo.mkdir()
+    assert git(repo, "init", "-q").returncode == 0
+    assert git(repo, "config", "user.name", "Developer").returncode == 0
+    assert git(repo, "config", "user.email", "developer@agents.nidvue.com").returncode == 0
+    (repo / "base.txt").write_text("base\n", encoding="utf-8")
+    assert git(repo, "add", "-A").returncode == 0
+    assert git(repo, "commit", "-q", "-m", "base").returncode == 0
+    base = git(repo, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    assert git(repo, "checkout", "-q", "-b", "slice").returncode == 0
+    for index in range(7):
+        (repo / f"file-{index}.txt").write_text("one line\n", encoding="utf-8")
+    assert git(repo, "add", "-A").returncode == 0
+    assert git(repo, "commit", "-q", "-m", "seven files").returncode == 0
+
+    fast = engine._preflight_slice(
+        repo, base, "slice", tmp_path, "developer", {"review_profile": "fast"}
+    )
+    assert fast is not None
+    assert fast.status == engine.PREFLIGHT_WARN
+    assert "7 files / 7 changed lines vs fast budget" in fast.detail
+    assert "split the task or record why it cannot be split" in fast.detail
+
+    standard = engine._preflight_slice(
+        repo, base, "slice", tmp_path, "developer", {"review_profile": "standard"}
+    )
+    assert standard is None
+
+
+def test_a_slice_over_the_profile_warns_but_does_not_fail_preflight(cli, project, capsys) -> None:
+    """13 files is past the standard 12-file slice: warn, exit 0, other checks intact."""
+    init_team(cli, project)
+    start_branch(cli, project)
+    names = [f"slice-{index}.txt" for index in range(13)]
+    for name in names:
+        (project / name).write_text("one line\n", encoding="utf-8")
+    assert (
+        cli(
+            "--project",
+            project,
+            "commit",
+            "--role",
+            "developer",
+            "--task",
+            "T-0001",
+            "--type",
+            "feat",
+            "--goal",
+            "land a slice",
+            "--deliverable",
+            "thirteen files",
+            "--why",
+            "the task asks for it",
+            "--status",
+            "implemented",
+            "--result",
+            "pytest -q -> 1 passed",
+            "--all",
+        )
+        == 0
+    )
+
+    code, out = preflight(cli, capsys, project)
+
+    assert code == 0, out
+    assert re.search(r"- warn\s+slice\s+13 files / 13 changed lines vs standard budget", out), out
+    assert "PREFLIGHT pass" in out
+    assert "8 checks, 0 failed" in out
