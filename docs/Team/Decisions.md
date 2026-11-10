@@ -1427,3 +1427,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: gh api repos/Nidvue/Teamwork/branches/main/protection -> 16 required contexts (Release.md:39,:200 correct; Archive.md's 15 was the older measurement); ruff format --check . -> 186 files already formatted; pytest -q -> 1255 passed 1 skipped; check_release_consistency.py --offline -> 0 problem(s); privacy_scan --tree --history --allow -> PASS 0 findings; teamwork.py links -> # issues: 0
 - falsified by: A reader who follows the Status header and reaches a stale conclusion, or a regenerated Board.md whose tables differ from its queues.
 - consequences: -
+
+## D-20261022-CEO-2 - Correct D-20261022-CEO: its board-test evidence was measured before T-0074 existed
+
+- date: 2026-10-22
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0074
+- context: -
+- options considered: -
+- decision: The 'pytest tests/unit/test_board_matches_tool.py -> 6 passed' and 'pytest -q -> 1255 passed 1 skipped' lines in D-20261022-CEO were true of 908671e's working tree BEFORE 'task add ceo T-0074' created the task; adding a task makes the generated docs/Team/Board.md stale, so the committed 908671e failed those 2 board tests. The durable rule: after any 'task add' or status change, regenerate Board.md with 'python3 tests/unit/test_board_matches_tool.py' and only then re-run the suite. The doc edits the decision authorises are unaffected.
+- why: A recorded decision whose evidence a later reader cannot reproduce is false evidence, and this one also mis-stated which state the numbers described.
+- evidence: reviewer del_mviuyqhj_p6b1: pytest tests/unit/test_board_matches_tool.py @908671e -> '2 failed, 4 passed' with AssertionError "ceo T-0074: In flight says 'todo', the queue says 'review'"; after regenerating the board the same file -> 6 passed; full suite after the regeneration -> 1255 passed, 1 skipped
+- falsified by: If the committed 908671e board rows already read 'review' for T-0074, the correction is wrong and the numbers were reproducible.
+- consequences: -

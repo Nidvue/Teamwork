@@ -10,8 +10,9 @@ Related: [Project](Project.md) · [CHANGELOG](../../CHANGELOG.md) · [README](..
 closed:
 
 - **AC-REL-6 now holds.** The M9 revision was pushed, and CI run 39690418108 on
-  `22ade33` reported **19/19 jobs success**; `refresh --check` reports the
-  installed skill matches `origin/main`.
+  `22ade33` reported **19/19 jobs success**. The installed-skill half of it is a
+  standing condition, not a fact: `refresh --check` re-measures it on every
+  revision, so read the command rather than this sentence.
 
 Every other row below stands as measured. Read "NOT YET RUN" and "FAIL" as the
 state at `fb99293149`, not as the current state.
@@ -60,7 +61,7 @@ without a measurement.
 | AC-REL-5 | the CHANGELOG records the 1.1.1 anomaly | `grep -n "1\.1\.1" CHANGELOG.md` | `52:- **npm 1.1.1 has no source commit and is listed as an exception.**` (the version number is inside backticks in the file) and `86:## [1.1.1] - 2026-10-20` | **PASS** |
 | AC-REL-6 | CI runs the release-consistency gate | `grep -n "release-consistency" .github/workflows/ci.yml` | `376:  release-consistency:` - a blocking job running `python scripts/check_release_consistency.py --offline --json`, with no `continue-on-error` | **PASS** (the workflow runs the gate) |
 | AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | at the audited revision the local `main` was ahead of `origin/main` and the newest runs were the pre-M9 ones | **CLOSED LATER** - the revision was pushed and CI run 39690418108 on `22ade33` was 19/19 success; not measurable at `fb99293149` |
-| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | at the audited revision it exited 1: files the tree ships were absent from the installed bundle and installed engine files were older than the tree (§5). The counts are not quoted - they move with every commit | **CLOSED LATER** - `refresh --check` now reports the installed skill matches `origin/main`; it was **FAIL** at `fb99293149` |
+| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | at the audited revision it exited 1: files the tree ships were absent from the installed bundle and installed engine files were older than the tree (§5). The counts are not quoted - they move with every commit | **CLOSED LATER** - the bundle was refreshed and the criterion holds on the published revision; it was **FAIL** at `fb99293149`. It is a standing condition: re-measure it with `python3 scripts/teamwork.py refresh --check` |
 
 ## 2. What "the merged tree" means here
 
@@ -231,7 +232,7 @@ the push happened, CI went green on it, and the installed skill was refreshed.
 | Criterion | Status | Reason |
 |---|---|---|
 | AC-REL-6, "every workflow is green on the pushed M9 revision" | **CLOSED LATER** (was **NOT YET RUN**) | at the audited revision the M9 revision was not on the remote, so no CI run existed for it and no green CI was claimed. The revision was pushed later and CI run 39690418108 on `22ade33` was 19/19 success. |
-| AC-REL-6, "the installed skill mirrors the remote's `main`" | **CLOSED LATER** (was **FAIL** against the merged tree) | `sync_skill.py --check` exited 1 at the audited revision; `refresh --check` now reports the installed skill matches `origin/main`. |
+| AC-REL-6, "the installed skill mirrors the remote's `main`" | **CLOSED LATER** (was **FAIL** against the merged tree) | `sync_skill.py --check` exited 1 at the audited revision. The criterion is a standing condition, so it is re-measured - not asserted - with `python3 scripts/teamwork.py refresh --check`; it held once the bundle was refreshed. |
 
 ## 7. The test this lane adds
 
