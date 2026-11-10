@@ -183,6 +183,8 @@ def fail_review(cli, project: Path, handle: str = "T-0001") -> None:
             "fail",
             "--evidence",
             "pytest @HEAD -> 1 failed",
+            "--detects",
+            "a task in selfcheck loses its review claim, so the queue clips the wrong deliverable",
             "--findings",
             FINDINGS_LONG,
         )
@@ -367,10 +369,13 @@ def test_review_queue_clips_the_findings_of_a_failing_verdict(cli, project: Path
 
     root = team_root(project)
     clipped = render(cli, capsys, "--project", project, "review", "--queue")
-    expected = (
-        f"    findings so far: {FINDINGS_LONG[:LIMIT]}"
-        f"... (+{len(FINDINGS_LONG) - LIMIT} chars: --full)"
+    # the engine stores a finding as ``detects: <detector> | <defect>`` since M16 A1,
+    # so the clip applies to that whole string, prefix included
+    stored_findings = (
+        "detects: a task in selfcheck loses its review claim, so the queue clips "
+        "the wrong deliverable | " + FINDINGS_LONG
     )
+    expected = f"    findings so far: {engine.clip(stored_findings, LIMIT)}"
     assert expected in clipped
     assert FINDINGS_TAIL not in clipped
     # the author evidence of the same deliverable clips on the same rule, and the
