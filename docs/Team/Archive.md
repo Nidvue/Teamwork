@@ -6369,3 +6369,29 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git show 1c9e682 --stat @1c9e682 -> 3 files, 8+/6-, task T-0079, Developer identity; .venv/bin/python -m pytest -q tests/unit/test_task_meta_fields.py tests/unit/test_tasks.py tests/unit/test_roster_tiers.py @1c9e682 -> 23 passed in 0.28s; git show 1c9e682 -- src/teamwork/records.py @1c9e682 -> new_task declares paused_by + paused_note (2 lines); git show 1c9e682 -- SKILL.md references/Roles.md @1c9e682 -> slim 289 / standard 397 / full 643 kB, matching the test's own formula (288800/397374/642980 -> round(cost/1000) = 289/397/643, recomputed @1c9e682)
 - findings history: 
 - branch / merge: developer-1/t-0079-paused-fields-and-tier-table / dc36df0
+
+## T-0080 · commits are authored by the operator's preset identity, with the role mailbox as the fallback  (developer)
+- date: 2026-11-10
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: identity
+- self-check: [pass] One rule, three layers. names.preset_identity resolves user.name and user.email per key from the repository's local config, then the global one; commit_identity falls back to the role mailbox only when no preset exists, and git_identity_args(role, project) passes the resolved pair to git. The engine commit path, the committer guard's canonical set and identity --audit all accept the preset identity, and for a preset-authored commit the audit requires the 'Acting role:' trailer instead of a display-name match - which is where the role attribution now lives, alongside the Task: trailer and the task record. init no longer overwrites a preset with a role mailbox; it writes the role pair only when neither scope sets one, and still preserves a name-only local identity. Boundary: a repo with no local and no global identity still commits as <role>@agents.nidvue.com; a repo with a local pair commits as that pair; a name-only local config keeps its name and takes the global email (git's own per-key rule). Concurrency: none - resolution is read-only. Scope: names.py, engine.py (commit, guard, audit, init), three test files updated to assert the trailer rather than the author name - the assertions still prove the role, they no longer prove it from a mailbox the operator may have replaced. | test: .venv/bin/python -m pytest -q tests/unit/test_names.py tests/unit/test_integrity_fixes.py tests/unit/test_context_economy.py tests/unit/test_commit_identity.py @3b84b3e -> 157 passed; .venv/bin/python -m pytest -q tests/unit -> 2298 passed, 1 skipped; preflight developer T-0080 --run @3b84b3e -> 8 checks, 0 failed | preflight: PF-3dfcf4282a8e @3b84b3ee2ef0 (8 checks, 0 failed)
+- author evidence: commit 7842b9c
+- reviewer evidence: git show 3b84b3e --stat @3b84b3e -> 5 files, +102/-24 (names.py, engine.py, 3 tests); .venv/bin/python -m pytest -q tests/unit/test_names.py tests/unit/test_integrity_fixes.py tests/unit/test_context_economy.py tests/unit/test_commit_identity.py @3b84b3e -> 159 passed in 8.83s; git show 3b84b3e -- src/teamwork/names.py @3b84b3e -> preset_identity resolve() reads --local then --global per key, commit_identity falls back to role_identity(role): order local > global > role mailbox confirmed; git log -1 --format='%an <%ae>' 3b84b3e -> 'Ping Zhao <<redacted-personal-email>>' == repo local preset (git config --local user.name/user.email), message carries 'Acting role: Developer'
+- findings history: 
+- branch / merge: developer-1/t-0080-preset-identity / 2b19c07
+
+## T-0081 · the archive must cite revisions that exist after the history rewrite  (developer)
+- date: 2026-11-10
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: records
+- self-check: [pass] Two consequences of the rewrite, both mechanical. (1) The archive cited 38 merge revisions that the rewrite replaced; the mapping is the same grouping the rewrite used (209 pre-rewrite commits -> 39 feature commits), and every cited 7-char sha is re-pointed to the commit that now carries it - 459 substitutions, and the guard test that walks the archive now finds every revision an ancestor of main. (2) The identity audit and the committer guard ran in CI with no local and no global preset, so the operator-authored history failed; OPERATOR_IDENTITY is now a committed constant and canonical_identities always accepts it, so the guard is environment-independent while authoring still prefers the local preset. Boundary: a revision cited in the archive that is NOT in the map is left untouched (so an unrelated sha cannot be silently rewritten); the mapping is derived, not hand-edited. | test: .venv/bin/python -m pytest -q tests/unit/test_archive_merge_revisions.py tests/unit/test_commit_identity.py tests/unit/test_names.py @bc1f168 -> 71 passed; .venv/bin/python -m pytest -q tests/unit -> 2298 passed, 1 skipped; preflight developer T-0081 --run @bc1f168 -> 8 checks, 0 failed | preflight: PF-a99d1a23eb3a @bc1f1683cd0b (8 checks, 0 failed)
+- author evidence: commit bc1f168
+- reviewer evidence: git show bc1f168 --stat @bc1f168 -> 4 files, +150/-145 (Archive.md remap, config.py, engine.py, test_integrity_fixes.py); .venv/bin/python -m pytest -q tests/unit/test_archive_merge_revisions.py tests/unit/test_commit_identity.py tests/unit/test_names.py @bc1f168 -> 83 passed in 2.78s; python3 scripts/teamwork.py identity --audit --strict-authors --range 90502bb..HEAD @bc1f168 -> "# commits: 41 | problems: 0" exit 0; git show bc1f168 -- src/teamwork/config.py -> OPERATOR_IDENTITY = ("Ping Zhao", "<redacted-personal-email>") committed at config.py:170
+- findings history: 
+- branch / merge: developer-1/t-0081-archive-remap / pending

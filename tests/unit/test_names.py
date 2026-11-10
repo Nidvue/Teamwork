@@ -111,11 +111,31 @@ def test_identity_string_format() -> None:
     assert engine.identity_string("reviewer-1") == (f"Reviewer <reviewer@{engine.IDENTITY_DOMAIN}>")
 
 
-def test_git_identity_args_shape() -> None:
-    args = engine.git_identity_args("developer")
+def test_git_identity_args_shape(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "no-global-config"))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    project = tmp_path / "no-identity"
+    project.mkdir()
+    engine.run_git(project, "init", "-q")
+    args = engine.git_identity_args("developer", project)
     assert args == [
         "-c",
         "user.name=Developer",
         "-c",
         f"user.email=developer@{engine.IDENTITY_DOMAIN}",
+    ]
+
+
+def test_the_preset_identity_wins_over_the_role_mailbox(tmp_path: Path) -> None:
+    project = tmp_path / "preset"
+    project.mkdir()
+    engine.run_git(project, "init", "-q")
+    engine.run_git(project, "config", "--local", "user.name", "Ops Person")
+    engine.run_git(project, "config", "--local", "user.email", "ops@example.com")
+    assert engine.commit_identity("developer", project) == ("Ops Person", "ops@example.com")
+    assert engine.git_identity_args("developer", project) == [
+        "-c",
+        "user.name=Ops Person",
+        "-c",
+        "user.email=ops@example.com",
     ]
