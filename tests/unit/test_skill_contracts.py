@@ -157,19 +157,28 @@ def test_architecture_records_who_may_push(root):
     assert "the Tester certifies" in text
 
 
-def test_no_stale_claim_that_only_the_ceo_may_push(root):
-    """The old blanket rule is superseded: it must not survive anywhere."""
-    offenders = []
-    for path in (
-        list(root.glob("*.md"))
-        + list((root / "docs").rglob("*.md"))
-        + list((root / "roles").glob("*.md"))
-        + list((root / "references").glob("*.md"))
+def test_the_superseded_ceo_only_push_rule_is_marked_superseded(root):
+    """The old blanket rule must not survive as an 'accepted' decision.
+
+    The previous version of this test grepped for a literal string that only
+    existed inside the test itself, so it could never fail. This one checks the
+    record that actually governed behaviour.
+    """
+    text = read(root, "docs", "Team", "Decisions.md")
+    for title in (
+        "Only the CEO performs external publishing",
+        "Neutralise all personal identity before publishing",
     ):
-        text = path.read_text(encoding="utf-8", errors="replace")
-        if "Nothing is pushed, tagged or released by any agent other than the CEO" in text:
-            offenders.append(str(path))
-    assert offenders == []
+        idx = text.find(title)
+        assert idx != -1, f"decision not found: {title}"
+        end = text.find("\n## ", idx + 1)
+        block = text[idx : end if end != -1 else len(text)]
+        assert "status: superseded" in block, f"{title} is not marked superseded"
+
+
+def test_the_role_mailbox_domain_is_an_owner_decision(root):
+    text = read(root, "docs", "Team", "Decisions.md")
+    assert "Owner instruction: the role mailbox domain is agents.nidvue.com" in text
 
 
 # --------------------------------------------------------------------------- #

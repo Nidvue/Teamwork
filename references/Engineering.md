@@ -38,6 +38,11 @@ git -c user.name="Developer" -c user.email="developer@agents.nidvue.com" commit 
 `teamwork.py identity [--role X]` prints the exact identity.
 `TEAMWORK_IDENTITY_DOMAIN` overrides the email domain.
 
+Repo-local identity: the repository's own `user.name`/`user.email` is set to a
+**role** mailbox (never the operator's), so an accidental plain `git commit`
+cannot leak a personal identity. The per-commit `-c` form below still overrides
+it and remains the rule for every deliverable.
+
 ## Commit batching
 
 Accumulate a coherent, locally green change-set and commit once. No per-file,

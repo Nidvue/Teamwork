@@ -80,7 +80,8 @@ Public API (frozen):
 ```python
 skill_root() -> Path            # directory holding SKILL.md + roles/ + references/ + templates/
 asset(*parts) -> Path           # skill_root() joined with parts
-self_invocation() -> str        # how a teammate should invoke the CLI
+self_invocation() -> str        # machine-local command (absolute; private .pi/ state only)
+portable_invocation() -> str    # committed command, never a machine path (AGENTS.md)
 has_asset(name: str) -> bool
 ```
 
