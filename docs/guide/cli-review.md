@@ -138,11 +138,8 @@ PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 e.g. `{"PreflightCommand": "make check"}`. Without `--run` it is reported as
 `UNVERIFIED: PreflightCommand not run (pass --run): <cmd>`, and with no key in the
 file as `UNVERIFIED: no PreflightCommand configured` - the skill names no
-toolchain, so an unconfigured gate is not a red preflight. A command with no shell
-metacharacter is split with `shlex` and executed without a shell; one carrying
-`&`, `|`, `;`, `<`, `>` or a newline runs through the host shell
-(`/bin/sh -c`, or `cmd /c` on win32), so `ruff check . && mypy src` means what it
-reads and a red second command is a red gate.
+toolchain, so an unconfigured gate is not a red preflight. The command is split
+with `shlex` and executed without a shell, so a pipeline belongs in a script.
 
 Exit code 0 when no check failed and 1 when one did, so it composes:
 `teamwork preflight developer T-0004 && teamwork selfcheck ...`.
