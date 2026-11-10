@@ -917,26 +917,6 @@ def _merge_work_repo(project: Path, here: Path, base: str) -> Path:
     return wt if wt is not None else here
 
 
-#: The records a merge pass writes itself, relative to ``docs/Team/``. A records
-#: commit carries these and nothing else: staging every dirty path under docs/
-#: swept a file another lane had left uncommitted in the base checkout into the
-#: Reviewer's commit (13ea3d1 carried D-20261030-Developer-3, 30855f3 carried
-#: D-20261031-Designer - both were someone else's Decisions.md entry).
-#: The board joins this set when the merge renders it (T-0012).
-MERGE_RECORD_NAMES = ("Archive.md",)
-
-
-def merge_record_paths() -> list[str]:
-    """Project-relative paths a merge's records commit owns.
-
-    Ownership is "this pass wrote it", never "it happens to be dirty": an
-    uncommitted file under ``docs/`` belongs to the lane that wrote it and stays
-    that lane's to commit.
-    """
-    docs = "/".join(DIR_DOCS)
-    return [f"{docs}/{name}" for name in MERGE_RECORD_NAMES]
-
-
 def _merge_pr_index(prs: list, handle: str, branch: str = "") -> int | None:
     """Index of the PR a merge names, preferring the live record on ``branch``.
 
@@ -984,104 +964,6 @@ def _handle_is_ambiguous(prs: list, handle: str) -> bool:
         pr.get("branch") or "" for pr in prs if _handle_matches(pr, handle) and _pr_is_live(pr)
     }
     return len(branches) > 1
-
-
-def _uncommitted_paths(here: Path, *pathspec: str) -> list[str]:
-    """Every path git reports as uncommitted, one path per record.
-
-    ``-z`` is what makes a rename two records (``new`` then ``old``) instead of
-    the single ``old -> new`` token plain porcelain prints: that token is a
-    pathspec that matches nothing, so a staged rename was neither guarded nor
-    lifted, ``git merge`` then refused the dirty index, and the run blamed the
-    branch owner for a rebase that was never needed.
-    """
-    fields = run_git(here, "status", "--porcelain", "-z", "--", *pathspec).stdout.split("\0")
-    paths: list[str] = []
-    i = 0
-    while i < len(fields):
-        entry = fields[i]
-        i += 1
-        if len(entry) < 4:
-            continue
-        paths.append(entry[3:])
-        if entry[0] in "RC" and i < len(fields):
-            # the source of a rename/copy is the next record
-            paths.append(fields[i])
-            i += 1
-    return list(dict.fromkeys(p for p in paths if p))
-
-
-def _staged_paths(here: Path, paths: list[str]) -> list[str]:
-    """The subset of ``paths`` whose index entry differs from HEAD."""
-    return [
-        rel for rel in paths if run_git(here, "diff", "--cached", "--quiet", "--", rel).returncode
-    ]
-
-
-def _lift_staged_entries(
-    here: Path, paths: list[str]
-) -> tuple[list[tuple[str, str, str]], list[str]]:
-    """Take another lane's staged index entries out of the index for a merge.
-
-    ``git merge`` refuses to run while the index differs from HEAD, so a record a
-    peer had already staged blocked the merge even though the merge never touched
-    it. Each entry is captured as (mode, blob, path) so a partial staging is
-    restored byte for byte rather than re-staged from the work tree, and the work
-    tree is never touched. A staged deletion has no entry to capture, only a path
-    to unstage the same way; a staged rename arrives as its two ends (see
-    ``_uncommitted_paths``), so the old one is a path to remove again and the new
-    one an entry to capture. ``_return_staged_entries`` puts it all back.
-    """
-    staged = _staged_paths(here, paths)
-    if not staged:
-        return [], []
-    rows = []
-    for line in run_git(here, "ls-files", "-s", "--", *staged).stdout.splitlines():
-        meta, _, rel = line.partition("\t")
-        mode, sha, stage = meta.split()
-        if rel and stage == "0":
-            rows.append((mode, sha, rel))
-    present = {rel for _, _, rel in rows}
-    deleted = [rel for rel in staged if rel not in present]
-    lifted = run_git(here, "reset", "-q", "--", *staged)
-    if lifted.returncode != 0:
-        die(
-            "could not lift another lane's staged records out of the index for "
-            "the merge, so nothing was merged:\n  "
-            + (lifted.stderr.strip() or lifted.stdout.strip() or "(no output)")
-        )
-    return rows, deleted
-
-
-def _return_staged_entries(
-    here: Path, rows: list[tuple[str, str, str]], deleted: list[str]
-) -> None:
-    """Put another lane's staged entries back after the merge, as they were.
-
-    A failure here is reported rather than fatal: the merge (or its rollback) is
-    the outcome the caller must still hear about, and the work tree was never
-    touched, so the peer only has to ``git add`` the paths again.
-    """
-    for mode, sha, rel in rows:
-        # ``--add``: a path the peer staged as new is absent from the index after
-        # the lift, and ``--cacheinfo`` alone refuses to create it (exit 128), so
-        # the restore was lost and the path fell back to untracked.
-        restored = run_git(here, "update-index", "--add", "--cacheinfo", f"{mode},{sha},{rel}")
-        if restored.returncode != 0:
-            print(
-                f"# WARNING could not restore another lane's staged {rel} to the "
-                "index; the work tree is unchanged, so re-stage it:\n  "
-                + (restored.stderr.strip() or restored.stdout.strip() or "(no output)")
-            )
-    if deleted:
-        removed = run_git(here, "update-index", "--force-remove", "--", *deleted)
-        if removed.returncode != 0:
-            print(
-                "# WARNING could not restore another lane's staged deletion of "
-                + ", ".join(deleted)
-                + "; re-stage it:\n  "
-                + (removed.stderr.strip() or removed.stdout.strip() or "(no output)")
-            )
 
 
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
@@ -1165,16 +1047,19 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
         # to check one branch out twice, so the merge has to run in the work tree
         # that already holds the base (per-instance layout) instead of ``here``.
         here = _merge_work_repo(project, here, base)
-        # Uncommitted docs are tolerated: the review pass writes the archive entry
-        # in this work tree and it belongs to this merge. Work outside docs/ is
-        # another lane's and must be committed on its own branch first.
+        # identify pending generated records (they belong to the merge, not to
+        # whichever branch happens to be checked out)
         docs_prefix = "/".join(DIR_DOCS)
-        dirty = _uncommitted_paths(here)
-        dirty_docs = [d for d in dirty if d == docs_prefix or d.startswith(docs_prefix + "/")]
-        if len(dirty_docs) != len(dirty):
+        dirty = [
+            ln[3:].strip()
+            for ln in run_git(here, "status", "--porcelain").stdout.splitlines()
+            if ln.strip()
+        ]
+        records = [d for d in dirty if d == docs_prefix or d.startswith(docs_prefix + "/")]
+        if len(records) != len(dirty):
             die(
                 "working tree has uncommitted work outside the reviewed records:\n  "
-                + "\n  ".join(d for d in dirty if d not in dirty_docs)
+                + "\n  ".join(d for d in dirty if d not in records)
                 + "\n  commit it on its task branch first (branch start + commit)"
             )
         was_on = current_branch(here)
@@ -1194,24 +1079,12 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
         # the review pass may have written the entry into a lane work tree; the
         # base branch must carry it too, and it belongs in the records commit
         print(archive_ensure_entry(root, role, t, repo=here))
-        # The records commit is the Reviewer's, so it carries only the records
-        # this pass wrote (see merge_record_paths). Staging every dirty path under
-        # docs/ swept a peer lane's uncommitted file into a Reviewer commit
-        # (13ea3d1 carried D-20261030-Developer-3, 30855f3 D-20261031-Designer);
-        # such a path belongs to the lane that wrote it and stays uncommitted.
-        # Narrowing the *staged* set is not enough: ``commit`` without a pathspec
-        # takes the whole index, so a peer's ``git add``ed file still rode in.
-        # The commit below therefore names the same paths, as the close-out does.
-        owned = merge_record_paths()
-        dirty_docs = _uncommitted_paths(here, docs_prefix)
-        records = [rel for rel in owned if rel in dirty_docs]
-        foreign = [rel for rel in dirty_docs if rel not in owned]
-        if foreign:
-            print(
-                "# left "
-                + ", ".join(foreign)
-                + " uncommitted: another lane's record is not part of this merge's commit"
-            )
+        records = [
+            ln[3:].strip()
+            for ln in run_git(here, "status", "--porcelain").stdout.splitlines()
+            if ln.strip()
+        ]
+        records = [d for d in records if d == docs_prefix or d.startswith(docs_prefix + "/")]
         if records:
             run_git(here, "add", "--", *records)
             rec_msg = build_commit_message(
@@ -1231,7 +1104,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             rr = subprocess.run(
                 ["git", "-C", str(here)]
                 + git_identity_args("reviewer")
-                + ["commit", "-q", "-F", "-", "--", *records],
+                + ["commit", "-q", "-F", "-"],
                 input=rec_msg,
                 capture_output=True,
                 text=True,
@@ -1262,52 +1135,44 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "result": f"review by {t.get('reviewer') or args.by} ({t.get('review_status')})",
             },
         )
-        # A record a peer had already staged is theirs: it must not enter this
-        # pass's commits, and ``git merge`` refuses while the index differs from
-        # HEAD, so it is lifted for the merge and put back byte for byte after.
-        lifted = _lift_staged_entries(here, foreign)
-        try:
-            if args.squash:
-                r = run_git(here, "merge", "--squash", branch)
-                if r.returncode == 0:
-                    r = subprocess.run(
-                        ["git", "-C", str(here)]
-                        + git_identity_args("reviewer")
-                        + ["commit", "-q", "-F", "-"],
-                        input=message,
-                        capture_output=True,
-                        text=True,
-                    )
-                merged = r
-            else:
-                merged = subprocess.run(
+        if args.squash:
+            r = run_git(here, "merge", "--squash", branch)
+            if r.returncode == 0:
+                r = subprocess.run(
                     ["git", "-C", str(here)]
                     + git_identity_args("reviewer")
-                    + ["merge", "--no-ff", "-m", message, branch],
+                    + ["commit", "-q", "-F", "-"],
+                    input=message,
                     capture_output=True,
                     text=True,
                 )
-            if merged.returncode != 0:
-                run_git(here, "merge", "--abort")
-                if args.squash:
-                    # a squashed-but-uncommitted merge leaves staged changes;
-                    # restore base
-                    run_git(here, "reset", "--hard", base_sha or "HEAD")
-                die(
-                    "merge conflict or failure on "
-                    f"{branch}; nothing was merged and {base} is back at "
-                    f"{base_sha[:7] if base_sha else 'HEAD'}. The owner must rebase:\n"
-                    f"{merged.stderr.strip() or merged.stdout.strip()}"
-                )
-            if (
-                args.squash
-                and base_sha
-                and run_git(here, "diff", "--quiet", f"{base_sha}..HEAD").returncode == 0
-            ):
-                run_git(here, "reset", "--hard", base_sha)
-                die("squash merge produced no change; nothing merged")
-        finally:
-            _return_staged_entries(here, *lifted)
+            merged = r
+        else:
+            merged = subprocess.run(
+                ["git", "-C", str(here)]
+                + git_identity_args("reviewer")
+                + ["merge", "--no-ff", "-m", message, branch],
+                capture_output=True,
+                text=True,
+            )
+        if merged.returncode != 0:
+            run_git(here, "merge", "--abort")
+            if args.squash:
+                # a squashed-but-uncommitted merge leaves staged changes; restore base
+                run_git(here, "reset", "--hard", base_sha or "HEAD")
+            die(
+                "merge conflict or failure on "
+                f"{branch}; nothing was merged and {base} is back at "
+                f"{base_sha[:7] if base_sha else 'HEAD'}. The owner must rebase:\n"
+                f"{merged.stderr.strip() or merged.stdout.strip()}"
+            )
+        if (
+            args.squash
+            and base_sha
+            and run_git(here, "diff", "--quiet", f"{base_sha}..HEAD").returncode == 0
+        ):
+            run_git(here, "reset", "--hard", base_sha)
+            die("squash merge produced no change; nothing merged")
         sha = run_git(here, "rev-parse", "--short", "HEAD").stdout.strip()
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
             tasks = parse_tasks(tpath)

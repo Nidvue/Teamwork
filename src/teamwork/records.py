@@ -412,7 +412,9 @@ def parse_tests(path: Path) -> list:
 
 def render_tests(records: list, path: Path | None = None) -> str:
     assign_ids(records, "TS-")
-    if path is not None:
+    if path is None:
+        header = "# Tests - one record per test layer and area\n"
+    else:
         f = link_fields(path, "ceo")
         header = (
             "# Tests - one record per test layer and area\n\n"
