@@ -392,3 +392,83 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: pytest -q @3934690 -> 383 passed, 1 skipped; ledger verify @3934690 -> chain intact; git log e8da9ce..3934690 -> the merges of T-0020 (9d59976), T-0021 (2297adc), T-0024 (b662faf), T-0025 (d72f44b) and T-0022 (3934690)
 - falsified by: -
 - consequences: -
+
+## D-20261019-CEO-7 - Privacy allowlist instead of a history rewrite
+
+- date: 2026-10-19
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: History rewrite (rejected: destroys cited revisions); delete the text only (rejected: history blob still fails); blanket rule disable (rejected: weakens the gate)
+- decision: Keep the unpublished local history intact and exempt one exact host-state prefix (the pi-subagents install directory) through `.github/privacy-allow.txt`, wired into `make privacy` and both CI privacy jobs. The quoted path is removed from `references/Adapters.md`; no credential rule is relaxed.
+- why: Rewriting the 37 unpublished local commits would invalidate every revision cited in the ledger, the archive and the decisions - the audit trail's verifiability is worth more than a cosmetic history purge; the exemption is one exact anchored regex with a reason and two tests.
+- evidence: `scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt @6a2a467` -> PASS 0 findings; the same scan without `--allow` -> FAIL 3 findings (the test fixture in `tests/unit/test_privacy_scan.py:464` in tree and history, plus the `references/Adapters.md` history blob); `pytest tests/unit/test_privacy_scan.py -q @6a2a467` -> 47 passed
+- falsified by: A second allowlist entry is ever added, or an allow entry masks a credential rule
+- consequences: -
+
+## D-20261019-CEO-8 - Privacy allowlist instead of a history rewrite for the lockfile home paths
+
+- date: 2026-10-19
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0027
+- context: the Reviewer-1 round blocked P-0021 on the Board privacy claim, because `privacy_scan --tree --history` is red at this head and both `make privacy` and the CI privacy job ran that exact command.
+- options considered: (1) filter-repo rewrite of the unpublished local main; (2) rewrite the four node tarball URLs out of package-lock.json; (3) commit an allowlist with one justified entry per rule and pass `--allow` in the Makefile target and the CI job (chosen).
+- decision: pass `--allow .github/privacy-allow.txt` from `make privacy` and the CI privacy job, and bless exactly one pattern there (`^\.pi/agent/npm$`), which covers the quoted pi-subagents install path in `docs/Team/Archive.md:480`, the fixture string in `tests/unit/test_privacy_scan.py:464` and the history blobs of both. Do not rewrite history. The four npm tarball URLs in package-lock.json are **not** scanner findings, so nothing from the lockfile is allowlisted.
+- why: a rewrite would also have to rewrite docs/Team/Archive.md and this file, which quote commit SHAs as audit evidence; rewriting lockfile URLs would break frozen-lockfile integrity, a supply-chain regression, and would have blessed strings the scanner never reports.
+- evidence: @2437e16 with the reflog expired - `privacy_scan --tree --history` -> FAIL 5 findings, all pattern agent-config: docs/Team/Archive.md:480 (tree), tests/unit/test_privacy_scan.py:464 (tree), the same two again as history blobs, references/Adapters.md:41 (history); `privacy_scan --tree --history --allow .github/privacy-allow.txt` -> PASS 0 finding(s); `wc -l .github/privacy-allow.txt` -> 8 lines, 1 pattern; `git show HEAD:.github/privacy-allow.txt | grep -c 'registry\|npmjs'` -> 0, so no lockfile URL is blessed; `grep -c '"resolved"' package-lock.json` -> 4 tarball URLs carrying the author's home path and none of them is reported by the scanner.
+- falsified by: if a scan with `--allow` reports a finding whose pattern is not agent-config, or if a scanner finding ever appears outside that one pattern, this ruling is stale and the gate must be re-ruled.
+- consequences: `make privacy` and CI pass `--allow`; the blessed surface is one pattern that matches 2 tree lines and their history blobs, nothing else; a new secret is fixed at source and never added to the allowlist; the 4 lockfile URLs and the audit quotation at Archive.md:480 stay in place as published metadata and evidence.
+
+## D-20261019-CEO-9 - privacy_scan --history follows the reflog, so amended commits keep the local gate red
+
+- date: 2026-10-19
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0027
+- context: the local privacy gate reported a finding at a revision whose refs were clean, because the scanner walks `--all --reflog` while CI clones only refs.
+- options considered: expire the reflog (chosen, local-only metadata); git gc --prune=now (not needed yet); weaken the scanner to drop --reflog (rejected: the flag exists precisely to catch objects a reset or deleted branch left behind)
+- decision: git reflog expire --expire=now --all clears the orphan; no refs, no commits and no tags were rewritten, and CI is unaffected because a fresh clone has no reflog for the pushed history. Recorded because the divergence is real: the local gate can be red on an orphan while CI is green, and vice versa.
+- why: the local gate went red on docs/Team/Decisions.md:422 after two amends of my own decision commit; the finding source was history:blob commit 8e8f2d1, which is in no ref (git rev-list --all | grep -q ^8e8f2d1 -> no), so only the reflog made it reachable
+- evidence: git rev-list --all --count 131 vs git rev-list --all --reflog --count 166; scripts/privacy_scan.py:843 runs rev-list --objects --all --reflog; before: privacy_scan --tree --history --allow .github/privacy-allow.txt -> FAIL 1 finding (history:blob 8e8f2d1); after reflog expire -> PASS 0 findings
+- falsified by: if a fresh clone of the pushed revision still reports a finding that the local scan calls PASS, the divergence runs the other way and this ruling must be revisited
+- consequences: amending a commit whose message or content carried a secret keeps a local finding until the reflog expires; expire+rescan is the standard close-out step
+
+## D-20261019-CEO-10 - While the review loop is in flight, lanes work in the shared checkout on the checked-out branch and the merge reviewer re-verifies the final head
+
+- date: 2026-10-19
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0027
+- context: -
+- options considered: worktree isolation (refused by the tool: 'worktree isolation requires a clean git working tree'); stash the auditor's file (rejected: touches another lane's work); serialize all lanes after P-0021 merges (rejected: idles three lanes for a full review cycle); shared checkout with per-path commits (chosen)
+- decision: lanes share the main checkout and commit only their own --paths on the branch that is checked out (ceo/t-0027-...); no lane switches branches or stashes; reviewer-2's delta verdict is advisory, and reviewer-1 verifies the final head before merging (Reviewer-only merge).
+- why: worktree isolation was refused for all three layer children because the auditor lane holds an uncommitted tracked file in the shared checkout, and stashing another agent's in-flight work is a scope violation
+- evidence: workflow 7ae77d99: all 3 children failed at 0s with 'worktree isolation requires a clean git working tree'; git status --porcelain @5a44214 -> 'M docs/Team/AuditReport.md' (the only dirty file, owned by the security-auditor lane); engine.py:3059-3061 shows commit stages exactly the paths passed to --paths, so a lane cannot sweep a peer's uncommitted file
+- falsified by: if a lane loses work to git index.lock, or a commit contains a file owned by another lane, this mode is wrong and lanes must be serialized per checkout
+- consequences: commits land on the branch under review after reviewer-2 measured it, so the merge verdict must be recorded against the final head; every lane must use --paths and never --all
+
+## D-20261019-CEO-11 - Reopen a green acceptance record that contradicts its own failing finding, and drop its uncommitted archive entry
+
+- date: 2026-10-19
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0027
+- context: -
+- options considered: leave both records (rejected: the audit gate and the archive would state a false completion); delete the ledger records (refused: the ledger is append-only and tamper-evident); reopen the task and drop the uncommitted archive line (chosen: no committed evidence is altered, the redo will write a fresh entry)
+- decision: Set reviewer T-0001 back to todo and restore the uncommitted docs/Team/Archive.md entry it had appended; the ledger records (#0495 fail on the developer PR, #0501 pass on the acceptance task) and the task evidence are kept unchanged.
+- why: the acceptance task was marked done/passed with evidence that itself documents a blocking defect (archive merge sha never reaches a commit, second merge dies) on the very deliverable it accepted; audit flagged it as done-without-evidence, and a green archive entry over a red deliverable is a fabricated-completion risk
+- evidence: teamwork.py audit @6c8d818 before -> 'done without evidence (fabricated-completion risk): reviewer T-0001'; task set reviewer T-0001 --status todo -> rc 0, ledger #0515; git status --porcelain before the restore -> ' M docs/Team/Archive.md' (the appended '## T-0001 Acceptance pass over the M8 context-economy change' block, never committed); after -> 0 lines
+- falsified by: if an acceptance record can pass while the PR it covers is changes-requested, this decision is unnecessary and should be reversed
+- consequences: the acceptance pass over M8 must be redo ne after P-0022 merges; no other role may mark its own acceptance done while the covered PR is red

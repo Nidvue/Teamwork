@@ -5,19 +5,28 @@ summary plus the blocker list.
 
 Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md)
 
-## Snapshot (2026-10-19, `main` @ `ae80950`)
+## Snapshot (2026-10-19, `main` @ `8f210bc`)
 
-- Milestone: M6 evidence packets + repro gate closed (M1-M5 delivered; `v1.0.2` is
-  the latest release); the last record pass is in review on P-0019.
-- Local gate: `pytest -q` -> 384 passed, 1 skipped, coverage 67.52% (floor 55%,
-  enforced in `pyproject.toml` and `ci.yml`). The local skip is the console-script
-  acceptance test (covered by `verify_release.py`).
-- Privacy: `privacy_scan.py --tree --history` -> PASS, 0 findings
-- Links: `teamwork.py links` -> 0 problems
-- Gate: `teamwork.py audit` -> 0 problems and `teamwork.py loop` -> STOP once
-  P-0019 merges; the closing export is `docs/Team/AuditManifest.json` (chain
-  verified, exported from a clean tree, four pinned artifacts plus the ledger
-  head)
+Gates below are re-measured on the **P-0021 branch head** (see `pr list P-0021`
+for the sha), not on `main`: that head differs from `8f210bc` only by this records
+pass, and a merge changes no measured file, so the same commands reproduce on the
+merge commit.
+
+- Milestone: M6 (evidence packets + repro gate) and M7 (reviewer fan-out + claims)
+  are closed; `v1.0.2` is the latest release.
+- Local gate: `pytest -q --cov=teamwork` -> 397 passed, 1 skipped, coverage 68.83%
+  (floor 55%, enforced in `pyproject.toml` and `ci.yml`). The local skip is the
+  console-script acceptance test (covered by `verify_release.py`).
+- Privacy: `privacy_scan.py --tree --history --allow .github/privacy-allow.txt`
+  -> PASS, 0 findings. Without `--allow` the same scan reports 3 findings: the
+  quoted host install path survives in unreachable-but-reachable history, so one
+  justified entry keeps the append-only history verifiable
+  ([SECURITY](../../SECURITY.md), `docs/Team/Decisions.md` 2026-10-19).
+- Links: `teamwork.py links` -> 0 problems (67 markdown files, 321 internal links)
+- Gate: `teamwork.py audit` -> 4 problems, all of them this in-flight PR; and
+  `teamwork.py loop` -> CONTINUE while P-0021 is unmerged, STOP once it lands.
+  The closing export is `docs/Team/AuditManifest.json` (chain verified, exported
+  from a clean tree, four pinned artifacts plus the ledger head)
 - Remote: `origin/main` is behind the local merges until the Release Engineer
   pushes the reviewed revision; CI on the pushed SHA is the certification step.
 
@@ -25,7 +34,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Architecture](Architecture
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0026 close the M6 records | P2 | in review (P-0019) | `Plan.md`, `Board.md`, `AuditManifest.json` |
+| ceo | T-0027 close the M7 records | P1 | in review (P-0021) | `Plan.md`, `Board.md`, `AuditManifest.json` |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
@@ -54,7 +63,8 @@ created so Dependabot can label future PRs.
 | M4 publish | done | releases `v1.0.0`, `v1.0.1`, `v1.0.2` with wheel, sdist, `SHA256SUMS`, SBOM |
 | M5a engine split + Windows green | done | commits `c8fb469`, `f2e3b5a`, `b7fe03b`; CI `39173857076` |
 | M5b dependency upkeep + governance refresh | done | `9b56f1b` (T-0014), `1d49c21` (T-0015), `4cd8afc` (T-0016) |
-| M6 evidence packets + repro gate | done | T-0020..T-0025, `docs/Team/Archive.md`, merge `3934690` |
+| M6 evidence packets + repro gate | done | T-0020..T-0026, `docs/Team/Archive.md`, merge `479742d` |
+| M7 review fan-out + claims | done | Developer T-0001, merge `8f210bc`, 10 new unit tests |
 
 ## Blocked
 
