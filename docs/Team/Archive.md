@@ -4152,3 +4152,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff --stat main...489c946 -> .github/workflows/release.yml + tests/unit/test_release_workflow.py only; the defect reproduces on release run 41439789453 (publish step printed 'published @nidvue/teamwork@1.5.1' and the registry now serves 1.5.1 with gitHead 530bc13, but the verify step hit E404 at 61 s and exited 1); the fix sets the verify budget to 12x20 s = 240 s and the new test reads the step's own ATTEMPTS/RETRY_SECONDS and refuses <180 s; pytest -q tests/unit/test_release_workflow.py tests/integration/test_release_workflow_flow.py @489c946 -> 70 passed; reverting to 4x20 s -> test_the_npm_verify_window_outlasts_registry_propagation failed (non-vacuous); yaml.safe_load(release.yml) -> ok; ruff check + format --check -> clean; no other workflow behavior changed and the step still fails closed after the budget.
 - findings history: 
 - branch / merge: developer/t-0049-fix-release-the-npm-verify-window-must-o / 982dfa6
+
+## T-0050 · fix(release): the npm verify step must read the flat dist.integrity field npm prints  (developer)
+- date: 2026-11-02
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: release
+- self-check: [pass] Re-read the verify step and the test. npm prints the dotted field as a flat key (measured: keys ['dist.integrity','gitHead','version']; the nested shape never appears), so the old nested-only read made every visible version fail with 'dist.integrity is None'. The new read takes the flat key first and keeps the nested shape as a fallback; the behavioral test executes the embedded script against a fake npm that returns exactly the flat payload, and restoring the old read kills it. The version/gitHead checks and the bounded retry are unchanged. | test: pytest -q tests/unit/test_release_workflow.py @a6b93b3 -> 31 passed; nested-only mutant -> test_the_npm_verify_reads_the_flat_dist_integrity_field failed, fixed -> passed; ruff check + format --check -> clean | preflight: PF-a35172040131 @a6b93b3b7e6e (7 checks, 0 failed)
+- author evidence: commit a6b93b3
+- reviewer evidence: git diff --stat main...a6b93b3 -> .github/workflows/release.yml + tests/unit/test_release_workflow.py only; the defect reproduces on release run 41443890248 (idempotent path found 1.5.1, then '##[error]dist.integrity is None' -> exit 1); npm view @nidvue/teamwork@1.5.1 version dist.integrity gitHead --json returns flat keys ['dist.integrity','gitHead','version'] and no nested 'dist' (measured); the fix reads the flat key first with the nested shape as fallback; pytest -q tests/unit/test_release_workflow.py @a6b93b3 -> 31 passed; restoring the nested-only read -> test_the_npm_verify_reads_the_flat_dist_integrity_field failed (non-vacuous); yaml.safe_load -> ok; ruff check + format --check -> clean; the version/gitHead checks and the 240 s retry window are unchanged.
+- findings history: 
+- branch / merge: developer/t-0050-fix-release-the-npm-verify-step-must-rea / bce6f07
