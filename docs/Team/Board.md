@@ -100,6 +100,7 @@ under two roles is two tasks.
 | ceo | T-0015 | records | review | P-0016 | - |
 | ceo | T-0016 | team-docs | done | P-0018 | a88e9d2 |
 | ceo | T-0017 | team-docs | done | P-0028 | ebc0c8b |
+| ceo | T-0018 | team-docs | done | P-0031 | 079ee66 |
 | developer | T-0001 | - | review | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
