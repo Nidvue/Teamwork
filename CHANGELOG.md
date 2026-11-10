@@ -9,7 +9,43 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [1.4.4](https://github.com/Nidvue/Teamwork/compare/v1.4.3...v1.4.4) - 2026-10-31
+
+Compares from the previous tag, `v1.4.3`.
+
+### Changed
+
+- `version.py` and `CITATION.cff` move to `1.4.4` on `main` immediately after the
+  `v1.4.3` tag. The release consistency rule R2 compares the checked-out version
+  with every tag reachable from it, so the next commit on `main` - or on any branch
+  cut from it - would be drift without this bump, because `v1.4.3` would no longer
+  be older than `HEAD`. The release order this keeps: tag the payload commit, then
+  bump on `main`.
+- **Still owed: the npm publish for `v1.4.3`.** Its run published the GitHub Release
+  and failed the `npm` job with `ENEEDAUTH` because no publisher credential exists -
+  neither a registered Trusted Publisher nor an `NPM_TOKEN` secret. The two remedies
+  and the re-run are recorded in `docs/Team/Release.md`; this bump changes nothing
+  about what is already published.
+
+
+## [1.4.3](https://github.com/Nidvue/Teamwork/compare/v1.4.2...v1.4.3) - 2026-10-31
+
+Compares from the previous tag, `v1.4.2`.
+
+### Added
+
+- **The Team Leader role.** One Team Leader per independent feature, with the
+  squad attached to it (`instance add <role> --under`), its own `feature` test
+  layer, and the feature record in `docs/Team/Features.md`
+  (`teamwork.py feature add|set|list|check`, contract in `Architecture.md` 13).
+  The CTO is its single line manager; the CEO+CTO+CFO board holds decision rights
+  over the feature, never a second reporting line; the Security Auditor is never
+  attached, because it audits the lane it would report to. The role enters the
+  `slim`, `standard` and `full` rosters (startup read now 340 / 473 / 774 kB).
+- **The engine surface for feature teams.** `feature add|set|list|check` with the
+  five rules a feature must satisfy before it leaves `proposed` (`feature set
+  <F-nnnn> --state ready` refuses an unfrozen interface), `task add --feature`,
+  per-instance team attachment, and the `feature` test layer in the matrix.
 
 ### Changed
 
@@ -21,13 +57,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   merge, a right-sized roster and small slices. Measured basis, at one ledger cut
   (`n=1615`): 44 review failures, 66 review targets of which 26 needed more than
   one verdict and 11 needed three or more; the mechanical share is a contested
-  16-24 of 44 and is measured prospectively by the `mechanical:` field. Generated
-  artifacts rendering at the merge is a target owned by T-0043, not current
-  behaviour. `teamwork.py preflight` makes rules 6-8 executable, and a review fail
-  now records whether it was `mechanical`. Text: `references/Roles.md`, SKILL.md
-  5i, the AGENTS.md managed block. Feature teams (Team Leader per independent
-  feature, shared Architect and Project Manager) are the structure it is designed
-  for; the engine surface lands with T-0042.
+  16-24 of 44 and is measured prospectively by the `mechanical:` field.
+  `teamwork.py preflight` makes rules 6-8 executable, and a review fail now
+  records whether it was `mechanical`. Text: `references/Roles.md`, SKILL.md 5i,
+  the AGENTS.md managed block.
+- **Generated artifacts render at the merge.** `pr merge` re-renders
+  `docs/Team/Board.md` from the role queues on the base branch and commits it as
+  the Reviewer, so no branch carries a board render into a merge; a pass also
+  probes mergeability first and refuses a revision that does not merge, and the
+  durable `review.pass` detail leads with any forced override (T-0043).
 - **The Reviewer stops re-running what an independent lane already proved.**
   Independence is about the author, so a `tests run` record that is passing at the
   revision under review, run by a role other than the author's, is now a **credit**:
@@ -42,14 +80,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `C-REVIEW-NOCREDIT` (a recent window of passes that cited nothing). Contract: the
   *Review economy* section of `roles/reviewer.md` and 5h in `SKILL.md`; the author's
   side (`tests run --rev` makes a result creditable) is in `references/Testing.md`.
-
-## [1.4.3](https://github.com/Nidvue/Teamwork/compare/v1.4.2...v1.4.3) - 2026-10-29
-
-Compares from the previous tag, `v1.4.2`.
-
-### Changed
-
-- `version.py` and `CITATION.cff` move to `1.4.3` on `main` immediately after the
+- **`clean` is scoped to the caller's lane.** `clean` removes only that lane's temp
+  files by default and `--team-wide` restores the workspace-wide sweep, so one lane
+  can no longer reclaim a peer's worktree; the contract is stated on the same six
+  public surfaces that used to describe the old behaviour.
+- **The push to a Windows-capable gate.** The shipped pi-package build reports its
+  size from the standard library instead of shelling out to `du`, the preflight and
+  traceability tests no longer launch POSIX-only commands, and
+  `tests/unit/test_portability.py` checks every shipped Python root rather than one.
+- **A board a fresh project can bootstrap.** `init` writes a board its own renderer
+  accepts, every staffable role has a board spelling, and the refusal for a board
+  that lost its tables is unchanged.
+- **Documentation truth.** AGPL-3.0-or-later is stated everywhere the tree grants
+  it, the skill installs inside the project rather than beside it, and `--limit`
+  is documented as capping the paths printed rather than the files removed.
+- **Hygiene and contrast.** Decorative banner rules and orphaned comments are gone
+  from `src/` and `scripts/`, and the banner's CEO connectors are drawn at full
+  opacity (2.78:1 -> 3:1 or better) so the mark is legible.
+- `version.py` and `CITATION.cff` moved to `1.4.3` on `main` immediately after the
   `v1.4.2` tag. The release consistency rule R2 compares the checked-out version
   with every tag reachable from it, so the next commit on `main` - or on any branch
   cut from it - would be drift without this bump, because `v1.4.2` would no longer
