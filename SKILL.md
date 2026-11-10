@@ -244,18 +244,7 @@ python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5
 
 `pulse` prints idle lanes, ready work and a dispatch plan; `--commit` applies it and pins review claims so lanes never review the same deliverable. Exit 3 means "nothing to dispatch" - then check blocked tasks and disputes. A review claim is a renewable profile lease (`ReviewLeaseMinutes`, default 20; x1 fast, x2 standard, x4 deep), separate from the 90-minute provider-slot TTL: verdict with `--result`, extend with `--renew`, or `--release`.
 
-**The engine runs the lanes; no host plugin is needed, and the wave is sized by the work.** `swarm run` measures what is in hand from the records - every ready task and unclaimed review, weighted 1 for prose, 2 for code, 3 for a security/release/data unit, +1 for a bug - and starts `ceil(weight / 3)` lanes, bounded by the free provider slots and `LaneMax`. One prose task runs one lane; eight code tasks fan out to six. It re-measures every wave, so it scales up when the board grows and down (to zero) when it drains, and each lane's budget follows its unit: 10 tool calls/10 min for prose, 16/25 for code, 24/40 for a deep unit. An unfinished assignment gets a bounded retry, a claim with no live lane behind it (for example after `pulse --commit`) is adopted instead of re-planned, a deliverable in `review` becomes a Reviewer lane, and `lane status|logs|stop|reap` is the whole inspection surface:
-
-```sh
-python3 "$SKILL/scripts/teamwork.py" swarm run --dry-run   # the measured policy, start nothing
-python3 "$SKILL/scripts/teamwork.py" swarm run             # waves until nothing is runnable
-python3 "$SKILL/scripts/teamwork.py" pulse --commit --spawn  # one wake: dispatch, then run it
-python3 "$SKILL/scripts/teamwork.py" lane status --live
-```
-
-`--lanes N` caps the policy, `--fixed --lanes N` turns it off, and `LaneMax` bounds it in `Settings.json`. The measurement is printed as `## complexity (score N -> band)` with the factors that produced the lane count, so the decision is auditable rather than a guess.
-
-An instance is **busy** only while it holds a slot, a `doing`/`selfcheck` task, or a live review claim; everything else is idle and must be fed. Interval: `PulseMinutes` (default 5). Instances also self-serve with `task next` between pulses. Disarm the schedule when the team closes. The runtime, its settings (`LaneMinutes`, `LaneAttempts`, `LaneCommand`) and the per-host launcher table are in `references/Concurrency.md` and `references/Adapters.md`.
+An instance is **busy** only while it holds a slot, a `doing`/`selfcheck` task, or a live review claim; everything else is idle and must be fed. Interval: `PulseMinutes` (default 5). Instances also self-serve with `task next` between pulses. Disarm the schedule when the team closes. The scheduler adapter per host, and the pulse prompt, are in `references/Adapters.md`.
 ### 5c. Push in stages, and certify both signals
 
 - **Release Engineer - push after review, stage by stage.** Only the Release Engineer pushes, and only after the Reviewer passed that revision with no open finding. **A stage ends with a push, not with a merge**: push each reviewed and merged stage instead of batching, so the remote never drifts far from local `main`. Before the push, build, tests, `privacy_scan.py --tree --history` and the link check are green on exactly that revision; after it, watch CI and confirm it is green **on that SHA**. A red run is routed from the log (code -> Developer, test -> Tester, contract -> Architect, workflow/packaging/flake -> Release Engineer, scope -> CEO) and re-run after the fix. A code-scanning alert is the same gate: `teamwork code-scanning` reads the open alerts, an `error`/`critical`/`high` one is red on the shipped revision, and `--commit` files a `P0` task with the file's owner. Force-push and published-history rewrites need the CEO's authorization; tags and releases are the CEO's step, prepared by the Release Engineer.
@@ -267,7 +256,7 @@ Both duties are evidence: `tests plan` and the task record name the local result
 ### 5d. Any agent host, any git host
 
 - **Agent host.** The engine, workspace, criteria, two-stage gate, ledger and test matrix are host-independent. Only six
-  operations need a mechanism - spawn a teammate, delegate one-shot work, message an agent, inspect state, re-wake on a schedule, close the team - and the engine provides all six itself: `lane start|list|status|logs|wait|stop|reap`, the `Inbox.md` mailbox, and `swarm run`. A host is only the CLI that turns a packet into an agent run; the launcher table, the `LaneCommand` template and the degraded modes are in `references/Adapters.md`. Name the operation, never a host tool: never hard-code a host tool in a normative step and never fake one the host lacks. With no launcher the protocol still completes - one agent wearing the hats sequentially, with the same gates.
+  operations need a host mechanism - spawn a teammate, delegate one-shot work, message an agent, inspect state, re-wake on a schedule, close the team. Name the operation, then use the adapter in `references/Adapters.md` (a teammate tool, a host CLI in a `bash` job, or the files themselves). Never hard-code a host tool in a normative step and never fake one the host lacks: record the degraded mode. With no scheduler or teammate tool the protocol still completes - one agent wearing the hats sequentially, with the same gates.
 - **Git host.** The Release Engineer guarantees repository and CI integrity on any host: a protected default branch, **no force-push**, no deletion, required status checks on the exact revision, at least one non-author approval, the host merge button off - the Reviewer merges locally and the source branch is deleted (`pr merge --squash` is the one-commit path) - protected `v*` tags created only by the CEO, and least-privilege CI with no secret in the tree. Record the actual settings from the host API and re-read them to detect drift; an unprotected setting is a defect on par with a red build. Per-host mapping: `references/Remotes.md`.
 ### 5e. Keep the installed skill on the remote's `main`
 
@@ -389,7 +378,7 @@ Completion gate - all of:
 - [ ] Docs match merged code; no scratch or temp files; nothing unnecessary committed.
 - [ ] Final report: deliverable, how to run it, evidence table, limitations, follow-ups.
 
-Then end every live lane with `lane stop <run>` (`lane reap` clears a lane that died without an outcome), confirm `loop` still reports STOP on the final head, and deliver the report.
+Then end every live lane with the host's stop action, confirm `loop` still reports STOP on the final head, and deliver the report.
 ## Reference files (read on demand)
 
 `SKILL.md` is the operating procedure; policy detail lives in `references/`. Read the one you need instead of the whole skill.
@@ -507,14 +496,10 @@ python3 $S skill share tw-<kebab-name> --by developer-1
 python3 $S dispute open --by developer-1 --against architect --topic "..." --evidence "..."
 python3 $S slot acquire --agent developer-3 --provider deepseek --task T-0012
 
-# run the lanes and close
-python3 $S swarm run --dry-run && python3 $S swarm run && python3 $S lane status --live
-python3 $S lane stop L-0001 --reason "<why>" && python3 $S lane reap
-
 # close and audit
 python3 $S board && python3 $S pulse --commit && python3 $S parallel
 python3 $S coordination --strict && python3 $S audit && python3 $S links && python3 $S loop
 python3 $S ledger verify && python3 $S ledger export && python3 $S trace T-0007
 ```
 
-Team lifecycle: `lane start` staffs a lane, `Inbox.md` coordinates it, `lane status|logs` inspects it, `swarm run` (or `pulse --commit` per wake) feeds idle lanes, and `lane stop` closes them. Per-host launchers and the `LaneCommand` template: `references/Adapters.md`.
+Team lifecycle: the teammate tool to staff a lane, the reply/steer channel to coordinate, the status view to inspect, the scheduler for the pulse and the stop action to close. Per-host names: `references/Adapters.md`.
