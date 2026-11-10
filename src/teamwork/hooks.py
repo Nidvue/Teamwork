@@ -30,12 +30,14 @@ from .config import (
     LFS_MAX_BYTES,
 )
 from .gitutil import (
+    HooksDirUnresolved,
     current_branch,
     is_binary_content,
     lfs_text_mismatch,
     lfs_tracked,
     run_git,
 )
+from .gitutil import hooks_dir as resolved_hooks_dir
 from .io import die, write_lf
 from .layout import project_path
 from .names import resolve_role, role_identity
@@ -74,12 +76,17 @@ def git_root(args) -> Path:
 
 
 def hooks_dir(project: Path) -> Path:
-    """``git rev-parse --git-path hooks``, resolved against the project root."""
-    result = run_git(project, "rev-parse", "--git-path", "hooks")
-    if result.returncode != 0 or not result.stdout.strip():
-        die(f"cannot resolve the git hooks directory for {project}: {result.stderr.strip()}")
-    located = Path(result.stdout.strip())
-    return located if located.is_absolute() else (project / located).resolve()
+    """The installer's hooks directory: resolved, and loud when git cannot answer.
+
+    Delegates to :func:`teamwork.gitutil.hooks_dir`, the single implementation of
+    this contract; the harness reads the same function and turns its failure into
+    a reported absence. The installer writes into the directory, so a failure here
+    must stop the run - with the message it has always printed.
+    """
+    try:
+        return resolved_hooks_dir(project)
+    except HooksDirUnresolved as exc:
+        die(str(exc))
 
 
 def is_managed(path: Path) -> bool:

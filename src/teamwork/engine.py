@@ -3271,7 +3271,7 @@ def cmd_identity(args) -> int:
         project = project_of(root)
         return guard_committer_identity(project, args.rev_range or "HEAD")
     if args.audit:
-        project = project_of(root)
+        project = audit_repository(root, args)
         return audit_commit_identities(
             project,
             args.rev_range or default_audit_range(project),
@@ -3322,6 +3322,26 @@ _RE_FORGE_COMMITTER_EMAIL = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\
 def canonical_identities() -> dict:
     """email -> display name for every role the team may commit as."""
     return {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
+
+
+def audit_repository(root: Path, args) -> Path:
+    """The repository whose history ``identity --audit`` must read.
+
+    The audit is about the branch the actor is working on, and a linked lane
+    worktree is its own work tree with its own ``HEAD``. Resolving against the
+    primary checkout (``project_of(root)``) made a worktree invocation audit
+    *main's* history and report a vacuous "0 problems" - the exact false green the
+    same command is used to avoid. So: an explicit ``--project`` wins, otherwise
+    the work tree git finds from the current directory, otherwise the project that
+    owns the team tree (the historical answer, kept for a cwd inside no repository).
+    """
+    if getattr(args, "project", None):
+        return project_path(args)
+    here = Path.cwd().resolve()
+    result = run_git(here, "rev-parse", "--show-toplevel")
+    if result.returncode == 0 and result.stdout.strip():
+        return Path(result.stdout.strip()).resolve()
+    return work_repo(root, here)
 
 
 def default_audit_range(project: Path) -> str:
@@ -3403,6 +3423,10 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     rather than failed, while a team-domain author with the wrong role still
     fails.
     """
+    # Name the repository before anything else: the same command in a lane worktree
+    # and in the primary checkout read different histories, so a reader who cannot
+    # see which one was read cannot tell a clean branch from an unaudited one.
+    print(f"# Repository read: {project}")
     if rev_range.startswith("-"):
         print(f"teamwork: invalid revision range {rev_range!r}")
         return 2
