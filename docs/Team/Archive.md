@@ -5751,3 +5751,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-2's own run @d188f3e in the lane worktree: pytest tests/unit/test_privacy_scan.py tests/unit/test_hooks.py -> 212 passed in 3.39s; scan_staged over a 1.1 MB staged blob -> 0.02 s, where the same call did not finish in ten minutes before the two bounded patterns; ruff check + format --check -> clean; mypy -> Success. Read the diff: check_commit scans the index (not the work tree) through the shipped scanner, prints rule/severity/location and never the value, names the allowlist and the fix, and refuses when the scanner cannot load - the fail-closed direction. Requirement: S-3 closed, and the gate is usable on every commit. Conformance: four cases plus the existing 162 privacy tests.
 - findings history: 
 - branch / merge: developer/t-0022-the-pre-commit-gate-installs-no-privacy / pending
+
+## T-0055 · The new pre-commit privacy gate refused the merge's own board render: the high-entropy rule matches this repository's own .pi/Teamwork/... path because _PATH_SEGMENT rejects a leading dot, so a record quoting a deep evidence path reads as a secret  (developer)
+- date: 2026-11-08
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: privacy
+- self-check: [pass] Re-read the two-line scanner diff. Boundary: a segment may now start with a dot, and the name-word split ignores that dot; a base64 run containing a slash is still reported (the existing test pins it); a path with a leading dot and no extension still reads as a path. Scope: one regex class, one lstrip, board render. Hostile reviewer: 'allowing a leading dot weakens the exemption' - the exemption still requires every segment to be a word name and the match to be a cut-off piece of the token, which a base64 run is not. | test: scan_tree + scan_staged with the allow file @b7aafa7 -> 0 findings (1 at b90089c); pytest tests/unit/test_privacy_scan.py -> 162 passed | preflight: PF-1003f0b7bf8c @b7aafa798ee8 (7 checks, 0 failed)
+- author evidence: commit b7aafa7 @b7aafa7 -> one commit over main
+- reviewer evidence: Reviewer-3's own run @b7aafa7: scan_tree and scan_staged with the allow file -> 0 findings (the same calls report 1 high-entropy-secret at docs/Team/Decisions.md:2382 at b90089c); pytest tests/unit/test_privacy_scan.py -> 162 passed, including the case that a base64 run containing a slash is still reported. Read the diff: a path segment may begin with a dot and the name-word split strips it, so this repository's own .pi/Teamwork/... layout reads as a path; the exemption still requires every segment to be a word name and the match to be a cut-off piece of the token.
+- findings history: 
+- branch / merge: developer/t-0055-the-new-pre-commit-privacy-gate-refused / 0d913cf

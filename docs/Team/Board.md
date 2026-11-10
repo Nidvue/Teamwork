@@ -126,7 +126,7 @@ under two roles is two tasks.
 | developer | T-0019 | - | done | - | - |
 | developer | T-0020 | - | done | - | - |
 | developer | T-0021 | - | done | - | - |
-| developer | T-0022 | - | doing | - | - |
+| developer | T-0022 | hooks | done | P-0054 | b90089c |
 | developer | T-0023 | privacy | done | P-0008 | 206c099 |
 | developer | T-0024 | - | dropped | - | - |
 | developer | T-0025 | - | done | - | - |
@@ -159,6 +159,7 @@ under two roles is two tasks.
 | developer | T-0052 | audit | done | P-0048 | c95afdf |
 | developer | T-0053 | preflight | done | P-0049 | 38112f9 |
 | developer | T-0054 | audit | done | P-0050 | 17bd3a9 |
+| developer | T-0055 | privacy | done | P-0055 | 0d913cf |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -182,7 +183,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
