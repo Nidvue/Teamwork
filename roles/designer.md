@@ -219,7 +219,7 @@ recorded outcome; inventing an asset, or blocking your lane for one, is not.
 teamwork.py imaging probe @<rev> -> provider=local model=qwen-image-2.1
 qimg t2i "<prompt>" --size 1280x640 -n 4 --seed 20261017 @<rev> -> 4 candidates,
   reviewed 4/4, selected social-2.png, improved (1 round: palette + crop),
-  integrated assets/social-preview.png (1280x640, 516 KiB)
+  integrated assets/social-preview.png (1280x640, 71 004 B)
 python3 scripts/privacy_scan.py --tree @<rev> -> 0 findings
 ```
 

@@ -14,7 +14,7 @@ version: 1.4.3
 date-released: "2026-10-29"
 url: "https://github.com/Nidvue/Teamwork"
 repository-code: "https://github.com/Nidvue/Teamwork"
-license: AGPL-3.0-only
+license: AGPL-3.0-or-later
 keywords:
   - multi-agent
   - autonomous-agents
