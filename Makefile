@@ -76,8 +76,8 @@ sync-skill: ## Mirror this checkout into the installed skill directory.
 sync-check: ## Fail when the installed skill differs from this checkout (run `make sync-skill` first).
 	$(PYTHON) scripts/sync_skill.py --check
 
-privacy: ## Scan the tree, the full git history and the team memory stores for private data.
-	$(PYTHON) scripts/privacy_scan.py --tree --history --stores --allow .github/privacy-allow.txt
+privacy: ## Scan the working tree and full git history for private data.
+	$(PYTHON) scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt
 
 links: ## Check markdown links, URLs and back-links.
 	$(PYTHON) scripts/teamwork.py links

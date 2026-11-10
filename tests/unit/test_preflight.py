@@ -551,14 +551,16 @@ def test_a_hanging_gate_is_red_with_its_budget_named(cli, project, capsys, monke
     check = engine._preflight_gate(root, project, run=True)
 
     assert check.status == engine.PREFLIGHT_FAIL, check.detail
-    assert check.detail == f"{gate} -> no exit: still running after 1s", check.detail
+    assert check.detail == f"{gate} -> no exit in the project checkout: still running after 1s", (
+        check.detail
+    )
     assert "a gate that hangs is not a pass" in check.fix, check.fix
 
     code, out = preflight(cli, capsys, project, "--run")
 
     assert code == 1, out
     assert re.search(r"^- fail\s+gate\s+", out, re.MULTILINE), out
-    assert f"{gate} -> no exit: still running after 1s" in out
+    assert f"{gate} -> no exit in the project checkout: still running after 1s" in out
     assert "(gate)" in out
 
 
@@ -982,3 +984,60 @@ def test_a_recorded_digest_is_not_a_claim() -> None:
     }
     check = engine._preflight_evidence(Path("/nonexistent"), task)
     assert check.status == engine.PREFLIGHT_OK
+
+
+def test_the_gate_runs_in_the_lane_worktree_and_names_its_tree(cli, project, capsys):
+    """The gate measures the tree that holds the branch, not the invoking checkout.
+
+    A lane that runs `preflight --run` from the main checkout while its work lives
+    in `Runtime/Worktrees/<Instance>/<T-id>` measured the wrong tree, so a syntax
+    error in the lane passed its own gate (T-0058). `gate.py` exists only in the
+    worktree: run from the checkout the interpreter cannot open it (exit 2), run
+    from the worktree it exits 0, so the reported exit status proves the cwd.
+    """
+    root = init_team(cli, project)
+    assert cli("--project", project, "task", "add", "developer", "a lane deliverable") == 0
+    assert cli("--project", project, "task", "next", "developer-1") == 0
+    started = cli(
+        "--project",
+        project,
+        "branch",
+        "start",
+        "--agent",
+        "developer-1",
+        "--task",
+        "T-0001",
+        "--worktree",
+    )
+    assert started == 0
+    worktree = engine.lane_worktree(root, "developer-1", "T-0001")
+    assert worktree.is_dir()
+    (worktree / "gate.py").write_text("", encoding="utf-8")
+    assert not (project / "gate.py").exists()
+    gate = f'"{sys.executable}" gate.py'
+    settings = root / engine.F_SETTINGS
+    settings.write_text(json.dumps({"PreflightCommand": gate}) + "\n", encoding="utf-8")
+
+    _code, out = preflight(cli, capsys, project, "--run")
+    label = worktree.relative_to(project)
+    assert f"{gate} -> exit 0 in {label}" in out, out
+
+
+def test_a_recorded_worktree_that_is_gone_is_not_a_tree_to_run_in(project):
+    """The gate falls back to the checkout, never to a path this host does not have."""
+    assert engine._gate_tree(project, project, {}) == project
+    assert engine._gate_tree(project, project, {"worktree": ""}) == project
+    assert engine._gate_tree(project, project, {"worktree": str(project / "gone")}) == project
+    assert engine._gate_tree(project, project, {"worktree": str(project)}) == project
+
+
+def test_a_recorded_worktree_resolves_from_a_foreign_cwd(project, tmp_path, monkeypatch):
+    """A stored worktree path is not read against whatever cwd the lane happened to have."""
+    root = project / ".pi" / "Teamwork" / "Teams" / "SampleProject"
+    tree = root / "Runtime" / "Worktrees" / "developer-1" / "T-0001"
+    tree.mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    stored = "Runtime/Worktrees/developer-1/T-0001"
+    assert engine._gate_tree(root, project, {"worktree": stored}) == tree
+    assert engine._gate_tree(root, project, {"worktree": str(tree)}) == tree
+    assert engine._gate_tree(root, project, {"worktree": "Runtime/gone/T-0001"}) == project

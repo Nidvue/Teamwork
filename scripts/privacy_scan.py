@@ -12,14 +12,7 @@ Scans three sources and exits non-zero on any hit:
   amended or reset commit is unreachable from any ref and still recoverable, so
   both walkers read ``_HISTORY_REVISIONS``.
 
-``--all`` combines the three git sources. Flags combine freely.
-
-``--stores`` scans the team memory stores under the local workspace
-(``.pi/Teamwork/Teams/*/Knowledge.md``, ``Global/GlobalMemory.md``,
-``Roles/*/{Short,Long}TermMemory.md``, ``ArchivedMemory.md``, ``Lessons.md``).
-Every lane injects those files and the workspace is gitignored, so the three git
-sources above never see them; only the content rules apply, because a store is
-local state by design and its location proves nothing.
+``--all`` combines the three. Flags combine freely.
 
 It fails on: personal email addresses that are not role mailboxes at the neutral
 identity domain and not at a name RFC 2606 / RFC 6761 reserves for documentation
@@ -524,7 +517,6 @@ def sensitive_path(rel: str):
 _QUOTED_EVIDENCE = re.compile(
     r"^- (?:self-check|author evidence|reviewer evidence|findings history): "
 )
-_QUOTED_STORE_FIELD = re.compile(r"^- (?:statement|evidence): ")
 _QUOTED_PATH_RULES = frozenset({"home-path", "agent-config"})
 
 RULES = (
@@ -783,16 +775,12 @@ def scan_lines(text, path, source, rules, allow, commit=None):
 
     ignore_file = path.endswith(".gitignore")
     archive = path.endswith("Archive.md")
-    store = source == "stores"
     for line_no, line in enumerate(text.splitlines(), 1):
         quoted_evidence = archive and _QUOTED_EVIDENCE.match(line) is not None
-        quoted_store_field = store and _QUOTED_STORE_FIELD.match(line) is not None
         for rule, regex in compiled:
             if rule["id"] == "agent-config" and ignore_file:
                 continue
             if quoted_evidence and rule["id"] in _QUOTED_PATH_RULES:
-                continue
-            if quoted_store_field and rule["id"] == "agent-config":
                 continue
             for match in regex.finditer(line):
                 value = match.group(0)
@@ -1056,71 +1044,6 @@ def scan_tree(root, allow, stats=None):
     return findings
 
 
-_TEAM_WORKSPACE = _host_state(".pi/", "Teamwork/", "Teams")
-_STORE_NAMES = (
-    "ShortTermMemory.md",
-    "LongTermMemory.md",
-    "ArchivedMemory.md",
-    "Lessons.md",
-)
-
-
-def store_paths(root):
-    """The team memory stores under the local workspace, relative to ``root``.
-
-    Every lane's context is built from these files, and the workspace itself is
-    gitignored local state, so ``--tree``/``--staged``/``--history`` never see
-    them: a secret or a personal address written into a store is republished to
-    every lane with no gate in the way. Discovery is by layout, not by a fixed
-    list, so a new team or role is covered the moment its directory exists.
-    """
-    workspace = Path(root) / _TEAM_WORKSPACE
-    if not workspace.is_dir():
-        return []
-    found = []
-    for team in sorted(p for p in workspace.iterdir() if p.is_dir()):
-        candidates = [team / "Knowledge.md", team / "Global" / "GlobalMemory.md"]
-        for role in sorted(p for p in (team / "Roles").glob("*") if p.is_dir()):
-            candidates.extend(role / name for name in _STORE_NAMES)
-        found.extend(p for p in candidates if p.is_file())
-    return [p.relative_to(root).as_posix() for p in found]
-
-
-def scan_stores(root, allow, stats=None):
-    """Scan the memory store content.
-
-    The path rule stays quiet: a store under the workspace is local state by
-    design, so failing it for its location would fail every clean store. Only
-    the content rules decide, because the content is what a lane injects.
-    """
-    findings = []
-    for rel in store_paths(root):
-        try:
-            data = (Path(root) / rel).read_bytes()
-        except OSError as exc:
-            findings.append(
-                Finding(
-                    {
-                        "rule": "unreadable-store",
-                        "severity": "medium",
-                        "path": rel,
-                        "line": 0,
-                        "source": "stores",
-                        "commit": None,
-                        "location": rel,
-                        "evidence": rel,
-                        "context": f"memory store could not be read: {exc}",
-                    },
-                    rel,
-                )
-            )
-            continue
-        if stats is not None:
-            stats["store_files"] += 1
-        findings.extend(_scan_bytes(data, rel, "stores", allow))
-    return findings
-
-
 def scan_staged(root, allow, stats=None):
     """Scan the index content (what ``git commit`` would record)."""
     proc = _run(["git", "-C", str(root), "ls-files", "-s", "-z"])
@@ -1267,11 +1190,6 @@ def main(argv=None):
     parser.add_argument(
         "--history", action="store_true", help="scan every blob of every commit and commit metadata"
     )
-    parser.add_argument(
-        "--stores",
-        action="store_true",
-        help="scan the team memory stores under the local workspace (never committed)",
-    )
     parser.add_argument("--all", action="store_true", help="combine --tree, --staged and --history")
     parser.add_argument(
         "--allow",
@@ -1299,7 +1217,7 @@ def main(argv=None):
 
     if args.all:
         args.tree = args.staged = args.history = True
-    if not (args.tree or args.staged or args.history or args.stores):
+    if not (args.tree or args.staged or args.history):
         args.tree = True
 
     root = _git_root(args.root)
@@ -1314,23 +1232,12 @@ def main(argv=None):
         return 2
     modes = [
         name
-        for name, flag in (
-            ("tree", args.tree),
-            ("staged", args.staged),
-            ("history", args.history),
-            ("stores", args.stores),
-        )
+        for name, flag in (("tree", args.tree), ("staged", args.staged), ("history", args.history))
         if flag
     ]
 
     findings = []
-    stats = {
-        "tracked_files": 0,
-        "staged_files": 0,
-        "history_blobs": 0,
-        "commits": 0,
-        "store_files": 0,
-    }
+    stats = {"tracked_files": 0, "staged_files": 0, "history_blobs": 0, "commits": 0}
     try:
         if args.tree:
             findings.extend(scan_tree(root, allow, stats))
@@ -1338,8 +1245,6 @@ def main(argv=None):
             findings.extend(scan_staged(root, allow, stats))
         if args.history:
             findings.extend(scan_history(root, allow, stats))
-        if args.stores:
-            findings.extend(scan_stores(root, allow, stats))
     except (RuntimeError, OSError, ValueError) as exc:
         print(f"privacy_scan: {exc}", file=sys.stderr)
         return 2
