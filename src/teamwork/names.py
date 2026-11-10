@@ -198,12 +198,15 @@ def preset_identity(project=None) -> tuple | None:
     import subprocess
 
     def read(scope: str, key: str) -> str:
-        return subprocess.run(
-            ["git", "config", scope, key],
-            cwd=str(project) if project else None,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
+        try:
+            return subprocess.run(
+                ["git", "config", scope, key],
+                cwd=str(project) if project else None,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        except OSError:
+            return ""
 
     def resolve(key: str) -> str:
         return read("--local", key) or read("--global", key)

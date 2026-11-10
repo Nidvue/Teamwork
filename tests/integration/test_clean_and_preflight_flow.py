@@ -30,6 +30,7 @@ from pathlib import Path
 import pytest
 
 from support import lane_tree
+from teamwork import engine
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENGINE = REPO_ROOT / "scripts" / "teamwork.py"
@@ -168,9 +169,11 @@ def test_the_lifecycle_runs_end_to_end_on_a_real_repository(fixture_project: Pat
 
     committed = commit_widget(fixture_project)
     assert committed.returncode == 0, output(committed)
-    assert "Developer <developer@agents.nidvue.com>" in committed.stdout
+    who = engine.commit_identity("developer", fixture_project)
+    expected = f"{who[0]} <{who[1]}>"
+    assert expected in committed.stdout
     log = git(lane_tree(fixture_project, "T-0001"), "log", "-1", "--format=%an <%ae>|%s")
-    assert log.startswith("Developer <developer@agents.nidvue.com>|feat(widget):")
+    assert log.startswith(f"{expected}|feat(widget):")
     body = git(lane_tree(fixture_project, "T-0001"), "log", "-1", "--format=%B")
     assert "Task: T-0001" in body and "Acting role: Developer" in body
 

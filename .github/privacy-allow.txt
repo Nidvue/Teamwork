@@ -85,3 +85,11 @@
 # escaped dot puts a \ after the name.
 ^C:/Users/x$
 ^C:/Users/x\.py$
+# ^ping\.zhao@nidvue\.com$ - the operator's own identity, opened by
+# D-20261110-CEO-8. The operator directed that every commit be authored as
+# "Ping Zhao <ping.zhao@nidvue.com>" and that the identity be the team's preset
+# author, so the address is a committed constant (src/teamwork/config.py) and the
+# author of every commit above the published tip. It is the operator's identity,
+# not a secret: it is published by this commit and by every release author field.
+# A credential rule is unaffected - this exempts one literal address, nothing else.
+^ping\.zhao@nidvue\.com$

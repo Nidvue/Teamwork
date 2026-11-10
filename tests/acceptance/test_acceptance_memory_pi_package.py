@@ -57,6 +57,18 @@ def index_bytes(block: list[str]) -> int:
     return len("\n".join(block)) + 1
 
 
+def has_team_tree() -> bool:
+    return (
+        any((ROOT / ".pi" / "Teamwork" / "Teams").glob("*/Roles"))
+        if (ROOT / ".pi" / "Teamwork" / "Teams").is_dir()
+        else False
+    )
+
+
+@pytest.mark.skipif(
+    not has_team_tree(),
+    reason="no team tree in this checkout: `load` reads the live stores, and CI has none",
+)
 def test_load_opens_with_the_index_inside_its_cap() -> None:
     out = cli("load", "CEO").stdout
     block = index_block(out)
@@ -65,6 +77,10 @@ def test_load_opens_with_the_index_inside_its_cap() -> None:
     assert index_bytes(block) <= INDEX_CAP
 
 
+@pytest.mark.skipif(
+    not has_team_tree(),
+    reason="no team tree in this checkout: `load` reads the live stores, and CI has none",
+)
 def test_index_and_pack_share_one_injected_budget() -> None:
     out = cli("load", "CEO", "--task", "T-0006").stdout
     index = index_bytes(index_block(out))
@@ -74,6 +90,10 @@ def test_index_and_pack_share_one_injected_budget() -> None:
     assert index <= INDEX_CAP
 
 
+@pytest.mark.skipif(
+    not has_team_tree(),
+    reason="no team tree in this checkout: `load` reads the live stores, and CI has none",
+)
 def test_load_is_deterministic() -> None:
     assert cli("load", "CEO").stdout == cli("load", "CEO").stdout
 

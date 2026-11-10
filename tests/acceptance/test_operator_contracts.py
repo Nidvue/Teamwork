@@ -15,6 +15,7 @@ ci-scope, criteria, identity, ledger, m19-records, security).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -51,6 +52,7 @@ def git_project(tmp_path: Path) -> Path:
         "GIT_AUTHOR_EMAIL": "developer@agents.nidvue.com",
         "GIT_COMMITTER_NAME": "Developer",
         "GIT_COMMITTER_EMAIL": "developer@agents.nidvue.com",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
     }
     assert_ok(cli(project, ["init", "--agents", ROSTER], env=env))
     return project
@@ -117,12 +119,13 @@ def test_identity_audit_refuses_a_personal_author(tmp_path: Path) -> None:
         "GIT_AUTHOR_EMAIL": "ping@operator.example",
         "GIT_COMMITTER_NAME": "Ping Operator",
         "GIT_COMMITTER_EMAIL": "ping@operator.example",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
     }
     subprocess.run(["git", "-C", str(project), "add", "feature.txt"], check=True)
     subprocess.run(
         ["git", "-C", str(project), "commit", "-q", "-m", "chore: hand edit"],
         check=True,
-        env={**personal, "PATH": "/usr/bin:/bin"},
+        env=personal,
     )
     refused = cli(project, ["identity", "--audit", "--range", "HEAD"])
     assert refused.returncode == 1, refused.output

@@ -830,11 +830,13 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
         r"^changeme-placeholder$",
         r"^C:/Users/x$",
         r"^C:/Users/x\.py$",
+        r"^ping\.zhao@nidvue\.com$",
     ]
     for entry in entries:
         assert _is_one_escaped_literal(entry), f"{entry!r} is not one escaped literal"
     assert any("T-0001" in ln for ln in lines if ln.startswith("#"))
     assert any("T-0034" in ln or "archived" in ln for ln in lines if ln.startswith("#"))
+    assert any("D-20261110-CEO-8" in ln for ln in lines if ln.startswith("#"))
 
 
 def test_the_narrowness_check_rejects_loose_entries():
