@@ -92,15 +92,22 @@ Create or update the managed teamwork block in `<project>/AGENTS.md`.
 ### `clean`
 
 ```text
-teamwork clean [--all] [--dry-run] [--limit LIMIT]
-               [--worktrees] [--no-worktrees] [--stale-minutes N]
+teamwork clean [--agent AGENT | --team-wide] [--all] [--dry-run]
+               [--limit LIMIT] [--worktrees] [--no-worktrees]
+               [--stale-minutes N]
 ```
 
 Remove scratch/temp files and reclaim stale worktrees; never touches tracked files.
+One lane is in scope: the lane worktree you run from, or the one `--agent` names.
+From the base checkout no lane owns the tree, so a run that names neither refuses
+with exit 2 and removes nothing; `--agent` with `--team-wide` is refused the same
+way.
 
 | Option | Meaning |
 |---|---|
-| `--all` | Empty `Scratch/` entirely, not only temp patterns. |
+| `--agent` | Clean only this lane's Scratch (default: the lane worktree you run from). |
+| `--team-wide` | Clean every lane's Scratch plus `Global/` and `Roles/`, printing each location before removal; a stray file sitting directly in `Agents/` belongs to no lane and is left alone. |
+| `--all` | Empty the Scratch/ in scope entirely, not only temp patterns; a team-wide run still only removes temp files from `Global/` and `Roles/`. |
 | `--dry-run` | Show what would be removed. |
 | `--limit` | Cap the number of files removed. |
 | `--worktrees` | Reclaim merged, clean worktrees (the default; stated for clarity). |
