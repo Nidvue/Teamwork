@@ -147,25 +147,118 @@ def test_install_is_idempotent(cli, repo, capsys) -> None:
     assert (hook_dir(repo) / "pre-commit").read_text(encoding="utf-8") == first
 
 
-def test_install_refuses_a_foreign_hook_and_touches_nothing(cli, repo, capsys) -> None:
-    foreign = write(hook_dir(repo) / "pre-commit", "#!/bin/sh\necho mine\n")
+def test_install_is_per_stage_so_a_foreign_pre_push_does_not_block_pre_commit(
+    cli, repo, capsys
+) -> None:
+    """F-6: `git lfs install` owns pre-push, and that refused BOTH stages.
+
+    R1 - no commit on the default branch - has no other in-loop enforcement, so a
+    foreign hook on the *other* stage must not be able to keep it off the machine.
+    The old installer validated both stages and wrote neither.
+    """
+    write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho mine\n")
     capsys.readouterr()
 
-    assert cli("--project", repo, "hooks", "install") == 1
-    assert "refusing to overwrite" in capsys.readouterr().err
-    assert foreign.read_text(encoding="utf-8") == "#!/bin/sh\necho mine\n"
-    # All-or-nothing: the second stage must not be written either.
-    assert not (hook_dir(repo) / "pre-push").exists()
+    assert cli("--project", repo, "hooks", "install") == 0
+    out = capsys.readouterr().out
+    assert "pre-commit installed" in out
+    assert "pre-push installed (chained: pre-push.teamwork-foreign)" in out
+    body = (hook_dir(repo) / "pre-commit").read_text(encoding="utf-8")
+    assert config.HOOK_MARKER in body, "the guard for the default branch must be installed"
+
+
+def test_a_foreign_hook_is_preserved_and_chained_instead_of_dropped(cli, repo, capsys) -> None:
+    """F-6: never delete someone else's hook - keep it and run it after ours."""
+    write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho mine\n")
+    capsys.readouterr()
+
+    assert cli("--project", repo, "hooks", "install") == 0
+    preserved = hook_dir(repo) / "pre-push.teamwork-foreign"
+    assert preserved.read_text(encoding="utf-8") == "#!/bin/sh\necho mine\n"
+    assert os.access(preserved, os.X_OK), "a preserved hook that cannot execute is a refusal"
+    body = (hook_dir(repo) / "pre-push").read_text(encoding="utf-8")
+    assert config.HOOK_MARKER in body
+    assert 'chained="$hook_dir/pre-push.teamwork-foreign"' in body
+    assert '"$chained" "$@" < "$refspecs"' in body
+
+
+def test_status_names_the_chained_hook_it_runs(cli, repo, capsys) -> None:
+    write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho mine\n")
+    assert cli("--project", repo, "hooks", "install") == 0
+    capsys.readouterr()
+
+    assert cli("--project", repo, "hooks", "status") == 0
+    assert stage_lines(capsys.readouterr().out) == [
+        "pre-commit installed",
+        "pre-push installed (chained: pre-push.teamwork-foreign)",
+    ]
+
+
+def test_status_does_not_claim_a_chain_that_does_not_run(cli, repo, capsys) -> None:
+    """`--force` writes a plain shim; the orphaned preserved file must not be advertised."""
+    write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho mine\n")
+    assert cli("--project", repo, "hooks", "install") == 0
+    write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho lfs-again\n")
+    assert cli("--project", repo, "hooks", "install", "--force", "--reason", "probe") == 0
+    assert (hook_dir(repo) / "pre-push.teamwork-foreign").exists(), "the old preserve is left"
+    capsys.readouterr()
+
+    assert cli("--project", repo, "hooks", "status") == 0
+    assert stage_lines(capsys.readouterr().out) == ["pre-commit installed", "pre-push installed"]
+
+
+def test_uninstall_restores_the_chained_foreign_hook(cli, repo, capsys) -> None:
+    """Removing our shim must not switch the preserved LFS hook off for good."""
+    write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho mine\n")
+    assert cli("--project", repo, "hooks", "install") == 0
+    capsys.readouterr()
+
+    assert cli("--project", repo, "hooks", "uninstall") == 0
+    out = capsys.readouterr().out
+    assert "pre-push removed" in out
+    assert "pre-push previous hook restored from pre-push.teamwork-foreign" in out
+    assert (hook_dir(repo) / "pre-push").read_text(encoding="utf-8") == "#!/bin/sh\necho mine\n"
+    assert not (hook_dir(repo) / "pre-push.teamwork-foreign").exists()
 
 
 def test_install_force_replaces_a_foreign_hook(cli, repo, capsys) -> None:
     write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho mine\n")
     capsys.readouterr()
 
-    assert cli("--project", repo, "hooks", "install", "--force") == 0
+    assert cli("--project", repo, "hooks", "install", "--force", "--reason", "probe hook") == 0
     body = (hook_dir(repo) / "pre-push").read_text(encoding="utf-8")
     assert config.HOOK_MARKER in body
     assert "echo mine" not in body
+    assert not (hook_dir(repo) / "pre-push.teamwork-foreign").exists(), (
+        "--force replaces: it is not the same act as preserving and chaining"
+    )
+
+
+def test_install_force_without_a_reason_is_refused_and_touches_nothing(cli, repo, capsys) -> None:
+    """F-6: a replacement is recorded with its reason or it does not happen."""
+    foreign = write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho mine\n")
+    capsys.readouterr()
+
+    assert cli("--project", repo, "hooks", "install", "--force") == 1
+    assert "--reason" in capsys.readouterr().err
+    assert foreign.read_text(encoding="utf-8") == "#!/bin/sh\necho mine\n"
+    assert not (hook_dir(repo) / "pre-commit").exists()
+
+
+def test_a_force_replacement_records_its_reason_in_the_team_ledger(cli, repo, capsys) -> None:
+    from teamwork.engine import ledger_append, ledger_read
+
+    team = repo / ".pi" / "Teamwork" / "Teams" / "Repo"
+    ledger_append(team, "seed", actor="Developer")
+    write(hook_dir(repo) / "pre-push", "#!/bin/sh\necho mine\n")
+    capsys.readouterr()
+
+    assert cli("--project", repo, "hooks", "install", "--force", "--reason", "probe hook") == 0
+
+    record = ledger_read(team)[-1]
+    assert record["action"] == "hooks.install"
+    assert record["target"] == "pre-push"
+    assert "probe hook" in record["detail"]
 
 
 def test_status_reports_the_directory_it_probed(cli, repo, capsys) -> None:
@@ -534,6 +627,150 @@ def test_hook_and_hooks_are_separate_subcommands() -> None:
     assert parser.parse_args(["hooks", "status"]).hooks_cmd == "status"
     with pytest.raises(SystemExit):
         parser.parse_args(["hookk", "status"])
+
+
+# --------------------------------------------------------------------------- #
+# the shim: fail closed, and chain a preserved foreign hook (F-6)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_shim_never_fails_open() -> None:
+    """F-6: `|| exit 0` on the toplevel and on the engine test disabled every rule.
+
+    A guard that cannot run must refuse loudly. `hooks status` said `installed`
+    while a renamed engine made both hooks a silent no-op, which is worse than no
+    hook at all: the record claims enforcement the tree does not have.
+    """
+    for stage in config.HOOK_STAGES:
+        for body in (hooks.shim(stage), hooks.shim(stage, chain=True)):
+            assert "|| exit 0" not in body
+            assert 'if [ -z "$root" ]; then' in body
+            assert 'if [ ! -f "$root/scripts/teamwork.py" ]; then' in body
+            assert body.count("  exit 1") >= 2
+    assert '[ -n "${TEAMWORK_SKIP_HOOKS:-}" ] && exit 0' in hooks.shim("pre-commit")
+
+
+@pytest.mark.parametrize("stage", ["pre-commit", "pre-push"])
+def test_the_shim_exits_non_zero_when_the_engine_file_is_missing(
+    cli, repo, capsys, stage: str
+) -> None:
+    require_tool("sh")
+    assert cli("--project", repo, "hooks", "install") == 0
+    assert not (repo / "scripts" / "teamwork.py").exists(), "the premise: no engine here"
+
+    run = subprocess.run(
+        ["sh", str(hook_dir(repo) / stage), "origin", "https://example.invalid/r.git"],
+        cwd=str(repo),
+        input="",
+        capture_output=True,
+        text=True,
+        env=clean_env(),
+    )
+
+    assert run.returncode != 0, "a renamed engine must not silently disable the guard"
+    assert "is missing" in run.stderr
+    assert "TEAMWORK_SKIP_HOOKS=1" in run.stderr, "the message must name the escape"
+
+    bypassed = subprocess.run(
+        ["sh", str(hook_dir(repo) / stage), "origin", "https://example.invalid/r.git"],
+        cwd=str(repo),
+        input="",
+        capture_output=True,
+        text=True,
+        env=clean_env(TEAMWORK_SKIP_HOOKS="1"),
+    )
+    assert bypassed.returncode == 0, "the documented bypass still applies"
+
+
+def test_a_refusal_stops_before_the_chained_hook(cli, repo, repo_root, capsys) -> None:
+    """The chained hook is a second opinion, not a replacement: rules first."""
+    require_tool("sh")
+    write(hook_dir(repo) / "pre-commit", "#!/bin/sh\necho FOREIGN-RAN\n")
+    assert cli("--project", repo, "hooks", "install") == 0
+    write(repo / "scripts" / "teamwork.py", engine_shim(repo_root))
+
+    run = subprocess.run(
+        ["sh", str(hook_dir(repo) / "pre-commit")],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        env=clean_env(),
+    )
+
+    assert run.returncode == 1
+    assert "refusing to commit on" in run.stderr
+    assert "FOREIGN-RAN" not in run.stdout, "a refused commit must not reach the chained hook"
+
+
+def test_the_chained_hook_runs_after_the_rules_pass(cli, repo, repo_root, capsys) -> None:
+    require_tool("sh")
+    git(repo, "checkout", "-q", "-b", "feature")
+    write(hook_dir(repo) / "pre-commit", "#!/bin/sh\necho FOREIGN-RAN\n")
+    assert cli("--project", repo, "hooks", "install") == 0
+    write(repo / "scripts" / "teamwork.py", engine_shim(repo_root))
+
+    run = subprocess.run(
+        ["sh", str(hook_dir(repo) / "pre-commit")],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        env=clean_env(),
+    )
+
+    assert run.returncode == 0, run.stderr
+    assert "FOREIGN-RAN" in run.stdout
+
+
+def test_the_chained_pre_push_hands_git_refspecs_to_both_hooks(
+    cli, repo, repo_root, capsys
+) -> None:
+    """git writes the refspec list to stdin; a stream can only be read once.
+
+    The teamwork rules read it, so a chained ``git lfs``-style hook must still see
+    it - otherwise the chain silently becomes a hook that always sees "nothing to
+    push". The preserved hook prints the number of lines it received.
+    """
+    require_tool("sh")
+    git(repo, "checkout", "-q", "-b", "feature")
+    write(hook_dir(repo) / "pre-push", "#!/bin/sh\nwc -l | tr -d ' '\n")
+    assert cli("--project", repo, "hooks", "install") == 0
+    write(repo / "scripts" / "teamwork.py", engine_shim(repo_root))
+    sha = git(repo, "rev-parse", "HEAD")
+
+    run = subprocess.run(
+        ["sh", str(hook_dir(repo) / "pre-push"), "origin", "https://example.invalid/r.git"],
+        cwd=str(repo),
+        input=f"refs/heads/feature {sha} refs/heads/feature {'0' * 40}\n",
+        capture_output=True,
+        text=True,
+        env=clean_env(),
+    )
+
+    assert run.returncode == 0, run.stderr
+    assert run.stdout.strip() == "1", f"the chained hook must still see git's refspecs: {run}"
+
+
+def test_the_chained_shim_refuses_when_the_preserved_hook_is_gone(
+    cli, repo, repo_root, capsys
+) -> None:
+    """Deleting the preserved file must not quietly cancel that hook either."""
+    require_tool("sh")
+    git(repo, "checkout", "-q", "-b", "feature")
+    write(hook_dir(repo) / "pre-commit", "#!/bin/sh\nexit 0\n")
+    assert cli("--project", repo, "hooks", "install") == 0
+    write(repo / "scripts" / "teamwork.py", engine_shim(repo_root))
+    (hook_dir(repo) / "pre-commit.teamwork-foreign").unlink()
+
+    run = subprocess.run(
+        ["sh", str(hook_dir(repo) / "pre-commit")],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        env=clean_env(),
+    )
+
+    assert run.returncode == 1
+    assert "pre-commit.teamwork-foreign" in run.stderr
 
 
 # --------------------------------------------------------------------------- #

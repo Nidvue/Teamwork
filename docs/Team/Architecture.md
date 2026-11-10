@@ -1362,7 +1362,7 @@ checked against `git rev-parse --git-path hooks` instead of trusted:
 
 ```text
 pre-commit  <installed|absent|foreign>
-pre-push    <installed|absent|foreign>
+pre-push    <installed|absent|foreign>[(chained: <stage>.teamwork-foreign)]
 # hooks directory: <the directory the resolver returned>
 ```
 
@@ -1375,18 +1375,28 @@ Mode `0755`, LF endings, and exactly this body:
 #!/bin/sh
 # teamwork-managed hook (stage: pre-commit) - remove with: teamwork.py hooks uninstall
 # the hook file lives in the git dir; the rules act on the work tree below
+# local only: `--no-verify` and a core.hooksPath pointing elsewhere skip this
+# file, and a clone that never ran `hooks install` has none of it - the
+# forge-side rule covers those, so this hook is never the whole control.
 [ -n "${TEAMWORK_SKIP_HOOKS:-}" ] && exit 0
-root=$(git rev-parse --show-toplevel) || exit 0
+root=$(git rev-parse --show-toplevel)
+if [ -z "$root" ]; then
+  echo "teamwork: pre-commit hook: cannot resolve the work tree root (git rev-parse --show-toplevel failed); refusing rather than skipping the guard. Bypass deliberately with TEAMWORK_SKIP_HOOKS=1." >&2
+  exit 1
+fi
 # -f, not -x: scripts/teamwork.py is committed 100644, so an executable-bit
 # test would turn every hook into a silent no-op in this repository
-[ -f "$root/scripts/teamwork.py" ] || exit 0
+if [ ! -f "$root/scripts/teamwork.py" ]; then
+  echo "teamwork: pre-commit hook: $root/scripts/teamwork.py is missing, so the rules cannot run; refusing rather than failing open. Restore the file, run 'teamwork.py hooks uninstall', or bypass deliberately with TEAMWORK_SKIP_HOOKS=1." >&2
+  exit 1
+fi
 exec python3 "$root/scripts/teamwork.py" hook pre-commit "$@"
 ```
 
 with `pre-push` and `hook pre-push` in place of `pre-commit` in the stage lines.
 That body is `hooks.py shim()`, verbatim at the merged revision
 (`git show main:src/teamwork/hooks.py`); three constructs in it are contract, not
-detail (`D-20261020-Architect-9`):
+detail (`D-20261020-Architect-9`, amended by `D-20261029-Developer-16`):
 
 - **`[ -f ]`, never `[ -x ]`.** `scripts/teamwork.py` is committed mode
   `100644` (`git ls-files -s scripts/teamwork.py`), so an executable-bit test is
@@ -1398,20 +1408,64 @@ detail (`D-20261020-Architect-9`):
   `$TEAMWORK_SKIP_HOOKS` aborts under an inherited `set -u`
   (`sh -u -c 'echo "[$UNSET_VAR]"'` -> `UNSET_VAR: unbound variable`, rc 127),
   which git reads as a refusal: the bypass would become a blocker.
-- **`root=$(git rev-parse --show-toplevel) || exit 0`.** The `|| exit 0` is the
-  whole failure path, so nothing else may swallow git's error: the contract has
-  **no** `2>/dev/null` on that call. Outside a work tree the shim is a no-op, and
-  a silent redirection would hide why it is one.
+- **`exit 1`, never `exit 0`, on both failure paths.** `root=$(git rev-parse
+  --show-toplevel)` stays unredirected - the contract has **no** `2>/dev/null` on
+  that call - and a failed resolution or an absent engine file now refuses with a
+  message naming `TEAMWORK_SKIP_HOOKS`. The superseded `|| exit 0` form meant a
+  renamed engine or a broken checkout disabled every rule while `hooks status`
+  still reported `installed` (security audit F-6, `D-20261029-Developer-16`).
+
+A stage whose hook belonged to someone else keeps that hook. `install` moves it to
+`<stage>.teamwork-foreign`, takes the stage, and writes this second body, which
+runs the rules first and the preserved hook second - the file it replaced is not
+ours to delete (`git lfs install` owns `pre-push` in a fresh clone, and the
+all-or-nothing installer this replaces refused BOTH stages because of it):
+
+```sh
+# this stage had a foreign hook when teamwork installed over it: it is kept
+# beside this file as pre-push.teamwork-foreign and runs after the rules pass
+hook_dir=$(cd "$(dirname "$0")" && pwd) || exit 1
+chained="$hook_dir/pre-push.teamwork-foreign"
+if [ ! -f "$chained" ]; then
+  echo "teamwork: pre-push hook: the preserved pre-push.teamwork-foreign it was installed to chain is gone; refusing rather than silently dropping that hook. Re-run 'teamwork.py hooks install', or remove this hook with 'teamwork.py hooks uninstall'." >&2
+  exit 1
+fi
+# git hands pre-push the refspec list on stdin and BOTH hooks need it: copy it
+# once, then feed each hook from the copy
+refspecs=$(mktemp "${TMPDIR:-/tmp}/teamwork-pre-push.XXXXXX") || {
+  echo "teamwork: pre-push hook: cannot create a temporary file for git's refspec list; refusing rather than starving the chained hook." >&2
+  exit 1
+}
+trap 'rm -f "$refspecs"' 0
+cat > "$refspecs"
+python3 "$root/scripts/teamwork.py" hook pre-push "$@" < "$refspecs"
+# a refusal from the rules stops here: the chained hook must not run for a
+# commit or push that already failed
+status=$?
+if [ "$status" -ne 0 ]; then exit "$status"; fi
+"$chained" "$@" < "$refspecs"
+status=$?
+exit "$status"
+```
+
+preceded by the same head, and with `pre-commit` in place of `pre-push` for the
+non-stdin stage; the preserved file is found through this file's own directory,
+which is the hooks directory whatever path git used to reach it. The rules run
+before the chained hook, so a refused commit or push never reaches it, and the
+refspec list is copied once because a stream can only be read once: piping it to
+the first hook would hand the second one an empty list. `hooks.py shim(stage,
+chain=True)` is that body, verbatim.
 
 | Rule | Contract |
 |---|---|
-| marker | one constant, `config.HOOK_MARKER = "teamwork-managed hook"`, rendered **as one line 2**: `# <marker> (stage: <stage>) - remove with: teamwork.py hooks uninstall`. `install` (overwrite refusal), `status` and `uninstall` all key on that one constant; a hook file without it is `foreign` and is never overwritten or removed without `--force` |
+| marker | one constant, `config.HOOK_MARKER = "teamwork-managed hook"`, rendered **as one line 2**: `# <marker> (stage: <stage>) - remove with: teamwork.py hooks uninstall`. `install` (the force check), `status` and `uninstall` all key on that one constant; a hook file without it is `foreign` and is never overwritten or removed without `--force` |
 | escape | a set (non-empty) `TEAMWORK_SKIP_HOOKS` exits 0 before anything else; the bypass is documented, never silent |
+| local only | `git commit --no-verify`, `git push --no-verify` and a `core.hooksPath` that points elsewhere all skip these files, and a clone that never ran `hooks install` has none of them: the forge-side rule (branch protection / ruleset) is what covers those paths, and the hook is never described as the whole control |
 | root | the shim resolves the project root with `git rev-parse --show-toplevel`; the rules act on the work tree, the file lives in the git directory |
-| engine | `python3 "$root/scripts/teamwork.py"`; a tree without the shim (an installed wheel) is a no-op, not a guessed command |
-| install | refuses to overwrite a hook without the marker unless `--force`; exit 0 when the hook is written or already correct |
-| status | `<stage> <installed\|absent\|foreign>` for both stages, then the literal `# hooks directory: <path>` line naming the directory the resolver probed, exit 0 |
-| uninstall | resolves through the same `hook_dir(root)`, removes only marked hooks, leaves a foreign hook and says so, exit 0 |
+| engine | `python3 "$root/scripts/teamwork.py"`; an absent engine file is a refusal with a message naming `TEAMWORK_SKIP_HOOKS`, never a silent pass, and never a guessed command |
+| install | **per stage**, each stage installed on its own so a foreign hook on one stage cannot block the other, exit 0 when both land. A foreign hook is preserved as `<stage>.teamwork-foreign` and chained, never deleted. `--force --reason <why>` replaces it instead and records the reason; `--force` without a reason is refused. A stage that could not be installed leaves the others in place and makes the run exit 1 |
+| status | `<stage> <installed\|absent\|foreign>`, with ` (chained: <stage>.teamwork-foreign)` when a preserved hook runs after the rules, then the literal `# hooks directory: <path>` line naming the directory the resolver probed, exit 0 |
+| uninstall | resolves through the same `hook_dir(root)`, removes only marked hooks, hands a preserved `<stage>.teamwork-foreign` back its own name, and leaves a foreign hook alone and says so, exit 0 |
 | not a git repo | every `hooks` subcommand dies with code 1 and a message naming the missing repository |
 
 ### 12.7 Hook rules

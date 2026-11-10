@@ -520,8 +520,11 @@ _TOKEN_CHARS = re.compile(r"[A-Za-z0-9._/+=-]+")
 #: One path segment of a repository path: a name, optionally with an extension.
 _PATH_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 #: The words of a name: a CamelCase run splits into its parts, a trailing digit
-#: group is its own part.
-_NAME_WORDS = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]*|[a-z]+|[0-9]+")
+#: group is its own part - except that a capital letter fused to digits is one
+#: part, because that is how a lane, milestone or chapter id is written (``M13``,
+#: ``C5``, ``T0034``). Without this alternative ``M13`` splits into ``M`` + ``13``
+#: and the one-letter word makes a real document path look like a random string.
+_NAME_WORDS = re.compile(r"[A-Z][0-9]+|[A-Z]+(?![a-z])|[A-Z][a-z]*|[a-z]+|[0-9]+")
 #: A lower-case letter followed by an upper-case one: the CamelCase mark that
 #: separates a name like ``ProductManager`` from a random mix of letters.
 _CAMEL_CASE = re.compile(r"[a-z][A-Z]")
@@ -543,8 +546,11 @@ def _is_path_name(token: str) -> bool:
     """Does this token read as a repository path rather than as a random string?
 
     Every segment must be a name: a word (or a few words in CamelCase) with an
-    optional extension. A random base64 run splits into many short fragments,
-    which is what tells the two apart.
+    optional extension. A lane or milestone id counts as one word, not as a
+    one-letter fragment followed by digits (see ``_NAME_WORDS``), so a document
+    path such as ``Agents/SecurityAuditor/Reports/M13-security-audit.md`` reads
+    as a name. A random base64 run splits into many short fragments, which is
+    what tells the two apart.
     """
     if "/" not in token:
         return False

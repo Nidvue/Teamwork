@@ -985,7 +985,7 @@ actually running rather than a zero from a path that does not exist.
 ### `hooks`
 
 ```text
-teamwork hooks install [--force]
+teamwork hooks install [--force] [--reason WHY]
 teamwork hooks status
 teamwork hooks uninstall
 teamwork hook pre-commit
@@ -999,6 +999,30 @@ the directory git actually reads hooks from (`git -C <root> rev-parse
 `<toplevel>/.git` is a file, and it honours `core.hooksPath`. Hooks are opt-in:
 `teamwork init` never installs them, and `TEAMWORK_SKIP_HOOKS=1` makes both exit 0
 unchanged.
+
+`install` works **per stage**. A stage that already belongs to someone else - the
+common case is `git lfs install`, which writes `.git/hooks/pre-push` - does not
+block the other one: the foreign hook is moved to `<stage>.teamwork-foreign` and
+run by the teamwork hook after the rules pass, so the LFS hook keeps working and
+`pre-commit` (R1, no commit on the default branch) is installed regardless. The
+refspec list git writes to `pre-push`'s stdin is copied once and fed to both hooks.
+`hooks status` says which stages chain a preserved hook. `hooks uninstall` hands
+the preserved file back its own name instead of leaving it stranded.
+`--force` replaces a foreign hook instead of preserving it, and then `--reason` is
+required: the replacement is recorded in the team ledger where the project has one,
+so a quiet overwrite cannot happen.
+
+The shim **fails closed**. If `git rev-parse --show-toplevel` cannot answer or
+`scripts/teamwork.py` is absent, it prints a message naming the bypass and exits
+non-zero rather than passing: a guard that cannot run must not look like a guard
+that ran. `TEAMWORK_SKIP_HOOKS=1` is the documented escape.
+
+The guard is **local only**. `git commit --no-verify` and `git push --no-verify`
+skip these files, `core.hooksPath` can point the hooks somewhere else, and a clone
+that never ran `hooks install` does not have them at all - so the forge-side rule
+(branch protection / a ruleset on the default branch) remains the enforcement that
+covers a hostile or careless clone. The hook is the cheap in-loop half of the same
+rule, never the whole control.
 
 | Hook | Rule | Override |
 |---|---|---|
