@@ -174,9 +174,10 @@ def run_git(project: Path, *argv: str, timeout: float | None = None):
     A timed-out call is not an exception: it returns a ``CompletedProcess`` with
     ``returncode == 124`` (the ``timeout(1)`` convention) and the reason on the
     last line of ``stderr``, so the caller reports it exactly as it reports any
-    other git refusal. The child is killed by ``subprocess.run``; git's own
-    remote helpers exit on the stdin EOF that kill leaves behind (measured: no
-    ``git-remote-*`` survived a timed-out ``fetch``), so the call itself returns.
+    other git refusal. ``subprocess.run`` kills the direct child and closes the
+    pipes it gave it, so a git remote helper writing to that closed pipe exits on
+    its own (measured: no ``git-remote-*`` survived a timed-out ``fetch``); the
+    call returns instead of waiting for the whole helper tree.
     """
     limit = git_timeout() if timeout is None else float(timeout)
     command = ["git", "-C", str(project), *argv]
