@@ -869,7 +869,8 @@ def cmd_branch(args) -> int:
     if args.worktree:
         wt = root / DIR_RUNTIME / DIR_WORKTREES / safe_component(pascal(args.agent))
         wt.parent.mkdir(parents=True, exist_ok=True)
-        if not _worktree_registered(project, wt):
+        listing = run_git(project, "worktree", "list", "--porcelain").stdout
+        if str(wt) not in listing:
             r = run_git(project, "worktree", "add", str(wt), branch)
             if r.returncode != 0:
                 die(f"worktree add failed for {branch}: {r.stderr.strip()}")
@@ -7611,25 +7612,6 @@ def _worktree_recently_written(here: Path, now: float, stale_minutes: int) -> bo
         if (now - newest) / 60 < stale_minutes:
             return True
     return (now - newest) / 60 < stale_minutes
-
-
-def _worktree_registered(project: Path, path: Path) -> bool:
-    """True when this exact path is a registered worktree of the repository.
-
-    `git worktree list --porcelain` prints one `worktree <path>` record per
-    checkout, so testing the whole listing for the path as a substring matches a
-    sibling whose name merely starts with ours (`Developer-1` inside
-    `Developer-10`) and skips the `git worktree add` the task then records as done.
-    """
-    wanted = {str(path), str(path.resolve())}
-    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
-    for line in listing:
-        if not line.startswith("worktree "):
-            continue
-        raw = line[len("worktree ") :].strip()
-        if raw in wanted or str(Path(raw).resolve()) in wanted:
-            return True
-    return False
 
 
 def _worktree_locked(project: Path, path: str) -> bool:
