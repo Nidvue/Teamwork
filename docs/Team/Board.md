@@ -82,13 +82,16 @@ under two roles is two tasks.
 | role | id | area | state | pr | merged revision |
 |---|---|---|---|---|---|
 | ceo | T-0001 | records | done | P-0002 | d8809fa |
-| ceo | T-0002 | - | todo | - | - |
+| ceo | T-0002 | records | done | P-0003 | 26e09d0 |
+| ceo | T-0003 | - | todo | - | - |
+| ceo | T-0004 | records | done | P-0004 | a45847e |
 | developer | T-0001 | - | done | - | - |
-| developer | T-0002 | - | todo | - | - |
-| developer | T-0003 | skills | review | P-0001 | - |
-| developer | T-0004 | - | todo | - | - |
-| reviewer | T-0001 | - | todo | - | - |
+| developer | T-0002 | - | dropped | - | - |
+| developer | T-0003 | skills | done | P-0001 | d93df1e |
+| developer | T-0004 | - | dropped | - | - |
+| reviewer | T-0001 | records | done | - | - |
 | tester | T-0001 | - | done | - | - |
+| tester | T-0002 | - | dropped | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -105,11 +108,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0002 · Close merged and stale local and remote branches | P2 | todo | - |
-| developer | T-0002 · Platform-scale the traceability proof budget (900s) or the privacy proof it runs | P2 | todo | - |
-| developer | T-0003 · Close CodeQL alert 4 (py/incomplete-url-substring-sanitization in test_skill_contracts) | P0 | review | - |
-| developer | T-0004 · Stop the local suite from writing a Library/ cache into the repo root on macOS | P2 | todo | - |
-| reviewer | T-0001 · Independent acceptance of the CI restoration | P0 | todo | - |
+| ceo | T-0003 · Trim the always-on startup surface under the 122880 B cap (Reviewer-1/2 over by 11279 B) | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
