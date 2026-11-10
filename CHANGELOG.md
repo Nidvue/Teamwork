@@ -9,9 +9,54 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.1.2...HEAD)
+## [Unreleased](https://github.com/Nidvue/Teamwork/compare/v1.1.3...HEAD)
 
-## [1.1.2](https://github.com/Nidvue/Teamwork/compare/v1.1.1...v1.1.2) - 2026-10-20
+## [1.1.3](https://github.com/Nidvue/Teamwork/compare/v1.1.2...v1.1.3) - 2026-10-20
+
+### Added
+
+- **A release-consistency gate.** `scripts/check_release_consistency.py` compares
+  what was published against what the repository can prove, rule by rule
+  (R1-R9 in `docs/Team/Architecture.md`): each git tag against the version it
+  carries, the checkout against every tag, every npm version against a tag whose
+  bundled payload matches, the GitHub Releases against the tags, the CHANGELOG
+  against the published versions, and every committed document against the real
+  version, the real tags and the install channels that actually resolve. It exits
+  `0` clean, `1` on drift and `2` when an input cannot be read, and CI runs it, so a
+  release that cannot be traced fails the build instead of being found by a reader.
+- **`release-exceptions.json`.** A recorded, reviewable admission for a published
+  version that provably has no source commit. It is printed in the checker's
+  output, never a silent pass.
+
+### Fixed
+
+- **`v1.1.2` is tagged at the revision that was actually published.** The npm
+  tarball's bundled payload is byte-identical to commit `3f4981d`, which carries
+  `1.1.2`; the tag and its GitHub Release now point there. Before this release the
+  three answers to "what is current" disagreed: npm said `1.1.2`, the newest git
+  tag said `v1.1.0`, and the documentation said `1.0.2`.
+- **The install and version claims match reality.** `README.md` and
+  `docs/guide/install.md` printed `pip`/`pipx`/`uvx` commands for a distribution
+  that is not on PyPI (the JSON API returns not-found), and printed `teamwork
+  1.0.2` as sample output. The from-source path, the GitHub-release wheel and the
+  bundled script are now the documented installs, and the index commands are marked
+  as unavailable instead of failing for the reader.
+- **`docs/Team/Release.md` describes the release that exists.** Its rollback
+  pointed at a `v0.9.0` tag that was never cut, its gate table was measured on a
+  superseded revision, its build table named `1.1.0` artefacts, and its
+  code-scanning row described alerts that were already fixed.
+
+### Recorded
+
+- **npm `1.1.1` has no source commit and is listed as an exception.** The
+  `1.1.0` publish exited `0` but only staged the version, so it was republished
+  (see `1.1.1` below). Its payload differs from `v1.1.0` only in
+  `src/teamwork/version.py`, and no commit in the repository carries that file -
+  so `1.1.1` cannot be traced to a revision and is recorded in
+  `release-exceptions.json` with its measured digest rather than given a tag that
+  would misrepresent the source. `1.1.0` and `1.1.2` are both traceable and tagged.
+
+## [1.1.2](https://github.com/Nidvue/Teamwork/compare/v1.1.0...v1.1.2) - 2026-10-20
 
 ### Fixed
 
@@ -37,7 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The ambient `PATH` is now prepended and the standard directories are kept as a
   floor. On this machine: 9 errors -> 0.
 
-## [1.1.1](https://github.com/Nidvue/Teamwork/compare/v1.1.0...v1.1.1) - 2026-10-20
+## [1.1.1] - 2026-10-20
+
+> No `v1.1.1` tag exists and none is cut: this version was published to npm only,
+> and its source revision carries `1.1.0` (see `release-exceptions.json`). The
+> changes below are the `1.1.0` engine republished under a new registry version.
 
 ### Fixed
 
