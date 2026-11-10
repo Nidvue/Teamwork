@@ -32,8 +32,8 @@ Ownership is enforced: `tests add --layer integration --owner developer-1` is
 refused, and `tests run` only accepts instances of the owning role.
 
 Several **Reviewers** may run at once (`reviewer-1`, `reviewer-2`, ...). One may
-pass the verdict; a **different** Reviewer must merge it, and an author never
-reviews or merges its own work.
+pass the verdict and that same lane merges it - an author never reviews or merges
+its own work, which is where independence lives.
 
 ## Comprehensive and systematic
 
@@ -137,7 +137,7 @@ interfaces frozen
           system · ui · docs · unit · integration · acceptance · security
       |
       v
-  PR -> Reviewer acceptance tests + independent review -> merge (a different Reviewer)
+  PR -> Reviewer acceptance tests + independent review -> merge (same lane)
 ```
 
 Test layers are lanes like any other: they claim provider slots, run in parallel

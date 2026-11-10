@@ -163,6 +163,7 @@ def pass_review(cli, project: Path, handle: str = "T-0001", evidence: str = REVI
             evidence,
             "--replay",
             "pytest -q tests/integration",
+            "--no-merge",
         )
         == 0
     )

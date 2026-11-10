@@ -149,9 +149,11 @@ Rules enforced mechanically:
 - **the merged branch is deleted** (`pr merge` retires it, including its worktree;
   `--keep-branch` opts out). `audit` and `loop` report merged-but-still-open
   branches until they are gone.
-- with several Reviewers, the instance that passed the verdict cannot also merge
-  it: one verifies, another merges. With a single Reviewer instance the same one
-  does both, recorded as `review.merge_self` and flagged by `audit`.
+- a passing review merges the PR itself: the lane that verified the revision runs
+  the merge and deletes the branch, so an approved deliverable never waits for a
+  second lane. Independence is enforced against the **author** (never their own
+  review or merge), not against a second Reviewer; `--no-merge` separates them when
+  a project wants two pairs of eyes on the landing step.
 - the merge commit is authored by `Reviewer <reviewer@agents.nidvue.com>` and carries
   the fixed message style (`chore(merge): ...`, evidence pointer to the review).
 - generated records (Archive.md, Board.md, Plan.md) are committed by the Reviewer
