@@ -16,6 +16,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from support import in_lane, lane_cli
 from teamwork import engine
 
 AGENTS = ("ceo", "developer-1", "reviewer-1")
@@ -37,9 +38,9 @@ def git(project: Path, *argv: str) -> subprocess.CompletedProcess:
     )
 
 
-def install_real_hooks(cli, project: Path, repo_root: Path) -> None:
-    """Install the shipped hooks, with a shim so they can import this tree."""
-    shim = project / "scripts" / "teamwork.py"
+def write_shim(root: Path, repo_root: Path) -> None:
+    """The hook runs ``<tree>/scripts/teamwork.py``; give a tree one that imports us."""
+    shim = root / "scripts" / "teamwork.py"
     shim.parent.mkdir(parents=True, exist_ok=True)
     shim.write_text(
         "import sys\n"
@@ -48,8 +49,32 @@ def install_real_hooks(cli, project: Path, repo_root: Path) -> None:
         "raise SystemExit(main())\n",
         encoding="utf-8",
     )
-    ignore = project / ".gitignore"
+
+
+def ignore_scripts(root: Path) -> None:
+    """The shim is scaffolding, not a deliverable: keep it out of every tree's status."""
+    ignore = root / ".gitignore"
     ignore.write_text(ignore.read_text(encoding="utf-8") + "\nscripts/\n", encoding="utf-8")
+
+
+def install_real_hooks(cli, project: Path, repo_root: Path) -> None:
+    """Install the shipped hooks, with a shim so they can import this tree."""
+    write_shim(project, repo_root)
+    ignore_scripts(project)
+    assert git(project, "add", "-A").returncode == 0
+    assert (
+        git(
+            project,
+            "-c",
+            "user.name=CEO",
+            "-c",
+            "user.email=ceo@agents.nidvue.com",
+            "commit",
+            "-qm",
+            "chore(init): commit what init wrote",
+        ).returncode
+        == 0
+    )
     assert cli("--project", project, "hooks", "install") == 0
 
 
@@ -66,9 +91,13 @@ def test_a_review_pass_lands_with_the_default_branch_hook_installed(
         cli("--project", project, "branch", "start", "--agent", "developer-1", "--task", "T-0001")
         == 0
     )
-    (project / "feature.txt").write_text("done\n", encoding="utf-8")
+    author = lane_cli(cli, project, "T-0001")
+    with in_lane(project, "T-0001") as tree:
+        write_shim(tree, repo_root)
+        ignore_scripts(tree)
+        (tree / "feature.txt").write_text("done\n", encoding="utf-8")
     assert (
-        cli(
+        author(
             "--project",
             project,
             "commit",
@@ -100,7 +129,7 @@ def test_a_review_pass_lands_with_the_default_branch_hook_installed(
         == 0
     )
     assert (
-        cli(
+        author(
             "--project",
             project,
             "selfcheck",
@@ -139,8 +168,8 @@ def test_a_review_pass_lands_with_the_default_branch_hook_installed(
     assert task["status"] == "done"
     assert task.get("merge_commit")
     assert engine.branch_exists(project, task["branch"]) is False
-    log = git(project, "log", "--oneline", engine.DEFAULT_BASE).stdout
-    assert "merge" in log.lower()
+    log = git(project, "log", "--oneline", engine.DEFAULT_BASE)
+    assert "merge" in log.stdout.lower(), log.stderr
 
 
 def test_the_same_hook_still_refuses_a_lane_committing_on_the_default_branch(

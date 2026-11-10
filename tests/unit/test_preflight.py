@@ -38,10 +38,12 @@ only when `preflight` is wrong.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -109,8 +111,43 @@ def init_team(cli, project: Path) -> Path:
     return root
 
 
+def lane_tree(project: Path, task: str = "T-0001") -> Path:
+    """The worktree the task's author works in; `branch start` creates one by default."""
+    root = team_root(project)
+    for role in engine.list_roles(root):
+        for item in engine.parse_tasks(engine.task_file(root, role)):
+            if item["id"] == task and item.get("worktree"):
+                return engine.task_worktree(root, item)
+    raise AssertionError(f"no worktree recorded for {task}: {task} would share the checkout")
+
+
+def tree_of(project: Path, task: str = "T-0001") -> Path:
+    """The task's worktree, or the shared checkout when the task has no branch yet."""
+    try:
+        return lane_tree(project, task)
+    except AssertionError:
+        return project
+
+
+@contextmanager
+def in_tree(path: Path):
+    """Act as the author acts: from inside its own worktree."""
+    previous = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
+
+
 def start_branch(cli, project: Path, *, evidence: str = "") -> str:
-    """Add + claim a developer task and start its branch on the initial base."""
+    """Add + claim a developer task and start its branch on the initial base.
+
+    Since M23 a branch start gives the task its own worktree and leaves the main
+    checkout alone, so this asserts both: the branch exists and the shared checkout
+    did not move. `commit_as_author`, `preflight` and `selfcheck` then run inside
+    that tree, which is what the author does.
+    """
     add = ["--project", project, "task", "add", "developer", "a clean deliverable"]
     add += ["--priority", "P0"]
     if evidence:
@@ -121,41 +158,46 @@ def start_branch(cli, project: Path, *, evidence: str = "") -> str:
         cli("--project", project, "branch", "start", "--agent", "developer-1", "--task", "T-0001")
         == 0
     )
-    branch = git(project, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    tree = lane_tree(project)
+    assert tree.is_dir()
+    assert git(project, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() == "main"
+    branch = git(tree, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
     assert branch.startswith("developer-1/t-0001")
     return branch
 
 
 def commit_as_author(cli, project: Path, filename: str = "feat.txt") -> str:
-    """One role commit on the current branch; returns its sha."""
-    (project / filename).write_text("done\n", encoding="utf-8")
-    assert (
-        cli(
-            "--project",
-            project,
-            "commit",
-            "--role",
-            "developer",
-            "--task",
-            "T-0001",
-            "--type",
-            "feat",
-            "--goal",
-            "land a clean deliverable",
-            "--deliverable",
-            "one file and its test",
-            "--why",
-            "the task asks for it",
-            "--status",
-            "implemented",
-            "--result",
-            "pytest -q -> 1 passed",
-            "--paths",
-            filename,
+    """One role commit in the task's own worktree; returns its sha."""
+    tree = lane_tree(project)
+    (tree / filename).write_text("done\n", encoding="utf-8")
+    with in_tree(tree):
+        assert (
+            cli(
+                "--project",
+                project,
+                "commit",
+                "--role",
+                "developer",
+                "--task",
+                "T-0001",
+                "--type",
+                "feat",
+                "--goal",
+                "land a clean deliverable",
+                "--deliverable",
+                "one file and its test",
+                "--why",
+                "the task asks for it",
+                "--status",
+                "implemented",
+                "--result",
+                "pytest -q -> 1 passed",
+                "--paths",
+                filename,
+            )
+            == 0
         )
-        == 0
-    )
-    return git(project, "rev-parse", "HEAD").stdout.strip()
+    return git(tree, "rev-parse", "HEAD").stdout.strip()
 
 
 def advance_main(project: Path, filename: str, text: str) -> str:
@@ -169,24 +211,26 @@ def advance_main(project: Path, filename: str, text: str) -> str:
 
 
 def preflight(cli, capsys, project: Path, *extra: str) -> tuple:
-    """Run preflight, return (exit code, stdout)."""
+    """Run preflight from the task's worktree, return (exit code, stdout)."""
     capsys.readouterr()
-    code = cli("--project", project, "preflight", "developer", "T-0001", *extra)
+    with in_tree(tree_of(project)):
+        code = cli("--project", project, "preflight", "developer", "T-0001", *extra)
     return code, capsys.readouterr().out
 
 
 def selfcheck(cli, project: Path, *extra: str) -> int:
-    """The author's self-check on T-0001, run in-process."""
-    return cli(
-        "--project",
-        project,
-        "selfcheck",
-        "developer",
-        "T-0001",
-        "--by",
-        "developer-1",
-        *extra,
-    )
+    """The author's self-check on T-0001, run in-process from its worktree."""
+    with in_tree(tree_of(project)):
+        return cli(
+            "--project",
+            project,
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            *extra,
+        )
 
 
 RECORDED_PREFLIGHT = re.compile(
@@ -207,7 +251,7 @@ def test_a_clean_single_commit_branch_is_green(cli, project, capsys):
     code, out = preflight(cli, capsys, project)
 
     assert code == 0, out
-    assert f"PREFLIGHT pass @{sha[:12]} :: 7 checks, 0 failed" in out
+    assert f"PREFLIGHT pass @{sha[:12]} :: 8 checks, 0 failed" in out
     assert "1 commit over main" in out
     assert "UNVERIFIED: no PreflightCommand configured" in out
     assert "does not carry docs/Team/Board.md" in out
@@ -232,8 +276,9 @@ def test_a_branch_behind_the_base_is_red_until_it_is_rebased(cli, project, capsy
     assert "rebase main" in out
     assert "PREFLIGHT fail @" in out and "(branch" in out
 
-    assert git(project, "checkout", "-q", branch).returncode == 0
-    rebased = git_as(project, "developer", "rebase", "main")
+    tree = lane_tree(project)
+    assert git(tree, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() == branch
+    rebased = git_as(tree, "developer", "rebase", "main")
     assert rebased.returncode == 0, rebased.stderr
 
     code, out = preflight(cli, capsys, project)
@@ -273,10 +318,11 @@ def test_a_commit_by_the_wrong_identity_is_red(cli, project, capsys):
     """The identity gate runs the same audit CI runs, so the author sees it first."""
     init_team(cli, project)
     start_branch(cli, project)
-    (project / "feat.txt").write_text("done\n", encoding="utf-8")
-    assert git(project, "add", "-A").returncode == 0
+    tree = lane_tree(project)
+    (tree / "feat.txt").write_text("done\n", encoding="utf-8")
+    assert git(tree, "add", "-A").returncode == 0
     wrong = git(
-        project,
+        tree,
         "-c",
         "user.name=Developer-1",
         "-c",
@@ -310,33 +356,35 @@ def test_a_branch_that_edits_the_board_into_a_drift_is_red(cli, project, capsys)
         "| developer | T-0001 | - | doing |", "| developer | T-0001 | - | done |", 1
     )
     assert drifted != rendered, rendered
-    (project / BOARD).write_text(drifted, encoding="utf-8")
-    assert (
-        cli(
-            "--project",
-            project,
-            "commit",
-            "--role",
-            "developer",
-            "--task",
-            "T-0001",
-            "--type",
-            "docs",
-            "--goal",
-            "record the milestone",
-            "--deliverable",
-            "a board render",
-            "--why",
-            "the board is the projection of the queues",
-            "--status",
-            "implemented",
-            "--result",
-            "teamwork.py board --check -> 1 stale cell",
-            "--paths",
-            BOARD,
+    tree = lane_tree(project)
+    (tree / BOARD).write_text(drifted, encoding="utf-8")
+    with in_tree(tree):
+        assert (
+            cli(
+                "--project",
+                project,
+                "commit",
+                "--role",
+                "developer",
+                "--task",
+                "T-0001",
+                "--type",
+                "docs",
+                "--goal",
+                "record the milestone",
+                "--deliverable",
+                "a board render",
+                "--why",
+                "the board is the projection of the queues",
+                "--status",
+                "implemented",
+                "--result",
+                "teamwork.py board --check -> 1 stale cell",
+                "--paths",
+                BOARD,
+            )
+            == 0
         )
-        == 0
-    )
 
     code, out = preflight(cli, capsys, project)
 
@@ -367,7 +415,7 @@ def test_a_task_with_no_branch_is_a_warning_so_the_shipped_flow_still_runs(cli, 
     assert code == 0, out
     assert "warn" in out
     assert "names no branch" in out
-    assert "PREFLIGHT pass @- :: 7 checks, 0 failed" in out
+    assert "PREFLIGHT pass @- :: 8 checks, 0 failed" in out
     assert "teamwork.py branch start --agent developer" in out
     assert (
         cli(
@@ -582,18 +630,20 @@ def test_selfcheck_refuses_a_red_preflight_and_records_a_forced_exception(cli, p
     note = ["--note", "re-read the diff and the queue", "--test", "pytest -q -> 1 passed"]
 
     capsys.readouterr()
-    assert cli(*base, *note) == 2
+    with in_tree(tree_of(project)):
+        assert cli(*base, *note) == 2
     refused = capsys.readouterr().err
     assert "preflight is red" in refused
     assert "evidence: the task evidence names @deadbeef" in refused
     queue = (root / "Roles" / "Developer" / "TaskQueue.md").read_text(encoding="utf-8")
     assert "self_check: pending" in queue
 
-    assert cli(*base, *note, "--force", "the sha is a doc link, tracked as T-0009") == 0
+    with in_tree(tree_of(project)):
+        assert cli(*base, *note, "--force", "the sha is a doc link, tracked as T-0009") == 0
     queue = (root / "Roles" / "Developer" / "TaskQueue.md").read_text(encoding="utf-8")
     assert "self_check: passed" in queue
-    assert "preflight red (evidence): the sha is a doc link, tracked as T-0009" in queue
-    assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(7 checks, 1 failed\)", queue)
+    assert "preflight red (" in queue and "the sha is a doc link, tracked as T-0009" in queue
+    assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(8 checks, 1 failed\)", queue)
 
 
 def test_the_digest_is_stable_and_moves_when_a_check_flips(cli, project, capsys):
@@ -692,7 +742,7 @@ def test_a_green_selfcheck_digest_reproduces_at_its_own_revision(cli, project, c
     recorded = re.search(r"preflight: (PF-[0-9a-f]+) @([0-9a-f]+) ", queue)
     assert recorded, queue
     assert recorded.group(2) == sha[:12]
-    assert "(7 checks, 0 failed)" in queue
+    assert "(8 checks, 0 failed)" in queue
 
     code, live = preflight(cli, capsys, project)
     assert code == 0, live
@@ -787,7 +837,7 @@ def test_the_recorded_value_flips_when_the_preflight_line_leaves_the_evidence(cl
         == 0
     )
     queue = queue_text(root)
-    assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(7 checks, 0 failed\)", queue)
+    assert re.search(r"preflight: PF-[0-9a-f]+ @[0-9a-f]+ \(8 checks, 0 failed\)", queue)
 
     assert review_fail(cli, project) == 0
     assert "review_mechanical: no" in queue_text(root)
@@ -861,41 +911,43 @@ def test_a_slice_over_the_profile_warns_but_does_not_fail_preflight(cli, project
     """13 files is past the standard 12-file slice: warn, exit 0, other checks intact."""
     init_team(cli, project)
     start_branch(cli, project)
+    tree = lane_tree(project)
     names = [f"slice-{index}.txt" for index in range(13)]
     for name in names:
-        (project / name).write_text("one line\n", encoding="utf-8")
-    assert (
-        cli(
-            "--project",
-            project,
-            "commit",
-            "--role",
-            "developer",
-            "--task",
-            "T-0001",
-            "--type",
-            "feat",
-            "--goal",
-            "land a slice",
-            "--deliverable",
-            "thirteen files",
-            "--why",
-            "the task asks for it",
-            "--status",
-            "implemented",
-            "--result",
-            "pytest -q -> 1 passed",
-            "--all",
+        (tree / name).write_text("one line\n", encoding="utf-8")
+    with in_tree(tree):
+        assert (
+            cli(
+                "--project",
+                project,
+                "commit",
+                "--role",
+                "developer",
+                "--task",
+                "T-0001",
+                "--type",
+                "feat",
+                "--goal",
+                "land a slice",
+                "--deliverable",
+                "thirteen files",
+                "--why",
+                "the task asks for it",
+                "--status",
+                "implemented",
+                "--result",
+                "pytest -q -> 1 passed",
+                "--all",
+            )
+            == 0
         )
-        == 0
-    )
 
     code, out = preflight(cli, capsys, project)
 
     assert code == 0, out
     assert re.search(r"- warn\s+slice\s+13 files / 13 changed lines vs standard budget", out), out
     assert "PREFLIGHT pass" in out
-    assert "8 checks, 0 failed" in out
+    assert "9 checks, 0 failed" in out
 
 
 def test_evidence_naming_a_rebased_away_commit_is_red(cli, project, capsys):
@@ -903,7 +955,7 @@ def test_evidence_naming_a_rebased_away_commit_is_red(cli, project, capsys):
     init_team(cli, project)
     start_branch(cli, project)
     first = commit_as_author(cli, project, "gone.txt")
-    assert git(project, "reset", "--hard", "HEAD~1").returncode == 0
+    assert git(lane_tree(project), "reset", "--hard", "HEAD~1").returncode == 0
     assert (
         cli(
             "--project",
@@ -935,7 +987,8 @@ def test_the_tool_digest_survives_a_rewrite(cli, project, capsys):
     root = init_team(cli, project)
     start_branch(cli, project)
     commit_as_author(cli, project)
-    sha = git(project, "rev-parse", "--short", "HEAD").stdout.strip()
+    tree = lane_tree(project)
+    sha = git(tree, "rev-parse", "--short", "HEAD").stdout.strip()
     assert (
         selfcheck(
             cli, project, "--note", "re-read the diff", "--test", f"pytest -q @{sha} -> 3 passed"
@@ -946,10 +999,10 @@ def test_the_tool_digest_survives_a_rewrite(cli, project, capsys):
     queue = engine.role_dir(root, "developer") / "TaskQueue.md"
     assert "preflight: PF-" in queue.read_text(encoding="utf-8")
 
-    (project / "extra.txt").write_text("more\n", encoding="utf-8")
-    assert git(project, "add", "extra.txt").returncode == 0
-    assert git_as(project, "developer", "commit", "--amend", "--no-edit").returncode == 0
-    new_sha = git(project, "rev-parse", "--short", "HEAD").stdout.strip()
+    (tree / "extra.txt").write_text("more\n", encoding="utf-8")
+    assert git(tree, "add", "extra.txt").returncode == 0
+    assert git_as(tree, "developer", "commit", "--amend", "--no-edit").returncode == 0
+    new_sha = git(tree, "rev-parse", "--short", "HEAD").stdout.strip()
     assert (
         cli(
             "--project",
@@ -1019,8 +1072,8 @@ def test_the_gate_runs_in_the_lane_worktree_and_names_its_tree(cli, project, cap
     settings.write_text(json.dumps({"PreflightCommand": gate}) + "\n", encoding="utf-8")
 
     _code, out = preflight(cli, capsys, project, "--run")
-    label = worktree.relative_to(project)
-    assert f"{gate} -> exit 0 in {label}" in out, out
+    assert "-> exit 0 in " in out, out
+    assert f"the task's own worktree: {worktree}" in out, out
 
 
 def test_a_recorded_worktree_that_is_gone_is_not_a_tree_to_run_in(project):

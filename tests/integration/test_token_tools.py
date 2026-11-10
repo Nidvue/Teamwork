@@ -28,6 +28,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from support import lane_cli, lane_tree
 from teamwork import config, engine
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -148,9 +149,11 @@ def findings(report: dict) -> dict:
 
 def commit_all(cli, project: Path, task: str) -> None:
     assert (
-        cli_run(
-            cli,
+        lane_cli(cli, project, task)(
+            "--project",
             project,
+            "--team",
+            TEAM,
             "commit",
             "--role",
             "developer",
@@ -337,12 +340,15 @@ def test_preflight_warns_on_an_oversized_slice_and_stays_green(cli, project, cap
     assert (
         cli_run(cli, project, "branch", "start", "--agent", "developer-1", "--task", "T-0001") == 0
     )
+    tree = lane_tree(project, "T-0001")
     for index in range(13):
-        (project / f"slice-{index}.txt").write_text("one line\n", encoding="utf-8")
+        (tree / f"slice-{index}.txt").write_text("one line\n", encoding="utf-8")
     commit_all(cli, project, "T-0001")
 
     capsys.readouterr()
-    code = cli_run(cli, project, "preflight", "developer", "T-0001")
+    code = lane_cli(cli, project, "T-0001")(
+        "--project", project, "--team", TEAM, "preflight", "developer", "T-0001"
+    )
     oversized = capsys.readouterr().out
     assert code == 0, oversized
     assert re.search(
@@ -350,22 +356,25 @@ def test_preflight_warns_on_an_oversized_slice_and_stays_green(cli, project, cap
     )
     assert "split the task or record why it cannot be split" in oversized
     assert "PREFLIGHT pass" in oversized
-    assert "8 checks, 0 failed" in oversized
+    assert "9 checks, 0 failed" in oversized
 
     assert (
         cli_run(cli, project, "branch", "start", "--agent", "developer-1", "--task", "T-0002") == 0
     )
+    small_tree = lane_tree(project, "T-0002")
     for name in ("small-a.txt", "small-b.txt"):
-        (project / name).write_text("one line\n", encoding="utf-8")
+        (small_tree / name).write_text("one line\n", encoding="utf-8")
     commit_all(cli, project, "T-0002")
 
     capsys.readouterr()
-    code = cli_run(cli, project, "preflight", "developer", "T-0002")
+    code = lane_cli(cli, project, "T-0002")(
+        "--project", project, "--team", TEAM, "preflight", "developer", "T-0002"
+    )
     small = capsys.readouterr().out
     assert code == 0, small
     assert not re.search(r"^- \w+\s+slice\b", small, re.M), small
     assert "PREFLIGHT pass" in small
-    assert "7 checks, 0 failed" in small
+    assert "8 checks, 0 failed" in small
 
 
 def test_throughput_reports_exact_percentiles_and_surface_bytes(cli, project, capsys):

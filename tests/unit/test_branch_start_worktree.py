@@ -73,7 +73,7 @@ def test_a_prefix_named_sibling_does_not_count_as_our_worktree(cli, project: Pat
         == 0
     )
     recorded = _record(root, ours["id"])
-    here = Path(recorded["worktree"])
+    here = engine.task_worktree(root, recorded)
     assert here.is_dir()
     assert (here / ".git").exists()
     assert here.resolve() == Path(engine.branch_worktree(project, recorded["branch"])).resolve()
@@ -98,7 +98,7 @@ def test_a_second_start_reuses_the_registered_worktree(cli, project: Path) -> No
     assert cli(*args) == 0
     second = _record(root, task["id"])["worktree"]
     assert first == second
-    assert Path(second).is_dir()
+    assert engine.task_worktree(root, {"worktree": second}).is_dir()
 
 
 def test_the_check_matches_whole_paths_only(cli, project: Path) -> None:
