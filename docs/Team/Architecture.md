@@ -17,8 +17,10 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Decis
 3. **A workspace format** - markdown + JSON under
    `<project>/.pi/Teamwork/Teams/<Team>/`.
 
-The three share one engine. The engine is a port of the original 7,416-line
-`teamwork.py` monolith with **behaviour unchanged**.
+The three share one engine. The engine started as a behaviour-preserving port of
+the original 7,416-line `teamwork.py` monolith. It is now a thin command layer
+over typed modules; the move was behaviour-preserving and is covered by the same
+suite.
 
 ## 2. Frozen repository layout
 
@@ -32,9 +34,17 @@ Teamwork/
 │   ├── __init__.py           # __version__, lazy re-exports
 │   ├── __main__.py           # python -m teamwork -> cli.main()
 │   ├── cli.py                # build_parser() + main(argv) -> int
-│   ├── engine.py             # the ported monolith (single module)
+│   ├── config.py             # workspace paths, record names, caps
+│   ├── engine.py             # command layer (gates, review/PR, memory, model)
+│   ├── gitutil.py            # git plumbing (branch/merge/LFS)
+│   ├── imaging.py            # offline image-model probe
+│   ├── io.py                 # atomic writes, the lock, die()
+│   ├── layout.py             # team tree paths and cross-links
+│   ├── names.py              # names, roles, commit identities
+│   ├── records.py            # task/memory/criteria/tests/PR/dispute records
 │   ├── resources.py          # locate the skill bundle (checkout or wheel)
-│   └── version.py            # __version__ = "1.0.0"
+│   ├── portable.py           # OS portability seam
+│   └── version.py            # __version__ = "1.0.2"
 ├── scripts/
 │   ├── teamwork.py           # thin compat shim -> teamwork.cli.main
 │   ├── verify_release.py     # build + install + smoke-test a wheel
@@ -92,8 +102,11 @@ has_asset(name: str) -> bool
 2. `python <skill>/scripts/teamwork.py` when the shim exists (a checkout);
 3. `python -m teamwork` (an installed package without the shim).
 
-`engine.py` must call `resources` instead of the old
-`SKILL_DIR = Path(__file__).resolve().parent.parent`.
+`config.py` calls `resources.skill_root()`; `engine.py` and every other module
+import the resolved paths from `config`. The dependency direction is
+`config <- io/names <- layout <- records`, and `engine` sits on top. No module
+imports `engine` at import time, so the command layer can be exercised without a
+cycle.
 
 ## 4. CLI contract (frozen, backward compatible)
 
