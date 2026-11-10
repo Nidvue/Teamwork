@@ -43,8 +43,8 @@ def make_source(root: Path) -> Path:
 
 def test_the_bundle_contains_every_shipped_file_and_no_test_file(tmp_path: Path) -> None:
     source = make_source(tmp_path)
-    rels = {str(rel) for rel in sync_skill.bundle_files(source)}
-    assert {str(n) for n in SKILL_FILES} | {f"{t}/one.txt" for t in SKILL_TREES} == rels
+    rels = {rel.as_posix() for rel in sync_skill.bundle_files(source)}
+    assert {Path(n).as_posix() for n in SKILL_FILES} | {f"{t}/one.txt" for t in SKILL_TREES} == rels
     assert not any(rel.startswith("tests/") for rel in rels)
 
 
