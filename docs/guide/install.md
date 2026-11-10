@@ -57,12 +57,35 @@ startup and loaded on demand. The optional mapping of host operations (spawn,
 message, schedule) is in
 [references/Adapters.md](https://github.com/Nidvue/Teamwork/blob/main/references/Adapters.md).
 
-!!! note "Updating the skill"
-    A project-local copy is plain files: repeat the install command above (remove
-    the directory first), then reload the host. A user-level clone keeps `.git`, so
-    `git -C ~/.agents/skills/teamwork pull` is enough. Pin a tag (`--branch v1.0.2`)
-    when you want a fixed protocol revision. A submodule is updated with
-    `git submodule update --remote`.
+!!! note "Updating the skill: follow the remote, not a checklist"
+    The host reads the **copy** in its skills directory, so a `git pull` in a
+    checkout somewhere else changes nothing the agent sees. One command does both
+    halves - fast-forward a source checkout from the remote, then mirror it into
+    the installed directory:
+
+    ```console
+    $ teamwork refresh                 # fetch origin/main, then mirror into ~/.pi/agent/skills/teamwork
+    $ teamwork refresh --dest ~/.agents/skills/teamwork
+    $ teamwork refresh --check          # drift check: writes nothing, exits 1 when stale
+    $ teamwork refresh --dry-run        # what it would copy, deletes and writes nothing
+    ```
+
+    It refuses to clobber a dirty checkout (it mirrors the checkout as it stands
+    instead and says so), deletes files the source no longer ships (a renamed
+    engine module must not shadow the new one), and never touches a file outside
+    the bundle trees, so an operator note in the skills directory survives. With no
+    checkout in use it keeps a tool-managed mirror at
+    `~/.pi/.teamwork-source`, created once with `--repo <url>` and updated from then
+    on:
+
+    ```console
+    $ teamwork refresh --mirror --repo https://github.com/Nidvue/Teamwork.git
+    ```
+
+    After a refresh, **reload the skill** (restart the host session, or re-scan
+    skills) so the new ``SKILL.md`` is read - the command prints that reminder
+    whenever it wrote something. Pin a tag (`--branch v1.0.2`) when you want a
+    fixed protocol revision instead of `main`.
 
 ## Optional: install the engine on PATH
 

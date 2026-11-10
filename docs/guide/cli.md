@@ -871,6 +871,44 @@ teamwork audit [--stale-days STALE_DAYS]
 Find fabricated completions, stale work, duplicates, LFS problems and link
 health.
 
+### `code-scanning`
+
+```text
+teamwork code-scanning [--commit] [--limit N] [--full]
+```
+
+Read the forge's open code-scanning alerts and route each one to the role that
+owns the file. The Release Engineer owns this gate: an `error`, `critical` or
+`high` alert on the default branch is a known defect in the revision that ships.
+Without `--commit` it only prints the plan
+(`<number> [<severity>] <rule> <path>:<line> -> <role>`); with it, one `P0` task
+per (owner, rule, file) is filed in that role's queue, carrying the alert
+numbers and the `gh api` command as evidence. Re-running is safe: a title
+already in the queue is not duplicated.
+
+Exit codes:
+
+| Code | Meaning |
+|---|---|
+| `0` | the alerts were read and none blocks the release |
+| `1` | a blocking alert is open - with or without `--commit`, filing a fix does not close the gate |
+| `2` | the alerts could not be read: no origin, no `gh`, no auth, no scanner, non-JSON output |
+
+Routing follows file ownership (`SCAN_ROUTE` in `src/teamwork/config.py`):
+`scripts/privacy_scan.py` and `docs/Team/AuditReport.md` to the Security
+Auditor, `src/**`, `scripts/**` and `tests/**` to the Developer, `.github/**`
+and `docs/Team/Release.md` to the Release Engineer, `docs/Team/Architecture.md`
+to the Architect, `docs/**` to the Technical Writer, `roles/**`,
+`references/**` and `templates/**` to the CEO, `README.md` and `assets/**` to the
+Designer. An alert with no file, or a file no pattern covers, goes to the
+Release Engineer.
+
+Exit `2` is the honest degraded mode: a host that is not a forge, has no `gh`,
+is unauthenticated, or has code scanning disabled prints
+`- cannot verify: unreadable: ...` and never `no open alert`, because nothing was
+verified. Fixing the code is the normal close; dismissing an alert is a Security
+Auditor triage with a recorded reason, never a silent one.
+
 ### `loop`
 
 ```text
@@ -879,6 +917,36 @@ teamwork loop
 
 Stop-condition check: may the team stop? Prints `STOP` or `CONTINUE` with
 reasons.
+
+### `refresh`
+
+```text
+teamwork refresh [--dest DIR] [--host HOST] [--source DIR] [--repo URL]
+                 [--remote origin] [--branch main] [--mirror]
+                 [--no-fetch] [--check] [--dry-run] [--quiet]
+```
+
+Keep the **installed** skill equal to the remote. The host loads the copy in its
+skills directory, not the checkout, so updating one without the other leaves the
+agent reading stale text - measured once on this machine as an old `SKILL.md`
+plus 8 engine modules that were simply missing.
+
+1. Resolve the source: `--source`, else `$TEAMWORK_SOURCE`, else the bundle in
+   use when it is a git checkout, else the tool-managed mirror beside
+   the skills directory (`<skills-parent>/.teamwork-source`; `--mirror` forces that case).
+2. In a checkout: fetch `--remote/--branch` and fast-forward. A dirty tree is
+   never clobbered - the checkout is mirrored as it stands and the command says
+   "fast-forward skipped".
+3. Mirror into `--dest` (default the host's skills directory). Files the source
+   no longer ships are deleted, files outside the bundle trees are never touched,
+   and a stale `__pycache__` is removed.
+4. Print the reminder to reload the host when anything was written.
+
+`--check` reports drift and exits `1` without writing; `--dry-run` prints the
+file plan; `--no-fetch` mirrors the local checkout only (`--repo` is required
+just once, to create the mirror). `scripts/sync_skill.py` and `make sync-skill` /
+`make sync-check` are the same mirror for a checkout that has no `teamwork` on
+`PATH`.
 
 ### `version`
 

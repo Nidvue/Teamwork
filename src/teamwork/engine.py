@@ -119,6 +119,9 @@ from .config import (
     ROSTER_INSTANCE_COUNT,
     ROSTER_REQUIRED,
     ROSTER_TIERS,
+    SCAN_BLOCKING,
+    SCAN_OWNER_ROLE,
+    SCAN_ROUTE,
     SCRATCH_DIRS,
     SCRATCH_PATTERNS,
     SETTINGS_NON_PROVIDER,
@@ -7221,6 +7224,171 @@ def cmd_board(args) -> int:
     return 0
 
 
+#: Prefix on a provenance string that means "no alert was read", never "zero alerts".
+UNREADABLE_SCAN = "unreadable: "
+
+
+def _scan_remote(project: Path) -> tuple[str, str]:
+    """``(owner, repo)`` from ``origin``, or ``("", "")`` when it is not a forge."""
+    proc = run_git(project, "remote", "get-url", "origin")
+    if proc.returncode != 0:
+        return "", ""
+    url = proc.stdout.strip()
+    match = re.search(r"[:/]([\w.-]+)/([\w.-]+?)(?:\.git)?$", url)
+    if not match:
+        return "", ""
+    return match.group(1), match.group(2)
+
+
+def scan_owner(path: str) -> str:
+    """The role that owns ``path``, from the file-ownership map ``SCAN_ROUTE``.
+
+    ``lstrip("./")`` would be a character-set strip and turn ``.github/x.yml``
+    into ``github/x.yml``, silently killing the ``.github/**`` route; strip only a
+    leading ``./`` and a leading ``/``.
+    """
+    rel = path.replace("\\", "/")
+    while rel.startswith("./"):
+        rel = rel[2:]
+    rel = rel.lstrip("/")
+    for pattern, role in SCAN_ROUTE:
+        if fnmatch(rel, pattern):
+            return role
+    return SCAN_OWNER_ROLE
+
+
+def _scan_alerts(project: Path, limit: int, full: bool) -> tuple[list, str]:
+    """Read the host's open code-scanning alerts.
+
+    Returns the alerts and a one-line provenance string naming the command that
+    produced them, so the report can carry an evidence line instead of a claim.
+    A host without a scanner is not an error: it returns ``([], "<why>")`` and the
+    caller prints the degraded mode rather than pretending there are zero alerts.
+    """
+    owner, repo = _scan_remote(project)
+    if not owner:
+        return [], UNREADABLE_SCAN + "no origin remote here"
+    cmd = [
+        "gh",
+        "api",
+        f"repos/{owner}/{repo}/code-scanning/alerts?state=open&per_page={limit}",
+        "--jq",
+        "[.[] | {number, rule: .rule.id, severity: .rule.severity,"
+        " description: .rule.description, path: .most_recent_instance.location.path,"
+        " line: .most_recent_instance.location.start_line,"
+        " ref: .most_recent_instance.ref, state}]",
+    ]
+    try:
+        done = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return [], f"{UNREADABLE_SCAN}could not run gh: {exc}"
+    if done.returncode != 0:
+        reason = (done.stderr or done.stdout).strip().splitlines()
+        detail = reason[-1] if reason else f"gh exited {done.returncode}"
+        return [], f"{UNREADABLE_SCAN}code scanning is not readable for {owner}/{repo}: {detail}"
+    try:
+        import json
+
+        alerts = json.loads(done.stdout or "[]")
+    except ValueError:
+        return [], f"{UNREADABLE_SCAN}gh returned output that is not JSON"
+    return alerts, f"gh api repos/{owner}/{repo}/code-scanning/alerts?state=open -> {len(alerts)}"
+
+
+def cmd_code_scanning(args) -> int:
+    """Read the forge's code-scanning alerts and route each one to its owner.
+
+    A red alert on the default branch is a known defect in the shipped revision,
+    so this is a release gate: the Release Engineer reads it, and the role that
+    owns the file receives the fix as a task. ``--commit`` does the routing
+    (one task per (owner, rule, path)); without it the plan is printed only.
+    """
+    root = project_root(args)
+    project = project_of(root)
+    alerts, provenance = _scan_alerts(project, args.limit, args.full)
+    print(f"# code scanning ({provenance})")
+    if provenance.startswith(UNREADABLE_SCAN):
+        # An unreadable scanner is NOT a green gate: no alert was read, so nothing
+        # was verified. Refuse rather than print "no open alert" over a failed read.
+        print(f"- cannot verify: {provenance}")
+        print("# the release gate is UNVERIFIED for this revision; fix the read first")
+        return 2
+    if not alerts:
+        print("- no open alert")
+        return 0
+    blocking = [a for a in alerts if str(a.get("severity") or "").lower() in SCAN_BLOCKING]
+    plan: dict[tuple, dict] = {}
+    for alert in alerts:
+        path = str(alert.get("path") or "")
+        role = scan_owner(path)
+        severity = str(alert.get("severity") or "?")
+        where = f"{path}:{alert.get('line') or '?'}" if path else "?"
+        print(f"- #{alert.get('number')} [{severity}] {alert.get('rule')} {where} -> {role}")
+        if args.full and alert.get("description"):
+            print(f"    {alert['description']}")
+        key = (role, str(alert.get("rule") or ""), path)
+        plan.setdefault(
+            key,
+            {
+                "role": role,
+                "rule": str(alert.get("rule") or ""),
+                "path": path,
+                "severity": severity,
+                "numbers": [],
+            },
+        )["numbers"].append(alert.get("number"))
+    if not args.commit:
+        if blocking:
+            print(
+                f"# {len(blocking)} blocking alert(s): route them with"
+                " `code-scanning --commit` before the next push"
+            )
+        else:
+            print(f"# {len(alerts)} open alert(s), none blocking")
+        return 1 if blocking else 0
+    filed = 0
+    for (role, rule, path), item in sorted(plan.items()):
+        title = f"Code scanning: {rule} in {path or '(whole repo)'}"
+        numbers = ",".join(f"#{n}" for n in item["numbers"] if n)
+        body = (
+            f"Code scanning alert(s) {numbers} on the default branch.\n"
+            f"rule: {rule}\nseverity: {item['severity']}\nfile: {path}\n"
+            f"read again with: teamwork.py code-scanning\n"
+            f"close by fixing the code, or by a recorded false-positive triage signed"
+            f" by the Security Auditor (never silently);"
+            f" the Release Engineer re-reads the forge after the push."
+        )
+        priority = "P0" if item["severity"].lower() in SCAN_BLOCKING else "P2"
+        before = len(parse_tasks(task_file(root, role)))
+        cmd_task_add(
+            argparse.Namespace(
+                project=str(project),
+                team=getattr(args, "team", ""),
+                agent=role,
+                title=title,
+                priority=priority,
+                shared=numbers,
+                deps="",
+                tags="security,code-scanning",
+                status="todo",
+                body=body,
+                evidence=provenance,
+                no_review=False,
+                claimed_by="",
+                bug=False,
+            )
+        )
+        after = len(parse_tasks(task_file(root, role)))
+        if after > before:
+            filed += 1
+        # a duplicate title is a no-op; the alert is already routed
+    print(f"# filed {filed} code-scanning task(s) across {len(plan)} file(s)")
+    print("teamwork: the Release Engineer owns the gate; the file owner fixes it")
+    # Filing a fix does not close the gate: the alert is still open until the forge
+    # reports it fixed, so the exit code must stay red after --commit too.
+    return 1 if blocking else 0
+
+
 def cmd_audit(args) -> int:
     """Anti-hallucination / integrity audit of the whole workspace."""
     root = project_root(args)
@@ -8289,6 +8457,133 @@ def cmd_agents_md(args) -> int:
     else:
         write_lf(target, text.rstrip() + "\n\n" + managed + "\n")
         print(f"teamwork: appended teamwork section to {target}")
+    return 0
+
+
+def _fetch_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
+    """Fetch ``remote/branch`` into ``source``. Returns ``(ok, detail)``."""
+    got = run_git(source, "fetch", "--prune", "--quiet", remote, branch)
+    if got.returncode != 0:
+        tail = (got.stderr or got.stdout).strip().splitlines()
+        return False, tail[-1] if tail else "fetch failed"
+    rev = run_git(source, "rev-parse", "--short", f"{remote}/{branch}")
+    if rev.returncode != 0:
+        return False, f"no {remote}/{branch} after fetch"
+    return True, rev.stdout.strip()
+
+
+def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
+    """Move ``source`` to ``remote/branch`` without touching a dirty tree."""
+    dirty = run_git(source, "status", "--porcelain").stdout.strip()
+    if dirty:
+        # Never clobber uncommitted work, but do not refuse to mirror either: the
+        # operator may be mid-change and still want the installed copy to match.
+        return True, (
+            f"local changes ({dirty.splitlines()[0]}) - fast-forward skipped, "
+            "mirroring this checkout as it stands"
+        )
+    ok, detail = _fetch_source(source, remote, branch)
+    if not ok:
+        return False, detail
+    head = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
+    target = detail
+    if head == target:
+        return True, f"already at {remote}/{branch} {target}"
+    pulled = run_git(source, "merge", "--ff-only", f"{remote}/{branch}")
+    if pulled.returncode != 0:
+        tail = (pulled.stderr or pulled.stdout).strip().splitlines()
+        return False, f"cannot fast-forward {head} -> {target}: {tail[-1] if tail else '?'}"
+    after = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
+    if after == head:
+        # The checkout already contains remote/branch - it is AHEAD of it, which is
+        # the normal state of a lane mid-task. Report where HEAD really is rather
+        # than announce a move that did not happen.
+        return True, f"{remote}/{branch} {target} is already contained in {head} (ahead of it)"
+    return True, f"{head} -> {after}"
+
+
+def cmd_refresh(args) -> int:
+    """Re-sync the installed skill from the remote, so a host copy follows ``main``.
+
+    Three cases, one command:
+
+    * the bundle in use is a **git checkout** - fetch and fast-forward it, then
+      mirror it into the installed skills directory;
+    * ``--source``/``TEAMWORK_SOURCE`` names a checkout - same, mirrored here;
+    * neither - the tool-managed mirror checkout (``<skills>/.teamwork-source``)
+      is created once with ``--repo`` (or the project's ``origin``) and updated
+      from then on.
+
+    The mirror is the whole point: an agent host reads the *copy* in the skills
+    directory, so updating the checkout alone leaves the agent on stale text.
+    """
+    from . import bundle
+
+    dest = bundle.resolve_dest(args.host, args.dest)
+    explicit = Path(args.source).expanduser() if args.source else None
+    if explicit is None and bundle.env_source():
+        explicit = Path(bundle.env_source()).expanduser()
+    if explicit is not None and not bundle.is_checkout(explicit.resolve()):
+        die(f"--source {explicit} is not a git checkout of this skill (no .git + src/teamwork)")
+    source = explicit
+    if source is None and not args.mirror and bundle.is_checkout(SKILL_DIR):
+        source = SKILL_DIR
+    if source is None:
+        source = bundle.default_mirror_path(dest)
+    source = source.resolve()
+
+    remote, branch = args.remote, args.branch
+    created = False
+    if not bundle.is_checkout(source):
+        repo = args.repo
+        if not repo and getattr(args, "project", None):
+            origin = run_git(project_of(project_root(args)), "remote", "get-url", "origin")
+            repo = origin.stdout.strip() if origin.returncode == 0 else ""
+        if not repo:
+            die(
+                f"{source} is not a checkout and no --repo was given; "
+                "pass --repo <url> once to create the mirror"
+            )
+        source.parent.mkdir(parents=True, exist_ok=True)
+        cloned = run_git(source.parent, "clone", "--quiet", "--branch", branch, repo, str(source))
+        if cloned.returncode != 0:
+            tail = (cloned.stderr or cloned.stdout).strip().splitlines()
+            die(f"cannot clone {repo} into {source}: {tail[-1] if tail else '?'}")
+        created = True
+        print(f"# mirror checkout created at {source}")
+
+    if not args.no_fetch:
+        ok, detail = _update_source(source, remote, branch)
+        if not ok:
+            die(f"refresh stopped: {detail}")
+        print(f"# source {source.name}: {detail}")
+    added, updated, removed = bundle.plan(source, dest)
+    if args.check:
+        if added or updated or removed:
+            print(
+                f"# OUT OF SYNC: {len(added)} missing, {len(updated)} stale, "
+                f"{len(removed)} extra -> run refresh",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"# installed skill {dest} matches {source}")
+        return 0
+    if not (added or updated or removed):
+        print(f"# installed skill {dest} already matches {source}")
+        return 0
+    if args.dry_run:
+        for rel in added:
+            print(f"  + {rel}")
+        for rel in updated:
+            print(f"  ~ {rel}")
+        for rel in removed:
+            print(f"  - {rel}")
+        print(f"# would write {len(added) + len(updated) + len(removed)} file(s) -> {dest}")
+        return 0
+    bundle.sync(source, dest, dry_run=False, quiet=args.quiet)
+    print(f"# refreshed {dest}: {len(added)} added, {len(updated)} updated, {len(removed)} removed")
+    if created or added or updated:
+        print("# restart the agent host or reload the skill so the new text is read")
     return 0
 
 
@@ -9430,6 +9725,20 @@ def _parsers_audit(sub, common) -> None:
     s.add_argument("--stale-days", type=int, default=2)
     s.set_defaults(func=cmd_audit)
 
+    s = sub.add_parser(
+        "code-scanning",
+        parents=[common],
+        help="read the forge's code-scanning alerts and route each one to its owner",
+    )
+    s.add_argument(
+        "--commit",
+        action="store_true",
+        help="file one task per (owner, rule, file); default only prints the plan",
+    )
+    s.add_argument("--limit", type=int, default=100, help="how many open alerts to read")
+    s.add_argument("--full", action="store_true", help="also print each alert's description")
+    s.set_defaults(func=cmd_code_scanning)
+
     s = sub.add_parser("ledger", parents=[common], help="append-only audit trail (hash-chained)")
     lsub = s.add_subparsers(dest="ledger_cmd", required=True)
     s = lsub.add_parser("show", parents=[common], help="inspect the trail")
@@ -9543,6 +9852,30 @@ def _parsers_model(sub, common) -> None:
 
 def _parsers_meta(sub, common) -> None:
     """`version`, `selftest` and `imaging` command surface."""
+    s = sub.add_parser(
+        "refresh",
+        parents=[common],
+        help="fetch the remote and mirror the skill into the installed skills directory",
+    )
+    s.add_argument("--dest", default="", help="skills directory to write")
+    s.add_argument(
+        "--host", default="pi", choices=("pi", "agents"), help="which host's default skills dir"
+    )
+    s.add_argument("--source", default="", help="checkout to mirror (default: the one in use)")
+    s.add_argument("--repo", default="", help="remote to clone when no checkout exists yet")
+    s.add_argument(
+        "--mirror",
+        action="store_true",
+        help="use the tool-managed mirror checkout even when this bundle is a checkout",
+    )
+    s.add_argument("--remote", default="origin", help="git remote to fetch")
+    s.add_argument("--branch", default=DEFAULT_BASE, help="branch to follow")
+    s.add_argument("--no-fetch", action="store_true", help="mirror the local checkout only")
+    s.add_argument("--check", action="store_true", help="report drift, write nothing")
+    s.add_argument("--dry-run", action="store_true", help="print the plan, write nothing")
+    s.add_argument("--quiet", action="store_true", help="print only the summary")
+    s.set_defaults(func=cmd_refresh)
+
     s = sub.add_parser("version", parents=[common], help="print the version and exit")
     s.set_defaults(func=cmd_version)
 

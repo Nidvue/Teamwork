@@ -143,9 +143,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 6 | 223 kB |
-| `standard` | 9 | 331 kB |
-| `full` | 16 | 577 kB |
+| `slim` (default) | 6 | 225 kB |
+| `standard` | 9 | 334 kB |
+| `full` | 16 | 583 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts, and 2.6x what `slim` costs.
@@ -487,9 +487,17 @@ Two duties that keep the remote and the confidence level honest:
   that revision. After the push, watch CI and confirm it is green **on that SHA**.
   A red run is routed to its owner from the log (code -> Developer, test ->
   Tester, contract -> Architect, workflow/packaging/flake -> Release Engineer,
-  scope -> CEO) and re-run after the fix. Force-push and published-history
-  rewrites need the CEO's explicit authorization; tags and public releases are
-  the CEO's step, prepared and verified by the Release Engineer.
+  scope -> CEO) and re-run after the fix. **A GitHub (or GitLab / Azure)
+  code-scanning alert is part of the same gate**: `teamwork code-scanning` reads
+  the open alerts, an `error`/`critical`/`high` one is a red release signal on the
+  shipped revision, and `--commit` files a `P0` task with the role that owns the
+  file. It exits `1` while a blocking alert is open (filing the fix does not
+  close the gate), and `2` with `unreadable: ...` when the security tab could not
+  be read at all - an unread scanner is `UNVERIFIED`, never a green zero.
+  Dismissing an alert is a Security Auditor triage with a recorded reason, never
+  a way to silence the gate. Force-push and published-history rewrites need the
+  CEO's explicit authorization; tags and public releases are the CEO's step,
+  prepared and verified by the Release Engineer.
 - **Tester - certify local *and* CI.** The Tester runs the layers locally and then
   confirms the same result in CI on the pushed revision, job by job across the OS
   and Python matrix. A green local run with a red CI run is a failure, and so is
@@ -533,6 +541,36 @@ the local result **and** the CI run (id + conclusion) for the certified revision
   Policy and the per-host mapping are in `references/Remotes.md`. Record the actual
   settings from the host API as evidence and re-read them to detect drift; an
   unprotected setting is a defect on par with a red build.
+
+### 5e. Keep the installed skill on the remote's `main`
+
+The repository root *is* the skill, but the host loads a **copy** from its skills
+directory. Updating one without the other means the agent keeps reading an old
+`SKILL.md` - measured on a real machine as a stale `SKILL.md` plus eight engine
+modules that were simply absent from the copy.
+
+One command does both halves, and it is a startup and post-push step, not a
+manual chore:
+
+```sh
+python3 "$SKILL/scripts/teamwork.py" refresh              # fetch origin/main, then mirror into the skills dir
+python3 "$SKILL/scripts/teamwork.py" refresh --check       # drift only: writes nothing, exit 1 when stale
+python3 "$SKILL/scripts/teamwork.py" refresh --dry-run     # the file plan, no writes
+```
+
+- It fast-forwards a checkout source from `--remote/--branch` (default
+  `origin/main`), then mirrors the bundle into `--dest` (default the host's
+  skills directory). Files the source dropped are deleted so a renamed module
+  cannot shadow the new one; files outside the bundle trees are never touched.
+- **A dirty checkout is mirrored, never reset**: the operator's uncommitted work
+  is theirs, and the command says "fast-forward skipped".
+- With no checkout in use it keeps a tool-managed mirror at
+  `~/.pi/.teamwork-source`, created once with `--mirror --repo <url>`.
+- After a refresh the host must **reload** the skill (restart the session or
+  re-scan). The command prints that reminder whenever it wrote something.
+- Releasing the skill's own work ends with this: the Release Engineer pushes the
+  reviewed revision, then runs `refresh --check` so the machine that ships the
+  protocol also runs it. A failing `--check` is a defect on par with a red gate.
 
 ### 6. Close
 

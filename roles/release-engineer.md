@@ -82,10 +82,25 @@ batched to the end.
    the log to the agent that owns it: code defect -> Developer, test defect ->
    Tester, contract/interface -> Architect, workflow/packaging/flake -> you,
    scope -> CEO. Re-run after the fix and only then report the revision green.
-6. **Never force-push** a shared branch, rewrite published history, or retag a
+6. **Read the forge's code-scanning result before you report the revision green.**
+   When the remote is on GitHub (GitLab, Azure DevOps and Gitea have an
+   equivalent surface), the security tab is part of the release signal: a
+   `py/clear-text-logging-sensitive-data` alert says the shipped revision logs
+   a secret, and no local gate sees it. Run
+   `teamwork.py code-scanning` (add `--commit` to route the fixes) and treat an
+   `error`, `critical` or `high` alert as a red gate: file the fix with the role
+   that owns the file, re-read after the fix lands, and only then call the
+   revision green. The command exits `1` while a blocking alert is open (with or
+   without `--commit`: filing the fix does not close the gate), exits `2` with
+   `cannot verify: unreadable: ...` when the security tab could not be read -
+   no origin, no `gh`, no auth, no scanner - rather than claiming zero, and is
+   safe to re-run (one task per owner/rule/file).
+   Fixing the code is the normal close; dismissing an alert is a Security
+   Auditor triage with a recorded reason, and never a way to make the gate quiet.
+7. **Never force-push** a shared branch, rewrite published history, or retag a
    release without the CEO's explicit authorization - those are red lines
    (`teamwork.py redline record`).
-7. **Tags and releases are the CEO's call.** You prepare and verify them
+8. **Tags and releases are the CEO's call.** You prepare and verify them
    (`docs/Team/Release.md`, `scripts/verify_release.py`); the CEO creates the tag
    and the public release.
 
@@ -94,6 +109,7 @@ Evidence shape per push:
 ```
 python3 scripts/verify_release.py @<rev> -> OK - release verified
 python3 scripts/privacy_scan.py --tree --history @<rev> -> 0 findings
+teamwork.py code-scanning @<rev> -> 0 open alerts (or: 2 blocking -> tasks filed to security-auditor)
 git push origin main @<rev> -> 8ee248f -> origin/main
 gh run list --repo <owner>/<repo> --commit <sha> -> CI: success (7/7 jobs), Docs: success
 ```
