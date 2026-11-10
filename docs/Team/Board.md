@@ -105,7 +105,8 @@ under two roles is two tasks.
 | ceo | T-0017 | records | done | P-0049 | d3a7988 |
 | ceo | T-0018 | records | done | P-0050 | 4d34851 |
 | ceo | T-0019 | records | done | P-0062 | bace8e2 |
-| ceo | T-0020 | throughput | doing | - | - |
+| ceo | T-0020 | throughput | dropped | - | - |
+| ceo | T-0021 | privacy | done | P-0063 | ca608bf |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -182,7 +183,6 @@ landed by commit without a PR record.
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
 | ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | blocked | - |
-| ceo | T-0020 · M18 A0: measured throughput/token baseline, roster right-sizing and the Throughput report | P0 | doing | - |
 | developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | todo | - |
 | developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
 | developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |

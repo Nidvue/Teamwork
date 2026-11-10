@@ -14967,14 +14967,33 @@ def _audit_roster_gaps_roles_with_no_instance(root: Path, names: list, args) -> 
 def _audit_ownership_sanity_phantom_agents_silent_o(root: Path, names: list, args) -> int:
     print("## ownership sanity (phantom agents, silent owners)")
     hits = 0
-    known = {pascal(i) for i in known_instances(root)}
+    active = {pascal(i) for i in known_instances(root)}
+    retired = {
+        pascal(r.get("target", ""))
+        for r in ledger_read(root)
+        if r.get("action") == "instance.retire" and r.get("target")
+    }
     for name in names:
         for t in parse_tasks(task_file(root, name)):
             cb = t.get("claimed_by")
-            if not cb or pascal(cb) in known:
+            if not cb:
+                continue
+            who = pascal(cb)
+            if who in active:
                 continue
             if pascal(cb) == pascal(name) and instances_of(root, name):
                 continue  # the role itself = shared pool, not a phantom
+            if who in retired:
+                # A retired lane's name is known history, not a phantom. Its closed
+                # tasks keep the name as provenance; only open work it still claims
+                # is a defect, because nobody can pick it up.
+                if t["status"] in ("todo", "doing", "selfcheck", "review"):
+                    print(
+                        f"- {name} {t['id']} is {t['status']} but claimed by retired "
+                        f"agent '{cb}'; reclaim or reassign it"
+                    )
+                    hits += 1
+                continue
             print(
                 f"- {name} {t['id']} claimed by unknown agent '{cb}' "
                 "(no such instance; fix with 'task reclaim' or reassign)"
