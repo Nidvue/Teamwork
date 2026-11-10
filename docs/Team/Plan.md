@@ -25,6 +25,7 @@ for one task. This file carries the exit condition, which does not move.
 | M9 Release truth | every published version is traceable to a tag or a measured exception, and every release claim is measurable | done - AC-REL-1..AC-REL-6 measured green, including CI on the pushed revision |
 | M9p Harness^2 adoption | `harness` and `hooks` registered and documented, AC-H1..AC-H8 verified on the merged revision | closed on the published line; its records are kept below under M9p because the reconciled history carries two milestones that were both named M9 |
 | M10 Release truth on every OS | the CI matrix is green on all three operating systems, not only ubuntu and macOS | done - T-0022..T-0024; CI run 39690418108 on the pushed revision, 19/19 jobs |
+| M11 Solid review pass | suite green on a stock Windows host, docs re-measured, tree censused and cleaned, `loop` STOP + `audit` 0 problems | in progress - see the M11 section below |
 
 ## M5 - post-1.0 hardening (closed)
 
