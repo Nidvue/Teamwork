@@ -17,7 +17,7 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore: &documentation-only
+    paths-ignore:
       - "docs/**"
       - "README.md"
       - "CHANGELOG.md"
@@ -29,8 +29,12 @@ on:
       - "AGENTS.md"
       - "assets/**"
       - "mkdocs.yml"
+  # A pull request always runs every required check. Required status checks must
+  # be *reported* on the merge revision: a workflow skipped by `paths-ignore`
+  # reports no check at all, so a docs-only PR would wait forever on a check that
+  # can never appear. The path filter therefore applies to `push` only, where the
+  # matrix is a cost optimisation rather than a merge gate.
   pull_request:
-    paths-ignore: *documentation-only
   workflow_dispatch:
 
 # Cancel superseded runs on the same ref, but never a run on main.
