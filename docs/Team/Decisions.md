@@ -248,3 +248,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: git log --format='%an <%ae>' -> ceo@agents.nidvue.com / teamwork@agents.nidvue.com; python3 scripts/privacy_scan.py --tree --history -> 0 findings; grep -rn 'agents.nidvue.com' -> only agents.nidvue.com
 - falsified by: A commit or shipped document carries a mailbox outside agents.nidvue.com, or the owner changes the suffix again.
 - consequences: -
+
+## D-20261018-CEO - Re-attribute the commit history to the acting roles (authorized)
+
+- date: 2026-10-18
+- kind: redline
+- status: accepted
+- deciders: operator (user), CEO
+- decided by: ceo
+- task: -
+- context: `main` carried 36 commits authored by the CEO, one by the product identity `Teamwork <teamwork@agents.nidvue.com>` and one by the Reviewer; the role that did the work must be the author.
+- options considered: A - leave history and enforce forward only (non-destructive; old attribution stays wrong); B - `.mailmap` (display only, SHAs unchanged, per-commit role unknowable); C - rewrite authors, committers, trailers and tags by changed-path role (correct everywhere; every SHA changes and releases are re-pointed).
+- decision: C, with the operator's explicit authorization. Each commit is attributed to the role that owns its dominant paths; author and committer dates are preserved; the `Role:` and `Acting role:` trailers are rewritten; `v1.0.0`-`v1.0.2` are re-pointed to the rewritten commits.
+- why: the operator judged attribution correctness worth the SHA churn. A local bundle (`.pi/backup-pre-rewrite.bundle`, gitignored) is the rollback, and the new identity audit prevents recurrence.
+- evidence: `git log --format='%an <%ae>' @a307cc0 -> 36 CEO, 1 Teamwork, 1 Reviewer`; the operator selected option 3 in the session of 2026-10-18.
+- falsified by: a rewritten commit whose author does not own its dominant paths, or any red gate on the rewritten tree.
+- consequences: every SHA changes, the three release tags move, existing clones and forks must re-fetch; the CI identity audit makes the rule enforceable from here on.
