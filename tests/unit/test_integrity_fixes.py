@@ -498,3 +498,26 @@ def test_repo_bootstrap_preserves_a_name_only_local_identity(tmp_path: Path) -> 
     assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
         "ceo@agents.nidvue.com"
     )
+
+
+def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -> None:
+    init(cli, project)
+    assert (
+        cli(
+            "--project",
+            project,
+            "dispute",
+            "open",
+            "--by",
+            "developer-1",
+            "--against",
+            "tester-1",
+            "--topic",
+            "boundary",
+            "--evidence",
+            "pytest @rev -> ok",
+        )
+        == 0
+    )
+    assert cli("--project", project, "dispute", "escalate", "D-0001", "--by", "developer-1") == 0
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "developer-1") != 0
