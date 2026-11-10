@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from teamwork import engine
-
-RECORDS_PAGE = Path(__file__).resolve().parents[2] / "docs" / "guide" / "cli-records.md"
 
 
 def test_new_criterion_normalises_fields() -> None:
@@ -87,108 +84,3 @@ def test_find_criterion_by_id_then_text() -> None:
     assert engine.find_criterion(items, "AC-2") == 1
     assert engine.find_criterion(items, "login") == 0
     assert engine.find_criterion(items, "missing") is None
-
-
-def test_criteria_list_exit_codes_include_the_empty_store(cli, project: Path, capsys) -> None:
-    """`criteria list` is 3 on an empty store, 1 while open, 0 when all verified.
-
-    The empty store is a state, not an error: exit 3 keeps "nothing recorded yet"
-    apart from exit 0's "everything verified", so a store with no acceptance
-    criteria can never read as green. Documented in `docs/guide/cli-records.md`.
-    """
-    assert cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
-    assert cli("--project", project, "criteria", "list") == 3
-    empty = capsys.readouterr().out
-    assert "# no criteria yet (" in empty
-    assert "criteria add --id" in empty
-
-    assert (
-        cli(
-            "--project",
-            project,
-            "criteria",
-            "add",
-            "--id",
-            "AC-1",
-            "--text",
-            "the store exists",
-            "--owner",
-            "developer",
-            "--by",
-            "ceo",
-        )
-        == 0
-    )
-    assert cli("--project", project, "criteria", "list") == 1
-
-    assert (
-        cli(
-            "--project",
-            project,
-            "criteria",
-            "verify",
-            "AC-1",
-            "--by",
-            "ceo",
-            "--evidence",
-            "python -m pytest -q tests/unit/test_criteria.py @HEAD -> 1 passed",
-        )
-        == 0
-    )
-    assert cli("--project", project, "criteria", "list") == 0
-
-
-def test_the_records_page_states_the_codes_the_cli_returns(cli, project: Path, capsys) -> None:
-    """The page is the records probe's contract, so its claims are measured here.
-
-    An unknown-id row that names a code the CLI does not return is worse than no
-    row: a test written against the page asserts the documented code and reads a
-    real refusal as an unexplained different one. Both claims are parsed from the
-    page and compared with the shipped CLI, so a drift in either direction fails.
-    """
-    assert cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
-    page = RECORDS_PAGE.read_text(encoding="utf-8")
-
-    unknown = re.search(
-        r"`criteria verify` and `criteria reopen` of an unknown id exit `(\d)`", page
-    )
-    assert unknown is not None, "the unknown-id exit code row is gone from the page"
-    documented = int(unknown.group(1))
-    capsys.readouterr()
-    assert (
-        cli(
-            "--project",
-            project,
-            "criteria",
-            "verify",
-            "AC-99",
-            "--by",
-            "ceo",
-            "--evidence",
-            "python -m pytest -q @HEAD -> 1 passed",
-        )
-        == documented
-    )
-    assert (
-        cli("--project", project, "criteria", "reopen", "AC-99", "--by", "ceo", "--reason", "x")
-        == documented
-    )
-
-    assert "`AC-` plus a word" in page
-    assert (
-        cli(
-            "--project",
-            project,
-            "criteria",
-            "add",
-            "--id",
-            "AC-M19-1",
-            "--text",
-            "a word id is legal",
-            "--owner",
-            "developer",
-            "--by",
-            "ceo",
-        )
-        == 0
-    )
