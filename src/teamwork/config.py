@@ -389,6 +389,18 @@ SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria")
 
 DEFAULT_BASE = "main"
 
+# The two git hook stages `hooks install` writes. `status`, `uninstall` and the
+# overwrite refusal all key on HOOK_MARKER, so a hook without that line is never
+# touched: it belongs to someone else.
+HOOK_STAGES = ("pre-commit", "pre-push")
+
+HOOK_MARKER = "Installed by teamwork.py hooks install"
+
+# Git LFS threshold shared by the pre-commit hook and `commit --check-lfs`: one
+# MiB, because "1 MB" in decimal and binary differ by 4.8% and a threshold that
+# moves with the reader is not a rule (D-20261020-Architect-7).
+LFS_MAX_BYTES = 1024 * 1024
+
 REVIEW_STATUSES = ("open", "approved", "changes-requested", "merged", "closed")
 
 PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
