@@ -6553,8 +6553,6 @@ def _pack_block(root: Path, role: str, task: str, touch_by: str = "") -> str:
     """
     limit = memorypack.injected_budget(root, role, task)
     query = memorypack.task_query(root, role, task)
-    # The header names the injected layer's cap (index + pack); the pack footer
-    # names what the pack itself got after the index was charged (AC-M22-4).
     header = (
         f"# memory pack for {task} -> '{query}'"
         f" (budget {memorypack.PACK_BUDGET_BYTES} bytes; not the static top-10)"
@@ -6629,11 +6627,6 @@ def cmd_load(args) -> int:
     gcount = len(parse_memory(global_dir(root) / F_GLOBAL))
     inst = instances_of(root, role)
     print(memorypack.index_block(root, role, getattr(args, "task", "") or ""))
-    # Two preamble lines, not five (Memory.md 11, AC-M22-4): the index above is
-    # only free if it displaces boilerplate as well as the verbose lesson rows,
-    # so one line carries the counts and one carries the commands. Every fact the
-    # five lines stated is still stated - the entry count, who shares the memory,
-    # the pen command, the recall hint and the global count; only the words went.
     print(
         f"# {args.agent} (shared {role} memory): {len(keep)}/{len(entries)} entries;"
         f" shared by {', '.join(inst) or role}; global {gcount}"
@@ -6673,12 +6666,6 @@ def cmd_load(args) -> int:
     else:
         open_lessons = [item for item in lessons if item["status"] == "open"]
         fixed = sum(1 for item in lessons if item["status"] == "fixed")
-        # An open lesson is already a topic line in the memory index this command
-        # opened with (Memory.md 11): the topic and the pointer are there, so the
-        # count and the pointer to the list are all that is left to say. Printing
-        # every ``mistake -> rule`` row again is what made `load` grow by the
-        # index's bytes (AC-M22-4); the rule itself stays in Lessons.md, which the
-        # index line names.
         print(
             f"# Lessons ({role}) - open mistakes to avoid: {len(open_lessons)} open,"
             f" listed in the memory index above (the rule stays in Lessons.md)"

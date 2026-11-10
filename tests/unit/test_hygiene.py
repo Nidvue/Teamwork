@@ -66,6 +66,7 @@ ROOT_ALLOWLIST = {
     "build",
     "dist",
     "docs",
+    "extensions",
     "mkdocs.yml",
     "pyproject.toml",
     "references",
