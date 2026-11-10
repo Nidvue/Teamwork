@@ -69,6 +69,7 @@ Teamwork/
 │   ├── check_release_consistency.py  # the release-truth gate (make release-consistency)
 │   ├── check_comments.py      # the no-comment gate (make lint)
 │   ├── ci_scope.py            # classify a change set into the code/prose gate answers
+│   ├── lane_proof.py         # the repeatable plugin-free fan-out proof (T-0037)
 │   ├── sync_skill.py         # mirror this checkout into an installed skills dir (make sync-skill)
 │   ├── render_social_preview.py  # draw assets/social-preview.png from the README pitch
 │   └── privacy_scan.py       # tree + history privacy gate

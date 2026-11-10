@@ -204,7 +204,7 @@ def test_the_gate_runs_in_the_task_tree(cli, project: Path) -> None:
     commit_feature(cli, project)
     settings = root / "Settings.json"
     data = json.loads(settings.read_text(encoding="utf-8"))
-    data["PreflightCommand"] = "test -f feature.txt"  # on the branch, not on main
+    data["PreflightCommand"] = "test -f feature.txt"
     settings.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
     with in_lane(project, "T-0001"):
