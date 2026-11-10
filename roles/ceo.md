@@ -167,6 +167,9 @@ Every acceptance criterion has evidence, no lane is blocked, `coordination
 --strict` reports no high finding, docs match code, and the user has a final
 report they can act on.
 
+- The close-out reports the learning growth: active knowledge records, fixed
+  lessons and the `tw-` skills they produced.
+
 ## Submitting work (all roles)
 
 One canonical path, defined once in the skill:

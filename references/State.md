@@ -20,6 +20,9 @@ one lane. The CEO additionally owns the global file.
 | Long-term | `Roles/<Role>/LongTermMemory.md` | never; queried (`recall`) | durable facts, interfaces, gotchas |
 | Archive | `Roles/<Role>/ArchivedMemory.md` | never; searchable | evicted long-term entries |
 | Shared | `Global/GlobalMemory.md` | read on demand | facts no agent should re-ask |
+| Lessons | `Roles/<Role>/Lessons.md` | at startup (`load`, first 10 open) | mistakes the role will not repeat |
+| Knowledge | `Knowledge.md` (team root) | at startup (`load`, top 10 active) | durable project facts, ranked by importance and uses |
+| Context tree | `ctx://` (computed, no file) | on demand (`context ...`) | read-only L0/L1/L2 view over every store above |
 
 ```sh
 teamwork.py load <agent>                                  # startup context
@@ -124,7 +127,157 @@ Consolidation rules (automatic on `remember`/`load`, run manually by the CEO):
 What belongs where: task-local working notes and in-flight decisions in
 short-term; verified interfaces, commands, revisions, gotchas and rejected
 approaches in long-term; team-wide facts in global memory (CEO), proposed by the
-owner who discovered them.
+owner who discovered them; a mistake the role must not repeat in its
+`Lessons.md`; a durable project fact in the shared `Knowledge.md`.
+
+## Lessons and project knowledge
+
+Two stores sit beside memory. Both are team-local working state, gitignored and
+never committed, and both are written only through their command - a hand edit is
+a defect. A missing file is an empty store, never an error.
+
+| Store | File | Scope | Record |
+|---|---|---|---|
+| Lessons | `Roles/<Role>/Lessons.md` | one role, shared by all its instances | `L-nnnn`: mistake, cause, rule, evidence |
+| Knowledge | `Knowledge.md` at the team root | every role, one store | `K-nnnn`: topic, statement, kind, evidence, tags, importance |
+
+### Lessons
+
+One record per mistake:
+
+```text
+## L-0001 - <what went wrong>
+- role: <role>
+- status: open | fixed
+- mistake: <the observable failure>
+- cause: <why it happened>
+- rule: <what the agent does instead>
+- evidence: <command @rev -> result>
+- task: <T-id>            (optional)
+- skill: <tw-name>        (set when a skill fixes it)
+- by: <instance>
+- created: YYYY-MM-DD
+- updated: YYYY-MM-DD
+```
+
+```sh
+teamwork lesson add --by <you> --mistake TEXT --cause TEXT --rule TEXT --evidence TEXT \
+    [--role ROLE] [--task TASK]
+teamwork lesson list [--role ROLE] [--status open|fixed|all]
+teamwork lesson show L_ID
+teamwork lesson fix L_ID --by <you> [--rule RULE] [--skill TW_NAME] [--evidence EVIDENCE]
+```
+
+- `add` requires `--by`, `--mistake`, `--cause`, `--rule` and `--evidence`; the
+  role defaults to the actor's role. Ids are `L-` plus four digits, allocated
+  from the maximum over every role's file, so they are globally unique.
+- `list` defaults to every role and `--status all`, sorted by id, one line each.
+- `fix` moves an `open` lesson to `fixed` and needs evidence. An already `fixed`
+  lesson may be re-proved only with new `--evidence`; without it the command
+  exits `1` and changes nothing. A `--skill` must be a registered `tw-` skill of
+  kind `mistake`; `skill create --from-lesson` sets the same link from the other
+  side.
+- `load` prints the role's open lessons (first 10) and the number of fixed ones,
+  so every instance starts by reading the mistakes it must not repeat.
+
+### Knowledge
+
+One record is one durable fact about this project:
+
+```text
+## K-0001 - <topic>
+- statement: <one fact, rule or gotcha, <= 500 chars>
+- kind: fact | experience | preference | gotcha | rule   (absent reads as fact)
+- evidence: <command @rev -> result | path:line | URL + access date>
+- tags: <lower-case kebab comma list> (empty renders `-`)
+- owner: <role that first recorded it>
+- by: <instance>
+- task: <T-id>              (optional)
+- importance: 1-5
+- uses: N
+- status: active | superseded
+- supersedes: K-0002        (optional)
+- superseded_by: K-0004     (set on the old record)
+- created: YYYY-MM-DD
+- updated: YYYY-MM-DD
+```
+
+```sh
+teamwork knowledge add --by <you> --topic TEXT --statement TEXT --evidence TEXT \
+    [--kind KIND] [--tags TAGS] [--importance 1-5] [--supersedes K-0002] [--task T]
+teamwork knowledge list [--tag TAG] [--role ROLE] [--kind KIND] \
+    [--status active|superseded|all] [--limit N]
+teamwork knowledge search QUERY [--kind KIND] [--status active|superseded|all] [--limit N]
+teamwork knowledge show K_ID
+teamwork knowledge touch K_ID --by <you>
+```
+
+- `add` requires `--by`, `--topic`, `--statement` and `--evidence`; `--tags`
+  defaults to empty and `--importance` to 3. `--kind` defaults to `fact` and is
+  one of `experience`, `preference`, `gotcha` or `rule`; a record without the
+  field reads as `fact`, so older records need no migration. `list` and `search`
+  accept `--kind` to keep one kind, and `load` plus the context L0 show it.
+  `--role` on `list` matches the record's `owner` (provenance, not a permission).
+- Duplicates are **active-only** and exact after whitespace collapse and
+  case-folding of `topic` and `statement`. Re-adding an active duplicate returns
+  the existing id and adds nothing; the same topic with a different statement is
+  refused (`2`) until the holder is named with `--supersedes`.
+- `--supersedes` marks the old record `superseded` with `superseded_by` and links
+  the new one; an inactive target is refused except the exact re-instatement
+  case. Records are never silently deleted, so history stays readable.
+- `list` and `search` default to active records, limit 20 (`0` = all), ordered by
+  importance descending, then uses, then updated, then id ascending. `show` reads
+  one record including its superseded history; `touch` increments `uses` and is
+  how a fact that was actually used rises in the ranking.
+- `load` prints the top 10 active records project-wide as
+  `- [K-0001] [experience] <topic>: <statement> (uses=N, tags=...)` and the
+  active/superseded counts, so the startup read is the most important and most
+  used knowledge, not the newest ten.
+
+### Context tree
+
+`ctx://` is a read-only view over the stores above: memory, lessons, knowledge,
+skills, docs and tasks. Every node resolves to an existing file or record; the
+view adds no file, index, cache or summary sidecar, and a missing store reads as
+an empty node. It is not a second store and never replaces `load`, the gates or
+the evidence rule.
+
+- **Levels**: L0 is the one-line summary, L1 the record fields, heading tree or
+  child list, L2 the full record or file. They are computed at read time and
+  never written back; there is no `.abstract.md`/`.overview.md` sidecar and no
+  model call.
+- **Commands**: `context ls` (default `ctx://`, level 0, limit 20),
+  `context tree` (default depth 2), `context read <uri>` (default level 1),
+  `context find "<query>" [--scope <uri>]` (default scope `ctx://`, limit 10),
+  `context stats` and `context digest <T-id>`. All are read-only.
+- **Scope**: `--scope` is a URI prefix such as `ctx://role/developer` or
+  `ctx://project/knowledge`; a node outside it is never returned, and an unknown
+  scope exits `2`. Retrieval is deterministic token matching over L0/L1 - no
+  embeddings, network or index - and it never reads L2.
+- **Docs**: `ctx://project/docs` enumerates the work tree at read time (an
+  untracked doc appears, a tracked file deleted from the work tree disappears),
+  never the git index.
+- **Kinds**: a knowledge record carries `kind` (`fact` default, `experience`,
+  `preference`, `gotcha`, `rule`). A lesson stays the record of a mistake; an
+  `experience` is a reusable approach that worked. `context digest` proposes
+  `lesson add` / `knowledge add --kind experience` templates from a task but
+  writes nothing; the proposed title is capped at 120 characters and the cause
+  at 300.
+- **No secret is surfaced**: the view prints only what is already stored; the
+  docs are privacy-scanned and the records obey the same red line.
+
+### Why they are not committed
+
+`Lessons.md` and `Knowledge.md` are the team's working experience, not project
+output: they change after every task, they carry local incident detail and
+revision-specific evidence, and committing them would turn every append into a
+merge conflict, a review target and a privacy surface. The durable, user-facing
+result of that experience is written where it belongs - `docs/Team/` for the
+project's records and `docs/guide/` for the product's documentation. Both stores
+are still evidence-bearing: a `K-` record without evidence, or a lesson without
+the run that proved it, is opinion. Never store a credential, token or personal
+data in either store, and cite knowledge as `K-0001` plus its evidence, never as
+the record's authority.
 
 ## Task lists and priority
 
