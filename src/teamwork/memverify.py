@@ -9,6 +9,12 @@ a path, the access date's age for a source. No model call, no network, no
 second store. A record whose evidence names nothing checkable is
 ``unverifiable``, never ``drifted``: silence is not a contradiction.
 
+``--focus <text | T-id>`` tunes the pass to a goal: a task id resolves to its
+title through ``memorypack.task_query``, the records are ranked by the frozen
+4.1 score for that text, and the first ``--limit`` (default 25) are verified in
+score order; the rest are counted as deferred. Without ``--focus`` every record
+is verified in pointer order, byte-identically to the pass before the flag.
+
 The pass is read-only unless the caller asks for ``apply``, and even then only
 two fields on knowledge records move - ``checked`` and ``verify_status`` - plus
 one ``memory.verify`` ledger event with the counts. ``statement`` and
@@ -27,7 +33,7 @@ import json
 import re
 from pathlib import Path
 
-from . import records
+from . import memorypack, records
 from .gitutil import run_git
 from .layout import knowledge_path
 
@@ -41,6 +47,7 @@ DRIFTED = "drifted"
 UNVERIFIABLE = "unverifiable"
 
 SOURCE_MAX_AGE_DAYS = 400
+FOCUS_LIMIT = 25
 
 REVISION_RE = re.compile(r"(?:@|\brev\s+)([0-9a-f]{7,40})\b")
 PATH_RE = re.compile(
@@ -139,23 +146,44 @@ def verify_record(record: dict, project: Path, today: datetime.date) -> tuple[st
     return UNVERIFIABLE, "evidence names no revision, path or source"
 
 
+def _row(entry: dict, project: Path, today: datetime.date) -> dict:
+    status, reason = verify_record(entry, project, today)
+    return {
+        "id": str(entry.get("id") or ""),
+        "kind": classify(str(entry.get("evidence") or "")),
+        "verify_status": status,
+        "reason": reason,
+        "pointer": str(entry.get("pointer") or ""),
+        "store": str(entry.get("store") or ""),
+    }
+
+
 def verify_all(entries: list[dict], project: Path, now: datetime.date | datetime.datetime) -> list:
     """One row per record, ordered by pointer then id so two runs are byte-identical."""
     today = now.date() if isinstance(now, datetime.datetime) else now
-    rows = []
-    for entry in entries:
-        status, reason = verify_record(entry, project, today)
-        rows.append(
-            {
-                "id": str(entry.get("id") or ""),
-                "kind": classify(str(entry.get("evidence") or "")),
-                "verify_status": status,
-                "reason": reason,
-                "pointer": str(entry.get("pointer") or ""),
-                "store": str(entry.get("store") or ""),
-            }
-        )
+    rows = [_row(entry, project, today) for entry in entries]
     return sorted(rows, key=lambda row: (row["pointer"], row["id"]))
+
+
+def select(
+    entries: list[dict],
+    project: Path,
+    query: str,
+    now: datetime.date | datetime.datetime,
+    limit: int = FOCUS_LIMIT,
+) -> tuple[list, int]:
+    """The focused pass: the best records for ``query``, in score order, and the rest.
+
+    Selection and order are both the frozen 4.1 score, taken from ``memorypack``
+    so the pass cannot drift from the pack: the first ``limit`` records are the
+    highest-scoring ones, ties broken by id ascending, never the first records in
+    pointer order. ``limit`` zero or less keeps every record, so ``--limit 0``
+    still means all. The second element is the number of records left out.
+    """
+    today = now.date() if isinstance(now, datetime.datetime) else now
+    ranked = memorypack.rank(entries, query, now)
+    kept = cap(ranked, limit)
+    return [_row(entry, project, today) for entry in kept], len(ranked) - len(kept)
 
 
 def cap(rows: list, limit: int) -> list:
@@ -163,15 +191,23 @@ def cap(rows: list, limit: int) -> list:
     return rows[:limit] if limit and limit > 0 else list(rows)
 
 
-def count(rows: list, limit: int = 0) -> dict:
-    """The counts the footer and the ledger event carry."""
-    return {
+def count(rows: list, limit: int = 0, deferred: int | None = None) -> dict:
+    """The counts the footer and the ledger event carry.
+
+    ``deferred`` is only present for a focused run: it is the number of records
+    the focus left out, which is what the extra footer line reports. An
+    unfocused run passes nothing, so its counts - and its bytes - do not move.
+    """
+    counts = {
         "records": len(rows),
         "verified": sum(1 for row in rows if row["verify_status"] == VERIFIED),
         "drifted": sum(1 for row in rows if row["verify_status"] == DRIFTED),
         "unverifiable": sum(1 for row in rows if row["verify_status"] == UNVERIFIABLE),
         "limit": int(limit or 0),
     }
+    if deferred is not None:
+        counts["deferred"] = int(deferred)
+    return counts
 
 
 def render(rows: list, counts: dict, as_json: bool = False) -> str:
@@ -188,6 +224,8 @@ def render(rows: list, counts: dict, as_json: bool = False) -> str:
         f" {counts['drifted']} drifted, {counts['unverifiable']} unverifiable"
         f" (limit {limit if limit > 0 else 'all'})"
     )
+    if counts.get("deferred") is not None:
+        lines.append(f"# verify: {counts['deferred']} deferred by --focus")
     return "\n".join(lines) + "\n"
 
 
