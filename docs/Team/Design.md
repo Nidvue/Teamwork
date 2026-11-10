@@ -4,7 +4,7 @@ Owner: Designer. The developer-ready brief for `README.md` and `assets/**`:
 audience, information hierarchy, tokens, accessibility and the conversion
 checklist a Tester can assert on.
 
-Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [README](../../README.md)
+Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Archive](Archive.md) · [README](https://github.com/VisionPZ/Teamwork/blob/main/README.md)
 
 ## 1. Audience and job to be done
 
@@ -144,16 +144,105 @@ Revision of record: `e5efc5f` (working tree; `README.md`, `assets/**` and
 | No external resources in SVG | `grep -nE '<script|@font-face|xlink:href|href="http' assets/*.svg` | no matches; only the required `xmlns` namespace |
 
 Findings outside this lane's ownership, for the CEO/Architect (not introduced by
-the README or the assets):
+the README or the assets). All three were fixed and are now green in
+`teamwork.py links` (0 issues):
 
-- `teamwork.py links` reports 1 broken internal link that predates this task:
-  `docs/Team/Architecture.md` -> `Testing.md` (written later by the Tester lane).
-- The same run reports 8 missing back-links: `Architecture.md` and `Research.md`
-  do not list the documents that link to them (Archive, Board, Costs, Design,
-  guide/architecture). Fixing those `Related` lines is owned by the Architect and
-  Product Manager; `Design.md` already links both ways.
+- the broken `docs/Team/Architecture.md` -> `Testing.md` link was removed;
+- the missing back-links in `Architecture.md` and `Research.md` were added;
+- the guide back-link was added to `Architecture.md`.
 
-## 9. Sources
+## 9. Visual assets (raster and vector)
+
+Imaging is part of this document: the Designer decides what the deliverable
+needs and owns the asset end to end. The policy - medium choice, the
+`imaging probe`, the model ranking, the review of every candidate, the
+improvement loop and the privacy/licence red lines - lives in the Designer's
+charter,
+[`roles/designer.md`](https://github.com/VisionPZ/Teamwork/blob/main/roles/designer.md).
+
+### Capability
+
+| field | value |
+|---|---|
+| probe | `python3 scripts/teamwork.py imaging probe` -> `provider=local`, `model=qwen-image-2.1`, `source=ambient environment`, `ranked: qwen-image-2.1 > sdxl > sd3.5-large` |
+| provider ranking check | the configured LLM provider is `ollama-cloud`; its catalog is text/vision **input** only (checked 2026-10-17), so no cloud text-to-image model is available to the team |
+| model used | Qwen-Image 2.1 + Fix LoRA, run locally on an RTX 4090 (23.5 GiB) |
+| model licence | used locally for this repository's own asset; no third-party image is redistributed and no real person is depicted |
+| local fallback | `qimg` (text-to-image and instruction-driven image editing) |
+| cloud prompt policy | no private data, no real people, metadata stripped before commit |
+| medium decision | vector first: the README banner, logo and terminal demo are hand-authored SVG; a raster exists only for the one surface that requires one - the GitHub social preview |
+
+### Assets
+
+| id | asset | medium | purpose / surface | path | size | candidates | status |
+|---|---|---|---|---|---|---|---|
+| IMG-1 | social preview | raster | GitHub repo social preview (OG image) for link shares | `assets/social-preview.png` | 1280x640 | 4 | integrated |
+| IMG-2 | README banner | svg | README hero strip | `assets/banner.svg` | 2:1, viewBox | - | integrated |
+| IMG-3 | logo | svg | repo mark in README/docs | `assets/logo.svg` | square, viewBox | - | integrated |
+| IMG-4 | terminal demo | svg | README "what it looks like" animation | `assets/demo.svg` | 2:1, viewBox | - | integrated |
+
+#### IMG-1 - social preview
+
+- medium: raster, because the GitHub social preview/OG surface must be a raster
+  image; there is no vector channel for it
+- prompt: `A dark navy technical blueprint illustration of an autonomous engineering
+  team: a central luminous hub connected by glowing circuit traces to a ring of
+  eight smaller specialised nodes, each marked with a simple abstract glyph; on the
+  right a vertical stack of translucent document panes linked by a visible chain of
+  glowing links; faint grid and constellation lines in the background, cyan and
+  violet accents on deep navy, clean modern vector-like rendering, crisp, high
+  detail, cinematic rim light, wide banner composition with generous negative space
+  on the left, absolutely no text, no letters, no words, no logos`
+- negative: `text, letters, words, watermark, signature, logo, blurry, low quality, deformed, extra limbs`
+- seed base: `20261017` (candidate *i* uses seed+i)
+- acceptance criteria: composition and safe area (subject clear of the crop edges,
+  negative space on the left), no rendered text or lettering, no watermark or
+  signature, palette match (deep navy + cyan/violet), 1280x640 exactly, sharp,
+  under 1 MiB as a plain (non-LFS) file
+- licence / terms: generated locally with Qwen-Image 2.1 + Fix LoRA; no third-party
+  asset is redistributed, no real person is depicted
+- candidates reviewed: 4 / 4
+- selected: `social-2.png` -> `assets/social-preview.png`
+- evidence: `qimg t2i "<prompt>" --quality fix --size 1280x640 -n 4 --seed 20261017
+  --local-files-only -o social @worktree -> 4 candidates in 158.7s; reviewed 4/4;
+  improved (1 round); integrated as assets/social-preview.png`
+
+#### IMG-2..IMG-4 - vector
+
+- medium: SVG, hand-authored - the surfaces are a banner, a mark and a mocked
+  terminal, all of which need to scale, diff and stay accessible
+- acceptance criteria: valid XML, a `viewBox`, no embedded raster or base64, no
+  external font dependency, `<title>` present, legible at 16 px and at 2x,
+  `role="img"`
+- evidence: `python3 -c "import xml.etree.ElementTree as ET; [ET.parse(p) for p in
+  ('assets/banner.svg','assets/logo.svg','assets/demo.svg')]" @worktree -> 3/3 valid;
+  ui/readme layer test -> OK readme assets + 3 svg valid + social-preview.png present`
+
+### Review log
+
+| candidate | verdict | reason | reviewer |
+|---|---|---|---|
+| IMG-1-0 | reject | human figures read as generic silhouettes; the ledger idea is weak | Designer-1 |
+| IMG-1-1 | reject | hub is small and the panes are ambiguous | Designer-1 |
+| IMG-1-2 | **select** | clear hub-and-spoke org with a recognisable linked ledger; clean negative space; no text | Designer-1 |
+| IMG-1-3 | reject | busier background, weaker subject separation | Designer-1 |
+
+### Improvement log
+
+| round | what changed | why (criterion) | review after |
+|---|---|---|---|
+| 1 | flattened RGBA to RGB and re-encoded with metadata stripped (625 KiB -> 516 KiB) | "under 1 MiB as a plain file" and the "strip metadata" red line | pass: 516 KiB, no EXIF/PNG text chunks, still sharp at 1280x640 |
+
+### Notes
+
+- Generated lettering is the failure mode this surface is most exposed to; every
+  candidate was checked explicitly for stray glyphs before selection.
+- The raster is committed as a normal binary (opted out of Git LFS in
+  `.gitattributes`) so a plain `git clone` has the real file, not a pointer.
+- GitHub's social preview is uploaded in repository **Settings**; there is no API
+  for it, so the file lives here and the CEO uploads it as a manual release step.
+
+## 10. Sources
 
 - [WCAG 2.1 - Contrast (Minimum)](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html) - accessed 2026-10-17
 - [MDN - prefers-reduced-motion](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion) - accessed 2026-10-17

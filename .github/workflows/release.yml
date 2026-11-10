@@ -13,10 +13,10 @@ on:
       - "v*"
   workflow_dispatch:
 
+# Least privilege: the workflow default is read-only; each job widens it only as
+# far as it needs. `build` gets nothing beyond the default.
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
 env:
   PYTHONUTF8: "1"
@@ -75,6 +75,10 @@ jobs:
     name: attest build provenance
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - name: Download release assets
         uses: actions/download-artifact@v4
@@ -93,6 +97,8 @@ jobs:
     name: publish GitHub Release
     needs: [build, attest]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download release assets
         uses: actions/download-artifact@v4

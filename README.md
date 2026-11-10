@@ -44,6 +44,7 @@ $ teamwork init --agents ceo,architect,product-manager,project-manager,reviewer-
 | Two-stage quality gate | The author self-checks with a real test, then a **different** role reviews from scratch. Only the Reviewer may merge. |
 | Parallel lanes | Freeze interfaces first, then developer, tester and designer lanes run concurrently against one frozen contract. |
 | Layered tests | Each role designs, builds and runs its own test layer (`unit`, `integration`, `acceptance`, `ui`, `security`, ...); `tests plan` shows coverage and gaps. |
+| Designed images | The Designer owns every visual asset, raster **and** vector, and decides what the deliverable needs: vector first (SVG, diagram-as-code), and for a raster `imaging probe` picks the best available text-to-image model (cloud first, else local, else SVG), then plan -> 4+ candidates -> visual review -> improve until it passes -> integrate, with privacy and licence rules. |
 | Stop condition as a record | Acceptance criteria are machine records, not checkboxes. The loop stops only when they are all verified. |
 | Role-shared state | One memory and one priority queue per role; a private, disposable workspace per instance. |
 | Concurrency control | Provider slot leases respect per-provider caps, so N agents never overload a model endpoint. |

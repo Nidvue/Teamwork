@@ -59,7 +59,7 @@ then proceeds on recorded assumptions.
 | Architect | `architect` | `roles/architect.md` |
 | Product Manager | `product-manager` | `roles/product-manager.md` |
 | Project Manager | `project-manager` | `roles/project-manager.md` |
-| Designer | `designer-1..N` | `roles/designer.md` |
+| Designer | `designer-1..N` | `roles/designer.md` - also owns every visual asset, raster **and** vector (recorded in `Design.md`), and decides what is needed |
 | Developer | `developer-1..N` | `roles/developer.md` |
 | Tester | `tester-1..N` | `roles/tester.md` |
 | Release Engineer | `release-engineer` | `roles/release-engineer.md` |
@@ -145,6 +145,16 @@ Run these in order. Use `SKILL` for this skill's directory.
   (Architect or CEO). The default is the proportionate core set
   (`unit`, `integration`, `acceptance`) restricted to staffed roles. Each layer is
   designed, built and run by its owner (see `references/Testing.md`).
+- **Visual assets are the Designer's call.** The Designer decides what images,
+  icons, banners and diagrams a deliverable needs - unasked - then produces and
+  improves them. Vector first (SVG / diagram-as-code); for a raster,
+  `imaging probe` picks the best available text-to-image model (cloud first, else
+  local, else SVG). The full process - one prompt per asset, four-plus candidates
+  off one seed base, a visual review of every candidate, improvement rounds until
+  it passes, integration and evidence - plus the privacy and licence red lines
+  live in `roles/designer.md`; the asset record lives in `docs/Team/Design.md`.
+  Never send private data to a cloud image model, never ship an asset nobody
+  reviewed, and never lower a criterion to make an asset pass.
 
 ### 2. Workspace, repository, constitution
 
