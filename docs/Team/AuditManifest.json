@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-10-19T19:50:36",
+  "generated_at": "2026-10-19T20:02:53",
   "team": "Teamwork",
   "team_id": "431b5b8b1bc04db58a4f13ef114cf5c1",
   "project": "Teamwork",
   "ledger": {
-    "records": 576,
-    "head": "92d2ea3c6930dcea2c1a8fc3e23e2aa880a5736f7949ce81b90c822464f4c262",
+    "records": 584,
+    "head": "ccd1b24f1d60024bcca0655a469247783dc800ab5b8afa17bda45cefa3f48450",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "c83decae4fa50baf8fa18d51d8618b11f43d89d9",
+    "head": "74f8965db5992cfafd5c326dd00340b4f5abc8b1",
     "branch": "ceo/t-0027-m7-records-final",
     "dirty": false,
     "lfs_files": 0
@@ -23,8 +23,8 @@
     },
     {
       "path": "docs/Team/Decisions.md",
-      "sha256": "b8614f315c4c8da9ae7cd73575463b9074da7ebd9f428156bd5b5fb862f0f888",
-      "bytes": 37272
+      "sha256": "2f6089e832a107a52cf693a1d924622d2220a4dcaf4448a8e78d77e7f5683f26",
+      "bytes": 37521
     },
     {
       "path": "docs/Team/Plan.md",
@@ -55,8 +55,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "15728e4149116bd182b23304769c87bf6c13ea3a210e652b829b96e0ddf90d50",
-      "bytes": 138706
+      "sha256": "7e5226ecb913b5e772f644a13480af410b4543ccb15fc9487bd1f23df90aa628",
+      "bytes": 140671
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Architect/ArchivedMemory.md",
@@ -95,8 +95,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "f4aeade58972757de56b71e70104a34cb3a276ce4ae31da9c77f404be0acb8ac",
-      "bytes": 148083
+      "sha256": "ad27a03312687c01cfaefcb93ed53e422cf48ba1035e287fc8528111090d2f0b",
+      "bytes": 150536
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/ArchivedMemory.md",
@@ -190,8 +190,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Reviewer/ShortTermMemory.md",
-      "sha256": "06a9e57149f87048a9dbfc3cd434fcc8ddef7d51685bafed237c57ac4ca930b1",
-      "bytes": 1196
+      "sha256": "db7d5a18b62042606e646a92130676456accfabeac641b2084ace3b986282edd",
+      "bytes": 2345
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Reviewer/TaskQueue.md",
