@@ -12,13 +12,6 @@ hold is visible to the tool, and that the hash-chained ledger still verifies - a
 chain that verifies trivially because it is empty is not evidence, so the probe
 names the record count and fails on a ledger shorter than the history it records.
 
-An empty store is a documented exit code, not a failure: `criteria list` exits 3
-(`# no criteria yet` plus the hint that the CEO writes them) when the store holds
-no criteria. The probe accepts 3 exactly when the files hold no criterion either,
-and fails when the CLI calls the store empty while the files hold one - an
-invisible record is the defect, an absent one is the state. The code is
-`docs/guide/cli-records.md`.
-
 The live tree is never written: renderers return strings, and re-parses happen in
 a temporary file.
 """
@@ -216,39 +209,20 @@ def main(argv: list[str] | None = None) -> int:
         "disputes": ("dispute", "list"),
     }
     allowed_exit = {"criteria": {0, 1}, "disputes": {0, 1}}
-    empty_store_exit = {"criteria": 3}
-    empty_store_hint = "criteria add --id"
     for family, command in commands.items():
         code, out, err = cli(repo, team, *command)
-        seen = {tok for tok in parsed_ids.get(family, []) if tok}
-        allowed = set(allowed_exit.get(family, {0}))
-        note = ""
-        if family in empty_store_exit and not seen:
-            empty = empty_store_exit[family]
-            allowed.add(empty)
-            if code == empty:
-                said = out.strip().splitlines()[:1]
-                note = f" (the documented empty-store code: {said[0] if said else ''})"
-                if empty_store_hint not in out:
-                    problems.append(
-                        f"{family}: exit {empty} without the documented hint ({empty_store_hint})"
-                    )
-        if family in empty_store_exit and seen and code == empty_store_exit[family]:
-            problems.append(
-                f"{family}: the CLI reports an empty store (exit {code}) while the files"
-                f" hold {len(seen)} criterion(s)"
-            )
-        if code not in allowed:
+        if code not in allowed_exit.get(family, {0}):
             problems.append(
                 f"CLI {' '.join(command)} exited {code}: {err.strip().splitlines()[-1:]}"
             )
+        seen = {tok for tok in parsed_ids.get(family, []) if tok}
         missing = sorted(tok for tok in seen if tok not in out)
         if missing:
             problems.append(
                 f"{family}: {len(missing)} id(s) invisible to {' '.join(command)}: {missing[:5]}"
             )
         print(
-            f"cli {' '.join(command)}: exit {code}{note}, {len(seen)} id(s) from the files,"
+            f"cli {' '.join(command)}: exit {code}, {len(seen)} id(s) from the files,"
             f" {len(missing)} missing"
         )
 
