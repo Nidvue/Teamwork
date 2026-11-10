@@ -262,3 +262,50 @@ Source: [Measuring multiagent systems](https://www.anthropic.com/research/multia
 - The paper measures its own swarms, not this engine; no count transfers.
 - The checks read records, not intent. A green report is the absence of known signatures, not proof of good coordination.
 - Human taste still needs a human: the milestone demo is a gate, and a poor demo is a finding, not a reason to lower a criterion.
+
+## 10. DeepSeek dsh-superagent: what we adopt, what we reject
+
+Source set: the prototype repository
+[deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype)
+(MIT, 6.3k stars at access, README marked "research prototype, not an official
+DeepSeek product") and the documents read there:
+[000 Philosophy](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/000-philosophy.md),
+[001 Domain model](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/001-domain.md),
+[002 Authorization](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/002-authorization.md),
+[003 Execution](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/003-execution.md),
+[007 Architecture](https://github.com/deepseek-ai/dsh-superagent-prototype/blob/main/docs/007-architecture.md)
+- all accessed 2026-11-01. No number below is theirs measured on our tree; each
+row names the record this team must produce before the claim is true.
+
+**The delta.** Both systems are an agent wearing a team's process, and both keep
+one writer per state. The difference is *where the gate is*: every gate here is
+bound to an acceptance criterion, an independent review and a revision-bound
+record, while theirs is bound to an **authorization model** - a Mandate carrying
+the policy version it was granted under, an accept mode deciding whether
+proactive work may run, and a stage table deciding what a person must do next.
+We already have the first half and omitted the second: `task add` accepts any
+work from any caller, `pulse` assigns proactively with no authority test, and
+"what needs a person" is inferred from free text by whoever reads the board.
+
+| Their mechanism | What it fixes for us | Verdict | Surface | Falsifier |
+|---|---|---|---|---|
+| Mandate = strength + scope + policy version, immutable, revalidated before resume | a task exists with no recorded reason it was allowed to start | **Adopt** | `task add --mandate explicit\|inferred --basis`; the board shows the strength | an inferred task is claimed with no recorded basis |
+| Accept mode `off` / `observe` / `auto` for proactive work | `pulse` assigns on the first wake, so a mis-shaped proactive rule costs a whole lane before anyone sees it | **Adopt** | `PulseMode` in `Settings.json`, `pulse --mode`, `pulse.observe` ledger record | `observe` claims anything, or an `inferred` task is claimed outside `auto` |
+| Idempotent intake ("accepting a Trigger twice creates one Ticket") | the same request re-added by a second lane becomes duplicate work | **Adopt** | `task add --key`, duplicate returns the existing id | two tasks carry one key |
+| Ticket stage table, first match wins, computed from records | "what needs a person" is guessed from a long report | **Adopt** | `stage` command, `attention` queue | a blocked deliverable shows as working |
+| Attention as a first-class record, a healthy state takes no space | an escalation lives in a message that scrolls away | **Adopt** | `attention add\|list\|resolve`; `loop` counts open items | an open authorization is not visible at the STOP check |
+| Policy version + revalidation on change | a gate change silently applies to work already accepted | **Adapt** - record the gate set on the task, do not revoke mid-flight (a half-finished change is worse) | `--policy` stamp at intake | a task accepted under an old gate is reverted rather than recorded |
+| Source/Trigger/Thread/Subscription fan-out model | our units are already tasks, tests, criteria; a second vocabulary would be a concept we do not need | **Reject** | - | - |
+| Durable effect queue with per-kind retry/backoff | the ledger is already append-only and the tree survives a restart | **Reject** | - | a lost record after a restart |
+| Allow-list per Source, admission table, bot list | we have one operator and one repo; the roster is the allow-list | **Reject** | - | an unlisted actor starts work |
+| Panel UI | the committed documents and `board` are the panel; a web UI is a second surface to keep true | **Reject** | - | a decision exists only in the UI |
+
+### 10.1 What this does not fix
+
+- The prototype is a single-repository, single-operator design. Its queue
+  discipline assumes a worker per ticket; our lanes hold several and the review
+  queue is the real limit, so the stage table classifies, it does not schedule.
+- A Mandate proves *that* a reason was recorded, never that it was a good one.
+  The review gate and the criterion records still carry the quality claim.
+- An attention queue is only honest if it is drained: an item resolved with a
+  free-text "ok" is the same failure as a rubber-stamped review.
