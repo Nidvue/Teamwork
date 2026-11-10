@@ -29,7 +29,7 @@ src/teamwork/
 ├── engine.py        # the ported engine (single module)
 ├── resources.py     # locate the skill bundle (checkout or wheel)
 ├── portable.py      # Windows-safe process/path helpers
-└── version.py       # the package version (__version__)
+└── version.py       # __version__ = "1.0.0"
 ```
 
 `scripts/teamwork.py` is a thin compatibility shim that adds `src/` to

@@ -385,9 +385,29 @@ ROSTER_REQUIRED = ("ceo", "developer", "tester", "reviewer")
 # Instances per role for a tier: reviewers get two so one verifies and another merges.
 ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
 
-SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria")
+# Settings keys that are workspace policy, not provider concurrency limits: `slot`
+# reads every other key as a provider cap, so a new non-provider key must be
+# listed here or it becomes a phantom provider.
+SETTINGS_NON_PROVIDER = ("PulseMinutes", "Criteria", "AlwaysOnBudgetKb")
+
+# The always-on context cap, per instance, in KB: SKILL.md + the managed teamwork
+# block of AGENTS.md + the role charter + the role memory. `harness budget` reads
+# `AlwaysOnBudgetKb` from the team Settings.json and falls back to this.
+DEFAULT_ALWAYS_ON_BUDGET_KB = 120
 
 DEFAULT_BASE = "main"
+
+# The two git hook stages `hooks install` writes. `status`, `uninstall` and the
+# overwrite refusal all key on HOOK_MARKER, so a hook without that line is never
+# touched: it belongs to someone else.
+HOOK_STAGES = ("pre-commit", "pre-push")
+
+HOOK_MARKER = "teamwork-managed hook"
+
+# Git LFS threshold shared by the pre-commit hook and `commit --check-lfs`: one
+# MiB, because "1 MB" in decimal and binary differ by 4.8% and a threshold that
+# moves with the reader is not a rule (D-20261020-Architect-7).
+LFS_MAX_BYTES = 1024 * 1024
 
 REVIEW_STATUSES = ("open", "approved", "changes-requested", "merged", "closed")
 
