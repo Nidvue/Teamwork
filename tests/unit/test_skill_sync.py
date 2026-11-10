@@ -15,16 +15,43 @@ drift detector that writes nothing.
 
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 # ``scripts/`` is not on the import path: these are build tools, not a package.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-import sync_skill  # noqa: E402  (import after the path fix)
-from build_pi_package import SKILL_FILES, SKILL_TREES  # noqa: E402
+# Putting it there would shadow the real ``teamwork`` package for every later
+# test in the session, so they are loaded by path instead (T-0014).
+SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+
+
+def load_script(name: str, filename: str) -> ModuleType:
+    """Import a build tool by path, leaving ``sys.path`` untouched.
+
+    The tools themselves add ``src/`` to ``sys.path`` at import time; the
+    snapshot restores the interpreter state exactly, so importing this module
+    never leaks an import path into the rest of the session (T-0014).
+    """
+    spec = importlib.util.spec_from_file_location(name, SCRIPTS_DIR / filename)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"{SCRIPTS_DIR / filename}: not an importable Python file")
+    module = importlib.util.module_from_spec(spec)
+    snapshot = list(sys.path)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = snapshot
+    return module
+
+
+sync_skill = load_script("sync_skill_under_test", "sync_skill.py")
+build_pi_package = load_script("build_pi_package_under_test", "build_pi_package.py")
+SKILL_FILES = build_pi_package.SKILL_FILES
+SKILL_TREES = build_pi_package.SKILL_TREES
 
 
 def make_source(root: Path) -> Path:
