@@ -52,11 +52,12 @@ machine.
 `scripts/privacy_scan.py` runs with `--allow .github/privacy-allow.txt` in
 `make privacy` and in CI. The file holds one regular expression per line plus a
 reason; it exists so a false positive cannot force a history rewrite. The file
-carries the list - six anchored literals today, three path shapes (`^\.pi/agent/npm$`,
-the operator user name in its POSIX form, and the same user name in its Windows
-form `^C:\\Users\\<name>$`) and three fabricated probe values a reviewer quoted
-while proving that the gate catches a credential - and `tests/unit/test_privacy_scan.py`
-pins those six entries by name, so a seventh cannot arrive silently. A new entry
+carries the list - eight anchored literals today, five path shapes (`^\.pi/agent/npm$`,
+the operator user name in its POSIX form, the same name in its Windows form, and the
+two `^C:/Users/x$` / `^C:/Users/x\.py$` spellings of a fabricated example path from
+`D-20261031-CEO-2`) and three fabricated probe values a reviewer quoted while proving
+that the gate catches a credential - and `tests/unit/test_privacy_scan.py`
+pins those eight entries by name, so a ninth cannot arrive silently. A new entry
 needs a recorded decision and, if it masks a credential rule, the Security
 Auditor's review, and that test updated in the same change - growing the list is
 weakening the gate. The Windows form is the one shape added after that rule:
