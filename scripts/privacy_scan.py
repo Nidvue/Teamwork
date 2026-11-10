@@ -486,6 +486,22 @@ def _looks_like_secret(value: str, line: str = "", index: int = 0) -> bool:
     return _shannon_entropy(value) >= 3.5
 
 
+def _user_is_elided(user: str) -> bool:
+    """Is this the elided form of a path, i.e. a segment with no characters left?
+
+    Logs and commit messages routinely abbreviate a home path to its parent
+    directories followed by an ellipsis and then the rest of the path. That form
+    carries no account name, so it identifies nobody: flagging it makes the gate
+    cry wolf on every quoted CI log, and a gate that cries wolf gets bypassed.
+
+    Only an ellipsis standing as its own segment is accepted: three or more dots
+    followed by nothing or by a separator. A name that merely starts with dots
+    (``....name``) or a two-dot parent hop (``..``) still reports, and so does a
+    partly masked name.
+    """
+    return re.fullmatch(r"\.{3,}(?:[\\/].*)?", user) is not None
+
+
 def _email_allowed(value: str) -> bool:
     if _ALLOWED_SERVICE_EMAILS.match(value):
         return True
@@ -636,6 +652,8 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                 if rule["id"] == "home-path":
                     user = match.group(1) or match.group(2) or match.group(3) or ""
                     if user.lower() in _GENERIC_HOME_USERS:
+                        continue
+                    if _user_is_elided(user):
                         continue
                 if rule["id"] == "env-secret":
                     quoted = match.group(1) is not None
