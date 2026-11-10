@@ -58,6 +58,9 @@ build: ## Build the sdist and wheel into dist/.
 verify: ## Build, assert the wheel payload and smoke-test it in a throwaway venv.
 	$(PYTHON) scripts/verify_release.py
 
+package: ## Assemble the pi package (pi-teamwork) under dist/.
+	$(PYTHON) scripts/build_pi_package.py
+
 privacy: ## Scan the working tree and full git history for private data.
 	$(PYTHON) scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt
 
