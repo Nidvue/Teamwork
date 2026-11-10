@@ -258,12 +258,13 @@ def test_a_clean_single_commit_branch_is_green(cli, project, capsys):
     assert DIGEST.search(out), out
 
 
-def test_a_branch_behind_the_base_is_red_until_it_is_rebased(cli, project, capsys):
-    """The 11-in-43 class: a branch the base has moved past is not reviewable.
+def test_a_branch_behind_the_base_is_a_reminder_until_it_is_rebased(cli, project, capsys):
+    """D-0017: a clean merge tree makes staleness a reminder, not a blocker.
 
-    The red report must name the count and print the rebase that fixes it, and
-    running exactly that rebase must turn the same task green - otherwise the
-    command reports a problem it does not actually decide.
+    The report still names the count and prints the rebase that clears it, and
+    running exactly that rebase must leave the same task green - otherwise the
+    command reports a problem it does not actually decide. A conflicting merge
+    tree or a red project gate keeps the failure (test_preflight_behind_branch).
     """
     init_team(cli, project)
     branch = start_branch(cli, project)
@@ -271,10 +272,9 @@ def test_a_branch_behind_the_base_is_red_until_it_is_rebased(cli, project, capsy
     advance_main(project, "main-only.txt", "main\n")
 
     code, out = preflight(cli, capsys, project)
-    assert code == 1, out
+    assert code == 0, out
     assert "1 commit(s) behind main" in out
     assert "rebase main" in out
-    assert "PREFLIGHT fail @" in out and "(branch" in out
 
     tree = lane_tree(project)
     assert git(tree, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() == branch

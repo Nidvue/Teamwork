@@ -14730,6 +14730,59 @@ def _preflight_gate(
     )
 
 
+def _soften_behind_branch(checks: list, base: str, ahead: int) -> None:
+    """A branch behind the base is a WARN when it merges cleanly and the gate is green.
+
+    A concurrent merge moves the base under a lane between its commit and its
+    self-check, so a hard "behind" failure and the evidence binding could not both
+    hold (T-0076, D-0017): the rebase that clears the one rewrites the revision the
+    other records. The staleness is then a rebase reminder, not a blocker - but only
+    when nothing else is wrong with the tree. ``ahead`` is measured, never read out of
+    the branch detail: a branch with no commit over the base is behind it too, so
+    keying on the detail would soften an empty branch and pass a revision with nothing
+    to review. A conflict in the merge probe or a red project gate keeps the failure,
+    so a genuinely stale tree still fails closed. D-0017 item (b) makes the clean
+    merge tree the condition, so an unmeasured gate still softens - the detail says
+    the gate was not measured and names the ``--run`` that would measure it, because
+    a read-only invocation cannot run the project gate and must not deadlock the lane
+    on one.
+    """
+    by_name = {check.name: check for check in checks}
+    branch = by_name.get("branch")
+    mergeable = by_name.get("mergeable")
+    gate = by_name.get("gate")
+    if branch is None or branch.status != PREFLIGHT_FAIL or "behind" not in branch.detail:
+        return
+    if ahead == 0:
+        return
+    if mergeable is None or mergeable.status != PREFLIGHT_OK:
+        return
+    if gate is not None and gate.status == PREFLIGHT_FAIL:
+        return
+    gate_note = (
+        "the gate is green at it"
+        if gate is not None and gate.status == PREFLIGHT_OK
+        else "the project gate is not measured here (pass --run to measure it)"
+    )
+    _replace_check(
+        checks,
+        branch,
+        PreflightCheck(
+            branch.name,
+            PREFLIGHT_WARN,
+            f"{branch.detail}; the merge tree is clean and {gate_note}",
+            f"git rebase {base}   # clears the reminder; not required to pass review",
+        ),
+    )
+
+
+def _replace_check(checks: list, old: PreflightCheck, new: PreflightCheck) -> None:
+    """Swap one check for its replacement in place, so a second pass is a no-op."""
+    for index, check in enumerate(checks):
+        if check is old:
+            checks[index] = new
+
+
 def run_preflight(
     root: Path,
     role: str,
@@ -14781,6 +14834,8 @@ def run_preflight(
             checks.append(slice_check)
     checks.append(_preflight_tree(root, project, task))
     checks.append(_preflight_gate(root, project, run_gate, task))
+    ahead = 0 if blocked else _rev_count(project, f"{base}..{branch}")
+    _soften_behind_branch(checks, base, ahead)
     return PreflightResult(role, task.get("id", ""), branch, base, revision, checks)
 
 
