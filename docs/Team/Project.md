@@ -131,7 +131,7 @@ git history.
 | # | Item | Owner | Status | Resolution |
 |---|---|---|---|---|
 | 1 | Owner authorises force-push over the single `Initial commit` to erase the personal email in git history | CEO | resolved | User asked to publish without leaking private data; history is one commit containing only `LICENSE` |
-| 2 | The previous identity domain is treated as private and is replaced by the neutral, configurable default `agents.nidvue.com` (`TEAMWORK_IDENTITY_DOMAIN`) | SecurityAuditor | resolved | The domain must not appear in the published tree or history |
+| 2 | The previous identity domain is treated as private and is replaced by the configurable default `agents.nidvue.com` (`TEAMWORK_IDENTITY_DOMAIN`) | SecurityAuditor | resolved | The domain must not appear in the published tree or history |
 | 3 | Package name on PyPI is `teamwork-agents` (the name `teamwork` is taken); import name is `teamwork` | ReleaseEngineer | resolved | Checked against the PyPI JSON API during research |
 | 4 | PyPI publishing is prepared but not executed without an owner token | ReleaseEngineer | resolved | No token available; GitHub Release is the distribution channel |
 | 5 | Stars cannot be guaranteed; the project optimises the *conversion* inputs (README, topics, demo, license, releases) | ProductManager | resolved | Documented in Risks.md |
