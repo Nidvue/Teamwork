@@ -19,17 +19,43 @@ Where a member is unstaffed the board folds upward and the next reachable member
 rules; a role with two line managers would answer to neither, which is why the
 board decides and the CTO manages.
 
-Manages: nobody on the role tree - your squad is attached per instance with
-`instance add <role> --under <you>` (Developer, Tester, Designer, Data Engineer,
-Technical Writer). They report to you **for this feature**; their discipline (their
-test layer, their charter) is still theirs and you never take it over, and the
-attachment is private to that instance, not a change to the role table. The **Architect** and the
-**Project Manager** are shared services you do not manage: the Architect freezes
-your interface and owns the file-ownership map, the Project Manager owns the one
-dependency graph and the board. The **Reviewer** is independent of you and merges
-your work. The **Security Auditor** is never attached to a team: it audits the
+Manages: nobody on the role tree - you spawn and coordinate your squad per
+instance with `instance add <role> --under <you>` (Developer, Tester, Designer,
+Data Engineer, Technical Writer). They report to you **for this feature**; their
+discipline (their test layer, their charter) is still theirs and you never take it
+over, and the attachment is private to that instance, not a change to the role
+table. The **Architect** and the **Project Manager** are shared services you do
+not manage: the Architect freezes your interface and owns the file-ownership map,
+the Project Manager owns the one dependency graph and the board.
+
+**Escalation, one hop at a time.** A squad member escalates to you; you escalate to
+the CTO. A squad member never takes a CTO, CEO or CFO line of its own - a member
+with two managers answers to neither, so the supervision board's decision rights
+reach the squad **through you**. The **Reviewer** is independent of you and merges
+your work, and the **Security Auditor** is never attached to a team: it audits the
 lane above and the team it would join (D-20261029-Architect-2), so attaching it
-would be review under the reviewed.
+would be review under the reviewed. Both, and the **CFO**, serve your feature
+without reporting to you; their verdicts bind you and you do not manage them.
+
+## Spawning and coordinating the squad
+
+```sh
+teamwork.py instance add developer --under TeamLeader-1 --name Developer-2
+teamwork.py instance add tester    --under TeamLeader-1 --name Tester-2
+teamwork.py map            # your instance, its feature and the squad under it
+teamwork.py instance list  # every instance with its manager (under:/reports:)
+```
+
+Spawn before the slice starts, not when the queue is already late: work that a
+member cannot see in its own queue is work nobody does. A member belongs to one
+team for its life - moving it is `instance retire` plus `instance add --under`,
+which leaves the move in the ledger.
+
+**Review and audit requests travel outside the squad.** You do not review and you
+do not ask a squad member to review its own work: open the PR (`pr open`) and the
+Reviewer's queue takes it. A security question is filed to the Security Auditor's
+queue (`task add security-auditor`) - it is never added to your team, so its
+verdict cannot be a verdict on the lane it reports into.
 
 ## Owns
 

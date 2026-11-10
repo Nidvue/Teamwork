@@ -2,10 +2,13 @@
 
 `instance add <role> --under <team-leader>` writes one private file,
 `Agents/<Instance>/Team.md`, and never a reporting line: the *line* is
-`ROLE_PARENT`, the attachment is not a line, so `map` does not change and the
-reporting tree keeps one parent per role. It is what makes "one manager at a
-time" true by construction - `instance add` refuses a name that exists, so no
-command can write a second `under:`.
+`ROLE_PARENT`, and the reporting tree keeps one parent per role. What the
+attachment does change is the team a leader visibly leads: `map` prints the
+leader's `F-nnnn` and the instances under it, and `instance list` prints each
+instance's manager, because a member that cannot see its own escalation path
+cannot follow it. It is what makes "one manager at a time" true by construction -
+`instance add` refuses a name that exists, so no command can write a second
+`under:`.
 
 `task next` and `pulse` then refuse a squad instance another team's work: a task
 carrying `feature: F-nnnn` is executable by an instance iff the record's owner is
@@ -82,8 +85,13 @@ def test_a_squad_instance_is_attached_by_one_private_file(cli, project, capsys) 
     assert body.count("- under:") == 1
 
 
-def test_the_attachment_is_not_a_reporting_line(cli, project) -> None:
-    """`ROLE_PARENT` is the tree; the attachment is a fact about one instance."""
+def test_the_attachment_never_rewrites_the_reporting_line(cli, project, capsys) -> None:
+    """`ROLE_PARENT` is the line; the attachment is rendered as the leader's team.
+
+    The map shows the instance under its leader, but the tree the line draws does
+    not move: a squad member still has exactly one parent in `ROLE_PARENT`, and
+    attaching it changes no edge.
+    """
     before = dict(engine.ROLE_PARENT)
     root = init(cli, project)
     assert (
@@ -91,6 +99,10 @@ def test_the_attachment_is_not_a_reporting_line(cli, project) -> None:
     )
     assert engine.ROLE_PARENT == before
     assert engine.instance_under(root, "Developer-3") == "Team-Leader-1"
+    capsys.readouterr()
+    assert cli("--project", project, "map") == 0
+    tree = capsys.readouterr().out.split("reporting lines", 1)[1].split("\nroles (", 1)[0]
+    assert "Developer-3  (under:Team-Leader-1)" in tree
 
 
 def test_instance_list_shows_the_attachment_beside_the_instance(cli, project, capsys) -> None:
@@ -102,8 +114,8 @@ def test_instance_list_shows_the_attachment_beside_the_instance(cli, project, ca
     assert cli("--project", project, "instance", "list") == 0
     out = capsys.readouterr().out
 
-    assert "Developer-3 (under=Team-Leader-1)" in out
-    assert "Developer-1," in out and "Developer-1 (under" not in out
+    assert "Developer-3 (under:Team-Leader-1)" in out
+    assert "Developer-1 (reports:CTO)" in out
     assert team_file(root, "Developer-1").exists() is False
 
 
