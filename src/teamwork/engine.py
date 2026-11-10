@@ -63,7 +63,7 @@ except ImportError:  # pragma: no cover
     from version import __version__ as VERSION  # type: ignore
 
 
-from . import memorypack, memverify
+from . import memorypack
 from .attention import (
     ATTENTION_KINDS,
     STAGE_ORDER,
@@ -2491,7 +2491,6 @@ LEDGER_ACTIONS = (
     "memory.revoke",
     "memory.touch",
     "memory.update",
-    "memory.verify",
     "model.auto",
     "model.set",
     "pr.merge",
@@ -7089,7 +7088,7 @@ def cmd_memory(args) -> int:
     sub = args.memory_cmd
     if sub == "status":
         return _memory_status(root, getattr(args, "agent", "") or "", args.json)
-    if sub in ("pack", "search", "dream", "verify"):
+    if sub in ("pack", "search", "dream"):
         return _cmd_memory_read(root, args)
     role = resolve_role(args.agent)
     if not role_dir(root, role).is_dir() and not agents_dir(root).is_dir():
@@ -7125,10 +7124,6 @@ def _cmd_memory_read(root: Path, args) -> int:
         return _memory_pack(root, role, args)
     if sub == "search":
         return _memory_search(root, role, args.query)
-    if sub == "verify":
-        if args.apply and not (args.by or "").strip():
-            die("--by is required with --apply: the ledger event names who ran the pass", 2)
-        return _memory_verify(root, role, args)
     if args.apply and args.dry_run:
         die("--apply and --dry-run contradict each other: pick one", 2)
     if args.apply and not (args.by or "").strip():
@@ -7165,29 +7160,6 @@ def _memory_search(root: Path, role: str, query: str) -> int:
     return 0
 
 
-def _memory_verify(root: Path, role: str, args) -> int:
-    """`memory verify`: re-resolve each record's evidence against the tree and git.
-
-    Read-only by default. `--apply` stamps `checked` and `verify_status` on the
-    knowledge records the pass reported and appends one `memory.verify` ledger
-    event; statements, evidence and every lesson or short-term record are left
-    exactly as they were.
-    """
-    now = datetime.datetime.now()
-    entries = memverify.select(_collected(root, role), args.focus)
-    rows = memverify.cap(memverify.verify_all(entries, root, now), args.limit)
-    counts = memverify.count(rows, args.limit)
-    if args.apply:
-        applied = memverify.apply(rows, root, args.by, now.date())
-        if not args.json:
-            print(
-                f"# applied: {applied['changed']} knowledge record(s) stamped,"
-                f" ledger bytes {applied['bytes']:+d}"
-            )
-    print(memverify.render(rows, counts, args.json), end="")
-    return 0
-
-
 def _print_dream_group(title: str, rows: list) -> None:
     print(f"# {title}: {len(rows)}")
     for row in rows:
@@ -7196,7 +7168,7 @@ def _print_dream_group(title: str, rows: list) -> None:
 
 def _memory_dream(root: Path, role: str, args) -> int:
     entries = _collected(root, role)
-    proposals = memorypack.dream(entries, datetime.datetime.now(), root)
+    proposals = memorypack.dream(entries, datetime.datetime.now())
     duplicates = [
         f"- {drop} -> superseded by {keep} (statement overlap {overlap})"
         for keep, drop, overlap in proposals["duplicate"]
@@ -7212,10 +7184,6 @@ def _memory_dream(root: Path, role: str, args) -> int:
     _print_dream_group("contradiction", contradictions)
     _print_dream_group("stale", [f"- {record_id}" for record_id in proposals["stale"]])
     _print_dream_group("no evidence", [f"- {record_id}" for record_id in proposals["no_evidence"]])
-    _print_dream_group(
-        "drifted",
-        [f"- {record_id} ({kind}): {reason}" for record_id, kind, reason in proposals["drifted"]],
-    )
     if not args.apply:
         print(
             "# dry run: nothing written; `--apply --by <you>` performs the duplicate and stale actions"
@@ -10634,7 +10602,7 @@ def memory_dream_line(root: Path) -> str:
     """
     role = ""
     items = _collected(root, role)
-    proposals = memorypack.dream(items, datetime.datetime.now(), root)
+    proposals = memorypack.dream(items, datetime.datetime.now())
     duplicates = len(proposals.get("duplicate") or [])
     stale = len(proposals.get("stale") or [])
     contradictions = len(proposals.get("contradiction") or [])
@@ -17572,26 +17540,6 @@ def _parsers_memory(sub, common) -> None:
     )
     p.add_argument("query")
     p.add_argument("--role", default="", help="one role's lessons and memory (default: every role)")
-    p.set_defaults(func=cmd_memory)
-    p = msub.add_parser(
-        "verify",
-        parents=[common],
-        help="re-resolve each record's evidence against the tree and git",
-    )
-    p.add_argument("--role", default="", help="one role's lessons and memory (default: every role)")
-    p.add_argument(
-        "--focus", default="", help="only records whose id, text or tags match these words"
-    )
-    p.add_argument(
-        "--limit", type=int, default=0, help="report at most N records (default: every one)"
-    )
-    p.add_argument("--json", action="store_true", help="one JSON object per record")
-    p.add_argument(
-        "--apply",
-        action="store_true",
-        help="write checked and verify_status on the knowledge records reported",
-    )
-    p.add_argument("--by", default="", help="who ran the pass (required by --apply)")
     p.set_defaults(func=cmd_memory)
     p = msub.add_parser(
         "dream",
