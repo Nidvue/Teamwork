@@ -84,7 +84,7 @@ under two roles is two tasks.
 | architect | T-0001 | - | done | - | - |
 | architect | T-0002 | architecture | done | P-0024 | eea0824 |
 | ceo | T-0001 | - | dropped | - | - |
-| ceo | T-0002 | throughput | doing | - | - |
+| ceo | T-0002 | throughput | done | - | - |
 | ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
 | ceo | T-0004 | records | dropped | P-0011 | - |
 | ceo | T-0005 | - | doing | - | - |
@@ -102,6 +102,7 @@ under two roles is two tasks.
 | ceo | T-0017 | team-docs | done | P-0028 | ebc0c8b |
 | ceo | T-0018 | team-docs | done | P-0031 | 079ee66 |
 | ceo | T-0019 | team-docs | done | P-0041 | 1724fd7 |
+| ceo | T-0020 | records | done | P-0051 | f36e133 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -135,7 +136,7 @@ under two roles is two tasks.
 | developer | T-0031 | - | done | - | - |
 | developer | T-0032 | preflight | done | P-0032 | 0cbcb03 |
 | developer | T-0033 | - | done | - | - |
-| developer | T-0034 | - | todo | - | - |
+| developer | T-0034 | - | done | - | - |
 | developer | T-0035 | merge | done | P-0033 | 4895b2a |
 | developer | T-0036 | memory | done | P-0017 | a8ffd0e |
 | developer | T-0037 | branch | done | P-0034 | b914ae4 |
@@ -178,10 +179,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
-| developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
