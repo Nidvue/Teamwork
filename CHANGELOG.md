@@ -42,6 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added a privacy scanner that runs over the working tree and the full git
   history; no personal data, credentials or keys are published.
-- Commit identity defaults to the neutral, configurable `agents.nidvue.com` domain.
+- Commit identity defaults to the configurable `agents.nidvue.com` domain.
 - Private vulnerability disclosure is handled exclusively through GitHub Security
   Advisories.

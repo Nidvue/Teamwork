@@ -232,3 +232,19 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - evidence: owner message in session 2026-10-17 'team agent email domain suffix should be agents.nidvue.com not local, update the corresponding commits'; git log --format='%an <%ae>' -> ceo@agents.nidvue.com / teamwork@agents.nidvue.com; python3 scripts/privacy_scan.py --tree --history -> 0 findings
 - falsified by: The owner withdraws the domain, or a personal datum is found in a role mailbox.
 - consequences: -
+
+## D-20261017-CEO - Owner instruction: role mailboxes use agents.nidvue.com
+
+- date: 2026-10-17
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: ceo
+- task: -
+- context: -
+- options considered: -
+- decision: The agent commit identity domain suffix is @agents.nidvue.com (e.g. 'Developer <developer@agents.nidvue.com>'). IDENTITY_DOMAIN defaults to agents.nidvue.com, privacy_scan.py allows that exact domain, and every existing commit was rewritten so author and committer mailboxes use it.
+- why: The owner corrected the domain to the agents subdomain and asked for the existing commits to be updated; the whole history and every example must match, or the identity is not consistent.
+- evidence: git log --format='%an <%ae>' -> ceo@agents.nidvue.com / teamwork@agents.nidvue.com; python3 scripts/privacy_scan.py --tree --history -> 0 findings; grep -rn 'agents.nidvue.com' -> only agents.nidvue.com
+- falsified by: A commit or shipped document carries a mailbox outside agents.nidvue.com, or the owner changes the suffix again.
+- consequences: -
