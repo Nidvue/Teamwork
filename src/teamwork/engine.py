@@ -2489,7 +2489,10 @@ def ledger_export(root: Path, args) -> int:
     manifest = {
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "team": root.name,
-        "project": str(project),
+        # Never embed the absolute checkout path: the manifest is committed and
+        # published, and a machine path is both a privacy leak and useless to a
+        # verifier on another host.
+        "project": project.name,
         "ledger": {
             "records": len(records),
             "head": records[-1]["hash"] if records else "",
