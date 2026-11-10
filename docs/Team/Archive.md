@@ -5673,3 +5673,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-5's own run @c69a75e: pytest tests/unit/test_ledger_repair_tail_only.py tests/unit/test_ledger.py tests/integration/test_clean_and_preflight_flow.py tests/unit/test_cli_contract.py -> 83 passed; ruff check + format --check -> clean. Read the diff: the repair drops only the contiguous unreadable run at the tail and refuses (exit 2) with the file untouched for anything else, which is the finding's own distinction between a torn write and tampering; the preflight verdict is fail > partial > pass and names the unmeasured checks, so a review that quotes the line cannot quote a pass it did not measure. Requirement: findings 9 and 6 closed; conformance: each has a test that reproduces its failure mode, including the byte-identical file assertion.
 - findings history: 
 - branch / merge: developer/t-0052-burn-down-4-ledger-repair-drops-only-a-t / c95afdf
+
+## T-0053 · T-0052's preflight verdict broke five shipped preflight tests: the contract is 'pass' when nothing failed, with the unmeasured checks named on the same line, not a new 'partial' verdict  (developer)
+- date: 2026-11-08
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: preflight
+- self-check: [pass] Re-read the one-function diff. Boundary: a failing check still returns fail with its names; an all-measured run returns the exact old string; only the unmeasured case gains a parenthetical. Scope: summary() and the board render. Hostile reviewer: 'the parenthetical is cosmetic' - it is the disclosure the finding asked for, and the verdict string that five tests pin is unchanged. | test: pytest tests/unit/test_preflight.py tests/unit/test_ledger_repair_tail_only.py tests/integration/test_clean_and_preflight_flow.py @63bf78c -> 34 passed; repro pre @c95afdf -> 5 failed | preflight: PF-2fe4d7c827e6 @63bf78caea50 (7 checks, 0 failed)
+- author evidence: commit 63bf78c @63bf78c -> one commit over main
+- reviewer evidence: Reviewer-2's own run @63bf78c: pytest tests/unit/test_preflight.py tests/unit/test_ledger_repair_tail_only.py tests/integration/test_clean_and_preflight_flow.py -> 34 passed; at c95afdf the preflight module is 5 failed on the verdict string. Read the diff: the verdict stays pass unless a check failed, and the unmeasured checks are named on the same line, so T-0012's disclosure is kept without breaking the shipped contract that five tests pin.
+- findings history: 
+- branch / merge: developer/t-0053-t-0052-s-preflight-verdict-broke-five-sh / 38112f9
