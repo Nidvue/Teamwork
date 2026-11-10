@@ -120,21 +120,21 @@ under two roles is two tasks.
 | developer | T-0016 | - | todo | - | - |
 | developer | T-0017 | - | todo | - | - |
 | developer | T-0018 | typing | done | P-0040 | c24a595 |
-| developer | T-0019 | - | todo | - | - |
+| developer | T-0019 | - | done | - | - |
 | developer | T-0020 | - | todo | - | - |
 | developer | T-0021 | - | todo | - | - |
 | developer | T-0022 | - | doing | - | - |
 | developer | T-0023 | privacy | done | P-0008 | 206c099 |
 | developer | T-0024 | - | todo | - | - |
-| developer | T-0025 | - | todo | - | - |
+| developer | T-0025 | - | done | - | - |
 | developer | T-0026 | - | todo | - | - |
 | developer | T-0027 | - | blocked | - | - |
 | developer | T-0028 | ledger | done | P-0012 | e252fcc |
 | developer | T-0029 | lanes | done | P-0022 | 2722c27 |
 | developer | T-0030 | privacy | done | P-0010 | 25f2c0c |
-| developer | T-0031 | - | todo | - | - |
+| developer | T-0031 | - | done | - | - |
 | developer | T-0032 | preflight | done | P-0032 | 0cbcb03 |
-| developer | T-0033 | - | todo | - | - |
+| developer | T-0033 | - | done | - | - |
 | developer | T-0034 | - | todo | - | - |
 | developer | T-0035 | merge | done | P-0033 | 4895b2a |
 | developer | T-0036 | memory | done | P-0017 | a8ffd0e |
@@ -145,10 +145,11 @@ under two roles is two tasks.
 | developer | T-0041 | lanes | done | P-0027 | cca7654 |
 | developer | T-0042 | lanes | done | P-0029 | bc29abe |
 | developer | T-0043 | memory | done | P-0030 | 55c891c |
-| developer | T-0044 | - | todo | - | - |
+| developer | T-0044 | - | done | - | - |
 | developer | T-0045 | - | dropped | - | - |
 | developer | T-0046 | clean | done | P-0042 | 4e31f14 |
 | developer | T-0047 | audit | done | P-0043 | 8b5a3c9 |
+| developer | T-0048 | audit | done | P-0044 | e24c38c |
 | reviewer | T-0001 | - | doing | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
@@ -180,18 +181,13 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0016 · clean --worktrees is a no-op (finding 10) | P3 | todo | - |
 | developer | T-0017 · Clear A-0004: use zip(strict=True) in test_traceability_matrix.py and drop the per-file B905 ignore | P1 | todo | - |
-| developer | T-0019 · the budget measures an unreadable file as 0 bytes (finding 13) | P3 | todo | - |
 | developer | T-0020 · Records/merge commits must carry the Acting role trailer (prevent A-0010) | P1 | todo | - |
 | developer | T-0021 · board's parsers raise bare exceptions (finding 15) | P3 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
 | developer | T-0024 · the v* tag ruleset protects update/delete but not creation, so 'CEO only' is convention (S-5) | P2 | todo | - |
-| developer | T-0025 · Remotes.md section 2 claims a merge is impossible while a required check is red; the measured flow permits it (S-7) | P2 | todo | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0027 · remember still invents Roles/<Typo>/: the hole T-0003 closed in load is open in remember (measured: remember QaEnginere note --by QaEnginere -> exit 0 and Roles/QaEnginere/ShortTermMemory.md created; board and loop then report qaenginere as a role with state), and a refused remember --by <other role> still leaves an empty Roles/<Typo>/ directory | P1 | blocked | - |
-| developer | T-0031 · decision add clips the heading mid-word (D-20261107-TeamLeader renders as '... section 2 (c'), so a committed decision entry has an unreadable title | P2 | todo | - |
-| developer | T-0033 · gitutil timeout docstring and test comment name the wrong mechanism for the remote helper | P2 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
-| developer | T-0044 · model auto --apply writes a TEAMWORK_MODEL_ALT that carries a provider prefix into the provider field, so Reviewer-2/4 were routed provider=deepinfra model=strata/qwen3.8-flash-next-iq3_xxs and every lane they started died 404 model_not_found | P0 | todo | - |
 | reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
