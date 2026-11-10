@@ -174,7 +174,10 @@ def write_checksums(artefacts: dict[str, Path]) -> Path:
     for path in sorted(artefacts.values()):
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         lines.append(f"{digest}  {path.name}")
-    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    # ``Path.write_text(..., newline=...)`` is Python 3.10+ only; the project
+    # supports 3.9, so the file is opened directly (see ``engine.write_lf``).
+    with manifest.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write("\n".join(lines) + "\n")
     log(f"wrote {manifest.relative_to(REPO_ROOT)}")
     return manifest
 
