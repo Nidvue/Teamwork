@@ -198,6 +198,81 @@ entry exempts a credential - a token, key or password on the same line is still
 reported, and `tests/unit/test_privacy_scan.py` proves both the narrowness of each
 entry and that a neighbouring value is still caught.
 
+### 7.1 Code-scanning triage: `py/clear-text-logging-sensitive-data` (#2, #3)
+
+Alerts **#2** and **#3** (severity `error`, rule
+`py/clear-text-logging-sensitive-data`) were triaged at `main` @ `6f96366` and are
+**false positives**: the value reaching stdout is the mask, not the secret.
+
+| Alert | Reported line | Code path | Verdict |
+|---|---|---|---|
+| 3 | `scripts/privacy_scan.py:1132` | `print(json.dumps(report, ...))` in the `--json` branch | **false positive** |
+| 2 | `scripts/privacy_scan.py:1143` | the `print(...)` in the human-readable report loop | **false positive** |
+
+**What the analyzer sees.** CodeQL tracks a taint path from the matched text to a
+`print` sink, because `main()` keeps a raw value in memory while looping over
+findings (`match = finding.pop("match", None)`,
+`scripts/privacy_scan.py:1088`). It then reports every `print` in the function
+that is reachable from the same tainted dataflow - both alert lines are in the
+reporting block, not at the taint source.
+
+**Why that taint is not a leak.** The only value the report ever holds is
+`finding["evidence"]`, and `make_finding` (`scripts/privacy_scan.py:570-582`)
+sets it to `_mask(value)`:
+
+```python
+masked = _mask(value)
+...
+    "evidence": masked,
+    "match": value,
+```
+
+`_mask` (`scripts/privacy_scan.py:498`) keeps at most 3 leading and 3 trailing
+characters and replaces every other character with `*`. The raw value is stored
+in a *separate* key, `match`, which is removed from every finding before the
+report is built (`finding.pop("match", None)`, `scripts/privacy_scan.py:1088`),
+so neither the `--json` branch (alert #3) nor the print loop (alert #2) can reach
+it. `--reveal` adds only `_fingerprint(match)` - an unsalted truncated SHA-256
+(`sha256:<12 hex>`) - and `--reveal-to PATH` is the only path that emits raw
+values, into a `0600` file the operator names, never into the log.
+
+**Measured proof.** In a scratch extraction of `HEAD`
+(`git archive HEAD | tar -x -C .pi/SecScratch/fp`, re-initialised as a git repo
+so `git ls-files` works) a synthetic credential was planted at runtime from parts
+and committed:
+
+```
+$ python scripts/privacy_scan.py 2>&1 | grep leak_probe
+leak_probe.txt:1: [critical/api-token] ghp*******************************WdE
+leak_probe.txt:1: [critical/env-secret] ghp*******************************WdE
+leak_probe.txt:1: [high/high-entropy-secret] Zx8***************************WdE
+privacy_scan: FAIL - 3 finding(s) in tree
+
+$ python scripts/privacy_scan.py --reveal 2>&1 | grep leak_probe
+leak_probe.txt:1: [critical/api-token] ghp*******************************WdE (sha256:73bf57e5fcda)
+leak_probe.txt:1: [critical/env-secret] ghp*******************************WdE (sha256:73bf57e5fcda)
+leak_probe.txt:1: [high/high-entropy-secret] Zx8***************************WdE (sha256:c0681a3ace65)
+
+$ python scripts/privacy_scan.py 2>&1            | grep -c '<planted value>'   -> 0
+$ python scripts/privacy_scan.py --reveal 2>&1   | grep -c '<planted value>'   -> 0
+$ python scripts/privacy_scan.py --json --reveal | grep -c '<planted value>'   -> 0
+
+$ python scripts/privacy_scan.py --reveal-to .pi_reveal.txt
+  stdout raw hits -> 0, stderr raw hits -> 0, file mode -> 600, file raw hits -> 2
+```
+
+`_mask` on the 37-character planted value yields a 37-character string with 31
+`*` and 6 visible characters (`ghp`, `WdE`) - a prefix suffix pair that is still
+`ghp_` followed by 31 unknown characters, i.e. not usable and not invertible.
+The count is not reproduced here for the planted value because the scanner
+correctly reports this file too.
+
+**Dismissal reason.** The reported expressions print `finding["evidence"]`, which
+`make_finding` has already replaced with `_mask(value)` while the raw match lives
+in a separate key that is popped before either `print` runs - measured: zero
+occurrences of a planted credential on stdout, stderr or in `--json` output in all
+three modes, including `--reveal`.
+
 ## 8. Sources
 
 - [git-filter-repo](https://github.com/newren/git-filter-repo) - accessed 2026-10-17
