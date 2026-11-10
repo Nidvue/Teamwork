@@ -20,7 +20,7 @@ installing the engine as a Python package is optional.
 | Face | What it means |
 |---|---|
 | **Skill** (the product) | `SKILL.md`, `roles/`, `references/`, `templates/` and the engine in one directory, cloned into the skills directory an agent host scans (project `.agents/skills/teamwork/` or user `~/.agents/skills/teamwork/`). Hosts without a skill loader use the same protocol through `AGENTS.md`. Invoked by naming the skill in the request. |
-| **Engine** (optional CLI) | `src/teamwork/`, installable as `teamwork-agents`, exposing the `teamwork` console script and `python -m teamwork`. No third-party runtime dependencies. The skill runs the same engine from its own directory. |
+| **Engine** (optional CLI) | `src/teamwork/`, exposing the `teamwork` console script and `python -m teamwork`. No third-party runtime dependencies. The skill runs the same engine from its own directory. Install it from the GitHub-release wheel or from source - the `teamwork-agents` distribution name exists but is **not yet on PyPI**, so index commands do not resolve. |
 | **Workspace format** | Markdown and JSON under `<project>/.pi/Teamwork/Teams/<Team>/`, hidden and local; project output is committed. |
 
 One engine backs all three; the skill is how people install and use it.

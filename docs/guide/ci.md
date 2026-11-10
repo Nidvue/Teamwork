@@ -25,7 +25,7 @@ and the commit-identity audit in order, stopping at the first failure.
 | `make test` | `pytest -q` | Unit, integration and acceptance tests. |
 | `make build` | `python -m build` | An sdist and a wheel are produced. |
 | `make verify` | `python scripts/verify_release.py` | The wheel bundles the skill and installs cleanly. |
-| `make privacy` | `python scripts/privacy_scan.py --tree --history` | No personal data, credentials, agent-host configuration or local state in the tree, the index or the history. |
+| `make privacy` | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | No personal data, credentials, agent-host configuration or local state in the tree, the index or the history. The allowlist exempts specific committed values by exact literal, each with a written reason; a credential on the same line is still reported. |
 | `make docs` | `python -m mkdocs build --strict` | The docs site builds with no warnings. |
 | `make links` | `python scripts/teamwork.py links` | No broken links, bare URLs or missing back-links. |
 | `make identity` | `python scripts/teamwork.py identity --audit` | Every team commit is authored and committed by its role. |

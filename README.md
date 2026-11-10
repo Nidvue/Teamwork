@@ -116,14 +116,24 @@ bundled script.
 git clone https://github.com/Nidvue/Teamwork.git
 cd Teamwork && python -m pip install .
 
-# the wheel attached to a GitHub release
+# the wheel attached to the newest GitHub release
 python -m pip install https://github.com/Nidvue/Teamwork/releases/download/v1.1.2/teamwork_agents-1.1.2-py3-none-any.whl
 ```
 
-Run it straight from a checkout without installing anything:
+That URL names the newest **release**; the checkout may be **newer still**, because
+a version is bumped in `src/teamwork/version.py` before it is tagged. Read both
+rather than assuming they match:
 
 ```bash
-python3 scripts/teamwork.py --version    # teamwork 1.1.3
+python3 scripts/teamwork.py --version                     # teamwork 1.1.3
+gh release list --limit 1                                 # newest published release
+```
+
+A wheel lags the checkout by design; if you need the tree's exact engine, install
+from source (`python -m pip install .`) or run it uninstalled:
+
+```bash
+python3 scripts/teamwork.py --version
 ```
 
 #### The package index is not live yet
