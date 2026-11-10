@@ -221,3 +221,120 @@ retrieval path.
   wrong and the pass is reverted.
 - If pack bytes exceed the `load` they replace, the cap is doing its job - trim
   the prose, do not raise the cap.
+
+## 8. M22 - what the article says that this engine still did not do (2026-11-09)
+
+Read at `90502bb`, against the same page as section 1. Five mechanisms the article
+names were absent here; the sixth (a wiki representation) is deliberately deferred
+with a falsifier rather than copied.
+
+| # | component the article names | what the article says | this engine at `90502bb` | M22 |
+|---|---|---|---|---|
+| 1 | transcripts as the foundation | "it's reasonable to consider transcript search as the foundation" of memory | `context find` and `recall` reach memory, lessons, knowledge, skills, docs and tasks - **not** `Ledger.jsonl` or `WorkLog.md`, so the transcript is written and never read | AC-M22-3 |
+| 2 | a note carries how it was known | Opus 5 "included a rule (and also how it knew the rule was true)" | `evidence` is a free string; nothing ever re-checks it, so a note that was wrong from the start is trusted forever | AC-M22-1 |
+| 3 | dreaming corrects against the transcript | the Mt. Moon note was checked against the session transcript and rewritten | `memory dream` compares records to each other (duplicate, contradiction, stale, no-evidence); it never compares a record to ground truth | AC-M22-1 |
+| 4 | dreaming focuses on a goal | the LAB run rewrote its wiki-building instructions from its own failures: 41 of 57 facts, then 57 of 57 | the pass is fixed; every record is checked the same way whatever the team is doing | AC-M22-2 |
+| 5 | the injected layer is a small index | Claude Code loads only "the first 200 lines or 25 KB of `MEMORY.md`", which "serves as an index" | `load` and the packet inject ranked *content* with no index of what exists, so a lane cannot know what it is missing | AC-M22-4 |
+| 6 | a wiki representation | search alone 53%; search + wiki 54% -> 61% as the wiki grew; wiki alone 48%; the wiki can exceed the corpus (Borges) | no page store | deferred - see 12 |
+
+The lesson this milestone takes from the article is the one section 2 already
+states, applied one level down: **correction needs a ground truth**, and the
+ground truth this engine already owns is the transcript (the ledger), the tree (a
+path and a line) and the revision (`@sha`). Verify against those before writing
+anything smarter.
+
+## 9. `memory verify` - the correction pass (frozen contract)
+
+```sh
+tw memory verify [--role R] [--focus '<goal | T-id>'] [--limit N] [--json] [--apply] [--by X]
+```
+
+Evidence is parsed into exactly one kind, first match wins:
+
+| kind | shape | verified when | drifted when |
+|---|---|---|---|
+| revision | `@<sha>` or `rev <sha>` | `git cat-file -e <sha>^{commit}` exits 0 | the object is not a commit in this repository |
+| path | `path/to/file:LINE` or `path/to/file` | the file exists and holds at least LINE lines | the file is missing, or shorter than LINE |
+| source | `https://...` | the record also carries an access date (`accessed YYYY-MM-DD` or `(YYYY-MM-DD)`) not older than 400 days | the date is older than 400 days |
+| none | anything else | - | reported `unverifiable`, never `drifted` |
+
+Output is one line per record - `- [<id>] <kind> <verify_status> | <reason> | <pointer>` -
+then `# verify: <N> record(s), <V> verified, <D> drifted, <U> unverifiable (limit <L>)`.
+`--json` prints the same records as one object per line. Two runs on the same tree
+and the same day are byte-identical.
+
+`--apply` writes only two fields on **knowledge** records - `checked: YYYY-MM-DD`
+and `verify_status: verified|drifted|unverifiable` - and appends one
+`memory.verify` ledger event with the counts. It never edits a statement or an
+evidence string and never deletes a record; lessons and short-term memory have no
+such field, so they are reported and left byte-identical.
+
+`memory dream` gains one group, `drifted`, computed by the same function, and
+`--focus` selects and orders the records verified (9.1). The four existing groups
+(duplicate, contradiction, stale, no evidence - the four `_print_dream_group` calls
+in `_memory_dream`) keep their rules; nothing else about the pass changes.
+
+### 9.1 `--focus` (frozen)
+
+`--focus <text | T-id>` reuses the 4.1 score: a T-id resolves to the task title
+through `memorypack.task_query`, then records are ranked by that query and the
+first `--limit` (default 25) are verified; the rest are reported as
+`# verify: N deferred by --focus`. Without `--focus` the order is pointer
+ascending and `--limit` applies to nothing (every record is checked), so a plain
+run is byte-identical to the pass before this milestone.
+
+## 10. Transcript reach (frozen contract)
+
+```sh
+tw context find '<query>' --scope transcripts
+tw recall '<query>' --agent <Role> --transcripts
+```
+
+Two sources, both already on disk and both append-only:
+
+| source | pointer | one hit is |
+|---|---|---|
+| `<team>/Ledger.jsonl` | `Ledger.jsonl#<n>` (1-based line) | one ledger event |
+| `Agents/<Instance>/WorkLog.md` | `Agents/<Instance>/WorkLog.md:<line>` | one worklog line |
+
+Ranking is the 4.1 score over the hit's text; the output is capped at 10 hits and
+2,000 bytes with the same `# search:` footer `memory search` prints; a rendered
+hit clips its text to 200 characters. The reader streams the file line by line and
+never holds the whole ledger, and `--scope transcripts` is additive - the other
+scopes keep their output byte-for-byte.
+
+## 11. The index header (frozen contract)
+
+`load <Instance> [--task T]` and every lane packet open with the index, before the
+pack:
+
+```text
+# memory index: <N> topic(s), <M> record(s)
+- <topic> -> <pointer>
+# index: <B> bytes (budget 800)
+```
+
+Topics are the distinct normalised `topic` of the active knowledge records plus the
+open lessons' titles; order is the 4.1 score for the task (importance then uses
+without one); at most 8 lines. The header is a pointer list - it never copies a
+statement - and `INDEX_BUDGET_BYTES = 800`.
+
+The measured constraint is the reason the header is small: the whole injected
+block (index + pack) must stay at or below the bytes `load` printed at `90502bb`
+on the same revision, the pack budget stays 4,000 bytes and `AlwaysOnBudgetKb` is
+not raised.
+
+## 12. Non-goals, rejected alternatives and falsifiers (M22)
+
+| rejected | why, with the evidence |
+|---|---|
+| a wiki page store now | the article's own numbers: no gain when one document answers, and a wiki can grow larger than the corpus. The store here is tens of records, not 350,000 files. Falsifier to revisit: **more than 200 active records, or a question that needs synthesis across records**. |
+| embeddings or a vector index | the corpus is a few hundred small records; a deterministic token score is auditable and free, and an embedding service is a second store |
+| an LLM in the verification path | verification must be reproducible and cheap: `git cat-file`, `stat`, a date parse |
+| auto-rewriting a wrong note | the article's own correction was a rewrite, but a rewrite by a pass is unauditable. This engine marks `drifted` and leaves the rewrite to the owning role, which is what keeps `apply_dream`'s "never edit a statement" invariant |
+| raising the always-on cap to fit the index | the cap is the constraint that makes the index small; if the index does not fit, trim the prose |
+
+Falsifiers: if `memory verify` reports `drifted` on a record whose evidence is
+true, the parser is wrong and the record is not; if the index header does not
+change a lane's first action in three waves, it is ceremony and is deleted; if the
+injected block grows past `90502bb`, the header is over budget.

@@ -974,6 +974,33 @@ work preserved in its lane worktree). Two disputes were resolved by the tribunal
 and recorded in [Decisions](Decisions.md). The full suite is green at the closing
 head: `pytest -q` -> 2551 passed, 3 skipped.
 
+## M22 - Memory: correct itself, reach the transcripts, show the index (live)
+
+Intake and criteria: [Project](Project.md) M22; the frozen contract, the rejected
+alternatives and the falsifiers: [Memory](Memory.md) 8-12. One writer per file: all
+four engine tasks touch `src/teamwork/engine.py`, so they run in sequence on one
+lane; the Tester, the Product Manager, the Security Auditor and the CEO own files
+no engine lane touches and run beside it.
+
+| lane | task | what it owns | artifact |
+|---|---|---|---|
+| Developer | T-0054 | `src/teamwork/memverify.py`, the `memory verify` CLI, the `drifted` dream group, unit tests | `memverify.py`, `engine.py`, `tests/unit/test_memverify.py` |
+| Developer | T-0055 | `--focus` selection and order over the frozen 4.1 score | `memverify.py`, `engine.py` |
+| Developer | T-0056 | `src/teamwork/transcripts.py`, `context find --scope transcripts`, `recall --transcripts` | `transcripts.py`, `engine.py` |
+| Developer | T-0057 | the capped index header in `load` and in the lane packet | `engine.py`, `memorypack.py` |
+| Tester | T-0008 | the `integration` layer on a real team tree: drift detected, focus changes the target set, a ledger line is found, the header respects its cap | `Tests.md` |
+| Product Manager | T-0010 | the article's claims re-verified from the live page, and the deferred-wiki falsifier | `docs/Team/Research.md` |
+| Security Auditor | T-0007 | the `security` layer: no secret, personal datum or host path in a store or in the injected pack | `docs/Team/AuditReport.md`, `Tests.md` |
+| Reviewer | the verdicts | the `acceptance` layer against AC-M22-1..5 on each reviewed revision | `Tests.md`, `Archive.md` |
+| CEO | T-0033 | intake, criteria, the frozen contract, the measured close-out and the records | `Project.md`, `Plan.md`, `Memory.md` |
+
+Ordering: the contract is frozen before the first engine lane starts; the engine
+tasks are sequential because they share one file; the Tester starts once T-0054
+lands (the contract is frozen, so its test can be written in parallel).
+
+Exit: AC-M22-1..AC-M22-5 verified by a role other than their owner on the merged
+revision, `loop` STOP and `audit` 0 problems on that revision.
+
 ## Task-graph integrity
 
 The task graph is checked against `.pi/Teamwork/Teams/Teamwork/Roles/*/TaskQueue.md`.

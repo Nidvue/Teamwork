@@ -120,7 +120,7 @@ under two roles is two tasks.
 | ceo | T-0030 | skill | done | P-0084 | aa98609 |
 | ceo | T-0031 | records | done | P-0085 | 7bc4f15 |
 | ceo | T-0032 | docs | done | P-0087 | 3179a8a |
-| ceo | T-0033 | memory | doing | P-0092 | - |
+| ceo | T-0033 | memory | done | P-0092 | 6143378 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -179,6 +179,9 @@ under two roles is two tasks.
 | developer | T-0056 | - | todo | - | - |
 | developer | T-0057 | - | todo | - | - |
 | developer | T-0058 | - | todo | - | - |
+| developer | T-0059 | - | todo | - | - |
+| developer | T-0060 | - | todo | - | - |
+| developer | T-0061 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -201,6 +204,7 @@ under two roles is two tasks.
 | security-auditor | T-0005 | - | done | - | - |
 | security-auditor | T-0006 | audit | done | P-0083 | 98232a8 |
 | security-auditor | T-0007 | security | review | P-0094 | - |
+| security-auditor | T-0008 | - | todo | - | - |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
@@ -226,13 +230,16 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0033 · M22 intake, the frozen memory contract, criteria and the measured close-out records | P0 | doing | - |
 | developer | T-0054 · memory verify: re-resolve record evidence against ground truth, and a drifted group in memory dream | P0 | doing | - |
 | developer | T-0055 · memory verify --focus: goal-scoped verification order and selection | P0 | todo | - |
 | developer | T-0056 · transcript reach: context find and recall search the ledger and worklogs | P0 | todo | - |
 | developer | T-0057 · memory index header in load and the lane packet, capped | P0 | todo | - |
 | developer | T-0058 · preflight gate runs in the main checkout, so a worktree lane gets a false green | P1 | todo | - |
+| developer | T-0059 · privacy scan does not cover the team memory stores | P1 | todo | - |
+| developer | T-0060 · scrub absolute host paths from the role stores | P2 | todo | - |
+| developer | T-0061 · archive render writes bare URLs, so links fails after every merge whose evidence carries a URL | P2 | todo | - |
 | security-auditor | T-0007 · privacy and secret audit of the memory stores and the injected pack | P1 | review | - |
+| security-auditor | T-0008 · redact personal data from team state and from the committed audit report | P1 | todo | - |
 | tester | T-0008 · integration layer: verify, focus, transcript reach and the index header on a real team tree | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
