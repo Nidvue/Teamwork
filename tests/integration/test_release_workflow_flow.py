@@ -467,9 +467,14 @@ def extract_step_block(step_name: str, workflow: Path = RELEASE_WORKFLOW) -> str
 
 def posix_bash_or_skip() -> str:
     """A real POSIX shell, or a skip that names it (the classifier's rule)."""
-    from tests.posix_shell import posix_bash_or_skip as resolve
+    from test_ci_scope_classifier import posix_bash
+    from tests.tooling import skip_message
 
-    return resolve()
+    try:
+        return posix_bash()
+    except AssertionError as absent:
+        pytest.skip(skip_message("bash", str(absent)))
+        raise
 
 
 def released_tree(tmp_path: Path, *, version: str = "1.0.0") -> tuple[Path, str]:

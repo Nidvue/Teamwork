@@ -7,14 +7,11 @@ are asserted here and cannot silently disappear in a refactor.
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import re
 import shutil
 import stat
-import sys
 from pathlib import Path
-from types import ModuleType
 
 import pytest
 from tests.gitenv import child_env
@@ -347,31 +344,58 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     return re.compile("^" + "".join(out) + "$")
 
 
-class ProseSet:
-    """The prose/media filter a workflow really implements, as path globs."""
+def _expand_prose_regex(regex: str) -> set[str]:
+    """The classifier regex as the equivalent set of path patterns.
 
-    def __init__(self, patterns: set[str]) -> None:
+    The `scope` job states the prose set as one alternation
+    (`^(docs/|assets/|README\\.md$|...)`); the `docs.yml` list states the same
+    set as globs. Expanding the regex makes the two comparable.
+    """
+    body = regex.strip()
+    if body.startswith("^(") and body.endswith(")"):
+        body = body[2:-1]
+    patterns: set[str] = set()
+    for alternative in body.split("|"):
+        item = alternative.strip().replace("\\.", ".").rstrip("$")
+        patterns.add(item + "**" if item.endswith("/") else item)
+    return patterns
+
+
+class ProseSet:
+    """The prose/media filter a workflow really implements.
+
+    Two mechanisms exist in the history of `ci.yml`: a workflow-level
+    `paths-ignore` list and the `scope` classifier job (a regex over the
+    changed paths). Both are modelled here, so the tests can assert the
+    contract without depending on which one is checked out.
+    """
+
+    def __init__(self, patterns: set[str], regex: str | None = None) -> None:
         self.patterns = patterns
+        self.regex = regex
+        self._compiled = re.compile(regex) if regex else None
         self._globs = [_glob_to_regex(pattern) for pattern in sorted(patterns)]
+
+    @property
+    def mechanism(self) -> str:
+        return "scope" if self._compiled is not None else "paths-ignore"
 
     def matches(self, path: str) -> bool:
         """True when the workflow classifies `path` as prose/media."""
+        if self._compiled is not None:
+            return self._compiled.search(path) is not None
         return any(glob.match(path) for glob in self._globs)
 
 
-def _load_ci_scope(root: Path) -> ModuleType:
-    scope = root / "scripts" / "ci_scope.py"
-    spec = importlib.util.spec_from_file_location("ci_scope_contract_probe", scope)
-    assert spec is not None and spec.loader is not None, f"cannot load {scope}"
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 def ci_prose_filter(root: Path) -> ProseSet:
-    """The prose/media filter `scripts/ci_scope.py` implements on a push."""
-    return ProseSet(set(_load_ci_scope(root).prose_paths()))
+    """The prose/media filter `ci.yml` implements on a push."""
+    text = read(root, ".github", "workflows", "ci.yml")
+    classifier = re.search(r"PROSE='([^']*)'", text)
+    if classifier:
+        return ProseSet(_expand_prose_regex(classifier.group(1)), classifier.group(1))
+    items = _yaml_list(workflow_triggers(text).get("push", ""), "paths-ignore")
+    assert items is not None, "ci.yml has neither a scope classifier nor a paths-ignore filter"
+    return ProseSet(set(items))
 
 
 def docs_prose_filter(root: Path) -> set[str]:

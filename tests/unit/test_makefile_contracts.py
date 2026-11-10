@@ -698,28 +698,18 @@ def test_mutant_a_ci_gate_with_no_makefile_equivalent_is_reported(tmp_path):
     assert ("ghost_gate.py",) in problems, problems
 
 
-def test_the_scope_job_is_a_classifier_not_a_gate():
-    """`scripts/ci_scope.py` is not a Makefile equivalent; it must not be covered."""
+def test_the_prose_regex_is_read_as_quoted_text_not_as_a_pipeline():
+    """A `|` inside a quoted regex is not a command separator; splitting naively
+    would invent gates (`assets`, `LICENSE$`) that no Makefile target could cover."""
     workflow = parse_workflow((REPO_ROOT / CI_PATH).read_text(encoding="utf-8"))
     assert "scope" not in job_run_snippets(workflow), "scope is a classifier, not a gate"
-    scope_runs = [
+    scope_snippet = next(
         step["run"]
         for step in workflow["jobs"]["scope"]["steps"]
-        if isinstance(step.get("run"), str)
-    ]
-    assert any("scripts/ci_scope.py" in run for run in scope_runs), (
-        "the scope job no longer runs the classifier module"
+        if isinstance(step.get("run"), str) and "PROSE=" in step["run"]
     )
-
-
-def test_a_quoted_pipe_is_read_as_quoted_text_not_as_a_pipeline():
-    """A `|` inside a quoted regex is not a command separator; splitting naively
-    would invent gates (`assets`, `LICENSE$`) that no Makefile target could cover.
-
-    The classifier no longer carries a regex, but the parser still reads quoted
-    shell text and must not turn one into an invocation.
-    """
-    prose_line = "PROSE='^(docs/|assets/|README\\.md$|LICENSE$)'"
+    prose_line = next(line for line in scope_snippet.splitlines() if "PROSE=" in line)
+    assert "|" in prose_line
     naive = {token.strip("'\" ") for token in prose_line.split("|")}
     assert "assets" in {Path(token).name for token in naive}, "the fixture lost its pipe"
     assert all(signature(argv) is None for argv in split_commands(prose_line))
