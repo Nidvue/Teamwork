@@ -372,6 +372,54 @@ The model is an intern: introduce the work, give it one job, prove the job, and 
 | routine hygiene | a schedule with no trigger, budget and stop condition |
 
 Do not give a bot its own email or external accounts: that is external and irreversible. Adopt the smallest team that reliably does the work, with a proof per seat.
+### 5n. Agents talk to each other: the mailbox
+
+An agent that needs another agent to do, check or answer something sends a **message**;
+it does not open a task, and it does not shout into a worklog. Messages are queued,
+prioritised and preemptible, so a request never costs the recipient its current work
+and never waits behind a lower-value one.
+
+```sh
+python3 "$SKILL/scripts/teamwork.py" message send --from <you> --to <instance> \
+    --priority urgent|high|normal|low --subject '<one line>' [--body '<detail>'] \
+    [--task <T-id>] [--reply-to <M-id>]
+python3 "$SKILL/scripts/teamwork.py" message inbox --for <instance> [--all] [--json]
+python3 "$SKILL/scripts/teamwork.py" message take <M-id> --for <instance> --by <you>
+python3 "$SKILL/scripts/teamwork.py" message done <M-id> --for <instance> --by <you> --result '<what you did + evidence>'
+```
+
+| Priority | What it means | What the recipient does |
+|---|---|---|
+| `urgent` | the recipient's current assignment is displaced | the supervisor stops its lane, marks the task `paused` with the message id, and runs a mailbox lane; `lane resume <T-id>` puts the task back |
+| `high` | before the next new task | read at the next step, done before starting anything long |
+| `normal` | the default | read in order |
+| `low` | when idle | read in order |
+
+How it reaches the agent, and why nothing is lost:
+
+- **The queue is in the packet.** Every lane packet opens with `## Messages for you`, priority
+  order, so the recipient sees its mail without polling; `message inbox` is the same list on
+  demand, and a long lane re-checks between steps.
+- **A message never interrupts a step, a priority does.** One process cannot be interrupted
+  mid-turn by another, so `normal`/`high`/`low` wait for the recipient's next read, and
+  `urgent` is preemption through the supervisor - the only component that owns process
+  lifecycle. That is the whole mechanism: queue for the cheap case, stop-and-resume for the
+  expensive one.
+- **One taker.** `message take` marks the message in progress, so a second lane of the same
+  role cannot do the work twice; `message done` closes it with the result, which is what the
+  sender reads.
+- **The task is paused, not lost.** Preemption records `paused` on the task with the message
+  id that displaced it, and `lane resume` returns it to `doing`; a paused task blocks `loop`,
+  so the team cannot close while one is waiting.
+- **The trail is the ledger.** `message.send`, `message.take`, `message.done` and `lane.preempt`
+  are ledger actions; the message itself lives in `Runtime/Mailbox/<Instance>/`.
+
+Use it for: a review finding the author must act on now, a blocked fact another role holds, a
+interface change that invalidates a peer's work, a hand-off. Do **not** use it to assign work
+that belongs on the board (`task add`), to report progress (the worklog), or to ask the user
+anything (only the CEO talks to the user). A message is a record, never a channel to a person.
+
+Detail: `references/State.md` (the mailbox contract) and `references/Coordination.md`.
 ### 6. Close
 
 When the queue is empty and `loop` is about to report STOP, load `tw-ceo-audit-close` and follow it exactly: freeze the revision, verify the chain before the gates, check the archive against the tree, export the manifest last, and report from records. An unnamed skill is dead text nobody loads, and `harness lint` fails a tree that has one.

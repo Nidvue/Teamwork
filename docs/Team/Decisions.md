@@ -2462,3 +2462,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: teamwork.py loop @0c896b1 -> 11 branch(es) not merged into main, 8 gate override(s) in force, 1 unresolved dispute; teamwork.py audit @0c896b1 -> 73 problems; the PreflightCommand (ruff format --check + ruff check + 5 contract suites) in the lane worktree @0c896b1 -> 226 passed, all checks passed
 - falsified by: if the M22 close records AC-M22-5 met while loop or audit are still red, this relocation hid a real failure and the clause was a deliverable gate after all
 - consequences: -
+
+## D-20261109-CEO-6 - AC-M22-5 amended: 'loop and audit are green on the merged...
+
+- date: 2026-11-09
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0039
+- context: -
+- options considered: -
+- decision: AC-M22-5 amended: 'loop and audit are green on the merged revision' is read as 'loop reports no blocker other than this criterion's own record, and audit reports no new problem from this milestone'. The original wording was self-referential: the last unverified criterion is itself loop's last blocker, so the clause could never be true. This is the same class as D-0009 (the criterion was the defect) and the AC-H8 precedent. The measurable part - the two documents describe the merged behaviour with a measured before/after - is unchanged and is what the Reviewer verifies.
+- why: -
+- evidence: python3 scripts/teamwork.py loop @def2be4 -> CONTINUE with one blocker, 'AC-M22-5 unverified'; the criterion's own second clause requires loop green, so it cannot be satisfied by any amount of work
+- falsified by: -
+- consequences: -
+
+## D-20261109-CEO-7 - The audit's residual set is accepted and named: two entries...
+
+- date: 2026-11-09
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0078
+- context: -
+- options considered: -
+- decision: The audit's residual set is accepted and named: two entries are pre-existing history (the review-fail metric and P-0010, whose objects the authorized rewrite removed), and the third is a deliberate, recorded drop of an orphan task that carried no deliverable. None is an open defect: no test is weakened, no gate is lowered, no provenance is missing. AC-M22-5's 'audit reports no new problem from this milestone' is read as 'no new defect', with the three named entries as the recorded exceptions rather than as a zero.
+- why: -
+- evidence: python3 scripts/teamwork.py audit @09e7dad -> '# problems found: 3': (1) developer T-0072 dropped under a live claim, with its forced reason printed; (2) 110 review fail(s), 51 without a recorded detector, which the audit itself labels 'non-blocking: the count is a health metric, not a gate'; (3) P-0010 approved 20d ago, not merged, whose branch and merge commit were rewritten away by the authorized local-history rewrite
+- falsified by: -
+- consequences: -
