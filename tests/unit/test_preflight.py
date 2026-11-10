@@ -1,11 +1,12 @@
 """`preflight` is the author's mechanical gate, and `selfcheck` refuses while it is red.
 
-Measured from the ledger: 38 of 43 recorded `review.fail` findings were mechanical
-and locally decidable (docs surface 12, unmergeable branch 11, board drift 6, red
-gate 5, scope creep 4, unreachable evidence revision 4), and 24 of 65 deliverables
-needed more than one verdict. Every one of those rounds cost a Reviewer lease
-(p50 12.2 / p90 25.8 min) and serialised the author, so the point of this command
-is that a defect class a shell can decide never reaches a human reviewer.
+Measured from the ledger at one cut (n=1615): 44 review failures over 66 review
+targets (one role + task), of which 26 needed more than one verdict and 11 needed
+three or more; two independent readings put the locally-decidable share at 16-24
+of 44, and they disagree. Every extra round cost a Reviewer lease (p50 12.2 / p90
+25.8 min) and serialised the author, so the point of this command is that a defect
+class a shell can decide reaches the author before a human reviewer sees it; the
+`mechanical:` field on every fail keeps the share measured prospectively.
 
 These tests are behavioural, one per class the command claims to remove:
 
@@ -711,10 +712,10 @@ def last_fail_detail(root: Path) -> str:
 def test_a_fail_after_a_green_preflight_is_recorded_as_judgement(cli, project, capsys):
     """`mechanical: no` - the author ran the gate at this revision, so this is judgement.
 
-    Measured from the ledger, 38 of 43 recorded fails were mechanical. That rate is
-    the whole argument for the gate, so the verdict path has to keep it measurable:
-    a green preflight digest for the SAME revision means the finding is about the
-    work, not about a miss a shell could have caught.
+    At one ledger cut (n=1615) there were 44 review failures over 66 targets, and
+    the locally-decidable share is contested at 16-24 of 44. The verdict path keeps
+    it measurable prospectively: a green preflight digest for the SAME revision
+    means the finding is about the work, not about a miss a shell could have caught.
     """
     root = init_team(cli, project)
     start_branch(cli, project)
