@@ -17,7 +17,7 @@ short name for the component: ``AGENTS.md`` would not let a reader recompute the
 managed block's size from a file that also holds text outside the block, and
 ``scripts/*.py`` alone would not explain a count that also sums
 ``src/teamwork/*.py``. Every cell is therefore the frozen spec of Architecture
-12.2, so ``wc -c`` over what the row names reproduces the number printed beside
+11.2, so ``wc -c`` over what the row names reproduces the number printed beside
 it.
 
 ``harness lint`` is the whole-proposal invalidator. A skill that no always-on
@@ -67,7 +67,7 @@ from .layout import (
 from .names import resolve_role
 from .records import parse_skills
 
-#: The three activation classes (12.3), cheapest to reason about first: always-on
+#: The three activation classes (11.3), cheapest to reason about first: always-on
 #: text is in context on every call, on-demand text is opened when a skill or a
 #: reference is needed, and in-loop code runs inside the tool loop.
 ALWAYS_ON = "always-on"
@@ -78,7 +78,7 @@ CLASSES = (ALWAYS_ON, ON_DEMAND, IN_LOOP)
 NO_VALUE = "-"
 
 #: C5 is an inference context, not an artifact: it has no file, so its class, byte
-#: and role cells are ``-`` (12.2: ``-`` is the value for the component with no
+#: and role cells are ``-`` (11.2: ``-`` is the value for the component with no
 #: file) and its path cell says what it is instead of naming a path.
 LANE_PACKET = "n/a - lane packet, no file"
 
@@ -86,7 +86,7 @@ LANE_PACKET = "n/a - lane packet, no file"
 #: classes plus `-`, the one component that is an inference context, not a file.
 CLASS_CELLS = CLASSES + (NO_VALUE,)
 
-#: The path column, verbatim from the frozen registry table of Architecture 12.2.
+#: The path column, verbatim from the frozen registry table of Architecture 11.2.
 #: Each string is the spec the row's bytes are measured through, so the number can
 #: be recomputed from the cell alone: the managed block (not the file that holds
 #: it), the union of both globs (not one member of it), both hook stages
@@ -267,7 +267,7 @@ def collect(repo: Path, root: Path) -> list[Surface]:
 
     One row per Harness^2 component, never one per file: an inventory that splits a
     component across rows cannot be checked against the taxonomy it claims to
-    describe. Each row's ``path`` is the frozen spec (Architecture 12.2) and
+    describe. Each row's ``path`` is the frozen spec (Architecture 11.2) and
     ``size`` is what that spec selects at run time: C2 is the managed block inside
     AGENTS.md, C3 is every role's markdown plus the global memory, C7 is the
     scripts plus the engine package, C8 is both hook stages found through the git
@@ -682,7 +682,7 @@ def cmd_lint(args) -> int:
             print(f"# EVIDENCE: {stats.shared_checked} shared skill(s) checked")
         else:
             print("# EVIDENCE: skipped (no team workspace / no Skills.md)")
-        # 12.4: --verbose also lists every file checked, so a clean run is
+        # 11.4: --verbose also lists every file checked, so a clean run is
         # auditable file by file instead of being a count the reader must trust.
         for line in render_checked(stats.checked):
             print(line)
