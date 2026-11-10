@@ -430,6 +430,152 @@ def test_r2_excludes_the_tag_that_points_at_head_from_the_count(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# R2's scope (11.2.2.1, D-20261029-Architect): the published line
+# --------------------------------------------------------------------------- #
+
+#: 11.2.2.1's exact detail. The status is ``SKIP``, never ``ok``: nothing was
+#: proved about this checkout, and the detail says why (11.1.2).
+R2_SCOPE_SKIP = "not the default branch: the published line is evaluated on main only"
+
+
+def unpublished_root(tmp_path: Path) -> Path:
+    """The trap 11.2.2.1 is about: a tag, then a commit that did not bump.
+
+    A branch cut from this state carries a version that *equals* the newest
+    reachable tag, so the frozen ``S = A - O`` comparison reports ``X <= X`` -
+    the false red that made every lane pay R2 until the version was bumped. The
+    same tree on the default branch must still be DRIFT, which is the pair of
+    tests below.
+    """
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+    git(root, "tag", "v1.1.0")
+    commit(root, {"README.md": "# Teamwork\n\n- post-release edit\n"}, message="after the tag")
+    return root
+
+
+def test_r2_off_the_default_branch_is_a_skip_and_not_an_ok(tmp_path):
+    """11.2.2.1: a checkout that publishes nothing gets SKIP, and no finding."""
+    root = unpublished_root(tmp_path)
+
+    result = crc.rule_r2_head_is_newer(root, head_is_default_branch=False)
+
+    assert result.rule == "R2"
+    assert result.status == "SKIP"
+    assert result.status != "ok", "the scope proves nothing, so it can never be ok"
+    assert result.findings == ()
+    assert result.detail == R2_SCOPE_SKIP
+
+
+def test_r2_on_the_default_branch_at_a_tag_with_no_bump_is_still_drift(tmp_path):
+    """The no-loosening half: the default argument still reports the trap.
+
+    This is also the flag-default mutant's guard - a default of ``False`` would
+    make this test see a SKIP where 11.2.2 requires a DRIFT.
+    """
+    root = unpublished_root(tmp_path)
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.rule == "R2"
+    assert result.status == "DRIFT"
+    assert result.findings == ("HEAD version 1.1.0 is not greater than tag v1.1.0",)
+    assert "v1.1.0" in result.detail
+
+
+def test_a_run_without_the_scope_flag_is_still_evaluated(tmp_path):
+    """Fail-closed by default: a workflow that forgets the flag evaluates R2.
+
+    The worst a missing flag can do is leave the old false red; it can never turn
+    the gate green, which is the property that makes the scope safe to add.
+    """
+    root = unpublished_root(tmp_path)
+
+    code, stdout, _ = run_main(["--offline", "--repo-root", str(root)])
+
+    assert code == 1
+    assert "R2 DRIFT" in stdout
+    assert "R2 SKIP" not in stdout
+
+
+def test_the_scope_flag_changes_nothing_but_r2(tmp_path):
+    """The scope is R2's alone: every other rule keeps evaluating and reporting."""
+    root = make_repo(
+        tmp_path / "repo",
+        version="1.1.0",
+        files={"README.md": "# Teamwork\n\nPin the checkout to v9.9.9 (a tag)\n"},
+    )
+    git(root, "tag", "v1.1.0")
+
+    code, stdout, _ = run_main(
+        ["--offline", "--head-is-default-branch=no", "--repo-root", str(root)]
+    )
+
+    assert code == 1
+    assert f"R2 SKIP {R2_SCOPE_SKIP}" in stdout
+    assert "R9 DRIFT" in stdout
+    assert "v9.9.9" in stdout
+    assert stdout.splitlines()[-1] == "# release consistency: 1 problem(s)"
+
+
+def test_json_mode_reports_the_scope_skip_and_exits_zero(tmp_path):
+    """The scoped-out run is `0 problem(s)` - the SKIP is not a finding."""
+    root = unpublished_root(tmp_path)
+
+    code, stdout, _ = run_main(
+        ["--offline", "--json", "--head-is-default-branch=no", "--repo-root", str(root)]
+    )
+    payload = json.loads(stdout)
+
+    assert code == 0
+    assert payload["exit_code"] == 0
+    assert payload["problems"] == []
+    assert payload["rules"][1] == {"id": "R2", "status": "SKIP", "detail": R2_SCOPE_SKIP}
+
+
+def test_a_third_value_for_the_scope_flag_is_a_usage_error(tmp_path):
+    """`yes|no` is the whole vocabulary; anything else is exit 2, never a guess."""
+    if CHECKER_PATH is None:
+        pytest.skip(CHECKER_MISSING_REASON)
+    root = make_repo(tmp_path / "repo", version="1.1.0")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(CHECKER_PATH),
+            "--offline",
+            "--head-is-default-branch=maybe",
+            "--repo-root",
+            str(root),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "usage:" in result.stderr
+    assert "--head-is-default-branch" in result.stderr
+
+
+def test_the_scope_flag_is_documented_in_help():
+    """A flag a reader cannot find is a flag nobody uses (11.1's flag table)."""
+    if CHECKER_PATH is None:
+        pytest.skip(CHECKER_MISSING_REASON)
+
+    result = subprocess.run(
+        [sys.executable, str(CHECKER_PATH), "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "--head-is-default-branch" in result.stdout
+    assert "11.2.2.1" in result.stdout, "the help must name the amendment it implements"
+
+
+# --------------------------------------------------------------------------- #
 # R3 - npm versions must resolve to a tagged payload or a recorded exception
 # --------------------------------------------------------------------------- #
 
