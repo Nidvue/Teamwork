@@ -309,3 +309,59 @@ work from any caller, `pulse` assigns proactively with no authority test, and
   The review gate and the criterion records still carry the quality claim.
 - An attention queue is only honest if it is drained: an item resolved with a
   free-text "ok" is the same failure as a rubber-stamped review.
+
+## 11. OpenViking: what we adopt for lessons, experience, knowledge and memory
+
+Source: [OpenViking](https://github.com/volcengine/OpenViking) - accessed
+2026-11-03. Architecture and concepts read at
+[architecture](https://docs.openviking.ai/en/concepts/01-architecture),
+[context types](https://docs.openviking.ai/en/concepts/02-context-types),
+[context layers](https://docs.openviking.ai/en/concepts/03-context-layers) and
+[retrieval](https://docs.openviking.ai/en/concepts/07-retrieval), all accessed
+2026-11-03. License: AGPL-3.0 for the main project (repository README, accessed
+2026-11-03); the CLI crate and examples carry Apache-2.0.
+
+The operator asked whether the same design and architecture can manage this
+team's lessons, experience, knowledge and memory. The answer is **yes to the
+design, no to the dependency**.
+
+**What OpenViking does.** It is a context database for agents: one virtual
+filesystem (`viking://`) holding three context types - resources (documents and
+code), memories (profile, preferences, entities, events, cases, trajectories,
+experiences) and skills (`SKILL.md` plus supporting files) - with rules as a
+beta fourth type. Every directory carries generated summaries at three levels:
+L0 abstract (about 256 characters), L1 overview (about 4,000), L2 the original
+content. Retrieval is directory-scoped vector search, optionally reranked; a
+session commit archives the conversation and extracts memories into Markdown.
+
+| Their mechanism | What it fixes for us | Verdict | Surface here | Falsifier |
+|---|---|---|---|---|
+| One filesystem for resources, memory and skills | our context is six silos (short/long/global memory, lessons, knowledge, skills, docs) with no single way to see or search them | **Adopt as a view** | `ctx://` URIs over the existing files; no migration, no second copy | a `ctx://` node that resolves to nothing, or a fact stored twice |
+| Stable URI per item, inspectable and editable | a fact found in one command cannot be cited or re-read from another | **Adopt** | `ctx://project/knowledge/K-0001`, `ctx://role/<role>/lessons/L-0001`, ... | a search result with no resolvable URI |
+| L0 abstract / L1 overview / L2 detail | `load` shows one line but there is no middle layer between the summary and the whole file | **Adopt, computed** | `context read <uri> --level 0\|1\|2`; L0/L1 derived from the record or Markdown structure at read time | an L0/L1 that needs a model or a generated sidecar to exist |
+| Directory-scoped retrieval | `recall` searches all memory, `knowledge search` all knowledge; nothing searches "this role" or "this store" | **Adopt** | `context find <query> --scope ctx://role/developer` | a scope that returns a node outside it |
+| Session commit -> extracted memories | our close-out writes lessons/knowledge by hand, and a task that ends without either loses what it learned | **Adapt** | `context digest <T-id>` prints candidate lesson/knowledge templates from the task's findings and evidence; the agent writes them | a digest that writes records, or a candidate with no evidence |
+| Vector index + rerank | semantic recall is better on fuzzy queries | **Reject** | deterministic keyword/tag scoring in `context find` | a query that only a vector index could answer, and no keyword match exists |
+| Server, multi-tenant, ACL, encryption, RAGFS | one operator, one repository, one local tree | **Reject** | the Markdown tree and the hash-chained ledger | a second process or a network service becomes required |
+| Generated semantic sidecars (VLM) | sidecars make scanning cheap | **Reject** | L0/L1 computed at read time | a stale sidecar contradicts its source |
+| Vendoring the implementation | - | **Reject** | design patterns only; no AGPL code copied | an AGPL header or a copied module in this tree |
+
+**Vendor claims, not reproduced here.** The README reports LoCoMo memory
+accuracy of 80-83% versus 24-57% for the three native memories, input-token
+reductions of 34.3-91.0%, query-latency reductions of 58.45-66.10%, and
+tau2-bench task-success gains of +6.87pp (retail) and +11.87pp (airline) from
+experience memory (README, accessed 2026-11-03). Those numbers are the vendor's
+own benchmark on their models; this team has not reproduced them and does not
+rely on them.
+
+**Why the split is the right one.** This skill ships as a stdlib-only bundle that
+runs offline from one directory. A vector index, an embedding model, a VLM and a
+server would each break that promise, and a generated summary that a model wrote
+is not evidence. The parts that transfer are the parts that do not need a model:
+one navigable tree, stable URIs, three levels of detail and scoped retrieval. The
+parts we keep are the ones this team already does better for its purpose: every
+record carries evidence and a revision, the ledger is hash-chained, and the
+author writes the lesson.
+
+The frozen contract is `docs/Team/Architecture.md` section 16; the knowledge
+record it extends is section 15.
