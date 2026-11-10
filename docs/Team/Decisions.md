@@ -2200,3 +2200,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git reflog show main --date=iso -> 2a48711 main@{2026-11-03 20:33:07}: branch: Reset to ceo/t-0019...; git log --oneline bcec6f1..2a48711 -> 34d6ebe, 2a48711, 2dd3d1c (all CEO, none reviewed); git branch -f main bcec6f1 -> main is bcec6f1; git rev-list --parents -n1 bd16bca -> parent bcec6f1; developer-9 branch parent bcec6f1
 - falsified by: A merge lands a commit on main with no review.pass record for its revision, or the reflog shows main moving without a merge
 - consequences: T-0006 and T-0032 remain based on the correct tip; CEO T-0019 submits the three intake commits through PR; add a guard that refreshes/merges only through the engine, never a manual branch -f
+
+## D-20261104-CEO - A runner-capacity failure is re-run, never a reason to weaken the matrix
+
+- date: 2026-11-04
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: ceo:T-0001
+- context: -
+- options considered: -
+- decision: Keep the 3x3 OS/Python matrix unchanged; re-run the macos-latest / py3.9 cell of run 41854143232 and certify the run on b0471ae. A recurring capacity failure is escalated as a matrix-policy decision, not fixed by continue-on-error or a skipped cell.
+- why: The red cell never executed a test: no runner was assigned (steps: [], runner_name empty), so it proves nothing about the code. Suppressing or exempting the cell would remove the only macOS/py3.9 evidence AC-9 depends on.
+- evidence: gh run view 41854143232 --json jobs -> test (macos-latest / py3.9) job 126728283476 cancelled, annotation 'The job was not acquired by Runner of type hosted even after multiple attempts' @b0471ae; gh run rerun 41854143232 --failed -> job 126814976876 started 2026-11-04T19:42:17Z on runner 'GitHub Actions 1000003020'
+- falsified by: If the same cell fails to acquire a runner twice more on separate pushes, the constraint is systemic and the matrix policy returns to the CEO+Architect with the run ids.
+- consequences: -
