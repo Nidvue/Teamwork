@@ -76,6 +76,7 @@ ROOT_ALLOWLIST = {
     "site",
     "src",
     "templates",
+    "NOTICE",
     "tests",
     "reports",
     "coverage",

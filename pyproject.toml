@@ -9,7 +9,7 @@ description = "Turn one prompt into an autonomous multi-agent company - package,
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 readme = "README.md"
-authors = [{ name = "Teamwork contributors" }]
+authors = [{ name = "Nidvue contributors" }]
 keywords = [
   "teamwork",
   "multi-agent",

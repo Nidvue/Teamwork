@@ -4,7 +4,7 @@ Owner: Technical Writer.
 
 Related: [Architecture](docs/Team/Architecture.md) · [CI pipeline](docs/guide/ci.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
 
-Thanks for helping. Teamwork is a standard-library-only Python package that also
+Thanks for helping. Nidvue Teamwork is a standard-library-only Python package that also
 ships as a Pi skill. Two rules matter more than any other: **every claim carries
 evidence**, and **no secrets or personal data ever enter the repository**.
 

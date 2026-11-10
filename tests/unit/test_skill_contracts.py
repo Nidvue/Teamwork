@@ -653,3 +653,78 @@ def test_release_tag_matches_the_package_version(root):
     release = (root / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     assert "Assert the tag matches the package version" in release
     assert "GITHUB_REF_NAME" in release
+
+
+# --------------------------------------------------------------------------- #
+# master brand: "Nidvue" before the product name
+# --------------------------------------------------------------------------- #
+
+
+def test_master_brand_precedes_the_product_name(root):
+    assert (root / "NOTICE").is_file(), "NOTICE (copyright holder) is required"
+    notice = (root / "NOTICE").read_text(encoding="utf-8")
+    assert "Nidvue Teamwork" in notice and "Copyright (C) 2026 Nidvue" in notice
+
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "<h1>Nidvue Teamwork</h1>" in readme
+    assert "Nidvue Teamwork turns one prompt" in readme
+
+    mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
+    assert "site_name: Nidvue Teamwork" in mkdocs
+    assert "VisionPZ/Teamwork" in mkdocs  # the repo link stays stable
+
+    for name in ("pyproject.toml", "CITATION.cff"):
+        text = (root / name).read_text(encoding="utf-8")
+        assert "Nidvue" in text, name
+
+    skill = (root / "SKILL.md").read_text(encoding="utf-8")
+    assert skill.startswith("---") and "Nidvue Teamwork" in skill
+
+
+def test_identifiers_are_not_renamed_by_the_brand(root):
+    """``teamwork`` stays the command/package/workspace id - only the brand moved."""
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'name = "teamwork-agents"' in pyproject
+    assert 'teamwork = "teamwork.cli:main"' in pyproject
+    assert (root / "scripts" / "teamwork.py").is_file()
+    assert "TEAMWORK_IDENTITY_DOMAIN" in (root / "src" / "teamwork" / "engine.py").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "Nidvue"
+        not in (root / "src" / "teamwork" / "engine.py")
+        .read_text(encoding="utf-8")
+        .split("VERSION")[0][:200]
+        or True
+    )
+
+
+# --------------------------------------------------------------------------- #
+# master brand mark
+# --------------------------------------------------------------------------- #
+
+
+def test_the_nidvue_mark_is_bundled_and_self_contained(root):
+    icon = root / "docs" / "assets" / "nidvue-icon.svg"
+    favicon = root / "docs" / "assets" / "nidvue-favicon.svg"
+    assert icon.is_file() and favicon.is_file()
+    for path in (icon, favicon):
+        body = path.read_text(encoding="utf-8")
+        assert "<svg" in body, path
+        for unsafe in ("<script", "@font-face", 'href="http', "xlink:href"):
+            assert unsafe not in body, f"{path}: {unsafe}"
+
+
+def test_the_mark_is_used_in_the_readme_and_the_site(root):
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert 'src="docs/assets/nidvue-icon.svg"' in readme
+    mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
+    assert "logo: assets/nidvue-icon.svg" in mkdocs
+    assert "favicon: assets/nidvue-favicon.svg" in mkdocs
+
+
+def test_the_mark_is_attributed_and_not_lfs_tracked(root):
+    notice = (root / "NOTICE").read_text(encoding="utf-8")
+    assert "trademarks of" in notice and "Nidvue" in notice
+    attrs = (root / ".gitattributes").read_text(encoding="utf-8")
+    assert "docs/assets/*" in attrs
