@@ -101,6 +101,11 @@ META_RE = re.compile(r"^-\s+([a-z_]+):\s*(.*)$")
 #: (``t["review_fails"] >= 3``) raises ``TypeError`` on a reloaded queue only.
 NUMERIC_FIELDS = frozenset({"review_fails"})
 
+#: How strongly a task is authorised. ``explicit`` means a person or a role asked
+#: for it; ``inferred`` means the team derived it and owes a basis saying why the
+#: work may be done. An older queue carries neither field and reads as explicit.
+MANDATES = ("explicit", "inferred")
+
 TASK_HEADER = (
     "# Task queue - {owner} (shared by every {owner} instance)\n\n"
     "> Priority ordered (P0 highest). `task next <instance>` atomically claims the\n"
@@ -522,10 +527,14 @@ def new_task(
     evidence: str = "",
     review: str = "required",
     review_profile: str = "",
+    mandate: str = "explicit",
+    mandate_basis: str = "",
+    intake_key: str = "",
 ) -> dict:
     priority = (priority or "P2").upper()
     if priority not in PRIORITY_ORDER:
         priority = "P2"
+    mandate = (mandate or "").strip().lower()
     return {
         "id": "",
         "title": one_line(title),
@@ -534,6 +543,9 @@ def new_task(
         "deps": one_line(deps),
         "shared": one_line(shared),
         "tags": one_line(tags),
+        "mandate": mandate if mandate in MANDATES else "explicit",
+        "mandate_basis": one_line(mandate_basis),
+        "intake_key": one_line(intake_key),
         "area": "",
         "kind": "",
         "repro": "",
@@ -604,6 +616,9 @@ def parse_tasks(path: Path) -> list:
                     "deps",
                     "shared",
                     "tags",
+                    "mandate",
+                    "mandate_basis",
+                    "intake_key",
                     "created",
                     "updated",
                     "evidence",
@@ -661,6 +676,9 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("deps", t["deps"]),
             ("shared", t["shared"]),
             ("tags", t["tags"]),
+            ("mandate", t.get("mandate", "explicit")),
+            ("mandate_basis", t.get("mandate_basis", "")),
+            ("intake_key", t.get("intake_key", "")),
             ("area", t.get("area", "")),
             ("kind", t.get("kind", "")),
             ("repro", t.get("repro", "")),

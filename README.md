@@ -6,12 +6,12 @@
   <p>An autonomous, self-organising multi-agent company for coding agents:<br>
   evidence-gated, role-shared, and auditable by design.</p>
   <p>
-    <a href="https://github.com/Nidvue/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Nidvue/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github"></a>
-    <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg"></a>
-    <a href="docs/Team/Architecture.md"><img alt="Python 3.9 to 3.13" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue"></a>
-    <a href="docs/guide/install.md"><img alt="Skill: one clone to install" src="https://img.shields.io/badge/skill-install%20in%20one%20clone-8957e5"></a>
-    <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
-    <a href="https://github.com/Nidvue/Teamwork/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Nidvue/Teamwork?style=social"></a>
+    <a href="https://github.com/Nidvue/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Nidvue/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github" height="20"></a>
+    <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg" width="160" height="20"></a>
+    <a href="docs/Team/Architecture.md"><img alt="Python 3.9 to 3.13" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue" width="228" height="20"></a>
+    <a href="docs/guide/install.md"><img alt="Skill: one clone to install" src="https://img.shields.io/badge/skill-install%20in%20one%20clone-8957e5" width="144" height="20"></a>
+    <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" width="90" height="20"></a>
+    <a href="https://github.com/Nidvue/Teamwork/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Nidvue/Teamwork?style=social" height="20"></a>
   </p>
 </div>
 
