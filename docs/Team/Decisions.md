@@ -2087,3 +2087,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git reflog --date=iso -> 8f5698c 2026-11-02 01:01:06 commit, bb9866f 2026-11-02 01:12:05 commit, both author/committer CEO <ceo@agents.nidvue.com>; teamwork.py ledger show --tail 60 -> no commit/pr/review record for either sha; gh run list -> 41364904234 (CI on 8f5698c) success, 41365863390 (CI on bb9866f) in progress; git rev-parse origin/main -> bb9866f
 - falsified by: A review of the landed revision finds a defect that changes behaviour, or CI on bb9866f is red: then the fix is repaired forward on a branch with the normal gate, never by rewriting the published commits.
 - consequences: T-0022 and T-0028 are dropped as duplicates; a retrospective review task carries the independent verdict; the release tags bb9866f only after CI on that SHA is green.
+
+## D-20261103-Architect - M17: lessons and the tw- skill prefix are the institution for team mistakes
+
+- date: 2026-11-03
+- kind: technical
+- status: accepted
+- deciders: Architect (architect)
+- decided by: Architect
+- task: T-0004
+- context: M17 intake; the user requires mistake memory, mistake-fixing skills, reusable self-created skills and a fixed recognisable prefix
+- options considered: A: tw- prefix + lesson records (chosen) - short, enforceable, typed in every reference; B: teamwork- prefix - unambiguous but 5 extra characters in every name and trigger; C: no prefix, rely on the .agents/skills directory - unenforceable and invisible outside the path; D: a committed docs/Team/Lessons.md - auditable but adds a shared-document owner and a rewrite conflict; the durable artifact is the committed skill, so lessons stay role-local like memory
+- decision: Adopt one fixed prefix tw- for every team-created skill, two skill kinds (workflow and mistake), and a role-shared Lessons.md record that a mistake skill must cite. skill create enforces the prefix; harness lint makes it a tree rule; legacy skills are renamed.
+- why: The brief requires every agent to remember its mistakes and to stop repeating them, and every self-created skill to be recognisable by a fixed prefix. A prefix that is enforced at creation and linted on the tree cannot drift; a lesson record with evidence gives the mistake a durable identity; --from-lesson makes the skill a closed loop rather than a note.
+- evidence: git ls-files .agents/skills @5bcf231 -> 2 files, both unprefixed (ceo-audit-close/SKILL.md, product-manager-records/SKILL.md); python scripts/teamwork.py skill create --help @5bcf231 -> no --kind and no --from-lesson; Get-ChildItem .pi/Teamwork/Teams/Teamwork/Roles -Recurse -Filter Lessons.md @5bcf231 -> 0 files; python scripts/teamwork.py harness lint @5bcf231 -> # problems found: 0 (PREFIX does not exist yet)
+- falsified by: A host skill collides with tw-* in .agents/skills, or a fresh clone repeats a recorded mistake although the tw- skill exists - then the prefix or the lesson placement is wrong
+- consequences: Developer T-0031 implements; Technical Writer T-0011 documents; Tester T-0004 proves the loop; existing two skills rename in T-0031
