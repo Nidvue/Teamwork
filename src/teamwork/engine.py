@@ -6132,21 +6132,25 @@ def loadable_role(root: Path, role: str) -> bool:
     return role in ROLE_DISPLAY and role_dir(root, role).is_dir()
 
 
-def _pack_block(root: Path, role: str, task: str) -> str:
-    """`load --task` prints this instead of the static top-10 knowledge block.
+def memory_pack_block(root: Path, role: str, task: str, budget: int = 0) -> str:
+    """The task-aware pack as text, for `load --task` and for a lane packet.
 
-    Same collector and scorer as `memory pack`, so the number a lane sees on
-    startup is the number `memory pack` prints for the same task.
+    Same collector and scorer as `memory pack`, so the bytes a lane receives are
+    the bytes `memory pack` prints for the same task. A caller that injects it
+    into a prompt passes its own budget; the CLI keeps the default.
     """
+    limit = budget or memorypack.PACK_BUDGET_BYTES
+    query = memorypack.task_query(root, role, task)
+    items = memorypack.pack(_collected(root, role), query, limit, datetime.datetime.now())
+    return memorypack.render_pack(items, memorypack.rendered_bytes(items), limit).rstrip("\n")
+
+
+def _pack_block(root: Path, role: str, task: str) -> str:
+    """`load --task` prints this instead of the static top-10 knowledge block."""
     budget = memorypack.PACK_BUDGET_BYTES
     query = memorypack.task_query(root, role, task)
-    items = memorypack.pack(_collected(root, role), query, budget, datetime.datetime.now())
     header = f"# memory pack for {task} -> '{query}' (budget {budget} bytes; not the static top-10)"
-    return (
-        header
-        + "\n"
-        + memorypack.render_pack(items, memorypack.rendered_bytes(items), budget).rstrip("\n")
-    )
+    return header + "\n" + memory_pack_block(root, role, task, budget)
 
 
 def cmd_load(args) -> int:
