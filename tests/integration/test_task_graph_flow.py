@@ -72,7 +72,6 @@ def test_open_cross_role_dependency_blocks_the_downstream_lane(cli, project: Pat
     )
     capsys.readouterr()
 
-    # The dependency is open, so nothing is executable and nothing is claimed.
     assert cli("--project", project, "task", "next", "tester-1") == 3
     out = capsys.readouterr().out
     assert "no unclaimed executable task" in out, out
@@ -184,8 +183,6 @@ def test_role_qualified_dependency_does_not_match_another_roles_task_id(cli, pro
         )
         == 0
     )
-    # The reviewer's own T-0001 exists but is never closed in this test, so only
-    # the developer dependency may release the tester.
     assert (
         cli(
             "--project",
@@ -237,7 +234,6 @@ def test_role_qualified_dependency_does_not_match_another_roles_task_id(cli, pro
     assert cli("--project", project, "task", "next", "tester-1") == 0
     tester = queue(root, "Tester")
     assert task(tester, "T-0001")["status"] == "doing"
-    # Same number, different role: the reviewer-qualified task must stay blocked.
     assert task(tester, "T-0002")["status"] == "todo"
     assert cli("--project", project, "task", "next", "tester-1") == 3
 
@@ -272,7 +268,6 @@ def test_unknown_role_dependency_is_refused_before_the_task_is_written(
     assert "nosuchrole:T-0099" in err, err
     assert "names no task" in err, err
     assert not (root / "Roles" / "Nosuchrole").exists()
-    # Nothing was written: the queue is empty, so the deadlock never existed.
     assert queue(root, "Tester") == []
 
 
@@ -302,7 +297,6 @@ def test_a_self_dependency_is_refused_before_the_queue_deadlocks(
 
     tasks = queue(root, "Developer")
     assert [t["id"] for t in tasks] == ["T-0001"]
-    # The queue still runs: the one task is executable and claimable.
     assert task(tasks, "T-0001")["status"] == "todo"
     assert cli("--project", project, "task", "next", "developer-1") == 0
 
@@ -350,8 +344,6 @@ def test_a_cross_role_cycle_is_refused_before_the_queue_deadlocks(
     err = capsys.readouterr().err
     assert "dependency cycle: developer:T-0001 -> tester:T-0001 -> developer:T-0001" in err, err
 
-    # Both queues are exactly as they were; the downstream task is still blocked
-    # for the honest reason (its dependency is open), not by a cycle.
     assert task(queue(root, "Developer"), "T-0001")["deps"] == ""
     assert task(queue(root, "Tester"), "T-0001")["deps"] == "developer:T-0001"
     assert cli("--project", project, "task", "check") == 0

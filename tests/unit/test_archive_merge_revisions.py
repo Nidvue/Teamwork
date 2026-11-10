@@ -38,7 +38,6 @@ ARCHIVE = REPO_ROOT / "docs" / "Team" / "Archive.md"
 
 MERGE_FIELD = re.compile(r"^- branch / merge: (\S+) / (\S+)$", re.MULTILINE)
 
-#: Placeholders that mean "no revision exists yet", not a revision to resolve.
 PENDING = {"pending", "-"}
 
 
@@ -61,8 +60,6 @@ def shallow(root: Path = REPO_ROOT) -> bool:
     return git("rev-parse", "--is-shallow-repository", root=root).stdout.strip() == "true"
 
 
-#: The default branch as a checkout can expose it, in the order it is preferred:
-#: a local branch on a push build, the remote-tracking one on a pull_request build.
 DEFAULT_BRANCH_REFS = ("refs/heads/main", "refs/remotes/origin/main")
 
 
@@ -125,12 +122,8 @@ def test_the_default_branch_is_resolved_in_a_pull_request_checkout(tmp_path: Pat
     """
     repo = tmp_path / "repo"
     repo.mkdir()
-    # ``-b trunk`` on purpose: a checkout that has a local ``main`` would not
-    # exercise the shape this test exists for.
     for argv in (
         ("init", "-q", "-b", "trunk", "."),
-        # A CI runner has no configured identity: a bare ``commit`` fails there
-        # with "Please tell me who you are", so the role mailbox is passed in.
         (
             "-c",
             "user.name=Tester",
@@ -146,7 +139,6 @@ def test_the_default_branch_is_resolved_in_a_pull_request_checkout(tmp_path: Pat
         done = git(*argv, root=repo)
         assert done.returncode == 0, done.stderr
     head = git("rev-parse", "HEAD", root=repo).stdout.strip()
-    # The pull_request shape: the commit is on the remote-tracking branch only.
     assert git("update-ref", "refs/remotes/origin/main", head, root=repo).returncode == 0
     assert git("rev-parse", "--verify", "--quiet", "refs/heads/main", root=repo).returncode != 0
     assert default_branch_ref(repo) == "refs/remotes/origin/main"
@@ -173,14 +165,12 @@ def test_a_bad_revision_would_be_caught() -> None:
     """Prove the checks discriminate, without editing the archive."""
     if shallow():
         pytest.skip("shallow clone: the discriminating probes need real objects")
-    # a revision this repository does not have (all-zeros is never a commit)
     assert not resolves("0" * 40)
     assert not reachable("0" * 40)
-    # a real object that is not on main: the empty tree, or failing that any blob
     empty_tree = git("hash-object", "-t", "tree", "--stdin").stdout.strip()
     if empty_tree and git("merge-base", "--is-ancestor", empty_tree, "main").returncode != 0:
         assert not reachable(empty_tree), "an object off main must not count as merged"
 
 
-if __name__ == "__main__":  # pragma: no cover - manual run aid
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(0 if all(reachable(rev) for _branch, rev in filled_fields()) else 1)

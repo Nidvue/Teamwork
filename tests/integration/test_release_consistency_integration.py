@@ -34,30 +34,14 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-#: ``TEAMWORK_RELEASE_CHECKER`` is the same explicit override the unit layer
-#: honours: it points a run at one file, which is how a mutant - a copy of the
-#: checker with one rule removed - is measured.
 CHECKER = Path(
     os.environ.get("TEAMWORK_RELEASE_CHECKER")
     or (REPO_ROOT / "scripts" / "check_release_consistency.py")
 )
 
-#: The contract's line format: a rule id, one of three statuses, a detail.
-#: Architecture.md 11.1.2 (frozen, amended by P-0037 for R10) fixes the id as "`R`
-#: plus the rule number, so it is two characters for R1..R9 and three for R10",
-#: and says the format is not narrowed to keep a single-digit parser green. Hence
-#: `[1-9][0-9]*` and not `[1-9]`: every rule number from 1 up, at any width, but
-#: still no `R0` and no leading zero, which are not rule numbers.
 LINE = re.compile(r"^R(?P<rule>[1-9][0-9]*) (?P<status>ok|DRIFT|SKIP) (?P<detail>.+)$")
 SUMMARY = re.compile(r"^# release consistency: (?P<count>\d+) problem\(s\)$")
 
-#: The contract's rule set, in contract order (Architecture 11.2, amended to ten
-#: rules by P-0037). Written out literally, never derived from the checker: a rule
-#: missing from the report must fail here, which a derived list would hide. Adding
-#: a rule is an Architecture amendment, and this tuple changes with it - the next
-#: rule extends one literal instead of moving a `range()` bound. The name is part
-#: of the identity: an id reused by an unrelated rule is a contract change, not a
-#: pass.
 CONTRACT_RULES = (
     ("R1", "tagged version"),
     ("R2", "HEAD is newer"),
@@ -89,8 +73,6 @@ PYPROJECT = (
     '[project]\nname = "teamwork-agents"\n\n[project.scripts]\nteamwork = "teamwork.cli:main"\n'
 )
 
-#: Identity and signing are pinned per call so the fixture never depends on the
-#: operator's git configuration.
 GIT_OPTIONS = (
     "-c",
     "user.email=developer@agents.nidvue.com",
@@ -115,11 +97,6 @@ def git(root: Path, *args: str) -> str:
 
 
 def write(root: Path, files: Mapping[str, str]) -> None:
-    # LF on every platform, for the same reason the unit fixture pins it: the
-    # tagged payload's digest is computed over committed bytes and the recipe
-    # pins core.autocrlf=false, so a CRLF fixture would make R3 disagree with
-    # itself on windows-latest only. Opened directly because
-    # ``Path.write_text(newline=...)`` is Python 3.10+ and CI runs this on 3.9.
     for rel, text in files.items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -206,11 +183,6 @@ def checker():
     return module
 
 
-# --------------------------------------------------------------------------- #
-# Exit code 0 - a clean tree
-# --------------------------------------------------------------------------- #
-
-
 def test_a_clean_tree_exits_zero_with_every_contract_rule_line(tmp_path):
     root = make_repo(tmp_path / "repo", version="1.1.0")
     git(root, "tag", "v1.1.0")
@@ -260,11 +232,6 @@ def test_every_rule_line_carries_a_status_and_a_detail(tmp_path):
     assert all(detail for _, _, detail in rules)
 
 
-# --------------------------------------------------------------------------- #
-# Exit code 1 - drift
-# --------------------------------------------------------------------------- #
-
-
 def test_a_tagged_version_above_head_exits_one_with_drift(tmp_path):
     """A reachable tag ahead of HEAD is the R2 drift the gate must report."""
     root = make_repo(tmp_path / "repo", version="1.1.0")
@@ -294,11 +261,6 @@ def test_a_stale_version_in_the_readme_exits_one(tmp_path):
     assert code == 1
     assert problems >= 1
     assert ("R6", "DRIFT") in [(rule, status) for rule, status, _ in rules]
-
-
-# --------------------------------------------------------------------------- #
-# Exit code 2 - an unreadable input
-# --------------------------------------------------------------------------- #
 
 
 def test_a_root_that_is_not_a_work_tree_exits_two(tmp_path):
@@ -335,10 +297,6 @@ def test_offline_and_online_together_exit_two(tmp_path):
     assert code == 2
     assert "mutually exclusive" in stderr
 
-
-# --------------------------------------------------------------------------- #
-# The published half, with an injected fetcher instead of the network
-# --------------------------------------------------------------------------- #
 
 PAYLOAD = {
     "SKILL.md": "# Skill\n",
@@ -461,12 +419,6 @@ def test_the_json_report_carries_the_three_contract_keys(checker, tmp_path):
     assert all(rule["detail"] for rule in payload["rules"])
 
 
-# --------------------------------------------------------------------------- #
-# AC-REL-2: every rule has a test that fails before the rule exists
-# --------------------------------------------------------------------------- #
-
-#: A mutant replaces one rule with a constant ``ok`` - that rule is absent.
-#: The stub is appended to a copy of the checker, so the later definition wins.
 MUTANTS = {
     "R1": "def rule_r1_tagged_version(repo_root):\n    return RuleResult('R1', 'ok', 'mutant: the rule does not exist')\n",
     "R2": "def rule_r2_head_is_newer(repo_root):\n    return RuleResult('R2', 'ok', 'mutant: the rule does not exist')\n",
@@ -480,8 +432,6 @@ MUTANTS = {
     "R10": "def rule_r10_licence_grant(repo_root):\n    return RuleResult('R10', 'ok', 'mutant: the rule does not exist')\n",
 }
 
-#: The layer that owns the per-rule tests. The mutant is measured against the
-#: unit layer only, so the inner pytest run never re-enters this file.
 RULE_TESTS = (
     "tests/unit/test_release_consistency.py",
     "tests/unit/test_release_consistency_digest.py",
@@ -514,8 +464,6 @@ def test_every_rule_has_a_test_that_fails_before_the_rule_exists(tmp_path):
             env=env,
         )
 
-    # The baseline must be green: otherwise a mutant would be "killed" by a
-    # failure that has nothing to do with the rule that was removed.
     baseline = run_rule_tests()
     assert baseline.returncode == 0, f"the rule tests are not green: {baseline.stdout[-2000:]}"
 

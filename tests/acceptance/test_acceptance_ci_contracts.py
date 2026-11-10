@@ -39,8 +39,6 @@ def _release_consistency_job(text: str) -> str:
         re.MULTILINE | re.DOTALL,
     )
     assert match, "ci.yml carries no `release-consistency` job:\n" + text[:2000]
-    # Only the executable substance: a comment that *says* the job is blocking is
-    # not the job being blocking, so YAML comments are dropped before asserting.
     return "\n".join(
         line for line in match.group(0).splitlines() if not line.lstrip().startswith("#")
     )
@@ -55,7 +53,6 @@ def test_ci_runs_the_same_gate_the_user_runs():
     assert "continue-on-error" not in job, "a non-blocking consistency gate is not a gate:\n" + job
     assert "|| true" not in job, "a swallowed gate exit is not a gate:\n" + job
 
-    # The script the job names is the one this test then runs in this tree.
     assert (REPO_ROOT / "scripts" / "check_release_consistency.py").is_file()
 
 
@@ -77,7 +74,6 @@ def test_drifted_tree_is_refused_with_exit_1(tmp_path):
     write_release_facts(repo)
     commit_all(repo)
     git(repo, "tag", "v1.0.0")
-    # The drift: a new tag that claims a version the tree does not carry.
     git(repo, "tag", "v1.0.1")
 
     proc = run_checker(repo, "--offline")
@@ -96,7 +92,6 @@ def test_unreadable_tree_is_an_error_with_exit_2(tmp_path):
     write_release_facts(repo)
     commit_all(repo)
     git(repo, "tag", "v1.0.0")
-    # The unreadable input: the version file the gate reads is gone at HEAD.
     git(repo, "rm", "-q", "src/teamwork/version.py")
     git(repo, "commit", "-qm", "drop the version file")
 

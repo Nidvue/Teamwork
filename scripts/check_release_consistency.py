@@ -163,34 +163,19 @@ __all__ = [
     "rule_r10_licence_grant",
 ]
 
-#: The single source of the version string, and the only local version fact.
 VERSION_PATH = "src/teamwork/version.py"
 
-#: Bundled payload (11.3) - the shipped set, asserted by build_pi_package.py
-#: against ``teamwork.bundle.BUNDLE_FILES``/``BUNDLE_TREES``.
 PAYLOAD_FILES = ("SKILL.md", "AGENTS.md")
 PAYLOAD_TREES = ("references", "roles", "templates", "scripts", "src")
-#: 11.2.3: the build-time generator is not shipped payload, so it is excluded
-#: from every digest on every run - a repository-side edit to it is not drift.
 PAYLOAD_EXCLUDES = frozenset({"scripts/build_pi_package.py"})
 
-#: Tarball path prefix -> payload path prefix (11.2.3 + build_pi_package.copy_skill).
 TARBALL_LAYOUT = (
     ("skills/teamwork", ""),
     ("skills/teamwork-pi", "templates/pi-package/skills/teamwork-pi"),
     ("prompts", "templates/pi-package/prompts"),
 )
 
-#: The environment variables that may carry a GitHub API token, in precedence
-#: order: ``GITHUB_TOKEN`` is the GitHub Actions name, ``GH_TOKEN`` the ``gh``
-#: CLI's convention. The names are literals in a tuple; the values read from
-#: them are called *bearers* below, so that no line of this file reads like a
-#: credential assignment.
 GITHUB_BEARER_ENV = ("GITHUB_TOKEN", "GH_TOKEN")
-#: The only hosts a GitHub token may be sent to. A token is a credential for
-#: GitHub and for nothing else: the npm registry and the PyPI JSON API must
-#: never receive it, or a token that is read from the environment leaks to a
-#: third party.
 GITHUB_BEARER_HOSTS = ("api.github.com", "github.com")
 
 NPM_REGISTRY = "https://registry.npmjs.org/@nidvue%2Fteamwork"
@@ -199,48 +184,25 @@ PYPI_JSON = "https://pypi.org/pypi/teamwork-agents/json"
 USER_AGENT = "teamwork-release-consistency/1.0 (+https://github.com/Nidvue/Teamwork)"
 HTTP_TIMEOUT = 20
 
-#: The exact literals of 11.2.4. Nothing else is a marker.
 ILLUSTRATIVE = "<!-- release-consistency: illustrative -->"
 CHANNEL_UNAVAILABLE = "<!-- release-consistency: channel-unavailable -->"
 
 EXCEPTION_KEYS = ("version", "reason", "evidence", "recorded")
 
-#: 11.2.2.1's exact detail for the scoped-out checkout. The status is ``SKIP``,
-#: never ``ok``: nothing was proved, and the detail says why (11.1.2).
 R2_NOT_THE_DEFAULT_BRANCH = "not the default branch: the published line is evaluated on main only"
 
-#: 11.2.4: historical evidence is never rewritten to satisfy a gate.
 SCAN_EXCLUDED = "docs/Team/Archive.md"
 
-#: 11.2.4 R6 scope - the narrower prose set. R8 and R9 scan every committed .md.
 R6_GLOBS = ("README.md", "docs/index.md", "docs/Team/Release.md", "docs/guide/*.md")
 
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
-#: A version npm can publish: ``X.Y.Z`` plus an optional prerelease/build tail.
-#: Wider than ``SEMVER`` on purpose - a published version that cannot be a tag
-#: (``0.0.0-stage``) still has to be *nameable* in 11.4's record, or the only
-#: escape left is the silent skip this rule exists to remove. It is still a
-#: narrow format: prose, a branch name or a typo is not a version.
 PUBLISHED_VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 VERSION_TAG = re.compile(r"^v(\d+\.\d+\.\d+)$")
 VERSION_ASSIGN = re.compile(r"""__version__\s*=\s*["']([^"']+)["']""")
 DIST_NAME_ASSIGN = re.compile(r"""DIST_NAME\s*=\s*["']([^"']+)["']""")
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-#: 11.2.4 version token: a ``/`` or ``.`` abuts a URL/link destination, so it
-#: does not match; that is what keeps ``.../compare/v1.1.2...HEAD`` out.
 VERSION_TOKEN = re.compile(r"(?<![\w./-])v?(\d+\.\d+\.\d+)(?![\w./-])")
-#: The one URL shape that *is* a version claim (11.2.4): the tag in a
-#: ``releases/download/<tag>/<asset>`` link says which release the wheel came
-#: from, so a superseded tag makes the install command install a superseded
-#: wheel. VERSION_TOKEN cannot see it - a ``/`` abuts the token on both sides -
-#: and the exclusion above was written to keep a ``compare/`` *range* out, not
-#: a release tag, so the shape is read on its own. The lookbehind is the literal
-#: path, so ``.../compare/v1.1.0...HEAD`` still matches nothing, and group 1 is
-#: the bare tag.
 RELEASE_ASSET_TAG = re.compile(r"(?<=releases/download/)v?(\d+\.\d+\.\d+)(?=/)")
-#: 11.2.4 R9: the frozen tag-claim pattern, copied from the contract byte for
-#: byte. It has exactly **one** capture group, so the claimed tag is always
-#: ``f"v{match.group(1)}"`` and no branch of the alternation can say ``vNone``.
 TAGGED_TOKEN = re.compile(
     r"(?:(?<![\w./-])v"
     r"|(?<![\w./-])(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+"
@@ -248,72 +210,28 @@ TAGGED_TOKEN = re.compile(
     r"(\d+\.\d+\.\d+)(?![-/\w])(?!\.\w)"
 )
 PROJECT_CONTEXT = re.compile(r"(?i)teamwork")
-#: 11.2.4 R6 pin token: a version inside ``--branch``/``--tag``/``--ref`` or
-#: after ``git checkout``/``git switch`` is a version *claim* even when the line
-#: never says "teamwork". ``docs/guide/install.md`` pins a tag in a console block
-#: that names no project, so the project-context gate hid it, and R9 (which reads
-#: the same shapes through ``TAGGED_TOKEN``) only asks whether the tag exists,
-#: never whether it is stale. Kept separate from ``TAGGED_TOKEN`` on purpose: R6
-#: must not start judging every bare ``vX.Y.Z`` against the tags - a bare version
-#: is prose and is judged against HEAD, and ``TAGGED_TOKEN`` would also match the
-#: ``releases/tag/`` and ``compare/`` shapes R6 reads another way.
 PIN_VERSION = re.compile(
     r"(?<![\w./-])(?:--(?:branch|tag|ref)[\s=]+|git\s+(?:checkout|switch)\s+)"
     r"v?(\d+\.\d+\.\d+)(?![-/\w])(?!\.\w)"
 )
-#: 11.2.4: a foreign tool's version is not a teamwork version. Matched per
-#: token, not per line: ``Install Teamwork 1.0.2 to match python: 3.12.13``
-#: skips ``3.12.13`` and still flags our own stale ``1.0.2``.
 FOREIGN_VERSION = re.compile(r"(?i)\b(?:python3?|cpython|node|npm|pi)\s*[:=]\s*v?(\d+\.\d+\.\d+)")
 CHANGELOG_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\]")
 FENCE_OPEN = re.compile(r"^(`{3,}|~{3,})")
 PIP_PLAIN = re.compile(r"\bpip3?\s+install\s+(\S+)")
-#: The words that follow ``pip install`` in ordinary prose and name no package.
-#: ``pip install into the system interpreter`` is a sentence about where a
-#: command writes, not a claim on a distribution called ``into``; without this
-#: set a bare ``\S+`` turns every such sentence into a drift (T-0004: R8 read
-#: ``docs/Team/Decisions.md`` line 1744 that way and reported ``channel names
-#: into``). Kept deliberately short - the words that actually introduce an
-#: object after ``install`` - so ``pip install teamwork`` and ``pip install
-#: some-other-dist`` stay claims and the gate keeps biting.
 PROSE_STOPWORDS = frozenset(
     {"into", "the", "a", "an", "on", "from", "with", "and", "or", "to", "for"}
 )
 PIP_MODULE = re.compile(r"\b(?:python3?|py)\s+-m\s+pip3?\s+install\s+(\S+)")
 PIPX = re.compile(r"\bpipx\s+install\s+(\S+)")
-#: The two run-without-installing shapes: ``uvx --from <dist> <script>`` and
-#: ``pipx run --spec <dist> <script>``. The script argument is read by
-#: ``_trailing_script`` because prose continues after the distribution name and
-#: a bare ``\S+`` would invent an executable out of the next English word.
 UVX_FROM = re.compile(r"\buvx\s+--from\s+(\S+)")
 PIPX_RUN = re.compile(r"\bpipx\s+run\s+--spec\s+(\S+)")
-#: One shell-ish argument after the distribution name. ``_trailing_script`` skips
-#: any ``--flag value`` pairs in between (``--python 3.12``), so the *first*
-#: positional token is the script - requiring the script to be the token right
-#: after the distribution dropped it, so ``uvx --from <dist> --python 3.12
-#: wrongscript --version`` came back nameless and unfindable. The token stops at
-#: a backtick, so an inline-code command (`` `uvx --from X wrongscript` ``) yields
-#: the script and not the closing delimiter.
 ARGUMENT = re.compile(r"[ \t]+([^\s`]+)")
-#: A script argument is a bare word, and the command must end after it: a flag, a
-#: closing quote/bracket or the end of the line (``teamwork --version``,
-#: ``teamwork` ``). Prose that continues after the distribution
-#: (``teamwork-agents` is the fastest way to try it``) therefore names none.
 SCRIPT_WORD = re.compile(r"[A-Za-z0-9_-](?:[A-Za-z0-9_.-]*[A-Za-z0-9_-])?")
 SCRIPT_TERMINATOR = re.compile(r"(?:[ \t]+-{1,2}\S|[ \t]*[`\"')\]]|[ \t]*$)")
 NEGATED_CHANNEL = re.compile(
     r"(?i)\b(no|not|never|without)\s+(?:a\s+|an\s+|any\s+)?"
     r"`?(?:pip3?|pipx|uvx|uv)`?\s+(?:install|run|--from)"
 )
-#: A hazard statement: the line ties a distribution to *another* project, so a
-#: distribution named on it is named in order to warn against it and is not an
-#: advertisement ("the ``teamwork`` PyPI name is taken, so ``pip install
-#: teamwork`` gets the wrong project"). Three shapes are recognised - a
-#: project-like noun after a disqualifying adjective ("the wrong project"), a
-#: name that is taken or unrelated, and a name that belongs to somebody else.
-#: A bare "wrong" is deliberately **not** enough: the noun after it must be a
-#: project-like word, so "the wrong way to install is ``pip install teamwork``"
-#: stays an advertisement.
 WARNING_CONTEXT = re.compile(
     r"(?i)\b(?:"
     r"(?:wrong|other|different|another|not\s+this|someone\s+else)\s+"
@@ -326,21 +244,11 @@ WARNING_CONTEXT = re.compile(
     r")"
 )
 
-#: The GNU family names, as a regex alternation, most specific first: the key is
-#: the SPDX prefix the grant is reported under. `\b` opens the alternative and no
-#: boundary closes it, because the compact SPDX spellings (`AGPLv3+`,
-#: `AGPL-3.0-or-later`) continue with a letter or a digit. `GPL` cannot match
-#: inside `AGPL`/`LGPL`: the character before it is a word character, so the
-#: opening `\b` fails. The spelled-out branch is kept because a grant sentence and
-#: a classifier both name the family in full and attach the version with a space.
 LICENCE_FAMILIES = (
     ("AGPL", r"agpl|gnu\s+affero\s+general\s+public\s+licen[cs]e"),
     ("LGPL", r"lgpl|gnu\s+(?:lesser|library)\s+general\s+public\s+licen[cs]e"),
     ("GPL", r"gpl|gnu\s+general\s+public\s+licen[cs]e"),
 )
-#: The two ways a GNU grant says "or any later version": the SPDX suffix and the
-#: licence's own boilerplate. Nothing else is read as or-later, so `-only` and a
-#: bare `GPL-3.0` (SPDX reads a bare id as the "only" grant) stay "only".
 LICENCE_OR_LATER = re.compile(
     r"(?i)(?:-or-later\b|-\s*or\s+later\b|\bor\s+later\b"
     r"|\b(?:any|a)\s+later\s+version\b|\bor\s*\(\s*at\s+your\s+option\s*\)"
@@ -352,9 +260,6 @@ PYPROJECT_LICENCE_TEXT = re.compile(r'^\s*license\s*=\s*\{\s*text\s*=\s*"([^"]+)
 PYPROJECT_LICENCE_CLASSIFIER = re.compile(r'^\s*"(License\s*::[^"]*)"\s*,?\s*$')
 NPM_LICENCE_FIELD = re.compile(r'^\s*"license"\s*:\s*"([^"]+)"')
 README_LICENCE_BULLET = re.compile(r"(?i)^\s*[-*+]\s+(?:\*\*|__)?licen[cs]e(?:\*\*|__)?\b")
-#: ``[label](target)`` inside the README bullet: the label carries the SPDX id and
-#: the prose around it carries the licence's own grant wording. They are read as
-#: two statements, because a surface that disagrees with itself is drift too.
 MARKDOWN_LINK = re.compile(r"\[(?P<label>[^\]]*)\]\((?P<target>[^)]*)\)")
 
 
@@ -383,7 +288,6 @@ class RuleResult:
     status: str
     detail: str
     findings: tuple[str, ...] = ()
-    #: An input could not be read in this rule - exit 2 wins over any drift.
     fatal: bool = False
 
 
@@ -425,18 +329,7 @@ def _one_line(text: str) -> str:
     return flat or "(no detail)"
 
 
-# Process and network seams
-
-
-#: The bearer for the current run, read **once** when an online run starts (so a
-#: caller may change the environment between two runs and be sure each run saw
-#: one value). ``None`` means "send no Authorization header at all", which is
-#: the anonymous behaviour a local run must keep byte for byte.
 _GITHUB_BEARER: str | None = None
-#: Whether the bearer has already been resolved for this process. The lazy
-#: fallback resolves it at the first request, so a caller that uses
-#: ``_http_get_json`` directly (a test) still gets the bearer; an offline run
-#: never reaches that point and therefore never reads the environment.
 _BEARER_RESOLVED = False
 
 
@@ -530,12 +423,6 @@ def _http_get_bytes(url: str) -> bytes:
     return _http_get(url)
 
 
-#: Every git invocation in this script pins ``core.autocrlf=false``. The
-#: payload digest is computed from ``git archive`` bytes, and an ambient
-#: ``core.autocrlf`` (the default on a Windows runner) would otherwise change
-#: those bytes and with them the digest - the same tree would publish a
-#: different digest per platform. One shared prefix keeps the text helper from
-#: reintroducing the dependence a later byte-sensitive use would expose.
 _GIT_PINNED = ("git", "-c", "core.autocrlf=false")
 
 
@@ -586,8 +473,6 @@ def _git(repo_root: Path, *args: str, missing_ok: bool = False) -> str | None:
 
 
 def _git_bytes(repo_root: Path, *args: str) -> bytes:
-    # The archive is the digest's only input, so an ambient core.autocrlf must
-    # not change the bytes or the digest becomes platform-dependent.
     try:
         proc = subprocess.run(
             _git_cmd(repo_root, *args),
@@ -601,9 +486,6 @@ def _git_bytes(repo_root: Path, *args: str) -> bytes:
         message = proc.stderr.decode("utf-8", "replace").strip()
         raise InputError(f"git {' '.join(args)} failed: {message or proc.returncode}")
     return proc.stdout
-
-
-# Bundled payload digest (11.3)
 
 
 def _payload_skip(rel: Path) -> bool:
@@ -677,8 +559,6 @@ def _link_target(member: tarfile.TarInfo, destination: Path) -> Path:
         raise InputError(f"archive member is a link with no target: {member.name}")
     if linkname.startswith(("/", "\\")) or Path(linkname).is_absolute():
         raise InputError(f"archive member links to an absolute path: {member.name}")
-    # A symlink's target is relative to the link's own directory; a tar hardlink
-    # names a path from the archive root.
     base = destination if member.islnk() else (destination / member.name).parent
     target = Path(os.path.normpath(str(base / linkname)))
     try:
@@ -686,9 +566,6 @@ def _link_target(member: tarfile.TarInfo, destination: Path) -> Path:
     except ValueError:
         raise InputError(f"archive member links outside the tree: {member.name}") from None
     if ".git" in target.parts:
-        # A link into the repository's own git directory is refused on every
-        # path: those bytes are not payload, and a remote URL carrying a token
-        # would otherwise reach the digest and the printed output.
         raise InputError(f"archive member links into the git directory: {member.name}")
     return target
 
@@ -822,8 +699,6 @@ def _tarball_payload_digest(blob: bytes) -> str:
         package = destination / "package"
         if not package.is_dir():
             raise InputError("npm tarball: no package/ subtree")
-        # A staging root that mirrors the repository layout, so the digest is
-        # computed on payload-relative paths exactly as 11.3 requires.
         staged = Path(tmp) / "payload"
         staged.mkdir()
         mapped = 0
@@ -841,9 +716,6 @@ def _tarball_payload_digest(blob: bytes) -> str:
         if not mapped:
             raise InputError("npm tarball: none of the shipped payload paths are present")
         return _digest_of_tree(staged)
-
-
-# Local facts
 
 
 def _version_tuple(version: str) -> tuple[int, int, int] | None:
@@ -980,8 +852,6 @@ def _complete_tag_set_error(repo_root: Path) -> str | None:
         return None
     carrying = _remote_carries_version_tags(repo_root, remotes)
     if carrying is False:
-        # The remote is local and carries no version tag: the empty tag set is
-        # the complete tag set, not a blind checkout.
         return None
     if carrying is None:
         return (
@@ -1103,9 +973,6 @@ def _marked_lines(text: str, marker: str = ILLUSTRATIVE) -> list[_MarkedLine]:
     return marked
 
 
-# The exception record (11.4)
-
-
 def load_exceptions(path: Path) -> list[dict[str, str]]:
     """Read and validate ``release-exceptions.json``; any problem is exit 2."""
     where = str(path)
@@ -1172,9 +1039,6 @@ def _stale_exceptions(exceptions: Iterable[dict[str, str]], tags: Sequence[str])
     return findings
 
 
-# R1 / R2 - the tag and the local version string
-
-
 def rule_r1_tagged_version(repo_root: Path) -> RuleResult:
     """Every ``vX.Y.Z`` tag must carry that version in ``version.py`` at its commit."""
     error = _complete_tag_set_error(repo_root)
@@ -1238,9 +1102,6 @@ def rule_r2_head_is_newer(repo_root: Path, head_is_default_branch: bool = True) 
     return _ok("R2", f"HEAD {head} is newer than {len(comparable)} tag(s)")
 
 
-# R3 / R4 / R5 / R8 - the published half
-
-
 def rule_r3_npm_payloads(
     repo_root: Path,
     exceptions: Sequence[dict[str, str]] = (),
@@ -1273,11 +1134,6 @@ def rule_r3_npm_payloads(
     for version in sorted(versions, key=lambda item: _version_tuple(str(item)) or (0, 0, 0)):
         if version in admitted:
             continue
-        # 11.2.3 takes *every* version key, and an npm version is satisfied by a
-        # tag or by a 11.4 entry - there is no third path. A key that is not
-        # X.Y.Z cannot have a ``vX.Y.Z`` tag, so without an entry it is drift:
-        # calling it "ignored" would let a published version escape AC-REL-1 by
-        # its shape alone (npm's ``0.0.0-stage`` placeholder did exactly that).
         if _version_tuple(str(version)) is None:
             findings.append(
                 f"{version}: not X.Y.Z, so no vX.Y.Z tag can carry it, and no "
@@ -1293,10 +1149,6 @@ def rule_r3_npm_payloads(
         try:
             digest = _tarball_payload_digest(get_bytes(tarball))
         except HttpError as exc:
-            # A 404 is the registry's own answer that the tarball it advertises
-            # does not exist - the release is missing, so it is drift. Anything
-            # else (5xx, timeout, URL error) is unreadable input: exit 2, so a
-            # network flake can never be mistaken for a release defect.
             if exc.status == 404:
                 findings.append(f"{version}: tarball {tarball} is missing: {exc}")
             else:
@@ -1569,9 +1421,6 @@ def rule_r8_install_channels(
     return _ok("R8", f"PyPI {reason}; {marked} channel line(s) marked channel-unavailable")
 
 
-# R6 / R7 / R9 - the committed prose
-
-
 def _project_tokens(text: str) -> list[tuple[re.Match[str], str]]:
     """``(token, kind)`` claims naming this project (11.2.4); kind is prose/asset.
 
@@ -1736,9 +1585,6 @@ def rule_r9_markdown_tags(repo_root: Path) -> RuleResult:
     if findings:
         return _drift("R9", findings, [f"{illustrative} illustrative"])
     return _ok("R9", f"every vX.Y.Z token names a tag; {illustrative} illustrative")
-
-
-# R10 - one licence grant across every surface that states one (T-0009, R-23)
 
 
 @dataclass(frozen=True)
@@ -1908,13 +1754,6 @@ def _readme_claims(rel: str, lines: Sequence[str]) -> list[LicenceClaim]:
     return claims
 
 
-#: Each surface's reader, keyed by the file that carries the statement, in
-#: tie-break order: when two grants are equally common the earliest surface here
-#: is the one a finding quotes, so one tree yields one report rather than one per
-#: surface. ``LICENSE`` is deliberately absent - it is the licence *text*, whose
-#: "either version 3 ... or any later version" is how the AGPL tells an author to
-#: apply itself, not a claim by this project; the grant this project makes lives
-#: in NOTICE.
 LICENCE_READERS = (
     ("CITATION.cff", _citation_claims),
     ("pyproject.toml", _pyproject_claims),
@@ -1966,9 +1805,6 @@ def rule_r10_licence_grant(repo_root: Path) -> RuleResult:
             "R10", f"one licence surface: {reference.file}:{reference.line} {reference.value}"
         )
     return _ok("R10", f"{surfaces} licence surface(s) agree on {reference.value}")
-
-
-# Entry point
 
 
 def _all_skip(reason: str) -> list[RuleResult]:
@@ -2078,7 +1914,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         exceptions_error = str(exc)
 
     if args.online:
-        # The bearer is read once, here, and not per request.
         _set_github_bearer(_github_bearer_from_env())
     fetch = _http_get_json if args.online else None
     fetch_bytes = _http_get_bytes if args.online else None

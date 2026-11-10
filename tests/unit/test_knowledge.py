@@ -35,7 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def ws(cli, project: Path, capsys) -> Path:
     """A workspace with two developer lanes and a tester."""
     assert cli("--project", project, "init", "--agents", AGENTS, "--no-git") == 0
-    capsys.readouterr()  # the init banner is not part of a command under test
+    capsys.readouterr()
     return project
 
 

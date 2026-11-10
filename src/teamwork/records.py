@@ -72,8 +72,6 @@ SKILL_NAME_RE = re.compile(
     re.ASCII,
 )
 
-#: A skill is either a repeated flow or the workflow that stops one recorded
-#: mistake recurring (Architecture.md 14.1).
 SKILL_KINDS = ("workflow", "mistake")
 
 LESSONS_HEADER = (
@@ -99,12 +97,6 @@ LESSON_FIELDS = (
     "updated",
 )
 
-#: Project knowledge (Architecture.md 15.1): one K- record per durable fact.
-#: The file is project-wide team-local state; `topic` lives in the header and
-#: every other field is one `- field: value` line, so a value can never forge a
-#: record boundary. `kind` follows `statement` exactly where 16.5 puts it, and a
-#: record without the line reads as `fact`, so section 15 records need no
-#: migration.
 KNOWLEDGE_HEADER = (
     "# Knowledge - what this project has learned\n\n"
     "> One record per durable fact, rule or gotcha, with the evidence that\n"
@@ -131,8 +123,6 @@ KNOWLEDGE_FIELDS = (
     "updated",
 )
 
-#: Fields 15.1 marks optional: absent from the file when unset, and rendered as
-#: a bare `-` by `show` so a reader can tell "unset" from "empty string".
 KNOWLEDGE_OPTIONAL = ("task", "supersedes", "superseded_by")
 
 DISPUTE_HEADER = (
@@ -170,15 +160,8 @@ ENTRY_RE = re.compile(r"^##\s+(M-\d+)\s*(?:·|:)?\s*(.*)$")
 
 META_RE = re.compile(r"^-\s+([a-z_]+):\s*(.*)$")
 
-#: Metadata the model holds as a number while ``render_tasks`` writes it as text.
-#: ``new_task`` seeds these as ``int``, so without coercion in the parser a
-#: round-trip silently changes their type and a reader that compares the value
-#: (``t["review_fails"] >= 3``) raises ``TypeError`` on a reloaded queue only.
 NUMERIC_FIELDS = frozenset({"review_fails"})
 
-#: How strongly a task is authorised. ``explicit`` means a person or a role asked
-#: for it; ``inferred`` means the team derived it and owes a basis saying why the
-#: work may be done. An older queue carries neither field and reads as explicit.
 MANDATES = ("explicit", "inferred")
 
 TASK_HEADER = (
@@ -593,20 +576,8 @@ def find_test(records: list, handle: str):
     return None
 
 
-# --------------------------------------------------------------------------- #
-# Feature records: docs/Team/Features.md (Architecture.md 13.1)
-#
-# One file, one authority per field: the row belongs to the feature's owner, the
-# `interface` and the `ready` transition belong to the Architect, and the id, the
-# timestamps and every validation belong to the command. The file is an ordinary
-# committed document - the caller commits its own edit on its own branch.
-# --------------------------------------------------------------------------- #
-
 FEATURE_RE = re.compile(r"^##\s+(F-\d{4})\s*(?:·|:)?\s*(.*)$")
 
-#: `META_RE` matches `[a-z_]+`, and one frozen field of 13.1 is spelled
-#: `depends-on`. A hyphen is part of the field name here, so the feature records
-#: parse with their own metadata pattern rather than a renamed field.
 FEATURE_META_RE = re.compile(r"^-\s+([a-z][a-z_-]*):\s*(.*)$")
 
 
@@ -621,9 +592,6 @@ def feature_header(path: Path | None = None) -> str:
         "> `depends-on` and the `active`/`done`/`dropped` transitions belong to the\n"
         "> record's owner; `interface` and the `ready` transition belong to the\n"
         "> Architect; the id, the dates and every validation belong to the command.\n\n"
-        # A plain pointer, not a markdown link: this file is generated into every
-        # initialised project, where `docs/guide/cli.md` need not exist, and a link
-        # to a file that is not there is a broken link in `teamwork.py links`.
         "Related: docs/Team/Architecture.md (the frozen rules) and "
         "docs/guide/cli.md (this command surface)\n"
     )
@@ -837,15 +805,10 @@ def new_task(
         "merge_commit": "",
         "review_fails": 0,
         "review_fail_rev": "",
-        # Whether the last fail was mechanical: no | unknown | n/a (see cmd_review).
         "review_mechanical": "",
-        # The last fail's --detects: the specific failure it would catch (HERO).
         "review_detects": "",
-        # Set only by a forced drop past a live claim (task set --status dropped).
         "dropped_under_live": "",
-        # A gate override reason, when one was forced (see the audit).
         "forced": "",
-        # Where a closed task's long evidence lives once it is archived.
         "archived": "",
         "findings": "",
         "created": today_iso(),
@@ -872,9 +835,6 @@ def parse_tasks(path: Path) -> list:
         if current is None:
             continue
         if not raw.strip():
-            # The renderer puts one blank line between metadata and body. From
-            # here on nothing is metadata: a body line such as
-            # ``- status: done`` must never forge the task state.
             if in_body:
                 current["body"] = current["body"] + "\n"
             else:
@@ -953,9 +913,6 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("status", t["status"]),
             ("deps", t["deps"]),
         ]
-        # The feature slice (Architecture.md 13.2) is written only when it exists:
-        # a queue without `--feature` renders byte-identically to one from before
-        # the field did, so every existing record and test is untouched.
         if t.get("feature"):
             meta.append(("feature", t["feature"]))
         meta += [
@@ -1044,8 +1001,6 @@ def merge_tasks(dst: list, incoming: list) -> tuple:
 
 
 def find_task(tasks: list, handle: str):
-    # ``"" in text`` is True, so a blank handle used to match the first task:
-    # `task rm <role> ""` removed T-0001. A blank handle is not found.
     if not (handle or "").strip():
         return None
     if re.fullmatch(r"T-\d+", handle.upper()):
@@ -1099,7 +1054,7 @@ def dep_satisfied(root: Path, dep: str, cache: dict) -> bool:
     local_key = ("l", dep.lower())
     if local_key not in cache:
         cache[local_key] = None
-    return cache[local_key] is True  # filled by caller for local deps
+    return cache[local_key] is True
 
 
 def local_dep_map(tasks: list) -> dict:
@@ -1124,10 +1079,8 @@ def executable(t: dict, lookup: dict, cache: dict, root: Path) -> bool:
     return True
 
 
-#: A dependency is a task id, optionally role-qualified and with a release mode.
 DEP_RE = re.compile(r"^(?:(?P<role>[A-Za-z][A-Za-z0-9-]*):)?(?P<id>T-\d+)(?:@(?P<mode>[a-z]+))?$")
 
-#: Statuses that keep a task in the graph a lane still has to work through.
 OPEN_STATUSES = ("todo", "doing", "selfcheck", "review")
 
 
@@ -1306,7 +1259,6 @@ def new_entry(
         "tags": one_line(tags),
         "pinned": bool(pinned),
         "body": body_text(body),
-        # provenance: who recorded it, for what, at which revision
         "by": one_line(by),
         "src": one_line(src),
         "rev": one_line(rev),
@@ -1448,7 +1400,7 @@ def merge_entries(target: list, incoming: list, prefix: str = "M-") -> tuple:
         existing = index.get(src["key"]) if src["key"] else None
         if existing is None:
             copy = dict(src)
-            copy["id"] = ""  # reassigned by render/assign_ids
+            copy["id"] = ""
             target.append(copy)
             added += 1
             if src["key"]:
@@ -1463,19 +1415,11 @@ def merge_entries(target: list, incoming: list, prefix: str = "M-") -> tuple:
         existing["tags"] = ",".join(
             sorted({t for t in (existing["tags"] + "," + src["tags"]).split(",") if t.strip()})
         )
-        # Provenance is carried forward, never dropped: an entry recorded
-        # without an author can still be completed by a later writer, and an
-        # entry that has one keeps it. The three fields describe ONE recording
-        # act, so they only travel together: a later writer who is not the
-        # author must not graft their own src/rev onto someone else's record
-        # (that would credit the author with a revision they never verified).
         if src.get("by"):
             if not existing.get("by"):
                 for field in ("by", "src", "rev"):
                     existing[field] = src.get(field, "")
             elif existing.get("by") == src.get("by"):
-                # the same author completing their own record: fill the gaps,
-                # never overwrite what is already there
                 for field in ("src", "rev"):
                     if not existing.get(field) and src.get(field):
                         existing[field] = src[field]
@@ -1734,11 +1678,6 @@ def find_skill(items: list, handle: str):
     return None
 
 
-# Lessons: one record per mistake a role will not repeat (Architecture.md 14.2).
-# The file is role-local state, written one line per field so a free-text value can
-# never forge the next record header.
-
-
 def new_lesson(
     role: str,
     mistake: str,
@@ -1819,11 +1758,6 @@ def find_lesson(items: list, handle: str):
         if needle in item["id"].lower() or needle in item["mistake"].lower():
             return i
     return None
-
-
-# --------------------------------------------------------------------------- #
-# Project knowledge: the project's accumulating experience (Architecture.md 15)
-# --------------------------------------------------------------------------- #
 
 
 def normalise_knowledge(value) -> str:
@@ -2015,29 +1949,8 @@ def knowledge_row(item: dict) -> str:
     )
 
 
-# --------------------------------------------------------------------------- #
-# The independence rule (Architecture.md 13.3), as an executable test
-#
-# Rules 1-4 are one predicate over the OPEN records (`state` in `ready`, `active`),
-# evaluated in one read of one file, because a feature is a vertical slice one squad
-# can build, test and ship without another squad's merge. Rule 5 - two records
-# carrying one id - is the one rule over EVERY record, open or closed, because a
-# closed id still names one feature.
-#
-# Everything here is a string test on the normalised spelling. Nothing is `stat`'ed
-# and no glob is expanded, so a dirty worktree and a fresh clone answer the same
-# question and CI cannot disagree with the lane. The wording of every finding is
-# frozen in section 13.3 verbatim: a `feature`-layer record asserts these strings,
-# so there is no paraphrase to drift from.
-# --------------------------------------------------------------------------- #
-
-#: `* ? [ ] { }` - refused rather than expanded: overlap between two globs is
-#: undecidable without expanding both, and an unexpanded glob silently claims
-#: nothing (`src/*.py` reads as "all of src" and behaves as "no file at all").
 GLOB_CHARS = "*?[]{}"
 
-#: A drive prefix (`C:`) after the one normalisation. Windows spellings are
-#: absolute whatever the platform the check runs on.
 DRIVE_RE = re.compile(r"^[a-z]:")
 
 
@@ -2169,7 +2082,6 @@ def check_records(records: list, only=()) -> list:
     opened = open_records(named)
     problems: list = []
 
-    # rule 1 - no two open features own overlapping writable paths
     for i, left in enumerate(opened):
         for right in opened[i + 1 :]:
             for raw_left in left.get("paths") or []:
@@ -2187,7 +2099,6 @@ def check_records(records: list, only=()) -> list:
                         )
                     )
 
-    # rule 2 - no open feature depends on another feature's in-flight work
     for record in opened:
         for dep in record.get("depends_on") or []:
             state = _dep_state(records, dep)
@@ -2201,7 +2112,6 @@ def check_records(records: list, only=()) -> list:
                 )
             )
 
-    # rule 3 - one open feature per leader
     by_owner: dict = {}
     for record in opened:
         by_owner.setdefault(record.get("owner") or "-", []).append(record["id"])
@@ -2217,12 +2127,10 @@ def check_records(records: list, only=()) -> list:
             )
         )
 
-    # rule 4 - every owned path is a real, non-generated, in-repository path
     for record in opened:
         for raw in record.get("paths") or []:
             problems.extend(path_problems(record["id"], raw))
 
-    # rule 5 - no two records carry the same id (every record, open or closed)
     seen: dict = {}
     for record in named:
         seen.setdefault(record["id"], []).append(record.get("owner") or "-")
@@ -2250,13 +2158,10 @@ def candidate_problems(records: list, candidate: dict, previous: dict | None = N
     record never collides with itself.
     """
     fid = candidate["id"]
-    # Drop the copy of the record being edited: a record never collides with the
-    # row it is replacing.
     others = [r for r in records if not (previous and r["id"] == previous["id"])]
     opened = open_records(others)
     problems: list = []
 
-    # rule 1 - the candidate's paths against every open record's paths
     for record in opened:
         for raw_mine in candidate.get("paths") or []:
             for raw_theirs in record.get("paths") or []:
@@ -2273,14 +2178,12 @@ def candidate_problems(records: list, candidate: dict, previous: dict | None = N
                     )
                 )
 
-    # rule 2 - a dependency is green only when its target is done
     for dep in candidate.get("depends_on") or []:
         state = _dep_state(others, dep)
         if state == "done":
             continue
         problems.append(FeatureProblem(fid, 2, f"{fid} depends on in-flight {dep} (state={state})"))
 
-    # rule 3 - the leader's slot, counting the record being written
     same_owner = [r["id"] for r in opened if (r.get("owner") or "-") == candidate.get("owner")]
     if same_owner:
         ids = same_owner + [fid]
@@ -2293,11 +2196,9 @@ def candidate_problems(records: list, candidate: dict, previous: dict | None = N
             )
         )
 
-    # rule 4 - the candidate's own paths
     for raw in candidate.get("paths") or []:
         problems.extend(path_problems(fid, raw))
 
-    # rule 5 - the candidate's id against every record, open or closed
     clash = [r for r in others if r["id"] == fid]
     if clash:
         owners = [clash[0].get("owner") or "-", candidate.get("owner") or "-"]

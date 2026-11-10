@@ -20,14 +20,10 @@ import pytest
 
 from teamwork import engine
 
-# Assembled at run time, so this file (which is itself scanned by the gate) does
-# not contain the credential shape it proves is still masked on the normal path.
 BLOB = "A1b2C3d4" + "E5f6G7h8" + "I9j0K1l2" + "M3n4O5p6"
 JSON_SECRET_LINE = '{"apiKey": "' + BLOB + '"}'
 JSON_SECRET_MASKED = '{"apiKey": "<redacted-json-secret>"}'
 
-# The synthetic scanner is a real file that raises on exec, which is exactly the
-# failure mode the old ``except Exception`` swallowed.
 BROKEN_SCANNER = 'raise RuntimeError("synthetic loader failure")\n'
 
 
@@ -56,7 +52,7 @@ def broken_scanner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return path
 
 
-def _reset(scanner_state) -> None:  # noqa: ANN001 - fixture, forces a fresh load
+def _reset(scanner_state) -> None:  # noqa: ANN001
     engine._PRIVACY_SCAN = engine._UNLOADED
     engine._PRIVACY_WARNED = False
 
@@ -68,11 +64,9 @@ def test_a_broken_scanner_warns_naming_the_path_and_the_exception(
     _reset(scanner_state)
     capsys.readouterr()
 
-    # A broken scanner must not break records: the text survives unmasked...
     assert engine.mask_secret_shapes(JSON_SECRET_LINE) == JSON_SECRET_LINE
 
     err = capsys.readouterr().err
-    # ...but the failure is loud, and the reader is told what it means.
     assert "teamwork: WARNING" in err, f"the load failure was silent: {err!r}"
     assert str(broken_scanner) in err, f"the scanner path is not named: {err!r}"
     assert "RuntimeError" in err and "synthetic loader failure" in err, (
@@ -91,12 +85,9 @@ def test_the_warning_is_emitted_once_not_per_record(
     engine.mask_secret_shapes(JSON_SECRET_LINE)
     assert "teamwork: WARNING" in capsys.readouterr().err
 
-    # Same process, a second record: the cache already holds the failure.
     engine.mask_secret_shapes(JSON_SECRET_LINE)
     assert capsys.readouterr().err == ""
 
-    # Even a forced re-load attempt stays quiet: the latch, not just the cache,
-    # carries the "already reported" state.
     engine._PRIVACY_SCAN = engine._UNLOADED
     engine.mask_secret_shapes(JSON_SECRET_LINE)
     assert capsys.readouterr().err == ""
@@ -111,7 +102,6 @@ def test_the_working_scanner_still_masks_and_stays_quiet(
 
     assert engine._privacy_scan() is not None
     assert engine.mask_secret_shapes(JSON_SECRET_LINE) == JSON_SECRET_MASKED
-    # The mask still leaves what the gate accepts byte-identical.
     for line in ('{"api_key": "${API_KEY}"}', "sk-learn-pipeline", "ordinary prose."):
         assert engine.mask_secret_shapes(line) == line
     assert engine.mask_secret_shapes("") == ""

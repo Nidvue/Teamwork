@@ -72,11 +72,6 @@ def ledger_actions(root: Path) -> list:
     return [rec["action"] for rec in engine.ledger_read(root)]
 
 
-# --------------------------------------------------------------------------- #
-# Idempotent intake
-# --------------------------------------------------------------------------- #
-
-
 def test_a_repeated_intake_key_creates_one_task_and_names_the_existing_one(
     cli, project: Path, capsys
 ) -> None:
@@ -171,11 +166,6 @@ def test_a_repeated_key_wins_over_a_different_title(cli, project: Path, capsys) 
     assert ledger_actions(root).count("task.duplicate") == 1
 
 
-# --------------------------------------------------------------------------- #
-# Mandate
-# --------------------------------------------------------------------------- #
-
-
 def test_an_inferred_mandate_without_a_basis_is_refused(cli, project: Path, capsys) -> None:
     root = init(cli, project)
     code = cli(
@@ -249,11 +239,6 @@ def test_an_unknown_mandate_is_refused_by_the_parser(cli, project: Path) -> None
     assert code != 0
 
 
-# --------------------------------------------------------------------------- #
-# The badge on the two reports
-# --------------------------------------------------------------------------- #
-
-
 def test_task_list_badges_an_inferred_task_and_only_that_one(cli, project: Path, capsys) -> None:
     init(cli, project)
     assert cli("--project", project, "task", "add", "developer", "explicit work") == 0
@@ -305,11 +290,6 @@ def test_board_badges_the_inferred_task_it_puts_next(cli, project: Path, capsys)
     assert cli("--project", project, "board") == 0
     out = capsys.readouterr().out
     assert "next=T-0001 [inferred]" in out, out
-
-
-# --------------------------------------------------------------------------- #
-# An older queue still reads
-# --------------------------------------------------------------------------- #
 
 
 def test_a_queue_without_the_mandate_fields_reads_as_explicit(cli, project: Path, capsys) -> None:

@@ -35,14 +35,13 @@ def pid_alive(pid: int) -> bool:
     except ProcessLookupError:
         return False
     except PermissionError:
-        # The process exists but belongs to another user.
         return True
     except OSError:
         return True
     return True
 
 
-def _windows_pid_alive(pid: int) -> bool:  # pragma: no cover - Windows only
+def _windows_pid_alive(pid: int) -> bool:  # pragma: no cover
     try:
         import ctypes
         from ctypes import wintypes
@@ -50,15 +49,9 @@ def _windows_pid_alive(pid: int) -> bool:  # pragma: no cover - Windows only
         return True
     PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
     STILL_ACTIVE = 259
-    # ``ctypes.windll`` exists only on Windows, so the attribute access is untyped on
-    # every other OS: a ``type: ignore`` here would be reported as *unused* off
-    # Windows and keep the typing gate permanently red. ``getattr`` yields ``Any``,
-    # which is the honest type for a platform-only attribute; B009 prefers a plain
-    # attribute access, which is exactly the form that cannot be typed.
-    kernel32 = getattr(ctypes, "windll").kernel32  # noqa: B009 - Windows-only attribute
+    kernel32 = getattr(ctypes, "windll").kernel32  # noqa: B009
     handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not handle:
-        # Access denied means the process exists but is protected.
         return kernel32.GetLastError() == 5
     try:
         code = wintypes.DWORD()

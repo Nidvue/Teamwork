@@ -32,9 +32,10 @@ install: ## Install the package (runtime, zero dependencies).
 dev: ## Editable install with the dev extras (pytest, pytest-cov, ruff, mypy, build).
 	$(PIP) install -e ".[dev]"
 
-lint: ## Static checks: ruff check + ruff format --check.
+lint: ## Static checks: ruff check, ruff format --check and the no-comment rule.
 	$(PYTHON) -m ruff check .
 	$(PYTHON) -m ruff format --check .
+	$(PYTHON) scripts/check_comments.py
 
 format: ## Auto-format the tree and apply safe lint fixes.
 	$(PYTHON) -m ruff format .

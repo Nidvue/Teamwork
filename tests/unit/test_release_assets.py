@@ -39,7 +39,6 @@ RELEASE_PATH = ".github/workflows/release.yml"
 MANIFEST_NAME = "SHA256SUMS"
 MANIFEST_PATH = "dist/SHA256SUMS"
 
-#: Steps whose `with:` mapping names files that reach the Release.
 ASSET_STEPS = {
     "actions/upload-artifact": "path",
     "actions/attest-build-provenance": "subject-path",
@@ -141,11 +140,6 @@ def workspace_with_assets(tmp_path: Path, root_manifest: bool = False) -> Path:
     return workspace
 
 
-# --------------------------------------------------------------------------- #
-# the resolved asset set
-# --------------------------------------------------------------------------- #
-
-
 def test_the_release_publishes_exactly_one_manifest(tmp_path: Path) -> None:
     document = release()
     workspace = workspace_with_assets(tmp_path)
@@ -181,8 +175,6 @@ def test_the_old_asset_set_is_reported_as_a_collision(tmp_path: Path) -> None:
     for _, step in steps(document):
         if str(step.get("uses") or "").startswith("softprops/action-gh-release"):
             step["with"]["files"] = "dist/*\nSHA256SUMS\nsbom.cyclonedx.json\nsbom.spdx.json"
-    # The shipped artifact and attestation steps dropped the entry too, so only
-    # the step reverted to its v1.3.0 form reports the collision.
     assert collisions(document, workspace) == ["softprops/action-gh-release: SHA256SUMS"], (
         "the v1.3.0 asset set was accepted"
     )
@@ -194,11 +186,6 @@ def test_the_shipped_workflow_carries_no_second_manifest(tmp_path: Path) -> None
     document = release()
     assert collisions(document, workspace) == []
     assert MANIFEST_NAME in asset_names(document, workspace)
-
-
-# --------------------------------------------------------------------------- #
-# the manifest step, executed as shipped
-# --------------------------------------------------------------------------- #
 
 
 def manifest_step(document: dict) -> dict:
@@ -258,7 +245,6 @@ def test_the_manifest_covers_the_artefacts_and_both_sboms(tmp_path: Path) -> Non
     assert set(recorded) == set(expected), sorted(recorded)
     for name, path in expected.items():
         assert recorded[name] == hashlib.sha256(path.read_bytes()).hexdigest(), name
-    # Bare names, because the Release flattens the asset set.
     assert MANIFEST_NAME not in recorded, "the manifest must not checksum itself"
 
 

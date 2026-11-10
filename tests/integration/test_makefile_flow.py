@@ -151,7 +151,6 @@ def test_lint_reports_a_real_style_error_and_goes_green_when_it_is_removed(
     clean = run_make(["lint"], scratch)
     assert clean.returncode == 0, clean.stdout + clean.stderr
 
-    # A real ruff finding (F401) plus a formatting error the gate must catch.
     subject.write_text("import os\nx=1\n", encoding="utf-8")
 
     broken = run_make(["lint"], scratch)

@@ -22,17 +22,10 @@ from pathlib import Path
 
 from cli_harness import REPO_ROOT, build_env
 
-#: The release gate a user runs locally (the same command the CI job runs).
 CHECKER = REPO_ROOT / "scripts" / "check_release_consistency.py"
-#: Where CI runs that gate offline, and where the tag-triggered release runs it
-#: online. Both are parsed as text: a YAML parser is not a stdlib module and the
-#: project ships zero runtime dependencies.
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 
-#: A fixed git identity and clock, and no ambient git config: a fixture commit
-#: must not depend on the machine it runs on, and a user's ``commit.gpgsign``
-#: must not make an acceptance test fail for a reason unrelated to the gate.
 _GIT_ENV = {
     "GIT_CONFIG_NOSYSTEM": "1",
     "GIT_CONFIG_GLOBAL": os.devnull,
@@ -136,7 +129,7 @@ def checkout(dest: Path) -> Path:
         rel = Path(raw.decode("utf-8"))
         source = REPO_ROOT / rel
         if not source.is_file():
-            continue  # a deleted-but-tracked path is not part of a clean checkout
+            continue
         target = dest / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)

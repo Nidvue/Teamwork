@@ -28,9 +28,6 @@ from teamwork import engine
 
 ROSTER = "ceo,developer-1,developer-2,tester-1,reviewer-1,reviewer-2"
 
-#: The identity every throwaway git repository in this file commits with. A git
-#: child also gets ``tests.gitenv.child_env`` so the developer's own git
-#: configuration cannot decide what these fixtures do.
 GIT_IDENTITY = {
     "GIT_AUTHOR_NAME": "Developer",
     "GIT_AUTHOR_EMAIL": "developer@agents.nidvue.com",
@@ -89,8 +86,6 @@ def test_reviewer_model_diversity_is_required_when_two_lanes_review(cli, project
     diversity = [f for f in report["findings"] if f["code"] == "C-DIV-MODEL"]
     assert diversity and diversity[0]["severity"] == "high"
 
-    # A second model on the second lane clears the finding; the check reads the
-    # effective model, not the fact that a setting exists.
     assert (
         cli(
             "--project",
@@ -204,7 +199,6 @@ def test_reclaim_refuses_a_live_lane_and_force_is_recorded(cli, project: Path) -
     assert task["status"] == "todo" and task["claimed_by"] == ""
     assert "forced: confirmed dead" in task["findings"]
 
-    # A released lease means the owner really is silent: no force needed.
     assert (
         cli(
             "--project",
@@ -218,8 +212,6 @@ def test_reclaim_refuses_a_live_lane_and_force_is_recorded(cli, project: Path) -
         )
         == 0
     )
-    # developer-2 now owns it; give the task to developer-1 first so the
-    # reclaim crosses lanes again.
     edit_task(root, "developer", "T-0001", claimed_by="Developer-1", status="doing")
     assert (
         cli(
@@ -255,8 +247,6 @@ def test_pulse_defers_more_new_lanes_than_free_slots(cli, project: Path) -> None
     (root / engine.F_SETTINGS).write_text(json.dumps(settings), encoding="utf-8")
     assert cli("--project", project, "pulse", "--commit") == 0
     tasks = engine.parse_tasks(task_path(root, "developer"))
-    # one lease covers a lane's WIP: the first lane takes both of its units on the
-    # single free slot, and the second lane is the one deferred (T-0020/A5)
     doing = [task for task in tasks if task["status"] == "doing"]
     assert len(doing) == engine.LANE_WIP, [task["status"] for task in tasks]
     assert {task["claimed_by"].lower() for task in doing} == {"developer-1"}
@@ -274,38 +264,20 @@ def test_strict_exits_one_on_a_high_finding(cli, project: Path, capsys) -> None:
     assert "C-DIV-BRANCH" in capsys.readouterr().out
 
 
-# --------------------------------------------------------------------------- #
-# Merge health: an abandoned PR is one the forge still has open
-#
-# The check used to mean "not merged and the branch is gone", which is the wrong
-# question: every finished PR retires its branch. P-0035 was `superseded` with its
-# work landed under P-0036, P-0022/P-0023 were `changes-requested` whose tasks were
-# dropped, and P-0010 was `approved` with a merge_commit - four terminal records
-# reported as high-severity abandonment. The rule below is stated from the record
-# states, not from those four cases, and each state is pinned separately so a
-# regression to "not merged" fails here.
-# --------------------------------------------------------------------------- #
-
-
 def pr_record(**fields) -> dict:
     """A PR record carrying only the fields the abandoned rule reads."""
     return engine.new_pr(fields.pop("title", "a change"), **fields)
 
 
-#: status, merge_commit, and whether the forge still owes that record an action.
 PR_STATES = (
     ("open", "", True),
     ("in-review", "", True),
     ("changes-requested", "", True),
-    # An approval is a decision, not a landing: without the merge commit the
-    # merge is still owed, so the record is live.
     ("approved", "", True),
     ("approved", "abc1234", False),
     ("merged", "abc1234", False),
     ("closed", "", False),
     ("superseded", "", False),
-    # A status this engine does not know fails closed: an unreadable record is
-    # not evidence that the work finished.
     ("on-hold", "", True),
 )
 
@@ -323,12 +295,9 @@ def test_the_pr_status_decides_whether_an_action_is_still_owed(
     )
     live_task = {"id": "T-0001", "status": "doing"}
     assert engine.pr_owes_action(record) == owes_action
-    # The same status, with a live task and a dead branch: only the live states
-    # are abandonment.
     assert engine.pr_is_abandoned(record, live_task, True) == owes_action
 
 
-#: task status, and whether that task still owes the team an outcome.
 TASK_STATES = (
     ("todo", True),
     ("doing", True),
@@ -364,9 +333,6 @@ def test_a_pr_with_no_resolvable_task_fails_closed() -> None:
     assert engine.pr_is_abandoned(record, None, True) is True
 
 
-#: The four records the old rule reported, with the values each record really
-#: carries on the team tree: id, status, task, role, the task's status in its
-#: queue, the record's merge_commit, and the verdict the rule must reach.
 RECORDED_PRS = (
     ("P-0010", "approved", "T-0005", "ceo", "done", "f91bf1b"),
     ("P-0022", "changes-requested", "T-0001", "security-auditor", "dropped", ""),
@@ -468,8 +434,6 @@ def test_coordination_flags_only_a_live_pr_on_a_dead_branch(cli, project: Path) 
     engine.write_reviews(engine.reviews_path(root), finished)
     assert "C-MERGE-ABANDONED" not in codes(engine.coordination_report(root))
 
-    # One genuinely live PR on a branch the repository does not have: the check
-    # must still fire, and name only that record.
     live = pr_record(
         title="nobody is coming back for this",
         status="open",
@@ -527,8 +491,6 @@ def test_a_bare_task_id_resolves_through_the_record_role(cli, project: Path) -> 
         is True
     )
 
-    # No role: the id is ambiguous across the queues, so it does not resolve and
-    # the caller fails closed rather than guessing.
     assert engine._pr_task({"task": "T-0001"}, index) is None
 
 
@@ -546,8 +508,6 @@ def _review_ready(cli, root: Path, count: int, age_days: int = 0) -> None:
 def test_two_unclaimed_items_with_nine_lanes_is_oversupply_not_backlog(cli, project: Path) -> None:
     root = init(cli, project)
     assert cli("--project", project, "instance", "add", "reviewer", "--count", 7) == 0
-    # Older than two days so the OLD `or oldest_review >= 2` clause would have
-    # reported a backlog for 2 items / 9 lanes; the fix must not.
     _review_ready(cli, root, 2, age_days=3)
 
     report = engine.coordination_report(root)

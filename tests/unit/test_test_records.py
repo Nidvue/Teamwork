@@ -42,7 +42,6 @@ def test_render_tests_splits_layer_and_area(tmp_path: Path) -> None:
     path = tmp_path / "Tests.md"
     text = engine.render_tests([engine.new_test_record("unit", "names", owner="developer-1")], path)
     assert "## TS-0001 · unit · names" in text
-    # Rendering is pure: it must not write the file itself.
     assert not path.exists()
 
 

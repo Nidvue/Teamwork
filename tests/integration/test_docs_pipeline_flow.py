@@ -54,11 +54,6 @@ def issues(text: str) -> int:
     raise AssertionError(f"links printed no issue count:\n{text}")
 
 
-# --------------------------------------------------------------------------- #
-# The real tree
-# --------------------------------------------------------------------------- #
-
-
 def test_the_committed_docs_are_link_clean() -> None:
     code, text = links(REPO_ROOT)
     assert code == 0, text
@@ -73,11 +68,6 @@ def test_the_committed_tree_passes_the_privacy_scan() -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PASS" in result.stdout
-
-
-# --------------------------------------------------------------------------- #
-# A fixture docs tree with planted defects
-# --------------------------------------------------------------------------- #
 
 
 def fixture_docs(tmp_path: Path, target: str, extra: str = "") -> Path:
@@ -131,7 +121,6 @@ def test_a_planted_secret_fails_the_privacy_scan(tmp_path: Path) -> None:
     """The fixture is a real git tree: the scan reads tracked files only."""
     root = tmp_path / "LeakyDocs"
     (root / "docs").mkdir(parents=True)
-    # Assembled at runtime so this test file is not itself a finding.
     token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
     (root / "docs" / "leak.md").write_text(f"token = {token}\n", encoding="utf-8")
     subprocess.run(["git", "init", "-q", str(root)], check=True)
@@ -141,7 +130,6 @@ def test_a_planted_secret_fails_the_privacy_scan(tmp_path: Path) -> None:
     assert result.returncode == 1, result.stdout + result.stderr
     assert "FAIL" in result.stdout
 
-    # Bite check: remove the secret and the same tree passes.
     (root / "docs" / "leak.md").write_text("token = <redacted>\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
 

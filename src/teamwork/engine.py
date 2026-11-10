@@ -50,12 +50,12 @@ import time
 from fnmatch import fnmatch
 from pathlib import Path
 
-try:  # normal package import
+try:
     from . import board as boardlib
     from . import resources as _resources
     from .portable import pid_alive
     from .version import __version__ as VERSION
-except ImportError:  # pragma: no cover - executed as a plain script
+except ImportError:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import board as boardlib  # type: ignore
     import resources as _resources  # type: ignore
@@ -641,26 +641,6 @@ __all__ = [
 ]
 
 
-# Layout: the team's own tree is hidden and independent of project output.
-#
-#   <project>/.pi/Teamwork/Teams/<Team>/
-#   ├── TeamMap.md              workspace map
-#   ├── Settings.json           provider caps and limits
-#   ├── Global/                 shared memory + disputes (CEO owns)
-#   ├── Roles/<Role>/           SHARED memory + task queue per role
-#   ├── Agents/<Instance>/      private charter, worklog, inbox, artifacts, scratch
-#   └── Runtime/                locks and provider slots (ephemeral)
-#
-# Project output (code, tests, docs/Team/*.md) lives in the repository and is
-# never mixed with this tree. Team-created names are PascalCase.
-
-
-# Git identity, commit style and Git LFS
-#
-# Team commits are authored by the ROLE, never by an instance: the mailbox is
-# "Developer <developer@agents.nidvue.com>", never "Developer-1 <developer-1@...>".
-
-
 COMMIT_TYPES = (
     "feat",
     "fix",
@@ -675,12 +655,6 @@ COMMIT_TYPES = (
     "chore",
     "revert",
 )
-
-
-# Branch -> PR -> Reviewer merge
-#
-# main only ever receives merges performed by the Reviewer. Every instance works
-# on its own branch and hands a PR to the Reviewer.
 
 
 def require_reason(force: str, what: str) -> str:
@@ -728,8 +702,6 @@ def validate_actor(
     if allow_role and insts and want == pascal(role):
         return pascal(role), role
     if not allow_role and insts and want == pascal(role) and len(insts) == 1:
-        # `--by reviewer` is what the tool prints and the docs teach: accept it
-        # when there is exactly one candidate, and resolve it to that instance.
         return insts[0], role
     if not allow_role and insts and want == pascal(role):
         die(
@@ -773,7 +745,7 @@ def check_claimant(root: Path, value: str, kind: str = "claim", role: str = "") 
     if pascal(name) in {pascal(i) for i in known}:
         return name
     if pascal(name) == pascal(resolved) and instances_of(root, resolved):
-        return name  # the role itself = shared pool
+        return name
     print(
         f"# WARNING {kind} '{name}' is not an instance in this team "
         f"({', '.join(known)}); it is recorded but `audit` will flag it"
@@ -866,7 +838,6 @@ def cmd_branch(args) -> int:
             print("- none")
         return 0
 
-    # start
     task, task_path, task_role, _idx = _find_task_anywhere(root, args.task, args.agent)
     if task is None:
         die(f"no task '{args.task}' on the {resolve_role(args.agent)} queue")
@@ -892,8 +863,6 @@ def cmd_branch(args) -> int:
 
     worktree_note = ""
     if args.worktree:
-        # a worktree checks the branch out itself; checking it out here first
-        # would make `git worktree add` fail with "already used by worktree"
         wt = root / DIR_RUNTIME / DIR_WORKTREES / safe_component(pascal(args.agent))
         wt.parent.mkdir(parents=True, exist_ok=True)
         listing = run_git(project, "worktree", "list", "--porcelain").stdout
@@ -966,7 +935,6 @@ def cmd_pr(args) -> int:
     if args.pr_cmd == "merge":
         return _pr_merge(args, root, project, here, path)
 
-    # open
     actor, role = validate_actor(root, args.agent, "PR author", allow_role=False)
     args.agent = actor
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "merge.lock"):
@@ -985,10 +953,6 @@ def _merge_branch_hint(root: Path, handle: str) -> str:
     under ``reviews.lock``, so the role -> reviews order that ``cmd_review``
     uses is never inverted here.
     """
-    # Task ids are unique per role queue, so two lanes can each own a T-0001.
-    # Returning the first one found would silently merge the other lane's PR,
-    # so an ambiguous handle yields "" and the caller makes the operator name
-    # the PR instead of guessing.
     hits = []
     for role in list_roles(root):
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
@@ -1058,12 +1022,6 @@ def _merge_work_repo(project: Path, here: Path, base: str) -> Path:
     return wt if wt is not None else here
 
 
-#: The records a merge pass writes itself, relative to ``docs/Team/``. A records
-#: commit carries these and nothing else: staging every dirty path under docs/
-#: swept a file another lane had left uncommitted in the base checkout into the
-#: Reviewer's commit (13ea3d1 carried D-20261030-Developer-3, 30855f3 carried
-#: D-20261031-Designer - both were someone else's Decisions.md entry).
-#: The board joins this set when the merge renders it (T-0012).
 MERGE_RECORD_NAMES = ("Archive.md",)
 
 
@@ -1093,8 +1051,6 @@ def _merge_pr_index(prs: list, handle: str, branch: str = "") -> int | None:
             return idx
     live = [i for i, pr in enumerate(prs) if _handle_matches(pr, handle) and _pr_is_live(pr)]
     if not live:
-        # No live candidate: fall back to the exact/dead match so the caller can
-        # report "already merged" instead of inventing one.
         return find_pr_exact(prs, handle)
     if len(live) == 1:
         return live[0]
@@ -1146,7 +1102,6 @@ def _uncommitted_paths(here: Path, *pathspec: str) -> list[str]:
             continue
         paths.append(entry[3:])
         if entry[0] in "RC" and i < len(fields):
-            # the source of a rename/copy is the next record
             paths.append(fields[i])
             i += 1
     return list(dict.fromkeys(p for p in paths if p))
@@ -1204,9 +1159,6 @@ def _return_staged_entries(
     touched, so the peer only has to ``git add`` the paths again.
     """
     for mode, sha, rel in rows:
-        # ``--add``: a path the peer staged as new is absent from the index after
-        # the lift, and ``--cacheinfo`` alone refuses to create it (exit 128), so
-        # the restore was lost and the path fell back to untracked.
         restored = run_git(here, "update-index", "--add", "--cacheinfo", f"{mode},{sha},{rel}")
         if restored.returncode != 0:
             print(
@@ -1259,10 +1211,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             )
         if args.force:
             args.force = require_reason(args.force, "merging without a passing review")
-        # The Reviewer that passed the verdict is the one that merges it: a pass
-        # is the merge trigger (see ``merge_after_pass``), so this is the normal
-        # path, not an exception. Independence still means the AUTHOR never
-        # reviews or merges its own work.
         role = resolve_role(pr["role"] or pr["author"])
         if not role:
             die(f"{pr['id']} has no role or author: the PR record is incomplete")
@@ -1282,8 +1230,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 2,
             )
         base = _merge_base_branch(project, pr["base"] or DEFAULT_BASE, pr)
-        # the recorded base may have been a revision; the messages below and the
-        # archive record must name the branch the merge actually advanced
         pr["base"] = base
         branch = pr["branch"]
         if not branch_exists(project, branch):
@@ -1294,10 +1240,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "are the same branch, so there is nothing to integrate.",
                 2,
             )
-        # The same probe the pass runs, re-measured at the base the merge will
-        # actually advance: a verdict recorded a moment ago is not a promise that
-        # the merge still applies, and a conflict here must be named before git
-        # touches the work tree (P-0057 passed and then died on Board.md here).
         code, measured, paths, detail = merge_tree_probe(project, base, branch)
         forced_note = ""
         if code != 0:
@@ -1312,10 +1254,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     "  (--force <reason> records a deliberate override)",
                     2,
                 )
-        # The one place that sees both records: the independence rule at the tree
-        # this merge would leave on the base (13.1, 13.3 rule 5). A second claim on a
-        # path - or an id the base already carries - is refused here rather than
-        # landed, and the Reviewer resolves it as a document conflict.
         feature_problems = _feature_gate(project, base, branch)
         if feature_problems and not args.force:
             die(
@@ -1338,13 +1276,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 + (f"; mergeability overridden: {forced_note}" if forced_note else "")
                 + f": {args.force}",
             )
-        # ``git checkout`` only switches the work tree it runs in, and git refuses
-        # to check one branch out twice, so the merge has to run in the work tree
-        # that already holds the base (per-instance layout) instead of ``here``.
         here = _merge_work_repo(project, here, base)
-        # Uncommitted docs are tolerated: the review pass writes the archive entry
-        # in this work tree and it belongs to this merge. Work outside docs/ is
-        # another lane's and must be committed on its own branch first.
         docs_prefix = "/".join(DIR_DOCS)
         dirty = _uncommitted_paths(here)
         dirty_docs = [d for d in dirty if d == docs_prefix or d.startswith(docs_prefix + "/")]
@@ -1360,25 +1292,13 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
         if r.returncode != 0:
             die(f"could not switch to {base} in {here}: {r.stderr.strip()}")
         if current_branch(here) != base:
-            # a checkout that lands detached would create the merge commit off
-            # branch, leaving the base where it was; refuse instead of merging
             run_git(here, "checkout", was_on)
             die(
                 f"could not put {here} on {base} (it ended up on "
                 f"{current_branch(here) or 'a detached HEAD'}); nothing was merged.",
                 2,
             )
-        # the review pass may have written the entry into a lane work tree; the
-        # base branch must carry it too, and it belongs in the records commit
         print(archive_ensure_entry(root, role, t, repo=here))
-        # The records commit is the Reviewer's, so it carries only the records
-        # this pass wrote (see merge_record_paths). Staging every dirty path under
-        # docs/ swept a peer lane's uncommitted file into a Reviewer commit
-        # (13ea3d1 carried D-20261030-Developer-3, 30855f3 D-20261031-Designer);
-        # such a path belongs to the lane that wrote it and stays uncommitted.
-        # Narrowing the *staged* set is not enough: ``commit`` without a pathspec
-        # takes the whole index, so a peer's ``git add``ed file still rode in.
-        # The commit below therefore names the same paths, as the close-out does.
         owned = merge_record_paths()
         dirty_docs = _uncommitted_paths(here, docs_prefix)
         records = [rel for rel in owned if rel in dirty_docs]
@@ -1439,9 +1359,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "result": f"review by {t.get('reviewer') or args.by} ({t.get('review_status')})",
             },
         )
-        # A record a peer had already staged is theirs: it must not enter this
-        # pass's commits, and ``git merge`` refuses while the index differs from
-        # HEAD, so it is lifted for the merge and put back byte for byte after.
         lifted = _lift_staged_entries(here, foreign)
         try:
             if args.squash:
@@ -1467,8 +1384,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             if merged.returncode != 0:
                 run_git(here, "merge", "--abort")
                 if args.squash:
-                    # a squashed-but-uncommitted merge leaves staged changes;
-                    # restore base
                     run_git(here, "reset", "--hard", base_sha or "HEAD")
                 die(
                     "merge conflict or failure on "
@@ -1502,9 +1417,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 tasks[tidx]["base"] = base
                 tasks[tidx]["updated"] = today_iso()
                 write_tasks(tpath, tasks, role)
-            # Reviews.md is written under the same lock order as `cmd_review`:
-            # role -> reviews. Re-read before writing so a verdict issued during
-            # the git merge is not lost.
             with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
                 fresh_prs = parse_reviews(path)
                 pidx = find_pr_exact(fresh_prs, pr["id"], pr.get("branch"))
@@ -1512,8 +1424,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     fresh_prs[pidx]["status"] = "merged"
                     fresh_prs[pidx]["reviewer"] = merger
                     fresh_prs[pidx]["merge_commit"] = sha
-                    # a base recorded as a revision is replaced by the branch the
-                    # merge actually advanced, so the next merge/report names it
                     fresh_prs[pidx]["base"] = base
                     fresh_prs[pidx]["updated"] = today_iso()
                     fresh_prs[pidx]["notes"].append(f"merged into {base} at {sha} by {merger}")
@@ -1524,10 +1434,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             root, "pr.merge", merger, pr["task"], f"{pr['id']} {branch} -> {base} at {sha}", sha
         )
         print(f"# merged {pr['id']} {branch} -> {base} at {sha} by {merger}")
-        # The board is generated output and belongs on the base branch: the landing
-        # has just moved this task to done/merged, so the merging Reviewer renders
-        # it here, after the merge and its records, and commits it as its own
-        # chore(records) change. A render that cannot land is reported, never fatal.
         print(render_board_at_merge(root, here, pr))
         print(commit_archive_merge_sha(root, here, branch, sha, pr, merger))
         if not args.keep_branch:
@@ -1540,10 +1446,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     f"deleted {branch} after {pr['id']} merged",
                     sha,
                 )
-        # a successful merge left the work tree on the base; the lane that ran the
-        # merge was on another branch, and its next edit/commit belongs there, so
-        # put it back (T-0020/A9). A merged branch may already be retired - then
-        # there is nothing to return to and the base is the right place.
         if was_on and was_on != base and branch_exists(here, was_on):
             r = run_git(here, "checkout", was_on)
             if r.returncode == 0:
@@ -1636,7 +1538,7 @@ def merge_after_pass(
             work_repo(root),
             path,
         )
-    except SystemExit as exc:  # ``die`` inside the merge: keep the pass, report it
+    except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 1
         print(
             f"# the pass is recorded but the merge did not run (exit {code}). The work "
@@ -1735,9 +1637,6 @@ def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str)
     return 0
 
 
-# Acceptance criteria as records: `loop` cannot report STOP without them
-
-
 def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
     """add/verify/reopen/rm under criteria.lock, with a ledger record each."""
     if args.criteria_cmd == "add":
@@ -1834,7 +1733,6 @@ def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
         )
         print(f"# {items[idx]['id']} reopened")
         return 0
-    # rm
     idx = find_criterion(items, args.id)
     if idx is None:
         die(f"no criterion '{args.id}'")
@@ -1931,7 +1829,6 @@ def cmd_criteria(args) -> int:
         print(f"# removed {removed['id']}")
         return 0
 
-    # list
     if not items:
         print(f"# no criteria yet ({path})")
         print("# the CEO must write them from the user prompt: criteria add --id AC-1 --text '...'")
@@ -1951,8 +1848,6 @@ def cmd_criteria(args) -> int:
 
 F_TESTS = "Tests.md"
 F_TESTPLAN = "TestPlan.md"
-# Every role owns a test layer. Nobody delegates their own layer, and every
-# layer is designed, developed, executed and evidenced by its owner.
 
 
 def staffed_layers(root: Path) -> list:
@@ -1985,8 +1880,6 @@ def required_layers_for(root: Path, area: str) -> list:
         if declared == [ALL_LAYERS_SENTINEL]:
             return list(staffed_layers(root)) or list(DEFAULT_REQUIRED_LAYERS)
         if declared:
-            # an explicitly declared requirement is enforced even if unstaffed: the
-            # team must either add the role or narrow it, on the record
             return declared
     staffed = staffed_layers(root)
     core = [ly for ly in DEFAULT_REQUIRED_LAYERS if ly in staffed]
@@ -2091,8 +1984,6 @@ def artifact_digest(root: Path, raw: str, cwd: Path | None = None) -> str:
     given = Path(raw).expanduser()
     trees = project_trees(root)
     path = (given if given.is_absolute() else tree / given).resolve()
-    # A lane worktree sits inside the base checkout, so the deepest tree holding
-    # the path names the copy, and the base cannot claim a lane's file.
     candidates = [t for t in [tree, *trees] if _inside(path, t)]
     holder = max(candidates, key=lambda p: len(p.parts)) if candidates else None
     outside = holder is not None and holder != tree
@@ -2124,8 +2015,6 @@ def artifact_digest(root: Path, raw: str, cwd: Path | None = None) -> str:
                 "that exists here, or an absolute path if you mean that copy."
             )
         die(f"artifact not found: {raw} - evidence must name a file that exists")
-    # The record names the file as the checkout that holds it does, so an
-    # artifact bound from a lane reads the same as the merged path on main.
     try:
         rel = path.relative_to(holder or tree)
     except ValueError:
@@ -2489,17 +2378,6 @@ def _tests_list(args, root: Path, records: list) -> int:
     return 0
 
 
-# Audit trail: append-only hash-chained ledger + provenance + external export
-#
-# Every mutation writes one JSON line to Ledger.jsonl:
-#   {ts, n, actor, role, action, target, detail, rev, prev, hash}
-# hash = sha256(prev_hash + canonical_json(record)) so the chain is tamper-evident.
-# A third party can verify the chain, the record digests and the git revision
-# without trusting the team: `teamwork.py ledger export`, then re-run the checks.
-
-# The generated manifest is AuditManifest.md; AuditReport.md belongs to the
-# Security Auditor's findings report and must never be overwritten.
-
 LEDGER_ACTIONS = (
     "memory.add",
     "memory.update",
@@ -2569,9 +2447,6 @@ def _digest(prev: str, record: dict) -> str:
     return hashlib.sha256((prev + _canon(record)).encode("utf-8")).hexdigest()
 
 
-#: The ledger's own width for a record's ``detail`` field (``_clean_detail``). A
-#: caller may cut its text shorter, but never below the point where the part that
-#: matters - an override marker - would be the part the cut removes.
 LEDGER_DETAIL_CHARS = 400
 
 
@@ -2598,7 +2473,7 @@ def _ledger_tail(root: Path):
         try:
             rec = json.loads(line)
         except ValueError:
-            continue  # a torn line is skipped, never fatal
+            continue
         if not isinstance(rec, dict):
             continue
         prev, n = rec.get("hash", prev), n + 1
@@ -2779,7 +2654,6 @@ def ledger_verify(
     """
     if reconcile and not _locked:
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
-            # re-read under the lock: the caller's snapshot may be stale by now
             return ledger_verify(root, reconcile=True, _locked=True)
     problems = []
     prev = ""
@@ -2788,8 +2662,6 @@ def ledger_verify(
     for i, r in enumerate(records, 1):
         if r.get("action") == "corrupt":
             problems.append(f"record {i}: unreadable line in the ledger")
-            # Do not reset `prev`: the next complete record still links to the
-            # last good hash, so a torn line must not be reported as a chain fork.
             continue
         if r.get("prev", "") != prev:
             problems.append(f"record {i}: prev hash mismatch (chain broken)")
@@ -2816,9 +2688,6 @@ def ledger_verify(
                 )
             elif valid and (data.get("hash") != valid[-1].get("hash") or cached_n != len(valid)):
                 if reconcile:
-                    # number the cache by the last *valid* record, exactly as the
-                    # next append will: writing valid+1 here re-reports the lag on
-                    # every later verify (T-0020/A8)
                     atomic_write(
                         head, json.dumps({"n": len(valid), "hash": valid[-1]["hash"]}) + "\n"
                     )
@@ -2829,7 +2698,6 @@ def ledger_verify(
                     )
         except (ValueError, OSError, TypeError):
             problems.append("head cache is unreadable")
-    # external anchor: the last exported checkpoint must not be ahead of us
     manifest = work_docs_dir(root) / F_MANIFEST
     if manifest.exists():
         try:
@@ -2839,8 +2707,6 @@ def ledger_verify(
             recorded = int(m.get("ledger", {}).get("records", 0))
             manifest_team = str(m.get("team_id") or "")
             current_team = team_identity(root)
-            # Only an export from *this* workspace instance anchors this ledger.
-            # A manifest without a team id is a legacy export and is not enforced.
             if manifest_team and manifest_team == current_team and recorded > len(records):
                 problems.append(
                     f"the last audit export recorded {recorded} records, "
@@ -3004,9 +2870,6 @@ def cmd_decision(args) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "decisions.lock"):
         existing = path.read_text(encoding="utf-8") if path.exists() else "# DECISIONS\n"
         base_ident = f"D-{today_iso().replace('-', '')}-{pascal(actor)}"
-        # Take the highest id in use across every branch, not just this checkout, so
-        # two lanes recording at once never pick the same number (T-0038: two open
-        # branches both took D-...-CEO-14 and the archive then cited a duplicate).
         taken = set(_decision_ids_in(existing)) | all_branch_decision_ids(root)
         ident = base_ident
         n = 1
@@ -3058,7 +2921,7 @@ def cmd_decision_list(args) -> int:
     for b in blocks:
         head = b.splitlines()[0].strip()
         if "<" in head or head.lower().startswith("sources"):
-            continue  # template placeholder, not a recorded decision
+            continue
         kind = next(
             (ln.split(":", 1)[1].strip() for ln in b.splitlines() if ln.startswith("- kind:")), ""
         )
@@ -3090,19 +2953,10 @@ def cmd_decision_list(args) -> int:
     return 0
 
 
-# Machine views: the records keep the full text, the listing does not need it.
-# A findings line can run past 10 KB, which is what makes `review --queue`,
-# `trace` and `archive` expensive for an agent that has to read them, so those
-# three views clip free-text evidence by default and `--full` turns it off.
 VIEW_CLIP_LIMIT = 600
 
-# How many archive entries a listing shows by default. The file is the team's
-# evidence ledger and grows with every accepted result, so an unbounded listing
-# costs more on each read than the decision it supports; the records are
-# untouched and `--all`/`--full` still print everything.
 ARCHIVE_VIEW_ENTRIES = 8
 
-# The evidence-bearing lines of a docs/Team/Archive.md entry (archive_append).
 ARCHIVE_CLIP_FIELDS = (
     "- self-check: ",
     "- author evidence: ",
@@ -3259,14 +3113,8 @@ def ledger_export(root: Path, args) -> int:
     """
     import json
 
-    # The work tree the command acts on: a lane that exports from its own
-    # worktree gets a file it can commit on its branch, and the manifest
-    # describes that work tree's revision.
     project = work_repo(root)
     docs = work_docs_dir(root)
-    # The team's hidden tree (ledger, memory, task queues) lives in the project
-    # that owns it, not in the work tree, so its entries stay relative to that
-    # project.
     state_root = project_of(root)
     problems = ledger_verify(root, reconcile=True)
     records = ledger_read(root)
@@ -3287,8 +3135,6 @@ def ledger_export(root: Path, args) -> int:
         if path.exists():
             tracked.append(
                 {
-                    # posix form: the manifest is published, so a Windows
-                    # backslash would make the same revision hash differently.
                     "path": path.relative_to(base).as_posix(),
                     "sha256": _file_digest(path),
                     "bytes": path.stat().st_size,
@@ -3319,8 +3165,6 @@ def ledger_export(root: Path, args) -> int:
                 ]
             ),
         }
-    # the export record is appended first, so the checkpoint in this manifest
-    # matches what a verifier sees after running `ledger verify`
     export_actor = "system"
     if getattr(args, "by", ""):
         export_actor, _er = validate_actor(root, args.by, "exporter")
@@ -3333,15 +3177,7 @@ def ledger_export(root: Path, args) -> int:
     )
     records = ledger_read(root)
     problems = ledger_verify(root, reconcile=True)
-    # The manifest is a checkpoint, not the head of time: every later ledger event
-    # (the review pass, the merge, the next task) appends and moves the head. Pin the
-    # export record's own sequence number so a verifier can recompute the chain up to
-    # exactly this point and compare - comparing against the live head can never
-    # succeed on a tree that kept working after the export, which is every tree.
     checkpoint_n = int(records[-1].get("n") or 0) if records else 0
-    # Archive.md is the accepted-results ledger: it gains an entry for this very
-    # deliverable when the review passes, so a digest committed beside it is stale
-    # by construction. Its entries are verified through the ledger, not a snapshot.
     archive_rel = (docs / "Archive.md").relative_to(project).as_posix()
     external = [a for a in tracked if not a["path"].startswith(".pi/") and a["path"] != archive_rel]
     internal = [a for a in tracked if a["path"].startswith(".pi/")]
@@ -3349,10 +3185,6 @@ def ledger_export(root: Path, args) -> int:
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "team": root.name,
         "team_id": team_identity(root) or ensure_team_identity(root),
-        # Never embed the absolute checkout path: the manifest is committed and
-        # published, and a machine path is both a privacy leak and useless to a
-        # verifier on another host. The name is the project's, never the work
-        # tree's: a lane worktree is named after the instance that owns it.
         "project": state_root.name,
         "ledger": {
             "records": len(records),
@@ -3433,15 +3265,6 @@ def ledger_export(root: Path, args) -> int:
     return 0
 
 
-# Team skills: agents extract repeated, consistency-critical flows into a skill
-# inside the project and share it with the peers of the same role.
-#
-# Location: <project>/.agents/skills/<kebab-name>/SKILL.md
-#   - committed project output, so every instance (and every worktree) sees it
-#   - Pi discovers project .agents/skills/ from the working directory upward
-# Registry: <team>/Skills.md (who owns it, who was told, current state)
-
-
 def skill_body(
     name: str,
     owner_role: str,
@@ -3501,9 +3324,6 @@ Every run records command + revision + observed result, as the team requires.
 """
 
 
-# A skill may close a lesson, so the only legal nesting is lessons -> skills.
-# Nothing may take skills.lock and then wait for lessons.lock: two lanes holding
-# one and waiting for the other would deadlock.
 LESSONS_LOCK = "lessons.lock"
 SKILLS_LOCK = "skills.lock"
 KNOWLEDGE_LOCK = "knowledge.lock"
@@ -3773,7 +3593,6 @@ def cmd_skill(args) -> int:
         )
         return 0
 
-    # list
     print(f"# Team skills ({path})")
     if not items:
         print("- none yet. Create one when a flow is repetitive and must stay consistent:")
@@ -3896,7 +3715,6 @@ def cmd_lesson(args) -> int:
         print(f"#   file: {path}")
         return 0
 
-    # fix
     actor, _arole = validate_actor(root, args.by, "author")
     found = find_lesson_anywhere(root, args.lesson_id)
     if found is None:
@@ -4012,14 +3830,6 @@ def cmd_knowledge(args) -> int:
 
         with lock(knowledge_lock_path(root)):
             items = parse_knowledge(path)
-            # Supersession is forward-only by construction: only an ACTIVE record
-            # may be superseded, a superseded record is never a target again, and
-            # every new record takes the next id. So each `superseded_by` edge
-            # points to a later-created record and a cycle would need an id lower
-            # than itself - the graph is acyclic by construction. The
-            # re-instatement link is the one case that may name an inactive
-            # record, and it writes no backward edge: the retired record keeps the
-            # successor that retired it.
             target = None
             if target_id:
                 index = find_knowledge(items, target_id)
@@ -4089,10 +3899,6 @@ def cmd_knowledge(args) -> int:
 
             re_instated = False
             if target is not None and target["status"] != "active":
-                # A retired record may be named only to re-instate the same fact
-                # into a free slot: same normalised topic AND statement. Its
-                # superseded_by already names the record that retired it and is
-                # never rewritten, so the chain stays forward-only.
                 re_instated = normalise_knowledge(target["topic"]) == normalise_knowledge(
                     topic
                 ) and normalise_knowledge(target["statement"]) == normalise_knowledge(statement)
@@ -4194,7 +4000,6 @@ def cmd_knowledge(args) -> int:
         print(f"- path: {path}")
         return 0
 
-    # touch
     actor, _arole = validate_actor(root, args.by, "author")
     with lock(knowledge_lock_path(root)):
         items = parse_knowledge(path)
@@ -4210,18 +4015,8 @@ def cmd_knowledge(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- #
-# Context tree: the read-only ctx:// view (Architecture.md 16)
-#
-# Every node is computed from a file that already exists; there is no store, no
-# sidecar and no index. A directory's L1 lists child L0s, a record's L1 lists its
-# fields, a doc's L1 lists headings, and L2 is the record block or file text.
-# `find` never reads L2, so a body edit cannot change its result.
-# --------------------------------------------------------------------------- #
-
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 
-#: The field order of `render_tasks`, used for a task's L1 and L2.
 _CONTEXT_TASK_FIELDS = (
     "priority",
     "status",
@@ -4851,7 +4646,6 @@ def cmd_context(args) -> int:
         print(f"- tasks: {sum(1 for node in nodes.values() if node.type == 'task')}")
         return 0
 
-    # digest
     tid = (args.task_id or "").strip().upper()
     found = None
     owner = ""
@@ -4951,12 +4745,6 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
         project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", rev_range
     )
     if proc.returncode != 0:
-        # A range whose base does not resolve is not a usage error: a push after a
-        # rewrite, or a pull_request event's stale "before", leaves exactly that.
-        # The tip is what can be measured, so measure that one commit and say so.
-        # Measuring its whole ancestry instead would fail a pull request on an
-        # old commit that main accepted long ago: measured on run 40789321527,
-        # the fallback named 6348825 (an ancestor of main, not part of the PR).
         tip = rev_range.split("..", 1)[1].strip() if ".." in rev_range else rev_range
         print(
             f"# {rev_range} cannot be read ({proc.stderr.strip()}); "
@@ -4985,11 +4773,6 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
         sha, an, ae, cn, ce = parts[0], parts[1], parts[2], parts[3], parts[4]
         subject = parts[6].splitlines()[0] if len(parts) > 6 and parts[6] else ""
         parents = parts[5].split() if len(parts) > 5 and parts[5] else []
-        # A forge's synthetic pull-request merge ref is an artefact of the forge,
-        # not a commit anyone pushed: the host authors it as the PR author and
-        # commits it as itself, and it never lands on the default branch. Guarding
-        # it would fail every pull request on a repository that merges through the
-        # host - the same reason the identity audit skips it.
         if len(parents) >= 2 and _RE_FORGE_MERGE_SUBJECT.match(subject.strip()):
             print(f"- {sha[:12]} skipped: forge pull-request merge ref")
             continue
@@ -5043,31 +4826,18 @@ def cmd_identity(args) -> int:
     return 0
 
 
-# Bot accounts a forge may author a dependency update with. They are not team
-# roles, so the role rule does not apply; the privacy scan still checks them.
 BOT_IDENTITIES = {"dependabot[bot]", "github-actions[bot]", "renovate[bot]"}
 _RE_BOT_EMAIL = re.compile(
     r"^(?:[0-9]+\+)?(?:dependabot|github-actions|renovate)\[bot\]@users\.noreply\.github\.com$"
 )
 _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
-#: ``Role: <display name>`` is the same machine-written fact as ``Acting role:``:
-#: ``build_commit_message`` emits both, so a message that carries only the
-#: structured trailer still names its acting role.
 _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
-#: Published commits whose message predates the trailer rule on this line. The
-#: author and committer are the canonical role mailbox (the identity the audit
-#: exists to protect); only the ``Acting role:`` trailer is absent, and editing a
-#: published commit means a history rewrite. Keyed on the full object id so no
-#: new commit and no pattern can ever match it.
 LEGACY_MESSAGE_EXEMPT = {
     "f709c4ce3eebd1689bef5982aa559564f8867895": (
         "chore(records) by Reviewer merged 2026-11-03 before the trailer rule; canonical identity"
     ),
 }
-#: The subject of a team merge commit that lands no content of its own. Both the
-#: scripted form (``chore(merge): ...``) and a plain ``git merge`` subject count,
-#: because integrating a peer branch is the same content-free act either way.
 _RE_MERGE_SUBJECT = re.compile(
     r"^(?:"
     r"chore\(merge\):"
@@ -5076,11 +4846,6 @@ _RE_MERGE_SUBJECT = re.compile(
     r")",
     re.IGNORECASE,
 )
-#: The committer a git host stamps on a merge it performs itself. It is transport,
-#: not identity: a forge rebase merge rewrites the committer to this account and
-#: leaves the author untouched, so the role that did the work is still the author -
-#: which is what this audit checks, and what the privacy gate already accepts
-#: (``noreply@github.com`` is a service address there, never a personal mailbox).
 _RE_FORGE_COMMITTER_EMAIL = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\.com)$")
 
 
@@ -5140,10 +4905,7 @@ def rewrite_safe_range(project: Path, rev_range: str) -> str:
     )
     tip = rev_range.split("..", 1)[1].strip() or "HEAD"
     if run_git(project, "rev-parse", "--verify", "--quiet", f"{tip}^").returncode != 0:
-        return tip  # a root commit is its own whole history
-    # ``tip`` alone means "every ancestor of tip", which would re-audit the whole
-    # history the event never covered - one rewrite then turns every old blemish
-    # red at once. The span that can be measured is exactly the new tip.
+        return tip
     return f"{tip}^..{tip}"
 
 
@@ -5191,9 +4953,6 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     rewriting published history is not an option; the exemption is keyed on the
     full object id and covers the trailer check only.
     """
-    # Name the repository before anything else: the same command in a lane worktree
-    # and in the primary checkout read different histories, so a reader who cannot
-    # see which one was read cannot tell a clean branch from an unaudited one.
     print(f"# Repository read: {project}")
     if rev_range.startswith("-"):
         print(f"teamwork: invalid revision range {rev_range!r}")
@@ -5238,22 +4997,12 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             reasons.append(f"not a role mailbox: {ae}")
         elif not _matches_role_display(an, expected):
             reasons.append(f"display name {an!r} does not match role {expected!r}")
-        # A forge-side merge stamps its own noreply committer - but only for a
-        # commit whose author is a canonical role mailbox, so the identity that
-        # matters (the acting role) is still enforced by every check here.
         forge_committer = expected is not None and _RE_FORGE_COMMITTER_EMAIL.match(ce) is not None
-        # A merge commit lands a peer's reviewed work, so the committer need not be
-        # the author. That is only acceptable when the committer is itself a
-        # canonical role mailbox (the reviewer/CEO who merged): a personal address
-        # stamping someone else's commit is exactly the privacy defect this gate
-        # exists for, so it stays a failure.
         landing_role = canonical.get(ce) if ce in canonical and (ce != ae or cn != an) else None
         if (ce != ae or cn != an) and not forge_committer and landing_role is None:
             reasons.append(f"committer {cn} <{ce}> differs from author {an} <{ae}>")
         match = _RE_ACTING_ROLE.search(body)
         if not match:
-            # The structured ``Role:`` trailer carries the same machine-written
-            # fact; accept it, but only when it names the author's own role.
             match = _RE_ROLE_FIELD.search(body)
             if match:
                 fallback_role = resolve_role(match.group(1))
@@ -5506,7 +5255,6 @@ def expand_roster(tier: str) -> dict:
     for role in roles:
         count = ROSTER_INSTANCE_COUNT.get(role, 1)
         for n in range(1, count + 1):
-            # Numbered roles are numbered from 1 so `reviewer-1` exists by that name.
             instances.append(role if count == 1 else f"{role}-{n}")
     missing = [r for r in ROSTER_REQUIRED if r not in roles]
     folded = {
@@ -5732,9 +5480,6 @@ def _instance_add(root: Path, args) -> int:
         scaffold_role(root, role, staffed=staffed)
         scaffold_instance(root, name, role, staffed=staffed)
         if under:
-            # One private file per instance, and the only place an `under:` line is
-            # ever written (13.2): moving a specialist is retire + add, so no
-            # command can give it a second manager.
             write_instance_team(root, name, under)
         created.append(name)
         ledger_append(
@@ -5787,8 +5532,6 @@ def _instance_list(root: Path, as_json: bool) -> int:
             {
                 "role": role,
                 "instances": inst,
-                # The team attachment (13.2) is a per-instance fact in one private
-                # file, so it is shown beside the instance and never as a line.
                 "under": {
                     name: pascal(instance_under(root, name))
                     for name in inst
@@ -5951,7 +5694,6 @@ def cmd_init(args) -> int:
     if not gpath.exists():
         write_memory(gpath, [], F_GLOBAL, "all agents")
 
-    # records are never destroyed: --force re-scaffolds only what is missing
     dpath = disputes_path(root)
     if not dpath.exists():
         write_disputes(dpath, [])
@@ -5980,8 +5722,6 @@ def cmd_init(args) -> int:
         )
         ledger_append(root, "ledger.export", "system", "init", "ledger seeded at bootstrap")
 
-    # Shared project documents: one owner, one canonical path.
-    # Committed project output, under <project>/docs/Team/.
     public = docs_dir(root)
     public.mkdir(parents=True, exist_ok=True)
     src_docs = TEMPLATES_DIR / "Docs"
@@ -5991,16 +5731,8 @@ def cmd_init(args) -> int:
             continue
         src = src_docs / filename
         if src.exists():
-            # Board.md is the one doc with a machine shape: `board --write` renders
-            # its tables and refuses a file that lacks the anchors. The template is
-            # that skeleton, so `tests/unit/test_init_board.py` renders it as well;
-            # without that check the two drift and `init` hands the team a board the
-            # tool will not render (T-0007).
             write_lf(p, src.read_text(encoding="utf-8"))
         elif filename == F_FEATURES:
-            # The records file is a parsed record set, not prose: a bare stub would
-            # lose the field authority the header states, and `feature add` appends
-            # rows under it (Architecture.md 13.1).
             write_lf(p, render_features([], p))
         else:
             write_lf(p, f"# {filename[:-3]}\n\nOwner: {owner}\n")
@@ -6017,8 +5749,6 @@ def cmd_init(args) -> int:
 
     created = []
     roles_seen = []
-    # A slim roster folds lanes away, so a charter that names an unstaffed
-    # parent would send the lane to a seat nobody holds.
     staffed = {resolve_role(n) for n in names}
     for name in names:
         role = resolve_role(name)
@@ -6108,8 +5838,6 @@ def fold_charter_reports(body: str, folded: str) -> str:
         (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
         len(lines),
     )
-    # "Manages:" is a different statement about the same role and must survive
-    # the rewrite - folding the manager line must not erase the span of control.
     keeps = [ln for ln in lines[start + 1 : end] if ln.startswith("Manages:")]
     mid = ["", *folded.splitlines()]
     if keeps:
@@ -6181,13 +5909,6 @@ def start_here(name: str, role: str, root: Path, docs: Path, staffed: set | None
     disputes = disputes_path(root)
     charter = role_dir(root, role) / F_ROLE
     parent = ROLE_PARENT.get(role)
-    # The brief is generated for every instance and is read BEFORE the charter, so
-    # it has to state the same line the charter does. Two things it must not do:
-    # hard-code the CEO for a role that reports to a CTO (# the whole reason this
-    # tree exists), and name a manager the team does not staff - a slim roster has
-    # no CTO, so a developer told to "report to the CTO" has nobody to report to.
-    # A vacancy folds upward to the nearest staffed ancestor, and the brief says so
-    # instead of pretending the lane is there.
     if role == "ceo":
         line = (
             f"You are the **{role}** of an autonomous team. You are the only lane that "
@@ -6196,8 +5917,6 @@ def start_here(name: str, role: str, root: Path, docs: Path, staffed: set | None
         )
         report_line = "Report to the user"
     elif parent is None:
-        # Not a bundled role: the fallback charter says report to the CEO, so the
-        # brief must not hand an unknown lane the CEO's user-facing authority.
         line = (
             f"You are the **{role}** of an autonomous team. You have no line in the "
             f"reporting tree (this team bundles no charter for '{role}'), so you report "
@@ -6427,25 +6146,6 @@ def _memory_path(root: Path, agent: str, layer: str) -> tuple:
     return d / filename, filename
 
 
-# Role memory: ONE revising instance at a time
-#
-# `Runtime/Locks/role-<Role>.lock` makes a single write atomic, and that is all it
-# does. Two instances of one role can still interleave their edits: A adds entry
-# 1, B consolidates and evicts it, A adds entry 2 against a file it never saw - and
-# the role's memory ends up as a merge nobody reasoned about. The lease below is
-# the missing rule: one instance of the role holds the pen, every other instance of
-# that role is read-only until the pen is released or its lease expires. Several
-# roles revise their own memory in parallel; instances within a role do not.
-#
-# Two ways to hold it, both under the same state file:
-#   * explicit - `memory claim` / `memory release`; held across several commands so
-#     one coherent update lands before a peer looks at the file ("until the memory
-#     for that role is fully updated");
-#   * implicit - one mutating command (`remember`, `forget`, `touch`,
-#     `consolidate`) takes the pen for its own duration and gives it back. Two
-#     peers still serialise instead of interleaving, without a second ceremony.
-
-
 def memory_claim_path(root: Path, role: str) -> Path:
     return root / DIR_RUNTIME / DIR_LOCKS / f"memory-{resolve_role(role)}.claim"
 
@@ -6586,10 +6286,6 @@ def memory_actor(root: Path, role: str, actor: str = "", require_instance: bool 
     inst = pascal(raw)
     insts = instances_of(root, role)
     names = {pascal(i) for i in insts}
-    # A name that IS an instance is never ambiguous, even when it equals the role's
-    # own name (`memory claim cto --by CTO` with CTO and CTO-2 both staffed). Only a
-    # role name with no such directory means "the role's pool", and a lease must not
-    # name a pool.
     if inst == pascal(role) and require_instance and inst not in names:
         if len(insts) > 1:
             die(
@@ -6660,9 +6356,6 @@ def memory_session(
             )
         held = read_memory_claim(root, role)
         explicit = bool(held.get("explicit")) and pascal(held["instance"]) == inst
-        # Joining my own lease keeps what the arbiter and the peers put on it:
-        # a pending contest must not vanish because the holder wrote one more
-        # entry, and an arbiter's ruling must stay on the record.
         claim = dict(held) if explicit else {}
         claim.update(
             {
@@ -6681,8 +6374,6 @@ def memory_session(
         try:
             yield claim
         finally:
-            # An explicit lease outlives the command that created it; it is the
-            # whole point of `memory claim`. An implicit one dies with the write.
             if not claim["explicit"]:
                 _clear_memory_claim(root, role, claim["token"])
 
@@ -6781,7 +6472,7 @@ def cmd_recall(args) -> int:
             )
     else:
         pattern = None
-    targets = []  # (owner_label, path, filename)
+    targets = []
     if args.global_ or args.all:
         for f in sorted(global_dir(root).glob("*.md")):
             targets.append(("global", f, f.name))
@@ -6914,9 +6605,6 @@ def cmd_memory(args) -> int:
         actor = memory_actor(root, role, args.by, require_instance=True)
         return _memory_contest(root, role, actor, args.reason)
     if sub in ("extend", "revoke"):
-        # The arbiter is deliberately ANOTHER role (the CTO, folded up to the CEO),
-        # so this path bypasses `memory_actor`: a peer role may not write the
-        # memory, but it may rule on who is allowed to.
         if not (args.by or "").strip():
             die(f"--by is required for `memory {sub}`: name the arbiter ruling", 2)
         actor, _actor_role = validate_actor(root, args.by, "arbiter")
@@ -7511,7 +7199,7 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
     if not is_git_repo(project):
         project.mkdir(parents=True, exist_ok=True)
         r = run_git(project, "init", "-b", "main")
-        if r.returncode != 0:  # older git without -b
+        if r.returncode != 0:
             r = run_git(project, "init")
         if r.returncode != 0:
             die(f"git init failed: {r.stderr.strip()}")
@@ -7527,9 +7215,6 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
         print(f"teamwork: added {len(added)} rule(s) to .gitignore")
 
     ensure_lfs(project, quiet=quiet)
-    # A plain `git commit` must never inherit the operator's personal identity.
-    # Set the repo-local fallback to the CEO role mailbox unless the repository
-    # already has its own identity.
     toplevel = run_git(project, "rev-parse", "--show-toplevel").stdout.strip()
     at_toplevel = bool(toplevel) and Path(toplevel).resolve() == project.resolve()
     if at_toplevel:
@@ -7545,12 +7230,12 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
             f"teamwork: NOTE {project} is inside the git worktree {toplevel}; "
             "the team uses that repository and will not rewrite its local identity."
         )
-    has_identity = True  # team commits always carry the ROLE identity
+    has_identity = True
 
     if commit and not created and is_git_repo(project):
         head = run_git(project, "rev-parse", "--verify", "--quiet", "HEAD")
         if head.returncode != 0:
-            created = True  # empty repository: make the bootstrap commit too
+            created = True
             if not quiet:
                 print("teamwork: empty repository detected: making the initial commit")
     if commit and created and has_identity:
@@ -7604,10 +7289,6 @@ def _worktree_is_busy(root: Path, path: str) -> bool:
     test is "is an agent still attached to this worktree".
     """
     here = Path(path)
-    # A lease names the task, and a task names the lane that claimed it. Compare both
-    # the worktree path and its agent name, because the slot file records the agent.
-    # Instance names are written both ways in the records (`Developer-1` in a claim,
-    # `developer-1` in a slot), so every comparison is case-folded.
     rel = here.name
     names = {rel.casefold(), safe_component(rel).casefold()}
     slots = root / DIR_RUNTIME / DIR_SLOTS
@@ -7721,10 +7402,6 @@ def _worktree_reclaimable(
     here = Path(path)
     if not here.is_dir() or here.resolve() == project.resolve():
         return False
-    # Ours means inside the repository's own `.pi/` tree: both the runtime worktrees
-    # and the reviewer scratch worktrees live there. Never the main checkout. Compare
-    # resolved paths, not string prefixes: `.pi-evil/x` shares the prefix but is not
-    # ours, and a symlinked `.pi` must still resolve inside the repository.
     pi_root = (project / TEAM_ROOT_DIR.split("/")[0]).resolve()
     try:
         if not here.resolve().is_relative_to(pi_root):
@@ -7736,8 +7413,6 @@ def _worktree_reclaimable(
             return False
     except OSError:
         return False
-    # Ignored files count as work: a lane's build cache, venv or object files live
-    # exactly here, and reclaiming them forces an expensive rebuild for a live lane.
     status = run_git(here, "status", "--porcelain", "--ignored")
     if status.returncode != 0 or status.stdout.strip():
         return False
@@ -7745,8 +7420,6 @@ def _worktree_reclaimable(
         return False
     if _worktree_is_busy(root, path):
         return False
-    # A locked worktree is pinned on purpose (a lane holding it, or a bisect):
-    # removing it would need --force twice and would defeat the lock.
     if _worktree_locked(project, path):
         return False
     return run_git(project, "merge-base", "--is-ancestor", head, DEFAULT_BASE).returncode == 0
@@ -7881,8 +7554,6 @@ def cmd_clean(args) -> int:
             continue
         r = run_git(project, "worktree", "remove", "--force", wt["path"])
         if r.returncode != 0 or Path(wt["path"]).exists():
-            # Never report a reclaim that did not happen: a lock or a permission
-            # problem is a finding, not a silent success.
             failed.append((wt["path"], (r.stderr or "").strip().splitlines()[:1]))
     if failed:
         print(f"teamwork: {len(failed)} worktree(s) could not be reclaimed:")
@@ -7972,10 +7643,6 @@ def cmd_task_add(args) -> int:
             if getattr(args, "bug", False):
                 t["kind"] = "bug"
             if (getattr(args, "feature", "") or "").strip():
-                # `task add --feature F-nnnn` slices the work to a feature (13.2). A
-                # `proposed` feature is not frozen yet, and a `done`/`dropped` one is
-                # not accepting work, so only the open states take tasks; execution is
-                # gated one state later, at `active`.
                 fid = args.feature.strip().upper()
                 records, _rev = read_feature_records(root)
                 at = find_feature(records, fid)
@@ -7997,8 +7664,6 @@ def cmd_task_add(args) -> int:
                     )
                     return 0
             tasks.append(t)
-            # The id has to exist before the graph is checked, or a dep on this very
-            # task would read as unknown and a self-dependency could not be seen.
             t["id"] = next_id(tasks, "T-")
             require_runnable_task_graph(root, role, tasks)
             write_tasks(path, tasks, role)
@@ -8077,8 +7742,6 @@ def cmd_task_list(args) -> int:
     return 0
 
 
-#: The fields a closed task carries that cost startup context. `forced` stays in
-#: the queue because the loop and the gate report read it.
 ARCHIVED_TASK_FIELDS = ("self_note", "review_evidence", "findings", "body")
 
 
@@ -8126,8 +7789,6 @@ def cmd_task_archive(args) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
         closed = [t for t in tasks if t["status"] in ("done", "dropped") and not t.get("archived")]
-        # A done task with no execution evidence is an audit finding, not history:
-        # archiving it would move the finding out of the queue that reports it.
         kept = [t for t in closed if t["status"] == "done" and not _task_has_execution_evidence(t)]
         closed = [t for t in closed if t not in kept]
         for t in kept:
@@ -8176,10 +7837,6 @@ def cmd_task_next(args) -> int:
         lookup = local_dep_map(tasks)
         cache = {}
         ready = [t for t in tasks if executable(t, lookup, cache, root)]
-        # Proactive work - a task the team inferred, not one a person asked for -
-        # is only taken when the team has accepted proactive work: mode `auto`.
-        # `observe` and `off` report it and say why it waits, so the record
-        # exists and the claim does not (AC-9, dsh 002-authorization.md).
         mode, mode_source = load_pulse_mode(root)
         refused = [t for t in ready if task_is_inferred(t)] if mode != "auto" else []
         if refused:
@@ -8201,9 +7858,6 @@ def cmd_task_next(args) -> int:
                 _print_task(t)
             return 3
         ready.sort(key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"], t["id"]))
-        # A squad instance never picks up another feature's work (13.2): a task
-        # carrying `feature:` is this instance's only when the record's owner is
-        # its leader and the feature is `active`.
         records = (
             visible_feature_records(root)
             if any((t.get("feature") or "").strip() for t in ready)
@@ -8222,7 +7876,6 @@ def cmd_task_next(args) -> int:
                 )
             return 3
         ready = mine
-        # capacity 0 or negative is a typo, not "take nothing": claim one
         want = max(1, int(getattr(args, "capacity", 1) or 1))
         take = ready[:want] if want > 1 else ready[:1]
         best = take[0]
@@ -8235,8 +7888,6 @@ def cmd_task_next(args) -> int:
             write_tasks(path, tasks, role)
     _print_mode_refusals(refused, mode, mode_source)
     if not args.peek:
-        # one claim, one ledger record: a lane that takes three units leaves three
-        # audit entries, otherwise the chain says less than the queue does
         for item in take:
             ledger_append(
                 root,
@@ -8335,7 +7986,6 @@ def cmd_task_set(args) -> int:
             t["priority"] = args.priority.upper()
         if args.deps is not None:
             t["deps"] = args.deps
-            # Every write that changes the edges must leave a graph that can run.
             require_runnable_task_graph(root, role, tasks)
         if args.title:
             t["title"] = args.title
@@ -8347,7 +7997,6 @@ def cmd_task_set(args) -> int:
                 "It is recorded on the task and reported by `audit`.",
                 2,
             )
-        # Anti-hallucination gate: `done` requires recorded evidence.
         if args.status == "done" and not t.get("evidence") and not args.force:
             die(
                 "refusing to mark done without evidence.\n"
@@ -8358,7 +8007,6 @@ def cmd_task_set(args) -> int:
                 "  Use --force only for a genuine non-code task, and say why in --body.",
                 2,
             )
-        # Self-check gate: review and test your own work before submitting it.
         if (
             args.status == "review"
             and t.get("review", "required") != "na"
@@ -8375,8 +8023,6 @@ def cmd_task_set(args) -> int:
                 "  Step 2 records the self-check and submits the task for review.",
                 2,
             )
-        # Independent-review gate: a deliverable is closed by the Reviewer, not
-        # by its author.
         if (
             args.status == "done"
             and t.get("review", "required") != "na"
@@ -8450,9 +8096,6 @@ def cmd_task_reclaim(args) -> int:
             die(f"no task '{args.handle}' for {role}")
         t = tasks[idx]
         previous = t.get("claimed_by") or "-"
-        # A live lease is the one honest signal that the owner is working, not
-        # silent. Denying it turns a takeover into a turf war: two lanes undoing
-        # each other's work while both are alive.
         if t.get("claimed_by") and pascal(t["claimed_by"]) != pascal(actor):
             reap_slots(root)
             provider = find_slot_provider(root, t["claimed_by"])
@@ -8519,15 +8162,6 @@ def cmd_task_rm(args) -> int:
     )
     print(f"teamwork: {role} removed {removed['id']} {removed['title']}")
     return 0
-
-
-# Feature teams: docs/Team/Features.md, the independence check and the
-# per-instance team attachment (Architecture.md 13)
-#
-# A feature is one vertical slice one squad can build, test and ship without
-# another squad's merge. The records are one committed file, one authority per
-# field, and the caller commits its own edit on its own branch - the path
-# `decision add` already walks for docs/Team/Decisions.md.
 
 
 def feature_record_path(root: Path) -> Path:
@@ -8722,7 +8356,6 @@ def merged_feature_records(project: Path, base: str, branch: str) -> tuple:
         if record["id"] in shared or record["id"] not in on_base:
             put(record)
             continue
-        # Cut on both sides from the same fork: two rows, one id.
         merged.append(record)
     return merged, True
 
@@ -8884,8 +8517,6 @@ def _feature_add(root: Path, args) -> int:
     import json
 
     as_json = bool(getattr(args, "json", False))
-    # A write verb's exit vocabulary is 0 and 2 (13.2): an absent records file is an
-    # empty record set to create, never `die`'s I/O code.
     records, rev, _present = feature_records_visible(root)
     actor, arole = validate_actor(root, args.by, "actor", allow_role=False, code=2)
     statement = one_line(args.statement)
@@ -9115,8 +8746,6 @@ def _feature_set(root: Path, args) -> int:
     refusal = _transition_refusal(edited, target, actor, arole)
     if refusal:
         return _feature_refusal("set", record, refusal, as_json, rev)
-    # A record's paths and dependencies are re-validated by 13.3 exactly as at
-    # `add`, and judged before the state is evaluated (13.2).
     edited["id"] = record["id"]
     problems = candidate_problems(records, edited, previous=record)
     if problems:
@@ -9202,7 +8831,6 @@ def _feature_list(root: Path, args) -> int:
     shown = [r for r in records if not wanted or r["state"] == wanted]
     opened = len(open_records(shown)) if wanted else len(open_records(records))
     if wanted:
-        # A filtered listing counts the filtered set on both sides of the slash.
         opened = len(shown)
     if as_json:
         print(
@@ -9217,8 +8845,6 @@ def _feature_list(root: Path, args) -> int:
                 ensure_ascii=False,
             )
         )
-        # 3 is the empty FILTER case (13.2): a team with no records at all is not
-        # a filter that matched nothing, so an unfiltered listing exits 0.
         return 3 if (wanted and not shown) else 0
     print(f"# Features ({opened} open / {len(shown)} total) @ {rev}")
     for record in shown:
@@ -9426,9 +9052,6 @@ def _slot_renew(args, root: Path, provider: str) -> int:
 
 def cmd_slot(args) -> int:
     root = project_root(args)
-    # A lock or slot dir is working state and must live in the team tree. Refusing
-    # here keeps a mis-set TEAMWORK_ROOT from creating a stray Runtime/ in the
-    # project root, which is a committed-tree defect and invisible to git status.
     if not (root / DIR_ROLES).is_dir() and not (root / DIR_AGENTS).is_dir():
         die(f"no workspace at {root}: run `teamwork.py init` first (or fix TEAMWORK_ROOT)")
     limits = load_providers(root)
@@ -9484,7 +9107,6 @@ def cmd_slot(args) -> int:
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"slots-{provider}.lock"):
             return _slot_renew(args, root, provider)
 
-    # acquire
     check_claimant(root, agent, "slot holder")
     deadline = time.monotonic() + max(args.wait, 0)
     lock_path = root / DIR_RUNTIME / DIR_LOCKS / f"slots-{provider}.lock"
@@ -9547,7 +9169,6 @@ def claim_age_minutes(value: str) -> int | None:
     return max(int((datetime.datetime.now() - taken).total_seconds() // 60), 0)
 
 
-# Review throughput: the queue, not the depth, is the limit.
 def review_lease_minutes(root: Path) -> int:
     """The base review lease; a claim is scaled by its review profile below."""
     try:
@@ -9556,12 +9177,6 @@ def review_lease_minutes(root: Path) -> int:
         return REVIEW_LEASE_MINUTES
 
 
-#: Multiplier on the base lease, one per review profile. Measured on this team's
-#: own ledger (2026-10-29): claim -> verdict was p50 42.4 min / p90 125.2 min
-#: against a flat 20-minute lease, so a standard or deep review's claim expired
-#: mid-flight and the other lane could take the same deliverable over - duplicated
-#: work on the one lane the team waits on. A prose-only review still gets the
-#: short lease, so a dead fast lane frees its item in 20 minutes, not 80.
 PROFILE_LEASE_MULTIPLIER = {"fast": 1, "standard": 2, "deep": 4}
 REVIEW_LEASE_MAX_MINUTES = 240
 
@@ -9656,14 +9271,6 @@ def review_gate_hint(profile: str) -> str:
     return "the full test suite, lint and type-check; a green CI run on the branch SHA may be cited"
 
 
-# Review economy: verify once, credit the rest.
-#
-# A review that re-runs a suite another role already ran at the same revision
-# is not independent, it is duplicated: independence is about the AUTHOR. A
-# passing record another role produced at this revision is a result the
-# reviewer may cite, and the packet lists what is citable so the reviewer does
-# not have to rediscover it (and does not have to guess whether it is stale).
-
 CREDIT_REV_RE = re.compile(r"@([0-9a-f]{7,40})\b")
 
 
@@ -9684,27 +9291,10 @@ def _same_revision(left: str, right: str) -> bool:
     return a.startswith(b) or b.startswith(a)
 
 
-#: The preflight line `selfcheck` writes into its own evidence
-#: (``preflight: PF-<digest> @<sha> (<n> checks, <k> failed)``). It is the only
-#: record of whether the AUTHOR ran the mechanical gate at the revision being
-#: reviewed, and the reviewer reads it in the packet.
 _RE_PREFLIGHT_EVIDENCE = re.compile(
     r"preflight:?\s+PF-[0-9a-f]+\s+@([0-9a-f]{7,40})\s*\(\s*\d+\s+checks?,\s*(\d+)\s+failed"
 )
 
-#: `review --result fail` records whether the AUTHOR's preflight was green at the
-#: revision that failed. Three values, a closed set:
-#: ``no`` - a green preflight digest for that revision is on the record, so the
-#: author did run the gate and the finding is a judgement call on the work;
-#: ``unknown`` - no green preflight was recorded for that revision, so the author
-#: skipped the gate and the finding may well be mechanical;
-#: ``n/a`` - the task has no revision (a verdict, a records pass) and there is
-#: nothing to preflight.
-#: Why a verdict writes it at all: at one ledger cut (n=1615) there were 44 review
-#: failures over 66 review targets and two independent readings classified the
-#: locally-decidable share differently (16-24 of 44). The share is contested, so a
-#: verdict records whether the author's preflight was green and the rate is
-#: measured prospectively; a claim of improvement needs a contrast.
 REVIEW_MECHANICAL_NO = "no"
 REVIEW_MECHANICAL_UNKNOWN = "unknown"
 REVIEW_MECHANICAL_NA = "n/a"
@@ -9737,23 +9327,12 @@ def review_mechanical(task: dict, revision: str) -> tuple:
     )
 
 
-# HERO's reachability test (Anti-OverDefense, rules 1-5): before running a check,
-# name the specific failure it would catch and what would change if it occurred.
-# The failure has to be reachable in this project's supported use, so adopting the
-# test turns a review finding into a claim someone can falsify - not a defence
-# against an input nobody can supply.
-
-#: The rule itself, printed with every refusal: one line, so it is read once.
 REVIEW_REACHABILITY_RULE = (
     "a finding must be reachable in this project's supported use - its documented "
     "inputs, published interface or real data - and constructible in principle is "
     "not enough"
 )
 
-#: A detector that answers HERO's question with a worry instead of a failure.
-#: Deliberately narrow: the whole answer must be the canned phrase, because a false
-#: refusal sends a real finding back untouched, while a vague one that slips through
-#: is only counted by `audit` - a measurable cost, not a blocked lane.
 _VAGUE_DETECT_RE = re.compile(
     r"^(?:"
     r"(?:(?:an?|the|this|that|some) )?"
@@ -9793,11 +9372,6 @@ def detects_problem(detects: str, findings: str = "") -> str:
     return ""
 
 
-#: `review.fail` detail -> its detector. The detail is one line that starts with the
-#: mechanical classification, then the review round, then the detector; a pipe
-#: inside the detector is written as a slash there, so this boundary is exact and a
-#: finding's own prose cannot forge it. The round is optional in the pattern so
-#: records written before it was added keep reading (legacy, not a defect).
 _RE_LEDGER_DETECTS = re.compile(
     r"^mechanical: [^|]*? \| (?:round: \d+ \| )?detects: (.*?)(?: \| |$)"
 )
@@ -10278,10 +9852,6 @@ def set_pulse_minutes(root: Path, minutes: int) -> None:
     atomic_write(providers_path(root), json.dumps(data, indent=2) + "\n")
 
 
-#: Settings.json key for the accept mode of *proactive* work (AC-9, dsh
-#: 002-authorization.md): `auto` acts on it, `observe` records what it would
-#: accept, `off` only reports. Absent reads as `auto`, so every tree written
-#: before this key existed keeps dispatching exactly as it did.
 PULSE_MODE_KEY = "PulseMode"
 PULSE_MODES = ("off", "observe", "auto")
 PULSE_MODE_DEFAULT = "auto"
@@ -10352,7 +9922,6 @@ def stale_claims(root: Path, minutes: int = None) -> list:
     return out
 
 
-#: how many units one lane may hold at once (one working + one awaiting review)
 LANE_WIP = 2
 
 
@@ -10463,12 +10032,6 @@ def cmd_pulse(args: object) -> int:
             )
         print()
 
-    # assignments: fill each lane up to its WIP limit, not just idle lanes.
-    # A lane whose deliverable is waiting in review still has capacity, and a lane
-    # that already holds LANE_WIP units gets nothing, so the queue drains in
-    # parallel instead of one task per lane per wake.
-    # only a live claim blocks a lane; an expired one is up for takeover, which
-    # is exactly the work the next pulse should hand out
     claim_holders = {pascal(lane) for _own, t, lane, _age in claims if review_is_held(t)}
     capacity: dict[str, int] = {}
     for a in list_agents(root):
@@ -10479,8 +10042,6 @@ def cmd_pulse(args: object) -> int:
             if pascal(t.get("claimed_by") or "") == pascal(a)
             and t["status"] in ("doing", "selfcheck")
         )
-        # a Reviewer lane holds ONE deliverable: a deep review is not divisible, and
-        # a second claim would just queue behind the first
         limit = 1 if role_name == "reviewer" else LANE_WIP
         if role_name == "reviewer" and pascal(a) in claim_holders:
             limit = 0
@@ -10498,9 +10059,6 @@ def cmd_pulse(args: object) -> int:
                 plan.append(("reviewer", inst, t, f"deliverable review: {t['title']}", own))
                 continue
             while items and capacity[inst] > 0:
-                # One team, one feature (13.2): a task carrying `feature:` goes to
-                # a lane of that team only - never to a sibling squad, and never to
-                # a lane whose leader is not the record's owner.
                 slot = next(
                     (
                         index
@@ -10522,13 +10080,6 @@ def cmd_pulse(args: object) -> int:
         for prov, cap in limits.items()
         if prov != "default"
     )
-    # A lane that already holds a lease does not need a second one; a lane without
-    # one does. Planning more new lanes than there are free slots is the article's
-    # stampede: every lane polls, few get served, and the retries cost more than the
-    # work. Defer the tail instead of handing out work nobody can start.
-    # One lease covers a lane's whole WIP, so the demand is the set of lanes, not the
-    # set of plan entries: counting entries starves a lane whose single free slot is
-    # there, and over-reports how many lanes are waiting (T-0020/A5).
     deferred = []
     new_slot_lanes = {pascal(entry[1]) for entry in plan} - slot_holders
     if len(new_slot_lanes) > free_slots:
@@ -10569,10 +10120,6 @@ def cmd_pulse(args: object) -> int:
     print()
 
     if mode == "observe":
-        # The assessment is the record: observe exists so proactive candidates
-        # are written down while the team still decides whether to act on them.
-        # Each run records what it would have accepted, and every record names the
-        # lane that ran the pulse - an unattributed ledger line cannot be audited.
         actor = getattr(args, "agent", "") or "ceo"
         recorded = 0
         for role, inst, task, _title, review_owner in plan:
@@ -10769,24 +10316,8 @@ def cmd_parallel(args) -> int:
     return 0
 
 
-# Coordination health
-#
-# Source: Anthropic, "Measuring multiagent systems" (accessed 2026-10-27),
-# https://www.anthropic.com/research/multiagent-systems - see
-# references/Coordination.md. The finding that shaped these checks is structural:
-# lanes that share a model, a context and a queue fail together, and a review
-# lane with no cross-check turns one blind spot into a systemic one. So this is
-# instrumentation, not advice: every check reads records the team already writes.
-
 COORD_OPEN = ("todo", "doing", "selfcheck", "blocked", "review")
-# PR record states that no longer expect anybody to touch the forge. `merged`
-# landed, `closed` was withdrawn with a stated reason, and `superseded` means
-# the work moved to another PR - under any of them a dead branch is the ordinary
-# end of a branch, not work that disappeared.
 COORD_PR_TERMINAL = ("merged", "closed", "superseded")
-# Task states that mean the work behind a PR is finished with: `done` landed,
-# `dropped` was deliberately abandoned with a reason in the queue, `superseded`
-# moved elsewhere. Any other state still owes the team an outcome.
 COORD_TASK_TERMINAL = ("done", "dropped", "superseded")
 COORD_VERIFICATION_ROLES = ("reviewer", "security-auditor", "tester")
 COORD_VERDICT_FLOOR = 6
@@ -10952,8 +10483,6 @@ def duplicate_task_pairs(root: Path, threshold: float = 0.6) -> list:
     return pairs
 
 
-#: Review economy: how far back a credit ratio is measured, and the number of
-#: recent passes below which a zero-credit window is not yet a finding.
 COORD_CREDIT_DAYS = 14
 COORD_CREDIT_FLOOR = 5
 
@@ -11052,7 +10581,6 @@ def coordination_report(root: Path) -> dict:
     open_tasks = [(role, t) for role, t in tasks if t.get("status") in COORD_OPEN]
     findings: list = []
 
-    # Diversity: the same branch, the same work, the same blind spot.
     branches: dict = {}
     shared_refs: dict = {}
     for role, task in open_tasks:
@@ -11101,9 +10629,6 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # A verification lane is independent only if it does not share the base
-    # model's blind spot; two Reviewer lanes on one model is the article's
-    # measured conformity failure, not a stylistic preference.
     for role in COORD_VERIFICATION_ROLES:
         lanes = instances_of(root, role)
         if len(lanes) < 2:
@@ -11126,7 +10651,6 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # Trust: echo, monoculture, no-finding-ever.
     for role, task in tasks:
         if task.get("review_status") != "passed":
             continue
@@ -11179,7 +10703,6 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # Turf: reclaims are the visible edge of a lane war.
     reclaims = _recent_reclaims(root)
     if reclaims:
         who = ", ".join(
@@ -11198,7 +10721,6 @@ def coordination_report(root: Path) -> dict:
             )
         )
 
-    # Merge health: the article's measured collapse.
     prs = parse_reviews(reviews_path(root))
     live_states = ("open", "approved", "changes-requested")
     total_prs = sum(1 for pr in prs if pr.get("status") in live_states + ("merged",))
@@ -11240,7 +10762,6 @@ def coordination_report(root: Path) -> dict:
                 )
             )
 
-    # Capacity: starved lanes race, over-subscribed lanes fail.
     limits = load_providers(root)
     reap_slots(root)
     over, free = [], 0
@@ -11333,7 +10854,6 @@ def coordination_report(root: Path) -> dict:
             )
         )
 
-    # Review economy: is the reviewer re-running a lane's recorded result?
     economy = review_economy(root, tasks)
     if economy["duplicated"]:
         rows = economy["duplicated"][:3]
@@ -11490,7 +11010,7 @@ def throughput_report(root: Path) -> dict:
         queue_sizes, key=lambda row: (row[1], row[0]), default=("", 0)
     )
 
-    from . import harness  # local: the command layer owns module registration
+    from . import harness
 
     startup = [row.always_on for row in harness.budget_rows(project, root, None)[0]]
 
@@ -11677,7 +11197,6 @@ def iter_markdown(project: Path) -> list:
     return sorted(out)
 
 
-# The quoted-evidence fields of an Archive.md entry (archive_append writes them).
 QUOTED_EVIDENCE_RE = re.compile(
     r"^(- (?:self-check|author evidence|reviewer evidence|findings history): ).*$", re.M
 )
@@ -11730,7 +11249,7 @@ def link_report(project: Path, root: Path) -> dict:
                 continue
             if target.startswith(EXTERNAL_SCHEMES):
                 if PLACEHOLDER_RE.search(target):
-                    continue  # template placeholder, not a real citation
+                    continue
                 host = re.sub(r"^[a-z]+://", "", target).split("/")[0]
                 if "." not in host and "localhost" not in host:
                     external_bad.append((rel, label, target))
@@ -11751,15 +11270,11 @@ def link_report(project: Path, root: Path) -> dict:
                 except ValueError:
                     pass
         graph[rel] = outs
-        # Strip link destinations before looking for bare URLs: a URL that is
-        # already a markdown target is not a bare URL, and a bare duplicate of a
-        # linked URL must still be reported.
         text_without_links = LINK_RE.sub("", text)
         for m in BARE_URL_RE.finditer(text_without_links):
             url = m.group(1).rstrip(".,;")
             bare.append((rel, url))
 
-    # reciprocity only among committed, human-facing documents
     committed = set()
     for path in files:
         rel = path.relative_to(project).as_posix()
@@ -11785,8 +11300,6 @@ def link_report(project: Path, root: Path) -> dict:
 
 def cmd_links(args) -> int:
     root = project_root(args)
-    # Inside one of our worktrees this is the worktree, so a lane checks the links
-    # it is about to submit rather than the checkout it happens to share.
     project = work_repo(root)
     rep = link_report(project, root)
     issues = len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"])
@@ -11822,13 +11335,6 @@ def cmd_links(args) -> int:
         print()
     print(f"# issues: {issues}")
     return 1 if issues else 0
-
-
-# The completion gates, in one place.
-#
-# `loop` (may the team stop?) and `audit` (is the team healthy?) both read this
-# single report, so the documented stop condition and the enforced one can never
-# drift apart again.
 
 
 def iter_tasks(root: Path, statuses=None):
@@ -11918,7 +11424,6 @@ def cmd_attention(args) -> int:
     root = project_root(args)
     path = attention_path(root)
     if args.attention_cmd == "list":
-        # A healthy team prints nothing: the panel is paid for by the items on it.
         for item in open_attention(parse_attention(path)):
             print(attention_line(item))
         return 0
@@ -12040,8 +11545,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
             f"{len(open_items) - authorized} informational"
         )
         if authorized:
-            # An authorization is the one kind a person must grant before the
-            # team may act; the other kinds are recorded and can be worked around.
             s["blockers"].append(
                 f"{authorized} open attention item(s) need authorization: "
                 + ", ".join(i["id"] for i in open_items if i["kind"] == "authorization")
@@ -12100,8 +11603,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         if t["status"] in buckets:
             buckets[t["status"]].append((role, t))
         elif t["status"] not in ("done", "dropped"):
-            # A typo or a hand-edited/forged value must never make a task
-            # invisible to the stop gate.
             invalid.append((role, t))
     open_work = 0
     for status, items in buckets.items():
@@ -12195,10 +11696,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     s = _section("integrity", "gate overrides, provenance and liveness")
     forced, unprovenanced, silent = [], [], []
     for role, t in tasks:
-        # An override on a task that is finished is history: it explains how the
-        # task got closed, not a gate that is still held open. Counting it would
-        # make the stop condition unreachable - every past override would block
-        # STOP forever. Only overrides on an OPEN task are a live blocker.
         if t.get("forced") and t["status"] not in ("done", "dropped"):
             forced.append(f"{t['id']} ({role}): {t['forced']}")
         if (
@@ -12265,7 +11762,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
         s["lines"].append("none")
     sections.append(s)
 
-    # 8b - roster gaps (a missing instance silently removes a layer)
     s = _section("roster", "roster gaps")
     for role in names:
         if not instances_of(root, role):
@@ -12277,8 +11773,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     sections.append(s)
 
     s = _section("ledger", "audit trail")
-    # read the trail once and derive both counts from that snapshot: a status
-    # command must not parse the ledger three times per call (T-0020/A14)
     records = ledger_read(root)
     if ledger_cache_behind(root, records):
         s["lines"].append(
@@ -12286,8 +11780,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
             "repair it with `teamwork.py ledger verify --reconcile` - mention it in "
             "the risk register if it recurs"
         )
-    # read-only: `loop` asks whether the team may stop, so it must not rewrite
-    # Runtime state; a lagging cache is a note above, never a blocker (T-0020/A14)
     problems = ledger_verify(root, records=records, report_cache_lag=False)
     records_n = len(_ledger_valid(records))
     if problems or not records_n:
@@ -12307,9 +11799,6 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     }
 
 
-# A stop check is read on every iteration, so its listing is the most repeated
-# view in the workspace. Section lines are clipped for reading; `--full` (or a
-# redirect) prints the stored text unchanged.
 LOOP_CLIP_LIMIT = 220
 
 
@@ -12325,9 +11814,6 @@ def cmd_loop(args) -> int:
     for sec in report["sections"]:
         print(f"## {sec['title']}")
         for line in sec["lines"]:
-            # A passing record is a count, not a task: the gate only needs the
-            # failures, the gaps and the blockers to decide, so the default view
-            # collapses the passing rows and `--full` lists them.
             if not full and line.startswith("[x] "):
                 passed += 1
                 continue
@@ -12411,19 +11897,6 @@ def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = No
     return f"# archive: wrote the accepted-results entry for {branch} on the base"
 
 
-#: Rules of the shipped privacy gate that the archive mask covers. The mask
-#: borrows the gate's own rule table rather than re-declaring shapes: a
-#: hand-written mask drifted from the scanner twice (it covered 2 of the 5
-#: credential rules and masked ``sk-learn-pipeline``, which the gate never
-#: reports), and the archive is the one place where a divergence between mask
-#: and gate is unrecoverable.
-#:
-#: The set is every rule the gate reports except the two it silences inside a
-#: quotation (``_QUOTED_PATH_RULES``): a path *shape* is not personal data, but
-#: an address is, and the gate keeps the identity rules armed on a quoted
-#: evidence line on purpose. Naming the two identity rules here is what stops
-#: the engine from writing an archive record the gate rejects - the review
-#: record is where a quoted address becomes permanent.
 CREDENTIAL_RULES = (
     "private-key",
     "api-token",
@@ -12435,7 +11908,7 @@ CREDENTIAL_RULES = (
 )
 
 
-def _privacy_scan():  # noqa: ANN202 - module handle, cached below
+def _privacy_scan():  # noqa: ANN202
     """The shipped scanner module, imported from the bundle.
 
     Loaded by path with no ``sys.path`` change, so a bundled ``scripts/``
@@ -12463,11 +11936,7 @@ def _privacy_scan():  # noqa: ANN202 - module handle, cached below
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 _PRIVACY_SCAN = module
-        except Exception as exc:  # noqa: BLE001 - a broken scanner must not break records
-            # Keep the intent (records still get written) but not the silence:
-            # masking is OFF for the rest of the process, so the writer's caller
-            # must be able to see why. Same shape as the other warnings this
-            # module prints on stderr while writing records.
+        except Exception as exc:  # noqa: BLE001
             _PRIVACY_SCAN = None
             if not _PRIVACY_WARNED:
                 _PRIVACY_WARNED = True
@@ -12521,21 +11990,13 @@ def mask_secret_shapes(text: str) -> str:
         return text
     rules = [rule for rule in scanner.RULES if rule["id"] in CREDENTIAL_RULES]
     values: list[tuple[str, str]] = []
-    # The gate's own ``scan_lines`` is the only source of values, for every rule.
-    # Taking a regex directly (the JSON arm once did) bypasses the gate's
-    # placeholder, code-shape and allow filters, so a placeholder the gate accepts
-    # (``${API_KEY}``, ``replace_me``) was rewritten in the immutable record.
     for finding in scanner.scan_lines(text, "", "archive", rules, ()):
-        # The raw value is a Finding attribute, never a report item, so the
-        # scanner cannot publish it and this mask reads it explicitly.
         value = finding.raw or ""
         if not value:
             continue
         rule = finding["rule"]
-        # A JSON credential is also high-entropy; name it by the specific rule.
         values = [pair for pair in values if pair[0] != value]
         values.append((value, rule))
-    # Longest first, so a value that contains another one is replaced once.
     for value, rule in sorted(values, key=lambda pair, /: -len(pair[0])):
         text = text.replace(value, f"<redacted-{rule}>")
     return text
@@ -12562,8 +12023,6 @@ def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) ->
     path = base_repo.joinpath(*DIR_DOCS) / "Archive.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        # The title is operator- or agent-written text and rides into the same
-        # immutable record, so it is masked exactly like the quoted fields.
         f"## {t['id']} · {mask_secret_shapes(t['title'])}  ({owner})",
         f"- date: {today_iso()}",
         f"- priority: {t['priority']}",
@@ -12575,11 +12034,6 @@ def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) ->
         f"- author evidence: {_quoted(t, 'evidence')}",
         f"- reviewer evidence: {_quoted(t, 'review_evidence')}",
         f"- findings history: {_quoted(t, 'findings')}",
-        # archive_append runs at review time, always before the merge revision
-        # exists, so a fresh entry starts at "pending" and `pr merge` repoints it.
-        # A reworked task still carries the earlier round's merge_commit; stamping
-        # it here would claim the new work merged at the old revision and leave the
-        # merge nothing to repoint.
         f"- branch / merge: {t.get('branch') or '-'} / pending",
         "",
     ]
@@ -12592,7 +12046,7 @@ def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) ->
             fh.write("\n".join(lines))
     try:
         return str(path.relative_to(project_of(root)))
-    except ValueError:  # pragma: no cover - a work tree outside the project
+    except ValueError:  # pragma: no cover
         return str(path)
 
 
@@ -12797,10 +12251,6 @@ def _review_claim(root: Path, args) -> int:
             )
         lane, age, held = review_claim_state(t)
         profile, _reason = review_profile_for(root, role, t)
-        # A claim always gets the lease its profile earns; only --renew reuses the
-        # lease written on the existing claim. A released claim must not lend its
-        # old lease to the next lane's claim of the same task. A claim that predates
-        # the stored lease still renews with the lease its profile earns now.
         lease = (
             (stored_claim_lease(t) or review_lease_for_profile(root, profile))
             if renew
@@ -13135,9 +12585,6 @@ def cmd_review(args) -> int:
                             2,
                         )
 
-        # A pass is the merge trigger, so the verdict may only be recorded when the
-        # revision can actually land: P-0057 passed and then died in ``_pr_merge`` on
-        # a Board.md conflict, leaving reviewed work unlanded behind a green verdict.
         probe_note = ""
         if args.result == "pass" and is_git_repo(project) and t.get("branch"):
             probe_base = (t.get("base") or "").strip() or DEFAULT_BASE
@@ -13156,9 +12603,6 @@ def cmd_review(args) -> int:
                             "  (--force <reason> records a deliberate override)",
                             2,
                         )
-                # The independence rule at the tree that would be landed (13.1): a
-                # pass is the merge trigger, so a feature that would land a second
-                # claim on a path must be refused before the verdict, not after it.
                 feature_problems = _feature_gate(project, probe_base, t["branch"])
                 if feature_problems and not args.force:
                     die(
@@ -13219,15 +12663,10 @@ def cmd_review(args) -> int:
                     forced += f" (mergeability overridden: {probe_note})"
                 t["forced"] = (t.get("forced", "") + f" | {forced}").strip(" |")
         if args.result == "fail":
-            # The revision that failed is what the next round is compared against:
-            # a fix is re-reviewed as a delta, not re-derived from scratch. Read it
-            # once, and classify the fail against the same revision.
             failed_rev = review_revision(root, t) or (t.get("review_fail_rev") or "")
             mechanical, mechanical_why = review_mechanical(t, failed_rev)
             detects = one_line(args.detects)
             prev = t.get("findings", "")
-            # The detector leads its defect so a reader judges proportionality
-            # without reading the whole report (HERO rules 1-5).
             finding = f"detects: {detects} | {args.findings.strip()}"
             t["findings"] = f"{prev} | {finding}" if prev else finding
             t["review_detects"] = detects
@@ -13261,10 +12700,6 @@ def cmd_review(args) -> int:
         (
             _review_pass_detail(t, args, claim_note, probe_note)
             if args.result == "pass"
-            # The classification leads the detail so the mechanical-fail rate can be
-            # counted off the append-only ledger long after the task record moves on;
-            # the detector follows it, so `audit` counts per fail rather than per task
-            # and a legacy record (no field) is counted as missing, never as a defect.
             else (
                 f"mechanical: {mechanical} | round: {int(t.get('review_fails') or 0)} "
                 f"| detects: {detects.replace('|', '/')} | {one_line(args.findings)[:150]}"
@@ -13298,8 +12733,6 @@ def cmd_review(args) -> int:
         )
         print(f"          reviewer evidence: {t.get('review_evidence')}")
         print(f"          archived to: {archived}")
-        # A pass is the merge trigger: the lane that verified the revision lands
-        # it and deletes the branch, so a passing review never waits in a queue.
         if t.get("pr") and not getattr(args, "no_merge", False):
             print(
                 f"          merging {t['pr']} now (--keep-branch opts out of deleting the branch)"
@@ -13349,9 +12782,6 @@ def cmd_review(args) -> int:
 
 
 def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
-    # Only work the author has submitted is a deliverable: a todo task has no
-    # frozen diff to review, and counting it inflated the queue, the "oldest" age
-    # and the "add a lane" advice - the number a CEO scales on.
     rows = []
     for name, t in awaiting_review(root):
         rows.append((PRIORITY_ORDER.get(t["priority"], 9), t.get("created") or "", name, t))
@@ -13426,44 +12856,16 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
     return 0
 
 
-# Preflight: the author's mechanical gate, run before the self-check
-#
-# Measured from the ledger at one cut (n=1615): 44 review failures over 66 review
-# targets (one role + task), of which 26 needed more than one verdict and 11
-# needed three or more. Two independent readings put the failures a local check
-# could have caught at 16-24 of 44; the share is contested, so the `mechanical:`
-# field on every fail measures it prospectively instead of asserting it here.
-# Each extra round costs a Reviewer lease (p50 12.2 / p90 25.8 minutes) and
-# serialises the author. So one command answers the questions a Reviewer answers
-# first, prints the exact fix for each miss, and `selfcheck` refuses while it is
-# red: the Reviewer's lease is then spent on judgement.
-
-#: Settings.json key naming the project's OWN gate (`make check`, `npm test`, ...).
-#: The skill ships no toolchain, so an unset key is reported as UNVERIFIED rather
-#: than guessed, and the check is only executed when the author asks for it.
 PREFLIGHT_SETTINGS_KEY = "PreflightCommand"
 
-#: A project gate may legitimately take minutes (a full suite); this is a backstop
-#: against a command that waits for input, not a performance budget.
 PREFLIGHT_GATE_TIMEOUT = 3600
 
-#: The evidence-revision form `@<sha>`: 7-40 hex characters not followed by a word
-#: character, so `@<rev>`, `@probe(...)` and a 41-character hash fragment never
-#: match. A claim bound to a revision that does not exist cannot be re-run, which
-#: is the four-in-43 "evidence names an unreachable revision" failure.
 _RE_EVIDENCE_REV = re.compile(r"@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])")
 
-#: The digest `selfcheck` appends to a note after preflight runs. It names the
-#: revision the gate measured, and a later rebase rewrites that revision: the
-#: tool's own record must not be the reason a resubmission is refused.
 _RE_PREFLIGHT_DIGEST = re.compile(r"preflight:\s*PF-[0-9a-f]+ @[0-9a-f]+[^|]*")
 
-#: The board is generated output, and this is the one path the check reads.
 PREFLIGHT_BOARD_PATH = "/".join(DIR_DOCS + ("Board.md",))
 
-#: The anchors every rendered board carries: the two table headers and the In-flight
-#: section. One tuple for `board --check` and `preflight`, so a file that one of them
-#: accepts the other cannot reject.
 BOARD_ANCHORS = (boardlib.TABLE_HEAD, boardlib.FLIGHT_HEAD, "## In flight")
 
 PREFLIGHT_OK = "ok"
@@ -13471,8 +12873,6 @@ PREFLIGHT_WARN = "warn"
 PREFLIGHT_FAIL = "fail"
 PREFLIGHT_UNVERIFIED = "unverified"
 
-#: Report and digest order, fixed: a reader comparing two preflight runs compares
-#: the same line with the same check.
 PREFLIGHT_ORDER = (
     "branch",
     "identity",
@@ -13484,20 +12884,12 @@ PREFLIGHT_ORDER = (
     "gate",
 )
 
-#: A review lease is sized per profile, so a diff beyond that profile's slice is
-#: a warning the author must see before the Reviewer spends the lease on it. The
-#: numbers are the ones Throughput.md section 4 rule 4 ships: fast 6/300,
-#: standard 12/600, deep 24/1200 (files / changed lines).
 SLICE_BUDGETS = {
     "fast": (6, 300),
     "standard": (12, 600),
     "deep": (24, 1200),
 }
 
-#: The checks whose verdict rides in the digest. `gate` is deliberately absent: it
-#: is opt-in (`--run`), so its status describes this invocation rather than the
-#: deliverable, and `selfcheck` re-runs the offline set - folding it in would make
-#: the digest an author pastes differ from the one the self-check records.
 PREFLIGHT_DIGEST_CHECKS = tuple(name for name in PREFLIGHT_ORDER if name != "gate")
 
 
@@ -13781,9 +13173,6 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
     measurement nobody can reproduce.
     """
     name = "evidence"
-    # A note accumulates: every past self-check stays behind a ` || `. Only the note
-    # this run is about to store (extra_text) and the latest stored one are current;
-    # judging older sections would block the very re-check that fixes a rewrite.
     latest = (task.get("self_note", "") or "").split(" || ")[-1]
     digest = _RE_PREFLIGHT_DIGEST.sub("", task.get("evidence", ""))
     note = _RE_PREFLIGHT_DIGEST.sub("", extra_text or latest)
@@ -13910,8 +13299,6 @@ def _board_problems(root: Path, text: str) -> list:
     try:
         return boardlib.problems(tasks, text, root)
     except (ValueError, StopIteration) as exc:
-        # `render` raises StopIteration on a board that lost its anchors; a check
-        # that crashes is not a check that passed.
         return [f"cannot compare this board with the queues: {exc}"]
 
 
@@ -14056,8 +13443,6 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
             PREFLIGHT_UNVERIFIED,
             f"UNVERIFIED: PreflightCommand not run (pass --run): {command}",
         )
-    # shlex, never a shell: the command is a string in a settings file, and a shell
-    # would also execute whatever a metacharacter smuggled into it.
     try:
         argv = shlex.split(command)
     except ValueError as exc:
@@ -14081,10 +13466,6 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
             " preflight --run",
         )
     except OSError as exc:
-        # A command this host cannot start is a RED gate on every host, never an
-        # exception out of the engine and never a silent pass: the report carries the
-        # command text and the reason, so a POSIX-only gate reads as red on win32
-        # instead of crashing the author's run (T-0003).
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
@@ -14134,10 +13515,7 @@ def run_preflight(
     elif not _rev_commit_exists(project, base):
         blocked = f"no base {base!r} to compare against"
     if blocked:
-        # Nothing to compare against, so these checks are not measured - and a check
-        # that cannot be measured is reported, not charged. The branch line already
-        # carries the finding and the fix when the task is missing one. Evidence is
-        # the exception: it reads the task record and needs no revision.
+
         def unmeasured(name: str) -> PreflightCheck:
             return PreflightCheck(name, PREFLIGHT_WARN, f"not measured: {blocked}", checks[0].fix)
 
@@ -14257,11 +13635,6 @@ def cmd_selfcheck(args) -> int:
                     2,
                 )
         artifacts = artifact_digests(root, getattr(args, "artifact", None))
-        # The note this self-check is about to store, minus the preflight line that
-        # does not exist yet. It is built HERE because the evidence check has to
-        # read the `--test` text: the stored self_note is written after the gate, so
-        # validating only what is already stored would let the one command this
-        # self-check is judged on name a revision the repository does not have.
         note = f"[{args.result}] {args.note.strip()}"
         if args.test.strip():
             note += f" | test: {args.test.strip()}"
@@ -14271,9 +13644,6 @@ def cmd_selfcheck(args) -> int:
             note += f" | baseline: {args.baseline.strip()}"
         if (getattr(args, "replay", "") or "").strip():
             note += f" | replay: {args.replay.strip()}"
-        # The mechanical half of the review, re-measured at this revision: the
-        # Reviewer must not spend a lease on `git rebase` or a stale evidence sha,
-        # and the digest that travels below is what lets it trust that half.
         preflight = run_preflight(root, role, t, extra_text=note)
         if args.result == "pass" and preflight.failed and not args.force:
             missing = "\n".join(
@@ -14456,10 +13826,6 @@ def _board_tables(args, root: Path) -> int:
         changed = after != before
         if changed:
             write_lf(path, after)
-        # Name every row that left the table: it had no in-scope queue record, so
-        # the projection dropped it. A row removed in silence is the stale-board
-        # defect. In --json the same list travels in the payload, so stdout stays
-        # parseable exactly when a drop happens.
         dropped = sorted(set(boardlib.board_rows(before)) - set(boardlib.board_rows(after)))
         queues_read = len({key[0] for key in tasks})
         if getattr(args, "json", False):
@@ -14651,7 +14017,6 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
     return f"# board: rendered {rel} from the queues at the merge ({sha})"
 
 
-#: Prefix on a provenance string that means "no alert was read", never "zero alerts".
 UNREADABLE_SCAN = "unreadable: "
 
 
@@ -14735,8 +14100,6 @@ def cmd_code_scanning(args) -> int:
     alerts, provenance = _scan_alerts(project, args.limit, args.full)
     print(f"# code scanning ({provenance})")
     if provenance.startswith(UNREADABLE_SCAN):
-        # An unreadable scanner is NOT a green gate: no alert was read, so nothing
-        # was verified. Refuse rather than print "no open alert" over a failed read.
         print(f"- cannot verify: {provenance}")
         print("# the release gate is UNVERIFIED for this revision; fix the read first")
         return 2
@@ -14808,11 +14171,8 @@ def cmd_code_scanning(args) -> int:
         after = len(parse_tasks(task_file(root, role)))
         if after > before:
             filed += 1
-        # a duplicate title is a no-op; the alert is already routed
     print(f"# filed {filed} code-scanning task(s) across {len(plan)} file(s)")
     print("teamwork: the Release Engineer owns the gate; the file owner fixes it")
-    # Filing a fix does not close the gate: the alert is still open until the forge
-    # reports it fixed, so the exit code must stay red after --commit too.
     return 1 if blocking else 0
 
 
@@ -14907,7 +14267,6 @@ def cmd_redline(args) -> int:
         print(f"#   {args.action[:80]}")
         print(f"#   status: {args.authorized or 'refused'} (escalate to the CEO)")
         return 0
-    # close
     if not path.exists():
         print("# no red lines recorded")
         return 0
@@ -14953,8 +14312,6 @@ def _audit_submitted_for_review_without_a_self_chec(root: Path, names: list, arg
                 t.get("review", "required") != "na"
                 and t.get("self_check") not in ("passed", "na")
                 and t["status"] in ("review", "done")
-                # A forced review pass records why the self-check was skipped; the
-                # force is the audit trail, so re-reporting it every run is noise.
                 and not (t.get("forced") or "").strip()
             ):
                 print(
@@ -14972,11 +14329,6 @@ def _audit_done_without_evidence_fabricated_complet(root: Path, names: list, arg
     hits = 0
     for name in names:
         for t in parse_tasks(task_file(root, name)):
-            # `done` is normally set by a review pass, which records its proof in
-            # review_evidence (and self_note for the author's own run); only a task
-            # closed by hand relies on `evidence` alone. Any of the three is a
-            # record of execution, so any of them satisfies the anti-hallucination
-            # gate - testing `evidence` alone flagged every properly reviewed task.
             if (
                 t["status"] == "done"
                 and not _task_has_execution_evidence(t)
@@ -15246,11 +14598,8 @@ def _audit_ownership_sanity_phantom_agents_silent_o(root: Path, names: list, arg
             if who in active:
                 continue
             if pascal(cb) == pascal(name) and instances_of(root, name):
-                continue  # the role itself = shared pool, not a phantom
+                continue
             if who in retired:
-                # A retired lane's name is known history, not a phantom. Its closed
-                # tasks keep the name as provenance; only open work it still claims
-                # is a defect, because nobody can pick it up.
                 if t["status"] in ("todo", "doing", "selfcheck", "review"):
                     print(
                         f"- {name} {t['id']} is {t['status']} but claimed by retired "
@@ -15313,7 +14662,7 @@ def _audit_branch_pr_flow(root: Path, names: list, args) -> int:
                 continue
             path = ln[3:].strip().strip('"')
             if ln.startswith("??") and path in bootstrap:
-                continue  # the CEO commits the constitution during bootstrap
+                continue
             pending.append(path)
         if current_branch(project_a) == DEFAULT_BASE and pending:
             print(
@@ -15604,9 +14953,6 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
 def _audit_markdown_link_health_broken_malformed_ba(root: Path, names: list, args) -> int:
     hits = 0
     print("## markdown link health (broken / malformed / bare / missing back-links)")
-    # Same rule as cmd_links: measure the tree the caller is in. project_of()
-    # answers for the main checkout, so inside a worktree this section reported
-    # "none" no matter what the lane's own documents contained.
     rep = link_report(work_repo(root), root)
     link_issues = (
         len(rep["broken"]) + len(rep["external_bad"]) + len(rep["bare"]) + len(rep["missing_back"])
@@ -15730,9 +15076,6 @@ def required_tribunal(root: Path, dispute: dict = None) -> list:
     if _role_has_neutral_instance(root, "reviewer", dispute) and (
         len(members) < TRIBUNAL_MIN_SIGNERS or _role_is_party_role(root, "reviewer", dispute)
     ):
-        # The Reviewer takes the neutral seat. It also takes it when it is a party
-        # role with an uninvolved instance: the role was only on the panel by
-        # accident then, and that instance is the neutral seat the charter names.
         members.append("reviewer")
     return members
 
@@ -15876,10 +15219,6 @@ def cmd_dispute_sign(args) -> int:
         if who not in members:
             die(f"only the tribunal may sign: {', '.join(members)}")
         if _actor_is_dispute_party(root, d, actor, arole):
-            # The party rule is per instance: a role-mate is not a party, but the
-            # agent the dispute was raised against never signs its own case. The
-            # panel check runs first, so an actor off the panel still gets the
-            # panel message it always got.
             die(
                 f"{d['id']}: {actor} is a party to this dispute and cannot sign it. "
                 f"Escalate it and let {', '.join(members)} decide",
@@ -15910,17 +15249,10 @@ def cmd_dispute_resolve(args) -> int:
             die(f"no dispute '{args.id}'")
         d = disputes[idx]
         who = resolve_role(args.by)
-        # Gate on the panel this dispute actually has, not on the staffed roles in
-        # general: a party is dropped from the panel, so the no-dispute list would
-        # admit the party and lock out the neutral signer that signing accepted.
         panel = required_tribunal(root, d)
         if arole not in panel:
             die(f"only the tribunal may resolve: {', '.join(panel)}")
         if _actor_is_dispute_party(root, d, actor, arole):
-            # A dispute is never decided by the side it decides for. The party test
-            # is per instance (a role-mate is not a party), and it is absolute:
-            # --force waives the signature requirement, never the party rule, so
-            # no party can rule its own dispute however good its reason reads.
             die(
                 f"{d['id']}: {actor} is a party to this dispute and cannot rule it. "
                 f"Escalate it and let {', '.join(panel)} decide",
@@ -15930,7 +15262,6 @@ def cmd_dispute_resolve(args) -> int:
             members = required_tribunal(root, d)
             missing = [r for r in members if r not in d["signed"]]
             if not members and not (args.force or "").strip():
-                # Every role that could sign is a party: nobody independent is left.
                 die(
                     f"{d['id']}: no independent signer exists (every staffed panel "
                     "role is a party). Staff a reviewer, or pass --force '<why no "
@@ -16081,9 +15412,6 @@ def cmd_agents_md(args) -> int:
     if not template.exists():
         die(f"missing template {template}")
     block = template.read_text(encoding="utf-8").strip()
-    # AGENTS.md is committed and may be published: substitute a portable command,
-    # never a machine path (``portable_invocation``). ``self_invocation`` returns
-    # an absolute path and is reserved for the private ``.pi/`` state.
     block = block.replace("<script>", _resources.portable_invocation())
     managed = f"{BEGIN}\n{block}\n{END}"
     if not target.exists():
@@ -16136,8 +15464,6 @@ def _fetch_source(source: Path, remote: str, branch: str) -> tuple[bool, str, st
         return False, f"no branch or tag {branch} on {remote}: {missing}", "", ""
     kind, commit = _source_ref(source, remote, branch)
     if not kind:
-        # The name exists (the fetch above succeeded) but is not a branch: fetch it
-        # as a tag ref so ``refs/tags/<name>`` resolves and stays identifiable.
         tagged = run_git(
             source, "fetch", "--quiet", remote, f"refs/tags/{branch}:refs/tags/{branch}"
         )
@@ -16162,8 +15488,6 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
     """
     dirty = run_git(source, "status", "--porcelain").stdout.strip()
     if dirty:
-        # Never clobber uncommitted work, but do not refuse to mirror either: the
-        # operator may be mid-change and still want the installed copy to match.
         return True, (
             f"local changes ({dirty.splitlines()[0]}) - fast-forward skipped, "
             "mirroring this checkout as it stands"
@@ -16174,10 +15498,6 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
     head = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
     target = run_git(source, "rev-parse", "--short", commit).stdout.strip()
     if kind == "tag":
-        # A tag pin is a fixed revision, not a line of development, so the
-        # checkout has to sit on it rather than on a tracking branch. Detaching
-        # is the only move that can go backwards as well as forwards; the tree is
-        # clean here, so nothing is lost (the commits stay in the refs).
         moved = run_git(source, "checkout", "--quiet", "--detach", commit)
         if moved.returncode != 0:
             tail = (moved.stderr or moved.stdout).strip().splitlines()
@@ -16189,8 +15509,6 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
     label = f"{remote}/{branch} {detail}"
     detached = run_git(source, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip() == "HEAD"
     if detached:
-        # Leaving a tag pin for a branch: re-attach first, or the fast-forward
-        # would only move a detached HEAD and the branch pin would not stick.
         reattach = run_git(source, "checkout", "--quiet", branch)
         if reattach.returncode != 0:
             tail = (reattach.stderr or reattach.stdout).strip().splitlines()
@@ -16205,9 +15523,6 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
         return False, f"cannot fast-forward {head} -> {target}: {tail[-1] if tail else '?'}"
     after = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip()
     if after == head:
-        # The checkout already contains remote/branch - it is AHEAD of it, which is
-        # the normal state of a lane mid-task. Report where HEAD really is rather
-        # than announce a move that did not happen.
         return True, f"{remote}/{branch} {target} is already contained in {head} (ahead of it)"
     return True, f"{head} -> {after}"
 
@@ -16316,7 +15631,7 @@ def cmd_selftest(args) -> int:
     def check(label, fn):
         try:
             fn()
-        except Exception as exc:  # noqa: BLE001 - report, never traceback
+        except Exception as exc:  # noqa: BLE001
             checks.append((label, False, f"{type(exc).__name__}: {exc}"))
         else:
             checks.append((label, True, "ok"))
@@ -16409,30 +15724,6 @@ def cmd_selftest(args) -> int:
     return 1 if failed else 0
 
 
-# Imaging: is a text-to-image / image-to-image model available, and which one?
-#
-# Policy: the Designer's charter (roles/designer.md), Visual assets section.
-# The probe is deliberately OFFLINE: it reads environment variables and PATH
-# only, never the network, so it cannot leak a prompt, cannot hang, and cannot
-# claim a model that is not there.
-
-# Ranked best-first per provider (quality over speed and cost). "Best quality"
-# means the first generally available model listed. Checked 2026-10-17; add a new
-# provider with a source and a date before using it - an unknown provider is
-# never assumed to be the best.
-
-# Ambient-credential detection order. A provider is only selected when it has a
-# ranked image model, so holding an OpenAI key does not pretend to be a model.
-
-
-# Per-agent model configuration
-#
-# The team is a skill, not an application: every agent runs through its own LLM
-# API, and the model is a property of the AGENT, not of the project. A role may
-# have a default and an instance may override it, so a cheap model can drive the
-# mechanical lanes while a strong one drives the Reviewer.
-
-
 def load_model_config(root: Path) -> dict:
     """Return ``{"roles": {...}, "agents": {...}}`` from Settings.json."""
     path = providers_path(root)
@@ -16484,14 +15775,6 @@ def resolved_model(root: Path, agent: str) -> dict:
     return {"provider": "", "model": "", "source": "unset"}
 
 
-# Automatic model routing: best quality per lane at the lowest cost
-#
-# The skill ships no model ids. It reads the runtime environment - which agent
-# host is running and which models that host already exposes - and routes the
-# STRONG model to the lanes where a mistake is expensive and the ECONOMY model to
-# the mechanical lanes. Nothing is invented: a lane with no available model is
-# reported as `unset` with the exact variable to set.
-
 AGENT_HOSTS = {
     "pi": ("PI_SESSION_ID", "PI_PROVIDER", "PI_MODEL"),
     "claude": ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "ANTHROPIC_MODEL"),
@@ -16502,8 +15785,6 @@ AGENT_HOSTS = {
     "unknown": (),
 }
 
-#: Lanes where a wrong answer is expensive get the strongest model available;
-#: everything else runs on the economy tier. One entry per role id.
 LANE_TIER = {
     "reviewer": "strong",
     "architect": "strong",
@@ -16580,9 +15861,6 @@ def resolve_model_plan(root: Path, env=None) -> dict:
             continue
         lanes = instances_of(root, role)
         if role in COORD_VERIFICATION_ROLES and len(lanes) > 1 and alternate:
-            # Two lanes that share weights, context and queue make the same
-            # mistake; independent verification needs a second model when one is
-            # available (references/Coordination.md).
             for index, lane in enumerate(lanes):
                 assignments[lane] = {
                     "provider": provider,
@@ -16706,7 +15984,6 @@ def cmd_model(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    # `--project` is accepted both before and after the subcommand.
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(
         "--project", default=argparse.SUPPRESS, help="project directory (default: cwd)"
@@ -17158,8 +16435,6 @@ def _parsers_memory(sub, common) -> None:
     s.add_argument("--by", default="", help="which instance forgets it (default: the agent)")
     s.set_defaults(func=cmd_forget)
 
-    # The role memory lease: exactly one instance revises a role's memory at a
-    # time, and it keeps the pen until the whole update is in.
     s = sub.add_parser(
         "memory",
         parents=[common],
@@ -17592,8 +16867,6 @@ def _parsers_integration(sub, common) -> None:
     )
     s.set_defaults(func=cmd_commit)
 
-    # `hooks` installs and inspects the git hooks; `hook` is what those hooks call
-    # back into. The rules act on the commit/push flow, so they register here.
     from .hooks import add_parsers as _add_hook_parsers
 
     _add_hook_parsers(sub, common)
@@ -18107,8 +17380,6 @@ def _parsers_meta(sub, common) -> None:
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(func=cmd_imaging)
 
-    # The harness surface registry and its lint live in their own module: they
-    # measure the tree at run time and must not grow this command layer.
     from .harness import add_parsers as _add_harness_parsers
 
     _add_harness_parsers(sub, common)
@@ -18121,8 +17392,6 @@ def main(argv=None) -> int:
     except SystemExit:
         raise
     except (OSError, ValueError, KeyError, IndexError) as exc:
-        # Malformed workspace state must produce one actionable line, never a
-        # traceback that hides the real gate state.
         print(
             f"teamwork: {type(exc).__name__}: {exc}. "
             "Inspect the workspace with `teamwork audit` and `teamwork ledger verify`.",

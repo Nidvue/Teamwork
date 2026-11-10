@@ -21,7 +21,6 @@ ROSTER = "ceo,developer-1,reviewer-1"
 
 NOW = datetime.datetime(2026, 11, 1, 12, 0)
 
-#: The row order the table is read in, exactly as the specification lists it.
 STAGE_ROWS = (
     "person/answer",
     "person/review",
@@ -56,11 +55,6 @@ def stage(record: dict, **kwargs) -> str:
     return engine.stage_of(record, now=kwargs.pop("now", NOW), **kwargs)[0]
 
 
-# --------------------------------------------------------------------------- #
-# one row per test
-# --------------------------------------------------------------------------- #
-
-
 def test_person_answer_when_an_open_attention_item_names_the_task() -> None:
     record = task(status="doing")
     item = engine.new_attention("grant the push", kind="authorization", by="CEO", task="T-0001")
@@ -80,7 +74,6 @@ def test_person_blocked_failed_when_the_status_is_blocked() -> None:
 
 def test_person_blocked_failed_when_review_failed_three_times() -> None:
     assert stage(task(status="doing", review_fails=3)) == "person/blocked-failed"
-    # Two failures are ordinary churn: the owner is still expected to fix them.
     assert stage(task(status="doing", review_fails=2)) == "working"
 
 
@@ -123,33 +116,24 @@ def test_person_review_lane_when_a_submission_has_no_live_claim() -> None:
 def test_idle_when_a_doing_task_was_not_updated_for_more_than_24h() -> None:
     assert stage(task(status="doing", updated="2026-10-31")) == "idle"
     assert stage(task(status="doing", updated="2026-11-01")) == "working"
-    # The boundary itself: 23h59 is working, exactly 24h is idle.
     assert stage(task(status="doing", updated="2026-10-31T12:01")) == "working"
     assert engine.stage_of(task(status="doing", updated="2026-10-31T12:00"), now=NOW)[0] == "idle"
 
 
 def test_working_for_everything_else() -> None:
     assert stage(task(status="doing", updated="2026-11-01")) == "working"
-    # A todo whose dependency is not done is not queued: nothing can start it.
     record = task(status="todo", deps="T-0009", updated="2026-11-01")
     assert stage(record, deps_ready=False) == "working"
-
-
-# --------------------------------------------------------------------------- #
-# the table as a table
-# --------------------------------------------------------------------------- #
 
 
 def test_the_table_is_read_top_to_bottom_and_the_first_row_wins() -> None:
     """A record that matches several rows is classified by the first one."""
     item = engine.new_attention("grant the push", kind="authorization", by="CEO", task="T-0001")
-    # Matches person/answer, person/review and person/blocked-failed.
     record = task(status="blocked", self_check="passed", review_status="pending", review_fails=3)
 
     assert stage(record, open_items=[item]) == "person/answer"
     assert stage(record) == "person/review"
 
-    # person/review is gone, so the blocked row wins over the failure count.
     record = task(status="blocked", review_status="pending", review_fails=3)
     assert stage(record) == "person/blocked-failed"
 
@@ -181,11 +165,6 @@ def test_the_stage_never_depends_on_the_clock_beyond_the_idle_rule() -> None:
     assert first == second
 
 
-# --------------------------------------------------------------------------- #
-# the claim lease agrees with the engine's reviewer
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.parametrize(
     ("minutes", "expected"),
     [(0, True), (19, True), (21, False), (300, False)],
@@ -205,11 +184,6 @@ def test_claim_state_agrees_with_the_engine_rule(minutes: int, expected: bool) -
 
     assert (lane, live) == (engine_lane, engine_live)
     assert live is expected
-
-
-# --------------------------------------------------------------------------- #
-# the command
-# --------------------------------------------------------------------------- #
 
 
 def _write_queue(root: Path, records: list) -> None:

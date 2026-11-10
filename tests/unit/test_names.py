@@ -28,7 +28,6 @@ def test_slugify_normalises_text(text: str, expected: str) -> None:
 
 
 def test_slugify_none_is_work() -> None:
-    # ``slugify`` guards against None via ``(text or "")``.
     assert engine.slugify(None) == "work"
 
 
@@ -62,7 +61,6 @@ def test_pascal(name: str, expected: str) -> None:
 
 
 def test_pascal_keeps_trailing_instance_number() -> None:
-    # The last token being a digit keeps the instance suffix separated.
     assert engine.pascal("tester-10") == "Tester-10"
 
 

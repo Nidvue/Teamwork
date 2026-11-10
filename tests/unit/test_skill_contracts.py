@@ -50,13 +50,7 @@ def flat(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
-#: The CEO charter is intentionally different from the line roles.
 LINE_ROLES = tuple(role for role in ROLES if role != "ceo")
-
-
-# --------------------------------------------------------------------------- #
-# bundle integrity
-# --------------------------------------------------------------------------- #
 
 
 def test_every_role_charter_exists_and_is_substantial(root):
@@ -115,24 +109,15 @@ def test_the_skill_declares_the_agent_skills_contract(root):
     assert "stdlib" in compatibility, "the no-dependency claim is the point of the engine"
 
 
-# --------------------------------------------------------------------------- #
-# push policy: Release Engineer pushes reviewed revisions in stages
-# --------------------------------------------------------------------------- #
-
-
 def test_release_engineer_owns_a_review_gated_staged_push_policy(root):
     text = read(root, "roles", "release-engineer.md")
     assert "## Publishing to the remote (push policy)" in text
-    # gated on the Reviewer
     assert "after the Reviewer has confirmed" in text
     assert "no finding is open" in text
-    # staged, not batched to the end: a stage ends with a push
     assert "push per stage" in text.lower()
     assert "a stage ends with a push, not with a merge" in text.lower()
-    # pre-push gates and post-push CI watch on the pushed SHA
     assert "privacy_scan.py --tree --history" in text
     assert "on that pushed" in text or "on that SHA" in text
-    # red lines
     assert "Never force-push" in text
     assert "Tags and releases are the CEO's call" in text
 
@@ -150,11 +135,6 @@ def test_engineering_reference_documents_the_push_policy(root):
     assert "per milestone" not in text.lower()
     assert "a stage ends with a push" in text.lower()
     assert "privacy_scan.py --tree --history" in text
-
-
-# --------------------------------------------------------------------------- #
-# local + CI certification: Tester
-# --------------------------------------------------------------------------- #
 
 
 def test_tester_certifies_both_local_and_ci(root):
@@ -182,24 +162,15 @@ def test_testing_reference_documents_local_and_ci(root):
     assert "CI <run-id>" in text
 
 
-# --------------------------------------------------------------------------- #
-# the constitution and the top-level skill carry the same rules
-# --------------------------------------------------------------------------- #
-
-
 def test_agents_template_carries_push_and_ci_rules(root):
     raw = read(root, "templates", "AGENTS.md")
     text = flat(raw)
     assert "PUSH POLICY" in text
     assert "LOCAL + CI" in text
-    # The rule is "a Reviewer passed it before the push", not one sentence: the
-    # PUSH POLICY paragraph itself must carry the Reviewer and the condition. Split
-    # the raw text, not the flattened copy, or every paragraph is the whole file.
     assert any(
         all(term in flat(para) for term in ("PUSH POLICY", "Reviewer", "no open finding"))
         for para in raw.split("\n\n")
     ), "the PUSH POLICY paragraph lost its Reviewer condition"
-    # the cadence is a hard rule on both surfaces, not prose a rewrite can drop
     assert "a stage ends with a push, not with a merge" in text.lower()
 
 
@@ -245,17 +216,8 @@ def test_the_role_mailbox_domain_is_an_owner_decision(root):
     assert any("status: accepted" in b for b in mailbox), "the owner decision is not accepted"
 
 
-# --------------------------------------------------------------------------- #
-# CI trigger policy: code in, prose and media out
-# --------------------------------------------------------------------------- #
-
-#: The prose/media set, as path patterns. Every member must be named by the
-#: workflow's own filter (a `paths-ignore` list or the `scope` classifier's
-#: regex) and by `docs.yml`'s `paths:` list - the two lists must not drift.
 PROSE_AND_MEDIA = ("docs/**", "assets/**", "README.md", "LICENSE", "mkdocs.yml")
 
-#: One concrete file per prose/media pattern, used to exercise the filter the
-#: workflow really implements (a glob list or the classifier's regex).
 PROSE_AND_MEDIA_EXAMPLES = (
     "docs/Team/Architecture.md",
     "assets/logo.svg",
@@ -264,16 +226,12 @@ PROSE_AND_MEDIA_EXAMPLES = (
     "mkdocs.yml",
 )
 
-#: Paths that must ALWAYS run the code matrix when they change.
 SHIPPED = ("src/**", "scripts/**", "tests/**", "roles/**", "references/**", "templates/**")
 
-#: The directories whose files ship in the wheel/skill bundle.
 SHIPPED_DIRS = ("src", "scripts", "tests", "roles", "references", "templates")
 
-#: The expensive jobs the cost optimisation may skip, and only on a push.
 EXPENSIVE_JOBS = ("lint", "typecheck", "test", "build", "privacy", "docs")
 
-#: The exact condition the expensive jobs carry under the `scope` mechanism.
 SCOPE_CONDITION = "if: github.event_name != 'push' || needs.scope.outputs.code == 'true'"
 
 
@@ -304,7 +262,7 @@ def workflow_triggers(text: str) -> dict[str, str]:
     for line in lines[start + 1 :]:
         stripped = line.strip()
         if stripped and not stripped.startswith("#") and _indent(line) == 0:
-            break  # the section ends at the next top-level key
+            break
         if not stripped or stripped.startswith("#"):
             if name:
                 body.append(line)
@@ -452,9 +410,6 @@ def _first_file(root: Path, directory: str) -> str:
     raise AssertionError(f"no file found under {directory}/")
 
 
-# The wording that failed three PRs: a charter telling a lane to take the
-# repository's own configured identity and to avoid -c user.* / --author /
-# GIT_AUTHOR_*, which contradicts AGENTS.md and the CI identity gate.
 FORBIDDEN_IDENTITY_CLAUSES = (
     r"locally\s+configured[^.]{0,160}identit",
     r"identit[^.]{0,160}locally\s+configured",
@@ -520,11 +475,7 @@ def test_ci_ignores_prose_and_media_paths(root):
         assert marker in prose.patterns, f"ci.yml does not name the prose path {marker}"
     for example in PROSE_AND_MEDIA_EXAMPLES:
         assert prose.matches(example), f"ci.yml does not classify {example} as prose"
-    # the filter must be a real filter: a shipping file is not prose
     assert not prose.matches("src/teamwork/cli.py")
-    # Exactly one mechanism filters the push. A workflow-level `paths-ignore`
-    # skips the whole workflow - including a gate whose subject is prose - so
-    # it cannot coexist with the job-level classifier.
     text = read(root, ".github", "workflows", "ci.yml")
     has_scope = "scope" in workflow_jobs(text)
     has_trigger_filter = "paths-ignore" in workflow_triggers(text).get("push", "")
@@ -643,7 +594,6 @@ def test_the_docs_workflow_builds_the_site_from_a_release_tag(root):
     push = workflow_triggers(text)["push"]
     assert "paths" in push, "the branch-push prose filter belongs in this workflow"
     assert docs_push_tags(text) == ["v*"], docs_push_tags(text)
-    # The citation that makes the answer auditable, not assumed.
     assert "Path filters are not evaluated for pushes of tags" in flat(text)
     assert "workflow-syntax-for-github-actions" in text
     assert "accessed 2026-10-28" in text
@@ -669,7 +619,6 @@ def test_the_docs_deploy_guards_accept_a_tag_ref_and_agree(root):
     jobs = workflow_jobs(read(root, ".github", "workflows", "docs.yml"))
     assert jobs["deploy"].count(guard) == 1, jobs["deploy"][:400]
     assert jobs["check"].count(guard) == 1, "the Pages artifact upload guard disagrees"
-    # A pull request matches neither branch and never deploys.
     assert "pull_request" not in jobs["deploy"], jobs["deploy"][:200]
 
 
@@ -685,7 +634,6 @@ def test_the_docs_workflow_covers_the_ignored_paths_with_cheap_checks(root):
     text = read(root, ".github", "workflows", "docs.yml")
     assert "paths:" in text
     assert '"docs/**"' in text and '"assets/**"' in text
-    # the cheap checks that still matter for prose
     assert "teamwork.py links" in text
     assert "privacy_scan.py --tree --history" in text
     assert "mkdocs build --strict" in text
@@ -703,11 +651,6 @@ def test_skill_documents_the_trigger_policy(root):
     assert "CI triggers are path-filtered: code in, prose and media out" in text
 
 
-# --------------------------------------------------------------------------- #
-# design principles: user first, simple, efficient, usable, great experience
-# --------------------------------------------------------------------------- #
-
-
 def test_designer_charter_is_user_first(root):
     text = flat(read(root, "roles", "designer.md"))
     assert "## Design principles - the user comes first" in text
@@ -715,7 +658,6 @@ def test_designer_charter_is_user_first(root):
         assert principle in text, principle
     for topic in ("### Layout and typography", "**Fonts:**", "### Images and media"):
         assert topic in text, topic
-    # typography and usability specifics that must not drift
     assert "real text" in text
     assert "16 px" in text
     assert "45-75" in text
@@ -740,17 +682,10 @@ def test_repository_svgs_depend_on_no_external_font_or_resource(root):
         assert "@font-face" not in body, svg
         assert "xlink:href" not in body, svg
         assert 'href="http' not in body, svg
-        # An SVG that renders text must declare a font stack with a generic
-        # fallback (the terminal demo uses a <style> block); a pure-graphic SVG
-        # such as the logo has no text and therefore needs none.
         if "<text" in body or "font-family" in body:
             assert "font-family" in body, svg
             assert re.search(r"(sans-serif|monospace)", body), svg
 
-
-# --------------------------------------------------------------------------- #
-# host-agnostic execution: any agent software
-# --------------------------------------------------------------------------- #
 
 AGENT_HOSTS = ("Pi", "Claude Code", "opencode", "Codex", "Cursor", "Generic")
 HOST_OPERATIONS = (
@@ -789,13 +724,9 @@ def test_no_normative_step_requires_a_pi_only_tool(root):
     assert "Only six\n  operations need a host mechanism" in text or "six\n  operations" in text
     adapters = read(root, "references", "Adapters.md")
     for tool in ("subagent(", "schedule.create"):
-        assert tool in adapters, tool  # documented as Pi's mechanism
+        assert tool in adapters, tool
     assert "Never hard-code a host tool" in flat(adapters)
 
-
-# --------------------------------------------------------------------------- #
-# repository and CI integrity on any git host
-# --------------------------------------------------------------------------- #
 
 REMOTE_HOSTS = ("GitHub", "GitLab", "Bitbucket", "Gitea", "Azure DevOps")
 INTEGRITY_RULES = (
@@ -870,15 +801,12 @@ def test_release_engineer_owns_repo_and_ci_integrity(root):
     assert "required check" in text.lower()
     assert "squash" in text.lower()
     assert "protected tag pattern" in text
-    # charters use the {references} placeholder, substituted at init
     assert "Remotes.md" in text
 
 
 def test_skill_assigns_integrity_to_the_release_engineer(root):
     text = flat(read(root, "SKILL.md"))
     assert "protects" in text.lower() or "protected default branch" in text
-    # the merge is the Reviewer's local action; the host's own button is off, so a
-    # host-side "squash-only" policy is not what this bullet may claim (Remotes.md).
     assert "host merge button off" in text
     assert "merges locally" in text
     assert "source branch is deleted" in text
@@ -905,11 +833,9 @@ def test_required_checks_are_always_reported_on_pull_requests(root):
     assert not re.search(r"^\s+paths(-ignore)?:", docs_pr, re.M), (
         "docs.yml must not path-filter pull requests"
     )
-    # the cost optimisation exists, on the push side only
     assert "push" in triggers, "ci.yml must trigger on push"
     jobs = workflow_jobs(ci)
     if "scope" in jobs:
-        # the classifier mechanism: the expensive jobs ask the classifier
         assert "paths-ignore" not in triggers["push"], (
             "ci.yml must not path-filter the push trigger next to the scope classifier"
         )
@@ -922,7 +848,6 @@ def test_required_checks_are_always_reported_on_pull_requests(root):
                 f"the {job} job must skip only on a prose-only push"
             )
     else:
-        # the trigger-filter mechanism: the jobs themselves are never skipped
         for job in EXPENSIVE_JOBS:
             assert job in jobs, f"ci.yml is missing the {job} job"
             assert not re.search(r"^    if:", jobs[job], re.M), f"the {job} job must not be skipped"
@@ -933,10 +858,6 @@ def test_remote_reference_documents_the_unreported_check_trap(root):
     assert "a required check must always be reported" in text.lower()
     assert "deadlock" in text.lower()
 
-
-# --------------------------------------------------------------------------- #
-# automated code standards
-# --------------------------------------------------------------------------- #
 
 TOOLCHAIN_LANGUAGES = (
     "Python",
@@ -1019,18 +940,11 @@ def test_scanner_allows_the_github_service_mailbox():
     try:
         ps = importlib.import_module("privacy_scan")
     finally:
-        # Leaving scripts/ on sys.path would shadow the real ``teamwork`` package
-        # with ``scripts/teamwork.py`` for every later test in the session.
         if added:
             sys.path.remove(str(scripts))
 
     assert ps._email_allowed("support@github.com")
     assert ps._email_allowed("noreply@github.com")
-
-
-# --------------------------------------------------------------------------- #
-# naming and commit hygiene
-# --------------------------------------------------------------------------- #
 
 
 def test_engineering_reference_defines_the_naming_policy(root):
@@ -1082,13 +996,10 @@ def test_skill_contract_requires_naming_and_history_hygiene(root):
 
 def test_repository_names_follow_the_policy_it_documents(root):
     """The policy must describe this repository, not an aspiration."""
-    # PascalCase team docs and skill directories
     assert (root / "docs" / "Team" / "Architecture.md").is_file()
     assert (root / "references" / "Engineering.md").is_file()
-    # Python modules are import paths: lower_snake_case
     for module in (root / "src" / "teamwork").glob("*.py"):
         assert module.stem == module.stem.lower(), module
-    # tool-mandated names are untouched
     for tool_file in ("pyproject.toml", "Makefile", "AGENTS.md", "SKILL.md", "LICENSE"):
         assert (root / tool_file).is_file(), tool_file
 
@@ -1099,11 +1010,6 @@ def test_remote_reference_is_honest_about_single_owner_repositories(root):
     assert "cannot be satisfied by the author" in text
     assert "enforce_admins = false" in text
     assert "Do not set the approval count to zero" in text
-
-
-# --------------------------------------------------------------------------- #
-# several Reviewers in parallel
-# --------------------------------------------------------------------------- #
 
 
 def test_reviewer_charter_documents_parallel_reviews(root):
@@ -1132,11 +1038,6 @@ def test_there_is_no_single_reviewer_bottleneck_claim(root):
     assert "Reviewer is not optional" in text
 
 
-# --------------------------------------------------------------------------- #
-# warnings are errors
-# --------------------------------------------------------------------------- #
-
-
 def test_engineering_reference_defines_the_warnings_policy(root):
     text = flat(read(root, "references", "Engineering.md"))
     assert "## Warnings are errors" in text
@@ -1155,7 +1056,6 @@ def test_agents_template_and_charters_require_warning_free(root):
 def test_this_repository_fails_on_warnings(root):
     pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
     assert 'filterwarnings = ["error"]' in pyproject
-    # TOML spelling here, CLI spelling in the reference
     assert "warn_unused_ignores = true" in pyproject
     assert "warn_redundant_casts = true" in pyproject
 
@@ -1184,7 +1084,6 @@ def test_ci_actions_are_not_on_node_deprecated_majors(root):
         "softprops/action-gh-release": 3,
     }
     found = dict(re.findall(r"([\w.-]+/[\w.-]+)@v(\d+)", text))
-    # A SHA-pinned action keeps the human-readable major in a trailing comment.
     found.update(
         {
             action: major
@@ -1223,11 +1122,6 @@ def test_release_tag_matches_the_package_version(root):
     assert "GITHUB_REF_NAME" in release
 
 
-# --------------------------------------------------------------------------- #
-# master brand: "Nidvue" before the product name
-# --------------------------------------------------------------------------- #
-
-
 def test_master_brand_precedes_the_product_name(root):
     assert (root / "NOTICE").is_file(), "NOTICE (copyright holder) is required"
     notice = (root / "NOTICE").read_text(encoding="utf-8")
@@ -1239,7 +1133,7 @@ def test_master_brand_precedes_the_product_name(root):
 
     mkdocs = (root / "mkdocs.yml").read_text(encoding="utf-8")
     assert "site_name: Nidvue Teamwork" in mkdocs
-    assert "Nidvue/Teamwork" in mkdocs  # the repo link stays stable
+    assert "Nidvue/Teamwork" in mkdocs
 
     for name in ("pyproject.toml", "CITATION.cff"):
         text = (root / name).read_text(encoding="utf-8")
@@ -1265,11 +1159,6 @@ def test_identifiers_are_not_renamed_by_the_brand(root):
         .split("VERSION")[0][:200]
         or True
     )
-
-
-# --------------------------------------------------------------------------- #
-# master brand mark
-# --------------------------------------------------------------------------- #
 
 
 def test_the_nidvue_mark_is_bundled_and_self_contained(root):
@@ -1298,11 +1187,6 @@ def test_the_mark_is_attributed_and_not_lfs_tracked(root):
     assert "docs/assets/*" in attrs
 
 
-# --------------------------------------------------------------------------- #
-# skill-first positioning and per-agent models
-# --------------------------------------------------------------------------- #
-
-
 def test_the_project_is_positioned_as_a_skill(root):
     readme = (root / "README.md").read_text(encoding="utf-8")
     assert "a skill for your coding agent" in readme
@@ -1328,15 +1212,12 @@ def test_the_model_is_configurable_per_role_and_per_instance(cli, project, capsy
     capsys.readouterr()
     assert cli("model", "set", "reviewer", "--provider", "anthropic", "--model", "strong") == 0
     assert cli("model", "set", "developer-1", "--provider", "deepseek", "--model", "cheap") == 0
-    # the instance override wins...
     assert cli("model", "get", "developer-1") == 0
     out = capsys.readouterr().out
     assert "deepseek" in out and "cheap" in out
-    # ...and a sibling instance inherits the role default
     assert cli("model", "get", "reviewer-2") == 0
     out = capsys.readouterr().out
     assert "anthropic" in out and "strong" in out
-    # and both show up in the roster view
     assert cli("model", "list") == 0
     listing = capsys.readouterr().out
     assert "developer-1" in listing.lower() and "reviewer-2" in listing.lower()
@@ -1350,11 +1231,6 @@ def test_concurrency_reference_documents_per_agent_models(root):
     assert "ships no model" in text.lower() or "does **not** ship a model" in text
 
 
-# --------------------------------------------------------------------------- #
-# automatic, cost-aware model routing from the runtime environment
-# --------------------------------------------------------------------------- #
-
-
 def test_host_detection_and_lane_tiers(root):
     import sys
 
@@ -1366,7 +1242,6 @@ def test_host_detection_and_lane_tiers(root):
     assert engine.detect_agent_host({"OPENCODE_MODEL": "m"}) == "opencode"
     assert engine.detect_agent_host({"CODEX_HOME": "/x"}) == "codex"
     assert engine.detect_agent_host({}) == "unknown"
-    # decision lanes are strong, mechanical lanes are economy
     assert engine.LANE_TIER["reviewer"] == "strong"
     assert engine.LANE_TIER["architect"] == "strong"
     assert engine.LANE_TIER["security-auditor"] == "strong"
@@ -1379,7 +1254,6 @@ def test_auto_reads_the_environment_and_never_invents_a_model(cli, project, caps
     assert cli("init", "--no-git", "--agents", "ceo,architect,reviewer-1,developer-1") == 0
     capsys.readouterr()
 
-    # nothing in the environment -> dry plan, every lane reported unset with advice
     for var in (
         "TEAMWORK_MODEL_STRONG",
         "TEAMWORK_MODEL_ECONOMY",
@@ -1394,8 +1268,6 @@ def test_auto_reads_the_environment_and_never_invents_a_model(cli, project, caps
     assert "dry run" in out and "TEAMWORK_MODEL_STRONG" in out
     assert "model=strong" not in out and "claude-" not in out
 
-    # an environment model is routed: strong lanes first, economy elsewhere
-    # explicit override: detection infers, this decides
     monkeypatch.setenv("TEAMWORK_AGENT_HOST", "claude")
     monkeypatch.setenv("CLAUDECODE", "1")
     monkeypatch.setenv("TEAMWORK_MODEL_STRONG", "a-strong-model")
@@ -1406,7 +1278,6 @@ def test_auto_reads_the_environment_and_never_invents_a_model(cli, project, caps
     assert cli("model", "get", "developer-1") == 0
     assert "a-cheap-model" in capsys.readouterr().out
 
-    # and the JSON form is a single valid document
     import json
 
     assert cli("model", "auto", "--json") == 0
@@ -1457,12 +1328,6 @@ def test_automatic_routing_is_documented_everywhere(root):
         assert "### Your model (all roles)" in path.read_text(encoding="utf-8"), path.name
 
 
-# --------------------------------------------------------------------------- #
-# skill-first presentation: the thing installed is a skill, not an app
-# --------------------------------------------------------------------------- #
-
-# Historical records quote commands run against the old namespace; rewriting them
-# would falsify evidence. Every other surface must use the current one.
 HISTORICAL_RECORDS = {"docs/Team/Archive.md", "docs/Team/AuditReport.md"}
 
 
@@ -1495,7 +1360,7 @@ def test_repository_namespace_is_nidvue(root):
         rel = path.relative_to(root).as_posix()
         if rel in HISTORICAL_RECORDS:
             continue
-        stale = "Vision" + "PZ"  # split so this file never matches itself
+        stale = "Vision" + "PZ"
         if stale in path.read_text(encoding="utf-8"):
             offenders.append(rel)
     assert offenders == [], f"stale repository URLs in {offenders}"
@@ -1588,8 +1453,6 @@ def test_readme_shows_real_cases_for_common_ways_to_use_it(root):
     assert "use the teamwork skill" in examples
 
 
-# Host naming belongs to the adapter reference only; the surfaces a user reads
-# must describe one protocol that every agent host can run.
 HOST_PATTERNS = {
     "pi": r"(?<![\w.])pi(?![\w.])",
     "claude": r"\bclaude\b",
@@ -1618,9 +1481,6 @@ def test_adoption_surfaces_stay_agent_agnostic(root):
         for host, pattern in HOST_PATTERNS.items():
             assert not re.search(pattern, text), f"{name} still names the host {host!r}"
 
-    # every role charter ships inside the pi package: a concrete host tool call
-    # there is the same portability regression as one in SKILL.md. Provider and
-    # model names are content, not a host dependency, so they are not scanned.
     for charter in sorted((root / "roles").glob("*.md")):
         text = charter.read_text(encoding="utf-8")
         for tool in ("subagent(", "subagent_supervisor(", "schedule.create", "teams("):
@@ -1642,8 +1502,8 @@ def _delete_repository(path: Path) -> None:
     documentation surface asserted further down - not a tool this test needs
     installed (T-0003).
     """
-    directory_mode = stat.S_IRWXU  # owner rwx: a POSIX directory must stay traversable
-    file_mode = stat.S_IRUSR | stat.S_IWUSR  # owner rw
+    directory_mode = stat.S_IRWXU
+    file_mode = stat.S_IRUSR | stat.S_IWUSR
     for parent, directories, files in os.walk(path, topdown=False):
         for name in files:
             entry = Path(parent, name)
@@ -1724,7 +1584,6 @@ def test_delete_repository_restores_traversable_directories(tmp_path, monkeypatc
     assert snapshot, f"the helper never reached shutil.rmtree; {context}"
     assert not tree.exists(), f"the read-only tree must be gone; {context}"
 
-    # Deepest first, so a broken tree names the narrowest directory first.
     for name in (".git/refs", ".git", "."):
         assert name in snapshot, f"{name!r} was not reachable when deletion started; {context}"
         bits = {"read": stat.S_IRUSR, "write": stat.S_IWUSR, "execute": stat.S_IXUSR}
@@ -1753,14 +1612,6 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
     remote = tmp_path / "remote"
     remote.mkdir()
     (remote / "SKILL.md").write_text("---\nname: teamwork\n---\n", encoding="utf-8")
-    # The platform's own variables must survive (a hand-built environment that
-    # keeps PATH and HOME but drops SystemRoot/TEMP breaks Windows, where the
-    # interpreter's RNG is initialised from the OS) and the caller's git
-    # configuration must not: ``GIT_CONFIG_GLOBAL``, ``GIT_CONFIG_SYSTEM`` and
-    # ``$XDG_CONFIG_HOME/git/config`` would otherwise decide whether the commit
-    # is signed (``commit.gpgsign``) and which branch a fresh repository starts
-    # on (``init.defaultBranch``). ``child_env`` starts from the parent
-    # environment and re-asserts the hermeticity on top.
     env = child_env(
         GIT_AUTHOR_NAME="T",
         GIT_AUTHOR_EMAIL="t@example.com",
@@ -1842,8 +1693,6 @@ def test_no_surface_still_demands_a_second_reviewer_to_merge(root):
     )
     texts = {parts: flat(read(root, *parts)) for parts in surfaces}
 
-    # (1) The rule has to be stated, in the imperative form the contract uses.
-    # Without this the rest of the guard is satisfied by simply deleting the topic.
     stated = (
         "pass merges",
         "pass is the merge",
@@ -1859,8 +1708,6 @@ def test_no_surface_still_demands_a_second_reviewer_to_merge(root):
             f"{'/'.join(parts)} no longer states that a pass merges the deliverable"
         )
 
-    # (2) Every wording a reviewer produced. Verbatim, case-folded, whitespace
-    # collapsed - so a re-wrap or a capitalisation change cannot hide one.
     retired = (
         "a different reviewer must merge it",
         "a second reviewer must merge it",
@@ -1892,8 +1739,6 @@ def test_no_surface_still_demands_a_second_reviewer_to_merge(root):
                 f"{'/'.join(parts)} teaches the retired two-step merge: {wording!r}"
             )
 
-    # (3) The rule as authored: the author is the one party refused, so
-    # independence never becomes "find a second Reviewer".
     joined = " ".join(" ".join(text.lower().split()) for text in texts.values())
     assert "author never merges" in joined or "never merges its own work" in joined
     assert "author" in joined and "refused" in joined
@@ -1950,7 +1795,6 @@ def test_the_reviewer_charter_carries_the_ordered_criteria(root):
     )
     assert positions == sorted(positions), "the review criteria are out of order"
 
-    # Blind to the author, and the downside counts as much as the upside.
     assert "judge blind to the author" in section
     assert "length and polish are not merits" in section
     assert "weigh the downside as heavily as the upside" in section
@@ -2013,11 +1857,6 @@ def test_a_process_change_reported_as_an_improvement_needs_a_contrast(root):
         )
 
 
-# --------------------------------------------------------------------------- #
-# review economy: the anti-duplication rule lives where every agent reads it
-# --------------------------------------------------------------------------- #
-
-
 def test_reviewer_charter_defines_the_credit_rule(root):
     text = flat(read(root, "roles", "reviewer.md"))
     assert "## Review economy: verify once, credit the rest" in text
@@ -2034,7 +1873,6 @@ def test_skill_entry_point_has_the_verify_once_step(root):
     assert "`--credit`" in text and "credited:" in text
     assert "C-REVIEW-DUP" in text and "C-REVIEW-NOCREDIT" in text
     assert "A fix is a delta review" in text or "a fix is a delta" in text.lower()
-    # the old rule the economy replaced must not survive anywhere in the skill
     assert "reviewed from scratch" not in text
 
 
@@ -2076,11 +1914,6 @@ def test_the_cli_guide_documents_the_credit_and_the_packet_lines(root):
     assert "the layers left **uncovered**" in text
 
 
-# --------------------------------------------------------------------------- #
-# the throughput contract: the rules that remove duplicated work
-# --------------------------------------------------------------------------- #
-
-
 def test_the_throughput_contract_is_stated_where_every_agent_reads_it(root):
     for name in ("templates/AGENTS.md", "AGENTS.md"):
         text = flat(read(root, *name.split("/")))
@@ -2106,10 +1939,6 @@ def test_the_roles_reference_carries_the_contract_and_the_feature_team_design(ro
     assert "decision rights" in text and "never a second reporting line" in text
     assert "shared service" in text
 
-
-# --------------------------------------------------------------------------- #
-# the intern protocol: the Grok Bot guide, adapted (T-0029)
-# --------------------------------------------------------------------------- #
 
 INTERN_RULES = (
     "No human relay",
@@ -2172,13 +2001,9 @@ def test_the_research_document_records_the_grok_bot_guide(root):
 def test_the_skill_states_the_contract_and_its_measured_basis(root):
     text = flat(read(root, "SKILL.md"))
     assert "### 5i. The throughput contract" in text
-    # the rules feature check actually applies, named in the skill, not a
-    # transition refusal attributed to the check (review round 1 on T-0018)
     assert "five rules" in text
     assert "one open feature per leader" in text
     assert "`feature set <F-nnnn> --state ready`" in text
-    # the numbers must be the reproducible ones, with their unit and their method;
-    # an estimate presented as a measurement is what the first review failed.
     assert "66" in text and "one role + task" in text
     assert "n=1615" in text and "16-24 of 44" in text
     assert "mechanical: no|unknown|n/a" in text

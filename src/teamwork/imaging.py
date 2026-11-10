@@ -20,7 +20,7 @@ IMAGE_MODEL_RANKING = {
         "stability-ai/stable-diffusion-3.5-large",
     ),
     "local": ("qwen-image-2.1", "sdxl", "sd3.5-large"),
-    "ollama-cloud": (),  # text/vision INPUT only as of 2026-10-17
+    "ollama-cloud": (),
 }
 
 IMAGE_PROVIDER_PRIORITY = (

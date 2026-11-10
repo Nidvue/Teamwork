@@ -135,7 +135,6 @@ def test_packet_lists_credits_and_never_the_author_own_run(cli, project: Path) -
         cli, project, "integration", "Tester-1", head, "pytest -q tests/integration"
     )
     add_record(cli, project, "unit", "Developer-1", head, "pytest -q tests/unit")
-    # A record at another revision is stale: the tree moved, so the run must too.
     add_record(cli, project, "acceptance", "Reviewer-1", "0" * 7, "pytest -q tests/acceptance")
 
     packet = engine.review_packet(
@@ -176,7 +175,6 @@ def test_credit_is_refused_for_the_author_a_stale_rev_or_an_unknown_id(cli, proj
     assert task["review_status"] == "passed"
     assert f"credited: {tester} integration/engine by Tester-1 @{head}" in task["review_evidence"]
 
-    # --credit belongs to a pass: a fail names findings, not a citation.
     task["status"] = "review"
     task["review_status"] = "pending"
     task["self_check"] = "passed"
@@ -225,8 +223,6 @@ def test_a_fail_stores_the_revision_and_the_next_packet_is_a_delta(cli, project:
     assert f"delta since {head} (1 file(s)): README.md" in packet
     assert "re-review the delta" in packet
 
-    # A failed revision that is not in this repository cannot be diffed: say so
-    # instead of claiming nothing changed, which would send the reviewer home.
     unreadable = dict(moved)
     unreadable["review_fail_rev"] = "deadbeef"
     assert "not diffable" in engine.review_packet(root, "developer", unreadable)
@@ -285,8 +281,6 @@ def test_coordination_reports_a_duplicated_gate_and_a_zero_credit_window(
     assert "C-REVIEW-DUP" in codes
     assert report["metrics"]["review_duplicated_gates"] == 1
 
-    # A fresh pass per ledger record: five recent passes with no credit cited is
-    # no longer a one-off, it is the team re-running everything.
     for _ in range(engine.COORD_CREDIT_FLOOR):
         engine.ledger_append(root, "review.pass", "Reviewer-1", "T-0001", "pass", "", "developer")
     report = engine.coordination_report(root)
@@ -306,7 +300,6 @@ def test_a_stale_record_is_not_offered_and_a_prefix_still_matches(tmp_path: Path
     assert engine._same_revision("abc1234", "abc1234def5678") is True
     assert engine._same_revision("", "abc1234") is False
     assert engine._same_revision("abc1234", "def5678") is False
-    # A record without `rev` falls back to the ``@sha`` its evidence quotes.
     assert (
         engine.record_revision({"rev": "", "evidence": "pytest -q @abc1234 -> 9 passed"})
         == "abc1234"

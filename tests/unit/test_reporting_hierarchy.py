@@ -36,8 +36,6 @@ def _rows(path: Path) -> dict[str, str]:
             continue
         role, reports = cells[0], cells[-1]
         key = re.sub(r"\s*\(.*?\)|\*|`", "", role).strip()
-        # "CTO" stays "cto"; "Product Manager" becomes "product-manager"; a row
-        # naming instances ("Developer (1..N)") has that suffix stripped above.
         key = key.replace(" ", "-").lower()
         found[key] = reports
     return found
@@ -192,8 +190,6 @@ def test_the_live_agents_md_matches_the_template(repo_root: Path) -> None:
     path = repo_root / "AGENTS.md"
     live = _rows(path)
     if not live:
-        # Skipping here would let a table header rename silently disable the pin,
-        # so an existing file that parses to no rows is a failure, not a skip.
         assert not path.is_file(), (
             "AGENTS.md exists but its reporting table parsed to zero rows; the header "
             "must stay `| Role | Owns | Reports to |` or the tree goes unchecked"
@@ -241,7 +237,6 @@ def test_the_generated_brief_states_the_same_line_as_the_charter(
 
     root = tmp_path / "Team"
     root.mkdir(parents=True, exist_ok=True)
-    # A fully staffed team: every role has somewhere to report.
     staffed = set(ROLE_PARENT)
     for role, parent in ROLE_PARENT.items():
         brief = engine.start_here(f"{role}-1", role, root, tmp_path / "docs", staffed)
@@ -258,8 +253,6 @@ def test_the_generated_brief_states_the_same_line_as_the_charter(
             f"the generated brief for {role} does not name {want} as its manager"
         )
         if parent == "ceo":
-            # A CEO parent is the one case where "not to the CEO" would contradict
-            # the same sentence, and the assertion above already forbids it.
             continue
         assert f"Report to the {want}:" in body, (
             f"the brief for {role} still says 'Report to the CEO' in the closing step"
@@ -285,7 +278,6 @@ def test_a_vacant_manager_folds_to_the_nearest_staffed_ancestor(
     assert "Report to the CEO (CTO not staffed here)" in body
     assert "You report to the **CTO**" not in body
 
-    # With the CTO staffed the same role reports to it again.
     full = engine.start_here("developer-1", "developer", root, tmp_path / "docs", set(ROLE_PARENT))
     assert "You report to the **CTO**" in " ".join(full.split())
 
@@ -330,9 +322,7 @@ def test_a_slim_roster_folds_the_charter_too(tmp_path: Path) -> None:
     assert "**CEO**" in section
     assert "Manages:" in section, "folding the manager line erased the span of control"
 
-    # A staffed parent needs no rewrite at all - the bundled text is already true.
     assert engine.charter_reports_line("tester", {"ceo", "cto", "tester"}) is None
-    # An unbundled role is not silently promoted to the CEO branch.
     assert engine.charter_reports_line("auditor", {"ceo", "auditor"}) is None
 
 
@@ -355,5 +345,4 @@ def test_resolve_manager_is_the_single_resolver() -> None:
     )
     assert engine.resolve_manager("ceo", {"ceo"}) == (None, [])
     assert engine.resolve_manager("auditor", {"ceo", "auditor"}) == (None, [])
-    # unknown staffed set (init before the roster is known) keeps the designed tree
     assert engine.resolve_manager("developer", None) == ("cto", [])

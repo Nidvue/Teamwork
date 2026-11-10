@@ -25,20 +25,13 @@ import pytest
 
 from teamwork import engine, portable, resources
 
-# ``tests/unit/test_portability.py`` -> parents[2] is the repository root.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_TEAMWORK = REPO_ROOT / "src" / "teamwork"
 
-#: Modules banned from the runtime path by Architecture section 6.
 FORBIDDEN_MODULES = frozenset({"fcntl", "termios", "pwd", "grp", "resource"})
 
-#: Textual guard for ``shell=True`` (catches aliases the AST scan misses).
 SHELL_TRUE_RE = re.compile(r"shell\s*=\s*True")
 
-#: Roots that ship Python which runs on a user's host: the runtime package and the
-#: ``/scripts`` tree the sdist carries (``pyproject.toml`` include list). ``du`` in
-#: ``scripts/build_pi_package.py`` broke win32 (T-0002), so a scan of the package
-#: alone went green on the very root where that defect lived.
 SHIPPED_ROOTS = (SRC_TEAMWORK, REPO_ROOT / "scripts")
 
 
@@ -81,11 +74,6 @@ def _masked_source(path: Path) -> str:
     return "".join(parts)
 
 
-# --------------------------------------------------------------------------- #
-# portable.pid_alive
-# --------------------------------------------------------------------------- #
-
-
 def test_pid_alive_current_process_is_true():
     assert portable.pid_alive(os.getpid()) is True
 
@@ -101,9 +89,6 @@ def test_pid_alive_an_unlikely_pid_is_false():
 
 
 def test_pid_alive_certainly_dead_process_is_false():
-    # Spawn a short-lived process, reap it, then probe its (now dead) pid.
-    # PID reuse inside the microseconds before the probe is theoretically
-    # possible but practically negligible.
     proc = subprocess.Popen([sys.executable, "-c", "pass"])
     pid = proc.pid
     proc.wait(timeout=30)
@@ -123,7 +108,6 @@ def test_pid_alive_windows_branch_delegates(monkeypatch):
     assert portable.pid_alive(4321) is True
     assert calls == [4321]
 
-    # Non-positive pids short-circuit before the Windows helper is consulted.
     assert portable.pid_alive(0) is False
     assert calls == [4321]
 
@@ -132,11 +116,6 @@ def test_pid_alive_windows_branch_can_report_dead(monkeypatch):
     monkeypatch.setattr(portable, "IS_WINDOWS", True)
     monkeypatch.setattr(portable, "_windows_pid_alive", lambda pid: False)
     assert portable.pid_alive(987654) is False
-
-
-# --------------------------------------------------------------------------- #
-# portable.newline_for / python_executable
-# --------------------------------------------------------------------------- #
 
 
 def test_newline_for_is_always_lf():
@@ -151,17 +130,10 @@ def test_python_executable_is_non_empty_str():
     assert exe.strip() != ""
 
 
-# --------------------------------------------------------------------------- #
-# Source-level portability rules
-# --------------------------------------------------------------------------- #
-
-
 def test_source_scan_sees_runtime_modules():
     """Guard against the scans passing vacuously on an empty file list."""
     names = {path.name for path in _source_files()}
     assert {"engine.py", "portable.py", "resources.py"} <= names
-    # both roots must be seen: a scan that silently lost scripts/ would pass while
-    # reporting nothing about the tree that ships the release pipeline
     assert {"build_pi_package.py", "privacy_scan.py"} <= names
 
 
@@ -179,7 +151,6 @@ def test_no_forbidden_posix_imports_in_runtime():
                 if module_root in FORBIDDEN_MODULES:
                     offenders.append(f"{path}:{node.lineno} from {node.module} import ...")
                 for alias in node.names:
-                    # e.g. ``from os import fork``
                     if module_root == "os" and alias.name == "fork":
                         offenders.append(f"{path}:{node.lineno} from os import fork")
             elif (
@@ -200,11 +171,6 @@ def test_no_subprocess_shell_true_in_runtime():
             line = text.count("\n", 0, match.start()) + 1
             offenders.append(f"{path}:{line} shell=True")
     assert offenders == [], "shell=True must never be used: " + "; ".join(offenders)
-
-
-# --------------------------------------------------------------------------- #
-# Engine resource resolution (relocated from the monolith)
-# --------------------------------------------------------------------------- #
 
 
 def test_engine_skill_dir_is_repo_root():
@@ -267,11 +233,6 @@ def test_self_invocation_command_is_runnable():
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == f"teamwork {engine.VERSION}"
-
-
-# --------------------------------------------------------------------------- #
-# self_invocation(): one command, the same arguments on every host (T-0001)
-# --------------------------------------------------------------------------- #
 
 
 def _checkout_with_spaces(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
@@ -361,11 +322,6 @@ def test_self_invocation_quotes_only_what_needs_it() -> None:
     assert resources._shell_arg("/opt/py thon/python3") == "'/opt/py thon/python3'"
 
 
-# --------------------------------------------------------------------------- #
-# newline hygiene: generated markdown/json must be byte-identical everywhere
-# --------------------------------------------------------------------------- #
-
-
 def _unsafe_text_writes(module_path):
     """Return the line numbers of text writes that are unsafe for Python 3.9/Windows.
 
@@ -428,7 +384,6 @@ def _python_310_only_writes(module_path):
     try:
         source = module_path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
-        # An unreadable file is another gate's finding, not a newline finding.
         return []
     return _python_310_only_writes_in(source)
 
@@ -444,8 +399,6 @@ def _python_310_only_writes_in(source):
     try:
         tree = ast.parse(source)
     except SyntaxError:
-        # A file that does not parse under the running interpreter is another
-        # matrix cell's problem; this guard only speaks about newline keywords.
         return []
     return [
         node.lineno
@@ -475,7 +428,6 @@ def test_no_fixture_uses_the_python_310_only_newline_keyword():
     assert offenders == {}, f"3.10-only write_text(newline=...) in tests: {offenders}"
 
 
-#: A shell heredoc opener such as ``<<'PY'``; the tag names its closing line.
 _HEREDOC_RE = re.compile(r"<<-?[ \t]*['\"]?(?P<tag>[A-Za-z_][A-Za-z0-9_]*)['\"]?[ \t]*$")
 
 
@@ -505,7 +457,6 @@ def _embedded_python_blocks(workflow_path):
         while cursor < len(lines) and lines[cursor].strip() != tag:
             body.append(lines[cursor])
             cursor += 1
-        # ``index`` is 0-based, so the first body line is 1-based ``index + 2``.
         blocks.append((index + 2, textwrap.dedent("\n".join(body))))
         index = cursor + 1
     return blocks
@@ -600,11 +551,6 @@ def test_agents_md_template_uses_the_portable_placeholder():
         assert machine_path not in template, machine_path
 
 
-# --------------------------------------------------------------------------- #
-# Architecture.md section 2 map: the module map must match the shipped tree
-# --------------------------------------------------------------------------- #
-
-
 def _architecture_tree_section() -> str:
     """Return the frozen repository-layout block from Architecture section 2."""
     text = (REPO_ROOT / "docs" / "Team" / "Architecture.md").read_text(encoding="utf-8")
@@ -623,7 +569,7 @@ def _tree_children(block: str, head: str) -> list[str]:
     nested: list[str] = []
     for line in lines[start + 1 :]:
         if not line.startswith("│"):
-            break  # the next top-level branch closes this one
+            break
         if re.search(r"[├└]── ", line):
             nested.append(line)
     return nested

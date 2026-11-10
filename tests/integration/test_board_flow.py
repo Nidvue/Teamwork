@@ -89,7 +89,6 @@ def test_check_exits_one_on_a_stale_cell_and_check_does_not_write(
     assert "board says ('doing', '-', '-'), queue says ('todo', '-', '-')" in out, out
     assert path.read_bytes() == before, "--check rewrote the board"
 
-    # The same tree in JSON: a machine-readable diff and the same exit code.
     assert cli("--project", project, "board", "--check", "--json") == 1
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is False
@@ -109,12 +108,10 @@ def test_write_renders_the_tables_and_a_second_render_is_equal(cli, project: Pat
     assert STALE_ROW not in written, written
     assert "| developer | T-0001 Build the API | P0 | todo | - |" in written, written
 
-    # A second render is a no-op, and the product agrees the board is current.
     assert boardlib.render(boardlib.queues(root), written) == written
     assert boardlib.problems(boardlib.queues(root), written) == []
     assert cli("--project", project, "board", "--check") == 0
 
-    # --write is idempotent: the second run reports unchanged, not a new rendering.
     capsys.readouterr()
     assert cli("--project", project, "board", "--write", "--json") == 0
     payload = json.loads(capsys.readouterr().out)

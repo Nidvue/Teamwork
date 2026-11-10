@@ -32,9 +32,6 @@ from teamwork import engine
 AGENTS = "ceo,developer-1,reviewer-1,reviewer-2"
 LIMIT = engine.VIEW_CLIP_LIMIT
 
-# Evidence long enough to be clipped, with a sentinel at the very end so its
-# presence in a view proves nothing was omitted. No ``|`` and no leading ``#``:
-# both values have to survive the markdown field round-trip.
 AUTHOR_HEAD = "author-head "
 AUTHOR_TAIL = "zulu-author-tail-sentinel-9f2c"
 AUTHOR_LONG = AUTHOR_HEAD + ("alpha-evidence-word " * 40) + AUTHOR_TAIL
@@ -49,11 +46,6 @@ FINDINGS_LONG = FINDINGS_HEAD + ("charlie-finding-word " * 45) + FINDINGS_TAIL
 
 assert len(AUTHOR_LONG) > LIMIT and len(REVIEWER_LONG) > LIMIT
 assert len(FINDINGS_LONG) > LIMIT
-
-
-# --------------------------------------------------------------------------- #
-# workspace driving
-# --------------------------------------------------------------------------- #
 
 
 def team_root(project: Path) -> Path:
@@ -237,11 +229,6 @@ def merged_repo(cli, capsys, project: Path) -> tuple[Path, str]:
     return root, sha
 
 
-# --------------------------------------------------------------------------- #
-# 1. pr merge lands the merge revision in the committed archive
-# --------------------------------------------------------------------------- #
-
-
 def test_merge_commits_an_archive_entry_naming_the_merge_revision(
     cli, project: Path, capsys
 ) -> None:
@@ -252,7 +239,6 @@ def test_merge_commits_an_archive_entry_naming_the_merge_revision(
     assert "ship the clip helper" in committed
     assert f"developer-1/t-0001-ship-the-clip-helper / {sha}" in committed
     assert "developer-1/t-0001-ship-the-clip-helper / pending" not in committed
-    # the entry exists exactly once - the rewrite edits the line, never duplicates it
     assert committed.count("- branch / merge: developer-1/t-0001-ship-the-clip-helper") == 1
 
 
@@ -268,11 +254,9 @@ def test_the_archive_rewrite_is_its_own_reviewer_commit(cli, project: Path, caps
     assert "Archive.md" in head_subject
     assert head_email.endswith("@agents.nidvue.com"), head_email
     assert head_email.startswith("reviewer"), f"archive commit author: {head_email}"
-    # the commit really touches only the archive record
     changed = engine.run_git(project, "show", "--name-only", "--format=", head_sha).stdout.split()
     assert changed == ["docs/Team/Archive.md"], changed
 
-    # the merge itself is the parent commit, so the recorded sha is reachable
     parent = engine.run_git(project, "rev-parse", f"{head_sha}^").stdout.strip()
     assert committed_archive(project, parent).count(" / pending") >= 1
 
@@ -299,11 +283,6 @@ def test_the_worktree_is_clean_after_the_merge_rewrites_the_archive(
     assert porcelains == "", porcelains
 
 
-# --------------------------------------------------------------------------- #
-# 2. the three machine views clip, and --full restores
-# --------------------------------------------------------------------------- #
-
-
 def test_archive_view_over_a_merged_repo_clips_and_full_restores(
     cli, project: Path, capsys
 ) -> None:
@@ -313,9 +292,7 @@ def test_archive_view_over_a_merged_repo_clips_and_full_restores(
     clipped = render(cli, capsys, "--project", project, "archive")
     assert AUTHOR_TAIL not in clipped and REVIEWER_TAIL not in clipped
     assert "chars: --full)" in clipped
-    # non-evidence lines are untouched, including the merge revision we just wrote
     assert f"developer-1/t-0001-ship-the-clip-helper / {sha}" in clipped
-    # the clipped rendering is derived from the stored line, not a hardcoded count
     stored_lines = committed_archive(project).split("\n")
     for field in ("- author evidence: ", "- reviewer evidence: "):
         stored = next(ln for ln in stored_lines if ln.startswith(field))
@@ -344,8 +321,6 @@ def test_review_queue_clips_the_findings_of_a_failing_verdict(cli, project: Path
     add_task(cli, project)
     ship(cli, project)
     fail_review(cli, project)
-    # A failed verdict returns the deliverable to its author: it is back in the
-    # queue only once the author re-submits, carrying the findings of the fail.
     assert (
         cli("--project", project, "task", "set", "developer", "T-0001", "--status", "selfcheck")
         == 0
@@ -369,8 +344,6 @@ def test_review_queue_clips_the_findings_of_a_failing_verdict(cli, project: Path
 
     root = team_root(project)
     clipped = render(cli, capsys, "--project", project, "review", "--queue")
-    # the engine stores a finding as ``detects: <detector> | <defect>`` since M16 A1,
-    # so the clip applies to that whole string, prefix included
     stored_findings = (
         "detects: a task in selfcheck loses its review claim, so the queue clips "
         "the wrong deliverable | " + FINDINGS_LONG
@@ -378,8 +351,6 @@ def test_review_queue_clips_the_findings_of_a_failing_verdict(cli, project: Path
     expected = f"    findings so far: {engine.clip(stored_findings, LIMIT)}"
     assert expected in clipped
     assert FINDINGS_TAIL not in clipped
-    # the author evidence of the same deliverable clips on the same rule, and the
-    # stored value carries the engine's own ``; commit <sha>`` suffix
     author = stored_evidence(root)
     assert author.startswith(AUTHOR_LONG)
     assert f"    author evidence: {engine.clip(author, LIMIT)}" in clipped
@@ -454,11 +425,6 @@ def test_a_short_value_is_printed_whole_with_no_omission_marker(cli, project: Pa
     assert "chars: --full)" not in trace
 
 
-# --------------------------------------------------------------------------- #
-# 3. only the view clips - the stored records keep every character
-# --------------------------------------------------------------------------- #
-
-
 def test_rendering_clipped_views_over_a_merged_repo_rewrites_nothing(
     cli, project: Path, capsys
 ) -> None:
@@ -482,17 +448,11 @@ def test_rendering_clipped_views_over_a_merged_repo_rewrites_nothing(
     for path in watched:
         assert path.read_bytes() == before[path], f"{path.name} changed while only a view ran"
 
-    # the whole text is still in the records the clipped views summarised
     reviews = (root / "Reviews.md").read_text(encoding="utf-8")
     assert REVIEWER_LONG in reviews
     archive_text = engine.archive_path(root).read_text(encoding="utf-8")
     assert AUTHOR_LONG in archive_text and REVIEWER_LONG in archive_text
     assert cli("--project", project, "ledger", "verify") == 0
-
-
-# --------------------------------------------------------------------------- #
-# 4. the shipped surface: no ``archive sync``, reconciliation rides on pr merge
-# --------------------------------------------------------------------------- #
 
 
 def test_archive_sync_is_not_a_command_and_pr_merge_reconciles_instead(
@@ -501,11 +461,8 @@ def test_archive_sync_is_not_a_command_and_pr_merge_reconciles_instead(
     """The milestone's ``archive sync`` was dropped; ``pr merge`` owns the fix."""
     _root, sha = merged_repo(cli, capsys, project)
 
-    # no such subcommand: the parser refuses it rather than silently doing nothing
-    # (the ``cli`` fixture turns the parser's SystemExit into its exit code)
     assert cli("--project", project, "archive", "sync") not in (0, None)
 
-    # and the reconciliation it was meant to provide already happened, exactly once
     committed = committed_archive(project)
     assert committed.count(f" / {sha}") == 1
     assert " / pending" not in committed
