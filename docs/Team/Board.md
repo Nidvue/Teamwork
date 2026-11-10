@@ -118,7 +118,7 @@ under two roles is two tasks.
 | ceo | T-0028 | release | done | P-0074 | 38bcef8 |
 | ceo | T-0029 | skill | done | P-0078 | c571e2b |
 | ceo | T-0030 | skill | review | P-0084 | - |
-| ceo | T-0031 | records | review | P-0085 | - |
+| ceo | T-0031 | records | done | P-0085 | 7bc4f15 |
 | ceo | T-0032 | - | todo | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
@@ -172,6 +172,7 @@ under two roles is two tasks.
 | developer | T-0050 | release | done | P-0073 | bce6f07 |
 | developer | T-0051 | release | done | P-0079 | d2e7f62 |
 | developer | T-0052 | harness | done | P-0080 | ff62638 |
+| developer | T-0053 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -191,7 +192,7 @@ under two roles is two tasks.
 | security-auditor | T-0003 | - | dropped | - | - |
 | security-auditor | T-0004 | - | done | - | - |
 | security-auditor | T-0005 | - | done | - | - |
-| security-auditor | T-0006 | audit | review | P-0083 | - |
+| security-auditor | T-0006 | audit | done | P-0083 | 98232a8 |
 | tester | T-0001 | harness | done | P-0011 | 47db23d |
 | tester | T-0002 | tests | done | P-0002 | 090910a |
 | tester | T-0003 | tests | done | P-0006 | cc86e6d |
@@ -210,9 +211,8 @@ landed by commit without a PR record.
 | architect | T-0006 · Decide the evidence-archive segmentation and the engine.py split (ADR), keeping every record id resolvable | P1 | review | - |
 | ceo | T-0019 · Plan and board for feature teams: one shared dependency graph, the board grouped by feature | P2 | todo | - |
 | ceo | T-0030 · Decide which SKILL.md sections are always-on and move the rest to references/ with a pointer | P2 | review | - |
-| ceo | T-0031 · Archive closed reviewer task evidence to a per-role file, keeping the task ids in the queue | P2 | review | - |
 | ceo | T-0032 · docs(guide): the harness budget row still says the role's memory, not its short-term memory | P1 | todo | - |
-| security-auditor | T-0006 · Re-state docs/Team/AuditReport.md with dated facts; the commit-absent claim is superseded | P1 | review | - |
+| developer | T-0053 · fix(deliver): preflight must require an evidence sha to be reachable from the branch, not merely present in the object store | P1 | todo | - |
 | tester | T-0006 · Pin document structure rather than sentences in test_skill_contracts.py where wording is not the contract | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
