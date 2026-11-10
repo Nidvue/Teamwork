@@ -38,8 +38,10 @@ import argparse
 import contextlib
 import datetime
 import importlib.util
+import io
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -6806,6 +6808,57 @@ def _same_revision(left: str, right: str) -> bool:
     return a.startswith(b) or b.startswith(a)
 
 
+#: The preflight line `selfcheck` writes into its own evidence
+#: (``preflight: PF-<digest> @<sha> (<n> checks, <k> failed)``). It is the only
+#: record of whether the AUTHOR ran the mechanical gate at the revision being
+#: reviewed, and the reviewer reads it in the packet.
+_RE_PREFLIGHT_EVIDENCE = re.compile(
+    r"preflight:?\s+PF-[0-9a-f]+\s+@([0-9a-f]{7,40})\s*\(\s*\d+\s+checks?,\s*(\d+)\s+failed"
+)
+
+#: `review --result fail` records whether the AUTHOR's preflight was green at the
+#: revision that failed. Three values, a closed set:
+#: ``no`` - a green preflight digest for that revision is on the record, so the
+#: author did run the gate and the finding is a judgement call on the work;
+#: ``unknown`` - no green preflight was recorded for that revision, so the author
+#: skipped the gate and the finding may well be mechanical;
+#: ``n/a`` - the task has no revision (a verdict, a records pass) and there is
+#: nothing to preflight.
+#: Why a verdict writes it at all: 38 of the 43 measured fails were mechanical, and
+#: that rate is the whole argument for the gate. A claim of improvement needs a
+#: contrast, so the rate has to stay measurable after the gate ships.
+REVIEW_MECHANICAL_NO = "no"
+REVIEW_MECHANICAL_UNKNOWN = "unknown"
+REVIEW_MECHANICAL_NA = "n/a"
+
+
+def review_mechanical(task: dict, revision: str) -> tuple:
+    """Was the AUTHOR's preflight green at ``revision``? ``(value, why)``.
+
+    Reads the same evidence the reviewer reads (`self_note`), not a second channel,
+    and matches on the revision prefix because the preflight line stores the
+    12-character form while `rev-parse --short` may be shorter or longer.
+    """
+    if not (revision or "").strip():
+        return (
+            REVIEW_MECHANICAL_NA,
+            "no revision under review, so there is nothing to preflight",
+        )
+    for match in _RE_PREFLIGHT_EVIDENCE.finditer(task.get("self_note") or ""):
+        sha, failed = match.group(1), int(match.group(2))
+        if failed == 0 and _same_revision(sha, revision):
+            return (
+                REVIEW_MECHANICAL_NO,
+                f"the self-check holds a green preflight for @{sha}, so this is a"
+                " judgement finding",
+            )
+    return (
+        REVIEW_MECHANICAL_UNKNOWN,
+        f"no green preflight is recorded for @{revision[:12]}: the author did not run"
+        " the mechanical gate",
+    )
+
+
 def record_revision(record: dict) -> str:
     """A test record's revision: its `rev`, else the ``@sha`` its evidence quotes."""
     rev = (record.get("rev") or "").strip()
@@ -9648,6 +9701,8 @@ def cmd_review(args) -> int:
             t["review_claim_lease"] = ""
         archived = None
         credited: list = []
+        mechanical = ""
+        mechanical_why = ""
         if args.result == "pass":
             available, _stale = creditable_tests(root, role, t)
             for raw in [x.strip() for x in (getattr(args, "credit", "") or "").split(",")]:
@@ -9681,14 +9736,18 @@ def cmd_review(args) -> int:
                     t.get("forced", "") + f" | review pass forced by {reviewer}: {args.force}"
                 ).strip(" |")
         if args.result == "fail":
+            # The revision that failed is what the next round is compared against:
+            # a fix is re-reviewed as a delta, not re-derived from scratch. Read it
+            # once, and classify the fail against the same revision.
+            failed_rev = review_revision(root, t) or (t.get("review_fail_rev") or "")
+            mechanical, mechanical_why = review_mechanical(t, failed_rev)
             prev = t.get("findings", "")
             t["findings"] = (prev + " | " + args.findings).strip(" |")
             t["review_status"] = "failed"
             t["status"] = "doing"
             t["review_fails"] = int(t.get("review_fails") or 0) + 1
-            # The revision that failed is what the next round is compared against:
-            # a fix is re-reviewed as a delta, not re-derived from scratch.
-            t["review_fail_rev"] = review_revision(root, t) or (t.get("review_fail_rev") or "")
+            t["review_mechanical"] = mechanical
+            t["review_fail_rev"] = failed_rev
         write_tasks(path, tasks, role)
 
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
@@ -9711,7 +9770,13 @@ def cmd_review(args) -> int:
         "review.pass" if args.result == "pass" else "review.fail",
         reviewer,
         t["id"],
-        ((t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note)[:200],
+        (
+            ((t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note)[:200]
+            if args.result == "pass"
+            # The classification leads the detail so the mechanical-fail rate can be
+            # counted off the append-only ledger long after the task record moves on.
+            else (f"mechanical: {mechanical} | " + (t.get("findings") or "")[:150])[:200]
+        ),
         "",
         role,
     )
@@ -9762,6 +9827,7 @@ def cmd_review(args) -> int:
             + (f" [work by {t['claimed_by']}]" if t.get("claimed_by") else "")
         )
         print(f"          findings: {t['findings']}")
+        print(f"          mechanical: {mechanical} ({mechanical_why})")
         if t.get("merge_commit"):
             print(
                 f"          !! this REOPENS work already merged at "
@@ -9860,6 +9926,570 @@ def _review_queue(root: Path, full: bool = False, packet: bool = False) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- #
+# Preflight: the author's mechanical gate, run before the self-check
+#
+# Measured from the ledger (43 `review.fail` records classified by their finding
+# text): 12 docs-surface, 11 branch-not-mergeable, 6 board drift, 5 red gate, 4
+# scope creep and 4 unreachable-evidence revision. 38 of the 43 are mechanical
+# and locally decidable in seconds, and 24 of 65 deliverables needed more than
+# one verdict - each extra round costs a Reviewer lease (p50 12.2 / p90 25.8
+# minutes) and serialises the author. So one command answers the questions a
+# Reviewer answers first, prints the exact fix for each miss, and `selfcheck`
+# refuses while it is red: the Reviewer's lease is then spent on judgement.
+# --------------------------------------------------------------------------- #
+
+#: Settings.json key naming the project's OWN gate (`make check`, `npm test`, ...).
+#: The skill ships no toolchain, so an unset key is reported as UNVERIFIED rather
+#: than guessed, and the check is only executed when the author asks for it.
+PREFLIGHT_SETTINGS_KEY = "PreflightCommand"
+
+#: A project gate may legitimately take minutes (a full suite); this is a backstop
+#: against a command that waits for input, not a performance budget.
+PREFLIGHT_GATE_TIMEOUT = 3600
+
+#: The evidence-revision form `@<sha>`: 7-40 hex characters not followed by a word
+#: character, so `@<rev>`, `@probe(...)` and a 41-character hash fragment never
+#: match. A claim bound to a revision that does not exist cannot be re-run, which
+#: is the four-in-43 "evidence names an unreachable revision" failure.
+_RE_EVIDENCE_REV = re.compile(r"@([0-9a-fA-F]{7,40})(?![0-9a-zA-Z_])")
+
+#: The board is generated output, and this is the one path the check reads.
+PREFLIGHT_BOARD_PATH = "/".join(DIR_DOCS + ("Board.md",))
+
+#: The anchors every rendered board carries: the two table headers and the In-flight
+#: section. One tuple for `board --check` and `preflight`, so a file that one of them
+#: accepts the other cannot reject.
+BOARD_ANCHORS = (boardlib.TABLE_HEAD, boardlib.FLIGHT_HEAD, "## In flight")
+
+PREFLIGHT_OK = "ok"
+PREFLIGHT_WARN = "warn"
+PREFLIGHT_FAIL = "fail"
+PREFLIGHT_UNVERIFIED = "unverified"
+
+#: Report and digest order, fixed: a reader comparing two preflight runs compares
+#: the same line with the same check.
+PREFLIGHT_ORDER = ("branch", "identity", "evidence", "mergeable", "board", "gate")
+
+#: The checks whose verdict rides in the digest. `gate` is deliberately absent: it
+#: is opt-in (`--run`), so its status describes this invocation rather than the
+#: deliverable, and `selfcheck` re-runs the offline set - folding it in would make
+#: the digest an author pastes differ from the one the self-check records.
+PREFLIGHT_DIGEST_CHECKS = PREFLIGHT_ORDER[:5]
+
+
+class PreflightCheck:
+    """One mechanical check: its verdict, the measured line, and the exact fix.
+
+    ``status`` is a closed set. Only ``fail`` makes preflight red: ``warn`` is a
+    real defect that does not stop a review (a two-commit branch is reviewable
+    once squashed), and ``unverified`` is a check the author did not ask to run -
+    reporting that as a failure would teach the lane to skip the command.
+    """
+
+    __slots__ = ("detail", "fix", "name", "status")
+
+    def __init__(self, name: str, status: str, detail: str, fix: str = "") -> None:
+        self.name = name
+        self.status = status
+        self.detail = detail
+        self.fix = fix
+
+
+class PreflightResult:
+    """The whole mechanical answer for one task revision.
+
+    Built without printing, so the command an author runs and the gate that blocks
+    the self-check consume the same object and can never disagree.
+    """
+
+    __slots__ = ("base", "branch", "checks", "revision", "role", "task_id")
+
+    def __init__(
+        self,
+        role: str,
+        task_id: str,
+        branch: str,
+        base: str,
+        revision: str,
+        checks: list,
+    ) -> None:
+        self.role = role
+        self.task_id = task_id
+        self.branch = branch
+        self.base = base
+        self.revision = revision
+        self.checks = checks
+
+    @property
+    def short_revision(self) -> str:
+        return self.revision[:12] or "-"
+
+    @property
+    def failed(self) -> list:
+        return [check for check in self.checks if check.status == PREFLIGHT_FAIL]
+
+    @property
+    def digest(self) -> str:
+        """A stable fingerprint of the verdict for one revision.
+
+        The revision alone is not enough: the same tree turns green once the
+        evidence is re-pointed or the board re-rendered, and a digest that did not
+        move would let a stale preflight ride a fixed branch. Every digestable
+        check's name and status is folded in, in ``PREFLIGHT_ORDER``.
+        """
+        import hashlib
+
+        payload = [self.revision] + [
+            f"{check.name}={check.status}"
+            for check in self.checks
+            if check.name in PREFLIGHT_DIGEST_CHECKS
+        ]
+        return hashlib.sha256("\n".join(payload).encode("utf-8")).hexdigest()[:12]
+
+    def summary(self) -> str:
+        failing = ", ".join(check.name for check in self.failed)
+        verdict = "fail" if failing else "pass"
+        line = (
+            f"PREFLIGHT {verdict} @{self.short_revision} :: {len(self.checks)} checks, "
+            f"{len(self.failed)} failed"
+        )
+        return line + (f" ({failing})" if failing else "")
+
+    def digest_line(self) -> str:
+        return f"PREFLIGHT digest: PF-{self.digest} @{self.short_revision}"
+
+
+def _settings_string(root: Path, key: str) -> str:
+    """A string policy value from the team ``Settings.json``, or "" when unset."""
+    import json
+
+    path = providers_path(root)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    value = data.get(key)
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _rev_commit_exists(project: Path, rev: str) -> bool:
+    """Whether ``rev`` names a COMMIT here - the evidence gate's one question.
+
+    ``cat-file -e`` on the bare name accepts a blob or a tree, so the ``^{commit}``
+    peel is what makes a reachable *blob* stop looking like a reachable revision.
+    """
+    if not rev or rev.startswith("-"):
+        return False
+    return run_git(project, "cat-file", "-e", f"{rev}^{{commit}}").returncode == 0
+
+
+def _rev_count(project: Path, rev_range: str) -> int:
+    """Commits in ``rev_range``, or 0 when git cannot count them."""
+    proc = run_git(project, "rev-list", "--count", rev_range)
+    try:
+        return int(proc.stdout.strip())
+    except ValueError:
+        return 0
+
+
+def _merge_tree_conflicts(stdout: str) -> list:
+    """The conflicted paths from ``git merge-tree --write-tree --name-only``.
+
+    Line 1 is the merged tree's oid and the paths follow until a blank line, after
+    which git reports informational messages ("Auto-merging ..."). Reading the
+    whole output would report a message as a path.
+    """
+    paths = []
+    for line in stdout.splitlines()[1:]:
+        line = line.strip()
+        if not line or line.startswith(("CONFLICT", "Auto-merging", "Merge ")):
+            break
+        paths.append(line)
+    return paths
+
+
+def _preflight_branch(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
+    """Branch and base exist, and the branch carries exactly one commit over the base.
+
+    One commit is the target because a review reads one change-set; a second commit
+    is a warning (reviewable once squashed), while a branch that is *behind* the
+    base is a failure - that is the eleven-in-43 "branch not mergeable" class, and
+    the author can always fix it before the review.
+
+    A task with NO branch is a warning, not a failure: a task may legitimately carry
+    no code (a verdict, a records pass, a research note - `pr open` is optional and
+    a review can pass a task with no diff), so failing here would refuse the shipped
+    flow and teach every lane to `--force` on its first day, which is the opposite of
+    what this gate is for. A branch that is NAMED but missing locally is still a
+    failure: the task points at work nobody can read.
+    """
+    name = "branch"
+    rebase = "git " + " ".join(git_identity_args(role)) + f" rebase {base}"
+    if not branch:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_WARN,
+            "the task names no branch, so there is no revision to compare",
+            f"teamwork.py branch start --agent {role} --task <T-id>   # if this task carries code",
+        )
+    if not branch_exists(project, branch):
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"no branch {branch!r} in this repository",
+            f"teamwork.py branch start --agent {role} --task <T-id>",
+        )
+    if not _rev_commit_exists(project, base):
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"the base {base!r} is not a commit here, so the branch cannot be compared",
+            f"fetch it, or create it at the revision you branched from: git branch {base} <rev>",
+        )
+    behind = _rev_count(project, f"{branch}..{base}")
+    if behind:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{branch} is {behind} commit(s) behind {base}: main has moved since"
+            " the branch started",
+            f"{rebase}   # then re-run preflight",
+        )
+    ahead = _rev_count(project, f"{base}..{branch}")
+    if ahead == 0:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{branch} carries no commit over {base}: there is nothing to review",
+            f"teamwork.py commit --role {role} --task <T-id> ...",
+        )
+    if ahead > 1:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_WARN,
+            f"{ahead} commits over {base} (the target is one)",
+            f"{rebase} --interactive   # squash to one coherent change-set",
+        )
+    return PreflightCheck(name, PREFLIGHT_OK, f"1 commit over {base} on {branch}")
+
+
+def _preflight_identity(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
+    """Every commit over the base is authored AND committed by a role mailbox.
+
+    This is `teamwork.py identity --audit --range <base>..<branch>` - the same
+    function CI runs - so the author sees the failure the Reviewer's own gate would
+    raise instead of a second implementation of the same rule.
+    """
+    name = "identity"
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured):
+        code = audit_commit_identities(project, f"{base}..{branch}")
+    output = captured.getvalue()
+    measured = ""
+    for line in reversed(output.splitlines()):
+        counts = re.match(r"# commits: (\d+) \| problems: (\d+)", line)
+        if counts:
+            measured = f"{counts.group(1)} commit(s), {counts.group(2)} problem(s)"
+            break
+    if code == 0:
+        return PreflightCheck(name, PREFLIGHT_OK, measured or "0 problems")
+    problems = [line.lstrip("- ") for line in output.splitlines() if " FAIL " in line]
+    return PreflightCheck(
+        name,
+        PREFLIGHT_FAIL,
+        "identity --audit "
+        + f"{base}..{branch} -> exit {code}: "
+        + "; ".join(problems[:3] or ["see teamwork.py identity --audit"]),
+        f"commit as the acting role: teamwork.py commit --role {role} ... "
+        f"(author == committer == {identity_string(role)}), and end the message with"
+        " 'Acting role: <Role>'",
+    )
+
+
+def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> PreflightCheck:
+    """Every ``@<sha>`` in the task's evidence and self-check note is a real commit.
+
+    A claim bound to a revision nobody can check out is not evidence, and it is one
+    of the four classes a Reviewer has already failed a deliverable for.
+
+    ``extra_text`` is the note `selfcheck` is ABOUT TO store, including its
+    ``--test`` line: the stored ``self_note`` is only written after this runs, so
+    without it a self-check whose ``--test`` names a missing revision is the one
+    text this gate never reads - and the digest it records then certifies a
+    measurement nobody can reproduce.
+    """
+    name = "evidence"
+    text = "\n".join((task.get("evidence", ""), task.get("self_note", ""), extra_text))
+    named = sorted({match.lower() for match in _RE_EVIDENCE_REV.findall(text)})
+    if not named:
+        return PreflightCheck(name, PREFLIGHT_OK, "the task names no @<rev> revision yet")
+    missing = [sha for sha in named if not _rev_commit_exists(project, sha)]
+    if missing:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            "the task evidence names "
+            + ", ".join(f"@{sha}" for sha in missing[:5])
+            + ", which is not a commit in this repository",
+            "re-point the evidence at the revision you measured: git log --oneline -5,"
+            " then task set <role> <T-id> --evidence '<cmd> @<sha> -> <result>'",
+        )
+    shown = ", ".join(f"@{sha}" for sha in named[:5])
+    return PreflightCheck(
+        name, PREFLIGHT_OK, f"{len(named)} evidence revision(s) reachable: {shown}"
+    )
+
+
+def _preflight_mergeable(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
+    """``git merge-tree --write-tree <base> <branch>`` is clean, or names the conflict.
+
+    This is the probe a Reviewer's pass runs before it records a verdict: a pass
+    that precedes an impossible merge leaves the work unlanded behind a green
+    verdict. It is fail-closed - a git too old to answer is a failure, never a pass.
+    """
+    name = "mergeable"
+    proc = run_git(project, "merge-tree", "--write-tree", "--name-only", base, branch)
+    measured = f"git merge-tree --write-tree {base} {branch}"
+    if proc.returncode == 0:
+        return PreflightCheck(name, PREFLIGHT_OK, f"{measured} -> clean")
+    if proc.returncode != 1:
+        detail = (proc.stderr or proc.stdout).strip().splitlines()
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{measured} -> exit {proc.returncode} ({detail[0] if detail else 'no output'})"
+            ": mergeability cannot be proved here; git >= 2.38 is required",
+            "upgrade git: a probe that cannot answer is a failure, never a pass",
+        )
+    paths = _merge_tree_conflicts(proc.stdout)
+    return PreflightCheck(
+        name,
+        PREFLIGHT_FAIL,
+        f"{measured} -> CONFLICT in " + (", ".join(paths) if paths else "unknown paths"),
+        "git " + " ".join(git_identity_args(role)) + f" rebase {base}   # resolve, commit,"
+        " re-run preflight",
+    )
+
+
+def _board_problems(root: Path, text: str) -> list:
+    """What is wrong with this Board.md TEXT against the live queues (read-only).
+
+    Shared by `board --check` and `preflight` so the two can never disagree about
+    what "the board matches" means; the caller decides whether a missing anchor is
+    a usage error (the file on disk) or a finding (a revision under review).
+    """
+    missing = [anchor for anchor in BOARD_ANCHORS if anchor not in text]
+    if missing:
+        return ["not a rendered board: missing " + ", ".join(repr(a) for a in missing)]
+    try:
+        tasks = boardlib.queues(root)
+    except ValueError as exc:
+        return [f"cannot read the role queues under {roles_dir(root)}: {exc}"]
+    if not tasks:
+        return [f"no task records under {roles_dir(root)}: run `teamwork.py init` first"]
+    try:
+        return boardlib.problems(tasks, text)
+    except (ValueError, StopIteration) as exc:
+        # `render` raises StopIteration on a board that lost its anchors; a check
+        # that crashes is not a check that passed.
+        return [f"cannot compare this board with the queues: {exc}"]
+
+
+def _preflight_board(root: Path, project: Path, base: str, branch: str) -> PreflightCheck:
+    """The generated board is only red here when THIS branch changed it.
+
+    `docs/Team/Board.md` is a projection of the role queues, and the queues move
+    under every lane, so charging an author for drift a sibling caused is the false
+    alarm that teaches a team to ignore a gate. When the branch does carry the
+    board, the comparison is the renderer's own, against the file at that revision.
+    """
+    name = "board"
+    changed = run_git(
+        project, "diff", "--name-only", f"{base}...{branch}", "--", PREFLIGHT_BOARD_PATH
+    )
+    if changed.returncode != 0:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"cannot diff {base}...{branch}: {changed.stderr.strip()}",
+            "commit both revisions so the branch can be compared",
+        )
+    if PREFLIGHT_BOARD_PATH not in changed.stdout.split():
+        return PreflightCheck(
+            name,
+            PREFLIGHT_OK,
+            f"{branch} does not carry {PREFLIGHT_BOARD_PATH}: the merging Reviewer"
+            " renders it, so drift here is not this author's",
+        )
+    blob = run_git(project, "show", f"{branch}:{PREFLIGHT_BOARD_PATH}")
+    if blob.returncode != 0:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{branch} removes {PREFLIGHT_BOARD_PATH}",
+            "the board is generated output: teamwork.py board --write, then commit it",
+        )
+    found = _board_problems(root, blob.stdout)
+    if found:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{PREFLIGHT_BOARD_PATH} on {branch} disagrees with the queues: "
+            + " | ".join(found[:4]),
+            "teamwork.py board --write   # in this lane's work tree, then commit the render",
+        )
+    return PreflightCheck(
+        name, PREFLIGHT_OK, f"{PREFLIGHT_BOARD_PATH} on {branch} matches the queues"
+    )
+
+
+def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
+    """The project's own gate, if it configured one - the skill names no toolchain.
+
+    `--run` is explicit because the command is the project's, not the skill's: a
+    preflight that ran `make check` by default would be a language assumption, and
+    one that ran it silently would make every self-check pay for a full suite.
+    """
+    name = "gate"
+    command = _settings_string(root, PREFLIGHT_SETTINGS_KEY)
+    if not command:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_UNVERIFIED,
+            "UNVERIFIED: no PreflightCommand configured",
+            'add "PreflightCommand": "make check" to Settings.json to have preflight'
+            " run the project gate",
+        )
+    if not run:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_UNVERIFIED,
+            f"UNVERIFIED: PreflightCommand not run (pass --run): {command}",
+        )
+    # shlex, never a shell: the command is a string in a settings file, and a shell
+    # would also execute whatever a metacharacter smuggled into it.
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        return PreflightCheck(name, PREFLIGHT_FAIL, f"PreflightCommand is not quotable: {exc}")
+    if not argv:
+        return PreflightCheck(name, PREFLIGHT_FAIL, "PreflightCommand is empty")
+    try:
+        proc = subprocess.run(
+            argv,
+            cwd=str(project),
+            capture_output=True,
+            text=True,
+            timeout=PREFLIGHT_GATE_TIMEOUT,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{command} -> could not run: {exc}",
+            "install it, or point PreflightCommand at a command this host has",
+        )
+    if proc.returncode == 0:
+        return PreflightCheck(name, PREFLIGHT_OK, f"{command} -> exit 0")
+    tail = (proc.stdout + proc.stderr).strip().splitlines()[-3:]
+    return PreflightCheck(
+        name,
+        PREFLIGHT_FAIL,
+        f"{command} -> exit {proc.returncode}: " + " / ".join(tail or ["no output"]),
+        f"{command}   # then re-run preflight --run",
+    )
+
+
+def run_preflight(
+    root: Path,
+    role: str,
+    task: dict,
+    run_gate: bool = False,
+    extra_text: str = "",
+) -> PreflightResult:
+    """Every mechanical check for one task, in a fixed order, without printing.
+
+    `cmd_preflight` prints this and `selfcheck` consumes it silently, so the command
+    an author runs and the gate that blocks the self-check cannot disagree.
+    ``run_gate`` is False from `selfcheck` by construction: the author's own gate
+    command is opt-in and must never run behind their back. ``extra_text`` is the
+    self-check note being recorded, so the evidence check reads the ``--test`` line
+    before it is written rather than one round too late.
+    """
+    project = work_repo(root)
+    base = (task.get("base") or "").strip() or DEFAULT_BASE
+    branch = (task.get("branch") or "").strip()
+    revision = ""
+    if branch:
+        proc = run_git(project, "rev-parse", "--verify", "--quiet", f"{branch}^{{commit}}")
+        if proc.returncode == 0:
+            revision = proc.stdout.strip()
+    checks = [_preflight_branch(project, base, branch, role)]
+    blocked = ""
+    if not branch or not branch_exists(project, branch):
+        blocked = f"no branch {branch!r} to measure" if branch else "no branch started"
+    elif not _rev_commit_exists(project, base):
+        blocked = f"no base {base!r} to compare against"
+    if blocked:
+        # Nothing to compare against, so these checks are not measured - and a check
+        # that cannot be measured is reported, not charged. The branch line already
+        # carries the finding and the fix when the task is missing one. Evidence is
+        # the exception: it reads the task record and needs no revision.
+        def unmeasured(name: str) -> PreflightCheck:
+            return PreflightCheck(name, PREFLIGHT_WARN, f"not measured: {blocked}", checks[0].fix)
+
+        checks.append(unmeasured("identity"))
+        checks.append(_preflight_evidence(project, task, extra_text))
+        checks.append(unmeasured("mergeable"))
+        checks.append(unmeasured("board"))
+    else:
+        checks.append(_preflight_identity(project, base, branch, role))
+        checks.append(_preflight_evidence(project, task, extra_text))
+        checks.append(_preflight_mergeable(project, base, branch, role))
+        checks.append(_preflight_board(root, project, base, branch))
+    checks.append(_preflight_gate(root, project, run_gate))
+    return PreflightResult(role, task.get("id", ""), branch, base, revision, checks)
+
+
+def _print_preflight(result: PreflightResult) -> None:
+    """The author's report: one line per check, the fix under each miss, the digest."""
+    print(
+        f"# preflight {result.role} {result.task_id} @{result.short_revision}"
+        f" ({result.branch or 'no branch'} from {result.base})"
+    )
+    for check in result.checks:
+        print(f"- {check.status:10s} {check.name:10s} {check.detail}")
+        if check.fix and check.status in (PREFLIGHT_FAIL, PREFLIGHT_WARN):
+            print(f"           fix: {check.fix}")
+    print()
+    print(result.summary())
+    print(result.digest_line())
+    if result.failed:
+        print("# the Reviewer will fail this on the same evidence: fix it here, not in review")
+
+
+def cmd_preflight(args) -> int:
+    """The author's whole mechanical gate, offline, before `selfcheck`.
+
+    Every check is local: no network, no forge, no Reviewer. It exits 1 on one
+    failing check so it can be a shell `&&` gate, and prints the exact command that
+    clears each finding - a report an author has to translate is a report they skip.
+    """
+    root = project_root(args)
+    role = resolve_role(args.agent)
+    path = task_file(root, role)
+    tasks = parse_tasks(path)
+    idx = find_task(tasks, args.handle)
+    if idx is None:
+        die(f"no task '{args.handle}' for {role}")
+    result = run_preflight(root, role, tasks[idx], run_gate=getattr(args, "run", False))
+    _print_preflight(result)
+    return 1 if result.failed else 0
+
+
 def cmd_selfcheck(args) -> int:
     """Author's own review + test, mandatory before submitting for review."""
     root = project_root(args)
@@ -9922,6 +10552,11 @@ def cmd_selfcheck(args) -> int:
                     2,
                 )
         artifacts = artifact_digests(root, getattr(args, "artifact", None))
+        # The note this self-check is about to store, minus the preflight line that
+        # does not exist yet. It is built HERE because the evidence check has to
+        # read the `--test` text: the stored self_note is written after the gate, so
+        # validating only what is already stored would let the one command this
+        # self-check is judged on name a revision the repository does not have.
         note = f"[{args.result}] {args.note.strip()}"
         if args.test.strip():
             note += f" | test: {args.test.strip()}"
@@ -9931,6 +10566,28 @@ def cmd_selfcheck(args) -> int:
             note += f" | baseline: {args.baseline.strip()}"
         if (getattr(args, "replay", "") or "").strip():
             note += f" | replay: {args.replay.strip()}"
+        # The mechanical half of the review, re-measured at this revision: the
+        # Reviewer must not spend a lease on `git rebase` or a stale evidence sha,
+        # and the digest that travels below is what lets it trust that half.
+        preflight = run_preflight(root, role, t, extra_text=note)
+        if args.result == "pass" and preflight.failed and not args.force:
+            missing = "\n".join(
+                f"  - {check.name}: {check.detail}"
+                + (f"\n    fix: {check.fix}" if check.fix else "")
+                for check in preflight.failed
+            )
+            die(
+                f"refusing to submit {t['id']}: preflight is red at "
+                f"@{preflight.short_revision}.\n{missing}\n"
+                f"  run `teamwork.py preflight {role} {t['id']}` for the whole report, then\n"
+                "  fix each line. --force <reason> records an honest exception on the\n"
+                "  task and in the ledger when the miss is deliberate.",
+                2,
+            )
+        note += (
+            f" | preflight: PF-{preflight.digest} @{preflight.short_revision}"
+            f" ({len(preflight.checks)} checks, {len(preflight.failed)} failed)"
+        )
         prev = t.get("self_note", "")
         t["self_note"] = (prev + " || " + note).strip(" |") if prev else note
         if artifacts:
@@ -9944,7 +10601,14 @@ def cmd_selfcheck(args) -> int:
             t["status"] = "doing"
         write_tasks(path, tasks, role)
     if args.force:
-        t_forced = (t.get("forced", "") + f" | self-check by {actor}: {args.force}").strip(" |")
+        notice = f"self-check by {actor}: {args.force}"
+        if preflight.failed:
+            notice = (
+                "preflight red ("
+                + ", ".join(check.name for check in preflight.failed)
+                + f"): {args.force}"
+            )
+        t_forced = (t.get("forced", "") + f" | {notice}").strip(" |")
         with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
             tasks2 = parse_tasks(path)
             i2 = find_task(tasks2, args.handle)
@@ -9957,6 +10621,7 @@ def cmd_selfcheck(args) -> int:
         actor,
         t["id"],
         f"{args.result}: {t.get('self_note', '')[:120]}"
+        + f" | preflight PF-{preflight.digest} @{preflight.short_revision}"
         + (f" FORCED: {args.force}" if args.force else ""),
         "",
         role,
@@ -10032,8 +10697,7 @@ def _board_tables(args, root: Path) -> int:
     if not tasks:
         die(f"no task records under {roles_dir(root)}: run `teamwork.py init` first", 2)
     before = path.read_text(encoding="utf-8")
-    required = (boardlib.TABLE_HEAD, boardlib.FLIGHT_HEAD, "## In flight")
-    missing = [anchor for anchor in required if anchor not in before]
+    missing = [anchor for anchor in BOARD_ANCHORS if anchor not in before]
     if missing:
         die(
             f"{path} is not a rendered board: missing "
@@ -12652,6 +13316,21 @@ def _parsers_quality(sub, common) -> None:
         help="override the self-check ownership rule; reason required",
     )
     s.set_defaults(func=cmd_selfcheck)
+
+    s = sub.add_parser(
+        "preflight",
+        parents=[common],
+        help="author's mechanical gate before self-check: branch, identity, evidence,"
+        " mergeability, board",
+    )
+    s.add_argument("agent", help="the role that owns the task")
+    s.add_argument("handle", help="T-0004, title or substring")
+    s.add_argument(
+        "--run",
+        action="store_true",
+        help="also run the project's PreflightCommand from Settings.json (default: report it)",
+    )
+    s.set_defaults(func=cmd_preflight)
 
     s = sub.add_parser(
         "archive", parents=[common], help="show the reviewed-result archive (evidence ledger)"
