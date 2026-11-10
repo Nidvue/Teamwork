@@ -164,13 +164,15 @@ under two roles is two tasks.
 | developer | T-0057 | records | done | P-0057 | 0908643 |
 | developer | T-0058 | privacy | done | P-0058 | 567402a |
 | developer | T-0059 | lanes | done | P-0059 | b060209 |
+| developer | T-0060 | ledger | done | P-0061 | 8a50ec9 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
-| reviewer | T-0003 | - | todo | - | - |
+| reviewer | T-0003 | - | done | - | - |
 | reviewer | T-0004 | security | done | P-0060 | 59c240f |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
+| tester | T-0003 | - | doing | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -189,7 +191,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| reviewer | T-0003 · Acceptance probes for the eight areas whose acceptance layer is recorded failing and has no probe module: audit, baseline, ci-scope, criteria, identity, ledger, m19-records, security | P1 | todo | - |
+| tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.

@@ -2468,6 +2468,7 @@ LEDGER_ACTIONS = (
     "lane.finish",
     "lane.start",
     "lane.stop",
+    "ledger.cut",
     "ledger.export",
     "ledger.repair",
     "lesson.add",
@@ -3040,8 +3041,66 @@ def _ledger_repair_locked(args, root: Path, actor: str) -> int:
     return 0
 
 
+def cmd_ledger_cut(args) -> int:
+    """Declare a fresh cut: preserve the current trail and seed a new chain.
+
+    The one non-destructive answer to a chain that a lost update corrupted. A
+    repair would drop the tail (destroying evidence) and a re-seal would rewrite
+    every digest (a history rewrite); a cut keeps the old file byte-identical
+    under its own name and starts a new chain whose first record names it, the
+    record count, the head hash and the reason. Only the CEO may declare one,
+    because the manifest every reader binds to changes with it.
+    """
+    import shutil
+
+    root = project_root(args)
+    actor, arole = validate_actor(root, args.by, "cutter")
+    if arole != "ceo" and not args.force:
+        die(
+            f"only the CEO may declare a ledger cut (you are {actor}). A cut changes "
+            "the chain every reader and the audit manifest bind to; use --force <reason> "
+            "to override deliberately.",
+            2,
+        )
+    if args.force:
+        args.force = require_reason(args.force, "declaring a ledger cut")
+    path = ledger_path(root)
+    if not path.exists():
+        die("no ledger to cut")
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
+        records = ledger_read(root)
+        if not records:
+            die("the ledger is empty: there is nothing to preserve")
+        head = records[-1].get("hash", "")
+        suffix = 2
+        while (root / f"Ledger.cut{suffix}.jsonl").exists():
+            suffix += 1
+        preserved = root / f"Ledger.cut{suffix}.jsonl"
+        shutil.copy2(path, preserved)
+        head_path = ledger_head_path(root)
+        if head_path.exists():
+            shutil.copy2(head_path, root / DIR_RUNTIME / f"LedgerHead.cut{suffix}.json")
+        atomic_write(path, "")
+        head_path.unlink(missing_ok=True)
+        ledger_append(
+            root,
+            "ledger.cut",
+            actor,
+            preserved.name,
+            f"cut {suffix + 1} declared: {len(records)} record(s) preserved at "
+            f"{preserved.name} with head {head[:12]}; {args.reason}"
+            + (f" FORCED: {args.force}" if args.force else ""),
+            _locked=True,
+        )
+    print(f"# preserved {len(records)} record(s) at {preserved} (head {head[:12]})")
+    print(f"# new chain seeded at {path} with the ledger.cut record by {actor}")
+    return 0
+
+
 def cmd_ledger(args) -> int:
     root = project_root(args)
+    if args.ledger_cmd == "cut":
+        return cmd_ledger_cut(args)
     if args.ledger_cmd == "repair":
         return cmd_ledger_repair(args)
 
@@ -18215,6 +18274,15 @@ def _parsers_audit(sub, common) -> None:
     s.add_argument(
         "--reconcile", action="store_true", help="repair a head cache left behind by a crash"
     )
+    s.set_defaults(func=cmd_ledger)
+    s = lsub.add_parser(
+        "cut",
+        parents=[common],
+        help="declare a fresh cut: preserve the trail and seed a new chain (CEO only)",
+    )
+    s.add_argument("--by", required=True)
+    s.add_argument("--reason", required=True)
+    s.add_argument("--force", default="", metavar="REASON")
     s.set_defaults(func=cmd_ledger)
     s = lsub.add_parser("repair", parents=[common], help="drop a torn tail and record the repair")
     s.add_argument("--by", required=True)
