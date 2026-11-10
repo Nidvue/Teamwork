@@ -6408,3 +6408,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git diff --stat main...eaee551 @eaee551 -> 8 files, +60/-20, merge-base 0c3aa4e, fast-forward (0 behind / 1 ahead), git merge-tree clean; .venv/bin/python -m pytest -q tests/unit/test_privacy_scan.py tests/integration/test_clean_and_preflight_flow.py tests/integration/test_context_economy_contract.py tests/acceptance/test_operator_contracts.py tests/acceptance/test_acceptance_memory_pi_package.py @eaee551 -> 200 passed in 9.16s; python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt @eaee551 -> PASS - 0 finding(s) in tree; python3 scripts/teamwork.py identity --audit --strict-authors --range 90502bb..eaee551 @eaee551 -> 47 commits, problems: 0
 - findings history: 
 - branch / merge: developer-1/t-0082-ci-identity / 077044f
+
+## T-0083 · the operator identity check compares email and name in the wrong order, so CI rejects every operator-authored commit  (developer)
+- date: 2026-11-10
+- priority: P0
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: identity
+- self-check: [pass] One comparison, wrong order. is_operator compared the audit's (email, name) pair to OPERATOR_IDENTITY, which is (name, email), so the constant never matched; locally the preset clause masked it because the repo's local config is the same identity, and in CI - where the only identity is the checkout bot - every operator-authored commit failed. The comparison is (name, email) now, and a new acceptance test audits an operator-authored commit in a repository with no local and no global preset, which is the CI shape. Boundary: a personal author that is not the operator still fails (the existing test), and a role mailbox still needs its display name to match. | test: HOME=/tmp GIT_CONFIG_GLOBAL=/dev/null python3 scripts/teamwork.py identity --audit --strict-authors --range 0c3aa4e..HEAD @341cfc4 -> PASS, 6 commits, 0 problems; .venv/bin/python -m pytest -q tests/acceptance/test_operator_contracts.py tests/unit/test_commit_identity.py -> 51 passed; preflight developer T-0083 --run @341cfc4 -> 8 checks, 0 failed | preflight: PF-c470912965d2 @341cfc46143f (8 checks, 0 failed)
+- author evidence: commit 341cfc4
+- reviewer evidence: git diff main...341cfc4 @341cfc4 -> engine.py:5468 swaps to (an, ae) == OPERATOR_IDENTITY (OPERATOR_IDENTITY is (name,email), git log fields are %an,%ae) + 35-line acceptance regression test; .venv/bin/python -m pytest -q tests/acceptance/test_operator_contracts.py tests/unit/test_commit_identity.py @341cfc4 -> 51 passed in 1.91s; HOME=/tmp GIT_CONFIG_GLOBAL=/dev/null python3 scripts/teamwork.py identity --audit --strict-authors --range 0c3aa4e..HEAD @341cfc4 -> commits: 7 | problems: 0; git merge-tree --write-tree main 341cfc4 @341cfc4 -> CLEAN; counter-check: new test run against main's engine -> FAIL problems: 1 (proves the bug the fix closes)
+- findings history: 
+- branch / merge: developer-1/t-0083-operator-identity-order / c643103
