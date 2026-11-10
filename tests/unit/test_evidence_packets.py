@@ -193,3 +193,56 @@ def test_require_ancestor_rejects_an_unknown_revision(tmp_path: Path) -> None:
 
     with pytest.raises(SystemExit):
         engine.require_ancestor(tmp_path, "deadbeef", head)
+
+
+# --------------------------------------------------------------------------- #
+# repro matching
+# --------------------------------------------------------------------------- #
+
+
+def write_tests(root: Path, records: list) -> Path:
+    path = root / "Tests.md"
+    engine.write_tests(path, records)
+    return path
+
+
+def repro_record(area: str, task: str = "", repro: str = "pre @aaa -> 3 failed") -> dict:
+    record = engine.new_test_record("unit", area, owner="developer-1")
+    record["task"] = task
+    record["repro"] = repro
+    return record
+
+
+def test_repro_matches_the_task_it_names(tmp_path: Path) -> None:
+    root = make_root(tmp_path / "SampleProject")
+    write_tests(
+        root,
+        [repro_record("parser", task="T-0002"), repro_record("parser", task="T-0003")],
+    )
+
+    matched = engine.repro_records_for(root, {"id": "T-0003", "area": "parser"})
+
+    assert [r["task"] for r in matched] == ["T-0003"]
+
+
+def test_repro_for_a_sibling_bug_does_not_satisfy_the_task(tmp_path: Path) -> None:
+    root = make_root(tmp_path / "SampleProject")
+    write_tests(root, [repro_record("parser", task="T-0002")])
+
+    assert engine.repro_records_for(root, {"id": "T-0003", "area": "parser"}) == []
+
+
+def test_area_level_repro_covers_a_task_without_an_id_link(tmp_path: Path) -> None:
+    root = make_root(tmp_path / "SampleProject")
+    write_tests(root, [repro_record("parser")])
+
+    matched = engine.repro_records_for(root, {"id": "T-0003", "area": "parser"})
+
+    assert len(matched) == 1
+
+
+def test_repro_of_another_area_is_ignored(tmp_path: Path) -> None:
+    root = make_root(tmp_path / "SampleProject")
+    write_tests(root, [repro_record("ledger")])
+
+    assert engine.repro_records_for(root, {"id": "T-0003", "area": "parser"}) == []
