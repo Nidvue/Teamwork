@@ -194,7 +194,7 @@ it releases the pen or finishes the update.
 ### `task`
 
 ```text
-teamwork task {add,list,next,set,reclaim,rm} ...
+teamwork task {add,list,next,set,check,reclaim,rm} ...
 ```
 
 Manage a role's shared priority queue.
@@ -259,6 +259,21 @@ teamwork task set AGENT HANDLE [--claimed-by CLAIMED_BY]
 
 Update status, priority or dependencies. `--force` overrides evidence/self-check
 /review gates, requires a reason, and is recorded and audited.
+
+#### `task check`
+
+```text
+teamwork task check
+```
+
+Verify the whole task graph the queues describe: every dependency resolves to an
+existing task, no task depends on itself, no dependency cycle exists (the path is
+printed), no queue holds one open id twice, and every task has a priority. Exit
+`2` lists every problem; `0` prints `0 problems in N role queue(s)`.
+
+The same check runs on write: `task add` and `task set --deps` refuse with exit
+`2` instead of writing a queue that cannot run, because `task next` would only
+report the lane as idle.
 
 #### `task reclaim`
 
