@@ -542,3 +542,34 @@ def test_remote_reference_is_honest_about_single_owner_repositories(root):
     assert "cannot be satisfied by the author" in text
     assert "enforce_admins = false" in text
     assert "Do not set the approval count to zero" in text
+
+
+# --------------------------------------------------------------------------- #
+# several Reviewers in parallel
+# --------------------------------------------------------------------------- #
+
+
+def test_reviewer_charter_documents_parallel_reviews(root):
+    text = flat(read(root, "roles", "reviewer.md"))
+    assert "## Working in parallel with other Reviewers" in text
+    assert "several Reviewers at the same time" in text
+    assert "The queue is shared" in text
+    assert "One claim per deliverable" in text
+    assert "Double review is explicit" in text
+    assert "the merger is always a different reviewer" in text.lower()
+    assert "Conflict of interest" in text
+    assert "Findings union" in text
+
+
+def test_skill_allows_multiple_parallel_reviewers(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "several may run **in parallel**" in text
+    assert "Review is a parallel lane" in text
+    assert "one claim per deliverable" in text.lower()
+
+
+def test_there_is_no_single_reviewer_bottleneck_claim(root):
+    """The old 'one Reviewer instance' exception must not read as the norm."""
+    text = flat(read(root, "SKILL.md"))
+    assert "reviewer-1..N" in text
+    assert "Reviewer is not optional" in text
