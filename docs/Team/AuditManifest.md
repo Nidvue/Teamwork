@@ -1,11 +1,11 @@
 # Audit report
 
-- generated: 2026-10-25T19:24:01
+- generated: 2026-10-25T20:06:13
 - team: Teamwork
-- ledger: 531 records, chain verified: True
-- checkpoint: record #531 (the ledger.export event behind this manifest; later records are work that happened after it)
-- head hash: `a37724864840054ca23cb9406374c3ba`
-- git: 17a67bd9bdd4 on main, dirty: False
+- ledger: 550 records, chain verified: True
+- checkpoint: record #550 (the ledger.export event behind this manifest; later records are work that happened after it)
+- head hash: `359aa35da8beb2117b620a235a65c9bb`
+- git: 807653ba9054 on main, dirty: False
 - externally verifiable artifacts: 4
 - local-only state files: 46
 
