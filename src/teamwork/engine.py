@@ -838,6 +838,63 @@ def _merge_branch_hint(root: Path, handle: str) -> str:
     return ""
 
 
+def _merge_base_branch(project: Path, raw: str, pr: dict) -> str:
+    """The local branch ``pr`` merges into.
+
+    A base is normally a branch name, but a record can hold a commit sha instead
+    (``branch start --base <rev>``, a hand-edited task, an older record).
+    ``git checkout <sha>`` detaches HEAD, so the merge commit is created
+    off-branch and the base branch never moves - the merged work is published
+    nowhere and the next ``git switch <base>`` still shows the pre-merge tip.
+    A branch is the only thing a merge can advance, so a raw revision is mapped
+    back to the branch pointing at it (the default base first) and anything else
+    is refused before git has touched the tree.
+    """
+    handle = (raw or "").strip() or DEFAULT_BASE
+    if branch_exists(project, handle):
+        return handle
+    resolved = run_git(project, "rev-parse", "--verify", "--quiet", f"{handle}^{{commit}}")
+    commit = resolved.stdout.strip()
+    tips: list = []
+    if resolved.returncode == 0 and commit:
+        refs = run_git(project, "for-each-ref", "--format=%(refname:short)", "refs/heads/")
+        for name in refs.stdout.split():
+            tip = run_git(project, "rev-parse", "--verify", "--quiet", name).stdout.strip()
+            if tip == commit:
+                tips.append(name)
+        if DEFAULT_BASE in tips:
+            return DEFAULT_BASE
+        if len(tips) == 1:
+            return tips[0]
+    die(
+        f"{pr['id']} merges into '{handle}', which is not a local branch in {project}. "
+        "Only a branch can be advanced by a merge; a bare revision would leave "
+        "the merge commit on a detached HEAD and the base branch behind.\n"
+        + (
+            f"  branches at that commit: {', '.join(tips)}\n"
+            if tips
+            else "  no local branch points at it\n"
+        )
+        + f"  re-record the base as a branch: teamwork.py pr open --agent "
+        f"{pr.get('author') or '<author>'} --task {pr.get('task')} --base {DEFAULT_BASE}",
+        2,
+    )
+
+
+def _merge_work_repo(project: Path, here: Path, base: str) -> Path:
+    """The work tree a merge must run in: the one holding ``base``, else ``here``.
+
+    ``git checkout`` switches only the work tree it runs in, and git refuses to
+    check the same branch out twice. In the per-instance layout the base branch
+    usually sits in a different work tree than the one the command ran in, so the
+    merge - and the records commit that precedes it - has to run there. Merging
+    in ``here`` would either fail outright or, worse, advance a work tree nobody
+    expects to be on the base.
+    """
+    wt = branch_worktree(project, base)
+    return wt if wt is not None else here
+
+
 def _merge_pr_index(prs: list, handle: str, branch: str = "") -> int | None:
     """Index of the PR a merge names, preferring the record on ``branch``."""
     if branch:
@@ -927,10 +984,23 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "--result pass --evidence '<verify cmd @rev -> result>'",
                 2,
             )
-        base = pr["base"] or DEFAULT_BASE
+        base = _merge_base_branch(project, pr["base"] or DEFAULT_BASE, pr)
+        # the recorded base may have been a revision; the messages below and the
+        # archive record must name the branch the merge actually advanced
+        pr["base"] = base
         branch = pr["branch"]
         if not branch_exists(project, branch):
             die(f"branch {branch} no longer exists")
+        if pascal(branch) == pascal(base):
+            die(
+                f"{pr['id']} merges {branch} into itself: the base and the PR branch "
+                "are the same branch, so there is nothing to integrate.",
+                2,
+            )
+        # ``git checkout`` only switches the work tree it runs in, and git refuses
+        # to check one branch out twice, so the merge has to run in the work tree
+        # that already holds the base (per-instance layout) instead of ``here``.
+        here = _merge_work_repo(project, here, base)
         # identify pending generated records (they belong to the merge, not to
         # whichever branch happens to be checked out)
         docs_prefix = "/".join(DIR_DOCS)
@@ -946,10 +1016,29 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 + "\n  ".join(d for d in dirty if d not in records)
                 + "\n  commit it on its task branch first (branch start + commit)"
             )
+        was_on = current_branch(here)
         base_sha = run_git(here, "rev-parse", base).stdout.strip()
         r = run_git(here, "checkout", base)
         if r.returncode != 0:
             die(f"could not switch to {base} in {here}: {r.stderr.strip()}")
+        if current_branch(here) != base:
+            # a checkout that lands detached would create the merge commit off
+            # branch, leaving the base where it was; refuse instead of merging
+            run_git(here, "checkout", was_on)
+            die(
+                f"could not put {here} on {base} (it ended up on "
+                f"{current_branch(here) or 'a detached HEAD'}); nothing was merged.",
+                2,
+            )
+        # the review pass may have written the entry into a lane work tree; the
+        # base branch must carry it too, and it belongs in the records commit
+        print(archive_ensure_entry(root, role, t, repo=here))
+        records = [
+            ln[3:].strip()
+            for ln in run_git(here, "status", "--porcelain").stdout.splitlines()
+            if ln.strip()
+        ]
+        records = [d for d in records if d == docs_prefix or d.startswith(docs_prefix + "/")]
         if records:
             run_git(here, "add", "--", *records)
             rec_msg = build_commit_message(
@@ -1052,6 +1141,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             if tidx is not None:
                 tasks[tidx]["merge_commit"] = sha
                 tasks[tidx]["status"] = "done"
+                tasks[tidx]["base"] = base
                 tasks[tidx]["updated"] = today_iso()
                 write_tasks(tpath, tasks, role)
             # Reviews.md is written under the same lock order as `cmd_review`:
@@ -1064,6 +1154,9 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     fresh_prs[pidx]["status"] = "merged"
                     fresh_prs[pidx]["reviewer"] = merger
                     fresh_prs[pidx]["merge_commit"] = sha
+                    # a base recorded as a revision is replaced by the branch the
+                    # merge actually advanced, so the next merge/report names it
+                    fresh_prs[pidx]["base"] = base
                     fresh_prs[pidx]["updated"] = today_iso()
                     fresh_prs[pidx]["notes"].append(f"merged into {base} at {sha} by {merger}")
                     if args.force:
@@ -5791,8 +5884,60 @@ def archive_path(root: Path) -> Path:
     return docs_dir(root) / "Archive.md"
 
 
-def archive_append(root: Path, owner: str, t: dict) -> str:
-    path = archive_path(root)
+def archive_write_repo(root: Path, t: dict) -> Path:
+    """The work tree the archive entry for ``t`` must be written in.
+
+    An archive entry is project output, so it belongs on the base branch: that is
+    the branch whose history records what shipped, and it is the branch the merge
+    advances. Writing it wherever the command happened to run puts it on a lane
+    branch (where it is lost when the branch is retired) or leaves it uncommitted
+    in an unrelated checkout, and after the merge the base has no entry at all.
+    So the entry is written in the work tree that holds the task's base branch,
+    falling back to the project root when no work tree has it checked out (then
+    ``pr merge`` re-creates the entry on the base before it commits the records).
+    """
+    project = project_of(root)
+    base = (t.get("base") or "").strip() or DEFAULT_BASE
+    wt = branch_worktree(project, base) if is_git_repo(project) else None
+    return wt if wt is not None else project
+
+
+def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = None) -> str:
+    """Guarantee ``repo``'s archive names the task's branch, appending if needed.
+
+    The review pass writes the entry, but it writes it in whatever work tree it
+    ran in - historically a lane branch. By merge time the base branch then has
+    no entry for the branch at all, so the merge has nothing to repoint and the
+    base keeps no record that the work shipped. ``pr merge`` calls this after it
+    switches to the base: when the entry is already there nothing changes, and
+    when it is missing the accepted-results entry is appended on the base and
+    rides along in the same ``chore(records)`` commit as the other records.
+    """
+    branch = (t.get("branch") or "").strip()
+    if not branch:
+        return "# archive: the task has no branch, so no entry was added"
+    path = (repo or project_of(root)).joinpath(*DIR_DOCS) / "Archive.md"
+    prefix = "- branch / merge: "
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").split("\n"):
+            if not line.startswith(prefix):
+                continue
+            entry_branch, _, _merge = line[len(prefix) :].rstrip().rpartition(" / ")
+            if entry_branch == branch:
+                return f"# archive: {branch} already has an entry on the base"
+    archive_append(root, owner, t, repo=repo)
+    return f"# archive: wrote the accepted-results entry for {branch} on the base"
+
+
+def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) -> str:
+    """Append an accepted-results entry for ``t`` and say where it was written.
+
+    ``repo`` is the work tree to write in; it defaults to the work tree holding
+    the task's base branch (see ``archive_write_repo``), so the entry lands on
+    the branch the merge will advance and its records commit can pick it up.
+    """
+    base_repo = repo or archive_write_repo(root, t)
+    path = base_repo.joinpath(*DIR_DOCS) / "Archive.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         f"## {t['id']} · {t['title']}  ({owner})",
@@ -5821,7 +5966,10 @@ def archive_append(root: Path, owner: str, t: dict) -> str:
             if not path.read_text(encoding="utf-8").endswith("\n\n"):
                 fh.write("\n")
             fh.write("\n".join(lines))
-    return str(path.relative_to(project_of(root)))
+    try:
+        return str(path.relative_to(project_of(root)))
+    except ValueError:  # pragma: no cover - a work tree outside the project
+        return str(path)
 
 
 def archive_set_merge_sha(root: Path, branch: str, sha: str, repo: Path | None = None) -> str:
