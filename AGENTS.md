@@ -77,6 +77,43 @@ Reviewer when no CTO/CFO is staffed) so **no party ever rules its own dispute**.
 Freeze interfaces first, then run Developer, Tester and Designer lanes in
 parallel from the same contract. Docs are produced along the way, not as a gate.
 
+## Throughput contract (hard)
+
+Speed comes from the structure, not from working harder. Measured on this
+project's own trail at one ledger cut (`n=1615`): 44 review failures, 66 review
+targets (one role + task) of which 26 needed more than one verdict and 11 needed
+three or more; two independent readings put the failures a local check could have
+caught at 16-24 of 44. The share is contested, so `preflight` plus the
+`mechanical:` field on every fail measures it prospectively instead.
+
+- **One parent, one board.** A role has exactly one line manager; a supervision
+  body (CEO+CTO+CFO) holds decision rights, never a second reporting line.
+- **One feature, one team.** One open feature per Team Leader; two features mean
+  the org is short a leader, not that a lane serialises.
+- **One owner per artifact, one writer per file.** Two open features never share a
+  writable path; a second lane waits or is re-scoped.
+- **One verification per fact per revision, one gate in one place.** Cite a peer's
+  passing record (`review --credit`) instead of re-running it; CI owns the matrix
+  and the author proves the same checks locally through `preflight`.
+- **Definition of ready.** No squad starts on a moving interface, a shared path or
+  another feature's in-flight code. That goes back to the Architect.
+- **Definition of done.** `preflight` green, independent pass, archived, merged -
+  nothing else, and a status the board does not show does not exist.
+- **Generated artifacts render at the merge** *(target; T-0043)*. `Board.md` and
+  the archive belong on the base branch, written by the merging Reviewer; until the
+  merge path does it, a branch that must carry a board render re-renders it last.
+- **Right-sized roster, small slices.** One Developer and one Tester per feature
+  team; a task fits one review **lease** (20/40/80 min for fast/standard/deep) whose
+  reviewer **budget** is 10/20/40 min, or it is split; a fix after a fail is a delta
+  re-review by the lane that raised it.
+
+Authors run `teamwork.py preflight <you> <T-id> --run` before `selfcheck`; it
+fails closed on identity, commit shape, reachability of every `@<sha>` in the
+evidence and the self-check test, mergeability into the base, board drift the
+branch itself caused, and the project gate from `Settings.json` →
+`PreflightCommand`. A fail records whether it was `mechanical`, so the numbers
+above stay measured rather than asserted. Full text: `references/Roles.md`.
+
 ## Writing standard (hard)
 
 All memory, plans, designs, research, decisions and docs are **markdown**,
