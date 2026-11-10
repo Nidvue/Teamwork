@@ -102,7 +102,7 @@ under two roles is two tasks.
 | release-engineer | T-0003 | ci | done | P-0076 | 46c4aeb |
 | release-engineer | T-0004 | - | blocked | - | - |
 | release-engineer | T-0005 | release | done | P-0072 | 8fcf3fc |
-| release-engineer | T-0006 | - | todo | - | - |
+| release-engineer | T-0006 | - | done | - | - |
 | release-engineer | T-0007 | release | done | P-0078 | 6fa8930 |
 | release-engineer | T-0008 | ci | done | - | - |
 | release-engineer | T-0009 | - | done | P-0090 | e3a2476 |
@@ -122,7 +122,6 @@ deliverable landed by commit without a PR record.
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | release-engineer | T-0004 · M9-L push the merged M9 revision and certify CI on the pushed SHA | P0 | blocked | - |
-| release-engineer | T-0006 · CI identity audit: a rewritten-history push audits all history and fails on unrepairable old commits | P2 | todo | - |
 
 The task queue (`teamwork.py task list ceo`) is authoritative for a task's exact
 state; this table only says which lanes are open.
