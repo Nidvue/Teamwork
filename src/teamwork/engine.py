@@ -150,6 +150,7 @@ from .gitutil import (
     branch_worktree,
     current_branch,
     ensure_lfs,
+    is_binary_file,
     is_git_repo,
     lfs_tracked,
     run_git,
@@ -3309,8 +3310,17 @@ _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
 #: ``build_commit_message`` emits both, so a message that carries only the
 #: structured trailer still names its acting role.
 _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
-#: The subject of a team merge commit (``pr merge`` / worktree integration).
-_RE_MERGE_SUBJECT = re.compile(r"^chore\(merge\):", re.IGNORECASE)
+#: The subject of a team merge commit that lands no content of its own. Both the
+#: scripted form (``chore(merge): ...``) and a plain ``git merge`` subject count,
+#: because integrating a peer branch is the same content-free act either way.
+_RE_MERGE_SUBJECT = re.compile(
+    r"^(?:"
+    r"chore\(merge\):"
+    r"|Merge branch '[^']+'(?: into [^\s]+)?"
+    r"|Merge commit '[0-9a-f]{7,40}'"
+    r")",
+    re.IGNORECASE,
+)
 #: The committer a git host stamps on a merge it performs itself. It is transport,
 #: not identity: a forge rebase merge rewrites the committer to this account and
 #: leaves the author untouched, so the role that did the work is still the author -
@@ -3362,14 +3372,26 @@ def rewrite_safe_range(project: Path, rev_range: str) -> str:
     return f"{tip}^..{tip}"
 
 
+def _matches_role_display(name: str, canonical_display: str) -> bool:
+    """A role mailbox may display its role spaced or run together.
+
+    ``role_identity`` yields the spaced form (``Project Manager``), while the team
+    commits with ``git -c user.name=ProjectManager`` - the same canonical role,
+    written without spaces. Accept both; anything else is a different name.
+    """
+    return name.replace(" ", "") == canonical_display.replace(" ", "")
+
+
 def _is_content_free_team_merge(
     parents: list, name: str, email: str, body: str, canonical: dict
 ) -> bool:
-    """A two-parent ``chore(merge)`` commit with no body adds no content, so it
+    """A two-parent integration merge with no body adds no content, so it
     carries no acting role. Single-parent commits are never exempt: they do add
     content and must say who acted.
     """
-    if len(parents) < 2 or email not in canonical or name != canonical[email]:
+    if len(parents) < 2 or email not in canonical:
+        return False
+    if not _matches_role_display(name, canonical[email]):
         return False
     lines = body.splitlines()
     if not lines or not _RE_MERGE_SUBJECT.match(lines[0].strip()):
@@ -3432,7 +3454,7 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
                 print(f"- {short} skipped: external contributor {an} <{ae}>")
                 continue
             reasons.append(f"not a role mailbox: {ae}")
-        elif an != expected:
+        elif not _matches_role_display(an, expected):
             reasons.append(f"display name {an!r} does not match role {expected!r}")
         # A forge-side merge stamps its own noreply committer - but only for a
         # commit whose author is a canonical role mailbox, so the identity that
@@ -3453,10 +3475,10 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             match = _RE_ROLE_FIELD.search(body)
             if match:
                 fallback_role = resolve_role(match.group(1))
-                if role_identity(fallback_role)[0] != an:
+                if not _matches_role_display(an, role_identity(fallback_role)[0]):
                     reasons.append(f"'Role: {match.group(1)}' does not match author {an!r}")
                     match = None
-        elif match.group(1) != an:
+        elif not _matches_role_display(match.group(1), an):
             reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
         if not match and not _is_content_free_team_merge(parents, cn, ce, body, canonical):
             reasons.append("message has no 'Acting role:' line")
@@ -3621,6 +3643,7 @@ def cmd_commit(args) -> int:
                 if (
                     fp.is_file()
                     and fp.stat().st_size > args.lfs_threshold
+                    and is_binary_file(fp)
                     and not lfs_tracked(project, line)
                 ):
                     big.append(f"{line} ({fp.stat().st_size // 1024} KiB)")
@@ -8459,7 +8482,7 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
                 ):
                     continue
                 try:
-                    if p_.stat().st_size >= 1_000_000:
+                    if p_.stat().st_size >= 1_000_000 and is_binary_file(p_):
                         big.append(p_.relative_to(project).as_posix())
                 except OSError:
                     pass
