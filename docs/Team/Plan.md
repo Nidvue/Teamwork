@@ -5,13 +5,11 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md)
 
-## Status summary (2026-10-21, `main` as `git rev-parse --short main` reports it)
+## Status summary
 
-The revision named below is the tip this summary was measured at; it is read
-from the tip, not pinned, and the next merge moves it. Every state in the
-`state` column is read from the queue (`teamwork.py task list <role>`), the
-archive (`teamwork.py archive`) and git (`git merge-base --is-ancestor <sha>
-main`), never from a brief.
+The state of every row below is read from the tool, never from this file:
+`teamwork.py board` for the per-role state and `teamwork.py task list <role>`
+for one task. This file carries the exit condition, which does not move.
 
 | milestone | exit condition | state |
 |---|---|---|
@@ -19,12 +17,13 @@ main`), never from a brief.
 | M1 Package the engine | `selftest` + installed wheel `--version` | done |
 | M2 Make it attractive | README demo, strict docs site, 0 broken links | done |
 | M3 Independent verification | every deliverable has a Reviewer verdict | done |
-| M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - latest tag on the local `main` is `v1.1.0`; `v1.1.2` is tagged on the published side and is not on the local `main` yet (see [Board](Board.md)) |
+| M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - now at `v1.0.2` |
 | M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | done - T-0010..T-0016, closing T-0017 |
 | M6 Evidence packets + repro gate | hashed evidence artifacts, repro-first bug gate, Reviewer verdicts | done - T-0020..T-0025 |
-| M7 Reviewer fan-out + claims | `pulse` hands each unclaimed deliverable to a different idle Reviewer lane | done - developer T-0001, merge `8f210bc` |
-| M8 Records hygiene | archive merge fields proved or `pending`, Plan lists each milestone once, export names its head | done - ceo T-0028, merge `62ef5db` (P-0027, Reviewer-4); the Plan row below still said `review` and is corrected here |
-| M9 Harness^2 adoption | AC-H1..AC-H8 verified on the merged revision | open - every M9 lane is merged and AC-H1..AC-H8 are verified; the exit condition's last clause (`pytest -q` clean on `main`) holds, so the milestone closes when the CEO records it |
+| M7 Reviewer fan-out + claims | `pulse` gives every deliverable to a different idle Reviewer lane | done |
+| M8 Records hygiene | archive merge fields carry a proved revision, each milestone listed once | done |
+| M9 Release truth | every published version is traceable to a tag or a measured exception, and every release claim is measurable | in progress (state read with `teamwork.py board`) |
+| M9p Harness^2 adoption | `harness` and `hooks` registered and documented, AC-H1..AC-H8 verified on the merged revision | closed on the published line; its records are kept below under M9p because the reconciled history carries two milestones that were both named M9 |
 
 ## M5 - post-1.0 hardening (closed)
 
@@ -76,9 +75,117 @@ lists each milestone once, and the export names the head it was taken from.
 
 | id | task | role | prio | artifact | status | evidence |
 |---|---|---|---|---|---|---|
-| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | done | merge `62ef5db` (P-0027, Reviewer-4); 20 of 37 merge fields proved then, the rest say `pending` and later entries fill their own field per PR |
+| T-0028 | Repair archive merge fields, de-duplicate Plan, re-pin manifest | ceo | P1 | `Archive.md`, `Plan.md`, `AuditManifest.json` | done | merge `62ef5db`; 20 of 37 merge fields proved from `pr.merge` records or merge subjects |
 
-## M9 - Harness^2 adoption (open)
+## M9 - release truth (in progress)
+
+Goal: the published state and the repository must agree, and every release claim
+in the documentation must be measurable by a command.
+
+M9 exists because they disagreed: the npm `latest` release shipped an engine
+behind `main`, its CI run was red, no git tag covered the published versions,
+the docs advertised an install channel that does not exist, and the release
+record named a tag that never existed and a coverage threshold an order of
+magnitude off. The milestone replaces those claims with a frozen contract, a
+gate that reads the published facts, and records that admit only what is
+measured.
+
+Non-goals:
+
+- publishing the package to a new distribution channel; the channel that does
+  not resolve stays marked unavailable
+- re-publishing a version that was already published
+- rewriting published history; the npm-only 1.1.1 anomaly is recorded as an
+  exception, not repaired
+- changing the semantics of the nine rules; the contract is amended only by
+  measurement (see [Decisions](Decisions.md) D-20261020-CEO-7)
+
+### M9 deliverables
+
+| id | task | role | area | artifact |
+|---|---|---|---|---|
+| T-0002 | freeze the release-consistency contract | architect | architecture | `docs/Team/Architecture.md` section 11 |
+| T-0003 | correct the contract defects found while implementing section 11 | architect | architecture | `docs/Team/Architecture.md` section 11 |
+| T-0004 | amend the frozen contract (rev, link policy, R2 decision record) | architect | architecture | `docs/Team/Architecture.md` section 11, [Decisions](Decisions.md) |
+| T-0005 | rewrite the CI-scope description to match the delivered workflow | architect | ci | `docs/Team/Architecture.md` section 9 |
+| T-0005 | the release-consistency checker, nine rules | developer | release | `scripts/check_release_consistency.py`, `release-exceptions.json` |
+| T-0006 | unit tests, one per rule | developer | release | `tests/unit/test_release_consistency.py` |
+| T-0007 | the local gate target | developer | makefile | `Makefile` |
+| T-0009 | the R3 exception admission test | developer | release-consistency | `tests/unit/test_release_consistency.py` |
+| T-0010 | the R8 warning-row exemption | developer | release | `scripts/check_release_consistency.py`, `tests/unit/test_release_consistency_r8.py` |
+| T-0011 | the CI path-filter contract tests | developer | ci-contracts | `tests/unit/test_skill_contracts.py` |
+| T-0012 | the GitHub API token in the checker | developer | release-consistency | `scripts/check_release_consistency.py` |
+| T-0013 | the R9 denial-line exemptions | developer | release-consistency | `tests/unit/test_release_consistency.py` |
+| T-0014 | keep `scripts/` off `sys.path` after the skill-sync import | developer | - | `tests/unit/test_skill_sync.py` |
+| T-0015 | unit-layer records for the six uncovered areas | developer | - | the unit test records |
+| T-0016 | R3 ignores a published non-X.Y.Z npm version | developer | - | `scripts/check_release_consistency.py` |
+| T-0017 | the install docs pin a superseded wheel URL | developer | - | `docs/guide/install.md` |
+| T-0018 | the traceability unit test re-declared the version shape | developer | - | `tests/unit/test_release_traceability.py` |
+| T-0019 | the tag pin `refresh --branch vX.Y.Z` cannot resolve | developer | - | `src/teamwork/engine.py`, `docs/guide/install.md` |
+| T-0020 | R6 cannot see a stale version in a `--branch`/`--tag` pin | developer | - | `scripts/check_release_consistency.py` |
+| T-0003 | wire the gate into CI | release-engineer | ci | `.github/workflows/ci.yml` |
+| T-0004 | push the merged revision and certify CI | release-engineer | release | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
+| T-0005 | repair the release record | release-engineer | release | `docs/Team/Release.md` |
+| T-0006 | audit every commit identity on a rewritten-history push | release-engineer | - | `.github/workflows/` |
+| T-0010 | the identity gate must not audit all history on a rewritten-history push | release-engineer | - | `src/teamwork/engine.py`, `tests/unit/test_commit_identity.py` |
+| T-0007 | the full tag set and the online half in the release workflow | release-engineer | release | `.github/workflows/release.yml` |
+| T-0008 | the scope classifier and a rename out of a shipping path | release-engineer | ci | `.github/workflows/ci.yml` |
+| T-0009 | the release prose must state what the tree contains | release-engineer | - | `docs/Team/Release.md` |
+| T-0059 | bump the version and record the npm-only anomaly | ceo | release | `src/teamwork/version.py`, `CHANGELOG.md` |
+| T-0060 | tag the published version and publish its release | ceo | release | the git tag and its GitHub Release |
+| T-0061 | repair the install and version claims | ceo | release | `README.md`, `docs/guide/install.md` |
+| T-0062 | open the milestone: criteria, task graph, decisions | ceo | release | [Decisions](Decisions.md), the criteria records |
+| T-0063 | sequence the required check | ceo | release | `.github/workflows/ci.yml`, the branch protection |
+| T-0064 | the version claim in the architecture guide | ceo | docs | `docs/guide/architecture.md` |
+| T-0065 | reconcile the published line with the local release-traceability line | ceo | - | the merged line, `docs/Team/Archive.md` |
+| T-0066 | `links` measured the main checkout from inside a worktree | ceo | links | `src/teamwork/engine.py` |
+| T-0067 | `audit` asked which field the proof was written in | ceo | - | `src/teamwork/engine.py`, `tests/unit/test_audit_evidence_sources.py` |
+| T-0070 | `audit` link health used the main checkout too | ceo | links | `src/teamwork/engine.py`, `tests/unit/test_integrity_fixes.py` |
+| T-0002 | independent verification of the published-version traceability | reviewer | release | the acceptance-layer test record |
+| T-0004 | acceptance-layer records for the links area | reviewer | - | `tests/acceptance/test_acceptance_links.py` |
+| T-0003 | acceptance-layer records for the five uncovered areas | reviewer | - | the acceptance test records |
+| T-0005 | fix the env-secret rule that reports a function call as a credential | security-auditor | privacy | `scripts/privacy_scan.py`, `tests/unit/test_privacy_scan.py` |
+| T-0003 | acceptance proof that the release claims hold | tester | release | the acceptance proof, held on the unmerged P-0087 branch |
+| T-0004 | integration-layer records for the six uncovered areas | tester | - | the integration test records |
+| T-0005 | integration-layer records for the links area | tester | - | `tests/integration/test_links_flow.py` |
+| T-0002 | record M9 on the plan and the board | project-manager | plan | this file, [Board](Board.md) |
+
+Task ids are allocated per role queue, so the same id under two roles is two
+tasks, not a duplicate; the role column is the qualifier. The state of every
+row is read with `teamwork.py task list <role>`, and the merged revision of
+every landed row is read with `teamwork.py pr list`.
+
+### M9 dependencies
+
+The order is fixed; each step consumes the frozen one before it.
+
+```text
+contract freeze -> checker -> unit tests -> CI wiring -> release
+```
+
+| step | consumes | why it cannot run earlier |
+|---|---|---|
+| contract freeze | - | the rules, the payload digest and the exception format must be written before code can be measured against them |
+| checker | the frozen contract | an unimplementable contract is corrected by measurement, not defended |
+| unit tests | the frozen contract and the checker | each test proves one rule and must fail before the implementation and pass after it |
+| CI wiring | the checker | the gate must fail closed on the exit codes, so the checker is needed first |
+| release | the gate, the tag and the repaired claims | nothing is published or pushed before the gate is green and the required check is sequenced |
+
+### M9 acceptance criteria
+
+The criteria are machine records (`teamwork.py criteria list`); each row below
+states the verifiable claim and the command that produces its evidence.
+
+| id | verifiable claim | evidence command | owner |
+|---|---|---|---|
+| AC-REL-1 | every version published to npm or to GitHub Releases is traceable to a git tag at a commit whose bundled payload matches, or is listed in `release-exceptions.json` with a measured reason | `python3 scripts/check_release_consistency.py --online` (R3), `git tag -l`, `cat release-exceptions.json` | ceo |
+| AC-REL-2 | the checker implements R1-R9, exits 0 clean, 1 on drift and 2 on unreadable input, and every rule has a unit test that fails before the implementation and passes after it | `python3 scripts/check_release_consistency.py --offline` and its exit codes, `python3 -m pytest tests/unit/test_release_consistency.py tests/unit/test_release_consistency_digest.py tests/unit/test_release_consistency_r8.py -q` | developer |
+| AC-REL-3 | the git tag for the published npm version points at the commit that version was published from, and its GitHub Release carries the wheel, the sdist, `SHA256SUMS` and both SBOMs | `git rev-list -n1 v1.1.2`, `gh release view v1.1.2 --json assets` | release-engineer |
+| AC-REL-4 | `README.md`, `docs/guide/install.md` and `docs/Team/Release.md` print no install command that cannot work, no version older than `src/teamwork/version.py` and no tag that does not exist | `python3 scripts/check_release_consistency.py --offline` (R6, R9), `python3 scripts/check_release_consistency.py --online` (R8), `python3 -m pytest -q tests/unit/test_release_consistency.py tests/unit/test_release_consistency_r8.py` | ceo |
+| AC-REL-5 | the version on `main` is strictly greater than every published and tagged version, and `CHANGELOG.md` records the npm-only 1.1.1 anomaly with its reason | `grep __version__ src/teamwork/version.py`, `git tag -l`, `npm view @nidvue/teamwork versions`, `grep -n '^## ' CHANGELOG.md` | ceo |
+| AC-REL-6 | CI runs the release-consistency gate, every workflow is green on the pushed revision, and the installed skill mirrors it | `gh run list --workflow=ci.yml --commit <pushed sha>`, `python3 scripts/teamwork.py refresh --check` | release-engineer |
+
+## Harness^2 adoption (M9 on the published line, closed)
 
 Exit: AC-H1..AC-H8 in `Criteria.md` verified on the merged revision - `harness`
 and `hooks` registered and documented, the ordered review rubric and the
@@ -88,7 +195,9 @@ then H1+H3+H8, then H4, then the doctrine rows H6/H7/H9.
 
 The intake brief numbers this milestone M8. The M8 above is the records-hygiene
 milestone and its own exit condition requires each milestone to be listed once,
-so the Harness^2 adoption is M9. A row is `done` only when its merge is on
+so the Harness^2 adoption was M9 on the published line. The reconciled history
+carries both milestones, so it is recorded here as **M9p** to keep the two apart
+([D-20261021-CEO-4](Decisions.md)). A row is `done` only when its merge is on
 `main` (`git merge-base --is-ancestor <sha> main` -> rc 0); an open PR is
 `review`, a PR sent back for rework is `doing`, and a task the queue records
 as `dropped` is listed in the drops table below with its reason.
@@ -103,18 +212,20 @@ as `dropped` is listed in the drops table below with its reason.
 | T-0001 | Docs: reviewer rubric, untrusted-material rule, SKILL.md and CHANGELOG | ceo | P1 | - | `roles/reviewer.md`, `references/Evidence.md`, `SKILL.md` | done | merge `e82075d` (P-0001), after 2 fail + 1 pass rounds |
 | T-0002 | Docs pass for the new surface: cli guide, CHANGELOG, dead-skill trigger line | ceo | P1 | developer:T-0001, developer:T-0002 | `docs/guide/cli.md`, `CHANGELOG.md`, `SKILL.md` | done | merge `915f84f` (P-0008); `hooks` documented at `829bc45`, `harness` documented after the engine merged |
 
-Every M9 row above is `done` and every merge named in the evidence column is an
+Every M9p row above is `done` and every merge named in the evidence column is an
 ancestor of `main` (`git merge-base --is-ancestor <sha> main` -> rc 0 for
 `3ce409a`, `811065b`, `5dc7f6b`, `1c99bb1`, `4b3e6dd`, `e82075d`, `915f84f`).
-The one M9 task with no merge is the reviewer row, which the queue records as
+The one M9p task with no merge is the reviewer row, which the queue records as
 `dropped`; it is in the drops table below, and the acceptance coverage it
 wanted is in place under other ids (TS-0003 integration/harness, TS-0005
 acceptance/harness). AC-H1..AC-H8 are verified on the merged revision
 (`teamwork.py criteria list` -> 8/8) and `pytest -q` is clean on `main`, so the
-milestone's exit condition is met; the milestone itself closes when the CEO
-records that, not before.
+milestone's exit condition is met and it reads `closed` above. The rows stay
+because the merges they name are the proof that the reconciled line carries the
+harness surface at all - `src/teamwork/harness.py` and `hooks.py` are on `main`
+only through this line.
 
-Three tasks were dropped in this milestone. They are the M9 drops; the live
+Three tasks were dropped in this milestone. They are the M9p drops; the live
 queues also carry CEO and Security Auditor drops from the privacy and audit
 work, which is outside this milestone's scope and is listed in the table below.
 

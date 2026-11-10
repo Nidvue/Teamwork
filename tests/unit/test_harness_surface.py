@@ -151,7 +151,7 @@ def test_list_prints_exactly_eight_rows_in_component_order(cli, project, capsys)
         assert cells[0] in harness.CLASS_CELLS, f"unknown activation class: {line!r}"
         assert cells[1] == harness.NO_VALUE or cells[1].isdigit(), f"bytes: {line!r}"
 
-    # The frozen path column of Architecture 11.2, spelled out and not read from
+    # The frozen path column of Architecture 12.2, spelled out and not read from
     # the product's own constants: `AGENTS.md` alone would not let a reader
     # recompute the 27 kB managed block, and `scripts/*.py` alone would not explain
     # a count that also sums `src/teamwork/*.py`.
@@ -220,7 +220,7 @@ def test_list_marks_the_lane_packet_as_a_non_file(cli, project, capsys) -> None:
     assert cli("--project", project, "harness", "list") == 0
     out = capsys.readouterr().out
 
-    # 11.2: C5 has no file, so its class, byte and role cells are `-`; the path
+    # 12.2: C5 has no file, so its class, byte and role cells are `-`; the path
     # cell says what it is, so nobody reads `n/a` as a path named n/a.
     assert row_by_path(out, "n/a - lane packet, no file") == ("-", "-", harness.LANE_PACKET, "-")
     assert [row[0] for row in rows(out) if row[0] == harness.NO_VALUE] == [harness.NO_VALUE]
@@ -319,7 +319,7 @@ def test_lint_skips_evidence_when_there_is_no_team_workspace(cli, project, capsy
 
 
 def test_lint_verbose_lists_every_file_checked_with_its_rule_outcomes(cli, project, capsys) -> None:
-    """11.4: ``--verbose`` lists every file checked - not a count the reader trusts."""
+    """12.4: ``--verbose`` lists every file checked - not a count the reader trusts."""
     assert cli("--project", project, "init", "--no-git") == 0
     build_tree(project)  # after init: init regenerates AGENTS.md from the template
     write(
