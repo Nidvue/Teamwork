@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Evidence packets**: `tests run`, `selfcheck` and `review` accept
-  `--baseline`, `--artifact` (repeatable) and `--replay`. Artifacts must exist in
+  `--baseline`, `--artifact` (repeatable) and `--replay`, so the author and the
+  Reviewer record the same five-part packet. Artifacts must exist in
   the repository, are hashed (`path:sha256:bytes`) and the digest is appended to
   the hash-chained ledger, so evidence is a replayable packet instead of a
   sentence.
