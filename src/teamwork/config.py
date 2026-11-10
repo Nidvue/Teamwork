@@ -30,6 +30,8 @@ DIR_AGENTS = "Agents"
 
 DIR_RUNTIME = "Runtime"
 
+DIR_RETIRED = "Retired"
+
 DIR_LOCKS = "Locks"
 
 DIR_SLOTS = "Slots"

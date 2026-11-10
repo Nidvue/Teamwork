@@ -16,6 +16,7 @@ new lanes than free slots.
 
 from __future__ import annotations
 
+import datetime
 import json
 import subprocess
 from pathlib import Path
@@ -529,3 +530,48 @@ def test_a_bare_task_id_resolves_through_the_record_role(cli, project: Path) -> 
     # No role: the id is ambiguous across the queues, so it does not resolve and
     # the caller fails closed rather than guessing.
     assert engine._pr_task({"task": "T-0001"}, index) is None
+
+
+def _review_ready(cli, root: Path, count: int, age_days: int = 0) -> None:
+    project = engine.project_of(root)
+    for index in range(count):
+        assert cli("--project", project, "task", "add", "developer", f"review me {index}") == 0
+    created = (datetime.date.today() - datetime.timedelta(days=age_days)).isoformat()
+    for task in engine.parse_tasks(task_path(root, "developer"))[:count]:
+        edit_task(
+            root, "developer", task["id"], status="review", self_check="passed", created=created
+        )
+
+
+def test_two_unclaimed_items_with_nine_lanes_is_oversupply_not_backlog(cli, project: Path) -> None:
+    root = init(cli, project)
+    assert cli("--project", project, "instance", "add", "reviewer", "--count", 7) == 0
+    # Older than two days so the OLD `or oldest_review >= 2` clause would have
+    # reported a backlog for 2 items / 9 lanes; the fix must not.
+    _review_ready(cli, root, 2, age_days=3)
+
+    report = engine.coordination_report(root)
+    found = {finding["code"]: finding for finding in report["findings"]}
+
+    assert "C-REVIEW-OVERSUPPLY" in found
+    assert "C-REVIEW-BACKLOG" not in found
+    oversupply = found["C-REVIEW-OVERSUPPLY"]
+    assert oversupply["severity"] == "low"
+    assert "9 lane(s) / 2 unclaimed" in oversupply["subject"]
+    assert "idle reviewers:" in oversupply["detail"]
+    assert "Reviewer-1" in oversupply["detail"]
+    assert oversupply["fix"] == (
+        "retire or reuse an idle Reviewer lane; scale back up when the queue passes twice the lanes"
+    )
+
+
+def test_five_unclaimed_items_with_two_lanes_is_backlog_not_oversupply(cli, project: Path) -> None:
+    root = init(cli, project)
+    _review_ready(cli, root, 5)
+
+    report = engine.coordination_report(root)
+    found = {finding["code"]: finding for finding in report["findings"]}
+
+    assert "C-REVIEW-BACKLOG" in found
+    assert "C-REVIEW-OVERSUPPLY" not in found
+    assert "5 unclaimed / 2 lane(s)" in found["C-REVIEW-BACKLOG"]["subject"]
