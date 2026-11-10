@@ -359,3 +359,41 @@ measured from the records, not asserted.
   recommend the smallest roster; it cannot prove the model will execute it.
 - Proactivity is bounded by the pulse and the attention record. A designer that
   proposes work no lane approved is the rubber-stamp failure in another costume.
+
+## 12. Framework comparison (2026-11-02): what we learn, adapt and adopt
+
+Method: three official documentation pages, read in full, compared against the
+mechanisms this repository ships (measured in the project review, see
+[Risks](Risks.md) R-25 to R-32). Sources: [CrewAI processes](https://docs.crewai.com/en/concepts/processes) - accessed 2026-11-02;
+[OpenAI Agents SDK, handoffs](https://openai.github.io/openai-agents-python/handoffs/) - accessed 2026-11-02;
+[LangGraph, persistence](https://docs.langchain.com/oss/python/langgraph/durable-execution) - accessed 2026-11-02.
+
+| Framework | What the documentation says | Our equivalent | Verdict |
+|---|---|---|---|
+| CrewAI | Sequential or hierarchical process; in the hierarchical case a manager agent plans, delegates, "reviews outputs, and assesses task completion". | CEO decomposition plus an independent Reviewer who is never on the author's line. | **Keep ours.** A manager that judges its own team's output is the failure our Reviewer-only merge exists to prevent. |
+| OpenAI Agents SDK | A handoff is a tool, one per destination; `input_type` validates the handoff's arguments locally; `input_filter` controls what history the next agent sees; input guardrails apply only to the first agent and output guardrails only to the final one. | Task packets and CLI records; actor and role validation; review and preflight on every deliverable. | **Adapt.** Our gates are stronger (every deliverable, not the first and last agent). Typed input validation at the handoff is a real gap: a task packet is free text until the review reads it. |
+| OpenAI Agents SDK, history | Filters choose what the receiving agent sees; the SDK warns that a summary can still carry redacted content. | the root `AGENTS.md` managed block loaded in full, SKILL.md always-on (R-31). | **Adopt the principle.** Decide per section what every instance loads; move the rest to on-demand references. |
+| LangGraph | Checkpointers persist thread state for resume, human-in-the-loop, time travel and fault tolerance; stores hold cross-thread memory; the docs warn that checkpoints "accumulate" and recommend "prune old checkpoints ... or set a retention policy". | Hash-chained `Ledger.jsonl` and the records; the evidence archive has no retention (R-25). | **Adopt the retention warning, keep our chain.** LangGraph state is not tamper-evident; ours is, which is the strength to keep. The warning describes our own R-25 exactly. |
+| LangGraph, resume | A run resumes from the last checkpoint after an interruption. | Task status and the slot lease; a lane that dies loses its in-flight state unless it wrote a record. | **Adapt.** A lane's progress should be a record written before risky steps, so a reclaimed task resumes from its last record rather than from a summary. |
+
+**Conclusions for this repository.**
+
+1. Our differentiator is the independence and the tamper evidence, not the agent
+   graph. Two of the three frameworks put review in the same agent graph; we do
+   not, and the comparison says that choice is right.
+2. The weaknesses the comparison exposes are the ones the project review already
+   found: unbounded evidence growth (the LangGraph retention warning), context that
+   every instance pays for (the SDK's history filters), and free-text handoffs (the
+   SDK's typed `input_type`).
+3. Candidate work, not yet scheduled: validated fields on a task packet at
+   `task add` (the handoff analogue), and a per-lane progress record written before
+   each risky step (the resume analogue). Each needs an owner and a falsifier before
+   it becomes a task.
+
+**Falsifiers.** The retention decision (R-25) fails if a records read over the new
+segments is slower than the current whole-file read. The typed packet fails if
+review rounds per task do not fall within ten tasks.
+
+**What this does not cover.** Benchmarks. None of the three pages reports a
+measured outcome for a multi-agent team, so the comparison ranks design choices,
+not performance.
