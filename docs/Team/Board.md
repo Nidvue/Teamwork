@@ -83,14 +83,14 @@ under two roles is two tasks.
 |---|---|---|---|---|---|
 | architect | T-0001 | - | done | - | - |
 | architect | T-0002 | architecture | done | P-0024 | eea0824 |
-| ceo | T-0001 | - | blocked | - | - |
+| ceo | T-0001 | - | dropped | - | - |
 | ceo | T-0002 | throughput | doing | - | - |
 | ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
 | ceo | T-0004 | records | dropped | P-0011 | - |
 | ceo | T-0005 | - | doing | - | - |
 | ceo | T-0006 | - | done | - | - |
 | ceo | T-0007 | - | done | - | - |
-| ceo | T-0008 | - | todo | - | - |
+| ceo | T-0008 | - | done | - | - |
 | ceo | T-0009 | - | done | - | - |
 | ceo | T-0010 | context | done | P-0013 | 6ad1132 |
 | ceo | T-0011 | - | done | - | - |
@@ -125,7 +125,7 @@ under two roles is two tasks.
 | developer | T-0021 | - | done | - | - |
 | developer | T-0022 | - | doing | - | - |
 | developer | T-0023 | privacy | done | P-0008 | 206c099 |
-| developer | T-0024 | - | todo | - | - |
+| developer | T-0024 | - | dropped | - | - |
 | developer | T-0025 | - | done | - | - |
 | developer | T-0026 | - | todo | - | - |
 | developer | T-0027 | - | done | - | - |
@@ -152,7 +152,8 @@ under two roles is two tasks.
 | developer | T-0048 | audit | done | P-0044 | e24c38c |
 | developer | T-0049 | audit | done | P-0045 | 6d4d6cd |
 | developer | T-0050 | memory | done | P-0046 | 0e88de8 |
-| reviewer | T-0001 | - | doing | - | - |
+| developer | T-0051 | lanes | done | P-0047 | ad5753d |
+| reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
@@ -174,17 +175,13 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0001 · Own M19: intake, criteria, records, dispatch, arbitration and close-out (audit manifest + final report) | P0 | blocked | - |
 | ceo | T-0002 · Restore the record store and measure the engagement baseline with commands (pytest, lint, mypy, links, harness budget, throughput, archive size) | P0 | doing | - |
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| ceo | T-0008 · AC-5 is red on main: privacy_scan --tree reports 3 high/personal-email findings in tracked docs (Board.md:179, Decisions.md:2295-2296), so the tree half of the AC-5 proof exits 1 on the merge target | P0 | todo | - |
 | developer | T-0012 · preflight prints pass with up to 6 of 7 checks unmeasured and the review records it as mechanical=no (finding 6) | P1 | review | - |
 | developer | T-0015 · ledger repair deletes more than the torn tail (finding 9) | P3 | todo | - |
 | developer | T-0022 · the pre-commit gate installs no privacy scan although privacy_scan.py --staged exists (S-3) | P1 | doing | - |
-| developer | T-0024 · the v* tag ruleset protects update/delete but not creation, so 'CEO only' is convention (S-5) | P2 | todo | - |
 | developer | T-0026 · branch refs from records reach git checkout/branch/worktree without -- or check-ref-format (S-9) | P3 | todo | - |
 | developer | T-0034 · task set --status selfcheck silently unsubmits a deliverable whose PR is already open | P2 | todo | - |
-| reviewer | T-0001 · Independent security and release-integrity audit: secrets, path traversal, TOCTOU, subprocess use, workflow trust boundary, branch protection vs policy; no code changes | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.

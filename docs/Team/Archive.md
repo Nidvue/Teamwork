@@ -5647,3 +5647,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-3's own run @05ba951: grep -n loadable_role src/teamwork/engine.py -> one refusal on the remember path; remember QaEnginere -> exit 1 with the canonical message, no directory created; pytest tests/unit/test_memory.py tests/unit/test_lessons.py -> 31 passed. The delta is exactly the reviewer's finding: the duplicate is gone and the canonical message is what a user sees.
 - findings history: 
 - branch / merge: developer/t-0050-t-0049-added-a-second-role-guard-in-cmd / 0e88de8
+
+## T-0051 · A lane's rebase silently deleted the lane runtime's CLI registration: commit 4761349 (merged via T-0005) removed 'from .lanes import add_parsers', the pulse --spawn argument and its block, so 'teamwork swarm'/'lane' became 'invalid choice' on main while the lane suite still expected them  (developer)
+- date: 2026-11-08
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-4
+- task / issue: -
+- area: lanes
+- self-check: [pass] Delta: board render included; note stands. | test: pytest tests/unit/test_lanes.py tests/unit/test_cli_contract.py @04d449e -> 75 passed; repro pre -> 22 failed | preflight: PF-8e84d7909174 @04d449e88c3f (7 checks, 0 failed)
+- author evidence: commit 04d449e @04d449e -> one commit over main, 3 files
+- reviewer evidence: Reviewer-4's own run @04d449e: pytest tests/unit/test_lanes.py tests/unit/test_cli_contract.py -> 75 passed; at the parent the lane suite is 22 failed with 'invalid choice: swarm'. build_parser lists swarm, lane and pulse, and pulse carries --spawn. The restored block is the one dd5904e introduced, and the new test reads the real parser, so a future rebase that drops either fails the suite.
+- findings history: 
+- branch / merge: developer/t-0051-a-lane-s-rebase-silently-deleted-the-lan / ad5753d
