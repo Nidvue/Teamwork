@@ -455,13 +455,15 @@ List test records.
 ```text
 teamwork review [AGENT] [HANDLE] [--queue] [--by BY]
     [--result {pass,fail}] [--evidence EVIDENCE] [--artifact PATH]...
-    [--findings FINDINGS] [--force REASON]
+    [--baseline BASELINE] [--replay REPLAY] [--findings FINDINGS]
+    [--force REASON]
 ```
 
 Reviewer: independent second review of a deliverable. `--queue` lists everything
 awaiting review. A pass archives the result; a fail returns the task to its
 owner. `--artifact` binds a verification artifact (hashed into the ledger) to the
-verdict. `--force` overrides the review gates and requires a recorded reason.
+verdict; `--baseline` and `--replay` record where the verification started and
+how to rerun it. `--force` overrides the review gates and requires a recorded reason.
 
 ### `selfcheck`
 

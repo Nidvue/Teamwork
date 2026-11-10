@@ -345,6 +345,66 @@ def test_review_pass_binds_its_artifact(cli, project: Path) -> None:
     assert "artifacts: Reports/run.log:" in task["review_evidence"]
 
 
+def test_review_records_baseline_and_replay(cli, project: Path) -> None:
+    root = init(cli, project)
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "add",
+            "developer",
+            "ship the parser fix",
+            "--priority",
+            "P1",
+            "--status",
+            "doing",
+            "--claimed-by",
+            "developer-1",
+        )
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "selfcheck",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            "--note",
+            "re-read the diff",
+            "--test",
+            "pytest @bbb222 -> 12 passed",
+        )
+        == 0
+    )
+
+    code = cli(
+        "--project",
+        project,
+        "review",
+        "developer",
+        "T-0001",
+        "--by",
+        "reviewer-1",
+        "--result",
+        "pass",
+        "--evidence",
+        "pytest @bbb222 -> 12 passed",
+        "--baseline",
+        "clean checkout",
+        "--replay",
+        "pytest -q",
+    )
+
+    assert code == 0
+    task = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]
+    assert "baseline: clean checkout" in task["review_evidence"]
+    assert "replay: pytest -q" in task["review_evidence"]
+
+
 def test_audit_reports_a_bug_task_closed_without_a_repro(cli, project: Path) -> None:
     init(cli, project)
     assert (
