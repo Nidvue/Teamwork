@@ -8,12 +8,17 @@ advertisement, and must not be a drift.
 The exemption is per claim, not per line: a line that both warns and
 advertises keeps the shipped name under the normal check.
 
+T-0004 pins the other direction of the extractor: a prose word after
+``pip install`` (``into``) names no distribution and must not fire, while a
+genuine foreign name still does - a guard that stopped biting would be a
+weakened gate.
+
 The checker is loaded by path, so this file stays collectible on a revision
 where the checker has not landed. Every fixture is a synthetic repository built
 in ``tmp_path``; no test opens a socket and no test reads this repository's own
 tree.
 
-Owner: developer. Task: T-0010.
+Owner: developer. Task: T-0010; T-0004.
 """
 
 from __future__ import annotations
@@ -209,6 +214,65 @@ def test_the_shipped_name_on_a_hazard_line_is_still_checked(tmp_path):
 
     assert result.status == "DRIFT"
     assert "wrongscript" in result.detail
+
+
+# --------------------------------------------------------------------------- #
+# a prose word after pip install is not a distribution (T-0004)
+# --------------------------------------------------------------------------- #
+
+#: The measured line: ``docs/Team/Decisions.md`` at 7c183e0, where R8 read the
+#: first word after ``pip install`` and reported ``channel names into``.
+MEASURED_PROSE_LINE = (
+    "- options considered: pip install into the system interpreter (rejected: "
+    "pollutes the operator host); venv/ which .gitignore already covers (chosen)"
+)
+
+
+def test_the_measured_prose_line_names_no_channel(tmp_path):
+    """The exact sentence that made R8 red is a sentence, not an install claim."""
+    root = make_repo(tmp_path / "repo", f"# Decisions\n\n{MEASURED_PROSE_LINE}\n")
+
+    result = crc.rule_r8_install_channels(root)
+
+    assert result.status != "DRIFT"
+    assert "into" not in result.detail
+    assert "0 channel line(s)" in result.detail
+
+
+@pytest.mark.parametrize(
+    "word",
+    ["into", "the", "a", "an", "on", "from", "with", "and", "or", "to", "for"],
+)
+def test_a_prose_word_after_pip_install_names_no_channel(tmp_path, word):
+    """Every stop-word is refused, not just the one the measurement found."""
+    root = make_repo(tmp_path / "repo", f"# Teamwork\n\npip install {word} that interpreter\n")
+
+    result = crc.rule_r8_install_channels(root)
+
+    assert result.status != "DRIFT"
+    assert "0 channel line(s)" in result.detail
+
+
+@pytest.mark.parametrize("name", ["teamwork", "some-other-dist"])
+def test_a_real_foreign_distribution_is_still_drift(tmp_path, name):
+    """The narrow rule still bites: a genuine foreign claim stays a drift."""
+    root = make_repo(tmp_path / "repo", f"# Teamwork\n\nRun `pip install {name}` first.\n")
+
+    result = crc.rule_r8_install_channels(root)
+
+    assert result.status == "DRIFT"
+    assert f"channel names {name}, the project ships teamwork-agents" in result.detail
+
+
+def test_the_shipped_distribution_stays_a_silent_channel_claim(tmp_path):
+    """The shipped name is a claim and resolves - the fix drops no good name."""
+    root = make_repo(tmp_path / "repo", "# Teamwork\n\n`pip install teamwork-agents`\n")
+
+    result = crc.rule_r8_install_channels(root)
+
+    assert crc._channel_claims("`pip install teamwork-agents`") == [("teamwork-agents", None)]
+    assert result.status != "DRIFT"
+    assert "1 channel line(s)" in result.detail
 
 
 # --------------------------------------------------------------------------- #

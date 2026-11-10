@@ -253,6 +253,17 @@ FOREIGN_VERSION = re.compile(r"(?i)\b(?:python3?|cpython|node|npm|pi)\s*[:=]\s*v
 CHANGELOG_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\]")
 FENCE_OPEN = re.compile(r"^(`{3,}|~{3,})")
 PIP_PLAIN = re.compile(r"\bpip3?\s+install\s+(\S+)")
+#: The words that follow ``pip install`` in ordinary prose and name no package.
+#: ``pip install into the system interpreter`` is a sentence about where a
+#: command writes, not a claim on a distribution called ``into``; without this
+#: set a bare ``\S+`` turns every such sentence into a drift (T-0004: R8 read
+#: ``docs/Team/Decisions.md`` line 1744 that way and reported ``channel names
+#: into``). Kept deliberately short - the words that actually introduce an
+#: object after ``install`` - so ``pip install teamwork`` and ``pip install
+#: some-other-dist`` stay claims and the gate keeps biting.
+PROSE_STOPWORDS = frozenset(
+    {"into", "the", "a", "an", "on", "from", "with", "and", "or", "to", "for"}
+)
 PIP_MODULE = re.compile(r"\b(?:python3?|py)\s+-m\s+pip3?\s+install\s+(\S+)")
 PIPX = re.compile(r"\bpipx\s+install\s+(\S+)")
 #: The two run-without-installing shapes: ``uvx --from <dist> <script>`` and
@@ -1406,15 +1417,20 @@ def _trailing_script(line: str, start: int) -> str | None:
 def _clean_distribution(token: str) -> str | None:
     """Reduce a pip/pipx/uvx package token to a distribution name, or ``None``.
 
-    A local path (``pip install .``, ``pip install -e ".[dev]"``) and a
-    placeholder (``pip install <wheel>``) name no published distribution, so
-    they are not channel claims. What survives is a PEP 503 name.
+    A local path (``pip install .``, ``pip install -e ".[dev]"``), a URL, a flag
+    (``pip install --upgrade``) and a placeholder (``pip install <wheel>``) name
+    no published distribution, so they are not channel claims. Neither is an
+    English word: ``pip install into the system interpreter`` continues as
+    prose, and ``into`` is not a distribution (``PROSE_STOPWORDS``). What
+    survives is a PEP 503 name.
     """
     name = token.strip().strip("\"'`").strip()
     for stop in ("==", ">=", "<=", "!=", "~=", "[", ";", ","):
         name = name.split(stop, 1)[0]
     name = name.strip().strip("\"'`")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name):
+        return None
+    if name.lower() in PROSE_STOPWORDS:
         return None
     return name
 
