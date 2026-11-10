@@ -21,8 +21,12 @@ CAP_PAGES = (
     "templates/TeamMap.md",
     "roles/ceo.md",
     "SKILL.md",
-    "README.md",
+    "docs/guide/usage.md",
 )
+
+GUIDE_PAGES = "docs/guide/*.md"
+
+CAP_TRANSCRIPT = re.compile(r"cap=\d+")
 
 RETIRED = re.compile(r"(?:ollama-cloud[^\n]{0,20}\b10\b|\b10\b[^\n]{0,20}Ollama Cloud)")
 
@@ -50,6 +54,29 @@ def test_every_page_that_states_the_cap_states_the_enforced_number(repo_root: Pa
             rf"(?:ollama-cloud|Ollama Cloud)[^\n]{{0,40}}\b{cap}\b", text, re.I
         ) or re.search(rf"\b{cap}\b[^\n]{{0,40}}(?:ollama-cloud|Ollama Cloud)", text, re.I)
         assert states_cap, f"{rel} does not state the enforced cap {cap}"
+
+
+def test_a_guide_page_that_prints_a_cap_transcript_is_listed(repo_root: Path) -> None:
+    """A moved transcript must not leave CAP_PAGES pointing at the old page.
+
+    T-0008 moved the ``parallel`` transcript, and the ``ollama-cloud ... cap=64``
+    line with it, from ``README.md`` to ``docs/guide/usage.md``. CAP_PAGES still
+    named README.md, so the guard demanded a statement from a page that no longer
+    made one while staying silent about the page that did. Every guide page that
+    prints a ``cap=`` transcript has to be listed here, so the next move fails on
+    this assertion instead of on a page that is merely quiet.
+    """
+    showing = sorted(
+        path.name
+        for path in (repo_root / "docs" / "guide").glob("*.md")
+        if CAP_TRANSCRIPT.search(path.read_text(encoding="utf-8"))
+    )
+    assert showing, f"no page under {GUIDE_PAGES} prints a cap transcript; the probe is vacuous"
+    listed = {Path(rel).name for rel in CAP_PAGES}
+    unlisted = [name for name in showing if name not in listed]
+    assert unlisted == [], (
+        f"guide page(s) print a cap transcript but are not in CAP_PAGES: {unlisted}"
+    )
 
 
 def test_the_cap_is_not_left_at_the_retired_bound(repo_root: Path) -> None:
