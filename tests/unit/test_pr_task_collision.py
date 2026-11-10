@@ -1,0 +1,96 @@
+"""`--pr` accepts a PR id, a task id or a title, and they can collide.
+
+A task reworked after a merge keeps the PR record of the branch already in the
+base and gains a second one for the follow-up work. Every PR lookup on the merge
+path therefore narrows on the branch the task is on now, so `pr merge --pr
+T-0001` reaches the live record instead of the integrated one.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from test_context_economy import (
+    committed_archive,
+    init_workspace,
+    pass_review,
+    root_reviews,
+    ship_and_open_pr,
+    ship_task,
+)
+from test_context_economy import merge_pr as merge_first_pr
+
+from teamwork import engine, records
+
+
+def test_find_pr_exact_prefers_the_record_on_the_given_branch() -> None:
+    """The same task id on two branches: only the named branch matches."""
+    merged = records.new_pr(
+        "first deliverable", id="P-0001", task="T-0001", branch="developer-1/t-0001-a"
+    )
+    merged["status"] = "merged"
+    live = records.new_pr(
+        "first deliverable", id="P-0002", task="T-0001", branch="developer-1/t-0001-b"
+    )
+    live["status"] = "approved"
+    prs = [merged, live]
+
+    assert records.find_pr_exact(prs, "T-0001") == 0, "without a branch the oldest record wins"
+    assert records.find_pr_exact(prs, "T-0001", "developer-1/t-0001-b") == 1
+    assert records.find_pr_exact(prs, "T-0001", "developer-1/t-0001-gone") is None
+
+
+def test_pr_merge_by_task_id_reaches_the_live_record_after_a_rework(
+    cli, project: Path, capsys
+) -> None:
+    """`pr merge --pr T-0001` merges the record the task is on now.
+
+    A rework reuses the branch name, so the review pass reopens the same PR
+    record rather than opening a second one; the merge then has to reach that
+    reopened record on the task's current branch, not the copy that already
+    names the first merge revision. The archive must gain the second revision
+    while keeping the first.
+    """
+    root = init_workspace(cli, project, git=True)
+    ship_and_open_pr(cli, project, root)
+    pass_review(cli, project, capsys)
+    first_sha = merge_first_pr(cli, project, capsys)
+    first_prs = engine.parse_reviews(root_reviews(project))
+    assert [pr["id"] for pr in first_prs] == ["P-0001"]
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "reclaim",
+            "developer",
+            "T-0001",
+            "--as",
+            "developer-1",
+            "--reason",
+            "the reviewer asked for a follow-up",
+        )
+        == 0
+    )
+    assert cli("--project", project, "task", "set", "developer", "T-0001", "--status", "doing") == 0
+    ship_task(cli, project, "T-0001", "first deliverable", "second_pass.txt")
+    pass_review(cli, project, capsys)
+
+    reopened = engine.parse_reviews(root_reviews(project))
+    assert [pr["id"] for pr in reopened] == ["P-0001"], "the rework reuses the PR record"
+    assert reopened[0]["status"] == "approved"
+    live_branch = reopened[0]["branch"]
+
+    # the task id also matches the record that already names the first merge;
+    # the lookup narrows on the live branch, so the merge takes the reopened one
+    assert cli("--project", project, "pr", "merge", "--pr", "T-0001", "--by", "reviewer-2") == 0
+    assert f"# merged P-0001 {live_branch}" in capsys.readouterr().out
+
+    merged = engine.parse_reviews(root_reviews(project))[0]
+    assert merged["status"] == "merged"
+    assert merged["merge_commit"] != first_sha
+    archive = committed_archive(project)
+    assert f"- branch / merge: {live_branch} / {first_sha}" in archive
+    assert f"- branch / merge: {live_branch} / {merged['merge_commit']}" in archive
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
