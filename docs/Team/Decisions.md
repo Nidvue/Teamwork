@@ -118,7 +118,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 - decision: The distribution name is teamwork-agents; the import package and console script are teamwork.
 - why: The PyPI name 'teamwork' is already taken, and the import name is part of the public API.
 - evidence: pyproject name = teamwork-agents; README states the install command.
-- falsified by: pip install teamwork-agents <!-- release-consistency: channel-unavailable --> does not expose the teamwork command.
+- falsified by: pip install teamwork-agents does not expose the teamwork command.
 - consequences: -
 
 ## D-20261017-CEO - Only the CEO performs external publishing
@@ -1098,192 +1098,6 @@ worktree until the slot expires - the safe direction to fail.
 - falsified by: A verifier who recomputes the chain and finds record #666 is NOT the ledger.export event, or that manifest ledger.head != the hash of record #666, or that the four artifact digests do not match the committed blobs at 1895d1b, or that the main checkout was modified by the export - any of these would falsify the manifest's central claim and reopen this verdict.
 - consequences: -
 
-## D-20261020-CEO-7 - The frozen contract is corrected by measurement, not defended
-
-- date: 2026-10-20
-- kind: governance
-- status: accepted
-- deciders: CEO (ceo)
-- decided by: CEO
-- task: T-0003
-- context: -
-- options considered: -
-- decision: When the implementation proves a frozen interface clause unimplementable or self-contradictory, the contract is amended by the Architect against a reproduced measurement, and the amendment is a normal deliverable through the two-stage gate. The rules' semantics are never silently bent in the code to match a wrong text.
-- why: M9-B proved three defects in section 11 before any test was written: an unsatisfiable digest across the build_pi_package re-layout, worked examples whose hex values assumed the exclusion the same section forbids, and an R9 regex scope that would flag python: 3.12.13 as a missing tag. A developer silently implementing around a wrong contract hides the wrong contract.
-- evidence: branch developer-1/t-0005-... commit e4cd4c1: tarball-in-place digests 1.1.2 7c540615af001e46 / 1.1.0 de679daed556099f match no tag, while remapped digests a01d9f0cbee641c3 == payload of 3f4981d and ebfc2538e3d3d605 == v1.1.0; 11.5 values b1ba21e39436bf09 / 0786a4ff3c2f84ba reproduce only with build_pi_package included
-- falsified by: If the implemented checker's remapped digests did not reproduce the published tarballs, the contract would be right and the implementation wrong - so the Architect must reproduce one digest independently (T-0003) before amending
-- consequences: -
-
-## D-20261020-CEO-5 - M9: make every published version traceable to a tag, and every release claim measurable
-
-- date: 2026-10-20
-- kind: governance
-- status: accepted
-- deciders: CEO (ceo)
-- decided by: CEO
-- task: -
-- context: -
-- options considered: -
-- decision: Open milestone M9 (release-truth). Scope: (a) a checker scripts/check_release_consistency.py that fails on release drift; (b) tag v1.1.2 at 3f4981d, whose bundled payload is byte-identical to the published npm 1.1.2, and publish its GitHub Release; (c) repair README/install.md/Release.md claims; (d) release 1.1.3 from the merged main. npm 1.1.1 is recorded as an exception.
-- why: Measured on main f277ac7: npm dist-tag latest = 1.1.2 but git has no v1.1.1/v1.1.2 tag, so 'released' means two different things; the GitHub Release lags npm by two versions; README.md:132 and docs/guide/install.md:115,157 print 'teamwork 1.0.2' while version.py says 1.1.2; docs/Team/Release.md:116 rolls back to a v0.9.0 tag <!-- release-consistency: illustrative --> that does not exist; and pip install teamwork-agents <!-- release-consistency: channel-unavailable --> 404s on PyPI while README.md:122 still prints the command. Each is a claim a reader can falsify in one command, which is the defect class this project exists to remove.
-- evidence: npm 1.1.2 tarball payload digest b1ba21e39436bf09 == commit 3f4981d tree digest b1ba21e39436bf09 (64/64 files, 0 differ); npm 1.1.1 payload 0786a4ff3c2f84ba matches NO commit (src/teamwork/version.py sha256 545fc1605b3997460a1cf348562c43fed5a8315c83ac8291f9cbf4078703d36d absent from git rev-list --all); npm 1.1.0 payload de679daed556099f differs from tag v1.1.0 only in scripts/build_pi_package.py; git tag -l -> v1.0.0 v1.0.1 v1.0.2 v1.1.0 only; pypi.org/pypi/teamwork-agents/json -> Not Found; verify_release.py at 3f4981d -> 'OK - release verified'; pytest at 3f4981d -> 620 passed 3 skipped
-- falsified by: Tag v1.1.2 at 3f4981d and the release workflow produces a wheel whose skill payload differs from the npm 1.1.2 tarball, or check_release_consistency.py exits 0 while a version is published with no matching tag and no exception record.
-- consequences: npm and GitHub Releases become two views of one tagged source; a future publish with no tag fails the consistency gate in CI rather than being discovered by a user.
-
-## D-20261020-CEO-6 - Docs lanes are unstaffed this milestone; the CEO writes README, CHANGELOG and docs/guide
-
-- date: 2026-10-20
-- kind: governance
-- status: accepted
-- deciders: CEO (ceo)
-- decided by: CEO
-- task: -
-- context: -
-- options considered: -
-- decision: technical-writer and designer are not staffed on this roster, so their folded lanes (README.md, CHANGELOG.md, docs/guide/**, docs/index.md) are written by the CEO for M9 and recorded as a CEO exception, instead of staffing two roles for four file edits.
-- why: The ownership table is binding so that two lanes never write one file; it does not require staffing a role to satisfy it when a lane is folded. Adding technical-writer-1 and designer-1 would add two charters, two queues, two memory sets and two test-layer obligations for a milestone whose docs edits are version strings, one install note and one stale table.
-- evidence: ls .pi/Teamwork/Teams/Teamwork/Roles/ -> no TechnicalWriter and no Designer instance directory; the file-ownership table in section 2 of docs/Team/Architecture.md assigns README.md to designer-1 and CHANGELOG.md+docs/guide/** to technical-writer; tests plan requires only staffed roles' layers
-- falsified by: A second writer touches one of those files in this milestone, or the Reviewer finds a docs claim no role could have measured.
-- consequences: The docs layer stays unstaffed and tests plan reports no gap for it; the Reviewer still reviews every docs edit, so the second gate is unchanged.
-
-## D-20261021-Architect - R2 compares HEAD only against the version tags reachable from HEAD
-
-- date: 2026-10-21
-- kind: technical
-- status: accepted
-- deciders: Architect (architect)
-- decided by: Architect
-- task: T-0004
-- context: [Architecture](Architecture.md) 11.2.2 froze R2's reachable-tag semantics but the `D-` entry it asked for was never filed, and the checker then on the developer's branch compared HEAD against every version tag (`c66c387:891-899`).
-- options considered: A) compare HEAD against every version tag in the repository - rejected: it has no notion of reachability, so a maintenance branch stays permanently red against tags that were never its ancestors (measured: DRIFT against v1.0.1, v1.1.0 and v1.1.2 on a 1.0.x line). B) reachable version tags minus the tags at HEAD (S = A - O) - chosen. C) reachable version tags including the tags at HEAD - rejected: asks whether a release is greater than itself, so the gate could never be green on the tag push it exists to gate. D) compare against the newest reachable tag only - rejected: loses the per-tag findings the rule's detail must name.
-- decision: R2's tag set is S = A - O (see [Architecture](Architecture.md) 11.2.2): A is the version tags (`^v\d+\.\d+\.\d+$`) whose commit is reachable from HEAD (`git merge-base --is-ancestor <tag> HEAD` exits `0`), O is the subset of A that points at HEAD (`git tag --points-at HEAD`), and S = A - O. R2 is DRIFT iff some tag in S has a version not strictly less than HEAD's; the ok detail is `HEAD <X.Y.Z> is newer than <|S|> tag(s)` with `|S| = len(A) - len(O)` over reachable version tags only. A version tag that is not an ancestor of HEAD is invisible to R2 (R1, R4, R5, R7 still see it). A shallow or tag-less checkout is exit 2, never a green run.
-- why: The old rule compared HEAD against every version tag in the repository, so a maintenance line stayed permanently red against tags of the main line that were never its ancestors, while the release build it gates was the one revision it could never pass. DRIFT is a published fact disagreeing with a local fact; a tag that is not an ancestor says nothing about whether this checkout is ahead of its own history, so comparing against it is a category error, and O is excluded because R1 forces version.py to equal the tag name, so including O would ask whether a release is greater than itself. The count is `len(A) - len(O)` over reachable version tags only, so it is never negative: the arithmetic `len(git tag -l) - len(O)` (subtract the tags at HEAD from every tag, version tags and doc tags alike) is the defect the freeze removes - on one version tag with two doc tags at HEAD it evaluates to `-2` - and **no revision of the checker implements it and none prints a negative count** (`c66c387:891-899` counts `len(tags)` over version tags). It is named here as the rejected arithmetic, not as an output of any shipped code.
-- evidence: the committed probe set is `d998801:tests/unit/test_release_consistency_digest.py:429-451` - 19 parametrised cases, 13 must-match and 6 must-not-match; `pytest -q tests/unit/test_release_consistency_digest.py -k r9_pattern` at `d998801` -> `20 passed, 25 deselected` (the contract regex matches 13/13 must-match and 6/6 must-not-match); with the old `c66c387:183` pattern substituted for `TAGGED_TOKEN` the same selection gives `9 failed, 11 passed` (the 9 failures are 8 parametrised cases plus the byte-for-byte assertion), i.e. the old pattern matches 5/13 must-match and 6/6 must-not-match; the contract regex is implemented verbatim at `d998801:scripts/check_release_consistency.py:186-191` and `d998801:tests/unit/test_release_consistency_digest.py:424-426` asserts byte-equality with the 11.2.4 block; `pytest -q tests/unit/test_release_consistency_digest.py` at `d998801` -> `45 passed`; the R2 semantics are pinned by the same committed file: `:352-372` counts the reachable version tags and never a negative (`R2 ok HEAD 1.0.1 is newer than 1 tag(s)` on a repo with `v1.0.0` plus the doc tags `docs-a`/`docs-b`), `:374-394` a maintenance branch is `ok` (`HEAD 1.0.1 is newer than 1 tag(s)`, A={v1.0.0, v1.0.1}, O={v1.0.1}, S={v1.0.0}), `:396-411` a stale main stays DRIFT and names `v1.1.0` but not `v1.0.0`, `:413-422` a tag push is `ok` (`HEAD 1.1.0 is newer than 0 tag(s)`); the old rule on the same maintenance-branch fixture (a repo with tags v1.0.0, v1.0.1, v1.1.0, v1.1.2 and a 1.0.x line checked out) prints `R2 DRIFT HEAD version 1.0.1 is not greater than tag v1.0.1; ... v1.1.0; ... v1.1.2` @c66c387 - permanently red; on a shallow clone (`git clone --depth 1 --branch v1.1.0 file://<repo>`) the old checker prints `R2 DRIFT HEAD version 1.1.0 is not greater than tag v1.1.0` @c66c387 - a DRIFT finding, not an input error, off a clone that cannot see the other tags - while the current implementation exits `2` with `shallow clone: the complete tag set is required (git rev-parse --is-shallow-repository is true)` @d998801 - `d998801:scripts/check_release_consistency.py:748` (`_complete_tag_set_error`), asserted by `d998801:tests/unit/test_release_consistency_digest.py:492-525` (a real `git clone --depth 1` raises `InputError` and `main` returns `2`); `git show c66c387:scripts/check_release_consistency.py:891-899 @c66c387 -> the old rule counts len(tags) over every version tag and never prints a negative count`
-- falsified by: If the reachability semantics did not make a maintenance branch green while keeping a stale main red, the old rule would have been right. The measurements above are the falsifier: A={v1.0.0, v1.0.1}, O={v1.0.1}, S={v1.0.0} on the maintenance branch (`ok`, `d998801:tests/unit/test_release_consistency_digest.py:374-394`) and S={v1.0.0, v1.1.0, v1.1.2} on the stale main (DRIFT, `:396-411`). If either side of that pair changes, this decision is void and 11.2.2 must be re-derived.
-- consequences: 11.2.2's 'the D- entry is the Architect's to file' sentence is replaced by a link to this record. The rule is implemented at `d998801` (`rule_r2_head_is_newer` computes `S = A - O` and `_complete_tag_set_error` refuses a shallow or blind checkout), reproducible with `git show d998801:scripts/check_release_consistency.py`. Whether that implementation is in the tree the reader holds is a question with a command, not a sentence: the checker file is in the tree when `git ls-tree HEAD scripts/check_release_consistency.py` prints a line, and the implementation is in the tree when `git merge-base --is-ancestor d998801 HEAD` exits `0`; the clause-by-clause table in the section 11 preamble of [Architecture](Architecture.md) states the same predicates, so the contract is not mistaken for a description of the running code.
-
-## D-20261021-Architect-2 - A prose-only push must not skip the release-consistency gate, and must not burn the full test matrix either
-
-- date: 2026-10-21
-- kind: technical
-- status: accepted
-- deciders: Architect (architect)
-- decided by: architect
-- task: T-0005
-- context: `ci.yml` filtered a documentation-only push with a workflow-level `paths-ignore`, which skips every job in the file - including the `release-consistency` gate, whose entire subject is prose that disagrees with a tag, `version.py` or `CHANGELOG.md`. A gate that is skipped exactly when the documentation drifts is worthless. A `scope` job in `ci.yml` replaces the trigger filter with a job filter so the two requirements can hold at once. The classifier is in the tree when `grep -n "^  scope:" .github/workflows/ci.yml` prints a line; the trigger filter is gone when `grep -n "paths-ignore" .github/workflows/ci.yml` prints nothing outside a comment.
-- options considered: A) keep `paths-ignore` on `on.push` and accept that the gate is skipped on prose pushes - rejected: it blinds the one gate whose subject is prose, and no other job can cover it (the gate needs the tags and the tree, and the docs workflow is a different check set). B) give the release-consistency gate its own separate workflow - rejected: a second workflow on the same push doubles the checkout and the runner allocation for the same gate, and the gate still needs a path classification to know when it must run, so the filter problem returns in a new place. C) filter only inside the gate job (the gate would decide for itself whether to run) - rejected: a job that decides it may not run is not a required check; a required context that is never reported blocks the merge, and the gate's skip logic would then be a second, unmeasured copy of the classifier. D) classify the changed paths in a `scope` job and filter the expensive jobs by its output, leaving the gate unconditional - chosen.
-- decision: The CI trigger policy is "code in, prose and media out" implemented as a job filter, not a trigger filter. `ci.yml` has no workflow-level `paths-ignore`; the workflow always fires on a push to `main`, on a `v*` tag, on every `pull_request` and on `workflow_dispatch`. A `scope` job computes the changed-path set from git and publishes one output, `code`; the expensive jobs (`lint`, `typecheck`, `test`, `build`, `privacy`, `docs`) carry `needs: scope` and `if: github.event_name != 'push' || needs.scope.outputs.code == 'true'`, so they skip on a push only and only when the change set is prose/media only. Every pull request runs the full set, because a path-filtered skip reports no check at all and a required check that is never reported blocks the merge. The classifier measures every change set with `git diff --no-renames`, so a rename is seen as a delete plus an add and both paths are classified - rename detection reports only the destination of a rename, so without `--no-renames` a move of a shipping file into a prose path would list only the prose path, be classified as prose and skip the matrix on a change that removed shipping code. The `release-consistency` gate is never filtered: it has no `needs:` and no `if:`, so it runs on every event including a prose-only push. In the job graph of `ci.yml`, the jobs that declare neither `needs:` nor `if:` are `committer-guard` and `release-consistency`, so a tag push, on which `scope` reports `code=false` and the six expensive jobs are skipped, still runs the classifier and those two jobs; `scope` can skip only the jobs that declare `needs: scope`. The classifier's undetermined case runs the code jobs - the root-commit branch is entered only when HEAD truly has no parent; every other case whose fork point is HEAD (a rewritten history, a push whose `before` is unresolvable) is undetermined, and an unknown change set must never silently skip the matrix. The prose/media set (`docs/**`, `assets/**`, `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`, `mkdocs.yml`) and `.github/workflows/docs.yml`'s `paths:` list must stay identical. Every shipping path (`src/`, `scripts/`, `tests/`, `roles/`, `references/`, `templates/`, packaging, `.github/workflows/`, `SKILL.md`) still runs the full matrix.
-- why: The two requirements are not in tension: a workflow-level filter is a blunt instrument because it applies to every job in the file, while a job-level filter can exempt the expensive jobs and exempt nothing else. Moving the classification into one job also puts the cost optimisation and the safety default in the same place: the classifier's default on an unknown change set is `code=true` (run the matrix), so the failure mode of the classifier is a slow build, never a silently green push. The gate is left unconditional because its subject is exactly the prose the filter would have skipped, and a gate that cannot see the drift it exists to catch has no value. The identity of the two prose lists is required because they are two halves of one policy: a path in the classifier's prose set but not in docs.yml's `paths:` list would skip the matrix without running the cheap prose checks either, and the reverse would run prose checks for a change the matrix also runs. The rename rule belongs in the same place: rename detection hides the *source* of a rename, so it can hide a shipping path behind a prose destination, and the classifier's contract is that no shipping path can be classified as prose.
-- evidence: every fact below is re-runnable against the tree the reader holds; `grep -n "paths-ignore" .github/workflows/ci.yml` -> the string appears only inside comments, never as a trigger key, so the workflow-level filter is gone; the job list of `.github/workflows/ci.yml` -> jobs `scope`, `lint`, `committer-guard`, `typecheck`, `test`, `build`, `privacy`, `release-consistency`, `docs`, with `needs: scope` + `if: github.event_name != 'push' || needs.scope.outputs.code == 'true'` on the six expensive jobs, and no `needs:`/`if:` on `release-consistency` and on `committer-guard` -> both are unconditional; the scope job's change-set measurement -> every diff in the scope job uses `--no-renames` (`git diff --no-renames --name-only`, `git diff-tree --root --no-renames`), so a rename is a delete plus an add; the scope job's fallback -> the root-commit branch is guarded by `git rev-parse --verify -q "${HEAD_REV}^"`, and every other case with a fork point equal to HEAD sets `UNDETERMINED=1` -> `code=true`; the scope job's tag-push branch -> `refs/tags/*` reports `code=false`, so the six filtered jobs skip and the two unfiltered jobs run; the Release Engineer's measured replay of the classifier over five event shapes (prose-only push, code push, tag push, pull request, workflow_dispatch) -> the code jobs run on the code push, the pull request and the manual run, and skip on the prose-only push and the tag push (recorded in the T-0003 review findings in the Release Engineer's task queue); the identity of the two prose lists -> expanding the scope regex and the docs.yml `paths:` list over the same tree gives the same set, with no path in one list only - the comparison is re-runnable (`grep -n "PROSE=" .github/workflows/ci.yml` against the `paths:` list of `.github/workflows/docs.yml`) and is not stored as a count; the Release Engineer's reviewer measured the same identity over a path universe with GitHub glob semantics, 0 mismatches; the gate job in `.github/workflows/ci.yml` -> it runs `python scripts/check_release_consistency.py --offline --json` and treats a missing checker as exit 2 (an unreadable input), not a pass, with no `continue-on-error`
-- falsified by: If the scope job classified a shipping change as prose, the matrix would be skipped on a code push and the old design would have been the safer one. The measurement that would show it: a push whose changed set contains a file under `src/`, `scripts/`, `tests/`, `roles/`, `references/`, `templates/`, packaging, `.github/workflows/` or `SKILL.md` and whose `scope` output is `code=false` (the Release Engineer's own pre-fix measurement on the first scope revision did exactly this: a push that changed `src/a.py` reported `scope: changed -> docs/d.md` and `code=false`); the same for a change set the classifier cannot establish (a rewritten history or an unresolvable `before`): if that reports `code=false` the undetermined default is broken. Also falsified if the two prose lists drift apart, if the gate ever gains a `needs:` or an `if:`, if a prose-only push to `main` reports no `release consistency (offline - docs + tags + version)` check, or if a rename out of a shipping path is classified as prose (the classifier must list both the old and the new path).
-- consequences: Section 9 of [Architecture](Architecture.md) now describes the `scope` job, the two unconditional jobs, the undetermined default, the `--no-renames` rule and the identity requirement instead of the removed `paths-ignore`; the same policy is written out in [Release](Release.md) (the Release Engineer's file). The online half of the gate is the `consistency` job in `release.yml`: `build: needs: [consistency]`, so a release that cannot be traced is never built and never published. Whether that job is in the tree is a moving fact, so it is checked, not asserted: `git show HEAD:.github/workflows/release.yml | grep -n "consistency:"` (a match when the job is in the tree, no match when it is not) and the same file with `grep -n "needs: \[consistency\]"` for the `build` edge. `tests/unit/test_skill_contracts.py` asserts the old `paths-ignore` mechanism and the `scope` classifier side by side; that file belongs to the Developer lane (`developer T-0011`) and is not edited here - this record and the amended section 9 are the contract those tests must be rewritten against.
-
-## D-20261021-CEO - P-0080 and T-0012 land inside P-0073: repair the stale merge record instead of re-merging
-
-- date: 2026-10-21
-- kind: process
-- status: accepted
-- deciders: CEO (ceo)
-- decided by: CEO
-- task: T-0012
-- context: -
-- options considered: -
-- decision: P-0080 is recorded merged at 5fa73ef and T-0012 merge_commit=5fa73ef. Its branch was retired by the P-0073 merge, so pr merge cannot run and no second merge is wanted.
-- why: The deliverable is already on main; a second merge would duplicate a reviewed change-set and the branch no longer exists.
-- evidence: git merge-base --is-ancestor b03f5b8 5fa73ef -> rc 0; git merge-base --is-ancestor cd7e802 5fa73ef -> rc 0; git diff --stat cd7e802 main -- scripts/check_release_consistency.py -> 29 insertions/27 deletions (the token code is on main as b03f5b8); git branch --list 'developer-1/t-0005-*' -> empty; pr list -> P-0080 [merged] merge=5fa73ef
-- falsified by: git merge-base --is-ancestor b03f5b8 main returning non-zero, or the token code missing from scripts/check_release_consistency.py on main
-- consequences: -
-
-## D-20261021-CEO-2 - Three review-loop disputes were moot by delivery
-
-- date: 2026-10-21
-- kind: process
-- status: accepted
-- deciders: CEO (ceo) for D-0023/D-0024; tribunal for D-0022 (signed by ceo and cto)
-- decided by: CEO
-- task: T-0003, T-0004, T-0005
-- context: D-0022 (Reviewer-3 -> Developer-1, T-0005, escalated at round 2/3), D-0023 (Reviewer-1 -> ReleaseEngineer, T-0003) and D-0024 (Reviewer-2 -> Architect, T-0004) each charged a concrete, re-measurable defect in a deliverable that has since landed. Each was re-measured against main at `fb99293` rather than resolved on the author's word, because a ruling that rests on a table the disputed party wrote is not a ruling.
-- options considered: adjudicate each mechanism (rejected: every charged mechanism is gone from main, so a ruling would describe code that is not shipped); dismiss as moot by delivery with each charged reproducer re-run (chosen); leave them open (rejected: an open dispute blocks STOP and misdescribes the delivered design).
-- decision: All three are resolved as moot by delivery. D-0023: the checker is in main and the CI gate runs there (`.github/workflows/ci.yml:376`, `.github/workflows/release.yml:45` with `fetch-depth: 0` at `:68`). D-0024: the frozen contract no longer carries transient state claims or unpinned digest literals. D-0022: all four charged items - the stale commit count, the R8 inline-code regression, the clone-dependent digest and the surviving absolute-target mutation - are measurably fixed.
-- why: A dispute is a claim about a mechanism. When the mechanism is deleted or corrected and the dispute's own reproducer no longer reproduces, there is nothing left for a tribunal to rule on, and recording a ruling on absent code would be a false record. D-0022 still exercised the escalation path (round 2/3, escalate, two tribunal signatures) so the process record shows the loop was stopped by the tribunal, not by attrition.
-- evidence: D-0023 - `git ls-tree -r --name-only main | grep -c check_release_consistency.py` -> `1` (the round measured `0` at the reviewed head `7a035b8`); T-0003 records `status: done`, `review_status: passed`, `pr: P-0076`, `merge_commit: 46c4aeb`; the six commits the round lists are not ancestors of main because the branch was rebased/squashed on landing; `git diff 5cc68a2 main -- .github/workflows/ci.yml` shows main's stale "the online half lands with the release task T-0007" comments rewritten to name `release.yml`. D-0024 - `git grep -n "PENDING MERGE\|not in .main" main -- docs/Team/Architecture.md docs/Team/Decisions.md` -> no hits; `git grep -c "64674639a038018f\|ce020801f2fb5998" main -- docs/` -> one hit, inside `docs/Team/Archive.md` (a historical self-check record, not a contract claim), and Architecture.md now cites the committed fixture assertion `1e24271d36f868d3` at `docs/Team/Architecture.md:789`; T-0004 landed as P-0079 at `cf95b98`. D-0022 - `scripts/check_release_consistency.py:74-76` states no commit count (measured `git rev-list --all | wc -l` -> `534`); calling `_channel_claims` on the inline-code form whose distribution is teamwork-agents and whose script is wrongscript -> `[("teamwork-agents","wrongscript")]`, and the same for the pipx `--spec` form; a probe at `/tmp/digprobe` makes `rev=None` and `rev=HEAD` raise the *same* `InputError` for both a gitignored link target and a link into `.git`; deleting the absolute-target guard from `_link_target` turns `pytest -q tests/unit/test_release_consistency.py tests/unit/test_release_consistency_digest.py` into `2 failed, 116 passed` (`test_11_3_each_kind_of_link_refusal_says_a_different_reason`, `test_an_absolute_link_is_refused_on_both_paths`), so the mutation is killed and the guard now lives at `scripts/check_release_consistency.py:566-567`; T-0005 landed via P-0073 at `5fa73ef`.
-- falsified by: any of the following reproducing on main - `check_release_consistency.py` absent from `main`; a `PENDING MERGE`/`not in .main` sentence in `docs/Team/Architecture.md` or `docs/Team/Decisions.md`; an unpinned digest literal in the frozen contract; a commit count pinned in `scripts/check_release_consistency.py`; `rev=None` and `rev=HEAD` disagreeing on a committed tree; or the absolute-target mutation surviving the suite.
-- consequences: `dispute list` shows no open and no escalated dispute. The four D-0022 reproducers are now the standing regression set for the release-consistency gate rather than a one-off review artefact.
-
-## D-20261021-CEO-3 - The published line is reconciled by a merge, never by a force-push
-
-- date: 2026-10-21
-- owner: CEO
-- kind: process
-- task: T-0065
-- decision: Local `main` and `origin/main` are joined by a single two-parent merge commit (`230370e` = `5102429` + `4fb1e0953cdbe2d230a61dc3fe28e6332a75c5c5`, common base `f277ac7`). Neither line is rewritten and neither is abandoned. A merge commit is a fast-forward for the remote, so the push that follows is a plain `git push`.
-- why: The two lines are a **divergence, not a rewrite**. `f277ac7` is an ancestor of both, so nothing was destroyed; local-only was 104 commits, remote-only 123, and the remote-only set was re-stamped at `2026-10-21T10:43:45Z` by a concurrent session. The two lines carry disjoint milestones both labelled M9: local = release traceability (`scripts/check_release_consistency.py` R1-R9, `release-exceptions.json`, version 1.1.3); published = Harness^2 adoption (`src/teamwork/harness.py`, `hooks.py`, the frozen harness contract, version 1.1.2). Each line is reviewed work that the other does not have. Force-pushing either would delete reviewed deliverables, which is a red line; rebasing either would rewrite published history, which is a red line and, per the published line's own `D-20261020-CEO-8`, must be based on the published tip rather than on a local branch.
-- evidence: `git merge-base --is-ancestor f277ac7 main` -> 0 and against `4fb1e09` -> 0; `git rev-list --count main..4fb1e09` -> 123, `git rev-list --count 4fb1e09..main` -> 104; `git rev-list --parents -n1 230370e` -> three fields (a true merge); `git rev-list --count 4fb1e09..230370e` -> 109 and `230370e..4fb1e09` -> 0; the merge then resolves four conflicts semantically - CHANGELOG headings kept tag-correct with the published Harness^2 body grafted under our unreleased heading (the one comparing the newest tag with HEAD), and no heading linking to a tag that does not exist, `Archive.md` as an append-only union of 105 + 107 records with 53 shared -> 135, `Decisions.md` unioned on the `## D-` key 49 + 65 with 42 shared -> 72, and `Architecture.md` keeping our `## 11.` release contract (13 referencing files) while the published harness contract becomes `## 12.` with every `11.x` reference renumbered in `test_cli_contract.py`, `test_harness_cli.py`, `test_harness_surface.py`, `harness.py`, `hooks.py` and `CHANGELOG.md`; `scripts/check_release_consistency.py --offline` on the merged tree -> `# release consistency: 0 problem(s)`; `pytest -q` -> 1114 passed, 3 skipped, 1 failed where the single failure is `tests/unit/test_archive_merge_revisions.py:112` naming 29 archive revisions that are ancestors of `4fb1e09` and not yet of `refs/heads/main`, which the merge commit itself makes true.
-- falsified by: `f277ac7` not being an ancestor of both lines; a record present on either parent and absent from the merged `Archive.md` or `Decisions.md`; a stale `11.x` reference to the harness contract surviving in `harness.py`, `hooks.py` or the three harness test files; the privacy-gate path-fragment guard (`_is_path_fragment`/`_is_path_name`, 4 hits on `4fb1e09`) absent from the merged `scripts/privacy_scan.py`; or a force-push appearing in the reflog of either line.
-- consequences: The remote line's 123 commits and ours become one history. `T-0065` is the reconciliation task and `P-0096` its review. The published `M9` naming collision is recorded here so no later reader mistakes the two milestones for the same one. Re-dispatching work against `origin/main` is now safe only after this merge lands, because until then the remote does not contain the release-traceability milestone.
-## D-20261021-Developer-1 - R3 takes every npm version key; a non-X.Y.Z published version is DRIFT unless 11.4 admits it
-
-- date: 2026-10-21
-- kind: technical
-- status: accepted
-- deciders: Developer-1 (developer)
-- decided by: Developer-1
-- task: T-0016
-- context: -
-- options considered: -
-- decision: R3 no longer classifies a non-X.Y.Z npm version key as ignored: it is DRIFT unless release-exceptions.json admits it, and 11.4's version key accepts the published version string (X.Y.Z with an optional -prerelease/+build tail) so 0.0.0-stage can be admitted in writing.
-- why: AC-REL-1 gives a published version exactly two paths, a tag or a written admission; 11.2.3 says take every version key, so shape was never an authorised third path. 0.0.0-stage cannot be tagged: gitHead is null, the tarball holds no payload path, and no commit in git rev-list --all carries the string - so the only honest path left is a recorded admission.
-- evidence: python3 scripts/check_release_consistency.py --online @fb99293 -> R3 ok ... ignored non-X.Y.Z npm version(s): 0.0.0-stage, exit 0; same command on this branch with the 0.0.0-stage entry removed from the exception file -> R3 DRIFT 0.0.0-stage: not X.Y.Z, so no vX.Y.Z tag can carry it, and no release-exceptions.json entry admits it, exit 1; npm view @nidvue/teamwork time -> 0.0.0-stage 2026-10-20T08:50:57Z before 1.1.0 08:56:07Z, gitHead null, tarball digest -> InputError none of the shipped payload paths are present
-- falsified by: A published npm version whose key is not X.Y.Z that R3 reports ok for. Or an npm version X.Y.Z-stage that does have a commit and could be tagged.
-- consequences: release-exceptions.json gains the 0.0.0-stage entry; Architecture 11.2.3 and 11.4 gain one paragraph and one row; tests/unit/test_release_consistency.py gains two tests
-
-## D-20261021-Reviewer-2 - review pass for tests/integration/test_links_flow.py
-
-- date: 2026-10-21
-- kind: technical
-- status: accepted
-- deciders: Reviewer-2 (reviewer)
-- decided by: Reviewer-2
-- task: -
-- context: -
-- options considered: -
-- decision: review pass for tests/integration/test_links_flow.py
-- why: -
-- evidence: pytest -q tests/integration @7f285ce -> 115 passed; pytest -q test_links_flow.py @7f285ce -> 9 passed; same file @main b6c0817 -> 9 passed; mutation git checkout 781b1b4~1 -- src/teamwork/engine.py -> 2 failed with "# 0 markdown file(s)"; mutation cmd_links line 6228 "return 1 if issues else 0" -> "return 0" -> 6 failed (all links-failing tests, 3 clean-control tests still passed); restore -> 9 passed, git status empty; pytest -q tests/integration @5d30639 main -> green
-- falsified by: -
-- consequences: -
-
-## D-20261021-CEO-5 - D-0027: an acceptance proof states the command and the exit code, never a pass count
-
-- date: 2026-10-21
-- kind: process
-- status: accepted
-- deciders: CEO (resolve)
-- decided by: CEO
-- task: T-0003 (tester)
-- dispute: D-0027 (Tester-1 against Reviewer-3, 1 round)
-- context: three review rounds failed tester T-0003 on pass counts that any commit changes (`790 passed`, `777 passed`, `1 missing, 2 stale`), and the third finding itself asked for a structural rather than numeric remedy.
-- decision: an acceptance proof quotes the command, its exit code and the *named* failures and skips; it never pins a passing count. Where a count is genuinely the claim, it is bound to a revision and re-measured after every rebase in the same task.
-- why: a pass count is a property of the tree at one revision, so any later merge falsifies it - which is why the same file carried two stale figures at once. The exit code and the test ids are the invariant; the count is not.
-- evidence: `docs/Team/M9Acceptance.md` @28d6a4d -> §4 states exit 0 with the three named skips and explicitly refuses a count, §5 states `sync_skill.py --check` exits 1 and names the class of drift with no count; `grep -nE "790 passed|777 passed|1 missing, 3 stale"` -> no hits; `pytest -q` @28d6a4d -> 1198 passed, 3 skipped, exit 0; `teamwork.py links` -> `# issues: 0`; the deliverable passed review and merged at `a43e61e`.
-- falsified by: a later `docs/Team/M9Acceptance.md` revision that pins a pass count again, or a review verdict that fails a proof for a count it re-measured on a different revision than the one named.
-- consequences: the dispute is moot by delivery and closed; the same rule governs every later acceptance proof, and a count that does appear must name the revision it was taken at.
-## D-20261017-CEO - Ship as teamwork-agents on PyPI, import as teamwork
-
-- date: 2026-10-17
-- kind: scope
-- status: accepted
-- deciders: CEO (ceo)
-- decided by: ceo
-- task: T-0001
-- context: -
-- options considered: -
-- decision: The distribution name is teamwork-agents; the import package and console script are teamwork.
-- why: The PyPI name 'teamwork' is already taken, and the import name is part of the public API.
-- evidence: pyproject name = teamwork-agents; README states the install command.
-- falsified by: pip install teamwork-agents does not expose the teamwork command.
-- consequences: -
-
 ## D-20261021-Developer - The unborn-HEAD test names its branch explicitly ('git init
 
 - date: 2026-10-21
@@ -1298,4 +1112,52 @@ worktree until the slot expires - the safe direction to fail.
 - why: The test's subject is the unborn HEAD (symbolic-ref answers, rev-parse --abbrev-ref cannot); the branch NAME is incidental, so it must be pinned rather than inherited. Measured by running the whole suite with a git config that has no [init] section: pre-fix 1 failed (the only failure is this test, 'assert master == main'), post-fix 838 passed / 2 skipped / 0 failed - so no other test in the suite depends on the default branch name, and the fix is complete rather than partial. The other no--b sites were read individually: tests/unit/test_skill_refresh.py:130 asserts the branch is NOT 'trunk' (a leak check, so naming the branch would weaken it - left as is); tests/unit/test_cli_contract.py:424, tests/unit/test_skill_contracts.py:1192/1200 and tests/unit/test_evidence_packets.py:35 never name a branch (left as is).
 - evidence: GIT_CONFIG_GLOBAL=<~/.gitconfig without the [init] section> .venv/bin/python -m pytest -q @4fb1e09 -> 1 failed, 837 passed, 2 skipped; same config @4dfedf9 -> 838 passed, 2 skipped, 0 failed; .venv/bin/python -m pytest -q tests/unit/test_cli_contract.py @4dfedf9 -> 42 passed
 - falsified by: A CI run on the pushed revision that still reports test_an_unborn_branch_is_readable_only_through_symbolic_ref failing, or a local run with a git config lacking [init] that turns any OTHER test red, would overturn this.
+- consequences: -
+
+## D-20261021-Reviewer-2 - The T-0010 second submission (c8aa7e3) PASSES review: the th
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Reviewer-2 (reviewer)
+- decided by: Reviewer-2
+- task: -
+- context: -
+- options considered: -
+- decision: The T-0010 second submission (c8aa7e3) PASSES review: the three Windows-only failures are TEST defects, not product defects, and the fix scopes the assertions to the platforms where the contract holds. The 0755 mode is a POSIX contract (Windows has no executable bit; git for Windows ignores the file mode) and the resolver contract is about the RESOLVED PATH, not the printed spelling.
+- why: Measured: (a) the mode assertion is still asserted on every POSIX runner - mutating src/teamwork/hooks.py:111 chmod(0o755)->chmod(0o644) turns BOTH tests/unit/test_hooks.py::test_install_writes_both_stages_with_the_marker_and_mode and tests/integration/test_harness_cli.py::test_hooks_install_status_uninstall_round_trip red ('11.6 says mode 0755, got 0o644'), so the POSIX contract was NOT weakened; (b) the resolver still pins the PRIMARY repository's hooks directory - mutating the expectation from repo/.git/hooks to wt/.git/hooks turns test_the_documented_resolver_answers_from_a_linked_worktree red, and mutating the product hooks_dir() to the pre-ruling <toplevel>/.git/hooks turns test_install_from_a_linked_worktree_lands_in_the_common_git_dir_and_fires red; (c) the Windows spelling is provably fixed - the exact CI strings ('C:/Users/runneradmin/...' vs 'C:\\Users\\runneradmin\\...') compare EQUAL under PureWindowsPath, and the fix is a no-op on POSIX (Path(a)==Path(b) iff a==b for git-printed POSIX paths, and '..' segments are NOT collapsed so no wrong path can pass); (d) the class is swept - the only other mode sites are tests/unit/test_privacy_scan.py:712 (already Windows-aware: nt branch asserts 0o600-or-0o666, else branch asserts exactly 0o600) and tests/unit/test_integrity_fixes.py:543 (skipif(os.name=='nt')), and no other git-printed path is compared against str(Path) except test_cli_contract.py:473, which compares git's VERBATIM echo of a -c core.hooksPath value to str(elsewhere) - that one is a different shape (echo of a value git never rewrites) and it did not fail on the Windows job.
+- evidence: pytest -q @c8aa7e3 -> 837 passed, 3 skipped, 0 failed; ruff check . -> All checks passed; ruff format --check . -> 153 files already formatted; mypy src/teamwork -> Success, 17 source files; links -> 0 issues; identity --audit 9ada068..c8aa7e3 -> 1 commit, 0 problems, author == committer == Developer <developer@agents.nidvue.com>; git merge-tree --write-tree 9ada068 c8aa7e3 -> rc 0; three mutation proofs as described
+- falsified by: A POSIX runner where the mode assertion no longer fires (revert to the pre-fix bytes and re-run the chmod(0o644) mutant), a linked worktree that answers with its OWN .git/hooks and the test still green, or a Windows runner where Path('C:/x') != Path('C:\\x') - any of these would overturn the pass.
+- consequences: -
+
+## D-20261021-Reviewer-2-2 - The T-0010 review record at ledger #0748 carried the evidenc
+
+- date: 2026-10-21
+- kind: process
+- status: accepted
+- deciders: Reviewer-2 (reviewer)
+- decided by: Reviewer-2
+- task: -
+- context: -
+- options considered: -
+- decision: The T-0010 review record at ledger #0748 carried the evidence string 'probe' - a placeholder, not a verification. The verdict and the merge are unchanged and the review is a PASS; the placeholder is corrected in place in the archive entry, the task record and the PR note, each with an explicit '- correction:' line, and the real evidence is the verification that was actually performed at c8aa7e3.
+- why: A review record is the team's evidence; a placeholder is a claim without evidence, which the house rules treat as a defect in the review itself. The precedent is the T-0005 correction (commit b05d04a, '- correction: the original entry said exit 2; re-measurement showed the role refusal exits 1. The code and test are unchanged.') and the retraction D-20261019-CEO-12 ('never edit a recorded decision; append a correction that names the error and the measurement'). The commit c8aa7e3 and the merged tree are untouched: the correction edits the RECORD, not the deliverable.
+- evidence: git show 39ab050 -- docs/Team/Archive.md -> the T-0010 entry carried '- reviewer evidence: probe'; git log --format='%h %an %ad' --date=iso -S 'reviewer evidence: probe' -- docs/Team/Archive.md -> e465ede (2026-10-21 12:43:06, this Reviewer-2 pass) and 36bef5a (2026-10-20 14:06:09, a PRIOR session's T-0005 entry, left untouched because it is not this review's record); the corrected line carries the real gates at c8aa7e3: pytest -q -> 837 passed, 3 skipped, 0 failed; ruff check -> All checks passed; ruff format --check -> 153 files already formatted; mypy src/teamwork -> Success, 17 source files; links -> 0 issues; identity --audit 9ada068..c8aa7e3 -> 1 commit, 0 problems, author == committer == Developer <developer@agents.nidvue.com>; git merge-tree --write-tree 9ada068 c8aa7e3 -> rc 0; plus the three mutation proofs (chmod 0o644 -> both mode tests red; resolver expectation -> the linked-worktree test red; product hooks_dir reverted -> the common-git-dir test red)
+- falsified by: A record showing the correction changed the reviewed tree - i.e. git diff 39ab050..<the correction commit> -- src/ tests/ showing a byte - would overturn it; so would the corrected evidence failing to reproduce at c8aa7e3.
+- consequences: -
+
+## D-20261021-Reviewer-1-3 - A child environment that inherits os.environ must RE-ASSERT
+
+- date: 2026-10-21
+- kind: technical
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: -
+- context: -
+- options considered: -
+- decision: A child environment that inherits os.environ must RE-ASSERT the hermeticity keys on top of it (GIT_CONFIG_NOSYSTEM=1, GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT=0, and unset GIT_CONFIG_SYSTEM and XDG_CONFIG_HOME) at EVERY site that spawns git; 'inherit the parent env' is not a substitute for pinning the git config.
+- why: Measured at eccafae (the T-0011 fix) against 39ab050 (its parent) with the SAME hostile caller env on the same four test files: 39ab050 -> 135 passed / 0 failed, eccafae -> 13 failed / 122 passed; with only XDG_CONFIG_HOME set -> 1 failed / 134 passed vs 135 passed. The inherited core.hooksPath and init.defaultBranch redirect the hook writes and rename the branch; commit.gpgsign=true makes every commit exit 128. The Windows RNG crash needs the parent's SystemRoot/TEMP, and the git hermeticity needs the pinned keys - they are independent axes, so one does not replace the other.
+- evidence: env GIT_CONFIG_GLOBAL=<hostile config> PYTHONPATH=src .venv/bin/python -m pytest -q tests/integration/test_harness_cli.py tests/acceptance/test_harness_docs.py tests/unit/test_skill_refresh.py tests/unit/test_skill_contracts.py @eccafae -> 13 failed, 122 passed; @39ab050 -> 135 passed; mutant: + GIT_CONFIG_NOSYSTEM=1 + GIT_CONFIG_GLOBAL=os.devnull + GIT_TERMINAL_PROMPT=0 on the integration run() child env @eccafae -> 29 passed, 0 failed
+- falsified by: A re-submission that keeps dict(os.environ) as the base and re-asserts the hermeticity keys at all four sites AND shows 0 failed in the same hostile-env run at BOTH the pre-fix and fixed revisions would overturn this.
 - consequences: -
