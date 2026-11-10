@@ -89,7 +89,6 @@ from .config import (
     F_AUDITREPORT,
     F_CRITERIA,
     F_DISPUTES,
-    F_FEATURES,
     F_GLOBAL,
     F_GLOBAL_ARCHIVE,
     F_HEAD,
@@ -107,17 +106,7 @@ from .config import (
     F_SKILLS,
     F_START,
     F_TASKS,
-    F_TEAM,
     F_WORKLOG,
-    FEATURE_CHECKOUT_STATE,
-    FEATURE_GENERATED_ARTIFACTS,
-    FEATURE_OPEN_STATES,
-    FEATURE_RECORDS_REL,
-    FEATURE_SHARED_ROLES,
-    FEATURE_SQUAD_ROLES,
-    FEATURE_STATES,
-    FEATURE_TEAM_LEADER,
-    FEATURE_TERMINAL_STATES,
     GITIGNORE_LINES,
     IDENTITY_DOMAIN,
     LAYER_CELL,
@@ -257,17 +246,12 @@ from .records import (
     TASK_HEADER,
     TASK_RE,
     assign_ids,
-    candidate_problems,
-    check_records,
     criteria_header,
     days_since,
     dep_satisfied,
     executable,
-    feature_as_json,
-    feature_header,
     find_criterion,
     find_dispute,
-    find_feature,
     find_pr,
     find_pr_exact,
     find_skill,
@@ -281,31 +265,23 @@ from .records import (
     new_criterion,
     new_dispute,
     new_entry,
-    new_feature,
     new_pr,
     new_skill,
     new_task,
     new_test_record,
-    next_feature_id,
     next_id,
-    norm_path,
-    open_records,
     parse_criteria,
     parse_date,
     parse_disputes,
-    parse_features,
-    parse_features_text,
     parse_memory,
     parse_reviews,
     parse_skills,
     parse_tasks,
     parse_testplan,
     parse_tests,
-    path_problems,
     render,
     render_criteria,
     render_disputes,
-    render_features,
     render_reviews,
     render_skills,
     render_tasks,
@@ -317,7 +293,6 @@ from .records import (
     today_iso,
     write_criteria,
     write_disputes,
-    write_features,
     write_memory,
     write_reviews,
     write_skills,
@@ -358,17 +333,6 @@ __all__ = [
     "F_MAP",
     "F_REVIEWS",
     "F_CRITERIA",
-    "F_FEATURES",
-    "F_TEAM",
-    "FEATURE_STATES",
-    "FEATURE_OPEN_STATES",
-    "FEATURE_TERMINAL_STATES",
-    "FEATURE_TEAM_LEADER",
-    "FEATURE_SQUAD_ROLES",
-    "FEATURE_SHARED_ROLES",
-    "FEATURE_GENERATED_ARTIFACTS",
-    "FEATURE_CHECKOUT_STATE",
-    "FEATURE_RECORDS_REL",
     "DIR_WORKTREES",
     "F_SETTINGS",
     "IDENTITY_DOMAIN",
@@ -506,20 +470,6 @@ __all__ = [
     "render_testplan",
     "write_testplan",
     "find_test",
-    "feature_header",
-    "new_feature",
-    "parse_features",
-    "parse_features_text",
-    "render_features",
-    "write_features",
-    "find_feature",
-    "next_feature_id",
-    "feature_as_json",
-    "check_records",
-    "open_records",
-    "candidate_problems",
-    "path_problems",
-    "norm_path",
     "new_task",
     "parse_tasks",
     "render_tasks",
@@ -633,12 +583,7 @@ def require_reason(force: str, what: str) -> str:
 
 
 def validate_actor(
-    root: Path,
-    value: str,
-    kind: str = "actor",
-    allow_role: bool = True,
-    must_exist: bool = True,
-    code: int = 1,
+    root: Path, value: str, kind: str = "actor", allow_role: bool = True, must_exist: bool = True
 ) -> tuple:
     """Resolve an actor to a real instance (or its role).
 
@@ -646,15 +591,10 @@ def validate_actor(
     agent that exists. `--by Reviewer-1` names one instance; a bare role name is
     accepted only when exactly one instance of that role exists, and is refused as
     ambiguous otherwise.
-
-    `allow_role=False` is the `feature` write mode (Architecture.md 13.2): the
-    result is always an instance or a refusal, never a role name, because a role
-    name satisfies no instance check. `code` is that verb's exit code - a `feature`
-    write refuses with `2`, and every other caller keeps `die`'s `1`.
     """
     raw = (value or "").strip()
     if not raw:
-        die(f"{kind} must name an agent (an existing instance, or its role)", code)
+        die(f"{kind} must name an agent (an existing instance, or its role)")
     role = resolve_role(raw)
     insts = instances_of(root, role)
     want = pascal(raw)
@@ -670,8 +610,7 @@ def validate_actor(
     if not allow_role and insts and want == pascal(role):
         die(
             f"'{raw}' is ambiguous: the {role} role has several instances "
-            f"({', '.join(insts)}). Name the one acting.",
-            code,
+            f"({', '.join(insts)}). Name the one acting."
         )
     if must_exist:
         known = sorted(i for r in list_roles(root) for i in instances_of(root, r))
@@ -681,8 +620,7 @@ def validate_actor(
         die(
             f"unknown {kind} '{raw}'. Known agents: "
             + (", ".join(known) if known else "(none initialised)")
-            + hint,
-            code,
+            + hint
         )
     return pascal(raw), role
 
@@ -1091,6 +1029,14 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             t = tasks[tidx] if tidx is not None else None
         if t is None:
             die(f"task {pr['task']} not found on the {role} queue")
+        if args.force:
+            ledger_append(
+                root,
+                "pr.merge.forced",
+                merger,
+                pr["task"],
+                f"{pr['id']} merged with review_status={t.get('review_status')}: {args.force}",
+            )
         if t.get("review_status") != "passed" and not args.force:
             die(
                 f"refusing to merge {pr['id']}: review_status={t.get('review_status')}.\n"
@@ -1111,50 +1057,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 f"{pr['id']} merges {branch} into itself: the base and the PR branch "
                 "are the same branch, so there is nothing to integrate.",
                 2,
-            )
-        # The same probe the pass runs, re-measured at the base the merge will
-        # actually advance: a verdict recorded a moment ago is not a promise that
-        # the merge still applies, and a conflict here must be named before git
-        # touches the work tree (P-0057 passed and then died on Board.md here).
-        code, measured, paths, detail = merge_tree_probe(project, base, branch)
-        forced_note = ""
-        if code != 0:
-            forced_note = _conflict_note(code, measured, paths, detail)
-            if not args.force:
-                die(
-                    f"refusing to merge {pr['id']}: {branch} does not merge into "
-                    f"{base}:\n  {forced_note}\n"
-                    f"  Nothing was merged and {base} is unchanged. The owner must "
-                    "rebase, resolve and re-submit:\n"
-                    f"  git rebase {base}   # then re-submit\n"
-                    "  (--force <reason> records a deliberate override)",
-                    2,
-                )
-        # The one place that sees both records: the independence rule at the tree
-        # this merge would leave on the base (13.1, 13.3 rule 5). A second claim on a
-        # path - or an id the base already carries - is refused here rather than
-        # landed, and the Reviewer resolves it as a document conflict.
-        feature_problems = _feature_gate(project, base, branch)
-        if feature_problems and not args.force:
-            die(
-                f"refusing to merge {pr['id']}: the feature records at the merged tree "
-                f"have {len(feature_problems)} problem(s):\n"
-                + _feature_problem_lines(feature_problems)
-                + f"\n  Nothing was merged and {base} is unchanged. The record already "
-                "reachable from the base keeps its id, and the arriving record is "
-                "renumbered before it lands (Architecture.md 13.3 rule 5); a shared "
-                "path is split between the two squads.",
-                2,
-            )
-        if args.force:
-            ledger_append(
-                root,
-                "pr.merge.forced",
-                merger,
-                pr["task"],
-                f"{pr['id']} merged with review_status={t.get('review_status')}"
-                + (f"; mergeability overridden: {forced_note}" if forced_note else "")
-                + f": {args.force}",
             )
         # ``git checkout`` only switches the work tree it runs in, and git refuses
         # to check one branch out twice, so the merge has to run in the work tree
@@ -1325,11 +1227,6 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             root, "pr.merge", merger, pr["task"], f"{pr['id']} {branch} -> {base} at {sha}", sha
         )
         print(f"# merged {pr['id']} {branch} -> {base} at {sha} by {merger}")
-        # The board is generated output and belongs on the base branch: the landing
-        # has just moved this task to done/merged, so the merging Reviewer renders
-        # it here, after the merge and its records, and commits it as its own
-        # chore(records) change. A render that cannot land is reported, never fatal.
-        print(render_board_at_merge(root, here, pr))
         print(commit_archive_merge_sha(root, here, branch, sha, pr, merger))
         if not args.keep_branch:
             if retire_branch(root, here, branch, force=args.squash):
@@ -1357,9 +1254,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
         return 0
 
 
-def _merge_args(
-    pr_id: str, reviewer: str, *, keep_branch: bool = False, force: str = ""
-) -> argparse.Namespace:
+def _merge_args(pr_id: str, reviewer: str, *, keep_branch: bool = False) -> argparse.Namespace:
     """The ``pr merge`` argument set a passing review triggers.
 
     A pass is the merge trigger, so the two-stage gate collapses into one
@@ -1374,18 +1269,12 @@ def _merge_args(
         squash=False,
         keep_branch=keep_branch,
         delete_branch=not keep_branch,
-        force=force,
+        force="",
     )
 
 
 def merge_after_pass(
-    root: Path,
-    role: str,
-    t: dict,
-    reviewer: str,
-    *,
-    keep_branch: bool = False,
-    force: str = "",
+    root: Path, role: str, t: dict, reviewer: str, *, keep_branch: bool = False
 ) -> bool:
     """Merge the reviewed PR now that it passed, and close its branch.
 
@@ -1398,10 +1287,6 @@ def merge_after_pass(
     there is no git repository, or when the branch is already gone (a re-review
     of merged work). A real git failure is reported as a merge defect, because a
     passing review that cannot land is exactly the bottleneck this removes.
-
-    ``force`` is the pass's own ``--force`` reason, forwarded so a deliberate
-    override of the mergeability probe is the same recorded decision at the merge
-    as it was at the verdict instead of a second, silent refusal.
     """
     pr_id = t.get("pr") or ""
     if not pr_id:
@@ -1431,7 +1316,7 @@ def merge_after_pass(
         return False
     try:
         _pr_merge(
-            _merge_args(pr["id"], reviewer, keep_branch=keep_branch, force=force),
+            _merge_args(pr["id"], reviewer, keep_branch=keep_branch),
             root,
             project,
             work_repo(root),
@@ -2297,15 +2182,9 @@ def _digest(prev: str, record: dict) -> str:
     return hashlib.sha256((prev + _canon(record)).encode("utf-8")).hexdigest()
 
 
-#: The ledger's own width for a record's ``detail`` field (``_clean_detail``). A
-#: caller may cut its text shorter, but never below the point where the part that
-#: matters - an override marker - would be the part the cut removes.
-LEDGER_DETAIL_CHARS = 400
-
-
 def _clean_detail(detail) -> str:
     text = " ".join(str(detail or "").split())
-    return text[:LEDGER_DETAIL_CHARS]
+    return text[:400]
 
 
 def _ledger_tail(root: Path):
@@ -4102,61 +3981,6 @@ def cmd_instance(args) -> int:
     return _instance_add(root, args)
 
 
-def _check_under(root: Path, role: str, under: str) -> None:
-    """Refuse an `--under` attachment that would give a specialist two managers.
-
-    Frozen by `Architecture.md` 13.2 and `D-20261029-Architect-2`: the shared
-    services and the independent lanes are never attached, the Security Auditor
-    permanently (it audits the lane above and the team it would join), a team
-    leader's only manager is the CTO, and everything else is a squad specialist.
-    """
-    role = resolve_role(role)
-    if role == FEATURE_TEAM_LEADER:
-        die(
-            f"a {FEATURE_TEAM_LEADER}'s only manager is the CTO: `instance add "
-            f"{FEATURE_TEAM_LEADER}` with no --under puts a new leader on the CTO's "
-            "line where it belongs",
-            2,
-        )
-    if role == "security-auditor":
-        die(
-            "the Security Auditor audits the lane above and the team it would be "
-            "attached to: attaching it is review under the reviewed, so it is never "
-            "attached and serves every feature without reporting to a team leader "
-            "(D-20261021-SecurityAuditor's independence)",
-            2,
-        )
-    if role in FEATURE_SHARED_ROLES:
-        die(
-            f"the {pascal(role)} holds a standard that spans teams: it is a shared "
-            "service or an independent lane, never a squad member, and an `under:` "
-            "edge would be a second manager (D-20261029-Architect-2)",
-            2,
-        )
-    if role not in FEATURE_SQUAD_ROLES:
-        die(
-            f"{pascal(role)} is not a squad specialist: --under attaches a "
-            + ", ".join(pascal(r) for r in FEATURE_SQUAD_ROLES)
-            + " to the team leader it works for",
-            2,
-        )
-    target = (under or "").strip()
-    if resolve_role(target) != FEATURE_TEAM_LEADER:
-        die(
-            f"--under must name a {FEATURE_TEAM_LEADER} instance: '{target}' is a "
-            f"{resolve_role(target)}",
-            2,
-        )
-    known = {pascal(i) for i in instances_of(root, FEATURE_TEAM_LEADER)}
-    if pascal(target) not in known:
-        die(
-            f"--under must name an existing {FEATURE_TEAM_LEADER} instance: '{target}' "
-            "has no instance in this team"
-            + (f" (leaders here: {', '.join(sorted(known))})" if known else ""),
-            2,
-        )
-
-
 def _instance_add(root: Path, args) -> int:
     import json
 
@@ -4170,9 +3994,6 @@ def _instance_add(root: Path, args) -> int:
             f"charter copy like any other role), or fix the spelling."
         )
     by = (args.by or "ceo").strip()
-    under = (getattr(args, "under", "") or "").strip()
-    if under:
-        _check_under(root, role, under)
     staffed = set(names) | {role}
     if args.name and count > 1:
         die("--name names ONE instance; drop --count or add them one at a time", 2)
@@ -4192,35 +4013,21 @@ def _instance_add(root: Path, args) -> int:
             name = next_instance_name(root, role)
         scaffold_role(root, role, staffed=staffed)
         scaffold_instance(root, name, role, staffed=staffed)
-        if under:
-            # One private file per instance, and the only place an `under:` line is
-            # ever written (13.2): moving a specialist is retire + add, so no
-            # command can give it a second manager.
-            write_instance_team(root, name, under)
         created.append(name)
         ledger_append(
             root,
             "instance.add",
             by,
             name,
-            f"{role} instance {name}; shared memory Roles/{pascal(role)}"
-            + (f"; under {pascal(under)} ({FEATURE_TEAM_LEADER})" if under else ""),
+            f"{role} instance {name}; shared memory Roles/{pascal(role)}",
             "",
             role,
         )
     if args.json:
-        payload = {"role": role, "created": created}
-        if under:
-            payload["under"] = pascal(under)
-        print(json.dumps(payload, indent=2))
+        print(json.dumps({"role": role, "created": created}, indent=2))
         return 0
     inst = instances_of(root, role)
     print(f"teamwork: added {len(created)} {role} instance(s): {', '.join(created)}")
-    if under:
-        print(
-            f"#   attached under {pascal(under)} ({FEATURE_TEAM_LEADER}): "
-            f"Agents/{safe_component(pascal(created[0]))}/{F_TEAM}"
-        )
     print(f"#   shared memory (ONE reviser at a time): {role_dir(root, role)}")
     print(f"#   {role} instances now: {', '.join(inst)}")
     print(
@@ -4243,18 +4050,10 @@ def _instance_list(root: Path, as_json: bool) -> int:
     rows = []
     for role in list_roles(root):
         claim = read_memory_claim(root, role)
-        inst = instances_of(root, role)
         rows.append(
             {
                 "role": role,
-                "instances": inst,
-                # The team attachment (13.2) is a per-instance fact in one private
-                # file, so it is shown beside the instance and never as a line.
-                "under": {
-                    name: pascal(instance_under(root, name))
-                    for name in inst
-                    if instance_under(root, name)
-                },
+                "instances": instances_of(root, role),
                 "memory_writer": pascal(claim["instance"]) if claim else "",
                 "minutes_left": memory_claim_remaining(claim) if claim else 0,
                 "tasks": len(parse_tasks(task_file(root, role))),
@@ -4272,13 +4071,9 @@ def _instance_list(root: Path, as_json: bool) -> int:
             if row["memory_writer"]
             else "memory free"
         )
-        shown = [
-            f"{name} (under={row['under'][name]})" if name in row["under"] else name
-            for name in row["instances"]
-        ]
         print(
             f"{row['role']:20s} instances={len(row['instances']):2d} "
-            f"[{', '.join(shown) or '-'}]  tasks={row['tasks']:3d}  {holder}"
+            f"[{', '.join(row['instances']) or '-'}]  tasks={row['tasks']:3d}  {holder}"
         )
     return 0
 
@@ -4414,11 +4209,6 @@ def cmd_init(args) -> int:
         src = src_docs / filename
         if src.exists():
             write_lf(p, src.read_text(encoding="utf-8"))
-        elif filename == F_FEATURES:
-            # The records file is a parsed record set, not prose: a bare stub would
-            # lose the field authority the header states, and `feature add` appends
-            # rows under it (Architecture.md 13.1).
-            write_lf(p, render_features([], p))
         else:
             write_lf(p, f"# {filename[:-3]}\n\nOwner: {owner}\n")
     readme = root / F_MAP
@@ -6270,23 +6060,6 @@ def cmd_task_add(args) -> int:
             t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
         if getattr(args, "bug", False):
             t["kind"] = "bug"
-        if (getattr(args, "feature", "") or "").strip():
-            # `task add --feature F-nnnn` slices the work to a feature (13.2). A
-            # `proposed` feature is not frozen yet, and a `done`/`dropped` one is
-            # not accepting work, so only the open states take tasks; execution is
-            # gated one state later, at `active`.
-            fid = args.feature.strip().upper()
-            records, _rev = read_feature_records(root)
-            at = find_feature(records, fid)
-            if at is None:
-                die(f"unknown feature {fid}", 2)
-            if records[at]["state"] not in FEATURE_OPEN_STATES:
-                die(
-                    f"{fid} is [{records[at]['state']}]: a task needs a ready or active "
-                    "feature (ready is the Architect's freeze)",
-                    2,
-                )
-            t["feature"] = fid
         wanted = t["title"].strip().lower()
         for existing in tasks:
             if existing["title"].strip().lower() == wanted:
@@ -6371,27 +6144,6 @@ def cmd_task_next(args) -> int:
                 _print_task(t)
             return 3
         ready.sort(key=lambda t: (PRIORITY_ORDER.get(t["priority"], 9), t["created"], t["id"]))
-        # A squad instance never picks up another feature's work (13.2): a task
-        # carrying `feature:` is this instance's only when the record's owner is
-        # its leader and the feature is `active`.
-        records = (
-            visible_feature_records(root)
-            if any((t.get("feature") or "").strip() for t in ready)
-            else []
-        )
-        mine = [t for t in ready if feature_executable_by(root, args.agent, t, records)]
-        if not mine:
-            print(f"teamwork: {args.agent} ({role}) has no executable task of its own team")
-            print(f"  ({len(ready)} ready in the queue, {len(ready)} held by another team)")
-            for held in ready:
-                at = find_feature(records, held.get("feature") or "")
-                owner = records[at]["owner"] if at is not None else "-"
-                print(
-                    f"  - {held['id']} [{held['priority']}] feature={held.get('feature')} "
-                    f"owner={owner}"
-                )
-            return 3
-        ready = mine
         # capacity 0 or negative is a typo, not "take nothing": claim one
         want = max(1, int(getattr(args, "capacity", 1) or 1))
         take = ready[:want] if want > 1 else ready[:1]
@@ -6648,776 +6400,6 @@ def cmd_task_rm(args) -> int:
     )
     print(f"teamwork: {role} removed {removed['id']} {removed['title']}")
     return 0
-
-
-# --------------------------------------------------------------------------- #
-# Feature teams: docs/Team/Features.md, the independence check and the
-# per-instance team attachment (Architecture.md 13)
-#
-# A feature is one vertical slice one squad can build, test and ship without
-# another squad's merge. The records are one committed file, one authority per
-# field, and the caller commits its own edit on its own branch - the path
-# `decision add` already walks for docs/Team/Decisions.md.
-# --------------------------------------------------------------------------- #
-
-
-def feature_record_path(root: Path) -> Path:
-    """The records file in the checkout this command acts on (the caller's)."""
-    return work_docs_dir(root) / F_FEATURES
-
-
-def _feature_rel() -> str:
-    return "/".join(DIR_DOCS + (F_FEATURES,))
-
-
-def _short_rev(project: Path, rev: str = "HEAD") -> str:
-    out = run_git(project, "rev-parse", "--short=7", rev).stdout.strip()
-    return out or "-"
-
-
-def _features_text_at(project: Path, rev: str) -> str:
-    """The records file at one revision, or "" when that revision has none."""
-    proc = run_git(project, "show", f"{rev}:{_feature_rel()}")
-    return proc.stdout if proc.returncode == 0 else ""
-
-
-def feature_records_visible(root: Path) -> tuple:
-    """(records, revision token, whether any copy exists) at the caller's revision.
-
-    The caller's working copy when it has one, else `git show HEAD:<file>` (13.1).
-    The token is `worktree` when that copy carries an uncommitted row or edit - a
-    row that is at no revision must not be dated to a commit that lacks it - and
-    the short sha of the revision the bytes came from when it does not. A checkout
-    with no git history has no revision to name, so the token is `worktree`.
-    """
-    project = work_repo(root)
-    path = feature_record_path(root)
-    if path.exists():
-        dirty = True
-        if is_git_repo(project):
-            status = run_git(project, "status", "--porcelain", "--", _feature_rel())
-            dirty = bool(status.stdout.strip()) or status.returncode != 0
-        return (
-            parse_features(path),
-            "worktree" if dirty else _short_rev(project),
-            True,
-        )
-    if is_git_repo(project):
-        text = _features_text_at(project, "HEAD")
-        if text:
-            return parse_features_text(text), _short_rev(project), True
-    return [], "worktree", False
-
-
-def read_feature_records(root: Path) -> tuple:
-    """The records a READ verb answers from, and the token they are dated at (13.1).
-
-    `feature list` and `feature check` answer from the records visible at the
-    caller's revision, and exit `1` - `die`'s I/O code - when neither copy exists:
-    there is nothing to answer from, which is not the same as an empty record set.
-    """
-    records, rev, present = feature_records_visible(root)
-    if not present:
-        die(
-            f"no feature records: {_feature_rel()} is neither in this checkout nor at HEAD\n"
-            "  file the first slice with `teamwork.py feature add <statement> --owner "
-            "<team-leader> --paths <p[,p...]> --by <team-leader>`"
-        )
-    return records, rev
-
-
-def visible_feature_records(root: Path) -> list:
-    """The records visible at this revision, or [] when the file does not exist yet.
-
-    The tolerant twin of `read_feature_records` for the callers that gate work
-    rather than print an answer: a team that has filed no feature has no records,
-    and every gate over an empty set is green.
-    """
-    path = feature_record_path(root)
-    if path.exists():
-        return parse_features(path)
-    project = work_repo(root)
-    if is_git_repo(project):
-        return parse_features_text(_features_text_at(project, "HEAD"))
-    return []
-
-
-def instance_under(root: Path, instance: str) -> str:
-    """The team leader an instance is attached to, or "" when it has none.
-
-    The attachment is one private file, `Agents/<Instance>/Team.md` (13.2): a fact
-    about the instance, not a reporting line, so `map` does not change.
-    """
-    path = agent_dir(root, instance) / F_TEAM
-    if not path.exists():
-        return ""
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        m = re.match(r"^\s*-\s+under:\s*([^\s(]+)", line)
-        if m:
-            return m.group(1).strip()
-    return ""
-
-
-def write_instance_team(root: Path, instance: str, owner: str) -> Path:
-    """Write `Agents/<Instance>/Team.md` - the only place an `under:` line lives."""
-    path = agent_dir(root, instance) / F_TEAM
-    path.parent.mkdir(parents=True, exist_ok=True)
-    body = (
-        f"# Team - {pascal(instance)} ({resolve_role(instance)})\n\n"
-        f"- under: {pascal(owner)} ({FEATURE_TEAM_LEADER})\n"
-        f"- since: {today_iso()}\n"
-    )
-    atomic_write(path, body)
-    return path
-
-
-def feature_executable_by(root: Path, instance: str, task: dict, records: list) -> bool:
-    """Whether `instance` may take `task`, honouring the feature's team (13.2).
-
-    Total and offline: a task carrying `feature: F-nnnn` is executable by an
-    instance iff the record's owner is that instance, or the instance's `Team.md`
-    names that owner - and the record is `active`. A `ready` feature's tasks are
-    queued and held. An instance with no `under:` never executes a feature task,
-    and a leader executes only its own. A task with no `feature` field belongs to
-    no team and is executable by any instance of its role.
-    """
-    fid = (task.get("feature") or "").strip().upper()
-    if not fid:
-        return True
-    idx = find_feature(records, fid)
-    if idx is None:
-        return False
-    record = records[idx]
-    if record.get("state") != "active":
-        return False
-    mine = pascal(instance)
-    if pascal(record.get("owner") or "") == mine:
-        return True
-    return bool(instance_under(root, instance)) and pascal(
-        instance_under(root, instance)
-    ) == pascal(record.get("owner") or "")
-
-
-def features_carrying(root: Path, fid: str) -> list:
-    """Every (role, task) that carries `feature: F-nnnn`, in role then id order."""
-    fid = (fid or "").strip().upper()
-    out = []
-    for role in list_roles(root):
-        for task in parse_tasks(task_file(root, role)):
-            if (task.get("feature") or "").strip().upper() == fid:
-                out.append((role, task))
-    return out
-
-
-def merged_feature_records(project: Path, base: str, branch: str) -> tuple:
-    """The records at the tree that would be landed, and whether any copy existed.
-
-    The independence rule is a predicate over all open features at once, and a lane
-    whose branch predates another record cannot see it - so the merge path, which is
-    the one place that sees both, evaluates what a document merge would leave.
-
-    The fork point is what tells an edit from a collision: a row the fork already
-    carried is the same feature edited on one side (the arriving copy wins, because
-    the record already reachable from the base keeps its identity), while an id
-    that is on **both** sides and not at the fork was allocated twice - allocation
-    is max+1 per revision (13.1) - and both rows are kept so rule 5 names it.
-    """
-    base_text = _features_text_at(project, base) if base else ""
-    branch_text = _features_text_at(project, branch) if branch else ""
-    if not base_text and not branch_text:
-        return [], False
-    fork = ""
-    if base and branch:
-        fork = run_git(project, "merge-base", base, branch).stdout.strip()
-    shared = {
-        record["id"]: record
-        for record in parse_features_text(_features_text_at(project, fork) if fork else "")
-    }
-    merged: list = []
-    index: dict = {}
-
-    def put(record: dict) -> None:
-        if record["id"] in index:
-            merged[index[record["id"]]] = record
-        else:
-            index[record["id"]] = len(merged)
-            merged.append(record)
-
-    for record in shared.values():
-        put(record)
-    arriving = parse_features_text(branch_text)
-    on_base = {record["id"] for record in parse_features_text(base_text)}
-    for record in parse_features_text(base_text):
-        put(record)
-    for record in arriving:
-        if record["id"] in shared or record["id"] not in on_base:
-            put(record)
-            continue
-        # Cut on both sides from the same fork: two rows, one id.
-        merged.append(record)
-    return merged, True
-
-
-def _feature_gate(project: Path, base: str, branch: str) -> list:
-    """The independence findings for the tree that would be landed."""
-    records, seen = merged_feature_records(project, base, branch)
-    if not seen:
-        return []
-    return check_records(records)
-
-
-def _feature_problem_lines(problems: list, indent: str = "  - ") -> str:
-    return "\n".join(f"{indent}{problem.message}" for problem in problems)
-
-
-def _interface_targets(root: Path) -> Path:
-    """`Architecture.md` in the same checkout the record is written to: a lane's
-    own worktree, so a freeze is read from the tree the lane will land."""
-    return work_docs_dir(root) / "Architecture.md"
-
-
-def _anchor_slug(text: str) -> str:
-    """GitHub's heading anchor: lowercase, punctuation dropped, spaces to `-`."""
-    slug = re.sub(r"[^\w\s-]", "", str(text or "").strip().casefold())
-    return re.sub(r"\s+", "-", slug).strip("-")
-
-
-def interface_resolves(root: Path, reference: str) -> bool:
-    """Whether a frozen-interface reference resolves (13.1, `interface`).
-
-    Two shapes only: an anchor in `docs/Team/Architecture.md`
-    (`Architecture.md#13`) or a decision id (`D-20261029-Architect-2`). An anchor
-    matches a heading whose slug is the anchor or begins with `anchor-`, because
-    `#13` is how a reader cites a section rather than its whole title.
-    """
-    ref = (reference or "").strip()
-    if not ref or ref == "-":
-        return False
-    docs = work_docs_dir(root)
-    if ref.startswith("D-"):
-        path = docs / "Decisions.md"
-        if not path.exists():
-            return False
-        return any(
-            line.startswith(f"## {ref}") or line.startswith(f"## {ref} -")
-            for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
-        )
-    if "#" not in ref:
-        return False
-    name, anchor = ref.split("#", 1)
-    name = Path(name.strip()).name or "Architecture.md"
-    if name != "Architecture.md":
-        return False
-    path = _interface_targets(root)
-    if not path.exists():
-        return False
-    wanted = _anchor_slug(anchor)
-    if not wanted:
-        return False
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        m = re.match(r"^(#{1,6})\s+(.*)$", line)
-        if not m:
-            continue
-        slug = _anchor_slug(m.group(2))
-        if slug == wanted or slug.startswith(wanted + "-"):
-            return True
-    return False
-
-
-def _transition_refusal(record: dict, target: str, actor: str, arole: str) -> str:
-    """The frozen refusal for one state change, or "" when the change is legal."""
-    current = record.get("state") or "proposed"
-    owner = record.get("owner") or "-"
-    if target == current:
-        return ""
-    if current in FEATURE_TERMINAL_STATES:
-        return f"a record in [{current}] is terminal; open a new feature"
-    if target == "ready":
-        if arole != "architect":
-            return (
-                "ready is the Architect's freeze: --by must name an architect "
-                f"instance (you are {actor})"
-            )
-        if (record.get("interface") or "-") == "-":
-            return "ready needs a frozen interface: --interface <anchor-or-decision>"
-    if target in ("active", "done", "dropped") and pascal(owner) != pascal(actor):
-        return f"{target} is the record owner's transition: --by must be {owner} (you are {actor})"
-    if target == "done" and current == "active":
-        return ""
-    allowed = {
-        ("proposed", "ready"),
-        ("ready", "active"),
-        ("active", "done"),
-        ("proposed", "dropped"),
-        ("ready", "dropped"),
-        ("active", "dropped"),
-    }
-    if (current, target) not in allowed:
-        return "a state cannot be skipped forward (proposed -> ready -> active -> done)"
-    return ""
-
-
-def _feature_refusal(verb: str, record: dict | None, reason: str, as_json: bool, rev: str) -> int:
-    """One shape per verb: `no feature added: ...` / `F-0003 stays [state]: ...`."""
-    import json
-
-    if as_json:
-        if verb == "add":
-            payload = {
-                "id": None,
-                "state": None,
-                "changed": False,
-                "reason": reason,
-                "rev": rev,
-            }
-        else:
-            payload = {
-                "id": (record or {}).get("id"),
-                "state": (record or {}).get("state"),
-                "changed": False,
-                "reason": reason,
-                "rev": rev,
-            }
-        print(json.dumps(payload, indent=2, ensure_ascii=False))
-        return 2
-    if verb == "add":
-        print(f"teamwork: no feature added: {reason}")
-        return 2
-    state = (record or {}).get("state") or "-"
-    print(f"teamwork: {(record or {}).get('id') or 'F-????'} stays [{state}]: {reason}")
-    return 2
-
-
-def _feature_state_name(value: str) -> str:
-    """`--state` as written, lowercased, or "" when it is not a state."""
-    text = (value or "").strip().lower()
-    return text if text in FEATURE_STATES else ""
-
-
-def _feature_unknown_state(value: str) -> str:
-    return f"unknown state '{value}' ({', '.join(FEATURE_STATES)})"
-
-
-def cmd_feature(args) -> int:
-    """`feature add|set|list|check` - the record set and its independence check."""
-    root = project_root(args)
-    verb = args.feature_cmd
-    if verb == "list":
-        return _feature_list(root, args)
-    if verb == "check":
-        return _feature_check(root, args)
-    if verb == "add":
-        return _feature_add(root, args)
-    return _feature_set(root, args)
-
-
-def _feature_add(root: Path, args) -> int:
-    import json
-
-    as_json = bool(getattr(args, "json", False))
-    # A write verb's exit vocabulary is 0 and 2 (13.2): an absent records file is an
-    # empty record set to create, never `die`'s I/O code.
-    records, rev, _present = feature_records_visible(root)
-    actor, arole = validate_actor(root, args.by, "actor", allow_role=False, code=2)
-    statement = one_line(args.statement)
-    if not statement:
-        return _feature_refusal(
-            "add",
-            None,
-            "a feature needs a statement: what ships, as a user-visible result",
-            as_json,
-            rev,
-        )
-    owner, orole = validate_actor(root, args.owner, "owner", allow_role=False, must_exist=False)
-    if orole != FEATURE_TEAM_LEADER:
-        return _feature_refusal(
-            "add",
-            None,
-            f"the owner must be one {FEATURE_TEAM_LEADER} instance: '{owner}' is a {orole}",
-            as_json,
-            rev,
-        )
-    if pascal(owner) not in {pascal(i) for i in instances_of(root, FEATURE_TEAM_LEADER)}:
-        return _feature_refusal(
-            "add",
-            None,
-            f"the owner must be one {FEATURE_TEAM_LEADER} instance: "
-            f"'{args.owner}' has no instance in this team",
-            as_json,
-            rev,
-        )
-    if pascal(owner) != pascal(actor):
-        return _feature_refusal(
-            "add",
-            None,
-            f"the owner must be the caller: --by {actor} cannot file a record owned by {owner}",
-            as_json,
-            rev,
-        )
-    for record in records:
-        if record["statement"].strip().casefold() == statement.casefold():
-            if as_json:
-                print(
-                    json.dumps(
-                        {
-                            "id": record["id"],
-                            "changed": False,
-                            "reason": "duplicate statement",
-                            "rev": rev,
-                        },
-                        indent=2,
-                        ensure_ascii=False,
-                    )
-                )
-            else:
-                print(f"teamwork: {record['id']} already records that statement - not duplicated")
-            return 0
-    paths = [p.strip() for p in (args.paths or "").split(",") if p.strip()]
-    if not paths:
-        return _feature_refusal(
-            "add",
-            None,
-            "paths is required and non-empty: a feature that owns no path cannot be "
-            "independent of anything",
-            as_json,
-            rev,
-        )
-    interface = (args.interface or "-").strip() or "-"
-    if interface != "-":
-        if arole != "architect":
-            return _feature_refusal(
-                "add",
-                None,
-                "interface is the Architect's freeze: --by must name an architect "
-                f"instance (you are {actor})",
-                as_json,
-                rev,
-            )
-        if not interface_resolves(root, interface):
-            return _feature_refusal(
-                "add",
-                None,
-                f"interface does not resolve: '{interface}' is not an anchor in "
-                "Architecture.md or a decision id",
-                as_json,
-                rev,
-            )
-    deps = [
-        d.strip().upper()
-        for d in (args.depends_on or "").split(",")
-        if d.strip() and d.strip() != "-"
-    ]
-    candidate = new_feature(statement, owner, paths, interface, deps)
-    candidate["id"] = next_feature_id(records)
-    for dep in deps:
-        if dep == candidate["id"]:
-            return _feature_refusal(
-                "add",
-                None,
-                f"a feature cannot depend on itself: {dep}",
-                as_json,
-                rev,
-            )
-        if find_feature(records, dep) is None:
-            return _feature_refusal("add", None, f"unknown feature {dep}", as_json, rev)
-    problems = candidate_problems(records, candidate)
-    if problems:
-        return _feature_refusal("add", None, problems[0].message, as_json, rev)
-    with lock(root / DIR_RUNTIME / DIR_LOCKS / "features.lock"):
-        current = parse_features(feature_record_path(root))
-        candidate["id"] = next_feature_id(current)
-        current.append(candidate)
-        write_features(feature_record_path(root), current)
-    ledger_append(
-        root,
-        "feature.add",
-        actor,
-        candidate["id"],
-        f"[proposed] {statement} owner={owner} paths={len(paths)}",
-    )
-    if as_json:
-        print(
-            json.dumps(
-                {"id": candidate["id"], "state": candidate["state"], "changed": True, "rev": rev},
-                indent=2,
-                ensure_ascii=False,
-            )
-        )
-        return 0
-    print(
-        f"teamwork: features + {candidate['id']} [{candidate['state']}] {statement}"
-        f"  owner={owner} paths={len(paths)}"
-    )
-    return 0
-
-
-def _feature_set(root: Path, args) -> int:
-    import json
-
-    as_json = bool(getattr(args, "json", False))
-    records, rev, _present = feature_records_visible(root)
-    idx = find_feature(records, args.handle)
-    if idx is None:
-        return _feature_refusal("set", None, f"unknown feature {args.handle}", as_json, rev)
-    record = records[idx]
-    target = _feature_state_name(args.state)
-    if not target:
-        return _feature_refusal("set", record, _feature_unknown_state(args.state), as_json, rev)
-    actor, arole = validate_actor(root, args.by, "actor", allow_role=False, code=2)
-    edited = dict(record)
-    changed: list = []
-    if args.interface is not None:
-        interface = (args.interface or "-").strip() or "-"
-        if arole != "architect":
-            return _feature_refusal(
-                "set",
-                record,
-                "interface is the Architect's freeze: --by must name an architect "
-                f"instance (you are {actor})",
-                as_json,
-                rev,
-            )
-        if interface != "-" and not interface_resolves(root, interface):
-            return _feature_refusal(
-                "set",
-                record,
-                f"interface does not resolve: '{interface}' is not an anchor in "
-                "Architecture.md or a decision id",
-                as_json,
-                rev,
-            )
-        if interface != record.get("interface"):
-            edited["interface"] = interface
-            changed.append(("interface", interface))
-    if args.paths is not None:
-        if pascal(record.get("owner") or "") != pascal(actor):
-            return _feature_refusal(
-                "set",
-                record,
-                f"paths is the record owner's field: --by must be {record.get('owner')} "
-                f"(you are {actor})",
-                as_json,
-                rev,
-            )
-        if record.get("state") == "active":
-            return _feature_refusal(
-                "set",
-                record,
-                "paths cannot change from [active]: the claim is final when the work starts",
-                as_json,
-                rev,
-            )
-        paths = [p.strip() for p in (args.paths or "").split(",") if p.strip()]
-        if not paths:
-            return _feature_refusal(
-                "set",
-                record,
-                "paths is required and non-empty: a feature that owns no path cannot be "
-                "independent of anything",
-                as_json,
-                rev,
-            )
-        edited["paths"] = paths
-        changed.append(("paths", str(len(paths))))
-    if args.depends_on is not None:
-        if pascal(record.get("owner") or "") != pascal(actor):
-            return _feature_refusal(
-                "set",
-                record,
-                "depends-on is the record owner's field: --by must be "
-                f"{record.get('owner')} (you are {actor})",
-                as_json,
-                rev,
-            )
-        deps = [
-            d.strip().upper()
-            for d in (args.depends_on or "").split(",")
-            if d.strip() and d.strip() != "-"
-        ]
-        for dep in deps:
-            if dep == record["id"]:
-                return _feature_refusal(
-                    "set", record, f"a feature cannot depend on itself: {dep}", as_json, rev
-                )
-            if find_feature(records, dep) is None:
-                return _feature_refusal("set", record, f"unknown feature {dep}", as_json, rev)
-        edited["depends_on"] = deps
-        changed.append(("depends-on", ",".join(deps) or "-"))
-    refusal = _transition_refusal(edited, target, actor, arole)
-    if refusal:
-        return _feature_refusal("set", record, refusal, as_json, rev)
-    # A record's paths and dependencies are re-validated by 13.3 exactly as at
-    # `add`, and judged before the state is evaluated (13.2).
-    edited["id"] = record["id"]
-    problems = candidate_problems(records, edited, previous=record)
-    if problems:
-        return _feature_refusal("set", record, problems[0].message, as_json, rev)
-    if target != record.get("state"):
-        if target == "done":
-            open_tasks = [
-                (role, task)
-                for role, task in features_carrying(root, record["id"])
-                if task["status"] != "done"
-            ]
-            if open_tasks:
-                ids = ", ".join(task["id"] for _role, task in open_tasks)
-                return _feature_refusal(
-                    "set",
-                    record,
-                    f"done while {len(open_tasks)} task(s) carrying feature: "
-                    f"{record['id']} are not done ({ids})",
-                    as_json,
-                    rev,
-                )
-        if target == "dropped" and record.get("state") == "active":
-            live = [
-                (role, task)
-                for role, task in features_carrying(root, record["id"])
-                if task["status"] not in FEATURE_TERMINAL_STATES
-            ]
-            if live:
-                ids = ", ".join(task["id"] for _role, task in live)
-                return _feature_refusal(
-                    "set",
-                    record,
-                    f"dropped from [active] needs every task carrying feature: "
-                    f"{record['id']} terminal (open: {ids})",
-                    as_json,
-                    rev,
-                )
-    edited["state"] = target
-    edited["updated"] = today_iso()
-    with lock(root / DIR_RUNTIME / DIR_LOCKS / "features.lock"):
-        current = parse_features(feature_record_path(root))
-        at = find_feature(current, record["id"])
-        if at is None:
-            return _feature_refusal("set", None, f"unknown feature {record['id']}", as_json, rev)
-        current[at] = edited
-        write_features(feature_record_path(root), current)
-    detail = f"[{record.get('state')}] -> [{target}]" + "".join(
-        f" {field}={value}" for field, value in changed
-    )
-    ledger_append(root, "feature.set", actor, record["id"], detail)
-    if as_json:
-        print(
-            json.dumps(
-                {"id": edited["id"], "state": edited["state"], "changed": True, "rev": rev},
-                indent=2,
-                ensure_ascii=False,
-            )
-        )
-        return 0
-    suffix = "".join(f" {field}={value}" for field, value in changed)
-    print(
-        f"teamwork: features ~ {edited['id']} [{record.get('state')}] -> "
-        f"[{edited['state']}]{suffix}"
-    )
-    return 0
-
-
-def _feature_list(root: Path, args) -> int:
-    import json
-
-    as_json = bool(getattr(args, "json", False))
-    records, rev = read_feature_records(root)
-    wanted = ""
-    if args.state:
-        wanted = _feature_state_name(args.state)
-        if not wanted:
-            reason = _feature_unknown_state(args.state)
-            if as_json:
-                print(json.dumps({"rev": rev, "error": reason}, indent=2, ensure_ascii=False))
-            else:
-                print(f"teamwork: feature list: {reason}")
-            return 2
-    shown = [r for r in records if not wanted or r["state"] == wanted]
-    opened = len(open_records(shown)) if wanted else len(open_records(records))
-    if wanted:
-        # A filtered listing counts the filtered set on both sides of the slash.
-        opened = len(shown)
-    if as_json:
-        print(
-            json.dumps(
-                {
-                    "rev": rev,
-                    "open": opened,
-                    "total": len(shown),
-                    "features": [feature_as_json(r) for r in shown],
-                },
-                indent=2,
-                ensure_ascii=False,
-            )
-        )
-        # 3 is the empty FILTER case (13.2): a team with no records at all is not
-        # a filter that matched nothing, so an unfiltered listing exits 0.
-        return 3 if (wanted and not shown) else 0
-    print(f"# Features ({opened} open / {len(shown)} total) @ {rev}")
-    for record in shown:
-        print(f"- {record['id']} [{record['state']}] {record['statement']}")
-        print(f"    owner={record['owner']} interface={record['interface']}")
-        print(f"    paths={','.join(record.get('paths') or [])}")
-        print(f"    depends-on={','.join(record.get('depends_on') or []) or '-'}")
-    if wanted and not shown:
-        return 3
-    return 0
-
-
-def _feature_check(root: Path, args) -> int:
-    import json
-
-    as_json = bool(getattr(args, "json", False))
-    records, rev = read_feature_records(root)
-    named = [h.strip().upper() for h in (args.handle or []) if h.strip()]
-    for handle in named:
-        if find_feature(records, handle) is None:
-            if as_json:
-                print(
-                    json.dumps(
-                        {"rev": rev, "error": f"unknown feature {handle}"},
-                        indent=2,
-                        ensure_ascii=False,
-                    )
-                )
-            else:
-                print(f"teamwork: feature check: unknown feature {handle}")
-            return 2
-    problems = check_records(records, named)
-    scope = [r for r in records if not named or r["id"] in set(named)]
-    opened = len(open_records(scope))
-    if as_json:
-        print(
-            json.dumps(
-                {
-                    "rev": rev,
-                    "ok": not problems,
-                    "features": opened,
-                    "problems": [
-                        {"feature": p.feature, "rule": p.rule, "message": p.message}
-                        for p in problems
-                    ],
-                },
-                indent=2,
-                ensure_ascii=False,
-            )
-        )
-        return 2 if problems else 0
-    if not problems:
-        print(f"# feature check: {opened} open feature(s), 0 problem(s) @ {rev}")
-        return 0
-    print(
-        f"teamwork: feature check: {len(problems)} problem(s) in {opened} open feature(s) @ {rev}:"
-    )
-    for problem in problems:
-        print(f"  - {problem.message}")
-    print(
-        "  one open feature per squad and no two open features owning one path is the "
-        "whole rule (throughput rule 6): rebase before you check, and read the @ revision."
-    )
-    print(
-        "  then split the claim, or set the record to dropped, and re-run "
-        "`teamwork.py feature check`."
-    )
-    return 2
 
 
 # --------------------------------------------------------------------------- #
@@ -8361,43 +7343,6 @@ def stale_claims(root: Path, minutes: int = None) -> list:
 LANE_WIP = 2
 
 
-def _pulse_feature_teams(root: Path, records: list) -> None:
-    """`## feature teams` and the shared-services line (Architecture.md 13.2).
-
-    One line per open feature and one shared-services line for the whole team: the
-    review queue, the board and the dependency view are printed once already, and
-    a per-team copy of a shared print is what 13.5 forbids.
-    """
-    if not records:
-        return
-    opened = open_records(records)
-    print(f"## feature teams ({len(opened)})")
-    for record in opened:
-        fid = record["id"]
-        carrying = features_carrying(root, fid)
-        squad = [
-            instance
-            for instance in list_agents(root)
-            if pascal(instance_under(root, instance) or "") == pascal(record["owner"] or "")
-        ]
-        ready = sum(1 for _role, task in carrying if task["status"] == "todo")
-        doing = sum(
-            1 for _role, task in carrying if task["status"] in ("doing", "selfcheck", "review")
-        )
-        print(
-            f"- {fid} [{record['state']}] {record['owner']}: "
-            f"squad={','.join(squad) or '-'}  ready={ready} doing={doing}"
-        )
-    if not opened:
-        print("- none (no open feature)")
-    waiting = sum(1 for record in records if (record.get("interface") or "-") == "-")
-    print(
-        f"# shared services: architect {len(instances_of(root, 'architect'))} lane(s), "
-        f"{waiting} feature(s) waiting on an interface freeze"
-    )
-    print()
-
-
 def cmd_pulse(args: object) -> int:
     """CEO wake-up: find idle lanes and hand them runnable work immediately."""
     root = project_root(args)
@@ -8417,7 +7362,6 @@ def cmd_pulse(args: object) -> int:
         items = _ready_for_role(root, role)
         if items:
             ready_by_role[role] = items
-    feature_records = visible_feature_records(root)
 
     print(f"# Pulse ({root})")
     print(f"# interval: every {minutes} min | {len(busy)} busy, {len(idle)} idle lane(s)")
@@ -8455,8 +7399,6 @@ def cmd_pulse(args: object) -> int:
             f"oldest {oldest}d - add a lane when unclaimed > {2 * max(review_lanes, 1)}"
         )
     print()
-
-    _pulse_feature_teams(root, feature_records)
 
     if awaiting:
         print(f"## deliverables awaiting review ({len(awaiting)})")
@@ -8501,20 +7443,7 @@ def cmd_pulse(args: object) -> int:
                 plan.append(("reviewer", inst, t, f"deliverable review: {t['title']}", own))
                 continue
             while items and capacity[inst] > 0:
-                # One team, one feature (13.2): a task carrying `feature:` goes to
-                # a lane of that team only - never to a sibling squad, and never to
-                # a lane whose leader is not the record's owner.
-                slot = next(
-                    (
-                        index
-                        for index, candidate in enumerate(items)
-                        if feature_executable_by(root, inst, candidate, feature_records)
-                    ),
-                    None,
-                )
-                if slot is None:
-                    break
-                item = items.pop(slot)
+                item = items.pop(0)
                 plan.append((role, inst, item, item["title"], ""))
                 capacity[inst] -= 1
 
@@ -10606,26 +9535,6 @@ def _review_next(root: Path, args) -> int:
     return 3
 
 
-def _review_pass_detail(t: dict, args, claim_note: str, probe_note: str) -> str:
-    """The ``review.pass`` ledger detail, with any override in front of the evidence.
-
-    The task queue is local and gitignored, so the hash-chained ledger is the only
-    durable proof that a safety override happened - and it is what a reader consults
-    long after the queue has moved on. So the override markers LEAD the detail and
-    the cut is the ledger's own field width (``LEDGER_DETAIL_CHARS``): building
-    ``evidence + markers`` and cutting the tail swallowed the whole override as soon
-    as a Reviewer wrote the ~160-character evidence line a real review carries, which
-    made the durable record disagree with the task's ``forced`` field.
-    """
-    override = f"FORCED: {args.force}" if getattr(args, "force", "") else ""
-    if probe_note:
-        marker = f"mergeability overridden: {probe_note}"
-        override = f"{override} | {marker}" if override else marker
-    tail = (t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note
-    detail = f"{override} | {tail}" if override else tail
-    return detail[:LEDGER_DETAIL_CHARS]
-
-
 def cmd_review(args) -> int:
     root = project_root(args)
     if getattr(args, "packet", False) and (
@@ -10781,42 +9690,6 @@ def cmd_review(args) -> int:
                             2,
                         )
 
-        # A pass is the merge trigger, so the verdict may only be recorded when the
-        # revision can actually land: P-0057 passed and then died in ``_pr_merge`` on
-        # a Board.md conflict, leaving reviewed work unlanded behind a green verdict.
-        probe_note = ""
-        if args.result == "pass" and is_git_repo(project) and t.get("branch"):
-            probe_base = (t.get("base") or "").strip() or DEFAULT_BASE
-            if branch_exists(project, t["branch"]):
-                code, measured, paths, detail = merge_tree_probe(project, probe_base, t["branch"])
-                if code != 0:
-                    probe_note = _conflict_note(code, measured, paths, detail)
-                    if not args.force:
-                        die(
-                            f"refusing to pass {t['id']}: {t['branch']} does not merge "
-                            f"into {probe_base}:\n  {probe_note}\n"
-                            "  No verdict was recorded, the PR is unchanged and the task "
-                            "is still awaiting review. The owner must rebase, resolve "
-                            "and re-submit:\n"
-                            f"  git rebase {probe_base}   # then push/re-submit\n"
-                            "  (--force <reason> records a deliberate override)",
-                            2,
-                        )
-                # The independence rule at the tree that would be landed (13.1): a
-                # pass is the merge trigger, so a feature that would land a second
-                # claim on a path must be refused before the verdict, not after it.
-                feature_problems = _feature_gate(project, probe_base, t["branch"])
-                if feature_problems and not args.force:
-                    die(
-                        f"refusing to pass {t['id']}: the feature records at the tree "
-                        f"that would be landed have {len(feature_problems)} problem(s):\n"
-                        + _feature_problem_lines(feature_problems)
-                        + "\n  No verdict was recorded. Split the claim (or renumber the "
-                        "arriving record) and re-submit; `teamwork.py feature check` "
-                        "reports the same findings at your revision.",
-                        2,
-                    )
-
         t["reviewer"] = reviewer
         t["updated"] = today_iso()
         claim_note = ""
@@ -10859,10 +9732,9 @@ def cmd_review(args) -> int:
             t["status"] = "done"
             t["review_fail_rev"] = ""
             if args.force:
-                forced = f"review pass forced by {reviewer}: {args.force}"
-                if probe_note:
-                    forced += f" (mergeability overridden: {probe_note})"
-                t["forced"] = (t.get("forced", "") + f" | {forced}").strip(" |")
+                t["forced"] = (
+                    t.get("forced", "") + f" | review pass forced by {reviewer}: {args.force}"
+                ).strip(" |")
         if args.result == "fail":
             # The revision that failed is what the next round is compared against:
             # a fix is re-reviewed as a delta, not re-derived from scratch. Read it
@@ -10899,7 +9771,7 @@ def cmd_review(args) -> int:
         reviewer,
         t["id"],
         (
-            _review_pass_detail(t, args, claim_note, probe_note)
+            ((t.get("review_evidence") or t.get("findings") or "")[:150] + claim_note)[:200]
             if args.result == "pass"
             # The classification leads the detail so the mechanical-fail rate can be
             # counted off the append-only ledger long after the task record moves on.
@@ -10940,12 +9812,7 @@ def cmd_review(args) -> int:
                 f"          merging {t['pr']} now (--keep-branch opts out of deleting the branch)"
             )
             merge_after_pass(
-                root,
-                role,
-                t,
-                reviewer,
-                keep_branch=bool(getattr(args, "keep_branch", False)),
-                force=args.force or "",
+                root, role, t, reviewer, keep_branch=bool(getattr(args, "keep_branch", False))
             )
         elif t.get("pr"):
             print(
@@ -11102,13 +9969,13 @@ PREFLIGHT_UNVERIFIED = "unverified"
 
 #: Report and digest order, fixed: a reader comparing two preflight runs compares
 #: the same line with the same check.
-PREFLIGHT_ORDER = ("branch", "identity", "evidence", "mergeable", "board", "features", "gate")
+PREFLIGHT_ORDER = ("branch", "identity", "evidence", "mergeable", "board", "gate")
 
 #: The checks whose verdict rides in the digest. `gate` is deliberately absent: it
 #: is opt-in (`--run`), so its status describes this invocation rather than the
 #: deliverable, and `selfcheck` re-runs the offline set - folding it in would make
 #: the digest an author pastes differ from the one the self-check records.
-PREFLIGHT_DIGEST_CHECKS = tuple(name for name in PREFLIGHT_ORDER if name != "gate")
+PREFLIGHT_DIGEST_CHECKS = PREFLIGHT_ORDER[:5]
 
 
 class PreflightCheck:
@@ -11242,34 +10109,6 @@ def _merge_tree_conflicts(stdout: str) -> list:
             break
         paths.append(line)
     return paths
-
-
-def merge_tree_probe(project: Path, base: str, branch: str) -> tuple:
-    """``git merge-tree --write-tree <base> <branch>``: (exit, command, paths, detail).
-
-    One probe for the author's preflight, the Reviewer's verdict and the merge
-    itself. A pass must never precede a merge that cannot happen, and three
-    implementations of that probe would be three answers to one question.
-
-    ``paths`` is filled only for exit 1, which is git saying "this conflicts"; any
-    other non-zero exit means the probe could not answer (git < 2.38, an unknown
-    revision), and ``detail`` carries git's first line so the caller can say why.
-    """
-    proc = run_git(project, "merge-tree", "--write-tree", "--name-only", base, branch)
-    measured = f"git merge-tree --write-tree {base} {branch}"
-    paths = _merge_tree_conflicts(proc.stdout) if proc.returncode == 1 else []
-    detail = ""
-    if proc.returncode not in (0, 1):
-        lines = (proc.stderr or proc.stdout).strip().splitlines()
-        detail = lines[0] if lines else ""
-    return proc.returncode, measured, paths, detail
-
-
-def _conflict_note(code: int, measured: str, paths: list, detail: str) -> str:
-    """The one-line measurement of a failed probe, naming the paths when git knew them."""
-    if paths:
-        return f"{measured} -> CONFLICT in " + ", ".join(paths)
-    return f"{measured} -> exit {code} ({detail or 'no output'})"
 
 
 def _preflight_branch(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
@@ -11412,21 +10251,24 @@ def _preflight_mergeable(project: Path, base: str, branch: str, role: str) -> Pr
     verdict. It is fail-closed - a git too old to answer is a failure, never a pass.
     """
     name = "mergeable"
-    code, measured, paths, detail = merge_tree_probe(project, base, branch)
-    if code == 0:
+    proc = run_git(project, "merge-tree", "--write-tree", "--name-only", base, branch)
+    measured = f"git merge-tree --write-tree {base} {branch}"
+    if proc.returncode == 0:
         return PreflightCheck(name, PREFLIGHT_OK, f"{measured} -> clean")
-    if code != 1:
+    if proc.returncode != 1:
+        detail = (proc.stderr or proc.stdout).strip().splitlines()
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            f"{measured} -> exit {code} ({detail or 'no output'})"
+            f"{measured} -> exit {proc.returncode} ({detail[0] if detail else 'no output'})"
             ": mergeability cannot be proved here; git >= 2.38 is required",
             "upgrade git: a probe that cannot answer is a failure, never a pass",
         )
+    paths = _merge_tree_conflicts(proc.stdout)
     return PreflightCheck(
         name,
         PREFLIGHT_FAIL,
-        _conflict_note(code, measured, paths, detail),
+        f"{measured} -> CONFLICT in " + (", ".join(paths) if paths else "unknown paths"),
         "git " + " ".join(git_identity_args(role)) + f" rebase {base}   # resolve, commit,"
         " re-run preflight",
     )
@@ -11501,35 +10343,6 @@ def _preflight_board(root: Path, project: Path, base: str, branch: str) -> Prefl
         )
     return PreflightCheck(
         name, PREFLIGHT_OK, f"{PREFLIGHT_BOARD_PATH} on {branch} matches the queues"
-    )
-
-
-def _preflight_features(root: Path, project: Path, base: str, branch: str) -> PreflightCheck:
-    """The independence rule at the tree this branch would land (13.1, 13.3).
-
-    A lane's own `feature check` reads its own revision and can be green while the
-    merged tree is red - the record it collides with may live on another branch -
-    so the author's gate measures base's records with this branch's rows folded in.
-    No records anywhere is green: a team that has filed no feature has nothing to
-    judge.
-    """
-    name = "features"
-    problems = _feature_gate(project, base, branch)
-    if not problems:
-        records, seen = merged_feature_records(project, base, branch)
-        detail = (
-            f"no overlaps in {len(open_records(records))} open feature(s) at {base}+{branch}"
-            if seen
-            else "no feature records at this tree (nothing to judge)"
-        )
-        return PreflightCheck(name, PREFLIGHT_OK, detail)
-    return PreflightCheck(
-        name,
-        PREFLIGHT_FAIL,
-        f"{len(problems)} feature-independence problem(s) at the tree this branch lands: "
-        + " | ".join(problem.message for problem in problems[:4]),
-        "teamwork.py feature check   # rebase onto the base first: the answer is "
-        "dated at your revision",
     )
 
 
@@ -11632,13 +10445,11 @@ def run_preflight(
         checks.append(_preflight_evidence(project, task, extra_text))
         checks.append(unmeasured("mergeable"))
         checks.append(unmeasured("board"))
-        checks.append(unmeasured("features"))
     else:
         checks.append(_preflight_identity(project, base, branch, role))
         checks.append(_preflight_evidence(project, task, extra_text))
         checks.append(_preflight_mergeable(project, base, branch, role))
         checks.append(_preflight_board(root, project, base, branch))
-        checks.append(_preflight_features(root, project, base, branch))
     checks.append(_preflight_gate(root, project, run_gate))
     return PreflightResult(role, task.get("id", ""), branch, base, revision, checks)
 
@@ -11990,111 +10801,6 @@ def cmd_board(args) -> int:
     print(f"# slots: {slots}")
     print("# parallelism: teamwork.py parallel    idle lanes: teamwork.py pulse")
     return 0
-
-
-def _board_stale_warning(pr: dict, rel: str, why: str) -> str:
-    """The loud report for a merge that landed but could not re-render the board.
-
-    Failing the command here would un-record a merge that already happened, so the
-    render is reported instead - but never silently: the base branch is left with a
-    board that contradicts the queues, and nothing else re-renders it (D-0006: the
-    engine has no post-merge render besides this one).
-    """
-    base = pr.get("base") or DEFAULT_BASE
-    return (
-        f"# WARNING: the merge of {pr.get('id')} is LANDED, but {rel} on {base} is STALE.\n"
-        f"#   {why}\n"
-        "#   the merge is recorded; repair the board on the base branch with:\n"
-        f"#     teamwork.py board --write   # in the work tree that holds {base}\n"
-        f"#     git commit -m 'chore(records): re-render {rel}' -- {rel}"
-    )
-
-
-def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
-    """Re-render ``docs/Team/Board.md`` from the queues on the base and commit it.
-
-    The board is a projection of the role queues, so a copy riding a feature branch
-    conflicts with the next board merge by construction (P-0057 vs P-0058 conflicted
-    in three regions because each branch carried its own render). The merging
-    Reviewer is the one writer: the task and PR records have just moved to
-    ``done``/``merged``, so this render is the only one that can make the landed
-    board equal the queues, and it runs after the merge commit and the records
-    commit that precede it.
-
-    Returns the lines to print. A missing board or one that carries no task tables
-    is a note, not a failure: there is no table to be stale. A render that cannot be
-    written or committed is reported loudly and never un-records the merge.
-    """
-    rel = "/".join(DIR_DOCS) + "/Board.md"
-    path = repo.joinpath(*DIR_DOCS) / "Board.md"
-    if not path.is_file():
-        return f"# board: no {rel} in the work tree holding the base; nothing to render"
-    try:
-        before = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return _board_stale_warning(pr, rel, f"cannot read it: {exc}")
-    missing = [anchor for anchor in BOARD_ANCHORS if anchor not in before]
-    if missing:
-        return (
-            f"# board: {rel} carries no task tables (missing "
-            + ", ".join(repr(anchor) for anchor in missing)
-            + "); nothing to render"
-        )
-    try:
-        tasks = boardlib.queues(root)
-        if not tasks:
-            raise ValueError(f"no task records under {roles_dir(root)}")
-        after = boardlib.render(tasks, before)
-    except (OSError, ValueError, StopIteration) as exc:
-        return _board_stale_warning(pr, rel, f"cannot render it from the queues: {exc}")
-    if after == before:
-        return f"# board: {rel} already matches the queues at the merge"
-    try:
-        write_lf(path, after)
-    except OSError as exc:
-        return _board_stale_warning(pr, rel, f"cannot write it: {exc}")
-    staged = run_git(repo, "add", "--", rel)
-    if staged.returncode != 0:
-        run_git(repo, "checkout", "--", rel)
-        return _board_stale_warning(
-            pr, rel, "cannot stage it: " + (staged.stderr.strip() or staged.stdout.strip())
-        )
-    message = build_commit_message(
-        "reviewer",
-        {
-            "type": "chore",
-            "area": "records",
-            "task": pr.get("task"),
-            "producers": pr.get("author"),
-            "goal": f"the landed board equals the queues after {pr.get('id')}",
-            "deliverable": f"re-render {rel} at the merge",
-            "why": (
-                "the board is a projection of the queues, so the merging Reviewer "
-                "writes it once the landing has moved them"
-            ),
-            "status": f"landed on {pr.get('base') or DEFAULT_BASE}",
-            "result": f"{pr.get('id')} merged; board rendered from the live queues",
-        },
-    )
-    committed = subprocess.run(
-        ["git", "-C", str(repo)]
-        + git_identity_args("reviewer")
-        + ["commit", "-q", "-F", "-", "--", rel],
-        input=message,
-        capture_output=True,
-        text=True,
-    )
-    if committed.returncode != 0:
-        run_git(repo, "reset", "-q", "--", rel)
-        run_git(repo, "checkout", "--", rel)
-        return _board_stale_warning(
-            pr,
-            rel,
-            "cannot commit it (a hook or config blocked it): "
-            + (committed.stderr.strip() or committed.stdout.strip() or "(no output)"),
-        )
-    sha = run_git(repo, "rev-parse", "--short", "HEAD").stdout.strip()
-    return f"# board: rendered {rel} from the queues at the merge ({sha})"
 
 
 #: Prefix on a provenance string that means "no alert was read", never "zero alerts".
@@ -14088,7 +12794,6 @@ def build_parser() -> argparse.ArgumentParser:
     _parsers_quality(sub, common)
     _parsers_integration(sub, common)
     _parsers_governance(sub, common)
-    _parsers_features(sub, common)
     _parsers_audit(sub, common)
     _parsers_scheduling(sub, common)
     _parsers_meta(sub, common)
@@ -14151,11 +12856,6 @@ def _parsers_workspace(sub, common) -> None:
     p.add_argument("--count", type=int, default=1, help="how many instances to add (default 1)")
     p.add_argument("--name", default="", help="explicit instance name instead of the next free one")
     p.add_argument("--new-role", action="store_true", help="staff a role this team does not have")
-    p.add_argument(
-        "--under",
-        default="",
-        help="attach a squad specialist to the team-leader it works for (one team, one manager)",
-    )
     p.add_argument("--by", default="ceo", help="who adds it (provenance)")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.set_defaults(func=cmd_instance)
@@ -14214,11 +12914,6 @@ def _parsers_workspace(sub, common) -> None:
         "--no-review",
         action="store_true",
         help="mark as a chore that does not need Reviewer sign-off",
-    )
-    s.add_argument(
-        "--feature",
-        default="",
-        help="slice this task to a ready/active feature (F-nnnn) of one feature team",
     )
     s.set_defaults(func=cmd_task_add)
 
@@ -14978,61 +13673,6 @@ def _parsers_governance(sub, common) -> None:
     s.add_argument("--reason", default="")
     s.add_argument("--force", default="", metavar="REASON")
     s.set_defaults(func=cmd_redline)
-
-
-def _parsers_features(sub, common) -> None:
-    """`feature` command surface: the feature-team records (Architecture.md 13)."""
-    s = sub.add_parser(
-        "feature",
-        parents=[common],
-        help="add/set/list/check the feature-team records (docs/Team/Features.md)",
-    )
-    fsub = s.add_subparsers(dest="feature_cmd", required=True)
-
-    p = fsub.add_parser(
-        "add", parents=[common], help="file this team leader's own slice in [proposed]"
-    )
-    p.add_argument("statement", help="one line: what ships, as the user-visible result")
-    p.add_argument("--owner", required=True, help="the team-leader instance filing it (the caller)")
-    p.add_argument("--paths", required=True, help="comma list of the slice's owned writable paths")
-    p.add_argument(
-        "--interface", default="-", help="a frozen anchor (Architecture.md#13) or decision id"
-    )
-    p.add_argument("--depends-on", default="", dest="depends_on", help="F-nnnn[,F-nnnn] work deps")
-    p.add_argument("--by", required=True, help="the caller naming itself (an instance or its role)")
-    p.add_argument("--json", action="store_true", help="machine-readable output")
-    p.set_defaults(func=cmd_feature)
-
-    p = fsub.add_parser(
-        "set", parents=[common], help="move a record through its states, or edit its fields"
-    )
-    p.add_argument("handle", help="F-0001")
-    p.add_argument("--state", required=True, help="the state the record should end in")
-    p.add_argument(
-        "--interface", default=None, help="Architect only: the frozen-interface reference"
-    )
-    p.add_argument("--paths", default=None, help="owner only: the slice's owned writable paths")
-    p.add_argument(
-        "--depends-on",
-        default=None,
-        dest="depends_on",
-        help="owner only: F-nnnn[,F-nnnn] work deps",
-    )
-    p.add_argument("--by", required=True, help="the caller naming itself (an instance or its role)")
-    p.add_argument("--json", action="store_true", help="machine-readable output")
-    p.set_defaults(func=cmd_feature)
-
-    p = fsub.add_parser("list", parents=[common], help="print the records at this revision")
-    p.add_argument("--state", default="", help=f"only one state ({', '.join(FEATURE_STATES)})")
-    p.add_argument("--json", action="store_true", help="machine-readable output")
-    p.set_defaults(func=cmd_feature)
-
-    p = fsub.add_parser(
-        "check", parents=[common], help="the independence rule over the open records"
-    )
-    p.add_argument("handle", nargs="*", default=[], help="only these F-nnnn records")
-    p.add_argument("--json", action="store_true", help="machine-readable output")
-    p.set_defaults(func=cmd_feature)
 
 
 def _parsers_audit(sub, common) -> None:

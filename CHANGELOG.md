@@ -13,14 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **The Team Leader role.** One Team Leader per independent feature, with the
-  squad attached to it (`instance add <role> --under`), its own `feature` test
-  layer, and the feature record in `docs/Team/Features.md`
-  (`teamwork.py feature add|set|list|check`, contract in `Architecture.md` 13).
-  The CTO is its single line manager; the CEO+CTO+CFO board holds decision rights
-  over the feature, never a second reporting line; the Security Auditor is never
-  attached, because it audits the lane it would report to. The role enters the
-  `slim`, `standard` and `full` rosters (startup read now 339 / 471 / 770 kB).
 - **The throughput contract.** Ten binding rules that remove duplicated work
   instead of absorbing it: one parent plus a supervision board (decision rights,
   not a second reporting line), one feature per team, one owner per artifact and

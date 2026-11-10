@@ -145,24 +145,14 @@ def test_no_merge_records_the_verdict_without_landing_it(cli, project, capsys) -
 
 
 def test_a_failed_merge_keeps_the_verdict_and_names_the_retry(cli, project, capsys) -> None:
-    """A pass that cannot land is reported, never lost and never silently 'done'.
-
-    The mergeability probe refuses a pass whose branch cannot land, so the failed
-    merge is set up AFTER the verdict: the base is re-pointed at a revision no
-    branch holds, which is what the merge path refuses with exit 2. The helper is
-    the path a pass takes, so it is the one that must keep the verdict and name
-    the retry.
-    """
+    """A pass that cannot land is reported, never lost and never silently 'done'."""
     ship(cli, project)
-    root = team_root(project)
-    pass_review(cli, project, "--no-merge")
     # a base no local branch points at: the merge refuses before touching git
     rework_records(cli, project, base="0" * 40)
     main_before = engine.run_git(project, "rev-parse", "main").stdout.strip()
 
     capsys.readouterr()
-    tasks = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")
-    assert engine.merge_after_pass(root, "developer", tasks[0], "reviewer-1") is False
+    pass_review(cli, project)
     out = capsys.readouterr().out
 
     assert engine.run_git(project, "rev-parse", "main").stdout.strip() == main_before

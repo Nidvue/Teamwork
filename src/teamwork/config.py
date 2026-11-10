@@ -73,8 +73,6 @@ F_REVIEWS = "Reviews.md"
 F_CRITERIA = "Criteria.md"
 F_TESTS = "Tests.md"
 F_TESTPLAN = "TestPlan.md"
-F_FEATURES = "Features.md"
-F_TEAM = "Team.md"
 
 DIR_WORKTREES = "Worktrees"
 
@@ -98,7 +96,6 @@ TEST_LAYERS = (
     "integration",
     "acceptance",
     "security",
-    "feature",
 )
 
 LAYER_OWNER = {
@@ -117,7 +114,6 @@ LAYER_OWNER = {
     "integration": "tester",
     "acceptance": "reviewer",
     "security": "security-auditor",
-    "feature": "team-leader",
 }
 
 LAYER_WHAT = {
@@ -136,7 +132,6 @@ LAYER_WHAT = {
     "integration": "integration / system / end-to-end tests",
     "acceptance": "acceptance tests over every role's output",
     "security": "security tests (auth, input handling, secrets, red lines)",
-    "feature": "feature isolation: the slice's diff, its standalone build and its frozen interface",
 }
 
 DEFAULT_REQUIRED_LAYERS = ("unit", "integration", "acceptance")
@@ -159,7 +154,6 @@ LAYER_CELL = {
     "integration": "int",
     "acceptance": "acc",
     "security": "sec",
-    "feature": "feat",
 }
 
 TEST_STATUSES = ("pending", "passing", "failing", "na")
@@ -236,82 +230,7 @@ DOCS = {
     "Costs.md": "CFO",
     "Release.md": "Release Engineer",
     "Archive.md": "CEO",
-    "Features.md": "ProjectManager",
 }
-
-# --------------------------------------------------------------------------- #
-# Feature teams (Architecture.md 13): one vertical slice per squad.
-# --------------------------------------------------------------------------- #
-
-#: The record's lifecycle (13.1). `proposed` is where every record starts, `ready`
-#: is the Architect's freeze and releases the record into the open set, `active`
-#: releases execution, and `done`/`dropped` are terminal.
-FEATURE_STATES = ("proposed", "ready", "active", "done", "dropped")
-
-#: The states rule 1-4 of 13.3 compare. A closed record's paths are released, not
-#: compared, or the path map would grow monotonically and serialise every feature.
-FEATURE_OPEN_STATES = ("ready", "active")
-
-#: The states a record never leaves (13.2: reopening is a new record with a new id).
-FEATURE_TERMINAL_STATES = ("done", "dropped")
-
-#: The role that owns a feature's squad and its `feature` test layer. The role is
-#: a workspace fact (`Roles/team-leader/`): `ROLE_PARENT` gains the edge that makes
-#: it a reporting line in the CEO's charter work, not in this engine change.
-FEATURE_TEAM_LEADER = "team-leader"
-
-#: Roles a squad instance may be attached to a team leader with
-#: `instance add <role> --under <team-leader>` (13.2, D-20261029-Architect-2).
-FEATURE_SQUAD_ROLES = (
-    "data-engineer",
-    "designer",
-    "developer",
-    "technical-writer",
-    "tester",
-)
-
-#: Shared services and independent lanes: never attached. Each holds a standard
-#: that spans the teams it would be attached to, or audits the lane above it, so an
-#: `under:` edge would be a second manager - which one-manager-per-role forbids.
-FEATURE_SHARED_ROLES = (
-    "architect",
-    "ceo",
-    "cfo",
-    "coo",
-    "cto",
-    "project-manager",
-    "release-engineer",
-    "reviewer",
-    "security-auditor",
-)
-
-#: Rendered on the base branch at the merge (throughput rule 8), so a feature that
-#: claims one is asking for a render riding its branch (13.3 rule 4).
-FEATURE_GENERATED_ARTIFACTS = (
-    "docs/Team/Archive.md",
-    "docs/Team/AuditManifest.json",
-    "docs/Team/AuditManifest.md",
-    "docs/Team/Board.md",
-)
-
-#: Checkout state: gitignored, never merged, so two features cannot conflict there
-#: and claiming it is a design error rather than an overlap (13.3 rule 4).
-FEATURE_CHECKOUT_STATE = (
-    ".pi/",
-    ".pytest_cache/",
-    ".venv/",
-    "Runtime/",
-    "Scratch/",
-    "__pycache__/",
-    "build/",
-    "dist/",
-    "node_modules/",
-    "site/",
-)
-
-#: The one records file (13.1). It is refused as an owned path with its own finding
-#: because it is the map every other record's claim is judged against.
-FEATURE_RECORDS_REL = "docs/Team/Features.md"
 
 CODE_DIRS = ("src", "lib", "cmd", "internal", "app", "packages", "crates", "rust")
 
@@ -379,7 +298,6 @@ ROLE_PARENT = {
     "reviewer": "ceo",
     "security-auditor": "ceo",
     "architect": "cto",
-    "team-leader": "cto",
     "developer": "cto",
     "tester": "cto",
     "release-engineer": "cto",
@@ -396,7 +314,6 @@ ROLE_REPORT_ORDER = (
     "ceo",
     "cto",
     "architect",
-    "team-leader",
     "developer",
     "tester",
     "release-engineer",
@@ -451,7 +368,6 @@ ROSTER_TIERS = {
     "slim": (
         "ceo",
         "architect",
-        "team-leader",
         "developer",
         "tester",
         "reviewer",
@@ -459,7 +375,6 @@ ROSTER_TIERS = {
     "standard": (
         "ceo",
         "architect",
-        "team-leader",
         "product-manager",
         "project-manager",
         "developer",
@@ -473,7 +388,6 @@ ROSTER_TIERS = {
         "coo",
         "cfo",
         "architect",
-        "team-leader",
         "product-manager",
         "project-manager",
         "designer",
@@ -494,7 +408,7 @@ ROSTER_REQUIRED = ("ceo", "developer", "tester", "reviewer")
 
 # Instances per role for a tier: reviewers get two so the review queue fans out
 # and a sampled or high-risk deliverable gets a second independent verdict.
-ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1, "team-leader": 1}
+ROSTER_INSTANCE_COUNT = {"reviewer": 2, "developer": 1, "tester": 1}
 
 # Settings keys that are workspace policy, not provider concurrency limits: `slot`
 # reads every other key as a provider cap, so a new non-provider key must be

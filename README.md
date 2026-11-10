@@ -420,14 +420,17 @@ flowchart TD
     AR --> LANES
     PJ --> LANES
     CEO -.->|model auto: strong lanes, economy lanes| LANES
-    subgraph LANES[Parallel lanes]
+    subgraph LANES[Parallel lanes - one per staffed role]
         DEV[Developer: code + unit tests]
         TST[Tester: integration + E2E tests]
         DES[Designer: UX and accessibility specs]
     end
     LANES --> SC[Author self-check: run your own test]
+    SC --> REC[(Recorded runs at that revision)]
     SC --> RV{Independent Reviewer}
-    RV -- fail + findings --> LANES
+    REC -.->|verify once - cite with --credit| RV
+    RV -- fail + findings --> FX[Owner fixes]
+    FX --> SC
     RV -- pass --> MG[Reviewer merges to main]
     MG --> LP{teamwork loop}
     LP -- criterion or layer failing --> LANES
