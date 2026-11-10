@@ -5777,3 +5777,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-5's own run @8734cc6: pytest tests/unit/test_cli_contract.py tests/unit/test_preflight.py -> 69 passed; ruff+format+mypy clean; a probe 'task set ceo T-0003 --review-status passed' without --force is refused with the reason requirement, and with --force the repair is appended to review_evidence. Read the diff: the flag cannot run without a recorded reason, it appends rather than replaces, and status/self_check are untouched - so the record keeps both the old verdict and the repair.
 - findings history: 
 - branch / merge: developer/t-0056-task-set-cannot-repair-a-review-verdict / b8805b8
+
+## T-0057 · task set cannot clear a retired branch, so loop keeps reporting an unmerged branch that no longer exists  (developer)
+- date: 2026-11-08
+- priority: P2
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the two-hunk diff. Boundary: the flag refuses without --force; an empty value clears the field; a task without the flag is unchanged. Scope: parser + one block, board render. | test: pytest tests/unit/test_cli_contract.py @804224a -> 44 passed; loop -> the two unmerged-branch lines are gone | preflight: PF-a7d29f259f42 @804224afc961 (7 checks, 0 failed)
+- author evidence: commit 804224a @804224a -> one commit over main
+- reviewer evidence: Reviewer-1's own run @804224a: pytest tests/unit/test_cli_contract.py -> 44 passed; a probe without --force is refused, and with --force the field is cleared; loop no longer names the two retired branches. Read the diff: same guard shape as --review-status, reason required.
+- findings history: 
+- branch / merge: developer/t-0057-task-set-cannot-clear-a-retired-branch-s / 0908643

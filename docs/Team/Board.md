@@ -161,6 +161,7 @@ under two roles is two tasks.
 | developer | T-0054 | audit | done | P-0050 | 17bd3a9 |
 | developer | T-0055 | privacy | done | P-0055 | 0d913cf |
 | developer | T-0056 | records | done | P-0056 | b8805b8 |
+| developer | T-0057 | records | done | P-0057 | 0908643 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | todo | - | - |
