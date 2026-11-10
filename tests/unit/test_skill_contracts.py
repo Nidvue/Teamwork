@@ -1624,3 +1624,117 @@ def test_no_surface_still_demands_a_second_reviewer_to_merge(root):
     joined = " ".join(" ".join(text.lower().split()) for text in texts.values())
     assert "author never merges" in joined or "never merges its own work" in joined
     assert "author" in joined and "refused" in joined
+
+
+def test_the_review_rule_counts_failures_and_escalates(root):
+    """The review-failure rule must state one rule, not two contradictory ones.
+
+    Regression: the tracked `SKILL.md` said "there is no round limit" while the
+    three-failure dispute rule sat 340 lines above it, and the 1.1.2 changelog
+    entry claimed the contradiction had been repaired - it had been repaired in
+    the built copies only, so no test could see the difference. This guards the
+    two shipped statements against drifting apart again; it does not read
+    CHANGELOG.md, so it cannot catch a changelog entry that overstates the source.
+    """
+    skill = flat(read(root, "SKILL.md")).lower()
+    agents = flat(read(root, "templates", "AGENTS.md")).lower()
+
+    for text, label in ((skill, "SKILL.md"), (agents, "templates/AGENTS.md")):
+        assert "there is no round limit" not in text, (
+            f"{label} still states that review rework has no round limit, which "
+            "contradicts the 3-failure dispute rule"
+        )
+        assert "failures are counted" in text, (
+            f"{label} must state that review failures are counted"
+        )
+        assert re.search(r"at 3 .{0,40}dispute", text), (
+            f"{label} must state that at 3 failures the Reviewer opens a dispute"
+        )
+
+
+def test_the_reviewer_charter_carries_the_ordered_criteria(root):
+    """The artefact-first rubric is a contract, not an optional nicety.
+
+    The order matters: a later strength never pays for an earlier gap. Asserting
+    the sequence keeps a refactor from reshuffling it.
+    """
+    raw = read(root, "roles", "reviewer.md")
+    start = raw.index("## Ordered criteria")
+    section = flat(raw[start : raw.index("## Standards", start)]).lower()
+    assert raw.count("## Ordered criteria") == 1, "the rubric must have one home"
+    order = [
+        "delivery and conformance",
+        "fidelity",
+        "internal consistency",
+        "operational fitness",
+        "finish",
+        "evidence reproduces",
+    ]
+    positions = [section.find(name) for name in order]
+    assert all(pos >= 0 for pos in positions), (
+        f"roles/reviewer.md is missing an ordered criterion: "
+        f"{[name for name, pos in zip(order, positions) if pos < 0]}"
+    )
+    assert positions == sorted(positions), "the review criteria are out of order"
+
+    # Blind to the author, and the downside counts as much as the upside.
+    assert "judge blind to the author" in section
+    assert "length and polish are not merits" in section
+    assert "weigh the downside as heavily as the upside" in section
+
+
+def test_the_skill_points_at_the_review_rubric(root):
+    """An agent that never opens the charter must still see the rubric exists.
+
+    The pointer is asserted by name, not as "roles/reviewer.md appears somewhere":
+    SKILL.md cites that file for other reasons, so the bare substring let a
+    reviewer reword the pointer and keep the test green.
+    """
+    skill = flat(read(root, "SKILL.md")).lower()
+    assert "the reviewer judges the artefact, not the author" in skill
+    assert "the `## ordered criteria` section of `roles/reviewer.md`" in skill
+    for name in (
+        "delivery and conformance",
+        "fidelity",
+        "internal consistency",
+        "operational fitness",
+        "finish",
+        "evidence reproduces",
+    ):
+        assert name in skill, f"SKILL.md does not name the criterion {name!r}"
+
+
+def test_the_untrusted_material_rule_is_stated_where_agents_read_it(root):
+    """Material under inspection is data, never instructions."""
+    for parts in (
+        ("references", "Evidence.md"),
+        ("templates", "AGENTS.md"),
+        ("AGENTS.md",),
+    ):
+        text = flat(read(root, *parts)).lower()
+        assert "data, never instructions" in text, (
+            f"{'/'.join(parts)} does not state the untrusted-material rule"
+        )
+
+
+def test_a_process_change_reported_as_an_improvement_needs_a_contrast(root):
+    """The verdict vocabulary is the guard against invented attribution.
+
+    A lesson with no contrast is a guess, and `confounded` must be available so an
+    agent has an honest label for 'one run, several changes'. Declining to record a
+    lesson has to stay a legitimate outcome, or the rule pushes agents to invent.
+    """
+    texts = {
+        "references/Evidence.md": flat(read(root, "references", "Evidence.md")).lower(),
+        "templates/AGENTS.md": flat(read(root, "templates", "AGENTS.md")).lower(),
+        "AGENTS.md": flat(read(root, "AGENTS.md")).lower(),
+    }
+    for name, text in texts.items():
+        assert "a claim of improvement needs a contrast" in text, (
+            f"{name} does not require a contrast for an improvement claim"
+        )
+        for verdict in ("helped", "hurt", "no observed effect", "confounded"):
+            assert verdict in text, f"{name} does not name the verdict {verdict!r}"
+        assert "declining to record a lesson is a valid outcome" in text, (
+            f"{name} must keep declining to record a lesson legitimate"
+        )
