@@ -266,6 +266,31 @@ _CODE_KEYWORDS = {
 
 _RE_DOTTED_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 
+# A bare Python name: letters, digits and underscores only, no punctuation.
+_RE_PY_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+# Words that mark a name as a credential in its own right even when it is shaped
+# like a code name (``my_super_secret_password``).
+_SECRET_WORDS = ("secret", "password", "passwd", "passphrase", "credential")
+
+
+def _is_code_name(value: str) -> bool:
+    """True for a bare identifier used as a value: code, not a credential.
+
+    ``token = _current_github_token()`` assigns the *result of a call*, and the
+    scanner only sees the name because the call's parentheses are outside the
+    credential charset. A name-shaped value is code when it is written the way
+    code is written: underscored, digit-free and not itself naming a secret.
+    A value that carries digits (a cloud access key, a hex blob) or that names a
+    secret stays a credential, so the rule is not weakened.
+    """
+    if not _RE_PY_IDENT.match(value):
+        return False
+    if "_" not in value or any(c.isdigit() for c in value):
+        return False
+    lowered = value.lower()
+    return not any(word in lowered for word in _SECRET_WORDS)
+
 
 def _looks_like_secret_value(value: str) -> bool:
     if value.startswith(("re.", "os.", "self.", "match.", "str(", "Path(")):
@@ -669,7 +694,8 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                         # A quoted passphrase may legitimately contain spaces.
                         if not re.search(r"\s", secret) and not _looks_like_secret_value(secret):
                             continue
-                    elif not _looks_like_secret_value(secret):
+                    elif _is_code_name(secret) or not _looks_like_secret_value(secret):
+                        # An unquoted name is a reference to a value, not the value.
                         continue
                     value = secret
                 if rule["id"] == "high-entropy-secret":
@@ -703,7 +729,9 @@ def scan_lines(text, path, source, rules, allow, commit=None):
                 if match:
                     candidate = match.group(1) or match.group(2)
                     if not _PLACEHOLDERS.match(candidate) and (
-                        match.group(1) is not None or _looks_like_secret_value(candidate)
+                        match.group(1) is not None
+                        or not _is_code_name(candidate)
+                        and _looks_like_secret_value(candidate)
                     ):
                         credential = candidate
             if credential and not any(p.search(credential) for p in allow):
