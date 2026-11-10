@@ -502,3 +502,5 @@ def test_reviewed_branch_is_merged_and_deleted(cli, project: Path) -> None:
     assert task["status"] == "done"
     assert task["merge_commit"]
     assert engine.branch_exists(project, task["branch"]) is False
+    merge_message = engine.run_git(project, "log", "-1", "--format=%B").stdout
+    assert "Acting role: Reviewer" in merge_message

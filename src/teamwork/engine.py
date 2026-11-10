@@ -890,7 +890,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             print(f"# recorded {len(records)} team record(s) on {base} before merging")
             base_sha = run_git(here, "rev-parse", base).stdout.strip()
         message = build_commit_message(
-            role,
+            "reviewer",
             {
                 "type": "chore",
                 "area": "merge",
