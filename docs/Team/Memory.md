@@ -256,7 +256,11 @@ Evidence is parsed into exactly one kind, first match wins:
 | revision | `@<sha>` or `rev <sha>` | `git cat-file -e <sha>^{commit}` exits 0 | the object is not a commit in this repository |
 | path | `path/to/file:LINE` or `path/to/file` | the file exists and holds at least LINE lines | the file is missing, or shorter than LINE |
 | source | `https://...` | the record also carries an access date (`accessed YYYY-MM-DD` or `(YYYY-MM-DD)`) not older than 400 days | the date is older than 400 days |
-| none | anything else | - | reported `unverifiable`, never `drifted` |
+| none | anything else, including a source with **no** access date | - | reported `unverifiable`, never `drifted` |
+
+The undated-source row was added after the first implementation read the table as
+`drifted` and the Reviewer read it as `unverifiable`: a contract table has to be a
+total function, and this one was not (`L-0002`). Silence is never drift.
 
 Output is one line per record - `- [<id>] <kind> <verify_status> | <reason> | <pointer>` -
 then `# verify: <N> record(s), <V> verified, <D> drifted, <U> unverifiable (limit <L>)`.
@@ -319,10 +323,24 @@ open lessons' titles; order is the 4.1 score for the task (importance then uses
 without one); at most 8 lines. The header is a pointer list - it never copies a
 statement - and `INDEX_BUDGET_BYTES = 800`.
 
-The measured constraint is the reason the header is small: the whole injected
-block (index + pack) must stay at or below the bytes `load` printed at `90502bb`
-on the same revision, the pack budget stays 4,000 bytes and `AlwaysOnBudgetKb` is
-not raised.
+The measured constraint is the reason the header is small, and it was **revised**
+after the first implementation failed three reviews on it (`D-0009`, ruling
+`D-20261109-CEO-2`):
+
+| # | the constraint, as ruled |
+|---|---|
+| a | `load` and every lane packet open with the index |
+| b | the index is capped at `INDEX_BUDGET_BYTES = 800` and 8 topic lines |
+| c | the index is charged against the same injected budget as the pack, so index + pack <= `PACK_BUDGET_BYTES = 4000`, and no cap is raised |
+| d | where a role has verbose content to displace (open lesson rows, the `load` preamble) the index is net <= 0 on the whole output |
+| e | where a role has no open lessons the index adds at most 800 bytes, pinned by a zero-open-lesson fixture test |
+
+The original wording required the whole output never to grow. That is
+unsatisfiable for a role with no lessons - the index has nothing to displace there -
+and the article asks for a **capped** top layer (Claude Code loads only the first
+200 lines or 25 KB of `MEMORY.md`), not for a shrinking one. The revision is recorded
+rather than the finding dropped: the reviewer's measurements stand, and the
+zero-lesson bound is now a test.
 
 ## 12. Non-goals, rejected alternatives and falsifiers (M22)
 
@@ -338,3 +356,44 @@ Falsifiers: if `memory verify` reports `drifted` on a record whose evidence is
 true, the parser is wrong and the record is not; if the index header does not
 change a lane's first action in three waves, it is ceremony and is deleted; if the
 injected block grows past `90502bb`, the header is over budget.
+
+## 13. M22 - measured, on the merged revision
+
+Every row is a command and its observed result. "Same store, back to back" means the
+`90502bb` renderer (`.pi/Scratch/ceo/baseline`) and the merged renderer were run one
+after the other against one unchanged store, so the only difference is the code.
+The store was live during the milestone (it grew from 0 knowledge records to 3), which
+is why a count here is never reused as a constant elsewhere.
+
+| surface | before (`90502bb`) | after (merged) | command |
+|---|---|---|---|
+| `load Developer` (1 open lesson) | 2110 B | 1942 B (-168) | both renderers, same store, back to back |
+| `load Developer --task T-0056` | 2309 B | 2141 B (-168) | same |
+| `load CEO` (2 open lessons) | 2482 B | 1959 B (-523) | same |
+| `load Tester` (no open lessons) | 1609 B | 1734 B (+125) | same; the index is 228 B, inside the revised 800 B bound |
+| a 3-knowledge / 5-lesson fixture | 1827 B | 1177 B (-650) | `tests/unit/test_memory_index.py`, the literal captured from the `90502bb` renderer on that fixture |
+| a zero-lesson fixture | 1137 B | 1262 B (+125) | `tests/unit/test_memory_index.py`, bound `1137 + 800` |
+| the index block itself | n/a | 403 B / 5 topic lines for CEO; 325 B / 4 for Developer | `load <Instance> \| sed -n '1,/^# index:/p' \| wc -c` |
+| `memory verify --role ceo` | n/a | 68 ms, 5 record(s), 5 verified | `time` in a Python harness over the CLI |
+| `memory dream --role ceo` | n/a | 66 ms, `drifted: 0`, the four original groups unchanged | same |
+| `context find 'drift' --scope transcripts` | n/a | 93 ms over 2,358 ledger lines + every worklog, 885 B, `# search: 5 of 5` | same |
+| a 100k-line ledger | n/a | streamed in < 1 s, `Path.read_text` refused by monkeypatch | `tests/unit/test_transcripts.py` |
+| integration layer on a real tree | n/a | `1 verified, 3 drifted, 1 unverifiable`; `--apply` stamps 4 records and a second run writes nothing | `TS-0068` |
+| the drift the pass found on the live store | n/a | `L-0003` reports `path drifted` (its evidence names a line that no longer exists) | `memory dream` |
+
+What the four mechanisms do on this team, in one line each:
+
+- **correction** (`memory verify`): a record is `verified` only when its own evidence still resolves - a commit that exists, a path and line that exist, a source with a fresh access date. Everything else is `unverifiable`, and only a resolved-but-stale evidence is `drifted`.
+- **focus** (`--focus <goal|T-id>`): the pass checks the records the current goal ranks highest first, `--limit 25` by default, and reports how many it deferred. Without `--focus` the output is byte-identical to the unfocused pass.
+- **transcript reach** (`context find --scope transcripts`, `recall --transcripts`): the ledger and the worklogs are now searchable with a pointer per hit, capped at 10 hits / 2,000 bytes, streamed line by line.
+- **index** (the header): what the role knows and where it lives, at most 8 topics and 800 bytes, charged against the same budget as the pack.
+
+## 14. Limitations this milestone leaves open
+
+| # | limitation | evidence | follow-up |
+|---|---|---|---|
+| 1 | `memory verify` checks only the **first** evidence kind it recognises, so a valid `@sha` hides a drifted `path:line` in the same evidence string | live: `K-0001` carries both and reports `verified` | `T-0062` |
+| 2 | a lesson's index topic is its mistake sentence clipped at 60 characters, which reads as a fragment ("wrote "the five existing groups keep their rules" in the") | `load CEO` output | a follow-up only if a lane reports it unreadable |
+| 3 | the stores are team-local and gitignored, and `privacy_scan` skips `.pi`, so no gate covers them | `scripts/privacy_scan.py:449`; security audit F3 | `T-0059` |
+| 4 | the verification pass has no scheduler of its own: `pulse` prints the dream line, but nothing forces a `verify` run | `memory dream` output | acceptable - a pass nobody names is a pass that hides its cost |
+| 5 | no wiki representation exists, by decision | section 12; `Research.md` | revisit above 200 active records |

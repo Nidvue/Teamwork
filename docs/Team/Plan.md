@@ -977,26 +977,31 @@ head: `pytest -q` -> 2551 passed, 3 skipped.
 ## M22 - Memory: correct itself, reach the transcripts, show the index (live)
 
 Intake and criteria: [Project](Project.md) M22; the frozen contract, the rejected
-alternatives and the falsifiers: [Memory](Memory.md) 8-12. One writer per file: all
-four engine tasks touch `src/teamwork/engine.py`, so they run in sequence on one
-lane; the Tester, the Product Manager, the Security Auditor and the CEO own files
-no engine lane touches and run beside it.
+alternatives, the measurements and the limitations: [Memory](Memory.md) 8-14. One
+writer per file: all four engine tasks touch `src/teamwork/engine.py`, so they ran in
+sequence on one lane; the Tester, the Product Manager, the Security Auditor and the
+CEO own files no engine lane touches and ran beside it.
 
-| lane | task | what it owns | artifact |
+| lane | task | what it owns | state |
 |---|---|---|---|
-| Developer | T-0054 | `src/teamwork/memverify.py`, the `memory verify` CLI, the `drifted` dream group, unit tests | `memverify.py`, `engine.py`, `tests/unit/test_memverify.py` |
-| Developer | T-0055 | `--focus` selection and order over the frozen 4.1 score | `memverify.py`, `engine.py` |
-| Developer | T-0056 | `src/teamwork/transcripts.py`, `context find --scope transcripts`, `recall --transcripts` | `transcripts.py`, `engine.py` |
-| Developer | T-0057 | the capped index header in `load` and in the lane packet | `engine.py`, `memorypack.py` |
-| Tester | T-0008 | the `integration` layer on a real team tree: drift detected, focus changes the target set, a ledger line is found, the header respects its cap | `Tests.md` |
-| Product Manager | T-0010 | the article's claims re-verified from the live page, and the deferred-wiki falsifier | `docs/Team/Research.md` |
-| Security Auditor | T-0007 | the `security` layer: no secret, personal datum or host path in a store or in the injected pack | `docs/Team/AuditReport.md`, `Tests.md` |
-| Reviewer | the verdicts | the `acceptance` layer against AC-M22-1..5 on each reviewed revision | `Tests.md`, `Archive.md` |
-| CEO | T-0033 | intake, criteria, the frozen contract, the measured close-out and the records | `Project.md`, `Plan.md`, `Memory.md` |
+| Developer | T-0054 | `src/teamwork/memverify.py`, `memory verify`, the `drifted` dream group | merged `a42b13b` (failed once: an undated source was `drifted`) |
+| Developer | T-0055 | `--focus` ranked by the frozen 4.1 score, a T-id resolving to its title, the deferred footer | merged `81dcf8f` |
+| Developer | T-0056 | `src/teamwork/transcripts.py`, `context find --scope transcripts`, `recall --transcripts` | merged `f644054` |
+| Developer | T-0057 | the capped index header in `load` and in the lane packet, the preamble it displaces | merged `7bd7a68` (failed three times; the third was a criterion defect - `D-0009`) |
+| Tester | T-0008 | the `integration` layer on a real tree: three evidence kinds, determinism, the `--apply` boundary, the `drifted` group | merged, `TS-0068` |
+| Tester | T-0009 | the integration layer for transcript reach and the index header | in review |
+| Product Manager | T-0010 | the article's claims re-verified from the live page, the deferred-wiki falsifier | merged `91adb70` |
+| Security Auditor | T-0007 | the `security` layer: no secret, personal datum or host path in a store or in the injected pack | merged `90c5ecf` (failed once: the report quoted the personal address) |
+| CEO | T-0033 | intake, criteria, the frozen contract | merged `6143378` (failed once: an off-by-one count) |
+| CEO | T-0034 | the measured close-out, the revised criterion, the records, the board render, the ledger export | this branch |
+| Reviewer | the verdicts | the `acceptance` layer against AC-M22-1..5 on each reviewed revision | `TS-` records |
 
-Ordering: the contract is frozen before the first engine lane starts; the engine
-tasks are sequential because they share one file; the Tester starts once T-0054
-lands (the contract is frozen, so its test can be written in parallel).
+Six review failures were paid, each a fact about the milestone rather than noise: an
+ambiguous contract row (`L-0002`), an off-by-one count (`L-0001`), a privacy report
+that quoted the value it reported, a test that pinned the wrong behaviour, a test
+guard with 883 bytes of slack, and - at the third fail of T-0057 - a criterion that
+was stricter than the article it came from (`D-0009`, resolved by revising the
+criterion and pinning the bound the reviewer asked for).
 
 Exit: AC-M22-1..AC-M22-5 verified by a role other than their owner on the merged
 revision, `loop` STOP and `audit` 0 problems on that revision.
