@@ -60,6 +60,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is not failed by the forge account; squash-only merges keep such a commit out of
   `main`.
 
+### Fixed
+
+- **Gate-forging metadata injection**: a task/memory body line that looked like
+  `- review_status: passed`, or a newline in `--evidence`/`--note`/`--text`, could
+  forge lifecycle state. Metadata parsing now stops at the body boundary, scalar
+  values are collapsed to one line, and record headers inside a body are escaped.
+- **`ledger repair` self-deadlock**: the repair path held `ledger.lock` and then
+  called `ledger_append`, which took the same non-reentrant lock. Repair now uses
+  a reentrant-safe append and a torn tail is trimmed before the next record.
+- **Path traversal**: agent, role and provider names became raw path components;
+  `init --agents ../../x` and `slot --provider ../../x` could write outside the
+  workspace. Every path component now goes through `safe_component()`.
+- **Cross-role work**: a task could be claimed by another role, and a self-check
+  by a foreign role could claim unclaimed work. Claims and self-checks now stay
+  on the owning role's queue.
+- **Review/PR races**: `pr open`/`pr merge` wrote `TaskQueue.md` and `Reviews.md`
+  outside the role/reviews locks, and could lose a concurrent verdict or claim.
+  The write order is now merge -> role -> reviews, with a re-read before writing.
+- **Stale claims**: a midnight-based age was compared to a 90-minute TTL, so a
+  task claimed earlier the same day looked abandoned. Staleness now uses whole
+  days and ignores a live slot lease.
+- **Decision ids**: two decisions by the same role on the same day shared one id;
+  a `-2`, `-3` suffix now keeps them distinct.
+- **Model routing**: `model set product-manager` was stored as an agent override
+  because the name contains a hyphen; the target is now resolved against the
+  actual instances first.
+- **Audit manifest anchor**: a re-created workspace was reported as a truncated
+  ledger because the committed manifest came from the previous tree. The manifest
+  is now scoped by a per-workspace `TeamId`.
+- **Privacy report context**: the masked report could republish a neighbouring
+  secret from the same line; `context` is no longer emitted. History scanning also
+  follows reflogs, UTF-16 text is decoded, URLs/paths/digits are not credentials,
+  and non-blob git objects no longer desynchronise the batch reader.
+- **Release verification**: `verify_release.py` now checks the artefact version,
+  inspects the sdist, drops every ambient `TEAMWORK_*` variable in the smoke test,
+  and writes `SHA256SUMS` only after every check passes.
+- **CI integrity**: actions are pinned to full commit SHAs, the identity audit
+  covers the pushed range and skips external contributors by default, the release
+  workflow tests and verifies the tagged revision, SBOMs describe `dist/`, and the
+  docs site excludes the internal `docs/Team/` working documents.
+
 ### Added
 
 - **README "For agents"**: host detection, the clone, `selftest` verification, the
