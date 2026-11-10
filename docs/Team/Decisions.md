@@ -1017,3 +1017,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git merge-tree --write-tree main HEAD -> rc 0 (it was rc 1, CONFLICT (content) docs/Team/Decisions.md, at 5ab3ab9); .venv/bin/python -m pytest -q @worktree -> 763 passed, 3 skipped, 0 failed; .venv/bin/python -m pytest -q tests/unit/test_global_memory_provenance.py @worktree -> 14 passed; ruff check . @worktree -> All checks passed; ruff format --check . @worktree -> 147 files already formatted; mypy src/teamwork @worktree -> Success, no issues found in 17 source files; python3 scripts/teamwork.py links @worktree -> 0 issues; python3 scripts/teamwork.py identity --audit --range main..developer/t-0005-global-memory-entries-must-be-able-to-ca -> 1 commit, 0 problems (Developer <developer@agents.nidvue.com>); resolved file vs main -> the ONLY line that differs is the evidence line '13 passed' -> '14 passed'; resolved file vs 5ab3ab9 -> the ONLY addition is main's D-20261020-Tester-2 block; src/teamwork/engine.py, src/teamwork/records.py and tests/unit/test_global_memory_provenance.py are byte-identical to 5ab3ab9
 - falsified by: A resolved file in which the D-20261020-Developer heading appears twice, or in which the D-20261020-Tester-2 block is missing, or in which the stale '13 passed' line survived, would make this resolution wrong; so would a merge-tree rc other than 0, or a suite with any failure.
 - consequences: The branch is mergeable against main, so the Reviewer's pass (which is the merge trigger) will land the work instead of recording it as shipped while the code stays off main. The commit keeps the Developer role mailbox as author and committer and the full fixed trailer shape, so no identity gate regresses.
+
+## D-20261020-Developer-3 - ledger export resolves the work tree through the existing wo
+
+- date: 2026-10-20
+- kind: technical
+- status: accepted
+- deciders: Developer (developer)
+- decided by: Developer
+- task: T-0008
+- context: -
+- options considered: -
+- decision: ledger export resolves the work tree through the existing work_repo resolver (layout.work_docs_dir), not project_of(root): the manifest is written into, and describes, the work tree the command runs in
+- why: The export wrote into the checkout owning the team tree, so a lane could not commit the manifest it exported and the manifest pinned a revision the committing branch did not have (measured by the CEO: ceo T-0010). work_repo is the resolver cmd_branch/cmd_commit/cmd_pr already use, so the fix introduces no second resolver
+- evidence: .venv/bin/python -m pytest -q @ea4def9 -> 818 passed, 3 skipped, 0 failed; tests/unit/test_ledger_export_worktree.py @ea4def9 -> 6 passed, and with the resolver reverted to project_of(root) -> 5 failed, 1 passed; live export in the lane work tree -> manifest written in the work tree, main checkout's manifest sha256 unchanged
+- falsified by: Show the export writing docs/Team/AuditManifest.json outside the work tree the command runs in, or the manifest's git.head differing from that work tree's HEAD
+- consequences: -
