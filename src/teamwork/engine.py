@@ -6608,7 +6608,9 @@ def mask_secret_shapes(text: str) -> str:
     # placeholder, code-shape and allow filters, so a placeholder the gate accepts
     # (``${API_KEY}``, ``replace_me``) was rewritten in the immutable record.
     for finding in scanner.scan_lines(text, "", "archive", rules, ()):
-        value = finding.get("match") or ""
+        # The raw value is a Finding attribute, never a report item, so the
+        # scanner cannot publish it and this mask reads it explicitly.
+        value = finding.raw or ""
         if not value:
             continue
         rule = finding["rule"]

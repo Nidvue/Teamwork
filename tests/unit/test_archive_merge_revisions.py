@@ -12,9 +12,16 @@ naming the pre-rewrite shas. ``git cat-file`` answered ``fatal: Not a valid obje
 name`` for two entries and ``merge-base --is-ancestor`` failed for nine more, and
 nothing in the suite noticed because the archive is never parsed for its shas.
 
-Reachability is deliberately measured against ``main`` rather than against HEAD:
-the archive is committed on the default branch, so a revision only counts as
-merged once it is on that branch.
+Reachability is deliberately measured against the default branch rather than
+against HEAD: the archive is committed on the default branch, so a revision only
+counts as merged once it is on that branch.
+
+The default branch is resolved, not assumed. A push build has a local ``main``; a
+``pull_request`` build is detached at the merge ref and has only ``origin/main``,
+so hard-coding ``main`` made every archived revision look unreachable on a PR -
+sixty false failures, and a guard that is red on every contribution measures
+nothing. What is asserted is the ref that was actually used, so an unmeasurable
+checkout fails with its reason instead of passing quietly.
 """
 
 from __future__ import annotations
@@ -41,21 +48,48 @@ def filled_fields() -> list[tuple[str, str]]:
     return [(branch, rev) for branch, rev in MERGE_FIELD.findall(text) if rev not in PENDING]
 
 
-def git(*argv: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(REPO_ROOT), *argv], capture_output=True, text=True)
+def git(*argv: str, root: Path = REPO_ROOT) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(root), *argv], capture_output=True, text=True)
 
 
-def resolves(rev: str) -> bool:
-    return git("cat-file", "-t", rev).returncode == 0
+def resolves(rev: str, root: Path = REPO_ROOT) -> bool:
+    return git("cat-file", "-t", rev, root=root).returncode == 0
 
 
-def shallow() -> bool:
+def shallow(root: Path = REPO_ROOT) -> bool:
     """A shallow clone cannot answer these questions, and saying so beats a red."""
-    return git("rev-parse", "--is-shallow-repository").stdout.strip() == "true"
+    return git("rev-parse", "--is-shallow-repository", root=root).stdout.strip() == "true"
 
 
-def reachable(rev: str) -> bool:
-    return resolves(rev) and git("merge-base", "--is-ancestor", rev, "main").returncode == 0
+#: The default branch as a checkout can expose it, in the order it is preferred:
+#: a local branch on a push build, the remote-tracking one on a pull_request build.
+DEFAULT_BRANCH_REFS = ("refs/heads/main", "refs/remotes/origin/main")
+
+
+def default_branch_ref(root: Path = REPO_ROOT) -> str:
+    """The ref reachability is measured against: resolved, never assumed.
+
+    Reading ``main`` alone is what made this guard report sixty unreachable
+    revisions on the repository's first ``pull_request`` build - a detached
+    checkout has ``origin/main`` and no local branch, so ``git merge-base
+    --is-ancestor`` failed for every entry and the archive looked rewritten.
+    """
+    for ref in DEFAULT_BRANCH_REFS:
+        if git("rev-parse", "--verify", "--quiet", ref, root=root).returncode == 0:
+            return ref
+    raise AssertionError(
+        "cannot resolve the default branch (neither "
+        + " nor ".join(DEFAULT_BRANCH_REFS)
+        + f" exists in {root}), so archive reachability is UNVERIFIED"
+    )
+
+
+def reachable(rev: str, root: Path = REPO_ROOT) -> bool:
+    if not resolves(rev, root):
+        return False
+    return (
+        git("merge-base", "--is-ancestor", rev, default_branch_ref(root), root=root).returncode == 0
+    )
 
 
 def test_every_archive_merge_revision_resolves() -> None:
@@ -73,11 +107,59 @@ def test_every_archive_merge_revision_is_on_main() -> None:
     """A merge that landed on the default branch must be reachable from it."""
     if shallow():
         pytest.skip("shallow clone: ancestry is not walkable, fetch the full history")
+    base = default_branch_ref()
     unreachable = [f"{branch} / {rev}" for branch, rev in filled_fields() if not reachable(rev)]
     assert unreachable == [], (
         "the archive records these branches as merged, but their revision is not "
-        f"an ancestor of main: {unreachable}"
+        f"an ancestor of {base}: {unreachable}"
     )
+
+
+def test_the_default_branch_is_resolved_in_a_pull_request_checkout(tmp_path: Path) -> None:
+    """A detached ``pull_request`` checkout has ``origin/main`` and no local ``main``.
+
+    Measured on the repository's own first ``pull_request`` build: with ``main``
+    hard-coded, ``merge-base --is-ancestor`` failed for all sixty archived
+    revisions and the guard reported the archive as rewritten. This pins the ref
+    resolution rather than trusting the shape of whatever checkout runs it.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    # ``-b trunk`` on purpose: a checkout that has a local ``main`` would not
+    # exercise the shape this test exists for.
+    for argv in (
+        ("init", "-q", "-b", "trunk", "."),
+        # A CI runner has no configured identity: a bare ``commit`` fails there
+        # with "Please tell me who you are", so the role mailbox is passed in.
+        (
+            "-c",
+            "user.name=Tester",
+            "-c",
+            "user.email=tester@agents.nidvue.com",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "only commit",
+        ),
+    ):
+        done = git(*argv, root=repo)
+        assert done.returncode == 0, done.stderr
+    head = git("rev-parse", "HEAD", root=repo).stdout.strip()
+    # The pull_request shape: the commit is on the remote-tracking branch only.
+    assert git("update-ref", "refs/remotes/origin/main", head, root=repo).returncode == 0
+    assert git("rev-parse", "--verify", "--quiet", "refs/heads/main", root=repo).returncode != 0
+    assert default_branch_ref(repo) == "refs/remotes/origin/main"
+    assert reachable(head, repo)
+
+
+def test_an_unresolvable_default_branch_fails_instead_of_passing(tmp_path: Path) -> None:
+    """Silence is the failure mode this guard exists to close, so state it."""
+    repo = tmp_path / "empty"
+    repo.mkdir()
+    assert git("init", "-q", "-b", "trunk", ".", root=repo).returncode == 0
+    with pytest.raises(AssertionError, match="UNVERIFIED"):
+        default_branch_ref(repo)
 
 
 def test_the_archive_still_has_fields_to_check() -> None:
