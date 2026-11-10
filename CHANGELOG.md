@@ -20,6 +20,10 @@ Compares from the previous tag, `v1.5.0`.
   every tag reachable from it, so the first commit after the tag would be drift
   while `version.py` still read `1.5.0`; the release order this keeps is tag the
   payload commit, then bump on `main`. No behaviour changes.
+- `CITATION.cff`'s `date-released` tracks the version it cites, so it reads this
+  section's date (`2026-11-02`). The value it replaced, `2026-10-31`, was the
+  `1.4.4` section date, left stale when `1d38639` bumped the file to `1.5.0`.
+  No behaviour changes.
 
 ## [1.5.0](https://github.com/Nidvue/Teamwork/compare/v1.4.4...v1.5.0) - 2026-11-01
 
