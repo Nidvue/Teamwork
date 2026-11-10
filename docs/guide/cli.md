@@ -138,6 +138,7 @@ Manage a role's shared priority queue.
 ```text
 teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
     [--status {todo,doing,blocked}] [--deps DEPS] [--shared SHARED]
+    [--review-profile {fast,standard,deep}]
     [--tags TAGS] [--body BODY] [--bug] [--evidence EVIDENCE]
     [--claimed-by CLAIMED_BY] [--no-review]
 ```
@@ -146,6 +147,7 @@ teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
 |---|---|
 | `--deps` | Comma list of dependencies; cross-role as `role:T-0001`. Add `@review` to release once the task is submitted for review, or `@started` once its owner has picked it up, so a downstream lane can start against a frozen interface. |
 | `--shared` | Shared board / issue / PR reference. |
+| `--review-profile` | Override the profile inferred from the branch diff: `fast` (prose-only), `standard` (code), `deep` (security/release/data/workflow). |
 | `--body` | Acceptance criteria / notes. |
 | `--claimed-by` | Assign to a specific instance (default: role pool). |
 | `--bug` | A defect fix: its self-check is refused until a `tests repro` record proves the defect. |
@@ -503,7 +505,8 @@ List test records.
 ### `review`
 
 ```text
-teamwork review [AGENT] [HANDLE] [--queue] [--full] [--claim] [--release] [--by BY]
+teamwork review [AGENT] [HANDLE] [--queue] [--full] [--packet]
+    [--claim] [--release] [--renew] [--by BY]
     [--result {pass,fail}] [--evidence EVIDENCE] [--artifact PATH]...
     [--baseline BASELINE] [--replay REPLAY] [--findings FINDINGS]
     [--keep-branch] [--no-merge] [--force REASON]
@@ -520,11 +523,19 @@ verification started and how to rerun it. `--force` overrides the review gates
 and requires a recorded reason.
 
 Several Reviewers may run at once, so a lane announces what it took:
-`review <role> <T-id> --claim --by <reviewer>` puts a lease on one deliverable
-and `--release` hands an unfinished one back. A lease nobody renews expires and
-the next lane takes it over; `--force <reason>` releases another lane's live
-claim, which is the case where that lane is dead. The claim and release modes
-take no `--result` - the verdict is a separate call.
+`review <role> <T-id> --claim --by <reviewer>` puts a **20-minute** work lease on
+one deliverable (`ReviewLeaseMinutes` / `TEAMWORK_REVIEW_LEASE_MINUTES`),
+`--renew` extends it, and `--release` hands an unfinished one back. A lease nobody
+renews expires and the next lane takes it over; `--force <reason>` releases
+another lane's live claim, which is the case where that lane is dead. The claim,
+renew and release modes take no `--result` - the verdict is a separate call.
+
+`--packet` prints what a Reviewer needs before claiming: the inferred profile
+(`fast` prose-only, `standard` code, `deep` security/release/data/workflow), the
+changed files and diffstat, the author's self-check, the gate set for that profile
+and the ordered checklist. `--queue --packet` prints a packet per item. The queue
+is sorted by priority then age and prints the lane capacity, so the CEO can see
+when to staff another Reviewer lane.
 
 Independence is about the **author**, not about a second Reviewer: the author
 never reviews or merges its own work, and a Reviewer who co-authored a

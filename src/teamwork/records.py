@@ -514,6 +514,7 @@ def new_task(
     body: str = "",
     evidence: str = "",
     review: str = "required",
+    review_profile: str = "",
 ) -> dict:
     priority = (priority or "P2").upper()
     if priority not in PRIORITY_ORDER:
@@ -534,6 +535,7 @@ def new_task(
         "evidence": one_line(evidence),
         "review": review if review in ("required", "na") else "required",
         "review_status": "na" if review == "na" else "pending",
+        "review_profile": review_profile if review_profile in ("fast", "standard", "deep") else "",
         "self_check": "na" if review == "na" else "pending",
         "self_note": "",
         "self_artifacts": "",
@@ -597,6 +599,7 @@ def parse_tasks(path: Path) -> list:
                     "evidence",
                     "review",
                     "review_status",
+                    "review_profile",
                     "reviewer",
                     "review_claim",
                     "review_claim_ts",
@@ -648,6 +651,7 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("repro_by", t.get("repro_by", "")),
             ("review", t.get("review", "required")),
             ("review_status", t.get("review_status", "pending")),
+            ("review_profile", t.get("review_profile", "")),
             ("self_check", t.get("self_check", "pending")),
             ("self_note", t.get("self_note", "")),
             ("self_artifacts", t.get("self_artifacts", "")),
