@@ -838,6 +838,8 @@ def new_task(
         "review_claim_profile": "",
         "review_claim_lease": "",
         "claimed_by": "",
+        "paused_by": "",
+        "paused_note": "",
         "branch": "",
         "base": "",
         "worktree": "",
