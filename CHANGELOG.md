@@ -9,6 +9,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2](https://github.com/Nidvue/Teamwork/compare/v1.5.1...v1.5.2) - 2026-11-02
+
+Compares from the previous tag, `v1.5.1`.
+
+### Fixed
+
+- The release workflow's npm verification reads the flat `dist.integrity` key
+  `npm view` prints, so a published version is verified instead of failing with
+  `dist.integrity is None` on its own payload shape.
+- The same verification waits up to four minutes for npm's eventual
+  consistency, so a successful publish no longer leaves the run red while the
+  registry catches up.
+
+No shipped package behaviour changes: both fixes are in the release workflow and
+its tests.
+
 ## [1.5.1](https://github.com/Nidvue/Teamwork/compare/v1.5.0...v1.5.1) - 2026-11-02
 
 Compares from the previous tag, `v1.5.0`.
