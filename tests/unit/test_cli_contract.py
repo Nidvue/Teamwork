@@ -345,7 +345,8 @@ def test_the_shim_keeps_the_toplevel_and_the_hook_dir_is_git_s_answer() -> None:
     """R3: two different questions, two different answers, no common prefix."""
     flowed = _flowed()
     body = _frozen_body()
-    assert "root=$(git rev-parse --show-toplevel) || exit 0" in body
+    assert "root=$(git rev-parse --show-toplevel)" in body
+    assert "|| exit 0" not in body, "a shim that cannot resolve its root must refuse (F-6)"
     assert "2>/dev/null" not in body, "the merged shim leaves git's error on stderr"
     assert "must not assert a common prefix" in flowed
     assert "which work tree the rules act on" in flowed
@@ -356,10 +357,24 @@ def test_the_frozen_shim_body_tests_the_engine_file_for_existence_not_mode() -> 
     """A1: `scripts/teamwork.py` is committed 100644, so `-x` is a silent no-op."""
     section = _section_text()
     body = _frozen_body()
-    assert '[ -f "$root/scripts/teamwork.py" ]' in body
+    assert '[ ! -f "$root/scripts/teamwork.py" ]' in body
+    assert "|| exit 0" not in body, "an absent engine must refuse, not pass (F-6)"
     assert "[ -x " not in body, "an executable-bit test turns every hook into a no-op"
     assert "committed mode" in section and "100644" in section
     assert 'config.HOOK_MARKER = "teamwork-managed hook"' in section
+
+
+def test_the_frozen_chained_body_is_the_shim_a_preserved_hook_gets() -> None:
+    """F-6: the chained variant is frozen too, and it runs our rules first."""
+    section = _section_text()
+    from teamwork.hooks import shim
+
+    tail = section.split("which\nruns the rules first and the preserved hook second", 1)
+    assert len(tail) == 2, "12.6 must keep the chained-body fence"
+    body = tail[1].split("```sh\n", 1)[1].split("```", 1)[0]
+    chained = shim("pre-push", chain=True)
+    assert body in chained, "the frozen chained body has drifted from `shim(stage, chain=True)`"
+    assert chained.index("hook pre-push") < chained.index('"$chained" "$@"')
 
 
 def test_the_frozen_shim_body_writes_the_merged_marker_line_verbatim() -> None:

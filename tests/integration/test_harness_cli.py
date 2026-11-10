@@ -449,12 +449,14 @@ def test_the_shim_body_is_the_contract_body(tmp_path: Path) -> None:
     text = hook_path(project, "pre-commit").read_text(encoding="utf-8")
     # -f, not -x: scripts/teamwork.py is committed 100644, so an executable-bit
     # test would make every hook a silent no-op.
-    assert '[ -f "$root/scripts/teamwork.py" ]' in text, text
+    assert '[ ! -f "$root/scripts/teamwork.py" ]' in text, text
     assert "[ -x" not in text, text
     # :-, so an inherited `set -u` cannot turn the bypass into a refusal.
     assert '[ -n "${TEAMWORK_SKIP_HOOKS:-}" ]' in text, text
-    # the || exit 0 is the whole failure path: no silent 2>/dev/null on it.
-    assert "root=$(git rev-parse --show-toplevel) || exit 0" in text, text
+    # no failure path may exit 0: an unresolvable root and a missing engine both
+    # refuse with a message (security audit F-6, D-20261029-Developer-16).
+    assert "root=$(git rev-parse --show-toplevel)" in text, text
+    assert "|| exit 0" not in text, text
     assert "2>/dev/null" not in text, text
 
 
@@ -512,19 +514,30 @@ def test_hooks_are_written_where_core_hooks_path_points(tmp_path: Path) -> None:
     assert not (custom / "pre-commit").exists()
 
 
-def test_hooks_install_refuses_a_foreign_hook_without_force(tmp_path: Path) -> None:
-    """12.6: overwrite needs ``--force``; a foreign hook is never silently replaced."""
+def test_hooks_install_preserves_and_chains_a_foreign_hook(tmp_path: Path) -> None:
+    """12.6: a foreign hook is kept and chained, never silently replaced (F-6).
+
+    ``git lfs install`` owns ``pre-push`` in a fresh clone; the installer used to
+    refuse BOTH stages because of it, so R1 could not be installed at all.
+    """
     project = installable(tmp_path)
     hook_path(project, "pre-commit").parent.mkdir(parents=True, exist_ok=True)
     write(hook_path(project, "pre-commit"), "#!/bin/sh\nexit 0\n")
 
-    refused = run(project, "hooks", "install")
-    assert refused.returncode != 0, refused.stdout
-    assert hook_path(project, "pre-commit").read_text(encoding="utf-8") == "#!/bin/sh\nexit 0\n"
-    assert "pre-commit foreign" in ok(project, "hooks", "status")
-
-    ok(project, "hooks", "install", "--force")
+    done = run(project, "hooks", "install")
+    assert done.returncode == 0, done.stdout + done.stderr
     assert "hook pre-commit" in hook_path(project, "pre-commit").read_text(encoding="utf-8")
+    preserved = hook_path(project, "pre-commit").with_name("pre-commit.teamwork-foreign")
+    assert preserved.read_text(encoding="utf-8") == "#!/bin/sh\nexit 0\n"
+    assert "chained: pre-commit.teamwork-foreign" in ok(project, "hooks", "status")
+
+    # ``--force --reason`` is the deliberate replacement, and it is recorded.
+    ok(project, "hooks", "uninstall")
+    assert hook_path(project, "pre-commit").read_text(encoding="utf-8") == "#!/bin/sh\nexit 0\n"
+    forced = run(project, "hooks", "install", "--force")
+    assert forced.returncode != 0, "a replacement without a reason is refused"
+    ok(project, "hooks", "install", "--force", "--reason", "probe")
+    assert not preserved.exists()
     ok(project, "hooks", "uninstall")
     assert not hook_path(project, "pre-push").exists()
 
