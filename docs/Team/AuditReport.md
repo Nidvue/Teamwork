@@ -348,8 +348,8 @@ in that file with a written reason - never ignored.
 
 | # | Action | Evidence |
 |---|---|---|
-| R1 | Repository-local git identity set to a **role** mailbox (`CEO <ceo@agents.nidvue.com>`) so an accidental plain `git commit` cannot inherit the operator identity; per-commit role identities (`git -c user.name=... -c user.email=...`) still override it | `git config --local user.email` -> `ceo@agents.nidvue.com`; `git log --format='%ae' main \| sort -u` -> every address is a role mailbox on `@agents.nidvue.com`, **except** the one author of the squash-merged commit (F-1) |
-| R2 | Engine default identity domain is the `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> `Developer <developer@agents.nidvue.com>` |
+| R1 | Repository-local git identity set to a **role** mailbox (`ceo` on `agents.nidvue.com`) so an accidental plain `git commit` cannot inherit the operator identity; per-commit role identities (`git -c user.name=... -c user.email=...`) still override it | `git config --local user.email` -> role mailbox `ceo` on `agents.nidvue.com`; `git log --format='%ae' main \| sort -u` -> every address is a role mailbox on `@agents.nidvue.com`, **except** the one author of the squash-merged commit (F-1) |
+| R2 | Engine default identity domain is the `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> role mailbox `developer` on `agents.nidvue.com` |
 | R3 | The scanner keeps the matched value **out of the report entirely** (it lives in an attribute of the finding, never in a report item), has no flag that prints a secret (`--reveal` prints a `sha256:` fingerprint; `--reveal-to` exports to a `0600` file), redacts the absolute root, and keeps private domains out of plain text | `scripts/privacy_scan.py`; `tests/unit/test_privacy_scan.py::test_reveal_never_prints_the_unmasked_secret`; see sections 7 and 7.1 |
 | R4 | This report redacts every personal value so it cannot re-leak what it documents | this file passes `scripts/privacy_scan.py --tree` |
 | R8 | The audit-manifest anchor is scoped to the workspace `TeamId`; a legacy manifest without one is historical and cannot make a new workspace look truncated | `ledger_verify`/`_audit_audit_trail` compare `team_id`; `tests/unit/test_ledger.py` covers same/foreign ids |
@@ -759,3 +759,26 @@ opinion: `tests/unit/test_privacy_scan.py::test_reveal_never_prints_the_unmasked
 - [GitHub: security hardening for GitHub Actions](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions) - accessed 2026-10-17
 - [GitHub REST API - commits](https://docs.github.com/en/rest/commits/commits) - accessed 2026-10-21
 - Teamwork risk register R-2/R-3 (internal, `docs/Team/Risks.md`) - accessed 2026-10-17
+
+## M22 - memory stores and the injected pack (2026-11-09)
+
+Owner: Security Auditor. Related: [Risks](Risks.md) · [Project](Project.md) · AC-M22-5.
+
+Measured at 90502bb, team root `.pi/Teamwork/Teams/Teamwork`, stores = `Global/*.md` + `Roles/<Role>/*.md`; the counts below are that baseline - 8 store files were rewritten between 09:55 and 10:01 the same morning, which is why a re-run of the same commands sees 71 lines in 13 files instead of the 68 in 12 recorded here.
+
+- `rg -n -i 'api[_-]?key|token|secret|password|passwd|bearer|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}' $TEAMWORK_ROOT/Global $TEAMWORK_ROOT/Roles --glob '*.md'` -> 68 lines in 12 files, **0 live credentials**: every hit is the word in prose or a rule name. High-risk shapes alone (`BEGIN ... PRIVATE KEY`, `sk-`, `ghp_`, `AKIA`, JWT) -> **0 hits**.
+- `rg -n '/home/[a-z]|/Users/[A-Za-z]|C:\\Users' ...` -> **136 lines**, 133 of them the `/home/pingz` prefix, in 20 files under `Roles/`; `Global/GlobalMemory.md` -> **0**.
+- `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` -> **PASS, 0 findings, rc 0** - but `.pi` is a skipped local-state dir (`scripts/privacy_scan.py:449`), so this gate does not cover the stores.
+- `teamwork.py memory pack --role ceo --task T-0021` -> 2 record lines + footer, 518 record bytes; `--budget 320` -> 1 record (M-0001 dropped, 259+45 = 304 <= 320); `--budget 4000` -> both. Record lines are `- [id] kind | statement clipped to 200 chars | pointer` (`memorypack.py:280-284`, `STATEMENT_CLIP = 200`): never a full body.
+- Parked records: candidates are filtered to `INJECTABLE_STATUSES = ("active","open")` (`memorypack.py:315-317`) against `PARKED_STATUSES = ("superseded","archived")`. The stores hold 2 injectable records for `ceo` (M-0001, M-0002, both `active`) and 0 for `developer`, so no parked record exists to observe; the exclusion was therefore measured on the packer itself - `pack([superseded, archived, active, open])` -> renders only `L-3`, `L-4` (0 parked).
+- The pack carries no `/home/`, no `token`/`secret`/`password`, and pointers are store-relative (`memorypack.py:152-158`).
+
+| # | Finding | Scope | Sev | Status |
+|---|---------|-------|-----|--------|
+| F1 | 133 absolute `/home/pingz/...` host paths in 20 `Roles/*.md` files (worktree/TaskQueue lines) | stores | low-med | open - route to CEO for a scrub rule |
+| F2 | a personal mail address (pattern `<local>@<domain>.<tld>`), 7 lines, `Roles/CEO/TaskArchive.md:19,25,36,163` | stores | med | open - personal data, not a credential; the value is named by pattern and location only, never quoted |
+| F3 | `privacy_scan` skips `.pi`, so no gate covers the stores; only a hand-run rg does | gate | med | open - needs a store-scan mode |
+| F4 | `_pointer` falls back to `path.as_posix()` when a record lives outside the team root, which would render an absolute host path | pack | low | accepted - no such store today |
+| F5 | no live secret, no private key, no token in any store or in any rendered pack line | stores+pack | - | **verified** |
+
+Residual: the stores are gitignored team state, not published files, so F1/F2 are disclosure to every lane that reads memory, not to the public repository; the injected pack (the standing leak surface) is clean on all five checks.
