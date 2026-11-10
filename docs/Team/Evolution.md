@@ -155,6 +155,7 @@ condition. This is the same test the harness lint applies to a skill.
 | EV-0002 | boundary-aware host matcher in `test_skill_contracts.py` | T | the old test passed under a spoofed host; the new one fails | helped (defect fixed, mutation killed; not a throughput claim) | `gh api .../code-scanning/alerts/4` -> fixed; Reviewer-2 mutation table |
 | EV-0003 | close 15 topic branches (13 merged, 2 superseded) | G | 15 remote refs -> `main` only | no observed effect (housekeeping) | `git ls-remote --heads origin` |
 | EV-0004 | this page and the `tw-self-evolve` skill | P | no baseline yet | confounded (classification, books, metrics and cadence changed together) | falsifier: two milestones with RFR, promotion lag and freshness debt unmoved |
+| EV-0005 | the CI scope classifier moves from inline bash in `ci.yml` into `scripts/ci_scope.py`, with the `docs.yml` list pinned to it | T | no test covered the classifier; now prose-only, code, mixed, rename, root, undetermined, tag and non-push cases run, and the rename and undetermined mutants flip the verdict | helped (defect fixed, mutation killed; not a throughput claim) | `pytest -q tests/unit/test_ci_scope.py tests/integration/test_ci_scope_flow.py` -> 55 passed (42 unit, 13 integration); `--no-renames` -> `-M` mutant flips the rename case to prose, undetermined fallback mutant flips it to `code=false` |
 
 ### 9.3 Promotion backlog
 

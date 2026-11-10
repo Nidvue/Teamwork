@@ -17,8 +17,8 @@ Which tools get a guard, and which do not:
 
 * **Guarded** - tools that only a convenience path needs: ``make`` (the Makefile
   is a wrapper around gates CI runs directly), ``sh``/``bash`` (the git hooks and
-  the CI scope classifier are POSIX shell scripts the test executes as fixtures).
-  Their absence says nothing about the product.
+  every workflow ``run:`` block the tests execute as fixtures). Their absence
+  says nothing about the product.
 * **Not guarded** - tools the *product itself* cannot run without: the Python
   interpreter and ``git``. ``teamwork`` commits, branches and audits through git,
   so a host without git cannot run the thing under test; skipping the suite there
@@ -40,7 +40,7 @@ import pytest
 TOOL_REASONS = {
     "make": "the Makefile contract executes the committed recipes through it",
     "sh": "the installed git hooks are POSIX shell scripts run with it",
-    "bash": "the CI scope classifier is a POSIX shell script run with it",
+    "bash": "the workflow run blocks the tests execute are POSIX shell scripts",
 }
 
 GENERIC_REASON = "the test executes it"
