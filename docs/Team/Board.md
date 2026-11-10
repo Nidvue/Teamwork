@@ -104,8 +104,8 @@ under two roles is two tasks.
 | ceo | T-0016 | release | done | P-0046 | 2893940 |
 | ceo | T-0017 | records | done | P-0049 | d3a7988 |
 | ceo | T-0018 | records | done | P-0050 | 4d34851 |
-| ceo | T-0019 | plan | doing | - | - |
-| ceo | T-0020 | throughput | todo | - | - |
+| ceo | T-0019 | records | review | P-0062 | - |
+| ceo | T-0020 | throughput | doing | - | - |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -160,7 +160,7 @@ under two roles is two tasks.
 | technical-writer | T-0010 | release | done | P-0048 | 856ba14 |
 | technical-writer | T-0011 | docs | done | P-0054 | 723987c |
 | technical-writer | T-0012 | - | dropped | - | - |
-| technical-writer | T-0013 | - | todo | - | - |
+| technical-writer | T-0013 | docs | done | P-0061 | b4096f5 |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
@@ -182,8 +182,8 @@ landed by commit without a PR record.
 | ceo | T-0009 · Plan.md still says the release-consistency checker has nine rules; R10 makes it ten (no project-manager role is staffed to own the file) | P1 | todo | - |
 | ceo | T-0012 · M16 A0: charter the proportionality adoption (AC-13, AC-14, research section 11) | P1 | review | - |
 | ceo | T-0013 · Release 1.5.0: tag the reviewed merged revision, push the tag, and certify the Release run publishes it | P0 | blocked | - |
-| ceo | T-0019 · M17 A5: intake, criteria, records, migration and close-out for lessons + tw- skills | P0 | doing | - |
-| ceo | T-0020 · M18 A0: measured throughput/token baseline, roster right-sizing and the Throughput report | P0 | todo | - |
+| ceo | T-0019 · M17 A5: intake, criteria, records, migration and close-out for lessons + tw- skills | P0 | review | - |
+| ceo | T-0020 · M18 A0: measured throughput/token baseline, roster right-sizing and the Throughput report | P0 | doing | - |
 | developer | T-0021 · clean deletes what another lane still depends on: a live review worktree, and a bound evidence artifact | P1 | todo | - |
 | developer | T-0024 · links scans gitignored .pi Scratch, so a stale draft turns the link gate red team-wide | P2 | todo | - |
 | developer | T-0025 · tests add invents a near-duplicate area (intake vs task-intake), so one run has to be recorded twice and the plan shows phantom gaps | P3 | todo | - |
@@ -193,7 +193,6 @@ landed by commit without a PR record.
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | doing | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
-| technical-writer | T-0013 · M18 A2: document the throughput contract, read-by-id discipline and the token budget | P1 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 | tester | T-0005 · M17 A9: integration + acceptance proof of the knowledge accumulation loop (add, rank, search, duplicate, supersede, load) | P1 | doing | - |
 
