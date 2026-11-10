@@ -14205,6 +14205,7 @@ def cmd_audit(args) -> int:
     problems += _audit_completion_gates_shared_with_loop(root, names, args)
     problems += _audit_audit_trail_append_only_hash_chained(root, names, args)
     problems += _audit_layered_tests(root, names, args)
+    problems += _audit_evolution_framework(root, names, args)
     problems += _audit_bug_fixes_without_a_repro_record(root, names, args)
     problems += _audit_merged_branches_still_open(root, names, args)
     problems += _audit_git_archival_lfs_large_files(root, names, args)
@@ -14828,6 +14829,20 @@ def _audit_audit_trail_append_only_hash_chained(root: Path, names: list, args) -
     if not hits:
         print("- ok")
     return hits
+
+
+def _audit_evolution_framework(root: Path, names: list, args) -> int:
+    """The Evolution page's four books: a missing table fails the audit, not skips it."""
+    from . import evolution as _evolution
+
+    print("## self-evolution ledger (tables, overdue known issues, verdicts, levels)")
+    result = _evolution.check(root)
+    for violation in result.violations:
+        print(f"- {violation.code} {violation.where}: {violation.detail}")
+    if not result.violations:
+        print("- none")
+    print()
+    return result.problems
 
 
 def _audit_layered_tests(root: Path, names: list, args) -> int:
@@ -17383,6 +17398,10 @@ def _parsers_meta(sub, common) -> None:
     from .harness import add_parsers as _add_harness_parsers
 
     _add_harness_parsers(sub, common)
+
+    from .evolution import add_parsers as _add_evolution_parsers
+
+    _add_evolution_parsers(sub, common)
 
 
 def main(argv=None) -> int:
