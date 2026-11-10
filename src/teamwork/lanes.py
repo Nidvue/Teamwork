@@ -383,7 +383,14 @@ def launcher_argv(
     provider: str,
     session: str,
     host: str,
+    print_only: bool = False,
 ) -> list:
+    """The launcher argv, or a refusal naming the escape hatch.
+
+    ``print_only`` builds the command without starting anything, so a missing host
+    binary is not a refusal there: a dry run must be able to show what it would
+    run on a machine that does not have the CLI (a CI runner, a reviewer's host).
+    """
     template = lane_command(root)
     if template:
         return _template_argv(
@@ -391,6 +398,10 @@ def launcher_argv(
         )
     host = lane_host(root, host)
     if host not in HOST_BINARIES:
+        if print_only:
+            return _template_argv(
+                "{prompt}", prompt, packet, log, agent, model, provider, run_id, project_of(root)
+            )
         die(
             f"no launcher for host {host!r}: it is not one of "
             f"{', '.join(sorted(HOST_BINARIES))}. Set TEAMWORK_LANE_CMD to a command "
@@ -399,6 +410,8 @@ def launcher_argv(
             2,
         )
     found = shutil.which(HOST_BINARIES[host])
+    if not found and print_only:
+        return _builtin_argv(host, HOST_BINARIES[host], prompt, model, provider, session)
     if not found:
         die(
             f"host {host!r} needs {HOST_BINARIES[host]!r} on PATH and it is not there. "
@@ -684,7 +697,9 @@ def spawn(
             f"End the run with a `{RESULT_MARKER} <ok|blocked|failed> <sentence>` line."
         )
     write_lf(packet, text if text.endswith("\n") else text + "\n")
-    argv = launcher_argv(root, agent, text, packet, log, run_id, model, provider, session, host)
+    argv = launcher_argv(
+        root, agent, text, packet, log, run_id, model, provider, session, host, print_only
+    )
     if print_only:
         print(f"# packet: {packet}")
         print(f"# log:    {log}")
