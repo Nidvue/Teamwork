@@ -851,6 +851,7 @@ def parse_tasks(path: Path) -> list:
                     "review_fail_rev",
                     "review_mechanical",
                     "review_detects",
+                    "dropped_under_live",
                 ):
                     if field in NUMERIC_FIELDS:
                         current[field] = int(value) if value.isdigit() else 0
@@ -914,6 +915,7 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("review_fail_rev", t.get("review_fail_rev", "")),
             ("review_mechanical", t.get("review_mechanical", "")),
             ("review_detects", t.get("review_detects", "")),
+            ("dropped_under_live", t.get("dropped_under_live", "")),
             ("forced", t.get("forced", "")),
             ("evidence", t.get("evidence", "")),
             ("findings", t.get("findings", "")),

@@ -4204,3 +4204,42 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: git diff --stat main...011ec94 -> src/teamwork/engine.py and tests/unit/test_review_detects.py only; the detail now writes mechanical | round: N | detects | this-round findings[:150] bounded at 260, and the parser accepts the optional round prefix so legacy records still read (test at :315-317 passes); the regression seeds two fails, resubmits, and proves the second record carries round: 2 and the second finding while the first finding is absent; pytest -q tests/unit/test_review_detects.py tests/unit/test_review_credit.py @011ec94 -> 29 passed; reverting to the old 120-char/no-round detail -> the new test fails (non-vacuous); ruff check + format --check -> clean.
 - findings history: 
 - branch / merge: developer/t-0046-fix-records-a-review-fail-must-record-it / 0e3f5f8
+
+## T-0047 · fix(records): a bulk sweep must not be able to drop live work silently  (developer)
+- date: 2026-11-02
+- priority: P1
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the guard against the four measured sweeps. The three live signals are checked before the status write: a claimed_by (any claim, including a retired instance), an unmerged branch resolved through the existing branch_merged helper, and the review gate (review=required with self_check passed or status review). A clean todo task still drops without a reason. A forced drop stores the blockers in dropped_under_live, the task renderer/parser carries the new field, and audit prints the new section; the mutant disabling the refuse path fails all three live-work tests. | test: pytest -q tests/unit/test_tasks.py tests/unit/test_task_graph_integrity.py tests/unit/test_task_record_integrity.py tests/unit/test_features.py tests/unit/test_stage.py @2469630 -> 119 passed; guard-disabled mutant -> 3 live-work tests failed, restored -> 7 passed; ruff check + format --check -> clean | preflight: PF-a5f1ec07fc30 @24696307ede3 (7 checks, 0 failed)
+- author evidence: ledger: 17:23:01 and 17:41:18 bulk drops of 8 accepted tasks; 19:20:37 dropped developer T-0043 that the tribunal had restored in D-0007; 17:38 dropped developer T-0044 while its branch was being built; global memory no-sweep-org-work did not prevent any of them; commit 2469630
+- reviewer evidence: git diff --stat main...2469630 -> engine.py, records.py, tests/unit/test_task_record_integrity.py only; the guard runs before the status write and refuses (a) any claimed_by, (b) an unmerged branch via the existing branch_merged, (c) a review=required task with self_check passed or status review, unless --force gives a reason; the forced path stores dropped_under_live, records.py parses/renders it, and audit prints the new section; pytest -q the five task/stage/feature files @2469630 -> 119 passed; disabling the guard -> the three live-work tests fail (non-vacuous); a plain todo still drops (control); ruff check + format --check -> clean; the two board failures are live-tree drift, identical on main and owned by the merge render.
+- findings history: 
+- branch / merge: developer/t-0047-fix-records-a-bulk-sweep-must-not-be-abl / 4445f52
+
+## T-0005 · fix(privacy): the history gate is red on main from a superseded doc example and an archived finding  (security-auditor)
+- date: 2026-11-02
+- priority: P1
+- owner: security-auditor role (work by: SecurityAuditor)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: -
+- self-check: [pass] The gate the task asked for is green at the revision: privacy_scan --tree --history --allow .github/privacy-allow.txt @88360dc -> PASS 0. The historical home-path blobs the task named are no longer reported, and the same command is the AC-5 proof, so the acceptance is a measurement rather than a code change. | test: privacy_scan --tree --history --allow .github/privacy-allow.txt @88360dc -> PASS 0 finding(s) in tree, history (exit 0) | preflight: PF-19cd185139d4 @- (7 checks, 0 failed)
+- author evidence: privacy_scan --tree --history --allow .github/privacy-allow.txt @a3b6e93 -> PASS 0 findings (CI run 41447021280 privacy job success); the full suite on ubuntu py3.9 at a3b6e93 is success (AC-5 traceability green); the tree-only and history gates are the same shipped command
+- reviewer evidence: privacy_scan --tree --history --allow .github/privacy-allow.txt @88360dc -> PASS 0 finding(s) in tree, history (exit 0); the task is a verification follow-up with no branch, so the pass records the measured closure and merges nothing.
+- findings history: 
+- branch / merge: - / pending
+
+## T-0005 · Acceptance: the feature-team model is enforced by the engine, not only documented  (reviewer)
+- date: 2026-11-02
+- priority: P1
+- owner: reviewer role (work by: Reviewer-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: -
+- self-check: [pass] The acceptance exists as TS-0056 (acceptance/t-0042, passing, owner/by Reviewer-1): 88 feature tests at acbd7f4, three mutants (architect gate removed, overlap always false, covers substring), CLI probes for every frozen command and exit code, and a byte-identical task queue without --feature. The engine work it accepts is merged (T-0042, acbd7f4 on main), so the model is enforced by code and the acceptance record is the independent check. | test: teamwork.py tests list @88360dc -> TS-0056 acceptance/t-0042 passing; PYTHONPATH=src pytest -q tests/unit/test_features.py tests/unit/test_feature_independence.py tests/unit/test_feature_teams.py @88360dc -> 88 passed | preflight: PF-19cd185139d4 @- (7 checks, 0 failed)
+- author evidence: 
+- reviewer evidence: TS-0056 acceptance/t-0042 is passing at acbd7f4 with 88 feature tests, three mutants and CLI probes for every frozen command; PYTHONPATH=src pytest -q the three feature unit files @88360dc -> 88 passed; the engine work is merged on main and the acceptance is independent of the Developer who wrote it.
+- findings history: 
+- branch / merge: - / pending
