@@ -47,7 +47,7 @@ teamwork.py pulse --commit          # assigns ready work to idle lanes; exit 3 =
 For every assignment, message the agent to start now. For every idle lane with no
 matching work, assign the top unblocked task of its role or fold the lane. Unblock
 stuck tasks, and push the Reviewer when deliverables are waiting. Re-arm with
-`schedule_prompt` (cron `*/5 * * * *`, name `teamwork-pulse`) and remove the job at
+`subagent({action:"schedule.create", id:"teamwork-pulse", options:{every:"5m"}})` and delete the schedule at
 team close. An idle lane while ready work exists is a defect in your dispatch.
 
 ## Self-management and the loop

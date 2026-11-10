@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`pi-teamwork` package**: the skill now ships as a pi package (`pi.skills` +
+  `pi.prompts`, host packages as `peerDependencies` only). A pi session installs it
+  with `pi install npm:pi-teamwork` and gets two skills: `/skill:teamwork` (the
+  protocol) and `/skill:teamwork-pi` (the pi tool mapping: `subagent` fan-out,
+  `schedule.create` pulse, `subagent_supervisor` replies, `subagent stop`), plus
+  the `teamwork-pulse` and `teamwork-review` prompt templates. The tarball is
+  assembled by `make package` from one source tree, so the pip package and the npm
+  package never drift.
+
+## [1.1.0](https://github.com/Nidvue/Teamwork/compare/v1.0.2...v1.1.0)
+
+### Added
+
 - **Per-queue PR resolution**: `pr open` used to match a task id across the whole
   `Reviews.md`, so a second role owning the same id reopened and rewrote the first
   role's PR (measured: the security lane's `T-0001` re-opened the merged developer

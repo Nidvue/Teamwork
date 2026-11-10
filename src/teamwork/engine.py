@@ -5116,7 +5116,7 @@ def cmd_pulse(args) -> int:
         print("- nothing to dispatch: check blocked tasks and open disputes")
     print(
         f"- re-arm this pulse: schedule the next wake every {minutes} min "
-        "(see the /teamwork skill: schedule_prompt)"
+        "(see the /teamwork skill: schedule.create)"
     )
     return 0 if plan else 3
 
