@@ -29,6 +29,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from tests.tooling import skip_message
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
@@ -129,6 +130,22 @@ def new_repo(tmp_path: Path, files: dict[str, str], name: str = "repo") -> tuple
     return repo, git(repo, "rev-parse", "HEAD")
 
 
+def _posix_bash_or_skip() -> str:
+    """The shell to run the classifier with: a skip when there is none.
+
+    :func:`posix_bash` raises rather than falling back to the WSL launcher, and
+    its guard is itself under test - so the raise stays. Here, where a test is
+    about to execute the classifier, no usable shell means the tool is absent
+    from this host: a skip that names ``bash`` and says what was tried, never a
+    failure (``T-0003``).
+    """
+    try:
+        return posix_bash()
+    except AssertionError as absent:
+        pytest.skip(skip_message("bash", str(absent)))
+        raise  # unreachable: pytest.skip raises Skipped; keeps the return type honest
+
+
 def classify(
     repo: Path,
     script: Path,
@@ -155,7 +172,7 @@ def classify(
         }
     )
     result = subprocess.run(
-        [posix_bash(), str(script)],
+        [_posix_bash_or_skip(), str(script)],
         cwd=str(repo),
         env=env,
         capture_output=True,
@@ -293,13 +310,18 @@ def test_posix_bash_rejects_the_wsl_launcher_on_windows() -> None:
         "C:\\Windows\\System32\\bash.exe",
         "C:\\Users\\runner\\AppData\\Local\\Microsoft\\WindowsApps\\bash.exe",
     ):
+
+        def on_path(_name: str, hit: str = launcher) -> str:
+            """``which`` for a host whose only bash is this launcher."""
+            return hit
+
         # ``exists`` answers True so the ONLY thing that can reject the
         # launcher is the guard: delete the guard (stub _is_wsl_launcher to
         # False) and this test fails instead of passing for the wrong reason.
         with pytest.raises(AssertionError, match="no usable POSIX bash"):
             posix_bash(
                 os_name="nt",
-                which=lambda _name, hit=launcher: hit,
+                which=on_path,
                 git_shells=lambda: [],
                 exists=lambda _p: True,
             )

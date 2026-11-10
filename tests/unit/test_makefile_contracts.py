@@ -20,6 +20,11 @@ is not mistaken for a pipeline, and heredoc bodies (`<<'PY'`) are skipped whole.
 `scope` is a path classifier, not a gate, and is excluded by name - the exclusion
 is asserted to be the only one.
 
+Most of this file is static: it reads the two files and compares parsed
+invocations. Only `make help` needs GNU make installed, so only that test guards
+on the tool (`require_tool("make")`) and the rest keeps running on a host
+without it - a guard is a skip that names the tool, never a weakened assertion.
+
 Mutations edit the *text* of the Makefile / workflow in a `tmp_path` tree or in
 memory and re-run the same comparison, so no tracked file is ever written.
 """
@@ -31,6 +36,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
+from tests.tooling import require_tool
 from workflow_yaml import parse_workflow
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -221,9 +227,10 @@ def make_targets(text: str) -> dict[str, list[str]]:
             continue
         match = TARGET_RE.match(raw)
         if match and not raw.startswith("."):
-            current = match.group("name")
+            name = match.group("name")
+            current = name
             prerequisites = match.group("rest").split("##", 1)[0].split()
-            targets.setdefault(current, []).extend(prerequisites)
+            targets.setdefault(name, []).extend(prerequisites)
         elif not raw.strip():
             current = None
     return targets
@@ -387,10 +394,21 @@ def test_every_gate_target_is_declared_phony():
     )
 
 
+def test_the_makefile_documents_enough_targets():
+    """The static half of the `help` contract: no tool needed, so no guard.
+
+    Kept separate from the executing half below, or a host without GNU make
+    would skip this assertion for a reason that has nothing to do with it.
+    """
+    documented = documented_targets(makefile_text())
+    assert len(documented) >= 20, f"only {len(documented)} documented target(s)"
+
+
 def test_make_help_lists_every_documented_target():
+    """`make help` lists exactly the documented targets - needs GNU make."""
+    require_tool("make")
     text = makefile_text()
     documented = documented_targets(text)
-    assert len(documented) >= 20, f"only {len(documented)} documented target(s)"
     result = subprocess.run(
         ["make", "--no-print-directory", "help"],
         cwd=REPO_ROOT,

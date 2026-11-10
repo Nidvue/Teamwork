@@ -1443,3 +1443,51 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: reviewer del_mviuyqhj_p6b1: pytest tests/unit/test_board_matches_tool.py @908671e -> '2 failed, 4 passed' with AssertionError "ceo T-0074: In flight says 'todo', the queue says 'review'"; after regenerating the board the same file -> 6 passed; full suite after the regeneration -> 1255 passed, 1 skipped
 - falsified by: If the committed 908671e board rows already read 'review' for T-0074, the correction is wrong and the numbers were reproducible.
 - consequences: -
+
+## D-20261025-CEO-2 - Authorise a local reflog expiry to drop an unreachable leaked commit
+
+- date: 2026-10-25
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Authorise 'git reflog expire --expire=now --all && git gc --prune=now' in this repository, once, so the superseded commit a4c726f (whose message quotes the operator home path) stops being reachable through the reflog. It is unreachable from every branch already; nothing pushed exists that contains it, so no published history is rewritten and no reachable object is deleted.
+- why: The privacy gate scans --reflog on purpose; an unreachable-but-reflogged leak is still a leak in this clone and would block AC-5 forever.
+- evidence: git merge-base --is-ancestor a4c726f developer-1/t-0001-... -> 1 (not an ancestor); privacy_scan.py --history --allow -> still reports commit:a4c726f4b2ca:8 because the scan walks --reflog; git branch --contains a4c726f -> none
+- falsified by: After the expiry, privacy_scan --tree --history still names a4c726f, or a reachable commit disappears (both measurable)
+- consequences: Run it in the main repo, then re-run the gate; P-0001's reviewer verifies the clean run; the Security Auditor checks no reachable object was lost
+
+## D-20261025-CEO - M11 is review-and-repair, not feature work
+
+- date: 2026-10-25
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0001
+- context: User asked for a systematic review that makes code, logic, workflow, docs and files solid, cleans the tree and updates stale files
+- options considered: -
+- decision: M11 is a review-and-repair engagement over the existing product: no new features. Its exit is AC-3/5/6/11/19/20/21 verified on the merged revision; a finding is closed by a fix plus a test, or by a recorded reason here.
+- why: The suite is red on a stock Windows host while CI is green, so the product's central claim (portable, evidence-gated) is only true on a privileged host.
+- evidence: pytest -q @7db810a -> 11 failed, 1217 passed, 28 skipped; ruff check -> clean; teamwork.py links -> 0 issues; privacy_scan --tree --history -> PASS; check_release_consistency -> 0 problems
+- falsified by: A reviewer reproduces 'pytest -q' green on a plain Windows host with Developer Mode off and no GNU make, at the merged revision
+- consequences: Findings become tasks; docs state claims are re-measured; the tree census is owned by the project manager
+
+## D-20261025-Reviewer-1 - The board gate's FLOOR may filter only CLOSED queue records,
+
+- date: 2026-10-25
+- kind: governance
+- status: accepted
+- deciders: Reviewer-1 (reviewer)
+- decided by: Reviewer-1
+- task: -
+- context: -
+- options considered: -
+- decision: The board gate's FLOOR may filter only CLOSED queue records, and a regenerated docs/Team/Board.md that lands inside a developer gate-fix PR is accepted as the recipe's own output, not hand editing - provided the reviewer re-runs the recipe and gets the same rows.
+- why: Review of P-0017 at 7e2fa1d: pre-fix FLOOR (ceo:59, developer:5, reviewer:2, plus hyphenated keys that norm_role never matched) made queues() drop 10 open tasks while the board claimed to be the queues' state; folding the keys and admitting every OPEN record yields hidden=0, 42 rows, 28 in flight. The board half is unavoidable in the same PR: with only the test fix, main's committed 26-row board contradicts the now-seeing gate, so the green-gate requirement cannot be met otherwise - and re-running the recipe reproduces the committed rows.
+- evidence: python tests/unit/test_board_matches_tool.py @7e2fa1d -> exit 0, wrote 42 task(s), 42 rows / 28 in flight, hidden 0; pytest -q -> 2 failed, 10 passed before re-render (2 drift rows), 12 passed after; pre-fix queues() -> 26 of 42 records, 18 of 28 open
+- falsified by: A committed Board.md row that the recipe cannot regenerate, or a hidden open task after the fold, overturns the acceptance.
+- consequences: -
