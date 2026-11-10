@@ -84,14 +84,14 @@ def work_repo(root: Path, cwd: Path | None = None) -> Path:
     wt_root = root / DIR_RUNTIME / DIR_WORKTREES
     if wt_root.is_dir():
         for parent in [cwd, *cwd.parents]:
-            if parent == wt_root:
-                break
             try:
-                parent.relative_to(wt_root)
+                rel = parent.relative_to(wt_root)
             except ValueError:
                 continue
-            if (parent / ".git").exists():
-                return parent
+            if rel.parts:
+                cand = wt_root / rel.parts[0]
+                if (cand / ".git").exists():
+                    return cand
     return project_of(root)
 
 
