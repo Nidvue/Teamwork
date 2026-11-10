@@ -39,6 +39,7 @@ import contextlib
 import datetime
 import importlib.util
 import io
+import json
 import os
 import re
 import shlex
@@ -10712,6 +10713,108 @@ def memory_dream_line(root: Path) -> str:
     )
 
 
+def _status_elapsed(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m{seconds % 60:02d}s"
+    return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
+
+
+def _status_row(instance: str, now: float, live: dict, held: dict) -> dict:
+    """One instance's live state: the lane record if it runs, else the claim."""
+    run = live.get(pascal(instance)) or {}
+    task = ""
+    if run.get("task"):
+        owner = str(run.get("review_owner") or "")
+        task = f"{owner}/{run['task']}" if owner else str(run["task"])
+    else:
+        task = held.get(pascal(instance), "")
+    elapsed = None
+    progress = "idle"
+    if run:
+        elapsed = max(int(now - float(run.get("created") or now)), 0)
+        minutes = int(run.get("minutes") or 0)
+        budget = minutes * 60
+        percent = min(int(elapsed * 100 / budget), 100) if budget else 0
+        progress = f"attempt {run.get('attempt')}/{run.get('attempts')}, {percent}% of {minutes}m"
+    elif task:
+        progress = "claimed, no lane record"
+    return {
+        "instance": instance,
+        "role": resolve_role(instance),
+        "state": "busy" if (task or run) else "idle",
+        "task": task,
+        "elapsed": elapsed,
+        "elapsed_text": _status_elapsed(elapsed) if elapsed is not None else "-",
+        "progress": progress,
+        "lane": str(run.get("id") or ""),
+        "lane_state": str(run.get("state") or ""),
+    }
+
+
+def status_rows(root: Path) -> list:
+    """Every instance's live state, from the queue claim and the lane records.
+
+    The queue says who holds what; ``Runtime/Lanes`` says what is actually
+    running, so a claim left behind by a dead lane reads as busy with no lane
+    record instead of as work in flight. Reconciling a lane whose process ended
+    without an outcome file is the same write every lane command performs.
+    """
+    from . import lanes as lane_runtime
+
+    now = time.time()
+    live: dict = {}
+    for run in lane_runtime.settle(root):
+        if run.get("state") not in lane_runtime.LIVE:
+            continue
+        agent = pascal(str(run.get("agent") or ""))
+        if not agent:
+            continue
+        previous = live.get(agent)
+        if previous is None or float(run.get("created") or 0) > float(previous.get("created") or 0):
+            live[agent] = run
+    held: dict = {}
+    for role in list_roles(root):
+        for task in parse_tasks(task_file(root, role)):
+            if task["status"] in ("doing", "selfcheck") and task.get("claimed_by"):
+                held[pascal(task["claimed_by"])] = task["id"]
+            elif review_is_held(task):
+                held[pascal(task["review_claim"])] = task["id"]
+    return [_status_row(name, now, live, held) for name in known_instances(root)]
+
+
+def cmd_status(args) -> int:
+    """Compact live state of every instance: the operator panel and the UI feed."""
+    root = project_root(args)
+    rows = status_rows(root)
+    wanted = (getattr(args, "agent", "") or "").strip()
+    if wanted:
+        rows = [row for row in rows if pascal(row["instance"]) == pascal(wanted)]
+        if not rows:
+            die(f"no instance named {wanted!r}", 2)
+    if getattr(args, "json", False):
+        payload = {
+            "generated": datetime.datetime.now().isoformat(timespec="seconds"),
+            "count": len(rows),
+            "instances": rows,
+        }
+        print(json.dumps(payload, indent=2))
+        return 0
+    busy = sum(1 for row in rows if row["state"] == "busy")
+    print(f"# Status ({len(rows)} instance(s), {busy} busy)")
+    if not rows:
+        print("- no instance")
+        return 3
+    for row in rows:
+        print(
+            f"- {row['instance']:16s} {row['role']:12s} {row['state']:5s} "
+            f"task={row['task'] or '-':10s} elapsed={row['elapsed_text']:8s} "
+            f"progress={row['progress']}"
+        )
+    return 0
+
+
 def cmd_pulse(args) -> int:
     """CEO wake-up: find idle lanes and hand them runnable work immediately."""
     root = project_root(args)
@@ -17153,6 +17256,15 @@ def _parsers_workspace(sub, common) -> None:
 
     s = sub.add_parser("agents", parents=[common], help="list agent directories")
     s.set_defaults(func=cmd_agents)
+
+    s = sub.add_parser(
+        "status",
+        parents=[common],
+        help="live state of every instance: busy/idle, task, elapsed, progress",
+    )
+    s.add_argument("--json", action="store_true", help="machine-readable panel data")
+    s.add_argument("--agent", default="", help="one instance only")
+    s.set_defaults(func=cmd_status)
 
     s = sub.add_parser(
         "instance",
