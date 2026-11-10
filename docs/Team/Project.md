@@ -409,32 +409,11 @@ record's statement or evidence by any pass, and raising the always-on cap.
 | AC-M22-2 | `memory dream --focus <goal\|T-id>` narrows which records are verified and in what order, while a plain run is byte-identical to the unfocused one | Developer | Reviewer |
 | AC-M22-3 | `context find` and `recall` reach the transcripts (`Ledger.jsonl` and `Agents/*/WorkLog.md`) under the same capped, pointer-citing contract as the other stores, so a session log is retrievable and not only written | Developer | Reviewer |
 | AC-M22-4 | `load` and every lane packet open with a memory index header (topic -> pointer) capped at 800 B and 8 lines and charged against the pack budget (index + pack <= 4000); net <= 0 on the whole output where a role has verbose content to displace, and at most 800 B where it has no open lessons, pinned by a zero-lesson fixture test - revised by the `D-0009` ruling ([MEMORY](Memory.md) 11) | Developer | Reviewer |
-| AC-M22-5 | [MEMORY](Memory.md) and [STATE](../../references/State.md) describe the merged behaviour with a measured before/after, no pass deletes or rewrites a record, and `loop`/`audit` green is asserted at the M22 close rather than at a mid-milestone deliverable whose revision still carries other lanes' open branches and findings (D-20261109-CEO-5) | CEO | Reviewer |
+| AC-M22-5 | [MEMORY](Memory.md) and [STATE](../../references/State.md) describe the merged behaviour with a measured before/after, `loop` and `audit` are green on the merged revision, and no pass deletes or rewrites a record | CEO | Reviewer |
 
 Exit: AC-M22-1..AC-M22-5 verified by a role other than their owner on the merged
 revision, the layers recorded in `Tests.md`, and the measured delta written into
 [MEMORY](Memory.md) 13.
-
-## M23 - Live agent status in the pi UI (this engagement)
-
-Intake: the operator asked that the team's current agents - busy or idle - be
-visible in the pi UI in real time, each with compact information about what it is
-doing and how far along it is, laid out so a glance answers "who is working on
-what, and is it moving". Contract: [PI-PACKAGING](Pi-Packaging.md) section 4.
-
-Non-goals: a second TUI renderer, a daemon or network service, a persistent log
-viewer, any third-party npm package, and any change to the protocol, the gates or
-the ledger. The widget is a read-only view of records the engine already writes.
-
-| criterion | state it asserts | owner | verifier |
-|---|---|---|---|
-| AC-S1 | `teamwork.py status` prints, for every instance, its role, `busy`/`idle`, the task id and title it holds when busy, elapsed seconds and a progress signal; `status --json` emits the same as one object with a schema version; both exit 0 on a tree with no instances with a one-line reason, never a traceback | Developer | Reviewer |
-| AC-S2 | the package ships `extensions/teamwork-status.ts` under `pi.extensions`, rendering a compact multi-line widget above the editor plus a one-line footer status, refreshing at most every 10 s, toggled by `/teamwork-status`, silent when no team tree is reachable; `tests/unit/test_pi_package.py` pins its presence, host-only imports and built tarball entry, and `tests/unit/test_pi_status_render.py` executes the renderer | Developer | Reviewer |
-| AC-S3 | [PI-PACKAGING](Pi-Packaging.md) describes the command and the widget with the exact commands to see them, and no doc still claims the package loads no extension | Developer | Reviewer |
-
-Exit: AC-S1..AC-S3 verified by a role other than their owner on the merged
-revision, the integration layer recorded for `area=status`, and the measured
-widget output written into [PI-PACKAGING](Pi-Packaging.md) 4.
 
 ## Scope
 

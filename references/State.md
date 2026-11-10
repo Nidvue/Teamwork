@@ -135,11 +135,9 @@ owner who discovered them; a mistake the role must not repeat in its
 A record's `evidence` line names its ground truth, and `memory verify` re-reads
 that ground truth now: `@<sha>` or `rev <sha>` through `git cat-file -e`, a
 `path/to/file[:LINE]` against the working tree, an `https://` source against its
-access date (`accessed YYYY-MM-DD` or `(YYYY-MM-DD)`, at most 400 days old). Every
-kind the evidence names is checked and the worst status wins - `drifted` over
-`unverifiable` over `verified` - with the reason naming each kind, so a drifted
-path behind a valid revision is reported instead of passing on the revision. A
-record whose evidence names none of the three is `unverifiable`, never `drifted`.
+access date (`accessed YYYY-MM-DD` or `(YYYY-MM-DD)`, at most 400 days old). The
+first kind that matches wins, and a record whose evidence names none of the three
+is `unverifiable`, never `drifted`.
 
 ```sh
 teamwork.py memory verify [--role R] [--limit N] [--json]
@@ -267,28 +265,12 @@ teamwork knowledge touch K_ID --by <you>
 - `load` and every lane packet open with the memory index (Memory.md 11): a capped
   pointer list `- <topic> -> <file>#<id>` over the active knowledge topics and the
   open lesson titles, in the 4.1 score order for the task, at most 8 lines, and
-  `# memory index: N topic(s), M record(s)` / `# index: B bytes (budget 800)`
-  around them. It points, it never copies a statement, and a line that would
-  overspend `INDEX_BUDGET_BYTES` (800) is dropped rather than truncated.
+  `# memory index: N topic(s), M record(s)` / `# index: B bytes (budget 800)` around
 - The index replaces the verbose `- [L-0001] mistake -> rule` rows `load` used to
   print and is charged against the pack budget (`index + pack <= 4000`), so the
   whole `load` output does not grow by the index's bytes (AC-M22-4, T-0057).
-
-Measured back to back on one store at `8a34759`: the `90502bb` renderer in
-`.pi/Scratch/ceo/baseline` and the merged one, run one after the other.
-
-| surface | before `90502bb` | after `8a34759` | delta |
-|---|---|---|---|
-| `load CEO` | 8112 B | 5455 B | -2657 B |
-| `load Developer` | 5746 B | 5776 B | +30 B |
-| `load Tester` | 4995 B | 5415 B | +420 B |
-| the index block for CEO | n/a | 523 B, 8 lines | n/a |
-
-Both growths are inside the 800 B index bound the `AC-M22-4` ruling allows. Writing
-one more lesson (`L-0019`) moved `load CEO` +354 B on the old renderer and 0 B on
-the merged one: the index is capped, so a lane's startup read stops tracking the
-size of the store. The full table, with the pack, the dream pass and transcript
-reach, is `Memory.md` 13.
+  them. It points, it never copies a statement, and a line that would overspend
+  `INDEX_BUDGET_BYTES` (800) is dropped rather than truncated.
 
 ### Context tree
 
