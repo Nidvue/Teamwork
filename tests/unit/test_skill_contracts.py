@@ -442,6 +442,62 @@ def _first_file(root: Path, directory: str) -> str:
     raise AssertionError(f"no file found under {directory}/")
 
 
+# The wording that failed three PRs: a charter telling a lane to take the
+# repository's own configured identity and to avoid -c user.* / --author /
+# GIT_AUTHOR_*, which contradicts AGENTS.md and the CI identity gate.
+FORBIDDEN_IDENTITY_CLAUSES = (
+    r"locally\s+configured[^.]{0,160}identit",
+    r"identit[^.]{0,160}locally\s+configured",
+    r"never\s+(?:use|set)[^.]{0,160}-c\s+user",
+    r"never\s+(?:use|set)[^.]{0,160}(?:--author|GIT_AUTHOR_|GIT_COMMITTER_)",
+    r"never\s+(?:use|set)\s+(?:a\s+)?role\s+identity",
+)
+
+
+def identity_prose(path: Path) -> str:
+    """A charter's or reference's text with markdown emphasis and wrapping removed."""
+    return " ".join(path.read_text(encoding="utf-8").replace("*", "").split())
+
+
+def test_the_charters_quote_the_constitution_on_commit_identity(root):
+    """One rule for commit identity: the acting role mailbox, per commit.
+
+    The contradiction is expensive rather than theoretical - three PRs in one
+    engagement failed on a lane that followed a charter telling it to use the
+    repository's own configured identity while the gate demanded the mailbox.
+    So the forbidden wording may not reappear in any charter or reference, and
+    the reference every charter points at must carry the constitution.
+    """
+    scanned = [root / "roles" / f"{role}.md" for role in ROLES]
+    scanned += sorted((root / "references").glob("*.md"))
+    findings = []
+    for path in scanned:
+        prose = identity_prose(path)
+        for pattern in FORBIDDEN_IDENTITY_CLAUSES:
+            match = re.search(pattern, prose, re.IGNORECASE)
+            if match:
+                findings.append(f"{path.relative_to(root).as_posix()}: {match.group(0)!r}")
+    assert not findings, (
+        "a charter or reference still forbids the identity the constitution and the "
+        "CI gate require: " + "; ".join(findings)
+    )
+
+    engineering = identity_prose(root / "references" / "Engineering.md")
+    for phrase in (
+        "acting role mailbox",
+        "author == committer",
+        "git -c user.name=",
+        "teamwork.py commit --role",
+        "Acting role:",
+    ):
+        assert phrase in engineering, (
+            f"Engineering.md no longer quotes the constitution: {phrase!r}"
+        )
+    assert re.search(r"plain `?git commit`?[\s\S]{0,220}(?:gate|fail)", engineering), (
+        "Engineering.md must warn that a plain git commit inherits the configured identity"
+    )
+
+
 def test_ci_ignores_prose_and_media_paths(root):
     """The prose/media set is named by the workflow and really classifies prose.
 
