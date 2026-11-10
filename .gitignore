@@ -35,3 +35,6 @@ coverage/
 # --- docs site build output ---
 site/
 *.egg-info/
+
+# --- stray tooling state (this project does not use uv) ---
+uv.lock
