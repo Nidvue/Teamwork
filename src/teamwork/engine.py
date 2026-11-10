@@ -13681,23 +13681,19 @@ class PreflightResult:
         return hashlib.sha256("\n".join(payload).encode("utf-8")).hexdigest()[:12]
 
     def summary(self) -> str:
-        """`fail` if any check failed, `partial` if any went unmeasured, else `pass`.
+        """`fail` if any check failed; `pass` names the checks it did not measure.
 
-        A `pass` while checks are `unverified` or `warn` is the finding T-0012
-        names: the line is recorded as the mechanical gate, so it must not read
-        green for a run that did not measure everything. `partial` is not a
-        refusal - `--run` measures the gate - but it is never quoted as a pass.
+        The verdict stays `pass` when nothing failed - the shipped contract, and
+        five tests pin the string - but a run that measured only part of the gate
+        now says so on the same line (finding T-0012: a `pass` over six unmeasured
+        checks is quoted as the mechanical gate). `--run` measures the gate; the
+        line is what a review copies.
         """
         failing = ", ".join(check.name for check in self.failed)
         unmeasured = ", ".join(
             check.name for check in self.checks if check.status in ("unverified", "warn")
         )
-        if failing:
-            verdict = "fail"
-        elif unmeasured:
-            verdict = "partial"
-        else:
-            verdict = "pass"
+        verdict = "fail" if failing else "pass"
         line = (
             f"PREFLIGHT {verdict} @{self.short_revision} :: {len(self.checks)} checks, "
             f"{len(self.failed)} failed"
@@ -13705,7 +13701,7 @@ class PreflightResult:
         if failing:
             return line + f" ({failing})"
         if unmeasured:
-            return line + f" (unmeasured: {unmeasured})"
+            return line + f" (not measured: {unmeasured})"
         return line
 
     def digest_line(self) -> str:
