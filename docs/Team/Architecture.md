@@ -259,6 +259,14 @@ from the wrong role, so the two maps must not be conflated.
 
 ## 9. CI / release contract
 
+The per-job wall clock is capacity, not a gate: every job runs its whole check,
+and the bound only stops a hung run. The `test` job is bounded at 90 minutes
+because the suite spawns hundreds of processes and the Windows runner spawns them
+several times slower than Linux (measured: 18 min on ubuntu 3.13, 30 on macos
+3.13, and windows hit the old 60-minute cap on runs 42530928486 and 42533590196).
+`tests/unit/test_ci_contracts.py` reads the bound from here and fails when the
+workflow and this table disagree.
+
 * `ci.yml` always fires: on a push to `main`, on a `v*` tag, on every
   `pull_request` and on `workflow_dispatch`. There is no workflow-level
   `paths-ignore`; the filtering is a job, not a trigger.
