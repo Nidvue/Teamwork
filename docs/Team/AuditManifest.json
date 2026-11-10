@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-19T20:11:37",
+  "generated_at": "2026-10-19T20:36:23",
   "team": "Teamwork",
   "team_id": "431b5b8b1bc04db58a4f13ef114cf5c1",
   "project": "Teamwork",
   "ledger": {
-    "records": 592,
-    "head": "6b1f259914eaa56cf898750f290ac682d3362c5ab28bac4a2e4765bdb5cca2ba",
+    "records": 621,
+    "head": "e0af74bb195270e5c0a4c85269e07e3cd7357e7f1db42da62d473046eae6d409",
     "verified": true,
     "problems": []
   },
   "git": {
-    "head": "89b7874eb782cf86af26ad34816e111617587bbf",
-    "branch": "ceo/t-0027-m7-records-final",
+    "head": "b372290bc723442417389195172308fe7798acb7",
+    "branch": "ceo/t-0028-m8-records-hygiene-repair-the-archive-me",
     "dirty": false,
     "lfs_files": 0
   },
@@ -28,8 +28,8 @@
     },
     {
       "path": "docs/Team/Plan.md",
-      "sha256": "8f78306ad14b1d8b6a21505a3571edb6cdd69f9e3035bd5d6d96c3457bcc47d5",
-      "bytes": 6591
+      "sha256": "91178b66af795265ff7157087afb361637535e4c3e7625fc07e35b9d6fd9aa80",
+      "bytes": 6500
     },
     {
       "path": "docs/Team/Project.md",
@@ -45,8 +45,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Disputes.md",
-      "sha256": "49193205c8cd4cc8f2a34efdc5510db662afca297c36eebe613f8a95dc13ab79",
-      "bytes": 8240
+      "sha256": "ee92e633c3c1b4f1d2966818ef3300e74c88a57b59f90b5ceeb4536ef8b8b6e9",
+      "bytes": 10057
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Global/GlobalMemory.md",
@@ -55,8 +55,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Reviews.md",
-      "sha256": "adea585d3c823c55170a49e01f8289b27cce4adb68e2d7e102e874102b2f9585",
-      "bytes": 142180
+      "sha256": "41da918a3df732159fa6154315111081b73a51b90ff9dccf6108b1d6e3817963",
+      "bytes": 154043
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Architect/ArchivedMemory.md",
@@ -95,8 +95,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md",
-      "sha256": "4237b3f85d8687326560467ae52e60d4dba5356074fdd3fb6974f3a4ec5952ae",
-      "bytes": 152422
+      "sha256": "fe17ddbffecb8492bf6cea617aeb30151b3a29694f3eed458e4915abafdb3f8a",
+      "bytes": 164738
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Developer/ArchivedMemory.md",
@@ -190,8 +190,8 @@
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Reviewer/ShortTermMemory.md",
-      "sha256": "db7d5a18b62042606e646a92130676456accfabeac641b2084ace3b986282edd",
-      "bytes": 2345
+      "sha256": "52bf81ddb1cf001168cda29b80606cea6533b1033c5bc545386f4cdc99e40e39",
+      "bytes": 2813
     },
     {
       "path": ".pi/Teamwork/Teams/Teamwork/Roles/Reviewer/TaskQueue.md",
