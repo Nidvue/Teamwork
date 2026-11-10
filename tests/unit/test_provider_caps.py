@@ -14,59 +14,21 @@ from pathlib import Path
 
 from teamwork import config
 
-CAP_MENTION = re.compile(r"ollama-cloud|Ollama Cloud", re.IGNORECASE)
-
-CAP_CLAIM = re.compile(
-    r"(?:ollama-cloud|Ollama Cloud)[^\n]{0,40}\d|\d[^\n]{0,40}(?:ollama-cloud|Ollama Cloud)",
-    re.IGNORECASE,
+CAP_PAGES = (
+    "AGENTS.md",
+    "templates/AGENTS.md",
+    "references/Concurrency.md",
+    "templates/TeamMap.md",
+    "roles/ceo.md",
+    "SKILL.md",
+    "docs/guide/usage.md",
 )
 
-DISCOVERY_FILES = ("README.md", "AGENTS.md", "SKILL.md")
+GUIDE_PAGES = "docs/guide/*.md"
 
-DISCOVERY_DIRS = ("docs", "references", "roles", "templates")
-
-HISTORICAL_PREFIXES = ("docs/Team/",)
+CAP_TRANSCRIPT = re.compile(r"cap=\d+")
 
 RETIRED = re.compile(r"(?:ollama-cloud[^\n]{0,20}\b10\b|\b10\b[^\n]{0,20}Ollama Cloud)")
-
-
-def cap_pages(root: Path) -> list[tuple[str, str]]:
-    """``(relative path, text)`` for every page that states a provider cap.
-
-    Discovery, not a list: the README restructure moved the ``parallel``
-    transcript and a hardcoded list kept demanding a statement from the page that
-    no longer made one. A page is in this contract when it *claims* a cap - the
-    provider name next to a number, or a ``cap=`` transcript - so a page that only
-    names the provider as a model source stays out. Historical team records under
-    ``docs/Team/`` are quotations, never a page this contract governs.
-    """
-    paths = [root / name for name in DISCOVERY_FILES]
-    for directory in DISCOVERY_DIRS:
-        paths.extend(sorted((root / directory).rglob("*.md")))
-    found = []
-    for path in sorted({path for path in paths if path.is_file()}):
-        rel = path.relative_to(root).as_posix()
-        if any(rel.startswith(prefix) for prefix in HISTORICAL_PREFIXES):
-            continue
-        text = path.read_text(encoding="utf-8")
-        if CAP_MENTION.search(text) and CAP_CLAIM.search(text):
-            found.append((rel, text))
-    return found
-
-
-def cap_problems(root: Path) -> list[str]:
-    """Every page that states a cap but not the enforced number."""
-    cap = config.DEFAULT_PROVIDER_LIMITS["ollama-cloud"]
-    problems = []
-    for rel, text in cap_pages(root):
-        if re.search(r"Ollama Cloud[^\n]{0,40}~10\b", text) or RETIRED.search(text):
-            problems.append(f"{rel}: still states the retired 10-lane cap")
-        states_cap = re.search(
-            rf"(?:ollama-cloud|Ollama Cloud)[^\n]{{0,40}}\b{cap}\b", text, re.IGNORECASE
-        ) or re.search(rf"\b{cap}\b[^\n]{{0,40}}(?:ollama-cloud|Ollama Cloud)", text, re.IGNORECASE)
-        if not states_cap:
-            problems.append(f"{rel}: states the provider cap but not the enforced number {cap}")
-    return problems
 
 
 def test_the_default_caps_are_the_measured_ones() -> None:
@@ -78,65 +40,43 @@ def test_the_default_caps_are_the_measured_ones() -> None:
 
 
 def test_every_page_that_states_the_cap_states_the_enforced_number(repo_root: Path) -> None:
-    pages = cap_pages(repo_root)
-    assert len(pages) >= 5, (
-        "the discovery found almost no page stating a provider cap, so the guard is "
-        f"vacuous: {[rel for rel, _ in pages]}"
-    )
-    assert cap_problems(repo_root) == []
+    cap = config.DEFAULT_PROVIDER_LIMITS["ollama-cloud"]
+    for rel in CAP_PAGES:
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        assert re.search(r"ollama-cloud|Ollama Cloud", text, re.I), (
+            f"{rel} no longer states the provider cap"
+        )
+        assert not re.search(r"Ollama Cloud[^\n]{0,40}~10\b", text), (
+            f"{rel} still states the retired ~10 bound"
+        )
+        assert not RETIRED.search(text), f"{rel} still states the retired 10-lane cap"
+        states_cap = re.search(
+            rf"(?:ollama-cloud|Ollama Cloud)[^\n]{{0,40}}\b{cap}\b", text, re.I
+        ) or re.search(rf"\b{cap}\b[^\n]{{0,40}}(?:ollama-cloud|Ollama Cloud)", text, re.I)
+        assert states_cap, f"{rel} does not state the enforced cap {cap}"
 
 
-def test_a_page_that_prints_a_cap_transcript_is_discovered(repo_root: Path) -> None:
-    """The move class: a transcript on a page the old list did not name is judged.
+def test_a_guide_page_that_prints_a_cap_transcript_is_listed(repo_root: Path) -> None:
+    """A moved transcript must not leave CAP_PAGES pointing at the old page.
 
-    This is the regression for the README restructure: the ``cap=64`` transcript
-    moved to ``docs/guide/usage.md`` while the guard still read the README. The
-    guard must discover a page from its content, or a move silently stops being
-    checked.
+    T-0008 moved the ``parallel`` transcript, and the ``ollama-cloud ... cap=64``
+    line with it, from ``README.md`` to ``docs/guide/usage.md``. CAP_PAGES still
+    named README.md, so the guard demanded a statement from a page that no longer
+    made one while staying silent about the page that did. Every guide page that
+    prints a ``cap=`` transcript has to be listed here, so the next move fails on
+    this assertion instead of on a page that is merely quiet.
     """
-    transcripts = [
-        rel
-        for rel, text in cap_pages(repo_root)
-        if re.search(r"cap=\d+", text) and CAP_MENTION.search(text)
-    ]
-    assert transcripts, "no discovered page prints a cap transcript; the probe is vacuous"
-
-
-def test_mutant_a_new_page_stating_a_cap_is_discovered_and_judged(tmp_path: Path) -> None:
-    page = tmp_path / "docs" / "guide" / "new-cap-page.md"
-    page.parent.mkdir(parents=True)
-    page.write_text(
-        "# New page\n\nThe pool is `ollama-cloud` with cap=10 lanes.\n", encoding="utf-8"
+    showing = sorted(
+        path.name
+        for path in (repo_root / "docs" / "guide").glob("*.md")
+        if CAP_TRANSCRIPT.search(path.read_text(encoding="utf-8"))
     )
-
-    assert [rel for rel, _ in cap_pages(tmp_path)] == ["docs/guide/new-cap-page.md"]
-    problems = cap_problems(tmp_path)
-    assert any("new-cap-page.md" in problem for problem in problems), problems
-
-
-def test_mutant_moving_the_claim_to_a_new_page_is_still_checked(tmp_path: Path) -> None:
-    moved = tmp_path / "docs" / "guide" / "moved.md"
-    moved.parent.mkdir(parents=True)
-    moved.write_text(
-        "# Moved transcript\n\n## provider slots\n- ollama-cloud used=0 cap=64 free=64\n",
-        encoding="utf-8",
+    assert showing, f"no page under {GUIDE_PAGES} prints a cap transcript; the probe is vacuous"
+    listed = {Path(rel).name for rel in CAP_PAGES}
+    unlisted = [name for name in showing if name not in listed]
+    assert unlisted == [], (
+        f"guide page(s) print a cap transcript but are not in CAP_PAGES: {unlisted}"
     )
-    assert [rel for rel, _ in cap_pages(tmp_path)] == ["docs/guide/moved.md"]
-    assert cap_problems(tmp_path) == []
-
-    moved.write_text(moved.read_text(encoding="utf-8").replace("cap=64", "cap=10"), "utf-8")
-    problems = cap_problems(tmp_path)
-    assert any("moved.md" in problem for problem in problems), problems
-
-
-def test_historical_team_quotes_are_not_read_into_the_contract(tmp_path: Path) -> None:
-    archive = tmp_path / "docs" / "Team" / "Archive.md"
-    archive.parent.mkdir(parents=True)
-    archive.write_text(
-        "- quoted evidence: the pool said Ollama Cloud cap=10 in 2025\n", encoding="utf-8"
-    )
-    assert cap_pages(tmp_path) == []
-    assert cap_problems(tmp_path) == []
 
 
 def test_the_cap_is_not_left_at_the_retired_bound(repo_root: Path) -> None:

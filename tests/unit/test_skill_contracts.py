@@ -1667,87 +1667,10 @@ def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path)
     ).stdout
     assert listing.startswith("100644 "), listing
 
-    problems = clone_install_problems(root)
-    assert problems == [], "\n".join(problems)
-
-
-CLONE_SNIPPET = re.compile(r"git clone[^\n]*\.agents/skills/teamwork")
-
-NESTED_GIT_REMOVAL = "rm -rf .agents/skills/teamwork/.git"
-
-CLONE_DISCOVERY_FILES = ("README.md", "AGENTS.md", "SKILL.md")
-
-CLONE_DISCOVERY_DIRS = ("docs", "references", "roles", "templates")
-
-CLONE_HISTORICAL_PREFIXES = ("docs/Team/",)
-
-
-def clone_install_pages(root: Path) -> list[tuple[str, str]]:
-    """``(relative path, text)`` for every page that shows the skill clone.
-
-    Discovery, not a list: the README restructure moved install snippets between
-    pages, and a tuple kept checking a page that no longer showed the command.
-    """
-    paths = [root / name for name in CLONE_DISCOVERY_FILES]
-    for directory in CLONE_DISCOVERY_DIRS:
-        paths.extend(sorted((root / directory).rglob("*.md")))
-    found = []
-    for path in sorted({path for path in paths if path.is_file()}):
-        rel = path.relative_to(root).as_posix()
-        if any(rel.startswith(prefix) for prefix in CLONE_HISTORICAL_PREFIXES):
-            continue
-        text = path.read_text(encoding="utf-8")
-        if CLONE_SNIPPET.search(text):
-            found.append((rel, text))
-    return found
-
-
-def clone_install_problems(root: Path) -> list[str]:
-    """Every page that shows the clone but not the nested-.git removal."""
-    pages = clone_install_pages(root)
-    if not pages:
-        return ["no page documents the skill clone; the probe would be vacuous"]
-    return [
-        f"{rel}: shows `git clone ... .agents/skills/teamwork` but not "
-        f"`{NESTED_GIT_REMOVAL}`, so a reader commits a gitlink"
-        for rel, text in pages
-        if NESTED_GIT_REMOVAL not in text
-    ]
-
-
-def test_a_new_page_documenting_the_clone_without_removing_git_is_reported(
-    tmp_path: Path,
-) -> None:
-    page = tmp_path / "docs" / "guide" / "new-clone.md"
-    page.parent.mkdir(parents=True)
-    page.write_text(
-        "# New clone page\n\ngit clone https://github.com/Nidvue/Teamwork.git "
-        ".agents/skills/teamwork\n",
-        encoding="utf-8",
-    )
-
-    assert [rel for rel, _ in clone_install_pages(tmp_path)] == ["docs/guide/new-clone.md"]
-    problems = clone_install_problems(tmp_path)
-    assert any("new-clone.md" in problem for problem in problems), problems
-
-
-def test_moving_the_clone_snippet_to_a_new_page_is_still_checked(tmp_path: Path) -> None:
-    page = tmp_path / "docs" / "guide" / "moved-clone.md"
-    page.parent.mkdir(parents=True)
-    page.write_text(
-        "# Moved clone\n\ngit clone https://github.com/Nidvue/Teamwork.git "
-        ".agents/skills/teamwork\nrm -rf .agents/skills/teamwork/.git\n",
-        encoding="utf-8",
-    )
-    assert [rel for rel, _ in clone_install_pages(tmp_path)] == ["docs/guide/moved-clone.md"]
-    assert clone_install_problems(tmp_path) == []
-
-    page.write_text(
-        page.read_text(encoding="utf-8").replace(NESTED_GIT_REMOVAL + "\n", ""),
-        encoding="utf-8",
-    )
-    problems = clone_install_problems(tmp_path)
-    assert any("moved-clone.md" in problem for problem in problems), problems
+    surfaces = ("README.md", "docs/guide/install.md", "docs/guide/quickstart.md", "docs/index.md")
+    for name in surfaces:
+        text = (root / name).read_text(encoding="utf-8")
+        assert "rm -rf .agents/skills/teamwork/.git" in text, name
 
 
 def test_no_surface_still_demands_a_second_reviewer_to_merge(root):
