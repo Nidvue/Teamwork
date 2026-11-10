@@ -219,3 +219,16 @@ Gate order: owner self-check -> Reviewer verdict -> entry below.
 - reviewer evidence: pytest -q @e7a7d4d -> 350 passed; coverage 62.14%; ruff/mypy/links/privacy clean
 - findings history: -
 - branch / merge: ceo/t-0008-resolve-residual-audit-items-umask-bom-l / pending
+
+## T-0009 · Fix the pr-merge commit message acting role  (ceo)
+- date: 2026-10-19
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] re-read the merge message builder and the regression assertion | test: pytest tests/integration/test_workspace_flow.py @9e1ab8f -> 14 passed
+- author evidence: commit 9e1ab8f
+- reviewer evidence: pytest tests/integration/test_workspace_flow.py @9e1ab8f -> 14 passed; merge trailer Reviewer
+- findings history: -
+- branch / merge: ceo/t-0009-fix-the-pr-merge-commit-message-acting-r / pending
