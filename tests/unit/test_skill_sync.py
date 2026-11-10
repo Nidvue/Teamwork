@@ -134,8 +134,8 @@ def test_check_fails_when_nothing_is_installed(tmp_path: Path, capsys) -> None:
 
 def test_the_shipped_source_trees_are_the_package_trees(repo_root: Path) -> None:
     """One list, two consumers: the tarball builder and the mirror cannot drift."""
-    assert sync_skill.SKILL_FILES is SKILL_FILES
-    assert sync_skill.SKILL_TREES is SKILL_TREES
+    assert sync_skill.BUNDLE_FILES == SKILL_FILES
+    assert sync_skill.BUNDLE_TREES == SKILL_TREES
     assert (repo_root / "SKILL.md").is_file()
     assert all((repo_root / tree).is_dir() for tree in SKILL_TREES)
 

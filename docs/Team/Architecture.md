@@ -35,6 +35,7 @@ Teamwork/
 ├── src/teamwork/
 │   ├── __init__.py           # re-exports __version__ only (no lazy re-exports)
 │   ├── __main__.py           # python -m teamwork -> cli.main()
+│   ├── bundle.py             # the bundle manifest + the mirror (sync/refresh one source of truth)
 │   ├── cli.py                # main(argv) -> int, delegates to engine.main
 │   ├── config.py             # workspace paths, record names, caps
 │   ├── engine.py             # command layer: build_parser/main + gates, review/PR, memory, model
