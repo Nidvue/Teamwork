@@ -9960,6 +9960,12 @@ def _parsers_integration(sub, common) -> None:
     )
     s.set_defaults(func=cmd_commit)
 
+    # `hooks` installs and inspects the git hooks; `hook` is what those hooks call
+    # back into. The rules act on the commit/push flow, so they register here.
+    from .hooks import add_parsers as _add_hook_parsers
+
+    _add_hook_parsers(sub, common)
+
 
 def _parsers_governance(sub, common) -> None:
     """`governance` command surface."""
