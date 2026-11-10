@@ -252,10 +252,10 @@ named here with its id - never left silently unprotected.
 
 | reading | value |
 |---|---|
-| `ci.yml` `PROSE=` | `docs/`, `assets/`, `README.md$`, `CHANGELOG.md$`, `CONTRIBUTING.md$`, `SECURITY.md$`, `CODE_OF_CONDUCT.md$`, `CITATION.cff$`, `LICENSE$`, `AGENTS.md$`, `mkdocs.yml$` |
+| `scripts/ci_scope.py` `PROSE_PATHS` | `docs/`, `assets/`, `README.md$`, `CHANGELOG.md$`, `CONTRIBUTING.md$`, `SECURITY.md$`, `CODE_OF_CONDUCT.md$`, `CITATION.cff$`, `LICENSE$`, `AGENTS.md$`, `mkdocs.yml$` (the module owns it; `ci.yml` runs it, it no longer carries an inline copy) |
 | `docs.yml` `paths:` | `docs/**`, `assets/**`, `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`, `mkdocs.yml` |
-| as path sets | identical - 11 members, `scope`-only `[]`, `paths`-only `[]` |
-| 13 probe paths through both (5 prose + 8 code) | 0 disagreements: `docs/x`, `assets/`, `README.md`, `LICENSE`, `mkdocs.yml` are prose in both; `README.md.bak`, `docsx/a.md`, `assetsfoo/x.png`, `SKILL.md`, `NOTICE`, `release-exceptions.json`, `src/teamwork/cli.py`, `.github/workflows/ci.yml` are code in both |
+| as path sets | identical - 11 members, module-only `[]`, `docs.yml`-only `[]` |
+| 13 probe paths through the module and `docs.yml` (5 prose + 8 code) | 0 disagreements: `docs/x`, `assets/`, `README.md`, `LICENSE`, `mkdocs.yml` are prose in both; `README.md.bak`, `docsx/a.md`, `assetsfoo/x.png`, `SKILL.md`, `NOTICE`, `release-exceptions.json`, `src/teamwork/cli.py`, `.github/workflows/ci.yml` are code in both |
 
 The `$` anchors are load-bearing: the file members are exact names, so `README.md.bak` is
 code, not prose. Of the 17 tracked root files (`git ls-files | awk -F/ 'NF==1'`), 9 are
