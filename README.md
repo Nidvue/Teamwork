@@ -8,7 +8,7 @@
   <p>
     <a href="https://github.com/Nidvue/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Nidvue/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github" height="20"></a>
     <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg" width="160" height="20"></a>
-    <a href="docs/guide/architecture.md"><img alt="Python 3.9 to 3.13" src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue" width="228" height="20"></a>
+    <a href="docs/guide/architecture.md"><img alt="Python 3.11 to 3.13" src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue" width="176" height="20"></a>
     <a href="docs/guide/install.md"><img alt="Skill: one clone to install" src="https://img.shields.io/badge/skill-install%20in%20one%20clone-8957e5" width="144" height="20"></a>
     <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" width="90" height="20"></a>
     <a href="https://github.com/Nidvue/Teamwork/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/Nidvue/Teamwork?style=social" height="20"></a>
@@ -107,8 +107,9 @@ appears at `.pi/Teamwork/Teams/<Team>/`; project output is committed. Read the f
 - **Parallel lanes against one frozen contract** - interfaces first, then
   developer, tester and designer work at the same time.
 - **Layered tests with one owner per layer** - `tests plan` shows coverage and gaps.
-- **Portable and dependency-free** - CPython 3.9-3.13 on Linux, macOS and Windows,
-  standard library only, with automatic model routing (`teamwork model auto`) across every lane.
+- **Portable and dependency-free** - CPython 3.11-3.13 on Linux, macOS and Windows,
+  standard library only, with automatic model routing (`teamwork model auto`)
+  across every lane.
 
 ## Documentation
 
@@ -124,10 +125,10 @@ appears at `.pi/Teamwork/Teams/<Team>/`; project output is committed. Read the f
 | [Features](docs/guide/features.md) | Every capability, and what the evidence gate refuses. |
 | [Architecture](docs/guide/architecture.md) | Package layout, resource resolution, workspace format. |
 | [CLI reference](docs/guide/cli.md) | Every command, subcommand, flag and exit code, split into [records](docs/guide/cli-records.md), [review](docs/guide/cli-review.md), [workflow](docs/guide/cli-workflow.md) and [audit](docs/guide/cli-audit.md). |
-| [Alternatives](docs/guide/alternatives.md) | How this compares with other multi-agent orchestrators. |
-| [Roadmap](docs/guide/roadmap.md) | What is shipped, what is current and what is not planned. |
+| [Alternatives](docs/guide/alternatives.md) | How this compares with other orchestrators. |
+| [Roadmap](docs/guide/roadmap.md) | What is shipped, current, and not planned. |
 | [Releases](docs/releases.md) | What a release publishes and how to read its version. |
-| [CI pipeline](docs/guide/ci.md) | Run the full lint/test/build/docs pipeline locally. |
+| [CI pipeline](docs/guide/ci.md) | Run the lint/test/build/docs pipeline locally. |
 
 ## Contributing, security and license
 

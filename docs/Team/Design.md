@@ -104,7 +104,7 @@ record in section 9.
 |---|---|---|---|---|---|
 | CI | Build is green | The first credential a developer checks | Actions `ci.yml` | "CI status" | `height="20"` |
 | License | AGPL-3.0-or-later | Copyleft is a deliberate decision (R-11); state it up front | `LICENSE` | "License: AGPL-3.0-or-later" | `width="160" height="20"` |
-| Python | 3.9-3.13 | Compatibility is a purchase decision | Architecture | "Python 3.9 to 3.13" | `width="228" height="20"` |
+| Python | 3.11-3.13 | Compatibility is a purchase decision | Architecture | "Python 3.11 to 3.13" | `width="176" height="20"` |
 | Skill install | One clone, nothing to build | Sets the install expectation correctly: this is a skill, not an app | Install guide | "Skill: one clone to install" | `width="144" height="20"` |
 | PRs welcome | Contributions open | Lowers the barrier for the first PR | `CONTRIBUTING.md` | "PRs welcome" | `width="90" height="20"` |
 | Stars | Social proof | Requested conversion signal; never promised (R-1) | Stargazers | "GitHub stars" | `height="20"` |

@@ -510,20 +510,14 @@ def _isinstance_union_lines(tree: ast.AST) -> list[int]:
     return offenders
 
 
-def test_no_isinstance_union_a_python_39_runtime_cannot_evaluate() -> None:
-    """No `isinstance(x, X | Y)` in either module: 3.9 raises `TypeError` on it."""
-    offenders = [
-        f"{module.name}:{line}"
-        for module in UNION_GUARDED_MODULES
-        for line in _isinstance_union_lines(
-            ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
-        )
-    ]
-    assert offenders == [], (
-        "`isinstance`/`issubclass` takes a PEP 604 union (`X | Y`), which raises "
-        "`TypeError: unsupported operand type(s) for |` on Python 3.9: "
-        f"{offenders}. Spell it as a tuple: `(ast.List, ast.Tuple)`."
-    )
+def test_the_retired_isinstance_union_guard_still_detects_its_pattern() -> None:
+    """PEP 604 unions are legal from 3.10, so the 3.9 tree-wide ban is retired.
+
+    The detector stays proven so a future floor drop can re-enable the scan
+    without re-deriving the expression it has to catch.
+    """
+    source = "import ast\n\ndef _tool(call):\n    return isinstance(call, ast.List | ast.Tuple)\n"
+    assert _isinstance_union_lines(ast.parse(source)) == [4]
 
 
 def test_the_union_guard_bites_on_the_spelling_20c7d23_shipped() -> None:

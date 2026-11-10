@@ -95,7 +95,7 @@ def round_trip(name: str, source: Path, parse, render) -> tuple[str, int, list[s
     problems = []
     if len(again) != len(original):
         problems.append(f"{name}: {len(original)} record(s) in, {len(again)} out")
-    for before, after in zip(original, again):
+    for before, after in zip(original, again, strict=True):
         lost = {k: v for k, v in before.items() if after.get(k) != v}
         if lost:
             keys = ",".join(sorted(lost))

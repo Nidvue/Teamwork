@@ -10,11 +10,15 @@ documentation drifted, see the header of that file).
 A comment cannot hold a contract: `paths-ignore` was deleted from `on:` once and
 nothing failed; a `needs:` on `release-consistency` would let the gate skip with
 the job it depends on, and the failure would look like a green run. Each test
-below reads the workflow and asserts one clause of the header's contract, and
-each has a mutant twin that proves it bites (`test_..._mutant`): the mutant
-applies one targeted edit to the workflow *text*, parses the result and asserts
-the contract function reports a violation. Mutants are built in memory, so no
-tracked file is ever written.
+below reads the workflow and asserts one clause of the header's contract. The
+core clauses - the job set, the scope guards, the unconditional release gate and
+the R2 flag - each have a mutant twin that proves the clause bites
+(`test_..._mutant`): the mutant applies one targeted edit to the workflow *text*,
+parses the result and asserts the contract function reports a violation. The
+matrix clause contributes two mutants (a sixth lane, the coverage lane switched
+off); its remaining checks - `fail-fast`, the full-history checkout and the junit
+step - are direct assertions on the real workflow and have no mutant twin.
+Mutants are built in memory, so no tracked file is ever written.
 
 The workflow is parsed by `workflow_yaml.parse_workflow`, a standard-library
 reader for the YAML subset these files use. PyYAML is not in the `dev` extra, so
@@ -60,6 +64,18 @@ SCOPE_OUTPUTS = {
 
 CODE_ONLY_JOBS = ("lint", "typecheck", "test", "build")
 
+MATRIX_CELLS = (
+    ("ubuntu-latest", "3.11"),
+    ("ubuntu-latest", "3.12"),
+    ("ubuntu-latest", "3.13"),
+    ("macos-latest", "3.13"),
+    ("windows-latest", "3.13"),
+)
+
+COVERAGE_CELL = ("ubuntu-latest", "3.11")
+
+COVERAGE_FLOOR = "--cov-fail-under=55"
+
 CODE_OR_PROSE_JOBS = ("privacy", "docs")
 
 
@@ -85,6 +101,63 @@ def needs_of(job: dict) -> list[str]:
     if isinstance(needs, list):
         return [str(item) for item in needs]
     return [str(needs)]
+
+
+def matrix_rows(document: dict) -> list[tuple[str, str, str]]:
+    """``(os, python-version, coverage)`` for every expanded test-matrix cell."""
+    matrix = ((jobs(document).get("test") or {}).get("strategy") or {}).get("matrix") or {}
+    rows = []
+    for entry in matrix.get("include") or []:
+        rows.append(
+            (str(entry.get("os")), str(entry.get("python-version")), str(entry.get("coverage")))
+        )
+    return rows
+
+
+def matrix_problems(document: dict) -> list[str]:
+    """The five-cell matrix, its fail-fast policy and the single coverage lane."""
+    problems: list[str] = []
+    test_job = jobs(document).get("test") or {}
+    strategy = test_job.get("strategy") or {}
+    matrix = strategy.get("matrix") or {}
+    if strategy.get("fail-fast") != "false":
+        problems.append(f"test fail-fast is {strategy.get('fail-fast')!r}, want the string 'false'")
+    if "os" in matrix or "python-version" in matrix:
+        problems.append(
+            f"the test matrix still expands a cartesian product beside `include:`: {sorted(matrix)}"
+        )
+    rows = matrix_rows(document)
+    cells = [(os_name, version) for os_name, version, _coverage in rows]
+    if sorted(cells) != sorted(MATRIX_CELLS):
+        problems.append(f"test matrix is {sorted(cells)}, contract says {sorted(MATRIX_CELLS)}")
+    covered = [(os_name, version) for os_name, version, coverage in rows if coverage == "true"]
+    if covered != [COVERAGE_CELL]:
+        problems.append(f"coverage lanes are {covered}, want only {COVERAGE_CELL}")
+    for os_name, version, _coverage in rows:
+        if version in {"3.9", "3.10"}:
+            problems.append(f"the matrix still schedules {os_name} / py{version}")
+    steps = test_job.get("steps") or []
+    with_cov = [step for step in steps if "--cov" in str(step.get("run") or "")]
+    if len(with_cov) != 1:
+        problems.append(f"{len(with_cov)} step(s) run coverage, want exactly 1")
+    elif str(with_cov[0].get("if") or "") != "matrix.coverage":
+        problems.append(
+            f"the coverage step is gated on {with_cov[0].get('if')!r}, want matrix.coverage"
+        )
+    if workflow_text().count(COVERAGE_FLOOR) != 1:
+        problems.append(f"{COVERAGE_FLOOR} appears {workflow_text().count(COVERAGE_FLOOR)}x")
+    names = " ".join(str(step.get("name") or "") for step in steps)
+    if "Checkout (full history)" not in names:
+        problems.append("the test job lost its full-history checkout step")
+    if not any(
+        "fetch-depth" in str(step.get("with") or {})
+        for step in steps
+        if "Checkout" in str(step.get("name") or "")
+    ):
+        problems.append("the checkout step no longer asserts fetch-depth")
+    if not any("junit" in str(step.get("name") or "").lower() for step in steps):
+        problems.append("the test job lost its junit artifact step")
+    return problems
 
 
 def contract_problems(document: dict) -> list[str]:
@@ -147,12 +220,47 @@ def contract_problems(document: dict) -> list[str]:
         guard = str((found.get(name) or {}).get("if") or "")
         if PROSE_GUARD in guard:
             problems.append(f"{name} gates on the prose output, so a prose push runs it: {guard!r}")
+    problems.extend(matrix_problems(document))
     return problems
 
 
 @pytest.fixture(scope="module")
 def ci() -> dict:
     return workflow()
+
+
+def test_the_matrix_is_the_five_designed_cells(ci):
+    """3.11/3.12/3.13 on ubuntu, newest on macOS and Windows: five lanes, no more."""
+    assert sorted((os_name, version) for os_name, version, _ in matrix_rows(ci)) == sorted(
+        MATRIX_CELLS
+    )
+
+
+def test_the_matrix_keeps_fail_fast_false(ci):
+    assert (jobs(ci)["test"].get("strategy") or {}).get("fail-fast") == "false"
+
+
+def test_the_coverage_gate_runs_on_one_lane_only(ci):
+    """The 55% floor must exist exactly once, on ubuntu 3.11."""
+    assert workflow_text().count(COVERAGE_FLOOR) == 1
+    covered = [
+        (os_name, version) for os_name, version, coverage in matrix_rows(ci) if coverage == "true"
+    ]
+    assert covered == [COVERAGE_CELL]
+    with_cov = [
+        step
+        for step in jobs(ci)["test"].get("steps") or []
+        if "--cov" in str(step.get("run") or "")
+    ]
+    assert len(with_cov) == 1, "coverage flags must live in one step"
+    assert str(with_cov[0].get("if") or "") == "matrix.coverage"
+
+
+def test_every_test_lane_keeps_full_history_and_the_junit_artifact(ci):
+    steps = jobs(ci)["test"].get("steps") or []
+    names = [str(step.get("name") or "") for step in steps]
+    assert "Checkout (full history)" in names
+    assert any("junit" in name.lower() for name in names)
 
 
 def test_the_workflow_declares_the_contracted_job_set(ci):
@@ -167,7 +275,7 @@ def test_the_release_consistency_gate_is_unconditional(ci):
 
 
 def test_every_expensive_job_is_gated_on_the_scope_output(ci):
-    """The 3x3 matrix and the packaging jobs must be skippable; nothing else must."""
+    """The test matrix and the packaging jobs must be skippable; nothing else must."""
     expensive = [name for name in EXPECTED_JOBS if name not in UNCONDITIONAL_JOBS]
     assert expensive, "every job is unconditional, so the guard clause is untested"
     for name in expensive:
@@ -404,6 +512,35 @@ def test_the_non_pull_request_arm_keeps_r2_evaluated_with_head_is_default_branch
 
 def test_the_r2_scope_wiring_holds_for_the_real_workflow(ci):
     assert scope_problems(ci) == []
+
+
+def test_mutant_a_sixth_matrix_cell_is_reported():
+    """An added lane is a cost the contract did not agree to."""
+    anchor = (
+        "          - os: windows-latest\n"
+        '            python-version: "3.13"\n'
+        "            coverage: false\n"
+    )
+    mutant = workflow_text().replace(
+        anchor,
+        anchor + '          - os: ubuntu-latest\n            python-version: "3.10"\n'
+        "            coverage: false\n",
+        1,
+    )
+    assert mutant != workflow_text(), "matrix anchor is gone"
+    problems = matrix_problems(parse_workflow(mutant))
+    assert any("test matrix is" in problem for problem in problems), problems
+    assert any("still schedules" in problem for problem in problems), problems
+
+
+def test_mutant_a_dropped_coverage_lane_is_reported():
+    """Turning the one coverage cell off would make the gate unreachable."""
+    mutant = workflow_text().replace(
+        "            coverage: true\n", "            coverage: false\n", 1
+    )
+    assert mutant != workflow_text(), "coverage anchor is gone"
+    problems = matrix_problems(parse_workflow(mutant))
+    assert any("coverage lanes are" in problem for problem in problems), problems
 
 
 def test_mutant_the_swapped_scope_arms_are_reported():
