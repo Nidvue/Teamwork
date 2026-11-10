@@ -8,14 +8,22 @@
 # D-20261019-CEO-15) and three fabricated probe values a reviewer quoted as
 # evidence (D-20261020-CEO-4). The file itself is the list; nothing here counts it.
 #
-# What an entry exempts is exactly one finding VALUE, not a directory: the scanner
-# tests each match against the pattern, and for `home-path` that value is the user
-# name alone. So `^\.pi/agent/npm$` covers every `agent-config` finding whose value
-# is that install tree, and `^/home/pingz$` covers every `home-path` finding for that
-# one user name - whether the path ends there, at `~/.ssh/id_rsa`, or anywhere else
-# under it. A credential rule is unaffected by either entry: a token, key or
-# password on the same line is still reported, and a sibling user name does not
-# match.
+# What an entry exempts is the text the scanner matched, not a directory: a finding
+# is exempt when its matched text matches any pattern here. For `home-path` and
+# `agent-config` that text is the rule's own match - the home prefix, or the config
+# directory - never the rest of the path. So `^\.pi/agent/npm$` covers every
+# `agent-config` finding whose value is that install tree, and `^/home/pingz$`
+# covers every `home-path` finding for that home path - whether the path ends
+# there, at `~/.ssh/id_rsa`, or anywhere else under it, because the text after the
+# match is not part of the value. A credential rule is unaffected by either entry:
+# a token, key or password on the same line is still reported, and a sibling user
+# name does not match.
+#
+# This file is self-exempting, and that is the one thing to remember about it: the
+# entries are patterns, so the file itself matches the literals it lists and is
+# only clean when it is passed as its own `--allow`. Every change here is therefore
+# a security change - justify the entry in the same commit and have it reviewed as
+# one, never to make a run green.
 
 # ^\.pi/agent/npm$ - opened by T-0001. The quoted pi-subagents install path: the
 # scanner's own fixture at tests/unit/test_privacy_scan.py, the pre-fix blob of
