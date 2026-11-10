@@ -160,8 +160,10 @@ under two roles is two tasks.
 | developer | T-0053 | preflight | done | P-0049 | 38112f9 |
 | developer | T-0054 | audit | done | P-0050 | 17bd3a9 |
 | developer | T-0055 | privacy | done | P-0055 | 0d913cf |
+| developer | T-0056 | records | done | P-0056 | b8805b8 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
+| reviewer | T-0003 | - | todo | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
@@ -183,6 +185,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
+| reviewer | T-0003 · Acceptance probes for the eight areas whose acceptance layer is recorded failing and has no probe module: audit, baseline, ci-scope, criteria, identity, ledger, m19-records, security | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
