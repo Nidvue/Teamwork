@@ -5,7 +5,13 @@ Priority: P0 code, P1 tests, P2 docs.
 
 Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architecture.md) · [Decisions](Decisions.md) · [Research](Research.md) · [Design](Design.md) · [Risks](Risks.md) · [Costs](Costs.md) · [Release](Release.md) · [Archive](Archive.md) · [pi packaging](Pi-Packaging.md)
 
-## Status summary (2026-10-20, `main` @ `de4cf75`)
+## Status summary (2026-10-21, `main` as `git rev-parse --short main` reports it)
+
+The revision named below is the tip this summary was measured at; it is read
+from the tip, not pinned, and the next merge moves it. Every state in the
+`state` column is read from the queue (`teamwork.py task list <role>`), the
+archive (`teamwork.py archive`) and git (`git merge-base --is-ancestor <sha>
+main`), never from a brief.
 
 | milestone | exit condition | state |
 |---|---|---|
@@ -13,7 +19,7 @@ Related: [Project](Project.md) · [Board](Board.md) · [Architecture](Architectu
 | M1 Package the engine | `selftest` + installed wheel `--version` | done |
 | M2 Make it attractive | README demo, strict docs site, 0 broken links | done |
 | M3 Independent verification | every deliverable has a Reviewer verdict | done |
-| M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - latest tag `v1.1.0` (`CHANGELOG` 1.1.1 and 1.1.2 written, untagged) |
+| M4 Publish | `v1.0.0` release with wheel, sdist, `SHA256SUMS`, SBOM | done - latest tag on the local `main` is `v1.1.0`; `v1.1.2` is tagged on the published side and is not on the local `main` yet (see [Board](Board.md)) |
 | M5 Post-1.0 hardening | typed module split, Windows-green matrix, dependency upkeep | done - T-0010..T-0016, closing T-0017 |
 | M6 Evidence packets + repro gate | hashed evidence artifacts, repro-first bug gate, Reviewer verdicts | done - T-0020..T-0025 |
 | M7 Reviewer fan-out + claims | `pulse` hands each unclaimed deliverable to a different idle Reviewer lane | done - developer T-0001, merge `8f210bc` |
@@ -83,7 +89,9 @@ then H1+H3+H8, then H4, then the doctrine rows H6/H7/H9.
 The intake brief numbers this milestone M8. The M8 above is the records-hygiene
 milestone and its own exit condition requires each milestone to be listed once,
 so the Harness^2 adoption is M9. A row is `done` only when its merge is on
-`main`; an open PR is `review`, a PR sent back for rework is `doing`.
+`main` (`git merge-base --is-ancestor <sha> main` -> rc 0); an open PR is
+`review`, a PR sent back for rework is `doing`, and a task the queue records
+as `dropped` is listed in the drops table below with its reason.
 
 | id | task | role | prio | deps | artifact | status | evidence |
 |---|---|---|---|---|---|---|---|
@@ -94,22 +102,27 @@ so the Harness^2 adoption is M9. A row is `done` only when its merge is on
 | T-0001 | Integration + acceptance tests for the harness surface and hooks | tester | P0 | developer:T-0001, developer:T-0002 | `tests/integration/test_harness_cli.py`, `tests/acceptance/test_harness_docs.py` | done | merge `47db23d` (P-0011); the argv-builder defect the first round found was fixed in `1305090` |
 | T-0001 | Docs: reviewer rubric, untrusted-material rule, SKILL.md and CHANGELOG | ceo | P1 | - | `roles/reviewer.md`, `references/Evidence.md`, `SKILL.md` | done | merge `2f44f00` (P-0001), after 2 fail + 1 pass rounds |
 | T-0002 | Docs pass for the new surface: cli guide, CHANGELOG, dead-skill trigger line | ceo | P1 | developer:T-0001, developer:T-0002 | `docs/guide/cli.md`, `CHANGELOG.md`, `SKILL.md` | done | merge `28c1133` (P-0008); `hooks` documented at `20a99fd`, `harness` documented after the engine merged |
-| T-0001 | Run the acceptance record TS-0004 for area harness | reviewer | P2 | tester:T-0001 | acceptance record TS-0004 | done | the duplicate was resolved by renumbering: TS-0003 (integration/harness) and TS-0005 (acceptance/harness) cover the area |
 
-Every M9 row is `done` and every merge named in the evidence column is an
-ancestor of `main` (`git merge-base --is-ancestor <sha> main`). AC-H1..AC-H8
-are verified on the merged revision (`teamwork.py criteria list` -> 8/8) and
-`pytest -q` is clean on `main`, so the milestone's exit condition is met; the
-milestone itself closes when the CEO records that, not before.
+Every M9 row above is `done` and every merge named in the evidence column is an
+ancestor of `main` (`git merge-base --is-ancestor <sha> main` -> rc 0 for
+`73be637`, `bef4e02`, `b33120c`, `49cd42e`, `47db23d`, `2f44f00`, `28c1133`).
+The one M9 task with no merge is the reviewer row, which the queue records as
+`dropped`; it is in the drops table below, and the acceptance coverage it
+wanted is in place under other ids (TS-0003 integration/harness, TS-0005
+acceptance/harness). AC-H1..AC-H8 are verified on the merged revision
+(`teamwork.py criteria list` -> 8/8) and `pytest -q` is clean on `main`, so the
+milestone's exit condition is met; the milestone itself closes when the CEO
+records that, not before.
 
-Two tasks were dropped in this milestone. They are the M9 drops; the live
-queues also carry CEO drops from the privacy work, which is outside this
-milestone's scope and is listed in the table below.
+Three tasks were dropped in this milestone. They are the M9 drops; the live
+queues also carry CEO and Security Auditor drops from the privacy and audit
+work, which is outside this milestone's scope and is listed in the table below.
 
 | id | task | role | why dropped |
 |---|---|---|---|
 | T-0003 | Three measured defects on the harness/hooks branches (list shape, hook marker, root-commit hole) | developer | covered by the fixes it named: the eight-row list landed in developer T-0001 `ac71f71`, the marker literal and root-commit refusal in developer T-0002 `2fbd126` |
 | T-0002 | Architecture 11.2/11.6 drifted from the two branches in four measured ways | architect | superseded: reconciled inside architect T-0001's review rework `f476b82` as amendments A1-A3 and rulings R1-R6 (D-20261020-Architect-8, -9) |
+| T-0001 | Run the acceptance record TS-0004 for area harness | reviewer | a queue-hygiene chore, not a deliverable: the mis-filed duplicate was resolved by renumbering - TS-0004 is the CEO's goal/milestone record, and the acceptance layer for area harness is TS-0005, owned and run by the Reviewer role, with TS-0003 (integration/harness) covering the process boundary. Its branch carried the D-0003 ruling, which moved to reviewer T-0002 and merged as `e3fa290` (P-0026); the branch itself is superseded and is not merged |
 
 Landed in the same window, outside this milestone's scope:
 
@@ -125,12 +138,17 @@ Landed in the same window, outside this milestone's scope:
 | T-0008 | Re-review P-0010 after the archive-mask fix | ceo | done | merge `51b8235` (P-0016) |
 | T-0009 | Export the audit manifest for the M9 milestone | ceo | done | merge `bbbe525` (P-0019) |
 | T-0010 | Ledger export writes to the project root even inside a lane worktree | ceo | done | closed on the developer lane's reviewed work: merge `6d090aa` (P-0018) |
-| T-0011 | The published branch carries a committer guard the local main lacks | ceo | doing | the local history rewrite must be based on the published tip; see [Board](Board.md) |
+| T-0011 | The published branch carries a committer guard the local main lacks | ceo | done | the measurement and the decision are committed in [Decisions](Decisions.md) as D-20261020-CEO-8 (merge `80f0cfa`, P-0021); the queue records the task `done` with a passed review. The rewrite it gates is still the user's to authorize; see [Board](Board.md) |
 | T-0004 | Design, declare and run the unit-layer test record for every area | developer | done | merge `1380163` (P-0012) |
 | T-0005 | Global memory entries must carry provenance, and a merge must never drop it | developer | done | merge `1592195` (P-0013) |
 | T-0006 | The privacy gate false-positives on a relative path | developer | done | merge `0343b28` (P-0015) |
 | T-0008 | Ledger export must act on the work tree the command runs in | developer | done | merge `6d090aa` (P-0018) |
 | T-0003 | Write the committed record of the privacy-audit answer | product-manager | done | merge `49ad40e` (P-0017) |
+| T-0001 | The audit report's conclusion is stale | security-auditor | dropped | superseded by security-auditor T-0002, which re-stated the report under the D-0003 ruling; merge `72c56ca` (P-0024) |
+| T-0003 | The merged commit message of P-0024 carries a 40-hex tree id | security-auditor | dropped | the rule it produced is committed in [Decisions](Decisions.md) as D-20261021-CEO-1 (merge `cd516f1`, P-0027) |
+| T-0002 | Re-state the Audit Report's disclosure claim | security-auditor | done | merge `72c56ca` (P-0024) |
+| T-0009 | The dispute panel is computed at role level, so the neutral seat is locked out of a dispute between two instances of one role | developer | done | merge `5a705ba` (P-0025) |
+| T-0002 | Carry the D-0003 tribunal ruling into the committed decision record | reviewer | done | merge `e3fa290` (P-0026) |
 
 ## Closed milestones (evidence on file)
 
