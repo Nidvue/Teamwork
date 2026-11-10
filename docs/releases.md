@@ -92,7 +92,7 @@ checks before it reports success.
 
 | Not published | What it means for you |
 |---|---|
-| **PyPI** | The distribution `teamwork-agents` is **not on PyPI** (`https://pypi.org/pypi/teamwork-agents/json` returns not-found - measured 2026-10-28), so `pip install teamwork-agents`, `pipx install teamwork-agents` and `uvx --from teamwork-agents` do not resolve. The GitHub-release wheel above is the only index-free install source for the Python package. |
+| **PyPI** | The distribution `teamwork-agents` is **not on PyPI** (`https://pypi.org/pypi/teamwork-agents/json` returns not-found - measured 2026-10-28), so `pip install teamwork-agents`, `pipx install teamwork-agents` and `uvx --from teamwork-agents` do not resolve. The GitHub-release wheel above is the only index-free install source for the Python package. <!-- release-consistency: channel-unavailable --> |
 | **A moved tag** | A published tag is immutable. The pipeline never creates, moves or re-points one, and a fix ships as a new patch release. Pin a tag when you want a fixed protocol revision - and do not expect that pin to move. |
 | **A signed binary** | There is no GPG signature on the wheel. Provenance is the sigstore attestation the Release attaches, verified with `gh attestation verify`. |
 | **Anything else** | No container image, no operating-system package, no hosted service. The wheel, the sdist, the two SBOMs, the npm bundle and the site are the complete set. |
