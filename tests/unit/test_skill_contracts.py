@@ -636,3 +636,20 @@ def test_skill_contract_requires_warning_free_output(root):
     text = flat(read(root, "SKILL.md"))
     assert "Warnings are errors" in text
     assert "CI annotations" in text
+
+
+def test_release_tag_matches_the_package_version(root):
+    """A tag that disagrees with version.py ships mislabelled artefacts.
+
+    v1.0.1 was published with 1.0.0 files before this guard existed; the release
+    workflow now fails the build when the tag and the version disagree.
+    """
+    import re
+
+    text = (root / "src" / "teamwork" / "version.py").read_text(encoding="utf-8")
+    version = re.search(r'__version__ = "([^"]+)"', text).group(1)
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert f"## [{version}]" in changelog, f"CHANGELOG has no [{version}] section"
+    release = (root / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "Assert the tag matches the package version" in release
+    assert "GITHUB_REF_NAME" in release
