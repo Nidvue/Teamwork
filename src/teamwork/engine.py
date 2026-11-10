@@ -7172,11 +7172,24 @@ def _memory_verify(root: Path, role: str, args) -> int:
     knowledge records the pass reported and appends one `memory.verify` ledger
     event; statements, evidence and every lesson or short-term record are left
     exactly as they were.
+
+    `--focus` turns the pass into a tuned one: the text (or a task id, resolved
+    to its title) ranks every record by the frozen 4.1 score, the best `--limit`
+    are verified in that order, and the footer reports how many were deferred.
+    Without it every record is verified in pointer order, byte-identically.
     """
     now = datetime.datetime.now()
     entries = _collected(root, role)
-    rows = memverify.cap(memverify.verify_all(entries, root, now), args.limit)
-    counts = memverify.count(rows, args.limit)
+    focus = (getattr(args, "focus", "") or "").strip()
+    if focus:
+        query = memorypack.task_query(root, role, focus)
+        limit = memverify.FOCUS_LIMIT if args.limit is None else args.limit
+        rows, deferred = memverify.select(entries, root, query, now, limit)
+        counts = memverify.count(rows, limit, deferred)
+    else:
+        limit = args.limit or 0
+        rows = memverify.cap(memverify.verify_all(entries, root, now), limit)
+        counts = memverify.count(rows, limit)
     if args.apply:
         applied = memverify.apply(rows, root, args.by, now.date())
         if not args.json:
@@ -17580,7 +17593,16 @@ def _parsers_memory(sub, common) -> None:
     )
     p.add_argument("--role", default="", help="one role's lessons and memory (default: every role)")
     p.add_argument(
-        "--limit", type=int, default=0, help="report at most N records (default: every one)"
+        "--focus",
+        default="",
+        metavar="TEXT|T-ID",
+        help="verify the records that best match this goal, highest 4.1 score first",
+    )
+    p.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="report at most N records (default: every one; 25 with --focus; 0 means all)",
     )
     p.add_argument("--json", action="store_true", help="one JSON object per record")
     p.add_argument(
