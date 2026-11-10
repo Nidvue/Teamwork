@@ -120,6 +120,18 @@ Details: `{references}/Testing.md`.
 - Evidence: the format/lint command and its result, on the same revision as the
   tests.
 
+### Your model (all roles)
+
+- You run through the host's own LLM API on the model configured for **you**:
+  `teamwork.py model get <you>` shows it, and an instance override beats the role
+  default. The skill ships no model and calls no API itself.
+- The CEO sets the lanes with `teamwork.py model auto --apply` at intake - strong
+  models on the decision lanes, economy models on the mechanical ones - so quality
+  lands where it compounds and cost where it does not. If you need a different
+  model, ask the CEO; an agent never changes another agent's model.
+- Model choice never changes the protocol: the evidence gates, the two-stage review
+  and the ledger hold whatever model produced the work.
+
 ### Recording (your part of the trail)
 
 Every action you take is logged and must be attributable:
