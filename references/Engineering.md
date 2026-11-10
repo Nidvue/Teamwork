@@ -162,8 +162,7 @@ branch start  ->  work + commit  ->  SelfCheck  ->  pr open  ->  review pass/fai
 
 ```sh
 # 1. every instance works on its own branch
-teamwork.py branch start --agent developer-1 --task T-0007          # own worktree
-teamwork.py branch start --agent developer-1 --task T-0008 --shared  # the exception
+teamwork.py branch start --agent developer-1 --task T-0007          # [--worktree]
 #    branch name: developer-1/t-0007-<slug>
 # 2. commit staged milestones on that branch (commit refuses on main)
 teamwork.py commit --role developer --type feat --task T-0007 ... --all
@@ -243,37 +242,23 @@ after the **Reviewer** has passed the revision with no open finding.
   model stores) and on tracked local state (`.pi/`, virtualenvs, build output,
   caches, `Scratch/`).
 
-## Worktrees (one per task, the default)
+## Worktrees (optional but recommended for parallel writers)
 
-`branch start --agent <Instance> --task <T-id>` creates the branch, adds a
-worktree at `<Team>/Runtime/Worktrees/<Instance>/<T-id>/` and records both on the
-task. The main tree stays on the default branch; the agent works inside the
-worktree. Every instance of every role gets its own tree, so two lanes never
-commit on each other's branches and no lane has to wait for another's checkout.
+`branch start --agent <Instance> --task <T-id> --worktree` creates the branch,
+adds a worktree at `<Team>/Runtime/Worktrees/<Instance>/` and records both on the
+task. The main tree stays on its own branch; the agent works inside the worktree.
 
-- The recorded path is **relative to the team root**: an absolute host path in a
-  queue is disclosure to every lane that reads it, and the record mask can rewrite
-  a directory path that looks high-entropy, which points the record at a tree that
-  does not exist.
-- The worktree links the project's `.venv` when there is one, so the project's
-  `PreflightCommand` (`.venv/bin/ruff ...`) runs unchanged inside it.
 - Run `teamwork.py` from the worktree: it resolves the team from the path
-  (`Runtime/Worktrees/<Instance>` -> team root), so you never need `--project`.
-- `preflight` fails the `tree` check when the command ran in a different tree than
-  the task records, and the project gate runs in the task's tree - a gate that
-  measured the main checkout says nothing about the branch under review.
-- `commit --task <T-id>` refuses when the task owns a worktree and the command ran
-  in the main checkout: work happens in the task's tree.
-- `--shared` is the exception, for work that genuinely needs the main checkout:
-  it switches that checkout to the branch and records no worktree. Say why in the
-  self-check note.
+  (`Runtime/Worktrees/<Instance>` -> team root), so you never need `--project`,
+  and it never creates a second team tree.
+- From anywhere else, pass `--project <repo>` or set `TEAMWORK_ROOT`.
 - `pr merge --delete-branch` also retires the worktree when the branch is still
   checked out there.
 
 ## Worktree location
 
 All worktrees, clones and scratch state live inside the repository at
-`<Team>/Runtime/Worktrees/<Instance>/<T-id>/` (created by `branch start`). Never create a
+`<Team>/Runtime/Worktrees/<Instance>/` (managed by `branch start --worktree`). Never create a
 worktree, clone or scratch workspace in `$HOME`, `/tmp`, a sibling directory, or
 any path outside the repository.
 

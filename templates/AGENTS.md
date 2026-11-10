@@ -406,11 +406,8 @@ tracked, uncommitted or evidence-bearing files, and never `git clean -fdx`. Keep
   carries the evidence.
 - **GIT LFS** - binaries, media, datasets and weights go through Git LFS
   (`.gitattributes` patterns). `commit` refuses an uncovered file above 1 MB.
-- **ONE TASK, ONE WORKTREE** - never commit on `main`. `branch start --agent <you>
-  --task <T-id>` gives the task its own worktree under
-  `Runtime/Worktrees/<Instance>/<T-id>/` and leaves the main checkout alone; work
-  there, and `commit --task` refuses a commit made anywhere else. `--shared` is the
-  exception, only when the work genuinely needs the main checkout. A merged branch
+- **BRANCH PER AGENT** - never commit on `main`. `branch start --agent <you> --task
+  <T-id>` (add `--worktree` when another lane shares the checkout). A merged branch
   is deleted.
 - **PR TO THE REVIEWER** - `pr open` when self-checked; a fail returns it to you.
 - **REVIEWER-ONLY MERGE, ON PASS** - only the Reviewer merges, and a pass merges at

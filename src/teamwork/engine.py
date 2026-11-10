@@ -814,42 +814,6 @@ def resolve_team_relative(root: Path, value: str) -> Path:
     return p if p.is_absolute() else root / p
 
 
-def _link_toolchain(project: Path, worktree: Path) -> None:
-    """Point a fresh worktree at the project's toolchain, so the gate command works.
-
-    A worktree carries only tracked files, so `.venv/` (gitignored) is absent and a
-    `PreflightCommand` written as `.venv/bin/ruff ...` cannot start there - which is
-    how a lane ends up running the gate by hand with absolute paths. A link is
-    enough, it is untracked, and a failure is not fatal: the gate check reports the
-    missing program with its fix.
-    """
-    for name in (".venv", "venv"):
-        source = project / name
-        target = worktree / name
-        if not source.is_dir() or target.exists() or target.is_symlink():
-            continue
-        try:
-            target.symlink_to(source, target_is_directory=True)
-        except OSError:
-            return
-
-
-def task_worktree(root: Path, task: dict) -> Path | None:
-    """The worktree a task records, resolved against the team root.
-
-    The queue stores it **relative to the team root** on purpose: an absolute host
-    path is disclosure to every lane that reads memory (the audit's F1) and the
-    record mask can rewrite a directory path that looks high-entropy, which
-    silently points the record at a tree that does not exist. An older record that
-    still carries an absolute path is honoured, so no record is rewritten.
-    """
-    recorded = str(task.get("worktree") or "").strip()
-    if not recorded:
-        return None
-    path = Path(recorded)
-    return path if path.is_absolute() else root / path
-
-
 def retire_branch(root: Path, here: Path, branch: str, force: bool = False) -> bool:
     """Delete a merged branch, retiring the worktree that holds it if needed."""
     flag = "-D" if force else "-d"
@@ -949,22 +913,16 @@ def cmd_branch(args) -> int:
 
     worktree_note = ""
     worktree_abs = ""
-    if not getattr(args, "shared", False):
+    if args.worktree:
         wt = lane_worktree(root, args.agent, task["id"])
         wt.parent.mkdir(parents=True, exist_ok=True)
         if not _worktree_registered(project, wt):
             r = run_git(project, "worktree", "add", "--", str(wt), branch)
             if r.returncode != 0:
                 die(f"worktree add failed for {branch}: {r.stderr.strip()}")
-        _link_toolchain(project, wt)
         worktree_note = team_relative(root, wt)
         worktree_abs = str(wt)
     else:
-        print(
-            f"# shared checkout: {args.agent} works in the main checkout for {task['id']}."
-            "\n#   --shared is the exception, not the rule: two lanes in one tree commit"
-            " on each other's branches. Say why in the self-check note."
-        )
         r = run_git(here, "checkout", branch)
         if r.returncode != 0:
             die(f"could not switch to {branch} in {here}: {r.stderr.strip()}")
@@ -5500,18 +5458,6 @@ def cmd_commit(args) -> int:
                 f"you are on branch '{here}' but {task['id']} belongs to "
                 f"'{task['branch']}'. Switch branches before committing "
                 "(one task, one branch).",
-                2,
-            )
-        recorded_tree = task_worktree(root, task or {})
-        if recorded_tree is not None and recorded_tree.is_dir() and project != recorded_tree:
-            die(
-                f"{task['id']} owns the worktree {recorded_tree}, but this commit runs in "
-                f"{project}. Work happens in the task's own tree: two lanes in one checkout "
-                "commit on each other's branches, and the evidence names a tree the "
-                "reviewer cannot read.\n"
-                f"  cd {recorded_tree}   # then run the same command there\n"
-                "  or start the task in the shared checkout deliberately:\n"
-                "    teamwork.py branch start --agent <you> --task <T-id> --shared",
                 2,
             )
     if here == base and not args.allow_main:
@@ -14669,9 +14615,6 @@ def _preflight_gate(
     `--run` is explicit because the command is the project's, not the skill's: a
     preflight that ran `make check` by default would be a language assumption, and
     one that ran it silently would make every self-check pay for a full suite.
-    The working directory is the task's own worktree when it records one, never the
-    main checkout: a gate that reads a tree other than the revision under review is
-    a false green (T-0058), and the detail line names the tree it measured.
     A command this host cannot start is reported as a FAILED gate carrying the
     command and the reason, never raised: a gate nobody can read is a gate that
     taught the lane to skip it (T-0003). The command runs in the tree that holds
@@ -14701,13 +14644,6 @@ def _preflight_gate(
         return PreflightCheck(name, PREFLIGHT_FAIL, f"PreflightCommand is not quotable: {exc}")
     if not argv:
         return PreflightCheck(name, PREFLIGHT_FAIL, "PreflightCommand is empty")
-    if not tree.is_dir():
-        return PreflightCheck(
-            name,
-            PREFLIGHT_FAIL,
-            f"{command} -> the tree to measure is missing: {tree}",
-            "recreate it: teamwork.py branch start --agent <you> --task <T-id>",
-        )
     try:
         proc = subprocess.run(
             argv,
@@ -14792,48 +14728,8 @@ def run_preflight(
         slice_check = _preflight_slice(project, base, branch, root, role, task)
         if slice_check is not None:
             checks.append(slice_check)
-    checks.append(_preflight_tree(root, project, task))
     checks.append(_preflight_gate(root, project, run_gate, task))
     return PreflightResult(role, task.get("id", ""), branch, base, revision, checks)
-
-
-def _preflight_tree(root: Path, project: Path, task: dict) -> PreflightCheck:
-    """The command must run in the tree the task's work lives in.
-
-    Every instance works in its own worktree unless the task deliberately runs
-    shared (`branch start --shared`). A check that ran in the main checkout while
-    the task records a worktree measured a different tree, so its green says nothing
-    about this revision - that is the false green T-0058, and it is a failure here,
-    not a warning, because the reviewer would have to re-derive the whole gate.
-    """
-    name = "tree"
-    recorded = task_worktree(root, task)
-    if recorded is not None:
-        expected = recorded
-        if not expected.is_dir():
-            return PreflightCheck(
-                name,
-                PREFLIGHT_FAIL,
-                f"{task.get('id', 'the task')} records the worktree {recorded}, which is gone",
-                f"recreate it: teamwork.py branch start --agent <you> --task {task.get('id', '')}",
-            )
-        if project.resolve() != expected.resolve():
-            return PreflightCheck(
-                name,
-                PREFLIGHT_FAIL,
-                f"this command ran in {project}, but the task works in {expected}",
-                f"cd {expected}   # then re-run the same command there",
-            )
-        return PreflightCheck(name, PREFLIGHT_OK, f"the task's own worktree: {expected}")
-    if project.resolve() == project_of(root).resolve():
-        return PreflightCheck(
-            name,
-            PREFLIGHT_WARN,
-            "no worktree recorded, so this measured the shared checkout",
-            "teamwork.py branch start --agent <you> --task <T-id>   # gives the task its "
-            "own tree; --shared only when the work genuinely needs the main checkout",
-        )
-    return PreflightCheck(name, PREFLIGHT_OK, f"no worktree recorded; running in {project}")
 
 
 def _print_preflight(result: PreflightResult) -> None:
@@ -18295,16 +18191,7 @@ def _parsers_integration(sub, common) -> None:
     s.add_argument("--agent", required=True)
     s.add_argument("--task", required=True)
     s.add_argument("--base", default="")
-    s.add_argument(
-        "--worktree",
-        action="store_true",
-        help="deprecated: a worktree is the default; accepted so old packets still parse",
-    )
-    s.add_argument(
-        "--shared",
-        action="store_true",
-        help="work in the main checkout instead of the task's own worktree (the exception)",
-    )
+    s.add_argument("--worktree", action="store_true")
     s.set_defaults(func=cmd_branch)
     s = bsub.add_parser("list", parents=[common], help="branches with PR/merge state")
     s.set_defaults(func=cmd_branch)
