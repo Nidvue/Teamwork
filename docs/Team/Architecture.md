@@ -51,6 +51,7 @@ Teamwork/
 │   ├── teamwork.py           # thin compat shim -> teamwork.cli.main
 │   ├── verify_release.py     # build + install + smoke-test a wheel
 │   ├── build_pi_package.py   # assemble the pi-teamwork tarball (make package)
+│   ├── sync_skill.py         # mirror this checkout into an installed skills dir (make sync-skill)
 │   └── privacy_scan.py       # tree + history privacy gate
 ├── tests/{unit,integration,acceptance}/  # pytest
 ├── docs/                     # mkdocs site (index/install/quickstart/...)
@@ -78,7 +79,7 @@ Teamwork/
 | project-manager | `docs/Team/Plan.md`, `docs/Team/Board.md` |
 | coo | `docs/Team/Risks.md` |
 | cfo | `docs/Team/Costs.md` |
-| ceo | `SKILL.md`, `roles/**`, `references/**`, `templates/AGENTS.md`, `templates/TeamMap.md`, `templates/pi-package/**`, `.agents/skills/**`, `scripts/build_pi_package.py`, `docs/Team/Project.md`, `docs/Team/Pi-Packaging.md`, `docs/Team/Archive.md`, `docs/Team/AuditManifest.*`, `docs/Team/Decisions.md` (governance entries) |
+| ceo | `SKILL.md`, `roles/**`, `references/**`, `templates/AGENTS.md`, `templates/TeamMap.md`, `templates/pi-package/**`, `.agents/skills/**`, `scripts/build_pi_package.py`, `scripts/sync_skill.py`, `docs/Team/Project.md`, `docs/Team/Pi-Packaging.md`, `docs/Team/Archive.md`, `docs/Team/AuditManifest.*`, `docs/Team/Decisions.md` (governance entries) |
 
 ## 3. Resource-resolution contract (`resources.py`)
 
