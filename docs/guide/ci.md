@@ -62,15 +62,28 @@ scope -> lint -> committer-guard -> typecheck -> test -> build -> privacy
       -> release-consistency -> docs
 ```
 
-`scope` is the classifier the rest hang off. A pull request and a manual run
-execute every job; a tag push runs the consistency gate alone, because the tagged
-commit already passed the matrix as a `main` push. A push skips the matrix only
-when every changed path is prose, and prose is exactly this set: `docs/`,
-`assets/`, and these root files - `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
-`SECURITY.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `LICENSE`, `AGENTS.md`,
-`mkdocs.yml`. There is no `*.md` wildcard. The `PROSE` pattern in `ci.yml` and
-the `paths:` list of `docs.yml` must hold the same set, so this is the whole
-story.
+`scope` is the classifier the rest hang off, and it answers two questions: `code`
+(did anything that ships change?) and `prose` (did anything in the documentation
+set below change?). They are separate because a prose-only push answers them
+differently - `code=false`, `prose=true` - and the jobs they gate must be a
+different set.
+
+* `lint`, `typecheck`, `test` and `build` follow `code`. A prose-only push skips
+them: nothing they read changed.
+* `privacy` and `docs` follow `code || prose`. They are the prose-relevant gates,
+and both still run when only documentation changed: a documentation leak is
+still a leak, so the privacy scan reads prose too, and the `docs` job is the link
+check plus the strict site build of the very pages the push edited.
+* A pull request and a manual run execute every job.
+* A tag push runs only the consistency gate and `committer-guard`, because the
+tagged commit already passed the matrix as a `main` push (neither of those two
+jobs is filtered by `scope`, so neither can be skipped).
+
+Prose is exactly this set: `docs/`, `assets/`, and these root files - `README.md`,
+`CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
+`CITATION.cff`, `LICENSE`, `AGENTS.md`, `mkdocs.yml`. There is no `*.md` wildcard.
+The `PROSE` pattern in `ci.yml` and the `paths:` list of `docs.yml` must hold the
+same set, so this is the whole story.
 
 **`SKILL.md` is not prose.** It ships inside the wheel (`pyproject.toml`,
 `[tool.hatch.build.targets.wheel.force-include]`: `"SKILL.md" =
@@ -84,15 +97,15 @@ configure the build. `NOTICE` beside `LICENSE` is the asymmetry to remember:
 
 | Job | Matrix | Step |
 |---|---|---|
-| `scope` | ubuntu | classifies the changed paths and publishes `code=true/false` |
+| `scope` | ubuntu | classifies the changed paths and publishes `code=true/false` and `prose=true/false` |
 | `lint` | ubuntu | `ruff check .`, then `ruff format --check .`, then the commit identity audit on a full-history checkout |
 | `committer-guard` | ubuntu | `teamwork.py identity --guard-committer --range ...` on every push, naming a forge-stamped committer before it reaches `main` |
 | `typecheck` | ubuntu | `mypy src/teamwork` with `continue-on-error: true` - a report, not a gate |
 | `test` | ubuntu/macos/windows × Python 3.9/3.11/3.13, plus 3.10/3.12 on ubuntu | `make test` |
 | `build` | ubuntu | `make build` then `make verify` |
-| `privacy` | ubuntu | `make privacy` |
+| `privacy` | ubuntu | `make privacy`; runs when `code` **or** `prose` is true |
 | `release-consistency` | ubuntu | `check_release_consistency.py` offline: R1, R2, R6, R7 and R9 evaluate, R3/R4/R5/R8 print `SKIP` with the reason |
-| `docs` | ubuntu | link health (`teamwork.py links`), then `mkdocs build --strict` |
+| `docs` | ubuntu | link health (`teamwork.py links`), then `mkdocs build --strict`; runs when `code` **or** `prose` is true |
 
 `docs.yml` builds and deploys the site to GitHub Pages on `main`; `release.yml`
 runs on `v*` tags and produces the wheel, sdist, checksums and SBOM.
