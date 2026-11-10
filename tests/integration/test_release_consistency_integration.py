@@ -77,10 +77,17 @@ def git(root: Path, *args: str) -> str:
 
 
 def write(root: Path, files: Mapping[str, str]) -> None:
+    # LF on every platform, for the same reason the unit fixture pins it: the
+    # tagged payload's digest is computed over committed bytes and the recipe
+    # pins core.autocrlf=false, so a CRLF fixture would make R3 disagree with
+    # itself on windows-latest only. Opened directly because
+    # ``Path.write_text(newline=...)`` is Python 3.10+ and CI runs this on 3.9.
     for rel, text in files.items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        with path.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+        assert b"\r\n" not in path.read_bytes(), f"fixture {rel} must be LF on every platform"
 
 
 def commit(root: Path, files: Mapping[str, str] | None = None, message: str = "edit") -> None:
