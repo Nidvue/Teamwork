@@ -521,3 +521,12 @@ def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -
     )
     assert cli("--project", project, "dispute", "escalate", "D-0001", "--by", "developer-1") == 0
     assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "developer-1") != 0
+    assert (
+        cli("--project", project, "dispute", "resolve", "D-0001", "--by", "ceo", "--decision", "d")
+        != 0
+    )
+    assert cli("--project", project, "dispute", "sign", "D-0001", "--by", "ceo") == 0
+    assert (
+        cli("--project", project, "dispute", "resolve", "D-0001", "--by", "ceo", "--decision", "d")
+        == 0
+    )
