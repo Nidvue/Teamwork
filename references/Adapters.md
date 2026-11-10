@@ -29,13 +29,20 @@ points here, so a new host is a new column, never a rewrite of the instructions.
 
 | Operation | Pi | Claude Code | opencode | Codex / Cursor / Windsurf / Gemini CLI | Generic (no agent runtime) |
 |---|---|---|---|---|---|
-| 1 spawn | `teams({action:"delegate"})` | `Agent`/`Task` tool with a `.claude/agents/<name>.md` persona | `.opencode/agent/<name>.md` + the Task tool | run the CLI as a subprocess (`codex exec`, `cursor-agent`) | `bash` background process + a prompt file |
+| 1 spawn | `subagent({agent, task})` - one call per lane, `async: true` keeps the CEO free while it runs; a *persistent* teammate needs a teams-style extension, the default host gives bounded runs | `Agent`/`Task` tool with a `.claude/agents/<name>.md` persona | `.opencode/agent/<name>.md` + the Task tool | run the CLI as a subprocess (`codex exec`, `cursor-agent`) | `bash` background process + a prompt file |
 | 2 one-shot | `subagent({agent,task})` | `Task` tool, single agent | Task tool / a separate `opencode run` | `codex exec "<task>"` | one `bash` invocation, result to a file |
-| 3 message | `teams({action:"message_dm"/"message_broadcast"})` | `SendMessage` / prompt injection | agent-to-agent message | write to the agent's inbox file | append to `Agents/<Name>/Inbox.md` |
-| 4 inspect | `teams({action:"member_status"})` | agent status / task list | session list | process list + worklog | `teamwork.py board` + `pulse` + `WorkLog.md` |
+| 3 message | child to parent: `contact_supervisor` / `subagent_supervisor({action:"reply"})`; parent to child: `subagent({action:"steer"/"resume", id, message})` | `SendMessage` / prompt injection | agent-to-agent message | write to the agent's inbox file | append to `Agents/<Name>/Inbox.md` |
+| 4 inspect | `subagent({action:"status", id})` and `subagent_supervisor({action:"list"/"pending"})` for the runs | agent status / task list | session list | process list + worklog | `teamwork.py board` + `pulse` + `WorkLog.md` |
 | 5 pulse | `schedule_prompt({action:"add", type:"cron"})` | no built-in scheduler: `Bash` background loop, `/loop`, or host `cron` running `claude -p` | no scheduler: `cron`/systemd running `opencode run` | host `cron` / `watch` / CI schedule | `cron`, `systemd` timer, or a `while` loop running `teamwork.py pulse --commit` |
-| 6 close | `teams({action:"team_done"})` | stop the subagents / end the session | stop sessions | kill the processes | `pkill` the lanes, `teamwork.py clean` |
+| 6 close | a bounded run ends with its own task; stop a live one with `subagent({action:"stop", id})` and list what still runs with `subagent_supervisor({action:"list"})` | stop the subagents / end the session | stop sessions | kill the processes | `pkill` the lanes, `teamwork.py clean` |
 | skill install | `~/.pi/agent/skills/<name>/SKILL.md` | `.claude/skills/<name>/SKILL.md` (Agent Skills format - this file already matches: `name` + `description` frontmatter) | `AGENTS.md` + `.opencode/command/<name>.md` | `AGENTS.md` (every one of these reads it) | `AGENTS.md` + this directory |
+
+The Pi column was verified against the install this skill ships with (pi 1.3.0 +
+`pi-subagents`, checked 2026-10-19 in `~/.pi/agent/npm/node_modules/pi-subagents`):
+it exposes `subagent`, `subagents_enable`, `subagent_supervisor`,
+`contact_supervisor` and `structured_output`, and **no `teams(...)` tool**. A host
+that does provide a teams-style tool maps the same four operations to
+`teams({action:"delegate"/"message_dm"/"member_status"/"team_done"})`.
 
 `AGENTS.md` at the project root is the universal contract: Claude Code, opencode,
 Codex, Cursor, Windsurf, Gemini CLI, Aider and Pi all read it. Write the team
@@ -56,6 +63,14 @@ constitution there once (`teamwork.py agents-md`) and every host inherits it.
   (`Agents/<Name>/Inbox.md`); writing to it is a valid message on every host.
 - **No `teams` tool**: spawn with the host's own CLI in a `bash` job and point it
   at `Agents/<Name>/StartHere.md` - the startup routine is identical.
+- **Only bounded runs** (Pi's `subagent`, a CLI job): fan the lanes out as
+  concurrent calls instead of persistent teammates - one Reviewer instance per
+  call, each starting from its own `StartHere.md`. Bounded runs cannot see each
+  other, so the **board is what keeps them apart**: the CEO fans deliverables out
+  with `pulse --commit` and every lane takes work with
+  `review ... --claim --by <lane>` / `task next`, which is exactly why a claim is
+  a record and not a handshake. Two Reviewer lanes that skip the claim will
+  review the same deliverable twice.
 
 ## Host detection also drives model routing
 
