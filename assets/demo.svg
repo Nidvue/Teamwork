@@ -55,7 +55,7 @@
   <text x="48" y="164" font-size="15" class="a1"><tspan class="ok">[skill] </tspan><tspan class="out">SKILL.md + 15 role charters + engine - installed, nothing to build</tspan></text>
 
   <text x="48" y="210" font-size="15" class="t2" clip-path="inset(0 100% 0 0)"><tspan class="prompt">&gt; </tspan><tspan class="cmd">use the teamwork skill: Build a URL shortener with a CLI, tests and docs</tspan></text>
-  <text x="48" y="240" font-size="15" class="a2"><tspan class="ceo">[ceo] </tspan><tspan class="out">objective accepted: 12 roles staffed, 3 lanes running</tspan></text>
+  <text x="48" y="240" font-size="15" class="a2"><tspan class="ceo">[ceo] </tspan><tspan class="out">objective accepted: 5 roles staffed, 2 lanes running</tspan></text>
   <text x="48" y="270" font-size="15" class="a3"><tspan class="ok">  [ok] </tspan><tspan class="out">AGENTS.md constitution + docs/Team/ project documents</tspan></text>
   <text x="48" y="300" font-size="15" class="a4"><tspan class="ok">  [ok] </tspan><tspan class="out">Roles/ shared queues + Ledger.jsonl hash-chained</tspan></text>
 
