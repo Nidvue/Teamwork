@@ -1,7 +1,7 @@
 # M9 ACCEPTANCE PROOF - do the release claims hold?
 
 Owner: Tester.
-Related: [CHANGELOG](../../CHANGELOG.md) · [README](../../README.md) · [CONTRIBUTING](../../CONTRIBUTING.md)
+Related: [Project](Project.md) · [CHANGELOG](../../CHANGELOG.md) · [README](../../README.md) · [CONTRIBUTING](../../CONTRIBUTING.md)
 
 The team documents this proof reads - `docs/Team/Architecture.md` (§11, the
 frozen release-consistency contract), `docs/Team/Project.md` (the AC rows),
@@ -46,7 +46,7 @@ without a measurement.
 | AC-REL-5 | the CHANGELOG records the 1.1.1 anomaly | `grep -n "1\.1\.1" CHANGELOG.md` | `52:- **npm 1.1.1 has no source commit and is listed as an exception.**` (the version number is inside backticks in the file) and `86:## [1.1.1] - 2026-10-20` | **PASS** |
 | AC-REL-6 | CI runs the release-consistency gate | `grep -n "release-consistency" .github/workflows/ci.yml` | `376:  release-consistency:` - a blocking job running `python scripts/check_release_consistency.py --offline --json`, with no `continue-on-error` | **PASS** (the workflow runs the gate) |
 | AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | the local `main` is ahead of `origin/main`; the newest runs are the pre-M9 ones | **NOT YET RUN** - the M9 revision is not pushed, so no CI run exists for it |
-| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` | `sync_skill: /home/pingz/.pi/agent/skills/teamwork is out of sync with <repo>: 1 missing, 2 stale, 0 to delete` / `missing: scripts/check_release_consistency.py` / `stale: scripts/privacy_scan.py` / `stale: src/teamwork/version.py` | **FAIL** |
+| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | exits 1: files the tree ships are absent from the installed bundle and installed engine files are older than the tree (§5). The counts are not quoted - they move with every commit | **FAIL** |
 
 ## 2. What "the merged tree" means here
 
@@ -107,39 +107,29 @@ for `teamwork-agents`; the prose now says so.
 
 ## 4. The suite on the merged tree
 
-`python -m pytest -q` **passes** on the merged tree (`fb99293` + this branch,
-tree `5e844438`):
-
-```
-790 passed, 3 skipped in 85.34s (0:01:25)
-```
-
-The pass/skip counts and the test ids are the claim; the duration moves with the
-machine (a re-run of the single file quoted in §7 took `15.79s` where the merged
-tree took `18.08s`).
+`python -m pytest -q` at this branch head exits **0**, with three skips and no
+failure. The claim is the exit code and the three named skips, never a pass
+count: a count pinned at one revision is wrong at the next, and this file already
+carried two stale ones. Read the number from the run that proves it - the shape
+of the last line is `<n> passed, 3 skipped`.
 
 The three skips, as pytest prints them:
 
 ```
 SKIPPED [1] tests/acceptance/test_entrypoints.py:90: console script not installed; covered by scripts/verify_release.py
 SKIPPED [1] tests/unit/test_task_graph_integrity.py:381: no local team tree in this checkout (gitignored working state)
-SKIPPED [1] tests/unit/test_traceability_matrix.py:97: no .pi/Teamwork/Teams/*/Tests.md in this checkout (team tree is gitignored)
+SKIPPED [1] tests/unit/test_traceability_matrix.py:101: no .pi/Teamwork/Teams/*/Tests.md in this checkout (team tree is gitignored)
 ```
 
-On the parent `main` alone (`fb99293`) the same command is `777 passed, 3
-skipped in 69.50s (0:01:09)`; the 13-test difference is this lane's own file
-(§7).
+They are structural: a lane worktree carries no `.pi/` team tree and no installed
+console script, so those three cannot run here and are covered by
+`scripts/verify_release.py` and by the CEO's own checkout respectively.
 
-**History, so the change is not mistaken for the state.** The first version of
-this document reported `2 failed, 770 passed, 3 skipped` at `f4043b2`. Both
-failures were real at that revision and both were fixed on `main` after it:
-
-| Failure at `f4043b2` | Cause | Fixed by |
-|---|---|---|
-| `tests/unit/test_release_consistency.py::test_the_checker_is_loaded_by_path_not_by_sys_path` | `tests/unit/test_skill_sync.py` put `scripts/` on `sys.path` at import time and never removed it, so the later assertion saw it | `807b315 test(unit): the suite must not leak scripts/ onto sys.path`, merged at `2cbb2e7` |
-| `tests/unit/test_traceability_matrix.py::test_every_deterministic_state_matches_a_real_run` | the AC-5 row of `docs/Team/Project.md` claimed `green` while its own proof command, the privacy scan, exited 1 | `ef6eeb7 fix(privacy): scripts/privacy_scan.py + the regression test`, merged at `e2c18a5` |
-
-Both were re-run at `fb99293`: `2 passed in 42.75s`.
+Getting to zero needed one fix this lane had not made: `docs/Team/Project.md` did
+not link back to this file, so `teamwork.py links` reported
+`docs/Team/M9Acceptance.md links to docs/Team/Project.md but docs/Team/Project.md
+does not link back` and four tests that run the link check over the committed
+tree failed on it. The back-link is in `Project.md`'s `Related:` line.
 
 ### 4.1 The AC-5 proof command
 
@@ -198,30 +188,23 @@ revisions:
 
 ## 5. The installed skill
 
-`python3 scripts/sync_skill.py --check` exits 1:
+`python3 scripts/sync_skill.py --check` exits 1 with a
+`<n> missing, <m> stale, 0 to delete` line and one `missing:`/`stale:` row per
+file. The counts are deliberately not quoted here: they move with every commit
+that touches a bundled file, and the installed copy is refreshed on the release
+lane, not on this one. The claim is the exit code and the class of drift, read
+from the run:
 
-```
-sync_skill: /home/pingz/.pi/agent/skills/teamwork is out of sync with <repo>: 1 missing, 3 stale, 0 to delete
-  missing: scripts/check_release_consistency.py
-  stale:   scripts/privacy_scan.py
-  stale:   src/teamwork/engine.py
-  stale:   src/teamwork/version.py
-```
-
-The checker prints the absolute path of the checkout it compared; it is written
-`<repo>` here. Two facts, both about the installed copy, neither about the
-measured tree:
-
-1. the installed bundle has **no** `scripts/check_release_consistency.py` - the
-   checker has never been synced into the installed skill;
-2. three installed files are older than the measured tree:
-   `scripts/privacy_scan.py`, `src/teamwork/engine.py` and
-   `src/teamwork/version.py`.
-
-The third one appeared after the audit-evidence and links fixes landed: the
-installed `engine.py` still lacks `_task_has_execution_evidence`, which is why
-`teamwork audit` run from the installed skill reported five false
-"done without evidence" rows while the checkout reported none.
+- the installed bundle is missing files the tree ships - including
+  `scripts/check_release_consistency.py`, the gate itself, and the harness
+  modules `src/teamwork/harness.py` and `hooks.py` that arrived with the
+  reconciled line;
+- installed engine files are older than the measured tree, so behaviour read
+  from the installed copy can differ from the checkout. One measured instance:
+  the installed `engine.py` lacked `_task_has_execution_evidence`, which made
+  `teamwork audit` run from the installed skill report five false "done without
+  evidence" rows while the checkout reported none. The remedy is
+  `teamwork.py refresh` on the release lane, not a re-install here.
 
 AC-REL-6 asks the installed skill to mirror the remote's `main`. The remote's
 `main` is the pre-M9 revision, so the criterion is not measurable until the
