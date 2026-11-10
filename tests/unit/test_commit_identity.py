@@ -94,6 +94,28 @@ def test_bot_dependency_update_is_allowed(repo):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
 
 
+def test_a_rewritten_history_audits_the_tip_instead_of_dying(repo):
+    """A force-push leaves the event's before-SHA gone; the tip is still auditable.
+
+    Measured on this repository: rewriting the squash-merge commit that carried a
+    personal mailbox (0857bd6 -> 2e7810f) made the CI identity audit exit 2 with
+    "Invalid revision range 0857bd6..2e7810f", so the lane went red over a span
+    that no longer exists rather than over a real identity defect. A clone made
+    after the rewrite has no object for the old revision at all, which a revision
+    that does not resolve models exactly.
+    """
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
+    gone = "deadbeef" * 5
+    assert engine.rewrite_safe_range(repo, f"{gone}..HEAD") == "HEAD"
+    assert engine.audit_commit_identities(repo, f"{gone}..HEAD") == 0
+
+
+def test_a_resolvable_range_is_not_narrowed(repo):
+    """The rewrite fallback must not quietly shrink an audit that can be walked."""
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
+    assert engine.rewrite_safe_range(repo, "HEAD~1..HEAD") == "HEAD~1..HEAD"
+
+
 def test_option_shaped_range_is_rejected(repo):
     assert engine.audit_commit_identities(repo, "--all") == 2
 
