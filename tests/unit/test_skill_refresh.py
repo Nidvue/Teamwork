@@ -21,23 +21,25 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from tests.gitenv import child_env
 
 from teamwork import bundle, engine
 
-GIT_ENV = {
-    "GIT_AUTHOR_NAME": "Tester",
-    "GIT_AUTHOR_EMAIL": "tester@agents.nidvue.com",
-    "GIT_COMMITTER_NAME": "Tester",
-    "GIT_COMMITTER_EMAIL": "tester@agents.nidvue.com",
-    # Hermetic, not accidentally hermetic: the subprocess gets no ``HOME``, so git
-    # finds no ``~/.gitconfig``, and these three say so out loud. Without them a
-    # system ``/etc/gitconfig`` could hand the fixtures a ``commit.gpgsign``,
-    # ``core.hooksPath`` or ``init.templateDir``, and a credential prompt could
-    # block a run. ``os.devnull`` is ``/dev/null`` here and ``nul`` on Windows.
-    "GIT_CONFIG_NOSYSTEM": "1",
-    "GIT_CONFIG_GLOBAL": os.devnull,
-    "GIT_TERMINAL_PROMPT": "0",
-}
+# The platform variables must survive: on Windows the interpreter's RNG is
+# initialised from the OS and fails without SystemRoot/TEMP.
+# Hermetic, not accidentally hermetic: the caller's git configuration must not
+# reach the child either, so a system ``/etc/gitconfig``, a ``~/.gitconfig`` or
+# an inherited ``GIT_CONFIG_GLOBAL`` cannot hand the fixtures a
+# ``commit.gpgsign``, ``core.hooksPath`` or ``init.templateDir``, and a
+# credential prompt cannot block a run. ``child_env`` starts from the parent
+# environment (the platform's variables survive) and re-asserts these pins on
+# top of it.
+GIT_ENV = child_env(
+    GIT_AUTHOR_NAME="Tester",
+    GIT_AUTHOR_EMAIL="tester@agents.nidvue.com",
+    GIT_COMMITTER_NAME="Tester",
+    GIT_COMMITTER_EMAIL="tester@agents.nidvue.com",
+)
 
 
 def git_path() -> str:
@@ -295,26 +297,11 @@ def test_no_checkout_and_no_repo_fails_with_the_fix(cli, capsys, tmp_path: Path)
 
 def test_the_engine_and_the_sync_script_share_one_manifest() -> None:
     """A second copy of the file list would drift silently and drop a module."""
-    import importlib.util
     import sys
 
-    # Loaded by path: putting ``scripts/`` on ``sys.path`` would shadow the real
-    # ``teamwork`` package for every later test in the session (T-0014).
-    scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
-
-    def load(name: str, filename: str):
-        spec = importlib.util.spec_from_file_location(name, scripts_dir / filename)
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        snapshot = list(sys.path)
-        try:
-            spec.loader.exec_module(module)
-        finally:
-            sys.path[:] = snapshot
-        return module
-
-    build_pi_package = load("build_pi_package_under_test", "build_pi_package.py")
-    sync_skill = load("sync_skill_under_test", "sync_skill.py")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    import build_pi_package
+    import sync_skill
 
     assert sync_skill.BUNDLE_FILES == bundle.BUNDLE_FILES
     assert sync_skill.BUNDLE_TREES == bundle.BUNDLE_TREES
