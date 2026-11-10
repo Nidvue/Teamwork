@@ -217,6 +217,68 @@ def test_the_clean_scope_contract_holds_through_the_cli(fixture_project: Path) -
     assert (agents / "Tester" / "Scratch" / "peer.tmp").is_file()
 
 
+def test_team_wide_clean_reaches_the_shared_dirs_and_prints_the_scope_first(
+    fixture_project: Path,
+) -> None:
+    """The positive half: ``--team-wide`` is the only scope that reaches Global/ and Roles/.
+
+    The refund of developer T-0005 is asymmetric: the lane default must not touch a
+    peer, and the deliberate flag must actually reach the team-shared state - and say
+    so *before* the first unlink. A test that only asserts the refusal cannot tell a
+    working ``--team-wide`` from a flag that does nothing.
+    """
+    team = init_workspace(fixture_project)
+    agents = team / "Agents"
+    (agents / "Developer" / "Scratch").mkdir(parents=True, exist_ok=True)
+    (agents / "Tester" / "Scratch").mkdir(parents=True, exist_ok=True)
+    (agents / "Developer" / "Scratch" / "lane.tmp").write_text("x", encoding="utf-8")
+    (agents / "loose.tmp").write_text("x", encoding="utf-8")
+    (team / "Global" / "shared.tmp").write_text("x", encoding="utf-8")
+    (team / "Global" / "keep.md").write_text("x", encoding="utf-8")
+    (team / "Roles" / "Developer" / "queue.tmp").write_text("x", encoding="utf-8")
+    (team / "Roles" / "Developer" / "keep.md").write_text("x", encoding="utf-8")
+
+    lane = engine_cli(fixture_project, "clean", "--agent", "Developer")
+    assert lane.returncode == 0, output(lane)
+    assert not (agents / "Developer" / "Scratch" / "lane.tmp").exists()
+    assert (team / "Global" / "shared.tmp").is_file(), "--agent reached Global/"
+    assert (team / "Roles" / "Developer" / "queue.tmp").is_file(), "--agent reached Roles/"
+
+    (agents / "Developer" / "Scratch" / "lane.tmp").write_text("x", encoding="utf-8")
+    wide = engine_cli(fixture_project, "clean", "--team-wide")
+    assert wide.returncode == 0, output(wide)
+    at = output(wide)
+    lines = wide.stdout.splitlines()
+    announced = next((i for i, line in enumerate(lines) if "team-wide clean:" in line), None)
+    assert announced is not None, f"no scope announcement before the removals: {at}"
+    summary = next((i for i, line in enumerate(lines) if "removed " in line), None)
+    assert summary is not None, f"no removal summary: {at}"
+    locations = [line.strip() for line in lines[announced + 1 : summary] if line.startswith("  - ")]
+    assert announced < summary, f"the scope must be printed before the first removal: {at}"
+    assert any(path.endswith("Global") for path in locations), locations
+    assert any(path.endswith("Roles") for path in locations), locations
+    assert not (team / "Global" / "shared.tmp").exists(), "--team-wide missed Global/"
+    assert not (team / "Roles" / "Developer" / "queue.tmp").exists(), "--team-wide missed Roles/"
+    assert not (agents / "Developer" / "Scratch" / "lane.tmp").exists()
+    assert (agents / "loose.tmp").is_file(), "a file sitting directly in Agents/ has no lane"
+    assert (team / "Global" / "GlobalMemory.md").is_file()
+    assert (team / "Roles" / "Developer" / "TaskQueue.md").is_file()
+
+    (team / "Global" / "last.tmp").write_text("x", encoding="utf-8")
+    (team / "Roles" / "Developer" / "queue.tmp").write_text("x", encoding="utf-8")
+    (agents / "Developer" / "Scratch" / "note.md").write_text("x", encoding="utf-8")
+    emptied = engine_cli(fixture_project, "clean", "--team-wide", "--all")
+    assert emptied.returncode == 0, output(emptied)
+    assert not (team / "Global" / "last.tmp").exists(), "--all left a temp file in Global/"
+    assert not (team / "Roles" / "Developer" / "queue.tmp").exists(), "--all left a temp in Roles/"
+    assert not (agents / "Developer" / "Scratch" / "note.md").exists(), "--all left a lane Scratch"
+    assert (team / "Global" / "GlobalMemory.md").is_file(), "--all emptied GlobalMemory.md"
+    assert (team / "Roles" / "Developer" / "TaskQueue.md").is_file(), "--all emptied a queue"
+    assert (team / "Global" / "keep.md").is_file(), "--all removed non-temp content in Global/"
+    assert (team / "Roles" / "Developer" / "keep.md").is_file(), "--all removed non-temp in Roles/"
+    assert (agents / "loose.tmp").is_file(), "--all reached a file with no lane"
+
+
 def test_preflight_fails_closed_and_goes_green_on_a_real_branch(fixture_project: Path) -> None:
     """Green control first, then each red check, then green again on the same revision."""
     team = init_workspace(fixture_project)
