@@ -196,8 +196,14 @@ _CODE_KEYWORDS = {
 }
 
 
+_RE_DOTTED_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
+
+
 def _looks_like_secret_value(value: str) -> bool:
     if value.startswith(("re.", "os.", "self.", "match.", "str(", "Path(")):
+        return False
+    # A dotted identifier is code (``tokenize.generate_tokens``), not a credential.
+    if _RE_DOTTED_IDENT.match(value):
         return False
     if value.lower() in _CODE_KEYWORDS:
         return False
