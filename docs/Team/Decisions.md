@@ -1731,3 +1731,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: ledger filter at n<=1615 -> 44 review.fail, 66 distinct (role,target) review targets, 26 with >1 verdict, 11 with >=3, distribution {1:40,2:15,3:6,4:4,5:1}, claim->verdict p50 10.8 / p90 25.7 (46 pairs, engine.review_latency algorithm); grep '38 of 43' over SKILL.md, AGENTS.md, templates/AGENTS.md, CHANGELOG.md, references/Roles.md -> no hit; preflight ceo T-0021 --run -> see the self-check line
 - falsified by: if a reader cannot reproduce 44/66/26/11 at n=1615 with a ledger filter, or if any surface still states a mechanical point estimate as measured, this correction is wrong
 - consequences: engine.py and tests/unit/test_preflight.py still describe the change with the retired 38/43 figure - filed as a developer follow-up (T-0045); the fail-record ledger detail truncation is filed as T-0046
+
+## D-20261029-Reviewer-3 - P-0066 item (b): the pass probes t.base while pr merge resolves a branch - accepted as a recorded residual
+
+- date: 2026-10-29
+- kind: technical
+- status: accepted
+- deciders: Reviewer-3 (reviewer)
+- decided by: Reviewer-3
+- task: T-0043
+- context: -
+- options considered: -
+- decision: Accept item (b) from the P-0066 review as a documented residual, not a blocker: the delta closes F1 only and the asymmetry is unreachable in the live record set and fail-closed when it is reachable.
+- why: The only path from a revision base to a branch is _merge_base_branch, which returns a branch whose CURRENT tip equals the recorded commit and otherwise dies; a stale revision base therefore cannot be re-used to make the pass probe symmetric, which is the author's reason for leaving it. The window it leaves (pass against a stale revision, then pr merge refuses) is loud and loses no verdict (merge_after_pass keeps the pass and prints the repair), and it is not a new behaviour of this delta.
+- evidence: git diff 8516f87 d675174 @d675174 -> 3 files, engine.py +28/-7 only in _review_pass_detail + LEDGER_DETAIL_CHARS; parse_reviews over the live team tree -> 66 PR records, 0 with a raw-revision base (all name main), so probe_base == the merge's base today; engine.py _merge_base_branch @d675174 -> returns handle when it is a local branch, else only a branch whose tip == the recorded commit, else die exit 2
+- falsified by: a PR record whose base is a revision (e.g. branch start --base <sha>) followed by a review pass that is then refused by pr merge on that base: then the pass preceded a merge that could not happen, the P-0057 class, and the residual must be closed in the probe
+- consequences: -
