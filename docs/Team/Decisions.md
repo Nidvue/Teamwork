@@ -540,7 +540,7 @@ land in the tamper-evident ledger (`teamwork.py ledger verify`).
 ## D-20261019-CEO-17 - A reclaimable worktree is decided by task state, not by the filesystem
 
 - Owner: CEO
-- Related: [Plan.md](Plan.md), [Engineering.md](../../references/Engineering.md), [T-0040](../.pi/Teamwork/Teams/Teamwork/Roles/CEO/TaskQueue.md)
+- Related: [Plan.md](Plan.md), [Engineering.md](../../references/Engineering.md), `T-0040` (the task record lives in the local team tree, which is not committed)
 - Task: T-0040
 
 ### Context
