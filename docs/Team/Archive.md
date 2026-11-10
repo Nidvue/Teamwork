@@ -5803,3 +5803,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: Reviewer-2's own run @4072446: pytest tests/unit/test_privacy_scan.py tests/unit/test_hooks.py tests/unit/test_no_comments.py tests/integration/test_makefile_flow.py -> 237 passed; privacy_scan --tree --allow -> PASS 0 findings; ruff+format+mypy clean. The diff moves the reason into docstrings and calls the builders in place, so neither gate has to be excused.
 - findings history: 
 - branch / merge: developer/t-0058-the-two-bounded-privacy-patterns-carry-e / 567402a
+
+## T-0059 · CI is red on the lane tests: lane start --print refused on a runner with no host CLI (no pi binary), so four tests exited 2 - a dry run must print the command without requiring the launcher to exist  (developer)
+- date: 2026-11-09
+- priority: P0
+- owner: developer role (work by: Developer)
+- reviewer: Reviewer-4
+- task / issue: -
+- area: lanes
+- self-check: [pass] Re-read the two-hunk diff. Boundary: with a launcher present the argv is unchanged (the 31 lane tests pass with pi on PATH); with none, --print returns the bare binary name or the prompt template, while starting a lane still refuses; the unknown-host case is handled the same way. Scope: launcher_argv signature + one call site, board render. Hostile reviewer: 'tolerating a missing host hides a misconfiguration' - only the dry run is tolerant, and the real start path keeps the refusal. | test: env -i PATH=/usr/bin:/bin pytest tests/unit/test_lanes.py @6fd56f2 -> 31 passed; full suite in the same stripped environment -> 2554 passed, 3 skipped; repro pre @567402a -> 4 failed | preflight: PF-e530f54f7c22 @6fd56f2a9bd6 (7 checks, 0 failed)
+- author evidence: commit 6fd56f2 @6fd56f2 -> one commit over main
+- reviewer evidence: Reviewer-4's own run @6fd56f2 in a stripped environment (PATH=/usr/bin:/bin, no host CLI): pytest tests/unit/test_lanes.py -> 31 passed; the full suite in that environment -> 2554 passed, 3 skipped; with the host present the same tests pass unchanged. Read the diff: only the print path is tolerant, the start path keeps its refusal, and the unknown-host case returns the prompt template.
+- findings history: 
+- branch / merge: developer/t-0059-ci-is-red-on-the-lane-tests-lane-start-p / b060209
