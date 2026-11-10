@@ -15,7 +15,10 @@ Scans three sources and exits non-zero on any hit:
 ``--all`` combines the three. Flags combine freely.
 
 It fails on: personal email addresses that are not role mailboxes at the neutral
-identity domain; the retired private domain(s); absolute personal home paths
+identity domain and not at a name RFC 2606 / RFC 6761 reserves for documentation
+(``example.com``/``example.net``/``example.org``, the ``.example`` TLD, ``.test``,
+``.invalid``, ``.localhost``); the retired private domain(s); absolute personal
+home paths
 (``/home/<name>``, ``/Users/<name>``, ``C:\\Users\\<name>``); API keys and tokens
 (``sk-``, ``ghp_``/``gho_``/``ghu_``/``ghs_``/``ghr_``, ``github_pat_``, ``AIza``,
 ``wandb_``, ``xoxb-``, ``Bearer`` tokens, provider keys such as ``gsk_``/``xai-``/
@@ -126,6 +129,7 @@ _ALLOWED_EMAIL_SUFFIXES = (
     ".example.com",
     ".example.org",
     ".example.net",
+    ".example",
     ".invalid",
     ".test",
     ".localhost",
@@ -580,6 +584,17 @@ def _user_is_elided(user: str) -> bool:
 
 
 def _email_allowed(value: str) -> bool:
+    """Is this address one the ``personal-email`` rule must not report?
+
+    Role mailboxes and forge service addresses are transport, not personal data.
+    The rest are the names RFC 2606 and RFC 6761 reserve for documentation:
+    ``example.com``/``.net``/``.org``, the ``.example`` TLD, ``.test``,
+    ``.invalid`` and ``.localhost``. An address at a reserved name identifies
+    nobody, so a document may quote one. This exempts the ``personal-email`` rule
+    ONLY: every other rule reads the same line, so a configured private domain is
+    still reported by ``private-domain`` and a credential beside it is still
+    reported by its own rule.
+    """
     if _ALLOWED_SERVICE_EMAILS.match(value):
         return True
     domain = value.rsplit("@", 1)[-1].lower()
