@@ -54,14 +54,7 @@ def test_a_slim_tier_reports_folded_lanes_and_no_phantom_layer_gaps(
     assert "product-manager" in out
 
     root = team_root(project)
-    assert engine.staffed_layers(root) == [
-        "goal",
-        "system",
-        "unit",
-        "integration",
-        "acceptance",
-        "feature",
-    ]
+    assert engine.staffed_layers(root) == ["goal", "system", "unit", "integration", "acceptance"]
     # An unstaffed role cannot be asked for a layer it has no one to run.
     assert engine.instances_of(root, "designer") == []
     assert "ui" not in engine.staffed_layers(root)

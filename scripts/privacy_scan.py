@@ -217,12 +217,7 @@ _RE_EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 
 _RE_HOME = re.compile(
     r"(?:(?<![A-Za-z0-9_])/(?:home|Users)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
-    # The Windows user name ends where a name ends, like the POSIX branch above. The
-    # old class accepted every character but a separator, space or quote, so the
-    # reported value swallowed whatever followed it - a closing backtick, or the
-    # `$` of an anchored allowlist line - and no anchored literal could express the
-    # value it was meant to exempt, including this file's own entry.
-    r"|(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]Users[\\/]([A-Za-z0-9][A-Za-z0-9._\-]*))"
+    r"|(?:(?<![A-Za-z0-9])[A-Za-z]:[\\/]Users[\\/]([^\\/\s\"']+))"
     # WSL and container mounts of a real home directory
     r"|(?:(?<![A-Za-z0-9])/mnt/[A-Za-z]/(?:Users|home)/([A-Za-z0-9][A-Za-z0-9._\-]*))"
 )
