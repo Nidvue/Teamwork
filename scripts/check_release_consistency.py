@@ -186,6 +186,12 @@ SCAN_EXCLUDED = "docs/Team/Archive.md"
 R6_GLOBS = ("README.md", "docs/index.md", "docs/Team/Release.md", "docs/guide/*.md")
 
 SEMVER = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+#: A version npm can publish: ``X.Y.Z`` plus an optional prerelease/build tail.
+#: Wider than ``SEMVER`` on purpose - a published version that cannot be a tag
+#: (``0.0.0-stage``) still has to be *nameable* in 11.4's record, or the only
+#: escape left is the silent skip this rule exists to remove. It is still a
+#: narrow format: prose, a branch name or a typo is not a version.
+PUBLISHED_VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
 VERSION_TAG = re.compile(r"^v(\d+\.\d+\.\d+)$")
 VERSION_ASSIGN = re.compile(r"""__version__\s*=\s*["']([^"']+)["']""")
 DIST_NAME_ASSIGN = re.compile(r"""DIST_NAME\s*=\s*["']([^"']+)["']""")
@@ -1027,8 +1033,11 @@ def load_exceptions(path: Path) -> list[dict[str, str]]:
         if missing:
             raise InputError(f"{label}: missing key(s) {', '.join(missing)}")
         version = entry["version"]
-        if not isinstance(version, str) or not SEMVER.match(version):
-            raise InputError(f"{label}: version {version!r} is not X.Y.Z")
+        if not isinstance(version, str) or not PUBLISHED_VERSION.match(version):
+            raise InputError(
+                f"{label}: version {version!r} is not an npm version (X.Y.Z, optionally "
+                f"with a -prerelease/+build tail)"
+            )
         if version in seen:
             raise InputError(f"{label}: duplicate version {version}")
         seen.add(version)
@@ -1154,13 +1163,20 @@ def rule_r3_npm_payloads(
 
     get_bytes = fetch_bytes if fetch_bytes is not None else _http_get_bytes
     matched = 0
-    ignored: list[str] = []
     unreadable: list[str] = []
     for version in sorted(versions, key=lambda item: _version_tuple(str(item)) or (0, 0, 0)):
-        if _version_tuple(str(version)) is None:
-            ignored.append(str(version))
-            continue
         if version in admitted:
+            continue
+        # 11.2.3 takes *every* version key, and an npm version is satisfied by a
+        # tag or by a 11.4 entry - there is no third path. A key that is not
+        # X.Y.Z cannot have a ``vX.Y.Z`` tag, so without an entry it is drift:
+        # calling it "ignored" would let a published version escape AC-REL-1 by
+        # its shape alone (npm's ``0.0.0-stage`` placeholder did exactly that).
+        if _version_tuple(str(version)) is None:
+            findings.append(
+                f"{version}: not X.Y.Z, so no vX.Y.Z tag can carry it, and no "
+                f"release-exceptions.json entry admits it"
+            )
             continue
         info = versions[version]
         dist = info.get("dist") if isinstance(info, dict) else None
@@ -1198,8 +1214,6 @@ def rule_r3_npm_payloads(
             findings.append(
                 f"{version}: tarball payload digest {digest} != payload {local} at {tag}"
             )
-    if ignored:
-        notes.append(f"ignored non-X.Y.Z npm version(s): {', '.join(sorted(ignored))}")
     if unreadable:
         return _unreadable("R3", findings, notes, "; ".join(unreadable))
     if findings:

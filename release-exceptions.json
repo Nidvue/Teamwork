@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.0.0-stage",
+    "reason": "npm's staged-publish placeholder, published before 1.1.0 with no source commit and no bundled payload",
+    "evidence": "npm view @nidvue/teamwork gitHead -> null; registry time '0.0.0-stage' 2026-10-20T08:50:57Z precedes '1.1.0' 08:56:07Z; the tarball holds only package/package.json (\"stub\": true) and package/README.md, so _tarball_payload_digest -> InputError 'npm tarball: none of the shipped payload paths are present'; git log --all -S'0.0.0-stage' -> only record commits, none of them src/teamwork/version.py",
+    "recorded": "2026-10-21"
+  },
+  {
     "version": "1.1.1",
     "reason": "published from a workspace whose commit was never pushed, so no commit exists to tag",
     "evidence": "11.3 payload digest 726bc547afc41ead (paths mapped per 11.3.1, scripts/build_pi_package.py excluded, lines sorted as strings) matches no commit in git rev-list --all; its version.py sha256 545fc1605b3997460a1cf348562c43fed5a8315c83ac8291f9cbf4078703d36d appears in no commit either",
