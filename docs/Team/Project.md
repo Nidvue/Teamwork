@@ -37,10 +37,10 @@ released artifact — with no personal data anywhere in the tree or in git histo
       over unit, integration and acceptance layers; every required layer for
       every area is recorded and passing in `teamwork.py tests plan` - proof:
       `pytest -q` and `teamwork.py tests plan`
-- [ ] AC-4 CI matrix: `.github/workflows/ci.yml` runs lint, type-check, the test
-      matrix on ubuntu/macos/windows x Python 3.9/3.11/3.13, a build job and a
-      privacy scan; every job is green on the pushed revision - proof:
-      `gh run list --json displayTitle,conclusion`
+- [ ] AC-4 CI matrix: `.github/workflows/ci.yml` runs lint, type-check, a
+      five-cell test matrix (ubuntu Python 3.11/3.12/3.13, macOS 3.13,
+      Windows 3.13), a build job and a privacy scan; every job is green on the
+      pushed revision - proof: `gh run list --json displayTitle,conclusion`
 - [ ] AC-5 Privacy: `scripts/privacy_scan.py` exits 0 over the working tree and
       over full git history; no personal email, no API key or provider token, no
       absolute personal path (including mounted homes), no personal domain, no
@@ -355,7 +355,7 @@ progress. Do not read this milestone as closed.
   service; a web UI; PyPI publication (prepared via trusted publishing but not
   enabled without the owner's token); paid promotion; bot-driven star farming
   (stars cannot be bought or guaranteed - see Risks).
-- Constraints (time / budget / technical): Python >= 3.9, standard library only
+- Constraints (time / budget / technical): Python >= 3.11, standard library only
   at runtime; no secrets in the repo, so npm publishes through Trusted Publishing
   (OIDC) with an `NPM_TOKEN` secret only as a fallback; must install by cloning one
   directory into the agent host's skill location (`SKILL.md` at the repository

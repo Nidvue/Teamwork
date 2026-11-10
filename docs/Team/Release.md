@@ -28,7 +28,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | unit + integration | `pytest tests/unit tests/integration -q` | yes |
 | acceptance | `pytest tests/acceptance -q` | yes |
 | coverage | `pytest --cov=teamwork --cov-fail-under=55` | yes, as part of `test` |
-| matrix | ubuntu/macos/windows x py3.9/3.11/3.13, plus py3.10/3.12 on ubuntu | yes |
+| matrix | ubuntu py3.11/3.12/3.13, macOS py3.13, Windows py3.13 (five cells) | yes |
 | build | `python -m build && python scripts/verify_release.py` | yes |
 | privacy | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | yes |
 | docs | `teamwork links` + `mkdocs build --strict` (in `docs.yml`) | yes |
@@ -539,14 +539,14 @@ Mechanics that are easy to get wrong:
   `NPM_TOKEN` exists, and with **no** `_authToken` line at all otherwise, so npm falls
   through to the OIDC exchange that `id-token: write` enables.
 - **That userconfig is written with `open(..., newline="\n")`, never
-  `Path.write_text(..., newline=...)`.** The keyword exists only from Python 3.10, and
-  `tests/integration/test_release_workflow_flow.py` executes the shipped block under
-  every interpreter in the CI matrix, so the py3.9 cells failed on
-  `TypeError: write_text() got an unexpected keyword argument 'newline'` (CI run
-  40728749217) while the release job's own 3.12 was unaffected.
-  `tests/unit/test_portability.py` now parses the embedded python of every
-  `.github/workflows/*.yml` exactly as it parses this tree's modules, so a 3.10-only
-  call inside a workflow heredoc is a local failure rather than a matrix failure.
+  `Path.write_text(..., newline=...)`.** The keyword exists from Python 3.10 and the
+  3.11 floor allows it, so this is now a style choice rather than a compatibility
+  requirement: the helper pins the encoding and the newline in one visible place.
+  History: `tests/integration/test_release_workflow_flow.py` executes the shipped
+  block under every interpreter in the CI matrix, and CI run 40728749217 failed the
+  then-py3.9 cells on `TypeError: write_text() got an unexpected keyword argument
+  'newline'`. The 3.9-era scan of workflow heredocs was retired with T-0009; the
+  detector remains tested, so a future floor drop can re-enable it.
 - **The token reaches the npm child only through that file.** The step does read the
   secret into its own process (`NPM_TOKEN` in its `env:`), but the child environment is
   built as `dict(os.environ)` and then has `NPM_TOKEN` **and** `NODE_AUTH_TOKEN` removed

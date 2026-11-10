@@ -56,7 +56,7 @@ def package_json(ver: str) -> dict:
         "description": (
             "Nidvue Teamwork - an autonomous, self-governing agent company for pi: "
             "CEO-led decomposition, parallel lanes, two-stage review, hash-chained audit "
-            "ledger and layered role-owned tests. Python 3.9+, stdlib only."
+            "ledger and layered role-owned tests. Python 3.11+, stdlib only."
         ),
         "keywords": [
             "pi-package",

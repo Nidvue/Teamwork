@@ -123,12 +123,12 @@ def atomic_write(path: Path, text: str) -> None:
 
 
 def write_lf(path: Path, text: str, encoding: str = "utf-8") -> None:
-    """Write ``text`` with LF newlines on every platform and every Python >= 3.9.
+    """Write ``text`` with LF newlines and UTF-8 on every supported platform.
 
-    ``Path.write_text(..., newline=...)`` only exists from Python 3.10, and this
-    package supports 3.9 (CI runs the matrix on 3.9), so the file is opened here
-    directly. On Windows the default text mode would translate ``\n`` to CRLF and
-    a clone would no longer be byte-identical across platforms.
+    ``Path.write_text(..., newline=...)`` would work on the 3.11 floor, but the
+    helper opens the file explicitly so the encoding, the newline and the atomic
+    write path are stated in one place. On Windows the default text mode would
+    translate ``\n`` to CRLF and a clone would no longer be byte-identical.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding=encoding, newline="\n") as handle:

@@ -215,7 +215,7 @@ def parse_table(key: str, title: str, block: list, spec: TableSpec, violations: 
                 )
             )
             continue
-        rows.append(Row(offset, dict(zip(headers, cells))))
+        rows.append(Row(offset, dict(zip(headers, cells, strict=True))))
     if not rows:
         violations.append(Violation(EMPTY, title, "the table has a header and no data row"))
         return None
