@@ -10,7 +10,7 @@ we changed, and how the published artefact is built.
 
 | Package | Shape | What it does well | What it lacks for a team |
 |---|---|---|---|
-| [`pi-subagents`](../../references/Adapters.md) | extension + skills + prompts, `pi.extensions`/`skills`/`prompts` | real host primitives: `subagent`, `subagent_supervisor`, `contact_supervisor`, durable `schedule.*`, workflows with `runs.all` | no team protocol: no queue, no gate, no audit trail, and a lane exists only while that extension does |
+| [`pi-subagents`](../../references/Adapters.md) | extension + skills + prompts, `pi.extensions`/`skills`/`prompts` | real host primitives: `subagent`, `subagent_supervisor`, `contact_supervisor`, durable `schedule.*`, workflows with `runs.all` | no team protocol: no queue, no gate, no audit trail |
 | `@tmustier/pi-agent-teams` | extension + one skill | team-shaped prompts and hooks | no evidence gate, no ledger, no role-owned test layers |
 | this skill, before the pi layer | skill + stdlib engine | the protocol: two-stage gate, hash-chained ledger, layered tests, disputes | pi-hostile wording (`teams()`, `schedule_prompt`) and no npm artefact |
 
@@ -18,10 +18,10 @@ we changed, and how the published artefact is built.
 
 | Change | Before | After |
 |---|---|---|
-| Spawn | `teams({action:"delegate", tasks:[...]})` | the engine's own lane runtime: `teamwork.py lane start` detaches one host CLI child per lane, writes its packet and record, and reconciles it later - no extension required |
-| Pulse | `schedule_prompt({type:"cron"})` | `teamwork.py swarm run`: waves computed from the board (ready tasks, reviews, free slots, unfinished assignments) and **sized by the measured weight of the work**, each lane under a hard per-profile minute budget; `pulse --commit --spawn` runs one wake end to end |
-| Close | `teams({action:"team_done"})` | `teamwork.py lane stop <run>` per live lane (`lane reap` for a dead one), then the report |
-| Coordinate | `teams({action:"message_dm"})` | the `Agents/<Instance>/Inbox.md` mailbox, plus the board's claims; a host tool (`subagent` steer) is an optional accelerator, never the mechanism |
+| Spawn | `teams({action:"delegate", tasks:[...]})` | `subagent({agent, task, async:true, cwd})`, one call per lane; a dependent batch is `subagent({workflow})` with `runs.all` |
+| Pulse | `schedule_prompt({type:"cron"})` | `subagent({action:"schedule.create", options:{every:"5m"}})` (pi-subagents persists it under `.pi/subagents/schedules/`) |
+| Close | `teams({action:"team_done"})` | `subagent({action:"stop", id})` per live lane, then the report |
+| Coordinate | `teams({action:"message_dm"})` | `subagent({action:"steer"})` for a live lane, `subagent_supervisor({action:"reply"})` for a child that asked |
 | Package | pip only | the `@nidvue/teamwork` npm package: `pi.skills` + `pi.prompts`, host packages in `peerDependencies` only |
 
 The portable skill stays portable: `test_adoption_surfaces_stay_agent_agnostic`

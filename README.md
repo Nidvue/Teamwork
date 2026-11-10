@@ -104,8 +104,8 @@ appears at `.pi/Teamwork/Teams/<Team>/`; project output is committed. Read the f
   with its own memory and queue.
 - **A two-stage quality gate** - the author self-checks with a real test, then a
   different role reviews the revision, and only the Reviewer merges.
-- **Parallel lanes against one frozen contract** - interfaces first; `teamwork
-  swarm run` then starts one budgeted process per lane.
+- **Parallel lanes against one frozen contract** - interfaces first, then
+  developer, tester and designer work at the same time.
 - **Layered tests with one owner per layer** - `tests plan` shows coverage and gaps.
 - **Portable and dependency-free** - CPython 3.11-3.13 on Linux, macOS and Windows,
   standard library only, with automatic model routing (`teamwork model auto`)

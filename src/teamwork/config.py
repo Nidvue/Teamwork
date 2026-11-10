@@ -468,14 +468,6 @@ SETTINGS_NON_PROVIDER = (
     "ReviewLeaseMaxMinutes",
     "MemoryLeaseMinutes",
     "PreflightCommand",
-    "LaneMinutes",
-    "LaneAttempts",
-    "LaneToolBudget",
-    "LanePollSeconds",
-    "LaneCommand",
-    "LaneHost",
-    "LaneMax",
-    "SwarmMinutes",
 )
 
 DEFAULT_ALWAYS_ON_BUDGET_KB = 120
