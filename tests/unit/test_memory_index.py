@@ -280,9 +280,6 @@ def test_whole_load_output_does_not_exceed_the_pre_index_baseline(cli, project, 
     assert "# memory index: " in out
     assert "- [L-0001]" not in out
     assert len(out.encode("utf-8")) <= LOAD_BASELINE_BYTES
-    # The second half of the same finding: the preamble the index displaces is two
-    # lines (counts, commands), not five, so a role with nothing to displace still
-    # comes out ahead. Counted between the index footer and the first blank line.
     lines = out.splitlines()
     footer = next(i for i, line in enumerate(lines) if line.startswith("# index: "))
     preamble = []
@@ -350,16 +347,12 @@ def test_a_role_with_no_open_lessons_stays_within_the_index_budget(cli, project,
     lines = out.splitlines()
     footer = next(i for i, line in enumerate(lines) if line.startswith("# index: "))
     index_lines = lines[:footer]
-    # (b) the index's own caps, measured on the block itself rather than trusted
-    # from the footer number it prints.
     assert block_bytes("\n".join(index_lines)) <= memorypack.INDEX_BUDGET_BYTES
     assert len([line for line in index_lines if line.startswith("- ")]) <= (
         memorypack.INDEX_MAX_LINES
     )
-    assert "- [L-" not in out  # the fixture really has no open lesson rows
-    # (e) the whole command output: baseline + one index budget, no slack.
+    assert "- [L-" not in out
     assert len(out.encode("utf-8")) <= LOAD_BASELINE_NO_LESSON_BYTES + memorypack.INDEX_BUDGET_BYTES
-    # (c) the index is still charged against the pack budget on a task run.
     capsys.readouterr()
     assert cli("--project", project, "load", "Developer-1", "--task", "T-0001") == 0
     tasked = capsys.readouterr().out
