@@ -34,13 +34,21 @@ prevent.
    the request dismisses the stale approval; the Reviewer - never the author -
    performs the merge.
 4. **Merge strategy - one canonical shape.**
-   - feature work: **squash** into one commit on the default branch, so history
-     reads as one coherent change-set per task;
+   - feature work: **one commit per task on the default branch**, so history reads
+     as one coherent change-set per task;
+   - the merge is performed **locally, as the reviewing role, and pushed** - never
+     with the host's own merge button. A host squash stamps the *signed-in
+     account's* mailbox on the resulting commit and a host rebase stamps it as the
+     committer; both then fail the privacy gate on history, and because that gate
+     is also an acceptance proof, the traceability guard fails with it. Measured on
+     this repository: three rewrites of `main` (2026-10-20) came from this one
+     cause, not from the code under review;
    - delete the source branch on merge;
    - releases: a tag on a commit that is already green on the default branch; never
      tag an unmerged branch, never move a published tag;
-   - no `merge commit` and no `rebase merge` as a default, because they hide the
-     squash boundary.
+   - the squash boundary is preserved by the *local* merge
+     (`teamwork.py pr merge --squash`, which commits as the Reviewer role
+     mailbox), not by the host's button.
 5. **Ref and secret hygiene.**
    - protected tag pattern `v*`, created only by the CEO;
    - CI least privilege: workflow default `contents: read`, each job widening only
@@ -80,7 +88,7 @@ the review gate for everyone else too. State which of the two applies in
 | required checks | `required_status_checks` (strict) | "Pipelines must succeed" | merge checks | "Require status checks" | build validation policy |
 | required review | `required_pull_request_reviews` | merge request approvals | default reviewers | "Require approvals" | "Require a minimum number of reviewers" |
 | dismiss stale approval | `dismiss_stale_reviews=true` | "Reset approvals on push" | merge check | "Dismiss stale approvals" | "Reset votes on new pushes" |
-| squash-only, delete branch | repo `allow_squash_merge=true`, `allow_merge_commit=false`, `allow_rebase_merge=false`, `delete_branch_on_merge=true` | project merge method `ff`/squash + "Delete source branch" | merge strategy setting | "Squash merge only" | "Squash merge" + delete source branch |
+| host merge button off, local merge + push | repo `allow_squash_merge=false`, `allow_merge_commit=false`, `allow_rebase_merge=false` (or rebase-only, when the account address is a service address) + `delete_branch_on_merge=true` | project merge method `ff`/squash + "Delete source branch" | merge strategy setting | "Squash merge only" | "Squash merge" + delete source branch |
 | protected tags | tag protection rules / Rulesets | protected tags | (use branch restrictions on the release branch) | protected tags | tag policies via a pipeline gate |
 | least-privilege CI | workflow `permissions:` | job `rules` + protected variables | pipelines `deployment` permissions | Actions permissions | pipeline permissions + variable groups |
 | code scanning as a gate | `code-scanning/alerts?state=open` (`--commit` routes the fixes) | SAST report in the MR / `vulnerabilities` API | Pipeline security report | integrated scanners (`gosec` via Actions) | Advanced Security alerts |
@@ -95,7 +103,7 @@ the review gate for everyone else too. State which of the two applies in
 | branch deletion | denied | the default branch cannot disappear |
 | required checks | the CI matrix + privacy + docs, strict | nothing red merges |
 | required approvals | >= 1, non-author, stale-dismissing | the two-stage gate is real |
-| merge method | squash only | one change-set per task |
+| merge method | one commit per task, merged locally as the role and pushed | one change-set per task, without a personal mailbox in the history |
 | delete branch on merge | on | no branch debt |
 | tag protection | `v*`, CEO only | a release is deliberate |
 
