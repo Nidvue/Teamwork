@@ -379,7 +379,19 @@ jobs:
       - name: Test the tagged revision
         run: python -m pytest -q
       - name: Build and verify the release artefacts
-        run: python scripts/verify_release.py
+        shell: bash
+        run: |
+          # The test step above runs the suite, and one of its guards probes every
+          # script a workflow invokes with ``<script> --help``
+          # (tests/integration/test_ci_release_flow.py). ``scripts/build_pi_package.py``
+          # does not implement ``--help``, so that probe runs its REAL build, whose
+          # default output is ``dist/``: a ``dist/@nidvue/`` directory is left in the
+          # workspace. It is test residue, never a release asset - ``files: dist/*``
+          # would try to upload a directory and the manifest step refuses it - so this
+          # step starts from a clean ``dist/`` and the asset set is the release's own
+          # (v1.4.0, run 40771484033). The missing ``--help`` is developer T-0018.
+          rm -rf dist
+          python scripts/verify_release.py
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
