@@ -1524,7 +1524,20 @@ def test_delete_repository_restores_traversable_directories(tmp_path, monkeypatc
     cannot be traversed, so ``rmtree`` then dies with ``PermissionError`` on
     ``.git/info``/``.git/refs``. The helper must therefore restore owner
     read+write+execute on directories and owner read+write on files (T-0014).
+
+    The contract is read from the tree, not from the ``chmod`` calls: what
+    matters is the permission state that exists when deletion is requested. A
+    spy on ``os.chmod`` records which paths one ``os.walk`` pass happened to
+    visit, and that is an interpreter detail (``os.walk`` reports a child
+    directory before or after its parent depending on the Python version), so
+    the same helper passed on 3.11+ and failed with ``KeyError: 'refs'`` on
+    3.9/3.10 (T-0016). Snapshotting ``(relative path, mode)`` inside a
+    ``shutil.rmtree`` spy measures the observable state the helper produces,
+    and every assertion quotes the whole snapshot so a future red names the
+    modes that were actually seen.
     """
+    import shutil
+
     tree = tmp_path / "checkout"
     locked = tree / ".git" / "refs"
     locked.mkdir(parents=True)
@@ -1533,24 +1546,58 @@ def test_delete_repository_restores_traversable_directories(tmp_path, monkeypatc
     reference.chmod(0o444)
     locked.chmod(0o500)
 
-    requested: dict[str, int] = {}
-    real_chmod = os.chmod
+    snapshot: dict[str, int] = {}
+    walk_errors: list[str] = []
+    real_rmtree = shutil.rmtree
 
-    def spy(path, mode, *args, **kwargs):
-        requested[Path(path).name] = mode
-        return real_chmod(path, mode, *args, **kwargs)
+    def spy(path, *args, **kwargs):
+        """Record owner modes of the whole tree, then delete it for real."""
+        root = Path(path)
+        snapshot.clear()
+        walk_errors.clear()
 
-    monkeypatch.setattr(os, "chmod", spy)
+        def record(entry: Path) -> None:
+            relative = entry.relative_to(root).as_posix()
+            snapshot[relative] = stat.S_IMODE(os.lstat(entry).st_mode)
+
+        record(root)
+        for parent, directories, files in os.walk(
+            root,
+            followlinks=False,
+            onerror=lambda error: walk_errors.append(str(error)),
+        ):
+            for name in [*directories, *files]:
+                record(Path(parent, name))
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", spy)
     _delete_repository(tree)
 
-    assert not tree.exists(), "the read-only tree must be gone"
-    for name in ("refs", "checkout"):
-        mode = requested[name]
-        assert mode & stat.S_IRUSR, f"{name} must regain owner read"
-        assert mode & stat.S_IWUSR, f"{name} must regain owner write"
-        assert mode & stat.S_IXUSR, f"{name} must regain owner execute to be traversable"
-    assert requested["heads-main"] & stat.S_IRUSR
-    assert requested["heads-main"] & stat.S_IWUSR
+    seen = ", ".join(f"{name}={mode:04o}" for name, mode in sorted(snapshot.items()))
+    context = f"modes at rmtree time: {seen or '<empty>'}"
+    if walk_errors:
+        context += f"; walk errors: {walk_errors}"
+
+    assert snapshot, f"the helper never reached shutil.rmtree; {context}"
+    assert not tree.exists(), f"the read-only tree must be gone; {context}"
+
+    # Deepest first, so a broken tree names the narrowest directory first.
+    for name in (".git/refs", ".git", "."):
+        assert name in snapshot, f"{name!r} was not reachable when deletion started; {context}"
+        bits = {"read": stat.S_IRUSR, "write": stat.S_IWUSR, "execute": stat.S_IXUSR}
+        missing = [label for label, flag in bits.items() if not snapshot[name] & flag]
+        assert not missing, (
+            f"{name} is not owner rwx before rmtree (lost {'+'.join(missing)}); {context}"
+        )
+
+    file_name = ".git/refs/heads-main"
+    assert file_name in snapshot, f"{file_name!r} was not reachable; {context}"
+    file_mode = snapshot[file_name]
+    assert file_mode & stat.S_IRUSR, f"{file_name} must regain owner read; {context}"
+    assert file_mode & stat.S_IWUSR, f"{file_name} must regain owner write; {context}"
+    assert not file_mode & stat.S_IXUSR, (
+        f"{file_name} is a file and must not be executable; {context}"
+    )
 
 
 def test_documented_install_produces_tracked_files_not_a_gitlink(root, tmp_path):
