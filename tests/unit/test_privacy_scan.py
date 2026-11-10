@@ -469,6 +469,17 @@ def test_allowlist_exempts_only_the_recorded_package_path():
     assert {f["rule"] for f in hits} == {"agent-config"}
 
 
+def _escape_literal(text: str) -> str:
+    """Escape exactly the characters that would change a regex, and nothing else.
+
+    ``re.escape`` also escapes ``-`` and `` `` which are literal outside a class,
+    so comparing against it would reject a perfectly narrow entry such as
+    ``^hunter2 passphrase$`` and push authors into unreadable over-escaping.
+    """
+    special = set("\\^$.|?*+()[]{}")
+    return "".join("\\" + ch if ch in special else ch for ch in text)
+
+
 def _is_one_escaped_literal(entry: str) -> bool:
     """An exemption must be exactly one anchored, fully escaped literal.
 
@@ -479,8 +490,10 @@ def _is_one_escaped_literal(entry: str) -> bool:
     if not (entry.startswith("^") and entry.endswith("$")):
         return False
     body = entry[1:-1]
+    if not body:
+        return False
     unescaped = re.sub(r"\\(.)", r"\1", body)
-    return bool(body) and re.escape(unescaped) == body
+    return _escape_literal(unescaped) == body
 
 
 def test_shipped_allowlist_entries_are_narrow_and_justified():
@@ -491,6 +504,9 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
     assert entries == [
         r"^\.pi/agent/npm$",
         r"^/home/pingz$",
+        r"^sk-live-0123456789abcdef0123456789abcdef$",
+        r"^hunter2 passphrase$",
+        r"^changeme-placeholder$",
     ]
     for entry in entries:
         assert _is_one_escaped_literal(entry), f"{entry!r} is not one escaped literal"
@@ -519,6 +535,27 @@ def test_the_narrowness_check_rejects_loose_entries():
     )
     for entry in loose:
         assert not _is_one_escaped_literal(entry), entry
+
+
+def test_a_fabricated_probe_value_is_exempted_but_its_neighbours_are_not():
+    """The three probe literals are exempt; a sibling or a real credential is not.
+
+    Round 10 of T-0047 shipped them as one-line evidence quotes in Archive.md, so
+    the values themselves reached two unpublished blobs; exempting the exact
+    string keeps the exemption bounded, which this asserts in both directions.
+    """
+    allow = ps.load_allow(ROOT / ".github" / "privacy-allow.txt")
+    probe = "sk-live-" + "0123456789abcdef0123456789abcdef"
+
+    assert [f for f in ps.scan_lines(probe, "x.md", "unit-test", ps.RULES, allow)] == []
+
+    # one character different is a different secret, and is still reported
+    sibling = probe[:-1] + "Z"
+    assert [f["rule"] for f in ps.scan_lines(sibling, "x.md", "unit-test", ps.RULES, allow)]
+    # a real credential sharing the exempted line is still reported
+    both = probe + " GITHUB_TOKEN=" + "ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789"
+    rules = {f["rule"] for f in ps.scan_lines(both, "x.md", "unit-test", ps.RULES, allow)}
+    assert "api-token" in rules
 
 
 def _repo_with_planted_credential(tmp_path: Path) -> tuple[Path, str]:
@@ -676,21 +713,29 @@ def test_every_shipped_allowlist_entry_matches_a_real_finding():
 
     The first version of this file carried a third entry for the harness session
     directory; that path only ever appears on an Archive.md quoted-evidence line,
-    which the scanner already scopes, so the entry exempted nothing. Measured over
-    the tree, every shipped entry must match at least one finding that the same scan
-    reports without ``--allow``.
+    which the scanner already scopes, so the entry exempted nothing.
+
+    This test covers the PATH-shaped entries, which is what the dead-entry defect
+    was about: scanning the tree, each must exempt at least one finding the same
+    scan reports without ``--allow``. The value-shaped entries are fabricated
+    probe values that only match inside a larger line a credential rule keys on,
+    so they are covered by ``test_a_fabricated_probe_value_is_exempted_but_its
+    _neighbours_are_not`` instead of by a synthetic prefix here.
     """
     allow = ps.load_allow(ROOT / ".github" / "privacy-allow.txt")
     assert allow, "no allowlist entries to check"
 
+    path_entries = [p for p in allow if re.sub(r"\\(.)", r"\1", p.pattern)[1:2] in ("/", ".")]
+    assert len(path_entries) >= 2, "the path exemptions disappeared"
+
     # The probe value is rebuilt from each entry's own body, so this file never
     # republishes the exempted string itself.
     values: set[str] = set()
-    for pattern in allow:
+    for pattern in path_entries:
         literal = re.sub(r"\\(.)", r"\1", entry_body(pattern.pattern))
         line = f"built {literal}"
         values.update(f["match"] for f in ps.scan_lines(line, "src/mod.py", "tree", ps.RULES, []))
-    for pattern in allow:
+    for pattern in path_entries:
         assert any(pattern.search(value) for value in values), (
             f"{pattern.pattern!r} exempts no finding that the scanner reports"
         )

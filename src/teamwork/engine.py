@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime
+import importlib.util
 import os
 import re
 import shutil
@@ -6516,6 +6517,98 @@ def archive_ensure_entry(root: Path, owner: str, t: dict, repo: Path | None = No
     return f"# archive: wrote the accepted-results entry for {branch} on the base"
 
 
+#: Credential rules of the shipped privacy gate. The archive mask borrows the
+#: gate's own rule table rather than re-declaring shapes: a hand-written mask
+#: drifted from the scanner twice (it covered 2 of the 5 credential rules and
+#: masked ``sk-learn-pipeline``, which the gate never reports), and the archive is
+#: the one place where a divergence between mask and gate is unrecoverable.
+CREDENTIAL_RULES = (
+    "private-key",
+    "api-token",
+    "env-secret",
+    "json-secret",
+    "high-entropy-secret",
+)
+
+
+def _privacy_scan():  # noqa: ANN202 - module handle, cached below
+    """The shipped scanner module, imported from the bundle.
+
+    Loaded by path with no ``sys.path`` change, so a bundled ``scripts/``
+    directory can neither shadow the ``teamwork`` package nor leak into the
+    process. ``None`` means the bundle is incomplete (an install that dropped
+    ``scripts/``); the caller then records the text unmasked rather than guessing.
+    """
+    global _PRIVACY_SCAN
+    if _PRIVACY_SCAN is not _UNLOADED:
+        return _PRIVACY_SCAN
+    path = _resources.asset("scripts") / "privacy_scan.py"
+    _PRIVACY_SCAN = None
+    if path.is_file():
+        try:
+            spec = importlib.util.spec_from_file_location("_teamwork_privacy_scan", path)
+            if spec is not None and spec.loader is not None:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                _PRIVACY_SCAN = module
+        except Exception:  # noqa: BLE001 - a broken scanner must not break records
+            _PRIVACY_SCAN = None
+    return _PRIVACY_SCAN
+
+
+_UNLOADED = object()
+_PRIVACY_SCAN = _UNLOADED
+
+
+def mask_secret_shapes(text: str) -> str:
+    """Rewrite a value the privacy gate would report, and nothing else.
+
+    An archive entry quotes another agent's words verbatim, so a verdict that
+    proved a credential rule fires by quoting a fake token puts that token into
+    history. The mask is exactly the gate's own finding set: a value the gate
+    reports becomes ``<redacted-RULE>``, and a value it does not report is left
+    byte-identical, so ordinary prose, commit shas, ``sk-something`` helper names
+    and a JSON placeholder the gate accepts survive. Every value comes from the
+    gate's own ``scan_lines`` - the JSON rule included - so the mask cannot drift
+    by taking a regex directly and skipping the gate's placeholder, code-shape and
+    allow filters. The quoted claim ("a token on the exempted line is still
+    reported") remains readable.
+    """
+    if not text:
+        return text
+    scanner = _privacy_scan()
+    if scanner is None:
+        return text
+    rules = [rule for rule in scanner.RULES if rule["id"] in CREDENTIAL_RULES]
+    values: list[tuple[str, str]] = []
+    # The gate's own ``scan_lines`` is the only source of values, for every rule.
+    # Taking a regex directly (the JSON arm once did) bypasses the gate's
+    # placeholder, code-shape and allow filters, so a placeholder the gate accepts
+    # (``${API_KEY}``, ``replace_me``) was rewritten in the immutable record.
+    for finding in scanner.scan_lines(text, "", "archive", rules, ()):
+        value = finding.get("match") or ""
+        if not value:
+            continue
+        rule = finding["rule"]
+        # A JSON credential is also high-entropy; name it by the specific rule.
+        values = [pair for pair in values if pair[0] != value]
+        values.append((value, rule))
+    # Longest first, so a value that contains another one is replaced once.
+    for value, rule in sorted(values, key=lambda pair, /: -len(pair[0])):
+        text = text.replace(value, f"<redacted-{rule}>")
+    return text
+
+
+def _quoted(t: dict, field: str) -> str:
+    """One quoted field of an archive entry, credential shapes masked.
+
+    The value is NOT clipped: the archive is the evidence record and
+    ``archive --full`` must reproduce it, so length is a view concern (see
+    ``archive_view_text``), not a storage one.
+    """
+    return mask_secret_shapes(t.get(field) or "")
+
+
 def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) -> str:
     """Append an accepted-results entry for ``t`` and say where it was written.
 
@@ -6527,17 +6620,19 @@ def archive_append(root: Path, owner: str, t: dict, repo: Path | None = None) ->
     path = base_repo.joinpath(*DIR_DOCS) / "Archive.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"## {t['id']} · {t['title']}  ({owner})",
+        # The title is operator- or agent-written text and rides into the same
+        # immutable record, so it is masked exactly like the quoted fields.
+        f"## {t['id']} · {mask_secret_shapes(t['title'])}  ({owner})",
         f"- date: {today_iso()}",
         f"- priority: {t['priority']}",
         f"- owner: {owner} role (work by: {t.get('claimed_by') or owner})",
         f"- reviewer: {t.get('reviewer') or 'reviewer'}",
         f"- task / issue: {t.get('shared') or '-'}",
         f"- area: {t.get('area') or '-'}",
-        f"- self-check: {t.get('self_note') or '-'}",
-        f"- author evidence: {t.get('evidence') or '-'}",
-        f"- reviewer evidence: {t.get('review_evidence') or '-'}",
-        f"- findings history: {t.get('findings') or '-'}",
+        f"- self-check: {_quoted(t, 'self_note')}",
+        f"- author evidence: {_quoted(t, 'evidence')}",
+        f"- reviewer evidence: {_quoted(t, 'review_evidence')}",
+        f"- findings history: {_quoted(t, 'findings')}",
         # archive_append runs at review time, always before the merge revision
         # exists, so a fresh entry starts at "pending" and `pr merge` repoints it.
         # A reworked task still carries the earlier round's merge_commit; stamping
