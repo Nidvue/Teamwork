@@ -8,9 +8,10 @@ description: "pi native layer for the teamwork skill - how a pi session starts a
 Owner: CEO. Related: `../teamwork/SKILL.md` (the protocol) · `../teamwork/references/Adapters.md` · `../teamwork/references/Concurrency.md`
 
 The core skill is host-agnostic and the engine is the runtime. Pi contributes one
-thing: a headless CLI (`pi -p`) that turns a lane packet into an agent run. Nothing
-here needs an extension - if `pi-subagents` is installed you may use it, but the
-team must keep running when it is not.
+thing: a headless CLI (`pi -p`) that turns a lane packet into an agent run. No
+extension is needed, installed or assumed: every lane, wave, message, inspection
+and stop is a `teamwork.py` command, and a session with no plugin at all runs the
+whole team in parallel.
 
 ## Six operations, all in the engine
 

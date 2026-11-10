@@ -21,8 +21,8 @@ we changed, and how the published artefact is built.
 | Spawn | `teams({action:"delegate", tasks:[...]})` | the engine's own lane runtime: `teamwork.py lane start` detaches one host CLI child per lane, writes its packet and record, and reconciles it later - no extension required |
 | Pulse | `schedule_prompt({type:"cron"})` | `teamwork.py swarm run`: waves computed from the board (ready tasks, reviews, free slots, unfinished assignments) and **sized by the measured weight of the work**, each lane under a hard per-profile minute budget; `pulse --commit --spawn` runs one wake end to end |
 | Close | `teams({action:"team_done"})` | `teamwork.py lane stop <run>` per live lane (`lane reap` for a dead one), then the report |
-| Coordinate | `teams({action:"message_dm"})` | the `Agents/<Instance>/Inbox.md` mailbox, plus the board's claims; a host tool (`subagent` steer) is an optional accelerator, never the mechanism |
-| Package | pip only | the `@nidvue/teamwork` npm package: `pi.skills` + `pi.prompts`, host packages in `peerDependencies` only, `pi-subagents` as an optional peer |
+| Coordinate | `teams({action:"message_dm"})` | the `Agents/<Instance>/Inbox.md` mailbox, plus the board's claims; no host messaging tool is required |
+| Package | pip only | the `@nidvue/teamwork` npm package: `pi.skills` + `pi.prompts`, host packages in `peerDependencies` only, no third-party package of any kind |
 
 The portable skill stays portable: `test_adoption_surfaces_stay_agent_agnostic`
 (`tests/unit/test_skill_contracts.py`) scans eight adoption surfaces - `README.md`,
@@ -34,38 +34,35 @@ must name the host. The same test globs every `roles/*.md` (those ship inside th
 package) and fails on a host tool call - `subagent(`, `subagent_supervisor(`,
 `schedule.create` or `teams(` - because that is the same portability regression as
 one in `SKILL.md`; provider and model names are content, not a host dependency, so
-they are not scanned. The concrete pi calls live in `skills/teamwork-pi/SKILL.md`
-and in the adapter table.
+they are not scanned. The concrete pi launcher (`pi -p`) lives in
+`skills/teamwork-pi/SKILL.md` and in the adapter table.
 `tests/unit/test_pi_package.py` then pins the package itself: licence field,
-shipped files, peer-only host packages, `pi-subagents` as an optional peer, no
+shipped files, host-only peers with no third-party package at all, no
 duplicated pi layer, runnable engine.
 
-### `pi-subagents` is an optional peer
+### No third-party package
 
-The package lists `pi-subagents` (`^0.87.0`, the version this layer was written
-against) in `peerDependencies`, with `peerDependenciesMeta["pi-subagents"] =
-{"optional": true}`. It is not a `dependency` and not bundled.
+The manifest declares the five host-provided packages (`@earendil-works/pi-ai`,
+`-agent-core`, `-coding-agent`, `-tui`, `typebox`) as peers, and nothing else - not
+as a `dependency`, not bundled, not as an optional peer.
 
-Why a peer and not a dependency:
+Why nothing else:
 
+- The lanes run on the engine's own runtime: `lane start` and `swarm run` detach
+the host CLI (`pi -p`), so the package needs no extension to be installed beside
+it. A session with no plugin at all runs the whole team in parallel.
 - Pi installs a package's `dependencies`, but an extension that lands in our
   `node_modules/` does not load unless the manifest points at
-  `./node_modules/pi-subagents/...`: "Other Pi packages used as dependencies must
-  be included in the published tarball and referenced through their
-  `node_modules` resource paths" - Pi's package docs, section *Declare
-  dependencies*, read from the installed CLI on 2026-11-09
-  (`docs/packages.md` under the `@earendil-works/pi-coding-agent` package). This
-  package declares no extension, so a dependency entry would install a tool
-  nobody loads.
-- The engine needs nothing from it: `lane start` and `swarm run` launch the host
-  CLI, so a host without the extension still runs the whole team.
-- The entry states what is supported - the `subagent`, `subagent_supervisor`,
-  `contact_supervisor` and `schedule.*` accelerator path in
-  `skills/teamwork-pi/SKILL.md` - without promising an install the package
-  cannot honour.
-
-A user who wants the accelerator installs it themselves:
-`pi install npm:pi-subagents`.
+  `./node_modules/<name>/...`: "Other Pi packages used as dependencies must be
+  included in the published tarball and referenced through their `node_modules`
+  resource paths" - Pi's package docs, section *Declare dependencies*, read from
+  the installed CLI on 2026-11-09 (`docs/packages.md` under the
+  `@earendil-works/pi-coding-agent` package). This package declares no extension,
+  so any such entry would promise a tool nobody loads.
+- Naming a plugin as an optional peer still tells an installer the package is
+  written against that plugin. It is not: the adapter names the engine commands,
+  and `tests/unit/test_pi_package.py` fails if a plugin tool or a third-party
+  package name appears in the built manifest or in the pi layer.
 
 ## 3. Build and install
 
@@ -76,11 +73,8 @@ pi install npm:@nidvue/teamwork              # or: pi -e ./dist/@nidvue/teamwork
 ```
 
 `pi install` then `/skill:teamwork` (protocol) and `/skill:teamwork-pi`
-(pi tool mapping) are available. Optional accelerator, one extra package:
-
-```sh
-pi install npm:pi-subagents   # only for the subagent/schedule tools; the engine never needs it
-```
+(pi tool mapping) are available. No other package is needed or suggested: the
+lanes are launched by the engine, so `pi` alone is enough.
  Verified on pi 1.3.0: the local install listed
 the package and `pi -p "list the skills that contain teamwork"` answered
 `teamwork, teamwork-pi`. The tarball root carries `package.json`, `skills/`,
@@ -106,8 +100,9 @@ package and every `scripts/teamwork.py` reference already point there.
 ## 5. Publishing gates
 
 - [ ] `make package` clean, `npm pack --dry-run` shows only intended files
-- [ ] the built `package.json` declares `pi-subagents` in `peerDependencies` as
-      optional and in no `dependencies` block
+- [ ] the built `package.json` declares the host packages as peers and no
+      third-party package in `peerDependencies`, `dependencies` or
+      `bundledDependencies`
 - [ ] `pi install ./dist/@nidvue/teamwork` lists the package and both skills load
 - [ ] `pytest -q`, `ruff`, `mypy`, `links`, `privacy` green on the release commit
 - [ ] version bumped in `src/teamwork/version.py` (single source) and CHANGELOG written
@@ -115,11 +110,13 @@ package and every `scripts/teamwork.py` reference already point there.
 
 ## 6. Known limits
 
-- Pi has no `teams()`: a lane is a bounded run, so the queue and the ledger carry
-  the continuity, not a live teammate object.
-- `subagent` worktree isolation refuses a dirty tree, so parallel lanes share the
-  checkout and must commit with explicit `--paths`.
+- Every lane is a detached child process of the engine, so a lane that dies is a
+  record with a dead pid (`lane reap` reconciles it) - not a lost teammate
+  object. The queue and the ledger carry the continuity.
+- Parallel lanes each get their own git worktree (`lane start --worktree`,
+  `Runtime/Worktrees/<Instance>/<T-id>`) and must commit with explicit `--paths`,
+  so no lane sweeps a peer's uncommitted work.
 - The pi package ships the engine under `skills/teamwork/src`, so `python3` and
   the standard library are the only runtime requirements - no node dependency.
-- `pi-subagents` is a declared, optional peer: without it a session has no
-  `subagent` tool, and every lane still runs through `lane start` / `swarm run`.
+- `pi-subagents` is not declared, not required and not suggested: every lane
+  runs through `lane start` / `swarm run`, which launch the host CLI.
