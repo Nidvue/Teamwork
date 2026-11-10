@@ -31,14 +31,7 @@ HOST_DEFAULTS = {
     "agents": Path("~/.agents/skills/teamwork"),
 }
 
-#: Marker that identifies a directory as a skill bundle rather than a random tree.
-MARKERS = ("SKILL.md", "roles", "references", "templates")
-
 _SKIP_SUFFIXES = (".pyc", ".pyo")
-
-
-def looks_like_bundle(path: Path) -> bool:
-    return path.is_dir() and any((path / marker).exists() for marker in MARKERS)
 
 
 def _skip(path: Path) -> bool:
