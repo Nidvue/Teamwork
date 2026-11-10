@@ -1927,3 +1927,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: Reviewer-6 TS-0045 at b7f6142 -> 107/112 complete, 5 missing, 94 ids for 112 entries; Reviewer-9 at 70648d4 -> 5 missing (not 6; D-20261019-CEO-17 already carried one under another heading), the correction entry had no decision.add event; this entry is that event
 - falsified by: an entry dated 2026-11-01 or later with no falsifier, sharing an id, or without a ledger event; or a citation of a pre-ledger entry the ordinal map does not resolve
 - consequences: -
+
+## D-20261101-Developer-2 - The console-script portability case skips only when the laun
+
+- date: 2026-11-01
+- kind: technical
+- status: accepted
+- deciders: Developer-2 (developer)
+- decided by: Developer-2
+- task: -
+- context: -
+- options considered: -
+- decision: The console-script portability case skips only when the launcher's own #! interpreter is absolute and missing, naming it; a launcher for a live interpreter is still executed
+- why: Measured: venv\Scripts\teamwork.exe embeds #!D:\Code\Nidvue\Teamwork\venv\Scripts\python.exe and exits 1 with empty stdout and stderr, while venv\Scripts\python.exe -m teamwork --version exits 0 and the package imports from this checkout - so the entry point's code path is sound and the launcher is the stale object. A red here would report a host install artifact as a product defect on every host that moves its checkout; a blanket skip would hide a real quoting bug, so the guard is the launcher's own shebang: absent, relative or existing interpreter => measured.
+- evidence: the failing run is recorded on T-0019 (tests repro, fail at bd03949 -> pass at this branch head): the console-script case at bd03949 exits 1 with empty stdout and stderr, and at this head the module is 9 passed, 1 skipped with the skip naming D:\Code\Nidvue\Teamwork\venv\Scripts\python.exe; venv python -m pytest -q tests/unit/test_sys_path_hygiene.py at this head -> 5 passed
+- falsified by: A commit that makes the installed launcher quote a spaced path wrongly while its interpreter exists would now be executed by this case and must fail; if it skips instead, the guard is wrong
+- consequences: -
