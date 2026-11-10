@@ -112,6 +112,7 @@ under two roles is two tasks.
 | ceo | T-0024 | records | done | P-0062 | 394a386 |
 | ceo | T-0025 | records | done | P-0064 | 3a489fb |
 | ceo | T-0026 | records | done | P-0065 | 2fab37e |
+| ceo | T-0027 | release | done | P-0071 | 786041c |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
