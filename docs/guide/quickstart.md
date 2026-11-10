@@ -13,6 +13,7 @@ for readability.
 ## 1. Install the skill
 
 ```console
+$ mkdir demo && cd demo
 $ mkdir -p .agents/skills
 $ git clone --depth 1 https://github.com/Nidvue/Teamwork.git .agents/skills/teamwork
 $ rm -rf .agents/skills/teamwork/.git
@@ -34,7 +35,6 @@ what it does not publish at all.
 ## 2. Ask for the team
 
 ```text
-$ mkdir -p demo && cd demo
 > use the teamwork skill: build a small URL shortener with a CLI, tests and docs
 ```
 
