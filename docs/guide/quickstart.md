@@ -56,10 +56,12 @@ teamwork: folded lanes (no seat, no separate charter to load): product-manager, 
 teamwork: created AGENTS.md
 ```
 
-The default tier is deliberately small: two Reviewers (one verifies, a different
-one merges) and the lanes the gates cannot do without. `--roster standard` adds
-the Product Manager, Project Manager and Release Engineer, `--roster full` adds
-the remaining seven, and `--agents` takes an exact list.
+The default tier is deliberately small: two Reviewers (the review queue fans one
+deliverable per lane, and a second Reviewer gives a sampled or high-risk
+deliverable an independent verdict) and the lanes the gates cannot do without.
+`--roster standard` adds the Product Manager, Project Manager and Release
+Engineer, `--roster full` adds the remaining seven, and `--agents` takes an exact
+list.
 
 With a single Reviewer the tool records the combined
 duty as an explicit exception.

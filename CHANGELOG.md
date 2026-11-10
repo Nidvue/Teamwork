@@ -17,6 +17,41 @@ by tag boundary.
 
 ### Added
 
+- **Coordination safety: the failure modes are measured, not exhorted.**
+  `teamwork coordination [--strict] [--json] [--commit]` reads the records the
+  team already writes and reports the multi-agent failures Anthropic measured in
+  [Measuring multiagent systems](https://www.anthropic.com/research/multiagent-systems)
+  (accessed 2026-10-27): duplicate branches or tasks (`C-DIV-*`), verification
+  lanes sharing one model, review evidence copied from the author
+  (`C-TRUST-ECHO`), reviewer monoculture, abandoned PRs, merge fraction
+  below 0.5 (`C-MERGE-*`), and slot starvation past the provider cap (`C-CAP-*`).
+  `--strict` exits 1 on a high finding and is the milestone gate. The mechanisms
+  behind each check - blind-first review, the contest-then-CEO de-escalation
+  ladder, conditional trust, the sampled second review - are in
+  [`references/Coordination.md`](references/Coordination.md), with the contract in
+  `SKILL.md` and the `AGENTS.md` managed block.
+- **Independent verification lanes get a second model.** `TEAMWORK_MODEL_ALT`
+  makes `model auto --apply` alternate models across Reviewer, Tester and
+  Security Auditor instances (and only those: a developer lane does not need the
+  extra cost). With no alternate configured it prints the residual risk instead
+  of hiding it. `model auto` now writes per-instance assignments as well as role
+  defaults, and `resolved_model` matches instance names case-insensitively.
+- **`task reclaim` refuses a live lane.** A takeover of a task whose owner still
+  holds a slot lease is refused (exit 2) with the provider named; `--force
+  <reason>` overrides a confirmed dead lane and is recorded on the task. This is
+  the mechanical edge of the no-resource-denial rule.
+- **`pulse` defers instead of over-subscribing.** It counts lanes that need a new
+  lease, keeps assignments that only top up an existing holder, and defers the
+  rest past the free-slot count with the deferred ids printed. Exit 3 means
+  nothing could be dispatched. `parallel` and the docs now use the same wording.
+- **One duplicate-task detector.** `audit` and `coordination` share
+  `duplicate_task_pairs`, so the two gates cannot drift into disagreeing about
+  what a duplicate is.
+- **The Reviewer loop's real limit is documented.** `roles/reviewer.md` said the
+  rejection loop had no limit while the engine enforced `REVIEW_FAIL_LIMIT` (3)
+  and the constitution required a dispute at that point; the charter now matches
+  the code.
+
 - **The Reviewer judges the artefact, not the author.** `roles/reviewer.md` gains
   six ordered criteria - delivery and conformance, fidelity, internal consistency,
   operational fitness, finish, evidence reproduces - that stop the verdict at the

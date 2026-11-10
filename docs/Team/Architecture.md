@@ -140,6 +140,7 @@ Additions to the original surface (no removals, no renames):
 | `--version` | prints `teamwork <version>` and exits 0 |
 | `version` subcommand | same as `--version` |
 | `teamwork selftest` | runs an offline smoke check of the workspace (used by CI) |
+| `teamwork coordination` | coordination health: conformity, trust, lane wars, merge rate, slot starvation |
 
 Every existing subcommand, flag and exit code is unchanged. Exit codes are part
 of the contract:
