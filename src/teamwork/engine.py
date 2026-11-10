@@ -817,11 +817,42 @@ def cmd_pr(args) -> int:
         return _pr_open(args, root, project, here, path, role)
 
 
+def _merge_branch_hint(root: Path, handle: str) -> str:
+    """The branch of the task a merge names, or "" when ``handle`` is a PR id.
+
+    ``--pr`` accepts a PR id or a task id, and a task that was reworked after
+    an earlier merge still has the old (merged) PR record next to the new one,
+    so an id/task match alone can return the record whose branch already sits
+    in the base. The task's current branch narrows the lookup to the live record.
+
+    The task is read under its role lock and the reviews file is read later
+    under ``reviews.lock``, so the role -> reviews order that ``cmd_review``
+    uses is never inverted here.
+    """
+    for role in list_roles(root):
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+            tasks = parse_tasks(task_file(root, role))
+        tidx = find_task(tasks, handle)
+        if tidx is not None:
+            return tasks[tidx].get("branch") or ""
+    return ""
+
+
+def _merge_pr_index(prs: list, handle: str, branch: str = "") -> int | None:
+    """Index of the PR a merge names, preferring the record on ``branch``."""
+    if branch:
+        idx = find_pr_exact(prs, handle, branch)
+        if idx is not None:
+            return idx
+    return find_pr_exact(prs, handle)
+
+
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "merge.lock"):
+        hint = _merge_branch_hint(root, args.pr)
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
             prs = parse_reviews(path)
-            idx = find_pr_exact(prs, args.pr)
+            idx = _merge_pr_index(prs, args.pr, hint)
             if idx is None:
                 die(f"no PR '{args.pr}'")
             pr = prs[idx]
@@ -1028,7 +1059,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             # the git merge is not lost.
             with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
                 fresh_prs = parse_reviews(path)
-                pidx = find_pr_exact(fresh_prs, pr["id"])
+                pidx = find_pr_exact(fresh_prs, pr["id"], pr.get("branch"))
                 if pidx is not None:
                     fresh_prs[pidx]["status"] = "merged"
                     fresh_prs[pidx]["reviewer"] = merger
@@ -1080,7 +1111,7 @@ def _pr_open(args, root: Path, project: Path, here: Path, path: Path, role: str)
         )
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
         prs = parse_reviews(path)
-        existing = find_pr(prs, t["id"])
+        existing = find_pr(prs, t["id"], t.get("branch"))
         if existing is not None:
             pr = prs[existing]
             pr["status"] = "open"
@@ -5726,7 +5757,12 @@ def archive_append(root: Path, owner: str, t: dict) -> str:
         f"- author evidence: {t.get('evidence') or '-'}",
         f"- reviewer evidence: {t.get('review_evidence') or '-'}",
         f"- findings history: {t.get('findings') or '-'}",
-        f"- branch / merge: {t.get('branch') or '-'} / {t.get('merge_commit') or 'pending'}",
+        # archive_append runs at review time, always before the merge revision
+        # exists, so a fresh entry starts at "pending" and `pr merge` repoints it.
+        # A reworked task still carries the earlier round's merge_commit; stamping
+        # it here would claim the new work merged at the old revision and leave the
+        # merge nothing to repoint.
+        f"- branch / merge: {t.get('branch') or '-'} / pending",
         "",
     ]
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "archive.lock"):
@@ -5754,16 +5790,24 @@ def archive_set_merge_sha(root: Path, branch: str, sha: str, repo: Path | None =
     to the project root, but ``pr merge`` passes the work tree the merge landed
     in so the rewrite follows the base branch instead of whichever checkout
     happens to sit at the project root.
+
+    Only the *pending* entry is repointed, and of several pending entries for
+    the same branch only the last one: a task reworked after a merge reuses its
+    branch name, so its second archive entry names the same branch as the first.
+    Rewriting every match would overwrite the earlier merge revision with the
+    newer one and destroy the record of the first merge.
     """
     path = (repo or project_of(root)).joinpath(*DIR_DOCS) / "Archive.md"
     if not path.exists():
         return f"# archive: no archive file yet, so {branch} has no entry to update"
     separator = " / "
     prefix = "- branch / merge: "
+    pending = "pending"
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "archive.lock"):
         lines = path.read_text(encoding="utf-8").split("\n")
         matched: list = []
-        rewritten: list = []
+        pending_lines: list = []
+        recorded: list = []
         for index, line in enumerate(lines):
             if not line.startswith(prefix):
                 continue
@@ -5772,20 +5816,34 @@ def archive_set_merge_sha(root: Path, branch: str, sha: str, repo: Path | None =
             if entry_branch != branch:
                 continue
             matched.append(index)
-            if entry_merge != sha:
-                lines[index] = f"{prefix}{branch}{separator}{sha}"
-                rewritten.append(index)
-        if rewritten:
+            if entry_merge == pending:
+                pending_lines.append(index)
+            else:
+                recorded.append(entry_merge)
+        rewritten: list = []
+        if pending_lines:
+            index = pending_lines[-1]
+            lines[index] = f"{prefix}{branch}{separator}{sha}"
+            rewritten.append(index)
             write_lf(path, "\n".join(lines))
     if not matched:
         return (
             f"# archive: no entry names branch {branch}, so nothing points at {sha} "
             "(the entry is written by the review pass)"
         )
-    if not rewritten:
-        return f"# archive: {branch} already records the merge at {sha} (no change)"
-    plural = "entries" if len(rewritten) > 1 else "entry"
-    return f"# archive: {plural} for {branch} now record the merge at {sha}"
+    if not pending_lines:
+        if sha in recorded:
+            return f"# archive: {branch} already records the merge at {sha} (no change)"
+        return (
+            f"# archive: {branch} has no entry awaiting its merge revision (already "
+            f"recorded: {', '.join(recorded) or 'none'}), so nothing points at {sha}"
+        )
+    if len(pending_lines) > 1:
+        return (
+            f"# archive: entry for {branch} now records the merge at {sha} "
+            f"({len(pending_lines)} entries awaited one; the latest was updated)"
+        )
+    return f"# archive: entry for {branch} now records the merge at {sha}"
 
 
 def commit_archive_merge_sha(
@@ -6043,7 +6101,7 @@ def cmd_review(args) -> int:
             if t.get("pr"):
                 with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
                     prs_now = parse_reviews(reviews_path(root))
-                    pidx_now = find_pr_exact(prs_now, t["pr"])
+                    pidx_now = find_pr_exact(prs_now, t["pr"], t.get("branch"))
                 if pidx_now is not None and pascal(prs_now[pidx_now].get("author") or "") == pascal(
                     reviewer
                 ):
@@ -6138,7 +6196,7 @@ def cmd_review(args) -> int:
 
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
             prs = parse_reviews(reviews_path(root))
-            pidx = find_pr(prs, t.get("pr") or t["id"]) if t.get("pr") else None
+            pidx = find_pr(prs, t.get("pr") or t["id"], t.get("branch")) if t.get("pr") else None
             if pidx is not None:
                 prs[pidx]["status"] = "approved" if args.result == "pass" else "changes-requested"
                 prs[pidx]["reviewer"] = reviewer
