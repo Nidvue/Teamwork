@@ -98,6 +98,7 @@ under two roles is two tasks.
 | ceo | T-0013 | - | todo | - | - |
 | ceo | T-0014 | - | done | - | - |
 | ceo | T-0015 | records | done | P-0045 | bbdffbf |
+| ceo | T-0016 | release | done | P-0046 | 2893940 |
 | designer | T-0001 | - | done | P-0002 | 7783953 |
 | designer | T-0002 | docs | done | P-0004 | aeb5d62 |
 | designer | T-0003 | ui-assets | done | P-0013 | 1f648fd |
@@ -144,6 +145,7 @@ under two roles is two tasks.
 | technical-writer | T-0006 | - | todo | - | - |
 | technical-writer | T-0007 | - | todo | - | - |
 | technical-writer | T-0008 | - | dropped | - | - |
+| technical-writer | T-0009 | - | todo | - | - |
 | tester | T-0001 | integration | done | P-0015 | 8b5db3f |
 | tester | T-0002 | integration | done | P-0028 | 4198781 |
 | tester | T-0003 | integration | doing | P-0043 | - |
@@ -173,6 +175,7 @@ landed by commit without a PR record.
 | developer | T-0030 · bb9866f left a dead BADGE_TABLE_ROW constant and a fragile header lookup in the badge guard | P3 | todo | - |
 | technical-writer | T-0006 · M15 A4: document the authority/attention model (reference, SKILL, AGENTS block, research check, changelog) | P1 | todo | - |
 | technical-writer | T-0007 · M16 A2: the proportionality contract in the team's own documents (reference, constitution, docs rule, marker test) | P1 | todo | - |
+| technical-writer | T-0009 · The 1.5.0 CHANGELOG section is mangled: backticks became backslashes and control characters | P1 | todo | - |
 | tester | T-0003 · M15 A5: integration proof that mandate, accept mode, attention and stage compose on a throwaway tree | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
