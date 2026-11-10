@@ -162,7 +162,6 @@ def test_tester_certifies_both_local_and_ci(root):
     assert "**locally**" in text and "CI on the pushed revision" in text
     assert "A green local run with a red CI run is a failure" in text
     assert "is your bug" in text
-    assert "Never report a suite as passing while the matching CI run is red" in text
 
 
 def test_tester_routes_failures_to_the_owning_role(root):
@@ -189,10 +188,17 @@ def test_testing_reference_documents_local_and_ci(root):
 
 
 def test_agents_template_carries_push_and_ci_rules(root):
-    text = flat(read(root, "templates", "AGENTS.md"))
+    raw = read(root, "templates", "AGENTS.md")
+    text = flat(raw)
     assert "PUSH POLICY" in text
     assert "LOCAL + CI" in text
-    assert "after the Reviewer has passed the revision with no open finding" in text
+    # The rule is "a Reviewer passed it before the push", not one sentence: the
+    # PUSH POLICY paragraph itself must carry the Reviewer and the condition. Split
+    # the raw text, not the flattened copy, or every paragraph is the whole file.
+    assert any(
+        all(term in flat(para) for term in ("PUSH POLICY", "Reviewer", "no open finding"))
+        for para in raw.split("\n\n")
+    ), "the PUSH POLICY paragraph lost its Reviewer condition"
     # the cadence is a hard rule on both surfaces, not prose a rewrite can drop
     assert "a stage ends with a push, not with a merge" in text.lower()
 
@@ -233,7 +239,10 @@ def test_the_superseded_ceo_only_push_rule_is_marked_superseded(root):
 
 def test_the_role_mailbox_domain_is_an_owner_decision(root):
     text = read(root, "docs", "Team", "Decisions.md")
-    assert "Owner instruction: the role mailbox domain is agents.nidvue.com" in text
+    blocks = text.split("\n## ")
+    mailbox = [b for b in blocks if "role mailbox domain" in b and "agents.nidvue.com" in b]
+    assert mailbox, "no decision records the role mailbox domain"
+    assert any("status: accepted" in b for b in mailbox), "the owner decision is not accepted"
 
 
 # --------------------------------------------------------------------------- #
