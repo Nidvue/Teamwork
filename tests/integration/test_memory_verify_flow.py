@@ -114,7 +114,7 @@ def tree(cli, tmp_path: Path, capsys) -> dict:
     (root / "probe.txt").write_text("one\ntwo\nthree\n", encoding="utf-8")
 
     cases = {
-        "revision": f"pytest -q tests/unit/test_memverify.py @{sha} -> 12 passed",
+        "revision": f"pytest -q @{sha} -> 12 passed",
         "path": "probe.txt:99",
         "source": "https://example.com/x",
     }
