@@ -573,3 +573,66 @@ def test_there_is_no_single_reviewer_bottleneck_claim(root):
     text = flat(read(root, "SKILL.md"))
     assert "reviewer-1..N" in text
     assert "Reviewer is not optional" in text
+
+
+# --------------------------------------------------------------------------- #
+# warnings are errors
+# --------------------------------------------------------------------------- #
+
+
+def test_engineering_reference_defines_the_warnings_policy(root):
+    text = flat(read(root, "references", "Engineering.md"))
+    assert "## Warnings are errors" in text
+    assert "Make the tool fail on warnings" in text
+    assert "filterwarnings" in text and "-W error" in text
+    assert "CI annotations count" in text
+    assert "Suppress narrowly" in text
+
+
+def test_agents_template_and_charters_require_warning_free(root):
+    assert "**WARNINGS ARE ERRORS**" in read(root, "templates", "AGENTS.md")
+    for path in sorted((root / "roles").glob("*.md")):
+        assert "**Warnings are errors:**" in path.read_text(encoding="utf-8"), path.name
+
+
+def test_this_repository_fails_on_warnings(root):
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'filterwarnings = ["error"]' in pyproject
+    # TOML spelling here, CLI spelling in the reference
+    assert "warn_unused_ignores = true" in pyproject
+    assert "warn_redundant_casts = true" in pyproject
+
+
+def test_ci_actions_are_not_on_node_deprecated_majors(root):
+    """The CI log warned that checkout/setup-python/upload-artifact ran on Node 20.
+
+    A deprecation notice about a runner is a warning: the action is bumped, not
+    ignored.
+    """
+    import re
+
+    text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((root / ".github" / "workflows").glob("*.yml"))
+    )
+    floors = {
+        "actions/checkout": 7,
+        "actions/setup-python": 7,
+        "actions/upload-artifact": 7,
+        "actions/download-artifact": 8,
+        "actions/upload-pages-artifact": 5,
+        "actions/deploy-pages": 5,
+        "actions/configure-pages": 6,
+        "actions/attest-build-provenance": 4,
+        "softprops/action-gh-release": 3,
+    }
+    found = dict(re.findall(r"([\w.-]+/[\w.-]+)@v(\d+)", text))
+    for action, floor in floors.items():
+        assert action in found, f"{action} not pinned in a workflow"
+        assert int(found[action]) >= floor, f"{action}@{found[action]} < v{floor}"
+
+
+def test_skill_contract_requires_warning_free_output(root):
+    text = flat(read(root, "SKILL.md"))
+    assert "Warnings are errors" in text
+    assert "CI annotations" in text

@@ -150,6 +150,9 @@ ignore_errors = true
 minversion = "7.0"
 testpaths = ["tests"]
 addopts = "-ra"
+# Warnings are errors: a warning raised by this project's own code fails the suite.
+# A third-party warning gets a narrow, reasoned entry here, never a blanket ignore.
+filterwarnings = ["error"]
 norecursedirs = ["dist", "build", "site", ".venv", ".pi", "*.egg"]
 
 [tool.coverage.run]
