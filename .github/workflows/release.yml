@@ -3,9 +3,20 @@
 # Contract: docs/Team/Architecture.md (the CI/release contract and the
 # release-consistency contract, the nine rules R1-R9) and docs/Team/Project.md
 # AC-7.
-# Triggered only by a `v*` tag. Produces sdist + wheel, SHA256SUMS, a CycloneDX
-# JSON and an SPDX JSON SBOM, attests build provenance, and publishes a GitHub
-# Release with every asset. Nothing is pushed by an agent; the CEO owns the tag.
+# Triggered only by a `v*` tag. Produces sdist + wheel, exactly one SHA256SUMS
+# manifest, a CycloneDX JSON and an SPDX JSON SBOM, attests build provenance, and
+# publishes a GitHub Release with every asset. Nothing is pushed by an agent; the
+# CEO owns the tag.
+#
+# One manifest, one name. The `v1.3.0` Release run - named by
+# `gh run list --workflow Release --json attempt,headBranch,headSha -L 3`, never by a
+# run id copied into this file - failed with "Not Found -
+# releases/assets#update-a-release-asset" because two files named SHA256SUMS
+# reached the Release: `dist/SHA256SUMS` (written by verify_release.py) and a
+# root-level one written by a checksum step, so `files: dist/* + SHA256SUMS`
+# resolved two assets with one name. The action uploaded it once and then 404'd
+# updating it, leaving the release a draft until a re-run. `dist/SHA256SUMS` is
+# now the only manifest and it covers every published asset.
 #
 # The release-consistency gate (the nine rules R1-R9 of
 # docs/Team/Architecture.md) runs in the `consistency` job, before anything is
@@ -282,18 +293,68 @@ jobs:
           format: spdx-json
           output-file: sbom.spdx.json
           upload-artifact: false
-      - name: Checksum every published asset
+      - name: Extend dist/SHA256SUMS over every published asset (one manifest)
         shell: bash
         run: |
-          sha256sum dist/* sbom.cyclonedx.json sbom.spdx.json > SHA256SUMS
-          cat SHA256SUMS
+          # A second file named SHA256SUMS anywhere else in the upload set is the
+          # defect this step exists to prevent, so the manifest is built here, in
+          # one place, from the asset set itself - not written twice by two steps.
+          python3 - <<'PY'
+          import hashlib
+          import pathlib
+          import sys
+
+          dist = pathlib.Path("dist")
+          manifest = dist / "SHA256SUMS"
+          sboms = [pathlib.Path("sbom.cyclonedx.json"), pathlib.Path("sbom.spdx.json")]
+
+          # `files: dist/*` is globbed by the release action, so a directory in
+          # dist/ would silently become an asset the manifest does not cover.
+          directories = sorted(p.as_posix() for p in dist.iterdir() if not p.is_file())
+          if directories:
+              print(
+                  f"::error::dist/ holds non-file entries {directories}: the release "
+                  "asset list is 'dist/*', so every entry there must be a published file",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+
+          assets = sorted(p for p in dist.iterdir() if p.is_file() and p != manifest) + sboms
+          names = [p.name for p in assets]
+          duplicated = sorted({name for name in names if names.count(name) > 1})
+          if duplicated:
+              print(
+                  f"::error::the release asset names are not unique: {duplicated} - two "
+                  "assets with one name race in the Release API (v1.3.0: two assets, one name)",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+          absent = sorted(p.as_posix() for p in assets if not p.is_file() or p.stat().st_size == 0)
+          if absent:
+              print(
+                  f"::error::an asset the manifest must cover is missing or empty: {absent}",
+                  file=sys.stderr,
+              )
+              raise SystemExit(1)
+
+          lines = [
+              f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}"
+              for path in assets
+          ]
+          # Bare asset names, because the Release flattens the asset set: a user
+          # who downloaded every asset into one directory runs `sha256sum -c`.
+          with manifest.open("w", encoding="utf-8", newline="\n") as handle:
+              handle.write("\n".join(lines) + "\n")
+          print(f"{manifest.as_posix()} covers {len(lines)} asset(s): {', '.join(names)}")
+          print("verify a downloaded asset set with: sha256sum -c SHA256SUMS")
+          PY
+          cat dist/SHA256SUMS
       - name: Upload release assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-assets
           path: |
             dist/
-            SHA256SUMS
             sbom.cyclonedx.json
             sbom.spdx.json
           if-no-files-found: error
@@ -316,7 +377,6 @@ jobs:
         with:
           subject-path: |
             dist/*
-            SHA256SUMS
             sbom.cyclonedx.json
             sbom.spdx.json
 
@@ -335,9 +395,11 @@ jobs:
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           generate_release_notes: true
+          # dist/* carries the wheel, the sdist and the ONE SHA256SUMS; the two
+          # SBOMs live at the repository root. A second `SHA256SUMS` entry here
+          # is what made v1.3.0 upload two assets with one name.
           files: |
             dist/*
-            SHA256SUMS
             sbom.cyclonedx.json
             sbom.spdx.json
       # The gate in the `consistency` job ran before the publish, where the

@@ -13,7 +13,7 @@ Related: [Project](Project.md) · [Plan](Plan.md) · [Board](Board.md) · [Archi
 | dev setup | `make dev` | editable install with dev extras |
 | selftest | `python3 scripts/teamwork.py selftest` | `5/5 checks passed`, exit 0 |
 | build | `make build` | `dist/teamwork_agents-<version>.tar.gz` and `dist/teamwork_agents-<version>-py3-none-any.whl`, where `<version>` is what `python3 scripts/teamwork.py --version` prints (read it from `src/teamwork/version.py`; the filenames follow it and are never pinned here) |
-| verify | `make verify` (runs `scripts/verify_release.py`) | every bundled skill file (`teamwork/data/SKILL.md`, roles, references, templates) is present in the wheel and the sdist, the wheel metadata declares no ungated `Requires-Dist`; clean-venv install; `teamwork --version`, `teamwork selftest`, the full gate loop to `STOP` and a temp-dir `teamwork init` all pass; `dist/SHA256SUMS` is written last, only after every check passed |
+| verify | `make verify` (runs `scripts/verify_release.py`) | every bundled skill file (`teamwork/data/SKILL.md`, roles, references, templates) is present in the wheel and the sdist, the wheel metadata declares no ungated `Requires-Dist`; clean-venv install; `teamwork --version`, `teamwork selftest`, the full gate loop to `STOP` and a temp-dir `teamwork init` all pass; `dist/SHA256SUMS` is written last, only after every check passed (in the Release workflow the `build` job then *extends* that one file over the artefacts and both SBOMs - see [Release assets](#release-assets-one-manifest-one-name)) |
 | pi package | `make package` | `dist/@nidvue/teamwork` pi bundle (built by `scripts/build_pi_package.py`) |
 | provenance | GitHub Actions attestation (release workflow) | `gh attestation verify <file> --repo Nidvue/Teamwork` |
 
@@ -395,6 +395,42 @@ T-0010 and measured in section 4 above, not restated here. Items 1-2 are not cha
 this document: a branch-protection change is a forge governance event and belongs to the
 CEO. Item 3 is this lane's own file and is scheduled, not silently reverted.
 
+## Release assets: one manifest, one name
+
+A published Release carries exactly **one** asset per name. The build job writes
+one manifest, `dist/SHA256SUMS`, extended over every asset it publishes, and the
+`files:`, `subject-path:` and `path:` lists all draw from it - never a second
+file with the same basename.
+
+| asset | written by | published as |
+|---|---|---|
+| `teamwork_agents-<version>.tar.gz`, `…-py3-none-any.whl` | `scripts/verify_release.py` (`python -m build`) | `dist/*` |
+| `SHA256SUMS` | the last step of the `build` job, over the two artefacts and both SBOMs | `dist/*` (it lives in `dist/` and nowhere else) |
+| `sbom.cyclonedx.json`, `sbom.spdx.json` | `anchore/sbom-action` | their own `path:` entries at the repository root |
+
+The manifest lists bare asset names, because the Release flattens the asset set:
+a user who downloaded everything into one directory runs `sha256sum -c SHA256SUMS`.
+
+Measured defect this rule closes - tag `v1.3.0`, on the Release run that
+`gh run list --workflow Release --json attempt,headBranch,headSha -L 3` names (the id
+belongs in that command's output, not in this page): `verify_release.py`
+wrote `dist/SHA256SUMS` **and** a later shell step wrote a root-level `SHA256SUMS`,
+so `files: dist/* + SHA256SUMS` resolved two assets with one name. The action
+uploaded it once and then failed with
+`Not Found - releases/assets#update-a-release-asset`, leaving the release a draft
+until the failed job was re-run. `v1.2.1` hit the same error and continued with
+`Matching asset is present after refresh`; `v1.3.0` turned it into a hard failure.
+The manifest step now also refuses a non-file entry in `dist/` (a directory there
+would be swept into `dist/*`) and any duplicated asset name before the upload
+starts.
+
+Read the current asset set, never a count:
+
+```sh
+# the three lists that must agree, from the workflow itself
+grep -n -A4 'path:\|subject-path:\|files:' .github/workflows/release.yml
+```
+
 ## Deploy
 
 - Environments: none for the package. The artefact is a Python package; the
@@ -405,9 +441,10 @@ CEO. Item 3 is this lane's own file and is scheduled, not silently reverted.
   `pip install https://github.com/Nidvue/Teamwork/releases/download/<tag>/teamwork_agents-<version>-py3-none-any.whl`.
 - Order of operations: `main` green -> push `main` -> CI green on that SHA ->
   CEO tags `v<version>` -> the Release workflow asserts the tag equals
-  `src/teamwork/version.py`, re-runs the tests, builds sdist+wheel, writes
-  `SHA256SUMS` and two SBOMs, **attests** build provenance and publishes the GitHub
-  Release. It does not sign: provenance is the sigstore attestation, verified with
+  `src/teamwork/version.py`, re-runs the tests, builds sdist+wheel, extends the one
+  `SHA256SUMS` over the artefacts and both SBOMs, **attests** build provenance and
+  publishes the GitHub Release (asset set: [Release assets](#release-assets-one-manifest-one-name)).
+  It does not sign: provenance is the sigstore attestation, verified with
   `gh attestation verify <file> --repo Nidvue/Teamwork` (measured on the published
   `v1.1.0` wheel -> pass, workflow ref `release.yml@refs/tags/v1.1.0`). History
   rewrites are not part of the flow; the pre-release privacy rewrite already happened
