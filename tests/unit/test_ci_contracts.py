@@ -60,6 +60,26 @@ UNCONDITIONAL_JOBS = ("scope", "committer-guard", "release-consistency")
 #: The `if:` guard that ties an expensive job to the `scope` job's output.
 SCOPE_GUARD = "needs.scope.outputs.code"
 
+#: The second answer the classifier publishes: the change set is prose/media only.
+PROSE_GUARD = "needs.scope.outputs.prose"
+
+#: The `scope` outputs and the step output each one reads. Both must be published:
+#: "does this ship?" and "is this prose?" are different questions with different
+#: gates behind them, and collapsing them into one output makes one of the two
+#: gates wrong in one direction.
+SCOPE_OUTPUTS = {
+    "code": "steps.diff.outputs.code",
+    "prose": "steps.diff.outputs.prose",
+}
+
+#: A prose edit cannot change what the matrix measures, so these jobs read `code`
+#: alone - a prose-only push must not burn the 3x3 matrix.
+CODE_ONLY_JOBS = ("lint", "typecheck", "test", "build")
+
+#: A documentation leak is still a leak, and link health is about the prose itself,
+#: so these two read `code || prose`.
+CODE_OR_PROSE_JOBS = ("privacy", "docs")
+
 
 def workflow_text(repo_root: Path = REPO_ROOT) -> str:
     return (repo_root / CI_PATH).read_text(encoding="utf-8")
@@ -139,6 +159,23 @@ def contract_problems(document: dict) -> list[str]:
         guard = str(job.get("if") or "")
         if SCOPE_GUARD not in guard:
             problems.append(f"{name} has no `if:` guard on {SCOPE_GUARD}: {guard!r}")
+
+    # The classifier answers two questions, so each guard must ask the right one.
+    # A `privacy` or `docs` guard that reads `code` alone skips exactly the
+    # prose-only push those gates exist for; a matrix job that reads `prose` too
+    # burns the 3x3 matrix on a documentation edit.
+    outputs = (found.get("scope") or {}).get("outputs") or {}
+    for name, expression in SCOPE_OUTPUTS.items():
+        if expression not in str(outputs.get(name) or ""):
+            problems.append(f"scope does not publish the `{name}` output: outputs={outputs!r}")
+    for name in CODE_OR_PROSE_JOBS:
+        guard = str((found.get(name) or {}).get("if") or "")
+        if SCOPE_GUARD not in guard or PROSE_GUARD not in guard:
+            problems.append(f"{name} does not gate on `code || prose`: {guard!r}")
+    for name in CODE_ONLY_JOBS:
+        guard = str((found.get(name) or {}).get("if") or "")
+        if PROSE_GUARD in guard:
+            problems.append(f"{name} gates on the prose output, so a prose push runs it: {guard!r}")
     return problems
 
 
@@ -184,6 +221,29 @@ def test_the_scope_job_publishes_the_output_the_guard_reads(ci):
     scope = jobs(ci)["scope"]
     assert "code" in (scope.get("outputs") or {}), "scope declares no `code` output"
     assert "${{ steps.diff.outputs.code }}" in str((scope.get("outputs") or {})["code"])
+
+
+def test_the_scope_job_publishes_the_prose_output_too(ci):
+    """`code` alone cannot express "prose-only", which is what `privacy` reads."""
+    outputs = jobs(ci)["scope"].get("outputs") or {}
+    assert "prose" in outputs, f"scope publishes {sorted(outputs)}, want code and prose"
+    assert "${{ steps.diff.outputs.prose }}" in str(outputs["prose"])
+
+
+def test_privacy_and_docs_gate_on_code_or_prose(ci):
+    """A prose-only push skips the matrix but must not skip these two gates."""
+    for name in CODE_OR_PROSE_JOBS:
+        guard = str(jobs(ci)[name].get("if") or "")
+        assert SCOPE_GUARD in guard, f"{name} does not read `code`: {guard!r}"
+        assert PROSE_GUARD in guard, f"{name} does not read `prose`: {guard!r}"
+
+
+def test_the_matrix_jobs_gate_on_code_alone(ci):
+    """A prose edit cannot change what lint/typecheck/test/build measure."""
+    for name in CODE_ONLY_JOBS:
+        guard = str(jobs(ci)[name].get("if") or "")
+        assert SCOPE_GUARD in guard, f"{name} does not read `code`: {guard!r}"
+        assert PROSE_GUARD not in guard, f"{name} reads `prose` too: {guard!r}"
 
 
 def test_every_job_contract_clause_holds_for_the_real_workflow(ci):
@@ -263,3 +323,20 @@ def test_the_guard_regex_names_an_output_only_the_scope_job_writes(ci):
     for job in jobs(ci).values():
         names.update(guard.findall(str(job.get("if") or "")))
     assert names <= {"scope"}, f"a guard reads an output of {sorted(names - {'scope'})}"
+
+
+def test_mutant_the_one_output_workflow_is_reported():
+    """The pre-change workflow: `scope` published `code` only, and `privacy` and
+    `docs` gated on it alone, so a prose-only push skipped the privacy and docs
+    gates. That text must be reported, not merely different."""
+    text = workflow_text()
+    mutant = text.replace("      prose: ${{ steps.diff.outputs.prose }}\n", "")
+    mutant = mutant.replace(" || needs.scope.outputs.prose == 'true'", "")
+    assert mutant != text, "mutant anchors are gone: the workflow no longer publishes `prose`"
+
+    problems = contract_problems(parse_workflow(mutant))
+    assert any("does not publish the `prose` output" in problem for problem in problems), problems
+    for name in CODE_OR_PROSE_JOBS:
+        assert any(
+            problem.startswith(f"{name} does not gate on `code || prose`") for problem in problems
+        ), problems
