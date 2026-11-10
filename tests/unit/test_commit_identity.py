@@ -49,6 +49,57 @@ def _commit(repo: Path, name: str, email: str, subject: str) -> None:
     )
 
 
+def _env(repo: Path, **extra: str) -> dict:
+    return {
+        **os.environ,
+        "HOME": str(repo.parent),
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
+        **extra,
+    }
+
+
+def _forge_commit(repo: Path, name: str, email: str, subject: str) -> None:
+    """A commit exactly as a forge-side rebase merge produces it.
+
+    The author is the role that did the work; the committer is the host's noreply
+    account, which carries no identity of its own.
+    """
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "commit",
+            "--allow-empty",
+            "-q",
+            "-m",
+            f"{subject}\n\nActing role: {name}",
+        ],
+        env=_env(
+            repo,
+            GIT_AUTHOR_NAME=name,
+            GIT_AUTHOR_EMAIL=email,
+            GIT_COMMITTER_NAME="GitHub",
+            GIT_COMMITTER_EMAIL="noreply@github.com",
+        ),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _amend_committer(repo: Path, name: str, email: str) -> None:
+    """Rewrite only the committer, as a misbehaving tool would."""
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "--amend", "-q", "--allow-empty", "--no-edit"],
+        env=_env(repo, GIT_COMMITTER_NAME=name, GIT_COMMITTER_EMAIL=email),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_role_commit_passes(repo):
     _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
@@ -106,8 +157,29 @@ def test_a_rewritten_history_audits_the_tip_instead_of_dying(repo):
     """
     _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
     gone = "deadbeef" * 5
-    assert engine.rewrite_safe_range(repo, f"{gone}..HEAD") == "HEAD"
+    assert engine.rewrite_safe_range(repo, f"{gone}..HEAD") == "HEAD^..HEAD"
     assert engine.audit_commit_identities(repo, f"{gone}..HEAD") == 0
+
+
+def test_the_narrowed_range_does_not_re_audit_the_whole_history(repo):
+    """``HEAD`` alone means every ancestor, which is not the span the event covered.
+
+    Measured on this repository: after a rewrite the first version of the fallback
+    returned the tip alone, so the audit walked 337 commits and failed on four
+    pre-existing identity blemishes in old history - a red lane for commits the
+    push never touched.
+    """
+    _commit(repo, "Teamwork", "teamwork@agents.nidvue.com", "chore: old blemish")
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
+    gone = "deadbeef" * 5
+    assert engine.audit_commit_identities(repo, f"{gone}..HEAD") == 0
+
+
+def test_a_bad_tip_still_fails_after_narrowing(repo):
+    """Narrowing must not buy silence: the one commit it can measure still counts."""
+    _commit(repo, "Teamwork", "teamwork@agents.nidvue.com", "chore: bad tip")
+    gone = "deadbeef" * 5
+    assert engine.audit_commit_identities(repo, f"{gone}..HEAD") == 1
 
 
 def test_a_resolvable_range_is_not_narrowed(repo):
@@ -141,6 +213,31 @@ def test_forge_merge_commit_is_skipped(repo):
         ident=("Private Person", "someone@" + "private-mail.example"),
     )
     assert engine.audit_commit_identities(repo, "HEAD") == 0
+
+
+def test_a_forge_rebase_merge_keeps_role_authorship_valid(repo):
+    """A forge rebase merge stamps `GitHub <noreply@github.com>` as committer.
+
+    Measured: that commit is what a rebase merge produces (author preserved,
+    committer rewritten), and the audit used to fail it - so the only forge merge
+    method left after squash was disabled would have turned every merge red. The
+    author is still a role mailbox, and every other check still runs.
+    """
+    _forge_commit(repo, "Security Auditor", "securityauditor@agents.nidvue.com", "fix(x): done")
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+
+
+def test_a_forge_committer_does_not_excuse_a_product_author(repo):
+    """The tolerance is for the committer stamp only, never for the author."""
+    _forge_commit(repo, "Teamwork", "teamwork@agents.nidvue.com", "chore: import")
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+
+
+def test_an_unknown_committer_is_still_a_defect(repo):
+    """Only the known host stamps are excused, not any committer at all."""
+    _commit(repo, "Tester", "tester@agents.nidvue.com", "test(x): cover it")
+    _amend_committer(repo, "Someone Else", "someone@example.com")
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
 
 
 def test_committer_must_match_the_author(repo):
