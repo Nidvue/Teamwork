@@ -6810,4 +6810,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 88d7376
 - reviewer evidence: pytest -q -W error -n auto @88d7376 -> 2802 passed, 10 skipped, 1 xfailed in 37.52s; ruff format --check + ruff check + scripts/check_comments.py on both files -> clean; mypy scripts/lane_proof.py -> Success; regression mutant: main local pid_alive restored -> test_the_peak_probe_is_the_portable_seam_not_a_local_copy 1 failed, 9 passed; Windows-shape denial (os.kill raising PermissionError) -> pre-fix peak records=3 pids=0 required=3 FAIL vs fixed 1 passed; acceptance TS-0077 passing
 - findings history: 
-- branch / merge: developer-2/t-0119-the-lane-proof-concurrency-test-samples / pending
+- branch / merge: developer-2/t-0119-the-lane-proof-concurrency-test-samples / bc508dc
