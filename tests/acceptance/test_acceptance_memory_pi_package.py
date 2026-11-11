@@ -9,6 +9,7 @@ assert only what a user of the merged tree observes.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -124,13 +125,26 @@ def test_the_package_ships_every_declared_path(tmp_path: Path) -> None:
     assert not (pkg / "src" / "teamwork").exists(), "the engine ships once, not twice"
 
 
+def run_npm(argv: list[str], cwd: Path) -> subprocess.CompletedProcess:
+    """Run npm, resolving ``npm.cmd`` the way Windows needs it started.
+
+    ``subprocess`` cannot start a ``.cmd`` shim without a shell, so
+    ``["npm", ...]`` on Windows raised WinError 2 (T-0094). The resolved path is
+    run as one shell line there, quotes intact; POSIX keeps the plain argv.
+    """
+    npm = shutil.which("npm")
+    assert npm is not None, "npm absent on this host"
+    if os.name == "nt":
+        line = " ".join([f'"{npm}"', *argv])
+        return subprocess.run(line, cwd=cwd, capture_output=True, text=True, shell=True)
+    return subprocess.run([npm, *argv], cwd=cwd, capture_output=True, text=True)
+
+
 def test_the_tarball_has_no_engine_duplicate(tmp_path: Path) -> None:
     if shutil.which("npm") is None:
         pytest.skip("npm absent on this host")
     pkg = build(tmp_path)
-    done = subprocess.run(
-        ["npm", "pack", "--dry-run", "--json"], cwd=pkg, capture_output=True, text=True
-    )
+    done = run_npm(["pack", "--dry-run", "--json"], pkg)
     assert done.returncode == 0, done.stderr
     files = [entry["path"] for entry in json.loads(done.stdout)[0]["files"]]
     assert "package.json" in files

@@ -187,3 +187,40 @@ def test_a_reclaim_that_failed_is_reported_not_counted(cli, project: Path, capsy
     out = capsys.readouterr().out
     assert "could not be reclaimed" not in out, "a locked worktree is skipped, not failed"
     assert wt.exists(), "a locked worktree must survive"
+
+
+def test_the_repository_asks_git_for_long_paths(cli, project: Path) -> None:
+    """T-0094: a rebase in a deep worktree dies with "Filename too long" on Windows.
+
+    The worktree path alone is long and the rebase adds its own suffix, so the
+    repository has to opt into long paths once; off Windows the key is inert.
+    """
+    _repo_with_team(cli, project)
+    assert engine.run_git(project, "config", "--get", "core.longpaths").stdout.strip() == "true"
+
+
+def test_a_branch_held_by_its_worktree_is_retired_through_its_path(cli, project: Path) -> None:
+    """T-0094: the holder of a branch is found by path, never by string prefix.
+
+    `git worktree list` prints `C:/...` with forward slashes on Windows while the
+    runtime root was built with backslashes, so `startswith` was False, the
+    worktree was never removed and `git branch -d` failed with "used by worktree".
+    A root spelled through a `..` detour is the same disagreement on POSIX: the
+    strings differ, the paths are one.
+    """
+    root = _repo_with_team(cli, project)
+    branch = "developer-1/t-0001-a-clean-deliverable"
+    assert engine.run_git(project, "checkout", "-q", "-b", branch).returncode == 0
+    (project / "b.txt").write_text("two\n", encoding="utf-8")
+    engine.run_git(project, "add", "-A")
+    engine.run_git(project, "commit", "-qm", "branch work")
+    assert engine.run_git(project, "checkout", "-q", "main").returncode == 0
+    wt = root / engine.DIR_RUNTIME / engine.DIR_WORKTREES / "Developer-1" / "T-0001"
+    wt.parent.mkdir(parents=True, exist_ok=True)
+    assert engine.run_git(project, "worktree", "add", str(wt), branch).returncode == 0
+
+    alias = root / engine.DIR_RUNTIME / ".."
+
+    assert engine.retire_branch(alias, project, branch, force=True) is True
+    assert not wt.exists()
+    assert engine.run_git(project, "branch", "--list", branch).stdout.strip() == ""
