@@ -88,6 +88,7 @@ under two roles is two tasks.
 | architect | T-0005 | architecture | done | P-0067 | bb7c34f |
 | architect | T-0006 | - | done | P-0082 | f4cd70f |
 | architect | T-0007 | - | done | P-0081 | 0340949 |
+| architect | T-0008 | memory | review | P-0144 | - |
 | ceo | T-0001 | review | done | P-0001 | 2f44f00 |
 | ceo | T-0002 | docs | done | P-0008 | 28c1133 |
 | ceo | T-0003 | - | done | - | - |
@@ -221,8 +222,9 @@ under two roles is two tasks.
 | developer | T-0091 | ci | done | P-0138 | a01a6c3 |
 | developer | T-0092 | ci | done | P-0139 | 11d3d1c |
 | developer | T-0093 | ci | done | P-0140 | 442c829 |
-| developer | T-0094 | - | todo | - | - |
+| developer | T-0094 | windows-portability | done | P-0142 | - |
 | developer | T-0095 | tests | done | P-0141 | 6e5aa6a |
+| developer | T-0096 | tests | done | P-0143 | 702449c |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -274,7 +276,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0094 · the Windows shards exposed four Windows-specific test failures the 90-minute cancellation had hidden | P1 | todo | - |
+| architect | T-0008 · freeze the M23 memory contracts: short-layer capture and injection, the promotion rule, the dream cadence and the wiki page format | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
