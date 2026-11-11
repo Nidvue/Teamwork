@@ -222,7 +222,7 @@ under two roles is two tasks.
 | developer | T-0091 | ci | done | P-0138 | a01a6c3 |
 | developer | T-0092 | ci | done | P-0139 | 11d3d1c |
 | developer | T-0093 | ci | done | P-0140 | 442c829 |
-| developer | T-0094 | windows-portability | done | P-0142 | - |
+| developer | T-0094 | windows-portability | done | P-0142 | 251a30e |
 | developer | T-0095 | tests | done | P-0141 | 6e5aa6a |
 | developer | T-0096 | tests | done | P-0143 | 702449c |
 | developer | T-0097 | memory | done | P-0145 | 19246a0 |
@@ -232,6 +232,8 @@ under two roles is two tasks.
 | developer | T-0101 | - | doing | P-0146 | - |
 | developer | T-0102 | - | todo | - | - |
 | developer | T-0103 | ci-matrix | done | P-0148 | d1d11b6 |
+| developer | T-0104 | - | doing | - | - |
+| developer | T-0105 | - | doing | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -287,6 +289,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0100 · refresh stops on an unrelated mirror history and leaves every lane on a stale engine, with no warning | P1 | todo | - |
 | developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
 | developer | T-0102 · teamwork.py commit takes the ambient git identity instead of the role mailbox | P0 | todo | - |
+| developer | T-0104 · the privacy history scan takes 15-19 minutes of every run and is now the longest CI job | P0 | doing | - |
+| developer | T-0105 · the CI matrix runs the whole suite five times over; size it to the portability question and parallelise the Linux cells | P0 | doing | - |
 | tester | T-0011 · M23-C: certify the memory flow end to end and fill the AC-M23-6 measurement table | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
