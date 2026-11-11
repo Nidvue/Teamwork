@@ -64,7 +64,7 @@ except ImportError:  # pragma: no cover
     from version import __version__ as VERSION  # type: ignore
 
 
-from . import memorypack, memverify, transcripts
+from . import memorypack, memverify, transcripts, wiki
 from .attention import (
     ATTENTION_KINDS,
     STAGE_ORDER,
@@ -105,6 +105,7 @@ from .config import (
     DIR_TEAM_MAP_TPL,
     DIR_WORKTREES,
     DOCS,
+    DREAM_BUDGET_SECONDS,
     F_AUDITREPORT,
     F_CRITERIA,
     F_DISPUTES,
@@ -155,10 +156,10 @@ from .config import (
     MEMORY_ARBITER_ROLE,
     MEMORY_LEASE_MINUTES,
     MEMORY_STALL_MINUTES,
-    MIN_USES,
     OPERATOR_IDENTITY,
     PRIORITY_ORDER,
     PROMOTE_MIN_IMPORTANCE,
+    PROMOTE_USES,
     REVIEW_FAIL_LIMIT,
     REVIEW_LEASE_MINUTES,
     REVIEW_STATUSES,
@@ -178,6 +179,7 @@ from .config import (
     SKILL_DIR,
     SKILLS_DIR,
     SLOT_TTL_MINUTES,
+    STALE_AFTER_DAYS,
     STALE_DAYS,
     STATUSES,
     TEAM_ROOT_DIR,
@@ -472,7 +474,7 @@ __all__ = [
     "LONG_CAP",
     "ARCHIVE_CAP",
     "STALE_DAYS",
-    "MIN_USES",
+    "PROMOTE_USES",
     "PROMOTE_MIN_IMPORTANCE",
     "DOCS",
     "CODE_DIRS",
@@ -2643,6 +2645,7 @@ LEDGER_ACTIONS = (
     "tests.require",
     "tests.rm",
     "tests.run",
+    "wiki.prune",
 )
 
 UNDECLARED_ACTION_WARNED: set[str] = set()
@@ -5054,6 +5057,10 @@ def cmd_context(args) -> int:
             limit = min(args.limit or transcripts.SEARCH_LIMIT, transcripts.SEARCH_LIMIT)
             print(transcripts.search(root, args.query, limit=limit), end="")
             return 0
+        for fact in wiki.find(
+            root, args.query or "", datetime.datetime.now(), memorypack.SEARCH_LIMIT
+        ):
+            print(f"- {fact['id']} -> {fact['pointer']} {fact['statement']}")
         scope = _context_require(nodes, args.scope or CONTEXT_ROOT)
         tokens = [token.casefold() for token in (args.query or "").split()]
         normalised = " ".join(tokens)
@@ -7398,7 +7405,12 @@ def _memory_pack(root: Path, role: str, args) -> int:
 
 def _memory_search(root: Path, role: str, query: str) -> int:
     print(
-        memorypack.render_search(_collected(root, role), query, datetime.datetime.now()),
+        memorypack.render_search(
+            _collected(root, role),
+            query,
+            datetime.datetime.now(),
+            page_facts=[fact for page in wiki.pages(root) for fact in wiki.fact_entries(page)],
+        ),
         end="",
     )
     return 0
@@ -7447,8 +7459,11 @@ def _print_dream_group(title: str, rows: list) -> None:
 
 
 def _memory_dream(root: Path, role: str, args) -> int:
+    started = time.monotonic()
     entries = _collected(root, role)
-    proposals = memorypack.dream(entries, datetime.datetime.now(), root)
+    proposals = memorypack.dream(
+        entries, datetime.datetime.now(), root, budget_seconds=DREAM_BUDGET_SECONDS
+    )
     duplicates = [
         f"- {drop} -> superseded by {keep} (statement overlap {overlap})"
         for keep, drop, overlap in proposals["duplicate"]
@@ -7468,16 +7483,30 @@ def _memory_dream(root: Path, role: str, args) -> int:
         "drifted",
         [f"- {record_id} ({kind}): {reason}" for record_id, kind, reason in proposals["drifted"]],
     )
+    wiki_proposals = wiki.dream(root, entries, datetime.datetime.now())
+    _print_dream_group(
+        "wiki",
+        [f"- {item['action']} {item['subject']}" for item in wiki_proposals["pages"]]
+        + [f"- prune {item['id']}" for item in wiki_proposals["prune"]],
+    )
+    if proposals.get("deferred"):
+        print(
+            f"# deferred {proposals['deferred']}: DREAM_BUDGET_SECONDS={DREAM_BUDGET_SECONDS}"
+            " stopped the pass; nothing was invented"
+        )
     if not args.apply:
         print(
             "# dry run: nothing written; `--apply --by <you>` performs the duplicate and stale actions"
         )
         return 0
     counts = memorypack.apply_dream(root, proposals, args.by, scope=scope)
+    wiki_counts = wiki.apply(root, wiki_proposals, args.by)
     print(
         f"# applied: {counts['duplicate']} duplicate(s) superseded, {counts['stale']} stale archived,"
         f" {counts['contradiction']} contradiction(s) reported, {counts['no_evidence']} record(s)"
-        f" without evidence; ledger bytes {counts['bytes']:+d}"
+        f" without evidence, {wiki_counts['written']} page(s) written,"
+        f" {wiki_counts['pruned']} page(s) pruned; ledger bytes"
+        f" {counts['bytes'] + wiki_counts['bytes']:+d}; {time.monotonic() - started:.2f}s"
     )
     return 0
 
@@ -7852,12 +7881,24 @@ def _consolidate_locked(
     long_entries = parse_memory(long_path)
     archive = parse_memory(arch_path)
 
-    promoted, dropped, keep_short = [], [], []
+    drifted_ids = {
+        str(row["id"])
+        for row in memverify.verify_all(
+            [e for e in short if str(e.get("evidence") or "").strip()],
+            root,
+            datetime.datetime.now(),
+        )
+        if row["verify_status"] == memverify.DRIFTED
+    }
+    promoted, dropped, keep_short, drifted = [], [], [], []
     for e in short:
-        stale = days_since(e["last_used"]) >= STALE_DAYS and e["uses"] < MIN_USES
+        stale = days_since(e["last_used"]) >= STALE_DAYS
         if e["pinned"] or not stale:
             keep_short.append(e)
-        elif e["importance"] >= PROMOTE_MIN_IMPORTANCE:
+        elif str(e["id"]) in drifted_ids:
+            drifted.append(e)
+            keep_short.append(e)
+        elif e["uses"] >= PROMOTE_USES:
             promoted.append(e)
         else:
             dropped.append(e)
@@ -7867,9 +7908,31 @@ def _consolidate_locked(
         overflow = keep_short[SHORT_CAP:]
         keep_short = keep_short[:SHORT_CAP]
         for e in overflow:
-            (promoted if e["importance"] >= PROMOTE_MIN_IMPORTANCE else dropped).append(e)
+            if str(e["id"]) in drifted_ids:
+                keep_short.append(e)
+            elif e["importance"] >= PROMOTE_MIN_IMPORTANCE:
+                promoted.append(e)
+            else:
+                dropped.append(e)
 
     long_entries, merged, added = merge_entries(long_entries, promoted)
+
+    if dropped:
+        archive, _, _ = merge_entries(archive, dropped)
+        archive.sort(key=score, reverse=True)
+
+    demoted = []
+    still_long = []
+    for e in long_entries:
+        unused = e["uses"] == 0 and days_since(e["last_used"]) > STALE_AFTER_DAYS
+        if not e["pinned"] and unused:
+            demoted.append(e)
+        else:
+            still_long.append(e)
+    long_entries = still_long
+    if demoted:
+        archive, _, _ = merge_entries(archive, demoted)
+        archive.sort(key=score, reverse=True)
 
     evicted = []
     pinned = [e for e in long_entries if e["pinned"]]
@@ -7922,9 +7985,17 @@ def _consolidate_locked(
                 e.get("key") or e.get("id"),
                 f"long -> archive (cap {LONG_CAP}): {(e.get('body') or '')[:70]}",
             )
+        for e in demoted:
+            ledger_append(
+                root,
+                "memory.evict",
+                agent,
+                e.get("key") or e.get("id"),
+                f"long -> archive (unused {STALE_AFTER_DAYS}d): {(e.get('body') or '')[:70]}",
+            )
         write_memory(short_path, keep_short, F_SHORT, agent)
         write_memory(long_path, long_entries, F_LONG, agent)
-        if evicted:
+        if dropped or evicted or demoted:
             write_memory(arch_path, archive, F_MEM_ARCHIVE, agent)
 
     report = {
@@ -7933,6 +8004,8 @@ def _consolidate_locked(
         "long": len(long_entries),
         "promoted": len(promoted),
         "dropped": len(dropped),
+        "drifted": len(drifted),
+        "demoted": len(demoted),
         "evicted": len(evicted),
         "merged": merged,
         "added": added,
@@ -7941,6 +8014,7 @@ def _consolidate_locked(
         print(
             f"teamwork: {agent}: short={report['short']} long={report['long']} "
             f"promoted={report['promoted']} dropped={report['dropped']} "
+            f"drifted={report['drifted']} demoted={report['demoted']} "
             f"evicted={report['evicted']} merged={report['merged']}"
         )
     return report
@@ -7966,7 +8040,7 @@ def cmd_stats(args) -> int:
     print("# memory and task lists are per ROLE, shared by all its instances")
     print(
         f"# caps: short={SHORT_CAP} long={LONG_CAP} archive={ARCHIVE_CAP} "
-        f"stale_days={STALE_DAYS} min_uses={MIN_USES} v{VERSION}"
+        f"stale_days={STALE_DAYS} promote_uses={PROMOTE_USES} v{VERSION}"
     )
     total = 0
     for name in names:
@@ -10887,20 +10961,25 @@ def memory_dream_line(root: Path) -> str:
     """
     role = ""
     items = _collected(root, role)
-    proposals = memorypack.dream(items, datetime.datetime.now(), root)
+    proposals = memorypack.dream(
+        items, datetime.datetime.now(), root, budget_seconds=DREAM_BUDGET_SECONDS
+    )
     duplicates = len(proposals.get("duplicate") or [])
     stale = len(proposals.get("stale") or [])
     contradictions = len(proposals.get("contradiction") or [])
     no_evidence = len(proposals.get("no_evidence") or [])
-    if not (duplicates or stale or contradictions or no_evidence):
+    deferred = int(proposals.get("deferred") or 0)
+    if not (duplicates or stale or contradictions or no_evidence or deferred):
         return (
             f"# memory: {len(items)} record(s), nothing to consolidate (dream --dry-run is clean)"
         )
-    return (
+    line = (
         f"# memory: {len(items)} record(s) -> {duplicates} duplicate(s), {stale} stale, "
-        f"{contradictions} contradiction(s), {no_evidence} without evidence; "
-        "`memory dream --apply --by <you>` acts, nothing was written"
+        f"{contradictions} contradiction(s), {no_evidence} without evidence"
     )
+    if deferred:
+        line += f", deferred {deferred} by DREAM_BUDGET_SECONDS={DREAM_BUDGET_SECONDS}"
+    return line + "; `memory dream --apply --by <you>` acts, nothing was written"
 
 
 def _status_elapsed(seconds: int) -> str:
