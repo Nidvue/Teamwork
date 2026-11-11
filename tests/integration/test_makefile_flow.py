@@ -241,15 +241,26 @@ def plant_explanatory_comment(tree: Path) -> None:
     )
 
 
-def plant_unattributed_commit(tree: Path) -> None:
-    git_or_die(tree, ["commit", "-q", "--allow-empty", "-m", "chore(scratch): second change"])
+def plant_a_mismatched_author(tree: Path) -> None:
+    """A role mailbox authored by another display name: the identity gate refuses it."""
+    git_or_die(
+        tree,
+        [
+            "commit",
+            "-q",
+            "--allow-empty",
+            f"--author=Impostor <{ROLE_EMAIL}>",
+            "-m",
+            "chore(scratch): second change",
+        ],
+    )
 
 
 GATE_VIOLATIONS = (
     pytest.param(plant_style_error, "F401", id="ruff-check"),
     pytest.param(plant_unformatted, "would be reformatted", id="ruff-format"),
     pytest.param(plant_explanatory_comment, "explanatory comment", id="check-comments"),
-    pytest.param(plant_unattributed_commit, "Acting role", id="identity"),
+    pytest.param(plant_a_mismatched_author, "does not match role", id="identity"),
 )
 
 
