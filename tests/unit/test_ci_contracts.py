@@ -59,7 +59,7 @@ TIMEOUT_MINUTES = {
     "typecheck": 10,
     "test": 90,
     "build": 15,
-    "privacy": 15,
+    "privacy": 30,
     "release-consistency": 10,
     "docs": 10,
     "docs-contract": 10,
