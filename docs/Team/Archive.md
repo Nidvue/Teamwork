@@ -6525,3 +6525,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git diff main...454e1c7 @454e1c7 -> 2 files, +8/-2: ci.yml privacy job timeout-minutes 15->30 with 6-line measurement comment (8m02s local / 15m15s cold runner, T-0090), test_ci_contracts.py TIMEOUT_MINUTES privacy 15->30; .venv/bin/python -m pytest -q tests/unit/test_ci_contracts.py @454e1c7 -> 33 passed in 0.14s; grep -n -A2 "name: privacy scan" .github/workflows/ci.yml @454e1c7 -> ci.yml:332 name: privacy scan (tree + history), 334 comment start, timeout-minutes: 30 confirmed at ci.yml:340; git merge-tree --write-tree main 454e1c7 @454e1c7 -> CLEAN
 - findings history: 
 - branch / merge: developer-1/t-0092-privacy-budget / 11d3d1c
+
+## T-0093 · the Windows cell still exceeds 90 minutes: shard it by test-file range  (developer)
+- date: 2026-11-11
+- priority: P1
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: ci
+- self-check: [pass] Three Windows rows instead of one, each running a disjoint letter range of tests/unit, with the integration and acceptance layers in the first shard; no new dependency and no test skipped. The CI contract now encodes the rule rather than a cell count: a cell may be sharded only if it is Windows and every shard names paths that no other shard names. The makefile contract stopped reading a GitHub expression as a gate argument (shlex splits ${{ matrix.paths }} into three tokens). Boundary: the three ranges together are the whole unit directory - test_[a-f], test_[g-o], test_[p-z] - and the integration/acceptance layers run once, in the first shard, so nothing is dropped and nothing runs twice. | test: .venv/bin/python -m pytest -q tests/unit/test_ci_contracts.py tests/unit/test_makefile_contracts.py @a341519 -> 56 passed; .venv/bin/python -m pytest -q tests/unit tests/integration tests/acceptance -> 2704 passed, 4 skipped; preflight developer T-0093 --run @a341519 -> 8 checks, 0 failed | preflight: PF-f5966d1df6e4 @a341519db8c2 (8 checks, 0 failed)
+- author evidence: commit a341519
+- reviewer evidence: pytest test_ci_contracts + test_makefile_contracts @a341519 -> 56 passed; grep -c os: windows-latest -> 3 shards; git merge-tree main a341519 -> CLEAN
+- findings history: 
+- branch / merge: developer-1/t-0093-windows-shards / pending
