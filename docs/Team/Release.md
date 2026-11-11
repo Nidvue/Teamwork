@@ -97,7 +97,7 @@ every pattern rule still fires on the same line.
 The code-scanning row no longer quotes a triage. `D-20261020-SEC-1` originally
 triaged alerts #2 and #3 (`py/clear-text-logging-sensitive-data` on
 `scripts/privacy_scan.py`) as false positives; the reporting path was then refactored
-instead (`05adf66`, T-0053: the raw value lives on the `Finding` object as an
+instead (`04c8905e65d52988f32b7cb10bd6250e239fb307`, T-0053: the raw value lives on the `Finding` object as an
 attribute, never as an item, and every sink names the rule, not the value). The forge
 reports all three alerts as `fixed`, not `dismissed`, so `teamwork code-scanning`
 prints `- no open alert`. The decision stays in [Decisions](Decisions.md) as the record
@@ -237,7 +237,7 @@ for the contract this gate belongs to.
 |---|---|---|---|
 | 1 | `committer differs from author` where the committer is a **canonical role mailbox** (`ROLE_DISPLAY` -> `role_identity`, e.g. `Reviewer <reviewer@agents.nidvue.com>`) | **accepted**, and the output still prints `(landed by <role>)` | A lane landing a peer's reviewed work commits as its own role mailbox: that *is* the local merge policy. A committer that is not a role mailbox (a personal address) and differs from the author stays a **FAIL**. |
 | 2 | missing `Acting role:` line while the body carries `Role: <role>` | **accepted** as equivalent, provided the `Role:` value resolves to the author's own role | The line is only required from a role-mailbox author (`TEAMWORK_COMMIT_IDENTITY=role`), and the tool stopped writing both trailers when the repository's pair became the default (decision 2026-11-11), so a `Role:`-only body is the older role-mailbox shape. A commit with neither line stays a **FAIL** from a role mailbox, and a `Role:` naming another role stays a **FAIL**. |
-| 3 | a **two-parent** `chore(merge): ...` commit with an **empty body** | **exempt** from the acting-role line | It adds no content of its own, so there is no acting role to name (measured: `e05cb02`, parents `35d9578`+`e05cb02`, empty body, Reviewer committer). |
+| 3 | a **two-parent** `chore(merge): ...` commit with an **empty body** | **exempt** from the acting-role line | It adds no content of its own, so there is no acting role to name (measured: `5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1`, parents `bdae827c06c32e2aa310028d918fd21aafbb6f48`+`5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1`, empty body, Reviewer committer). |
 | 4 | a **single-parent** `chore(merge)` commit with an empty body | **not exempt** - still a **FAIL** | A squash/fast-forward commit *does* add content, so the exemption above must stay discriminable from it. |
 
 Re-stamping the existing history was refused: it rewrites every descendant sha, and
@@ -246,7 +246,7 @@ Re-stamping the existing history was refused: it rewrites every descendant sha, 
 ## Integrity drift check (2026-10-25)
 
 The pipeline is read, not assumed. Each row is a command and its result on `main` at
-`de331a6`. Re-run them; a drift is fixed in the same change-set, or filed as a task and
+`14fb51e5cf422f02e2e807da6902569b4f69f7e3`. Re-run them; a drift is fixed in the same change-set, or filed as a task and
 named here with its id - never left silently unprotected.
 
 ### 1. The `scope` prose set and the `docs.yml` `paths:` list are one list
@@ -303,7 +303,7 @@ which `gh api repos/actions/setup-node/git/ref/tags/v7` reports as a commit obje
 exactly that sha. The one that lagged, `actions/setup-python@v7`, moved on 2026-11-04:
 it was pinned `5fda3b95` (2026-07-20) and is now `6d4fd22b` (the action release
 7.1.0, 2026-10-22; its tag ref resolves to that commit) through dependabot PR #31,
-merged locally at `5a6eeb1` (T-0024), so its comment and its tag agree again. A pin
+merged locally at `35c831984fac093d1b77c58693ce5c3ccb8d096b` (T-0024), so its comment and its tag agree again. A pin
 is frozen until a reviewed bump moves it; the next drift check starts from these 11.
 
 Annotations on the last five runs (`gh run list -L 5 --json databaseId,conclusion,headSha`
@@ -316,15 +316,15 @@ accessed 2026-10-25). No deprecated action, no deprecated runner expression, no
 already passed, and the newest green ubuntu lanes ran 2026-10-22 - read the first ubuntu
 run after it. A SHA pin is runner-image independent, so no `uses:` changes for it.
 
-Two CI runs failed on 2026-10-21 (`a0cf4dd`, `eefcf3b`) and they are not one defect class.
-`a0cf4dd` had three failing `windows-latest` lanes - a payload-digest assertion and
+Two CI runs failed on 2026-10-21 (`1c8836d6ba109c0ab2f5b551e70736e0a74543aa`, `842da77325b88402464b4ca3e29aca53d9ba891a`) and they are not one defect class.
+`1c8836d6ba109c0ab2f5b551e70736e0a74543aa` had three failing `windows-latest` lanes - a payload-digest assertion and
 `test_dry_run_prints_without_executing`, i.e. test defects, not runner deprecations.
-`eefcf3b` had **four** failing checks: those same three `windows-latest` lanes (`py3.9`,
+`842da77325b88402464b4ca3e29aca53d9ba891a` had **four** failing checks: those same three `windows-latest` lanes (`py3.9`,
 `py3.11`, `py3.13`) plus `committer guard (no account stamped into main)` in the `CI`
 workflow - run `39662780079`, job `119439857709`, failing step "Guard the committer of the
 pushed revision" - i.e. an identity-gate failure, not a test defect. Recorded separately on
 purpose: folding it into "three test lanes" would hide a gate class from this drift record.
-All 11 lanes are green again at `de331a6`.
+All 11 lanes are green again at `14fb51e5cf422f02e2e807da6902569b4f69f7e3`.
 
 ### 4. The forge still matches `references/Remotes.md`
 
@@ -352,13 +352,13 @@ repos/Nidvue/Teamwork/tags/protection`:
 ### 5. The hooks refuse a plain commit
 
 In a throwaway clone under this worktree's `Scratch/` (`git clone --shared` ->
-`Scratch/clone`, never the repository itself), on `main` at `de331a6`:
+`Scratch/clone`, never the repository itself), on `main` at `14fb51e5cf422f02e2e807da6902569b4f69f7e3`:
 
 | command | result |
 |---|---|
 | `teamwork.py hooks status` | `pre-commit absent`, `pre-push absent` |
 | `teamwork.py hooks install` | `pre-commit installed`, `pre-push installed` |
-| `echo x >> README.md && git commit -am ...` on `main`, personal identity | **refused, exit 1**: `teamwork: refusing to commit on 'main': it only receives merges performed by the Reviewer.`; `git log` still `de331a6` |
+| `echo x >> README.md && git commit -am ...` on `main`, personal identity | **refused, exit 1**: `teamwork: refusing to commit on 'main': it only receives merges performed by the Reviewer.`; `git log` still `14fb51e5cf422f02e2e807da6902569b4f69f7e3` |
 | the same commit on a new branch | accepted, exit 0, and no warning when that personal identity is the repository's configured pair |
 
 The branch rule blocks; the identity rule warns by design - `check_commit` in
@@ -372,7 +372,7 @@ required `committer guard` and the `identity --audit` step in the `lint` job.
 |---|---|---|
 | the version the package claims | `grep __version__ src/teamwork/version.py` | read it from the command: it is the tree's version, which after a tag runs one patch ahead of the newest tag, so no literal is written here |
 | the newest tag | `git tag --sort=-v:refname \| head -1` | read it from the command, never here: after the first landing past a tag every older version is stale prose under R6, so this row names no tag at all. The admitted exception is listed in `release-exceptions.json` |
-| the tag on the released head | `git rev-parse v1.3.0^{commit}` | `36eb012`; `git tag --points-at HEAD` is empty because the tree carries the next change-set |
+| the tag on the released head | `git rev-parse v1.3.0^{commit}` | `334e96cb4c473ec9f2ee3201c72cf682cc48f326`; `git tag --points-at HEAD` is empty because the tree carries the next change-set |
 | `CHANGELOG.md` | `grep -n '^## \[1.3.0\]' CHANGELOG.md` | read the line from the command: it moves whenever a section is added above it. The section is dated 2026-10-28 with the compare link `v1.2.1...v1.3.0`, and the unreleased 1.4.0 section sits above it |
 | the offline gate | `python scripts/check_release_consistency.py --offline` | exit 0, `# release consistency: 0 problem(s)` |
 | the online gate | `python scripts/check_release_consistency.py --online` | exit 0 on the tagged revision (R3/R4/R5/R8 read the registry and the forge) |
@@ -436,18 +436,18 @@ them is code.
 
 | run | revision | failing jobs | failure | class |
 |---|---|---|---|---|
-| 41836583720 | `edc0c77` (P-0073) | 11 `test (...)` lanes | `tests/integration/test_makefile_flow.py::test_lint_reports_a_real_style_error_and_goes_green_when_it_is_removed`: `can't open file '.../LintTree/scripts/check_comments.py'` - `lint` resolved the checker against the caller's working directory | code, fixed by `2539e29` |
-| 41845054809 | `2539e29` (P-0074) | 11 `test (...)` lanes | `tests/unit/test_makefile_contracts.py::test_every_gate_command_ci_runs_has_a_makefile_target`: `AssertionError: assert [('check_comments.py',)] == []` - the cwd-safe `$(dir $(abspath ...))` made the gate invisible to the parity parser | code, fixed by `8dee631` |
-| 41854143232 | `8dee631` (P-0075) | `test (macos-latest / py3.9)`, job `126728283476` | no runner was ever assigned: `steps: []`, `runner_name` empty, annotation "The job was not acquired by Runner of type hosted even after multiple attempts". The other 18 jobs passed. | infrastructure, re-run |
+| 41836583720 | `b88ebcba459a4bbf1afb7f47eb03f9213f85ea1f` (P-0073) | 11 `test (...)` lanes | `tests/integration/test_makefile_flow.py::test_lint_reports_a_real_style_error_and_goes_green_when_it_is_removed`: `can't open file '.../LintTree/scripts/check_comments.py'` - `lint` resolved the checker against the caller's working directory | code, fixed by `32c39cc32a0673d1bd481b9cd3f9f5b1a9ff7fd2` |
+| 41845054809 | `32c39cc32a0673d1bd481b9cd3f9f5b1a9ff7fd2` (P-0074) | 11 `test (...)` lanes | `tests/unit/test_makefile_contracts.py::test_every_gate_command_ci_runs_has_a_makefile_target`: `AssertionError: assert [('check_comments.py',)] == []` - the cwd-safe `$(dir $(abspath ...))` made the gate invisible to the parity parser | code, fixed by `9117cf035778299615b5d44a20fda3d625ab8068` |
+| 41854143232 | `9117cf035778299615b5d44a20fda3d625ab8068` (P-0075) | `test (macos-latest / py3.9)`, job `126728283476` | no runner was ever assigned: `steps: []`, `runner_name` empty, annotation "The job was not acquired by Runner of type hosted even after multiple attempts". The other 18 jobs passed. | infrastructure, re-run |
 
 The two code failures are one contract with two edges: the checker must resolve
 from the Makefile's directory *and* stay a literal gate the parity test can see.
-`8dee631` holds both with one `HERE := $(dir $(abspath ...))` definition; `make lint`
+`9117cf035778299615b5d44a20fda3d625ab8068` holds both with one `HERE := $(dir $(abspath ...))` definition; `make lint`
 there exits 0 (250 files already formatted, 170 files with 0 explanatory commentary).
 
 The infrastructure cell was re-run, not suppressed: `gh run rerun 41854143232
 --failed` -> attempt 4. The run reports `conclusion=success` with 19/19 jobs
-`success` on `8dee631`, including `test (macos-latest / py3.9)` job `126814976876`
+`success` on `9117cf035778299615b5d44a20fda3d625ab8068`, including `test (macos-latest / py3.9)` job `126814976876`
 (24m54s wall clock against the original attempt's 15m37s). Measured with `gh run
 view 41854143232 --json status,conclusion,attempt,jobs`.
 
@@ -455,7 +455,7 @@ A third class rides the two code-failure runs and is not fixed by the lint
 change: `test_every_deterministic_state_matches_a_real_run` hit
 `PROOF_TIMEOUT_SECONDS = 900` on `windows-latest` py3.9/py3.11 (job
 `126626380517`: `subprocess.TimeoutExpired ... timed out after 900 seconds`),
-while the same lanes pass at `8dee631`. The CI privacy job takes 14m24s on a
+while the same lanes pass at `9117cf035778299615b5d44a20fda3d625ab8068`. The CI privacy job takes 14m24s on a
 cold runner and the proof re-runs its history scan, so the budget is thin, not
 the proof. Filed: `developer` T-0002 - raise or platform-scale the budget, never
 exempt the row.
@@ -662,7 +662,7 @@ cannot publish is never a green skip.
 - What is *not* reversible: a force-push to `main` rewrites history for anyone who
   already cloned. The privacy rewrite is therefore done **before** the first public
   announcement and before any external clone exists.
-- Last release drill: `python3 scripts/verify_release.py` at head `963cb56` ->
+- Last release drill: `python3 scripts/verify_release.py` at head `abd6df42ac5e67662cc7746d3b7066ea0b8936bd` ->
   `verify_release: OK - release verified`, `wrote dist/SHA256SUMS`, 5.7 s (build
   sdist+wheel, every bundled skill file present in both, no ungated `Requires-Dist`,
   clean-venv install, `--version`, `selftest`, the full gate loop to `STOP`, and
