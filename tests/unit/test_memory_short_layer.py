@@ -13,6 +13,7 @@ short block is paid for by the pack rather than added to it, and that ``load
 from __future__ import annotations
 
 import datetime
+import json
 from pathlib import Path
 
 from teamwork import config, engine, lanes, memorypack, records
@@ -171,3 +172,25 @@ def test_lane_packet_carries_the_short_block(cli, project) -> None:
     assert packet.count(memorypack.SHORT_HEADING) == 1
     assert packet.index("# memory index: ") < packet.index(memorypack.SHORT_HEADING)
     assert packet.index(memorypack.SHORT_HEADING) < packet.index("# pack: ")
+
+
+def test_one_load_counts_a_note_the_short_block_and_the_pack_both_inject_once(
+    tmp_path: Path,
+) -> None:
+    """Two touches per load counted a shared note twice and appended two pack events."""
+    root = team(tmp_path)
+    note = add_note(root, "the gate runs in the lane tree")
+    short, pack = engine.memory_injected_layer(root, "Developer", "T-0001", 0, "Developer-1")
+    assert short.count(note) == 1
+    assert f"#{note}" in pack
+    assert store(root)[0]["uses"] == 1
+    events = [
+        record
+        for record in (
+            json.loads(line)
+            for line in (root / config.F_LEDGER).read_text(encoding="utf-8").splitlines()
+        )
+        if record["action"] == "memory.pack"
+    ]
+    assert len(events) == 1
+    assert events[0]["actor"] == "Developer-1"
