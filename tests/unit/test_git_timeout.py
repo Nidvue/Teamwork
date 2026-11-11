@@ -15,6 +15,7 @@ socket in this process, the port is ephemeral, and nothing leaves the machine.
 
 from __future__ import annotations
 
+import os
 import socket
 import subprocess
 import threading
@@ -140,23 +141,35 @@ def test_a_timed_out_call_is_a_failed_process_not_an_exception(git_repo: Path) -
     assert result.args[:2] == ["git", "-C"]
 
 
+class RecordingProcess:
+    """Stands in for a started ``git`` so the bound it is given can be read."""
+
+    pid = 0
+    returncode = 0
+
+    def __init__(self, seen: dict[str, object]) -> None:
+        self.seen = seen
+
+    def wait(self, timeout: float | None = None) -> int:
+        self.seen["timeout"] = timeout
+        return 0
+
+
 def test_the_default_budget_is_applied_to_every_call(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``refresh``/``push``/``clone`` pass no argument, so the default is the fix.
 
     Spying on the seam is how the default is proved without a stalled peer on
-    every call: drop the ``timeout=`` from the real invocation and this goes red
-    even though the explicit-timeout tests above stay green.
+    every call: drop the bound from the real invocation and this goes red even
+    though the explicit-timeout tests above stay green.
     """
     seen: dict[str, object] = {}
-    real_run = subprocess.run
 
-    def spy(*args: object, **kwargs: object) -> subprocess.CompletedProcess:
-        seen.update(kwargs)
-        return real_run(*args, **kwargs)  # type: ignore[arg-type]
+    def spy(*args: object, **kwargs: object) -> RecordingProcess:
+        return RecordingProcess(seen)
 
-    monkeypatch.setattr(gitutil.subprocess, "run", spy)
+    monkeypatch.setattr(gitutil.subprocess, "Popen", spy)
     monkeypatch.setenv(gitutil.GIT_TIMEOUT_ENV, "7")
 
     gitutil.run_git(git_repo, "rev-parse", "--is-inside-work-tree")
@@ -214,6 +227,57 @@ def test_a_healthy_call_is_unchanged(git_repo: Path) -> None:
     missing = gitutil.run_git(git_repo, "rev-parse", "--verify", "--quiet", "refs/heads/nope")
     assert missing.returncode != 0
     assert "timed out" not in missing.stderr
+
+
+FAKE_GIT = """#!/bin/sh
+sleep 60 &
+echo $! > "$FAKE_GIT_GRANDCHILD"
+sleep 60
+"""
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the shim is a POSIX shell script")
+def test_a_helper_that_outlives_the_leader_cannot_park_the_call(
+    git_repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bound must not depend on the direct child being the only writer.
+
+    ``subprocess.run(..., timeout=...)`` kills the leader and then, on Windows,
+    waits on ``communicate()`` again; a helper that inherited the pipe keeps it
+    open and the call never returns - the 43-minute CI hang. This shim is that
+    shape: a leader that starts a grandchild holding the same output and then
+    waits itself. The call has to come back, and the grandchild has to be gone
+    with it, so no orphan is left writing to a lane's terminal.
+    """
+    shim = tmp_path / "shim"
+    shim.mkdir()
+    fake = shim / "git"
+    fake.write_text(FAKE_GIT, encoding="utf-8")
+    fake.chmod(0o755)
+    grandchild = tmp_path / "grandchild.pid"
+    monkeypatch.setenv("PATH", f"{shim}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("FAKE_GIT_GRANDCHILD", str(grandchild))
+
+    started = time.monotonic()
+    result = gitutil.run_git(git_repo, "fetch", "origin", timeout=1)
+    elapsed = time.monotonic() - started
+
+    assert result.returncode == gitutil.GIT_TIMEOUT_EXIT, result.stderr
+    assert elapsed < 30, f"run_git waited on the helper: {elapsed:.1f}s"
+    pid = int(grandchild.read_text(encoding="utf-8").strip())
+    for _ in range(100):
+        if not _alive(pid):
+            break
+        time.sleep(0.05)
+    assert not _alive(pid), f"the helper outlived the bound: pid {pid}"
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
 
 
 def test_a_timed_out_call_leaves_the_repository_usable(git_repo: Path) -> None:

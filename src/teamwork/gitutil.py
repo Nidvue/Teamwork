@@ -5,7 +5,9 @@ from __future__ import annotations
 import math
 import os
 import re
+import signal
 import subprocess
+import tempfile
 from pathlib import Path
 
 from .io import write_lf
@@ -63,19 +65,8 @@ def _git_verb(argv: tuple[str, ...]) -> str:
     return "command"
 
 
-def _captured_text(value: bytes | str | None) -> str:
-    """The captured output of a timed-out call as text.
-
-    ``text=True`` makes this a ``str``, but the exception types it as
-    ``bytes | str | None``, so the seam decodes rather than assuming.
-    """
-    if isinstance(value, bytes):
-        return value.decode("utf-8", "replace")
-    return value or ""
-
-
 def _timeout_failure(
-    command: list[str], argv: tuple[str, ...], limit: float, expired: subprocess.TimeoutExpired
+    command: list[str], argv: tuple[str, ...], limit: float, stdout: str, stderr: str
 ) -> subprocess.CompletedProcess:
     """The failed ``CompletedProcess`` a timed-out call returns.
 
@@ -83,15 +74,13 @@ def _timeout_failure(
     ``returncode != 0`` handling intact, and the message is the last line of
     ``stderr`` because the callers report ``stderr.splitlines()[-1]``.
     """
-    captured = _captured_text(expired.stderr).strip()
+    captured = stderr.strip()
     message = (
         f"git {_git_verb(argv)} timed out after {limit:g}s: the remote did not answer "
         f"(raise the limit with ${GIT_TIMEOUT_ENV} or run_git(timeout=...))"
     )
-    stderr = f"{captured}\n{message}\n" if captured else f"{message}\n"
-    return subprocess.CompletedProcess(
-        command, GIT_TIMEOUT_EXIT, _captured_text(expired.stdout), stderr
-    )
+    reason = f"{captured}\n{message}\n" if captured else f"{message}\n"
+    return subprocess.CompletedProcess(command, GIT_TIMEOUT_EXIT, stdout, reason)
 
 
 LFS_PATTERNS = (
@@ -174,17 +163,74 @@ def run_git(project: Path, *argv: str, timeout: float | None = None):
     A timed-out call is not an exception: it returns a ``CompletedProcess`` with
     ``returncode == 124`` (the ``timeout(1)`` convention) and the reason on the
     last line of ``stderr``, so the caller reports it exactly as it reports any
-    other git refusal. ``subprocess.run`` kills the direct child and closes the
-    pipes it gave it, so a git remote helper writing to that closed pipe exits on
-    its own (measured: no ``git-remote-*`` survived a timed-out ``fetch``); the
-    call returns instead of waiting for the whole helper tree.
+    other git refusal.
+
+    The child writes into temporary files rather than into pipes, and the whole
+    process group is killed, because ``subprocess.run(..., timeout=...)`` cannot
+    bound a call that leaves a helper behind: it kills the direct child only and,
+    on Windows, then calls ``communicate()`` again, which waits for every writer
+    to close the pipe - ``git fetch`` against a stalled remote leaves
+    ``git-remote-http`` holding it, so the call never returns (measured: a 43
+    minute hang in CI). A regular file cannot block that way, and
+    ``taskkill /T`` / ``killpg`` end the helper too, so a lane is never parked by
+    a git call.
     """
     limit = git_timeout() if timeout is None else float(timeout)
     command = ["git", "-C", str(project), *argv]
+    with (
+        tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as out,
+        tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as err,
+    ):
+        process = _spawn(command, out, err)
+        try:
+            process.wait(timeout=limit)
+        except subprocess.TimeoutExpired:
+            _kill_tree(process)
+            return _timeout_failure(command, argv, limit, _drain(out), _drain(err))
+        return subprocess.CompletedProcess(command, process.returncode, _drain(out), _drain(err))
+
+
+def _spawn(command: list[str], out, err) -> subprocess.Popen:
+    """Start ``git`` in its own process group, with no stdin and file output.
+
+    Its own group is what makes the timeout killable as a tree: a git call that
+    reaches the network execs a remote helper as a child, and killing the leader
+    alone leaves the helper running. ``stdin`` is ``DEVNULL`` so an unanswerable
+    credential prompt fails instead of consuming the lane's input.
+    """
+    return subprocess.Popen(
+        command,
+        stdin=subprocess.DEVNULL,
+        stdout=out,
+        stderr=err,
+        start_new_session=True,
+    )
+
+
+def _kill_tree(process: subprocess.Popen) -> None:
+    """End the leader and everything it started, then reap it."""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            capture_output=True,
+            check=False,
+        )
+    else:
+        try:
+            os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
     try:
-        return subprocess.run(command, capture_output=True, text=True, timeout=limit)
-    except subprocess.TimeoutExpired as expired:
-        return _timeout_failure(command, argv, limit, expired)
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _drain(handle) -> str:
+    """Everything the child wrote so far, read from the start."""
+    handle.flush()
+    handle.seek(0)
+    return handle.read()
 
 
 def is_git_repo(project: Path) -> bool:
