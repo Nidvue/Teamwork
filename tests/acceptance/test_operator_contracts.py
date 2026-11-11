@@ -4,7 +4,7 @@ One probe per area, each driven through the installed CLI as a subprocess - neve
 by importing the engine - because these are the promises a person relies on when
 they run the tool: what `audit` says about a fresh workspace, what `throughput`
 reports before there is history, how `ci_scope` classifies a file, how `criteria`
-refuses an unknown id, how `identity` treats a personal author, that a ledger
+refuses an unknown id, how `identity` treats a personal author and a team-domain stranger, that a ledger
 survives a write and exports, that `archive`/`decision` answer by id, and that the
 privacy gate refuses a planted credential.
 
@@ -110,10 +110,11 @@ def test_criteria_refuse_an_unknown_id_with_a_named_error(tmp_path: Path) -> Non
     assert "no criterion 'AC-99'" in refused.output
 
 
-def test_identity_audit_refuses_a_personal_author(tmp_path: Path) -> None:
-    """The commit-identity rule has a gate: a personal author fails, a role passes."""
+def test_identity_audit_skips_a_personal_author_and_refuses_a_stranger(tmp_path: Path) -> None:
+    """A personal author is an outside contributor; a team-domain stranger is not."""
     project = git_project(tmp_path)
     (project / "feature.txt").write_text("done\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(project), "add", "feature.txt"], check=True)
     personal = {
         "GIT_AUTHOR_NAME": "Ping Operator",
         "GIT_AUTHOR_EMAIL": "ping@operator.example",
@@ -121,15 +122,33 @@ def test_identity_audit_refuses_a_personal_author(tmp_path: Path) -> None:
         "GIT_COMMITTER_EMAIL": "ping@operator.example",
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
     }
-    subprocess.run(["git", "-C", str(project), "add", "feature.txt"], check=True)
     subprocess.run(
         ["git", "-C", str(project), "commit", "-q", "-m", "chore: hand edit"],
         check=True,
         env=personal,
     )
+    skipped = cli(project, ["identity", "--audit", "--range", "HEAD"])
+    assert skipped.returncode == 0, skipped.output
+    assert "skipped: external contributor Ping Operator <ping@operator.example>" in skipped.output
+
+    (project / "feature.txt").write_text("done twice\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(project), "add", "feature.txt"], check=True)
+    stranger = {
+        "GIT_AUTHOR_NAME": "Ghost",
+        "GIT_AUTHOR_EMAIL": "ghost@agents.nidvue.com",
+        "GIT_COMMITTER_NAME": "Ghost",
+        "GIT_COMMITTER_EMAIL": "ghost@agents.nidvue.com",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    }
+    subprocess.run(
+        ["git", "-C", str(project), "commit", "-q", "-m", "chore: hand edit twice"],
+        check=True,
+        env=stranger,
+    )
     refused = cli(project, ["identity", "--audit", "--range", "HEAD"])
     assert refused.returncode == 1, refused.output
-    assert "ping@operator.example" in refused.output, refused.output
+    assert "ghost@agents.nidvue.com" in refused.output, refused.output
+    assert "not a role mailbox" in refused.output, refused.output
     assert "problems: 0" not in refused.output
 
 
