@@ -317,9 +317,11 @@ teamwork identity --audit [--range REV..REV] [--strict-authors] [--guard-committ
 
 Show the role commit identity, e.g. `Developer <developer@agents.nidvue.com>`.
 
-`--audit` fails when a commit in the range was not authored and committed by the
-acting role. It checks the author, the committer and the `Acting role:` trailer,
-skips the forge's synthetic pull-request merge ref, and allows bot dependency
+`--audit` fails when a commit in the range was not authored and committed by an
+accepted identity - the repository's configured pair or a role mailbox. The
+`Acting role:` trailer is required from a role-mailbox author and optional for the
+configured pair, because the message names no agent. It skips the forge's
+synthetic pull-request merge ref, and allows bot dependency
 updates only when both the bot name and a `users.noreply.github.com` mailbox
 match. An author outside the team identity domain is reported as skipped by
 default; `--strict-authors` turns that into a failure. The default range
@@ -410,7 +412,7 @@ rule, never the whole control.
 |---|---|---|
 | `pre-commit` | R1 refuse a commit on the default branch, including the root commit on an unborn branch | `TEAMWORK_ALLOW_MAIN=1` |
 | `pre-commit` | R2 refuse a staged file above 1 MiB that no `.gitattributes` LFS pattern covers | - |
-| `pre-commit` | R3 a commit identity that is not a role mailbox warns on stderr and does not block | - |
+| `pre-commit` | R3 a commit identity that is neither the repository's configured pair nor a role mailbox warns on stderr and does not block | `TEAMWORK_COMMIT_IDENTITY=role` |
 | `pre-push` | P1 refuse a non-fast-forward update to the default branch | `TEAMWORK_ALLOW_FORCE=1` |
 | `pre-push` | P2 refuse deleting the default branch | - |
 

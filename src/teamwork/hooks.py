@@ -65,7 +65,14 @@ from .gitutil import (
 from .gitutil import hooks_dir as resolved_hooks_dir
 from .io import die, write_lf
 from .layout import project_path
-from .names import resolve_role, role_identity
+from .names import (
+    IDENTITY_MODE_ENV,
+    declared_identity,
+    preset_identity,
+    resolve_role,
+    role_identity,
+    role_mailbox_opted_in,
+)
 
 ZERO_SHA = "0" * 40
 
@@ -397,6 +404,38 @@ def is_role_mailbox(project: Path) -> bool:
     return bool(email) and email == expected_email and name in ("", expected_name)
 
 
+def identity_warning(project: Path) -> str:
+    """R3's one line, or "" when the author is an identity the policy allows.
+
+    The default policy is the repository's own pair: a commit is the project's, so
+    warning about a personal identity on the sanctioned pair would tell every lane
+    that the default is wrong. ``TEAMWORK_COMMIT_IDENTITY=role`` opts into the role
+    mailbox, and only then does a non-mailbox author warn. A role mailbox is
+    sanctioned under either policy (``preset_identity`` deliberately excludes the
+    role domain, so the mailbox is checked on its own). A warning either way, never
+    a block.
+    """
+    name, email = author_identity(project)
+    if role_mailbox_opted_in():
+        if is_role_mailbox(project):
+            return ""
+        return (
+            f"teamwork: warning: commit identity {name or '?'} <{email or '?'}> is not a "
+            f"role mailbox (<Role> <role@{IDENTITY_DOMAIN}>). Commits belong to the "
+            "acting role, never to a personal identity (AGENTS.md COMMIT IDENTITY); "
+            "this is a warning, not a block."
+        )
+    allowed = {pair for pair in (declared_identity(project), preset_identity(project)) if pair}
+    if (name, email) in allowed or is_role_mailbox(project):
+        return ""
+    return (
+        f"teamwork: warning: commit identity {name or '?'} <{email or '?'}> is neither "
+        "the repository's configured pair nor a role mailbox (AGENTS.md COMMIT "
+        f"IDENTITY). Set user.name/user.email, or opt into a role mailbox with "
+        f"{IDENTITY_MODE_ENV}=role; this is a warning, not a block."
+    )
+
+
 def staged_verdict(project: Path, rel: str) -> tuple:
     """``(size, is_binary)`` for what the commit would record, or ``(None, False)``.
 
@@ -559,15 +598,9 @@ def check_commit(project: Path) -> int:
             file=sys.stderr,
         )
         return 1
-    if not is_role_mailbox(project):
-        name, email = author_identity(project)
-        print(
-            f"teamwork: warning: commit identity {name or '?'} <{email or '?'}> is not a "
-            f"role mailbox (<Role> <role@{IDENTITY_DOMAIN}>). Commits belong to the "
-            "acting role, never to a personal identity (AGENTS.md COMMIT IDENTITY); "
-            "this is a warning, not a block.",
-            file=sys.stderr,
-        )
+    warning = identity_warning(project)
+    if warning:
+        print(warning, file=sys.stderr)
     return 0
 
 

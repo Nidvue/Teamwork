@@ -751,22 +751,54 @@ def _commit_args(project: Path) -> list:
     ]
 
 
-def test_a_hostile_ambient_identity_still_lands_as_the_role_mailbox(
+def test_a_hostile_exported_identity_never_authors_the_commit(
     tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A-0012: an exported hostile pair, or the repo's own, never authors the commit."""
+    """The repository's configured pair wins over an exported GIT_AUTHOR_* pair."""
     project = _committable(tmp_path)
-    monkeypatch.setenv("GIT_AUTHOR_NAME", HOSTILE_IDENTITY[0])
-    monkeypatch.setenv("GIT_AUTHOR_EMAIL", HOSTILE_IDENTITY[1])
-    monkeypatch.setenv("GIT_COMMITTER_NAME", HOSTILE_IDENTITY[0])
-    monkeypatch.setenv("GIT_COMMITTER_EMAIL", HOSTILE_IDENTITY[1])
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Wrapper Person")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "wrapper@example.invalid")
+    monkeypatch.setenv("GIT_COMMITTER_NAME", "Wrapper Person")
+    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "wrapper@example.invalid")
 
     assert cli(*_commit_args(project)) == 0
-    expected = f"Developer <developer@{engine.IDENTITY_DOMAIN}>"
+    expected = f"{HOSTILE_IDENTITY[0]} <{HOSTILE_IDENTITY[1]}>"
     assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == expected
     assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
     printed = capsys.readouterr().out
     assert "committed " in printed and f"as {expected}" in printed
+
+
+def test_the_role_mailbox_authors_only_when_opted_in(
+    tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = _committable(tmp_path)
+    monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
+    assert cli(*_commit_args(project)) == 0
+    expected = f"Developer <developer@{engine.IDENTITY_DOMAIN}>"
+    assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == expected
+    assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
+
+
+def test_the_message_names_no_agent() -> None:
+    """Decision 2026-11-11: no line of a published commit names a role or an instance."""
+    message = engine.build_commit_message(
+        "developer",
+        {
+            "type": "feat",
+            "area": "identity",
+            "task": "T-0115",
+            "producers": "Developer-2",
+            "goal": "no agent in history",
+            "deliverable": "the message style loses the role lines",
+            "why": "published history is the project's",
+            "status": "implemented",
+            "result": "pytest @HEAD -> see this suite",
+        },
+    )
+    for forbidden in ("Role:", "Producers:", "Acting role:"):
+        assert forbidden not in message, forbidden
+    assert "Task: T-0115" in message and "Result: pytest @HEAD" in message
 
 
 def test_the_declared_preset_pair_authors_the_commit(
@@ -789,7 +821,9 @@ def test_commit_refuses_an_identity_it_cannot_pin(
 ) -> None:
     """The guard fires before anything is committed when git ignores the environment."""
     project = _committable(tmp_path)
-    monkeypatch.setattr(engine, "_git_author", lambda *a, **k: HOSTILE_IDENTITY)
+    monkeypatch.setattr(
+        engine, "_git_author", lambda *a, **k: ("Wrapper Person", "wrapper@example.invalid")
+    )
     assert cli(*_commit_args(project)) == 2
     assert "refusing to commit" in capsys.readouterr().err
     head = subprocess.run(
