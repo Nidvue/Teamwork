@@ -253,6 +253,23 @@ def hooks_dir(project: Path) -> Path:
     return (located if located.is_absolute() else project / located).resolve()
 
 
+def ensure_longpaths(project: Path) -> bool:
+    """Turn on ``core.longpaths`` so git can stat a path past MAX_PATH.
+
+    A team worktree is deep by construction
+    (``Runtime/Worktrees/<Instance>/<T-id>/...``), and on Windows a path over 260
+    characters makes a rebase die with "fatal: failed to stat ...: Filename too
+    long" (T-0094). The key is inert off Windows, so it is written unconditionally:
+    one repository config, no host branch to get wrong. Returns True when it was
+    the write that set it.
+    """
+    current = run_git(project, "config", "--get", "core.longpaths").stdout.strip()
+    if current.lower() == "true":
+        return False
+    run_git(project, "config", "core.longpaths", "true")
+    return True
+
+
 def ensure_lfs(project: Path, quiet: bool = False) -> dict:
     """Enable Git LFS locally and keep .gitattributes in sync.
 
