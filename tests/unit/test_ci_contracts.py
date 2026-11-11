@@ -141,9 +141,14 @@ def matrix_rows(document: dict) -> list[tuple[str, str, str]]:
 
 SHARDED_CELLS = {("windows-latest", "3.13")}
 
-SUBSET_CELLS = {("ubuntu-latest", "3.12"), ("macos-latest", "3.13")}
-
 SUBSET_PATHS = "tests/unit tests/acceptance"
+
+PORTABILITY_FLOW = "tests/integration/test_portability_flow.py"
+
+SUBSET_CELLS = {
+    ("ubuntu-latest", "3.12"): SUBSET_PATHS,
+    ("macos-latest", "3.13"): f"{SUBSET_PATHS} {PORTABILITY_FLOW}",
+}
 
 FULL_SUITE_CELLS = (("ubuntu-latest", "3.11"), ("ubuntu-latest", "3.13"))
 
@@ -159,37 +164,43 @@ def matrix_entries(document: dict) -> list[dict]:
 
 
 def subset_problems(document: dict, repo_root: Path = REPO_ROOT) -> list[str]:
-    """The subset cells name the same subset, and the boundary cells run everything.
+    """Each subset cell names its contracted subset, and the boundaries run everything.
 
     A subset is only safe while some lane still runs the whole suite: the matrix
     is sized to the portability question, and the question is answered by the two
-    boundary interpreters. The subset must also name paths that exist, and must
-    cover the platform-specific assertions the macOS cell exists for.
+    boundary interpreters. macOS is one of the hosts the portability contract
+    exists for, so its subset keeps `tests/integration/test_portability_flow.py`
+    (the spaced-path, symlink and GNU-make guards) beside the unit tree's
+    `tests/unit/test_portability.py`.
     """
     problems: list[str] = []
     rows = {
         (str(entry.get("os")), str(entry.get("python-version"))): str(entry.get("paths") or "")
         for entry in matrix_entries(document)
     }
-    for cell in sorted(SUBSET_CELLS):
+    required = {
+        ("macos-latest", "3.13"): (PLATFORM_TEST, PORTABILITY_FLOW),
+    }
+    for cell, expected in sorted(SUBSET_CELLS.items()):
         paths = rows.get(cell)
         if paths is None:
             problems.append(f"the subset cell {cell} is missing from the matrix")
             continue
-        if paths != SUBSET_PATHS:
-            problems.append(f"{cell} runs {paths!r}, contract says the subset {SUBSET_PATHS!r}")
+        if paths != expected:
+            problems.append(f"{cell} runs {paths!r}, contract says the subset {expected!r}")
             continue
         for token in paths.split():
             if not list(repo_root.glob(token)):
                 problems.append(f"{cell} names {token!r}, which matches no path")
-    covered = {
-        path.relative_to(repo_root).as_posix()
-        for token in SUBSET_PATHS.split()
-        for match in repo_root.glob(token)
-        for path in (sorted(match.rglob("*.py")) if match.is_dir() else [match])
-    }
-    if PLATFORM_TEST not in covered:
-        problems.append(f"the subset drops {PLATFORM_TEST}, the macOS cell's subject")
+        covered = {
+            path.relative_to(repo_root).as_posix()
+            for token in paths.split()
+            for match in repo_root.glob(token)
+            for path in (sorted(match.rglob("*.py")) if match.is_dir() else [match])
+        }
+        for subject in required.get(cell, (PLATFORM_TEST,)):
+            if subject not in covered:
+                problems.append(f"{cell} drops {subject}, a portability contract")
     for cell in FULL_SUITE_CELLS:
         if rows.get(cell):
             problems.append(f"{cell} is a boundary interpreter and must run the whole suite")
@@ -559,6 +570,15 @@ def test_mutant_a_cell_without_xdist_is_reported():
     )
     problems = parallel_problems(parse_workflow(mutant))
     assert any("pytest-xdist" in problem for problem in problems), problems
+
+
+def test_mutant_a_macos_subset_without_the_portability_flow_is_reported():
+    """macOS is a host the spaced-path/symlink/GNU-make guards exist for."""
+    old = f'            paths: "{SUBSET_CELLS[("macos-latest", "3.13")]}"\n'
+    assert workflow_text().count(old) == 1, "the macOS row moved"
+    mutant = workflow_text().replace(old, f'            paths: "{SUBSET_PATHS}"\n', 1)
+    problems = subset_problems(parse_workflow(mutant))
+    assert any(PORTABILITY_FLOW in problem for problem in problems), problems
 
 
 def test_mutant_a_boundary_interpreter_on_the_subset_is_reported():

@@ -300,21 +300,36 @@ fails when the workflow and this table disagree.
     boundaries: 3.11 (`requires-python`'s floor) and 3.13 (the newest
     classifier). Those two Linux cells run every test, 3.11 under the coverage
     gate. The interior Linux interpreter (3.12) and macOS run the subset
-    `tests/unit tests/acceptance`: the platform-specific assertions are the unit
-    tree's (`tests/unit/test_portability.py` over `src/teamwork/portable.py`) and
-    acceptance is the cheap proof of the ACs, while the subprocess-heavy
-    integration tree (338 tests, 30% of the serial wall clock) already runs on
-    both boundary interpreters and on the five Windows shards.
-    `tests/unit/test_ci_contracts.py` pins the subset in `SUBSET_CELLS` and
-    `SUBSET_PATHS`, fails when a boundary cell stops running the whole suite, and
-    expands the subset tokens over the tree.
+    `tests/unit tests/acceptance`, and macOS adds the one integration module the
+    portability question is about there: `tests/integration/test_portability_flow.py`
+    runs the spaced-path CLI invocation, the symlink/WinError-1314 guard and the
+    GNU-make guard as real subprocesses, on a host other than the one the code was
+    written on, so macOS is one of the hosts it exists for. The unit tree's
+    `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
+    acceptance are the cheap proof of the ACs; the rest of the subprocess-heavy
+    integration tree (338 tests, 30% of the serial wall clock) runs on both
+    boundary interpreters and on the five Windows shards, and no test in the tree
+    branches on darwin.
+    `tests/unit/test_ci_contracts.py` pins each subset in `SUBSET_CELLS` (a
+    cell-to-paths map) with `SUBSET_PATHS` and `PORTABILITY_FLOW`, fails when a
+    boundary cell stops running the whole suite or a subset cell drops one of the
+    portability contracts, and expands the subset tokens over the tree.
   * Every cell except the Windows shards runs pytest under `--numprocesses=auto` (`-n auto`)
     (`pytest-xdist`, a `dev` extra requirement; T-0105). The suite spawns hundreds
     of processes and a hosted runner gives 3-4 vCPUs, so a cell is wall-clock
     bound rather than CPU bound: measured on the 4-worker emulation of a runner,
-    the same tree takes 242s serially and 94s with `-n 4`, with identical results
-    (2739 passed, 2 failed, 10 skipped). The Windows rows are already split by
-    path, so a second split buys nothing there.
+    the same tree takes 242s serially and 94s with `-n 4` (4-worker emulation of a
+    hosted runner, T-0105), and the two runs reproduce the same outcome: at
+    `faeafce` both gave 2742 passed, 2 failed, 10 skipped (Reviewer-2, P-0150). At
+    this revision the tree collects 2763 tests and the parallel run gives 2751
+    passed, 2 failed, 10 skipped in 36s - the one extra test against `faeafce` is
+    the macOS-subset mutant this change adds. The 2 failures are not the parallel
+    run's: they are `tests/integration/test_memory_pack_flow.py`, which landed red
+    on `main` from T-0097 with a P0 fix task open, and they fail identically
+    single-process. The macOS cell's subset takes 22s here (Linux host, `-n auto`,
+    2427 passed, 8 skipped) against the 12-18 minute full-suite job it replaces;
+    the duration on a macOS host is the CI run's to report. The Windows rows are
+    already split by path, so a second split buys nothing there.
   * The `scope` job runs `scripts/ci_scope.py`, which computes the changed-path
     set from git, and publishes **two** outputs, because the filtered jobs ask two different questions and a
     prose-only push answers them differently: `code` (`true` = something that
