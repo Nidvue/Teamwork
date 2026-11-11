@@ -496,6 +496,7 @@ def build_packet(
     task = first.task or "<T-id>"
     out = [
         f"# Lane packet · {run_id} · {instance} ({role})",
+        engine.memory_dream_line(root),
         "",
         f"You are the lane **{instance}**, acting as the **{role}** role of the **{root.name}**",
         f"team. Workspace: `{root}`. Project: `{project}`.",
