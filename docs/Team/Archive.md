@@ -6486,3 +6486,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest -q tests/unit/test_transcripts.py @894e71c -> 8 passed; git diff main...894e71c -> tests/unit/test_transcripts.py only, the 1.0s bound became 60s with its reason; git merge-tree --write-tree main 894e71c -> CLEAN
 - findings history: 
 - branch / merge: developer-1/t-0088-transcript-bound / 894e71c
+
+## T-0090 · two CI jobs are cancelled at their budgets on the full history: privacy (15m) and the Windows cell (90m)  (developer)
+- date: 2026-11-11
+- priority: P1
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: tests
+- self-check: [pass] The Windows cell was not slow, it was doing the same work twice: the traceability guard re-ran every row's proof, and the privacy row alone is an 8-minute history scan that already runs as its own CI job on every push. That is the duplicate gate the throughput contract forbids, and it is what pushed the cell past 90 minutes. The guard now has an ownjob exemption reason for a row whose proof is a dedicated CI job - privacy scan, link check, strict docs build - mapped to AC-5 and AC-6, with the evidence regex matching those commands so the exemption cannot be claimed by a row that does not run one. The history-opt-out test used AC-5 as its synthetic row and now uses AC-77, because AC-5 is exempt. Boundary: the guard still re-runs every other row's proof and still fails when the state disagrees; the two exempt rows are still gated, on the same revision, by the jobs that own them. | test: .venv/bin/python -m pytest -q tests/unit @10c90ef -> 2299 passed, 1 skipped in 145.98s (was 544.71s with the privacy scan inside the guard); .venv/bin/python -m pytest -q tests/unit tests/integration tests/acceptance -> 2707 passed, 4 skipped; preflight developer T-0090 --run @10c90ef -> 8 checks, 0 failed | preflight: PF-f1671653bb07 @10c90ef2e276 (8 checks, 0 failed)
+- author evidence: commit 10c90ef
+- reviewer evidence: git diff main...10c90ef @10c90ef -> only tests/unit/test_traceability_matrix.py (+11/-2): ownjob exemption reason + EXEMPT_EVIDENCE pattern, AC-5/AC-6 -> ownjob, history-opt-out test moved to synthetic AC-77; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py @10c90ef -> 24 passed, 1 skipped in 8.82s (was minutes); .venv/bin/python -m pytest -q tests/unit @10c90ef -> 2298 passed, 2 skipped in 145.55s; git merge-tree --write-tree main 10c90ef @10c90ef -> CLEAN | replay: .venv/bin/python -m pytest -q tests/unit
+- findings history: 
+- branch / merge: developer-1/t-0090-guard-dedup / pending
