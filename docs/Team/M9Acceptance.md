@@ -10,7 +10,7 @@ Related: [Project](Project.md) · [CHANGELOG](../../CHANGELOG.md) · [README](..
 closed:
 
 - **AC-REL-6 now holds.** The M9 revision was pushed, and CI run 39690418108 on
-  `5cad380` reported **19/19 jobs success**. The installed-skill half of it is a
+  `aaa4457ff7590898f56804cf495e09ccd2687be9` reported **19/19 jobs success**. The installed-skill half of it is a
   standing condition, not a fact: `refresh --check` re-measures it on every
   revision, so read the command rather than this sentence.
 
@@ -51,7 +51,7 @@ without a measurement.
 | AC-REL-2 | exit 2 = an unreadable input | `python3 scripts/check_release_consistency.py --offline --online; echo "exit=$?"` | `# check_release_consistency: --offline and --online are mutually exclusive` / `exit=2` | **PASS** |
 | AC-REL-2 | the JSON report carries the three contract keys | `python3 scripts/check_release_consistency.py --json \| python3 -c "import json,sys; d=json.load(sys.stdin); print(sorted(d), d['exit_code'])"` | `['exit_code', 'problems', 'rules'] 0` | **PASS** |
 | AC-REL-2 | every rule has a test that fails before the rule exists | a mutant per rule: the rule is replaced by a constant `ok`, the release-consistency unit tests are run against the mutant, and the test asserts `survivors == []` | `1 passed in 16.68s` for `test_every_rule_has_a_test_that_fails_before_the_rule_exists`; a rule that no test covers makes it fail with `a rule with no failing test: ['R<n>']` | **PASS** (§7 has the mechanism) |
-| AC-REL-3 | `v1.1.2` is tagged at the revision npm 1.1.2 was published from | `git rev-list -n1 v1.1.2` | `a5b0cd641bdffeac42555cdd6c9ffe72bdec918c` | **PASS** |
+| AC-REL-3 | `v1.1.2` is tagged at the revision npm 1.1.2 was published from | `git rev-list -n1 v1.1.2` | `5a13ba45678944397e36ca041e8bce576cc73ee4` | **PASS** |
 | AC-REL-3 | the release carries a wheel, an sdist, `SHA256SUMS` and both SBOMs | `gh release view v1.1.2 --json tagName,assets --jq '{tagName, assets: [.assets[] \| {name, state}]}'` | `{"assets":[{"name":"sbom.cyclonedx.json","state":"uploaded"},{"name":"sbom.spdx.json","state":"uploaded"},{"name":"SHA256SUMS","state":"uploaded"},{"name":"teamwork_agents-1.1.2-py3-none-any.whl","state":"uploaded"},{"name":"teamwork_agents-1.1.2.tar.gz","state":"uploaded"}],"tagName":"v1.1.2"}` | **PASS** |
 | AC-REL-3 | every tag has a GitHub Release and every Release has a tag | `python3 scripts/check_release_consistency.py --online` | `R4 ok 5 release(s) name an existing tag` · `R5 ok 5 tag(s) have a GitHub Release` | **PASS** |
 | AC-REL-4 | no version older than `version.py` in the three files the criterion names | `python3 scripts/check_release_consistency.py --offline` (R6 scans `README.md`, `docs/Team/Release.md` and `docs/guide/*.md` - the criterion's three files) | `R6 ok no version older than 1.1.3; 2 illustrative` | **PASS** |
@@ -60,16 +60,16 @@ without a measurement.
 | AC-REL-5 | `version.py` is strictly greater than every published and tagged version | `grep -n __version__ src/teamwork/version.py` and `git tag -l` | `9:__version__ = "1.1.3"`; `git tag -l` prints five tags on five lines - `v1.0.0`, `v1.0.1`, `v1.0.2`, `v1.1.0`, `v1.1.2` - so no tagged version reaches 1.1.3 | **PASS** |
 | AC-REL-5 | the CHANGELOG records the 1.1.1 anomaly | `grep -n "1\.1\.1" CHANGELOG.md` | `52:- **npm 1.1.1 has no source commit and is listed as an exception.**` (the version number is inside backticks in the file) and `86:## [1.1.1] - 2026-10-20` | **PASS** |
 | AC-REL-6 | CI runs the release-consistency gate | `grep -n "release-consistency" .github/workflows/ci.yml` | `376:  release-consistency:` - a blocking job running `python scripts/check_release_consistency.py --offline --json`, with no `continue-on-error` | **PASS** (the workflow runs the gate) |
-| AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | at the audited revision the local `main` was ahead of `origin/main` and the newest runs were the pre-M9 ones | **CLOSED LATER** - the revision was pushed and CI run 39690418108 on `5cad380` was 19/19 success; not measurable at `fb99293149` |
+| AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | at the audited revision the local `main` was ahead of `origin/main` and the newest runs were the pre-M9 ones | **CLOSED LATER** - the revision was pushed and CI run 39690418108 on `aaa4457ff7590898f56804cf495e09ccd2687be9` was 19/19 success; not measurable at `fb99293149` |
 | AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | at the audited revision it exited 1: files the tree ships were absent from the installed bundle and installed engine files were older than the tree (§5). The counts are not quoted - they move with every commit | **CLOSED LATER** - the bundle was refreshed and the criterion holds on the published revision; it was **FAIL** at `fb99293149`. It is a standing condition: re-measure it with `python3 scripts/teamwork.py refresh --check` |
 
 ## 2. What "the merged tree" means here
 
 | Question | Command | Output |
 |---|---|---|
-| which revision the gates were measured at | `git rev-parse main` | `b917f0e84b24baf8e3e2dba1564d892f0b3a2740` - the local `main` when this document was re-measured. The first version named `e05cb02`; `main` has since moved **18 commits** (`git rev-list --count e05cb02..main` -> `18`), and the two test failures of that revision are fixed (§4), so every block below is re-measured at `b917f0e` |
+| which revision the gates were measured at | `git rev-parse main` | `b6deb2ce2be538856625a650d04d13378d327c66` - the local `main` when this document was re-measured. The first version named `5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1`; `main` has since moved **18 commits** (`git rev-list --count 5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1..main` -> `18`), and the two test failures of that revision are fixed (§4), so every block below is re-measured at `b6deb2ce2be538856625a650d04d13378d327c66` |
 | which tree the suite ran on | `git merge-tree --write-tree --no-messages main HEAD` | `5e844438d356cdaa74dd8cec2effec9bfd5bcbd7` - the tree of this branch merged into `main`, computed without touching either checkout; a detached worktree over that tree was used for the suite, so the suite is the merged tree and not this branch alone |
-| is it on the remote | `git log --oneline -1 origin/main` | `963cb56 chore(merge): merge of feature/committer-guard` - the remote's `main` is the pre-M9 revision, not the M9 tree |
+| is it on the remote | `git log --oneline -1 origin/main` | `abd6df42ac5e67662cc7746d3b7066ea0b8936bd chore(merge): merge of feature/committer-guard` - the remote's `main` is the pre-M9 revision, not the M9 tree |
 | how far ahead the local `main` is | `git rev-list --count origin/main..main` | `99` |
 | the last CI runs visible | `gh run list --limit 5` | the newest entry is `completed success fix(packaging): publish the pi package as @nidvue/teamwork (#23) Release v1.1.2 push 39503086136 2m4s 2026-10-20T21:46:40Z` (tab-separated columns joined with single spaces); the rest are pre-M9 `main` / `feature/committer-guard` runs. None is on the M9 revision |
 
@@ -107,10 +107,10 @@ R9 ok every vX.Y.Z token names a tag; 10 illustrative
 ```
 
 **History, so the change is not mistaken for the state.** On the earlier
-merged tree `e05cb02` the same command exited 1 with two R8 findings, both
+merged tree `5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1` the same command exited 1 with two R8 findings, both
 `docs/Team/Architecture.md:541` and `:542` - the two lines that name the PyPI
 channel without the contract's `<!-- release-consistency: channel-unavailable -->`
-marker. The Architect's fix landed as `04477ae` inside `e05cb02 chore(merge):
+marker. The Architect's fix landed as `bf09d64d30af3bb8a2007378e1d0af02ce577ab8` inside `5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1 chore(merge):
 merge of architect/t-0004-contract-amendments`, and the current `main` carries
 it. That is why the current run has no R8 finding and the count of marked
 channel lines rose from 11 to 13.
@@ -150,7 +150,7 @@ tree failed on it. The back-link is in `Project.md`'s `Related:` line.
 
 `python3 scripts/privacy_scan.py --tree --staged --history --allow .github/privacy-allow.txt`
 
-At `b917f0e`, and on the merged tree, the whole output is:
+At `b6deb2ce2be538856625a650d04d13378d327c66`, and on the merged tree, the whole output is:
 
 ```
 privacy_scan: PASS - 0 finding(s) in tree, staged, history
@@ -158,7 +158,7 @@ privacy_scan: PASS - 0 finding(s) in tree, staged, history
 
 exit 0.
 
-**History.** At `e05cb02` - the revision the first version of this document
+**History.** At `5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1` - the revision the first version of this document
 named - the same command printed six findings and exited 1:
 
 ```
@@ -185,7 +185,7 @@ reading the flagged line out of the blob it names:
 | `tests/unit/test_privacy_scan.py` blob `195a2f01`:205, :209, :210, :222 | the four regression-test lines that quote the same call |
 | `scripts/check_release_consistency.py` blob `4f630ccc`:393 | that assignment |
 
-The env-secret rule read a *function call* as a credential. `c0e5c03` added the
+The env-secret rule read a *function call* as a credential. `a2f587b520fe1f70827b1e0e0ea909eca37f3a88` added the
 `_is_code_name()` guard - an unquoted bare identifier is a reference to a value,
 not the value - and the six findings went to zero. **The count is not a stable
 number**: it moves with the scanner's rule, so the claim this document makes is
@@ -195,7 +195,7 @@ stamped with the revision it came from.
 The scan was history-scoped only; the tree and the index were clean at both
 revisions:
 
-| Command | At `e05cb02` | At `b917f0e` |
+| Command | At `5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1` | At `b6deb2ce2be538856625a650d04d13378d327c66` |
 |---|---|---|
 | `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` | `privacy_scan: PASS - 0 finding(s) in tree`, exit 0 | `privacy_scan: PASS - 0 finding(s) in tree`, exit 0 |
 | `python3 scripts/privacy_scan.py --staged --allow .github/privacy-allow.txt` | `privacy_scan: PASS - 0 finding(s) in staged`, exit 0 | `privacy_scan: PASS - 0 finding(s) in staged`, exit 0 |
@@ -231,7 +231,7 @@ the push happened, CI went green on it, and the installed skill was refreshed.
 
 | Criterion | Status | Reason |
 |---|---|---|
-| AC-REL-6, "every workflow is green on the pushed M9 revision" | **CLOSED LATER** (was **NOT YET RUN**) | at the audited revision the M9 revision was not on the remote, so no CI run existed for it and no green CI was claimed. The revision was pushed later and CI run 39690418108 on `5cad380` was 19/19 success. |
+| AC-REL-6, "every workflow is green on the pushed M9 revision" | **CLOSED LATER** (was **NOT YET RUN**) | at the audited revision the M9 revision was not on the remote, so no CI run existed for it and no green CI was claimed. The revision was pushed later and CI run 39690418108 on `aaa4457ff7590898f56804cf495e09ccd2687be9` was 19/19 success. |
 | AC-REL-6, "the installed skill mirrors the remote's `main`" | **CLOSED LATER** (was **FAIL** against the merged tree) | `sync_skill.py --check` exited 1 at the audited revision. The criterion is a standing condition, so it is re-measured - not asserted - with `python3 scripts/teamwork.py refresh --check`; it held once the bundle was refreshed. |
 
 ## 7. The test this lane adds

@@ -347,7 +347,7 @@ fails when the workflow and this table disagree.
 
     An empty diff is the pass. A test that only fails in parallel is a defect in
     the test, fixed there and not serialised out of the run. The parallel run of
-    the whole tree took 36s at `f4cd508`, 2026-11-11; the macOS cell's subset took
+    the whole tree took 36s at `0821fd42b95afba2adfcc221a54d695c21ea0ea4`, 2026-11-11; the macOS cell's subset took
     22s there (Linux host, `-n auto`) against the 12-18 minute full-suite job it
     replaces, and the duration on a macOS host is the CI run's to report. The two
     failures both runs report are not the parallel run's: they are
@@ -481,37 +481,37 @@ section is the **target**, not a description of the running program; where the
 two differ, the target wins - but the difference is stated here, once, so
 nobody reads section 11 as a changelog of the current implementation. The
 implementation this section is measured against is the Developer lane's commit
-`1c730d6` (parent `1c730d6`), reproducible with
-`git show 1c730d6:scripts/check_release_consistency.py`. Whether that
+`594092c13725de343bdf81d0d58b9f8482f6d7f1` (parent `594092c13725de343bdf81d0d58b9f8482f6d7f1`), reproducible with
+`git show 594092c13725de343bdf81d0d58b9f8482f6d7f1:scripts/check_release_consistency.py`. Whether that
 implementation is in the tree you are reading is a question with a command,
 not a sentence: the checker file is in the tree when
 `git ls-tree HEAD scripts/check_release_consistency.py` prints a line, and the
-implementation is in the tree when `git merge-base --is-ancestor 1c730d6 HEAD`
+implementation is in the tree when `git merge-base --is-ancestor 594092c13725de343bdf81d0d58b9f8482f6d7f1 HEAD`
 exits `0`. Against that code:
 
 | Clause | Status | Where |
 |---|---|---|
-| 11.3 - on the local side the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `1c730d6` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
-| 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `1c730d6` `_extract_tar` / `_link_target` / `_materialise_links` |
-| 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `1c730d6` `_digest_of_files` (`unreadable payload file`) and the link refusals |
-| 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **implemented** | `1c730d6` `rule_r2_head_is_newer` uses `_reachable_version_tags` and `_tags_at_head` |
+| 11.3 - on the local side the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
+| 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `_extract_tar` / `_link_target` / `_materialise_links` |
+| 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `_digest_of_files` (`unreadable payload file`) and the link refusals |
+| 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `rule_r2_head_is_newer` uses `_reachable_version_tags` and `_tags_at_head` |
 | 11.2.2 - the `detail` counts `|S|`, never a negative number | **implemented** | the same function reports `is newer than {len(comparable)} tag(s)` over `S` |
-| 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `1c730d6` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
-| 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `1c730d6` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
+| 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
+| 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
 
-Every row of the table names a symbol in `1c730d6`, so the "implemented" column
+Every row of the table names a symbol in `594092c13725de343bdf81d0d58b9f8482f6d7f1`, so the "implemented" column
 is re-derivable instead of a status word: for a row whose symbol is `<name>`,
-`git show 1c730d6:scripts/check_release_consistency.py | grep -c "<name>"`
+`git show 594092c13725de343bdf81d0d58b9f8482f6d7f1:scripts/check_release_consistency.py | grep -c "<name>"`
 prints `1` when the row is implemented and `0` when it is not.
 
 Everything section 11 freezes is therefore implemented in the revision
-`1c730d6`; whether that revision is in the tree the reader is holding is a
-question with a command - `git merge-base --is-ancestor 1c730d6 HEAD` exits `0`
+`594092c13725de343bdf81d0d58b9f8482f6d7f1`; whether that revision is in the tree the reader is holding is a
+question with a command - `git merge-base --is-ancestor 594092c13725de343bdf81d0d58b9f8482f6d7f1 HEAD` exits `0`
 when it is - and not a property of the document. The two amendments this
 section introduced into the contract (`rev=None` and the link policy) were
-implemented first, at `1c730d6` (`git merge-base --is-ancestor 1c730d6 HEAD`
+implemented first, at `594092c13725de343bdf81d0d58b9f8482f6d7f1` (`git merge-base --is-ancestor 594092c13725de343bdf81d0d58b9f8482f6d7f1 HEAD`
 exits `0` when that is in the tree too); R2's `S = A - O`, the shallow guard and
-`TAGGED_TOKEN` followed at `1c730d6`. The third amendment, that a published version which is
+`TAGGED_TOKEN` followed at `594092c13725de343bdf81d0d58b9f8482f6d7f1`. The third amendment, that a published version which is
 not `X.Y.Z` is DRIFT unless a 11.4 entry admits it (`T-0016`), lands at
 `37ef0ed`: `git show 37ef0ed:scripts/check_release_consistency.py | grep -c
 PUBLISHED_VERSION` prints `2` when it is in that revision. The table exists so
@@ -520,7 +520,7 @@ that a reader of section 11 does not read it as a changelog of the repository:
 it**.
 
 One subsection is deliberately the exception: 11.2.2.1 is an amendment accepted
-at D-20261029-Architect and is **not** implemented at `1c730d6` or at the revision
+at D-20261029-Architect and is **not** implemented at `594092c13725de343bdf81d0d58b9f8482f6d7f1` or at the revision
 this paragraph was written. It carries its own implementation spec and the exact
 tests; developer task T-0032 implements it, and no row of the rule table above
 claims it is green until that revision lands - a reader can tell a frozen target
@@ -676,7 +676,7 @@ DRIFT iff some tag in `S` has a version that is **not** strictly less than
 HEAD's, and the `detail` names each such tag. `ok` reads
 `HEAD <X.Y.Z> is newer than <|S|> tag(s)`, where `|S| = len(A) - len(O)` over
 **reachable version tags only**, so the count is never negative. The rule it
-replaces (`1c730d6:891-899`) compared HEAD against **every** version tag in the
+replaces (`594092c13725de343bdf81d0d58b9f8482f6d7f1:891-899`) compared HEAD against **every** version tag in the
 repository and counted `len(tags)` - a count that is never negative either, but
 that has no notion of reachability, so it was red against tags which were
 never the checkout's ancestors. The arithmetic this subsection forbids is
@@ -1196,7 +1196,7 @@ To build the npm-side `root`: unpack the `.tgz`, create an empty staging
 directory, and copy every file under each tarball prefix to the corresponding
 payload prefix, preserving the relative path below the prefix. Then run the 11.3
 digest on the staging directory. Measured with this mapping (and 11.2.3's
-exclusion), `1.1.2` gives `a01d9f0cbee641c3` = the payload of commit `a5b0cd6`,
+exclusion), `1.1.2` gives `a01d9f0cbee641c3` = the payload of commit `5a13ba45678944397e36ca041e8bce576cc73ee4`,
 `1.1.0` gives `ebfc2538e3d3d605` = tag `v1.1.0`, and `1.1.1` gives
 `726bc547afc41ead`, which matches no commit.
 
@@ -1254,14 +1254,14 @@ The checker must reproduce them and the implementer must not contradict them.
 
 | # | Measurement | What the contract makes of it |
 |---|---|---|
-| 1 | npm `1.1.2` payload digest `a01d9f0cbee641c3` equals the bundled-payload digest of commit `a5b0cd6` | `v1.1.2` must be tagged **at `a5b0cd6`**; then R1, R3, R5 hold for it and R2 forces the next `version.py` bump <!-- release-consistency: illustrative --> |
+| 1 | npm `1.1.2` payload digest `a01d9f0cbee641c3` equals the bundled-payload digest of commit `5a13ba45678944397e36ca041e8bce576cc73ee4` | `v1.1.2` must be tagged **at `5a13ba45678944397e36ca041e8bce576cc73ee4`**; then R1, R3, R5 hold for it and R2 forces the next `version.py` bump <!-- release-consistency: illustrative --> |
 | 2 | npm `1.1.1` payload digest `726bc547afc41ead` matches **no** commit in `git rev-list --all`; its `version.py` sha256 `545fc1605b3997460a1cf348562c43fed5a8315c83ac8291f9cbf4078703d36d` appears in no commit | `1.1.1` is the 11.4 exception entry, never a tag: there is no commit to tag, so a tag would be a lie the digest can prove <!-- release-consistency: illustrative --> |
 | 3 | npm `1.1.0`, mapped per 11.3.1 and excluding `scripts/build_pi_package.py`, gives `ebfc2538e3d3d605` = tag `v1.1.0`; **including** that file the same comparison gives `acec49f6cd1fe99a` for the tarball vs `cd43f09293a49c68` for the tag, and they differ only in that file | the payload comparison must map the paths (11.3.1) and exclude that file (11.2.3), or a green release reads as drift <!-- release-consistency: illustrative --> |
 
 Commands behind the numbers (reproducible from any checkout): the three
 tarballs were fetched with `npm pack @nidvue/teamwork@<version>` into a temporary
 directory, unpacked, mapped per 11.3.1 and hashed per 11.3; the local side is
-`payload_digest(root, "a5b0cd6")` and `payload_digest(root, "v1.1.0")`. The
+`payload_digest(root, "5a13ba45678944397e36ca041e8bce576cc73ee4")` and `payload_digest(root, "v1.1.0")`. The
 1.1.1 absence was checked by digesting **every** commit of `git rev-list --all`
 with the same function: no match. The count-free form of the measurement is the
 predicate itself - `git rev-list --all` contains no commit whose 11.3 payload
@@ -1737,7 +1737,7 @@ surface (`SKILL.md`, `roles/`, `references/`, `templates/`) belongs to the CEO;
 what is frozen here is only the part the engine must honour, so a lane can build
 it and a Tester can assert on it.
 
-**Measured baseline at `2b3cd30`** - none of this is implemented yet, and the
+**Measured baseline at `0406da5247f05b9e3a3e662ff093f4ae4ffc2bb3`** - none of this is implemented yet, and the
 section says so rather than describing an engine that does not exist:
 `config.ROLE_PARENT` has 15 roles and no `team-leader`; `reporting_children("cto")`
 is `architect, data-engineer, developer, release-engineer, tester`;
@@ -2393,7 +2393,7 @@ record, and the `lesson`/`skill` CLI shapes T-0031 implements. The
 constitution text (`SKILL.md`, `roles/`, `references/`) belongs to the CEO; what
 is frozen here is the engine surface and the rules a Tester can assert on.
 
-**Measured baseline at `0075c82`** - none of this is implemented yet, and the
+**Measured baseline at `e1c3a47016e3e11dd0b02fa1a4254d11a0ee8045`** - none of this is implemented yet, and the
 section says so rather than describing an engine that does not exist:
 `git ls-files .agents/skills` -> `ceo-audit-close/SKILL.md` and
 `product-manager-records/SKILL.md`, i.e. two unprefixed skills;
@@ -2518,7 +2518,7 @@ Owner: Architect. This section freezes the **knowledge-accumulation surface**: t
 implements. Section 14 is the mistake half (`L-` lessons and `tw-` mistake
 skills); this is the experience half - what the project has learned to do.
 
-**Measured baseline at `62d7405`** - none of this is implemented yet, and the
+**Measured baseline at `1de05466e3a5159f763b77fa030a6b92ffddc463`** - none of this is implemented yet, and the
 section says so rather than describing an engine that does not exist:
 `Get-ChildItem src/teamwork -Filter *.py | Select-String -Pattern Knowledge.md`
 -> 0 matches; `python scripts/teamwork.py load architect` -> memory output only,
@@ -2688,7 +2688,7 @@ from OpenViking; the dependency is not. Sources, the adopt/reject table and the
 vendor-claim caveat are in [Research](Research.md) section 13, accessed
 2026-11-03.
 
-**Measured baseline at `a3d6edd`** - none of this is implemented yet, and the
+**Measured baseline at `75267577f56c000ed040ce50d35b1ba1269b32b8`** - none of this is implemented yet, and the
 section says so rather than describing an engine that does not exist:
 `python scripts/teamwork.py --help` -> no `context` and no `knowledge`
 subcommand; `python scripts/teamwork.py context --help` -> `invalid choice:

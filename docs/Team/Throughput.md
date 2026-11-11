@@ -58,8 +58,8 @@ Snapshot, not a pinned census. The command column re-reads it.
    open tasks, 17 developer and 9 reviewer instances. Every spawned idle lane
    still costs a startup read and a coordination surface; the org chart should
    scale on demand, not be pre-staffed at the maximum ever used. The cut was
-   executed **and it went wrong**: the shared checkout was detached at `7bb58cb`
-   (before the move-only retirement merged in `91e3b12`), so the 22 retirements
+   executed **and it went wrong**: the shared checkout was detached at `ac481aacbdacd7819bcedbdf1fc679730d7f2e98`
+   (before the move-only retirement merged in `8a578b112d68c9488d3ad001f180f23163d2bb21`), so the 22 retirements
    ran the inherited `rmtree` and deleted their `Artifacts/`, `Reports/` and
    `WorkLog.md`. 102 evidence paths named by `Tests.md` are gone; the loss is
    recorded as lesson `L-0001` and cannot be undone. The move-only code is now
@@ -150,7 +150,7 @@ lanes, and retired when the queue is empty. **Retirement is move-only:** the
 instance directory is moved to `Runtime/Retired/<instance>/` so its artifacts,
 reports and worklog survive as evidence. The first live cut (22 lanes) ran from a
 detached pre-fix checkout and lost its artifacts; lesson `L-0001` is the record.
-The move-only code is merged at `91e3b12`; the live tree now holds 12 instances,
+The move-only code is merged at `8a578b112d68c9488d3ad001f180f23163d2bb21`; the live tree now holds 12 instances,
 and every future cut verifies `git rev-parse HEAD` is at or after that revision
 and that `Runtime/Retired` is created before it retires one. `teamwork instance
 list` is the source of truth, and `teamwork parallel` says how many lanes the

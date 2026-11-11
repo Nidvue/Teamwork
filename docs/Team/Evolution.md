@@ -143,7 +143,7 @@ condition. This is the same test the harness lint applies to a skill.
 | KI-0001 | always-on startup over the 122,880 B cap: Reviewer 134,501 B, CEO 125,879 B at the fixing head; memory, lessons and knowledge are under 4 KB of it, the rest is `SKILL.md` 66,048 + the AGENTS.md managed block 41,132 + the reviewer charter 24,100 | D/G | ceo T-0003 | M18 (`Throughput` 2) | next milestone | open |
 | KI-0002 | the traceability proof re-runs `privacy_scan.py --tree --history`, which now exceeds `PROOF_TIMEOUT_SECONDS=900` on a cold runner; run 41916744357 red on 3 lanes | T | developer T-0002 | 2026-11-04 | next full matrix | in flight |
 | KI-0003 | `lesson add` waited 60 s for `lessons.lock` under 4 concurrent processes on Windows | T | developer T-0002 | 2026-11-04 | next full matrix | in flight |
-| KI-0004 | a branchless deliverable's archive entry is rendered but not committed by the merge path; a reviewer restored two missing entries by hand (`2b0e393`) and the early return is still there | T | developer T-0006 | 2026-11-04 | next review | filed |
+| KI-0004 | a branchless deliverable's archive entry is rendered but not committed by the merge path; a reviewer restored two missing entries by hand (`9ea330ceae0ffe48a83106ceecc0821bc30c020f`) and the early return is still there | T | developer T-0006 | 2026-11-04 | next review | filed |
 | KI-0005 | `AuditReport.md` F-P2/F-P3 have not been re-measured since 2026-10-25 | D | ceo | 2026-10-25 | next audit | open |
 | KI-0006 | record growth: `Archive.md` 2.7 MB, largest task queue 23.8 KB at cut #2 (the 2026-11-02 peak was 511 KB, R-32); the 512 KiB segment trigger was never crossed | G | architect | 2026-11-02 | at the 512 KiB segment trigger | open |
 
