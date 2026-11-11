@@ -1607,3 +1607,118 @@ def test_a_secret_on_a_store_record_field_is_still_reported(tmp_path: Path) -> N
     token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
     (workspace / "Knowledge.md").write_text(f"- evidence: export TOKEN={token}\n")
     assert {f["rule"] for f in ps.scan_stores(tmp_path, allow=[])} >= {"api-token"}
+
+
+_CACHED_LINES = [
+    "plain line with nothing to report",
+    'TOKEN = "' + "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz" + '"',
+    "author: Ping <" + "ping@" + _REAL_MAIL_DOMAIN + ">",
+    "# TODO carry the " + "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz",
+    "path /home/" + "someone/notes.txt",
+    "",
+]
+
+
+def _scan_cached(text: str, path: str = "docs/Team/Archive.md", allow=()):
+    return [
+        (f["rule"], f["path"], f["line"], f.raw)
+        for f in ps.scan_lines(text, path, "history:blob", ps.RULES, list(allow))
+    ]
+
+
+def test_the_line_memo_does_not_change_a_single_finding():
+    """Equivalence: the memoised scan must equal the uncached one, line for line."""
+    text = "\n".join(_CACHED_LINES) + "\n"
+    limit = ps._LINE_CACHE_LIMIT
+    try:
+        ps.reset_line_cache()
+        ps._LINE_CACHE_LIMIT = 0
+        uncached = [(rule, path, raw) for rule, path, _line, raw in _scan_cached(text)]
+        ps._LINE_CACHE_LIMIT = limit
+        ps.reset_line_cache()
+        cached = [(rule, path, raw) for rule, path, _line, raw in _scan_cached(text * 3)]
+    finally:
+        ps._LINE_CACHE_LIMIT = limit
+        ps.reset_line_cache()
+    assert cached, "the corpus must report something, or this proves nothing"
+    assert cached == uncached * 3
+
+
+def test_a_repeated_line_is_derived_once(monkeypatch):
+    """The archive is re-rendered per merge: a repeated line is scanned once."""
+    calls = []
+    real = ps._line_verdicts
+
+    def counted(line, flags, compiled, allow, private_re):
+        calls.append(line)
+        return real(line, flags, compiled, allow, private_re)
+
+    monkeypatch.setattr(ps, "_line_verdicts", counted)
+    ps.reset_line_cache()
+    for _ in range(20):
+        _scan_cached("\n".join(_CACHED_LINES) + "\n")
+    assert len(calls) == len(_CACHED_LINES), "one derivation per distinct line, not per occurrence"
+    ps.reset_line_cache()
+
+
+def test_the_memo_is_per_allowlist():
+    """An allowlisted hit must stay exempt when the same line recurs elsewhere."""
+    line = _CACHED_LINES[1] + "\n"
+    allow = [re.compile(re.escape("ghp_"))]
+    ps.reset_line_cache()
+    assert _scan_cached(line), "without the allowlist the planted token is reported"
+    assert _scan_cached(line, allow=allow) == [], "with it, the same line is exempt"
+    ps.reset_line_cache()
+
+
+def test_the_memo_is_per_private_domain_set(monkeypatch):
+    """A domain added to the environment must not be masked by a cached verdict."""
+    domain = "freshly" + "-private.example"
+    line = f"mail: someone@{domain}\n"
+    monkeypatch.delenv("TEAMWORK_PRIVATE_DOMAINS", raising=False)
+    ps.reset_line_cache()
+    assert "private-domain" not in {rule for rule, *_ in _scan_cached(line)}
+    monkeypatch.setenv("TEAMWORK_PRIVATE_DOMAINS", domain)
+    assert "private-domain" in {rule for rule, *_ in _scan_cached(line)}
+    ps.reset_line_cache()
+
+
+def test_the_memo_stays_bounded():
+    """A history of unique lines must not grow the memo without limit."""
+    limit = ps._LINE_CACHE_LIMIT
+    try:
+        ps.reset_line_cache()
+        ps._LINE_CACHE_LIMIT = 5
+        _scan_cached("".join(f"unique line {n}\n" for n in range(50)))
+        assert len(ps._LINE_CACHE) == 5
+    finally:
+        ps._LINE_CACHE_LIMIT = limit
+        ps.reset_line_cache()
+
+
+def test_a_credential_in_an_old_archive_render_survives_the_memo(tmp_path: Path):
+    """The memo must not hide a hit that only one historical render carries."""
+    repo = tmp_path / "archive-history"
+    repo.mkdir()
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    ident = {
+        "GIT_AUTHOR_NAME": "Developer",
+        "GIT_AUTHOR_EMAIL": "developer@agents.nidvue.com",
+        "GIT_COMMITTER_NAME": "Developer",
+        "GIT_COMMITTER_EMAIL": "developer@agents.nidvue.com",
+    }
+    planted = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
+    body = ["# Archive", "", "| id | result |", "|---|---|"]
+    for revision in range(6):
+        if revision == 1:
+            body.append(f"| leak | `TOKEN={planted}` |")
+        else:
+            body.append(f"| entry-{revision} | ok |")
+        (repo / "Archive.md").write_text("\n".join(body) + "\n", encoding="utf-8")
+        _git(repo, "add", ".", env=ident)
+        _git(repo, "commit", "-qm", f"render {revision}", env=ident)
+
+    findings = [f for f in ps.scan_history(repo, allow=[]) if f["rule"] == "api-token"]
+
+    assert findings, "a credential in one historical render must still be reported"
+    assert planted in {f.raw for f in findings}
