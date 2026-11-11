@@ -1,4 +1,4 @@
-"""One published commit without the trailer passes by exact id, and only it."""
+"""One published commit without the trailer passes, and no commit needs one."""
 
 from __future__ import annotations
 
@@ -57,14 +57,14 @@ def commit(project: Path, message: str) -> str:
     ).stdout.strip()
 
 
-def test_a_records_commit_without_the_trailer_fails_by_default(tmp_path: Path) -> None:
+def test_a_records_commit_without_the_trailer_passes_by_default(tmp_path: Path) -> None:
     project = repo(tmp_path)
     commit(project, "chore(records): append the review entry")
 
     code, output = audit(project, "HEAD")
 
-    assert code == 1, output
-    assert "message has no 'Acting role:' line" in output
+    assert code == 0, output
+    assert "problems: 0" in output
 
 
 def test_the_exempt_sha_passes(tmp_path: Path, monkeypatch) -> None:
@@ -78,7 +78,7 @@ def test_the_exempt_sha_passes(tmp_path: Path, monkeypatch) -> None:
     assert "(legacy message exemption)" in output
 
 
-def test_a_different_commit_with_the_same_shape_still_fails(tmp_path: Path, monkeypatch) -> None:
+def test_a_second_commit_with_the_same_shape_passes_too(tmp_path: Path, monkeypatch) -> None:
     project = repo(tmp_path)
     first = commit(project, "chore(records): append the review entry")
     second = commit(project, "chore(records): append another entry")
@@ -86,9 +86,8 @@ def test_a_different_commit_with_the_same_shape_still_fails(tmp_path: Path, monk
 
     code, output = audit(project, "HEAD")
 
-    assert code == 1, output
-    assert second[:12] in output
-    assert "message has no 'Acting role:' line" in output
+    assert code == 0, output
+    assert second[:12] in output and "problems: 0" in output
 
 
 def test_every_shipped_exemption_is_one_full_object_id_with_a_reason() -> None:
