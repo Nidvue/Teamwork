@@ -43,7 +43,7 @@ Manages: nobody - you are an individual contributor lane.
    for before the shared board's summary.
 5. Work on **your own branch**: `teamwork.py branch start --agent <you> --task <T-id>`.
    `commit` refuses on `main`.
-6. Commit the staged milestone as your ROLE mailbox with the fixed message style
+6. Commit the staged milestone as the repository's configured identity with the fixed message style
    (see `{references}/Engineering.md`):
    `teamwork.py commit --role developer --type feat --task <T-id> --area <area> \
    --goal "..." --deliverable "..." --why "..." --status "..." --result "<cmd @rev -> result>" --all`
@@ -86,7 +86,7 @@ Designer (UI spec), Reviewer (findings), Project Manager (scope).
 One canonical path, defined once in the skill:
 
 ```text
-branch start -> commit (role mailbox, fixed style) -> SelfCheck -> pr open
+branch start -> commit (configured identity, fixed style) -> SelfCheck -> pr open
              -> review (Reviewer) -> pr merge (Reviewer only) -> main
 ```
 

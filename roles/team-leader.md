@@ -140,7 +140,7 @@ finding on your feature), Reviewer (why a finding stands or is closed).
 ## Submitting work (all roles)
 
 ```text
-branch start -> commit (role mailbox, fixed style) -> selfcheck -> pr open
+branch start -> commit (configured identity, fixed style) -> selfcheck -> pr open
              -> review (Reviewer) -> pr merge (Reviewer only) -> main
 ```
 

@@ -5496,7 +5496,11 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
                     match = None
         elif not is_operator and not _matches_role_display(match.group(1), an):
             reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
-        if not match and not _is_content_free_team_merge(parents, cn, ce, body, canonical):
+        if (
+            not match
+            and not is_operator
+            and not _is_content_free_team_merge(parents, cn, ce, body, canonical)
+        ):
             if sha not in LEGACY_MESSAGE_EXEMPT:
                 reasons.append("message has no 'Acting role:' line")
         if reasons and sha in LEGACY_MESSAGE_EXEMPT:
@@ -5519,7 +5523,12 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
 
 
 def build_commit_message(role: str, meta: dict) -> str:
-    name, _email = role_identity(role)
+    """The message a commit carries: what changed and the evidence for it.
+
+    No line names an agent: published history is the project's, so the message
+    carries the task, the goal, the evidence and nothing about which role or
+    instance typed it (decision 2026-11-11).
+    """
     typ = (meta.get("type") or "chore").lower()
     if typ not in COMMIT_TYPES:
         typ = "chore"
@@ -5529,8 +5538,6 @@ def build_commit_message(role: str, meta: dict) -> str:
     lines = [f"{typ}({area}): {summary}", ""]
     fields = [
         ("Task", meta.get("task")),
-        ("Role", name),
-        ("Producers", meta.get("producers")),
         ("Goal", meta.get("goal")),
         ("Deliverable", meta.get("deliverable")),
         ("Why", meta.get("why")),
@@ -5542,7 +5549,6 @@ def build_commit_message(role: str, meta: dict) -> str:
     for key, value in fields:
         if value:
             lines.append(f"{key}: {one_line(value)}")
-    lines += ["", f"Acting role: {name}"]
     return "\n".join(lines) + "\n"
 
 
@@ -5621,30 +5627,18 @@ def cmd_commit(args) -> int:
     if would_author != (name, email):
         die(
             f"refusing to commit: git would author it as {would_author[0]} "
-            f"<{would_author[1]}>, which is neither the role mailbox nor a declared "
-            f"preset ({name} <{email}>). The commit identity is pinned to {name} "
-            f"<{email}> for this command, so a mismatch means git ignored the "
-            "environment; run `git var GIT_AUTHOR_IDENT` here and check for a "
-            "wrapper that rewrites GIT_AUTHOR_*.",
+            f"<{would_author[1]}>, which is not the identity this command pins "
+            f"({name} <{email}>). The commit identity is pinned for this command, so "
+            "a mismatch means git ignored the environment; run `git var "
+            "GIT_AUTHOR_IDENT` here and check for a wrapper that rewrites "
+            "GIT_AUTHOR_*.",
             2,
         )
-
-    producers = args.producers
-    if not producers:
-        inst = instances_of(root, role)
-        claimed = []
-        for r in list_roles(root):
-            role_matches = resolve_role(r) == resolve_role(role)
-            for t in parse_tasks(task_file(root, r)):
-                if t["claimed_by"] and (role_matches or f"@{r}" in producers):
-                    claimed.append(t["claimed_by"])
-        producers = ", ".join(sorted({pascal(x) for x in (claimed or inst)})) or pascal(role)
 
     meta = {
         "type": args.type,
         "area": args.area,
         "task": args.task,
-        "producers": producers,
         "goal": args.goal,
         "deliverable": args.deliverable,
         "why": args.why,
@@ -14482,7 +14476,7 @@ def _preflight_branch(project: Path, base: str, branch: str, role: str) -> Prefl
 
 
 def _preflight_identity(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
-    """Every commit over the base is authored AND committed by a role mailbox.
+    """Every commit over the base is authored AND committed by an accepted identity.
 
     This is `teamwork.py identity --audit --range <base>..<branch>` - the same
     function CI runs - so the author sees the failure the Reviewer's own gate would
@@ -14508,9 +14502,9 @@ def _preflight_identity(project: Path, base: str, branch: str, role: str) -> Pre
         "identity --audit "
         + f"{base}..{branch} -> exit {code}: "
         + "; ".join(problems[:3] or ["see teamwork.py identity --audit"]),
-        f"commit as the acting role: teamwork.py commit --role {role} ... "
-        f"(author == committer == {identity_string(role)}), and end the message with"
-        " 'Acting role: <Role>'",
+        f"commit with `teamwork.py commit --role {role} ...` so the author and the "
+        "committer are one accepted identity, and end the message with"
+        " 'Acting role: <Role>' when the author is a role mailbox",
     )
 
 
