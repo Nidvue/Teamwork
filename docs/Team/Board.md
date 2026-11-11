@@ -233,8 +233,9 @@ under two roles is two tasks.
 | developer | T-0102 | - | todo | - | - |
 | developer | T-0103 | ci-matrix | done | P-0148 | d1d11b6 |
 | developer | T-0104 | privacy-scan | done | P-0149 | 41f2b97 |
-| developer | T-0105 | ci | doing | P-0150 | - |
+| developer | T-0105 | ci | done | P-0150 | d4e5f59 |
 | developer | T-0106 | memory | done | P-0151 | 03267a8 |
+| developer | T-0107 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -290,7 +291,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0100 · refresh stops on an unrelated mirror history and leaves every lane on a stale engine, with no warning | P1 | todo | - |
 | developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
 | developer | T-0102 · teamwork.py commit takes the ambient git identity instead of the role mailbox | P0 | todo | - |
-| developer | T-0105 · the CI matrix runs the whole suite five times over; size it to the portability question and parallelise the Linux cells | P0 | doing | - |
+| developer | T-0107 · close the census-guard class by inversion instead of enumerating word orders | P1 | todo | - |
 | tester | T-0011 · M23-C: certify the memory flow end to end and fill the AC-M23-6 measurement table | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
