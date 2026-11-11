@@ -276,8 +276,6 @@ jobs:
       - name: Run tests with the coverage gate (ubuntu 3.11)
         if: matrix.coverage
         shell: bash
-        env:
-          TEAMWORK_CI_SKIP_HISTORY_PROOF: "0"
         run: |
           mkdir -p reports
           python -m pytest -q \
@@ -289,8 +287,6 @@ jobs:
       - name: Run tests (plain)
         if: ${{ !matrix.coverage }}
         shell: bash
-        env:
-          TEAMWORK_CI_SKIP_HISTORY_PROOF: "1"
         run: |
           mkdir -p reports
           python -m pytest -q --junitxml=reports/junit.xml

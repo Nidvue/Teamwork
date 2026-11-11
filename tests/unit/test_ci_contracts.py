@@ -406,15 +406,21 @@ def test_the_docs_contract_job_runs_the_prose_tests_on_a_prose_push(ci):
     assert docs_reading_problems(ci) == []
 
 
-def test_the_proof_once_lane_declares_the_history_choice(ci):
-    """One lane proves the history; the others say so, rather than inheriting it."""
-    steps = jobs(ci)["test"].get("steps") or []
-    coverage = [step for step in steps if "--cov" in str(step.get("run") or "")]
-    plain = [step for step in steps if str(step.get("name") or "") == "Run tests (plain)"]
-    assert len(coverage) == 1, "coverage and its history proof must be one step"
-    assert len(plain) == 1, "the non-coverage lanes need one explicit step"
-    assert (coverage[0].get("env") or {}).get(HISTORY_OPT_OUT) == "0"
-    assert (plain[0].get("env") or {}).get(HISTORY_OPT_OUT) == "1"
+def test_no_lane_opts_out_of_a_history_proof(ci):
+    """The history gate is its own job, so the matrix has no history clause to drop.
+
+    It used to: every test lane re-ran the traceability guard, which re-ran the
+    privacy history scan, and the lanes that were not the coverage lane exported
+    `TEAMWORK_CI_SKIP_HISTORY_PROOF=1` to drop it. That is the duplicate gate the
+    throughput contract forbids and it is what pushed the Windows cell past its
+    90-minute budget, so the guard exempts the row and the switch is gone.
+    """
+    for step in jobs(ci)["test"].get("steps") or []:
+        env = step.get("env") or {}
+        assert HISTORY_OPT_OUT not in env, (
+            f"the test step {step.get('name')!r} still exports {HISTORY_OPT_OUT}: the history "
+            "proof is the privacy job's, not the matrix's"
+        )
 
 
 def test_every_job_is_bounded_by_a_timeout(ci):
