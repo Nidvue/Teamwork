@@ -763,8 +763,107 @@ def location(path, line_no, commit=None):
     return f"{path}:{line_no}"
 
 
+_LINE_CACHE: dict[tuple, tuple[tuple[str, str, str], ...]] = {}
+_LINE_CACHE_LIMIT = 200_000
+
+
+def reset_line_cache():
+    """Forget every memoised line verdict (tests, and any rule-set change)."""
+    _LINE_CACHE.clear()
+
+
+def _line_verdicts(line, flags, compiled, allow, private_re):
+    """Rule verdicts for one line: ``(rule id, severity, value)`` triples.
+
+    Split out of ``scan_lines`` so the verdict can be memoised: it depends on the
+    line and the three path-derived flags, never on the file or commit it came
+    from. The allowlist is applied here, so a hit the allowlist exempts is not
+    re-derived per occurrence either.
+    """
+    ignore_file, archive, store = flags
+    verdicts = []
+    quoted_evidence = archive and _QUOTED_EVIDENCE.match(line) is not None
+    quoted_store_field = store and _QUOTED_STORE_FIELD.match(line) is not None
+    for rule, regex in compiled:
+        if rule["id"] == "agent-config" and ignore_file:
+            continue
+        if quoted_evidence and rule["id"] in _QUOTED_PATH_RULES:
+            continue
+        if quoted_store_field and rule["id"] == "agent-config":
+            continue
+        for match in regex.finditer(line):
+            value = match.group(0)
+            if rule["id"] == "personal-email" and _email_allowed(value):
+                continue
+            if rule["id"] == "home-path":
+                user = match.group(1) or match.group(2) or match.group(3) or ""
+                if user.lower() in _GENERIC_HOME_USERS:
+                    continue
+                if _user_is_elided(user):
+                    continue
+            if rule["id"] == "env-secret":
+                quoted = match.group(1) is not None
+                secret = match.group(1) or match.group(2)
+                if _PLACEHOLDERS.match(secret):
+                    continue
+                if quoted:
+                    if not re.search(r"\s", secret) and not _looks_like_secret_value(secret):
+                        continue
+                elif _is_code_name(secret) or not _looks_like_secret_value(secret):
+                    continue
+                value = secret
+            if rule["id"] == "api-token" and not _plausible_credential(value):
+                continue
+            if rule["id"] == "high-entropy-secret":
+                prefix = line[: match.start()].lower()
+                if "data:" in prefix and "base64" in prefix:
+                    continue
+                if re.search(r"(?:sha(?:256|384|512)-|integrity=)[\"']?$", prefix):
+                    continue
+                if not _looks_like_secret(value, line, match.start()):
+                    continue
+            if any(pattern.search(value) for pattern in allow):
+                continue
+            verdicts.append((rule["id"], rule["severity"], value))
+
+    if _RE_TODO.search(line):
+        credential = None
+        for probe in (_RE_TOKEN, _RE_PRIVATE_KEY):
+            for match in probe.finditer(line):
+                if probe is _RE_TOKEN and not _plausible_credential(match.group(0)):
+                    continue
+                credential = match.group(0)
+                break
+            if credential:
+                break
+        if credential is None and private_re is not None:
+            match = private_re.search(line)
+            if match:
+                credential = match.group(0)
+        if credential is None:
+            match = _env_secret_pattern().search(line)
+            if match:
+                candidate = match.group(1) or match.group(2)
+                if not _PLACEHOLDERS.match(candidate) and (
+                    match.group(1) is not None
+                    or not _is_code_name(candidate)
+                    and _looks_like_secret_value(candidate)
+                ):
+                    credential = candidate
+        if credential and not any(p.search(credential) for p in allow):
+            verdicts.append(("todo-credential", "medium", credential))
+    return tuple(verdicts)
+
+
 def scan_lines(text, path, source, rules, allow, commit=None):
-    """Yield findings for one text blob (a file or a commit message body)."""
+    """Yield findings for one text blob (a file or a commit message body).
+
+    Verdicts are memoised per (allowlist, flags, line) because history holds
+    hundreds of near-identical renders of the same append-only document: the
+    archive alone is re-rendered on every merge, so the same line is scanned
+    hundreds of times for a verdict that cannot differ. The memo is only used
+    for the shipped rule set, so a caller passing its own rules always re-derives.
+    """
     private_domains = _private_domains()
     private_re = None
     if private_domains:
@@ -781,84 +880,19 @@ def scan_lines(text, path, source, rules, allow, commit=None):
         elif rule["regex"] is not None:
             compiled.append((rule, rule["regex"]))
 
-    ignore_file = path.endswith(".gitignore")
-    archive = path.endswith("Archive.md")
-    store = source == "stores"
+    flags = (path.endswith(".gitignore"), path.endswith("Archive.md"), source == "stores")
+    allow_key = tuple(pattern.pattern for pattern in allow)
+    domain_key = private_re.pattern if private_re is not None else ""
+    cache = _LINE_CACHE if rules is RULES else None
     for line_no, line in enumerate(text.splitlines(), 1):
-        quoted_evidence = archive and _QUOTED_EVIDENCE.match(line) is not None
-        quoted_store_field = store and _QUOTED_STORE_FIELD.match(line) is not None
-        for rule, regex in compiled:
-            if rule["id"] == "agent-config" and ignore_file:
-                continue
-            if quoted_evidence and rule["id"] in _QUOTED_PATH_RULES:
-                continue
-            if quoted_store_field and rule["id"] == "agent-config":
-                continue
-            for match in regex.finditer(line):
-                value = match.group(0)
-                if rule["id"] == "personal-email" and _email_allowed(value):
-                    continue
-                if rule["id"] == "home-path":
-                    user = match.group(1) or match.group(2) or match.group(3) or ""
-                    if user.lower() in _GENERIC_HOME_USERS:
-                        continue
-                    if _user_is_elided(user):
-                        continue
-                if rule["id"] == "env-secret":
-                    quoted = match.group(1) is not None
-                    secret = match.group(1) or match.group(2)
-                    if _PLACEHOLDERS.match(secret):
-                        continue
-                    if quoted:
-                        if not re.search(r"\s", secret) and not _looks_like_secret_value(secret):
-                            continue
-                    elif _is_code_name(secret) or not _looks_like_secret_value(secret):
-                        continue
-                    value = secret
-                if rule["id"] == "api-token" and not _plausible_credential(value):
-                    continue
-                if rule["id"] == "high-entropy-secret":
-                    prefix = line[: match.start()].lower()
-                    if "data:" in prefix and "base64" in prefix:
-                        continue
-                    if re.search(r"(?:sha(?:256|384|512)-|integrity=)[\"']?$", prefix):
-                        continue
-                    if not _looks_like_secret(value, line, match.start()):
-                        continue
-                if any(pattern.search(value) for pattern in allow):
-                    continue
-                yield make_finding(
-                    rule["id"], rule["severity"], path, line_no, value, line, source, commit
-                )
-
-        if _RE_TODO.search(line):
-            credential = None
-            for probe in (_RE_TOKEN, _RE_PRIVATE_KEY):
-                for match in probe.finditer(line):
-                    if probe is _RE_TOKEN and not _plausible_credential(match.group(0)):
-                        continue
-                    credential = match.group(0)
-                    break
-                if credential:
-                    break
-            if credential is None and private_re is not None:
-                match = private_re.search(line)
-                if match:
-                    credential = match.group(0)
-            if credential is None:
-                match = _env_secret_pattern().search(line)
-                if match:
-                    candidate = match.group(1) or match.group(2)
-                    if not _PLACEHOLDERS.match(candidate) and (
-                        match.group(1) is not None
-                        or not _is_code_name(candidate)
-                        and _looks_like_secret_value(candidate)
-                    ):
-                        credential = candidate
-            if credential and not any(p.search(credential) for p in allow):
-                yield make_finding(
-                    "todo-credential", "medium", path, line_no, credential, line, source, commit
-                )
+        key = (allow_key, flags, domain_key, line)
+        verdicts = cache.get(key) if cache is not None else None
+        if verdicts is None:
+            verdicts = _line_verdicts(line, flags, compiled, allow, private_re)
+            if cache is not None and len(cache) < _LINE_CACHE_LIMIT:
+                cache[key] = verdicts
+        for rule_id, severity, value in verdicts:
+            yield make_finding(rule_id, severity, path, line_no, value, line, source, commit)
 
     for match in _RE_JSON_SECRET.finditer(text):
         value = match.group(1)
