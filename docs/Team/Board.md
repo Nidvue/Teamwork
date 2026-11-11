@@ -247,6 +247,7 @@ under two roles is two tasks.
 | developer | T-0116 | privacy | done | P-0159 | c65dc84 |
 | developer | T-0117 | identity | done | P-0160 | 5c963f1 |
 | developer | T-0118 | identity | done | P-0161 | 00b62fd |
+| developer | T-0119 | lane-proof | done | P-0162 | bc508dc |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
