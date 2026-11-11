@@ -44,7 +44,7 @@ from pathlib import Path
 
 from . import harness
 from .config import F_KNOWLEDGE, F_LESSONS, F_MEM_ARCHIVE, F_SHORT, F_TASKS, STALE_AFTER_DAYS
-from .layout import knowledge_path, role_dir, roles_dir
+from .layout import knowledge_path, role_dir, roles_dir, shown_path
 from .names import one_line
 from .records import (
     normalise_knowledge,
@@ -166,10 +166,10 @@ def rank(entries: list[dict], query: str, now: datetime.date | datetime.datetime
 
 def _pointer(root: Path, path: Path, record_id: str) -> str:
     try:
-        where = path.relative_to(root).as_posix()
+        where = path.relative_to(root)
     except ValueError:
-        where = path.as_posix()
-    return f"{where}#{record_id}"
+        where = path
+    return f"{shown_path(where)}#{record_id}"
 
 
 def _entry(

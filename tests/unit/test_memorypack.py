@@ -11,7 +11,7 @@ rewrites a statement.
 from __future__ import annotations
 
 import datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -648,3 +648,10 @@ def test_touch_used_skips_a_pointer_whose_store_is_gone(tmp_path: Path) -> None:
     root = team(tmp_path)
     ghost = entry(pointer="Knowledge.md#K-9999")
     assert memorypack.touch_used(root, [ghost], "Developer") == 0
+
+
+def test_a_pointer_uses_forward_slashes_on_a_windows_host() -> None:
+    """T-0120: the pointer is compared as text, so its separator is host-free."""
+    windows_root = PureWindowsPath("T:/Teamwork")
+    pointer = memorypack._pointer(windows_root, windows_root / "Knowledge.md", "K-0001")
+    assert pointer == "Knowledge.md#K-0001"
