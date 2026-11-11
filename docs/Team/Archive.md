@@ -6732,4 +6732,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 03f60f8
 - reviewer evidence: pytest -q -n auto @f01040e -> 2768 passed, 10 skipped in 43.03s; merge of de5628e+f01040e in a scratch worktree -> 2783 passed, 10 skipped, 1 xfailed in 35.20s; ruff format --check -> 317 files already formatted; ruff check -> All checks passed; mypy src/teamwork -> Success, 27 files; scripts/check_comments.py -> 223 files, 0 explanatory; AC-M23-2 recall half re-derived by grafting main's acceptance test onto f01040e with the search pointer re-pointed to the tool's <file>#<id> convention -> 1 passed (TS-0152 passing by Reviewer-2); the 9 new unit tests cover the empty archive, the --layer archive / both / --all paths and the negative that pack, short block and parked knowledge stay out
 - findings history: 
-- branch / merge: developer-2/t-0109-m23-d-recall-and-memory-search-do-not-re / pending
+- branch / merge: developer-2/t-0109-m23-d-recall-and-memory-search-do-not-re / 04b4983
