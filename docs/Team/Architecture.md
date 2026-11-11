@@ -318,19 +318,37 @@ fails when the workflow and this table disagree.
   * Every cell except the Windows shards runs pytest under `--numprocesses=auto` (`-n auto`)
     (`pytest-xdist`, a `dev` extra requirement; T-0105). The suite spawns hundreds
     of processes and a hosted runner gives 3-4 vCPUs, so a cell is wall-clock
-    bound rather than CPU bound: measured on the 4-worker emulation of a runner,
-    the same tree takes 242s serially and 94s with `-n 4` (4-worker emulation of a
-    hosted runner, T-0105), and the two runs reproduce the same outcome: at
-    `faeafce` both gave 2742 passed, 2 failed, 10 skipped (Reviewer-2, P-0150). At
-    this revision the tree collects 2763 tests and the parallel run gives 2751
-    passed, 2 failed, 10 skipped in 36s - the one extra test against `faeafce` is
-    the macOS-subset mutant this change adds. The 2 failures are not the parallel
-    run's: they are `tests/integration/test_memory_pack_flow.py`, which landed red
-    on `main` from T-0097 with a P0 fix task open, and they fail identically
-    single-process. The macOS cell's subset takes 22s here (Linux host, `-n auto`,
-    2427 passed, 8 skipped) against the 12-18 minute full-suite job it replaces;
-    the duration on a macOS host is the CI run's to report. The Windows rows are
-    already split by path, so a second split buys nothing there.
+    bound rather than CPU bound: on a 4-worker emulation of a hosted runner the
+    same tree took 242s serially and 94s with `-n 4` at `faeafce`, 2026-11-11.
+    The parallel run is accepted on a **comparison, not a census**: the contract is
+    that serial and parallel agree on every test's outcome, so the doc states no
+    count and the two runs below are the check. One revision, run both ways, then
+    diff the per-test outcome sets:
+
+    ```sh
+    .venv/bin/python -m pytest -q --junitxml=/tmp/serial.xml
+    .venv/bin/python -m pytest -q -n 4 --junitxml=/tmp/parallel.xml
+    .venv/bin/python - <<'PY'
+    import xml.etree.ElementTree as ET
+    def outcome(path):
+        return {case.get("name"): "failed" if case.find("failure") is not None
+                else "skipped" if case.find("skipped") is not None else "passed"
+                for case in ET.parse(path).getroot().iter("testcase")}
+    serial, parallel = outcome("/tmp/serial.xml"), outcome("/tmp/parallel.xml")
+    print(sorted(k for k in serial.keys() | parallel.keys()
+                 if serial.get(k) != parallel.get(k)))
+    PY
+    ```
+
+    An empty diff is the pass. A test that only fails in parallel is a defect in
+    the test, fixed there and not serialised out of the run. The parallel run of
+    the whole tree took 36s at `f4cd508`, 2026-11-11; the macOS cell's subset took
+    22s there (Linux host, `-n auto`) against the 12-18 minute full-suite job it
+    replaces, and the duration on a macOS host is the CI run's to report. The two
+    failures both runs report are not the parallel run's: they are
+    `tests/integration/test_memory_pack_flow.py`, which landed red on `main` from
+    T-0097 with a P0 fix task open, and they fail identically single-process. The
+    Windows rows are already split by path, so a second split buys nothing there.
   * The `scope` job runs `scripts/ci_scope.py`, which computes the changed-path
     set from git, and publishes **two** outputs, because the filtered jobs ask two different questions and a
     prose-only push answers them differently: `code` (`true` = something that
