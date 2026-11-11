@@ -2606,3 +2606,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git rev-list --count HEAD -> 595 (was 2052); git log --format=%an | sort -u -> 'Ping Zhao <<redacted-personal-email>>' and 'dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>'; python3 scripts/teamwork.py identity --audit --strict-authors --range HEAD -> 594 commits, 0 problems; git diff --quiet <old head> <new head> -> identical tree before the records commit; every tag re-created on a commit whose tree equals the old tag's tree (14/14); git push --force-with-lease origin main -> a7ddf72...5b2ea4c; git push --force --tags -> 14 forced updates; gh api branches/main/protection -> force=false, 15 checks, 1 review; gh api rulesets/25840176 -> active, no bypass actors
 - falsified by: -
 - consequences: -
+
+## D-20261111-CEO - The Windows cell is red on 8 portability defects, and that...
+
+- date: 2026-11-11
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0094
+- context: -
+- options considered: -
+- decision: The Windows cell is red on 8 portability defects, and that is the honest state: sharding (T-0093) turned a silent 90-minute cancellation into a report, which is strictly better than a green cell that never ran. They are not flakes and are not skipped: the installed git hook is not enforced on Windows, chmod cannot block an unlink, the preflight gate command is a POSIX shell string cmd.exe cannot run, and long temp paths hit MAX_PATH. T-0094 carries the list with the exact test ids and stays open as a portability milestone; the stage is certified on the four POSIX cells plus the local run, with the Windows gap named.
+- why: -
+- evidence: gh run on e30b956: windows shards complete and report 8 failures; the same suite is green on ubuntu py3.11/3.12/3.13 and macOS py3.13 (2704 passed, 4 skipped); every other CI job green including privacy (tree + history) inside the new 30-minute budget
+- falsified by: -
+- consequences: -
