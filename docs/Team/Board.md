@@ -88,7 +88,7 @@ under two roles is two tasks.
 | architect | T-0005 | architecture | done | P-0067 | bb7c34f |
 | architect | T-0006 | - | done | P-0082 | f4cd70f |
 | architect | T-0007 | - | done | P-0081 | 0340949 |
-| architect | T-0008 | memory | doing | P-0144 | - |
+| architect | T-0008 | memory | done | P-0144 | 09acc97 |
 | ceo | T-0001 | review | done | P-0001 | 2f44f00 |
 | ceo | T-0002 | docs | done | P-0008 | 28c1133 |
 | ceo | T-0003 | - | done | - | - |
@@ -226,8 +226,11 @@ under two roles is two tasks.
 | developer | T-0095 | tests | done | P-0141 | 6e5aa6a |
 | developer | T-0096 | tests | done | P-0143 | 702449c |
 | developer | T-0097 | memory | done | P-0145 | 19246a0 |
-| developer | T-0098 | - | todo | - | - |
+| developer | T-0098 | memory | review | P-0147 | - |
 | developer | T-0099 | - | dropped | - | - |
+| developer | T-0100 | - | todo | - | - |
+| developer | T-0101 | - | doing | P-0146 | - |
+| developer | T-0102 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -280,8 +283,10 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0008 · freeze the M23 memory contracts: short-layer capture and injection, the promotion rule, the dream cadence and the wiki page format | P0 | doing | - |
-| developer | T-0098 · M23-B: promote by use, run the dream pass on its cadence, and keep a capped wiki that search consults | P0 | todo | - |
+| developer | T-0098 · M23-B: promote by use, run the dream pass on its cadence, and keep a capped wiki that search consults | P0 | review | - |
+| developer | T-0100 · refresh stops on an unrelated mirror history and leaves every lane on a stale engine, with no warning | P1 | todo | - |
+| developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
+| developer | T-0102 · teamwork.py commit takes the ambient git identity instead of the role mailbox | P0 | todo | - |
 | tester | T-0011 · M23-C: certify the memory flow end to end and fill the AC-M23-6 measurement table | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
