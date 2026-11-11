@@ -199,6 +199,7 @@ from .gitutil import (
     branch_worktree,
     current_branch,
     ensure_lfs,
+    ensure_longpaths,
     is_binary_content,
     is_git_repo,
     lfs_text_mismatch,
@@ -553,6 +554,7 @@ __all__ = [
     "branch_merged",
     "branch_worktree",
     "ensure_lfs",
+    "ensure_longpaths",
     "lfs_text_mismatch",
     "lfs_tracked",
     "branch_name",
@@ -908,16 +910,10 @@ def retire_branch(root: Path, here: Path, branch: str, force: bool = False) -> b
     flag = "-D" if force else "-d"
     r = run_git(here, "branch", flag, branch)
     if r.returncode != 0 and "used by worktree" in (r.stderr + r.stdout):
-        wt_root = str(root / DIR_RUNTIME / DIR_WORKTREES)
-        listing = run_git(here, "worktree", "list", "--porcelain").stdout
-        target = ""
-        for block in listing.split("\n\n"):
-            if f"branch refs/heads/{branch}" in block:
-                for line in block.splitlines():
-                    if line.startswith("worktree "):
-                        target = line.split(" ", 1)[1].strip()
-        if target and target.startswith(wt_root):
-            run_git(here, "worktree", "remove", "--force", target)
+        target = branch_worktree(here, branch)
+        wt_root = (root / DIR_RUNTIME / DIR_WORKTREES).resolve()
+        if target is not None and target.resolve().is_relative_to(wt_root):
+            run_git(here, "worktree", "remove", "--force", str(target))
             r = run_git(here, "branch", flag, branch)
     if r.returncode == 0:
         print(f"# deleted branch {branch}" + (" (squashed, so forced)" if force else ""))
@@ -8151,6 +8147,7 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
     if added and not quiet:
         print(f"teamwork: added {len(added)} rule(s) to .gitignore")
 
+    ensure_longpaths(project)
     ensure_lfs(project, quiet=quiet)
     toplevel = run_git(project, "rev-parse", "--show-toplevel").stdout.strip()
     at_toplevel = bool(toplevel) and Path(toplevel).resolve() == project.resolve()
@@ -14774,7 +14771,7 @@ def _preflight_slice(
 GATE_SHELL_METACHARACTERS = "&|;<>\n"
 
 
-def _gate_argv(command: str) -> list[str]:
+def _gate_argv(command: str) -> list[str] | str:
     """The argv `_preflight_gate` starts, raising `ValueError` for an unquotable one.
 
     A `PreflightCommand` is a shell line as the docs spell it (`make check`,
@@ -14783,10 +14780,15 @@ def _gate_argv(command: str) -> list[str]:
     `ruff check . && ...` then exits 2 on a spelling the docs invite (T-0005). A
     single command keeps the no-shell path, so a missing program still reports
     "could not start" instead of a shell's exit 127.
+
+    On Windows the line is returned as one string to be run with `shell=True`,
+    never as `["cmd", "/c", command]`: `subprocess` re-quotes a list argument, so
+    the quotes in `"C:\\...\\python.exe" -c "print(1)"` reach `cmd.exe` backslash-
+    escaped and it looks for a program whose name begins with a quote (T-0094).
     """
     if any(char in command for char in GATE_SHELL_METACHARACTERS):
         if os.name == "nt":
-            return ["cmd", "/c", command]
+            return command
         return ["/bin/sh", "-c", command]
     return shlex.split(command)
 
@@ -14877,6 +14879,7 @@ def _preflight_gate(
             capture_output=True,
             text=True,
             timeout=PREFLIGHT_GATE_TIMEOUT,
+            shell=isinstance(argv, str),
         )
     except subprocess.TimeoutExpired:
         return PreflightCheck(
