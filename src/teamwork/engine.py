@@ -6614,12 +6614,31 @@ def memory_pack_block(root: Path, role: str, task: str, budget: int = 0, touch_b
     return memorypack.render_pack(items, memorypack.rendered_bytes(items), limit).rstrip("\n")
 
 
+def memory_short_block(
+    root: Path, role: str, task: str, budget: int = 0, touch_by: str = ""
+) -> str:
+    """The short layer as text, for `load --task` and for a lane packet.
+
+    Same scorer and the same ``SHORT_INJECT_BYTES`` sub-cap as the injected layer,
+    so a lane reads the block whether or not it runs a command (Memory.md 15.2).
+    An empty store returns an empty string, so the caller omits the heading rather
+    than printing an empty block.
+    """
+    limit = budget or memorypack.SHORT_INJECT_BYTES
+    entries = memorypack.short_entries(root, role, task, limit)
+    if not entries:
+        return ""
+    if touch_by:
+        memorypack.touch_used(root, entries, touch_by)
+    return memorypack.short_block(root, role, task, limit)
+
+
 def _pack_block(root: Path, role: str, task: str, touch_by: str = "") -> str:
     """`load --task` prints this instead of the static top-10 knowledge block.
 
-    The index above and this pack are one injected layer, so the pack only gets
-    what the index left of ``PACK_BUDGET_BYTES``: ``index + pack`` stays at or
-    under the budget however full the store is (AC-M22-4).
+    The index, the short block and this pack are one injected layer, so the pack
+    only gets what the other two left of ``PACK_BUDGET_BYTES``: ``index + short +
+    pack`` stays at or under the budget however full the store is (AC-M22-4).
     """
     limit = memorypack.injected_budget(root, role, task)
     query = memorypack.task_query(root, role, task)
@@ -6697,6 +6716,12 @@ def cmd_load(args) -> int:
     gcount = len(parse_memory(global_dir(root) / F_GLOBAL))
     inst = instances_of(root, role)
     print(memorypack.index_block(root, role, getattr(args, "task", "") or ""))
+    if getattr(args, "task", ""):
+        short = memory_short_block(
+            root, role, args.task, touch_by=getattr(args, "agent", "") or role
+        )
+        if short:
+            print(short)
     print(
         f"# {args.agent} (shared {role} memory): {len(keep)}/{len(entries)} entries;"
         f" shared by {', '.join(inst) or role}; global {gcount}"
