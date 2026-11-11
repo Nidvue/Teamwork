@@ -6615,4 +6615,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit dc9f604
 - reviewer evidence: pytest tests/unit/test_ci_contracts.py @9209583 -> 36 passed; check_shards.py @9209583 -> 169 test files partitioned 31/37/57/29/15, 0 unnamed, 0 doubled; gh run view 43014809518 @9209583 -> 5 windows jobs, none cancelled, completed 1m54s-12m18s against the 90m cap; workflow passes matrix.paths to pytest under bash, timeout-minutes 90 and the five-cell matrix unchanged; main is an ancestor of 9209583 so the merge is a fast-forward; TS-0159 records the acceptance layer. non-blocking: Architecture section 9 'this table' should read 'that mapping' (TIMEOUT_MINUTES) to remove the ambiguity
 - findings history: 
-- branch / merge: dev-1/t-0103-the-windows-a-f-shard-is-cancelled-at-th / pending
+- branch / merge: dev-1/t-0103-the-windows-a-f-shard-is-cancelled-at-th / d1d11b6
