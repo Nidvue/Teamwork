@@ -43,7 +43,7 @@ import time
 from pathlib import Path
 
 from . import harness
-from .config import F_KNOWLEDGE, F_LESSONS, F_SHORT, F_TASKS, STALE_AFTER_DAYS
+from .config import F_KNOWLEDGE, F_LESSONS, F_MEM_ARCHIVE, F_SHORT, F_TASKS, STALE_AFTER_DAYS
 from .layout import knowledge_path, role_dir, roles_dir
 from .names import one_line
 from .records import (
@@ -276,6 +276,49 @@ def memories(root: Path, role: str) -> list[dict]:
         )
         for item in parse_memory(path)
     ]
+
+
+def archived_memories(root: Path, role: str) -> list[dict]:
+    """The role's archived memory: searchable and pointed at, never injected.
+
+    A demotion leaves a pointer (Memory.md 15.3): the record keeps its statement in
+    ``Roles/<Role>/ArchivedMemory.md`` and stays reachable by ``recall`` and
+    ``memory search``, but it is parked, so no pack and no short block may spend
+    their budget on it.
+    """
+    path = role_dir(root, role) / F_MEM_ARCHIVE
+    return [
+        _entry(
+            record_id=item["id"],
+            kind="memory",
+            store=F_MEM_ARCHIVE,
+            pointer=_pointer(root, path, item["id"]),
+            title=item.get("key") or "note",
+            statement=item.get("body", ""),
+            tags=item.get("tags", ""),
+            importance=item.get("importance", 0),
+            uses=item.get("uses", 0),
+            updated=item.get("last_used") or item.get("created", ""),
+            status="archived",
+            evidence=" ".join(
+                part
+                for part in (item.get("by", ""), item.get("src", ""), item.get("rev", ""))
+                if part
+            ),
+        )
+        for item in parse_memory(path)
+    ]
+
+
+def searchable(entry: dict) -> bool:
+    """Whether ``memory search`` may rank a record at all.
+
+    Archived *memory* is searchable because a demotion leaves a pointer (15.3);
+    every other parked record stays out, as the pack's empty case does.
+    """
+    return (
+        str(entry.get("status") or "") in INJECTABLE_STATUSES or entry.get("store") == F_MEM_ARCHIVE
+    )
 
 
 def collect(root: Path, role: str) -> list[dict]:
@@ -560,10 +603,7 @@ def render_search(
     """
     terms = set(tokenize(query))
     candidates = [
-        entry
-        for entry in entries
-        if str(entry.get("status") or "") in INJECTABLE_STATUSES
-        and terms & set(record_tokens(entry))
+        entry for entry in entries if searchable(entry) and terms & set(record_tokens(entry))
     ]
     ranked = rank(candidates, query, now)[:limit]
     matched_facts = rank(
