@@ -53,6 +53,22 @@ def page(root: Path, subject: str, sources: list[str], facts: list[tuple[str, st
     return wiki.write_page(root, subject, sources, facts, "2026-11-11")
 
 
+def record(record_id: str, statement: str, status: str) -> dict:
+    return {
+        "id": record_id,
+        "kind": "knowledge",
+        "store": "Knowledge.md",
+        "title": "lock-steal",
+        "statement": statement,
+        "tags": "",
+        "importance": 3,
+        "uses": 0,
+        "updated": "2026-11-07",
+        "status": status,
+        "pointer": f"Knowledge.md#{record_id}",
+    }
+
+
 def test_a_page_is_written_at_its_path_in_the_frozen_format(tmp_path: Path) -> None:
     root = team(tmp_path)
 
@@ -178,3 +194,40 @@ def test_a_page_hit_competes_for_the_same_limit_as_a_record(tmp_path: Path) -> N
     text = memorypack.render_search(entries, "lock", NOW, limit=1, page_facts=wiki_facts(root))
 
     assert text.count("- ") == 1
+
+
+def test_a_page_rewritten_from_active_records_is_never_pruned_in_the_same_pass(
+    tmp_path: Path,
+) -> None:
+    root = team(tmp_path)
+    page(
+        root,
+        "lock-steal",
+        ["K-0019", "K-0020"],
+        [("stale fact one", "K-0019"), ("stale fact two", "K-0020")],
+    )
+    entries = [
+        record("K-0019", "stale fact one", "archived"),
+        record("K-0020", "stale fact two", "superseded"),
+        record("K-0031", "fresh fact about the lock body", "active"),
+        record("K-0032", "fresh fact about the lock body twice", "active"),
+    ]
+
+    proposals = wiki.dream(root, entries, NOW)
+
+    assert proposals["prune"] == []
+    assert [(item["action"], item["sources"]) for item in proposals["pages"]] == [
+        ("edit", ["K-0031", "K-0032"])
+    ]
+
+    counts = wiki.apply(root, proposals, "Developer")
+
+    assert counts["pruned"] == 0
+    stored = wiki.pages(root)
+    assert len(stored) == 1
+    assert stored[0]["sources"] == ["K-0031", "K-0032"]
+    assert "fresh fact about the lock body" in (root / "Wiki" / "lock-steal.md").read_text(
+        encoding="utf-8"
+    )
+    ledger = root / config.F_LEDGER
+    assert not ledger.is_file() or "wiki.prune" not in ledger.read_text(encoding="utf-8")

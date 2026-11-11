@@ -249,9 +249,10 @@ def dream(root: Path, entries: list[dict], now: datetime.date | datetime.datetim
                 "action": "edit" if page else "add",
             }
         )
+    rewritten = {slugify(proposal["subject"]) for proposal in proposals}
     prunes = []
     for page in existing:
-        if not page["facts"]:
+        if not page["facts"] or page["slug"] in rewritten:
             continue
         if all(_dead(fact, statuses, drifted_ids) for fact in page["facts"]):
             prunes.append({"id": page["id"], "slug": page["slug"]})
@@ -263,6 +264,7 @@ def apply(root: Path, proposals: dict, by: str) -> dict:
     from .engine import ledger_append
 
     counts = {"written": 0, "pruned": 0, "bytes": 0}
+    written_slugs: set[str] = set()
     for proposal in proposals.get("pages") or []:
         try:
             written = write_page(
@@ -274,17 +276,21 @@ def apply(root: Path, proposals: dict, by: str) -> dict:
             )
         except ValueError:
             continue
+        written_slugs.add(written["slug"])
         if written["action"] == "write":
             counts["written"] += 1
             counts["bytes"] += written["bytes"]
     for target in proposals.get("prune") or []:
+        if target["slug"] in written_slugs:
+            continue
         path = page_path(root, target["slug"])
         if not path.is_file():
             continue
         before = path.stat().st_size
+        stored = parse_page(path) or {}
         stub = (
             f"# {target['id']} - stub\n\n"
-            f"- sources: {', '.join(parse_page(path)['sources']) or '-'}\n"
+            f"- sources: {', '.join(stored.get('sources') or []) or '-'}\n"
             "- updated: pruned\n\n"
             "## Facts\n"
             "- every source record is superseded, archived or drifted -> wiki.prune\n"

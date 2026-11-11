@@ -7924,7 +7924,7 @@ def _consolidate_locked(
     demoted = []
     still_long = []
     for e in long_entries:
-        unused = e["uses"] == 0 and days_since(e["last_used"]) >= STALE_AFTER_DAYS
+        unused = e["uses"] == 0 and days_since(e["last_used"]) > STALE_AFTER_DAYS
         if not e["pinned"] and unused:
             demoted.append(e)
         else:
@@ -10961,20 +10961,25 @@ def memory_dream_line(root: Path) -> str:
     """
     role = ""
     items = _collected(root, role)
-    proposals = memorypack.dream(items, datetime.datetime.now(), root)
+    proposals = memorypack.dream(
+        items, datetime.datetime.now(), root, budget_seconds=DREAM_BUDGET_SECONDS
+    )
     duplicates = len(proposals.get("duplicate") or [])
     stale = len(proposals.get("stale") or [])
     contradictions = len(proposals.get("contradiction") or [])
     no_evidence = len(proposals.get("no_evidence") or [])
-    if not (duplicates or stale or contradictions or no_evidence):
+    deferred = int(proposals.get("deferred") or 0)
+    if not (duplicates or stale or contradictions or no_evidence or deferred):
         return (
             f"# memory: {len(items)} record(s), nothing to consolidate (dream --dry-run is clean)"
         )
-    return (
+    line = (
         f"# memory: {len(items)} record(s) -> {duplicates} duplicate(s), {stale} stale, "
-        f"{contradictions} contradiction(s), {no_evidence} without evidence; "
-        "`memory dream --apply --by <you>` acts, nothing was written"
+        f"{contradictions} contradiction(s), {no_evidence} without evidence"
     )
+    if deferred:
+        line += f", deferred {deferred} by DREAM_BUDGET_SECONDS={DREAM_BUDGET_SECONDS}"
+    return line + "; `memory dream --apply --by <you>` acts, nothing was written"
 
 
 def _status_elapsed(seconds: int) -> str:
