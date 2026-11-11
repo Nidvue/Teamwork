@@ -188,6 +188,15 @@ def agent_dir(root: Path, agent: str) -> Path:
     return agents_dir(root) / safe_component(pascal(agent))
 
 
+def shown_path(path: Path | str) -> str:
+    """A path as the packet and the memory pointer print it: forward slashes.
+
+    The packet is read by an agent that types the path into a POSIX shell even on
+    Windows, and a pointer is compared as text, so one form on every host (T-0120).
+    """
+    return os.fspath(path).replace("\\", "/")
+
+
 def roles_dir(root: Path) -> Path:
     return root / DIR_ROLES
 
