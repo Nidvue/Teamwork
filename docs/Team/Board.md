@@ -231,6 +231,7 @@ under two roles is two tasks.
 | developer | T-0100 | - | todo | - | - |
 | developer | T-0101 | - | doing | P-0146 | - |
 | developer | T-0102 | - | todo | - | - |
+| developer | T-0103 | ci-matrix | done | P-0148 | d1d11b6 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
