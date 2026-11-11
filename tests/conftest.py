@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,26 @@ if str(SRC_DIR) not in sys.path:
 os.environ["TEAMWORK_SKILL_DIR"] = str(REPO_ROOT)
 
 
+TEAM_ENV = ("TEAMWORK_ROOT", "TEAMWORK_TEAM")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def hermetic_team_environment() -> Iterator[None]:
+    """3: no fixture, whatever its scope, is built with a lane's team environment.
+
+    A lane process exports ``TEAMWORK_ROOT`` and ``TEAMWORK_TEAM``, and
+    ``engine.team_slug`` reads ``TEAMWORK_TEAM``, so an in-process team lookup made
+    from a module- or session-scoped fixture - which pytest builds *before* the
+    function-scoped ``isolated_workspace`` below - resolved the live team instead
+    of the fixture's throwaway project. Session scope is the earliest point that
+    sees every other fixture, and it is restored on teardown so an outer run keeps
+    its environment.
+    """
+    saved = {name: os.environ.pop(name) for name in TEAM_ENV if name in os.environ}
+    yield
+    os.environ.update(saved)
+
+
 @pytest.fixture(scope="session")
 def repo_root() -> Path:
     """Absolute path to the repository checkout (the skill bundle root)."""
@@ -44,8 +65,8 @@ def isolated_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     Autouse, so no test can accidentally act on the developer's real team tree
     or on the repository itself.
     """
-    monkeypatch.delenv("TEAMWORK_ROOT", raising=False)
-    monkeypatch.delenv("TEAMWORK_TEAM", raising=False)
+    for name in TEAM_ENV:
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("TEAMWORK_SKILL_DIR", str(REPO_ROOT))
     monkeypatch.chdir(tmp_path)
     return tmp_path
