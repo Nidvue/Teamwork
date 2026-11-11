@@ -174,6 +174,60 @@ def shard_problems(document: dict) -> list[str]:
     return problems
 
 
+def shard_rows(document: dict) -> list[tuple[str, str]]:
+    """``(shard name, paths)`` for every row of a sharded cell."""
+    matrix = ((jobs(document).get("test") or {}).get("strategy") or {}).get("matrix") or {}
+    rows = []
+    for entry in matrix.get("include") or []:
+        cell = (str(entry.get("os")), str(entry.get("python-version")))
+        if cell in SHARDED_CELLS:
+            rows.append((str(entry.get("shard") or ""), str(entry.get("paths") or "")))
+    return rows
+
+
+def shard_file_problems(document: dict, repo_root: Path = REPO_ROOT) -> list[str]:
+    """The shards must *partition* the suite, not merely avoid naming one path twice.
+
+    `shard_problems` catches two shards naming the same paths. It cannot see a test
+    file that no shard names, and the sharded cell is the only lane that runs the
+    suite through `paths`, so such a gap is a test that never runs there. Both
+    halves are computed from the tree: every path token is expanded by the same
+    glob semantics the shell uses, and the union is compared with every
+    `test_*.py` under `tests/`.
+    """
+    problems: list[str] = []
+    named: dict[str, list[str]] = {}
+    for shard, paths in shard_rows(document):
+        if not paths:
+            problems.append(f"shard {shard!r} names no paths")
+            continue
+        for token in paths.split():
+            matches = list(repo_root.glob(token))
+            files = [
+                path
+                for match in matches
+                for path in (sorted(match.rglob("test_*.py")) if match.is_dir() else [match])
+                if path.is_file() and path.name.startswith("test_")
+            ]
+            if not files:
+                problems.append(f"shard {shard!r} names {token!r}, which matches no test file")
+            for path in files:
+                named.setdefault(path.relative_to(repo_root).as_posix(), []).append(shard)
+    every = sorted(
+        path.relative_to(repo_root).as_posix() for path in (repo_root / "tests").rglob("test_*.py")
+    )
+    unnamed = sorted(set(every) - set(named))
+    if unnamed:
+        problems.append(f"no shard runs {len(unnamed)} test file(s): {unnamed}")
+    unknown = sorted(set(named) - set(every))
+    if unknown:
+        problems.append(f"the shards name {len(unknown)} file(s) outside tests/: {unknown}")
+    doubled = {path: shards for path, shards in named.items() if len(shards) > 1}
+    if doubled:
+        problems.append(f"test files in two shards: {doubled}")
+    return problems
+
+
 def matrix_problems(document: dict) -> list[str]:
     """The five-cell matrix, its fail-fast policy and the single coverage lane."""
     problems: list[str] = []
@@ -351,6 +405,42 @@ def test_the_matrix_is_the_five_designed_cells(ci):
 
 def test_the_matrix_keeps_fail_fast_false(ci):
     assert (jobs(ci)["test"].get("strategy") or {}).get("fail-fast") == "false"
+
+
+def test_the_shards_partition_the_suite_and_stay_small(ci):
+    """Every test file runs in exactly one shard, and no shard carries the a-f bulk.
+
+    The a-f row of the first split ran unit a-f plus the whole integration and
+    acceptance trees and was cancelled at the 90-minute cap (run 43000716956), so
+    the tree with the most subprocesses is no longer bundled with a unit range.
+    """
+    assert shard_problems(ci) == []
+    assert shard_file_problems(ci) == []
+    rows = shard_rows(ci)
+    assert len(rows) >= 5, rows
+    assert len({shard for shard, _paths in rows}) == len(rows), rows
+    for shard, paths in rows:
+        assert not ("test_[a-f]" in paths and "tests/integration" in paths), shard
+
+
+def test_mutant_a_dropped_shard_path_is_reported():
+    """A test file no shard names never runs on the sharded lane."""
+    mutant = workflow_text().replace('            paths: "tests/acceptance"\n', "", 1)
+    assert mutant != workflow_text(), "the acceptance shard is gone"
+    problems = shard_file_problems(parse_workflow(mutant))
+    assert any("names no paths" in problem for problem in problems), problems
+
+
+def test_mutant_a_test_file_in_two_shards_is_reported():
+    """The same file in two shards is the cost the split exists to avoid."""
+    mutant = workflow_text().replace(
+        '            paths: "tests/acceptance"\n',
+        '            paths: "tests/acceptance tests/unit/test_[a-f]*.py"\n',
+        1,
+    )
+    assert mutant != workflow_text(), "the acceptance shard is gone"
+    problems = shard_file_problems(parse_workflow(mutant))
+    assert any("two shards" in problem for problem in problems), problems
 
 
 def test_the_coverage_gate_runs_on_one_lane_only(ci):
@@ -682,6 +772,8 @@ def test_mutant_a_sixth_matrix_cell_is_reported():
         "          - os: windows-latest\n"
         '            python-version: "3.13"\n'
         "            coverage: false\n"
+        '            shard: "unit-a-f"\n'
+        '            paths: "tests/unit/test_[a-f]*.py"\n'
     )
     mutant = workflow_text().replace(
         anchor,
