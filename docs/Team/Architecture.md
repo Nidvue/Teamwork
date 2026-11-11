@@ -62,6 +62,7 @@ Teamwork/
 │   ├── resources.py          # locate the skill bundle (checkout or wheel)
 │   ├── portable.py           # OS portability seam
 │   ├── transcripts.py        # transcript reach: the ledger and the worklogs (Memory.md 10)
+│   ├── wiki.py               # the capped wiki: pages of fact lines that point at records (Memory.md 15.5)
 │   └── version.py            # the single version source; pyproject and the pi package read it
 ├── scripts/
 │   ├── teamwork.py           # thin compat shim -> teamwork.cli.main
