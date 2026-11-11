@@ -6641,4 +6641,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 1ff2233
 - reviewer evidence: privacy_scan.py --tree --history --stores --allow .github/privacy-allow.txt @97c0c50 -> PASS, 0 findings, 14.7s wall (the same gate recorded 8m01s at K-0022); Scratch/diff_t0104.py @97c0c50 -> the 40 largest history blobs with 240 planted findings produce byte-identical finding tuples on main's uncached code, the branch with the memo disabled and the branch cached, 30.93s vs 2.18s; pytest tests/unit/test_privacy_scan.py tests/unit/test_privacy_scan_load_failure.py @97c0c50 -> 180 passed; ruff check + ruff format --check on both changed files -> clean; mypy scripts/privacy_scan.py @97c0c50 -> 4 errors vs 6 on main, none new; memo key (allow patterns, path flags, private-domain pattern, line) covers every input _line_verdicts reads and make_finding still gets the live path/line/commit; acceptance TS-0160 passing
 - findings history: 
-- branch / merge: developer-1/t-0104-the-privacy-history-scan-takes-15-19-min / pending
+- branch / merge: developer-1/t-0104-the-privacy-history-scan-takes-15-19-min / 41f2b97
