@@ -43,7 +43,11 @@ dev = [
   # The CI matrix runs every cell with `-n auto` (T-0105): the suite spawns
   # hundreds of processes and the hosted runners give 3-4 vCPUs, so the cells are
   # wall-clock bound rather than CPU bound. Measured on the 4-worker emulation:
-  # 242s serial, 94s with `-n 4`, same 2739 passed / 2 failed / 10 skipped.
+  # 242s serial, 94s with `-n 4`, same outcome serial and parallel (2742 passed,
+  # 2 failed, 10 skipped at faeafce; 2751/2/10 of 2763 collected at the revision
+  # that adds the macOS-subset mutant). The 2 failures are the pre-existing
+  # tests/integration/test_memory_pack_flow.py cases from T-0097, not a
+  # parallel-run difference.
   "pytest-xdist>=3,<4",
   "ruff>=0.9,<0.18",
   "mypy>=1.14,<3",

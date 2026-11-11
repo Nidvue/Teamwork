@@ -268,14 +268,19 @@ jobs:
             python-version: "3.13"
             coverage: false
             xdist: "--numprocesses=auto"
-          # macOS runs the same subset: the platform-specific paths it exists to
-          # cover are the unit tree's, and one 12-18 minute full-suite job was the
-          # second-longest lane in runs 43000716956 and 43014809518.
+          # macOS runs the cheap subset plus the one integration module that
+          # exists for it: tests/integration/test_portability_flow.py drives the
+          # spaced-path CLI, the symlink and the GNU-make guards as real
+          # subprocesses on a host that is not the one the code was written on.
+          # No test in the tree branches on darwin and the Windows shards plus
+          # both Linux boundaries already run the whole integration tree, so the
+          # rest of it stays off this cell: one 12-18 minute full-suite job was
+          # the second-longest lane in runs 43000716956 and 43014809518.
           - os: macos-latest
             python-version: "3.13"
             coverage: false
             xdist: "--numprocesses=auto"
-            paths: "tests/unit tests/acceptance"
+            paths: "tests/unit tests/acceptance tests/integration/test_portability_flow.py"
           # Windows spawns processes several times slower than the POSIX runners and
           # this suite spawns hundreds of them, so one Windows job exceeded the
           # 90-minute cap even after the traceability guard stopped re-running the
