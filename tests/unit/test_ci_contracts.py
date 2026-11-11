@@ -640,6 +640,47 @@ def test_mutant_a_boundary_interpreter_on_the_subset_is_reported():
     assert any("must run the whole suite" in problem for problem in problems), problems
 
 
+CENSUS_DOCS = ("docs/Team/Architecture.md", "pyproject.toml")
+
+CENSUS_SHAPE = re.compile(r"\b\d+\s+(?:passed|collected|skipped)\b", re.IGNORECASE)
+
+
+def census_problems(repo_root: Path = REPO_ROOT) -> list[str]:
+    """A doc states no test census; it points at the command that re-reads it.
+
+    A count of passed/collected/skipped tests is stale the moment a test lands, so
+    a doc carries the comparison and the command instead (the CEO ruling on
+    T-0105). A wall clock stays, pinned to a revision and a date: `36s at f4cd508, 2026-11-11`.
+    """
+    problems: list[str] = []
+    for relative in CENSUS_DOCS:
+        path = repo_root / relative
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if CENSUS_SHAPE.search(line):
+                problems.append(f"{relative}:{number} states a test census: {line.strip()}")
+    return problems
+
+
+def test_no_doc_states_a_test_census():
+    """The matrix section and the dev extra quote the comparison, not a count."""
+    problems = census_problems()
+    assert problems == [], problems
+
+
+def test_mutant_a_census_number_in_a_doc_is_reported(tmp_path):
+    """The shape that goes stale: a number followed by passed/collected/skipped."""
+    for relative in CENSUS_DOCS:
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_text("the run gave 2751 passed\n", encoding="utf-8")
+    problems = census_problems(tmp_path)
+    assert len(problems) == len(CENSUS_DOCS), problems
+    assert all("states a test census" in problem for problem in problems), problems
+    (tmp_path / CENSUS_DOCS[0]).write_text(
+        "the run gave 36s at `f4cd508`, 2026-11-11\n", encoding="utf-8"
+    )
+    assert [p for p in census_problems(tmp_path) if CENSUS_DOCS[0] in p] == []
+
+
 def test_the_coverage_gate_runs_on_one_lane_only(ci):
     """The 55% floor must exist exactly once, on ubuntu 3.11."""
     assert workflow_text().count(COVERAGE_FLOOR) == 1
