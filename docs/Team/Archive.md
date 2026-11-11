@@ -6511,4 +6511,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 58d9ea9
 - reviewer evidence: git diff main...58d9ea9 @58d9ea9 -> ci.yml drops both TEAMWORK_CI_SKIP_HISTORY_PROOF exports; test_ci_contracts.py replaces test_the_proof_once_lane_declares_the_history_choice with test_no_lane_opts_out_of_a_history_proof; test_traceability_matrix.py removes _history_clause_dropped/_without_history, the three opt-out tests and the skip branch, keeps clause_skips as an always-empty shape; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py tests/unit/test_ci_contracts.py @58d9ea9 -> 54 passed, 1 skipped in 9.08s (skip is the pre-existing missing-team-tree record check, unrelated to the diff); grep -c TEAMWORK_CI_SKIP_HISTORY_PROOF .github/workflows/ci.yml @58d9ea9 -> 0; git merge-tree --write-tree main 58d9ea9 @58d9ea9 -> CLEAN
 - findings history: 
-- branch / merge: developer-1/t-0090-drop-opt-out / pending
+- branch / merge: developer-1/t-0090-drop-opt-out / a01a6c3
