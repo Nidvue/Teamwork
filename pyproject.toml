@@ -40,6 +40,11 @@ dev = [
   # Every dev tool runs on the 3.11 floor; the ranges keep the newest releases in.
   "pytest>=8,<10",
   "pytest-cov>=5,<8",
+  # The CI matrix runs every cell with `-n auto` (T-0105): the suite spawns
+  # hundreds of processes and the hosted runners give 3-4 vCPUs, so the cells are
+  # wall-clock bound rather than CPU bound. Measured on the 4-worker emulation:
+  # 242s serial, 94s with `-n 4`, same 2739 passed / 2 failed / 10 skipped.
+  "pytest-xdist>=3,<4",
   "ruff>=0.9,<0.18",
   "mypy>=1.14,<3",
   "build>=1.2,<2",

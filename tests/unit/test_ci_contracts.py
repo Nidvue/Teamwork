@@ -15,9 +15,10 @@ core clauses - the job set, the scope guards, the unconditional release gate and
 the R2 flag - each have a mutant twin that proves the clause bites
 (`test_..._mutant`): the mutant applies one targeted edit to the workflow *text*,
 parses the result and asserts the contract function reports a violation. The
-matrix clause contributes two mutants (a sixth lane, the coverage lane switched
-off); its remaining checks - `fail-fast`, the full-history checkout and the junit
-step - are direct assertions on the real workflow and have no mutant twin.
+matrix clause contributes four mutants (a shard with no path, a test file in two
+shards, a cell without xdist, a boundary interpreter moved onto the subset); its
+remaining checks - `fail-fast`, the full-history checkout and the junit step - are
+direct assertions on the real workflow and have no mutant twin.
 Mutants are built in memory, so no tracked file is ever written.
 
 The workflow is parsed by `workflow_yaml.parse_workflow`, a standard-library
@@ -140,6 +141,91 @@ def matrix_rows(document: dict) -> list[tuple[str, str, str]]:
 
 SHARDED_CELLS = {("windows-latest", "3.13")}
 
+SUBSET_CELLS = {("ubuntu-latest", "3.12"), ("macos-latest", "3.13")}
+
+SUBSET_PATHS = "tests/unit tests/acceptance"
+
+FULL_SUITE_CELLS = (("ubuntu-latest", "3.11"), ("ubuntu-latest", "3.13"))
+
+PLATFORM_TEST = "tests/unit/test_portability.py"
+
+XDIST = "--numprocesses=auto"
+
+
+def matrix_entries(document: dict) -> list[dict]:
+    """The raw `include:` entries, so a clause can read a row's own fields."""
+    matrix = ((jobs(document).get("test") or {}).get("strategy") or {}).get("matrix") or {}
+    return list(matrix.get("include") or [])
+
+
+def subset_problems(document: dict, repo_root: Path = REPO_ROOT) -> list[str]:
+    """The subset cells name the same subset, and the boundary cells run everything.
+
+    A subset is only safe while some lane still runs the whole suite: the matrix
+    is sized to the portability question, and the question is answered by the two
+    boundary interpreters. The subset must also name paths that exist, and must
+    cover the platform-specific assertions the macOS cell exists for.
+    """
+    problems: list[str] = []
+    rows = {
+        (str(entry.get("os")), str(entry.get("python-version"))): str(entry.get("paths") or "")
+        for entry in matrix_entries(document)
+    }
+    for cell in sorted(SUBSET_CELLS):
+        paths = rows.get(cell)
+        if paths is None:
+            problems.append(f"the subset cell {cell} is missing from the matrix")
+            continue
+        if paths != SUBSET_PATHS:
+            problems.append(f"{cell} runs {paths!r}, contract says the subset {SUBSET_PATHS!r}")
+            continue
+        for token in paths.split():
+            if not list(repo_root.glob(token)):
+                problems.append(f"{cell} names {token!r}, which matches no path")
+    covered = {
+        path.relative_to(repo_root).as_posix()
+        for token in SUBSET_PATHS.split()
+        for match in repo_root.glob(token)
+        for path in (sorted(match.rglob("*.py")) if match.is_dir() else [match])
+    }
+    if PLATFORM_TEST not in covered:
+        problems.append(f"the subset drops {PLATFORM_TEST}, the macOS cell's subject")
+    for cell in FULL_SUITE_CELLS:
+        if rows.get(cell):
+            problems.append(f"{cell} is a boundary interpreter and must run the whole suite")
+    return problems
+
+
+def parallel_problems(document: dict) -> list[str]:
+    """Every non-Windows cell runs under xdist; the Windows shards stay serial.
+
+    The suite spawns hundreds of processes and a hosted runner gives 3-4 vCPUs, so
+    a cell is wall-clock bound. Measured on the 4-worker emulation of a runner:
+    242s serial against 94s with `-n 4`, same results. The Windows rows are
+    already split into five path shards and gain nothing from a second split.
+    """
+    problems: list[str] = []
+    for entry in matrix_entries(document):
+        cell = (str(entry.get("os")), str(entry.get("python-version")))
+        flag = str(entry.get("xdist") or "")
+        if cell[0] == "windows-latest":
+            if flag:
+                problems.append(f"the sharded Windows cell {cell} also sets xdist {flag!r}")
+        elif flag != XDIST:
+            problems.append(f"{cell} does not run under pytest-xdist: {flag!r}")
+    steps = (jobs(document).get("test") or {}).get("steps") or []
+    plain = [step for step in steps if "--junitxml" in str(step.get("run") or "")]
+    if len(plain) != 2:
+        problems.append(f"{len(plain)} junit steps, want the coverage and plain pair")
+        return problems
+    plain_run = str(plain[1].get("run") or "")
+    if "matrix.xdist" not in plain_run:
+        problems.append("the plain test step ignores matrix.xdist")
+    coverage_run = str(plain[0].get("run") or "")
+    if XDIST not in coverage_run:
+        problems.append(f"the coverage step does not run under {XDIST!r}")
+    return problems
+
 
 def shard_problems(document: dict) -> list[str]:
     """A cell may be sharded, but the shards must partition the suite by path.
@@ -159,7 +245,9 @@ def shard_problems(document: dict) -> list[str]:
         seen.setdefault(cell, []).append(str(entry.get("paths") or ""))
     for cell, paths in sorted(seen.items()):
         if len(paths) == 1:
-            if paths[0]:
+            if not paths[0]:
+                continue
+            if cell not in SUBSET_CELLS:
                 problems.append(f"{cell} names shard paths but is one job: {paths[0]!r}")
             continue
         if cell not in SHARDED_CELLS:
@@ -245,6 +333,8 @@ def matrix_problems(document: dict) -> list[str]:
     if cells != sorted(MATRIX_CELLS):
         problems.append(f"test matrix is {cells}, contract says {sorted(MATRIX_CELLS)}")
     problems.extend(shard_problems(document))
+    problems.extend(subset_problems(document))
+    problems.extend(parallel_problems(document))
     covered = [(os_name, version) for os_name, version, coverage in rows if coverage == "true"]
     if covered != [COVERAGE_CELL]:
         problems.append(f"coverage lanes are {covered}, want only {COVERAGE_CELL}")
@@ -441,6 +531,47 @@ def test_mutant_a_test_file_in_two_shards_is_reported():
     assert mutant != workflow_text(), "the acceptance shard is gone"
     problems = shard_file_problems(parse_workflow(mutant))
     assert any("two shards" in problem for problem in problems), problems
+
+
+def test_the_matrix_is_sized_to_the_portability_question(ci):
+    """The interior interpreter and macOS run a subset; the boundaries run it all."""
+    assert subset_problems(ci) == []
+    assert parallel_problems(ci) == []
+    full = [
+        (str(entry.get("os")), str(entry.get("python-version")))
+        for entry in matrix_entries(ci)
+        if not entry.get("paths") and not entry.get("shard")
+    ]
+    assert full == list(FULL_SUITE_CELLS), full
+
+
+def test_mutant_a_cell_without_xdist_is_reported():
+    """A cell that still runs serially is exactly the wall clock T-0105 removes."""
+    old = (
+        '            python-version: "3.13"\n'
+        "            coverage: false\n"
+        '            xdist: "--numprocesses=auto"\n'
+        "          # macOS runs"
+    )
+    assert workflow_text().count(old) == 1, "the ubuntu 3.13 row moved"
+    mutant = workflow_text().replace(
+        old, old.replace('            xdist: "--numprocesses=auto"\n', ""), 1
+    )
+    problems = parallel_problems(parse_workflow(mutant))
+    assert any("pytest-xdist" in problem for problem in problems), problems
+
+
+def test_mutant_a_boundary_interpreter_on_the_subset_is_reported():
+    """A subset is only safe while another lane still runs the whole suite."""
+    old = (
+        '            python-version: "3.11"\n'
+        "            coverage: true\n"
+        '            xdist: "--numprocesses=auto"\n'
+    )
+    assert workflow_text().count(old) == 1, "the coverage row moved"
+    mutant = workflow_text().replace(old, old + f'            paths: "{SUBSET_PATHS}"\n', 1)
+    problems = subset_problems(parse_workflow(mutant))
+    assert any("must run the whole suite" in problem for problem in problems), problems
 
 
 def test_the_coverage_gate_runs_on_one_lane_only(ci):
