@@ -5306,14 +5306,6 @@ _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
 _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
 LEGACY_MESSAGE_EXEMPT: dict[str, str] = {}
-_RE_MERGE_SUBJECT = re.compile(
-    r"^(?:"
-    r"chore\(merge\):"
-    r"|Merge branch '[^']+'(?: into [^\s]+)?"
-    r"|Merge commit '[0-9a-f]{7,40}'"
-    r")",
-    re.IGNORECASE,
-)
 _RE_FORGE_COMMITTER_EMAIL = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\.com)$")
 
 
@@ -5398,23 +5390,6 @@ def _matches_role_display(name: str, canonical_display: str) -> bool:
     return name.replace(" ", "") == canonical_display.replace(" ", "")
 
 
-def _is_content_free_team_merge(
-    parents: list, name: str, email: str, body: str, canonical: dict
-) -> bool:
-    """A two-parent integration merge with no body adds no content, so it
-    carries no acting role. Single-parent commits are never exempt: they do add
-    content and must say who acted.
-    """
-    if len(parents) < 2 or email not in canonical:
-        return False
-    if not _matches_role_display(name, canonical[email]):
-        return False
-    lines = body.splitlines()
-    if not lines or not _RE_MERGE_SUBJECT.match(lines[0].strip()):
-        return False
-    return not "".join(lines[1:]).strip()
-
-
 def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool = False) -> int:
     """Fail when a commit is not authored and committed by the acting role.
 
@@ -5427,10 +5402,12 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     repository also receives outside contributions: unless ``strict_authors`` is
     set, an author outside the team's identity domain is reported as skipped
     rather than failed, while a team-domain author with the wrong role still
-    fails. A published commit listed in ``LEGACY_MESSAGE_EXEMPT`` is accepted
-    without its trailer, because its identity is the canonical role mailbox and
-    rewriting published history is not an option; the exemption is keyed on the
-    full object id and covers the trailer check only.
+    fails. No commit needs an ``Acting role:`` line: the author's mailbox already
+    names the role, and the message a commit carries names no agent, so a trailer
+    is optional - but one that is present must agree with the author, because a
+    message that lies about who acted is still a defect. A published commit listed
+    in ``LEGACY_MESSAGE_EXEMPT`` is accepted whatever it carries, keyed on the full
+    object id, because rewriting published history is not an option.
     """
     print(f"# Repository read: {project}")
     if rev_range.startswith("-"):
@@ -5496,13 +5473,6 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
                     match = None
         elif not is_operator and not _matches_role_display(match.group(1), an):
             reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
-        if (
-            not match
-            and not is_operator
-            and not _is_content_free_team_merge(parents, cn, ce, body, canonical)
-        ):
-            if sha not in LEGACY_MESSAGE_EXEMPT:
-                reasons.append("message has no 'Acting role:' line")
         if reasons and sha in LEGACY_MESSAGE_EXEMPT:
             print(f"- {short} ok {an} <{ae}> (published exemption: {LEGACY_MESSAGE_EXEMPT[sha]})")
             continue
@@ -14503,8 +14473,7 @@ def _preflight_identity(project: Path, base: str, branch: str, role: str) -> Pre
         + f"{base}..{branch} -> exit {code}: "
         + "; ".join(problems[:3] or ["see teamwork.py identity --audit"]),
         f"commit with `teamwork.py commit --role {role} ...` so the author and the "
-        "committer are one accepted identity, and end the message with"
-        " 'Acting role: <Role>' when the author is a role mailbox",
+        "committer are one accepted identity",
     )
 
 
