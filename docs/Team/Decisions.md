@@ -2685,3 +2685,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: privacy_scan --tree --allow .github/privacy-allow.txt @36c0ca5 -> PASS 0; privacy_scan --history -> FAIL 6 (tests/unit/test_commit_identity.py:758,760,777); git log --oneline origin/main..main -> 18 commits, the first carrying the file is 4008f67
 - falsified by: If the collapsed commit cannot be pushed as a fast-forward from origin/main, or if privacy_scan --history still reports the fixture afterwards, the collapse is reverted with git reset --hard to the pre-collapse tip recorded in this decision's evidence
 - consequences: -
+
+## D-20261111-CEO-5 - Authorised: rewrite the published history to remove agent-role authorship, retag and force-push
+
+- date: 2026-11-11
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The user authorised option A (2026-11-11): every commit is rewritten so author and committer are the repository's own identity (Ping Zhao <<redacted-personal-email>>), the team trailer block (Task/Role/Producers/Goal/Deliverable/Why/Status/Result/Docs/Refs/Acting role) is removed from every message, and no commit names an agent instance or a role mailbox. Product vocabulary (lane, reviewer, team) stays, because it is the product's subject matter. The skill is then changed so it cannot re-introduce the evidence: commit identity defaults to the repository's configured pair, the role mailbox becomes opt-in (TEAMWORK_COMMIT_IDENTITY=role), and the message style loses the role lines. Sequence: policy change through the normal gate first (T-0115), then the rewrite, then one force-push of main plus the 14 annotated tags, then deletion of the remote feature branches that still carry the old objects, then CI green on the new head. Rollback: .pi/Teamwork/Teams/Teamwork/Runtime/Artifacts/pre-identity-rewrite.bundle (git bundle, --all, 6.1 MB) at pre-rewrite head 9175a13. Nothing can be guaranteed to erase the evidence from existing clones, forks or the forge's retained objects; that limitation is stated to the user.
+- why: the user asked for it and owns the repository; authorship metadata is theirs to set, and the skill must not regenerate it
+- evidence: git log --format='%an <%ae>' | sort | uniq -c -> 664 Ping Zhao <<redacted-personal-email>>, 13 Developer, 4 Reviewer, 4 CEO, 1 Architect <role@agents.nidvue.com>; git log --format=%B | grep -c '^Acting role:' -> 686 of 687 commits; tags v1.0.0..v1.5.1 are annotated by Ping Zhao and their messages carry no role; gh release view v1.5.1 --json body -> only a Full Changelog link
+- falsified by: If any rewritten commit still shows an @agents.nidvue.com identity or a Role/Acting role trailer, or if the tags do not point at rewritten commits, the rewrite is rolled back from the bundle and the push is reverted to the pre-rewrite head
+- consequences: -
