@@ -6498,4 +6498,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 10c90ef
 - reviewer evidence: git diff main...10c90ef @10c90ef -> only tests/unit/test_traceability_matrix.py (+11/-2): ownjob exemption reason + EXEMPT_EVIDENCE pattern, AC-5/AC-6 -> ownjob, history-opt-out test moved to synthetic AC-77; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py @10c90ef -> 24 passed, 1 skipped in 8.82s (was minutes); .venv/bin/python -m pytest -q tests/unit @10c90ef -> 2298 passed, 2 skipped in 145.55s; git merge-tree --write-tree main 10c90ef @10c90ef -> CLEAN | replay: .venv/bin/python -m pytest -q tests/unit
 - findings history: 
-- branch / merge: developer-1/t-0090-guard-dedup / pending
+- branch / merge: developer-1/t-0090-guard-dedup / 37e1e29
