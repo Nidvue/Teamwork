@@ -13,6 +13,7 @@ reason, exactly as the package's own smoke tests do.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -57,7 +58,7 @@ def render(payload: dict) -> list[str]:
         text=True,
         cwd=ROOT,
         env={
-            "PATH": "/usr/bin:/bin:/run/current-system/sw/bin",
+            **os.environ,
             "TW_EXTENSION": EXTENSION.as_uri(),
             "TW_PAYLOAD": json.dumps(payload),
         },
