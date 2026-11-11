@@ -6538,3 +6538,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest test_ci_contracts + test_makefile_contracts @a341519 -> 56 passed; grep -c os: windows-latest -> 3 shards; git merge-tree main a341519 -> CLEAN
 - findings history: 
 - branch / merge: developer-1/t-0093-windows-shards / 442c829
+
+## T-0095 · the status-render test hands node a synthetic environment, so it fails on Windows  (developer)
+- date: 2026-11-11
+- priority: P1
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: tests
+- self-check: [pass] The test built a synthetic environment with a POSIX PATH, which cannot resolve node on Windows and omits SystemRoot, so the child failed before writing JSON. It inherits os.environ now and adds only TW_EXTENSION and TW_PAYLOAD; the assertion set is unchanged (three payloads, line and column bounds, no undefined). Found because the Windows cell is sharded (T-0093) and now reports instead of being cancelled. | test: .venv/bin/python -m pytest -q tests/unit/test_pi_status_render.py @c05fdbe -> 3 passed; preflight developer T-0095 --run @c05fdbe -> 8 checks, 0 failed | preflight: PF-02ab49a4cb9d @c05fdbedb438 (8 checks, 0 failed)
+- author evidence: commit c05fdbe
+- reviewer evidence: git diff main...c05fdbe @c05fdbe -> 1 file, +2/-1 tests/unit/test_pi_status_render.py (hardcoded PATH replaced with **os.environ); .venv/bin/python -m pytest -q tests/unit/test_pi_status_render.py @c05fdbe -> 3 passed in 0.16s; git merge-tree --write-tree main c05fdbe @c05fdbe -> CLEAN
+- findings history: 
+- branch / merge: developer-1/t-0094-windows-render-env / pending
