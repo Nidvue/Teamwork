@@ -58,6 +58,10 @@ from .records import (
 
 PACK_BUDGET_BYTES = 4000
 INDEX_BUDGET_BYTES = 800
+SHORT_INJECT_BYTES = 600
+SHORT_INJECT_ENTRIES = 5
+SHORT_CLIP = 160
+SHORT_HEADING = "## Short-term memory for this task"
 INDEX_MAX_LINES = 8
 INDEX_KINDS = ("knowledge", "lesson")
 SEARCH_BUDGET_BYTES = 2000
@@ -283,8 +287,8 @@ def collect(root: Path, role: str) -> list[dict]:
     return lessons(root, role) + knowledge(root) + memories(root, role)
 
 
-def _clip(statement: str) -> str:
-    return one_line(statement)[:STATEMENT_CLIP]
+def _clip(statement: str, limit: int = STATEMENT_CLIP) -> str:
+    return one_line(statement)[:limit]
 
 
 def render_record(entry: dict) -> str:
@@ -465,7 +469,77 @@ def injected_budget(
     a store whose pack would otherwise fill the whole 4000 bytes. Never negative -
     an index at or over the budget leaves the pack its one-record minimum.
     """
-    return max(PACK_BUDGET_BYTES - index_bytes(root, role, task, now=now), 1)
+    spent = index_bytes(root, role, task, now=now) + short_bytes(root, role, task, now=now)
+    return max(PACK_BUDGET_BYTES - spent, 1)
+
+
+def _short_line(entry: dict) -> str:
+    """One short-layer pointer line: id, the body clipped to 160 chars, its use count."""
+    return (
+        f"- [{entry.get('id', '')}] {_clip(entry.get('statement', ''), SHORT_CLIP)}"
+        f" (uses {entry.get('uses', 0)})"
+    )
+
+
+def short_entries(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = SHORT_INJECT_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> list[dict]:
+    """The working notes the short block injects: ranked, at most 5, inside ``budget``.
+
+    The short layer is the role's own file (Memory.md 15.1), so it is ranked by the
+    same 4.1 score over the same task query as the pack, and every body is clipped to
+    ``SHORT_CLIP`` characters - it is a pointer list, never a copy of the store. A
+    line that would overspend the block is dropped, and an empty result means the
+    caller prints no heading at all.
+    """
+    moment = now or datetime.date.today()
+    candidates = [
+        entry for entry in memories(root, role) if str(entry.get("status")) in INJECTABLE_STATUSES
+    ]
+    taken: list[dict] = []
+    size = len(SHORT_HEADING.encode("utf-8")) + 1
+    for entry in rank(candidates, task_query(root, role, task), moment)[:SHORT_INJECT_ENTRIES]:
+        cost = len(_short_line(entry).encode("utf-8")) + 1
+        if size + cost > budget:
+            continue
+        taken.append(entry)
+        size += cost
+    return taken
+
+
+def short_block(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = SHORT_INJECT_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> str:
+    """The short block as injected: one heading and one pointer line per entry.
+
+    Empty when the role's short store holds nothing to inject, so the block and its
+    heading are omitted entirely and the pack keeps the full remainder of the
+    budget.
+    """
+    entries = short_entries(root, role, task, budget, now)
+    if not entries:
+        return ""
+    return "\n".join([SHORT_HEADING, *(_short_line(entry) for entry in entries)])
+
+
+def short_bytes(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = SHORT_INJECT_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> int:
+    """The UTF-8 bytes the short block costs when injected, its own newline included."""
+    block = short_block(root, role, task, budget, now)
+    return len(block.encode("utf-8")) + 1 if block else 0
 
 
 def render_search(
