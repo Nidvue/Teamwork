@@ -16,12 +16,17 @@
 # versions and the OSes we support", and the two interpreters that answer it are
 # the boundaries - 3.11 (`requires-python`'s floor) and 3.13 (the newest
 # classifier) - so those two Linux cells run every test, 3.11 with the coverage
-# gate. The interior Linux interpreter (3.12) and macOS run the named subset
-# `tests/unit tests/acceptance`: the unit tree is where the platform-specific
-# paths are asserted (`tests/unit/test_portability.py`, `src/teamwork/portable.py`)
-# and acceptance is the cheap 8s proof of the ACs, while the subprocess-heavy
-# integration tree (338 tests, 30% of the serial wall clock) already runs on both
-# boundary interpreters and on all five Windows shards. Every cell
+# gate. The interior Linux interpreter (3.12) runs the subset `tests/unit
+# tests/acceptance`. macOS runs that same subset plus one integration module, so
+# its matrix row names `tests/unit tests/acceptance
+# tests/integration/test_portability_flow.py` in full: that module drives the
+# spaced-path CLI invocation, the symlink/WinError-1314 guard and the GNU-make
+# guard as real subprocesses on a host other than the one the code was written on.
+# `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
+# acceptance are the cheap 8s proof of the ACs, and the rest of the
+# subprocess-heavy integration tree (338 tests, 30% of the serial wall clock)
+# already runs on both boundary interpreters and on all five Windows shards; no
+# test in the tree branches on darwin, so neither cell carries it. Every cell
 # runs under pytest-xdist `--numprocesses=auto` (`-n auto`) except the Windows
 # shards, which are already split by path: measured 242s serial against 94s with
 # `-n 4` (the 4-vCPU emulation of a hosted runner) on the same tree, identical
@@ -269,7 +274,9 @@ jobs:
             coverage: false
             xdist: "--numprocesses=auto"
           # macOS runs the cheap subset plus the one integration module that
-          # exists for it: tests/integration/test_portability_flow.py drives the
+          # exists for it - measured on the 4-worker emulation of a runner, this
+          # row is 57s against 242s serial for the whole suite - and
+          # tests/integration/test_portability_flow.py drives the
           # spaced-path CLI, the symlink and the GNU-make guards as real
           # subprocesses on a host that is not the one the code was written on.
           # No test in the tree branches on darwin and the Windows shards plus

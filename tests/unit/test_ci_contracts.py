@@ -15,8 +15,9 @@ core clauses - the job set, the scope guards, the unconditional release gate and
 the R2 flag - each have a mutant twin that proves the clause bites
 (`test_..._mutant`): the mutant applies one targeted edit to the workflow *text*,
 parses the result and asserts the contract function reports a violation. The
-matrix clause contributes four mutants (a shard with no path, a test file in two
-shards, a cell without xdist, a boundary interpreter moved onto the subset); its
+matrix clause contributes six mutants (a shard with no path, a test file in two
+shards, a cell without xdist, a boundary interpreter moved onto the subset, a
+macOS subset without the portability flow, and a header that drops it); its
 remaining checks - `fail-fast`, the full-history checkout and the junit step - are
 direct assertions on the real workflow and have no mutant twin.
 Mutants are built in memory, so no tracked file is ever written.
@@ -205,6 +206,32 @@ def subset_problems(document: dict, repo_root: Path = REPO_ROOT) -> list[str]:
         if rows.get(cell):
             problems.append(f"{cell} is a boundary interpreter and must run the whole suite")
     return problems
+
+
+def header_text(source: str) -> str:
+    """The workflow's leading comment block, with its `#` markers and wraps removed."""
+    lines: list[str] = []
+    for line in source.splitlines():
+        if line.strip() and not line.lstrip().startswith("#"):
+            break
+        lines.append(line.lstrip("#").strip())
+    return " ".join(part for part in lines if part)
+
+
+def header_problems(source: str | None = None) -> list[str]:
+    """The header names each subset cell's paths exactly as its matrix row does.
+
+    The header is the contract document a lane reads to decide whether a cell may
+    drop a path, so a header that restates a row differently is a defect even when
+    the row is right: T-0105 was failed for leaving a refuted premise in the
+    header while the row it declares itself the contract for had been fixed.
+    """
+    text = header_text(workflow_text() if source is None else source)
+    return [
+        f"the header does not state {cell}'s subset {expected!r}"
+        for cell, expected in sorted(SUBSET_CELLS.items())
+        if expected not in text
+    ]
 
 
 def parallel_problems(document: dict) -> list[str]:
@@ -578,6 +605,25 @@ def test_mutant_a_macos_subset_without_the_portability_flow_is_reported():
     assert workflow_text().count(old) == 1, "the macOS row moved"
     mutant = workflow_text().replace(old, f'            paths: "{SUBSET_PATHS}"\n', 1)
     problems = subset_problems(parse_workflow(mutant))
+    assert any(PORTABILITY_FLOW in problem for problem in problems), problems
+
+
+def test_the_header_states_each_subset_cell_as_its_row_does():
+    """The header is the contract document; it may not restate a row differently."""
+    problems = header_problems()
+    assert problems == [], problems
+
+
+def test_mutant_a_header_that_drops_the_portability_flow_is_reported():
+    """A header naming the subset without the portability module is the refuted premise."""
+    text = workflow_text()
+    mutant = text.replace(
+        "tests/integration/test_portability_flow.py` in full",
+        "tests/acceptance` in full",
+        1,
+    )
+    assert mutant != text, "the header's macOS subset sentence moved"
+    problems = header_problems(mutant)
     assert any(PORTABILITY_FLOW in problem for problem in problems), problems
 
 
