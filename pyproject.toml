@@ -40,6 +40,14 @@ dev = [
   # Every dev tool runs on the 3.11 floor; the ranges keep the newest releases in.
   "pytest>=8,<10",
   "pytest-cov>=5,<8",
+  # The CI matrix runs every cell with `-n auto` (T-0105): the suite spawns
+  # hundreds of processes and the hosted runners give 3-4 vCPUs, so the cells are
+  # wall-clock bound rather than CPU bound. Measured on a 4-worker emulation at
+  # faeafce, 2026-11-11: 242s serial, 94s with `-n 4`. The parallel run is
+  # accepted on the serial/parallel comparison, not on a test count - the two
+  # junit runs in docs/Team/Architecture.md section 9 are the command that
+  # re-reads it, and no census is stated here or there.
+  "pytest-xdist>=3,<4",
   "ruff>=0.9,<0.18",
   "mypy>=1.14,<3",
   "build>=1.2,<2",
