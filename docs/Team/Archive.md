@@ -6499,3 +6499,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git diff main...10c90ef @10c90ef -> only tests/unit/test_traceability_matrix.py (+11/-2): ownjob exemption reason + EXEMPT_EVIDENCE pattern, AC-5/AC-6 -> ownjob, history-opt-out test moved to synthetic AC-77; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py @10c90ef -> 24 passed, 1 skipped in 8.82s (was minutes); .venv/bin/python -m pytest -q tests/unit @10c90ef -> 2298 passed, 2 skipped in 145.55s; git merge-tree --write-tree main 10c90ef @10c90ef -> CLEAN | replay: .venv/bin/python -m pytest -q tests/unit
 - findings history: 
 - branch / merge: developer-1/t-0090-guard-dedup / 37e1e29
+
+## T-0091 · the CI history opt-out is dead code now that the guard exempts the history row  (developer)
+- date: 2026-11-11
+- priority: P1
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-5
+- task / issue: -
+- area: ci
+- self-check: [pass] Dead code with a live assertion. The guard no longer re-runs the privacy history scan (it is the privacy job's), so no row carries --history and the CI switch drops nothing; CI then failed on its own coverage assertion ('0 row(s) report it'). Removed: the opt-out constant, the helper that refused it outside CI, its two tests, and both env entries in ci.yml. Kept: clause_skips in the return shape, now asserted empty so a future row that carries --history cannot silently lose it. Replaced the CI contract test with one that asserts no lane exports the switch - so re-adding it fails the contract, not just the guard. | test: .venv/bin/python -m pytest -q tests/unit tests/integration tests/acceptance @58d9ea9 -> 2704 passed, 4 skipped in 225.60s; grep -c TEAMWORK_CI_SKIP_HISTORY_PROOF .github/workflows/ci.yml -> 0; preflight developer T-0091 --run @58d9ea9 -> 8 checks, 0 failed | preflight: PF-c799ec579624 @58d9ea953add (8 checks, 0 failed)
+- author evidence: commit 58d9ea9
+- reviewer evidence: git diff main...58d9ea9 @58d9ea9 -> ci.yml drops both TEAMWORK_CI_SKIP_HISTORY_PROOF exports; test_ci_contracts.py replaces test_the_proof_once_lane_declares_the_history_choice with test_no_lane_opts_out_of_a_history_proof; test_traceability_matrix.py removes _history_clause_dropped/_without_history, the three opt-out tests and the skip branch, keeps clause_skips as an always-empty shape; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py tests/unit/test_ci_contracts.py @58d9ea9 -> 54 passed, 1 skipped in 9.08s (skip is the pre-existing missing-team-tree record check, unrelated to the diff); grep -c TEAMWORK_CI_SKIP_HISTORY_PROOF .github/workflows/ci.yml @58d9ea9 -> 0; git merge-tree --write-tree main 58d9ea9 @58d9ea9 -> CLEAN
+- findings history: 
+- branch / merge: developer-1/t-0090-drop-opt-out / pending
