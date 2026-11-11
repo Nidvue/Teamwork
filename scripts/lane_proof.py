@@ -32,6 +32,7 @@ if Path(_SRC).is_dir():
     sys.path.insert(0, _SRC)
 
 from teamwork.config import SETTINGS_NON_PROVIDER  # noqa: E402
+from teamwork.portable import pid_alive  # noqa: E402
 
 PLUGIN = "pi-subagents"
 LIVE = ("starting", "running")
@@ -138,16 +139,6 @@ def state_of(root: Path, run: dict) -> str:
             return "timeout"
         return "exited" if int(result.get("exit") or 0) == 0 else "failed"
     return str(run.get("state") or "")
-
-
-def pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
 
 
 def idle_agents(root: Path, runs: list) -> list:
