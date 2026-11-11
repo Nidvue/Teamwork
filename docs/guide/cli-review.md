@@ -126,7 +126,7 @@ PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 | Check | Fails when |
 |---|---|
 | `branch` | a branch the record names is not in this repository, the base is not a commit here, the base has moved past the branch (behind), or the branch carries no commit over the base. Two **warnings**, not failures: more than one commit (squash before review) and a task with no branch at all - a verdict, a records pass or a research note legitimately carries no code, and the other revision checks then report `not measured`. |
-| `identity` | `identity --audit --range <base>..<branch>` reports a commit that is not authored and committed by an accepted identity, or one authored as a role mailbox that carries no `Acting role:` trailer. |
+| `identity` | `identity --audit --range <base>..<branch>` reports a commit that is not authored and committed by an accepted identity, or one whose `Acting role:` or `Role:` line names a role other than its author. |
 | `evidence` | the task's `evidence`, its `self_note`, or the note the running `selfcheck` is about to store (its `--test` line included) names an `@<sha>` that is not a commit in this repository. |
 | `mergeable` | `git merge-tree --write-tree <base> <branch>` is non-zero, naming the conflicting paths; an unanswerable probe (git < 2.38) is a failure, not a pass. The same probe refuses a `review --result pass` and a `pr merge`, so a verdict can never precede an impossible merge. |
 | `board` | the branch itself changes `docs/Team/Board.md` and that file disagrees with the queues. A branch that does not carry the board is never charged: the merging Reviewer renders it. |
