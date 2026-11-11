@@ -44,8 +44,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import engine, lanerun, messages
-from .config import DIR_LOCKS, DIR_RUNTIME, F_SETTINGS, PRIORITY_ORDER
+from . import engine, gitutil, lanerun, messages
+from .config import DIR_LOCKS, DIR_RUNTIME, F_SETTINGS, F_SHORT, PRIORITY_ORDER
 from .io import die, lock, write_lf
 from .layout import (
     agent_dir,
@@ -58,7 +58,17 @@ from .layout import (
 )
 from .names import pascal, resolve_role, safe_component
 from .portable import IS_WINDOWS, pid_alive
-from .records import executable, find_task, local_dep_map, parse_tasks, today_iso, write_tasks
+from .records import (
+    executable,
+    find_task,
+    local_dep_map,
+    new_entry,
+    parse_memory,
+    parse_tasks,
+    today_iso,
+    write_memory,
+    write_tasks,
+)
 
 STARTING = "starting"
 RUNNING = "running"
@@ -558,13 +568,21 @@ def build_packet(
             "and the exact scope you did and did not touch.",
             "",
         ]
-    out += [
-        "## Memory pack for this assignment (injected)",
-        "```",
+    injected = [
         engine.memorypack.index_block(root, role, task),
+        *[
+            block
+            for block in [engine.memory_short_block(root, role, task, touch_by=instance)]
+            if block
+        ],
         engine.memory_pack_block(
             root, role, task, engine.memorypack.injected_budget(root, role, task), instance
         ),
+    ]
+    out += [
+        "## Memory pack for this assignment (injected)",
+        "```",
+        *injected,
         "```",
         "",
         "## Rules that are not negotiable",
@@ -798,6 +816,70 @@ def spawn(
     return run
 
 
+def _task_branch_head(root: Path, role: str, task_id: str) -> str:
+    """The revision a task's own branch is at, or ``""`` when it has no branch yet."""
+    tasks = parse_tasks(task_file(root, role))
+    index = find_task(tasks, task_id)
+    if index is None:
+        return ""
+    branch = str(tasks[index].get("branch") or "")
+    if not branch:
+        return ""
+    result = gitutil.run_git(root, "rev-parse", "--verify", "--quiet", branch)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def capture_short_layer(root: Path, run: dict) -> dict:
+    """The harness writer of the short layer: one note per finished lane (Memory.md 15.1).
+
+    A lane that recorded nothing still leaves its experience behind: the entry names
+    the task, the lane's own outcome word and the sentence from its last
+    ``LANE-RESULT`` line, at the branch head it exited on. Three cases write
+    nothing - a lane that ended without a ``LANE-RESULT`` line (its ``lane.finish``
+    record already carries ``exit``/``result``, so nothing is invented), a task whose
+    store already holds an entry with ``src`` = that task (the agent wrote its own
+    note, so the harness does not echo it), and a second reconcile of the same run.
+    """
+    task = str(run.get("task") or "")
+    role = str(run.get("role") or "")
+    instance = str(run.get("agent") or "")
+    result = run.get("result") or {}
+    verdict = str(result.get("verdict") or "")
+    if not (task and role and instance and verdict):
+        return {}
+    note = " ".join(str(result.get("note") or "").split())
+    body = f"{task} {verdict}: {note}" if note else f"{task} {verdict}"
+    path = role_dir(root, role) / F_SHORT
+    with engine.memory_session(
+        root, role, instance, reason=f"lane exit {task}", strict=False
+    ) as claim:
+        if claim is None:
+            return {}
+        entries = parse_memory(path)
+        if any(str(entry.get("src") or "") == task for entry in entries):
+            return {}
+        entry = new_entry(
+            body,
+            f"lane:{task}",
+            2,
+            by=instance,
+            src=task,
+            rev=_task_branch_head(root, role, task),
+        )
+        entries.append(entry)
+        write_memory(path, entries, F_SHORT, role)
+        engine.ledger_append(
+            root,
+            "memory.add",
+            instance,
+            f"lane:{task}",
+            f"lane exit note: {task} {verdict}",
+            entry["rev"],
+            role,
+        )
+        return parse_memory(path)[-1]
+
+
 def refresh(root: Path, run: dict) -> dict:
     """Reconcile one record with its process, its outcome file and its budget."""
     if run.get("state") not in LIVE:
@@ -840,6 +922,7 @@ def refresh(root: Path, run: dict) -> dict:
             write_run(root, run)
             return run
     run["result"] = read_result(Path(str(run.get("log") or "")))
+    capture_short_layer(root, run)
     if release_slot(root, str(run.get("provider") or ""), str(run.get("agent") or ""), finished):
         run["slot_released"] = True
     engine.ledger_append(
