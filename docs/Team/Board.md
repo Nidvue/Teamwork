@@ -226,7 +226,7 @@ under two roles is two tasks.
 | developer | T-0095 | tests | done | P-0141 | 6e5aa6a |
 | developer | T-0096 | tests | done | P-0143 | 702449c |
 | developer | T-0097 | memory | done | P-0145 | 19246a0 |
-| developer | T-0098 | memory | review | P-0147 | - |
+| developer | T-0098 | memory | done | P-0147 | 318fb28 |
 | developer | T-0099 | - | dropped | - | - |
 | developer | T-0100 | - | todo | - | - |
 | developer | T-0101 | - | doing | P-0146 | - |
@@ -284,7 +284,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0098 · M23-B: promote by use, run the dream pass on its cadence, and keep a capped wiki that search consults | P0 | review | - |
 | developer | T-0100 · refresh stops on an unrelated mirror history and leaves every lane on a stale engine, with no warning | P1 | todo | - |
 | developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
 | developer | T-0102 · teamwork.py commit takes the ambient git identity instead of the role mailbox | P0 | todo | - |
