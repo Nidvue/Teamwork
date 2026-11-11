@@ -6512,3 +6512,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git diff main...58d9ea9 @58d9ea9 -> ci.yml drops both TEAMWORK_CI_SKIP_HISTORY_PROOF exports; test_ci_contracts.py replaces test_the_proof_once_lane_declares_the_history_choice with test_no_lane_opts_out_of_a_history_proof; test_traceability_matrix.py removes _history_clause_dropped/_without_history, the three opt-out tests and the skip branch, keeps clause_skips as an always-empty shape; .venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py tests/unit/test_ci_contracts.py @58d9ea9 -> 54 passed, 1 skipped in 9.08s (skip is the pre-existing missing-team-tree record check, unrelated to the diff); grep -c TEAMWORK_CI_SKIP_HISTORY_PROOF .github/workflows/ci.yml @58d9ea9 -> 0; git merge-tree --write-tree main 58d9ea9 @58d9ea9 -> CLEAN
 - findings history: 
 - branch / merge: developer-1/t-0090-drop-opt-out / a01a6c3
+
+## T-0092 · the privacy job is cancelled at 15 minutes on a hosted runner  (developer)
+- date: 2026-11-11
+- priority: P1
+- owner: developer role (work by: Developer-1)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: ci
+- self-check: [pass] A cancelled gate is worse than a slow one: it reports nothing, so the revision ships unverified by that check. The 15-minute budget was a guess; the measurement is 8m02s on this host over 597 commits, and the hosted runner took 15m15s with a cold object store. 30 minutes is ~3.7x the host measurement and ~2x the observed runner time, so it survives a cold cache without hiding a hang. The scan is unchanged - it still walks every blob and every commit message - and the contract test pins the new number so a later edit has to justify itself. | test: .venv/bin/python -m pytest -q tests/unit/test_ci_contracts.py @454e1c7 -> 33 passed; .venv/bin/python -m pytest -q tests/unit tests/integration tests/acceptance -> 2704 passed, 4 skipped; time python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt -> PASS - 0, 8m02s; preflight developer T-0092 --run @454e1c7 -> 8 checks, 0 failed | preflight: PF-0c68537989e1 @454e1c783a64 (8 checks, 0 failed)
+- author evidence: commit 454e1c7
+- reviewer evidence: git diff main...454e1c7 @454e1c7 -> 2 files, +8/-2: ci.yml privacy job timeout-minutes 15->30 with 6-line measurement comment (8m02s local / 15m15s cold runner, T-0090), test_ci_contracts.py TIMEOUT_MINUTES privacy 15->30; .venv/bin/python -m pytest -q tests/unit/test_ci_contracts.py @454e1c7 -> 33 passed in 0.14s; grep -n -A2 "name: privacy scan" .github/workflows/ci.yml @454e1c7 -> ci.yml:332 name: privacy scan (tree + history), 334 comment start, timeout-minutes: 30 confirmed at ci.yml:340; git merge-tree --write-tree main 454e1c7 @454e1c7 -> CLEAN
+- findings history: 
+- branch / merge: developer-1/t-0092-privacy-budget / pending
