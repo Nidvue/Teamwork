@@ -2701,3 +2701,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git log --format='%an <%ae>' | sort | uniq -c -> 664 Ping Zhao <<redacted-personal-email>>, 13 Developer, 4 Reviewer, 4 CEO, 1 Architect <role@agents.nidvue.com>; git log --format=%B | grep -c '^Acting role:' -> 686 of 687 commits; tags v1.0.0..v1.5.1 are annotated by Ping Zhao and their messages carry no role; gh release view v1.5.1 --json body -> only a Full Changelog link
 - falsified by: If any rewritten commit still shows an @agents.nidvue.com identity or a Role/Acting role trailer, or if the tags do not point at rewritten commits, the rewrite is rolled back from the bundle and the push is reverted to the pre-rewrite head
 - consequences: -
+
+## D-20261111-CEO-6 - Executed: the identity rewrite, the retag and the integrity settings that had to open and close
+
+- date: 2026-11-11
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Executed under D-20261111-CEO-5 (user authorised option A). 698 commits rewritten: every author and committer is Ping Zhao <<redacted-personal-email>> except one dependabot commit, and the trailer block (Task/Role/Producers/Goal/Deliverable/Why/Status/Result/Docs/Refs/Acting role) is removed from every message; the tree is byte-identical (3feb3b0 before and after), and every revision quoted in docs/Team was re-pointed at its rewritten commit in one follow-up commit so the archive gate stays green. Two integrity settings had to open and then close, each captured before the change and restored and re-read after: (1) branch protection on main - allow_force_pushes true for one push, restored to false with all 15 required contexts, strict, one approval and no deletions unchanged (read back: force false, 15 checks, strict true, reviews 1, deletions false); (2) ruleset 25840176 'protect v* release tags' - enforcement disabled for one tag push, restored to active with the same three rules (deletion, non_fast_forward, update) and no bypass actors (read back: active, 3 rules, 0 bypass). The three remote branches that still carried the old objects were deleted (ci/t-0094, dev-1/t-0103, developer-2/t-0023 - all created by this team, merged or abandoned), reflogs expired and objects pruned, and privacy_scan --tree --history is PASS 0 afterwards. Limit stated to the user: existing clones, forks and any object the forge retains are outside our reach.
+- why: the user authorised option A and asked the skill to be updated so it cannot regenerate the evidence
+- evidence: git log --format='%an <%ae>' | sort | uniq -c -> 703 Ping Zhao <<redacted-personal-email>>, 1 dependabot[bot]; git log --format=%B | grep -cE '^(Role|Producers|Acting role):' -> 0; git rev-list --count HEAD -> 704; git tag | wc -l -> 14, all retargeted (git ls-remote --tags origin -> new objects); privacy_scan --tree --history --allow .github/privacy-allow.txt -> PASS 0; gh api branches/main/protection -> force false, 15 checks, strict true; gh api rulesets/25840176 -> active, 3 rules, 0 bypass
+- falsified by: If any commit in the rewritten history names an agent identity or a role trailer, or a required status check or ruleset rule is missing from the restored settings, the rewrite is rolled back from Runtime/Artifacts/pre-identity-rewrite-final.bundle
+- consequences: -
