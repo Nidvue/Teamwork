@@ -200,8 +200,9 @@ a pass.
   `allow_squash_merge=false`, `allow_merge_commit=false`, `allow_rebase_merge=true`,
   `delete_branch_on_merge=true`); the host also needs one method enabled, so the
   guard, not the setting, is what protects `main`.
-- Locally: `git merge --squash <branch>` and commit as the acting role, or
-  `teamwork.py pr merge --squash`, which does exactly that as the Reviewer mailbox.
+- Locally: `git merge --squash <branch>` and commit as the repository's configured
+  pair, or `teamwork.py pr merge --squash`, which does exactly that for you (the
+  role mailbox only under `TEAMWORK_COMMIT_IDENTITY=role`).
 - `main` keeps: 1 required approval, 20 required checks (the release-consistency
   context was added to the 15 before it, then the ubuntu `py3.10` and `py3.12` lanes and
   the `Analyze (python)` / `Analyze (actions)` contexts brought it to 20), strict
@@ -235,7 +236,7 @@ for the contract this gate belongs to.
 | # | Case | Decision | Reason |
 |---|---|---|---|
 | 1 | `committer differs from author` where the committer is a **canonical role mailbox** (`ROLE_DISPLAY` -> `role_identity`, e.g. `Reviewer <reviewer@agents.nidvue.com>`) | **accepted**, and the output still prints `(landed by <role>)` | A lane landing a peer's reviewed work commits as its own role mailbox: that *is* the local merge policy. A committer that is not a role mailbox (a personal address) and differs from the author stays a **FAIL**. |
-| 2 | missing `Acting role:` line while the body carries `Role: <role>` | **accepted** as equivalent, provided the `Role:` value resolves to the author's own role | `build_commit_message` (`engine.py:3460-3484`) writes *both* trailers; a commit produced by the tool is never missing the acting role. A commit with neither line stays a **FAIL**, and a `Role:` naming another role stays a **FAIL**. |
+| 2 | missing `Acting role:` line while the body carries `Role: <role>` | **accepted** as equivalent, provided the `Role:` value resolves to the author's own role | The line is only required from a role-mailbox author (`TEAMWORK_COMMIT_IDENTITY=role`), and the tool stopped writing both trailers when the repository's pair became the default (decision 2026-11-11), so a `Role:`-only body is the older role-mailbox shape. A commit with neither line stays a **FAIL** from a role mailbox, and a `Role:` naming another role stays a **FAIL**. |
 | 3 | a **two-parent** `chore(merge): ...` commit with an **empty body** | **exempt** from the acting-role line | It adds no content of its own, so there is no acting role to name (measured: `e05cb02`, parents `35d9578`+`e05cb02`, empty body, Reviewer committer). |
 | 4 | a **single-parent** `chore(merge)` commit with an empty body | **not exempt** - still a **FAIL** | A squash/fast-forward commit *does* add content, so the exemption above must stay discriminable from it. |
 
@@ -358,7 +359,7 @@ In a throwaway clone under this worktree's `Scratch/` (`git clone --shared` ->
 | `teamwork.py hooks status` | `pre-commit absent`, `pre-push absent` |
 | `teamwork.py hooks install` | `pre-commit installed`, `pre-push installed` |
 | `echo x >> README.md && git commit -am ...` on `main`, personal identity | **refused, exit 1**: `teamwork: refusing to commit on 'main': it only receives merges performed by the Reviewer.`; `git log` still `de331a6` |
-| the same commit on a new branch | accepted, exit 0, plus `teamwork: warning: commit identity ... is not a role mailbox` |
+| the same commit on a new branch | accepted, exit 0, and no warning when that personal identity is the repository's configured pair |
 
 The branch rule blocks; the identity rule warns by design - `check_commit` in
 `src/teamwork/hooks.py` is documented as "R1 default branch, R2 large non-LFS blob, R3

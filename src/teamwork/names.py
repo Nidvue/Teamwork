@@ -256,10 +256,36 @@ def declared_identity(project=None) -> tuple | None:
     return name, email
 
 
+IDENTITY_MODE_ENV = "TEAMWORK_COMMIT_IDENTITY"
+
+
+def role_mailbox_opted_in() -> bool:
+    """True when the actor asked for the role mailbox explicitly.
+
+    Published history is the project's, so the repository's own configured pair
+    authors a commit by default and the role mailbox is opt-in per command with
+    ``TEAMWORK_COMMIT_IDENTITY=role`` (decision 2026-11-11: no commit names an
+    agent role).
+    """
+    return os.environ.get(IDENTITY_MODE_ENV, "").strip().lower() == "role"
+
+
 def commit_identity(role: str, project=None) -> tuple:
-    """(name, email) a commit is authored with: declared pair first, role last."""
+    """(name, email) a commit is authored with.
+
+    The repository's configured pair - a declared ``teamwork.identity`` pair when
+    set, else its own ``user.name``/``user.email`` - authors the commit, so the
+    author of a published commit is the project, not the agent that wrote it. The
+    role mailbox is opt-in (``TEAMWORK_COMMIT_IDENTITY=role``), and it is the last
+    resort in a repository that configures no identity at all, because a commit
+    needs some author.
+    """
+    if role_mailbox_opted_in():
+        return role_identity(role)
     declared = declared_identity(project)
-    return declared if declared else role_identity(role)
+    if declared:
+        return declared
+    return preset_identity(project) or role_identity(role)
 
 
 def git_identity_args(role: str, project=None) -> list:

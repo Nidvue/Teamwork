@@ -8,9 +8,11 @@ operating procedure.
 Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.md) | [State](State.md) | [Concurrency](Concurrency.md) | [Roles](Roles.md) | [Testing](Testing.md) | [Audit](Audit.md) | [Coordination](Coordination.md)
 
 
-## Commit identity - role mailbox, never instance numbered
+## Commit identity - the repository's pair by default, the role mailbox on request
 
-Every team commit is authored **and** committed by the role:
+A commit is authored **and** committed by the repository's own configured pair, so
+published history belongs to the project and no commit names the agent that typed
+it. The role mailbox is the opt-in, for a workflow that wants one mailbox per role:
 
 ```text
 Developer <developer@agents.nidvue.com>
@@ -26,29 +28,30 @@ CEO <ceo@agents.nidvue.com>   CTO <cto@agents.nidvue.com>   COO <coo@agents.nidv
 
 Rules:
 
-- Display name is the role; email is the lowercase role id at `agents.nidvue.com`.
+- **Default:** the repository's own configured pair authors a commit - its
+  `user.name`/`user.email`, or an explicit `teamwork.identity.name`/
+  `teamwork.identity.email` pair.
+- **Opt-in:** `TEAMWORK_COMMIT_IDENTITY=role` selects the role mailbox for one
+  command; it is the author of last resort only when the repository configures no
+  identity at all. Under that policy, display name is the role and email is the
+  lowercase role id at `agents.nidvue.com`.
 - **Never** use an instance-numbered identity: no `Developer-1`, no
   `developer-1@agents.nidvue.com`.
-- Never use the operator's personal git identity for team work.
-- **The role that does the work commits it.** Developer commits code and unit
-  tests, Tester integration/E2E tests, Technical Writer documentation, Architect
-  contracts and ADRs, Release Engineer workflows and release changes, Reviewer
-  merge commits. The CEO commits only CEO-owned documents (`Project.md`,
-  `Plan.md`, `Board.md`, `Decisions.md`) and the bootstrap commit - never another
-  role's deliverable in its place.
 - The product identity `Teamwork <teamwork@agents.nidvue.com>` is **never** a valid
   commit identity: it names the skill, not a role.
 - CI enforces this with `teamwork.py identity --audit --range <base>..HEAD`; it
-  checks the author, the committer and the `Acting role:` trailer, and allows bot
-  dependency updates (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`).
-- Apply it per commit, without changing the repository config:
+  checks the author and the committer, requires the `Acting role:` trailer only
+  from a role-mailbox author, and allows bot dependency updates
+  (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`).
+- Apply the role mailbox per commit, without changing the repository config:
 
 ```sh
-git -c user.name="Developer" -c user.email="developer@agents.nidvue.com" commit ...
+TEAMWORK_COMMIT_IDENTITY=role git -c user.name="Developer" \
+    -c user.email="developer@agents.nidvue.com" commit ...
 ```
 
-`teamwork.py commit --role <role> ...` does this for you, and
-`teamwork.py identity [--role X]` prints the exact identity.
+`teamwork.py commit --role <role> ...` pins the identity for you, and
+`teamwork.py identity [--role X]` prints the role mailbox.
 `TEAMWORK_IDENTITY_DOMAIN` overrides the email domain.
 
 ### The constitution, quoted
@@ -56,19 +59,13 @@ git -c user.name="Developer" -c user.email="developer@agents.nidvue.com" commit 
 `AGENTS.md` (Commit identity) is the rule; text in a charter or a reference that
 departs from it is wrong, whatever the repository's local configuration says:
 
-- Commit as the **acting role mailbox**: `author == committer ==
-  <Role> <role@agents.nidvue.com>` - the role that did the work, never an instance
-  number, never another role's mailbox, never the operator's account.
-- Apply it **per commit**: `git -c user.name=<Role> -c user.email=<role>@agents.nidvue.com
-  commit ...`, or `teamwork.py commit --role <role> ...`, which does the same.
-- End the message with `Acting role: <Role>`; the identity gate fails when that
+- Commit as the **repository's configured pair** (`author == committer`), so the
+  published history names the project, never an agent role, instance or mailbox.
+- Apply it **per commit** - `teamwork.py commit --role <role> ...` pins the pair
+  for that one command and leaves the repository config alone.
+- A role mailbox is opt-in with `TEAMWORK_COMMIT_IDENTITY=role`; only then does the
+  message end with `Acting role: <Role>`, and the identity gate fails when that
   trailer does not match the author.
-
-A plain `git commit` inherits whatever the repository's own `user.name` / `user.email`
-happens to be configured to, and the identity gate fails that commit unless the
-configured identity is the acting role mailbox. The repository-local config is
-therefore a convenience fallback only and no lane may read it as permission to
-skip the per-commit form above.
 
 ## Commit batching
 
@@ -88,8 +85,6 @@ Use this shape, in this field order, with these field names:
 <type>(<area>): <deliverable summary, <=72 chars>
 
 Task: T-0007
-Role: Developer
-Producers: Developer-1, Developer-2
 Goal: <what the task/milestone asked for>
 Deliverable: <what was produced: files, docs, tests>
 Why: <why this change, what evidence drove it>
@@ -97,14 +92,14 @@ Status: <actual state: implemented / reviewed / tested / blocked>
 Result: <observed outcome: command @rev -> result>
 Docs: <related documents>
 Refs: <issues, PRs, disputes>
-
-Acting role: Developer
 ```
 
 - `type` is one of `feat fix test docs design research refactor perf build ci chore revert`.
-- `Producers` = the instances that produced it (never invent one).
-- `Goal`, `Deliverable`, `Why`, `Status`, `Result` are mandatory: they answer who,
-  what, why, where it stands and what actually happened.
+- No field names a role, an agent instance or a mailbox: the trailers carry the
+  task and the evidence, never the producer (decision 2026-11-11). `Acting role:`
+  belongs to an opted-in role mailbox commit only.
+- `Goal`, `Deliverable`, `Why`, `Status`, `Result` are mandatory: they answer what,
+  why, where it stands and what actually happened.
 - `Status` states the truth, including "blocked on X" or "awaiting review" - never
   a hopeful claim.
 - `Result` carries the evidence pointer (command + revision + observed result).

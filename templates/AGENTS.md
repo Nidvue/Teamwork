@@ -411,14 +411,16 @@ tracked, uncommitted or evidence-bearing files, and never `git clean -fdx`. Keep
 
 ## Engineering policy
 
-- **COMMIT IDENTITY** - commit as your ROLE mailbox, e.g. `Developer
-  <developer@agents.nidvue.com>`. Never an instance-numbered identity and never the
-  operator's. Use `git -c user.name=<Role> -c user.email=<role>@agents.nidvue.com
-  commit` or `<script> commit --role <role> ...`.
-- **COMMIT MESSAGE STYLE** - `<type>(<area>): <summary>`, then `Task:`, `Role:`,
-  `Producers:`, `Goal:`, `Deliverable:`, `Why:`, `Status:`, `Result:`, optional
-  `Docs:`/`Refs:`, then `Acting role: <Role>`. Status states the truth; Result
-  carries the evidence.
+- **COMMIT IDENTITY** - the repository's own configured pair authors the commit:
+  its `user.name`/`user.email`, or an explicit `teamwork.identity.name`/
+  `teamwork.identity.email` pair. No commit names an agent role, an instance or a
+  mailbox. The role mailbox is opt-in per command with
+  `TEAMWORK_COMMIT_IDENTITY=role`, e.g. `Developer <developer@agents.nidvue.com>`,
+  never instance-numbered.
+- **COMMIT MESSAGE STYLE** - `<type>(<area>): <summary>`, then `Task:`, `Goal:`,
+  `Deliverable:`, `Why:`, `Status:`, `Result:`, optional `Docs:`/`Refs:`. No line
+  names a role or a producer. Status states the truth; Result carries the
+  evidence.
 - **GIT LFS** - binaries, media, datasets and weights go through Git LFS
   (`.gitattributes` patterns). `commit` refuses an uncovered file above 1 MB.
 - **ONE TASK, ONE WORKTREE** - never commit on `main`. `branch start --agent <you>
