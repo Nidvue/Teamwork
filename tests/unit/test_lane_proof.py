@@ -9,6 +9,7 @@ did not exit cleanly. ``TEAMWORK_LANE_CMD`` keeps every case offline.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shlex
@@ -17,6 +18,7 @@ import sys
 from pathlib import Path
 
 from teamwork.config import DEFAULT_PROVIDER_LIMITS
+from teamwork.portable import pid_alive
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "lane_proof.py"
@@ -74,6 +76,23 @@ def test_the_proof_measures_the_peak_concurrency_offline(tmp_path: Path) -> None
     assert "peak: records=3 pids=3 required=3" in done.stdout
     assert "exits: 3/3 ok" in done.stdout
     assert "PASS 3 lanes ran at once" in done.stdout
+
+
+def test_the_peak_probe_is_the_portable_seam_not_a_local_copy() -> None:
+    spec = importlib.util.spec_from_file_location("lane_proof_script", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.pid_alive is pid_alive
+
+
+def test_the_peak_is_the_capacity_not_the_agent_count(tmp_path: Path) -> None:
+    project = team(tmp_path / "mutant", "developer-1,developer-2,developer-3", lane_max=1)
+    done = proof(project, {"TEAMWORK_LANE_CMD": launcher(tmp_path, "print('LANE-RESULT: ok')\n")})
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "idle_instances=3 -> lanes=1" in done.stdout
+    assert "peak: records=1 pids=1 required=1" in done.stdout
+    assert "records=3" not in done.stdout
 
 
 def test_capacity_is_capped_by_the_idle_instances(tmp_path: Path) -> None:
