@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from teamwork import engine, lanes
+from teamwork import engine, lanes, layout
 
 ROSTER = "ceo,developer-1,developer-2,tester-1,reviewer-1,reviewer-2"
 
@@ -128,6 +128,7 @@ def test_the_packet_names_the_work_the_charter_the_budget_and_the_result_contrac
     packet = Path(lanes.packet_path(root, "Developer-1", "L-0001")).read_text(encoding="utf-8")
     assert "T-0001" in packet
     assert "Roles/Developer/Role.md" in packet
+    assert f"- `{layout.shown_path(layout.role_dir(root, 'Developer') / 'Role.md')}`" in packet
     assert "LANE-RESULT:" in packet
     assert "tw selfcheck developer T-0001" in packet
     assert "Never merge your own work" in packet
@@ -137,6 +138,16 @@ def test_the_packet_names_the_work_the_charter_the_budget_and_the_result_contrac
     assert "tw load Developer-1`" not in packet
     assert "## Memory pack for this assignment (injected)" in packet
     assert "# pack:" in packet
+
+
+def test_a_path_is_printed_with_forward_slashes_on_every_host() -> None:
+    """T-0120: Windows rendered `Roles\\Developer\\Role.md` into the packet.
+
+    The packet is read by an agent that types the path into a POSIX shell, so the
+    separator is normalised at the source instead of in the reader.
+    """
+    assert layout.shown_path(r"Roles\Developer\Role.md") == "Roles/Developer/Role.md"
+    assert layout.shown_path(Path("Roles") / "Developer" / "Role.md") == ("Roles/Developer/Role.md")
 
 
 def _packet_commands(packet: str) -> list:

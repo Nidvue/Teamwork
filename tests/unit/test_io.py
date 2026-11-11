@@ -3,59 +3,12 @@
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
+import threading
 from pathlib import Path
 
 import pytest
 
 from teamwork import engine, io
-
-HOLDER_SCRIPT = """
-import os, pathlib, sys, time
-sys.path.insert(0, {src!r})
-from teamwork import engine, io
-
-real_pid_alive = io.pid_alive
-
-
-def preempted_pid_alive(pid):
-    alive = real_pid_alive(pid)
-    time.sleep(0.05)
-    return alive
-
-
-io.pid_alive = preempted_pid_alive
-lock_path = pathlib.Path({lock!r})
-holder = pathlib.Path({holder!r})
-overlap = pathlib.Path({overlap!r})
-barrier = pathlib.Path({barrier!r})
-while not barrier.exists():
-    time.sleep(0.001)
-for _ in range({iterations}):
-    with engine.lock(lock_path, timeout=120):
-        try:
-            fd = os.open(str(holder), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            with open(overlap, "a", encoding="utf-8") as stream:
-                stream.write(f"{{os.getpid()}} held the lock while another waiter held it\\n")
-            continue
-        try:
-            os.close(fd)
-            time.sleep({hold})
-        finally:
-            os.unlink(str(holder))
-"""
-
-
-def _dead_pid() -> int:
-    for _ in range(5):
-        process = subprocess.Popen([sys.executable, "-c", "pass"])
-        process.wait()
-        assert process.returncode == 0
-        if not io.pid_alive(process.pid):
-            return process.pid
-    raise AssertionError("no reaped pid stayed dead")
 
 
 def _abandoned_lock(path: Path, body: str = "0.0") -> None:
@@ -177,53 +130,130 @@ def test_lock_owner_stale_treats_unreadable_lock_as_not_stale(tmp_path: Path) ->
     assert io._lock_owner_stale(missing) is False
 
 
-def test_two_stale_waiters_never_hold_the_lock_at_the_same_time(tmp_path: Path) -> None:
+def test_two_stale_waiters_never_hold_the_lock_at_the_same_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """M19 S-1: the stale steal was check-then-unlink, so both waiters entered.
 
-    A dead owner's lock is stolen by whoever sees it first. With eight processes
-    starting together on one abandoned lock, a non-atomic steal lets the second
-    waiter remove the lock the first one has just created, and the two then sit in
-    the critical section at once (400 ms overlap in the audit). The window between
-    the verdict and the unlink is a few microseconds, so each waiter is preempted
-    for 50 ms inside it - the audit's own probe, applied to both revisions. The
-    detector is an independent marker file: the process inside the lock creates it
-    exclusively, so a second holder cannot create it and has to record the
-    overlap.
+    A dead owner's lock is stolen by whoever sees it first. With two waiters on
+    one abandoned lock, a non-atomic steal lets the second remove the lock the
+    first has just created, and both then sit in the critical section at once.
+    The invariant is measured directly: every entrant appends to ``inside`` and
+    the peak is asserted to be one, so two holders fail whatever the timing. The
+    old shape raced eight processes and widened the window with a 50 ms sleep
+    inside the staleness verdict - a wall-clock assumption that timed out on
+    Windows (T-0120) - and the same seam is what the two waiters drive here.
+    The second half is the case that decides it: a lock whose owner is alive is
+    never stolen, so a waiter that finds it must time out with exit 4 instead of
+    entering. A steal that ignores the owner enters, which is what the mutant
+    test below pins.
     """
+    monkeypatch.setattr(io, "LOCK_STALE_SECONDS", 0.0)
     lock_path = tmp_path / "x.lock"
-    holder = tmp_path / "holder"
-    overlap = tmp_path / "overlap.log"
-    barrier = tmp_path / "go"
-    dead_pid = _dead_pid()
-    _abandoned_lock(lock_path, f"{dead_pid}.0")
-    script = HOLDER_SCRIPT.format(
-        src=str(Path(engine.__file__).resolve().parents[1]),
-        lock=str(lock_path),
-        holder=str(holder),
-        overlap=str(overlap),
-        barrier=str(barrier),
-        iterations=3,
-        hold=0.03,
-    )
-    env = dict(os.environ, TEAMWORK_LOCK_STALE_SECONDS="0", TEAMWORK_LOCK_TIMEOUT="120")
-    processes = [
-        subprocess.Popen(
-            [sys.executable, "-c", script],
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        for _ in range(8)
-    ]
-    barrier.write_text("go", encoding="utf-8")
-    results = [process.communicate(timeout=300) for process in processes]
-    codes = [process.returncode for process in processes]
-    seen = overlap.read_text(encoding="utf-8") if overlap.exists() else ""
-    assert seen == "", (seen, codes, results)
-    assert codes == [0] * len(processes), (codes, results)
+    _abandoned_lock(lock_path)
+    inside: list = []
+    peak = [0]
+    start = threading.Barrier(2)
+
+    def waiter() -> None:
+        start.wait()
+        with engine.lock(lock_path, timeout=60):
+            inside.append(1)
+            peak[0] = max(peak[0], len(inside))
+            assert len(inside) == 1, "two waiters held the lock at once"
+            inside.pop()
+
+    threads = [threading.Thread(target=waiter) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=120)
+    assert [thread.is_alive() for thread in threads] == [False, False]
+    assert peak[0] == 1
     assert not lock_path.exists()
     assert list(tmp_path.glob("x.lock.*")) == []
+
+    entered: list = []
+    codes: list = []
+
+    def second_waiter() -> None:
+        try:
+            with engine.lock(lock_path, timeout=0.2):
+                entered.append(1)
+        except SystemExit as exc:
+            codes.append(exc.code)
+
+    with engine.lock(lock_path, timeout=5):
+        blocked = threading.Thread(target=second_waiter)
+        blocked.start()
+        blocked.join(timeout=120)
+        assert not blocked.is_alive()
+    assert entered == [], "a waiter entered while the lock had a live owner"
+    assert codes == [4]
+
+
+def test_a_lock_that_ignores_the_owner_is_caught_by_the_two_waiter_invariant(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The mutant: a steal that never asks whether the owner is alive fails it.
+
+    Without this the invariant above would also hold for a lock that never
+    steals at all, so the assertion would not be about the owner check.
+    """
+    monkeypatch.setattr(io, "LOCK_STALE_SECONDS", 0.0)
+    monkeypatch.setattr(io, "_lock_owner_stale", lambda _path: True)
+    lock_path = tmp_path / "x.lock"
+    _abandoned_lock(lock_path)
+    inside: list = []
+    peak = [0]
+    start = threading.Barrier(2)
+    held = threading.Event()
+    entered = threading.Event()
+
+    def waiter() -> None:
+        start.wait()
+        with engine.lock(lock_path, timeout=5):
+            inside.append(1)
+            peak[0] = max(peak[0], len(inside))
+            if len(inside) == 1:
+                held.set()
+                entered.wait(timeout=5)
+            else:
+                entered.set()
+            inside.pop()
+
+    threads = [threading.Thread(target=waiter) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert held.is_set() and entered.is_set()
+    assert peak[0] == 2, "the mutant did not produce two holders, so it proves nothing"
+
+
+def test_a_release_retries_a_sharing_violation_on_its_own_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Windows sharing violation on our own lock must not orphan it.
+
+    An orphaned lock still names a live pid, so no waiter may steal it and every
+    waiter times out (CI run 43114375543: six of eight waiters exited 4).
+    """
+    lock_path = tmp_path / "x.lock"
+    real_unlink = Path.unlink
+    calls = []
+
+    def flaky_unlink(self: Path, *args, **kwargs):
+        calls.append(self)
+        if len(calls) == 1:
+            raise PermissionError(13, "sharing violation", str(self))
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+    with engine.lock(lock_path, timeout=5):
+        assert lock_path.exists()
+    assert not lock_path.exists()
+    assert calls
 
 
 def test_a_stale_steal_is_claimed_by_one_waiter_at_a_time(
