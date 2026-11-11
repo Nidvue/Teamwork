@@ -218,6 +218,7 @@ under two roles is two tasks.
 | developer | T-0088 | tests | done | P-0136 | 1d79500 |
 | developer | T-0089 | - | dropped | - | - |
 | developer | T-0090 | tests | done | P-0137 | 37e1e29 |
+| developer | T-0091 | ci | done | P-0138 | a01a6c3 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
