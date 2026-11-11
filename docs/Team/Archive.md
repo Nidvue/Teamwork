@@ -6550,4 +6550,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit c05fdbe
 - reviewer evidence: git diff main...c05fdbe @c05fdbe -> 1 file, +2/-1 tests/unit/test_pi_status_render.py (hardcoded PATH replaced with **os.environ); .venv/bin/python -m pytest -q tests/unit/test_pi_status_render.py @c05fdbe -> 3 passed in 0.16s; git merge-tree --write-tree main c05fdbe @c05fdbe -> CLEAN
 - findings history: 
-- branch / merge: developer-1/t-0094-windows-render-env / pending
+- branch / merge: developer-1/t-0094-windows-render-env / 6e5aa6a
