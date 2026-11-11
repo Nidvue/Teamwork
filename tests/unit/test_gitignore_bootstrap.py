@@ -8,7 +8,10 @@ and redundant lines. These tests pin the corrected behaviour.
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from teamwork import engine
 
@@ -68,3 +71,20 @@ def test_no_dangling_header_is_appended(tmp_path: Path) -> None:
         if line.strip().startswith("#"):
             assert index + 1 < len(added), f"header without an entry: {line}"
             assert not added[index + 1].strip().startswith("#")
+
+
+def test_the_bootstrap_starts_no_process(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The bootstrap is file IO only, so it cannot be the call that hangs.
+
+    ``ensure_gitignore`` is the whole of this module's subject and it runs inside
+    ``ensure_repo``, before any git call: a subprocess here would be the only way
+    this file could block a lane, and it has none.
+    """
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError(f"the bootstrap started a process: {args!r}")
+
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    monkeypatch.setattr(subprocess, "run", refuse)
+
+    assert engine.ensure_gitignore(tmp_path)
