@@ -11,6 +11,22 @@
 # release-consistency, docs, docs-contract. Every job must be green on the pushed
 # revision.
 #
+# The matrix is sized to the portability question instead of running the whole
+# suite five times (T-0105). The question is "does the suite work on the Python
+# versions and the OSes we support", and the two interpreters that answer it are
+# the boundaries - 3.11 (`requires-python`'s floor) and 3.13 (the newest
+# classifier) - so those two Linux cells run every test, 3.11 with the coverage
+# gate. The interior Linux interpreter (3.12) and macOS run the named subset
+# `tests/unit tests/acceptance`: the unit tree is where the platform-specific
+# paths are asserted (`tests/unit/test_portability.py`, `src/teamwork/portable.py`)
+# and acceptance is the cheap 8s proof of the ACs, while the subprocess-heavy
+# integration tree (338 tests, 30% of the serial wall clock) already runs on both
+# boundary interpreters and on all five Windows shards. Every cell
+# runs under pytest-xdist `--numprocesses=auto` (`-n auto`) except the Windows
+# shards, which are already split by path: measured 242s serial against 94s with
+# `-n 4` (the 4-vCPU emulation of a hosted runner) on the same tree, identical
+# results.
+#
 # Trigger policy: a documentation-only change must not burn the test matrix,
 # and a release-fact change must not escape the consistency gate. Those two rules
 # used to fight: `paths-ignore` on the push trigger was the only filter available
@@ -239,15 +255,27 @@ jobs:
           - os: ubuntu-latest
             python-version: "3.11"
             coverage: true
+            xdist: "--numprocesses=auto"
+          # The interior interpreter: the unit and acceptance trees, not the
+          # subprocess-heavy integration tree. 3.11 (the floor) and 3.13 (the
+          # newest) carry the whole suite, so no test loses its only run.
           - os: ubuntu-latest
             python-version: "3.12"
             coverage: false
+            xdist: "--numprocesses=auto"
+            paths: "tests/unit tests/acceptance"
           - os: ubuntu-latest
             python-version: "3.13"
             coverage: false
+            xdist: "--numprocesses=auto"
+          # macOS runs the same subset: the platform-specific paths it exists to
+          # cover are the unit tree's, and one 12-18 minute full-suite job was the
+          # second-longest lane in runs 43000716956 and 43014809518.
           - os: macos-latest
             python-version: "3.13"
             coverage: false
+            xdist: "--numprocesses=auto"
+            paths: "tests/unit tests/acceptance"
           # Windows spawns processes several times slower than the POSIX runners and
           # this suite spawns hundreds of them, so one Windows job exceeded the
           # 90-minute cap even after the traceability guard stopped re-running the
@@ -310,7 +338,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports
-          python -m pytest -q \
+          python -m pytest -q --numprocesses=auto \
             --junitxml=reports/junit.xml \
             --cov=teamwork \
             --cov-report=xml:reports/coverage.xml \
@@ -321,7 +349,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports
-          python -m pytest -q --junitxml=reports/junit.xml ${{ matrix.paths }}
+          python -m pytest -q ${{ matrix.xdist }} --junitxml=reports/junit.xml ${{ matrix.paths }}
       - name: Upload junit + coverage artifact
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
