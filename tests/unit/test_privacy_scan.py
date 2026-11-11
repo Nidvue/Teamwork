@@ -338,6 +338,48 @@ def test_a_secret_next_to_a_lane_id_is_still_reported():
     assert "high-entropy-secret" in rules_hit(f"see docs/M13-notes.md and the key {_RANDOM_32}\n")
 
 
+_SHA_40 = "04c8905e65d52988f32b7cb10bd6250e239fb307"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"P-0153 merged at {_SHA_40}/T-0053\n",
+        f"see {_SHA_40[:7]}/T-0053\n",
+        f"rev={_SHA_40}/T-0053\n",
+        f"see docs/Team/Archive.md#L1 and {_SHA_40}/T-0053\n",
+    ],
+)
+def test_a_revision_path_is_not_a_high_entropy_secret(line):
+    """The measured false positive after the history rewrite.
+
+    ``docs/Team/Archive.md:1063`` names the commit behind a task as
+    ``<sha>/T-0053``. The high-entropy rule matches the 40 hex characters plus
+    ``/T`` (``-`` is outside its charset), so a revision pointer read as a
+    secret. The value is not a secret and gets no allowlist entry.
+    """
+    assert "high-entropy-secret" not in rules_hit(line)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        _RANDOM_32 + "/T-0053",
+        _SHA_40 + "/" + "Q7r8S9t0Ab1c",
+        _SHA_40 + "0" + "/T-0053",
+        _SHA_40 + "/T-0053/extra",
+    ],
+)
+def test_a_credential_shaped_like_a_revision_path_is_still_reported(value):
+    """The other side of the same fix: only the narrow revision shape is exempt.
+
+    A mixed-case base64 head is not a revision, a tail of 12+ characters or an
+    empty tail is not the pointer this repository writes, and a third segment
+    puts the token outside the shape. All of them stay reported.
+    """
+    assert "high-entropy-secret" in rules_hit(f"the value {value} is here\n")
+
+
 @pytest.mark.parametrize(
     "line",
     [

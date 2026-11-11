@@ -622,11 +622,38 @@ def _is_path_fragment(line: str, index: int, length: int) -> bool:
     return any(_CAMEL_CASE.search(part) for part in whole.split("/") if part)
 
 
+_RE_REVISION_HEAD = re.compile(r"[0-9a-fA-F]{7,40}")
+_RE_REVISION_SEGMENT = re.compile(r"[A-Za-z0-9._-]{1,11}")
+
+
+def _is_revision_path(line: str, index: int, length: int) -> bool:
+    """Is the match a ``<sha>/<id>`` pointer, rather than a value of its own?
+
+    This repository writes a revision as ``<sha>/T-0053`` wherever it points at
+    a task's commit, and the high-entropy rule matches the 40 hex characters
+    plus the ``/`` and the ``T``: ``-`` is outside its charset, so the match
+    stops mid-segment. The pointer is then flagged as a secret because 40 hex
+    characters are entropy-rich. A pure hex value is already exempt; a revision
+    path needs the same treatment, and the shape is narrow enough to stay safe:
+    a 7-40 character pure-hex head, one short tail segment, and no more. A
+    credential's first segment is mixed-case base64, so it never matches a pure
+    hex head and is still reported.
+    """
+    whole = _token_around(line, index, length)
+    _, _, whole = whole.rpartition("=")
+    head, separator, tail = whole.partition("/")
+    if not separator or not _RE_REVISION_HEAD.fullmatch(head):
+        return False
+    return _RE_REVISION_SEGMENT.fullmatch(tail) is not None
+
+
 def _looks_like_secret(value: str, line: str = "", index: int = 0) -> bool:
     """Filter out hashes, identifiers, URL paths and natural words."""
     if len(value) < 32:
         return False
     if re.fullmatch(r"[0-9a-fA-F]+", value):
+        return False
+    if _is_revision_path(line, index, len(value)):
         return False
     scheme = line.find("://")
     if scheme != -1 and index > scheme:
