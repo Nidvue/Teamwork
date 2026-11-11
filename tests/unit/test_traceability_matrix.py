@@ -56,38 +56,6 @@ MEASURED_COLD_RUNNER_PROOF_SECONDS = 884
 
 HISTORY_CLAUSE = "--history"
 
-HISTORY_PROOF_OPT_OUT = "TEAMWORK_CI_SKIP_HISTORY_PROOF"
-
-CI_ENV_MARKER = "GITHUB_ACTIONS"
-
-HISTORY_OPT_OUT_VALUES = {"1", "true", "yes"}
-
-
-def _history_clause_dropped(env: dict) -> bool:
-    """Whether this lane drops the `--history` clause of a proof, and only that.
-
-    The history walk is the expensive half of the privacy proof - the same git
-    history on every lane - so the matrix proves it once, on the coverage lane,
-    and the other lanes run the tree half only. The opt-out is refused outside
-    CI: a developer who exports it locally would be hiding the gate from
-    themselves, which is the failure the shallow-clone guard prevents for the
-    archive check. The primary lane exports `0`, so it cannot inherit a skip.
-    """
-    opted_out = str(env.get(HISTORY_PROOF_OPT_OUT, "")).strip().lower() in HISTORY_OPT_OUT_VALUES
-    if not opted_out:
-        return False
-    if str(env.get(CI_ENV_MARKER, "")).strip().lower() != "true":
-        raise AssertionError(
-            f"{HISTORY_PROOF_OPT_OUT} is set but {CI_ENV_MARKER} is not 'true': the history "
-            "clause of a proof may only be dropped on a CI lane whose sibling runs it, so it "
-            "is refused outside CI"
-        )
-    return True
-
-
-def _without_history(argv: list[str]) -> list[str]:
-    return [token for token in argv if token != HISTORY_CLAUSE]
-
 
 def _section(project: str) -> str:
     start = project.find(SECTION)
@@ -529,7 +497,6 @@ def _run(repo_root: Path, argv: list[str]) -> int:
     bare ``OSError``: the caller reports the row with the command and the reason,
     so one host-only proof cannot take the whole suite down (T-0003).
     """
-    import os
     import subprocess
     import sys
 
@@ -637,14 +604,12 @@ def _replay(
     Nothing here raises because of the host: a reporter that crashes is not a
     guard (T-0003).
 
-    A CI lane that opts out of the history clause still executes the row, one
-    clause short, and the drop is returned in ``clause_skips`` so the caller can
-    assert it is the only one; a local run cannot opt out at all.
+    ``clause_skips`` is kept in the return shape and is always empty: the history
+    gate is its own CI job now, so no row carries `--history` and nothing may drop
+    a clause. A non-empty list is a defect the caller asserts against.
     """
-    import os
 
     env = dict(os.environ) if env is None else env
-    drop_history = _history_clause_dropped(env)
     _header, body = _matrix(section)
     claimed = {row[0]: row[5].lower() for row in body}
     proofs = {row[0]: row[4] for row in body}
@@ -670,13 +635,7 @@ def _replay(
             )
             continue
         try:
-            runnable = [_without_history(argv) for argv in commands] if drop_history else commands
-            if drop_history and any(HISTORY_CLAUSE in argv for argv in commands):
-                clause_skips.append(
-                    f"{ac}: {HISTORY_CLAUSE} dropped on this lane "
-                    f"({HISTORY_PROOF_OPT_OUT}={env.get(HISTORY_PROOF_OPT_OUT)!r}); "
-                    "the tree half still ran"
-                )
+            runnable = commands
             codes = [_run(repo_root, argv) for argv in runnable]
         except ProofUnlaunchable as exc:
             disagreements.append(f"{ac}: {exc}")
@@ -775,16 +734,10 @@ def test_every_deterministic_state_matches_a_real_run(repo_root: Path) -> None:
         f"rows minus {len(EXEMPT)} exemptions is {expected}: a row was skipped or the parser drifted"
     )
     assert not disagreements, "the state column disagrees with the run: " + "; ".join(disagreements)
-    if _history_clause_dropped(dict(os.environ)):
-        assert len(clause_skips) == 1, (
-            f"this CI lane opted out of the history clause but {len(clause_skips)} row(s) "
-            f"report it: {clause_skips}"
-        )
-        assert clause_skips[0].startswith("AC-5:"), clause_skips[0]
-    else:
-        assert not clause_skips, (
-            "a proof dropped its history clause without this lane opting out: " + str(clause_skips)
-        )
+    assert not clause_skips, (
+        "a proof dropped its history clause: the history gate is its own CI job now "
+        "(the `ownjob` exemption), so no row carries `--history` and nothing may drop it"
+    )
 
 
 def test_a_row_this_host_cannot_measure_is_named_with_its_reason(repo_root: Path) -> None:
@@ -810,58 +763,6 @@ def test_a_row_this_host_cannot_measure_is_named_with_its_reason(repo_root: Path
     ]
     if missing:
         pytest.skip("; ".join(missing))
-
-
-def test_the_history_opt_out_is_refused_outside_ci(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The same shape as the shallow-clone guard: a local opt-out is a defect.
-
-    A developer who exports the skip locally would be hiding the history gate
-    from themselves and from the reviewer who trusts their run, so the switch is
-    refused unless the environment says this is CI.
-    """
-    monkeypatch.setenv(HISTORY_PROOF_OPT_OUT, "1")
-    monkeypatch.delenv(CI_ENV_MARKER, raising=False)
-    with pytest.raises(AssertionError) as excinfo:
-        _history_clause_dropped(dict(os.environ))
-    message = str(excinfo.value)
-    assert HISTORY_PROOF_OPT_OUT in message and "outside CI" in message, message
-    monkeypatch.setenv(CI_ENV_MARKER, "false")
-    with pytest.raises(AssertionError):
-        _history_clause_dropped(dict(os.environ))
-
-
-def test_the_history_opt_out_drops_only_the_history_clause(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Exactly the `--history` token, on CI only, and the row is still re-run."""
-    monkeypatch.setenv(CI_ENV_MARKER, "true")
-    monkeypatch.setenv(HISTORY_PROOF_OPT_OUT, "1")
-    assert _without_history(["python", "scripts/privacy_scan.py", "--tree", "--history", "-x"]) == [
-        "python",
-        "scripts/privacy_scan.py",
-        "--tree",
-        "-x",
-    ]
-    section = (
-        "| AC | proof target | archived task(s) | test record | proof command (read the run) | state |\n"
-        "|---|---|---|---|---|---|\n"
-        '| AC-77 | `x` | none | none | `python -c "import sys; sys.exit(0)" --history` | green |\n'
-    )
-    executed, skipped, disagreements, clause_skips = _replay(section, tmp_path)
-    assert executed == 1, (executed, skipped, disagreements)
-    assert not disagreements, disagreements
-    assert len(clause_skips) == 1 and clause_skips[0].startswith("AC-77:"), clause_skips
-
-
-def test_the_primary_lane_runs_the_history_clause(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """`0` is the explicit "run it" the coverage lane exports, never a skip."""
-    monkeypatch.setenv(CI_ENV_MARKER, "true")
-    monkeypatch.setenv(HISTORY_PROOF_OPT_OUT, "0")
-    assert _history_clause_dropped(dict(os.environ)) is False
-    monkeypatch.delenv(HISTORY_PROOF_OPT_OUT)
-    assert _history_clause_dropped(dict(os.environ)) is False
 
 
 def test_the_proof_budget_is_a_generous_named_constant() -> None:
