@@ -264,11 +264,12 @@ from the wrong role, so the two maps must not be conflated.
 
 ## 9. CI / release contract
 
-The per-job wall clock is capacity, not a gate: every job runs its whole check,
-and the bound only stops a hung run. The `test` job is bounded at 90 minutes
-because the suite spawns hundreds of processes and the Windows runner spawns them
-several times slower than Linux (measured: 18 min on ubuntu 3.13, 30 on macos
-3.13, and windows hit the old 60-minute cap on runs 42530928486 and 42533590196).
+The per-job wall clock is capacity, not a gate: no job drops a check to fit its
+bound, and the bound only stops a hung run. The `test` job is bounded at 90
+minutes because the suite spawns hundreds of processes and the Windows runner
+spawns them several times slower than Linux (measured: 18 min on ubuntu 3.13, 30
+on macos 3.13, and windows hit the old 60-minute cap on runs 42530928486 and
+42533590196).
 `tests/unit/test_ci_contracts.py` pins the same bound in `TIMEOUT_MINUTES` and
 fails when the workflow and this table disagree.
 
@@ -278,7 +279,10 @@ fails when the workflow and this table disagree.
   * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
     matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
-    (five cells, nine jobs: the Windows cell runs as five path shards),
+    (five cells, nine jobs: the Windows cell runs as five path shards, and the
+    ubuntu 3.12 cell runs the named subset `tests/unit tests/acceptance` and the
+    macOS cell runs that subset plus `tests/integration/test_portability_flow.py`,
+    instead of the whole suite),
     `build` (sdist+wheel+verify_release), `privacy`
     (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`:
     personal data, credentials, agent-host config and tracked local state),
@@ -291,6 +295,60 @@ fails when the workflow and this table disagree.
     (letter ranges of `tests/unit/`), `integration`, `acceptance`.
     `tests/unit/test_ci_contracts.py` expands those paths over the tree and fails
     on a test file no shard runs or a file two shards run.
+  * The matrix is **sized to the portability question**, not run five times over
+    (T-0105). The question is "does the suite work on the Python versions and the
+    OSes this project supports", and the interpreters that answer it are the
+    boundaries: 3.11 (`requires-python`'s floor) and 3.13 (the newest
+    classifier). Those two Linux cells run every test, 3.11 under the coverage
+    gate. The interior Linux interpreter (3.12) and macOS run the subset
+    `tests/unit tests/acceptance`, and macOS adds the one integration module the
+    portability question is about there: `tests/integration/test_portability_flow.py`
+    runs the spaced-path CLI invocation, the symlink/WinError-1314 guard and the
+    GNU-make guard as real subprocesses, on a host other than the one the code was
+    written on, so macOS is one of the hosts it exists for. The unit tree's
+    `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
+    acceptance are the cheap proof of the ACs; the rest of the subprocess-heavy
+    integration tree (338 tests, 30% of the serial wall clock) runs on both
+    boundary interpreters and on the five Windows shards, and no test in the tree
+    branches on darwin.
+    `tests/unit/test_ci_contracts.py` pins each subset in `SUBSET_CELLS` (a
+    cell-to-paths map) with `SUBSET_PATHS` and `PORTABILITY_FLOW`, fails when a
+    boundary cell stops running the whole suite or a subset cell drops one of the
+    portability contracts, and expands the subset tokens over the tree.
+  * Every cell except the Windows shards runs pytest under `--numprocesses=auto` (`-n auto`)
+    (`pytest-xdist`, a `dev` extra requirement; T-0105). The suite spawns hundreds
+    of processes and a hosted runner gives 3-4 vCPUs, so a cell is wall-clock
+    bound rather than CPU bound: on a 4-worker emulation of a hosted runner the
+    same tree took 242s serially and 94s with `-n 4` at `faeafce`, 2026-11-11.
+    The parallel run is accepted on a **comparison, not a census**: the contract is
+    that serial and parallel agree on every test's outcome, so the doc states no
+    count and the two runs below are the check. One revision, run both ways, then
+    diff the per-test outcome sets:
+
+    ```sh
+    .venv/bin/python -m pytest -q --junitxml=/tmp/serial.xml
+    .venv/bin/python -m pytest -q -n 4 --junitxml=/tmp/parallel.xml
+    .venv/bin/python - <<'PY'
+    import xml.etree.ElementTree as ET
+    def outcome(path):
+        return {case.get("name"): "failed" if case.find("failure") is not None
+                else "skipped" if case.find("skipped") is not None else "passed"
+                for case in ET.parse(path).getroot().iter("testcase")}
+    serial, parallel = outcome("/tmp/serial.xml"), outcome("/tmp/parallel.xml")
+    print(sorted(k for k in serial.keys() | parallel.keys()
+                 if serial.get(k) != parallel.get(k)))
+    PY
+    ```
+
+    An empty diff is the pass. A test that only fails in parallel is a defect in
+    the test, fixed there and not serialised out of the run. The parallel run of
+    the whole tree took 36s at `f4cd508`, 2026-11-11; the macOS cell's subset took
+    22s there (Linux host, `-n auto`) against the 12-18 minute full-suite job it
+    replaces, and the duration on a macOS host is the CI run's to report. The two
+    failures both runs report are not the parallel run's: they are
+    `tests/integration/test_memory_pack_flow.py`, which landed red on `main` from
+    T-0097 with a P0 fix task open, and they fail identically single-process. The
+    Windows rows are already split by path, so a second split buys nothing there.
   * The `scope` job runs `scripts/ci_scope.py`, which computes the changed-path
     set from git, and publishes **two** outputs, because the filtered jobs ask two different questions and a
     prose-only push answers them differently: `code` (`true` = something that

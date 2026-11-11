@@ -15,9 +15,11 @@ core clauses - the job set, the scope guards, the unconditional release gate and
 the R2 flag - each have a mutant twin that proves the clause bites
 (`test_..._mutant`): the mutant applies one targeted edit to the workflow *text*,
 parses the result and asserts the contract function reports a violation. The
-matrix clause contributes two mutants (a sixth lane, the coverage lane switched
-off); its remaining checks - `fail-fast`, the full-history checkout and the junit
-step - are direct assertions on the real workflow and have no mutant twin.
+matrix clause contributes six mutants (a shard with no path, a test file in two
+shards, a cell without xdist, a boundary interpreter moved onto the subset, a
+macOS subset without the portability flow, and a header that drops it); its
+remaining checks - `fail-fast`, the full-history checkout and the junit step - are
+direct assertions on the real workflow and have no mutant twin.
 Mutants are built in memory, so no tracked file is ever written.
 
 The workflow is parsed by `workflow_yaml.parse_workflow`, a standard-library
@@ -140,6 +142,128 @@ def matrix_rows(document: dict) -> list[tuple[str, str, str]]:
 
 SHARDED_CELLS = {("windows-latest", "3.13")}
 
+SUBSET_PATHS = "tests/unit tests/acceptance"
+
+PORTABILITY_FLOW = "tests/integration/test_portability_flow.py"
+
+SUBSET_CELLS = {
+    ("ubuntu-latest", "3.12"): SUBSET_PATHS,
+    ("macos-latest", "3.13"): f"{SUBSET_PATHS} {PORTABILITY_FLOW}",
+}
+
+FULL_SUITE_CELLS = (("ubuntu-latest", "3.11"), ("ubuntu-latest", "3.13"))
+
+PLATFORM_TEST = "tests/unit/test_portability.py"
+
+XDIST = "--numprocesses=auto"
+
+
+def matrix_entries(document: dict) -> list[dict]:
+    """The raw `include:` entries, so a clause can read a row's own fields."""
+    matrix = ((jobs(document).get("test") or {}).get("strategy") or {}).get("matrix") or {}
+    return list(matrix.get("include") or [])
+
+
+def subset_problems(document: dict, repo_root: Path = REPO_ROOT) -> list[str]:
+    """Each subset cell names its contracted subset, and the boundaries run everything.
+
+    A subset is only safe while some lane still runs the whole suite: the matrix
+    is sized to the portability question, and the question is answered by the two
+    boundary interpreters. macOS is one of the hosts the portability contract
+    exists for, so its subset keeps `tests/integration/test_portability_flow.py`
+    (the spaced-path, symlink and GNU-make guards) beside the unit tree's
+    `tests/unit/test_portability.py`.
+    """
+    problems: list[str] = []
+    rows = {
+        (str(entry.get("os")), str(entry.get("python-version"))): str(entry.get("paths") or "")
+        for entry in matrix_entries(document)
+    }
+    required = {
+        ("macos-latest", "3.13"): (PLATFORM_TEST, PORTABILITY_FLOW),
+    }
+    for cell, expected in sorted(SUBSET_CELLS.items()):
+        paths = rows.get(cell)
+        if paths is None:
+            problems.append(f"the subset cell {cell} is missing from the matrix")
+            continue
+        if paths != expected:
+            problems.append(f"{cell} runs {paths!r}, contract says the subset {expected!r}")
+            continue
+        for token in paths.split():
+            if not list(repo_root.glob(token)):
+                problems.append(f"{cell} names {token!r}, which matches no path")
+        covered = {
+            path.relative_to(repo_root).as_posix()
+            for token in paths.split()
+            for match in repo_root.glob(token)
+            for path in (sorted(match.rglob("*.py")) if match.is_dir() else [match])
+        }
+        for subject in required.get(cell, (PLATFORM_TEST,)):
+            if subject not in covered:
+                problems.append(f"{cell} drops {subject}, a portability contract")
+    for cell in FULL_SUITE_CELLS:
+        if rows.get(cell):
+            problems.append(f"{cell} is a boundary interpreter and must run the whole suite")
+    return problems
+
+
+def header_text(source: str) -> str:
+    """The workflow's leading comment block, with its `#` markers and wraps removed."""
+    lines: list[str] = []
+    for line in source.splitlines():
+        if line.strip() and not line.lstrip().startswith("#"):
+            break
+        lines.append(line.lstrip("#").strip())
+    return " ".join(part for part in lines if part)
+
+
+def header_problems(source: str | None = None) -> list[str]:
+    """The header names each subset cell's paths exactly as its matrix row does.
+
+    The header is the contract document a lane reads to decide whether a cell may
+    drop a path, so a header that restates a row differently is a defect even when
+    the row is right: T-0105 was failed for leaving a refuted premise in the
+    header while the row it declares itself the contract for had been fixed.
+    """
+    text = header_text(workflow_text() if source is None else source)
+    return [
+        f"the header does not state {cell}'s subset {expected!r}"
+        for cell, expected in sorted(SUBSET_CELLS.items())
+        if expected not in text
+    ]
+
+
+def parallel_problems(document: dict) -> list[str]:
+    """Every non-Windows cell runs under xdist; the Windows shards stay serial.
+
+    The suite spawns hundreds of processes and a hosted runner gives 3-4 vCPUs, so
+    a cell is wall-clock bound. Measured on the 4-worker emulation of a runner:
+    242s serial against 94s with `-n 4`, same results. The Windows rows are
+    already split into five path shards and gain nothing from a second split.
+    """
+    problems: list[str] = []
+    for entry in matrix_entries(document):
+        cell = (str(entry.get("os")), str(entry.get("python-version")))
+        flag = str(entry.get("xdist") or "")
+        if cell[0] == "windows-latest":
+            if flag:
+                problems.append(f"the sharded Windows cell {cell} also sets xdist {flag!r}")
+        elif flag != XDIST:
+            problems.append(f"{cell} does not run under pytest-xdist: {flag!r}")
+    steps = (jobs(document).get("test") or {}).get("steps") or []
+    plain = [step for step in steps if "--junitxml" in str(step.get("run") or "")]
+    if len(plain) != 2:
+        problems.append(f"{len(plain)} junit steps, want the coverage and plain pair")
+        return problems
+    plain_run = str(plain[1].get("run") or "")
+    if "matrix.xdist" not in plain_run:
+        problems.append("the plain test step ignores matrix.xdist")
+    coverage_run = str(plain[0].get("run") or "")
+    if XDIST not in coverage_run:
+        problems.append(f"the coverage step does not run under {XDIST!r}")
+    return problems
+
 
 def shard_problems(document: dict) -> list[str]:
     """A cell may be sharded, but the shards must partition the suite by path.
@@ -159,7 +283,9 @@ def shard_problems(document: dict) -> list[str]:
         seen.setdefault(cell, []).append(str(entry.get("paths") or ""))
     for cell, paths in sorted(seen.items()):
         if len(paths) == 1:
-            if paths[0]:
+            if not paths[0]:
+                continue
+            if cell not in SUBSET_CELLS:
                 problems.append(f"{cell} names shard paths but is one job: {paths[0]!r}")
             continue
         if cell not in SHARDED_CELLS:
@@ -245,6 +371,8 @@ def matrix_problems(document: dict) -> list[str]:
     if cells != sorted(MATRIX_CELLS):
         problems.append(f"test matrix is {cells}, contract says {sorted(MATRIX_CELLS)}")
     problems.extend(shard_problems(document))
+    problems.extend(subset_problems(document))
+    problems.extend(parallel_problems(document))
     covered = [(os_name, version) for os_name, version, coverage in rows if coverage == "true"]
     if covered != [COVERAGE_CELL]:
         problems.append(f"coverage lanes are {covered}, want only {COVERAGE_CELL}")
@@ -441,6 +569,134 @@ def test_mutant_a_test_file_in_two_shards_is_reported():
     assert mutant != workflow_text(), "the acceptance shard is gone"
     problems = shard_file_problems(parse_workflow(mutant))
     assert any("two shards" in problem for problem in problems), problems
+
+
+def test_the_matrix_is_sized_to_the_portability_question(ci):
+    """The interior interpreter and macOS run a subset; the boundaries run it all."""
+    assert subset_problems(ci) == []
+    assert parallel_problems(ci) == []
+    full = [
+        (str(entry.get("os")), str(entry.get("python-version")))
+        for entry in matrix_entries(ci)
+        if not entry.get("paths") and not entry.get("shard")
+    ]
+    assert full == list(FULL_SUITE_CELLS), full
+
+
+def test_mutant_a_cell_without_xdist_is_reported():
+    """A cell that still runs serially is exactly the wall clock T-0105 removes."""
+    old = (
+        '            python-version: "3.13"\n'
+        "            coverage: false\n"
+        '            xdist: "--numprocesses=auto"\n'
+        "          # macOS runs"
+    )
+    assert workflow_text().count(old) == 1, "the ubuntu 3.13 row moved"
+    mutant = workflow_text().replace(
+        old, old.replace('            xdist: "--numprocesses=auto"\n', ""), 1
+    )
+    problems = parallel_problems(parse_workflow(mutant))
+    assert any("pytest-xdist" in problem for problem in problems), problems
+
+
+def test_mutant_a_macos_subset_without_the_portability_flow_is_reported():
+    """macOS is a host the spaced-path/symlink/GNU-make guards exist for."""
+    old = f'            paths: "{SUBSET_CELLS[("macos-latest", "3.13")]}"\n'
+    assert workflow_text().count(old) == 1, "the macOS row moved"
+    mutant = workflow_text().replace(old, f'            paths: "{SUBSET_PATHS}"\n', 1)
+    problems = subset_problems(parse_workflow(mutant))
+    assert any(PORTABILITY_FLOW in problem for problem in problems), problems
+
+
+def test_the_header_states_each_subset_cell_as_its_row_does():
+    """The header is the contract document; it may not restate a row differently."""
+    problems = header_problems()
+    assert problems == [], problems
+
+
+def test_mutant_a_header_that_drops_the_portability_flow_is_reported():
+    """A header naming the subset without the portability module is the refuted premise."""
+    text = workflow_text()
+    mutant = text.replace(
+        "tests/integration/test_portability_flow.py` in full",
+        "tests/acceptance` in full",
+        1,
+    )
+    assert mutant != text, "the header's macOS subset sentence moved"
+    problems = header_problems(mutant)
+    assert any(PORTABILITY_FLOW in problem for problem in problems), problems
+
+
+def test_mutant_a_boundary_interpreter_on_the_subset_is_reported():
+    """A subset is only safe while another lane still runs the whole suite."""
+    old = (
+        '            python-version: "3.11"\n'
+        "            coverage: true\n"
+        '            xdist: "--numprocesses=auto"\n'
+    )
+    assert workflow_text().count(old) == 1, "the coverage row moved"
+    mutant = workflow_text().replace(old, old + f'            paths: "{SUBSET_PATHS}"\n', 1)
+    problems = subset_problems(parse_workflow(mutant))
+    assert any("must run the whole suite" in problem for problem in problems), problems
+
+
+CENSUS_DOCS = ("docs/Team/Architecture.md", "pyproject.toml")
+
+CENSUS_SHAPE = re.compile(
+    r"\b\d+\s+(?:passed|collected|skipped)\b"
+    r"|\b(?:collects?|collected|runs?|ran|reports?|reported)\s+\d+\s+tests?\b",
+    re.IGNORECASE,
+)
+
+
+def census_problems(repo_root: Path = REPO_ROOT) -> list[str]:
+    """A doc states no test census; it points at the command that re-reads it.
+
+    A count of passed/collected/skipped tests is stale the moment a test lands, so
+    a doc carries the comparison and the command instead (the CEO ruling on
+    T-0105). A wall clock stays, pinned to a revision and a date: `36s at f4cd508, 2026-11-11`.
+    """
+    problems: list[str] = []
+    for relative in CENSUS_DOCS:
+        path = repo_root / relative
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if CENSUS_SHAPE.search(line):
+                problems.append(f"{relative}:{number} states a test census: {line.strip()}")
+    return problems
+
+
+def test_no_doc_states_a_test_census():
+    """The matrix section and the dev extra quote the comparison, not a count."""
+    problems = census_problems()
+    assert problems == [], problems
+
+
+def test_mutant_a_census_number_in_a_doc_is_reported(tmp_path):
+    """The shape that goes stale: a number followed by passed/collected/skipped."""
+    for relative in CENSUS_DOCS:
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_text("the run gave 2751 passed\n", encoding="utf-8")
+    problems = census_problems(tmp_path)
+    assert len(problems) == len(CENSUS_DOCS), problems
+    assert all("states a test census" in problem for problem in problems), problems
+    (tmp_path / CENSUS_DOCS[0]).write_text(
+        "the run gave 36s at `f4cd508`, 2026-11-11\n", encoding="utf-8"
+    )
+    assert [p for p in census_problems(tmp_path) if CENSUS_DOCS[0] in p] == []
+
+
+def test_mutant_a_prose_census_in_a_doc_is_reported(tmp_path):
+    """The other shape: a verb and a number, "the tree collects 2763 tests"."""
+    for relative in CENSUS_DOCS:
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_text("the tree collects 2763 tests\n", encoding="utf-8")
+    problems = census_problems(tmp_path)
+    assert len(problems) == len(CENSUS_DOCS), problems
+    assert all("states a test census" in problem for problem in problems), problems
+    (tmp_path / CENSUS_DOCS[0]).write_text(
+        "so the doc states no count and the two runs below are the check\n", encoding="utf-8"
+    )
+    assert [p for p in census_problems(tmp_path) if CENSUS_DOCS[0] in p] == []
 
 
 def test_the_coverage_gate_runs_on_one_lane_only(ci):
