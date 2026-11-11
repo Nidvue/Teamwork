@@ -331,7 +331,13 @@ jobs:
   privacy:
     name: privacy scan (tree + history)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 30, not 15, because the budget is a measurement: the same command takes
+    # 8m02s on a 597-commit history on the development host (a laptop with a warm
+    # cache), and a hosted runner with a cold object store took 15m15s and was
+    # cancelled at the old budget - T-0090. A gate that is cancelled for being
+    # slow reports nothing, which is worse than a longer budget; the scan itself
+    # is unchanged and still walks every blob and every commit message.
+    timeout-minutes: 30
     needs: scope
     # Prose-only pushes included: this gate reads the git history and every
     # commit message, and a merge commit is created at merge time - so a
