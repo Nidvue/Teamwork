@@ -2669,3 +2669,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `rg -n 'PROMOTE_MIN_IMPORTANCE|SHORT_CAP' src/teamwork/config.py` @HEAD -> 255: `PROMOTE_MIN_IMPORTANCE = _env_int("TEAMWORK_PROMOTE_MIN_IMPORTANCE", 2)`, 245: `SHORT_CAP = _env_int("TEAMWORK_SHORT_CAP", 24)`; `rg -n -- '--importance' src/teamwork/engine.py` @HEAD -> 17982: `s.add_argument("--importance", type=int, default=2)`; `sed -n '7832,7845p' src/teamwork/engine.py` @HEAD -> the shipped population is `stale = days_since(...) >= STALE_DAYS and uses < MIN_USES` with the overflow split already on `importance >= PROMOTE_MIN_IMPORTANCE`, so the split the ruling keeps is the code's existing behaviour and T-0098 only replaces the population.
 - falsified by: a record that the writers create (importance 2) which fails `uses >= PROMOTE_USES` yet lands in LongTermMemory.md, or a stale record with `uses >= 2` that lands in ArchivedMemory.md, on a `consolidate --dry-run` run after T-0098.
 - consequences: T-0098 implements `stale = age >= STALE_DAYS` with the promote/drop rows above and retires `MIN_USES`; the 15.6 promotion cell stays TBD until that lane records a dry-run.
+
+## D-20261111-CEO-4 - Collapse the unpushed stage range to remove personal data from history before publishing
+
+- date: 2026-11-11
+- kind: redline
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0113
+- context: -
+- options considered: -
+- decision: Authorised: the 18 commits between origin/main (c6c4149) and the current tip are collapsed into one records commit, because commit 4008f67 (T-0102) committed the operator's real name and address as a test fixture and every later commit inherits the blob. The tree is already clean (privacy_scan --tree -> PASS 0 after T-0113 at 36c0ca5); the history is not, and pushing it would publish the personal data that the project's own red line forbids. The collapsed commit carries the whole stage's tree, and its message names every task it contains so the trail stays readable; the ledger and docs/Team/Archive.md keep the per-task provenance, and the pre-rewrite SHAs cited by T-0102, T-0011, T-0111 and T-0113 are named in the message as pre-rewrite. Reflogs are expired and unreachable objects pruned so privacy_scan --history reads 0. Nothing published is rewritten: origin/main is untouched and this is a fast-forward from it.
+- why: no personal data in the published history is a red line; the alternative is publishing the operator's address in a fixture
+- evidence: privacy_scan --tree --allow .github/privacy-allow.txt @36c0ca5 -> PASS 0; privacy_scan --history -> FAIL 6 (tests/unit/test_commit_identity.py:758,760,777); git log --oneline origin/main..main -> 18 commits, the first carrying the file is 4008f67
+- falsified by: If the collapsed commit cannot be pushed as a fast-forward from origin/main, or if privacy_scan --history still reports the fixture afterwards, the collapse is reverted with git reset --hard to the pre-collapse tip recorded in this decision's evidence
+- consequences: -

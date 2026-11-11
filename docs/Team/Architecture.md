@@ -279,7 +279,7 @@ fails when the workflow and this table disagree.
   * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
     matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
-    (five cells, nine jobs: the Windows cell runs as five path shards, and the
+    (five cells, ten jobs: the Windows cell runs as six path shards, and the
     ubuntu 3.12 cell runs the named subset `tests/unit tests/acceptance` and the
     macOS cell runs that subset plus `tests/integration/test_portability_flow.py`,
     instead of the whole suite),
@@ -290,9 +290,14 @@ fails when the workflow and this table disagree.
     `docs` (mkdocs build --strict).
   * The Windows cell is sharded because one job per cell was cancelled at the
     90-minute cap (run 43000716956: the a-f row carried unit a-f plus the whole
-    integration and acceptance trees). Five shards, disjoint by path and together
+    integration and acceptance trees), and the integration tree was the one row
+    that stayed long after that split (55+ minutes on run 43035306476 while the
+    other four finished in 2/5/11/16). Six shards, disjoint by path and together
     naming every `test_*.py` under `tests/`: `unit-a-f`, `unit-g-o`, `unit-p-z`
-    (letter ranges of `tests/unit/`), `integration`, `acceptance`.
+    (letter ranges of `tests/unit/`), `integration-a-l`, `integration-m-z` (letter
+    ranges of `tests/integration/`), `acceptance`. Every shard names itself in the
+    job name through `matrix.shard` and runs pytest with `-v --durations=25`, so a
+    shard that reaches the cap leaves the last test it started in the log.
     `tests/unit/test_ci_contracts.py` expands those paths over the tree and fails
     on a test file no shard runs or a file two shards run.
   * The matrix is **sized to the portability question**, not run five times over
@@ -309,7 +314,7 @@ fails when the workflow and this table disagree.
     `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
     acceptance are the cheap proof of the ACs; the rest of the subprocess-heavy
     integration tree (338 tests, 30% of the serial wall clock) runs on both
-    boundary interpreters and on the five Windows shards, and no test in the tree
+    boundary interpreters and on the six Windows shards, and no test in the tree
     branches on darwin.
     `tests/unit/test_ci_contracts.py` pins each subset in `SUBSET_CELLS` (a
     cell-to-paths map) with `SUBSET_PATHS` and `PORTABILITY_FLOW`, fails when a

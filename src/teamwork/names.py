@@ -188,12 +188,17 @@ def identity_string(role: str) -> str:
     return f"{name} <{email}>"
 
 
-def preset_identity(project=None) -> tuple | None:
-    """The operator's preset identity: the repository's local config, else global.
+PRESET_NAME_KEY = "teamwork.identity.name"
+PRESET_EMAIL_KEY = "teamwork.identity.email"
 
-    A team that runs on a developer's machine should commit as that developer when
-    the repository says who they are; the role mailbox is the fallback for a host
-    with no identity at all, not an override of the person who owns the checkout.
+
+def preset_identity(project=None) -> tuple | None:
+    """The host's ambient identity: the repository's local config, else global.
+
+    This is what ``identity --audit`` accepts as the operator's own history, not
+    what a new commit is authored with - ``commit_identity`` reads only the
+    declared pair, because an ambient pair made every lane commit as whoever owns
+    the machine (A-0012).
     """
     import subprocess
 
@@ -219,12 +224,60 @@ def preset_identity(project=None) -> tuple | None:
     return name, email
 
 
+def declared_identity(project=None) -> tuple | None:
+    """The identity the team declared for its own commits, else None.
+
+    A repository that wants its commits authored by a person or a shared mailbox
+    says so once - ``teamwork.identity.name`` and ``teamwork.identity.email`` - and
+    both keys must be set. The ambient ``user.name``/``user.email`` is *not* a
+    declaration: it is whatever machine the lane happens to run on, so reading it
+    made every lane commit as the operator (A-0012) while the constitution says a
+    commit carries the acting role's mailbox.
+    """
+    import subprocess
+
+    def read(scope: str, key: str) -> str:
+        try:
+            return subprocess.run(
+                ["git", "config", scope, key],
+                cwd=str(project) if project else None,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        except OSError:
+            return ""
+
+    name = read("--local", PRESET_NAME_KEY) or read("--global", PRESET_NAME_KEY)
+    email = read("--local", PRESET_EMAIL_KEY) or read("--global", PRESET_EMAIL_KEY)
+    if not (name and email):
+        return None
+    if email.lower().endswith("@" + IDENTITY_DOMAIN.lower()):
+        return None
+    return name, email
+
+
 def commit_identity(role: str, project=None) -> tuple:
-    """(name, email) a commit is authored with: preset first, role mailbox last."""
-    preset = preset_identity(project)
-    return preset if preset else role_identity(role)
+    """(name, email) a commit is authored with: declared pair first, role last."""
+    declared = declared_identity(project)
+    return declared if declared else role_identity(role)
 
 
 def git_identity_args(role: str, project=None) -> list:
     name, email = commit_identity(role, project)
     return ["-c", f"user.name={name}", "-c", f"user.email={email}"]
+
+
+def git_identity_env(role: str, project=None) -> dict:
+    """The git variables a commit runs with, so no ambient pair can override it.
+
+    ``-c user.name`` loses to an exported ``GIT_AUTHOR_NAME``, which a rebase, a
+    forge runner or a wrapper shell leaves behind; the environment variables win
+    over every config scope, so the identity is pinned for this one commit.
+    """
+    name, email = commit_identity(role, project)
+    return {
+        "GIT_AUTHOR_NAME": name,
+        "GIT_AUTHOR_EMAIL": email,
+        "GIT_COMMITTER_NAME": name,
+        "GIT_COMMITTER_EMAIL": email,
+    }

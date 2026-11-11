@@ -473,11 +473,11 @@ def test_repo_bootstrap_preserves_a_name_only_local_identity(tmp_path: Path) -> 
     engine.ensure_repo(project, commit=False, quiet=True)
     assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
     resolved = engine.commit_identity("ceo", project)
-    preset = engine.preset_identity(project)
-    if preset is None:
+    declared = engine.declared_identity(project)
+    if declared is None:
         assert resolved == ("CEO", "ceo@agents.nidvue.com"), "role mailbox is the fallback"
     else:
-        assert resolved == preset, "a complete preset pair wins, per key"
+        assert resolved == declared, "a complete declared pair wins, per key"
     assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
 
 

@@ -272,7 +272,9 @@ from .names import (
     body_text,
     clip,
     commit_identity,
+    declared_identity,
     git_identity_args,
+    git_identity_env,
     identity_string,
     one_line,
     pascal,
@@ -507,7 +509,9 @@ __all__ = [
     "role_identity",
     "identity_string",
     "git_identity_args",
+    "git_identity_env",
     "commit_identity",
+    "declared_identity",
     "preset_identity",
     "project_path",
     "project_of",
@@ -5316,9 +5320,10 @@ _RE_FORGE_COMMITTER_EMAIL = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\
 def canonical_identities(project=None) -> dict:
     """email -> display name for every identity the team may commit as.
 
-    The role mailboxes are the portable set; the operator's preset identity is
-    accepted as well, because a checkout that names its owner commits as them
-    (`names.commit_identity`) rather than overriding the person with a role.
+    The role mailboxes are the portable set. The operator's preset identity is
+    accepted as well, but only by ``identity --audit``, which judges history
+    already on the branch: ``names.commit_identity`` never reads that ambient
+    pair, so no new commit is authored as whoever owns the machine (A-0012).
     """
     out = {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
     out[OPERATOR_IDENTITY[1]] = OPERATOR_IDENTITY[0]
@@ -5541,6 +5546,18 @@ def build_commit_message(role: str, meta: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _git_author(project: Path, env: dict) -> tuple:
+    """(name, email) git would author a commit with in ``env``, or ("", "")."""
+    r = subprocess.run(
+        ["git", "-C", str(project), "var", "GIT_AUTHOR_IDENT"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    match = re.match(r"^(.*?) <(.*?)> ", r.stdout.strip()) if r.returncode == 0 else None
+    return (match.group(1), match.group(2)) if match else ("", "")
+
+
 def cmd_commit(args) -> int:
     """Stage, LFS-track and commit a coherent change-set with the fixed style."""
     root = project_root(args)
@@ -5599,6 +5616,18 @@ def cmd_commit(args) -> int:
         )
 
     name, email = commit_identity(role, project_of(root))
+    identity_env = dict(os.environ, **git_identity_env(role, project_of(root)))
+    would_author = _git_author(project, identity_env)
+    if would_author != (name, email):
+        die(
+            f"refusing to commit: git would author it as {would_author[0]} "
+            f"<{would_author[1]}>, which is neither the role mailbox nor a declared "
+            f"preset ({name} <{email}>). The commit identity is pinned to {name} "
+            f"<{email}> for this command, so a mismatch means git ignored the "
+            "environment; run `git var GIT_AUTHOR_IDENT` here and check for a "
+            "wrapper that rewrites GIT_AUTHOR_*.",
+            2,
+        )
 
     producers = args.producers
     if not producers:
@@ -5703,11 +5732,22 @@ def cmd_commit(args) -> int:
         input=message,
         capture_output=True,
         text=True,
+        env=identity_env,
     )
     if r.returncode != 0:
         die(f"git commit failed: {r.stderr.strip()}")
     sha = run_git(project, "rev-parse", "--short", "HEAD").stdout.strip()
-    print(f"teamwork: committed {sha} as {name} <{email}>")
+    landed = run_git(project, "log", "-1", "--format=%an <%ae>").stdout.strip()
+    if landed != f"{name} <{email}>":
+        die(
+            f"commit {sha} landed authored by {landed}, not {name} <{email}>. A hook "
+            "or config rewrote the author; amend it as the acting role before "
+            "pushing:\n"
+            f"  git -c user.name={name} -c user.email={email} commit --amend "
+            "--reset-author --no-edit",
+            2,
+        )
+    print(f"teamwork: committed {sha} as {landed}")
     print(f"          {message.splitlines()[0]}")
     print(f"          files: {len(staged.splitlines())}")
 

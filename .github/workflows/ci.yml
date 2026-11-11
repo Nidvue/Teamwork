@@ -7,7 +7,7 @@
 # by a workflow-level filter.
 #
 # Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix, the
-# Windows cell split into five path shards), build, privacy, committer guard,
+# Windows cell split into six path shards), build, privacy, committer guard,
 # release-consistency, docs, docs-contract. Every job must be green on the pushed
 # revision.
 #
@@ -25,7 +25,7 @@
 # `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
 # acceptance are the cheap 8s proof of the ACs, and the rest of the
 # subprocess-heavy integration tree (338 tests, 30% of the serial wall clock)
-# already runs on both boundary interpreters and on all five Windows shards; no
+# already runs on both boundary interpreters and on all six Windows shards; no
 # test in the tree branches on darwin, so neither cell carries it. Every cell
 # runs under pytest-xdist `--numprocesses=auto` (`-n auto`) except the Windows
 # shards, which are already split by path: measured 242s serial against 94s with
@@ -243,7 +243,7 @@ jobs:
         run: mypy src/teamwork
 
   test:
-    name: test (${{ matrix.os }} / py${{ matrix.python-version }})
+    name: test (${{ matrix.os }} / py${{ matrix.python-version }}${{ matrix.shard && format(' / {0}', matrix.shard) || '' }})
     runs-on: ${{ matrix.os }}
     # Capacity, not a gate: every test still runs. Measured 18 min on ubuntu 3.13
     # and 30 on macos 3.13; windows hit the old 60-minute cap twice (runs
@@ -291,12 +291,15 @@ jobs:
           # Windows spawns processes several times slower than the POSIX runners and
           # this suite spawns hundreds of them, so one Windows job exceeded the
           # 90-minute cap even after the traceability guard stopped re-running the
-          # privacy scan (run 42941335942). Five shards, no plugin and no new
+          # privacy scan (run 42941335942). Six shards, no plugin and no new
           # dependency. The three unit letter ranges are one row each and the two
           # subprocess-heavy trees stand alone, because the first split left unit
           # a-f carrying integration and acceptance and that row was cancelled at
           # the cap on run 43000716956. A cancelled shard now names the files it was
-          # running instead of hiding the whole lane.
+          # running instead of hiding the whole lane. The integration tree is the
+          # one row that stayed long (55+ minutes on run 43035306476 while the other
+          # four finished in 2/5/11/16), so it is split by file range too, and every
+          # shard names itself in the job name and reports its own slowest tests.
           - os: windows-latest
             python-version: "3.13"
             coverage: false
@@ -315,8 +318,13 @@ jobs:
           - os: windows-latest
             python-version: "3.13"
             coverage: false
-            shard: "integration"
-            paths: "tests/integration"
+            shard: "integration-a-l"
+            paths: "tests/integration/test_[a-l]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "integration-m-z"
+            paths: "tests/integration/test_[m-z]*.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
@@ -361,7 +369,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports
-          python -m pytest -q ${{ matrix.xdist }} --junitxml=reports/junit.xml ${{ matrix.paths }}
+          python -m pytest -q ${{ matrix.xdist }} \
+            ${{ matrix.shard && '-v --durations=25' || '' }} \
+            --junitxml=reports/junit.xml ${{ matrix.paths }}
       - name: Upload junit + coverage artifact
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
