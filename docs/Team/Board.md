@@ -237,7 +237,7 @@ under two roles is two tasks.
 | developer | T-0106 | memory | done | P-0151 | 03267a8 |
 | developer | T-0107 | - | todo | - | - |
 | developer | T-0108 | - | todo | - | - |
-| developer | T-0109 | memory | review | P-0154 | - |
+| developer | T-0109 | memory | done | P-0154 | 04b4983 |
 | developer | T-0110 | - | todo | - | - |
 | developer | T-0111 | ci | done | P-0155 | 422733c |
 | developer | T-0112 | - | todo | - | - |
@@ -298,7 +298,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
 | developer | T-0107 · close the census-guard class by inversion instead of enumerating word orders | P1 | todo | - |
 | developer | T-0108 · T-0004 lane work | P2 | todo | - |
-| developer | T-0109 · M23-D: recall and memory search do not resolve an archived record (AC-M23-2, Memory.md 15.3) | P1 | review | - |
 | developer | T-0110 · pr merge pins identity with -c only, so an exported GIT_AUTHOR_NAME can still author a merge commit | P2 | todo | - |
 | developer | T-0112 · remember accepts a write with no by, so three reviewer notes carry no provenance | P1 | todo | - |
 
