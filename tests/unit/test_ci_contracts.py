@@ -240,7 +240,7 @@ def parallel_problems(document: dict) -> list[str]:
     The suite spawns hundreds of processes and a hosted runner gives 3-4 vCPUs, so
     a cell is wall-clock bound. Measured on the 4-worker emulation of a runner:
     242s serial against 94s with `-n 4`, same results. The Windows rows are
-    already split into five path shards and gain nothing from a second split.
+    already split into six path shards and gain nothing from a second split.
     """
     problems: list[str] = []
     for entry in matrix_entries(document):
@@ -262,6 +262,34 @@ def parallel_problems(document: dict) -> list[str]:
     coverage_run = str(plain[0].get("run") or "")
     if XDIST not in coverage_run:
         problems.append(f"the coverage step does not run under {XDIST!r}")
+    return problems
+
+
+def naming_problems(document: dict) -> list[str]:
+    """A sharded job names its shard, and its pytest run names the tests it runs.
+
+    The job name is the only label a reader has while a run is in flight, and a
+    shard that hangs at the cap is otherwise indistinguishable from a slow one.
+    `-v` writes each test as it starts and `--durations=25` names the slowest
+    tests when the run ends, so a cancelled shard leaves the last test it began
+    in the log instead of an empty tail (T-0111, run 43035306476).
+    """
+    problems: list[str] = []
+    job = jobs(document).get("test") or {}
+    name = str(job.get("name") or "")
+    if "matrix.shard" not in name:
+        problems.append(f"the test job name does not name its shard: {name!r}")
+    steps = job.get("steps") or []
+    plain = [step for step in steps if "--junitxml" in str(step.get("run") or "")]
+    if len(plain) != 2:
+        problems.append(f"{len(plain)} junit steps, want the coverage and plain pair")
+        return problems
+    run = str(plain[1].get("run") or "")
+    for flag in ("--durations", "-v"):
+        if flag not in run:
+            problems.append(f"the plain test step does not pass {flag!r}")
+    if "matrix.shard" not in run:
+        problems.append("the plain test step passes those flags to every cell, not the shards")
     return problems
 
 
@@ -545,10 +573,33 @@ def test_the_shards_partition_the_suite_and_stay_small(ci):
     assert shard_problems(ci) == []
     assert shard_file_problems(ci) == []
     rows = shard_rows(ci)
-    assert len(rows) >= 5, rows
+    assert len(rows) >= 6, rows
     assert len({shard for shard, _paths in rows}) == len(rows), rows
     for shard, paths in rows:
         assert not ("test_[a-f]" in paths and "tests/integration" in paths), shard
+    integration = [shard for shard, paths in rows if "tests/integration/" in paths]
+    assert len(integration) >= 2, rows
+
+
+def test_every_sharded_job_names_itself_and_its_slowest_tests(ci):
+    """The Windows integration shard ran 55 minutes with nothing in the log to name."""
+    assert naming_problems(ci) == []
+
+
+def test_mutant_a_job_name_without_its_shard_is_reported():
+    mutant = workflow_text().replace(
+        "${{ matrix.shard && format(' / {0}', matrix.shard) || '' }}", "", 1
+    )
+    assert mutant != workflow_text(), "the job name no longer names the shard"
+    problems = naming_problems(parse_workflow(mutant))
+    assert any("does not name its shard" in problem for problem in problems), problems
+
+
+def test_mutant_a_plain_run_without_durations_is_reported():
+    mutant = workflow_text().replace("'-v --durations=25'", "'-v'", 1)
+    assert mutant != workflow_text(), "the plain run no longer asks for durations"
+    problems = naming_problems(parse_workflow(mutant))
+    assert any("--durations" in problem for problem in problems), problems
 
 
 def test_mutant_a_dropped_shard_path_is_reported():

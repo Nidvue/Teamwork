@@ -10,6 +10,8 @@ import pytest
 
 from teamwork import engine
 
+HOSTILE_IDENTITY = ("Hostile Operator", "hostile@example.invalid")
+
 
 def _git(repo: Path, *args: str, ident: tuple[str, str] | None = None):
     command = ["git", "-C", str(repo)]
@@ -708,3 +710,89 @@ def test_every_gate_invocation_asks_for_the_strict_author_audit():
         if "--strict-authors" not in line
     ]
     assert not missing, missing
+
+
+def _committable(tmp_path: Path) -> Path:
+    """A repository on a lane branch with a hostile ambient identity configured."""
+    project = tmp_path / "Repo"
+    project.mkdir()
+    _git(project, "init", "-q", "-b", "main")
+    _git(project, "config", "user.name", HOSTILE_IDENTITY[0])
+    _git(project, "config", "user.email", HOSTILE_IDENTITY[1])
+    (project / "notes.txt").write_text("work\n", encoding="utf-8")
+    _git(project, "add", "notes.txt")
+    _git(project, "checkout", "-q", "-b", "developer-1/t-0102")
+    return project
+
+
+def _commit_args(project: Path) -> list:
+    return [
+        "--project",
+        str(project),
+        "commit",
+        "--role",
+        "developer",
+        "--type",
+        "feat",
+        "--area",
+        "identity",
+        "--paths",
+        "notes.txt",
+        "--goal",
+        "a lane commit carries the role mailbox",
+        "--deliverable",
+        "the commit identity is the acting role",
+        "--why",
+        "A-0012: the ambient git identity authored lane commits",
+        "--status",
+        "implemented",
+        "--result",
+        "pytest @HEAD -> see this suite",
+    ]
+
+
+def test_a_hostile_ambient_identity_still_lands_as_the_role_mailbox(
+    tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A-0012: an exported hostile pair, or the repo's own, never authors the commit."""
+    project = _committable(tmp_path)
+    monkeypatch.setenv("GIT_AUTHOR_NAME", HOSTILE_IDENTITY[0])
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", HOSTILE_IDENTITY[1])
+    monkeypatch.setenv("GIT_COMMITTER_NAME", HOSTILE_IDENTITY[0])
+    monkeypatch.setenv("GIT_COMMITTER_EMAIL", HOSTILE_IDENTITY[1])
+
+    assert cli(*_commit_args(project)) == 0
+    expected = f"Developer <developer@{engine.IDENTITY_DOMAIN}>"
+    assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == expected
+    assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
+    printed = capsys.readouterr().out
+    assert "committed " in printed and f"as {expected}" in printed
+
+
+def test_the_declared_preset_pair_authors_the_commit(
+    tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = _committable(tmp_path)
+    _git(project, "config", "teamwork.identity.name", "Ops Person")
+    _git(project, "config", "teamwork.identity.email", "ops@example.com")
+    monkeypatch.setenv("GIT_AUTHOR_NAME", HOSTILE_IDENTITY[0])
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", HOSTILE_IDENTITY[1])
+
+    assert cli(*_commit_args(project)) == 0
+    assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == (
+        "Ops Person <ops@example.com>"
+    )
+
+
+def test_commit_refuses_an_identity_it_cannot_pin(
+    tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The guard fires before anything is committed when git ignores the environment."""
+    project = _committable(tmp_path)
+    monkeypatch.setattr(engine, "_git_author", lambda *a, **k: HOSTILE_IDENTITY)
+    assert cli(*_commit_args(project)) == 2
+    assert "refusing to commit" in capsys.readouterr().err
+    head = subprocess.run(
+        ["git", "-C", str(project), "rev-parse", "HEAD"], capture_output=True, text=True
+    )
+    assert head.returncode != 0, "nothing landed"

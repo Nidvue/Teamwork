@@ -676,21 +676,57 @@ id     W-0001                                        allocated per wiki, never r
 ### 15.6 The measurement table AC-M23-6 fills
 
 Every row is a command and a number, so the criterion is checked by running it, not
-by reading prose. `before` is measured at `0e9b5c6`; `target` is what the merged
-M23 code must show, and the cell is `TBD` until the code lane records it.
+by reading prose. `before` is measured at `0e9b5c6`; `measured` is the Tester's run
+on the merged M23 code (Tester T-0011, revision `c6c4149`, the live team tree at
+2026-11-11); `target` is what the merged M23 code must show.
 
-| surface | before @0e9b5c6 | target | command |
+| surface | before @0e9b5c6 | measured @c6c4149 | target | command |
+|---|---|---|---|---|
+| short entries written | 0 across 8 role stores | 22 across 8 stores: Reviewer 12, Developer 9, Architect 1, five roles 0 (no lane run since the layer landed) | >= 1 per role that worked a task, and no lane that recorded nothing left empty | `rg -c '^## M-' Roles/*/ShortTermMemory.md` |
+| `load Architect` bytes | 5,572 B | 4,601 B | <= 5,572 B - the short block is paid for by the pack, not added | `teamwork.py load Architect --task T-0011 \| wc -c` |
+| task-aware pack | 4,145 B against a 4,000 B budget | 3,927 B pack body, 4,096 B stdout with the 122 B `# task:` header | <= 4,000 B with the short block included in the arithmetic | `teamwork.py memory pack --role tester --task T-0011 \| wc -c` |
+| pack determinism | two runs byte-identical | two runs byte-identical (`cmp` silent) | unchanged with the short block | `memory pack ... > a; memory pack ... > b; cmp a b` |
+| dream wall clock | 42 records, inside 2 s | 76 records, 181 ms | <= `DREAM_BUDGET_SECONDS` (2 s) on every trigger, `deferred` named when it stops | `time teamwork.py memory dream --dry-run` |
+| dream findings | 0 duplicate, 0 contradiction, 0 stale, 0 no-evidence, 41 drifted | 0 duplicate, 0 contradiction, 0 stale, 0 no-evidence, 51 drifted; the dry run wrote nothing | no auto-rewrite: a drifted record is reported and never promoted | `teamwork.py memory dream --dry-run` |
+| dream second call | 0 actions, no new event | 0 actions, `ledger bytes +0`, on the live tree and on a copy | unchanged | `memory dream --apply --by <you>` twice on a copy |
+| wiki pages | 0, by the section 12 falsifier | 0 on the live store (below the falsifier); 1 page (`gate-skipped.md`, 2 sources, under 1,200 B) from the fixture corpus | 0 until a trigger fires; then every page <= 1,200 B with >= 2 sources | `find Wiki -name '*.md' \| wc -l`; `wc -c Wiki/*.md` |
+| retrieval | `memory search review` -> 1,772 B | 1,901 B, page hits competing for the same 2,000 B | <= 2,000 B including page hits | `teamwork.py memory search review \| wc -c` |
+| promotion | 24 long entries, 5 for Architect, none written by `consolidate` | 24 long entries (Reviewer 12, Architect 5, CEO 2, Tester 2, Product Manager 2, Developer 1); 0 moves in this run because no short entry is stale at 2026-11-11, 21 `memory.promote` events in `Ledger.jsonl` from earlier lanes; the rule itself is proved on a fixture: 1 promote + 1 evict + the statement kept unchanged | every moved record satisfies 15.3: stale and `uses >= 2` is long, every other stale record is archived, importance decides only the overflow split, one ledger action per move, no record deleted | `consolidate --all --dry-run`; `rg -c '^## M-' Roles/*/LongTermMemory.md`; `grep -c 'memory.promote' Ledger.jsonl` |
+
+The integration suite that produces these rows is
+`tests/integration/test_memory_flow_certification.py` (layer `integration`, area
+`memory`): the lane-exit entry and its sibling read, the empty case, the promotion
+and demotion moves, the dream line on both triggers with its budget and its
+idempotent second apply, the wiki page and its search pointer inside
+`SEARCH_BUDGET_BYTES`, and this table itself.
+
+**AC-M23-6 role coverage.** One row per staffed role, measured on the live team
+tree at `c6c4149`: how many short entries its store holds and what `load` costs for
+it. A role at 0 has run no lane since the layer landed - the store is empty because
+nothing worked, not because the writer failed (the empty case above proves the
+writer stays silent for a lane that recorded nothing).
+
+| role | staffed instance | short entries written | `load <instance>` bytes |
 |---|---|---|---|
-| short entries written | 0 across 8 role stores | >= 1 per role that worked a task, and no lane that recorded nothing left empty | `rg -c '^## M-' Roles/*/ShortTermMemory.md` |
-| `load Architect` bytes | 5,572 B | <= 5,572 B - the short block is paid for by the pack, not added | `teamwork.py load Architect --task T-0008 \| wc -c` |
-| task-aware pack | 4,145 B against a 4,000 B budget | <= 4,000 B with the short block included in the arithmetic | `teamwork.py memory pack --role architect --task T-0008 \| wc -c` |
-| pack determinism | two runs byte-identical | unchanged with the short block | `memory pack ... > a; memory pack ... > b; cmp a b` |
-| dream wall clock | 42 records, inside 2 s | <= `DREAM_BUDGET_SECONDS` on every trigger, `deferred` named when it stops | `time teamwork.py memory dream --dry-run` |
-| dream findings | 0 duplicate, 0 contradiction, 0 stale, 0 no-evidence, 41 drifted | no auto-rewrite: a drifted record is reported and never promoted | `teamwork.py memory dream --dry-run` |
-| dream second call | 0 actions, no new event | unchanged | `memory dream --apply --by <you>` twice on a copy |
-| wiki pages | 0, by the section 12 falsifier | 0 until a trigger fires; then every page <= 1,200 B with >= 2 sources | `find Wiki -name '*.md' \| wc -l`; `wc -c Wiki/*.md` |
-| retrieval | `memory search review` -> 1,772 B | <= 2,000 B including page hits | `teamwork.py memory search review \| wc -c` |
-| promotion | 24 long entries, 5 for Architect, none written by `consolidate`; at `0e9b5c6` `memory_session`'s stale predicate promotes only stale-and-rarely-used notes | every moved record satisfies 15.3: stale and `uses >= 2` is long, every other stale record is archived, importance decides only the overflow split, one ledger action per move, no record deleted | `consolidate <role> --by <you> --dry-run`; `rg -c '^## M-' Roles/*/LongTermMemory.md`; `grep -c 'memory.promote' Ledger.jsonl` |
+| Architect | Architect | 1 | 4,601 |
+| CEO | CEO | 0 | 4,552 |
+| CTO | CTO | 0 | 4357 |
+| Developer | Developer | 9 | 7,207 |
+| Product Manager | ProductManager | 0 | 4449 |
+| Reviewer | Reviewer | 12 | 12,964 |
+| Security Auditor | SecurityAuditor | 0 | 4532 |
+| Tester | Tester | 0 (this lane's entry is written at its own exit) | 4,683 |
+
+**One row is red, and it is routed.** 15.3 says a demotion leaves a pointer that
+`recall` and `memory search` still resolve. They do not: `recall --agent developer`
+searches the short and long stores only (`--layer` has no archive value) and
+`memory search` filters parked records out of its candidates, so an archived record
+is reachable by `context find` alone. Proved on a throwaway team
+(`consolidate --agent developer --by Developer-1`, then `recall vendored cache` ->
+`no memory matched`, `memory search vendored cache` -> `0 of 0`, `context find` ->
+`ctx://role/developer/memory/archive/M-0001`) and pinned as a strict `xfail` in the
+integration suite. Developer T-0109 owns the fix; this table and the criterion stay
+red until it lands.
 
 ### 15.7 Non-goals of this milestone
 
