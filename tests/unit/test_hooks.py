@@ -31,6 +31,7 @@ CLEARED = (
     "TEAMWORK_SKIP_HOOKS",
     "TEAMWORK_ALLOW_MAIN",
     "TEAMWORK_ALLOW_FORCE",
+    "TEAMWORK_COMMIT_IDENTITY",
 )
 
 ROLE_EMAIL = "developer@agents.nidvue.com"
@@ -413,7 +414,20 @@ def test_pre_commit_threshold_is_exactly_one_mib(cli, feature, capsys) -> None:
     assert "one-byte-over.bin" in capsys.readouterr().err
 
 
-def test_pre_commit_warns_on_a_non_role_identity_but_passes(cli, feature, capsys) -> None:
+def test_pre_commit_is_silent_for_the_configured_pair_by_default(cli, feature, capsys) -> None:
+    """Policy 'repo' (the default) accepts the repository's own pair, not just a mailbox."""
+    git(feature, "config", "user.name", "Ping Zhao")
+    git(feature, "config", "user.email", "ping@example.com")
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 0
+    assert capsys.readouterr().err == ""
+
+
+def test_pre_commit_warns_on_a_non_role_identity_under_role_policy(
+    cli, feature, capsys, monkeypatch
+) -> None:
+    monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
     git(feature, "config", "user.name", "Ping Zhao")
     git(feature, "config", "user.email", "ping@example.com")
     capsys.readouterr()
@@ -424,7 +438,31 @@ def test_pre_commit_warns_on_a_non_role_identity_but_passes(cli, feature, capsys
     assert "is not a role mailbox" in err
 
 
+def test_pre_commit_warns_on_an_identity_that_is_neither_pair_nor_mailbox(
+    cli, feature, capsys, monkeypatch
+) -> None:
+    """The default policy warns only for an identity the repository never configured."""
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Someone Else")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "someone@example.com")
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 0
+    err = capsys.readouterr().err
+    assert "warning" in err
+    assert "neither" in err
+    assert "is not a role mailbox" not in err
+
+
 def test_pre_commit_is_silent_for_a_role_mailbox(cli, feature, capsys) -> None:
+    capsys.readouterr()
+    assert cli("--project", feature, "hook", "pre-commit") == 0
+    assert capsys.readouterr().err == ""
+
+
+def test_pre_commit_is_silent_for_a_role_mailbox_under_role_policy(
+    cli, feature, capsys, monkeypatch
+) -> None:
+    monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
     capsys.readouterr()
     assert cli("--project", feature, "hook", "pre-commit") == 0
     assert capsys.readouterr().err == ""

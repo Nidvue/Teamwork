@@ -85,7 +85,7 @@ flakes), Reviewer (evidence), CEO (release readiness).
 One canonical path, defined once in the skill:
 
 ```text
-branch start -> commit (role mailbox, fixed style) -> SelfCheck -> pr open
+branch start -> commit (configured identity, fixed style) -> SelfCheck -> pr open
              -> review (Reviewer) -> pr merge (Reviewer only) -> main
 ```
 

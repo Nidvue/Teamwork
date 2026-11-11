@@ -1587,7 +1587,7 @@ non-zero).
 |---|---|---|---|
 | R1 | pre-commit | refuse the commit whose HEAD is `config.DEFAULT_BASE`, resolved with `git symbolic-ref --short HEAD` (it answers on an unborn branch) | `TEAMWORK_ALLOW_MAIN=1` |
 | R2 | pre-commit | refuse a staged **binary** file larger than `config.LFS_MAX_BYTES` (1048576) that no `.gitattributes` LFS pattern covers; a text record is never refused **by the threshold**; and refuse a staged **text** file that an LFS pattern **does** cover, because a document in LFS is a pointer (section 11.10) | add the pattern (first case) / drop the pattern (second case); no env override |
-| R3 | pre-commit | warn on stderr when the commit identity is not a role mailbox (`<role>@IDENTITY_DOMAIN`), and exit **0** | - |
+| R3 | pre-commit | warn on stderr when the commit identity is neither the repository's configured pair nor a role mailbox (`<role>@IDENTITY_DOMAIN`), and exit **0**; under `TEAMWORK_COMMIT_IDENTITY=role` the configured pair is not accepted, so only a role mailbox passes silently | `TEAMWORK_COMMIT_IDENTITY=role` |
 | P1 | pre-push | refuse a non-fast-forward update of `refs/heads/<DEFAULT_BASE>` | `TEAMWORK_ALLOW_FORCE=1` |
 | P2 | pre-push | refuse deleting `refs/heads/<DEFAULT_BASE>` (zero local sha) | none |
 

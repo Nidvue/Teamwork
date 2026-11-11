@@ -141,11 +141,11 @@ def test_the_declared_preset_wins_over_the_role_mailbox(tmp_path: Path) -> None:
     ]
 
 
-def test_the_ambient_git_config_is_not_a_preset(tmp_path: Path) -> None:
-    """A-0012: the host's ``user.name``/``user.email`` is not a declaration.
+def test_the_configured_pair_authors_the_commit(tmp_path: Path) -> None:
+    """The repository's own ``user.name``/``user.email`` authors its commits.
 
-    On the operator's machine the local pair names the operator, so reading it made
-    every lane commit as the operator. Only ``teamwork.identity.*`` is a preset.
+    Decision 2026-11-11: published history names the project, not the agent, so the
+    configured pair is the default and the role mailbox is an opt-in.
     """
     project = tmp_path / "ambient"
     project.mkdir()
@@ -153,22 +153,36 @@ def test_the_ambient_git_config_is_not_a_preset(tmp_path: Path) -> None:
     engine.run_git(project, "config", "--local", "user.name", "Ops Person")
     engine.run_git(project, "config", "--local", "user.email", "ops@example.com")
     assert engine.declared_identity(project) is None
+    assert engine.commit_identity("developer", project) == ("Ops Person", "ops@example.com")
+
+
+def test_the_role_mailbox_is_an_opt_in(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = tmp_path / "opt-in"
+    project.mkdir()
+    engine.run_git(project, "init", "-q")
+    engine.run_git(project, "config", "--local", "user.name", "Ops Person")
+    engine.run_git(project, "config", "--local", "user.email", "ops@example.com")
+    monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
     assert engine.commit_identity("developer", project) == (
         "Developer",
         f"developer@{engine.IDENTITY_DOMAIN}",
     )
 
 
-def test_a_half_declared_preset_is_no_preset(tmp_path: Path) -> None:
+def test_a_half_declared_preset_is_no_preset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     project = tmp_path / "half-preset"
     project.mkdir()
     engine.run_git(project, "init", "-q")
     engine.run_git(project, "config", "--local", "teamwork.identity.name", "Ops Person")
     assert engine.declared_identity(project) is None
+    monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
     assert engine.commit_identity("ceo", project) == ("CEO", f"ceo@{engine.IDENTITY_DOMAIN}")
 
 
-def test_the_identity_environment_pins_both_pairs() -> None:
+def test_the_identity_environment_pins_both_pairs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
     env = engine.git_identity_env("developer")
     assert env == {
         "GIT_AUTHOR_NAME": "Developer",
