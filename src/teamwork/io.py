@@ -22,6 +22,8 @@ LOCK_STALE_SECONDS = float(os.environ.get("TEAMWORK_LOCK_STALE_SECONDS", "300"))
 
 STEAL_CLAIM_ATTEMPTS = 3
 
+RELEASE_ATTEMPTS = 5
+
 
 def _read_lock_body(path: Path) -> str | None:
     """Return the trimmed body of a lock file, or ``None`` when it cannot be read."""
@@ -164,11 +166,16 @@ def lock(path: Path, timeout: float | None = None):
     try:
         yield
     finally:
-        try:
-            if path.read_text(encoding="utf-8").strip() == token:
+        for _ in range(RELEASE_ATTEMPTS):
+            try:
+                if path.read_text(encoding="utf-8").strip() != token:
+                    break
                 path.unlink()
-        except OSError:
-            pass
+                break
+            except PermissionError:
+                time.sleep(0.01)
+            except OSError:
+                break
 
 
 def atomic_write(path: Path, text: str) -> None:

@@ -54,6 +54,7 @@ from .layout import (
     project_of,
     project_root,
     role_dir,
+    shown_path,
     task_file,
 )
 from .names import pascal, resolve_role, safe_component
@@ -499,7 +500,7 @@ def build_packet(
         engine.memory_dream_line(root),
         "",
         f"You are the lane **{instance}**, acting as the **{role}** role of the **{root.name}**",
-        f"team. Workspace: `{root}`. Project: `{project}`.",
+        f"team. Workspace: `{shown_path(root)}`. Project: `{shown_path(project)}`.",
         f"Host: `{host}`. Model: `{model or '(host default)'}`. Provider: `{provider}`.",
         "",
         "This is a bounded run: finish the assignments below, record the evidence, and exit.",
@@ -518,8 +519,8 @@ def build_packet(
         "  this assignment (docs/Team/Memory.md 4.1/4.5): lessons and knowledge ranked for the",
         "  task, inside a byte budget, instead of the same static top-10 for every lane.",
         "  The pack is also injected below, so the first read is a re-read, not a discovery.",
-        f"- `{role_dir(root, role) / 'Role.md'}` - your charter (read it, do not skim it).",
-        f"- `{agent_dir(root, instance) / 'StartHere.md'}` - your lane directory.",
+        f"- `{shown_path(role_dir(root, role) / 'Role.md')}` - your charter (read it, do not skim it).",
+        f"- `{shown_path(agent_dir(root, instance) / 'StartHere.md')}` - your lane directory.",
         "- Anchor-first reading: `rg -n '<anchor>' <path>` then about 30 lines around it.",
         "  Never read a whole document, a whole log or the archive.",
         "",
