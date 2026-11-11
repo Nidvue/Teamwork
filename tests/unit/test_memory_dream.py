@@ -242,3 +242,17 @@ def add_knowledge(root: Path, topic: str, statement: str, updated: str) -> str:
 def ledger_lines(root: Path) -> int:
     path = root / config.F_LEDGER
     return len(path.read_text(encoding="utf-8").splitlines()) if path.is_file() else 0
+
+
+def test_the_dream_line_spends_the_budget_and_names_what_it_deferred(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = team(tmp_path)
+    for index in range(1, 4):
+        add_knowledge(root, "lock-steal", f"note {index} about the lock body", "2026-11-07")
+    monkeypatch.setattr(engine, "DREAM_BUDGET_SECONDS", 1e-9)
+
+    line = engine.memory_dream_line(root)
+
+    assert "deferred 3" in line
+    assert "nothing to consolidate" not in line
