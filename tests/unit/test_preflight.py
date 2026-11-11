@@ -541,12 +541,18 @@ def test_a_single_command_keeps_the_no_shell_argv():
 
     The unlaunchable-gate contract (a missing program reports "could not start",
     not a shell's exit 127) rests on this split, and an unquotable single command
-    still reports itself as unquotable rather than being handed to the shell.
+    still reports itself as unquotable rather than being handed to the shell. On
+    Windows a compound line is one string for `shell=True`, because a list is
+    re-quoted and `cmd.exe` then reads those quotes literally (T-0094).
     """
     assert engine._gate_argv("make check") == ["make", "check"]
     assert engine._gate_argv('"a b/py" -c "print(1)"')[0] == "a b/py"
     assert engine._gate_argv('"a b/py" -m ruff check .')[0] == "a b/py"
-    assert engine._gate_argv("a && b")[-1] == "a && b"
+    compound = engine._gate_argv("a && b")
+    if os.name == "nt":
+        assert compound == "a && b"
+    else:
+        assert compound == ["/bin/sh", "-c", "a && b"]
     with pytest.raises(ValueError):
         engine._gate_argv('make "check')
 
