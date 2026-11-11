@@ -6600,56 +6600,28 @@ def loadable_role(root: Path, role: str) -> bool:
     return role in ROLE_DISPLAY and role_dir(root, role).is_dir()
 
 
-def memory_pack_block(root: Path, role: str, task: str, budget: int = 0, touch_by: str = "") -> str:
-    """The task-aware pack as text, for `load --task` and for a lane packet.
+def memory_injected_layer(
+    root: Path, role: str, task: str, budget: int = 0, touch_by: str = ""
+) -> tuple[str, str]:
+    """The short block and the pack as one injected layer: ``(short, pack)``.
 
-    Same collector and scorer as `memory pack`, so the bytes a lane receives are
-    the bytes `memory pack` prints for the same task. A caller that injects it
-    into a prompt passes its own budget; the CLI keeps the default. ``touch_by``
-    counts the injected records, because an injected record is a used record and
-    ranking by usefulness is otherwise inert.
+    The index, the short block and the pack are one layer, so the pack only gets
+    what the other two left of ``PACK_BUDGET_BYTES``: ``index + short + pack``
+    stays at or under the budget however full the store is (AC-M22-4).
+
+    One ``touch_used`` call covers both blocks, because Memory.md 15.2 counts an
+    injected record once per call and appends one ``memory.pack`` event: a note the
+    short block and the pack both inject is a single use, not two.
     """
     limit = budget or memorypack.PACK_BUDGET_BYTES
     query = memorypack.task_query(root, role, task)
+    short_items = memorypack.short_entries(root, role, task, memorypack.SHORT_INJECT_BYTES)
     items = memorypack.pack(_collected(root, role), query, limit, datetime.datetime.now())
     if touch_by:
-        memorypack.touch_used(root, items, touch_by)
-    return memorypack.render_pack(items, memorypack.rendered_bytes(items), limit).rstrip("\n")
-
-
-def memory_short_block(
-    root: Path, role: str, task: str, budget: int = 0, touch_by: str = ""
-) -> str:
-    """The short layer as text, for `load --task` and for a lane packet.
-
-    Same scorer and the same ``SHORT_INJECT_BYTES`` sub-cap as the injected layer,
-    so a lane reads the block whether or not it runs a command (Memory.md 15.2).
-    An empty store returns an empty string, so the caller omits the heading rather
-    than printing an empty block.
-    """
-    limit = budget or memorypack.SHORT_INJECT_BYTES
-    entries = memorypack.short_entries(root, role, task, limit)
-    if not entries:
-        return ""
-    if touch_by:
-        memorypack.touch_used(root, entries, touch_by)
-    return memorypack.short_block(root, role, task, limit)
-
-
-def _pack_block(root: Path, role: str, task: str, touch_by: str = "") -> str:
-    """`load --task` prints this instead of the static top-10 knowledge block.
-
-    The index, the short block and this pack are one injected layer, so the pack
-    only gets what the other two left of ``PACK_BUDGET_BYTES``: ``index + short +
-    pack`` stays at or under the budget however full the store is (AC-M22-4).
-    """
-    limit = memorypack.injected_budget(root, role, task)
-    query = memorypack.task_query(root, role, task)
-    header = (
-        f"# memory pack for {task} -> '{query}'"
-        f" (budget {memorypack.PACK_BUDGET_BYTES} bytes; not the static top-10)"
-    )
-    return header + "\n" + memory_pack_block(root, role, task, limit, touch_by)
+        memorypack.touch_used(root, [*short_items, *items], touch_by)
+    short = memorypack.short_block(root, role, task, memorypack.SHORT_INJECT_BYTES)
+    pack = memorypack.render_pack(items, memorypack.rendered_bytes(items), limit).rstrip("\n")
+    return short, pack
 
 
 def _ledger_ready_before_render(root: Path) -> None:
@@ -6718,13 +6690,17 @@ def cmd_load(args) -> int:
     keep = entries[:limit]
     gcount = len(parse_memory(global_dir(root) / F_GLOBAL))
     inst = instances_of(root, role)
-    print(memorypack.index_block(root, role, getattr(args, "task", "") or ""))
-    if getattr(args, "task", ""):
-        short = memory_short_block(
-            root, role, args.task, touch_by=getattr(args, "agent", "") or role
+    task = getattr(args, "task", "") or ""
+    short, pack = "", ""
+    if task:
+        short, pack = memory_injected_layer(
+            root,
+            role,
+            task,
+            memorypack.injected_budget(root, role, task),
+            getattr(args, "agent", "") or role,
         )
-        if short:
-            print(short)
+    print(memorypack.index_block(root, role, task))
     print(
         f"# {args.agent} (shared {role} memory): {len(keep)}/{len(entries)} entries;"
         f" shared by {', '.join(inst) or role}; global {gcount}"
@@ -6770,8 +6746,14 @@ def cmd_load(args) -> int:
         )
         print(f"# fixed: {fixed}; full list: teamwork.py lesson list --role {role}")
 
-    if getattr(args, "task", ""):
-        print(_pack_block(root, role, args.task, getattr(args, "agent", "") or role))
+    if task:
+        if short:
+            print(short)
+        print(
+            f"# memory pack for {task} -> '{memorypack.task_query(root, role, task)}'"
+            f" (budget {memorypack.PACK_BUDGET_BYTES} bytes; not the static top-10)"
+        )
+        print(pack)
         return 0
 
     knowledge = parse_knowledge(knowledge_path(root))

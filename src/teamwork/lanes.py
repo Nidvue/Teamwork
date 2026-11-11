@@ -569,16 +569,13 @@ def build_packet(
             "and the exact scope you did and did not touch.",
             "",
         ]
+    short, pack = engine.memory_injected_layer(
+        root, role, task, engine.memorypack.injected_budget(root, role, task), instance
+    )
     injected = [
         engine.memorypack.index_block(root, role, task),
-        *[
-            block
-            for block in [engine.memory_short_block(root, role, task, touch_by=instance)]
-            if block
-        ],
-        engine.memory_pack_block(
-            root, role, task, engine.memorypack.injected_budget(root, role, task), instance
-        ),
+        *([short] if short else []),
+        pack,
     ]
     out += [
         "## Memory pack for this assignment (injected)",
