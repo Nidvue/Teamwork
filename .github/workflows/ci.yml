@@ -6,9 +6,10 @@
 # implemented by `scripts/ci_scope.py`, and run by the `scope` job below - never
 # by a workflow-level filter.
 #
-# Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix), build,
-# privacy, committer guard, release-consistency, docs. Every job must be green on
-# the pushed revision.
+# Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix, the
+# Windows cell split into five path shards), build, privacy, committer guard,
+# release-consistency, docs, docs-contract. Every job must be green on the pushed
+# revision.
 #
 # Trigger policy: a documentation-only change must not burn the test matrix,
 # and a release-fact change must not escape the consistency gate. Those two rules
@@ -250,24 +251,37 @@ jobs:
           # Windows spawns processes several times slower than the POSIX runners and
           # this suite spawns hundreds of them, so one Windows job exceeded the
           # 90-minute cap even after the traceability guard stopped re-running the
-          # privacy scan (run 42941335942). Sharded by test-file letter range: three
-          # jobs, no plugin, no new dependency, and a cancelled shard names the
-          # files it was running instead of hiding the whole lane.
+          # privacy scan (run 42941335942). Five shards, no plugin and no new
+          # dependency. The three unit letter ranges are one row each and the two
+          # subprocess-heavy trees stand alone, because the first split left unit
+          # a-f carrying integration and acceptance and that row was cancelled at
+          # the cap on run 43000716956. A cancelled shard now names the files it was
+          # running instead of hiding the whole lane.
           - os: windows-latest
             python-version: "3.13"
             coverage: false
-            shard: "a-f"
-            paths: "tests/unit/test_[a-f]*.py tests/integration tests/acceptance"
+            shard: "unit-a-f"
+            paths: "tests/unit/test_[a-f]*.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
-            shard: "g-o"
+            shard: "unit-g-o"
             paths: "tests/unit/test_[g-o]*.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
-            shard: "p-z"
+            shard: "unit-p-z"
             paths: "tests/unit/test_[p-z]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "integration"
+            paths: "tests/integration"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "acceptance"
+            paths: "tests/acceptance"
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

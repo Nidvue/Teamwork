@@ -268,8 +268,8 @@ and the bound only stops a hung run. The `test` job is bounded at 90 minutes
 because the suite spawns hundreds of processes and the Windows runner spawns them
 several times slower than Linux (measured: 18 min on ubuntu 3.13, 30 on macos
 3.13, and windows hit the old 60-minute cap on runs 42530928486 and 42533590196).
-`tests/unit/test_ci_contracts.py` reads the bound from here and fails when the
-workflow and this table disagree.
+`tests/unit/test_ci_contracts.py` pins the same bound in `TIMEOUT_MINUTES` and
+fails when the workflow and this table disagree.
 
 * `ci.yml` always fires: on a push to `main`, on a `v*` tag, on every
   `pull_request` and on `workflow_dispatch`. There is no workflow-level
@@ -277,11 +277,19 @@ workflow and this table disagree.
   * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
     matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
-    (five cells), `build` (sdist+wheel+verify_release), `privacy`
+    (five cells, nine jobs: the Windows cell runs as five path shards),
+    `build` (sdist+wheel+verify_release), `privacy`
     (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`:
     personal data, credentials, agent-host config and tracked local state),
     `committer-guard`, `release-consistency` (offline release gate),
     `docs` (mkdocs build --strict).
+  * The Windows cell is sharded because one job per cell was cancelled at the
+    90-minute cap (run 43000716956: the a-f row carried unit a-f plus the whole
+    integration and acceptance trees). Five shards, disjoint by path and together
+    naming every `test_*.py` under `tests/`: `unit-a-f`, `unit-g-o`, `unit-p-z`
+    (letter ranges of `tests/unit/`), `integration`, `acceptance`.
+    `tests/unit/test_ci_contracts.py` expands those paths over the tree and fails
+    on a test file no shard runs or a file two shards run.
   * The `scope` job runs `scripts/ci_scope.py`, which computes the changed-path
     set from git, and publishes **two** outputs, because the filtered jobs ask two different questions and a
     prose-only push answers them differently: `code` (`true` = something that
