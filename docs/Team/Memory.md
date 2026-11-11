@@ -419,3 +419,283 @@ What the four mechanisms do on this team, in one line each:
 | 3 | the stores are team-local and gitignored, and `privacy_scan` skips `.pi`, so no gate covers them | `scripts/privacy_scan.py:449`; security audit F3 | `T-0059` |
 | 4 | the verification pass has no scheduler of its own: `pulse` prints the dream line, but nothing forces a `verify` run | `memory dream` output | acceptable - a pass nobody names is a pass that hides its cost |
 | 5 | no wiki representation exists, by decision | section 12; `Research.md` | revisit above 200 active records |
+
+## 15. M23 - memory in practice (frozen contract)
+
+Frozen before any code lands, so the lanes that build it work from one text. Every
+number below was measured at `0e9b5c6`, the revision this section is written
+against; the command that produced it is in the same row. Sections 4, 9, 10 and 11
+stay as they are: this section freezes the four components that section 14 still
+leaves open (the short layer, the promotion rule, the dream cadence, the wiki) and
+the injection order that carries them.
+
+Four new constants are named here and do not exist in `config.py` yet;
+`STALE_AFTER_DAYS` already exists in `memorypack.py` and moves to `config.py`
+unchanged:
+
+| constant | value | today | what it bounds |
+|---|---|---|---|
+| `PROMOTE_USES` | 2 | `MIN_USES` in `config.py` | uses that, on their own, promote a stale short entry (15.3) |
+| `SHORT_INJECT_BYTES` | 600 | new | the short block inside the injected pack |
+| `DREAM_BUDGET_SECONDS` | 2 | new | wall clock the dream pass may spend on a trigger |
+| `WIKI_BUDGET_BYTES` | 1200 | new | one wiki page |
+| `STALE_AFTER_DAYS` | 90 | `memorypack.py` | age at which an unused long entry is archived |
+
+### 15.1 The short layer - capture
+
+`Roles/<Role>/ShortTermMemory.md` stays the **one role-shared file**: every
+instance of a role writes there and no instance gets a file of its own, because
+the role is the unit that shares experience (section 3). At the freeze two of the
+8 role stores hold one lane-exit entry each and the other six are empty:
+`rg -c '^## M-' Roles/*/ShortTermMemory.md` at `ceef84a` -> `Architect:1`,
+`Reviewer:1`, against 24 long-term entries and 48 lessons+knowledge.
+
+An entry is the format `records.parse_memory` already parses and
+`records.write_memory` already writes - one `## M-0001 · note` heading, a meta
+block (`key`, `importance`, `uses`, `created`, `last_used`, `tags`, `pinned`, `by`,
+`src`, `rev`), a blank line, then the body. `M-` ids are allocated per store by
+`records.next_id` and are never renumbered, so a pointer into the file stays true.
+
+Writers - exactly two, and neither is a background process:
+
+| writer | when | entry it writes |
+|---|---|---|
+| the agent | during the run, through `remember <role> "<fact>" --by <instance> --src <T-id> --rev <sha>` (a single write takes the pen for its own duration) | `by` = the instance, `src` = the task, `rev` = the revision the fact was observed at, body = the fact |
+| the harness | at lane exit, from the lane transcript `Agents/<Instance>/Runs/L-<nnnn>.md` | `key` = `lane:<T-id>`, `src` = the task id, `rev` = the branch head at exit, `by` = the instance, `importance` = 2, body = the task id, the lane's own outcome word (`ok`/`blocked`/`failed`) and the one-sentence result from the last `LANE-RESULT` line |
+
+Rules that make the two writers safe together:
+
+- **A lane that recorded nothing gets a harness entry.** That is the whole point:
+  a lane's experience is lost today because nobody writes it down.
+- **No duplicate.** The harness entry is skipped when the store already holds an
+  entry with `src` = that task, so a lane that wrote its own note is not echoed.
+- **Empty case.** A lane that ended without a `LANE-RESULT` line gets no harness
+  entry; its ledger `lane.finish` record already carries `exit` and `result`, so
+  nothing is invented.
+- **Cap.** `SHORT_CAP` = 24 entries; overflow is resolved by 15.3, never by a
+  silent truncation.
+- **Pinned never leaves.** `pinned: yes` is the rule this role must never
+  re-learn: it is exempt from staleness, from the cap and from demotion.
+
+### 15.2 The injection contract - where the short layer appears
+
+`load <Instance> --task <T-id>` and every lane packet print the same three blocks,
+in this order, one after another:
+
+```text
+1  # memory index: <N> topic(s), <M> record(s)        <= INDEX_BUDGET_BYTES (800), 8 lines - unchanged
+2  ## Short-term memory for this task                 <= SHORT_INJECT_BYTES (600), 5 entries
+   - [M-0004] <body clipped to 160 chars> (uses <n>)
+3  <the ranked pack, section 4.1>                      <= PACK_BUDGET_BYTES - index - short
+```
+
+The short block ranks the role's short entries with the 4.1 score over the same
+task query and clips each body to 160 characters, one line per entry, so it is a
+pointer list like the pack and never a copy of the store. Its own sub-cap is 600
+bytes and 5 entries - a quarter of the pack, because a working note is cheaper to
+re-derive than a lesson.
+
+The budget arithmetic is the contract: `index + short + pack <= PACK_BUDGET_BYTES`
+(4000), `index <= INDEX_BUDGET_BYTES` (800) unchanged, and `injected_budget()`
+subtracts **both** the index and the short block today:
+`rg -n 'spent = index_bytes' src/teamwork/memorypack.py` ->
+`spent = index_bytes(...) + short_bytes(...)`. `AlwaysOnBudgetKb` is not raised: the short block is paid for by the
+pack it displaces.
+
+- **Empty case.** No short entries -> the heading and the block are omitted
+  entirely, not printed empty, and the pack gets the full remainder.
+- **Second call.** Same store, same task -> byte-identical output (`cmp` exit 0),
+  as the pack is today; injection increments `uses` once per injected record per
+  call and appends one `memory.pack` event.
+- **Packet parity.** `lanes.build_packet` injects all three blocks through
+  `engine.memory_pack_block`, so a spawned lane receives the short layer whether or
+  not it runs a command.
+
+### 15.3 The promotion rule - short to long, long to archived
+
+One deterministic command, no model call, one named author:
+`consolidate <role> --by <instance>` takes the role pen and is the only writer of
+the long-term and archive stores.
+
+Staleness is **age only**, and it is the one predicate the whole rule reads:
+`stale(entry) = days_since(last_used) >= STALE_DAYS` (3). `uses` never make an
+entry not-stale; they decide what happens to an entry that *is* stale. Promotion
+is decided by **use alone**: a note earns long-term memory by being recalled, and
+nothing else decides that.
+
+| step | rule | destination | ledger action |
+|---|---|---|---|
+| pin | `pinned: yes` | stays short | none |
+| keep | not stale: `days_since(last_used) < STALE_DAYS` (3) | stays short | none |
+| promote | stale and `uses >= PROMOTE_USES` (2) | `LongTermMemory.md` | `memory.promote` |
+| drop | stale and `uses < PROMOTE_USES` (2) | `ArchivedMemory.md` | `memory.drop` |
+| overflow | more than `SHORT_CAP` (24) entries still short: the cut keeps the top 24 by the 4.1 `score`, and an overflowed record with `importance >= PROMOTE_MIN_IMPORTANCE` (2) | `LongTermMemory.md` | `memory.promote` |
+| overflow-drop | the same overflowed record with `importance < PROMOTE_MIN_IMPORTANCE` (2) | `ArchivedMemory.md` | `memory.drop` |
+| demote | long entry, not pinned, `uses == 0`, age > `STALE_AFTER_DAYS` (90) | `ArchivedMemory.md` | `memory.evict` |
+| evict | more than `LONG_CAP` = 64 non-pinned long entries | `ArchivedMemory.md` | `memory.evict` |
+
+The rows are **disjoint**, so no precedence order is needed between them: pin is
+exempt by 15.1; a record is either not stale (keep), stale and used at least
+`PROMOTE_USES` times (promote), or stale and used fewer times (drop); the two
+overflow rows read only the records the cap cut, which the rows above have already
+left short. A note lanes actually recall reaches long-term memory; a note nobody
+uses is archived rather than kept, which is what bounds `SHORT_CAP` (24) in age,
+while a burst of new notes is bounded by the overflow rows.
+
+**Importance decides nothing about survival.** It keeps exactly two jobs: its
+`0.20 * (importance / 5)` weight in the 4.1 `score`, which orders the pack and so
+selects what the overflow cut drops, and the overflow split above. The boundary is
+auditable against the writers, and their numbers are why this rule cannot read
+importance: the harness lane-exit writer sets `importance` = 2 (15.1),
+`remember --importance` defaults to 2 (`rg -n '"--importance", type=int, default=2'
+src/teamwork/engine.py` -> `default=2`), and
+`PROMOTE_MIN_IMPORTANCE` is 2 (`rg -n '^PROMOTE_MIN_IMPORTANCE'
+src/teamwork/config.py`). A predicate of the
+form `importance < 2` is false for every record either writer creates, so a drop
+row that required it could never fire.
+
+`STALE_DAYS` (3) is the short-layer window; `STALE_AFTER_DAYS` (90) bounds the
+long layer in the `demote` row and is a different store's constant - one name per
+store, no shared number.
+
+**Superseded rule.** The first revision of this section (2d8e625) read
+`keep = not stale OR uses >= MIN_USES` with `promote = stale AND uses >=
+PROMOTE_USES AND importance >= PROMOTE_MIN_IMPORTANCE`. It is withdrawn: the keep
+row subsumed the promote row, so nothing could ever be promoted, and the survive
+conjunction would have archived a proven note that failed the importance test.
+The table above replaces it; `MIN_USES` is retired and `PROMOTE_USES` is the only
+uses constant this contract names.
+
+**Second withdrawal (b0606e8).** The second revision of the table read
+`promote = stale AND (uses >= PROMOTE_USES OR importance >= PROMOTE_MIN_IMPORTANCE)`
+with `drop = stale AND uses < PROMOTE_USES AND importance < PROMOTE_MIN_IMPORTANCE`.
+It is withdrawn as unreachable, not as unclear: both writers set importance 2 and
+`PROMOTE_MIN_IMPORTANCE` is 2, so the drop row's `importance < 2` holds for no
+record the team can create, the short layer could only ever promote, and the
+`SHORT_CAP` bound the prose claimed was false. The table above replaces it;
+importance is out of the survival rule and the use count alone separates promote
+from drop. `D-20261111-Architect` in `Decisions.md` records the withdrawal and the
+ruling it implements. `memory_session`'s stale predicate still implements
+the old population (`rg -n 'stale = days_since' src/teamwork/engine.py` ->
+`stale = days_since(e["last_used"]) >= STALE_DAYS and e["uses"] < MIN_USES`), which keeps a
+frequently used note short forever and promotes only old rarely-used notes; T-0098
+changes the code to this table, so this document is the corrected rule and the code
+follows it.
+
+A demotion **leaves a pointer**: the `memory.evict` event names the record id and
+`Roles/<Role>/ArchivedMemory.md`, `recall` and `memory search` still find the
+record there, and the archive keeps the statement unchanged. Nothing is deleted by
+a promotion step; the one lossy path is archive overflow past `ARCHIVE_CAP` (256),
+which is logged to `Runtime/MemoryLog.md` and is the existing behaviour.
+
+`PROMOTE_USES` takes the number `MIN_USES` holds today (2, env
+`TEAMWORK_PROMOTE_USES`); the rename is part of this freeze because "minimum uses"
+never said *minimum for what*, and because one uses constant keeps the promote and
+drop rows provably complementary. A record whose evidence is `drifted` (section 9) is
+never promoted: a note that no longer resolves is not knowledge, and the pass
+reports it instead.
+
+### 15.4 The dream cadence - when the maintenance pass runs
+
+Two triggers, both on a path that already exists, neither a daemon:
+
+| trigger | what it prints | writes |
+|---|---|---|
+| every `lane start` | the dream line as the packet's second line | nothing |
+| every `pulse` | the same line before it dispatches (section 4.2) | nothing |
+
+- **Budget.** `DREAM_BUDGET_SECONDS` = 2 wall clock per trigger. Measured at
+  `0e9b5c6`: `time teamwork.py memory dream --dry-run` -> 42 records, 0 duplicate,
+  0 contradiction, 0 stale, 0 without evidence, 41 drifted, well inside the budget;
+  section 5 measured 0.069 s over 45 records on the lifecycle branch.
+- **Ground truth.** `Agents/<Instance>/WorkLog.md` and `Ledger.jsonl` (section 10),
+  plus the tree and the revision for evidence - the three sources section 8 names.
+  A record is `drifted` when its own evidence stops resolving (section 9); the pass
+  reports it and never rewrites it.
+- **Report shape.** The header `# memory dream (<mode>) for <subject>: N record(s)`,
+  then one group per finding in this order - duplicate, contradiction, stale, no
+  evidence, drifted - then the footer that names the acting command and the byte
+  delta, and `deferred <n>` when the budget stopped the pass early.
+- **`--dry-run` is the plan.** It prints the proposals and writes nothing.
+  `--apply --by <you>` is the only writer: one `memory.dream` event per action with
+  the ids and the byte delta, so a second apply over the same store is 0 actions
+  and no new event (measured in section 5).
+- **Stop condition.** Stop when every record in scope has been checked or
+  `DREAM_BUDGET_SECONDS` elapses, whichever comes first; report what was deferred.
+  A drift finding never blocks a lane start and never fails a gate on its own.
+
+### 15.5 The wiki - page path, format and consultation
+
+The wiki stays behind the falsifier in section 12 (>200 active records, or a
+question that needs synthesis across records). What this section freezes is the
+format, so the first page is not designed under time pressure. Today 42 records ->
+no page exists.
+
+```text
+path   .pi/Teamwork/Teams/<Team>/Wiki/<slug>.md      slug = lowercase kebab
+id     W-0001                                        allocated per wiki, never reused
+
+# W-0003 - <one subject>
+
+- sources: K-0007, L-0004, M-0012
+- updated: YYYY-MM-DD
+
+## Facts
+- <one fact, one line> -> <pointer: record id | path:line | @sha>
+```
+
+| rule | what it forbids |
+|---|---|
+| one subject per page | a page that restates the store |
+| links, not copies - every fact line carries the pointer of the record it came from | a fact with no provenance, and the Borges failure (the wiki outgrowing the corpus) |
+| at least 2 source records per page | a page that answers what one record already answers |
+| `WIKI_BUDGET_BYTES` = 1200 per page, at most 20 pages | an unbounded second store |
+| the page is derived state: the records are the truth | a fact only the wiki holds |
+
+- **Consultation.** `memory search` and `context find` rank pages with the same
+  4.1 score over the page's fact lines and print `W-0003 -> Wiki/<slug>.md#L<n>`.
+  Page hits share `SEARCH_BUDGET_BYTES` (2000) and `SEARCH_LIMIT` (10) with the
+  record hits, so a wiki can never grow the read budget - it competes for the same
+  bytes, which is what makes the A/B in section 12 measurable.
+- **Prune.** At the dream pass, a page whose every fact points at a `superseded`,
+  `archived` or `drifted` record, and which cannot be rewritten from an active
+  record, is reduced to a one-line stub naming its sources or removed with one
+  `wiki.prune` ledger event. A fact the pass cannot resolve is reported, never
+  edited - the same invariant `apply_dream` holds.
+
+### 15.6 The measurement table AC-M23-6 fills
+
+Every row is a command and a number, so the criterion is checked by running it, not
+by reading prose. `before` is measured at `0e9b5c6`; `target` is what the merged
+M23 code must show, and the cell is `TBD` until the code lane records it.
+
+| surface | before @0e9b5c6 | target | command |
+|---|---|---|---|
+| short entries written | 0 across 8 role stores | >= 1 per role that worked a task, and no lane that recorded nothing left empty | `rg -c '^## M-' Roles/*/ShortTermMemory.md` |
+| `load Architect` bytes | 5,572 B | <= 5,572 B - the short block is paid for by the pack, not added | `teamwork.py load Architect --task T-0008 \| wc -c` |
+| task-aware pack | 4,145 B against a 4,000 B budget | <= 4,000 B with the short block included in the arithmetic | `teamwork.py memory pack --role architect --task T-0008 \| wc -c` |
+| pack determinism | two runs byte-identical | unchanged with the short block | `memory pack ... > a; memory pack ... > b; cmp a b` |
+| dream wall clock | 42 records, inside 2 s | <= `DREAM_BUDGET_SECONDS` on every trigger, `deferred` named when it stops | `time teamwork.py memory dream --dry-run` |
+| dream findings | 0 duplicate, 0 contradiction, 0 stale, 0 no-evidence, 41 drifted | no auto-rewrite: a drifted record is reported and never promoted | `teamwork.py memory dream --dry-run` |
+| dream second call | 0 actions, no new event | unchanged | `memory dream --apply --by <you>` twice on a copy |
+| wiki pages | 0, by the section 12 falsifier | 0 until a trigger fires; then every page <= 1,200 B with >= 2 sources | `find Wiki -name '*.md' \| wc -l`; `wc -c Wiki/*.md` |
+| retrieval | `memory search review` -> 1,772 B | <= 2,000 B including page hits | `teamwork.py memory search review \| wc -c` |
+| promotion | 24 long entries, 5 for Architect, none written by `consolidate`; at `0e9b5c6` `memory_session`'s stale predicate promotes only stale-and-rarely-used notes | every moved record satisfies 15.3: stale and `uses >= 2` is long, every other stale record is archived, importance decides only the overflow split, one ledger action per move, no record deleted | `consolidate <role> --by <you> --dry-run`; `rg -c '^## M-' Roles/*/LongTermMemory.md`; `grep -c 'memory.promote' Ledger.jsonl` |
+
+### 15.7 Non-goals of this milestone
+
+| not doing | why |
+|---|---|
+| embeddings or a vector index | a deterministic token score is auditable and free; an embedding service is a second store and a second failure mode |
+| any third-party dependency | stdlib only, as sections 4 and 12 freeze |
+| raising `AlwaysOnBudgetKb` | the cap is the constraint that keeps the layer small; the short block and the index fit inside it |
+| a model call inside any pass | write, promote and dream must be reproducible from files alone |
+| a new store outside `.pi/Teamwork/Teams/<Team>/` | the wiki lives under the team root, gitignored like the rest of `.pi` |
+| a daemon, cron or background writer | both dream triggers sit on an existing command and write nothing |
+
+Two facts a reader should not have to rediscover. First, the label `M23` is also
+used for the pi-UI milestone in `Project.md`; this section is the memory milestone
+the T-0008 brief names, and the CEO owns renumbering one of the two. Second, the
+stores are team-local and gitignored, so no gate covers them yet (section 14 row 3);
+every number above is reproduced by hand, and the row that measures it names the
+command that does so.
