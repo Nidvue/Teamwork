@@ -6600,32 +6600,6 @@ def loadable_role(root: Path, role: str) -> bool:
     return role in ROLE_DISPLAY and role_dir(root, role).is_dir()
 
 
-def memory_pack_block(root: Path, role: str, task: str, budget: int = 0) -> str:
-    """The task-aware pack as text, for `load --task` and for a lane packet.
-
-    Same collector and scorer as `memory pack`, so the bytes a lane receives are
-    the bytes `memory pack` prints for the same task. A caller that injects it
-    into a prompt passes its own budget; the CLI keeps the default. Counting the
-    injected records is ``memory_injected_layer``'s job, not this renderer's.
-    """
-    limit = budget or memorypack.PACK_BUDGET_BYTES
-    query = memorypack.task_query(root, role, task)
-    items = memorypack.pack(_collected(root, role), query, limit, datetime.datetime.now())
-    return memorypack.render_pack(items, memorypack.rendered_bytes(items), limit).rstrip("\n")
-
-
-def memory_short_block(root: Path, role: str, task: str, budget: int = 0) -> str:
-    """The short layer as text, for `load --task` and for a lane packet.
-
-    Same scorer and the same ``SHORT_INJECT_BYTES`` sub-cap as the injected layer,
-    so a lane reads the block whether or not it runs a command (Memory.md 15.2).
-    An empty store returns an empty string, so the caller omits the heading rather
-    than printing an empty block.
-    """
-    limit = budget or memorypack.SHORT_INJECT_BYTES
-    return memorypack.short_block(root, role, task, limit)
-
-
 def memory_injected_layer(
     root: Path, role: str, task: str, budget: int = 0, touch_by: str = ""
 ) -> tuple[str, str]:
