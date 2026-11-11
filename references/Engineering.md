@@ -40,8 +40,9 @@ Rules:
 - The product identity `Teamwork <teamwork@agents.nidvue.com>` is **never** a valid
   commit identity: it names the skill, not a role.
 - CI enforces this with `teamwork.py identity --audit --range <base>..HEAD`; it
-  checks the author and the committer, requires the `Acting role:` trailer only
-  from a role-mailbox author, and allows bot dependency updates
+  checks the author and the committer, needs no `Acting role:` trailer (a trailer
+  or `Role:` line that is present must agree with the author), and allows bot
+  dependency updates
   (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`).
 - Apply the role mailbox per commit, without changing the repository config:
 
@@ -63,9 +64,9 @@ departs from it is wrong, whatever the repository's local configuration says:
   published history names the project, never an agent role, instance or mailbox.
 - Apply it **per commit** - `teamwork.py commit --role <role> ...` pins the pair
   for that one command and leaves the repository config alone.
-- A role mailbox is opt-in with `TEAMWORK_COMMIT_IDENTITY=role`; only then does the
-  message end with `Acting role: <Role>`, and the identity gate fails when that
-  trailer does not match the author.
+- A role mailbox is opt-in with `TEAMWORK_COMMIT_IDENTITY=role`; the message still
+  names no agent, and the identity gate fails only when a trailer or `Role:` line
+  that is present does not match the author.
 
 ## Commit batching
 
@@ -96,8 +97,8 @@ Refs: <issues, PRs, disputes>
 
 - `type` is one of `feat fix test docs design research refactor perf build ci chore revert`.
 - No field names a role, an agent instance or a mailbox: the trailers carry the
-  task and the evidence, never the producer (decision 2026-11-11). `Acting role:`
-  belongs to an opted-in role mailbox commit only.
+  task and the evidence, never the producer (decision 2026-11-11). An `Acting role:`
+  line is optional, and the identity gate rejects one that disagrees with the author.
 - `Goal`, `Deliverable`, `Why`, `Status`, `Result` are mandatory: they answer what,
   why, where it stands and what actually happened.
 - `Status` states the truth, including "blocked on X" or "awaiting review" - never
