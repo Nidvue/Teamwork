@@ -390,11 +390,11 @@ def _first_file(root: Path, directory: str) -> str:
 
 
 FORBIDDEN_IDENTITY_CLAUSES = (
-    r"locally\s+configured[^.]{0,160}identit",
-    r"identit[^.]{0,160}locally\s+configured",
-    r"never\s+(?:use|set)[^.]{0,160}-c\s+user",
+    r"commit\s+as\s+your\s+role\s+mailbox",
+    r"author\s*==\s*committer\s*==\s*<?\s*role",
     r"never\s+(?:use|set)[^.]{0,160}(?:--author|GIT_AUTHOR_|GIT_COMMITTER_)",
-    r"never\s+(?:use|set)\s+(?:a\s+)?role\s+identity",
+    r"team\s+commit\s+is\s+authored",
+    r"committed\s+by\s+the\s+(?:acting\s+)?role",
 )
 
 
@@ -403,24 +403,55 @@ def identity_prose(path: Path) -> str:
     return " ".join(path.read_text(encoding="utf-8").replace("*", "").split())
 
 
-def test_the_charters_quote_the_constitution_on_commit_identity(root):
-    """One rule for commit identity: the acting role mailbox, per commit.
-
-    The contradiction is expensive rather than theoretical - three PRs in one
-    engagement failed on a lane that followed a charter telling it to use the
-    repository's own configured identity while the gate demanded the mailbox.
-    So the forbidden wording may not reappear in any charter or reference, and
-    the reference every charter points at must carry the constitution.
-    """
-    scanned = [root / "roles" / f"{role}.md" for role in ROLES]
-    scanned += sorted((root / "references").glob("*.md"))
+def identity_findings(paths: list[Path], root: Path) -> list[str]:
+    """Every forbidden identity clause found in `paths`, as `file: match` lines."""
     findings = []
-    for path in scanned:
+    for path in paths:
         prose = identity_prose(path)
         for pattern in FORBIDDEN_IDENTITY_CLAUSES:
             match = re.search(pattern, prose, re.IGNORECASE)
             if match:
                 findings.append(f"{path.relative_to(root).as_posix()}: {match.group(0)!r}")
+    return findings
+
+
+def test_the_identity_guard_catches_the_declarative_form(root, tmp_path):
+    """The guard catches the statement form of the superseded rule, not only the order.
+
+    A previous finding quoted "Every team commit is authored and committed by the
+    role:" from the reference every charter points at and the guard passed it,
+    because only the imperative wording was forbidden. The rule the decision
+    replaced could therefore return as a statement, so each sentence is a mutant.
+    """
+    mutated = tmp_path / "references"
+    mutated.mkdir()
+    for index, sentence in enumerate(
+        (
+            "Every team commit is authored and committed by the role:",
+            "The commit is committed by the acting role.",
+        )
+    ):
+        path = mutated / f"Reference{index}.md"
+        path.write_text(f"## Commit identity\n\n{sentence} display name is the role.\n")
+        assert identity_findings([path], tmp_path), (
+            f"the guard passed the declarative form of the superseded rule: {sentence!r}"
+        )
+
+
+def test_the_charters_quote_the_constitution_on_commit_identity(root):
+    """One rule for commit identity: the repository's configured pair, role opt-in.
+
+    The contradiction is expensive rather than theoretical - three PRs in one
+    engagement failed on a lane that followed a charter telling it to use the
+    repository's own configured identity while the gate demanded the mailbox.
+    Decision 2026-11-11 settled it the other way: the configured pair authors a
+    commit and the role mailbox is opt-in, so the old wording may not reappear in
+    any charter or reference and the reference every charter points at must carry
+    the constitution.
+    """
+    scanned = [root / "roles" / f"{role}.md" for role in ROLES]
+    scanned += sorted((root / "references").glob("*.md"))
+    findings = identity_findings(scanned, root)
     assert not findings, (
         "a charter or reference still forbids the identity the constitution and the "
         "CI gate require: " + "; ".join(findings)
@@ -428,17 +459,17 @@ def test_the_charters_quote_the_constitution_on_commit_identity(root):
 
     engineering = identity_prose(root / "references" / "Engineering.md")
     for phrase in (
-        "acting role mailbox",
+        "repository's own configured pair",
         "author == committer",
-        "git -c user.name=",
+        "TEAMWORK_COMMIT_IDENTITY=role",
         "teamwork.py commit --role",
         "Acting role:",
     ):
         assert phrase in engineering, (
             f"Engineering.md no longer quotes the constitution: {phrase!r}"
         )
-    assert re.search(r"plain `?git commit`?[\s\S]{0,220}(?:gate|fail)", engineering), (
-        "Engineering.md must warn that a plain git commit inherits the configured identity"
+    assert re.search(r"no (?:line|field) names a role", engineering, re.IGNORECASE), (
+        "Engineering.md must state that a message names no agent"
     )
 
 
