@@ -221,6 +221,8 @@ under two roles is two tasks.
 | developer | T-0091 | ci | done | P-0138 | a01a6c3 |
 | developer | T-0092 | ci | done | P-0139 | 11d3d1c |
 | developer | T-0093 | ci | done | P-0140 | 442c829 |
+| developer | T-0094 | - | todo | - | - |
+| developer | T-0095 | tests | done | P-0141 | 6e5aa6a |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -272,6 +274,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0094 · the Windows shards exposed four Windows-specific test failures the 90-minute cancellation had hidden | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
