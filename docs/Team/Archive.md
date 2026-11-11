@@ -6524,4 +6524,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 454e1c7
 - reviewer evidence: git diff main...454e1c7 @454e1c7 -> 2 files, +8/-2: ci.yml privacy job timeout-minutes 15->30 with 6-line measurement comment (8m02s local / 15m15s cold runner, T-0090), test_ci_contracts.py TIMEOUT_MINUTES privacy 15->30; .venv/bin/python -m pytest -q tests/unit/test_ci_contracts.py @454e1c7 -> 33 passed in 0.14s; grep -n -A2 "name: privacy scan" .github/workflows/ci.yml @454e1c7 -> ci.yml:332 name: privacy scan (tree + history), 334 comment start, timeout-minutes: 30 confirmed at ci.yml:340; git merge-tree --write-tree main 454e1c7 @454e1c7 -> CLEAN
 - findings history: 
-- branch / merge: developer-1/t-0092-privacy-budget / pending
+- branch / merge: developer-1/t-0092-privacy-budget / 11d3d1c
