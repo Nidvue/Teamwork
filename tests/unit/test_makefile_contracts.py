@@ -128,7 +128,11 @@ def signature(argv: list[str]) -> tuple[str, ...] | None:
     Identity = the script or module invoked (+ its subcommand for tools where the
     subcommand is a separate gate, e.g. `ruff check` vs `ruff format`).
     """
-    argv = [normalise(word) for word in argv if word]
+    argv = [
+        normalise(word)
+        for word in argv
+        if word and not any(ch in word for ch in "{}") and not word.startswith("matrix.")
+    ]
     while argv and "=" in argv[0] and not argv[0].startswith("-"):
         argv.pop(0)
     while argv and argv[0] in {"sudo", "env"}:
