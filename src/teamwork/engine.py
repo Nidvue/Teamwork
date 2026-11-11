@@ -24,7 +24,7 @@ Usage
                                   [--importance 0-5] [--tags a,b] [--pin]
     teamwork.py global TEXT [--by BY] [--src SRC] [--rev REV]
                             [--key K] [--importance N] [--tags a,b] [--pin]
-    teamwork.py recall QUERY [--agent A] [--all] [--global] [--layer both|short|long]
+    teamwork.py recall QUERY [--agent A] [--all] [--global] [--layer both|short|long|archive]
     teamwork.py touch AGENT ID|KEY [--layer short|long]
     teamwork.py forget AGENT ID|KEY [--layer short|long]
     teamwork.py consolidate [--agent A] [--all] [--dry-run]
@@ -7099,6 +7099,9 @@ def cmd_global(args) -> int:
     return 0
 
 
+RECALL_LAYERS = {"short": F_SHORT, "long": F_LONG, "archive": F_MEM_ARCHIVE}
+
+
 def cmd_recall(args) -> int:
     root = project_root(args)
     if args.query:
@@ -7117,18 +7120,17 @@ def cmd_recall(args) -> int:
             targets.append(("global", f, f.name))
     if args.all:
         for name in list_roles(root):
-            for f in (role_dir(root, name) / F_LONG, role_dir(root, name) / F_SHORT):
+            for f in (
+                role_dir(root, name) / F_LONG,
+                role_dir(root, name) / F_SHORT,
+                role_dir(root, name) / F_MEM_ARCHIVE,
+            ):
                 targets.append((name, f, f.name))
     elif args.agent:
         role = resolve_role(args.agent)
-        for layer in (
-            ["short"]
-            if args.layer == "short"
-            else ["long"]
-            if args.layer == "long"
-            else ["short", "long"]
-        ):
-            f = role_dir(root, role) / (F_SHORT if layer == "short" else F_LONG)
+        layers = [args.layer] if args.layer in RECALL_LAYERS else list(RECALL_LAYERS)
+        for layer in layers:
+            f = role_dir(root, role) / RECALL_LAYERS[layer]
             targets.append((role, f, f.name))
     if not targets and not getattr(args, "transcripts", False):
         die("nothing to search: pass --agent A, --global, or --all")
@@ -7370,6 +7372,19 @@ def _collected(root: Path, role: str) -> list:
     return list(seen.values())
 
 
+def _searchable(root: Path, role: str) -> list:
+    """What `memory search` ranks: the pack's stores plus each role's archive (15.3).
+
+    A demoted record keeps its statement in ``ArchivedMemory.md`` and must stay
+    findable, so the archive is added here and nowhere else: `memory pack`, the
+    short block and the dream pass keep reading ``_collected``.
+    """
+    entries = _collected(root, role)
+    for name in [role] if role else list_roles(root):
+        entries.extend(memorypack.archived_memories(root, name))
+    return entries
+
+
 def _memory_pack(root: Path, role: str, args) -> int:
     budget = args.budget or memorypack.PACK_BUDGET_BYTES
     if budget < 0:
@@ -7384,7 +7399,7 @@ def _memory_pack(root: Path, role: str, args) -> int:
 def _memory_search(root: Path, role: str, query: str) -> int:
     print(
         memorypack.render_search(
-            _collected(root, role),
+            _searchable(root, role),
             query,
             datetime.datetime.now(),
             page_facts=[fact for page in wiki.pages(root) for fact in wiki.fact_entries(page)],
@@ -18096,7 +18111,7 @@ def _parsers_memory(sub, common) -> None:
         action="store_true",
         help="also search the ledger and the worklogs (additive)",
     )
-    s.add_argument("--layer", choices=["both", "short", "long"], default="both")
+    s.add_argument("--layer", choices=["both", "short", "long", "archive"], default="both")
     s.set_defaults(func=cmd_recall)
 
     s = sub.add_parser("touch", parents=[common], help="mark an entry as used")
