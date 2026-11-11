@@ -88,7 +88,7 @@ under two roles is two tasks.
 | architect | T-0005 | architecture | done | P-0067 | bb7c34f |
 | architect | T-0006 | - | done | P-0082 | f4cd70f |
 | architect | T-0007 | - | done | P-0081 | 0340949 |
-| architect | T-0008 | memory | review | P-0144 | - |
+| architect | T-0008 | memory | doing | P-0144 | - |
 | ceo | T-0001 | review | done | P-0001 | 2f44f00 |
 | ceo | T-0002 | docs | done | P-0008 | 28c1133 |
 | ceo | T-0003 | - | done | - | - |
@@ -225,6 +225,9 @@ under two roles is two tasks.
 | developer | T-0094 | windows-portability | done | P-0142 | - |
 | developer | T-0095 | tests | done | P-0141 | 6e5aa6a |
 | developer | T-0096 | tests | done | P-0143 | 702449c |
+| developer | T-0097 | memory | done | P-0145 | 19246a0 |
+| developer | T-0098 | - | todo | - | - |
+| developer | T-0099 | - | dropped | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -259,6 +262,7 @@ under two roles is two tasks.
 | tester | T-0008 | memory | done | P-0097 | e34d6f7 |
 | tester | T-0009 | - | done | - | - |
 | tester | T-0010 | status | done | P-0121 | 9e8c3b3 |
+| tester | T-0011 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -276,7 +280,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| architect | T-0008 · freeze the M23 memory contracts: short-layer capture and injection, the promotion rule, the dream cadence and the wiki page format | P0 | review | - |
+| architect | T-0008 · freeze the M23 memory contracts: short-layer capture and injection, the promotion rule, the dream cadence and the wiki page format | P0 | doing | - |
+| developer | T-0098 · M23-B: promote by use, run the dream pass on its cadence, and keep a capped wiki that search consults | P0 | todo | - |
+| tester | T-0011 · M23-C: certify the memory flow end to end and fill the AC-M23-6 measurement table | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
