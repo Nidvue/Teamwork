@@ -126,12 +126,12 @@ def test_git_identity_args_shape(tmp_path: Path, monkeypatch) -> None:
     ]
 
 
-def test_the_preset_identity_wins_over_the_role_mailbox(tmp_path: Path) -> None:
+def test_the_declared_preset_wins_over_the_role_mailbox(tmp_path: Path) -> None:
     project = tmp_path / "preset"
     project.mkdir()
     engine.run_git(project, "init", "-q")
-    engine.run_git(project, "config", "--local", "user.name", "Ops Person")
-    engine.run_git(project, "config", "--local", "user.email", "ops@example.com")
+    engine.run_git(project, "config", "--local", "teamwork.identity.name", "Ops Person")
+    engine.run_git(project, "config", "--local", "teamwork.identity.email", "ops@example.com")
     assert engine.commit_identity("developer", project) == ("Ops Person", "ops@example.com")
     assert engine.git_identity_args("developer", project) == [
         "-c",
@@ -139,3 +139,40 @@ def test_the_preset_identity_wins_over_the_role_mailbox(tmp_path: Path) -> None:
         "-c",
         "user.email=ops@example.com",
     ]
+
+
+def test_the_ambient_git_config_is_not_a_preset(tmp_path: Path) -> None:
+    """A-0012: the host's ``user.name``/``user.email`` is not a declaration.
+
+    On the operator's machine the local pair names the operator, so reading it made
+    every lane commit as the operator. Only ``teamwork.identity.*`` is a preset.
+    """
+    project = tmp_path / "ambient"
+    project.mkdir()
+    engine.run_git(project, "init", "-q")
+    engine.run_git(project, "config", "--local", "user.name", "Ops Person")
+    engine.run_git(project, "config", "--local", "user.email", "ops@example.com")
+    assert engine.declared_identity(project) is None
+    assert engine.commit_identity("developer", project) == (
+        "Developer",
+        f"developer@{engine.IDENTITY_DOMAIN}",
+    )
+
+
+def test_a_half_declared_preset_is_no_preset(tmp_path: Path) -> None:
+    project = tmp_path / "half-preset"
+    project.mkdir()
+    engine.run_git(project, "init", "-q")
+    engine.run_git(project, "config", "--local", "teamwork.identity.name", "Ops Person")
+    assert engine.declared_identity(project) is None
+    assert engine.commit_identity("ceo", project) == ("CEO", f"ceo@{engine.IDENTITY_DOMAIN}")
+
+
+def test_the_identity_environment_pins_both_pairs() -> None:
+    env = engine.git_identity_env("developer")
+    assert env == {
+        "GIT_AUTHOR_NAME": "Developer",
+        "GIT_AUTHOR_EMAIL": f"developer@{engine.IDENTITY_DOMAIN}",
+        "GIT_COMMITTER_NAME": "Developer",
+        "GIT_COMMITTER_EMAIL": f"developer@{engine.IDENTITY_DOMAIN}",
+    }
