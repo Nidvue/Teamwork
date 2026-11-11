@@ -247,9 +247,27 @@ jobs:
           - os: macos-latest
             python-version: "3.13"
             coverage: false
+          # Windows spawns processes several times slower than the POSIX runners and
+          # this suite spawns hundreds of them, so one Windows job exceeded the
+          # 90-minute cap even after the traceability guard stopped re-running the
+          # privacy scan (run 42941335942). Sharded by test-file letter range: three
+          # jobs, no plugin, no new dependency, and a cancelled shard names the
+          # files it was running instead of hiding the whole lane.
           - os: windows-latest
             python-version: "3.13"
             coverage: false
+            shard: "a-f"
+            paths: "tests/unit/test_[a-f]*.py tests/integration tests/acceptance"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "g-o"
+            paths: "tests/unit/test_[g-o]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "p-z"
+            paths: "tests/unit/test_[p-z]*.py"
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -289,12 +307,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports
-          python -m pytest -q --junitxml=reports/junit.xml
+          python -m pytest -q --junitxml=reports/junit.xml ${{ matrix.paths }}
       - name: Upload junit + coverage artifact
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.shard || 'all' }}
           path: reports/
           if-no-files-found: warn
 

@@ -138,6 +138,42 @@ def matrix_rows(document: dict) -> list[tuple[str, str, str]]:
     return rows
 
 
+SHARDED_CELLS = {("windows-latest", "3.13")}
+
+
+def shard_problems(document: dict) -> list[str]:
+    """A cell may be sharded, but the shards must partition the suite by path.
+
+    Windows spawns processes several times slower than the POSIX runners, so one
+    job per cell exceeded the 90-minute cap even after the traceability guard
+    stopped re-running the privacy scan (T-0090). A shard is one matrix row with a
+    `paths` field; the rule is that a sharded cell has at least two rows, every
+    shard names a path, and no two shards name the same path.
+    """
+    matrix = ((jobs(document).get("test") or {}).get("strategy") or {}).get("matrix") or {}
+    rows = matrix.get("include") or []
+    problems: list[str] = []
+    seen: dict = {}
+    for entry in rows:
+        cell = (str(entry.get("os")), str(entry.get("python-version")))
+        seen.setdefault(cell, []).append(str(entry.get("paths") or ""))
+    for cell, paths in sorted(seen.items()):
+        if len(paths) == 1:
+            if paths[0]:
+                problems.append(f"{cell} names shard paths but is one job: {paths[0]!r}")
+            continue
+        if cell not in SHARDED_CELLS:
+            problems.append(f"{cell} is sharded into {len(paths)} jobs; only {SHARDED_CELLS}")
+        if any(not path for path in paths):
+            problems.append(f"{cell} has a shard with no paths: {paths}")
+        if len(set(paths)) != len(paths):
+            problems.append(f"{cell} has two shards with the same paths: {paths}")
+    for cell in SHARDED_CELLS:
+        if cell not in seen:
+            problems.append(f"the sharded cell {cell} is missing from the matrix")
+    return problems
+
+
 def matrix_problems(document: dict) -> list[str]:
     """The five-cell matrix, its fail-fast policy and the single coverage lane."""
     problems: list[str] = []
@@ -151,9 +187,10 @@ def matrix_problems(document: dict) -> list[str]:
             f"the test matrix still expands a cartesian product beside `include:`: {sorted(matrix)}"
         )
     rows = matrix_rows(document)
-    cells = [(os_name, version) for os_name, version, _coverage in rows]
-    if sorted(cells) != sorted(MATRIX_CELLS):
-        problems.append(f"test matrix is {sorted(cells)}, contract says {sorted(MATRIX_CELLS)}")
+    cells = sorted({(os_name, version) for os_name, version, _coverage in rows})
+    if cells != sorted(MATRIX_CELLS):
+        problems.append(f"test matrix is {cells}, contract says {sorted(MATRIX_CELLS)}")
+    problems.extend(shard_problems(document))
     covered = [(os_name, version) for os_name, version, coverage in rows if coverage == "true"]
     if covered != [COVERAGE_CELL]:
         problems.append(f"coverage lanes are {covered}, want only {COVERAGE_CELL}")
@@ -307,7 +344,7 @@ def ci() -> dict:
 
 def test_the_matrix_is_the_five_designed_cells(ci):
     """3.11/3.12/3.13 on ubuntu, newest on macOS and Windows: five lanes, no more."""
-    assert sorted((os_name, version) for os_name, version, _ in matrix_rows(ci)) == sorted(
+    assert sorted({(os_name, version) for os_name, version, _ in matrix_rows(ci)}) == sorted(
         MATRIX_CELLS
     )
 
