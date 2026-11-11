@@ -39,10 +39,11 @@ from __future__ import annotations
 
 import datetime
 import re
+import time
 from pathlib import Path
 
 from . import harness
-from .config import F_KNOWLEDGE, F_LESSONS, F_SHORT, F_TASKS
+from .config import F_KNOWLEDGE, F_LESSONS, F_SHORT, F_TASKS, STALE_AFTER_DAYS
 from .layout import knowledge_path, role_dir, roles_dir
 from .names import one_line
 from .records import (
@@ -69,7 +70,6 @@ SEARCH_LIMIT = 10
 STATEMENT_CLIP = 200
 TOPIC_CLIP = 60
 HALF_LIFE_DAYS = 30.0
-STALE_AFTER_DAYS = 90
 SHORT_EVIDENCE = 20
 DUPLICATE_OVERLAP = 0.8
 CONTRADICTION_OVERLAP = 0.5
@@ -548,11 +548,15 @@ def render_search(
     now: datetime.date | datetime.datetime,
     limit: int = SEARCH_LIMIT,
     budget: int = SEARCH_BUDGET_BYTES,
+    page_facts: list[dict] | None = None,
 ) -> str:
     """Top ``limit`` matches over every store, clipped so the whole output fits ``budget``.
 
     A record that shares no term with the query is not a match, so an empty result
-    is an honest empty result rather than ten weakly ranked records.
+    is an honest empty result rather than ten weakly ranked records. Wiki fact
+    lines (15.5) compete for the same ``limit`` and ``budget`` as the records, so a
+    wiki can never grow the read budget: it is ranked by the same 4.1 score and
+    printed as ``W-0003 -> Wiki/<slug>.md#L<n>``.
     """
     terms = set(tokenize(query))
     candidates = [
@@ -562,16 +566,34 @@ def render_search(
         and terms & set(record_tokens(entry))
     ]
     ranked = rank(candidates, query, now)[:limit]
+    matched_facts = rank(
+        [fact for fact in (page_facts or []) if terms & set(record_tokens(fact))], query, now
+    )
+    total_matches = len(ranked) + len(matched_facts)
     lines: list[str] = []
     total = 0
-    for position, entry in enumerate(ranked):
+    for entry in ranked:
         cost = line_bytes(entry)
-        footer = len(_search_footer(position + 1, len(ranked), total + cost).encode("utf-8")) + 1
+        footer = (
+            len(_search_footer(len(lines) + 1, total_matches, total + cost).encode("utf-8")) + 1
+        )
         if total + cost + footer > budget:
             break
         lines.append(render_record(entry))
         total += cost
-    return "\n".join(lines + [_search_footer(len(lines), len(ranked), total)]) + "\n"
+    for fact in matched_facts:
+        if len(lines) >= limit:
+            break
+        line = f"- {fact['id']} -> {fact['pointer']} {fact['statement']}"
+        cost = len(line.encode("utf-8")) + 1
+        footer = (
+            len(_search_footer(len(lines) + 1, total_matches, total + cost).encode("utf-8")) + 1
+        )
+        if total + cost + footer > budget:
+            break
+        lines.append(line)
+        total += cost
+    return "\n".join(lines + [_search_footer(len(lines), total_matches, total)]) + "\n"
 
 
 def _search_footer(shown: int, total: int, bytes_used: int) -> str:
@@ -599,6 +621,7 @@ def dream(
     entries: list[dict],
     now: datetime.date | datetime.datetime,
     project: Path | None = None,
+    budget_seconds: float = 0.0,
 ) -> dict:
     """The four maintenance reports of 4.2 over lessons and knowledge.
 
@@ -606,12 +629,18 @@ def dream(
     more and names the newer one to keep; ``contradiction`` pairs same-key active
     records that share too little (under 0.5) to be the same claim and reports
     both without choosing; ``stale`` lists active records with no uses, older than
-    90 days and not pinned; ``no_evidence`` lists records whose evidence is
-    missing or under 20 characters. ``drifted`` names the records whose evidence
-    no longer resolves against the tree, computed by :func:`memverify.verify_all`
-    - the same function ``memory verify`` reports - and empty when the caller
-    passes no ``project`` to resolve against. Nothing is mutated here.
+    ``STALE_AFTER_DAYS`` and not pinned; ``no_evidence`` lists records whose
+    evidence is missing or under 20 characters. ``drifted`` names the records
+    whose evidence no longer resolves against the tree, computed by
+    :func:`memverify.verify_all` - the same function ``memory verify`` reports -
+    and empty when the caller passes no ``project`` to resolve against. Nothing is
+    mutated here.
+
+    ``budget_seconds`` is the 15.4 wall clock: past it the pass stops and
+    ``deferred`` names how many records it did not check, so a trigger never
+    blocks a lane start.
     """
+    deadline = time.monotonic() + budget_seconds if budget_seconds else 0.0
     scoped = [entry for entry in entries if str(entry.get("kind") or "") in DREAM_KINDS]
     groups: dict[tuple, list[dict]] = {}
     for entry in scoped:
@@ -620,10 +649,15 @@ def dream(
     duplicates: list[tuple] = []
     contradictions: list[tuple] = []
     claimed: set[str] = set()
-    for key, members in sorted(groups.items()):
+    keys = sorted(groups.items())
+    deferred = 0
+    for position, (key, members) in enumerate(keys):
+        if deadline and time.monotonic() > deadline:
+            deferred = sum(len(other) for _key, other in keys[position:])
+            break
         ordered = sorted(members, key=lambda entry: str(entry.get("id") or ""))
-        for position, left in enumerate(ordered):
-            for right in ordered[position + 1 :]:
+        for index, left in enumerate(ordered):
+            for right in ordered[index + 1 :]:
                 if not _is_active(left) or not _is_active(right):
                     continue
                 overlap = statement_overlap(left, right)
@@ -645,6 +679,15 @@ def dream(
                         )
                     )
 
+    if deferred:
+        return {
+            "duplicate": duplicates,
+            "contradiction": contradictions,
+            "stale": [],
+            "no_evidence": [],
+            "drifted": [],
+            "deferred": deferred,
+        }
     stale = sorted(
         entry["id"]
         for entry in scoped
@@ -664,6 +707,7 @@ def dream(
         "stale": stale,
         "no_evidence": no_evidence,
         "drifted": drifted(scoped, project, now),
+        "deferred": 0,
     }
 
 

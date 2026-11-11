@@ -316,6 +316,7 @@ def test_dream_keeps_its_four_groups_and_adds_drifted(tmp_path: Path) -> None:
         "stale",
         "no_evidence",
         "drifted",
+        "deferred",
     }
     assert proposals["duplicate"] == [("K-0002", "K-0001", 1.0)]
     assert proposals["stale"] == ["K-0001", "K-0002"]
