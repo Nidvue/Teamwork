@@ -449,6 +449,12 @@ EXEMPT_REASONS = {
         "deliverable is under review the board necessarily still holds it, so the "
         "answer is green only on a merged revision"
     ),
+    "ownjob": (
+        "the proof is its own CI job on every pushed revision (privacy scan, link "
+        "check, strict docs build), so re-running it inside this guard is the "
+        "duplicate gate the throughput contract forbids - and it costs minutes per "
+        "run, which is what pushed the Windows cell past its budget"
+    ),
 }
 
 EXEMPT_EVIDENCE: dict[str, str] = {
@@ -456,6 +462,7 @@ EXEMPT_EVIDENCE: dict[str, str] = {
     "forge": r"\bgh\b|verify_release\.py|\bci\.ya?ml\b|\brelease\.ya?ml\b|\bCI job\b",
     "drift": r"tests plan|TEAMWORK_ROOT|team tree|\.pi/Teamwork",
     "inflight": r"teamwork\.py loop|teamwork\.py audit",
+    "ownjob": r"privacy_scan\.py|teamwork\.py links|mkdocs",
 }
 
 EXEMPT: dict[str, str] = {
@@ -474,6 +481,8 @@ EXEMPT: dict[str, str] = {
     "AC-18": "self",
     "AC-22": "forge",
     "AC-23": "forge",
+    "AC-5": "ownjob",
+    "AC-6": "ownjob",
 }
 
 
@@ -836,12 +845,12 @@ def test_the_history_opt_out_drops_only_the_history_clause(
     section = (
         "| AC | proof target | archived task(s) | test record | proof command (read the run) | state |\n"
         "|---|---|---|---|---|---|\n"
-        '| AC-5 | `x` | none | none | `python -c "import sys; sys.exit(0)" --history` | green |\n'
+        '| AC-77 | `x` | none | none | `python -c "import sys; sys.exit(0)" --history` | green |\n'
     )
     executed, skipped, disagreements, clause_skips = _replay(section, tmp_path)
     assert executed == 1, (executed, skipped, disagreements)
     assert not disagreements, disagreements
-    assert len(clause_skips) == 1 and clause_skips[0].startswith("AC-5:"), clause_skips
+    assert len(clause_skips) == 1 and clause_skips[0].startswith("AC-77:"), clause_skips
 
 
 def test_the_primary_lane_runs_the_history_clause(
