@@ -318,9 +318,10 @@ teamwork identity --audit [--range REV..REV] [--strict-authors] [--guard-committ
 Show the role commit identity, e.g. `Developer <developer@agents.nidvue.com>`.
 
 `--audit` fails when a commit in the range was not authored and committed by an
-accepted identity - the repository's configured pair or a role mailbox. The
-`Acting role:` trailer is required from a role-mailbox author and optional for the
-configured pair, because the message names no agent. It skips the forge's
+accepted identity - the repository's configured pair or a role mailbox. No trailer
+is required, because the message names no agent and the mailbox already names the
+role; an `Acting role:` or `Role:` line that is present must agree with the
+author. It skips the forge's
 synthetic pull-request merge ref, and allows bot dependency
 updates only when both the bot name and a `users.noreply.github.com` mailbox
 match. An author outside the team identity domain is reported as skipped by

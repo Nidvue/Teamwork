@@ -228,17 +228,18 @@ a pass.
 
 `identity --audit --range origin/main..main` on the unpublished line reported 16
 problems that the team's own merge policy produces, so the gate was red on a clean
-policy-conforming history. The four cases below are now accepted by
-`audit_commit_identities` (`src/teamwork/engine.py`); each is proved by a named test
-in `tests/unit/test_commit_identity.py`. See [Architecture](Architecture.md#11-release-consistency-contract)
+policy-conforming history. The four cases below are accepted by
+`audit_commit_identities` (`src/teamwork/engine.py`), which since T-0117 requires no
+`Acting role:` trailer at all and rejects only one that disagrees with the author;
+each case is proved by a named test in `tests/unit/test_commit_identity.py`. See [Architecture](Architecture.md#11-release-consistency-contract)
 for the contract this gate belongs to.
 
 | # | Case | Decision | Reason |
 |---|---|---|---|
 | 1 | `committer differs from author` where the committer is a **canonical role mailbox** (`ROLE_DISPLAY` -> `role_identity`, e.g. `Reviewer <reviewer@agents.nidvue.com>`) | **accepted**, and the output still prints `(landed by <role>)` | A lane landing a peer's reviewed work commits as its own role mailbox: that *is* the local merge policy. A committer that is not a role mailbox (a personal address) and differs from the author stays a **FAIL**. |
-| 2 | missing `Acting role:` line while the body carries `Role: <role>` | **accepted** as equivalent, provided the `Role:` value resolves to the author's own role | The line is only required from a role-mailbox author (`TEAMWORK_COMMIT_IDENTITY=role`), and the tool stopped writing both trailers when the repository's pair became the default (decision 2026-11-11), so a `Role:`-only body is the older role-mailbox shape. A commit with neither line stays a **FAIL** from a role mailbox, and a `Role:` naming another role stays a **FAIL**. |
-| 3 | a **two-parent** `chore(merge): ...` commit with an **empty body** | **exempt** from the acting-role line | It adds no content of its own, so there is no acting role to name (measured: `5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1`, parents `bdae827c06c32e2aa310028d918fd21aafbb6f48`+`5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1`, empty body, Reviewer committer). |
-| 4 | a **single-parent** `chore(merge)` commit with an empty body | **not exempt** - still a **FAIL** | A squash/fast-forward commit *does* add content, so the exemption above must stay discriminable from it. |
+| 2 | a commit carrying **no** `Acting role:` line | **accepted** - no line is required from any author | The message a commit carries names no agent (decision 2026-11-11), so the mailbox is the identity and `build_commit_message` writes neither trailer; demanding one failed every commit the tool makes. A present `Acting role:` or `Role:` line that does not resolve to the author's own role stays a **FAIL** (measured at `1c90ac5195be`: role-mailbox author, no trailer -> `problems: 0`; same commit with `Acting role: Reviewer` on a Developer mailbox -> `problems: 1`). |
+| 3 | a **two-parent** `chore(merge): ...` commit with an **empty body** | **accepted** like every other commit - the empty-body exemption went with the rule it served | Row 2 requires no line, so there is nothing left to exempt: `_is_content_free_team_merge` and `_RE_MERGE_SUBJECT` were deleted with it, and the case stays green without them (`5016c9ba3112ef0e32fefc30b1d4ec9fd7cf67e1` audits clean). |
+| 4 | a **single-parent** `chore(merge)` commit with an empty body | **accepted** - the former **FAIL** discriminated the deleted exemption, not a defect | A merge-shaped subject never decided the identity question: measured at `1c90ac5195be`, a role-mailbox author with a single parent, a merge subject and no trailer -> `1 commit \| problems: 0`, proved by `tests/unit/test_commit_identity.py::test_a_single_parent_commit_without_a_trailer_passes`. |
 
 Re-stamping the existing history was refused: it rewrites every descendant sha, and
 `docs/Team/Archive.md` pins each landed PR's merge revision.
