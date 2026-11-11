@@ -2622,3 +2622,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: gh run on e30b956: windows shards complete and report 8 failures; the same suite is green on ubuntu py3.11/3.12/3.13 and macOS py3.13 (2704 passed, 4 skipped); every other CI job green including privacy (tree + history) inside the new 30-minute budget
 - falsified by: -
 - consequences: -
+
+## D-20261111-CEO-2 - M23 promotion rule: promote on proven value, keep on freshness
+
+- date: 2026-11-11
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0008
+- context: -
+- options considered: -
+- decision: Section 15.3 of docs/Team/Memory.md is revised to: stale(entry) = days_since(last_used) >= STALE_DAYS (age only); keep short when pinned or not stale; when stale, promote to LongTermMemory.md if uses >= PROMOTE_USES OR importance >= PROMOTE_MIN_IMPORTANCE, otherwise drop to ArchivedMemory.md. The rows are disjoint and need no precedence order. src/teamwork/engine.py:7832 changes to match in T-0098: the current rule treats staleness as 'old AND rarely used', which keeps a frequently used note in short-term memory forever and promotes only old notes that were rarely used - the opposite of the article, which floats a note up the hierarchy when use and importance prove it is worth loading, and keeps the top layer small by pushing detail down with a link.
+- why: Reviewer-3 finding F1 is correct that the frozen table is unsatisfiable; its second half (keep the implementation's uses conjunct) is the wrong resolution, because that conjunct is the flaw the milestone exists to fix
+- evidence: architect/T-0008 @2d8e625: docs/Team/Memory.md:520-521 keep 'not stale OR uses >= MIN_USES' subsumes promote 'stale AND uses >= PROMOTE_USES', so no entry can ever be promoted; src/teamwork/engine.py:7832 'stale = days_since(last_used) >= STALE_DAYS and uses < MIN_USES' promotes old rarely-used notes and keeps used ones short forever; every Roles/*/ShortTermMemory.md holds 0 entries today, so neither rule has ever run
+- falsified by: If a real store shows a frequently used note must stay short (for example because the long store's cap pushes it out again immediately), the OR is wrong and promotion returns to importance alone
+- consequences: -
+
+## D-20261111-CEO-3 - M23 promotion boundary: use is the evidence, importance only ranks
+
+- date: 2026-11-11
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0008
+- context: -
+- options considered: -
+- decision: Section 15.3 is revised to: stale(entry) = days_since(last_used) >= STALE_AFTER_DAYS (age only); keep short when pinned or not stale; when stale, promote to LongTermMemory.md if uses >= PROMOTE_USES (2), otherwise drop to ArchivedMemory.md. Importance no longer decides promotion at all: it keeps its ranking weight in score() and its existing role in the SHORT_CAP/LONG_CAP overflow split (importance >= PROMOTE_MIN_IMPORTANCE promotes on overflow, else drops), which is reachable because overflow is not gated on importance. Rationale: the writer default is importance 2 and PROMOTE_MIN_IMPORTANCE is 2, so any importance-based boundary either swallows every entry or none; and the article's rule is that use is the evidence a note is worth loading while importance is only the author's prediction of it.
+- why: Reviewer-3 F3 is correct: with the writer default equal to the threshold, an importance-based drop row is unreachable, so the short layer never archives and the long store floods to LONG_CAP and evicts real long entries
+- evidence: architect/T-0008 @b0606e8: docs/Team/Memory.md:527-529 drop requires importance < 2 while :463 sets the harness writer to importance 2 and src/teamwork/engine.py:17982 defaults remember to --importance 2 and src/teamwork/config.py:255 sets PROMOTE_MIN_IMPORTANCE 2; rg -o 'importance: [0-9]' over Roles/*/LongTermMemory.md -> 17x2, 4x3, 3x4, 0x1, so the whole population sits at or above the threshold
+- falsified by: If a measured run shows a stale, never-used note that the team needs to keep, use-only promotion is wrong and importance returns as an OR, with the writer default moved to 1 so the rows stay reachable
+- consequences: -
