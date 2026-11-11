@@ -280,8 +280,9 @@ fails when the workflow and this table disagree.
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
     matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
     (five cells, nine jobs: the Windows cell runs as five path shards, and the
-    ubuntu 3.12 and macOS cells run the named subset `tests/unit
-    tests/acceptance` instead of the whole suite),
+    ubuntu 3.12 cell runs the named subset `tests/unit tests/acceptance` and the
+    macOS cell runs that subset plus `tests/integration/test_portability_flow.py`,
+    instead of the whole suite),
     `build` (sdist+wheel+verify_release), `privacy`
     (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`:
     personal data, credentials, agent-host config and tracked local state),
