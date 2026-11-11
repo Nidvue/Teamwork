@@ -642,7 +642,11 @@ def test_mutant_a_boundary_interpreter_on_the_subset_is_reported():
 
 CENSUS_DOCS = ("docs/Team/Architecture.md", "pyproject.toml")
 
-CENSUS_SHAPE = re.compile(r"\b\d+\s+(?:passed|collected|skipped)\b", re.IGNORECASE)
+CENSUS_SHAPE = re.compile(
+    r"\b\d+\s+(?:passed|collected|skipped)\b"
+    r"|\b(?:collects?|collected|runs?|ran|reports?|reported)\s+\d+\s+tests?\b",
+    re.IGNORECASE,
+)
 
 
 def census_problems(repo_root: Path = REPO_ROOT) -> list[str]:
@@ -677,6 +681,20 @@ def test_mutant_a_census_number_in_a_doc_is_reported(tmp_path):
     assert all("states a test census" in problem for problem in problems), problems
     (tmp_path / CENSUS_DOCS[0]).write_text(
         "the run gave 36s at `f4cd508`, 2026-11-11\n", encoding="utf-8"
+    )
+    assert [p for p in census_problems(tmp_path) if CENSUS_DOCS[0] in p] == []
+
+
+def test_mutant_a_prose_census_in_a_doc_is_reported(tmp_path):
+    """The other shape: a verb and a number, "the tree collects 2763 tests"."""
+    for relative in CENSUS_DOCS:
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_text("the tree collects 2763 tests\n", encoding="utf-8")
+    problems = census_problems(tmp_path)
+    assert len(problems) == len(CENSUS_DOCS), problems
+    assert all("states a test census" in problem for problem in problems), problems
+    (tmp_path / CENSUS_DOCS[0]).write_text(
+        "so the doc states no count and the two runs below are the check\n", encoding="utf-8"
     )
     assert [p for p in census_problems(tmp_path) if CENSUS_DOCS[0] in p] == []
 
