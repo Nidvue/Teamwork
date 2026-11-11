@@ -6823,4 +6823,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 3414647
 - reviewer evidence: pytest -q -W error tests/unit -n auto @3414647 -> 2392 passed, 7 skipped in 27.84s; tests/unit/test_io.py+test_lanes.py+test_memorypack.py @3414647 -> 102 passed in 19.12s; ruff format --check + ruff check src tests -> 214 formatted, all checks passed; mypy on the 4 touched modules -> Success; check_comments -> 0 explanatory commentary; the same tree with main's io.py release loop @3414647 -> 1 failed (test_a_release_retries_a_sharing_violation_on_its_own_lock), so the lock seam is proved both ways; CI run 43114375543 @af64434 unit-g-o -> 2 failed exactly as claimed (test_lanes.py:130 Roles\\Developer\\Role.md in packet; test_io.py codes [4,0,4,4,4,4...] 120s timeout); acceptance TS-0155 recorded
 - findings history: 
-- branch / merge: developer-1/t-0120-two-more-windows-only-failures-the-shard / pending
+- branch / merge: developer-1/t-0120-two-more-windows-only-failures-the-shard / d1ed0f6
