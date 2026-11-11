@@ -6537,4 +6537,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit a341519
 - reviewer evidence: pytest test_ci_contracts + test_makefile_contracts @a341519 -> 56 passed; grep -c os: windows-latest -> 3 shards; git merge-tree main a341519 -> CLEAN
 - findings history: 
-- branch / merge: developer-1/t-0093-windows-shards / pending
+- branch / merge: developer-1/t-0093-windows-shards / 442c829
