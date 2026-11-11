@@ -243,7 +243,7 @@ under two roles is two tasks.
 | developer | T-0112 | - | todo | - | - |
 | developer | T-0113 | privacy | done | P-0156 | 36c0ca5 |
 | developer | T-0114 | git-timeout | done | P-0157 | dee48ae |
-| developer | T-0115 | - | doing | - | - |
+| developer | T-0115 | identity | done | P-0158 | 762a40f |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -302,7 +302,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0108 · T-0004 lane work | P2 | todo | - |
 | developer | T-0110 · pr merge pins identity with -c only, so an exported GIT_AUTHOR_NAME can still author a merge commit | P2 | todo | - |
 | developer | T-0112 · remember accepts a write with no by, so three reviewer notes carry no provenance | P1 | todo | - |
-| developer | T-0115 · commit identity and message style must stop stamping agent roles into published history | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
