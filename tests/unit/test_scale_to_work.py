@@ -115,3 +115,29 @@ def test_swarm_observe_mode_never_touches_the_roster(cli, project: Path) -> None
         add_task(cli, project, "developer", f"code {index}")
     assert cli("--project", project, "swarm", "run", "--mode", "observe") == 2
     assert len(engine.instances_of(root, "developer")) == 1, "an observe wake mutates nothing"
+
+
+def test_ready_units_are_spread_across_idle_instances(cli, project: Path, capsys) -> None:
+    """One unit each, round-robin: a queue never piles onto one lane.
+
+    The old plan filled Developer-1 to `LANE_WIP` before touching Developer-2, so a
+    second idle lane sat unused. Distribution is now round-robin across the role's
+    instances; the cap still holds, so a third unit goes back to the first lane.
+    """
+    root = init(cli, project, "ceo,developer-1,developer-2")
+    add_task(cli, project, "developer", "alpha")
+    add_task(cli, project, "developer", "beta")
+    assert cli("--project", project, "pulse", "--commit") in (0, 3)
+    tasks = engine.parse_tasks(engine.task_file(root, "developer"))
+    holders = {t["claimed_by"] for t in tasks if t["status"] == "doing"}
+    assert holders == {"Developer-1", "Developer-2"}, holders
+
+    add_task(cli, project, "developer", "gamma")
+    assert cli("--project", project, "pulse", "--commit", "--no-scale") in (0, 3)
+    tasks = engine.parse_tasks(engine.task_file(root, "developer"))
+    doing = [t for t in tasks if t["status"] == "doing"]
+    assert len(doing) == 3
+    per_lane: dict = {}
+    for task in doing:
+        per_lane[task["claimed_by"]] = per_lane.get(task["claimed_by"], 0) + 1
+    assert max(per_lane.values()) <= engine.LANE_WIP, per_lane

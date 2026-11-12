@@ -95,7 +95,7 @@ and never re-adopted after a lane has spent an attempt - the measured failure wa
 a supervisor that re-planned one stalled task for 783 waves.
 
 ```sh
-teamwork.py swarm run                 # waves until nothing is runnable
+teamwork.py swarm run                 # one async wave, then return (--wait drains)
 teamwork.py swarm run --dry-run       # the measured policy + next wave, start nothing
 teamwork.py pulse --commit --spawn    # one wake: dispatch, then run the swarm
 teamwork.py swarm run --lanes 6       # cap the policy at six lanes
@@ -106,8 +106,13 @@ teamwork.py lane stop L-0007 --reason "superseded by L-0008"
 teamwork.py lane reap                 # reconcile a lane that died with no outcome
 ```
 
-- **One lane, one assignment.** A wave hands one unit to each idle instance and
-  fans the rest out; a second unit in one run stays the CEO's `LANE_WIP` choice.
+- **One lane, one assignment.** A wave hands one unit to each idle instance
+  round-robin and fans the rest out; a second unit in one run stays the CEO's
+  `LANE_WIP` choice, so no queue piles onto one lane.
+- **Dispatch is asynchronous by default.** `swarm run` and `pulse --commit --spawn`
+  start the wave and return; every lane is a detached process that runs
+  independently, and the next wake reconciles and refills. `--wait` is the batch
+  drain (and `--waves N` implies it) - for CI, never for the live loop.
 - **A provider lease is taken with the process** and released when it ends, so the
   cap in `Settings.json` bounds concurrent lanes without a second bookkeeping path.
 - **A budget is enforced, not requested.** `LaneMinutes` (default 25) is a hard

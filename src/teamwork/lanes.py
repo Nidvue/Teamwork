@@ -1865,6 +1865,12 @@ def cmd_swarm(args) -> int:
     previous = -1
     stalled = 0
     last_signature = None
+    streaming = not bool(getattr(args, "wait", False)) and not args.waves
+    if streaming:
+        print(
+            "# async: dispatch this wave and return; the lanes run independently. "
+            "Reconcile and refill with the next `pulse --commit --spawn` wake."
+        )
     while True:
         if deadline and time.monotonic() > deadline:
             print(f"# swarm budget of {minutes}m reached")
@@ -1940,10 +1946,17 @@ def cmd_swarm(args) -> int:
             )
             break
         if not launches:
-            if not live_runs(root):
+            live_now = live_runs(root)
+            if not live_now:
                 print("# no runnable work and no live lane: swarm idle - stopping")
                 break
-            wait_any(root, live_runs(root), poll, deadline)
+            if streaming:
+                print(
+                    f"# async: {len(live_now)} lane(s) still running and nothing to add; "
+                    "returning - the next wake reconciles them"
+                )
+                break
+            wait_any(root, live_now, poll, deadline)
             continue
         wave += 1
         print(
@@ -2009,6 +2022,12 @@ def cmd_swarm(args) -> int:
             f"{measurement.score} ({measurement.band}), target {target}: "
             + ", ".join(str(run["id"]) for run in started_now),
         )
+        if streaming:
+            print(
+                "# async: wave dispatched, nothing is waited on; "
+                "`lane status --live` shows it, the next wake refills"
+            )
+            break
         live = live_runs(root)
         if live:
             wait_any(root, live, poll, deadline)
@@ -2104,7 +2123,11 @@ def add_parsers(sub, common) -> None:
         help="dynamic wave supervisor: dispatch, spawn, retry, review, stop",
     )
     ssub = s.add_subparsers(dest="swarm_cmd", required=True)
-    p = ssub.add_parser("run", parents=[common], help="run waves until nothing is runnable")
+    p = ssub.add_parser(
+        "run",
+        parents=[common],
+        help="dispatch the next wave asynchronously and return (or --wait to drain)",
+    )
     p.add_argument(
         "--lanes",
         type=int,
@@ -2116,7 +2139,13 @@ def add_parsers(sub, common) -> None:
         action="store_true",
         help="turn the complexity policy off and run exactly --lanes every wave",
     )
-    p.add_argument("--waves", type=int, default=0, help="max waves, 0 = until idle")
+    p.add_argument("--waves", type=int, default=0, help="max waves in --wait mode, 0 = until idle")
+    p.add_argument(
+        "--wait",
+        action="store_true",
+        help="block: wait for a lane to end, re-measure and dispatch the next wave until the "
+        "board drains (the batch mode; the default dispatches one wave and returns)",
+    )
     p.add_argument("--minutes", type=int, default=None, help="swarm budget, 0 = none")
     p.add_argument("--lane-minutes", type=int, default=None, help="per-lane budget override")
     p.add_argument("--poll", type=float, default=0.0, help="seconds between supervisor polls")
