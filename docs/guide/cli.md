@@ -542,12 +542,20 @@ a lane's output.
 ```text
 teamwork lane wait HANDLE... [--timeout SECONDS]
 teamwork lane stop HANDLE [--reason REASON] [--by BY]
-teamwork lane reap
+teamwork lane reap [--keep] [--by BY]
 ```
 
 `wait` blocks until the named lanes end; `stop` signals a lane's process group,
 records why and releases its provider lease; `reap` reconciles lanes that died
-without writing an outcome and frees their slots.
+without writing an outcome, frees their slots and **recycles the seat of a
+finished lane** under the roster's own fold policy: an instance whose lanes have all
+ended, which holds no task, pen, slot or review claim, and whose role has no ready
+work is retired (move-only to `Runtime/Retired/`, packet and log repointed so
+`lane logs` still resolves). Two seats are never recycled by `reap`: **the CEO**
+(the only voice to the user) and the **last instance of a gate role** (`ceo`,
+`developer`, `tester`, `reviewer`), so a reap can free a surplus seat but cannot
+strand the gate; `instance prune` is the command that drains the floor.
+`--keep` reconciles the lanes but leaves the instances staffed.
 
 #### `lane preempt`
 

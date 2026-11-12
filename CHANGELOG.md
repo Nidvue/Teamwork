@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A finished job recycles its lane and, when the roster allows it, its seat** -
+  `lane reap` reconciles the ended lanes, frees their slots and retires the instance
+  of a finished lane under the roster's own fold policy: **never the CEO**, and one
+  instance of each gate role (`ceo`, `developer`, `tester`, `reviewer`) is kept, so a
+  reap recycles a surplus seat and cannot strand the gate. Retirement is move-only
+  to `Runtime/Retired/` (`--keep` leaves the instance staffed) and repoints the lane
+  record's packet and log into the new directory, so `lane logs` still resolves for
+  a lane that is the evidence for a verdict. The pulse fold recycles the same seats
+  on every wake.
 - **Streaming dispatch: the swarm never waits** - `swarm run` and `pulse --commit
   --spawn` now start the next wave and return; every lane is a detached process
   that runs independently, and the next wake reconciles the finished ones and

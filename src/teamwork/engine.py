@@ -6238,6 +6238,7 @@ def _move_to_retired(
         shown = destination.relative_to(project_of(root)).as_posix()
     except ValueError:
         shown = str(destination)
+    _repoint_lane_records(root, source, destination)
     ledger_append(
         root,
         "instance.retire",
@@ -6250,6 +6251,40 @@ def _move_to_retired(
         role,
     )
     return shown
+
+
+def _repoint_lane_records(root: Path, source: Path, destination: Path) -> int:
+    """Rewrite the lane records whose packet/log moved with the instance.
+
+    A lane record under ``Runtime/Lanes/`` names the packet and the log under
+    ``Agents/<Instance>/Runs/``. Retirement moves that directory, so without this
+    the record points at a path that no longer exists and ``lane logs`` fails for
+    a lane that is still the evidence for a verdict. Only the two path fields
+    change; the record is otherwise untouched.
+    """
+    from . import lanes as lane_runtime
+
+    moved = 0
+    base = lane_runtime.lanes_dir(root)
+    if not base.is_dir():
+        return 0
+    old = str(source)
+    new = str(destination)
+    for path in sorted(base.glob("L-*.json")):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        changed = False
+        for field in ("packet", "log"):
+            value = str(record.get(field) or "")
+            if value.startswith(old + os.sep):
+                record[field] = new + value[len(old) :]
+                changed = True
+        if changed:
+            atomic_write(path, json.dumps(record, indent=2, sort_keys=True) + "\n")
+            moved += 1
+    return moved
 
 
 def _idle_reasons(root: Path, role: str, name: str) -> list:
