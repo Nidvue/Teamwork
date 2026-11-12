@@ -129,16 +129,23 @@ The package ships one optional pi extension of its own,
 what, and is it moving":
 
 ```text
-teamwork · 17 instance(s) · 8 busy · 2 in review
-● Developer-2    T-0070 pi extension teamwork-status  12m ███░░  60%
-● Reviewer-2     ↳T-0071 status: name the work         8m ██░░░  35%
+teamwork · 17 inst · 6 lanes · 8 busy · 2 review
+⚙ L-0383 Developer-1 T-0130 run     12m deepseek/deepseek-chat
+⚙ L-0381 Reviewer-1  -       run      4m host
+● Developer-2    T-0070 pi extension teamwork-status  12m ███░░  60% deepseek/deepseek-chat
+● Reviewer-2     ↳T-0071 status: name the work         8m ██░░░  35% host
 ○ idle: Architect, CTO, ProductManager, Reviewer-5 +4
 ```
 
+The header counts instances, lanes, busy instances and review claims. After it,
+one line per lane (at most 3, in the feed's order: live first, then newest):
+`⚙ <id> <instance> <task> <state-abbrev> <elapsed> <model>` with the model
+clipped to 22 columns and `host` when the feed carries no model - never a guess.
 Busy instances come first, ordered by progress; a review handle prints as `↳T-0071`
-so the role prefix does not eat the column; every idle instance collapses into one
-line that counts the names it hides; the widget never exceeds 12 lines or 100
-columns, and a footer status line carries the busy/total count. It refreshes every 5 s by
+so the role prefix does not eat the column; every busy row ends in the same model
+column; every idle instance collapses into one line that counts the names it
+hides; the widget never exceeds 12 lines or 100 columns, and a footer status line
+carries the busy/total count. It refreshes every 5 s by
 `execFile`-ing `python3 <engine> status --json` at the team tree found by walking up
 from the session cwd, is silent when no engine is found, and `/teamwork-status`
 toggles it off and on.

@@ -117,7 +117,7 @@ def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> No
         ],
     }
     lines = render(bare)
-    assert lines[0].startswith("teamwork · 2 instance(s) · 1 busy")
+    assert lines[0].startswith("teamwork · 2 inst · 0 lanes · 1 busy · 0 review")
     assert "undefined" not in "\n".join(lines)
     assert lines[-1] == "○ idle: Architect"
 
@@ -126,3 +126,90 @@ def test_a_review_handle_names_the_task_not_the_role() -> None:
     lines = render(payload(4))
     assert "↳T-0071" in "\n".join(lines)
     assert "developer/" not in "\n".join(lines)
+
+
+def with_lanes(count: int = 4) -> dict:
+    data = payload(count)
+    data["schema"] = 2
+    data["counts"] = {"busy": 3, "review": 2, "lanes": 5}
+    data["instances"][0]["model"] = "deepseek-chat"
+    data["instances"][0]["provider"] = "deepseek"
+    data["lanes"] = [
+        {
+            "id": "L-0412",
+            "instance": "Developer-1",
+            "role": "developer",
+            "task": "T-0131",
+            "state": "running",
+            "elapsed_text": "12m",
+            "model": "deepseek-chat",
+            "provider": "deepseek",
+            "attempt": "1/2",
+        },
+        {
+            "id": "L-0413",
+            "instance": "Reviewer-1",
+            "role": "reviewer",
+            "task": "",
+            "state": "exited",
+            "elapsed_text": "3m",
+            "model": "",
+            "provider": "",
+            "attempt": "1/2",
+        },
+        {
+            "id": "L-0414",
+            "instance": "Tester-1",
+            "role": "tester",
+            "task": "T-0140",
+            "state": "timeout",
+            "elapsed_text": "45m",
+            "model": "m" * 40,
+            "provider": "p",
+            "attempt": "2/2",
+        },
+        {
+            "id": "L-0415",
+            "instance": "Architect",
+            "role": "architect",
+            "task": "T-0141",
+            "state": "running",
+            "elapsed_text": "1m",
+            "model": "x",
+            "provider": "",
+            "attempt": "1/2",
+        },
+    ]
+    return data
+
+
+def test_the_header_counts_lanes_and_the_lane_lines_name_the_model() -> None:
+    lines = render(with_lanes())
+    assert lines[0] == "teamwork · 4 inst · 5 lanes · 3 busy · 2 review"
+    lanes = [line for line in lines if line.startswith("⚙")]
+    assert len(lanes) == 3, "at most three lanes, the rest is the instance rows' job"
+    assert lanes[0].startswith("⚙ L-0412 Developer-1 T-0131 run")
+    assert lanes[0].endswith("deepseek/deepseek-chat"), lanes[0]
+    assert lanes[1].endswith("host"), "an empty model reads host, never blank"
+    assert "done" in lanes[1], "a review lane shows its state and no task"
+    clipped = lanes[2].split()[-1]
+    assert len(clipped) == 22 and clipped.endswith("…"), clipped
+
+
+def test_the_busy_rows_carry_the_model_and_stay_inside_the_bound() -> None:
+    lines = render(with_lanes())
+    assert len(lines) <= 12
+    assert max(len(line) for line in lines) <= 100
+    busy = [line for line in lines if line.startswith("●")]
+    assert busy, lines
+    assert "deepseek/deepseek-chat" in busy[0], busy[0]
+    assert "host" in busy[1], "a row without a model still names the host"
+    assert any(line.startswith("○ idle:") for line in lines), "the idle collapse survives"
+
+
+def test_an_empty_payload_stays_silent() -> None:
+    assert render({}) == []
+    assert (
+        render({"schema": 2, "count": 0, "counts": {"lanes": 0}, "instances": [], "lanes": []})
+        == []
+    )
