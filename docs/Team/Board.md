@@ -235,12 +235,12 @@ under two roles is two tasks.
 | developer | T-0104 | privacy-scan | done | P-0149 | 41f2b97 |
 | developer | T-0105 | ci | done | P-0150 | d4e5f59 |
 | developer | T-0106 | memory | done | P-0151 | 03267a8 |
-| developer | T-0107 | - | todo | - | - |
+| developer | T-0107 | tests-unit-test-ci-contr | doing | P-0164 | - |
 | developer | T-0108 | - | todo | - | - |
 | developer | T-0109 | memory | done | P-0154 | 04b4983 |
 | developer | T-0110 | - | todo | - | - |
 | developer | T-0111 | ci | done | P-0155 | 422733c |
-| developer | T-0112 | - | todo | - | - |
+| developer | T-0112 | memory | done | P-0165 | c9c233f |
 | developer | T-0113 | privacy | done | P-0156 | 36c0ca5 |
 | developer | T-0114 | git-timeout | done | P-0157 | dee48ae |
 | developer | T-0115 | identity | done | P-0158 | 762a40f |
@@ -249,6 +249,8 @@ under two roles is two tasks.
 | developer | T-0118 | identity | done | P-0161 | 00b62fd |
 | developer | T-0119 | lane-proof | done | P-0162 | bc508dc |
 | developer | T-0120 | portability | done | P-0163 | d1ed0f6 |
+| developer | T-0121 | ci | review | P-0166 | - |
+| developer | T-0122 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -284,6 +286,7 @@ under two roles is two tasks.
 | tester | T-0009 | - | done | - | - |
 | tester | T-0010 | status | done | P-0121 | 9e8c3b3 |
 | tester | T-0011 | memory | done | P-0153 | f5cb0d4 |
+| tester | T-0012 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -303,10 +306,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | developer | T-0100 · refresh stops on an unrelated mirror history and leaves every lane on a stale engine, with no warning | P1 | todo | - |
 | developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
-| developer | T-0107 · close the census-guard class by inversion instead of enumerating word orders | P1 | todo | - |
+| developer | T-0107 · close the census-guard class by inversion instead of enumerating word orders | P1 | doing | - |
 | developer | T-0108 · T-0004 lane work | P2 | todo | - |
 | developer | T-0110 · pr merge pins identity with -c only, so an exported GIT_AUTHOR_NAME can still author a merge commit | P2 | todo | - |
-| developer | T-0112 · remember accepts a write with no by, so three reviewer notes carry no provenance | P1 | todo | - |
+| developer | T-0121 · the Windows integration-m-z and unit-p-z shards are the last long jobs at 14m02s and 12m34s | P1 | review | - |
+| developer | T-0122 · ledger_append has no cross-process serialisation, so a concurrent lane can make the head cache lead the file and raise a false truncation alarm | P1 | todo | - |
+| tester | T-0012 · record the layer matrix for the twelve areas this milestone created, at one revision | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
