@@ -108,9 +108,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 292 kB |
-| `standard` | 10 | 401 kB |
-| `full` | 17 | 647 kB |
+| `slim` (default) | 7 | 296 kB |
+| `standard` | 10 | 407 kB |
+| `full` | 17 | 657 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts: 2.2x what `slim` costs.
@@ -271,7 +271,7 @@ python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5
 ```sh
 python3 "$SKILL/scripts/teamwork.py" swarm run --dry-run   # the measured policy, start nothing
 python3 "$SKILL/scripts/teamwork.py" swarm run             # one async wave, then return (--wait drains)
-python3 "$SKILL/scripts/teamwork.py" pulse --commit --spawn  # one wake: dispatch, then run it
+python3 "$SKILL/scripts/teamwork.py" pulse --commit --spawn  # one async wake: dispatch and return
 python3 "$SKILL/scripts/teamwork.py" lane status --live
 ```
 
