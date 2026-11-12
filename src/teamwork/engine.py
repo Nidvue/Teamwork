@@ -305,6 +305,7 @@ from .records import (
     SKILLS_HEADER,
     TASK_HEADER,
     TASK_RE,
+    area_looks_like_path,
     assign_ids,
     candidate_problems,
     check_records,
@@ -590,6 +591,7 @@ __all__ = [
     "write_criteria",
     "find_criterion",
     "new_test_record",
+    "area_looks_like_path",
     "parse_tests",
     "render_tests",
     "write_tests",
@@ -2246,6 +2248,11 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         if layer not in TEST_LAYERS:
             die(f"unknown layer '{layer}'. Layers: {', '.join(TEST_LAYERS)}")
         area = (args.area or args.task or "general").lower()
+        if area_looks_like_path(area):
+            die(
+                f"area '{area}' is a file path, not an area: name the subject the "
+                "layer covers (e.g. 'ci-matrix'), not the test file"
+            )
         for r in records:
             if r["layer"] == layer and r["area"] == area:
                 die(
@@ -5557,6 +5564,14 @@ def cmd_commit(args) -> int:
     if not is_git_repo(project):
         die("not a git repository here: run `teamwork.py repo` first")
 
+    area = (getattr(args, "area", None) or "").strip().lower()
+    if area and area_looks_like_path(area):
+        die(
+            f"area '{area}' is a file path, not an area: name the subject the "
+            "layer covers (e.g. 'ci-matrix'), not the test file",
+            2,
+        )
+
     base = DEFAULT_BASE
     here = current_branch(project)
     role = resolve_role(args.role or "developer")
@@ -5746,8 +5761,8 @@ def cmd_commit(args) -> int:
             tasks = parse_tasks(path)
             idx = find_task(tasks, args.task)
             if idx is not None:
-                if args.area:
-                    tasks[idx]["area"] = slugify(args.area, 24)
+                if area:
+                    tasks[idx]["area"] = slugify(area, 24)
                 prev = tasks[idx].get("evidence", "")
                 entry = f"commit {sha}"
                 tasks[idx]["evidence"] = f"{prev}; {entry}" if prev else entry
@@ -8979,6 +8994,15 @@ def cmd_task_set(args) -> int:
             require_runnable_task_graph(root, role, tasks)
         if args.title:
             t["title"] = args.title
+        if getattr(args, "area", None) is not None:
+            area = (args.area or "").strip().lower()
+            if area_looks_like_path(area):
+                die(
+                    f"area '{area}' is a file path, not an area: name the subject the "
+                    "layer covers (e.g. 'ci-matrix'), not the test file",
+                    2,
+                )
+            t["area"] = area
         if args.evidence is not None:
             t["evidence"] = args.evidence.strip()
         if getattr(args, "review_status", None):
@@ -17949,6 +17973,15 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--priority", choices=list(PRIORITY_ORDER))
     s.add_argument("--deps", default=None)
     s.add_argument("--title", default=None)
+    s.add_argument(
+        "--area",
+        default=None,
+        help=(
+            "repair the recorded area: a task whose area is a test file path "
+            "carries a phantom area into `tests plan` and `audit`, so the record "
+            "itself has to be corrected, not only the test record"
+        ),
+    )
     s.add_argument(
         "--branch",
         default=None,
