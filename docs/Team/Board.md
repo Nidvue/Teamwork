@@ -255,6 +255,9 @@ under two roles is two tasks.
 | developer | T-0124 | ci-matrix | done | P-0174 | 40d3cfe |
 | developer | T-0125 | merge-identity | done | P-0173 | 5e55905 |
 | developer | T-0126 | records | done | P-0176 | 16599b5 |
+| developer | T-0127 | - | review | P-0178 | - |
+| developer | T-0128 | pr-repair | review | P-0179 | - |
+| developer | T-0129 | - | done | P-0177 | 662454b |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -310,6 +313,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0127 · the flaky load-determinism test reads the live store, so a green local suite is a two-in-three bet | P0 | review | - |
+| developer | T-0128 · add a pr repair command: a stale PR status cannot be corrected, and the audit flags it forever | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
