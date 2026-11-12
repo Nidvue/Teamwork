@@ -470,7 +470,8 @@ lane count is not capped by how many instances happened to be staffed. The numbe
 is re-derived every wave, so the swarm scales up as the board grows and down (to
 zero) as it drains, and each lane's budget follows its unit: 10 tool calls/10 min for
 prose, 16/25 for code, 24/40 for a deep unit. It starts one detached process per
-lane, waits for one to end, and computes the next wave.
+lane and returns; the next wake reconciles the finished lanes and computes the next
+wave.
 
 A claim with no live lane behind it (for example after `pulse --commit`) is
 adopted for its instance; an assignment that leaves no self-check, PR or status

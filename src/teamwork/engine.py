@@ -11427,9 +11427,15 @@ def _scale_plan(root: Path) -> list:
 
 
 def _apply_scale(root: Path, plan: list, by: str) -> list:
-    """Add the planned instances through the same path `instance add` uses."""
-    added = []
+    """Add the planned instances through the same path `instance add` uses.
+
+    The added names are the set difference, not the tail of a sorted list: with
+    ten or more instances the lexical order puts `Developer-10` before
+    `Developer-2`, so a slice would report the wrong lanes.
+    """
+    added: list[str] = []
     for role, count in plan:
+        before = set(instances_of(root, role))
         args = argparse.Namespace(
             role=role,
             count=count,
@@ -11442,8 +11448,9 @@ def _apply_scale(root: Path, plan: list, by: str) -> list:
         try:
             _instance_add(root, args)
         except SystemExit:
+            print(f"# scale: could not add {count} {role} instance(s); the roster is unchanged")
             continue
-        added.extend(instances_of(root, role)[-count:])
+        added.extend(name for name in instances_of(root, role) if name not in before)
     return added
 
 
