@@ -279,7 +279,7 @@ fails when the workflow and this table disagree.
   * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
     matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
-    (five cells, twelve jobs: the Windows cell runs as eight path shards, and the
+    (five cells, thirteen jobs: the Windows cell runs as nine path shards, and the
     ubuntu 3.12 cell runs the named subset `tests/unit tests/acceptance` and the
     macOS cell runs that subset plus `tests/integration/test_portability_flow.py`,
     instead of the whole suite),
@@ -292,11 +292,12 @@ fails when the workflow and this table disagree.
     90-minute cap (run 43000716956: the a-f row carried unit a-f plus the whole
     integration and acceptance trees), and the integration tree was the one row
     that stayed long after that split (55+ minutes on run 43035306476 while the
-    other four finished in 2/5/11/16). Eight shards, disjoint by path and together
+    other four finished in 2/5/11/16). Nine shards, disjoint by path and together
     naming every `test_*.py` under `tests/`: `unit-a-f`, `unit-g-o`, `unit-p-r`,
     `unit-s-z` (letter ranges of `tests/unit/`), `integration-a-l`,
-    `integration-git-heavy`, `integration-m-z-rest` (the integration tree, its last
-    two rows named by measured cost because a letter range says nothing about the
+    `integration-git-heavy`, `integration-git-mutants`, `integration-m-z-rest` (the
+    integration tree, its last three rows named by measured cost because a letter
+    range says nothing about the
     wall clock), `acceptance`. The last two long rows are split by measurement, not
     by letter: run 43119769552 at 3a10869 finished in 14m23s with
     `integration-m-z` at 14m02s and `unit-p-z` at 12m34s, the unit range carrying the
@@ -321,7 +322,7 @@ fails when the workflow and this table disagree.
     `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
     acceptance are the cheap proof of the ACs; the rest of the subprocess-heavy
     integration tree (30% of the serial wall clock) runs on both
-    boundary interpreters and on the eight Windows shards, and no test in the tree
+    boundary interpreters and on the nine Windows shards, and no test in the tree
     branches on darwin.
     `tests/unit/test_ci_contracts.py` pins each subset in `SUBSET_CELLS` (a
     cell-to-paths map) with `SUBSET_PATHS` and `PORTABILITY_FLOW`, fails when a
