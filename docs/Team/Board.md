@@ -137,6 +137,7 @@ under two roles is two tasks.
 | ceo | T-0046 | instance-lifecycle | done | P-0188 | 6f3c353 |
 | ceo | T-0047 | dispatch-contract | done | P-0189 | 78a9c99 |
 | ceo | T-0048 | dispatch-contract | done | P-0190 | 3dda8b4 |
+| ceo | T-0049 | instance-lifecycle | doing | P-0191 | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -325,6 +326,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0049 · Reap recycles a finished lane's seat and repoints its record | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
