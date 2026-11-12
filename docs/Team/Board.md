@@ -138,6 +138,7 @@ under two roles is two tasks.
 | ceo | T-0047 | dispatch-contract | done | P-0189 | 78a9c99 |
 | ceo | T-0048 | dispatch-contract | done | P-0190 | 3dda8b4 |
 | ceo | T-0049 | instance-lifecycle | done | P-0191 | 91dd1bd |
+| ceo | T-0050 | release-record | done | P-0192 | 821d420 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
