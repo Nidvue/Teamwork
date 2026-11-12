@@ -627,7 +627,9 @@ def test_the_packet_budget_follows_the_unit_profile(cli, project: Path) -> None:
     assert "at most 24 tool calls and 40 minutes" in deep_packet
 
 
-def test_the_lane_tool_budget_setting_overrides_the_profile_table(cli, project: Path) -> None:
+def test_the_lane_tool_budget_setting_overrides_the_profile_table(
+    cli, project: Path, capsys
+) -> None:
     """The documented ``LaneToolBudget`` key must reach the packet (F-2).
 
     The profile table (10/16/24) is the default; the setting is the operator
@@ -654,6 +656,12 @@ def test_the_lane_tool_budget_setting_overrides_the_profile_table(cli, project: 
     packet = Path(lanes.packet_path(root, "Developer-1", "L-0001")).read_text(encoding="utf-8")
     assert "at most 31 tool calls" in packet, packet
     assert lanes.measure(root).tool_budget_override == 31
+
+    capsys.readouterr()
+    assert cli("--project", project, "swarm", "run", "--dry-run") == 0
+    policy = capsys.readouterr().out
+    assert "budget per unit: 31 call(s)" in policy, policy
+    assert "LaneToolBudget overrides the profile table" in policy, policy
 
 
 def test_dry_run_reports_the_complexity_policy(cli, project: Path, capsys) -> None:
