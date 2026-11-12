@@ -160,3 +160,30 @@ def test_remember_refuses_a_name_the_team_does_not_know(cli, project: Path, caps
     assert (roles / "Developer" / engine.F_SHORT).is_file()
     assert cli("--project", project, "load", "Developer") == 0
     assert "a real note" in capsys.readouterr().out
+
+
+def test_remember_without_a_by_flag_still_records_the_author(cli, project: Path) -> None:
+    """A write that names no `--by` must not store an empty author.
+
+    `audit` blocks on a memory entry whose `by` is empty, and `remember` took
+    the author as optional, so `remember Developer-1 "<note>"` wrote `by: ` and
+    the record could never satisfy the rule it is audited against (Reviewer
+    M-0011, M-0012, M-0015). The author now falls back to the instance the
+    write is addressed to - the fallback the memory lease and the ledger
+    already used - so the writer cannot produce an unprovenanced entry.
+    """
+    assert cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    assert (
+        cli("--project", project, "remember", "Developer-1", "the gate runs in the lane tree") == 0
+    )
+    store = (
+        project
+        / config.TEAM_ROOT_DIR
+        / config.TEAMS_SUBDIR
+        / engine.team_slug(project)
+        / "Roles"
+        / "Developer"
+        / engine.F_SHORT
+    )
+    assert [entry["by"] for entry in engine.parse_memory(store) if entry["body"]] == ["Developer-1"]
+    assert cli("--project", project, "remember", "Developer-1", "  ") == 1

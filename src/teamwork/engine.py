@@ -7032,7 +7032,8 @@ def cmd_remember(args) -> int:
     role = resolve_role(args.agent)
     if not args.text.strip():
         die("empty memory text")
-    with memory_session(root, role, args.by or args.agent, reason=f"remember {args.key or 'note'}"):
+    author = args.by or args.agent
+    with memory_session(root, role, author, reason=f"remember {args.key or 'note'}"):
         entries = parse_memory(path)
         entry = new_entry(
             args.text,
@@ -7040,7 +7041,7 @@ def cmd_remember(args) -> int:
             args.importance,
             args.tags,
             args.pin,
-            by=args.by or "",
+            by=author,
             src=args.src or "",
             rev=args.rev or "",
         )
@@ -7049,7 +7050,7 @@ def cmd_remember(args) -> int:
         ledger_append(
             root,
             "memory.add" if added else "memory.update",
-            args.by or args.agent,
+            author,
             args.key or args.agent,
             f"{'added' if added else 'updated'} {args.layer} entry: {args.text[:80]}",
             args.rev,
@@ -7066,6 +7067,7 @@ def cmd_global(args) -> int:
     root = project_root(args)
     path = global_dir(root) / F_GLOBAL
     path.parent.mkdir(parents=True, exist_ok=True)
+    author = args.by or "ceo"
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "global.lock"):
         entries = parse_memory(path)
         entry = new_entry(
@@ -7074,7 +7076,7 @@ def cmd_global(args) -> int:
             args.importance,
             args.tags,
             args.pin,
-            by=args.by or "",
+            by=author,
             src=args.src or "",
             rev=args.rev or "",
         )
@@ -7094,7 +7096,7 @@ def cmd_global(args) -> int:
     ledger_append(
         root,
         "memory.global",
-        args.by or "ceo",
+        author,
         args.key or "global",
         f"{added} new / {merged} merged: {args.text[:80]}",
         args.rev,
