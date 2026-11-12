@@ -142,6 +142,13 @@ record per fold. `--keep-required` keeps one instance of each gate-critical role
 `--dry-run` prints the plan, and `instance add <role>` restaffs when work returns.
 The CEO is never folded.
 
+Dispatch is **streaming, not blocking**: `swarm run` (and `pulse --commit --spawn`)
+starts the next wave and returns at once; every lane is a detached process that
+runs independently, and the next wake reconciles the finished ones and refills.
+`--wait` is the batch mode (block until the board drains), for CI or a one-shot
+drain - never for the live loop. So no lane waits on another and the supervisor is
+never the bottleneck.
+
 The other half is scaling: `pulse --commit` and `swarm run` add an instance for
 every `LANE_WIP` units of ready work and one Reviewer per unclaimed deliverable,
 bounded by the per-role cap (4), the per-wake cap (6), `LaneMax` and the free

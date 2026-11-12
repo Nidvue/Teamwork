@@ -705,9 +705,47 @@ def test_an_exhausted_assignment_is_not_adopted_again(
     root = init(cli, project)
     add_task(cli, project, "developer", "stuck")
     launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
-    assert cli("--project", project, "swarm", "run", "--minutes", "2") == 0
+    assert cli("--project", project, "swarm", "run", "--wait", "--minutes", "2") == 0
     attempts = sorted(run["attempt"] for run in lanes.load_runs(root))
     assert attempts == [1, 2], attempts
+
+
+def test_swarm_dispatches_a_wave_and_returns_without_waiting(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default is streaming: start the lanes, return, let them run independently.
+
+    A blocking supervisor serialised the whole board behind one process. The async
+    pass starts every lane the work justifies and returns at once, so the next wake
+    (or the CEO) reconciles; nothing waits on a specific lane.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a long unit")
+    add_task(cli, project, "developer", "a second unit")
+    launcher(monkeypatch, fake_lane(tmp_path, body="time.sleep(30)"), "{packet}")
+    began = time.monotonic()
+    assert cli("--project", project, "swarm", "run") == 0
+    elapsed = time.monotonic() - began
+    assert elapsed < 15, f"swarm run blocked for {elapsed:.1f}s instead of returning"
+    live = [run for run in lanes.load_runs(root) if run["state"] in lanes.LIVE]
+    assert len(live) == 2, [run["state"] for run in lanes.load_runs(root)]
+    for run in live:
+        assert cli("--project", project, "lane", "stop", run["id"], "--reason", "test cleanup") == 0
+
+
+def test_pulse_spawn_is_async_too(cli, project: Path, tmp_path: Path, monkeypatch) -> None:
+    """One CEO wake dispatches and returns; it never waits for the lanes it started."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a long unit")
+    launcher(monkeypatch, fake_lane(tmp_path, body="time.sleep(30)"), "{packet}")
+    began = time.monotonic()
+    assert cli("--project", project, "pulse", "--commit", "--spawn") == 0
+    elapsed = time.monotonic() - began
+    assert elapsed < 15, f"pulse --spawn blocked for {elapsed:.1f}s"
+    live = [run for run in lanes.load_runs(root) if run["state"] in lanes.LIVE]
+    assert live, [run["state"] for run in lanes.load_runs(root)]
+    for run in live:
+        assert cli("--project", project, "lane", "stop", run["id"], "--reason", "test cleanup") == 0
 
 
 def test_group_launches_keeps_one_lane_per_instance_and_prefers_the_retry() -> None:

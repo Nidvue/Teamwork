@@ -80,6 +80,12 @@ docs or the review, you have taken a lane's job: stop and dispatch it instead.
 
 ## Pulse: never leave a lane idle
 
+Dispatch is **asynchronous**: start the lanes and return. `pulse --commit --spawn`
+and `swarm run` never wait for a lane; each lane is a detached process that runs
+independently, and the next wake reconciles the finished ones and refills. Do not
+block the loop on one lane's completion (`lane wait` is for a single deliberate
+hand-off), and do not serialise work that has no dependency.
+
 After dispatching, arm a recurring wake-up (every `PulseMinutes`, default 5) and
 act on each wake:
 
