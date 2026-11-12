@@ -16,7 +16,7 @@ engine now provides all six itself:
 | 2 | **Delegate one-shot work** | the same `lane start --task <T-id>` / `--prompt-file <packet>` |
 | 3 | **Message an agent** | `Agents/<Name>/Inbox.md` (always was a file), read at the start of every run |
 | 4 | **Inspect teammate state** | `teamwork.py lane list|status|logs`, `pulse`, `board`, `WorkLog.md` |
-| 5 | **Re-wake on a schedule** | `teamwork.py swarm run` (waves until idle) and `pulse --commit` (one wake) |
+| 5 | **Re-wake on a schedule** | `pulse --commit --spawn` (one async wake: dispatch and return) or `swarm run` (one async wave; `--wait` drains) |
 | 6 | **Close the team** | `teamwork.py lane stop <run>` per live lane, then the final report |
 
 A host is now only a **launcher**: a CLI that accepts a prompt and exits. That one
