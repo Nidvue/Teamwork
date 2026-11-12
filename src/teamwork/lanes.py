@@ -16,9 +16,11 @@ The mechanism is a process table on disk, not a live object:
   review claim, so two lanes cannot silently take the same deliverable;
 * the **supervisor** decides who runs: ``swarm run`` computes each wave from the
   current records (ready tasks, review queue, free provider slots, unfinished
-  assignments), starts the lanes it can afford, waits for one to end, and computes
-  the next wave again. A wave is a fact about the board at that moment, never a
-  plan written in advance - that is the dynamic part.
+  assignments) and starts the lanes it can afford. The default dispatch is
+  asynchronous - it returns at once and the next wake reconciles and refills;
+  ``--wait`` is the batch mode that waits for a lane to end and computes the next
+  wave again. A wave is a fact about the board at that moment, never a plan
+  written in advance - that is the dynamic part.
 
 Nothing here is host-specific beyond :data:`HOST_BINARIES` (how to call a CLI
 headlessly) and one escape hatch, ``TEAMWORK_LANE_CMD``, which is a template split

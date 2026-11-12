@@ -141,3 +141,21 @@ def test_ready_units_are_spread_across_idle_instances(cli, project: Path, capsys
     for task in doing:
         per_lane[task["claimed_by"]] = per_lane.get(task["claimed_by"], 0) + 1
     assert max(per_lane.values()) <= engine.LANE_WIP, per_lane
+
+
+def test_scale_returns_the_names_it_added_even_at_ten_instances(cli, project: Path) -> None:
+    """The added names are a set difference, not the tail of a lexical sort (T-0047 F1).
+
+    `layout.instances_of` sorts names as strings, so `Developer-10` sorts before
+    `Developer-2` and `[-count:]` returns an instance that already existed. A
+    revert to the slice must fail this test.
+    """
+    roster = "ceo," + ",".join(f"developer-{index}" for index in range(1, 10))
+    root = init(cli, project, roster)
+    assert len(engine.instances_of(root, "developer")) == 9
+
+    added = engine._apply_scale(root, [("developer", 1)], "CEO")
+
+    assert added == ["Developer-10"], added
+    assert "Developer-10" in engine.instances_of(root, "developer")
+    assert len(engine.instances_of(root, "developer")) == 10
