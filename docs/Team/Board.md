@@ -296,6 +296,7 @@ under two roles is two tasks.
 | tester | T-0012 | memory | done | P-0168 | efc1194 |
 | tester | T-0013 | ci-contracts | done | P-0171 | fb69e08 |
 | tester | T-0014 | ci-matrix | done | P-0175 | f476772 |
+| tester | T-0015 | pr-repair | done | P-0180 | 1782f03 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
