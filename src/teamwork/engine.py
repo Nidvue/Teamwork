@@ -1085,10 +1085,117 @@ def cmd_pr(args) -> int:
     if args.pr_cmd == "merge":
         return _pr_merge(args, root, project, here, path)
 
+    if args.pr_cmd == "set":
+        return _pr_set(args, root, project, path)
+
     actor, role = validate_actor(root, args.agent, "PR author", allow_role=False)
     args.agent = actor
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "merge.lock"):
         return _pr_open(args, root, project, here, path, role)
+
+
+def _merge_revision_witnessed(root: Path, project: Path, pr_id: str, rev: str) -> bool:
+    """True when ``rev`` is a commit here, or a merge the ledger already recorded.
+
+    A rebuilt repository loses the revisions it no longer carries while the
+    ledger keeps the merge that happened (P-0010: ``pr.merge`` at f91bf1b, the
+    commit gone from this clone), so the ledger is the second witness. A
+    revision neither of them names is a fabrication and is refused.
+    """
+    if (
+        is_git_repo(project)
+        and run_git(project, "cat-file", "-e", f"{rev}^{{commit}}").returncode == 0
+    ):
+        return True
+    return any(
+        r.get("action") == "pr.merge"
+        and pr_id in (r.get("detail") or "")
+        and rev in (r.get("detail") or "") + (r.get("rev") or "")
+        for r in ledger_read(root)
+    )
+
+
+def _pr_set(args, root: Path, project: Path, path: Path) -> int:
+    """Correct a PR record's status by hand, with the old state kept in the ledger.
+
+    A PR whose work landed but whose record never left ``approved`` makes
+    ``audit`` report an abandoned PR on every run, and ``pr merge`` cannot fix
+    it: the branch the merge would read is already gone. The repair is
+    deliberately narrow - the review must have passed, a reason is mandatory,
+    the recorded merge revision must exist in the repository, and the ledger
+    keeps the old and the new status so the correction is auditable.
+    """
+    status = args.status
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
+        prs = parse_reviews(path)
+        idx = find_pr_exact(prs, args.pr)
+        if idx is None:
+            die(f"no PR '{args.pr}'")
+        pr = prs[idx]
+    old = pr["status"] or "(none)"
+    if old == status:
+        print(f"# {pr['id']} is already {status}; nothing to repair")
+        return 0
+    role = resolve_role(pr["role"] or pr["author"])
+    if not role:
+        die(f"{pr['id']} has no role or author: the PR record is incomplete")
+    tpath = task_file(root, role)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(tpath)
+        tidx = find_task(tasks, pr["task"]) if pr["task"] else None
+        review_status = tasks[tidx].get("review_status") if tidx is not None else ""
+    if review_status != "passed":
+        die(
+            f"refusing to set {pr['id']} to {status}: review_status="
+            f"{review_status or '(no task)'}. Only a passing review may be repaired "
+            "into a terminal state; an open PR is closed by its verdict.",
+            2,
+        )
+    reason = require_reason(args.force, f"repairing {pr['id']} from {old} to {status}")
+    merge_commit = (args.merge_commit or "").strip()
+    if status == "merged" and not merge_commit:
+        die(
+            f"refusing to mark {pr['id']} merged without --merge-commit <sha>: the "
+            "revision that landed is the fact the repair records.",
+            2,
+        )
+    if merge_commit and not _merge_revision_witnessed(root, project, pr["id"], merge_commit):
+        die(
+            f"{merge_commit} is neither a commit in {project} nor a merge the ledger "
+            f"records for {pr['id']}: a repair may only name a revision that landed.",
+            2,
+        )
+    actor = (args.by or "operator").strip()
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
+        fresh = parse_reviews(path)
+        pidx = find_pr_exact(fresh, pr["id"], pr.get("branch"))
+        if pidx is None:
+            die(f"{pr['id']} disappeared from {path} during the repair")
+        fresh[pidx]["status"] = status
+        fresh[pidx]["updated"] = today_iso()
+        if merge_commit:
+            fresh[pidx]["merge_commit"] = merge_commit
+        fresh[pidx]["notes"].append(
+            f"status repaired {old} -> {status} by {actor}"
+            + (f" at {merge_commit}" if merge_commit else "")
+            + f": {reason}"
+        )
+        write_reviews(path, fresh)
+    ledger_append(
+        root,
+        "pr.repair",
+        actor,
+        pr["task"],
+        f"{pr['id']} {old} -> {status}"
+        + (f" at {merge_commit}" if merge_commit else "")
+        + f": {reason}",
+        merge_commit,
+    )
+    print(
+        f"# repaired {pr['id']}: {old} -> {status}"
+        + (f" at {merge_commit}" if merge_commit else "")
+    )
+    return 0
 
 
 def _merge_branch_hint(root: Path, handle: str) -> str:
@@ -2646,6 +2753,7 @@ LEDGER_ACTIONS = (
     "pr.merge.archive",
     "pr.merge.forced",
     "pr.open",
+    "pr.repair",
     "pulse.observe",
     "redline.close",
     "redline.record",
@@ -18670,6 +18778,22 @@ def _parsers_integration(sub, common) -> None:
     s.set_defaults(func=cmd_pr)
     s = psub.add_parser("list", parents=[common], help="the Reviewer's PR inbox")
     s.add_argument("--open", action="store_true")
+    s.set_defaults(func=cmd_pr)
+    s = psub.add_parser(
+        "set",
+        parents=[common],
+        help="repair a PR record's status with a recorded reason (audit close)",
+    )
+    s.add_argument("--pr", required=True)
+    s.add_argument("--status", required=True, choices=("merged", "closed"))
+    s.add_argument("--merge-commit", default="", metavar="SHA")
+    s.add_argument("--by", default="", help="who repairs it (recorded in the ledger)")
+    s.add_argument(
+        "--force",
+        default="",
+        metavar="REASON",
+        help="required: why the record is being corrected by hand",
+    )
     s.set_defaults(func=cmd_pr)
     s = psub.add_parser("merge", parents=[common], help="Reviewer: merge an approved PR")
     s.add_argument("--pr", required=True)
