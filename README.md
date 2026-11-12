@@ -31,37 +31,48 @@ That prompt becomes a team of AI agents that plans, builds, tests and
 **independently reviews its own work until every acceptance criterion has
 executed evidence**. The agent host supplies the LLM API, and **every agent's model
 is configured independently** (`teamwork model set <agent>`): a strong model for
-the Reviewer, a cheap one for the mechanical lanes. The engine (`teamwork.py`,
-standard library only) ships inside the skill and is what the CEO calls;
-installing it as a package is optional.
+the Reviewer, a cheap one for the mechanical lanes. The engine (`teamwork.py`, stdlib only) ships inside the skill; installing it as a package is optional.
 
 - **Developed by AI agents, for AI agents.** This repository is built by its own
   team: reviewed tasks in [Archive](docs/Team/Archive.md), the learning loop in
   [Evolution](docs/Team/Evolution.md), and all but two commits (a merge and a
   dependabot bump) by a role mailbox.
 - **One prompt in, a whole company out.** [The 30-second quickstart](#30-second-quickstart)
-  is the entire install.
+  is the whole install.
 - **It improves from its own failures.** A failure becomes a lesson, a lesson
-  becomes a skill, and a skill reaches the core only after two cuts; the
-  `tw-self-evolve` close-out checks the known issues, every verdict and the ledger
-  chain. Its own verdict is `confounded`, because the first adoption changed the
-  metrics and the classifier together ([Evolution](docs/Team/Evolution.md) 9.2).
-
+  becomes a skill, and a skill reaches the core only after two cuts; its own
+  verdict is `confounded`, because the first adoption changed the metrics and the
+  classifier together ([Evolution](docs/Team/Evolution.md) 9.2).
 ## What makes it different
 
-| Differentiator | What it is | Why it matters | Proof |
-|---|---|---|---|
-| **Skill-first** | One clone into the directory your agent scans; no package manager, no daemon, no service of ours. | It installs where the agent already looks, and the engine runs offline. | [Installation](docs/guide/install.md) |
-| **One parent, one board** | Every role has exactly one manager and one queue; any role scales to several instances. | Parallel lanes do not create a second reporting line, and two lanes never share a writer. | [How it works](docs/guide/how-it-works.md) |
-| **Evidence or `UNVERIFIED`** | A task cannot reach `done` without a recorded `command @revision -> result`. | The team does not ask an agent whether it is finished; it reads the records. | [Operations](docs/guide/operations.md) |
-| **Reviewer-only merge** | The author self-checks, a different role reviews, and a pass lands at once. | The verifier is never the author, so "done" is not self-approved. | [How it works](docs/guide/how-it-works.md) |
-| **Layered tests** | Each role designs, builds and runs its own layer; `tests plan` shows gaps. | Coverage is owned, not delegated to one suite. | [Features](docs/guide/features.md) |
-| **Tamper-evident ledger** | Every mutation is hash-chained, and `ledger export` writes a manifest anyone can verify. | The audit trail survives modification and does not require trusting the team. | [Operations](docs/guide/operations.md) |
-| **Self-evolution, measured honestly** | Failures become lessons, then skills; promotion to the core needs two cuts. | The loop is real work with a rollback, not a claim of measured improvement. | [Evolution](docs/Team/Evolution.md) |
+| Differentiator | What it is | Proof |
+|---|---|---|
+| **Skill-first** | One clone into the directory your agent scans; no package manager. | [Installation](docs/guide/install.md) |
+| **One parent, one board** | One manager and one queue per role; any role scales. | [How it works](docs/guide/how-it-works.md) |
+| **Evidence or `UNVERIFIED`** | `done` needs a recorded `command @revision -> result`. | [Operations](docs/guide/operations.md) |
+| **Reviewer-only merge** | The author self-checks, a different role reviews, a pass lands. | [How it works](docs/guide/how-it-works.md) |
+| **Layered tests** | Each role designs, builds and runs its own layer. | [Features](docs/guide/features.md) |
+| **Tamper-evident ledger** | Every mutation is hash-chained and exportable. | [Operations](docs/guide/operations.md) |
 
-Other orchestrators differ; the sourced comparison is in
-[Alternatives](docs/guide/alternatives.md).
+Five more ship inside the skill - engine commands, no plugin, no daemon:
 
+| Capability | What you get | Command |
+|---|---|---|
+| Memory that persists | Captured at each lane exit, promoted to long-term, shared per role, verified against cited revisions. | `teamwork memory` |
+| Live agent state | Every instance's state, task, time and progress, plus recent lanes; a stable `--json` feed the bundled widget renders. | `teamwork status` |
+| Real parallel lanes | `swarm run` sizes the wave from the work and detaches one budgeted process per lane. | `teamwork swarm run` |
+| Agents that talk | A prioritised mailbox in the next packet; `urgent` preempts it and pauses its task. | `teamwork message send` |
+| Token economy | A measured startup read against a 120 KiB cap, a memory index and read-by-id commands. | `teamwork harness budget` |
+
+### Built by itself
+
+The team is the skill's first user: it decomposes, dispatches to sub-agents that
+fan out further, reviews every deliverable and merges it - this repository is that
+output. The learning loop is recursive too: a failure becomes a lesson, a lesson a
+skill, a skill reaches the core after two cuts
+([Evolution](docs/Team/Evolution.md) 9.2).
+
+The sourced comparison is in [Alternatives](docs/guide/alternatives.md).
 
 ## Install the skill
 
@@ -102,47 +113,51 @@ appears at `.pi/Teamwork/Teams/<Team>/`; project output is committed. Read the f
 
 - **16 role charters** - the 15-role org plus a Team Leader per feature, each
   with its own memory and queue.
-- **A two-stage quality gate** - the author self-checks with a real test, then a
-  different role reviews the revision, and only the Reviewer merges.
-- **Parallel lanes against one frozen contract** - interfaces first; `teamwork
-  swarm run` then starts one budgeted process per lane.
-- **Layered tests with one owner per layer** - `tests plan` shows coverage and gaps.
-- **Portable and dependency-free** - CPython 3.11-3.13 on Linux, macOS and Windows,
-  standard library only, with automatic model routing (`teamwork model auto`)
-  across every lane.
+- **A two-stage quality gate** - author self-check, then independent review; only
+  the Reviewer merges.
+- **Parallel lanes, no plugin** - `swarm run` sizes each wave from the work.
+- **Built-in memory and a mailbox** - role-shared memory, a `ctx://` tree and a
+  prioritised agent-to-agent queue.
+- **Live state** - `status` and its JSON feed, plus the bundled status widget.
+- **Layered tests** - one owner per layer, gaps shown by `tests plan`.
+- **Token-true budget** - `harness budget` measures the startup read; trim it,
+  never raise the cap.
+- **Automatic model routing** - `teamwork model auto` puts the strong model on
+the decision lanes and the economy one on the mechanical lanes.
+- **Portable** - CPython 3.11-3.13 on Linux, macOS and Windows; stdlib only.
 
 ## Documentation
 
 | Page | Read it for |
 |---|---|
-| [Documentation home](docs/index.md) | The docs site index and repository links. |
-| [Installation](docs/guide/install.md) | Four install channels, requirements, update, uninstall. |
-| [Quickstart](docs/guide/quickstart.md) | Bootstrap a team in an empty project and run the CEO loop. |
-| [For agents](docs/guide/for-agents.md) | The install-and-drive routine an agent follows. |
-| [Usage patterns](docs/guide/usage.md) | The eight recurring jobs, as trimmed real transcripts. |
-| [Operations](docs/guide/operations.md) | Slots, the memory pen, resume, the ledger, model routing. |
-| [How it works](docs/guide/how-it-works.md) | The loop, the review gate, the workspace tree. |
-| [Features](docs/guide/features.md) | Every capability, and what the evidence gate refuses. |
+| [Documentation home](docs/index.md) | The docs site index. |
+| [Installation](docs/guide/install.md) | Install channels, requirements, uninstall. |
+| [Quickstart](docs/guide/quickstart.md) | Bootstrap a team and run the CEO loop. |
+| [For agents](docs/guide/for-agents.md) | The install-and-drive routine. |
+| [Usage patterns](docs/guide/usage.md) | The recurring jobs, as transcripts. |
+| [Operations](docs/guide/operations.md) | Slots, memory, live state, the mailbox, the ledger. |
+| [How it works](docs/guide/how-it-works.md) | The loop, the gate, the workspace tree. |
+| [Features](docs/guide/features.md) | Every capability, and what the gate refuses. |
 | [Architecture](docs/guide/architecture.md) | Package layout, resource resolution, workspace format. |
-| [CLI reference](docs/guide/cli.md) | Every command, subcommand, flag and exit code, split into [records](docs/guide/cli-records.md), [review](docs/guide/cli-review.md), [workflow](docs/guide/cli-workflow.md) and [audit](docs/guide/cli-audit.md). |
-| [Alternatives](docs/guide/alternatives.md) | How this compares with other orchestrators. |
+| [CLI reference](docs/guide/cli.md) | Every command and flag, in [records](docs/guide/cli-records.md), [review](docs/guide/cli-review.md), [workflow](docs/guide/cli-workflow.md) and [audit](docs/guide/cli-audit.md). |
+| [Alternatives](docs/guide/alternatives.md) | How this compares with others. |
 | [Roadmap](docs/guide/roadmap.md) | What is shipped, current, and not planned. |
-| [Releases](docs/releases.md) | What a release publishes and how to read its version. |
-| [CI pipeline](docs/guide/ci.md) | Run the lint/test/build/docs pipeline locally. |
+| [Releases](docs/releases.md) | What a release publishes. |
+| [CI pipeline](docs/guide/ci.md) | Run the pipeline locally. |
 
 ## Contributing, security and license
 
 - **Contributing** - work on your own branch, run `pytest -q` and `ruff check`,
-  and open a PR; a Reviewer - never the author - merges it. Read
+  open a PR; a Reviewer - never the author - merges it. Read
   [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md).
-- **Security** - report vulnerabilities privately via
+- **Security** - report privately via
   [GitHub security advisories](https://github.com/Nidvue/Teamwork/security/advisories/new);
   see [SECURITY.md](SECURITY.md).
-- **License** - [AGPL-3.0-or-later](LICENSE) (version 3 of the AGPL or any later version), copyright (C) 2026 **Nidvue** (see [NOTICE](NOTICE)). The strong copyleft is deliberate: this is a
-  governance tool, and its audit guarantees should survive modification.
-- **No personal data, no local leakage** - no names, emails, home paths,
-  credentials or agent-host state in the tree or history; `scripts/privacy_scan.py`
-  fails the build on any of them.
+- **License** - [AGPL-3.0-or-later](LICENSE), copyright (C) 2026 **Nidvue**
+  ([NOTICE](NOTICE)). The strong copyleft is deliberate: the audit guarantees
+  should survive modification.
+- **No personal data, no local leakage** - `scripts/privacy_scan.py` fails the
+  build on names, emails, home paths, credentials or agent-host state.
 
 <p align="center">
   <a href="https://star-history.com/#Nidvue/Teamwork&amp;Date"><img src="https://api.star-history.com/svg?repos=Nidvue/Teamwork&amp;type=Date" alt="Star history chart for Teamwork" width="720"></a>

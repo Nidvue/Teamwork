@@ -198,6 +198,78 @@ carries it; a base branch that has no entry yet gets one from `pr merge` before
 the merge commit is made.
 
 
+## Decisions, disputes and red lines
+
+### `decision`
+
+```text
+teamwork decision add --by BY --decision DECISION
+    [--kind {technical,governance,redline,tribunal,scope,cost,process}] [--title TITLE]
+    [--why WHY] [--evidence EVIDENCE] [--context CONTEXT] [--options OPTIONS]
+    [--falsify FALSIFY] [--consequences CONSEQUENCES] [--task TASK] [--rev REV]
+    [--status {proposed,accepted,superseded,rejected}] [--force REASON]
+teamwork decision list [--kind KIND]
+```
+
+A decision is a record with an evidence chain: the claim, the data, the reasoning,
+the rejected options, the assumption being bet on and the test that would falsify
+it. `add` appends it to `docs/Team/Decisions.md` under a `D-` id; `list` reads it
+by id instead of loading the whole file. `--evidence` is mandatory - a decision
+without a command, path or dated source is opinion, and the record says so.
+
+### `dispute`
+
+```text
+teamwork dispute open --by BY --against AGAINST --topic TOPIC
+    [--evidence EVIDENCE] [--position POSITION] [--task TASK]
+teamwork dispute round ID --by BY --message MESSAGE
+teamwork dispute escalate ID --by BY
+teamwork dispute sign ID --by BY
+teamwork dispute resolve ID --by BY --decision DECISION [--force REASON]
+teamwork dispute list [--open]
+```
+
+A design disagreement goes on the record instead of into a silent workaround.
+`open` states the position and the evidence; `round` adds a rebuttal (capped at
+three - a round without new evidence is noise); `escalate` sends an unresolved one
+to the tribunal (CEO + CTO + CFO); each member `sign`s; `resolve` records the
+binding ruling. A party never rules its own dispute, and a ruling is implemented,
+not re-argued.
+
+### `redline`
+
+```text
+teamwork redline record --by BY --action ACTION --why WHY [--alternative ALT] [--authorized WHO]
+teamwork redline close ID --by BY [--reason REASON] [--force REASON]
+```
+
+Record a refusal: an action that is destructive, secret-bearing, external or
+otherwise on the red-line list was requested and not executed. `record` stores the
+requested action, why it is forbidden, the safe alternative and (once granted) who
+authorized it; `close` closes it when the matter is settled. `audit` reports an
+unresolved red line, so a refusal cannot be quietly forgotten.
+
+### `skill`
+
+```text
+teamwork skill create --name tw-NAME --for DESCRIPTION --by BY
+    [--role ROLE] [--kind {workflow,mistake}] [--from-lesson L-ID]
+    [--body BODY] [--body-file PATH] [--force] [--allow-main]
+teamwork skill share NAME --by BY [--to TO]
+teamwork skill candidates [--min-tasks N]
+teamwork skill list
+teamwork skill rm NAME --by BY
+```
+
+A repeated flow becomes a team skill at `.agents/skills/tw-<name>/SKILL.md` -
+project output, so it goes through a branch, a PR and review like any other
+change. `create` refuses any name without the `tw-` prefix; `--kind mistake` with
+`--from-lesson L-nnnn` marks the lesson fixed and links both records; `share`
+notifies same-role peers; `candidates` finds flows worth extracting (a role/area
+with repeated tasks, plus its failed reviews) and prints paste-ready `lesson add`
+and `skill create` lines; `list` and `rm` maintain the register. A skill never
+replaces a gate or a red line.
+
 ## The rest of the reference
 
 - [CLI reference](cli.md) - every command, grouped by job.

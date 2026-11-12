@@ -259,6 +259,19 @@ integrate, record evidence - plus the privacy and licence red lines, is the
 Designer's own policy in
 [`roles/designer.md`](https://github.com/Nidvue/Teamwork/blob/main/roles/designer.md).
 
+### `evolution`
+
+```text
+teamwork evolution check [--json]
+teamwork evolution snapshot [--json]
+```
+
+The self-evolution ledger in `docs/Team/Evolution.md`. `check` exits `1` naming
+every table or row that breaks a close rule (a missing verdict, a known issue past
+its due revision, a level claim with no evidence), and `snapshot` prints the
+current cut with its ledger id so two readings of the same numbers can be
+compared. Both are read-only.
+
 ## Auxiliary scripts
 
 ### `scripts/privacy_scan.py`
