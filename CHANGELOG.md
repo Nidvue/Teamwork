@@ -81,6 +81,12 @@ Compares from the previous tag, `v1.5.1`.
 
 ### Changed
 
+- **`CITATION.cff` re-dates to this section** - its `date-released` reads
+  `2026-11-12`, the `1.5.2` section date, instead of the `2026-11-02` left over
+  from `1.5.1`. The file ships in the sdist, so the citation metadata for
+  `version: 1.5.2` and the release record now name one date. No gate reads
+  `date-released` (R1-R10 compare the version string only), so the pair is kept
+  by hand at each release.
 - **Commit identity defaults to the repository's configured pair** - a commit is
   authored by the repository's own `user.name`/`user.email` (or the
   `teamwork.identity.*` pair), and the role mailbox is opt-in with
