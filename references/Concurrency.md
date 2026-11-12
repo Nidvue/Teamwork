@@ -97,7 +97,7 @@ a supervisor that re-planned one stalled task for 783 waves.
 ```sh
 teamwork.py swarm run                 # one async wave, then return (--wait drains)
 teamwork.py swarm run --dry-run       # the measured policy + next wave, start nothing
-teamwork.py pulse --commit --spawn    # one wake: dispatch, then run the swarm
+teamwork.py pulse --commit --spawn    # one async wake: reconcile, dispatch, return
 teamwork.py swarm run --lanes 6       # cap the policy at six lanes
 teamwork.py swarm run --fixed --lanes 4 --minutes 90 --poll 5
 teamwork.py lane status --live        # what is running right now
@@ -126,9 +126,10 @@ teamwork.py lane reap                 # reconcile a lane that died with no outco
 - **State survives the supervisor.** No live object is required: `lane reap` and a
   re-entered `swarm run` resume from `Runtime/Lanes/`.
 
-`pulse --commit` remains the one-shot dispatch (claim the plan into the queues);
-`swarm run` is the loop that executes it. Both read the same board and obey the
-same caps, so a team can mix them freely.
+`pulse --commit` is the one-shot dispatch (claim the plan into the queues);
+`swarm run` dispatches the next wave from the same board and obeys the same caps.
+Neither blocks by default - `--wait` is the batch drain - so a team can mix them
+freely and no lane waits on another.
 
 ### Work-in-progress, not lane count, is the throughput
 
