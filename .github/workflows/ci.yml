@@ -356,7 +356,7 @@ jobs:
             python-version: "3.13"
             coverage: false
             shard: "integration-m-z-rest"
-            paths: "tests/integration/test_makefile_flow.py tests/integration/test_memory_flow_certification.py tests/integration/test_memory_index_header.py tests/integration/test_memory_pack_flow.py tests/integration/test_memory_verify_flow.py tests/integration/test_release_gate_flow.py tests/integration/test_release_traceability_flow.py tests/integration/test_status_contract.py tests/integration/test_task_graph_flow.py tests/integration/test_token_tools.py tests/integration/test_unattended_landing_flow.py tests/integration/test_workspace_flow.py"
+            paths: "tests/integration/test_makefile_flow.py tests/integration/test_memory_flow_certification.py tests/integration/test_memory_index_header.py tests/integration/test_memory_pack_flow.py tests/integration/test_memory_verify_flow.py tests/integration/test_pr_repair_flow.py tests/integration/test_release_gate_flow.py tests/integration/test_release_traceability_flow.py tests/integration/test_status_contract.py tests/integration/test_task_graph_flow.py tests/integration/test_token_tools.py tests/integration/test_unattended_landing_flow.py tests/integration/test_workspace_flow.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
