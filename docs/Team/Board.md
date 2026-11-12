@@ -261,6 +261,8 @@ under two roles is two tasks.
 | developer | T-0128 | pr-repair | done | P-0179 | 4a0b853 |
 | developer | T-0129 | - | done | P-0177 | 662454b |
 | developer | T-0130 | status | done | P-0183 | dcd877f |
+| developer | T-0131 | - | todo | - | - |
+| developer | T-0132 | changelog | done | P-0184 | af128d3 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -317,6 +319,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0131 · refresh stops when the remote history was rewritten, so the mirror needs a manual reset | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
