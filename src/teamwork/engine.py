@@ -305,6 +305,7 @@ from .records import (
     SKILLS_HEADER,
     TASK_HEADER,
     TASK_RE,
+    area_is_layer,
     area_looks_like_path,
     assign_ids,
     candidate_problems,
@@ -591,6 +592,7 @@ __all__ = [
     "write_criteria",
     "find_criterion",
     "new_test_record",
+    "area_is_layer",
     "area_looks_like_path",
     "parse_tests",
     "render_tests",
@@ -2045,6 +2047,28 @@ def areas_in_use(root: Path) -> list:
     return sorted(a for a in areas if a)
 
 
+def check_area(area: str, code: int = 1) -> str:
+    """An area names the subject a layer covers: not a file path, not the layer itself.
+
+    ``(layer, area)`` is a pair, so an area equal to a layer name makes the plan ask
+    for that phantom area in every layer and reports a gap no lane can close.
+    """
+    text = one_line(area).strip().lower()
+    if area_looks_like_path(text):
+        die(
+            f"area '{text}' is a file path, not an area: name the subject the "
+            "layer covers (e.g. 'ci-matrix'), not the test file",
+            code,
+        )
+    if area_is_layer(text):
+        die(
+            f"area '{text}' is a test layer, not an area: the pair is (layer, area), "
+            "so name the subject the layer covers (e.g. 'merge-identity')",
+            code,
+        )
+    return text
+
+
 def required_layers_for(root: Path, area: str) -> list:
     """Required layers for an area.
 
@@ -2247,12 +2271,7 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         layer = args.layer.lower()
         if layer not in TEST_LAYERS:
             die(f"unknown layer '{layer}'. Layers: {', '.join(TEST_LAYERS)}")
-        area = (args.area or args.task or "general").lower()
-        if area_looks_like_path(area):
-            die(
-                f"area '{area}' is a file path, not an area: name the subject the "
-                "layer covers (e.g. 'ci-matrix'), not the test file"
-            )
+        area = check_area(args.area or args.task or "general")
         for r in records:
             if r["layer"] == layer and r["area"] == area:
                 die(
@@ -2412,7 +2431,7 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         return 0
 
     if args.tests_cmd == "require":
-        area = args.area.lower()
+        area = check_area(args.area)
         layers = [x.strip().lower() for x in args.layers.split(",") if x.strip()]
         if not layers:
             die(
@@ -5564,13 +5583,8 @@ def cmd_commit(args) -> int:
     if not is_git_repo(project):
         die("not a git repository here: run `teamwork.py repo` first")
 
-    area = (getattr(args, "area", None) or "").strip().lower()
-    if area and area_looks_like_path(area):
-        die(
-            f"area '{area}' is a file path, not an area: name the subject the "
-            "layer covers (e.g. 'ci-matrix'), not the test file",
-            2,
-        )
+    raw_area = getattr(args, "area", None) or ""
+    area = check_area(raw_area, 2) if raw_area else ""
 
     base = DEFAULT_BASE
     here = current_branch(project)
@@ -5638,7 +5652,7 @@ def cmd_commit(args) -> int:
 
     meta = {
         "type": args.type,
-        "area": args.area,
+        "area": area,
         "task": args.task,
         "goal": args.goal,
         "deliverable": args.deliverable,
@@ -8995,14 +9009,7 @@ def cmd_task_set(args) -> int:
         if args.title:
             t["title"] = args.title
         if getattr(args, "area", None) is not None:
-            area = (args.area or "").strip().lower()
-            if area_looks_like_path(area):
-                die(
-                    f"area '{area}' is a file path, not an area: name the subject the "
-                    "layer covers (e.g. 'ci-matrix'), not the test file",
-                    2,
-                )
-            t["area"] = area
+            t["area"] = check_area(args.area or "", 2)
         if args.evidence is not None:
             t["evidence"] = args.evidence.strip()
         if getattr(args, "review_status", None):

@@ -468,6 +468,11 @@ def area_looks_like_path(area: str) -> bool:
     return bool(parts) and parts[0] in ("test", "tests") and len(parts) > 1
 
 
+def area_is_layer(area: str) -> bool:
+    """A test layer is the first half of the (layer, area) pair, never the second."""
+    return one_line(area).strip().lower() in TEST_LAYERS
+
+
 def new_test_record(
     layer: str, area: str, owner: str = "", command: str = "", task: str = ""
 ) -> dict:
