@@ -132,6 +132,16 @@ compounds, the cheapest capable model where it does not.
 
 ## 6. Watch the team: live state and the widget
 
+An instance is idle only while it holds no task, no memory pen, no provider slot,
+no review claim and no live lane. Idle is cheap but not free: a seat is a
+directory, a memory set and a queue entry, so a team that drains its work should
+drain its roster too. `pulse --commit` folds the surplus seats on every wake, and
+`teamwork instance prune` folds every idle instance in one move-only pass -
+`Runtime/Retired/<Instance>/`, with the role's memory and queue kept and a ledger
+record per fold. `--keep-required` keeps one instance of each gate-critical role,
+`--dry-run` prints the plan, and `instance add <role>` restaffs when work returns.
+The CEO is never folded.
+
 `status` is the operator panel and the UI feed in one command:
 
 ```console
@@ -213,6 +223,8 @@ and 25 for code, 24 and 40 for a security/release/data unit. `LaneToolBudget` in
 | Is the review queue the bottleneck? | `teamwork review --queue` |
 | Is any accepted deliverable unarchived? | `teamwork audit` |
 | Would the team stop now? | `teamwork loop` |
+| Is anyone idle and holding a seat? | `teamwork instance list`, `teamwork pulse` |
+| Close the idle seats and release them | `teamwork instance prune --keep-required` |
 
 The stop condition is mechanical: `loop` prints `STOP` only when every acceptance
 criterion is verified, every required test layer passed, no review is open and the
