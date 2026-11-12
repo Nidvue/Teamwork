@@ -82,7 +82,13 @@ def test_dependency_can_release_at_review_or_started(cli, project: Path) -> None
     assert tester[0]["status"] == "doing"
 
 
-def test_pulse_fills_a_lane_up_to_its_wip_limit(cli, project: Path) -> None:
+def test_pulse_fills_every_lane_up_to_its_wip_limit(cli, project: Path) -> None:
+    """No single lane is the bottleneck: the roster grows, then the units spread.
+
+    The old rule filled one lane to `LANE_WIP` and queued the rest behind it. The
+    contract now: three units need two lanes (ceil(3 / LANE_WIP)), the pulse adds
+    the missing instance, and every unit is claimed - no instance over its WIP.
+    """
     assert cli("--project", project, "init", "--agents", ROSTER, "--no-git") == 0
     root = team_root(project)
     for i in range(3):
@@ -91,13 +97,18 @@ def test_pulse_fills_a_lane_up_to_its_wip_limit(cli, project: Path) -> None:
     assert cli("--project", project, "pulse", "--commit") == 0
     tasks = engine.parse_tasks(engine.task_file(root, "developer"))
     claimed = [t for t in tasks if t["status"] == "doing"]
-    assert len(claimed) == engine.LANE_WIP, [t["status"] for t in tasks]
-    assert {t["claimed_by"].lower() for t in claimed} == {"developer-1"}
+    assert len(claimed) == 3, [t["status"] for t in tasks]
+    per_lane: dict = {}
+    for task in claimed:
+        per_lane[task["claimed_by"]] = per_lane.get(task["claimed_by"], 0) + 1
+    assert len(per_lane) == 2, per_lane
+    assert max(per_lane.values()) <= engine.LANE_WIP, per_lane
+    assert len(engine.instances_of(root, "developer")) == 2
 
     assert cli("--project", project, "pulse", "--commit") in (0, 3)
     tasks = engine.parse_tasks(engine.task_file(root, "developer"))
-    assert len([t for t in tasks if t["status"] == "doing"]) == engine.LANE_WIP
-    assert len([t for t in tasks if t["status"] == "todo"]) == len(tasks) - engine.LANE_WIP
+    assert len([t for t in tasks if t["status"] == "doing"]) == 3, "no double claim"
+    assert len(engine.instances_of(root, "developer")) == 2, "no idle scale-up"
 
 
 def test_every_claim_leaves_a_ledger_record(cli, project: Path) -> None:
