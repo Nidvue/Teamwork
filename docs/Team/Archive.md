@@ -7005,4 +7005,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: 
 - reviewer evidence: independent dup scan of .pi/Teamwork/Teams/Teamwork/Tests.md @5108b90 -> 159 records, 156 distinct commands, 0 duplicate-command pairs across records; TS-0128 absent, TS-0194 present at unit/privacy-redaction; .venv/bin/python -m pytest -q tests/unit/test_privacy_scan.py -k allow @5108b90 -> 13 passed, 172 deselected (collect-only: 13/185, names are the allowlist/redaction path, not the full-file set TS-0165 runs); full file @5108b90 -> 185 passed; teamwork.py audit @5108b90 -> layered tests section has no "same command in several layers" line (remaining gaps are pre-existing pr-repair/*, unrelated area); teamwork.py tests plan -> privacy-redaction unit+ (was unit?)
 - findings history: 
-- branch / merge: developer-3/t-0129-two-unit-records-run-the-same-privacy-sc / pending
+- branch / merge: developer-3/t-0129-two-unit-records-run-the-same-privacy-sc / 662454b
