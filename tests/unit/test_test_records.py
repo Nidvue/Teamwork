@@ -88,3 +88,15 @@ def test_find_test_by_id_then_area() -> None:
     assert engine.find_test(records, "TS-0002") == 1
     assert engine.find_test(records, "ledger") == 1
     assert engine.find_test(records, "missing") is None
+
+
+def test_an_area_is_a_subject_not_a_test_file_path() -> None:
+    assert engine.area_looks_like_path("tests/unit/test_ci_contracts.py")
+    assert engine.area_looks_like_path("tests\\unit\\test_ci_contracts.py")
+    assert engine.area_looks_like_path("test_ci_contracts.py")
+    assert engine.area_looks_like_path("tests-unit-test-ci-contr")
+    assert engine.area_looks_like_path("tests-unit")
+    assert not engine.area_looks_like_path("ci-matrix")
+    assert not engine.area_looks_like_path("memory-injection")
+    assert not engine.area_looks_like_path("")
+    assert not engine.area_looks_like_path("testing")
