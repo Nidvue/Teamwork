@@ -228,7 +228,7 @@ under two roles is two tasks.
 | developer | T-0097 | memory | done | P-0145 | 19246a0 |
 | developer | T-0098 | memory | done | P-0147 | 318fb28 |
 | developer | T-0099 | - | dropped | - | - |
-| developer | T-0100 | refresh | review | P-0167 | - |
+| developer | T-0100 | refresh | done | P-0167 | 716b65d |
 | developer | T-0101 | - | doing | P-0146 | - |
 | developer | T-0102 | identity | done | P-0152 | 1591449 |
 | developer | T-0103 | ci-matrix | done | P-0148 | d1d11b6 |
@@ -286,7 +286,7 @@ under two roles is two tasks.
 | tester | T-0009 | - | done | - | - |
 | tester | T-0010 | status | done | P-0121 | 9e8c3b3 |
 | tester | T-0011 | memory | done | P-0153 | f5cb0d4 |
-| tester | T-0012 | memory | doing | P-0168 | - |
+| tester | T-0012 | memory | review | P-0168 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -304,11 +304,10 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0100 · refresh stops on an unrelated mirror history and leaves every lane on a stale engine, with no warning | P1 | review | - |
 | developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
 | developer | T-0108 · T-0004 lane work | P2 | todo | - |
 | developer | T-0110 · pr merge pins identity with -c only, so an exported GIT_AUTHOR_NAME can still author a merge commit | P2 | todo | - |
-| tester | T-0012 · record the layer matrix for the twelve areas this milestone created, at one revision | P1 | doing | - |
+| tester | T-0012 · record the layer matrix for the twelve areas this milestone created, at one revision | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
