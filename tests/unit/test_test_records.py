@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from teamwork import engine
 
 
@@ -100,3 +102,77 @@ def test_an_area_is_a_subject_not_a_test_file_path() -> None:
     assert not engine.area_looks_like_path("memory-injection")
     assert not engine.area_looks_like_path("")
     assert not engine.area_looks_like_path("testing")
+
+
+def test_a_layer_name_is_not_an_area() -> None:
+    for layer in engine.TEST_LAYERS:
+        assert engine.area_is_layer(layer)
+        assert engine.area_is_layer(f" {layer.upper()} ")
+        with pytest.raises(SystemExit):
+            engine.check_area(layer, 2)
+    assert not engine.area_is_layer("merge-identity")
+    assert not engine.area_is_layer("")
+    assert engine.check_area(" Merge-Identity ") == "merge-identity"
+
+
+def test_check_area_keeps_the_path_gate() -> None:
+    with pytest.raises(SystemExit):
+        engine.check_area("tests/unit/test_ci_contracts.py", 2)
+    assert engine.check_area("ci-matrix") == "ci-matrix"
+
+
+def test_check_area_fails_with_a_nonzero_code_by_default() -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        engine.check_area("unit")
+    assert exit_info.value.code == 1
+
+
+def test_tests_require_refuses_a_layer_as_its_area(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "team"
+    root.mkdir()
+    argv = [
+        "--project",
+        str(root),
+        "tests",
+        "require",
+        "--area",
+        "unit",
+        "--layers",
+        "unit,integration",
+        "--by",
+        "ceo",
+        "--reason",
+        "probe",
+    ]
+    with pytest.raises(SystemExit) as exit_info:
+        engine.main(argv)
+    assert exit_info.value.code == 1
+    assert "is a test layer, not an area" in capsys.readouterr().err
+
+
+def test_tests_require_accepts_a_subject_area(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = tmp_path / "team"
+    root.mkdir()
+    argv = [
+        "--project",
+        str(root),
+        "tests",
+        "require",
+        "--area",
+        "Merge-Identity",
+        "--layers",
+        "unit,integration",
+        "--by",
+        "ceo",
+        "--reason",
+        "probe",
+    ]
+    with pytest.raises(SystemExit):
+        engine.main(argv)
+    err = capsys.readouterr().err
+    assert "not an area" not in err
+    assert "unknown actor 'ceo'" in err
