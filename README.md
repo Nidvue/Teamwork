@@ -60,7 +60,7 @@ Five more ship inside the skill - engine commands, no plugin, no daemon:
 |---|---|---|
 | Memory that persists | Captured at each lane exit, promoted to long-term, shared per role, verified against cited revisions. | `teamwork memory` |
 | Live agent state | Every instance's state, task, time and progress, plus recent lanes; a stable `--json` feed the bundled widget renders. | `teamwork status` |
-| Real parallel lanes | `swarm run` sizes the wave from the work and detaches one budgeted process per lane. | `teamwork swarm run` |
+| Real parallel lanes | `swarm run` sizes the wave from the work, dispatches it and returns; each lane is detached. | `teamwork swarm run` |
 | Agents that talk | A prioritised mailbox in the next packet; `urgent` preempts it and pauses its task. | `teamwork message send` |
 | Token economy | A measured startup read against a 120 KiB cap, a memory index and read-by-id commands. | `teamwork harness budget` |
 
