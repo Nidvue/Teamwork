@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The roster follows the work: no single lane and no single Reviewer is the
+  bottleneck** - `pulse --commit` and `swarm run` add an instance for every
+  `LANE_WIP` units of ready work and one Reviewer per unclaimed deliverable
+  (bounded by a per-role cap of 4, a per-wake cap of 6, `LaneMax` and the free
+  provider slots), then fold the seats they cannot feed. `--no-scale` dispatches
+  to the current roster; an `observe`/`off` wake adds and retires nothing, and the
+  "no free lane" line now counts `LANE_WIP` units rather than lanes.
 - **`instance prune` folds idle seats and releases their resources** - a lane is
   idle only when it claims no task, holds no provider slot, no memory pen, no
   review claim and no live lane record, and its role has no ready work. `prune`
