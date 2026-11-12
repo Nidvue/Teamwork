@@ -306,6 +306,39 @@ def test_an_unrelated_mirror_history_is_recreated_and_mirrored(
     assert refresh(cli, capsys, "--dest", dest, "--mirror", "--check")[0] == 0
 
 
+def test_a_recreated_mirror_keeps_the_remote_name_it_was_given(
+    cli, capsys, checkout: Path, remote: Path, tmp_path: Path
+) -> None:
+    """F2 (T-0100): the repair must not rename the mirror's remote to ``origin``.
+
+    Measured at 0de195f: the fresh clone carried only ``origin``, so the same
+    ``refresh --mirror --remote upstream`` that performed the repair stopped on the
+    next run with ``no branch or tag main on upstream`` - a one-time stop turned
+    into a permanent one for every remote that is not named ``origin``.
+    """
+    dest = tmp_path / "skills" / "teamwork"
+    mirror = bundle.default_mirror_path(dest)
+    mirror.mkdir(parents=True)
+    (mirror / "src" / "teamwork").mkdir(parents=True)
+    (mirror / "SKILL.md").write_text("# rewritten history\n", encoding="utf-8")
+    git(mirror, "init", "-q", "-b", "main")
+    git(mirror, "add", "-A")
+    git(mirror, "commit", "-q", "-m", "pre-rewrite")
+    git(mirror, "remote", "add", "upstream", str(remote))
+
+    code, out = refresh(cli, capsys, "--dest", dest, "--mirror", "--remote", "upstream")
+
+    assert code == 0, out
+    assert "unrelated history" in out, out
+    assert git(mirror, "remote") == "upstream", "the repair kept the remote it was given"
+
+    code, out = refresh(cli, capsys, "--dest", dest, "--mirror", "--remote", "upstream")
+
+    assert code == 0, out
+    assert "refresh stopped" not in out, out
+    assert (dest / "SKILL.md").read_text(encoding="utf-8") == "# SKILL.md v1\n"
+
+
 def test_an_unrelated_explicit_source_is_never_moved_aside(
     cli, capsys, checkout: Path, remote: Path, tmp_path: Path
 ) -> None:
