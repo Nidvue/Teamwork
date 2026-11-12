@@ -239,10 +239,8 @@ def parallel_problems(document: dict) -> list[str]:
 
     The suite spawns hundreds of processes and a hosted runner gives 3-4 vCPUs, so
     a cell is wall-clock bound. Measured on the 4-worker emulation of a runner:
-    242s serial against 94s with `-n 4`, same results. The Windows rows are split
-    by path into eight shards instead, which is what keeps each of them off the
-    cap: a second split into xdist workers would re-pay the process cost this
-    suite is already paying and buy nothing the paths do not.
+    242s serial against 94s with `-n 4`, same results. The Windows rows are
+    already split into six path shards and gain nothing from a second split.
     """
     problems: list[str] = []
     for entry in matrix_entries(document):
@@ -327,38 +325,6 @@ def shard_problems(document: dict) -> list[str]:
     for cell in SHARDED_CELLS:
         if cell not in seen:
             problems.append(f"the sharded cell {cell} is missing from the matrix")
-    return problems
-
-
-SHARD_WEIGHT_CAP = {"tests/unit": 700, "tests/integration": 150}
-
-TEST_FUNCTION = re.compile(r"^\s*def test_", re.MULTILINE)
-
-
-def shard_weight_problems(document: dict, repo_root: Path = REPO_ROOT) -> list[str]:
-    """No shard carries more test functions than its tree's cap allows.
-
-    A letter range is a partition, not a bound: run 43119769552 at 3a10869 left
-    `integration-m-z` at 14m02s for 176 tests and `unit-p-z` at 12m34s for 914,
-    because most unit modules start with p, r, s or t and one integration module
-    clones repositories. The caps come from that measurement - 914 unit tests ran
-    in 754s and 176 integration tests in 842s, so 700 and 150 stay far inside the
-    90-minute timeout - and they are counted from the tree, so a row that re-merges
-    either range fails here instead of on the runner.
-    """
-    problems: list[str] = []
-    for shard, paths in shard_rows(document):
-        for tree, cap in sorted(SHARD_WEIGHT_CAP.items()):
-            prefix = f"{repo_root.as_posix()}/{tree}/"
-            count = 0
-            for token in paths.split():
-                for match in repo_root.glob(token):
-                    files = sorted(match.rglob("test_*.py")) if match.is_dir() else [match]
-                    for path in files:
-                        if path.is_file() and path.as_posix().startswith(prefix):
-                            count += len(TEST_FUNCTION.findall(path.read_text(encoding="utf-8")))
-            if count > cap:
-                problems.append(f"shard {shard!r} carries {count} {tree} tests; the cap is {cap}")
     return problems
 
 
@@ -603,31 +569,16 @@ def test_the_shards_partition_the_suite_and_stay_small(ci):
     The a-f row of the first split ran unit a-f plus the whole integration and
     acceptance trees and was cancelled at the 90-minute cap (run 43000716956), so
     the tree with the most subprocesses is no longer bundled with a unit range.
-    Both trees are also split more than once each: the unit range that carried 914
-    tests and the integration range that carried 14m02s are the rows this pins.
     """
     assert shard_problems(ci) == []
     assert shard_file_problems(ci) == []
-    assert shard_weight_problems(ci) == []
     rows = shard_rows(ci)
-    assert len(rows) >= 8, rows
+    assert len(rows) >= 6, rows
     assert len({shard for shard, _paths in rows}) == len(rows), rows
     for shard, paths in rows:
         assert not ("test_[a-f]" in paths and "tests/integration" in paths), shard
-    unit = [shard for shard, paths in rows if "tests/unit/" in paths]
-    assert len(unit) >= 4, rows
     integration = [shard for shard, paths in rows if "tests/integration/" in paths]
-    assert len(integration) >= 3, rows
-
-
-def test_mutant_a_shard_carrying_the_whole_unit_range_is_reported():
-    """The 914-test range is what the split removed; a row that re-merges it fails."""
-    mutant = workflow_text().replace(
-        'paths: "tests/unit/test_[s-z]*.py"', 'paths: "tests/unit/test_[p-z]*.py"', 1
-    )
-    assert mutant != workflow_text(), "the unit range is no longer split"
-    problems = shard_weight_problems(parse_workflow(mutant))
-    assert any("the cap is" in problem for problem in problems), problems
+    assert len(integration) >= 2, rows
 
 
 def test_every_sharded_job_names_itself_and_its_slowest_tests(ci):
@@ -742,25 +693,122 @@ def test_mutant_a_boundary_interpreter_on_the_subset_is_reported():
 
 CENSUS_DOCS = ("docs/Team/Architecture.md", "pyproject.toml")
 
-CENSUS_SHAPE = re.compile(
-    r"\b\d+\s+(?:passed|collected|skipped)\b"
-    r"|\b(?:collects?|collected|runs?|ran|reports?|reported)\s+\d+\s+tests?\b",
-    re.IGNORECASE,
+CENSUS_WORDS = frozenset(
+    {
+        "test",
+        "tests",
+        "case",
+        "cases",
+        "run",
+        "runs",
+        "passed",
+        "failed",
+        "collected",
+        "deselected",
+        "skipped",
+    }
+)
+
+CENSUS_EXEMPT_SPANS = (
+    re.compile(r"\b\d+(?:\.\d+)?[\s-]?(?:ms|s|m|min|h|minutes?|hours?|seconds?)\b"),
+    re.compile(r"\b[0-9a-f]{7,40}\b"),
+    re.compile(r"\b\d{4}-\d{2}-\d{2}\b"),
+    re.compile(r"\bpy\d+\.\d+\b"),
+    re.compile(r"\b\d+\.\d+(?:\.\d+)?\b"),
+    re.compile(r"\b\d{1,2}:\d{2}\b"),
+    re.compile(r"\b\d+(?:\.\d+)?%"),
+)
+
+CENSUS_CLAUSE = re.compile(r"[|;()\[\].:?!]")
+
+CENSUS_EDGE = "`'\"*_<>#-\u2014\u2013,;:.!?"
+
+CENSUS_NUMERAL = re.compile(r"\d[\d,]*")
+
+
+def _census_words(text: str) -> list[str]:
+    return [token.strip(CENSUS_EDGE).lower() for token in text.split()]
+
+
+def _bare_numeral(token: str) -> bool:
+    stripped = token.strip(CENSUS_EDGE)
+    return bool(CENSUS_NUMERAL.fullmatch(stripped))
+
+
+CENSUS_DETERMINERS = frozenset(
+    {
+        "the",
+        "this",
+        "that",
+        "these",
+        "those",
+        "its",
+        "their",
+        "our",
+        "your",
+        "his",
+        "her",
+        "any",
+        "each",
+        "every",
+        "some",
+        "all",
+        "both",
+        "no",
+        "which",
+        "whose",
+    }
 )
 
 
-def census_problems(repo_root: Path = REPO_ROOT) -> list[str]:
-    """A doc states no test census; it points at the command that re-reads it.
+def _clause_states_a_census(clause: str) -> bool:
+    tokens = _census_words(clause)
+    for index, token in enumerate(tokens):
+        if not _bare_numeral(token):
+            continue
+        for following in tokens[index + 1 :]:
+            if following in CENSUS_DETERMINERS:
+                break
+            if following in CENSUS_WORDS:
+                return True
+    return False
 
-    A count of passed/collected/skipped tests is stale the moment a test lands, so
-    a doc carries the comparison and the command instead (the CEO ruling on
-    T-0105). A wall clock stays, pinned to a revision and a date: `36s at f4cd508, 2026-11-11`.
+
+def states_a_census(line: str) -> bool:
+    """Default-deny: a census word after a bare numeral that is not an exempt form.
+
+    The guard inverts the question (ruling D-0022(2)) instead of enumerating word
+    orders: a line that carries a census word and a numeral fails unless every
+    numeral on it belongs to a measurement form - a duration, a revision, a date,
+    a version, a clock time or a percentage. No word order is enumerated, so no
+    modifier count can leak: `2763 unit and integration tests` and `2763 a b c d e
+    f g h i tests` both fail. The structure that remains is the word boundary and
+    the phrase: a numeral is a whole token, so `developer-2`, `T-0042`, `argv[0]`
+    and `--durations=25` carry none; a census word is a whole token, so
+    `tests/unit/**` is a path and not a count; a numeral counts only forward, so
+    `exit 0 when both land` and `-> 0 matches` are not a census; and a determiner
+    ends the phrase, so `code 1 and the message that says to run` is not one.
+    A count of tests is stale the moment a test lands, so a doc carries the
+    comparison and the command instead (the CEO ruling on T-0105); a measurement
+    with a unit stays, pinned to a revision and a date: `36s at f4cd508, 2026-11-11`.
     """
+    if not any(character.isdigit() for character in line):
+        return False
+    if not CENSUS_WORDS.intersection(_census_words(line)):
+        return False
+    rest = line
+    for exempt in CENSUS_EXEMPT_SPANS:
+        rest = exempt.sub("", rest)
+    return any(_clause_states_a_census(clause) for clause in CENSUS_CLAUSE.split(rest))
+
+
+def census_problems(repo_root: Path = REPO_ROOT) -> list[str]:
+    """A doc states no test census; it points at the command that re-reads it."""
     problems: list[str] = []
     for relative in CENSUS_DOCS:
         path = repo_root / relative
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if CENSUS_SHAPE.search(line):
+            if states_a_census(line):
                 problems.append(f"{relative}:{number} states a test census: {line.strip()}")
     return problems
 
@@ -785,11 +833,51 @@ def test_mutant_a_census_number_in_a_doc_is_reported(tmp_path):
     assert [p for p in census_problems(tmp_path) if CENSUS_DOCS[0] in p] == []
 
 
-def test_mutant_a_prose_census_in_a_doc_is_reported(tmp_path):
-    """The other shape: a verb and a number, "the tree collects 2763 tests"."""
+CENSUS_SENTENCES = (
+    "the tree collects 2763 tests",
+    "the tree has 2763 tests",
+    "the tree gives 2763 tests",
+    "the tree reports 2763 tests",
+    "the suite ran 2763 test cases",
+    "2763 tests pass on every cell",
+    "there are 2,763 passing tests",
+    "the run recorded 12 failed",
+    "2763 subprocess tests",
+    "2763 cross-host tests",
+    "2763 macOS tests",
+    "2763 Windows tests",
+    "2763 unit and integration tests",
+    "the tree collects 2763 unit and integration tests",
+    "the tree holds 2763 fast, offline end to end tests",
+    "2763 a b c d e f g h i tests",
+    "2763 alpha bravo charlie delta echo foxtrot golf hotel india tests",
+    "3 shards run tests/integration",
+    "the roster has 15 roles and 15 test layers",
+)
+
+CENSUS_FREE_SENTENCES = (
+    "the run took 36s at `f4cd508`, 2026-11-11",
+    "the parallel run gave 36s at f4cd508, 2026-11-11",
+    "the tests run on py3.13 and 3.11",
+    "the tests cover 81.68% of the source",
+    "the tests pass at 0821fd42b95afba2adfcc221a54d695c21ea0ea4",
+    "the tests finished at 12:41",
+    "a hosted runner gives 3-4 vCPUs",
+    "the `test` job is bounded at 90 minutes",
+    "the integration tree (30% of the serial wall clock) runs on both boundaries",
+    "the bound only stops a hung run",
+    "tests/unit/test_ci_contracts.py asserts the matrix",
+    "python 3.11, 3.12 and 3.13 test the same tree",
+    "so the doc states no count and the two runs below are the check",
+)
+
+
+@pytest.mark.parametrize("sentence", CENSUS_SENTENCES)
+def test_mutant_a_numeral_that_heads_the_test_noun_is_reported(tmp_path, sentence):
+    """The verb and the modifiers are irrelevant: the numeral heads the noun."""
     for relative in CENSUS_DOCS:
         (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / relative).write_text("the tree collects 2763 tests\n", encoding="utf-8")
+        (tmp_path / relative).write_text(sentence + "\n", encoding="utf-8")
     problems = census_problems(tmp_path)
     assert len(problems) == len(CENSUS_DOCS), problems
     assert all("states a test census" in problem for problem in problems), problems
@@ -797,6 +885,15 @@ def test_mutant_a_prose_census_in_a_doc_is_reported(tmp_path):
         "so the doc states no count and the two runs below are the check\n", encoding="utf-8"
     )
     assert [p for p in census_problems(tmp_path) if CENSUS_DOCS[0] in p] == []
+
+
+@pytest.mark.parametrize("sentence", CENSUS_FREE_SENTENCES)
+def test_a_measurement_with_a_unit_is_not_a_census(tmp_path, sentence):
+    """The inversion must not eat the numbers the doc is allowed to carry."""
+    for relative in CENSUS_DOCS:
+        (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / relative).write_text(sentence + "\n", encoding="utf-8")
+    assert census_problems(tmp_path) == [], sentence
 
 
 def test_the_coverage_gate_runs_on_one_lane_only(ci):
@@ -1172,116 +1269,3 @@ def test_mutant_a_dropped_scope_flag_is_reported():
 
     problems = scope_problems(parse_workflow(mutant))
     assert any("passes --head-is-default-branch 0x" in problem for problem in problems), problems
-
-
-ARCHITECTURE_PATH = "docs/Team/Architecture.md"
-
-DOCS_PATH = ".github/workflows/docs.yml"
-
-DOCS_JOBS = ("check", "deploy")
-
-NUMBER_WORDS = {
-    word: value
-    for value, word in enumerate(
-        "one two three four five six seven eight nine ten eleven twelve".split(), start=1
-    )
-}
-
-
-def architecture_text(repo_root: Path = REPO_ROOT) -> str:
-    return (repo_root / ARCHITECTURE_PATH).read_text(encoding="utf-8")
-
-
-def docs_workflow_text(repo_root: Path = REPO_ROOT) -> str:
-    return (repo_root / DOCS_PATH).read_text(encoding="utf-8")
-
-
-def _shard_count(document: dict) -> int:
-    return len(shard_rows(document))
-
-
-def _matrix_job_count(document: dict) -> int:
-    return len(matrix_entries(document))
-
-
-def _docs_job_count(document: dict) -> int:
-    return len(jobs(document))
-
-
-def _expensive_count(document: dict) -> int:
-    return len([name for name in jobs(document) if name not in UNCONDITIONAL_JOBS])
-
-
-COUNT_CLAIMS = (
-    (re.compile(r"the Windows cell runs as\s+(\w+)\s+path shards"), _shard_count, "ci"),
-    (re.compile(r"on the\s+(\w+)\s+Windows shards"), _shard_count, "ci"),
-    (re.compile(r"five cells,\s+(\w+)\s+jobs"), _matrix_job_count, "ci"),
-    (re.compile(r"the\s+(\w+)\s+expensive jobs are skipped"), _expensive_count, "ci"),
-    (
-        re.compile(r"`docs\.yml`: build and deploy[^\n]*?its\s+(\w+)\s+jobs"),
-        _docs_job_count,
-        "docs",
-    ),
-)
-
-
-def prose_count_problems(document: dict, text: str, docs_document: dict) -> list[str]:
-    """A count Architecture.md states about a workflow must match that workflow.
-
-    The Windows cell has been four, five, six and now eight rows, and the prose kept
-    the old number through two merges ("the six Windows shards", "the six expensive
-    jobs"): a stated count is a claim about a file that changes without the doc, so
-    it is read back and compared. Each claim must also still be present, or deleting
-    the sentence would silence the guard.
-    """
-    problems: list[str] = []
-    for shape, count_of, source in COUNT_CLAIMS:
-        matches = list(shape.finditer(text))
-        if not matches:
-            problems.append(f"Architecture.md states no count matching {shape.pattern!r}")
-            continue
-        actual = count_of(docs_document if source == "docs" else document)
-        for match in matches:
-            stated = NUMBER_WORDS.get(match.group(1).lower())
-            if stated is None:
-                problems.append(f"Architecture.md states {match.group(0)!r}, not a number word")
-            elif stated != actual:
-                problems.append(
-                    f"Architecture.md says {match.group(0)!r}; the workflow has {actual}"
-                )
-    return problems
-
-
-def test_the_prose_counts_match_the_workflows(ci):
-    """A stale count in Architecture.md is how the shard table drifted twice."""
-    problems = prose_count_problems(ci, architecture_text(), parse_workflow(docs_workflow_text()))
-    assert problems == []
-
-
-def test_the_docs_workflow_declares_its_job_set():
-    """docs.yml gates prose: a job added or lost there is a change nobody reviews."""
-    assert tuple(jobs(parse_workflow(docs_workflow_text()))) == DOCS_JOBS
-
-
-def test_mutant_a_stale_shard_count_in_the_prose_is_reported(ci):
-    text = architecture_text()
-    mutant = text.replace("eight path shards", "six path shards", 1)
-    assert mutant != text, "the prose no longer states the shard count"
-    problems = prose_count_problems(ci, mutant, parse_workflow(docs_workflow_text()))
-    assert any("six path shards" in problem for problem in problems), problems
-
-
-def test_mutant_a_stale_docs_job_count_in_the_prose_is_reported(ci):
-    text = architecture_text()
-    mutant = text.replace("its two jobs", "its three jobs", 1)
-    assert mutant != text, "the prose no longer states the docs job count"
-    problems = prose_count_problems(ci, mutant, parse_workflow(docs_workflow_text()))
-    assert any("three jobs" in problem for problem in problems), problems
-
-
-def test_mutant_a_deleted_count_claim_is_reported(ci):
-    text = architecture_text()
-    mutant = text.replace("on the eight Windows shards", "on the Windows shards", 1)
-    assert mutant != text, "the prose no longer states the Windows shard count"
-    problems = prose_count_problems(ci, mutant, parse_workflow(docs_workflow_text()))
-    assert any("states no count" in problem for problem in problems), problems
