@@ -170,3 +170,34 @@ def test_a_new_task_round_trips_through_the_renderer(tmp_path: Path) -> None:
     assert set(reparsed) == set(task), set(reparsed) ^ set(task)
     for field in ("dropped_under_live", "review_claim_profile", "review_claim_lease"):
         assert task[field] == ""
+
+
+def test_task_set_repairs_an_area_but_refuses_a_test_file_path(cli, tmp_path: Path) -> None:
+    """A done task's area carries into `tests plan`, so the task record needs the guard.
+
+    The phantom `tests-unit-test-ci-contr` area survived a repair of the test record
+    because `areas_in_use` unions the area of every done task (T-0107) with the
+    record areas: the carrier was the task, and no task write path refused a path.
+    """
+    assert cli("init", "--no-git", "--agents", "ceo,developer-1") == 0
+    assert cli("task", "add", "developer-1", "a task with no area") == 0
+
+    assert (
+        cli(
+            "task",
+            "set",
+            "developer-1",
+            "a task with no area",
+            "--area",
+            "tests-unit-test-ci-contr",
+        )
+        != 0
+    )
+    assert (
+        cli("task", "set", "developer-1", "a task with no area", "--area", "tests/unit/test_ci.py")
+        != 0
+    )
+
+    assert cli("task", "set", "developer-1", "a task with no area", "--area", "ci-contracts") == 0
+    queue = next((tmp_path / ".pi" / "Teamwork" / "Teams").glob("*/Roles/Developer/TaskQueue.md"))
+    assert "- area: ci-contracts" in queue.read_text(encoding="utf-8")
