@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 from tests.gitenv import child_env
 
-from teamwork import bundle, engine
+from teamwork import bundle, engine, lanes
 
 GIT_ENV = child_env(
     GIT_AUTHOR_NAME="Tester",
@@ -269,6 +269,90 @@ def test_without_a_checkout_the_mirror_is_cloned_once_then_updated(
     code, out = refresh(cli, capsys, "--dest", dest, "--mirror")
     assert code == 0, out
     assert (dest / "SKILL.md").read_text(encoding="utf-8") == "# SKILL.md v3\n"
+
+
+def test_an_unrelated_mirror_history_is_recreated_and_mirrored(
+    cli, capsys, checkout: Path, remote: Path, tmp_path: Path
+) -> None:
+    """The defect (T-0100): a rewritten remote made refresh stop for good.
+
+    Measured on this host: the mirror sat at a pre-rewrite commit while
+    ``origin/main`` had moved, so ``merge --ff-only`` answered ``refusing to merge
+    unrelated histories`` and refresh exited 1 *before* mirroring - the installed
+    copy kept the old engine and every lane ran the old protocol silently. A
+    mirror is disposable state, so the fix recreates it instead of stopping.
+    """
+    dest = tmp_path / "skills" / "teamwork"
+    mirror = bundle.default_mirror_path(dest)
+    mirror.mkdir(parents=True)
+    (mirror / "src" / "teamwork").mkdir(parents=True)
+    (mirror / "SKILL.md").write_text("# rewritten history\n", encoding="utf-8")
+    git(mirror, "init", "-q", "-b", "main")
+    git(mirror, "add", "-A")
+    git(mirror, "commit", "-q", "-m", "pre-rewrite")
+    git(mirror, "remote", "add", "origin", str(remote))
+    old = git(mirror, "rev-parse", "--short", "HEAD")
+    wanted = git(remote, "rev-parse", "refs/heads/main")
+
+    code, out = refresh(cli, capsys, "--dest", dest, "--mirror")
+
+    assert code == 0, out
+    assert "unrelated history" in out, out
+    assert git(mirror, "rev-parse", "HEAD") == wanted, "the mirror was recreated at origin"
+    assert (dest / "SKILL.md").read_text(encoding="utf-8") == "# SKILL.md v1\n"
+    kept = mirror.with_name(f"{mirror.name}.stale-{old}")
+    assert kept.is_dir(), "the old checkout is moved aside, never deleted"
+    assert (kept / "SKILL.md").read_text(encoding="utf-8") == "# rewritten history\n"
+    assert refresh(cli, capsys, "--dest", dest, "--mirror", "--check")[0] == 0
+
+
+def test_an_unrelated_explicit_source_is_never_moved_aside(
+    cli, capsys, checkout: Path, remote: Path, tmp_path: Path
+) -> None:
+    """An operator's own checkout is not disposable: recreate only the mirror."""
+    work = make_bundle(tmp_path / "operator")
+    git(work, "init", "-q", "-b", "main")
+    git(work, "add", "-A")
+    git(work, "commit", "-q", "-m", "mine")
+    git(work, "remote", "add", "origin", str(remote))
+    head = git(work, "rev-parse", "HEAD")
+
+    code, out = refresh(cli, capsys, "--source", work, "--dest", tmp_path / "installed")
+
+    assert code != 0
+    assert "refresh stopped" in out and "unrelated histories" in out, out
+    assert git(work, "rev-parse", "HEAD") == head, "the checkout was not touched"
+    assert not list(tmp_path.glob("operator.stale-*")), "nothing was moved aside"
+
+
+def test_lane_start_names_a_stale_installed_bundle(tmp_path: Path) -> None:
+    """A lane runs the *installed copy*, so a lagging copy must be one named line."""
+    project = make_bundle(tmp_path / "project")
+    git(project, "init", "-q", "-b", "main")
+    git(project, "add", "-A")
+    git(project, "commit", "-q", "-m", "v1")
+    ahead = git(project, "rev-parse", "--short", "HEAD")
+    root = project / ".pi" / "Teamwork" / "Teams" / "Teamwork"
+    root.mkdir(parents=True)
+    dest = tmp_path / "skills" / "teamwork"
+    dest.mkdir(parents=True)
+    (dest / "SKILL.md").write_text("# old\n", encoding="utf-8")
+    mirror = bundle.default_mirror_path(dest)
+    mirror.mkdir(parents=True)
+    (mirror / "src" / "teamwork").mkdir(parents=True)
+    git(mirror, "init", "-q", "-b", "main")
+    git(mirror, "commit", "-q", "--allow-empty", "-m", "old")
+    behind = git(mirror, "rev-parse", "--short", "HEAD")
+
+    line = lanes.stale_bundle_line(root, dest=str(dest))
+
+    assert line.startswith("# installed skill"), line
+    assert str(dest) in line and str(project) in line, line
+    assert behind in line and ahead in line, "both revisions are named"
+    assert "teamwork.py refresh" in line, "the line names the command that fixes it"
+
+    bundle.sync(project, dest, dry_run=False, quiet=True)
+    assert lanes.stale_bundle_line(root, dest=str(dest)) == ""
 
 
 def test_a_source_that_is_not_a_checkout_is_refused(cli, capsys, tmp_path: Path) -> None:

@@ -44,7 +44,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import engine, gitutil, lanerun, messages
+from . import bundle, engine, gitutil, lanerun, messages
 from .config import DIR_LOCKS, DIR_RUNTIME, F_SETTINGS, F_SHORT, PRIORITY_ORDER
 from .io import die, lock, write_lf
 from .layout import (
@@ -204,6 +204,43 @@ def lane_command(root: Path) -> str:
 def lane_host(root: Path, override: str = "") -> str:
     host = (override or str(_setting(root, "LaneHost", "", "TEAMWORK_LANE_HOST"))).strip().lower()
     return host or engine.detect_agent_host()
+
+
+def _short_head(path: Path) -> str:
+    """The short revision a checkout is at, or ``""`` when it is not a checkout."""
+    if not bundle.is_checkout(path):
+        return ""
+    got = gitutil.run_git(path, "rev-parse", "--short", "HEAD")
+    return got.stdout.strip() if got.returncode == 0 else ""
+
+
+def stale_bundle_line(root: Path, host: str = "", dest: str = "") -> str:
+    """One line naming a stale installed skill, or ``""`` when the lane is current.
+
+    A lane is launched by the **installed copy** in the skills directory, not by
+    the checkout (K-0005): when the copy lags, every lane silently runs the old
+    protocol and a merged behaviour cannot fire. Comparing the bundle instead of
+    a timestamp is the only check that survives a rewritten history, and naming
+    both revisions makes the gap a measurement rather than an impression.
+    """
+    if len(root.parents) < 4:
+        return ""
+    project = project_of(root)
+    if not bundle.is_checkout(project):
+        return ""
+    target = bundle.resolve_dest(host or lane_host(root), dest)
+    if not target.is_dir():
+        return ""
+    added, updated, removed = bundle.plan(project, target)
+    if not (added or updated or removed):
+        return ""
+    installed = _short_head(bundle.default_mirror_path(target)) or "unknown"
+    return (
+        f"# installed skill {target} is behind the checkout {project} "
+        f"({installed} vs {_short_head(project)}): {len(added)} missing, "
+        f"{len(updated)} stale, {len(removed)} extra - run `teamwork.py refresh` "
+        "so this lane does not run stale code"
+    )
 
 
 def _stamp() -> str:
@@ -712,6 +749,9 @@ def spawn(
             )
             return {}
     run_id = next_run_id(root)
+    stale = stale_bundle_line(root, host)
+    if stale:
+        print(stale)
     packet = packet_path(root, agent, run_id)
     log = log_path(root, agent, run_id)
     host = lane_host(root, host)
