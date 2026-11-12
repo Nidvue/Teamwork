@@ -7057,4 +7057,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 5d1969b
 - reviewer evidence: tw ledger verify @5d1969b -> chain intact, 6812 records; AuditManifest.json ledger.head 12be1591 == Ledger.jsonl record #6791 hash (recomputed) and 4/4 artifact sha256 == git show 73cc704:<path>; AuditManifest.md counts match the json (38 local_state, 4 artifacts); tw links -> 0 issues; privacy_scan.py --tree --history --allow .github/privacy-allow.txt -> PASS 0 findings; .venv pytest tests/unit/test_skill_contracts.py tests/integration/test_docs_pipeline_flow.py -> 116 passed
 - findings history: 
-- branch / merge: ceo/t-0041-commit-the-closing-audit-manifest-throug / pending
+- branch / merge: ceo/t-0041-commit-the-closing-audit-manifest-throug / 16a83a0
