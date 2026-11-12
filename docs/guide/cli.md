@@ -538,6 +538,50 @@ teamwork slot reap [--provider PROVIDER]
 
 Drop dead or stale slots.
 
+## Live state
+
+### `status`
+
+```text
+teamwork status [--json] [--agent INSTANCE]
+```
+
+One row per instance and one row per live lane, so the operator panel and the
+status widget answer "who is working on what, and with which model". `--agent` narrows
+the rows to one instance; an unknown name exits 2, a team with no instance prints
+`- no instance` and exits 3, and the JSON feed exits 0 even when empty.
+
+The text form prints `# Lanes (N)` and one line per lane before the instance
+rows, then one instance line each (task id, title, elapsed, progress percent),
+never wider than 110 columns.
+
+`--json` emits schema 2, additive to schema 1:
+
+```json
+{
+  "schema": 2,
+  "generated": "2026-11-12T19:00:00",
+  "count": 17,
+  "counts": {"busy": 8, "idle": 9, "ready": 0, "review": 2, "lanes": 6},
+  "instances": [{"instance": "Developer-1", "role": "developer", "state": "busy",
+                 "task": "T-0130", "title": "...", "elapsed_text": "12m",
+                 "progress": "attempt 1/2, 60% of 25m", "progress_pct": 60,
+                 "model": "deepseek-chat", "provider": "deepseek", "lane": "L-0383",
+                 "lane_state": "running", "elapsed": 720}],
+  "lanes": [{"id": "L-0383", "instance": "Developer-1", "role": "developer",
+             "task": "T-0130", "state": "running", "elapsed_text": "12m",
+             "model": "deepseek-chat", "provider": "deepseek", "attempt": "1/2"}]
+}
+```
+
+`counts.lanes` always equals the length of the `lanes` array the same call
+returns, so a header stays true under `--agent`. Lanes are live first, then the
+most recent by `created` (id ascending as the tiebreak), bounded to 6; a review
+lane carries `task: ""`; the order is stable across two calls with no state
+change. `model` and `provider` resolve once per call from
+`Settings.json` -> `Models.agents[<Instance>]`, else `Models.roles[<role>]`, else
+`""` for both - an unset model is never guessed.
+
 ## Memory
 
 ### `load`

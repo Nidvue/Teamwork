@@ -8,7 +8,32 @@ const REFRESH_MS = 5_000;
 const MAX_LINES = 12;
 const TITLE_MAX = 32;
 const INSTANCE_MAX = 14;
+const MODEL_MAX = 22;
+const LANE_MAX = 3;
+const WIDTH_MAX = 100;
 const ENGINE = ["scripts", "teamwork.py"];
+
+const STATE_ABBREV: Record<string, string> = {
+  starting: "start",
+  running: "run",
+  exited: "done",
+  failed: "fail",
+  timeout: "tout",
+  stopped: "stop",
+  lost: "lost",
+};
+
+type Lane = {
+  id?: string;
+  instance?: string;
+  role?: string;
+  task?: string;
+  state?: string;
+  elapsed_text?: string;
+  model?: string;
+  provider?: string;
+  attempt?: string;
+};
 
 type Instance = {
   instance?: string;
@@ -18,13 +43,16 @@ type Instance = {
   title?: string;
   elapsed_text?: string;
   progress_pct?: number | null;
+  model?: string;
+  provider?: string;
 };
 
 type Payload = {
   schema?: number;
   count?: number;
   instances?: Instance[];
-  counts?: { busy?: number; idle?: number; ready?: number; review?: number };
+  lanes?: Lane[];
+  counts?: { busy?: number; idle?: number; ready?: number; review?: number; lanes?: number };
 };
 
 function ancestors(start: string): string[] {
@@ -92,6 +120,18 @@ function elapsed(value: string | undefined): string {
   return ((value ?? "").trim() || "-").padStart(6);
 }
 
+function stateAbbrev(value: string | undefined): string {
+  const clean = (value ?? "").trim().toLowerCase();
+  return STATE_ABBREV[clean] ?? (clean ? text(clean, 5) : "-");
+}
+
+function modelLabel(row: { model?: string; provider?: string }): string {
+  const model = (row.model ?? "").trim();
+  if (!model) return "host";
+  const provider = (row.provider ?? "").trim();
+  return text(provider ? `${provider}/${model}` : model, MODEL_MAX);
+}
+
 export function render(payload: Payload): string[] {
   const rows = (payload.instances ?? []).map((row) => ({
     instance: text(row.instance, INSTANCE_MAX) || "-",
@@ -99,23 +139,42 @@ export function render(payload: Payload): string[] {
     title: text(row.title, TITLE_MAX),
     elapsed: elapsed(row.elapsed_text),
     percent: row.progress_pct ?? null,
+    model: modelLabel(row),
     busy: row.state === "busy",
   }));
+  const lanes = (payload.lanes ?? []).map((lane) => ({
+    id: text(lane.id, 8) || "-",
+    instance: text(lane.instance, INSTANCE_MAX) || "-",
+    task: task_label(lane.task),
+    state: stateAbbrev(lane.state),
+    elapsed: elapsed(lane.elapsed_text),
+    model: modelLabel(lane),
+  }));
+  if (!rows.length && !lanes.length) return [];
   const busy = rows.filter((row) => row.busy);
   const idle = rows.filter((row) => !row.busy);
   const counts = payload.counts ?? {};
   const review = counts.review ?? 0;
   const header =
-    `teamwork · ${payload.count ?? rows.length} instance(s) · ${busy.length} busy` +
-    (review ? ` · ${review} in review` : "");
+    `teamwork · ${payload.count ?? rows.length} inst · ` +
+    `${counts.lanes ?? lanes.length} lanes · ${busy.length} busy · ${review} review`;
 
   busy.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || a.instance.localeCompare(b.instance));
   const width = Math.min(INSTANCE_MAX, Math.max(0, ...busy.map((row) => row.instance.length)));
   const lines = [header];
-  const room = MAX_LINES - 1 - (idle.length ? 1 : 0);
+  for (const lane of lanes.slice(0, LANE_MAX)) {
+    lines.push(
+      `⚙ ${lane.id} ${lane.instance} ${lane.task} ${lane.state} ${lane.elapsed} ${lane.model}`.trimEnd(),
+    );
+  }
+  const room = MAX_LINES - lines.length - (idle.length ? 1 : 0);
   for (const row of busy.slice(0, Math.max(0, room))) {
-    const head = `● ${row.instance.padEnd(width)} ${row.task} ${row.title}`.trimEnd();
-    lines.push(`${head}  ${row.elapsed} ${bar(row.percent)}`.trimEnd());
+    const tail = `${row.elapsed} ${bar(row.percent)} ${row.model}`.trimEnd();
+    const fixed = `● ${row.instance.padEnd(width)} ${row.task}  ${tail}`.length;
+    const budget = Math.min(TITLE_MAX, WIDTH_MAX - fixed);
+    const title = budget > 0 ? text(row.title, budget) : "";
+    const head = `● ${row.instance.padEnd(width)} ${row.task} ${title}`.trimEnd();
+    lines.push(`${head}  ${tail}`.trimEnd());
   }
   const hidden = busy.length - Math.max(0, room);
   if (hidden > 0) lines.push(`  +${hidden} more busy`);
