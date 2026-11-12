@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-11-12
+
 ### Added
 
 - **The CLI reference covers every command family** - `message`, `attention`,
@@ -31,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   state, the plugin-free lane runtime, the agent mailbox and the token economy are
   on the front door and in `docs/guide/features.md`, `operations.md`,
   `for-agents.md`, `architecture.md` and `how-it-works.md`.
+- **`version.py` and `CITATION.cff` move to 1.5.3** - the first commit after the
+  `v1.5.2` tag must raise the version, or the release-consistency gate reports
+  `HEAD version 1.5.2 is not greater than tag v1.5.2` (R2).
 
 ### Fixed
 
