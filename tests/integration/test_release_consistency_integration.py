@@ -446,6 +446,12 @@ def test_every_rule_has_a_test_that_fails_before_the_rule_exists(tmp_path):
     constant ``ok``; the suite is run against it through the checker's own
     ``TEAMWORK_RELEASE_CHECKER`` override. A rule with no test of its own
     leaves the suite green, and that is the defect this test closes.
+
+    A mutant run stops at its first failure: one failing test is the whole proof
+    that a rule is pinned, and the 10 survivors of a full run are all still
+    detected. The baseline run takes no ``-x``, so a partially green rule suite
+    cannot pass for a green one. Eleven full runs were 87% of this shard's wall
+    clock (24.5s of 28.0s locally at 4d18607, T-0124).
     """
     source = CHECKER.read_text(encoding="utf-8")
 
@@ -455,8 +461,18 @@ def test_every_rule_has_a_test_that_fails_before_the_rule_exists(tmp_path):
             env.pop("TEAMWORK_RELEASE_CHECKER", None)
         else:
             env["TEAMWORK_RELEASE_CHECKER"] = str(checker_path)
+        stop_at_first_failure = ["-x"] if checker_path is not None else []
         return subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-p", "no:randomly", *RULE_TESTS],
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-p",
+                "no:randomly",
+                *stop_at_first_failure,
+                *RULE_TESTS,
+            ],
             capture_output=True,
             text=True,
             check=False,
