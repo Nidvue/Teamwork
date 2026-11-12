@@ -11405,12 +11405,16 @@ def _scale_plan(root: Path) -> list:
         if want > 0:
             plan.append(("reviewer", want))
     limits = load_providers(root)
-    free = sum(
-        max(cap - len(used_slots(root, prov)), 0)
-        for prov, cap in limits.items()
-        if prov != "default"
-    )
-    budget = min(SCALE_MAX_ADDS, free if free else SCALE_MAX_ADDS)
+    providers = [prov for prov in limits if prov != "default"]
+    if providers:
+        free = sum(
+            max(cap - len(used_slots(root, prov)), 0)
+            for prov, cap in limits.items()
+            if prov != "default"
+        )
+        budget = min(SCALE_MAX_ADDS, free)
+    else:
+        budget = SCALE_MAX_ADDS
     capped = []
     for role, want in plan:
         take = min(want, budget)
