@@ -136,6 +136,7 @@ under two roles is two tasks.
 | ceo | T-0045 | store-paths | done | P-0187 | e64f53e |
 | ceo | T-0046 | instance-lifecycle | done | P-0188 | 6f3c353 |
 | ceo | T-0047 | dispatch-contract | done | P-0189 | 78a9c99 |
+| ceo | T-0048 | dispatch-contract | done | P-0190 | 3dda8b4 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
