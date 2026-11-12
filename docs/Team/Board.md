@@ -265,6 +265,12 @@ under two roles is two tasks.
 | developer | T-0130 | status | done | P-0183 | dcd877f |
 | developer | T-0131 | - | dropped | - | - |
 | developer | T-0132 | changelog | done | P-0184 | af128d3 |
+| developer | T-0133 | - | todo | - | - |
+| developer | T-0134 | - | todo | - | - |
+| developer | T-0135 | - | todo | - | - |
+| developer | T-0136 | - | todo | - | - |
+| developer | T-0137 | - | todo | - | - |
+| developer | T-0138 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -322,6 +328,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0044 · Fold idle instances: instance prune and pulse auto-fold release idle seats | P1 | doing | - |
+| developer | T-0133 · code 1 | P2 | todo | - |
+| developer | T-0134 · code 2 | P2 | todo | - |
+| developer | T-0135 · code 3 | P2 | todo | - |
+| developer | T-0136 · code 4 | P2 | todo | - |
+| developer | T-0137 · code 5 | P2 | todo | - |
+| developer | T-0138 · code 6 | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
