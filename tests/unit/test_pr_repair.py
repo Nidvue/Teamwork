@@ -176,6 +176,8 @@ def test_the_repair_clears_the_audit_line(cli, project, capsys) -> None:
             "merged",
             "--merge-commit",
             landed(root),
+            "--by",
+            "Reviewer-1",
             "--force",
             "the work landed and the record stalled",
         )
@@ -200,6 +202,8 @@ def test_a_repair_without_a_reason_is_refused(cli, project, capsys) -> None:
         "merged",
         "--merge-commit",
         landed(root),
+        "--by",
+        "Reviewer-1",
     )
 
     assert code == 2
@@ -223,6 +227,8 @@ def test_a_repair_is_refused_when_the_review_did_not_pass(cli, project, capsys) 
         "merged",
         "--merge-commit",
         landed(root),
+        "--by",
+        "Reviewer-1",
         "--force",
         "looks merged to me",
     )
@@ -246,6 +252,8 @@ def test_merged_without_a_merge_commit_is_refused(cli, project, capsys) -> None:
         "P-0001",
         "--status",
         "merged",
+        "--by",
+        "Reviewer-1",
         "--force",
         "the record stalled",
     )
@@ -272,6 +280,8 @@ def test_a_fabricated_merge_revision_is_refused(cli, project, capsys) -> None:
         "merged",
         "--merge-commit",
         "deadbeef",
+        "--by",
+        "Reviewer-1",
         "--force",
         "it merged, trust me",
     )
@@ -285,7 +295,14 @@ def test_a_fabricated_merge_revision_is_refused(cli, project, capsys) -> None:
 def test_a_revision_the_ledger_witnessed_is_accepted_after_a_history_rebuild(cli, project) -> None:
     """P-0010's shape: the merge is in the ledger, the commit is gone from the clone."""
     root = seed(cli, project)
-    engine.ledger_append(root, "pr.merge", "Reviewer-1", "T-0001", "P-0001 work -> main at 47db23d")
+    engine.ledger_append(
+        root,
+        "pr.merge",
+        "Reviewer-1",
+        "T-0001",
+        "P-0001 developer-1/t-0001 -> main at 47db23d",
+        "47db23d",
+    )
 
     assert (
         cli(
@@ -299,6 +316,8 @@ def test_a_revision_the_ledger_witnessed_is_accepted_after_a_history_rebuild(cli
             "merged",
             "--merge-commit",
             "47db23d",
+            "--by",
+            "Reviewer-1",
             "--force",
             "the ledger records the merge; the rebuilt history no longer carries it",
         )
@@ -307,6 +326,42 @@ def test_a_revision_the_ledger_witnessed_is_accepted_after_a_history_rebuild(cli
 
     assert only_pr(root)["status"] == "merged"
     assert only_pr(root)["merge_commit"] == "47db23d"
+
+
+def test_a_token_inside_a_merge_detail_is_not_a_witness(cli, project, capsys) -> None:
+    """F1: the witness is the record's fields, not a substring of its prose."""
+    root = seed(cli, project)
+    engine.ledger_append(
+        root,
+        "pr.merge",
+        "Reviewer-1",
+        "T-0001",
+        "P-0001 developer-1/t-0001-work -> main at 9c1d5e7",
+        "9c1d5e7",
+    )
+    capsys.readouterr()
+
+    code = cli(
+        "--project",
+        project,
+        "pr",
+        "set",
+        "--pr",
+        "P-0001",
+        "--status",
+        "merged",
+        "--merge-commit",
+        "work",
+        "--by",
+        "Reviewer-1",
+        "--force",
+        "probe: a word from the detail is not a revision",
+    )
+
+    assert code == 2
+    assert "work is neither a commit" in capsys.readouterr().err
+    assert only_pr(root)["status"] == "approved"
+    assert repairs(root) == []
 
 
 def test_closing_a_stale_record_needs_no_revision(cli, project) -> None:
@@ -323,6 +378,8 @@ def test_closing_a_stale_record_needs_no_revision(cli, project) -> None:
             "P-0001",
             "--status",
             "closed",
+            "--by",
+            "Reviewer-1",
             "--force",
             "superseded by the rework on T-0002",
         )
@@ -348,6 +405,8 @@ def test_a_second_repair_is_a_no_op(cli, project, capsys) -> None:
         "merged",
         "--merge-commit",
         landed(root),
+        "--by",
+        "Reviewer-1",
         "--force",
         "the work landed and the record stalled",
     )
@@ -376,9 +435,37 @@ def test_an_unknown_pr_is_refused(cli, project, capsys) -> None:
             "P-0999",
             "--status",
             "closed",
+            "--by",
+            "Reviewer-1",
             "--force",
             "no such record",
         )
         == 1
     )
     assert "no PR 'P-0999'" in capsys.readouterr().err
+
+
+def test_an_unknown_repairer_is_refused(cli, project, capsys) -> None:
+    """The repair is accountable: a name that is not an instance is refused."""
+    root = seed(cli, project)
+    capsys.readouterr()
+
+    code = cli(
+        "--project",
+        project,
+        "pr",
+        "set",
+        "--pr",
+        "P-0001",
+        "--status",
+        "closed",
+        "--by",
+        "Ghost-9",
+        "--force",
+        "no such record",
+    )
+
+    assert code == 1
+    assert "unknown repairer 'Ghost-9'" in capsys.readouterr().err
+    assert only_pr(root)["status"] == "approved"
+    assert repairs(root) == []
