@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from cli_harness import cli as fixture_cli
 
 
 def main_checkout() -> Path:
@@ -91,12 +92,41 @@ def test_index_and_pack_share_one_injected_budget() -> None:
     assert index <= INDEX_CAP
 
 
-@pytest.mark.skipif(
-    not has_team_tree(),
-    reason="no team tree in this checkout: `load` reads the live stores, and CI has none",
-)
-def test_load_is_deterministic() -> None:
-    assert cli("load", "CEO").stdout == cli("load", "CEO").stdout
+ROSTER = "ceo,developer-1,tester-1,reviewer-1"
+
+
+def test_load_is_deterministic(project: Path) -> None:
+    """Two ``load`` runs over one unchanging store must agree byte for byte.
+
+    The live tree cannot prove this: ``load`` renders whatever the stores hold at
+    that instant, and a concurrent lane's ``remember`` or ``load --task`` (which
+    bumps ``uses``/``last_used``) lands between the two subprocesses - measured at
+    a0290b2 as one red in three full-suite runs, this test alone (A-0019). So the
+    store is a fixture project nothing else writes to.
+    """
+    assert fixture_cli(project, ["init", "--agents", ROSTER, "--no-git"]).returncode == 0
+    seeded = fixture_cli(
+        project,
+        [
+            "knowledge",
+            "add",
+            "--by",
+            "CEO",
+            "--topic",
+            "Determinism fixture",
+            "--statement",
+            "Two loads over one static store render the same bytes.",
+            "--evidence",
+            "pytest @fixture -> 1 passed",
+        ],
+    )
+    assert seeded.returncode == 0, seeded.output
+
+    first = fixture_cli(project, ["load", "CEO"])
+    second = fixture_cli(project, ["load", "CEO"])
+    assert first.returncode == 0, first.output
+    assert first.stdout == second.stdout
+    assert "Determinism fixture" in first.stdout, first.stdout
 
 
 def build(tmp_path: Path) -> Path:
