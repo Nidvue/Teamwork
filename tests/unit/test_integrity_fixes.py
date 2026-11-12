@@ -901,3 +901,33 @@ def test_a_properly_shaped_teamwork_root_still_resolves_the_project(
     monkeypatch.setenv("TEAMWORK_ROOT", str(root))
     assert engine.project_of(root) == project.resolve()
     assert engine.docs_dir(root) == project.resolve().joinpath(*engine.DIR_DOCS)
+
+
+def test_an_explicit_project_wins_over_the_lane_environment(
+    cli, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Explicit beats ambient: `--project` is the isolation boundary (L-0047/L-0048).
+
+    A lane exports ``TEAMWORK_ROOT``; a repro that passed ``--project`` at a scratch
+    tree then wrote into the live queue - six tasks landed in the team's developer
+    queue, twice. The project flag decides when it is given.
+    """
+    live = tmp_path / "live"
+    assert cli("--project", live, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    live_root = (
+        live / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / engine.team_slug(live)
+    ).resolve()
+    monkeypatch.setenv("TEAMWORK_ROOT", str(live_root))
+
+    scratch = tmp_path / "scratch"
+    assert cli("--project", scratch, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    scratch_root = (
+        scratch / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / engine.team_slug(scratch)
+    ).resolve()
+    assert cli("--project", scratch, "task", "add", "developer", "scratch only") == 0
+
+    titles = [t["title"] for t in engine.parse_tasks(engine.task_file(scratch_root, "developer"))]
+    assert titles == ["scratch only"], titles
+    assert engine.parse_tasks(engine.task_file(live_root, "developer")) == [], (
+        "the lane's team tree must not receive a command that named another project"
+    )
