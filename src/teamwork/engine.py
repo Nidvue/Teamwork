@@ -305,6 +305,7 @@ from .records import (
     SKILLS_HEADER,
     TASK_HEADER,
     TASK_RE,
+    area_looks_like_path,
     assign_ids,
     candidate_problems,
     check_records,
@@ -590,6 +591,7 @@ __all__ = [
     "write_criteria",
     "find_criterion",
     "new_test_record",
+    "area_looks_like_path",
     "parse_tests",
     "render_tests",
     "write_tests",
@@ -2242,6 +2244,11 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         if layer not in TEST_LAYERS:
             die(f"unknown layer '{layer}'. Layers: {', '.join(TEST_LAYERS)}")
         area = (args.area or args.task or "general").lower()
+        if area_looks_like_path(area):
+            die(
+                f"area '{area}' is a file path, not an area: name the subject the "
+                "layer covers (e.g. 'ci-matrix'), not the test file"
+            )
         for r in records:
             if r["layer"] == layer and r["area"] == area:
                 die(
