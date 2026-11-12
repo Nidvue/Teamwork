@@ -133,6 +133,7 @@ under two roles is two tasks.
 | ceo | T-0042 | records | done | P-0182 | 3831f45 |
 | ceo | T-0043 | review-pass | done | P-0185 | 31b09ef |
 | ceo | T-0044 | instance-lifecycle | done | P-0186 | 512b13e |
+| ceo | T-0045 | store-paths | doing | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -265,12 +266,6 @@ under two roles is two tasks.
 | developer | T-0130 | status | done | P-0183 | dcd877f |
 | developer | T-0131 | - | dropped | - | - |
 | developer | T-0132 | changelog | done | P-0184 | af128d3 |
-| developer | T-0133 | - | todo | - | - |
-| developer | T-0134 | - | todo | - | - |
-| developer | T-0135 | - | todo | - | - |
-| developer | T-0136 | - | todo | - | - |
-| developer | T-0137 | - | todo | - | - |
-| developer | T-0138 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -327,12 +322,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0133 · code 1 | P2 | todo | - |
-| developer | T-0134 · code 2 | P2 | todo | - |
-| developer | T-0135 · code 3 | P2 | todo | - |
-| developer | T-0136 · code 4 | P2 | todo | - |
-| developer | T-0137 · code 5 | P2 | todo | - |
-| developer | T-0138 · code 6 | P2 | todo | - |
+| ceo | T-0045 · Explicit --project must beat TEAMWORK_ROOT, so a lane repro cannot write the live queue | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
