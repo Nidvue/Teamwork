@@ -286,7 +286,7 @@ under two roles is two tasks.
 | tester | T-0009 | - | done | - | - |
 | tester | T-0010 | status | done | P-0121 | 9e8c3b3 |
 | tester | T-0011 | memory | done | P-0153 | f5cb0d4 |
-| tester | T-0012 | memory | review | P-0168 | - |
+| tester | T-0012 | memory | done | P-0168 | efc1194 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -307,7 +307,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
 | developer | T-0108 · T-0004 lane work | P2 | todo | - |
 | developer | T-0110 · pr merge pins identity with -c only, so an exported GIT_AUTHOR_NAME can still author a merge commit | P2 | todo | - |
-| tester | T-0012 · record the layer matrix for the twelve areas this milestone created, at one revision | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
