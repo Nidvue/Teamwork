@@ -249,7 +249,7 @@ under two roles is two tasks.
 | developer | T-0118 | identity | done | P-0161 | 00b62fd |
 | developer | T-0119 | lane-proof | done | P-0162 | bc508dc |
 | developer | T-0120 | portability | done | P-0163 | d1ed0f6 |
-| developer | T-0121 | ci | review | P-0166 | - |
+| developer | T-0121 | ci | done | P-0166 | 61a020c |
 | developer | T-0122 | - | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
@@ -309,7 +309,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0107 · close the census-guard class by inversion instead of enumerating word orders | P1 | doing | - |
 | developer | T-0108 · T-0004 lane work | P2 | todo | - |
 | developer | T-0110 · pr merge pins identity with -c only, so an exported GIT_AUTHOR_NAME can still author a merge commit | P2 | todo | - |
-| developer | T-0121 · the Windows integration-m-z and unit-p-z shards are the last long jobs at 14m02s and 12m34s | P1 | review | - |
 | developer | T-0122 · ledger_append has no cross-process serialisation, so a concurrent lane can make the head cache lead the file and raise a false truncation alarm | P1 | todo | - |
 | tester | T-0012 · record the layer matrix for the twelve areas this milestone created, at one revision | P1 | todo | - |
 
