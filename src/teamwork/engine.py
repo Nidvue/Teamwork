@@ -11184,19 +11184,64 @@ def _status_row(instance: str, now: float, live: dict, held: dict, titles: dict)
     }
 
 
-def status_rows(root: Path) -> list:
-    """Every instance's live state, from the queue claim and the lane records.
+LANE_ROW_LIMIT = 6
 
-    The queue says who holds what; ``Runtime/Lanes`` says what is actually
-    running, so a claim left behind by a dead lane reads as busy with no lane
-    record instead of as work in flight. Reconciling a lane whose process ended
-    without an outcome file is the same write every lane command performs.
-    """
+
+def _model_for(config: dict, instance: str, role: str) -> tuple:
+    """The pair an instance runs with: its agent entry, else its role default."""
+    wanted = pascal(instance)
+    for key, entry in config["agents"].items():
+        if pascal(key) == wanted and isinstance(entry, dict):
+            return str(entry.get("model") or ""), str(entry.get("provider") or "")
+    entry = config["roles"].get(role)
+    if isinstance(entry, dict):
+        return str(entry.get("model") or ""), str(entry.get("provider") or "")
+    return "", ""
+
+
+def _lane_row(run: dict, now: float, config: dict) -> dict:
+    """One lane as the feed and the widget print it."""
+    instance = str(run.get("agent") or "")
+    role = str(run.get("role") or resolve_role(instance)) if instance else ""
+    model, provider = _model_for(config, instance, role)
+    elapsed = max(int(now - float(run.get("created") or now)), 0)
+    review = bool(str(run.get("review_owner") or ""))
+    return {
+        "id": str(run.get("id") or ""),
+        "instance": instance,
+        "role": role,
+        "task": "" if review else str(run.get("task") or ""),
+        "state": str(run.get("state") or ""),
+        "elapsed_text": _status_elapsed(elapsed),
+        "model": model,
+        "provider": provider,
+        "attempt": f"{int(run.get('attempt') or 0)}/{int(run.get('attempts') or 0)}",
+    }
+
+
+def lane_rows(runs: list, now: float, config: dict) -> list:
+    """The lanes worth showing: live first, then newest, bounded and stable."""
+    from . import lanes as lane_runtime
+
+    ordered = sorted(
+        runs,
+        key=lambda run: (
+            run.get("state") not in lane_runtime.LIVE,
+            -float(run.get("created") or 0),
+            str(run.get("id") or ""),
+        ),
+    )
+    return [_lane_row(run, now, config) for run in ordered[:LANE_ROW_LIMIT]]
+
+
+def status_snapshot(root: Path) -> tuple:
+    """Instance rows and lane rows from one settle and one Settings read."""
     from . import lanes as lane_runtime
 
     now = time.time()
+    runs = lane_runtime.settle(root)
     live: dict = {}
-    for run in lane_runtime.settle(root):
+    for run in runs:
         if run.get("state") not in lane_runtime.LIVE:
             continue
         agent = pascal(str(run.get("agent") or ""))
@@ -11213,7 +11258,29 @@ def status_rows(root: Path) -> list:
             elif review_is_held(task):
                 held[pascal(task["review_claim"])] = task["id"]
     titles = {str(t["id"]): str(t.get("title") or "") for _role, t in iter_tasks(root)}
-    return [_status_row(name, now, live, held, titles) for name in known_instances(root)]
+    config = load_model_config(root)
+    rows = [_status_row(name, now, live, held, titles) for name in known_instances(root)]
+    for row in rows:
+        row["model"], row["provider"] = _model_for(config, row["instance"], row["role"])
+    return rows, lane_rows(runs, now, config)
+
+
+def status_rows(root: Path) -> list:
+    """Every instance's live state, from the queue claim and the lane records.
+
+    The queue says who holds what; ``Runtime/Lanes`` says what is actually
+    running, so a claim left behind by a dead lane reads as busy with no lane
+    record instead of as work in flight. Reconciling a lane whose process ended
+    without an outcome file is the same write every lane command performs.
+    """
+    return status_snapshot(root)[0]
+
+
+def _lane_model_text(provider: str, model: str) -> str:
+    """``provider/model`` when both are known, the one that is known, else a dash."""
+    if provider and model:
+        return f"{provider}/{model}"
+    return model or provider or "-"
 
 
 def _status_counts(root: Path, rows: list) -> dict:
@@ -11229,25 +11296,36 @@ def _status_counts(root: Path, rows: list) -> dict:
 def cmd_status(args) -> int:
     """Compact live state of every instance: the operator panel and the UI feed."""
     root = project_root(args)
-    rows = status_rows(root)
+    rows, lanes_shown = status_snapshot(root)
     counts = _status_counts(root, rows)
     wanted = (getattr(args, "agent", "") or "").strip()
     if wanted:
         rows = [row for row in rows if pascal(row["instance"]) == pascal(wanted)]
+        lanes_shown = [lane for lane in lanes_shown if pascal(lane["instance"]) == pascal(wanted)]
         if not rows:
             die(f"no instance named {wanted!r}", 2)
+    counts["lanes"] = len(lanes_shown)
     if getattr(args, "json", False):
         payload = {
-            "schema": 1,
+            "schema": 2,
             "generated": datetime.datetime.now().isoformat(timespec="seconds"),
             "count": len(rows),
             "counts": counts,
             "instances": rows,
+            "lanes": lanes_shown,
         }
         print(json.dumps(payload, indent=2))
         return 0
     busy = sum(1 for row in rows if row["state"] == "busy")
     print(f"# Status ({len(rows)} instance(s), {busy} busy)")
+    if lanes_shown:
+        print(f"# Lanes ({len(lanes_shown)})")
+        for lane in lanes_shown:
+            model = _lane_model_text(lane["provider"], lane["model"])
+            print(
+                f"- {lane['id']:7s} {lane['instance']:16s} {lane['state']:9s} "
+                f"{lane['task'] or '-':13s} {lane['elapsed_text']:>7s} {model}"
+            )
     if not rows:
         print("- no instance")
         return 3
