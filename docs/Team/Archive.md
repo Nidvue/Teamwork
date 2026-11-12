@@ -7044,4 +7044,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 0d130ed; commit 5ecad49
 - reviewer evidence: PYTHONPATH=src .venv/bin/python -m pytest -q -p no:randomly tests/integration/test_pr_repair_flow.py tests/unit/test_ci_contracts.py @5ecad498f1c5 -> 84 passed in 1.37s (5 new real-CLI pr-repair tests: stale audit line, repair moves record+ledger line, audit clears + ledger verify, second call no-op, ref-name refused exit 2); mutation: deleting tests/integration/test_pr_repair_flow.py from the integration-m-z-rest shard row @5ecad49 -> test_the_shards_partition_the_suite_and_stay_small FAILED (1 failed, 78 passed), so the ci.yml row is load-bearing and the restore is clean; tests plan @5ecad49 -> pr-repair unit+ int+ acc+, no GAP; branch 1 ahead / 0 behind main ff0a630, diff 2 files +218/-1, TS-0197 passing
 - findings history: 
-- branch / merge: tester/t-0015-record-the-pr-repair-integration-layer / pending
+- branch / merge: tester/t-0015-record-the-pr-repair-integration-layer / 1782f03
