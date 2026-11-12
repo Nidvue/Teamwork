@@ -155,6 +155,7 @@ teamwork instance add ROLE [--count N] [--name NAME] [--new-role]
                        [--under TEAM_LEADER] [--by BY] [--json]
 teamwork instance list [--json]
 teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
+teamwork instance prune [--by BY] [--reason WHY] [--dry-run] [--keep-required]
 ```
 
 - `add` scaffolds `Agents/<Role>-N` against the existing `Roles/<Role>/`, so a
@@ -190,6 +191,18 @@ teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
   `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`): the
   first cut ran from a stale checkout and lost 102 artifact paths (`L-0001`).
   `parallel` says how many lanes the ready work supports; `list` is the roster.
+- `prune` folds **every idle instance** in one pass: a lane is idle only when it
+  claims no `doing`/`selfcheck`/`review` task, holds no provider slot, no memory
+  pen, no review claim and no live lane record, and its role has no ready work.
+  Each fold is the same move-only retirement (`Runtime/Retired/<Instance>/`, role
+  memory and queue stay) with its own ledger record, so nothing is lost and a
+  second `prune` is a no-op. The **CEO is never folded** - it is the only voice to
+  the user. `--keep-required` also keeps one instance of each gate-critical role
+  (`ceo`, `developer`, `tester`, `reviewer`) so an automatic fold cannot strand a
+  gate; without it the team drains to the CEO and `instance add <role>` restaffs
+  on demand. `--dry-run` prints the plan and moves nothing. `pulse --commit` runs
+  the same fold for the **surplus** seats (keeping the gate roles), so a wake-up
+  that finds nothing to dispatch does not leave a dozen idle agents behind.
 
 ### `memory`
 
@@ -426,26 +439,36 @@ Show free concurrency slots, ready work, and how many lanes to start.
 ### `pulse`
 
 ```text
-teamwork pulse [--commit] [--interval INTERVAL]
+teamwork pulse [--commit] [--interval INTERVAL] [--mode {off,observe,auto}]
+               [--agent AGENT] [--spawn] [--no-scale]
 ```
 
 CEO wake-up: print idle lanes, ready work and a dispatch plan. `--commit` applies
 the assignments now. `--interval` stores the pulse interval in minutes. Exit code
-`3` means nothing to dispatch.
+`3` means nothing to dispatch. `--commit` also **sizes the roster to the work**: it
+adds an instance for every `LANE_WIP` units of ready work and one Reviewer per
+unclaimed deliverable, bounded by the per-role cap (4), the per-wake cap (6),
+`LaneMax` and the free provider slots, then folds the seats it cannot feed. An
+`observe`/`off` wake is a report: it claims nothing, adds nothing and retires
+nothing. `--no-scale` dispatches to the current roster only.
 
 ### `swarm`
 
 ```text
 teamwork swarm run [--lanes N] [--waves N] [--minutes MINUTES] [--lane-minutes MINUTES]
                    [--poll SECONDS] [--mode MODE] [--host HOST] [--by BY] [--dry-run]
+                   [--no-scale]
 ```
 
 The engine's own supervisor. It measures what is in hand - ready tasks and
 unclaimed reviews, weighted 1 for prose, 2 for code, 3 for a
 security/release/data unit and +1 for a bug - and starts `ceil(weight / 3)` lanes,
-bounded by the free provider slots and `LaneMax` (default 8). The number is
-re-derived every wave, so the swarm scales up as the board grows and down (to zero)
-as it drains, and each lane's budget follows its unit: 10 tool calls/10 min for
+bounded by the free provider slots and `LaneMax` (default 8). Before the first
+wave it sizes the **roster** to the same measurement (`instance add`, bounded by
+the per-role and per-wake caps and the free slots; `--no-scale` skips it), so the
+lane count is not capped by how many instances happened to be staffed. The number
+is re-derived every wave, so the swarm scales up as the board grows and down (to
+zero) as it drains, and each lane's budget follows its unit: 10 tool calls/10 min for
 prose, 16/25 for code, 24/40 for a deep unit. It starts one detached process per
 lane, waits for one to end, and computes the next wave.
 

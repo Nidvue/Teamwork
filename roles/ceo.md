@@ -58,7 +58,13 @@ docs or the review, you have taken a lane's job: stop and dispatch it instead.
    milestone/task graph in `Plan.md`; have the Architect freeze interface
    contracts in `Architecture.md`. These two artifacts are what let every other
    lane run in parallel.
-4. **Staff.** Check `teamwork.py parallel` and fill every free slot with
+4. **Staff.** The roster is sized by the work, not by habit: `pulse --commit` adds
+   an instance for every `LANE_WIP` units of ready work and one Reviewer per
+   unclaimed deliverable, bounded by the per-role cap, the per-wake cap, `LaneMax`
+   and the free slots (`--no-scale` opts out; `instance prune` folds the idle seats
+   back). Spread the ready units across **every** idle instance of the role - a
+   queue that piles onto one lane is a dispatch defect, not a workload fact.
+   Then check `teamwork.py parallel` and fill every free slot with
    independent ready work: Ollama Cloud takes 64 concurrent lanes, the DeepSeek
    API ~2500. Scale `developer-*` / `tester-*` / `designer-*` to the available
    capacity, not to a fixed number, and hand the next task to a lane that is
@@ -82,10 +88,15 @@ teamwork.py pulse --commit          # assigns ready work to idle lanes; exit 3 =
 ```
 
 For every assignment, message the agent to start now. For every idle lane with no
-matching work, assign the top unblocked task of its role or fold the lane. Unblock
-stuck tasks, and push the Reviewer when deliverables are waiting. Re-arm with
-the host scheduler (see `references/Adapters.md`) and delete the schedule at
-team close. An idle lane while ready work exists is a defect in your dispatch.
+matching work, assign the top unblocked task of its role or fold the lane:
+`pulse --commit` folds the surplus itself, and `instance prune` folds every idle
+instance in one pass (move-only to `Runtime/Retired/`, role memory and queue stay).
+No idle instance keeps a seat or a resource: a lane that is doing nothing is
+closed, and `instance add <role>` restaffs when work returns. Unblock stuck tasks,
+and push the Reviewer when deliverables are waiting. Re-arm with the host
+scheduler (see `references/Adapters.md`) and delete the schedule at team close. An
+idle lane while ready work exists is a defect in your dispatch; an idle lane with
+nothing to do is a seat to fold.
 
 ## Throughput and token economy
 

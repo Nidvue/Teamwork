@@ -108,9 +108,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 291 kB |
-| `standard` | 10 | 400 kB |
-| `full` | 17 | 646 kB |
+| `slim` (default) | 7 | 292 kB |
+| `standard` | 10 | 401 kB |
+| `full` | 17 | 647 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts: 2.2x what `slim` costs.
@@ -243,6 +243,17 @@ verifier: no lane reviews, tests or merges its own work, and every deliverable
 gets its author's self-check, a different role's review and its test layer run by
 the owning role.
 
+**The roster follows the work, so no single lane is the bottleneck.** `pulse
+--commit` (and `swarm run`) plans instances from the ready work - one lane carries
+`LANE_WIP` units, and one Reviewer takes one deliverable, so a deep review queue
+staffs more Reviewer lanes instead of serialising on one - bounded by
+`SCALE_PER_ROLE_CAP` (4) per role, `SCALE_MAX_ADDS` (6) per wake, `LaneMax` and the
+free provider slots. `--no-scale` dispatches to the current roster only; an
+`observe`/`off` wake is a report and adds nothing. The other half is folding: an
+idle seat is retired, so a team that drains its queue drains its roster
+(`instance prune`) and restaffs on demand (`instance add`). Detail:
+`references/Concurrency.md`.
+
 Capacity is bounded by the provider caps in `Settings.json`, never by the lane count: Ollama Cloud 64, DeepSeek 2500, OpenAI 64, Anthropic 64 and 32 default concurrent lanes. `pulse` defers assignments beyond the free-slot count and prints the shortfall. Detail and the measured anti-patterns: `references/Concurrency.md`.
 
 ### 5b. Keep the lanes full: the CEO pulse
@@ -266,7 +277,7 @@ python3 "$SKILL/scripts/teamwork.py" lane status --live
 
 `--lanes N` caps the policy, `--fixed --lanes N` turns it off, and `LaneMax` bounds it in `Settings.json`. The measurement is printed as `## complexity (score N -> band)` with the factors that produced the lane count, so the decision is auditable rather than a guess.
 
-An instance is **busy** only while it holds a slot, a `doing`/`selfcheck` task, or a live review claim; everything else is idle and must be fed. Interval: `PulseMinutes` (default 5). Instances also self-serve with `task next` between pulses. Disarm the schedule when the team closes. The runtime, its settings (`LaneMinutes`, `LaneAttempts`, `LaneCommand`) and the per-host launcher table are in `references/Concurrency.md` and `references/Adapters.md`.
+An instance is **busy** only while it holds a slot, a `doing`/`selfcheck` task, or a live review claim; everything else is idle and must be fed. An idle lane with nothing to feed it is a seat to fold, not to leave hanging: `pulse --commit` retires the surplus itself, and `instance prune` folds every idle instance in one move-only pass (`Runtime/Retired/`, role memory and queue stay), releasing the seat and its resources. The CEO is never folded; `--keep-required` keeps one instance of each gate role, and `instance add <role>` restaffs on demand. Interval: `PulseMinutes` (default 5). Instances also self-serve with `task next` between pulses. Disarm the schedule when the team closes. The runtime, its settings (`LaneMinutes`, `LaneAttempts`, `LaneCommand`) and the per-host launcher table are in `references/Concurrency.md` and `references/Adapters.md`.
 ### 5c. Push in stages, and certify both signals
 
 - **Release Engineer - push after review, stage by stage.** Only the Release Engineer pushes, and only after the Reviewer passed that revision with no open finding. **A stage ends with a push, not with a merge**: push each reviewed and merged stage instead of batching, so the remote never drifts far from local `main`. Before the push, build, tests, `privacy_scan.py --tree --history` and the link check are green on exactly that revision; after it, watch CI and confirm it is green **on that SHA**. A red run is routed from the log (code -> Developer, test -> Tester, contract -> Architect, workflow/packaging/flake -> Release Engineer, scope -> CEO) and re-run after the fix. A code-scanning alert is the same gate: `teamwork code-scanning` reads the open alerts, an `error`/`critical`/`high` one is red on the shipped revision, and `--commit` files a `P0` task with the file's owner. Force-push and published-history rewrites need the CEO's authorization; tags and releases are the CEO's step, prepared by the Release Engineer.
