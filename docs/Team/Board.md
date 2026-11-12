@@ -228,7 +228,7 @@ under two roles is two tasks.
 | developer | T-0097 | memory | done | P-0145 | 19246a0 |
 | developer | T-0098 | memory | done | P-0147 | 318fb28 |
 | developer | T-0099 | - | dropped | - | - |
-| developer | T-0100 | - | doing | - | - |
+| developer | T-0100 | refresh | review | P-0167 | - |
 | developer | T-0101 | - | doing | P-0146 | - |
 | developer | T-0102 | identity | done | P-0152 | 1591449 |
 | developer | T-0103 | ci-matrix | done | P-0148 | d1d11b6 |
@@ -250,7 +250,7 @@ under two roles is two tasks.
 | developer | T-0119 | lane-proof | done | P-0162 | bc508dc |
 | developer | T-0120 | portability | done | P-0163 | d1ed0f6 |
 | developer | T-0121 | ci | done | P-0166 | 61a020c |
-| developer | T-0122 | - | doing | - | - |
+| developer | T-0122 | ledger | done | P-0169 | 442aad5 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -286,7 +286,7 @@ under two roles is two tasks.
 | tester | T-0009 | - | done | - | - |
 | tester | T-0010 | status | done | P-0121 | 9e8c3b3 |
 | tester | T-0011 | memory | done | P-0153 | f5cb0d4 |
-| tester | T-0012 | - | doing | - | - |
+| tester | T-0012 | memory | doing | P-0168 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -304,11 +304,10 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0100 · refresh stops on an unrelated mirror history and leaves every lane on a stale engine, with no warning | P1 | doing | - |
+| developer | T-0100 · refresh stops on an unrelated mirror history and leaves every lane on a stale engine, with no warning | P1 | review | - |
 | developer | T-0101 · record the unit layer for the windows-portability area from the T-0094 run | P1 | doing | - |
 | developer | T-0108 · T-0004 lane work | P2 | todo | - |
 | developer | T-0110 · pr merge pins identity with -c only, so an exported GIT_AUTHOR_NAME can still author a merge commit | P2 | todo | - |
-| developer | T-0122 · ledger_append has no cross-process serialisation, so a concurrent lane can make the head cache lead the file and raise a false truncation alarm | P1 | doing | - |
 | tester | T-0012 · record the layer matrix for the twelve areas this milestone created, at one revision | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
