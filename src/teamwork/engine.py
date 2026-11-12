@@ -1323,15 +1323,19 @@ def _return_staged_entries(
             )
 
 
-def _merge_commit_env() -> dict:
+def _merge_commit_env(project=None) -> dict:
     """The environment a merge's own commit runs in.
 
     The R1 pre-commit hook refuses a commit on the default branch so no lane can
     land work there directly. A merge's records, board render and archive rewrite
     are the one exception the rule names, so they carry the marker explicitly
     instead of depending on whoever ran the command to export it.
+
+    The identity is pinned here as well: the merge passes ``-c user.name``, which
+    loses to an exported ``GIT_AUTHOR_NAME`` left by a rebase, a forge runner or
+    a wrapper shell, so without this a merge could land authored by the operator.
     """
-    return dict(os.environ, TEAMWORK_ALLOW_MAIN="1")
+    return dict(os.environ, TEAMWORK_ALLOW_MAIN="1", **git_identity_env("reviewer", project))
 
 
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
@@ -1502,7 +1506,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 input=rec_msg,
                 capture_output=True,
                 text=True,
-                env=_merge_commit_env(),
+                env=_merge_commit_env(here),
             )
             if rr.returncode != 0:
                 run_git(here, "reset", "-q", "--", *records)
@@ -1542,7 +1546,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                         input=message,
                         capture_output=True,
                         text=True,
-                        env=_merge_commit_env(),
+                        env=_merge_commit_env(here),
                     )
                 merged = r
             else:
@@ -1552,7 +1556,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     + ["merge", "--no-ff", "-m", message, branch],
                     capture_output=True,
                     text=True,
-                    env=_merge_commit_env(),
+                    env=_merge_commit_env(here),
                 )
             if merged.returncode != 0:
                 run_git(here, "merge", "--abort")
@@ -13148,7 +13152,7 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
         input=message,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(),
+        env=_merge_commit_env(repo),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", *dirty)
@@ -13498,7 +13502,7 @@ def commit_archive_merge_sha(
         input=close_msg,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(),
+        env=_merge_commit_env(here),
     )
     if committed.returncode != 0:
         run_git(here, "reset", "-q", "--", rel)
@@ -15536,7 +15540,7 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
         input=message,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(),
+        env=_merge_commit_env(repo),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", rel)
