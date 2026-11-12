@@ -321,7 +321,7 @@ fails when the workflow and this table disagree.
     `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
     acceptance are the cheap proof of the ACs; the rest of the subprocess-heavy
     integration tree (338 tests, 30% of the serial wall clock) runs on both
-    boundary interpreters and on the six Windows shards, and no test in the tree
+    boundary interpreters and on the eight Windows shards, and no test in the tree
     branches on darwin.
     `tests/unit/test_ci_contracts.py` pins each subset in `SUBSET_CELLS` (a
     cell-to-paths map) with `SUBSET_PATHS` and `PORTABILITY_FLOW`, fails when a
@@ -427,7 +427,7 @@ fails when the workflow and this table disagree.
     worthless. The job graph says the same thing: `scope` can skip only the
     jobs that declare `needs: scope`, and the jobs in `ci.yml` that declare
     neither `needs:` nor `if:` are `committer-guard` and `release-consistency`
-    - so a tag push, on which `scope` reports `code=false` and the six
+    - so a tag push, on which `scope` reports `code=false` and the seven
     expensive jobs are skipped, still runs the classifier and those two jobs.
     The property is checkable without a line number: read the `needs:` and
     `if:` keys of every job in `.github/workflows/ci.yml`; the jobs with
@@ -451,7 +451,8 @@ fails when the workflow and this table disagree.
   it is not, and the same file with `grep -n "needs: \[consistency\]"` says
   whether `build` waits for it. While that job is not in the tree, the offline
   half in `ci.yml` is the only gate.
-* `docs.yml`: build and deploy the site to GitHub Pages on `main`; it triggers
+* `docs.yml`: build and deploy the site to GitHub Pages on `main` in its two jobs,
+  `check` (links, privacy and strict build) and `deploy`; it triggers
   on the same prose/media set as the `scope` classifier and runs the checks
   that matter for prose (`teamwork links`, the privacy scan, `mkdocs build
   --strict`). The trigger policy and the offline/online split are written out

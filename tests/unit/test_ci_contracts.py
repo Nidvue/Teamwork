@@ -1172,3 +1172,116 @@ def test_mutant_a_dropped_scope_flag_is_reported():
 
     problems = scope_problems(parse_workflow(mutant))
     assert any("passes --head-is-default-branch 0x" in problem for problem in problems), problems
+
+
+ARCHITECTURE_PATH = "docs/Team/Architecture.md"
+
+DOCS_PATH = ".github/workflows/docs.yml"
+
+DOCS_JOBS = ("check", "deploy")
+
+NUMBER_WORDS = {
+    word: value
+    for value, word in enumerate(
+        "one two three four five six seven eight nine ten eleven twelve".split(), start=1
+    )
+}
+
+
+def architecture_text(repo_root: Path = REPO_ROOT) -> str:
+    return (repo_root / ARCHITECTURE_PATH).read_text(encoding="utf-8")
+
+
+def docs_workflow_text(repo_root: Path = REPO_ROOT) -> str:
+    return (repo_root / DOCS_PATH).read_text(encoding="utf-8")
+
+
+def _shard_count(document: dict) -> int:
+    return len(shard_rows(document))
+
+
+def _matrix_job_count(document: dict) -> int:
+    return len(matrix_entries(document))
+
+
+def _docs_job_count(document: dict) -> int:
+    return len(jobs(document))
+
+
+def _expensive_count(document: dict) -> int:
+    return len([name for name in jobs(document) if name not in UNCONDITIONAL_JOBS])
+
+
+COUNT_CLAIMS = (
+    (re.compile(r"the Windows cell runs as\s+(\w+)\s+path shards"), _shard_count, "ci"),
+    (re.compile(r"on the\s+(\w+)\s+Windows shards"), _shard_count, "ci"),
+    (re.compile(r"five cells,\s+(\w+)\s+jobs"), _matrix_job_count, "ci"),
+    (re.compile(r"the\s+(\w+)\s+expensive jobs are skipped"), _expensive_count, "ci"),
+    (
+        re.compile(r"`docs\.yml`: build and deploy[^\n]*?its\s+(\w+)\s+jobs"),
+        _docs_job_count,
+        "docs",
+    ),
+)
+
+
+def prose_count_problems(document: dict, text: str, docs_document: dict) -> list[str]:
+    """A count Architecture.md states about a workflow must match that workflow.
+
+    The Windows cell has been four, five, six and now eight rows, and the prose kept
+    the old number through two merges ("the six Windows shards", "the six expensive
+    jobs"): a stated count is a claim about a file that changes without the doc, so
+    it is read back and compared. Each claim must also still be present, or deleting
+    the sentence would silence the guard.
+    """
+    problems: list[str] = []
+    for shape, count_of, source in COUNT_CLAIMS:
+        matches = list(shape.finditer(text))
+        if not matches:
+            problems.append(f"Architecture.md states no count matching {shape.pattern!r}")
+            continue
+        actual = count_of(docs_document if source == "docs" else document)
+        for match in matches:
+            stated = NUMBER_WORDS.get(match.group(1).lower())
+            if stated is None:
+                problems.append(f"Architecture.md states {match.group(0)!r}, not a number word")
+            elif stated != actual:
+                problems.append(
+                    f"Architecture.md says {match.group(0)!r}; the workflow has {actual}"
+                )
+    return problems
+
+
+def test_the_prose_counts_match_the_workflows(ci):
+    """A stale count in Architecture.md is how the shard table drifted twice."""
+    problems = prose_count_problems(ci, architecture_text(), parse_workflow(docs_workflow_text()))
+    assert problems == []
+
+
+def test_the_docs_workflow_declares_its_job_set():
+    """docs.yml gates prose: a job added or lost there is a change nobody reviews."""
+    assert tuple(jobs(parse_workflow(docs_workflow_text()))) == DOCS_JOBS
+
+
+def test_mutant_a_stale_shard_count_in_the_prose_is_reported(ci):
+    text = architecture_text()
+    mutant = text.replace("eight path shards", "six path shards", 1)
+    assert mutant != text, "the prose no longer states the shard count"
+    problems = prose_count_problems(ci, mutant, parse_workflow(docs_workflow_text()))
+    assert any("six path shards" in problem for problem in problems), problems
+
+
+def test_mutant_a_stale_docs_job_count_in_the_prose_is_reported(ci):
+    text = architecture_text()
+    mutant = text.replace("its two jobs", "its three jobs", 1)
+    assert mutant != text, "the prose no longer states the docs job count"
+    problems = prose_count_problems(ci, mutant, parse_workflow(docs_workflow_text()))
+    assert any("three jobs" in problem for problem in problems), problems
+
+
+def test_mutant_a_deleted_count_claim_is_reported(ci):
+    text = architecture_text()
+    mutant = text.replace("on the eight Windows shards", "on the Windows shards", 1)
+    assert mutant != text, "the prose no longer states the Windows shard count"
+    problems = prose_count_problems(ci, mutant, parse_workflow(docs_workflow_text()))
+    assert any("states no count" in problem for problem in problems), problems
