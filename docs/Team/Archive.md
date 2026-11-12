@@ -7045,3 +7045,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: PYTHONPATH=src .venv/bin/python -m pytest -q -p no:randomly tests/integration/test_pr_repair_flow.py tests/unit/test_ci_contracts.py @5ecad498f1c5 -> 84 passed in 1.37s (5 new real-CLI pr-repair tests: stale audit line, repair moves record+ledger line, audit clears + ledger verify, second call no-op, ref-name refused exit 2); mutation: deleting tests/integration/test_pr_repair_flow.py from the integration-m-z-rest shard row @5ecad49 -> test_the_shards_partition_the_suite_and_stay_small FAILED (1 failed, 78 passed), so the ci.yml row is load-bearing and the restore is clean; tests plan @5ecad49 -> pr-repair unit+ int+ acc+, no GAP; branch 1 ahead / 0 behind main ff0a630, diff 2 files +218/-1, TS-0197 passing
 - findings history: 
 - branch / merge: tester/t-0015-record-the-pr-repair-integration-layer / 1782f03
+
+## T-0041 · commit the closing audit manifest through the gate  (ceo)
+- date: 2026-11-12
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] read both committed files: docs/Team/AuditManifest.json and .md are the export verbatim (cp from the checkout, no hand edit), 2 files/28 lines changed against 73cc704; they record git head 73cc70492eb3 on main, ledger checkpoint #6791 with head hash 12be1591243c3d400feb8ff6b19b18fb98e477df3f32d47cd7ff3cddef3b8ab3, 6791 records verified true, 4 externally verifiable artifacts, 38 local-only state files; record #6791 in Ledger.jsonl carries exactly that hash, so the checkpoint reproduces and the 10 records after it are later work; the export is the last write to the manifest, nothing regenerated it after the commit, and only those two paths were staged | test: teamwork.py ledger verify @5d1969b -> chain intact, every digest matches, 6801 records; export output pinned 6791 records at git 73cc704 (record #6791 hash 12be1591 == manifest ledger.head) | artifacts: docs/Team/AuditManifest.json:01161a1a98c80892:9389, docs/Team/AuditManifest.md:ecf24e24da033441:958 | baseline: AuditManifest.* at 73cc704 = the pre-export manifest (empty/older checkpoint) | preflight: PF-02f3f5ca04e6 @5d1969bdf257 (8 checks, 0 failed)
+- author evidence: commit 5d1969b
+- reviewer evidence: tw ledger verify @5d1969b -> chain intact, 6812 records; AuditManifest.json ledger.head 12be1591 == Ledger.jsonl record #6791 hash (recomputed) and 4/4 artifact sha256 == git show 73cc704:<path>; AuditManifest.md counts match the json (38 local_state, 4 artifacts); tw links -> 0 issues; privacy_scan.py --tree --history --allow .github/privacy-allow.txt -> PASS 0 findings; .venv pytest tests/unit/test_skill_contracts.py tests/integration/test_docs_pipeline_flow.py -> 116 passed
+- findings history: 
+- branch / merge: ceo/t-0041-commit-the-closing-audit-manifest-throug / pending
