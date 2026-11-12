@@ -17184,11 +17184,10 @@ def _unrelated_history(detail: str) -> bool:
     """Did git refuse the move because the two histories share no root commit?
 
     ``merge --ff-only`` answers ``fatal: refusing to merge unrelated histories``
-    when the checkout was cloned from a history that was since rewritten - this
-    team rewrote ``main`` twice (T-0011/T-0013), which is exactly how the
-    tool-managed mirror at ``~/.pi/agent/.teamwork-source`` became unrelated to
-    the remote. Nothing in the tree is wrong in that case; the checkout is simply
-    disposable, so the caller may replace it instead of stopping.
+    when the checkout was cloned from a history that was since rewritten, so the
+    tool-managed mirror at ``~/.pi/agent/.teamwork-source`` can share no commit
+    with the remote it tracks. Nothing in the tree is wrong in that case; the
+    mirror is disposable state, so the caller may replace it instead of stopping.
     """
     return "unrelated histories" in detail.lower()
 
@@ -17199,18 +17198,24 @@ def _origin_url(source: Path, remote: str) -> str:
     return got.stdout.strip() if got.returncode == 0 else ""
 
 
-def _reclone(source: Path, repo: str, branch: str) -> tuple[str, str]:
+def _reclone(source: Path, repo: str, branch: str, remote: str) -> tuple[str, str]:
     """Replace an unrelated-history checkout with a fresh clone -> ``(moved, error)``.
 
     The clone is made *next to* ``source`` first, so a failed clone leaves the old
     checkout exactly where it was. The old one is then moved aside under a
     ``.stale-<sha>`` name and never deleted: it may carry commits an operator made,
     and deleting a checkout the tool did not create is data loss, not cleanup.
+
+    The clone names its remote ``remote``, not ``origin``: the caller reached this
+    path with a remote it was asked to track, and a repair that renames it back to
+    ``origin`` breaks the next refresh with the same flag.
     """
     staging = source.with_name(f"{source.name}.new")
     shutil.rmtree(staging, ignore_errors=True)
     source.parent.mkdir(parents=True, exist_ok=True)
-    cloned = run_git(source.parent, "clone", "--quiet", "--branch", branch, repo, str(staging))
+    cloned = run_git(
+        source.parent, "clone", "--quiet", "-o", remote, "--branch", branch, repo, str(staging)
+    )
     if cloned.returncode != 0:
         tail = (cloned.stderr or cloned.stdout).strip().splitlines()
         shutil.rmtree(staging, ignore_errors=True)
@@ -17285,7 +17290,7 @@ def cmd_refresh(args) -> int:
                 origin = run_git(project_of(project_root(args)), "remote", "get-url", "origin")
                 repo = origin.stdout.strip() if origin.returncode == 0 else ""
             if repo:
-                moved, failed = _reclone(source, repo, branch)
+                moved, failed = _reclone(source, repo, branch, remote)
                 if failed:
                     die(f"refresh stopped: {failed}")
                 ok, detail = (
