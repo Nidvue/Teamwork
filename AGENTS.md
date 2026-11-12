@@ -263,6 +263,14 @@ work and records the owner. An instance is busy only while it holds a slot lease
 Instances do not wait for the pulse: `task next <you>` claims work directly. Only
 staffed roles need a layer; a layer without its owner is a gap, not a default.
 
+Dispatch is **asynchronous and distributed** (hard): a wake starts the lanes and
+returns - `swarm run` dispatches one wave and never waits (`--wait` drains, for
+CI). The roster follows the work: `pulse --commit` adds an instance for every
+`LANE_WIP` units of ready work and one Reviewer per unclaimed deliverable, spreads
+the units round-robin across a role's idle instances, and folds the idle seats it
+cannot feed (`instance prune`). No queue piles onto one lane and no single agent is
+the bottleneck; `--no-scale` opts out and an `observe`/`off` wake changes nothing.
+
 ## Coordination safety (hard)
 
 - **Independence is structural.** Verification lanes do not share a model when a

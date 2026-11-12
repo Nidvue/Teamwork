@@ -97,10 +97,11 @@ python3 "$SKILL/scripts/teamwork.py" lane list             # what is live right 
 ```
 
 `swarm run` sizes the wave from the records (ready tasks, unclaimed reviews, free
-provider slots, unfinished assignments), starts one `pi -p` child per lane with its
-own packet and record, waits for one to end and re-measures. `lane start --agent
-<instance> --task <T-id>` starts a single lane when the CEO wants to choose the
-unit by hand. The launcher per host - `pi -p`, `claude -p`, `codex exec` - is the
+provider slots, unfinished assignments) and starts one `pi -p` child per lane with
+its own packet and record, then **returns**: the dispatch is asynchronous, and the
+next wake reconciles the finished lanes and refills (`--wait` blocks until the
+board drains, for CI). `lane start --agent <instance> --task <T-id>` starts a
+single lane when the CEO wants to choose the unit by hand. The launcher per host - `pi -p`, `claude -p`, `codex exec` - is the
 table in `references/Adapters.md`; the packet and the queue are the same
 everywhere.
 
