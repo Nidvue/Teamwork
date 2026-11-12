@@ -14,9 +14,14 @@ from pathlib import Path
 
 import pytest
 
-from teamwork import config, memorypack, records, wiki
+from teamwork import config, engine, memorypack, records, wiki
 
 NOW = datetime.datetime(2026, 11, 11, 12, 0, 0)
+
+
+@pytest.fixture(autouse=True)
+def record_mask_installed() -> None:
+    engine.install_mask(engine.mask_secret_shapes)
 
 
 def wiki_facts(root: Path) -> list[dict]:
