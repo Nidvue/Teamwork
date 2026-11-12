@@ -260,6 +260,7 @@ under two roles is two tasks.
 | developer | T-0127 | - | done | P-0178 | 21622c4 |
 | developer | T-0128 | pr-repair | done | P-0179 | 4a0b853 |
 | developer | T-0129 | - | done | P-0177 | 662454b |
+| developer | T-0130 | status | done | P-0183 | dcd877f |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
