@@ -208,6 +208,44 @@ def test_second_call_is_stable(tmp_path: Path) -> None:
     )
 
 
+def test_agent_filter_keeps_the_lane_count_equal_to_the_rows() -> None:
+    """`--agent` narrows the rows; `counts.lanes` must describe what it narrowed to,
+    or the widget header prints six lanes over two lines (review finding F3)."""
+    try:
+        project, team = live_team()
+    except AssertionError as reason:
+        import pytest
+
+        pytest.skip(str(reason))
+    _code, payload = status_json(project, team)
+    if not payload["lanes"]:
+        import pytest
+
+        pytest.skip("no live lane row in this tree, so no filter to measure")
+    wanted = payload["lanes"][0]["instance"]
+    done = run(
+        [
+            sys.executable,
+            str(ENGINE),
+            "status",
+            "--json",
+            "--agent",
+            wanted,
+            "--project",
+            str(project),
+            "--team",
+            team,
+        ],
+        project,
+    )
+    assert done.returncode == 0, done.stderr or done.stdout
+    narrowed = json.loads(done.stdout)
+    assert narrowed["counts"]["lanes"] == len(narrowed["lanes"]), (
+        "the count must describe the narrowed rows"
+    )
+    assert {lane["instance"] for lane in narrowed["lanes"]} <= {wanted}
+
+
 def test_built_package_ships_the_status_extension(tmp_path: Path) -> None:
     out = tmp_path / "dist"
     done = run([sys.executable, str(BUILD), "--out", str(out)], ROOT)

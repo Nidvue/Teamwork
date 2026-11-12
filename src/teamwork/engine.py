@@ -11298,13 +11298,13 @@ def cmd_status(args) -> int:
     root = project_root(args)
     rows, lanes_shown = status_snapshot(root)
     counts = _status_counts(root, rows)
-    counts["lanes"] = len(lanes_shown)
     wanted = (getattr(args, "agent", "") or "").strip()
     if wanted:
         rows = [row for row in rows if pascal(row["instance"]) == pascal(wanted)]
         lanes_shown = [lane for lane in lanes_shown if pascal(lane["instance"]) == pascal(wanted)]
         if not rows:
             die(f"no instance named {wanted!r}", 2)
+    counts["lanes"] = len(lanes_shown)
     if getattr(args, "json", False):
         payload = {
             "schema": 2,

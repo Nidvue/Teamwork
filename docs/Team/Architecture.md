@@ -157,6 +157,7 @@ Additions to the original surface (no removals, no renames):
 | `teamwork coordination` | coordination health: conformity, trust, lane wars, merge rate, slot starvation |
 | `teamwork instance add\|list\|retire` | scale **any** role to N instances sharing the role's memory and queue; retire an idle one and keep the role's memory |
 | `teamwork memory claim\|release\|renew\|contest\|extend\|revoke\|status` | the role memory lease: exactly one instance of a role revises that role's memory at a time, held across a multi-entry update; a peer contests a long lease and the arbiter (CTO, folded to the CEO) extends or revokes it |
+| `teamwork status [--json] [--agent INSTANCE]` | the live-state feed for the operator panel and the pi widget. Text: `# Lanes (N)` plus one lane line, then one instance line, each <= 110 columns. `--json` schema 2 (additive to schema 1): the schema-1 keys plus `counts.lanes`, per-instance `model`/`provider`, and a `lanes` array of `{id, instance, role, task, state, elapsed_text, model, provider, attempt}` - live first, then `created` desc with id asc as tiebreak, bounded to 6, stable across calls. `counts.lanes` equals `len(lanes)` after any `--agent` narrowing; `model`/`provider` resolve once per call from `Settings.json` -> `Models.agents[<Instance>]`, else `Models.roles[<role>]`, else `""` |
 
 Every existing subcommand, flag and exit code is unchanged. Exit codes are part
 of the contract:
