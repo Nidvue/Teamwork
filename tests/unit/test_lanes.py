@@ -774,11 +774,11 @@ def test_reap_recycles_the_finished_instances_seat(
     add_task(cli, project, "developer", "one unit")
     launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
     assert (
-        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        cli("--project", project, "lane", "start", "--agent", "developer-2", "--task", "T-0001")
         == 0
     )
     assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
-    assert engine.agent_dir(root, "developer-1").is_dir()
+    assert engine.agent_dir(root, "developer-2").is_dir()
 
     path = engine.task_file(root, "developer")
     tasks = engine.parse_tasks(path)
@@ -789,8 +789,8 @@ def test_reap_recycles_the_finished_instances_seat(
 
     assert cli("--project", project, "lane", "reap") == 0
 
-    assert not engine.agent_dir(root, "developer-1").is_dir()
-    retired = root / "Runtime" / "Retired" / "Developer-1"
+    assert not engine.agent_dir(root, "developer-2").is_dir()
+    retired = root / "Runtime" / "Retired" / "Developer-2"
     assert (retired / "Runs" / "L-0001.log").is_file()
     run = lanes.load_runs(root)[0]
     assert str(retired) in run["log"], "the record follows the instance into Retired"
@@ -816,3 +816,31 @@ def test_reap_keeps_an_instance_that_still_holds_work(
 
     assert cli("--project", project, "lane", "reap", "--keep") == 0
     assert engine.agent_dir(root, "developer-1").is_dir()
+
+
+def test_reap_never_recycles_the_ceo_seat(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The CEO is the only voice to the user: a finished lane never folds it (F1)."""
+    root = init(cli, project)
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert cli("--project", project, "lane", "start", "--agent", "ceo", "--prompt", "work") == 0
+    assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
+
+    assert cli("--project", project, "lane", "reap") == 0
+
+    assert engine.agent_dir(root, "ceo").is_dir(), "the CEO seat is never recycled"
+
+
+def test_reap_keeps_the_last_instance_of_a_gate_role(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One Reviewer is the gate: its own finished lane must not leave the role empty (F2)."""
+    root = init(cli, project)
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert cli("--project", project, "lane", "start", "--agent", "reviewer-1", "--prompt", "x") == 0
+    assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
+
+    assert cli("--project", project, "lane", "reap") == 0
+
+    assert engine.agent_dir(root, "reviewer-1").is_dir(), "the last gate seat stays staffed"

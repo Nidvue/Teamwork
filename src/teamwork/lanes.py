@@ -2179,32 +2179,30 @@ def add_parsers(sub, common) -> None:
 
 
 def _recycle_finished(root: Path, by: str) -> list:
-    """Retire the instance of every lane that has ended and holds nothing else.
+    """Retire the seat of every finished lane, under the roster's own fold policy.
 
     A finished lane is a job that is done: its slot and lease are already released,
     and the seat it occupied is pure cost once the queue has nothing for that role.
-    Retirement is the existing move-only path (``Runtime/Retired/<Instance>/``), so
-    the packet, the log and the artifacts stay as evidence; the lane record is
-    repointed at the new path by ``engine._move_to_retired``. An instance that still
-    claims a task, holds the pen, a slot or a review claim, or whose role has ready
-    work, is kept - it is not finished.
+    The policy is not re-implemented here - it is ``engine._foldable_instances``
+    (never the CEO, one instance of each gate role kept), so a reap can never retire
+    the CEO's seat or leave a gate role unstaffed. Only instances that actually ran
+    a lane are touched, and retirement is the existing move-only path
+    (``Runtime/Retired/<Instance>/``); the lane record is repointed by
+    ``engine._move_to_retired``. An instance that still claims a task, holds the pen,
+    a slot or a review claim, or whose role has ready work, is kept.
     """
+    fold, _keep = engine._foldable_instances(root, keep_required=True)
+    finished = {
+        pascal(str(run.get("agent") or ""))
+        for run in load_runs(root)
+        if run.get("state") not in LIVE
+    }
     retired = []
-    finished = set()
-    for run in load_runs(root):
-        if run.get("state") in LIVE:
+    for name, role in fold:
+        if pascal(name) not in finished:
             continue
-        agent = pascal(str(run.get("agent") or ""))
-        if agent:
-            finished.add(agent)
-    for name in sorted(finished):
-        role = resolve_role(name)
         source = agent_dir(root, name)
         if not source.is_dir():
-            continue
-        if engine._idle_reasons(root, role, name):
-            continue
-        if engine._ready_for_role(root, role):
             continue
         shown = engine._move_to_retired(
             root, name, source, role, by, "lane finished; instance recycled", []
