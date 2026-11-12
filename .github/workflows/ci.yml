@@ -7,7 +7,7 @@
 # by a workflow-level filter.
 #
 # Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix, the
-# Windows cell split into eight path shards), build, privacy, committer guard,
+# Windows cell split into nine path shards), build, privacy, committer guard,
 # release-consistency, docs, docs-contract. Every job must be green on the pushed
 # revision.
 #
@@ -25,7 +25,7 @@
 # `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
 # acceptance are the cheap 8s proof of the ACs, and the rest of the
 # subprocess-heavy integration tree (338 tests, 30% of the serial wall clock)
-# already runs on both boundary interpreters and on all eight Windows shards; no
+# already runs on both boundary interpreters and on all nine Windows shards; no
 # test in the tree branches on darwin, so neither cell carries it. Every cell
 # runs under pytest-xdist `--numprocesses=auto` (`-n auto`) except the Windows
 # shards, which are already split by path: measured 242s serial against 94s with
@@ -291,7 +291,7 @@ jobs:
           # Windows spawns processes several times slower than the POSIX runners and
           # this suite spawns hundreds of them, so one Windows job exceeded the
           # 90-minute cap even after the traceability guard stopped re-running the
-          # privacy scan (run 42941335942). Eight shards, no plugin and no new
+          # privacy scan (run 42941335942). Nine shards, no plugin and no new
           # dependency. The subprocess-heavy trees stand alone, because the first
           # split left unit a-f carrying integration and acceptance and that row was
           # cancelled at the cap on run 43000716956. A cancelled shard names the
@@ -304,7 +304,16 @@ jobs:
           # So unit p-z becomes two letter ranges of 579 and 335 tests, and the
           # integration range becomes the seven modules that spawn git or a process
           # and the twelve that do not. A module added later joins the list it costs:
-          # `test_ci_contracts.py` fails until every file under tests/ is named once. `test_ci_contracts.py` counts the tests each row names and
+          # `test_ci_contracts.py` fails until every file under tests/ is named once.
+          # That git range is split again (T-0124) because its single row was the
+          # last job over the ten-minute half of AC-M24-1: 11m48s in run 43144630778
+          # at 4d18607. The two costliest files of the range on a local serial run at
+          # 3faa0f3, test_release_consistency_integration.py (it spawns the rule suite
+          # once per mutant, eleven runs) and test_role_memory_lease.py, are now a row
+          # of their own and the other five stay here; a mutant run also stops at its
+          # first failure while the baseline still takes the whole suite. The row
+          # duration after the split is owed by a run of the pushed revision, not by
+          # this comment. `test_ci_contracts.py` counts the tests each row names and
           # fails when a row carries more than its tree's cap, and fails when a test
           # file lands in no shard. Every shard names itself in the job name and
           # reports its own slowest tests.
@@ -337,7 +346,12 @@ jobs:
             python-version: "3.13"
             coverage: false
             shard: "integration-git-heavy"
-            paths: "tests/integration/test_merge_identity_flow.py tests/integration/test_portability_flow.py tests/integration/test_refresh_flow.py tests/integration/test_release_consistency_integration.py tests/integration/test_release_workflow_flow.py tests/integration/test_role_memory_lease.py tests/integration/test_windows_portability_flow.py"
+            paths: "tests/integration/test_merge_identity_flow.py tests/integration/test_portability_flow.py tests/integration/test_refresh_flow.py tests/integration/test_release_workflow_flow.py tests/integration/test_windows_portability_flow.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "integration-git-mutants"
+            paths: "tests/integration/test_release_consistency_integration.py tests/integration/test_role_memory_lease.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
