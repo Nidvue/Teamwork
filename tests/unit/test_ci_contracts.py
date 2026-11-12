@@ -239,8 +239,10 @@ def parallel_problems(document: dict) -> list[str]:
 
     The suite spawns hundreds of processes and a hosted runner gives 3-4 vCPUs, so
     a cell is wall-clock bound. Measured on the 4-worker emulation of a runner:
-    242s serial against 94s with `-n 4`, same results. The Windows rows are
-    already split into six path shards and gain nothing from a second split.
+    242s serial against 94s with `-n 4`, same results. The Windows rows are split
+    by path into eight shards instead, which is what keeps each of them off the
+    cap: a second split into xdist workers would re-pay the process cost this
+    suite is already paying and buy nothing the paths do not.
     """
     problems: list[str] = []
     for entry in matrix_entries(document):
@@ -325,6 +327,38 @@ def shard_problems(document: dict) -> list[str]:
     for cell in SHARDED_CELLS:
         if cell not in seen:
             problems.append(f"the sharded cell {cell} is missing from the matrix")
+    return problems
+
+
+SHARD_WEIGHT_CAP = {"tests/unit": 700, "tests/integration": 150}
+
+TEST_FUNCTION = re.compile(r"^\s*def test_", re.MULTILINE)
+
+
+def shard_weight_problems(document: dict, repo_root: Path = REPO_ROOT) -> list[str]:
+    """No shard carries more test functions than its tree's cap allows.
+
+    A letter range is a partition, not a bound: run 43119769552 at 3a10869 left
+    `integration-m-z` at 14m02s for 176 tests and `unit-p-z` at 12m34s for 914,
+    because most unit modules start with p, r, s or t and one integration module
+    clones repositories. The caps come from that measurement - 914 unit tests ran
+    in 754s and 176 integration tests in 842s, so 700 and 150 stay far inside the
+    90-minute timeout - and they are counted from the tree, so a row that re-merges
+    either range fails here instead of on the runner.
+    """
+    problems: list[str] = []
+    for shard, paths in shard_rows(document):
+        for tree, cap in sorted(SHARD_WEIGHT_CAP.items()):
+            prefix = f"{repo_root.as_posix()}/{tree}/"
+            count = 0
+            for token in paths.split():
+                for match in repo_root.glob(token):
+                    files = sorted(match.rglob("test_*.py")) if match.is_dir() else [match]
+                    for path in files:
+                        if path.is_file() and path.as_posix().startswith(prefix):
+                            count += len(TEST_FUNCTION.findall(path.read_text(encoding="utf-8")))
+            if count > cap:
+                problems.append(f"shard {shard!r} carries {count} {tree} tests; the cap is {cap}")
     return problems
 
 
@@ -569,16 +603,31 @@ def test_the_shards_partition_the_suite_and_stay_small(ci):
     The a-f row of the first split ran unit a-f plus the whole integration and
     acceptance trees and was cancelled at the 90-minute cap (run 43000716956), so
     the tree with the most subprocesses is no longer bundled with a unit range.
+    Both trees are also split more than once each: the unit range that carried 914
+    tests and the integration range that carried 14m02s are the rows this pins.
     """
     assert shard_problems(ci) == []
     assert shard_file_problems(ci) == []
+    assert shard_weight_problems(ci) == []
     rows = shard_rows(ci)
-    assert len(rows) >= 6, rows
+    assert len(rows) >= 8, rows
     assert len({shard for shard, _paths in rows}) == len(rows), rows
     for shard, paths in rows:
         assert not ("test_[a-f]" in paths and "tests/integration" in paths), shard
+    unit = [shard for shard, paths in rows if "tests/unit/" in paths]
+    assert len(unit) >= 4, rows
     integration = [shard for shard, paths in rows if "tests/integration/" in paths]
-    assert len(integration) >= 2, rows
+    assert len(integration) >= 3, rows
+
+
+def test_mutant_a_shard_carrying_the_whole_unit_range_is_reported():
+    """The 914-test range is what the split removed; a row that re-merges it fails."""
+    mutant = workflow_text().replace(
+        'paths: "tests/unit/test_[s-z]*.py"', 'paths: "tests/unit/test_[p-z]*.py"', 1
+    )
+    assert mutant != workflow_text(), "the unit range is no longer split"
+    problems = shard_weight_problems(parse_workflow(mutant))
+    assert any("the cap is" in problem for problem in problems), problems
 
 
 def test_every_sharded_job_names_itself_and_its_slowest_tests(ci):
