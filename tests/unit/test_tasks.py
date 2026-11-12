@@ -201,3 +201,67 @@ def test_task_set_repairs_an_area_but_refuses_a_test_file_path(cli, tmp_path: Pa
     assert cli("task", "set", "developer-1", "a task with no area", "--area", "ci-contracts") == 0
     queue = next((tmp_path / ".pi" / "Teamwork" / "Teams").glob("*/Roles/Developer/TaskQueue.md"))
     assert "- area: ci-contracts" in queue.read_text(encoding="utf-8")
+
+
+def test_commit_refuses_a_path_shaped_area_on_the_task_field(cli, tmp_path: Path) -> None:
+    """`commit --area` is the third writer of the task area and needs the same guard.
+
+    It slugifies to 24 chars, so the phantom `tests-unit-test-ci-contr` (23) survived
+    the two guarded paths (task set --area, tests add --area) and could be re-created
+    by a commit whose area named a test file.
+    """
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", "-b", "main", "."], check=True)
+    subprocess.run(["git", "config", "user.name", "Tester"], check=True)
+    subprocess.run(["git", "config", "user.email", "tester@agents.nidvue.com"], check=True)
+    (tmp_path / "a.txt").write_text("x", encoding="utf-8")
+    subprocess.run(["git", "add", "a.txt"], check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], check=True)
+
+    assert cli("init", "--agents", "ceo,developer-1") == 0
+    assert cli("task", "add", "developer-1", "a task with no area") == 0
+    queue = next((tmp_path / ".pi" / "Teamwork" / "Teams").glob("*/Roles/Developer/TaskQueue.md"))
+    task_id = engine.parse_tasks(queue)[0]["id"]
+
+    (tmp_path / "b.txt").write_text("y", encoding="utf-8")
+    subprocess.run(["git", "switch", "-q", "-c", "developer-1/t-0001"], check=True)
+
+    def commit(area: str) -> int:
+        return cli(
+            "commit",
+            "--role",
+            "developer",
+            "--type",
+            "test",
+            "--task",
+            task_id,
+            "--area",
+            area,
+            "--goal",
+            "g",
+            "--deliverable",
+            "d",
+            "--why",
+            "w",
+            "--status",
+            "s",
+            "--result",
+            "r",
+            "--paths",
+            "b.txt",
+        )
+
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout
+    assert commit("tests-unit-test-ci-contr") != 0
+    assert "- area: tests-unit-test-ci-contr" not in queue.read_text(encoding="utf-8")
+    assert (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        ).stdout
+        == head
+    )
+    assert commit("ci-contracts") == 0
+    assert "- area: ci-contracts" in queue.read_text(encoding="utf-8")

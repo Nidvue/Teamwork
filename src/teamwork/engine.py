@@ -5560,6 +5560,14 @@ def cmd_commit(args) -> int:
     if not is_git_repo(project):
         die("not a git repository here: run `teamwork.py repo` first")
 
+    area = (getattr(args, "area", None) or "").strip().lower()
+    if area and area_looks_like_path(area):
+        die(
+            f"area '{area}' is a file path, not an area: name the subject the "
+            "layer covers (e.g. 'ci-matrix'), not the test file",
+            2,
+        )
+
     base = DEFAULT_BASE
     here = current_branch(project)
     role = resolve_role(args.role or "developer")
@@ -5749,8 +5757,8 @@ def cmd_commit(args) -> int:
             tasks = parse_tasks(path)
             idx = find_task(tasks, args.task)
             if idx is not None:
-                if args.area:
-                    tasks[idx]["area"] = slugify(args.area, 24)
+                if area:
+                    tasks[idx]["area"] = slugify(area, 24)
                 prev = tasks[idx].get("evidence", "")
                 entry = f"commit {sha}"
                 tasks[idx]["evidence"] = f"{prev}; {entry}" if prev else entry
