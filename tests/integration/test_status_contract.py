@@ -28,7 +28,7 @@ ENGINE = ROOT / "scripts" / "teamwork.py"
 BUILD = ROOT / "scripts" / "build_pi_package.py"
 EXTENSION = "teamwork-status.ts"
 
-ENVELOPE = {"schema", "generated", "count", "counts", "instances"}
+ENVELOPE = {"schema", "generated", "count", "counts", "instances", "lanes"}
 ROW = {
     "instance",
     "role",
@@ -41,8 +41,21 @@ ROW = {
     "progress_pct",
     "lane",
     "lane_state",
+    "model",
+    "provider",
 }
-COUNTS = {"busy", "idle", "ready", "review"}
+LANE = {
+    "id",
+    "instance",
+    "role",
+    "task",
+    "state",
+    "elapsed_text",
+    "model",
+    "provider",
+    "attempt",
+}
+COUNTS = {"busy", "idle", "ready", "review", "lanes"}
 
 
 def run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -102,7 +115,7 @@ def test_status_json_envelope_and_rows(tmp_path: Path) -> None:
     _code, payload = status_json(project, team)
 
     assert set(payload) == ENVELOPE, sorted(payload)
-    assert payload["schema"] == 1, "the widget reads schema 1"
+    assert payload["schema"] == 2, "the widget reads schema 2: lanes and models are additive"
     assert isinstance(payload["generated"], str) and payload["generated"][:4].isdigit()
     assert set(payload["counts"]) == COUNTS, sorted(payload["counts"])
     assert isinstance(payload["instances"], list)
@@ -146,7 +159,8 @@ def test_status_json_exits_zero_with_no_instances(tmp_path: Path) -> None:
     assert set(payload) == ENVELOPE, sorted(payload)
     assert payload["count"] == 0
     assert payload["instances"] == []
-    assert payload["counts"] == {"busy": 0, "idle": 0, "ready": 0, "review": 0}
+    assert payload["counts"] == {"busy": 0, "idle": 0, "ready": 0, "review": 0, "lanes": 0}
+    assert payload["lanes"] == [], "an empty tree has no lane rows"
 
     panel = run(
         [sys.executable, str(ENGINE), "status", "--project", str(project), "--team", "Synthetic"],
@@ -170,6 +184,13 @@ def test_this_teams_feed_matches_the_same_contract() -> None:
     assert payload["count"] == len(payload["instances"])
     for row in payload["instances"]:
         assert set(row) == ROW, (row.get("instance"), sorted(row))
+        assert isinstance(row["model"], str) and isinstance(row["provider"], str)
+    for lane in payload["lanes"]:
+        assert set(lane) == LANE, (lane.get("id"), sorted(lane))
+        assert lane["id"].startswith("L-"), lane
+        assert lane["state"], lane
+        assert "/" in lane["attempt"], lane
+    assert payload["counts"]["lanes"] == len(payload["lanes"]), "the count describes the rows"
 
 
 def test_second_call_is_stable(tmp_path: Path) -> None:
@@ -182,6 +203,9 @@ def test_second_call_is_stable(tmp_path: Path) -> None:
         row["instance"] for row in second["instances"]
     ], "the feed must not reorder rows between calls"
     assert first["counts"]["review"] == second["counts"]["review"]
+    assert [lane["id"] for lane in first["lanes"]] == [lane["id"] for lane in second["lanes"]], (
+        "the lane order must not change between two calls with no state change"
+    )
 
 
 def test_built_package_ships_the_status_extension(tmp_path: Path) -> None:

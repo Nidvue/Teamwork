@@ -87,6 +87,8 @@ def test_every_instance_appears_exactly_once(cli, project: Path, capsys) -> None
             "progress_pct",
             "lane",
             "lane_state",
+            "model",
+            "provider",
         }
 
 
@@ -154,8 +156,8 @@ def test_the_payload_names_its_schema_and_counts(cli, project: Path, capsys) -> 
     build(cli, project)
     assert cli("--project", project, "task", "add", "developer", "a second ready job") == 0
     data = payload(cli, project, capsys)
-    assert data["schema"] == 1
-    assert data["counts"] == {"busy": 1, "idle": 3, "ready": 1, "review": 0}
+    assert data["schema"] == 2
+    assert data["counts"] == {"busy": 1, "idle": 3, "ready": 1, "review": 0, "lanes": 1}
 
 
 def test_each_row_names_the_work_its_task_is(cli, project: Path, capsys) -> None:
@@ -164,7 +166,11 @@ def test_each_row_names_the_work_its_task_is(cli, project: Path, capsys) -> None
     assert rows["Developer-1"]["title"] == "produce the contract"
     assert rows["Developer-2"]["title"] == ""
     assert cli("--project", project, "status") == 0
-    line = next(line for line in capsys.readouterr().out.splitlines() if "Developer-1" in line)
+    line = next(
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if "Developer-1" in line and not line.startswith("- L-")
+    )
     assert "produce the contract" in line
 
 
@@ -184,6 +190,117 @@ def test_progress_pct_is_an_int_with_a_lane_and_null_without_one(
     assert row["progress_pct"] is None
 
 
+def test_a_lane_row_names_its_state_model_and_attempt(cli, project: Path, capsys) -> None:
+    root = build(cli, project)
+    engine.save_model_config(
+        root,
+        {
+            "roles": {"developer": {"model": "dev-model", "provider": "dev-provider"}},
+            "agents": {"Tester-1": {"model": "tester-model", "provider": "tester-provider"}},
+        },
+    )
+    data = payload(cli, project, capsys)
+    assert [lane["id"] for lane in data["lanes"]] == ["L-0001"]
+    lane = data["lanes"][0]
+    assert set(lane) == {
+        "id",
+        "instance",
+        "role",
+        "task",
+        "state",
+        "elapsed_text",
+        "model",
+        "provider",
+        "attempt",
+    }
+    assert lane["instance"] == "Developer-1"
+    assert lane["role"] == "developer"
+    assert lane["state"] == lanes.RUNNING
+    assert lane["attempt"] == "1/2"
+    assert lane["task"].startswith("T-")
+    assert (lane["model"], lane["provider"]) == ("dev-model", "dev-provider")
+    assert lane["elapsed_text"].endswith("s")
+    rows = {row["instance"]: row for row in data["instances"]}
+    assert rows["Developer-1"]["model"] == "dev-model"
+    assert rows["Tester-1"]["model"] == "tester-model", "the agent entry wins over the role"
+    assert (rows["CEO"]["model"], rows["CEO"]["provider"]) == ("", ""), "unset reads empty"
+
+
+def test_a_review_lane_names_no_task_and_a_newer_lane_leads(cli, project: Path, capsys) -> None:
+    root = build(cli, project)
+    now = time.time()
+    lanes.write_run(
+        root,
+        {
+            "id": "L-0002",
+            "agent": "Tester-1",
+            "role": "tester",
+            "state": lanes.EXITED,
+            "review_owner": "Reviewer-1",
+            "task": "T-0099",
+            "attempt": 1,
+            "attempts": 2,
+            "minutes": 20,
+            "created": now - 60,
+        },
+    )
+    data = payload(cli, project, capsys)
+    assert [lane["id"] for lane in data["lanes"]] == ["L-0001", "L-0002"], "live lane first"
+    assert data["lanes"][1]["task"] == "", "a review lane is not a task lane"
+    assert data["counts"]["lanes"] == 2
+
+
+def test_lanes_are_newest_first_and_bounded_to_six(cli, project: Path, capsys) -> None:
+    root = build(cli, project)
+    now = time.time()
+    for index in range(7):
+        lanes.write_run(
+            root,
+            {
+                "id": f"L-01{index:02d}",
+                "agent": "Developer-2",
+                "role": "developer",
+                "state": lanes.EXITED,
+                "task": f"T-02{index:02d}",
+                "attempt": 1,
+                "attempts": 2,
+                "minutes": 20,
+                "created": now - 600 - index,
+            },
+        )
+    data = payload(cli, project, capsys)
+    ids = [lane["id"] for lane in data["lanes"]]
+    assert ids[0] == "L-0001", "the live lane leads even though it is the oldest"
+    assert ids[1:4] == ["L-0100", "L-0101", "L-0102"], "then the newest by created"
+    assert len(ids) == 6 and data["counts"]["lanes"] == 6
+    assert ids == [lane["id"] for lane in payload(cli, project, capsys)["lanes"]], "stable"
+
+
+def test_the_panel_prints_the_lane_block_before_the_instance_rows(
+    cli, project: Path, capsys
+) -> None:
+    root = build(cli, project)
+    engine.save_model_config(
+        root, {"roles": {"developer": {"model": "m", "provider": "p"}}, "agents": {}}
+    )
+    capsys.readouterr()
+    assert cli("--project", project, "status") == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("# Status (4 instance(s), 1 busy)")
+    assert lines[1] == "# Lanes (1)"
+    assert lines[2].startswith("- L-0001  Developer-1      running   T-"), lines[2]
+    assert lines[2].endswith(" p/m"), lines[2]
+    assert lines[3].startswith("- CEO"), "the instance rows follow the lane block"
+
+
+def test_a_team_with_no_lane_prints_no_lane_block(cli, project: Path, capsys) -> None:
+    build(cli, project, lane=False)
+    data = payload(cli, project, capsys)
+    assert data["lanes"] == [] and data["counts"]["lanes"] == 0
+    assert cli("--project", project, "status") == 0
+    assert "# Lanes" not in capsys.readouterr().out
+
+
 def test_a_long_title_is_truncated_and_every_line_stays_within_110_columns(
     cli, project: Path, capsys
 ) -> None:
@@ -193,7 +310,11 @@ def test_a_long_title_is_truncated_and_every_line_stays_within_110_columns(
     tasks[0]["title"] = "x" * 60
     engine.write_tasks(task_file, tasks, "developer")
     assert cli("--project", project, "status") == 0
-    lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("- ")]
+    lines = [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("- ") and not line.startswith("- L-")
+    ]
     assert all(len(line) <= 110 for line in lines)
     assert any("x" * 40 in line and "x" * 41 not in line for line in lines)
 
@@ -201,7 +322,11 @@ def test_a_long_title_is_truncated_and_every_line_stays_within_110_columns(
 def test_the_text_form_prints_one_line_per_instance(cli, project: Path, capsys) -> None:
     build(cli, project)
     assert cli("--project", project, "status") == 0
-    lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("- ")]
+    lines = [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("- ") and not line.startswith("- L-")
+    ]
     assert len(lines) == 4
     assert any("Developer-1" in line and "busy" in line for line in lines)
     assert any("Developer-2" in line and "idle" in line for line in lines)
