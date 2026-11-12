@@ -1603,6 +1603,10 @@ def cmd_lane(args) -> int:
             except OSError:
                 pass
         print(f"# reaped {touched} lane(s); {len(live_runs(root))} still running")
+        if not getattr(args, "keep", False):
+            recycled = _recycle_finished(root, getattr(args, "by", "") or "ceo")
+            if recycled:
+                print("# recycled " + ", ".join(recycled))
         return 0
     if verb == "preempt":
         return _lane_preempt(root, args)
@@ -2100,7 +2104,17 @@ def add_parsers(sub, common) -> None:
     p.add_argument("--reason", default="", help="why it is stopped (recorded)")
     p.add_argument("--by", default="", help="who stopped it")
     p.set_defaults(func=cmd_lane)
-    p = lsub.add_parser("reap", parents=[common], help="reconcile dead lanes and free slots")
+    p = lsub.add_parser(
+        "reap",
+        parents=[common],
+        help="reconcile dead lanes, free their slots and recycle their instances",
+    )
+    p.add_argument(
+        "--keep",
+        action="store_true",
+        help="reconcile the lanes but leave the finished instances staffed",
+    )
+    p.add_argument("--by", default="ceo", help="who recycles them (provenance)")
     p.set_defaults(func=cmd_lane)
     p = lsub.add_parser(
         "preempt",
@@ -2162,6 +2176,39 @@ def add_parsers(sub, common) -> None:
         help="dispatch to the current roster only; never add instances for the wave",
     )
     p.set_defaults(func=cmd_swarm)
+
+
+def _recycle_finished(root: Path, by: str) -> list:
+    """Retire the seat of every finished lane, under the roster's own fold policy.
+
+    A finished lane is a job that is done: its slot and lease are already released,
+    and the seat it occupied is pure cost once the queue has nothing for that role.
+    The policy is not re-implemented here - it is ``engine._foldable_instances``
+    (never the CEO, one instance of each gate role kept), so a reap can never retire
+    the CEO's seat or leave a gate role unstaffed. Only instances that actually ran
+    a lane are touched, and retirement is the existing move-only path
+    (``Runtime/Retired/<Instance>/``); the lane record is repointed by
+    ``engine._move_to_retired``. An instance that still claims a task, holds the pen,
+    a slot or a review claim, or whose role has ready work, is kept.
+    """
+    fold, _keep = engine._foldable_instances(root, keep_required=True)
+    finished = {
+        pascal(str(run.get("agent") or ""))
+        for run in load_runs(root)
+        if run.get("state") not in LIVE
+    }
+    retired = []
+    for name, role in fold:
+        if pascal(name) not in finished:
+            continue
+        source = agent_dir(root, name)
+        if not source.is_dir():
+            continue
+        shown = engine._move_to_retired(
+            root, name, source, role, by, "lane finished; instance recycled", []
+        )
+        retired.append(f"{name} -> {shown}")
+    return retired
 
 
 def urgent_instances(root: Path) -> list:
