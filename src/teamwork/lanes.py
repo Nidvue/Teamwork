@@ -1828,22 +1828,10 @@ def cmd_swarm(args) -> int:
     for line in measurement.lines():
         print(line)
     print(engine.memory_dream_line(root))
-    if getattr(args, "scale", True):
-        scale_plan = engine._scale_plan(root)
-        if scale_plan:
-            print(
-                "## scale plan ("
-                + ", ".join(f"{role} +{count}" for role, count in scale_plan)
-                + ")"
-            )
-            if not args.dry_run:
-                added = engine._apply_scale(root, scale_plan, args.by or "ceo")
-                if added:
-                    print(f"# scaled to the work: added {', '.join(added)}")
-                    measurement = measure(root, cap)
-                    for line in measurement.lines():
-                        print(line)
-        print()
+    scale_plan = engine._scale_plan(root) if getattr(args, "scale", True) else []
+    if scale_plan:
+        print("## scale plan (" + ", ".join(f"{role} +{count}" for role, count in scale_plan) + ")")
+    print()
     if args.dry_run:
         return _swarm_dry_run(root, measurement, cap, fixed, attempts)
     if mode != "auto":
@@ -1852,6 +1840,14 @@ def cmd_swarm(args) -> int:
             "Set PulseMode to auto in Settings.json or pass --mode auto when you mean it.",
             2,
         )
+    if scale_plan:
+        added = engine._apply_scale(root, scale_plan, args.by or "ceo")
+        if added:
+            print(f"# scaled to the work: added {', '.join(added)}")
+            measurement = measure(root, cap)
+            for line in measurement.lines():
+                print(line)
+            print()
     engine.reap_slots(root)
     actor = engine.validate_actor(root, args.by or "ceo", "lane supervisor")[0]
     deadline = time.monotonic() + minutes * 60 if minutes else 0.0

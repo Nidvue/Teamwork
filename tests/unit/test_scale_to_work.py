@@ -92,3 +92,26 @@ def test_folding_obeys_the_accept_mode(cli, project: Path, capsys) -> None:
     out = capsys.readouterr().out
     assert "folding skipped" in out, out
     assert engine.agent_dir(root, "developer-2").is_dir(), "an observe wake dispatches nothing"
+
+
+def test_a_full_slot_pool_means_no_adds(cli, project: Path) -> None:
+    """A configured pool with zero free slots is a cap, not a licence (review F2)."""
+    import json
+
+    root = init(cli, project, "ceo,developer-1")
+    for index in range(6):
+        add_task(cli, project, "developer", f"code {index}")
+    crowded = {"ollama-cloud": 1, "deepseek": 0, "openai": 0, "anthropic": 0}
+    (root / engine.F_SETTINGS).write_text(json.dumps(crowded), encoding="utf-8")
+    (root / "Runtime" / "Slots" / "ollama-cloud").mkdir(parents=True, exist_ok=True)
+    (root / "Runtime" / "Slots" / "ollama-cloud" / "CEO.slot").write_text("x", encoding="utf-8")
+    assert engine._scale_plan(root) == [], "no free slot means no new lane"
+
+
+def test_swarm_observe_mode_never_touches_the_roster(cli, project: Path) -> None:
+    """The swarm's own scale step must sit after its accept-mode guard (review F1)."""
+    root = init(cli, project, "ceo,developer-1")
+    for index in range(6):
+        add_task(cli, project, "developer", f"code {index}")
+    assert cli("--project", project, "swarm", "run", "--mode", "observe") == 2
+    assert len(engine.instances_of(root, "developer")) == 1, "an observe wake mutates nothing"
