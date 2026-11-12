@@ -132,7 +132,7 @@ under two roles is two tasks.
 | ceo | T-0041 | records | done | P-0181 | 16a83a0 |
 | ceo | T-0042 | records | done | P-0182 | 3831f45 |
 | ceo | T-0043 | review-pass | done | P-0185 | 31b09ef |
-| ceo | T-0044 | instance-lifecycle | doing | P-0186 | - |
+| ceo | T-0044 | instance-lifecycle | done | P-0186 | 512b13e |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -327,7 +327,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0044 · Fold idle instances: instance prune and pulse auto-fold release idle seats | P1 | doing | - |
 | developer | T-0133 · code 1 | P2 | todo | - |
 | developer | T-0134 · code 2 | P2 | todo | - |
 | developer | T-0135 · code 3 | P2 | todo | - |
