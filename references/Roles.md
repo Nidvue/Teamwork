@@ -67,8 +67,8 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 291 kB |
-| `standard` | 10 | 400 kB |
+| `slim` (default) | 7 | 292 kB |
+| `standard` | 10 | 401 kB |
 | `full` | 17 | 647 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed

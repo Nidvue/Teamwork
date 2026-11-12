@@ -142,6 +142,13 @@ record per fold. `--keep-required` keeps one instance of each gate-critical role
 `--dry-run` prints the plan, and `instance add <role>` restaffs when work returns.
 The CEO is never folded.
 
+The other half is scaling: `pulse --commit` and `swarm run` add an instance for
+every `LANE_WIP` units of ready work and one Reviewer per unclaimed deliverable,
+bounded by the per-role cap (4), the per-wake cap (6), `LaneMax` and the free
+provider slots. `--no-scale` dispatches to the current roster, and an
+`observe`/`off` wake is a report that adds and retires nothing. So the work - not
+the roster, and not one lane - bounds how fast a stage lands.
+
 `status` is the operator panel and the UI feed in one command:
 
 ```console

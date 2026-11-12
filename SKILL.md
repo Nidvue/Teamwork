@@ -108,8 +108,8 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 291 kB |
-| `standard` | 10 | 400 kB |
+| `slim` (default) | 7 | 292 kB |
+| `standard` | 10 | 401 kB |
 | `full` | 17 | 647 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
@@ -242,6 +242,17 @@ lane can finish and get verdict-ed inside its budget, and at an independent
 verifier: no lane reviews, tests or merges its own work, and every deliverable
 gets its author's self-check, a different role's review and its test layer run by
 the owning role.
+
+**The roster follows the work, so no single lane is the bottleneck.** `pulse
+--commit` (and `swarm run`) plans instances from the ready work - one lane carries
+`LANE_WIP` units, and one Reviewer takes one deliverable, so a deep review queue
+staffs more Reviewer lanes instead of serialising on one - bounded by
+`SCALE_PER_ROLE_CAP` (4) per role, `SCALE_MAX_ADDS` (6) per wake, `LaneMax` and the
+free provider slots. `--no-scale` dispatches to the current roster only; an
+`observe`/`off` wake is a report and adds nothing. The other half is folding: an
+idle seat is retired, so a team that drains its queue drains its roster
+(`instance prune`) and restaffs on demand (`instance add`). Detail:
+`references/Concurrency.md`.
 
 Capacity is bounded by the provider caps in `Settings.json`, never by the lane count: Ollama Cloud 64, DeepSeek 2500, OpenAI 64, Anthropic 64 and 32 default concurrent lanes. `pulse` defers assignments beyond the free-slot count and prints the shortfall. Detail and the measured anti-patterns: `references/Concurrency.md`.
 
