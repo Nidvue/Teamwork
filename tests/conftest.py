@@ -24,11 +24,23 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
 TESTS_DIR = REPO_ROOT / "tests"
 
-if str(TESTS_DIR) not in sys.path:
-    sys.path.insert(0, str(TESTS_DIR))
 
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+def _first_on_path(directory: Path) -> None:
+    """Put ``directory`` at ``sys.path[0]``, even when it is already on the path.
+
+    A venv's ``.pth`` file appends ``src`` *after* ``site-packages``, and a lane
+    host may add an installed skill copy ahead of both, so membership is not
+    enough: the checkout must be first or the suite measures another tree's
+    engine.
+    """
+    entry = str(directory)
+    if entry in sys.path:
+        sys.path.remove(entry)
+    sys.path.insert(0, entry)
+
+
+_first_on_path(TESTS_DIR)
+_first_on_path(SRC_DIR)
 os.environ["TEAMWORK_SKILL_DIR"] = str(REPO_ROOT)
 
 
