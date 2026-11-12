@@ -459,7 +459,7 @@ Completion gate - all of:
 - [ ] Docs match merged code; no scratch or temp files; nothing unnecessary committed.
 - [ ] Final report: deliverable, how to run it, evidence table, limitations, follow-ups.
 
-Then end every live lane with `lane stop <run>` (`lane reap` clears a lane that died without an outcome), confirm `loop` still reports STOP on the final head, and deliver the report.
+Then end every live lane with `lane stop <run>` and run `lane reap`: it reconciles a lane that died without an outcome, frees its slot and recycles the seat of every finished lane (move-only to `Runtime/Retired/`; `--keep` leaves the instances staffed). Confirm `loop` still reports STOP on the final head, and deliver the report.
 ## Reference files (read on demand)
 
 `SKILL.md` is the operating procedure; policy detail lives in `references/`. Read the one you need instead of the whole skill.
@@ -579,7 +579,7 @@ python3 $S slot acquire --agent developer-3 --provider deepseek --task T-0012
 
 # run the lanes and close
 python3 $S swarm run --dry-run && python3 $S swarm run && python3 $S lane status --live
-python3 $S lane stop L-0001 --reason "<why>" && python3 $S lane reap
+python3 $S lane stop L-0001 --reason "<why>" && python3 $S lane reap   # recycles the finished seats
 
 # close and audit
 python3 $S board && python3 $S pulse --commit && python3 $S parallel

@@ -542,12 +542,17 @@ a lane's output.
 ```text
 teamwork lane wait HANDLE... [--timeout SECONDS]
 teamwork lane stop HANDLE [--reason REASON] [--by BY]
-teamwork lane reap
+teamwork lane reap [--keep] [--by BY]
 ```
 
 `wait` blocks until the named lanes end; `stop` signals a lane's process group,
 records why and releases its provider lease; `reap` reconciles lanes that died
-without writing an outcome and frees their slots.
+without writing an outcome, frees their slots and **recycles the seat of every
+finished lane**: an instance whose lanes have all ended, which holds no task, pen,
+slot or review claim, and whose role has no ready work is retired (move-only to
+`Runtime/Retired/`, packet and log repointed so `lane logs` still resolves). A
+finished job therefore leaves nothing staffed. `--keep` reconciles the lanes but
+leaves the instances staffed.
 
 #### `lane preempt`
 

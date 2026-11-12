@@ -759,3 +759,60 @@ def test_group_launches_keeps_one_lane_per_instance_and_prefers_the_retry() -> N
     assert len(groups) == 1
     assert [item.task for item in groups[0]] == ["T-0001", "T-0002"]
     assert groups[0][0].source_run == "L-0001"
+
+
+def test_reap_recycles_the_finished_instances_seat(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A finished job retires its instance and lane; the evidence follows the move.
+
+    The slot is released at exit, but the seat (the instance directory) stayed until
+    the next prune. `lane reap` now recycles it: move-only to `Runtime/Retired/`,
+    and the lane record's packet/log are repointed so `lane logs` still works.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "one unit")
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
+    assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
+    assert engine.agent_dir(root, "developer-1").is_dir()
+
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["status"] = "done"
+    tasks[0]["self_check"] = "passed"
+    tasks[0]["review_status"] = "passed"
+    engine.write_tasks(path, tasks, "developer")
+
+    assert cli("--project", project, "lane", "reap") == 0
+
+    assert not engine.agent_dir(root, "developer-1").is_dir()
+    retired = root / "Runtime" / "Retired" / "Developer-1"
+    assert (retired / "Runs" / "L-0001.log").is_file()
+    run = lanes.load_runs(root)[0]
+    assert str(retired) in run["log"], "the record follows the instance into Retired"
+    assert Path(run["log"]).is_file(), "lane logs must still resolve after the move"
+
+
+def test_reap_keeps_an_instance_that_still_holds_work(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "developer", "one unit")
+    add_task(cli, project, "developer", "the next unit")
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
+    assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
+    assert cli("--project", project, "task", "next", "developer-1") == 0
+
+    assert cli("--project", project, "lane", "reap") == 0
+    assert engine.agent_dir(root, "developer-1").is_dir(), "a claimed task is not finished"
+
+    assert cli("--project", project, "lane", "reap", "--keep") == 0
+    assert engine.agent_dir(root, "developer-1").is_dir()
