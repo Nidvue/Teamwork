@@ -10,8 +10,9 @@ keeps the old and the new status.
 
 Pinned here: the repair is accepted with a reason and recorded as ``pr.repair``
 with both statuses; it is refused without a reason, refused when the review did
-not pass, refused when ``merged`` names no revision; a second call is a no-op;
-and the audit line it exists for disappears.
+not pass, refused when ``merged`` names no revision or a revision that is not a
+full 40-hex sha of a commit this clone carries; a second call is a no-op; and the
+audit line it exists for disappears.
 """
 
 from __future__ import annotations
@@ -55,7 +56,7 @@ def git_repo(project: Path) -> str:
     (project / "README.md").write_text("base\n", encoding="utf-8")
     run("add", ".")
     run("commit", "-qm", "base")
-    return run("rev-parse", "--short", "HEAD")
+    return run("rev-parse", "HEAD")
 
 
 def seed(cli, project: Path, *, review_status: str = "passed") -> Path:
@@ -265,7 +266,7 @@ def test_merged_without_a_merge_commit_is_refused(cli, project, capsys) -> None:
 
 
 def test_a_fabricated_merge_revision_is_refused(cli, project, capsys) -> None:
-    """The revision must be corroborated: in the repository, or in the ledger."""
+    """A well-shaped sha this clone does not carry is refused, not recorded."""
     root = seed(cli, project)
     capsys.readouterr()
 
@@ -279,7 +280,7 @@ def test_a_fabricated_merge_revision_is_refused(cli, project, capsys) -> None:
         "--status",
         "merged",
         "--merge-commit",
-        "deadbeef",
+        "deadbeef" * 5,
         "--by",
         "Reviewer-1",
         "--force",
@@ -287,25 +288,46 @@ def test_a_fabricated_merge_revision_is_refused(cli, project, capsys) -> None:
     )
 
     assert code == 2
-    assert "deadbeef is neither a commit" in capsys.readouterr().err
+    assert "does not resolve to a commit" in capsys.readouterr().err
     assert only_pr(root)["status"] == "approved"
     assert repairs(root) == []
 
 
-def test_a_revision_the_ledger_witnessed_is_accepted_after_a_history_rebuild(cli, project) -> None:
-    """P-0010's shape: the merge is in the ledger, the commit is gone from the clone."""
+def test_a_short_sha_is_refused(cli, project, capsys) -> None:
+    """M-0019: an abbreviated sha is ambiguous, so it is not a landing fact."""
     root = seed(cli, project)
-    engine.ledger_append(
-        root,
-        "pr.merge",
+    capsys.readouterr()
+
+    code = cli(
+        "--project",
+        project,
+        "pr",
+        "set",
+        "--pr",
+        "P-0001",
+        "--status",
+        "merged",
+        "--merge-commit",
+        landed(root)[:7],
+        "--by",
         "Reviewer-1",
-        "T-0001",
-        "P-0001 developer-1/t-0001 -> main at 47db23d",
-        "47db23d",
+        "--force",
+        "probe: the abbreviated sha of the landed commit",
     )
 
-    assert (
-        cli(
+    assert code == 2
+    assert "is not a full commit sha" in capsys.readouterr().err
+    assert only_pr(root)["status"] == "approved"
+    assert repairs(root) == []
+
+
+def test_a_ref_name_is_refused(cli, project, capsys) -> None:
+    """M-0019: a ref name moves, so it cannot name the revision that landed."""
+    root = seed(cli, project)
+
+    for ref in ("main", "HEAD"):
+        capsys.readouterr()
+        code = cli(
             "--project",
             project,
             "pr",
@@ -315,21 +337,58 @@ def test_a_revision_the_ledger_witnessed_is_accepted_after_a_history_rebuild(cli
             "--status",
             "merged",
             "--merge-commit",
-            "47db23d",
+            ref,
             "--by",
             "Reviewer-1",
             "--force",
-            "the ledger records the merge; the rebuilt history no longer carries it",
+            f"probe: {ref} is a ref name",
         )
-        == 0
+        assert code == 2
+        assert "is not a full commit sha" in capsys.readouterr().err
+    assert only_pr(root)["status"] == "approved"
+    assert repairs(root) == []
+
+
+def test_a_ledger_witnessed_revision_that_is_not_in_the_clone_is_refused(
+    cli, project, capsys
+) -> None:
+    """M-0019 supersedes the ledger witness: the ledger prose is not a commit."""
+    root = seed(cli, project)
+    engine.ledger_append(
+        root,
+        "pr.merge",
+        "Reviewer-1",
+        "T-0001",
+        "P-0001 developer-1/t-0001 -> main at 47db23d",
+        "47db23d",
+    )
+    capsys.readouterr()
+
+    code = cli(
+        "--project",
+        project,
+        "pr",
+        "set",
+        "--pr",
+        "P-0001",
+        "--status",
+        "merged",
+        "--merge-commit",
+        "47db23d",
+        "--by",
+        "Reviewer-1",
+        "--force",
+        "probe: the ledger records the merge; the rebuilt history no longer carries it",
     )
 
-    assert only_pr(root)["status"] == "merged"
-    assert only_pr(root)["merge_commit"] == "47db23d"
+    assert code == 2
+    assert "is not a full commit sha" in capsys.readouterr().err
+    assert only_pr(root)["status"] == "approved"
+    assert repairs(root) == []
 
 
-def test_a_token_inside_a_merge_detail_is_not_a_witness(cli, project, capsys) -> None:
-    """F1: the witness is the record's fields, not a substring of its prose."""
+def test_a_word_from_a_merge_note_is_not_a_revision(cli, project, capsys) -> None:
+    """F1 round 1: a token inside a ``pr.merge`` detail is prose, not a commit."""
     root = seed(cli, project)
     engine.ledger_append(
         root,
@@ -359,7 +418,7 @@ def test_a_token_inside_a_merge_detail_is_not_a_witness(cli, project, capsys) ->
     )
 
     assert code == 2
-    assert "work is neither a commit" in capsys.readouterr().err
+    assert "'work' is not a full commit sha" in capsys.readouterr().err
     assert only_pr(root)["status"] == "approved"
     assert repairs(root) == []
 

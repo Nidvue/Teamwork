@@ -1094,35 +1094,31 @@ def cmd_pr(args) -> int:
         return _pr_open(args, root, project, here, path, role)
 
 
-def _merge_revision_witnessed(root: Path, project: Path, pr_id: str, rev: str) -> bool:
-    """True when ``rev`` is a commit here, or a merge the ledger already recorded.
+def _require_landed_revision(project: Path, rev: str, pr_id: str) -> None:
+    """Refuse a landing revision that is not a full sha of a commit in ``project``.
 
-    A rebuilt repository loses the revisions it no longer carries while the
-    ledger keeps the merge that happened (P-0010: ``pr.merge`` at f91bf1b, the
-    commit gone from this clone), so the ledger is the second witness. A
-    revision neither of them names is a fabrication and is refused.
-
-    The ledger half reads the record's fields, never its prose: a ``pr.merge``
-    whose first detail token is this PR and whose ``rev`` is this revision (or
-    the full revision a short one abbreviates). Text inside a detail - a branch
-    name, a word - is not a witness, so a repair cannot name one.
+    The repair exists to record the fact that the work landed, so the revision it
+    writes into the record and into the ledger must name that fact and nothing
+    else. An abbreviated sha, a ref name (``main``, ``HEAD``) and an object this
+    clone does not carry all fail that: the first is ambiguous, the second moves,
+    and the third is unverifiable. Only a full 40-hex sha that resolves to a
+    commit here is accepted.
     """
-    if (
-        is_git_repo(project)
-        and run_git(project, "cat-file", "-e", f"{rev}^{{commit}}").returncode == 0
+    if not re.fullmatch(r"[0-9a-f]{40}", rev):
+        die(
+            f"--merge-commit '{rev}' is not a full commit sha: pass the 40-hex sha "
+            "of the commit that landed (git rev-parse <rev>), never a ref name, "
+            "an abbreviated sha or a word from a merge note.",
+            2,
+        )
+    if not is_git_repo(project) or (
+        run_git(project, "cat-file", "-e", f"{rev}^{{commit}}").returncode != 0
     ):
-        return True
-    want = rev.strip().lower()
-    for record in ledger_read(root):
-        if record.get("action") != "pr.merge":
-            continue
-        tokens = (record.get("detail") or "").split()
-        if not tokens or tokens[0].upper() != pr_id.upper():
-            continue
-        landed = (record.get("rev") or "").strip().lower()
-        if landed and (landed == want or landed.startswith(want)):
-            return True
-    return False
+        die(
+            f"{rev} does not resolve to a commit in {project}: {pr_id} may only be "
+            "repaired with the full sha of a commit this repository carries.",
+            2,
+        )
 
 
 def _pr_set(args, root: Path, project: Path, path: Path) -> int:
@@ -1132,8 +1128,9 @@ def _pr_set(args, root: Path, project: Path, path: Path) -> int:
     ``audit`` report an abandoned PR on every run, and ``pr merge`` cannot fix
     it: the branch the merge would read is already gone. The repair is
     deliberately narrow - the review must have passed, a reason is mandatory,
-    the recorded merge revision must exist in the repository, and the ledger
-    keeps the old and the new status so the correction is auditable.
+    the recorded merge revision must be the full sha of a commit this repository
+    carries, and the ledger keeps the old and the new status so the correction is
+    auditable.
     """
     actor, _arole = validate_actor(root, args.by, "repairer", allow_role=False)
     status = args.status
@@ -1163,19 +1160,15 @@ def _pr_set(args, root: Path, project: Path, path: Path) -> int:
             2,
         )
     reason = require_reason(args.force, f"repairing {pr['id']} from {old} to {status}")
-    merge_commit = (args.merge_commit or "").strip()
+    merge_commit = (args.merge_commit or "").strip().lower()
     if status == "merged" and not merge_commit:
         die(
             f"refusing to mark {pr['id']} merged without --merge-commit <sha>: the "
             "revision that landed is the fact the repair records.",
             2,
         )
-    if merge_commit and not _merge_revision_witnessed(root, project, pr["id"], merge_commit):
-        die(
-            f"{merge_commit} is neither a commit in {project} nor a merge the ledger "
-            f"records for {pr['id']}: a repair may only name a revision that landed.",
-            2,
-        )
+    if merge_commit:
+        _require_landed_revision(project, merge_commit, pr["id"])
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
         fresh = parse_reviews(path)
         pidx = find_pr_exact(fresh, pr["id"], pr.get("branch"))
