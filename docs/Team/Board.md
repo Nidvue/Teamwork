@@ -253,7 +253,7 @@ under two roles is two tasks.
 | developer | T-0122 | ledger | done | P-0169 | 442aad5 |
 | developer | T-0123 | ci-contracts | done | P-0172 | ec24758 |
 | developer | T-0124 | ci-matrix | done | P-0174 | 40d3cfe |
-| developer | T-0125 | tests | doing | P-0173 | - |
+| developer | T-0125 | unit | done | P-0173 | 5e55905 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -309,7 +309,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0125 · record the merge-identity unit layer | P2 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
