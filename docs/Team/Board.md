@@ -235,7 +235,7 @@ under two roles is two tasks.
 | developer | T-0104 | privacy-scan | done | P-0149 | 41f2b97 |
 | developer | T-0105 | ci | done | P-0150 | d4e5f59 |
 | developer | T-0106 | memory | done | P-0151 | 03267a8 |
-| developer | T-0107 | tests-unit-test-ci-contr | done | P-0164 | 2ef850f |
+| developer | T-0107 | ci-contracts | done | P-0164 | 2ef850f |
 | developer | T-0108 | - | dropped | - | - |
 | developer | T-0109 | memory | done | P-0154 | 04b4983 |
 | developer | T-0110 | engine | done | P-0170 | ec73838 |
@@ -251,7 +251,8 @@ under two roles is two tasks.
 | developer | T-0120 | portability | done | P-0163 | d1ed0f6 |
 | developer | T-0121 | ci | done | P-0166 | 61a020c |
 | developer | T-0122 | ledger | done | P-0169 | 442aad5 |
-| developer | T-0123 | tests | review | P-0172 | - |
+| developer | T-0123 | ci-contracts | review | P-0172 | - |
+| developer | T-0124 | ci-contracts | todo | - | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -288,7 +289,7 @@ under two roles is two tasks.
 | tester | T-0010 | status | done | P-0121 | 9e8c3b3 |
 | tester | T-0011 | memory | done | P-0153 | f5cb0d4 |
 | tester | T-0012 | memory | done | P-0168 | efc1194 |
-| tester | T-0013 | ci-matrix | review | P-0171 | - |
+| tester | T-0013 | ci-contracts | done | P-0171 | fb69e08 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -307,7 +308,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | developer | T-0123 · record the developer unit layers for the nine areas this milestone created, and repair the three unprovenanced notes | P1 | review | - |
-| tester | T-0013 · record the remaining integration and acceptance layers for the areas this milestone created | P1 | review | - |
+| developer | T-0124 · guard probe | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
