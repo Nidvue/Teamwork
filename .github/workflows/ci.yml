@@ -302,8 +302,9 @@ jobs:
           # functions and the integration range hid the one module that clones
           # repositories, which cost 24.3s of the range's 38s on a local serial run.
           # So unit p-z becomes two letter ranges of 579 and 335 tests, and the
-          # integration range becomes the four modules that spawn git and the twelve
-          # that do not. `test_ci_contracts.py` counts the tests each row names and
+          # integration range becomes the seven modules that spawn git or a process
+          # and the twelve that do not. A module added later joins the list it costs:
+          # `test_ci_contracts.py` fails until every file under tests/ is named once. `test_ci_contracts.py` counts the tests each row names and
           # fails when a row carries more than its tree's cap, and fails when a test
           # file lands in no shard. Every shard names itself in the job name and
           # reports its own slowest tests.
@@ -336,7 +337,7 @@ jobs:
             python-version: "3.13"
             coverage: false
             shard: "integration-git-heavy"
-            paths: "tests/integration/test_portability_flow.py tests/integration/test_refresh_flow.py tests/integration/test_release_consistency_integration.py tests/integration/test_release_workflow_flow.py tests/integration/test_role_memory_lease.py"
+            paths: "tests/integration/test_merge_identity_flow.py tests/integration/test_portability_flow.py tests/integration/test_refresh_flow.py tests/integration/test_release_consistency_integration.py tests/integration/test_release_workflow_flow.py tests/integration/test_role_memory_lease.py tests/integration/test_windows_portability_flow.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
