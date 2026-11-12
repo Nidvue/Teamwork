@@ -1828,6 +1828,9 @@ def cmd_swarm(args) -> int:
     for line in measurement.lines():
         print(line)
     print(engine.memory_dream_line(root))
+    scale_plan = engine._scale_plan(root) if getattr(args, "scale", True) else []
+    if scale_plan:
+        print("## scale plan (" + ", ".join(f"{role} +{count}" for role, count in scale_plan) + ")")
     print()
     if args.dry_run:
         return _swarm_dry_run(root, measurement, cap, fixed, attempts)
@@ -1837,6 +1840,14 @@ def cmd_swarm(args) -> int:
             "Set PulseMode to auto in Settings.json or pass --mode auto when you mean it.",
             2,
         )
+    if scale_plan:
+        added = engine._apply_scale(root, scale_plan, args.by or "ceo")
+        if added:
+            print(f"# scaled to the work: added {', '.join(added)}")
+            measurement = measure(root, cap)
+            for line in measurement.lines():
+                print(line)
+            print()
     engine.reap_slots(root)
     actor = engine.validate_actor(root, args.by or "ceo", "lane supervisor")[0]
     deadline = time.monotonic() + minutes * 60 if minutes else 0.0
@@ -2113,6 +2124,12 @@ def add_parsers(sub, common) -> None:
     p.add_argument("--host", default="", help="host CLI to launch (default: detected)")
     p.add_argument("--by", default="", help="supervisor identity (default: ceo)")
     p.add_argument("--dry-run", action="store_true", help="print the next wave only")
+    p.add_argument(
+        "--no-scale",
+        dest="scale",
+        action="store_false",
+        help="dispatch to the current roster only; never add instances for the wave",
+    )
     p.set_defaults(func=cmd_swarm)
 
 
