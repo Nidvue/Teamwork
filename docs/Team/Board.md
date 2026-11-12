@@ -252,6 +252,8 @@ under two roles is two tasks.
 | developer | T-0121 | ci | done | P-0166 | 61a020c |
 | developer | T-0122 | ledger | done | P-0169 | 442aad5 |
 | developer | T-0123 | ci-contracts | done | P-0172 | ec24758 |
+| developer | T-0124 | ci-matrix | review | P-0174 | - |
+| developer | T-0125 | tests | review | P-0173 | - |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
 | product-manager | T-0003 | records | done | P-0017 | 49ad40e |
@@ -289,6 +291,7 @@ under two roles is two tasks.
 | tester | T-0011 | memory | done | P-0153 | f5cb0d4 |
 | tester | T-0012 | memory | done | P-0168 | efc1194 |
 | tester | T-0013 | ci-contracts | done | P-0171 | fb69e08 |
+| tester | T-0014 | ci-matrix | done | P-0175 | f476772 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -306,6 +309,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0124 · integration-git-heavy is 11m48s, the last job over the ten-minute half of AC-M24-1 | P1 | review | - |
+| developer | T-0125 · record the merge-identity unit layer | P2 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
