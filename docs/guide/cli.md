@@ -546,8 +546,8 @@ Drop dead or stale slots.
 teamwork status [--json] [--agent INSTANCE]
 ```
 
-One row per instance and one row per live lane, so the operator panel and the pi
-widget answer "who is working on what, and with which model". `--agent` narrows
+One row per instance and one row per live lane, so the operator panel and the
+status widget answer "who is working on what, and with which model". `--agent` narrows
 the rows to one instance; an unknown name exits 2, a team with no instance prints
 `- no instance` and exits 3, and the JSON feed exits 0 even when empty.
 
