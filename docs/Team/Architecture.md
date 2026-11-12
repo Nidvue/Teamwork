@@ -279,7 +279,7 @@ fails when the workflow and this table disagree.
   * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
     matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
-    (five cells, ten jobs: the Windows cell runs as six path shards, and the
+    (five cells, twelve jobs: the Windows cell runs as eight path shards, and the
     ubuntu 3.12 cell runs the named subset `tests/unit tests/acceptance` and the
     macOS cell runs that subset plus `tests/integration/test_portability_flow.py`,
     instead of the whole suite),
@@ -292,14 +292,21 @@ fails when the workflow and this table disagree.
     90-minute cap (run 43000716956: the a-f row carried unit a-f plus the whole
     integration and acceptance trees), and the integration tree was the one row
     that stayed long after that split (55+ minutes on run 43035306476 while the
-    other four finished in 2/5/11/16). Six shards, disjoint by path and together
-    naming every `test_*.py` under `tests/`: `unit-a-f`, `unit-g-o`, `unit-p-z`
-    (letter ranges of `tests/unit/`), `integration-a-l`, `integration-m-z` (letter
-    ranges of `tests/integration/`), `acceptance`. Every shard names itself in the
-    job name through `matrix.shard` and runs pytest with `-v --durations=25`, so a
-    shard that reaches the cap leaves the last test it started in the log.
-    `tests/unit/test_ci_contracts.py` expands those paths over the tree and fails
-    on a test file no shard runs or a file two shards run.
+    other four finished in 2/5/11/16). Eight shards, disjoint by path and together
+    naming every `test_*.py` under `tests/`: `unit-a-f`, `unit-g-o`, `unit-p-r`,
+    `unit-s-z` (letter ranges of `tests/unit/`), `integration-a-l`,
+    `integration-git-heavy`, `integration-m-z-rest` (the integration tree, its last
+    two rows named by measured cost because a letter range says nothing about the
+    wall clock), `acceptance`. The last two long rows are split by measurement, not
+    by letter: run 43119769552 at 3a10869 finished in 14m23s with
+    `integration-m-z` at 14m02s and `unit-p-z` at 12m34s, 914 test functions in the
+    unit range and the one repository-cloning module inside the integration range.
+    Every shard names itself in the job name through `matrix.shard` and runs pytest
+    with `-v --durations=25`, so a shard that reaches the cap leaves the last test
+    it started in the log. `tests/unit/test_ci_contracts.py` expands those paths
+    over the tree and fails on a test file no shard runs, a file two shards run, or
+    a row carrying more test functions than its tree's cap (`700` unit, `150`
+    integration, both read from that measurement).
   * The matrix is **sized to the portability question**, not run five times over
     (T-0105). The question is "does the suite work on the Python versions and the
     OSes this project supports", and the interpreters that answer it are the

@@ -7,7 +7,7 @@
 # by a workflow-level filter.
 #
 # Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix, the
-# Windows cell split into six path shards), build, privacy, committer guard,
+# Windows cell split into eight path shards), build, privacy, committer guard,
 # release-consistency, docs, docs-contract. Every job must be green on the pushed
 # revision.
 #
@@ -25,7 +25,7 @@
 # `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
 # acceptance are the cheap 8s proof of the ACs, and the rest of the
 # subprocess-heavy integration tree (338 tests, 30% of the serial wall clock)
-# already runs on both boundary interpreters and on all six Windows shards; no
+# already runs on both boundary interpreters and on all eight Windows shards; no
 # test in the tree branches on darwin, so neither cell carries it. Every cell
 # runs under pytest-xdist `--numprocesses=auto` (`-n auto`) except the Windows
 # shards, which are already split by path: measured 242s serial against 94s with
@@ -291,15 +291,22 @@ jobs:
           # Windows spawns processes several times slower than the POSIX runners and
           # this suite spawns hundreds of them, so one Windows job exceeded the
           # 90-minute cap even after the traceability guard stopped re-running the
-          # privacy scan (run 42941335942). Six shards, no plugin and no new
-          # dependency. The three unit letter ranges are one row each and the two
-          # subprocess-heavy trees stand alone, because the first split left unit
-          # a-f carrying integration and acceptance and that row was cancelled at
-          # the cap on run 43000716956. A cancelled shard now names the files it was
-          # running instead of hiding the whole lane. The integration tree is the
-          # one row that stayed long (55+ minutes on run 43035306476 while the other
-          # four finished in 2/5/11/16), so it is split by file range too, and every
-          # shard names itself in the job name and reports its own slowest tests.
+          # privacy scan (run 42941335942). Eight shards, no plugin and no new
+          # dependency. The subprocess-heavy trees stand alone, because the first
+          # split left unit a-f carrying integration and acceptance and that row was
+          # cancelled at the cap on run 43000716956. A cancelled shard names the
+          # files it was running instead of hiding the whole lane. The last two long
+          # rows (run 43119769552 at 3a10869: integration-m-z 14m02s, unit-p-z
+          # 12m34s) are split by measured cost, not by letter, because a letter
+          # range says nothing about the wall clock: the unit range carried 914 test
+          # functions and the integration range hid the one module that clones
+          # repositories, which cost 24.3s of the range's 38s on a local serial run.
+          # So unit p-z becomes two letter ranges of 579 and 335 tests, and the
+          # integration range becomes the four modules that spawn git and the twelve
+          # that do not. `test_ci_contracts.py` counts the tests each row names and
+          # fails when a row carries more than its tree's cap, and fails when a test
+          # file lands in no shard. Every shard names itself in the job name and
+          # reports its own slowest tests.
           - os: windows-latest
             python-version: "3.13"
             coverage: false
@@ -313,8 +320,13 @@ jobs:
           - os: windows-latest
             python-version: "3.13"
             coverage: false
-            shard: "unit-p-z"
-            paths: "tests/unit/test_[p-z]*.py"
+            shard: "unit-p-r"
+            paths: "tests/unit/test_[p-r]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "unit-s-z"
+            paths: "tests/unit/test_[s-z]*.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
@@ -323,8 +335,13 @@ jobs:
           - os: windows-latest
             python-version: "3.13"
             coverage: false
-            shard: "integration-m-z"
-            paths: "tests/integration/test_[m-z]*.py"
+            shard: "integration-git-heavy"
+            paths: "tests/integration/test_portability_flow.py tests/integration/test_release_consistency_integration.py tests/integration/test_release_workflow_flow.py tests/integration/test_role_memory_lease.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "integration-m-z-rest"
+            paths: "tests/integration/test_makefile_flow.py tests/integration/test_memory_flow_certification.py tests/integration/test_memory_index_header.py tests/integration/test_memory_pack_flow.py tests/integration/test_memory_verify_flow.py tests/integration/test_release_gate_flow.py tests/integration/test_release_traceability_flow.py tests/integration/test_status_contract.py tests/integration/test_task_graph_flow.py tests/integration/test_token_tools.py tests/integration/test_unattended_landing_flow.py tests/integration/test_workspace_flow.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
