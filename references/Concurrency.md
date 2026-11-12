@@ -123,9 +123,11 @@ teamwork.py lane reap                 # reconcile, free slots, recycle finished 
 - **Reviews become lanes.** A deliverable in `review` is claimed for a Reviewer
   instance in the next wave; the reviewer lane claims, verdicts, and its pass
   merges - the same gate, one process further out.
-- **A finished job leaves nothing staffed.** `lane reap` retires the instance of every
-  lane that ended and holds nothing else (move-only, record repointed), so the seat
-  is recycled without a separate prune; the pulse fold does the same on each wake.
+- **A finished job recycles its seat.** `lane reap` retires the instance of a lane
+  that ended and holds nothing else (move-only, record repointed), under the same
+  fold policy as `instance prune --keep-required`: never the CEO, one instance of
+  each gate role kept. A surplus seat is recycled without a separate prune; the
+  pulse fold does the same on each wake.
 - **State survives the supervisor.** No live object is required: `lane reap` and a
   re-entered `swarm run` resume from `Runtime/Lanes/`.
 

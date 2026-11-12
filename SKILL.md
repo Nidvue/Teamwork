@@ -459,7 +459,7 @@ Completion gate - all of:
 - [ ] Docs match merged code; no scratch or temp files; nothing unnecessary committed.
 - [ ] Final report: deliverable, how to run it, evidence table, limitations, follow-ups.
 
-Then end every live lane with `lane stop <run>` and run `lane reap`: it reconciles a lane that died without an outcome, frees its slot and recycles the seat of every finished lane (move-only to `Runtime/Retired/`; `--keep` leaves the instances staffed). Confirm `loop` still reports STOP on the final head, and deliver the report.
+Then end every live lane with `lane stop <run>` and run `lane reap`: it reconciles a lane that died without an outcome, frees its slot and recycles the seat of a finished lane under the roster policy - never the CEO, one instance of each gate role kept (move-only to `Runtime/Retired/`; `--keep` leaves the instances staffed). Confirm `loop` still reports STOP on the final head, and deliver the report.
 ## Reference files (read on demand)
 
 `SKILL.md` is the operating procedure; policy detail lives in `references/`. Read the one you need instead of the whole skill.
