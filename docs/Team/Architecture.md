@@ -299,8 +299,8 @@ fails when the workflow and this table disagree.
     two rows named by measured cost because a letter range says nothing about the
     wall clock), `acceptance`. The last two long rows are split by measurement, not
     by letter: run 43119769552 at 3a10869 finished in 14m23s with
-    `integration-m-z` at 14m02s and `unit-p-z` at 12m34s, 914 test functions in the
-    unit range and the one repository-cloning module inside the integration range.
+    `integration-m-z` at 14m02s and `unit-p-z` at 12m34s, the unit range carrying the
+    bulk of the test functions and the one repository-cloning module inside the integration range.
     Every shard names itself in the job name through `matrix.shard` and runs pytest
     with `-v --durations=25`, so a shard that reaches the cap leaves the last test
     it started in the log. `tests/unit/test_ci_contracts.py` expands those paths
@@ -320,7 +320,7 @@ fails when the workflow and this table disagree.
     written on, so macOS is one of the hosts it exists for. The unit tree's
     `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
     acceptance are the cheap proof of the ACs; the rest of the subprocess-heavy
-    integration tree (338 tests, 30% of the serial wall clock) runs on both
+    integration tree (30% of the serial wall clock) runs on both
     boundary interpreters and on the eight Windows shards, and no test in the tree
     branches on darwin.
     `tests/unit/test_ci_contracts.py` pins each subset in `SUBSET_CELLS` (a
@@ -2382,7 +2382,7 @@ standard and budget without a second line.
 
 **Reproduced before implementation.** `.pi/Scratch/architect/probe_feature_split.py`
 (gitignored scratch) runs this section's predicate against hand-written records:
-17 cases, 0 mismatches - red on a deliberately shared file and on a shared
+no mismatch on any case - red on a deliberately shared file and on a shared
 directory, green on a clean split, green on sibling names and on a closed feature
 releasing its paths, red on a glob, on `.pi/` state, on a generated artifact, on
 the records file, on a case-folded collision, on an in-flight dependency, on one
