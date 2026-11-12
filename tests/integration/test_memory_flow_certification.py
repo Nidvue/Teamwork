@@ -21,8 +21,6 @@ import re
 import time
 from pathlib import Path
 
-import pytest
-
 from teamwork import config, lanes, memorypack, records
 
 AGENTS = "ceo,developer-1,developer-2,reviewer-1"
@@ -208,11 +206,6 @@ def test_promotion_moves_a_short_entry_to_long_and_a_long_entry_to_the_archive(
     assert "memory/archive/M-0001" in capsys.readouterr().out
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="AC-M23-2 (recall half): recall and memory search drop archived records, "
-    "Memory.md 15.3 says they resolve them; developer T-0109 owns the fix",
-)
 def test_recall_resolves_an_archived_record(cli, project, capsys) -> None:
     """AC-M23-2 (recall half): the demotion leaves a pointer recall still resolves."""
     root = init_workspace(cli, project)
@@ -235,7 +228,7 @@ def test_recall_resolves_an_archived_record(cli, project, capsys) -> None:
     assert cli("--project", project, "recall", "vendored cache", "--agent", "developer") == 0
     assert "vendored cache" in capsys.readouterr().out
     assert cli("--project", project, "memory", "search", "vendored cache") == 0
-    assert "memory/archive/M-0001" in capsys.readouterr().out
+    assert "ArchivedMemory.md#M-0001" in capsys.readouterr().out
 
 
 def test_the_dream_line_rides_lane_start_and_pulse_and_a_second_apply_is_empty(
