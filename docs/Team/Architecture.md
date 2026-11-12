@@ -299,7 +299,7 @@ fails when the workflow and this table disagree.
     integration tree, its last three rows named by measured cost because a letter
     range says nothing about the
     wall clock), `acceptance`. The last two long rows are split by measurement, not
-    by letter: run 43119769552 at 3a10869 finished in 14m23s with
+    by letter: run 43119769552 at 3a10869ea4d28dec4a3e902fbf29efdfc16fa4f8 finished in 14m23s with
     `integration-m-z` at 14m02s and `unit-p-z` at 12m34s, the unit range carrying the
     bulk of the test functions and the one repository-cloning module inside the integration range.
     Every shard names itself in the job name through `matrix.shard` and runs pytest
