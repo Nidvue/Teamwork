@@ -37,6 +37,14 @@ One engine backs all three; the skill is how people install and use it.
   designer work concurrently against the same contract.
 - **Auditable by design.** Every mutation is appended to a hash-chained ledger
   (`Ledger.jsonl`) you can verify without trusting the team.
+- **Built-in memory.** Role-shared short- and long-term memory, a context tree
+  over every record, and a promotion rule that keeps startup reads small.
+- **Real parallelism, no plugin.** `swarm run` sizes a wave from the work in hand
+  and detaches one budgeted host process per lane.
+- **Agents that talk to each other.** A prioritised, preemptible mailbox, so a
+  review finding or a blocked fact reaches its owner before the next task.
+- **Watchable state.** `status` and `status --json` report every instance, task,
+  lane, model and progress; the bundled widget renders the same feed.
 
 ## 30-second quickstart
 
@@ -67,8 +75,15 @@ reports `CONTINUE` until every criterion and test layer passes. Full walkthrough
   Manager, Project Manager, Designer, Developer, Tester, Release Engineer,
   Technical Writer, Data Engineer, Reviewer, Security Auditor) plus a Team Leader
   per feature.
-- Role-shared memory and task queues; private per-instance workspaces.
+- Role-shared memory and task queues; private per-instance workspaces, with the
+  memory index and the `ctx://` tree keeping a startup read inside the cap.
 - Two-stage quality gate: author self-check, then independent Reviewer verdict.
+- Parallel lanes with no host plugin: `swarm run` measures the work and sizes the
+  wave, then `lane start` detaches one budgeted process per unit.
+- An agent-to-agent mailbox (`message send|inbox|take|done`) whose `urgent`
+  priority preempts the recipient's lane and pauses its task.
+- Live state for an operator or a UI: `status`, `status --json` (schema 2) and the
+  bundled widget.
 - Layered tests, one owner per layer, tracked in `tests plan`.
 - Hash-chained ledger with `ledger verify`, `ledger export` and `trace`.
 - Coordination health with `coordination --strict`: duplicate work, echoed

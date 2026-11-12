@@ -5,8 +5,9 @@ Owner: Technical Writer.
 Related: [Home](../index.md) · [Quickstart](quickstart.md) · [Usage patterns](usage.md) · [How it works](how-it-works.md) · [Features](features.md) · [CLI reference](cli.md)
 
 How to run a team that is already staffed: keep it inside provider caps, keep its
-memory coherent, resume it after a crash, prove its audit trail and route its
-models. Every command here is also listed, with every flag, in the
+memory coherent, resume it after a crash, prove its audit trail, route its models,
+watch its live state, route a message between agents and keep the token budget
+true. Every command here is also listed, with every flag, in the
 [CLI reference](cli.md).
 
 ## 1. Provider slots: never overload one endpoint
@@ -129,7 +130,81 @@ model id it did not read from the environment - when the host is unknown it says
 so and writes nothing. That is the whole routing model: quality where output
 compounds, the cheapest capable model where it does not.
 
-## 6. Day-two checks
+## 6. Watch the team: live state and the widget
+
+`status` is the operator panel and the UI feed in one command:
+
+```console
+$ teamwork status                      # every instance, plus the recent lanes
+$ teamwork status --agent Reviewer-1   # one instance
+$ teamwork status --json               # the stable feed (schema 2)
+```
+
+The panel prints each instance's state (`busy`/`idle`), its current task, the
+task title, elapsed time and progress, plus a `# Lanes` block for the recent lanes
+(live first, then newest). The JSON feed carries `schema`, `generated`, `count`,
+`counts` (`busy`, `idle`, `ready`, `review`, `lanes`), an `instances` array and a
+`lanes` array; every row names the `model` and `provider` it runs with, so a
+routing mistake is visible in the feed rather than inferred from a log.
+
+The packaged status extension (`extensions/teamwork-status.ts`) renders that feed as a
+bounded widget - at most 12 lines and 100 columns, one line per lane, busy rows
+before idle, every idle instance collapsed into one counted line - and a footer
+status line with the busy/total count. It refreshes every 5 s, is silent when no
+engine is found, and `/teamwork-status` toggles it. It imports only `node:`
+built-ins and the host's own packages, so installing it adds no dependency, and
+removing it changes nothing in the protocol.
+
+## 7. The agent mailbox
+
+An agent that needs another agent to do, check or answer something sends a
+message. It is queued, prioritised and delivered in the recipient's next lane
+packet:
+
+```console
+$ teamwork message send --from Reviewer-1 --to Developer-2 --priority high \
+      --subject "T-0131 needs the repro line" --task T-0131
+$ teamwork message inbox --for Developer-2
+$ teamwork message take M-0001 --for Developer-2 --by Developer-2
+$ teamwork message done M-0001 --for Developer-2 --by Developer-2 --result "<evidence>"
+```
+
+`urgent` is the only priority that preempts: the supervisor stops the recipient's
+lane, marks its task `paused` with the message id, runs a mailbox lane that drains
+the queue, and `lane resume <T-id>` puts the task back. `high`, `normal` and `low`
+wait for the recipient's next read, so a message never interrupts a step. `take`
+makes exactly one lane process a message, which is what stops two instances of the
+same role from doing the work twice.
+
+Use it for a review finding the author must act on, a fact another role holds, an
+interface change that invalidates a peer's work, or a hand-off. It is not a task
+queue (`task add`), not a progress log (the worklog) and not a channel to the user
+(only the CEO reports).
+
+## 8. Token economy
+
+The team's own startup read is a measured number, not a feeling:
+
+```console
+$ teamwork harness budget                 # per-instance bytes against the cap
+$ teamwork harness budget --recallable    # what load never prints
+$ teamwork throughput                     # surface bytes with latency and rework
+```
+
+The cap is `AlwaysOnBudgetKb` (122880 B per instance). When a row is over, the
+surface is trimmed - never the cap raised. Three mechanisms keep it true:
+
+| Mechanism | What it saves |
+|---|---|
+| The memory index | `load` prints a capped index block instead of every memory entry; the entries stay on disk and `recall` reads them on demand. |
+| The `ctx://` tree | L0/L1/L2 levels let a lane read a summary or a record instead of a file; `context find` answers a question without loading `Archive.md`, `Decisions.md` or a task queue. |
+| Read by id | `archive --task T-ID`, `decision list`, `trace T-ID` and `board` answer the question the agent actually asked. A whole `Archive.md` is roughly 0.63M tokens against a ~0.11-0.15M startup. |
+
+A lane's own budget follows its unit: 10 tool calls and 10 minutes for prose, 16
+and 25 for code, 24 and 40 for a security/release/data unit. `LaneToolBudget` in
+`Settings.json` overrides the tool-call side for every unit when set.
+
+## 9. Day-two checks
 
 | Question | Command |
 |---|---|

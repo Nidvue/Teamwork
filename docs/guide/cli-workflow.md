@@ -218,7 +218,7 @@ Branches with PR and merge state.
 ### `pr`
 
 ```text
-teamwork pr {open,list,merge} ...
+teamwork pr {open,list,merge,set} ...
 ```
 
 #### `pr open`
@@ -287,6 +287,19 @@ render that can leave a board equal to the queues - including rows another lane
 moved while the branch waited. A render that cannot be written or committed is
 reported as `the merge ... is LANDED, but docs/Team/Board.md ... is STALE`, with the
 `board --write` repair command; the merge record is never rolled back.
+
+#### `pr set`
+
+```text
+teamwork pr set --pr PR --status {merged,closed} [--merge-commit SHA] [--by BY] [--force REASON]
+```
+
+Repair a PR record left `merged` or `closed` by an out-of-band landing, so `audit`
+stops reporting it as an abandoned PR. `--force <reason>` is required, the reason
+is recorded as `pr.repair` with the old and new status, and the command is refused
+when the PR's review did not pass. `--merge-commit` must name a real revision -
+a commit in this clone or a `pr.merge` the ledger records - because the field is
+what later evidence quotes as the landing revision.
 
 ### `commit`
 

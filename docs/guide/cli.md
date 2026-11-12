@@ -16,7 +16,9 @@ Every option was produced from `teamwork <cmd> --help`.
 | [CLI: audit and control](cli-audit.md) | ledger, trace, coordination, loop, model, scripts |
 
 This page carries invocation, global options, exit codes and the commands that
-set up a workspace, scale roles, run the queue and edit memory.
+set up a workspace, scale roles, run the queue and edit memory - plus the
+coordination surface (the agent mailbox and attention items) and the live-state
+feed.
 
 ## Invocation
 
@@ -231,12 +233,35 @@ lease: a CTO's memory goes to the CEO, and when the holder is the top of the cha
 too the peers are told to open a dispute instead. A holder cannot contest itself -
 it releases the pen or finishes the update.
 
+#### `memory pack`, `search`, `verify`, `dream`
+
+```text
+teamwork memory pack [--role ROLE] --task T-ID|TEXT [--budget BUDGET]
+teamwork memory search [--role ROLE] QUERY
+teamwork memory verify [--role ROLE] [--focus TEXT|T-ID] [--limit N] [--json] [--apply] [--by BY]
+teamwork memory dream [--role ROLE] [--dry-run] [--apply] [--by BY]
+```
+
+Four memory operations beyond the pen:
+
+| Command | What it does |
+|---|---|
+| `memory pack` | Assembles a task-scoped pack - the entries worth injecting for one task, ranked and cut to `--budget` bytes - so a lane reads the relevant memory instead of every entry. |
+| `memory search` | Deterministic search over the role's memory (short, long and archived), the same scoring the pack uses. |
+| `memory verify` | Re-checks every evidence citation a record carries: each cited revision must exist and each cited path must still exist. It reports per kind and the **worst status wins** (`revision drifted | revision: <sha> is a commit here; path: <p> is missing`). `--focus` narrows it, `--json` is machine-readable, `--apply` rewrites the records it can repair; the default is report-only. |
+| `memory dream` | Proposes promotions (a stale short-term entry that belongs in long-term memory), edits and prunes. `--dry-run` is the default; `--apply` writes them and records the pass in the ledger. |
+
+`memory verify` is the answer to a memory that cites a revision the tree no longer
+has: the record keeps its text, but the drifted evidence is named instead of
+reading as verified. `load` shows the role's memory; these commands decide what
+belongs in it.
+
 ## Tasks, board and scheduling
 
 ### `task`
 
 ```text
-teamwork task {add,list,next,set,check,reclaim,rm} ...
+teamwork task {add,list,next,set,check,reclaim,rm,archive} ...
 ```
 
 Manage a role's shared priority queue.
@@ -351,6 +376,17 @@ teamwork task rm AGENT HANDLE --by BY [--force REASON]
 
 Remove a task (own role only).
 
+#### `task archive`
+
+```text
+teamwork task archive AGENT
+```
+
+Fold that role's finished tasks out of the live queue and into its archive file,
+so a long-lived role's `TaskQueue.md` stops growing and a `load` stays small. Only
+`done` and `dropped` tasks move; an open task is never archived. Run it after a
+merge, when the role's queue is longer than the work in front of it.
+
 ### `board`
 
 ```text
@@ -443,7 +479,7 @@ teamwork swarm run --lanes 6 --minutes 90 --poll 5
 ### `lane`
 
 ```text
-teamwork lane {start,list,status,logs,wait,stop,reap} ...
+teamwork lane {start,list,status,logs,wait,stop,reap,preempt} ...
 ```
 
 One lane is one child process with a packet in `Agents/<Instance>/Runs/<run>.md`,
@@ -488,6 +524,18 @@ teamwork lane reap
 `wait` blocks until the named lanes end; `stop` signals a lane's process group,
 records why and releases its provider lease; `reap` reconciles lanes that died
 without writing an outcome and frees their slots.
+
+#### `lane preempt`
+
+```text
+teamwork lane preempt HANDLE [--message M-0001] [--reason REASON] [--by BY]
+```
+
+Stop a lane because an urgent message displaced it: the lane is stopped, its task
+is marked `paused` with the message id that displaced it, and a mailbox lane is
+started for the recipient. `lane resume <T-id>` returns the task to `doing` once
+the mailbox is empty. The supervisor runs this on its next wave for any instance
+holding a pending `urgent` message, so an operator rarely needs it by hand.
 
 ### `slot`
 
@@ -537,6 +585,55 @@ teamwork slot reap [--provider PROVIDER]
 ```
 
 Drop dead or stale slots.
+
+## Coordination
+
+Two records carry work that is not a task: a message to another agent, and an
+item that needs a person.
+
+### `message`
+
+```text
+teamwork message send --from SENDER --to TO --subject SUBJECT
+    [--priority {urgent,high,normal,low}] [--body BODY] [--task TASK] [--reply-to M-ID]
+teamwork message inbox --for INSTANCE [--all] [--json]
+teamwork message take M-ID --for INSTANCE --by BY
+teamwork message done M-ID --for INSTANCE --by BY --result RESULT [--drop]
+```
+
+The mailbox is `Runtime/Mailbox/<Instance>/M-nnnn.json`, one file per message,
+mutated under `Runtime/Locks/mailbox.lock`. It is not a second ledger: the ledger
+records that a message was sent, taken and done; the mailbox holds the message.
+
+| Verb | What it does |
+|---|---|
+| `send` | Queues a message for another instance. The subject is one line (120 chars), the body is capped at 4000. A recipient that is not in the roster is refused with exit `2` and the known names. |
+| `inbox` | The pending messages in priority order, then oldest first. `--all` includes taken and done; `--json` prints one JSON object per message. |
+| `take` | Claims a message for one lane, so a second lane of the same role cannot process it twice. Taking a message another lane holds is refused. |
+| `done` | Closes it with the result (`--drop` records it as dropped instead). A message another lane took cannot be closed by you. |
+
+Priority is the contract: `urgent` is the only one that preempts. The supervisor
+stops the recipient's lane, marks its task `paused` with the message id, runs a
+mailbox lane that drains the queue, and `lane resume` puts the paused task back.
+`high`, `normal` and `low` never interrupt a step; they are read at the next step
+(or in the lane packet, which opens with `## Messages for you`). Use a message for
+a review finding the author must act on, a fact another role holds, an interface
+change that invalidates a peer's work, or a hand-off - not to assign work (that is
+`task add`) and not to report progress (that is the worklog).
+
+### `attention`
+
+```text
+teamwork attention add --text TEXT --kind {authorization,decision,blocker,review} [--task TASK] --by BY
+teamwork attention list
+teamwork attention resolve M-ID --by BY --resolution RESOLUTION
+```
+
+An attention item is the one thing an agent may not decide alone: an
+authorization, a decision that changes the goal, a blocker, or a review the CEO
+must arbitrate. `add` records it (the intern protocol's "proactivity is a record"
+path), `list` prints the open items oldest first, and `resolve` closes one with the
+decision that settled it. The CEO reads this list; it is not a channel to the user.
 
 ## Live state
 
