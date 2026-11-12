@@ -279,7 +279,7 @@ fails when the workflow and this table disagree.
   * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
     matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
-    (five cells, ten jobs: the Windows cell runs as six path shards, and the
+    (five cells, twelve jobs: the Windows cell runs as eight path shards, and the
     ubuntu 3.12 cell runs the named subset `tests/unit tests/acceptance` and the
     macOS cell runs that subset plus `tests/integration/test_portability_flow.py`,
     instead of the whole suite),
@@ -292,14 +292,21 @@ fails when the workflow and this table disagree.
     90-minute cap (run 43000716956: the a-f row carried unit a-f plus the whole
     integration and acceptance trees), and the integration tree was the one row
     that stayed long after that split (55+ minutes on run 43035306476 while the
-    other four finished in 2/5/11/16). Six shards, disjoint by path and together
-    naming every `test_*.py` under `tests/`: `unit-a-f`, `unit-g-o`, `unit-p-z`
-    (letter ranges of `tests/unit/`), `integration-a-l`, `integration-m-z` (letter
-    ranges of `tests/integration/`), `acceptance`. Every shard names itself in the
-    job name through `matrix.shard` and runs pytest with `-v --durations=25`, so a
-    shard that reaches the cap leaves the last test it started in the log.
-    `tests/unit/test_ci_contracts.py` expands those paths over the tree and fails
-    on a test file no shard runs or a file two shards run.
+    other four finished in 2/5/11/16). Eight shards, disjoint by path and together
+    naming every `test_*.py` under `tests/`: `unit-a-f`, `unit-g-o`, `unit-p-r`,
+    `unit-s-z` (letter ranges of `tests/unit/`), `integration-a-l`,
+    `integration-git-heavy`, `integration-m-z-rest` (the integration tree, its last
+    two rows named by measured cost because a letter range says nothing about the
+    wall clock), `acceptance`. The last two long rows are split by measurement, not
+    by letter: run 43119769552 at 3a10869 finished in 14m23s with
+    `integration-m-z` at 14m02s and `unit-p-z` at 12m34s, 914 test functions in the
+    unit range and the one repository-cloning module inside the integration range.
+    Every shard names itself in the job name through `matrix.shard` and runs pytest
+    with `-v --durations=25`, so a shard that reaches the cap leaves the last test
+    it started in the log. `tests/unit/test_ci_contracts.py` expands those paths
+    over the tree and fails on a test file no shard runs, a file two shards run, or
+    a row carrying more test functions than its tree's cap (`700` unit, `150`
+    integration, both read from that measurement).
   * The matrix is **sized to the portability question**, not run five times over
     (T-0105). The question is "does the suite work on the Python versions and the
     OSes this project supports", and the interpreters that answer it are the
@@ -314,7 +321,7 @@ fails when the workflow and this table disagree.
     `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
     acceptance are the cheap proof of the ACs; the rest of the subprocess-heavy
     integration tree (338 tests, 30% of the serial wall clock) runs on both
-    boundary interpreters and on the six Windows shards, and no test in the tree
+    boundary interpreters and on the eight Windows shards, and no test in the tree
     branches on darwin.
     `tests/unit/test_ci_contracts.py` pins each subset in `SUBSET_CELLS` (a
     cell-to-paths map) with `SUBSET_PATHS` and `PORTABILITY_FLOW`, fails when a
@@ -420,7 +427,7 @@ fails when the workflow and this table disagree.
     worthless. The job graph says the same thing: `scope` can skip only the
     jobs that declare `needs: scope`, and the jobs in `ci.yml` that declare
     neither `needs:` nor `if:` are `committer-guard` and `release-consistency`
-    - so a tag push, on which `scope` reports `code=false` and the six
+    - so a tag push, on which `scope` reports `code=false` and the seven
     expensive jobs are skipped, still runs the classifier and those two jobs.
     The property is checkable without a line number: read the `needs:` and
     `if:` keys of every job in `.github/workflows/ci.yml`; the jobs with
@@ -444,7 +451,8 @@ fails when the workflow and this table disagree.
   it is not, and the same file with `grep -n "needs: \[consistency\]"` says
   whether `build` waits for it. While that job is not in the tree, the offline
   half in `ci.yml` is the only gate.
-* `docs.yml`: build and deploy the site to GitHub Pages on `main`; it triggers
+* `docs.yml`: build and deploy the site to GitHub Pages on `main` in its two jobs,
+  `check` (links, privacy and strict build) and `deploy`; it triggers
   on the same prose/media set as the `scope` classifier and runs the checks
   that matter for prose (`teamwork links`, the privacy scan, `mkdocs build
   --strict`). The trigger policy and the offline/online split are written out
