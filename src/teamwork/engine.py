@@ -1101,18 +1101,28 @@ def _merge_revision_witnessed(root: Path, project: Path, pr_id: str, rev: str) -
     ledger keeps the merge that happened (P-0010: ``pr.merge`` at f91bf1b, the
     commit gone from this clone), so the ledger is the second witness. A
     revision neither of them names is a fabrication and is refused.
+
+    The ledger half reads the record's fields, never its prose: a ``pr.merge``
+    whose first detail token is this PR and whose ``rev`` is this revision (or
+    the full revision a short one abbreviates). Text inside a detail - a branch
+    name, a word - is not a witness, so a repair cannot name one.
     """
     if (
         is_git_repo(project)
         and run_git(project, "cat-file", "-e", f"{rev}^{{commit}}").returncode == 0
     ):
         return True
-    return any(
-        r.get("action") == "pr.merge"
-        and pr_id in (r.get("detail") or "")
-        and rev in (r.get("detail") or "") + (r.get("rev") or "")
-        for r in ledger_read(root)
-    )
+    want = rev.strip().lower()
+    for record in ledger_read(root):
+        if record.get("action") != "pr.merge":
+            continue
+        tokens = (record.get("detail") or "").split()
+        if not tokens or tokens[0].upper() != pr_id.upper():
+            continue
+        landed = (record.get("rev") or "").strip().lower()
+        if landed and (landed == want or landed.startswith(want)):
+            return True
+    return False
 
 
 def _pr_set(args, root: Path, project: Path, path: Path) -> int:
@@ -1125,6 +1135,7 @@ def _pr_set(args, root: Path, project: Path, path: Path) -> int:
     the recorded merge revision must exist in the repository, and the ledger
     keeps the old and the new status so the correction is auditable.
     """
+    actor, _arole = validate_actor(root, args.by, "repairer", allow_role=False)
     status = args.status
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
         prs = parse_reviews(path)
@@ -1165,7 +1176,6 @@ def _pr_set(args, root: Path, project: Path, path: Path) -> int:
             f"records for {pr['id']}: a repair may only name a revision that landed.",
             2,
         )
-    actor = (args.by or "operator").strip()
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
         fresh = parse_reviews(path)
         pidx = find_pr_exact(fresh, pr["id"], pr.get("branch"))
@@ -18787,7 +18797,7 @@ def _parsers_integration(sub, common) -> None:
     s.add_argument("--pr", required=True)
     s.add_argument("--status", required=True, choices=("merged", "closed"))
     s.add_argument("--merge-commit", default="", metavar="SHA")
-    s.add_argument("--by", default="", help="who repairs it (recorded in the ledger)")
+    s.add_argument("--by", default="", help="required: the instance repairing it")
     s.add_argument(
         "--force",
         default="",
