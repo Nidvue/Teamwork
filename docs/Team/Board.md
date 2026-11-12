@@ -134,7 +134,7 @@ under two roles is two tasks.
 | ceo | T-0043 | review-pass | done | P-0185 | 31b09ef |
 | ceo | T-0044 | instance-lifecycle | done | P-0186 | 512b13e |
 | ceo | T-0045 | store-paths | done | P-0187 | e64f53e |
-| ceo | T-0046 | instance-lifecycle | doing | P-0188 | - |
+| ceo | T-0046 | instance-lifecycle | done | P-0188 | 6f3c353 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -323,7 +323,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0046 · Streaming dispatch: swarm run and pulse --spawn return without waiting; round-robin distribution | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
