@@ -336,7 +336,7 @@ jobs:
             python-version: "3.13"
             coverage: false
             shard: "integration-git-heavy"
-            paths: "tests/integration/test_portability_flow.py tests/integration/test_release_consistency_integration.py tests/integration/test_release_workflow_flow.py tests/integration/test_role_memory_lease.py"
+            paths: "tests/integration/test_portability_flow.py tests/integration/test_refresh_flow.py tests/integration/test_release_consistency_integration.py tests/integration/test_release_workflow_flow.py tests/integration/test_role_memory_lease.py"
           - os: windows-latest
             python-version: "3.13"
             coverage: false
