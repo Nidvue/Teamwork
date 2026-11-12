@@ -131,6 +131,7 @@ under two roles is two tasks.
 | ceo | T-0040 | records | done | P-0125 | 346256a |
 | ceo | T-0041 | records | done | P-0181 | 16a83a0 |
 | ceo | T-0042 | records | done | P-0182 | 3831f45 |
+| ceo | T-0043 | review-pass | doing | P-0185 | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -261,7 +262,7 @@ under two roles is two tasks.
 | developer | T-0128 | pr-repair | done | P-0179 | 4a0b853 |
 | developer | T-0129 | - | done | P-0177 | 662454b |
 | developer | T-0130 | status | done | P-0183 | dcd877f |
-| developer | T-0131 | - | todo | - | - |
+| developer | T-0131 | - | dropped | - | - |
 | developer | T-0132 | changelog | done | P-0184 | af128d3 |
 | product-manager | T-0001 | research | done | P-0005 | 73be637 |
 | product-manager | T-0002 | records | done | P-0009 | 148c3de |
@@ -319,7 +320,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0131 · refresh stops when the remote history was rewritten, so the mirror needs a manual reset | P1 | todo | - |
+| ceo | T-0043 · Review pass: dead code, LaneToolBudget, refresh divergence, CLI-reference and capability docs | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.

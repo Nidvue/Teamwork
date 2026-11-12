@@ -95,7 +95,7 @@ decides who owns what.
 |---|---|---|
 | `LaneMinutes` / `TEAMWORK_LANE_MINUTES` | 25 | wall-clock budget per lane; the wrapper kills it and records `timeout` |
 | `LaneAttempts` | 2 | attempts per assignment before the CEO is asked |
-| `LaneToolBudget` | 16 | tool calls the packet allows |
+| `LaneToolBudget` | - | overrides the per-profile tool budget (10 fast / 16 standard / 24 deep) for every unit when set |
 | `LanePollSeconds` / `TEAMWORK_LANE_POLL` | 2 | supervisor poll interval |
 | `LaneMax` | 8 | ceiling on lanes per wave, whatever the measured complexity |
 | `LaneHost` / `TEAMWORK_LANE_HOST` | detected | which host's CLI to launch |
