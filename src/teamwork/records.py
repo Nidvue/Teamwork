@@ -460,6 +460,14 @@ def find_criterion(items: list, handle: str):
     return None
 
 
+def area_looks_like_path(area: str) -> bool:
+    text = one_line(area).strip().lower()
+    if "/" in text or "\\" in text or text.endswith(".py"):
+        return True
+    parts = [p for p in text.replace("-", "/").split("/") if p]
+    return bool(parts) and parts[0] in ("test", "tests") and len(parts) > 1
+
+
 def new_test_record(
     layer: str, area: str, owner: str = "", command: str = "", task: str = ""
 ) -> dict:
