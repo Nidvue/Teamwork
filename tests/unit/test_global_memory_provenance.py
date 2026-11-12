@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from teamwork import engine
-from teamwork.records import merge_entries, new_entry
+from teamwork import config, engine
+from teamwork.records import merge_entries, new_entry, write_memory
 
 
 @pytest.fixture(scope="module")
@@ -34,12 +34,16 @@ def test_the_global_writer_stores_the_author(root):
     text = (root / "src" / "teamwork" / "engine.py").read_text(encoding="utf-8")
     body = text[text.index("def cmd_global(") :]
     body = body[: body.index("def cmd_recall(")]
-    assert re.search(r"new_entry\([^)]*by=args\.by", body, re.S), (
-        "cmd_global must pass the author into the memory entry"
+    assert re.search(r"new_entry\([^)]*by=author", body, re.S), (
+        "cmd_global must pass the derived author into the memory entry"
     )
-    assert '"memory.global",\n        args.by or "ceo",' in body, (
+    assert 'author = args.by or "ceo"' in body, (
+        "cmd_global must derive one author, defaulting to the CEO the ledger already names"
+    )
+    assert '"memory.global",\n        author,' in body, (
         "the ledger record for a global memory entry must name its author"
     )
+    assert 'by=args.by or ""' not in body, "no write may store an empty author"
 
 
 def test_a_merge_never_drops_the_author():
@@ -165,15 +169,23 @@ def test_the_global_command_writes_the_author_into_the_file(cli, project: Path):
     assert "- rev: 0f5f883" in text
 
 
+def _seed_a_legacy_unprovenanced_entry(project: Path) -> None:
+    """Write an entry with no author the way the pre-fix writer left it.
+
+    A store can still hold records written before the writer filled the author
+    in, so the completion and audit paths are proved against such a record
+    rather than against a writer that no longer produces one.
+    """
+    entries, _, _ = merge_entries([], [new_entry("a shared fact", "fact", 3, "", False)])
+    write_memory(_global_file(project), entries, engine.F_GLOBAL, "all agents")
+
+
 def test_a_later_writer_completes_a_provenance_free_entry(cli, project: Path):
     """The merge completes a missing author at the file level, and keeps it."""
     assert cli("--project", project, "init", "--agents", "ceo,reviewer-1", "--no-git") == 0
-    assert (
-        cli("--project", project, "global", "a shared fact", "--key", "fact", "--importance", "3")
-        == 0
-    )
+    _seed_a_legacy_unprovenanced_entry(project)
     text = _global_file(project).read_text(encoding="utf-8")
-    assert "- by: \n" in text, "the entry was written without an author"
+    assert "- by: \n" in text, "the legacy entry has no author"
 
     assert (
         cli(
@@ -301,23 +313,12 @@ def test_the_audit_gate_is_satisfiable_by_a_global_entry(cli, project: Path, cap
     assert "memory entr(y/ies) without `by` provenance" not in out
     assert "lack provenance" not in out
 
-    assert (
-        cli(
-            "--project",
-            project,
-            "global",
-            "an unprovenanced fact",
-            "--key",
-            "bare",
-            "--importance",
-            "3",
-        )
-        == 0
-    )
+    _seed_a_legacy_unprovenanced_entry(project)
     capsys.readouterr()
     cli("--project", project, "loop")
     out = capsys.readouterr().out
     assert "memory entr(y/ies) without `by` provenance" in out
+    assert "lack provenance" in out
 
 
 def test_the_ledger_record_names_the_author(cli, project: Path):
@@ -344,3 +345,28 @@ def test_the_ledger_record_names_the_author(cli, project: Path):
     assert globals_, "the global write was not recorded in the ledger"
     assert globals_[-1]["actor"] == "Developer"
     assert globals_[-1]["rev"] == "0f5f883"
+
+
+def test_global_without_a_by_flag_still_records_the_author(cli, project: Path, capsys) -> None:
+    """The sibling of `remember`: `global` must not store an empty author either.
+
+    `audit` blocks on a memory entry whose `by` is empty and scans the global
+    store, so a `global` write with no `--by` re-blocked the integrity gate that
+    the `remember` fix had just cleared (Reviewer M-0009, CEO M-0010).
+    """
+    assert cli("--project", project, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    assert cli("--project", project, "global", "a fact with no author") == 0
+    store = (
+        project
+        / config.TEAM_ROOT_DIR
+        / config.TEAMS_SUBDIR
+        / engine.team_slug(project)
+        / "Global"
+        / engine.F_GLOBAL
+    )
+    assert [entry["by"] for entry in engine.parse_memory(store) if entry["body"]] == ["ceo"]
+    capsys.readouterr()
+    cli("--project", project, "loop")
+    out = capsys.readouterr().out
+    assert "memory entr(y/ies) without `by` provenance" not in out
+    assert "lack provenance" not in out
