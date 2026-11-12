@@ -3012,14 +3012,26 @@ def ledger_verify(
     tampering: it is reconciled (optionally rewritten). A cache that is *ahead*
     of the file means records were removed: that is reported.
 
-    ``records`` lets a caller that already read the ledger pass it in. A read-only
-    status command passes ``report_cache_lag=False`` so a benign lag is reported as
-    a note plus a repair command instead of a blocker, and nothing is rewritten
-    (T-0020/A14).
+    The file and the cache are read inside the ledger lock, the same critical
+    section ``ledger_append`` writes them in: reading them outside it let a
+    concurrent append land between the two reads and produced a false
+    "records were removed (truncated)" alarm on an intact trail (T-0122). A
+    caller that already holds the lock passes ``_locked=True`` and keeps its own
+    ``records``; otherwise the ledger is re-read here, because a list read before
+    the lock was taken is exactly the stale half of that pair.
+
+    A read-only status command passes ``report_cache_lag=False`` so a benign lag
+    is reported as a note plus a repair command instead of a blocker, and nothing
+    is rewritten (T-0020/A14).
     """
-    if reconcile and not _locked:
+    if not _locked and (ledger_path(root).exists() or ledger_head_path(root).exists()):
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
-            return ledger_verify(root, reconcile=True, _locked=True)
+            return ledger_verify(
+                root,
+                reconcile=reconcile,
+                _locked=True,
+                report_cache_lag=report_cache_lag,
+            )
     problems = []
     prev = ""
     records = ledger_read(root) if records is None else records
@@ -3225,8 +3237,8 @@ def cmd_ledger(args) -> int:
         return cmd_ledger_repair(args)
 
     if args.ledger_cmd == "verify":
+        problems = ledger_verify(root, reconcile=getattr(args, "reconcile", False))
         records = ledger_read(root)
-        problems = ledger_verify(root, reconcile=getattr(args, "reconcile", False), records=records)
         valid = _ledger_valid(records)
         print(f"# Ledger verify ({ledger_path(root)})")
         print(f"# records: {len(valid)} | head: {valid[-1]['hash'][:16] if valid else '-'}")
@@ -6647,7 +6659,7 @@ def _ledger_ready_before_render(root: Path) -> None:
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
         dropped = _trim_torn_tail(path)
         records = ledger_read(root)
-        problems = ledger_verify(root, records=records, report_cache_lag=False)
+        problems = ledger_verify(root, _locked=True, records=records, report_cache_lag=False)
         head_only = [p for p in problems if p.startswith("head cache")]
         chain = [
             p
