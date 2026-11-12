@@ -108,9 +108,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 290 kB |
-| `standard` | 10 | 398 kB |
-| `full` | 17 | 645 kB |
+| `slim` (default) | 7 | 291 kB |
+| `standard` | 10 | 400 kB |
+| `full` | 17 | 646 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 the text a full roster pays for before any work starts: 2.2x what `slim` costs.
@@ -231,6 +231,17 @@ A team that runs one lane at a time is a slow single agent with extra records. F
 | `pulse` fills capacity, not idle lanes | it assigns `LANE_WIP - held` per lane | the old one-task-per-idle-lane rule capped the team |
 | A dependency can release early | `deps: role:T-id@review` or `@started` | the downstream lane needs a frozen interface, not a merge |
 | Reviews are the exception | one claim per Reviewer lane; run several lanes | a deep review is not divisible |
+
+**Delegation is recursive, and the CEO does not do a lane's work.** The CEO's
+output is the decomposition, the dispatch, the arbitration and the final claim;
+every unit of work goes to a lane. A Team Leader lane spawns its own squad, and a
+lane whose slice will not fit its budget splits it into sub-tasks and dispatches
+them - `swarm run` recomputes the wave from the records, so work a lane spawns
+looks exactly like work the CEO dispatches. The chain ends at a small task one
+lane can finish and get verdict-ed inside its budget, and at an independent
+verifier: no lane reviews, tests or merges its own work, and every deliverable
+gets its author's self-check, a different role's review and its test layer run by
+the owning role.
 
 Capacity is bounded by the provider caps in `Settings.json`, never by the lane count: Ollama Cloud 64, DeepSeek 2500, OpenAI 64, Anthropic 64 and 32 default concurrent lanes. `pulse` defers assignments beyond the free-slot count and prints the shortfall. Detail and the measured anti-patterns: `references/Concurrency.md`.
 

@@ -54,7 +54,16 @@ failure with the command and its output, and stop. Do not improvise a replacemen
 3. Claim work with `task next <you>`; never sit idle while ready work exists.
 4. Record evidence as `command @revision -> result`; submit with `selfcheck`, then
    `pr open`. A different role reviews and merges - you never merge your own work.
-5. Stop only when `loop` prints `STOP` and `audit` reports no problems.
+5. Check your mailbox before you start anything long:
+   `message inbox --for <you>`. A message is queued, prioritised and delivered in
+   your next lane packet; `take` it so no other lane of your role does the same
+   work, and `done` it with the result. An `urgent` message is the one that
+   preempts your lane - that is why its task goes `paused` until the mailbox is
+   empty.
+6. Keep your own startup read small: `load` prints a capped memory index rather
+   than every entry, `context find` answers a question without loading a whole
+   record file, and `harness budget` shows the bytes you cost against the cap.
+7. Stop only when `loop` prints `STOP` and `audit` reports no problems.
 
 Read [references/Adapters.md](https://github.com/Nidvue/Teamwork/blob/main/references/Adapters.md)
 for the six host operations,

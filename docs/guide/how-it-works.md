@@ -53,6 +53,17 @@ instances under it, the unattached squad as the CTO's pool, and the Reviewer,
 Security Auditor and CFO as independent lanes that serve every feature without
 reporting to a leader.
 
+**Delegation is recursive, and nobody is a leaf by default.** The CEO does not
+write the deliverable: it decomposes, dispatches and arbitrates, and every unit of
+work goes to a lane. A Team Leader lane fans out into its own squad rather than
+building the feature itself, and a lane whose slice will not fit its budget splits
+it into sub-tasks and dispatches them the same way (`swarm run` recomputes the wave
+from the records, so a lane that spawns work is indistinguishable from a CEO that
+does). The chain ends at a small task one lane can finish and verdict inside its
+budget - and at an independent verifier: no lane reviews or merges its own work,
+and every deliverable gets its owner's self-check, a different role's review, and
+its test layer actually run.
+
 ## 2. What each stage leaves behind
 
 | Stage | Record | Who owns it |
@@ -116,7 +127,12 @@ order are on [Architecture](architecture.md).
     ├── Global/                      # CEO-owned shared memory
     ├── Roles/<Role>/                # shared by every instance; Lessons.md
     ├── Agents/<Instance>/           # private to one instance
-    └── Runtime/                     # ephemeral locks, slots, worktrees
+    └── Runtime/                     # ephemeral, never committed
+        ├── Locks/                   # memory pen, criteria, mailbox, plan
+        ├── Slots/                   # provider leases
+        ├── Lanes/<run>.json         # one record per lane, survives the CLI
+        ├── Mailbox/<Instance>/      # M- records: the agent-to-agent queue
+        └── Worktrees/<Instance>/<T-id>/   # one worktree per task branch
 ```
 
 Project output is committed; team state is local. A second team in the same
