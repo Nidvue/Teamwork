@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.3] - 2026-11-12
+## [1.5.3](https://github.com/Nidvue/Teamwork/compare/v1.5.2...v1.5.3) - 2026-11-12
 
 ### Added
 
