@@ -92,7 +92,12 @@ A team's own tree is hidden and gitignored; project output is committed.
     ├── Global/                      # CEO-owned shared memory
     ├── Roles/<Role>/                # shared by every instance; Lessons.md (L- records)
     ├── Agents/<Instance>/           # private to one instance
-    └── Runtime/                     # ephemeral locks, slots, worktrees
+    └── Runtime/                     # ephemeral, never committed
+        ├── Locks/                   # memory pen, criteria, mailbox, plan
+        ├── Slots/                   # provider leases
+        ├── Lanes/<run>.json         # one record per lane, survives the CLI
+        ├── Mailbox/<Instance>/      # M- records: the agent-to-agent queue
+        └── Worktrees/<Instance>/<T-id>/   # one worktree per task branch
 ```
 
 Memory and the task queue belong to the ROLE, not the instance. `Role.md` is per
