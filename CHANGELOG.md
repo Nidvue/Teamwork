@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Streaming dispatch: the swarm never waits** - `swarm run` and `pulse --commit
+  --spawn` now start the next wave and return; every lane is a detached process
+  that runs independently, and the next wake reconciles the finished ones and
+  refills. `--wait` restores the blocking drain (and `--waves N` implies it) for
+  CI or a one-shot batch. Dispatch is also round-robin across a role's idle
+  instances, so a queue never piles onto one lane.
 - **The roster follows the work: no single lane and no single Reviewer is the
   bottleneck** - `pulse --commit` and `swarm run` add an instance for every
   `LANE_WIP` units of ready work and one Reviewer per unclaimed deliverable
