@@ -17180,6 +17180,52 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
     return True, f"{head} -> {after}"
 
 
+def _unrelated_history(detail: str) -> bool:
+    """Did git refuse the move because the two histories share no root commit?
+
+    ``merge --ff-only`` answers ``fatal: refusing to merge unrelated histories``
+    when the checkout was cloned from a history that was since rewritten - this
+    team rewrote ``main`` twice (T-0011/T-0013), which is exactly how the
+    tool-managed mirror at ``~/.pi/agent/.teamwork-source`` became unrelated to
+    the remote. Nothing in the tree is wrong in that case; the checkout is simply
+    disposable, so the caller may replace it instead of stopping.
+    """
+    return "unrelated histories" in detail.lower()
+
+
+def _origin_url(source: Path, remote: str) -> str:
+    """The URL ``source`` fetches ``remote`` from, or ``""`` when it has none."""
+    got = run_git(source, "remote", "get-url", remote)
+    return got.stdout.strip() if got.returncode == 0 else ""
+
+
+def _reclone(source: Path, repo: str, branch: str) -> tuple[str, str]:
+    """Replace an unrelated-history checkout with a fresh clone -> ``(moved, error)``.
+
+    The clone is made *next to* ``source`` first, so a failed clone leaves the old
+    checkout exactly where it was. The old one is then moved aside under a
+    ``.stale-<sha>`` name and never deleted: it may carry commits an operator made,
+    and deleting a checkout the tool did not create is data loss, not cleanup.
+    """
+    staging = source.with_name(f"{source.name}.new")
+    shutil.rmtree(staging, ignore_errors=True)
+    source.parent.mkdir(parents=True, exist_ok=True)
+    cloned = run_git(source.parent, "clone", "--quiet", "--branch", branch, repo, str(staging))
+    if cloned.returncode != 0:
+        tail = (cloned.stderr or cloned.stdout).strip().splitlines()
+        shutil.rmtree(staging, ignore_errors=True)
+        return "", f"cannot clone {repo} into {source}: {tail[-1] if tail else '?'}"
+    head = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip() or "unknown"
+    moved = source.with_name(f"{source.name}.stale-{head}")
+    n = 1
+    while moved.exists():
+        n += 1
+        moved = source.with_name(f"{source.name}.stale-{head}-{n}")
+    source.rename(moved)
+    staging.rename(source)
+    return moved.name, ""
+
+
 def cmd_refresh(args) -> int:
     """Re-sync the installed skill from the remote, so a host copy follows ``main``.
 
@@ -17209,6 +17255,7 @@ def cmd_refresh(args) -> int:
     if source is None:
         source = bundle.default_mirror_path(dest)
     source = source.resolve()
+    managed = explicit is None and source == bundle.default_mirror_path(dest).resolve()
 
     remote, branch = args.remote, args.branch
     created = False
@@ -17232,6 +17279,22 @@ def cmd_refresh(args) -> int:
 
     if not args.no_fetch:
         ok, detail = _update_source(source, remote, branch)
+        if not ok and managed and _unrelated_history(detail):
+            repo = _origin_url(source, remote) or args.repo
+            if not repo and getattr(args, "project", None):
+                origin = run_git(project_of(project_root(args)), "remote", "get-url", "origin")
+                repo = origin.stdout.strip() if origin.returncode == 0 else ""
+            if repo:
+                moved, failed = _reclone(source, repo, branch)
+                if failed:
+                    die(f"refresh stopped: {failed}")
+                ok, detail = (
+                    True,
+                    (
+                        f"unrelated history - moved the old mirror to {moved}, cloned fresh from {repo}"
+                    ),
+                )
+                created = True
         if not ok:
             die(f"refresh stopped: {detail}")
         print(f"# source {source.name}: {detail}")
