@@ -270,7 +270,7 @@ python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5
 
 ```sh
 python3 "$SKILL/scripts/teamwork.py" swarm run --dry-run   # the measured policy, start nothing
-python3 "$SKILL/scripts/teamwork.py" swarm run             # waves until nothing is runnable
+python3 "$SKILL/scripts/teamwork.py" swarm run             # one async wave, then return (--wait drains)
 python3 "$SKILL/scripts/teamwork.py" pulse --commit --spawn  # one wake: dispatch, then run it
 python3 "$SKILL/scripts/teamwork.py" lane status --live
 ```

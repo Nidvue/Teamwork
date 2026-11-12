@@ -92,7 +92,7 @@ plugin, no extension and no live teammate object:
 
 ```sh
 python3 "$SKILL/scripts/teamwork.py" swarm run --dry-run   # the wave the board justifies
-python3 "$SKILL/scripts/teamwork.py" swarm run             # waves until nothing is runnable
+python3 "$SKILL/scripts/teamwork.py" swarm run             # one async wave, then return
 python3 "$SKILL/scripts/teamwork.py" lane list             # what is live right now
 ```
 
