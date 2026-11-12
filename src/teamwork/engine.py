@@ -11562,12 +11562,19 @@ def cmd_pulse(args) -> int:
     for role, inst_list in sorted(by_role.items()):
         items = list(ready_by_role.get(role, []))
         open_list = list(open_items)
-        for inst in inst_list:
-            if role == "reviewer" and open_list and capacity[inst] > 0:
-                own, t = open_list.pop(0)
-                plan.append(("reviewer", inst, t, f"deliverable review: {t['title']}", own))
-                continue
-            while items and capacity[inst] > 0:
+        while items or (role == "reviewer" and open_list):
+            progressed = False
+            for inst in inst_list:
+                if capacity[inst] <= 0:
+                    continue
+                if role == "reviewer" and open_list:
+                    own, t = open_list.pop(0)
+                    plan.append(("reviewer", inst, t, f"deliverable review: {t['title']}", own))
+                    capacity[inst] -= 1
+                    progressed = True
+                    continue
+                if not items:
+                    continue
                 slot = next(
                     (
                         index
@@ -11577,10 +11584,13 @@ def cmd_pulse(args) -> int:
                     None,
                 )
                 if slot is None:
-                    break
+                    continue
                 item = items.pop(slot)
                 plan.append((role, inst, item, item["title"], ""))
                 capacity[inst] -= 1
+                progressed = True
+            if not progressed:
+                break
 
     limits = load_providers(root)
     slot_holders = {pascal(a) for a in list_agents(root) if find_slot_provider(root, a)}
@@ -11772,7 +11782,8 @@ def cmd_pulse(args) -> int:
         print("- nothing to dispatch: check blocked tasks and open disputes")
     print(
         f"- re-arm this pulse: schedule the next wake every {minutes} min "
-        "(swarm run --waves 0 owns the loop; pulse --commit is one wake)"
+        "(each wake: `pulse --commit --spawn` dispatches and returns; "
+        "`swarm run` is one async wave, `--wait` drains)"
     )
     if getattr(args, "spawn", False):
         print()
