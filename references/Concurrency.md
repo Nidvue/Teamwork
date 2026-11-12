@@ -103,7 +103,7 @@ teamwork.py swarm run --fixed --lanes 4 --minutes 90 --poll 5
 teamwork.py lane status --live        # what is running right now
 teamwork.py lane logs L-0007 --lines 60
 teamwork.py lane stop L-0007 --reason "superseded by L-0008"
-teamwork.py lane reap                 # reconcile a lane that died with no outcome
+teamwork.py lane reap                 # reconcile, free slots, recycle finished seats (--keep opts out)
 ```
 
 - **One lane, one assignment.** A wave hands one unit to each idle instance
@@ -123,6 +123,11 @@ teamwork.py lane reap                 # reconcile a lane that died with no outco
 - **Reviews become lanes.** A deliverable in `review` is claimed for a Reviewer
   instance in the next wave; the reviewer lane claims, verdicts, and its pass
   merges - the same gate, one process further out.
+- **A finished job recycles its seat.** `lane reap` retires the instance of a lane
+  that ended and holds nothing else (move-only, record repointed), under the same
+  fold policy as `instance prune --keep-required`: never the CEO, one instance of
+  each gate role kept. A surplus seat is recycled without a separate prune; the
+  pulse fold does the same on each wake.
 - **State survives the supervisor.** No live object is required: `lane reap` and a
   re-entered `swarm run` resume from `Runtime/Lanes/`.
 
