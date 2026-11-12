@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2](https://github.com/Nidvue/Teamwork/compare/v1.5.1...v1.5.2) - 2026-11-12
+
+Compares from the previous tag, `v1.5.1`.
+
 ### Added
 
 - **No comments in the code, enforced by the lint gate** - the code is the
@@ -61,10 +65,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Review-failure skill candidates** - `skill candidates` lists repeated areas
   and, per role, tasks with failed reviews plus paste-ready `lesson add` and
   `skill create --from-lesson` lines.
+- **`status --json` schema 2** - the payload carries a `lanes` array beside
+  `instances`, every lane and every instance row names the `model` and
+  `provider` it runs with, and `counts.lanes` counts the lanes; the pi widget
+  renders each lane with the model it runs with.
+- **Short-term memory captured at the lane exit** - the harness writes one entry
+  per finished lane from the lane transcript's last `LANE-RESULT` line (`key` =
+  `lane:<T-id>`, `src` = the task, `rev` = the branch head at exit, `by` = the
+  instance), and `load` plus every lane packet inject it. The promotion rule
+  that moves a stale entry to long-term memory, the `memory dream` cadence and
+  the capped wiki ship with it (`docs/Team/Memory.md` 4.1-4.5, 6, 15.5).
+- **`pr set` repairs a stale PR record** - a record left `merged` or `closed` by
+  an out-of-band landing is corrected with a required `--reason` and a full
+  landing revision instead of being reopened by hand.
 
-## [1.5.2](https://github.com/Nidvue/Teamwork/compare/v1.5.1...v1.5.2) - 2026-11-02
+### Changed
 
-Compares from the previous tag, `v1.5.1`.
+- **Commit identity defaults to the repository's configured pair** - a commit is
+  authored by the repository's own `user.name`/`user.email` (or the
+  `teamwork.identity.*` pair), and the role mailbox is opt-in with
+  `TEAMWORK_COMMIT_IDENTITY=role`. The message style drops the `Role:`,
+  `Producers:` and `Acting role:` trailers, so no commit names an agent.
+- **The privacy history scan memoises its line verdict** - a verdict is cached
+  per (allowlist, flags, line) for the shipped rule set, because history holds
+  hundreds of near-identical renders of an append-only document, so a scan no
+  longer re-decides the same line.
+- **The CI test matrix is split into path shards** - the Windows cell runs path
+  shards sized to the portability question, so a cell reports its own failure
+  instead of the whole run hitting the job timeout.
 
 ### Fixed
 
@@ -74,9 +102,21 @@ Compares from the previous tag, `v1.5.1`.
 - The same verification waits up to four minutes for npm's eventual
   consistency, so a successful publish no longer leaves the run red while the
   registry catches up.
-
-No shipped package behaviour changes: both fixes are in the release workflow and
-its tests.
+- **`check_area` gates every area write path** - `tests`, `commit` and `task set`
+  resolve their area through `check_area`, so an unknown area is refused once, at
+  the write, instead of per command.
+- **The ledger append serialises** - `ledger_append` holds `ledger.lock` across
+  read-prev -> append -> head-write, so the head cache cannot lead the file
+  under concurrent writers, and a caller already holding the lock passes
+  `_locked=True` instead of deadlocking.
+- **`refresh` recreates an unrelated or rewritten mirror** - the installed skill
+  copy is rebuilt when the target is not this repository's mirror or its history
+  was rewritten, instead of being reported as up to date.
+- **`tests add` requires `--area`** - a test record without an area is refused
+  at intake, so the layer matrix cannot acquire an unowned row.
+- **`pr set` validates its landing revision** - the repair refuses a landing
+  revision that is not a full sha of a commit in the repository, so the record
+  points at a real landing.
 
 ## [1.5.1](https://github.com/Nidvue/Teamwork/compare/v1.5.0...v1.5.1) - 2026-11-02
 
