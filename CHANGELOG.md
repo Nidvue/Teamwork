@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`instance prune` folds idle seats and releases their resources** - a lane is
+  idle only when it claims no task, holds no provider slot, no memory pen, no
+  review claim and no live lane record, and its role has no ready work. `prune`
+  retires every idle instance in one move-only pass (`Runtime/Retired/`, role
+  memory and queue kept, one ledger record each), never folds the CEO, and
+  `--keep-required` keeps one instance of each gate-critical role; `--dry-run`
+  prints the plan. `pulse --commit` now folds the surplus seats on every wake, so
+  a team that drains its queue no longer leaves a dozen idle agents holding
+  seats.
 - **The CLI reference covers every command family** - `message`, `attention`,
   `context`, `tests`, `decision`, `dispute`, `redline`, `skill`, `evolution`,
   `pr set`, `lane preempt`, `task archive` and `memory pack|search|verify|dream`

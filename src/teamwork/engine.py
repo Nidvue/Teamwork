@@ -5973,6 +5973,8 @@ def cmd_instance(args) -> int:
         return _instance_list(root, args.json)
     if args.instance_cmd == "retire":
         return _instance_retire(root, args)
+    if args.instance_cmd == "prune":
+        return _instance_prune(root, args)
     return _instance_add(root, args)
 
 
@@ -6203,10 +6205,29 @@ def _instance_retire(root: Path, args) -> int:
             f'`--force "<why>"` so the record says what was abandoned.',
             2,
         )
+    shown = _move_to_retired(root, name, d, role, by, args.reason or "no reason given", blockers)
+    print(f"teamwork: retired {name} -> {shown}; the {role} memory and queue stay in place")
+    if not instances_of(root, role):
+        print(
+            f"#   WARNING no {role} instance left: that lane owns work nobody can take. "
+            f"Add one with `instance add {role}`."
+        )
+    return 0
+
+
+def _move_to_retired(
+    root: Path, name: str, source: Path, role: str, by: str, reason: str, blockers: list
+) -> str:
+    """Move one instance directory to ``Runtime/Retired`` and record why.
+
+    Retirement is move-only: Artifacts/, Reports/ and WorkLog.md are evidence the
+    ledger or docs/Team/Archive.md may cite, so nothing is deleted and a failed
+    move is a hard error with no fallback.
+    """
     destination = _retire_destination(root, name)
     destination.parent.mkdir(parents=True, exist_ok=True)
     try:
-        shutil.move(str(d), str(destination))
+        shutil.move(str(source), str(destination))
     except OSError as exc:
         die(
             f"could not move {name} to {destination}: {exc}. The command did not fall "
@@ -6222,18 +6243,99 @@ def _instance_retire(root: Path, args) -> int:
         "instance.retire",
         by,
         name,
-        (args.reason or "no reason given")
+        reason
         + (f" | forced past: {'; '.join(blockers)}" if blockers else "")
         + f" | moved to {shown}; {role} memory kept at Roles/{pascal(role)}",
         "",
         role,
     )
-    print(f"teamwork: retired {name} -> {shown}; the {role} memory and queue stay in place")
-    if not instances_of(root, role):
-        print(
-            f"#   WARNING no {role} instance left: that lane owns work nobody can take. "
-            f"Add one with `instance add {role}`."
-        )
+    return shown
+
+
+def _idle_reasons(root: Path, role: str, name: str) -> list:
+    """Why this instance is NOT idle; an empty list means it holds nothing.
+
+    A lane is idle only when it has no claimed task, no memory pen, no provider
+    slot, no live lane record and no review claim. Anything else is work in
+    flight, and work in flight is never folded.
+    """
+    reasons = list(_instance_busy_reasons(root, role, name))
+    from . import lanes as lane_runtime
+
+    mine = pascal(name)
+    for run in lane_runtime.live_runs(root):
+        if pascal(str(run.get("agent") or "")) == mine:
+            reasons.append(f"live lane {run.get('id')} ({run.get('state')})")
+    for _owner_role, task in iter_tasks(root):
+        if review_is_held(task) and pascal(task.get("review_claim") or "") == mine:
+            reasons.append(f"it holds the review claim on {task['id']}")
+    return reasons
+
+
+def _foldable_instances(root: Path, keep_required: bool) -> tuple:
+    """``(fold, keep)`` for every instance: ``fold`` is idle with nothing to take.
+
+    The CEO is never folded - it is the only voice to the user. ``keep_required``
+    keeps one instance of each gate-critical role so an automatic fold can never
+    strand the gate; an operator running `instance prune` without it drains every
+    idle lane.
+    """
+    from . import lanes as lane_runtime
+
+    lane_runtime.settle(root)
+    reap_slots(root)
+    ready_by_role = {role: _ready_for_role(root, role) for role in list_roles(root)}
+    open_reviews = open_review_items(root)
+    fold, keep = [], []
+    for role in list_roles(root):
+        for name in instances_of(root, role):
+            reasons = _idle_reasons(root, role, name)
+            if reasons:
+                keep.append((name, role, "; ".join(reasons)))
+                continue
+            if role == "ceo":
+                keep.append((name, role, "the CEO is the only voice to the user"))
+                continue
+            if ready_by_role.get(role):
+                keep.append((name, role, f"{len(ready_by_role[role])} ready task(s) for {role}"))
+                continue
+            if role == "reviewer" and open_reviews:
+                keep.append((name, role, f"{len(open_reviews)} unclaimed review(s)"))
+                continue
+            if keep_required and role in ROSTER_REQUIRED and not any(k[1] == role for k in keep):
+                keep.append((name, role, f"one {role} stays for the gate"))
+                continue
+            fold.append((name, role))
+    return fold, keep
+
+
+def _instance_prune(root: Path, args) -> int:
+    fold, keep = _foldable_instances(root, bool(getattr(args, "keep_required", False)))
+    dry = bool(getattr(args, "dry_run", False))
+    print(f"# Prune ({root})")
+    print(f"# idle and foldable: {len(fold)}  kept: {len(keep)}")
+    for name, role in fold:
+        print(f"- fold {name:16s} ({role})")
+    for name, role, why in keep:
+        print(f"- keep {name:16s} ({role}): {why}")
+    if not fold:
+        print("# nothing to fold: no idle instance holds zero work")
+        return 0
+    if dry:
+        print("# dry run: nothing was moved")
+        return 0
+    by = (args.by or "ceo").strip()
+    reason = (args.reason or "idle: no task, pen, slot, lane or review claim").strip()
+    folded = []
+    for name, role in fold:
+        source = agent_dir(root, name)
+        if not source.is_dir():
+            continue
+        shown = _move_to_retired(root, name, source, role, by, reason, [])
+        folded.append(f"{name} -> {shown}")
+    print(f"# folded {len(folded)} instance(s): {', '.join(folded) if folded else 'none'}")
+    print("# resources released: no task claim, no memory pen, no provider slot, no live lane")
+    print("# add one back on demand with `instance add <role>`; role memory and queue stay")
     return 0
 
 
@@ -11499,6 +11601,39 @@ def cmd_pulse(args) -> int:
                 f"reclaim with `task reclaim {role} {t['id']} --as <other> "
                 "--reason 'owner silent'`"
             )
+        print()
+
+    foldable, _kept = _foldable_instances(root, keep_required=True)
+    if foldable:
+        print(f"## idle lanes to fold ({len(foldable)})")
+        for name, role in foldable:
+            print(
+                f"- {name:16s} ({role}) - no task, pen, slot, lane or claim: "
+                "`instance prune` folds it"
+            )
+        if args.commit:
+            by = getattr(args, "agent", "") or "ceo"
+            folded = []
+            for name, role in foldable:
+                source = agent_dir(root, name)
+                if not source.is_dir():
+                    continue
+                _move_to_retired(
+                    root,
+                    name,
+                    source,
+                    role,
+                    by,
+                    "pulse: idle with nothing to take",
+                    [],
+                )
+                folded.append(name)
+            if folded:
+                print(
+                    f"# folded {len(folded)} idle instance(s) and released their resources: "
+                    + ", ".join(folded)
+                )
+                print("# add one back on demand with `instance add <role>`")
         print()
 
     print("## CEO next actions")
@@ -18004,6 +18139,20 @@ def _parsers_workspace(sub, common) -> None:
     p.add_argument("--by", default="ceo", help="who retires it (provenance)")
     p.add_argument("--reason", default="", help="why it goes (required once it holds work)")
     p.add_argument("--force", action="store_true", help="retire even while it holds work")
+    p.set_defaults(func=cmd_instance)
+    p = isub.add_parser(
+        "prune",
+        parents=[common],
+        help="fold every idle instance and release its resources (move-only)",
+    )
+    p.add_argument("--by", default="ceo", help="who folds them (provenance)")
+    p.add_argument("--reason", default="", help="why they go (recorded on each retirement)")
+    p.add_argument("--dry-run", action="store_true", help="print the plan, move nothing")
+    p.add_argument(
+        "--keep-required",
+        action="store_true",
+        help="keep one instance of each gate-critical role (ceo, developer, tester, reviewer)",
+    )
     p.set_defaults(func=cmd_instance)
 
     st = sub.add_parser("task", parents=[common], help="manage an agent's priority task list")

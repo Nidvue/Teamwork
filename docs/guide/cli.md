@@ -155,6 +155,7 @@ teamwork instance add ROLE [--count N] [--name NAME] [--new-role]
                        [--under TEAM_LEADER] [--by BY] [--json]
 teamwork instance list [--json]
 teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
+teamwork instance prune [--by BY] [--reason WHY] [--dry-run] [--keep-required]
 ```
 
 - `add` scaffolds `Agents/<Role>-N` against the existing `Roles/<Role>/`, so a
@@ -190,6 +191,18 @@ teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
   `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`): the
   first cut ran from a stale checkout and lost 102 artifact paths (`L-0001`).
   `parallel` says how many lanes the ready work supports; `list` is the roster.
+- `prune` folds **every idle instance** in one pass: a lane is idle only when it
+  claims no `doing`/`selfcheck`/`review` task, holds no provider slot, no memory
+  pen, no review claim and no live lane record, and its role has no ready work.
+  Each fold is the same move-only retirement (`Runtime/Retired/<Instance>/`, role
+  memory and queue stay) with its own ledger record, so nothing is lost and a
+  second `prune` is a no-op. The **CEO is never folded** - it is the only voice to
+  the user. `--keep-required` also keeps one instance of each gate-critical role
+  (`ceo`, `developer`, `tester`, `reviewer`) so an automatic fold cannot strand a
+  gate; without it the team drains to the CEO and `instance add <role>` restaffs
+  on demand. `--dry-run` prints the plan and moves nothing. `pulse --commit` runs
+  the same fold for the **surplus** seats (keeping the gate roles), so a wake-up
+  that finds nothing to dispatch does not leave a dozen idle agents behind.
 
 ### `memory`
 
