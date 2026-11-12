@@ -8982,6 +8982,15 @@ def cmd_task_set(args) -> int:
             require_runnable_task_graph(root, role, tasks)
         if args.title:
             t["title"] = args.title
+        if getattr(args, "area", None) is not None:
+            area = (args.area or "").strip().lower()
+            if area_looks_like_path(area):
+                die(
+                    f"area '{area}' is a file path, not an area: name the subject the "
+                    "layer covers (e.g. 'ci-matrix'), not the test file",
+                    2,
+                )
+            t["area"] = area
         if args.evidence is not None:
             t["evidence"] = args.evidence.strip()
         if getattr(args, "review_status", None):
@@ -17952,6 +17961,15 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--priority", choices=list(PRIORITY_ORDER))
     s.add_argument("--deps", default=None)
     s.add_argument("--title", default=None)
+    s.add_argument(
+        "--area",
+        default=None,
+        help=(
+            "repair the recorded area: a task whose area is a test file path "
+            "carries a phantom area into `tests plan` and `audit`, so the record "
+            "itself has to be corrected, not only the test record"
+        ),
+    )
     s.add_argument(
         "--branch",
         default=None,
