@@ -758,7 +758,7 @@ def spawn(
     profile = first.profile if first.profile in PROFILE_WEIGHT else "standard"
     minutes = minutes or unit_minutes(root, profile)
     attempts = attempts or lane_attempts(root)
-    tool_budget = tool_budget or unit_tool_budget(profile)
+    tool_budget = tool_budget or unit_tool_budget(root, profile)
     resolved = engine.resolved_model(root, agent)
     model = model or str(resolved.get("model") or "")
     provider = (
@@ -1093,6 +1093,7 @@ class Measurement:
     free_slots: int
     lane_max: int
     capped_by: str
+    tool_budget_override: int
 
     def lines(self) -> list:
         profiles = (
@@ -1112,6 +1113,11 @@ class Measurement:
         ]
 
     def budget_text(self) -> str:
+        if self.tool_budget_override:
+            return (
+                f"budget per unit: {self.tool_budget_override} call(s) "
+                "(LaneToolBudget overrides the profile table)"
+            )
         used = [name for name in ("fast", "standard", "deep") if self.profiles.get(name)]
         if not used:
             return "no unit to budget"
@@ -1127,7 +1133,10 @@ def unit_minutes(root: Path, profile: str) -> int:
     return max(int(round(lane_minutes(root) * factor)), 5)
 
 
-def unit_tool_budget(profile: str) -> int:
+def unit_tool_budget(root: Path, profile: str) -> int:
+    """Tool calls a unit of this profile gets; ``LaneToolBudget`` overrides the table."""
+    if "LaneToolBudget" in _settings(root):
+        return lane_tool_budget(root)
     return PROFILE_TOOL_BUDGET.get(profile, DEFAULT_TOOL_BUDGET)
 
 
@@ -1215,6 +1224,7 @@ def measure(root: Path, limit: int = 0) -> Measurement:
         free_slots=free_slots,
         lane_max=ceiling,
         capped_by=capped_by,
+        tool_budget_override=(lane_tool_budget(root) if "LaneToolBudget" in _settings(root) else 0),
     )
 
 
@@ -2104,12 +2114,6 @@ def add_parsers(sub, common) -> None:
     p.add_argument("--by", default="", help="supervisor identity (default: ceo)")
     p.add_argument("--dry-run", action="store_true", help="print the next wave only")
     p.set_defaults(func=cmd_swarm)
-
-
-def _mailbox_block(root: Path, instance: str) -> list:
-    """The packet lines for the recipient's mailbox, or nothing when it is empty."""
-    lines = messages.packet_lines(root, instance)
-    return [*lines, ""] if lines else []
 
 
 def urgent_instances(root: Path) -> list:

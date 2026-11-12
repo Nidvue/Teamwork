@@ -297,12 +297,50 @@ def test_an_unrelated_mirror_history_is_recreated_and_mirrored(
     code, out = refresh(cli, capsys, "--dest", dest, "--mirror")
 
     assert code == 0, out
-    assert "unrelated history" in out, out
+    assert "history diverged" in out, out
     assert git(mirror, "rev-parse", "HEAD") == wanted, "the mirror was recreated at origin"
     assert (dest / "SKILL.md").read_text(encoding="utf-8") == "# SKILL.md v1\n"
     kept = mirror.with_name(f"{mirror.name}.stale-{old}")
     assert kept.is_dir(), "the old checkout is moved aside, never deleted"
     assert (kept / "SKILL.md").read_text(encoding="utf-8") == "# rewritten history\n"
+    assert refresh(cli, capsys, "--dest", dest, "--mirror", "--check")[0] == 0
+
+
+def test_a_force_pushed_remote_history_is_recreated_instead_of_stopping(
+    cli, capsys, checkout: Path, remote: Path, tmp_path: Path
+) -> None:
+    """T-0131: a rewritten remote stops ``merge --ff-only`` with a second message.
+
+    The unrelated-roots case is one refusal; a force-push that keeps the root
+    commit is another - ``fatal: Not possible to fast-forward, aborting.`` -
+    and matching only the first left the tool-managed mirror stuck for good
+    (``refresh --check`` -> ``cannot fast-forward 5108b90 -> 4d7c9f7``).
+    """
+    dest = tmp_path / "skills" / "teamwork"
+    mirror = bundle.default_mirror_path(dest)
+    (checkout / "SKILL.md").write_text("# SKILL.md v2\n", encoding="utf-8")
+    git(checkout, "commit", "-qam", "v2")
+    git(checkout, "push", "-q", "origin", "main")
+    code, out = refresh(cli, capsys, "--dest", dest, "--mirror", "--repo", str(remote))
+    assert code == 0, out
+    old = git(mirror, "rev-parse", "--short", "HEAD")
+
+    peer = tmp_path / "peer"
+    git(tmp_path, "clone", "-q", str(remote), str(peer))
+    git(peer, "reset", "-q", "--hard", "HEAD~1")
+    (peer / "SKILL.md").write_text("# SKILL.md rewritten\n", encoding="utf-8")
+    git(peer, "commit", "-qam", "rewritten v2")
+    git(peer, "push", "-q", "--force", "origin", "main")
+    wanted = git(remote, "rev-parse", "refs/heads/main")
+
+    code, out = refresh(cli, capsys, "--dest", dest, "--mirror")
+
+    assert code == 0, out
+    assert "history diverged" in out, out
+    assert git(mirror, "rev-parse", "HEAD") == wanted, "the mirror was recreated at origin"
+    assert (dest / "SKILL.md").read_text(encoding="utf-8") == "# SKILL.md rewritten\n"
+    kept = mirror.with_name(f"{mirror.name}.stale-{old}")
+    assert (kept / "SKILL.md").read_text(encoding="utf-8") == "# SKILL.md v2\n"
     assert refresh(cli, capsys, "--dest", dest, "--mirror", "--check")[0] == 0
 
 
@@ -329,7 +367,7 @@ def test_a_recreated_mirror_keeps_the_remote_name_it_was_given(
     code, out = refresh(cli, capsys, "--dest", dest, "--mirror", "--remote", "upstream")
 
     assert code == 0, out
-    assert "unrelated history" in out, out
+    assert "history diverged" in out, out
     assert git(mirror, "remote") == "upstream", "the repair kept the remote it was given"
 
     code, out = refresh(cli, capsys, "--dest", dest, "--mirror", "--remote", "upstream")

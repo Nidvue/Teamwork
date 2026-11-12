@@ -2054,72 +2054,6 @@ def cmd_criteria(args) -> int:
             items = parse_criteria(path)
             return _criteria_mutate(args, root, path, items)
 
-    if args.criteria_cmd == "add":
-        if find_criterion(items, args.id) is not None:
-            die(f"criterion {args.id} already exists")
-        owner = ""
-        if args.owner:
-            owner, _ = validate_actor(
-                root, args.owner, "criterion owner", allow_role=True, must_exist=False
-            )
-        items.append(new_criterion(args.id, args.text, owner))
-        write_criteria(path, items)
-        ledger_append(
-            root, "criteria.add", "ceo", args.id.upper(), f"{args.text} (owner {owner or '-'})"
-        )
-        print(f"# added {args.id.upper()}: {args.text}")
-        return 0
-
-    if args.criteria_cmd == "verify":
-        idx = find_criterion(items, args.id)
-        if idx is None:
-            die(f"no criterion '{args.id}'")
-        c = items[idx]
-        who, wrole = validate_actor(root, args.by, "verifier")
-        if not (args.evidence or "").strip():
-            die("verification needs --evidence '<command> @<rev> -> <result>'")
-        if c.get("owner") and resolve_role(c["owner"]) == wrole:
-            die(
-                f"{who} is from the owning role ({wrole}) and cannot verify "
-                f"{c['id']}; an independent role must verify it"
-            )
-        c["status"] = "verified"
-        c["verified_by"] = who
-        c["verified"] = today_iso()
-        c["evidence"] = args.evidence.strip()
-        c["rev"] = args.rev or ""
-        write_criteria(path, items)
-        ledger_append(
-            root,
-            "criteria.verify",
-            who,
-            c["id"],
-            f"{c['evidence'][:140]} (owner {c['owner'] or '-'})",
-            args.rev or "",
-        )
-        print(f"# {c['id']} verified by {who}: {c['evidence']}")
-        return 0
-
-    if args.criteria_cmd == "reopen":
-        idx = find_criterion(items, args.id)
-        if idx is None:
-            die(f"no criterion '{args.id}'")
-        items[idx].update(
-            {"status": "open", "verified_by": "", "verified": "", "evidence": "", "rev": ""}
-        )
-        write_criteria(path, items)
-        print(f"# {items[idx]['id']} reopened")
-        return 0
-
-    if args.criteria_cmd == "rm":
-        idx = find_criterion(items, args.id)
-        if idx is None:
-            die(f"no criterion '{args.id}'")
-        removed = items.pop(idx)
-        write_criteria(path, items)
-        print(f"# removed {removed['id']}")
-        return 0
-
     if not items:
         print(f"# no criteria yet ({path})")
         print("# the CEO must write them from the user prompt: criteria add --id AC-1 --text '...'")
@@ -17417,15 +17351,18 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
 
 
 def _unrelated_history(detail: str) -> bool:
-    """Did git refuse the move because the two histories share no root commit?
+    """Did git refuse the fast-forward because the two histories diverged?
 
-    ``merge --ff-only`` answers ``fatal: refusing to merge unrelated histories``
-    when the checkout was cloned from a history that was since rewritten, so the
-    tool-managed mirror at ``~/.pi/agent/.teamwork-source`` can share no commit
-    with the remote it tracks. Nothing in the tree is wrong in that case; the
-    mirror is disposable state, so the caller may replace it instead of stopping.
+    A rewritten remote produces two different refusals from ``merge --ff-only``:
+    ``fatal: refusing to merge unrelated histories`` when the mirror shares no root
+    commit with the remote, and ``fatal: Not possible to fast-forward, aborting.``
+    when it shares one but the remote was force-pushed past it (T-0131). Both mean
+    the tool-managed mirror can no longer follow the branch, and in neither case is
+    anything in the tree wrong: the mirror at ``~/.pi/agent/.teamwork-source`` is
+    disposable state, so the caller may replace it instead of stopping.
     """
-    return "unrelated histories" in detail.lower()
+    lowered = detail.lower()
+    return "unrelated histories" in lowered or "not possible to fast-forward" in lowered
 
 
 def _origin_url(source: Path, remote: str) -> str:
@@ -17532,7 +17469,8 @@ def cmd_refresh(args) -> int:
                 ok, detail = (
                     True,
                     (
-                        f"unrelated history - moved the old mirror to {moved}, cloned fresh from {repo}"
+                        "history diverged (unrelated or rewritten) - moved the old mirror "
+                        f"to {moved}, cloned fresh from {repo}"
                     ),
                 )
                 created = True

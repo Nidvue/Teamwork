@@ -11,6 +11,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The CLI reference covers every command family** - `message`, `attention`,
+  `context`, `tests`, `decision`, `dispute`, `redline`, `skill`, `evolution`,
+  `pr set`, `lane preempt`, `task archive` and `memory pack|search|verify|dream`
+  are now specified in the five CLI pages, which already promised them in their
+  own indexes.
+- **Recursive delegation is stated in the charter** - the CEO decomposes,
+  dispatches and arbitrates; it does not do a lane's work. A lead lane fans out
+  into its own squad, a slice that will not fit a budget is split, and every
+  deliverable gets its author's self-check, a different role's review and its
+  test layer run by the owning role (`roles/ceo.md`, `SKILL.md` 5a,
+  `docs/guide/how-it-works.md`).
+
+### Changed
+
+- **README and guide surface the built-in capabilities** - memory, live agent
+  state, the plugin-free lane runtime, the agent mailbox and the token economy are
+  on the front door and in `docs/guide/features.md`, `operations.md`,
+  `for-agents.md`, `architecture.md` and `how-it-works.md`.
+
+### Fixed
+
+- **`refresh` recovers from a rewritten remote history** - `merge --ff-only`
+  answers `fatal: Not possible to fast-forward` when the remote was force-pushed
+  past the tool-managed mirror, and only the unrelated-roots refusal was
+  recognised, so `refresh` stopped for good and the installed copy kept reading
+  the old protocol (T-0131). Both refusals now replace the disposable mirror,
+  moving the old checkout aside instead of deleting it.
+- **`LaneToolBudget` reaches the packet** - the documented setting was read by a
+  function nothing called, so a configured tool-call budget changed nothing. The
+  setting now overrides the per-profile table (10/16/24) and `swarm run` prints the
+  override in its policy line.
+- **`criteria` no longer carries a dead copy of its own logic** - the four
+  mutating subcommands were implemented twice and the second copy was
+  unreachable; it is removed, so the behaviour that runs is the only behaviour in
+  the file.
+
 ## [1.5.2](https://github.com/Nidvue/Teamwork/compare/v1.5.1...v1.5.2) - 2026-11-12
 
 Compares from the previous tag, `v1.5.1`.

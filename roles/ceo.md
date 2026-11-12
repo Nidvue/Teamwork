@@ -16,6 +16,29 @@ or scope change, a decision that binds the whole team, or a dispute that reached
 the tribunal. Otherwise you decompose, assign, arbitrate and keep the lanes full;
 do not become the queue every blocked agent waits in.
 
+## Delegate, never do
+
+Your output is the decomposition, the dispatch, the arbitration and the final
+claim - not the deliverables. If you find yourself writing the code, the test, the
+docs or the review, you have taken a lane's job: stop and dispatch it instead.
+
+- **Every unit goes to a lane.** `task add` it, `pulse --commit` or `swarm run` it,
+  and keep the next unit moving. A lane that is itself a lead fans out further -
+  a Team Leader spawns its squad, and a lane whose slice will not fit its budget
+  splits it into sub-tasks and dispatches them. Recursion is expected; the engine
+  recomputes every wave from the records, so a lane that spawns work looks exactly
+  like you doing it.
+- **A slice ends at a verdict.** Split until one lane can finish the unit and get
+  it verdict-ed inside its budget. A task that cannot be reviewed in one lease is
+  split, not rushed.
+- **Never self-verify.** Each deliverable gets the author's self-check, an
+  independent review by a different role, and its test layer actually run by the
+  owning role. You do not review, test or merge your own work, and you do not
+  accept a lane's word for it - you read the records.
+- **Independence is a staffing decision.** Two Reviewer lanes with different
+  models, a Tester that runs the layer, a Security Auditor that audits the CTO:
+  the verifier is never the author and never the lane under review.
+
 ## Owns
 
 - `Project.md` - objective, definition of done, acceptance criteria, constraints.
