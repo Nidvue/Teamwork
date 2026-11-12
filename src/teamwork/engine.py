@@ -11375,6 +11375,74 @@ def cmd_status(args) -> int:
     return 0
 
 
+REVIEWER_SCALE_CAP = 8
+SCALE_MAX_ADDS = 6
+SCALE_PER_ROLE_CAP = 4
+
+
+def _scale_plan(root: Path) -> list:
+    """``(role, count)`` additions that make the WORK bound the wave, not the roster.
+
+    One lane carries ``LANE_WIP`` units, so a role needs ``ceil(ready / LANE_WIP)``
+    instances; the review queue is the exception, because one Reviewer lane takes
+    one deliverable at a time and cannot be split. The plan is bounded three ways:
+    ``SCALE_PER_ROLE_CAP`` per role, ``SCALE_MAX_ADDS`` per wake, and the free
+    provider slots (a new lane with no slot would only wait).
+    """
+    ready = {role: len(_ready_for_role(root, role)) for role in list_roles(root)}
+    open_reviews = len(open_review_items(root))
+    plan = []
+    for role, count in sorted(ready.items()):
+        if not count or role == "reviewer":
+            continue
+        desired = min(max(1, -(-count // LANE_WIP)), SCALE_PER_ROLE_CAP)
+        want = desired - len(instances_of(root, role))
+        if want > 0:
+            plan.append((role, want))
+    if open_reviews:
+        desired = min(open_reviews, REVIEWER_SCALE_CAP)
+        want = desired - len(instances_of(root, "reviewer"))
+        if want > 0:
+            plan.append(("reviewer", want))
+    limits = load_providers(root)
+    free = sum(
+        max(cap - len(used_slots(root, prov)), 0)
+        for prov, cap in limits.items()
+        if prov != "default"
+    )
+    budget = min(SCALE_MAX_ADDS, free if free else SCALE_MAX_ADDS)
+    capped = []
+    for role, want in plan:
+        take = min(want, budget)
+        if take > 0:
+            capped.append((role, take))
+            budget -= take
+        if budget <= 0:
+            break
+    return capped
+
+
+def _apply_scale(root: Path, plan: list, by: str) -> list:
+    """Add the planned instances through the same path `instance add` uses."""
+    added = []
+    for role, count in plan:
+        args = argparse.Namespace(
+            role=role,
+            count=count,
+            name="",
+            new_role=False,
+            under="",
+            by=by,
+            json=False,
+        )
+        try:
+            _instance_add(root, args)
+        except SystemExit:
+            continue
+        added.extend(instances_of(root, role)[-count:])
+    return added
+
+
 def cmd_pulse(args) -> int:
     """CEO wake-up: find idle lanes and hand them runnable work immediately."""
     root = project_root(args)
@@ -11445,6 +11513,29 @@ def cmd_pulse(args) -> int:
                 f"- {name}/{t['id']} [{t['priority']}/{t['status']}] {t['title']}  {_claim_note(t)}"
             )
         print()
+
+    scale = getattr(args, "scale", True)
+    if scale:
+        plan_scale = _scale_plan(root)
+        if plan_scale and args.commit and mode == "auto":
+            added = _apply_scale(root, plan_scale, getattr(args, "agent", "") or "ceo")
+            if added:
+                idle = idle_instances(root)
+                busy = busy_instances(root)
+                print(f"## scaled to the work ({len(added)} new instance(s)): " + ", ".join(added))
+                print(
+                    "# one lane carries LANE_WIP units and one Reviewer takes one deliverable, "
+                    "so the work - not the roster - bounds the wave"
+                )
+                print()
+        elif plan_scale:
+            print(
+                "## scale plan ("
+                + ", ".join(f"{role} +{count}" for role, count in plan_scale)
+                + ")"
+            )
+            print("# apply with `pulse --commit` (auto mode) or `instance add <role>`")
+            print()
 
     claim_holders = {pascal(lane) for _own, t, lane, _age in claims if review_is_held(t)}
     capacity: dict[str, int] = {}
@@ -11611,7 +11702,12 @@ def cmd_pulse(args) -> int:
                 f"- {name:16s} ({role}) - no task, pen, slot, lane or claim: "
                 "`instance prune` folds it"
             )
-        if args.commit:
+        if args.commit and mode != "auto":
+            print(
+                f"# folding skipped: the accept mode is {mode}, so this wake is a report, "
+                "not a dispatch. Nothing was retired."
+            )
+        elif args.commit:
             by = getattr(args, "agent", "") or "ceo"
             folded = []
             for name, role in foldable:
@@ -11662,10 +11758,11 @@ def cmd_pulse(args) -> int:
     if claims:
         taken = ", ".join(f"{own}/{t['id']}={lane}" for own, t, lane, _age in claims[:4])
         print(f"- claimed: {taken} - an unresponsive lane frees its claim when the lease expires")
-    if total_ready > len(idle):
+    capacity_units = len(idle) * LANE_WIP
+    if total_ready > capacity_units:
         print(
-            f"- {total_ready - len(idle)} ready task(s) have no free lane: queue by priority, "
-            "release finished leases or fan out on deepseek"
+            f"- {total_ready - capacity_units} ready task(s) have no free lane: queue by "
+            "priority, release finished leases or fan out on deepseek"
         )
     if not idle and not total_ready:
         print("- nothing to dispatch: check blocked tasks and open disputes")
@@ -19506,6 +19603,12 @@ def _parsers_scheduling(sub, common) -> None:
         "--spawn",
         action="store_true",
         help="after --commit, size and run the engine's swarm now (needs accept mode auto)",
+    )
+    s.add_argument(
+        "--no-scale",
+        dest="scale",
+        action="store_false",
+        help="do not add instances for the ready work; dispatch to the current roster only",
     )
     s.set_defaults(func=cmd_pulse)
 
