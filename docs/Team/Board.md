@@ -139,7 +139,7 @@ under two roles is two tasks.
 | ceo | T-0048 | dispatch-contract | done | P-0190 | 3dda8b4 |
 | ceo | T-0049 | instance-lifecycle | done | P-0191 | 91dd1bd |
 | ceo | T-0050 | release-record | done | P-0192 | 821d420 |
-| ceo | T-0051 | release-record | doing | P-0193 | - |
+| ceo | T-0051 | release-record | done | P-0193 | 1eed604 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -328,7 +328,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0051 · Release workflow: npm verify polls past the cached 404 (prefer-online, 6 min window) | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
