@@ -55,7 +55,17 @@ LANE = {
     "provider",
     "attempt",
 }
-COUNTS = {"busy", "idle", "ready", "review", "lanes"}
+COUNTS = {
+    "busy",
+    "idle",
+    "ready",
+    "review",
+    "lanes",
+    "activated",
+    "retired",
+    "lanes_live",
+    "lanes_ended",
+}
 
 
 def run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -92,7 +102,7 @@ def live_team() -> tuple[Path, str]:
     )
 
 
-def status_json(project: Path, team: str) -> tuple[int, dict]:
+def status_json(project: Path, team: str, *extra: str) -> tuple[int, dict]:
     done = run(
         [
             sys.executable,
@@ -103,6 +113,7 @@ def status_json(project: Path, team: str) -> tuple[int, dict]:
             str(project),
             "--team",
             team,
+            *extra,
         ],
         project,
     )
@@ -115,7 +126,7 @@ def test_status_json_envelope_and_rows(tmp_path: Path) -> None:
     _code, payload = status_json(project, team)
 
     assert set(payload) == ENVELOPE, sorted(payload)
-    assert payload["schema"] == 2, "the widget reads schema 2: lanes and models are additive"
+    assert payload["schema"] == 3, "the widget reads schema 3: activated/retired are additive"
     assert isinstance(payload["generated"], str) and payload["generated"][:4].isdigit()
     assert set(payload["counts"]) == COUNTS, sorted(payload["counts"])
     assert isinstance(payload["instances"], list)
@@ -159,7 +170,17 @@ def test_status_json_exits_zero_with_no_instances(tmp_path: Path) -> None:
     assert set(payload) == ENVELOPE, sorted(payload)
     assert payload["count"] == 0
     assert payload["instances"] == []
-    assert payload["counts"] == {"busy": 0, "idle": 0, "ready": 0, "review": 0, "lanes": 0}
+    assert payload["counts"] == {
+        "busy": 0,
+        "idle": 0,
+        "ready": 0,
+        "review": 0,
+        "lanes": 0,
+        "activated": 0,
+        "retired": 0,
+        "lanes_live": 0,
+        "lanes_ended": 0,
+    }
     assert payload["lanes"] == [], "an empty tree has no lane rows"
 
     panel = run(
@@ -240,6 +261,14 @@ def test_agent_filter_keeps_the_lane_count_equal_to_the_rows() -> None:
     )
     assert done.returncode == 0, done.stderr or done.stdout
     narrowed = json.loads(done.stdout)
+    assert narrowed["counts"]["lanes"] == len(narrowed["lanes"]), (
+        "counts.lanes describes the rows the same call returns, even when the"
+        " narrowed instance has none"
+    )
+    _code, empty_lanes = status_json(project, team, "--agent", "CEO")
+    assert empty_lanes["counts"]["lanes"] == 0 == len(empty_lanes["lanes"]), (
+        "an instance with no lane must not inherit the team-wide lane count"
+    )
     assert narrowed["counts"]["lanes"] == len(narrowed["lanes"]), (
         "the count must describe the narrowed rows"
     )

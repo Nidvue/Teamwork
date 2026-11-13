@@ -104,6 +104,11 @@ scheduler (see `references/Adapters.md`) and delete the schedule at team close. 
 idle lane while ready work exists is a defect in your dispatch; an idle lane with
 nothing to do is a seat to fold.
 
+**You are the loop, so you are rarely idle.** Every `pulse` wake writes
+`Runtime/Pulse.json`, and `status` reads a fresh heartbeat as `dispatching` - while
+you wait for the lanes you dispatched, keep working: re-plan, read the board,
+arbitrate, fold the seats, or arm the next wake. Do not sit in the idle count.
+
 ## Throughput and token economy
 
 - **Size the roster on demand.** `slim` is the default; read `parallel` and
