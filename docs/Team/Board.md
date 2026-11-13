@@ -147,6 +147,9 @@ under two roles is two tasks.
 | ceo | T-0056 | dispatch-contract | done | P-0198 | ec22a3d |
 | ceo | T-0057 | dispatch-contract | done | P-0199 | eaafa7d |
 | ceo | T-0058 | release-record | done | P-0200 | e475fc8 |
+| ceo | T-0059 | changelog | done | P-0201 | d158ead |
+| ceo | T-0060 | - | todo | - | - |
+| ceo | T-0061 | - | todo | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -335,6 +338,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0060 · Refresh the audit manifest and the board at the merged revision | P1 | todo | - |
+| ceo | T-0061 · Close the audit's team-state findings | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
