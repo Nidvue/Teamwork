@@ -146,6 +146,7 @@ under two roles is two tasks.
 | ceo | T-0055 | dispatch-contract | done | P-0197 | 637586d |
 | ceo | T-0056 | dispatch-contract | done | P-0198 | ec22a3d |
 | ceo | T-0057 | dispatch-contract | done | P-0199 | eaafa7d |
+| ceo | T-0058 | release-record | done | P-0200 | e475fc8 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
