@@ -43,7 +43,7 @@ MANIFESTS = ("pyproject.toml", "package.json", "mkdocs.yml")
 PROMPT = "Reply with exactly one line and nothing else: LANE-RESULT: ok lane proof"
 FAKE = (
     "import sys, time\n"
-    "time.sleep(float(sys.argv[1]) if len(sys.argv) > 1 else 2.0)\n"
+    "time.sleep(float(sys.argv[1]) if len(sys.argv) > 1 else 4.0)\n"
     "print('LANE-RESULT: ok offline lane proof')\n"
 )
 
