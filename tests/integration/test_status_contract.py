@@ -43,6 +43,9 @@ ROW = {
     "lane_state",
     "model",
     "provider",
+    "last",
+    "last_at",
+    "last_seconds",
 }
 LANE = {
     "id",
@@ -126,7 +129,9 @@ def test_status_json_envelope_and_rows(tmp_path: Path) -> None:
     _code, payload = status_json(project, team)
 
     assert set(payload) == ENVELOPE, sorted(payload)
-    assert payload["schema"] == 3, "the widget reads schema 3: activated/retired are additive"
+    assert payload["schema"] == 4, (
+        "the widget reads schema 4: last/last_at/last_seconds are additive to schema 3"
+    )
     assert isinstance(payload["generated"], str) and payload["generated"][:4].isdigit()
     assert set(payload["counts"]) == COUNTS, sorted(payload["counts"])
     assert isinstance(payload["instances"], list)
