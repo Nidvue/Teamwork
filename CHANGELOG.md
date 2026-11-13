@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The status widget streams each active agent's latest command** - `status --json`
+  schema 4 adds `last`, `last_at` and `last_seconds` per instance row, taken from
+  the newest ledger event for that instance (or, for a busy instance with none of
+  its own, its role), read from a 64 KiB tail so a 7k-record ledger costs one seek
+  rather than a full parse on every refresh. The pi widget draws one line per
+  active agent carrying that command and its age, then the lane elapsed and the
+  model. It renders to the real terminal width instead of a fixed 100 columns, so
+  a wide terminal shows the whole command and a narrow one clips it - a row is
+  always one line and never wraps. The refresh interval is 2 s, and an idle seat
+  stays one aggregate line.
+
+### Fixed
+
+- **A changelog guard no longer charges `[Unreleased]` to the release above it** -
+  the category check kept the previous version alive across a `## ` heading that
+  is not a release, so the first entry added under `[Unreleased]` would have been
+  reported as a duplicate inside the section above it.
+
 ## [1.5.5](https://github.com/Nidvue/Teamwork/compare/v1.5.4...v1.5.5) - 2026-11-13
 
 ### Fixed
