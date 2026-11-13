@@ -15009,6 +15009,11 @@ def _preflight_evidence(
     text this gate never reads - and the digest it records then certifies a
     measurement nobody can reproduce.
 
+    The newest note and the task evidence must name the branch head: a self-check
+    that measured an older revision is refused, because the tree moved after the run
+    and its counts no longer reproduce. A record naming both an old and the head (a
+    repro's before/after) passes; one naming no revision is left to the Reviewer.
+
     The note is append-only, so the LAST segment is the only authoritative one: an
     earlier round's ``--test`` line names the revision that round measured, and a
     rewrite legitimately removes it. Reading the whole history would make every
@@ -15085,12 +15090,12 @@ def _preflight_evidence(
             " rewritten away on purpose, name it in the new note as"
             " '@<old> superseded by @<current-rev>' and the gate stops checking it",
         )
-    if head_rev and note_revs and not any(_names_rev(head_rev, sha) for sha in note_revs):
+    if head_rev and named and not any(_names_rev(head_rev, sha) for sha in named):
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            "the self-check measured "
-            + ", ".join(f"@{sha}" for sha in note_revs[:5])
+            "the record names "
+            + ", ".join(f"@{sha}" for sha in named[:5])
             + f", but the branch head is @{head_rev[:7]}: the tree moved after the run",
             "re-run the command at the head and record it: selfcheck <agent> <T-id> --by "
             f"<you> --note '<what you re-read>' --test '<cmd> @{head_rev[:7]} -> <result>'",

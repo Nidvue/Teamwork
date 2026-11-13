@@ -31,10 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **A self-check bound to an older revision is refused** - `preflight` compares the
-  newest note's `@<sha>` with the branch head, so a suite line that measured a
-  revision the tree has moved past fails before submission instead of in review
-  (30 of 158 measured review fails were evidence that did not reproduce).
+- **A record bound to an older revision is refused** - `preflight` compares the
+  task evidence and the newest note's `@<sha>` with the branch head, so a suite line
+  that measured a revision the tree has moved past fails before submission instead
+  of in review (30 of 158 measured review fails were evidence that did not
+  reproduce).
 - **One command, one thing tested** - `tests add` refuses a command another record
   already carries, any layer, any area, unless `--force '<why>'`; it printed a note
   and recorded the twin before, and the audit carried the duplicate pairs.
