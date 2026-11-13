@@ -678,6 +678,47 @@ COMMIT_TYPES = (
 )
 
 
+LESSON_LADDER = (
+    "closing a lesson names the rung that stops it recurring, cheapest first:\n"
+    "  1. --no-check '<why the class is gone by design>'  the code path no longer exists\n"
+    "  2. --check '<command>'                             a deterministic check now catches it\n"
+    "  3. --skill tw-<name>                               a recorded flow fixes it, which never\n"
+    "                                                     runs by itself\n"
+    "A lesson closed on prose alone is one the team pays for twice: rung 2 is a command,\n"
+    "run here and recorded with its exit code."
+)
+
+LESSON_CHECK_TIMEOUT_SECONDS = 300
+
+
+def run_lesson_check(command: str, tree: Path) -> subprocess.CompletedProcess:
+    """Run the check a lesson names, in the checkout the invoker is in.
+
+    The command line is read the way a `PreflightCommand` is read (`_gate_argv`):
+    one program keeps the no-shell path, a compound line goes to the host shell.
+    """
+    try:
+        argv = _gate_argv(command)
+    except ValueError as exc:
+        die(f"--check is not quotable: {exc}", 2)
+    try:
+        return subprocess.run(
+            argv,
+            cwd=str(tree),
+            capture_output=True,
+            text=True,
+            timeout=LESSON_CHECK_TIMEOUT_SECONDS,
+            shell=isinstance(argv, str),
+        )
+    except subprocess.TimeoutExpired:
+        die(
+            f"the --check command did not finish in {LESSON_CHECK_TIMEOUT_SECONDS}s: {command}",
+            2,
+        )
+    except OSError as exc:
+        die(f"the --check command could not start in {tree}: {exc}", 2)
+
+
 def require_reason(force: str, what: str) -> str:
     """A gate override must carry a writeable reason; a blank one is refused."""
     reason = (force or "").strip()
@@ -4339,6 +4380,34 @@ def cmd_lesson(args) -> int:
                 if record.get("kind") != "mistake":
                     die(f"skill '{record['name']}' is kind '{record.get('kind')}', not 'mistake'")
         changed["status"] = "fixed"
+        check = (getattr(args, "check", "") or "").strip()
+        no_check = (getattr(args, "no_check", "") or "").strip()
+        already_rung = bool(changed.get("check") or changed.get("no_check"))
+        if not already_rung:
+            if not check and not no_check:
+                die(LESSON_LADDER, 2)
+            if check and no_check:
+                die(
+                    "--check and --no-check are exclusive: run the command that now catches "
+                    "this lesson, or say why no command can exist",
+                    2,
+                )
+        if check:
+            outcome = run_lesson_check(check, artifact_tree(root))
+            if outcome.returncode != 0:
+                tail = (outcome.stdout or outcome.stderr or "").strip().splitlines()[-3:]
+                die(
+                    f"the --check command does not catch this lesson: it exited "
+                    f"{outcome.returncode} on the tree the lesson was fixed in.\n"
+                    f"  {check}\n"
+                    + ("\n".join(f"  | {line}" for line in tail) + "\n" if tail else "")
+                    + "A check that cannot fail the tree it was recorded on proves nothing; "
+                    "fix the command, or use --no-check '<why none can exist>'.",
+                    2,
+                )
+            changed["check"] = one_line(check)
+        if no_check:
+            changed["no_check"] = one_line(no_check)
         if skill:
             changed["skill"] = skill
         if (args.rule or "").strip():
@@ -4346,12 +4415,21 @@ def cmd_lesson(args) -> int:
         changed["evidence"] = evidence
         changed["updated"] = today_iso()
         write_lessons(path, records)
+        rung = f"check {check}" if check else f"no-check {no_check}" if no_check else ""
         ledger_append(
             root,
             "lesson.fix",
             actor,
             changed["id"],
-            f"closed by skill {skill}" if skill else f"fixed by {actor}",
+            " ".join(
+                part
+                for part in (
+                    f"closed by skill {skill}" if skill else "",
+                    rung,
+                )
+                if part
+            )
+            or f"fixed by {actor}",
         )
     print_lesson(changed)
     print(f"#   file: {path}")
@@ -19605,10 +19683,24 @@ def _parsers_governance(sub, common) -> None:
     s = lsub.add_parser("show", parents=[common], help="print one lesson with every field")
     s.add_argument("lesson_id", metavar="L_ID")
     s.set_defaults(func=cmd_lesson)
-    s = lsub.add_parser("fix", parents=[common], help="close a lesson, optionally with a skill")
+    s = lsub.add_parser(
+        "fix", parents=[common], help="close a lesson with the rung that stops it recurring"
+    )
     s.add_argument("lesson_id", metavar="L_ID")
     s.add_argument("--by", required=True)
     s.add_argument("--rule", default="", help="replace the rule with what actually changed")
+    s.add_argument(
+        "--check",
+        default="",
+        metavar="CMD",
+        help="a deterministic command that now catches it; run here, must exit 0",
+    )
+    s.add_argument(
+        "--no-check",
+        default="",
+        metavar="WHY",
+        help="why no command can exist (the class is gone by design)",
+    )
     s.add_argument("--skill", default="", metavar="TW_NAME", help="the mistake skill that fixes it")
     s.add_argument("--evidence", default="", help="command @rev -> result")
     s.set_defaults(func=cmd_lesson)

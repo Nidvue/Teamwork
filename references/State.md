@@ -196,7 +196,8 @@ teamwork lesson add --by <you> --mistake TEXT --cause TEXT --rule TEXT --evidenc
     [--role ROLE] [--task TASK]
 teamwork lesson list [--role ROLE] [--status open|fixed|all]
 teamwork lesson show L_ID
-teamwork lesson fix L_ID --by <you> [--rule RULE] [--skill TW_NAME] [--evidence EVIDENCE]
+teamwork lesson fix L_ID --by <you> [--rule RULE] [--check CMD | --no-check WHY] \
+    [--skill TW_NAME] [--evidence EVIDENCE]
 ```
 
 - `add` requires `--by`, `--mistake`, `--cause`, `--rule` and `--evidence`; the
@@ -207,7 +208,10 @@ teamwork lesson fix L_ID --by <you> [--rule RULE] [--skill TW_NAME] [--evidence 
   lesson may be re-proved only with new `--evidence`; without it the command
   exits `1` and changes nothing. A `--skill` must be a registered `tw-` skill of
   kind `mistake`; `skill create --from-lesson` sets the same link from the other
-  side.
+  side. An `open` lesson also needs a rung: `--check '<cmd>'` runs the command in
+  the invoker's checkout and must exit 0 (a red one proves the check does not
+  catch the lesson), or `--no-check '<why>'` records that the class is gone by
+  design. Neither flag is prose, and the two are exclusive.
 - `load` prints the role's open lessons (first 10) and the number of fixed ones,
   so every instance starts by reading the mistakes it must not repeat.
 
