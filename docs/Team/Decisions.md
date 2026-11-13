@@ -2754,3 +2754,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git status --short -> empty at 8facda3; privacy_scan --tree --history --allow .github/privacy-allow.txt -> PASS 0 findings; check_release_consistency.py --offline -> 0 problems; teamwork.py links -> 0 issues; check_comments.py -> 0 explanatory commentary / 237 files; python -m build -> teamwork_agents-1.5.5 wheel + sdist; pytest -q -n auto -> 2968 passed, 4 skipped; scripts/verify_release.py -> OK, installed-wheel smoke test (--version, selftest, init) green
 - falsified by: CI is red on the pushed SHA, or the release workflow publishes a payload that does not match the tagged commit (check_release_consistency.py --online R3/R4/R5 report drift).
 - consequences: main and the 1.5.5 tag are public; a force-push or retag after this needs the owner's authorization and is a red line. The audit manifest's checkpoint stays valid because a push does not change the tree.
+
+## D-20261113-CEO-3 - A lesson is closed by a check or a design change, never by prose
+
+- date: 2026-11-13
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: Status quo (prose close, 56 lessons 0 checks); a mandatory tw- skill per lesson (rung 3, which never runs by itself); a --check rung that runs the command (chosen).
+- decision: lesson fix requires --check '<cmd>' (run in the invoker's checkout, must exit 0) or --no-check '<why none can exist>'; a tw- mistake skill is the third rung, not the first. tests/unit/test_import_direction.py enforces the module-scope import graph instead of the prose sentence in Architecture.md 3.
+- why: 56 lessons are recorded, 6 are closed, and 0 carries a check and 0 a skill: every closed lesson is prose a reader has to trust, and 32 of the 56 rules already name a command (regex in the evidence), so the check was available and was never recorded. Architecture.md 3 said only cli.py imports engine at import time while lanes.py does too, which is the sentence an agent copies instead of the invariant.
+- evidence: git @d8b15d5 -> 9 files, +405/-13; prose-only lesson fix: main 4f8b1c7 (worktree /tmp/mainwt) -> exit 0, branch d8b15d5 -> exit 2; .venv/bin/python -m pytest -q -n 4 @d8b15d5 -> 2977 passed, 5 skipped in 95.55s (main collected 2972, branch 2982); ruff check + format --check + mypy src/teamwork + scripts/check_comments.py @d8b15d5 -> clean; teamwork.py links -> 0 issues; harness lint -> 0 problems; harness budget CEO 95794 -> 96304 B (cap 122880); tests/unit/test_import_direction.py with a module-scope 'from . import lanes' injected into engine.py -> 2 failed, reverted -> 5 passed
+- falsified by: If the six closed lessons are re-proved with a --check and the checks then fail on a later revision, the rung is decorative and the rule should be withdrawn.
+- consequences: -
