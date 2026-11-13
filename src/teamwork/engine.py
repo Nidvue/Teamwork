@@ -3124,6 +3124,14 @@ def ledger_verify(
     A read-only status command passes ``report_cache_lag=False`` so a benign lag
     is reported as a note plus a repair command instead of a blocker, and nothing
     is rewritten (T-0020/A14).
+
+    A cache *ahead* of the file is reported only after one bounded re-read: a
+    writer appends the record and then replaces the head cache, and a reader that
+    catches the file between two appends must not read the pair as tampering. A
+    genuine truncation is permanent, so the second read still reports it. The
+    measured false alarm is CI run 43344749792 (ubuntu 3.12), "head cache knows 2
+    records but the ledger has 1", which did not reproduce in 25 local runs and
+    passed on re-run.
     """
     if not _locked and (ledger_path(root).exists() or ledger_head_path(root).exists()):
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
@@ -3159,6 +3167,8 @@ def ledger_verify(
                     f"the ledger is empty but the head cache knows "
                     f"{cached_n} record(s): the trail was deleted"
                 )
+            if valid and cached_n > len(valid):
+                valid = _ledger_valid(ledger_read(root))
             if valid and cached_n > len(valid):
                 problems.append(
                     f"head cache knows {cached_n} records but the ledger has "
