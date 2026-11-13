@@ -51,7 +51,7 @@ settings are adapted (`references/Adapters.md`, `references/Remotes.md`).
 8. **Nothing unnecessary is kept.** No duplicate docs, scratch, build output or secrets in the repository.
 9. **Style is automated.** Each role runs the language's canonical formatter, linter and type checker (Python: `ruff format` + `ruff check` + `mypy`); the fixer runs before the commit and the checker gates the merge. Never hand-format, never add a competing config, never weaken a rule to pass (`references/Engineering.md`).
 10. **Names are deliberate.** Team directories are PascalCase; file names follow the ecosystem (docs `Architecture.md`, components `ButtonGroup.tsx`); Python modules stay `lower_snake_case`; tool-mandated files are never renamed.
-11. **History is minimal and modular.** Commit while you work, then rebase and squash before review: one coherent change-set, `wip`/`fixup` squashed, rebased onto the default branch, one commit per task before the merge. The Reviewer merges locally (`git merge --no-ff`); `pr merge --squash` is the one-commit path. Never rebase or force-push shared history.
+11. **History is minimal and modular.** Every commit message is **exactly one line** - `<type>(<area>): <summary>`, compact but informative, no body or trailers; the task, goal and evidence live in the task record and the ledger. Commit while you work, then rebase and squash before review: one coherent change-set, `wip`/`fixup` squashed, rebased onto the default branch, one commit per task before the merge. The Reviewer merges locally (`git merge --no-ff`); `pr merge --squash` is the one-commit path. Never rebase or force-push shared history.
 12. **Each agent's model is its own.** The skill ships no model and calls no LLM API; the engine configures a model per role and instance (`model set|get|list`). `model auto --apply` reads the host's model and applies cost-aware routing: strongest on decision lanes, economy on mechanical lanes; set `TEAMWORK_MODEL_ALT` when two verification lanes are staffed. Model choice never changes the protocol, the gates, the review or the ledger (`references/Concurrency.md`).
 13. **Warnings are errors.** The toolchain fails on them by configuration, the cause is fixed, and a third-party warning is suppressed narrowly with a reason. CI annotations count as warnings.
 14. **Independence is structural.** Verification lanes do not share a model when a second is available; a Reviewer records its own run, never the author's line; one task owns one branch; duplicate work is a defect.
@@ -108,9 +108,9 @@ default; `--agents` overrides it for a roster you name exactly.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 297 kB |
-| `standard` | 10 | 407 kB |
-| `full` | 17 | 657 kB |
+| `slim` (default) | 7 | 300 kB |
+| `standard` | 10 | 412 kB |
+| `full` | 17 | 667 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed -
 2.2x what `slim` costs. A role earns a seat only if it owns a deliverable, a test
@@ -464,6 +464,11 @@ A failure you do not record is one the team pays for twice.
 - **A `tw-` mistake skill** when the fix is a flow: `skill create --kind mistake
   --from-lesson L-nnnn` marks the lesson fixed, links both records and names the
   failure it prevents. A recurring finding with no skill behind it is a defect.
+- **The skill library is managed, not just grown.** Every agent creates, updates,
+  enhances, improves and **removes** skills over time. Every skill is
+  **feature-unique**: search the library before creating, consolidate or merge
+  overlap instead of duplicating, and delete a skill that is superseded or unused.
+  A redundant or stale skill is a defect.
 - **A knowledge record (`K-`)** for a durable fact, command or gotcha: statement,
   evidence, tags, importance 1-5 and a kind (`fact`, `experience`, `preference`,
   `gotcha`, `rule`). Search before asking, `touch` what you used, supersede rather

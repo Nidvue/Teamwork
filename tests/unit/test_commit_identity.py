@@ -783,8 +783,13 @@ def test_the_role_mailbox_authors_only_when_opted_in(
     assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
 
 
-def test_the_message_names_no_agent() -> None:
-    """Decision 2026-11-11: no line of a published commit names a role or an instance."""
+def test_the_message_is_exactly_one_line() -> None:
+    """Decision: every commit message is one compact, informative line.
+
+    The task, goal and evidence live in the task record and the ledger, never in a
+    multi-line commit body. No line of a published commit names a role or an
+    instance.
+    """
     message = engine.build_commit_message(
         "developer",
         {
@@ -799,9 +804,10 @@ def test_the_message_names_no_agent() -> None:
             "result": "pytest @HEAD -> see this suite",
         },
     )
-    for forbidden in ("Role:", "Producers:", "Acting role:"):
+    for forbidden in ("Role:", "Producers:", "Acting role:", "Task:", "Result:"):
         assert forbidden not in message, forbidden
-    assert "Task: T-0115" in message and "Result: pytest @HEAD" in message
+    assert message.strip().count("\n") == 0, "the message is exactly one line"
+    assert message.startswith("feat(identity): "), message
 
 
 def test_the_declared_preset_pair_authors_the_commit(

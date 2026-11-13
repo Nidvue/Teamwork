@@ -148,6 +148,13 @@ it fixes. The file is committed at `.agents/skills/tw-<name>/SKILL.md` and goes
 through branch, PR and review. A skill never replaces a gate, never weakens one,
 and never bypasses self-check, review or the Reviewer-only merge.
 
+**The skill library is every agent's responsibility, over time.** Not only create:
+update, enhance, improve and **remove** skills as the work changes. Every skill is
+**feature-unique** - no redundant or duplicate skill. Before creating one, search
+the existing library for overlap; consolidate or merge rather than duplicate; delete
+a skill that is superseded, unused or covered by another. A stale or duplicated
+skill is a defect the same way stale code is.
+
 ## Learning from your own work (hard)
 
 A failure you do not record is one the team pays for twice. Two team-local stores,
@@ -425,10 +432,10 @@ tracked, uncommitted or evidence-bearing files, and never `git clean -fdx`. Keep
   mailbox. The role mailbox is opt-in per command with
   `TEAMWORK_COMMIT_IDENTITY=role`, e.g. `Developer <developer@agents.nidvue.com>`,
   never instance-numbered.
-- **COMMIT MESSAGE STYLE** - `<type>(<area>): <summary>`, then `Task:`, `Goal:`,
-  `Deliverable:`, `Why:`, `Status:`, `Result:`, optional `Docs:`/`Refs:`. No line
-  names a role or a producer. Status states the truth; Result carries the
-  evidence.
+- **COMMIT MESSAGE STYLE** - exactly one line: `<type>(<area>): <summary>`,
+  at most 72 characters, compact but informative. No body, no trailers, no field
+  list. The task id, the goal, the status and the evidence live in the task record
+  and the ledger, never in the commit message. No line names a role or a producer.
 - **GIT LFS** - binaries, media, datasets and weights go through Git LFS
   (`.gitattributes` patterns). `commit` refuses an uncovered file above 1 MB.
 - **ONE TASK, ONE WORKTREE** - never commit on `main`. `branch start --agent <you>

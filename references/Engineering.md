@@ -80,33 +80,27 @@ closed gate - not on every keystroke.
 
 ## Commit message style (fixed)
 
-Use this shape, in this field order, with these field names:
+Every commit message is **exactly one line**: `<type>(<area>): <summary>`, at most
+72 characters, compact but informative. No body, no trailers, no field list.
 
 ```text
 <type>(<area>): <deliverable summary, <=72 chars>
-
-Task: T-0007
-Goal: <what the task/milestone asked for>
-Deliverable: <what was produced: files, docs, tests>
-Why: <why this change, what evidence drove it>
-Status: <actual state: implemented / reviewed / tested / blocked>
-Result: <observed outcome: command @rev -> result>
-Docs: <related documents>
-Refs: <issues, PRs, disputes>
 ```
 
 - `type` is one of `feat fix test docs design research refactor perf build ci chore revert`.
-- No field names a role, an agent instance or a mailbox: the trailers carry the
-  task and the evidence, never the producer (decision 2026-11-11). An `Acting role:`
-  line is optional, and the identity gate rejects one that disagrees with the author.
-- `Goal`, `Deliverable`, `Why`, `Status`, `Result` are mandatory: they answer what,
-  why, where it stands and what actually happened.
-- `Status` states the truth, including "blocked on X" or "awaiting review" - never
-  a hopeful claim.
-- `Result` carries the evidence pointer (command + revision + observed result).
+- The summary says what changed and why it matters, in one line a reader can scan
+  in `git log --oneline`.
+- The task id, the goal, the status and the evidence live in the **task record**
+  (`selfcheck --test`, `tests run --evidence`) and the **ledger**, never in a
+  multi-line commit body. `teamwork.py commit` records the `--result` evidence in
+  the ledger detail, not the message.
+- No line names a role, an agent instance or a mailbox: published history is the
+  project's (decision 2026-11-11).
 
-`teamwork.py commit` builds this message and refuses to commit when `--goal`,
-`--deliverable`, `--why`, `--status` or `--result` is missing.
+`teamwork.py commit` builds this one-line message and refuses to commit when
+`--goal`, `--deliverable`, `--why`, `--status` or `--result` is missing: those
+flags are the discipline that forces the author to state the evidence before it
+lands, and the result is recorded in the ledger.
 
 ## Git LFS archival
 

@@ -67,9 +67,9 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 297 kB |
-| `standard` | 10 | 407 kB |
-| `full` | 17 | 657 kB |
+| `slim` (default) | 7 | 300 kB |
+| `standard` | 10 | 412 kB |
+| `full` | 17 | 667 kB |
 
 Startup read = every instance's `AGENTS.md` plus its own role charter, summed
 (`engine.expand_roster(tier)` over `roles/*.md` and `templates/AGENTS.md`). A tier is a recipe, not a rule: add any role the brief
@@ -370,6 +370,11 @@ remember it for them.
   When the fix is a flow, the role creates a `tw-` mistake skill from it
   (`--kind mistake --from-lesson L-nnnn`) so the lesson is closed by the change
   that prevents it.
+- The skill library is **managed, not just grown**: every agent creates, updates,
+  enhances, improves and **removes** skills over time. Every skill is
+  **feature-unique** - search the library before creating, consolidate or merge
+  overlap instead of duplicating, and delete a skill that is superseded, unused or
+  covered by another. A redundant or stale skill is a defect.
 - A durable project fact becomes a `K-` record in the team `Knowledge.md`
   (`knowledge add`) with its evidence, tags and importance; every role reads the
   top-ranked records at startup, searches before asking, and `touch`es a record
