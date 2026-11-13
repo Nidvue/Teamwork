@@ -161,8 +161,14 @@ written only through the commands, never committed:
   ```sh
   teamwork lesson add --by <you> --mistake '<observed failure>' --cause '<why>' \
       --rule '<what you do instead>' --evidence '<cmd @rev -> result>' [--task T-nnnn]
-  teamwork lesson fix L-0001 --by <you> [--skill tw-<name>] [--evidence '<proof>']
+  teamwork lesson fix L-0001 --by <you> --check '<cmd>' | --no-check '<why none>' \
+      [--skill tw-<name>] [--evidence '<proof>']
   ```
+
+  **A correction becomes a check, not another paragraph.** `lesson fix` refuses
+  prose: `--check '<cmd>'` is run on the spot and must exit 0 (that is the rung),
+  `--no-check '<why>'` records that the class is gone by design. A `tw-` skill is
+  the third rung, for a fix that is a flow and never runs by itself.
 
 - **Project knowledge** - `Knowledge.md`, one `K-` record per durable fact, rule,
   command or measured behaviour, with evidence, tags and importance 1-5. Supersede,
@@ -215,6 +221,22 @@ the failing run before the passing one. Do not duplicate another layer's coverag
 
 Self-check first, then an independent review. You cannot submit unchecked work and
 you cannot close a `review=required` task.
+
+**Evidence is graded, and the gates read the grade.** `strong` is a result a
+program produced (`-> 12 passed`, `exit 0`, `# issues: 0`, a digest); `medium` is
+a pointer a reader can follow (`path:line`, `TS-0006 @rev`); `weak` is a command
+with no result; `noise` is a self-assessment (`looks good`, `verified`, `no errors
+were thrown`) and it is **refused** on a passing self-check and on a passing
+verdict. A model grading its own work is a model grading its own homework with a
+friend, and an empty error log means nothing was reported.
+
+**A closed lane has no score to lower.** The diff is sorted by how hard it is to
+undo: `closed` (a migration or schema path, a payment, a secret or auth path, a
+workflow that fires on merge, a release exception, any deleted file) fails
+`preflight` until the CEO records who authorized it - `task set <role> <T-id> --by
+ceo --authorize '<who said yes + evidence>'`. `evidence` (the constitution, the
+frozen contract, the shared record layer, the build config) warns and asks for
+strong evidence. A threshold is a number someone can lower on a busy Friday.
 
 - Author: `task set <you> <T-id> --status selfcheck`, then
   `selfcheck <you> <T-id> --by <you> --note '<what you proved>' --test '<cmd @rev -> result>'`.

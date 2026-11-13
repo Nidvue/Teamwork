@@ -64,7 +64,7 @@ except ImportError:  # pragma: no cover
     from version import __version__ as VERSION  # type: ignore
 
 
-from . import memorypack, memverify, transcripts, wiki
+from . import grades, memorypack, memverify, transcripts, wiki
 from .attention import (
     ATTENTION_KINDS,
     STAGE_ORDER,
@@ -676,6 +676,47 @@ COMMIT_TYPES = (
     "chore",
     "revert",
 )
+
+
+LESSON_LADDER = (
+    "closing a lesson names the rung that stops it recurring, cheapest first:\n"
+    "  1. --no-check '<why the class is gone by design>'  the code path no longer exists\n"
+    "  2. --check '<command>'                             a deterministic check now catches it\n"
+    "  3. --skill tw-<name>                               a recorded flow fixes it, which never\n"
+    "                                                     runs by itself\n"
+    "A lesson closed on prose alone is one the team pays for twice: rung 2 is a command,\n"
+    "run here and recorded with its exit code."
+)
+
+LESSON_CHECK_TIMEOUT_SECONDS = 300
+
+
+def run_lesson_check(command: str, tree: Path) -> subprocess.CompletedProcess:
+    """Run the check a lesson names, in the checkout the invoker is in.
+
+    The command line is read the way a `PreflightCommand` is read (`_gate_argv`):
+    one program keeps the no-shell path, a compound line goes to the host shell.
+    """
+    try:
+        argv = _gate_argv(command)
+    except ValueError as exc:
+        die(f"--check is not quotable: {exc}", 2)
+    try:
+        return subprocess.run(
+            argv,
+            cwd=str(tree),
+            capture_output=True,
+            text=True,
+            timeout=LESSON_CHECK_TIMEOUT_SECONDS,
+            shell=isinstance(argv, str),
+        )
+    except subprocess.TimeoutExpired:
+        die(
+            f"the --check command did not finish in {LESSON_CHECK_TIMEOUT_SECONDS}s: {command}",
+            2,
+        )
+    except OSError as exc:
+        die(f"the --check command could not start in {tree}: {exc}", 2)
 
 
 def require_reason(force: str, what: str) -> str:
@@ -4339,6 +4380,34 @@ def cmd_lesson(args) -> int:
                 if record.get("kind") != "mistake":
                     die(f"skill '{record['name']}' is kind '{record.get('kind')}', not 'mistake'")
         changed["status"] = "fixed"
+        check = (getattr(args, "check", "") or "").strip()
+        no_check = (getattr(args, "no_check", "") or "").strip()
+        already_rung = bool(changed.get("check") or changed.get("no_check"))
+        if not already_rung:
+            if not check and not no_check:
+                die(LESSON_LADDER, 2)
+            if check and no_check:
+                die(
+                    "--check and --no-check are exclusive: run the command that now catches "
+                    "this lesson, or say why no command can exist",
+                    2,
+                )
+        if check:
+            outcome = run_lesson_check(check, artifact_tree(root))
+            if outcome.returncode != 0:
+                tail = (outcome.stdout or outcome.stderr or "").strip().splitlines()[-3:]
+                die(
+                    f"the --check command does not catch this lesson: it exited "
+                    f"{outcome.returncode} on the tree the lesson was fixed in.\n"
+                    f"  {check}\n"
+                    + ("\n".join(f"  | {line}" for line in tail) + "\n" if tail else "")
+                    + "A check that cannot fail the tree it was recorded on proves nothing; "
+                    "fix the command, or use --no-check '<why none can exist>'.",
+                    2,
+                )
+            changed["check"] = one_line(check)
+        if no_check:
+            changed["no_check"] = one_line(no_check)
         if skill:
             changed["skill"] = skill
         if (args.rule or "").strip():
@@ -4346,12 +4415,21 @@ def cmd_lesson(args) -> int:
         changed["evidence"] = evidence
         changed["updated"] = today_iso()
         write_lessons(path, records)
+        rung = f"check {check}" if check else f"no-check {no_check}" if no_check else ""
         ledger_append(
             root,
             "lesson.fix",
             actor,
             changed["id"],
-            f"closed by skill {skill}" if skill else f"fixed by {actor}",
+            " ".join(
+                part
+                for part in (
+                    f"closed by skill {skill}" if skill else "",
+                    rung,
+                )
+                if part
+            )
+            or f"fixed by {actor}",
         )
     print_lesson(changed)
     print(f"#   file: {path}")
@@ -9240,6 +9318,29 @@ def cmd_task_set(args) -> int:
             t["area"] = check_area(args.area or "", 2)
         if args.evidence is not None:
             t["evidence"] = args.evidence.strip()
+        if getattr(args, "authorize", None) is not None:
+            actor, arole = validate_actor(
+                root, args.by or args.claimed_by or args.agent, "authorizer"
+            )
+            if arole != "ceo" and not args.force:
+                die(
+                    f"only the CEO opens a closed lane: it records that a person "
+                    f"authorized an irreversible change (you are {actor}, {arole}).\n"
+                    "  Use --force <reason> to override deliberately.",
+                    2,
+                )
+            why = require_reason(args.authorize, "a closed-lane change")
+            t["undo_authorized"] = f"{actor}: {why}"
+            t["updated"] = today_iso()
+            ledger_append(
+                root,
+                "task.status",
+                actor,
+                t["id"],
+                f"closed lane authorized: {why}",
+                "",
+                role,
+            )
         if getattr(args, "review_status", None):
             if not (args.force or "").strip():
                 die(
@@ -14521,11 +14622,19 @@ def cmd_review(args) -> int:
         die("--credit belongs to a pass: it names the record a passing verdict cited", 2)
     if args.force:
         args.force = require_reason(args.force, "the review gate")
+    review_grade = grades.evidence_grade(args.evidence)
     if args.result == "pass" and not (args.evidence or "").strip() and not args.force:
         die(
             "a pass needs the REVIEWER's own evidence:\n"
             "  --evidence '<verify command> @<rev> -> <result>'\n"
             "  The author's evidence is not independent verification."
+        )
+    if args.result == "pass" and not args.force and review_grade in ("noise", "none"):
+        die(
+            f"a pass cannot carry {review_grade} evidence: {args.evidence.strip()!r}\n"
+            "  'Looks good', 'verified' and 'no errors' are the grades a failing tree\n"
+            "  produces too. Record the command you ran and what it printed.",
+            2,
         )
 
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
@@ -14590,6 +14699,19 @@ def cmd_review(args) -> int:
                     "has no PR, so the branch could never be merged. Ask the owner to "
                     f"run 'pr open --agent {t.get('claimed_by') or role} "
                     f"--task {t['id']}' first.",
+                    2,
+                )
+            undo_cls, undo_why = _task_undo_class(root, project, t)
+            if undo_cls:
+                t["undo"] = undo_cls
+                t["undo_reason"] = undo_why
+            if undo_cls == "closed" and not (t.get("undo_authorized") or "").strip():
+                die(
+                    f"refusing to pass {t['id']}: this is a closed lane ({undo_why}).\n"
+                    "  A closed lane has no score to lower, so it needs a person: the CEO\n"
+                    "  records the authorization on the task first.\n"
+                    f"  teamwork.py task set {role} {t['id']} --authorize "
+                    "'<who said yes + evidence>'",
                     2,
                 )
             if is_git_repo(project) and t.get("branch"):
@@ -14689,6 +14811,7 @@ def cmd_review(args) -> int:
             if artifacts:
                 t["review_artifacts"] = artifacts
             t["review_status"] = "passed"
+            t["review_grade"] = review_grade
             t["status"] = "done"
             t["review_fail_rev"] = ""
             if args.force:
@@ -14700,8 +14823,11 @@ def cmd_review(args) -> int:
             failed_rev = review_revision(root, t) or (t.get("review_fail_rev") or "")
             mechanical, mechanical_why = review_mechanical(t, failed_rev)
             detects = one_line(args.detects)
+            scope = one_line(getattr(args, "scope", "") or "")
             prev = t.get("findings", "")
             finding = f"detects: {detects} | {args.findings.strip()}"
+            if scope:
+                finding += f" | scope: {scope}"
             t["findings"] = f"{prev} | {finding}" if prev else finding
             t["review_detects"] = detects
             t["review_status"] = "failed"
@@ -15485,6 +15611,72 @@ def _preflight_features(root: Path, project: Path, base: str, branch: str) -> Pr
     )
 
 
+def _undo_entries(project: Path, base: str, branch: str) -> list:
+    """``(path, added, deleted)`` rows for one branch, empty when it cannot be read."""
+    if not (branch and is_git_repo(project) and branch_exists(project, branch)):
+        return []
+    diff = run_git(project, "diff", "--numstat", f"{base}...{branch}")
+    if diff.returncode != 0:
+        return []
+    entries = []
+    for line in diff.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        added = int(parts[0]) if parts[0].isdigit() else 0
+        gone = int(parts[1]) if parts[1].isdigit() else 0
+        entries.append((parts[2], added, gone))
+    return entries
+
+
+def _task_undo_class(root: Path, project: Path, task: dict) -> tuple:
+    """``(class, reason)`` for a task's own branch; ``("", "")`` when it has none."""
+    base = (task.get("base") or "").strip() or DEFAULT_BASE
+    entries = _undo_entries(project, base, (task.get("branch") or "").strip())
+    if not entries:
+        return "", ""
+    return grades.undo_class(entries)
+
+
+def _preflight_undo(project: Path, base: str, branch: str, task: dict) -> PreflightCheck | None:
+    """The lane a score cannot open: sort the diff by how hard it is to undo.
+
+    A confidence score is a number the model produces about itself, and a threshold
+    is a number someone can lower on a busy Friday. So the gate asks a different
+    question - what does a mistake cost here - and a ``closed`` lane needs a person:
+    the CEO's recorded authorization on the task, because the CEO is the only role
+    that may take an irreversible action.
+
+    Omitted while the class is ``revert``, so the ordinary report keeps its length;
+    ``evidence`` warns, ``closed`` fails until ``undo_authorized`` is set.
+    """
+    entries = _undo_entries(project, base, branch)
+    if not entries:
+        return None
+    cls, reason = grades.undo_class(entries)
+    if (task.get("undo") or "") in grades.UNDO_CLASSES and task.get("undo") != cls:
+        cls, reason = task["undo"], task.get("undo_reason") or reason
+    if cls == "revert":
+        return None
+    authorized = (task.get("undo_authorized") or "").strip()
+    if cls == "evidence":
+        return PreflightCheck(
+            "undo",
+            PREFLIGHT_WARN,
+            f"{cls}: {reason}; a shared surface needs hard evidence, not a summary",
+            "cite the strong evidence (a command and its result) in the self-check note",
+        )
+    if authorized:
+        return PreflightCheck("undo", PREFLIGHT_OK, f"{cls}: {reason} - authorized: {authorized}")
+    return PreflightCheck(
+        "undo",
+        PREFLIGHT_FAIL,
+        f"{cls}: {reason}; no authorization is recorded, so no verdict can open this lane",
+        "the CEO records it: teamwork.py task set <role> <T-id> --authorize "
+        "'<who said yes + evidence>' (a closed lane has no score to lower)",
+    )
+
+
 def _preflight_slice(
     project: Path, base: str, branch: str, root: Path, role: str, task: dict
 ) -> PreflightCheck | None:
@@ -15765,6 +15957,9 @@ def run_preflight(
         slice_check = _preflight_slice(project, base, branch, root, role, task)
         if slice_check is not None:
             checks.append(slice_check)
+        undo_check = _preflight_undo(project, base, branch, task)
+        if undo_check is not None:
+            checks.append(undo_check)
     checks.append(_preflight_tree(root, project, task))
     checks.append(_preflight_gate(root, project, run_gate, task))
     ahead = 0 if blocked else _rev_count(project, f"{base}..{branch}")
@@ -15870,6 +16065,17 @@ def cmd_selfcheck(args) -> int:
             "a passing self-check needs --test '<command @rev -> observed result>'\n"
             "  Reading your own diff is not a test. Run something."
         )
+    grade = grades.evidence_grade(args.test) if args.test.strip() else "none"
+    if args.result == "pass" and not args.force and grade in ("noise", "none"):
+        die(
+            f"a passing self-check cannot carry {grade} evidence: {args.test.strip()!r}\n"
+            "  An empty error log means nothing was reported, not that nothing went wrong,\n"
+            "  and a tree that fails produces 'looks good' as easily as one that passes.\n"
+            "  Rank what you accept: an exit code or a count ('-> 12 passed', 'exit 0',\n"
+            "  '# issues: 0') is strong; a path:line or a @rev is medium; a command with\n"
+            "  no result is weak. Record the command and its output.",
+            2,
+        )
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
         idx = find_task(tasks, args.handle)
@@ -15909,6 +16115,12 @@ def cmd_selfcheck(args) -> int:
                     2,
                 )
         artifacts = artifact_digests(root, getattr(args, "artifact", None))
+        undo_cls, undo_why = _task_undo_class(root, project_of(root), t)
+        if undo_cls:
+            t["undo"] = undo_cls
+            t["undo_reason"] = undo_why
+        if grade != "none":
+            t["self_grade"] = grade
         note = f"[{args.result}] {args.note.strip()}"
         if args.test.strip():
             note += f" | test: {args.test.strip()}"
@@ -18774,6 +18986,22 @@ def _parsers_workspace(sub, common) -> None:
         "--evidence", default=None, help="command + revision + observed result, or artifact path"
     )
     s.add_argument(
+        "--authorize",
+        default=None,
+        metavar="WHY",
+        help=(
+            "the CEO records who authorized a closed-lane change (a migration, a "
+            "deletion, a secret or auth path, a workflow, a release exception); the "
+            "only thing that opens a lane no review score can open"
+        ),
+    )
+    s.add_argument(
+        "--by",
+        default="",
+        metavar="INSTANCE",
+        help="who is acting, for --authorize: the CEO authorizes another role's task",
+    )
+    s.add_argument(
         "--force",
         default="",
         metavar="REASON",
@@ -19191,6 +19419,12 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--replay", default="", help="command or path that reproduces the verdict")
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
     s.add_argument(
+        "--scope",
+        default="",
+        help="with --result fail: what the fix may touch (e.g. 'src/parse.py only'); the "
+        "retried lane is told to fix that and nothing it noticed nearby",
+    )
+    s.add_argument(
         "--detects",
         default="",
         help="with --result fail: the specific failure this finding catches, reachable "
@@ -19605,10 +19839,24 @@ def _parsers_governance(sub, common) -> None:
     s = lsub.add_parser("show", parents=[common], help="print one lesson with every field")
     s.add_argument("lesson_id", metavar="L_ID")
     s.set_defaults(func=cmd_lesson)
-    s = lsub.add_parser("fix", parents=[common], help="close a lesson, optionally with a skill")
+    s = lsub.add_parser(
+        "fix", parents=[common], help="close a lesson with the rung that stops it recurring"
+    )
     s.add_argument("lesson_id", metavar="L_ID")
     s.add_argument("--by", required=True)
     s.add_argument("--rule", default="", help="replace the rule with what actually changed")
+    s.add_argument(
+        "--check",
+        default="",
+        metavar="CMD",
+        help="a deterministic command that now catches it; run here, must exit 0",
+    )
+    s.add_argument(
+        "--no-check",
+        default="",
+        metavar="WHY",
+        help="why no command can exist (the class is gone by design)",
+    )
     s.add_argument("--skill", default="", metavar="TW_NAME", help="the mistake skill that fixes it")
     s.add_argument("--evidence", default="", help="command @rev -> result")
     s.set_defaults(func=cmd_lesson)
@@ -20088,6 +20336,14 @@ def _parsers_meta(sub, common) -> None:
     from .lanes import add_parsers as _add_lane_parsers
 
     _add_lane_parsers(sub, common)
+
+    from .graph import add_parsers as _add_graph_parsers
+
+    _add_graph_parsers(sub, common)
+
+    from .hunt import add_parsers as _add_hunt_parsers
+
+    _add_hunt_parsers(sub, common)
 
     from .messages import add_parsers as _add_message_parsers
 

@@ -47,8 +47,11 @@ Teamwork/
 │   ├── engine.py             # command layer: build_parser/main + gates, review/PR, memory, model
 │   ├── evolution.py          # the self-evolution books: check + snapshot, wired into audit
 │   ├── gitutil.py            # git plumbing (branch/merge/LFS)
+│   ├── grades.py             # two pure classifications: evidence grade, undo class (gates)
+│   ├── graph.py              # the task graph: waves, critical path, what one dependency costs
 │   ├── harness.py            # harness surface: registry, whole-proposal lint, always-on budget
 │   ├── hooks.py              # the git hooks: install/status/uninstall + the pre-commit/pre-push rules
+│   ├── hunt.py               # a bounded discovery loop: dry rounds, seen set, a page on a stall
 │   ├── imaging.py            # offline image-model probe
 │   ├── io.py                 # atomic writes, the lock, die()
 │   ├── lanerun.py            # one lane's detached child: budget + outcome file
@@ -134,9 +137,15 @@ has_asset(name: str) -> bool
 
 `config.py` calls `resources.skill_root()`; `engine.py` and every other module
 import the resolved paths from `config`. The dependency direction is
-`config <- io/names <- layout <- records`, and `engine` sits on top. Only the
-`cli` entry point imports `engine` at import time, so the command layer can be
-exercised without a cycle.
+`config <- io/names <- layout <- records`, and `engine` sits on top. Two modules
+import `engine` at import time - `cli.py` and `lanes.py`, which sits above it -
+so every other module, `engine` included, reaches `lanes` and `engine` from
+inside a function. `graph.py` and `hunt.py` are below `engine` and reach it from
+inside a function too, so the import-time graph is acyclic, and
+`tests/unit/test_import_direction.py` reads it from the AST and fails on a
+module-scope cycle instead of leaving it to whoever imports first (a check the
+tree cannot fail proves nothing, so that test is proved on a synthetic cycle
+first).
 
 ## 4. CLI contract (frozen, backward compatible)
 
@@ -2452,6 +2461,8 @@ memory). One record per mistake:
 - cause: <why it happened>
 - rule: <what the agent now does instead>
 - evidence: <command @rev -> result>
+- check: <command>        (the rung that now catches it; absent on an old record)
+- no_check: <why none>    (the class is gone by design)
 - task: <T-id>            (optional)
 - skill: <tw-name>        (set when a skill fixes it)
 - by: <instance>
@@ -2462,7 +2473,8 @@ memory). One record per mistake:
 Ids are globally unique across the team: `L-` plus four digits, allocated from
 the maximum over every role's `Lessons.md`. Commands: `lesson add`,
 `lesson list [--role ROLE] [--status open|fixed|all]`, `lesson show <L-id>`,
-`lesson fix <L-id> --by <instance> [--rule TEXT] [--skill tw-name] [--evidence TEXT]`.
+`lesson fix <L-id> --by <instance> [--rule TEXT] [--check CMD | --no-check WHY]
+[--skill tw-name] [--evidence TEXT]`.
 `lesson add` requires `--by`, `--mistake`, `--cause`, `--rule` and `--evidence`;
 the role defaults to the actor's role.
 
@@ -2475,7 +2487,16 @@ by id, one line per lesson:
 
 `lesson fix` requires a recorded `--evidence` (or keeps the existing one) and an
 existing `--skill` when given; on an `open` lesson it moves it to `fixed` and
-records `updated`. On an already `fixed` lesson it is allowed only when it
+records `updated`. An `open` lesson also requires the rung that stops it
+recurring, because a lesson closed on prose alone is one the team pays for twice:
+`--check '<cmd>'` runs the command in the invoker's checkout (through
+`_gate_argv`, the `PreflightCommand` reader) and must exit 0, and the command is
+recorded on the record and in the ledger with its exit code; `--no-check '<why>'`
+records that no command can exist because the class is gone by design. The two
+are exclusive and one is mandatory, and a `--check` that exits non-zero is refused
+with `the --check command does not catch this lesson: it exited <n>` - a check
+that cannot fail the tree it was recorded on proves nothing. On an already
+`fixed` lesson it is allowed only when it
 carries new `--evidence` (a re-proof of the fix) and keeps or updates `--skill`;
 otherwise it is refused with
 `lesson L-0001 is already fixed by <skill>; pass --evidence to re-prove the fix`
