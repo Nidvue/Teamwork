@@ -13,7 +13,7 @@ Every option was produced from `teamwork <cmd> --help`.
 | [CLI: records and knowledge](cli-records.md) | learning, context, criteria and tests |
 | [CLI: review and governance](cli-review.md) | review, archive, decisions, disputes, red lines, skills |
 | [CLI: feature teams and git workflow](cli-workflow.md) | features, branches, PRs, commits, hooks |
-| [CLI: audit and control](cli-audit.md) | ledger, trace, coordination, loop, model, scripts |
+| [CLI: audit and control](cli-audit.md) | ledger, trace, coordination, graph, hunt, loop, model, scripts |
 
 This page carries invocation, global options, exit codes and the commands that
 set up a workspace, scale roles, run the queue and edit memory - plus the
@@ -350,11 +350,18 @@ teamwork: Developer-2 (developer) has no executable task of its own team
 teamwork task set AGENT HANDLE [--claimed-by CLAIMED_BY]
     [--status {todo,doing,selfcheck,review,blocked,done,dropped}]
     [--priority {P0,P1,P2,P3}] [--deps DEPS] [--title TITLE]
-    [--evidence EVIDENCE] [--force REASON]
+    [--evidence EVIDENCE] [--authorize WHY [--by INSTANCE]] [--force REASON]
 ```
 
 Update status, priority or dependencies. `--force` overrides evidence/self-check
 /review gates, requires a reason, and is recorded and audited.
+
+`--authorize WHY` is the only thing that opens a **closed** lane - a diff a revert
+cannot undo (a migration or schema path, a payment, a secret or auth path, a
+workflow that fires on merge, a release exception, a deleted file). Only the CEO
+may record it, because the CEO is the only role that takes an irreversible action;
+the reason and the actor are stored on the task as `undo_authorized` and appended
+to the ledger. `--by` names the CEO when the task belongs to another role.
 
 #### `task check`
 

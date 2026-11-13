@@ -91,6 +91,8 @@ LESSON_FIELDS = (
     "cause",
     "rule",
     "evidence",
+    "check",
+    "no_check",
     "task",
     "skill",
     "by",
@@ -862,6 +864,11 @@ def new_task(
         "review_fail_rev": "",
         "review_mechanical": "",
         "review_detects": "",
+        "self_grade": "",
+        "review_grade": "",
+        "undo": "",
+        "undo_reason": "",
+        "undo_authorized": "",
         "dropped_under_live": "",
         "forced": "",
         "archived": "",
@@ -917,6 +924,11 @@ TASK_META_FIELDS = (
     "review_fail_rev",
     "review_mechanical",
     "review_detects",
+    "self_grade",
+    "review_grade",
+    "undo",
+    "undo_reason",
+    "undo_authorized",
     "dropped_under_live",
     "archived",
 )
@@ -1011,6 +1023,11 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("review_fail_rev", t.get("review_fail_rev", "")),
             ("review_mechanical", t.get("review_mechanical", "")),
             ("review_detects", t.get("review_detects", "")),
+            ("self_grade", t.get("self_grade", "")),
+            ("review_grade", t.get("review_grade", "")),
+            ("undo", t.get("undo", "")),
+            ("undo_reason", t.get("undo_reason", "")),
+            ("undo_authorized", t.get("undo_authorized", "")),
             ("dropped_under_live", t.get("dropped_under_live", "")),
             ("forced", t.get("forced", "")),
             ("evidence", t.get("evidence", "")),
@@ -1757,6 +1774,8 @@ def new_lesson(
         "cause": one_line(cause),
         "rule": one_line(rule),
         "evidence": one_line(evidence),
+        "check": "",
+        "no_check": "",
         "task": one_line(task),
         "skill": "",
         "by": one_line(by),
@@ -1797,7 +1816,9 @@ def render_lessons(items: list) -> str:
     for item in sorted(items, key=lambda entry: entry["id"]):
         out.append(f"## {item['id']} - {one_line(item['mistake'])}")
         for field in LESSON_FIELDS:
-            if field in ("task", "skill", "superseded_by") and not item.get(field):
+            if field in ("task", "skill", "superseded_by", "check", "no_check") and not item.get(
+                field
+            ):
                 continue
             out.append(f"- {field}: {one_line(item.get(field, ''))}")
         out.append("")

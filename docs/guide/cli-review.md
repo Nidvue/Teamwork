@@ -119,7 +119,7 @@ measure is a failure, never a pass. One line per check, the exact command that
 clears each finding, then the summary and a digest:
 
 ```text
-PREFLIGHT pass @1a2b3c4d5e6f :: 7 checks, 0 failed
+PREFLIGHT pass @1a2b3c4d5e6f :: 8 checks, 0 failed
 PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 ```
 
@@ -132,6 +132,7 @@ PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 | `board` | the branch itself changes `docs/Team/Board.md` and that file disagrees with the queues. A branch that does not carry the board is never charged: the merging Reviewer renders it. |
 | `features` | the feature records at the tree this branch would **land** - the base's records with the branch's rows folded in - break the independence rule (`feature check`). A lane's own revision can be green while the merged tree is red, because the record it collides with may live on another branch; the same predicate refuses a `review --result pass` and a `pr merge`. A tree with no records has nothing to judge and passes. |
 | `slice` | the diff is past the review profile's slice budget: 6 files / 300 changed lines (`fast`), 12/600 (`standard`), 24/1,200 (`deep`). A **warning**, not a failure: split the task or record in the self-check why it is one coherent contract. |
+| `undo` | the diff is not one revert away. Omitted for the ordinary case; `evidence` (the constitution, the frozen contract, `config.py`, `records.py`, the build and gate config) is a **warning** that asks for strong evidence; `closed` (a migration or schema path, a payment, a secret/auth/cert path, a workflow that fires on merge, a release exception, or **any deleted file**) **fails** until the CEO records who authorized it: `task set <role> <T-id> --by ceo --authorize '<who said yes + evidence>'`. A closed lane is the one no score opens - a threshold is a number someone can lower on a busy Friday. |
 | `gate` | `PreflightCommand` (below) was run with `--run` and exited non-zero. |
 
 `--run` executes the project's own gate command from the team `Settings.json`,
@@ -160,6 +161,20 @@ requires a `--test` line; `--note` records what was re-read, and
 `--baseline/--artifact/--replay` attach the rest of the evidence packet. A
 `--bug` task is refused until a `tests repro` record exists for it.
 
+**The `--test` line is graded, and `noise` is refused.** The grade is computed
+from the text and stored on the task as `self_grade`:
+
+| Grade | Looks like | Proves |
+|---|---|---|
+| `strong` | `-> 12 passed`, `exit 0`, `# issues: 0`, a 16-hex digest | a program produced the result |
+| `medium` | `docs/Team/Board.md:42`, `TS-0006 @a1b2c3d`, a URL | a reader can follow it |
+| `weak` | `pytest -q tests/unit/test_x.py` | a command with no observed result |
+| `noise` | `looks good`, `verified`, `no errors were thrown`, `see the run` | nothing - a failing tree writes the same line |
+
+`noise` and an empty line are refused on a pass (the same rule applies to a
+Reviewer's `--evidence`, stored as `review_grade`): an empty error log means
+nothing was reported, not that nothing went wrong.
+
 A passing self-check also runs `preflight` at the branch head and is refused
 while it is red, so the Reviewer never spends a lease on a `git rebase` or an
 unreachable evidence revision. The note being recorded is part of that
@@ -170,7 +185,7 @@ passed'` is refused instead of certifying a revision the repository does not hav
 `forced` field, naming the check that was overridden.
 The evidence line carries the digest the preflight measured, so the Reviewer can
 cite the mechanical half instead of repeating it:
-`preflight: PF-0f1e2d3c4b5a @1a2b3c4d5e6f (6 checks, 0 failed)`. A `--result fail`
+`preflight: PF-0f1e2d3c4b5a @1a2b3c4d5e6f (8 checks, 0 failed)`. A `--result fail`
 self-check is never blocked: an author reporting their own failure is the point.
 
 ### `archive`

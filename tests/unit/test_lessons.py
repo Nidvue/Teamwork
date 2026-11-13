@@ -137,6 +137,8 @@ def test_lesson_list_filters_open_and_fixed(cli, ws, capsys) -> None:
             "L-0002",
             "--by",
             "Developer-1",
+            "--no-check",
+            "the class is gone by design",
             "--evidence",
             "pytest @def -> 3 passed",
         )
@@ -169,6 +171,8 @@ def test_a_fixed_lesson_cannot_be_refixed_without_new_evidence(cli, ws, capsys) 
             "L-0001",
             "--by",
             "Developer-1",
+            "--no-check",
+            "the class is gone by design",
             "--evidence",
             "pytest @abc -> 1 passed",
         )
@@ -208,6 +212,8 @@ def test_a_fixed_lesson_can_be_refixed_with_new_evidence(cli, ws, capsys) -> Non
             "L-0001",
             "--by",
             "Developer-1",
+            "--no-check",
+            "the class is gone by design",
             "--evidence",
             "pytest @abc -> 1 passed",
         )
@@ -224,6 +230,8 @@ def test_a_fixed_lesson_can_be_refixed_with_new_evidence(cli, ws, capsys) -> Non
             "L-0001",
             "--by",
             "Developer-1",
+            "--no-check",
+            "the class is gone by design",
             "--evidence",
             "pytest @def -> 2 passed",
         )
@@ -482,6 +490,8 @@ def test_a_lesson_fixed_without_a_skill_can_still_be_closed_by_a_skill(cli, ws, 
             "L-0001",
             "--by",
             "Developer-1",
+            "--no-check",
+            "the class is gone by design",
             "--evidence",
             "manual proof @abc -> fixed",
         )
@@ -765,3 +775,142 @@ def test_harness_prefix_rule_fires_on_a_scratch_tree_and_accepts_tw(tmp_path: Pa
     )
     findings, _stats = harness.lint(repo, tmp_path / "no-team")
     assert not [finding for finding in findings if finding.rule == harness.RULE_PREFIX]
+
+
+def test_closing_a_lesson_on_prose_alone_is_refused(cli, ws, capsys) -> None:
+    """14.1: the rung is named, so a lesson cannot be closed by re-wording the rule."""
+    assert add_lesson(cli, ws) == 0
+    capsys.readouterr()
+    assert (
+        cli(
+            "--project",
+            ws,
+            "lesson",
+            "fix",
+            "L-0001",
+            "--by",
+            "Developer-1",
+            "--evidence",
+            "pytest @abc -> 1 passed",
+        )
+        == 2
+    )
+    err = capsys.readouterr().err
+    assert err.startswith("teamwork: closing a lesson names the rung")
+    assert "--check '<command>'" in err
+    assert "--no-check" in err
+    item = engine.parse_lessons(lessons_file(ws))[0]
+    assert item["status"] == "open"
+    assert item["check"] == "" and item["no_check"] == ""
+
+
+def test_a_check_that_does_not_fail_proves_nothing(cli, ws, capsys) -> None:
+    """Rung 2 runs the command: a red exit means the check does not catch the lesson."""
+    assert add_lesson(cli, ws) == 0
+    capsys.readouterr()
+    assert (
+        cli(
+            "--project",
+            ws,
+            "lesson",
+            "fix",
+            "L-0001",
+            "--by",
+            "Developer-1",
+            "--check",
+            "test -f a-file-that-does-not-exist",
+            "--evidence",
+            "pytest @abc -> 1 passed",
+        )
+        == 2
+    )
+    err = capsys.readouterr().err
+    assert "does not catch this lesson: it exited 1" in err
+    assert engine.parse_lessons(lessons_file(ws))[0]["status"] == "open"
+
+
+def test_a_green_check_is_recorded_on_the_lesson_and_in_the_ledger(cli, ws, capsys) -> None:
+    """Rung 2: the command, its exit code and the actor travel with the closed record."""
+    assert add_lesson(cli, ws) == 0
+    capsys.readouterr()
+    assert (
+        cli(
+            "--project",
+            ws,
+            "lesson",
+            "fix",
+            "L-0001",
+            "--by",
+            "Developer-1",
+            "--check",
+            "test -f AGENTS.md",
+            "--evidence",
+            "pytest @abc -> 1 passed",
+        )
+        == 0
+    )
+    item = engine.parse_lessons(lessons_file(ws))[0]
+    assert item["status"] == "fixed"
+    assert item["check"] == "test -f AGENTS.md"
+    assert item["no_check"] == ""
+    text = lessons_file(ws).read_text(encoding="utf-8")
+    assert "- check: test -f AGENTS.md" in text
+    ledger = [
+        json.loads(line)
+        for line in (team_root(ws) / "Ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    fix = [row for row in ledger if row.get("action") == "lesson.fix"]
+    assert len(fix) == 1
+    assert fix[0]["target"] == "L-0001"
+    assert "check test -f AGENTS.md" in fix[0]["detail"]
+
+
+def test_check_and_no_check_are_exclusive(cli, ws, capsys) -> None:
+    assert add_lesson(cli, ws) == 0
+    capsys.readouterr()
+    assert (
+        cli(
+            "--project",
+            ws,
+            "lesson",
+            "fix",
+            "L-0001",
+            "--by",
+            "Developer-1",
+            "--check",
+            "true",
+            "--no-check",
+            "the code path is gone",
+            "--evidence",
+            "pytest @abc -> 1 passed",
+        )
+        == 2
+    )
+    assert "--check and --no-check are exclusive" in capsys.readouterr().err
+
+
+def test_a_no_check_rung_prints_the_skipped_rung_and_survives_a_reparse(cli, ws, capsys) -> None:
+    assert add_lesson(cli, ws) == 0
+    capsys.readouterr()
+    assert (
+        cli(
+            "--project",
+            ws,
+            "lesson",
+            "fix",
+            "L-0001",
+            "--by",
+            "Developer-1",
+            "--no-check",
+            "the whole code path was deleted in T-0002",
+            "--evidence",
+            "pytest @abc -> 1 passed",
+        )
+        == 0
+    )
+    capsys.readouterr()
+    item = engine.parse_lessons(lessons_file(ws))[0]
+    assert item["status"] == "fixed"
+    assert item["no_check"] == "the whole code path was deleted in T-0002"
+    assert item["check"] == ""

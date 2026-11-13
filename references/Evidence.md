@@ -70,6 +70,23 @@ into `Ledger.jsonl`, so editing the file after the fact breaks the match):
 | artifact | where is the proof a later agent can re-open? | `--artifact <path>` (repeatable) |
 | replay | how does another agent reproduce it? | `--replay '<cmd or path>'` |
 
+**And the result line is graded**, because a line that looks like evidence and
+cannot fail is worse than no line: it certifies a claim nobody checked. `selfcheck`
+stores the grade of its `--test` line as `self_grade`, `review` stores the grade of
+its `--evidence` as `review_grade`, and both refuse `noise` on a pass.
+
+| Grade | Looks like | Proves |
+|---|---|---|
+| `strong` | `-> 12 passed`, `exit 0`, `# issues: 0`, `PASS 0 findings`, a 16-hex digest | a program produced the result |
+| `medium` | `docs/Team/Board.md:42`, `TS-0006 @a1b2c3d`, `PF-0f1e2d3c4b5a`, a URL | a reader can follow it |
+| `weak` | `pytest -q tests/unit/test_x.py` | a command, with no observed result |
+| `noise` | `looks good`, `LGTM`, `verified`, `no errors were thrown`, `see the run`, "I am confident" | nothing: a failing tree writes the same line |
+
+The rank is a property of the text (`src/teamwork/grades.py`), so it is computed,
+not declared. A reviewer agent approving, a confidence score and an empty error log
+are all at the bottom of it - the last one because silence means nothing was
+reported, not that nothing went wrong.
+
 A **defect fix adds a sixth**: the failing run must precede the passing one.
 `task add ... --bug` marks the defect, and its self-check is refused until the
 task itself carries the transition:
