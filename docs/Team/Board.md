@@ -153,6 +153,7 @@ under two roles is two tasks.
 | ceo | T-0062 | audit | done | P-0205 | 1b3303c |
 | ceo | T-0063 | changelog | done | P-0204 | 6c77cd1 |
 | ceo | T-0064 | status-feed | done | P-0206 | 57b6f34 |
+| ceo | T-0065 | audit | done | P-0207 | 9b7da46 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
