@@ -150,7 +150,7 @@ under two roles is two tasks.
 | ceo | T-0059 | changelog | done | P-0201 | d158ead |
 | ceo | T-0060 | audit | done | P-0202 | 1aea153 |
 | ceo | T-0061 | governance | done | P-0203 | 1c99960 |
-| ceo | T-0062 | audit | doing | - | - |
+| ceo | T-0062 | audit | done | P-0205 | 1b3303c |
 | ceo | T-0063 | changelog | done | P-0204 | 6c77cd1 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
@@ -340,7 +340,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0062 · Make the audit's problem count mean actionable work | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
