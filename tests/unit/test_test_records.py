@@ -176,3 +176,43 @@ def test_tests_require_accepts_a_subject_area(
     err = capsys.readouterr().err
     assert "not an area" not in err
     assert "unknown actor 'ceo'" in err
+
+
+def test_an_area_with_no_test_record_is_flagged_when_it_is_chosen(
+    cli, project: Path, capsys
+) -> None:
+    """The gap trap is named where the area is chosen, not at close (K-0036).
+
+    Measured: a new area on a finished task makes `tests plan` require
+    unit/integration/acceptance for it, and three tasks paid a whole extra lane to
+    record the layers after the fact.
+    """
+    assert (
+        cli(
+            "--project",
+            project,
+            "init",
+            "--agents",
+            "ceo,developer-1,tester-1,reviewer-1",
+            "--no-git",
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert cli("--project", project, "task", "add", "developer", "a new subject") == 0
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--area", "brand-new") == 0
+    )
+    out = capsys.readouterr().out
+    assert "has no test record for" in out, out
+    assert "brand-new" in out
+
+    for layer in ("unit", "integration", "acceptance"):
+        assert (
+            cli("--project", project, "tests", "add", "--layer", layer, "--area", "brand-new") == 0
+        )
+    capsys.readouterr()
+    assert (
+        cli("--project", project, "task", "set", "developer", "T-0001", "--area", "brand-new") == 0
+    )
+    assert "has no test record for" not in capsys.readouterr().out
