@@ -102,7 +102,7 @@ def live_team() -> tuple[Path, str]:
     )
 
 
-def status_json(project: Path, team: str) -> tuple[int, dict]:
+def status_json(project: Path, team: str, *extra: str) -> tuple[int, dict]:
     done = run(
         [
             sys.executable,
@@ -113,6 +113,7 @@ def status_json(project: Path, team: str) -> tuple[int, dict]:
             str(project),
             "--team",
             team,
+            *extra,
         ],
         project,
     )
@@ -260,6 +261,14 @@ def test_agent_filter_keeps_the_lane_count_equal_to_the_rows() -> None:
     )
     assert done.returncode == 0, done.stderr or done.stdout
     narrowed = json.loads(done.stdout)
+    assert narrowed["counts"]["lanes"] == len(narrowed["lanes"]), (
+        "counts.lanes describes the rows the same call returns, even when the"
+        " narrowed instance has none"
+    )
+    _code, empty_lanes = status_json(project, team, "--agent", "CEO")
+    assert empty_lanes["counts"]["lanes"] == 0 == len(empty_lanes["lanes"]), (
+        "an instance with no lane must not inherit the team-wide lane count"
+    )
     assert narrowed["counts"]["lanes"] == len(narrowed["lanes"]), (
         "the count must describe the narrowed rows"
     )
