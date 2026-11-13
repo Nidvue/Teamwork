@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-11-13
+
+### Fixed
+
+- **The release workflow's npm verification outlasts its own cache** - the
+  idempotency read (`npm view` before publishing) caches a 404 for a version that
+  does not exist yet, and the post-publish poll served that negative packument for
+  its whole TTL: on the v1.5.3 run (43332902531) the publish printed
+  `published @nidvue/teamwork@1.5.3` and the tarball was on the registry, yet all
+  12 attempts (224 s) saw E404 and the job went red on a green publish. Both reads
+  now pass `--prefer-online` and the poll window is 6 min (18 x 20 s).
+
 ## [1.5.3](https://github.com/Nidvue/Teamwork/compare/v1.5.2...v1.5.3) - 2026-11-12
 
 ### Added
