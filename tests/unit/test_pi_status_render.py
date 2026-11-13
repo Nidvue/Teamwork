@@ -26,9 +26,10 @@ EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
 SCRIPT = """
 const { render } = await import(process.env.TW_EXTENSION);
 const payload = JSON.parse(process.env.TW_PAYLOAD);
+const width = Number(process.env.TW_WIDTH || 0);
 let lines;
 try {
-  lines = render(payload);
+  lines = width ? render(payload, width) : render(payload);
 } catch (error) {
   console.log(JSON.stringify({ error: String(error && error.message) }));
   process.exit(0);
@@ -51,7 +52,7 @@ def node() -> str:
     return binary
 
 
-def render(payload: dict) -> list[str]:
+def render(payload: dict, width: int | None = None) -> list[str]:
     result = subprocess.run(
         [node(), "--experimental-strip-types", "--no-warnings", "-e", SCRIPT],
         capture_output=True,
@@ -61,6 +62,7 @@ def render(payload: dict) -> list[str]:
             **os.environ,
             "TW_EXTENSION": EXTENSION.as_uri(),
             "TW_PAYLOAD": json.dumps(payload),
+            "TW_WIDTH": str(width or ""),
         },
         timeout=60,
     )
@@ -214,3 +216,60 @@ def test_an_empty_payload_stays_silent() -> None:
         render({"schema": 2, "count": 0, "counts": {"lanes": 0}, "instances": [], "lanes": []})
         == []
     )
+
+
+def with_activity(width_payload: dict | None = None) -> dict:
+    data = width_payload or payload(6)
+    data["schema"] = 4
+    data["instances"][0]["last"] = "tests.run TS-0001 - 76 passed in 35s"
+    data["instances"][0]["last_seconds"] = 12
+    data["instances"][1]["last"] = (
+        "review.pass T-0062 - Re-derived the mechanism, then mutated it. "
+        "CHANGE-SET: git diff --stat main...7c2ab2b -> two files, +110/-13"
+    )
+    data["instances"][1]["last_seconds"] = 240
+    return data
+
+
+def test_one_line_per_active_agent_carries_its_latest_command() -> None:
+    lines = render(with_activity())
+    busy = [line for line in lines if line.startswith("●")]
+    assert len(busy) == 3, f"three busy agents, one line each: {lines}"
+    assert "tests.run TS-0001" in busy[0]
+    assert "12s · tests.run" in busy[0], "the age says how live the line is"
+    assert "review.pass T-0062" in busy[1]
+    assert "4m · review.pass" in busy[1]
+
+
+def test_a_wide_terminal_shows_more_of_the_command_without_wrapping() -> None:
+    data = with_activity()
+    data["counts"] = {"busy": 3, "review": 2, "lanes_live": 1, "activated": 6}
+    data["lanes"] = [
+        {
+            "id": "L-0433",
+            "instance": "Developer-2",
+            "task": "T-0070",
+            "state": "running",
+            "elapsed_text": "12m",
+            "model": "deepseek-chat",
+            "provider": "deepseek",
+        }
+    ]
+    narrow = render(data, 60)
+    wide = render(data, 160)
+    assert max(len(line) for line in narrow) <= 60, narrow
+    assert max(len(line) for line in wide) <= 160, wide
+    narrow_row = next(line for line in narrow if "Reviewer-2" in line)
+    wide_row = next(line for line in wide if "Reviewer-2" in line)
+    assert len(wide_row) > len(narrow_row), "the wider bound is used, not a fixed cap"
+    assert "CHANGE-SET" in wide_row, "the long command survives at the wider bound"
+    assert "CHANGE-SET" not in narrow_row
+    assert "\n" not in wide_row
+
+
+def test_a_row_with_no_activity_falls_back_to_the_task_title() -> None:
+    data = payload(4)
+    data["instances"][0]["title"] = "pi extension teamwork-status"
+    lines = render(data)
+    row = next(line for line in lines if line.startswith("● Developer-2"))
+    assert "pi extension teamwork-status" in row
