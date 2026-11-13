@@ -5699,11 +5699,13 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
 
 
 def build_commit_message(role: str, meta: dict) -> str:
-    """The message a commit carries: what changed and the evidence for it.
+    """The message a commit carries: exactly one line.
 
-    No line names an agent: published history is the project's, so the message
-    carries the task, the goal, the evidence and nothing about which role or
-    instance typed it (decision 2026-11-11).
+    A commit message is one line - ``<type>(<area>): <summary>`` - compact but
+    informative. The task, the goal and the evidence live in the task record and
+    the ledger, never in a multi-line commit body. No line names an agent:
+    published history is the project's, so the message carries what changed and
+    nothing about which role or instance typed it.
     """
     typ = (meta.get("type") or "chore").lower()
     if typ not in COMMIT_TYPES:
@@ -5711,21 +5713,7 @@ def build_commit_message(role: str, meta: dict) -> str:
     area = one_line(meta.get("area") or meta.get("task") or role)
     summary = one_line(meta.get("deliverable") or meta.get("goal") or "update")
     summary = summary[:72]
-    lines = [f"{typ}({area}): {summary}", ""]
-    fields = [
-        ("Task", meta.get("task")),
-        ("Goal", meta.get("goal")),
-        ("Deliverable", meta.get("deliverable")),
-        ("Why", meta.get("why")),
-        ("Status", meta.get("status")),
-        ("Result", meta.get("result")),
-        ("Docs", meta.get("docs")),
-        ("Refs", meta.get("refs")),
-    ]
-    for key, value in fields:
-        if value:
-            lines.append(f"{key}: {one_line(value)}")
-    return "\n".join(lines) + "\n"
+    return f"{typ}({area}): {summary}\n"
 
 
 def _git_author(project: Path, env: dict) -> tuple:
@@ -5927,12 +5915,15 @@ def cmd_commit(args) -> int:
     if note:
         print(note)
 
+    detail = f"{message.splitlines()[0]} | {len(staged.splitlines())} file(s) {sha}"
+    if meta.get("result"):
+        detail += f" | {one_line(meta['result'])}"
     ledger_append(
         root,
         "commit",
         name,
         args.task or "commit",
-        f"{message.splitlines()[0]} | {len(staged.splitlines())} file(s) {sha}",
+        detail,
         sha,
     )
     if args.task:

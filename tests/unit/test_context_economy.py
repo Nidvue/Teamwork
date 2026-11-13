@@ -560,12 +560,12 @@ def test_archive_rewrite_is_a_commit_by_the_reviewer(cli, project: Path, capsys)
     assert "Acting role" not in body, body
     assert changed == ["docs/Team/Archive.md"], "the record commit touches only the archive"
     assert "record the merge revision" in subject, "the rewrite is its own recorded commit"
-    assert branch in body and sha in body
+    assert body.strip() == subject.strip(), "the commit message is one line"
     assert "Acting role" not in engine.run_git(project, "log", "-1", "--format=%B").stdout
     records = [r for r in engine.ledger_read(root) if r["action"] == "pr.merge.archive"]
     assert len(records) == 1
     assert records[0]["actor"] == "Reviewer-2"
-    assert sha in records[0]["detail"] and records[0]["rev"]
+    assert branch in records[0]["detail"] and sha in records[0]["detail"] and records[0]["rev"]
 
 
 def test_archive_merge_sha_rewrite_is_idempotent(cli, project: Path, capsys) -> None:
