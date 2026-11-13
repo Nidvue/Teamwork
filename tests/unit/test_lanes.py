@@ -893,3 +893,39 @@ def test_reap_keeps_the_last_instance_of_a_gate_role(
     assert cli("--project", project, "lane", "reap") == 0
 
     assert engine.agent_dir(root, "reviewer-1").is_dir(), "the last gate seat stays staffed"
+
+
+def test_a_retried_unit_carries_the_failing_check_and_its_scope(cli, project: Path) -> None:
+    """A re-dispatched author used to get the task and nothing else.
+
+    The review's findings lived on the record the reviewer wrote, and reached the
+    reviewer's next packet; the lane that had to *fix* it never saw them. It now
+    opens with the finding and the scope, because an unscoped repair fixes the bug
+    plus the two things the agent noticed nearby.
+    """
+    root = init(cli, project)
+    assert cli("--project", project, "task", "add", "ceo", "a task", "--priority", "P1") == 0
+    path = layout.task_file(root, "ceo")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["findings"] = (
+        "detects: empty file crashes the parser | pytest -q @a1b2c3d -> 1 failed "
+        "| scope: src/parse.py only"
+    )
+    engine.write_tasks(path, tasks, "ceo")
+    packet = lanes.build_packet(
+        root,
+        [lanes.Assignment("CEO", "ceo", tasks[0]["id"], tasks[0]["title"], attempt=2)],
+        "L-0001",
+        2,
+        2,
+        50,
+        40,
+        "pi",
+        "",
+        "default",
+    )
+    assert "## Why this came back: the unit, not the batch" in packet
+    assert "1 failed" in packet
+    assert "- fix src/parse.py only and nothing else." in packet
+    assert lanes.scope_of(tasks[0]["findings"]) == "src/parse.py only"
+    assert lanes.scope_of("detects: x | no scope here") == ""
