@@ -1133,6 +1133,31 @@ def test_a_self_check_that_measured_an_older_revision_is_refused(cli, project, c
     assert "tree moved after the run" in out, out
     assert f"@{second[:7]}" in out, out
 
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "set",
+            "developer",
+            "T-0001",
+            "--evidence",
+            f"pytest -q @{first[:7]} -> 3 passed",
+        )
+        == 0
+    )
+    code = selfcheck(
+        cli,
+        project,
+        "--note",
+        "re-read the diff",
+        "--test",
+        f"pytest -q @{first[:7]} -> 3 passed",
+    )
+    assert code == 2, "evidence and note naming the same stale revision must be refused"
+    captured = capsys.readouterr()
+    assert "tree moved after the run" in captured.out + captured.err
+
     code = selfcheck(
         cli,
         project,
