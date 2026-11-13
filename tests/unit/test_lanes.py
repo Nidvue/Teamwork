@@ -134,10 +134,59 @@ def test_the_packet_names_the_work_the_charter_the_budget_and_the_result_contrac
     assert "Never merge your own work" in packet
     assert "16 tool calls and 25 minutes" in packet
     assert "tw branch start --agent Developer-1 --task T-0001 --worktree" in packet
-    assert "tw load Developer-1 --task T-0001" in packet
-    assert "tw load Developer-1`" not in packet
+    assert "injected below" in packet
+    assert "Do not re-read them with `tw load`" in packet
     assert "## Memory pack for this assignment (injected)" in packet
     assert "# pack:" in packet
+
+
+def test_the_packet_injects_the_open_lessons_without_a_second_read(cli, project: Path) -> None:
+    """The correction the team already paid for reaches the lane, once.
+
+    Measured: a Reviewer packet was 7.4 kB and told the lane to run `tw load`, whose
+    output is 18 kB and repeats the pack injected in the same packet. The lessons
+    were the one part of `load` the packet did not carry, so the packet now injects
+    their rules and tells the lane not to re-read them.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a unit")
+    assert (
+        cli(
+            "--project",
+            project,
+            "lesson",
+            "add",
+            "--by",
+            "Developer-1",
+            "--mistake",
+            "submitted a stale count",
+            "--cause",
+            "pasted an old run",
+            "--rule",
+            "re-run the command at the revision you name",
+            "--evidence",
+            "pytest @abc1234 -> 3 passed",
+        )
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "lane",
+            "start",
+            "--agent",
+            "developer-1",
+            "--task",
+            "T-0001",
+            "--print",
+        )
+        == 0
+    )
+    packet = Path(lanes.packet_path(root, "Developer-1", "L-0001")).read_text(encoding="utf-8")
+    assert "## Open lessons (developer) - do not repeat these" in packet
+    assert "re-run the command at the revision you name" in packet
+    assert "Do not re-read them with `tw load`" in packet
 
 
 def test_a_path_is_printed_with_forward_slashes_on_every_host() -> None:
