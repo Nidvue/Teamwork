@@ -9,6 +9,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.7] - 2026-11-13
+
+### Changed
+
+- **Every commit message is exactly one line** - `<type>(<area>): <summary>`,
+  compact but informative, with no body or trailers. The task, the goal and the
+  evidence live in the task record and the ledger, not in the commit message;
+  `teamwork.py commit` builds the one line and records `--result` in the ledger
+  detail. The rule is stated in `AGENTS.md`, `SKILL.md` and
+  `references/Engineering.md`, and the builder enforces it.
+- **The skill library is managed, not just grown** - every agent creates, updates,
+  enhances, improves and **removes** skills over time. Every skill is
+  **feature-unique**: search the library before creating one, consolidate or merge
+  overlap instead of duplicating, and delete a skill that is superseded or unused.
+  The rule is stated in `AGENTS.md`, `SKILL.md` and `references/Roles.md`.
+
 ## [1.5.6] - 2026-11-13
 
 ### Added
