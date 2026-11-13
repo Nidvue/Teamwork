@@ -518,6 +518,47 @@ def _assignment_lines(assignments: list) -> list:
 
 OPEN_LESSON_LINES = 8
 
+SCOPE_RE = re.compile(r"scope:\s*([^|]+)", re.IGNORECASE)
+
+
+def scope_of(findings: str) -> str:
+    """The scope a failing review named, so a retried lane knows how far a fix may go."""
+    match = SCOPE_RE.search(findings or "")
+    return " ".join(match.group(1).split()) if match else ""
+
+
+def returned_lines(root: Path, item: Assignment) -> list:
+    """The findings a returned unit carries back into the lane that must fix it.
+
+    A re-dispatched lane used to be told the task and nothing else: the review's
+    findings lived in the record the reviewer wrote and reached the reviewer's next
+    packet, never the author's. The unit therefore came back without the failing
+    check, which is the one thing the article is unambiguous about - return the unit
+    with the evidence and a scope, and the scope is what stops a one-line fix from
+    becoming a four-file diff.
+    """
+    if item.review_owner:
+        return []
+    tasks = parse_tasks(task_file(root, item.role))
+    index = find_task(tasks, item.task)
+    if index is None:
+        return []
+    findings = " ".join(str(tasks[index].get("findings") or "").split())
+    if not findings:
+        return []
+    scope = scope_of(findings)
+    return [
+        "## Why this came back: the unit, not the batch",
+        "```text",
+        findings[-1200:],
+        "```",
+        f"- fix {scope} and nothing else."
+        if scope
+        else "- fix the check that failed and nothing else.",
+        "- re-run that check and quote its result; leave the parts that passed alone.",
+        "",
+    ]
+
 
 def _open_lesson_lines(root: Path, role: str) -> list:
     """The role's open lessons, one rule per line, or nothing when there are none.
@@ -574,6 +615,7 @@ def build_packet(
         f"## Assignments (attempt {attempt} of {attempts})",
         *_assignment_lines(assignments),
         "",
+        *(returned_lines(root, first)),
         *(
             [*messages.packet_lines(root, instance), ""]
             if messages.packet_lines(root, instance)
