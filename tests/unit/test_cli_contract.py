@@ -581,7 +581,9 @@ def test_every_leaf_subcommand_is_documented() -> None:
     Measured review class: 37 of 158 review failures were doc drift, and the CLI
     reference is the surface a lane quotes a command from. The check is the whole
     leaf set against the five CLI pages plus the skill and the README, so a new
-    subcommand cannot land undocumented and a removed one cannot linger.
+    subcommand cannot land undocumented and a removed one cannot linger. It is a
+    coverage check, not a proof: a short leaf could be satisfied by incidental
+    prose, and the reviewer of T-0052 noted that as non-blocking.
     """
     from teamwork import engine
 

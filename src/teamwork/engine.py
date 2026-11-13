@@ -6720,8 +6720,10 @@ def start_here(name: str, role: str, root: Path, docs: Path, staffed: set | None
 1. Read the project constitution: `{agents_md}` (team rules, red lines,
    evidence gate) and your shared role charter (one copy for every {role}
    instance): `{charter}`.
-2. Load the ROLE's short-term memory into context (shared with every {role}
-   instance): `{script} load {name}`
+2. Your memory is already in your lane packet: the task-ranked pack and your
+   open lessons are injected there, so do not re-read them. Run
+   `{script} load {name}` only when you need the full shared {role} memory
+   (every entry, not the task-ranked pack).
 3. `{script} task next {name}` - atomically claims the highest-priority
    unblocked task from the shared {role} queue for you, and marks it as yours.
    Do not wait for peers; do not take a task another instance has claimed.

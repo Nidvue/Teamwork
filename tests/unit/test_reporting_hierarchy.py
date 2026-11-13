@@ -510,3 +510,21 @@ def test_a_leader_whose_only_feature_is_closed_shows_its_state(project: Path, cl
     assert cli("--project", project, "map") == 0
     leader = next(line for line in _tree_of(capsys.readouterr().out) if "Team Leader:" in line)
     assert "feature=F-0007 (done)" in leader, leader
+
+
+def test_the_generated_brief_does_not_mandate_the_packet_re_read(tmp_path: Path) -> None:
+    """The brief and the lane packet must not tell an agent opposite things (T-0052).
+
+    Measured: the packet injects the task-ranked pack and the open lessons and says
+    not to re-read them, while step 2 of the generated brief still made
+    `tw load <name>` the mandatory second read - 18 kB of duplicated memory per
+    lane. The brief names `load` only as the full-memory path now.
+    """
+    from teamwork import engine
+
+    root = tmp_path / "Team"
+    root.mkdir(parents=True, exist_ok=True)
+    brief = engine.start_here("developer-1", "developer", root, tmp_path / "docs", set(ROLE_PARENT))
+    body = " ".join(brief.split())
+    assert "do not re-read them" in body, brief
+    assert "only when you need the full shared developer memory" in body, brief
