@@ -11,6 +11,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.5](https://github.com/Nidvue/Teamwork/compare/v1.5.4...v1.5.5) - 2026-11-13
+
+### Fixed
+
+- **A release section names each category once** - `[1.5.4]` carried three separate
+  `### Changed` headings and `[1.1.3]` a non-standard `### Recorded`, so a reader
+  scanning the categories missed part of a release. The 1.5.4 bullets are merged
+  into one section with none of them lost, the 1.1.3 exception note moved under
+  `### Added` where its subject already sits, and
+  `tests/unit/test_docs_contracts.py` now fails a release section that repeats a
+  Keep a Changelog category or invents one, with a mutant proving it fires.
+- **`Decisions.md` carries one record per decision** - the
+  `D-20261017-CEO "Ship as teamwork-agents"` entry appeared twice byte for byte,
+  and five entries had no blank line before the next heading, so a parser splitting
+  on the heading lost the boundary. The duplicate is gone and the separators are
+  uniform; no decision fact changed.
+- **The audit's problem count means actionable work** - `audit` charged every
+  unstaffed role and every permanent drop marker to its count, so a team between
+  engagements could never reach 0 and the number stopped meaning anything. An
+  unstaffed role with an open task is still counted (a starved queue fails), an
+  unstaffed role with an empty queue is printed and not counted, and a
+  dropped-under-live marker stays visible without being charged - the same rule
+  the review-fails section already followed.
+- **The closing audit manifest names the revision it verifies** - the committed
+  `AuditManifest.json` named a checkpoint 883 records behind the live chain, so
+  `sha256sum -c` failed on two of its four artifacts. Regenerated from the ledger
+  at the merged revision.
+
+### Changed
+
+- **The tree moves to 1.5.5 after the v1.5.4 tag** - any commit after a tag must
+  raise the version or R2 reports `HEAD version 1.5.4 is not greater than tag
+  v1.5.4` and the release-consistency gate fails on the next push. `version.py`
+  and `CITATION.cff` follow the release, as they did at 7a126d0.
+
 ## [1.5.4](https://github.com/Nidvue/Teamwork/compare/v1.5.3...v1.5.4) - 2026-11-13
 
 ### Added
