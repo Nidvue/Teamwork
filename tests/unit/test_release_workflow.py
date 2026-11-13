@@ -507,6 +507,11 @@ def test_the_npm_verify_window_outlasts_registry_propagation():
     ``published @nidvue/teamwork@1.5.1`` and the tarball is on the registry, but
     the verify step's 4x20 s window still saw E404 at 61 s. The window must cover
     npm's propagation delay, not only the first minute.
+
+    The flag assertion reads the step with its comment lines stripped: an
+    assertion that matches prose is satisfied by the explanation of the fix, not
+    by the fix, and the v1.5.3 review proved it - deleting both real flags left
+    this test green because the comment still said ``--prefer-online`` (L-0052).
     """
     text = release_text()
     marker = "Verify the published version"
@@ -521,10 +526,34 @@ def test_the_npm_verify_window_outlasts_registry_propagation():
         "cached 404 for 224 s after a successful publish"
     )
     assert "time.sleep(RETRY_SECONDS)" in step, "the verify step no longer sleeps between attempts"
-    assert "--prefer-online" in step, (
+    code = "\n".join(line for line in step.splitlines() if not line.strip().startswith("#"))
+    assert '"--prefer-online",' in code, (
         "the verify poll must force a staleness check: the idempotency read caches a "
         "negative packument and the default cache serves it to every later attempt"
     )
+
+
+def test_the_idempotency_read_also_prefers_online():
+    """The pre-publish `npm view` is what caches the 404 the verify later sees.
+
+    If only the verify poll forces a staleness check, the negative packument is
+    still written by the idempotency read and the poll may serve it for the whole
+    cache TTL. Both reads carry the flag.
+    """
+    steps = [
+        step
+        for step in npm_job().get("steps") or []
+        if isinstance(step, dict) and str(step.get("name") or "").startswith("Publish (idempotent")
+    ]
+    assert len(steps) == 1, f"expected one publish step, found {len(steps)}"
+    code = "\n".join(
+        line
+        for line in str(steps[0].get("run") or "").splitlines()
+        if not line.strip().startswith("#")
+    )
+    pre_check = re.search(r'npm\(\s*"view".*?\n', code)
+    assert pre_check, "the idempotency check no longer calls `npm view`"
+    assert "--prefer-online" in pre_check.group(0), pre_check.group(0)
 
 
 def npm_verify_script() -> str:
