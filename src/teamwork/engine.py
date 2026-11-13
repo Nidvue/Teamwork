@@ -3168,7 +3168,9 @@ def ledger_verify(
                     f"{cached_n} record(s): the trail was deleted"
                 )
             if valid and cached_n > len(valid):
-                valid = _ledger_valid(ledger_read(root))
+                again = _ledger_valid(ledger_read(root))
+                if again:
+                    valid = again
             if valid and cached_n > len(valid):
                 problems.append(
                     f"head cache knows {cached_n} records but the ledger has "
