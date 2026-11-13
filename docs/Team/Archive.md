@@ -7447,4 +7447,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: 
 - reviewer evidence: ruff format --check @57b58df -> 339 files already formatted; ruff check @57b58df -> All checks passed; privacy_scan --tree @57b58df -> PASS 0 finding(s); pytest contract tests @57b58df -> 278 passed; pytest new unit tests (grades,graph,hunt,import_direction) @57b58df -> 54 passed; pytest full suite @57b58df -> 3027 passed 10 skipped; graph/hunt CLI verbs functional and idempotent per self-check claims @57b58df
 - findings history: 
-- branch / merge: ceo/t-0069-close-a-lesson-with-a-check-not-prose / pending
+- branch / merge: ceo/t-0069-close-a-lesson-with-a-check-not-prose / 0409e82
