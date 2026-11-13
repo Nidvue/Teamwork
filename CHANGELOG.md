@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.4] - 2026-11-13
 
+### Changed
+
+- **A lane packet carries the memory once** - it injects the task-ranked pack and
+  the role's open lessons and tells the lane not to re-read them with `tw load`.
+  The mandatory re-read cost ~18 kB per lane against a 7.4 kB packet that already
+  held the pack; the lessons, the one part `load` carried and the packet did not,
+  are now injected.
+- **The test-plan gap is named where the area is chosen** - `commit --area` and
+  `task set --area` print the required layers an area has no record for, so the
+  layers are recorded in the same task instead of costing a follow-up lane
+  (K-0036; three tasks paid it).
+- **Every leaf subcommand is pinned to the reference** - a new test walks the
+  parser and fails when a callable subcommand is absent from
+  `docs/guide/cli*.md`, `SKILL.md` or `README.md` (37 of 158 measured review
+  failures were doc drift).
+
 ### Fixed
 
 - **The release workflow's npm verification outlasts its own cache** - the

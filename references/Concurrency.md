@@ -128,6 +128,12 @@ teamwork.py lane reap                 # reconcile, free slots, recycle finished 
   fold policy as `instance prune --keep-required`: never the CEO, one instance of
   each gate role kept. A surplus seat is recycled without a separate prune; the
   pulse fold does the same on each wake.
+- **The packet carries the memory once.** A lane packet injects the task-ranked
+  memory pack (index + pack, inside `PACK_BUDGET_BYTES`) and the role's open
+  lessons, and tells the lane **not** to re-read them with `tw load`: the `load`
+  output is ~18 kB and repeats the injected pack, so the mandatory re-read was
+  the largest avoidable token cost per lane (measured on the Reviewer: 7.4 kB
+  packet, 18 kB load).
 - **State survives the supervisor.** No live object is required: `lane reap` and a
   re-entered `swarm run` resume from `Runtime/Lanes/`.
 

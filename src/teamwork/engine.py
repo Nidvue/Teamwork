@@ -2133,6 +2133,32 @@ def required_layers_for(root: Path, area: str) -> list:
     return core or staffed or list(DEFAULT_REQUIRED_LAYERS)
 
 
+def area_plan_note(root: Path, area: str) -> str:
+    """One line when ``area`` would open a test-plan gap, or ``""`` when it is covered.
+
+    Measured on this project: a new area on a finished task makes `tests plan` require
+    unit/integration/acceptance for it, and the gap blocks `loop` until a lane records
+    the layers - three tasks paid a whole extra lane for it (K-0036). The note is
+    printed where the area is chosen, so the author records the layers in the same
+    task instead of discovering the gap at close.
+    """
+    if not area:
+        return ""
+    recorded = {
+        record["layer"] for record in parse_tests(tests_path(root)) if record["area"] == area
+    }
+    required = required_layers_for(root, area)
+    missing = [layer for layer in required if layer not in recorded]
+    if not missing:
+        return ""
+    return (
+        f"# note: area '{area}' has no test record for {', '.join(missing)}; once this "
+        "task is done `tests plan` requires them. Record them in this task "
+        f"(`tests add --layer <layer> --area {area}` then `tests run`), or reuse an "
+        "existing area."
+    )
+
+
 def test_gaps(root: Path) -> list:
     """[(area, layer, reason)] for required layers that are not passing."""
     records = parse_tests(tests_path(root))
@@ -5804,6 +5830,9 @@ def cmd_commit(args) -> int:
     print(f"teamwork: committed {sha} as {landed}")
     print(f"          {message.splitlines()[0]}")
     print(f"          files: {len(staged.splitlines())}")
+    note = area_plan_note(root, area)
+    if note:
+        print(note)
 
     ledger_append(
         root,
@@ -6691,8 +6720,10 @@ def start_here(name: str, role: str, root: Path, docs: Path, staffed: set | None
 1. Read the project constitution: `{agents_md}` (team rules, red lines,
    evidence gate) and your shared role charter (one copy for every {role}
    instance): `{charter}`.
-2. Load the ROLE's short-term memory into context (shared with every {role}
-   instance): `{script} load {name}`
+2. Your memory is already in your lane packet: the task-ranked pack and your
+   open lessons are injected there, so do not re-read them. Run
+   `{script} load {name}` only when you need the full shared {role} memory
+   (every entry, not the task-ranked pack).
 3. `{script} task next {name}` - atomically claims the highest-priority
    unblocked task from the shared {role} queue for you, and marks it as yours.
    Do not wait for peers; do not take a task another instance has claimed.
@@ -9275,6 +9306,10 @@ def cmd_task_set(args) -> int:
     )
     if t.get("evidence"):
         print(f"          evidence: {t['evidence']}")
+    if getattr(args, "area", None) is not None:
+        note = area_plan_note(root, t.get("area", ""))
+        if note:
+            print(note)
     return 0
 
 
