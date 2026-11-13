@@ -16697,11 +16697,21 @@ def _audit_startup_read_over_the_cap(root: Path, names: list, args) -> int:
     return len(over)
 
 
+def _role_has_open_work(root: Path, role: str) -> bool:
+    """True when the role's queue holds a task that is neither done nor dropped."""
+    return any(
+        t.get("status") not in ("done", "dropped") for t in parse_tasks(task_file(root, role))
+    )
+
+
 def _audit_dropped_under_a_live_claim(root: Path, names: list, args) -> int:
     """A drop forced past a live claim must stay visible after the task closes.
 
     A sweep can only erase work if nobody can see it happened. The task records the
-    blockers, so this section is the audit-side half of the guard (T-0047).
+    blockers, so this section is the audit-side half of the guard (T-0047). It is
+    visible, not counted: the marker is permanent by design, so charging it to the
+    problem count made the count unreachable at 0 and taught readers to ignore it.
+    The house precedent is `_audit_review_fails_without_a_reachable_detect`.
     """
     print("## dropped under a live claim")
     hits = 0
@@ -16715,7 +16725,13 @@ def _audit_dropped_under_a_live_claim(root: Path, names: list, args) -> int:
                 hits += 1
     if not hits:
         print("- none")
-    return hits
+    else:
+        print(
+            f"- non-blocking: {hits} drop(s) forced past a live claim, each carrying its "
+            "reason; the marker is permanent so it stays visible, not counted"
+        )
+    print()
+    return 0
 
 
 def _audit_review_fails_without_a_reachable_detect(root: Path, names: list, args) -> int:
@@ -16760,19 +16776,42 @@ def _audit_review_fails_without_a_reachable_detect(root: Path, names: list, args
 
 
 def _audit_roster_gaps_roles_with_no_instance(root: Path, names: list, args) -> int:
+    """A role with no instance is a gap only when work is waiting for it.
+
+    This section used to count every role that kept its memory and queue but no
+    seat, so a team between engagements could never reach 0 problems and the count
+    stopped meaning anything. The section's own advice is "add an instance or
+    accept that the layer is not required"; this implements the second half by
+    measuring it instead of asking a reader to remember it: an unstaffed role with
+    an open task is starved and is counted, an unstaffed role with an empty queue
+    is printed and is not.
+    """
     print("## roster gaps (roles with no instance)")
-    hits = 0
+    starved = idle = 0
     for role in list_roles(root):
-        if not instances_of(root, role):
+        if instances_of(root, role):
+            continue
+        if _role_has_open_work(root, role):
             print(
-                f"- the {role} role has a memory/queue but no instance: its layer "
-                "and duties cannot be performed (add an instance or accept that the "
-                "layer is not required)"
+                f"- the {role} role has open work and no instance: its queue is starved "
+                "and its layer cannot be run (add an instance in the task that needs it)"
             )
-            hits += 1
-    if not hits:
+            starved += 1
+        else:
+            print(
+                f"- the {role} role keeps its memory and queue with no instance and no "
+                "open work: not counted"
+            )
+            idle += 1
+    if not starved and not idle:
         print("- none")
-    return hits
+    if idle:
+        print(
+            f"- non-blocking: {idle} unstaffed role(s) with an empty queue; the seat is "
+            "added by the task that needs it, so no idle lane is paid for"
+        )
+    print()
+    return starved
 
 
 def _audit_ownership_sanity_phantom_agents_silent_o(root: Path, names: list, args) -> int:
