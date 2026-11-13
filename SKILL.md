@@ -457,8 +457,10 @@ A failure you do not record is one the team pays for twice.
 
 - **A lesson (`L-`)** after a failed self-check or review, and after any mistake
   worth not repeating: the failure, the cause, the rule you now follow, the evidence.
-  `lesson add` requires all four; `load` shows open lessons at every startup; record
-  it before re-submitting, `lesson fix` closes it when the re-run proves the rule.
+  `lesson add` requires all four; `load` shows open lessons at every startup. Close
+  it with the cheapest rung that stops it recurring: `lesson fix --check '<cmd>'`
+  runs the command that now catches it (it must exit 0) or `--no-check '<why>'`
+  records that the class is gone by design; prose alone is refused.
 - **A `tw-` mistake skill** when the fix is a flow: `skill create --kind mistake
   --from-lesson L-nnnn` marks the lesson fixed, links both records and names the
   failure it prevents. A recurring finding with no skill behind it is a defect.
