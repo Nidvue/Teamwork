@@ -216,3 +216,73 @@ def test_an_area_with_no_test_record_is_flagged_when_it_is_chosen(
         cli("--project", project, "task", "set", "developer", "T-0001", "--area", "brand-new") == 0
     )
     assert "has no test record for" not in capsys.readouterr().out
+
+
+def test_a_command_already_recorded_in_another_layer_is_refused(cli, project: Path, capsys) -> None:
+    """One command, one thing tested: the audit reported the duplicate pairs for months.
+
+    `tests add` printed a note and recorded the twin anyway, so the same suite ran
+    under `unit` and `acceptance` and the audit carried two duplicate-command
+    findings. It refuses now, and `--force <reason>` is the honest exception.
+    """
+    assert (
+        cli(
+            "--project",
+            project,
+            "init",
+            "--agents",
+            "ceo,developer-1,tester-1,reviewer-1",
+            "--no-git",
+        )
+        == 0
+    )
+    command = "pytest -q tests/unit"
+    assert (
+        cli(
+            "--project",
+            project,
+            "tests",
+            "add",
+            "--layer",
+            "unit",
+            "--area",
+            "dup",
+            "--command",
+            command,
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert (
+        cli(
+            "--project",
+            project,
+            "tests",
+            "add",
+            "--layer",
+            "integration",
+            "--area",
+            "dup",
+            "--command",
+            command,
+        )
+        == 2
+    )
+    captured = capsys.readouterr()
+    assert "one command per thing tested" in captured.out + captured.err
+    forced = cli(
+        "--project",
+        project,
+        "tests",
+        "add",
+        "--layer",
+        "integration",
+        "--area",
+        "dup",
+        "--command",
+        command,
+        "--force",
+        "the integration layer needs the same command for this area",
+    )
+    tail = capsys.readouterr()
+    assert forced == 0, tail.out + tail.err
