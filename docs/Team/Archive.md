@@ -7304,4 +7304,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 9d270e9
 - reviewer evidence: preflight ceo T-0058 @9d270e9 -> 8 checks, 0 failed (digest PF-1e3b5b232204); pristine worktree rev-9d270e9 (git rev-parse HEAD = 9d270e964170): check_release_consistency.py -> 0 problem(s), teamwork.py links -> 0 issues, project gate -> ruff format/check clean + privacy_scan PASS 0 findings + 275 passed; git show 9d270e9 -- CHANGELOG.md -> 1 insertion/1 deletion, heading now v1.5.3...v1.5.4 matching CHANGELOG.md:79 [1.5.3] shape; TS-0208 acceptance/changelog recorded passing by Reviewer
 - findings history: 
-- branch / merge: ceo/t-0058-release-prep-1-5-4-add-the-compare-link / pending
+- branch / merge: ceo/t-0058-release-prep-1-5-4-add-the-compare-link / e475fc8
