@@ -667,6 +667,40 @@ must arbitrate. `add` records it (the intern protocol's "proactivity is a record
 path), `list` prints the open items oldest first, and `resolve` closes one with the
 decision that settled it. The CEO reads this list; it is not a channel to the user.
 
+## Reading a file
+
+### `read`
+
+```text
+teamwork read PATH [--query TEXT]... [--budget BYTES]
+               [--lines A-B] [--full] [--by BY] [--json]
+```
+
+The sparse read gate, adopted from [SparseRead](https://github.com/Liuzedooong/SparseReading)
+(accessed 2026-11-13). It decides how much of one file enters context, and the
+decision is visible:
+
+| Mode | When | What you get |
+|---|---|---|
+| `native` | the file is under the 4 KiB gate, binary, or unsupported | the whole file, unchanged - the gate never makes a small read worse |
+| `scout` | a large file and no `--query` | the first 40 lines, the line count and the `--query` that narrows it |
+| `focus` | a large file with `--query` | only the matching line ranges, merged with 3 lines of context, each headed `start-end (N match(es))` and every line prefixed with its number |
+| `verify` | `--lines A-B` | exactly those lines |
+| `full` | `--full` | the native read, every line |
+
+Every non-native pack ends with the bytes returned, the bytes saved and the
+percentage of the file, and `--query` can be repeated (case-insensitive, any
+match). `--budget` (default 4096) bounds the pack; a match left out is named in
+the reason, and raising `--budget` (or `--full`) returns the rest. The command
+appends a `read.sparse` ledger record with the mode, the returned and full bytes
+and the saving, which `teamwork throughput` sums under `## sparse read`.
+
+The gate exists because a whole `Archive.md` is ~0.63M tokens, `Decisions.md`
+~0.1M and a large task queue ~0.18M: a lane that greps for an anchor and then
+reads 30 lines is doing this by hand, and a lane that reads the file whole pays
+for it. `--full` is always available, and `--json` returns the pack (mode,
+snippets, bytes, saving) for a script.
+
 ## Live state
 
 ### `status`

@@ -290,6 +290,19 @@ the merged one: the index is capped, so a lane's startup read stops tracking the
 size of the store. The full table, with the pack, the dream pass and transcript
 reach, is `Memory.md` 13.
 
+### Sparse read gate
+
+`teamwork.py read <path> --query '<needle>'` is the read gate for one file,
+adopted from SparseRead (https://github.com/Liuzedooong/SparseReading, MIT,
+accessed 2026-11-13). Under 4 KiB, binary or `--full` returns the whole file
+unchanged; a large file with a query returns only the matching line ranges,
+merged with three lines of context, each headed `start-end (N match(es))` and
+every line prefixed with its number; `--lines A-B` verifies an exact range; no
+query on a large file is a 40-line scout plus the line count. `--budget`
+(default 4096) bounds the pack and names what it left out. Every call appends a
+`read.sparse` record with the returned and full bytes, and `throughput` sums the
+saving under `## sparse read`.
+
 ### Context tree
 
 `ctx://` is a read-only view over the stores above: memory, lessons, knowledge,
