@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.5](https://github.com/Nidvue/Teamwork/compare/v1.5.4...v1.5.5) - 2026-11-13
+
 ### Added
 
 - **The status widget streams each active agent's latest command** - `status --json`
@@ -24,14 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   always one line and never wraps. The refresh interval is 2 s, and an idle seat
   stays one aggregate line.
 
-### Fixed
+### Changed
 
-- **A changelog guard no longer charges `[Unreleased]` to the release above it** -
-  the category check kept the previous version alive across a `## ` heading that
-  is not a release, so the first entry added under `[Unreleased]` would have been
-  reported as a duplicate inside the section above it.
-
-## [1.5.5](https://github.com/Nidvue/Teamwork/compare/v1.5.4...v1.5.5) - 2026-11-13
+- **The tree moves to 1.5.5 after the v1.5.4 tag** - any commit after a tag must
+  raise the version or R2 reports `HEAD version 1.5.4 is not greater than tag
+  v1.5.4` and the release-consistency gate fails on the next push. `version.py`
+  and `CITATION.cff` follow the release, as they did at 7a126d0.
 
 ### Fixed
 
@@ -58,13 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AuditManifest.json` named a checkpoint 883 records behind the live chain, so
   `sha256sum -c` failed on two of its four artifacts. Regenerated from the ledger
   at the merged revision.
-
-### Changed
-
-- **The tree moves to 1.5.5 after the v1.5.4 tag** - any commit after a tag must
-  raise the version or R2 reports `HEAD version 1.5.4 is not greater than tag
-  v1.5.4` and the release-consistency gate fails on the next push. `version.py`
-  and `CITATION.cff` follow the release, as they did at 7a126d0.
+- **A changelog guard no longer charges `[Unreleased]` to the release above it** -
+  the category check kept the previous version alive across a `## ` heading that
+  is not a release, so the first entry added under `[Unreleased]` would have been
+  reported as a duplicate inside the section above it.
 
 ## [1.5.4](https://github.com/Nidvue/Teamwork/compare/v1.5.3...v1.5.4) - 2026-11-13
 
