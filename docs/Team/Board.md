@@ -141,6 +141,7 @@ under two roles is two tasks.
 | ceo | T-0050 | release-record | done | P-0192 | 821d420 |
 | ceo | T-0051 | release-record | done | P-0193 | 1eed604 |
 | ceo | T-0052 | dispatch-contract | done | P-0194 | d9cf5a2 |
+| ceo | T-0053 | records | doing | P-0195 | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -329,6 +330,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0053 · Ledger verify: one bounded re-read before reporting a cache-ahead truncation | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
