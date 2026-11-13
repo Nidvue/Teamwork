@@ -559,3 +559,41 @@ def test_the_lane_runtime_surface_is_registered() -> None:
         option for action in pulse._actions for option in getattr(action, "option_strings", [])
     }
     assert "--spawn" in flags, "pulse lost its --spawn flag"
+
+
+def _leaf_commands(parser: argparse.ArgumentParser) -> list[str]:
+    """Every leaf subcommand path, e.g. ``task archive`` or ``review``."""
+    leaves: list[str] = []
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for name, sub in action.choices.items():
+                nested = [a for a in sub._actions if isinstance(a, argparse._SubParsersAction)]
+                if nested:
+                    leaves.extend(f"{name} {leaf}" for leaf in _leaf_commands(sub))
+                else:
+                    leaves.append(name)
+    return leaves
+
+
+def test_every_leaf_subcommand_is_documented() -> None:
+    """A command an agent can call must appear in the reference it reads.
+
+    Measured review class: 37 of 158 review failures were doc drift, and the CLI
+    reference is the surface a lane quotes a command from. The check is the whole
+    leaf set against the five CLI pages plus the skill and the README, so a new
+    subcommand cannot land undocumented and a removed one cannot linger.
+    """
+    from teamwork import engine
+
+    docs = ""
+    for path in sorted((REPO_ROOT / "docs" / "guide").glob("cli*.md")):
+        docs += path.read_text(encoding="utf-8")
+    for name in ("SKILL.md", "README.md"):
+        docs += (REPO_ROOT / name).read_text(encoding="utf-8")
+    leaves = _leaf_commands(engine.build_parser())
+    assert len(leaves) >= 100, f"the parser exposes {len(leaves)} leaves: the walk broke"
+    missing = sorted({leaf for leaf in leaves if leaf not in docs})
+    assert not missing, (
+        "these subcommands are callable but undocumented in docs/guide/cli*.md, "
+        f"SKILL.md or README.md: {missing}"
+    )
