@@ -886,7 +886,7 @@ jobs:
                       print(stream.strip())
               return result
 
-          existing = npm("view", f"{PACKAGE}@{version}", "version", "--json")
+          existing = npm("view", f"{PACKAGE}@{version}", "version", "--json", "--prefer-online")
           if existing.returncode == 0 and existing.stdout.strip() not in ("", "null"):
               # Idempotent re-run: the version is already on the registry, so the
               # job verifies it in the next step instead of failing here.
@@ -922,12 +922,15 @@ jobs:
           PACKAGE = "@nidvue/teamwork"
           version = os.environ["PACKAGE_VERSION"]
           tag = os.environ["TAG_NAME"]
-          # The registry is eventually consistent: a version published seconds ago
-          # can still be missing. Poll for a bounded time (4 min) and fail after it.
-          # Measured on release run 41439789453: a fresh 1.5.1 publish was still
-          # E404 at 61 s, so the old 4x20 s window left the run red on a version
-          # that was already published.
-          ATTEMPTS = 12
+          # The registry is eventually consistent AND npm caches a packument: the
+          # idempotency check above reads a 404 before the publish, so the default
+          # cache can serve that negative entry to the verify loop for its whole
+          # TTL. Measured on the v1.5.3 release run 43332902531: the publish
+          # printed `published @nidvue/teamwork@1.5.3` and the tarball was on the
+          # registry minutes later, but all 12 verify attempts (224 s) saw the
+          # cached E404 and the job went red. `--prefer-online` forces a staleness
+          # check on every poll, and the window is 6 min (18 x 20 s).
+          ATTEMPTS = 18
           RETRY_SECONDS = 20
 
           head = subprocess.run(
@@ -948,6 +951,7 @@ jobs:
                       "dist.integrity",
                       "gitHead",
                       "--json",
+                      "--prefer-online",
                   ],
                   text=True,
                   capture_output=True,
