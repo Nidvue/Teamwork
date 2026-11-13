@@ -7435,3 +7435,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: Verified the delta and that no fact moved. CHANGE-SET: git diff --stat main...a7aa43b -> docs/Team/Decisions.md only, 3 lines changed. FIELD-BY-FIELD: I diffed the D-20261113-CEO-2 block against the one on main - heading, date, kind, status, deciders, decided by, task, context, options, why, evidence, falsified by are byte-identical; only the three lines that carried 'v1.5.5' changed, and each now reads '1.5.5', so the authorization, the evidence it cites and its falsifier are untouched. THE GATE IS THE REASON: I reproduced the failure first - check_release_consistency.py --offline at bc277f3 -> 3 problems, R9 naming docs/Team/Decisions.md:2742/:2752/:2756 'names v1.5.5, which is not a tag'; at a7aa43b the same command -> 0 problems with R9 ok. That is the correct fix rather than an illustrative marker, because the record is not illustrative - it authorises a release that is about to happen, and R9's v-prefix form is reserved for a tag that exists. GATES at a7aa43b: pytest -q tests/unit/test_docs_contracts.py -> 20 passed; teamwork.py links -> 0 issues; preflight --run -> 8 checks, 0 failed. FINDINGS: none. One non-blocking note: this ordering (fix the token, push main, wait for CI, then tag) is the only sequence that keeps the release-consistency job green on both the main push and the tag push, and it is why the tag is not created before the push.
 - findings history: 
 - branch / merge: ceo/t-0068-reword-the-release-authorization-so-r9-c / 84d63c6
+
+## T-0069 · Ship the loop/graph split and the graded-evidence gates  (ceo)
+- date: 2026-11-13
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: -
+- self-check: [pass] Boundary: two commits, two change-sets - the gate grades and the graph/loop layer; nothing else touched. Empty/duplicate/second-call: graph with no open node prints an empty report and exits 0; hunt with no --run prints state and writes nothing; a second hunt run reports 0 fresh; a second graph --check is idempotent. Contract surface: two new CLI verbs (graph, hunt) and one new flag (review --scope); no existing flag, exit code or record field changed; the task record only gained five fields. Concurrency: hunt writes its state file once per round under the project tree; graph is read-only. Scope: src/teamwork/{graph,hunt}.py, lanes.py, engine.py (3 hunks), references/Loops.md, SKILL.md 5o, docs/guide/cli-audit.md, docs/guide/cli.md, Architecture.md 2-3, CHANGELOG 1.5.6, version 1.5.6. | test: .venv/bin/python -m pytest -q @57b58df -> 3032 passed, 5 skipped | preflight: PF-19cd185139d4 @- (8 checks, 0 failed)
+- author evidence: 
+- reviewer evidence: ruff format --check @57b58df -> 339 files already formatted; ruff check @57b58df -> All checks passed; privacy_scan --tree @57b58df -> PASS 0 finding(s); pytest contract tests @57b58df -> 278 passed; pytest new unit tests (grades,graph,hunt,import_direction) @57b58df -> 54 passed; pytest full suite @57b58df -> 3027 passed 10 skipped; graph/hunt CLI verbs functional and idempotent per self-check claims @57b58df
+- findings history: 
+- branch / merge: ceo/t-0069-close-a-lesson-with-a-check-not-prose / pending
