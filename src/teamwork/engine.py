@@ -2720,6 +2720,7 @@ LEDGER_ACTIONS = (
     "pr.open",
     "pr.repair",
     "pulse.observe",
+    "read.sparse",
     "redline.close",
     "redline.record",
     "review.claim",
@@ -12686,6 +12687,16 @@ def throughput_report(root: Path) -> dict:
         queue_sizes, key=lambda row: (row[1], row[0]), default=("", 0)
     )
 
+    read_records = [r for r in records if r.get("action") == "read.sparse"]
+    read_bytes = 0
+    read_full = 0
+    for record in read_records:
+        detail = str(record.get("detail") or "")
+        found = re.search(r"bytes=(\d+) full=(\d+)", detail)
+        if found:
+            read_bytes += int(found.group(1))
+            read_full += int(found.group(2))
+
     from . import harness
 
     startup = [row.always_on for row in harness.budget_rows(project, root, None)[0]]
@@ -12706,6 +12717,15 @@ def throughput_report(root: Path) -> dict:
         },
         "queue": queue,
         "instances": len(list_agents(root)),
+        "read": {
+            "count": len(read_records),
+            "returned_bytes": read_bytes,
+            "full_bytes": read_full,
+            "saved_bytes": max(read_full - read_bytes, 0),
+            "saved_percent": (
+                round(100.0 * max(read_full - read_bytes, 0) / read_full, 1) if read_full else 0.0
+            ),
+        },
         "surface": {
             "agents_bytes": harness.file_size(project / "AGENTS.md"),
             "skill_bytes": harness.file_size(project / "SKILL.md"),
@@ -12756,6 +12776,15 @@ def _print_throughput(report: dict) -> None:
         print(f"- {row['role']}: todo={row['todo']} doing={row['doing']} review={row['review']}")
     print(f"instances: {report['instances']}")
     print()
+    read = report.get("read") or {}
+    if read.get("count"):
+        print("## sparse read")
+        print(
+            f"reads: {read['count']} | returned {read['returned_bytes']} B of "
+            f"{read['full_bytes']} B -> saved {read['saved_bytes']} B "
+            f"({read['saved_percent']}%)"
+        )
+        print()
     print("## surface")
     print(
         f"AGENTS {surface['agents_bytes']} B | SKILL {surface['skill_bytes']} B | "
@@ -19834,6 +19863,10 @@ def _parsers_meta(sub, common) -> None:
     from .messages import add_parsers as _add_message_parsers
 
     _add_message_parsers(sub, common)
+
+    from .sparse import add_parsers as _add_read_parsers
+
+    _add_read_parsers(sub, common)
 
 
 def main(argv=None) -> int:

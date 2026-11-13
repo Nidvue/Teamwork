@@ -586,8 +586,10 @@ def build_packet(
         '  only when you need the full role memory, and `tw recall "<query>"` for long-term.',
         f"- `{shown_path(role_dir(root, role) / 'Role.md')}` - your charter (read it, do not skim it).",
         f"- `{shown_path(agent_dir(root, instance) / 'StartHere.md')}` - your lane directory.",
-        "- Anchor-first reading: `rg -n '<anchor>' <path>` then about 30 lines around it.",
-        "  Never read a whole document, a whole log or the archive.",
+        "- Sparse reading: `tw read <path> --query '<needle>'` returns only the matching",
+        "  line ranges with `path:line` provenance, inside a byte budget; `--lines A-B`",
+        "  verifies an exact range, `--full` is the native read. Never read a whole",
+        "  document, a whole log or the archive.",
         "",
     ]
     if first.review_owner:

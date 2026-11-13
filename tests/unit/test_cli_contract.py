@@ -599,3 +599,29 @@ def test_every_leaf_subcommand_is_documented() -> None:
         "these subcommands are callable but undocumented in docs/guide/cli*.md, "
         f"SKILL.md or README.md: {missing}"
     )
+
+
+def test_the_read_docs_name_only_flags_the_parser_has() -> None:
+    """A shipped doc that names a deleted flag is a usage error for the reader.
+
+    Measured review finding on T-0056: the code deleted `--scope` and the page
+    still advertised it, so a lane that followed the doc got `unrecognized
+    arguments` instead of the dropped match. The section is parsed and every
+    `--flag` it names must be an option of the `read` command.
+    """
+    from teamwork import engine
+
+    text = (REPO_ROOT / "docs" / "guide" / "cli.md").read_text(encoding="utf-8")
+    start = text.index("### `read`")
+    end = text.index("\n## ", start)
+    section = text[start:end]
+    parser = engine.build_parser()
+    read_parser = None
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction) and "read" in action.choices:
+            read_parser = action.choices["read"]
+    assert read_parser is not None, "the read command is not registered"
+    known = {option for action in read_parser._actions for option in action.option_strings}
+    named = set(re.findall(r"--[a-z][a-z-]+", section))
+    missing = sorted(flag for flag in named if flag not in known)
+    assert not missing, f"docs/guide/cli.md's read section names flags the parser lacks: {missing}"
