@@ -29,6 +29,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/guide/cli*.md`, `SKILL.md` or `README.md` (37 of 158 measured review
   failures were doc drift).
 
+### Changed
+
+- **The live-state panel shows work, not idle seats** - `teamwork status` prints the
+  busy instances and the **live** lanes in full, and the idle seats as one aggregate
+  line (`idle: 12 (activated 18, retired 4)`) with the fold command; an ended lane
+  is history and is no longer displayed. The feed is schema 3, adding
+  `counts.activated`, `counts.retired`, `counts.lanes_live` and
+  `counts.lanes_ended`. The packaged widget follows the same rule: it renders live
+  lanes only and collapses idle agents to a count, never a name list. The CEO's
+  pulse writes `Runtime/Pulse.json`, so a fresh heartbeat reads as `dispatching` -
+  the leader session is rarely in the idle count while it runs the loop.
+
 ### Added
 
 - **The sparse read gate** - `teamwork read <path> --query '<needle>'` controls how
