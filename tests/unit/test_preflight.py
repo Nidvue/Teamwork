@@ -1167,3 +1167,194 @@ def test_a_self_check_that_measured_an_older_revision_is_refused(cli, project, c
         f"pytest -q @{second[:7]} -> 3 passed",
     )
     assert code == 0
+
+
+def commit_path(cli, project: Path, path: str, body: str = "done\n") -> str:
+    """One role commit that adds `path` (creating parents) in the task's worktree."""
+    tree = lane_tree(project)
+    target = tree / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body, encoding="utf-8")
+    with in_tree(tree):
+        assert (
+            cli(
+                "--project",
+                project,
+                "commit",
+                "--role",
+                "developer",
+                "--task",
+                "T-0001",
+                "--type",
+                "feat",
+                "--goal",
+                "land the change the task asks for",
+                "--deliverable",
+                path,
+                "--why",
+                "the task asks for it",
+                "--status",
+                "implemented",
+                "--result",
+                "manual -> 1 file",
+                "--paths",
+                path,
+            )
+            == 0
+        )
+    return git(tree, "rev-parse", "HEAD").stdout.strip()
+
+
+def test_a_self_check_cannot_pass_on_noise(cli, project, capsys):
+    """A tree that fails produces "looks good" as easily as one that passes."""
+    init_team(cli, project)
+    start_branch(cli, project)
+    commit_as_author(cli, project)
+
+    code = selfcheck(cli, project, "--note", "re-read the diff", "--test", "looks good to me")
+
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "a passing self-check cannot carry noise evidence" in err
+    assert "Rank what you accept" in err
+
+
+def test_a_self_check_records_the_grade_of_what_it_accepted(cli, project, capsys):
+    init_team(cli, project)
+    start_branch(cli, project)
+    sha = commit_as_author(cli, project)
+
+    code = selfcheck(
+        cli, project, "--note", "re-read the diff", "--test", f"pytest -q @{sha[:7]} -> 12 passed"
+    )
+
+    assert code == 0, capsys.readouterr().out
+    root = team_root(project)
+    task = next(
+        item
+        for role in engine.list_roles(root)
+        for item in engine.parse_tasks(engine.task_file(root, role))
+        if item["id"] == "T-0001"
+    )
+    assert task["self_grade"] == "strong"
+
+
+def test_an_irreversible_path_adds_a_ninth_check_and_blocks_the_verdict(cli, project, capsys):
+    """A closed lane has no score to lower: the preflight fails, so the author is
+    blocked first, and a Reviewer still refuses when the author force-passes."""
+    init_team(cli, project)
+    start_branch(cli, project)
+    sha = commit_path(cli, project, "migrations/0002_drop_users.sql", "DROP TABLE users;\n")
+
+    code, out = preflight(cli, capsys, project)
+
+    assert code == 1, out
+    assert "undo" in out and "closed:" in out
+    assert "no authorization is recorded" in out
+    assert "checks, 1 failed (undo)" in out
+
+    strong = f"pytest -q @{sha[:7]} -> 12 passed"
+    assert selfcheck(cli, project, "--note", "re-read the diff", "--test", strong) == 2
+    assert "undo" in capsys.readouterr().err
+
+    assert (
+        selfcheck(
+            cli,
+            project,
+            "--note",
+            "re-read the diff",
+            "--test",
+            strong,
+            "--force",
+            "the drop was reviewed by hand",
+        )
+        == 0
+    )
+    with in_tree(tree_of(project)):
+        assert (
+            cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", "T-0001")
+            == 0
+        )
+    with in_tree(tree_of(project)):
+        verdict = cli(
+            "--project",
+            project,
+            "review",
+            "developer",
+            "T-0001",
+            "--by",
+            "reviewer-1",
+            "--result",
+            "pass",
+            "--evidence",
+            "teamwork.py links -> # issues: 0",
+        )
+    assert verdict == 2
+    assert "this is a closed lane" in capsys.readouterr().err
+
+
+def test_only_the_ceo_opens_a_closed_lane(cli, project, capsys):
+    """The gate is a person, not a threshold: the CEO records who said yes."""
+    init_team(cli, project)
+    start_branch(cli, project)
+    commit_path(cli, project, "migrations/0002_drop_users.sql", "DROP TABLE users;\n")
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "set",
+            "developer",
+            "T-0001",
+            "--by",
+            "developer-1",
+            "--authorize",
+            "I say so",
+        )
+        == 2
+    )
+    assert "only the CEO opens a closed lane" in capsys.readouterr().err
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "set",
+            "developer",
+            "T-0001",
+            "--by",
+            "ceo",
+            "--authorize",
+            "user approved the table drop, session of 2026-11-13",
+        )
+        == 0
+    )
+    code, out = preflight(cli, capsys, project)
+    assert "authorized: CEO: user approved the table drop" in out
+    assert "1 failed" not in out
+
+
+def test_a_verdict_cannot_pass_on_noise(cli, project, capsys):
+    """'Looks good', 'verified' and 'no errors' are refused on a pass."""
+    init_team(cli, project)
+    start_branch(cli, project)
+    commit_as_author(cli, project)
+
+    with in_tree(tree_of(project)):
+        code = cli(
+            "--project",
+            project,
+            "review",
+            "developer",
+            "T-0001",
+            "--by",
+            "reviewer-1",
+            "--result",
+            "pass",
+            "--evidence",
+            "no errors were thrown",
+        )
+    assert code == 2
+    assert "a pass cannot carry noise evidence" in capsys.readouterr().err
