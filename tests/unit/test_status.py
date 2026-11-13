@@ -89,6 +89,9 @@ def test_every_instance_appears_exactly_once(cli, project: Path, capsys) -> None
             "lane_state",
             "model",
             "provider",
+            "last",
+            "last_at",
+            "last_seconds",
         }
 
 
@@ -156,7 +159,7 @@ def test_the_payload_names_its_schema_and_counts(cli, project: Path, capsys) -> 
     build(cli, project)
     assert cli("--project", project, "task", "add", "developer", "a second ready job") == 0
     data = payload(cli, project, capsys)
-    assert data["schema"] == 3
+    assert data["schema"] == 4
     assert data["counts"] == {
         "busy": 1,
         "idle": 3,
@@ -367,3 +370,29 @@ def test_the_ceo_reads_busy_while_its_pulse_is_fresh(cli, project: Path, capsys)
     data = payload(cli, project, capsys)
     ceo = next(row for row in data["instances"] if row["role"] == "ceo")
     assert ceo["state"] == "idle", "a stale heartbeat is not work"
+
+
+def test_the_newest_ledger_event_is_the_row_activity(cli, project: Path, capsys) -> None:
+    """The widget shows what the agent ran last, so the row carries the newest event."""
+    root = build(cli, project)
+    engine.ledger_append(root, "branch.start", "Developer-1", "T-0001", "ceo/t-0001-a")
+    engine.ledger_append(root, "tests.run", "Developer-1", "TS-0001", "unit passing: 12 passed")
+    row = {row["instance"]: row for row in payload(cli, project, capsys)["instances"]}[
+        "Developer-1"
+    ]
+    assert row["last"] == "tests.run TS-0001 - unit passing: 12 passed"
+    assert row["last_at"], "the row names when the command ran"
+    assert isinstance(row["last_seconds"], int) and row["last_seconds"] >= 0
+
+
+def test_a_role_named_event_reaches_its_instance_and_a_silent_one_stays_empty(
+    cli, project: Path, capsys
+) -> None:
+    """A role-level command belongs to the role's instance; no event means no claim."""
+    root = build(cli, project)
+    engine.ledger_append(root, "review.pass", "developer", "T-0001", "merged")
+    rows = {row["instance"]: row for row in payload(cli, project, capsys)["instances"]}
+    assert rows["Developer-1"]["last"] == "review.pass T-0001 - merged"
+    assert rows["Developer-2"]["last"] == ""
+    assert rows["Developer-2"]["last_seconds"] is None
+    assert rows["Developer-2"]["last_at"] == ""

@@ -4,13 +4,14 @@ import { dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const KEY = "teamwork-status";
-const REFRESH_MS = 5_000;
-const MAX_LINES = 12;
+const REFRESH_MS = 2_000;
+const MAX_LINES = 24;
 const TITLE_MAX = 32;
 const INSTANCE_MAX = 14;
 const MODEL_MAX = 22;
 const LANE_MAX = 3;
 const WIDTH_MAX = 100;
+const ACTIVITY_MAX = 240;
 const ENGINE = ["scripts", "teamwork.py"];
 
 const STATE_ABBREV: Record<string, string> = {
@@ -45,6 +46,9 @@ type Instance = {
   progress_pct?: number | null;
   model?: string;
   provider?: string;
+  last?: string;
+  last_at?: string;
+  last_seconds?: number | null;
 };
 
 type Payload = {
@@ -130,6 +134,13 @@ function elapsed(value: string | undefined): string {
   return ((value ?? "").trim() || "-").padStart(6);
 }
 
+function ago(seconds: number | null | undefined): string {
+  if (typeof seconds !== "number" || Number.isNaN(seconds) || seconds < 0) return "";
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  return `${Math.floor(seconds / 3600)}h`;
+}
+
 function stateAbbrev(value: string | undefined): string {
   const clean = (value ?? "").trim().toLowerCase();
   return STATE_ABBREV[clean] ?? (clean ? text(clean, 5) : "-");
@@ -142,11 +153,14 @@ function modelLabel(row: { model?: string; provider?: string }): string {
   return text(provider ? `${provider}/${model}` : model, MODEL_MAX);
 }
 
-export function render(payload: Payload): string[] {
+export function render(payload: Payload, width = WIDTH_MAX): string[] {
+  const bound = Number.isFinite(width) && width > 20 ? Math.floor(width) : WIDTH_MAX;
   const rows = (payload.instances ?? []).map((row) => ({
     instance: text(row.instance, INSTANCE_MAX) || "-",
     task: task_label(row.task),
+    activity: text(row.last, ACTIVITY_MAX),
     title: text(row.title, TITLE_MAX),
+    age: ago(row.last_seconds),
     elapsed: elapsed(row.elapsed_text),
     percent: row.progress_pct ?? null,
     model: modelLabel(row),
@@ -174,7 +188,7 @@ export function render(payload: Payload): string[] {
     `${busy.length} busy · ${review} review`;
 
   busy.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || a.instance.localeCompare(b.instance));
-  const width = Math.min(INSTANCE_MAX, Math.max(0, ...busy.map((row) => row.instance.length)));
+  const pad = widthOf(busy);
   const lines = [header];
   for (const lane of live.slice(0, LANE_MAX)) {
     lines.push(
@@ -184,18 +198,35 @@ export function render(payload: Payload): string[] {
   const room = MAX_LINES - lines.length - (idle.length ? 1 : 0);
   for (const row of busy.slice(0, Math.max(0, room))) {
     const tail = `${row.elapsed} ${bar(row.percent)} ${row.model}`.trimEnd();
-    const fixed = `● ${row.instance.padEnd(width)} ${row.task}  ${tail}`.length;
-    const budget = Math.min(TITLE_MAX, WIDTH_MAX - fixed);
-    const title = budget > 0 ? text(row.title, budget) : "";
-    const head = `● ${row.instance.padEnd(width)} ${row.task} ${title}`.trimEnd();
-    lines.push(`${head}  ${tail}`.trimEnd());
+    const head = `● ${row.instance.padEnd(pad)} ${row.task}`;
+    const latest = row.activity || row.title;
+    const middle = latest ? (row.age ? `${row.age} · ${latest}` : latest) : "";
+    lines.push(clip(`${head} ${middle}`.trimEnd(), tail, bound));
   }
   const hidden = busy.length - Math.max(0, room);
   if (hidden > 0) lines.push(`  +${hidden} more busy`);
   if (idle.length) {
     lines.push(`○ idle: ${idle.length} (activated ${activated})`);
   }
-  return lines.slice(0, MAX_LINES);
+  return lines.slice(0, MAX_LINES).map((line) => clip(line, "", bound));
+}
+
+function widthOf(rows: { instance: string }[]): number {
+  return Math.min(INSTANCE_MAX, Math.max(0, ...rows.map((row) => row.instance.length)));
+}
+
+function clip(head: string, tail: string, bound: number): string {
+  const gap = tail ? 2 : 0;
+  const room = bound - tail.length - gap;
+  if (!tail) return head.length > bound ? `${head.slice(0, bound - 1)}…` : head;
+  if (room <= 0) return tail.length > bound ? `${tail.slice(0, bound - 1)}…` : tail;
+  const kept = head.length > room ? `${head.slice(0, Math.max(0, room - 1))}…` : head;
+  return `${kept.padEnd(room)}${tail}`;
+}
+
+function terminalWidth(): number {
+  const columns = Number((process.stdout as { columns?: number }).columns);
+  return Number.isFinite(columns) && columns > 20 ? columns : WIDTH_MAX;
 }
 
 export default function teamworkStatus(pi: ExtensionAPI): void {
@@ -232,7 +263,7 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
     const rows = payload.instances ?? [];
     const busy = rows.filter((row) => row.state === "busy").length;
     try {
-      ctx.ui.setWidget(KEY, render(payload));
+      ctx.ui.setWidget(KEY, render(payload, terminalWidth()));
     } catch {
       ctx.ui.setWidget(KEY, []);
     }
