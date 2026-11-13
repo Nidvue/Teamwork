@@ -1225,6 +1225,7 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `git merge-base --is-ancestor abd6df42ac5e67662cc7746d3b7066ea0b8936bd main` -> 0 and against `8d23683aa61e7c3356eb85187d9f434ac3bc4b6a` -> 0; `git rev-list --count main..8d23683aa61e7c3356eb85187d9f434ac3bc4b6a` -> 123, `git rev-list --count 8d23683aa61e7c3356eb85187d9f434ac3bc4b6a..main` -> 104; `git rev-list --parents -n1 f08d444f88e0089446712d5d66af0058f8761567` -> three fields (a true merge); `git rev-list --count 8d23683aa61e7c3356eb85187d9f434ac3bc4b6a..f08d444f88e0089446712d5d66af0058f8761567` -> 109 and `f08d444f88e0089446712d5d66af0058f8761567..8d23683aa61e7c3356eb85187d9f434ac3bc4b6a` -> 0; the merge then resolves four conflicts semantically - CHANGELOG headings kept tag-correct with the published Harness^2 body grafted under our unreleased heading (the one comparing the newest tag with HEAD), and no heading linking to a tag that does not exist, `Archive.md` as an append-only union of 105 + 107 records with 53 shared -> 135, `Decisions.md` unioned on the `## D-` key 49 + 65 with 42 shared -> 72, and `Architecture.md` keeping our `## 11.` release contract (13 referencing files) while the published harness contract becomes `## 12.` with every `11.x` reference renumbered in `test_cli_contract.py`, `test_harness_cli.py`, `test_harness_surface.py`, `harness.py`, `hooks.py` and `CHANGELOG.md`; `scripts/check_release_consistency.py --offline` on the merged tree -> `# release consistency: 0 problem(s)`; `pytest -q` -> 1114 passed, 3 skipped, 1 failed where the single failure is `tests/unit/test_archive_merge_revisions.py:112` naming 29 archive revisions that are ancestors of `8d23683aa61e7c3356eb85187d9f434ac3bc4b6a` and not yet of `refs/heads/main`, which the merge commit itself makes true.
 - falsified by: `abd6df42ac5e67662cc7746d3b7066ea0b8936bd` not being an ancestor of both lines; a record present on either parent and absent from the merged `Archive.md` or `Decisions.md`; a stale `11.x` reference to the harness contract surviving in `harness.py`, `hooks.py` or the three harness test files; the privacy-gate path-fragment guard (`_is_path_fragment`/`_is_path_name`, 4 hits on `8d23683aa61e7c3356eb85187d9f434ac3bc4b6a`) absent from the merged `scripts/privacy_scan.py`; or a force-push appearing in the reflog of either line.
 - consequences: The remote line's 123 commits and ours become one history. `T-0065` is the reconciliation task and `P-0096` its review. The published `M9` naming collision is recorded here so no later reader mistakes the two milestones for the same one. Re-dispatching work against `origin/main` is now safe only after this merge lands, because until then the remote does not contain the release-traceability milestone.
+
 ## D-20261021-Developer-1 - R3 takes every npm version key; a non-X.Y.Z published version is DRIFT unless 11.4 admits it
 
 - date: 2026-10-21
@@ -1272,21 +1273,6 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `docs/Team/M9Acceptance.md` @7cc3c74d9b3f3497c90f4526c117b8d33c9755fe -> §4 states exit 0 with the three named skips and explicitly refuses a count, §5 states `sync_skill.py --check` exits 1 and names the class of drift with no count; `grep -nE "790 passed|777 passed|1 missing, 3 stale"` -> no hits; `pytest -q` @7cc3c74d9b3f3497c90f4526c117b8d33c9755fe -> 1198 passed, 3 skipped, exit 0; `teamwork.py links` -> `# issues: 0`; the deliverable passed review and merged at `7cc3c74d9b3f3497c90f4526c117b8d33c9755fe`.
 - falsified by: a later `docs/Team/M9Acceptance.md` revision that pins a pass count again, or a review verdict that fails a proof for a count it re-measured on a different revision than the one named.
 - consequences: the dispute is moot by delivery and closed; the same rule governs every later acceptance proof, and a count that does appear must name the revision it was taken at.
-## D-20261017-CEO - Ship as teamwork-agents on PyPI, import as teamwork
-
-- date: 2026-10-17
-- kind: scope
-- status: accepted
-- deciders: CEO (ceo)
-- decided by: ceo
-- task: T-0001
-- context: -
-- options considered: -
-- decision: The distribution name is teamwork-agents; the import package and console script are teamwork.
-- why: The PyPI name 'teamwork' is already taken, and the import name is part of the public API.
-- evidence: pyproject name = teamwork-agents; README states the install command.
-- falsified by: pip install teamwork-agents does not expose the teamwork command. <!-- release-consistency: channel-unavailable -->
-- consequences: -
 
 ## D-20261021-Developer - The unborn-HEAD test names its branch explicitly ('git init
 
@@ -1896,6 +1882,7 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: Reviewer-1 probe+render @1cfb8abd25c812274c06efed20ee75f270c91ad8 -> connectors 2.66-2.79:1 (bar 3:1); after stroke-opacity=1 @16fd9f5b85633e09611ee0e076e5dcbbbc39e8a7 -> 3.83/4.09/3.96 analytic, 3.94/4.10/4.09 rendered; pill/box outlines 2.47-2.97:1 with labels 11.18:1 and ~14:1; git diff 1cfb8abd25c812274c06efed20ee75f270c91ad8..16fd9f5b85633e09611ee0e076e5dcbbbc39e8a7 -- assets/banner.svg -> one hunk, one attribute
 - falsified by: a reader who cannot tell which seat hangs off which without the line colour - i.e. a label or ordering change that removes the connectors' role
 - consequences: Design.md records both sets of numbers and the one-attribute cost for anyone who disagrees
+
 ## D-20261031-CEO-2 - Exempt the fabricated example path C:/Users/x.py instead of rewriting history
 
 - date: 2026-10-31
@@ -2185,6 +2172,7 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: @75267577f56c000ed040ce50d35b1ba1269b32b8 in this lane's worktree: python scripts/teamwork.py --help -> no context and no knowledge subcommand; python scripts/teamwork.py context --help -> invalid choice 'context', exit 2; python scripts/teamwork.py knowledge list -> invalid choice 'knowledge', exit 2; python scripts/teamwork.py recall --help -> --agent/--all/--global/--layer only (one memory silo); python scripts/teamwork.py lesson list --role architect -> role lessons only, '# no lessons recorded'; python scripts/teamwork.py skill list -> .agents/skills only, S-0001/S-0002; git grep -n OpenViking -- docs/Team @75267577f56c000ed040ce50d35b1ba1269b32b8 -> 0 matches (Research.md section 11 is on the CEO branch); python scripts/teamwork.py harness lint -> '# problems found: 0'. Research.md section 11 (CEO branch) cites [OpenViking](https://github.com/volcengine/OpenViking), [architecture](https://docs.openviking.ai/en/concepts/01-architecture), [context types](https://docs.openviking.ai/en/concepts/02-context-types), [context layers](https://docs.openviking.ai/en/concepts/03-context-layers) and [retrieval](https://docs.openviking.ai/en/concepts/07-retrieval), all accessed 2026-11-03; license AGPL-3.0 (README, accessed 2026-11-03).
 - falsified by: context find returns no node for a query whose fact is stored, or a node resolves to a copy rather than the source, or an agent still re-asks a question the tree answers
 - consequences: Developer T-0032 adds kind to knowledge; Developer T-0033 implements the context tree; Technical Writer T-0011 documents it; Tester T-0005 proves the loop; load is unchanged
+
 ## D-20261103-CEO - A local main reset to the CEO branch was detected and reverted before any merge
 
 - date: 2026-11-03
@@ -2654,6 +2642,7 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: architect/T-0008 @b0606e8: docs/Team/Memory.md:527-529 drop requires importance < 2 while :463 sets the harness writer to importance 2 and src/teamwork/engine.py:17982 defaults remember to --importance 2 and src/teamwork/config.py:255 sets PROMOTE_MIN_IMPORTANCE 2; rg -o 'importance: [0-9]' over Roles/*/LongTermMemory.md -> 17x2, 4x3, 3x4, 0x1, so the whole population sits at or above the threshold
 - falsified by: If a measured run shows a stale, never-used note that the team needs to keep, use-only promotion is wrong and importance returns as an OR, with the writer default moved to 1 so the rows stay reachable
 - consequences: -
+
 ## D-20261111-Architect - Promotion is decided by use alone: importance ranks the pack and splits overflow, it does not decide survival
 
 - date: 2026-11-11

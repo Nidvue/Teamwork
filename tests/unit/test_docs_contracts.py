@@ -207,6 +207,48 @@ def test_each_owner_line_names_the_role_the_config_assigns():
         )
 
 
+CHANGELOG_CATEGORIES = ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")
+RELEASE_HEADING_RE = re.compile(r"^## \[?(?P<version>\d+\.\d+\.\d+)\]?")
+CATEGORY_HEADING_RE = re.compile(r"^### (?P<category>\w+)\s*$")
+
+
+def changelog_category_problems(text: str) -> list[str]:
+    """Each release section repeats no Keep-a-Changelog category, and names only those."""
+    problems: list[str] = []
+    version = ""
+    seen: dict[str, int] = {}
+    for line in text.splitlines():
+        release = RELEASE_HEADING_RE.match(line)
+        if release:
+            version, seen = release.group("version"), {}
+            continue
+        category = CATEGORY_HEADING_RE.match(line)
+        if not category or not version:
+            continue
+        name = category.group("category")
+        seen[name] = seen.get(name, 0) + 1
+        if name not in CHANGELOG_CATEGORIES:
+            problems.append(f"{version}: '### {name}' is not a Keep a Changelog category")
+        elif seen[name] > 1:
+            problems.append(f"{version}: '### {name}' appears {seen[name]} times")
+    return problems
+
+
+def test_a_changelog_release_names_each_category_once():
+    """1.5.4 shipped three separate '### Changed' sections, so a reader scanning the
+    categories missed two thirds of the release. The file is the release note, and
+    no other gate reads its shape: `check_release_consistency.py` R7 counts the
+    sections per tag, not the headings inside one."""
+    text = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert text.count("## [") >= 15, "the changelog walk found almost no releases"
+    assert changelog_category_problems(text) == []
+
+
+def test_mutant_a_repeated_changelog_category_is_reported():
+    text = "## [1.0.0] - 2026-01-01\n\n### Changed\n\n- a\n\n### Changed\n\n- b\n"
+    assert changelog_category_problems(text) == ["1.0.0: '### Changed' appears 2 times"]
+
+
 def test_the_checks_reach_a_tree_that_is_not_empty():
     """A guard over an empty walk passes vacuously; both sets must be non-trivial."""
     assert len(markdown_files(REPO_ROOT)) >= len(DOCS), "fewer documents than the config names"

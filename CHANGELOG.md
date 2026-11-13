@@ -13,34 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.4](https://github.com/Nidvue/Teamwork/compare/v1.5.3...v1.5.4) - 2026-11-13
 
-### Changed
-
-- **A lane packet carries the memory once** - it injects the task-ranked pack and
-  the role's open lessons and tells the lane not to re-read them with `tw load`.
-  The mandatory re-read cost ~18 kB per lane against a 7.4 kB packet that already
-  held the pack; the lessons, the one part `load` carried and the packet did not,
-  are now injected.
-- **The test-plan gap is named where the area is chosen** - `commit --area` and
-  `task set --area` print the required layers an area has no record for, so the
-  layers are recorded in the same task instead of costing a follow-up lane
-  (K-0036; three tasks paid it).
-- **Every leaf subcommand is pinned to the reference** - a new test walks the
-  parser and fails when a callable subcommand is absent from
-  `docs/guide/cli*.md`, `SKILL.md` or `README.md` (37 of 158 measured review
-  failures were doc drift).
-
-### Changed
-
-- **The live-state panel shows work, not idle seats** - `teamwork status` prints the
-  busy instances and the **live** lanes in full, and the idle seats as one aggregate
-  line (`idle: 12 (activated 18, retired 4)`) with the fold command; an ended lane
-  is history and is no longer displayed. The feed is schema 3, adding
-  `counts.activated`, `counts.retired`, `counts.lanes_live` and
-  `counts.lanes_ended`. The packaged widget follows the same rule: it renders live
-  lanes only and collapses idle agents to a count, never a name list. The CEO's
-  pulse writes `Runtime/Pulse.json`, so a fresh heartbeat reads as `dispatching` -
-  the leader session is rarely in the idle count while it runs the loop.
-
 ### Added
 
 - **The sparse read gate** - `teamwork read <path> --query '<needle>'` controls how
@@ -57,6 +29,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A lane packet carries the memory once** - it injects the task-ranked pack and
+  the role's open lessons and tells the lane not to re-read them with `tw load`.
+  The mandatory re-read cost ~18 kB per lane against a 7.4 kB packet that already
+  held the pack; the lessons, the one part `load` carried and the packet did not,
+  are now injected.
+- **The test-plan gap is named where the area is chosen** - `commit --area` and
+  `task set --area` print the required layers an area has no record for, so the
+  layers are recorded in the same task instead of costing a follow-up lane
+  (K-0036; three tasks paid it).
+- **Every leaf subcommand is pinned to the reference** - a new test walks the
+  parser and fails when a callable subcommand is absent from
+  `docs/guide/cli*.md`, `SKILL.md` or `README.md` (37 of 158 measured review
+  failures were doc drift).
+- **The live-state panel shows work, not idle seats** - `teamwork status` prints the
+  busy instances and the **live** lanes in full, and the idle seats as one aggregate
+  line (`idle: 12 (activated 18, retired 4)`) with the fold command; an ended lane
+  is history and is no longer displayed. The feed is schema 3, adding
+  `counts.activated`, `counts.retired`, `counts.lanes_live` and
+  `counts.lanes_ended`. The packaged widget follows the same rule: it renders live
+  lanes only and collapses idle agents to a count, never a name list. The CEO's
+  pulse writes `Runtime/Pulse.json`, so a fresh heartbeat reads as `dispatching` -
+  the leader session is rarely in the idle count while it runs the loop.
 - **A record bound to an older revision is refused** - `preflight` compares the
   task evidence and the newest note's `@<sha>` with the branch head, so a suite line
   that measured a revision the tree has moved past fails before submission instead
@@ -694,6 +688,13 @@ Compares from the previous tag, `v1.2.1`.
 - **`release-exceptions.json`.** A recorded, reviewable admission for a published
   version that provably has no source commit. It is printed in the checker's
   output, never a silent pass.
+- **npm `1.1.1` has no source commit and is listed as an exception.** The
+  `1.1.0` publish exited `0` but only staged the version, so it was republished
+  (see `1.1.1` below). Its payload differs from `v1.1.0` only in
+  `src/teamwork/version.py`, and no commit in the repository carries that file -
+  so `1.1.1` cannot be traced to a revision and is recorded in
+  `release-exceptions.json` with its measured digest rather than given a tag that
+  would misrepresent the source. `1.1.0` and `1.1.2` are both traceable and tagged.
 
 ### Fixed
 
@@ -713,16 +714,6 @@ Compares from the previous tag, `v1.2.1`.
   never cut, its gate table was measured on a superseded revision, its build table
   named `1.1.0` artefacts, and its
   code-scanning row described alerts that were already fixed.
-
-### Recorded
-
-- **npm `1.1.1` has no source commit and is listed as an exception.** The
-  `1.1.0` publish exited `0` but only staged the version, so it was republished
-  (see `1.1.1` below). Its payload differs from `v1.1.0` only in
-  `src/teamwork/version.py`, and no commit in the repository carries that file -
-  so `1.1.1` cannot be traced to a revision and is recorded in
-  `release-exceptions.json` with its measured digest rather than given a tag that
-  would misrepresent the source. `1.1.0` and `1.1.2` are both traceable and tagged.
 
 ## [1.1.2](https://github.com/Nidvue/Teamwork/compare/v1.1.0...v1.1.2) - 2026-10-20
 
