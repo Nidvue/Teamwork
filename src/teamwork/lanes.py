@@ -516,6 +516,32 @@ def _assignment_lines(assignments: list) -> list:
     return lines
 
 
+OPEN_LESSON_LINES = 8
+
+
+def _open_lesson_lines(root: Path, role: str) -> list:
+    """The role's open lessons, one rule per line, or nothing when there are none.
+
+    A lesson is the correction the team already paid for; it must reach the lane
+    without a second read. The injected memory pack ranks lessons by relevance to
+    the task, so a rule that does not match the task's words can miss it - this
+    block is unconditional and small (the rule, not the whole record).
+    """
+    lessons = engine.parse_lessons(engine.lessons_path(root, role))
+    open_lessons = [item for item in lessons if item.get("status") == "open"]
+    if not open_lessons:
+        return []
+    lines = [f"## Open lessons ({role}) - do not repeat these", "```text"]
+    for item in open_lessons[:OPEN_LESSON_LINES]:
+        rule = " ".join(str(item.get("rule") or item.get("mistake") or "").split())
+        lines.append(f"{item['id']}: {rule[:240]}")
+    hidden = len(open_lessons) - OPEN_LESSON_LINES
+    if hidden > 0:
+        lines.append(f"+{hidden} more: `tw lesson list --role {role}`")
+    lines += ["```", ""]
+    return lines
+
+
 def build_packet(
     root: Path,
     assignments: list,
@@ -554,10 +580,10 @@ def build_packet(
             else []
         ),
         "## Read first, in this order",
-        f"- `tw load {instance} --task {task}` - your role memory plus the memory pack for",
-        "  this assignment (docs/Team/Memory.md 4.1/4.5): lessons and knowledge ranked for the",
-        "  task, inside a byte budget, instead of the same static top-10 for every lane.",
-        "  The pack is also injected below, so the first read is a re-read, not a discovery.",
+        "- The memory pack and your open lessons are **injected below** (docs/Team/Memory.md",
+        "  4.1/4.5): lessons and knowledge ranked for this task, inside a byte budget, instead",
+        "  of the same static top-10 for every lane. Do not re-read them with `tw load`: run it",
+        '  only when you need the full role memory, and `tw recall "<query>"` for long-term.',
         f"- `{shown_path(role_dir(root, role) / 'Role.md')}` - your charter (read it, do not skim it).",
         f"- `{shown_path(agent_dir(root, instance) / 'StartHere.md')}` - your lane directory.",
         "- Anchor-first reading: `rg -n '<anchor>' <path>` then about 30 lines around it.",
@@ -618,6 +644,7 @@ def build_packet(
         pack,
     ]
     out += [
+        *(_open_lesson_lines(root, role)),
         "## Memory pack for this assignment (injected)",
         "```",
         *injected,
