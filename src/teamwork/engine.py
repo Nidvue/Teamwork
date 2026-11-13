@@ -2373,6 +2373,14 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
                 )
             owner = inst[0]
         dup = [r for r in records if args.command and r["command"].strip() == args.command.strip()]
+        if dup and not force:
+            die(
+                f"the same command is already run by {dup[0]['id']} "
+                f"({dup[0]['layer']}/{dup[0]['area']}): one command per thing tested. "
+                "Cite that record with `review --credit` instead of recording it twice, "
+                "or pass --force '<why this layer needs its own run>'.",
+                2,
+            )
         rec = new_test_record(layer, area, owner, args.command, args.task)
         records.append(rec)
         write_tests(path, records)
@@ -2386,12 +2394,6 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         print(f"# added {rec['id']} {layer}/{area} owner={owner}")
         if LAYER_WHAT.get(layer):
             print(f"#   {layer}: {LAYER_WHAT[layer]}")
-        if dup:
-            print(
-                f"#   NOTE the same command is already run by {dup[0]['id']} "
-                f"({dup[0]['layer']}/{dup[0]['area']}): avoid testing the same "
-                "thing twice."
-            )
         return 0
 
     if args.tests_cmd == "run":
@@ -14991,7 +14993,9 @@ def _rev_reachable(project: Path, sha: str) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
-def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> PreflightCheck:
+def _preflight_evidence(
+    project: Path, task: dict, extra_text: str = "", head_rev: str = ""
+) -> PreflightCheck:
     """Every ``@<sha>`` in the task's evidence and self-check note is a real commit.
 
     A claim bound to a revision nobody can check out is not evidence, and it is one
@@ -15081,12 +15085,31 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
             " rewritten away on purpose, name it in the new note as"
             " '@<old> superseded by @<current-rev>' and the gate stops checking it",
         )
+    if head_rev and note_revs and not any(_names_rev(head_rev, sha) for sha in note_revs):
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            "the self-check measured "
+            + ", ".join(f"@{sha}" for sha in note_revs[:5])
+            + f", but the branch head is @{head_rev[:7]}: the tree moved after the run",
+            "re-run the command at the head and record it: selfcheck <agent> <T-id> --by "
+            f"<you> --note '<what you re-read>' --test '<cmd> @{head_rev[:7]} -> <result>'",
+        )
     shown = ", ".join(f"@{sha}" for sha in named[:5])
     detail = f"{len(named)} evidence revision(s) reachable: {shown}"
     if superseded:
         accepted = ", ".join(f"@{sha}" for sha in sorted(superseded)[:5])
         detail += f"; {len(superseded)} marked superseded and not checked: {accepted}"
     return PreflightCheck(name, PREFLIGHT_OK, detail)
+
+
+def _names_rev(head: str, sha: str) -> bool:
+    """True when ``sha`` (short or full) is the commit ``head`` (full)."""
+    head = (head or "").strip().lower()
+    sha = (sha or "").strip().lower()
+    if not head or not sha:
+        return False
+    return head == sha or (len(sha) >= 4 and head.startswith(sha))
 
 
 def _superseded_revs(text: str) -> set:
@@ -15505,13 +15528,13 @@ def run_preflight(
             return PreflightCheck(name, PREFLIGHT_WARN, f"not measured: {blocked}", checks[0].fix)
 
         checks.append(unmeasured("identity"))
-        checks.append(_preflight_evidence(project, task, extra_text))
+        checks.append(_preflight_evidence(project, task, extra_text, revision))
         checks.append(unmeasured("mergeable"))
         checks.append(unmeasured("board"))
         checks.append(unmeasured("features"))
     else:
         checks.append(_preflight_identity(project, base, branch, role))
-        checks.append(_preflight_evidence(project, task, extra_text))
+        checks.append(_preflight_evidence(project, task, extra_text, revision))
         checks.append(_preflight_mergeable(project, base, branch, role))
         checks.append(_preflight_board(root, project, base, branch))
         checks.append(_preflight_features(root, project, base, branch))
