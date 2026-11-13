@@ -180,8 +180,17 @@ def test_a_task_with_an_open_branch_cannot_be_dropped_without_a_force_reason(cli
     assert engine.parse_tasks(task_path(root))[0]["status"] != "dropped"
 
 
+def dropped_section(out: str) -> str:
+    return out.split("## dropped under a live claim", 1)[1].split("\n## ", 1)[0]
+
+
 def test_a_forced_drop_records_the_blockers_and_audit_shows_them(cli, project, capsys):
-    """The escape hatch exists, but it leaves a visible record instead of a silent one."""
+    """The escape hatch exists, but it leaves a visible record instead of a silent one.
+
+    Visible, not charged: the marker is permanent by design (T-0047), so counting it
+    made the audit unreachable at 0 problems. The section prints it and the problem
+    count does not move.
+    """
     root = init(cli, project)
     assert cli("--project", project, "task", "add", "developer", "abandoned work") == 0
     assert (
@@ -197,6 +206,8 @@ def test_a_forced_drop_records_the_blockers_and_audit_shows_them(cli, project, c
         )
         == 0
     )
+    capsys.readouterr()
+    assert cli("--project", project, "audit") == 1
     capsys.readouterr()
     assert (
         cli(
@@ -220,8 +231,55 @@ def test_a_forced_drop_records_the_blockers_and_audit_shows_them(cli, project, c
 
     assert cli("--project", project, "audit") == 1
     out = capsys.readouterr().out
-    assert "## dropped under a live claim" in out
-    assert "developer T-0001: claimed_by Developer-1" in out
+    assert "developer T-0001: claimed_by Developer-1" in dropped_section(out)
+    assert "non-blocking" in dropped_section(out)
+    charge = engine._audit_dropped_under_a_live_claim(root, engine.list_roles(root), None)
+    assert charge == 0, "a permanent marker was charged to the count"
+
+
+def roster_section(out: str) -> str:
+    return out.split("## roster gaps (roles with no instance)", 1)[1].split("## ", 1)[0]
+
+
+def problem_count(out: str) -> int:
+    return int(out.rsplit("# problems found: ", 1)[1].strip())
+
+
+def roster_charge(root: Path) -> int:
+    """The section's own contribution to the problem count, called directly."""
+    return engine._audit_roster_gaps_roles_with_no_instance(root, engine.list_roles(root), None)
+
+
+def test_an_unstaffed_role_with_no_open_work_is_not_counted(cli, project, capsys):
+    """The audit's own advice is 'add an instance or accept the layer is not required'.
+
+    The second half had no mechanism: every role that kept its memory and queue
+    without a seat was counted, so a team between engagements could not reach 0.
+    """
+    root = init(cli, project, "ceo,architect,developer-1,reviewer-1")
+    assert cli("--project", project, "instance", "retire", "architect") == 0
+    assert not engine.instances_of(root, "architect")
+    capsys.readouterr()
+
+    assert roster_charge(root) == 0
+    out = capsys.readouterr().out
+    assert "architect role keeps its memory and queue with no instance and no open work" in (
+        roster_section(out)
+    )
+    assert "starved" not in roster_section(out)
+
+
+def test_an_unstaffed_role_with_open_work_is_counted(cli, project, capsys):
+    """The other half: a queue with work and no seat is a real gap, and it is charged."""
+    root = init(cli, project, "ceo,architect,developer-1,reviewer-1")
+    assert cli("--project", project, "instance", "retire", "architect") == 0
+    assert cli("--project", project, "task", "add", "architect", "freeze the interface") == 0
+    capsys.readouterr()
+
+    assert roster_charge(root) == 1
+    out = capsys.readouterr().out
+    assert "the architect role has open work and no instance" in roster_section(out)
+    assert "not counted" not in roster_section(out)
 
 
 def test_a_plain_todo_task_can_be_dropped(cli, project):
