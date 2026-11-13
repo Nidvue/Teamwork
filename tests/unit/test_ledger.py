@@ -561,3 +561,48 @@ def test_a_lagging_head_cache_is_reconciled_before_the_append(tmp_path: Path, ca
     assert engine.ledger_verify(root) == []
     assert "reconciled before appending" in capsys.readouterr().err
     assert engine.ledger_read(root)[-1]["prev"] == records[-1]["hash"]
+
+
+def test_a_transient_short_read_is_resolved_by_one_reread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A reader that catches the file between two appends must not cry tampering.
+
+    Measured on CI run 43344749792 (ubuntu 3.12): the head cache named 2 records
+    while the file read named 1, and the trail was intact. One bounded re-read
+    resolves it; a genuine truncation survives it (the next test).
+    """
+    root = _seed(tmp_path / "team")
+    real = engine.ledger_read
+    calls = {"n": 0}
+
+    def short_then_full(path: Path) -> list:
+        calls["n"] += 1
+        records = real(path)
+        return records[:-1] if calls["n"] == 1 else records
+
+    monkeypatch.setattr(engine, "ledger_read", short_then_full)
+    assert engine.ledger_verify(root) == []
+    assert calls["n"] >= 2, "the cache-ahead branch must re-read the file"
+
+
+def test_an_empty_reread_does_not_hide_a_truncation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The re-read must not overwrite the evidence with an empty list.
+
+    The first fix assigned the second read unconditionally, so a truncation that
+    landed between the two reads left ``valid == []`` and skipped every branch:
+    `ledger verify` printed no problem on a trail the pre-change code refused.
+    """
+    root = _seed(tmp_path / "team")
+    real = engine.ledger_read
+    calls = {"n": 0}
+
+    def short_then_empty(path: Path) -> list:
+        calls["n"] += 1
+        return real(path)[:-1] if calls["n"] == 1 else []
+
+    monkeypatch.setattr(engine, "ledger_read", short_then_empty)
+    problems = engine.ledger_verify(root)
+    assert any("truncated" in problem for problem in problems), problems
