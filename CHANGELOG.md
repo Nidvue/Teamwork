@@ -9,7 +9,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.6] - 2026-11-13
+
+### Added
+
+- **`teamwork graph` reads the dependency graph the queues already carry** - the
+  layer a loop cannot see. It prints the waves (one wave runs in parallel), the
+  critical path, and, for every edge, the number of waves that disappear if the
+  arrow is cut, so a serial step is justified by a measurement instead of a habit.
+  `--cut '<dep> <- <task>'` prints the same graph without that one arrow, `--check`
+  exits 1 on a cycle, a dangling dependency or a duplicate open id, and an edge
+  whose two ends share no feature, area or tag is listed as *unproved* - name the
+  payload that travels along it, or delete it. A dependency on a `done` task is
+  satisfied and is not an edge.
+- **`teamwork hunt` bounds an open-ended discovery loop** - a bug hunt, a research
+  sweep, an audit - by what it actually produces: a round that adds no finding the
+  loop has not already seen is dry, and two dry rounds in a row end the loop. It
+  keeps its seen set *and* its rejected findings in `Runtime/Hunt/<topic>.json`, so
+  a second run continues instead of rediscovering the same dead ends; `--reject`
+  marks a dead end and `--reset` forgets everything. A loop that spends its round
+  limit still finding things has not converged: it prints `STALLED`, opens an
+  attention item and exits 1.
+
+### Changed
+
+- **A returned unit carries its failing check and its scope** - `review --result
+  fail` takes `--scope '<what the fix may touch>'`, and the packet of the lane that
+  retries the task now opens with the findings and that scope. Before this, a
+  re-dispatched author was told the task and nothing else: the finding reached the
+  reviewer's next packet and never the author's, so the fix had to be guessed and a
+  one-line bug became a four-file diff.
+- **The doctrine is `references/Loops.md`** - the check that makes a loop a loop,
+  the five things every cycle needs, the four graph shapes and where this protocol
+  implements each, failure routing by unit rather than by batch, and who signs off.
+  `SKILL.md` 5o carries the commands; the reference carries the reasoning.
 
 ## [1.5.5](https://github.com/Nidvue/Teamwork/compare/v1.5.4...v1.5.5) - 2026-11-13
 

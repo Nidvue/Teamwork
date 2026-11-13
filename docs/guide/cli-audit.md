@@ -5,7 +5,7 @@ Owner: Technical Writer.
 Related: [Home](../index.md) · [CLI reference](cli.md)
 
 The audit trail and the controls that read it: ledger, trace, coordination,
-throughput, loop, refresh, model routing and the auxiliary scripts.
+throughput, graph, hunt, loop, refresh, model routing and the auxiliary scripts.
 
 This page is one part of the [CLI reference](cli.md) set; the overview lists every group.
 
@@ -154,6 +154,72 @@ teamwork loop [--full]
 Stop-condition check: may the team stop? Prints `STOP` or `CONTINUE` with
 reasons. Detail past 220 characters is clipped by default; `--full` prints every
 line whole.
+
+### `graph`
+
+```text
+teamwork graph [--cut EDGE] [--check] [--json]
+```
+
+The dependency graph between open tasks, read from the role queues - the layer a
+loop cannot see. It prints the **waves** (one wave runs in parallel), the
+**critical path** (the chain that gates the finish), and every edge with the number
+of waves it costs: `--cut '<dep> <- <task>'` prints the same graph without that one
+arrow, so a serial step is justified by a measurement instead of a habit. An edge
+whose two ends share no feature, area or tag is listed as *unproved*: name the
+payload that travels along it, or delete the arrow. A dependency on a task that is
+already `done` is satisfied and is not an edge.
+
+`--check` exits 1 on a dependency cycle, a dangling dependency or a duplicate open
+id - the same invariants the record writes already refuse, asked of the tree as it
+stands. `--json` carries the same data for a script.
+
+```console
+$ teamwork graph
+# Task graph (4 open node(s), 2 edge(s), 3 wave(s))
+
+## waves (one wave runs in parallel)
+1. ceo:T-0001 Research the vendor list, developer:T-0002 Add the schema test
+2. ceo:T-0002 Draft the pricing sheet
+3. developer:T-0001 Wire the parser
+
+## critical path (shortening anything else shortens nothing)
+ceo:T-0001 -> ceo:T-0002 -> developer:T-0001
+```
+
+### `hunt`
+
+```text
+teamwork hunt TOPIC [--run CMD] [--rounds N] [--dry N] [--timeout SECONDS]
+                  [--reject TEXT] [--reset] [--json] [--by AGENT]
+```
+
+A bounded discovery loop for open-ended work - a bug hunt, a research sweep, an
+audit - where the honest stop condition is "two rounds in a row found nothing new",
+not "the attempt budget ran out". `--run` names a command that prints **one finding
+per line**; each round counts the lines this loop has never reported, and the loop
+stops after `--dry` consecutive empty rounds (default 2) or `--rounds` (default 6).
+
+State lives in `Runtime/Hunt/<topic>.json` and keeps every key ever seen **and**
+every key rejected, so a second run continues instead of rediscovering the same
+dead ends. `--reject TEXT` marks a dead end (substring, case-insensitive, repeatable)
+and `--reset` forgets everything. Without `--run`, the command prints what the loop
+already saw and threw away.
+
+A loop that spends its rounds still finding things has not converged: it prints
+`STALLED`, opens an attention item naming the topic, and exits 1. Exit 0 means
+converged.
+
+```console
+$ teamwork hunt 'flaky tests' --run './scripts/flaky.sh' --by ceo
+## round 1: 2 fresh
+- test_a flaky
+- test_b flaky
+## round 2: 0 fresh
+## round 3: 0 fresh
+
+> STOP - converged after 3 round(s): 2 dry round(s) in a row
+```
 
 ### `refresh`
 

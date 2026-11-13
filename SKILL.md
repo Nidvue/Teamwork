@@ -572,6 +572,29 @@ an interface change that invalidates a peer's work, a hand-off. Not to assign wo
 (`task add`), not to report progress (the worklog), never to ask the user. Detail:
 `references/State.md` and `references/Coordination.md`.
 
+### 5o. Loops inside a node, the graph between them
+
+A loop makes one unit correct without you; the graph decides which units exist, in
+what order, and where you sign off. Skip one and it returns as manual work: no loop,
+you read every output; no graph, you approve every step. Detail: `references/Loops.md`.
+
+| Question | Command |
+|---|---|
+| what runs in parallel, what gates the finish, what an arrow costs | `graph` |
+| does cutting this dependency shorten the run | `graph --cut '<dep> <- <task>'` |
+| is the graph even runnable (cycle, dangling dep, duplicate id) | `graph --check` |
+| is an open-ended hunt done, and has it already thrown this away | `hunt '<topic>' --run '<cmd>'` |
+
+- **Test every arrow by naming the payload.** `graph` lists edges whose ends share
+  no feature, area or tag as *unproved*: name what travels along it or cut it.
+- **A cycle needs five things**: a dry test, a round limit, a budget, memory of past
+  attempts and a person paged on a stall. `hunt` owns all five and exits 1 when the
+  loop is stalled rather than converged.
+- **Send back the unit, not the batch.** `review --result fail --scope '<what the
+  fix may touch>'`; the retried lane packet opens with the finding and the scope.
+- **No model where code will do.** Classifying evidence, sorting, dedupe and the
+  undo class are code (`grades.py`); a model there is slower and occasionally wrong.
+
 ### 6. Close
 
 When the queue is empty and `loop` is about to report STOP, load `tw-ceo-audit-close` and follow it exactly: freeze the revision, verify the chain before the gates, check the archive against the tree, export the manifest last, and report from records. An unnamed skill is dead text nobody loads, and `harness lint` fails a tree that has one.
@@ -610,6 +633,7 @@ the one you need instead of the whole skill.
 | `references/Audit.md` | provenance, the ledger, internal and external audit |
 | `references/Adapters.md` | host operations, installation, refresh, degraded modes |
 | `references/Remotes.md` | git-host integrity: protection, checks, merge, tags |
+| `references/Loops.md` | loops, the task graph, failure routing, who signs off |
 
 ## Two-stage quality gate
 
@@ -629,6 +653,23 @@ todo -> doing -> selfcheck -> review -> done (merged into main by the Reviewer)
    branch start   |            v  (fail)
                   +-------- doing
 ```
+
+**Evidence is graded, and a pass reads the grade.** `strong` is a result a program
+produced (`-> 12 passed`, `exit 0`, `# issues: 0`, a digest); `medium` is a pointer
+a reader can follow (`path:line`, `TS-0006 @rev`); `weak` is a command with no
+result; `noise` is a self-assessment (`looks good`, `verified`, `no errors were
+thrown`, `see the run`) and it is **refused** on a passing self-check and on a
+passing verdict. An empty error log means nothing was reported, not that nothing
+went wrong.
+
+**A closed lane has no score to lower.** `preflight` sorts the diff by how hard it
+is to undo. `closed` - a migration or schema path, a payment, a secret/auth/cert
+path, a workflow that fires on merge, a release exception, or any deleted file -
+fails until the CEO records the authorization: `task set <role> <T-id> --by ceo
+--authorize '<who said yes + evidence>'`. `evidence` - the constitution, the frozen
+contract, `config.py`/`records.py`, the build config - warns and asks for strong
+evidence. A threshold is a number someone can lower on a busy Friday; a closed lane
+has no number to lower.
 
 - `task set --status review` is refused until `self_check: passed`, and a passing
   self-check needs a `--test` line - reading your own diff is not a test.

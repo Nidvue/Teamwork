@@ -47,8 +47,11 @@ Teamwork/
 │   ├── engine.py             # command layer: build_parser/main + gates, review/PR, memory, model
 │   ├── evolution.py          # the self-evolution books: check + snapshot, wired into audit
 │   ├── gitutil.py            # git plumbing (branch/merge/LFS)
+│   ├── grades.py             # two pure classifications: evidence grade, undo class (gates)
+│   ├── graph.py              # the task graph: waves, critical path, what one dependency costs
 │   ├── harness.py            # harness surface: registry, whole-proposal lint, always-on budget
 │   ├── hooks.py              # the git hooks: install/status/uninstall + the pre-commit/pre-push rules
+│   ├── hunt.py               # a bounded discovery loop: dry rounds, seen set, a page on a stall
 │   ├── imaging.py            # offline image-model probe
 │   ├── io.py                 # atomic writes, the lock, die()
 │   ├── lanerun.py            # one lane's detached child: budget + outcome file
@@ -137,7 +140,8 @@ import the resolved paths from `config`. The dependency direction is
 `config <- io/names <- layout <- records`, and `engine` sits on top. Two modules
 import `engine` at import time - `cli.py` and `lanes.py`, which sits above it -
 so every other module, `engine` included, reaches `lanes` and `engine` from
-inside a function. The import-time graph is therefore acyclic, and
+inside a function. `graph.py` and `hunt.py` are below `engine` and reach it from
+inside a function too, so the import-time graph is acyclic, and
 `tests/unit/test_import_direction.py` reads it from the AST and fails on a
 module-scope cycle instead of leaving it to whoever imports first (a check the
 tree cannot fail proves nothing, so that test is proved on a synthetic cycle

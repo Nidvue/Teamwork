@@ -14823,8 +14823,11 @@ def cmd_review(args) -> int:
             failed_rev = review_revision(root, t) or (t.get("review_fail_rev") or "")
             mechanical, mechanical_why = review_mechanical(t, failed_rev)
             detects = one_line(args.detects)
+            scope = one_line(getattr(args, "scope", "") or "")
             prev = t.get("findings", "")
             finding = f"detects: {detects} | {args.findings.strip()}"
+            if scope:
+                finding += f" | scope: {scope}"
             t["findings"] = f"{prev} | {finding}" if prev else finding
             t["review_detects"] = detects
             t["review_status"] = "failed"
@@ -19416,6 +19419,12 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--replay", default="", help="command or path that reproduces the verdict")
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
     s.add_argument(
+        "--scope",
+        default="",
+        help="with --result fail: what the fix may touch (e.g. 'src/parse.py only'); the "
+        "retried lane is told to fix that and nothing it noticed nearby",
+    )
+    s.add_argument(
         "--detects",
         default="",
         help="with --result fail: the specific failure this finding catches, reachable "
@@ -20327,6 +20336,14 @@ def _parsers_meta(sub, common) -> None:
     from .lanes import add_parsers as _add_lane_parsers
 
     _add_lane_parsers(sub, common)
+
+    from .graph import add_parsers as _add_graph_parsers
+
+    _add_graph_parsers(sub, common)
+
+    from .hunt import add_parsers as _add_hunt_parsers
+
+    _add_hunt_parsers(sub, common)
 
     from .messages import add_parsers as _add_message_parsers
 

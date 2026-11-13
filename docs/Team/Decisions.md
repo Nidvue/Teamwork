@@ -2770,3 +2770,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git @d8b15d5 -> 9 files, +405/-13; prose-only lesson fix: main 4f8b1c7 (worktree /tmp/mainwt) -> exit 0, branch d8b15d5 -> exit 2; .venv/bin/python -m pytest -q -n 4 @d8b15d5 -> 2977 passed, 5 skipped in 95.55s (main collected 2972, branch 2982); ruff check + format --check + mypy src/teamwork + scripts/check_comments.py @d8b15d5 -> clean; teamwork.py links -> 0 issues; harness lint -> 0 problems; harness budget CEO 95794 -> 96304 B (cap 122880); tests/unit/test_import_direction.py with a module-scope 'from . import lanes' injected into engine.py -> 2 failed, reverted -> 5 passed
 - falsified by: If the six closed lessons are re-proved with a --check and the checks then fail on a later revision, the rung is decorative and the rule should be withdrawn.
 - consequences: -
+
+## D-20261113-CEO-4 - Loops inside a node, a graph between the nodes
+
+- date: 2026-11-13
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: Adopt the loop/graph split as protocol: a bounded discovery loop (hunt) with dry rounds and a seen set, a task-graph report (graph) that prices every dependency edge, and a returned unit that carries its failing check and scope.
+- why: A loop makes one unit correct without a person; it cannot see that two units had no reason to wait, and every layer skipped returns as manual work. The team had the check (grades.py), the gate (undo class) and the rule-writing step (lesson fix), and no instrument for the edge.
+- evidence: tests/unit/test_graph.py -> 8 passed; tests/unit/test_hunt.py -> 7 passed; tests/unit/test_lanes.py -> 42 passed; python -m pytest -q -> 3032 passed, 5 skipped
+- falsified by: Two milestone cuts where the wave count of a multi-task plan does not fall after an edge is cut, or where a hunt loop converges with a finding it had already rejected: the commands are then not measuring what this decision claims.
+- consequences: graph and hunt are new CLI surface; references/Loops.md is the doctrine and SKILL.md 5o the commands; a review fail now takes --scope and the retried lane packet opens with the finding.
