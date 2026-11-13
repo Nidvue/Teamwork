@@ -213,14 +213,22 @@ CATEGORY_HEADING_RE = re.compile(r"^### (?P<category>\w+)\s*$")
 
 
 def changelog_category_problems(text: str) -> list[str]:
-    """Each release section repeats no Keep-a-Changelog category, and names only those."""
+    """Each release section repeats no Keep-a-Changelog category, and names only those.
+
+    A ``## `` heading that is not a release starts a new section with no version, so
+    an entry under ``## [Unreleased]`` is never charged to the release above it - the
+    first version of this check kept the previous version alive across that boundary
+    and would have reported a false duplicate the moment ``[Unreleased]`` grew a
+    category of its own.
+    """
     problems: list[str] = []
     version = ""
     seen: dict[str, int] = {}
     for line in text.splitlines():
-        release = RELEASE_HEADING_RE.match(line)
-        if release:
-            version, seen = release.group("version"), {}
+        if line.startswith("## "):
+            release = RELEASE_HEADING_RE.match(line)
+            version = release.group("version") if release else ""
+            seen = {}
             continue
         category = CATEGORY_HEADING_RE.match(line)
         if not category or not version:
@@ -247,6 +255,14 @@ def test_a_changelog_release_names_each_category_once():
 def test_mutant_a_repeated_changelog_category_is_reported():
     text = "## [1.0.0] - 2026-01-01\n\n### Changed\n\n- a\n\n### Changed\n\n- b\n"
     assert changelog_category_problems(text) == ["1.0.0: '### Changed' appears 2 times"]
+
+
+def test_an_unreleased_section_is_not_charged_to_the_release_above_it():
+    """`[Unreleased]` repeats a category legitimately: it is the next release."""
+    text = (
+        "## [Unreleased]\n\n### Changed\n\n- a\n\n## [1.0.0] - 2026-01-01\n\n### Changed\n\n- b\n"
+    )
+    assert changelog_category_problems(text) == []
 
 
 def test_the_checks_reach_a_tree_that_is_not_empty():

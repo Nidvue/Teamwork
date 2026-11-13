@@ -11269,8 +11269,79 @@ def _status_elapsed(seconds: int) -> str:
     return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
 
 
+def recent_activity(root: Path, limit_bytes: int = 65536) -> dict:
+    """The newest ledger event per actor, read from a bounded tail.
+
+    The widget asks "what is this agent doing right now", and the ledger is the one
+    store every engine command appends to as it happens. Reading the whole file
+    would cost a 7k-record parse on every 2 s refresh, so only the tail is read;
+    an actor whose last event is older than the tail simply has no entry and the
+    panel shows the lane state instead of a stale command. The first line of the
+    tail is dropped unless it is whole, because a seek can land mid-record.
+    """
+    import json
+
+    path = ledger_path(root)
+    if not path.exists():
+        return {}
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as handle:
+            start = max(0, size - max(limit_bytes, 1))
+            handle.seek(start)
+            chunk = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return {}
+    lines = chunk.splitlines()
+    if start > 0 and lines:
+        lines = lines[1:]
+    newest: dict = {}
+    for line in lines:
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            record = json.loads(text)
+        except ValueError:
+            continue
+        if not isinstance(record, dict):
+            continue
+        actor = str(record.get("actor") or "")
+        if actor:
+            newest[pascal(actor)] = record
+    return newest
+
+
+STATUS_LAST_MAX = 200
+
+
+def _activity_text(record: dict) -> str:
+    """One line for a ledger event: what ran, on what, and the result it reported."""
+    action = one_line(str(record.get("action") or ""))
+    target = one_line(str(record.get("target") or ""))
+    detail = one_line(str(record.get("detail") or ""))
+    head = " ".join(part for part in (action, target) if part)
+    text = f"{head} - {detail}" if head and detail else (head or detail)
+    return text[:STATUS_LAST_MAX]
+
+
+def _activity_age(record: dict, now: float) -> int | None:
+    stamp = str(record.get("ts") or "")
+    try:
+        when = datetime.datetime.fromisoformat(stamp)
+    except ValueError:
+        return None
+    return max(int(now - when.timestamp()), 0)
+
+
 def _status_row(
-    instance: str, now: float, live: dict, held: dict, titles: dict, dispatching: float = 0.0
+    instance: str,
+    now: float,
+    live: dict,
+    held: dict,
+    titles: dict,
+    dispatching: float = 0.0,
+    activity: dict | None = None,
 ) -> dict:
     """One instance's live state: the lane record if it runs, else the claim.
 
@@ -11303,10 +11374,15 @@ def _status_row(
     title = str(titles.get(task.rsplit("/", 1)[-1], ""))
     if dispatching and not task and not run:
         title = "pulse: dispatch, arbitrate, fold"
+    events = activity or {}
+    busy = "busy" if (task or run or dispatching) else "idle"
+    record = events.get(pascal(instance)) or {}
+    if not record and busy == "busy":
+        record = events.get(pascal(resolve_role(instance))) or {}
     return {
         "instance": instance,
         "role": resolve_role(instance),
-        "state": "busy" if (task or run or dispatching) else "idle",
+        "state": busy,
         "task": task,
         "title": title,
         "elapsed": elapsed,
@@ -11315,6 +11391,9 @@ def _status_row(
         "progress_pct": progress_pct,
         "lane": str(run.get("id") or ""),
         "lane_state": str(run.get("state") or ""),
+        "last": _activity_text(record),
+        "last_at": str(record.get("ts") or ""),
+        "last_seconds": _activity_age(record, now),
     }
 
 
@@ -11394,6 +11473,7 @@ def status_snapshot(root: Path) -> tuple:
     titles = {str(t["id"]): str(t.get("title") or "") for _role, t in iter_tasks(root)}
     config = load_model_config(root)
     pulse_age = _pulse_age(root, now)
+    activity = recent_activity(root)
     rows = [
         _status_row(
             name,
@@ -11402,6 +11482,7 @@ def status_snapshot(root: Path) -> tuple:
             held,
             titles,
             dispatching=pulse_age if resolve_role(name) == "ceo" else 0.0,
+            activity=activity,
         )
         for name in known_instances(root)
     ]
@@ -11518,7 +11599,7 @@ def cmd_status(args) -> int:
     counts["lanes"] = len(lanes_shown)
     if getattr(args, "json", False):
         payload = {
-            "schema": 3,
+            "schema": 4,
             "generated": datetime.datetime.now().isoformat(timespec="seconds"),
             "count": len(rows),
             "counts": counts,

@@ -729,11 +729,11 @@ heartbeat (`Runtime/Pulse.json`, written by every `pulse` wake) reads as
 `dispatching` - the loop is its work - and it leaves the idle count while the
 pulse is live. No line is wider than 110 columns.
 
-`--json` emits schema 3, additive to schema 2:
+`--json` emits schema 4, additive to schema 3:
 
 ```json
 {
-  "schema": 3,
+  "schema": 4,
   "generated": "2026-11-12T19:00:00",
   "count": 17,
   "counts": {"busy": 8, "idle": 9, "ready": 0, "review": 2, "lanes": 6,
@@ -742,12 +742,22 @@ pulse is live. No line is wider than 110 columns.
                  "task": "T-0130", "title": "...", "elapsed_text": "12m",
                  "progress": "attempt 1/2, 60% of 25m", "progress_pct": 60,
                  "model": "deepseek-chat", "provider": "deepseek", "lane": "L-0383",
-                 "lane_state": "running", "elapsed": 720}],
+                 "lane_state": "running", "elapsed": 720,
+                 "last": "tests.run TS-0214 - 76 passed in 35s",
+                 "last_at": "2026-11-12T18:59:41", "last_seconds": 19}],
   "lanes": [{"id": "L-0383", "instance": "Developer-1", "role": "developer",
              "task": "T-0130", "state": "running", "elapsed_text": "12m",
              "model": "deepseek-chat", "provider": "deepseek", "attempt": "1/2"}]
 }
 ```
+
+`last` is the newest ledger event for that instance rendered as
+`action target - detail`, clipped to 200 characters; `last_at` is its timestamp
+and `last_seconds` its age. It is read from a 64 KiB tail of `Ledger.jsonl`, so a
+long history costs one seek per call; an instance with no event in that tail
+carries `""` and `null` rather than a guess, and a busy instance with no event of
+its own falls back to its role's newest event (an idle instance never does - the
+line says what an active agent is doing).
 
 `counts.lanes` always equals the length of the `lanes` array the same call
 returns, so a header stays true under `--agent`; `counts.activated` is every
