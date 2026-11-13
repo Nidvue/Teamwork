@@ -516,11 +516,15 @@ def test_the_npm_verify_window_outlasts_registry_propagation():
     seconds = re.search(r"RETRY_SECONDS = (\d+)", step)
     assert attempts and seconds, "the verify step no longer declares its retry budget"
     window = int(attempts.group(1)) * int(seconds.group(1))
-    assert window >= 180, (
-        f"the npm verify window is {window}s; a fresh publish was still missing "
-        "after 61 s on release run 41439789453"
+    assert window >= 300, (
+        f"the npm verify window is {window}s; the v1.5.3 run 43332902531 saw the "
+        "cached 404 for 224 s after a successful publish"
     )
     assert "time.sleep(RETRY_SECONDS)" in step, "the verify step no longer sleeps between attempts"
+    assert "--prefer-online" in step, (
+        "the verify poll must force a staleness check: the idempotency read caches a "
+        "negative packument and the default cache serves it to every later attempt"
+    )
 
 
 def npm_verify_script() -> str:
