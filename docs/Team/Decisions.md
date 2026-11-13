@@ -2722,3 +2722,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: read docs/guide/cli.md --query budget --budget 1000 -> 2 snippets, 7 omitted; --budget 5000 -> 9 snippets, 0 omitted @122aa51
 - falsified by: a budget raise that returns a byte-identical pack
 - consequences: -
+
+## D-20261113-CEO - Four roles stay unstaffed between engagements, and two audit lines are standing state
+
+- date: 2026-11-13
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0061
+- context: -
+- options considered: -
+- decision: architect, cto, product-manager and security-auditor keep their role memory and queue with no instance while no deliverable needs them; the audit's roster-gap section is a standing reminder, not a defect. The same reading applies to the two dropped-under-live-claim markers (T-0101, T-0072): the claim was cleared, the marker stays by design (T-0047), and both carry a recorded reason.
+- why: The charter's right-size rule forbids idle seats: staffing four roles to silence a line adds seats no work feeds. loop already distinguishes the two: its completion gates report 'none: the team may stop' while the sections print. Lowering the audit to make its count smaller would be the collusion the charter forbids, so the sections and the count stay as they are and the reading is recorded here instead.
+- evidence: python3 scripts/teamwork.py instance list @c010cd6 -> architect 0, cto 0, product-manager 0, security-auditor 0 instances, each with a memory/queue; python3 scripts/teamwork.py loop @c010cd6 -> '## completion gates (shared with loop) - none: the team may stop'; python3 scripts/teamwork.py audit @c010cd6 -> roster gaps 4 and dropped-under-live 2 of 9, no completion-gate entry; python3 scripts/teamwork.py parallel @c010cd6 -> 0 ready tasks, so no queue is starved
+- falsified by: A deliverable arrives that needs the architect, CTO, product-manager or security-auditor layer: then the role is staffed in that task, and the gap becomes a defect if it is not. Or a dropped-under-live marker appears without a recorded reason, which would make it an unexplained erasure rather than standing state.
+- consequences: The audit is read as actionable-count = total - (roster gaps + dropped-under-live markers); every other section is a gate. A future close states the reading rather than chasing the number.
