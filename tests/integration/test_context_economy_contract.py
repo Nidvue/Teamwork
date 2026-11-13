@@ -35,11 +35,18 @@ LIMIT = engine.VIEW_CLIP_LIMIT
 
 AUTHOR_HEAD = "author-head "
 AUTHOR_TAIL = "zulu-author-tail-sentinel-9f2c"
-AUTHOR_LONG = AUTHOR_HEAD + ("alpha-evidence-word " * 40) + AUTHOR_TAIL
+AUTHOR_LONG = (
+    AUTHOR_HEAD + "pytest -q @HEAD -> 3 passed " + ("alpha-evidence-word " * 40) + AUTHOR_TAIL
+)
 
 REVIEWER_HEAD = "reviewer-head "
 REVIEWER_TAIL = "bravo-reviewer-tail-sentinel-4b1d"
-REVIEWER_LONG = REVIEWER_HEAD + ("bravo-verification-word " * 40) + REVIEWER_TAIL
+REVIEWER_LONG = (
+    REVIEWER_HEAD
+    + "teamwork.py links @HEAD -> # issues: 0 "
+    + ("bravo-verification-word " * 40)
+    + REVIEWER_TAIL
+)
 
 FINDINGS_HEAD = "finding-head "
 FINDINGS_TAIL = "delta-finding-tail-sentinel-7a3e"
