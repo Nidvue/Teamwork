@@ -119,7 +119,7 @@ def test_the_capacity_line_counts_the_default_bucket_and_no_other_setting(
 def test_the_proof_repeats_at_the_lane_maximum(tmp_path: Path) -> None:
     names = ",".join(f"developer-{n}" for n in range(1, 7))
     project = team(tmp_path / "atcap", names, lane_max=6, caps={"default": 6})
-    env = {"TEAMWORK_LANE_CMD": launcher(tmp_path, "print('LANE-RESULT: ok')\n")}
+    env = {"TEAMWORK_LANE_CMD": launcher(tmp_path, "print('LANE-RESULT: ok')\n", sleep="5.0")}
     first = proof(project, env)
     assert first.returncode == 0, first.stdout + first.stderr
     factors = " ".join(
@@ -142,7 +142,7 @@ def test_the_proof_repeats_at_the_lane_maximum(tmp_path: Path) -> None:
 
 def test_the_proof_repeats_on_the_same_project(tmp_path: Path) -> None:
     project = team(tmp_path / "twice", "developer-1,developer-2,developer-3")
-    env = {"TEAMWORK_LANE_CMD": launcher(tmp_path, "print('LANE-RESULT: ok')\n")}
+    env = {"TEAMWORK_LANE_CMD": launcher(tmp_path, "print('LANE-RESULT: ok')\n", sleep="4.0")}
     first = proof(project, env)
     second = proof(project, env)
     assert first.returncode == 0, first.stdout + first.stderr
