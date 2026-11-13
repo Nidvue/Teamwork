@@ -156,8 +156,18 @@ def test_the_payload_names_its_schema_and_counts(cli, project: Path, capsys) -> 
     build(cli, project)
     assert cli("--project", project, "task", "add", "developer", "a second ready job") == 0
     data = payload(cli, project, capsys)
-    assert data["schema"] == 2
-    assert data["counts"] == {"busy": 1, "idle": 3, "ready": 1, "review": 0, "lanes": 1}
+    assert data["schema"] == 3
+    assert data["counts"] == {
+        "busy": 1,
+        "idle": 3,
+        "ready": 1,
+        "review": 0,
+        "lanes": 1,
+        "activated": 4,
+        "retired": 0,
+        "lanes_live": 1,
+        "lanes_ended": 0,
+    }
 
 
 def test_each_row_names_the_work_its_task_is(cli, project: Path, capsys) -> None:
@@ -286,11 +296,12 @@ def test_the_panel_prints_the_lane_block_before_the_instance_rows(
     capsys.readouterr()
     assert cli("--project", project, "status") == 0
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0].startswith("# Status (4 instance(s), 1 busy)")
-    assert lines[1] == "# Lanes (1)"
+    assert lines[0].startswith("# Status (1 busy, 3 idle, 4 activated, 0 retired)")
+    assert lines[1] == "# Lanes (1 live, 0 ended not shown)"
     assert lines[2].startswith("- L-0001  Developer-1      running   T-"), lines[2]
     assert lines[2].endswith(" p/m"), lines[2]
-    assert lines[3].startswith("- CEO"), "the instance rows follow the lane block"
+    assert lines[3].startswith("- Developer-1"), "the busy rows follow the lane block"
+    assert lines[-1].startswith("- idle: 3 seat(s)"), "idle is one aggregate line"
 
 
 def test_a_team_with_no_lane_prints_no_lane_block(cli, project: Path, capsys) -> None:
@@ -327,6 +338,32 @@ def test_the_text_form_prints_one_line_per_instance(cli, project: Path, capsys) 
         for line in capsys.readouterr().out.splitlines()
         if line.startswith("- ") and not line.startswith("- L-")
     ]
-    assert len(lines) == 4
+    assert len(lines) == 2, "busy rows plus one aggregate idle line"
     assert any("Developer-1" in line and "busy" in line for line in lines)
-    assert any("Developer-2" in line and "idle" in line for line in lines)
+    assert any(line.startswith("- idle: 3 seat(s)") for line in lines), lines
+    assert not any("Developer-2" in line for line in lines), "an idle seat is a count, not a row"
+
+
+def test_the_ceo_reads_busy_while_its_pulse_is_fresh(cli, project: Path, capsys) -> None:
+    """The CEO's work is the loop: a fresh pulse is dispatching, not idleness.
+
+    The leader session is not an engine process, so the only honest signal is the
+    heartbeat the pulse writes. Without it the CEO sat in the idle count while it
+    was dispatching the wave.
+    """
+    root = build(cli, project)
+    capsys.readouterr()
+    assert cli("--project", project, "pulse") in (0, 3)
+    data = payload(cli, project, capsys)
+    ceo = next(row for row in data["instances"] if row["role"] == "ceo")
+    assert ceo["state"] == "busy", ceo
+    assert "dispatching" in ceo["progress"], ceo
+    assert ceo["title"].startswith("pulse:"), ceo
+
+    engine.atomic_write(
+        root / engine.DIR_RUNTIME / engine.PULSE_HEARTBEAT,
+        '{"ts": 1, "minutes": 5, "actor": "ceo"}\n',
+    )
+    data = payload(cli, project, capsys)
+    ceo = next(row for row in data["instances"] if row["role"] == "ceo")
+    assert ceo["state"] == "idle", "a stale heartbeat is not work"

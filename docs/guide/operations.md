@@ -156,12 +156,18 @@ provider slots. `--no-scale` dispatches to the current roster, and an
 `observe`/`off` wake is a report that adds and retires nothing. So the work - not
 the roster, and not one lane - bounds how fast a stage lands.
 
+The panel prints **busy rows and live lanes only**; idle seats are one aggregate
+line (`idle: 12 (activated 18, retired 4)`) because an idle seat is a seat to fold,
+not a row to read, and an ended lane is history. The CEO is the leader session, so
+the pulse heartbeat makes it read `dispatching` while the loop is live rather than
+idle.
+
 `status` is the operator panel and the UI feed in one command:
 
 ```console
 $ teamwork status                      # every instance, plus the recent lanes
 $ teamwork status --agent Reviewer-1   # one instance
-$ teamwork status --json               # the stable feed (schema 2)
+$ teamwork status --json               # the stable feed (schema 3)
 ```
 
 The panel prints each instance's state (`busy`/`idle`), its current task, the

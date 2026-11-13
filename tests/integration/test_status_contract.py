@@ -55,7 +55,17 @@ LANE = {
     "provider",
     "attempt",
 }
-COUNTS = {"busy", "idle", "ready", "review", "lanes"}
+COUNTS = {
+    "busy",
+    "idle",
+    "ready",
+    "review",
+    "lanes",
+    "activated",
+    "retired",
+    "lanes_live",
+    "lanes_ended",
+}
 
 
 def run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -115,7 +125,7 @@ def test_status_json_envelope_and_rows(tmp_path: Path) -> None:
     _code, payload = status_json(project, team)
 
     assert set(payload) == ENVELOPE, sorted(payload)
-    assert payload["schema"] == 2, "the widget reads schema 2: lanes and models are additive"
+    assert payload["schema"] == 3, "the widget reads schema 3: activated/retired are additive"
     assert isinstance(payload["generated"], str) and payload["generated"][:4].isdigit()
     assert set(payload["counts"]) == COUNTS, sorted(payload["counts"])
     assert isinstance(payload["instances"], list)
@@ -159,7 +169,17 @@ def test_status_json_exits_zero_with_no_instances(tmp_path: Path) -> None:
     assert set(payload) == ENVELOPE, sorted(payload)
     assert payload["count"] == 0
     assert payload["instances"] == []
-    assert payload["counts"] == {"busy": 0, "idle": 0, "ready": 0, "review": 0, "lanes": 0}
+    assert payload["counts"] == {
+        "busy": 0,
+        "idle": 0,
+        "ready": 0,
+        "review": 0,
+        "lanes": 0,
+        "activated": 0,
+        "retired": 0,
+        "lanes_live": 0,
+        "lanes_ended": 0,
+    }
     assert payload["lanes"] == [], "an empty tree has no lane rows"
 
     panel = run(

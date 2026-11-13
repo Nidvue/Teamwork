@@ -67,7 +67,7 @@ ledger and the test matrix apply to every role wherever it sits.
 
 | Tier | Instances | Startup read |
 |---|---|---|
-| `slim` (default) | 7 | 296 kB |
+| `slim` (default) | 7 | 297 kB |
 | `standard` | 10 | 407 kB |
 | `full` | 17 | 657 kB |
 

@@ -11269,8 +11269,16 @@ def _status_elapsed(seconds: int) -> str:
     return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
 
 
-def _status_row(instance: str, now: float, live: dict, held: dict, titles: dict) -> dict:
-    """One instance's live state: the lane record if it runs, else the claim."""
+def _status_row(
+    instance: str, now: float, live: dict, held: dict, titles: dict, dispatching: float = 0.0
+) -> dict:
+    """One instance's live state: the lane record if it runs, else the claim.
+
+    ``dispatching`` is the age in seconds of the CEO's last pulse. The CEO is the
+    leader session: when it holds no task it is still running the loop (dispatch,
+    arbitration, folding), so a fresh pulse is work, not idleness - the panel says
+    ``dispatching`` instead of ``idle`` for it.
+    """
     run = live.get(pascal(instance)) or {}
     task = ""
     if run.get("task"):
@@ -11290,12 +11298,17 @@ def _status_row(instance: str, now: float, live: dict, held: dict, titles: dict)
         progress_pct = percent if budget else None
     elif task:
         progress = "claimed, no lane record"
+    elif dispatching:
+        progress = f"dispatching (last pulse {int(dispatching // 60)}m ago)"
+    title = str(titles.get(task.rsplit("/", 1)[-1], ""))
+    if dispatching and not task and not run:
+        title = "pulse: dispatch, arbitrate, fold"
     return {
         "instance": instance,
         "role": resolve_role(instance),
-        "state": "busy" if (task or run) else "idle",
+        "state": "busy" if (task or run or dispatching) else "idle",
         "task": task,
-        "title": str(titles.get(task.rsplit("/", 1)[-1], "")),
+        "title": title,
         "elapsed": elapsed,
         "elapsed_text": _status_elapsed(elapsed) if elapsed is not None else "-",
         "progress": progress,
@@ -11380,7 +11393,18 @@ def status_snapshot(root: Path) -> tuple:
                 held[pascal(task["review_claim"])] = task["id"]
     titles = {str(t["id"]): str(t.get("title") or "") for _role, t in iter_tasks(root)}
     config = load_model_config(root)
-    rows = [_status_row(name, now, live, held, titles) for name in known_instances(root)]
+    pulse_age = _pulse_age(root, now)
+    rows = [
+        _status_row(
+            name,
+            now,
+            live,
+            held,
+            titles,
+            dispatching=pulse_age if resolve_role(name) == "ceo" else 0.0,
+        )
+        for name in known_instances(root)
+    ]
     for row in rows:
         row["model"], row["provider"] = _model_for(config, row["instance"], row["role"])
     return rows, lane_rows(runs, now, config)
@@ -11395,6 +11419,62 @@ def status_rows(root: Path) -> list:
     without an outcome file is the same write every lane command performs.
     """
     return status_snapshot(root)[0]
+
+
+PULSE_HEARTBEAT = "Pulse.json"
+
+
+def write_pulse_heartbeat(root: Path, minutes: int, actor: str) -> None:
+    """Record that the CEO's loop just ran, so `status` shows it as dispatching.
+
+    The CEO is a leader session, not an engine process; its work is the pulse. A
+    heartbeat is the only honest signal that the loop is alive, so the panel reads
+    this file instead of guessing. Best effort: a failed write must never stop a
+    wake.
+    """
+    payload = {"ts": time.time(), "minutes": max(int(minutes), 1), "actor": actor or "ceo"}
+    try:
+        atomic_write(root / DIR_RUNTIME / PULSE_HEARTBEAT, json.dumps(payload) + "\n")
+    except OSError:
+        return
+
+
+def _pulse_age(root: Path, now: float) -> float:
+    """Seconds since the last pulse, or 0 when none is fresh (or unreadable)."""
+    path = root / DIR_RUNTIME / PULSE_HEARTBEAT
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        ts = float(payload.get("ts") or 0)
+        minutes = max(int(payload.get("minutes") or 5), 1)
+    except (OSError, ValueError, TypeError):
+        return 0.0
+    age = now - ts
+    if age < 0 or age > minutes * 60:
+        return 0.0
+    return age
+
+
+def status_meta(root: Path, rows: list, lanes_shown: list) -> dict:
+    """The aggregate the panel and the widget print instead of idle detail rows."""
+    from . import lanes as lane_runtime
+
+    runs = lane_runtime.load_runs(root)
+    activated = {pascal(str(run.get("agent") or "")) for run in runs}
+    activated |= {pascal(row["instance"]) for row in rows}
+    activated.discard("")
+    retired_root = retired_dir(root)
+    retired = (
+        len([path for path in retired_root.iterdir() if path.is_dir()])
+        if retired_root.is_dir()
+        else 0
+    )
+    live_total = sum(1 for run in runs if run.get("state") in lane_runtime.LIVE)
+    return {
+        "activated": len(activated),
+        "retired": retired,
+        "lanes_live": live_total,
+        "lanes_ended": len(runs) - live_total,
+    }
 
 
 def _lane_model_text(provider: str, model: str) -> str:
@@ -11415,20 +11495,30 @@ def _status_counts(root: Path, rows: list) -> dict:
 
 
 def cmd_status(args) -> int:
-    """Compact live state of every instance: the operator panel and the UI feed."""
+    """Compact live state: busy rows in full, idle and ended detail as one count.
+
+    The panel and the feed answer two different questions. The panel is for a
+    person watching the team, so it prints what is working and one aggregate line
+    for the idle seats (`idle: 12 (activated 18, retired 4)`) - an idle seat is a
+    seat to fold, not a row to read. The JSON feed keeps every row for the widget,
+    which applies the same rule: busy rows and live lanes, idle collapsed to a
+    count.
+    """
     root = project_root(args)
     rows, lanes_shown = status_snapshot(root)
     counts = _status_counts(root, rows)
+    meta = status_meta(root, rows, lanes_shown)
+    counts.update(meta)
+    counts["lanes"] = len(lanes_shown)
     wanted = (getattr(args, "agent", "") or "").strip()
     if wanted:
         rows = [row for row in rows if pascal(row["instance"]) == pascal(wanted)]
         lanes_shown = [lane for lane in lanes_shown if pascal(lane["instance"]) == pascal(wanted)]
         if not rows:
             die(f"no instance named {wanted!r}", 2)
-    counts["lanes"] = len(lanes_shown)
     if getattr(args, "json", False):
         payload = {
-            "schema": 2,
+            "schema": 3,
             "generated": datetime.datetime.now().isoformat(timespec="seconds"),
             "count": len(rows),
             "counts": counts,
@@ -11437,27 +11527,45 @@ def cmd_status(args) -> int:
         }
         print(json.dumps(payload, indent=2))
         return 0
-    busy = sum(1 for row in rows if row["state"] == "busy")
-    print(f"# Status ({len(rows)} instance(s), {busy} busy)")
-    if lanes_shown:
-        print(f"# Lanes ({len(lanes_shown)})")
-        for lane in lanes_shown:
+    busy = [row for row in rows if row["state"] == "busy"]
+    idle = len(rows) - len(busy)
+    print(
+        f"# Status ({len(busy)} busy, {idle} idle, {counts['activated']} activated, "
+        f"{counts['retired']} retired)"
+    )
+    live = [lane for lane in lanes_shown if lane["state"] in lane_runtime_live()]
+    if live:
+        print(f"# Lanes ({len(live)} live, {counts['lanes_ended']} ended not shown)")
+        for lane in live:
             model = _lane_model_text(lane["provider"], lane["model"])
             print(
                 f"- {lane['id']:7s} {lane['instance']:16s} {lane['state']:9s} "
                 f"{lane['task'] or '-':13s} {lane['elapsed_text']:>7s} {model}"
             )
+    elif counts["lanes_ended"]:
+        print(f"# Lanes (0 live, {counts['lanes_ended']} ended not shown)")
     if not rows:
         print("- no instance")
         return 3
-    for row in rows:
+    for row in busy:
         percent = "-" if row["progress_pct"] is None else f"{row['progress_pct']}%"
         head = (
             f"- {row['instance']:16s} {row['state']:5s} {row['task'] or '-':13s} "
             f"{row['title'][:40]:40s} {row['elapsed_text']:>7s} {percent:>4s} "
         )
         print((head + str(row["progress"]))[:110])
+    if idle:
+        print(
+            f"- idle: {idle} seat(s) (activated {counts['activated']}, retired "
+            f"{counts['retired']}) - fold them: teamwork.py instance prune --keep-required"
+        )
     return 0
+
+
+def lane_runtime_live() -> tuple:
+    from . import lanes as lane_runtime
+
+    return lane_runtime.LIVE
 
 
 REVIEWER_SCALE_CAP = 8
@@ -11545,6 +11653,7 @@ def cmd_pulse(args) -> int:
     if args.interval is not None:
         set_pulse_minutes(root, args.interval)
     minutes = load_pulse_minutes(root)
+    write_pulse_heartbeat(root, minutes, getattr(args, "agent", "") or "ceo")
     mode, mode_source = load_pulse_mode(root, getattr(args, "mode", "") or "")
     reap_slots(root)
 

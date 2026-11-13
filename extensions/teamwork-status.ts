@@ -52,7 +52,17 @@ type Payload = {
   count?: number;
   instances?: Instance[];
   lanes?: Lane[];
-  counts?: { busy?: number; idle?: number; ready?: number; review?: number; lanes?: number };
+  counts?: {
+    busy?: number;
+    idle?: number;
+    ready?: number;
+    review?: number;
+    lanes?: number;
+    activated?: number;
+    retired?: number;
+    lanes_live?: number;
+    lanes_ended?: number;
+  };
 };
 
 function ancestors(start: string): string[] {
@@ -147,22 +157,26 @@ export function render(payload: Payload): string[] {
     instance: text(lane.instance, INSTANCE_MAX) || "-",
     task: task_label(lane.task),
     state: stateAbbrev(lane.state),
+    live: lane.state === "starting" || lane.state === "running",
     elapsed: elapsed(lane.elapsed_text),
     model: modelLabel(lane),
   }));
   if (!rows.length && !lanes.length) return [];
   const busy = rows.filter((row) => row.busy);
   const idle = rows.filter((row) => !row.busy);
+  const live = lanes.filter((lane) => lane.live);
   const counts = payload.counts ?? {};
   const review = counts.review ?? 0;
+  const activated = counts.activated ?? rows.length;
+  const lanesLive = counts.lanes_live ?? live.length;
   const header =
-    `teamwork · ${payload.count ?? rows.length} inst · ` +
-    `${counts.lanes ?? lanes.length} lanes · ${busy.length} busy · ${review} review`;
+    `teamwork · ${activated} act · ${lanesLive} live · ` +
+    `${busy.length} busy · ${review} review`;
 
   busy.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || a.instance.localeCompare(b.instance));
   const width = Math.min(INSTANCE_MAX, Math.max(0, ...busy.map((row) => row.instance.length)));
   const lines = [header];
-  for (const lane of lanes.slice(0, LANE_MAX)) {
+  for (const lane of live.slice(0, LANE_MAX)) {
     lines.push(
       `⚙ ${lane.id} ${lane.instance} ${lane.task} ${lane.state} ${lane.elapsed} ${lane.model}`.trimEnd(),
     );
@@ -179,9 +193,7 @@ export function render(payload: Payload): string[] {
   const hidden = busy.length - Math.max(0, room);
   if (hidden > 0) lines.push(`  +${hidden} more busy`);
   if (idle.length) {
-    const names = idle.slice(0, 6).map((row) => row.instance).join(", ");
-    const rest = idle.length - Math.min(6, idle.length);
-    lines.push(`○ idle: ${names}${rest > 0 ? ` +${rest}` : ""}`);
+    lines.push(`○ idle: ${idle.length} (activated ${activated})`);
   }
   return lines.slice(0, MAX_LINES);
 }
