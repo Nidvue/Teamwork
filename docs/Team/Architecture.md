@@ -60,6 +60,7 @@ Teamwork/
 │   ├── names.py              # names, roles, commit identities
 │   ├── records.py            # task/memory/criteria/tests/PR/dispute records
 │   ├── resources.py          # locate the skill bundle (checkout or wheel)
+│   ├── sparse.py             # the sparse read gate: bounded, source-anchored evidence packs
 │   ├── portable.py           # OS portability seam
 │   ├── transcripts.py        # transcript reach: the ledger and the worklogs (Memory.md 10)
 │   ├── wiki.py               # the capped wiki: pages of fact lines that point at records (Memory.md 15.5)

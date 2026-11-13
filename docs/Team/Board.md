@@ -144,6 +144,8 @@ under two roles is two tasks.
 | ceo | T-0053 | records | done | P-0195 | 58f0f3d |
 | ceo | T-0054 | dispatch-contract | done | P-0196 | 2f31566 |
 | ceo | T-0055 | dispatch-contract | done | P-0197 | 637586d |
+| ceo | T-0056 | dispatch-contract | doing | P-0198 | - |
+| ceo | T-0057 | dispatch-contract | review | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -332,6 +334,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0056 · Adopt SparseRead: a sparse read gate with provenance, budget and native fallback | P1 | doing | - |
+| ceo | T-0057 · Live state: show busy work and live lanes, count idle seats, CEO dispatching via the pulse heartbeat | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.

@@ -29,6 +29,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/guide/cli*.md`, `SKILL.md` or `README.md` (37 of 158 measured review
   failures were doc drift).
 
+### Added
+
+- **The sparse read gate** - `teamwork read <path> --query '<needle>'` controls how
+  much of one file enters context, adopted from
+  [SparseRead](https://github.com/Liuzedooong/SparseReading) (MIT, accessed
+  2026-11-13). Under 4 KiB, binary or `--full` returns the whole file unchanged; a
+  large file with a query returns only the matching line ranges, merged with three
+  lines of context, each headed `start-end (N match(es))` and every line prefixed
+  with its number; `--lines A-B` verifies an exact range; no query is a 40-line
+  scout plus the line count. `--budget` (default 4096) bounds the pack and names
+  what it left out, and every call appends a `read.sparse` ledger record whose
+  saving `throughput` sums under `## sparse read`. The lane packet now points at
+  this command instead of an ad-hoc `rg` plus 30 lines.
+
 ### Changed
 
 - **A record bound to an older revision is refused** - `preflight` compares the
