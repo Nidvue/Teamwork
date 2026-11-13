@@ -2738,3 +2738,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: python3 scripts/teamwork.py instance list @c010cd6 -> architect 0, cto 0, product-manager 0, security-auditor 0 instances, each with a memory/queue; python3 scripts/teamwork.py loop @c010cd6 -> '## completion gates (shared with loop) - none: the team may stop'; python3 scripts/teamwork.py audit @c010cd6 -> roster gaps 4 and dropped-under-live 2 of 9, no completion-gate entry; python3 scripts/teamwork.py parallel @c010cd6 -> 0 ready tasks, so no queue is starved
 - falsified by: A deliverable arrives that needs the architect, CTO, product-manager or security-auditor layer: then the role is staffed in that task, and the gap becomes a defect if it is not. Or a dropped-under-live marker appears without a recorded reason, which would make it an unexplained erasure rather than standing state.
 - consequences: The audit is read as actionable-count = total - (roster gaps + dropped-under-live markers); every other section is a gate. A future close states the reading rather than chasing the number.
+
+## D-20261113-CEO-2 - The owner authorised the push and the v1.5.5 release in this session
+
+- date: 2026-11-13
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The CEO pushes main and cuts v1.5.5 on the owner's explicit instruction ('commit, push and release'), acting as the Release Engineer because that lane is unstaffed, and with the authorization the charter requires for an external action recorded here before the push.
+- why: PUSH POLICY makes a push the Release Engineer's step and tags/releases the CEO's, and a red line covers external actions without authorization. Both conditions are met: the instruction is explicit and this record is the authorization; every pre-push gate is green on the exact revision being pushed.
+- evidence: git status --short -> empty at 8facda3; privacy_scan --tree --history --allow .github/privacy-allow.txt -> PASS 0 findings; check_release_consistency.py --offline -> 0 problems; teamwork.py links -> 0 issues; check_comments.py -> 0 explanatory commentary / 237 files; python -m build -> teamwork_agents-1.5.5 wheel + sdist; pytest -q -n auto -> 2968 passed, 4 skipped; scripts/verify_release.py -> OK, installed-wheel smoke test (--version, selftest, init) green
+- falsified by: CI is red on the pushed SHA, or the release workflow publishes a payload that does not match the tagged commit (check_release_consistency.py --online R3/R4/R5 report drift).
+- consequences: main and the v1.5.5 tag are public; a force-push or retag after this needs the owner's authorization and is a red line. The audit manifest's checkpoint stays valid because a push does not change the tree.
