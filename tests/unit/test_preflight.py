@@ -1100,3 +1100,70 @@ def test_a_recorded_worktree_resolves_from_a_foreign_cwd(project, tmp_path, monk
     assert engine._gate_tree(root, project, {"worktree": stored}) == tree
     assert engine._gate_tree(root, project, {"worktree": str(tree)}) == tree
     assert engine._gate_tree(root, project, {"worktree": "Runtime/gone/T-0001"}) == project
+
+
+def test_a_self_check_that_measured_an_older_revision_is_refused(cli, project, capsys):
+    """Evidence is bound to the revision it names, and that must be the branch head.
+
+    Measured review class (30 of 158 fails): the self-check suite line does not
+    reproduce at the revision it names, because the tree moved after the run. The
+    gate now compares the note's revisions with the branch head, so the author
+    re-runs instead of the Reviewer discovering it.
+    """
+    init_team(cli, project)
+    start_branch(cli, project)
+    first = commit_as_author(cli, project, "first.txt")
+    tree = lane_tree(project)
+    (tree / "second.txt").write_text("done\n", encoding="utf-8")
+    second = commit_as_author(cli, project, "second.txt")
+    assert first != second
+
+    code = selfcheck(
+        cli,
+        project,
+        "--note",
+        "re-read the diff",
+        "--test",
+        f"pytest -q @{first[:7]} -> 3 passed",
+    )
+
+    assert code == 2, "a self-check bound to an older revision must be refused"
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "tree moved after the run" in out, out
+    assert f"@{second[:7]}" in out, out
+
+    assert (
+        cli(
+            "--project",
+            project,
+            "task",
+            "set",
+            "developer",
+            "T-0001",
+            "--evidence",
+            f"pytest -q @{first[:7]} -> 3 passed",
+        )
+        == 0
+    )
+    code = selfcheck(
+        cli,
+        project,
+        "--note",
+        "re-read the diff",
+        "--test",
+        f"pytest -q @{first[:7]} -> 3 passed",
+    )
+    assert code == 2, "evidence and note naming the same stale revision must be refused"
+    captured = capsys.readouterr()
+    assert "tree moved after the run" in captured.out + captured.err
+
+    code = selfcheck(
+        cli,
+        project,
+        "--note",
+        "re-read the diff",
+        "--test",
+        f"pytest -q @{second[:7]} -> 3 passed",
+    )
+    assert code == 0

@@ -162,3 +162,9 @@ makes `tests plan` require its layers, and `loop` blocks until a lane records
 them. `commit --area` and `task set --area` therefore print a note when the area
 has no test record for a required layer, naming the layers and the `tests add`
 that clears it; record them in the same task, or reuse an existing area.
+
+**One command, one thing tested.** `tests add` refuses a command another record
+already carries (any layer, any area) unless `--force '<why this layer needs its
+own run>'`; the audit reports the duplicate pairs, and a second record of the same
+suite doubles the wall clock for no new evidence. Cite the existing record with
+`review --credit` instead.
