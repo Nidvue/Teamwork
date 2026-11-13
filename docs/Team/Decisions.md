@@ -2717,3 +2717,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git log --format='%an <%ae>' | sort | uniq -c -> 703 Ping Zhao <<redacted-personal-email>>, 1 dependabot[bot]; git log --format=%B | grep -cE '^(Role|Producers|Acting role):' -> 0; git rev-list --count HEAD -> 704; git tag | wc -l -> 14, all retargeted (git ls-remote --tags origin -> new objects); privacy_scan --tree --history --allow .github/privacy-allow.txt -> PASS 0; gh api branches/main/protection -> force false, 15 checks, strict true; gh api rulesets/25840176 -> active, 3 rules, 0 bypass
 - falsified by: If any commit in the rewritten history names an agent identity or a role trailer, or a required status check or ruleset rule is missing from the restored settings, the rewrite is rolled back from Runtime/Artifacts/pre-identity-rewrite-final.bundle
 - consequences: -
+
+## D-20261113-CTO - The sparse read budget is the only cap (D-0028)
+
+- date: 2026-11-13
+- kind: technical
+- status: accepted
+- deciders: CTO (cto)
+- decided by: CTO
+- task: T-0056
+- context: -
+- options considered: -
+- decision: A sparse read is bounded by its byte budget, not by a snippet count: MAX_SNIPPETS is removed, so raising --budget returns every omitted match; the pack's reason and docs/guide/cli.md name only remedies that exist (raise --budget, --lines A-B, --full), and a test asserts the named remedy returns the omitted match.
+- why: Three review rounds on T-0056 failed the same class: a documented affordance that did nothing. The tribunal (D-0028, neutral CTO seat) upheld the Reviewer's ruling.
+- evidence: read docs/guide/cli.md --query budget --budget 1000 -> 2 snippets, 7 omitted; --budget 5000 -> 9 snippets, 0 omitted @122aa51
+- falsified by: a budget raise that returns a byte-identical pack
+- consequences: -
