@@ -709,23 +709,35 @@ snippets, bytes, saving) for a script.
 teamwork status [--json] [--agent INSTANCE]
 ```
 
-One row per instance and one row per live lane, so the operator panel and the
-status widget answer "who is working on what, and with which model". `--agent` narrows
-the rows to one instance; an unknown name exits 2, a team with no instance prints
-`- no instance` and exits 3, and the JSON feed exits 0 even when empty.
+Who is working, in full, and how many seats are idle, as one count. `--agent`
+narrows the rows to one instance; an unknown name exits 2, a team with no
+instance prints `- no instance` and exits 3, and the JSON feed exits 0 even when
+empty.
 
-The text form prints `# Lanes (N)` and one line per lane before the instance
-rows, then one instance line each (task id, title, elapsed, progress percent),
-never wider than 110 columns.
+The text form prints the aggregate header `# Status (B busy, I idle, A activated,
+R retired)`, then `# Lanes (L live, E ended not shown)` with one line per **live**
+lane only (an ended lane is history, not a row), then one line per **busy**
+instance (task id, title, elapsed, progress percent), then one aggregate line:
 
-`--json` emits schema 2, additive to schema 1:
+```text
+- idle: 12 seat(s) (activated 18, retired 4) - fold them: teamwork.py instance prune --keep-required
+```
+
+An idle seat is a seat to fold, not a row to read; `instance prune` retires it
+(move-only to `Runtime/Retired/`). The CEO is the leader session, so a fresh pulse
+heartbeat (`Runtime/Pulse.json`, written by every `pulse` wake) reads as
+`dispatching` - the loop is its work - and it leaves the idle count while the
+pulse is live. No line is wider than 110 columns.
+
+`--json` emits schema 3, additive to schema 2:
 
 ```json
 {
-  "schema": 2,
+  "schema": 3,
   "generated": "2026-11-12T19:00:00",
   "count": 17,
-  "counts": {"busy": 8, "idle": 9, "ready": 0, "review": 2, "lanes": 6},
+  "counts": {"busy": 8, "idle": 9, "ready": 0, "review": 2, "lanes": 6,
+             "activated": 21, "retired": 4, "lanes_live": 6, "lanes_ended": 419},
   "instances": [{"instance": "Developer-1", "role": "developer", "state": "busy",
                  "task": "T-0130", "title": "...", "elapsed_text": "12m",
                  "progress": "attempt 1/2, 60% of 25m", "progress_pct": 60,
@@ -738,7 +750,10 @@ never wider than 110 columns.
 ```
 
 `counts.lanes` always equals the length of the `lanes` array the same call
-returns, so a header stays true under `--agent`. Lanes are live first, then the
+returns, so a header stays true under `--agent`; `counts.activated` is every
+instance that ever ran a lane (or is staffed now), `counts.retired` the directories
+under `Runtime/Retired/`, and `counts.lanes_live`/`lanes_ended` count every lane
+record, not just the six rows returned. Lanes are live first, then the
 most recent by `created` (id ascending as the tiebreak), bounded to 6; a review
 lane carries `task: ""`; the order is stable across two calls with no state
 change. `model` and `provider` resolve once per call from

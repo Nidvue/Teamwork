@@ -105,7 +105,7 @@ def test_the_widget_stays_compact_and_puts_the_working_agents_first() -> None:
         index for index, line in enumerate(lines) if line.startswith("○ idle:")
     ), "busy rows precede the idle line"
     assert sum(1 for line in lines if line.startswith("○ idle:")) == 1
-    assert "+11" in lines[-1], "the collapsed idle line counts the names it hides"
+    assert lines[-1] == "○ idle: 17 (activated 20)", "idle is a count, never a name list"
 
 
 def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> None:
@@ -117,9 +117,9 @@ def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> No
         ],
     }
     lines = render(bare)
-    assert lines[0].startswith("teamwork · 2 inst · 0 lanes · 1 busy · 0 review")
+    assert lines[0].startswith("teamwork · 2 act · 0 live · 1 busy · 0 review")
     assert "undefined" not in "\n".join(lines)
-    assert lines[-1] == "○ idle: Architect"
+    assert lines[-1] == "○ idle: 1 (activated 2)"
 
 
 def test_a_review_handle_names_the_task_not_the_role() -> None:
@@ -131,7 +131,7 @@ def test_a_review_handle_names_the_task_not_the_role() -> None:
 def with_lanes(count: int = 4) -> dict:
     data = payload(count)
     data["schema"] = 2
-    data["counts"] = {"busy": 3, "review": 2, "lanes": 5}
+    data["counts"] = {"busy": 3, "review": 2, "lanes": 4, "activated": 4, "lanes_live": 2}
     data["instances"][0]["model"] = "deepseek-chat"
     data["instances"][0]["provider"] = "deepseek"
     data["lanes"] = [
@@ -175,8 +175,8 @@ def with_lanes(count: int = 4) -> dict:
             "task": "T-0141",
             "state": "running",
             "elapsed_text": "1m",
-            "model": "x",
-            "provider": "",
+            "model": "m" * 40,
+            "provider": "p",
             "attempt": "1/2",
         },
     ]
@@ -185,15 +185,16 @@ def with_lanes(count: int = 4) -> dict:
 
 def test_the_header_counts_lanes_and_the_lane_lines_name_the_model() -> None:
     lines = render(with_lanes())
-    assert lines[0] == "teamwork · 4 inst · 5 lanes · 3 busy · 2 review"
+    assert lines[0] == "teamwork · 4 act · 2 live · 3 busy · 2 review"
     lanes = [line for line in lines if line.startswith("⚙")]
-    assert len(lanes) == 3, "at most three lanes, the rest is the instance rows' job"
+    assert len(lanes) == 2, "only live lanes: an ended record is history, not a row"
     assert lanes[0].startswith("⚙ L-0412 Developer-1 T-0131 run")
     assert lanes[0].endswith("deepseek/deepseek-chat"), lanes[0]
-    assert lanes[1].endswith("host"), "an empty model reads host, never blank"
-    assert "done" in lanes[1], "a review lane shows its state and no task"
-    clipped = lanes[2].split()[-1]
+    assert lanes[1].startswith("⚙ L-0415 Architect T-0141 run")
+    clipped = lanes[1].split()[-1]
     assert len(clipped) == 22 and clipped.endswith("…"), clipped
+    body = "\n".join(lines)
+    assert "exited" not in body and "timeout" not in body, "an ended lane is not displayed"
 
 
 def test_the_busy_rows_carry_the_model_and_stay_inside_the_bound() -> None:
