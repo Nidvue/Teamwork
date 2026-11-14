@@ -5919,4 +5919,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 8d9bc54
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_lanes.py @f5f72ae -> 34 passed, including test_pulse_commit_runs_the_swarm_without_being_asked and test_no_spawn_keeps_the_pulse_a_report; venv/bin/python -m pytest -q tests/unit/test_cli_contract.py -k spawn @f5f72ae -> the pulse keeps both flags; git show @f5f72ae --stat -> 15 files, cmd_swarm untouched, D-20261115-CEO states the ruling, its evidence and its falsifier
 - findings history: 
-- branch / merge: ceo/t-0027-swarm-is-the-default-operating-mode-puls / pending
+- branch / merge: ceo/t-0027-swarm-is-the-default-operating-mode-puls / 352b81f
