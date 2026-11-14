@@ -173,7 +173,7 @@ Two separate worlds: the team's own tree is **hidden** and local; project output
     │                                 # Role.md, Lessons.md, TaskQueue.md
     ├── Agents/<Instance>/            # private: StartHere, WorkLog, Inbox,
     │                                 # Artifacts/, Reports/, Scratch/
-    └── Runtime/                      # LedgerHead.json, Locks/, Worktrees/, Slots/
+    └── Runtime/                      # LedgerHead, GraphBaseline, Locks/, Worktrees/, Slots/
 ```
 
 Every team gets its own `<Team>` tree, named after the project or by `--team`/`TEAMWORK_TEAM`, so several teams in one repository never collide. Memory and the queue belong to the ROLE: `Developer-1` and `Developer-2` share `Roles/Developer/` and claim from one queue.
@@ -217,7 +217,8 @@ python3 "$SKILL/scripts/teamwork.py" criteria list && python3 "$SKILL/scripts/te
 python3 "$SKILL/scripts/teamwork.py" board && python3 "$SKILL/scripts/teamwork.py" review --queue
 python3 "$SKILL/scripts/teamwork.py" coordination --strict && python3 "$SKILL/scripts/teamwork.py" audit
 python3 "$SKILL/scripts/teamwork.py" links && python3 "$SKILL/scripts/teamwork.py" pulse --commit
-python3 "$SKILL/scripts/teamwork.py" parallel && python3 "$SKILL/scripts/teamwork.py" loop
+python3 "$SKILL/scripts/teamwork.py" graph audit && python3 "$SKILL/scripts/teamwork.py" parallel
+python3 "$SKILL/scripts/teamwork.py" loop
 ```
 
 Report to the user at milestones: what changed, evidence, blockers, next - never progress without evidence.
@@ -373,6 +374,39 @@ The model is an intern: introduce the work, give it one job, prove the job, and 
 | routine hygiene | a schedule with no trigger, budget and stop condition |
 
 Do not give a bot its own email or external accounts: that is external and irreversible. Adopt the smallest team that reliably does the work, with a proof per seat.
+### 5n. Route on state, and count the edges
+
+A harness keeps one agent honest, a loop makes it better run over run, and a **graph**
+decides which agent runs next and when the run is finished. A hardcoded sequence is a
+chain: it starts each step blind to what the last one found and cannot stop early, and
+a seat that never changes what happens next is a dashboard, not a graph
+([distort, "Everyone Is Building Agent Teams. Nobody Is Building The Graph"](https://x.com/distortgeekin/status/2099117449232699548), accessed 2026-11-12).
+
+Every transition this engine performs is one conditional edge, and `graph` prints it
+with the state field that fires it and the live reading of that field:
+
+```sh
+python3 "$SKILL/scripts/teamwork.py" graph          # 9 edges: what fires, on what, now
+python3 "$SKILL/scripts/teamwork.py" graph audit    # exit 1 on a chain, an unexited loop, an unpriced roster
+python3 "$SKILL/scripts/teamwork.py" graph baseline --record '<cmd> -> <result>' --tokens N --by ceo
+```
+
+| Rule | What it forbids |
+|---|---|
+| the next step is a function of state | a task order fixed in a script before any output was seen; `deps`/`status`/`review_fails` decide |
+| the record travels, the paraphrase does not | a hand-written summary of the last step instead of the record it cites |
+| count edges, not agents | a seat whose queue never moves; two lanes on one serial dependency chain |
+| price coordination before staffing it | a second lane added without one measured single-agent baseline |
+| an explicit exit in state | a rework loop with no dispute behind it, a dependency cycle, a run kept alive by a timeout |
+
+`graph audit` is a milestone check like `coordination --strict`, not a per-task gate:
+run it after `pulse --commit` on a live board and before a roster change. It reports
+`C-GRAPH-STATE` (an edge whose field nothing parses), `C-GRAPH-CHAFF` (two lanes, one
+empty queue), `C-GRAPH-CHAIN` (all open work in one serial path), `C-GRAPH-EXIT` (a
+cycle, or a task past `REVIEW_FAIL_LIMIT` with no open dispute) and `C-GRAPH-PRICE`
+(workers staffed, no baseline). Multi-agent systems cost 3-10x one agent in tokens once
+duplicated context and coordination are counted, so the baseline is recorded once per
+brief and cited, never assumed. Detail: `references/Coordination.md`.
 ### 6. Close
 
 When the queue is empty and `loop` is about to report STOP, load `tw-ceo-audit-close` and follow it exactly: freeze the revision, verify the chain before the gates, check the archive against the tree, export the manifest last, and report from records. An unnamed skill is dead text nobody loads, and `harness lint` fails a tree that has one.
@@ -500,6 +534,8 @@ python3 $S pr open --agent developer-1 --task T-0007
 python3 $S review developer T-0007 --by reviewer-1 --result pass --evidence "<verify cmd @<rev> -> result>"
 
 # scale, coordinate and learn
+python3 $S graph && python3 $S graph audit            # what fires next, on which state, and at what cost
+python3 $S graph baseline --record '<cmd> -> <result>' --tokens N --by ceo
 python3 $S instance add architect --count 2 && python3 $S instance list
 python3 $S memory claim architect --by Architect-2 --reason "rewrite the contract" \
     && python3 $S memory release architect --by Architect-2

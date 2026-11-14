@@ -478,7 +478,7 @@ record with its process, outcome file and budget before printing, and `logs` tai
 a lane's output. `--json` prints the same reconciled table as data - `id`, `agent`,
 `role`, `task`, `state`, `live`, `elapsed_seconds`, `minutes`, `seconds_left`,
 `attempt`, `attempts`, `verdict`, `note`, `error`, `log` - which is what a host UI
-renders; the shipped pi extension polls it to draw the footer status and the lane
+renders; a host extension can poll it to draw a footer status and a lane
 widget, so the picture and the command cannot disagree.
 
 #### `lane wait`, `lane stop`, `lane reap`
@@ -541,6 +541,31 @@ teamwork slot reap [--provider PROVIDER]
 ```
 
 Drop dead or stale slots.
+
+## The routing graph
+
+### `graph`
+
+```text
+teamwork graph [show] [--json]
+teamwork graph audit [--json]
+teamwork graph baseline --record '<command> -> <result>' [--tokens N] [--by WHO]
+```
+
+`show` prints the transitions the engine performs as one table of conditional
+edges: what fires each one, the state field it reads, how often the ledger shows
+it firing, and how many records the state holds against it right now, followed by
+the startup context the roster duplicates and the coordination records it writes.
+`audit` exits `1` on any of `C-GRAPH-STATE` (an edge names a field nothing
+parses), `C-GRAPH-CHAFF` (a role with more than one lane and an empty queue),
+`C-GRAPH-CHAIN` (every open task in one serial dependency path), `C-GRAPH-EXIT` (a
+dependency cycle, or a rework loop past the review-fail cap with no open dispute)
+and `C-GRAPH-PRICE` (working lanes staffed, no single-agent baseline recorded).
+`baseline` records what one agent doing the same work cost, so the extra spend can
+be compared instead of assumed; a record without `->` is refused.
+
+It is a milestone check next to `coordination --strict`, not a per-task gate:
+it reads the whole tree, so `preflight` does not run it.
 
 ## Memory
 

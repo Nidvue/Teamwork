@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The routing graph and its audit** - every transition the engine performs is
+  now one named conditional edge with the state field that fires it: `graph`
+  prints the edge table, the live reading of each field and what the roster costs
+  before any work, and `graph audit` exits 1 on `C-GRAPH-STATE` (an edge whose
+  field nothing parses), `C-GRAPH-CHAFF` (two lanes, one empty queue),
+  `C-GRAPH-CHAIN` (all open work in one serial dependency path under a multi-lane
+  roster), `C-GRAPH-EXIT` (a dependency cycle, or a rework loop past
+  `REVIEW_FAIL_LIMIT` with no open dispute) and `C-GRAPH-PRICE` (workers staffed
+  with no recorded single-agent baseline). `graph baseline` records that
+  baseline, because a second lane is a 3-10x token bet that was never priced.
 - **No comments in the code, enforced by the lint gate** - the code is the
   comment: names, types, small functions and docstrings carry the meaning, and
   only the directives a toolchain reads are allowed (`# noqa`, `# type: ignore`,
