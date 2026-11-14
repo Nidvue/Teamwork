@@ -5958,4 +5958,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 313697a
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_brief_intake.py @32902b9 -> 6 passed (own run: the six wiring assertions, which were absent at @313697a - the acceptance criterion (5) was unmet); venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py @32902b9 -> green; python3 scripts/teamwork.py harness lint @32902b9 -> 0 problems; python3 scripts/teamwork.py links @32902b9 -> 0 issues
 - findings history: 
-- branch / merge: ceo/t-0025-intake-brief-deep-research-the-prompt-th / pending
+- branch / merge: ceo/t-0025-intake-brief-deep-research-the-prompt-th / 33f5761
