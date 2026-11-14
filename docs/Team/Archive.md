@@ -5920,3 +5920,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_lanes.py @f5f72ae -> 34 passed, including test_pulse_commit_runs_the_swarm_without_being_asked and test_no_spawn_keeps_the_pulse_a_report; venv/bin/python -m pytest -q tests/unit/test_cli_contract.py -k spawn @f5f72ae -> the pulse keeps both flags; git show @f5f72ae --stat -> 15 files, cmd_swarm untouched, D-20261115-CEO states the ruling, its evidence and its falsifier
 - findings history: 
 - branch / merge: ceo/t-0027-swarm-is-the-default-operating-mode-puls / 352b81f
+
+## T-0029 · AC-5's forward-map row claims green while the shipped gate exits 1 at this checkout: the tree half passes and the history half reports [high/personal-email] on 1001 commits - 997 reachable only from refs/remotes/origin/* (the pre-rewrite published history this checkout was rebuilt away from) plus the four on main that T-0026 accepts as pre-policy. Record the measured truth in the row and a G-13 gap that owns it, and escalate the only action that closes it: a rewrite and force-push of published history, a red line needing the user's authorization  (ceo)
+- date: 2026-11-15
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: two prose tables and one forward-map row; no command, no scanner, no allowlist entry. Empty/duplicate/second-call: the row now agrees with the guard replay in both directions (a red row must name a gap that blames it, and a green row may not be blamed), so a later one-word flip fails the guard instead of passing silently; the startup-read numbers are the same measured table in two files and must stay equal, which the doc-sync check pins. Contract surface: the state column vocabulary stays green|red, the gap id is unique (G-13), and no proof command changed. Concurrency/shared writes: docs only, one writer. Scope: 3 files, one records change-set; the kB numbers moved because this engagement grew AGENTS.md and SKILL.md, and a stale number is the same defect class as a stale row. @ca17538 superseded by @5c233fd: the board render and the two measured numbers. | test: venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py -k "not every_deterministic" @5c233fd -> 23 passed, 1 skipped; the replay clause was measured at @ca17538 -> 23 passed, 1 skipped with AC-5 red agreeing with the run exit 1; venv/bin/ruff check . @5c233fd -> All checks passed | preflight: PF-b79697537285 @5c233fd0757e (7 checks, 0 failed)
+- author evidence: commit aabbb25; commit ca17538
+- reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py @5c233fd -> 23 passed, 1 skipped, and the replay test measured at @ca17538 agreed with the row (AC-5 red, run exit 1); venv/bin/python scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt @5c233fd -> PASS - 0 finding(s) in tree; venv/bin/python scripts/privacy_scan.py --history --allow .github/privacy-allow.txt -> exit 1, the state the row now claims; git log --all --format=%ae | grep -v agents.nidvue.com -> 997 + 3 + 1 + 2 dependabot
+- findings history: 
+- branch / merge: ceo/t-0029-ac-5-s-forward-map-row-claims-green-whil / pending
