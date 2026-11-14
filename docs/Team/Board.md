@@ -107,6 +107,8 @@ under two roles is two tasks.
 | ceo | T-0022 | records | done | P-0053 | c2bed4b |
 | ceo | T-0023 | records | done | P-0062 | 55817f9 |
 | ceo | T-0024 | graph | review | P-0065 | - |
+| ceo | T-0025 | - | review | P-0067 | - |
+| ceo | T-0026 | identity | done | P-0068 | bbc7cdd |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -197,6 +199,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
 | ceo | T-0024 · Review the tree and fix the audit defects: routing graph, board drift, host-neutral docs, LFS scope | P1 | review | - |
+| ceo | T-0025 · Intake brief: deep-research the prompt, then rewrite it into a systematic, parallel-ready brief (tw-brief-intake) wired into Bootstrap step 1, the Project.md template and the CEO/PM charters | P1 | review | - |
 | tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | blocked | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
