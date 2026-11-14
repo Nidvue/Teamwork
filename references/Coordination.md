@@ -187,7 +187,68 @@ produce a playable game. Models had poor taste and needed human direction.
   taste check, and the user's verdict is recorded.
 - Never lower a criterion to make a demo pass. A poor demo is a finding.
 
-## 10. The checks
+## 10. The routing graph: edges, not agents
+
+Source: [distort, "Everyone Is Building Agent Teams. Nobody Is Building The Graph"](https://x.com/distortgeekin/status/2099117449232699548) - accessed 2026-11-12.
+
+Three layers, and this skill has all three: a **harness** keeps one agent honest,
+a **loop** makes it better run over run, and a **graph** decides which agent runs
+next and when the run is finished. The failure the article names is that the first
+two are visible in a screenshot and the third is not, so teams ship a chain - A,
+then B, then C, whatever B found - and call the headcount an architecture.
+
+A chain fails in three specific ways, and each one has a mechanism here:
+
+| Chain failure | The mechanism that answers it |
+|---|---|
+| no state survives the handoff, so each step starts blind | the record travels, never a paraphrase: `deps`, `review_status`, `review_fails`, `evidence` are read from the tree by the next step |
+| it cannot route around what it did not predict | `task next`, `pulse` and the review verdict are functions of state, not of a step number |
+| it does not know when to stop | `loop`'s stop condition is records: criteria verified, no open task, no open dispute, chain intact |
+
+The five mistakes, and where each is caught:
+
+| Mistake | Caught by |
+|---|---|
+| the naive chain - the step order hardcoded before any output | `graph` shows every edge with the state field it reads; `C-GRAPH-CHAIN` when all open work is one serial dependency path under a multi-lane roster |
+| the context cliff - each agent blind to what the last found | `graph` names the field each edge reads; a lane cites record ids, never a hand-written summary |
+| counting agents instead of edges | `C-GRAPH-CHAFF`: a role with two lanes and an empty queue |
+| skipping the token audit | `C-GRAPH-PRICE`: workers staffed with no recorded single-agent baseline |
+| the loop with no exit | `C-GRAPH-EXIT`: a dependency cycle, or a task past `REVIEW_FAIL_LIMIT` with no open dispute |
+
+The price is measured, not argued. As the article reports Anthropic's own
+evaluation of its multi-agent research system
+([Anthropic, "How we built our multi-agent research system"](https://www.anthropic.com/research/multiagent-systems),
+accessed 2026-11-12): a lead agent with three to five parallel subagents beat a
+single well-prompted agent by 90.2% on their internal research evaluation, at
+roughly **15x** the tokens of one chat turn, and multi-agent systems generally run
+**3-10x** an equivalent single-agent pass once duplicated context, coordination
+messages and per-handoff summarising are counted. Those are the article's figures
+for that system, not this engine's - so a second lane here is a bet, and
+`graph baseline` records the number it is a bet against.
+
+The check, at every milestone and after any roster change:
+
+```sh
+python3 "$SKILL/scripts/teamwork.py" graph           # edges, the state each reads, live values, cost
+python3 "$SKILL/scripts/teamwork.py" graph audit     # exit 1 on any code below
+python3 "$SKILL/scripts/teamwork.py" graph baseline --record '<cmd> -> <result>' --tokens N --by ceo
+```
+
+| Code | Clears when |
+|---|---|
+| `C-GRAPH-STATE` | every edge names a field the record layer parses |
+| `C-GRAPH-CHAFF` | the extra lane of a role has work, or the seat is retired |
+| `C-GRAPH-CHAIN` | the open work fans out, or the roster shrinks to the chain it can run |
+| `C-GRAPH-EXIT` | the cycle is broken, or a capped rework loop has an open dispute |
+| `C-GRAPH-PRICE` | a single-agent baseline is recorded for the brief |
+
+`graph` is a diagnostic and a milestone gate, never a per-task gate: it reads the
+whole tree, so it belongs next to `coordination --strict`, not inside `preflight`.
+The one field the article recommends starting with - a field in the state that the
+next step actually reads before it decides - is what every edge here already is;
+`graph` exists so that fact is checkable instead of asserted.
+
+## 11. The checks
 
 Run at every milestone and before the final report:
 
@@ -218,7 +279,7 @@ python3 "$SKILL/scripts/teamwork.py" coordination --json     # machine-readable
 `--strict` is the gate for a milestone report; the default report is diagnostic
 and does not block a lane. `--commit` records the check in the ledger.
 
-## 11. Limits
+## 12. Limits
 
 - These checks read local records only. They cannot see an agent's private
   reasoning, so they detect the measurable residue of a failure, not the intent.

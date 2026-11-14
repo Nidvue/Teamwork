@@ -187,6 +187,20 @@ def run_git(project: Path, *argv: str, timeout: float | None = None):
         return _timeout_failure(command, argv, limit, expired)
 
 
+def ignored_files(project: Path) -> set[str]:
+    """Every path git ignores: local state, never repository content.
+
+    `audit` charged `.coverage` - 1.1 MB of local coverage data - to the LFS
+    rule, so the operator was told to route a build cache through Git LFS. An
+    ignored path is never committed, so LFS cannot apply to it; the batched
+    `ls-files` keeps the check to one git call.
+    """
+    result = run_git(project, "ls-files", "-o", "-i", "--exclude-standard", "-z")
+    if result.returncode != 0:
+        return set()
+    return {path for path in result.stdout.split("\0") if path}
+
+
 def is_git_repo(project: Path) -> bool:
     r = run_git(project, "rev-parse", "--is-inside-work-tree")
     return r.returncode == 0 and r.stdout.strip() == "true"
