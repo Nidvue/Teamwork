@@ -5907,3 +5907,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: PYTHON=$PWD/venv/bin/python make lint @9db981b -> 2012 commits, 0 problems; venv/bin/python -m pytest -q tests/unit/test_identity_legacy.py @9db981b -> 9 passed; git show @9db981b --stat -> 2 files, engine.py + test_identity_legacy.py, and no history action in the diff
 - findings history: 
 - branch / merge: ceo/t-0026-make-lint-is-red-on-main-identity-audit / bbc7cdd
+
+## T-0027 · Swarm is the default operating mode: pulse --commit runs one measured swarm wave, --no-spawn is the report-only opt-out  (ceo)
+- date: 2026-11-15
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: lanes
+- self-check: [pass] Boundary: the change is the dispatch condition in cmd_pulse plus the prose that describes it; cmd_swarm is untouched, so wave policy, budget, adoption and retry are unchanged. Empty/duplicate/second-call: a pulse with no plan starts no lane; --no-spawn claims and reports only, pinned by test_no_spawn_keeps_the_pulse_a_report; a second wake adopts the first wake claim instead of re-planning; --spawn stays an accepted no-op so an existing host schedule does not break. Contract surface: both flags remain, the accept mode still gates the spawn, and the printed next-action line names the swarm. Concurrency/shared writes: a wake now starts real detached lane processes, so a pulse costs provider slots and lane minutes - the consequence recorded in D-20261115-CEO and the reason --no-spawn exists; no shared file gains a second writer. Scope: 14 files, one coherent change-set (dispatch + the prose surfaces that must state the same default + the decision record + the tests). @8d9bc54 superseded by @f5f72ae: the only change is the board render preflight requires, no code moved. | test: venv/bin/python -m pytest -q tests/unit/test_lanes.py @f5f72ae -> 34 passed; venv/bin/ruff check . @f5f72ae -> All checks passed; venv/bin/ruff format --check . @f5f72ae -> 291 files already formatted | preflight: PF-962c9945cf86 @f5f72ae40927 (7 checks, 0 failed)
+- author evidence: commit 8d9bc54
+- reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_lanes.py @f5f72ae -> 34 passed, including test_pulse_commit_runs_the_swarm_without_being_asked and test_no_spawn_keeps_the_pulse_a_report; venv/bin/python -m pytest -q tests/unit/test_cli_contract.py -k spawn @f5f72ae -> the pulse keeps both flags; git show @f5f72ae --stat -> 15 files, cmd_swarm untouched, D-20261115-CEO states the ruling, its evidence and its falsifier
+- findings history: 
+- branch / merge: ceo/t-0027-swarm-is-the-default-operating-mode-puls / pending
