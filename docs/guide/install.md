@@ -106,13 +106,22 @@ message, schedule) is in
 
     After a refresh, **reload the skill** (restart the host session, or re-scan
     skills) so the new ``SKILL.md`` is read - the command prints that reminder
-    whenever it wrote something. Pin a tag when you want a fixed protocol revision
-    instead of `main` - name it with `git tag -l --sort=-v:refname | head -1`
-    rather than copying a literal, because a version printed on a page goes stale
-    the day it is tagged: the checkout is then moved onto that tag's commit
-    *detached* and the refresh prints `pinned to tag <tag>`. It is a read-only
-    mirror of that revision - re-run with `--branch main` to follow the branch
-    again, or name another tag to move the pin.
+    whenever it wrote something. The same command also **loads the lane
+    display**: `swarm run` starts every lane as a detached process, so the picture
+    of the live wave is a host extension that polls `lane list --json`. A host
+    reads extensions from its own directory and its `settings.json`, never from a
+    skills directory - shipping the file is therefore not the same as loading it.
+    `refresh` copies it next to the skills directory and registers it there once
+    (`--no-ui` skips that step), and `teamwork ui status` answers the same
+    question without writing, exiting non-zero when the host would draw nothing.
+
+    Pin a tag when you want a fixed protocol revision instead of `main` - name it
+    with `git tag -l --sort=-v:refname | head -1` rather than copying a literal,
+    because a version printed on a page goes stale the day it is tagged: the
+    checkout is then moved onto that tag's commit *detached* and the refresh
+    prints `pinned to tag <tag>`. It is a read-only mirror of that revision -
+    re-run with `--branch main` to follow the branch again, or name another tag
+    to move the pin.
 
 ## Optional: install the engine on PATH
 

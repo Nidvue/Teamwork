@@ -52,6 +52,7 @@ Teamwork/
 │   ├── hooks.py              # the git hooks: install/status/uninstall + the pre-commit/pre-push rules
 │   ├── imaging.py            # offline image-model probe
 │   ├── io.py                 # atomic writes, the lock, die()
+│   ├── lanedisplay.py        # install the lane-display extension the host draws the wave with
 │   ├── lanerun.py            # one lane's detached child: budget + outcome file
 │   ├── lanes.py              # the engine's own lane runtime: spawn, supervise, dynamic waves
 │   ├── layout.py             # team tree paths and cross-links

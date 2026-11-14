@@ -133,6 +133,30 @@ cache counts as work), its HEAD is already an ancestor of the base branch, no
 window. A removal that fails is reported as `could not be reclaimed`, never
 counted as success.
 
+### `ui`
+
+```text
+teamwork ui [install|status] [--host HOST] [--dest DIR] [--dry-run]
+```
+
+Install the lane display extension, or report whether the host loads it.
+`swarm run` starts every lane as a detached process, so the live wave is drawn by
+a host extension that polls `lane list --json`; a host reads extensions from its
+own directory and its `settings.json`, never from a skills directory, so a bundle
+that ships the file still draws nothing until it is installed there.
+
+| Argument | Meaning |
+|---|---|
+| `install` | Copy the shipped renderer next to the skills directory and register it in the host settings once (idempotent). |
+| `status` | Report both halves without writing; a display the host would not load is a non-zero exit (the default action). |
+| `--host` | Which host's directory shape to use; the adapter table names the hosts. |
+| `--dest` | The skills directory the bundle is installed in, when it is not the host default. |
+| `--dry-run` | Print the plan and write nothing. |
+
+`refresh` runs the same install after mirroring (`--no-ui` skips it) and
+`refresh --check` exits 1 when the host would not load the display, so a stale
+picture is caught by the same command that catches a stale bundle.
+
 ### `agents`
 
 ```text

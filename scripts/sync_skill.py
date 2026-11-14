@@ -31,7 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(ROOT / "src"))
-from teamwork import bundle  # noqa: E402
+from teamwork import bundle, lanedisplay  # noqa: E402
 
 BUNDLE_FILES = bundle.BUNDLE_FILES
 BUNDLE_TREES = bundle.BUNDLE_TREES
@@ -46,6 +46,17 @@ def sync(source: Path, dest: Path, *, dry_run: bool, quiet: bool = False) -> int
     """Mirror ``source`` into ``dest``; ``0`` when the copy is in sync afterwards."""
     bundle.sync(source, dest, dry_run=dry_run, quiet=quiet)
     return 0
+
+
+def display(dest: Path, host: str) -> lanedisplay.State:
+    """The lane renderer: copied next to ``dest`` and registered in the settings file.
+
+    The bundle ships the extension, but a host loads extensions from its own
+    directory and its ``settings.json``, never from a skills directory - so a
+    mirror that only copies the bundle leaves the team running with a blank
+    screen (``teamwork.lanedisplay``).
+    """
+    return lanedisplay.install(dest, host=host, skills=str(dest))
 
 
 def main(argv: list[str]) -> int:
@@ -96,9 +107,20 @@ def main(argv: list[str]) -> int:
             for rel in removed:
                 print(f"  extra:   {rel}", file=sys.stderr)
             return 1
+        state = lanedisplay.status(dest, host=args.host, skills=str(dest))
+        if state.ok and not state.live:
+            print(
+                f"sync_skill: the host does not load the lane display "
+                f"({state.detail or state.target}) - run `make sync-skill`",
+                file=sys.stderr,
+            )
+            return 1
         print(f"# {dest} is in sync with {source}")
         return 0
     bundle.sync(source, dest, dry_run=False)
+    state = display(dest, args.host)
+    if state.ok:
+        print(f"# lane display: {state.target} registered in {state.settings}")
     return 0
 
 
