@@ -5182,6 +5182,24 @@ LEGACY_MESSAGE_EXEMPT = {
         "chore(records) by Reviewer merged 2026-11-03 before the trailer rule; canonical identity"
     ),
 }
+LEGACY_AUTHOR_EXEMPT = {
+    "b169c7d95f25c2ff5866d06c4670cbd4b917a2dd": (
+        "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
+        "published history, so the identity is accepted and not rewritten"
+    ),
+    "17e3b4a55a9b9f2c062a40146ecb4a69899aa4ae": (
+        "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
+        "published history, so the identity is accepted and not rewritten"
+    ),
+    "f742b65708bd71b75a4e7e40dec721d2b4fa2d70": (
+        "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
+        "published history, so the identity is accepted and not rewritten"
+    ),
+    "6348825271cfe10864765c8448942f56b8cb6011": (
+        "merge of ceo/t-0059 on 2026-10-21 by the operator account, before the "
+        "role-mailbox policy; published history, so the identity is accepted"
+    ),
+}
 _RE_MERGE_SUBJECT = re.compile(
     r"^(?:"
     r"chore\(merge\):"
@@ -5295,7 +5313,10 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     fails. A published commit listed in ``LEGACY_MESSAGE_EXEMPT`` is accepted
     without its trailer, because its identity is the canonical role mailbox and
     rewriting published history is not an option; the exemption is keyed on the
-    full object id and covers the trailer check only.
+    full object id and covers the trailer check only. A published commit listed in
+    ``LEGACY_AUTHOR_EXEMPT`` is accepted whole for the same reason: its author is
+    not a role mailbox because the policy did not exist yet, and rewriting
+    published history is a red line, so the object id carries the reason instead.
     """
     print(f"# Repository read: {project}")
     if rev_range.startswith("-"):
@@ -5329,6 +5350,9 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             continue
         seen += 1
         reasons = []
+        if sha in LEGACY_AUTHOR_EXEMPT:
+            print(f"- {short} skipped: legacy author ({LEGACY_AUTHOR_EXEMPT[sha]})")
+            continue
         if an in BOT_IDENTITIES and _RE_BOT_EMAIL.match(ae) and ae not in canonical:
             print(f"- {short} ok: bot {an}")
             continue
