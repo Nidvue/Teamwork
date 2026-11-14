@@ -5945,4 +5945,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit be8096b was amended to 19283da to include the board render preflight required; the reviewed revision is the branch head 19283da (git rev-parse ceo/t-0024-... -> 19283da, 1 commit over main)
 - reviewer evidence: venv/bin/python -m pytest -q @10361c6 -> 2586 passed, 4 skipped, 0 failed (own run, 970s); venv/bin/python -m pytest -q tests/unit/test_graph.py @10361c6 -> 18 passed; python3 scripts/teamwork.py graph audit @10361c6 -> exit 0, no C-GRAPH-* finding; git diff main...10361c6 --stat -> 11 files, graph.py + wiring + tests + prose only
 - findings history: 
-- branch / merge: ceo/t-0024-review-the-tree-and-fix-the-audit-defect / pending
+- branch / merge: ceo/t-0024-review-the-tree-and-fix-the-audit-defect / 825aff2
