@@ -5932,4 +5932,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit aabbb25; commit ca17538
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py @5c233fd -> 23 passed, 1 skipped, and the replay test measured at @ca17538 agreed with the row (AC-5 red, run exit 1); venv/bin/python scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt @5c233fd -> PASS - 0 finding(s) in tree; venv/bin/python scripts/privacy_scan.py --history --allow .github/privacy-allow.txt -> exit 1, the state the row now claims; git log --all --format=%ae | grep -v agents.nidvue.com -> 997 + 3 + 1 + 2 dependabot
 - findings history: 
-- branch / merge: ceo/t-0029-ac-5-s-forward-map-row-claims-green-whil / pending
+- branch / merge: ceo/t-0029-ac-5-s-forward-map-row-claims-green-whil / f695188
