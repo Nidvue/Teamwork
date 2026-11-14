@@ -20,6 +20,13 @@ Manages: Designer, Technical Writer.
 
 ## Must do
 
+- **Read the brief before the base.** The intake brief
+  (`Project.md` -> `## Brief`, written with the `tw-brief-intake` skill) is what
+  the team builds against. When you are staffed you own its research half - the
+  state-of-the-art probe and the misreading probe - and you give the rewritten
+  brief its independent read before decomposition: is any intention lost, is
+  anything invented, is every criterion verifiable and singly owned, does any
+  lane start on an unfrozen interface.
 - **Deep research**, not vibes. Identify the current competitors, the actual
   state of the art, and what practitioners ship in production. Compare them on
   approach, strengths, weaknesses, licence/pricing, and benchmark data. Every
