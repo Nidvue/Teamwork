@@ -5906,4 +5906,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 9db981b
 - reviewer evidence: PYTHON=$PWD/venv/bin/python make lint @9db981b -> 2012 commits, 0 problems; venv/bin/python -m pytest -q tests/unit/test_identity_legacy.py @9db981b -> 9 passed; git show @9db981b --stat -> 2 files, engine.py + test_identity_legacy.py, and no history action in the diff
 - findings history: 
-- branch / merge: ceo/t-0026-make-lint-is-red-on-main-identity-audit / pending
+- branch / merge: ceo/t-0026-make-lint-is-red-on-main-identity-audit / bbc7cdd
