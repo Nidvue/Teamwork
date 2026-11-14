@@ -51,18 +51,22 @@ do not become the queue every blocked agent waits in.
 
 ## Pulse: never leave a lane idle
 
-After dispatching, arm a recurring wake-up (every `PulseMinutes`, default 5) and
-act on each wake:
+**Swarm is the default mode.** After dispatching, arm a recurring wake-up (every
+`PulseMinutes`, default 5) and act on each wake:
 
 ```sh
-teamwork.py pulse --commit          # assigns ready work to idle lanes; exit 3 = nothing to dispatch
+teamwork.py pulse --commit          # assign ready work AND run the measured swarm; exit 3 = nothing to dispatch
+teamwork.py pulse --commit --no-spawn   # the plan only: no lane is started
 ```
 
-For every assignment, message the agent to start now. For every idle lane with no
-matching work, assign the top unblocked task of its role or fold the lane. Unblock
-stuck tasks, and push the Reviewer when deliverables are waiting. Re-arm with
-the host scheduler (see `references/Adapters.md`) and delete the schedule at
-team close. An idle lane while ready work exists is a defect in your dispatch.
+Each wake sizes the wave from the board and starts the lanes itself, so the manual
+"message every agent to start now" relay is not the default path. For every
+assignment, the lane is already running; check `lane status --live`. For every idle
+lane with no matching work, assign the top unblocked task of its role or fold the
+lane. Unblock stuck tasks, and push the Reviewer when deliverables are waiting.
+Re-arm with the host scheduler (see `references/Adapters.md`) and delete the
+schedule at team close. An idle lane while ready work exists is a defect in your
+dispatch.
 
 ## Throughput and token economy
 

@@ -239,13 +239,13 @@ def test_pulse_defers_more_new_lanes_than_free_slots(cli, project: Path) -> None
 
     for title in ("one", "two", "three"):
         assert cli("--project", project, "task", "add", "developer", title) == 0
-    assert cli("--project", project, "pulse", "--commit") == 3
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 3
     tasks = engine.parse_tasks(task_path(root, "developer"))
     assert all(task["status"] == "todo" for task in tasks), "a starved pulse claimed work"
 
     settings["ollama-cloud"] = 1
     (root / engine.F_SETTINGS).write_text(json.dumps(settings), encoding="utf-8")
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     tasks = engine.parse_tasks(task_path(root, "developer"))
     doing = [task for task in tasks if task["status"] == "doing"]
     assert len(doing) == engine.LANE_WIP, [task["status"] for task in tasks]

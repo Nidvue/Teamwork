@@ -614,6 +614,26 @@ def test_pulse_spawn_adopts_the_assignments_it_just_committed(
     assert {run["task"] for run in runs} == {"T-0001", "T-0002"}
 
 
+def test_pulse_commit_runs_the_swarm_without_being_asked(
+    cli, project: Path, tmp_path: Path, monkeypatch
+) -> None:
+    """Swarm is the default mode: a bare `pulse --commit` starts the measured wave."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert cli("--project", project, "pulse", "--commit") == 0
+    assert lanes.load_runs(root), "--commit alone started the lane"
+
+
+def test_no_spawn_keeps_the_pulse_a_report(cli, project: Path, tmp_path: Path, monkeypatch) -> None:
+    """The opt-out: `--no-spawn` claims the plan and starts no lane."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
+    assert lanes.load_runs(root) == []
+
+
 def test_an_exhausted_assignment_is_not_adopted_again(
     cli, project: Path, tmp_path: Path, monkeypatch
 ) -> None:
