@@ -107,7 +107,7 @@ under two roles is two tasks.
 | ceo | T-0022 | records | done | P-0053 | c2bed4b |
 | ceo | T-0023 | records | done | P-0062 | 55817f9 |
 | ceo | T-0024 | graph | done | P-0065 | 825aff2 |
-| ceo | T-0025 | - | review | P-0067 | - |
+| ceo | T-0025 | - | done | P-0067 | 33f5761 |
 | ceo | T-0026 | identity | done | P-0068 | bbc7cdd |
 | ceo | T-0027 | lanes | done | P-0069 | 352b81f |
 | ceo | T-0028 | - | todo | - | - |
@@ -201,7 +201,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| ceo | T-0025 · Intake brief: deep-research the prompt, then rewrite it into a systematic, parallel-ready brief (tw-brief-intake) wired into Bootstrap step 1, the Project.md template and the CEO/PM charters | P1 | review | - |
 | ceo | T-0028 · The agent-agnostic contract test is red on main: docs/guide/cli.md names the host 'pi' | P1 | todo | - |
 | tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | blocked | - |
 
