@@ -211,6 +211,25 @@ def test_a_large_text_record_is_not_an_lfs_candidate(cli, project: Path):
     assert not [line for line in flagged if "Archive.md" in line], flagged
 
 
+def test_an_ignored_large_binary_is_not_an_lfs_candidate(cli, project: Path):
+    """A local artefact git would never commit cannot need an LFS pattern.
+
+    `.coverage` is 1.1 MB of local coverage data and git ignores it, so the audit
+    was telling the operator to route a build cache through Git LFS. The rule is
+    about repository content: an ignored path is not content.
+    """
+    root = make_root(cli, project)
+    (root / "Roles" / "Developer").mkdir(parents=True, exist_ok=True)
+    git_repo(project)
+    (project / ".gitignore").write_text(".coverage\n", encoding="utf-8")
+    (project / ".coverage").write_bytes(b"\0" + b"x" * BIG)
+
+    _, text = audit_output(cli, project)
+
+    flagged = section(text, "## git archival (LFS + large files)")
+    assert not [line for line in flagged if ".coverage" in line], flagged
+
+
 def test_a_large_binary_is_still_an_lfs_candidate(cli, project: Path):
     """The gate must not become vacuous: a real blob still needs a pattern."""
     root = make_root(cli, project)

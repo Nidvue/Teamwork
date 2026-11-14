@@ -30,6 +30,7 @@ PascalCase; one tree per team, so two teams in one repository never collide.
 │   └── Artifacts/  Reports/  Scratch/
 └── Runtime/              # ephemeral
     ├── LedgerHead.json
+    ├── GraphBaseline.json          # one agent's measured cost, written by `graph baseline`
     ├── Locks/
     ├── Worktrees/<Instance>/       # optional per-instance worktree
     └── Slots/<Provider>/<Agent>.slot

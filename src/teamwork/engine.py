@@ -195,6 +195,7 @@ from .gitutil import (
     branch_worktree,
     current_branch,
     ensure_lfs,
+    ignored_files,
     is_binary_content,
     is_git_repo,
     lfs_text_mismatch,
@@ -2459,6 +2460,7 @@ LEDGER_ACTIONS = (
     "dispute.sign",
     "feature.add",
     "feature.set",
+    "graph.baseline",
     "hooks.install",
     "instance.add",
     "instance.retire",
@@ -15846,6 +15848,8 @@ def _audit_git_archival_lfs_large_files(root: Path, names: list, args) -> int:
                         big.append(rel)
                 except OSError:
                     pass
+            ignored = ignored_files(project)
+            big = [rel for rel in big if rel not in ignored]
             binaries = [b for b in big if is_binary_content(project / b)]
             untracked = [b for b in binaries if not lfs_tracked(project, b)]
             if untracked:
@@ -18507,6 +18511,10 @@ def _parsers_meta(sub, common) -> None:
     from .lanes import add_parsers as _add_lane_parsers
 
     _add_lane_parsers(sub, common)
+
+    from .graph import add_parsers as _add_graph_parsers
+
+    _add_graph_parsers(sub, common)
 
 
 def main(argv=None) -> int:
