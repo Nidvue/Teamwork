@@ -89,15 +89,17 @@ and that number is re-derived every wave and bounded by the free provider slots 
 ```
 
 Two rules keep the sizing honest: a claim the board already made with **no live
-lane** behind it is adopted for that instance (that is what makes `pulse --commit
---spawn` one command), and an assignment is retried at most `LaneAttempts` times
+lane** behind it is adopted for that instance (that is what makes `pulse --commit`
+one command, since the swarm is the default mode), and an assignment is retried at
+most `LaneAttempts` times
 and never re-adopted after a lane has spent an attempt - the measured failure was
 a supervisor that re-planned one stalled task for 783 waves.
 
 ```sh
 teamwork.py swarm run                 # waves until nothing is runnable
 teamwork.py swarm run --dry-run       # the measured policy + next wave, start nothing
-teamwork.py pulse --commit --spawn    # one wake: dispatch, then run the swarm
+teamwork.py pulse --commit            # one wake: dispatch, then run the swarm (the default)
+teamwork.py pulse --commit --no-spawn # one wake: the plan only, start no lane
 teamwork.py swarm run --lanes 6       # cap the policy at six lanes
 teamwork.py swarm run --fixed --lanes 4 --minutes 90 --poll 5
 teamwork.py lane status --live        # what is running right now

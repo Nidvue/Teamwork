@@ -10871,7 +10871,11 @@ def cmd_pulse(args) -> int:
         print()
 
     print("## CEO next actions")
-    if mode == "auto":
+    if args.commit and mode == "auto" and getattr(args, "spawn", True):
+        print(
+            "- the swarm runs the plan above now: measured waves until it drains; re-arm this pulse"
+        )
+    elif mode == "auto":
         print("- assign the plan above to the idle lanes and tell each to start now")
     else:
         print(
@@ -10907,7 +10911,7 @@ def cmd_pulse(args) -> int:
         f"- re-arm this pulse: schedule the next wake every {minutes} min "
         "(see the /teamwork skill: schedule.create)"
     )
-    if getattr(args, "spawn", False):
+    if args.commit and getattr(args, "spawn", True):
         print()
         if mode != "auto":
             print(
@@ -10917,7 +10921,8 @@ def cmd_pulse(args) -> int:
             return 0 if plan else 3
         from . import lanes as lane_runtime
 
-        return lane_runtime.cmd_swarm(
+        before = len(lane_runtime.load_runs(root))
+        code = lane_runtime.cmd_swarm(
             argparse.Namespace(
                 project=getattr(args, "project", None),
                 team=getattr(args, "team", None),
@@ -10933,6 +10938,10 @@ def cmd_pulse(args) -> int:
                 dry_run=False,
             )
         )
+        if code:
+            return code
+        started = len(lane_runtime.load_runs(root)) > before
+        return 0 if (plan or started) else 3
     return 0 if plan else 3
 
 
@@ -18401,7 +18410,14 @@ def _parsers_scheduling(sub, common) -> None:
     s.add_argument(
         "--spawn",
         action="store_true",
-        help="after --commit, size and run the engine's swarm now (needs accept mode auto)",
+        default=True,
+        help="accepted for compatibility: the swarm runs after --commit by default",
+    )
+    s.add_argument(
+        "--no-spawn",
+        dest="spawn",
+        action="store_false",
+        help="--commit assigns and reports only: start no lane (needs accept mode auto)",
     )
     s.set_defaults(func=cmd_pulse)
 

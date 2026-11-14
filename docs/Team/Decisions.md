@@ -2398,3 +2398,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `teamwork.py ledger cut --by CEO --reason '...' @8a50ec9 -> preserved 1531 record(s) at Ledger.cut2.jsonl (head 92a2f864fb61), new chain seeded`; `teamwork.py ledger verify @db87643 -> chain intact, every digest matches`; `teamwork.py ledger export -> chain verified: True`; `pytest tests/unit/test_ledger_actions.py tests/unit/test_ledger.py -> 35 passed`
 - falsified by: if any record of cut 3 is found altered on disk, or cut 4 fails verify, or a reader cannot trace a cut-4 record to the cut record that precedes it, this ruling is wrong.
 - consequences: A-0016 is answered; audit no longer reports an altered trail; the manifest binds to cut 4; cut 3 stays readable as an artifact and is never edited.
+
+## D-20261115-CEO - Swarm is the team's default operating mode
+
+- date: 2026-11-15
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0027
+- context: -
+- options considered: keep --spawn opt-in (status quo: the fan-out depends on the CEO remembering a flag); make swarm run the only dispatch path (drops the pulse plan/review-claim pinning)
+- decision: pulse --commit sizes and runs the engine's swarm by default; --no-spawn is the report-only opt-out; --spawn is kept as an accepted no-op. The constitution template, SKILL.md 5b, roles/ceo.md, references/Concurrency.md and references/Adapters.md state swarm as the default mode, not an option.
+- why: Operator directive: swarm 模式应该是智能体团队的默认模式. The measured wave (complexity -> lanes, bounded by LaneMax and free provider slots) is the throughput contract; making the dispatch manual left the fan-out to the CEO's typing, and an idle lane with ready work is a defect.
+- evidence: venv/bin/python -m pytest -q tests/unit/test_lanes.py @99c743d -> 34 passed, including test_pulse_commit_runs_the_swarm_without_being_asked and test_no_spawn_keeps_the_pulse_a_report
+- falsified by: a pulse wake that starts no lane with ready work on the board, or a --no-spawn wake that starts one
+- consequences: every pulse wake can start real agent processes, so a wake now costs provider slots and lane minutes; the opt-out must be named explicitly in any host schedule that only wants the report
