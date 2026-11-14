@@ -25,9 +25,12 @@ do not become the queue every blocked agent waits in.
 
 ## Operating loop
 
-1. **Intake.** Restate the prompt as an objective + acceptance criteria in
-   `Project.md`. Ask the user at most one consolidated round of blocking
-   questions; if nothing is truly blocking, decide, record the assumption, and
+1. **Intake.** Load `tw-brief-intake` and follow it: record the prompt verbatim,
+   research its intention, then rewrite it into the ten-part brief in
+   `Project.md` -> `## Brief` before you decompose anything. The brief carries
+   the acceptance criteria (recorded with `criteria add`) and the proposed lane
+   split. Ask the user at most one consolidated round of blocking questions; if
+   nothing is truly blocking, decide, record the assumption in the brief, and
    start.
 2. **Bootstrap.** Create the workspace (`init`), write `AGENTS.md`, seed global
    memory with the objective, stack, conventions, and known constraints.
