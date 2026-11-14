@@ -71,6 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Review-failure skill candidates** - `skill candidates` lists repeated areas
   and, per role, tasks with failed reviews plus paste-ready `lesson add` and
   `skill create --from-lesson` lines.
+- **The lane display is installed, not just shipped** - `swarm run` starts every
+  lane as a detached process, so the live wave is drawn by a host extension that
+  polls `lane list --json`. A host loads extensions from its own directory and
+  `settings.json`, never from a skills directory, so the shipped file alone drew
+  nothing: `teamwork ui install|status` copies and registers it once, `refresh`
+  and `sync_skill.py` do it as part of the install, and `refresh --check` fails
+  when a host would not load it (`--no-ui` keeps the mirror-only behaviour).
 
 ## [1.5.2](https://github.com/Nidvue/Teamwork/compare/v1.5.1...v1.5.2) - 2026-11-02
 

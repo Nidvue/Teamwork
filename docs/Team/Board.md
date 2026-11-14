@@ -112,6 +112,7 @@ under two roles is two tasks.
 | ceo | T-0027 | lanes | done | P-0069 | 352b81f |
 | ceo | T-0028 | - | todo | - | - |
 | ceo | T-0029 | records | done | P-0070 | f695188 |
+| ceo | T-0030 | ui | doing | - | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -202,6 +203,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
 | ceo | T-0028 · The agent-agnostic contract test is red on main: docs/guide/cli.md names the host 'pi' | P1 | todo | - |
+| ceo | T-0030 · The lane display is shipped but never loaded: a host reads extensions from its own extensions/ directory and settings.json, never from a skills directory, so 60 lane runs drew nothing while refresh --check reported the bundle in sync. Add teamwork ui install|status, make refresh and scripts/sync_skill.py install the renderer as part of the mirror, and fail --check when the host would draw nothing (--no-ui keeps a mirror-only run) | P1 | doing | - |
 | tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | blocked | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
