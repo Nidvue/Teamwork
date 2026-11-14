@@ -10,15 +10,48 @@ Related: [SKILL.md](../SKILL.md)
 
 ## Steps 1-4: intake, workspace, plan, staffing
 
-### 1. Intake
+### 1. Intake: research the prompt, then rewrite it
 
-- Restate the prompt as objective + non-goals + constraints in
-  `docs/Team/Project.md`.
-- Record every acceptance criterion as a machine-checkable record: `criteria add
-  --id AC-1 --text '<verifiable statement>' --owner <role>`. `loop` cannot report
-  STOP while a criterion is unverified, so this is what "done" actually means.
+A prompt is a request, not a specification. Load the `tw-brief-intake` skill and
+follow it; the five steps are the whole flow, and the skill carries the template
+and the rewrite rules.
+
+1. **Record the prompt verbatim** in `docs/Team/Project.md` -> `## Brief` ->
+   `### Original prompt (verbatim)`. Never paraphrase it at intake: the
+   paraphrase is already an interpretation, and the original is the only ground
+   truth when an intent dispute arrives.
+2. **Deep-research its intention** - five probes, run in parallel: *ask* (every
+   verb and noun mapped to a deliverable or a constraint), *why* (the job behind
+   the request and what "good" looks like), *context* (repository, licence,
+   platform, behaviour that must not break), *state of the art* (3-5 comparable
+   solutions with a URL and an access date, recorded in `Research.md` by the
+   Product Manager when staffed) and *misreading* (the plausible wrong build
+   that satisfies every word and misses the point, plus the criterion that
+   catches it).
+3. **Rewrite the brief** into the ten parts of `Project.md` -> `## Brief` ->
+   `### Rewritten brief`: objective, user and job, deliverables, acceptance
+   criteria, non-goals, constraints and invariants, interfaces to freeze,
+   proposed lanes, unknowns and assumptions, evidence plan. It clarifies; it
+   never widens - anything the user did not ask for is marked `added:` so it can
+   be rejected.
+4. **Freeze** before anything dispatches: the acceptance criteria become
+   machine records, the interfaces become the frozen contracts in
+   `Architecture.md`, and the lanes become the task graph in `Plan.md`. A lane
+   starts only on an owner, one artifact, a file boundary no peer writes and a
+   dependency that is done or frozen.
+5. **Independent read.** The brief is a deliverable: the Product Manager (else
+   the Reviewer) reads the original prompt against the brief and answers - is any
+   intention lost, is anything invented, is every criterion verifiable and
+   singly owned, does any lane start on an unfrozen interface. Findings come back
+   to the CEO before decomposition.
+
+Then the machine records, which are what "done" actually means:
+
+- Record every acceptance criterion from the brief: `criteria add --id AC-1
+  --text '<verifiable statement>' --owner <role>`. `loop` cannot report STOP
+  while a criterion is unverified.
 - Ask the user at most one consolidated question set for genuinely blocking
-  ambiguity; otherwise decide, record the assumption, and continue.
+  ambiguity; otherwise decide, record the assumption in the brief, and continue.
 - Name the evidence for each criterion (command, test, artifact). An independent
   role verifies it: `criteria verify AC-1 --by <other-role> --evidence '<cmd @rev -> result>'`.
 - Declare required test layers per area:
