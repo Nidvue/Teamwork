@@ -109,6 +109,9 @@ under two roles is two tasks.
 | ceo | T-0024 | graph | review | P-0065 | - |
 | ceo | T-0025 | - | review | P-0067 | - |
 | ceo | T-0026 | identity | done | P-0068 | bbc7cdd |
+| ceo | T-0027 | lanes | doing | - | - |
+| ceo | T-0028 | - | todo | - | - |
+| ceo | T-0029 | records | doing | - | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -200,6 +203,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
 | ceo | T-0024 · Review the tree and fix the audit defects: routing graph, board drift, host-neutral docs, LFS scope | P1 | review | - |
 | ceo | T-0025 · Intake brief: deep-research the prompt, then rewrite it into a systematic, parallel-ready brief (tw-brief-intake) wired into Bootstrap step 1, the Project.md template and the CEO/PM charters | P1 | review | - |
+| ceo | T-0027 · Swarm is the default operating mode: pulse --commit runs one measured swarm wave, --no-spawn is the report-only opt-out | P1 | doing | - |
+| ceo | T-0028 · The agent-agnostic contract test is red on main: docs/guide/cli.md names the host 'pi' | P1 | todo | - |
+| ceo | T-0029 · AC-5's forward-map row claims green while the shipped gate exits 1 at this checkout: the tree half passes and the history half reports [high/personal-email] on 1001 commits - 997 reachable only from refs/remotes/origin/* (the pre-rewrite published history this checkout was rebuilt away from) plus the four on main that T-0026 accepts as pre-policy. Record the measured truth in the row and a G-13 gap that owns it, and escalate the only action that closes it: a rewrite and force-push of published history, a red line needing the user's authorization | P0 | doing | - |
 | tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | blocked | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's

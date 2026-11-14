@@ -234,12 +234,13 @@ A team that runs one lane at a time is a slow single agent with extra records. F
 
 Capacity is bounded by the provider caps in `Settings.json`, never by the lane count: Ollama Cloud 64, DeepSeek 2500, OpenAI 64, Anthropic 64 and 32 default concurrent lanes. `pulse` defers assignments beyond the free-slot count and prints the shortfall. Detail and the measured anti-patterns: `references/Concurrency.md`.
 
-### 5b. Keep the lanes full: the CEO pulse
+### 5b. Keep the lanes full: swarm is the default mode
 
-After dispatching, the CEO **re-wakes on an interval**, finds idle lanes, and hands them runnable work. Arm a recurring wake-up once and act on every wake:
+After dispatching, the CEO **re-wakes on an interval**, finds idle lanes, and hands them runnable work. **Swarm is the default**: `pulse --commit` sizes and runs the engine's swarm on that wake, and `--no-spawn` is the report-only opt-out. Arm a recurring wake-up once and act on every wake:
 
 ```sh
-python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5
+python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5   # dispatch + one swarm run
+python3 "$SKILL/scripts/teamwork.py" pulse --commit --no-spawn     # the plan only, no lane
 ```
 
 `pulse` prints idle lanes, ready work and a dispatch plan; `--commit` applies it and pins review claims so lanes never review the same deliverable. Exit 3 means "nothing to dispatch" - then check blocked tasks and disputes. A review claim is a renewable profile lease (`ReviewLeaseMinutes`, default 20; x1 fast, x2 standard, x4 deep), separate from the 90-minute provider-slot TTL: verdict with `--result`, extend with `--renew`, or `--release`.
@@ -249,7 +250,7 @@ python3 "$SKILL/scripts/teamwork.py" pulse --commit --interval 5
 ```sh
 python3 "$SKILL/scripts/teamwork.py" swarm run --dry-run   # the measured policy, start nothing
 python3 "$SKILL/scripts/teamwork.py" swarm run             # waves until nothing is runnable
-python3 "$SKILL/scripts/teamwork.py" pulse --commit --spawn  # one wake: dispatch, then run it
+python3 "$SKILL/scripts/teamwork.py" pulse --commit        # one wake: dispatch, then run the swarm (default)
 python3 "$SKILL/scripts/teamwork.py" lane status --live
 ```
 
@@ -517,4 +518,4 @@ python3 $S coordination --strict && python3 $S audit && python3 $S links && pyth
 python3 $S ledger verify && python3 $S ledger export && python3 $S trace T-0007
 ```
 
-Team lifecycle: `lane start` staffs a lane, `Inbox.md` coordinates it, `lane status|logs` inspects it, `swarm run` (or `pulse --commit` per wake) feeds idle lanes, and `lane stop` closes them. Per-host launchers and the `LaneCommand` template: `references/Adapters.md`.
+Team lifecycle: `lane start` staffs a lane, `Inbox.md` coordinates it, `lane status|logs` inspects it, `pulse --commit` runs the swarm on every wake (the default) and `swarm run` runs it by hand, and `lane stop` closes them. Per-host launchers and the `LaneCommand` template: `references/Adapters.md`.

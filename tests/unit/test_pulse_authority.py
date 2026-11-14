@@ -90,7 +90,7 @@ def test_a_settings_file_without_a_pulse_mode_reads_as_auto(team, capsys) -> Non
     set_mode(root, None)
     add_task(cli, project, "ship the exporter")
 
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     out = capsys.readouterr().out
     assert engine.load_pulse_mode(root)[0] == "auto"
     assert "# accept mode: auto (from default" in out, out
@@ -103,7 +103,7 @@ def test_observe_records_the_would_accept_plan_and_claims_nothing(team, capsys) 
     set_mode(root, "observe")
     add_task(cli, project, "ship the importer")
 
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     out = capsys.readouterr().out
     assert "# accept mode: observe (from Settings.json PulseMode)" in out, out
     assert "## would accept (observe - nothing is claimed)" in out, out
@@ -130,7 +130,7 @@ def test_auto_claims_the_ready_task(team, capsys) -> None:
     set_mode(root, "auto")
     add_task(cli, project, "ship the summariser")
 
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     assert "# accept mode: auto (from Settings.json PulseMode)" in capsys.readouterr().out
     task = task_in(root, "T-0001")
     assert task["status"] == "doing"
@@ -143,7 +143,7 @@ def test_off_reports_the_plan_and_claims_nothing(team, capsys) -> None:
     set_mode(root, "off")
     add_task(cli, project, "ship the reconciler")
 
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     out = capsys.readouterr().out
     assert "# accept mode: off (from Settings.json PulseMode)" in out, out
     assert "## dispatch plan (off - report only, nothing is claimed)" in out, out
@@ -194,7 +194,7 @@ def test_pulse_mode_overrides_one_run_and_names_its_source(
     kept = json.loads(engine.providers_path(root).read_text(encoding="utf-8"))
     assert kept[engine.PULSE_MODE_KEY] == stored
     third = add_task(cli, project, "ship the reconciler")
-    assert cli("--project", project, "pulse", "--commit") in (0, 3)
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") in (0, 3)
     capsys.readouterr()
     assert task_in(root, third)["status"] == ("doing" if stored == "auto" else "todo")
 
@@ -205,7 +205,7 @@ def test_an_unrecognised_mode_is_read_as_observe_not_auto(team, capsys) -> None:
     set_mode(root, "sometimes")
     add_task(cli, project, "ship the probe")
 
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     out = capsys.readouterr().out
     assert "# accept mode: observe" in out and "read as observe" in out, out
     assert task_in(root, "T-0001")["status"] == "todo"

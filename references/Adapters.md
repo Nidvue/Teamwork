@@ -92,8 +92,8 @@ owns what.
 8. **A claim with no live lane is adopted.** `pulse --commit` (or a lane that
    died) can leave a claim owned by an instance with no process behind it; the
    supervisor launches it for that instance instead of planning around it, but only
-   while the attempt budget allows. That is what makes `pulse --commit --spawn`
-   one safe command.
+   while the attempt budget allows. That is what makes `pulse --commit` one safe
+   command - the swarm is the default mode, and `--no-spawn` is the opt-out.
 9. **A review becomes a lane.** When a deliverable reaches `review`, the next wave
    claims it for a Reviewer instance and starts that lane - the dynamic hand-off
    the protocol depends on.
@@ -120,7 +120,8 @@ Every lane child gets `TEAMWORK_ROOT`, `TEAMWORK_TEAM`, `TEAMWORK_LANE` and
   executed sequentially by one agent that switches hats, claiming tasks from the
   same shared queues. The evidence gates, the Reviewer separation and the ledger
   are unaffected - which is the point: the protocol does not depend on parallelism.
-- **No scheduler** (operation 5): `pulse --commit` once per wake by hand, or let
+- **No scheduler** (operation 5): `pulse --commit` once per wake by hand (it runs
+  the swarm by default; `--no-spawn` keeps the plan only), or let
   every lane self-serve with `task next` between turns. The rule "never let an
   idle lane sit while runnable work exists" is unchanged; only the automation of
   the wake-up differs.

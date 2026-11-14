@@ -256,8 +256,10 @@ not many writers per file.
 
 ## CEO pulse (hard)
 
-The CEO re-wakes on an interval and feeds idle lanes: `pulse --commit` assigns ready
-work and records the owner. An instance is busy only while it holds a slot lease, a
+**Swarm is the default operating mode.** The CEO re-wakes on an interval and
+`pulse --commit` sizes and runs the engine's swarm on that wake: it assigns ready
+work, records the owner, and starts the measured lanes. `--no-spawn` is the
+report-only opt-out. An instance is busy only while it holds a slot lease, a
 `doing`/`selfcheck` task it claimed, or a live review claim; otherwise it is idle.
 Instances do not wait for the pulse: `task next <you>` claims work directly. Only
 staffed roles need a layer; a layer without its owner is a gap, not a default.

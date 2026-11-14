@@ -88,13 +88,13 @@ def test_pulse_fills_a_lane_up_to_its_wip_limit(cli, project: Path) -> None:
     for i in range(3):
         add(cli, project, "developer", f"unit {i}")
 
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     tasks = engine.parse_tasks(engine.task_file(root, "developer"))
     claimed = [t for t in tasks if t["status"] == "doing"]
     assert len(claimed) == engine.LANE_WIP, [t["status"] for t in tasks]
     assert {t["claimed_by"].lower() for t in claimed} == {"developer-1"}
 
-    assert cli("--project", project, "pulse", "--commit") in (0, 3)
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") in (0, 3)
     tasks = engine.parse_tasks(engine.task_file(root, "developer"))
     assert len([t for t in tasks if t["status"] == "doing"]) == engine.LANE_WIP
     assert len([t for t in tasks if t["status"] == "todo"]) == len(tasks) - engine.LANE_WIP
@@ -154,7 +154,7 @@ def test_one_lane_needs_one_slot_for_its_whole_wip(cli, project: Path, capsys) -
     add(cli, project, "developer", "unit 1")
 
     capsys.readouterr()
-    assert cli("--project", project, "pulse", "--commit") == 3
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 3
     out = capsys.readouterr().out
     assert "# capacity: 1 lane(s) need a new slot, 0 free" in out, out
     assert "deferring 2 assignment(s)" in out, out
@@ -165,7 +165,7 @@ def test_one_lane_needs_one_slot_for_its_whole_wip(cli, project: Path, capsys) -
     settings["ollama-cloud"] = 1
     settings_path.write_text(json.dumps(settings), encoding="utf-8")
     capsys.readouterr()
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     out = capsys.readouterr().out
     assert "# capacity" not in out, out
     assert "deferred until a lease frees" not in out, out
