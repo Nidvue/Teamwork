@@ -189,8 +189,10 @@ These run once per project, so their detail is on demand: read
 [references/Bootstrap.md](references/Bootstrap.md) before you create a
 workspace, freeze interfaces or restaff. The order is fixed:
 
-1. **Intake** - the brief restated as objective, non-goals and constraints, and
-   every acceptance criterion as a record.
+1. **Intake** - record the prompt verbatim, deep-research its intention, then
+   rewrite it into a systematic, parallel-ready brief with the `tw-brief-intake`
+   skill: objective, deliverables, acceptance criteria, interfaces to freeze and
+   the proposed lanes. Every criterion becomes a record.
 2. **Workspace, repository, constitution** - the tree, the managed block, the
    team settings.
 3. **Plan and freeze interfaces** - the parallelism gate; no squad starts on a
