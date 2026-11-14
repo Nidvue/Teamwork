@@ -51,7 +51,8 @@ retried, not believed.
 ## Scheduling the pulse
 
 There is no host scheduler to depend on: `swarm run` is the loop, `pulse
---commit --spawn` is the one wake, and both size the wave from the work in hand -
+--commit` is the one wake (swarm is the default; `--no-spawn` keeps the plan
+only), and both size the wave from the work in hand -
 one prose task is one lane, a board of code fans out, and it scales down as the
 board drains. Run it from the session, and pin the width only when you mean to:
 

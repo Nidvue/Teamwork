@@ -1126,7 +1126,8 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
     a lane can die after claiming. Both leave the same shape: a record saying an
     instance owns the work, and no live process behind it. The supervisor adopts
     that work instead of planning around it, which is what lets one command
-    ("pulse --commit --spawn") hand the dispatch to the lanes without losing it.
+    (`pulse --commit`, the default mode) hand the dispatch to the lanes without
+    losing it.
 
     Only a claim with no run history is adopted: once a lane has spent an attempt,
     the retry path owns that task. Without that split, adopting a stalled claim

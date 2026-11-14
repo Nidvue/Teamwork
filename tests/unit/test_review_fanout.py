@@ -113,7 +113,7 @@ def test_the_pulse_fans_unclaimed_deliverables_out_one_per_lane(lanes, capsys) -
     for title in ("build the exporter", "build the importer", "build the summariser"):
         submit(cli, project, root, title)
 
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     rows = review_rows(capsys.readouterr().out)
     assert len(rows) == 3, rows
     assert "Reviewer-1" in rows[0] and "developer/T-0001" in rows[0], rows
@@ -151,7 +151,7 @@ def test_the_pulse_stops_dispatching_reviews_when_every_lane_is_holding_one(lane
     cli, project, root = lanes
     for title in ("build the exporter", "build the importer", "build the summariser"):
         submit(cli, project, root, title)
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     capsys.readouterr()
 
     handle = submit(cli, project, root, "build the dashboard")

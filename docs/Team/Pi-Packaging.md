@@ -19,7 +19,7 @@ we changed, and how the published artefact is built.
 | Change | Before | After |
 |---|---|---|
 | Spawn | `teams({action:"delegate", tasks:[...]})` | the engine's own lane runtime: `teamwork.py lane start` detaches one host CLI child per lane, writes its packet and record, and reconciles it later - no extension required |
-| Pulse | `schedule_prompt({type:"cron"})` | `teamwork.py swarm run`: waves computed from the board (ready tasks, reviews, free slots, unfinished assignments) and **sized by the measured weight of the work**, each lane under a hard per-profile minute budget; `pulse --commit --spawn` runs one wake end to end |
+| Pulse | `schedule_prompt({type:"cron"})` | `teamwork.py swarm run`: waves computed from the board (ready tasks, reviews, free slots, unfinished assignments) and **sized by the measured weight of the work**, each lane under a hard per-profile minute budget; `pulse --commit` runs one wake end to end (swarm is the default; `--no-spawn` is the report-only opt-out) |
 | Close | `teams({action:"team_done"})` | `teamwork.py lane stop <run>` per live lane (`lane reap` for a dead one), then the report |
 | Coordinate | `teams({action:"message_dm"})` | the `Agents/<Instance>/Inbox.md` mailbox, plus the board's claims; a host tool (`subagent` steer) is an optional accelerator, never the mechanism |
 | Package | pip only | the `@nidvue/teamwork` npm package: `pi.skills` + `pi.prompts`, host packages in `peerDependencies` only |

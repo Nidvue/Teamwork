@@ -122,7 +122,7 @@ def test_board_parallel_pulse_and_map(cli, project: Path) -> None:
     assert cli("--project", project, "task", "add", "developer", "ship") == 0
     assert cli("--project", project, "board") == 0
     assert cli("--project", project, "parallel") == 0
-    assert cli("--project", project, "pulse", "--commit") == 0
+    assert cli("--project", project, "pulse", "--commit", "--no-spawn") == 0
     assert cli("--project", project, "map") == 0
     task = engine.parse_tasks(root / "Roles" / "Developer" / engine.F_TASKS)[0]
     assert task["status"] == "doing"
