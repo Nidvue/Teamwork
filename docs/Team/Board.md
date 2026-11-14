@@ -106,6 +106,7 @@ under two roles is two tasks.
 | ceo | T-0021 | team-docs | done | P-0052 | f187e21 |
 | ceo | T-0022 | records | done | P-0053 | c2bed4b |
 | ceo | T-0023 | records | done | P-0062 | 55817f9 |
+| ceo | T-0024 | graph | review | P-0065 | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -170,12 +171,13 @@ under two roles is two tasks.
 | developer | T-0062 | lanes | done | P-0064 | 1360077 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
-| reviewer | T-0003 | - | done | - | - |
+| reviewer | T-0003 | - | dropped | - | - |
 | reviewer | T-0004 | security | done | P-0060 | 59c240f |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
-| tester | T-0003 | - | doing | - | - |
+| tester | T-0003 | - | blocked | - | - |
+| tester | T-0004 | tests | done | P-0066 | 66d55cd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -194,7 +196,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | doing | - |
+| ceo | T-0024 · Review the tree and fix the audit defects: routing graph, board drift, host-neutral docs, LFS scope | P1 | review | - |
+| tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | blocked | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
