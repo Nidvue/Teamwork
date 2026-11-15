@@ -7786,4 +7786,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit b13841a4
 - reviewer evidence: venv/bin/python Agents/Reviewer-1/Scratch/accept_t0068.py @b13841a4 -> 81 checks passed 0 failed (TOTAL/CONSERVATION/OVERFLOW/no-wrap 24-100, no ANSI by default); venv/bin/python -m pytest -q tests/unit @b13841a4 -> 2625 passed 7 skipped 1 failed, and that failure (test_traceability_matrix.py::test_every_deterministic_state_matches_a_real_run) reproduces on main dd85a03a -> 1 failed, so it is pre-existing; venv/bin/python -m ruff check . and ruff format --check . @b13841a4 -> All checks passed, 346 files already formatted; git status --porcelain @b13841a4 -> empty; Design.md 10.2-10.5 read: 6/7 task column, bar literal 10 chars vs the doc 9 (author disclosed), payload unchanged by design 10 and the payload signals carried by T-0070 (deps developer:T-0068)
 - findings history: 
-- branch / merge: developer/t-0068-implement-the-redesigned-agent-state-dis / pending
+- branch / merge: developer/t-0068-implement-the-redesigned-agent-state-dis / 008b126d
