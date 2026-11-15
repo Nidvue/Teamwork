@@ -107,3 +107,29 @@ def test_the_check_matches_whole_paths_only(cli, project: Path) -> None:
     engine.run_git(project, "worktree", "add", "--detach", str(ten), "HEAD")
     assert engine._worktree_registered(project, ten)
     assert not engine._worktree_registered(project, project / ".pi" / "worktrees" / "Developer-1")
+
+
+def test_the_toolchain_link_never_leaves_the_branch_unreviewable(cli, project: Path) -> None:
+    """T-0064: `venv/` matches a directory only, so the link read as untracked work."""
+    root = _repo(cli, project)
+    (project / "venv").mkdir()
+    (project / ".venv").mkdir()
+    task = _task(cli, project, "toolchain link")
+    assert (
+        cli(
+            "--project",
+            project,
+            "branch",
+            "start",
+            "--agent",
+            "Developer-1",
+            "--task",
+            task["id"],
+            "--worktree",
+        )
+        == 0
+    )
+    tree = root / str(_record(root, task["id"])["worktree"])
+    assert (tree / "venv").is_symlink()
+    assert (tree / ".venv").is_symlink()
+    assert engine.run_git(tree, "status", "--porcelain").stdout.strip() == ""

@@ -918,16 +918,41 @@ def resolve_team_relative(root: Path, value: str) -> Path:
     return p if p.is_absolute() else root / p
 
 
+def _ignore_toolchain(project: Path, names: tuple[str, ...]) -> None:
+    """Make git ignore the toolchain links, in the shared exclude file.
+
+    A `.venv/` or `venv/` rule matches a directory only, and a link is a file to
+    git, so the link showed as untracked in the lane's `git status` and the review
+    gate refused the branch as uncommitted work (T-0064). The exclude file lives in
+    the common git dir, so one write covers every worktree, and it is local: no
+    branch carries it.
+    """
+    raw = run_git(project, "rev-parse", "--git-common-dir").stdout.strip()
+    if not raw:
+        return
+    common = Path(raw)
+    path = (common if common.is_absolute() else project / common) / "info" / "exclude"
+    existing = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    seen = {line.strip() for line in existing}
+    missing = [f"/{name}" for name in names if f"/{name}" not in seen]
+    if not missing:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    base = "\n".join(existing).rstrip()
+    write_lf(path, (base + "\n" if base else "") + "\n".join(missing) + "\n")
+
+
 def _link_toolchain(project: Path, worktree: Path) -> None:
     """Point a fresh worktree at the project's toolchain, so the gate command works.
 
     A worktree carries only tracked files, so `.venv/` (gitignored) is absent and a
     `PreflightCommand` written as `.venv/bin/ruff ...` cannot start there - which is
     how a lane ends up running the gate by hand with absolute paths. A link is
-    enough, it is untracked, and a failure is not fatal: the gate check reports the
-    missing program with its fix.
+    enough, and a failure is not fatal: the gate check reports the missing program
+    with its fix.
     """
-    for name in (".venv", "venv"):
+    names = (".venv", "venv")
+    for name in names:
         source = project / name
         target = worktree / name
         if not source.is_dir() or target.exists() or target.is_symlink():
@@ -936,6 +961,7 @@ def _link_toolchain(project: Path, worktree: Path) -> None:
             target.symlink_to(source, target_is_directory=True)
         except OSError:
             return
+    _ignore_toolchain(project, tuple(n for n in names if (worktree / n).is_symlink()))
 
 
 def task_worktree(root: Path, task: dict) -> Path | None:
