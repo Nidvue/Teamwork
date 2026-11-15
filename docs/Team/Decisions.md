@@ -2414,3 +2414,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: venv/bin/python -m pytest -q tests/unit/test_lanes.py @99c743d -> 34 passed, including test_pulse_commit_runs_the_swarm_without_being_asked and test_no_spawn_keeps_the_pulse_a_report
 - falsified by: a pulse wake that starts no lane with ready work on the board, or a --no-spawn wake that starts one
 - consequences: every pulse wake can start real agent processes, so a wake now costs provider slots and lane minutes; the opt-out must be named explicitly in any host schedule that only wants the report
+
+## D-20261115-CEO-2 - Close state: what is green, and the one decision three criteria wait on
+
+- date: 2026-11-15
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0034
+- context: the engagement closed with 14 of 17 criteria verified. Every task is closed, every branch merged and deleted, no test layer is missing, the full suite is green locally at 86b4846 (unit 2213 passed, integration 335 passed, acceptance 75 passed, 0 failed), the ledger chain is intact at 304 records, and `loop` reports CONTINUE for three criteria and nothing else.
+- options considered: (a) verify the three criteria on a partial reading; (b) leave them open and report; (c) push a branch and let CI decide; (d) rewrite the published history and force-push
+- decision: leave AC-M19-1, AC-M19-6 and AC-M20-5 open, because each one's own text names a fact this host cannot produce without an external or irreversible action, and report the exact decision each waits on. (a) is fabrication and is refused. (c) is possible but cannot make AC-M19-1 true while the Windows cell is unmeasured (R-33) and while AC-5's history half is red. (d) is a red line and needs the user's authorization through the CEO.
+- why: a criterion is verified by the evidence its own text names, not by the team's confidence. AC-M19-1 names a CI run on the revision; AC-M19-6 names a privacy scan PASS over tree **and history**; AC-M20-5 names `loop`/`audit` green, which cannot be true while the other two are open. Recording them open is the only state the evidence supports.
+- evidence: `venv/bin/python -m pytest -q tests/unit` @86b4846 -> 2213 passed, 2 skipped; `tests/integration` -> 335 passed, 1 skipped; `tests/acceptance` -> 75 passed, 1 skipped; `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s) in tree`; `python3 scripts/privacy_scan.py --history --allow .github/privacy-allow.txt` -> exit 1 with `[high/personal-email]` findings on 1001 commits (997 reachable only from `refs/remotes/origin/*`, 4 on `main` accepted as pre-policy by T-0026); `git merge-base --is-ancestor origin/main main` -> exit 1, so `main` and the published branch share no ancestry; `teamwork.py ledger verify` -> 304 records, chain intact; `teamwork.py tests plan` -> 0 gaps; `teamwork.py loop` -> CONTINUE, 3 criteria.
+- falsified by: a CI run on this tree being green, or a history scan that exits 0, or `loop` reaching STOP - any of which would show this record overstated the blockers.
+- consequences: the user holds one decision: authorize a force-push of published history (closes AC-5, AC-M19-6 and the CI clause of AC-M19-1 together), or push this history to a new branch and accept the old published history as it stands (AC-5's history half stays red by decision, recorded in G-13), or accept the disclosure and re-word AC-5. The five `duplicate testing` audit warnings are accepted with a reason: one command legitimately proves two areas (a portability module is both the unit and the system probe), and removing a record to silence the warning would open the gap it was written to close.
