@@ -139,15 +139,13 @@ def test_a_parallel_lanes_status_drift_is_not_charged_to_a_title_only_board_edit
     assert boardlib.problems(live, branch_board, baseline=base_board) == []
 
 
-def test_a_row_the_edit_changed_is_still_compared_with_the_queue():
+def test_a_touched_row_blocked_against_a_doing_queue_is_a_contradiction():
     base = {("developer", "T-0001"): _task("doing")}
     base_board = boardlib.render(base, SKELETON)
     branch_board = base_board.replace(
         "| developer | T-0001 | x | doing |", "| developer | T-0001 | x | blocked |"
     )
     assert branch_board != base_board
-    # `review` on either side is the documented landing window, so this row is a
-    # plain contradiction instead: the board says blocked, the queue says doing.
     found = boardlib.problems(
         {("developer", "T-0001"): _task("doing")}, branch_board, baseline=base_board
     )
