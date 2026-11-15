@@ -183,7 +183,7 @@ under two roles is two tasks.
 | developer | T-0062 | lanes | done | P-0064 | 1360077 |
 | developer | T-0063 | tests | done | P-0076 | 7f439aa1 |
 | developer | T-0064 | worktree | done | P-0078 | 29d20d4f |
-| developer | T-0065 | status | review | P-0080 | - |
+| developer | T-0065 | status | doing | P-0080 | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -193,7 +193,7 @@ under two roles is two tasks.
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
 | tester | T-0003 | - | dropped | - | - |
 | tester | T-0004 | tests | done | P-0066 | 66d55cd |
-| tester | T-0005 | - | doing | - | - |
+| tester | T-0005 | - | done | P-0081 | cc343480 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -211,8 +211,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0065 · one teamwork renderer in the pi UI: agents and live lanes drawn once, no duplicate file and no repeated row (M24) | P0 | review | - |
-| tester | T-0005 · retire the layered-test records that share one replay command, or record why each pair is not duplicate coverage | P2 | doing | - |
+| developer | T-0065 · one teamwork renderer in the pi UI: agents and live lanes drawn once, no duplicate file and no repeated row (M24) | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
