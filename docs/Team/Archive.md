@@ -5959,3 +5959,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_brief_intake.py @32902b9 -> 6 passed (own run: the six wiring assertions, which were absent at @313697a - the acceptance criterion (5) was unmet); venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py @32902b9 -> green; python3 scripts/teamwork.py harness lint @32902b9 -> 0 problems; python3 scripts/teamwork.py links @32902b9 -> 0 issues
 - findings history: 
 - branch / merge: ceo/t-0025-intake-brief-deep-research-the-prompt-th / 33f5761
+
+## T-0030 · The lane display is shipped but never loaded: a host reads extensions from its own extensions/ directory and settings.json, never from a skills directory, so 60 lane runs drew nothing while refresh --check reported the bundle in sync. Add teamwork ui install|status, make refresh and scripts/sync_skill.py install the renderer as part of the mirror, and fail --check when the host would draw nothing (--no-ui keeps a mirror-only run)  (ceo)
+- date: 2026-11-15
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: ui
+- self-check: [pass] Boundary: lanedisplay.install copies one file and appends one entry to settings.json, and returns a State rather than dying, so a host with neither directory loses the picture and no lane is blocked. Empty/duplicate/second-call: install is idempotent (filecmp before copy, the entry appended once), a missing settings.json is created, a settings.json that is not an object or has a non-list extensions key is left alone with a reported reason, and status writes nothing. Contract surface: ui install|status with --host/--dest/--dry-run, refresh --no-ui, refresh --check failing on a display the host would not load, and sync_skill --check doing the same. Concurrency/shared writes: one file plus one settings edit, both under the same directory, no lock needed because install is idempotent and the second writer sees the entry already present. Scope: 11 files - the new module, its three call sites, and the four prose surfaces that describe the step. @1734f76 superseded by @6a6a076: the board render only. | test: venv/bin/python -m pytest -q tests/unit/test_lane_display.py tests/unit/test_skill_refresh.py @6a6a076 -> 24 passed (9 + 15); venv/bin/ruff check . @6a6a076 -> All checks passed; venv/bin/python -m mypy src/teamwork @6a6a076 -> no issues in 25 source files | preflight: PF-1189fa237049 @6a6a0769740d (7 checks, 0 failed)
+- author evidence: commit 1734f76
+- reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_lane_display.py tests/unit/test_skill_refresh.py @6a6a076 -> 24 passed (own run); venv/bin/python -m teamwork ui status --dest /tmp/nonexistent-abc --dry-run @6a6a076 -> exits non-zero with the reason and writes nothing; git show @6a6a076 --stat -> 11 files, one new module, three call sites, four prose surfaces
+- findings history: 
+- branch / merge: ceo/t-0030-the-lane-display-is-shipped-but-never-lo / pending
