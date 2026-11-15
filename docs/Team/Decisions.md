@@ -2881,3 +2881,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: ls dist/@nidvue/teamwork/extensions/ @7390d2f1 -> teamwork-lanes.ts teamwork-status.ts (both loaded by pi.extensions ["./extensions"]); teamwork.py ui status -> teamwork-lanes.ts installed+registered, extensions/teamwork-status.ts never loaded; python3 scripts/teamwork.py status --json @7390d2f1 -> instance rows carry lane/lane_state, so the lanes array repeats the instance row; docs/Team/Memory.md 15.7 asked the CEO to renumber one of the two M23 labels
 - falsified by: if the single renderer cannot draw a lane with no instance row (a lane whose seat was folded) then the lanes array is still needed and the dedup rule is wrong
 - consequences: -
+
+## D-20261115-CEO-6 - release 1.5.9 is authorized: push main, tag 1.5.9, publish npm + PyPI + GitHub release
+
+- date: 2026-11-15
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0002
+- context: -
+- options considered: -
+- decision: Push the 28 commits main is ahead of origin/main, tag 1.5.9 on the CI-green head, and let .github/workflows/release.yml publish. The CHANGELOG 1.5.9 section gains the M24 one-renderer entry first, because 1.5.9 is unreleased and the change is the largest user-visible one since 1.5.8.
+- why: the operator asked for commit, push and release; this is the irreversible external action that instruction authorizes
+- evidence: git rev-list --count origin/main..main @fdf2ef75 -> 28; git ls-remote --tags origin -> newest v1.5.6; src/teamwork/version.py -> 1.5.9; python3 scripts/check_release_consistency.py --offline @fdf2ef75 -> R1..R10 ok/SKIP, # release consistency: 0 problem(s); CHANGELOG.md 1.5.9 documents only the seven-field commit style
+- falsified by: if release.yml publishes from a revision that never passed CI, or if a registry already carries 1.5.9, the release is a duplicate and must stop before the tag
+- consequences: -
