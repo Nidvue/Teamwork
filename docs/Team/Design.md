@@ -720,9 +720,13 @@ line, 6 lines left, `lane_lines = min(3, 6) = 3`, total 9; 1 busy, 1 idle,
 
 ### 10.6 The checks a Tester can assert on
 
-All of them run `render()` through node from
-`tests/unit/test_pi_status_render.py`; the payload is a fixture with busy, idle
-and lane-only rows.
+These are the **target** assertions. `tests/unit/test_pi_status_render.py` is
+where they run - it imports the extension through node's type stripping - and the
+payload is a fixture with busy, idle and lane-only rows. `TOTAL` and `OVERFLOW`
+are **red** against the shipped renderer today: `MAX_LINES = 24` at `:8` (D-10)
+and the overflow line is sliced after the row loop at `:210`/`:214` (D-9). A
+Tester adds them with the fix, not before it; 10.5 is the frozen target, 10.7
+names the delta.
 
 | check | assertion |
 |---|---|
