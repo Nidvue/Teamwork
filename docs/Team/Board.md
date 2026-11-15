@@ -110,10 +110,11 @@ under two roles is two tasks.
 | ceo | T-0025 | - | done | P-0067 | 33f5761 |
 | ceo | T-0026 | identity | done | P-0068 | bbc7cdd |
 | ceo | T-0027 | lanes | done | P-0069 | 352b81f |
-| ceo | T-0028 | - | todo | - | - |
+| ceo | T-0028 | - | done | - | - |
 | ceo | T-0029 | records | done | P-0070 | f695188 |
 | ceo | T-0030 | ui | done | P-0071 | cf41761 |
 | ceo | T-0031 | graph | done | P-0072 | eb40ea2 |
+| ceo | T-0032 | records | doing | - | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -203,7 +204,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| ceo | T-0028 · The agent-agnostic contract test is red on main: docs/guide/cli.md names the host 'pi' | P1 | todo | - |
+| ceo | T-0032 · Record the Windows CI limitation as a risk row so the stage can be certified honestly: windows-latest/py3.13 runs the plain suite past 55 minutes against 11 minutes on Linux, so a branch-concurrency cancel is indistinguishable from a hang and no single test is named | P1 | doing | - |
 | tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | blocked | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
