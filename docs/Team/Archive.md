@@ -5984,4 +5984,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit f19679c
 - reviewer evidence: venv/bin/python -m pytest -q tests/integration/test_graph_cli.py tests/acceptance/test_graph_contract.py tests/integration/test_ui_refresh_flow.py tests/acceptance/test_ui_contract.py @9b6a165 -> 20 passed (own run); venv/bin/python -m pytest -q tests/unit/test_graph.py tests/unit/test_lane_display.py @9b6a165 -> 27 passed, no overlap with the new modules; git show @9b6a165 --stat -> 5 files, tests only
 - findings history: 
-- branch / merge: ceo/t-0031-four-required-test-layers-have-no-probe / pending
+- branch / merge: ceo/t-0031-four-required-test-layers-have-no-probe / eb40ea2
