@@ -1,11 +1,11 @@
 # Audit report
 
-- generated: 2026-11-09T01:43:50
+- generated: 2026-11-15T01:46:26
 - team: Teamwork
-- ledger: 17 records, chain verified: True
-- checkpoint: record #17 (the ledger.export event behind this manifest; later records are work that happened after it)
-- head hash: `5f55df08e70bd1a2042a08aa268b375a`
-- git: db8764394c7b on ceo/t-0023-record-the-ledger-cut-ruling-d-20261109, dirty: True
+- ledger: 304 records, chain verified: True
+- checkpoint: record #304 (the ledger.export event behind this manifest; later records are work that happened after it)
+- head hash: `2d19911b118f47dfaddd50390010a397`
+- git: 86b48469c75c on ceo/t-0034-close-out-records-export-the-audit-manif, dirty: False
 - externally verifiable artifacts: 4
 - local-only state files: 30
 
@@ -21,7 +21,7 @@ teamwork.py trace <T-id>     # follow any claim end to end
 
 | path | bytes | sha256 |
 |---|---|---|
-| docs/Team/Architecture.md | 180681 | `9c747f1734833871…` |
-| docs/Team/Decisions.md | 364812 | `fea5a897106f6ba4…` |
+| docs/Team/Architecture.md | 181406 | `8c29d7d1be17e6d1…` |
+| docs/Team/Decisions.md | 366313 | `6b854711536b25d1…` |
 | docs/Team/Plan.md | 95292 | `f2b41f46c8923d09…` |
-| docs/Team/Project.md | 58516 | `59e078842ed8f127…` |
+| docs/Team/Project.md | 60271 | `e467b8c2052deb4b…` |
