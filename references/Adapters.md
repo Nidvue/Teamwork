@@ -24,20 +24,20 @@ fact is the whole adapter surface - the engine detects the host, or takes a
 template. Nothing in a normative step depends on a plugin, an extension, or a
 host-private teammate tool.
 
-**A display adapter is optional and one-way.** `lane list --json` / `lane status
---json` emit the reconciled table (id, agent, task, state, elapsed, budget left,
-attempt, verdict, log path) so a host can *show* the wave. The shipped pi package
-carries one such renderer, `extensions/teamwork-lanes.ts`: a footer status and a
-widget above the editor, polling that command. It reads and draws only - it never
-starts, steers or stops a lane, so the engine stays the single source of truth and
-a host without it loses nothing but the picture. `TEAMWORK_LANES_POLL` sets the
-interval in ms (`0` disables), `TEAMWORK_CLI` pins the command.
+**A display adapter is optional and one-way.** `status --json` emits the reconciled
+table (instance, role, busy/idle, the task and lane it holds, elapsed, progress,
+model) so a host can *show* the wave. The shipped pi package carries one such
+renderer, `extensions/teamwork-status.ts`: a widget above the editor and a footer
+status, polling that command every 2 s. It reads and draws only - it never starts,
+steers or stops a lane, so the engine stays the single source of truth and a host
+without it loses nothing but the picture. `TEAMWORK_ROOT` pins the repository,
+`TEAMWORK_PYTHON` the interpreter, and the widget is drawn once per live lane.
 
 **Shipped is not loaded.** A host reads extensions from its own `extensions/`
 directory and its `settings.json`, never from a skills directory, so a skill-only
 install carries the renderer and still draws nothing. `teamwork.py ui install`
 copies the shipped file to `<agent>/extensions/` and appends
-`extensions/teamwork-lanes.ts` to `<agent>/settings.json` once; `ui status`
+`extensions/teamwork-status.ts` to `<agent>/settings.json` once; `ui status`
 reports both halves without writing and fails when the host would draw nothing.
 `refresh` and `scripts/sync_skill.py` run the same install after mirroring, and
 their `--check` fails on a display the host would not load (`refresh --no-ui`

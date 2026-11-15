@@ -166,14 +166,14 @@ __all__ = [
 VERSION_PATH = "src/teamwork/version.py"
 
 PAYLOAD_FILES = ("SKILL.md", "AGENTS.md")
-PAYLOAD_TREES = ("references", "roles", "templates", "scripts", "src")
+PAYLOAD_TREES = ("extensions", "references", "roles", "templates", "scripts", "src")
 PAYLOAD_EXCLUDES = frozenset({"scripts/build_pi_package.py"})
 
 TARBALL_LAYOUT = (
     ("skills/teamwork", ""),
     ("skills/teamwork-pi", "templates/pi-package/skills/teamwork-pi"),
     ("prompts", "templates/pi-package/prompts"),
-    ("extensions", "templates/pi-package/extensions"),
+    ("extensions", "extensions"),
 )
 
 GITHUB_BEARER_ENV = ("GITHUB_TOKEN", "GH_TOKEN")

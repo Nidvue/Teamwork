@@ -20,7 +20,7 @@ from pathlib import Path
 
 from teamwork import lanedisplay
 
-RENDERER = Path("templates") / "pi-package" / "extensions" / "teamwork-lanes.ts"
+RENDERER = Path("extensions") / "teamwork-status.ts"
 
 
 def skill(tmp_path: Path) -> Path:
@@ -40,7 +40,7 @@ def host(tmp_path: Path) -> Path:
 def test_the_repository_ships_the_renderer() -> None:
     shipped = Path(__file__).resolve().parents[2] / RENDERER
     text = shipped.read_text(encoding="utf-8")
-    assert "lane" in text and "list" in text, "the renderer polls the lane records"
+    assert "status" in text and "--json" in text, "the renderer polls the status feed"
     assert "setWidget" in text, "a renderer that draws nothing is not a renderer"
 
 
@@ -60,13 +60,13 @@ def test_install_copies_the_renderer_and_registers_it_once(tmp_path: Path) -> No
     assert state.target.read_text(encoding="utf-8") == "export default function () {}\n"
     written = json.loads(settings.read_text(encoding="utf-8"))
     assert written["theme"] == "dark", "an unrelated setting is never dropped"
-    assert written["extensions"] == ["extensions/other.ts", "extensions/teamwork-lanes.ts"]
+    assert written["extensions"] == ["extensions/other.ts", "extensions/teamwork-status.ts"]
 
     again = lanedisplay.install(skill(tmp_path), skills=str(dest))
     assert again.live
     assert json.loads(settings.read_text(encoding="utf-8"))["extensions"] == [
         "extensions/other.ts",
-        "extensions/teamwork-lanes.ts",
+        "extensions/teamwork-status.ts",
     ], "a second install must not append the entry twice"
 
 
@@ -75,7 +75,7 @@ def test_a_settings_entry_in_another_spelling_is_already_registered(tmp_path: Pa
     dest.mkdir(parents=True)
     settings = dest.parent.parent / "settings.json"
     settings.write_text(
-        json.dumps({"extensions": ["/abs/path/extensions/teamwork-lanes.ts"]}),
+        json.dumps({"extensions": ["/abs/path/extensions/teamwork-status.ts"]}),
         encoding="utf-8",
     )
 
@@ -83,7 +83,7 @@ def test_a_settings_entry_in_another_spelling_is_already_registered(tmp_path: Pa
 
     assert state.registered
     assert json.loads(settings.read_text(encoding="utf-8"))["extensions"] == [
-        "/abs/path/extensions/teamwork-lanes.ts"
+        "/abs/path/extensions/teamwork-status.ts"
     ]
 
 
@@ -148,9 +148,43 @@ def test_a_built_host_package_declares_its_own_extension(tmp_path: Path) -> None
     skill_dir = package / "skills" / "teamwork"
     skill_dir.mkdir(parents=True)
     (package / "extensions").mkdir()
-    (package / "extensions" / "teamwork-lanes.ts").write_text("x\n", encoding="utf-8")
+    (package / "extensions" / "teamwork-status.ts").write_text("x\n", encoding="utf-8")
 
     state = lanedisplay.status(skill_dir, skills=str(skill_dir))
 
     assert not state.ok
     assert "declares that file itself" in state.detail
+
+
+def test_a_host_carrying_the_retired_renderer_is_cleaned_on_install(tmp_path: Path) -> None:
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+    settings = dest.parent.parent / "settings.json"
+    stale = dest.parent.parent / "extensions" / "teamwork-lanes.ts"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("export default function () {}\n", encoding="utf-8")
+    settings.write_text(
+        json.dumps({"extensions": ["extensions/teamwork-lanes.ts"]}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    state = lanedisplay.install(skill(tmp_path), skills=str(dest))
+
+    assert state.live, state.detail
+    assert not stale.exists(), "the host must load one renderer, not two"
+    assert json.loads(settings.read_text(encoding="utf-8"))["extensions"] == [
+        "extensions/teamwork-status.ts"
+    ]
+
+
+def test_the_tree_ships_exactly_one_teamwork_renderer() -> None:
+    root = Path(__file__).resolve().parents[2]
+    shipped = sorted(
+        path.relative_to(root).as_posix()
+        for path in root.glob("extensions/*.ts")
+        if "setWidget" in path.read_text(encoding="utf-8")
+    )
+    assert shipped == ["extensions/teamwork-status.ts"], shipped
+    assert not (root / "templates" / "pi-package" / "extensions").exists(), (
+        "the second renderer tree is gone, not merely unloaded"
+    )
