@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from teamwork import engine, lanes
+from teamwork import engine, lanes, layout
 
 ROSTER = "ceo,developer-1,developer-2,tester-1,reviewer-1,reviewer-2"
 
@@ -128,15 +128,75 @@ def test_the_packet_names_the_work_the_charter_the_budget_and_the_result_contrac
     packet = Path(lanes.packet_path(root, "Developer-1", "L-0001")).read_text(encoding="utf-8")
     assert "T-0001" in packet
     assert "Roles/Developer/Role.md" in packet
+    assert f"- `{layout.shown_path(layout.role_dir(root, 'Developer') / 'Role.md')}`" in packet
     assert "LANE-RESULT:" in packet
     assert "tw selfcheck developer T-0001" in packet
     assert "Never merge your own work" in packet
     assert "16 tool calls and 25 minutes" in packet
     assert "tw branch start --agent Developer-1 --task T-0001 --worktree" in packet
-    assert "tw load Developer-1 --task T-0001" in packet
-    assert "tw load Developer-1`" not in packet
+    assert "injected below" in packet
+    assert "Do not re-read them with `tw load`" in packet
     assert "## Memory pack for this assignment (injected)" in packet
     assert "# pack:" in packet
+
+
+def test_the_packet_injects_the_open_lessons_without_a_second_read(cli, project: Path) -> None:
+    """The correction the team already paid for reaches the lane, once.
+
+    Measured: a Reviewer packet was 7.4 kB and told the lane to run `tw load`, whose
+    output is 18 kB and repeats the pack injected in the same packet. The lessons
+    were the one part of `load` the packet did not carry, so the packet now injects
+    their rules and tells the lane not to re-read them.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a unit")
+    assert (
+        cli(
+            "--project",
+            project,
+            "lesson",
+            "add",
+            "--by",
+            "Developer-1",
+            "--mistake",
+            "submitted a stale count",
+            "--cause",
+            "pasted an old run",
+            "--rule",
+            "re-run the command at the revision you name",
+            "--evidence",
+            "pytest @abc1234 -> 3 passed",
+        )
+        == 0
+    )
+    assert (
+        cli(
+            "--project",
+            project,
+            "lane",
+            "start",
+            "--agent",
+            "developer-1",
+            "--task",
+            "T-0001",
+            "--print",
+        )
+        == 0
+    )
+    packet = Path(lanes.packet_path(root, "Developer-1", "L-0001")).read_text(encoding="utf-8")
+    assert "## Open lessons (developer) - do not repeat these" in packet
+    assert "re-run the command at the revision you name" in packet
+    assert "Do not re-read them with `tw load`" in packet
+
+
+def test_a_path_is_printed_with_forward_slashes_on_every_host() -> None:
+    """T-0120: Windows rendered `Roles\\Developer\\Role.md` into the packet.
+
+    The packet is read by an agent that types the path into a POSIX shell, so the
+    separator is normalised at the source instead of in the reader.
+    """
+    assert layout.shown_path(r"Roles\Developer\Role.md") == "Roles/Developer/Role.md"
+    assert layout.shown_path(Path("Roles") / "Developer" / "Role.md") == ("Roles/Developer/Role.md")
 
 
 def _packet_commands(packet: str) -> list:
@@ -277,14 +337,50 @@ def test_the_launcher_template_is_split_without_a_shell_and_the_packet_is_an_arg
     assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
     log = Path(runs(root)[0]["log"]).read_text(encoding="utf-8")
     assert "'one', 'Developer-1'" in log, log
-    assert "ollama-cloud" in log
+    assert "default" in log, "no model is configured, so the lease bucket is the default one"
+
+
+def test_the_pi_launcher_never_passes_a_provider_without_a_model(
+    cli, project: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    """Why: pi answers `--provider requires --model`, so a lane started with a
+    provider lease and no configured model used to die in its first second.
+
+    The provider stays a lease bucket; it reaches the command line only beside the
+    model it scopes.
+    """
+    init(cli, project)
+    monkeypatch.delenv("TEAMWORK_LANE_CMD", raising=False)
+    monkeypatch.setenv("TEAMWORK_AGENT_HOST", "pi")
+
+    bare = lanes._builtin_argv("pi", "pi", "the packet", "", "ollama-cloud", "")
+    assert bare == ["pi", "-p", "--no-session", "the packet"]
+
+    scoped = lanes._builtin_argv("pi", "pi", "the packet", "m", "ollama-cloud", "")
+    assert scoped == [
+        "pi",
+        "-p",
+        "--no-session",
+        "--provider",
+        "ollama-cloud",
+        "--model",
+        "m",
+        "the packet",
+    ]
+
+    resumed = lanes._builtin_argv("pi", "pi", "the packet", "", "", "teamwork-x")
+    assert resumed == ["pi", "-p", "--session-id", "teamwork-x", "the packet"]
+
+    assert cli("--project", project, "lane", "start", "--agent", "developer-1", "--print") == 0
+    printed = capsys.readouterr().out.split("# argv:", 1)[1]
+    assert "--provider" not in printed, printed
 
 
 def test_the_provider_cap_refuses_a_second_lane_and_leaves_it_queued(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = init(cli, project)
-    (root / engine.F_SETTINGS).write_text(json.dumps({"ollama-cloud": 1}), encoding="utf-8")
+    (root / engine.F_SETTINGS).write_text(json.dumps({"default": 1}), encoding="utf-8")
     launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
     assert cli("--project", project, "lane", "start", "--agent", "developer-1") == 0
     assert cli("--project", project, "lane", "start", "--agent", "developer-2") == 3
@@ -482,7 +578,7 @@ def test_a_lane_that_cannot_start_releases_the_claim_it_took(
 ) -> None:
     """A claim with no process behind it looks like a busy lane forever."""
     root = init(cli, project)
-    (root / engine.F_SETTINGS).write_text(json.dumps({"ollama-cloud": 1}), encoding="utf-8")
+    (root / engine.F_SETTINGS).write_text(json.dumps({"default": 1}), encoding="utf-8")
     launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
     assert cli("--project", project, "lane", "start", "--agent", "developer-1") == 0
     add_task(cli, project, "developer", "queued behind the cap")
@@ -580,6 +676,43 @@ def test_the_packet_budget_follows_the_unit_profile(cli, project: Path) -> None:
     assert "at most 24 tool calls and 40 minutes" in deep_packet
 
 
+def test_the_lane_tool_budget_setting_overrides_the_profile_table(
+    cli, project: Path, capsys
+) -> None:
+    """The documented ``LaneToolBudget`` key must reach the packet (F-2).
+
+    The profile table (10/16/24) is the default; the setting is the operator
+    override every other lane budget already has. Before the fix the key was read
+    by a function nothing called, so a configured budget changed nothing.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "prose", "--review-profile", "fast")
+    (root / engine.F_SETTINGS).write_text(json.dumps({"LaneToolBudget": 31}), encoding="utf-8")
+    assert (
+        cli(
+            "--project",
+            project,
+            "lane",
+            "start",
+            "--agent",
+            "developer-1",
+            "--task",
+            "T-0001",
+            "--print",
+        )
+        == 0
+    )
+    packet = Path(lanes.packet_path(root, "Developer-1", "L-0001")).read_text(encoding="utf-8")
+    assert "at most 31 tool calls" in packet, packet
+    assert lanes.measure(root).tool_budget_override == 31
+
+    capsys.readouterr()
+    assert cli("--project", project, "swarm", "run", "--dry-run") == 0
+    policy = capsys.readouterr().out
+    assert "budget per unit: 31 call(s)" in policy, policy
+    assert "LaneToolBudget overrides the profile table" in policy, policy
+
+
 def test_dry_run_reports_the_complexity_policy(cli, project: Path, capsys) -> None:
     init(cli, project)
     add_task(cli, project, "developer", "one code task")
@@ -641,9 +774,47 @@ def test_an_exhausted_assignment_is_not_adopted_again(
     root = init(cli, project)
     add_task(cli, project, "developer", "stuck")
     launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
-    assert cli("--project", project, "swarm", "run", "--minutes", "2") == 0
+    assert cli("--project", project, "swarm", "run", "--wait", "--minutes", "2") == 0
     attempts = sorted(run["attempt"] for run in lanes.load_runs(root))
     assert attempts == [1, 2], attempts
+
+
+def test_swarm_dispatches_a_wave_and_returns_without_waiting(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default is streaming: start the lanes, return, let them run independently.
+
+    A blocking supervisor serialised the whole board behind one process. The async
+    pass starts every lane the work justifies and returns at once, so the next wake
+    (or the CEO) reconciles; nothing waits on a specific lane.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a long unit")
+    add_task(cli, project, "developer", "a second unit")
+    launcher(monkeypatch, fake_lane(tmp_path, body="time.sleep(30)"), "{packet}")
+    began = time.monotonic()
+    assert cli("--project", project, "swarm", "run") == 0
+    elapsed = time.monotonic() - began
+    assert elapsed < 15, f"swarm run blocked for {elapsed:.1f}s instead of returning"
+    live = [run for run in lanes.load_runs(root) if run["state"] in lanes.LIVE]
+    assert len(live) == 2, [run["state"] for run in lanes.load_runs(root)]
+    for run in live:
+        assert cli("--project", project, "lane", "stop", run["id"], "--reason", "test cleanup") == 0
+
+
+def test_pulse_spawn_is_async_too(cli, project: Path, tmp_path: Path, monkeypatch) -> None:
+    """One CEO wake dispatches and returns; it never waits for the lanes it started."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a long unit")
+    launcher(monkeypatch, fake_lane(tmp_path, body="time.sleep(30)"), "{packet}")
+    began = time.monotonic()
+    assert cli("--project", project, "pulse", "--commit", "--spawn") == 0
+    elapsed = time.monotonic() - began
+    assert elapsed < 15, f"pulse --spawn blocked for {elapsed:.1f}s"
+    live = [run for run in lanes.load_runs(root) if run["state"] in lanes.LIVE]
+    assert live, [run["state"] for run in lanes.load_runs(root)]
+    for run in live:
+        assert cli("--project", project, "lane", "stop", run["id"], "--reason", "test cleanup") == 0
 
 
 def test_group_launches_keeps_one_lane_per_instance_and_prefers_the_retry() -> None:
@@ -710,3 +881,124 @@ def test_the_lane_table_is_available_as_json_for_a_host_ui(
     assert row["agent"] == "Developer-1"
     assert row["task"] == "T-0001"
     assert row["minutes"] == 1
+
+
+def test_reap_recycles_the_finished_instances_seat(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A finished job retires its instance and lane; the evidence follows the move.
+
+    The slot is released at exit, but the seat (the instance directory) stayed until
+    the next prune. `lane reap` now recycles it: move-only to `Runtime/Retired/`,
+    and the lane record's packet/log are repointed so `lane logs` still works.
+    """
+    root = init(cli, project)
+    add_task(cli, project, "developer", "one unit")
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-2", "--task", "T-0001")
+        == 0
+    )
+    assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
+    assert engine.agent_dir(root, "developer-2").is_dir()
+
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["status"] = "done"
+    tasks[0]["self_check"] = "passed"
+    tasks[0]["review_status"] = "passed"
+    engine.write_tasks(path, tasks, "developer")
+
+    assert cli("--project", project, "lane", "reap") == 0
+
+    assert not engine.agent_dir(root, "developer-2").is_dir()
+    retired = root / "Runtime" / "Retired" / "Developer-2"
+    assert (retired / "Runs" / "L-0001.log").is_file()
+    run = lanes.load_runs(root)[0]
+    assert str(retired) in run["log"], "the record follows the instance into Retired"
+    assert Path(run["log"]).is_file(), "lane logs must still resolve after the move"
+
+
+def test_reap_keeps_an_instance_that_still_holds_work(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "developer", "one unit")
+    add_task(cli, project, "developer", "the next unit")
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
+    assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
+    assert cli("--project", project, "task", "next", "developer-1") == 0
+
+    assert cli("--project", project, "lane", "reap") == 0
+    assert engine.agent_dir(root, "developer-1").is_dir(), "a claimed task is not finished"
+
+    assert cli("--project", project, "lane", "reap", "--keep") == 0
+    assert engine.agent_dir(root, "developer-1").is_dir()
+
+
+def test_reap_never_recycles_the_ceo_seat(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The CEO is the only voice to the user: a finished lane never folds it (F1)."""
+    root = init(cli, project)
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert cli("--project", project, "lane", "start", "--agent", "ceo", "--prompt", "work") == 0
+    assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
+
+    assert cli("--project", project, "lane", "reap") == 0
+
+    assert engine.agent_dir(root, "ceo").is_dir(), "the CEO seat is never recycled"
+
+
+def test_reap_keeps_the_last_instance_of_a_gate_role(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One Reviewer is the gate: its own finished lane must not leave the role empty (F2)."""
+    root = init(cli, project)
+    launcher(monkeypatch, fake_lane(tmp_path), "{packet}")
+    assert cli("--project", project, "lane", "start", "--agent", "reviewer-1", "--prompt", "x") == 0
+    assert cli("--project", project, "lane", "wait", "L-0001", "--timeout", "30") == 0
+
+    assert cli("--project", project, "lane", "reap") == 0
+
+    assert engine.agent_dir(root, "reviewer-1").is_dir(), "the last gate seat stays staffed"
+
+
+def test_a_retried_unit_carries_the_failing_check_and_its_scope(cli, project: Path) -> None:
+    """A re-dispatched author used to get the task and nothing else.
+
+    The review's findings lived on the record the reviewer wrote, and reached the
+    reviewer's next packet; the lane that had to *fix* it never saw them. It now
+    opens with the finding and the scope, because an unscoped repair fixes the bug
+    plus the two things the agent noticed nearby.
+    """
+    root = init(cli, project)
+    assert cli("--project", project, "task", "add", "ceo", "a task", "--priority", "P1") == 0
+    path = layout.task_file(root, "ceo")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["findings"] = (
+        "detects: empty file crashes the parser | pytest -q @a1b2c3d -> 1 failed "
+        "| scope: src/parse.py only"
+    )
+    engine.write_tasks(path, tasks, "ceo")
+    packet = lanes.build_packet(
+        root,
+        [lanes.Assignment("CEO", "ceo", tasks[0]["id"], tasks[0]["title"], attempt=2)],
+        "L-0001",
+        2,
+        2,
+        50,
+        40,
+        "pi",
+        "",
+        "default",
+    )
+    assert "## Why this came back: the unit, not the batch" in packet
+    assert "1 failed" in packet
+    assert "- fix src/parse.py only and nothing else." in packet
+    assert lanes.scope_of(tasks[0]["findings"]) == "src/parse.py only"
+    assert lanes.scope_of("detects: x | no scope here") == ""

@@ -39,6 +39,14 @@ assert SKILL_FILES == _bundle.BUNDLE_FILES and SKILL_TREES == _bundle.BUNDLE_TRE
 )
 TARBALL_FILES = ("README.md", "LICENSE", "NOTICE", "CHANGELOG.md", "SECURITY.md")
 
+HOST_PACKAGES = (
+    "@earendil-works/pi-ai",
+    "@earendil-works/pi-agent-core",
+    "@earendil-works/pi-coding-agent",
+    "@earendil-works/pi-tui",
+    "typebox",
+)
+
 
 def version() -> str:
     """The single source is ``src/teamwork/version.py``; pyproject reads it too."""
@@ -90,20 +98,8 @@ def package_json(ver: str) -> dict:
             "extensions": ["./extensions"],
             "image": PREVIEW,
         },
-        "peerDependencies": {
-            "@earendil-works/pi-ai": "*",
-            "@earendil-works/pi-agent-core": "*",
-            "@earendil-works/pi-coding-agent": "*",
-            "@earendil-works/pi-tui": "*",
-            "typebox": "*",
-        },
-        "peerDependenciesMeta": {
-            "@earendil-works/pi-ai": {"optional": True},
-            "@earendil-works/pi-agent-core": {"optional": True},
-            "@earendil-works/pi-coding-agent": {"optional": True},
-            "@earendil-works/pi-tui": {"optional": True},
-            "typebox": {"optional": True},
-        },
+        "peerDependencies": {name: "*" for name in HOST_PACKAGES},
+        "peerDependenciesMeta": {name: {"optional": True} for name in HOST_PACKAGES},
         "engines": {"node": ">=20"},
     }
 
@@ -124,7 +120,12 @@ def copy_skill(dest: Path) -> None:
         skill.parent / "teamwork-pi",
     )
     shutil.copytree(ROOT / "templates" / "pi-package" / "prompts", dest / "prompts")
-    shutil.copytree(ROOT / "templates" / "pi-package" / "extensions", dest / "extensions")
+    shutil.copytree(ROOT / "extensions", dest / "extensions")
+    shutil.copytree(
+        ROOT / "templates" / "pi-package" / "extensions",
+        dest / "extensions",
+        dirs_exist_ok=True,
+    )
 
 
 def ship_readme(dest: Path) -> None:

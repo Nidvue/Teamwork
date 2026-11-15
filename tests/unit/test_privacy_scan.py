@@ -338,6 +338,48 @@ def test_a_secret_next_to_a_lane_id_is_still_reported():
     assert "high-entropy-secret" in rules_hit(f"see docs/M13-notes.md and the key {_RANDOM_32}\n")
 
 
+_SHA_40 = "04c8905e65d52988f32b7cb10bd6250e239fb307"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"P-0153 merged at {_SHA_40}/T-0053\n",
+        f"see {_SHA_40[:7]}/T-0053\n",
+        f"rev={_SHA_40}/T-0053\n",
+        f"see docs/Team/Archive.md#L1 and {_SHA_40}/T-0053\n",
+    ],
+)
+def test_a_revision_path_is_not_a_high_entropy_secret(line):
+    """The measured false positive after the history rewrite.
+
+    ``docs/Team/Archive.md:1063`` names the commit behind a task as
+    ``<sha>/T-0053``. The high-entropy rule matches the 40 hex characters plus
+    ``/T`` (``-`` is outside its charset), so a revision pointer read as a
+    secret. The value is not a secret and gets no allowlist entry.
+    """
+    assert "high-entropy-secret" not in rules_hit(line)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        _RANDOM_32 + "/T-0053",
+        _SHA_40 + "/" + "Q7r8S9t0Ab1c",
+        _SHA_40 + "0" + "/T-0053",
+        _SHA_40 + "/T-0053/extra",
+    ],
+)
+def test_a_credential_shaped_like_a_revision_path_is_still_reported(value):
+    """The other side of the same fix: only the narrow revision shape is exempt.
+
+    A mixed-case base64 head is not a revision, a tail of 12+ characters or an
+    empty tail is not the pointer this repository writes, and a third segment
+    puts the token outside the shape. All of them stay reported.
+    """
+    assert "high-entropy-secret" in rules_hit(f"the value {value} is here\n")
+
+
 @pytest.mark.parametrize(
     "line",
     [
@@ -781,7 +823,7 @@ def test_bom_less_utf16_text_is_scanned():
 def test_allowlist_exempts_only_the_recorded_package_path():
     """The shipped exemption is one exact host-state prefix, not a rule switch."""
     allow = [re.compile(r"^\.pi/agent/npm$")]
-    quoted = "verified against ~/.pi/agent/npm/node_modules/pi-subagents"
+    quoted = "verified against ~/.pi/agent/npm/node_modules/example-package"
     assert [f for f in ps.scan_lines(quoted, "x.md", "unit-test", ps.RULES, allow)] == []
 
     sibling = "token stored in ~/.pi/agent/auth.json"
@@ -830,11 +872,13 @@ def test_shipped_allowlist_entries_are_narrow_and_justified():
         r"^changeme-placeholder$",
         r"^C:/Users/x$",
         r"^C:/Users/x\.py$",
+        r"^ping\.zhao@nidvue\.com$",
     ]
     for entry in entries:
         assert _is_one_escaped_literal(entry), f"{entry!r} is not one escaped literal"
     assert any("T-0001" in ln for ln in lines if ln.startswith("#"))
     assert any("T-0034" in ln or "archived" in ln for ln in lines if ln.startswith("#"))
+    assert any("D-20261110-CEO-8" in ln for ln in lines if ln.startswith("#"))
 
 
 def test_the_narrowness_check_rejects_loose_entries():
@@ -1516,3 +1560,207 @@ _PRE_EXISTING_SHAPES = (
 def test_a_shape_the_gate_already_caught_is_still_caught(rule, line):
     """The four new holes must be closed without opening one in the old coverage."""
     assert rule in rules_hit(line + "\n")
+
+
+def store_tree(root: Path, team: str = "Teamwork", role: str = "Developer") -> Path:
+    """A minimal team workspace: the layout ``--stores`` discovers by."""
+    workspace = root / ".pi" / "Teamwork" / "Teams" / team
+    (workspace / "Global").mkdir(parents=True)
+    (workspace / "Roles" / role).mkdir(parents=True)
+    return workspace
+
+
+def test_store_paths_cover_every_named_store(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    written = {
+        "Knowledge.md",
+        "Global/GlobalMemory.md",
+        "Roles/Developer/ShortTermMemory.md",
+        "Roles/Developer/LongTermMemory.md",
+        "Roles/Developer/ArchivedMemory.md",
+        "Roles/Developer/Lessons.md",
+    }
+    for rel in written:
+        (workspace / rel).write_text("# store\n")
+    assert set(ps.store_paths(tmp_path)) == {
+        f".pi/Teamwork/Teams/Teamwork/{rel}" for rel in written
+    }
+
+
+def test_a_workspace_with_no_team_directory_yields_no_store(tmp_path: Path) -> None:
+    assert ps.store_paths(tmp_path) == []
+    assert ps.scan_stores(tmp_path, allow=[]) == []
+
+
+def test_a_secret_in_a_memory_store_is_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    (workspace / "Global" / "GlobalMemory.md").write_text(
+        "the deploy key is ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz" + "\n"
+    )
+    findings = ps.scan_stores(tmp_path, allow=[])
+    assert [f["rule"] for f in findings] == ["api-token"]
+    assert findings[0]["source"] == "stores"
+    assert findings[0]["location"].endswith("Global/GlobalMemory.md:1")
+
+
+def test_a_personal_address_in_a_role_store_is_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    (workspace / "Roles" / "Developer" / "Lessons.md").write_text(
+        "mail " + "someone@" + _REAL_MAIL_DOMAIN + "\n"
+    )
+    assert {f["rule"] for f in ps.scan_stores(tmp_path, allow=[])} >= {"personal-email"}
+
+
+def test_a_clean_store_under_the_workspace_is_not_reported_for_its_location(
+    tmp_path: Path,
+) -> None:
+    workspace = store_tree(tmp_path)
+    (workspace / "Knowledge.md").write_text(
+        "- [K-0001] evidence | scripts/privacy_scan.py --stores -> 0 findings\n"
+    )
+    assert ps.scan_stores(tmp_path, allow=[]) == []
+
+
+def test_the_store_scan_counts_the_files_it_read(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    (workspace / "Knowledge.md").write_text("# knowledge\n")
+    (workspace / "Roles" / "Developer" / "Lessons.md").write_text("# lessons\n")
+    stats = {"store_files": 0}
+    ps.scan_stores(tmp_path, allow=[], stats=stats)
+    assert stats["store_files"] == 2
+
+
+def test_a_host_path_cited_in_a_store_record_is_not_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    cited = ps._host_state(".pi/", "agent/", "npm/") + "package.json"
+    (workspace / "Knowledge.md").write_text(f"- statement: the extension was removed ({cited})\n")
+    assert ps.scan_stores(tmp_path, allow=[]) == []
+
+
+def test_the_same_host_path_outside_a_record_field_is_still_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    cited = ps._host_state(".pi/", "agent/", "npm/") + "package.json"
+    (workspace / "Knowledge.md").write_text(f"see {cited}\n")
+    assert {f["rule"] for f in ps.scan_stores(tmp_path, allow=[])} >= {"agent-config"}
+
+
+def test_a_secret_on_a_store_record_field_is_still_reported(tmp_path: Path) -> None:
+    workspace = store_tree(tmp_path)
+    token = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
+    (workspace / "Knowledge.md").write_text(f"- evidence: export TOKEN={token}\n")
+    assert {f["rule"] for f in ps.scan_stores(tmp_path, allow=[])} >= {"api-token"}
+
+
+_CACHED_LINES = [
+    "plain line with nothing to report",
+    'TOKEN = "' + "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz" + '"',
+    "author: Ping <" + "ping@" + _REAL_MAIL_DOMAIN + ">",
+    "# TODO carry the " + "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz",
+    "path /home/" + "someone/notes.txt",
+    "",
+]
+
+
+def _scan_cached(text: str, path: str = "docs/Team/Archive.md", allow=()):
+    return [
+        (f["rule"], f["path"], f["line"], f.raw)
+        for f in ps.scan_lines(text, path, "history:blob", ps.RULES, list(allow))
+    ]
+
+
+def test_the_line_memo_does_not_change_a_single_finding():
+    """Equivalence: the memoised scan must equal the uncached one, line for line."""
+    text = "\n".join(_CACHED_LINES) + "\n"
+    limit = ps._LINE_CACHE_LIMIT
+    try:
+        ps.reset_line_cache()
+        ps._LINE_CACHE_LIMIT = 0
+        uncached = [(rule, path, raw) for rule, path, _line, raw in _scan_cached(text)]
+        ps._LINE_CACHE_LIMIT = limit
+        ps.reset_line_cache()
+        cached = [(rule, path, raw) for rule, path, _line, raw in _scan_cached(text * 3)]
+    finally:
+        ps._LINE_CACHE_LIMIT = limit
+        ps.reset_line_cache()
+    assert cached, "the corpus must report something, or this proves nothing"
+    assert cached == uncached * 3
+
+
+def test_a_repeated_line_is_derived_once(monkeypatch):
+    """The archive is re-rendered per merge: a repeated line is scanned once."""
+    calls = []
+    real = ps._line_verdicts
+
+    def counted(line, flags, compiled, allow, private_re):
+        calls.append(line)
+        return real(line, flags, compiled, allow, private_re)
+
+    monkeypatch.setattr(ps, "_line_verdicts", counted)
+    ps.reset_line_cache()
+    for _ in range(20):
+        _scan_cached("\n".join(_CACHED_LINES) + "\n")
+    assert len(calls) == len(_CACHED_LINES), "one derivation per distinct line, not per occurrence"
+    ps.reset_line_cache()
+
+
+def test_the_memo_is_per_allowlist():
+    """An allowlisted hit must stay exempt when the same line recurs elsewhere."""
+    line = _CACHED_LINES[1] + "\n"
+    allow = [re.compile(re.escape("ghp_"))]
+    ps.reset_line_cache()
+    assert _scan_cached(line), "without the allowlist the planted token is reported"
+    assert _scan_cached(line, allow=allow) == [], "with it, the same line is exempt"
+    ps.reset_line_cache()
+
+
+def test_the_memo_is_per_private_domain_set(monkeypatch):
+    """A domain added to the environment must not be masked by a cached verdict."""
+    domain = "freshly" + "-private.example"
+    line = f"mail: someone@{domain}\n"
+    monkeypatch.delenv("TEAMWORK_PRIVATE_DOMAINS", raising=False)
+    ps.reset_line_cache()
+    assert "private-domain" not in {rule for rule, *_ in _scan_cached(line)}
+    monkeypatch.setenv("TEAMWORK_PRIVATE_DOMAINS", domain)
+    assert "private-domain" in {rule for rule, *_ in _scan_cached(line)}
+    ps.reset_line_cache()
+
+
+def test_the_memo_stays_bounded():
+    """A history of unique lines must not grow the memo without limit."""
+    limit = ps._LINE_CACHE_LIMIT
+    try:
+        ps.reset_line_cache()
+        ps._LINE_CACHE_LIMIT = 5
+        _scan_cached("".join(f"unique line {n}\n" for n in range(50)))
+        assert len(ps._LINE_CACHE) == 5
+    finally:
+        ps._LINE_CACHE_LIMIT = limit
+        ps.reset_line_cache()
+
+
+def test_a_credential_in_an_old_archive_render_survives_the_memo(tmp_path: Path):
+    """The memo must not hide a hit that only one historical render carries."""
+    repo = tmp_path / "archive-history"
+    repo.mkdir()
+    _git(repo.parent, "init", "-q", "-b", "main", str(repo))
+    ident = {
+        "GIT_AUTHOR_NAME": "Developer",
+        "GIT_AUTHOR_EMAIL": "developer@agents.nidvue.com",
+        "GIT_COMMITTER_NAME": "Developer",
+        "GIT_COMMITTER_EMAIL": "developer@agents.nidvue.com",
+    }
+    planted = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
+    body = ["# Archive", "", "| id | result |", "|---|---|"]
+    for revision in range(6):
+        if revision == 1:
+            body.append(f"| leak | `TOKEN={planted}` |")
+        else:
+            body.append(f"| entry-{revision} | ok |")
+        (repo / "Archive.md").write_text("\n".join(body) + "\n", encoding="utf-8")
+        _git(repo, "add", ".", env=ident)
+        _git(repo, "commit", "-qm", f"render {revision}", env=ident)
+
+    findings = [f for f in ps.scan_history(repo, allow=[]) if f["rule"] == "api-token"]
+
+    assert findings, "a credential in one historical render must still be reported"
+    assert planted in {f.raw for f in findings}

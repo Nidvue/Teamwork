@@ -119,19 +119,20 @@ measure is a failure, never a pass. One line per check, the exact command that
 clears each finding, then the summary and a digest:
 
 ```text
-PREFLIGHT pass @1a2b3c4d5e6f :: 7 checks, 0 failed
+PREFLIGHT pass @1a2b3c4d5e6f :: 8 checks, 0 failed
 PREFLIGHT digest: PF-0f1e2d3c4b5a @1a2b3c4d5e6f
 ```
 
 | Check | Fails when |
 |---|---|
 | `branch` | a branch the record names is not in this repository, the base is not a commit here, the base has moved past the branch (behind), or the branch carries no commit over the base. Two **warnings**, not failures: more than one commit (squash before review) and a task with no branch at all - a verdict, a records pass or a research note legitimately carries no code, and the other revision checks then report `not measured`. |
-| `identity` | `identity --audit --range <base>..<branch>` reports a commit that is not authored and committed by a role mailbox, or that carries no `Acting role:` trailer. |
-| `evidence` | the task's `evidence`, its `self_note`, or the note the running `selfcheck` is about to store (its `--test` line included) names an `@<sha>` that is not a commit in this repository. |
+| `identity` | `identity --audit --range <base>..<branch>` reports a commit that is not authored and committed by an accepted identity, or one whose `Acting role:` or `Role:` line names a role other than its author. |
+| `evidence` | the task's `evidence`, its `self_note`, or the note the running `selfcheck` is about to store (its `--test` line included) names an `@<sha>` that is not a commit in this repository. The task evidence and the newest note must also name the **branch head**: a record that measured an older revision is refused, because the tree moved after the run and the counts no longer reproduce (30 of 158 measured review fails). A record naming both an old and the head (a repro's before/after) passes. |
 | `mergeable` | `git merge-tree --write-tree <base> <branch>` is non-zero, naming the conflicting paths; an unanswerable probe (git < 2.38) is a failure, not a pass. The same probe refuses a `review --result pass` and a `pr merge`, so a verdict can never precede an impossible merge. |
 | `board` | the branch itself changes `docs/Team/Board.md` and that file disagrees with the queues. A branch that does not carry the board is never charged: the merging Reviewer renders it. |
 | `features` | the feature records at the tree this branch would **land** - the base's records with the branch's rows folded in - break the independence rule (`feature check`). A lane's own revision can be green while the merged tree is red, because the record it collides with may live on another branch; the same predicate refuses a `review --result pass` and a `pr merge`. A tree with no records has nothing to judge and passes. |
 | `slice` | the diff is past the review profile's slice budget: 6 files / 300 changed lines (`fast`), 12/600 (`standard`), 24/1,200 (`deep`). A **warning**, not a failure: split the task or record in the self-check why it is one coherent contract. |
+| `undo` | the diff is not one revert away. Omitted for the ordinary case; `evidence` (the constitution, the frozen contract, `config.py`, `records.py`, the build and gate config) is a **warning** that asks for strong evidence; `closed` (a migration or schema path, a payment, a secret/auth/cert path, a workflow that fires on merge, a release exception, or **any deleted file**) **fails** until the CEO records who authorized it: `task set <role> <T-id> --by ceo --authorize '<who said yes + evidence>'`. A closed lane is the one no score opens - a threshold is a number someone can lower on a busy Friday. |
 | `gate` | `PreflightCommand` (below) was run with `--run` and exited non-zero. |
 
 `--run` executes the project's own gate command from the team `Settings.json`,
@@ -160,6 +161,20 @@ requires a `--test` line; `--note` records what was re-read, and
 `--baseline/--artifact/--replay` attach the rest of the evidence packet. A
 `--bug` task is refused until a `tests repro` record exists for it.
 
+**The `--test` line is graded, and `noise` is refused.** The grade is computed
+from the text and stored on the task as `self_grade`:
+
+| Grade | Looks like | Proves |
+|---|---|---|
+| `strong` | `-> 12 passed`, `exit 0`, `# issues: 0`, a 16-hex digest | a program produced the result |
+| `medium` | `docs/Team/Board.md:42`, `TS-0006 @a1b2c3d`, a URL | a reader can follow it |
+| `weak` | `pytest -q tests/unit/test_x.py` | a command with no observed result |
+| `noise` | `looks good`, `verified`, `no errors were thrown`, `see the run` | nothing - a failing tree writes the same line |
+
+`noise` and an empty line are refused on a pass (the same rule applies to a
+Reviewer's `--evidence`, stored as `review_grade`): an empty error log means
+nothing was reported, not that nothing went wrong.
+
 A passing self-check also runs `preflight` at the branch head and is refused
 while it is red, so the Reviewer never spends a lease on a `git rebase` or an
 unreachable evidence revision. The note being recorded is part of that
@@ -170,7 +185,7 @@ passed'` is refused instead of certifying a revision the repository does not hav
 `forced` field, naming the check that was overridden.
 The evidence line carries the digest the preflight measured, so the Reviewer can
 cite the mechanical half instead of repeating it:
-`preflight: PF-0f1e2d3c4b5a @1a2b3c4d5e6f (6 checks, 0 failed)`. A `--result fail`
+`preflight: PF-0f1e2d3c4b5a @1a2b3c4d5e6f (8 checks, 0 failed)`. A `--result fail`
 self-check is never blocked: an author reporting their own failure is the point.
 
 ### `archive`
@@ -197,6 +212,78 @@ entry is written where the task's base branch is checked out, so the base
 carries it; a base branch that has no entry yet gets one from `pr merge` before
 the merge commit is made.
 
+
+## Decisions, disputes and red lines
+
+### `decision`
+
+```text
+teamwork decision add --by BY --decision DECISION
+    [--kind {technical,governance,redline,tribunal,scope,cost,process}] [--title TITLE]
+    [--why WHY] [--evidence EVIDENCE] [--context CONTEXT] [--options OPTIONS]
+    [--falsify FALSIFY] [--consequences CONSEQUENCES] [--task TASK] [--rev REV]
+    [--status {proposed,accepted,superseded,rejected}] [--force REASON]
+teamwork decision list [--kind KIND]
+```
+
+A decision is a record with an evidence chain: the claim, the data, the reasoning,
+the rejected options, the assumption being bet on and the test that would falsify
+it. `add` appends it to `docs/Team/Decisions.md` under a `D-` id; `list` reads it
+by id instead of loading the whole file. `--evidence` is mandatory - a decision
+without a command, path or dated source is opinion, and the record says so.
+
+### `dispute`
+
+```text
+teamwork dispute open --by BY --against AGAINST --topic TOPIC
+    [--evidence EVIDENCE] [--position POSITION] [--task TASK]
+teamwork dispute round ID --by BY --message MESSAGE
+teamwork dispute escalate ID --by BY
+teamwork dispute sign ID --by BY
+teamwork dispute resolve ID --by BY --decision DECISION [--force REASON]
+teamwork dispute list [--open]
+```
+
+A design disagreement goes on the record instead of into a silent workaround.
+`open` states the position and the evidence; `round` adds a rebuttal (capped at
+three - a round without new evidence is noise); `escalate` sends an unresolved one
+to the tribunal (CEO + CTO + CFO); each member `sign`s; `resolve` records the
+binding ruling. A party never rules its own dispute, and a ruling is implemented,
+not re-argued.
+
+### `redline`
+
+```text
+teamwork redline record --by BY --action ACTION --why WHY [--alternative ALT] [--authorized WHO]
+teamwork redline close ID --by BY [--reason REASON] [--force REASON]
+```
+
+Record a refusal: an action that is destructive, secret-bearing, external or
+otherwise on the red-line list was requested and not executed. `record` stores the
+requested action, why it is forbidden, the safe alternative and (once granted) who
+authorized it; `close` closes it when the matter is settled. `audit` reports an
+unresolved red line, so a refusal cannot be quietly forgotten.
+
+### `skill`
+
+```text
+teamwork skill create --name tw-NAME --for DESCRIPTION --by BY
+    [--role ROLE] [--kind {workflow,mistake}] [--from-lesson L-ID]
+    [--body BODY] [--body-file PATH] [--force] [--allow-main]
+teamwork skill share NAME --by BY [--to TO]
+teamwork skill candidates [--min-tasks N]
+teamwork skill list
+teamwork skill rm NAME --by BY
+```
+
+A repeated flow becomes a team skill at `.agents/skills/tw-<name>/SKILL.md` -
+project output, so it goes through a branch, a PR and review like any other
+change. `create` refuses any name without the `tw-` prefix; `--kind mistake` with
+`--from-lesson L-nnnn` marks the lesson fixed and links both records; `share`
+notifies same-role peers; `candidates` finds flows worth extracting (a role/area
+with repeated tasks, plus its failed reviews) and prints paste-ready `lesson add`
+and `skill create` lines; `list` and `rm` maintain the register. A skill never
+replaces a gate or a red line.
 
 ## The rest of the reference
 

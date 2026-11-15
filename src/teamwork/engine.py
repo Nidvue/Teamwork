@@ -24,7 +24,7 @@ Usage
                                   [--importance 0-5] [--tags a,b] [--pin]
     teamwork.py global TEXT [--by BY] [--src SRC] [--rev REV]
                             [--key K] [--importance N] [--tags a,b] [--pin]
-    teamwork.py recall QUERY [--agent A] [--all] [--global] [--layer both|short|long]
+    teamwork.py recall QUERY [--agent A] [--all] [--global] [--layer both|short|long|archive]
     teamwork.py touch AGENT ID|KEY [--layer short|long]
     teamwork.py forget AGENT ID|KEY [--layer short|long]
     teamwork.py consolidate [--agent A] [--all] [--dry-run]
@@ -39,6 +39,7 @@ import contextlib
 import datetime
 import importlib.util
 import io
+import json
 import os
 import re
 import shlex
@@ -63,7 +64,7 @@ except ImportError:  # pragma: no cover
     from version import __version__ as VERSION  # type: ignore
 
 
-from . import memorypack
+from . import grades, memorypack, memverify, transcripts, wiki
 from .attention import (
     ATTENTION_KINDS,
     STAGE_ORDER,
@@ -104,6 +105,7 @@ from .config import (
     DIR_TEAM_MAP_TPL,
     DIR_WORKTREES,
     DOCS,
+    DREAM_BUDGET_SECONDS,
     F_AUDITREPORT,
     F_CRITERIA,
     F_DISPUTES,
@@ -154,9 +156,10 @@ from .config import (
     MEMORY_ARBITER_ROLE,
     MEMORY_LEASE_MINUTES,
     MEMORY_STALL_MINUTES,
-    MIN_USES,
+    OPERATOR_IDENTITY,
     PRIORITY_ORDER,
     PROMOTE_MIN_IMPORTANCE,
+    PROMOTE_USES,
     REVIEW_FAIL_LIMIT,
     REVIEW_LEASE_MINUTES,
     REVIEW_STATUSES,
@@ -176,6 +179,7 @@ from .config import (
     SKILL_DIR,
     SKILLS_DIR,
     SLOT_TTL_MINUTES,
+    STALE_AFTER_DAYS,
     STALE_DAYS,
     STATUSES,
     TEAM_ROOT_DIR,
@@ -195,6 +199,7 @@ from .gitutil import (
     branch_worktree,
     current_branch,
     ensure_lfs,
+    ensure_longpaths,
     ignored_files,
     is_binary_content,
     is_git_repo,
@@ -267,10 +272,14 @@ from .names import (
     _norm_key,
     body_text,
     clip,
+    commit_identity,
+    declared_identity,
     git_identity_args,
+    git_identity_env,
     identity_string,
     one_line,
     pascal,
+    preset_identity,
     resolve_role,
     role_identity,
     safe_component,
@@ -297,6 +306,8 @@ from .records import (
     SKILLS_HEADER,
     TASK_HEADER,
     TASK_RE,
+    area_is_layer,
+    area_looks_like_path,
     assign_ids,
     candidate_problems,
     check_records,
@@ -469,7 +480,7 @@ __all__ = [
     "LONG_CAP",
     "ARCHIVE_CAP",
     "STALE_DAYS",
-    "MIN_USES",
+    "PROMOTE_USES",
     "PROMOTE_MIN_IMPORTANCE",
     "DOCS",
     "CODE_DIRS",
@@ -485,6 +496,7 @@ __all__ = [
     "REVIEW_STATUSES",
     "PRIORITY_ORDER",
     "STATUSES",
+    "OPERATOR_IDENTITY",
     "ROLE_DISPLAY",
     "ACRONYMS",
     "ROLE_ALIASES",
@@ -500,6 +512,10 @@ __all__ = [
     "role_identity",
     "identity_string",
     "git_identity_args",
+    "git_identity_env",
+    "commit_identity",
+    "declared_identity",
+    "preset_identity",
     "project_path",
     "project_of",
     "docs_dir",
@@ -545,6 +561,7 @@ __all__ = [
     "branch_merged",
     "branch_worktree",
     "ensure_lfs",
+    "ensure_longpaths",
     "lfs_text_mismatch",
     "lfs_tracked",
     "branch_name",
@@ -576,6 +593,8 @@ __all__ = [
     "write_criteria",
     "find_criterion",
     "new_test_record",
+    "area_is_layer",
+    "area_looks_like_path",
     "parse_tests",
     "render_tests",
     "write_tests",
@@ -658,6 +677,47 @@ COMMIT_TYPES = (
     "chore",
     "revert",
 )
+
+
+LESSON_LADDER = (
+    "closing a lesson names the rung that stops it recurring, cheapest first:\n"
+    "  1. --no-check '<why the class is gone by design>'  the code path no longer exists\n"
+    "  2. --check '<command>'                             a deterministic check now catches it\n"
+    "  3. --skill tw-<name>                               a recorded flow fixes it, which never\n"
+    "                                                     runs by itself\n"
+    "A lesson closed on prose alone is one the team pays for twice: rung 2 is a command,\n"
+    "run here and recorded with its exit code."
+)
+
+LESSON_CHECK_TIMEOUT_SECONDS = 300
+
+
+def run_lesson_check(command: str, tree: Path) -> subprocess.CompletedProcess:
+    """Run the check a lesson names, in the checkout the invoker is in.
+
+    The command line is read the way a `PreflightCommand` is read (`_gate_argv`):
+    one program keeps the no-shell path, a compound line goes to the host shell.
+    """
+    try:
+        argv = _gate_argv(command)
+    except ValueError as exc:
+        die(f"--check is not quotable: {exc}", 2)
+    try:
+        return subprocess.run(
+            argv,
+            cwd=str(tree),
+            capture_output=True,
+            text=True,
+            timeout=LESSON_CHECK_TIMEOUT_SECONDS,
+            shell=isinstance(argv, str),
+        )
+    except subprocess.TimeoutExpired:
+        die(
+            f"the --check command did not finish in {LESSON_CHECK_TIMEOUT_SECONDS}s: {command}",
+            2,
+        )
+    except OSError as exc:
+        die(f"the --check command could not start in {tree}: {exc}", 2)
 
 
 def require_reason(force: str, what: str) -> str:
@@ -786,6 +846,51 @@ def _find_task_anywhere(root: Path, handle: str, role_hint: str = ""):
     return None, None, None, None
 
 
+def set_task_status(
+    root: Path,
+    handle: str,
+    status: str,
+    *,
+    note: str = "",
+    by: str = "",
+    paused_by: str = "",
+) -> dict | None:
+    """Set one task's status on whichever queue holds it; returns the record.
+
+    Used by preemption (``paused``) and resume, which are supervisor actions on a
+    task whose lane is gone: the role queue is the single writer, under its lock.
+    ``paused_by`` is the message id that displaced the task, kept on the record so
+    an operator reading the queue sees why it stopped, not only in the ledger.
+    """
+    task, path, role, idx = _find_task_anywhere(root, handle)
+    if task is None:
+        return None
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(path)
+        idx = find_task(tasks, handle)
+        tasks[idx]["status"] = status
+        if status == "paused":
+            tasks[idx]["paused_by"] = paused_by
+            tasks[idx]["paused_note"] = note
+        else:
+            tasks[idx]["paused_by"] = ""
+            tasks[idx]["paused_note"] = ""
+        tasks[idx]["updated"] = today_iso()
+        write_tasks(path, tasks, role)
+        updated = tasks[idx]
+    ledger_append(
+        root,
+        "task.status",
+        by or "ceo",
+        handle,
+        f"{status} [{updated.get('priority', 'P2')}] {updated.get('title', '')}"
+        + (f" ({note})" if note else ""),
+        "",
+        role,
+    )
+    return updated
+
+
 def lane_worktree(root: Path, agent: str, task_id: str) -> Path:
     """The one worktree a (instance, task) lane owns.
 
@@ -798,21 +903,67 @@ def lane_worktree(root: Path, agent: str, task_id: str) -> Path:
     return base / safe_component(str(task_id))
 
 
+def team_relative(root: Path, path: Path) -> str:
+    """A path as a store records it: relative to the team root, portable (K-0008).
+
+    A record is read on another host and by a mask that redacts a high-entropy
+    segment, so an absolute host path either breaks or points at nothing. The
+    reader joins the stored form onto the team root (`resolve_team_relative`).
+    """
+    return path.relative_to(root).as_posix()
+
+
+def resolve_team_relative(root: Path, value: str) -> Path:
+    """The tree a stored path names, absolute on this host."""
+    p = Path(value)
+    return p if p.is_absolute() else root / p
+
+
+def _link_toolchain(project: Path, worktree: Path) -> None:
+    """Point a fresh worktree at the project's toolchain, so the gate command works.
+
+    A worktree carries only tracked files, so `.venv/` (gitignored) is absent and a
+    `PreflightCommand` written as `.venv/bin/ruff ...` cannot start there - which is
+    how a lane ends up running the gate by hand with absolute paths. A link is
+    enough, it is untracked, and a failure is not fatal: the gate check reports the
+    missing program with its fix.
+    """
+    for name in (".venv", "venv"):
+        source = project / name
+        target = worktree / name
+        if not source.is_dir() or target.exists() or target.is_symlink():
+            continue
+        try:
+            target.symlink_to(source, target_is_directory=True)
+        except OSError:
+            return
+
+
+def task_worktree(root: Path, task: dict) -> Path | None:
+    """The worktree a task records, resolved against the team root.
+
+    The queue stores it **relative to the team root** on purpose: an absolute host
+    path is disclosure to every lane that reads memory (the audit's F1) and the
+    record mask can rewrite a directory path that looks high-entropy, which
+    silently points the record at a tree that does not exist. An older record that
+    still carries an absolute path is honoured, so no record is rewritten.
+    """
+    recorded = str(task.get("worktree") or "").strip()
+    if not recorded:
+        return None
+    path = Path(recorded)
+    return path if path.is_absolute() else root / path
+
+
 def retire_branch(root: Path, here: Path, branch: str, force: bool = False) -> bool:
     """Delete a merged branch, retiring the worktree that holds it if needed."""
     flag = "-D" if force else "-d"
     r = run_git(here, "branch", flag, branch)
     if r.returncode != 0 and "used by worktree" in (r.stderr + r.stdout):
-        wt_root = str(root / DIR_RUNTIME / DIR_WORKTREES)
-        listing = run_git(here, "worktree", "list", "--porcelain").stdout
-        target = ""
-        for block in listing.split("\n\n"):
-            if f"branch refs/heads/{branch}" in block:
-                for line in block.splitlines():
-                    if line.startswith("worktree "):
-                        target = line.split(" ", 1)[1].strip()
-        if target and target.startswith(wt_root):
-            run_git(here, "worktree", "remove", "--force", target)
+        target = branch_worktree(here, branch)
+        wt_root = (root / DIR_RUNTIME / DIR_WORKTREES).resolve()
+        if target is not None and target.resolve().is_relative_to(wt_root):
+            run_git(here, "worktree", "remove", "--force", str(target))
             r = run_git(here, "branch", flag, branch)
     if r.returncode == 0:
         print(f"# deleted branch {branch}" + (" (squashed, so forced)" if force else ""))
@@ -896,15 +1047,23 @@ def cmd_branch(args) -> int:
             die(f"could not create {branch} from {base}: {r.stderr.strip()}")
 
     worktree_note = ""
-    if args.worktree:
+    worktree_abs = ""
+    if not getattr(args, "shared", False):
         wt = lane_worktree(root, args.agent, task["id"])
         wt.parent.mkdir(parents=True, exist_ok=True)
         if not _worktree_registered(project, wt):
             r = run_git(project, "worktree", "add", "--", str(wt), branch)
             if r.returncode != 0:
                 die(f"worktree add failed for {branch}: {r.stderr.strip()}")
-        worktree_note = str(wt)
+        _link_toolchain(project, wt)
+        worktree_note = team_relative(root, wt)
+        worktree_abs = str(wt)
     else:
+        print(
+            f"# shared checkout: {args.agent} works in the main checkout for {task['id']}."
+            "\n#   --shared is the exception, not the rule: two lanes in one tree commit"
+            " on each other's branches. Say why in the self-check note."
+        )
         r = run_git(here, "checkout", branch)
         if r.returncode != 0:
             die(f"could not switch to {branch} in {here}: {r.stderr.strip()}")
@@ -936,7 +1095,7 @@ def cmd_branch(args) -> int:
     print(f"# branch {branch} for {args.agent} on {task['id']} ({task_role})")
     print(f"#   commit: teamwork.py commit --role {task_role} --task {task['id']} ...")
     if worktree_note:
-        print(f"#   worktree: {worktree_note}")
+        print(f"#   worktree: {worktree_abs}")
     print(f"#   submit: teamwork.py pr open --agent {args.agent} --task {task['id']}")
     return 0
 
@@ -968,10 +1127,120 @@ def cmd_pr(args) -> int:
     if args.pr_cmd == "merge":
         return _pr_merge(args, root, project, here, path)
 
+    if args.pr_cmd == "set":
+        return _pr_set(args, root, project, path)
+
     actor, role = validate_actor(root, args.agent, "PR author", allow_role=False)
     args.agent = actor
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "merge.lock"):
         return _pr_open(args, root, project, here, path, role)
+
+
+def _require_landed_revision(project: Path, rev: str, pr_id: str) -> None:
+    """Refuse a landing revision that is not a full sha of a commit in ``project``.
+
+    The repair exists to record the fact that the work landed, so the revision it
+    writes into the record and into the ledger must name that fact and nothing
+    else. An abbreviated sha, a ref name (``main``, ``HEAD``) and an object this
+    clone does not carry all fail that: the first is ambiguous, the second moves,
+    and the third is unverifiable. Only a full 40-hex sha that resolves to a
+    commit here is accepted.
+    """
+    if not re.fullmatch(r"[0-9a-f]{40}", rev):
+        die(
+            f"--merge-commit '{rev}' is not a full commit sha: pass the 40-hex sha "
+            "of the commit that landed (git rev-parse <rev>), never a ref name, "
+            "an abbreviated sha or a word from a merge note.",
+            2,
+        )
+    if not is_git_repo(project) or (
+        run_git(project, "cat-file", "-e", f"{rev}^{{commit}}").returncode != 0
+    ):
+        die(
+            f"{rev} does not resolve to a commit in {project}: {pr_id} may only be "
+            "repaired with the full sha of a commit this repository carries.",
+            2,
+        )
+
+
+def _pr_set(args, root: Path, project: Path, path: Path) -> int:
+    """Correct a PR record's status by hand, with the old state kept in the ledger.
+
+    A PR whose work landed but whose record never left ``approved`` makes
+    ``audit`` report an abandoned PR on every run, and ``pr merge`` cannot fix
+    it: the branch the merge would read is already gone. The repair is
+    deliberately narrow - the review must have passed, a reason is mandatory,
+    the recorded merge revision must be the full sha of a commit this repository
+    carries, and the ledger keeps the old and the new status so the correction is
+    auditable.
+    """
+    actor, _arole = validate_actor(root, args.by, "repairer", allow_role=False)
+    status = args.status
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
+        prs = parse_reviews(path)
+        idx = find_pr_exact(prs, args.pr)
+        if idx is None:
+            die(f"no PR '{args.pr}'")
+        pr = prs[idx]
+    old = pr["status"] or "(none)"
+    if old == status:
+        print(f"# {pr['id']} is already {status}; nothing to repair")
+        return 0
+    role = resolve_role(pr["role"] or pr["author"])
+    if not role:
+        die(f"{pr['id']} has no role or author: the PR record is incomplete")
+    tpath = task_file(root, role)
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+        tasks = parse_tasks(tpath)
+        tidx = find_task(tasks, pr["task"]) if pr["task"] else None
+        review_status = tasks[tidx].get("review_status") if tidx is not None else ""
+    if review_status != "passed":
+        die(
+            f"refusing to set {pr['id']} to {status}: review_status="
+            f"{review_status or '(no task)'}. Only a passing review may be repaired "
+            "into a terminal state; an open PR is closed by its verdict.",
+            2,
+        )
+    reason = require_reason(args.force, f"repairing {pr['id']} from {old} to {status}")
+    merge_commit = (args.merge_commit or "").strip().lower()
+    if status == "merged" and not merge_commit:
+        die(
+            f"refusing to mark {pr['id']} merged without --merge-commit <sha>: the "
+            "revision that landed is the fact the repair records.",
+            2,
+        )
+    if merge_commit:
+        _require_landed_revision(project, merge_commit, pr["id"])
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "reviews.lock"):
+        fresh = parse_reviews(path)
+        pidx = find_pr_exact(fresh, pr["id"], pr.get("branch"))
+        if pidx is None:
+            die(f"{pr['id']} disappeared from {path} during the repair")
+        fresh[pidx]["status"] = status
+        fresh[pidx]["updated"] = today_iso()
+        if merge_commit:
+            fresh[pidx]["merge_commit"] = merge_commit
+        fresh[pidx]["notes"].append(
+            f"status repaired {old} -> {status} by {actor}"
+            + (f" at {merge_commit}" if merge_commit else "")
+            + f": {reason}"
+        )
+        write_reviews(path, fresh)
+    ledger_append(
+        root,
+        "pr.repair",
+        actor,
+        pr["task"],
+        f"{pr['id']} {old} -> {status}"
+        + (f" at {merge_commit}" if merge_commit else "")
+        + f": {reason}",
+        merge_commit,
+    )
+    print(
+        f"# repaired {pr['id']}: {old} -> {status}"
+        + (f" at {merge_commit}" if merge_commit else "")
+    )
+    return 0
 
 
 def _merge_branch_hint(root: Path, handle: str) -> str:
@@ -1210,15 +1479,19 @@ def _return_staged_entries(
             )
 
 
-def _merge_commit_env() -> dict:
+def _merge_commit_env(project=None) -> dict:
     """The environment a merge's own commit runs in.
 
     The R1 pre-commit hook refuses a commit on the default branch so no lane can
     land work there directly. A merge's records, board render and archive rewrite
     are the one exception the rule names, so they carry the marker explicitly
     instead of depending on whoever ran the command to export it.
+
+    The identity is pinned here as well: the merge passes ``-c user.name``, which
+    loses to an exported ``GIT_AUTHOR_NAME`` left by a rebase, a forge runner or
+    a wrapper shell, so without this a merge could land authored by the operator.
     """
-    return dict(os.environ, TEAMWORK_ALLOW_MAIN="1")
+    return dict(os.environ, TEAMWORK_ALLOW_MAIN="1", **git_identity_env("reviewer", project))
 
 
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
@@ -1389,7 +1662,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 input=rec_msg,
                 capture_output=True,
                 text=True,
-                env=_merge_commit_env(),
+                env=_merge_commit_env(here),
             )
             if rr.returncode != 0:
                 run_git(here, "reset", "-q", "--", *records)
@@ -1429,7 +1702,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                         input=message,
                         capture_output=True,
                         text=True,
-                        env=_merge_commit_env(),
+                        env=_merge_commit_env(here),
                     )
                 merged = r
             else:
@@ -1439,7 +1712,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     + ["merge", "--no-ff", "-m", message, branch],
                     capture_output=True,
                     text=True,
-                    env=_merge_commit_env(),
+                    env=_merge_commit_env(here),
                 )
             if merged.returncode != 0:
                 run_git(here, "merge", "--abort")
@@ -1823,72 +2096,6 @@ def cmd_criteria(args) -> int:
             items = parse_criteria(path)
             return _criteria_mutate(args, root, path, items)
 
-    if args.criteria_cmd == "add":
-        if find_criterion(items, args.id) is not None:
-            die(f"criterion {args.id} already exists")
-        owner = ""
-        if args.owner:
-            owner, _ = validate_actor(
-                root, args.owner, "criterion owner", allow_role=True, must_exist=False
-            )
-        items.append(new_criterion(args.id, args.text, owner))
-        write_criteria(path, items)
-        ledger_append(
-            root, "criteria.add", "ceo", args.id.upper(), f"{args.text} (owner {owner or '-'})"
-        )
-        print(f"# added {args.id.upper()}: {args.text}")
-        return 0
-
-    if args.criteria_cmd == "verify":
-        idx = find_criterion(items, args.id)
-        if idx is None:
-            die(f"no criterion '{args.id}'")
-        c = items[idx]
-        who, wrole = validate_actor(root, args.by, "verifier")
-        if not (args.evidence or "").strip():
-            die("verification needs --evidence '<command> @<rev> -> <result>'")
-        if c.get("owner") and resolve_role(c["owner"]) == wrole:
-            die(
-                f"{who} is from the owning role ({wrole}) and cannot verify "
-                f"{c['id']}; an independent role must verify it"
-            )
-        c["status"] = "verified"
-        c["verified_by"] = who
-        c["verified"] = today_iso()
-        c["evidence"] = args.evidence.strip()
-        c["rev"] = args.rev or ""
-        write_criteria(path, items)
-        ledger_append(
-            root,
-            "criteria.verify",
-            who,
-            c["id"],
-            f"{c['evidence'][:140]} (owner {c['owner'] or '-'})",
-            args.rev or "",
-        )
-        print(f"# {c['id']} verified by {who}: {c['evidence']}")
-        return 0
-
-    if args.criteria_cmd == "reopen":
-        idx = find_criterion(items, args.id)
-        if idx is None:
-            die(f"no criterion '{args.id}'")
-        items[idx].update(
-            {"status": "open", "verified_by": "", "verified": "", "evidence": "", "rev": ""}
-        )
-        write_criteria(path, items)
-        print(f"# {items[idx]['id']} reopened")
-        return 0
-
-    if args.criteria_cmd == "rm":
-        idx = find_criterion(items, args.id)
-        if idx is None:
-            die(f"no criterion '{args.id}'")
-        removed = items.pop(idx)
-        write_criteria(path, items)
-        print(f"# removed {removed['id']}")
-        return 0
-
     if not items:
         print(f"# no criteria yet ({path})")
         print("# the CEO must write them from the user prompt: criteria add --id AC-1 --text '...'")
@@ -1926,6 +2133,28 @@ def areas_in_use(root: Path) -> list:
     return sorted(a for a in areas if a)
 
 
+def check_area(area: str, code: int = 1) -> str:
+    """An area names the subject a layer covers: not a file path, not the layer itself.
+
+    ``(layer, area)`` is a pair, so an area equal to a layer name makes the plan ask
+    for that phantom area in every layer and reports a gap no lane can close.
+    """
+    text = one_line(area).strip().lower()
+    if area_looks_like_path(text):
+        die(
+            f"area '{text}' is a file path, not an area: name the subject the "
+            "layer covers (e.g. 'ci-matrix'), not the test file",
+            code,
+        )
+    if area_is_layer(text):
+        die(
+            f"area '{text}' is a test layer, not an area: the pair is (layer, area), "
+            "so name the subject the layer covers (e.g. 'merge-identity')",
+            code,
+        )
+    return text
+
+
 def required_layers_for(root: Path, area: str) -> list:
     """Required layers for an area.
 
@@ -1944,6 +2173,32 @@ def required_layers_for(root: Path, area: str) -> list:
     staffed = staffed_layers(root)
     core = [ly for ly in DEFAULT_REQUIRED_LAYERS if ly in staffed]
     return core or staffed or list(DEFAULT_REQUIRED_LAYERS)
+
+
+def area_plan_note(root: Path, area: str) -> str:
+    """One line when ``area`` would open a test-plan gap, or ``""`` when it is covered.
+
+    Measured on this project: a new area on a finished task makes `tests plan` require
+    unit/integration/acceptance for it, and the gap blocks `loop` until a lane records
+    the layers - three tasks paid a whole extra lane for it (K-0036). The note is
+    printed where the area is chosen, so the author records the layers in the same
+    task instead of discovering the gap at close.
+    """
+    if not area:
+        return ""
+    recorded = {
+        record["layer"] for record in parse_tests(tests_path(root)) if record["area"] == area
+    }
+    required = required_layers_for(root, area)
+    missing = [layer for layer in required if layer not in recorded]
+    if not missing:
+        return ""
+    return (
+        f"# note: area '{area}' has no test record for {', '.join(missing)}; once this "
+        "task is done `tests plan` requires them. Record them in this task "
+        f"(`tests add --layer <layer> --area {area}` then `tests run`), or reuse an "
+        "existing area."
+    )
 
 
 def test_gaps(root: Path) -> list:
@@ -2128,7 +2383,7 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         layer = args.layer.lower()
         if layer not in TEST_LAYERS:
             die(f"unknown layer '{layer}'. Layers: {', '.join(TEST_LAYERS)}")
-        area = (args.area or args.task or "general").lower()
+        area = check_area(args.area or args.task or "general")
         for r in records:
             if r["layer"] == layer and r["area"] == area:
                 die(
@@ -2160,6 +2415,14 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
                 )
             owner = inst[0]
         dup = [r for r in records if args.command and r["command"].strip() == args.command.strip()]
+        if dup and not force:
+            die(
+                f"the same command is already run by {dup[0]['id']} "
+                f"({dup[0]['layer']}/{dup[0]['area']}): one command per thing tested. "
+                "Cite that record with `review --credit` instead of recording it twice, "
+                "or pass --force '<why this layer needs its own run>'.",
+                2,
+            )
         rec = new_test_record(layer, area, owner, args.command, args.task)
         records.append(rec)
         write_tests(path, records)
@@ -2173,12 +2436,6 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         print(f"# added {rec['id']} {layer}/{area} owner={owner}")
         if LAYER_WHAT.get(layer):
             print(f"#   {layer}: {LAYER_WHAT[layer]}")
-        if dup:
-            print(
-                f"#   NOTE the same command is already run by {dup[0]['id']} "
-                f"({dup[0]['layer']}/{dup[0]['area']}): avoid testing the same "
-                "thing twice."
-            )
         return 0
 
     if args.tests_cmd == "run":
@@ -2288,7 +2545,7 @@ def _tests_mutate(args, root: Path, path: Path, plan_path: Path) -> int:
         return 0
 
     if args.tests_cmd == "require":
-        area = args.area.lower()
+        area = check_area(args.area)
         layers = [x.strip().lower() for x in args.layers.split(",") if x.strip()]
         if not layers:
             die(
@@ -2460,7 +2717,6 @@ LEDGER_ACTIONS = (
     "dispute.sign",
     "feature.add",
     "feature.set",
-    "graph.baseline",
     "hooks.install",
     "instance.add",
     "instance.retire",
@@ -2468,6 +2724,7 @@ LEDGER_ACTIONS = (
     "knowledge.supersede",
     "knowledge.touch",
     "lane.finish",
+    "lane.preempt",
     "lane.start",
     "lane.stop",
     "ledger.cut",
@@ -2493,13 +2750,19 @@ LEDGER_ACTIONS = (
     "memory.revoke",
     "memory.touch",
     "memory.update",
+    "memory.verify",
+    "message.done",
+    "message.send",
+    "message.take",
     "model.auto",
     "model.set",
     "pr.merge",
     "pr.merge.archive",
     "pr.merge.forced",
     "pr.open",
+    "pr.repair",
     "pulse.observe",
+    "read.sparse",
     "redline.close",
     "redline.record",
     "review.claim",
@@ -2528,6 +2791,7 @@ LEDGER_ACTIONS = (
     "tests.require",
     "tests.rm",
     "tests.run",
+    "wiki.prune",
 )
 
 UNDECLARED_ACTION_WARNED: set[str] = set()
@@ -2894,14 +3158,34 @@ def ledger_verify(
     tampering: it is reconciled (optionally rewritten). A cache that is *ahead*
     of the file means records were removed: that is reported.
 
-    ``records`` lets a caller that already read the ledger pass it in. A read-only
-    status command passes ``report_cache_lag=False`` so a benign lag is reported as
-    a note plus a repair command instead of a blocker, and nothing is rewritten
-    (T-0020/A14).
+    The file and the cache are read inside the ledger lock, the same critical
+    section ``ledger_append`` writes them in: reading them outside it let a
+    concurrent append land between the two reads and produced a false
+    "records were removed (truncated)" alarm on an intact trail (T-0122). A
+    caller that already holds the lock passes ``_locked=True`` and keeps its own
+    ``records``; otherwise the ledger is re-read here, because a list read before
+    the lock was taken is exactly the stale half of that pair.
+
+    A read-only status command passes ``report_cache_lag=False`` so a benign lag
+    is reported as a note plus a repair command instead of a blocker, and nothing
+    is rewritten (T-0020/A14).
+
+    A cache *ahead* of the file is reported only after one bounded re-read: a
+    writer appends the record and then replaces the head cache, and a reader that
+    catches the file between two appends must not read the pair as tampering. A
+    genuine truncation is permanent, so the second read still reports it. The
+    measured false alarm is CI run 43344749792 (ubuntu 3.12), "head cache knows 2
+    records but the ledger has 1", which did not reproduce in 25 local runs and
+    passed on re-run.
     """
-    if reconcile and not _locked:
+    if not _locked and (ledger_path(root).exists() or ledger_head_path(root).exists()):
         with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
-            return ledger_verify(root, reconcile=True, _locked=True)
+            return ledger_verify(
+                root,
+                reconcile=reconcile,
+                _locked=True,
+                report_cache_lag=report_cache_lag,
+            )
     problems = []
     prev = ""
     records = ledger_read(root) if records is None else records
@@ -2928,6 +3212,10 @@ def ledger_verify(
                     f"the ledger is empty but the head cache knows "
                     f"{cached_n} record(s): the trail was deleted"
                 )
+            if valid and cached_n > len(valid):
+                again = _ledger_valid(ledger_read(root))
+                if again:
+                    valid = again
             if valid and cached_n > len(valid):
                 problems.append(
                     f"head cache knows {cached_n} records but the ledger has "
@@ -3107,8 +3395,8 @@ def cmd_ledger(args) -> int:
         return cmd_ledger_repair(args)
 
     if args.ledger_cmd == "verify":
+        problems = ledger_verify(root, reconcile=getattr(args, "reconcile", False))
         records = ledger_read(root)
-        problems = ledger_verify(root, reconcile=getattr(args, "reconcile", False), records=records)
         valid = _ledger_valid(records)
         print(f"# Ledger verify ({ledger_path(root)})")
         print(f"# records: {len(valid)} | head: {valid[-1]['hash'][:16] if valid else '-'}")
@@ -4093,6 +4381,34 @@ def cmd_lesson(args) -> int:
                 if record.get("kind") != "mistake":
                     die(f"skill '{record['name']}' is kind '{record.get('kind')}', not 'mistake'")
         changed["status"] = "fixed"
+        check = (getattr(args, "check", "") or "").strip()
+        no_check = (getattr(args, "no_check", "") or "").strip()
+        already_rung = bool(changed.get("check") or changed.get("no_check"))
+        if not already_rung:
+            if not check and not no_check:
+                die(LESSON_LADDER, 2)
+            if check and no_check:
+                die(
+                    "--check and --no-check are exclusive: run the command that now catches "
+                    "this lesson, or say why no command can exist",
+                    2,
+                )
+        if check:
+            outcome = run_lesson_check(check, artifact_tree(root))
+            if outcome.returncode != 0:
+                tail = (outcome.stdout or outcome.stderr or "").strip().splitlines()[-3:]
+                die(
+                    f"the --check command does not catch this lesson: it exited "
+                    f"{outcome.returncode} on the tree the lesson was fixed in.\n"
+                    f"  {check}\n"
+                    + ("\n".join(f"  | {line}" for line in tail) + "\n" if tail else "")
+                    + "A check that cannot fail the tree it was recorded on proves nothing; "
+                    "fix the command, or use --no-check '<why none can exist>'.",
+                    2,
+                )
+            changed["check"] = one_line(check)
+        if no_check:
+            changed["no_check"] = one_line(no_check)
         if skill:
             changed["skill"] = skill
         if (args.rule or "").strip():
@@ -4100,12 +4416,21 @@ def cmd_lesson(args) -> int:
         changed["evidence"] = evidence
         changed["updated"] = today_iso()
         write_lessons(path, records)
+        rung = f"check {check}" if check else f"no-check {no_check}" if no_check else ""
         ledger_append(
             root,
             "lesson.fix",
             actor,
             changed["id"],
-            f"closed by skill {skill}" if skill else f"fixed by {actor}",
+            " ".join(
+                part
+                for part in (
+                    f"closed by skill {skill}" if skill else "",
+                    rung,
+                )
+                if part
+            )
+            or f"fixed by {actor}",
         )
     print_lesson(changed)
     print(f"#   file: {path}")
@@ -4933,9 +5258,17 @@ def cmd_context(args) -> int:
         return 0
 
     if verb == "find":
-        scope = _context_require(nodes, args.scope or CONTEXT_ROOT)
         if args.limit < 0:
             die("--limit must be 0 (all) or a positive count", 2)
+        if (args.scope or "") == transcripts.SCOPE:
+            limit = min(args.limit or transcripts.SEARCH_LIMIT, transcripts.SEARCH_LIMIT)
+            print(transcripts.search(root, args.query, limit=limit), end="")
+            return 0
+        for fact in wiki.find(
+            root, args.query or "", datetime.datetime.now(), memorypack.SEARCH_LIMIT
+        ):
+            print(f"- {fact['id']} -> {fact['pointer']} {fact['statement']}")
+        scope = _context_require(nodes, args.scope or CONTEXT_ROOT)
         tokens = [token.casefold() for token in (args.query or "").split()]
         normalised = " ".join(tokens)
         hits = []
@@ -5086,7 +5419,7 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
     ``GitHub <noreply@github.com>``, and failing that pair turned every
     dependency pull request red on the guard.
     """
-    canonical = canonical_identities()
+    canonical = canonical_identities(project)
     proc = run_git(
         project, "log", "--format=%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%P%x1f%B%x1e", rev_range
     )
@@ -5213,9 +5546,20 @@ _RE_MERGE_SUBJECT = re.compile(
 _RE_FORGE_COMMITTER_EMAIL = re.compile(r"^(?:noreply@github\.com|noreply@gitlab\.com)$")
 
 
-def canonical_identities() -> dict:
-    """email -> display name for every role the team may commit as."""
-    return {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
+def canonical_identities(project=None) -> dict:
+    """email -> display name for every identity the team may commit as.
+
+    The role mailboxes are the portable set. The operator's preset identity is
+    accepted as well, but only by ``identity --audit``, which judges history
+    already on the branch: ``names.commit_identity`` never reads that ambient
+    pair, so no new commit is authored as whoever owns the machine (A-0012).
+    """
+    out = {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
+    out[OPERATOR_IDENTITY[1]] = OPERATOR_IDENTITY[0]
+    preset = preset_identity(project) if project else preset_identity()
+    if preset:
+        out[preset[1]] = preset[0]
+    return out
 
 
 def audit_repository(root: Path, args) -> Path:
@@ -5283,23 +5627,6 @@ def _matches_role_display(name: str, canonical_display: str) -> bool:
     return name.replace(" ", "") == canonical_display.replace(" ", "")
 
 
-def _is_content_free_team_merge(
-    parents: list, name: str, email: str, body: str, canonical: dict
-) -> bool:
-    """A two-parent integration merge with no body adds no content, so it
-    carries no acting role. Single-parent commits are never exempt: they do add
-    content and must say who acted.
-    """
-    if len(parents) < 2 or email not in canonical:
-        return False
-    if not _matches_role_display(name, canonical[email]):
-        return False
-    lines = body.splitlines()
-    if not lines or not _RE_MERGE_SUBJECT.match(lines[0].strip()):
-        return False
-    return not "".join(lines[1:]).strip()
-
-
 def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool = False) -> int:
     """Fail when a commit is not authored and committed by the acting role.
 
@@ -5331,7 +5658,7 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     if proc.returncode != 0:
         print(f"teamwork: cannot read {rev_range}: {proc.stderr.strip()}")
         return 2
-    canonical = canonical_identities()
+    canonical = canonical_identities(project)
     problems = []
     seen = 0
     print(f"# Commit identity audit ({rev_range})")
@@ -5359,13 +5686,19 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             print(f"- {short} ok: bot {an}")
             continue
         expected = canonical.get(ae)
+        operator = preset_identity(project)
+        is_operator = (an, ae) == OPERATOR_IDENTITY or (
+            operator is not None and (ae, an) == (operator[1], operator[0])
+        )
+        if expected is None and is_operator:
+            expected = an
         if expected is None:
             team_domain = ae.lower().endswith("@" + IDENTITY_DOMAIN.lower())
             if not strict_authors and not team_domain and an not in BOT_IDENTITIES:
                 print(f"- {short} skipped: external contributor {an} <{ae}>")
                 continue
             reasons.append(f"not a role mailbox: {ae}")
-        elif not _matches_role_display(an, expected):
+        elif not is_operator and not _matches_role_display(an, expected):
             reasons.append(f"display name {an!r} does not match role {expected!r}")
         forge_committer = expected is not None and _RE_FORGE_COMMITTER_EMAIL.match(ce) is not None
         landing_role = canonical.get(ce) if ce in canonical and (ce != ae or cn != an) else None
@@ -5379,11 +5712,11 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
                 if not _matches_role_display(an, role_identity(fallback_role)[0]):
                     reasons.append(f"'Role: {match.group(1)}' does not match author {an!r}")
                     match = None
-        elif not _matches_role_display(match.group(1), an):
+        elif not is_operator and not _matches_role_display(match.group(1), an):
             reasons.append(f"'Acting role: {match.group(1)}' does not match author {an!r}")
-        if not match and not _is_content_free_team_merge(parents, cn, ce, body, canonical):
-            if sha not in LEGACY_MESSAGE_EXEMPT:
-                reasons.append("message has no 'Acting role:' line")
+        if reasons and sha in LEGACY_MESSAGE_EXEMPT:
+            print(f"- {short} ok {an} <{ae}> (published exemption: {LEGACY_MESSAGE_EXEMPT[sha]})")
+            continue
         if reasons:
             problems.append((short, reasons))
             for reason in reasons:
@@ -5401,31 +5734,33 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
 
 
 def build_commit_message(role: str, meta: dict) -> str:
-    name, _email = role_identity(role)
+    """The message a commit carries: exactly one line.
+
+    A commit message is one line - ``<type>(<area>): <summary>`` - compact but
+    informative. The task, the goal and the evidence live in the task record and
+    the ledger, never in a multi-line commit body. No line names an agent:
+    published history is the project's, so the message carries what changed and
+    nothing about which role or instance typed it.
+    """
     typ = (meta.get("type") or "chore").lower()
     if typ not in COMMIT_TYPES:
         typ = "chore"
     area = one_line(meta.get("area") or meta.get("task") or role)
     summary = one_line(meta.get("deliverable") or meta.get("goal") or "update")
     summary = summary[:72]
-    lines = [f"{typ}({area}): {summary}", ""]
-    fields = [
-        ("Task", meta.get("task")),
-        ("Role", name),
-        ("Producers", meta.get("producers")),
-        ("Goal", meta.get("goal")),
-        ("Deliverable", meta.get("deliverable")),
-        ("Why", meta.get("why")),
-        ("Status", meta.get("status")),
-        ("Result", meta.get("result")),
-        ("Docs", meta.get("docs")),
-        ("Refs", meta.get("refs")),
-    ]
-    for key, value in fields:
-        if value:
-            lines.append(f"{key}: {one_line(value)}")
-    lines += ["", f"Acting role: {name}"]
-    return "\n".join(lines) + "\n"
+    return f"{typ}({area}): {summary}\n"
+
+
+def _git_author(project: Path, env: dict) -> tuple:
+    """(name, email) git would author a commit with in ``env``, or ("", "")."""
+    r = subprocess.run(
+        ["git", "-C", str(project), "var", "GIT_AUTHOR_IDENT"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    match = re.match(r"^(.*?) <(.*?)> ", r.stdout.strip()) if r.returncode == 0 else None
+    return (match.group(1), match.group(2)) if match else ("", "")
 
 
 def cmd_commit(args) -> int:
@@ -5434,6 +5769,9 @@ def cmd_commit(args) -> int:
     project = work_repo(root)
     if not is_git_repo(project):
         die("not a git repository here: run `teamwork.py repo` first")
+
+    raw_area = getattr(args, "area", None) or ""
+    area = check_area(raw_area, 2) if raw_area else ""
 
     base = DEFAULT_BASE
     here = current_branch(project)
@@ -5462,6 +5800,18 @@ def cmd_commit(args) -> int:
                 "(one task, one branch).",
                 2,
             )
+        recorded_tree = task_worktree(root, task or {})
+        if recorded_tree is not None and recorded_tree.is_dir() and project != recorded_tree:
+            die(
+                f"{task['id']} owns the worktree {recorded_tree}, but this commit runs in "
+                f"{project}. Work happens in the task's own tree: two lanes in one checkout "
+                "commit on each other's branches, and the evidence names a tree the "
+                "reviewer cannot read.\n"
+                f"  cd {recorded_tree}   # then run the same command there\n"
+                "  or start the task in the shared checkout deliberately:\n"
+                "    teamwork.py branch start --agent <you> --task <T-id> --shared",
+                2,
+            )
     if here == base and not args.allow_main:
         die(
             f"refusing to commit directly on '{base}'. main only receives merges "
@@ -5473,24 +5823,24 @@ def cmd_commit(args) -> int:
             2,
         )
 
-    name, email = role_identity(role)
-
-    producers = args.producers
-    if not producers:
-        inst = instances_of(root, role)
-        claimed = []
-        for r in list_roles(root):
-            role_matches = resolve_role(r) == resolve_role(role)
-            for t in parse_tasks(task_file(root, r)):
-                if t["claimed_by"] and (role_matches or f"@{r}" in producers):
-                    claimed.append(t["claimed_by"])
-        producers = ", ".join(sorted({pascal(x) for x in (claimed or inst)})) or pascal(role)
+    name, email = commit_identity(role, project_of(root))
+    identity_env = dict(os.environ, **git_identity_env(role, project_of(root)))
+    would_author = _git_author(project, identity_env)
+    if would_author != (name, email):
+        die(
+            f"refusing to commit: git would author it as {would_author[0]} "
+            f"<{would_author[1]}>, which is not the identity this command pins "
+            f"({name} <{email}>). The commit identity is pinned for this command, so "
+            "a mismatch means git ignored the environment; run `git var "
+            "GIT_AUTHOR_IDENT` here and check for a wrapper that rewrites "
+            "GIT_AUTHOR_*.",
+            2,
+        )
 
     meta = {
         "type": args.type,
-        "area": args.area,
+        "area": area,
         "task": args.task,
-        "producers": producers,
         "goal": args.goal,
         "deliverable": args.deliverable,
         "why": args.why,
@@ -5574,24 +5924,41 @@ def cmd_commit(args) -> int:
             )
 
     r = subprocess.run(
-        ["git", "-C", str(project)] + git_identity_args(role) + ["commit", "-F", "-"],
+        ["git", "-C", str(project)] + git_identity_args(role, project) + ["commit", "-F", "-"],
         input=message,
         capture_output=True,
         text=True,
+        env=identity_env,
     )
     if r.returncode != 0:
         die(f"git commit failed: {r.stderr.strip()}")
     sha = run_git(project, "rev-parse", "--short", "HEAD").stdout.strip()
-    print(f"teamwork: committed {sha} as {name} <{email}>")
+    landed = run_git(project, "log", "-1", "--format=%an <%ae>").stdout.strip()
+    if landed != f"{name} <{email}>":
+        die(
+            f"commit {sha} landed authored by {landed}, not {name} <{email}>. A hook "
+            "or config rewrote the author; amend it as the acting role before "
+            "pushing:\n"
+            f"  git -c user.name={name} -c user.email={email} commit --amend "
+            "--reset-author --no-edit",
+            2,
+        )
+    print(f"teamwork: committed {sha} as {landed}")
     print(f"          {message.splitlines()[0]}")
     print(f"          files: {len(staged.splitlines())}")
+    note = area_plan_note(root, area)
+    if note:
+        print(note)
 
+    detail = f"{message.splitlines()[0]} | {len(staged.splitlines())} file(s) {sha}"
+    if meta.get("result"):
+        detail += f" | {one_line(meta['result'])}"
     ledger_append(
         root,
         "commit",
         name,
         args.task or "commit",
-        f"{message.splitlines()[0]} | {len(staged.splitlines())} file(s) {sha}",
+        detail,
         sha,
     )
     if args.task:
@@ -5601,8 +5968,8 @@ def cmd_commit(args) -> int:
             tasks = parse_tasks(path)
             idx = find_task(tasks, args.task)
             if idx is not None:
-                if args.area:
-                    tasks[idx]["area"] = slugify(args.area, 24)
+                if area:
+                    tasks[idx]["area"] = slugify(area, 24)
                 prev = tasks[idx].get("evidence", "")
                 entry = f"commit {sha}"
                 tasks[idx]["evidence"] = f"{prev}; {entry}" if prev else entry
@@ -5679,9 +6046,7 @@ def scaffold_role(root: Path, role: str, staffed: set | None = None, force: bool
     role_file = ROLES_DIR / f"{role}.md"
     shared_charter = rd / F_ROLE
     if role_file.exists() and (force or not shared_charter.exists()):
-        body = role_file.read_text(encoding="utf-8").replace(
-            "{references}", str(SKILL_DIR / "references")
-        )
+        body = role_file.read_text(encoding="utf-8").replace("{references}", "references")
         folded = charter_reports_line(role, staffed)
         if folded:
             body = fold_charter_reports(body, folded)
@@ -5756,6 +6121,8 @@ def cmd_instance(args) -> int:
         return _instance_list(root, args.json)
     if args.instance_cmd == "retire":
         return _instance_retire(root, args)
+    if args.instance_cmd == "prune":
+        return _instance_prune(root, args)
     return _instance_add(root, args)
 
 
@@ -5986,10 +6353,29 @@ def _instance_retire(root: Path, args) -> int:
             f'`--force "<why>"` so the record says what was abandoned.',
             2,
         )
+    shown = _move_to_retired(root, name, d, role, by, args.reason or "no reason given", blockers)
+    print(f"teamwork: retired {name} -> {shown}; the {role} memory and queue stay in place")
+    if not instances_of(root, role):
+        print(
+            f"#   WARNING no {role} instance left: that lane owns work nobody can take. "
+            f"Add one with `instance add {role}`."
+        )
+    return 0
+
+
+def _move_to_retired(
+    root: Path, name: str, source: Path, role: str, by: str, reason: str, blockers: list
+) -> str:
+    """Move one instance directory to ``Runtime/Retired`` and record why.
+
+    Retirement is move-only: Artifacts/, Reports/ and WorkLog.md are evidence the
+    ledger or docs/Team/Archive.md may cite, so nothing is deleted and a failed
+    move is a hard error with no fallback.
+    """
     destination = _retire_destination(root, name)
     destination.parent.mkdir(parents=True, exist_ok=True)
     try:
-        shutil.move(str(d), str(destination))
+        shutil.move(str(source), str(destination))
     except OSError as exc:
         die(
             f"could not move {name} to {destination}: {exc}. The command did not fall "
@@ -6000,23 +6386,139 @@ def _instance_retire(root: Path, args) -> int:
         shown = destination.relative_to(project_of(root)).as_posix()
     except ValueError:
         shown = str(destination)
+    _repoint_lane_records(root, source, destination)
     ledger_append(
         root,
         "instance.retire",
         by,
         name,
-        (args.reason or "no reason given")
+        reason
         + (f" | forced past: {'; '.join(blockers)}" if blockers else "")
         + f" | moved to {shown}; {role} memory kept at Roles/{pascal(role)}",
         "",
         role,
     )
-    print(f"teamwork: retired {name} -> {shown}; the {role} memory and queue stay in place")
-    if not instances_of(root, role):
-        print(
-            f"#   WARNING no {role} instance left: that lane owns work nobody can take. "
-            f"Add one with `instance add {role}`."
-        )
+    return shown
+
+
+def _repoint_lane_records(root: Path, source: Path, destination: Path) -> int:
+    """Rewrite the lane records whose packet/log moved with the instance.
+
+    A lane record under ``Runtime/Lanes/`` names the packet and the log under
+    ``Agents/<Instance>/Runs/``. Retirement moves that directory, so without this
+    the record points at a path that no longer exists and ``lane logs`` fails for
+    a lane that is still the evidence for a verdict. Only the two path fields
+    change; the record is otherwise untouched.
+    """
+    from . import lanes as lane_runtime
+
+    moved = 0
+    base = lane_runtime.lanes_dir(root)
+    if not base.is_dir():
+        return 0
+    old = str(source)
+    new = str(destination)
+    for path in sorted(base.glob("L-*.json")):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        changed = False
+        for field in ("packet", "log"):
+            value = str(record.get(field) or "")
+            if value.startswith(old + os.sep):
+                record[field] = new + value[len(old) :]
+                changed = True
+        if changed:
+            atomic_write(path, json.dumps(record, indent=2, sort_keys=True) + "\n")
+            moved += 1
+    return moved
+
+
+def _idle_reasons(root: Path, role: str, name: str) -> list:
+    """Why this instance is NOT idle; an empty list means it holds nothing.
+
+    A lane is idle only when it has no claimed task, no memory pen, no provider
+    slot, no live lane record and no review claim. Anything else is work in
+    flight, and work in flight is never folded.
+    """
+    reasons = list(_instance_busy_reasons(root, role, name))
+    from . import lanes as lane_runtime
+
+    mine = pascal(name)
+    for run in lane_runtime.live_runs(root):
+        if pascal(str(run.get("agent") or "")) == mine:
+            reasons.append(f"live lane {run.get('id')} ({run.get('state')})")
+    for _owner_role, task in iter_tasks(root):
+        if review_is_held(task) and pascal(task.get("review_claim") or "") == mine:
+            reasons.append(f"it holds the review claim on {task['id']}")
+    return reasons
+
+
+def _foldable_instances(root: Path, keep_required: bool) -> tuple:
+    """``(fold, keep)`` for every instance: ``fold`` is idle with nothing to take.
+
+    The CEO is never folded - it is the only voice to the user. ``keep_required``
+    keeps one instance of each gate-critical role so an automatic fold can never
+    strand the gate; an operator running `instance prune` without it drains every
+    idle lane.
+    """
+    from . import lanes as lane_runtime
+
+    lane_runtime.settle(root)
+    reap_slots(root)
+    ready_by_role = {role: _ready_for_role(root, role) for role in list_roles(root)}
+    open_reviews = open_review_items(root)
+    fold, keep = [], []
+    for role in list_roles(root):
+        for name in instances_of(root, role):
+            reasons = _idle_reasons(root, role, name)
+            if reasons:
+                keep.append((name, role, "; ".join(reasons)))
+                continue
+            if role == "ceo":
+                keep.append((name, role, "the CEO is the only voice to the user"))
+                continue
+            if ready_by_role.get(role):
+                keep.append((name, role, f"{len(ready_by_role[role])} ready task(s) for {role}"))
+                continue
+            if role == "reviewer" and open_reviews:
+                keep.append((name, role, f"{len(open_reviews)} unclaimed review(s)"))
+                continue
+            if keep_required and role in ROSTER_REQUIRED and not any(k[1] == role for k in keep):
+                keep.append((name, role, f"one {role} stays for the gate"))
+                continue
+            fold.append((name, role))
+    return fold, keep
+
+
+def _instance_prune(root: Path, args) -> int:
+    fold, keep = _foldable_instances(root, bool(getattr(args, "keep_required", False)))
+    dry = bool(getattr(args, "dry_run", False))
+    print(f"# Prune ({root})")
+    print(f"# idle and foldable: {len(fold)}  kept: {len(keep)}")
+    for name, role in fold:
+        print(f"- fold {name:16s} ({role})")
+    for name, role, why in keep:
+        print(f"- keep {name:16s} ({role}): {why}")
+    if not fold:
+        print("# nothing to fold: no idle instance holds zero work")
+        return 0
+    if dry:
+        print("# dry run: nothing was moved")
+        return 0
+    by = (args.by or "ceo").strip()
+    reason = (args.reason or "idle: no task, pen, slot, lane or review claim").strip()
+    folded = []
+    for name, role in fold:
+        source = agent_dir(root, name)
+        if not source.is_dir():
+            continue
+        shown = _move_to_retired(root, name, source, role, by, reason, [])
+        folded.append(f"{name} -> {shown}")
+    print(f"# folded {len(folded)} instance(s): {', '.join(folded) if folded else 'none'}")
+    print("# resources released: no task claim, no memory pen, no provider slot, no live lane")
+    print("# add one back on demand with `instance add <role>`; role memory and queue stay")
     return 0
 
 
@@ -6337,8 +6839,10 @@ def start_here(name: str, role: str, root: Path, docs: Path, staffed: set | None
 1. Read the project constitution: `{agents_md}` (team rules, red lines,
    evidence gate) and your shared role charter (one copy for every {role}
    instance): `{charter}`.
-2. Load the ROLE's short-term memory into context (shared with every {role}
-   instance): `{script} load {name}`
+2. Your memory is already in your lane packet: the task-ranked pack and your
+   open lessons are injected there, so do not re-read them. Run
+   `{script} load {name}` only when you need the full shared {role} memory
+   (every entry, not the task-ranked pack).
 3. `{script} task next {name}` - atomically claims the highest-priority
    unblocked task from the shared {role} queue for you, and marks it as yours.
    Do not wait for peers; do not take a task another instance has claimed.
@@ -6477,29 +6981,80 @@ def loadable_role(root: Path, role: str) -> bool:
     return role in ROLE_DISPLAY and role_dir(root, role).is_dir()
 
 
-def memory_pack_block(root: Path, role: str, task: str, budget: int = 0, touch_by: str = "") -> str:
-    """The task-aware pack as text, for `load --task` and for a lane packet.
+def memory_injected_layer(
+    root: Path, role: str, task: str, budget: int = 0, touch_by: str = ""
+) -> tuple[str, str]:
+    """The short block and the pack as one injected layer: ``(short, pack)``.
 
-    Same collector and scorer as `memory pack`, so the bytes a lane receives are
-    the bytes `memory pack` prints for the same task. A caller that injects it
-    into a prompt passes its own budget; the CLI keeps the default. ``touch_by``
-    counts the injected records, because an injected record is a used record and
-    ranking by usefulness is otherwise inert.
+    The index, the short block and the pack are one layer, so the pack only gets
+    what the other two left of ``PACK_BUDGET_BYTES``: ``index + short + pack``
+    stays at or under the budget however full the store is (AC-M22-4).
+
+    One ``touch_used`` call covers both blocks, because Memory.md 15.2 counts an
+    injected record once per call and appends one ``memory.pack`` event: a note the
+    short block and the pack both inject is a single use, not two.
     """
     limit = budget or memorypack.PACK_BUDGET_BYTES
     query = memorypack.task_query(root, role, task)
+    short_items = memorypack.short_entries(root, role, task, memorypack.SHORT_INJECT_BYTES)
     items = memorypack.pack(_collected(root, role), query, limit, datetime.datetime.now())
     if touch_by:
-        memorypack.touch_used(root, items, touch_by)
-    return memorypack.render_pack(items, memorypack.rendered_bytes(items), limit).rstrip("\n")
+        memorypack.touch_used(root, [*short_items, *items], touch_by)
+    short = memorypack.short_block(root, role, task, memorypack.SHORT_INJECT_BYTES)
+    pack = memorypack.render_pack(items, memorypack.rendered_bytes(items), limit).rstrip("\n")
+    return short, pack
 
 
-def _pack_block(root: Path, role: str, task: str, touch_by: str = "") -> str:
-    """`load --task` prints this instead of the static top-10 knowledge block."""
-    budget = memorypack.PACK_BUDGET_BYTES
-    query = memorypack.task_query(root, role, task)
-    header = f"# memory pack for {task} -> '{query}' (budget {budget} bytes; not the static top-10)"
-    return header + "\n" + memory_pack_block(root, role, task, budget, touch_by)
+def _ledger_ready_before_render(root: Path) -> None:
+    """Settle the audit trail before a read command renders anything (T-0065).
+
+    ``load`` renders the packet and *then* appends (consolidation, ``memory.pack``),
+    so a crash-torn tail used to surface as exit 1 after the packet was printed:
+    the reader got half a result and an error. A trailing unreadable run is what a
+    crash during ``write`` leaves - ``ledger repair`` already drops it - so it is
+    dropped here, before the first byte, and the head cache is re-headed to the
+    record that actually reached the disk. A chain broken anywhere else stops the
+    command before it renders.
+    """
+    path = ledger_path(root)
+    if not path.exists():
+        return
+    import json
+
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "ledger.lock"):
+        dropped = _trim_torn_tail(path)
+        records = ledger_read(root)
+        problems = ledger_verify(root, _locked=True, records=records, report_cache_lag=False)
+        head_only = [p for p in problems if p.startswith("head cache")]
+        chain = [
+            p
+            for p in problems
+            if not p.startswith(("head cache", "the last audit export recorded"))
+        ]
+        if chain:
+            die(
+                "the ledger is not usable, so nothing was rendered: "
+                + "; ".join(chain)
+                + ". Run `teamwork.py ledger verify`."
+            )
+        if not dropped and head_only:
+            die(
+                "the ledger is not usable, so nothing was rendered: "
+                + "; ".join(head_only)
+                + ". Run `teamwork.py ledger verify`."
+            )
+        if not dropped:
+            return
+        valid = _ledger_valid(records)
+        atomic_write(
+            ledger_head_path(root),
+            json.dumps({"n": len(valid), "hash": valid[-1]["hash"] if valid else ""}) + "\n",
+        )
+        print(
+            f"teamwork: WARNING dropped {dropped} torn trailing ledger line(s) "
+            "before rendering (a crash artefact; `ledger repair` records it)",
+            file=sys.stderr,
+        )
 
 
 def cmd_load(args) -> int:
@@ -6508,6 +7063,7 @@ def cmd_load(args) -> int:
     d = role_dir(root, role)
     if not loadable_role(root, role):
         die(unknown_role_message(root, args.agent, role))
+    _ledger_ready_before_render(root)
     consolidate_agent(root, role, dry_run=False, quiet=True, actor=args.agent, strict=False)
     limit = args.limit or SHORT_CAP
     entries = parse_memory(d / F_SHORT)
@@ -6515,31 +7071,37 @@ def cmd_load(args) -> int:
     keep = entries[:limit]
     gcount = len(parse_memory(global_dir(root) / F_GLOBAL))
     inst = instances_of(root, role)
+    task = getattr(args, "task", "") or ""
+    short, pack = "", ""
+    if task:
+        short, pack = memory_injected_layer(
+            root,
+            role,
+            task,
+            memorypack.injected_budget(root, role, task),
+            getattr(args, "agent", "") or role,
+        )
+    print(memorypack.index_block(root, role, task))
     print(
-        f"# Short-term memory loaded for {args.agent} -> shared {role} memory"
-        f" ({len(keep)}/{len(entries)} entries)"
+        f"# {args.agent} (shared {role} memory): {len(keep)}/{len(entries)} entries;"
+        f" shared by {', '.join(inst) or role}; global {gcount}"
     )
-    print(f"# shared by: {', '.join(inst) or role}")
     claim = read_memory_claim(root, role)
     if claim:
-        print(
-            f"# READ-ONLY right now: {memory_holder_line(claim)}. "
-            f"Remember/touch/forget will be refused until that lease is released "
-            f"(`memory status {role}`); reads and `recall` always work."
+        pen = (
+            f"READ-ONLY: {memory_holder_line(claim)}; remember/touch/forget are refused"
+            f" until the lease is released (`memory status {role}`), reads and `recall`"
+            f" always work"
         )
     else:
-        print(
-            f"# memory is free: `memory claim {role} --by {args.agent} --reason '<what you "
-            f"are about to update>'` holds the pen for a multi-entry update; a single "
-            f"`remember` takes it automatically."
+        pen = (
+            f"memory is free: `memory claim {role} --by {args.agent} --reason '<what you"
+            f" are about to update>'` holds the pen for a multi-entry update (a single"
+            f" `remember` takes it)"
         )
     print(
-        f"# Long-term entries are NOT loaded; query them with:"
-        f' teamwork.py recall "<query>" --agent {role}'
-    )
-    print(
-        f"# Global shared memory has {gcount} entries; read with:"
-        f' teamwork.py recall "<query>" --global'
+        f"# {pen}; long-term NOT loaded -> teamwork.py recall"
+        f' "<query>" --agent {role}; global -> teamwork.py recall "<query>" --global'
     )
     print()
     for e in keep:
@@ -6557,19 +7119,22 @@ def cmd_load(args) -> int:
             f"(record one with: teamwork.py lesson add --by {args.agent} --mistake ...)"
         )
     else:
-        open_lessons = sorted(
-            [item for item in lessons if item["status"] == "open"],
-            key=lambda item: item["id"],
+        open_lessons = [item for item in lessons if item["status"] == "open"]
+        fixed = sum(1 for item in lessons if item["status"] == "fixed")
+        print(
+            f"# Lessons ({role}) - open mistakes to avoid: {len(open_lessons)} open,"
+            f" listed in the memory index above (the rule stays in Lessons.md)"
         )
-        fixed = [item for item in lessons if item["status"] == "fixed"]
-        print(f"# Lessons ({role}) - open mistakes to avoid:")
-        for item in open_lessons[:10]:
-            skill = f" (fixed by {item['skill']})" if item.get("skill") else ""
-            print(f"- [{item['id']}] {item['mistake']} -> {item['rule']}{skill}")
-        print(f"# fixed: {len(fixed)}; full list: teamwork.py lesson list --role {role}")
+        print(f"# fixed: {fixed}; full list: teamwork.py lesson list --role {role}")
 
-    if getattr(args, "task", ""):
-        print(_pack_block(root, role, args.task, getattr(args, "agent", "") or role))
+    if task:
+        if short:
+            print(short)
+        print(
+            f"# memory pack for {task} -> '{memorypack.task_query(root, role, task)}'"
+            f" (budget {memorypack.PACK_BUDGET_BYTES} bytes; not the static top-10)"
+        )
+        print(pack)
         return 0
 
     knowledge = parse_knowledge(knowledge_path(root))
@@ -6844,7 +7409,8 @@ def cmd_remember(args) -> int:
     role = resolve_role(args.agent)
     if not args.text.strip():
         die("empty memory text")
-    with memory_session(root, role, args.by or args.agent, reason=f"remember {args.key or 'note'}"):
+    author = args.by or args.agent
+    with memory_session(root, role, author, reason=f"remember {args.key or 'note'}"):
         entries = parse_memory(path)
         entry = new_entry(
             args.text,
@@ -6852,7 +7418,7 @@ def cmd_remember(args) -> int:
             args.importance,
             args.tags,
             args.pin,
-            by=args.by or "",
+            by=author,
             src=args.src or "",
             rev=args.rev or "",
         )
@@ -6861,7 +7427,7 @@ def cmd_remember(args) -> int:
         ledger_append(
             root,
             "memory.add" if added else "memory.update",
-            args.by or args.agent,
+            author,
             args.key or args.agent,
             f"{'added' if added else 'updated'} {args.layer} entry: {args.text[:80]}",
             args.rev,
@@ -6878,6 +7444,7 @@ def cmd_global(args) -> int:
     root = project_root(args)
     path = global_dir(root) / F_GLOBAL
     path.parent.mkdir(parents=True, exist_ok=True)
+    author = args.by or "ceo"
     with lock(root / DIR_RUNTIME / DIR_LOCKS / "global.lock"):
         entries = parse_memory(path)
         entry = new_entry(
@@ -6886,7 +7453,7 @@ def cmd_global(args) -> int:
             args.importance,
             args.tags,
             args.pin,
-            by=args.by or "",
+            by=author,
             src=args.src or "",
             rev=args.rev or "",
         )
@@ -6906,13 +7473,16 @@ def cmd_global(args) -> int:
     ledger_append(
         root,
         "memory.global",
-        args.by or "ceo",
+        author,
         args.key or "global",
         f"{added} new / {merged} merged: {args.text[:80]}",
         args.rev,
     )
     print(f"teamwork: global memory {added} new / {merged} merged ({path})")
     return 0
+
+
+RECALL_LAYERS = {"short": F_SHORT, "long": F_LONG, "archive": F_MEM_ARCHIVE}
 
 
 def cmd_recall(args) -> int:
@@ -6933,20 +7503,19 @@ def cmd_recall(args) -> int:
             targets.append(("global", f, f.name))
     if args.all:
         for name in list_roles(root):
-            for f in (role_dir(root, name) / F_LONG, role_dir(root, name) / F_SHORT):
+            for f in (
+                role_dir(root, name) / F_LONG,
+                role_dir(root, name) / F_SHORT,
+                role_dir(root, name) / F_MEM_ARCHIVE,
+            ):
                 targets.append((name, f, f.name))
     elif args.agent:
         role = resolve_role(args.agent)
-        for layer in (
-            ["short"]
-            if args.layer == "short"
-            else ["long"]
-            if args.layer == "long"
-            else ["short", "long"]
-        ):
-            f = role_dir(root, role) / (F_SHORT if layer == "short" else F_LONG)
+        layers = [args.layer] if args.layer in RECALL_LAYERS else list(RECALL_LAYERS)
+        for layer in layers:
+            f = role_dir(root, role) / RECALL_LAYERS[layer]
             targets.append((role, f, f.name))
-    if not targets:
+    if not targets and not getattr(args, "transcripts", False):
         die("nothing to search: pass --agent A, --global, or --all")
 
     total = 0
@@ -6971,9 +7540,24 @@ def cmd_recall(args) -> int:
             total += 1
         print()
     total += _recall_lessons_and_knowledge(root, args, pattern)
+    total += _recall_transcripts(root, args)
     if total == 0:
         print(f"teamwork: no memory matched {args.query!r}")
     return 0
+
+
+def _recall_transcripts(root: Path, args) -> int:
+    """The ledger and the worklogs, printed additively under ``--transcripts``.
+
+    Additive by contract: without the flag this returns before printing anything,
+    so every other store's bytes in ``recall`` stay identical.
+    """
+    if not getattr(args, "transcripts", False) or not args.query:
+        return 0
+    hits, found = transcripts.collect(root, args.query)
+    print(f"## {transcripts.SCOPE} / {transcripts.SOURCES}")
+    print(transcripts.render(hits, found), end="")
+    return len(hits)
 
 
 def _tags_text(tags) -> str:
@@ -7114,7 +7698,7 @@ def cmd_memory(args) -> int:
     sub = args.memory_cmd
     if sub == "status":
         return _memory_status(root, getattr(args, "agent", "") or "", args.json)
-    if sub in ("pack", "search", "dream"):
+    if sub in ("pack", "search", "dream", "verify"):
         return _cmd_memory_read(root, args)
     role = resolve_role(args.agent)
     if not role_dir(root, role).is_dir() and not agents_dir(root).is_dir():
@@ -7150,6 +7734,10 @@ def _cmd_memory_read(root: Path, args) -> int:
         return _memory_pack(root, role, args)
     if sub == "search":
         return _memory_search(root, role, args.query)
+    if sub == "verify":
+        if args.apply and not (args.by or "").strip():
+            die("--by is required with --apply: the ledger event names who ran the pass", 2)
+        return _memory_verify(root, role, args)
     if args.apply and args.dry_run:
         die("--apply and --dry-run contradict each other: pick one", 2)
     if args.apply and not (args.by or "").strip():
@@ -7167,6 +7755,19 @@ def _collected(root: Path, role: str) -> list:
     return list(seen.values())
 
 
+def _searchable(root: Path, role: str) -> list:
+    """What `memory search` ranks: the pack's stores plus each role's archive (15.3).
+
+    A demoted record keeps its statement in ``ArchivedMemory.md`` and must stay
+    findable, so the archive is added here and nowhere else: `memory pack`, the
+    short block and the dream pass keep reading ``_collected``.
+    """
+    entries = _collected(root, role)
+    for name in [role] if role else list_roles(root):
+        entries.extend(memorypack.archived_memories(root, name))
+    return entries
+
+
 def _memory_pack(root: Path, role: str, args) -> int:
     budget = args.budget or memorypack.PACK_BUDGET_BYTES
     if budget < 0:
@@ -7180,9 +7781,50 @@ def _memory_pack(root: Path, role: str, args) -> int:
 
 def _memory_search(root: Path, role: str, query: str) -> int:
     print(
-        memorypack.render_search(_collected(root, role), query, datetime.datetime.now()),
+        memorypack.render_search(
+            _searchable(root, role),
+            query,
+            datetime.datetime.now(),
+            page_facts=[fact for page in wiki.pages(root) for fact in wiki.fact_entries(page)],
+        ),
         end="",
     )
+    return 0
+
+
+def _memory_verify(root: Path, role: str, args) -> int:
+    """`memory verify`: re-resolve each record's evidence against the tree and git.
+
+    Read-only by default. `--apply` stamps `checked` and `verify_status` on the
+    knowledge records the pass reported and appends one `memory.verify` ledger
+    event; statements, evidence and every lesson or short-term record are left
+    exactly as they were.
+
+    `--focus` turns the pass into a tuned one: the text (or a task id, resolved
+    to its title) ranks every record by the frozen 4.1 score, the best `--limit`
+    are verified in that order, and the footer reports how many were deferred.
+    Without it every record is verified in pointer order, byte-identically.
+    """
+    now = datetime.datetime.now()
+    entries = _collected(root, role)
+    focus = (getattr(args, "focus", "") or "").strip()
+    if focus:
+        query = memorypack.task_query(root, role, focus)
+        limit = memverify.FOCUS_LIMIT if args.limit is None else args.limit
+        rows, deferred = memverify.select(entries, root, query, now, limit)
+        counts = memverify.count(rows, limit, deferred)
+    else:
+        limit = args.limit or 0
+        rows = memverify.cap(memverify.verify_all(entries, root, now), limit)
+        counts = memverify.count(rows, limit)
+    if args.apply:
+        applied = memverify.apply(rows, root, args.by, now.date())
+        if not args.json:
+            print(
+                f"# applied: {applied['changed']} knowledge record(s) stamped,"
+                f" ledger bytes {applied['bytes']:+d}"
+            )
+    print(memverify.render(rows, counts, args.json), end="")
     return 0
 
 
@@ -7193,8 +7835,11 @@ def _print_dream_group(title: str, rows: list) -> None:
 
 
 def _memory_dream(root: Path, role: str, args) -> int:
+    started = time.monotonic()
     entries = _collected(root, role)
-    proposals = memorypack.dream(entries, datetime.datetime.now())
+    proposals = memorypack.dream(
+        entries, datetime.datetime.now(), root, budget_seconds=DREAM_BUDGET_SECONDS
+    )
     duplicates = [
         f"- {drop} -> superseded by {keep} (statement overlap {overlap})"
         for keep, drop, overlap in proposals["duplicate"]
@@ -7210,16 +7855,34 @@ def _memory_dream(root: Path, role: str, args) -> int:
     _print_dream_group("contradiction", contradictions)
     _print_dream_group("stale", [f"- {record_id}" for record_id in proposals["stale"]])
     _print_dream_group("no evidence", [f"- {record_id}" for record_id in proposals["no_evidence"]])
+    _print_dream_group(
+        "drifted",
+        [f"- {record_id} ({kind}): {reason}" for record_id, kind, reason in proposals["drifted"]],
+    )
+    wiki_proposals = wiki.dream(root, entries, datetime.datetime.now())
+    _print_dream_group(
+        "wiki",
+        [f"- {item['action']} {item['subject']}" for item in wiki_proposals["pages"]]
+        + [f"- prune {item['id']}" for item in wiki_proposals["prune"]],
+    )
+    if proposals.get("deferred"):
+        print(
+            f"# deferred {proposals['deferred']}: DREAM_BUDGET_SECONDS={DREAM_BUDGET_SECONDS}"
+            " stopped the pass; nothing was invented"
+        )
     if not args.apply:
         print(
             "# dry run: nothing written; `--apply --by <you>` performs the duplicate and stale actions"
         )
         return 0
     counts = memorypack.apply_dream(root, proposals, args.by, scope=scope)
+    wiki_counts = wiki.apply(root, wiki_proposals, args.by)
     print(
         f"# applied: {counts['duplicate']} duplicate(s) superseded, {counts['stale']} stale archived,"
         f" {counts['contradiction']} contradiction(s) reported, {counts['no_evidence']} record(s)"
-        f" without evidence; ledger bytes {counts['bytes']:+d}"
+        f" without evidence, {wiki_counts['written']} page(s) written,"
+        f" {wiki_counts['pruned']} page(s) pruned; ledger bytes"
+        f" {counts['bytes'] + wiki_counts['bytes']:+d}; {time.monotonic() - started:.2f}s"
     )
     return 0
 
@@ -7594,12 +8257,24 @@ def _consolidate_locked(
     long_entries = parse_memory(long_path)
     archive = parse_memory(arch_path)
 
-    promoted, dropped, keep_short = [], [], []
+    drifted_ids = {
+        str(row["id"])
+        for row in memverify.verify_all(
+            [e for e in short if str(e.get("evidence") or "").strip()],
+            root,
+            datetime.datetime.now(),
+        )
+        if row["verify_status"] == memverify.DRIFTED
+    }
+    promoted, dropped, keep_short, drifted = [], [], [], []
     for e in short:
-        stale = days_since(e["last_used"]) >= STALE_DAYS and e["uses"] < MIN_USES
+        stale = days_since(e["last_used"]) >= STALE_DAYS
         if e["pinned"] or not stale:
             keep_short.append(e)
-        elif e["importance"] >= PROMOTE_MIN_IMPORTANCE:
+        elif str(e["id"]) in drifted_ids:
+            drifted.append(e)
+            keep_short.append(e)
+        elif e["uses"] >= PROMOTE_USES:
             promoted.append(e)
         else:
             dropped.append(e)
@@ -7609,9 +8284,31 @@ def _consolidate_locked(
         overflow = keep_short[SHORT_CAP:]
         keep_short = keep_short[:SHORT_CAP]
         for e in overflow:
-            (promoted if e["importance"] >= PROMOTE_MIN_IMPORTANCE else dropped).append(e)
+            if str(e["id"]) in drifted_ids:
+                keep_short.append(e)
+            elif e["importance"] >= PROMOTE_MIN_IMPORTANCE:
+                promoted.append(e)
+            else:
+                dropped.append(e)
 
     long_entries, merged, added = merge_entries(long_entries, promoted)
+
+    if dropped:
+        archive, _, _ = merge_entries(archive, dropped)
+        archive.sort(key=score, reverse=True)
+
+    demoted = []
+    still_long = []
+    for e in long_entries:
+        unused = e["uses"] == 0 and days_since(e["last_used"]) > STALE_AFTER_DAYS
+        if not e["pinned"] and unused:
+            demoted.append(e)
+        else:
+            still_long.append(e)
+    long_entries = still_long
+    if demoted:
+        archive, _, _ = merge_entries(archive, demoted)
+        archive.sort(key=score, reverse=True)
 
     evicted = []
     pinned = [e for e in long_entries if e["pinned"]]
@@ -7664,9 +8361,17 @@ def _consolidate_locked(
                 e.get("key") or e.get("id"),
                 f"long -> archive (cap {LONG_CAP}): {(e.get('body') or '')[:70]}",
             )
+        for e in demoted:
+            ledger_append(
+                root,
+                "memory.evict",
+                agent,
+                e.get("key") or e.get("id"),
+                f"long -> archive (unused {STALE_AFTER_DAYS}d): {(e.get('body') or '')[:70]}",
+            )
         write_memory(short_path, keep_short, F_SHORT, agent)
         write_memory(long_path, long_entries, F_LONG, agent)
-        if evicted:
+        if dropped or evicted or demoted:
             write_memory(arch_path, archive, F_MEM_ARCHIVE, agent)
 
     report = {
@@ -7675,6 +8380,8 @@ def _consolidate_locked(
         "long": len(long_entries),
         "promoted": len(promoted),
         "dropped": len(dropped),
+        "drifted": len(drifted),
+        "demoted": len(demoted),
         "evicted": len(evicted),
         "merged": merged,
         "added": added,
@@ -7683,6 +8390,7 @@ def _consolidate_locked(
         print(
             f"teamwork: {agent}: short={report['short']} long={report['long']} "
             f"promoted={report['promoted']} dropped={report['dropped']} "
+            f"drifted={report['drifted']} demoted={report['demoted']} "
             f"evicted={report['evicted']} merged={report['merged']}"
         )
     return report
@@ -7708,7 +8416,7 @@ def cmd_stats(args) -> int:
     print("# memory and task lists are per ROLE, shared by all its instances")
     print(
         f"# caps: short={SHORT_CAP} long={LONG_CAP} archive={ARCHIVE_CAP} "
-        f"stale_days={STALE_DAYS} min_uses={MIN_USES} v{VERSION}"
+        f"stale_days={STALE_DAYS} promote_uses={PROMOTE_USES} v{VERSION}"
     )
     total = 0
     for name in names:
@@ -7819,15 +8527,17 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
     if added and not quiet:
         print(f"teamwork: added {len(added)} rule(s) to .gitignore")
 
+    ensure_longpaths(project)
     ensure_lfs(project, quiet=quiet)
     toplevel = run_git(project, "rev-parse", "--show-toplevel").stdout.strip()
     at_toplevel = bool(toplevel) and Path(toplevel).resolve() == project.resolve()
     if at_toplevel:
         local_email = run_git(project, "config", "--local", "user.email").stdout.strip()
         local_name = run_git(project, "config", "--local", "user.name").stdout.strip()
-        if not local_email:
+        if preset_identity(project) is None:
             name, email = role_identity("ceo")
-            run_git(project, "config", "--local", "user.email", email)
+            if not local_email:
+                run_git(project, "config", "--local", "user.email", email)
             if not local_name:
                 run_git(project, "config", "--local", "user.name", name)
     elif not quiet:
@@ -8482,7 +9192,7 @@ def cmd_task_next(args) -> int:
             blocked = [
                 t
                 for t in tasks
-                if t["status"] in ("todo", "doing", "selfcheck") and t not in refused
+                if t["status"] in ("todo", "doing", "paused", "selfcheck") and t not in refused
             ]
             print(
                 f"teamwork: {args.agent} ({role}) has no unclaimed executable task"
@@ -8630,8 +9340,33 @@ def cmd_task_set(args) -> int:
             require_runnable_task_graph(root, role, tasks)
         if args.title:
             t["title"] = args.title
+        if getattr(args, "area", None) is not None:
+            t["area"] = check_area(args.area or "", 2)
         if args.evidence is not None:
             t["evidence"] = args.evidence.strip()
+        if getattr(args, "authorize", None) is not None:
+            actor, arole = validate_actor(
+                root, args.by or args.claimed_by or args.agent, "authorizer"
+            )
+            if arole != "ceo" and not args.force:
+                die(
+                    f"only the CEO opens a closed lane: it records that a person "
+                    f"authorized an irreversible change (you are {actor}, {arole}).\n"
+                    "  Use --force <reason> to override deliberately.",
+                    2,
+                )
+            why = require_reason(args.authorize, "a closed-lane change")
+            t["undo_authorized"] = f"{actor}: {why}"
+            t["updated"] = today_iso()
+            ledger_append(
+                root,
+                "task.status",
+                actor,
+                t["id"],
+                f"closed lane authorized: {why}",
+                "",
+                role,
+            )
         if getattr(args, "review_status", None):
             if not (args.force or "").strip():
                 die(
@@ -8713,6 +9448,10 @@ def cmd_task_set(args) -> int:
     )
     if t.get("evidence"):
         print(f"          evidence: {t['evidence']}")
+    if getattr(args, "area", None) is not None:
+        note = area_plan_note(root, t.get("area", ""))
+        if note:
+            print(note)
     return 0
 
 
@@ -10628,20 +11367,492 @@ def memory_dream_line(root: Path) -> str:
     """
     role = ""
     items = _collected(root, role)
-    proposals = memorypack.dream(items, datetime.datetime.now())
+    proposals = memorypack.dream(
+        items, datetime.datetime.now(), root, budget_seconds=DREAM_BUDGET_SECONDS
+    )
     duplicates = len(proposals.get("duplicate") or [])
     stale = len(proposals.get("stale") or [])
     contradictions = len(proposals.get("contradiction") or [])
     no_evidence = len(proposals.get("no_evidence") or [])
-    if not (duplicates or stale or contradictions or no_evidence):
+    deferred = int(proposals.get("deferred") or 0)
+    if not (duplicates or stale or contradictions or no_evidence or deferred):
         return (
             f"# memory: {len(items)} record(s), nothing to consolidate (dream --dry-run is clean)"
         )
-    return (
+    line = (
         f"# memory: {len(items)} record(s) -> {duplicates} duplicate(s), {stale} stale, "
-        f"{contradictions} contradiction(s), {no_evidence} without evidence; "
-        "`memory dream --apply --by <you>` acts, nothing was written"
+        f"{contradictions} contradiction(s), {no_evidence} without evidence"
     )
+    if deferred:
+        line += f", deferred {deferred} by DREAM_BUDGET_SECONDS={DREAM_BUDGET_SECONDS}"
+    return line + "; `memory dream --apply --by <you>` acts, nothing was written"
+
+
+def _status_elapsed(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m{seconds % 60:02d}s"
+    return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
+
+
+def recent_activity(root: Path, limit_bytes: int = 65536) -> dict:
+    """The newest ledger event per actor, read from a bounded tail.
+
+    The widget asks "what is this agent doing right now", and the ledger is the one
+    store every engine command appends to as it happens. Reading the whole file
+    would cost a 7k-record parse on every 2 s refresh, so only the tail is read;
+    an actor whose last event is older than the tail simply has no entry and the
+    panel shows the lane state instead of a stale command. The first line of the
+    tail is dropped unless it is whole, because a seek can land mid-record.
+    """
+    import json
+
+    path = ledger_path(root)
+    if not path.exists():
+        return {}
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as handle:
+            start = max(0, size - max(limit_bytes, 1))
+            handle.seek(start)
+            chunk = handle.read().decode("utf-8", errors="replace")
+    except OSError:
+        return {}
+    lines = chunk.splitlines()
+    if start > 0 and lines:
+        lines = lines[1:]
+    newest: dict = {}
+    for line in lines:
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            record = json.loads(text)
+        except ValueError:
+            continue
+        if not isinstance(record, dict):
+            continue
+        actor = str(record.get("actor") or "")
+        if actor:
+            newest[pascal(actor)] = record
+    return newest
+
+
+STATUS_LAST_MAX = 200
+
+
+def _activity_text(record: dict) -> str:
+    """One line for a ledger event: what ran, on what, and the result it reported."""
+    action = one_line(str(record.get("action") or ""))
+    target = one_line(str(record.get("target") or ""))
+    detail = one_line(str(record.get("detail") or ""))
+    head = " ".join(part for part in (action, target) if part)
+    text = f"{head} - {detail}" if head and detail else (head or detail)
+    return text[:STATUS_LAST_MAX]
+
+
+def _activity_age(record: dict, now: float) -> int | None:
+    stamp = str(record.get("ts") or "")
+    try:
+        when = datetime.datetime.fromisoformat(stamp)
+    except ValueError:
+        return None
+    return max(int(now - when.timestamp()), 0)
+
+
+def _status_row(
+    instance: str,
+    now: float,
+    live: dict,
+    held: dict,
+    titles: dict,
+    dispatching: float = 0.0,
+    activity: dict | None = None,
+) -> dict:
+    """One instance's live state: the lane record if it runs, else the claim.
+
+    ``dispatching`` is the age in seconds of the CEO's last pulse. The CEO is the
+    leader session: when it holds no task it is still running the loop (dispatch,
+    arbitration, folding), so a fresh pulse is work, not idleness - the panel says
+    ``dispatching`` instead of ``idle`` for it.
+    """
+    run = live.get(pascal(instance)) or {}
+    task = ""
+    if run.get("task"):
+        owner = str(run.get("review_owner") or "")
+        task = f"{owner}/{run['task']}" if owner else str(run["task"])
+    else:
+        task = held.get(pascal(instance), "")
+    elapsed = None
+    progress = "idle"
+    progress_pct = None
+    if run:
+        elapsed = max(int(now - float(run.get("created") or now)), 0)
+        minutes = int(run.get("minutes") or 0)
+        budget = minutes * 60
+        percent = min(int(elapsed * 100 / budget), 100) if budget else 0
+        progress = f"attempt {run.get('attempt')}/{run.get('attempts')}, {percent}% of {minutes}m"
+        progress_pct = percent if budget else None
+    elif task:
+        progress = "claimed, no lane record"
+    elif dispatching:
+        progress = f"dispatching (last pulse {int(dispatching // 60)}m ago)"
+    title = str(titles.get(task.rsplit("/", 1)[-1], ""))
+    if dispatching and not task and not run:
+        title = "pulse: dispatch, arbitrate, fold"
+    events = activity or {}
+    busy = "busy" if (task or run or dispatching) else "idle"
+    record = events.get(pascal(instance)) or {}
+    if not record and busy == "busy":
+        record = events.get(pascal(resolve_role(instance))) or {}
+    return {
+        "instance": instance,
+        "role": resolve_role(instance),
+        "state": busy,
+        "task": task,
+        "title": title,
+        "elapsed": elapsed,
+        "elapsed_text": _status_elapsed(elapsed) if elapsed is not None else "-",
+        "progress": progress,
+        "progress_pct": progress_pct,
+        "lane": str(run.get("id") or ""),
+        "lane_state": str(run.get("state") or ""),
+        "last": _activity_text(record),
+        "last_at": str(record.get("ts") or ""),
+        "last_seconds": _activity_age(record, now),
+    }
+
+
+LANE_ROW_LIMIT = 6
+
+
+def _model_for(config: dict, instance: str, role: str) -> tuple:
+    """The pair an instance runs with: its agent entry, else its role default."""
+    wanted = pascal(instance)
+    for key, entry in config["agents"].items():
+        if pascal(key) == wanted and isinstance(entry, dict):
+            return str(entry.get("model") or ""), str(entry.get("provider") or "")
+    entry = config["roles"].get(role)
+    if isinstance(entry, dict):
+        return str(entry.get("model") or ""), str(entry.get("provider") or "")
+    return "", ""
+
+
+def _lane_row(run: dict, now: float, config: dict) -> dict:
+    """One lane as the feed and the widget print it."""
+    instance = str(run.get("agent") or "")
+    role = str(run.get("role") or resolve_role(instance)) if instance else ""
+    model, provider = _model_for(config, instance, role)
+    elapsed = max(int(now - float(run.get("created") or now)), 0)
+    review = bool(str(run.get("review_owner") or ""))
+    return {
+        "id": str(run.get("id") or ""),
+        "instance": instance,
+        "role": role,
+        "task": "" if review else str(run.get("task") or ""),
+        "state": str(run.get("state") or ""),
+        "elapsed_text": _status_elapsed(elapsed),
+        "model": model,
+        "provider": provider,
+        "attempt": f"{int(run.get('attempt') or 0)}/{int(run.get('attempts') or 0)}",
+    }
+
+
+def lane_rows(runs: list, now: float, config: dict) -> list:
+    """The lanes worth showing: live first, then newest, bounded and stable."""
+    from . import lanes as lane_runtime
+
+    ordered = sorted(
+        runs,
+        key=lambda run: (
+            run.get("state") not in lane_runtime.LIVE,
+            -float(run.get("created") or 0),
+            str(run.get("id") or ""),
+        ),
+    )
+    return [_lane_row(run, now, config) for run in ordered[:LANE_ROW_LIMIT]]
+
+
+def status_snapshot(root: Path) -> tuple:
+    """Instance rows and lane rows from one settle and one Settings read."""
+    from . import lanes as lane_runtime
+
+    now = time.time()
+    runs = lane_runtime.settle(root)
+    live: dict = {}
+    for run in runs:
+        if run.get("state") not in lane_runtime.LIVE:
+            continue
+        agent = pascal(str(run.get("agent") or ""))
+        if not agent:
+            continue
+        previous = live.get(agent)
+        if previous is None or float(run.get("created") or 0) > float(previous.get("created") or 0):
+            live[agent] = run
+    held: dict = {}
+    for role in list_roles(root):
+        for task in parse_tasks(task_file(root, role)):
+            if task["status"] in ("doing", "selfcheck") and task.get("claimed_by"):
+                held[pascal(task["claimed_by"])] = task["id"]
+            elif review_is_held(task):
+                held[pascal(task["review_claim"])] = task["id"]
+    titles = {str(t["id"]): str(t.get("title") or "") for _role, t in iter_tasks(root)}
+    config = load_model_config(root)
+    pulse_age = _pulse_age(root, now)
+    activity = recent_activity(root)
+    rows = [
+        _status_row(
+            name,
+            now,
+            live,
+            held,
+            titles,
+            dispatching=pulse_age if resolve_role(name) == "ceo" else 0.0,
+            activity=activity,
+        )
+        for name in known_instances(root)
+    ]
+    for row in rows:
+        row["model"], row["provider"] = _model_for(config, row["instance"], row["role"])
+    return rows, lane_rows(runs, now, config)
+
+
+def status_rows(root: Path) -> list:
+    """Every instance's live state, from the queue claim and the lane records.
+
+    The queue says who holds what; ``Runtime/Lanes`` says what is actually
+    running, so a claim left behind by a dead lane reads as busy with no lane
+    record instead of as work in flight. Reconciling a lane whose process ended
+    without an outcome file is the same write every lane command performs.
+    """
+    return status_snapshot(root)[0]
+
+
+PULSE_HEARTBEAT = "Pulse.json"
+
+
+def write_pulse_heartbeat(root: Path, minutes: int, actor: str) -> None:
+    """Record that the CEO's loop just ran, so `status` shows it as dispatching.
+
+    The CEO is a leader session, not an engine process; its work is the pulse. A
+    heartbeat is the only honest signal that the loop is alive, so the panel reads
+    this file instead of guessing. Best effort: a failed write must never stop a
+    wake.
+    """
+    payload = {"ts": time.time(), "minutes": max(int(minutes), 1), "actor": actor or "ceo"}
+    try:
+        atomic_write(root / DIR_RUNTIME / PULSE_HEARTBEAT, json.dumps(payload) + "\n")
+    except OSError:
+        return
+
+
+def _pulse_age(root: Path, now: float) -> float:
+    """Seconds since the last pulse, or 0 when none is fresh (or unreadable)."""
+    path = root / DIR_RUNTIME / PULSE_HEARTBEAT
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        ts = float(payload.get("ts") or 0)
+        minutes = max(int(payload.get("minutes") or 5), 1)
+    except (OSError, ValueError, TypeError):
+        return 0.0
+    age = now - ts
+    if age < 0 or age > minutes * 60:
+        return 0.0
+    return age
+
+
+def status_meta(root: Path, rows: list, lanes_shown: list) -> dict:
+    """The aggregate the panel and the widget print instead of idle detail rows."""
+    from . import lanes as lane_runtime
+
+    runs = lane_runtime.load_runs(root)
+    activated = {pascal(str(run.get("agent") or "")) for run in runs}
+    activated |= {pascal(row["instance"]) for row in rows}
+    activated.discard("")
+    retired_root = retired_dir(root)
+    retired = (
+        len([path for path in retired_root.iterdir() if path.is_dir()])
+        if retired_root.is_dir()
+        else 0
+    )
+    live_total = sum(1 for run in runs if run.get("state") in lane_runtime.LIVE)
+    return {
+        "activated": len(activated),
+        "retired": retired,
+        "lanes_live": live_total,
+        "lanes_ended": len(runs) - live_total,
+    }
+
+
+def _lane_model_text(provider: str, model: str) -> str:
+    """``provider/model`` when both are known, the one that is known, else a dash."""
+    if provider and model:
+        return f"{provider}/{model}"
+    return model or provider or "-"
+
+
+def _status_counts(root: Path, rows: list) -> dict:
+    """Team-wide totals for the UI header, not the narrowed --agent view."""
+    return {
+        "busy": sum(1 for row in rows if row["state"] == "busy"),
+        "idle": sum(1 for row in rows if row["state"] == "idle"),
+        "ready": sum(len(_ready_for_role(root, role)) for role in list_roles(root)),
+        "review": len(awaiting_review(root)),
+    }
+
+
+def cmd_status(args) -> int:
+    """Compact live state: busy rows in full, idle and ended detail as one count.
+
+    The panel and the feed answer two different questions. The panel is for a
+    person watching the team, so it prints what is working and one aggregate line
+    for the idle seats (`idle: 12 (activated 18, retired 4)`) - an idle seat is a
+    seat to fold, not a row to read. The JSON feed keeps every row for the widget,
+    which applies the same rule: busy rows and live lanes, idle collapsed to a
+    count.
+    """
+    root = project_root(args)
+    rows, lanes_shown = status_snapshot(root)
+    counts = _status_counts(root, rows)
+    meta = status_meta(root, rows, lanes_shown)
+    counts.update(meta)
+    wanted = (getattr(args, "agent", "") or "").strip()
+    if wanted:
+        rows = [row for row in rows if pascal(row["instance"]) == pascal(wanted)]
+        lanes_shown = [lane for lane in lanes_shown if pascal(lane["instance"]) == pascal(wanted)]
+        if not rows:
+            die(f"no instance named {wanted!r}", 2)
+    counts["lanes"] = len(lanes_shown)
+    if getattr(args, "json", False):
+        payload = {
+            "schema": 4,
+            "generated": datetime.datetime.now().isoformat(timespec="seconds"),
+            "count": len(rows),
+            "counts": counts,
+            "instances": rows,
+            "lanes": lanes_shown,
+        }
+        print(json.dumps(payload, indent=2))
+        return 0
+    busy = [row for row in rows if row["state"] == "busy"]
+    idle = len(rows) - len(busy)
+    print(
+        f"# Status ({len(busy)} busy, {idle} idle, {counts['activated']} activated, "
+        f"{counts['retired']} retired)"
+    )
+    live = [lane for lane in lanes_shown if lane["state"] in lane_runtime_live()]
+    if live:
+        print(f"# Lanes ({len(live)} live, {counts['lanes_ended']} ended not shown)")
+        for lane in live:
+            model = _lane_model_text(lane["provider"], lane["model"])
+            print(
+                f"- {lane['id']:7s} {lane['instance']:16s} {lane['state']:9s} "
+                f"{lane['task'] or '-':13s} {lane['elapsed_text']:>7s} {model}"
+            )
+    elif counts["lanes_ended"]:
+        print(f"# Lanes (0 live, {counts['lanes_ended']} ended not shown)")
+    if not rows:
+        print("- no instance")
+        return 3
+    for row in busy:
+        percent = "-" if row["progress_pct"] is None else f"{row['progress_pct']}%"
+        head = (
+            f"- {row['instance']:16s} {row['state']:5s} {row['task'] or '-':13s} "
+            f"{row['title'][:40]:40s} {row['elapsed_text']:>7s} {percent:>4s} "
+        )
+        print((head + str(row["progress"]))[:110])
+    if idle:
+        print(
+            f"- idle: {idle} seat(s) (activated {counts['activated']}, retired "
+            f"{counts['retired']}) - fold them: teamwork.py instance prune --keep-required"
+        )
+    return 0
+
+
+def lane_runtime_live() -> tuple:
+    from . import lanes as lane_runtime
+
+    return lane_runtime.LIVE
+
+
+REVIEWER_SCALE_CAP = 8
+SCALE_MAX_ADDS = 6
+SCALE_PER_ROLE_CAP = 4
+
+
+def _scale_plan(root: Path) -> list:
+    """``(role, count)`` additions that make the WORK bound the wave, not the roster.
+
+    One lane carries ``LANE_WIP`` units, so a role needs ``ceil(ready / LANE_WIP)``
+    instances; the review queue is the exception, because one Reviewer lane takes
+    one deliverable at a time and cannot be split. The plan is bounded three ways:
+    ``SCALE_PER_ROLE_CAP`` per role, ``SCALE_MAX_ADDS`` per wake, and the free
+    provider slots (a new lane with no slot would only wait).
+    """
+    ready = {role: len(_ready_for_role(root, role)) for role in list_roles(root)}
+    open_reviews = len(open_review_items(root))
+    plan = []
+    for role, count in sorted(ready.items()):
+        if not count or role == "reviewer":
+            continue
+        desired = min(max(1, -(-count // LANE_WIP)), SCALE_PER_ROLE_CAP)
+        want = desired - len(instances_of(root, role))
+        if want > 0:
+            plan.append((role, want))
+    if open_reviews:
+        desired = min(open_reviews, REVIEWER_SCALE_CAP)
+        want = desired - len(instances_of(root, "reviewer"))
+        if want > 0:
+            plan.append(("reviewer", want))
+    limits = load_providers(root)
+    providers = [prov for prov in limits if prov != "default"]
+    if providers:
+        free = sum(
+            max(cap - len(used_slots(root, prov)), 0)
+            for prov, cap in limits.items()
+            if prov != "default"
+        )
+        budget = min(SCALE_MAX_ADDS, free)
+    else:
+        budget = SCALE_MAX_ADDS
+    capped = []
+    for role, want in plan:
+        take = min(want, budget)
+        if take > 0:
+            capped.append((role, take))
+            budget -= take
+        if budget <= 0:
+            break
+    return capped
+
+
+def _apply_scale(root: Path, plan: list, by: str) -> list:
+    """Add the planned instances through the same path `instance add` uses.
+
+    The added names are the set difference, not the tail of a sorted list: with
+    ten or more instances the lexical order puts `Developer-10` before
+    `Developer-2`, so a slice would report the wrong lanes.
+    """
+    added: list[str] = []
+    for role, count in plan:
+        before = set(instances_of(root, role))
+        args = argparse.Namespace(
+            role=role,
+            count=count,
+            name="",
+            new_role=False,
+            under="",
+            by=by,
+            json=False,
+        )
+        try:
+            _instance_add(root, args)
+        except SystemExit:
+            print(f"# scale: could not add {count} {role} instance(s); the roster is unchanged")
+            continue
+        added.extend(name for name in instances_of(root, role) if name not in before)
+    return added
 
 
 def cmd_pulse(args) -> int:
@@ -10650,6 +11861,7 @@ def cmd_pulse(args) -> int:
     if args.interval is not None:
         set_pulse_minutes(root, args.interval)
     minutes = load_pulse_minutes(root)
+    write_pulse_heartbeat(root, minutes, getattr(args, "agent", "") or "ceo")
     mode, mode_source = load_pulse_mode(root, getattr(args, "mode", "") or "")
     reap_slots(root)
 
@@ -10715,6 +11927,29 @@ def cmd_pulse(args) -> int:
             )
         print()
 
+    scale = getattr(args, "scale", True)
+    if scale:
+        plan_scale = _scale_plan(root)
+        if plan_scale and args.commit and mode == "auto":
+            added = _apply_scale(root, plan_scale, getattr(args, "agent", "") or "ceo")
+            if added:
+                idle = idle_instances(root)
+                busy = busy_instances(root)
+                print(f"## scaled to the work ({len(added)} new instance(s)): " + ", ".join(added))
+                print(
+                    "# one lane carries LANE_WIP units and one Reviewer takes one deliverable, "
+                    "so the work - not the roster - bounds the wave"
+                )
+                print()
+        elif plan_scale:
+            print(
+                "## scale plan ("
+                + ", ".join(f"{role} +{count}" for role, count in plan_scale)
+                + ")"
+            )
+            print("# apply with `pulse --commit` (auto mode) or `instance add <role>`")
+            print()
+
     claim_holders = {pascal(lane) for _own, t, lane, _age in claims if review_is_held(t)}
     capacity: dict[str, int] = {}
     for a in list_agents(root):
@@ -10736,12 +11971,19 @@ def cmd_pulse(args) -> int:
     for role, inst_list in sorted(by_role.items()):
         items = list(ready_by_role.get(role, []))
         open_list = list(open_items)
-        for inst in inst_list:
-            if role == "reviewer" and open_list and capacity[inst] > 0:
-                own, t = open_list.pop(0)
-                plan.append(("reviewer", inst, t, f"deliverable review: {t['title']}", own))
-                continue
-            while items and capacity[inst] > 0:
+        while items or (role == "reviewer" and open_list):
+            progressed = False
+            for inst in inst_list:
+                if capacity[inst] <= 0:
+                    continue
+                if role == "reviewer" and open_list:
+                    own, t = open_list.pop(0)
+                    plan.append(("reviewer", inst, t, f"deliverable review: {t['title']}", own))
+                    capacity[inst] -= 1
+                    progressed = True
+                    continue
+                if not items:
+                    continue
                 slot = next(
                     (
                         index
@@ -10751,10 +11993,13 @@ def cmd_pulse(args) -> int:
                     None,
                 )
                 if slot is None:
-                    break
+                    continue
                 item = items.pop(slot)
                 plan.append((role, inst, item, item["title"], ""))
                 capacity[inst] -= 1
+                progressed = True
+            if not progressed:
+                break
 
     limits = load_providers(root)
     slot_holders = {pascal(a) for a in list_agents(root) if find_slot_provider(root, a)}
@@ -10872,6 +12117,44 @@ def cmd_pulse(args) -> int:
             )
         print()
 
+    foldable, _kept = _foldable_instances(root, keep_required=True)
+    if foldable:
+        print(f"## idle lanes to fold ({len(foldable)})")
+        for name, role in foldable:
+            print(
+                f"- {name:16s} ({role}) - no task, pen, slot, lane or claim: "
+                "`instance prune` folds it"
+            )
+        if args.commit and mode != "auto":
+            print(
+                f"# folding skipped: the accept mode is {mode}, so this wake is a report, "
+                "not a dispatch. Nothing was retired."
+            )
+        elif args.commit:
+            by = getattr(args, "agent", "") or "ceo"
+            folded = []
+            for name, role in foldable:
+                source = agent_dir(root, name)
+                if not source.is_dir():
+                    continue
+                _move_to_retired(
+                    root,
+                    name,
+                    source,
+                    role,
+                    by,
+                    "pulse: idle with nothing to take",
+                    [],
+                )
+                folded.append(name)
+            if folded:
+                print(
+                    f"# folded {len(folded)} idle instance(s) and released their resources: "
+                    + ", ".join(folded)
+                )
+                print("# add one back on demand with `instance add <role>`")
+        print()
+
     print("## CEO next actions")
     if args.commit and mode == "auto" and getattr(args, "spawn", True):
         print(
@@ -10902,16 +12185,18 @@ def cmd_pulse(args) -> int:
     if claims:
         taken = ", ".join(f"{own}/{t['id']}={lane}" for own, t, lane, _age in claims[:4])
         print(f"- claimed: {taken} - an unresponsive lane frees its claim when the lease expires")
-    if total_ready > len(idle):
+    capacity_units = len(idle) * LANE_WIP
+    if total_ready > capacity_units:
         print(
-            f"- {total_ready - len(idle)} ready task(s) have no free lane: queue by priority, "
-            "release finished leases or fan out on deepseek"
+            f"- {total_ready - capacity_units} ready task(s) have no free lane: queue by "
+            "priority, release finished leases or fan out on deepseek"
         )
     if not idle and not total_ready:
         print("- nothing to dispatch: check blocked tasks and open disputes")
     print(
         f"- re-arm this pulse: schedule the next wake every {minutes} min "
-        "(see the /teamwork skill: schedule.create)"
+        "(each wake: `pulse --commit --spawn` dispatches and returns; "
+        "`swarm run` is one async wave, `--wait` drains)"
     )
     if args.commit and getattr(args, "spawn", True):
         print()
@@ -10938,6 +12223,7 @@ def cmd_pulse(args) -> int:
                 host="",
                 by=getattr(args, "agent", "") or "ceo",
                 dry_run=False,
+                scale=getattr(args, "scale", True),
             )
         )
         if code:
@@ -11034,7 +12320,7 @@ def cmd_parallel(args) -> int:
     return 0
 
 
-COORD_OPEN = ("todo", "doing", "selfcheck", "blocked", "review")
+COORD_OPEN = ("todo", "doing", "paused", "selfcheck", "blocked", "review")
 COORD_PR_TERMINAL = ("merged", "closed", "superseded")
 COORD_TASK_TERMINAL = ("done", "dropped", "superseded")
 COORD_VERIFICATION_ROLES = ("reviewer", "security-auditor", "tester")
@@ -11728,6 +13014,16 @@ def throughput_report(root: Path) -> dict:
         queue_sizes, key=lambda row: (row[1], row[0]), default=("", 0)
     )
 
+    read_records = [r for r in records if r.get("action") == "read.sparse"]
+    read_bytes = 0
+    read_full = 0
+    for record in read_records:
+        detail = str(record.get("detail") or "")
+        found = re.search(r"bytes=(\d+) full=(\d+)", detail)
+        if found:
+            read_bytes += int(found.group(1))
+            read_full += int(found.group(2))
+
     from . import harness
 
     startup = [row.always_on for row in harness.budget_rows(project, root, None)[0]]
@@ -11748,6 +13044,15 @@ def throughput_report(root: Path) -> dict:
         },
         "queue": queue,
         "instances": len(list_agents(root)),
+        "read": {
+            "count": len(read_records),
+            "returned_bytes": read_bytes,
+            "full_bytes": read_full,
+            "saved_bytes": max(read_full - read_bytes, 0),
+            "saved_percent": (
+                round(100.0 * max(read_full - read_bytes, 0) / read_full, 1) if read_full else 0.0
+            ),
+        },
         "surface": {
             "agents_bytes": harness.file_size(project / "AGENTS.md"),
             "skill_bytes": harness.file_size(project / "SKILL.md"),
@@ -11798,6 +13103,15 @@ def _print_throughput(report: dict) -> None:
         print(f"- {row['role']}: todo={row['todo']} doing={row['doing']} review={row['review']}")
     print(f"instances: {report['instances']}")
     print()
+    read = report.get("read") or {}
+    if read.get("count"):
+        print("## sparse read")
+        print(
+            f"reads: {read['count']} | returned {read['returned_bytes']} B of "
+            f"{read['full_bytes']} B -> saved {read['saved_bytes']} B "
+            f"({read['saved_percent']}%)"
+        )
+        print()
     print("## surface")
     print(
         f"AGENTS {surface['agents_bytes']} B | SKILL {surface['skill_bytes']} B | "
@@ -11915,8 +13229,15 @@ def iter_markdown(project: Path) -> list:
     return sorted(out)
 
 
-QUOTED_EVIDENCE_RE = re.compile(
-    r"^(- (?:self-check|author evidence|reviewer evidence|findings history): ).*$", re.M
+QUOTED_EVIDENCE_FIELDS = (
+    "- self-check: ",
+    "- author evidence: ",
+    "- reviewer evidence: ",
+    "- findings history: ",
+)
+
+ARCHIVE_ENTRY_LINE_RE = re.compile(
+    r"^- (?:date|priority|owner|reviewer|task / issue|area|branch / merge): "
 )
 
 
@@ -11931,10 +13252,26 @@ def strip_quoted_evidence(rel: str, text: str) -> str:
     quotation) is a manual tax that already cost T-0032 and T-0035 and broke again on
     the next entry. The authored text of the document - titles, sections, every other
     line - is still checked in full.
+
+    A quoted field is not one line: an agent's note is often several paragraphs, so
+    the field runs from its bullet to the next bullet or the next entry heading. A
+    line-based match left every continuation line authored, which put a bare URL from
+    a quoted ``FIDELITY:`` paragraph back into the check at each merge (T-0061).
     """
     if not rel.endswith("Archive.md"):
         return text
-    return QUOTED_EVIDENCE_RE.sub(lambda m: m.group(1), text)
+    kept, quoting = [], False
+    for line in text.split("\n"):
+        if line.startswith(QUOTED_EVIDENCE_FIELDS):
+            quoting = True
+            kept.append(line.split(":", 1)[0] + ":")
+            continue
+        if quoting and (
+            not line.strip() or line.startswith("## ") or ARCHIVE_ENTRY_LINE_RE.match(line)
+        ):
+            quoting = False
+        kept.append("" if quoting else line)
+    return "\n".join(kept)
 
 
 def _document_text(path: Path, rel: str) -> str:
@@ -12315,7 +13652,7 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     sections.append(s)
 
     s = _section("work", "work in flight")
-    buckets: dict = {k: [] for k in ("todo", "doing", "selfcheck", "blocked", "review")}
+    buckets: dict = {k: [] for k in ("todo", "doing", "paused", "selfcheck", "blocked", "review")}
     invalid = []
     for role, t in tasks:
         if t["status"] in buckets:
@@ -12663,7 +14000,7 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
         input=message,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(),
+        env=_merge_commit_env(repo),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", *dirty)
@@ -13013,7 +14350,7 @@ def commit_archive_merge_sha(
         input=close_msg,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(),
+        env=_merge_commit_env(here),
     )
     if committed.returncode != 0:
         run_git(here, "reset", "-q", "--", rel)
@@ -13321,11 +14658,19 @@ def cmd_review(args) -> int:
         die("--credit belongs to a pass: it names the record a passing verdict cited", 2)
     if args.force:
         args.force = require_reason(args.force, "the review gate")
+    review_grade = grades.evidence_grade(args.evidence)
     if args.result == "pass" and not (args.evidence or "").strip() and not args.force:
         die(
             "a pass needs the REVIEWER's own evidence:\n"
             "  --evidence '<verify command> @<rev> -> <result>'\n"
             "  The author's evidence is not independent verification."
+        )
+    if args.result == "pass" and not args.force and review_grade in ("noise", "none"):
+        die(
+            f"a pass cannot carry {review_grade} evidence: {args.evidence.strip()!r}\n"
+            "  'Looks good', 'verified' and 'no errors' are the grades a failing tree\n"
+            "  produces too. Record the command you ran and what it printed.",
+            2,
         )
 
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
@@ -13390,6 +14735,19 @@ def cmd_review(args) -> int:
                     "has no PR, so the branch could never be merged. Ask the owner to "
                     f"run 'pr open --agent {t.get('claimed_by') or role} "
                     f"--task {t['id']}' first.",
+                    2,
+                )
+            undo_cls, undo_why = _task_undo_class(root, project, t)
+            if undo_cls:
+                t["undo"] = undo_cls
+                t["undo_reason"] = undo_why
+            if undo_cls == "closed" and not (t.get("undo_authorized") or "").strip():
+                die(
+                    f"refusing to pass {t['id']}: this is a closed lane ({undo_why}).\n"
+                    "  A closed lane has no score to lower, so it needs a person: the CEO\n"
+                    "  records the authorization on the task first.\n"
+                    f"  teamwork.py task set {role} {t['id']} --authorize "
+                    "'<who said yes + evidence>'",
                     2,
                 )
             if is_git_repo(project) and t.get("branch"):
@@ -13489,6 +14847,7 @@ def cmd_review(args) -> int:
             if artifacts:
                 t["review_artifacts"] = artifacts
             t["review_status"] = "passed"
+            t["review_grade"] = review_grade
             t["status"] = "done"
             t["review_fail_rev"] = ""
             if args.force:
@@ -13500,8 +14859,11 @@ def cmd_review(args) -> int:
             failed_rev = review_revision(root, t) or (t.get("review_fail_rev") or "")
             mechanical, mechanical_why = review_mechanical(t, failed_rev)
             detects = one_line(args.detects)
+            scope = one_line(getattr(args, "scope", "") or "")
             prev = t.get("findings", "")
             finding = f"detects: {detects} | {args.findings.strip()}"
+            if scope:
+                finding += f" | scope: {scope}"
             t["findings"] = f"{prev} | {finding}" if prev else finding
             t["review_detects"] = detects
             t["review_status"] = "failed"
@@ -13975,7 +15337,7 @@ def _preflight_branch(project: Path, base: str, branch: str, role: str) -> Prefl
 
 
 def _preflight_identity(project: Path, base: str, branch: str, role: str) -> PreflightCheck:
-    """Every commit over the base is authored AND committed by a role mailbox.
+    """Every commit over the base is authored AND committed by an accepted identity.
 
     This is `teamwork.py identity --audit --range <base>..<branch>` - the same
     function CI runs - so the author sees the failure the Reviewer's own gate would
@@ -14001,9 +15363,8 @@ def _preflight_identity(project: Path, base: str, branch: str, role: str) -> Pre
         "identity --audit "
         + f"{base}..{branch} -> exit {code}: "
         + "; ".join(problems[:3] or ["see teamwork.py identity --audit"]),
-        f"commit as the acting role: teamwork.py commit --role {role} ... "
-        f"(author == committer == {identity_string(role)}), and end the message with"
-        " 'Acting role: <Role>'",
+        f"commit with `teamwork.py commit --role {role} ...` so the author and the "
+        "committer are one accepted identity",
     )
 
 
@@ -14013,7 +15374,9 @@ def _rev_reachable(project: Path, sha: str) -> bool:
     return result.returncode == 0 and bool(result.stdout.strip())
 
 
-def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> PreflightCheck:
+def _preflight_evidence(
+    project: Path, task: dict, extra_text: str = "", head_rev: str = ""
+) -> PreflightCheck:
     """Every ``@<sha>`` in the task's evidence and self-check note is a real commit.
 
     A claim bound to a revision nobody can check out is not evidence, and it is one
@@ -14026,6 +15389,11 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
     without it a self-check whose ``--test`` names a missing revision is the one
     text this gate never reads - and the digest it records then certifies a
     measurement nobody can reproduce.
+
+    The newest note and the task evidence must name the branch head: a self-check
+    that measured an older revision is refused, because the tree moved after the run
+    and its counts no longer reproduce. A record naming both an old and the head (a
+    repro's before/after) passes; one naming no revision is left to the Reviewer.
 
     The note is append-only, so the LAST segment is the only authoritative one: an
     earlier round's ``--test`` line names the revision that round measured, and a
@@ -14103,12 +15471,31 @@ def _preflight_evidence(project: Path, task: dict, extra_text: str = "") -> Pref
             " rewritten away on purpose, name it in the new note as"
             " '@<old> superseded by @<current-rev>' and the gate stops checking it",
         )
+    if head_rev and named and not any(_names_rev(head_rev, sha) for sha in named):
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            "the record names "
+            + ", ".join(f"@{sha}" for sha in named[:5])
+            + f", but the branch head is @{head_rev[:7]}: the tree moved after the run",
+            "re-run the command at the head and record it: selfcheck <agent> <T-id> --by "
+            f"<you> --note '<what you re-read>' --test '<cmd> @{head_rev[:7]} -> <result>'",
+        )
     shown = ", ".join(f"@{sha}" for sha in named[:5])
     detail = f"{len(named)} evidence revision(s) reachable: {shown}"
     if superseded:
         accepted = ", ".join(f"@{sha}" for sha in sorted(superseded)[:5])
         detail += f"; {len(superseded)} marked superseded and not checked: {accepted}"
     return PreflightCheck(name, PREFLIGHT_OK, detail)
+
+
+def _names_rev(head: str, sha: str) -> bool:
+    """True when ``sha`` (short or full) is the commit ``head`` (full)."""
+    head = (head or "").strip().lower()
+    sha = (sha or "").strip().lower()
+    if not head or not sha:
+        return False
+    return head == sha or (len(sha) >= 4 and head.startswith(sha))
 
 
 def _superseded_revs(text: str) -> set:
@@ -14260,6 +15647,72 @@ def _preflight_features(root: Path, project: Path, base: str, branch: str) -> Pr
     )
 
 
+def _undo_entries(project: Path, base: str, branch: str) -> list:
+    """``(path, added, deleted)`` rows for one branch, empty when it cannot be read."""
+    if not (branch and is_git_repo(project) and branch_exists(project, branch)):
+        return []
+    diff = run_git(project, "diff", "--numstat", f"{base}...{branch}")
+    if diff.returncode != 0:
+        return []
+    entries = []
+    for line in diff.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        added = int(parts[0]) if parts[0].isdigit() else 0
+        gone = int(parts[1]) if parts[1].isdigit() else 0
+        entries.append((parts[2], added, gone))
+    return entries
+
+
+def _task_undo_class(root: Path, project: Path, task: dict) -> tuple:
+    """``(class, reason)`` for a task's own branch; ``("", "")`` when it has none."""
+    base = (task.get("base") or "").strip() or DEFAULT_BASE
+    entries = _undo_entries(project, base, (task.get("branch") or "").strip())
+    if not entries:
+        return "", ""
+    return grades.undo_class(entries)
+
+
+def _preflight_undo(project: Path, base: str, branch: str, task: dict) -> PreflightCheck | None:
+    """The lane a score cannot open: sort the diff by how hard it is to undo.
+
+    A confidence score is a number the model produces about itself, and a threshold
+    is a number someone can lower on a busy Friday. So the gate asks a different
+    question - what does a mistake cost here - and a ``closed`` lane needs a person:
+    the CEO's recorded authorization on the task, because the CEO is the only role
+    that may take an irreversible action.
+
+    Omitted while the class is ``revert``, so the ordinary report keeps its length;
+    ``evidence`` warns, ``closed`` fails until ``undo_authorized`` is set.
+    """
+    entries = _undo_entries(project, base, branch)
+    if not entries:
+        return None
+    cls, reason = grades.undo_class(entries)
+    if (task.get("undo") or "") in grades.UNDO_CLASSES and task.get("undo") != cls:
+        cls, reason = task["undo"], task.get("undo_reason") or reason
+    if cls == "revert":
+        return None
+    authorized = (task.get("undo_authorized") or "").strip()
+    if cls == "evidence":
+        return PreflightCheck(
+            "undo",
+            PREFLIGHT_WARN,
+            f"{cls}: {reason}; a shared surface needs hard evidence, not a summary",
+            "cite the strong evidence (a command and its result) in the self-check note",
+        )
+    if authorized:
+        return PreflightCheck("undo", PREFLIGHT_OK, f"{cls}: {reason} - authorized: {authorized}")
+    return PreflightCheck(
+        "undo",
+        PREFLIGHT_FAIL,
+        f"{cls}: {reason}; no authorization is recorded, so no verdict can open this lane",
+        "the CEO records it: teamwork.py task set <role> <T-id> --authorize "
+        "'<who said yes + evidence>' (a closed lane has no score to lower)",
+    )
+
+
 def _preflight_slice(
     project: Path, base: str, branch: str, root: Path, role: str, task: dict
 ) -> PreflightCheck | None:
@@ -14301,7 +15754,7 @@ def _preflight_slice(
 GATE_SHELL_METACHARACTERS = "&|;<>\n"
 
 
-def _gate_argv(command: str) -> list[str]:
+def _gate_argv(command: str) -> list[str] | str:
     """The argv `_preflight_gate` starts, raising `ValueError` for an unquotable one.
 
     A `PreflightCommand` is a shell line as the docs spell it (`make check`,
@@ -14310,24 +15763,69 @@ def _gate_argv(command: str) -> list[str]:
     `ruff check . && ...` then exits 2 on a spelling the docs invite (T-0005). A
     single command keeps the no-shell path, so a missing program still reports
     "could not start" instead of a shell's exit 127.
+
+    On Windows the line is returned as one string to be run with `shell=True`,
+    never as `["cmd", "/c", command]`: `subprocess` re-quotes a list argument, so
+    the quotes in `"C:\\...\\python.exe" -c "print(1)"` reach `cmd.exe` backslash-
+    escaped and it looks for a program whose name begins with a quote (T-0094).
     """
     if any(char in command for char in GATE_SHELL_METACHARACTERS):
         if os.name == "nt":
-            return ["cmd", "/c", command]
+            return command
         return ["/bin/sh", "-c", command]
     return shlex.split(command)
 
 
-def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
+def _gate_tree(root: Path, project: Path, task: dict) -> Path:
+    """The tree the gate must run in: the lane's worktree when the task records one.
+
+    The tree a command acts on is its cwd, and a lane that invokes `preflight --run`
+    from the main checkout while its work lives in `Runtime/Worktrees/<Instance>/<T-id>`
+    measured the wrong tree: a syntax error in the lane passed its own gate (T-0058).
+    A recorded worktree that is gone is not a tree to run in, so the checkout wins.
+    A store records a path relative to the team root (K-0008), and records written
+    before that rule carry the project-relative form, so both are tried; resolving
+    either against the process cwd made a lane invoked from anywhere but the
+    checkout fall back to the checkout silently (T-0058).
+    """
+    recorded = (task.get("worktree") or "").strip()
+    if recorded:
+        stored = Path(recorded)
+        candidates = [stored] if stored.is_absolute() else [root / stored, project / stored]
+        for tree in candidates:
+            if tree.is_dir():
+                return tree
+    return project
+
+
+def _gate_tree_label(project: Path, tree: Path) -> str:
+    """Which tree the gate ran in, in the shortest form a reader can act on."""
+    if tree.resolve() == project.resolve():
+        return "the project checkout"
+    try:
+        return str(tree.resolve().relative_to(project.resolve()))
+    except ValueError:
+        return str(tree)
+
+
+def _preflight_gate(
+    root: Path, project: Path, run: bool, task: dict | None = None
+) -> PreflightCheck:
     """The project's own gate, if it configured one - the skill names no toolchain.
 
     `--run` is explicit because the command is the project's, not the skill's: a
     preflight that ran `make check` by default would be a language assumption, and
     one that ran it silently would make every self-check pay for a full suite.
+    The working directory is the task's own worktree when it records one, never the
+    main checkout: a gate that reads a tree other than the revision under review is
+    a false green (T-0058), and the detail line names the tree it measured.
     A command this host cannot start is reported as a FAILED gate carrying the
     command and the reason, never raised: a gate nobody can read is a gate that
-    taught the lane to skip it (T-0003).
+    taught the lane to skip it (T-0003). The command runs in the tree that holds
+    the branch under test, and every line names that tree (T-0058).
     """
+    tree = _gate_tree(root, project, task or {})
+    where = _gate_tree_label(project, tree)
     name = "gate"
     command = _settings_string(root, PREFLIGHT_SETTINGS_KEY)
     if not command:
@@ -14350,19 +15848,27 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
         return PreflightCheck(name, PREFLIGHT_FAIL, f"PreflightCommand is not quotable: {exc}")
     if not argv:
         return PreflightCheck(name, PREFLIGHT_FAIL, "PreflightCommand is empty")
+    if not tree.is_dir():
+        return PreflightCheck(
+            name,
+            PREFLIGHT_FAIL,
+            f"{command} -> the tree to measure is missing: {tree}",
+            "recreate it: teamwork.py branch start --agent <you> --task <T-id>",
+        )
     try:
         proc = subprocess.run(
             argv,
-            cwd=str(project),
+            cwd=str(tree),
             capture_output=True,
             text=True,
             timeout=PREFLIGHT_GATE_TIMEOUT,
+            shell=isinstance(argv, str),
         )
     except subprocess.TimeoutExpired:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            f"{command} -> no exit: still running after {PREFLIGHT_GATE_TIMEOUT}s",
+            f"{command} -> no exit in {where}: still running after {PREFLIGHT_GATE_TIMEOUT}s",
             f"{command}   # a gate that hangs is not a pass; make it finish, then re-run"
             " preflight --run",
         )
@@ -14370,19 +15876,72 @@ def _preflight_gate(root: Path, project: Path, run: bool) -> PreflightCheck:
         return PreflightCheck(
             name,
             PREFLIGHT_FAIL,
-            f"{command} -> could not start: {exc}",
+            f"{command} -> could not start in {where}: {exc}",
             "install it, or point PreflightCommand at a command this host has"
             "   # then re-run preflight --run",
         )
     if proc.returncode == 0:
-        return PreflightCheck(name, PREFLIGHT_OK, f"{command} -> exit 0")
+        return PreflightCheck(name, PREFLIGHT_OK, f"{command} -> exit 0 in {where}")
     tail = (proc.stdout + proc.stderr).strip().splitlines()[-3:]
     return PreflightCheck(
         name,
         PREFLIGHT_FAIL,
-        f"{command} -> exit {proc.returncode}: " + " / ".join(tail or ["no output"]),
+        f"{command} -> exit {proc.returncode} in {where}: " + " / ".join(tail or ["no output"]),
         f"{command}   # then re-run preflight --run",
     )
+
+
+def _soften_behind_branch(checks: list, base: str, ahead: int) -> None:
+    """A branch behind the base is a WARN when it merges cleanly and the gate is green.
+
+    A concurrent merge moves the base under a lane between its commit and its
+    self-check, so a hard "behind" failure and the evidence binding could not both
+    hold (T-0076, D-0017): the rebase that clears the one rewrites the revision the
+    other records. The staleness is then a rebase reminder, not a blocker - but only
+    when nothing else is wrong with the tree. ``ahead`` is measured, never read out of
+    the branch detail: a branch with no commit over the base is behind it too, so
+    keying on the detail would soften an empty branch and pass a revision with nothing
+    to review. A conflict in the merge probe or a red project gate keeps the failure,
+    so a genuinely stale tree still fails closed. D-0017 item (b) makes the clean
+    merge tree the condition, so an unmeasured gate still softens - the detail says
+    the gate was not measured and names the ``--run`` that would measure it, because
+    a read-only invocation cannot run the project gate and must not deadlock the lane
+    on one.
+    """
+    by_name = {check.name: check for check in checks}
+    branch = by_name.get("branch")
+    mergeable = by_name.get("mergeable")
+    gate = by_name.get("gate")
+    if branch is None or branch.status != PREFLIGHT_FAIL or "behind" not in branch.detail:
+        return
+    if ahead == 0:
+        return
+    if mergeable is None or mergeable.status != PREFLIGHT_OK:
+        return
+    if gate is not None and gate.status == PREFLIGHT_FAIL:
+        return
+    gate_note = (
+        "the gate is green at it"
+        if gate is not None and gate.status == PREFLIGHT_OK
+        else "the project gate is not measured here (pass --run to measure it)"
+    )
+    _replace_check(
+        checks,
+        branch,
+        PreflightCheck(
+            branch.name,
+            PREFLIGHT_WARN,
+            f"{branch.detail}; the merge tree is clean and {gate_note}",
+            f"git rebase {base}   # clears the reminder; not required to pass review",
+        ),
+    )
+
+
+def _replace_check(checks: list, old: PreflightCheck, new: PreflightCheck) -> None:
+    """Swap one check for its replacement in place, so a second pass is a no-op."""
+    for index, check in enumerate(checks):
+        if check is old:
+            checks[index] = new
 
 
 def run_preflight(
@@ -14421,21 +15980,66 @@ def run_preflight(
             return PreflightCheck(name, PREFLIGHT_WARN, f"not measured: {blocked}", checks[0].fix)
 
         checks.append(unmeasured("identity"))
-        checks.append(_preflight_evidence(project, task, extra_text))
+        checks.append(_preflight_evidence(project, task, extra_text, revision))
         checks.append(unmeasured("mergeable"))
         checks.append(unmeasured("board"))
         checks.append(unmeasured("features"))
     else:
         checks.append(_preflight_identity(project, base, branch, role))
-        checks.append(_preflight_evidence(project, task, extra_text))
+        checks.append(_preflight_evidence(project, task, extra_text, revision))
         checks.append(_preflight_mergeable(project, base, branch, role))
         checks.append(_preflight_board(root, project, base, branch))
         checks.append(_preflight_features(root, project, base, branch))
         slice_check = _preflight_slice(project, base, branch, root, role, task)
         if slice_check is not None:
             checks.append(slice_check)
-    checks.append(_preflight_gate(root, project, run_gate))
+        undo_check = _preflight_undo(project, base, branch, task)
+        if undo_check is not None:
+            checks.append(undo_check)
+    checks.append(_preflight_tree(root, project, task))
+    checks.append(_preflight_gate(root, project, run_gate, task))
+    ahead = 0 if blocked else _rev_count(project, f"{base}..{branch}")
+    _soften_behind_branch(checks, base, ahead)
     return PreflightResult(role, task.get("id", ""), branch, base, revision, checks)
+
+
+def _preflight_tree(root: Path, project: Path, task: dict) -> PreflightCheck:
+    """The command must run in the tree the task's work lives in.
+
+    Every instance works in its own worktree unless the task deliberately runs
+    shared (`branch start --shared`). A check that ran in the main checkout while
+    the task records a worktree measured a different tree, so its green says nothing
+    about this revision - that is the false green T-0058, and it is a failure here,
+    not a warning, because the reviewer would have to re-derive the whole gate.
+    """
+    name = "tree"
+    recorded = task_worktree(root, task)
+    if recorded is not None:
+        expected = recorded
+        if not expected.is_dir():
+            return PreflightCheck(
+                name,
+                PREFLIGHT_FAIL,
+                f"{task.get('id', 'the task')} records the worktree {recorded}, which is gone",
+                f"recreate it: teamwork.py branch start --agent <you> --task {task.get('id', '')}",
+            )
+        if project.resolve() != expected.resolve():
+            return PreflightCheck(
+                name,
+                PREFLIGHT_FAIL,
+                f"this command ran in {project}, but the task works in {expected}",
+                f"cd {expected}   # then re-run the same command there",
+            )
+        return PreflightCheck(name, PREFLIGHT_OK, f"the task's own worktree: {expected}")
+    if project.resolve() == project_of(root).resolve():
+        return PreflightCheck(
+            name,
+            PREFLIGHT_WARN,
+            "no worktree recorded, so this measured the shared checkout",
+            "teamwork.py branch start --agent <you> --task <T-id>   # gives the task its "
+            "own tree; --shared only when the work genuinely needs the main checkout",
+        )
+    return PreflightCheck(name, PREFLIGHT_OK, f"no worktree recorded; running in {project}")
 
 
 def _print_preflight(result: PreflightResult) -> None:
@@ -14497,6 +16101,17 @@ def cmd_selfcheck(args) -> int:
             "a passing self-check needs --test '<command @rev -> observed result>'\n"
             "  Reading your own diff is not a test. Run something."
         )
+    grade = grades.evidence_grade(args.test) if args.test.strip() else "none"
+    if args.result == "pass" and not args.force and grade in ("noise", "none"):
+        die(
+            f"a passing self-check cannot carry {grade} evidence: {args.test.strip()!r}\n"
+            "  An empty error log means nothing was reported, not that nothing went wrong,\n"
+            "  and a tree that fails produces 'looks good' as easily as one that passes.\n"
+            "  Rank what you accept: an exit code or a count ('-> 12 passed', 'exit 0',\n"
+            "  '# issues: 0') is strong; a path:line or a @rev is medium; a command with\n"
+            "  no result is weak. Record the command and its output.",
+            2,
+        )
     with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
         tasks = parse_tasks(path)
         idx = find_task(tasks, args.handle)
@@ -14536,6 +16151,12 @@ def cmd_selfcheck(args) -> int:
                     2,
                 )
         artifacts = artifact_digests(root, getattr(args, "artifact", None))
+        undo_cls, undo_why = _task_undo_class(root, project_of(root), t)
+        if undo_cls:
+            t["undo"] = undo_cls
+            t["undo_reason"] = undo_why
+        if grade != "none":
+            t["self_grade"] = grade
         note = f"[{args.result}] {args.note.strip()}"
         if args.test.strip():
             note += f" | test: {args.test.strip()}"
@@ -14904,7 +16525,7 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
         input=message,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(),
+        env=_merge_commit_env(repo),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", rel)
@@ -15405,11 +17026,21 @@ def _audit_startup_read_over_the_cap(root: Path, names: list, args) -> int:
     return len(over)
 
 
+def _role_has_open_work(root: Path, role: str) -> bool:
+    """True when the role's queue holds a task that is neither done nor dropped."""
+    return any(
+        t.get("status") not in ("done", "dropped") for t in parse_tasks(task_file(root, role))
+    )
+
+
 def _audit_dropped_under_a_live_claim(root: Path, names: list, args) -> int:
     """A drop forced past a live claim must stay visible after the task closes.
 
     A sweep can only erase work if nobody can see it happened. The task records the
-    blockers, so this section is the audit-side half of the guard (T-0047).
+    blockers, so this section is the audit-side half of the guard (T-0047). It is
+    visible, not counted: the marker is permanent by design, so charging it to the
+    problem count made the count unreachable at 0 and taught readers to ignore it.
+    The house precedent is `_audit_review_fails_without_a_reachable_detect`.
     """
     print("## dropped under a live claim")
     hits = 0
@@ -15423,7 +17054,13 @@ def _audit_dropped_under_a_live_claim(root: Path, names: list, args) -> int:
                 hits += 1
     if not hits:
         print("- none")
-    return hits
+    else:
+        print(
+            f"- non-blocking: {hits} drop(s) forced past a live claim, each carrying its "
+            "reason; the marker is permanent so it stays visible, not counted"
+        )
+    print()
+    return 0
 
 
 def _audit_review_fails_without_a_reachable_detect(root: Path, names: list, args) -> int:
@@ -15468,19 +17105,42 @@ def _audit_review_fails_without_a_reachable_detect(root: Path, names: list, args
 
 
 def _audit_roster_gaps_roles_with_no_instance(root: Path, names: list, args) -> int:
+    """A role with no instance is a gap only when work is waiting for it.
+
+    This section used to count every role that kept its memory and queue but no
+    seat, so a team between engagements could never reach 0 problems and the count
+    stopped meaning anything. The section's own advice is "add an instance or
+    accept that the layer is not required"; this implements the second half by
+    measuring it instead of asking a reader to remember it: an unstaffed role with
+    an open task is starved and is counted, an unstaffed role with an empty queue
+    is printed and is not.
+    """
     print("## roster gaps (roles with no instance)")
-    hits = 0
+    starved = idle = 0
     for role in list_roles(root):
-        if not instances_of(root, role):
+        if instances_of(root, role):
+            continue
+        if _role_has_open_work(root, role):
             print(
-                f"- the {role} role has a memory/queue but no instance: its layer "
-                "and duties cannot be performed (add an instance or accept that the "
-                "layer is not required)"
+                f"- the {role} role has open work and no instance: its queue is starved "
+                "and its layer cannot be run (add an instance in the task that needs it)"
             )
-            hits += 1
-    if not hits:
+            starved += 1
+        else:
+            print(
+                f"- the {role} role keeps its memory and queue with no instance and no "
+                "open work: not counted"
+            )
+            idle += 1
+    if not starved and not idle:
         print("- none")
-    return hits
+    if idle:
+        print(
+            f"- non-blocking: {idle} unstaffed role(s) with an empty queue; the seat is "
+            "added by the task that needs it, so no idle lane is paid for"
+        )
+    print()
+    return starved
 
 
 def _audit_ownership_sanity_phantom_agents_silent_o(root: Path, names: list, args) -> int:
@@ -16173,16 +17833,24 @@ def cmd_dispute_resolve(args) -> int:
         d = disputes[idx]
         who = resolve_role(args.by)
         panel = required_tribunal(root, d)
-        if arole not in panel:
-            die(f"only the tribunal may resolve: {', '.join(panel)}")
-        if _actor_is_dispute_party(root, d, actor, arole):
-            die(
-                f"{d['id']}: {actor} is a party to this dispute and cannot rule it. "
-                f"Escalate it and let {', '.join(panel)} decide",
-                2,
-            )
-        if d["escalated"]:
-            members = required_tribunal(root, d)
+        party_refusal = (
+            f"{d['id']}: {actor} is a party to this dispute and cannot rule it. "
+            f"Escalate it and let {', '.join(panel)} decide"
+        )
+        if not d["escalated"]:
+            if who != "ceo":
+                die(
+                    f"{d['id']} is not escalated: only the CEO resolves it (you are "
+                    f"{who}). Escalate it first if it needs the tribunal."
+                )
+            if _actor_is_dispute_party(root, d, actor, arole):
+                die(party_refusal, 2)
+        else:
+            if arole not in panel:
+                die(f"only the tribunal may resolve: {', '.join(panel)}")
+            if _actor_is_dispute_party(root, d, actor, arole):
+                die(party_refusal, 2)
+            members = panel
             missing = [r for r in members if r not in d["signed"]]
             if not members and not (args.force or "").strip():
                 die(
@@ -16203,11 +17871,6 @@ def cmd_dispute_resolve(args) -> int:
                     f"{', '.join(members)} must sign first (missing: "
                     f"{', '.join(missing)})"
                 )
-        elif who != "ceo":
-            die(
-                f"{d['id']} is not escalated: only the CEO resolves it (you are "
-                f"{who}). Escalate it first if it needs the tribunal."
-            )
         d["status"] = "resolved"
         d["decision"] = args.decision.strip()
         d["updated"] = today_iso()
@@ -16613,6 +18276,60 @@ def cmd_ui(args) -> int:
     return int(not state.live)
 
 
+def _unrelated_history(detail: str) -> bool:
+    """Did git refuse the fast-forward because the two histories diverged?
+
+    A rewritten remote produces two different refusals from ``merge --ff-only``:
+    ``fatal: refusing to merge unrelated histories`` when the mirror shares no root
+    commit with the remote, and ``fatal: Not possible to fast-forward, aborting.``
+    when it shares one but the remote was force-pushed past it (T-0131). Both mean
+    the tool-managed mirror can no longer follow the branch, and in neither case is
+    anything in the tree wrong: the mirror at ``~/.pi/agent/.teamwork-source`` is
+    disposable state, so the caller may replace it instead of stopping.
+    """
+    lowered = detail.lower()
+    return "unrelated histories" in lowered or "not possible to fast-forward" in lowered
+
+
+def _origin_url(source: Path, remote: str) -> str:
+    """The URL ``source`` fetches ``remote`` from, or ``""`` when it has none."""
+    got = run_git(source, "remote", "get-url", remote)
+    return got.stdout.strip() if got.returncode == 0 else ""
+
+
+def _reclone(source: Path, repo: str, branch: str, remote: str) -> tuple[str, str]:
+    """Replace an unrelated-history checkout with a fresh clone -> ``(moved, error)``.
+
+    The clone is made *next to* ``source`` first, so a failed clone leaves the old
+    checkout exactly where it was. The old one is then moved aside under a
+    ``.stale-<sha>`` name and never deleted: it may carry commits an operator made,
+    and deleting a checkout the tool did not create is data loss, not cleanup.
+
+    The clone names its remote ``remote``, not ``origin``: the caller reached this
+    path with a remote it was asked to track, and a repair that renames it back to
+    ``origin`` breaks the next refresh with the same flag.
+    """
+    staging = source.with_name(f"{source.name}.new")
+    shutil.rmtree(staging, ignore_errors=True)
+    source.parent.mkdir(parents=True, exist_ok=True)
+    cloned = run_git(
+        source.parent, "clone", "--quiet", "-o", remote, "--branch", branch, repo, str(staging)
+    )
+    if cloned.returncode != 0:
+        tail = (cloned.stderr or cloned.stdout).strip().splitlines()
+        shutil.rmtree(staging, ignore_errors=True)
+        return "", f"cannot clone {repo} into {source}: {tail[-1] if tail else '?'}"
+    head = run_git(source, "rev-parse", "--short", "HEAD").stdout.strip() or "unknown"
+    moved = source.with_name(f"{source.name}.stale-{head}")
+    n = 1
+    while moved.exists():
+        n += 1
+        moved = source.with_name(f"{source.name}.stale-{head}-{n}")
+    source.rename(moved)
+    staging.rename(source)
+    return moved.name, ""
+
+
 def cmd_refresh(args) -> int:
     """Re-sync the installed skill from the remote, so a host copy follows ``main``.
 
@@ -16642,6 +18359,7 @@ def cmd_refresh(args) -> int:
     if source is None:
         source = bundle.default_mirror_path(dest)
     source = source.resolve()
+    managed = explicit is None and source == bundle.default_mirror_path(dest).resolve()
 
     remote, branch = args.remote, args.branch
     created = False
@@ -16665,6 +18383,23 @@ def cmd_refresh(args) -> int:
 
     if not args.no_fetch:
         ok, detail = _update_source(source, remote, branch)
+        if not ok and managed and _unrelated_history(detail):
+            repo = _origin_url(source, remote) or args.repo
+            if not repo and getattr(args, "project", None):
+                origin = run_git(project_of(project_root(args)), "remote", "get-url", "origin")
+                repo = origin.stdout.strip() if origin.returncode == 0 else ""
+            if repo:
+                moved, failed = _reclone(source, repo, branch, remote)
+                if failed:
+                    die(f"refresh stopped: {failed}")
+                ok, detail = (
+                    True,
+                    (
+                        "history diverged (unrelated or rewritten) - moved the old mirror "
+                        f"to {moved}, cloned fresh from {repo}"
+                    ),
+                )
+                created = True
         if not ok:
             die(f"refresh stopped: {detail}")
         print(f"# source {source.name}: {detail}")
@@ -17154,6 +18889,15 @@ def _parsers_workspace(sub, common) -> None:
     s.set_defaults(func=cmd_agents)
 
     s = sub.add_parser(
+        "status",
+        parents=[common],
+        help="live state of every instance: busy/idle, task, elapsed, progress",
+    )
+    s.add_argument("--json", action="store_true", help="machine-readable panel data")
+    s.add_argument("--agent", default="", help="one instance only")
+    s.set_defaults(func=cmd_status)
+
+    s = sub.add_parser(
         "instance",
         parents=[common],
         help="add/list/retire instances of ANY role (they share the role's memory)",
@@ -17188,6 +18932,20 @@ def _parsers_workspace(sub, common) -> None:
     p.add_argument("--by", default="ceo", help="who retires it (provenance)")
     p.add_argument("--reason", default="", help="why it goes (required once it holds work)")
     p.add_argument("--force", action="store_true", help="retire even while it holds work")
+    p.set_defaults(func=cmd_instance)
+    p = isub.add_parser(
+        "prune",
+        parents=[common],
+        help="fold every idle instance and release its resources (move-only)",
+    )
+    p.add_argument("--by", default="ceo", help="who folds them (provenance)")
+    p.add_argument("--reason", default="", help="why they go (recorded on each retirement)")
+    p.add_argument("--dry-run", action="store_true", help="print the plan, move nothing")
+    p.add_argument(
+        "--keep-required",
+        action="store_true",
+        help="keep one instance of each gate-critical role (ceo, developer, tester, reviewer)",
+    )
     p.set_defaults(func=cmd_instance)
 
     st = sub.add_parser("task", parents=[common], help="manage an agent's priority task list")
@@ -17292,6 +19050,15 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--deps", default=None)
     s.add_argument("--title", default=None)
     s.add_argument(
+        "--area",
+        default=None,
+        help=(
+            "repair the recorded area: a task whose area is a test file path "
+            "carries a phantom area into `tests plan` and `audit`, so the record "
+            "itself has to be corrected, not only the test record"
+        ),
+    )
+    s.add_argument(
         "--branch",
         default=None,
         help=(
@@ -17311,6 +19078,22 @@ def _parsers_workspace(sub, common) -> None:
     )
     s.add_argument(
         "--evidence", default=None, help="command + revision + observed result, or artifact path"
+    )
+    s.add_argument(
+        "--authorize",
+        default=None,
+        metavar="WHY",
+        help=(
+            "the CEO records who authorized a closed-lane change (a migration, a "
+            "deletion, a secret or auth path, a workflow, a release exception); the "
+            "only thing that opens a lane no review score can open"
+        ),
+    )
+    s.add_argument(
+        "--by",
+        default="",
+        metavar="INSTANCE",
+        help="who is acting, for --authorize: the CEO authorizes another role's task",
     )
     s.add_argument(
         "--force",
@@ -17537,7 +19320,12 @@ def _parsers_memory(sub, common) -> None:
     s.add_argument("--agent")
     s.add_argument("--all", action="store_true", help="every agent + global")
     s.add_argument("--global", dest="global_", action="store_true")
-    s.add_argument("--layer", choices=["both", "short", "long"], default="both")
+    s.add_argument(
+        "--transcripts",
+        action="store_true",
+        help="also search the ledger and the worklogs (additive)",
+    )
+    s.add_argument("--layer", choices=["both", "short", "long", "archive"], default="both")
     s.set_defaults(func=cmd_recall)
 
     s = sub.add_parser("touch", parents=[common], help="mark an entry as used")
@@ -17635,6 +19423,32 @@ def _parsers_memory(sub, common) -> None:
     p.add_argument("--role", default="", help="one role's lessons and memory (default: every role)")
     p.set_defaults(func=cmd_memory)
     p = msub.add_parser(
+        "verify",
+        parents=[common],
+        help="re-resolve each record's evidence against the tree and git",
+    )
+    p.add_argument("--role", default="", help="one role's lessons and memory (default: every role)")
+    p.add_argument(
+        "--focus",
+        default="",
+        metavar="TEXT|T-ID",
+        help="verify the records that best match this goal, highest 4.1 score first",
+    )
+    p.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="report at most N records (default: every one; 25 with --focus; 0 means all)",
+    )
+    p.add_argument("--json", action="store_true", help="one JSON object per record")
+    p.add_argument(
+        "--apply",
+        action="store_true",
+        help="write checked and verify_status on the knowledge records reported",
+    )
+    p.add_argument("--by", default="", help="who ran the pass (required by --apply)")
+    p.set_defaults(func=cmd_memory)
+    p = msub.add_parser(
         "dream",
         parents=[common],
         help="maintain the stores: duplicates, contradictions, stale records, missing evidence",
@@ -17698,6 +19512,12 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--baseline", default="", help="the state the verification started from")
     s.add_argument("--replay", default="", help="command or path that reproduces the verdict")
     s.add_argument("--findings", default="", help="what is wrong, with evidence")
+    s.add_argument(
+        "--scope",
+        default="",
+        help="with --result fail: what the fix may touch (e.g. 'src/parse.py only'); the "
+        "retried lane is told to fix that and nothing it noticed nearby",
+    )
     s.add_argument(
         "--detects",
         default="",
@@ -17915,7 +19735,16 @@ def _parsers_integration(sub, common) -> None:
     s.add_argument("--agent", required=True)
     s.add_argument("--task", required=True)
     s.add_argument("--base", default="")
-    s.add_argument("--worktree", action="store_true")
+    s.add_argument(
+        "--worktree",
+        action="store_true",
+        help="deprecated: a worktree is the default; accepted so old packets still parse",
+    )
+    s.add_argument(
+        "--shared",
+        action="store_true",
+        help="work in the main checkout instead of the task's own worktree (the exception)",
+    )
     s.set_defaults(func=cmd_branch)
     s = bsub.add_parser("list", parents=[common], help="branches with PR/merge state")
     s.set_defaults(func=cmd_branch)
@@ -17932,6 +19761,22 @@ def _parsers_integration(sub, common) -> None:
     s.set_defaults(func=cmd_pr)
     s = psub.add_parser("list", parents=[common], help="the Reviewer's PR inbox")
     s.add_argument("--open", action="store_true")
+    s.set_defaults(func=cmd_pr)
+    s = psub.add_parser(
+        "set",
+        parents=[common],
+        help="repair a PR record's status with a recorded reason (audit close)",
+    )
+    s.add_argument("--pr", required=True)
+    s.add_argument("--status", required=True, choices=("merged", "closed"))
+    s.add_argument("--merge-commit", default="", metavar="SHA")
+    s.add_argument("--by", default="", help="required: the instance repairing it")
+    s.add_argument(
+        "--force",
+        default="",
+        metavar="REASON",
+        help="required: why the record is being corrected by hand",
+    )
     s.set_defaults(func=cmd_pr)
     s = psub.add_parser("merge", parents=[common], help="Reviewer: merge an approved PR")
     s.add_argument("--pr", required=True)
@@ -18088,10 +19933,24 @@ def _parsers_governance(sub, common) -> None:
     s = lsub.add_parser("show", parents=[common], help="print one lesson with every field")
     s.add_argument("lesson_id", metavar="L_ID")
     s.set_defaults(func=cmd_lesson)
-    s = lsub.add_parser("fix", parents=[common], help="close a lesson, optionally with a skill")
+    s = lsub.add_parser(
+        "fix", parents=[common], help="close a lesson with the rung that stops it recurring"
+    )
     s.add_argument("lesson_id", metavar="L_ID")
     s.add_argument("--by", required=True)
     s.add_argument("--rule", default="", help="replace the rule with what actually changed")
+    s.add_argument(
+        "--check",
+        default="",
+        metavar="CMD",
+        help="a deterministic command that now catches it; run here, must exit 0",
+    )
+    s.add_argument(
+        "--no-check",
+        default="",
+        metavar="WHY",
+        help="why no command can exist (the class is gone by design)",
+    )
     s.add_argument("--skill", default="", metavar="TW_NAME", help="the mistake skill that fixes it")
     s.add_argument("--evidence", default="", help="command @rev -> result")
     s.set_defaults(func=cmd_lesson)
@@ -18170,7 +20029,12 @@ def _parsers_governance(sub, common) -> None:
     s.set_defaults(func=cmd_context)
     s = csub.add_parser("find", parents=[common], help="deterministic search over the tree")
     s.add_argument("query", metavar="QUERY")
-    s.add_argument("--scope", default=CONTEXT_ROOT, metavar="URI")
+    s.add_argument(
+        "--scope",
+        default=CONTEXT_ROOT,
+        metavar="URI",
+        help=f"a context URI, or '{transcripts.SCOPE}' for the ledger and the worklogs",
+    )
     s.add_argument("--limit", type=int, default=CONTEXT_FIND_LIMIT, help="hits to print (0 = all)")
     s.set_defaults(func=cmd_context)
     s = csub.add_parser("stats", parents=[common], help="live counts for every store")
@@ -18479,6 +20343,12 @@ def _parsers_scheduling(sub, common) -> None:
         action="store_false",
         help="--commit assigns and reports only: start no lane (needs accept mode auto)",
     )
+    s.add_argument(
+        "--no-scale",
+        dest="scale",
+        action="store_false",
+        help="do not add instances for the ready work; dispatch to the current roster only",
+    )
     s.set_defaults(func=cmd_pulse)
 
 
@@ -18589,6 +20459,18 @@ def _parsers_meta(sub, common) -> None:
     from .graph import add_parsers as _add_graph_parsers
 
     _add_graph_parsers(sub, common)
+
+    from .hunt import add_parsers as _add_hunt_parsers
+
+    _add_hunt_parsers(sub, common)
+
+    from .messages import add_parsers as _add_message_parsers
+
+    _add_message_parsers(sub, common)
+
+    from .sparse import add_parsers as _add_read_parsers
+
+    _add_read_parsers(sub, common)
 
 
 def main(argv=None) -> int:

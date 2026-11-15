@@ -5,7 +5,7 @@ Related: [Project](Project.md) · [Architecture](Architecture.md) · [Risks](Ris
 
 ## Status
 
-Dated facts, measured 2026-11-02 on `main` at `dffa325`. A claim without a date is
+Dated facts, measured 2026-11-02 on `main` at `7f52e5a92b4a48a3a0c1b0f3a34dc96cba0e3f51`. A claim without a date is
 not current; re-run the command before relying on it.
 
 | Claim | State on 2026-11-02 | Measured by |
@@ -41,7 +41,7 @@ are the pre-rewrite state kept as evidence of what was measured and why.
   --history --allow .github/privacy-allow.txt` -> `PASS - 0 finding(s) in tree,
   history`, exit 0, at the head of `securityauditor/t-0001-security-and-privacy-posture-audit-tree` (2026-10-25). The red that section 0
   below was written against is history, kept as measured: the same command at
-  `7db810a` (main, 2026-10-25) -> `FAIL - 2 finding(s)`, a **commit message plus
+  `14fb51e5cf422f02e2e807da6902569b4f69f7e3` (main, 2026-10-25) -> `FAIL - 2 finding(s)`, a **commit message plus
   one code comment on an unmerged branch** (**F-P1**), and the commit named there
   (`a4c726f`) has since been dropped and its reflog expired under
   `D-20261025-CEO`, so the disclosure is gone from every ref rather than
@@ -121,7 +121,7 @@ Owner: Security Auditor.
 Related: [Risks](Risks.md) · [Project](Project.md).
 
 This is the **live** posture, measured on this host. Audited revision
-`7db810a05f515420f319d4d513f605c8760f9624` (main), all refs included because
+`14fb51e5cf422f02e2e807da6902569b4f69f7e3` (main), all refs included because
 `--history` sweeps every blob and every commit message reachable from every ref;
 measured 2026-10-25T14:43Z. Where an older section of this file states a
 different state, this section is the current one.
@@ -146,7 +146,7 @@ marked closed; every other row was re-run unchanged and still holds.
 | 3 | credentials in the tree | `git ls-files \| grep -iE '(\.env\|credential\|secret\|id_rsa\|\.pem\|\.key\|\.netrc\|\.npmrc)'` | empty; `.gitignore` covers `.env*`, `*.pem`, `*.key`, `*.p12`, `*.pfx` |
 | 3 | credentials in history | full-blob and all-commit-message sweep (row 1) | not one `private-key`, `personal-email`, `json-secret` or `.env`-file hit among the findings reported there; every hit is a path or a fabricated probe value (0.3) |
 | 4 | code scanning | `teamwork.py code-scanning`; `gh api repos/Nidvue/Teamwork/code-scanning/alerts?state=open` | **readable, not unreadable** - `[]`, 0 open |
-| 4 | the zero is live, not stale | `gh api .../code-scanning/alerts?state=all`; `.../code-scanning/analyses?per_page=5` | 3 historical alerts, **all `state: fixed`, none dismissed** (`py/clear-text-logging-sensitive-data`, scripts/privacy_scan.py:1008,1150,1161); python and actions analyses at `7db810a` with `results_count: 0`, 2026-10-24T11:44Z |
+| 4 | the zero is live, not stale | `gh api .../code-scanning/alerts?state=all`; `.../code-scanning/analyses?per_page=5` | 3 historical alerts, **all `state: fixed`, none dismissed** (`py/clear-text-logging-sensitive-data`, scripts/privacy_scan.py:1008,1150,1161); python and actions analyses at `14fb51e5cf422f02e2e807da6902569b4f69f7e3` with `results_count: 0`, 2026-10-24T11:44Z |
 | 4 | adjacent scanners | `gh api .../dependabot/alerts?state=open`; `.../secret-scanning/alerts?state=open` | both `[]` |
 | 5 | hooks, installed | `teamwork.py hooks install` in a throwaway clone, then a plain `git commit` on `main` | **refused**, exit 1: "refusing to commit on 'main'" (**A-1**) |
 | 5 | hooks, bypass 1 | `git commit --no-verify` on `main` | **accepted**, exit 0 - git cannot be stopped by a hook (**A-1**) |
@@ -158,7 +158,7 @@ marked closed; every other row was re-run unchanged and still holds.
 | ID | Severity | What, with evidence | Owner | State |
 |---|---|---|---|---|
 | F-P1 | **high** - gate red | Commit `a4c726f4b2ca` carries an absolute build path under the operator home directory **twice**: in its `Why:` line and in the comment at `src/teamwork/resources.py:27` of its own tree (a new blob, not the shipped one). `--tree --history --allow` -> `commit:a4c726f4b2ca:8 [high/home-path] message` **and** `src/teamwork/resources.py:27 [high/home-path]`; `--tree` alone is still **PASS**, so the shipped source is clean and the leak is on that branch only (`git branch -a --contains a4c726f4b2ca` -> `developer-1/t-0001-...`; the Windows form is absent from `origin/main` -> 0 occurrences of that shape). Unpublished, so the fix is free now; after the merge it needs a history rewrite. | Developer (`developer:T-0005`, P0 filed) | **closed** - the commit was dropped and the reflog expired (`D-20261025-CEO`), the consumer-email illustration was removed from the docs, and `--tree --history --allow` re-measures **PASS 0** at that head; nothing was exempted to get there |
-| F-P2 | medium | The `privacy` job is skipped on a prose-only push to main: `gh api .../commits/7db810a/check-runs` -> 6 skipped, including `privacy scan (tree + history)`; the only run at that sha is docs.yml (`actions/runs/39712543491`). Cause: `ci.yml:359` `if: github.event_name != 'push' \|\| needs.scope.outputs.code == 'true'`. Mitigated at PR time (any non-push event forces `code=true`) and by branch protection, but a merge commit created at merge time is never scanned by the PR run. `committer-guard` is **not** gated and did run. | Release Engineer (`release-engineer:T-0003`, P2 filed) | open |
+| F-P2 | medium | The `privacy` job is skipped on a prose-only push to main: `gh api .../commits/14fb51e5cf422f02e2e807da6902569b4f69f7e3/check-runs` -> 6 skipped, including `privacy scan (tree + history)`; the only run at that sha is docs.yml (`actions/runs/39712543491`). Cause: `ci.yml:359` `if: github.event_name != 'push' \|\| needs.scope.outputs.code == 'true'`. Mitigated at PR time (any non-push event forces `code=true`) and by branch protection, but a merge commit created at merge time is never scanned by the PR run. `committer-guard` is **not** gated and did run. | Release Engineer (`release-engineer:T-0003`, P2 filed) | open |
 | F-P3 | low | Two wording asymmetries, no live conflict: `scope violation` appears only in AGENTS.md, and AGENTS.md forbids **logging** secrets while `references/Evidence.md` says "reading, printing or storing". The allowlist header also states the wrong mechanism (0.3). | Release Engineer / Technical Writer (`release-engineer:T-0004`, P3 filed) | open |
 | A-1 | accepted | Local hooks are client-side and cannot stop `--no-verify`; that is git's own flag, not a defect of the hook. The control that holds is on the forge, and the forge was hardened after the audited revision - re-measured 2026-10-25: `gh api repos/Nidvue/Teamwork/branches/main/protection` -> `strict: true`, 20 required contexts including `privacy scan (tree + history)`, `committer guard` and the two `Analyze` lanes, 1 approving review, `allow_force_pushes: false`, `allow_deletions: false`, `required_conversation_resolution: true`; `gh api repos/Nidvue/Teamwork/actions/permissions` -> `sha_pinning_required: true`, so an action reference without a full commit SHA cannot be merged (the tree's 37 `uses:` were all 40-hex at the same reading); `gh api repos/Nidvue/Teamwork/rulesets` -> one active tag ruleset, `protect v* release tags` (on `refs/tags/v*`: deletion, non-fast-forward and update blocked, `bypass_actors: []`). Residual: `enforce_admins: false` (an admin bypasses every check) and `required_signatures: false`. | CTO / Release Engineer | accepted policy |
 
@@ -348,8 +348,8 @@ in that file with a written reason - never ignored.
 
 | # | Action | Evidence |
 |---|---|---|
-| R1 | Repository-local git identity set to a **role** mailbox (`CEO <ceo@agents.nidvue.com>`) so an accidental plain `git commit` cannot inherit the operator identity; per-commit role identities (`git -c user.name=... -c user.email=...`) still override it | `git config --local user.email` -> `ceo@agents.nidvue.com`; `git log --format='%ae' main \| sort -u` -> every address is a role mailbox on `@agents.nidvue.com`, **except** the one author of the squash-merged commit (F-1) |
-| R2 | Engine default identity domain is the `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> `Developer <developer@agents.nidvue.com>` |
+| R1 | Repository-local git identity set to a **role** mailbox (`ceo` on `agents.nidvue.com`) so an accidental plain `git commit` cannot inherit the operator identity; per-commit role identities (`git -c user.name=... -c user.email=...`) still override it | `git config --local user.email` -> role mailbox `ceo` on `agents.nidvue.com`; `git log --format='%ae' main \| sort -u` -> every address is a role mailbox on `@agents.nidvue.com`, **except** the one author of the squash-merged commit (F-1) |
+| R2 | Engine default identity domain is the `agents.nidvue.com`, overridable with `TEAMWORK_IDENTITY_DOMAIN` | `src/teamwork/engine.py` `IDENTITY_DOMAIN`; `teamwork.py identity --role developer` -> role mailbox `developer` on `agents.nidvue.com` |
 | R3 | The scanner keeps the matched value **out of the report entirely** (it lives in an attribute of the finding, never in a report item), has no flag that prints a secret (`--reveal` prints a `sha256:` fingerprint; `--reveal-to` exports to a `0600` file), redacts the absolute root, and keeps private domains out of plain text | `scripts/privacy_scan.py`; `tests/unit/test_privacy_scan.py::test_reveal_never_prints_the_unmasked_secret`; see sections 7 and 7.1 |
 | R4 | This report redacts every personal value so it cannot re-leak what it documents | this file passes `scripts/privacy_scan.py --tree` |
 | R8 | The audit-manifest anchor is scoped to the workspace `TeamId`; a legacy manifest without one is historical and cannot make a new workspace look truncated | `ledger_verify`/`_audit_audit_trail` compare `team_id`; `tests/unit/test_ledger.py` covers same/foreign ids |
@@ -519,7 +519,7 @@ clone of the advertised refs answers only the first.
 ```
 $ git ls-remote origin | wc -l
 40
-$ git ls-remote origin | grep -c 3f4981d
+$ git ls-remote origin | grep -c 5a13ba45678944397e36ca041e8bce576cc73ee4
 0
 
 $ git merge-base --is-ancestor <rev> origin/main; echo $?
@@ -759,3 +759,92 @@ opinion: `tests/unit/test_privacy_scan.py::test_reveal_never_prints_the_unmasked
 - [GitHub: security hardening for GitHub Actions](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions) - accessed 2026-10-17
 - [GitHub REST API - commits](https://docs.github.com/en/rest/commits/commits) - accessed 2026-10-21
 - Teamwork risk register R-2/R-3 (internal, `docs/Team/Risks.md`) - accessed 2026-10-17
+
+## M22 - memory stores and the injected pack (2026-11-09)
+
+Owner: Security Auditor. Related: [Risks](Risks.md) · [Project](Project.md) · AC-M22-5.
+
+Measured at 2a0deeea682e2a2f472c7867366e5b379ad0587e, team root `.pi/Teamwork/Teams/Teamwork`, stores = `Global/*.md` + `Roles/<Role>/*.md`; the counts below are that baseline - 8 store files were rewritten between 09:55 and 10:01 the same morning, which is why a re-run of the same commands sees 71 lines in 13 files instead of the 68 in 12 recorded here.
+
+- `rg -n -i 'api[_-]?key|token|secret|password|passwd|bearer|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}' $TEAMWORK_ROOT/Global $TEAMWORK_ROOT/Roles --glob '*.md'` -> 68 lines in 12 files, **0 live credentials**: every hit is the word in prose or a rule name. High-risk shapes alone (`BEGIN ... PRIVATE KEY`, `sk-`, `ghp_`, `AKIA`, JWT) -> **0 hits**.
+- `rg -n '/home/[a-z]|/Users/[A-Za-z]|C:\\Users' ...` -> **136 lines**, 133 of them the `/home/<operator>` prefix, in 20 files under `Roles/`; `Global/GlobalMemory.md` -> **0**.
+- `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` -> **PASS, 0 findings, rc 0** - `.pi` is a skipped local-state dir for this mode (`scripts/privacy_scan.py:449`), so the tree mode alone does not cover the stores; the store mode does (`--stores`, below).
+- `teamwork.py memory pack --role ceo --task T-0021` -> 2 record lines + footer, 518 record bytes; `--budget 320` -> 1 record (M-0001 dropped, 259+45 = 304 <= 320); `--budget 4000` -> both. Record lines are `- [id] kind | statement clipped to 200 chars | pointer` (`memorypack.py:280-284`, `STATEMENT_CLIP = 200`): never a full body.
+- Parked records: candidates are filtered to `INJECTABLE_STATUSES = ("active","open")` (`memorypack.py:315-317`) against `PARKED_STATUSES = ("superseded","archived")`. The stores hold 2 injectable records for `ceo` (M-0001, M-0002, both `active`) and 0 for `developer`, so no parked record exists to observe; the exclusion was therefore measured on the packer itself - `pack([superseded, archived, active, open])` -> renders only `L-3`, `L-4` (0 parked).
+- The pack carries no `/home/`, no `token`/`secret`/`password`, and pointers are store-relative (`memorypack.py:152-158`).
+
+| # | Finding | Scope | Sev | Status |
+|---|---------|-------|-----|--------|
+| F1 | 133 absolute `/home/<operator>/...` host paths in 20 `Roles/*.md` files (worktree/TaskQueue lines) | stores | low-med | open - route to CEO for a scrub rule |
+| F2 | a personal mail address (pattern `<local>@<domain>.<tld>`), 7 lines, `Roles/CEO/TaskArchive.md:19,25,36,163` | stores | med | **closed 2026-11-09** - the value class (address, private domain, operator name, forge account handle) is scrubbed from every team-local store; it is named by class and location only, never quoted |
+| F3 | `privacy_scan` skips `.pi`, so no gate covers the stores; only a hand-run rg does | gate | med | **closed 2026-11-09** - the store scan shipped as `privacy_scan.py --stores` (`scripts/privacy_scan.py:1089` `scan_stores`, the flag at `:1271`, developer-1 T-0059) and `make privacy` runs it (`Makefile:80`: `--tree --history --stores --allow .github/privacy-allow.txt`); measured on the live stores -> `privacy_scan: PASS - 0 finding(s) in stores`, exit 0 |
+| F4 | `_pointer` falls back to `path.as_posix()` when a record lives outside the team root, which would render an absolute host path | pack | low | accepted - no such store today |
+| F5 | no live secret, no private key, no token in any store or in any rendered pack line | stores+pack | - | **verified** |
+
+Residual: the stores are gitignored team state, not published files, so F1/F2 are disclosure to every lane that reads memory, not to the public repository; the injected pack (the standing leak surface) is clean on all five checks.
+
+## Redaction of the operator datum (T-0008)
+
+Owner: Security Auditor. Related: [Risks](Risks.md) · F1, F2.
+
+- 2026-11-09: every `/home/<operator>` occurrence in this report was replaced by
+  the `<operator>` placeholder. The finding, its counts and its locations are
+  unchanged; only the host account name is gone, because a report about personal
+  data must not be the copy that discloses it.
+- Store scrub, same pass: 674 `/home/<operator>` lines in 62 files under
+  `Roles/` and `Agents/` rewritten to team-root-relative paths (`Role.md`,
+  `TaskQueue.md`, `TaskArchive.md`, memory and lesson stores). Re-measured
+  `rg -c '/home/[a-z]' -g '*.md'` over the team root excluding `Runtime/` -> 0.
+- Second pass, re-measured: the host-path class REGENERATES from the lane
+  launcher, and the count grows by one lane run at a time - measured
+  `rg -c '/home/[a-z]' -g '*.md'` over the team root excluding `Runtime/`
+  at 2026-11-09T16:35Z -> **24 lines in 6 files**, every one a lane run
+  transcript of the wave launched after the second scrub
+  (`Agents/*/Runs/L-0141..L-0146.md`, 4 lines each, this lane included). The
+  window is "lanes launched after the last scrub", so the number is a function
+  of how many lanes started, not of how well the scrub ran: the same command read
+  12 lines in 3 files (`L-0141..L-0143`) at the previous review revision. The
+  earlier figure of 250 lines in 50 files does not reproduce at this revision
+  and is withdrawn in favour of this command, this count and the artifact
+  `Agents/SecurityAuditor/Artifacts/T-0008-regeneration-measurement.txt`. A
+  scrub is not the fix; the generator that writes the lane start line is (F1,
+  open).
+- Personal data, second pass (this finding): the address, its private domain,
+  the operator name and the forge account handle are replaced by
+  `<redacted-personal-address>`, `<redacted-private-domain>`,
+  `<redacted-personal-name>` and `<redacted-account-handle>` in 11 stores
+  (`Roles/*/TaskArchive.md`, `Roles/Reviewer/LongTermMemory.md`, `Reviews.md`,
+  `Disputes.md`, `Agents/*/Inbox.md`,
+  `Agents/SecurityAuditor/Reports/M8-privacy-audit.md`,
+  `Agents/Reviewer-1/Reports/D-0003-ruling.md`,
+  `Agents/Reviewer-6/Runs/L-0019.log`). The evidence rows keep their `file:line`,
+  their commands and their findings: the VALUE is replaced by its class marker,
+  never the line, and the report itself keeps naming the class, never the value.
+- The rule the next audit runs (security layer record TS-0075), measured on this
+  revision: the personal-data class - `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}`
+  plus the operator's name, private domain and account handle - -> **0 real
+  lines in any store**. Every remaining hit of the mail pattern is a role
+  mailbox (`*@agents.nidvue.com`), a host stamp (`noreply@github.com`,
+  `noreply@gitlab.com`) or a fabricated `@example.com` fixture string quoted
+  inside review evidence (4 lines), and one false positive on a git range
+  (`t-0058-...@b370de4..main`). The host-path class
+  `'/home/[a-z]'` -> **24 lines in 6 lane run transcripts**, all in the
+  regeneration window above: that is F1, open, not a regression of this scrub.
+  The gate that now covers the memory stores is
+  `python3 scripts/privacy_scan.py --stores --allow .github/privacy-allow.txt`
+  -> PASS, 0 findings, exit 0. What it covers is exact, not "both classes
+  everywhere": `store_paths()` (`scripts/privacy_scan.py:1067-1086`) returns the
+  role and team stores - 30 files - and **no** file under `Agents/`, so a host
+  path in a lane transcript (`Agents/<Instance>/Runs/*.md`) is still covered by
+  no gate. That gap is F1 above and it is why the 24 transcript lines remain
+  open. A non-zero line in `Ledger.jsonl` or `Settings.json` is the residual
+  below.
+- Residual, not scrubbed by design: 111 `/home/<operator>` lines in
+  `Ledger.jsonl` and 1 in `Settings.json`, which are hash-chained or
+  machine-read; rewriting them breaks `teamwork.py ledger verify`. The earlier
+  figure of 197 was not reproducible at the rework revision and is withdrawn in
+  favour of this measurement.
+- F1 stays open: the scrub rule belongs in the generator that writes the lane
+  start line and the `worktree:` record, so a fresh lane cannot reintroduce an
+  absolute host path. Until it lands, every lane launch adds 4 such lines and
+  the count above is stale the moment the next lane starts.

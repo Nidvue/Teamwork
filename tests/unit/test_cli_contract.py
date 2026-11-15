@@ -559,3 +559,69 @@ def test_the_lane_runtime_surface_is_registered() -> None:
         option for action in pulse._actions for option in getattr(action, "option_strings", [])
     }
     assert "--spawn" in flags, "pulse lost its --spawn flag"
+
+
+def _leaf_commands(parser: argparse.ArgumentParser) -> list[str]:
+    """Every leaf subcommand path, e.g. ``task archive`` or ``review``."""
+    leaves: list[str] = []
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for name, sub in action.choices.items():
+                nested = [a for a in sub._actions if isinstance(a, argparse._SubParsersAction)]
+                if nested:
+                    leaves.extend(f"{name} {leaf}" for leaf in _leaf_commands(sub))
+                else:
+                    leaves.append(name)
+    return leaves
+
+
+def test_every_leaf_subcommand_is_documented() -> None:
+    """A command an agent can call must appear in the reference it reads.
+
+    Measured review class: 37 of 158 review failures were doc drift, and the CLI
+    reference is the surface a lane quotes a command from. The check is the whole
+    leaf set against the five CLI pages plus the skill and the README, so a new
+    subcommand cannot land undocumented and a removed one cannot linger. It is a
+    coverage check, not a proof: a short leaf could be satisfied by incidental
+    prose, and the reviewer of T-0052 noted that as non-blocking.
+    """
+    from teamwork import engine
+
+    docs = ""
+    for path in sorted((REPO_ROOT / "docs" / "guide").glob("cli*.md")):
+        docs += path.read_text(encoding="utf-8")
+    for name in ("SKILL.md", "README.md"):
+        docs += (REPO_ROOT / name).read_text(encoding="utf-8")
+    leaves = _leaf_commands(engine.build_parser())
+    assert len(leaves) >= 100, f"the parser exposes {len(leaves)} leaves: the walk broke"
+    missing = sorted({leaf for leaf in leaves if leaf not in docs})
+    assert not missing, (
+        "these subcommands are callable but undocumented in docs/guide/cli*.md, "
+        f"SKILL.md or README.md: {missing}"
+    )
+
+
+def test_the_read_docs_name_only_flags_the_parser_has() -> None:
+    """A shipped doc that names a deleted flag is a usage error for the reader.
+
+    Measured review finding on T-0056: the code deleted `--scope` and the page
+    still advertised it, so a lane that followed the doc got `unrecognized
+    arguments` instead of the dropped match. The section is parsed and every
+    `--flag` it names must be an option of the `read` command.
+    """
+    from teamwork import engine
+
+    text = (REPO_ROOT / "docs" / "guide" / "cli.md").read_text(encoding="utf-8")
+    start = text.index("### `read`")
+    end = text.index("\n## ", start)
+    section = text[start:end]
+    parser = engine.build_parser()
+    read_parser = None
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction) and "read" in action.choices:
+            read_parser = action.choices["read"]
+    assert read_parser is not None, "the read command is not registered"
+    known = {option for action in read_parser._actions for option in action.option_strings}
+    named = set(re.findall(r"--[a-z][a-z-]+", section))
+    missing = sorted(flag for flag in named if flag not in known)
+    assert not missing, f"docs/guide/cli.md's read section names flags the parser lacks: {missing}"

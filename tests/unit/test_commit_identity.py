@@ -10,6 +10,8 @@ import pytest
 
 from teamwork import engine
 
+HOSTILE_IDENTITY = ("Hostile Operator", "hostile@example.invalid")
+
 
 def _git(repo: Path, *args: str, ident: tuple[str, str] | None = None):
     command = ["git", "-C", str(repo)]
@@ -169,7 +171,14 @@ def test_acting_role_must_match_the_author(repo):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
 
 
-def test_missing_trailer_fails(repo):
+def test_missing_trailer_passes(repo):
+    """T-0117: no commit needs a trailer, so a role-mailbox author needs none.
+
+    Measured on macOS CI (run 43091318277): a repository that configures no
+    identity commits as its role mailbox, and `build_commit_message` writes no
+    `Acting role:` line, so demanding one failed every synthetic-repo audit and
+    62 tests with it. The mailbox email already names the role.
+    """
     _git(
         repo,
         "commit",
@@ -178,7 +187,7 @@ def test_missing_trailer_fails(repo):
         "feat(x): no trailer",
         ident=("Developer", "developer@agents.nidvue.com"),
     )
-    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
 
 
 def test_bot_dependency_update_is_allowed(repo):
@@ -582,8 +591,8 @@ def test_a_two_parent_chore_merge_with_an_empty_body_is_exempt(repo):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
 
 
-def test_a_single_parent_merge_with_an_empty_body_is_not_exempt(repo):
-    """A fast-forward or squash commit does add content, so it must name its role."""
+def test_a_single_parent_merge_with_a_personal_committer_still_fails(repo):
+    """No subject shape excuses a personal address stamping a commit."""
     _git(
         repo,
         "commit",
@@ -592,6 +601,7 @@ def test_a_single_parent_merge_with_an_empty_body_is_not_exempt(repo):
         "chore(merge): merge of tester-1/t-0001-peer-work",
         ident=("Reviewer", "reviewer@agents.nidvue.com"),
     )
+    _amend_committer(repo, "Some One", "personal" + "@" + "example.invalid")
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
 
 
@@ -645,13 +655,8 @@ def test_an_unknown_display_name_on_a_role_mailbox_still_fails(repo):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
 
 
-def test_an_integration_merge_commit_is_content_free(repo):
-    """A plain ``git merge`` integration carries no acting role of its own.
-
-    Measured on this repository on 7e73e1f: e40d8de, 3fad639 and 1d90ccd are
-    two-parent merges committed by the Reviewer and failed only because
-    ``_is_content_free_team_merge`` demanded a ``chore(merge):`` subject.
-    """
+def test_an_integration_merge_commit_passes(repo):
+    """A plain ``git merge`` integration is accepted on its author alone."""
     _merge_branch(
         repo,
         ("Reviewer", "reviewer@agents.nidvue.com"),
@@ -671,8 +676,8 @@ def test_an_integration_merge_with_a_personal_committer_still_fails(repo):
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
 
 
-def test_a_single_parent_commit_without_an_acting_role_still_fails(repo):
-    """A commit that lands content must name its role, merge subject or not."""
+def test_a_single_parent_commit_without_a_trailer_passes(repo):
+    """The subject shape never decides: a merge-shaped subject needs no trailer."""
     _git(
         repo,
         "commit",
@@ -681,7 +686,7 @@ def test_a_single_parent_commit_without_an_acting_role_still_fails(repo):
         "Merge branch 'main' into projectmanager/t-0002-records",
         ident=("Reviewer", "reviewer@agents.nidvue.com"),
     )
-    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
 
 
 def test_a_personal_author_is_skipped_by_default_and_fails_when_strict(repo):
@@ -708,3 +713,129 @@ def test_every_gate_invocation_asks_for_the_strict_author_audit():
         if "--strict-authors" not in line
     ]
     assert not missing, missing
+
+
+def _committable(tmp_path: Path) -> Path:
+    """A repository on a lane branch with a hostile ambient identity configured."""
+    project = tmp_path / "Repo"
+    project.mkdir()
+    _git(project, "init", "-q", "-b", "main")
+    _git(project, "config", "user.name", HOSTILE_IDENTITY[0])
+    _git(project, "config", "user.email", HOSTILE_IDENTITY[1])
+    (project / "notes.txt").write_text("work\n", encoding="utf-8")
+    _git(project, "add", "notes.txt")
+    _git(project, "checkout", "-q", "-b", "developer-1/t-0102")
+    return project
+
+
+def _commit_args(project: Path) -> list:
+    return [
+        "--project",
+        str(project),
+        "commit",
+        "--role",
+        "developer",
+        "--type",
+        "feat",
+        "--area",
+        "identity",
+        "--paths",
+        "notes.txt",
+        "--goal",
+        "a lane commit carries the role mailbox",
+        "--deliverable",
+        "the commit identity is the acting role",
+        "--why",
+        "A-0012: the ambient git identity authored lane commits",
+        "--status",
+        "implemented",
+        "--result",
+        "pytest @HEAD -> see this suite",
+    ]
+
+
+def test_a_hostile_exported_identity_never_authors_the_commit(
+    tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The repository's configured pair wins over an exported GIT_AUTHOR_* pair."""
+    project = _committable(tmp_path)
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Wrapper Person")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "wrapper@example.invalid")
+    monkeypatch.setenv("GIT_COMMITTER_NAME", "Wrapper Person")
+    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "wrapper@example.invalid")
+
+    assert cli(*_commit_args(project)) == 0
+    expected = f"{HOSTILE_IDENTITY[0]} <{HOSTILE_IDENTITY[1]}>"
+    assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == expected
+    assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
+    printed = capsys.readouterr().out
+    assert "committed " in printed and f"as {expected}" in printed
+
+
+def test_the_role_mailbox_authors_only_when_opted_in(
+    tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = _committable(tmp_path)
+    monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
+    assert cli(*_commit_args(project)) == 0
+    expected = f"Developer <developer@{engine.IDENTITY_DOMAIN}>"
+    assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == expected
+    assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
+
+
+def test_the_message_is_exactly_one_line() -> None:
+    """Decision: every commit message is one compact, informative line.
+
+    The task, goal and evidence live in the task record and the ledger, never in a
+    multi-line commit body. No line of a published commit names a role or an
+    instance.
+    """
+    message = engine.build_commit_message(
+        "developer",
+        {
+            "type": "feat",
+            "area": "identity",
+            "task": "T-0115",
+            "producers": "Developer-2",
+            "goal": "no agent in history",
+            "deliverable": "the message style loses the role lines",
+            "why": "published history is the project's",
+            "status": "implemented",
+            "result": "pytest @HEAD -> see this suite",
+        },
+    )
+    for forbidden in ("Role:", "Producers:", "Acting role:", "Task:", "Result:"):
+        assert forbidden not in message, forbidden
+    assert message.strip().count("\n") == 0, "the message is exactly one line"
+    assert message.startswith("feat(identity): "), message
+
+
+def test_the_declared_preset_pair_authors_the_commit(
+    tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = _committable(tmp_path)
+    _git(project, "config", "teamwork.identity.name", "Ops Person")
+    _git(project, "config", "teamwork.identity.email", "ops@example.com")
+    monkeypatch.setenv("GIT_AUTHOR_NAME", HOSTILE_IDENTITY[0])
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", HOSTILE_IDENTITY[1])
+
+    assert cli(*_commit_args(project)) == 0
+    assert _git(project, "log", "-1", "--format=%an <%ae>").stdout.strip() == (
+        "Ops Person <ops@example.com>"
+    )
+
+
+def test_commit_refuses_an_identity_it_cannot_pin(
+    tmp_path: Path, cli, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The guard fires before anything is committed when git ignores the environment."""
+    project = _committable(tmp_path)
+    monkeypatch.setattr(
+        engine, "_git_author", lambda *a, **k: ("Wrapper Person", "wrapper@example.invalid")
+    )
+    assert cli(*_commit_args(project)) == 2
+    assert "refusing to commit" in capsys.readouterr().err
+    head = subprocess.run(
+        ["git", "-C", str(project), "rev-parse", "HEAD"], capture_output=True, text=True
+    )
+    assert head.returncode != 0, "nothing landed"

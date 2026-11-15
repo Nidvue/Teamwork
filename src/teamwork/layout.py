@@ -166,14 +166,25 @@ def team_root_from_cwd(cwd: Path) -> Path | None:
 
 
 def project_root(args) -> Path:
-    """The current team's hidden tree:
-    <project>/.pi/Teamwork/Teams/<Team>/"""
+    """The current team's hidden tree: <project>/.pi/Teamwork/Teams/<Team>/.
+
+    **Explicit beats ambient.** ``--project`` names the tree to act on and wins over
+    ``TEAMWORK_ROOT``; the environment variable is the lane's own binding, so it
+    applies only when the caller named no project. A lane exports
+    ``TEAMWORK_ROOT``, and before this rule a repro that passed ``--project`` at a
+    scratch tree still wrote into the live queue - six tasks landed in the team's
+    developer queue twice (L-0047/L-0048). The project flag is the isolation
+    boundary, so it is the one that decides.
+    """
+    if getattr(args, "project", None):
+        project = project_path(args)
+        slug = team_slug(project, getattr(args, "team", "") or "")
+        return (project / TEAM_ROOT_DIR / TEAMS_SUBDIR / slug).resolve()
     if os.environ.get("TEAMWORK_ROOT"):
         return Path(os.environ["TEAMWORK_ROOT"]).expanduser().resolve()
-    if not getattr(args, "project", None):
-        found = team_root_from_cwd(Path.cwd().resolve())
-        if found is not None:
-            return found
+    found = team_root_from_cwd(Path.cwd().resolve())
+    if found is not None:
+        return found
     project = project_path(args)
     slug = team_slug(project, getattr(args, "team", "") or "")
     return (project / TEAM_ROOT_DIR / TEAMS_SUBDIR / slug).resolve()
@@ -186,6 +197,15 @@ def agents_dir(root: Path) -> Path:
 def agent_dir(root: Path, agent: str) -> Path:
     """An instance directory: private scratch, artifacts, reports, worklog."""
     return agents_dir(root) / safe_component(pascal(agent))
+
+
+def shown_path(path: Path | str) -> str:
+    """A path as the packet and the memory pointer print it: forward slashes.
+
+    The packet is read by an agent that types the path into a POSIX shell even on
+    Windows, and a pointer is compared as text, so one form on every host (T-0120).
+    """
+    return os.fspath(path).replace("\\", "/")
 
 
 def roles_dir(root: Path) -> Path:

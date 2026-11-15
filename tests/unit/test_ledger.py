@@ -353,6 +353,107 @@ def test_concurrent_appends_from_separate_processes_leave_a_verifiable_chain(
     assert head == {"n": 8, "hash": records[-1]["hash"]}
 
 
+LOCK_PROBE = """
+import pathlib, sys
+sys.path.insert(0, {src!r})
+from teamwork import engine
+
+try:
+    with engine.lock(pathlib.Path({lock!r}), timeout=0.2):
+        print("free")
+except SystemExit:
+    print("held")
+"""
+
+
+def test_ledger_verify_reads_the_file_and_the_head_inside_one_lock(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The cache comparison happens under the ledger lock, not beside it.
+
+    ``ledger_append`` writes the record line and then the head cache in one
+    critical section, so the cache can never lead the file on its own. A verifier
+    that read the file first and the cache second saw the writer's two halves as
+    a truncation: Reviewer-2 measured "head cache knows 5442 records but the
+    ledger has 5441" on an intact trail while other lanes appended (T-0122).
+    """
+    root = _seed(tmp_path / "team")
+    lock_path = root / engine.DIR_RUNTIME / engine.DIR_LOCKS / "ledger.lock"
+    probe = LOCK_PROBE.format(
+        src=str(Path(engine.__file__).resolve().parents[1]), lock=str(lock_path)
+    )
+    real_read = engine.ledger_read
+    seen: list[str] = []
+
+    def spy(r):
+        if not seen:
+            run = subprocess.run(
+                [sys.executable, "-c", probe], capture_output=True, text=True, timeout=120
+            )
+            seen.append(run.stdout.strip())
+        return real_read(r)
+
+    monkeypatch.setattr(engine, "ledger_read", spy)
+    assert engine.ledger_verify(root) == []
+    assert seen == ["held"], "ledger_verify read the ledger without the ledger lock"
+
+
+LOOP_WORKER = """
+import pathlib, sys, time
+sys.path.insert(0, {src!r})
+from teamwork import engine
+
+root = pathlib.Path({root!r})
+while not pathlib.Path({start!r}).exists():
+    time.sleep(0.001)
+for index in range({count}):
+    engine.ledger_append(
+        root, "task.add", "developer", sys.argv[1] + "-" + str(index), "loop writer"
+    )
+"""
+
+
+def test_verify_stays_clean_while_two_lanes_append(tmp_path: Path) -> None:
+    """Two appenders over 20 iterations each: no verify problem, cache == file.
+
+    The read side is what T-0122 fixed: with the file and the cache read outside
+    the lock, a verify interleaved with a concurrent append reported the trail as
+    truncated while it was intact.
+    """
+    root = tmp_path / "team"
+    root.mkdir()
+    start = tmp_path / "start"
+    script = LOOP_WORKER.format(
+        src=str(Path(engine.__file__).resolve().parents[1]),
+        root=str(root),
+        start=str(start),
+        count=20,
+    )
+    workers = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        for name in ("a", "b")
+    ]
+    start.touch()
+    problems: list[str] = []
+    while any(worker.poll() is None for worker in workers):
+        problems += engine.ledger_verify(root)
+    for worker in workers:
+        _out, err = worker.communicate(timeout=180)
+        assert worker.returncode == 0, err
+
+    records = engine.ledger_read(root)
+    head = json.loads(engine.ledger_head_path(root).read_text(encoding="utf-8"))
+    assert problems == []
+    assert [record["n"] for record in records] == list(range(1, 41))
+    assert head == {"n": len(records), "hash": records[-1]["hash"]}
+    assert engine.ledger_verify(root) == []
+
+
 @pytest.mark.parametrize(
     "cache",
     [
@@ -460,3 +561,48 @@ def test_a_lagging_head_cache_is_reconciled_before_the_append(tmp_path: Path, ca
     assert engine.ledger_verify(root) == []
     assert "reconciled before appending" in capsys.readouterr().err
     assert engine.ledger_read(root)[-1]["prev"] == records[-1]["hash"]
+
+
+def test_a_transient_short_read_is_resolved_by_one_reread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A reader that catches the file between two appends must not cry tampering.
+
+    Measured on CI run 43344749792 (ubuntu 3.12): the head cache named 2 records
+    while the file read named 1, and the trail was intact. One bounded re-read
+    resolves it; a genuine truncation survives it (the next test).
+    """
+    root = _seed(tmp_path / "team")
+    real = engine.ledger_read
+    calls = {"n": 0}
+
+    def short_then_full(path: Path) -> list:
+        calls["n"] += 1
+        records = real(path)
+        return records[:-1] if calls["n"] == 1 else records
+
+    monkeypatch.setattr(engine, "ledger_read", short_then_full)
+    assert engine.ledger_verify(root) == []
+    assert calls["n"] >= 2, "the cache-ahead branch must re-read the file"
+
+
+def test_an_empty_reread_does_not_hide_a_truncation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The re-read must not overwrite the evidence with an empty list.
+
+    The first fix assigned the second read unconditionally, so a truncation that
+    landed between the two reads left ``valid == []`` and skipped every branch:
+    `ledger verify` printed no problem on a trail the pre-change code refused.
+    """
+    root = _seed(tmp_path / "team")
+    real = engine.ledger_read
+    calls = {"n": 0}
+
+    def short_then_empty(path: Path) -> list:
+        calls["n"] += 1
+        return real(path)[:-1] if calls["n"] == 1 else []
+
+    monkeypatch.setattr(engine, "ledger_read", short_then_empty)
+    problems = engine.ledger_verify(root)
+    assert any("truncated" in problem for problem in problems), problems

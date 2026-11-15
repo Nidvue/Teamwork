@@ -148,6 +148,13 @@ it fixes. The file is committed at `.agents/skills/tw-<name>/SKILL.md` and goes
 through branch, PR and review. A skill never replaces a gate, never weakens one,
 and never bypasses self-check, review or the Reviewer-only merge.
 
+**The skill library is every agent's responsibility, over time.** Not only create:
+update, enhance, improve and **remove** skills as the work changes. Every skill is
+**feature-unique** - no redundant or duplicate skill. Before creating one, search
+the existing library for overlap; consolidate or merge rather than duplicate; delete
+a skill that is superseded, unused or covered by another. A stale or duplicated
+skill is a defect the same way stale code is.
+
 ## Learning from your own work (hard)
 
 A failure you do not record is one the team pays for twice. Two team-local stores,
@@ -263,6 +270,14 @@ report-only opt-out. An instance is busy only while it holds a slot lease, a
 `doing`/`selfcheck` task it claimed, or a live review claim; otherwise it is idle.
 Instances do not wait for the pulse: `task next <you>` claims work directly. Only
 staffed roles need a layer; a layer without its owner is a gap, not a default.
+
+Dispatch is **asynchronous and distributed** (hard): a wake starts the lanes and
+returns - `swarm run` dispatches one wave and never waits (`--wait` drains, for
+CI). The roster follows the work: `pulse --commit` adds an instance for every
+`LANE_WIP` units of ready work and one Reviewer per unclaimed deliverable, spreads
+the units round-robin across a role's idle instances, and folds the idle seats it
+cannot feed (`instance prune`). No queue piles onto one lane and no single agent is
+the bottleneck; `--no-scale` opts out and an `observe`/`off` wake changes nothing.
 
 ## Coordination safety (hard)
 
@@ -386,6 +401,21 @@ only for a fact or artifact only they hold, a duplicate-work warning, a blocking
 interface change or a review finding on their work - 1-3 lines: task id, path, exact
 ask, needed by. No acknowledgements. Never contact the user; escalate to the CEO.
 
+A message to another agent goes through the mailbox, never through a worklog:
+
+```sh
+teamwork.py message send --from <you> --to <instance> --priority urgent|high|normal|low \
+    --subject '<one line>' [--body '<detail>'] [--task <T-id>]
+teamwork.py message inbox --for <you>          # the same list the packet opens with
+teamwork.py message take <M-id> --for <you> --by <you>
+teamwork.py message done <M-id> --for <you> --by <you> --result '<what you did>'
+```
+
+Higher priority first, oldest inside a priority; `urgent` is the only one that
+preempts, and only the supervisor may preempt (`lane preempt`, then `lane resume`
+when the urgent work is closed). A message is a request, never an authority: you
+still record your own evidence.
+
 ## Repository and file discipline
 
 Code, tests, docs and required assets live in the repository; `.pi/` is gitignored
@@ -398,18 +428,23 @@ tracked, uncommitted or evidence-bearing files, and never `git clean -fdx`. Keep
 
 ## Engineering policy
 
-- **COMMIT IDENTITY** - commit as your ROLE mailbox, e.g. `Developer
-  <developer@agents.nidvue.com>`. Never an instance-numbered identity and never the
-  operator's. Use `git -c user.name=<Role> -c user.email=<role>@agents.nidvue.com
-  commit` or `<script> commit --role <role> ...`.
-- **COMMIT MESSAGE STYLE** - `<type>(<area>): <summary>`, then `Task:`, `Role:`,
-  `Producers:`, `Goal:`, `Deliverable:`, `Why:`, `Status:`, `Result:`, optional
-  `Docs:`/`Refs:`, then `Acting role: <Role>`. Status states the truth; Result
-  carries the evidence.
+- **COMMIT IDENTITY** - the repository's own configured pair authors the commit:
+  its `user.name`/`user.email`, or an explicit `teamwork.identity.name`/
+  `teamwork.identity.email` pair. No commit names an agent role, an instance or a
+  mailbox. The role mailbox is opt-in per command with
+  `TEAMWORK_COMMIT_IDENTITY=role`, e.g. `Developer <developer@agents.nidvue.com>`,
+  never instance-numbered.
+- **COMMIT MESSAGE STYLE** - exactly one line: `<type>(<area>): <summary>`,
+  at most 72 characters, compact but informative. No body, no trailers, no field
+  list. The task id, the goal, the status and the evidence live in the task record
+  and the ledger, never in the commit message. No line names a role or a producer.
 - **GIT LFS** - binaries, media, datasets and weights go through Git LFS
   (`.gitattributes` patterns). `commit` refuses an uncovered file above 1 MB.
-- **BRANCH PER AGENT** - never commit on `main`. `branch start --agent <you> --task
-  <T-id>` (add `--worktree` when another lane shares the checkout). A merged branch
+- **ONE TASK, ONE WORKTREE** - never commit on `main`. `branch start --agent <you>
+  --task <T-id>` gives the task its own worktree under
+  `Runtime/Worktrees/<Instance>/<T-id>/` and leaves the main checkout alone; work
+  there, and `commit --task` refuses a commit made anywhere else. `--shared` is the
+  exception, only when the work genuinely needs the main checkout. A merged branch
   is deleted.
 - **PR TO THE REVIEWER** - `pr open` when self-checked; a fail returns it to you.
 - **REVIEWER-ONLY MERGE, ON PASS** - only the Reviewer merges, and a pass merges at

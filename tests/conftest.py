@@ -15,16 +15,53 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
+TESTS_DIR = REPO_ROOT / "tests"
 
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+
+def _first_on_path(directory: Path) -> None:
+    """Put ``directory`` at ``sys.path[0]``, even when it is already on the path.
+
+    A venv's ``.pth`` file appends ``src`` *after* ``site-packages``, and a lane
+    host may add an installed skill copy ahead of both, so membership is not
+    enough: the checkout must be first or the suite measures another tree's
+    engine.
+    """
+    entry = str(directory)
+    if entry in sys.path:
+        sys.path.remove(entry)
+    sys.path.insert(0, entry)
+
+
+_first_on_path(TESTS_DIR)
+_first_on_path(SRC_DIR)
 os.environ["TEAMWORK_SKILL_DIR"] = str(REPO_ROOT)
+
+
+TEAM_ENV = ("TEAMWORK_ROOT", "TEAMWORK_TEAM")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def hermetic_team_environment() -> Iterator[None]:
+    """3: no fixture, whatever its scope, is built with a lane's team environment.
+
+    A lane process exports ``TEAMWORK_ROOT`` and ``TEAMWORK_TEAM``, and
+    ``engine.team_slug`` reads ``TEAMWORK_TEAM``, so an in-process team lookup made
+    from a module- or session-scoped fixture - which pytest builds *before* the
+    function-scoped ``isolated_workspace`` below - resolved the live team instead
+    of the fixture's throwaway project. Session scope is the earliest point that
+    sees every other fixture, and it is restored on teardown so an outer run keeps
+    its environment.
+    """
+    saved = {name: os.environ.pop(name) for name in TEAM_ENV if name in os.environ}
+    yield
+    os.environ.update(saved)
 
 
 @pytest.fixture(scope="session")
@@ -40,8 +77,8 @@ def isolated_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     Autouse, so no test can accidentally act on the developer's real team tree
     or on the repository itself.
     """
-    monkeypatch.delenv("TEAMWORK_ROOT", raising=False)
-    monkeypatch.delenv("TEAMWORK_TEAM", raising=False)
+    for name in TEAM_ENV:
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("TEAMWORK_SKILL_DIR", str(REPO_ROOT))
     monkeypatch.chdir(tmp_path)
     return tmp_path

@@ -16,8 +16,8 @@ engine now provides all six itself:
 | 2 | **Delegate one-shot work** | the same `lane start --task <T-id>` / `--prompt-file <packet>` |
 | 3 | **Message an agent** | `Agents/<Name>/Inbox.md` (always was a file), read at the start of every run |
 | 4 | **Inspect teammate state** | `teamwork.py lane list|status|logs`, `pulse`, `board`, `WorkLog.md` |
-| 5 | **Re-wake on a schedule** | `teamwork.py swarm run` (waves until idle) and `pulse --commit` (one wake) |
-| 6 | **Close the team** | `teamwork.py lane stop <run>` per live lane, then the final report |
+| 5 | **Re-wake on a schedule** | `pulse --commit --spawn` (one async wake: dispatch and return) or `swarm run` (one async wave; `--wait` drains) |
+| 6 | **Close the team** | `teamwork.py lane stop <run>` per live lane, then `lane reap` (reconciles, frees slots, recycles the finished seats), then the final report |
 
 A host is now only a **launcher**: a CLI that accepts a prompt and exits. That one
 fact is the whole adapter surface - the engine detects the host, or takes a
@@ -62,13 +62,13 @@ The template takes whole-argument placeholders - `{prompt}` `{packet}` `{log}`
 as the last argument. `LaneHost` pins the detected host; `TEAMWORK_AGENT_HOST`
 does the same from the environment.
 
-A host that offers a native teammate tool - a `subagent(...)` call, a `teams(...)`
-call, a `schedule.create` entry - may still use it as an accelerator. It is never
-required:
-the engine's lane runtime is the mechanism, and a host tool that disappears must
-not remove parallelism. When a host tool *is* used, the lane still takes its work
-with `task next` or `review --claim`, so the board - not the tool - decides who
-owns what.
+A host that also offers its own teammate, scheduler or messaging tool does not
+change this protocol: such a tool is not part of it, and no surface may require
+one. The engine's lane runtime is the mechanism - `lane start` and `swarm run`
+detach the host CLI - so a session with no plugin installed runs the whole team,
+and a host tool that appears or disappears changes nothing. A lane always takes
+its work with `task next` or `review --claim`, so the board - not a host tool -
+decides who owns what.
 
 ## How a lane runs
 
@@ -115,7 +115,7 @@ owns what.
 |---|---|---|
 | `LaneMinutes` / `TEAMWORK_LANE_MINUTES` | 25 | wall-clock budget per lane; the wrapper kills it and records `timeout` |
 | `LaneAttempts` | 2 | attempts per assignment before the CEO is asked |
-| `LaneToolBudget` | 16 | tool calls the packet allows |
+| `LaneToolBudget` | - | overrides the per-profile tool budget (10 fast / 16 standard / 24 deep) for every unit when set |
 | `LanePollSeconds` / `TEAMWORK_LANE_POLL` | 2 | supervisor poll interval |
 | `LaneMax` | 8 | ceiling on lanes per wave, whatever the measured complexity |
 | `LaneHost` / `TEAMWORK_LANE_HOST` | detected | which host's CLI to launch |

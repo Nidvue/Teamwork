@@ -142,7 +142,7 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
     assert cli("--project", project, "load", "Developer-1") == 0
     loaded = capsys.readouterr().out
     assert "# Lessons (developer) - open mistakes to avoid:" in loaded
-    assert "- [L-0001] committed on main -> run the guard first" in loaded
+    assert "- committed on main -> Roles/Developer/Lessons.md#L-0001" in loaded
     assert "certified without CI" not in loaded
     assert "# fixed: 0; full list: teamwork.py lesson list --role developer" in loaded
 
@@ -174,6 +174,8 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
             "L-0001",
             "--by",
             "Developer-1",
+            "--no-check",
+            "the class is gone by design",
             "--evidence",
             "pytest @def -> 2 passed",
         )
@@ -201,6 +203,8 @@ def test_two_role_lessons_load_list_show_and_fix(cli, project: Path, capsys) -> 
             "L-0001",
             "--by",
             "Developer-1",
+            "--no-check",
+            "the class is gone by design",
             "--evidence",
             "pytest @ghi -> 3 passed",
         )
@@ -303,6 +307,8 @@ def test_skill_from_lesson_links_both_ways_and_the_late_skill_order(
             "L-0001",
             "--by",
             "Developer-1",
+            "--no-check",
+            "the class is gone by design",
             "--evidence",
             "pytest @def -> 2 passed",
         )

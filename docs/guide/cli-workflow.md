@@ -218,7 +218,7 @@ Branches with PR and merge state.
 ### `pr`
 
 ```text
-teamwork pr {open,list,merge} ...
+teamwork pr {open,list,merge,set} ...
 ```
 
 #### `pr open`
@@ -288,6 +288,19 @@ moved while the branch waited. A render that cannot be written or committed is
 reported as `the merge ... is LANDED, but docs/Team/Board.md ... is STALE`, with the
 `board --write` repair command; the merge record is never rolled back.
 
+#### `pr set`
+
+```text
+teamwork pr set --pr PR --status {merged,closed} [--merge-commit SHA] [--by BY] [--force REASON]
+```
+
+Repair a PR record left `merged` or `closed` by an out-of-band landing, so `audit`
+stops reporting it as an abandoned PR. `--force <reason>` is required, the reason
+is recorded as `pr.repair` with the old and new status, and the command is refused
+when the PR's review did not pass. `--merge-commit` must name a real revision -
+a commit in this clone or a `pr.merge` the ledger records - because the field is
+what later evidence quotes as the landing revision.
+
 ### `commit`
 
 ```text
@@ -317,9 +330,12 @@ teamwork identity --audit [--range REV..REV] [--strict-authors] [--guard-committ
 
 Show the role commit identity, e.g. `Developer <developer@agents.nidvue.com>`.
 
-`--audit` fails when a commit in the range was not authored and committed by the
-acting role. It checks the author, the committer and the `Acting role:` trailer,
-skips the forge's synthetic pull-request merge ref, and allows bot dependency
+`--audit` fails when a commit in the range was not authored and committed by an
+accepted identity - the repository's configured pair or a role mailbox. No trailer
+is required, because the message names no agent and the mailbox already names the
+role; an `Acting role:` or `Role:` line that is present must agree with the
+author. It skips the forge's
+synthetic pull-request merge ref, and allows bot dependency
 updates only when both the bot name and a `users.noreply.github.com` mailbox
 match. An author outside the team identity domain is reported as skipped by
 default; `--strict-authors` turns that into a failure. The default range
@@ -410,7 +426,7 @@ rule, never the whole control.
 |---|---|---|
 | `pre-commit` | R1 refuse a commit on the default branch, including the root commit on an unborn branch | `TEAMWORK_ALLOW_MAIN=1` |
 | `pre-commit` | R2 refuse a staged file above 1 MiB that no `.gitattributes` LFS pattern covers | - |
-| `pre-commit` | R3 a commit identity that is not a role mailbox warns on stderr and does not block | - |
+| `pre-commit` | R3 a commit identity that is neither the repository's configured pair nor a role mailbox warns on stderr and does not block | `TEAMWORK_COMMIT_IDENTITY=role` |
 | `pre-push` | P1 refuse a non-fast-forward update to the default branch | `TEAMWORK_ALLOW_FORCE=1` |
 | `pre-push` | P2 refuse deleting the default branch | - |
 

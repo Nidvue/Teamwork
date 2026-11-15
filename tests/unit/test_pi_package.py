@@ -6,8 +6,12 @@ pi layer shipped twice).
 
 Pinned here: the built manifest carries the repository's licence, every declared
 path exists, npm's `files` list covers what the tarball needs, the host-provided
-packages stay peers, the pi adapter tree is not duplicated inside the portable
-skill, and the command line answers `--help` without assembling a package.
+packages stay the only peers and no third-party package is declared at all - the
+lanes run on the engine's own runtime - the one extension the package ships
+is its own status widget, importing host peers only - so an extension entry is
+the package cannot load - the pi adapter tree is not duplicated inside the
+portable skill, and the command line answers `--help` without assembling a
+package.
 """
 
 from __future__ import annotations
@@ -68,6 +72,48 @@ def test_manifest_matches_the_shipped_tree(tmp_path: Path) -> None:
     ):
         assert host in manifest["peerDependencies"], host
         assert host not in manifest.get("dependencies", {}), host
+
+
+def test_the_package_declares_no_third_party_package(tmp_path: Path) -> None:
+    """Why: every lane is launched by the engine (`lane start`, `swarm run`), which
+    detaches the host CLI itself, so nothing here may pull in an extension.
+
+    The host packages stay peers because pi supplies them at run time. Any other
+    name would promise a tool this package cannot deliver: pi installs a
+    package's `dependencies`, but an extension that lands in our `node_modules/`
+    does not load unless the manifest points at `./node_modules/...`, and this
+    package declares no extension. A `bundledDependencies` entry would ship a
+    second copy of a package the user may already have installed.
+    """
+    pkg = build(tmp_path)
+    manifest = json.loads((pkg / "package.json").read_text(encoding="utf-8"))
+
+    host_packages = {
+        "@earendil-works/pi-ai",
+        "@earendil-works/pi-agent-core",
+        "@earendil-works/pi-coding-agent",
+        "@earendil-works/pi-tui",
+        "typebox",
+    }
+    assert set(manifest["peerDependencies"]) == host_packages
+    for meta in manifest["peerDependenciesMeta"].values():
+        assert meta == {"optional": True}
+    for block in (
+        "dependencies",
+        "devDependencies",
+        "optionalDependencies",
+        "bundledDependencies",
+    ):
+        assert not manifest.get(block), f"{block} must stay empty: {manifest.get(block)}"
+    assert manifest["pi"]["extensions"] == ["./extensions"], (
+        "the status widget is the only extension"
+    )
+
+    adapter = (pkg / "skills" / "teamwork-pi" / "SKILL.md").read_text(encoding="utf-8")
+    for command in ("lane start", "swarm run"):
+        assert command in adapter, f"the layer must name the engine runtime: {command}"
+    for tool in ("subagent(", "subagent_supervisor(", "schedule.create", "teams("):
+        assert tool not in adapter, f"the layer must not require a host plugin: {tool}"
 
 
 def test_the_pi_layer_is_not_shipped_twice(tmp_path: Path) -> None:
@@ -187,3 +233,25 @@ def test_an_unknown_flag_is_refused_before_anything_is_built(tmp_path: Path) -> 
     assert done.returncode == 2, (done.returncode, done.stderr)
     assert "unrecognized arguments: --nonesuch" in done.stderr, done.stderr
     assert dist_entries() == before, "an unknown flag still built a package"
+
+
+def test_the_status_extension_ships_and_imports_only_host_peers(tmp_path: Path) -> None:
+    """Why: the widget reads `status --json` from the shipped engine, so it must
+    travel with the tarball and pull nothing but the host's own peer packages -
+    an npm dependency would not load from the manifest and a relative import would
+    break once installed."""
+    pkg = build(tmp_path)
+    manifest = json.loads((pkg / "package.json").read_text(encoding="utf-8"))
+
+    assert manifest["pi"]["extensions"] == ["./extensions"]
+    assert "extensions" in manifest["files"], "npm drops a directory the files list omits"
+    assert (pkg / "extensions" / "teamwork-status.ts").is_file()
+
+    source = (pkg / "extensions" / "teamwork-status.ts").read_text(encoding="utf-8")
+    assert "status" in source and "--json" in source, "the widget must read the status feed"
+    imports = re.findall(r'from\s+"([^"]+)"', source)
+    assert imports, "the extension imports nothing, so it cannot compile"
+    for target in imports:
+        assert target.startswith(("node:", "@earendil-works/")), target
+    for used in ("execFile", "setWidget", "setStatus", "registerCommand"):
+        assert used in source, used

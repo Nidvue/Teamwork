@@ -153,3 +153,18 @@ interfaces frozen
 
 Test layers are lanes like any other: they claim provider slots, run in parallel
 with implementation, and are never deferred to the end of a milestone.
+
+## Choosing an area
+
+`(layer, area)` is a pair, and `areas_in_use()` unions the plan, the test records
+and the area of every `done`/`review` task - so a **new area on a finished task**
+makes `tests plan` require its layers, and `loop` blocks until a lane records
+them. `commit --area` and `task set --area` therefore print a note when the area
+has no test record for a required layer, naming the layers and the `tests add`
+that clears it; record them in the same task, or reuse an existing area.
+
+**One command, one thing tested.** `tests add` refuses a command another record
+already carries (any layer, any area) unless `--force '<why this layer needs its
+own run>'`; the audit reports the duplicate pairs, and a second record of the same
+suite doubles the wall clock for no new evidence. Cite the existing record with
+`review --credit` instead.
