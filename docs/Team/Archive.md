@@ -7812,4 +7812,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 827d58a3
 - reviewer evidence: git show 827d58a3:docs/Team/Reviews/T-0007-Design-10-round2.md verifies: D-9 overflow fix confirmed at 0fbdc4ea:extensions/teamwork-status.ts:274-275; D-10 false (no MAX_LINES, render post-hoc at :284); schema-4 missing fields (budget_seconds, activity, stalled, remaining_seconds) confirmed by status --json; check_row_arith.py @827d58a3 -> activity=14 not 13; tw links @827d58a3 -> issues: 0
 - findings history: 
-- branch / merge: reviewer-1/t-0007-round-2-critique-design-md-10-the-agent / pending
+- branch / merge: reviewer-1/t-0007-round-2-critique-design-md-10-the-agent / edc00c18
