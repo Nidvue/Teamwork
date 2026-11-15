@@ -2,8 +2,8 @@
 
 ``_pr_merge`` staged every dirty path under ``docs/`` before merging, so a file
 another lane had left uncommitted in the base checkout rode into the Reviewer's
-``chore(records)`` commit: 13ea3d1 (subject "docs/Team/Archive.md") also carried
-D-20261030-Developer-3, and 30855f3 carried D-20261031-Designer. Both were a
+``chore(records)`` commit: fd8ff70 (subject "docs/Team/Archive.md") also carried
+D-20261030-Developer-3, and 01733db carried D-20261031-Designer. Both were a
 peer lane's entry in ``docs/Team/Decisions.md``, written in the checkout the
 merge ran in.
 

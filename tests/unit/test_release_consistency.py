@@ -1529,7 +1529,7 @@ def test_11_3_the_working_tree_contributes_no_byte_to_the_digest(tmp_path):
     The two digest paths must agree, and the only way they can is if both read
     the *commit* rather than the working tree: a working tree can hold a link
     into ``.git``, and those bytes would then reach the digest and the printed
-    output. Measured against the implementation at c66c387, which reads
+    output. Measured against the implementation at 7ddcab6, which reads
     ``rev=None`` as the commit ``HEAD`` names.
     """
     root = payload_repo(tmp_path / "repo")

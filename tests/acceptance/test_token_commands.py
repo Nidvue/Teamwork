@@ -93,7 +93,7 @@ def test_the_token_commands_run_end_to_end(project: Path) -> None:
                 "--src",
                 "T-0006",
                 "--rev",
-                "e6297bb",
+                "7992e80",
             ],
         )
     )

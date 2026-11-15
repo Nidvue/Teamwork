@@ -204,8 +204,8 @@ def test_a_rewritten_history_audits_the_tip_instead_of_dying(repo):
     """A force-push leaves the event's before-SHA gone; the tip is still auditable.
 
     Measured on this repository: rewriting the squash-merge commit that carried a
-    personal mailbox (0857bd6 -> 2e7810f) made the CI identity audit exit 2 with
-    "Invalid revision range 0857bd6..2e7810f", so the lane went red over a span
+    personal mailbox (0857bd6 -> 7ef0b83) made the CI identity audit exit 2 with
+    "Invalid revision range 0857bd6..7ef0b83", so the lane went red over a span
     that no longer exists rather than over a real identity defect. A clone made
     after the rewrite has no object for the old revision at all, which a revision
     that does not resolve models exactly.
@@ -424,7 +424,7 @@ def test_the_unreadable_range_fallback_audits_the_tip_and_not_the_ancestry(repo,
 
     Measured on CI run 40789321527: a pull_request event carried a stale
     `github.event.before` (63acff4) that no longer resolved, the workflow fell
-    back to a whole-history audit, and the guard failed on 6348825 - an ancestor
+    back to a whole-history audit, and the guard failed on 527cc45 - an ancestor
     of main, not a commit the PR introduced.
     """
     _commit(repo, "Some One", "personal" + "@" + "example.invalid", "chore(x): old merge")
@@ -573,7 +573,7 @@ def test_a_personal_committer_that_differs_from_the_author_is_still_a_defect(rep
 def test_role_is_accepted_as_equivalent_to_acting_role(repo):
     """``build_commit_message`` writes both trailers, so either one names the role.
 
-    Measured on this repository: 807b315 and 9d75c5d carry ``Role: <role>`` and no
+    Measured on this repository: 6c0f563 and 3e0efb5 carry ``Role: <role>`` and no
     ``Acting role:`` line because they were written by ``build_commit_message``,
     which emits the structured ``Role:`` field above the free-form trailer.
     """
@@ -600,7 +600,7 @@ def test_role_is_accepted_as_equivalent_to_acting_role(repo):
 def test_a_two_parent_chore_merge_with_an_empty_body_is_exempt(repo):
     """A content-free integration merge has no acting role to name.
 
-    Measured on this repository: f5ef807 is a two-parent
+    Measured on this repository: 42f5bc4 is a two-parent
     ``chore(merge): merge of developer-1/t-0009-...`` with a completely empty
     body, committed by the Reviewer. It adds no content of its own.
     """
@@ -642,7 +642,7 @@ def test_the_audit_prints_who_landed_a_peers_work(repo, capsys):
 def test_a_role_mailbox_with_the_instance_display_form_is_ok(repo):
     """The team commits with ``-c user.name=ProjectManager``, no spaces.
 
-    Measured on this repository on 7e73e1f: the audit failed five commits with
+    Measured on this repository on e77dadf: the audit failed five commits with
     "display name 'ProjectManager' does not match role 'Project Manager'" and the
     same for ReleaseEngineer, although every one is a canonical role mailbox.
     """
