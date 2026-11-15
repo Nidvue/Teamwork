@@ -437,6 +437,30 @@ def _template_argv(
     return argv
 
 
+def launcher_ready(root: Path, override: str = "") -> tuple[bool, str]:
+    """Whether a lane could be started here, and why not when it could not.
+
+    ``pulse --commit`` runs the swarm by default, so a host with no agent CLI must
+    degrade to the plan it printed instead of failing the wake: the protocol still
+    completes with one agent wearing the hats, and an exit 2 would stop a loop over
+    a missing launcher rather than over the work.
+    """
+    if lane_command(root):
+        return True, ""
+    resolved = lane_host(root, override)
+    if resolved not in HOST_BINARIES:
+        return False, (
+            f"no host launcher ({resolved!r} is not one of "
+            f"{', '.join(sorted(HOST_BINARIES))}); set TEAMWORK_LANE_CMD or LaneHost"
+        )
+    if not shutil.which(HOST_BINARIES[resolved]):
+        return (
+            False,
+            f"host {resolved!r} needs {HOST_BINARIES[resolved]!r} on PATH and it is not there",
+        )
+    return True, ""
+
+
 def launcher_argv(
     root: Path,
     agent: str,
