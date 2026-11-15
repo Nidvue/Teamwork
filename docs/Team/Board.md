@@ -116,7 +116,7 @@ under two roles is two tasks.
 | ceo | T-0031 | graph | done | P-0072 | eb40ea2 |
 | ceo | T-0032 | records | done | P-0073 | d300307 |
 | ceo | T-0033 | records | done | P-0074 | 01f547e |
-| ceo | T-0034 | records | doing | - | - |
+| ceo | T-0034 | records | done | P-0075 | 2e9a621 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -205,7 +205,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0034 · Close-out records: export the audit manifest and record the close state - the three open criteria, the exact decision each one waits on, and the audit warnings accepted with their reasons | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
