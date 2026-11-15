@@ -16559,6 +16559,60 @@ def _update_source(source: Path, remote: str, branch: str) -> tuple[bool, str]:
     return True, f"{head} -> {after}"
 
 
+def _display_install(dest: Path, host: str) -> None:
+    """Make the host load the lane renderer the bundle just delivered.
+
+    A skills directory is never read as an extension directory, so the file being
+    in the bundle does not draw anything (``lanedisplay``). Installing it here is
+    the point of the step: the copy is fresh at this moment, and a renderer that
+    needs a second manual command is the defect this closes.
+    """
+    from . import lanedisplay
+
+    state = lanedisplay.install(dest, host=host, skills=str(dest))
+    if not state.ok:
+        return
+    print(f"# lane display: {state.target} registered in {state.settings}")
+
+
+def _display_drift(dest: Path, host: str) -> bool:
+    """Report a bundle whose renderer the host would not load."""
+    from . import lanedisplay
+
+    state = lanedisplay.status(dest, host=host, skills=str(dest))
+    if not state.ok or state.live:
+        return False
+    print(
+        f"# lane display: not loaded ({state.detail or state.target}) -> run refresh",
+        file=sys.stderr,
+    )
+    return True
+
+
+def cmd_ui(args) -> int:
+    """`teamwork ui install|status` - the host extension that draws the live wave."""
+    from . import lanedisplay
+
+    if args.action == "install":
+        state = lanedisplay.install(
+            SKILL_DIR, host=args.host, skills=args.dest, dry_run=args.dry_run
+        )
+    else:
+        state = lanedisplay.status(SKILL_DIR, host=args.host, skills=args.dest)
+    if not state.ok:
+        die(state.detail)
+    drawn = "registered" if state.registered else "not registered"
+    copied = "installed" if state.installed else "missing"
+    if args.dry_run and not (state.installed and state.registered):
+        print(f"# would write {state.target} and register it in {state.settings}")
+        return 0
+    print(f"# lane display {copied}: {state.target}")
+    print(f"# settings {drawn}: {state.settings}")
+    if args.action == "install":
+        return 0
+    return int(not state.live)
+
+
 def cmd_refresh(args) -> int:
     """Re-sync the installed skill from the remote, so a host copy follows ``main``.
 
@@ -16624,7 +16678,7 @@ def cmd_refresh(args) -> int:
             )
             return 1
         print(f"# installed skill {dest} matches {source}")
-        return 0
+        return 1 if _display_drift(dest, args.host) else 0
     if not (added or updated or removed):
         print(f"# installed skill {dest} already matches {source}")
         return 0
@@ -16639,6 +16693,8 @@ def cmd_refresh(args) -> int:
         return 0
     bundle.sync(source, dest, dry_run=False, quiet=args.quiet)
     print(f"# refreshed {dest}: {len(added)} added, {len(updated)} updated, {len(removed)} removed")
+    if not args.no_ui:
+        _display_install(dest, args.host)
     if created or added or updated:
         print("# restart the agent host or reload the skill so the new text is read")
     return 0
@@ -18478,7 +18534,25 @@ def _parsers_meta(sub, common) -> None:
     s.add_argument("--check", action="store_true", help="report drift, write nothing")
     s.add_argument("--dry-run", action="store_true", help="print the plan, write nothing")
     s.add_argument("--quiet", action="store_true", help="print only the summary")
+    s.add_argument(
+        "--no-ui",
+        action="store_true",
+        help="mirror the bundle only, without installing the lane display extension",
+    )
     s.set_defaults(func=cmd_refresh)
+
+    s = sub.add_parser(
+        "ui",
+        parents=[common],
+        help="install the lane display extension, or report whether the host loads it",
+    )
+    s.add_argument("action", nargs="?", default="status", choices=("install", "status"))
+    s.add_argument(
+        "--host", default="pi", choices=("pi", "agents"), help="host whose directory to write"
+    )
+    s.add_argument("--dest", default="", help="skills directory the bundle is installed in")
+    s.add_argument("--dry-run", action="store_true", help="print the plan, write nothing")
+    s.set_defaults(func=cmd_ui)
 
     s = sub.add_parser("version", parents=[common], help="print the version and exit")
     s.set_defaults(func=cmd_version)
