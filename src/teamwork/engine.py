@@ -1329,8 +1329,9 @@ def _merge_base_branch(project: Path, raw: str, pr: dict) -> str:
             if tips
             else "  no local branch points at it\n"
         )
-        + f"  re-record the base as a branch: teamwork.py pr open --agent "
-        f"{pr.get('author') or '<author>'} --task {pr.get('task')} --base {DEFAULT_BASE}",
+        + "  re-point the base at a live branch at merge time (the approved "
+        "status is kept):\n"
+        f"  teamwork.py pr merge --pr {pr['id']} --by <Reviewer> --base {DEFAULT_BASE}",
         2,
     )
 
@@ -1571,7 +1572,30 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "--result pass --evidence '<verify cmd @rev -> result>'",
                 2,
             )
-        base = _merge_base_branch(project, pr["base"] or DEFAULT_BASE, pr)
+        requested = (getattr(args, "base", "") or "").strip()
+        recorded = pr["base"] or DEFAULT_BASE
+        if requested and requested != recorded:
+            if branch_exists(project, recorded):
+                die(
+                    f"refusing to re-point {pr['id']}: its recorded base "
+                    f"'{recorded}' is still a local branch, so nothing needs "
+                    "re-pointing. --base repairs a base that was deleted (A-0033); "
+                    "merging into a different live branch is a new PR, not a "
+                    "re-point.",
+                    2,
+                )
+            base = _merge_base_branch(project, requested, pr)
+            ledger_append(
+                root,
+                "pr.base.repoint",
+                merger,
+                pr["task"],
+                f"{pr['id']} base {recorded} -> {base}: the recorded base is no "
+                f"longer a local branch, the approved status is kept",
+            )
+            print(f"# re-pointed {pr['id']} base {recorded} -> {base}")
+        else:
+            base = _merge_base_branch(project, recorded, pr)
         pr["base"] = base
         branch = pr["branch"]
         if not branch_exists(project, branch):
@@ -1830,6 +1854,7 @@ def _merge_args(
     return argparse.Namespace(
         pr=pr_id,
         by=reviewer,
+        base="",
         squash=False,
         keep_branch=keep_branch,
         delete_branch=not keep_branch,
@@ -2781,6 +2806,7 @@ LEDGER_ACTIONS = (
     "message.take",
     "model.auto",
     "model.set",
+    "pr.base.repoint",
     "pr.merge",
     "pr.merge.archive",
     "pr.merge.forced",
@@ -19988,6 +20014,14 @@ def _parsers_integration(sub, common) -> None:
     s = psub.add_parser("merge", parents=[common], help="Reviewer: merge an approved PR")
     s.add_argument("--pr", required=True)
     s.add_argument("--by", default="reviewer")
+    s.add_argument(
+        "--base",
+        default="",
+        metavar="BRANCH",
+        help="re-point the base at this branch when the recorded one no longer "
+        "exists (e.g. it was deleted when its own PR merged); the approved "
+        "status is kept and the change is recorded on the PR and the ledger",
+    )
     s.add_argument("--squash", action="store_true")
     s.add_argument(
         "--keep-branch",
