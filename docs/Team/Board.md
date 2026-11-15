@@ -87,7 +87,7 @@ under two roles is two tasks.
 | ceo | T-0002 | throughput | done | - | - |
 | ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
 | ceo | T-0004 | records | dropped | P-0011 | - |
-| ceo | T-0005 | - | doing | - | - |
+| ceo | T-0005 | - | dropped | - | - |
 | ceo | T-0006 | - | done | - | - |
 | ceo | T-0007 | - | done | - | - |
 | ceo | T-0008 | - | done | - | - |
@@ -115,6 +115,7 @@ under two roles is two tasks.
 | ceo | T-0030 | ui | done | P-0071 | cf41761 |
 | ceo | T-0031 | graph | done | P-0072 | eb40ea2 |
 | ceo | T-0032 | records | done | P-0073 | d300307 |
+| ceo | T-0033 | records | doing | - | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -184,7 +185,7 @@ under two roles is two tasks.
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
-| tester | T-0003 | - | blocked | - | - |
+| tester | T-0003 | - | dropped | - | - |
 | tester | T-0004 | tests | done | P-0066 | 66d55cd |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
@@ -203,8 +204,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
-| tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | blocked | - |
+| ceo | T-0033 · The documented roster-tier startup costs are stale: SKILL.md and references/Roles.md quote 283/388/627 kB while the charters now measure 284/390/630 kB, so test_roster_tiers fails on main and the number an operator reads is wrong | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
