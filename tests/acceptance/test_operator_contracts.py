@@ -234,10 +234,10 @@ def test_the_operator_identity_is_accepted_without_a_local_preset(tmp_path: Path
     project = git_project(tmp_path)
     (project / "f.txt").write_text("x\n", encoding="utf-8")
     operator = {
-        "GIT_AUTHOR_NAME": "<redacted-personal-name>",
-        "GIT_AUTHOR_EMAIL": "<redacted-personal-email>",
-        "GIT_COMMITTER_NAME": "<redacted-personal-name>",
-        "GIT_COMMITTER_EMAIL": "<redacted-personal-email>",
+        "GIT_AUTHOR_NAME": "Operator Account",
+        "GIT_AUTHOR_EMAIL": "operator" + "@" + "example.invalid",
+        "GIT_COMMITTER_NAME": "Operator Account",
+        "GIT_COMMITTER_EMAIL": "operator" + "@" + "example.invalid",
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
     }
     subprocess.run(["git", "-C", str(project), "add", "f.txt"], check=True)

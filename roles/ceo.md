@@ -123,7 +123,7 @@ arbitrate, fold the seats, or arm the next wake. Do not sit in the idle count.
 - **Size the roster on demand.** `slim` is the default; read `parallel` and
   `instance list`, add an instance only for a named deliverable, and retire an
   idle lane. Retirement is move-only to `Runtime/Retired/<Instance>/`; verify
-  `git rev-parse HEAD` is at or after the move-only revision (`9a6d513`) before a
+  `git rev-parse HEAD` is at or after the move-only revision (`32f598f`) before a
   cut. A stale cut lost 102 artifact paths (`L-0001`); evidence is never deleted.
 - **Read by id.** `board`, `archive --task <T-id>`, `decision list` and `trace`
   answer a question. Never read all of `Archive.md`, `Decisions.md`, `Plan.md`

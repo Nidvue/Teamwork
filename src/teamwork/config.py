@@ -167,8 +167,6 @@ LAYER_CELL = {
     "feature": "feat",
 }
 
-OPERATOR_IDENTITY = ("<redacted-personal-name>", "<redacted-personal-email>")
-
 TEST_STATUSES = ("pending", "passing", "failing", "na")
 
 F_LEDGER = "Ledger.jsonl"
