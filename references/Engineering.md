@@ -80,12 +80,30 @@ closed gate - not on every keystroke.
 
 ## Commit message style (fixed)
 
-Every commit message is **exactly one line**: `<type>(<area>): <summary>`, at most
-72 characters, compact but informative. No body, no trailers, no field list.
+Every commit message is the subject line plus **seven fields**: `Role`,
+`Producers`, `Goal`, `Deliverable`, `Why`, `Status`, `Result`. The subject is
+`<type>(<area>): <summary>`, at most 72 characters, so `git log --oneline` stays
+scannable; the fields are the record the commit is, and they are what a reader
+needs to judge it without opening the task queue.
 
 ```text
 <type>(<area>): <deliverable summary, <=72 chars>
+
+Role: <Role>
+Producers: <Role | comma-separated roles>
+Goal: <what was asked for>
+Deliverable: <what this commit produced>
+Why: <why this is the right change>
+Status: <the state it actually reached>
+Result: <command @revision -> observed output>
 ```
+
+A field with nothing recorded says `not recorded at this revision`. That is a
+statement of fact, not a placeholder: inventing a result makes the history lie,
+and a commit message is the one artefact every later reader trusts without
+re-running anything. `teamwork.py commit` refuses a commit with no `--goal`,
+`--deliverable`, `--why`, `--status` or `--result`, so a new commit cannot reach
+the "not recorded" state by accident.
 
 - `type` is one of `feat fix test docs design research refactor perf build ci chore revert`.
 - The summary says what changed and why it matters, in one line a reader can scan

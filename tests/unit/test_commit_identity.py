@@ -804,12 +804,13 @@ def test_the_role_mailbox_authors_only_when_opted_in(
     assert _git(project, "log", "-1", "--format=%cn <%ce>").stdout.strip() == expected
 
 
-def test_the_message_is_exactly_one_line() -> None:
-    """Decision: every commit message is one compact, informative line.
+def test_the_message_carries_the_subject_and_seven_fields() -> None:
+    """Decision: every commit message is the subject line plus seven fields.
 
-    The task, goal and evidence live in the task record and the ledger, never in a
-    multi-line commit body. No line of a published commit names a role or an
-    instance.
+    ``Role``, ``Producers``, ``Goal``, ``Deliverable``, ``Why``, ``Status`` and
+    ``Result`` are the record the commit is. No field names an instance - the role
+    mailbox is the identity - and a field with nothing recorded says so instead of
+    inventing a value.
     """
     message = engine.build_commit_message(
         "developer",
@@ -825,10 +826,32 @@ def test_the_message_is_exactly_one_line() -> None:
             "result": "pytest @HEAD -> see this suite",
         },
     )
-    for forbidden in ("Role:", "Producers:", "Acting role:", "Task:", "Result:"):
-        assert forbidden not in message, forbidden
-    assert message.strip().count("\n") == 0, "the message is exactly one line"
     assert message.startswith("feat(identity): "), message
+    subject, _, block = message.partition("\n\n")
+    assert "\n" not in subject.strip(), "the subject stays one scannable line"
+    assert len(subject) <= 72, subject
+    assert block.strip().splitlines()[0] == "Role: Developer", block
+    for label in engine.COMMIT_FIELDS:
+        assert f"{label}: " in block, label
+    assert "Acting role" not in message and "Task:" not in message
+    assert "Developer-2" not in message, "no field names an instance"
+    assert "pytest @HEAD -> see this suite" in block, "the measured result is kept verbatim"
+
+
+def test_a_field_with_nothing_recorded_says_so() -> None:
+    """An empty field is a statement, not an invitation to invent one.
+
+    The history rewrite had to fill 988 commits that carry no recorded evidence;
+    writing a plausible result there would have made the audit trail lie, so the
+    builder writes the absence and a reader can tell the two apart.
+    """
+    message = engine.build_commit_message(
+        "developer",
+        {"type": "chore", "area": "x", "goal": "something", "deliverable": "a file"},
+    )
+    block = message.partition("\n\n")[2]
+    for label in ("Why", "Status", "Result"):
+        assert f"{label}: not recorded at this revision" in block, (label, block)
 
 
 def test_the_declared_preset_pair_authors_the_commit(
