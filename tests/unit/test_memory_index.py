@@ -7,7 +7,7 @@ which records may contribute a topic, that a topic is clipped to a phrase, and t
 ``load`` opens with the index before the pack. The last two cases pin AC-M22-4 on
 the *whole* command output: ``load`` prints the index instead of the verbose
 lesson rows, so the total bytes stay at or under a literal baseline captured from
-the pre-index renderer (90502bb) on the same fixture store, and the index is
+the pre-index renderer (39d7dff) on the same fixture store, and the index is
 charged against the pack budget so ``index + pack <= PACK_BUDGET_BYTES``. The
 zero-open-lesson case pins the bounded half of AC-M22-4 the D-0009 ruling
 requires: there the index displaces nothing, so it may add at most
@@ -209,7 +209,7 @@ FIXTURE_LESSONS = (
 )
 LOAD_BASELINE_BYTES = 1827
 """Literal bytes of `load Developer-1` on the store fixture_team() builds, rendered
-by the pre-index engine at 90502bb: build the fixture, then run
+by the pre-index engine at 39d7dff: build the fixture, then run
 `python3 .pi/Scratch/ceo/baseline/scripts/teamwork.py --project <fixture> load
 Developer-1 | wc -c` -> 1827. The assertion below has zero slack, so a single
 added line fails it."""
@@ -265,7 +265,7 @@ def test_whole_load_output_does_not_exceed_the_pre_index_baseline(cli, project, 
 
     LOAD_BASELINE_BYTES = 1827 is the literal byte count of `load Developer-1` on
     exactly the store ``fixture_team()`` builds, rendered by the pre-index engine at
-    90502bb: build the fixture, then run
+    39d7dff: build the fixture, then run
     ``python3 .pi/Scratch/ceo/baseline/scripts/teamwork.py --project <fixture> load
     Developer-1 | wc -c`` -> 1827. There is no slack, so the guard bites on any
     growth; the earlier 2804 pin left 883 bytes of room and would have passed an
@@ -293,7 +293,7 @@ def test_whole_load_output_does_not_exceed_the_pre_index_baseline(cli, project, 
 LOAD_BASELINE_NO_LESSON_BYTES = 1137
 """Literal bytes of `load Developer-1` on the zero-open-lesson store
 ``fixture_team_without_lessons()`` builds, rendered by the pre-index engine at
-90502bb: build the fixture, then run
+39d7dff: build the fixture, then run
 `python3 .pi/Scratch/ceo/baseline/scripts/teamwork.py --project <fixture> load
 Developer-1 | wc -c` -> 1137. The bound below is this literal plus one index
 budget and nothing else, so growth past a single index fails it."""
@@ -334,7 +334,7 @@ def test_a_role_with_no_open_lessons_stays_within_the_index_budget(cli, project,
 
     LOAD_BASELINE_NO_LESSON_BYTES = 1137 is the literal byte count of `load
     Developer-1` on exactly the store ``fixture_team_without_lessons()`` builds,
-    rendered by the pre-index engine at 90502bb: build the fixture, then run
+    rendered by the pre-index engine at 39d7dff: build the fixture, then run
     ``python3 .pi/Scratch/ceo/baseline/scripts/teamwork.py --project <fixture> load
     Developer-1 | wc -c`` -> 1137. Nothing is displaced here, so the ruling's bound
     is that literal plus one index budget - no slack beyond it - and the same run

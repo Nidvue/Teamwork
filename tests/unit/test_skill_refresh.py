@@ -171,7 +171,7 @@ def test_a_checkout_ahead_of_the_remote_is_not_reported_as_moved(
     """A lane's checkout is normally AHEAD of origin/main; do not claim a move.
 
     Measured failure: a branch worktree already contained origin/main, so
-    ``merge --ff-only`` was a no-op, yet the command printed ``6a99e0d -> e8da9ce``
+    ``merge --ff-only`` was a no-op, yet the command printed ``6a99e0d -> 1b5d414``
     - a revision it never checked out, and one that is an ANCESTOR of its head.
     """
     dest = tmp_path / "installed"

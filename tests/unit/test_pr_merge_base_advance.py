@@ -3,7 +3,7 @@
 The P-0022 merge exposed two defects that have one cause: the merge happened
 somewhere other than on the base branch.
 
-1. The PR record carried the base as a raw revision (``- base: 8f210bc...``)
+1. The PR record carried the base as a raw revision (``- base: 5cea56b...``)
    instead of a branch name. ``git checkout <sha>`` detaches HEAD, so
    ``git merge --no-ff`` built the merge commit off-branch: the merge was
    printed as done, the task and the ledger recorded it, and ``main`` still
@@ -145,7 +145,7 @@ def pass_review(cli, project: Path) -> None:
             "--result",
             "pass",
             "--evidence",
-            "pytest @HEAD -> 1 passed @be762bf",
+            "pytest @HEAD -> 1 passed @b593ad3",
             "--no-merge",
         )
         == 0
@@ -185,9 +185,9 @@ def committed_archive(project: Path, rev: str = "main") -> str:
 def test_merge_into_a_revision_base_still_advances_the_base_branch(cli, project, capsys) -> None:
     """A base recorded as a sha must not detach HEAD and orphan the merge commit.
 
-    This is the P-0022 defect verbatim: ``- base: 8f210bc...`` in the record
-    produced ``# merged ... -> 8f210bc at 8444134`` while ``main`` stayed at
-    8f210bc, and the merge commit was reachable only by a hand fast-forward.
+    This is the P-0022 defect verbatim: ``- base: 5cea56b...`` in the record
+    produced ``# merged ... -> 5cea56b at 5006392`` while ``main`` stayed at
+    5cea56b, and the merge commit was reachable only by a hand fast-forward.
     """
     root = init_workspace(cli, project)
     work = Path(add_task(cli, project, "ship the base-advance fix", "feature.txt"))

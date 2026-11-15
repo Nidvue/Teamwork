@@ -34,7 +34,7 @@ AGENTS = "ceo,developer-1,reviewer-1"
 TOKEN = "ghp" + "_" + "Zq7Rt2Mn9Kp4Vx6" + "Bd8Ws3Jf5Hg1Lc0"
 MASKED = "<redacted-api-token>"
 
-SHA = "c8af0e15254aac04ed985b0b34207a8019c93684"
+SHA = "3c6d192072e0d022c659d426b97014a1f189f149"
 PATH = "docs/Team/Architecture.md"
 REPORT_DIR = ".pi/Teamwork/Teams/Teamwork/Agents/Developer/Reports/"
 LONG_PATH = REPORT_DIR + "M19" + "-engine-audit.md"
