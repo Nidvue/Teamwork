@@ -6010,4 +6010,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit aa46bf0
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py @e124b39 -> 109 passed (own run); python3 scripts/teamwork.py links @e124b39 -> # issues: 0; grep -c "^| R-" docs/Team/Risks.md @e124b39 -> 32 rows, ids unique, R-33 names the measured 52m33s / 18-30 min / 11 min contrast and two remedies
 - findings history: 
-- branch / merge: ceo/t-0032-record-the-windows-ci-limitation-as-a-ri / pending
+- branch / merge: ceo/t-0032-record-the-windows-ci-limitation-as-a-ri / d300307
