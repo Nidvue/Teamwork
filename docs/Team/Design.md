@@ -617,14 +617,14 @@ questions, in this order, each answerable without a second glance:
 One row per instance, one line per row, columns in this fixed order:
 
 ```
-● <instance:14> <task:5-8> <activity:flex> <elapsed:6> <bar:9> <model:22>
+● <instance:14> <task:6-7> <activity:flex> <elapsed:6> <bar:9> <model:22>
 ```
 
 | column | rule |
 |---|---|
 | glyph | `●` busy, `⚙` live lane with no instance row, `○` idle aggregate, `+N` overflow |
 | instance | left, never clipped below 6 characters + `…`; the widest busy instance sets the column, capped at 14 |
-| task | `T-0001`, or `↳T-0001` for a review lane; the column is 5 or 6 wide and never clipped |
+| task | derived, never drawn raw: take the segment after the last `/` of the payload's `task` (`designer/T-0001` -> `T-0001`, `reviewer/T-0006` -> `T-0006`; a value with no `/` is already the id). A row whose `role` is `reviewer` is a review lane and is drawn `↳` + id (`↳T-0006`); every other row is the bare id (`T-0001`). The column is 6 wide for a bare id and 7 for a review arrow, and a `T-nnnn` id is never clipped; a derived value that is not a `T-nnnn` token is clipped to 6 with `…`, because it is not an identity. Measured: the payload carries `designer/T-0001` (14 characters) and `reviewer/T-0006` (14), so a 5-8 column would either clip the id or print the owner |
 | activity | `age · last`, clipped from the right with `…`; this is the only elastic column |
 | elapsed | right-aligned, 6, `-` when absent |
 | bar | fixed 9 columns (`░░░░░  42%`); render the empty slot when `progress_pct` is null so rows align |
@@ -683,16 +683,19 @@ partial glyph:
 | header | 1 | always |
 | busy rows | 1 each | never starved by lane lines |
 | `+N more busy` | 0-1 | only when rows were dropped |
-| lane lines (no instance row) | 0-3 | budgeted after the busy rows, first to yield |
+| lane lines (no instance row) | 0-3 | `min(3, 24 - 1 - busy - hidden - idle)`: budgeted after the busy rows, the `+N` line and the idle aggregate, first to yield |
 | idle aggregate | 0-1 | only when an idle seat exists |
-| total widget | 1 + busy + 1 + 1 | `MAX_LINES 24` |
+| total widget | 1 + busy + (hidden ? 1 : 0) + lanes + (idle ? 1 : 0) | `MAX_LINES 24` |
 | footer status line | 1 | separate surface, always |
 
 Measured on this team at 2026-11-15 21:06: 5 widget lines (header, 3 busy rows,
 idle aggregate) plus the footer, max line 98 of 100 columns. Worst case with the
-`full` roster (21 activated seats, 21 busy): 1 header + 21 rows + 1 idle = 23 of
-24, so the cap binds only when lane lines compete - which is why lane lines are
-budgeted last and capped at 3.
+`full` roster (21 activated seats, 21 busy): 1 header + 21 rows = 22 of 24, with
+no idle aggregate (no seat is idle) and no `+N` line (no row was dropped), so 2
+lines are left. At 21 busy seats only 2 of the 3 lane lines fit; the lane term
+reaches its cap of 3 from 20 busy rows down (1 + 20 + 3 = 24). The cap therefore
+binds on lane lines, never on the busy rows - which is why lane lines are
+budgeted last.
 
 ### 10.6 The checks a Tester can assert on
 
@@ -707,7 +710,7 @@ and lane-only rows.
 | no headless row | every line begins with `●`, `⚙`, `○`, `+`, or is the header |
 | column alignment | on a payload with one null and one numeric `progress_pct`, the elapsed/bar/model tail starts at the same index in both rows |
 | count agreement | header `busy` equals footer `busy`, and `live` equals `counts.lanes_live` |
-| line budget | `len(render(payload, 100)) == 1 + busy + (hidden ? 1 : 0) + (idle ? 1 : 0)` and `<= 24` |
+| line budget | `len(render(payload, 100)) == 1 + busy + (hidden ? 1 : 0) + lanes + (idle ? 1 : 0)` with `lanes = min(3, 24 - 1 - busy - (hidden ? 1 : 0) - (idle ? 1 : 0))`, and `<= 24`; on the 21-busy fixture that is `1 + 21 + 0 + 2 + 0 = 24` |
 | no colour-only meaning | stripping ANSI from every line leaves each state's word intact |
 | determinism | two calls on one payload return identical lines |
 | empty feed | no instances and no lanes -> `[]`, and the footer prints `teamwork 0/0 busy` |
@@ -724,7 +727,7 @@ Measured at 2026-11-15 21:06 on the real payload; each is a code change in
 | D-3 | `provider/model` clipped to 22 reads `deepinfra/deepseek-ai…` on every row: the provider is constant, the model is the signal | `modelLabel()`, `:151` | model name only, provider in the tooltip or dropped |
 | D-4 | the header counts activated/live/review while the footer counts busy/total; `busy` is in neither header count and `activated 14` counts 13 retired seats against 6 live rows | `:191`, `:217` | header carries busy/live/review; `activated` is history |
 | D-5 | the row title is resolved by task id alone, so the Designer row rendered Tester's `T-0001` title ("Systematic audit of tests/…") | engine status title resolver | resolve by (role, task) or (branch, task); filed as a finding, not a widget change |
-| D-6 | the activity column repeats the elapsed time (`1m · lane.start …` on a row whose elapsed is `-`) and clips mid-token | `:191`, `:207` | activity is `age · last`; drop the duplicated clock |
+| D-6 | the activity column repeats the elapsed time (`1m · lane.start …` on a row whose elapsed is `-`) and clips mid-token | the clock is carried in the tail at `:203` and re-derived as `age · latest` in the middle at `:206`; the mid-token clip is the row call at `:207` | activity is `age · last`; drop the duplicated clock |
 | D-7 | unread fields: `role`, `ready`, `retired`, `lanes_ended`, `progress` (text), lane `attempt`, `last_at` | payload vs `render()` | draw or explicitly declare as not drawn (10.1) |
 | D-8 | no colour is emitted at all, and `●` and `⚙` share "working" without a word | whole renderer | glyph+word pairs in 10.3 |
 
