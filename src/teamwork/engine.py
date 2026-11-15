@@ -11616,7 +11616,7 @@ def _lane_is_terminal(run: dict | None) -> bool:
     """True when the newest lane record for an instance has already ended."""
     from . import lanes as lane_runtime
 
-    return bool(run) and str(run.get("state") or "") not in lane_runtime.LIVE
+    return run is not None and str(run.get("state") or "") not in lane_runtime.LIVE
 
 
 def _status_row(

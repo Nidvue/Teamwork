@@ -26,7 +26,7 @@ const DROP_LEFT_BELOW = 48;
 const BARE_BELOW = 32;
 const ENGINE = ["scripts", "teamwork.py"];
 
-const GLYPH = { busy: "●", stalled: "⚠", lane: "⚙", idle: "○", review: "↳", run: "▶", pause: "⏸", fail: "✕" };
+const GLYPH = { busy: "●", stalled: "⚠", lane: "⚙", idle: "○", review: "↳", half: "◐", run: "▶", pause: "⏸", fail: "✕" };
 
 const LANE_STATE: Record<string, [string, string, string]> = {
   starting: [GLYPH.run, "run", "ok"],
@@ -177,12 +177,10 @@ function usedClock(row: Instance): string {
 
 function leftClock(row: Instance): string {
   const remaining = secondsOf(row.remaining_seconds);
-  if (remaining !== null) return clock(remaining);
-  const sent = (row.remaining_text ?? "").trim();
-  if (sent && sent !== "-") return sent;
+  if (remaining !== null) return clock(Math.max(0, remaining));
   const budget = secondsOf(row.budget_seconds);
   const elapsed = secondsOf(row.elapsed_seconds);
-  if (budget !== null && budget > 0 && elapsed !== null) return clock(budget - elapsed);
+  if (budget !== null && budget > 0 && elapsed !== null) return clock(Math.max(0, budget - elapsed));
   return "-";
 }
 
@@ -250,7 +248,8 @@ type Row = {
   used: string;
   left: string;
   bar: string;
-  activity: string;
+  body: string;
+  age: string;
   model: string;
   percent: number | null;
 };
@@ -284,7 +283,8 @@ function rowFrom(row: Instance): Row {
     used: usedClock(row),
     left: stalled ? "-" : leftClock(row),
     bar: stalled ? " ".repeat(BAR_W) : bar(percentOf(row)),
-    activity: body && age ? `${body} · ${age}` : body || age,
+    body,
+    age,
     model: modelLabel(row.model),
     percent: stalled ? null : percentOf(row),
   };
@@ -310,8 +310,15 @@ function layoutFor(rows: Row[], width: number): Layout {
   return { pad, taskW: TASK_W, leftW, activity, left, bar: showBar, model, bare };
 }
 
+function fitActivity(body: string, age: string, room: number): string {
+  if (room <= 0) return "";
+  const full = body && age ? `${body} · ${age}` : body || age;
+  if (full.length <= room) return full;
+  return clipWords(body || age, room);
+}
+
 function rowLine(row: Row, layout: Layout, width: number, paint: Paint | undefined): string | null {
-  const glyph = row.stalled ? GLYPH.stalled : row.review ? GLYPH.review : GLYPH.busy;
+  const glyph = row.stalled ? GLYPH.stalled : row.review ? GLYPH.half : GLYPH.busy;
   const head = `${glyph} ${row.instance.padEnd(layout.pad)} ${row.task.padEnd(layout.taskW)}`;
   if (layout.bare) {
     const bare = head.trimEnd();
@@ -319,13 +326,16 @@ function rowLine(row: Row, layout: Layout, width: number, paint: Paint | undefin
     return tint(paint, row.stalled ? "warn" : "ok", bare[0]) + bare.slice(1);
   }
   const cols = [head, row.used.padStart(USED_W)];
-  if (layout.left && !row.stalled) cols.push(`${SEP} ${row.left.padStart(layout.leftW)}`);
-  if (layout.bar && !row.stalled) cols.push(row.bar);
+  const blankLeft = row.stalled;
+  const leftCell = blankLeft ? " ".repeat(SEP.length + 1 + layout.leftW) : `${SEP} ${row.left.padStart(layout.leftW)}`;
+  const barCell = row.stalled ? " ".repeat(BAR_W) : row.bar;
+  if (layout.left) cols.push(leftCell);
+  if (layout.bar) cols.push(barCell);
   let line = cols.join(" ");
   const tail = layout.model && row.model ? ` ${row.model}` : "";
   if (layout.activity) {
     const room = width - line.length - tail.length - 1;
-    const cell = clipWords(row.activity, room);
+    const cell = fitActivity(row.body, row.age, room);
     if (cell) line = `${line} ${cell.padEnd(room)}`;
   }
   line = `${line}${tail}`.trimEnd();
