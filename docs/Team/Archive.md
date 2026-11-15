@@ -7890,4 +7890,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 895f4af6
 - reviewer evidence: git show 895f4af6:docs/Team/Decisions.md -> D-20261116-CEO x1, D-20261115-CEO-7 x1, 0 deletions vs main; ledger.jsonl@1301 -> decision.add D-20261116-CEO at n=1283, ledger verify chain intact; git show 895f4af6:docs/Team/AuditManifest.json -> git head 147adff0 on main (= merged head), ledger checkpoint 1288; sha256sum -c of the 4 manifest artifacts at 895f4af6 -> 4/4 OK; teamwork.py links -> # issues: 0; pytest tests/unit -k "doc or link or decisions or manifest or archive" @main tree -> 230 passed; privacy_scan -> 31 findings all pre-existing at main (12 in Decisions.md identical count at main), 0 in the 32 added lines
 - findings history: 
-- branch / merge: developer/t-0072-records-commit-the-d-20261116-ceo-decisi / pending
+- branch / merge: developer/t-0072-records-commit-the-d-20261116-ceo-decisi / 5267f8ea
