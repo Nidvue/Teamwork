@@ -117,6 +117,7 @@ under two roles is two tasks.
 | ceo | T-0032 | records | done | P-0073 | d300307 |
 | ceo | T-0033 | records | done | P-0074 | 01f547e |
 | ceo | T-0034 | records | done | P-0075 | 2e9a621 |
+| ceo | T-0035 | decisions | done | P-0077 | 494cf667 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -180,6 +181,7 @@ under two roles is two tasks.
 | developer | T-0061 | ci | done | P-0063 | 0096027 |
 | developer | T-0062 | lanes | done | P-0064 | 1360077 |
 | developer | T-0063 | tests | done | P-0076 | 7f439aa1 |
+| developer | T-0064 | worktree | doing | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -206,6 +208,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0064 · branch start --worktree leaves an untracked venv symlink, so the branch is unreviewable: review refuses 'the artifact is not committed on its branch: venv' | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
