@@ -13,10 +13,12 @@ Every option was produced from `teamwork <cmd> --help`.
 | [CLI: records and knowledge](cli-records.md) | learning, context, criteria and tests |
 | [CLI: review and governance](cli-review.md) | review, archive, decisions, disputes, red lines, skills |
 | [CLI: feature teams and git workflow](cli-workflow.md) | features, branches, PRs, commits, hooks |
-| [CLI: audit and control](cli-audit.md) | ledger, trace, coordination, loop, model, scripts |
+| [CLI: audit and control](cli-audit.md) | ledger, trace, coordination, graph, hunt, loop, model, scripts |
 
 This page carries invocation, global options, exit codes and the commands that
-set up a workspace, scale roles, run the queue and edit memory.
+set up a workspace, scale roles, run the queue and edit memory - plus the
+coordination surface (the agent mailbox and attention items) and the live-state
+feed.
 
 ## Invocation
 
@@ -133,30 +135,6 @@ cache counts as work), its HEAD is already an ancestor of the base branch, no
 window. A removal that fails is reported as `could not be reclaimed`, never
 counted as success.
 
-### `ui`
-
-```text
-teamwork ui [install|status] [--host HOST] [--dest DIR] [--dry-run]
-```
-
-Install the lane display extension, or report whether the host loads it.
-`swarm run` starts every lane as a detached process, so the live wave is drawn by
-a host extension that polls `lane list --json`; a host reads extensions from its
-own directory and its `settings.json`, never from a skills directory, so a bundle
-that ships the file still draws nothing until it is installed there.
-
-| Argument | Meaning |
-|---|---|
-| `install` | Copy the shipped renderer next to the skills directory and register it in the host settings once (idempotent). |
-| `status` | Report both halves without writing; a display the host would not load is a non-zero exit (the default action). |
-| `--host` | Which host's directory shape to use; the adapter table names the hosts. |
-| `--dest` | The skills directory the bundle is installed in, when it is not the host default. |
-| `--dry-run` | Print the plan and write nothing. |
-
-`refresh` runs the same install after mirroring (`--no-ui` skips it) and
-`refresh --check` exits 1 when the host would not load the display, so a stale
-picture is caught by the same command that catches a stale bundle.
-
 ### `agents`
 
 ```text
@@ -177,6 +155,7 @@ teamwork instance add ROLE [--count N] [--name NAME] [--new-role]
                        [--under TEAM_LEADER] [--by BY] [--json]
 teamwork instance list [--json]
 teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
+teamwork instance prune [--by BY] [--reason WHY] [--dry-run] [--keep-required]
 ```
 
 - `add` scaffolds `Agents/<Role>-N` against the existing `Roles/<Role>/`, so a
@@ -212,6 +191,18 @@ teamwork instance retire NAME [--reason WHY] [--by BY] [--force]
   `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`): the
   first cut ran from a stale checkout and lost 102 artifact paths (`L-0001`).
   `parallel` says how many lanes the ready work supports; `list` is the roster.
+- `prune` folds **every idle instance** in one pass: a lane is idle only when it
+  claims no `doing`/`selfcheck`/`review` task, holds no provider slot, no memory
+  pen, no review claim and no live lane record, and its role has no ready work.
+  Each fold is the same move-only retirement (`Runtime/Retired/<Instance>/`, role
+  memory and queue stay) with its own ledger record, so nothing is lost and a
+  second `prune` is a no-op. The **CEO is never folded** - it is the only voice to
+  the user. `--keep-required` also keeps one instance of each gate-critical role
+  (`ceo`, `developer`, `tester`, `reviewer`) so an automatic fold cannot strand a
+  gate; without it the team drains to the CEO and `instance add <role>` restaffs
+  on demand. `--dry-run` prints the plan and moves nothing. `pulse --commit` runs
+  the same fold for the **surplus** seats (keeping the gate roles), so a wake-up
+  that finds nothing to dispatch does not leave a dozen idle agents behind.
 
 ### `memory`
 
@@ -255,12 +246,35 @@ lease: a CTO's memory goes to the CEO, and when the holder is the top of the cha
 too the peers are told to open a dispute instead. A holder cannot contest itself -
 it releases the pen or finishes the update.
 
+#### `memory pack`, `search`, `verify`, `dream`
+
+```text
+teamwork memory pack [--role ROLE] --task T-ID|TEXT [--budget BUDGET]
+teamwork memory search [--role ROLE] QUERY
+teamwork memory verify [--role ROLE] [--focus TEXT|T-ID] [--limit N] [--json] [--apply] [--by BY]
+teamwork memory dream [--role ROLE] [--dry-run] [--apply] [--by BY]
+```
+
+Four memory operations beyond the pen:
+
+| Command | What it does |
+|---|---|
+| `memory pack` | Assembles a task-scoped pack - the entries worth injecting for one task, ranked and cut to `--budget` bytes - so a lane reads the relevant memory instead of every entry. |
+| `memory search` | Deterministic search over the role's memory (short, long and archived), the same scoring the pack uses. |
+| `memory verify` | Re-checks every evidence citation a record carries: each cited revision must exist and each cited path must still exist. It reports per kind and the **worst status wins** (`revision drifted | revision: <sha> is a commit here; path: <p> is missing`). `--focus` narrows it, `--json` is machine-readable, `--apply` rewrites the records it can repair; the default is report-only. |
+| `memory dream` | Proposes promotions (a stale short-term entry that belongs in long-term memory), edits and prunes. `--dry-run` is the default; `--apply` writes them and records the pass in the ledger. |
+
+`memory verify` is the answer to a memory that cites a revision the tree no longer
+has: the record keeps its text, but the drifted evidence is named instead of
+reading as verified. `load` shows the role's memory; these commands decide what
+belongs in it.
+
 ## Tasks, board and scheduling
 
 ### `task`
 
 ```text
-teamwork task {add,list,next,set,check,reclaim,rm} ...
+teamwork task {add,list,next,set,check,reclaim,rm,archive} ...
 ```
 
 Manage a role's shared priority queue.
@@ -336,11 +350,18 @@ teamwork: Developer-2 (developer) has no executable task of its own team
 teamwork task set AGENT HANDLE [--claimed-by CLAIMED_BY]
     [--status {todo,doing,selfcheck,review,blocked,done,dropped}]
     [--priority {P0,P1,P2,P3}] [--deps DEPS] [--title TITLE]
-    [--evidence EVIDENCE] [--force REASON]
+    [--evidence EVIDENCE] [--authorize WHY [--by INSTANCE]] [--force REASON]
 ```
 
 Update status, priority or dependencies. `--force` overrides evidence/self-check
 /review gates, requires a reason, and is recorded and audited.
+
+`--authorize WHY` is the only thing that opens a **closed** lane - a diff a revert
+cannot undo (a migration or schema path, a payment, a secret or auth path, a
+workflow that fires on merge, a release exception, a deleted file). Only the CEO
+may record it, because the CEO is the only role that takes an irreversible action;
+the reason and the actor are stored on the task as `undo_authorized` and appended
+to the ledger. `--by` names the CEO when the task belongs to another role.
 
 #### `task check`
 
@@ -374,6 +395,17 @@ teamwork task rm AGENT HANDLE --by BY [--force REASON]
 ```
 
 Remove a task (own role only).
+
+#### `task archive`
+
+```text
+teamwork task archive AGENT
+```
+
+Fold that role's finished tasks out of the live queue and into its archive file,
+so a long-lived role's `TaskQueue.md` stops growing and a `load` stays small. Only
+`done` and `dropped` tasks move; an open task is never archived. Run it after a
+merge, when the role's queue is longer than the work in front of it.
 
 ### `board`
 
@@ -414,28 +446,39 @@ Show free concurrency slots, ready work, and how many lanes to start.
 ### `pulse`
 
 ```text
-teamwork pulse [--commit] [--interval INTERVAL]
+teamwork pulse [--commit] [--interval INTERVAL] [--mode {off,observe,auto}]
+               [--agent AGENT] [--spawn] [--no-scale]
 ```
 
 CEO wake-up: print idle lanes, ready work and a dispatch plan. `--commit` applies
 the assignments now. `--interval` stores the pulse interval in minutes. Exit code
-`3` means nothing to dispatch.
+`3` means nothing to dispatch. `--commit` also **sizes the roster to the work**: it
+adds an instance for every `LANE_WIP` units of ready work and one Reviewer per
+unclaimed deliverable, bounded by the per-role cap (4), the per-wake cap (6),
+`LaneMax` and the free provider slots, then folds the seats it cannot feed. An
+`observe`/`off` wake is a report: it claims nothing, adds nothing and retires
+nothing. `--no-scale` dispatches to the current roster only.
 
 ### `swarm`
 
 ```text
 teamwork swarm run [--lanes N] [--waves N] [--minutes MINUTES] [--lane-minutes MINUTES]
                    [--poll SECONDS] [--mode MODE] [--host HOST] [--by BY] [--dry-run]
+                   [--no-scale]
 ```
 
 The engine's own supervisor. It measures what is in hand - ready tasks and
 unclaimed reviews, weighted 1 for prose, 2 for code, 3 for a
 security/release/data unit and +1 for a bug - and starts `ceil(weight / 3)` lanes,
-bounded by the free provider slots and `LaneMax` (default 8). The number is
-re-derived every wave, so the swarm scales up as the board grows and down (to zero)
-as it drains, and each lane's budget follows its unit: 10 tool calls/10 min for
+bounded by the free provider slots and `LaneMax` (default 8). Before the first
+wave it sizes the **roster** to the same measurement (`instance add`, bounded by
+the per-role and per-wake caps and the free slots; `--no-scale` skips it), so the
+lane count is not capped by how many instances happened to be staffed. The number
+is re-derived every wave, so the swarm scales up as the board grows and down (to
+zero) as it drains, and each lane's budget follows its unit: 10 tool calls/10 min for
 prose, 16/25 for code, 24/40 for a deep unit. It starts one detached process per
-lane, waits for one to end, and computes the next wave.
+lane and returns; the next wake reconciles the finished lanes and computes the next
+wave.
 
 A claim with no live lane behind it (for example after `pulse --commit`) is
 adopted for its instance; an assignment that leaves no self-check, PR or status
@@ -467,7 +510,7 @@ teamwork swarm run --lanes 6 --minutes 90 --poll 5
 ### `lane`
 
 ```text
-teamwork lane {start,list,status,logs,wait,stop,reap} ...
+teamwork lane {start,list,status,logs,wait,stop,reap,preempt} ...
 ```
 
 One lane is one child process with a packet in `Agents/<Instance>/Runs/<run>.md`,
@@ -492,30 +535,46 @@ session on a retry. The launcher is the detected host, `LaneHost`, or a
 #### `lane list`, `lane status`, `lane logs`
 
 ```text
-teamwork lane list [--all] [--limit N] [--full] [--json]
-teamwork lane status [HANDLE] [--live] [--json]
+teamwork lane list [--all] [--limit N] [--full]
+teamwork lane status [HANDLE] [--live]
 teamwork lane logs HANDLE [--lines N]
 ```
 
 Inspect lanes: `list` shows live records by default, `status` reconciles each
 record with its process, outcome file and budget before printing, and `logs` tails
-a lane's output. `--json` prints the same reconciled table as data - `id`, `agent`,
-`role`, `task`, `state`, `live`, `elapsed_seconds`, `minutes`, `seconds_left`,
-`attempt`, `attempts`, `verdict`, `note`, `error`, `log` - which is what a host UI
-renders; a host extension can poll it to draw a footer status and a lane
-widget, so the picture and the command cannot disagree.
+a lane's output.
 
 #### `lane wait`, `lane stop`, `lane reap`
 
 ```text
 teamwork lane wait HANDLE... [--timeout SECONDS]
 teamwork lane stop HANDLE [--reason REASON] [--by BY]
-teamwork lane reap
+teamwork lane reap [--keep] [--by BY]
 ```
 
 `wait` blocks until the named lanes end; `stop` signals a lane's process group,
 records why and releases its provider lease; `reap` reconciles lanes that died
-without writing an outcome and frees their slots.
+without writing an outcome, frees their slots and **recycles the seat of a
+finished lane** under the roster's own fold policy: an instance whose lanes have all
+ended, which holds no task, pen, slot or review claim, and whose role has no ready
+work is retired (move-only to `Runtime/Retired/`, packet and log repointed so
+`lane logs` still resolves). Two seats are never recycled by `reap`: **the CEO**
+(the only voice to the user) and the **last instance of a gate role** (`ceo`,
+`developer`, `tester`, `reviewer`), so a reap can free a surplus seat but cannot
+strand the gate; `instance prune` is the command that drains the floor.
+`--keep` reconciles the lanes but leaves the instances staffed.
+
+#### `lane preempt`
+
+```text
+teamwork lane preempt HANDLE [--message M-0001] [--reason REASON] [--by BY]
+```
+
+Stop a lane because an urgent message displaced it: the lane is stopped, its task
+is marked `paused` with the message id that displaced it, and a mailbox lane is
+started for the recipient. `lane resume <T-id>` returns the task to `doing` once
+the mailbox is empty. The supervisor runs this on its next wave for any instance
+holding a pending `urgent` message, so an operator rarely needs it by hand.
 
 ### `slot`
 
@@ -566,30 +625,157 @@ teamwork slot reap [--provider PROVIDER]
 
 Drop dead or stale slots.
 
-## The routing graph
+## Coordination
 
-### `graph`
+Two records carry work that is not a task: a message to another agent, and an
+item that needs a person.
+
+### `message`
 
 ```text
-teamwork graph [show] [--json]
-teamwork graph audit [--json]
-teamwork graph baseline --record '<command> -> <result>' [--tokens N] [--by WHO]
+teamwork message send --from SENDER --to TO --subject SUBJECT
+    [--priority {urgent,high,normal,low}] [--body BODY] [--task TASK] [--reply-to M-ID]
+teamwork message inbox --for INSTANCE [--all] [--json]
+teamwork message take M-ID --for INSTANCE --by BY
+teamwork message done M-ID --for INSTANCE --by BY --result RESULT [--drop]
 ```
 
-`show` prints the transitions the engine performs as one table of conditional
-edges: what fires each one, the state field it reads, how often the ledger shows
-it firing, and how many records the state holds against it right now, followed by
-the startup context the roster duplicates and the coordination records it writes.
-`audit` exits `1` on any of `C-GRAPH-STATE` (an edge names a field nothing
-parses), `C-GRAPH-CHAFF` (a role with more than one lane and an empty queue),
-`C-GRAPH-CHAIN` (every open task in one serial dependency path), `C-GRAPH-EXIT` (a
-dependency cycle, or a rework loop past the review-fail cap with no open dispute)
-and `C-GRAPH-PRICE` (working lanes staffed, no single-agent baseline recorded).
-`baseline` records what one agent doing the same work cost, so the extra spend can
-be compared instead of assumed; a record without `->` is refused.
+The mailbox is `Runtime/Mailbox/<Instance>/M-nnnn.json`, one file per message,
+mutated under `Runtime/Locks/mailbox.lock`. It is not a second ledger: the ledger
+records that a message was sent, taken and done; the mailbox holds the message.
 
-It is a milestone check next to `coordination --strict`, not a per-task gate:
-it reads the whole tree, so `preflight` does not run it.
+| Verb | What it does |
+|---|---|
+| `send` | Queues a message for another instance. The subject is one line (120 chars), the body is capped at 4000. A recipient that is not in the roster is refused with exit `2` and the known names. |
+| `inbox` | The pending messages in priority order, then oldest first. `--all` includes taken and done; `--json` prints one JSON object per message. |
+| `take` | Claims a message for one lane, so a second lane of the same role cannot process it twice. Taking a message another lane holds is refused. |
+| `done` | Closes it with the result (`--drop` records it as dropped instead). A message another lane took cannot be closed by you. |
+
+Priority is the contract: `urgent` is the only one that preempts. The supervisor
+stops the recipient's lane, marks its task `paused` with the message id, runs a
+mailbox lane that drains the queue, and `lane resume` puts the paused task back.
+`high`, `normal` and `low` never interrupt a step; they are read at the next step
+(or in the lane packet, which opens with `## Messages for you`). Use a message for
+a review finding the author must act on, a fact another role holds, an interface
+change that invalidates a peer's work, or a hand-off - not to assign work (that is
+`task add`) and not to report progress (that is the worklog).
+
+### `attention`
+
+```text
+teamwork attention add --text TEXT --kind {authorization,decision,blocker,review} [--task TASK] --by BY
+teamwork attention list
+teamwork attention resolve M-ID --by BY --resolution RESOLUTION
+```
+
+An attention item is the one thing an agent may not decide alone: an
+authorization, a decision that changes the goal, a blocker, or a review the CEO
+must arbitrate. `add` records it (the intern protocol's "proactivity is a record"
+path), `list` prints the open items oldest first, and `resolve` closes one with the
+decision that settled it. The CEO reads this list; it is not a channel to the user.
+
+## Reading a file
+
+### `read`
+
+```text
+teamwork read PATH [--query TEXT]... [--budget BYTES]
+               [--lines A-B] [--full] [--by BY] [--json]
+```
+
+The sparse read gate, adopted from [SparseRead](https://github.com/Liuzedooong/SparseReading)
+(accessed 2026-11-13). It decides how much of one file enters context, and the
+decision is visible:
+
+| Mode | When | What you get |
+|---|---|---|
+| `native` | the file is under the 4 KiB gate, binary, or unsupported | the whole file, unchanged - the gate never makes a small read worse |
+| `scout` | a large file and no `--query` | the first 40 lines, the line count and the `--query` that narrows it |
+| `focus` | a large file with `--query` | only the matching line ranges, merged with 3 lines of context, each headed `start-end (N match(es))` and every line prefixed with its number |
+| `verify` | `--lines A-B` | exactly those lines |
+| `full` | `--full` | the native read, every line |
+
+Every non-native pack ends with the bytes returned, the bytes saved and the
+percentage of the file, and `--query` can be repeated (case-insensitive, any
+match). `--budget` (default 4096) bounds the pack; a match left out is named in
+the reason, and raising `--budget` (or `--full`) returns the rest. The command
+appends a `read.sparse` ledger record with the mode, the returned and full bytes
+and the saving, which `teamwork throughput` sums under `## sparse read`.
+
+The gate exists because a whole `Archive.md` is ~0.63M tokens, `Decisions.md`
+~0.1M and a large task queue ~0.18M: a lane that greps for an anchor and then
+reads 30 lines is doing this by hand, and a lane that reads the file whole pays
+for it. `--full` is always available, and `--json` returns the pack (mode,
+snippets, bytes, saving) for a script.
+
+## Live state
+
+### `status`
+
+```text
+teamwork status [--json] [--agent INSTANCE]
+```
+
+Who is working, in full, and how many seats are idle, as one count. `--agent`
+narrows the rows to one instance; an unknown name exits 2, a team with no
+instance prints `- no instance` and exits 3, and the JSON feed exits 0 even when
+empty.
+
+The text form prints the aggregate header `# Status (B busy, I idle, A activated,
+R retired)`, then `# Lanes (L live, E ended not shown)` with one line per **live**
+lane only (an ended lane is history, not a row), then one line per **busy**
+instance (task id, title, elapsed, progress percent), then one aggregate line:
+
+```text
+- idle: 12 seat(s) (activated 18, retired 4) - fold them: teamwork.py instance prune --keep-required
+```
+
+An idle seat is a seat to fold, not a row to read; `instance prune` retires it
+(move-only to `Runtime/Retired/`). The CEO is the leader session, so a fresh pulse
+heartbeat (`Runtime/Pulse.json`, written by every `pulse` wake) reads as
+`dispatching` - the loop is its work - and it leaves the idle count while the
+pulse is live. No line is wider than 110 columns.
+
+`--json` emits schema 4, additive to schema 3:
+
+```json
+{
+  "schema": 4,
+  "generated": "2026-11-12T19:00:00",
+  "count": 17,
+  "counts": {"busy": 8, "idle": 9, "ready": 0, "review": 2, "lanes": 6,
+             "activated": 21, "retired": 4, "lanes_live": 6, "lanes_ended": 419},
+  "instances": [{"instance": "Developer-1", "role": "developer", "state": "busy",
+                 "task": "T-0130", "title": "...", "elapsed_text": "12m",
+                 "progress": "attempt 1/2, 60% of 25m", "progress_pct": 60,
+                 "model": "deepseek-chat", "provider": "deepseek", "lane": "L-0383",
+                 "lane_state": "running", "elapsed": 720,
+                 "last": "tests.run TS-0214 - 76 passed in 35s",
+                 "last_at": "2026-11-12T18:59:41", "last_seconds": 19}],
+  "lanes": [{"id": "L-0383", "instance": "Developer-1", "role": "developer",
+             "task": "T-0130", "state": "running", "elapsed_text": "12m",
+             "model": "deepseek-chat", "provider": "deepseek", "attempt": "1/2"}]
+}
+```
+
+`last` is the newest ledger event for that instance rendered as
+`action target - detail`, clipped to 200 characters; `last_at` is its timestamp
+and `last_seconds` its age. It is read from a 64 KiB tail of `Ledger.jsonl`, so a
+long history costs one seek per call; an instance with no event in that tail
+carries `""` and `null` rather than a guess, and a busy instance with no event of
+its own falls back to its role's newest event (an idle instance never does - the
+line says what an active agent is doing).
+
+`counts.lanes` always equals the length of the `lanes` array the same call
+returns, so a header stays true under `--agent`; `counts.activated` is every
+instance that ever ran a lane (or is staffed now), `counts.retired` the directories
+under `Runtime/Retired/`, and `counts.lanes_live`/`lanes_ended` count every lane
+record, not just the six rows returned. Lanes are live first, then the
+most recent by `created` (id ascending as the tiebreak), bounded to 6; a review
+lane carries `task: ""`; the order is stable across two calls with no state
+change. `model` and `provider` resolve once per call from
+`Settings.json` -> `Models.agents[<Instance>]`, else `Models.roles[<role>]`, else
+`""` for both - an unset model is never guessed.
 
 ## Memory
 

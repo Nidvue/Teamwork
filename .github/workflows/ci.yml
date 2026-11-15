@@ -6,9 +6,31 @@
 # implemented by `scripts/ci_scope.py`, and run by the `scope` job below - never
 # by a workflow-level filter.
 #
-# Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix), build,
-# privacy, committer guard, release-consistency, docs. Every job must be green on
-# the pushed revision.
+# Jobs: scope, lint, typecheck (non-blocking), test (5-cell OS/Python matrix, the
+# Windows cell split into nine path shards), build, privacy, committer guard,
+# release-consistency, docs, docs-contract. Every job must be green on the pushed
+# revision.
+#
+# The matrix is sized to the portability question instead of running the whole
+# suite five times (T-0105). The question is "does the suite work on the Python
+# versions and the OSes we support", and the two interpreters that answer it are
+# the boundaries - 3.11 (`requires-python`'s floor) and 3.13 (the newest
+# classifier) - so those two Linux cells run every test, 3.11 with the coverage
+# gate. The interior Linux interpreter (3.12) runs the subset `tests/unit
+# tests/acceptance`. macOS runs that same subset plus one integration module, so
+# its matrix row names `tests/unit tests/acceptance
+# tests/integration/test_portability_flow.py` in full: that module drives the
+# spaced-path CLI invocation, the symlink/WinError-1314 guard and the GNU-make
+# guard as real subprocesses on a host other than the one the code was written on.
+# `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
+# acceptance are the cheap 8s proof of the ACs, and the rest of the
+# subprocess-heavy integration tree (338 tests, 30% of the serial wall clock)
+# already runs on both boundary interpreters and on all nine Windows shards; no
+# test in the tree branches on darwin, so neither cell carries it. Every cell
+# runs under pytest-xdist `--numprocesses=auto` (`-n auto`) except the Windows
+# shards, which are already split by path: measured 242s serial against 94s with
+# `-n 4` (the 4-vCPU emulation of a hosted runner) on the same tree, identical
+# results.
 #
 # Trigger policy: a documentation-only change must not burn the test matrix,
 # and a release-fact change must not escape the consistency gate. Those two rules
@@ -221,7 +243,7 @@ jobs:
         run: mypy src/teamwork
 
   test:
-    name: test (${{ matrix.os }} / py${{ matrix.python-version }})
+    name: test (${{ matrix.os }} / py${{ matrix.python-version }}${{ matrix.shard && format(' / {0}', matrix.shard) || '' }})
     runs-on: ${{ matrix.os }}
     # Capacity, not a gate: every test still runs. Measured 18 min on ubuntu 3.13
     # and 30 on macos 3.13; windows hit the old 60-minute cap twice (runs
@@ -238,18 +260,108 @@ jobs:
           - os: ubuntu-latest
             python-version: "3.11"
             coverage: true
+            xdist: "--numprocesses=auto"
+          # The interior interpreter: the unit and acceptance trees, not the
+          # subprocess-heavy integration tree. 3.11 (the floor) and 3.13 (the
+          # newest) carry the whole suite, so no test loses its only run.
           - os: ubuntu-latest
             python-version: "3.12"
             coverage: false
+            xdist: "--numprocesses=auto"
+            paths: "tests/unit tests/acceptance"
           - os: ubuntu-latest
             python-version: "3.13"
             coverage: false
+            xdist: "--numprocesses=auto"
+          # macOS runs the cheap subset plus the one integration module that
+          # exists for it - measured on the 4-worker emulation of a runner, this
+          # row is 57s against 242s serial for the whole suite - and
+          # tests/integration/test_portability_flow.py drives the
+          # spaced-path CLI, the symlink and the GNU-make guards as real
+          # subprocesses on a host that is not the one the code was written on.
+          # No test in the tree branches on darwin and the Windows shards plus
+          # both Linux boundaries already run the whole integration tree, so the
+          # rest of it stays off this cell: one 12-18 minute full-suite job was
+          # the second-longest lane in runs 43000716956 and 43014809518.
           - os: macos-latest
             python-version: "3.13"
             coverage: false
+            xdist: "--numprocesses=auto"
+            paths: "tests/unit tests/acceptance tests/integration/test_portability_flow.py"
+          # Windows spawns processes several times slower than the POSIX runners and
+          # this suite spawns hundreds of them, so one Windows job exceeded the
+          # 90-minute cap even after the traceability guard stopped re-running the
+          # privacy scan (run 42941335942). Nine shards, no plugin and no new
+          # dependency. The subprocess-heavy trees stand alone, because the first
+          # split left unit a-f carrying integration and acceptance and that row was
+          # cancelled at the cap on run 43000716956. A cancelled shard names the
+          # files it was running instead of hiding the whole lane. The last two long
+          # rows (run 43119769552 at 3a10869: integration-m-z 14m02s, unit-p-z
+          # 12m34s) are split by measured cost, not by letter, because a letter
+          # range says nothing about the wall clock: the unit range carried 914 test
+          # functions and the integration range hid the one module that clones
+          # repositories, which cost 24.3s of the range's 38s on a local serial run.
+          # So unit p-z becomes two letter ranges of 579 and 335 tests, and the
+          # integration range becomes the seven modules that spawn git or a process
+          # and the twelve that do not. A module added later joins the list it costs:
+          # `test_ci_contracts.py` fails until every file under tests/ is named once.
+          # That git range is split again (T-0124) because its single row was the
+          # last job over the ten-minute half of AC-M24-1: 11m48s in run 43144630778
+          # at 4d18607. The two costliest files of the range on a local serial run at
+          # 3faa0f3, test_release_consistency_integration.py (it spawns the rule suite
+          # once per mutant, eleven runs) and test_role_memory_lease.py, are now a row
+          # of their own and the other five stay here; a mutant run also stops at its
+          # first failure while the baseline still takes the whole suite. The row
+          # duration after the split is owed by a run of the pushed revision, not by
+          # this comment. `test_ci_contracts.py` counts the tests each row names and
+          # fails when a row carries more than its tree's cap, and fails when a test
+          # file lands in no shard. Every shard names itself in the job name and
+          # reports its own slowest tests.
           - os: windows-latest
             python-version: "3.13"
             coverage: false
+            shard: "unit-a-f"
+            paths: "tests/unit/test_[a-f]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "unit-g-o"
+            paths: "tests/unit/test_[g-o]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "unit-p-r"
+            paths: "tests/unit/test_[p-r]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "unit-s-z"
+            paths: "tests/unit/test_[s-z]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "integration-a-l"
+            paths: "tests/integration/test_[a-l]*.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "integration-git-heavy"
+            paths: "tests/integration/test_merge_identity_flow.py tests/integration/test_portability_flow.py tests/integration/test_refresh_flow.py tests/integration/test_release_workflow_flow.py tests/integration/test_windows_portability_flow.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "integration-git-mutants"
+            paths: "tests/integration/test_release_consistency_integration.py tests/integration/test_role_memory_lease.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "integration-m-z-rest"
+            paths: "tests/integration/test_makefile_flow.py tests/integration/test_memory_flow_certification.py tests/integration/test_memory_index_header.py tests/integration/test_memory_pack_flow.py tests/integration/test_memory_verify_flow.py tests/integration/test_pr_repair_flow.py tests/integration/test_release_gate_flow.py tests/integration/test_release_traceability_flow.py tests/integration/test_status_contract.py tests/integration/test_task_graph_flow.py tests/integration/test_token_tools.py tests/integration/test_ui_refresh_flow.py tests/integration/test_unattended_landing_flow.py tests/integration/test_workspace_flow.py"
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
+            shard: "acceptance"
+            paths: "tests/acceptance"
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -276,11 +388,9 @@ jobs:
       - name: Run tests with the coverage gate (ubuntu 3.11)
         if: matrix.coverage
         shell: bash
-        env:
-          TEAMWORK_CI_SKIP_HISTORY_PROOF: "0"
         run: |
           mkdir -p reports
-          python -m pytest -q \
+          python -m pytest -q --numprocesses=auto \
             --junitxml=reports/junit.xml \
             --cov=teamwork \
             --cov-report=xml:reports/coverage.xml \
@@ -289,16 +399,16 @@ jobs:
       - name: Run tests (plain)
         if: ${{ !matrix.coverage }}
         shell: bash
-        env:
-          TEAMWORK_CI_SKIP_HISTORY_PROOF: "1"
         run: |
           mkdir -p reports
-          python -m pytest -q --junitxml=reports/junit.xml
+          python -m pytest -q ${{ matrix.xdist }} \
+            ${{ matrix.shard && '-v --durations=25' || '' }} \
+            --junitxml=reports/junit.xml ${{ matrix.paths }}
       - name: Upload junit + coverage artifact
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.shard || 'all' }}
           path: reports/
           if-no-files-found: warn
 
@@ -335,7 +445,13 @@ jobs:
   privacy:
     name: privacy scan (tree + history)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 30, not 15, because the budget is a measurement: the same command takes
+    # 8m02s on a 597-commit history on the development host (a laptop with a warm
+    # cache), and a hosted runner with a cold object store took 15m15s and was
+    # cancelled at the old budget - T-0090. A gate that is cancelled for being
+    # slow reports nothing, which is worse than a longer budget; the scan itself
+    # is unchanged and still walks every blob and every commit message.
+    timeout-minutes: 30
     needs: scope
     # Prose-only pushes included: this gate reads the git history and every
     # commit message, and a merge commit is created at merge time - so a

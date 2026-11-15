@@ -47,20 +47,27 @@ Teamwork/
 │   ├── engine.py             # command layer: build_parser/main + gates, review/PR, memory, model
 │   ├── evolution.py          # the self-evolution books: check + snapshot, wired into audit
 │   ├── gitutil.py            # git plumbing (branch/merge/LFS)
-│   ├── graph.py              # the routing graph: conditional edges, the state they read, the cost
+│   ├── grades.py             # two pure classifications: evidence grade, undo class (gates)
+│   ├── graph.py              # the task graph: waves, critical path, what one dependency costs
 │   ├── harness.py            # harness surface: registry, whole-proposal lint, always-on budget
 │   ├── hooks.py              # the git hooks: install/status/uninstall + the pre-commit/pre-push rules
+│   ├── hunt.py               # a bounded discovery loop: dry rounds, seen set, a page on a stall
 │   ├── imaging.py            # offline image-model probe
 │   ├── io.py                 # atomic writes, the lock, die()
-│   ├── lanedisplay.py        # install the lane-display extension the host draws the wave with
+│   ├── lanedisplay.py        # the host extension that draws the live wave: install, register, status
 │   ├── lanerun.py            # one lane's detached child: budget + outcome file
 │   ├── lanes.py              # the engine's own lane runtime: spawn, supervise, dynamic waves
 │   ├── layout.py             # team tree paths and cross-links
 │   ├── memorypack.py         # task-aware memory: score, pack, search, dream (Memory.md 4)
+│   ├── memverify.py          # memory verify: the focused, score-ranked check pass
+│   ├── messages.py           # the agent mailbox: priority queue, take/done, preemption
 │   ├── names.py              # names, roles, commit identities
 │   ├── records.py            # task/memory/criteria/tests/PR/dispute records
 │   ├── resources.py          # locate the skill bundle (checkout or wheel)
+│   ├── sparse.py             # the sparse read gate: bounded, source-anchored evidence packs
 │   ├── portable.py           # OS portability seam
+│   ├── transcripts.py        # transcript reach: the ledger and the worklogs (Memory.md 10)
+│   ├── wiki.py               # the capped wiki: pages of fact lines that point at records (Memory.md 15.5)
 │   └── version.py            # the single version source; pyproject and the pi package read it
 ├── scripts/
 │   ├── teamwork.py           # thin compat shim -> teamwork.cli.main
@@ -69,6 +76,7 @@ Teamwork/
 │   ├── check_release_consistency.py  # the release-truth gate (make release-consistency)
 │   ├── check_comments.py      # the no-comment gate (make lint)
 │   ├── ci_scope.py            # classify a change set into the code/prose gate answers
+│   ├── lane_proof.py         # the repeatable plugin-free fan-out proof (T-0037)
 │   ├── sync_skill.py         # mirror this checkout into an installed skills dir (make sync-skill)
 │   ├── render_social_preview.py  # draw assets/social-preview.png from the README pitch
 │   └── privacy_scan.py       # tree + history privacy gate
@@ -130,9 +138,15 @@ has_asset(name: str) -> bool
 
 `config.py` calls `resources.skill_root()`; `engine.py` and every other module
 import the resolved paths from `config`. The dependency direction is
-`config <- io/names <- layout <- records`, and `engine` sits on top. Only the
-`cli` entry point imports `engine` at import time, so the command layer can be
-exercised without a cycle.
+`config <- io/names <- layout <- records`, and `engine` sits on top. Two modules
+import `engine` at import time - `cli.py` and `lanes.py`, which sits above it -
+so every other module, `engine` included, reaches `lanes` and `engine` from
+inside a function. `graph.py` and `hunt.py` are below `engine` and reach it from
+inside a function too, so the import-time graph is acyclic, and
+`tests/unit/test_import_direction.py` reads it from the AST and fails on a
+module-scope cycle instead of leaving it to whoever imports first (a check the
+tree cannot fail proves nothing, so that test is proved on a synthetic cycle
+first).
 
 ## 4. CLI contract (frozen, backward compatible)
 
@@ -154,6 +168,7 @@ Additions to the original surface (no removals, no renames):
 | `teamwork coordination` | coordination health: conformity, trust, lane wars, merge rate, slot starvation |
 | `teamwork instance add\|list\|retire` | scale **any** role to N instances sharing the role's memory and queue; retire an idle one and keep the role's memory |
 | `teamwork memory claim\|release\|renew\|contest\|extend\|revoke\|status` | the role memory lease: exactly one instance of a role revises that role's memory at a time, held across a multi-entry update; a peer contests a long lease and the arbiter (CTO, folded to the CEO) extends or revokes it |
+| `teamwork status [--json] [--agent INSTANCE]` | the live-state feed for the operator panel and the pi widget. Text: `# Lanes (N)` plus one lane line, then one instance line, each <= 110 columns. `--json` schema 4 (additive to schema 3): the schema-3 keys plus `last` (the newest ledger event for the instance as `action target - detail`, clipped to 200), `last_at` and `last_seconds` (read from a 64 KiB ledger tail; a busy instance with no event of its own falls back to its role, an idle one never does), so `counts.activated` (every instance that ever ran a lane or is staffed now), `counts.retired` (directories under `Runtime/Retired/`) and `counts.lanes_live`/`lanes_ended` (every lane record, not just the six rows); the text panel prints busy rows and live lanes only, with the idle seats as one aggregate line - live first, then `created` desc with id asc as tiebreak, bounded to 6, stable across calls. `counts.lanes` equals `len(lanes)` after any `--agent` narrowing; `model`/`provider` resolve once per call from `Settings.json` -> `Models.agents[<Instance>]`, else `Models.roles[<role>]`, else `""` |
 
 Every existing subcommand, flag and exit code is unchanged. Exit codes are part
 of the contract:
@@ -261,13 +276,14 @@ from the wrong role, so the two maps must not be conflated.
 
 ## 9. CI / release contract
 
-The per-job wall clock is capacity, not a gate: every job runs its whole check,
-and the bound only stops a hung run. The `test` job is bounded at 90 minutes
-because the suite spawns hundreds of processes and the Windows runner spawns them
-several times slower than Linux (measured: 18 min on ubuntu 3.13, 30 on macos
-3.13, and windows hit the old 60-minute cap on runs 42530928486 and 42533590196).
-`tests/unit/test_ci_contracts.py` reads the bound from here and fails when the
-workflow and this table disagree.
+The per-job wall clock is capacity, not a gate: no job drops a check to fit its
+bound, and the bound only stops a hung run. The `test` job is bounded at 90
+minutes because the suite spawns hundreds of processes and the Windows runner
+spawns them several times slower than Linux (measured: 18 min on ubuntu 3.13, 30
+on macos 3.13, and windows hit the old 60-minute cap on runs 42530928486 and
+42533590196).
+`tests/unit/test_ci_contracts.py` pins the same bound in `TIMEOUT_MINUTES` and
+fails when the workflow and this table disagree.
 
 * `ci.yml` always fires: on a push to `main`, on a `v*` tag, on every
   `pull_request` and on `workflow_dispatch`. There is no workflow-level
@@ -275,11 +291,89 @@ workflow and this table disagree.
   * Jobs: `scope` (classifier), `lint` (ruff check + format --check +
     commit-identity audit), `typecheck` (mypy, non-blocking report), `test`
     matrix `ubuntu {3.11,3.12,3.13} + macos 3.13 + windows 3.13`
-    (five cells), `build` (sdist+wheel+verify_release), `privacy`
+    (five cells, thirteen jobs: the Windows cell runs as nine path shards, and the
+    ubuntu 3.12 cell runs the named subset `tests/unit tests/acceptance` and the
+    macOS cell runs that subset plus `tests/integration/test_portability_flow.py`,
+    instead of the whole suite),
+    `build` (sdist+wheel+verify_release), `privacy`
     (`privacy_scan.py --tree --history --allow .github/privacy-allow.txt`:
     personal data, credentials, agent-host config and tracked local state),
     `committer-guard`, `release-consistency` (offline release gate),
     `docs` (mkdocs build --strict).
+  * The Windows cell is sharded because one job per cell was cancelled at the
+    90-minute cap (run 43000716956: the a-f row carried unit a-f plus the whole
+    integration and acceptance trees), and the integration tree was the one row
+    that stayed long after that split (55+ minutes on run 43035306476 while the
+    other four finished in 2/5/11/16). Nine shards, disjoint by path and together
+    naming every `test_*.py` under `tests/`: `unit-a-f`, `unit-g-o`, `unit-p-r`,
+    `unit-s-z` (letter ranges of `tests/unit/`), `integration-a-l`,
+    `integration-git-heavy`, `integration-git-mutants`, `integration-m-z-rest` (the
+    integration tree, its last three rows named by measured cost because a letter
+    range says nothing about the
+    wall clock), `acceptance`. The last two long rows are split by measurement, not
+    by letter: run 43119769552 at 3a10869ea4d28dec4a3e902fbf29efdfc16fa4f8 finished in 14m23s with
+    `integration-m-z` at 14m02s and `unit-p-z` at 12m34s, the unit range carrying the
+    bulk of the test functions and the one repository-cloning module inside the integration range.
+    Every shard names itself in the job name through `matrix.shard` and runs pytest
+    with `-v --durations=25`, so a shard that reaches the cap leaves the last test
+    it started in the log. `tests/unit/test_ci_contracts.py` expands those paths
+    over the tree and fails on a test file no shard runs, a file two shards run, or
+    a row carrying more test functions than its tree's cap (`700` unit, `150`
+    integration, both read from that measurement).
+  * The matrix is **sized to the portability question**, not run five times over
+    (T-0105). The question is "does the suite work on the Python versions and the
+    OSes this project supports", and the interpreters that answer it are the
+    boundaries: 3.11 (`requires-python`'s floor) and 3.13 (the newest
+    classifier). Those two Linux cells run every test, 3.11 under the coverage
+    gate. The interior Linux interpreter (3.12) and macOS run the subset
+    `tests/unit tests/acceptance`, and macOS adds the one integration module the
+    portability question is about there: `tests/integration/test_portability_flow.py`
+    runs the spaced-path CLI invocation, the symlink/WinError-1314 guard and the
+    GNU-make guard as real subprocesses, on a host other than the one the code was
+    written on, so macOS is one of the hosts it exists for. The unit tree's
+    `tests/unit/test_portability.py` (over `src/teamwork/portable.py`) and
+    acceptance are the cheap proof of the ACs; the rest of the subprocess-heavy
+    integration tree (30% of the serial wall clock) runs on both
+    boundary interpreters and on the nine Windows shards, and no test in the tree
+    branches on darwin.
+    `tests/unit/test_ci_contracts.py` pins each subset in `SUBSET_CELLS` (a
+    cell-to-paths map) with `SUBSET_PATHS` and `PORTABILITY_FLOW`, fails when a
+    boundary cell stops running the whole suite or a subset cell drops one of the
+    portability contracts, and expands the subset tokens over the tree.
+  * Every cell except the Windows shards runs pytest under `--numprocesses=auto` (`-n auto`)
+    (`pytest-xdist`, a `dev` extra requirement; T-0105). The suite spawns hundreds
+    of processes and a hosted runner gives 3-4 vCPUs, so a cell is wall-clock
+    bound rather than CPU bound: on a 4-worker emulation of a hosted runner the
+    same tree took 242s serially and 94s with `-n 4` at `faeafce`, 2026-11-11.
+    The parallel run is accepted on a **comparison, not a census**: the contract is
+    that serial and parallel agree on every test's outcome, so the doc states no
+    count and the two runs below are the check. One revision, run both ways, then
+    diff the per-test outcome sets:
+
+    ```sh
+    .venv/bin/python -m pytest -q --junitxml=/tmp/serial.xml
+    .venv/bin/python -m pytest -q -n 4 --junitxml=/tmp/parallel.xml
+    .venv/bin/python - <<'PY'
+    import xml.etree.ElementTree as ET
+    def outcome(path):
+        return {case.get("name"): "failed" if case.find("failure") is not None
+                else "skipped" if case.find("skipped") is not None else "passed"
+                for case in ET.parse(path).getroot().iter("testcase")}
+    serial, parallel = outcome("/tmp/serial.xml"), outcome("/tmp/parallel.xml")
+    print(sorted(k for k in serial.keys() | parallel.keys()
+                 if serial.get(k) != parallel.get(k)))
+    PY
+    ```
+
+    An empty diff is the pass. A test that only fails in parallel is a defect in
+    the test, fixed there and not serialised out of the run. The parallel run of
+    the whole tree took 36s at `0821fd42b95afba2adfcc221a54d695c21ea0ea4`, 2026-11-11; the macOS cell's subset took
+    22s there (Linux host, `-n auto`) against the 12-18 minute full-suite job it
+    replaces, and the duration on a macOS host is the CI run's to report. The two
+    failures both runs report are not the parallel run's: they are
+    `tests/integration/test_memory_pack_flow.py`, which landed red on `main` from
+    T-0097 with a P0 fix task open, and they fail identically single-process. The
+    Windows rows are already split by path, so a second split buys nothing there.
   * The `scope` job runs `scripts/ci_scope.py`, which computes the changed-path
     set from git, and publishes **two** outputs, because the filtered jobs ask two different questions and a
     prose-only push answers them differently: `code` (`true` = something that
@@ -346,7 +440,7 @@ workflow and this table disagree.
     worthless. The job graph says the same thing: `scope` can skip only the
     jobs that declare `needs: scope`, and the jobs in `ci.yml` that declare
     neither `needs:` nor `if:` are `committer-guard` and `release-consistency`
-    - so a tag push, on which `scope` reports `code=false` and the six
+    - so a tag push, on which `scope` reports `code=false` and the seven
     expensive jobs are skipped, still runs the classifier and those two jobs.
     The property is checkable without a line number: read the `needs:` and
     `if:` keys of every job in `.github/workflows/ci.yml`; the jobs with
@@ -370,7 +464,8 @@ workflow and this table disagree.
   it is not, and the same file with `grep -n "needs: \[consistency\]"` says
   whether `build` waits for it. While that job is not in the tree, the offline
   half in `ci.yml` is the only gate.
-* `docs.yml`: build and deploy the site to GitHub Pages on `main`; it triggers
+* `docs.yml`: build and deploy the site to GitHub Pages on `main` in its two jobs,
+  `check` (links, privacy and strict build) and `deploy`; it triggers
   on the same prose/media set as the `scope` classifier and runs the checks
   that matter for prose (`teamwork links`, the privacy scan, `mkdocs build
   --strict`). The trigger policy and the offline/online split are written out
@@ -407,37 +502,37 @@ section is the **target**, not a description of the running program; where the
 two differ, the target wins - but the difference is stated here, once, so
 nobody reads section 11 as a changelog of the current implementation. The
 implementation this section is measured against is the Developer lane's commit
-`d998801` (parent `c66c387`), reproducible with
-`git show d998801:scripts/check_release_consistency.py`. Whether that
+`594092c13725de343bdf81d0d58b9f8482f6d7f1` (parent `594092c13725de343bdf81d0d58b9f8482f6d7f1`), reproducible with
+`git show 594092c13725de343bdf81d0d58b9f8482f6d7f1:scripts/check_release_consistency.py`. Whether that
 implementation is in the tree you are reading is a question with a command,
 not a sentence: the checker file is in the tree when
 `git ls-tree HEAD scripts/check_release_consistency.py` prints a line, and the
-implementation is in the tree when `git merge-base --is-ancestor d998801 HEAD`
+implementation is in the tree when `git merge-base --is-ancestor 594092c13725de343bdf81d0d58b9f8482f6d7f1 HEAD`
 exits `0`. Against that code:
 
 | Clause | Status | Where |
 |---|---|---|
-| 11.3 - on the local side the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `d998801` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
-| 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `d998801` `_extract_tar` / `_link_target` / `_materialise_links` |
-| 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `d998801` `_digest_of_files` (`unreadable payload file`) and the link refusals |
-| 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **implemented** | `d998801` `rule_r2_head_is_newer` uses `_reachable_version_tags` and `_tags_at_head` |
+| 11.3 - on the local side the payload always comes from a git object; `rev=None` means `HEAD` | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `payload_digest` (`revision = "HEAD" if rev is None else str(rev)`) |
+| 11.3 - link policy, all five cases, every refusal exit `2` | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `_extract_tar` / `_link_target` / `_materialise_links` |
+| 11.3 - an unreadable payload file and an unresolvable link are input errors (exit `2`) | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `_digest_of_files` (`unreadable payload file`) and the link refusals |
+| 11.2.2 - R2's tag set `S = A - O` (reachable version tags, minus the tags at `HEAD`) | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `rule_r2_head_is_newer` uses `_reachable_version_tags` and `_tags_at_head` |
 | 11.2.2 - the `detail` counts `|S|`, never a negative number | **implemented** | the same function reports `is newer than {len(comparable)} tag(s)` over `S` |
-| 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `d998801` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
-| 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `d998801` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
+| 11.2.2 - a shallow or tag-less checkout is exit `2` | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `_complete_tag_set_error` (`git rev-parse --is-shallow-repository`) |
+| 11.2.4 - the frozen `TAGGED_TOKEN` regex | **implemented** | `594092c13725de343bdf81d0d58b9f8482f6d7f1` `TAGGED_TOKEN` is the regex block of 11.2.4, verbatim |
 
-Every row of the table names a symbol in `d998801`, so the "implemented" column
+Every row of the table names a symbol in `594092c13725de343bdf81d0d58b9f8482f6d7f1`, so the "implemented" column
 is re-derivable instead of a status word: for a row whose symbol is `<name>`,
-`git show d998801:scripts/check_release_consistency.py | grep -c "<name>"`
+`git show 594092c13725de343bdf81d0d58b9f8482f6d7f1:scripts/check_release_consistency.py | grep -c "<name>"`
 prints `1` when the row is implemented and `0` when it is not.
 
 Everything section 11 freezes is therefore implemented in the revision
-`d998801`; whether that revision is in the tree the reader is holding is a
-question with a command - `git merge-base --is-ancestor d998801 HEAD` exits `0`
+`594092c13725de343bdf81d0d58b9f8482f6d7f1`; whether that revision is in the tree the reader is holding is a
+question with a command - `git merge-base --is-ancestor 594092c13725de343bdf81d0d58b9f8482f6d7f1 HEAD` exits `0`
 when it is - and not a property of the document. The two amendments this
 section introduced into the contract (`rev=None` and the link policy) were
-implemented first, at `c66c387` (`git merge-base --is-ancestor c66c387 HEAD`
+implemented first, at `594092c13725de343bdf81d0d58b9f8482f6d7f1` (`git merge-base --is-ancestor 594092c13725de343bdf81d0d58b9f8482f6d7f1 HEAD`
 exits `0` when that is in the tree too); R2's `S = A - O`, the shallow guard and
-`TAGGED_TOKEN` followed at `d998801`. The third amendment, that a published version which is
+`TAGGED_TOKEN` followed at `594092c13725de343bdf81d0d58b9f8482f6d7f1`. The third amendment, that a published version which is
 not `X.Y.Z` is DRIFT unless a 11.4 entry admits it (`T-0016`), lands at
 `37ef0ed`: `git show 37ef0ed:scripts/check_release_consistency.py | grep -c
 PUBLISHED_VERSION` prints `2` when it is in that revision. The table exists so
@@ -446,7 +541,7 @@ that a reader of section 11 does not read it as a changelog of the repository:
 it**.
 
 One subsection is deliberately the exception: 11.2.2.1 is an amendment accepted
-at D-20261029-Architect and is **not** implemented at `d998801` or at the revision
+at D-20261029-Architect and is **not** implemented at `594092c13725de343bdf81d0d58b9f8482f6d7f1` or at the revision
 this paragraph was written. It carries its own implementation spec and the exact
 tests; developer task T-0032 implements it, and no row of the rule table above
 claims it is green until that revision lands - a reader can tell a frozen target
@@ -602,7 +697,7 @@ DRIFT iff some tag in `S` has a version that is **not** strictly less than
 HEAD's, and the `detail` names each such tag. `ok` reads
 `HEAD <X.Y.Z> is newer than <|S|> tag(s)`, where `|S| = len(A) - len(O)` over
 **reachable version tags only**, so the count is never negative. The rule it
-replaces (`c66c387:891-899`) compared HEAD against **every** version tag in the
+replaces (`594092c13725de343bdf81d0d58b9f8482f6d7f1:891-899`) compared HEAD against **every** version tag in the
 repository and counted `len(tags)` - a count that is never negative either, but
 that has no notion of reachability, so it was red against tags which were
 never the checkout's ancestors. The arithmetic this subsection forbids is
@@ -1122,7 +1217,7 @@ To build the npm-side `root`: unpack the `.tgz`, create an empty staging
 directory, and copy every file under each tarball prefix to the corresponding
 payload prefix, preserving the relative path below the prefix. Then run the 11.3
 digest on the staging directory. Measured with this mapping (and 11.2.3's
-exclusion), `1.1.2` gives `a01d9f0cbee641c3` = the payload of commit `3f4981d`,
+exclusion), `1.1.2` gives `a01d9f0cbee641c3` = the payload of commit `5a13ba45678944397e36ca041e8bce576cc73ee4`,
 `1.1.0` gives `ebfc2538e3d3d605` = tag `v1.1.0`, and `1.1.1` gives
 `726bc547afc41ead`, which matches no commit.
 
@@ -1180,14 +1275,14 @@ The checker must reproduce them and the implementer must not contradict them.
 
 | # | Measurement | What the contract makes of it |
 |---|---|---|
-| 1 | npm `1.1.2` payload digest `a01d9f0cbee641c3` equals the bundled-payload digest of commit `3f4981d` | `v1.1.2` must be tagged **at `3f4981d`**; then R1, R3, R5 hold for it and R2 forces the next `version.py` bump <!-- release-consistency: illustrative --> |
+| 1 | npm `1.1.2` payload digest `a01d9f0cbee641c3` equals the bundled-payload digest of commit `5a13ba45678944397e36ca041e8bce576cc73ee4` | `v1.1.2` must be tagged **at `5a13ba45678944397e36ca041e8bce576cc73ee4`**; then R1, R3, R5 hold for it and R2 forces the next `version.py` bump <!-- release-consistency: illustrative --> |
 | 2 | npm `1.1.1` payload digest `726bc547afc41ead` matches **no** commit in `git rev-list --all`; its `version.py` sha256 `545fc1605b3997460a1cf348562c43fed5a8315c83ac8291f9cbf4078703d36d` appears in no commit | `1.1.1` is the 11.4 exception entry, never a tag: there is no commit to tag, so a tag would be a lie the digest can prove <!-- release-consistency: illustrative --> |
 | 3 | npm `1.1.0`, mapped per 11.3.1 and excluding `scripts/build_pi_package.py`, gives `ebfc2538e3d3d605` = tag `v1.1.0`; **including** that file the same comparison gives `acec49f6cd1fe99a` for the tarball vs `cd43f09293a49c68` for the tag, and they differ only in that file | the payload comparison must map the paths (11.3.1) and exclude that file (11.2.3), or a green release reads as drift <!-- release-consistency: illustrative --> |
 
 Commands behind the numbers (reproducible from any checkout): the three
 tarballs were fetched with `npm pack @nidvue/teamwork@<version>` into a temporary
 directory, unpacked, mapped per 11.3.1 and hashed per 11.3; the local side is
-`payload_digest(root, "3f4981d")` and `payload_digest(root, "v1.1.0")`. The
+`payload_digest(root, "5a13ba45678944397e36ca041e8bce576cc73ee4")` and `payload_digest(root, "v1.1.0")`. The
 1.1.1 absence was checked by digesting **every** commit of `git rev-list --all`
 with the same function: no match. The count-free form of the measurement is the
 predicate itself - `git rev-list --all` contains no commit whose 11.3 payload
@@ -1513,7 +1608,7 @@ non-zero).
 |---|---|---|---|
 | R1 | pre-commit | refuse the commit whose HEAD is `config.DEFAULT_BASE`, resolved with `git symbolic-ref --short HEAD` (it answers on an unborn branch) | `TEAMWORK_ALLOW_MAIN=1` |
 | R2 | pre-commit | refuse a staged **binary** file larger than `config.LFS_MAX_BYTES` (1048576) that no `.gitattributes` LFS pattern covers; a text record is never refused **by the threshold**; and refuse a staged **text** file that an LFS pattern **does** cover, because a document in LFS is a pointer (section 11.10) | add the pattern (first case) / drop the pattern (second case); no env override |
-| R3 | pre-commit | warn on stderr when the commit identity is not a role mailbox (`<role>@IDENTITY_DOMAIN`), and exit **0** | - |
+| R3 | pre-commit | warn on stderr when the commit identity is neither the repository's configured pair nor a role mailbox (`<role>@IDENTITY_DOMAIN`), and exit **0**; under `TEAMWORK_COMMIT_IDENTITY=role` the configured pair is not accepted, so only a role mailbox passes silently | `TEAMWORK_COMMIT_IDENTITY=role` |
 | P1 | pre-push | refuse a non-fast-forward update of `refs/heads/<DEFAULT_BASE>` | `TEAMWORK_ALLOW_FORCE=1` |
 | P2 | pre-push | refuse deleting `refs/heads/<DEFAULT_BASE>` (zero local sha) | none |
 
@@ -1663,7 +1758,7 @@ surface (`SKILL.md`, `roles/`, `references/`, `templates/`) belongs to the CEO;
 what is frozen here is only the part the engine must honour, so a lane can build
 it and a Tester can assert on it.
 
-**Measured baseline at `ad00e65`** - none of this is implemented yet, and the
+**Measured baseline at `0406da5247f05b9e3a3e662ff093f4ae4ffc2bb3`** - none of this is implemented yet, and the
 section says so rather than describing an engine that does not exist:
 `config.ROLE_PARENT` has 15 roles and no `team-leader`; `reporting_children("cto")`
 is `architect, data-engineer, developer, release-engineer, tester`;
@@ -2300,7 +2395,7 @@ standard and budget without a second line.
 
 **Reproduced before implementation.** `.pi/Scratch/architect/probe_feature_split.py`
 (gitignored scratch) runs this section's predicate against hand-written records:
-17 cases, 0 mismatches - red on a deliberately shared file and on a shared
+no mismatch on any case - red on a deliberately shared file and on a shared
 directory, green on a clean split, green on sibling names and on a closed feature
 releasing its paths, red on a glob, on `.pi/` state, on a generated artifact, on
 the records file, on a case-folded collision, on an in-flight dependency, on one
@@ -2319,7 +2414,7 @@ record, and the `lesson`/`skill` CLI shapes T-0031 implements. The
 constitution text (`SKILL.md`, `roles/`, `references/`) belongs to the CEO; what
 is frozen here is the engine surface and the rules a Tester can assert on.
 
-**Measured baseline at `5bcf231`** - none of this is implemented yet, and the
+**Measured baseline at `e1c3a47016e3e11dd0b02fa1a4254d11a0ee8045`** - none of this is implemented yet, and the
 section says so rather than describing an engine that does not exist:
 `git ls-files .agents/skills` -> `ceo-audit-close/SKILL.md` and
 `product-manager-records/SKILL.md`, i.e. two unprefixed skills;
@@ -2367,6 +2462,8 @@ memory). One record per mistake:
 - cause: <why it happened>
 - rule: <what the agent now does instead>
 - evidence: <command @rev -> result>
+- check: <command>        (the rung that now catches it; absent on an old record)
+- no_check: <why none>    (the class is gone by design)
 - task: <T-id>            (optional)
 - skill: <tw-name>        (set when a skill fixes it)
 - by: <instance>
@@ -2377,7 +2474,8 @@ memory). One record per mistake:
 Ids are globally unique across the team: `L-` plus four digits, allocated from
 the maximum over every role's `Lessons.md`. Commands: `lesson add`,
 `lesson list [--role ROLE] [--status open|fixed|all]`, `lesson show <L-id>`,
-`lesson fix <L-id> --by <instance> [--rule TEXT] [--skill tw-name] [--evidence TEXT]`.
+`lesson fix <L-id> --by <instance> [--rule TEXT] [--check CMD | --no-check WHY]
+[--skill tw-name] [--evidence TEXT]`.
 `lesson add` requires `--by`, `--mistake`, `--cause`, `--rule` and `--evidence`;
 the role defaults to the actor's role.
 
@@ -2390,7 +2488,16 @@ by id, one line per lesson:
 
 `lesson fix` requires a recorded `--evidence` (or keeps the existing one) and an
 existing `--skill` when given; on an `open` lesson it moves it to `fixed` and
-records `updated`. On an already `fixed` lesson it is allowed only when it
+records `updated`. An `open` lesson also requires the rung that stops it
+recurring, because a lesson closed on prose alone is one the team pays for twice:
+`--check '<cmd>'` runs the command in the invoker's checkout (through
+`_gate_argv`, the `PreflightCommand` reader) and must exit 0, and the command is
+recorded on the record and in the ledger with its exit code; `--no-check '<why>'`
+records that no command can exist because the class is gone by design. The two
+are exclusive and one is mandatory, and a `--check` that exits non-zero is refused
+with `the --check command does not catch this lesson: it exited <n>` - a check
+that cannot fail the tree it was recorded on proves nothing. On an already
+`fixed` lesson it is allowed only when it
 carries new `--evidence` (a re-proof of the fix) and keeps or updates `--skill`;
 otherwise it is refused with
 `lesson L-0001 is already fixed by <skill>; pass --evidence to re-prove the fix`
@@ -2444,7 +2551,7 @@ Owner: Architect. This section freezes the **knowledge-accumulation surface**: t
 implements. Section 14 is the mistake half (`L-` lessons and `tw-` mistake
 skills); this is the experience half - what the project has learned to do.
 
-**Measured baseline at `308190b`** - none of this is implemented yet, and the
+**Measured baseline at `1de05466e3a5159f763b77fa030a6b92ffddc463`** - none of this is implemented yet, and the
 section says so rather than describing an engine that does not exist:
 `Get-ChildItem src/teamwork -Filter *.py | Select-String -Pattern Knowledge.md`
 -> 0 matches; `python scripts/teamwork.py load architect` -> memory output only,
@@ -2614,7 +2721,7 @@ from OpenViking; the dependency is not. Sources, the adopt/reject table and the
 vendor-claim caveat are in [Research](Research.md) section 13, accessed
 2026-11-03.
 
-**Measured baseline at `bcec6f1`** - none of this is implemented yet, and the
+**Measured baseline at `75267577f56c000ed040ce50d35b1ba1269b32b8`** - none of this is implemented yet, and the
 section says so rather than describing an engine that does not exist:
 `python scripts/teamwork.py --help` -> no `context` and no `knowledge`
 subcommand; `python scripts/teamwork.py context --help` -> `invalid choice:

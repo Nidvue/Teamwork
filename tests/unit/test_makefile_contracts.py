@@ -128,7 +128,11 @@ def signature(argv: list[str]) -> tuple[str, ...] | None:
     Identity = the script or module invoked (+ its subcommand for tools where the
     subcommand is a separate gate, e.g. `ruff check` vs `ruff format`).
     """
-    argv = [normalise(word) for word in argv if word]
+    argv = [
+        normalise(word)
+        for word in argv
+        if word and not any(ch in word for ch in "{}") and not word.startswith("matrix.")
+    ]
     while argv and "=" in argv[0] and not argv[0].startswith("-"):
         argv.pop(0)
     while argv and argv[0] in {"sudo", "env"}:
@@ -651,7 +655,8 @@ def _tree(tmp_path: Path, makefile: str | None = None) -> Path:
 
 def test_mutant_a_dropped_gate_recipe_line_is_reported(tmp_path):
     line = (
-        "\t$(PYTHON) scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt\n"
+        "\t$(PYTHON) scripts/privacy_scan.py --tree --history --stores "
+        "--allow .github/privacy-allow.txt\n"
     )
     text = makefile_text()
     assert line in text, "the privacy gate recipe line was not found"

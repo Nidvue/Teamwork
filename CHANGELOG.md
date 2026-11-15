@@ -9,20 +9,277 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.8] - 2026-11-15
 
 ### Added
 
-- **The routing graph and its audit** - every transition the engine performs is
-  now one named conditional edge with the state field that fires it: `graph`
-  prints the edge table, the live reading of each field and what the roster costs
-  before any work, and `graph audit` exits 1 on `C-GRAPH-STATE` (an edge whose
-  field nothing parses), `C-GRAPH-CHAFF` (two lanes, one empty queue),
-  `C-GRAPH-CHAIN` (all open work in one serial dependency path under a multi-lane
-  roster), `C-GRAPH-EXIT` (a dependency cycle, or a rework loop past
-  `REVIEW_FAIL_LIMIT` with no open dispute) and `C-GRAPH-PRICE` (workers staffed
-  with no recorded single-agent baseline). `graph baseline` records that
-  baseline, because a second lane is a 3-10x token bet that was never priced.
+- **The lane display is installed, not just shipped** - `swarm run` starts every
+  lane as a detached process, so the live wave is drawn by a host extension that
+  polls `lane list --json`. A host loads extensions from its own directory and
+  `settings.json`, never from a skills directory, so the shipped file alone drew
+  nothing: `teamwork ui install|status` copies and registers it once, `refresh`
+  and `sync_skill.py` do it as part of the install, and `refresh --check` fails
+  when a host would not load it (`--no-ui` keeps the mirror-only behaviour).
+- **`tw-brief-intake`** - the team skill that deep-researches a new prompt and
+  rewrites it into a systematic, parallel-ready brief before the CEO decomposes
+  it, wired into Bootstrap step 1.
+
+### Changed
+
+- **The published line is merged in, not force-pushed** - the local line and
+  `origin/main` shared no ancestor after the published history was rewritten, so
+  this release is a merge over the content the two lines had in common
+  (`90502bb` / `1625394f`), not a rebase. Everything the published 1.5.3-1.5.7
+  line added is in the tree: `grades`, `hunt`, `messages`, `sparse`,
+  `transcripts`, `memverify`, `wiki`, `lane_proof`, the agent mailbox, the token
+  economy, the `status --json` schema 3 feed and its widget. Nothing was dropped
+  from either line except one collision, recorded in `docs/Team/Decisions.md`.
+- **The lane identity exemptions survive the merge** - `LEGACY_MESSAGE_EXEMPT`
+  and `LEGACY_AUTHOR_EXEMPT` stay keyed on full object ids, because the merged
+  history still contains the pre-policy operator commits they accept.
+
+## [1.5.7] - 2026-11-13
+
+### Changed
+
+- **Every commit message is exactly one line** - `<type>(<area>): <summary>`,
+  compact but informative, with no body or trailers. The task, the goal and the
+  evidence live in the task record and the ledger, not in the commit message;
+  `teamwork.py commit` builds the one line and records `--result` in the ledger
+  detail. The rule is stated in `AGENTS.md`, `SKILL.md` and
+  `references/Engineering.md`, and the builder enforces it.
+- **The skill library is managed, not just grown** - every agent creates, updates,
+  enhances, improves and **removes** skills over time. Every skill is
+  **feature-unique**: search the library before creating one, consolidate or merge
+  overlap instead of duplicating, and delete a skill that is superseded or unused.
+  The rule is stated in `AGENTS.md`, `SKILL.md` and `references/Roles.md`.
+
+## [1.5.6] - 2026-11-13
+
+### Added
+
+- **`teamwork graph` reads the dependency graph the queues already carry** - the
+  layer a loop cannot see. It prints the waves (one wave runs in parallel), the
+  critical path, and, for every edge, the number of waves that disappear if the
+  arrow is cut, so a serial step is justified by a measurement instead of a habit.
+  `--cut '<dep> <- <task>'` prints the same graph without that one arrow, `--check`
+  exits 1 on a cycle, a dangling dependency or a duplicate open id, and an edge
+  whose two ends share no feature, area or tag is listed as *unproved* - name the
+  payload that travels along it, or delete it. A dependency on a `done` task is
+  satisfied and is not an edge.
+- **`teamwork hunt` bounds an open-ended discovery loop** - a bug hunt, a research
+  sweep, an audit - by what it actually produces: a round that adds no finding the
+  loop has not already seen is dry, and two dry rounds in a row end the loop. It
+  keeps its seen set *and* its rejected findings in `Runtime/Hunt/<topic>.json`, so
+  a second run continues instead of rediscovering the same dead ends; `--reject`
+  marks a dead end and `--reset` forgets everything. A loop that spends its round
+  limit still finding things has not converged: it prints `STALLED`, opens an
+  attention item and exits 1.
+
+### Changed
+
+- **A returned unit carries its failing check and its scope** - `review --result
+  fail` takes `--scope '<what the fix may touch>'`, and the packet of the lane that
+  retries the task now opens with the findings and that scope. Before this, a
+  re-dispatched author was told the task and nothing else: the finding reached the
+  reviewer's next packet and never the author's, so the fix had to be guessed and a
+  one-line bug became a four-file diff.
+- **The doctrine is `references/Loops.md`** - the check that makes a loop a loop,
+  the five things every cycle needs, the four graph shapes and where this protocol
+  implements each, failure routing by unit rather than by batch, and who signs off.
+  `SKILL.md` 5o carries the commands; the reference carries the reasoning.
+
+## [1.5.5](https://github.com/Nidvue/Teamwork/compare/v1.5.4...v1.5.5) - 2026-11-13
+
+### Added
+
+- **The status widget streams each active agent's latest command** - `status --json`
+  schema 4 adds `last`, `last_at` and `last_seconds` per instance row, taken from
+  the newest ledger event for that instance (or, for a busy instance with none of
+  its own, its role), read from a 64 KiB tail so a 7k-record ledger costs one seek
+  rather than a full parse on every refresh. The pi widget draws one line per
+  active agent carrying that command and its age, then the lane elapsed and the
+  model. It renders to the real terminal width instead of a fixed 100 columns, so
+  a wide terminal shows the whole command and a narrow one clips it - a row is
+  always one line and never wraps. The refresh interval is 2 s, and an idle seat
+  stays one aggregate line.
+
+### Changed
+
+- **The tree moves to 1.5.5 after the v1.5.4 tag** - any commit after a tag must
+  raise the version or R2 reports `HEAD version 1.5.4 is not greater than tag
+  v1.5.4` and the release-consistency gate fails on the next push. `version.py`
+  and `CITATION.cff` follow the release, as they did at 7a126d0.
+
+### Fixed
+
+- **A release section names each category once** - `[1.5.4]` carried three separate
+  `### Changed` headings and `[1.1.3]` a non-standard `### Recorded`, so a reader
+  scanning the categories missed part of a release. The 1.5.4 bullets are merged
+  into one section with none of them lost, the 1.1.3 exception note moved under
+  `### Added` where its subject already sits, and
+  `tests/unit/test_docs_contracts.py` now fails a release section that repeats a
+  Keep a Changelog category or invents one, with a mutant proving it fires.
+- **`Decisions.md` carries one record per decision** - the
+  `D-20261017-CEO "Ship as teamwork-agents"` entry appeared twice byte for byte,
+  and five entries had no blank line before the next heading, so a parser splitting
+  on the heading lost the boundary. The duplicate is gone and the separators are
+  uniform; no decision fact changed.
+- **The audit's problem count means actionable work** - `audit` charged every
+  unstaffed role and every permanent drop marker to its count, so a team between
+  engagements could never reach 0 and the number stopped meaning anything. An
+  unstaffed role with an open task is still counted (a starved queue fails), an
+  unstaffed role with an empty queue is printed and not counted, and a
+  dropped-under-live marker stays visible without being charged - the same rule
+  the review-fails section already followed.
+- **The closing audit manifest names the revision it verifies** - the committed
+  `AuditManifest.json` named a checkpoint 883 records behind the live chain, so
+  `sha256sum -c` failed on two of its four artifacts. Regenerated from the ledger
+  at the merged revision.
+- **A changelog guard no longer charges `[Unreleased]` to the release above it** -
+  the category check kept the previous version alive across a `## ` heading that
+  is not a release, so the first entry added under `[Unreleased]` would have been
+  reported as a duplicate inside the section above it.
+
+## [1.5.4](https://github.com/Nidvue/Teamwork/compare/v1.5.3...v1.5.4) - 2026-11-13
+
+### Added
+
+- **The sparse read gate** - `teamwork read <path> --query '<needle>'` controls how
+  much of one file enters context, adopted from
+  [SparseRead](https://github.com/Liuzedooong/SparseReading) (MIT, accessed
+  2026-11-13). Under 4 KiB, binary or `--full` returns the whole file unchanged; a
+  large file with a query returns only the matching line ranges, merged with three
+  lines of context, each headed `start-end (N match(es))` and every line prefixed
+  with its number; `--lines A-B` verifies an exact range; no query is a 40-line
+  scout plus the line count. `--budget` (default 4096) bounds the pack and names
+  what it left out, and every call appends a `read.sparse` ledger record whose
+  saving `throughput` sums under `## sparse read`. The lane packet now points at
+  this command instead of an ad-hoc `rg` plus 30 lines.
+
+### Changed
+
+- **A lane packet carries the memory once** - it injects the task-ranked pack and
+  the role's open lessons and tells the lane not to re-read them with `tw load`.
+  The mandatory re-read cost ~18 kB per lane against a 7.4 kB packet that already
+  held the pack; the lessons, the one part `load` carried and the packet did not,
+  are now injected.
+- **The test-plan gap is named where the area is chosen** - `commit --area` and
+  `task set --area` print the required layers an area has no record for, so the
+  layers are recorded in the same task instead of costing a follow-up lane
+  (K-0036; three tasks paid it).
+- **Every leaf subcommand is pinned to the reference** - a new test walks the
+  parser and fails when a callable subcommand is absent from
+  `docs/guide/cli*.md`, `SKILL.md` or `README.md` (37 of 158 measured review
+  failures were doc drift).
+- **The live-state panel shows work, not idle seats** - `teamwork status` prints the
+  busy instances and the **live** lanes in full, and the idle seats as one aggregate
+  line (`idle: 12 (activated 18, retired 4)`) with the fold command; an ended lane
+  is history and is no longer displayed. The feed is schema 3, adding
+  `counts.activated`, `counts.retired`, `counts.lanes_live` and
+  `counts.lanes_ended`. The packaged widget follows the same rule: it renders live
+  lanes only and collapses idle agents to a count, never a name list. The CEO's
+  pulse writes `Runtime/Pulse.json`, so a fresh heartbeat reads as `dispatching` -
+  the leader session is rarely in the idle count while it runs the loop.
+- **A record bound to an older revision is refused** - `preflight` compares the
+  task evidence and the newest note's `@<sha>` with the branch head, so a suite line
+  that measured a revision the tree has moved past fails before submission instead
+  of in review (30 of 158 measured review fails were evidence that did not
+  reproduce).
+- **One command, one thing tested** - `tests add` refuses a command another record
+  already carries, any layer, any area, unless `--force '<why>'`; it printed a note
+  and recorded the twin before, and the audit carried the duplicate pairs.
+
+### Fixed
+
+- **The release workflow's npm verification outlasts its own cache** - the
+  idempotency read (`npm view` before publishing) caches a 404 for a version that
+  does not exist yet, and the post-publish poll served that negative packument for
+  its whole TTL: on the v1.5.3 run (43332902531) the publish printed
+  `published @nidvue/teamwork@1.5.3` and the tarball was on the registry, yet all
+  12 attempts (224 s) saw E404 and the job went red on a green publish. Both reads
+  now pass `--prefer-online` and the poll window is 6 min (18 x 20 s).
+
+## [1.5.3](https://github.com/Nidvue/Teamwork/compare/v1.5.2...v1.5.3) - 2026-11-12
+
+### Added
+
+- **A finished job recycles its lane and, when the roster allows it, its seat** -
+  `lane reap` reconciles the ended lanes, frees their slots and retires the instance
+  of a finished lane under the roster's own fold policy: **never the CEO**, and one
+  instance of each gate role (`ceo`, `developer`, `tester`, `reviewer`) is kept, so a
+  reap recycles a surplus seat and cannot strand the gate. Retirement is move-only
+  to `Runtime/Retired/` (`--keep` leaves the instance staffed) and repoints the lane
+  record's packet and log into the new directory, so `lane logs` still resolves for
+  a lane that is the evidence for a verdict. The pulse fold recycles the same seats
+  on every wake.
+- **Streaming dispatch: the swarm never waits** - `swarm run` and `pulse --commit
+  --spawn` now start the next wave and return; every lane is a detached process
+  that runs independently, and the next wake reconciles the finished ones and
+  refills. `--wait` restores the blocking drain (and `--waves N` implies it) for
+  CI or a one-shot batch. Dispatch is also round-robin across a role's idle
+  instances, so a queue never piles onto one lane.
+- **The roster follows the work: no single lane and no single Reviewer is the
+  bottleneck** - `pulse --commit` and `swarm run` add an instance for every
+  `LANE_WIP` units of ready work and one Reviewer per unclaimed deliverable
+  (bounded by a per-role cap of 4, a per-wake cap of 6, `LaneMax` and the free
+  provider slots), then fold the seats they cannot feed. `--no-scale` dispatches
+  to the current roster; an `observe`/`off` wake adds and retires nothing, and the
+  "no free lane" line now counts `LANE_WIP` units rather than lanes.
+- **`instance prune` folds idle seats and releases their resources** - a lane is
+  idle only when it claims no task, holds no provider slot, no memory pen, no
+  review claim and no live lane record, and its role has no ready work. `prune`
+  retires every idle instance in one move-only pass (`Runtime/Retired/`, role
+  memory and queue kept, one ledger record each), never folds the CEO, and
+  `--keep-required` keeps one instance of each gate-critical role; `--dry-run`
+  prints the plan. `pulse --commit` now folds the surplus seats on every wake, so
+  a team that drains its queue no longer leaves a dozen idle agents holding
+  seats.
+- **The CLI reference covers every command family** - `message`, `attention`,
+  `context`, `tests`, `decision`, `dispute`, `redline`, `skill`, `evolution`,
+  `pr set`, `lane preempt`, `task archive` and `memory pack|search|verify|dream`
+  are now specified in the five CLI pages, which already promised them in their
+  own indexes.
+- **Recursive delegation is stated in the charter** - the CEO decomposes,
+  dispatches and arbitrates; it does not do a lane's work. A lead lane fans out
+  into its own squad, a slice that will not fit a budget is split, and every
+  deliverable gets its author's self-check, a different role's review and its
+  test layer run by the owning role (`roles/ceo.md`, `SKILL.md` 5a,
+  `docs/guide/how-it-works.md`).
+
+### Changed
+
+- **README and guide surface the built-in capabilities** - memory, live agent
+  state, the plugin-free lane runtime, the agent mailbox and the token economy are
+  on the front door and in `docs/guide/features.md`, `operations.md`,
+  `for-agents.md`, `architecture.md` and `how-it-works.md`.
+- **`version.py` and `CITATION.cff` move to 1.5.3** - the first commit after the
+  `v1.5.2` tag must raise the version, or the release-consistency gate reports
+  `HEAD version 1.5.2 is not greater than tag v1.5.2` (R2).
+
+### Fixed
+
+- **`refresh` recovers from a rewritten remote history** - `merge --ff-only`
+  answers `fatal: Not possible to fast-forward` when the remote was force-pushed
+  past the tool-managed mirror, and only the unrelated-roots refusal was
+  recognised, so `refresh` stopped for good and the installed copy kept reading
+  the old protocol (T-0131). Both refusals now replace the disposable mirror,
+  moving the old checkout aside instead of deleting it.
+- **`LaneToolBudget` reaches the packet** - the documented setting was read by a
+  function nothing called, so a configured tool-call budget changed nothing. The
+  setting now overrides the per-profile table (10/16/24) and `swarm run` prints the
+  override in its policy line.
+- **`criteria` no longer carries a dead copy of its own logic** - the four
+  mutating subcommands were implemented twice and the second copy was
+  unreachable; it is removed, so the behaviour that runs is the only behaviour in
+  the file.
+
+## [1.5.2](https://github.com/Nidvue/Teamwork/compare/v1.5.1...v1.5.2) - 2026-11-12
+
+Compares from the previous tag, `v1.5.1`.
+
+### Added
+
 - **No comments in the code, enforced by the lint gate** - the code is the
   comment: names, types, small functions and docstrings carry the meaning, and
   only the directives a toolchain reads are allowed (`# noqa`, `# type: ignore`,
@@ -71,17 +328,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Review-failure skill candidates** - `skill candidates` lists repeated areas
   and, per role, tasks with failed reviews plus paste-ready `lesson add` and
   `skill create --from-lesson` lines.
-- **The lane display is installed, not just shipped** - `swarm run` starts every
-  lane as a detached process, so the live wave is drawn by a host extension that
-  polls `lane list --json`. A host loads extensions from its own directory and
-  `settings.json`, never from a skills directory, so the shipped file alone drew
-  nothing: `teamwork ui install|status` copies and registers it once, `refresh`
-  and `sync_skill.py` do it as part of the install, and `refresh --check` fails
-  when a host would not load it (`--no-ui` keeps the mirror-only behaviour).
+- **`status --json` schema 2** - the payload carries a `lanes` array beside
+  `instances`, every lane and every instance row names the `model` and
+  `provider` it runs with, and `counts.lanes` counts the lanes; the pi widget
+  renders each lane with the model it runs with.
+- **Short-term memory captured at the lane exit** - the harness writes one entry
+  per finished lane from the lane transcript's last `LANE-RESULT` line (`key` =
+  `lane:<T-id>`, `src` = the task, `rev` = the branch head at exit, `by` = the
+  instance), and `load` plus every lane packet inject it. The promotion rule
+  that moves a stale entry to long-term memory, the `memory dream` cadence and
+  the capped wiki ship with it (`docs/Team/Memory.md` 4.1-4.5, 6, 15.5).
+- **`pr set` repairs a stale PR record** - a record left `merged` or `closed` by
+  an out-of-band landing is corrected with a required `--reason` and a full
+  landing revision instead of being reopened by hand.
 
-## [1.5.2](https://github.com/Nidvue/Teamwork/compare/v1.5.1...v1.5.2) - 2026-11-02
+### Changed
 
-Compares from the previous tag, `v1.5.1`.
+- **`CITATION.cff` re-dates to this section** - its `date-released` reads
+  `2026-11-12`, the `1.5.2` section date, instead of the `2026-11-02` left over
+  from `1.5.1`. The file ships in the sdist, so the citation metadata for
+  `version: 1.5.2` and the release record now name one date. No gate reads
+  `date-released` (R1-R10 compare the version string only), so the pair is kept
+  by hand at each release.
+- **Commit identity defaults to the repository's configured pair** - a commit is
+  authored by the repository's own `user.name`/`user.email` (or the
+  `teamwork.identity.*` pair), and the role mailbox is opt-in with
+  `TEAMWORK_COMMIT_IDENTITY=role`. The message style drops the `Role:`,
+  `Producers:` and `Acting role:` trailers, so no commit names an agent.
+- **The privacy history scan memoises its line verdict** - a verdict is cached
+  per (allowlist, flags, line) for the shipped rule set, because history holds
+  hundreds of near-identical renders of an append-only document, so a scan no
+  longer re-decides the same line.
+- **The CI test matrix is split into path shards** - the Windows cell runs path
+  shards sized to the portability question, so a cell reports its own failure
+  instead of the whole run hitting the job timeout.
 
 ### Fixed
 
@@ -91,9 +371,21 @@ Compares from the previous tag, `v1.5.1`.
 - The same verification waits up to four minutes for npm's eventual
   consistency, so a successful publish no longer leaves the run red while the
   registry catches up.
-
-No shipped package behaviour changes: both fixes are in the release workflow and
-its tests.
+- **`check_area` gates every area write path** - `tests`, `commit` and `task set`
+  resolve their area through `check_area`, so an unknown area is refused once, at
+  the write, instead of per command.
+- **The ledger append serialises** - `ledger_append` holds `ledger.lock` across
+  read-prev -> append -> head-write, so the head cache cannot lead the file
+  under concurrent writers, and a caller already holding the lock passes
+  `_locked=True` instead of deadlocking.
+- **`refresh` recreates an unrelated or rewritten mirror** - the installed skill
+  copy is rebuilt when the target is not this repository's mirror or its history
+  was rewritten, instead of being reported as up to date.
+- **`tests add` requires `--area`** - a test record without an area is refused
+  at intake, so the layer matrix cannot acquire an unowned row.
+- **`pr set` validates its landing revision** - the repair refuses a landing
+  revision that is not a full sha of a commit in the repository, so the record
+  points at a real landing.
 
 ## [1.5.1](https://github.com/Nidvue/Teamwork/compare/v1.5.0...v1.5.1) - 2026-11-02
 
@@ -526,6 +818,13 @@ Compares from the previous tag, `v1.2.1`.
 - **`release-exceptions.json`.** A recorded, reviewable admission for a published
   version that provably has no source commit. It is printed in the checker's
   output, never a silent pass.
+- **npm `1.1.1` has no source commit and is listed as an exception.** The
+  `1.1.0` publish exited `0` but only staged the version, so it was republished
+  (see `1.1.1` below). Its payload differs from `v1.1.0` only in
+  `src/teamwork/version.py`, and no commit in the repository carries that file -
+  so `1.1.1` cannot be traced to a revision and is recorded in
+  `release-exceptions.json` with its measured digest rather than given a tag that
+  would misrepresent the source. `1.1.0` and `1.1.2` are both traceable and tagged.
 
 ### Fixed
 
@@ -545,16 +844,6 @@ Compares from the previous tag, `v1.2.1`.
   never cut, its gate table was measured on a superseded revision, its build table
   named `1.1.0` artefacts, and its
   code-scanning row described alerts that were already fixed.
-
-### Recorded
-
-- **npm `1.1.1` has no source commit and is listed as an exception.** The
-  `1.1.0` publish exited `0` but only staged the version, so it was republished
-  (see `1.1.1` below). Its payload differs from `v1.1.0` only in
-  `src/teamwork/version.py`, and no commit in the repository carries that file -
-  so `1.1.1` cannot be traced to a revision and is recorded in
-  `release-exceptions.json` with its measured digest rather than given a tag that
-  would misrepresent the source. `1.1.0` and `1.1.2` are both traceable and tagged.
 
 ## [1.1.2](https://github.com/Nidvue/Teamwork/compare/v1.1.0...v1.1.2) - 2026-10-20
 

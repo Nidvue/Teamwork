@@ -16,9 +16,11 @@ The mechanism is a process table on disk, not a live object:
   review claim, so two lanes cannot silently take the same deliverable;
 * the **supervisor** decides who runs: ``swarm run`` computes each wave from the
   current records (ready tasks, review queue, free provider slots, unfinished
-  assignments), starts the lanes it can afford, waits for one to end, and computes
-  the next wave again. A wave is a fact about the board at that moment, never a
-  plan written in advance - that is the dynamic part.
+  assignments) and starts the lanes it can afford. The default dispatch is
+  asynchronous - it returns at once and the next wake reconciles and refills;
+  ``--wait`` is the batch mode that waits for a lane to end and computes the next
+  wave again. A wave is a fact about the board at that moment, never a plan
+  written in advance - that is the dynamic part.
 
 Nothing here is host-specific beyond :data:`HOST_BINARIES` (how to call a CLI
 headlessly) and one escape hatch, ``TEAMWORK_LANE_CMD``, which is a template split
@@ -44,8 +46,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import engine, lanerun
-from .config import DIR_LOCKS, DIR_RUNTIME, F_SETTINGS, PRIORITY_ORDER
+from . import bundle, engine, gitutil, lanerun, messages
+from .config import DIR_LOCKS, DIR_RUNTIME, F_SETTINGS, F_SHORT, PRIORITY_ORDER
 from .io import die, lock, write_lf
 from .layout import (
     agent_dir,
@@ -54,11 +56,22 @@ from .layout import (
     project_of,
     project_root,
     role_dir,
+    shown_path,
     task_file,
 )
 from .names import pascal, resolve_role, safe_component
 from .portable import IS_WINDOWS, pid_alive
-from .records import executable, find_task, local_dep_map, parse_tasks, today_iso, write_tasks
+from .records import (
+    executable,
+    find_task,
+    local_dep_map,
+    new_entry,
+    parse_memory,
+    parse_tasks,
+    today_iso,
+    write_memory,
+    write_tasks,
+)
 
 STARTING = "starting"
 RUNNING = "running"
@@ -195,6 +208,43 @@ def lane_host(root: Path, override: str = "") -> str:
     return host or engine.detect_agent_host()
 
 
+def _short_head(path: Path) -> str:
+    """The short revision a checkout is at, or ``""`` when it is not a checkout."""
+    if not bundle.is_checkout(path):
+        return ""
+    got = gitutil.run_git(path, "rev-parse", "--short", "HEAD")
+    return got.stdout.strip() if got.returncode == 0 else ""
+
+
+def stale_bundle_line(root: Path, host: str = "", dest: str = "") -> str:
+    """One line naming a stale installed skill, or ``""`` when the lane is current.
+
+    A lane is launched by the **installed copy** in the skills directory, not by
+    the checkout (K-0005): when the copy lags, every lane silently runs the old
+    protocol and a merged behaviour cannot fire. Comparing the bundle instead of
+    a timestamp is the only check that survives a rewritten history, and naming
+    both revisions makes the gap a measurement rather than an impression.
+    """
+    if len(root.parents) < 4:
+        return ""
+    project = project_of(root)
+    if not bundle.is_checkout(project):
+        return ""
+    target = bundle.resolve_dest(host or lane_host(root), dest)
+    if not target.is_dir():
+        return ""
+    added, updated, removed = bundle.plan(project, target)
+    if not (added or updated or removed):
+        return ""
+    installed = _short_head(bundle.default_mirror_path(target)) or "unknown"
+    return (
+        f"# installed skill {target} is behind the checkout {project} "
+        f"({installed} vs {_short_head(project)}): {len(added)} missing, "
+        f"{len(updated)} stale, {len(removed)} extra - run `teamwork.py refresh` "
+        "so this lane does not run stale code"
+    )
+
+
 def _stamp() -> str:
     return datetime.datetime.now().isoformat(timespec="seconds")
 
@@ -245,7 +295,14 @@ def find_run(root: Path, handle: str) -> dict:
 
 
 def live_runs(root: Path) -> list:
-    return [run for run in load_runs(root) if run.get("state") in LIVE]
+    """Runs that are still working: the record says so and no outcome file has landed.
+
+    The wrapper writes ``<id>.outcome.json`` at exit and never rewrites the record, so a
+    finished lane keeps ``state: running`` forever. The outcome file is the authority.
+    """
+    return [
+        run for run in load_runs(root) if run.get("state") in LIVE and not read_outcome(root, run)
+    ]
 
 
 def read_outcome(root: Path, run: dict) -> dict:
@@ -309,12 +366,20 @@ def child_env(root: Path, agent: str, run_id: str) -> dict:
 def _builtin_argv(
     host: str, binary: str, prompt: str, model: str, provider: str, session: str
 ) -> list:
+    """The launcher command line for a host CLI, with the host's own rules applied.
+
+    Pi refuses `--provider` on its own ("--provider requires --model"), so the
+    provider is only passed when a model is configured; with no model the lane
+    runs on the host's default and the provider stays a lease bucket, not a flag.
+    A lane that dies in the first second on a rejected argument is the failure this
+    rule prevents.
+    """
     if host == "pi":
         argv = [binary, "-p"]
         argv += ["--session-id", session] if session else ["--no-session"]
-        if provider:
-            argv += ["--provider", provider]
         if model:
+            if provider:
+                argv += ["--provider", provider]
             argv += ["--model", model]
         return argv + [prompt]
     if host == "claude":
@@ -451,6 +516,73 @@ def _assignment_lines(assignments: list) -> list:
     return lines
 
 
+OPEN_LESSON_LINES = 8
+
+SCOPE_RE = re.compile(r"scope:\s*([^|]+)", re.IGNORECASE)
+
+
+def scope_of(findings: str) -> str:
+    """The scope a failing review named, so a retried lane knows how far a fix may go."""
+    match = SCOPE_RE.search(findings or "")
+    return " ".join(match.group(1).split()) if match else ""
+
+
+def returned_lines(root: Path, item: Assignment) -> list:
+    """The findings a returned unit carries back into the lane that must fix it.
+
+    A re-dispatched lane used to be told the task and nothing else: the review's
+    findings lived in the record the reviewer wrote and reached the reviewer's next
+    packet, never the author's. The unit therefore came back without the failing
+    check, which is the one thing the article is unambiguous about - return the unit
+    with the evidence and a scope, and the scope is what stops a one-line fix from
+    becoming a four-file diff.
+    """
+    if item.review_owner:
+        return []
+    tasks = parse_tasks(task_file(root, item.role))
+    index = find_task(tasks, item.task)
+    if index is None:
+        return []
+    findings = " ".join(str(tasks[index].get("findings") or "").split())
+    if not findings:
+        return []
+    scope = scope_of(findings)
+    return [
+        "## Why this came back: the unit, not the batch",
+        "```text",
+        findings[-1200:],
+        "```",
+        f"- fix {scope} and nothing else."
+        if scope
+        else "- fix the check that failed and nothing else.",
+        "- re-run that check and quote its result; leave the parts that passed alone.",
+        "",
+    ]
+
+
+def _open_lesson_lines(root: Path, role: str) -> list:
+    """The role's open lessons, one rule per line, or nothing when there are none.
+
+    A lesson is the correction the team already paid for; it must reach the lane
+    without a second read. The injected memory pack ranks lessons by relevance to
+    the task, so a rule that does not match the task's words can miss it - this
+    block is unconditional and small (the rule, not the whole record).
+    """
+    lessons = engine.parse_lessons(engine.lessons_path(root, role))
+    open_lessons = [item for item in lessons if item.get("status") == "open"]
+    if not open_lessons:
+        return []
+    lines = [f"## Open lessons ({role}) - do not repeat these", "```text"]
+    for item in open_lessons[:OPEN_LESSON_LINES]:
+        rule = " ".join(str(item.get("rule") or item.get("mistake") or "").split())
+        lines.append(f"{item['id']}: {rule[:240]}")
+    hidden = len(open_lessons) - OPEN_LESSON_LINES
+    if hidden > 0:
+        lines.append(f"+{hidden} more: `tw lesson list --role {role}`")
+    lines += ["```", ""]
+    return lines
+
+
 def build_packet(
     root: Path,
     assignments: list,
@@ -471,9 +603,10 @@ def build_packet(
     task = first.task or "<T-id>"
     out = [
         f"# Lane packet · {run_id} · {instance} ({role})",
+        engine.memory_dream_line(root),
         "",
         f"You are the lane **{instance}**, acting as the **{role}** role of the **{root.name}**",
-        f"team. Workspace: `{root}`. Project: `{project}`.",
+        f"team. Workspace: `{shown_path(root)}`. Project: `{shown_path(project)}`.",
         f"Host: `{host}`. Model: `{model or '(host default)'}`. Provider: `{provider}`.",
         "",
         "This is a bounded run: finish the assignments below, record the evidence, and exit.",
@@ -482,15 +615,23 @@ def build_packet(
         f"## Assignments (attempt {attempt} of {attempts})",
         *_assignment_lines(assignments),
         "",
+        *(returned_lines(root, first)),
+        *(
+            [*messages.packet_lines(root, instance), ""]
+            if messages.packet_lines(root, instance)
+            else []
+        ),
         "## Read first, in this order",
-        f"- `tw load {instance} --task {task}` - your role memory plus the memory pack for",
-        "  this assignment (docs/Team/Memory.md 4.1/4.5): lessons and knowledge ranked for the",
-        "  task, inside a byte budget, instead of the same static top-10 for every lane.",
-        "  The pack is also injected below, so the first read is a re-read, not a discovery.",
-        f"- `{role_dir(root, role) / 'Role.md'}` - your charter (read it, do not skim it).",
-        f"- `{agent_dir(root, instance) / 'StartHere.md'}` - your lane directory.",
-        "- Anchor-first reading: `rg -n '<anchor>' <path>` then about 30 lines around it.",
-        "  Never read a whole document, a whole log or the archive.",
+        "- The memory pack and your open lessons are **injected below** (docs/Team/Memory.md",
+        "  4.1/4.5): lessons and knowledge ranked for this task, inside a byte budget, instead",
+        "  of the same static top-10 for every lane. Do not re-read them with `tw load`: run it",
+        '  only when you need the full role memory, and `tw recall "<query>"` for long-term.',
+        f"- `{shown_path(role_dir(root, role) / 'Role.md')}` - your charter (read it, do not skim it).",
+        f"- `{shown_path(agent_dir(root, instance) / 'StartHere.md')}` - your lane directory.",
+        "- Sparse reading: `tw read <path> --query '<needle>'` returns only the matching",
+        "  line ranges with `path:line` provenance, inside a byte budget; `--lines A-B`",
+        "  verifies an exact range, `--full` is the native read. Never read a whole",
+        "  document, a whole log or the archive.",
         "",
     ]
     if first.review_owner:
@@ -538,10 +679,19 @@ def build_packet(
             "and the exact scope you did and did not touch.",
             "",
         ]
+    short, pack = engine.memory_injected_layer(
+        root, role, task, engine.memorypack.injected_budget(root, role, task), instance
+    )
+    injected = [
+        engine.memorypack.index_block(root, role, task),
+        *([short] if short else []),
+        pack,
+    ]
     out += [
+        *(_open_lesson_lines(root, role)),
         "## Memory pack for this assignment (injected)",
         "```",
-        engine.memory_pack_block(root, role, task, touch_by=instance),
+        *injected,
         "```",
         "",
         "## Rules that are not negotiable",
@@ -664,28 +814,31 @@ def spawn(
     """Start one lane for ``assignments``; return its record, or ``{}`` when not started."""
     first = assignments[0]
     agent = first.instance
-    for live in load_runs(root):
-        if live.get("state") in LIVE and pascal(str(live.get("agent") or "")) == pascal(agent):
+    for live in live_runs(root):
+        if pascal(str(live.get("agent") or "")) == pascal(agent):
             print(
                 f"# {agent} already runs lane {live['id']} - one lane per instance; "
                 f"wait for it (`lane wait {live['id']}`) or stop it first"
             )
             return {}
     run_id = next_run_id(root)
+    stale = stale_bundle_line(root, host)
+    if stale:
+        print(stale)
     packet = packet_path(root, agent, run_id)
     log = log_path(root, agent, run_id)
     host = lane_host(root, host)
     profile = first.profile if first.profile in PROFILE_WEIGHT else "standard"
     minutes = minutes or unit_minutes(root, profile)
     attempts = attempts or lane_attempts(root)
-    tool_budget = tool_budget or unit_tool_budget(profile)
+    tool_budget = tool_budget or unit_tool_budget(root, profile)
     resolved = engine.resolved_model(root, agent)
     model = model or str(resolved.get("model") or "")
     provider = (
         provider
         or str(resolved.get("provider") or "")
         or os.environ.get("TEAMWORK_PROVIDER", "")
-        or "ollama-cloud"
+        or "default"
     )
     session = f"teamwork-{root.name}-{agent}".lower() if resume else ""
     text = prompt or build_packet(
@@ -775,6 +928,70 @@ def spawn(
     return run
 
 
+def _task_branch_head(root: Path, role: str, task_id: str) -> str:
+    """The revision a task's own branch is at, or ``""`` when it has no branch yet."""
+    tasks = parse_tasks(task_file(root, role))
+    index = find_task(tasks, task_id)
+    if index is None:
+        return ""
+    branch = str(tasks[index].get("branch") or "")
+    if not branch:
+        return ""
+    result = gitutil.run_git(root, "rev-parse", "--verify", "--quiet", branch)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def capture_short_layer(root: Path, run: dict) -> dict:
+    """The harness writer of the short layer: one note per finished lane (Memory.md 15.1).
+
+    A lane that recorded nothing still leaves its experience behind: the entry names
+    the task, the lane's own outcome word and the sentence from its last
+    ``LANE-RESULT`` line, at the branch head it exited on. Three cases write
+    nothing - a lane that ended without a ``LANE-RESULT`` line (its ``lane.finish``
+    record already carries ``exit``/``result``, so nothing is invented), a task whose
+    store already holds an entry with ``src`` = that task (the agent wrote its own
+    note, so the harness does not echo it), and a second reconcile of the same run.
+    """
+    task = str(run.get("task") or "")
+    role = str(run.get("role") or "")
+    instance = str(run.get("agent") or "")
+    result = run.get("result") or {}
+    verdict = str(result.get("verdict") or "")
+    if not (task and role and instance and verdict):
+        return {}
+    note = " ".join(str(result.get("note") or "").split())
+    body = f"{task} {verdict}: {note}" if note else f"{task} {verdict}"
+    path = role_dir(root, role) / F_SHORT
+    with engine.memory_session(
+        root, role, instance, reason=f"lane exit {task}", strict=False
+    ) as claim:
+        if claim is None:
+            return {}
+        entries = parse_memory(path)
+        if any(str(entry.get("src") or "") == task for entry in entries):
+            return {}
+        entry = new_entry(
+            body,
+            f"lane:{task}",
+            2,
+            by=instance,
+            src=task,
+            rev=_task_branch_head(root, role, task),
+        )
+        entries.append(entry)
+        write_memory(path, entries, F_SHORT, role)
+        engine.ledger_append(
+            root,
+            "memory.add",
+            instance,
+            f"lane:{task}",
+            f"lane exit note: {task} {verdict}",
+            entry["rev"],
+            role,
+        )
+        return parse_memory(path)[-1]
+
+
 def refresh(root: Path, run: dict) -> dict:
     """Reconcile one record with its process, its outcome file and its budget."""
     if run.get("state") not in LIVE:
@@ -817,6 +1034,7 @@ def refresh(root: Path, run: dict) -> dict:
             write_run(root, run)
             return run
     run["result"] = read_result(Path(str(run.get("log") or "")))
+    capture_short_layer(root, run)
     if release_slot(root, str(run.get("provider") or ""), str(run.get("agent") or ""), finished):
         run["slot_released"] = True
     engine.ledger_append(
@@ -948,6 +1166,7 @@ class Measurement:
     free_slots: int
     lane_max: int
     capped_by: str
+    tool_budget_override: int
 
     def lines(self) -> list:
         profiles = (
@@ -967,6 +1186,11 @@ class Measurement:
         ]
 
     def budget_text(self) -> str:
+        if self.tool_budget_override:
+            return (
+                f"budget per unit: {self.tool_budget_override} call(s) "
+                "(LaneToolBudget overrides the profile table)"
+            )
         used = [name for name in ("fast", "standard", "deep") if self.profiles.get(name)]
         if not used:
             return "no unit to budget"
@@ -982,7 +1206,10 @@ def unit_minutes(root: Path, profile: str) -> int:
     return max(int(round(lane_minutes(root) * factor)), 5)
 
 
-def unit_tool_budget(profile: str) -> int:
+def unit_tool_budget(root: Path, profile: str) -> int:
+    """Tool calls a unit of this profile gets; ``LaneToolBudget`` overrides the table."""
+    if "LaneToolBudget" in _settings(root):
+        return lane_tool_budget(root)
     return PROFILE_TOOL_BUDGET.get(profile, DEFAULT_TOOL_BUDGET)
 
 
@@ -1070,6 +1297,7 @@ def measure(root: Path, limit: int = 0) -> Measurement:
         free_slots=free_slots,
         lane_max=ceiling,
         capped_by=capped_by,
+        tool_budget_override=(lane_tool_budget(root) if "LaneToolBudget" in _settings(root) else 0),
     )
 
 
@@ -1501,8 +1729,75 @@ def cmd_lane(args) -> int:
             except OSError:
                 pass
         print(f"# reaped {touched} lane(s); {len(live_runs(root))} still running")
+        if not getattr(args, "keep", False):
+            recycled = _recycle_finished(root, getattr(args, "by", "") or "ceo")
+            if recycled:
+                print("# recycled " + ", ".join(recycled))
         return 0
+    if verb == "preempt":
+        return _lane_preempt(root, args)
+    if verb == "resume":
+        return _lane_resume(root, args)
     return _lane_start(root, args)
+
+
+def _lane_preempt(root: Path, args) -> int:
+    """Stop a lane for an urgent message and pause the task it was working on.
+
+    Preemption is the supervisor's action, never a peer's: one process cannot
+    interrupt another agent mid-turn, so the lane is stopped, its task is marked
+    ``paused`` with the message that displaced it, and the next wave runs the
+    urgent work. ``lane resume`` puts the task back on the queue.
+    """
+    run = find_run(root, args.handle)
+    refresh(root, run)
+    message_id = (args.message or "").strip()
+    agent = str(run.get("agent") or "")
+    task_id = str(run.get("task") or "")
+    if run.get("state") not in LIVE:
+        print(f"# {run['id']} already {run.get('state')}; nothing to preempt")
+        return 0
+    reason = (args.reason or "").strip() or f"urgent message {message_id or '(unnamed)'}"
+    terminate(int(run.get("pid") or 0))
+    for _ in range(100):
+        if not pid_alive(int(run.get("pid") or 0)):
+            break
+        time.sleep(0.05)
+    run["state"] = STOPPED
+    run["finished"] = _stamp()
+    run["stopped_by"] = args.by or "supervisor"
+    run["reason"] = reason
+    run["preempted_by"] = message_id
+    release_slot(root, str(run.get("provider") or ""), agent, time.time())
+    write_run(root, run)
+    paused = None
+    if task_id:
+        note = f"paused for {message_id} ({reason})" if message_id else f"paused ({reason})"
+        paused = engine.set_task_status(
+            root, task_id, "paused", note=note, by=run["stopped_by"], paused_by=message_id
+        )
+    engine.ledger_append(
+        root,
+        "lane.preempt",
+        str(run["stopped_by"]),
+        str(run["id"]),
+        f"{agent} {task_id or '-'} paused for {message_id or reason}",
+        "",
+        str(run.get("role") or ""),
+    )
+    print(f"# {run['id']} stopped; {agent}" + (f" task {task_id} paused" if paused else " freed"))
+    print(f"#   next: run the urgent message, then `tw lane resume {task_id}`")
+    return 0
+
+
+def _lane_resume(root: Path, args) -> int:
+    """Put a paused task back on its queue at `doing`, which is where preemption found it."""
+    task = engine.set_task_status(root, args.task, "doing", note="", by=args.by or "supervisor")
+    if task is None:
+        print(f"# no task '{args.task}' on any queue")
+        return 2
+    print(f"# {args.task} resumed: doing ({task.get('claimed_by') or 'unclaimed'})")
+    return 0
 
 
 def _lane_start(root: Path, args) -> int:
@@ -1665,6 +1960,9 @@ def cmd_swarm(args) -> int:
     for line in measurement.lines():
         print(line)
     print(engine.memory_dream_line(root))
+    scale_plan = engine._scale_plan(root) if getattr(args, "scale", True) else []
+    if scale_plan:
+        print("## scale plan (" + ", ".join(f"{role} +{count}" for role, count in scale_plan) + ")")
     print()
     if args.dry_run:
         return _swarm_dry_run(root, measurement, cap, fixed, attempts)
@@ -1674,6 +1972,14 @@ def cmd_swarm(args) -> int:
             "Set PulseMode to auto in Settings.json or pass --mode auto when you mean it.",
             2,
         )
+    if scale_plan:
+        added = engine._apply_scale(root, scale_plan, args.by or "ceo")
+        if added:
+            print(f"# scaled to the work: added {', '.join(added)}")
+            measurement = measure(root, cap)
+            for line in measurement.lines():
+                print(line)
+            print()
     engine.reap_slots(root)
     actor = engine.validate_actor(root, args.by or "ceo", "lane supervisor")[0]
     deadline = time.monotonic() + minutes * 60 if minutes else 0.0
@@ -1691,6 +1997,12 @@ def cmd_swarm(args) -> int:
     previous = -1
     stalled = 0
     last_signature = None
+    streaming = not bool(getattr(args, "wait", False)) and not args.waves
+    if streaming:
+        print(
+            "# async: dispatch this wave and return; the lanes run independently. "
+            "Reconcile and refill with the next `pulse --commit --spawn` wake."
+        )
     while True:
         if deadline and time.monotonic() > deadline:
             print(f"# swarm budget of {minutes}m reached")
@@ -1698,6 +2010,32 @@ def cmd_swarm(args) -> int:
         if args.waves and wave >= args.waves:
             break
         settle(root)
+        preempt_urgent(root, actor)
+        busy_now = {
+            pascal(str(run.get("agent") or ""))
+            for run in live_runs(root)
+            if run.get("state") in LIVE
+        }
+        for name in urgent_instances(root):
+            if pascal(name) in busy_now:
+                continue
+            role = resolve_role(name)
+            started_message = spawn(
+                root,
+                [
+                    Assignment(
+                        instance=name,
+                        role=role,
+                        task="",
+                        title="drain the urgent mailbox",
+                        profile="standard",
+                    )
+                ],
+                prompt=message_packet(root, name, unit_minutes(root, "standard")),
+                minutes=unit_minutes(root, "standard"),
+            )
+            if started_message:
+                print(f"- {name:14s} <- urgent mailbox ({started_message['id']})")
         measurement = measure(root, cap)
         retries = retry_plan(root, attempts)
         target = _wave_target(measurement, len(retries), cap, fixed)
@@ -1740,10 +2078,17 @@ def cmd_swarm(args) -> int:
             )
             break
         if not launches:
-            if not live_runs(root):
+            live_now = live_runs(root)
+            if not live_now:
                 print("# no runnable work and no live lane: swarm idle - stopping")
                 break
-            wait_any(root, live_runs(root), poll, deadline)
+            if streaming:
+                print(
+                    f"# async: {len(live_now)} lane(s) still running and nothing to add; "
+                    "returning - the next wake reconciles them"
+                )
+                break
+            wait_any(root, live_now, poll, deadline)
             continue
         wave += 1
         print(
@@ -1809,6 +2154,12 @@ def cmd_swarm(args) -> int:
             f"{measurement.score} ({measurement.band}), target {target}: "
             + ", ".join(str(run["id"]) for run in started_now),
         )
+        if streaming:
+            print(
+                "# async: wave dispatched, nothing is waited on; "
+                "`lane status --live` shows it, the next wake refills"
+            )
+            break
         live = live_runs(root)
         if live:
             wait_any(root, live, poll, deadline)
@@ -1881,7 +2232,33 @@ def add_parsers(sub, common) -> None:
     p.add_argument("--reason", default="", help="why it is stopped (recorded)")
     p.add_argument("--by", default="", help="who stopped it")
     p.set_defaults(func=cmd_lane)
-    p = lsub.add_parser("reap", parents=[common], help="reconcile dead lanes and free slots")
+    p = lsub.add_parser(
+        "reap",
+        parents=[common],
+        help="reconcile dead lanes, free their slots and recycle their instances",
+    )
+    p.add_argument(
+        "--keep",
+        action="store_true",
+        help="reconcile the lanes but leave the finished instances staffed",
+    )
+    p.add_argument("--by", default="ceo", help="who recycles them (provenance)")
+    p.set_defaults(func=cmd_lane)
+    p = lsub.add_parser(
+        "preempt",
+        parents=[common],
+        help="stop a lane for an urgent message and pause the task it was working on",
+    )
+    p.add_argument("handle")
+    p.add_argument("--message", default="", help="the urgent message id that displaces it")
+    p.add_argument("--reason", default="", help="why (recorded)")
+    p.add_argument("--by", default="", help="who preempted it")
+    p.set_defaults(func=cmd_lane)
+    p = lsub.add_parser(
+        "resume", parents=[common], help="put a paused task back on its queue at doing"
+    )
+    p.add_argument("task")
+    p.add_argument("--by", default="", help="who resumed it")
     p.set_defaults(func=cmd_lane)
 
     s = sub.add_parser(
@@ -1890,7 +2267,11 @@ def add_parsers(sub, common) -> None:
         help="dynamic wave supervisor: dispatch, spawn, retry, review, stop",
     )
     ssub = s.add_subparsers(dest="swarm_cmd", required=True)
-    p = ssub.add_parser("run", parents=[common], help="run waves until nothing is runnable")
+    p = ssub.add_parser(
+        "run",
+        parents=[common],
+        help="dispatch the next wave asynchronously and return (or --wait to drain)",
+    )
     p.add_argument(
         "--lanes",
         type=int,
@@ -1902,7 +2283,13 @@ def add_parsers(sub, common) -> None:
         action="store_true",
         help="turn the complexity policy off and run exactly --lanes every wave",
     )
-    p.add_argument("--waves", type=int, default=0, help="max waves, 0 = until idle")
+    p.add_argument("--waves", type=int, default=0, help="max waves in --wait mode, 0 = until idle")
+    p.add_argument(
+        "--wait",
+        action="store_true",
+        help="block: wait for a lane to end, re-measure and dispatch the next wave until the "
+        "board drains (the batch mode; the default dispatches one wave and returns)",
+    )
     p.add_argument("--minutes", type=int, default=None, help="swarm budget, 0 = none")
     p.add_argument("--lane-minutes", type=int, default=None, help="per-lane budget override")
     p.add_argument("--poll", type=float, default=0.0, help="seconds between supervisor polls")
@@ -1910,4 +2297,149 @@ def add_parsers(sub, common) -> None:
     p.add_argument("--host", default="", help="host CLI to launch (default: detected)")
     p.add_argument("--by", default="", help="supervisor identity (default: ceo)")
     p.add_argument("--dry-run", action="store_true", help="print the next wave only")
+    p.add_argument(
+        "--no-scale",
+        dest="scale",
+        action="store_false",
+        help="dispatch to the current roster only; never add instances for the wave",
+    )
     p.set_defaults(func=cmd_swarm)
+
+
+def _recycle_finished(root: Path, by: str) -> list:
+    """Retire the seat of every finished lane, under the roster's own fold policy.
+
+    A finished lane is a job that is done: its slot and lease are already released,
+    and the seat it occupied is pure cost once the queue has nothing for that role.
+    The policy is not re-implemented here - it is ``engine._foldable_instances``
+    (never the CEO, one instance of each gate role kept), so a reap can never retire
+    the CEO's seat or leave a gate role unstaffed. Only instances that actually ran
+    a lane are touched, and retirement is the existing move-only path
+    (``Runtime/Retired/<Instance>/``); the lane record is repointed by
+    ``engine._move_to_retired``. An instance that still claims a task, holds the pen,
+    a slot or a review claim, or whose role has ready work, is kept.
+    """
+    fold, _keep = engine._foldable_instances(root, keep_required=True)
+    finished = {
+        pascal(str(run.get("agent") or ""))
+        for run in load_runs(root)
+        if run.get("state") not in LIVE
+    }
+    retired = []
+    for name, role in fold:
+        if pascal(name) not in finished:
+            continue
+        source = agent_dir(root, name)
+        if not source.is_dir():
+            continue
+        shown = engine._move_to_retired(
+            root, name, source, role, by, "lane finished; instance recycled", []
+        )
+        retired.append(f"{name} -> {shown}")
+    return retired
+
+
+def urgent_instances(root: Path) -> list:
+    """Instances holding a pending urgent message: they preempt, then run."""
+    out = []
+    for name in engine.list_agents(root):
+        if messages.urgent_for(root, name):
+            out.append(name)
+    return out
+
+
+def preempt_urgent(root: Path, actor: str) -> list:
+    """Stop the live lane of every instance with an urgent message; pause its task.
+
+    Returns the instances that were preempted. The caller starts their lanes for
+    the message, so the paused task resumes only after the urgent work is closed.
+    """
+    freed = []
+    for name in urgent_instances(root):
+        live = [
+            run for run in live_runs(root) if pascal(str(run.get("agent") or "")) == pascal(name)
+        ]
+        if not live:
+            continue
+        run = live[0]
+        message = messages.urgent_for(root, name)[0]
+        print(
+            f"# preempt: {name} is on {run['id']} ({run.get('task') or '-'}) and holds "
+            f"{message['id']} [urgent] {message['subject']}"
+        )
+        terminate(int(run.get("pid") or 0))
+        for _ in range(100):
+            if not pid_alive(int(run.get("pid") or 0)):
+                break
+            time.sleep(0.05)
+        run["state"] = STOPPED
+        run["finished"] = _stamp()
+        run["stopped_by"] = actor
+        run["reason"] = f"preempted by {message['id']} [urgent]"
+        run["preempted_by"] = message["id"]
+        release_slot(root, str(run.get("provider") or ""), name, time.time())
+        write_run(root, run)
+        if run.get("task"):
+            engine.set_task_status(
+                root,
+                str(run["task"]),
+                "paused",
+                note=f"paused for {message['id']} [urgent]: {message['subject']}",
+                by=actor,
+                paused_by=message["id"],
+            )
+        engine.ledger_append(
+            root,
+            "lane.preempt",
+            actor,
+            str(run["id"]),
+            f"{name} {run.get('task') or '-'} paused for {message['id']} [urgent]",
+            "",
+            str(run.get("role") or ""),
+        )
+        freed.append(name)
+    return freed
+
+
+def message_packet(root: Path, instance: str, minutes: int) -> str:
+    """The packet for a lane that exists only to drain an urgent mailbox."""
+    role = resolve_role(instance)
+    pending = messages.urgent_for(root, instance)
+    cli = cli_command()
+    lines = [
+        f"# Mailbox lane · {instance} ({role})",
+        "",
+        f"You are **{instance}** of the **{root.name}** team. The supervisor stopped your "
+        "previous assignment because an urgent message arrived; that task is `paused` and "
+        "resumes when this mailbox is empty.",
+        "",
+        f"The CLI is `{cli}`; this packet calls it `tw`.",
+        "",
+        "## Do this, in priority order",
+    ]
+    for message in pending:
+        lines.append(
+            f"1. `tw message take {message['id']} --for {instance} --by {instance}` - "
+            f"from {message['from']}, task {message['task'] or '-'}: {message['subject']}"
+        )
+        if message.get("body"):
+            lines.append(f"   body: {message['body']}")
+    lines += [
+        "",
+        "Do the work each message asks for, then close it:",
+        f"`tw message done <id> --for {instance} --by {instance} --result '<what you did + evidence>'`",
+        "",
+        "If a message needs a code change, do it on a task branch as usual "
+        "(`tw branch start --agent {0} --task <T-id>`, commit, self-check, PR). "
+        "A message that asks for a fact is answered with `tw message send` back to its sender.",
+        "",
+        "When the mailbox is empty, print the result line and exit; the supervisor resumes the "
+        "paused task on its next wave.",
+        "",
+        f"## Budget\n- at most 10 tool calls and {minutes} minutes.",
+        "",
+        "## Report back",
+        f"`{RESULT_MARKER} <ok|blocked|failed> <one sentence naming the messages you closed>`",
+        "",
+    ]
+    return "\n".join(lines)

@@ -8,9 +8,11 @@ operating procedure.
 Related: [Engineering](Engineering.md) | [Evidence](Evidence.md) | [Docs](Docs.md) | [State](State.md) | [Concurrency](Concurrency.md) | [Roles](Roles.md) | [Testing](Testing.md) | [Audit](Audit.md) | [Coordination](Coordination.md)
 
 
-## Commit identity - role mailbox, never instance numbered
+## Commit identity - the repository's pair by default, the role mailbox on request
 
-Every team commit is authored **and** committed by the role:
+A commit is authored **and** committed by the repository's own configured pair, so
+published history belongs to the project and no commit names the agent that typed
+it. The role mailbox is the opt-in, for a workflow that wants one mailbox per role:
 
 ```text
 Developer <developer@agents.nidvue.com>
@@ -26,29 +28,31 @@ CEO <ceo@agents.nidvue.com>   CTO <cto@agents.nidvue.com>   COO <coo@agents.nidv
 
 Rules:
 
-- Display name is the role; email is the lowercase role id at `agents.nidvue.com`.
+- **Default:** the repository's own configured pair authors a commit - its
+  `user.name`/`user.email`, or an explicit `teamwork.identity.name`/
+  `teamwork.identity.email` pair.
+- **Opt-in:** `TEAMWORK_COMMIT_IDENTITY=role` selects the role mailbox for one
+  command; it is the author of last resort only when the repository configures no
+  identity at all. Under that policy, display name is the role and email is the
+  lowercase role id at `agents.nidvue.com`.
 - **Never** use an instance-numbered identity: no `Developer-1`, no
   `developer-1@agents.nidvue.com`.
-- Never use the operator's personal git identity for team work.
-- **The role that does the work commits it.** Developer commits code and unit
-  tests, Tester integration/E2E tests, Technical Writer documentation, Architect
-  contracts and ADRs, Release Engineer workflows and release changes, Reviewer
-  merge commits. The CEO commits only CEO-owned documents (`Project.md`,
-  `Plan.md`, `Board.md`, `Decisions.md`) and the bootstrap commit - never another
-  role's deliverable in its place.
 - The product identity `Teamwork <teamwork@agents.nidvue.com>` is **never** a valid
   commit identity: it names the skill, not a role.
 - CI enforces this with `teamwork.py identity --audit --range <base>..HEAD`; it
-  checks the author, the committer and the `Acting role:` trailer, and allows bot
-  dependency updates (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`).
-- Apply it per commit, without changing the repository config:
+  checks the author and the committer, needs no `Acting role:` trailer (a trailer
+  or `Role:` line that is present must agree with the author), and allows bot
+  dependency updates
+  (`dependabot[bot]`, `github-actions[bot]`, `renovate[bot]`).
+- Apply the role mailbox per commit, without changing the repository config:
 
 ```sh
-git -c user.name="Developer" -c user.email="developer@agents.nidvue.com" commit ...
+TEAMWORK_COMMIT_IDENTITY=role git -c user.name="Developer" \
+    -c user.email="developer@agents.nidvue.com" commit ...
 ```
 
-`teamwork.py commit --role <role> ...` does this for you, and
-`teamwork.py identity [--role X]` prints the exact identity.
+`teamwork.py commit --role <role> ...` pins the identity for you, and
+`teamwork.py identity [--role X]` prints the role mailbox.
 `TEAMWORK_IDENTITY_DOMAIN` overrides the email domain.
 
 ### The constitution, quoted
@@ -56,19 +60,13 @@ git -c user.name="Developer" -c user.email="developer@agents.nidvue.com" commit 
 `AGENTS.md` (Commit identity) is the rule; text in a charter or a reference that
 departs from it is wrong, whatever the repository's local configuration says:
 
-- Commit as the **acting role mailbox**: `author == committer ==
-  <Role> <role@agents.nidvue.com>` - the role that did the work, never an instance
-  number, never another role's mailbox, never the operator's account.
-- Apply it **per commit**: `git -c user.name=<Role> -c user.email=<role>@agents.nidvue.com
-  commit ...`, or `teamwork.py commit --role <role> ...`, which does the same.
-- End the message with `Acting role: <Role>`; the identity gate fails when that
-  trailer does not match the author.
-
-A plain `git commit` inherits whatever the repository's own `user.name` / `user.email`
-happens to be configured to, and the identity gate fails that commit unless the
-configured identity is the acting role mailbox. The repository-local config is
-therefore a convenience fallback only and no lane may read it as permission to
-skip the per-commit form above.
+- Commit as the **repository's configured pair** (`author == committer`), so the
+  published history names the project, never an agent role, instance or mailbox.
+- Apply it **per commit** - `teamwork.py commit --role <role> ...` pins the pair
+  for that one command and leaves the repository config alone.
+- A role mailbox is opt-in with `TEAMWORK_COMMIT_IDENTITY=role`; the message still
+  names no agent, and the identity gate fails only when a trailer or `Role:` line
+  that is present does not match the author.
 
 ## Commit batching
 
@@ -82,35 +80,27 @@ closed gate - not on every keystroke.
 
 ## Commit message style (fixed)
 
-Use this shape, in this field order, with these field names:
+Every commit message is **exactly one line**: `<type>(<area>): <summary>`, at most
+72 characters, compact but informative. No body, no trailers, no field list.
 
 ```text
 <type>(<area>): <deliverable summary, <=72 chars>
-
-Task: T-0007
-Role: Developer
-Producers: Developer-1, Developer-2
-Goal: <what the task/milestone asked for>
-Deliverable: <what was produced: files, docs, tests>
-Why: <why this change, what evidence drove it>
-Status: <actual state: implemented / reviewed / tested / blocked>
-Result: <observed outcome: command @rev -> result>
-Docs: <related documents>
-Refs: <issues, PRs, disputes>
-
-Acting role: Developer
 ```
 
 - `type` is one of `feat fix test docs design research refactor perf build ci chore revert`.
-- `Producers` = the instances that produced it (never invent one).
-- `Goal`, `Deliverable`, `Why`, `Status`, `Result` are mandatory: they answer who,
-  what, why, where it stands and what actually happened.
-- `Status` states the truth, including "blocked on X" or "awaiting review" - never
-  a hopeful claim.
-- `Result` carries the evidence pointer (command + revision + observed result).
+- The summary says what changed and why it matters, in one line a reader can scan
+  in `git log --oneline`.
+- The task id, the goal, the status and the evidence live in the **task record**
+  (`selfcheck --test`, `tests run --evidence`) and the **ledger**, never in a
+  multi-line commit body. `teamwork.py commit` records the `--result` evidence in
+  the ledger detail, not the message.
+- No line names a role, an agent instance or a mailbox: published history is the
+  project's (decision 2026-11-11).
 
-`teamwork.py commit` builds this message and refuses to commit when `--goal`,
-`--deliverable`, `--why`, `--status` or `--result` is missing.
+`teamwork.py commit` builds this one-line message and refuses to commit when
+`--goal`, `--deliverable`, `--why`, `--status` or `--result` is missing: those
+flags are the discipline that forces the author to state the evidence before it
+lands, and the result is recorded in the ledger.
 
 ## Git LFS archival
 
@@ -162,7 +152,8 @@ branch start  ->  work + commit  ->  SelfCheck  ->  pr open  ->  review pass/fai
 
 ```sh
 # 1. every instance works on its own branch
-teamwork.py branch start --agent developer-1 --task T-0007          # [--worktree]
+teamwork.py branch start --agent developer-1 --task T-0007          # own worktree
+teamwork.py branch start --agent developer-1 --task T-0008 --shared  # the exception
 #    branch name: developer-1/t-0007-<slug>
 # 2. commit staged milestones on that branch (commit refuses on main)
 teamwork.py commit --role developer --type feat --task T-0007 ... --all
@@ -242,23 +233,37 @@ after the **Reviewer** has passed the revision with no open finding.
   model stores) and on tracked local state (`.pi/`, virtualenvs, build output,
   caches, `Scratch/`).
 
-## Worktrees (optional but recommended for parallel writers)
+## Worktrees (one per task, the default)
 
-`branch start --agent <Instance> --task <T-id> --worktree` creates the branch,
-adds a worktree at `<Team>/Runtime/Worktrees/<Instance>/` and records both on the
-task. The main tree stays on its own branch; the agent works inside the worktree.
+`branch start --agent <Instance> --task <T-id>` creates the branch, adds a
+worktree at `<Team>/Runtime/Worktrees/<Instance>/<T-id>/` and records both on the
+task. The main tree stays on the default branch; the agent works inside the
+worktree. Every instance of every role gets its own tree, so two lanes never
+commit on each other's branches and no lane has to wait for another's checkout.
 
+- The recorded path is **relative to the team root**: an absolute host path in a
+  queue is disclosure to every lane that reads it, and the record mask can rewrite
+  a directory path that looks high-entropy, which points the record at a tree that
+  does not exist.
+- The worktree links the project's `.venv` when there is one, so the project's
+  `PreflightCommand` (`.venv/bin/ruff ...`) runs unchanged inside it.
 - Run `teamwork.py` from the worktree: it resolves the team from the path
-  (`Runtime/Worktrees/<Instance>` -> team root), so you never need `--project`,
-  and it never creates a second team tree.
-- From anywhere else, pass `--project <repo>` or set `TEAMWORK_ROOT`.
+  (`Runtime/Worktrees/<Instance>` -> team root), so you never need `--project`.
+- `preflight` fails the `tree` check when the command ran in a different tree than
+  the task records, and the project gate runs in the task's tree - a gate that
+  measured the main checkout says nothing about the branch under review.
+- `commit --task <T-id>` refuses when the task owns a worktree and the command ran
+  in the main checkout: work happens in the task's tree.
+- `--shared` is the exception, for work that genuinely needs the main checkout:
+  it switches that checkout to the branch and records no worktree. Say why in the
+  self-check note.
 - `pr merge --delete-branch` also retires the worktree when the branch is still
   checked out there.
 
 ## Worktree location
 
 All worktrees, clones and scratch state live inside the repository at
-`<Team>/Runtime/Worktrees/<Instance>/` (managed by `branch start --worktree`). Never create a
+`<Team>/Runtime/Worktrees/<Instance>/<T-id>/` (created by `branch start`). Never create a
 worktree, clone or scratch workspace in `$HOME`, `/tmp`, a sibling directory, or
 any path outside the repository.
 

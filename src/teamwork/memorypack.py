@@ -9,6 +9,13 @@ scorer, no model call and no second store:
 * ``pack`` turns a task query into the smallest set of rendered pointer lines
   that fits a byte budget. It is the injected-context layer: one line per
   record, never a copy of the statement's home.
+* ``index_block`` is the header above that pack: the distinct topics of the
+  active knowledge records and open lessons as ``- <topic> -> <pointer>`` lines,
+  capped at 8 lines and ``INDEX_BUDGET_BYTES`` (Memory.md 11), so the injected
+  layer opens with an index instead of a dump. A topic is a label, not a
+  sentence: it is clipped to ``TOPIC_CLIP`` characters at a word boundary, and
+  ``load`` prints this index *instead of* the verbose lesson rows, so the whole
+  command output does not grow by the index's bytes (AC-M22-4).
 * ``search`` is the single retrieval path over those three stores, capped.
 * ``dream`` and ``apply_dream`` are the off-hot-path maintenance pass: duplicate
   and contradiction detection, stale archiving, missing evidence reported. The
@@ -32,11 +39,12 @@ from __future__ import annotations
 
 import datetime
 import re
+import time
 from pathlib import Path
 
 from . import harness
-from .config import F_KNOWLEDGE, F_LESSONS, F_SHORT, F_TASKS
-from .layout import knowledge_path, role_dir, roles_dir
+from .config import F_KNOWLEDGE, F_LESSONS, F_MEM_ARCHIVE, F_SHORT, F_TASKS, STALE_AFTER_DAYS
+from .layout import knowledge_path, role_dir, roles_dir, shown_path
 from .names import one_line
 from .records import (
     normalise_knowledge,
@@ -50,11 +58,18 @@ from .records import (
 )
 
 PACK_BUDGET_BYTES = 4000
+INDEX_BUDGET_BYTES = 800
+SHORT_INJECT_BYTES = 600
+SHORT_INJECT_ENTRIES = 5
+SHORT_CLIP = 160
+SHORT_HEADING = "## Short-term memory for this task"
+INDEX_MAX_LINES = 8
+INDEX_KINDS = ("knowledge", "lesson")
 SEARCH_BUDGET_BYTES = 2000
 SEARCH_LIMIT = 10
 STATEMENT_CLIP = 200
+TOPIC_CLIP = 60
 HALF_LIFE_DAYS = 30.0
-STALE_AFTER_DAYS = 90
 SHORT_EVIDENCE = 20
 DUPLICATE_OVERLAP = 0.8
 CONTRADICTION_OVERLAP = 0.5
@@ -151,10 +166,10 @@ def rank(entries: list[dict], query: str, now: datetime.date | datetime.datetime
 
 def _pointer(root: Path, path: Path, record_id: str) -> str:
     try:
-        where = path.relative_to(root).as_posix()
+        where = path.relative_to(root)
     except ValueError:
-        where = path.as_posix()
-    return f"{where}#{record_id}"
+        where = path
+    return f"{shown_path(where)}#{record_id}"
 
 
 def _entry(
@@ -263,6 +278,49 @@ def memories(root: Path, role: str) -> list[dict]:
     ]
 
 
+def archived_memories(root: Path, role: str) -> list[dict]:
+    """The role's archived memory: searchable and pointed at, never injected.
+
+    A demotion leaves a pointer (Memory.md 15.3): the record keeps its statement in
+    ``Roles/<Role>/ArchivedMemory.md`` and stays reachable by ``recall`` and
+    ``memory search``, but it is parked, so no pack and no short block may spend
+    their budget on it.
+    """
+    path = role_dir(root, role) / F_MEM_ARCHIVE
+    return [
+        _entry(
+            record_id=item["id"],
+            kind="memory",
+            store=F_MEM_ARCHIVE,
+            pointer=_pointer(root, path, item["id"]),
+            title=item.get("key") or "note",
+            statement=item.get("body", ""),
+            tags=item.get("tags", ""),
+            importance=item.get("importance", 0),
+            uses=item.get("uses", 0),
+            updated=item.get("last_used") or item.get("created", ""),
+            status="archived",
+            evidence=" ".join(
+                part
+                for part in (item.get("by", ""), item.get("src", ""), item.get("rev", ""))
+                if part
+            ),
+        )
+        for item in parse_memory(path)
+    ]
+
+
+def searchable(entry: dict) -> bool:
+    """Whether ``memory search`` may rank a record at all.
+
+    Archived *memory* is searchable because a demotion leaves a pointer (15.3);
+    every other parked record stays out, as the pack's empty case does.
+    """
+    return (
+        str(entry.get("status") or "") in INJECTABLE_STATUSES or entry.get("store") == F_MEM_ARCHIVE
+    )
+
+
 def collect(root: Path, role: str) -> list[dict]:
     """Lessons + knowledge + the role's memory in one uniform shape.
 
@@ -272,8 +330,8 @@ def collect(root: Path, role: str) -> list[dict]:
     return lessons(root, role) + knowledge(root) + memories(root, role)
 
 
-def _clip(statement: str) -> str:
-    return one_line(statement)[:STATEMENT_CLIP]
+def _clip(statement: str, limit: int = STATEMENT_CLIP) -> str:
+    return one_line(statement)[:limit]
 
 
 def render_record(entry: dict) -> str:
@@ -337,36 +395,245 @@ def render_pack(items: list[dict], total_bytes: int, budget: int | None = None) 
     return "\n".join(lines) + "\n"
 
 
+def clip_topic(topic: str, limit: int = TOPIC_CLIP) -> str:
+    """A topic as the index may print it: at most ``limit`` chars, cut at a word boundary.
+
+    The index points at a record, so its line carries the record's *label*, not the
+    record's sentence: a 168-character lesson mistake is clipped to a phrase and the
+    statement (and the rule) stay in their home, which the pointer names. The cut
+    lands on the last whole word inside ``limit`` and drops any trailing
+    punctuation, so a clipped topic never ends in a dangling ``...`` or comma.
+    """
+    text = " ".join(str(topic or "").split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    if " " in cut.rstrip():
+        cut = cut[: cut.rstrip().rfind(" ")]
+    return cut.strip().rstrip(" .,;:-\u2026").strip() or text[:limit].strip()
+
+
+def index_topics(
+    entries: list[dict], query: str, now: datetime.date | datetime.datetime
+) -> list[tuple[str, dict]]:
+    """The index's topics in rank order: one ``(normalised topic, record)`` per distinct topic.
+
+    A topic is the distinct normalised ``topic`` of an active knowledge record plus
+    an open lesson's title (4.1 order, so the same task and the same clock give the
+    same list). The first record of a topic is the one its pointer names; a record
+    with an empty topic contributes no line, because a bare pointer is not an index.
+    """
+    seen: dict[str, dict] = {}
+    for entry in rank([item for item in entries if _is_index_record(item)], query, now):
+        topic = clip_topic(normalise_knowledge(entry.get("title", "")))
+        if topic and topic not in seen:
+            seen[topic] = entry
+    return list(seen.items())
+
+
+def _is_index_record(entry: dict) -> bool:
+    return str(entry.get("kind") or "") in INDEX_KINDS and _is_active(entry)
+
+
+def _index_footer(body_bytes: int, budget: int) -> str:
+    """The ``# index:`` footer, its own byte count solved so the number is exact."""
+    guess = body_bytes + 1
+    text = ""
+    for _ in range(4):
+        text = f"# index: {guess} bytes (budget {budget})"
+        size = len(text.encode("utf-8")) + 1
+        if body_bytes + size == guess:
+            return text
+        guess = body_bytes + size
+    return text
+
+
+def _index_text(topics: int, records: int, lines: list[str], budget: int) -> str:
+    header = f"# memory index: {topics} topic(s), {records} record(s)"
+    body = len(header.encode("utf-8")) + 1 + sum(len(line.encode("utf-8")) + 1 for line in lines)
+    return "\n".join([header, *lines, _index_footer(body, budget)])
+
+
+def index_block(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = INDEX_BUDGET_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> str:
+    """The memory index: a capped pointer list of the topics a task will need.
+
+    The small top layer of the hierarchy (docs/Team/Memory.md 11): at most
+    ``INDEX_MAX_LINES`` topic lines, in the 4.1 order for the task's query, and the
+    whole block - header, lines and footer - kept at or under ``budget`` bytes by
+    dropping any line that would overspend. It points at a record, never at its
+    statement, so the header costs bytes once and the statement is still read from
+    its home. An empty store prints ``0 topic(s), 0 record(s)`` and no line.
+
+    ``records`` counts the active knowledge records and open lessons the index
+    ranks; ``topics`` counts the distinct lines actually printed.
+    """
+    moment = now or datetime.date.today()
+    entries = collect(root, role)
+    records = sum(1 for entry in entries if _is_index_record(entry))
+    lines: list[str] = []
+    for topic, entry in index_topics(entries, task_query(root, role, task), moment)[
+        :INDEX_MAX_LINES
+    ]:
+        line = f"- {topic} -> {entry.get('pointer', '')}"
+        trial = _index_text(len(lines) + 1, records, [*lines, line], budget)
+        if len(trial.encode("utf-8")) + 1 > budget:
+            continue
+        lines.append(line)
+    return _index_text(len(lines), records, lines, budget)
+
+
+def index_bytes(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = INDEX_BUDGET_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> int:
+    """The UTF-8 bytes the index costs when injected, its own newline included."""
+    return len(index_block(root, role, task, budget, now).encode("utf-8")) + 1
+
+
+def injected_budget(
+    root: Path,
+    role: str,
+    task: str = "",
+    now: datetime.date | datetime.datetime | None = None,
+) -> int:
+    """The pack budget left after the index: ``PACK_BUDGET_BYTES - index bytes``.
+
+    The index and the pack are one injected layer, so they share one budget: the
+    second guard on AC-M22-4 is that ``index + pack <= PACK_BUDGET_BYTES`` even on
+    a store whose pack would otherwise fill the whole 4000 bytes. Never negative -
+    an index at or over the budget leaves the pack its one-record minimum.
+    """
+    spent = index_bytes(root, role, task, now=now) + short_bytes(root, role, task, now=now)
+    return max(PACK_BUDGET_BYTES - spent, 1)
+
+
+def _short_line(entry: dict) -> str:
+    """One short-layer pointer line: id, the body clipped to 160 chars, its use count."""
+    return (
+        f"- [{entry.get('id', '')}] {_clip(entry.get('statement', ''), SHORT_CLIP)}"
+        f" (uses {entry.get('uses', 0)})"
+    )
+
+
+def short_entries(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = SHORT_INJECT_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> list[dict]:
+    """The working notes the short block injects: ranked, at most 5, inside ``budget``.
+
+    The short layer is the role's own file (Memory.md 15.1), so it is ranked by the
+    same 4.1 score over the same task query as the pack, and every body is clipped to
+    ``SHORT_CLIP`` characters - it is a pointer list, never a copy of the store. A
+    line that would overspend the block is dropped, and an empty result means the
+    caller prints no heading at all.
+    """
+    moment = now or datetime.date.today()
+    candidates = [
+        entry for entry in memories(root, role) if str(entry.get("status")) in INJECTABLE_STATUSES
+    ]
+    taken: list[dict] = []
+    size = len(SHORT_HEADING.encode("utf-8")) + 1
+    for entry in rank(candidates, task_query(root, role, task), moment)[:SHORT_INJECT_ENTRIES]:
+        cost = len(_short_line(entry).encode("utf-8")) + 1
+        if size + cost > budget:
+            continue
+        taken.append(entry)
+        size += cost
+    return taken
+
+
+def short_block(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = SHORT_INJECT_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> str:
+    """The short block as injected: one heading and one pointer line per entry.
+
+    Empty when the role's short store holds nothing to inject, so the block and its
+    heading are omitted entirely and the pack keeps the full remainder of the
+    budget.
+    """
+    entries = short_entries(root, role, task, budget, now)
+    if not entries:
+        return ""
+    return "\n".join([SHORT_HEADING, *(_short_line(entry) for entry in entries)])
+
+
+def short_bytes(
+    root: Path,
+    role: str,
+    task: str = "",
+    budget: int = SHORT_INJECT_BYTES,
+    now: datetime.date | datetime.datetime | None = None,
+) -> int:
+    """The UTF-8 bytes the short block costs when injected, its own newline included."""
+    block = short_block(root, role, task, budget, now)
+    return len(block.encode("utf-8")) + 1 if block else 0
+
+
 def render_search(
     entries: list[dict],
     query: str,
     now: datetime.date | datetime.datetime,
     limit: int = SEARCH_LIMIT,
     budget: int = SEARCH_BUDGET_BYTES,
+    page_facts: list[dict] | None = None,
 ) -> str:
     """Top ``limit`` matches over every store, clipped so the whole output fits ``budget``.
 
     A record that shares no term with the query is not a match, so an empty result
-    is an honest empty result rather than ten weakly ranked records.
+    is an honest empty result rather than ten weakly ranked records. Wiki fact
+    lines (15.5) compete for the same ``limit`` and ``budget`` as the records, so a
+    wiki can never grow the read budget: it is ranked by the same 4.1 score and
+    printed as ``W-0003 -> Wiki/<slug>.md#L<n>``.
     """
     terms = set(tokenize(query))
     candidates = [
-        entry
-        for entry in entries
-        if str(entry.get("status") or "") in INJECTABLE_STATUSES
-        and terms & set(record_tokens(entry))
+        entry for entry in entries if searchable(entry) and terms & set(record_tokens(entry))
     ]
     ranked = rank(candidates, query, now)[:limit]
+    matched_facts = rank(
+        [fact for fact in (page_facts or []) if terms & set(record_tokens(fact))], query, now
+    )
+    total_matches = len(ranked) + len(matched_facts)
     lines: list[str] = []
     total = 0
-    for position, entry in enumerate(ranked):
+    for entry in ranked:
         cost = line_bytes(entry)
-        footer = len(_search_footer(position + 1, len(ranked), total + cost).encode("utf-8")) + 1
+        footer = (
+            len(_search_footer(len(lines) + 1, total_matches, total + cost).encode("utf-8")) + 1
+        )
         if total + cost + footer > budget:
             break
         lines.append(render_record(entry))
         total += cost
-    return "\n".join(lines + [_search_footer(len(lines), len(ranked), total)]) + "\n"
+    for fact in matched_facts:
+        if len(lines) >= limit:
+            break
+        line = f"- {fact['id']} -> {fact['pointer']} {fact['statement']}"
+        cost = len(line.encode("utf-8")) + 1
+        footer = (
+            len(_search_footer(len(lines) + 1, total_matches, total + cost).encode("utf-8")) + 1
+        )
+        if total + cost + footer > budget:
+            break
+        lines.append(line)
+        total += cost
+    return "\n".join(lines + [_search_footer(len(lines), total_matches, total)]) + "\n"
 
 
 def _search_footer(shown: int, total: int, bytes_used: int) -> str:
@@ -390,16 +657,30 @@ def _sort_stamp(entry: dict) -> tuple:
     return (str(entry.get("updated") or ""), str(entry.get("id") or ""))
 
 
-def dream(entries: list[dict], now: datetime.date | datetime.datetime) -> dict:
+def dream(
+    entries: list[dict],
+    now: datetime.date | datetime.datetime,
+    project: Path | None = None,
+    budget_seconds: float = 0.0,
+) -> dict:
     """The four maintenance reports of 4.2 over lessons and knowledge.
 
     ``duplicate`` pairs same-key active records whose statements overlap at 0.8 or
     more and names the newer one to keep; ``contradiction`` pairs same-key active
     records that share too little (under 0.5) to be the same claim and reports
     both without choosing; ``stale`` lists active records with no uses, older than
-    90 days and not pinned; ``no_evidence`` lists records whose evidence is
-    missing or under 20 characters. Nothing is mutated here.
+    ``STALE_AFTER_DAYS`` and not pinned; ``no_evidence`` lists records whose
+    evidence is missing or under 20 characters. ``drifted`` names the records
+    whose evidence no longer resolves against the tree, computed by
+    :func:`memverify.verify_all` - the same function ``memory verify`` reports -
+    and empty when the caller passes no ``project`` to resolve against. Nothing is
+    mutated here.
+
+    ``budget_seconds`` is the 15.4 wall clock: past it the pass stops and
+    ``deferred`` names how many records it did not check, so a trigger never
+    blocks a lane start.
     """
+    deadline = time.monotonic() + budget_seconds if budget_seconds else 0.0
     scoped = [entry for entry in entries if str(entry.get("kind") or "") in DREAM_KINDS]
     groups: dict[tuple, list[dict]] = {}
     for entry in scoped:
@@ -408,10 +689,15 @@ def dream(entries: list[dict], now: datetime.date | datetime.datetime) -> dict:
     duplicates: list[tuple] = []
     contradictions: list[tuple] = []
     claimed: set[str] = set()
-    for key, members in sorted(groups.items()):
+    keys = sorted(groups.items())
+    deferred = 0
+    for position, (key, members) in enumerate(keys):
+        if deadline and time.monotonic() > deadline:
+            deferred = sum(len(other) for _key, other in keys[position:])
+            break
         ordered = sorted(members, key=lambda entry: str(entry.get("id") or ""))
-        for position, left in enumerate(ordered):
-            for right in ordered[position + 1 :]:
+        for index, left in enumerate(ordered):
+            for right in ordered[index + 1 :]:
                 if not _is_active(left) or not _is_active(right):
                     continue
                 overlap = statement_overlap(left, right)
@@ -433,6 +719,15 @@ def dream(entries: list[dict], now: datetime.date | datetime.datetime) -> dict:
                         )
                     )
 
+    if deferred:
+        return {
+            "duplicate": duplicates,
+            "contradiction": contradictions,
+            "stale": [],
+            "no_evidence": [],
+            "drifted": [],
+            "deferred": deferred,
+        }
     stale = sorted(
         entry["id"]
         for entry in scoped
@@ -451,7 +746,28 @@ def dream(entries: list[dict], now: datetime.date | datetime.datetime) -> dict:
         "contradiction": contradictions,
         "stale": stale,
         "no_evidence": no_evidence,
+        "drifted": drifted(scoped, project, now),
+        "deferred": 0,
     }
+
+
+def drifted(
+    entries: list[dict], project: Path | None, now: datetime.date | datetime.datetime
+) -> list[tuple[str, str, str]]:
+    """``(id, evidence kind, reason)`` for every record whose evidence no longer resolves.
+
+    The computation lives in :mod:`teamwork.memverify` so ``memory verify`` and
+    the dream pass can never disagree about what drifted.
+    """
+    if project is None:
+        return []
+    from .memverify import DRIFTED, verify_all
+
+    return [
+        (str(row["id"]), str(row["kind"]), str(row["reason"]))
+        for row in verify_all(entries, project, now)
+        if row["verify_status"] == DRIFTED
+    ]
 
 
 def _is_active(entry: dict) -> bool:

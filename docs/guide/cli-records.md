@@ -218,9 +218,78 @@ is - the three states are deliberately different codes:
 An empty store exits `3`, never `0`: "nothing recorded yet" is not "everything
 verified", and a `0` there would let a run with no acceptance criteria read as
 green. `criteria verify` and `criteria reopen` of an unknown id exit `1`;
-`criteria add` of an existing id exits `1`. The `records` probe accepts exit `3`
-only when the store also holds no criterion - an id the CLI cannot see is a
-defect, an absent one is a state (`tests/integration/probes/records_probe.py`).
+`criteria add` of an existing id exits `1`; `criteria rm` needs `--by` and, from
+a role other than the CEO, a recorded `--force` reason. The `records` probe accepts
+exit `3` only when the store also holds no criterion - an id the CLI cannot see is
+a defect, an absent one is a state (`tests/integration/probes/records_probe.py`).
+
+## The context tree
+
+```text
+teamwork context ls [URI] [--level {0,1}] [--limit N]
+teamwork context tree [URI] [-L N]
+teamwork context read URI [--level {0,1,2}]
+teamwork context find QUERY [--scope URI] [--limit N]
+teamwork context stats
+teamwork context digest T-ID
+```
+
+`ctx://` is one **read-only** view over memory, lessons, knowledge, skills, docs
+and tasks. Every node resolves to an existing file or record, and the view writes
+no sidecar, index or cache. Three levels keep a read proportional to the question:
+L0 is the one-line summary, L1 the record fields or child list, L2 the full
+record.
+
+| Command | What it does |
+|---|---|
+| `ls` | Children of a node (default: the root). `--level 0` prints summaries. |
+| `tree` | The tree to depth `-L` (default 2). |
+| `read` | One node at L0, L1 or L2. |
+| `find` | Deterministic search over the tree; `--scope` limits it to one subtree. The same query returns the same rows in the same order. |
+| `stats` | Live counts per store - how many records each one holds. |
+| `digest` | Proposes lesson or knowledge records from one task's history (a title capped at 120 characters, a cause at 300). It writes nothing. |
+
+Retrieve by id rather than by whole file: start with `context find` or
+`context ls`, then read the level you need. `context` never replaces `load`, the
+gates or the evidence rule - it is how you avoid reading a whole `Archive.md` to
+answer one question.
+
+## Layered tests
+
+```text
+teamwork tests add --layer LAYER [--area AREA] [--owner OWNER] [--task TASK]
+    [--command COMMAND] [--no-owner-check] [--force REASON]
+teamwork tests run ID --by BY --result {pass,fail} --evidence EVIDENCE
+    [--rev REV] [--command COMMAND] [--baseline BASELINE] [--artifact PATH]
+    [--replay REPLAY] [--force REASON]
+teamwork tests repro TASK [--role ROLE] --by BY --pre-rev PRE_REV
+    --pre-evidence PRE_EVIDENCE --post-rev POST_REV --post-evidence POST_EVIDENCE
+    [--artifact PATH] [--force REASON]
+teamwork tests require --area AREA --layers LAYERS --by BY [--reason REASON]
+teamwork tests rm ID --by BY [--force REASON]
+teamwork tests plan
+teamwork tests list [--layer LAYER]
+```
+
+One test record per (layer, area), owned by the role that owns the layer: `goal`
+CEO, `requirements` Product Manager, `plan` Project Manager, `tech` CTO,
+`release` Release Engineer, `data` Data Engineer, `process` COO, `cost` CFO,
+`system` Architect, `ui` Designer, `docs` Technical Writer, `unit` Developer,
+`integration` Tester, `acceptance` Reviewer, `security` Security Auditor,
+`feature` Team Leader.
+
+| Command | What it does |
+|---|---|
+| `add` | Declares the layer for an area, with the command that runs it. The owning role is checked unless `--no-owner-check`. |
+| `run` | Records one run: `--result`, `--evidence` and the packet (`--baseline`, `--artifact`, `--replay`). `--rev` binds it to a revision, so a later review can cite it instead of re-running it. |
+| `repro` | Proves a defect on its `--bug` task: a failing run at `--pre-rev` recorded before the passing run at `--post-rev`. A bug task cannot self-check without it. |
+| `require` | Declares which layers an area must cover, so `tests plan` can report a gap rather than a silently thinner matrix. |
+| `rm` | Removes a record; `--force` with a reason is required for a record the role does not own. |
+| `plan` | The coverage matrix and every gap, marking each cell `+` passing, `!` failing, `.` pending, `?` missing, `·` not required. It only requires the layers of **staffed** roles. |
+| `list` | The records themselves, optionally filtered to one layer. |
+
+`loop` refuses `STOP` while a required layer for an area in use is missing or not
+passing, so the matrix is a gate, not a report.
 
 
 ## The rest of the reference

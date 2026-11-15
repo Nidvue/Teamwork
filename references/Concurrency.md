@@ -96,7 +96,7 @@ and never re-adopted after a lane has spent an attempt - the measured failure wa
 a supervisor that re-planned one stalled task for 783 waves.
 
 ```sh
-teamwork.py swarm run                 # waves until nothing is runnable
+teamwork.py swarm run                 # one async wave, then return (--wait drains)
 teamwork.py swarm run --dry-run       # the measured policy + next wave, start nothing
 teamwork.py pulse --commit            # one wake: dispatch, then run the swarm (the default)
 teamwork.py pulse --commit --no-spawn # one wake: the plan only, start no lane
@@ -105,11 +105,16 @@ teamwork.py swarm run --fixed --lanes 4 --minutes 90 --poll 5
 teamwork.py lane status --live        # what is running right now
 teamwork.py lane logs L-0007 --lines 60
 teamwork.py lane stop L-0007 --reason "superseded by L-0008"
-teamwork.py lane reap                 # reconcile a lane that died with no outcome
+teamwork.py lane reap                 # reconcile, free slots, recycle finished seats (--keep opts out)
 ```
 
-- **One lane, one assignment.** A wave hands one unit to each idle instance and
-  fans the rest out; a second unit in one run stays the CEO's `LANE_WIP` choice.
+- **One lane, one assignment.** A wave hands one unit to each idle instance
+  round-robin and fans the rest out; a second unit in one run stays the CEO's
+  `LANE_WIP` choice, so no queue piles onto one lane.
+- **Dispatch is asynchronous by default.** `swarm run` and `pulse --commit --spawn`
+  start the wave and return; every lane is a detached process that runs
+  independently, and the next wake reconciles and refills. `--wait` is the batch
+  drain (and `--waves N` implies it) - for CI, never for the live loop.
 - **A provider lease is taken with the process** and released when it ends, so the
   cap in `Settings.json` bounds concurrent lanes without a second bookkeeping path.
 - **A budget is enforced, not requested.** `LaneMinutes` (default 25) is a hard
@@ -120,12 +125,24 @@ teamwork.py lane reap                 # reconcile a lane that died with no outco
 - **Reviews become lanes.** A deliverable in `review` is claimed for a Reviewer
   instance in the next wave; the reviewer lane claims, verdicts, and its pass
   merges - the same gate, one process further out.
+- **A finished job recycles its seat.** `lane reap` retires the instance of a lane
+  that ended and holds nothing else (move-only, record repointed), under the same
+  fold policy as `instance prune --keep-required`: never the CEO, one instance of
+  each gate role kept. A surplus seat is recycled without a separate prune; the
+  pulse fold does the same on each wake.
+- **The packet carries the memory once.** A lane packet injects the task-ranked
+  memory pack (index + pack, inside `PACK_BUDGET_BYTES`) and the role's open
+  lessons, and tells the lane **not** to re-read them with `tw load`: the `load`
+  output is ~18 kB and repeats the injected pack, so the mandatory re-read was
+  the largest avoidable token cost per lane (measured on the Reviewer: 7.4 kB
+  packet, 18 kB load).
 - **State survives the supervisor.** No live object is required: `lane reap` and a
   re-entered `swarm run` resume from `Runtime/Lanes/`.
 
-`pulse --commit` remains the one-shot dispatch (claim the plan into the queues);
-`swarm run` is the loop that executes it. Both read the same board and obey the
-same caps, so a team can mix them freely.
+`pulse --commit` is the one-shot dispatch (claim the plan into the queues);
+`swarm run` dispatches the next wave from the same board and obeys the same caps.
+Neither blocks by default - `--wait` is the batch drain - so a team can mix them
+freely and no lane waits on another.
 
 ### Work-in-progress, not lane count, is the throughput
 

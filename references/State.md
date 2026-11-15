@@ -130,6 +130,37 @@ approaches in long-term; team-wide facts in global memory (CEO), proposed by the
 owner who discovered them; a mistake the role must not repeat in its
 `Lessons.md`; a durable project fact in the shared `Knowledge.md`.
 
+### Re-resolving the evidence: `memory verify`
+
+A record's `evidence` line names its ground truth, and `memory verify` re-reads
+that ground truth now: `@<sha>` or `rev <sha>` through `git cat-file -e`, a
+`path/to/file[:LINE]` against the working tree, an `https://` source against its
+access date (`accessed YYYY-MM-DD` or `(YYYY-MM-DD)`, at most 400 days old). Every
+kind the evidence names is checked and the worst status wins - `drifted` over
+`unverifiable` over `verified` - with the reason naming each kind, so a drifted
+path behind a valid revision is reported instead of passing on the revision. A
+record whose evidence names none of the three is `unverifiable`, never `drifted`.
+
+```sh
+teamwork.py memory verify [--role R] [--limit N] [--json]
+teamwork.py memory verify --focus <text | T-ID> [--limit N]   # the best 25, by the 4.1 score
+teamwork.py memory verify --apply --by <you>   # stamp the knowledge records it reported
+```
+
+`--focus` tunes the pass to a goal (9.1): the text - or a task id, resolved to its
+title through `memorypack.task_query` - ranks every record with the frozen 4.1
+score, and the first `--limit` (default 25, `0` still means all) are verified in
+score order, highest first. The rest are reported as
+`# verify: N deferred by --focus`, one line after the footer. Without `--focus`
+every record is verified in pointer order and the output is byte-identical to the
+pass before the flag.
+
+`--apply` writes exactly two fields on knowledge records, `checked` and
+`verify_status`, and appends one `memory.verify` ledger event with the counts:
+statements and evidence are never rewritten, no record is deleted, and lessons or
+short-term entries are reported only. `memory dream` prints the same `drifted`
+group from the same function, so the pass and the command cannot disagree.
+
 ## Lessons and project knowledge
 
 Two stores sit beside memory. Both are team-local working state, gitignored and
@@ -165,7 +196,8 @@ teamwork lesson add --by <you> --mistake TEXT --cause TEXT --rule TEXT --evidenc
     [--role ROLE] [--task TASK]
 teamwork lesson list [--role ROLE] [--status open|fixed|all]
 teamwork lesson show L_ID
-teamwork lesson fix L_ID --by <you> [--rule RULE] [--skill TW_NAME] [--evidence EVIDENCE]
+teamwork lesson fix L_ID --by <you> [--rule RULE] [--check CMD | --no-check WHY] \
+    [--skill TW_NAME] [--evidence EVIDENCE]
 ```
 
 - `add` requires `--by`, `--mistake`, `--cause`, `--rule` and `--evidence`; the
@@ -176,7 +208,10 @@ teamwork lesson fix L_ID --by <you> [--rule RULE] [--skill TW_NAME] [--evidence 
   lesson may be re-proved only with new `--evidence`; without it the command
   exits `1` and changes nothing. A `--skill` must be a registered `tw-` skill of
   kind `mistake`; `skill create --from-lesson` sets the same link from the other
-  side.
+  side. An `open` lesson also needs a rung: `--check '<cmd>'` runs the command in
+  the invoker's checkout and must exit 0 (a red one proves the check does not
+  catch the lesson), or `--no-check '<why>'` records that the class is gone by
+  design. Neither flag is prose, and the two are exclusive.
 - `load` prints the role's open lessons (first 10) and the number of fixed ones,
   so every instance starts by reading the mistakes it must not repeat.
 
@@ -233,6 +268,44 @@ teamwork knowledge touch K_ID --by <you>
   `- [K-0001] [experience] <topic>: <statement> (uses=N, tags=...)` and the
   active/superseded counts, so the startup read is the most important and most
   used knowledge, not the newest ten.
+- `load` and every lane packet open with the memory index (Memory.md 11): a capped
+  pointer list `- <topic> -> <file>#<id>` over the active knowledge topics and the
+  open lesson titles, in the 4.1 score order for the task, at most 8 lines, and
+  `# memory index: N topic(s), M record(s)` / `# index: B bytes (budget 800)`
+  around them. It points, it never copies a statement, and a line that would
+  overspend `INDEX_BUDGET_BYTES` (800) is dropped rather than truncated.
+- The index replaces the verbose `- [L-0001] mistake -> rule` rows `load` used to
+  print and is charged against the pack budget (`index + pack <= 4000`), so the
+  whole `load` output does not grow by the index's bytes (AC-M22-4, T-0057).
+
+Measured back to back on one store at `8a34759`: the `90502bb` renderer in
+`.pi/Scratch/ceo/baseline` and the merged one, run one after the other.
+
+| surface | before `90502bb` | after `8a34759` | delta |
+|---|---|---|---|
+| `load CEO` | 8112 B | 5455 B | -2657 B |
+| `load Developer` | 5746 B | 5776 B | +30 B |
+| `load Tester` | 4995 B | 5415 B | +420 B |
+| the index block for CEO | n/a | 523 B, 8 lines | n/a |
+
+Both growths are inside the 800 B index bound the `AC-M22-4` ruling allows. Writing
+one more lesson (`L-0019`) moved `load CEO` +354 B on the old renderer and 0 B on
+the merged one: the index is capped, so a lane's startup read stops tracking the
+size of the store. The full table, with the pack, the dream pass and transcript
+reach, is `Memory.md` 13.
+
+### Sparse read gate
+
+`teamwork.py read <path> --query '<needle>'` is the read gate for one file,
+adopted from SparseRead (https://github.com/Liuzedooong/SparseReading, MIT,
+accessed 2026-11-13). Under 4 KiB, binary or `--full` returns the whole file
+unchanged; a large file with a query returns only the matching line ranges,
+merged with three lines of context, each headed `start-end (N match(es))` and
+every line prefixed with its number; `--lines A-B` verifies an exact range; no
+query on a large file is a 40-line scout plus the line count. `--budget`
+(default 4096) bounds the pack and names what it left out. Every call appends a
+`read.sparse` record with the returned and full bytes, and `throughput` sums the
+saving under `## sparse read`.
 
 ### Context tree
 
@@ -254,6 +327,18 @@ the evidence rule.
   `ctx://project/knowledge`; a node outside it is never returned, and an unknown
   scope exits `2`. Retrieval is deterministic token matching over L0/L1 - no
   embeddings, network or index - and it never reads L2.
+- **Transcripts**: `--scope transcripts` is the one non-URI scope, and it is
+  additive - every other scope's output stays byte-identical. It searches the two
+  append-only sources the engine writes and otherwise never reads, one hit per
+  unit: `Ledger.jsonl#<n>` for one ledger event (rendered from its
+  action/actor/target/detail, not the raw JSON) and
+  `Agents/<Instance>/WorkLog.md:<line>` for one worklog line. Ranking is the same
+  4.1 score, the output is capped at 10 hits and 2,000 bytes with the
+  `# search:` footer `memory search` prints, a hit's text clips at 200
+  characters, and a query that shares no term returns an honest empty result.
+  The reader streams the file line by line, so a 100k-line ledger costs a line of
+  memory, not the file. `recall --transcripts` appends the same block under
+  `## transcripts`; without the flag `recall` prints exactly what it did before.
 - **Docs**: `ctx://project/docs` enumerates the work tree at read time (an
   untracked doc appears, a tracked file deleted from the work tree disappears),
   never the git index.
@@ -353,3 +438,44 @@ Rules: dependencies are explicit (`agent:T-0001` for cross-agent), a task with
 unmet dependencies is never started, a finished task is marked `done` with
 evidence before the agent looks for the next one, and an agent with executable
 work never idles.
+
+## The agent mailbox: queued, prioritised, preemptible
+
+`Inbox.md` is prose; the mailbox is the channel agents actually use. One message is
+one JSON record under `Runtime/Mailbox/<Instance>/<M-id>.json`, mutated under
+`Runtime/Locks/mailbox.lock`; ids are per recipient and never reused.
+
+```sh
+teamwork.py message send --from <you> --to <instance> --priority <p> \
+    --subject '<one line>' [--body '<detail>'] [--task <T-id>] [--reply-to <M-id>]
+teamwork.py message inbox --for <instance> [--all] [--json]
+teamwork.py message take <M-id> --for <instance> --by <you>
+teamwork.py message done <M-id> --for <instance> --by <you> --result '<what you did>'
+teamwork.py lane preempt <run> --message <M-id> [--reason '<why>']
+teamwork.py lane resume <T-id>
+```
+
+| priority | rank | delivery |
+|---|---|---|
+| `urgent` | 0 | preemption: the supervisor stops the recipient's lane, sets the task `paused` with the message id, and starts a mailbox lane |
+| `high` | 1 | the recipient's next read, before any new long work |
+| `normal` | 2 | the recipient's next read, in order |
+| `low` | 3 | the recipient's next read, in order |
+
+Order is `(priority rank, created)`. A lane packet opens with
+`## Messages for you (<n> pending: ...)` and the rows in that order; `message inbox`
+is the same list on demand, so a long lane re-checks between steps.
+
+State machine: `pending -> taken -> done | dropped`. `take` refuses a message another
+lane holds and refuses one already closed, so one message is processed once; `done`
+records the result the sender reads. `lane resume` returns a paused task to `doing`;
+a `paused` task is in flight, so `loop` will not report STOP while one waits.
+
+Why preemption is the supervisor's and not a peer's: an agent is one process and
+cannot be interrupted mid-turn by another process. The cheap path is the queue (the
+recipient reads it at its next step, nothing is lost); the expensive path is the
+supervisor stopping the lane, because it is the only component that owns process
+lifecycle. A message never carries authority - it carries a request, and the
+recipient still records its own evidence.
+
+Ledger actions: `message.send`, `message.take`, `message.done`, `lane.preempt`.

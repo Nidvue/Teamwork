@@ -432,14 +432,24 @@ def test_init_force_preserves_records_and_team_documents(cli, project: Path) -> 
     ) == project_doc
 
 
-def test_repo_bootstrap_sets_a_role_local_git_identity(tmp_path: Path) -> None:
+def test_repo_bootstrap_leaves_a_preset_identity_alone(tmp_path: Path) -> None:
+    """The operator's identity is the author; the role mailbox is the fallback.
+
+    A scratch repository inherits the global git identity, so ``init`` must not
+    overwrite the checkout with a role mailbox - the commit would then carry the
+    wrong author. The role identity is written only when no identity exists at all,
+    which the next test pins by clearing both scopes.
+    """
     project = tmp_path / "repo-bootstrap"
     project.mkdir()
+    before = engine.preset_identity(project)
     engine.ensure_repo(project, commit=False, quiet=True)
-    assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
-        "ceo@agents.nidvue.com"
-    )
-    assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "CEO"
+    if before is None:
+        assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
+            "ceo@agents.nidvue.com"
+        )
+    else:
+        assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == ""
 
 
 def test_repo_bootstrap_never_overwrites_an_existing_local_identity(tmp_path: Path) -> None:
@@ -462,9 +472,38 @@ def test_repo_bootstrap_preserves_a_name_only_local_identity(tmp_path: Path) -> 
     engine.run_git(project, "config", "--local", "user.name", "Ops Person")
     engine.ensure_repo(project, commit=False, quiet=True)
     assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
-    assert engine.run_git(project, "config", "--local", "user.email").stdout.strip() == (
-        "ceo@agents.nidvue.com"
-    )
+    resolved = engine.commit_identity("ceo", project)
+    declared = engine.declared_identity(project)
+    preset = engine.preset_identity(project)
+    if declared is not None:
+        assert resolved == declared, "a complete declared pair wins, per key"
+    elif preset is not None:
+        assert resolved == preset, "the repository's configured pair authors the commit"
+    else:
+        assert resolved == ("CEO", "ceo@agents.nidvue.com"), "role mailbox is the fallback"
+    assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
+
+
+def test_a_team_mailbox_in_the_local_config_is_never_a_preset(tmp_path: Path) -> None:
+    """The rule that keeps CI honest, pinned so deleting it fails here.
+
+    ``init`` writes the CEO mailbox into local config on a host with no identity.
+    If ``preset_identity`` returned it, every role would commit as CEO - the exact
+    regression this pins. The assertion names the mailbox and the expected fallback
+    directly, so removing the team-domain exclusion in ``names.preset_identity``
+    turns this test red.
+    """
+    project = tmp_path / "role-mailbox-local"
+    project.mkdir()
+    engine.run_git(project, "init", "-q", "-b", "main")
+    engine.run_git(project, "config", "--local", "user.name", "CEO")
+    engine.run_git(project, "config", "--local", "user.email", "ceo@agents.nidvue.com")
+    assert engine.preset_identity(project) is None, "a team mailbox is not an operator"
+    assert engine.commit_identity("developer", project) == (
+        "Developer",
+        "developer@agents.nidvue.com",
+    ), "the acting role's mailbox is the fallback"
+    assert engine.commit_identity("ceo", project) == ("CEO", "ceo@agents.nidvue.com")
 
 
 def test_dispute_sign_by_a_non_tribunal_role_fails_cleanly(cli, project: Path) -> None:
@@ -862,3 +901,33 @@ def test_a_properly_shaped_teamwork_root_still_resolves_the_project(
     monkeypatch.setenv("TEAMWORK_ROOT", str(root))
     assert engine.project_of(root) == project.resolve()
     assert engine.docs_dir(root) == project.resolve().joinpath(*engine.DIR_DOCS)
+
+
+def test_an_explicit_project_wins_over_the_lane_environment(
+    cli, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Explicit beats ambient: `--project` is the isolation boundary (L-0047/L-0048).
+
+    A lane exports ``TEAMWORK_ROOT``; a repro that passed ``--project`` at a scratch
+    tree then wrote into the live queue - six tasks landed in the team's developer
+    queue, twice. The project flag decides when it is given.
+    """
+    live = tmp_path / "live"
+    assert cli("--project", live, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    live_root = (
+        live / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / engine.team_slug(live)
+    ).resolve()
+    monkeypatch.setenv("TEAMWORK_ROOT", str(live_root))
+
+    scratch = tmp_path / "scratch"
+    assert cli("--project", scratch, "init", "--agents", "ceo,developer-1", "--no-git") == 0
+    scratch_root = (
+        scratch / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / engine.team_slug(scratch)
+    ).resolve()
+    assert cli("--project", scratch, "task", "add", "developer", "scratch only") == 0
+
+    titles = [t["title"] for t in engine.parse_tasks(engine.task_file(scratch_root, "developer"))]
+    assert titles == ["scratch only"], titles
+    assert engine.parse_tasks(engine.task_file(live_root, "developer")) == [], (
+        "the lane's team tree must not receive a command that named another project"
+    )

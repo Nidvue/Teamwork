@@ -167,6 +167,8 @@ LAYER_CELL = {
     "feature": "feat",
 }
 
+OPERATOR_IDENTITY = ("<redacted-personal-name>", "<redacted-personal-email>")
+
 TEST_STATUSES = ("pending", "passing", "failing", "na")
 
 F_LEDGER = "Ledger.jsonl"
@@ -248,9 +250,17 @@ ARCHIVE_CAP = _env_int("TEAMWORK_ARCHIVE_CAP", 256)
 
 STALE_DAYS = _env_int("TEAMWORK_STALE_DAYS", 3)
 
-MIN_USES = _env_int("TEAMWORK_MIN_USES", 2)
+PROMOTE_USES = _env_int("TEAMWORK_PROMOTE_USES", 2)
 
 PROMOTE_MIN_IMPORTANCE = _env_int("TEAMWORK_PROMOTE_MIN_IMPORTANCE", 2)
+
+STALE_AFTER_DAYS = _env_int("TEAMWORK_STALE_AFTER_DAYS", 90)
+
+DREAM_BUDGET_SECONDS = _env_int("TEAMWORK_DREAM_BUDGET_SECONDS", 2)
+
+WIKI_BUDGET_BYTES = _env_int("TEAMWORK_WIKI_BUDGET_BYTES", 1200)
+
+WIKI_MAX_PAGES = _env_int("TEAMWORK_WIKI_MAX_PAGES", 20)
 
 DOCS = {
     "Project.md": "CEO",
@@ -512,4 +522,4 @@ REVIEW_STATUSES = ("open", "approved", "changes-requested", "merged", "closed")
 
 PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 
-STATUSES = ("todo", "doing", "selfcheck", "review", "blocked", "done", "dropped")
+STATUSES = ("todo", "doing", "paused", "selfcheck", "review", "blocked", "done", "dropped")

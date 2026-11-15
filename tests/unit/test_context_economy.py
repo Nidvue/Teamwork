@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from support import in_lane, lane_cli
 from teamwork import engine
 from teamwork.names import clip
 
@@ -25,11 +26,18 @@ LIMIT = engine.VIEW_CLIP_LIMIT
 
 AUTHOR_HEAD = "author-head "
 AUTHOR_TAIL = "zulu-author-tail-sentinel-9f2c"
-AUTHOR_LONG = AUTHOR_HEAD + ("alpha-evidence-word " * 40) + AUTHOR_TAIL
+AUTHOR_LONG = (
+    AUTHOR_HEAD + "pytest -q @HEAD -> 3 passed " + ("alpha-evidence-word " * 40) + AUTHOR_TAIL
+)
 
 REVIEWER_HEAD = "reviewer-head "
 REVIEWER_TAIL = "bravo-reviewer-tail-sentinel-4b1d"
-REVIEWER_LONG = REVIEWER_HEAD + ("bravo-verification-word " * 40) + REVIEWER_TAIL
+REVIEWER_LONG = (
+    REVIEWER_HEAD
+    + "teamwork.py links @HEAD -> # issues: 0 "
+    + ("bravo-verification-word " * 40)
+    + REVIEWER_TAIL
+)
 
 FINDINGS_HEAD = "finding-head "
 FINDINGS_TAIL = "delta-finding-tail-sentinel-7a3e"
@@ -141,9 +149,11 @@ def ship_task(cli, project: Path, handle: str, title: str, filename: str) -> Non
         )
         == 0
     )
-    (project / filename).write_text("done\n", encoding="utf-8")
+    author = lane_cli(cli, project, handle)
+    with in_lane(project, handle) as tree:
+        (tree / filename).write_text("done\n", encoding="utf-8")
     assert (
-        cli(
+        author(
             "--project",
             project,
             "commit",
@@ -173,7 +183,7 @@ def ship_task(cli, project: Path, handle: str, title: str, filename: str) -> Non
         cli("--project", project, "task", "set", "developer", handle, "--status", "selfcheck") == 0
     )
     assert (
-        cli(
+        author(
             "--project",
             project,
             "selfcheck",
@@ -189,7 +199,9 @@ def ship_task(cli, project: Path, handle: str, title: str, filename: str) -> Non
         == 0
     )
     assert cli("--project", project, "task", "set", "developer", handle, "--status", "review") == 0
-    assert cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle) == 0
+    assert (
+        author("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle) == 0
+    )
 
 
 def test_clip_returns_short_text_unchanged() -> None:
@@ -269,7 +281,7 @@ def test_review_queue_clips_findings_too_and_counts_them(cli, project: Path, cap
         == 0
     )
     assert (
-        cli(
+        lane_cli(cli, project, "T-0001")(
             "--project",
             project,
             "selfcheck",
@@ -545,15 +557,15 @@ def test_archive_rewrite_is_a_commit_by_the_reviewer(cli, project: Path, capsys)
     body = engine.run_git(project, "log", "-1", "--format=%B").stdout
     subject = engine.run_git(project, "log", "-1", "--format=%s").stdout
     changed = engine.run_git(project, "show", "--name-only", "--format=", "HEAD").stdout.split()
-    assert "Acting role: Reviewer" in body
+    assert "Acting role" not in body, body
     assert changed == ["docs/Team/Archive.md"], "the record commit touches only the archive"
     assert "record the merge revision" in subject, "the rewrite is its own recorded commit"
-    assert branch in body and sha in body
-    assert engine.run_git(project, "log", "-1", "--format=%an").stdout.strip() == "Reviewer"
+    assert body.strip() == subject.strip(), "the commit message is one line"
+    assert "Acting role" not in engine.run_git(project, "log", "-1", "--format=%B").stdout
     records = [r for r in engine.ledger_read(root) if r["action"] == "pr.merge.archive"]
     assert len(records) == 1
     assert records[0]["actor"] == "Reviewer-2"
-    assert sha in records[0]["detail"] and records[0]["rev"]
+    assert branch in records[0]["detail"] and sha in records[0]["detail"] and records[0]["rev"]
 
 
 def test_archive_merge_sha_rewrite_is_idempotent(cli, project: Path, capsys) -> None:
@@ -1084,3 +1096,47 @@ def test_the_archive_mask_and_the_gate_agree_on_every_probe(tmp_path: Path) -> N
         assert engine.mask_secret_shapes(line) == line, (
             f"the gate is silent, so the mask must be too: {line}"
         )
+
+
+def test_archive_multiline_quoted_evidence_is_not_link_checked(tmp_path: Path) -> None:
+    """A quoted field runs past its bullet: its continuation lines are evidence too.
+
+    T-0061: an accepted result's evidence is often one bullet followed by
+    ``DELIVERY:``/``FIDELITY:`` paragraphs, so a bare URL there was read as an
+    authored link and ``links`` failed at every merge that carried one.
+    """
+    docs = tmp_path / "docs" / "Team"
+    docs.mkdir(parents=True)
+    (docs / "Archive.md").write_text(
+        engine.ARCHIVE_HEADER + "\n## T-0001 · shipped  (developer)\n"
+        "- date: 2026-10-19\n"
+        "- reviewer evidence: PASS. Fetched the page for the quoted fragment.\n"
+        "FIDELITY: my own curl -sL https://www.anthropic.com/research/x -> HTTP 200\n"
+        "\n"
+        "## T-0002 · shipped  (developer)\n"
+        "- date: 2026-10-20\n"
+        "- area: docs\n"
+        "Authored prose with https://example.com/authored -> still a bare URL\n",
+        encoding="utf-8",
+    )
+
+    report = engine.link_report(tmp_path, tmp_path)
+    assert [url for _, url in report["bare"]] == ["https://example.com/authored"], (
+        "a quoted continuation is evidence; the next entry's authored prose is not"
+    )
+
+
+def test_archive_quoted_field_stops_at_the_next_bullet(tmp_path: Path) -> None:
+    """The quote ends at the entry's next field bullet, so no field is swallowed."""
+    docs = tmp_path / "docs" / "Team"
+    docs.mkdir(parents=True)
+    (docs / "Archive.md").write_text(
+        engine.ARCHIVE_HEADER + "\n## T-0001 · shipped  (developer)\n"
+        "- date: 2026-10-19\n"
+        "- author evidence: commit abc123\n"
+        "- area: https://example.com/authored\n",
+        encoding="utf-8",
+    )
+
+    report = engine.link_report(tmp_path, tmp_path)
+    assert [url for _, url in report["bare"]] == ["https://example.com/authored"]

@@ -34,7 +34,7 @@ gate, in CI as well as locally.
 | `make privacy` | `python scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` | No personal data, credentials, agent-host configuration or local state in the tree, the index or the history. The allowlist exempts specific committed values by exact literal, each with a written reason; a credential on the same line is still reported. |
 | `make docs` | `python -m mkdocs build --strict` | The docs site builds with no warnings. |
 | `make links` | `python scripts/teamwork.py links` | No broken links, bare URLs or missing back-links. |
-| `make identity` | `python scripts/teamwork.py identity --audit` | Every team commit is authored and committed by its role. |
+| `make identity` | `python scripts/teamwork.py identity --audit` | Every team commit is authored and committed by the repository's configured pair (a role mailbox only under `TEAMWORK_COMMIT_IDENTITY=role`). |
 | `make selftest` | `python scripts/teamwork.py selftest` | The installed engine passes its smoke check. |
 | `make clean` | - | Remove build output and caches. |
 

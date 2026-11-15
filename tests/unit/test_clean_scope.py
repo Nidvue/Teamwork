@@ -18,6 +18,7 @@ Owner: developer. Layer: unit. Area: clean-scope.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from teamwork import engine
@@ -188,7 +189,9 @@ def test_a_file_whose_unlink_fails_is_reported_not_counted(cli, project: Path, c
     The lane's `Scratch/` is made read-only for the run, so `unlink` raises
     `OSError` for the file inside it. The summary may not claim it, and the
     command has to name it as not removed - a janitor that lies about what is
-    still on disk is worse than one that fails loudly.
+    still on disk is worse than one that fails loudly. Windows ignores the mode
+    bits and refuses to unlink an open file instead, so the fixture holds a
+    handle there (T-0094): the product question and the assertion are the same.
     """
     root, _peer, _mine, _shared = seed(cli, project)
     locked = root / "Agents" / "Developer-2" / "Scratch" / "locked" / "keep.tmp"
@@ -196,12 +199,17 @@ def test_a_file_whose_unlink_fails_is_reported_not_counted(cli, project: Path, c
     locked.write_text("locked\n", encoding="utf-8")
     rel = locked.relative_to(project).as_posix()
     capsys.readouterr()
-    locked.parent.chmod(0o500)
+    holder = open(locked, "rb") if os.name == "nt" else None
+    if holder is None:
+        locked.parent.chmod(0o500)
     try:
         code = clean(cli, project, "--agent", "developer-2", "--all")
         out = capsys.readouterr().out
     finally:
-        locked.parent.chmod(0o700)
+        if holder is not None:
+            holder.close()
+        else:
+            locked.parent.chmod(0o700)
     assert locked.exists(), "the fixture did not block the unlink, so nothing is proved"
     assert code == 0
     assert "removed 4 scratch/temp file(s)" in out, out

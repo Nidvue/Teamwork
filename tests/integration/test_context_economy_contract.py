@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from support import in_lane, lane_cli
 from teamwork import engine
 
 AGENTS = "ceo,developer-1,reviewer-1,reviewer-2"
@@ -34,11 +35,18 @@ LIMIT = engine.VIEW_CLIP_LIMIT
 
 AUTHOR_HEAD = "author-head "
 AUTHOR_TAIL = "zulu-author-tail-sentinel-9f2c"
-AUTHOR_LONG = AUTHOR_HEAD + ("alpha-evidence-word " * 40) + AUTHOR_TAIL
+AUTHOR_LONG = (
+    AUTHOR_HEAD + "pytest -q @HEAD -> 3 passed " + ("alpha-evidence-word " * 40) + AUTHOR_TAIL
+)
 
 REVIEWER_HEAD = "reviewer-head "
 REVIEWER_TAIL = "bravo-reviewer-tail-sentinel-4b1d"
-REVIEWER_LONG = REVIEWER_HEAD + ("bravo-verification-word " * 40) + REVIEWER_TAIL
+REVIEWER_LONG = (
+    REVIEWER_HEAD
+    + "teamwork.py links @HEAD -> # issues: 0 "
+    + ("bravo-verification-word " * 40)
+    + REVIEWER_TAIL
+)
 
 FINDINGS_HEAD = "finding-head "
 FINDINGS_TAIL = "delta-finding-tail-sentinel-7a3e"
@@ -88,55 +96,63 @@ def ship(cli, project: Path, handle: str = "T-0001") -> None:
         cli("--project", project, "branch", "start", "--agent", "developer-1", "--task", handle)
         == 0
     )
-    (project / "feature.txt").write_text("done\n", encoding="utf-8")
-    assert (
-        cli(
-            "--project",
-            project,
-            "commit",
-            "--role",
-            "developer",
-            "--type",
-            "feat",
-            "--task",
-            handle,
-            "--area",
-            "core",
-            "--goal",
-            "ship the clip helper",
-            "--deliverable",
-            "feature.txt",
-            "--why",
-            "the task asked for it",
-            "--status",
-            "implemented",
-            "--result",
-            "pytest @HEAD -> 1 passed",
-            "--all",
+    author = lane_cli(cli, project, handle)
+    with in_lane(project, handle) as tree:
+        (tree / "feature.txt").write_text("done\n", encoding="utf-8")
+        assert (
+            author(
+                "--project",
+                project,
+                "commit",
+                "--role",
+                "developer",
+                "--type",
+                "feat",
+                "--task",
+                handle,
+                "--area",
+                "core",
+                "--goal",
+                "ship the clip helper",
+                "--deliverable",
+                "feature.txt",
+                "--why",
+                "the task asked for it",
+                "--status",
+                "implemented",
+                "--result",
+                "pytest @HEAD -> 1 passed",
+                "--all",
+            )
+            == 0
         )
-        == 0
-    )
-    assert (
-        cli("--project", project, "task", "set", "developer", handle, "--status", "selfcheck") == 0
-    )
-    assert (
-        cli(
-            "--project",
-            project,
-            "selfcheck",
-            "developer",
-            handle,
-            "--by",
-            "developer-1",
-            "--note",
-            "re-read the diff",
-            "--test",
-            "pytest @HEAD -> 1 passed",
+        assert (
+            cli("--project", project, "task", "set", "developer", handle, "--status", "selfcheck")
+            == 0
         )
-        == 0
-    )
-    assert cli("--project", project, "task", "set", "developer", handle, "--status", "review") == 0
-    assert cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle) == 0
+        assert (
+            author(
+                "--project",
+                project,
+                "selfcheck",
+                "developer",
+                handle,
+                "--by",
+                "developer-1",
+                "--note",
+                "re-read the diff",
+                "--test",
+                "pytest @HEAD -> 1 passed",
+            )
+            == 0
+        )
+        assert (
+            cli("--project", project, "task", "set", "developer", handle, "--status", "review") == 0
+        )
+        assert (
+            author("--project", project, "pr", "open", "--agent", "developer-1", "--task", handle)
+            == 0
+        )
 
 
 def pass_review(cli, project: Path, handle: str = "T-0001", evidence: str = REVIEWER_LONG) -> None:
@@ -252,8 +268,10 @@ def test_the_archive_rewrite_is_its_own_reviewer_commit(cli, project: Path, caps
 
     head_sha, _name, head_email, head_subject = rows[0].split("\x00", 3)
     assert "Archive.md" in head_subject
-    assert head_email.endswith("@agents.nidvue.com"), head_email
-    assert head_email.startswith("reviewer"), f"archive commit author: {head_email}"
+    accepted = {email for email in engine.canonical_identities(project)}
+    assert head_email in accepted, head_email
+    body = engine.run_git(project, "log", "-1", "--format=%B", head_sha).stdout
+    assert "Acting role" not in body, body
     changed = engine.run_git(project, "show", "--name-only", "--format=", head_sha).stdout.split()
     assert changed == ["docs/Team/Archive.md"], changed
 
@@ -326,7 +344,7 @@ def test_review_queue_clips_the_findings_of_a_failing_verdict(cli, project: Path
         == 0
     )
     assert (
-        cli(
+        lane_cli(cli, project)(
             "--project",
             project,
             "selfcheck",

@@ -4,7 +4,7 @@ One probe per area, each driven through the installed CLI as a subprocess - neve
 by importing the engine - because these are the promises a person relies on when
 they run the tool: what `audit` says about a fresh workspace, what `throughput`
 reports before there is history, how `ci_scope` classifies a file, how `criteria`
-refuses an unknown id, how `identity` treats a personal author, that a ledger
+refuses an unknown id, how `identity` treats a personal author and a team-domain stranger, that a ledger
 survives a write and exports, that `archive`/`decision` answer by id, and that the
 privacy gate refuses a planted credential.
 
@@ -15,6 +15,7 @@ ci-scope, criteria, identity, ledger, m19-records, security).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -51,6 +52,7 @@ def git_project(tmp_path: Path) -> Path:
         "GIT_AUTHOR_EMAIL": "developer@agents.nidvue.com",
         "GIT_COMMITTER_NAME": "Developer",
         "GIT_COMMITTER_EMAIL": "developer@agents.nidvue.com",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
     }
     assert_ok(cli(project, ["init", "--agents", ROSTER], env=env))
     return project
@@ -108,25 +110,45 @@ def test_criteria_refuse_an_unknown_id_with_a_named_error(tmp_path: Path) -> Non
     assert "no criterion 'AC-99'" in refused.output
 
 
-def test_identity_audit_refuses_a_personal_author(tmp_path: Path) -> None:
-    """The commit-identity rule has a gate: a personal author fails, a role passes."""
+def test_identity_audit_skips_a_personal_author_and_refuses_a_stranger(tmp_path: Path) -> None:
+    """A personal author is an outside contributor; a team-domain stranger is not."""
     project = git_project(tmp_path)
     (project / "feature.txt").write_text("done\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(project), "add", "feature.txt"], check=True)
     personal = {
         "GIT_AUTHOR_NAME": "Operator",
         "GIT_AUTHOR_EMAIL": "ping@operator.example",
         "GIT_COMMITTER_NAME": "Operator",
         "GIT_COMMITTER_EMAIL": "ping@operator.example",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
     }
-    subprocess.run(["git", "-C", str(project), "add", "feature.txt"], check=True)
     subprocess.run(
         ["git", "-C", str(project), "commit", "-q", "-m", "chore: hand edit"],
         check=True,
-        env={**personal, "PATH": "/usr/bin:/bin"},
+        env=personal,
+    )
+    skipped = cli(project, ["identity", "--audit", "--range", "HEAD"])
+    assert skipped.returncode == 0, skipped.output
+    assert "skipped: external contributor Operator <ping@operator.example>" in skipped.output
+
+    (project / "feature.txt").write_text("done twice\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(project), "add", "feature.txt"], check=True)
+    stranger = {
+        "GIT_AUTHOR_NAME": "Ghost",
+        "GIT_AUTHOR_EMAIL": "ghost@agents.nidvue.com",
+        "GIT_COMMITTER_NAME": "Ghost",
+        "GIT_COMMITTER_EMAIL": "ghost@agents.nidvue.com",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    }
+    subprocess.run(
+        ["git", "-C", str(project), "commit", "-q", "-m", "chore: hand edit twice"],
+        check=True,
+        env=stranger,
     )
     refused = cli(project, ["identity", "--audit", "--range", "HEAD"])
     assert refused.returncode == 1, refused.output
-    assert "ping@operator.example" in refused.output, refused.output
+    assert "ghost@agents.nidvue.com" in refused.output, refused.output
+    assert "not a role mailbox" in refused.output, refused.output
     assert "problems: 0" not in refused.output
 
 
@@ -200,3 +222,38 @@ def test_the_privacy_gate_refuses_a_planted_credential(tmp_path: Path) -> None:
     assert done.returncode == 1, done.stdout
     assert "api-token" in done.stdout
     assert "ghp_" + "a" * 36 not in done.stdout, "the matched value must never be printed"
+
+
+def test_the_operator_identity_is_accepted_without_a_local_preset(tmp_path: Path) -> None:
+    """CI has no local or global identity: the operator must be a committed constant.
+
+    The preset clause alone is not enough on a runner, where the only identity git
+    knows is the checkout action's bot - so an operator-authored commit has to be
+    accepted from ``config.OPERATOR_IDENTITY`` or every operator push is red.
+    """
+    project = git_project(tmp_path)
+    (project / "f.txt").write_text("x\n", encoding="utf-8")
+    operator = {
+        "GIT_AUTHOR_NAME": "<redacted-personal-name>",
+        "GIT_AUTHOR_EMAIL": "<redacted-personal-email>",
+        "GIT_COMMITTER_NAME": "<redacted-personal-name>",
+        "GIT_COMMITTER_EMAIL": "<redacted-personal-email>",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    }
+    subprocess.run(["git", "-C", str(project), "add", "f.txt"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(project),
+            "commit",
+            "-q",
+            "-m",
+            "feat(core): operator authored\n\nTask: T-0001\nActing role: Developer",
+        ],
+        check=True,
+        env=operator,
+    )
+    accepted = cli(project, ["identity", "--audit", "--range", "HEAD^..HEAD"])
+    assert accepted.returncode == 0, accepted.output
+    assert "problems: 0" in accepted.output

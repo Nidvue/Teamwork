@@ -91,6 +91,8 @@ LESSON_FIELDS = (
     "cause",
     "rule",
     "evidence",
+    "check",
+    "no_check",
     "task",
     "skill",
     "by",
@@ -123,9 +125,11 @@ KNOWLEDGE_FIELDS = (
     "superseded_by",
     "created",
     "updated",
+    "checked",
+    "verify_status",
 )
 
-KNOWLEDGE_OPTIONAL = ("task", "supersedes", "superseded_by")
+KNOWLEDGE_OPTIONAL = ("task", "supersedes", "superseded_by", "checked", "verify_status")
 
 DISPUTE_HEADER = (
     "# DISPUTES - design/decision challenges\n\n"
@@ -456,6 +460,19 @@ def find_criterion(items: list, handle: str):
         if want and want in c["text"].upper():
             return i
     return None
+
+
+def area_looks_like_path(area: str) -> bool:
+    text = one_line(area).strip().lower()
+    if "/" in text or "\\" in text or text.endswith(".py"):
+        return True
+    parts = [p for p in text.replace("-", "/").split("/") if p]
+    return bool(parts) and parts[0] in ("test", "tests") and len(parts) > 1
+
+
+def area_is_layer(area: str) -> bool:
+    """A test layer is the first half of the (layer, area) pair, never the second."""
+    return one_line(area).strip().lower() in TEST_LAYERS
 
 
 def new_test_record(
@@ -836,6 +853,8 @@ def new_task(
         "review_claim_profile": "",
         "review_claim_lease": "",
         "claimed_by": "",
+        "paused_by": "",
+        "paused_note": "",
         "branch": "",
         "base": "",
         "worktree": "",
@@ -845,6 +864,11 @@ def new_task(
         "review_fail_rev": "",
         "review_mechanical": "",
         "review_detects": "",
+        "self_grade": "",
+        "review_grade": "",
+        "undo": "",
+        "undo_reason": "",
+        "undo_authorized": "",
         "dropped_under_live": "",
         "forced": "",
         "archived": "",
@@ -878,6 +902,8 @@ TASK_META_FIELDS = (
     "review_claim_lease",
     "findings",
     "claimed_by",
+    "paused_by",
+    "paused_note",
     "self_check",
     "self_note",
     "review_evidence",
@@ -898,6 +924,11 @@ TASK_META_FIELDS = (
     "review_fail_rev",
     "review_mechanical",
     "review_detects",
+    "self_grade",
+    "review_grade",
+    "undo",
+    "undo_reason",
+    "undo_authorized",
     "dropped_under_live",
     "archived",
 )
@@ -981,6 +1012,8 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("review_evidence", t.get("review_evidence", "")),
             ("review_artifacts", t.get("review_artifacts", "")),
             ("claimed_by", t.get("claimed_by", "")),
+            ("paused_by", t.get("paused_by", "")),
+            ("paused_note", t.get("paused_note", "")),
             ("branch", t.get("branch", "")),
             ("base", t.get("base", "")),
             ("worktree", t.get("worktree", "")),
@@ -990,6 +1023,11 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
             ("review_fail_rev", t.get("review_fail_rev", "")),
             ("review_mechanical", t.get("review_mechanical", "")),
             ("review_detects", t.get("review_detects", "")),
+            ("self_grade", t.get("self_grade", "")),
+            ("review_grade", t.get("review_grade", "")),
+            ("undo", t.get("undo", "")),
+            ("undo_reason", t.get("undo_reason", "")),
+            ("undo_authorized", t.get("undo_authorized", "")),
             ("dropped_under_live", t.get("dropped_under_live", "")),
             ("forced", t.get("forced", "")),
             ("evidence", t.get("evidence", "")),
@@ -1736,6 +1774,8 @@ def new_lesson(
         "cause": one_line(cause),
         "rule": one_line(rule),
         "evidence": one_line(evidence),
+        "check": "",
+        "no_check": "",
         "task": one_line(task),
         "skill": "",
         "by": one_line(by),
@@ -1776,7 +1816,9 @@ def render_lessons(items: list) -> str:
     for item in sorted(items, key=lambda entry: entry["id"]):
         out.append(f"## {item['id']} - {one_line(item['mistake'])}")
         for field in LESSON_FIELDS:
-            if field in ("task", "skill", "superseded_by") and not item.get(field):
+            if field in ("task", "skill", "superseded_by", "check", "no_check") and not item.get(
+                field
+            ):
                 continue
             out.append(f"- {field}: {one_line(item.get(field, ''))}")
         out.append("")

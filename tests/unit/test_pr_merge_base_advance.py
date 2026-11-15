@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from support import lane_cli
 from teamwork import engine
 
 AGENTS = ("ceo", "developer-1", "reviewer-1", "reviewer-2")
@@ -43,14 +44,14 @@ def init_workspace(cli, project: Path) -> Path:
 
 
 def add_task(
-    cli, project: Path, title: str, filename: str, *, worktree: bool = False, base: str = ""
+    cli, project: Path, title: str, filename: str, *, worktree: bool = True, base: str = ""
 ) -> str:
-    """Add + claim a task, start its branch (optionally in its own worktree)."""
+    """Add + claim a task and start its branch; since T-0067 it owns a worktree."""
     assert cli("--project", project, "task", "add", "developer", title, "--priority", "P0") == 0
     assert cli("--project", project, "task", "next", "developer-1") == 0
     argv = ["--project", project, "branch", "start", "--agent", "developer-1", "--task", "T-0001"]
-    if worktree:
-        argv.append("--worktree")
+    if not worktree:
+        argv.append("--shared")
     if base:
         argv += ["--base", base]
     assert cli(*argv) == 0
@@ -73,8 +74,9 @@ def project_of_worktree(root: Path) -> Path:
 
 
 def commit_self_check_and_open(cli, project: Path, *, work: Path, filename: str) -> None:
+    author = lane_cli(cli, project, "T-0001")
     assert (
-        cli(
+        author(
             "--project",
             project,
             "commit",
@@ -105,7 +107,7 @@ def commit_self_check_and_open(cli, project: Path, *, work: Path, filename: str)
         == 0
     )
     assert (
-        cli(
+        author(
             "--project",
             project,
             "selfcheck",
@@ -124,7 +126,8 @@ def commit_self_check_and_open(cli, project: Path, *, work: Path, filename: str)
         cli("--project", project, "task", "set", "developer", "T-0001", "--status", "review") == 0
     )
     assert (
-        cli("--project", project, "pr", "open", "--agent", "developer-1", "--task", "T-0001") == 0
+        author("--project", project, "pr", "open", "--agent", "developer-1", "--task", "T-0001")
+        == 0
     )
     assert work.is_dir()
 
