@@ -739,9 +739,9 @@ red until it lands.
 | a new store outside `.pi/Teamwork/Teams/<Team>/` | the wiki lives under the team root, gitignored like the rest of `.pi` |
 | a daemon, cron or background writer | both dream triggers sit on an existing command and write nothing |
 
-Two facts a reader should not have to rediscover. First, the label `M23` is also
-used for the pi-UI milestone in `Project.md`; this section is the memory milestone
-the T-0008 brief names, and the CEO owns renumbering one of the two. Second, the
+Two facts a reader should not have to rediscover. First, the pi-UI milestone in
+`Project.md` is `M24`, renumbered by the CEO on 2026-11-15 so the label is unique;
+this section is the memory milestone the T-0008 brief names. Second, the
 stores are team-local and gitignored, so no gate covers them yet (section 14 row 3);
 every number above is reproduced by hand, and the row that measures it names the
 command that does so.
