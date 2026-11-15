@@ -614,27 +614,30 @@ questions, in this order, each answerable without a second glance:
 
 ### 10.2 Layout
 
-One row per instance, one line per row, columns in this fixed order:
+One row per instance, one line per row, columns in this fixed order - 10.8 holds
+the authoritative table with the widths, their derivation and the drop order:
 
 ```
-● <instance:14> <task:6-7> <activity:flex> <elapsed:6> <bar:9> <model:22>
+<glyph:1> <instance:6-15> <task:7> <used:5> <sep:1><left:4-5> <bar:5> <activity:flex> [<model:<=20>]
 ```
 
 | column | rule |
 |---|---|
-| glyph | `●` busy, `⚙` live lane with no instance row, `○` idle aggregate, `+N` overflow |
-| instance | left, never clipped below 6 characters + `…`; the widest busy instance sets the column, capped at 14 |
-| task | derived, never drawn raw: take the segment after the last `/` of the payload's `task` (`designer/T-0001` -> `T-0001`, `reviewer/T-0006` -> `T-0006`; a value with no `/` is already the id). A row whose `role` is `reviewer` is a review lane and is drawn `↳` + id (`↳T-0006`); every other row is the bare id (`T-0001`). The column is 6 wide for a bare id and 7 for a review arrow, and a `T-nnnn` id is never clipped; a derived value that is not a `T-nnnn` token is clipped to 6 with `…`, because it is not an identity. Measured: the payload carries `designer/T-0001` (14 characters) and `reviewer/T-0006` (14), so a 5-8 column would either clip the id or print the owner |
-| activity | `age · last`, clipped from the right with `…`; this is the only elastic column |
-| elapsed | right-aligned, 6, `-` when absent |
-| bar | fixed 9 columns (`░░░░░  42%`); render the empty slot when `progress_pct` is null so rows align |
-| model | model name only (not `provider/model`); dropped below 80 columns |
+| glyph | one per state, 10.3 |
+| instance | left, never clipped below 6 characters; the widest busy instance sets the column, capped at 15 - `ReleaseEngineer` is 15 and renders whole |
+| task | derived, never drawn raw: take the segment after the last `/` of the payload's `task` (`designer/T-0001` -> `T-0001`, `reviewer/T-0006` -> `T-0006`; a value with no `/` is already the id). A row whose `role` is `reviewer` is a review lane and is drawn `↳` + id (`↳T-0006`) in all 7 cells; every other row is the bare id in 6 cells plus the separator. A `T-nnnn` id is never clipped; a derived value that is not a `T-nnnn` token is clipped to 6 with `…`, because it is not an identity |
+| used | the running lane's elapsed clock, right-aligned, 5, `-` when no lane |
+| sep + left | `▸` then the estimated time left, right-aligned, 4-5, `-` when no budget is known |
+| bar | 5 cells, no percentage text, 5 empty cells when no budget |
+| activity | `last · <age>`, the compact state string, clipped from the right with `…`; this is the only elastic column |
+| model | last path segment only (not `provider/model`), `<=20`; dropped below 80 columns |
 
-Every column is fixed width except the activity, so the tail aligns down the
-block. The header and the idle aggregate are single lines with no columns.
+Every column is fixed width except the activity, so the used/left/bar tail starts
+at the same index on every row, with or without a budget (D-2). The header and
+the idle aggregate are single lines with no columns.
 
-Interface copy, exactly: `teamwork · <busy> busy · <live> live · <review> review`,
-`○ idle: <n>`, `+<n> more busy`, `teamwork <busy>/<total> busy`.
+Interface copy, exactly: `teamwork · <busy> busy · <stalled> stalled · <live> live · <review> review`
+(a zero count is omitted), `○ idle: <n>`, `+<n> more busy`, `teamwork <busy>/<total> busy`.
 
 ### 10.3 Glyph and colour language
 
@@ -644,10 +647,11 @@ same in a monochrome terminal and through a screen reader.
 | glyph | state | word on the same line | colour token (redundant) |
 |---|---|---|---|
 | `●` | busy | — (the row is the word) | ok `#3fb950` |
+| `⚠` | stalled: a task is claimed but no lane is running | `stalled` | warn `#d29922` |
+| `◐` | review lane, as the line prefix; `↳` moves into the task column | `↳T-nnnn` | warn `#d29922` |
 | `⚙` | live lane, no instance row | lane id | ok `#3fb950` |
 | `○` | idle aggregate | `idle` | neutral, inherited |
-| `↳` | review lane | `T-xxxx` | warn `#d29922` |
-| `▶` `⏸` `✕` | running, paused, failed | `run` / `pause` / `fail` | ok / warn / danger `#f85149` |
+| `⏸` `✕` | paused, failed | `pause` / `fail` | warn / danger `#f85149` |
 | `+N` | hidden busy rows | `more busy` | inherited |
 | `…` | clipped text | — | inherited |
 
@@ -663,19 +667,22 @@ Applied in this order until the line fits; each step is a whole column, never a
 partial glyph:
 
 1. Below 80 columns, drop the model column.
-2. Below 72, drop the progress bar (9 columns of derived data).
-3. Below 56, drop the activity and keep `age`.
-4. Clip the activity, then the task title, from the right with `…`.
-5. Never clip the instance below 6 characters, the task id, the glyph or the
-   elapsed: a row that cannot fit identity is not rendered at all - it is
+2. Below 72, drop the bar (5 cells of derived data).
+3. Below 56, drop the activity and keep its `· <age>` tail.
+4. Below 48, drop the `▸` + left column. The used clock is never dropped
+   above 48 columns: it is H3.
+5. Clip the activity, then the task title, from the right with `…`.
+6. Never clip the instance below 6 characters, the task id, the glyph or the
+   used clock: a row that cannot fit identity is not rendered at all - it is
    counted in `+N more busy` instead. A line with no subject is the defect this
    rule exists to prevent (measured: at width 40 the current renderer prints
    ` 1m05s ░░░░░   9% deepinfra/deepseek-ai…` with no instance).
-6. Never wrap: every emitted line is at most the requested width, including the
+7. Never wrap: every emitted line is at most the requested width, including the
    lane lines and the aggregates.
-7. Below 32 columns the widget renders the header, the `● <instance> <task>`
-   rows, the `+N more busy` line when rows were dropped, and the idle aggregate.
-   The footer status line is a separate surface and is not part of this budget.
+8. Below 32 columns the widget renders the header, the `<glyph> <instance>
+   <task>` rows, the `+N more busy` line when rows were dropped, and the idle
+   aggregate. The footer status line is a separate surface and is not part of
+   this budget.
 
 ### 10.5 Line budget
 
@@ -688,7 +695,7 @@ Total `<= 12` lines.
 | # | block | lines | rule |
 |---|---|---|---|
 | 1 | header | 1 | always |
-| 2 | busy rows | `k` | `k = min(busy, 12 - 1 - 1(overflow if hidden > 0) - 1(idle if any) - lane_lines)` |
+| 2 | busy rows | `k` | `k = min(busy + stalled, 12 - 1 - 1(overflow if hidden > 0) - 1(idle if any) - lane_lines)`; 10.8 puts the stalled rows in the drawn set |
 | 3 | `+N more busy` | 0-1 | only when `hidden > 0`; `N = busy - shown`, exact; reserved width, never clipped, and never itself counted as a row |
 | 4 | idle aggregate | 0-1 | only when an idle seat exists **and** room remains |
 | 5 | lane-only lines | 0-3 | drawn only from the room left after rows + overflow + idle; first to yield |
@@ -739,6 +746,10 @@ names the delta.
 | `CONSERVATION` (10.5) | `shown + hidden == busy`, where `shown` is the count of lines beginning with the busy glyph and `hidden` is the `N` parsed from the `+N more busy` line, or 0 when that line is absent |
 | `AGREEMENT` (10.5) | header busy equals footer busy on every fixture |
 | `OVERFLOW` (10.5) | when `hidden > 0`: the `+N more busy` line exists, `N == busy - shown`, it is not truncated by the width clip, and no row line follows it (only the idle aggregate may) - on the 21-busy fixture that is 10 rows, `+11 more busy`, and 0 lane lines |
+| `LEFT-IS-REAL` (10.8) | on every fixture `left == budget_seconds - elapsed_seconds`, clamped at 0, and `-` when either field is absent; `remaining_text` wins when the engine sends it |
+| `NO-INSTANCE-CLIP` (10.8) | `ReleaseEngineer` (15 characters) renders whole at width 100 |
+| `STALLED-NOT-BUSY` (10.8) | a stalled row carries `⚠` and the word `stalled`, no left and no bar, the header's busy count excludes it and its stalled count includes it |
+| `ONE-LINE-PER-AGENT` (10.8) | the count of lines beginning with a row glyph equals the number of distinct instances drawn, and no instance appears twice |
 | no colour-only meaning | stripping ANSI from every line leaves each state's word intact |
 | determinism | two calls on one payload return identical lines |
 | empty feed | no instances and no lanes -> `[]`, and the footer prints `teamwork 0/0 busy` |
@@ -761,6 +772,112 @@ Measured at 2026-11-15 21:06 on the real payload; each is a code change in
 | D-9 | a seat disappears with no signal: the overflow line is pushed after the row loop and then cut by the final slice, because the lanes were pushed first and the room formula reserved only the idle line - at 21 busy + 3 lane lines the room is 20, 20 rows are drawn, `+1 more busy` becomes the 25th line and is sliced away | `:196`, `:201`, `:210`, `:214`; repro `Scratch/accept_t0001_r2_21busy.mjs` @15a404da -> `len=24 busyRowsDrawn=20 rowsDropped=1 hiddenLine=[]` | reserve the overflow line before any row is dropped (10.5 step 3, `OVERFLOW`) |
 | D-10 | the lane lines are budgeted before the busy rows, so they can starve a row, and the block is capped at 24 lines, not the frozen 12 | lane loop at `:196` runs before the room formula at `:201`; `MAX_LINES = 24` at `:8` | draw rows + overflow + idle first, then lanes from the room left, first to yield (10.5 step 5); cap the block at 12 |
 | D-11 | a derived task value that is not a `T-nnnn` token is clipped to 8, while 10.2 fixes that column at 6 | `task_label()`, `text(clean, 8)` at `:132` | clip to 6, or state 8 in 10.2 and widen the column to 8 - the spec asks for 6 so the column stays fixed |
+
+### 10.8 Round 2 - the operator brief (2026-11-15)
+
+Supersedes 10.2-10.4 where they disagree: this row is the layout, 10.3 is the
+glyph language, and the numbers below are derived, not assumed. Requirement is
+the operator's own words at 2026-11-15 (D-20261115-CEO-7): one line per agent, a
+compact state, used and left time, an icon prefix, nothing misleading.
+
+**The row.** One line, never wrapped, these columns in this order and nothing else:
+
+```
+<glyph:1> <instance:6-15> <task:7> <used:5> <sep:1><left:4-5> <bar:5> <activity:flex> [<model:<=20>]
+```
+
+| column | width | rule |
+|---|---|---|
+| glyph | 1 | one per state, table below; the row's word confirms it |
+| instance | `max(6, widest busy instance)`, capped at 15 | `ReleaseEngineer` is 15 and is never clipped; below the cap it pads. A clipped instance is a defect |
+| task | 7 | the `T-nnnn` tail only. A bare id fills 6 and its 7th cell is the separator; a review row is `↳` + id in all 7. Shipped `task_label()` clips to 8 at `:132` (D-11) |
+| used | 5 | the running lane's elapsed, right-aligned, `42s` / `3m01s` / `1h05m`, `-` when no lane |
+| sep | 1 | `▸` |
+| left | `max(4, widest rendered)`, capped at 5 | the estimated time left, right-aligned, same format as used, `-` when no budget is known |
+| bar | 5 | 5 cells, no percentage text; 5 empty cells when no budget |
+| activity | flex | the compact state string, clipped from the right at a word boundary with `…`, ending `· 12s` (the age of the last event) when the payload carries it |
+| model | `<=20` | last path segment only; dropped below 80 columns |
+
+Width arithmetic, derived (L-0029): `1+1+15+1+7+1+5+1+1+1+5+1+5+1 = 46` fixed
+columns at the widest instance and left; 45 when left sits at its 4 floor; the
+model tail adds `1+20 = 21`. At 80 columns the activity therefore gets
+`80-46-21 = 13`, the narrowest the brief is drawn with every column present.
+Derivation: `python3 -c "print(1+1+15+1+7+1+5+1+1+1+5+1+5+1, 80-46-21)"` -> `46 13`.
+`left` is 4-5, not 4, because `len('1h05m') = 5`: a fixed 4 would either break the
+shared tail index or truncate the clock.
+
+**used and left are clocks, never decoration.** `left = budget_seconds -
+elapsed_seconds`, clamped at 0: never negative, never invented. No budget in the
+payload means `-` and an empty bar. `remaining_text` wins over the arithmetic
+when the engine sends it (it carries its own rounding); the arithmetic is the
+fallback.
+
+**Glyph is the line prefix, one per state, the word on the row confirms it.**
+
+| glyph | state | word on the row |
+|---|---|---|
+| `●` | busy | — (the row is the word) |
+| `⚠` | stalled | `stalled` |
+| `◐` | review lane, as the prefix | `↳T-nnnn` in the task column |
+| `○` | idle aggregate | `idle` |
+| `⚙` | lane with no instance row | lane id |
+| `⏸` | paused | `pause` |
+| `✕` | failed | `fail` |
+| `+N` | hidden rows | `more busy` |
+
+**The stalled state.** A row whose payload state is `stalled` is never drawn as
+busy: glyph `⚠`, the word `stalled`, no left, no bar, and the activity is the
+terminal lane event that killed it (`lane.finish L-0123 · lost`). It is counted
+in the header separately, so the operator reads a seat that needs a lane, not
+work in flight.
+
+**Header**, one line, a zero count omitted:
+`teamwork · <busy> busy · <stalled> stalled · <live> live · <review> review`.
+The footer is unchanged: `teamwork <busy>/<total> busy` (`footer()`, `:217`).
+
+**Budget.** 12 lines total, 10.5 unchanged. In 10.5's arithmetic `busy` is the
+number of state rows the widget must draw, which is now `busy + stalled`; the four
+INVARIANTS keep their spelling and are asserted over that set. Overflow ladder,
+applied in order until the line fits:
+
+| width | drops |
+|---|---|
+| below 80 | the model column |
+| below 72 | the bar |
+| below 56 | the activity |
+| below 48 | the `▸` + left column |
+| below 32 | `<glyph> <instance> <task>` only |
+
+The used clock is never dropped above 48 columns: it is H3.
+
+**Payload contract (schema 5).** `render(payload, width)` keeps its signature
+(`extensions/teamwork-status.ts:158`; the shipped file has no third parameter)
+and schema 4 still renders - a missing field degrades to `-`, never to a crash
+or an invented value.
+
+| field | type | drawn as | when absent |
+|---|---|---|---|
+| `budget_seconds` | int \| null | the left clock's budget | left `-`, bar empty |
+| `remaining_seconds` | int \| null | the left clock, preferred over the arithmetic | falls back to `budget - elapsed` |
+| `remaining_text` | string | the left clock verbatim | falls back as above |
+| `elapsed_seconds` | int \| null | the used clock | falls back to `elapsed_text` (schema 4) |
+| `started_at` | ISO string | not drawn; row order only | not drawn |
+| `activity` | string | the activity column | falls back to `last` (schema 4) |
+| `stalled` | bool | the stalled state | the row is busy |
+| `state: "stalled"` | string | glyph `⚠` and the word `stalled` | — |
+| `counts.stalled` | int | the header's stalled count | counted from the rows |
+
+**Delta from the shipped renderer** (each is a code change, not this document):
+
+| # | measured | where | the spec asks for |
+|---|---|---|---|
+| D-12 | `ReleaseEngine…`: the instance column caps at 14, so a 15-character instance is clipped | `widthOf()` caps at `INSTANCE_MAX`, `:223`; `text(row.instance, INSTANCE_MAX)`, `:161` | cap at 15, as in the row above |
+| D-13 | the bar is `5 cells + " 42%"` = 9 columns and is empty when `progress_pct` is null, so the tail shifts per row | `bar()`, `:122` | 5 cells, no text, 5 cells when empty |
+| D-14 | there is no used clock and no left time: `Instance` carries no budget field and the row draws `elapsed_text` only | `Instance` type, `:39`; `elapsed()`, `:135` | the schema-5 fields and `LEFT-IS-REAL` |
+| D-15 | there is no stalled state: an instance row is drawn busy whenever it exists, and the header prints `activated` | `stateAbbrev()`, `:146`; `state`, `:42`; header `:191` | `⚠` plus the header's separate stalled count |
+
+**The checks a Tester asserts** are recorded in 10.6: `LEFT-IS-REAL`,
+`NO-INSTANCE-CLIP`, `STALLED-NOT-BUSY`, `ONE-LINE-PER-AGENT`.
 
 ## 11. Sources
 
