@@ -777,6 +777,28 @@ change. `model` and `provider` resolve once per call from
 `Settings.json` -> `Models.agents[<Instance>]`, else `Models.roles[<role>]`, else
 `""` for both - an unset model is never guessed.
 
+### `ui`
+
+```text
+teamwork ui [install|status] [--host NAME] [--dest PATH] [--dry-run]
+```
+
+The host extension that draws the live wave from `lane list --json`. A host loads
+extensions from its own directory and `settings.json`, never from a skills
+directory, so shipping the file draws nothing: `install` copies the renderer and
+registers it once, and `status` is the report the operator reads.
+
+`status` exits `1` when the host would draw nothing (`lane display missing`,
+`not registered`), which is what makes the check scriptable; `install` exits `0`
+once the copy and the registration are in place. `--dry-run` prints what it would
+write and writes nothing. The default action is the report, and `--dest` points
+at the agent directory when it is not the default one.
+
+`teamwork refresh` and `scripts/sync_skill.py` run the install as part of the
+mirror, so a refreshed skill is a loaded one; `refresh --check` fails when the
+host would not load it, and `refresh --no-ui` keeps the mirror-only behaviour for
+a host that has no extension surface.
+
 ## Memory
 
 ### `load`
