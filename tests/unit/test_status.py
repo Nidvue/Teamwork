@@ -82,6 +82,12 @@ def test_every_instance_appears_exactly_once(cli, project: Path, capsys) -> None
             "task",
             "title",
             "elapsed",
+            "elapsed_seconds",
+            "budget_seconds",
+            "remaining_seconds",
+            "remaining_text",
+            "activity",
+            "stalled",
             "elapsed_text",
             "progress",
             "progress_pct",
@@ -159,9 +165,10 @@ def test_the_payload_names_its_schema_and_counts(cli, project: Path, capsys) -> 
     build(cli, project)
     assert cli("--project", project, "task", "add", "developer", "a second ready job") == 0
     data = payload(cli, project, capsys)
-    assert data["schema"] == 4
+    assert data["schema"] == 5
     assert data["counts"] == {
         "busy": 1,
+        "stalled": 0,
         "idle": 3,
         "ready": 1,
         "review": 0,
@@ -299,7 +306,7 @@ def test_the_panel_prints_the_lane_block_before_the_instance_rows(
     capsys.readouterr()
     assert cli("--project", project, "status") == 0
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0].startswith("# Status (1 busy, 3 idle, 4 activated, 0 retired)")
+    assert lines[0].startswith("# Status (1 busy, 0 stalled, 3 idle, 4 activated, 0 retired)")
     assert lines[1] == "# Lanes (1 live, 0 ended not shown)"
     assert lines[2].startswith("- L-0001  Developer-1      running   T-"), lines[2]
     assert lines[2].endswith(" p/m"), lines[2]
@@ -396,3 +403,94 @@ def test_a_role_named_event_reaches_its_instance_and_a_silent_one_stays_empty(
     assert rows["Developer-2"]["last"] == ""
     assert rows["Developer-2"]["last_seconds"] is None
     assert rows["Developer-2"]["last_at"] == ""
+
+
+def test_schema_five_clocks_on_a_live_lane(cli, project: Path, capsys) -> None:
+    build(cli, project)
+    rows = {row["instance"]: row for row in payload(cli, project, capsys)["instances"]}
+    row = rows["Developer-1"]
+    assert row["state"] == "busy"
+    assert row["elapsed_seconds"] == row["elapsed"]
+    assert row["budget_seconds"] == 1200
+    assert row["remaining_seconds"] == max(1200 - row["elapsed_seconds"], 0)
+    assert row["remaining_text"] == engine._status_clock(row["remaining_seconds"])
+    assert row["stalled"] is False
+    assert isinstance(row["activity"], str) and len(row["activity"]) <= 48
+
+
+def test_a_dead_lane_reads_stalled_not_busy(cli, project: Path, capsys) -> None:
+    root = build(cli, project)
+    task_id = engine.parse_tasks(engine.task_file(root, "developer"))[0]["id"]
+    lanes.write_run(
+        root,
+        {
+            "id": "L-0001",
+            "agent": "Developer-1",
+            "state": lanes.EXITED,
+            "role": "developer",
+            "task": task_id,
+            "attempt": 1,
+            "attempts": 2,
+            "minutes": 20,
+            "pid": os.getpid(),
+            "created": time.time() - 300,
+            "deadline": time.time() + 900,
+            "log": str(lanes.log_path(root, "Developer-1", "L-0001")),
+            "provider": "default",
+        },
+    )
+    data = payload(cli, project, capsys)
+    row = {item["instance"]: item for item in data["instances"]}["Developer-1"]
+    assert data["schema"] == 5
+    assert row["state"] == "stalled", row
+    assert row["stalled"] is True
+    assert row["progress"] == "claimed, no live lane"
+    assert row["elapsed_seconds"] is None and row["budget_seconds"] is None
+    assert row["remaining_seconds"] is None and row["remaining_text"] == "-"
+    assert data["counts"]["stalled"] == 1
+    assert data["counts"]["busy"] == 0
+
+
+def test_the_compact_activity_names_the_verb_and_one_target() -> None:
+    finish = {
+        "action": "lane.finish",
+        "target": "L-0123",
+        "detail": "lost exit=- result=- task=T-0002",
+    }
+    assert engine._status_activity(finish, "") == "lane lost L-0123"
+    assert (
+        engine._status_activity({"action": "lane.start", "target": "L-0123", "detail": ""}, "")
+        == "lane started L-0123"
+    )
+    assert (
+        engine._status_activity({"action": "commit", "target": "abc1234def", "detail": ""}, "")
+        == "commit abc1234"
+    )
+    assert (
+        engine._status_activity(
+            {"action": "selfcheck", "target": "T-0070", "detail": "pass 12"}, ""
+        )
+        == "self-check pass T-0070"
+    )
+    assert (
+        engine._status_activity(
+            {"action": "review.verdict", "target": "T-0007", "detail": "fail"}, ""
+        )
+        == "review fail T-0007"
+    )
+    assert (
+        engine._status_activity(
+            {"action": "review.claim", "target": "T-0007", "detail": "by Reviewer"}, ""
+        )
+        == "review T-0007"
+    )
+    assert (
+        engine._status_activity(
+            {"action": "message.send", "target": "Reviewer", "detail": "re: T-0007"}, ""
+        )
+        == "message T-0007"
+    )
+    long = {"action": "lane.start", "target": "L-0123 " + "x " * 40, "detail": ""}
+    clipped = engine._status_activity(long, "")
+    assert len(clipped) <= 48 and clipped.endswith("…"), clipped
+    assert "  " not in clipped and not clipped.endswith(" …"), clipped
