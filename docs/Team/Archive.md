@@ -5972,3 +5972,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_lane_display.py tests/unit/test_skill_refresh.py @6a6a076 -> 24 passed (own run); venv/bin/python -m teamwork ui status --dest /tmp/nonexistent-abc --dry-run @6a6a076 -> exits non-zero with the reason and writes nothing; git show @6a6a076 --stat -> 11 files, one new module, three call sites, four prose surfaces
 - findings history: 
 - branch / merge: ceo/t-0030-the-lane-display-is-shipped-but-never-lo / cf41761
+
+## T-0031 · Four required test layers have no probe: graph integration, graph acceptance, ui integration and ui acceptance - the routing graph and the lane-display install were proven only at the unit layer, so nothing drove the shipped CLI end to end and nothing asserted the operator-visible contract  (ceo)
+- date: 2026-11-15
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: graph
+- self-check: [pass] Boundary: four test modules, no engine change, so the only behaviour under test is the shipped CLI. Empty/duplicate/second-call: the graph integration cases run on a fresh init with empty queues and then add real tasks before asserting the chain finding, so an empty queue cannot make the case vacuous; the ui integration runs the install twice and asserts the settings file is byte-identical, so idempotency is measured, not assumed; the acceptance cases assert the non-zero exit and the exact printed line an operator scripts on. Contract surface: graph show|audit|baseline, the five C-GRAPH-* codes as documented in references/Coordination.md, ui install|status, refresh --no-ui, and the sync script. Concurrency/shared writes: every case runs in its own tmp_path, and the two subprocess-driven modules pass the hermetic child environment, so no case can read the operator git config or the real agent directory. Scope: 4 files, 24 cases, one coherent change-set (the two features landed in T-0024 and T-0030 and share the same gap). @f19679c superseded by @9b6a165: the board render only. | test: venv/bin/python -m pytest -q tests/integration/test_graph_cli.py tests/acceptance/test_graph_contract.py tests/integration/test_ui_refresh_flow.py tests/acceptance/test_ui_contract.py @9b6a165 -> 20 passed; venv/bin/ruff check . @9b6a165 -> All checks passed | preflight: PF-d930fc0164f7 @9b6a16530d05 (7 checks, 0 failed)
+- author evidence: commit f19679c
+- reviewer evidence: venv/bin/python -m pytest -q tests/integration/test_graph_cli.py tests/acceptance/test_graph_contract.py tests/integration/test_ui_refresh_flow.py tests/acceptance/test_ui_contract.py @9b6a165 -> 20 passed (own run); venv/bin/python -m pytest -q tests/unit/test_graph.py tests/unit/test_lane_display.py @9b6a165 -> 27 passed, no overlap with the new modules; git show @9b6a165 --stat -> 5 files, tests only
+- findings history: 
+- branch / merge: ceo/t-0031-four-required-test-layers-have-no-probe / pending
