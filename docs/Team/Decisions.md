@@ -2897,3 +2897,35 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git rev-list --count origin/main..main @fdf2ef75 -> 28; git ls-remote --tags origin -> newest v1.5.6; src/teamwork/version.py -> 1.5.9; python3 scripts/check_release_consistency.py --offline @fdf2ef75 -> R1..R10 ok/SKIP, # release consistency: 0 problem(s); CHANGELOG.md 1.5.9 documents only the seven-field commit style
 - falsified by: if release.yml publishes from a revision that never passed CI, or if a registry already carries 1.5.9, the release is a duplicate and must stop before the tag
 - consequences: -
+
+## D-20261115-CEO-7 - agent-state widget round 2: the operator's brief supersedes the T-0069 prose round
+
+- date: 2026-11-15
+- kind: scope
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: A) keep §10 as shipped and only widen the instance column; B) drop T-0069 and ship the delta as schema 5 + §10.8; C) rewrite the widget as a full-screen panel. A leaves both defects; C is a second surface the operator did not ask for.
+- decision: T-0068 ships the Design.md 10 renderer as the baseline (review it, merge it). The operator's 2026-11-15 brief adds three requirements the frozen spec does not carry: (1) time used AND time estimated left on every busy row, (2) a compact state string instead of the raw ledger sentence, (3) no row may read busy for a claim whose lane is dead. T-0069 (a design feasibility counter-proposal in prose) is dropped: T-0068 already answered feasibility by shipping, so a second prose round buys nothing. The delta is a Designer spec section (10.8) and one Developer code task on the payload schema 5 fields frozen here: instance rows gain budget_seconds, remaining_seconds, remaining_text, elapsed_seconds, started_at, activity, stalled; state gains 'stalled'; counts gain stalled. render(payload, width, paint) keeps its signature.
+- why: The operator judges the shipped widget on one screen: it must say who is working, on what, for how long, how much is left, and whether the row is alive. Elapsed-only plus a percentage makes the operator do arithmetic, and a claim held by a dead lane reads as work in flight - measured on this team at 21:54: a ReleaseEngineer row rendered busy with elapsed '-' while lane L-0123 had already exited lost. Prose rounds cannot close either defect; a payload field and a renderer branch can.
+- evidence: python3 scripts/teamwork.py status --json @dd85a03a -> schema 4, ReleaseEngineer state=busy task=T-0002 elapsed_text='-' progress='claimed, no lane record', last='lane.finish L-0123 - lost exit=- result=- task=T-0002'; node probe of extensions/teamwork-status.ts render(payload,100) on that payload -> '|teamwork · 1 busy · 0 live · 1 review|', '|● ReleaseEngine… T-0002 lane.finish L-0123 - lost exit=- re - DeepSeek-V4.1-Flash-1…|' (instance clipped at 14, no clock, no left-time, a dead claim drawn as busy); team queue @dd85a03a -> T-0069 todo with no code deliverable
+- falsified by: If a busy row can be read correctly in under a second from the shipped renderer at 100 columns, and no dead-claim row appears busy, this delta is unnecessary - the Tester's ui layer measures exactly that.
+- consequences: One Designer spec section, one Developer task, one Tester layer, one Reviewer verdict; the payload schema moves 4 -> 5 and every consumer of status --json keeps reading schema 4 fields unchanged.
+
+## D-20261116-CEO - agent-state widget accepted: schema 5 payload, one line per agent, used and left clocks, stalled state
+
+- date: 2026-11-16
+- kind: technical
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: -
+- options considered: -
+- decision: The widget is accepted as merged: T-0068 (Design 10 renderer) at 008b126d, designer T-0002 (Design 10.8) at 7abfa18e, developer T-0070 (payload schema 5 + renderer v3) at 5e37f092, tester T-0006 (ui width matrix) at 23aa21e4. The row is <glyph> <instance<=15> <task:7> <used:5> <arrow><left:5> <bar:5> <activity:flex> [<model>], the header is 'teamwork . N busy . N stalled . N live . N review', and the block stays inside 12 lines.
+- why: The operator brief asked for a hierarchy that answers five questions at a glance, one line per agent, compact state strings, and both the time used and the time estimated left. The shipped renderer answered two of the five and drew a claim held by a dead lane as work in flight.
+- evidence: node render() of the live 'teamwork.py status --json' (schema 5) @5e37f092 -> '|● Tester T-0006 48s ▸ 24m ░░░░░ branch.start T-0006 · 35s DeepSeek-V4.1-Flash…|' and '|⚠ ReleaseEngineer T-0002 - stalled · lane lost L-0123 · 1h|'; venv/bin/python -m pytest -q tests/unit/test_pi_status_render.py tests/unit/test_status.py -> 62 passed; tests/integration/test_agent_state_width_matrix.py -> 5 passed at 40/80/120 columns; teamwork.py links -> 0 issues; ledger verify -> 1281 records, chain intact
+- falsified by: If a busy row at 100 columns cannot be read for who/on what/used/left/state in one pass, or a stalled seat still renders as busy, the design failed - the Tester's LEFT-IS-REAL and STALLED-NOT-BUSY checks are the falsifiers and they pass.
+- consequences: status --json is schema 5; schema 4 readers keep working because every old field is byte-identical. The installed host extension is refreshed from this revision, so a host reload shows the new widget.
