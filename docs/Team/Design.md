@@ -581,7 +581,154 @@ Result: 1 952 B, 180x180, colourtype 2 (RGB), chunks `IHDR IDAT IEND`.
 - GitHub's social preview is uploaded in repository **Settings**; there is no API
   for it, so the file lives here and the CEO uploads it as a manual release step.
 
-## 10. Sources
+## 10. Agent-state widget (the pi status surface)
+
+Owner: Designer. The developer-ready spec for `extensions/teamwork-status.ts`:
+what the operator must be able to answer, in what order, in how many lines, and
+what happens when the terminal is too narrow. It consumes `status --json`
+schema 4 and changes no engine behaviour.
+
+Grounding: the reviewer's recorded findings on this path (T-0130 F1-F3, T-0064
+F1, the T-0065 narrow-width finding) plus a measured render of the real payload
+on this team at 2026-11-15 21:06 (`scripts/teamwork.py status --json` -> schema
+4, count 6, counts `{busy 3, idle 3, ready 3, review 0, activated 14, retired
+13, lanes_live 1, lanes_ended 124, lanes 6}`). The full defect census is
+Reviewer T-0006; the rows below are the ones this pass measured,
+and T-0006's list supersedes them where it disagrees.
+
+### 10.1 Information hierarchy
+
+The operator reads the widget at a glance while doing something else. Five
+questions, in this order, each answerable without a second glance:
+
+| # | question | answered by | never |
+|---|---|---|---|
+| H1 | is the machine working, and how much of it? | header: busy, live lanes, reviews | a count of seats that no longer exist |
+| H2 | who, and on what task? | the row's glyph + instance + task id | a row with no instance |
+| H3 | how long, and is it healthy? | elapsed, progress, lane state | a clock that ticks in place of a state |
+| H4 | what is it doing right now? | the activity column, clipped from the right | a command that repeats the elapsed time |
+| H5 | what is waiting for me? | review count in the header, `+N more busy`, the idle aggregate | history: ended lanes are not drawn |
+
+`role` is redundant with `instance` in this roster and is not drawn. History
+(`retired`, `lanes_ended`, ended lanes) is not drawn: it is the Board's job.
+
+### 10.2 Layout
+
+One row per instance, one line per row, columns in this fixed order:
+
+```
+● <instance:14> <task:5-8> <activity:flex> <elapsed:6> <bar:9> <model:22>
+```
+
+| column | rule |
+|---|---|
+| glyph | `●` busy, `⚙` live lane with no instance row, `○` idle aggregate, `+N` overflow |
+| instance | left, never clipped below 6 characters + `…`; the widest busy instance sets the column, capped at 14 |
+| task | `T-0001`, or `↳T-0001` for a review lane; the column is 5 or 6 wide and never clipped |
+| activity | `age · last`, clipped from the right with `…`; this is the only elastic column |
+| elapsed | right-aligned, 6, `-` when absent |
+| bar | fixed 9 columns (`░░░░░  42%`); render the empty slot when `progress_pct` is null so rows align |
+| model | model name only (not `provider/model`); dropped below 80 columns |
+
+Every column is fixed width except the activity, so the tail aligns down the
+block. The header and the idle aggregate are single lines with no columns.
+
+Interface copy, exactly: `teamwork · <busy> busy · <live> live · <review> review`,
+`○ idle: <n>`, `+<n> more busy`, `teamwork <busy>/<total> busy`.
+
+### 10.3 Glyph and colour language
+
+The glyph carries the meaning and the word confirms it, so the widget reads the
+same in a monochrome terminal and through a screen reader.
+
+| glyph | state | word on the same line | colour token (redundant) |
+|---|---|---|---|
+| `●` | busy | — (the row is the word) | ok `#3fb950` |
+| `⚙` | live lane, no instance row | lane id | ok `#3fb950` |
+| `○` | idle aggregate | `idle` | neutral, inherited |
+| `↳` | review lane | `T-xxxx` | warn `#d29922` |
+| `▶` `⏸` `✕` | running, paused, failed | `run` / `pause` / `fail` | ok / warn / danger `#f85149` |
+| `+N` | hidden busy rows | `more busy` | inherited |
+| `…` | clipped text | — | inherited |
+
+Rules: colour is never the only carrier; the renderer emits no ANSI today, so a
+host that adds colour must keep every glyph and word intact. Contrast is the
+host theme's obligation at 4.5:1 for body text; the widget ships no escape
+sequences and no animation, so `prefers-reduced-motion` and 200% zoom are the
+terminal's, not the widget's.
+
+### 10.4 Overflow policy
+
+Applied in this order until the line fits; each step is a whole column, never a
+partial glyph:
+
+1. Below 80 columns, drop the model column.
+2. Below 72, drop the progress bar (9 columns of derived data).
+3. Below 56, drop the activity and keep `age`.
+4. Clip the activity, then the task title, from the right with `…`.
+5. Never clip the instance below 6 characters, the task id, the glyph or the
+   elapsed: a row that cannot fit identity is not rendered at all - it is
+   counted in `+N more busy` instead. A line with no subject is the defect this
+   rule exists to prevent (measured: at width 40 the current renderer prints
+   ` 1m05s ░░░░░   9% deepinfra/deepseek-ai…` with no instance).
+6. Never wrap: every emitted line is at most the requested width, including the
+   lane lines and the aggregates.
+7. Below 32 columns the widget renders the header, `● <instance> <task>` rows
+   and the footer only.
+
+### 10.5 Line budget
+
+| block | lines | bound |
+|---|---|---|
+| header | 1 | always |
+| busy rows | 1 each | never starved by lane lines |
+| `+N more busy` | 0-1 | only when rows were dropped |
+| lane lines (no instance row) | 0-3 | budgeted after the busy rows, first to yield |
+| idle aggregate | 0-1 | only when an idle seat exists |
+| total widget | 1 + busy + 1 + 1 | `MAX_LINES 24` |
+| footer status line | 1 | separate surface, always |
+
+Measured on this team at 2026-11-15 21:06: 5 widget lines (header, 3 busy rows,
+idle aggregate) plus the footer, max line 98 of 100 columns. Worst case with the
+`full` roster (21 activated seats, 21 busy): 1 header + 21 rows + 1 idle = 23 of
+24, so the cap binds only when lane lines compete - which is why lane lines are
+budgeted last and capped at 3.
+
+### 10.6 The checks a Tester can assert on
+
+All of them run `render()` through node from
+`tests/unit/test_pi_status_render.py`; the payload is a fixture with busy, idle
+and lane-only rows.
+
+| check | assertion |
+|---|---|
+| no wrap | for width in 24/40/60/80/100: `max(len(line)) <= width` |
+| identity survives | at width 40 columns every busy row begins with the busy glyph and carries at least 6 characters of the instance |
+| no headless row | every line begins with `●`, `⚙`, `○`, `+`, or is the header |
+| column alignment | on a payload with one null and one numeric `progress_pct`, the elapsed/bar/model tail starts at the same index in both rows |
+| count agreement | header `busy` equals footer `busy`, and `live` equals `counts.lanes_live` |
+| line budget | `len(render(payload, 100)) == 1 + busy + (hidden ? 1 : 0) + (idle ? 1 : 0)` and `<= 24` |
+| no colour-only meaning | stripping ANSI from every line leaves each state's word intact |
+| determinism | two calls on one payload return identical lines |
+| empty feed | no instances and no lanes -> `[]`, and the footer prints `teamwork 0/0 busy` |
+
+### 10.7 Defects measured in this pass
+
+Measured at 2026-11-15 21:06 on the real payload; each is a code change in
+`extensions/teamwork-status.ts` and belongs to its owner, not to this document.
+
+| # | defect | where | fix the spec asks for |
+|---|---|---|---|
+| D-1 | at 40 columns a row loses its glyph and instance: `clip()` gives the tail absolute priority (`room <= 0` returns the tail alone) | `extensions/teamwork-status.ts:227` | overflow rule 5: drop the row, never render it headless |
+| D-2 | the optional progress bar makes the tail width per-row, so columns do not align | `bar()`, `:122` | render a fixed 9-column slot even when `progress_pct` is null |
+| D-3 | `provider/model` clipped to 22 reads `deepinfra/deepseek-ai…` on every row: the provider is constant, the model is the signal | `modelLabel()`, `:151` | model name only, provider in the tooltip or dropped |
+| D-4 | the header counts activated/live/review while the footer counts busy/total; `busy` is in neither header count and `activated 14` counts 13 retired seats against 6 live rows | `:191`, `:217` | header carries busy/live/review; `activated` is history |
+| D-5 | the row title is resolved by task id alone, so the Designer row rendered Tester's `T-0001` title ("Systematic audit of tests/…") | engine status title resolver | resolve by (role, task) or (branch, task); filed as a finding, not a widget change |
+| D-6 | the activity column repeats the elapsed time (`1m · lane.start …` on a row whose elapsed is `-`) and clips mid-token | `:191`, `:207` | activity is `age · last`; drop the duplicated clock |
+| D-7 | unread fields: `role`, `ready`, `retired`, `lanes_ended`, `progress` (text), lane `attempt`, `last_at` | payload vs `render()` | draw or explicitly declare as not drawn (10.1) |
+| D-8 | no colour is emitted at all, and `●` and `⚙` share "working" without a word | whole renderer | glyph+word pairs in 10.3 |
+
+## 11. Sources
 
 - [WCAG 2.1 - Contrast (Minimum)](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html) - accessed 2026-10-17
 - [MDN - prefers-reduced-motion](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion) - accessed 2026-10-17
