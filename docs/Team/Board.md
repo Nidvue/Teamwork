@@ -113,7 +113,7 @@ under two roles is two tasks.
 | ceo | T-0028 | - | todo | - | - |
 | ceo | T-0029 | records | done | P-0070 | f695188 |
 | ceo | T-0030 | ui | done | P-0071 | cf41761 |
-| ceo | T-0031 | graph | doing | - | - |
+| ceo | T-0031 | graph | done | P-0072 | eb40ea2 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -204,7 +204,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 |---|---|---|---|---|
 | ceo | T-0005 · Push the reviewed stage and confirm CI green on that SHA (route any red run to its owner) | P1 | doing | - |
 | ceo | T-0028 · The agent-agnostic contract test is red on main: docs/guide/cli.md names the host 'pi' | P1 | todo | - |
-| ceo | T-0031 · Four required test layers have no probe: graph integration, graph acceptance, ui integration and ui acceptance - the routing graph and the lane-display install were proven only at the unit layer, so nothing drove the shipped CLI end to end and nothing asserted the operator-visible contract | P1 | doing | - |
 | tester | T-0003 · CI job 'test (windows-latest / py3.13)' runs the plain suite for more than 55 minutes while the same suite takes 11 minutes on Linux, so the stage cannot be certified green on its SHA | P0 | blocked | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
