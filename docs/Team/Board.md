@@ -209,7 +209,7 @@ under two roles is two tasks.
 | tester | T-0003 | - | dropped | - | - |
 | tester | T-0004 | tests | done | P-0066 | 66d55cd |
 | tester | T-0005 | - | done | P-0081 | cc343480 |
-| tester | T-0006 | agent-state-width-matrix | review | P-0092 | - |
+| tester | T-0006 | ci-shard-matrix | done | P-0092 | 23aa21e4 |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -228,7 +228,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | blocked | - |
-| tester | T-0006 · agent-state display: ui layer - execute the renderer at 40/80/120 columns, prove the overflow count and the width bound, prove no invented metric | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
