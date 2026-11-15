@@ -7630,4 +7630,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 4f7a1853
 - reviewer evidence: pytest tests/unit/test_suite_hermeticity.py tests/unit/test_lanes.py tests/unit/test_lane_proof.py tests/unit/test_messages.py tests/unit/test_scale_to_work.py -q @4f7a1853 -> 81 passed 0 host-pi invocations; ruff check+format --check @4f7a1853 -> all clean; mypy @4f7a1853 -> no issues found; 2 pre-existing failures reproduce identically at parent 5f75328b, unrelated to this diff
 - findings history: 
-- branch / merge: developer/t-0063-a-test-that-dispatches-without-a-fake-la / pending
+- branch / merge: developer/t-0063-a-test-that-dispatches-without-a-fake-la / 7f439aa1
