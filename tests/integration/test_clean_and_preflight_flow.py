@@ -175,7 +175,10 @@ def test_the_lifecycle_runs_end_to_end_on_a_real_repository(fixture_project: Pat
     log = git(lane_tree(fixture_project, "T-0001"), "log", "-1", "--format=%an <%ae>|%s")
     assert log.startswith(f"{expected}|feat(widget):")
     body = git(lane_tree(fixture_project, "T-0001"), "log", "-1", "--format=%B")
-    assert body.strip() == log.split("|", 1)[1].strip(), "the commit message is one line"
+    subject = log.split("|", 1)[1].strip()
+    assert body.partition("\n\n")[0].strip() == subject, "one scannable subject line"
+    for label in engine.COMMIT_FIELDS:
+        assert f"{label}: " in body, (label, body)
     assert "Acting role" not in body
 
     audit = engine_cli(fixture_project, "identity", "--audit", "--range", "main..HEAD")

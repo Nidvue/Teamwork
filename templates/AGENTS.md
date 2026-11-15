@@ -434,10 +434,16 @@ tracked, uncommitted or evidence-bearing files, and never `git clean -fdx`. Keep
   mailbox. The role mailbox is opt-in per command with
   `TEAMWORK_COMMIT_IDENTITY=role`, e.g. `Developer <developer@agents.nidvue.com>`,
   never instance-numbered.
-- **COMMIT MESSAGE STYLE** - exactly one line: `<type>(<area>): <summary>`,
-  at most 72 characters, compact but informative. No body, no trailers, no field
-  list. The task id, the goal, the status and the evidence live in the task record
-  and the ledger, never in the commit message. No line names a role or a producer.
+- **COMMIT MESSAGE STYLE** - the subject is `<type>(<area>): <summary>`, at most
+  72 characters, then the seven fields: `Role`, `Producers`, `Goal`,
+  `Deliverable`, `Why`, `Status`, `Result`. The fields are the record the commit
+  is - what was asked for, what it produced, why that is the right change, the
+  state it reached, and the command that proved it. A field with nothing recorded
+  says `not recorded at this revision` rather than inventing a value; a fabricated
+  result makes the history lie, which is what the block exists to prevent. No
+  field names an instance: the role mailbox is the identity. `teamwork.py commit`
+  builds the whole block from `--goal`, `--deliverable`, `--why`, `--status` and
+  `--result`.
 - **GIT LFS** - binaries, media, datasets and weights go through Git LFS
   (`.gitattributes` patterns). `commit` refuses an uncovered file above 1 MB.
 - **ONE TASK, ONE WORKTREE** - never commit on `main`. `branch start --agent <you>
