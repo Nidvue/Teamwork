@@ -1329,8 +1329,9 @@ def _merge_base_branch(project: Path, raw: str, pr: dict) -> str:
             if tips
             else "  no local branch points at it\n"
         )
-        + f"  re-record the base as a branch: teamwork.py pr open --agent "
-        f"{pr.get('author') or '<author>'} --task {pr.get('task')} --base {DEFAULT_BASE}",
+        + "  re-point the base at a live branch at merge time (the approved "
+        "status is kept):\n"
+        f"  teamwork.py pr merge --pr {pr['id']} --by <Reviewer> --base {DEFAULT_BASE}",
         2,
     )
 
@@ -1571,7 +1572,19 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "--result pass --evidence '<verify cmd @rev -> result>'",
                 2,
             )
-        base = _merge_base_branch(project, pr["base"] or DEFAULT_BASE, pr)
+        requested = (args.base or "").strip()
+        recorded = pr["base"] or DEFAULT_BASE
+        base = _merge_base_branch(project, requested or recorded, pr)
+        if requested and requested != recorded:
+            ledger_append(
+                root,
+                "pr.base.repoint",
+                merger,
+                pr["task"],
+                f"{pr['id']} base {recorded} -> {base}: the recorded base is gone, "
+                f"the approved status is kept",
+            )
+            print(f"# re-pointed {pr['id']} base {recorded} -> {base}")
         pr["base"] = base
         branch = pr["branch"]
         if not branch_exists(project, branch):
@@ -19988,6 +20001,14 @@ def _parsers_integration(sub, common) -> None:
     s = psub.add_parser("merge", parents=[common], help="Reviewer: merge an approved PR")
     s.add_argument("--pr", required=True)
     s.add_argument("--by", default="reviewer")
+    s.add_argument(
+        "--base",
+        default="",
+        metavar="BRANCH",
+        help="re-point the base at this branch when the recorded one no longer "
+        "exists (e.g. it was deleted when its own PR merged); the approved "
+        "status is kept and the change is recorded on the PR and the ledger",
+    )
     s.add_argument("--squash", action="store_true")
     s.add_argument(
         "--keep-branch",
