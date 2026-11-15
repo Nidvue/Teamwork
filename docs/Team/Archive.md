@@ -5971,4 +5971,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 1734f76
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_lane_display.py tests/unit/test_skill_refresh.py @6a6a076 -> 24 passed (own run); venv/bin/python -m teamwork ui status --dest /tmp/nonexistent-abc --dry-run @6a6a076 -> exits non-zero with the reason and writes nothing; git show @6a6a076 --stat -> 11 files, one new module, three call sites, four prose surfaces
 - findings history: 
-- branch / merge: ceo/t-0030-the-lane-display-is-shipped-but-never-lo / pending
+- branch / merge: ceo/t-0030-the-lane-display-is-shipped-but-never-lo / cf41761
