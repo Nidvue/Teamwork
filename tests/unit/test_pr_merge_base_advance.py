@@ -492,3 +492,54 @@ def test_a_dirty_archive_render_does_not_block_the_merge(cli, project, capsys, m
     )
     assert archive.count(f"- branch / merge: {branch} /") == 1, archive[-600:]
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+
+
+def test_merge_re_points_a_deleted_base_and_keeps_the_pass(cli, project, capsys) -> None:
+    """A-0033: a deleted base left a passed deliverable with no merge path.
+
+    ``P-0092``'s base was the task branch deleted when ``P-0091`` merged, so
+    ``pr merge`` refused; the only repair the error offered was ``pr open
+    --base main``, which resets the status to ``open`` and throws the pass away.
+    ``pr merge --base main`` re-points the base at merge time, records the
+    re-point on the PR and the ledger, and merges on the pass already granted.
+    """
+    root = init_workspace(cli, project)
+    work = Path(add_task(cli, project, "ship the base-advance fix", "feature.txt"))
+    commit_self_check_and_open(cli, project, work=work, filename="feature.txt")
+    pass_review(cli, project)
+    gone = "developer/t-0000-deleted-base"
+    rework_records(cli, project, base=gone)
+    branch = engine.parse_tasks(root / "Roles" / "Developer" / "TaskQueue.md")[0]["branch"]
+
+    capsys.readouterr()
+    assert cli("--project", project, "pr", "merge", "--pr", "P-0001", "--by", "reviewer-2") == 2
+    err = capsys.readouterr().err
+    assert "not a local branch" in err
+    assert "pr merge --pr P-0001 --by <Reviewer> --base main" in err, err
+    assert engine.parse_reviews(root / "Reviews.md")[0]["status"] == "approved"
+
+    capsys.readouterr()
+    assert (
+        cli(
+            "--project",
+            project,
+            "pr",
+            "merge",
+            "--pr",
+            "P-0001",
+            "--by",
+            "reviewer-2",
+            "--base",
+            "main",
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert f"# re-pointed P-0001 base {gone} -> main" in out, out
+    assert f"# merged P-0001 {branch} -> main at " in out, out
+    assert engine.run_git(project, "cat-file", "-e", "main:feature.txt").returncode == 0
+    prs = engine.parse_reviews(root / "Reviews.md")
+    assert prs[0]["base"] == "main"
+    assert prs[0]["status"] == "merged"
+    assert "pr.base.repoint" in (root / "Ledger.jsonl").read_text(encoding="utf-8")
+    assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
