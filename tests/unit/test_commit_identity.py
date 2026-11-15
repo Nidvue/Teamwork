@@ -338,6 +338,27 @@ def test_the_committer_guard_accepts_a_bot_dependency_update_from_the_forge(repo
     assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 0
 
 
+def test_the_committer_guard_accepts_a_published_pre_policy_commit_by_object_id(repo):
+    """The guard reads the same exemption the identity audit does, or it contradicts it.
+
+    Measured on CI run 43711376591: the four pre-policy operator commits the audit
+    accepts by object id through ``LEGACY_AUTHOR_EXEMPT`` failed the guard on the
+    first push that carried them onto ``main``, so one policy produced a green
+    audit and a red gate on the same commit.
+    """
+    _commit(repo, "Some One", "personal" + "@" + "example.invalid", "chore: hand edit")
+    sha = engine.run_git(repo, "rev-parse", "HEAD").stdout.strip()
+    saved = dict(engine.LEGACY_AUTHOR_EXEMPT)
+    engine.LEGACY_AUTHOR_EXEMPT.clear()
+    engine.LEGACY_AUTHOR_EXEMPT[sha] = "before the policy, accepted by object id"
+    try:
+        assert engine.guard_committer_identity(repo, "HEAD~1..HEAD") == 0
+        assert engine.audit_commit_identities(repo, "HEAD~1..HEAD", strict_authors=True) == 0
+    finally:
+        engine.LEGACY_AUTHOR_EXEMPT.clear()
+        engine.LEGACY_AUTHOR_EXEMPT.update(saved)
+
+
 def test_the_committer_guard_still_fails_a_bot_name_behind_a_personal_committer(repo):
     """The bot allowance excuses the host stamp, never a personal committer."""
     _commit(
