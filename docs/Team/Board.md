@@ -189,10 +189,10 @@ under two roles is two tasks.
 | developer | T-0064 | worktree | done | P-0078 | 29d20d4f |
 | developer | T-0065 | status | done | P-0080 | 53225821 |
 | developer | T-0066 | lanes | done | P-0082 | dbb42541 |
-| developer | T-0067 | board | review | P-0089 | - |
+| developer | T-0067 | board | done | P-0089 | bf95dfc5 |
 | developer | T-0068 | agent-state-display | done | P-0087 | 008b126d |
 | developer | T-0069 | - | dropped | - | - |
-| developer | T-0070 | status-widget | review | P-0091 | - |
+| developer | T-0070 | status-widget | doing | P-0091 | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | blocked | - | - |
 | reviewer | T-0001 | - | done | - | - |
@@ -226,8 +226,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0067 · a release task whose title names its own tag makes CI red, and a board-editing task is charged for every parallel lane's status drift | P1 | review | - |
-| developer | T-0070 · payload schema 5 signals + renderer v3: used and left clocks, compact state strings, stalled-not-busy, one line per agent, ReleaseEngineer never clipped | P0 | review | - |
+| developer | T-0070 · payload schema 5 signals + renderer v3: used and left clocks, compact state strings, stalled-not-busy, one line per agent, ReleaseEngineer never clipped | P0 | doing | - |
 | release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | blocked | - |
 | tester | T-0006 · agent-state display: ui layer - execute the renderer at 40/80/120 columns, prove the overflow count and the width bound, prove no invented metric | P1 | todo | - |
 
