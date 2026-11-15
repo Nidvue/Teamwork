@@ -415,26 +415,44 @@ Exit: AC-M22-1..AC-M22-5 verified by a role other than their owner on the merged
 revision, the layers recorded in `Tests.md`, and the measured delta written into
 [MEMORY](Memory.md) 13.
 
-## M23 - Live agent status in the pi UI (this engagement)
+## M24 - Live agent status in the pi UI (this engagement)
 
 Intake: the operator asked that the team's current agents - busy or idle - be
 visible in the pi UI in real time, each with compact information about what it is
 doing and how far along it is, laid out so a glance answers "who is working on
 what, and is it moving". Contract: [PI-PACKAGING](Pi-Packaging.md) section 4.
 
+Second round (2026-11-15): the operator asked for the same thing **without
+duplicated or redundant information**. Measured at `7390d2f1`: two renderers
+exist - `extensions/teamwork-status.ts` (agents and lanes) and a second,
+lanes-only one under `templates/` (the file this milestone deletes) - and
+`scripts/build_pi_package.py` copies both into
+`dist/@nidvue/teamwork/extensions/`, which `pi.extensions: ["./extensions"]`
+loads as two widgets and two footer statuses. `lanedisplay.py` installs only the
+lanes-only one, so the host this team runs on shows no agent at all. Inside the
+status renderer a live lane is drawn twice: as a `⚙` lane line and again as the
+busy instance row that already carries `lane` and `lane_state`.
+
+The label `M23` is the memory milestone ([MEMORY](Memory.md) 15, tasks
+`T-0097`/`T-0098`/`T-0011`/`T-0109`); this milestone is renumbered `M24` here and
+its criteria are `AC-M24-*`, as that document asked the CEO to do.
+
 Non-goals: a second TUI renderer, a daemon or network service, a persistent log
-viewer, any third-party npm package, and any change to the protocol, the gates or
-the ledger. The widget is a read-only view of records the engine already writes.
+viewer, any third-party npm package, a new field on the `status` feed, and any
+change to the protocol, the gates or the ledger. The widget is a read-only view of
+records the engine already writes.
 
 | criterion | state it asserts | owner | verifier |
 |---|---|---|---|
-| AC-S1 | `teamwork.py status` prints, for every instance, its role, `busy`/`idle`, the task id and title it holds when busy, elapsed seconds and a progress signal; `status --json` emits the same as one object with a schema version; both exit 0 on a tree with no instances with a one-line reason, never a traceback | Developer | Reviewer |
-| AC-S2 | the package ships `extensions/teamwork-status.ts` under `pi.extensions`, rendering a compact multi-line widget above the editor plus a one-line footer status, refreshing at most every 10 s, toggled by `/teamwork-status`, silent when no team tree is reachable; `tests/unit/test_pi_package.py` pins its presence, host-only imports and built tarball entry, and `tests/unit/test_pi_status_render.py` executes the renderer | Developer | Reviewer |
-| AC-S3 | [PI-PACKAGING](Pi-Packaging.md) describes the command and the widget with the exact commands to see them, and no doc still claims the package loads no extension | Developer | Reviewer |
+| AC-M24-1 | `teamwork.py status` prints, for every instance, its role, `busy`/`idle`, the task id and title it holds when busy, elapsed seconds and a progress signal; `status --json` emits the same as one object with a schema version, each row carrying its live lane's id and state in `lane`/`lane_state`, so no live lane exists only in the `lanes` array | Developer | Reviewer |
+| AC-M24-2 | exactly one teamwork renderer exists in the tree, in the built package and on the host: `extensions/teamwork-status.ts` is shipped under `pi.extensions`, installed by `teamwork.py refresh` and registered once in `settings.json`, and a test fails when a second teamwork renderer file appears in any of those three places | Developer | Reviewer |
+| AC-M24-3 | the widget shows a live lane exactly once: an instance holding a live lane renders as one row carrying its lane id and lane state, no separate lane block repeats that instance and task, and `tests/unit/test_pi_status_render.py` asserts the row count and that the lane id appears once | Developer | Reviewer |
+| AC-M24-4 | the footer status line carries only what the widget body does not (the busy/total count) and never repeats the header counts, asserted by the renderer test on a payload with busy, idle and live-lane rows | Developer | Reviewer |
+| AC-M24-5 | [PI-PACKAGING](Pi-Packaging.md) section 4 describes the single renderer with its measured output, no document or script names the removed renderer, and `teamwork.py links` reports 0 issues on the merged revision | Developer | Reviewer |
 
-Exit: AC-S1..AC-S3 verified by a role other than their owner on the merged
-revision, the integration layer recorded for `area=status`, and the measured
-widget output written into [PI-PACKAGING](Pi-Packaging.md) 4.
+Exit: AC-M24-1..AC-M24-5 verified by a role other than their owner on the merged
+revision, the integration layer recorded for `area=ui`, and the measured widget
+output written into [PI-PACKAGING](Pi-Packaging.md) 4.
 
 ## Scope
 
