@@ -5985,3 +5985,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: venv/bin/python -m pytest -q tests/integration/test_graph_cli.py tests/acceptance/test_graph_contract.py tests/integration/test_ui_refresh_flow.py tests/acceptance/test_ui_contract.py @9b6a165 -> 20 passed (own run); venv/bin/python -m pytest -q tests/unit/test_graph.py tests/unit/test_lane_display.py @9b6a165 -> 27 passed, no overlap with the new modules; git show @9b6a165 --stat -> 5 files, tests only
 - findings history: 
 - branch / merge: ceo/t-0031-four-required-test-layers-have-no-probe / eb40ea2
+
+## T-0028 · The agent-agnostic contract test is red on main: docs/guide/cli.md names the host 'pi'  (ceo)
+- date: 2026-11-15
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: -
+- self-check: [pass] The repro is already green: the sentence T-0028 named was rewritten by T-0030 when the ui section was added, and it now says "a host reads extensions from its own directory and its settings.json", which is the host-agnostic form the rest of the guide uses. No new commit is needed; the fix rode the T-0030 deliverable at @6a6a076. Scope: zero lines beyond that rewrite, so there is nothing to merge. | test: venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py -k agent_agnostic @488ffb5 -> 1 passed, 108 deselected | preflight: PF-19cd185139d4 @- (7 checks, 0 failed)
+- author evidence: 
+- reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py -k agent_agnostic @488ffb5 -> 1 passed (own run); grep -n "host reads extensions from its own" docs/guide/cli.md @488ffb5 -> present, no host name in the sentence
+- findings history: 
+- branch / merge: - / pending
