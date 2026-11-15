@@ -2849,3 +2849,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: `git rev-list --count main` -> 3069; `git log --format='%H%x1f%B' main | grep -c 'Role: '` -> 3069 commits, 0 without the block; `git rev-parse 2a1bcc1^{tree} ce1c9c7^{tree}` -> both `5cc851f0f735`, so the rewrite changed no content (the pre-rewrite tip against its rewritten twin); 520 `- branch / merge:` revisions and 307 `@<rev>` citations plus 213 bare references re-pointed at the new shas across 39 files; `venv/bin/python -m pytest -q` -> 3071 passed, 3 skipped; `teamwork.py identity --audit --strict-authors` -> 3067 commits, 0 problems; `identity --guard-committer --range main` -> 0 foreign committers; `make links` -> 0 issues; `make release-consistency` -> 0 problems; `privacy_scan.py --tree` and `--history` -> PASS, 0 findings; `ledger verify` -> 354 records, chain intact; the 19 tags were re-created on the new commits with their original tagger and message
 - falsified by: a commit on the rewritten `main` without the block; any tree difference against `backup/main-pre-msgrewrite`; an archive revision or `@<rev>` that no longer resolves or is not reachable from `main`; a tag whose commit's `version.py` does not equal the tag name; or a red gate on the rewritten head
 - consequences: every sha changed, so any citation outside this repository - an issue, a review comment, a published release note - now points at an object that is no longer reachable from `main`. `backup/main-pre-msgrewrite` (`bf8f202`, before the policy commit) and `backup/local-main-premerge` (`9026ef5`) keep the pre-rewrite lines locally until the operator deletes them; the force-push is the only irreversible step and it is recorded here. The two identity exemption maps are re-keyed on the new object ids, because they are keyed on the full sha by design
+
+## D-20261115-CEO-4 - AC-M19-6's loop-STOP clause is self-referential: judge it on the executable gates, and keep the STOP requirement as a falsifier
+
+- date: 2026-11-15
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0063
+- context: -
+- options considered: a) rewrite the criteria text to drop the loop clause (moves the goalposts, rejected); b) verify nothing and accept a red loop forever (leaves the engagement unclosed, rejected); c) judge the executable clauses now and keep loop STOP as the falsifier after the third criterion (chosen)
+- decision: AC-M19-6 and AC-M20-5 are verified on their executable clauses at the merged revision; their 'loop STOP' / 'loop stays green' clause is judged by loop reporting no reason other than the criteria-completeness of the criteria this ruling covers, and by loop printing STOP once all three close-out criteria are verified.
+- why: loop counts every unverified acceptance criterion as a blocker, so a criterion whose text requires 'loop STOP' cannot be observed as satisfied while it is itself open - the criterion would be its own gate. Measured, not argued: Reviewer-1 ran loop at 7390d2f, recorded AC-M19-1, and the same command went from '3 acceptance criteria unverified' to '2'; the count is a pure function of the open criteria (Agents/Reviewer-1/Reports/criteria-close-out.md).
+- evidence: teamwork.py loop @7390d2f -> '> CONTINUE ! 3 acceptance criteria unverified'; after criteria verify AC-M19-1 -> '! 2 acceptance criteria unverified' (Reviewer-1, criteria-close-out.md); teamwork.py audit @7390d2f -> '# problems found: 3' after the Tester retired the 5 duplicate test-record commands
+- falsified by: after all three close-out criteria are verified, teamwork.py loop at the same revision still prints any reason, or audit still reports a problem: then this ruling is wrong, AC-M19-6 and AC-M20-5 reopen, and the residue is a defect task
+- consequences: the engagement can close; every residual loop reason after the third verification is a defect, not an interpretation
