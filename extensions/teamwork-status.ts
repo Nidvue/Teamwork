@@ -5,24 +5,38 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 
 const KEY = "teamwork-status";
 const REFRESH_MS = 2_000;
-const MAX_LINES = 24;
+const BUDGET = 12;
 const TITLE_MAX = 32;
 const INSTANCE_MAX = 14;
+const INSTANCE_MIN = 6;
 const MODEL_MAX = 22;
 const LANE_MAX = 3;
 const WIDTH_MAX = 100;
 const ACTIVITY_MAX = 240;
+const TASK_MAX = 6;
+const REVIEW_TASK_MAX = 7;
+const ELAPSED_W = 6;
+const BAR_W = 10;
+const DROP_MODEL_BELOW = 80;
+const DROP_BAR_BELOW = 72;
+const DROP_ACTIVITY_BELOW = 56;
+const BARE_BELOW = 32;
 const ENGINE = ["scripts", "teamwork.py"];
 
-const STATE_ABBREV: Record<string, string> = {
-  starting: "start",
-  running: "run",
-  exited: "done",
-  failed: "fail",
-  timeout: "tout",
-  stopped: "stop",
-  lost: "lost",
+const GLYPH = { busy: "●", lane: "⚙", idle: "○", review: "↳", run: "▶", pause: "⏸", fail: "✕" };
+
+const LANE_STATE: Record<string, [string, string, string]> = {
+  starting: [GLYPH.run, "run", "ok"],
+  running: [GLYPH.run, "run", "ok"],
+  stopped: [GLYPH.pause, "pause", "warn"],
+  failed: [GLYPH.fail, "fail", "danger"],
+  timeout: [GLYPH.fail, "fail", "danger"],
+  lost: [GLYPH.fail, "fail", "danger"],
 };
+
+const COLOUR: Record<string, string> = { ok: "success", warn: "warning", danger: "error" };
+
+export type Paint = { fg?: (token: string, value: string) => string };
 
 type Lane = {
   id?: string;
@@ -120,20 +134,26 @@ function text(value: string | undefined, max: number): string {
 }
 
 function bar(percent: number | null | undefined): string {
-  if (typeof percent !== "number" || Number.isNaN(percent)) return "";
+  if (typeof percent !== "number" || Number.isNaN(percent)) return " ".repeat(BAR_W);
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
   const filled = Math.round((clamped / 100) * 5);
   return `${"█".repeat(filled)}${"░".repeat(5 - filled)} ${String(clamped).padStart(3)}%`;
 }
 
-function task_label(value: string | undefined): string {
-  const clean = text(value, 20);
-  const review = /^[a-z-]+\/(T-\d+)$/.exec(clean);
-  return review ? `\u21b3${review[1]}` : text(clean, 8) || "-";
+function task_id(value: string | undefined): string {
+  const clean = (value ?? "").trim();
+  const tail = clean.includes("/") ? clean.slice(clean.lastIndexOf("/") + 1) : clean;
+  return /^T-\d+$/.test(tail) ? tail : "";
+}
+
+function task_label(value: string | undefined, review: boolean): string {
+  const id = task_id(value);
+  if (id) return review ? `${GLYPH.review}${id}` : id;
+  return text((value ?? "").trim().split("/").pop(), TASK_MAX) || "-";
 }
 
 function elapsed(value: string | undefined): string {
-  return ((value ?? "").trim() || "-").padStart(6);
+  return ((value ?? "").trim() || "-").padStart(ELAPSED_W);
 }
 
 function ago(seconds: number | null | undefined): string {
@@ -143,94 +163,136 @@ function ago(seconds: number | null | undefined): string {
   return `${Math.floor(seconds / 3600)}h`;
 }
 
-function stateAbbrev(value: string | undefined): string {
-  const clean = (value ?? "").trim().toLowerCase();
-  return STATE_ABBREV[clean] ?? (clean ? text(clean, 5) : "-");
+function modelLabel(model: string | undefined): string {
+  const clean = (model ?? "").trim();
+  if (!clean) return "host";
+  return text(clean.includes("/") ? clean.slice(clean.lastIndexOf("/") + 1) : clean, MODEL_MAX);
 }
 
-function modelLabel(row: { model?: string; provider?: string }): string {
-  const model = (row.model ?? "").trim();
-  if (!model) return "host";
-  const provider = (row.provider ?? "").trim();
-  return text(provider ? `${provider}/${model}` : model, MODEL_MAX);
+function tint(paint: Paint | undefined, token: string, value: string): string {
+  const fg = paint?.fg;
+  if (!fg || !value || token === "neutral") return value;
+  try {
+    return fg(COLOUR[token] ?? token, value);
+  } catch {
+    return value;
+  }
 }
 
-export function render(payload: Payload, width = WIDTH_MAX): string[] {
+type Row = {
+  instance: string;
+  review: boolean;
+  task: string;
+  activity: string;
+  elapsed: string;
+  bar: string;
+  model: string;
+  percent: number | null;
+  busy: boolean;
+};
+
+type Layout = { pad: number; taskW: number; activity: number; bar: boolean; model: boolean; bare: boolean };
+
+function layoutFor(rows: Row[], width: number): Layout {
+  const widest = Math.max(INSTANCE_MIN, ...rows.map((row) => row.instance.length));
+  const pad = Math.min(INSTANCE_MAX, widest);
+  const taskW = rows.some((row) => row.review) ? REVIEW_TASK_MAX : TASK_MAX;
+  const bare = width < BARE_BELOW;
+  const model = !bare && width >= DROP_MODEL_BELOW;
+  const showBar = !bare && width >= DROP_BAR_BELOW;
+  const showActivity = !bare && width >= DROP_ACTIVITY_BELOW;
+  const head = 2 + pad + 1 + taskW;
+  const tail = 1 + ELAPSED_W + (showBar ? 1 + BAR_W : 0) + (model ? 1 + MODEL_MAX : 0);
+  const activity = showActivity ? Math.max(0, width - head - tail - 1) : 0;
+  return { pad, taskW, activity, bar: showBar, model, bare };
+}
+
+function rowLine(row: Row, layout: Layout, width: number, paint: Paint | undefined): string | null {
+  const head = `${GLYPH.busy} ${row.instance.padEnd(layout.pad)} ${row.task.padEnd(layout.taskW)}`;
+  const arrow = row.review ? 2 + layout.pad + 1 : -1;
+  let line = head;
+  if (layout.bare) {
+    line = line.trimEnd();
+  } else {
+    const middle = layout.activity > 0 ? `${row.activity.slice(0, layout.activity).padEnd(layout.activity)} ` : "";
+    const tail = [row.elapsed, layout.bar ? row.bar : "", layout.model ? row.model : ""]
+      .filter((part) => part)
+      .join(" ");
+    line = `${head} ${middle}${tail}`.trimEnd();
+  }
+  if (line.length > width) return null;
+  let out = line;
+  if (arrow >= 0 && out[arrow] === GLYPH.review) {
+    out = out.slice(0, arrow) + tint(paint, "warn", GLYPH.review) + out.slice(arrow + 1);
+  }
+  return tint(paint, "ok", out[0]) + out.slice(1);
+}
+
+function laneLine(lane: Lane, width: number, paint: Paint | undefined): string | null {
+  const state = LANE_STATE[(lane.state ?? "").trim().toLowerCase()];
+  const glyph = state ? state[0] : GLYPH.run;
+  const word = state ? state[1] : text(lane.state, 5) || "-";
+  const id = text(lane.id, 8) || "-";
+  const instance = text(lane.instance, INSTANCE_MAX) || "-";
+  const task = task_label(lane.task, false);
+  const line = `${GLYPH.lane} ${id} ${instance} ${task} ${glyph} ${word} ${elapsed(lane.elapsed_text)} ${modelLabel(lane.model)}`
+    .trimEnd();
+  if (line.length > width) return null;
+  const at = line.indexOf(` ${glyph} `) + 1;
+  let out = line;
+  if (state) out = out.slice(0, at) + tint(paint, state[2], glyph) + out.slice(at + 1);
+  return tint(paint, "ok", out[0]) + out.slice(1);
+}
+
+export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): string[] {
   const bound = Number.isFinite(width) && width > 20 ? Math.floor(width) : WIDTH_MAX;
-  const rows = (payload.instances ?? []).map((row) => ({
-    instance: text(row.instance, INSTANCE_MAX) || "-",
-    lane: text(row.lane, 8),
-    laneState: row.lane ? stateAbbrev(row.lane_state) : "",
-    task: task_label(row.task),
-    activity: text(row.last, ACTIVITY_MAX),
-    title: text(row.title, TITLE_MAX),
-    age: ago(row.last_seconds),
-    elapsed: elapsed(row.elapsed_text),
-    percent: row.progress_pct ?? null,
-    model: modelLabel(row),
-    busy: row.state === "busy",
-  }));
-  const lanes = (payload.lanes ?? []).map((lane) => ({
-    id: text(lane.id, 8) || "-",
-    instance: text(lane.instance, INSTANCE_MAX) || "-",
-    task: task_label(lane.task),
-    state: stateAbbrev(lane.state),
-    live: lane.state === "starting" || lane.state === "running",
-    elapsed: elapsed(lane.elapsed_text),
-    model: modelLabel(lane),
-  }));
-  if (!rows.length && !lanes.length) return [];
-  const busy = rows.filter((row) => row.busy);
-  const idle = rows.filter((row) => !row.busy);
-  const named = new Set(rows.map((row) => row.instance));
-  const live = lanes.filter((lane) => lane.live);
+  const instances = payload.instances ?? [];
+  const lanes = payload.lanes ?? [];
+  if (!instances.length && !lanes.length) return [];
   const counts = payload.counts ?? {};
-  const review = counts.review ?? 0;
-  const activated = counts.activated ?? rows.length;
-  const lanesLive = counts.lanes_live ?? live.length;
-  const header = `teamwork · ${activated} act · ${lanesLive} live · ${review} review`;
-
-  busy.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || a.instance.localeCompare(b.instance));
-  const pad = widthOf(busy);
-  const lines = [header];
-  for (const lane of live.filter((lane) => !named.has(lane.instance)).slice(0, LANE_MAX)) {
-    lines.push(
-      `⚙ ${lane.id} ${lane.instance} ${lane.task} ${lane.state} ${lane.elapsed} ${lane.model}`.trimEnd(),
-    );
+  const rows: Row[] = instances.map((row) => ({
+    instance: text(row.instance, INSTANCE_MAX) || "-",
+    review: (row.role ?? "").trim().toLowerCase() === "reviewer",
+    task: task_label(row.task, (row.role ?? "").trim().toLowerCase() === "reviewer"),
+    activity: text(row.last, ACTIVITY_MAX) || text(row.title, TITLE_MAX),
+    elapsed: elapsed(row.elapsed_text),
+    bar: bar(row.progress_pct),
+    model: modelLabel(row.model),
+    percent: typeof row.progress_pct === "number" ? row.progress_pct : null,
+    busy: (row.state ?? "") === "busy",
+  }));
+  rows.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || a.instance.localeCompare(b.instance));
+  const busy = rows.filter((row) => row.busy);
+  const idle = rows.length - busy.length;
+  const named = new Set(rows.map((row) => row.instance));
+  const live = lanes.filter((lane) => lane.state === "starting" || lane.state === "running");
+  const laneOnly = live.filter((lane) => !named.has(text(lane.instance, INSTANCE_MAX) || "-"));
+  const busyCount = counts.busy ?? busy.length;
+  const liveCount = counts.lanes_live ?? live.length;
+  const reviewCount = counts.review ?? 0;
+  const idleLine = idle ? 1 : 0;
+  const cap = BUDGET - 1 - idleLine;
+  let room = Math.min(busy.length, Math.max(0, cap));
+  if (room < busy.length) room = Math.max(0, cap - 1);
+  const layout = layoutFor(busy, bound);
+  const drawn = busy.slice(0, room).map((row) => rowLine(row, layout, bound, paint)).filter((line) => line !== null);
+  const hidden = busy.length - drawn.length;
+  const lines = [text(`teamwork · ${busyCount} busy · ${liveCount} live · ${reviewCount} review`, bound)];
+  lines.push(...drawn);
+  if (hidden > 0) lines.push(`+${hidden} more busy`);
+  if (idle) lines.push(text(`${GLYPH.idle} idle: ${idle}`, bound));
+  const laneRoom = hidden > 0 ? 0 : Math.min(LANE_MAX, BUDGET - lines.length);
+  for (const lane of laneOnly.slice(0, Math.max(0, laneRoom))) {
+    const line = laneLine(lane, bound, paint);
+    if (line) lines.push(line);
   }
-  const room = MAX_LINES - lines.length - (idle.length ? 1 : 0);
-  for (const row of busy.slice(0, Math.max(0, room))) {
-    const tail = `${row.elapsed} ${bar(row.percent)} ${row.model}`.trimEnd();
-    const head = `● ${row.instance.padEnd(pad)} ${row.lane ? `${row.lane} ${row.laneState} ` : ""}${row.task}`;
-    const latest = row.activity || row.title;
-    const middle = latest ? (row.age ? `${row.age} · ${latest}` : latest) : "";
-    lines.push(clip(`${head} ${middle}`.trimEnd(), tail, bound));
-  }
-  const hidden = busy.length - Math.max(0, room);
-  if (hidden > 0) lines.push(`  +${hidden} more busy`);
-  if (idle.length) {
-    lines.push(`○ idle: ${idle.length} (activated ${activated})`);
-  }
-  return lines.slice(0, MAX_LINES).map((line) => clip(line, "", bound));
+  return lines;
 }
 
 export function footer(payload: Payload): string {
   const rows = payload.instances ?? [];
-  const busy = rows.filter((row) => row.state === "busy").length;
+  const busy = payload.counts?.busy ?? rows.filter((row) => row.state === "busy").length;
   return `teamwork ${busy}/${payload.count ?? rows.length} busy`;
-}
-
-function widthOf(rows: { instance: string }[]): number {
-  return Math.min(INSTANCE_MAX, Math.max(0, ...rows.map((row) => row.instance.length)));
-}
-
-function clip(head: string, tail: string, bound: number): string {
-  const gap = tail ? 2 : 0;
-  const room = bound - tail.length - gap;
-  if (!tail) return head.length > bound ? `${head.slice(0, bound - 1)}…` : head;
-  if (room <= 0) return tail.length > bound ? `${tail.slice(0, bound - 1)}…` : tail;
-  const kept = head.length > room ? `${head.slice(0, Math.max(0, room - 1))}…` : head;
-  return `${kept.padEnd(room)}${tail}`;
 }
 
 function terminalWidth(): number {
@@ -269,8 +331,9 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
       ctx.ui.setStatus(KEY, "teamwork: status unavailable");
       return;
     }
+    const paint = (ctx.ui as { theme?: Paint }).theme;
     try {
-      ctx.ui.setWidget(KEY, render(payload, terminalWidth()));
+      ctx.ui.setWidget(KEY, render(payload, terminalWidth(), paint));
     } catch {
       ctx.ui.setWidget(KEY, []);
     }
