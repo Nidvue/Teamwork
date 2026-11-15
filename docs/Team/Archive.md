@@ -6011,3 +6011,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py @e124b39 -> 109 passed (own run); python3 scripts/teamwork.py links @e124b39 -> # issues: 0; grep -c "^| R-" docs/Team/Risks.md @e124b39 -> 32 rows, ids unique, R-33 names the measured 52m33s / 18-30 min / 11 min contrast and two remedies
 - findings history: 
 - branch / merge: ceo/t-0032-record-the-windows-ci-limitation-as-a-ri / d300307
+
+## T-0033 · The documented roster-tier startup costs are stale: SKILL.md and references/Roles.md quote 283/388/627 kB while the charters now measure 284/390/630 kB, so test_roster_tiers fails on main and the number an operator reads is wrong  (ceo)
+- date: 2026-11-15
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: six numbers in two tables; no charter, no template, no code. Empty/duplicate/second-call: the test recomputes the cost from the charters on disk every run, so a stale number fails instead of ageing; both files carry the same table and the test reads both, so editing one is caught. Contract surface: the tier names and the instance counts are unchanged; only the measured bytes moved. Concurrency/shared writes: docs only. Scope: 2 files plus the board render the merge flow redoes. @c1bd656 superseded by @93eca8a: the board render only. | test: venv/bin/python -m pytest -q tests/unit/test_roster_tiers.py tests/unit/test_board_matches_tool.py @93eca8a -> 25 passed; expand_roster x charter bytes @93eca8a -> slim 283629, standard 390247, full 630148 | preflight: PF-4f0892312f48 @93eca8a006cc (7 checks, 0 failed)
+- author evidence: commit c1bd656
+- reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_roster_tiers.py tests/unit/test_board_matches_tool.py @93eca8a -> 25 passed (own run); PYTHONPATH=src python -c expand_roster x charter bytes @93eca8a -> 283629 / 390247 / 630148, matching the three documented rows in both files
+- findings history: 
+- branch / merge: ceo/t-0033-the-documented-roster-tier-startup-costs / pending
