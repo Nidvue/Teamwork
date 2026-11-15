@@ -33,6 +33,17 @@ starts, steers or stops a lane, so the engine stays the single source of truth a
 a host without it loses nothing but the picture. `TEAMWORK_LANES_POLL` sets the
 interval in ms (`0` disables), `TEAMWORK_CLI` pins the command.
 
+**Shipped is not loaded.** A host reads extensions from its own `extensions/`
+directory and its `settings.json`, never from a skills directory, so a skill-only
+install carries the renderer and still draws nothing. `teamwork.py ui install`
+copies the shipped file to `<agent>/extensions/` and appends
+`extensions/teamwork-lanes.ts` to `<agent>/settings.json` once; `ui status`
+reports both halves without writing and fails when the host would draw nothing.
+`refresh` and `scripts/sync_skill.py` run the same install after mirroring, and
+their `--check` fails on a display the host would not load (`refresh --no-ui`
+keeps a mirror-only run). `pi install npm:@nidvue/teamwork` needs none of this:
+the package declares `pi.extensions`, so the host loads it from the tarball.
+
 ## Host mapping for operation 1
 
 | Host | Default launcher | Notes |

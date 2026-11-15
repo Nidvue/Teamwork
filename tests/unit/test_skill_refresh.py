@@ -16,6 +16,7 @@ drift reporting - without any network.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -315,3 +316,46 @@ def test_the_engine_and_the_sync_script_share_one_manifest() -> None:
         assert (engine_root / name).is_file(), name
     for tree in bundle.BUNDLE_TREES:
         assert (engine_root / tree).is_dir(), tree
+
+
+def add_renderer(checkout: Path) -> Path:
+    """Put the lane display extension into a miniature bundle and commit it."""
+    renderer = checkout / "templates" / "pi-package" / "extensions" / "teamwork-lanes.ts"
+    renderer.parent.mkdir(parents=True, exist_ok=True)
+    renderer.write_text("export default function () {}\n", encoding="utf-8")
+    git(checkout, "add", "-A")
+    git(checkout, "commit", "-q", "-m", "renderer")
+    return renderer
+
+
+def test_refresh_also_makes_the_host_load_the_lane_display(
+    cli, capsys, checkout: Path, tmp_path: Path
+) -> None:
+    """A mirrored bundle that the host never loads as an extension draws nothing."""
+    add_renderer(checkout)
+    agent = tmp_path / "agent"
+    dest = agent / "skills" / "teamwork"
+
+    code, out = refresh(cli, capsys, "--source", checkout, "--dest", dest)
+
+    assert code == 0, out
+    assert (agent / "extensions" / "teamwork-lanes.ts").is_file(), "the file must reach the host"
+    settings = json.loads((agent / "settings.json").read_text(encoding="utf-8"))
+    assert settings["extensions"] == ["extensions/teamwork-lanes.ts"]
+    assert "lane display" in out
+    assert refresh(cli, capsys, "--source", checkout, "--dest", dest, "--check")[0] == 0
+
+
+def test_refresh_no_ui_mirrors_without_touching_the_host_settings(
+    cli, capsys, checkout: Path, tmp_path: Path
+) -> None:
+    add_renderer(checkout)
+    agent = tmp_path / "agent"
+    dest = agent / "skills" / "teamwork"
+
+    code, out = refresh(cli, capsys, "--source", checkout, "--dest", dest, "--no-ui")
+
+    assert code == 0, out
+    assert (dest / "SKILL.md").is_file()
+    assert not (agent / "settings.json").exists()
+    assert not (agent / "extensions").exists()
