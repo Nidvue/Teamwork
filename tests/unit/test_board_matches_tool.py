@@ -45,7 +45,7 @@ A committed board is a projection at render time, but the act of landing a PR fl
 its own task from `review`/`doing` to `done` plus a merge revision, so no commit can
 carry its own post-merge state - the merge that would make the row true does not
 exist yet when the row is written. This is structural, not an author's error:
-`projectmanager T-0003` read `doing` on the board and `done` + `cfba521` in the queue
+`projectmanager T-0003` read `doing` on the board and `done` + `cd01534` in the queue
 with no defect behind the difference. So a landing task is excluded from both sides
 (the CEO decision: "The board cannot contain its own post-merge state"), while every
 other comparison stays strict - an open `todo`/`doing` task must still be visible and
@@ -136,7 +136,7 @@ def test_the_in_flight_table_is_exactly_the_open_set() -> None:
 
 def test_the_product_check_accepts_a_rendered_board() -> None:
     tasks = {
-        ("ceo", "T-0059"): {"status": "done", "pr": "P-0069", "merge_commit": "3078c48"},
+        ("ceo", "T-0059"): {"status": "done", "pr": "P-0069", "merge_commit": "6c8f7ba"},
         ("tester", "T-0003"): {"status": "doing", "title": "acceptance proof", "priority": "P1"},
     }
     board = render(tasks, _board())
@@ -145,15 +145,15 @@ def test_the_product_check_accepts_a_rendered_board() -> None:
 
 def test_the_product_check_names_a_stale_cell() -> None:
     tasks = {
-        ("ceo", "T-0059"): {"status": "done", "pr": "P-0069", "merge_commit": "3078c48"},
+        ("ceo", "T-0059"): {"status": "done", "pr": "P-0069", "merge_commit": "6c8f7ba"},
         ("tester", "T-0003"): {"status": "doing", "title": "acceptance proof", "priority": "P1"},
     }
     board = render(tasks, _board()).replace(
-        "| ceo | T-0059 | - | done | P-0069 | 3078c48 |", "| ceo | T-0059 | - | todo | - | - |"
+        "| ceo | T-0059 | - | done | P-0069 | 6c8f7ba |", "| ceo | T-0059 | - | todo | - | - |"
     )
     found = problems(tasks, board)
     assert (
-        "ceo T-0059: board says ('todo', '-', '-'), queue says ('done', 'P-0069', '3078c48')"
+        "ceo T-0059: board says ('todo', '-', '-'), queue says ('done', 'P-0069', '6c8f7ba')"
         in (found)
     )
 
@@ -208,7 +208,7 @@ def test_a_landing_task_is_excluded_and_a_drift_is_not() -> None:
     so the exemption cannot be used to wave through a stale board.
     """
     landed = {
-        ("projectmanager", "T-0003"): {"status": "done", "pr": "P-0016", "merge_commit": "cfba521"}
+        ("projectmanager", "T-0003"): {"status": "done", "pr": "P-0016", "merge_commit": "cd01534"}
     }
     stale_row = {("projectmanager", "T-0003"): ("doing", "P-0016", "-")}
     assert mismatches(landed, stale_row) == []
@@ -289,12 +289,12 @@ def test_no_queued_task_is_silently_hidden() -> None:
 def test_the_regeneration_round_trips() -> None:
     """`render` must be idempotent on its own output, or the fix would churn."""
     tasks = {
-        ("ceo", "T-0059"): {"status": "done", "pr": "P-0069", "merge_commit": "3078c48"},
+        ("ceo", "T-0059"): {"status": "done", "pr": "P-0069", "merge_commit": "6c8f7ba"},
         ("tester", "T-0003"): {"status": "doing", "title": "acceptance proof"},
     }
     board = _board()
     once = render(tasks, board)
-    assert "| ceo | T-0059 | - | done | P-0069 | 3078c48 |" in once
+    assert "| ceo | T-0059 | - | done | P-0069 | 6c8f7ba |" in once
     assert "| tester | T-0003 | - | doing | - | - |" in once
     assert "| tester | T-0003 acceptance proof | - | doing | - |" in once
     assert "| ceo | T-0059 stale title |" not in once

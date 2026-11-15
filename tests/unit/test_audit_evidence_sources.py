@@ -5,7 +5,7 @@ Two defects are pinned here, both reproduced on the real team tree before the fi
 1. ``audit`` listed every review-passed task as a fabricated completion. A review
    pass writes ``review_evidence`` and a self-check writes ``self_note``; neither
    writes ``evidence``. So the five properly reviewed tasks (developer T-0015 with
-   ``review_status: passed`` and ``merge_commit: cc2f50f`` among them) were
+   ``review_status: passed`` and ``merge_commit: ab757e9`` among them) were
    reported as unverified while their proof sat one field away.
 2. ``audit`` reported a forced review pass as "submitted for review without a
    self-check" forever. The force records *why* the self-check was skipped, which

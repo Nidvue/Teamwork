@@ -1,7 +1,7 @@
 """Why these tests exist: the docs promise several Reviewer lanes reviewing at
 once, but the pulse handed every deliverable to the first idle lane and nothing
 recorded which lane had taken which deliverable, so reviews serialised and lanes
-collided on the same work (reproduced at 479742d before the fix).
+collided on the same work (reproduced at 0bd374e before the fix).
 
 Pinned here: the pulse fans unclaimed deliverables out one per lane, a claim
 pins its deliverable to that lane until the lease expires, the lane count is the

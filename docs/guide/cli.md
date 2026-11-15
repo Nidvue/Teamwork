@@ -188,7 +188,7 @@ teamwork instance prune [--by BY] [--reason WHY] [--dry-run] [--keep-required]
   still claims a `doing`/`selfcheck`/`review` task, holds a provider slot or holds
   the memory pen is refused until it is idle, or requires `--reason` plus
   `--force` so the record says what was abandoned. Before a cut, verify
-  `git rev-parse HEAD` is at or after the move-only revision (`b9e5135`): the
+  `git rev-parse HEAD` is at or after the move-only revision (`9a6d513`): the
   first cut ran from a stale checkout and lost 102 artifact paths (`L-0001`).
   `parallel` says how many lanes the ready work supports; `list` is the roster.
 - `prune` folds **every idle instance** in one pass: a lane is idle only when it

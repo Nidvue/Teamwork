@@ -5517,24 +5517,24 @@ _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
 _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
 LEGACY_MESSAGE_EXEMPT = {
-    "f709c4ce3eebd1689bef5982aa559564f8867895": (
+    "50f810b48010947a0606f5ab2d8be4a9809bb385": (
         "chore(records) by Reviewer merged 2026-11-03 before the trailer rule; canonical identity"
     ),
 }
 LEGACY_AUTHOR_EXEMPT = {
-    "b169c7d95f25c2ff5866d06c4670cbd4b917a2dd": (
+    "3b4dbc1c0f90d8dd7f68ebf58074f51030a91e0d": (
         "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
         "published history, so the identity is accepted and not rewritten"
     ),
-    "17e3b4a55a9b9f2c062a40146ecb4a69899aa4ae": (
+    "844c7fda879d3df469d40429e5c2f59726f11ce7": (
         "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
         "published history, so the identity is accepted and not rewritten"
     ),
-    "f742b65708bd71b75a4e7e40dec721d2b4fa2d70": (
+    "977bb8454d9984e77069b1250fda32871b9778a5": (
         "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
         "published history, so the identity is accepted and not rewritten"
     ),
-    "6348825271cfe10864765c8448942f56b8cb6011": (
+    "527cc458b9fd75b20932e70764cd30b439e164f4": (
         "merge of ceo/t-0059 on 2026-10-21 by the operator account, before the "
         "role-mailbox policy; published history, so the identity is accepted"
     ),
