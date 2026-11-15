@@ -7799,4 +7799,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit d2fb2cf8
 - reviewer evidence: links @d2fb2cf8 -> # issues: 0; privacy_scan --tree -> PASS 0 finding(s); pytest tests/unit/test_docs_contracts.py -> 20 passed; accept_T-0002.py -> 105 lines, row grammar in 10.2==10.8, arithmetic 46/13 reproduced; INSTANCE_MAX=14 and render(payload,width) confirmed at extensions/teamwork-status.ts:10,158
 - findings history: 
-- branch / merge: designer/t-0002-design-md-10-8-the-round-2-row-used-and / pending
+- branch / merge: designer/t-0002-design-md-10-8-the-round-2-row-used-and / 7abfa18e
