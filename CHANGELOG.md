@@ -9,6 +9,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.9] - 2026-11-15
+
+### Changed
+
+- **Every commit message carries the seven fields, and the history was rewritten
+  to match** - `Role`, `Producers`, `Goal`, `Deliverable`, `Why`, `Status`,
+  `Result` after the subject line. `teamwork.py commit` builds the whole block
+  from its existing flags, so the fields are the ones the author already had to
+  supply. A commit whose evidence nobody recorded says `not recorded at this
+  revision`; the rewrite did not invent a result for the 988 commits that carry
+  none, because a fabricated result in the history is the one defect no later
+  check can detect.
+
 ## [1.5.8] - 2026-11-15
 
 ### Added

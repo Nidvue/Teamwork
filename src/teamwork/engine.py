@@ -47,6 +47,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import time
 from fnmatch import fnmatch
 from pathlib import Path
@@ -5712,7 +5713,9 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             match = _RE_ROLE_FIELD.search(body)
             if match:
                 fallback_role = resolve_role(match.group(1))
-                if not _matches_role_display(an, role_identity(fallback_role)[0]):
+                if not is_operator and not _matches_role_display(
+                    an, role_identity(fallback_role)[0]
+                ):
                     reasons.append(f"'Role: {match.group(1)}' does not match author {an!r}")
                     match = None
         elif not is_operator and not _matches_role_display(match.group(1), an):
@@ -5736,14 +5739,60 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
     return 1 if problems else 0
 
 
-def build_commit_message(role: str, meta: dict) -> str:
-    """The message a commit carries: exactly one line.
+COMMIT_FIELDS = ("Role", "Producers", "Goal", "Deliverable", "Why", "Status", "Result")
 
-    A commit message is one line - ``<type>(<area>): <summary>`` - compact but
-    informative. The task, the goal and the evidence live in the task record and
-    the ledger, never in a multi-line commit body. No line names an agent:
-    published history is the project's, so the message carries what changed and
-    nothing about which role or instance typed it.
+
+def _commit_field(label: str, value: str, width: int = 76) -> list:
+    """One field of a commit message, wrapped on its own indent.
+
+    An empty value prints ``not recorded at this revision`` instead of being
+    dropped or guessed: a commit whose evidence nobody wrote down says so, and the
+    absence is the record. Inventing a result here would make the history lie,
+    which is the one thing the message exists to prevent.
+    """
+    text = one_line(value or "").strip()
+    if not text:
+        text = "not recorded at this revision"
+    return textwrap.wrap(
+        text,
+        width=width,
+        initial_indent=f"{label}: ",
+        subsequent_indent="  ",
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
+
+
+def _producer_roles(value: str, fallback: str) -> str:
+    """The producers as role names, never as instances.
+
+    A caller passes the instance that did the work - ``Developer-2`` - and the
+    message must not: an instance is a seat, the role is the identity. An unknown
+    token is kept as written rather than guessed at.
+    """
+    names = []
+    for raw in (value or fallback).replace(";", ",").split(","):
+        token = raw.strip()
+        if not token:
+            continue
+        try:
+            name = role_identity(token)[0]
+        except Exception:
+            name = token
+        if name not in names:
+            names.append(name)
+    return ", ".join(names) or fallback
+
+
+def build_commit_message(role: str, meta: dict) -> str:
+    """The message a commit carries: the subject line and its seven fields.
+
+    ``<type>(<area>): <summary>``, then ``Role``, ``Producers``, ``Goal``,
+    ``Deliverable``, ``Why``, ``Status`` and ``Result``. The fields are the record
+    the commit is: what was asked for, what it produced, why that is the right
+    change, the state it actually reached, and the command that proved it. A field
+    with nothing recorded says so rather than inventing a value, and no field names
+    an instance - the role mailbox is the identity.
     """
     typ = (meta.get("type") or "chore").lower()
     if typ not in COMMIT_TYPES:
@@ -5751,7 +5800,20 @@ def build_commit_message(role: str, meta: dict) -> str:
     area = one_line(meta.get("area") or meta.get("task") or role)
     summary = one_line(meta.get("deliverable") or meta.get("goal") or "update")
     summary = summary[:72]
-    return f"{typ}({area}): {summary}\n"
+    name = role_identity(role)[0]
+    lines = [f"{typ}({area}): {summary}", ""]
+    values = {
+        "Role": name,
+        "Producers": _producer_roles(meta.get("producers") or "", name),
+        "Goal": meta.get("goal") or summary,
+        "Deliverable": meta.get("deliverable") or "",
+        "Why": meta.get("why") or "",
+        "Status": meta.get("status") or "",
+        "Result": meta.get("result") or "",
+    }
+    for label in COMMIT_FIELDS:
+        lines.extend(_commit_field(label, values[label]))
+    return "\n".join(lines) + "\n"
 
 
 def _git_author(project: Path, env: dict) -> tuple:
@@ -8577,6 +8639,7 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
             input=msg,
             capture_output=True,
             text=True,
+            env=dict(os.environ, **git_identity_env("ceo", project)),
         )
         if r.returncode == 0 and not quiet:
             sha = run_git(project, "rev-parse", "--short", "HEAD").stdout.strip()
