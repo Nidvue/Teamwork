@@ -186,7 +186,7 @@ under two roles is two tasks.
 | developer | T-0064 | worktree | done | P-0078 | 29d20d4f |
 | developer | T-0065 | status | done | P-0080 | 53225821 |
 | developer | T-0066 | lanes | done | P-0082 | dbb42541 |
-| release-engineer | T-0001 | changelog | doing | - | - |
+| release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | todo | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
@@ -216,7 +216,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| release-engineer | T-0001 · release prep 1.5.9: the CHANGELOG section for the one-renderer change, then the pre-push gates and the push of main | P0 | doing | - |
 | release-engineer | T-0002 · release 1.5.9: create and push the v1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
