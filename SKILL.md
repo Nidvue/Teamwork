@@ -502,7 +502,7 @@ inside a byte budget, and `--lines`/`--full` are the verify and native fallbacks
 - **Right-size the roster.** `slim` is the default; add an instance for a named
   deliverable, retire an idle one. Retirement is **move-only** to
   `Runtime/Retired/<Instance>/`; verify `git rev-parse HEAD` is at or after the
-  move-only revision (`32f598f`) first - a stale cut lost 102 artifact paths
+  move-only revision (`da8a1a6`) first - a stale cut lost 102 artifact paths
   (`L-0001`).
 - **Read by id, never by history.** `archive --task <T-id>`, `decision list`,
   `board`, `trace <id>` answer a question; a whole `Archive.md` is ~0.63M tokens

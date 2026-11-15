@@ -278,10 +278,10 @@ teamwork knowledge touch K_ID --by <you>
   print and is charged against the pack budget (`index + pack <= 4000`), so the
   whole `load` output does not grow by the index's bytes (AC-M22-4, T-0057).
 
-Measured back to back on one store at `8a34759`: the `1925590` renderer in
+Measured back to back on one store at `8a34759`: the `c34391f` renderer in
 `.pi/Scratch/ceo/baseline` and the merged one, run one after the other.
 
-| surface | before `1925590` | after `8a34759` | delta |
+| surface | before `c34391f` | after `8a34759` | delta |
 |---|---|---|---|
 | `load CEO` | 8112 B | 5455 B | -2657 B |
 | `load Developer` | 5746 B | 5776 B | +30 B |
@@ -404,7 +404,7 @@ read the heading's role.
   deliverable. `instance retire` MOVES the idle directory to
   `Runtime/Retired/<Instance>/` (a repeat gets a timestamped sibling) and never
   deletes artifacts, reports or the worklog. Before a cut, verify `git rev-parse
-  HEAD` is at or after the move-only revision (`32f598f`): the one cut from a
+  HEAD` is at or after the move-only revision (`da8a1a6`): the one cut from a
   stale checkout deleted 102 artifact paths and is recorded as `L-0001`.
 
 ### Review first pass and slices
