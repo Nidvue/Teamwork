@@ -7800,3 +7800,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: links @d2fb2cf8 -> # issues: 0; privacy_scan --tree -> PASS 0 finding(s); pytest tests/unit/test_docs_contracts.py -> 20 passed; accept_T-0002.py -> 105 lines, row grammar in 10.2==10.8, arithmetic 46/13 reproduced; INSTANCE_MAX=14 and render(payload,width) confirmed at extensions/teamwork-status.ts:10,158
 - findings history: 
 - branch / merge: designer/t-0002-design-md-10-8-the-round-2-row-used-and / 7abfa18e
+
+## T-0007 · round 2: critique Design.md 10 (the agent-state widget spec) against the real payload and the pi widget API - where would it mislead, what is unimplementable, what does it still miss for judging efficiency/effectiveness  (reviewer)
+- date: 2026-11-15
+- priority: P0
+- owner: reviewer role (work by: Reviewer-1)
+- reviewer: Reviewer-2
+- task / issue: -
+- area: status
+- self-check: [pass] Re-ran at the branch head: the record is unchanged by the commit except for its own addition, so the measurements hold. Boundary: review record only - docs/Team/Reviews/T-0007-Design-10-round2.md; no engine, extension, test or Design.md edit (the Designer owns that file), so the contract surface is unchanged. Empty case: the record covers the empty feed (10.6 returns [] and footer 0/0) and the live 4-instance payload. Duplicate case: round 2 on T-0007, so every claim is re-derived, and two findings (D-9, D-10) retract round-1-era defects the shipped code already fixes. Second call: render is deterministic in the payload and every check cited is a re-runnable command. Shared writes: none - the file is new and unreferenced; the Design.md back-link is left to the Designer and named in the record. Scope: Design.md 584-882, extensions/teamwork-status.ts, live status --json schema 4, pi docs extensions.md/tui.md. | test: grep -n BUDGET/MAX_LINES/render/laneRoom extensions/teamwork-status.ts @827d58a3 -> :8 BUDGET = 12 and no MAX_LINES, :10 INSTANCE_MAX = 14, :16 TASK_MAX = 6, :247 render(payload, width, paint?), :284 laneRoom after the row loop, so D-9/D-10/D-11 and the no-third-parameter claim are false; python3 check_row_arith.py @827d58a3 -> row template with activity=14 is 80 columns, spec fixed=46, activity = 80-46-20 = 14 while the doc says 13; teamwork.py links @827d58a3 -> # issues: 0 | preflight: PF-9dd2396c2560 @827d58a3a04f (8 checks, 0 failed)
+- author evidence: commit 827d58a3
+- reviewer evidence: git show 827d58a3:docs/Team/Reviews/T-0007-Design-10-round2.md verifies: D-9 overflow fix confirmed at 0fbdc4ea:extensions/teamwork-status.ts:274-275; D-10 false (no MAX_LINES, render post-hoc at :284); schema-4 missing fields (budget_seconds, activity, stalled, remaining_seconds) confirmed by status --json; check_row_arith.py @827d58a3 -> activity=14 not 13; tw links @827d58a3 -> issues: 0
+- findings history: 
+- branch / merge: reviewer-1/t-0007-round-2-critique-design-md-10-the-agent / pending
