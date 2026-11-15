@@ -121,6 +121,7 @@ under two roles is two tasks.
 | ceo | T-0036 | records | done | P-0079 | c824be5a |
 | ceo | T-0037 | records | done | P-0083 | f6e62305 |
 | ceo | T-0038 | records | done | P-0085 | dbc56003 |
+| designer | T-0001 | design | done | P-0086 | 830636bc |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -188,6 +189,8 @@ under two roles is two tasks.
 | developer | T-0065 | status | done | P-0080 | 53225821 |
 | developer | T-0066 | lanes | done | P-0082 | dbb42541 |
 | developer | T-0067 | - | todo | - | - |
+| developer | T-0068 | - | doing | - | - |
+| developer | T-0069 | - | todo | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | doing | - | - |
 | reviewer | T-0001 | - | done | - | - |
@@ -195,12 +198,15 @@ under two roles is two tasks.
 | reviewer | T-0003 | - | dropped | - | - |
 | reviewer | T-0004 | security | done | P-0060 | 59c240f |
 | reviewer | T-0005 | - | done | - | - |
+| reviewer | T-0006 | - | done | - | - |
+| reviewer | T-0007 | - | todo | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
 | tester | T-0003 | - | dropped | - | - |
 | tester | T-0004 | tests | done | P-0066 | 66d55cd |
 | tester | T-0005 | - | done | P-0081 | cc343480 |
+| tester | T-0006 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -219,7 +225,11 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | developer | T-0067 · a release task whose title names its own tag makes CI red, and a board-editing task is charged for every parallel lane's status drift | P1 | todo | - |
+| developer | T-0068 · implement the redesigned agent-state display: status payload signals + extensions/teamwork-status.ts renderer with theme colours, bounded rows and an exact hidden count | P0 | doing | - |
+| developer | T-0069 · round 2: feasibility counter-proposal for Design.md 10 - theme-styled renderer at a 12-line budget, attention-first order, the payload fields it needs (review target, per-role title, staleness) and the exact edits; no code yet | P0 | todo | - |
 | release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | doing | - |
+| reviewer | T-0007 · round 2: critique Design.md 10 (the agent-state widget spec) against the real payload and the pi widget API - where would it mislead, what is unimplementable, what does it still miss for judging efficiency/effectiveness | P0 | todo | - |
+| tester | T-0006 · agent-state display: ui layer - execute the renderer at 40/80/120 columns, prove the overflow count and the width bound, prove no invented metric | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
