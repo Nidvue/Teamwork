@@ -32,7 +32,7 @@ PREVIEW = REPO_RAW + "assets/social-preview.png"
 sys.path.insert(0, str(ROOT / "src"))
 from teamwork import bundle as _bundle  # noqa: E402
 
-SKILL_TREES = ("references", "roles", "templates", "scripts", "src")
+SKILL_TREES = ("extensions", "references", "roles", "templates", "scripts", "src")
 SKILL_FILES = ("SKILL.md", "AGENTS.md")
 assert SKILL_FILES == _bundle.BUNDLE_FILES and SKILL_TREES == _bundle.BUNDLE_TREES, (
     "the pi package manifest drifted from teamwork.bundle"
@@ -121,11 +121,6 @@ def copy_skill(dest: Path) -> None:
     )
     shutil.copytree(ROOT / "templates" / "pi-package" / "prompts", dest / "prompts")
     shutil.copytree(ROOT / "extensions", dest / "extensions")
-    shutil.copytree(
-        ROOT / "templates" / "pi-package" / "extensions",
-        dest / "extensions",
-        dirs_exist_ok=True,
-    )
 
 
 def ship_readme(dest: Path) -> None:

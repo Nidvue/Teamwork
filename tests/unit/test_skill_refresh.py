@@ -475,7 +475,7 @@ def test_the_engine_and_the_sync_script_share_one_manifest() -> None:
 
 def add_renderer(checkout: Path) -> Path:
     """Put the lane display extension into a miniature bundle and commit it."""
-    renderer = checkout / "templates" / "pi-package" / "extensions" / "teamwork-lanes.ts"
+    renderer = checkout / "extensions" / "teamwork-status.ts"
     renderer.parent.mkdir(parents=True, exist_ok=True)
     renderer.write_text("export default function () {}\n", encoding="utf-8")
     git(checkout, "add", "-A")
@@ -494,9 +494,9 @@ def test_refresh_also_makes_the_host_load_the_lane_display(
     code, out = refresh(cli, capsys, "--source", checkout, "--dest", dest)
 
     assert code == 0, out
-    assert (agent / "extensions" / "teamwork-lanes.ts").is_file(), "the file must reach the host"
+    assert (agent / "extensions" / "teamwork-status.ts").is_file(), "the file must reach the host"
     settings = json.loads((agent / "settings.json").read_text(encoding="utf-8"))
-    assert settings["extensions"] == ["extensions/teamwork-lanes.ts"]
+    assert settings["extensions"] == ["extensions/teamwork-status.ts"]
     assert "lane display" in out
     assert refresh(cli, capsys, "--source", checkout, "--dest", dest, "--check")[0] == 0
 

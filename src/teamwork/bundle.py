@@ -21,7 +21,7 @@ from pathlib import Path
 
 BUNDLE_FILES = ("SKILL.md", "AGENTS.md")
 
-BUNDLE_TREES = ("references", "roles", "templates", "scripts", "src")
+BUNDLE_TREES = ("extensions", "references", "roles", "templates", "scripts", "src")
 
 HOST_DEFAULTS = {
     "pi": Path("~/.pi/agent/skills/teamwork"),

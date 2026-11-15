@@ -129,32 +129,38 @@ The package ships one optional pi extension of its own,
 what, and is it moving":
 
 ```text
-teamwork · 21 act · 6 live · 8 busy · 2 review
-⚙ L-0383 Developer-1 T-0130 run     12m deepseek/deepseek-chat
-⚙ L-0381 Reviewer-1  -       run      4m host
-● Developer-2 T-0070 19s · tests.run TS-0214 - 76 passed in 35s   12m ███░░  60% deepseek/deepseek-chat
-● Reviewer-2  ↳T-0071 4m · review.pass T-0062 - Re-derived the mechanism, then mutated it   8m ██░░░  35% host
-○ idle: 9 (activated 21)
+teamwork · 21 act · 2 live · 2 review
+⚙ L-0390 Developer-2 T-0129 run     1m deepinfra/deepseek-ch…
+● Developer-1 L-0383 run T-0130 19s · pytest -q tests/uni…   12m ███░░  60% deepseek/deepseek-chat
+● Reviewer-2  L-0381 run ↳T-0062                                                8m ██░░░  35% host
+○ idle: 19 (activated 21)
 ```
 
-The header counts activated instances, live lanes, busy instances and review
-claims. After it, one line per **live** lane only (at most 3, in the feed's
-order: live first, then newest; an ended lane is history and is not displayed):
-`⚙ <id> <instance> <task> <state-abbrev> <elapsed> <model>` with the model
-clipped to 22 columns and `host` when the feed carries no model - never a guess.
-Then **one line per busy instance**, ordered by progress, carrying the latest
-command that instance ran (`last`, from the ledger) and how long ago it ran
+Measured, not composed: `render()` on a schema-4 payload at width 100, with two
+instance rows carrying `lane`/`lane_state` and one live lane whose agent has no
+instance row.
+
+The header counts activated instances, live lanes and review claims. A live lane
+is drawn **once**: the instance row that holds it carries the lane id and lane
+state (`● <instance> <lane-id> <state-abbrev> <task> ...`), and a `⚙` lane line
+is drawn only for a lane whose agent has no instance row at all (at most 3, in
+the feed's order: live first, then newest; an ended lane is history and is not
+displayed), as `⚙ <id> <instance> <task> <state-abbrev> <elapsed> <model>` with
+the model clipped to 22 columns and `host` when the feed carries no model - never
+a guess. Then **one line per busy instance**, ordered by progress, carrying the
+latest command that instance ran (`last`, from the ledger) and how long ago it ran
 (`last_seconds`), then the lane elapsed, the progress bar and the model: a busy
 row is the agent's live activity, not a static title, and it falls back to the
 task title only when the feed carries no event. A review handle prints as `↳T-0071`
 so the role prefix does not eat the column; every idle instance collapses into
-**one count** (`○ idle: 9 (activated 21)`) - the widget never names an idle agent.
+**one count** (`○ idle: 19 (activated 21)`) - the widget never names an idle agent.
 
 The widget renders to the **real terminal width** (100 columns when the width is
 unknown, e.g. print mode) and clips each row to it, so a wide terminal shows the
 whole command and a narrow one truncates it with an ellipsis: a row is always one
-line and never wraps. It never exceeds 24 lines, a footer status line carries the
-busy/total count, and it refreshes every 2 s by `execFile`-ing `python3 <engine>
+line and never wraps. It never exceeds 24 lines, the footer status line carries
+only the busy/total count the body omits (`teamwork 2/21 busy`) and repeats no
+header count, and it refreshes every 2 s by `execFile`-ing `python3 <engine>
 status --json` at the team tree found by walking up from the session cwd. It is
 silent when no engine is found, and `/teamwork-status` toggles it off and on.
 

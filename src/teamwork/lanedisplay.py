@@ -3,8 +3,8 @@
 ``swarm run`` starts every lane as a detached child process, so the session that
 dispatched them sees nothing on its own screen: the team works, the display stays
 empty, and no command says why. The picture is a separate one-way adapter - an
-extension that polls ``lane list --json`` and draws the rows - and it ships inside
-the bundle at ``templates/pi-package/extensions/teamwork-lanes.ts``.
+extension that polls ``status --json`` and draws the rows - and it ships inside
+the bundle at ``extensions/teamwork-status.ts``.
 
 Shipping the file is not the same as loading it. A host reads extensions from its
 own ``extensions/`` directory and from the ``extensions`` list in ``settings.json``,
@@ -30,11 +30,13 @@ from pathlib import Path
 
 from . import bundle
 
-EXT_NAME = "teamwork-lanes.ts"
+EXT_NAME = "teamwork-status.ts"
 
 EXT_REL = Path("extensions") / EXT_NAME
 
-BUNDLED = Path("templates") / "pi-package" / "extensions" / EXT_NAME
+BUNDLED = EXT_REL
+
+RETIRED = ("teamwork-lanes.ts",)
 
 SETTINGS_NAME = "settings.json"
 
@@ -130,17 +132,40 @@ def status(skill_dir: Path, *, host: str = "pi", skills: str = "") -> State:
     return State(True, same, registered(settings), target, settings_path, "")
 
 
+def retire(directory: Path, settings: dict[str, object]) -> bool:
+    """Drop the renderers this file replaced, so the host loads exactly one.
+
+    A host that already installed the lanes-only renderer would otherwise draw two
+    widgets for the same team, which is the defect this file exists to close.
+    """
+    entries = settings.get("extensions")
+    kept = entries if isinstance(entries, list) else None
+    removed = False
+    for name in RETIRED:
+        stale = directory / name
+        if stale.is_file():
+            stale.unlink()
+            removed = True
+    if kept is not None:
+        surviving = [entry for entry in kept if Path(str(entry)).name not in RETIRED]
+        if surviving != kept:
+            settings["extensions"] = surviving
+            removed = True
+    return removed
+
+
 def install(skill_dir: Path, *, host: str = "pi", skills: str = "", dry_run: bool = False) -> State:
     """Copy the shipped renderer into the host's directory and register it once."""
     state = status(skill_dir, host=host, skills=skills)
     if not state.ok or state.target is None or state.settings is None:
         return state
     settings = _load(state.settings) or {}
-    needed = not (state.installed and state.registered)
+    retired = retire(state.target.parent, settings)
+    needed = retired or not (state.installed and state.registered)
     if not needed:
         return state
     if dry_run:
-        return replace(state, detail="would install" if needed else "")
+        return replace(state, detail="would install")
     if not state.installed:
         state.target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(bundled(skill_dir), state.target)
@@ -149,5 +174,5 @@ def install(skill_dir: Path, *, host: str = "pi", skills: str = "", dry_run: boo
         listed = list(entries) if isinstance(entries, list) else []
         listed.append(EXT_REL.as_posix())
         settings["extensions"] = listed
-        state.settings.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    state.settings.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     return replace(state, installed=True, registered=True)
