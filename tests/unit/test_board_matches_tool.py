@@ -45,7 +45,7 @@ A committed board is a projection at render time, but the act of landing a PR fl
 its own task from `review`/`doing` to `done` plus a merge revision, so no commit can
 carry its own post-merge state - the merge that would make the row true does not
 exist yet when the row is written. This is structural, not an author's error:
-`projectmanager T-0003` read `doing` on the board and `done` + `c49da6d` in the queue
+`projectmanager T-0003` read `doing` on the board and `done` + `c83b17b` in the queue
 with no defect behind the difference. So a landing task is excluded from both sides
 (the CEO decision: "The board cannot contain its own post-merge state"), while every
 other comparison stays strict - an open `todo`/`doing` task must still be visible and
@@ -208,7 +208,7 @@ def test_a_landing_task_is_excluded_and_a_drift_is_not() -> None:
     so the exemption cannot be used to wave through a stale board.
     """
     landed = {
-        ("projectmanager", "T-0003"): {"status": "done", "pr": "P-0016", "merge_commit": "c49da6d"}
+        ("projectmanager", "T-0003"): {"status": "done", "pr": "P-0016", "merge_commit": "c83b17b"}
     }
     stale_row = {("projectmanager", "T-0003"): ("doing", "P-0016", "-")}
     assert mismatches(landed, stale_row) == []

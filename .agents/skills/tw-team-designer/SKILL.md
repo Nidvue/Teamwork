@@ -121,7 +121,7 @@ verdict: no observed effect
   through the eight steps above, on the live team during the 2026-11-02 project
   review.
 - **On which task and revision:** T-0052 at `4c9410a`, the commit that adds this
-  section; the team state audited was `0306e4b` plus that review's own queue
+  section; the team state audited was `6770f26` plus that review's own queue
   changes.
 - **What the run produced, with the command that shows it:** `harness budget`
   exposed a measurement defect - the always-on sum counted `LongTermMemory.md`,

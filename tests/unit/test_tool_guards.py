@@ -1,6 +1,6 @@
 """The guard that turns an absent external tool into a skip, not a failure.
 
-Regression for ``T-0003``: measured at ``12429c4`` on a host without GNU make,
+Regression for ``T-0003``: measured at ``5339011`` on a host without GNU make,
 ``pytest -q tests/unit/test_makefile_contracts.py`` ended in
 ``FileNotFoundError [WinError 2] 'make'`` while CI - which has make - stayed
 green. A contributor saw a broken suite, and the report told them nothing about

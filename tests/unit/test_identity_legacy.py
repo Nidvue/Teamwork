@@ -19,7 +19,7 @@ IDENTITY = [
     "-c",
     "commit.gpgsign=false",
 ]
-LEGACY = "5487b3a7d1fa02659a69b5c6cb3c0845dba357df"
+LEGACY = "a5e31d4e2e4c9d6a7f4f3c518ffbfae4533a45aa"
 OUTSIDE = [
     "-c",
     "user.name=Outside Contributor",

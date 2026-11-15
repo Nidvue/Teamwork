@@ -269,7 +269,7 @@ def test_self_invocation_survives_a_path_with_spaces(
 ) -> None:
     """Regression, T-0001: the unquoted join lost every path separator.
 
-    Measured at 12429c4: a Windows interpreter path under a home directory was
+    Measured at 5339011: a Windows interpreter path under a home directory was
     split at every backslash - POSIX ``shlex`` reads one as an escape - so a path
     like ``<home>/<checkout>/python.exe`` came back as three unrelated tokens
     instead of one, and the runnable-command test died with
