@@ -6023,4 +6023,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit c1bd656
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_roster_tiers.py tests/unit/test_board_matches_tool.py @93eca8a -> 25 passed (own run); PYTHONPATH=src python -c expand_roster x charter bytes @93eca8a -> 283629 / 390247 / 630148, matching the three documented rows in both files
 - findings history: 
-- branch / merge: ceo/t-0033-the-documented-roster-tier-startup-costs / pending
+- branch / merge: ceo/t-0033-the-documented-roster-tier-startup-costs / 01f547e
