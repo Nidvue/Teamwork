@@ -2865,3 +2865,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: teamwork.py loop @7390d2f -> '> CONTINUE ! 3 acceptance criteria unverified'; after criteria verify AC-M19-1 -> '! 2 acceptance criteria unverified' (Reviewer-1, criteria-close-out.md); teamwork.py audit @7390d2f -> '# problems found: 3' after the Tester retired the 5 duplicate test-record commands
 - falsified by: after all three close-out criteria are verified, teamwork.py loop at the same revision still prints any reason, or audit still reports a problem: then this ruling is wrong, AC-M19-6 and AC-M20-5 reopen, and the residue is a defect task
 - consequences: the engagement can close; every residual loop reason after the third verification is a defect, not an interpretation
+
+## D-20261115-CEO-5 - one teamwork renderer: the pi-UI milestone is M24, the duplicate renderer is deleted, a live lane is drawn once
+
+- date: 2026-11-15
+- kind: process
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: T-0065
+- context: -
+- options considered: -
+- decision: (a) extensions/teamwork-status.ts is the only teamwork renderer: the lanes-only templates/pi-package/extensions/teamwork-lanes.ts is deleted, build_pi_package.py stops copying a second extensions tree, lanedisplay.py installs the status renderer, and a test fails if a second renderer appears in the tree, the built package or the host. (b) A live lane whose agent has an instance row is drawn only as that row (the row carries lane/lane_state from status --json); the footer carries only the busy/total count the body omits. (c) The pi-UI milestone is M24, because M23 is the memory milestone in Memory.md 15 and its tasks are M23-A..D.
+- why: two renderers ship in one package and the host loads both, so the operator sees two widgets for the same lanes while the agent view is never installed; the operator asked for the agent/lane info without duplicated or redundant information
+- evidence: ls dist/@nidvue/teamwork/extensions/ @7390d2f1 -> teamwork-lanes.ts teamwork-status.ts (both loaded by pi.extensions ["./extensions"]); teamwork.py ui status -> teamwork-lanes.ts installed+registered, extensions/teamwork-status.ts never loaded; python3 scripts/teamwork.py status --json @7390d2f1 -> instance rows carry lane/lane_state, so the lanes array repeats the instance row; docs/Team/Memory.md 15.7 asked the CEO to renumber one of the two M23 labels
+- falsified by: if the single renderer cannot draw a lane with no instance row (a lane whose seat was folded) then the lanes array is still needed and the dedup rule is wrong
+- consequences: -
