@@ -15,6 +15,10 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
+from teamwork import engine
+
 WORKTREE = Path(__file__).resolve().parents[2]
 CLI = [sys.executable, str(WORKTREE / "scripts" / "teamwork.py")]
 REPO = Path(
@@ -49,6 +53,12 @@ def live_rows() -> list[dict]:
 
 
 def test_two_real_lanes_render_live() -> None:
+    root = REPO / engine.TEAM_ROOT_DIR / engine.TEAMS_SUBDIR / engine.team_slug(REPO)
+    if not root.is_dir() or not all(engine.agent_dir(root, agent).is_dir() for agent in AGENTS):
+        pytest.skip(
+            "this checkout staffs no Developer/Developer-2 seat, so there is no workspace "
+            "to start a real lane in (CI has no gitignored .pi/ team tree)"
+        )
     env = dict(os.environ, TEAMWORK_LANE_CMD=STUB)
     started: list[str] = []
     try:

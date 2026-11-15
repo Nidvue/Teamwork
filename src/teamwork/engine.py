@@ -5455,6 +5455,9 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
         if len(parents) >= 2 and _RE_FORGE_MERGE_SUBJECT.match(subject.strip()):
             print(f"- {sha[:12]} skipped: forge pull-request merge ref")
             continue
+        if sha in LEGACY_AUTHOR_EXEMPT:
+            print(f"- {sha[:12]} skipped: legacy author ({LEGACY_AUTHOR_EXEMPT[sha]})")
+            continue
         seen += 1
         bot_author = an in BOT_IDENTITIES and _RE_BOT_EMAIL.match(ae) is not None
         if ce in canonical:
@@ -12207,6 +12210,15 @@ def cmd_pulse(args) -> int:
             )
             return 0 if plan else 3
         from . import lanes as lane_runtime
+
+        ready, why = lane_runtime.launcher_ready(root, getattr(args, "host", "") or "")
+        if not ready:
+            print(f"# spawn skipped: {why}.")
+            print(
+                "# the plan above is the deliverable this wake owes; the protocol still "
+                "completes with one agent wearing the hats."
+            )
+            return 0
 
         before = len(lane_runtime.load_runs(root))
         code = lane_runtime.cmd_swarm(
