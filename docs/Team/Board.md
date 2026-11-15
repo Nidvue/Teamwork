@@ -119,6 +119,7 @@ under two roles is two tasks.
 | ceo | T-0034 | records | done | P-0075 | 2e9a621 |
 | ceo | T-0035 | decisions | done | P-0077 | 494cf667 |
 | ceo | T-0036 | records | done | P-0079 | c824be5a |
+| ceo | T-0037 | records | done | P-0083 | f6e62305 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -185,6 +186,8 @@ under two roles is two tasks.
 | developer | T-0064 | worktree | done | P-0078 | 29d20d4f |
 | developer | T-0065 | status | done | P-0080 | 53225821 |
 | developer | T-0066 | lanes | done | P-0082 | dbb42541 |
+| release-engineer | T-0001 | changelog | doing | - | - |
+| release-engineer | T-0002 | - | todo | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -213,6 +216,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| release-engineer | T-0001 · release prep 1.5.9: the CHANGELOG section for the one-renderer change, then the pre-push gates and the push of main | P0 | doing | - |
+| release-engineer | T-0002 · release 1.5.9: create and push the v1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
