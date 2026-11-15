@@ -15,7 +15,7 @@ per-instance worktree regression this area exists for (a tree that lives under
 ``tests/acceptance/cli_harness.py`` offers the same subprocess runner, but a
 module of this layer must not depend on the acceptance layer; the local helper
 below is the pattern the sibling ``test_docs_pipeline_flow.py`` already uses.
-The worktree test is mutation-proved by reverting 2147791 in a scratch copy.
+The worktree test is mutation-proved by reverting 80755f9 in a scratch copy.
 
 Owner: tester. Task: T-0005.
 """
@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CLI_SHIM = REPO_ROOT / "scripts" / "teamwork.py"
 SRC_DIR = REPO_ROOT / "src"
 
-BASELINE = "2147791"
+BASELINE = "80755f9"
 
 RELEASE_ASSET = (
     "https://github.com/Nidvue/Teamwork/releases/download/v9.9.9/"
@@ -230,7 +230,7 @@ def worktree(tmp_path: Path, files: dict[str, str]) -> Path:
 
 def test_a_broken_link_inside_a_worktree_is_reported_and_fails(tmp_path: Path) -> None:
     """The tree sits under ``.pi``, so a skip test on the absolute path skipped all
-    of it and ``links`` reported zero files while exiting 0. Measured at 2147791."""
+    of it and ``links`` reported zero files while exiting 0. Measured at 80755f9."""
     path = worktree(tmp_path, {"README.md": "# Dev\n\n[gone](missing.md)\n"})
 
     code, text = run_links(path)

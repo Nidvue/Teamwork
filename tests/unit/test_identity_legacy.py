@@ -19,7 +19,7 @@ IDENTITY = [
     "-c",
     "commit.gpgsign=false",
 ]
-LEGACY = "50f810b48010947a0606f5ab2d8be4a9809bb385"
+LEGACY = "5487b3a7d1fa02659a69b5c6cb3c0845dba357df"
 OUTSIDE = [
     "-c",
     "user.name=Outside Contributor",
@@ -154,16 +154,22 @@ def test_another_commit_by_the_same_author_still_fails_strict_mode(
     assert "not a role mailbox" in output
 
 
-def test_every_shipped_author_exemption_is_a_full_object_id_with_a_reason() -> None:
-    assert engine.LEGACY_AUTHOR_EXEMPT
-    for sha, reason in engine.LEGACY_AUTHOR_EXEMPT.items():
-        assert re.fullmatch(r"[0-9a-f]{40}", sha), sha
-        assert len(reason) > 20, sha
+def test_the_shipped_exemption_maps_are_empty_after_the_rewrite() -> None:
+    """Both maps exist to accept published history that cannot be rewritten.
+
+    The D-20261115-CEO-3 rewrite replaced the four pre-policy operator commits and
+    the one trailer-less commit, so every entry they held now names a commit that
+    carries a role mailbox and the full block. An entry kept past that point would
+    excuse nothing while telling a reader the history still needs it, so the maps
+    ship empty and the mechanism stays for the next published-history repair.
+    """
+    assert engine.LEGACY_AUTHOR_EXEMPT == {}
+    assert engine.LEGACY_MESSAGE_EXEMPT == {}
 
 
-def test_the_shipped_author_exemptions_are_the_measured_pre_policy_commits() -> None:
+def test_the_repository_history_needs_no_exemption() -> None:
+    """The audit and the guard are green on this tree with both maps empty."""
     code, output = strict_audit(REPO_ROOT, "HEAD")
 
     assert code == 0, output
-    for sha in engine.LEGACY_AUTHOR_EXEMPT:
-        assert sha[:12] in output, sha
+    assert engine.guard_committer_identity(REPO_ROOT, "HEAD") == 0

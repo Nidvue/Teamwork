@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The published line is merged in, not force-pushed** - the local line and
   `origin/main` shared no ancestor after the published history was rewritten, so
   this release is a merge over the content the two lines had in common
-  (`39d7dff` / `1d7f6d32`), not a rebase. Everything the published 1.5.3-1.5.7
+  (`1925590` / `499897c3`), not a rebase. Everything the published 1.5.3-1.5.7
   line added is in the tree: `grades`, `hunt`, `messages`, `sparse`,
   `transcripts`, `memverify`, `wiki`, `lane_proof`, the agent mailbox, the token
   economy, the `status --json` schema 3 feed and its widget. Nothing was dropped
@@ -427,7 +427,7 @@ Compares from the previous tag, `v1.5.0`.
   payload commit, then bump on `main`. No behaviour changes.
 - `CITATION.cff`'s `date-released` tracks the version it cites, so it reads this
   section's date (`2026-11-02`). The value it replaced, `2026-10-31`, was the
-  `1.4.4` section date, left stale when `e648b14` bumped the file to `1.5.0`.
+  `1.4.4` section date, left stale when `6d31265` bumped the file to `1.5.0`.
   No behaviour changes.
 
 ## [1.5.0](https://github.com/Nidvue/Teamwork/compare/v1.4.4...v1.5.0) - 2026-11-01
@@ -842,7 +842,7 @@ Compares from the previous tag, `v1.2.1`.
 ### Fixed
 
 - **`v1.1.2` is tagged at the revision that was actually published.** The npm
-  tarball's bundled payload is byte-identical to commit `c39fd29`, which carries
+  tarball's bundled payload is byte-identical to commit `2c14b71`, which carries
   `1.1.2`; the tag and its GitHub Release now point there. Before this release the
   three answers to "what is current" disagreed: npm said `1.1.2`, the newest git
   tag said `v1.1.0`, and the documentation said `1.0.2`.
