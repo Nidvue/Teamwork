@@ -6,6 +6,9 @@ passed its own test because that test searched the source text instead of runnin
 the code. This one imports the extension through node's type stripping and calls
 `render()` on a payload, so a missing field or a broken template fails here.
 
+The assertions are Design.md 10.5/10.6 at d93efc3d: the 12-line budget, the
+frozen row arithmetic, CONSERVATION, AGREEMENT, OVERFLOW and the width rules.
+
 Node is a host tool, not a test dependency: without it the test skips with the
 reason, exactly as the package's own smoke tests do.
 """
@@ -14,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -23,13 +27,18 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
 
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
 SCRIPT = """
 const { render, footer } = await import(process.env.TW_EXTENSION);
 const payload = JSON.parse(process.env.TW_PAYLOAD);
 const width = Number(process.env.TW_WIDTH || 0);
+const paint = process.env.TW_PAINT
+  ? { fg: (token, text) => `\\u001b[3${token === "success" ? 2 : token === "warning" ? 3 : 1}m${text}\\u001b[0m` }
+  : undefined;
 let lines;
 try {
-  lines = width ? render(payload, width) : render(payload);
+  lines = width ? render(payload, width, paint) : render(payload, undefined, paint);
 } catch (error) {
   console.log(JSON.stringify({ error: String(error && error.message) }));
   process.exit(0);
@@ -52,7 +61,7 @@ def node() -> str:
     return binary
 
 
-def run(payload: dict, width: int | None = None) -> dict:
+def run(payload: dict, width: int | None = None, paint: bool = False) -> dict:
     result = subprocess.run(
         [node(), "--experimental-strip-types", "--no-warnings", "-e", SCRIPT],
         capture_output=True,
@@ -63,6 +72,7 @@ def run(payload: dict, width: int | None = None) -> dict:
             "TW_EXTENSION": EXTENSION.as_uri(),
             "TW_PAYLOAD": json.dumps(payload),
             "TW_WIDTH": str(width or ""),
+            "TW_PAINT": "1" if paint else "",
         },
         timeout=60,
     )
@@ -72,50 +82,185 @@ def run(payload: dict, width: int | None = None) -> dict:
     return body
 
 
-def render(payload: dict, width: int | None = None) -> list[str]:
-    return run(payload, width)["lines"]
+def render(payload: dict, width: int | None = None, paint: bool = False) -> list[str]:
+    return run(payload, width, paint)["lines"]
 
 
 def footer(payload: dict) -> str:
     return run(payload)["footer"]
 
 
-def payload(count: int = 20) -> dict:
+def feed(busy: int = 3, idle: int = 0, lanes: list[dict] | None = None, review: int = 0) -> dict:
     rows = [
         {
-            "instance": "Developer-2",
+            "instance": f"Developer-{index + 1}",
+            "role": "developer",
             "state": "busy",
-            "task": "T-0070",
+            "task": f"T-00{70 + index}",
             "title": "pi extension teamwork-status",
-            "elapsed_text": "12m",
-            "progress_pct": 60,
-        },
-        {
-            "instance": "Reviewer-2",
-            "state": "busy",
-            "task": "developer/T-0071",
-            "title": "status: name the work",
-            "elapsed_text": "8m",
-            "progress_pct": 35,
-        },
-        {"instance": "Tester", "state": "busy", "task": "T-0010", "elapsed_text": "1m"},
+            "elapsed_text": f"{index + 1}m",
+            "progress_pct": (index + 1) * 20,
+            "last": "tests.run TS-0001 - 76 passed in 35s",
+            "last_seconds": 12 + index,
+            "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+            "provider": "deepinfra",
+        }
+        for index in range(busy)
     ]
-    rows += [{"instance": f"Idle-{i}", "state": "idle"} for i in range(count - len(rows))]
-    return {"schema": 1, "count": count, "counts": {"busy": 3, "review": 2}, "instances": rows}
+    rows += [
+        {"instance": f"Idle-{index + 1}", "role": "tester", "state": "idle"}
+        for index in range(idle)
+    ]
+    return {
+        "schema": 4,
+        "count": busy + idle,
+        "counts": {
+            "busy": busy,
+            "idle": idle,
+            "review": review,
+            "lanes_live": len(
+                [lane for lane in (lanes or []) if lane["state"] in ("starting", "running")]
+            ),
+            "activated": busy + idle + 8,
+            "retired": 13,
+            "lanes_ended": 124,
+        },
+        "instances": rows,
+        "lanes": lanes or [],
+    }
 
 
-def test_the_widget_stays_compact_and_puts_the_working_agents_first() -> None:
-    lines = render(payload())
-    assert len(lines) <= 12
-    assert max(len(line) for line in lines) <= 100
-    busy = [line for line in lines if line.startswith("●")]
-    assert busy, lines
-    assert busy[0].startswith("● Developer-2"), "the most advanced lane leads"
-    assert lines.index(busy[-1]) < next(
-        index for index, line in enumerate(lines) if line.startswith("○ idle:")
-    ), "busy rows precede the idle line"
-    assert sum(1 for line in lines if line.startswith("○ idle:")) == 1
-    assert lines[-1] == "○ idle: 17 (activated 20)", "idle is a count, never a name list"
+LANE_ONLY = [
+    {
+        "id": f"L-04{20 + index}",
+        "instance": f"Ghost-{index + 1}",
+        "role": "tester",
+        "task": f"T-01{30 + index}",
+        "state": "running",
+        "elapsed_text": "12m",
+        "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "provider": "deepinfra",
+        "attempt": "1/2",
+    }
+    for index in range(3)
+]
+
+
+def shown_and_hidden(lines: list[str]) -> tuple[int, int]:
+    shown = sum(1 for line in lines if line.startswith("●"))
+    hidden = 0
+    for line in lines:
+        match = re.match(r"^\+(\d+) more busy$", line)
+        if match:
+            hidden = int(match.group(1))
+    return shown, hidden
+
+
+def test_the_frozen_budget_holds_for_every_fixture() -> None:
+    matrix = [
+        feed(1, 1),
+        feed(3, 2, LANE_ONLY, review=1),
+        feed(5, 0, LANE_ONLY),
+        feed(21, 0, LANE_ONLY),
+        feed(21, 4, LANE_ONLY),
+        feed(0, 6),
+    ]
+    for payload in matrix:
+        for width in (24, 40, 60, 80, 100):
+            lines = render(payload, width)
+            assert len(lines) <= 12, (payload["count"], width, lines)
+            assert max(len(line) for line in lines) <= width, (width, lines)
+
+
+def test_a_dropped_seat_is_always_counted_and_the_count_is_exact() -> None:
+    payload = feed(21, 0, LANE_ONLY)
+    lines = render(payload, 100)
+    shown, hidden = shown_and_hidden(lines)
+    assert len(lines) == 12, lines
+    assert (shown, hidden) == (10, 11), lines
+    assert lines[-1] == "+11 more busy", "the overflow line is the last line when rows are hidden"
+    assert not [line for line in lines if line.startswith("⚙")], "lanes yield to the hidden count"
+    for candidate in (feed(5, 0, LANE_ONLY), feed(3, 2), feed(1, 1), feed(0, 6)):
+        lines = render(candidate, 100)
+        shown, hidden = shown_and_hidden(lines)
+        assert shown + hidden == candidate["counts"]["busy"], lines
+        assert (hidden > 0) == any(line.endswith("more busy") for line in lines), lines
+
+
+def test_the_header_and_the_footer_agree_on_the_busy_count() -> None:
+    for payload in (feed(3, 2, LANE_ONLY, review=1), feed(21, 0, LANE_ONLY), feed(1, 1)):
+        lines = render(payload, 100)
+        busy = payload["counts"]["busy"]
+        assert lines[0] == (
+            f"teamwork · {busy} busy · {payload['counts']['lanes_live']} live · "
+            f"{payload['counts']['review']} review"
+        ), lines[0]
+        assert footer(payload) == f"teamwork {busy}/{payload['count']} busy", footer(payload)
+
+
+def test_the_lanes_are_drawn_last_from_the_room_the_rows_leave() -> None:
+    payload = feed(5, 0, LANE_ONLY)
+    lines = render(payload, 100)
+    assert len(lines) == 9, lines
+    lanes = [line for line in lines if line.startswith("⚙")]
+    assert len(lanes) == 3, lines
+    assert lanes[0].startswith("⚙ L-0420 Ghost-1 T-0130 ▶ run"), lanes[0]
+    assert lines.index(lanes[0]) > max(
+        index for index, line in enumerate(lines) if line.startswith("●")
+    ), "a lane line never takes a line from a busy row"
+    assert "deepinfra/" not in "\n".join(lines), "the model name is the signal, not the provider"
+
+
+def test_a_narrow_terminal_drops_columns_and_never_a_headless_row() -> None:
+    payload = feed(3, 1)
+    for width in (24, 40, 60, 80, 100):
+        lines = render(payload, width)
+        for line in lines[1:]:
+            assert line[0] in "●⚙○+", (width, line)
+        rows = [line for line in lines if line.startswith("●")]
+        assert len(rows) == 3, (width, lines)
+        for row in rows:
+            instance = row.split()[1]
+            assert len(instance) >= 6, (width, row)
+            assert instance.startswith("Developer"), (width, row)
+    narrow = render(payload, 40)
+    wide = render(payload, 100)
+    assert "tests.run" not in "\n".join(narrow), "below 56 columns the activity column is gone"
+    assert "tests.run" in "\n".join(wide)
+    assert "░" not in "\n".join(narrow), "below 72 columns the bar is gone"
+    assert "░" in "\n".join(render(payload, 72))
+
+
+def test_a_null_progress_keeps_the_tail_columns_aligned() -> None:
+    payload = feed(2, 0)
+    payload["instances"][0]["progress_pct"] = None
+    payload["instances"][0]["elapsed_text"] = "12m"
+    payload["instances"][1]["progress_pct"] = 42
+    payload["instances"][1]["elapsed_text"] = "3m"
+    rows = [line for line in render(payload, 100) if line.startswith("●")]
+    assert len(rows) == 2, rows
+    assert rows[0].index("    3m") == rows[1].index("   12m"), rows
+    assert "  42%" in rows[0] and "  42%" not in rows[1], rows
+    assert "█" not in rows[1], "a null progress still occupies the fixed bar slot"
+
+
+def test_a_review_lane_is_named_by_its_task_and_never_by_its_owner() -> None:
+    payload = feed(2, 1, review=1)
+    payload["instances"][0].update(
+        {"instance": "Reviewer-1", "role": "reviewer", "task": "developer/T-0071"}
+    )
+    payload["instances"][1].update({"instance": "Developer", "task": "designer/T-0001"})
+    body = "\n".join(render(payload, 100))
+    assert "↳T-0071" in body, body
+    assert "T-0001" in body
+    assert "developer/" not in body and "designer/" not in body
+
+
+def test_a_row_whose_task_is_not_an_identity_is_clipped_to_the_column() -> None:
+    payload = feed(1, 0)
+    payload["instances"][0]["task"] = "unassigned-work-in-flight"
+    row = next(line for line in render(payload, 100) if line.startswith("●"))
+    assert "unass…" in row, row
 
 
 def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> None:
@@ -127,181 +272,29 @@ def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> No
         ],
     }
     lines = render(bare)
-    assert lines[0] == "teamwork · 2 act · 0 live · 0 review", "the footer carries the busy count"
+    assert lines[0] == "teamwork · 1 busy · 0 live · 0 review"
     assert "undefined" not in "\n".join(lines)
-    assert lines[-1] == "○ idle: 1 (activated 2)"
+    assert lines[-1] == "○ idle: 1"
 
 
-def test_a_review_handle_names_the_task_not_the_role() -> None:
-    lines = render(payload(4))
-    assert "↳T-0071" in "\n".join(lines)
-    assert "developer/" not in "\n".join(lines)
-
-
-def with_lanes(count: int = 4) -> dict:
-    data = payload(count)
-    data["schema"] = 2
-    data["counts"] = {"busy": 3, "review": 2, "lanes": 4, "activated": 4, "lanes_live": 2}
-    data["instances"][0]["model"] = "deepseek-chat"
-    data["instances"][0]["provider"] = "deepseek"
-    data["lanes"] = [
-        {
-            "id": "L-0412",
-            "instance": "Developer-1",
-            "role": "developer",
-            "task": "T-0131",
-            "state": "running",
-            "elapsed_text": "12m",
-            "model": "deepseek-chat",
-            "provider": "deepseek",
-            "attempt": "1/2",
-        },
-        {
-            "id": "L-0413",
-            "instance": "Reviewer-1",
-            "role": "reviewer",
-            "task": "",
-            "state": "exited",
-            "elapsed_text": "3m",
-            "model": "",
-            "provider": "",
-            "attempt": "1/2",
-        },
-        {
-            "id": "L-0414",
-            "instance": "Tester-1",
-            "role": "tester",
-            "task": "T-0140",
-            "state": "timeout",
-            "elapsed_text": "45m",
-            "model": "m" * 40,
-            "provider": "p",
-            "attempt": "2/2",
-        },
-        {
-            "id": "L-0415",
-            "instance": "Architect",
-            "role": "architect",
-            "task": "T-0141",
-            "state": "running",
-            "elapsed_text": "1m",
-            "model": "m" * 40,
-            "provider": "p",
-            "attempt": "1/2",
-        },
-    ]
-    return data
-
-
-def test_the_header_counts_lanes_and_the_lane_lines_name_the_model() -> None:
-    lines = render(with_lanes())
-    assert lines[0] == "teamwork · 4 act · 2 live · 2 review"
-    lanes = [line for line in lines if line.startswith("⚙")]
-    assert len(lanes) == 2, "only live lanes: an ended record is history, not a row"
-    assert lanes[0].startswith("⚙ L-0412 Developer-1 T-0131 run")
-    assert lanes[0].endswith("deepseek/deepseek-chat"), lanes[0]
-    assert lanes[1].startswith("⚙ L-0415 Architect T-0141 run")
-    clipped = lanes[1].split()[-1]
-    assert len(clipped) == 22 and clipped.endswith("…"), clipped
-    body = "\n".join(lines)
-    assert "exited" not in body and "timeout" not in body, "an ended lane is not displayed"
-
-
-def test_the_busy_rows_carry_the_model_and_stay_inside_the_bound() -> None:
-    lines = render(with_lanes())
-    assert len(lines) <= 12
-    assert max(len(line) for line in lines) <= 100
-    busy = [line for line in lines if line.startswith("●")]
-    assert busy, lines
-    assert "deepseek/deepseek-chat" in busy[0], busy[0]
-    assert "host" in busy[1], "a row without a model still names the host"
-    assert any(line.startswith("○ idle:") for line in lines), "the idle collapse survives"
-
-
-def test_an_empty_payload_stays_silent() -> None:
+def test_an_empty_feed_stays_silent_and_prints_a_zero_footer() -> None:
     assert render({}) == []
-    assert (
-        render({"schema": 2, "count": 0, "counts": {"lanes": 0}, "instances": [], "lanes": []})
-        == []
-    )
+    empty = {"schema": 4, "count": 0, "counts": {"busy": 0}, "instances": [], "lanes": []}
+    assert render(empty) == []
+    assert footer(empty) == "teamwork 0/0 busy"
 
 
-def with_activity(width_payload: dict | None = None) -> dict:
-    data = width_payload or payload(6)
-    data["schema"] = 4
-    data["instances"][0]["last"] = "tests.run TS-0001 - 76 passed in 35s"
-    data["instances"][0]["last_seconds"] = 12
-    data["instances"][1]["last"] = (
-        "review.pass T-0062 - Re-derived the mechanism, then mutated it. "
-        "CHANGE-SET: git diff --stat main...7c2ab2b -> two files, +110/-13"
-    )
-    data["instances"][1]["last_seconds"] = 240
-    return data
+def test_two_calls_on_one_payload_return_the_same_lines() -> None:
+    payload = feed(6, 2, LANE_ONLY, review=2)
+    assert render(payload, 100) == render(payload, 100)
 
 
-def test_one_line_per_active_agent_carries_its_latest_command() -> None:
-    lines = render(with_activity())
-    busy = [line for line in lines if line.startswith("●")]
-    assert len(busy) == 3, f"three busy agents, one line each: {lines}"
-    assert "tests.run TS-0001" in busy[0]
-    assert "12s · tests.run" in busy[0], "the age says how live the line is"
-    assert "review.pass T-0062" in busy[1]
-    assert "4m · review.pass" in busy[1]
-
-
-def test_a_wide_terminal_shows_more_of_the_command_without_wrapping() -> None:
-    data = with_activity()
-    data["counts"] = {"busy": 3, "review": 2, "lanes_live": 1, "activated": 6}
-    data["lanes"] = [
-        {
-            "id": "L-0433",
-            "instance": "Developer-2",
-            "task": "T-0070",
-            "state": "running",
-            "elapsed_text": "12m",
-            "model": "deepseek-chat",
-            "provider": "deepseek",
-        }
-    ]
-    narrow = render(data, 60)
-    wide = render(data, 160)
-    assert max(len(line) for line in narrow) <= 60, narrow
-    assert max(len(line) for line in wide) <= 160, wide
-    narrow_row = next(line for line in narrow if "Reviewer-2" in line)
-    wide_row = next(line for line in wide if "Reviewer-2" in line)
-    assert len(wide_row) > len(narrow_row), "the wider bound is used, not a fixed cap"
-    assert "CHANGE-SET" in wide_row, "the long command survives at the wider bound"
-    assert "CHANGE-SET" not in narrow_row
-    assert "\n" not in wide_row
-
-
-def test_a_row_with_no_activity_falls_back_to_the_task_title() -> None:
-    data = payload(4)
-    data["instances"][0]["title"] = "pi extension teamwork-status"
-    lines = render(data)
-    row = next(line for line in lines if line.startswith("● Developer-2"))
-    assert "pi extension teamwork-status" in row
-
-
-def test_a_live_lane_with_an_instance_row_is_drawn_once() -> None:
-    data = with_lanes()
-    data["instances"][0].update(
-        {"instance": "Developer-1", "task": "T-0131", "lane": "L-0412", "lane_state": "running"}
-    )
-    lines = render(data)
-    body = "\n".join(lines)
-    assert body.count("L-0412") == 1, lines
-    rows = [line for line in lines if line.startswith("●")]
-    assert len(rows) == 3, rows
-    assert rows[0].startswith("● Developer-1 L-0412 run T-0131"), rows[0]
-    gear = [line for line in lines if line.startswith("⚙")]
-    assert [line.split()[1] for line in gear] == ["L-0415"], (
-        "only the lane with no row is a lane line"
-    )
-
-
-def test_the_footer_carries_only_the_busy_count_the_body_omits() -> None:
-    data = with_lanes()
-    lines = render(data)
-    assert footer(data) == "teamwork 3/4 busy", footer(data)
-    assert "busy" not in lines[0] and "3/4" not in lines[0], lines[0]
+def test_colour_is_redundant_with_the_glyph_and_the_word() -> None:
+    payload = feed(3, 1, LANE_ONLY, review=1)
+    plain = render(payload, 100)
+    painted = render(payload, 100, paint=True)
+    assert any("\x1b[" in line for line in painted), "the renderer must colour the glyphs"
+    assert [ANSI.sub("", line) for line in painted] == plain
+    words = " ".join(plain)
+    for word in ("run", "idle", "T-0070", "●"):
+        assert word in words, words
