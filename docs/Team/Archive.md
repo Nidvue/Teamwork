@@ -7747,4 +7747,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 07431641; python3 scripts/check_release_consistency.py --offline @07431641 -> # release consistency: 0 problem(s); grep -c 'v1.5.9' docs/Team/Board.md @07431641 -> 0
 - reviewer evidence: python3 scripts/check_release_consistency.py --offline @07431641 -> # release consistency: 0 problem(s), R9 ok every vX.Y.Z token names a tag; python3 scripts/teamwork.py links @07431641 -> # issues: 0; git cat-file -p 07431641:docs/Team/Board.md | grep -c v1.5.9 -> 0 and git rev-parse refs/tags/v1.5.9 -> MISSING while refs/tags/v1.0.0/v1.0.1/v1.0.2 -> exist (the 3 remaining v-tokens in the board all name real tags); git status --porcelain @07431641 -> clean, no untracked file outside docs/
 - findings history: 
-- branch / merge: ceo/t-0038-re-render-the-board-so-no-committed-row / pending
+- branch / merge: ceo/t-0038-re-render-the-board-so-no-committed-row / dbc56003
