@@ -5998,3 +5998,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py -k agent_agnostic @488ffb5 -> 1 passed (own run); grep -n "host reads extensions from its own" docs/guide/cli.md @488ffb5 -> present, no host name in the sentence
 - findings history: 
 - branch / merge: - / pending
+
+## T-0032 · Record the Windows CI limitation as a risk row so the stage can be certified honestly: windows-latest/py3.13 runs the plain suite past 55 minutes against 11 minutes on Linux, so a branch-concurrency cancel is indistinguishable from a hang and no single test is named  (ceo)
+- date: 2026-11-15
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: one risk row; no workflow file is touched, because a ci.yml split cannot be measured without a CI run on this host and an unverified workflow change is worse than a recorded limitation. Empty/duplicate/second-call: the row is appended under a fresh id (R-33, the register already used R-25) and the register stays one row per risk; a later measurement supersedes the row rather than adding a second one for the same cell. Contract surface: the register schema (id, risk, category, likelihood, impact, mitigation/trigger, owner, status) is unchanged and every cell is filled. Concurrency/shared writes: docs only, one writer. Scope: 1 file, 1 row; the task T-0003 stays open until the remedy is measured, so the limitation is visible rather than closed by prose. | test: venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py @e124b39 -> 109 passed; python3 scripts/teamwork.py links @e124b39 -> # issues: 0 | preflight: PF-a6e2d0b8e160 @e124b39286c5 (7 checks, 0 failed)
+- author evidence: commit aa46bf0
+- reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_skill_contracts.py @e124b39 -> 109 passed (own run); python3 scripts/teamwork.py links @e124b39 -> # issues: 0; grep -c "^| R-" docs/Team/Risks.md @e124b39 -> 32 rows, ids unique, R-33 names the measured 52m33s / 18-30 min / 11 min contrast and two remedies
+- findings history: 
+- branch / merge: ceo/t-0032-record-the-windows-ci-limitation-as-a-ri / pending
