@@ -21,6 +21,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   revision`; the rewrite did not invent a result for the 988 commits that carry
   none, because a fabricated result in the history is the one defect no later
   check can detect.
+- **The pi UI draws the live wave with one renderer instead of two** - a lane is
+  drawn once, inside its instance row, as the lane id plus its state
+  (`extensions/teamwork-status.ts` maps `lane_state` into the row), and the
+  footer keeps only the busy/total count (`teamwork 3/8 busy`). `teamwork ui
+  install` and `refresh` install that renderer and retire a host copy of the old
+  lanes-only file, so an upgrade does not leave two widgets drawing the same
+  lanes.
+
+### Removed
+
+- **`templates/pi-package/extensions/teamwork-lanes.ts`** - the lanes-only
+  renderer is deleted, so `extensions/teamwork-status.ts` is the only renderer in
+  the tree and in the built package; `lanedisplay.py` retires it from a host that
+  already installed it.
 
 ## [1.5.8] - 2026-11-15
 
