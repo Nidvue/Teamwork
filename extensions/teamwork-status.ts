@@ -49,6 +49,8 @@ type Instance = {
   last?: string;
   last_at?: string;
   last_seconds?: number | null;
+  lane?: string;
+  lane_state?: string;
 };
 
 type Payload = {
@@ -157,6 +159,8 @@ export function render(payload: Payload, width = WIDTH_MAX): string[] {
   const bound = Number.isFinite(width) && width > 20 ? Math.floor(width) : WIDTH_MAX;
   const rows = (payload.instances ?? []).map((row) => ({
     instance: text(row.instance, INSTANCE_MAX) || "-",
+    lane: text(row.lane, 8),
+    laneState: row.lane ? stateAbbrev(row.lane_state) : "",
     task: task_label(row.task),
     activity: text(row.last, ACTIVITY_MAX),
     title: text(row.title, TITLE_MAX),
@@ -178,19 +182,18 @@ export function render(payload: Payload, width = WIDTH_MAX): string[] {
   if (!rows.length && !lanes.length) return [];
   const busy = rows.filter((row) => row.busy);
   const idle = rows.filter((row) => !row.busy);
+  const named = new Set(rows.map((row) => row.instance));
   const live = lanes.filter((lane) => lane.live);
   const counts = payload.counts ?? {};
   const review = counts.review ?? 0;
   const activated = counts.activated ?? rows.length;
   const lanesLive = counts.lanes_live ?? live.length;
-  const header =
-    `teamwork · ${activated} act · ${lanesLive} live · ` +
-    `${busy.length} busy · ${review} review`;
+  const header = `teamwork · ${activated} act · ${lanesLive} live · ${review} review`;
 
   busy.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || a.instance.localeCompare(b.instance));
   const pad = widthOf(busy);
   const lines = [header];
-  for (const lane of live.slice(0, LANE_MAX)) {
+  for (const lane of live.filter((lane) => !named.has(lane.instance)).slice(0, LANE_MAX)) {
     lines.push(
       `⚙ ${lane.id} ${lane.instance} ${lane.task} ${lane.state} ${lane.elapsed} ${lane.model}`.trimEnd(),
     );
@@ -198,7 +201,7 @@ export function render(payload: Payload, width = WIDTH_MAX): string[] {
   const room = MAX_LINES - lines.length - (idle.length ? 1 : 0);
   for (const row of busy.slice(0, Math.max(0, room))) {
     const tail = `${row.elapsed} ${bar(row.percent)} ${row.model}`.trimEnd();
-    const head = `● ${row.instance.padEnd(pad)} ${row.task}`;
+    const head = `● ${row.instance.padEnd(pad)} ${row.lane ? `${row.lane} ${row.laneState} ` : ""}${row.task}`;
     const latest = row.activity || row.title;
     const middle = latest ? (row.age ? `${row.age} · ${latest}` : latest) : "";
     lines.push(clip(`${head} ${middle}`.trimEnd(), tail, bound));
@@ -209,6 +212,12 @@ export function render(payload: Payload, width = WIDTH_MAX): string[] {
     lines.push(`○ idle: ${idle.length} (activated ${activated})`);
   }
   return lines.slice(0, MAX_LINES).map((line) => clip(line, "", bound));
+}
+
+export function footer(payload: Payload): string {
+  const rows = payload.instances ?? [];
+  const busy = rows.filter((row) => row.state === "busy").length;
+  return `teamwork ${busy}/${payload.count ?? rows.length} busy`;
 }
 
 function widthOf(rows: { instance: string }[]): number {
@@ -260,14 +269,12 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
       ctx.ui.setStatus(KEY, "teamwork: status unavailable");
       return;
     }
-    const rows = payload.instances ?? [];
-    const busy = rows.filter((row) => row.state === "busy").length;
     try {
       ctx.ui.setWidget(KEY, render(payload, terminalWidth()));
     } catch {
       ctx.ui.setWidget(KEY, []);
     }
-    ctx.ui.setStatus(KEY, `teamwork ${busy}/${payload.count ?? rows.length} busy`);
+    ctx.ui.setStatus(KEY, footer(payload));
   };
 
   const start = (): void => {

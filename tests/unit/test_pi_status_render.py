@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
 
 SCRIPT = """
-const { render } = await import(process.env.TW_EXTENSION);
+const { render, footer } = await import(process.env.TW_EXTENSION);
 const payload = JSON.parse(process.env.TW_PAYLOAD);
 const width = Number(process.env.TW_WIDTH || 0);
 let lines;
@@ -34,7 +34,7 @@ try {
   console.log(JSON.stringify({ error: String(error && error.message) }));
   process.exit(0);
 }
-console.log(JSON.stringify({ lines }));
+console.log(JSON.stringify({ lines, footer: footer(payload) }));
 """
 
 
@@ -52,7 +52,7 @@ def node() -> str:
     return binary
 
 
-def render(payload: dict, width: int | None = None) -> list[str]:
+def run(payload: dict, width: int | None = None) -> dict:
     result = subprocess.run(
         [node(), "--experimental-strip-types", "--no-warnings", "-e", SCRIPT],
         capture_output=True,
@@ -69,7 +69,15 @@ def render(payload: dict, width: int | None = None) -> list[str]:
     assert result.returncode == 0, result.stderr
     body = json.loads(result.stdout)
     assert "error" not in body, body["error"]
-    return body["lines"]
+    return body
+
+
+def render(payload: dict, width: int | None = None) -> list[str]:
+    return run(payload, width)["lines"]
+
+
+def footer(payload: dict) -> str:
+    return run(payload)["footer"]
 
 
 def payload(count: int = 20) -> dict:
@@ -119,7 +127,7 @@ def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> No
         ],
     }
     lines = render(bare)
-    assert lines[0].startswith("teamwork · 2 act · 0 live · 1 busy · 0 review")
+    assert lines[0] == "teamwork · 2 act · 0 live · 0 review", "the footer carries the busy count"
     assert "undefined" not in "\n".join(lines)
     assert lines[-1] == "○ idle: 1 (activated 2)"
 
@@ -187,7 +195,7 @@ def with_lanes(count: int = 4) -> dict:
 
 def test_the_header_counts_lanes_and_the_lane_lines_name_the_model() -> None:
     lines = render(with_lanes())
-    assert lines[0] == "teamwork · 4 act · 2 live · 3 busy · 2 review"
+    assert lines[0] == "teamwork · 4 act · 2 live · 2 review"
     lanes = [line for line in lines if line.startswith("⚙")]
     assert len(lanes) == 2, "only live lanes: an ended record is history, not a row"
     assert lanes[0].startswith("⚙ L-0412 Developer-1 T-0131 run")
@@ -273,3 +281,27 @@ def test_a_row_with_no_activity_falls_back_to_the_task_title() -> None:
     lines = render(data)
     row = next(line for line in lines if line.startswith("● Developer-2"))
     assert "pi extension teamwork-status" in row
+
+
+def test_a_live_lane_with_an_instance_row_is_drawn_once() -> None:
+    data = with_lanes()
+    data["instances"][0].update(
+        {"instance": "Developer-1", "task": "T-0131", "lane": "L-0412", "lane_state": "running"}
+    )
+    lines = render(data)
+    body = "\n".join(lines)
+    assert body.count("L-0412") == 1, lines
+    rows = [line for line in lines if line.startswith("●")]
+    assert len(rows) == 3, rows
+    assert rows[0].startswith("● Developer-1 L-0412 run T-0131"), rows[0]
+    gear = [line for line in lines if line.startswith("⚙")]
+    assert [line.split()[1] for line in gear] == ["L-0415"], (
+        "only the lane with no row is a lane line"
+    )
+
+
+def test_the_footer_carries_only_the_busy_count_the_body_omits() -> None:
+    data = with_lanes()
+    lines = render(data)
+    assert footer(data) == "teamwork 3/4 busy", footer(data)
+    assert "busy" not in lines[0] and "3/4" not in lines[0], lines[0]
