@@ -779,6 +779,85 @@ def test_an_exhausted_assignment_is_not_adopted_again(
     assert attempts == [1, 2], attempts
 
 
+def _review_failed_claim(root: Path, fails: int = 1, runs: int = 1) -> None:
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0].update(
+        status="doing",
+        claimed_by="Developer-1",
+        self_check="passed",
+        pr="P-0001",
+        review_status="failed",
+        review_fails=str(fails),
+        review_fail_rev="a" * 40,
+        findings="detects: x | y",
+    )
+    engine.write_tasks(path, tasks, "developer")
+    for index in range(runs):
+        lanes.write_run(
+            root,
+            {
+                "id": f"L-{index + 1:04d}",
+                "agent": "Developer-1",
+                "role": "developer",
+                "task": "T-0001",
+                "attempt": index + 1,
+                "state": "failed",
+                "profile": "standard",
+            },
+        )
+
+
+def test_a_review_failed_claim_is_adopted_for_its_idle_lane(cli, project: Path) -> None:
+    """The measured defect: the claim held the work and no wave ever dispatched it."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _review_failed_claim(root)
+    plan = lanes.adopted_plan(root)
+    assert [(item.instance, item.task, item.attempt) for item in plan] == [
+        ("Developer-1", "T-0001", 2)
+    ]
+
+
+def test_the_dry_run_reports_the_adopted_claim(cli, project: Path, capsys) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _review_failed_claim(root)
+    capsys.readouterr()
+    assert cli("--project", project, "swarm", "run", "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "T-0001 attempt 2/2 profile standard (adopted claim)" in out, out
+    assert "nothing runnable" not in out, out
+
+
+def test_a_stalled_claim_is_still_not_adopted(cli, project: Path) -> None:
+    """The exhaustion bound stays: a claim with no fail behind it is not re-planned."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _review_failed_claim(root)
+    path = engine.task_file(root, "developer")
+    tasks = engine.parse_tasks(path)
+    tasks[0]["review_status"] = "pending"
+    tasks[0]["review_fails"] = "0"
+    engine.write_tasks(path, tasks, "developer")
+    assert lanes.adopted_plan(root) == []
+
+
+def test_one_round_is_adopted_per_fail(cli, project: Path) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _review_failed_claim(root, fails=2, runs=1)
+    assert [item.attempt for item in lanes.adopted_plan(root)] == [2]
+
+
+def test_the_attempt_budget_bounds_the_review_rounds(cli, project: Path) -> None:
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _review_failed_claim(root, fails=2, runs=2)
+    assert lanes.lane_attempts(root) == 2
+    assert lanes.adopted_plan(root) == []
+
+
 def test_swarm_dispatches_a_wave_and_returns_without_waiting(
     cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
