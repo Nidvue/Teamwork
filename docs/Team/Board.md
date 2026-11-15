@@ -122,6 +122,7 @@ under two roles is two tasks.
 | ceo | T-0037 | records | done | P-0083 | f6e62305 |
 | ceo | T-0038 | records | done | P-0085 | dbc56003 |
 | designer | T-0001 | design | done | P-0086 | 830636bc |
+| designer | T-0002 | design | review | P-0088 | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -188,11 +189,12 @@ under two roles is two tasks.
 | developer | T-0064 | worktree | done | P-0078 | 29d20d4f |
 | developer | T-0065 | status | done | P-0080 | 53225821 |
 | developer | T-0066 | lanes | done | P-0082 | dbb42541 |
-| developer | T-0067 | - | todo | - | - |
-| developer | T-0068 | - | doing | - | - |
-| developer | T-0069 | - | todo | - | - |
+| developer | T-0067 | board | review | - | - |
+| developer | T-0068 | agent-state-display | done | P-0087 | 008b126d |
+| developer | T-0069 | - | dropped | - | - |
+| developer | T-0070 | - | todo | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
-| release-engineer | T-0002 | - | doing | - | - |
+| release-engineer | T-0002 | - | blocked | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -224,10 +226,10 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0067 · a release task whose title names its own tag makes CI red, and a board-editing task is charged for every parallel lane's status drift | P1 | todo | - |
-| developer | T-0068 · implement the redesigned agent-state display: status payload signals + extensions/teamwork-status.ts renderer with theme colours, bounded rows and an exact hidden count | P0 | doing | - |
-| developer | T-0069 · round 2: feasibility counter-proposal for Design.md 10 - theme-styled renderer at a 12-line budget, attention-first order, the payload fields it needs (review target, per-role title, staleness) and the exact edits; no code yet | P0 | todo | - |
-| release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | doing | - |
+| designer | T-0002 · Design.md 10.8: the round-2 row - used and left clocks, compact state strings, a stalled state, one line per agent at a 12-line budget | P0 | review | - |
+| developer | T-0067 · a release task whose title names its own tag makes CI red, and a board-editing task is charged for every parallel lane's status drift | P1 | review | - |
+| developer | T-0070 · payload schema 5 signals + renderer v3: used and left clocks, compact state strings, stalled-not-busy, one line per agent, ReleaseEngineer never clipped | P0 | todo | - |
+| release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | blocked | - |
 | reviewer | T-0007 · round 2: critique Design.md 10 (the agent-state widget spec) against the real payload and the pi widget API - where would it mislead, what is unimplementable, what does it still miss for judging efficiency/effectiveness | P0 | todo | - |
 | tester | T-0006 · agent-state display: ui layer - execute the renderer at 40/80/120 columns, prove the overflow count and the width bound, prove no invented metric | P1 | todo | - |
 
