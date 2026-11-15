@@ -115,7 +115,7 @@ under two roles is two tasks.
 | ceo | T-0030 | ui | done | P-0071 | cf41761 |
 | ceo | T-0031 | graph | done | P-0072 | eb40ea2 |
 | ceo | T-0032 | records | done | P-0073 | d300307 |
-| ceo | T-0033 | records | doing | - | - |
+| ceo | T-0033 | records | done | P-0074 | 01f547e |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -204,7 +204,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0033 · The documented roster-tier startup costs are stale: SKILL.md and references/Roles.md quote 283/388/627 kB while the charters now measure 284/390/630 kB, so test_roster_tiers fails on main and the number an operator reads is wrong | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
