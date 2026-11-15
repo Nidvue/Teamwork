@@ -1385,6 +1385,11 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
     the retry path owns that task. Without that split, adopting a stalled claim
     re-planned the same task forever - measured at 783 waves in one run before the
     bound existed. An exhausted assignment stays claimed and the CEO decides.
+
+    A review fail is not that shape: the round came back with findings, so the
+    lane has new work on the same task and no attempt spent on it yet. Adoption
+    allows one round per fail (``used <= review_fails``), which still stops a
+    stalled claim from being re-planned forever.
     """
     limit = attempts or lane_attempts(root)
     live = {pascal(str(run.get("agent") or "")) for run in live_runs(root)}
@@ -1398,7 +1403,10 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
             if not holder or pascal(holder) in live:
                 continue
             used = _attempts_used(runs, holder, task["id"])
-            if used >= 1 or used >= limit:
+            rounds = (
+                int(task.get("review_fails") or 0) if task.get("review_status") == "failed" else 0
+            )
+            if used >= limit or (used >= 1 and used > rounds):
                 continue
             out.append(
                 Assignment(
@@ -1406,7 +1414,7 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
                     role,
                     task["id"],
                     task["title"],
-                    attempt=1,
+                    attempt=used + 1,
                     profile=_profile_of(root, role, task),
                     adopted=True,
                 )
@@ -1910,21 +1918,29 @@ def _lane_start(root: Path, args) -> int:
 
 def _swarm_dry_run(root: Path, measurement, cap: int, fixed: bool, attempts: int) -> int:
     retries = retry_plan(root, attempts)
-    target = cap if fixed else max(measurement.lanes, min(len(retries), measurement.lane_max))
+    adopted = adopted_plan(root, attempts)
+    planned = len(retries) + len(adopted)
+    target = cap if fixed else max(measurement.lanes, min(planned, measurement.lane_max))
     target = min(target, measurement.lane_max, measurement.free_slots or target)
-    taken = {pascal(item.instance) for item in retries}
-    fresh = dispatch_plan(root, max(target - len(retries), 0)) if target > len(retries) else []
-    next_wave = list(retries) + [item for item in fresh if pascal(item.instance) not in taken]
+    taken = {pascal(item.instance) for item in [*retries, *adopted]}
+    fresh = dispatch_plan(root, max(target - planned, 0)) if target > planned else []
+    next_wave = [*retries, *adopted] + [
+        item for item in fresh if pascal(item.instance) not in taken
+    ]
     next_wave = next_wave[:target] if target else []
     print(f"## wave 1 (dry run, {len(next_wave)} lane(s) would start)")
     for item in next_wave:
-        origin = f"retry of {item.source_run}" if item.source_run else "ready"
+        origin = (
+            f"retry of {item.source_run}"
+            if item.source_run
+            else ("adopted claim" if item.adopted else "ready")
+        )
         print(
             f"- {item.instance:14s} <- {item.handle or 'packet'}"
             f" attempt {item.attempt}/{attempts} profile {item.profile} ({origin})"
         )
     if not next_wave:
-        print("- nothing runnable: no ready task, no unclaimed review, no retry")
+        print("- nothing runnable: no ready task, no unclaimed review, no adopted claim, no retry")
         return 3
     return 0
 
