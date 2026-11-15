@@ -231,7 +231,7 @@ def test_harness_budget_charges_startup_not_the_recall_only_store(cli, project):
         "--src",
         "T-0034",
         "--rev",
-        "e6297bb",
+        "7992e80",
     )
     assert remembered.returncode == 0, remembered.stderr
 

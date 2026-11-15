@@ -80,7 +80,7 @@ plus the pi-native layer at ``skills/teamwork-pi/`` and ``prompts/`` (= the tag
 tree's ``templates/pi-package/``). Hashing the tarball where it sits produces a
 digest a tag can never reproduce, so the shipped subtrees are re-laid out under
 their payload paths before hashing. Measured on the published tarballs:
-``1.1.2`` -> ``a01d9f0cbee641c3`` = payload of ``3f4981d``; ``1.1.0`` ->
+``1.1.2`` -> ``a01d9f0cbee641c3`` = payload of ``c39fd29``; ``1.1.0`` ->
 ``ebfc2538e3d3d605`` = payload of ``v1.1.0`` (identical once
 ``scripts/build_pi_package.py`` is excluded, which is 11.5 example 3);
 ``1.1.1`` -> ``726bc547afc41ead``, which matches no commit reachable from

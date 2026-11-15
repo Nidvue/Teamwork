@@ -24,7 +24,7 @@ repository of the *current* directory. The scratch tree is therefore a git
 repository carrying one canonical ``Developer`` commit (with its ``Acting
 role:`` trailer): a bare directory made the audit fail with "not a git
 repository", a gate unrelated to the file under test (T-0018, CI run
-41949313654 at ``088e185``).
+41949313654 at ``082fd59``).
 
 ``make test`` and ``make ci`` are deliberately not run: they are slow and are
 covered by their own layers.

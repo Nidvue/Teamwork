@@ -76,25 +76,25 @@ Every run records command + revision + observed result, as the team requires.
 
 verdict: no observed effect
 
-- **The pre-skill failure this file was written for** (`bbf0b29`, 2026-10-17, a
-  day and a half before the extraction at `453475f`):
-  `git show bbf0b29:docs/Team/AuditManifest.json` reports `git.dirty: true`,
+- **The pre-skill failure this file was written for** (`f222211`, 2026-10-17, a
+  day and a half before the extraction at `debb237`):
+  `git show f222211:docs/Team/AuditManifest.json` reports `git.dirty: true`,
   `ledger.records: 241`, and a `git.head` of `bbb9d299` that does not exist in the
   repository at all (`git cat-file -e bbb9d299` -> `fatal: Not a valid object
   name`). The manifest was exported from a working tree and names a revision
   nobody can check.
 - **The same failure recurring after the extraction**, which is why the label is
-  not `helped`: `git show b82a08d:docs/Team/AuditManifest.json` and
-  `git show 921d11a:docs/Team/AuditManifest.json` both report `git.dirty: true`
+  not `helped`: `git show 291d348:docs/Team/AuditManifest.json` and
+  `git show 756b8c8:docs/Team/AuditManifest.json` both report `git.dirty: true`
   (2026-10-19T13:47:17 and 2026-10-19T19:41:50 - respectively 14m20s and about
-  six hours after `443339f`, which already carried step 4). Three later manifests
-  (`bbf0b29`, `b50a967`, `1895d1b`) also name a `git.head` that is absent from the
+  six hours after `1a27a46`, which already carried step 4). Three later manifests
+  (`f222211`, `eeba5ce`, `a336398`) also name a `git.head` that is absent from the
   repository, so the stale-head mode is present in both eras.
 - **Counts are stated as the command that produces them, never as a figure**:
   `.pi/Teamwork/Teams/Teamwork/Ledger.jsonl` held 2075 records with
-  `ts <= $(git log -1 --format=%cI 1895d1b)` at that revision, against the
+  `ts <= $(git log -1 --format=%cI a336398)` at that revision, against the
   manifest's `ledger.records: 666` - measure it with
-  `python3 -c "import json,subprocess;cut=subprocess.run(['git','log','-1','--format=%cI','1895d1b'],capture_output=True,text=True).stdout.strip();print(sum(1 for l in open('.pi/Teamwork/Teams/Teamwork/Ledger.jsonl') if l.strip() and json.loads(l).get('ts','') and json.loads(l)['ts']<=cut))"`.
+  `python3 -c "import json,subprocess;cut=subprocess.run(['git','log','-1','--format=%cI','a336398'],capture_output=True,text=True).stdout.strip();print(sum(1 for l in open('.pi/Teamwork/Teams/Teamwork/Ledger.jsonl') if l.strip() and json.loads(l).get('ts','') and json.loads(l)['ts']<=cut))"`.
   A written-down count is stale the moment it is committed; this row is the
   reason that rule exists.
 - **Why `no observed effect` and not `helped`:** no close-out has yet been shown
