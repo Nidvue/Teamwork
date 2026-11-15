@@ -192,7 +192,7 @@ under two roles is two tasks.
 | developer | T-0067 | board | done | P-0089 | bf95dfc5 |
 | developer | T-0068 | agent-state-display | done | P-0087 | 008b126d |
 | developer | T-0069 | - | dropped | - | - |
-| developer | T-0070 | status-widget | doing | P-0091 | - |
+| developer | T-0070 | status-widget | done | P-0091 | 5e37f092 |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | blocked | - | - |
 | reviewer | T-0001 | - | done | - | - |
@@ -208,7 +208,7 @@ under two roles is two tasks.
 | tester | T-0003 | - | dropped | - | - |
 | tester | T-0004 | tests | done | P-0066 | 66d55cd |
 | tester | T-0005 | - | done | P-0081 | cc343480 |
-| tester | T-0006 | - | todo | - | - |
+| tester | T-0006 | agent-state-width-matrix | review | P-0092 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -226,9 +226,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0070 · payload schema 5 signals + renderer v3: used and left clocks, compact state strings, stalled-not-busy, one line per agent, ReleaseEngineer never clipped | P0 | doing | - |
 | release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | blocked | - |
-| tester | T-0006 · agent-state display: ui layer - execute the renderer at 40/80/120 columns, prove the overflow count and the width bound, prove no invented metric | P1 | todo | - |
+| tester | T-0006 · agent-state display: ui layer - execute the renderer at 40/80/120 columns, prove the overflow count and the width bound, prove no invented metric | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
