@@ -8,7 +8,9 @@ Responsibilities (see ``docs/Team/Architecture.md`` section 8):
    ``TEAMWORK_SKILL_DIR`` *before* ``teamwork.engine`` is first imported
    (``engine.SKILL_DIR`` is frozen at import time);
 3. give every test an isolated ``tmp_path`` workspace and no ambient team state
-   (``TEAMWORK_ROOT`` / ``TEAMWORK_TEAM`` are cleared, the cwd is the tmp dir).
+   (``TEAMWORK_ROOT`` / ``TEAMWORK_TEAM`` are cleared, the cwd is the tmp dir);
+4. point ``TEAMWORK_LANE_CMD`` at ``/bin/true`` so a test that dispatches a lane
+   without installing a fake launcher cannot start the developer's own agent CLI.
 """
 
 from __future__ import annotations
@@ -45,11 +47,13 @@ os.environ["TEAMWORK_SKILL_DIR"] = str(REPO_ROOT)
 
 
 TEAM_ENV = ("TEAMWORK_ROOT", "TEAMWORK_TEAM")
+LAUNCHER_ENV = "TEAMWORK_LANE_CMD"
+SAFE_LAUNCHER = "/bin/true"
 
 
 @pytest.fixture(scope="session", autouse=True)
 def hermetic_team_environment() -> Iterator[None]:
-    """3: no fixture, whatever its scope, is built with a lane's team environment.
+    """3+4: no fixture, whatever its scope, is built with a lane's team environment.
 
     A lane process exports ``TEAMWORK_ROOT`` and ``TEAMWORK_TEAM``, and
     ``engine.team_slug`` reads ``TEAMWORK_TEAM``, so an in-process team lookup made
@@ -58,10 +62,21 @@ def hermetic_team_environment() -> Iterator[None]:
     of the fixture's throwaway project. Session scope is the earliest point that
     sees every other fixture, and it is restored on teardown so an outer run keeps
     its environment.
+
+    The launcher pin rides the same scope: ``pulse --commit`` and ``swarm run``
+    dispatch by default, so a test that never installed a fake launcher fell
+    through to ``lanes.detect_agent_host`` -> the ``pi`` on this host's PATH and
+    started a real lane that ran a whole team run and moved the checkout.
     """
     saved = {name: os.environ.pop(name) for name in TEAM_ENV if name in os.environ}
+    saved_launcher = os.environ.get(LAUNCHER_ENV)
+    os.environ[LAUNCHER_ENV] = SAFE_LAUNCHER
     yield
     os.environ.update(saved)
+    if saved_launcher is None:
+        os.environ.pop(LAUNCHER_ENV, None)
+    else:
+        os.environ[LAUNCHER_ENV] = saved_launcher
 
 
 @pytest.fixture(scope="session")
