@@ -7656,4 +7656,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 67d17e03
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit @67d17e03 -> 2616 passed, 7 skipped; venv/bin/ruff check src tests + ruff format --check -> clean, 240 files formatted; venv/bin/mypy src -> Success, 32 files; git -C <T-0064 worktree> status --porcelain -> empty with venv symlink present; TS-0091 acceptance/worktree passing (negative control junk.txt still untracked, nested sub/ still untracked, no-rule boundary holds, idempotent)
 - findings history: 
-- branch / merge: developer/t-0064-branch-start-worktree-leaves-an-untracke / pending
+- branch / merge: developer/t-0064-branch-start-worktree-leaves-an-untracke / 29d20d4f
