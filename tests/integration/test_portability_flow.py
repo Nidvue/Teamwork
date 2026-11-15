@@ -521,7 +521,7 @@ def test_the_retired_isinstance_union_guard_still_detects_its_pattern() -> None:
 
 
 def test_the_union_guard_bites_on_the_spelling_20c7d23_shipped() -> None:
-    """The guard reports the exact expression `_argv0_tool` carried at 8e0b476."""
+    """The guard reports the exact expression `_argv0_tool` carried at 55b4e4d."""
     source = (
         "import ast\n"
         "\n"

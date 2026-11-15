@@ -642,7 +642,7 @@ def test_the_audit_prints_who_landed_a_peers_work(repo, capsys):
 def test_a_role_mailbox_with_the_instance_display_form_is_ok(repo):
     """The team commits with ``-c user.name=ProjectManager``, no spaces.
 
-    Measured on this repository on 5c2de0a: the audit failed five commits with
+    Measured on this repository on 9491a29: the audit failed five commits with
     "display name 'ProjectManager' does not match role 'Project Manager'" and the
     same for ReleaseEngineer, although every one is a canonical role mailbox.
     """

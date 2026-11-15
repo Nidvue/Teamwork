@@ -631,7 +631,7 @@ def unguarded_symlink_tests(source: str, path: str = "<source>") -> list[str]:
 def test_every_symlink_test_carries_the_windows_skip():
     """T-0002: an unguarded symlink test is red here, not red on a Windows host.
 
-    Measured at 12429c4 on this host: the eight link tests in this file died with
+    Measured at 5339011 on this host: the eight link tests in this file died with
     ``OSError [WinError 1314]`` and, because the integration suite asserts that
     this file is green as its mutant baseline, the cascade also failed
     ``test_every_rule_has_a_test_that_fails_before_the_rule_exists``.

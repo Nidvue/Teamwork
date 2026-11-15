@@ -337,7 +337,7 @@ RECORDED_PRS = (
     ("P-0010", "approved", "T-0005", "ceo", "done", "f91bf1b"),
     ("P-0022", "changes-requested", "T-0001", "security-auditor", "dropped", ""),
     ("P-0023", "changes-requested", "T-0001", "reviewer", "dropped", ""),
-    ("P-0035", "superseded", "T-0013", "developer", "done", "eabec40"),
+    ("P-0035", "superseded", "T-0013", "developer", "done", "64bb56b"),
 )
 
 

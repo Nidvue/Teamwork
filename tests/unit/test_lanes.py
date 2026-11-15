@@ -524,7 +524,7 @@ def test_a_held_review_claim_is_adopted_without_crashing_the_wave(
 ) -> None:
     """A claim the engine records as a 4-tuple must not be unpacked as a pair.
 
-    Regression for the reviewer's F-1 at 584ffb9: adopted_plan read
+    Regression for the reviewer's F-1 at 555ce44: adopted_plan read
     engine.held_review_items as (owner, task) while it returns
     (owner_role, task, lane, age), so `swarm run --dry-run` raised
     "too many values to unpack (expected 2, got 4)" on any board holding a claim.
