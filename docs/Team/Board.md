@@ -179,7 +179,7 @@ under two roles is two tasks.
 | developer | T-0060 | ledger | done | P-0061 | 8a50ec9 |
 | developer | T-0061 | ci | done | P-0063 | 0096027 |
 | developer | T-0062 | lanes | done | P-0064 | 1360077 |
-| developer | T-0063 | - | todo | - | - |
+| developer | T-0063 | tests | done | P-0076 | 7f439aa1 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -206,7 +206,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0063 · A test that dispatches without a fake launcher must not spawn the developer's real host agent: pin TEAMWORK_LANE_CMD=/bin/true in conftest | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
