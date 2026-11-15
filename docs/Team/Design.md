@@ -673,29 +673,50 @@ partial glyph:
    ` 1m05s ░░░░░   9% deepinfra/deepseek-ai…` with no instance).
 6. Never wrap: every emitted line is at most the requested width, including the
    lane lines and the aggregates.
-7. Below 32 columns the widget renders the header, `● <instance> <task>` rows
-   and the footer only.
+7. Below 32 columns the widget renders the header, the `● <instance> <task>`
+   rows, the `+N more busy` line when rows were dropped, and the idle aggregate.
+   The footer status line is a separate surface and is not part of this budget.
 
 ### 10.5 Line budget
 
-| block | lines | bound |
-|---|---|---|
-| header | 1 | always |
-| busy rows | 1 each | never starved by lane lines |
-| `+N more busy` | 0-1 | only when rows were dropped |
-| lane lines (no instance row) | 0-3 | `min(3, 24 - 1 - busy - hidden - idle)`: budgeted after the busy rows, the `+N` line and the idle aggregate, first to yield |
-| idle aggregate | 0-1 | only when an idle seat exists |
-| total widget | 1 + busy + (hidden ? 1 : 0) + lanes + (idle ? 1 : 0) | `MAX_LINES 24` |
-| footer status line | 1 | separate surface, always |
+One frozen arithmetic (CEO arbitration M-0001, 2026-11-15). 10.4 step 7 and 10.6
+restate it and cite its invariants by name; neither computes a second one.
 
-Measured on this team at 2026-11-15 21:06: 5 widget lines (header, 3 busy rows,
-idle aggregate) plus the footer, max line 98 of 100 columns. Worst case with the
-`full` roster (21 activated seats, 21 busy): 1 header + 21 rows = 22 of 24, with
-no idle aggregate (no seat is idle) and no `+N` line (no row was dropped), so 2
-lines are left. At 21 busy seats only 2 of the 3 lane lines fit; the lane term
-reaches its cap of 3 from 20 busy rows down (1 + 20 + 3 = 24). The cap therefore
-binds on lane lines, never on the busy rows - which is why lane lines are
-budgeted last.
+**BUDGET - the widget only; the footer status line is a separate surface.**
+Total `<= 12` lines.
+
+| # | block | lines | rule |
+|---|---|---|---|
+| 1 | header | 1 | always |
+| 2 | busy rows | `k` | `k = min(busy, 12 - 1 - 1(overflow if hidden > 0) - 1(idle if any) - lane_lines)` |
+| 3 | `+N more busy` | 0-1 | only when `hidden > 0`; `N = busy - shown`, exact; reserved width, never clipped, and never itself counted as a row |
+| 4 | idle aggregate | 0-1 | only when an idle seat exists **and** room remains |
+| 5 | lane-only lines | 0-3 | drawn only from the room left after rows + overflow + idle; first to yield |
+| | total widget | `<= 12` | footer excluded |
+| | footer status line | 1 | separate surface, always |
+
+**Order, which is the whole of D-9.** Space for the overflow line is subtracted
+**before** any row is dropped, so a dropped seat always leaves a visible `+N`.
+The overflow line is emitted after the rows and before the idle aggregate: it is
+the last row-bearing line, and only the idle aggregate may follow it. Lane lines
+are drawn **last**, from what is left - the shipped renderer draws them first
+(`extensions/teamwork-status.ts:196`) and that is D-10.
+
+**INVARIANTS a Tester asserts** (10.6 names them, nothing else does):
+
+- `TOTAL` - `len(lines) <= 12` for every fixture.
+- `CONSERVATION` - `shown + hidden == busy`.
+- `AGREEMENT` - the header's busy count equals the footer's busy count.
+- `OVERFLOW` - when `hidden > 0` the `+N` line is present, its `N` is exact and
+  not truncated, and no row follows it.
+
+Derivation, computed by `Scratch/accept_t0001_r3.py` from this table (L-0029):
+21 busy, 0 idle, 3 lane-only -> rows room `12 - 1 - 1 = 10`, so `k = 10`,
+`hidden = 11`, the overflow line is the 12th, and `lane_lines = 0` because no
+room is left; 5 busy, 0 idle, 3 lane-only -> `k = 5`, `hidden = 0`, no overflow
+line, 6 lines left, `lane_lines = min(3, 6) = 3`, total 9; 1 busy, 1 idle,
+0 lanes -> `k = 1`, total 3. The cap binds on lane lines first, never on the
+`+N` line: the overflow line is reserved before any row is dropped.
 
 ### 10.6 The checks a Tester can assert on
 
@@ -710,7 +731,10 @@ and lane-only rows.
 | no headless row | every line begins with `●`, `⚙`, `○`, `+`, or is the header |
 | column alignment | on a payload with one null and one numeric `progress_pct`, the elapsed/bar/model tail starts at the same index in both rows |
 | count agreement | header `busy` equals footer `busy`, and `live` equals `counts.lanes_live` |
-| line budget | `len(render(payload, 100)) == 1 + busy + (hidden ? 1 : 0) + lanes + (idle ? 1 : 0)` with `lanes = min(3, 24 - 1 - busy - (hidden ? 1 : 0) - (idle ? 1 : 0))`, and `<= 24`; on the 21-busy fixture that is `1 + 21 + 0 + 2 + 0 = 24` |
+| `TOTAL` (10.5) | `len(render(payload, 100)) <= 12` for every fixture in the payload matrix, not only the 21-busy one |
+| `CONSERVATION` (10.5) | `shown + hidden == busy`, where `shown` is the count of lines beginning with the busy glyph and `hidden` is the `N` parsed from the `+N more busy` line, or 0 when that line is absent |
+| `AGREEMENT` (10.5) | header busy equals footer busy on every fixture |
+| `OVERFLOW` (10.5) | when `hidden > 0`: the `+N more busy` line exists, `N == busy - shown`, it is not truncated by the width clip, and no row line follows it (only the idle aggregate may) - on the 21-busy fixture that is 10 rows, `+11 more busy`, and 0 lane lines |
 | no colour-only meaning | stripping ANSI from every line leaves each state's word intact |
 | determinism | two calls on one payload return identical lines |
 | empty feed | no instances and no lanes -> `[]`, and the footer prints `teamwork 0/0 busy` |
@@ -730,6 +754,9 @@ Measured at 2026-11-15 21:06 on the real payload; each is a code change in
 | D-6 | the activity column repeats the elapsed time (`1m · lane.start …` on a row whose elapsed is `-`) and clips mid-token | the clock is carried in the tail at `:203` and re-derived as `age · latest` in the middle at `:206`; the mid-token clip is the row call at `:207` | activity is `age · last`; drop the duplicated clock |
 | D-7 | unread fields: `role`, `ready`, `retired`, `lanes_ended`, `progress` (text), lane `attempt`, `last_at` | payload vs `render()` | draw or explicitly declare as not drawn (10.1) |
 | D-8 | no colour is emitted at all, and `●` and `⚙` share "working" without a word | whole renderer | glyph+word pairs in 10.3 |
+| D-9 | a seat disappears with no signal: the overflow line is pushed after the row loop and then cut by the final slice, because the lanes were pushed first and the room formula reserved only the idle line - at 21 busy + 3 lane lines the room is 20, 20 rows are drawn, `+1 more busy` becomes the 25th line and is sliced away | `:196`, `:201`, `:210`, `:214`; repro `Scratch/accept_t0001_r2_21busy.mjs` @15a404da -> `len=24 busyRowsDrawn=20 rowsDropped=1 hiddenLine=[]` | reserve the overflow line before any row is dropped (10.5 step 3, `OVERFLOW`) |
+| D-10 | the lane lines are budgeted before the busy rows, so they can starve a row, and the block is capped at 24 lines, not the frozen 12 | lane loop at `:196` runs before the room formula at `:201`; `MAX_LINES = 24` at `:8` | draw rows + overflow + idle first, then lanes from the room left, first to yield (10.5 step 5); cap the block at 12 |
+| D-11 | a derived task value that is not a `T-nnnn` token is clipped to 8, while 10.2 fixes that column at 6 | `task_label()`, `text(clean, 8)` at `:132` | clip to 6, or state 8 in 10.2 and widen the column to 8 - the spec asks for 6 so the column stays fixed |
 
 ## 11. Sources
 
