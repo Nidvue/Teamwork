@@ -51,7 +51,7 @@
 # T-0018 under D-20261101-CEO-3 (ceo T-0011), which amends D-20261019-CEO-8/-15
 # and AuditReport F-P1 rather than being re-argued here: that ruling assumed the
 # source fix was cheap, and it is not - a PowerShell variable expanded into an
-# absolute path inside the --result line of two commit messages (aca0175, fc14ebf)
+# absolute path inside the --result line of two commit messages (024bfd9, 6f513c1)
 # that are ancestors of main with 44 commits and 40 cited SHAs above them, and
 # --reflog keeps the old messages reportable after any rewrite. The exemption is
 # fixed by SHAPE (this one user name under the Windows user directory), never by
@@ -87,7 +87,6 @@
 ^C:/Users/x\.py$
 # ^ping\.zhao@nidvue\.com$ - the operator's own identity, opened by
 # D-20261110-CEO-8. The operator directed that every commit be authored as
-# "Ping Zhao <ping.zhao@nidvue.com>" and that the identity be the team's preset
 # author, so the address is a committed constant (src/teamwork/config.py) and the
 # author of every commit above the published tip. It is the operator's identity,
 # not a secret: it is published by this commit and by every release author field.

@@ -88,13 +88,13 @@ verdict: no observed effect
   `git show 756b8c8:docs/Team/AuditManifest.json` both report `git.dirty: true`
   (2026-10-19T13:47:17 and 2026-10-19T19:41:50 - respectively 14m20s and about
   six hours after `1a27a46`, which already carried step 4). Three later manifests
-  (`f222211`, `eeba5ce`, `a336398`) also name a `git.head` that is absent from the
+  (`f222211`, `350c933`, `c75f338`) also name a `git.head` that is absent from the
   repository, so the stale-head mode is present in both eras.
 - **Counts are stated as the command that produces them, never as a figure**:
   `.pi/Teamwork/Teams/Teamwork/Ledger.jsonl` held 2075 records with
-  `ts <= $(git log -1 --format=%cI a336398)` at that revision, against the
+  `ts <= $(git log -1 --format=%cI c75f338)` at that revision, against the
   manifest's `ledger.records: 666` - measure it with
-  `python3 -c "import json,subprocess;cut=subprocess.run(['git','log','-1','--format=%cI','a336398'],capture_output=True,text=True).stdout.strip();print(sum(1 for l in open('.pi/Teamwork/Teams/Teamwork/Ledger.jsonl') if l.strip() and json.loads(l).get('ts','') and json.loads(l)['ts']<=cut))"`.
+  `python3 -c "import json,subprocess;cut=subprocess.run(['git','log','-1','--format=%cI','c75f338'],capture_output=True,text=True).stdout.strip();print(sum(1 for l in open('.pi/Teamwork/Teams/Teamwork/Ledger.jsonl') if l.strip() and json.loads(l).get('ts','') and json.loads(l)['ts']<=cut))"`.
   A written-down count is stale the moment it is committed; this row is the
   reason that rule exists.
 - **Why `no observed effect` and not `helped`:** no close-out has yet been shown

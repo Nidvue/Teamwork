@@ -416,7 +416,7 @@ def test_pre_commit_threshold_is_exactly_one_mib(cli, feature, capsys) -> None:
 
 def test_pre_commit_is_silent_for_the_configured_pair_by_default(cli, feature, capsys) -> None:
     """Policy 'repo' (the default) accepts the repository's own pair, not just a mailbox."""
-    git(feature, "config", "user.name", "Ping Zhao")
+    git(feature, "config", "user.name", "Operator Account")
     git(feature, "config", "user.email", "ping@example.com")
     capsys.readouterr()
 
@@ -428,7 +428,7 @@ def test_pre_commit_warns_on_a_non_role_identity_under_role_policy(
     cli, feature, capsys, monkeypatch
 ) -> None:
     monkeypatch.setenv("TEAMWORK_COMMIT_IDENTITY", "role")
-    git(feature, "config", "user.name", "Ping Zhao")
+    git(feature, "config", "user.name", "Operator Account")
     git(feature, "config", "user.email", "ping@example.com")
     capsys.readouterr()
 

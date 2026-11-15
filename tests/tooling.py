@@ -4,7 +4,7 @@ Why this exists: a test that shells out to an external program fails with
 ``FileNotFoundError [WinError 2] 'make'`` on a machine that does not have it,
 while staying green in CI, which does. The contributor learns nothing about the
 product from that traceback, and the suite reads as broken instead of telling
-them what to install (measured at ``009e9a3``: the ``make help`` contract was
+them what to install (measured at ``12429c4``: the ``make help`` contract was
 red on a host without GNU make - ``T-0003``).
 
 So the rule is: **an absent tool is a skip that names the tool and says why the
