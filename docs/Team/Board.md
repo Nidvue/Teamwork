@@ -183,7 +183,8 @@ under two roles is two tasks.
 | developer | T-0062 | lanes | done | P-0064 | 1360077 |
 | developer | T-0063 | tests | done | P-0076 | 7f439aa1 |
 | developer | T-0064 | worktree | done | P-0078 | 29d20d4f |
-| developer | T-0065 | status | doing | P-0080 | - |
+| developer | T-0065 | status | done | P-0080 | 53225821 |
+| developer | T-0066 | lanes | review | P-0082 | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -211,7 +212,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0065 · one teamwork renderer in the pi UI: agents and live lanes drawn once, no duplicate file and no repeated row (M24) | P0 | doing | - |
+| developer | T-0066 · pulse --commit claims a review-failed task for an idle lane and the swarm then dispatches nothing, so the work sits claimed with no lane | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
