@@ -37,6 +37,12 @@ ROW = {
     "title",
     "elapsed",
     "elapsed_text",
+    "elapsed_seconds",
+    "budget_seconds",
+    "remaining_seconds",
+    "remaining_text",
+    "stalled",
+    "activity",
     "progress",
     "progress_pct",
     "lane",
@@ -60,6 +66,7 @@ LANE = {
 }
 COUNTS = {
     "busy",
+    "stalled",
     "idle",
     "ready",
     "review",
@@ -129,21 +136,22 @@ def test_status_json_envelope_and_rows(tmp_path: Path) -> None:
     _code, payload = status_json(project, team)
 
     assert set(payload) == ENVELOPE, sorted(payload)
-    assert payload["schema"] == 4, (
-        "the widget reads schema 4: last/last_at/last_seconds are additive to schema 3"
+    assert payload["schema"] == 5, (
+        "the widget reads schema 5: used/left clocks, activity and stalled are additive to schema 4"
     )
     assert isinstance(payload["generated"], str) and payload["generated"][:4].isdigit()
     assert set(payload["counts"]) == COUNTS, sorted(payload["counts"])
     assert isinstance(payload["instances"], list)
     assert payload["count"] == len(payload["instances"]), "count must describe instances"
     assert payload["instances"], "a staffed team must produce rows"
-    assert payload["counts"]["busy"] + payload["counts"]["idle"] == payload["count"], (
-        "every instance is busy or idle; the panel header sums the two"
-    )
+    assert (
+        payload["counts"]["busy"] + payload["counts"]["stalled"] + payload["counts"]["idle"]
+        == payload["count"]
+    ), "every instance is busy, stalled or idle; the panel header sums the three"
 
     for row in payload["instances"]:
         assert set(row) == ROW, (row.get("instance"), sorted(row))
-        assert row["state"] in {"busy", "idle"}, row
+        assert row["state"] in {"busy", "idle", "stalled"}, row
         assert row["instance"], row
         assert row["role"], row
         assert isinstance(row["progress"], str), "the widget prints progress as text"
@@ -177,6 +185,7 @@ def test_status_json_exits_zero_with_no_instances(tmp_path: Path) -> None:
     assert payload["instances"] == []
     assert payload["counts"] == {
         "busy": 0,
+        "stalled": 0,
         "idle": 0,
         "ready": 0,
         "review": 0,

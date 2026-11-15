@@ -188,14 +188,14 @@ def test_a_dropped_seat_is_always_counted_and_the_count_is_exact() -> None:
 
 
 def test_the_header_and_the_footer_agree_on_the_busy_count() -> None:
-    for payload in (feed(3, 2, LANE_ONLY, review=1), feed(21, 0, LANE_ONLY), feed(1, 1)):
-        lines = render(payload, 100)
-        busy = payload["counts"]["busy"]
-        assert lines[0] == (
-            f"teamwork · {busy} busy · {payload['counts']['lanes_live']} live · "
-            f"{payload['counts']['review']} review"
-        ), lines[0]
-        assert footer(payload) == f"teamwork {busy}/{payload['count']} busy", footer(payload)
+    payload = schema5(
+        [busy_row(), stalled_row()], {"busy": 1, "stalled": 1, "lanes_live": 2, "review": 0}
+    )
+    result = run(payload, 100)
+    assert result["lines"][0] == "teamwork · 1 busy · 1 stalled · 2 live", result["lines"]
+    assert result["footer"] == "teamwork 1/2 busy", result["footer"]
+    zero = run(schema5([busy_row()], {"busy": 1, "stalled": 0, "lanes_live": 0, "review": 0}), 100)
+    assert zero["lines"][0] == "teamwork · 1 busy", "a zero count is omitted"
 
 
 def test_the_lanes_are_drawn_last_from_the_room_the_rows_leave() -> None:
@@ -232,16 +232,22 @@ def test_a_narrow_terminal_drops_columns_and_never_a_headless_row() -> None:
 
 
 def test_a_null_progress_keeps_the_tail_columns_aligned() -> None:
-    payload = feed(2, 0)
-    payload["instances"][0]["progress_pct"] = None
-    payload["instances"][0]["elapsed_text"] = "12m"
-    payload["instances"][1]["progress_pct"] = 42
-    payload["instances"][1]["elapsed_text"] = "3m"
-    rows = [line for line in render(payload, 100) if line.startswith("●")]
-    assert len(rows) == 2, rows
-    assert rows[0].index("    3m") == rows[1].index("   12m"), rows
-    assert "  42%" in rows[0] and "  42%" not in rows[1], rows
-    assert "█" not in rows[1], "a null progress still occupies the fixed bar slot"
+    rows = [
+        busy_row("Developer", progress_pct=None),
+        busy_row(
+            "Tester",
+            progress_pct=None,
+            elapsed_seconds=720,
+            budget_seconds=None,
+            remaining_seconds=None,
+            remaining_text="-",
+        ),
+    ]
+    body = [line for line in run(schema5(rows, {"busy": 2}), 100)["lines"] if line.startswith("●")]
+    assert len(body) == 2, body
+    assert body[0].index("▸") == body[1].index("▸"), body
+    assert "█" in body[0] or "░" in body[0], "the derived bar still fills from budget and elapsed"
+    assert "█" not in body[1] and "░" not in body[1], "no budget means an empty bar"
 
 
 def test_a_review_lane_is_named_by_its_task_and_never_by_its_owner() -> None:
@@ -257,24 +263,28 @@ def test_a_review_lane_is_named_by_its_task_and_never_by_its_owner() -> None:
 
 
 def test_a_row_whose_task_is_not_an_identity_is_clipped_to_the_column() -> None:
-    payload = feed(1, 0)
-    payload["instances"][0]["task"] = "unassigned-work-in-flight"
-    row = next(line for line in render(payload, 100) if line.startswith("●"))
-    assert "unass…" in row, row
+    row = busy_row("Developer", task="unassigned-work")
+    body = [line for line in run(schema5([row], {"busy": 1}), 100)["lines"] if line.startswith("●")]
+    assert body, "the row must still be drawn"
+    cell = body[0].split()[2]
+    assert cell.endswith("…"), body[0]
+    assert len(cell) <= 7, body[0]
 
 
 def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> None:
     bare = {
-        "count": 2,
+        "schema": 4,
+        "count": 1,
+        "counts": {"busy": 1},
         "instances": [
-            {"instance": "Developer", "role": "developer", "state": "busy", "task": "T-0061"},
-            {"instance": "Architect", "role": "architect", "state": "idle"},
+            {"instance": "Developer", "role": "developer", "state": "busy", "task": "T-0070"}
         ],
+        "lanes": [],
     }
-    lines = render(bare)
-    assert lines[0] == "teamwork · 1 busy · 0 live · 0 review"
-    assert "undefined" not in "\n".join(lines)
-    assert lines[-1] == "○ idle: 1"
+    lines = run(bare, 100)["lines"]
+    assert lines[0] == "teamwork · 1 busy", lines
+    assert "undefined" not in "\n".join(lines), lines
+    assert "NaN" not in "\n".join(lines), lines
 
 
 def test_an_empty_feed_stays_silent_and_prints_a_zero_footer() -> None:
@@ -298,3 +308,194 @@ def test_colour_is_redundant_with_the_glyph_and_the_word() -> None:
     words = " ".join(plain)
     for word in ("run", "idle", "T-0070", "●"):
         assert word in words, words
+
+
+def schema5(rows: list[dict], counts: dict | None = None, lanes: list[dict] | None = None) -> dict:
+    return {
+        "schema": 5,
+        "count": len(rows),
+        "counts": counts if counts is not None else {},
+        "instances": rows,
+        "lanes": lanes or [],
+    }
+
+
+def busy_row(instance: str = "Developer", **extra) -> dict:
+    row = {
+        "instance": instance,
+        "role": "developer",
+        "state": "busy",
+        "task": "T-0070",
+        "title": "payload schema 5",
+        "elapsed": 300,
+        "elapsed_text": "5m00s",
+        "elapsed_seconds": 300,
+        "budget_seconds": 1200,
+        "remaining_seconds": 900,
+        "remaining_text": "15m00s",
+        "progress": "attempt 1/2, 25% of 20m",
+        "progress_pct": 25,
+        "activity": "lane started L-0141",
+        "stalled": False,
+        "last": "lane.start L-0141 - developer/T-0070 attempt 1/2",
+        "last_seconds": 12,
+        "model": "deepinfra/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "provider": "deepinfra",
+    }
+    row.update(extra)
+    return row
+
+
+def stalled_row(instance: str = "ReleaseEngineer") -> dict:
+    return {
+        "instance": instance,
+        "role": "release-engineer",
+        "state": "stalled",
+        "stalled": True,
+        "task": "T-0002",
+        "title": "release",
+        "elapsed": None,
+        "elapsed_text": "-",
+        "elapsed_seconds": None,
+        "budget_seconds": None,
+        "remaining_seconds": None,
+        "remaining_text": "-",
+        "progress": "claimed, no live lane",
+        "progress_pct": None,
+        "activity": "lane lost L-0123",
+        "last": "lane.finish L-0123 - lost exit=- result=- task=T-0002",
+        "last_seconds": 120,
+        "model": "",
+        "provider": "",
+    }
+
+
+def left_cell(line: str) -> str:
+    found = re.search(r"▸\s+(\S+)", line)
+    assert found, line
+    return found.group(1)
+
+
+def test_left_is_real_and_clamped_at_zero() -> None:
+    rows = [
+        busy_row("Developer"),
+        busy_row(
+            "Tester",
+            progress_pct=100,
+            elapsed_seconds=1500,
+            budget_seconds=1200,
+            remaining_seconds=0,
+            remaining_text="0s",
+        ),
+        busy_row(
+            "Reviewer",
+            progress_pct=None,
+            elapsed_seconds=None,
+            budget_seconds=None,
+            remaining_seconds=None,
+            remaining_text="-",
+        ),
+    ]
+    lines = run(schema5(rows, {"busy": 3}))["lines"]
+    cells = {line.split()[1]: left_cell(line) for line in lines if line.startswith("●")}
+    assert cells == {"Developer": "15m", "Tester": "0s", "Reviewer": "-"}, cells
+
+
+def test_release_engineer_is_never_clipped() -> None:
+    row = busy_row("ReleaseEngineer", role="release-engineer", task="T-0002")
+    for width in (120, 100, 80, 72, 60, 48):
+        lines = run(schema5([row], {"busy": 1}), width)["lines"]
+        body = [line for line in lines if line.startswith("●")]
+        assert body, (width, lines)
+        assert "ReleaseEngineer" in body[0], (width, body[0])
+        assert "ReleaseE…" not in body[0], (width, body[0])
+        assert max(len(line) for line in lines) <= width, (width, lines)
+
+
+def test_a_stalled_seat_is_drawn_as_stalled_and_never_as_busy() -> None:
+    lines = run(schema5([busy_row(), stalled_row()], {"busy": 1, "stalled": 1}))["lines"]
+    assert lines[0] == "teamwork · 1 busy · 1 stalled", lines
+    stalled = [line for line in lines if line.startswith("⚠")]
+    assert len(stalled) == 1, lines
+    assert "stalled" in stalled[0], stalled[0]
+    assert "▸" not in stalled[0], "a stalled row carries no left clock"
+    assert "█" not in stalled[0] and "░" not in stalled[0], "a stalled row carries no bar"
+    assert "lane lost" in stalled[0], stalled[0]
+    busy = [line for line in lines if line.startswith("●")]
+    assert len(busy) == 1, lines
+    assert "stalled" not in busy[0], busy[0]
+
+
+def test_one_line_per_agent_and_an_idle_seat_is_a_count() -> None:
+    rows = [busy_row(f"Developer-{n}") for n in range(1, 5)]
+    rows.append(stalled_row("Tester"))
+    rows.append(
+        busy_row(
+            "IdleSeat",
+            state="idle",
+            task="",
+            elapsed_seconds=None,
+            budget_seconds=None,
+            remaining_seconds=None,
+            remaining_text="-",
+            activity="",
+            last="",
+            stalled=False,
+        )
+    )
+    lines = run(schema5(rows, {"busy": 4, "stalled": 1}))["lines"]
+    body = [line for line in lines if line[:1] in "●⚠"]
+    assert len(body) == 5, lines
+    names = [line.split()[1] for line in body]
+    assert len(set(names)) == 5, names
+    assert not [line for line in body if "IdleSeat" in line], "an idle seat is a count, not a row"
+    assert lines[-1] == "○ idle: 1", lines
+
+
+def test_the_line_budget_and_the_hidden_count_stay_exact() -> None:
+    rows = [busy_row(f"Developer-{n}") for n in range(1, 16)]
+    lines = run(schema5(rows, {"busy": 15}), 100)["lines"]
+    assert len(lines) == 12, lines
+    assert lines[-1] == "+5 more busy", lines
+
+
+def test_a_schema_four_payload_still_renders_with_dashes() -> None:
+    legacy = {
+        "schema": 4,
+        "count": 1,
+        "counts": {"busy": 1, "lanes_live": 0, "review": 0},
+        "instances": [
+            {
+                "instance": "Developer",
+                "role": "developer",
+                "state": "busy",
+                "task": "T-0070",
+                "elapsed_text": "3m01s",
+                "progress_pct": None,
+                "last": "tests.run - 12 passed",
+            }
+        ],
+        "lanes": [],
+    }
+    lines = run(legacy, 100)["lines"]
+    body = [line for line in lines if line.startswith("●")]
+    assert body, lines
+    assert "3m01s" in body[0], "the schema-4 elapsed_text still fills the used clock"
+    assert left_cell(body[0]) == "-", body[0]
+    assert "undefined" not in "\n".join(lines) and "NaN" not in "\n".join(lines)
+    assert "%" not in "\n".join(lines), "the bar carries no percentage text"
+
+
+def test_an_unknown_state_renders_its_own_word() -> None:
+    row = busy_row("Developer", state="paused", activity="lane paused L-9")
+    lines = run(schema5([row], {"busy": 0}), 100)["lines"]
+    assert any("paused" in line for line in lines), lines
+
+
+def test_every_width_keeps_every_line_inside_the_bound() -> None:
+    rows = [busy_row("ReleaseEngineer"), busy_row("Developer"), stalled_row("Tester")]
+    for width in (120, 100, 80, 72, 60, 56, 48, 40, 32):
+        lines = run(schema5(rows, {"busy": 2, "stalled": 1}), width)["lines"]
+        assert lines, width
+        assert max(len(line) for line in lines) <= width, (width, lines)
+        assert len(lines) <= 12, (width, lines)

@@ -11454,6 +11454,16 @@ def memory_dream_line(root: Path) -> str:
     return line + "; `memory dream --apply --by <you>` acts, nothing was written"
 
 
+def _status_clock(seconds: int) -> str:
+    """The five-column clock the widget draws: ``42s``, ``3m01s``, ``15m``, ``1h05m``."""
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        minutes, rest = divmod(seconds, 60)
+        return f"{minutes}m" if minutes >= 10 else f"{minutes}m{rest:02d}s"
+    return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
+
+
 def _status_elapsed(seconds: int) -> str:
     if seconds < 60:
         return f"{seconds}s"
@@ -11527,6 +11537,88 @@ def _activity_age(record: dict, now: float) -> int | None:
     return max(int(now - when.timestamp()), 0)
 
 
+STATUS_ACTIVITY_MAX = 48
+
+_ACTIVITY_VERB = {
+    "lane.start": "lane started",
+    "commit": "commit",
+    "selfcheck": "self-check",
+    "review.claim": "review",
+    "review.verdict": "review",
+    "message.send": "message",
+}
+
+_LANE_OUTCOMES = ("done", "lost", "timeout", "stopped", "failed")
+_VERDICTS = ("pass", "fail")
+
+
+def _first_word_in(text: str, words: tuple, default: str = "") -> str:
+    for token in text.split():
+        clean = token.strip(".,:;()[]")
+        if clean in words:
+            return clean
+    return default
+
+
+def _sha7(text: str) -> str:
+    for token in text.split():
+        clean = token.strip(".,:;()[]")
+        if len(clean) >= 7 and all(ch in "0123456789abcdef" for ch in clean[:7]):
+            return clean[:7]
+    return ""
+
+
+def _task_id_in(text: str) -> str:
+    for token in text.split():
+        clean = token.strip(".,:;()[]")
+        if len(clean) == 6 and clean.startswith("T-") and clean[2:].isdigit():
+            return clean
+    return ""
+
+
+def _clip_words(value: str, limit: int) -> str:
+    """Clip a phrase at a word boundary so a row never ends mid-token."""
+    clean = one_line(value)
+    if len(clean) <= limit:
+        return clean
+    if limit <= 1:
+        return "…"[:limit]
+    cut = clean[: limit - 1].rstrip()
+    space = cut.rfind(" ")
+    if space > 0:
+        cut = cut[:space]
+    return f"{cut.rstrip()}…"
+
+
+def _status_activity(record: dict, fallback: str) -> str:
+    """The compact state string a row draws: one short verb, one target, no prose."""
+    action = one_line(str(record.get("action") or ""))
+    if not action:
+        return _clip_words(fallback, STATUS_ACTIVITY_MAX)
+    detail = one_line(str(record.get("detail") or ""))
+    target = one_line(str(record.get("target") or ""))
+    head = [_ACTIVITY_VERB.get(action, action)]
+    tail = target
+    if action == "lane.finish":
+        head = ["lane", _first_word_in(detail, _LANE_OUTCOMES, "done")]
+    elif action == "commit":
+        tail = _sha7(target) or _sha7(detail) or target
+    elif action in ("selfcheck", "review.verdict"):
+        verdict = _first_word_in(detail, _VERDICTS)
+        if verdict:
+            head = [head[0], verdict]
+    elif action in ("review.claim", "message.send"):
+        tail = _task_id_in(target) or _task_id_in(detail) or target
+    return _clip_words(" ".join(part for part in (*head, tail) if part), STATUS_ACTIVITY_MAX)
+
+
+def _lane_is_terminal(run: dict | None) -> bool:
+    """True when the newest lane record for an instance has already ended."""
+    from . import lanes as lane_runtime
+
+    return run is not None and str(run.get("state") or "") not in lane_runtime.LIVE
+
+
 def _status_row(
     instance: str,
     now: float,
@@ -11535,6 +11627,7 @@ def _status_row(
     titles: dict,
     dispatching: float = 0.0,
     activity: dict | None = None,
+    newest: dict | None = None,
 ) -> dict:
     """One instance's live state: the lane record if it runs, else the claim.
 
@@ -11551,6 +11644,10 @@ def _status_row(
     else:
         task = held.get(pascal(instance), "")
     elapsed = None
+    elapsed_seconds = None
+    budget_seconds = None
+    remaining_seconds = None
+    remaining_text = "-"
     progress = "idle"
     progress_pct = None
     if run:
@@ -11560,6 +11657,11 @@ def _status_row(
         percent = min(int(elapsed * 100 / budget), 100) if budget else 0
         progress = f"attempt {run.get('attempt')}/{run.get('attempts')}, {percent}% of {minutes}m"
         progress_pct = percent if budget else None
+        elapsed_seconds = elapsed
+        budget_seconds = budget
+        if budget > 0:
+            remaining_seconds = max(budget - elapsed, 0)
+            remaining_text = _status_clock(remaining_seconds)
     elif task:
         progress = "claimed, no lane record"
     elif dispatching:
@@ -11568,23 +11670,40 @@ def _status_row(
     if dispatching and not task and not run:
         title = "pulse: dispatch, arbitrate, fold"
     events = activity or {}
-    busy = "busy" if (task or run or dispatching) else "idle"
+    state = "busy" if (task or run or dispatching) else "idle"
     record = events.get(pascal(instance)) or {}
-    if not record and busy == "busy":
+    if not record and state == "busy":
         record = events.get(pascal(resolve_role(instance))) or {}
+    last = _activity_text(record)
+    stalled = bool(task) and not run and _lane_is_terminal((newest or {}).get(pascal(instance)))
+    if stalled:
+        state = "stalled"
+        progress = "claimed, no live lane"
+        elapsed = None
+        elapsed_seconds = None
+        budget_seconds = None
+        remaining_seconds = None
+        remaining_text = "-"
+        progress_pct = None
     return {
         "instance": instance,
         "role": resolve_role(instance),
-        "state": busy,
+        "state": state,
         "task": task,
         "title": title,
         "elapsed": elapsed,
         "elapsed_text": _status_elapsed(elapsed) if elapsed is not None else "-",
+        "elapsed_seconds": elapsed_seconds,
+        "budget_seconds": budget_seconds,
+        "remaining_seconds": remaining_seconds,
+        "remaining_text": remaining_text,
         "progress": progress,
         "progress_pct": progress_pct,
+        "stalled": stalled,
+        "activity": _status_activity(record, last),
         "lane": str(run.get("id") or ""),
         "lane_state": str(run.get("state") or ""),
-        "last": _activity_text(record),
+        "last": last,
         "last_at": str(record.get("ts") or ""),
         "last_seconds": _activity_age(record, now),
     }
@@ -11656,6 +11775,14 @@ def status_snapshot(root: Path) -> tuple:
         previous = live.get(agent)
         if previous is None or float(run.get("created") or 0) > float(previous.get("created") or 0):
             live[agent] = run
+    newest: dict = {}
+    for run in runs:
+        agent = pascal(str(run.get("agent") or ""))
+        if not agent:
+            continue
+        previous = newest.get(agent)
+        if previous is None or float(run.get("created") or 0) > float(previous.get("created") or 0):
+            newest[agent] = run
     held: dict = {}
     for role in list_roles(root):
         for task in parse_tasks(task_file(root, role)):
@@ -11676,6 +11803,7 @@ def status_snapshot(root: Path) -> tuple:
             titles,
             dispatching=pulse_age if resolve_role(name) == "ceo" else 0.0,
             activity=activity,
+            newest=newest,
         )
         for name in known_instances(root)
     ]
@@ -11762,6 +11890,7 @@ def _status_counts(root: Path, rows: list) -> dict:
     """Team-wide totals for the UI header, not the narrowed --agent view."""
     return {
         "busy": sum(1 for row in rows if row["state"] == "busy"),
+        "stalled": sum(1 for row in rows if row["state"] == "stalled"),
         "idle": sum(1 for row in rows if row["state"] == "idle"),
         "ready": sum(len(_ready_for_role(root, role)) for role in list_roles(root)),
         "review": len(awaiting_review(root)),
@@ -11792,7 +11921,7 @@ def cmd_status(args) -> int:
     counts["lanes"] = len(lanes_shown)
     if getattr(args, "json", False):
         payload = {
-            "schema": 4,
+            "schema": 5,
             "generated": datetime.datetime.now().isoformat(timespec="seconds"),
             "count": len(rows),
             "counts": counts,
@@ -11802,10 +11931,11 @@ def cmd_status(args) -> int:
         print(json.dumps(payload, indent=2))
         return 0
     busy = [row for row in rows if row["state"] == "busy"]
-    idle = len(rows) - len(busy)
+    stalled = [row for row in rows if row["state"] == "stalled"]
+    idle = len(rows) - len(busy) - len(stalled)
     print(
-        f"# Status ({len(busy)} busy, {idle} idle, {counts['activated']} activated, "
-        f"{counts['retired']} retired)"
+        f"# Status ({len(busy)} busy, {len(stalled)} stalled, {idle} idle, "
+        f"{counts['activated']} activated, {counts['retired']} retired)"
     )
     live = [lane for lane in lanes_shown if lane["state"] in lane_runtime_live()]
     if live:

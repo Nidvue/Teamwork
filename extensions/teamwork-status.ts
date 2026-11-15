@@ -7,23 +7,26 @@ const KEY = "teamwork-status";
 const REFRESH_MS = 2_000;
 const BUDGET = 12;
 const TITLE_MAX = 32;
-const INSTANCE_MAX = 14;
+const INSTANCE_MAX = 15;
 const INSTANCE_MIN = 6;
-const MODEL_MAX = 22;
+const MODEL_MAX = 20;
 const LANE_MAX = 3;
 const WIDTH_MAX = 100;
 const ACTIVITY_MAX = 240;
-const TASK_MAX = 6;
-const REVIEW_TASK_MAX = 7;
-const ELAPSED_W = 6;
-const BAR_W = 10;
+const TASK_W = 7;
+const USED_W = 5;
+const LEFT_MIN = 4;
+const LEFT_MAX = 5;
+const BAR_W = 5;
+const SEP = "▸";
 const DROP_MODEL_BELOW = 80;
 const DROP_BAR_BELOW = 72;
 const DROP_ACTIVITY_BELOW = 56;
+const DROP_LEFT_BELOW = 48;
 const BARE_BELOW = 32;
 const ENGINE = ["scripts", "teamwork.py"];
 
-const GLYPH = { busy: "●", lane: "⚙", idle: "○", review: "↳", run: "▶", pause: "⏸", fail: "✕" };
+const GLYPH = { busy: "●", stalled: "⚠", lane: "⚙", idle: "○", review: "↳", half: "◐", run: "▶", pause: "⏸", fail: "✕" };
 
 const LANE_STATE: Record<string, [string, string, string]> = {
   starting: [GLYPH.run, "run", "ok"],
@@ -57,6 +60,12 @@ type Instance = {
   task?: string;
   title?: string;
   elapsed_text?: string;
+  elapsed_seconds?: number | null;
+  budget_seconds?: number | null;
+  remaining_seconds?: number | null;
+  remaining_text?: string;
+  activity?: string;
+  stalled?: boolean;
   progress_pct?: number | null;
   model?: string;
   provider?: string;
@@ -80,6 +89,7 @@ type Payload = {
     lanes?: number;
     activated?: number;
     retired?: number;
+    stalled?: number;
     lanes_live?: number;
     lanes_ended?: number;
   };
@@ -133,11 +143,61 @@ function text(value: string | undefined, max: number): string {
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
-function bar(percent: number | null | undefined): string {
-  if (typeof percent !== "number" || Number.isNaN(percent)) return " ".repeat(BAR_W);
-  const clamped = Math.max(0, Math.min(100, Math.round(percent)));
-  const filled = Math.round((clamped / 100) * 5);
-  return `${"█".repeat(filled)}${"░".repeat(5 - filled)} ${String(clamped).padStart(3)}%`;
+function clipWords(value: string | undefined, max: number): string {
+  if (max <= 0) return "";
+  const clean = (value ?? "").replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  if (clean.length <= max) return clean;
+  if (max === 1) return "…";
+  const cut = clean.slice(0, max - 1);
+  const space = cut.lastIndexOf(" ");
+  const body = space > 0 ? cut.slice(0, space) : cut;
+  return `${body.trimEnd()}…`;
+}
+
+function clock(seconds: number): string {
+  const whole = Math.max(0, Math.round(seconds));
+  if (whole < 60) return `${whole}s`;
+  if (whole < 3600) {
+    const minutes = Math.floor(whole / 60);
+    return minutes >= 10 ? `${minutes}m` : `${minutes}m${String(whole % 60).padStart(2, "0")}s`;
+  }
+  return `${Math.floor(whole / 3600)}h${String(Math.floor((whole % 3600) / 60)).padStart(2, "0")}m`;
+}
+
+function secondsOf(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function usedClock(row: Instance): string {
+  const seconds = secondsOf(row.elapsed_seconds);
+  if (seconds !== null) return clock(seconds);
+  return (row.elapsed_text ?? "").trim() || "-";
+}
+
+function leftClock(row: Instance): string {
+  const remaining = secondsOf(row.remaining_seconds);
+  if (remaining !== null) return clock(Math.max(0, remaining));
+  const budget = secondsOf(row.budget_seconds);
+  const elapsed = secondsOf(row.elapsed_seconds);
+  if (budget !== null && budget > 0 && elapsed !== null) return clock(Math.max(0, budget - elapsed));
+  return "-";
+}
+
+function percentOf(row: Instance): number | null {
+  const sent = secondsOf(row.progress_pct);
+  if (sent !== null) return sent;
+  const budget = secondsOf(row.budget_seconds);
+  const elapsed = secondsOf(row.elapsed_seconds);
+  if (budget !== null && budget > 0 && elapsed !== null) return (elapsed * 100) / budget;
+  return null;
+}
+
+function bar(percent: number | null): string {
+  if (percent === null || Number.isNaN(percent)) return " ".repeat(BAR_W);
+  const clamped = Math.max(0, Math.min(100, percent));
+  const filled = Math.round((clamped / 100) * BAR_W);
+  return `${"█".repeat(filled)}${"░".repeat(BAR_W - filled)}`;
 }
 
 function task_id(value: string | undefined): string {
@@ -149,11 +209,11 @@ function task_id(value: string | undefined): string {
 function task_label(value: string | undefined, review: boolean): string {
   const id = task_id(value);
   if (id) return review ? `${GLYPH.review}${id}` : id;
-  return text((value ?? "").trim().split("/").pop(), TASK_MAX) || "-";
+  return text((value ?? "").trim().split("/").pop(), TASK_W) || "-";
 }
 
 function elapsed(value: string | undefined): string {
-  return ((value ?? "").trim() || "-").padStart(ELAPSED_W);
+  return ((value ?? "").trim() || "-").padStart(USED_W);
 }
 
 function ago(seconds: number | null | undefined): string {
@@ -181,51 +241,106 @@ function tint(paint: Paint | undefined, token: string, value: string): string {
 
 type Row = {
   instance: string;
+  state: string;
+  stalled: boolean;
   review: boolean;
   task: string;
-  activity: string;
-  elapsed: string;
+  used: string;
+  left: string;
   bar: string;
+  body: string;
+  age: string;
   model: string;
   percent: number | null;
-  busy: boolean;
 };
 
-type Layout = { pad: number; taskW: number; activity: number; bar: boolean; model: boolean; bare: boolean };
+type Layout = {
+  pad: number;
+  taskW: number;
+  leftW: number;
+  activity: number;
+  left: boolean;
+  bar: boolean;
+  model: boolean;
+  bare: boolean;
+};
+
+function rowFrom(row: Instance): Row {
+  const role = (row.role ?? "").trim().toLowerCase();
+  const review = role === "reviewer";
+  const stalled = row.stalled === true || (row.state ?? "").trim().toLowerCase() === "stalled";
+  const state = (row.state ?? "").trim().toLowerCase() || (stalled ? "stalled" : "busy");
+  const age = ago(secondsOf(row.last_seconds));
+  const core = text(row.activity, ACTIVITY_MAX) || text(row.last, ACTIVITY_MAX) || text(row.title, TITLE_MAX);
+  const word = state === "busy" ? "" : state;
+  const body = word ? [word, core].filter((part) => part).join(" · ") : core;
+  return {
+    instance: (row.instance ?? "").trim() || "-",
+    state,
+    stalled,
+    review,
+    task: task_label(row.task, review),
+    used: usedClock(row),
+    left: stalled ? "-" : leftClock(row),
+    bar: stalled ? " ".repeat(BAR_W) : bar(percentOf(row)),
+    body,
+    age,
+    model: modelLabel(row.model),
+    percent: stalled ? null : percentOf(row),
+  };
+}
 
 function layoutFor(rows: Row[], width: number): Layout {
   const widest = Math.max(INSTANCE_MIN, ...rows.map((row) => row.instance.length));
   const pad = Math.min(INSTANCE_MAX, widest);
-  const taskW = rows.some((row) => row.review) ? REVIEW_TASK_MAX : TASK_MAX;
   const bare = width < BARE_BELOW;
   const model = !bare && width >= DROP_MODEL_BELOW;
   const showBar = !bare && width >= DROP_BAR_BELOW;
+  const left = !bare && width >= DROP_LEFT_BELOW;
   const showActivity = !bare && width >= DROP_ACTIVITY_BELOW;
-  const head = 2 + pad + 1 + taskW;
-  const tail = 1 + ELAPSED_W + (showBar ? 1 + BAR_W : 0) + (model ? 1 + MODEL_MAX : 0);
+  const leftW = Math.min(LEFT_MAX, Math.max(LEFT_MIN, ...rows.map((row) => row.left.length)));
+  const head = 2 + pad + 1 + TASK_W;
+  const tail =
+    1 +
+    USED_W +
+    (left ? 2 + 1 + leftW : 0) +
+    (showBar ? 1 + BAR_W : 0) +
+    (model ? 1 + MODEL_MAX : 0);
   const activity = showActivity ? Math.max(0, width - head - tail - 1) : 0;
-  return { pad, taskW, activity, bar: showBar, model, bare };
+  return { pad, taskW: TASK_W, leftW, activity, left, bar: showBar, model, bare };
+}
+
+function fitActivity(body: string, age: string, room: number): string {
+  if (room <= 0) return "";
+  const full = body && age ? `${body} · ${age}` : body || age;
+  if (full.length <= room) return full;
+  return clipWords(body || age, room);
 }
 
 function rowLine(row: Row, layout: Layout, width: number, paint: Paint | undefined): string | null {
-  const head = `${GLYPH.busy} ${row.instance.padEnd(layout.pad)} ${row.task.padEnd(layout.taskW)}`;
-  const arrow = row.review ? 2 + layout.pad + 1 : -1;
-  let line = head;
+  const glyph = row.stalled ? GLYPH.stalled : row.review ? GLYPH.half : GLYPH.busy;
+  const head = `${glyph} ${row.instance.padEnd(layout.pad)} ${row.task.padEnd(layout.taskW)}`;
   if (layout.bare) {
-    line = line.trimEnd();
-  } else {
-    const middle = layout.activity > 0 ? `${row.activity.slice(0, layout.activity).padEnd(layout.activity)} ` : "";
-    const tail = [row.elapsed, layout.bar ? row.bar : "", layout.model ? row.model : ""]
-      .filter((part) => part)
-      .join(" ");
-    line = `${head} ${middle}${tail}`.trimEnd();
+    const bare = head.trimEnd();
+    if (bare.length > width) return null;
+    return tint(paint, row.stalled ? "warn" : "ok", bare[0]) + bare.slice(1);
   }
+  const cols = [head, row.used.padStart(USED_W)];
+  const blankLeft = row.stalled;
+  const leftCell = blankLeft ? " ".repeat(SEP.length + 1 + layout.leftW) : `${SEP} ${row.left.padStart(layout.leftW)}`;
+  const barCell = row.stalled ? " ".repeat(BAR_W) : row.bar;
+  if (layout.left) cols.push(leftCell);
+  if (layout.bar) cols.push(barCell);
+  let line = cols.join(" ");
+  const tail = layout.model && row.model ? ` ${row.model}` : "";
+  if (layout.activity) {
+    const room = width - line.length - tail.length - 1;
+    const cell = fitActivity(row.body, row.age, room);
+    if (cell) line = `${line} ${cell.padEnd(room)}`;
+  }
+  line = `${line}${tail}`.trimEnd();
   if (line.length > width) return null;
-  let out = line;
-  if (arrow >= 0 && out[arrow] === GLYPH.review) {
-    out = out.slice(0, arrow) + tint(paint, "warn", GLYPH.review) + out.slice(arrow + 1);
-  }
-  return tint(paint, "ok", out[0]) + out.slice(1);
+  return tint(paint, row.stalled ? "warn" : "ok", line[0]) + line.slice(1);
 }
 
 function laneLine(lane: Lane, width: number, paint: Paint | undefined): string | null {
@@ -250,34 +365,32 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
   const lanes = payload.lanes ?? [];
   if (!instances.length && !lanes.length) return [];
   const counts = payload.counts ?? {};
-  const rows: Row[] = instances.map((row) => ({
-    instance: text(row.instance, INSTANCE_MAX) || "-",
-    review: (row.role ?? "").trim().toLowerCase() === "reviewer",
-    task: task_label(row.task, (row.role ?? "").trim().toLowerCase() === "reviewer"),
-    activity: text(row.last, ACTIVITY_MAX) || text(row.title, TITLE_MAX),
-    elapsed: elapsed(row.elapsed_text),
-    bar: bar(row.progress_pct),
-    model: modelLabel(row.model),
-    percent: typeof row.progress_pct === "number" ? row.progress_pct : null,
-    busy: (row.state ?? "") === "busy",
-  }));
+  const rows: Row[] = instances.map(rowFrom);
   rows.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || a.instance.localeCompare(b.instance));
-  const busy = rows.filter((row) => row.busy);
-  const idle = rows.length - busy.length;
+  const drawable = rows.filter((row) => row.state !== "idle");
+  const idle = rows.length - drawable.length;
   const named = new Set(rows.map((row) => row.instance));
   const live = lanes.filter((lane) => lane.state === "starting" || lane.state === "running");
-  const laneOnly = live.filter((lane) => !named.has(text(lane.instance, INSTANCE_MAX) || "-"));
-  const busyCount = counts.busy ?? busy.length;
+  const laneOnly = live.filter((lane) => !named.has((lane.instance ?? "").trim() || "-"));
+  const busyCount = counts.busy ?? drawable.filter((row) => !row.stalled).length;
+  const stalledCount = counts.stalled ?? drawable.filter((row) => row.stalled).length;
   const liveCount = counts.lanes_live ?? live.length;
   const reviewCount = counts.review ?? 0;
+  const header = [`${busyCount} busy`];
+  if (stalledCount) header.push(`${stalledCount} stalled`);
+  if (liveCount) header.push(`${liveCount} live`);
+  if (reviewCount) header.push(`${reviewCount} review`);
   const idleLine = idle ? 1 : 0;
   const cap = BUDGET - 1 - idleLine;
-  let room = Math.min(busy.length, Math.max(0, cap));
-  if (room < busy.length) room = Math.max(0, cap - 1);
-  const layout = layoutFor(busy, bound);
-  const drawn = busy.slice(0, room).map((row) => rowLine(row, layout, bound, paint)).filter((line) => line !== null);
-  const hidden = busy.length - drawn.length;
-  const lines = [text(`teamwork · ${busyCount} busy · ${liveCount} live · ${reviewCount} review`, bound)];
+  let room = Math.min(drawable.length, Math.max(0, cap));
+  if (room < drawable.length) room = Math.max(0, cap - 1);
+  const layout = layoutFor(drawable, bound);
+  const drawn = drawable
+    .slice(0, room)
+    .map((row) => rowLine(row, layout, bound, paint))
+    .filter((line) => line !== null);
+  const hidden = drawable.length - drawn.length;
+  const lines = [text(`teamwork · ${header.join(" · ")}`, bound)];
   lines.push(...drawn);
   if (hidden > 0) lines.push(`+${hidden} more busy`);
   if (idle) lines.push(text(`${GLYPH.idle} idle: ${idle}`, bound));
