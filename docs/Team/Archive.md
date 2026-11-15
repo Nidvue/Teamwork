@@ -6024,3 +6024,16 @@ own run; my acceptance record is TS-0056.
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_roster_tiers.py tests/unit/test_board_matches_tool.py @93eca8a -> 25 passed (own run); PYTHONPATH=src python -c expand_roster x charter bytes @93eca8a -> 283629 / 390247 / 630148, matching the three documented rows in both files
 - findings history: 
 - branch / merge: ceo/t-0033-the-documented-roster-tier-startup-costs / 01f547e
+
+## T-0034 · Close-out records: export the audit manifest and record the close state - the three open criteria, the exact decision each one waits on, and the audit warnings accepted with their reasons  (ceo)
+- date: 2026-11-15
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-3
+- task / issue: -
+- area: records
+- self-check: [pass] Boundary: two generated manifest files and one decision entry; no criterion is verified here, because a criterion is verified against its own evidence and this record only states which evidence is missing. Empty/duplicate/second-call: the manifest is regenerated from the ledger every run, so a second export overwrites instead of appending, and the decision id is unique. Contract surface: the decision entry keeps the register schema (date, kind, status, deciders, decided by, task, context, options considered, decision, why, evidence, falsified by, consequences) and every one is filled. Concurrency/shared writes: docs only, one writer. Scope: 4 files, the close-out record set. @525ff1e superseded by @12512b2: the board render only. | test: teamwork.py ledger export @12512b2 -> 304 records, chain verified True; teamwork.py links @12512b2 -> # issues: 0; venv/bin/python -m pytest -q tests/unit/test_traceability_matrix.py -k "not every_deterministic" @12512b2 -> 25 passed, 1 skipped | preflight: PF-c468ea8d2e45 @12512b21b399 (7 checks, 0 failed)
+- author evidence: commit 525ff1e
+- reviewer evidence: teamwork.py ledger export @12512b2 -> 304 records, chain verified True (own run); teamwork.py loop @12512b2 -> CONTINUE with exactly 3 criteria and no other reason, which is what the decision says; teamwork.py tests plan @12512b2 -> 0 gaps; privacy_scan --tree -> PASS 0 findings; privacy_scan --history -> exit 1, the state G-13 and this decision both claim
+- findings history: 
+- branch / merge: ceo/t-0034-close-out-records-export-the-audit-manif / pending
