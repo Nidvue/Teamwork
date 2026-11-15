@@ -193,6 +193,8 @@ EXCEPTION_KEYS = ("version", "reason", "evidence", "recorded")
 R2_NOT_THE_DEFAULT_BRANCH = "not the default branch: the published line is evaluated on main only"
 
 SCAN_EXCLUDED = "docs/Team/Archive.md"
+BOARD_PATH = "docs/Team/Board.md"
+BOARD_IN_FLIGHT_HEAD = "## In flight"
 
 R6_GLOBS = ("README.md", "docs/index.md", "docs/Team/Release.md", "docs/guide/*.md")
 
@@ -1564,6 +1566,33 @@ def rule_r7_changelog(repo_root: Path) -> RuleResult:
     return _ok("R7", f"{covered} tagged version(s) have exactly one CHANGELOG.md section")
 
 
+def _planned_title_lines(text: str) -> set[int]:
+    """1-based line numbers inside the generated board's In-flight table.
+
+    That table is a projection of the *open* tasks, and its task cell carries the
+    task's title verbatim. A release task titled "cut the v1.5.9 release" names the
+    tag it will create, not a tag that exists, so R9 read the plan as a false
+    claim and no release could be tagged from a CI-green main while its own row was
+    rendered (measured on 1.5.9 at 8e1d01bb: "R9 DRIFT: docs/Team/Board.md:219:
+    names v1.5.9, which is not a tag").
+
+    The exemption is one generated table, not the file and not the rule: the same
+    token in the task table, in any other heading of the board, or in any other
+    markdown is still a claim and still fails. The row leaves In flight when the
+    task closes, so a title cannot outlive the plan it states.
+    """
+    planned: set[int] = set()
+    inside = False
+    for number, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            inside = stripped == BOARD_IN_FLIGHT_HEAD
+            continue
+        if inside and stripped.startswith("|"):
+            planned.add(number)
+    return planned
+
+
 def rule_r9_markdown_tags(repo_root: Path) -> RuleResult:
     """Every ``vX.Y.Z`` token in committed markdown must name a real tag (11.2.4)."""
     tag_names = {line.strip() for line in (_git(repo_root, "tag", "-l") or "").splitlines()}
@@ -1574,8 +1603,11 @@ def rule_r9_markdown_tags(repo_root: Path) -> RuleResult:
             text = (Path(repo_root) / rel).read_text(encoding="utf-8")
         except OSError as exc:
             raise InputError(f"{rel}: {exc}") from exc
+        planned = _planned_title_lines(text) if rel == BOARD_PATH else set()
         for line in _marked_lines(text):
             tokens = list(TAGGED_TOKEN.finditer(line.text))
+            if line.number in planned and tokens:
+                continue
             if line.exempted and tokens:
                 illustrative += 1
                 continue

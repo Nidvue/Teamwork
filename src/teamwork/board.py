@@ -277,11 +277,18 @@ def landing_keys(
 def mismatches(
     tasks: dict[tuple[str, str], dict[str, str]],
     rows: dict[tuple[str, str], tuple[str, str, str]],
+    skip: set[tuple[str, str]] | None = None,
 ) -> list[str]:
-    """Both directions: a row that is wrong and a task that has no row."""
+    """Both directions: a row that is wrong and a task that has no row.
+
+    ``skip`` names the rows the caller has exempted (the ones the revision did not
+    change); it filters findings, never the comparison itself.
+    """
     out = []
     landing = landing_keys(tasks, rows)
     for key, fields in sorted(tasks.items()):
+        if skip and key in skip:
+            continue
         if key in landing:
             continue
         want = expected_row(fields)
@@ -291,6 +298,8 @@ def mismatches(
         elif got != want:
             out.append(f"{key[0]} {key[1]}: board says {got}, queue says {want}")
     for key in sorted(set(rows) - set(tasks)):
+        if skip and key in skip:
+            continue
         out.append(f"{key[0]} {key[1]}: on the board, but no such task in the milestone")
     return out
 
@@ -299,6 +308,7 @@ def flight_mismatches(
     tasks: dict[tuple[str, str], dict[str, str]],
     flight: dict[tuple[str, str], str],
     rows: dict[tuple[str, str], tuple[str, str, str]] | None = None,
+    skip: set[tuple[str, str]] | None = None,
 ) -> list[str]:
     """The In-flight table versus the open set, minus the tasks that are landing."""
     landing = landing_keys(tasks, rows or {}, flight)
@@ -307,8 +317,9 @@ def flight_mismatches(
     want = {
         key: fields.get("status", "")
         for key, fields in tasks.items()
-        if fields.get("status") in OPEN
+        if fields.get("status") in OPEN and not (skip and key in skip)
     }
+    flight = {key: state for key, state in flight.items() if not (skip and key in skip)}
     return (
         [
             f"{r} {t}: open in the queue as {want[(r, t)]!r}, missing from In flight"
@@ -501,18 +512,67 @@ def render(
     return after
 
 
+def _diff_lines(before: str, after: str) -> list[str]:
+    """The unified diff body of two renders, without the file headers."""
+    return [
+        line
+        for line in difflib.unified_diff(
+            before.splitlines(), after.splitlines(), "committed", "rendered", lineterm="", n=0
+        )
+        if not line.startswith(("---", "+++", "@@"))
+    ]
+
+
+def _untouched_keys(baseline: str, board: str) -> set[tuple[str, str]]:
+    """The rows this revision left exactly as the base revision had them.
+
+    The board is a projection of queues that move under every lane, so a cell a
+    sibling flipped after the branch point is stale on any board that was rendered
+    before it - re-rendering does not converge, and the lane that edits the board
+    can never be green (measured twice on T-0038: "releaseengineer T-0002 board
+    blocked vs queue doing"). A row the diff does not touch is not this author's
+    finding; the merge re-renders the rest.
+    """
+    before_rows, before_flight = board_rows(baseline), in_flight(baseline)
+    after_rows, after_flight = board_rows(board), in_flight(board)
+    keys = set(before_rows) | set(after_rows) | set(before_flight) | set(after_flight)
+    return {
+        key
+        for key in keys
+        if before_rows.get(key) == after_rows.get(key)
+        and before_flight.get(key) == after_flight.get(key)
+    }
+
+
+def _diff_key(line: str) -> tuple[str, str] | None:
+    """The row a unified-diff line names, or ``None`` when it names no task."""
+    body = line[1:] if line[:1] in ("+", "-") else line
+    match = BOARD_ROW.match(body) or FLIGHT_ROW.match(body)
+    return (norm_role(match.group(1)), match.group(2)) if match else None
+
+
 def problems(
-    tasks: dict[tuple[str, str], dict[str, str]], board: str, root: Path | None = None
+    tasks: dict[tuple[str, str], dict[str, str]],
+    board: str,
+    root: Path | None = None,
+    baseline: str | None = None,
 ) -> list[str]:
     """Every row that contradicts the queues, named, plus any render drift.
 
     The row comparators run first because they name the cells; the render equality
     is the backstop for the cells they do not look at (an In-flight title, priority
     or artifact), with the landing rows removed from both sides.
+
+    ``baseline`` is the board at the branch point: with it, a finding for a row this
+    revision did not change is dropped, so a lane that edits the board answers for
+    the cells it touched and not for a parallel lane's status drift. ``None`` (the
+    on-disk `board --check`) compares every row, because there the committed file is
+    the only revision in play.
     """
     rows = board_rows(board)
     flight = in_flight(board)
-    found = mismatches(tasks, rows) + flight_mismatches(tasks, flight, rows)
+    untouched = _untouched_keys(baseline, board) if baseline is not None else set()
+    found = mismatches(tasks, rows, untouched) + flight_mismatches(tasks, flight, rows, untouched)
     if found:
         return found
     landing = landing_keys(tasks, rows, flight)
@@ -521,10 +581,4 @@ def problems(
     after = render(rest, stable, root)
     if after == stable:
         return []
-    return [
-        line
-        for line in difflib.unified_diff(
-            stable.splitlines(), after.splitlines(), "committed", "rendered", lineterm="", n=0
-        )
-        if not line.startswith(("---", "+++"))
-    ]
+    return [line for line in _diff_lines(stable, after) if _diff_key(line) not in untouched]

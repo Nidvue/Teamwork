@@ -15623,7 +15623,7 @@ def _queues_initialised(root: Path) -> bool:
     return any(roles_dir(root).glob("*/TaskQueue.md"))
 
 
-def _board_problems(root: Path, text: str) -> list:
+def _board_problems(root: Path, text: str, baseline: str | None = None) -> list:
     """What is wrong with this Board.md TEXT against the live queues (read-only).
 
     Shared by `board --check` and `preflight` so the two can never disagree about
@@ -15640,7 +15640,7 @@ def _board_problems(root: Path, text: str) -> list:
     if not tasks and not _queues_initialised(root):
         return [f"no task records under {roles_dir(root)}: run `teamwork.py init` first"]
     try:
-        return boardlib.problems(tasks, text, root)
+        return boardlib.problems(tasks, text, root, baseline)
     except (ValueError, StopIteration) as exc:
         return [f"cannot compare this board with the queues: {exc}"]
 
@@ -15679,7 +15679,9 @@ def _preflight_board(root: Path, project: Path, base: str, branch: str) -> Prefl
             f"{branch} removes {PREFLIGHT_BOARD_PATH}",
             "the board is generated output: teamwork.py board --write, then commit it",
         )
-    found = _board_problems(root, blob.stdout)
+    base_blob = run_git(project, "show", f"{base}:{PREFLIGHT_BOARD_PATH}")
+    baseline = base_blob.stdout if base_blob.returncode == 0 else None
+    found = _board_problems(root, blob.stdout, baseline)
     if found:
         return PreflightCheck(
             name,
