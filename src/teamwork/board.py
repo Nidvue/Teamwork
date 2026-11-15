@@ -49,7 +49,7 @@ its own task from ``review``/``doing`` to ``done`` plus a merge revision, so no
 commit can carry its own post-merge state - the merge that would make the row true
 does not exist yet when the row is written. This is structural, not an author's
 error: ``projectmanager T-0003`` read ``doing`` on the board and ``done`` +
-``cd01534`` in the queue with no defect behind the difference. So a landing task is
+``c49da6d`` in the queue with no defect behind the difference. So a landing task is
 excluded from both sides (the CEO decision: "The board cannot contain its own
 post-merge state"), while every other comparison stays strict - an open
 ``todo``/``doing`` task must still be visible and equal, and a ``done`` task must

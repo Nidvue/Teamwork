@@ -6,7 +6,7 @@ Related: [Project](Project.md) · [CHANGELOG](../../CHANGELOG.md) · [README](..
 ## Status
 
 **Historical measurement - superseded on AC-REL-6.** This proof was taken at
-`c81912b0b1`, before the M9 revision was pushed. Its one open row has since
+`37dc3dbda3`, before the M9 revision was pushed. Its one open row has since
 closed:
 
 - **AC-REL-6 now holds.** The M9 revision was pushed, and CI run 39690418108 on
@@ -15,7 +15,7 @@ closed:
   revision, so read the command rather than this sentence.
 
 Every other row below stands as measured. Read "NOT YET RUN" and "FAIL" as the
-state at `c81912b0b1`, not as the current state.
+state at `37dc3dbda3`, not as the current state.
 
 The team documents this proof reads - `docs/Team/Architecture.md` (§11, the
 frozen release-consistency contract), `docs/Team/Project.md` (the AC rows),
@@ -25,7 +25,7 @@ creates a back-link obligation in the *target* file, and this lane owns only
 this document and the test file it names; the back-links belong to the
 documents' own owners.
 
-**Conclusion at `c81912b0b1`.** Five of the six machine acceptance records of M9
+**Conclusion at `37dc3dbda3`.** Five of the six machine acceptance records of M9
 held. **AC-REL-6 did not** at that revision: the M9 revision was not yet on the
 remote, so no CI run existed for it, and the installed skill did not mirror it
 (closed later - see *Status* above). The release gate was green in both modes -
@@ -60,8 +60,8 @@ without a measurement.
 | AC-REL-5 | `version.py` is strictly greater than every published and tagged version | `grep -n __version__ src/teamwork/version.py` and `git tag -l` | `9:__version__ = "1.1.3"`; `git tag -l` prints five tags on five lines - `v1.0.0`, `v1.0.1`, `v1.0.2`, `v1.1.0`, `v1.1.2` - so no tagged version reaches 1.1.3 | **PASS** |
 | AC-REL-5 | the CHANGELOG records the 1.1.1 anomaly | `grep -n "1\.1\.1" CHANGELOG.md` | `52:- **npm 1.1.1 has no source commit and is listed as an exception.**` (the version number is inside backticks in the file) and `86:## [1.1.1] - 2026-10-20` | **PASS** |
 | AC-REL-6 | CI runs the release-consistency gate | `grep -n "release-consistency" .github/workflows/ci.yml` | `376:  release-consistency:` - a blocking job running `python scripts/check_release_consistency.py --offline --json`, with no `continue-on-error` | **PASS** (the workflow runs the gate) |
-| AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | at the audited revision the local `main` was ahead of `origin/main` and the newest runs were the pre-M9 ones | **CLOSED LATER** - the revision was pushed and CI run 39690418108 on `aaa4457ff7590898f56804cf495e09ccd2687be9` was 19/19 success; not measurable at `c81912b0b1` |
-| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | at the audited revision it exited 1: files the tree ships were absent from the installed bundle and installed engine files were older than the tree (§5). The counts are not quoted - they move with every commit | **CLOSED LATER** - the bundle was refreshed and the criterion holds on the published revision; it was **FAIL** at `c81912b0b1`. It is a standing condition: re-measure it with `python3 scripts/teamwork.py refresh --check` |
+| AC-REL-6 | every workflow is green on the pushed M9 revision | `git rev-list --count origin/main..main` and `gh run list --limit 5` | at the audited revision the local `main` was ahead of `origin/main` and the newest runs were the pre-M9 ones | **CLOSED LATER** - the revision was pushed and CI run 39690418108 on `aaa4457ff7590898f56804cf495e09ccd2687be9` was 19/19 success; not measurable at `37dc3dbda3` |
+| AC-REL-6 | the installed skill mirrors the remote's `main` | `python3 scripts/sync_skill.py --check` (exit code and the `missing:`/`stale:` rows) | at the audited revision it exited 1: files the tree ships were absent from the installed bundle and installed engine files were older than the tree (§5). The counts are not quoted - they move with every commit | **CLOSED LATER** - the bundle was refreshed and the criterion holds on the published revision; it was **FAIL** at `37dc3dbda3`. It is a standing condition: re-measure it with `python3 scripts/teamwork.py refresh --check` |
 
 ## 2. What "the merged tree" means here
 

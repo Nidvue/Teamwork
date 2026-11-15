@@ -184,7 +184,7 @@ throughput` re-reads it):
   only for a named deliverable (`parallel` and `instance list` read the demand).
   `instance retire` moves the idle directory to `Runtime/Retired/<Instance>/` and
   never deletes artifacts, reports or the worklog. A cut first verifies
-  `git rev-parse HEAD` is at or after the move-only revision (`9a6d513`); the one
+  `git rev-parse HEAD` is at or after the move-only revision (`32f598f`); the one
   cut from a stale checkout lost 102 artifact paths (`L-0001`).
 - **Read by id.** `archive --task <T-id>`, `decision list`, `board` and `trace`
   answer a question; a whole `Archive.md` read is ~0.63M tokens against a

@@ -3,7 +3,7 @@
 Three claims, all of them about a host other than the one that wrote the code:
 
 1. **The CLI is invocable on every supported platform, including from a path with
-   a space.** This host's checkout path contains a space (`C:\\Users\\Ping Zhao\\...`),
+   a space.** This host's checkout path contains a space (`C:\\Users\\Operator Account\\...`),
    which is the case that breaks an unquoted `sys.executable <shim>` string. Each
    invocation form is run as a real subprocess from a *copy* of the checkout placed
    under a deliberately space-containing directory: the checkout shim, the shim run
@@ -521,7 +521,7 @@ def test_the_retired_isinstance_union_guard_still_detects_its_pattern() -> None:
 
 
 def test_the_union_guard_bites_on_the_spelling_20c7d23_shipped() -> None:
-    """The guard reports the exact expression `_argv0_tool` carried at bfbc2c8."""
+    """The guard reports the exact expression `_argv0_tool` carried at 8e0b476."""
     source = (
         "import ast\n"
         "\n"

@@ -5,7 +5,7 @@ Putting ``scripts/`` on ``sys.path`` makes every later ``import teamwork`` in th
 session resolve to the script instead of the package - a global mutation of
 interpreter state, invisible in the file that causes it.
 
-Measured on ``main`` (``bf48af0``): ``tests/unit/test_skill_sync.py`` did
+Measured on ``main`` (``b622d77``): ``tests/unit/test_skill_sync.py`` did
 ``sys.path.insert(0, ...)`` at import time and never removed it, which made
 ``tests/unit/test_release_consistency.py::test_the_checker_is_loaded_by_path_not_by_sys_path``
 fail on a clean checkout - the suite was red for a reason that had nothing to do

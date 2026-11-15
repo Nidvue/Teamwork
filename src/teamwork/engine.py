@@ -157,7 +157,6 @@ from .config import (
     MEMORY_ARBITER_ROLE,
     MEMORY_LEASE_MINUTES,
     MEMORY_STALL_MINUTES,
-    OPERATOR_IDENTITY,
     PRIORITY_ORDER,
     PROMOTE_MIN_IMPORTANCE,
     PROMOTE_USES,
@@ -497,7 +496,6 @@ __all__ = [
     "REVIEW_STATUSES",
     "PRIORITY_ORDER",
     "STATUSES",
-    "OPERATOR_IDENTITY",
     "ROLE_DISPLAY",
     "ACRONYMS",
     "ROLE_ALIASES",
@@ -5516,29 +5514,8 @@ _RE_BOT_EMAIL = re.compile(
 _RE_FORGE_MERGE_SUBJECT = re.compile(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$")
 _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
 _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
-LEGACY_MESSAGE_EXEMPT = {
-    "50f810b48010947a0606f5ab2d8be4a9809bb385": (
-        "chore(records) by Reviewer merged 2026-11-03 before the trailer rule; canonical identity"
-    ),
-}
-LEGACY_AUTHOR_EXEMPT = {
-    "3b4dbc1c0f90d8dd7f68ebf58074f51030a91e0d": (
-        "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
-        "published history, so the identity is accepted and not rewritten"
-    ),
-    "844c7fda879d3df469d40429e5c2f59726f11ce7": (
-        "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
-        "published history, so the identity is accepted and not rewritten"
-    ),
-    "977bb8454d9984e77069b1250fda32871b9778a5": (
-        "chore: hand edit 2026-11-07, before the role-mailbox policy was installed; "
-        "published history, so the identity is accepted and not rewritten"
-    ),
-    "527cc458b9fd75b20932e70764cd30b439e164f4": (
-        "merge of ceo/t-0059 on 2026-10-21 by the operator account, before the "
-        "role-mailbox policy; published history, so the identity is accepted"
-    ),
-}
+LEGACY_MESSAGE_EXEMPT: dict[str, str] = {}
+LEGACY_AUTHOR_EXEMPT: dict[str, str] = {}
 _RE_MERGE_SUBJECT = re.compile(
     r"^(?:"
     r"chore\(merge\):"
@@ -5559,7 +5536,6 @@ def canonical_identities(project=None) -> dict:
     pair, so no new commit is authored as whoever owns the machine (A-0012).
     """
     out = {role_identity(role)[1]: role_identity(role)[0] for role in ROLE_DISPLAY}
-    out[OPERATOR_IDENTITY[1]] = OPERATOR_IDENTITY[0]
     preset = preset_identity(project) if project else preset_identity()
     if preset:
         out[preset[1]] = preset[0]
@@ -5691,9 +5667,7 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             continue
         expected = canonical.get(ae)
         operator = preset_identity(project)
-        is_operator = (an, ae) == OPERATOR_IDENTITY or (
-            operator is not None and (ae, an) == (operator[1], operator[0])
-        )
+        is_operator = operator is not None and (ae, an) == (operator[1], operator[0])
         if expected is None and is_operator:
             expected = an
         if expected is None:
