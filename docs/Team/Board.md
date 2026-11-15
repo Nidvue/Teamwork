@@ -118,6 +118,7 @@ under two roles is two tasks.
 | ceo | T-0033 | records | done | P-0074 | 01f547e |
 | ceo | T-0034 | records | done | P-0075 | 2e9a621 |
 | ceo | T-0035 | decisions | done | P-0077 | 494cf667 |
+| ceo | T-0036 | records | review | P-0079 | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -181,7 +182,8 @@ under two roles is two tasks.
 | developer | T-0061 | ci | done | P-0063 | 0096027 |
 | developer | T-0062 | lanes | done | P-0064 | 1360077 |
 | developer | T-0063 | tests | done | P-0076 | 7f439aa1 |
-| developer | T-0064 | worktree | doing | - | - |
+| developer | T-0064 | worktree | done | P-0078 | 29d20d4f |
+| developer | T-0065 | status | review | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -191,6 +193,7 @@ under two roles is two tasks.
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
 | tester | T-0003 | - | dropped | - | - |
 | tester | T-0004 | tests | done | P-0066 | 66d55cd |
+| tester | T-0005 | - | todo | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -208,7 +211,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0064 · branch start --worktree leaves an untracked venv symlink, so the branch is unreviewable: review refuses 'the artifact is not committed on its branch: venv' | P1 | doing | - |
+| ceo | T-0036 · commit the M24 renumber, the AC-M24 criteria rows and the D-20261115-CEO-5 one-renderer ruling | P0 | review | - |
+| developer | T-0065 · one teamwork renderer in the pi UI: agents and live lanes drawn once, no duplicate file and no repeated row (M24) | P0 | review | - |
+| tester | T-0005 · retire the layered-test records that share one replay command, or record why each pair is not duplicate coverage | P2 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
