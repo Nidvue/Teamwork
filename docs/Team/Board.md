@@ -120,7 +120,7 @@ under two roles is two tasks.
 | ceo | T-0035 | decisions | done | P-0077 | 494cf667 |
 | ceo | T-0036 | records | done | P-0079 | c824be5a |
 | ceo | T-0037 | records | done | P-0083 | f6e62305 |
-| ceo | T-0038 | records | selfcheck | - | - |
+| ceo | T-0038 | records | done | P-0085 | dbc56003 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -187,6 +187,7 @@ under two roles is two tasks.
 | developer | T-0064 | worktree | done | P-0078 | 29d20d4f |
 | developer | T-0065 | status | done | P-0080 | 53225821 |
 | developer | T-0066 | lanes | done | P-0082 | dbb42541 |
+| developer | T-0067 | - | todo | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | doing | - | - |
 | reviewer | T-0001 | - | done | - | - |
@@ -217,7 +218,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0038 · re-render the board so no committed row names a tag that does not exist yet | P0 | selfcheck | - |
+| developer | T-0067 · a release task whose title names its own tag makes CI red, and a board-editing task is charged for every parallel lane's status drift | P1 | todo | - |
 | release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
