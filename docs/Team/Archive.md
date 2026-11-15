@@ -6036,4 +6036,4 @@ own run; my acceptance record is TS-0056.
 - author evidence: commit 525ff1e
 - reviewer evidence: teamwork.py ledger export @12512b2 -> 304 records, chain verified True (own run); teamwork.py loop @12512b2 -> CONTINUE with exactly 3 criteria and no other reason, which is what the decision says; teamwork.py tests plan @12512b2 -> 0 gaps; privacy_scan --tree -> PASS 0 findings; privacy_scan --history -> exit 1, the state G-13 and this decision both claim
 - findings history: 
-- branch / merge: ceo/t-0034-close-out-records-export-the-audit-manif / pending
+- branch / merge: ceo/t-0034-close-out-records-export-the-audit-manif / 2e9a621
