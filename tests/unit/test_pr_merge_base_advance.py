@@ -543,3 +543,38 @@ def test_merge_re_points_a_deleted_base_and_keeps_the_pass(cli, project, capsys)
     assert prs[0]["status"] == "merged"
     assert "pr.base.repoint" in (root / "Ledger.jsonl").read_text(encoding="utf-8")
     assert engine.run_git(project, "status", "--porcelain").stdout.strip() == ""
+
+
+def test_merge_refuses_to_re_point_a_base_that_still_exists(cli, project, capsys) -> None:
+    """``--base`` is the repair for a deleted base, never a live-branch override.
+
+    The recorded base here is ``main``, which still exists, so a ``--base
+    side`` merge would silently land the work somewhere nobody reviewed and
+    would write a false "the base is gone" reason into the ledger.
+    """
+    root = init_workspace(cli, project)
+    work = Path(add_task(cli, project, "ship the base-advance fix", "feature.txt"))
+    commit_self_check_and_open(cli, project, work=work, filename="feature.txt")
+    pass_review(cli, project)
+    assert engine.run_git(project, "branch", "side", "main").returncode == 0
+
+    capsys.readouterr()
+    assert (
+        cli(
+            "--project",
+            project,
+            "pr",
+            "merge",
+            "--pr",
+            "P-0001",
+            "--by",
+            "reviewer-2",
+            "--base",
+            "side",
+        )
+        == 2
+    )
+    err = capsys.readouterr().err
+    assert "is still a local branch" in err, err
+    assert "pr.base.repoint" not in (root / "Ledger.jsonl").read_text(encoding="utf-8")
+    assert engine.parse_reviews(root / "Reviews.md")[0]["base"] == "main"

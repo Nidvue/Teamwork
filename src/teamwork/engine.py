@@ -1572,19 +1572,30 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "--result pass --evidence '<verify cmd @rev -> result>'",
                 2,
             )
-        requested = (args.base or "").strip()
+        requested = (getattr(args, "base", "") or "").strip()
         recorded = pr["base"] or DEFAULT_BASE
-        base = _merge_base_branch(project, requested or recorded, pr)
         if requested and requested != recorded:
+            if branch_exists(project, recorded):
+                die(
+                    f"refusing to re-point {pr['id']}: its recorded base "
+                    f"'{recorded}' is still a local branch, so nothing needs "
+                    "re-pointing. --base repairs a base that was deleted (A-0033); "
+                    "merging into a different live branch is a new PR, not a "
+                    "re-point.",
+                    2,
+                )
+            base = _merge_base_branch(project, requested, pr)
             ledger_append(
                 root,
                 "pr.base.repoint",
                 merger,
                 pr["task"],
-                f"{pr['id']} base {recorded} -> {base}: the recorded base is gone, "
-                f"the approved status is kept",
+                f"{pr['id']} base {recorded} -> {base}: the recorded base is no "
+                f"longer a local branch, the approved status is kept",
             )
             print(f"# re-pointed {pr['id']} base {recorded} -> {base}")
+        else:
+            base = _merge_base_branch(project, recorded, pr)
         pr["base"] = base
         branch = pr["branch"]
         if not branch_exists(project, branch):
@@ -1843,6 +1854,7 @@ def _merge_args(
     return argparse.Namespace(
         pr=pr_id,
         by=reviewer,
+        base="",
         squash=False,
         keep_branch=keep_branch,
         delete_branch=not keep_branch,
@@ -2794,6 +2806,7 @@ LEDGER_ACTIONS = (
     "message.take",
     "model.auto",
     "model.set",
+    "pr.base.repoint",
     "pr.merge",
     "pr.merge.archive",
     "pr.merge.forced",
