@@ -7786,4 +7786,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit ee04ecdd
 - reviewer evidence: Read the artifact first: git show ee04ecdd --stat -> 6 files matching the declared ownership (engine.py, records.py, lanes.py, cli.md, Coordination.md, test_file_ownership.py). The check is omitted when --files is empty (test_an_undeclared_task_is_not_forced_into_a_budget), warns outside ownership (test_a_diff_outside_the_declared_ownership_warns_with_the_path), matches dir prefixes and globs (test_owned_by_matches...), round-trips the field (test_a_new_task_carries_the_files...), and the packet prints it (test_the_lane_packet_prints_the_files...). Gate green: ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; pytest docs/skill/cli/ci/makefile contracts -> 278 passed; pytest test_file_ownership+preflight+lanes -> 90 passed. TS-0216/0217/0218 recorded passing for area ownership.
 - findings history: 
-- branch / merge: ceo/t-0072-add-the-swarm-file-ownership-rule-task-f / pending
+- branch / merge: ceo/t-0072-add-the-swarm-file-ownership-rule-task-f / eac3816e
