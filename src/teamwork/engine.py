@@ -11899,7 +11899,6 @@ def status_meta(root: Path, rows: list, lanes_shown: list) -> dict:
     live_total = sum(1 for run in runs if run.get("state") in lane_runtime.LIVE)
     return {
         "activated": len(activated),
-        "staffed": sum(len(instances_of(root, role)) for role in list_roles(root)),
         "retired": retired,
         "lanes_live": live_total,
         "lanes_ended": len(runs) - live_total,
@@ -11939,6 +11938,7 @@ def cmd_status(args) -> int:
     counts = _status_counts(root, rows)
     meta = status_meta(root, rows, lanes_shown)
     counts.update(meta)
+    staffed = sum(len(instances_of(root, role)) for role in list_roles(root))
     wanted = (getattr(args, "agent", "") or "").strip()
     if wanted:
         rows = [row for row in rows if pascal(row["instance"]) == pascal(wanted)]
@@ -11962,7 +11962,7 @@ def cmd_status(args) -> int:
     idle = len(rows) - len(busy) - len(stalled)
     print(
         f"# Status ({len(busy)} busy, {len(stalled)} stalled, {idle} idle, "
-        f"{counts['staffed']} staffed, {counts['retired']} retired)"
+        f"{staffed} staffed, {counts['retired']} retired)"
     )
     live = [lane for lane in lanes_shown if lane["state"] in lane_runtime_live()]
     if live:
@@ -11987,7 +11987,7 @@ def cmd_status(args) -> int:
         print((head + str(row["progress"]))[:110])
     if idle:
         print(
-            f"- idle: {idle} seat(s) (staffed {counts['staffed']}, retired "
+            f"- idle: {idle} seat(s) (staffed {staffed}, retired "
             f"{counts['retired']}) - fold them: teamwork.py instance prune --keep-required"
         )
     return 0

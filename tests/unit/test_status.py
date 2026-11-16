@@ -174,7 +174,6 @@ def test_the_payload_names_its_schema_and_counts(cli, project: Path, capsys) -> 
         "review": 0,
         "lanes": 1,
         "activated": 4,
-        "staffed": 4,
         "retired": 0,
         "lanes_live": 1,
         "lanes_ended": 0,

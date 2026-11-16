@@ -510,6 +510,14 @@ def test_the_activity_is_capped_at_28_columns_and_never_padded() -> None:
     assert len(body[0]) < 100, "the row is never filled to the terminal edge"
 
 
+def test_the_activity_is_clipped_at_a_word_boundary_not_mid_token() -> None:
+    row = busy_row("Developer", activity="alpha beta gamma delta epsilon zeta")
+    body = [line for line in run(schema5([row], {"busy": 1}), 100)["lines"] if line.startswith("●")]
+    assert body, "the busy row is drawn"
+    assert "delta…" in body[0], body[0]
+    assert "epsil…" not in body[0], "a partial token is never emitted"
+
+
 def test_a_short_activity_leaves_a_short_line() -> None:
     short = [
         line
