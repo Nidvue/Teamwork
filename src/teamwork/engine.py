@@ -9050,6 +9050,8 @@ def cmd_task_add(args) -> int:
                 mandate,
                 basis,
                 key,
+                getattr(args, "feature", "") or "",
+                getattr(args, "files", "") or "",
             )
             if args.claimed_by:
                 t["claimed_by"] = check_claimant(root, args.claimed_by, "claim", role)
@@ -9406,6 +9408,8 @@ def cmd_task_set(args) -> int:
             require_runnable_task_graph(root, role, tasks)
         if args.title:
             t["title"] = args.title
+        if getattr(args, "files", None) is not None:
+            t["files"] = args.files.strip()
         if getattr(args, "area", None) is not None:
             t["area"] = check_area(args.area or "", 2)
         if args.evidence is not None:
@@ -15788,6 +15792,55 @@ def _preflight_undo(project: Path, base: str, branch: str, task: dict) -> Prefli
     )
 
 
+def _preflight_files(project: Path, base: str, branch: str, task: dict) -> PreflightCheck | None:
+    """The swarm file-ownership rule: a lane touches only the files it declared.
+
+    Two lanes editing one file is the collision that costs a merge, and the cheapest
+    place to stop it is the author's own gate. Omitted when the task declares no
+    ownership, so an undeclared task is not silently forced into a budget it never
+    set. A path outside the declared list warns (never fails): a genuine cross-file
+    fix names the extra path in the self-check note and the Reviewer judges it.
+    """
+    declared = [item.strip() for item in str(task.get("files") or "").split(",") if item.strip()]
+    if not declared:
+        return None
+    diff = run_git(project, "diff", "--name-only", f"{base}...{branch}")
+    if diff.returncode != 0:
+        return None
+    touched = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
+    outside = [path for path in touched if not _owned_by(path, declared)]
+    if not outside:
+        return PreflightCheck(
+            "files",
+            PREFLIGHT_OK,
+            f"{len(touched)} path(s), all within the {len(declared)} declared",
+        )
+    shown = ", ".join(outside[:4]) + (" +more" if len(outside) > 4 else "")
+    return PreflightCheck(
+        "files",
+        PREFLIGHT_WARN,
+        f"{len(outside)} path(s) outside the declared ownership: {shown}",
+        "touch only the files this task owns, or declare the extra path with "
+        "`task set --files '<a,b>'` and say in the self-check note why it belongs here",
+    )
+
+
+def _owned_by(path: str, declared: list) -> bool:
+    """True when a repo-relative path matches a declared file or directory prefix."""
+    for item in declared:
+        item = item.strip().rstrip("/")
+        if not item:
+            continue
+        if path == item or path.startswith(item + "/"):
+            return True
+        if any(char in item for char in "*?["):
+            import fnmatch
+
+            if fnmatch.fnmatch(path, item):
+                return True
+    return False
+
+
 def _preflight_slice(
     project: Path, base: str, branch: str, root: Path, role: str, task: dict
 ) -> PreflightCheck | None:
@@ -16065,6 +16118,9 @@ def run_preflight(
         checks.append(_preflight_mergeable(project, base, branch, role))
         checks.append(_preflight_board(root, project, base, branch))
         checks.append(_preflight_features(root, project, base, branch))
+        files_check = _preflight_files(project, base, branch, task)
+        if files_check is not None:
+            checks.append(files_check)
         slice_check = _preflight_slice(project, base, branch, root, role, task)
         if slice_check is not None:
             checks.append(slice_check)
@@ -19085,6 +19141,12 @@ def _parsers_workspace(sub, common) -> None:
         default="",
         help="slice this task to a ready/active feature (F-nnnn) of one feature team",
     )
+    s.add_argument(
+        "--files",
+        default="",
+        help="the files this task owns, comma-separated: the lane may touch only these "
+        "and preflight warns on any other path (the swarm file-ownership rule)",
+    )
     s.set_defaults(func=cmd_task_add)
 
     s = tsub.add_parser("list", parents=[common], help="list tasks, priority ordered")
@@ -19124,6 +19186,14 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--priority", choices=list(PRIORITY_ORDER))
     s.add_argument("--deps", default=None)
     s.add_argument("--title", default=None)
+    s.add_argument(
+        "--files",
+        default=None,
+        help=(
+            "declare or repair the files this task owns, comma-separated: preflight "
+            "warns when the branch touches any other path (the swarm file-ownership rule)"
+        ),
+    )
     s.add_argument(
         "--area",
         default=None,
