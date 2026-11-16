@@ -250,7 +250,8 @@ function rowFrom(row: Instance): Row {
   const stalled = row.stalled === true || (row.state ?? "").trim().toLowerCase() === "stalled";
   const state = (row.state ?? "").trim().toLowerCase() || (stalled ? "stalled" : "busy");
   const age = ago(secondsOf(row.last_seconds));
-  const core = text(row.activity, ACTIVITY_MAX) || text(row.last, ACTIVITY_MAX) || text(row.title, TITLE_MAX);
+  const core =
+    clipWords(row.activity, ACTIVITY_MAX) || clipWords(row.last, ACTIVITY_MAX) || text(row.title, TITLE_MAX);
   const word = state === "busy" ? "" : state;
   const body = word ? [word, core].filter((part) => part).join(" · ") : core;
   return {
