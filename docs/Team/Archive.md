@@ -7838,4 +7838,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 5fe11f15; commit baa82c8d; commit 9f660ab6
 - reviewer evidence: Re-derived at 9f660ab6: git show 9f660ab6 --stat -> the same 5 files (+45/-5). engine._merge_commit_env computes role_identity('reviewer') and exports TEAMWORK_COMMIT_IDENTITY=role; test_a_merge_commit_lands_as_the_pinned_pair_despite_an_exported_pair asserts 'Reviewer <reviewer@agents.nidvue.com>' and rejects 'operator@example.invalid'. Independent: pytest -q test_merge_commit_env/test_commit_identity/test_release_consistency @9f660ab6 -> 163 passed; check_release_consistency.py --offline -> 0 problems (R2 ok HEAD 1.5.11 > v1.5.10); identity --guard-committer --range origin/main..branch -> 1 commit, 0 foreign.
 - findings history: 
-- branch / merge: ceo/t-0076-fix-committer-guard-failure-on-v1-5-10-t / pending
+- branch / merge: ceo/t-0076-fix-committer-guard-failure-on-v1-5-10-t / 1715c258
