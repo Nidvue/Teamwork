@@ -56,9 +56,22 @@ def test_ci_runs_the_same_gate_the_user_runs():
     assert (REPO_ROOT / "scripts" / "check_release_consistency.py").is_file()
 
 
+def published_scope() -> str:
+    """The scope CI passes: R2 is a claim about the default branch, not about a branch.
+
+    11.2.2.1: a pull-request merge ref, a tag checkout and a lane branch publish
+    nothing, so CI passes ``--head-is-default-branch=no`` there and R2 reports
+    SKIP; the checker's own default stays ``yes`` (fail-closed) for a run that
+    says nothing. This asserts the verdict CI gets, on the checkout CI has.
+    """
+    head = git(REPO_ROOT, "symbolic-ref", "-q", "HEAD").stdout.strip()
+    attached = head in {"refs/heads/main", "refs/heads/master"}
+    return "--head-is-default-branch=" + ("yes" if attached else "no")
+
+
 def test_clean_tree_accepts_with_exit_0():
-    """ACCEPT: `python3 scripts/check_release_consistency.py --offline` -> exit 0."""
-    proc = run_checker(REPO_ROOT, "--offline")
+    """ACCEPT: the command CI runs on this checkout exits 0."""
+    proc = run_checker(REPO_ROOT, "--offline", published_scope())
 
     assert proc.returncode == 0, (
         "the gate that CI blocks on disagrees with this tree; a user running the "
