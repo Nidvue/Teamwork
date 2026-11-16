@@ -9,6 +9,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.13] - 2026-11-16
+
+### Fixed
+
+- **The agent-state width matrix runs on Windows** - the test replaced the child
+  environment with the four `TW_*` variables and a POSIX `PATH`, so Node started
+  without `SystemRoot` and died in `InitializeOncePerProcessInternal` on every
+  Windows cell (`test_agent_state_width_matrix.py:68`, run 43940792497). It now
+  inherits `os.environ` and overrides only its own variables, the shape
+  `tests/unit/test_pi_status_render.py` already uses. The defect was hidden until
+  this release: the Windows shard named `tests/integration/test_ui_width_matrix.py`
+  after the file became `test_agent_state_width_matrix.py`, so it collected
+  nothing.
+- **`test_instance_add_refuses_a_traversing_name` reads names, not paths** - the
+  guard asserted `not (Agents / "Ceo").exists()`, which is true on a case-sensitive
+  filesystem and false on macOS and Windows, where it resolves to the legitimate
+  `Agents/CEO` seat that `init` just created. It compares directory names now, so
+  the check still fails a leaked `Ceo` seat on every platform and no longer fails a
+  correct refusal.
+
 ## [1.5.12] - 2026-11-16
 
 ### Added
