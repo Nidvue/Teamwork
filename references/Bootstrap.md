@@ -13,33 +13,50 @@ Related: [SKILL.md](../SKILL.md)
 ### 1. Intake: research the prompt, then rewrite it
 
 A prompt is a request, not a specification. Load the `tw-brief-intake` skill and
-follow it; the five steps are the whole flow, and the skill carries the template
+follow it; the seven steps are the whole flow, and the skill carries the template
 and the rewrite rules.
 
-1. **Record the prompt verbatim** in `docs/Team/Project.md` -> `## Brief` ->
-   `### Original prompt (verbatim)`. Never paraphrase it at intake: the
-   paraphrase is already an interpretation, and the original is the only ground
-   truth when an intent dispute arrives.
-2. **Deep-research its intention** - five probes, run in parallel: *ask* (every
-   verb and noun mapped to a deliverable or a constraint), *why* (the job behind
-   the request and what "good" looks like), *context* (repository, licence,
-   platform, behaviour that must not break), *state of the art* (3-5 comparable
-   solutions with a URL and an access date, recorded in `Research.md` by the
-   Product Manager when staffed) and *misreading* (the plausible wrong build
-   that satisfies every word and misses the point, plus the criterion that
-   catches it).
-3. **Rewrite the brief** into the ten parts of `Project.md` -> `## Brief` ->
+1. **Record the prompt verbatim.** Never paraphrase it at intake: the paraphrase
+   is already an interpretation, and the original is the only ground truth when
+   an intent dispute arrives. `prompt record` keeps it in `Prompt.md` beside the
+   research rounds and the enhanced prompt, so the three cannot drift apart.
+2. **Deep-research its intention - one or more rounds.** Five probes per round,
+   run in parallel: *ask* (every verb and noun mapped to a deliverable or a
+   constraint), *why* (the job behind the request and what "good" looks like),
+   *context* (repository, licence, platform, behaviour that must not break),
+   *state of the art* (3-5 comparable solutions with a URL and an access date,
+   recorded in `Research.md` by the Product Manager when staffed) and
+   *misreading* (the plausible wrong build that satisfies every word and misses
+   the point, plus the criterion that catches it). One round is often enough; a
+   second is **required** when the first leaves a fact unresolved, a term
+   contested, or an option the user must choose. Each round is recorded with its
+   evidence: `prompt record --round '<what it found>'`.
+3. **Enhance the prompt.** From that understanding, rewrite the request with the
+   detail it was missing - the same intent, stated precisely enough to build
+   from. Every addition is marked `added:` so the user can reject it. Record it
+   with `prompt record --enhanced '<the improved prompt>'`; the gate refuses the
+   first acceptance criterion until it exists, because criteria are what "done"
+   means and freezing them on an unread prompt is how a team builds the wrong
+   thing quickly.
+4. **Ask, do not guess.** Any ambiguity that changes what gets built becomes a
+   question with 2-5 concrete options and the team's recommendation:
+   `ask add --question '...' --option '...' --option '...' --recommend 1`. A
+   `blocks` question holds `loop` at CONTINUE until a person answers
+   (`ask answer Q-0001 --choice 2 --by <user>`). Grilling the user once is
+   cheaper than a lane building the wrong reading; a silent guess is the one
+   failure the gate cannot recover from.
+5. **Rewrite the brief** into the ten parts of `Project.md` -> `## Brief` ->
    `### Rewritten brief`: objective, user and job, deliverables, acceptance
    criteria, non-goals, constraints and invariants, interfaces to freeze,
    proposed lanes, unknowns and assumptions, evidence plan. It clarifies; it
    never widens - anything the user did not ask for is marked `added:` so it can
    be rejected.
-4. **Freeze** before anything dispatches: the acceptance criteria become
+6. **Freeze** before anything dispatches: the acceptance criteria become
    machine records, the interfaces become the frozen contracts in
    `Architecture.md`, and the lanes become the task graph in `Plan.md`. A lane
    starts only on an owner, one artifact, a file boundary no peer writes and a
    dependency that is done or frozen.
-5. **Independent read.** The brief is a deliverable: the Product Manager (else
+7. **Independent read.** The brief is a deliverable: the Product Manager (else
    the Reviewer) reads the original prompt against the brief and answers - is any
    intention lost, is anything invented, is every criterion verifiable and
    singly owned, does any lane start on an unfrozen interface. Findings come back
@@ -50,8 +67,10 @@ Then the machine records, which are what "done" actually means:
 - Record every acceptance criterion from the brief: `criteria add --id AC-1
   --text '<verifiable statement>' --owner <role>`. `loop` cannot report STOP
   while a criterion is unverified.
-- Ask the user at most one consolidated question set for genuinely blocking
-  ambiguity; otherwise decide, record the assumption in the brief, and continue.
+- **Ask before assuming.** A blocking ambiguity is a recorded question with
+  options (`ask add`), not a silent assumption; the loop will not stop while one
+  is open. A non-blocking ambiguity is an assumption with an owner and the test
+  that settles it. Consolidate the round so the user is asked once, not per lane.
 - Name the evidence for each criterion (command, test, artifact). An independent
   role verifies it: `criteria verify AC-1 --by <other-role> --evidence '<cmd @rev -> result>'`.
 - Declare required test layers per area:
