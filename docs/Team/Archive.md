@@ -7748,3 +7748,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: python3 scripts/check_release_consistency.py --offline @07431641 -> # release consistency: 0 problem(s), R9 ok every vX.Y.Z token names a tag; python3 scripts/teamwork.py links @07431641 -> # issues: 0; git cat-file -p 07431641:docs/Team/Board.md | grep -c v1.5.9 -> 0 and git rev-parse refs/tags/v1.5.9 -> MISSING while refs/tags/v1.0.0/v1.0.1/v1.0.2 -> exist (the 3 remaining v-tokens in the board all name real tags); git status --porcelain @07431641 -> clean, no untracked file outside docs/
 - findings history: 
 - branch / merge: ceo/t-0038-re-render-the-board-so-no-committed-row / dbc56003
+
+## T-0070 · Commit the final audit manifest at the closing revision  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] Re-read the diff: two manifest files updated with current ledger state (7911 records, dirty=false, git head on this branch). The export command reproduced the manifest at this revision. | test: python3 scripts/teamwork.py ledger export @8a0836c14fee75e99915d5ba5e9a5375c31c4f7d -> manifest written, 7911 records, dirty=false | preflight: PF-ebdc00c03bd0 @8a0836c14fee (8 checks, 0 failed)
+- author evidence: commit 8a0836c1
+- reviewer evidence: python3 scripts/teamwork.py ledger export @8a0836c1 -> manifest written, 7911 records, dirty=false; python3 scripts/teamwork.py ledger verify @8a0836c1 -> chain intact; sha256sum -c on all 4 artifacts passes; git cat-file -t 8a0836c1 -> commit exists; teamwork.py links @8a0836c1 -> 0 issues
+- findings history: 
+- branch / merge: ceo/t-0070-commit-the-final-audit-manifest-at-the-c / pending
