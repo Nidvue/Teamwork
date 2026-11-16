@@ -7878,3 +7878,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git show 77618150 --stat -> 2 files (engine.py, test_identity_legacy.py). The exemption is one boundary, not a list: predates_identity_rule -> merge-base --is-ancestor, verified 4f4b81d3 True and b1155675 False, so post-rule commits are still audited. Reproduced the CI condition with GIT_CONFIG_GLOBAL=/dev/null: identity --audit --strict-authors --range HEAD -> rc 0, 3170 commits, 0 problems, the pre-rule commits printed as skipped with the reason. Portability: pytest -q tests/acceptance/test_portability_acceptance.py -> 6 passed, the shipped copy is byte-identical after init. Full local gate: ruff format/check, check_comments (0 commentary), mypy (34 files), privacy_scan PASS 0, links 0 issues, check_release_consistency 0 problems.
 - findings history: 
 - branch / merge: ceo/t-0080-ci-fix-exempt-published-pre-rule-history / a2365a40
+
+## T-0081 · Commit the D-20261116-CEO release authorization record  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the 1-file diff: one D-20261116-CEO block appended with the decision, why, context, evidence and falsifier. BOUNDARY: no other decision entry changes. EMPTY/DUPLICATE/SECOND-CALL: the id is unique; a second run would duplicate it, so it was run once. CONTRACT: docs only. SCOPE: docs/Team/Decisions.md. | test: .venv/bin/python -m pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py @3cab1d149f0a126d6f8cb8c21855f5f6c738b45b -> passed; check_release_consistency.py --offline -> 0 problems | preflight: PF-7bad568f75c1 @3cab1d149f0a (9 checks, 0 failed)
+- author evidence: commit 3cab1d14
+- reviewer evidence: git show 3cab1d14 --stat -> docs/Team/Decisions.md only, +16/-0; the block carries the decision, why, context, evidence and a falsifier, and the id D-20261116-CEO occurs once; the evidence reproduces: gh release list -> v1.5.10 and v1.5.11 both present, npm view @nidvue/teamwork version -> 1.5.11, check_release_consistency --online -> 0 problems; pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> passed
+- findings history: 
+- branch / merge: ceo/t-0081-commit-the-d-20261116-ceo-release-author / pending
