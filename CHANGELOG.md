@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tests/unit/test_pi_status_render.py` already uses. The defect was hidden until
   this release: the Windows shard named `tests/integration/test_ui_width_matrix.py`
   after the file became `test_agent_state_width_matrix.py`, so it collected
-  nothing.
+  nothing. The same test also handed the extension to `import()` as a plain path,
+  which Node refuses on Windows (`ERR_UNSUPPORTED_ESM_URL_SCHEME`, protocol `d:`),
+  so it passes `Path.as_uri()` the way `tests/unit/test_pi_status_render.py` does.
 - **`test_instance_add_refuses_a_traversing_name` reads names, not paths** - the
   guard asserted `not (Agents / "Ceo").exists()`, which is true on a case-sensitive
   filesystem and false on macOS and Windows, where it resolves to the legitimate
