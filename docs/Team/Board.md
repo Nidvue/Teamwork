@@ -199,7 +199,7 @@ under two roles is two tasks.
 | developer | T-0073 | pi-package | done | P-0095 | ad86404b |
 | developer | T-0074 | status | done | P-0097 | cd28c50c |
 | developer | T-0075 | - | dropped | - | - |
-| developer | T-0076 | widget | doing | P-0099 | - |
+| developer | T-0076 | widget | done | P-0099 | 926ec94c |
 | developer | T-0077 | - | dropped | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | blocked | - | - |
@@ -235,7 +235,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0076 · widget: drop the idle line; engine: fold a finished seat at reconcile (the undelivered half of AC-M25-6) | P0 | doing | - |
 | release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | blocked | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
