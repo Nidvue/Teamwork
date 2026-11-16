@@ -9,6 +9,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.11] - 2026-11-16
+
+### Fixed
+
+- **A merge on the default branch is committed by the Reviewer role mailbox** -
+  the v1.5.10 tag run failed the committer guard because `_merge_commit_env` pinned
+  only `-c user.name`, which loses to the repository's configured pair, so the
+  merge commit landed with the operator's personal email as committer. The env now
+  sets `TEAMWORK_COMMIT_IDENTITY=role` alongside the pinned identity, so a local
+  merge writes the Reviewer mailbox and the guard reads a role pair. The fix is a
+  forward change on top of v1.5.10: published history is protected and is not
+  rewritten, so the next tag carries the corrected behaviour.
+
 ## [1.5.10] - 2026-11-16
 
 ### Fixed
