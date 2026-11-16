@@ -7812,4 +7812,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 151e57e5
 - reviewer evidence: Verified: git show 151e57e5 --stat -> 1 file (docs/guide/features.md) matching the declared ownership; the added row documents the file-ownership feature with correct cross-references; ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; links -> 0 issues
 - findings history: 
-- branch / merge: ceo/t-0074-update-features-md-with-file-ownership-f / pending
+- branch / merge: ceo/t-0074-update-features-md-with-file-ownership-f / e23210c9
