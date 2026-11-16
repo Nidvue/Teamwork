@@ -9,6 +9,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.10] - 2026-11-16
+
+### Fixed
+
+- **The tree moves to 1.5.10 after the v1.5.9 tag** - the closing audit manifest
+  (P-0212) landed after the release tag without a version bump, so `R2` reported
+  `DRIFT` (HEAD's version 1.5.9 is not greater than tag v1.5.9) and two tests
+  failed on `main`: the release-traceability gate and the traceability matrix,
+  which ran the release-consistency check and found `AC-20` claimed green while
+  the command exited 1. `version.py` and `CITATION.cff` now read 1.5.10, which
+  restores `R2` and certifies the matrix row without weakening either check.
+
 ## [1.5.9] - 2026-11-15
 
 ### Changed
