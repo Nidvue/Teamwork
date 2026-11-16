@@ -7890,4 +7890,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 3cab1d14
 - reviewer evidence: git show 3cab1d14 --stat -> docs/Team/Decisions.md only, +16/-0; the block carries the decision, why, context, evidence and a falsifier, and the id D-20261116-CEO occurs once; the evidence reproduces: gh release list -> v1.5.10 and v1.5.11 both present, npm view @nidvue/teamwork version -> 1.5.11, check_release_consistency --online -> 0 problems; pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> passed
 - findings history: 
-- branch / merge: ceo/t-0081-commit-the-d-20261116-ceo-release-author / pending
+- branch / merge: ceo/t-0081-commit-the-d-20261116-ceo-release-author / 0f9b26d6
