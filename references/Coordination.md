@@ -163,6 +163,15 @@ strategy was to stop sharing files, which loses the benefit of a team.
 
 - Branch per task; rebase on the default branch before review; one writer per
   file at a time.
+- **Declare the files a task owns, and let the gate hold the line.**
+  `task add --files '<a.py,b.py>'` records the paths a lane may touch; the lane
+  packet prints them under **Files you own** and `preflight` adds a `files` check
+  that warns when the branch edits any other path. This is the slice of write
+  permission the swarm literature puts first, adapted to a gate that never
+  silently drops evidence: a warning, so a genuine cross-file fix declares the
+  extra path with `task set --files` and names it in the self-check note. A task
+  that declares nothing keeps its old check count and is not forced into a budget
+  it never set.
 - A PR that conflicts twice is **re-scoped**, not retried a third time.
 - `C-MERGE-RATE` fires below a 0.5 merge fraction with 4+ PRs;
   `C-MERGE-ABANDONED` fires on a PR record that still expects an action

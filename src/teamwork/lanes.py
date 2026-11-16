@@ -540,6 +540,16 @@ def _assignment_lines(assignments: list) -> list:
     return lines
 
 
+def _owned_files(root: Path, role: str, task: str) -> list:
+    """The paths this task declared it owns, or nothing when it declared none."""
+    tasks = parse_tasks(task_file(root, role))
+    index = find_task(tasks, task)
+    if index is None:
+        return []
+    declared = str(tasks[index].get("files") or "")
+    return [item.strip() for item in declared.split(",") if item.strip()]
+
+
 OPEN_LESSON_LINES = 8
 
 SCOPE_RE = re.compile(r"scope:\s*([^|]+)", re.IGNORECASE)
@@ -681,6 +691,18 @@ def build_packet(
             "",
         ]
     else:
+        owned = _owned_files(root, role, task)
+        if owned:
+            out += [
+                "## Files you own (do not touch any other)",
+                "```text",
+                *[f"- {path}" for path in owned],
+                "```",
+                "Two lanes editing one file is the collision this brief exists to stop.",
+                "A path outside this list makes preflight warn: declare it with",
+                "`tw task set --files '<a,b>'` or leave it for its owner.",
+                "",
+            ]
         out += [
             "## Produce",
             "```sh",
