@@ -783,7 +783,9 @@ compact state, used and left time, an icon prefix, nothing misleading.
 **The row.** One line, never wrapped, these columns in this order and nothing else:
 
 ```
-<glyph:1> <instance:6-15> <task:7> <used:5> <sep:1><left:4-5> <bar:5> <activity:flex> [<model:<=20>]
+<glyph:1> <instance:6-15> <task:7> <used:5> <sep:1><left:4-5> <activity:<=28> [<model:<=20>]
+
+10.9 deletes the bar column, caps the activity at 28 and forbids padding it.
 ```
 
 | column | width | rule |
@@ -794,7 +796,6 @@ compact state, used and left time, an icon prefix, nothing misleading.
 | used | 5 | the running lane's elapsed, right-aligned, `42s` / `3m01s` / `1h05m`, `-` when no lane |
 | sep | 1 | `▸` |
 | left | `max(4, widest rendered)`, capped at 5 | the estimated time left, right-aligned, same format as used, `-` when no budget is known |
-| bar | 5 | 5 cells, no percentage text; 5 empty cells when no budget |
 | activity | flex | the compact state string, clipped from the right at a word boundary with `…`, ending `· 12s` (the age of the last event) when the payload carries it |
 | model | `<=20` | last path segment only; dropped below 80 columns |
 
@@ -843,7 +844,6 @@ applied in order until the line fits:
 | width | drops |
 |---|---|
 | below 80 | the model column |
-| below 72 | the bar |
 | below 56 | the activity |
 | below 48 | the `▸` + left column |
 | below 32 | `<glyph> <instance> <task>` only |
@@ -878,6 +878,95 @@ or an invented value.
 
 **The checks a Tester asserts** are recorded in 10.6: `LEFT-IS-REAL`,
 `NO-INSTANCE-CLIP`, `STALLED-NOT-BUSY`, `ONE-LINE-PER-AGENT`.
+
+### 10.9 Round 3 - less ink, and the roster tracks live work
+
+Supersedes 10.8's row template, its bar and its 72-column rung where they
+disagree; 10.3's glyph language, 10.5's INVARIANTS and 10.6's checks still stand.
+Requirement is the operator's brief at 2026-11-16 (D-20261116-CEO-2): drop the bar
+and the percentage, shorten the realtime text, stop filling every line to the
+edge, and show only the seats that are really live. Every line number below was
+re-derived at this revision (L-0029); 10.8's citations predate the schema-5
+rewrite of `extensions/teamwork-status.ts` and are stale where they disagree.
+
+**The row.** One line, never wrapped, one column fewer than 10.8:
+
+```
+<glyph:1> <instance:6-15> <task:7> <used:5> <sep:1><left:4-5> <activity:<=28> [<model:<=20>]
+```
+
+| column | width | rule |
+|---|---|---|
+| glyph | 1 | unchanged, 10.3 |
+| instance | `max(6, widest busy)`, cap 15 | unchanged: `ReleaseEngineer` is 15 and is never clipped |
+| task | 7 | unchanged: the `T-nnnn` tail; a review row is `↳` + id |
+| used | 5 | the running lane's elapsed, right-aligned, `42s` / `3m01s` / `1h05m`, `-` when no lane |
+| sep+left | `1+max(4, widest)`, left cap 5 | `▸` then the time left, right-aligned, same format, `-` when no budget. `left = clock(max(budget - elapsed, 0))` |
+| activity | `<=28` | the compact state string, clipped from the right at a word boundary with `…`, ending `· 12s` when the payload carries it. **Never padded**: the line ends at its last visible character |
+| model | `<=20` | last path segment; dropped below 80 columns |
+
+Two clocks are the whole time story. A bar was a third encoding of the same
+number, so the bar column and every `%` are gone, not shrunk.
+
+**Width arithmetic, derived (L-0029).** Fixed columns at the widest instance and
+left: `1+1+15+1+7+1+5+1+1+5+1 = 39`; the model tail adds `1+20 = 21`; 10.8's bar reserved `1+5 = 6`, no longer reserved.
+`python3 -c "print(1+1+15+1+7+1+5+1+1+5+1, 100-39-21, 80-39-21, 60-39, 39-6-1)"`
+-> `39 40 20 21 32`.
+
+| width | model | activity gets | the row ends at |
+|---|---|---|---|
+| 100 | drawn | 28 (the cap) | <= 60 |
+| 80 | drawn | 20 | 80 |
+| 60 | dropped | 21 | 60 |
+| 40 | dropped | 0 (dropped below 56) | 32 |
+
+**Overflow ladder** - the bar rung is retired, because its only action was the bar:
+
+| width | drops |
+|---|---|
+| below 80 | the model column |
+| below 56 | the activity |
+| below 48 | the `▸` + left column |
+| below 32 | `<glyph> <instance> <task>` only |
+
+72 now drops nothing; the used clock is never dropped above 48 columns (H3).
+
+**Delta from the shipped renderer** (each is a code change, not this document):
+
+| # | measured | where | the spec asks for |
+|---|---|---|---|
+| D-16 | the bar is 5 cells of `█`/`░` driven by `progress_pct`, and the tail reserves `1 + BAR_W` for it | `bar()` `:196`-`:200`, `:307`, cells `:285`/`:331` | deleted; no bar glyph and no `%` on any line |
+| D-17 | a percentage still reaches the surface through the payload: `"progress": "attempt 1/2, 2% of 10m"` | `status --json`, 2026-11-16T01:33:46 | `progress` is not drawn; `%` never appears |
+| D-18 | the activity is clipped at 240 and its cell is padded to the free room, so the model is pushed to the right edge and every row is full width | `ACTIVITY_MAX = 240` `:15`, `:274`, `cell.padEnd(room)` `:339`, `trimEnd()` after the tail `:341` | cap 28, clip at a word boundary, no pad |
+| D-19 | `counts.activated` is history and reads 14 against 1 busy and 6 idle | `activated?: number` `:90`; `status --json`, same stamp | not a roster count; no surface prints it as one |
+| D-20 | the idle aggregate is drawn whenever any seat is idle, finished or not | `if (idle) lines.push(...)` `:396` | drawn only for a seat genuinely idle after a reconcile |
+
+**Header and counts.** Shape unchanged, zeros omitted:
+`teamwork · <busy> busy · <stalled> stalled · <live> live · <review> review`
+(`:393`). What changes is what the numbers mean: every number the widget and the
+panel print is the **current staffed set**, never the historical activated total.
+`counts.activated` is history, is not a roster count, and no surface may print it
+as one. The footer's total is the current seats (`footer()` `:405`).
+
+**The roster follows the work.** A seat is folded when its lane reached a terminal
+state **and** it holds no task, no slot lease, no review claim and no ready work
+in its role queue. Folding is move-only to `Runtime/Retired/<Instance>/` (role
+memory and queue stay), the CEO is never folded, and a seat with ready work or an
+unclaimed review in its role is kept. The fold happens at the next reconcile
+(`swarm run`, `pulse --commit`, `lane reap`), never inside `status` - status stays
+read-only. The next wave re-adds a seat on demand through the existing scale path,
+so this is a fold, not a cap.
+
+**What the operator sees**, measured on `status --json` at 2026-11-16T01:33:46
+(`busy 1, stalled 0, idle 6, activated 14, retired 17, count 7, lanes_live 1`):
+
+| | before | after |
+|---|---|---|
+| header | `1 busy · 1 live` plus a `○ idle: 6` line | the same counts, and the idle line is absent when nothing is idle |
+| roster | 7 drawn, 6 of them idle, `activated 14` on the surface | the live seat plus any blocked seat; a folded seat is not drawn and `activated` is never shown |
+| one row | bar and percentage, activity padded to the edge | two clocks, activity `<=28`, the line ends where its content ends |
+
+**Checks added to 10.6**: `NO-BAR`, `ACTIVITY-CAP`, `NO-FILL`, `ROSTER-TRACKS`.
 
 ## 11. Sources
 
