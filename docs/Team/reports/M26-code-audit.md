@@ -12,14 +12,16 @@ Audit only: no code change, no fix, no doc edit.
 | Sweep | Command | Result |
 |---|---|---|
 | Module inventory and size | `wc -l src/teamwork/*.py scripts/*.py \| sort -rn` | 40,086 lines; `engine.py` 20,783, `lanes.py` 2,494, `records.py` 2,296 |
-| POSIX-only assumptions | `rg -n "fcntl\|os\.getuid\|os\.fork\|pwd\b\|grp\b\|os\.umask\|signal\.SIG\|/tmp\b\|os\.setsid\|select\.epoll\|resource\." src/teamwork/*.py scripts/*.py` | 8 hits, 3 classes (below) |
-| Swallowed errors | `rg -n "except (Exception\|BaseException\|OSError)?\s*:\s*$" -A2 src/teamwork/*.py` | 169 `except` blocks, 6 `except OSError: pass` |
-| Duplicate implementations | `rg -N -o "^\s*def (\w+)" -r '$1' src/teamwork/*.py \| awk -F: '{print $2}' \| sort \| uniq -d` | 30 function names defined in 2+ modules |
+| POSIX-only assumptions | `rg -n "fcntl\|os\.getuid\|os\.fork\|pwd\b\|grp\b\|os\.umask\|signal\.SIG\|/tmp\b\|os\.setsid\|select\.epoll\|resource\." src/teamwork/*.py scripts/*.py` | 7 hits, 4 classes: `os.umask` (2 lines), `pwd`, `/tmp`, `os.killpg` + `signal.SIG*` (below) |
+| Swallowed errors | `rg -n "except (Exception\|BaseException\|OSError)?\s*:\s*$" -A2 src/teamwork/*.py` | 45 lines match the pattern (`rg -c` summed; the `-A2` pipeline above prints 178 lines with context, and 187 `except` lines exist in total), 6 `except OSError: pass` |
+| Duplicate implementations | `rg -N -o "^\s*def (\w+)" -r '$1' src/teamwork/*.py \| awk -F: '{print $2}' \| sort \| uniq -d` | 25 function names defined in 2+ modules of `src/teamwork` (36 with `scripts/*.py` added) |
 | Subprocess on a hot path | `rg -n "for .*:\s*$" -A6 src/teamwork/engine.py \| rg "subprocess\.(run\|Popen\|check_output)"` | 1 hit (`engine.py:5976`, `git add` per staged path: bounded by the change-set, not a defect) |
 | Whole-file read vs bounded read | `rg -n "rglob\(" -A4 src/teamwork/*.py \| rg "read_text\|read_bytes"` | 0 hits: every tree walk reads per-file, and `gitutil.is_binary_content` reads only `BINARY_SNIFF_BYTES` (measured: 32 modules sniffed in 0.000 s) |
 | Exit codes for an unknown id | 4 CLI calls against a fresh team (finding 1) | 1 vs 2, inconsistent |
 | Process-global state | `io.atomic_write` umask window (appendix A) | measured, no repro: dropped |
 | Unit suite | not re-run: `mypy`/`ruff` green per the task and the last green CI run at this head are the existing record; the audit needed no suite run for its findings | n/a |
+
+The three counts whose first draft did not equal their own command's output (POSIX hits, matching `except` lines, duplicate `def` names) were re-measured at `2d011ce5`; `git diff d6ab6d23 2d011ce5 -- src scripts` is empty, so they hold at the audited revision too.
 
 Not read whole: `engine.py`, `lanes.py`, `records.py` (anchor-first `rg`, then +/-40 lines, as the task requires).
 
@@ -113,7 +115,7 @@ return today().isoformat()
 | `/bin/sh` pre-commit hook with `mktemp "${TMPDIR:-/tmp}"` | `hooks.py:96,121` | Git for Windows ships `sh` and `mktemp`, and the `windows-latest` matrix jobs were not read in this budget. `UNVERIFIED` - not claimed. |
 | `os.killpg` / `os.getpgid` | `gitutil.py:220`, `lanes.py:812` | Both are guarded (`os.name == "nt"` branch; `hasattr(os, "killpg")`). Correct, not a finding. |
 | `engine.py:5976` `subprocess.run` inside a loop | `engine.py:5971` | The loop is over the staged paths of one change-set, not a table; bounded by the diff. Not a hot path. |
-| 30 duplicate `def` names from the sweep (`find`, `walk`, `check`, `status`, `score`, `problems`, `render`, `read`, `main`, `_line_count`, `next_id`, ...) | across modules | Same-name/different-signature is normal (`sparse._line_count(text)` vs `memverify._line_count(path)`); only the pairs in F-2/F-3 have one rule with two behaviours, measured. |
+| 25 duplicate `def` names from the sweep (`find`, `walk`, `check`, `status`, `score`, `problems`, `render`, `read`, `main`, `_line_count`, `next_id`, ...) | across modules | Same-name/different-signature is normal (`sparse._line_count(text)` vs `memverify._line_count(path)`); only the pairs in F-2/F-3 have one rule with two behaviours, measured. |
 | 6 `except OSError: pass` blocks | `lanes.py:1770`, `io.py:205,222`, `engine.py:5995,10527,17792` | Each swallows a best-effort cleanup/`stat` of a path it just used; none hides a gate decision. No reproduction of a lost error. |
 
 ## 4. Why the class-1 list is short
