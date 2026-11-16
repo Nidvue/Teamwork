@@ -18,12 +18,98 @@ not current; re-run the command before relying on it.
 | F-P2, privacy job skipped on a prose-only push | Open at its last measurement, 2026-10-25 | section 0 |
 | F-P3, wording asymmetries | Open at its last measurement, 2026-10-25 | section 0 |
 
+M26 re-measured the two gate rows on 2026-11-16 at `d6ab6d23`: both PASS with the
+repository allowlist, both FAIL without it. Section 9 is that measurement and the
+nine findings it produced.
+
 The last two rows were not re-measured on 2026-11-02; they stay open until a
 dated re-measurement closes them.
 
 Sections 0 to 8 are the dated record of the audit. Where a statement reads "is
 red", "is open" or "remains to be done", it was true on the date of its own
 measurement, not today. The record below is kept as measured.
+
+## 9. M26 audit - the red privacy gate (2026-11-16, `d6ab6d23`)
+
+Owner: Security Auditor. Scope: the shipped product (`src/teamwork`, `scripts/`,
+`.github/workflows/`, `extensions/`) and the privacy gate itself. Audit only - no
+code changed by this measurement.
+
+### 9.1 The red gate, classified
+
+| Measurement | Result | Command |
+|---|---|---|
+| Tree, no allowlist | FAIL, 31 findings, exit 1 | `python3 scripts/privacy_scan.py --tree` |
+| Tree, allowlist | PASS, 0 findings, exit 0 | `python3 scripts/privacy_scan.py --tree --allow .github/privacy-allow.txt` |
+| History, no allowlist | FAIL, 3063 findings | `python3 scripts/privacy_scan.py --history` |
+| Everything, no allowlist | FAIL, 3094 findings | `python3 scripts/privacy_scan.py --all` |
+| History, allowlist | PASS, 0 findings, exit 0 | `python3 scripts/privacy_scan.py --history --allow .github/privacy-allow.txt` |
+| The gate CI runs | PASS, exit 0 | `python3 scripts/privacy_scan.py --tree --history --allow .github/privacy-allow.txt` |
+
+The operator's two numbers are the same gate measured without its allowlist:
+3094 is `--all` (31 tree + 3063 history), not `--history` alone. No finding is a
+real leak: every one is a value the repository already decided to publish, and the
+allowlist exempts all of them (0 remain).
+
+Tree, 31 findings by location: `.github/privacy-allow.txt` 9, `docs/Team/Decisions.md`
+12, `tests/unit/test_privacy_scan.py` 8, `SECURITY.md` 1, `docs/Team/M9Acceptance.md` 1.
+
+History, 3063 findings: `personal-email` 2004 (1994 author, 2 committer, 8 blob),
+`home-path` 993 (3 distinct values, the three exempted path families), `api-token`
+36 (1 distinct value: the fabricated probe), `agent-config` 28 (1 value:
+`.pi/agent/npm`), `env-secret` 2 (2 fabricated passphrases). Every distinct value is
+one of the nine allowlist entries.
+
+### 9.2 The three sub-questions
+
+1. **`tests/unit/test_privacy_scan.py`, 8 findings: real literals, correctly
+   reported.** They are the values the allowlist itself pins - lines 826, 868-874,
+   1209-1211 hold the probe token, the operator home path, the Windows user name and
+   the operator address, because `test_shipped_allowlist_entries_are_narrow_and_justified`
+   asserts the shipped entries verbatim. Exempting the test file by path would blind
+   the gate to a real secret pasted there. Keep as measured.
+2. **`.github/privacy-allow.txt`, 9 findings: self-exempting by design, and that is
+   the accepted weakness.** A finding is exempt when the matched text matches a
+   pattern, so the file holding the patterns matches them; it is clean only when it
+   is its own `--allow`. The control is the unit test above, which pins all nine
+   entries as one anchored escaped literal each. The gate cannot audit the file that
+   defines its own exemptions: that is finding S-4.
+3. **History: no missing exemption class.** The dominant shape is one mailbox in the
+   author field of the pre-rewrite history, plus three home-path families - all
+   allowlisted with a CEO decision in the file's own comment
+   (D-20261019-CEO-8/-15, D-20261020-CEO-4, D-20261031-CEO-2, D-20261101-CEO-3,
+   D-20261110-CEO-8). Honouring the allowlist leaves 0 of 3063.
+
+### 9.3 Is CI green because it is narrower, or is it missing the gate?
+
+Neither. CI runs the identical command with the allowlist: `.github/workflows/ci.yml:474`,
+`.github/workflows/release.yml:229`, `.github/workflows/docs.yml:83`, `Makefile:80`
+(`--stores` there as well). CI is green for two reasons, and the second is the real
+defect: it passes `--allow`, and a fresh clone has no local backup ref and no
+reflog. The scanner's history scope is `_HISTORY_REVISIONS = ("--all", "--reflog")`
+(`scripts/privacy_scan.py:122`), so the verdict on one revision depends on the refs
+in that one checkout.
+
+### 9.4 Findings, ranked
+
+| # | Severity | Where | Threat | Proof | Fix (one line) |
+|---|---|---|---|---|---|
+| S-1 | high | `src/teamwork/engine.py:6303` + `:6159` | Path traversal into an arbitrary ancestor directory: `instance add --name '../../ceo'` passes the role check (`resolve_role` strips to `ceo`) and `pascal` keeps the `..`, so `agent_dir` escapes the team tree. Retire already uses `safe_component` (`:6409`); add does not. | `python3 -c 'import sys;sys.path.insert(0,"src");from teamwork import names;print(repr(names.pascal("../../ceo")),repr(names.resolve_role("../../ceo")),repr(names.safe_component("../../ceo")))'` -> `'../../ceo' 'ceo' 'ceo'` | name the directory with `safe_component(pascal(args.name))` in `_instance_add`, as retire does. |
+| S-2 | high | `.github/privacy-allow.txt:25-31` + `scripts/privacy_scan.py:802-852` | The allowlist is keyed on the matched value, not on a path: one line added there exempts that literal in every future file and every commit, and the file cannot report itself. | 9 tree + 2004 history findings vanish with one flag; `_is_one_escaped_literal` is the only control | keep the pinned-entry unit test as the gate for any new line, and require the CEO decision id in the same comment (already the convention). |
+| S-3 | high | `scripts/privacy_scan.py:122`, `:1220-1249` | The same revision gets a different history verdict per checkout: `--all --reflog` walks a local `backup/main-pre-msgrewrite` and the reflog that CI never has. 2007 of 2012 flagged commits are reachable only from that ref. | 2007/2012 not ancestors of HEAD; `git for-each-ref --contains` names `backup/main-pre-msgrewrite` | print the ref set and the allowlist path in the one-line summary, so a PASS states what it covered. |
+| S-4 | medium | `scripts/privacy_scan.py:1395-1410` (summary) | A FAIL line does not say whether an allowlist was applied: `privacy_scan: FAIL - 31 finding(s) in tree` is the same text with or without `--allow`. The red gate was read as a leak for exactly this reason. | the two runs above differ by one flag and neither line names it | append `allow=<path|none>` to the summary line. |
+| S-5 | medium | `backup/main-pre-msgrewrite` (local ref) | 1994 author-mailbox findings of the pre-rewrite history are still in the object database under a ref. R5 removed them from `main`; one `git push --mirror` or a push of that ref republishes them. | `python3 scripts/privacy_scan.py --history` -> 1994 `author email` findings, 2007/2012 commits not ancestors of HEAD | keep the ref offline and say so in `Release.md`; deleting it is the CEO's call, not this lane's. |
+| S-6 | low | `src/teamwork/records.py:335-337`, `engine.py:14397` | The record mask covers credential shapes only. A planted `ghp_...` became `<redacted-api-token>`; a planted `/home/operator` stayed verbatim. Stores are local and covered by `--stores`. | planted-value probe: `records.write_record` -> token masked, home path unchanged; a write with no mask installed raises `RuntimeError` (fail-closed) | none required; the control for paths is `make privacy` (`--stores`). |
+| S-7 | low | `scripts/privacy_scan.py:991`, `src/teamwork/engine.py` | No shell surface: 0 `shell=True`, 0 `os.system`, 0 `eval`/`exec` in shipped code (2 grep hits are prose), 38 subprocess calls, all argv lists. A task title, packet or ledger value cannot reach a shell. | `grep -rn 'shell=True\|os.system\|eval(\|exec(' src/ scripts/ extensions/` -> 2 hits, both docstrings | none. |
+| S-8 | low | `src/teamwork/engine.py:5205` | Context URIs refuse `\`, a leading `/`, a `C:` prefix and any empty/`.`/`..` segment, so a `..` climb is unknown rather than resolved. Verified for that surface only; the instance-name surface is S-1. | `sed -n '5205,5222p' src/teamwork/engine.py` | none. |
+| S-9 | low | `.github/workflows/*.yml` | CI least privilege holds: workflow-level `permissions: contents: read` (`ci.yml:88`, `release.yml:93`, `docs.yml:52`), write scopes only per job (`docs.yml:103` pages + id-token, `release.yml:519` id-token + attestations), every `uses:` pinned to a full SHA, no `pull_request_target`. Supply chain: `dependencies = []`, hatchling build only, `src/` imports the standard library only, dev deps bounded. | `grep -rn 'permissions:\|pull_request_target\|uses:' .github/workflows/*.yml`; `sed -n '1,60p' pyproject.toml` | none. |
+
+### 9.5 What blocks the release
+
+Nothing in the gate: the operator's release command is green, measured above. The one
+defect that needs a fix before the next release train is S-1 (path traversal on
+`instance add`), and S-3/S-4 make a red verdict unreadable. S-5 is a data-disposal
+decision for the CEO; this audit did not touch the ref.
 
 ## Status record (2026-10-21 to 2026-10-25, kept as measured)
 **Superseded in part by the table above.** This is a dated measurement, not a
