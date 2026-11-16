@@ -162,6 +162,7 @@ under two roles is two tasks.
 | ceo | T-0071 | changelog | done | P-0213 | ea648c91 |
 | ceo | T-0072 | ownership | done | P-0214 | eac3816e |
 | ceo | T-0073 | audit | done | P-0215 | 00e04bf7 |
+| ceo | T-0074 | features | done | P-0216 | e23210c9 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
