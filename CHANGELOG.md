@@ -9,6 +9,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.16] - 2026-11-16
+
+### Fixed
+
+- **The masked-address and host-committer fixes reach main** - no behaviour change
+  over 1.5.15; this section exists because R2 asks the first commit after a tag to
+  carry the next version.
+
 ## [1.5.15] - 2026-11-16
 
 ### Fixed
