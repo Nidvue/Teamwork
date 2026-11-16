@@ -7916,4 +7916,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 32ff9d6a
 - reviewer evidence: links @32ff9d6a -> issues: 0; venv/bin/pytest tests/unit/test_docs_contracts.py @32ff9d6a -> 20 passed; diff +89 lines cover NO-BAR, ACTIVITY-CAP, NO-FILL, ROSTER-TRACKS all four checks added to 10.6
 - findings history: 
-- branch / merge: designer/t-0003-design-md-10-9-no-bar-no-percentage-a-28 / pending
+- branch / merge: designer/t-0003-design-md-10-9-no-bar-no-percentage-a-28 / cd59fa15
