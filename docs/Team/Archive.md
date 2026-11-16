@@ -7761,3 +7761,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: python3 scripts/teamwork.py ledger export @8a0836c1 -> manifest written, 7911 records, dirty=false; python3 scripts/teamwork.py ledger verify @8a0836c1 -> chain intact; sha256sum -c on all 4 artifacts passes; git cat-file -t 8a0836c1 -> commit exists; teamwork.py links @8a0836c1 -> 0 issues
 - findings history: 
 - branch / merge: ceo/t-0070-commit-the-final-audit-manifest-at-the-c / 2ba3008a
+
+## T-0071 · Bump to 1.5.10 after the v1.5.9 tag so R2 is green and the traceability matrix certifies AC-20  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: changelog
+- self-check: [pass] Re-read the 3-file diff. Boundary: only version.py, CITATION.cff and the new CHANGELOG [1.5.10] section move; no code path, flag, exit code or test changes. Empty/duplicate/second-call: the CHANGELOG section is unique (R7 still finds one section per tag) and re-running the bump is idempotent. Contract surface: version.py is the single source the packaging reads; CITATION.cff mirrors it. Scope: 3 files, 14 insertions. The two tests that failed on main now pass: test_release_traceability::test_the_current_version... is skipped as not the published line, test_traceability_matrix::test_every_deterministic_state... passes. | test: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python scripts/check_release_consistency.py --offline @ca3bbd4fc2b5e1d23cffe3bd4e9f776f4629d009 -> 0 problems, R2 ok HEAD 1.5.10 is newer than 1 tag | preflight: PF-d66dccfe2f7b @ca3bbd4fc2b5 (8 checks, 0 failed)
+- author evidence: commit df1131cf; commit 3a37c467; commit ca3bbd4f
+- reviewer evidence: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python scripts/check_release_consistency.py --offline @ca3bbd4f -> 0 problems, R2 ok HEAD 1.5.10 is newer than 1 tag; the two previously-failing tests pass at this revision (test_release_traceability skipped as not published line, test_traceability_matrix::test_every_deterministic_state_matches_a_real_run passed); git show ca3bbd4f --stat -> 3 files (version.py, CITATION.cff, CHANGELOG.md) matching the declared ownership
+- findings history: 
+- branch / merge: ceo/t-0071-bump-to-1-5-10-after-the-v1-5-9-tag-so-r / pending
