@@ -56,10 +56,14 @@ def test_the_merge_environment_pins_the_identity_over_an_exported_pair(
     monkeypatch.setenv("GIT_COMMITTER_NAME", HOSTILE_IDENTITY[0])
     monkeypatch.setenv("GIT_COMMITTER_EMAIL", HOSTILE_IDENTITY[1])
     env = engine._merge_commit_env()
-    name, email = engine.commit_identity("reviewer")
+    name, email = engine.role_identity("reviewer")
     assert (env["GIT_AUTHOR_NAME"], env["GIT_AUTHOR_EMAIL"]) == (name, email)
     assert (env["GIT_COMMITTER_NAME"], env["GIT_COMMITTER_EMAIL"]) == (name, email)
     assert env["TEAMWORK_ALLOW_MAIN"] == "1"
+    assert env["TEAMWORK_COMMIT_IDENTITY"] == "role", (
+        "the merge must resolve the role pair for any nested git call, not the "
+        "operator's configured pair the committer guard rejects on the default branch"
+    )
 
 
 def _merge_repo(tmp_path: Path) -> Path:
@@ -90,6 +94,13 @@ def _merge_repo(tmp_path: Path) -> Path:
 def test_a_merge_commit_lands_as_the_pinned_pair_despite_an_exported_pair(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """The merge commit must be a role mailbox, never the operator's own pair.
+
+    The v1.5.10 tag run failed the committer guard on exactly this: the repository
+    configured the operator pair, `commit_identity` returned it, and the merge on
+    `main` landed with a personal email as committer. The guard accepts only a role
+    mailbox there, so the merge env pins `role_identity("reviewer")` directly.
+    """
     repo = _merge_repo(tmp_path)
     monkeypatch.setenv("GIT_AUTHOR_NAME", HOSTILE_IDENTITY[0])
     monkeypatch.setenv("GIT_AUTHOR_EMAIL", HOSTILE_IDENTITY[1])
@@ -110,8 +121,9 @@ def test_a_merge_commit_lands_as_the_pinned_pair_despite_an_exported_pair(
         capture_output=True,
         text=True,
     ).stdout.strip()
-    name, email = engine.commit_identity("reviewer", repo)
+    name, email = engine.role_identity("reviewer")
     assert landed == f"{name} <{email}>|{name} <{email}>"
+    assert "operator@example.invalid" not in landed
 
 
 class _Completed:
