@@ -51,6 +51,24 @@ def _drive_gate_loop(project) -> None:
         cli(
             project,
             [
+                "prompt",
+                "record",
+                "--original",
+                "prove the full gate loop stops",
+                "--round",
+                "ask: the loop gate is the single deliverable under test",
+                "--enhanced",
+                "Prove that a team which clears every gate reports STOP.",
+                "--by",
+                "ceo",
+            ],
+        )
+    )
+
+    assert_ok(
+        cli(
+            project,
+            [
                 "criteria",
                 "add",
                 "--id",
