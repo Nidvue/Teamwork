@@ -159,6 +159,8 @@ under two roles is two tasks.
 | ceo | T-0068 | governance | done | P-0210 | 84d63c6 |
 | ceo | T-0069 | - | done | P-0211 | 0409e82 |
 | ceo | T-0070 | audit | done | P-0212 | 2ba3008a |
+| ceo | T-0071 | changelog | done | P-0213 | ea648c91 |
+| ceo | T-0072 | - | todo | - | - |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
@@ -347,6 +349,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0072 · Add the swarm file-ownership rule: task --files declares the paths a lane may touch, printed in the lane packet, checked by preflight | P1 | todo | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
