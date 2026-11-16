@@ -35,7 +35,7 @@ Mutation score of this audit: **5 killed / 6 survived** over 11 hand-built
 mutants - M1, M2, M3, M4, M5 and M7 survived; M6, `ledger_verify`,
 `fold_finished_seats` and both `_preflight_undo` mutants were killed. The M19
 audit's 8/14 is superseded by these 11, which target the paths this task names.
-F6 and F9 were withdrawn on review (2.2) and are not in that count.
+F6, F8 and F9 were withdrawn on review (2.2) and are not in that count.
 
 ## 2. Method
 
@@ -71,6 +71,7 @@ untracked in the repository root; on the clean worktree it is green
 |---|---|---|
 | F6 | "reds on any lane's untracked scratch directory" | the enumeration skips every `git check-ignore` match (`tests/unit/test_hygiene.py:134-139`) and a lane's scratch lives under the gitignored `.pi/`; on the clean worktree `pytest -q tests/unit/test_hygiene.py -k repository_root` -> `1 passed, 10 deselected in 0.02s` |
 | F9 | "a fixed sleep before reading the rendered lane list" | `tests/integration/test_lane_display_live.py:83-87` is `deadline = time.time() + 30` / `while time.time() < deadline:` / `break` when every agent is live / `time.sleep(0.5)` as the poll step - the poll-with-deadline the finding recommends is already the code |
+| F8 | "8 unguarded `os.symlink` sites the Windows matrix runs" | every real call carries `@needs_symlinks`; AST scan of `tests/` -> `real calls: 27  unguarded: 0`; the 2 `test_portability_flow.py` hits sit in string literals |
 
 ## 3. Findings, ranked
 
@@ -167,19 +168,25 @@ pytest -q tests/unit/test_hygiene.py -k repository_root -> 1 passed, 10 deselect
 - Smallest test: each of the three reads its subject through `git show HEAD:<path>` (a
   revision), not the working tree.
 
-### F8 - P2 - Cror-platform: unguarded `os.symlink` in tests that the Windows matrix runs
-`tests/integration/test_portability_flow.py:433,462`; `tests/unit/test_release_consistency.py:1482,1501,1518,1539,1558,1573`
-- 8 of the 20 `os.symlink` sites in `tests/*.py` (`grep -rn --include='*.py' -o 'os\.symlink'
-tests/ | wc -l` -> `20`; 16 are in `test_release_consistency.py`, 2 in
-`test_portability_flow.py`). The guard this report first claimed for the other 12 does
-not exist: `grep -n 'pytestmark'` finds no module-level skip in either file, so the same
-WinError 1314 applies to all 20.
+### F8 - WITHDRAWN - every symlink call in the suite carries the Windows guard
+Refuted on review; not counted, no fix proposed. The finding came from the wrong grep:
+`grep -n 'pytestmark'` looks for a module-level skip, while the suite guards each symlink
+test with a decorator - `needs_symlinks = pytest.mark.skipif(os.name == "nt", ...)` at
+`tests/unit/test_release_consistency.py:1458` and
+`tests/unit/test_release_consistency_digest.py:99`. The check that answers the claim is an
+AST scan for real calls and their enclosing decorators:
 
-- Hazards on `windows-latest`: symlink creation needs Developer Mode / elevation, so the
-  test raises `OSError` (WinError 1314) instead of asserting. `/etc/hostname` as a symlink
-  target (`:1573`) does not exist there at all.
-- Status: **UNVERIFIED for CI** - no windows job log was read in this audit; the file:line
-  evidence is static. Ranked P2 because the windows leg is already the slow/red leg (R-33).
+- `grep -n '@needs_symlinks' tests/unit/test_release_consistency.py | wc -l` -> `12`
+  (12 decorators over 16 calls: the cyclic and four-cause tests make two and four calls).
+- AST scan of every `tests/**/*.py` for `os.symlink` / `.symlink_to` calls ->
+  `real calls: 27  unguarded: 0` (16 `os.symlink` in `test_release_consistency.py`, 11
+  `Path.symlink_to` in `test_release_consistency_digest.py`).
+
+The 20 `grep` hits are not 20 calls: `test_portability_flow.py:433` and `:462` sit inside
+the `UNGUARDED_SOURCE` / `GUARDED_SOURCE` string literals (the scanner's positive
+control), `test_release_consistency_digest.py:670` inside the same kind of literal, and
+`:586` is a docstring. No unguarded symlink call exists, so the Windows matrix is not
+exposed to WinError 1314 and no developer lane owes a fix.
 
 ### F9 - WITHDRAWN - the live-display read is a deadline poll, not a fixed sleep
 Refuted on review; not counted, no fix proposed. `tests/integration/test_lane_display_live.py:83-87`
@@ -213,7 +220,7 @@ next round: five "refuses"/"no-op" cases in a row are where a deleted assert hid
 
 | Class | Sites | Note |
 |---|---|---|
-| `os.symlink` | 20 | 8 cited in F8; no module-level skip in either file |
+| `os.symlink` / `symlink_to` | 27 real calls, 0 unguarded | every call is under `@needs_symlinks` (`pytest.mark.skipif(os.name == "nt")`); the 20 `grep` hits include 3 string-literal sites and 1 docstring (F8 withdrawn) |
 | `subprocess.run/call/Popen` | 235 | timeout coverage not measured per site; the ones read in `tests/acceptance/*` pass `timeout=` |
 | `time.sleep` | 20 | poll steps with a deadline, or inside generated child scripts (F9 withdrawn) |
 | hardcoded `/tmp` or `/home` | 22 | all are *assertions about* such paths (`test_privacy_scan.py`, `test_hygiene.py`), not I/O into them - correct |
@@ -244,6 +251,7 @@ remaining areas need a test before a record.
 ## 6. What this audit did not do
 
 - No fix, no test edit, no source edit (audit only, per the task).
-- No CI run was read: F8 is static and marked `UNVERIFIED` for `windows-latest`.
+- No CI run was read: F8 is withdrawn (0 unguarded symlink calls), so no Windows-leg
+  claim is left to verify.
 - Coverage was not re-run (the M19 audit's per-function analysis stands); reachability
   here is proved by hit-markers, which is stronger for "does any test execute this line".
