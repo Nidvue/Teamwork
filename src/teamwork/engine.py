@@ -1515,8 +1515,23 @@ def _merge_commit_env(project=None) -> dict:
     The identity is pinned here as well: the merge passes ``-c user.name``, which
     loses to an exported ``GIT_AUTHOR_NAME`` left by a rebase, a forge runner or
     a wrapper shell, so without this a merge could land authored by the operator.
+    The pair is the Reviewer **role mailbox**, computed directly rather than from
+    ``commit_identity``: that helper falls back to the repository's configured pair
+    (the operator), and the committer guard rejects an operator pair on the default
+    branch - a merge on ``main`` is exactly the commit it audits (v1.5.10 tag run).
+    ``TEAMWORK_COMMIT_IDENTITY=role`` is set too, so any nested git call the merge
+    makes resolves the same role pair instead of the ambient one.
     """
-    return dict(os.environ, TEAMWORK_ALLOW_MAIN="1", **git_identity_env("reviewer", project))
+    name, email = role_identity("reviewer")
+    return dict(
+        os.environ,
+        TEAMWORK_ALLOW_MAIN="1",
+        TEAMWORK_COMMIT_IDENTITY="role",
+        GIT_AUTHOR_NAME=name,
+        GIT_AUTHOR_EMAIL=email,
+        GIT_COMMITTER_NAME=name,
+        GIT_COMMITTER_EMAIL=email,
+    )
 
 
 def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
