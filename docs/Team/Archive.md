@@ -7800,3 +7800,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: Verified against the live chain, not the note: manifest ledger.records=7952, git.dirty=false, git.head=6d3187c834a8 (an ancestor of the merge), chain verified true; the two changed files are the generated docs/Team/AuditManifest.json and .md only; teamwork.py ledger verify @d3b5a939 -> chain intact; the manifest head is the ledger.export event behind it
 - findings history: 
 - branch / merge: ceo/t-0073-refresh-the-closing-audit-manifest-at-th / 00e04bf7
+
+## T-0074 · Update features.md with file ownership feature  (ceo)
+- date: 2026-11-16
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: features
+- self-check: [pass] Re-read the 1-file diff: only docs/guide/features.md changes. Boundary: the new row in the features table documents the file-ownership feature added in T-0072. No code changes, no flags added. Empty/duplicate/second-call: the feature is already implemented and tested; this is documentation only. Contract surface: docs only. Scope: 1 file. | test: git diff docs/guide/features.md @151e57e53f744f75a6fa20d77359df8b41d07c55 -> shows the added row | preflight: PF-cb7f2cc485a8 @151e57e53f74 (9 checks, 0 failed)
+- author evidence: commit 151e57e5
+- reviewer evidence: Verified: git show 151e57e5 --stat -> 1 file (docs/guide/features.md) matching the declared ownership; the added row documents the file-ownership feature with correct cross-references; ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; links -> 0 issues
+- findings history: 
+- branch / merge: ceo/t-0074-update-features-md-with-file-ownership-f / pending
