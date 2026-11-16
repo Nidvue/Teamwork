@@ -11,6 +11,7 @@ import pytest
 from teamwork import engine
 
 HOSTILE_IDENTITY = ("Hostile Operator", "hostile@example.invalid")
+PLACEHOLDER = "[" + "REDACTED" + "_EMAIL_4]"
 
 
 def _git(repo: Path, *args: str, ident: tuple[str, str] | None = None):
@@ -188,6 +189,20 @@ def test_missing_trailer_passes(repo):
         ident=("Developer", "developer@agents.nidvue.com"),
     )
     assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+
+
+def test_a_redaction_placeholder_identity_fails_the_audit(repo):
+    """A masked address copied back into `user.email` is a defect, not a stranger.
+
+    Measured on this project's history: twelve commits carried the literal text
+    ``[REDACTED_EMAIL_n]`` as author and committer, because the host masks
+    addresses in tool output and that text was used as the identity. The audit
+    answered "not a role mailbox", then "not the team domain", and skipped the
+    commit as an outside contributor - so the one gate that exists to catch a
+    wrong identity was the one that waved it through.
+    """
+    _commit(repo, "ReleaseEngineer", PLACEHOLDER, "fix(ci): install dbus")
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 1
 
 
 def test_bot_dependency_update_is_allowed(repo):

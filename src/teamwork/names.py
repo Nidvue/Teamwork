@@ -188,6 +188,22 @@ def identity_string(role: str) -> str:
     return f"{name} <{email}>"
 
 
+_RE_MAILBOX_SHAPE = re.compile(r"^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$")
+
+
+def malformed_mailbox(email: str) -> bool:
+    """True when the value cannot be an address at all.
+
+    A host that masks addresses prints a placeholder - ``technical-writer@agents.nidvue.com`` - and
+    that text was copied back into ``user.email`` and committed. Every gate keyed
+    on "is this a role mailbox" answered *no* and then treated the author as an
+    outside contributor, so a value that is not an address escaped all of them. An
+    outside contributor has an address; a placeholder, an empty string or junk has
+    none, which is a defect and not an identity.
+    """
+    return _RE_MAILBOX_SHAPE.match((email or "").strip()) is None
+
+
 PRESET_NAME_KEY = "teamwork.identity.name"
 PRESET_EMAIL_KEY = "teamwork.identity.email"
 
