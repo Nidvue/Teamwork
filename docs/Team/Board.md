@@ -123,6 +123,7 @@ under two roles is two tasks.
 | ceo | T-0038 | records | done | P-0085 | dbc56003 |
 | designer | T-0001 | design | done | P-0086 | 830636bc |
 | designer | T-0002 | design | done | P-0088 | 7abfa18e |
+| designer | T-0003 | design | done | P-0096 | cd59fa15 |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -196,6 +197,7 @@ under two roles is two tasks.
 | developer | T-0071 | pr-merge | done | P-0093 | 66f2a703 |
 | developer | T-0072 | records | done | P-0094 | 5267f8ea |
 | developer | T-0073 | pi-package | done | P-0095 | ad86404b |
+| developer | T-0074 | - | todo | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | blocked | - | - |
 | reviewer | T-0001 | - | done | - | - |
@@ -229,6 +231,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| developer | T-0074 · renderer v4: no bar, no percent, 28-column activity that never pads + the engine folds a finished seat and counts current seats | P0 | todo | - |
 | release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | blocked | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
