@@ -7903,4 +7903,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 4eed1c8f
 - reviewer evidence: git show 4eed1c8f --stat -> 3 files (version.py, CITATION.cff, CHANGELOG.md); R2 reproduces: check_release_consistency.py --offline @4eed1c8f -> 0 problems with 'R2 ok HEAD 1.5.12 is newer than 1 tag(s)' (before the bump the same command reported R2 DRIFT 1.5.11 vs v1.5.11); R1/R10 agree on the new version; pytest -q tests/unit/test_docs_contracts.py -> 20 passed; the release itself stays v1.5.11 (tag and GitHub Release already published)
 - findings history: 
-- branch / merge: ceo/t-0082-move-the-tree-to-1-5-12-after-the-v1-5-1 / pending
+- branch / merge: ceo/t-0082-move-the-tree-to-1-5-12-after-the-v1-5-1 / 7d36b7ff
