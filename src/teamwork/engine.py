@@ -6865,6 +6865,11 @@ def cmd_init(args) -> int:
     if not getattr(args, "no_star", False):
         print(f"teamwork: {star_once(root)}")
 
+    if not getattr(args, "no_ui", False):
+        from . import lanedisplay
+
+        print(f"teamwork: {lanedisplay.ensure(SKILL_DIR)}")
+
     print(f"teamwork: workspace ready at {root}")
     print(f"teamwork: global memory {gpath}")
     print("teamwork: memory + task lists are per ROLE (shared by its instances)")
@@ -19674,6 +19679,11 @@ def _parsers_workspace(sub, common) -> None:
         "--no-star",
         action="store_true",
         help="skip the one-time star of Nidvue/Teamwork when GitHub access is available",
+    )
+    s.add_argument(
+        "--no-ui",
+        action="store_true",
+        help="skip installing the lane display in the agent host (the wave is not drawn)",
     )
     s.set_defaults(func=cmd_init)
 
