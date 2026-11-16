@@ -29,9 +29,13 @@ Anything else after the prompt is an instruction to the CEO in plain language
 developers"): the CEO honours it when writing the roster and `Plan.md`. Only
 `--project` and `--team` are CLI flags.
 
-The prompt is the product brief. If it is genuinely ambiguous in a way that
-changes what gets built, the CEO asks **one** consolidated round of questions and
-then proceeds on recorded assumptions.
+The prompt is the product brief. The CEO **researches it in one or more rounds
+and enhances it before decomposing**, and when it is genuinely ambiguous in a way
+that changes what gets built the CEO **asks with options instead of guessing**:
+`ask add --question '<it>' --option '<a>' --option '<b>' --recommend 1` records
+the choice, and a `blocks` question holds `loop` at CONTINUE until the user
+answers (`ask answer Q-0001 --choice 2 --by user`). Questions are consolidated
+into one round, never drip-fed per lane.
 
 The skill is **agent-agnostic and remote-agnostic**: it runs on any agent host
 that loads a skill directory, or that can run `teamwork.py` and read `AGENTS.md`,
@@ -167,10 +171,14 @@ These run once per project, so their detail is on demand: read
 [references/Bootstrap.md](references/Bootstrap.md) before you create a
 workspace, freeze interfaces or restaff. The order is fixed:
 
-1. **Intake** - record the prompt verbatim, deep-research its intention, then
-   rewrite it into a systematic, parallel-ready brief with the `tw-brief-intake`
-   skill: objective, deliverables, acceptance criteria, interfaces to freeze and
-   the proposed lanes. Every criterion becomes a record.
+1. **Intake** - record the prompt verbatim, deep-research its intention in one
+   or more rounds, **enhance the prompt** from what the research found, and ask
+   the user rather than guess at any ambiguity that changes what gets built
+   (`prompt record`, `ask add`). Then rewrite it into a systematic,
+   parallel-ready brief with the `tw-brief-intake` skill: objective,
+   deliverables, acceptance criteria, interfaces to freeze and the proposed
+   lanes. Every criterion becomes a record, and the first one is refused until
+   an enhanced prompt is recorded.
 2. **Workspace, repository, constitution** - the tree, the managed block, the
    team settings.
 3. **Plan and freeze interfaces** - the parallelism gate; no squad starts on a
@@ -748,6 +756,11 @@ S=<this skill dir>/scripts/teamwork.py
 # bootstrap and shared state
 python3 $S init --roster slim                      # --agents for an exact list
 python3 $S agents-md && python3 $S repo && python3 $S map
+python3 $S prompt record --original "<user prompt verbatim>" \
+    --round "<what the research round found + evidence>" \
+    --enhanced "<the improved prompt the plan decomposes>" --by ceo
+python3 $S ask add --question "<the ambiguity>" --option "<a>" --option "<b>" --recommend 1 --by ceo
+python3 $S ask answer Q-0001 --choice 2 --by user --note "<the user's reason>"
 python3 $S criteria add --id AC-1 --text "<verifiable statement>" --owner developer --by ceo
 python3 $S tests require --area auth --layers unit,integration,acceptance --by ceo --reason "core"
 python3 $S tests add --layer unit --area auth --command "go test ./internal/auth"

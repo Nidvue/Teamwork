@@ -387,3 +387,17 @@ def skill_file(root: Path, rel: str) -> Path:
         if p.exists():
             return p
     return work_repo(root) / rel
+
+
+F_QUESTIONS = "Questions.md"
+
+
+def questions_path(root: Path) -> Path:
+    return root / F_QUESTIONS
+
+
+F_PROMPT = "Prompt.md"
+
+
+def prompt_path(root: Path) -> Path:
+    return root / F_PROMPT

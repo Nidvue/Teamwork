@@ -7995,3 +7995,132 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_pi_status_render.py tests/integration/test_agent_state_width_matrix.py tests/unit/test_lane_display.py @753d4d94 -> 39 passed in 6.81s; ruff check/format clean; 3 suite failures identical on main (pre-existing); HEADER-LIVE-REVIEW check passes; Design.md 10.9 updated with measured table row and check | credited: TS-0120 acceptance/widget-header by Reviewer-2 @753d4d94
 - findings history: 
 - branch / merge: developer/t-0081-widget-header-live-and-review-only-drop / 262be1e3
+## T-0070 · Commit the final audit manifest at the closing revision  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer-1
+- task / issue: -
+- area: audit
+- self-check: [pass] Re-read the diff: two manifest files updated with current ledger state (7911 records, dirty=false, git head on this branch). The export command reproduced the manifest at this revision. | test: python3 scripts/teamwork.py ledger export @8a0836c14fee75e99915d5ba5e9a5375c31c4f7d -> manifest written, 7911 records, dirty=false | preflight: PF-ebdc00c03bd0 @8a0836c14fee (8 checks, 0 failed)
+- author evidence: commit 8a0836c1
+- reviewer evidence: python3 scripts/teamwork.py ledger export @8a0836c1 -> manifest written, 7911 records, dirty=false; python3 scripts/teamwork.py ledger verify @8a0836c1 -> chain intact; sha256sum -c on all 4 artifacts passes; git cat-file -t 8a0836c1 -> commit exists; teamwork.py links @8a0836c1 -> 0 issues
+- findings history: 
+- branch / merge: ceo/t-0070-commit-the-final-audit-manifest-at-the-c / 2ba3008a
+
+## T-0071 · Bump to 1.5.10 after the v1.5.9 tag so R2 is green and the traceability matrix certifies AC-20  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: changelog
+- self-check: [pass] Re-read the 3-file diff. Boundary: only version.py, CITATION.cff and the new CHANGELOG [1.5.10] section move; no code path, flag, exit code or test changes. Empty/duplicate/second-call: the CHANGELOG section is unique (R7 still finds one section per tag) and re-running the bump is idempotent. Contract surface: version.py is the single source the packaging reads; CITATION.cff mirrors it. Scope: 3 files, 14 insertions. The two tests that failed on main now pass: test_release_traceability::test_the_current_version... is skipped as not the published line, test_traceability_matrix::test_every_deterministic_state... passes. | test: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python scripts/check_release_consistency.py --offline @ca3bbd4fc2b5e1d23cffe3bd4e9f776f4629d009 -> 0 problems, R2 ok HEAD 1.5.10 is newer than 1 tag | preflight: PF-d66dccfe2f7b @ca3bbd4fc2b5 (8 checks, 0 failed)
+- author evidence: commit df1131cf; commit 3a37c467; commit ca3bbd4f
+- reviewer evidence: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python scripts/check_release_consistency.py --offline @ca3bbd4f -> 0 problems, R2 ok HEAD 1.5.10 is newer than 1 tag; the two previously-failing tests pass at this revision (test_release_traceability skipped as not published line, test_traceability_matrix::test_every_deterministic_state_matches_a_real_run passed); git show ca3bbd4f --stat -> 3 files (version.py, CITATION.cff, CHANGELOG.md) matching the declared ownership
+- findings history: 
+- branch / merge: ceo/t-0071-bump-to-1-5-10-after-the-v1-5-9-tag-so-r / ea648c91
+
+## T-0072 · Add the swarm file-ownership rule: task --files declares the paths a lane may touch, printed in the lane packet, checked by preflight  (ceo)
+- date: 2026-11-16
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: ownership
+- self-check: [pass] Re-read the 6-file diff. BOUNDARY: the files check is omitted entirely when a task declares no --files, so an undeclared task keeps its old check count and never fails; it warns, never fails, when a path is outside the declared ownership; a directory prefix and a glob both match. EMPTY/DUPLICATE/SECOND-CALL: an empty files field returns None (tested); the parser round-trips the field (test_task_meta_fields binds TASK_META_FIELDS to new_task); the packet block prints once; preflight is read-only so a second run is identical. CONTRACT: two new CLI flags (--files on task add and task set), one new record field, one new preflight check name; no existing flag, exit code or record changed, and an undeclared task's report is byte-identical to before. CONCURRENCY: the check reads git diff --name-only, no writes; the field is written under the role lock like every task field. SCOPE: 6 files - engine.py, records.py, lanes.py, docs/guide/cli.md, references/Coordination.md, tests/unit/test_file_ownership.py. --shared used because the changes were already in the main checkout. | test: .venv/bin/python -m pytest -q tests/unit/test_file_ownership.py tests/unit/test_preflight.py tests/unit/test_task_meta_fields.py tests/unit/test_lanes.py @ee04ecddb1a43e507f45a91d28774d58d258b8df -> 92 passed | preflight: PF-d77971d6bcd7 @ee04ecddb1a4 (9 checks, 0 failed)
+- author evidence: commit ee04ecdd
+- reviewer evidence: Read the artifact first: git show ee04ecdd --stat -> 6 files matching the declared ownership (engine.py, records.py, lanes.py, cli.md, Coordination.md, test_file_ownership.py). The check is omitted when --files is empty (test_an_undeclared_task_is_not_forced_into_a_budget), warns outside ownership (test_a_diff_outside_the_declared_ownership_warns_with_the_path), matches dir prefixes and globs (test_owned_by_matches...), round-trips the field (test_a_new_task_carries_the_files...), and the packet prints it (test_the_lane_packet_prints_the_files...). Gate green: ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; pytest docs/skill/cli/ci/makefile contracts -> 278 passed; pytest test_file_ownership+preflight+lanes -> 90 passed. TS-0216/0217/0218 recorded passing for area ownership.
+- findings history: 
+- branch / merge: ceo/t-0072-add-the-swarm-file-ownership-rule-task-f / eac3816e
+
+## T-0073 · Refresh the closing audit manifest at the final revision after T-0071 and T-0072  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: audit
+- self-check: [pass] Re-read the 2-file diff: both are generated by ledger export, not hand-edited. Boundary: the manifest names the ledger checkpoint and the four artifact digests; a second export rewrites at a newer checkpoint and stays verifiable because the head is recomputed from the chain. Empty/duplicate/second-call: the export is idempotent over the same chain (same head when nothing was appended); the checkpoint is the ledger.export event itself. Contract: no source change, only the two generated documents. Scope: docs/Team/AuditManifest.json and .md. The manifest's git.head is 6d3187c8 (main at branch start), an ancestor of this commit, dirty=false. | test: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python scripts/teamwork.py ledger export @d3b5a939ec7dd34065f21ddb22cb06b5db7a1b3a -> 7952 records, chain verified True, dirty false | preflight: PF-4cd38f88105b @d3b5a939ec7d (9 checks, 0 failed)
+- author evidence: commit d3b5a939
+- reviewer evidence: Verified against the live chain, not the note: manifest ledger.records=7952, git.dirty=false, git.head=6d3187c834a8 (an ancestor of the merge), chain verified true; the two changed files are the generated docs/Team/AuditManifest.json and .md only; teamwork.py ledger verify @d3b5a939 -> chain intact; the manifest head is the ledger.export event behind it
+- findings history: 
+- branch / merge: ceo/t-0073-refresh-the-closing-audit-manifest-at-th / 00e04bf7
+
+## T-0074 · Update features.md with file ownership feature  (ceo)
+- date: 2026-11-16
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: features
+- self-check: [pass] Re-read the 1-file diff: only docs/guide/features.md changes. Boundary: the new row in the features table documents the file-ownership feature added in T-0072. No code changes, no flags added. Empty/duplicate/second-call: the feature is already implemented and tested; this is documentation only. Contract surface: docs only. Scope: 1 file. | test: git diff docs/guide/features.md @151e57e53f744f75a6fa20d77359df8b41d07c55 -> shows the added row | preflight: PF-cb7f2cc485a8 @151e57e53f74 (9 checks, 0 failed)
+- author evidence: commit 151e57e5
+- reviewer evidence: Verified: git show 151e57e5 --stat -> 1 file (docs/guide/features.md) matching the declared ownership; the added row documents the file-ownership feature with correct cross-references; ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; links -> 0 issues
+- findings history: 
+- branch / merge: ceo/t-0074-update-features-md-with-file-ownership-f / e23210c9
+
+## T-0075 · Update README with file ownership feature and restore required section structure  (ceo)
+- date: 2026-11-16
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: features
+- self-check: [pass] Re-read the 1-file diff: only README.md changes. Boundary: the new content adds the file-ownership feature to the 'What you get' list and restores the required section structure. No code changes, no flags added. Empty/duplicate/second-call: the feature is already implemented and tested; this is documentation only. Contract surface: docs only. Scope: 1 file. | test: git diff README.md @b5fc8e297b7130c34e29f12ad0f669d3f692d820 -> shows the updated content with file ownership feature and restored section structure | preflight: PF-bb17b757de60 @b5fc8e297b71 (9 checks, 0 failed)
+- author evidence: commit b5fc8e29
+- reviewer evidence: Verified: git show b5fc8e29 --stat -> 1 file (README.md) matching the declared ownership; the added content documents the file-ownership feature with correct cross-references; ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; links -> 0 issues
+- findings history: 
+- branch / merge: ceo/t-0075-update-readme-with-file-ownership-featur / 78c584ed
+
+## T-0076 · Commit merges as the Reviewer role mailbox so the committer guard passes; release 1.5.11  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: merge-identity
+- self-check: [pass] Re-read the 5-file diff. BOUNDARY: the identity pin only affects the merge env; a normal task commit keeps commit_identity's own precedence. The role pair is computed directly via role_identity(reviewer) rather than commit_identity, because that helper falls back to the repository's configured operator pair - which the committer guard rejects on the default branch, and a merge on main is exactly the commit it audits. TEAMWORK_COMMIT_IDENTITY=role is exported too so nested git calls resolve the same pair. EMPTY/DUPLICATE/SECOND-CALL: the env is rebuilt per merge and leaks nothing into os.environ (existing test); a second merge env is identical. CONTRACT: no CLI flag, exit code or record field changed; only the identity a merge commit carries. CONCURRENCY: a per-process dict passed to the merge subprocess; no shared write. SCOPE: engine.py, tests/unit/test_merge_commit_env.py, version.py, CITATION.cff, CHANGELOG.md. Forward fix: the protected v1.5.10 tag and main are not rewritten; 1.5.11 carries the corrected behaviour. The regression test asserts the role pair and that the operator pair never appears. | test: .venv/bin/python -m pytest -q tests/unit/test_merge_commit_env.py tests/unit/test_commit_identity.py tests/unit/test_release_consistency.py @baa82c8d3bbdef50a6ff3d62f352588db3e5b10d -> 163 passed; scripts/check_release_consistency.py --offline -> 0 problems | preflight: PF-069ddd6f50b6 @baa82c8d3bbd (8 checks, 0 failed) || [pass] @baa82c8d superseded by @dd8ec2dd3d3dfa42988d3bc31564a410f6f86363: the branch was rebased onto main after the review pass appended an Archive entry, and the squashed commit carries the same 5-file change-set with the role committer restored. Re-read the diff. BOUNDARY: the identity pin only affects the merge env; a normal task commit keeps commit_identity's own precedence. The role pair is computed directly via role_identity(reviewer) because that helper falls back to the repository operator pair, which the committer guard rejects on the default branch. TEAMWORK_COMMIT_IDENTITY=role is exported too so nested git calls resolve the same pair. EMPTY/DUPLICATE/SECOND-CALL: the env is rebuilt per merge and leaks nothing into os.environ; a second merge env is identical. CONTRACT: no CLI flag, exit code or record field changed. CONCURRENCY: a per-process dict passed to the merge subprocess; no shared write. SCOPE: engine.py, test_merge_commit_env.py, version.py, CITATION.cff, CHANGELOG.md. Forward fix: the protected v1.5.10 tag and main are not rewritten. | test: .venv/bin/python -m pytest -q tests/unit/test_merge_commit_env.py tests/unit/test_commit_identity.py tests/unit/test_release_consistency.py @dd8ec2dd3d3dfa42988d3bc31564a410f6f86363 -> 163 passed; scripts/check_release_consistency.py --offline -> 0 problems | preflight: PF-58d42c6b1652 @dd8ec2dd3d3d (8 checks, 0 failed) || [pass] @dd8ec2dd superseded by @9f660ab6d4851dc572b0be0fcb71fa02f37349ee: the branch was rebuilt on the published base with an identical change-set. BOUNDARY: the identity pin only affects the merge env; a normal task commit keeps commit_identity's own precedence. The role pair is computed via role_identity(reviewer) because commit_identity falls back to the operator pair the committer guard rejects on the default branch. TEAMWORK_COMMIT_IDENTITY=role is exported too. EMPTY/DUPLICATE/SECOND-CALL: env rebuilt per merge, leaks nothing, idempotent. CONTRACT: no CLI flag, exit code or record field changed. CONCURRENCY: per-process dict passed to the merge subprocess. SCOPE: engine.py, test_merge_commit_env.py, version.py, CITATION.cff, CHANGELOG.md. Forward fix over protected history. | test: .venv/bin/python -m pytest -q tests/unit/test_merge_commit_env.py tests/unit/test_commit_identity.py tests/unit/test_release_consistency.py @9f660ab6d4851dc572b0be0fcb71fa02f37349ee -> 163 passed; check_release_consistency.py --offline -> 0 problems | preflight: PF-966923352757 @9f660ab6d485 (8 checks, 0 failed)
+- author evidence: commit 5fe11f15; commit baa82c8d; commit 9f660ab6
+- reviewer evidence: Re-derived at 9f660ab6: git show 9f660ab6 --stat -> the same 5 files (+45/-5). engine._merge_commit_env computes role_identity('reviewer') and exports TEAMWORK_COMMIT_IDENTITY=role; test_a_merge_commit_lands_as_the_pinned_pair_despite_an_exported_pair asserts 'Reviewer <reviewer@agents.nidvue.com>' and rejects 'operator@example.invalid'. Independent: pytest -q test_merge_commit_env/test_commit_identity/test_release_consistency @9f660ab6 -> 163 passed; check_release_consistency.py --offline -> 0 problems (R2 ok HEAD 1.5.11 > v1.5.10); identity --guard-committer --range origin/main..branch -> 1 commit, 0 foreign.
+- findings history: 
+- branch / merge: ceo/t-0076-fix-committer-guard-failure-on-v1-5-10-t / 1715c258
+
+## T-0078 · Intake gates: record the prompt with research rounds and an enhanced prompt, and ask the user with options instead of guessing; star the repo once at init  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: intake
+- self-check: [pass] Re-read the 15-file diff. BOUNDARY: prompt record refuses an empty original (the ground truth), zero research rounds (an unread prompt) and an empty enhanced text (a restatement); ask add refuses fewer than two options and a choice outside the option range. Both gates are loop blockers, not record blockers, so a team may iterate but cannot report STOP. EMPTY/DUPLICATE/SECOND-CALL: an absent store parses as empty; a second ask answer is refused; a repeated prompt record appends P-nnnn and the loop reads the latest; render/parse round-trips fenced text including blank lines and embedded fences. CONTRACT: two new CLI verbs (prompt, ask) and one new flag (init --no-star); no existing flag, exit code or record field changed. CONCURRENCY: both stores write under their own lock; star_once records Runtime/Starred.json and is idempotent. SCOPE: prompts.py, questions.py, engine.py, layout.py, verify_release.py, two unit test files, the acceptance loop setup, SKILL.md, Bootstrap.md, cli.md, Architecture.md, the intake skill, and the regenerated Board. | test: .venv/bin/python -m pytest -q tests/unit -n auto @b11556756f182915d0da4aeabd230e6b2f41f200 -> 2652 passed, 1 skipped; tests/integration -> 374 passed, 3 skipped; tests/acceptance -> 77 passed, 1 skipped; ruff format/check, check_comments, mypy, privacy_scan, links, check_release_consistency --offline -> all clean | preflight: PF-16c08a1b3d15 @b11556756f18 (11 checks, 0 failed)
+- author evidence: commit abef7c3a
+- reviewer evidence: Read the artifact first: git show b1155675 --stat -> 15 files matching the declared scope. The two gates are real: prompt record refuses no-rounds and no-enhanced (exit 2), ask add refuses a single option (exit 2) and an out-of-range choice (exit 2), and loop reports each blocker. Independent run @b1155675: ruff format --check . -> 351 files; ruff check . -> All checks passed; mypy src/teamwork -> 34 files clean; privacy_scan --tree -> PASS 0; links -> 0 issues; check_release_consistency --offline -> 0 problems; pytest -q tests/unit/test_prompts.py tests/unit/test_questions.py -> 15 passed; tests/acceptance/test_full_loop.py -> 8 passed (the gate loop still reaches STOP once the prompt is recorded). Credits TS-0222/0223/0224 are re-recorded at this revision and cover the three layers. | credited: TS-0224 acceptance/intake by Reviewer @b11556756f182915d0da4aeabd230e6b2f41f200
+- findings history: 
+- branch / merge: ceo/t-0078-intake-gates-record-the-prompt-with-rese / 3e74160e
+
+## T-0079 · Release prep 1.5.11: the CHANGELOG section for the intake gates and the star-once bootstrap  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: changelog
+- self-check: [pass] Re-read the 1-file diff: CHANGELOG.md [1.5.11] gains an Added section above the existing Fixed one. BOUNDARY: no version change (1.5.11 is still untagged), no code. EMPTY/DUPLICATE/SECOND-CALL: the section is unique (R7 finds one per tag); a second run is a no-op. CONTRACT: docs only. SCOPE: CHANGELOG.md. | test: .venv/bin/python scripts/check_release_consistency.py --offline @3b5fd87c6224a0ff2f7504b21f0d5cf361210a32 -> 0 problems; .venv/bin/python -m pytest -q tests/unit/test_docs_contracts.py @3b5fd87c6224a0ff2f7504b21f0d5cf361210a32 -> 20 passed | preflight: PF-ce726e1b9c6c @3b5fd87c6224 (9 checks, 0 failed)
+- author evidence: commit 3b5fd87c
+- reviewer evidence: git show 3b5fd87c --stat -> CHANGELOG.md only; the [1.5.11] section now has Added (two bullets) then Fixed (one bullet), all under Keep-a-Changelog names; check_release_consistency --offline @3b5fd87c -> 0 problems (R7 one section per tag); pytest -q tests/unit/test_docs_contracts.py -> 20 passed
+- findings history: 
+- branch / merge: ceo/t-0079-release-prep-1-5-11-the-changelog-sectio / 31f3ce45
+
+## T-0080 · CI fix: exempt published pre-rule history by one boundary, and keep init hermetic so the star step never writes into the install tree  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: identity
+- self-check: [pass] Re-read the 2-file diff. BOUNDARY: predates_identity_rule uses git merge-base --is-ancestor, so a commit after the boundary is held to the rule and a new operator-pair commit still fails; an empty boundary returns False, never exempting everything. star_once skips when TEAMWORK_STAR_ONCE is off or when CI is set, and runs gh with a scratch HOME so nothing is written into the install tree; --dry-run still reports. EMPTY/DUPLICATE/SECOND-CALL: the record file short-circuits a repeat run; the boundary check is a pure git query and idempotent. CONTRACT: no CLI flag or exit code changed; the audit prints a new skip line. CONCURRENCY: read-only queries plus the existing Runtime record. SCOPE: engine.py and the identity test. | test: .venv/bin/python -m pytest -q tests/unit/test_identity_legacy.py tests/acceptance/test_portability_acceptance.py @77618150b12ded62ca49629a4e2027a7b889e9f4 -> 14 passed; identity --audit --strict-authors with GIT_CONFIG_GLOBAL=/dev/null -> 0 problems | preflight: PF-1971e5207770 @77618150b12d (9 checks, 0 failed)
+- author evidence: commit 77618150
+- reviewer evidence: git show 77618150 --stat -> 2 files (engine.py, test_identity_legacy.py). The exemption is one boundary, not a list: predates_identity_rule -> merge-base --is-ancestor, verified 4f4b81d3 True and b1155675 False, so post-rule commits are still audited. Reproduced the CI condition with GIT_CONFIG_GLOBAL=/dev/null: identity --audit --strict-authors --range HEAD -> rc 0, 3170 commits, 0 problems, the pre-rule commits printed as skipped with the reason. Portability: pytest -q tests/acceptance/test_portability_acceptance.py -> 6 passed, the shipped copy is byte-identical after init. Full local gate: ruff format/check, check_comments (0 commentary), mypy (34 files), privacy_scan PASS 0, links 0 issues, check_release_consistency 0 problems.
+- findings history: 
+- branch / merge: ceo/t-0080-ci-fix-exempt-published-pre-rule-history / a2365a40

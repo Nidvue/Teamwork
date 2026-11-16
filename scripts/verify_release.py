@@ -318,6 +318,24 @@ def full_loop_smoke(console: Path, workdir: Path, env: dict[str, str]) -> None:
     cli(
         console,
         [
+            "prompt",
+            "record",
+            "--original",
+            "prove the release loop works",
+            "--round",
+            "ask: the loop gate is the one deliverable under test",
+            "--enhanced",
+            "Prove the installed wheel clears the loop gate to STOP.",
+            "--by",
+            "ceo",
+        ],
+        project,
+        env,
+    )
+
+    cli(
+        console,
+        [
             "criteria",
             "add",
             "--id",

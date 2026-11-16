@@ -816,6 +816,7 @@ def new_task(
     mandate_basis: str = "",
     intake_key: str = "",
     feature: str = "",
+    files: str = "",
 ) -> dict:
     priority = (priority or "P2").upper()
     if priority not in PRIORITY_ORDER:
@@ -828,6 +829,7 @@ def new_task(
         "status": status if status in STATUSES else "todo",
         "deps": one_line(deps),
         "feature": one_line(feature),
+        "files": one_line(files),
         "shared": one_line(shared),
         "tags": one_line(tags),
         "mandate": mandate if mandate in MANDATES else "explicit",
@@ -884,6 +886,7 @@ TASK_META_FIELDS = (
     "status",
     "deps",
     "feature",
+    "files",
     "shared",
     "tags",
     "mandate",
@@ -987,6 +990,8 @@ def render_tasks(tasks: list, owner: str, path: Path | None = None) -> str:
         ]
         if t.get("feature"):
             meta.append(("feature", t["feature"]))
+        if t.get("files"):
+            meta.append(("files", t["files"]))
         meta += [
             ("shared", t["shared"]),
             ("tags", t["tags"]),
