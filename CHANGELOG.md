@@ -9,6 +9,88 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.12] - 2026-11-16
+
+### Added
+
+- **The agent-state widget is redesigned against a frozen spec** - `Design.md` 10
+  (10.1-10.9) pins the row template, the glyph language, the overflow policy and
+  the line budget, and `extensions/teamwork-status.ts` renders it: a header that
+  carries only a `live` count and a `review` count, two clocks per row, a `stalled`
+  state, activity capped at 28 columns, and no bar, no percentage and no idle line.
+  `status --json` gains schema 5 (`clocks`, `stalled`) and derives `staffed` from
+  the roster instead of printing the historical `activated` total as a count.
+- **`lane status` and `status --json` are read-only over the roster** - a finished
+  seat is folded at `swarm run`, `pulse --commit` and `lane reap` only (move-only to
+  `Runtime/Retired/`, the CEO is never folded), so a status read can no longer
+  retire the instance that asked.
+- **`pr merge --base <branch>` re-points a base whose branch was deleted** - the
+  repair is refused while the recorded base is still a live branch, is recorded as
+  one `pr.base.repoint` ledger event, and keeps the approved status.
+
+### Changed
+
+- **The board gate compares against the branch point** - `board.problems()` reports
+  a row the revision changed and a row the revision left alone separately, so a
+  queue that moved under a parallel lane is no longer a false red on an unrelated
+  branch.
+- **`check_release_consistency.py` R9 reads the generated In-flight table as a
+  plan, not as a claim** - a release task titled after the tag it will create is no
+  longer a drift finding, while the same token anywhere else in the tree still is.
+- **The pi package ships one skill** - `templates/pi-package/skills/teamwork-pi/`
+  is deleted; `references/Adapters.md` carries the packet shape a bounded lane
+  reads instead.
+
+### Fixed
+
+- **The privacy scan reads the run modes it is given** - `scripts/privacy_scan.py`
+  `summary_scope` takes the mode list and names the head revision, so the CI
+  summary reports the scan that actually ran.
+- **The integration shard matrix names the current test path** -
+  `.github/workflows/ci.yml` listed `tests/integration/test_ui_width_matrix.py`
+  after the file became `test_agent_state_width_matrix.py`, so the shard collected
+  nothing.
+
+## [1.5.11] - 2026-11-16
+
+### Added
+
+- **The intake researches the prompt, enhances it, and asks instead of guessing** -
+  three new commands. `prompt record` keeps the user's prompt verbatim, one entry
+  per research round with its evidence, and the **enhanced prompt** the plan
+  decomposes; `ask add` records an ambiguity with 2-5 concrete options and the
+  team's recommendation, and `ask answer` records the user's choice. `loop`
+  reports CONTINUE while a blocking question is open or while criteria exist with
+  no enhanced prompt, so a silent guess cannot be reported as done.
+- **`teamwork star` stars Nidvue/Teamwork once at bootstrap** - `init` checks for
+  authenticated GitHub access (`gh api user`), stars the repository when it is not
+  already starred, and records the decision in `Runtime/Starred.json` so a second
+  run is a no-op. A host without GitHub access is skipped, never failed;
+  `--no-star` opts out.
+
+### Fixed
+
+- **A merge on the default branch is committed by the Reviewer role mailbox** -
+  the v1.5.10 tag run failed the committer guard because `_merge_commit_env` pinned
+  only `-c user.name`, which loses to the repository's configured pair, so the
+  merge commit landed with the operator's personal email as committer. The env now
+  sets `TEAMWORK_COMMIT_IDENTITY=role` alongside the pinned identity, so a local
+  merge writes the Reviewer mailbox and the guard reads a role pair. The fix is a
+  forward change on top of v1.5.10: published history is protected and is not
+  rewritten, so the next tag carries the corrected behaviour.
+
+## [1.5.10] - 2026-11-16
+
+### Fixed
+
+- **The tree moves to 1.5.10 after the v1.5.9 tag** - the closing audit manifest
+  (P-0212) landed after the release tag without a version bump, so `R2` reported
+  `DRIFT` (HEAD's version 1.5.9 is not greater than tag v1.5.9) and two tests
+  failed on `main`: the release-traceability gate and the traceability matrix,
+  which ran the release-consistency check and found `AC-20` claimed green while
+  the command exited 1. `version.py` and `CITATION.cff` now read 1.5.10, which
+  restores `R2` and certifies the matrix row without weakening either check.
+
 ## [1.5.9] - 2026-11-15
 
 ### Changed
