@@ -1,7 +1,7 @@
 # M26 code audit - src/teamwork + scripts
 
 Owner: Developer (lane `Developer`, task T-0078)
-Related: [the board](../Board.md), [the architecture](../Architecture.md), [the writing standard](../../../AGENTS.md)
+Related: the board (Board.md), the architecture (Architecture.md) and the writing standard (AGENTS.md), named here rather than linked: all three are other roles' documents, none links back to this record, and a one-way markdown edge fails `teamwork links` - the precedent is docs/Team/Reviews/T-0007-Design-10-round2.md, which states its missing back-link the same way.
 
 Revision audited: `d6ab6d23` (`main`), worktree `Runtime/Worktrees/Developer/T-0078`.
 Scope: `src/teamwork/*.py` (32 modules, 34,734 lines), `scripts/*.py` (10 files).
