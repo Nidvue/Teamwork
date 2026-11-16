@@ -197,7 +197,8 @@ under two roles is two tasks.
 | developer | T-0071 | pr-merge | done | P-0093 | 66f2a703 |
 | developer | T-0072 | records | done | P-0094 | 5267f8ea |
 | developer | T-0073 | pi-package | done | P-0095 | ad86404b |
-| developer | T-0074 | - | todo | - | - |
+| developer | T-0074 | status | done | P-0097 | cd28c50c |
+| developer | T-0075 | - | todo | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | blocked | - | - |
 | reviewer | T-0001 | - | done | - | - |
@@ -214,6 +215,7 @@ under two roles is two tasks.
 | tester | T-0004 | tests | done | P-0066 | 66d55cd |
 | tester | T-0005 | - | done | P-0081 | cc343480 |
 | tester | T-0006 | ci-shard-matrix | done | P-0092 | 23aa21e4 |
+| tester | T-0007 | ui-agent-state | review | P-0098 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -231,8 +233,9 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0074 · renderer v4: no bar, no percent, 28-column activity that never pads + the engine folds a finished seat and counts current seats | P0 | todo | - |
+| developer | T-0075 · renderer v4 fails ACTIVITY-CAP at e34b474c: text(row.activity, ACTIVITY_MAX=28) truncates mid-word before fitActivity/clipWords runs, so the cell reads "alpha bravo charlie delta e…" instead of clipping at a space; the red check and its branch are tests/integration/test_agent_state_round3.py on tester/t-0007 @ac69b217 | P0 | todo | - |
 | release-engineer | T-0002 · release 1.5.9: create and push the 1.5.9 tag, then certify the release workflow published npm, PyPI and the GitHub release | P0 | blocked | - |
+| tester | T-0007 · agent-state ui layer round 3: prove no bar, no percentage, a capped unpadded activity, and that a finished seat is folded and counted as current | P1 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
