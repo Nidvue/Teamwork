@@ -284,7 +284,7 @@ Manage a role's shared priority queue.
 ```text
 teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
     [--status {todo,doing,blocked}] [--deps DEPS] [--feature F-0001]
-    [--shared SHARED] [--review-profile {fast,standard,deep}]
+    [--files PATHS] [--shared SHARED] [--review-profile {fast,standard,deep}]
     [--tags TAGS] [--body BODY] [--bug] [--evidence EVIDENCE]
     [--claimed-by CLAIMED_BY] [--no-review]
 ```
@@ -299,6 +299,7 @@ teamwork task add AGENT TITLE [--priority {P0,P1,P2,P3}]
 | `--bug` | A defect fix: its self-check is refused until a `tests repro` record proves the defect. |
 | `--no-review` | Mark a chore that does not need Reviewer sign-off. |
 | `--feature` | Slice the task to a `ready` or `active` feature (`F-0001`); the record is written as `- feature: F-0001` after `- deps:`, and a queue written without the flag is byte-identical to before the field existed. A `proposed` feature is not frozen yet and a `done`/`dropped` one takes no work, so both are refused (`2`). Only that feature's own squad may claim the task - see [`feature`](cli-workflow.md#feature). |
+| `--files` | Declare the files this task owns, comma-separated (`src/a.py,src/b.py` or a directory prefix `docs/Team/`). The lane packet prints them under **Files you own**, and `preflight` adds a `files` check that warns when the branch touches any other path. A warning, never a failure: a genuine cross-file fix declares the extra path with `task set --files` and names it in the self-check note. A task with no `--files` skips the check, so an undeclared task keeps its old check count. |
 
 New tasks cannot start as `review` or `done`; the gates own those states.
 
@@ -349,7 +350,7 @@ teamwork: Developer-2 (developer) has no executable task of its own team
 ```text
 teamwork task set AGENT HANDLE [--claimed-by CLAIMED_BY]
     [--status {todo,doing,selfcheck,review,blocked,done,dropped}]
-    [--priority {P0,P1,P2,P3}] [--deps DEPS] [--title TITLE]
+    [--priority {P0,P1,P2,P3}] [--deps DEPS] [--title TITLE] [--files PATHS]
     [--evidence EVIDENCE] [--authorize WHY [--by INSTANCE]] [--force REASON]
 ```
 
@@ -362,6 +363,11 @@ workflow that fires on merge, a release exception, a deleted file). Only the CEO
 may record it, because the CEO is the only role that takes an irreversible action;
 the reason and the actor are stored on the task as `undo_authorized` and appended
 to the ledger. `--by` names the CEO when the task belongs to another role.
+
+`--files PATHS` declares or repairs the files the task owns (comma-separated);
+`preflight` then warns when the branch touches any other path. It is the same
+field `task add --files` writes, so a task that grows a second file mid-flight
+declares it here instead of failing review on a surprise.
 
 #### `task check`
 
