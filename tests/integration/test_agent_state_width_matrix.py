@@ -56,7 +56,7 @@ def node() -> str:
 def draw(payload: dict, width: int) -> list[str]:
     env = {
         **os.environ,
-        "TW_EXTENSION": str(EXTENSION),
+        "TW_EXTENSION": EXTENSION.as_uri(),
         "TW_PAYLOAD": json.dumps(payload),
         "TW_WIDTH": str(width),
     }
