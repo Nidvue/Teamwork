@@ -1764,3 +1764,58 @@ def test_a_credential_in_an_old_archive_render_survives_the_memo(tmp_path: Path)
 
     assert findings, "a credential in one historical render must still be reported"
     assert planted in {f.raw for f in findings}
+
+
+def _summary_line(out: str) -> str:
+    lines = [ln for ln in out.splitlines() if ln.startswith("privacy_scan: PASS")]
+    lines += [ln for ln in out.splitlines() if ln.startswith("privacy_scan: FAIL")]
+    assert len(lines) == 1, f"exactly one summary line expected, got {lines!r}"
+    return lines[0]
+
+
+def test_the_summary_names_the_allowlist_that_was_applied(tmp_path: Path, capsys) -> None:
+    """M26 S-4: FAIL read identically with and without ``--allow``.
+
+    The red gate was misread as a leak because the one-line summary never said
+    whether an allowlist had been applied. Both arms must state it.
+    """
+    repo, _planted = _repo_with_planted_credential(tmp_path)
+    allow = tmp_path / "allow.txt"
+    allow.write_text("^no-such-value-here$\n", encoding="utf-8")
+    capsys.readouterr()
+
+    assert ps.main(["--tree", "--root", str(repo), "--quiet"]) == 1
+    without = _summary_line(capsys.readouterr().out)
+    assert without.startswith("privacy_scan: FAIL - ") and "in tree" in without
+    assert "allow=none" in without, "a FAIL without an allowlist must say allow=none"
+
+    assert ps.main(["--tree", "--root", str(repo), "--quiet", "--allow", str(allow)]) == 1
+    with_allow = _summary_line(capsys.readouterr().out)
+    assert with_allow.startswith("privacy_scan: FAIL - ") and "in tree" in with_allow
+    assert f"allow={allow}" in with_allow, "a FAIL with an allowlist must name it"
+    assert with_allow != without
+
+    allow.write_text("^ghp_[0-9a-z]+$\n", encoding="utf-8")
+    assert ps.main(["--tree", "--root", str(repo), "--quiet", "--allow", str(allow)]) == 0
+    passing = _summary_line(capsys.readouterr().out)
+    assert passing.startswith("privacy_scan: PASS - 0 finding(s) in tree")
+    assert f"allow={allow}" in passing, "a PASS must state the allowlist too"
+
+
+def test_the_summary_states_the_history_scope_and_ref_count(tmp_path: Path, capsys) -> None:
+    """M26 S-3: the same revision got a different verdict per checkout.
+
+    The history scope is ``--all --reflog``, so a local backup ref makes commits
+    appear that a fresh CI clone never sees. A PASS must state what it covered.
+    """
+    repo, _planted = _repo_with_planted_credential(tmp_path)
+    capsys.readouterr()
+
+    assert ps.main(["--tree", "--root", str(repo), "--quiet"]) == 1
+    head = _summary_line(capsys.readouterr().out)
+    assert "scope=head" in head, "a tree-only run covers the checkout, not the history"
+    assert "refs=" not in head
+
+    assert ps.main(["--tree", "--history", "--root", str(repo), "--quiet"]) == 1
+    history = _summary_line(capsys.readouterr().out)
+    assert "refs=1 scope=all+reflog" in history, "a fresh repo has exactly one ref"
