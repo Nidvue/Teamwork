@@ -6,6 +6,6 @@ that importing ``teamwork`` stays cheap.
 
 from __future__ import annotations
 
-__version__ = "1.5.10"
+__version__ = "1.5.11"
 
 DIST_NAME = "teamwork-agents"
