@@ -2897,3 +2897,19 @@ worktree until the slot expires - the safe direction to fail.
 - evidence: git rev-list --count origin/main..main @fdf2ef75 -> 28; git ls-remote --tags origin -> newest v1.5.6; src/teamwork/version.py -> 1.5.9; python3 scripts/check_release_consistency.py --offline @fdf2ef75 -> R1..R10 ok/SKIP, # release consistency: 0 problem(s); CHANGELOG.md 1.5.9 documents only the seven-field commit style
 - falsified by: if release.yml publishes from a revision that never passed CI, or if a registry already carries 1.5.9, the release is a duplicate and must stop before the tag
 - consequences: -
+
+## D-20261116-CEO - Publish v1.5.11 and backfill the missing v1.5.10 GitHub Release
+
+- date: 2026-11-16
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: authorized by the user instruction: commit, push and publish a new release accordingly
+- options considered: -
+- decision: Ship v1.5.11 (intake gates: prompt record, ask with options, star-once) and backfill the v1.5.10 GitHub Release that its own failed Release run never created
+- why: The user asked to commit, push and publish a release. R5 requires every tag to have a GitHub Release; v1.5.10 was tagged but its Release job failed at the gate, so it had none and the v1.5.11 gate reported drift on it. The tag is public and protected, so the honest repair is to create the missing Release, never to move or delete the tag
+- evidence: gh release create v1.5.10 --verify-tag -> releases/tag/v1.5.10; gh workflow run release.yml -f tag=v1.5.11 -> run 43925639545 success (gate, build, provenance, npm); npm view @nidvue/teamwork version -> 1.5.11; gh release create v1.5.11 with wheel, sdist, SHA256SUMS, both SBOMs -> 5 assets; check_release_consistency.py --online -> 0 problems
+- falsified by: if a later --online gate run reports an R5 drift, the backfill did not cover the tag set
+- consequences: -
