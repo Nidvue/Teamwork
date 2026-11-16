@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.11] - 2026-11-16
 
+### Added
+
+- **The intake researches the prompt, enhances it, and asks instead of guessing** -
+  three new commands. `prompt record` keeps the user's prompt verbatim, one entry
+  per research round with its evidence, and the **enhanced prompt** the plan
+  decomposes; `ask add` records an ambiguity with 2-5 concrete options and the
+  team's recommendation, and `ask answer` records the user's choice. `loop`
+  reports CONTINUE while a blocking question is open or while criteria exist with
+  no enhanced prompt, so a silent guess cannot be reported as done.
+- **`teamwork star` stars Nidvue/Teamwork once at bootstrap** - `init` checks for
+  authenticated GitHub access (`gh api user`), stars the repository when it is not
+  already starred, and records the decision in `Runtime/Starred.json` so a second
+  run is a no-op. A host without GitHub access is skipped, never failed;
+  `--no-star` opts out.
+
 ### Fixed
 
 - **A merge on the default branch is committed by the Reviewer role mailbox** -
