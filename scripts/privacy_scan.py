@@ -1323,16 +1323,21 @@ def history_ref_count(root) -> int:
     return len([ln for ln in proc.stdout.decode("utf-8", "replace").splitlines() if ln.strip()])
 
 
-def summary_scope(root, history: bool) -> str:
-    """The revision scope a run covered.
+_SCOPE_BY_MODE = {"tree": "head", "staged": "index", "stores": "stores"}
+
+
+def summary_scope(root, modes) -> str:
+    """The revision scope a run covered, named per mode that read one.
 
     The same revision gets a different history verdict per checkout: ``--all
     --reflog`` sees a local backup ref that a fresh CI clone never has. A PASS
-    therefore states the ref set and the scope it read.
+    therefore states the ref set and the scope it read. ``--staged`` reads the
+    index and ``--stores`` reads no revision at all, so neither may report head.
     """
-    if history:
+    if "history" in modes:
         return f"refs={history_ref_count(root)} scope=all+reflog"
-    return "scope=head"
+    read = [_SCOPE_BY_MODE[mode] for mode in modes if mode in _SCOPE_BY_MODE]
+    return f"scope={'+'.join(read)}"
 
 
 def summary_allow(explicit) -> str:
@@ -1490,7 +1495,7 @@ def main(argv=None):
         state = "FAIL" if findings else "PASS"
         print(
             f"privacy_scan: {state} - {len(findings)} finding(s) in {', '.join(modes)}; "
-            f"allow={summary_allow(args.allow)} {summary_scope(root, args.history)}"
+            f"allow={summary_allow(args.allow)} {summary_scope(root, modes)}"
         )
     return 1 if findings else 0
 

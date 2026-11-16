@@ -1816,6 +1816,15 @@ def test_the_summary_states_the_history_scope_and_ref_count(tmp_path: Path, caps
     assert "scope=head" in head, "a tree-only run covers the checkout, not the history"
     assert "refs=" not in head
 
+    import subprocess
+
+    (repo / "staged_only.py").write_text(f'TOKEN = "{_planted}"\n', encoding="utf-8")
+    subprocess.run(("git", "add", "staged_only.py"), cwd=repo, check=True, capture_output=True)
+    assert ps.main(["--staged", "--root", str(repo), "--quiet"]) == 1
+    staged = _summary_line(capsys.readouterr().out)
+    assert "scope=index" in staged, "a --staged run reads the index, not HEAD"
+    assert "scope=head" not in staged
+
     assert ps.main(["--tree", "--history", "--root", str(repo), "--quiet"]) == 1
     history = _summary_line(capsys.readouterr().out)
     assert "refs=1 scope=all+reflog" in history, "a fresh repo has exactly one ref"
