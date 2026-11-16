@@ -24,7 +24,7 @@ const DROP_LEFT_BELOW = 48;
 const BARE_BELOW = 32;
 const ENGINE = ["scripts", "teamwork.py"];
 
-const GLYPH = { busy: "●", stalled: "⚠", lane: "⚙", idle: "○", review: "↳", half: "◐", run: "▶", pause: "⏸", fail: "✕" };
+const GLYPH = { busy: "●", stalled: "⚠", lane: "⚙", review: "↳", half: "◐", run: "▶", pause: "⏸", fail: "✕" };
 
 const LANE_STATE: Record<string, [string, string, string]> = {
   starting: [GLYPH.run, "run", "ok"],
@@ -343,7 +343,6 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
   const rows: Row[] = instances.map(rowFrom);
   rows.sort((a, b) => a.instance.localeCompare(b.instance));
   const drawable = rows.filter((row) => row.state !== "idle");
-  const idle = rows.length - drawable.length;
   const named = new Set(rows.map((row) => row.instance));
   const live = lanes.filter((lane) => lane.state === "starting" || lane.state === "running");
   const laneOnly = live.filter((lane) => !named.has((lane.instance ?? "").trim() || "-"));
@@ -355,8 +354,7 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
   if (stalledCount) header.push(`${stalledCount} stalled`);
   if (liveCount) header.push(`${liveCount} live`);
   if (reviewCount) header.push(`${reviewCount} review`);
-  const idleLine = idle ? 1 : 0;
-  const cap = BUDGET - 1 - idleLine;
+  const cap = BUDGET - 1;
   let room = Math.min(drawable.length, Math.max(0, cap));
   if (room < drawable.length) room = Math.max(0, cap - 1);
   const layout = layoutFor(drawable, bound);
@@ -368,7 +366,6 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
   const lines = [text(`teamwork · ${header.join(" · ")}`, bound)];
   lines.push(...drawn);
   if (hidden > 0) lines.push(`+${hidden} more busy`);
-  if (idle) lines.push(text(`${GLYPH.idle} idle: ${idle}`, bound));
   const laneRoom = hidden > 0 ? 0 : Math.min(LANE_MAX, BUDGET - lines.length);
   for (const lane of laneOnly.slice(0, Math.max(0, laneRoom))) {
     const line = laneLine(lane, bound, paint);

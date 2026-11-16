@@ -1076,9 +1076,18 @@ def refresh(root: Path, run: dict) -> dict:
     return run
 
 
-def settle(root: Path) -> list:
-    """Reconcile every live record. Cheap enough to call before each wave."""
-    return [refresh(root, run) for run in load_runs(root)]
+def settle(root: Path, fold: bool = False) -> list:
+    """Reconcile every live record. Cheap enough to call before each wave.
+
+    ``fold`` is opt-in: only a reconciling command (a swarm wave, `lane status`)
+    may move a finished seat, so `status --json` and `status_snapshot` stay read-only.
+    """
+    runs = [refresh(root, run) for run in load_runs(root)]
+    if fold:
+        from . import engine
+
+        engine.fold_finished_seats(root)
+    return runs
 
 
 def wait_any(root: Path, live: list, poll: float, deadline: float) -> bool:
@@ -1688,7 +1697,7 @@ def cmd_lane(args) -> int:
         if args.handle:
             runs = [refresh(root, find_run(root, args.handle))]
         else:
-            runs = settle(root)
+            runs = settle(root, fold=True)
         if args.live:
             runs = [run for run in runs if run.get("state") in LIVE]
         print(f"# Lane status ({len(runs)})")
@@ -2049,7 +2058,7 @@ def cmd_swarm(args) -> int:
             break
         if args.waves and wave >= args.waves:
             break
-        settle(root)
+        settle(root, fold=True)
         preempt_urgent(root, actor)
         busy_now = {
             pascal(str(run.get("agent") or ""))

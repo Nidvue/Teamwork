@@ -306,7 +306,7 @@ def test_colour_is_redundant_with_the_glyph_and_the_word() -> None:
     assert any("\x1b[" in line for line in painted), "the renderer must colour the glyphs"
     assert [ANSI.sub("", line) for line in painted] == plain
     words = " ".join(plain)
-    for word in ("run", "idle", "T-0070", "●"):
+    for word in ("run", "T-0070", "●"):
         assert word in words, words
 
 
@@ -426,7 +426,7 @@ def test_a_stalled_seat_is_drawn_as_stalled_and_never_as_busy() -> None:
     assert "stalled" not in busy[0], busy[0]
 
 
-def test_one_line_per_agent_and_an_idle_seat_is_a_count() -> None:
+def test_one_line_per_agent_and_no_idle_line() -> None:
     rows = [busy_row(f"Developer-{n}") for n in range(1, 5)]
     rows.append(stalled_row("Tester"))
     rows.append(
@@ -449,7 +449,8 @@ def test_one_line_per_agent_and_an_idle_seat_is_a_count() -> None:
     names = [line.split()[1] for line in body]
     assert len(set(names)) == 5, names
     assert not [line for line in body if "IdleSeat" in line], "an idle seat is a count, not a row"
-    assert lines[-1] == "○ idle: 1", lines
+    assert not [line for line in lines if "idle" in line], lines
+    assert len(lines) == 6, lines
 
 
 def test_the_line_budget_and_the_hidden_count_stay_exact() -> None:

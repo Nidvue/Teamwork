@@ -695,17 +695,17 @@ Total `<= 12` lines.
 | # | block | lines | rule |
 |---|---|---|---|
 | 1 | header | 1 | always |
-| 2 | busy rows | `k` | `k = min(busy + stalled, 12 - 1 - 1(overflow if hidden > 0) - 1(idle if any) - lane_lines)`; 10.8 puts the stalled rows in the drawn set |
+| 2 | busy rows | `k` | `k = min(busy + stalled, 12 - 1 - 1(overflow if hidden > 0) - lane_lines)`; 10.8 puts the stalled rows in the drawn set |
 | 3 | `+N more busy` | 0-1 | only when `hidden > 0`; `N = busy - shown`, exact; reserved width, never clipped, and never itself counted as a row |
-| 4 | idle aggregate | 0-1 | only when an idle seat exists **and** room remains |
+| 4 | idle aggregate | 0 | deleted: a reconciled roster has no idle seat to count, so the widget draws no idle line |
 | 5 | lane-only lines | 0-3 | drawn only from the room left after rows + overflow + idle; first to yield |
 | | total widget | `<= 12` | footer excluded |
 | | footer status line | 1 | separate surface, always |
 
 **Order, which is the whole of D-9.** Space for the overflow line is subtracted
 **before** any row is dropped, so a dropped seat always leaves a visible `+N`.
-The overflow line is emitted after the rows and before the idle aggregate: it is
-the last row-bearing line, and only the idle aggregate may follow it. Lane lines
+The overflow line is emitted after the rows: it is
+the last row-bearing line, and no row line follows it. Lane lines
 are drawn **last**, from what is left - the shipped renderer draws them first
 (`extensions/teamwork-status.ts:196`) and that is D-10.
 
@@ -939,7 +939,7 @@ left: `1+1+15+1+7+1+5+1+1+5+1 = 39`; the model tail adds `1+20 = 21`; 10.8's bar
 | D-17 | a percentage still reaches the surface through the payload: `"progress": "attempt 1/2, 2% of 10m"` | `status --json`, 2026-11-16T01:33:46 | `progress` is not drawn; `%` never appears |
 | D-18 | the activity is clipped at 240 and its cell is padded to the free room, so the model is pushed to the right edge and every row is full width | `ACTIVITY_MAX = 240` `:15`, `:274`, `cell.padEnd(room)` `:339`, `trimEnd()` after the tail `:341` | cap 28, clip at a word boundary, no pad |
 | D-19 | `counts.activated` is history and reads 14 against 1 busy and 6 idle | `activated?: number` `:90`; `status --json`, same stamp | not a roster count; no surface prints it as one |
-| D-20 | the idle aggregate is drawn whenever any seat is idle, finished or not | `if (idle) lines.push(...)` `:396` | drawn only for a seat genuinely idle after a reconcile |
+| D-20 | the idle aggregate is drawn whenever any seat is idle, finished or not | `if (idle) lines.push(...)` `:396` | deleted - the widget never prints an idle count because a reconciled roster has none; the panel's `- idle: N seat(s)` line keeps its place as the CLI report |
 
 **Header and counts.** Shape unchanged, zeros omitted:
 `teamwork · <busy> busy · <stalled> stalled · <live> live · <review> review`
