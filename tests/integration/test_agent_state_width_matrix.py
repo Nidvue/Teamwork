@@ -31,10 +31,10 @@ ANSI = re.compile(r"\x1b\[[0-9;]*m")
 WIDTHS = (40, 80, 120)
 
 SCRIPT = """
-const { render, footer } = await import(process.env.TW_EXTENSION);
+const { render } = await import(process.env.TW_EXTENSION);
 const payload = JSON.parse(process.env.TW_PAYLOAD);
 const lines = render(payload, Number(process.env.TW_WIDTH));
-console.log(JSON.stringify({ lines, footer: footer(payload) }));
+console.log(JSON.stringify({ lines }));
 """
 
 
