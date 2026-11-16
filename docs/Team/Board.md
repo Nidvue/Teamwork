@@ -201,10 +201,11 @@ under two roles is two tasks.
 | developer | T-0075 | - | dropped | - | - |
 | developer | T-0076 | widget | done | P-0099 | 926ec94c |
 | developer | T-0077 | - | dropped | - | - |
-| developer | T-0078 | audit | doing | P-0100 | - |
-| developer | T-0079 | release-gate | doing | P-0104 | - |
-| developer | T-0080 | privacy-scan | review | P-0105 | - |
+| developer | T-0078 | audit | review | P-0100 | - |
+| developer | T-0079 | exit-codes | doing | P-0104 | - |
+| developer | T-0080 | privacy-scan | done | P-0105 | ebcff866 |
 | developer | T-0081 | widget-header | done | P-0106 | 262be1e3 |
+| developer | T-0082 | - | todo | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | done | - | - |
@@ -216,7 +217,7 @@ under two roles is two tasks.
 | reviewer | T-0006 | - | done | - | - |
 | reviewer | T-0007 | status | done | P-0090 | edc00c18 |
 | security-auditor | T-0001 | security-audit | done | P-0102 | a9b0ef95 |
-| technical-writer | T-0001 | docs-audit | doing | P-0101 | - |
+| technical-writer | T-0001 | docs-audit | review | P-0101 | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
@@ -225,7 +226,7 @@ under two roles is two tasks.
 | tester | T-0005 | - | done | P-0081 | cc343480 |
 | tester | T-0006 | ci-shard-matrix | done | P-0092 | 23aa21e4 |
 | tester | T-0007 | ui-agent-state | done | P-0098 | 7284ad6b |
-| tester | T-0008 | tests | doing | P-0103 | - |
+| tester | T-0008 | tests | review | P-0103 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -243,11 +244,11 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0078 · M26 code audit: real defects, broken invariants, dead code, portability and hot-path cost in src/teamwork + scripts; ranked with a reproduction each; no fixes | P0 | doing | - |
+| developer | T-0078 · M26 code audit: real defects, broken invariants, dead code, portability and hot-path cost in src/teamwork + scripts; ranked with a reproduction each; no fixes | P0 | review | - |
 | developer | T-0079 · release blockers: 7 failing tests, board drift, the 1.6.0 version bump and R2, plus the code audit's F-1 exit-code defect | P0 | doing | - |
-| developer | T-0080 · M26 security S-1 path traversal on instance add --name (high) + S-4 allow= and S-3 refs= in the gate summary, each with a failing-first test | P0 | review | - |
-| technical-writer | T-0001 · M26 docs audit: false claims proved by command, version drift, the install story, duplication, stale team records; ranked; no edits | P0 | doing | - |
-| tester | T-0008 · M26 test audit: vacuous tests proved by mutation, missing coverage on critical paths, cross-platform hazards, hermeticity, flake; ranked; no fixes | P0 | doing | - |
+| developer | T-0082 · status shows another role's task title: status_snapshot builds titles keyed by task id only, so every role's T-0001 collides | P2 | todo | - |
+| technical-writer | T-0001 · M26 docs audit: false claims proved by command, version drift, the install story, duplication, stale team records; ranked; no edits | P0 | review | - |
+| tester | T-0008 · M26 test audit: vacuous tests proved by mutation, missing coverage on critical paths, cross-platform hazards, hermeticity, flake; ranked; no fixes | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
