@@ -31,9 +31,11 @@ anything the user did not ask for is marked `added:` so it can be rejected.
    -> `## Brief` -> `### Original prompt (verbatim)`. No cleaning, no
    translation, no summarising, no "improved" wording. Keep the whole text,
    including the parts that look like chatter: constraints hide there.
-2. **Research the intention in parallel.** Five probes, independent, each with
-   its own evidence. The first three are minutes of reading; the fourth is the
-   one that needs sources.
+2. **Research the intention in parallel - one or more rounds.** Five probes,
+   independent, each with its own evidence. The first three are minutes of
+   reading; the fourth is the one that needs sources. Run a **second round** when
+   the first leaves a fact unresolved, a term contested, or a choice only the
+   user can make; record each round with its evidence (`prompt record --round`).
    - **Ask** - map every verb and noun in the prompt to a deliverable or a
      constraint. Anything that maps to nothing is a question or a non-goal.
    - **Why** - the job behind the request: what the user does today, what hurts,
@@ -51,16 +53,26 @@ anything the user did not ask for is marked `added:` so it can be rejected.
      satisfies every word and misses the point. Then name the criterion that
      catches it. This probe is what turns a brief from a restatement into a
      defence.
-3. **Rewrite the brief.** The ten parts below, in order, in
-   `docs/Team/Project.md` -> `## Brief` -> `### Rewritten brief`. Each part is
-   one fact per line, a table where a table is shorter, and no prose that the
-   part above already carries.
-4. **Freeze.** The acceptance criteria become machine records
+3. **Enhance the prompt, then rewrite the brief.** First improve the user's own
+   request with the detail the research found - same intent, precisely stated,
+   every addition marked `added:` - and record it with
+   `prompt record --original ... --round ... --enhanced ...`. The first
+   acceptance criterion is refused until that record exists. Then write the ten
+   parts below, in order, in `docs/Team/Project.md` -> `## Brief` ->
+   `### Rewritten brief`. Each part is one fact per line, a table where a table
+   is shorter, and no prose that the part above already carries.
+4. **Ask, do not guess.** Every ambiguity that changes what gets built becomes a
+   recorded question with 2-5 concrete options and a recommendation:
+   `ask add --question '<it>' --option '<a>' --option '<b>' --recommend 1`. A
+   blocking question holds `loop` at CONTINUE until a person answers it. Grilling
+   the user once is cheaper than a lane building the wrong reading; a silent
+   guess is the failure this skill exists to prevent.
+5. **Freeze.** The acceptance criteria become machine records
    (`criteria add --id AC-1 --text '<verifiable statement>' --owner <role>`), the
    interfaces become the frozen contracts in `Architecture.md`, and the proposed
    lanes become the task graph in `Plan.md`. Nothing dispatches before this
    freeze: a lane that starts on a moving interface re-does its work.
-5. **Independent read.** The brief is a deliverable like any other: an
+6. **Independent read.** The brief is a deliverable like any other: an
    independent role - the Product Manager when staffed, otherwise the Reviewer -
    reads the original prompt and the brief and answers four questions. Is any
    intention lost? Is anything invented that the user did not ask for? Is every

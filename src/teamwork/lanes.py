@@ -540,6 +540,16 @@ def _assignment_lines(assignments: list) -> list:
     return lines
 
 
+def _owned_files(root: Path, role: str, task: str) -> list:
+    """The paths this task declared it owns, or nothing when it declared none."""
+    tasks = parse_tasks(task_file(root, role))
+    index = find_task(tasks, task)
+    if index is None:
+        return []
+    declared = str(tasks[index].get("files") or "")
+    return [item.strip() for item in declared.split(",") if item.strip()]
+
+
 OPEN_LESSON_LINES = 8
 
 SCOPE_RE = re.compile(r"scope:\s*([^|]+)", re.IGNORECASE)
@@ -681,6 +691,18 @@ def build_packet(
             "",
         ]
     else:
+        owned = _owned_files(root, role, task)
+        if owned:
+            out += [
+                "## Files you own (do not touch any other)",
+                "```text",
+                *[f"- {path}" for path in owned],
+                "```",
+                "Two lanes editing one file is the collision this brief exists to stop.",
+                "A path outside this list makes preflight warn: declare it with",
+                "`tw task set --files '<a,b>'` or leave it for its owner.",
+                "",
+            ]
         out += [
             "## Produce",
             "```sh",
@@ -1079,8 +1101,9 @@ def refresh(root: Path, run: dict) -> dict:
 def settle(root: Path, fold: bool = False) -> list:
     """Reconcile every live record. Cheap enough to call before each wave.
 
-    ``fold`` is opt-in: only a reconciling command (a swarm wave, `lane status`)
-    may move a finished seat, so `status --json` and `status_snapshot` stay read-only.
+    ``fold`` is opt-in: only a command that already moves seats (a swarm wave,
+    `lane reap`) may fold a finished one, so `status`, `status --json`,
+    `status_snapshot` and `lane status` stay read-only (Design.md 10.9).
     """
     runs = [refresh(root, run) for run in load_runs(root)]
     if fold:
@@ -1697,7 +1720,7 @@ def cmd_lane(args) -> int:
         if args.handle:
             runs = [refresh(root, find_run(root, args.handle))]
         else:
-            runs = settle(root, fold=True)
+            runs = settle(root)
         if args.live:
             runs = [run for run in runs if run.get("state") in LIVE]
         print(f"# Lane status ({len(runs)})")
