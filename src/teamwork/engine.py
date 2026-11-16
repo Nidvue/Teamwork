@@ -276,6 +276,7 @@ from .names import (
     clip,
     commit_identity,
     declared_identity,
+    forge_identity,
     git_identity_args,
     git_identity_env,
     identity_string,
@@ -5822,8 +5823,17 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
         elif not is_operator and not _matches_role_display(an, expected):
             reasons.append(f"display name {an!r} does not match role {expected!r}")
         forge_committer = expected is not None and _RE_FORGE_COMMITTER_EMAIL.match(ce) is not None
+        account = forge_identity(project)
+        host_stamped = (
+            expected is not None and account is not None and (ce, cn) == (account[1], account[0])
+        )
         landing_role = canonical.get(ce) if ce in canonical and (ce != ae or cn != an) else None
-        if (ce != ae or cn != an) and not forge_committer and landing_role is None:
+        if (
+            (ce != ae or cn != an)
+            and not forge_committer
+            and not host_stamped
+            and landing_role is None
+        ):
             reasons.append(f"committer {cn} <{ce}> differs from author {an} <{ae}>")
         match = _RE_ACTING_ROLE.search(body)
         if not match:

@@ -204,6 +204,40 @@ def malformed_mailbox(email: str) -> bool:
     return _RE_MAILBOX_SHAPE.match((email or "").strip()) is None
 
 
+FORGE_NAME_KEY = "teamwork.forge.name"
+FORGE_EMAIL_KEY = "teamwork.forge.email"
+
+
+def forge_identity(project=None) -> tuple | None:
+    """The forge account a host-side merge stamps as *committer*, else None.
+
+    GitHub's rebase and squash buttons write the signed-in account into the commit
+    they create. That is transport, not authorship: the author is still the acting
+    role's mailbox, and the account cannot be a role mailbox or the repository would
+    never have needed the rule. Recorded once per repository
+    (``teamwork.forge.name`` / ``teamwork.forge.email``) because it is not derivable
+    locally - the account's primary address is not the machine's git identity.
+    """
+    import subprocess
+
+    def read(scope: str, key: str) -> str:
+        try:
+            return subprocess.run(
+                ["git", "config", scope, key],
+                cwd=str(project) if project else None,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        except OSError:
+            return ""
+
+    name = read("--local", FORGE_NAME_KEY) or read("--global", FORGE_NAME_KEY)
+    email = read("--local", FORGE_EMAIL_KEY) or read("--global", FORGE_EMAIL_KEY)
+    if not (name and email) or email.lower().endswith("@" + IDENTITY_DOMAIN.lower()):
+        return None
+    return name, email
+
+
 PRESET_NAME_KEY = "teamwork.identity.name"
 PRESET_EMAIL_KEY = "teamwork.identity.email"
 
@@ -229,13 +263,14 @@ def preset_identity(project=None) -> tuple | None:
         except OSError:
             return ""
 
-    def resolve(key: str) -> str:
-        return read("--local", key) or read("--global", key)
+    def is_role(email: str) -> bool:
+        return email.lower().endswith("@" + IDENTITY_DOMAIN.lower())
 
-    name, email = resolve("user.name"), resolve("user.email")
-    if not (name and email):
-        return None
-    if email.lower().endswith("@" + IDENTITY_DOMAIN.lower()):
+    local_name, local_email = read("--local", "user.name"), read("--local", "user.email")
+    if local_name and local_email and not is_role(local_email):
+        return local_name, local_email
+    name, email = read("--global", "user.name"), read("--global", "user.email")
+    if not (name and email) or is_role(email):
         return None
     return name, email
 
