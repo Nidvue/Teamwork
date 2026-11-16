@@ -167,6 +167,7 @@ under two roles is two tasks.
 | ceo | T-0076 | merge-identity | done | P-0218 | 330b256c |
 | ceo | T-0077 | records | dropped | P-0219 | - |
 | ceo | T-0078 | intake | done | P-0220 | 3e74160e |
+| ceo | T-0079 | changelog | done | P-0221 | 31f3ce45 |
 | developer | T-0001 | harness | done | P-0004 | b33120c |
 | developer | T-0002 | hooks | done | P-0007 | 49cd42e |
 | developer | T-0003 | - | dropped | - | - |
