@@ -1,11 +1,11 @@
 # Audit report
 
-- generated: 2026-11-16T14:42:47
+- generated: 2026-11-16T20:02:04
 - team: Teamwork
-- ledger: 7952 records, chain verified: True
-- checkpoint: record #7952 (the ledger.export event behind this manifest; later records are work that happened after it)
-- head hash: `412f4f72ddbace6f6796558e841c146b`
-- git: 6d3187c834a8 on ceo/t-0073-refresh-the-closing-audit-manifest-at-th, dirty: False
+- ledger: 8084 records, chain verified: True
+- checkpoint: record #8084 (the ledger.export event behind this manifest; later records are work that happened after it)
+- head hash: `0bf7735b0bd098b7c1c77b6f0671e147`
+- git: 619d3c9de83e on main, dirty: False
 - externally verifiable artifacts: 4
 - local-only state files: 38
 
@@ -21,7 +21,7 @@ teamwork.py trace <T-id>     # follow any claim end to end
 
 | path | bytes | sha256 |
 |---|---|---|
-| docs/Team/Architecture.md | 191255 | `cca07afad5e2d4d9…` |
-| docs/Team/Decisions.md | 434835 | `81cef4eb47d333a4…` |
+| docs/Team/Architecture.md | 191451 | `bc54a71e4a780940…` |
+| docs/Team/Decisions.md | 436145 | `e7c74669eb0a98b4…` |
 | docs/Team/Plan.md | 101872 | `f177d756731ecba2…` |
 | docs/Team/Project.md | 64083 | `47d2fc66e247dce1…` |
