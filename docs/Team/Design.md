@@ -637,7 +637,8 @@ at the same index on every row, with or without a budget (D-2). The header and
 the idle aggregate are single lines with no columns.
 
 Interface copy, exactly: `teamwork · <busy> busy · <stalled> stalled · <live> live · <review> review`
-(a zero count is omitted), `○ idle: <n>`, `+<n> more busy`, `teamwork <busy>/<total> busy`.
+(a zero count is omitted) and `+<n> more busy`. The widget is the only surface the
+extension draws: there is no footer status line (D-21).
 
 ### 10.3 Glyph and colour language
 
@@ -650,7 +651,7 @@ same in a monochrome terminal and through a screen reader.
 | `⚠` | stalled: a task is claimed but no lane is running | `stalled` | warn `#d29922` |
 | `◐` | review lane, as the line prefix; `↳` moves into the task column | `↳T-nnnn` | warn `#d29922` |
 | `⚙` | live lane, no instance row | lane id | ok `#3fb950` |
-| `○` | idle aggregate | `idle` | neutral, inherited |
+| `○` | idle aggregate - deleted, never drawn | - | - |
 | `⏸` `✕` | paused, failed | `pause` / `fail` | warn / danger `#f85149` |
 | `+N` | hidden busy rows | `more busy` | inherited |
 | `…` | clipped text | — | inherited |
@@ -680,16 +681,15 @@ partial glyph:
 7. Never wrap: every emitted line is at most the requested width, including the
    lane lines and the aggregates.
 8. Below 32 columns the widget renders the header, the `<glyph> <instance>
-   <task>` rows, the `+N more busy` line when rows were dropped, and the idle
-   aggregate. The footer status line is a separate surface and is not part of
-   this budget.
+   <task>` rows and the `+N more busy` line when rows were dropped. There is no
+   footer status line and no idle aggregate.
 
 ### 10.5 Line budget
 
 One frozen arithmetic (CEO arbitration M-0001, 2026-11-15). 10.4 step 7 and 10.6
 restate it and cite its invariants by name; neither computes a second one.
 
-**BUDGET - the widget only; the footer status line is a separate surface.**
+**BUDGET - the widget is the only surface the extension draws.**
 Total `<= 12` lines.
 
 | # | block | lines | rule |
@@ -698,9 +698,9 @@ Total `<= 12` lines.
 | 2 | busy rows | `k` | `k = min(busy + stalled, 12 - 1 - 1(overflow if hidden > 0) - lane_lines)`; 10.8 puts the stalled rows in the drawn set |
 | 3 | `+N more busy` | 0-1 | only when `hidden > 0`; `N = busy - shown`, exact; reserved width, never clipped, and never itself counted as a row |
 | 4 | idle aggregate | 0 | deleted: a reconciled roster has no idle seat to count, so the widget draws no idle line |
-| 5 | lane-only lines | 0-3 | drawn only from the room left after rows + overflow + idle; first to yield |
-| | total widget | `<= 12` | footer excluded |
-| | footer status line | 1 | separate surface, always |
+| 5 | lane-only lines | 0-3 | drawn only from the room left after rows + overflow; first to yield |
+| | total widget | `<= 12` | |
+| | footer status line | 0 | deleted (D-21): the widget is the only surface, so no `teamwork <busy>/<total> busy` line exists |
 
 **Order, which is the whole of D-9.** Space for the overflow line is subtracted
 **before** any row is dropped, so a dropped seat always leaves a visible `+N`.
@@ -713,7 +713,8 @@ are drawn **last**, from what is left - the shipped renderer draws them first
 
 - `TOTAL` - `len(lines) <= 12` for every fixture.
 - `CONSERVATION` - `shown + hidden == busy`.
-- `AGREEMENT` - the header's busy count equals the footer's busy count.
+- `AGREEMENT` - the header's busy count is `counts.busy`, the one count the
+  widget prints; there is no footer to agree with.
 - `OVERFLOW` - when `hidden > 0` the `+N` line is present, its `N` is exact and
   not truncated, and no row follows it.
 
@@ -741,10 +742,10 @@ names the delta.
 | identity survives | at width 40 columns every busy row begins with the busy glyph and carries at least 6 characters of the instance |
 | no headless row | every line begins with `●`, `⚙`, `○`, `+`, or is the header |
 | column alignment | on a payload with one null and one numeric `progress_pct`, the elapsed/bar/model tail starts at the same index in both rows |
-| count agreement | header `busy` equals footer `busy`, and `live` equals `counts.lanes_live` |
+| count agreement | header `busy` equals `counts.busy`, and `live` equals `counts.lanes_live` |
 | `TOTAL` (10.5) | `len(render(payload, 100)) <= 12` for every fixture in the payload matrix, not only the 21-busy one |
 | `CONSERVATION` (10.5) | `shown + hidden == busy`, where `shown` is the count of lines beginning with the busy glyph and `hidden` is the `N` parsed from the `+N more busy` line, or 0 when that line is absent |
-| `AGREEMENT` (10.5) | header busy equals footer busy on every fixture |
+| `AGREEMENT` (10.5) | header busy equals `counts.busy` on every fixture |
 | `OVERFLOW` (10.5) | when `hidden > 0`: the `+N more busy` line exists, `N == busy - shown`, it is not truncated by the width clip, and no row line follows it (only the idle aggregate may) - on the 21-busy fixture that is 10 rows, `+11 more busy`, and 0 lane lines |
 | `LEFT-IS-REAL` (10.8) | on every fixture `left == budget_seconds - elapsed_seconds`, clamped at 0, and `-` when either field is absent; `remaining_text` wins when the engine sends it |
 | `NO-INSTANCE-CLIP` (10.8) | `ReleaseEngineer` (15 characters) renders whole at width 100 |
@@ -752,7 +753,7 @@ names the delta.
 | `ONE-LINE-PER-AGENT` (10.8) | the count of lines beginning with a row glyph equals the number of distinct instances drawn, and no instance appears twice |
 | no colour-only meaning | stripping ANSI from every line leaves each state's word intact |
 | determinism | two calls on one payload return identical lines |
-| empty feed | no instances and no lanes -> `[]`, and the footer prints `teamwork 0/0 busy` |
+| empty feed | no instances and no lanes -> `[]`, and the extension exports no footer |
 
 ### 10.7 Defects measured in this pass
 
@@ -834,7 +835,8 @@ work in flight.
 
 **Header**, one line, a zero count omitted:
 `teamwork · <busy> busy · <stalled> stalled · <live> live · <review> review`.
-The footer is unchanged: `teamwork <busy>/<total> busy` (`footer()`, `:217`).
+The footer status line is deleted: the widget is the only surface, so the extension
+exports no `footer()` and draws no `teamwork <busy>/<total> busy` line (D-21).
 
 **Budget.** 12 lines total, 10.5 unchanged. In 10.5's arithmetic `busy` is the
 number of state rows the widget must draw, which is now `busy + stalled`; the four
@@ -940,13 +942,14 @@ left: `1+1+15+1+7+1+5+1+1+5+1 = 39`; the model tail adds `1+20 = 21`; 10.8's bar
 | D-18 | the activity is clipped at 240 and its cell is padded to the free room, so the model is pushed to the right edge and every row is full width | `ACTIVITY_MAX = 240` `:15`, `:274`, `cell.padEnd(room)` `:339`, `trimEnd()` after the tail `:341` | cap 28, clip at a word boundary, no pad |
 | D-19 | `counts.activated` is history and reads 14 against 1 busy and 6 idle | `activated?: number` `:90`; `status --json`, same stamp | not a roster count; no surface prints it as one |
 | D-20 | the idle aggregate is drawn whenever any seat is idle, finished or not | `if (idle) lines.push(...)` `:396` | deleted - the widget never prints an idle count because a reconciled roster has none; the panel's `- idle: N seat(s)` line keeps its place as the CLI report |
+| D-21 | the extension draws a second surface: a footer status line `teamwork <busy>/<total> busy` repeating the count the header already prints, so two surfaces can disagree | `footer()` `:377` and `ctx.ui.setStatus(KEY, footer(payload))` `:425` @22e00336; repro `grep -n busy extensions/teamwork-status.ts @22e00336` -> `:383 return teamwork ${busy}/${payload.count ?? rows.length} busy` | deleted: the widget is the only surface, the busy count lives in the header, and an unreadable feed renders `⚠ teamwork: status unavailable` inside the widget |
 
 **Header and counts.** Shape unchanged, zeros omitted:
 `teamwork · <busy> busy · <stalled> stalled · <live> live · <review> review`
 (`:393`). What changes is what the numbers mean: every number the widget and the
 panel print is the **current staffed set**, never the historical activated total.
 `counts.activated` is history, is not a roster count, and no surface may print it
-as one. The footer's total is the current seats (`footer()` `:405`).
+as one.
 
 **The roster follows the work.** A seat is folded when its lane reached a terminal
 state **and** it holds no task, no slot lease, no review claim and no ready work
@@ -962,7 +965,7 @@ so this is a fold, not a cap.
 
 | | before | after |
 |---|---|---|
-| header | `1 busy · 1 live` plus a `○ idle: 6` line | the same counts, and the idle line is absent when nothing is idle |
+| header | `1 busy · 1 live` plus a `○ idle: 6` line | the same counts; the idle line is deleted (10.5 row 4) |
 | roster | 7 drawn, 6 of them idle, `activated 14` on the surface | the live seat plus any blocked seat; a folded seat is not drawn and `activated` is never shown |
 | one row | bar and percentage, activity padded to the edge | two clocks, activity `<=28`, the line ends where its content ends |
 

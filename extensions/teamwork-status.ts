@@ -374,12 +374,6 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
   return lines;
 }
 
-export function footer(payload: Payload): string {
-  const rows = payload.instances ?? [];
-  const busy = payload.counts?.busy ?? rows.filter((row) => row.state === "busy").length;
-  return `teamwork ${busy}/${payload.count ?? rows.length} busy`;
-}
-
 function terminalWidth(): number {
   const columns = Number((process.stdout as { columns?: number }).columns);
   return Number.isFinite(columns) && columns > 20 ? columns : WIDTH_MAX;
@@ -413,7 +407,7 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
     }
     const payload = await readStatus(engine);
     if (!payload) {
-      ctx.ui.setStatus(KEY, "teamwork: status unavailable");
+      ctx.ui.setWidget(KEY, [`${GLYPH.stalled} teamwork: status unavailable`]);
       return;
     }
     const paint = (ctx.ui as { theme?: Paint }).theme;
@@ -422,7 +416,6 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
     } catch {
       ctx.ui.setWidget(KEY, []);
     }
-    ctx.ui.setStatus(KEY, footer(payload));
   };
 
   const start = (): void => {
