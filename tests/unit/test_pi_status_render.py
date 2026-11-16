@@ -30,7 +30,8 @@ EXTENSION = ROOT / "extensions" / "teamwork-status.ts"
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 SCRIPT = """
-const { render, footer } = await import(process.env.TW_EXTENSION);
+const mod = await import(process.env.TW_EXTENSION);
+const { render } = mod;
 const payload = JSON.parse(process.env.TW_PAYLOAD);
 const width = Number(process.env.TW_WIDTH || 0);
 const paint = process.env.TW_PAINT
@@ -43,7 +44,7 @@ try {
   console.log(JSON.stringify({ error: String(error && error.message) }));
   process.exit(0);
 }
-console.log(JSON.stringify({ lines, footer: footer(payload) }));
+console.log(JSON.stringify({ lines, footer: typeof mod.footer }));
 """
 
 
@@ -86,7 +87,7 @@ def render(payload: dict, width: int | None = None, paint: bool = False) -> list
     return run(payload, width, paint)["lines"]
 
 
-def footer(payload: dict) -> str:
+def footer_surface(payload: dict) -> str:
     return run(payload)["footer"]
 
 
@@ -187,13 +188,13 @@ def test_a_dropped_seat_is_always_counted_and_the_count_is_exact() -> None:
         assert (hidden > 0) == any(line.endswith("more busy") for line in lines), lines
 
 
-def test_the_header_and_the_footer_agree_on_the_busy_count() -> None:
+def test_the_header_prints_the_busy_count_and_the_widget_is_the_only_surface() -> None:
     payload = schema5(
         [busy_row(), stalled_row()], {"busy": 1, "stalled": 1, "lanes_live": 2, "review": 0}
     )
     result = run(payload, 100)
     assert result["lines"][0] == "teamwork · 1 busy · 1 stalled · 2 live", result["lines"]
-    assert result["footer"] == "teamwork 1/2 busy", result["footer"]
+    assert result["footer"] == "undefined", "the footer status surface was deleted, not renamed"
     zero = run(schema5([busy_row()], {"busy": 1, "stalled": 0, "lanes_live": 0, "review": 0}), 100)
     assert zero["lines"][0] == "teamwork · 1 busy", "a zero count is omitted"
 
@@ -287,11 +288,11 @@ def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> No
     assert "NaN" not in "\n".join(lines), lines
 
 
-def test_an_empty_feed_stays_silent_and_prints_a_zero_footer() -> None:
+def test_an_empty_feed_stays_silent_and_draws_no_footer() -> None:
     assert render({}) == []
     empty = {"schema": 4, "count": 0, "counts": {"busy": 0}, "instances": [], "lanes": []}
     assert render(empty) == []
-    assert footer(empty) == "teamwork 0/0 busy"
+    assert footer_surface(empty) == "undefined"
 
 
 def test_two_calls_on_one_payload_return_the_same_lines() -> None:
@@ -306,7 +307,7 @@ def test_colour_is_redundant_with_the_glyph_and_the_word() -> None:
     assert any("\x1b[" in line for line in painted), "the renderer must colour the glyphs"
     assert [ANSI.sub("", line) for line in painted] == plain
     words = " ".join(plain)
-    for word in ("run", "idle", "T-0070", "●"):
+    for word in ("run", "T-0070", "●"):
         assert word in words, words
 
 
@@ -426,7 +427,7 @@ def test_a_stalled_seat_is_drawn_as_stalled_and_never_as_busy() -> None:
     assert "stalled" not in busy[0], busy[0]
 
 
-def test_one_line_per_agent_and_an_idle_seat_is_a_count() -> None:
+def test_one_line_per_agent_and_no_idle_line() -> None:
     rows = [busy_row(f"Developer-{n}") for n in range(1, 5)]
     rows.append(stalled_row("Tester"))
     rows.append(
@@ -449,7 +450,8 @@ def test_one_line_per_agent_and_an_idle_seat_is_a_count() -> None:
     names = [line.split()[1] for line in body]
     assert len(set(names)) == 5, names
     assert not [line for line in body if "IdleSeat" in line], "an idle seat is a count, not a row"
-    assert lines[-1] == "○ idle: 1", lines
+    assert not [line for line in lines if "idle" in line], lines
+    assert len(lines) == 6, lines
 
 
 def test_the_line_budget_and_the_hidden_count_stay_exact() -> None:
