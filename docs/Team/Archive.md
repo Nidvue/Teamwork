@@ -7891,3 +7891,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git show 3cab1d14 --stat -> docs/Team/Decisions.md only, +16/-0; the block carries the decision, why, context, evidence and a falsifier, and the id D-20261116-CEO occurs once; the evidence reproduces: gh release list -> v1.5.10 and v1.5.11 both present, npm view @nidvue/teamwork version -> 1.5.11, check_release_consistency --online -> 0 problems; pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> passed
 - findings history: 
 - branch / merge: ceo/t-0081-commit-the-d-20261116-ceo-release-author / 0f9b26d6
+
+## T-0082 · Move the tree to 1.5.12 after the v1.5.11 tag so R2 is green  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: changelog
+- self-check: [pass] Re-read the 3-file diff: only the three release-fact files move. BOUNDARY: no code path, flag or exit code changes; a fourth version surface would be caught by R1/R10. EMPTY/DUPLICATE/SECOND-CALL: the [1.5.12] section is unique (R7) and the bump is idempotent. CONTRACT: version.py is the single source the packaging reads; CITATION.cff mirrors it. SCOPE: 3 files. | test: .venv/bin/python scripts/check_release_consistency.py --offline @4eed1c8f66403c94d01ffbd68a5d941f187665e9 -> 0 problems, R2 ok HEAD 1.5.12; .venv/bin/python -m pytest -q tests/unit/test_docs_contracts.py @4eed1c8f66403c94d01ffbd68a5d941f187665e9 -> 20 passed | preflight: PF-db62ccd550e3 @4eed1c8f6640 (9 checks, 0 failed)
+- author evidence: commit 4eed1c8f
+- reviewer evidence: git show 4eed1c8f --stat -> 3 files (version.py, CITATION.cff, CHANGELOG.md); R2 reproduces: check_release_consistency.py --offline @4eed1c8f -> 0 problems with 'R2 ok HEAD 1.5.12 is newer than 1 tag(s)' (before the bump the same command reported R2 DRIFT 1.5.11 vs v1.5.11); R1/R10 agree on the new version; pytest -q tests/unit/test_docs_contracts.py -> 20 passed; the release itself stays v1.5.11 (tag and GitHub Release already published)
+- findings history: 
+- branch / merge: ceo/t-0082-move-the-tree-to-1-5-12-after-the-v1-5-1 / pending
