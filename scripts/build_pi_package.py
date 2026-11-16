@@ -115,10 +115,6 @@ def copy_skill(dest: Path) -> None:
             skill / name,
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info", "pi-package"),
         )
-    shutil.copytree(
-        ROOT / "templates" / "pi-package" / "skills" / "teamwork-pi",
-        skill.parent / "teamwork-pi",
-    )
     shutil.copytree(ROOT / "templates" / "pi-package" / "prompts", dest / "prompts")
     shutil.copytree(ROOT / "extensions", dest / "extensions")
 

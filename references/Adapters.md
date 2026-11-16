@@ -109,6 +109,22 @@ decides who owns what.
    claims it for a Reviewer instance and starts that lane - the dynamic hand-off
    the protocol depends on.
 
+## Packet shape that survives a bounded lane
+
+A packet written by hand with `--prompt-file` keeps the discipline the engine
+writes into every generated packet:
+
+| Rule | Why |
+|---|---|
+| At most two assignments | one lane proves what fits its budget; a third unit starves the second |
+| Numbered steps, each one an exact command | a lane that has to find its own command spends its budget reading |
+| A tool-call budget (<= 16) and a hard minute budget | the packet states both; the profile default (10/16/24) is the fallback, not a licence to run open-ended |
+| An explicit "stop and report the blocker" clause | a blocked lane reports the missing fact instead of inventing one |
+| Anchor-first reading: `rg -n` for the anchor, then read +/-30 lines | never read a whole document, a whole log or the archive |
+
+Measured: lanes given open-ended verification timed out at 30 minutes with zero
+commits; the same work finished in 8 calls once the packet named the commands.
+
 ## Settings and environment
 
 | Key | Default | Meaning |
@@ -175,6 +191,20 @@ engine modules missing - the engine imported `config`/`gitutil`/`records` fine
 from the checkout and failed from the installed copy. A dirty checkout is
 mirrored, never reset; files the source dropped are deleted; a host reload is
 required after a write and the command says so.
+
+## Rules that cost us real time
+
+- A hand-started lane needs `TEAMWORK_ROOT=<repo>/.pi/Teamwork/Teams/<Team>`
+  exported; a spawned lane inherits it.
+- Worktree isolation is refused on a dirty tree; lanes share the checkout and
+  commit with `--paths`, so no lane sweeps a peer's uncommitted work.
+- A review verdict names the revision it measured; a lane that reviewed a stale
+  head is re-dispatched with the head sha and told to assert it first.
+- One task, one branch: `branch start` creates the branch from the default branch
+  and switches the checkout, so start it before writing and never from a lane
+  branch.
+- `lane stop` signals the whole process group; `lane reap` is for a lane whose
+  process is already gone. Never kill a peer's lane by pid.
 
 ## Rules
 
