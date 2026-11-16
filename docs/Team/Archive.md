@@ -8137,3 +8137,41 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: pytest -q -W error @4f219334 -> 3113 passed, 10 skipped, 3 failed, and the same 3 fail at main 7bb7ba6d so they are pre-existing; privacy_scan.py --staged @4f219334 -> "scope=index" and --stores -> "scope=stores" in a throwaway repo whose HEAD lacks the staged file (the previous finding reproduced as fixed); the new staged assertion run against 42acab27 privacy_scan.py -> 1 failed ("scope=head" on a staged run), so the fix is failing-first; preflight PF-13270391dff9 @4f219334 -> 8 checks, 0 failed; check_comments on the 4 changed files -> 0 explanatory commentary | artifacts: .pi/Teamwork/Teams/Teamwork/Agents/Reviewer-1/Scratch/scope_4f219334.log:864bcf90042451bb:761 | replay: /usr/bin/python3 /home/operator/.pi/agent/skills/teamwork/scripts/teamwork.py review developer T-0080 --packet
 - findings history: detects: a security-gate summary that states a revision scope it did not read - the S-3 defect class re-introduced on the two modes the fix did not enumerate | MINOR, same class as the S-3 finding this task fixes: the new scope field states a scope the run did NOT read on the --staged and --stores arms. summary_scope() (scripts/privacy_scan.py:1329) branches on history only, so it returns 'scope=head' whenever --history is off, while the staged arm reads the git index and the stores arm reads the team stores. MEASURED @42acab27 in a throwaway repo whose HEAD is clean and whose index carries b.py (git cat-file -e HEAD:b.py -> 'fatal: path b.py exists on disk, but not in HEAD'): privacy_scan.py --staged --quiet -> 'privacy_scan: FAIL - 2 finding(s) in staged; allow=none scope=head' - the 2 findings come from the index, so scope=head is false; privacy_scan.py --stores --quiet -> 'privacy_scan: PASS - 0 finding(s) in stores; allow=none scope=head' - nothing about HEAD was read. The tree and history arms are correct (scope=head; refs=1 scope=all+reflog). Log: Agents/Reviewer-1/Scratch/T-0080-42acab27-scope.txt. FIX: return the index scope for --staged and a store scope for --stores (or omit the field for modes that read no revision), and add the staged arm to test_the_summary_states_the_history_scope_and_ref_count, which today asserts only tree and history. Everything else in the deliverable is verified good (see evidence): S-1 refusal is real and both traversal spellings are refused with the tree unchanged, all four behavioural tests fail at base d6ab6d23 and pass at 42acab27, allow= names both arms, refs= is measured, the shipped gate is PASS with the allowlist, and the full suite is 3113 passed / 10 skipped / 3 failed with the same 3 failing at base.
 - branch / merge: developer/t-0080-m26-security-s-1-path-traversal-on-insta / ebcff866
+## T-0081 · Commit the D-20261116-CEO release authorization record  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: records
+- self-check: [pass] Re-read the 1-file diff: one D-20261116-CEO block appended with the decision, why, context, evidence and falsifier. BOUNDARY: no other decision entry changes. EMPTY/DUPLICATE/SECOND-CALL: the id is unique; a second run would duplicate it, so it was run once. CONTRACT: docs only. SCOPE: docs/Team/Decisions.md. | test: .venv/bin/python -m pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py @3cab1d149f0a126d6f8cb8c21855f5f6c738b45b -> passed; check_release_consistency.py --offline -> 0 problems | preflight: PF-7bad568f75c1 @3cab1d149f0a (9 checks, 0 failed)
+- author evidence: commit 3cab1d14
+- reviewer evidence: git show 3cab1d14 --stat -> docs/Team/Decisions.md only, +16/-0; the block carries the decision, why, context, evidence and a falsifier, and the id D-20261116-CEO occurs once; the evidence reproduces: gh release list -> v1.5.10 and v1.5.11 both present, npm view @nidvue/teamwork version -> 1.5.11, check_release_consistency --online -> 0 problems; pytest -q tests/unit/test_decision_ids.py tests/unit/test_docs_contracts.py -> passed
+- findings history: 
+- branch / merge: ceo/t-0081-commit-the-d-20261116-ceo-release-author / 0f9b26d6
+
+## T-0082 · Move the tree to 1.5.12 after the v1.5.11 tag so R2 is green  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: changelog
+- self-check: [pass] Re-read the 3-file diff: only the three release-fact files move. BOUNDARY: no code path, flag or exit code changes; a fourth version surface would be caught by R1/R10. EMPTY/DUPLICATE/SECOND-CALL: the [1.5.12] section is unique (R7) and the bump is idempotent. CONTRACT: version.py is the single source the packaging reads; CITATION.cff mirrors it. SCOPE: 3 files. | test: .venv/bin/python scripts/check_release_consistency.py --offline @4eed1c8f66403c94d01ffbd68a5d941f187665e9 -> 0 problems, R2 ok HEAD 1.5.12; .venv/bin/python -m pytest -q tests/unit/test_docs_contracts.py @4eed1c8f66403c94d01ffbd68a5d941f187665e9 -> 20 passed | preflight: PF-db62ccd550e3 @4eed1c8f6640 (9 checks, 0 failed)
+- author evidence: commit 4eed1c8f
+- reviewer evidence: git show 4eed1c8f --stat -> 3 files (version.py, CITATION.cff, CHANGELOG.md); R2 reproduces: check_release_consistency.py --offline @4eed1c8f -> 0 problems with 'R2 ok HEAD 1.5.12 is newer than 1 tag(s)' (before the bump the same command reported R2 DRIFT 1.5.11 vs v1.5.11); R1/R10 agree on the new version; pytest -q tests/unit/test_docs_contracts.py -> 20 passed; the release itself stays v1.5.11 (tag and GitHub Release already published)
+- findings history: 
+- branch / merge: ceo/t-0082-move-the-tree-to-1-5-12-after-the-v1-5-1 / 7d36b7ff
+
+## T-0083 · Refresh the closing audit manifest at the v1.5.11 release head  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: audit
+- self-check: [pass] Re-read the 2-file diff: both are generated by ledger export, not hand-edited. BOUNDARY: the manifest names the ledger checkpoint and the four artifact digests; a second export rewrites at a newer checkpoint and stays verifiable. EMPTY/DUPLICATE/SECOND-CALL: the export is idempotent over the same chain. CONTRACT: no source change. SCOPE: the two generated documents. | test: .venv/bin/python scripts/teamwork.py ledger export @bb97439ea9c80e5fec44c13dc27eb93905b3b356 -> 8084 records, chain verified True, dirty false | preflight: PF-7f2d5636d306 @bb97439ea9c8 (9 checks, 0 failed)
+- author evidence: commit bb97439e
+- reviewer evidence: python3 -c 'import json;m=json.load(open("docs/Team/AuditManifest.json"));print(m["ledger"]["records"],m["git"]["dirty"])' -> 8084 False; git show bb97439e --stat -> 2 files (AuditManifest.json, AuditManifest.md) only; .venv/bin/python scripts/teamwork.py ledger verify -> chain intact, every digest matches; sha256sum -c on the four artifacts -> 4/4 OK
+- findings history: 
+- branch / merge: ceo/t-0083-refresh-the-closing-audit-manifest-at-th / 525b3c07
