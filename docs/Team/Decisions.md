@@ -2914,7 +2914,7 @@ worktree until the slot expires - the safe direction to fail.
 - falsified by: If a busy row can be read correctly in under a second from the shipped renderer at 100 columns, and no dead-claim row appears busy, this delta is unnecessary - the Tester's ui layer measures exactly that.
 - consequences: One Designer spec section, one Developer task, one Tester layer, one Reviewer verdict; the payload schema moves 4 -> 5 and every consumer of status --json keeps reading schema 4 fields unchanged.
 
-## D-20261116-CEO - agent-state widget accepted: schema 5 payload, one line per agent, used and left clocks, stalled state
+## D-20261116-CEO-3 - agent-state widget accepted: schema 5 payload, one line per agent, used and left clocks, stalled state
 
 - date: 2026-11-16
 - kind: technical
@@ -2928,4 +2928,19 @@ worktree until the slot expires - the safe direction to fail.
 - why: The operator brief asked for a hierarchy that answers five questions at a glance, one line per agent, compact state strings, and both the time used and the time estimated left. The shipped renderer answered two of the five and drew a claim held by a dead lane as work in flight.
 - evidence: node render() of the live 'teamwork.py status --json' (schema 5) @5e37f092 -> '|● Tester T-0006 48s ▸ 24m ░░░░░ branch.start T-0006 · 35s DeepSeek-V4.1-Flash…|' and '|⚠ ReleaseEngineer T-0002 - stalled · lane lost L-0123 · 1h|'; venv/bin/python -m pytest -q tests/unit/test_pi_status_render.py tests/unit/test_status.py -> 62 passed; tests/integration/test_agent_state_width_matrix.py -> 5 passed at 40/80/120 columns; teamwork.py links -> 0 issues; ledger verify -> 1281 records, chain intact
 - falsified by: If a busy row at 100 columns cannot be read for who/on what/used/left/state in one pass, or a stalled seat still renders as busy, the design failed - the Tester's LEFT-IS-REAL and STALLED-NOT-BUSY checks are the falsifiers and they pass.
-- consequences: status --json is schema 5; schema 4 readers keep working because every old field is byte-identical. The installed host extension is refreshed from this revision, so a host reload shows the new widget.
+- consequences: status --json is schema 5; schema 4 readers keep working because every old field is byte-identical. The installed host extension is refreshed from this revision, so a host reload shows the new widget. Renumbered from D-20261116-CEO at the origin/main merge on 2026-11-16: that id is the published v1.5.11 release authorization, and a decision id is project-wide unique (T-0038).
+## D-20261116-CEO - Publish v1.5.11 and backfill the missing v1.5.10 GitHub Release
+
+- date: 2026-11-16
+- kind: governance
+- status: accepted
+- deciders: CEO (ceo)
+- decided by: CEO
+- task: -
+- context: authorized by the user instruction: commit, push and publish a new release accordingly
+- options considered: -
+- decision: Ship v1.5.11 (intake gates: prompt record, ask with options, star-once) and backfill the v1.5.10 GitHub Release that its own failed Release run never created
+- why: The user asked to commit, push and publish a release. R5 requires every tag to have a GitHub Release; v1.5.10 was tagged but its Release job failed at the gate, so it had none and the v1.5.11 gate reported drift on it. The tag is public and protected, so the honest repair is to create the missing Release, never to move or delete the tag
+- evidence: gh release create v1.5.10 --verify-tag -> releases/tag/v1.5.10; gh workflow run release.yml -f tag=v1.5.11 -> run 43925639545 success (gate, build, provenance, npm); npm view @nidvue/teamwork version -> 1.5.11; gh release create v1.5.11 with wheel, sdist, SHA256SUMS, both SBOMs -> 5 assets; check_release_consistency.py --online -> 0 problems
+- falsified by: if a later --online gate run reports an R5 drift, the backfill did not cover the tag set
+- consequences: -
