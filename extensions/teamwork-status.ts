@@ -346,12 +346,9 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
   const named = new Set(rows.map((row) => row.instance));
   const live = lanes.filter((lane) => lane.state === "starting" || lane.state === "running");
   const laneOnly = live.filter((lane) => !named.has((lane.instance ?? "").trim() || "-"));
-  const busyCount = counts.busy ?? drawable.filter((row) => !row.stalled).length;
-  const stalledCount = counts.stalled ?? drawable.filter((row) => row.stalled).length;
   const liveCount = counts.lanes_live ?? live.length;
   const reviewCount = counts.review ?? 0;
-  const header = [`${busyCount} busy`];
-  if (stalledCount) header.push(`${stalledCount} stalled`);
+  const header: string[] = [];
   if (liveCount) header.push(`${liveCount} live`);
   if (reviewCount) header.push(`${reviewCount} review`);
   const cap = BUDGET - 1;
@@ -363,7 +360,8 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
     .map((row) => rowLine(row, layout, bound, paint))
     .filter((line) => line !== null);
   const hidden = drawable.length - drawn.length;
-  const lines = [text(`teamwork · ${header.join(" · ")}`, bound)];
+  const head = header.length ? `teamwork · ${header.join(" · ")}` : "teamwork";
+  const lines = [text(head, bound)];
   lines.push(...drawn);
   if (hidden > 0) lines.push(`+${hidden} more busy`);
   const laneRoom = hidden > 0 ? 0 : Math.min(LANE_MAX, BUDGET - lines.length);
