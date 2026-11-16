@@ -7799,4 +7799,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit d3b5a939
 - reviewer evidence: Verified against the live chain, not the note: manifest ledger.records=7952, git.dirty=false, git.head=6d3187c834a8 (an ancestor of the merge), chain verified true; the two changed files are the generated docs/Team/AuditManifest.json and .md only; teamwork.py ledger verify @d3b5a939 -> chain intact; the manifest head is the ledger.export event behind it
 - findings history: 
-- branch / merge: ceo/t-0073-refresh-the-closing-audit-manifest-at-th / pending
+- branch / merge: ceo/t-0073-refresh-the-closing-audit-manifest-at-th / 00e04bf7
