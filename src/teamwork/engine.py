@@ -6380,7 +6380,14 @@ def _instance_add(root: Path, args) -> int:
                     f"not {role}. An instance name must belong to the role it serves.",
                     2,
                 )
-            name = pascal(args.name)
+            name = safe_component(pascal(args.name))
+            if name != pascal(args.name):
+                die(
+                    f"'{args.name}' is not a legal instance name: it would become the "
+                    f"directory '{name}' and leave {DIR_AGENTS}/. Use letters, digits, "
+                    "'-', '_' and '.' - Developer-1, ProductManager.",
+                    2,
+                )
             if agent_dir(root, name).is_dir():
                 die(f"instance '{name}' already exists", 2)
         else:
