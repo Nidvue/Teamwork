@@ -188,15 +188,17 @@ def test_a_dropped_seat_is_always_counted_and_the_count_is_exact() -> None:
         assert (hidden > 0) == any(line.endswith("more busy") for line in lines), lines
 
 
-def test_the_header_prints_the_busy_count_and_the_widget_is_the_only_surface() -> None:
+def test_the_header_prints_live_and_review_only_and_the_widget_is_the_only_surface() -> None:
     payload = schema5(
-        [busy_row(), stalled_row()], {"busy": 1, "stalled": 1, "lanes_live": 2, "review": 0}
+        [busy_row(), stalled_row()], {"busy": 1, "stalled": 1, "lanes_live": 2, "review": 3}
     )
     result = run(payload, 100)
-    assert result["lines"][0] == "teamwork · 1 busy · 1 stalled · 2 live", result["lines"]
+    assert result["lines"][0] == "teamwork · 2 live · 3 review", result["lines"]
+    assert "busy" not in result["lines"][0], "the busy count is not a header count"
+    assert "stalled" not in result["lines"][0], "the stalled count is not a header count"
     assert result["footer"] == "undefined", "the footer status surface was deleted, not renamed"
     zero = run(schema5([busy_row()], {"busy": 1, "stalled": 0, "lanes_live": 0, "review": 0}), 100)
-    assert zero["lines"][0] == "teamwork · 1 busy", "a zero count is omitted"
+    assert zero["lines"][0] == "teamwork", "a zero count is omitted, separator included"
 
 
 def test_the_lanes_are_drawn_last_from_the_room_the_rows_leave() -> None:
@@ -283,7 +285,7 @@ def test_a_payload_without_title_or_progress_renders_instead_of_throwing() -> No
         "lanes": [],
     }
     lines = run(bare, 100)["lines"]
-    assert lines[0] == "teamwork · 1 busy", lines
+    assert lines[0] == "teamwork", lines
     assert "undefined" not in "\n".join(lines), lines
     assert "NaN" not in "\n".join(lines), lines
 
@@ -415,7 +417,7 @@ def test_release_engineer_is_never_clipped() -> None:
 
 def test_a_stalled_seat_is_drawn_as_stalled_and_never_as_busy() -> None:
     lines = run(schema5([busy_row(), stalled_row()], {"busy": 1, "stalled": 1}))["lines"]
-    assert lines[0] == "teamwork · 1 busy · 1 stalled", lines
+    assert lines[0] == "teamwork", "neither the busy nor the stalled count is a header count"
     stalled = [line for line in lines if line.startswith("⚠")]
     assert len(stalled) == 1, lines
     assert "stalled" in stalled[0], stalled[0]
