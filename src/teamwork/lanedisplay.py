@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import filecmp
 import json
+import os
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -176,3 +177,34 @@ def install(skill_dir: Path, *, host: str = "pi", skills: str = "", dry_run: boo
         settings["extensions"] = listed
     state.settings.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     return replace(state, installed=True, registered=True)
+
+
+OFF = {"off", "0", "no", "false"}
+
+
+def ensure(skill_dir: Path, *, host: str = "pi", skills: str = "") -> str:
+    """Draw the wave on this host unless the caller opted out - one line back.
+
+    The skill is bootstrapped by ``init``, so that is where a default belongs: an
+    operator who installs the skill in pi gets the picture without reading a
+    section about extensions. Never raises - a bootstrap step that can fail the
+    workspace is worse than one that says why it was skipped - and it writes
+    nothing when the host has no agent directory, when ``CI`` is set, or when
+    ``TEAMWORK_UI=off``.
+    """
+    if (os.environ.get("TEAMWORK_UI") or "").strip().lower() in OFF:
+        return "lane display: skipped (TEAMWORK_UI=off)"
+    if os.environ.get("CI"):
+        return "lane display: skipped (a CI run is not the operator's host)"
+    directory = agent_dir(host, skills)
+    if directory is None or not directory.is_dir():
+        return "lane display: skipped (no agent directory to draw in)"
+    state = status(skill_dir, host=host, skills=skills)
+    if state.live:
+        return f"lane display: already drawn from {state.target}"
+    if not state.ok:
+        return f"lane display: not drawn - {state.detail}"
+    drawn = install(skill_dir, host=host, skills=skills)
+    if not drawn.live:
+        return f"lane display: not drawn - {drawn.detail or drawn.settings}"
+    return f"lane display: installed and registered at {drawn.target} - the pi UI draws the wave"

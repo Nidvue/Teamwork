@@ -188,3 +188,60 @@ def test_the_tree_ships_exactly_one_teamwork_renderer() -> None:
     assert not (root / "templates" / "pi-package" / "extensions").exists(), (
         "the second renderer tree is gone, not merely unloaded"
     )
+
+
+def test_ensure_installs_and_registers_on_the_operators_host(tmp_path: Path, monkeypatch) -> None:
+    """The default: bootstrapping in a host that has an agent directory draws."""
+    monkeypatch.delenv("TEAMWORK_UI", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+
+    line = lanedisplay.ensure(skill(tmp_path), skills=str(dest))
+
+    assert "installed and registered" in line, line
+    assert lanedisplay.status(skill(tmp_path), skills=str(dest)).live
+    assert "already drawn" in lanedisplay.ensure(skill(tmp_path), skills=str(dest))
+
+
+def test_ensure_writes_nothing_when_the_caller_opts_out(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("TEAMWORK_UI", "off")
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+
+    line = lanedisplay.ensure(skill(tmp_path), skills=str(dest))
+
+    assert "skipped" in line, line
+    assert not (dest.parent.parent / "extensions").exists()
+
+
+def test_ensure_writes_nothing_in_ci_or_without_a_host_directory(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.delenv("TEAMWORK_UI", raising=False)
+    monkeypatch.setenv("CI", "true")
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+
+    assert "CI run" in lanedisplay.ensure(skill(tmp_path), skills=str(dest))
+    assert not (dest.parent.parent / "extensions").exists()
+
+    monkeypatch.delenv("CI")
+    absent = tmp_path / "nowhere" / "skills" / "teamwork"
+
+    assert "no agent directory" in lanedisplay.ensure(skill(tmp_path), skills=str(absent))
+
+
+def test_init_reports_the_lane_display_and_can_skip_it(tmp_path: Path, cli, capsys) -> None:
+    project = tmp_path / "Project"
+    project.mkdir()
+
+    assert cli("--project", project, "init", "--agents", "ceo,reviewer-1", "--no-git") == 0
+    out = capsys.readouterr().out
+    assert "lane display:" in out, out
+    assert "TEAMWORK_UI=off" in out, out
+
+    assert (
+        cli("--project", project, "init", "--agents", "ceo,reviewer-1", "--no-git", "--no-ui") == 0
+    )
+    assert "lane display:" not in capsys.readouterr().out
