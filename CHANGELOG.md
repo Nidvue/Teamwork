@@ -9,6 +9,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.15] - 2026-11-16
+
+### Fixed
+
+- **The acceptance scope reader survives a detached checkout** - the first version
+  of `published_scope()` in `tests/acceptance/test_acceptance_ci_contracts.py` read
+  the branch with `git symbolic-ref -q HEAD`, which exits 1 on a detached HEAD, so
+  the release pipeline's "Test the tagged revision" step crashed instead of
+  skipping R2 (run 43972645472, `build + checksums + SBOM`). It reads
+  `git rev-parse --abbrev-ref HEAD`, which answers `HEAD` there, and the suite
+  passes on a detached checkout of this revision. 1.5.14's GitHub Release was
+  built and verified from its protected tag by hand for the same reason; npm first
+  carries this change here.
+
 ## [1.5.14] - 2026-11-16
 
 ### Changed
