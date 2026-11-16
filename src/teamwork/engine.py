@@ -6455,7 +6455,14 @@ def _instance_retire(root: Path, args) -> int:
 
 
 def _move_to_retired(
-    root: Path, name: str, source: Path, role: str, by: str, reason: str, blockers: list
+    root: Path,
+    name: str,
+    source: Path,
+    role: str,
+    by: str,
+    reason: str,
+    blockers: list,
+    record: bool = True,
 ) -> str:
     """Move one instance directory to ``Runtime/Retired`` and record why.
 
@@ -6478,6 +6485,8 @@ def _move_to_retired(
     except ValueError:
         shown = str(destination)
     _repoint_lane_records(root, source, destination)
+    if not record:
+        return shown
     ledger_append(
         root,
         "instance.retire",
@@ -6581,6 +6590,46 @@ def _foldable_instances(root: Path, keep_required: bool) -> tuple:
                 continue
             fold.append((name, role))
     return fold, keep
+
+
+def fold_finished_seats(root: Path, by: str = "reconcile") -> list:
+    """Fold every finished seat at a reconcile: the roster follows the work.
+
+    Reuses `instance prune`'s move-only path - the directory moves under
+    Runtime/Retired, the role's memory and queue stay - and appends ONE ledger
+    event naming every seat this batch folded. A second reconcile with nothing
+    foldable moves nothing and appends nothing; the CEO is never folded.
+    """
+    fold, _keep = _foldable_instances(root, keep_required=False)
+    folded: list = []
+    for name, role in fold:
+        source = agent_dir(root, name)
+        if not source.is_dir():
+            continue
+        shown = _move_to_retired(
+            root,
+            name,
+            source,
+            role,
+            by,
+            "finished: its lane ended and it holds no task, pen, slot, lane or review claim",
+            [],
+            record=False,
+        )
+        folded.append(f"{name} ({role}) -> {shown}")
+    if folded:
+        ledger_append(
+            root,
+            "instance.retire",
+            by,
+            f"{len(folded)} finished seat(s)",
+            "; ".join(folded),
+            "",
+            "",
+        )
+        names = ", ".join(folded)
+        print(f"# reconcile: folded {len(folded)} finished seat(s): {names}")
+    return folded
 
 
 def _instance_prune(root: Path, args) -> int:

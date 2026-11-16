@@ -190,7 +190,7 @@ def test_pulse_folds_surplus_idle_instances_when_it_commits(cli, project: Path) 
     assert cli("--project", project, "pulse", "--commit") in (0, 3), "3 = nothing to dispatch"
 
     assert engine.agent_dir(root, "ceo").is_dir()
-    assert len(engine.instances_of(root, "developer")) == 1
-    assert len(engine.instances_of(root, "reviewer")) == 1
-    assert not engine.agent_dir(root, "developer-2").is_dir()
+    assert engine.instances_of(root, "developer") == []
+    assert engine.instances_of(root, "reviewer") == []
+    assert not engine.agent_dir(root, "developer-1").is_dir()
     assert not engine.agent_dir(root, "reviewer-2").is_dir()
