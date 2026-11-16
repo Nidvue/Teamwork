@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   table, 10.10 records the measurement, and the new `GLYPH-WIDTH` check reads the
   renderer's glyph table so an emoji-capable glyph cannot be added again.
 
+### Fixed
+
+- **The CI-contract acceptance test asks the question CI asks** - it ran
+  `check_release_consistency.py --offline` with the checker's fail-closed default
+  (`--head-is-default-branch=yes`), so on a pull-request merge ref, a tag checkout
+  or a lane branch it demanded a version bump for a release that branch publishes
+  nowhere and failed with `R2 DRIFT HEAD version 1.5.13 is not greater than tag
+  v1.5.13` (runs 43961251927, 43961222377). It now passes the scope CI passes,
+  computed from whether HEAD is the tip of a local default branch, so the test
+  asserts the verdict CI gets on the checkout CI has.
+
 ## [1.5.13] - 2026-11-16
 
 ### Added
