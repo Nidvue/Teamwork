@@ -9,6 +9,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.14] - 2026-11-16
+
+### Changed
+
+- **Every agent-state glyph is one cell wide** - `⏸` (U+23F8) and `▶` (U+25B6)
+  carry `Emoji_Presentation=Yes`, so a terminal draws them two cells wide and every
+  column after the glyph shifts; `⚠` (U+26A0) and `⚙` (U+2699) are emoji-capable, so
+  a font that prefers colour emoji widens them and colour starts carrying meaning
+  alone. The renderer draws `‖` paused, `▸` running, `▲` stalled and `◇` a lane with
+  no seat, keeping the shape language (filled circle busy, filled triangle stalled,
+  half circle in review, hollow diamond a lane). `Design.md` 10.3 carries the new
+  table, 10.10 records the measurement, and the new `GLYPH-WIDTH` check reads the
+  renderer's glyph table so an emoji-capable glyph cannot be added again.
+
 ## [1.5.13] - 2026-11-16
 
 ### Added

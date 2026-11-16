@@ -648,11 +648,12 @@ same in a monochrome terminal and through a screen reader.
 | glyph | state | word on the same line | colour token (redundant) |
 |---|---|---|---|
 | `●` | busy | — (the row is the word) | ok `#3fb950` |
-| `⚠` | stalled: a task is claimed but no lane is running | `stalled` | warn `#d29922` |
+| `▲` | stalled: a task is claimed but no lane is running | `stalled` | warn `#d29922` |
 | `◐` | review lane, as the line prefix; `↳` moves into the task column | `↳T-nnnn` | warn `#d29922` |
-| `⚙` | live lane, no instance row | lane id | ok `#3fb950` |
+| `◇` | live lane, no instance row | lane id | ok `#3fb950` |
 | `○` | idle aggregate - deleted, never drawn | - | - |
-| `⏸` `✕` | paused, failed | `pause` / `fail` | warn / danger `#f85149` |
+| `‖` `✕` | paused, failed | `pause` / `fail` | warn / danger `#f85149` |
+| `▸` | the separator before the time left | — | inherited |
 | `+N` | hidden busy rows | `more busy` | inherited |
 | `…` | clipped text | — | inherited |
 
@@ -660,7 +661,11 @@ Rules: colour is never the only carrier; the renderer emits no ANSI today, so a
 host that adds colour must keep every glyph and word intact. Contrast is the
 host theme's obligation at 4.5:1 for body text; the widget ships no escape
 sequences and no animation, so `prefers-reduced-motion` and 200% zoom are the
-terminal's, not the widget's.
+terminal's, not the widget's. **No glyph is emoji-capable**: `⏸` (U+23F8) and `▶`
+(U+25B6) carry `Emoji_Presentation=Yes`, so a terminal draws them two cells wide
+and every column after the first shifts, and `⚠` (U+26A0) and `⚙` (U+2699) are
+emoji-capable, so a font that prefers colour emoji widens them too. 10.10 replaces
+them and a test reads the glyph table for the class.
 
 ### 10.4 Overflow policy
 
@@ -740,7 +745,7 @@ names the delta.
 |---|---|
 | no wrap | for width in 24/40/60/80/100: `max(len(line)) <= width` |
 | identity survives | at width 40 columns every busy row begins with the busy glyph and carries at least 6 characters of the instance |
-| no headless row | every line begins with `●`, `⚙`, `○`, `+`, or is the header |
+| no headless row | every line begins with `●`, `◇`, `○`, `+`, or is the header |
 | column alignment | on a payload with one null and one numeric `progress_pct`, the elapsed/bar/model tail starts at the same index in both rows |
 | count agreement | header `busy` equals `counts.busy`, and `live` equals `counts.lanes_live` |
 | `TOTAL` (10.5) | `len(render(payload, 100)) <= 12` for every fixture in the payload matrix, not only the 21-busy one |
@@ -749,7 +754,7 @@ names the delta.
 | `OVERFLOW` (10.5) | when `hidden > 0`: the `+N more busy` line exists, `N == busy - shown`, it is not truncated by the width clip, and no row line follows it (only the idle aggregate may) - on the 21-busy fixture that is 10 rows, `+11 more busy`, and 0 lane lines |
 | `LEFT-IS-REAL` (10.8) | on every fixture `left == budget_seconds - elapsed_seconds`, clamped at 0, and `-` when either field is absent; `remaining_text` wins when the engine sends it |
 | `NO-INSTANCE-CLIP` (10.8) | `ReleaseEngineer` (15 characters) renders whole at width 100 |
-| `STALLED-NOT-BUSY` (10.8) | a stalled row carries `⚠` and the word `stalled`, no left and no bar, the header's busy count excludes it and its stalled count includes it |
+| `STALLED-NOT-BUSY` (10.8) | a stalled row carries `▲` and the word `stalled`, no left and no bar, the header's busy count excludes it and its stalled count includes it |
 | `ONE-LINE-PER-AGENT` (10.8) | the count of lines beginning with a row glyph equals the number of distinct instances drawn, and no instance appears twice |
 | no colour-only meaning | stripping ANSI from every line leaves each state's word intact |
 | determinism | two calls on one payload return identical lines |
@@ -977,6 +982,29 @@ so this is a fold, not a cap.
 **Checks added to 10.6**: `NO-BAR`, `ACTIVITY-CAP`, `NO-FILL`, `ROSTER-TRACKS`,
 `HEADER-LIVE-REVIEW` (the header line carries a `live` count and a `review` count
 and nothing else; with both zero it is the bare word `teamwork`).
+
+### 10.10 Round 4 - no glyph the terminal can widen
+
+Four glyphs in the 10.3 table are emoji-capable, so the fixed-width contract in
+10.4 holds only while the font declines to draw colour emoji:
+
+| was | is | why the old one was wrong |
+|---|---|---|
+| `⏸` U+23F8 | `‖` U+2016 | `Emoji_Presentation=Yes`: two cells by default, so a paused lane line shifts every column after it |
+| `▶` U+25B6 | `▸` U+25B8 | `Emoji_Presentation=Yes`, same two-cell default, drawn on every running lane |
+| `⚠` U+26A0 | `▲` U+25B2 | emoji-capable: a font that prefers colour emoji draws it wide and in colour, and the colour then carries meaning on its own |
+| `⚙` U+2699 | `◇` U+25C7 | emoji-capable, and it drew the live lane with the same shape family as the busy dot |
+
+The replacements keep the shape language: filled circle busy, filled triangle
+stalled, half circle in review, hollow diamond a lane with no seat. Every glyph in
+the table is now `Emoji=No`, so a row's cell count is the terminal's locale
+question (ambiguous-width shapes) and never a font's emoji decision.
+
+**Check added to 10.6**: `GLYPH-WIDTH` - every value of the renderer's glyph table
+is outside the emoji-capable blocks (U+2300-U+23FF, U+2600-U+27BF) and is not one
+of the two geometric shapes with emoji presentation (U+25B6, U+25C0). It reads the
+glyph table out of `extensions/teamwork-status.ts`, so a new glyph cannot be added
+without passing it.
 
 ## 11. Sources
 
