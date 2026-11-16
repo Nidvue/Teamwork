@@ -32,6 +32,27 @@ def _git(repo: Path, *args: str, ident: tuple[str, str] | None = None):
     )
 
 
+def _commit_as(repo: Path, author: tuple[str, str], committer: tuple[str, str], message: str):
+    """Commit with distinct author and committer identities, as a host merge does."""
+    env = {
+        **os.environ,
+        "HOME": str(repo.parent),
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
+        "GIT_AUTHOR_NAME": author[0],
+        "GIT_AUTHOR_EMAIL": author[1],
+        "GIT_COMMITTER_NAME": committer[0],
+        "GIT_COMMITTER_EMAIL": committer[1],
+    }
+    return subprocess.run(
+        ["git", "-C", str(repo), "commit", "--allow-empty", "-m", message],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 @pytest.fixture()
 def repo(tmp_path: Path) -> Path:
     path = tmp_path / "repo"
@@ -898,3 +919,24 @@ def test_commit_refuses_an_identity_it_cannot_pin(
         ["git", "-C", str(project), "rev-parse", "HEAD"], capture_output=True, text=True
     )
     assert head.returncode != 0, "nothing landed"
+
+
+def test_the_host_account_may_be_the_committer_when_the_author_is_the_role(repo):
+    """A host merge button stamps the signed-in account as committer.
+
+    Measured on the Drive repository: two pull requests merged with GitHub's rebase
+    button wrote the account as the committer of six commits whose author is the
+    acting role's mailbox. The account's primary address is not the machine's git
+    identity, so it is recorded once as ``teamwork.forge.*``; accepting it must not
+    let the account become the *author*.
+    """
+    account = ("Forge Account", "account@example.invalid")
+    role = ("Developer", "developer@agents.nidvue.com")
+    _git(repo, "config", "teamwork.forge.name", account[0])
+    _git(repo, "config", "teamwork.forge.email", account[1])
+
+    _commit_as(repo, role, account, "feat(x): landed by the host\n\nActing role: Developer")
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD") == 0
+
+    _commit_as(repo, account, account, "feat(x): the account is not a role")
+    assert engine.audit_commit_identities(repo, "HEAD~1..HEAD", strict_authors=True) == 1
