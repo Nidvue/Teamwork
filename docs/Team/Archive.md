@@ -7864,4 +7864,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 3b5fd87c
 - reviewer evidence: git show 3b5fd87c --stat -> CHANGELOG.md only; the [1.5.11] section now has Added (two bullets) then Fixed (one bullet), all under Keep-a-Changelog names; check_release_consistency --offline @3b5fd87c -> 0 problems (R7 one section per tag); pytest -q tests/unit/test_docs_contracts.py -> 20 passed
 - findings history: 
-- branch / merge: ceo/t-0079-release-prep-1-5-11-the-changelog-sectio / pending
+- branch / merge: ceo/t-0079-release-prep-1-5-11-the-changelog-sectio / 31f3ce45
