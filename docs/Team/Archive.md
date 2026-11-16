@@ -7865,3 +7865,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: git show 3b5fd87c --stat -> CHANGELOG.md only; the [1.5.11] section now has Added (two bullets) then Fixed (one bullet), all under Keep-a-Changelog names; check_release_consistency --offline @3b5fd87c -> 0 problems (R7 one section per tag); pytest -q tests/unit/test_docs_contracts.py -> 20 passed
 - findings history: 
 - branch / merge: ceo/t-0079-release-prep-1-5-11-the-changelog-sectio / 31f3ce45
+
+## T-0080 · CI fix: exempt published pre-rule history by one boundary, and keep init hermetic so the star step never writes into the install tree  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: identity
+- self-check: [pass] Re-read the 2-file diff. BOUNDARY: predates_identity_rule uses git merge-base --is-ancestor, so a commit after the boundary is held to the rule and a new operator-pair commit still fails; an empty boundary returns False, never exempting everything. star_once skips when TEAMWORK_STAR_ONCE is off or when CI is set, and runs gh with a scratch HOME so nothing is written into the install tree; --dry-run still reports. EMPTY/DUPLICATE/SECOND-CALL: the record file short-circuits a repeat run; the boundary check is a pure git query and idempotent. CONTRACT: no CLI flag or exit code changed; the audit prints a new skip line. CONCURRENCY: read-only queries plus the existing Runtime record. SCOPE: engine.py and the identity test. | test: .venv/bin/python -m pytest -q tests/unit/test_identity_legacy.py tests/acceptance/test_portability_acceptance.py @77618150b12ded62ca49629a4e2027a7b889e9f4 -> 14 passed; identity --audit --strict-authors with GIT_CONFIG_GLOBAL=/dev/null -> 0 problems | preflight: PF-1971e5207770 @77618150b12d (9 checks, 0 failed)
+- author evidence: commit 77618150
+- reviewer evidence: git show 77618150 --stat -> 2 files (engine.py, test_identity_legacy.py). The exemption is one boundary, not a list: predates_identity_rule -> merge-base --is-ancestor, verified 4f4b81d3 True and b1155675 False, so post-rule commits are still audited. Reproduced the CI condition with GIT_CONFIG_GLOBAL=/dev/null: identity --audit --strict-authors --range HEAD -> rc 0, 3170 commits, 0 problems, the pre-rule commits printed as skipped with the reason. Portability: pytest -q tests/acceptance/test_portability_acceptance.py -> 6 passed, the shipped copy is byte-identical after init. Full local gate: ruff format/check, check_comments (0 commentary), mypy (34 files), privacy_scan PASS 0, links 0 issues, check_release_consistency 0 problems.
+- findings history: 
+- branch / merge: ceo/t-0080-ci-fix-exempt-published-pre-rule-history / pending
