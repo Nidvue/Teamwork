@@ -944,12 +944,17 @@ left: `1+1+15+1+7+1+5+1+1+5+1 = 39`; the model tail adds `1+20 = 21`; 10.8's bar
 | D-20 | the idle aggregate is drawn whenever any seat is idle, finished or not | `if (idle) lines.push(...)` `:396` | deleted - the widget never prints an idle count because a reconciled roster has none; the panel's `- idle: N seat(s)` line keeps its place as the CLI report |
 | D-21 | the extension draws a second surface: a footer status line `teamwork <busy>/<total> busy` repeating the count the header already prints, so two surfaces can disagree | `footer()` `:377` and `ctx.ui.setStatus(KEY, footer(payload))` `:425` @22e00336; repro `grep -n busy extensions/teamwork-status.ts @22e00336` -> `:383 return teamwork ${busy}/${payload.count ?? rows.length} busy` | deleted: the widget is the only surface, the busy count lives in the header, and an unreadable feed renders `⚠ teamwork: status unavailable` inside the widget |
 
-**Header and counts.** Shape unchanged, zeros omitted:
-`teamwork · <busy> busy · <stalled> stalled · <live> live · <review> review`
-(`:393`). What changes is what the numbers mean: every number the widget and the
-panel print is the **current staffed set**, never the historical activated total.
-`counts.activated` is history, is not a roster count, and no surface may print it
-as one.
+**Header and counts.** Two counts only, zeros omitted:
+`teamwork · <live> live · <review> review`
+(`:349`-`:352`). The operator's brief at 2026-11-16 (T-0081) drops `<busy> busy`
+and `<stalled> stalled` from this line: the rows already say which seat is busy
+or stalled, so the header carried the same fact twice, and it read 0 against a
+full roster whenever no lane was live. With no live lane and nothing in review
+the line is the bare word `teamwork`, never a trailing separator. Every number
+the widget and the panel print is the **current staffed set**, never the
+historical activated total: `counts.activated` is history, is not a roster count,
+and no surface may print it as one. The `+N more busy` overflow line is a row
+count, not a header count, and stays.
 
 **The roster follows the work.** A seat is folded when its lane reached a terminal
 state **and** it holds no task, no slot lease, no review claim and no ready work
@@ -965,11 +970,13 @@ so this is a fold, not a cap.
 
 | | before | after |
 |---|---|---|
-| header | `1 busy · 1 live` plus a `○ idle: 6` line | the same counts; the idle line is deleted (10.5 row 4) |
+| header | `1 busy · 1 live` plus a `○ idle: 6` line | `1 live`: the idle line and both the busy and the stalled counts are deleted (T-0081) |
 | roster | 7 drawn, 6 of them idle, `activated 14` on the surface | the live seat plus any blocked seat; a folded seat is not drawn and `activated` is never shown |
 | one row | bar and percentage, activity padded to the edge | two clocks, activity `<=28`, the line ends where its content ends |
 
-**Checks added to 10.6**: `NO-BAR`, `ACTIVITY-CAP`, `NO-FILL`, `ROSTER-TRACKS`.
+**Checks added to 10.6**: `NO-BAR`, `ACTIVITY-CAP`, `NO-FILL`, `ROSTER-TRACKS`,
+`HEADER-LIVE-REVIEW` (the header line carries a `live` count and a `review` count
+and nothing else; with both zero it is the bare word `teamwork`).
 
 ## 11. Sources
 
