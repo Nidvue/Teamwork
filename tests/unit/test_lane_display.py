@@ -245,3 +245,18 @@ def test_init_reports_the_lane_display_and_can_skip_it(tmp_path: Path, cli, caps
         cli("--project", project, "init", "--agents", "ceo,reviewer-1", "--no-git", "--no-ui") == 0
     )
     assert "lane display:" not in capsys.readouterr().out
+
+
+def test_ensure_never_raises_when_the_host_has_no_home(tmp_path: Path, monkeypatch) -> None:
+    """A scrubbed environment is a skip, not a failed bootstrap (CI on Windows)."""
+    monkeypatch.delenv("TEAMWORK_UI", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+
+    def no_home(host: str = "pi", skills: str = "") -> Path:
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.setattr(lanedisplay, "agent_dir", no_home)
+
+    line = lanedisplay.ensure(skill(tmp_path), skills=str(host(tmp_path)))
+
+    assert "cannot name its home directory" in line, line

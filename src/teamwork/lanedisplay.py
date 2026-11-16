@@ -196,15 +196,18 @@ def ensure(skill_dir: Path, *, host: str = "pi", skills: str = "") -> str:
         return "lane display: skipped (TEAMWORK_UI=off)"
     if os.environ.get("CI"):
         return "lane display: skipped (a CI run is not the operator's host)"
-    directory = agent_dir(host, skills)
-    if directory is None or not directory.is_dir():
-        return "lane display: skipped (no agent directory to draw in)"
-    state = status(skill_dir, host=host, skills=skills)
-    if state.live:
-        return f"lane display: already drawn from {state.target}"
-    if not state.ok:
-        return f"lane display: not drawn - {state.detail}"
-    drawn = install(skill_dir, host=host, skills=skills)
+    try:
+        directory = agent_dir(host, skills)
+        if directory is None or not directory.is_dir():
+            return "lane display: skipped (no agent directory to draw in)"
+        state = status(skill_dir, host=host, skills=skills)
+        if state.live:
+            return f"lane display: already drawn from {state.target}"
+        if not state.ok:
+            return f"lane display: not drawn - {state.detail}"
+        drawn = install(skill_dir, host=host, skills=skills)
+    except (RuntimeError, OSError) as exc:
+        return f"lane display: skipped (this host cannot name its home directory: {exc})"
     if not drawn.live:
         return f"lane display: not drawn - {drawn.detail or drawn.settings}"
     return f"lane display: installed and registered at {drawn.target} - the pi UI draws the wave"
