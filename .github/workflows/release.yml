@@ -559,7 +559,7 @@ jobs:
       # (`GET /repos/.../releases` returns drafts to the authenticated token),
       # so the re-check can judge it before the world can see it.
       - name: Create GitHub Release (draft - published only after the R5 re-check)
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
         with:
           # A re-run of the same tag push converges: the action updates the
           # existing Release for this tag, the re-check reads it again and the
