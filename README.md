@@ -3,10 +3,11 @@
   <img src="docs/assets/nidvue-icon.svg" alt="Nidvue" width="88" height="88">
   <h1>Nidvue Teamwork</h1>
   <p><strong>One prompt in. A whole company of agents out.</strong></p>
-  <p>An autonomous, self-organising multi-agent company for coding agents:<br>
-  evidence-gated, role-shared, and auditable by design.</p>
+  <p>Nidvue Teamwork is **a skill for your coding agent** - not a standalone
+application. Install it like any other skill (one clone, no package manager), then
+ask your agent for the team:</p>
   <p>
-    <a href="https://github.com/Nidvue/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Nidvue/Teamwork/ci.yml?branch=main&amp;label=CI&amp;logo=github" height="20"></a>
+    <a href="https://github.com/Nidvue/Teamwork/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/Nidvue/Teamwork/ci.yml?branch=main&label=CI&logo=github" height="20"></a>
     <a href="LICENSE"><img alt="License: AGPL-3.0-or-later" src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg" width="160" height="20"></a>
     <a href="docs/guide/architecture.md"><img alt="Python 3.11 to 3.13" src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue" width="176" height="20"></a>
     <a href="docs/guide/install.md"><img alt="Skill: one clone to install" src="https://img.shields.io/badge/skill-install%20in%20one%20clone-8957e5" width="144" height="20"></a>
@@ -19,7 +20,7 @@
   <img src="assets/demo.svg" alt="Animated terminal: one git clone installs the skill, one request that names the skill starts the company, and the loop gate reports CONTINUE until every acceptance criterion is verified." width="820" height="478" style="max-width:100%;height:auto">
 </p>
 
-Nidvue Teamwork is **a skill for your coding agent** - not a standalone
+**Nidvue Teamwork** is **a skill for your coding agent** - not a standalone
 application. Install it like any other skill (one clone, no package manager), then
 ask your agent for the team:
 
@@ -33,16 +34,10 @@ executed evidence**. The agent host supplies the LLM API, and **every agent's mo
 is configured independently** (`teamwork model set <agent>`): a strong model for
 the Reviewer, a cheap one for the mechanical lanes. The engine (`teamwork.py`, stdlib only) ships inside the skill; installing it as a package is optional.
 
-- **Developed by AI agents, for AI agents.** This repository is built by its own
-  team: reviewed tasks in [Archive](docs/Team/Archive.md), the learning loop in
-  [Evolution](docs/Team/Evolution.md), and all but two commits (a merge and a
-  dependabot bump) by a role mailbox.
-- **One prompt in, a whole company out.** [The 30-second quickstart](#30-second-quickstart)
-  is the whole install.
-- **It improves from its own failures.** A failure becomes a lesson, a lesson
-  becomes a skill, and a skill reaches the core only after two cuts; its own
-  verdict is `confounded`, because the first adoption changed the metrics and the
-  classifier together ([Evolution](docs/Team/Evolution.md) 9.2).
+- **Developed by AI agents, for AI agents.** This repository is built by its own team: reviewed tasks in [Archive](docs/Team/Archive.md), the learning loop in [Evolution](docs/Team/Evolution.md), and all but two commits (a merge and a dependabot bump) by a role mailbox.
+- **One prompt in, a whole company out.** [The 30-second quickstart](#30-second-quickstart) is the whole install.
+- **It improves from its own failures.** A failure becomes a lesson, a lesson becomes a skill, and a skill reaches the core only after two cuts; its own verdict is `confounded`, because the first adoption changed the metrics and the classifier together ([Evolution](docs/Team/Evolution.md) 9.2).
+
 ## What makes it different
 
 | Differentiator | What it is | Proof |
@@ -63,16 +58,6 @@ Five more ship inside the skill - engine commands, no plugin, no daemon:
 | Real parallel lanes | `swarm run` sizes the wave from the work, dispatches it and returns; each lane is detached. | `teamwork swarm run` |
 | Agents that talk | A prioritised mailbox in the next packet; `urgent` preempts it and pauses its task. | `teamwork message send` |
 | Token economy | A measured startup read against a 120 KiB cap, a memory index and read-by-id commands. | `teamwork harness budget` |
-
-### Built by itself
-
-The team is the skill's first user: it decomposes, dispatches to sub-agents that
-fan out further, reviews every deliverable and merges it - this repository is that
-output. The learning loop is recursive too: a failure becomes a lesson, a lesson a
-skill, a skill reaches the core after two cuts
-([Evolution](docs/Team/Evolution.md) 9.2).
-
-The sourced comparison is in [Alternatives](docs/guide/alternatives.md).
 
 ## Install the skill
 
@@ -124,6 +109,7 @@ appears at `.pi/Teamwork/Teams/<Team>/`; project output is committed. Read the f
   never raise the cap.
 - **Automatic model routing** - `teamwork model auto` puts the strong model on
 the decision lanes and the economy one on the mechanical lanes.
+- **File ownership** - `task add --files 'src/a.py,docs/Team/'` declares paths a lane owns; `preflight` warns on any other path.
 - **Portable** - CPython 3.11-3.13 on Linux, macOS and Windows; stdlib only.
 
 ## Documentation
@@ -160,5 +146,5 @@ the decision lanes and the economy one on the mechanical lanes.
   build on names, emails, home paths, credentials or agent-host state.
 
 <p align="center">
-  <a href="https://star-history.com/#Nidvue/Teamwork&amp;Date"><img src="https://api.star-history.com/svg?repos=Nidvue/Teamwork&amp;type=Date" alt="Star history chart for Teamwork" width="720"></a>
+  <a href="https://star-history.com/#Nidvue/Teamwork&Date"><img src="https://api.star-history.com/svg?repos=Nidvue/Teamwork&type=Date" alt="Star history chart for Teamwork" width="720"></a>
 </p>
