@@ -180,7 +180,7 @@ def test_a_dropped_seat_is_always_counted_and_the_count_is_exact() -> None:
     assert len(lines) == 12, lines
     assert (shown, hidden) == (10, 11), lines
     assert lines[-1] == "+11 more busy", "the overflow line is the last line when rows are hidden"
-    assert not [line for line in lines if line.startswith("⚙")], "lanes yield to the hidden count"
+    assert not [line for line in lines if line.startswith("◇")], "lanes yield to the hidden count"
     for candidate in (feed(5, 0, LANE_ONLY), feed(3, 2), feed(1, 1), feed(0, 6)):
         lines = render(candidate, 100)
         shown, hidden = shown_and_hidden(lines)
@@ -205,9 +205,9 @@ def test_the_lanes_are_drawn_last_from_the_room_the_rows_leave() -> None:
     payload = feed(5, 0, LANE_ONLY)
     lines = render(payload, 100)
     assert len(lines) == 9, lines
-    lanes = [line for line in lines if line.startswith("⚙")]
+    lanes = [line for line in lines if line.startswith("◇")]
     assert len(lanes) == 3, lines
-    assert lanes[0].startswith("⚙ L-0420 Ghost-1 T-0130 ▶ run"), lanes[0]
+    assert lanes[0].startswith("◇ L-0420 Ghost-1 T-0130 ▸ run"), lanes[0]
     assert lines.index(lanes[0]) > max(
         index for index, line in enumerate(lines) if line.startswith("●")
     ), "a lane line never takes a line from a busy row"
@@ -219,7 +219,7 @@ def test_a_narrow_terminal_drops_columns_and_never_a_headless_row() -> None:
     for width in (24, 40, 60, 80, 100):
         lines = render(payload, width)
         for line in lines[1:]:
-            assert line[0] in "●⚙○+", (width, line)
+            assert line[0] in "●◇○+", (width, line)
         rows = [line for line in lines if line.startswith("●")]
         assert len(rows) == 3, (width, lines)
         for row in rows:
@@ -418,7 +418,7 @@ def test_release_engineer_is_never_clipped() -> None:
 def test_a_stalled_seat_is_drawn_as_stalled_and_never_as_busy() -> None:
     lines = run(schema5([busy_row(), stalled_row()], {"busy": 1, "stalled": 1}))["lines"]
     assert lines[0] == "teamwork", "neither the busy nor the stalled count is a header count"
-    stalled = [line for line in lines if line.startswith("⚠")]
+    stalled = [line for line in lines if line.startswith("▲")]
     assert len(stalled) == 1, lines
     assert "stalled" in stalled[0], stalled[0]
     assert "▸" not in stalled[0], "a stalled row carries no left clock"
@@ -447,7 +447,7 @@ def test_one_line_per_agent_and_no_idle_line() -> None:
         )
     )
     lines = run(schema5(rows, {"busy": 4, "stalled": 1}))["lines"]
-    body = [line for line in lines if line[:1] in "●⚠"]
+    body = [line for line in lines if line[:1] in "●▲"]
     assert len(body) == 5, lines
     names = [line.split()[1] for line in body]
     assert len(set(names)) == 5, names
@@ -544,3 +544,42 @@ def test_a_short_activity_leaves_a_short_line() -> None:
     assert short and long
     assert len(short[0]) < len(long[0]), (short, long)
     assert not short[0].endswith(" ")
+
+
+EMOJI_CAPABLE = {
+    0x23F8,
+    0x25B6,
+    0x25C0,
+    0x25FB,
+    0x25FC,
+    0x25FD,
+    0x25FE,
+    0x2699,
+    0x26A0,
+}
+
+
+def test_every_glyph_the_renderer_draws_is_one_cell_wide() -> None:
+    """Design.md 10.10: a glyph the terminal can widen breaks every column after it.
+
+    `⏸` (U+23F8) and `▶` (U+25B6) carry Emoji_Presentation=Yes, so they are two
+    cells by default; `⚠` (U+26A0) and `⚙` (U+2699) are emoji-capable, so a font
+    that prefers colour emoji widens them. `EMOJI_CAPABLE` is the set this widget
+    can reach - the four it drew plus the geometric shapes that share the class -
+    because no stdlib call answers the question (East Asian width reports `N` or
+    `A` for all of them). The row is a fixed-width table, so the class is a defect
+    whatever this font decides today.
+    """
+    text = (ROOT / "extensions" / "teamwork-status.ts").read_text(encoding="utf-8")
+    table = re.search(r"const GLYPH = \{([^}]*)\}", text)
+    assert table, "the renderer has no glyph table"
+    glyphs = re.findall(r':\s*"([^"]+)"', table.group(1))
+    assert len(glyphs) >= 8, glyphs
+
+    for glyph in glyphs:
+        for char in glyph:
+            point = ord(char)
+            assert point not in EMOJI_CAPABLE, (
+                f"glyph {glyph!r} (U+{point:04X}) is emoji-capable, so a terminal "
+                "may draw it two cells wide"
+            )

@@ -234,7 +234,7 @@ def test_a_payload_without_numbers_renders_no_metric() -> None:
         "lanes": [],
     }
     lines = draw(payload, 120)
-    rows = [line for line in lines if line.startswith(("●", "◐", "⚠"))]
+    rows = [line for line in lines if line.startswith(("●", "◐", "▲"))]
     assert len(rows) == 2, f"expected one line per busy agent, got {lines}"
     for line in rows:
         assert not re.search(r"\d+[smh]\b", line), f"a clock was invented: {line!r}"

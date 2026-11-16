@@ -24,7 +24,7 @@ const DROP_LEFT_BELOW = 48;
 const BARE_BELOW = 32;
 const ENGINE = ["scripts", "teamwork.py"];
 
-const GLYPH = { busy: "●", stalled: "⚠", lane: "⚙", review: "↳", half: "◐", run: "▶", pause: "⏸", fail: "✕" };
+const GLYPH = { busy: "●", stalled: "▲", lane: "◇", review: "↳", half: "◐", run: "▸", pause: "‖", fail: "✕" };
 
 const LANE_STATE: Record<string, [string, string, string]> = {
   starting: [GLYPH.run, "run", "ok"],
