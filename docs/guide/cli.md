@@ -279,6 +279,46 @@ teamwork task {add,list,next,set,check,reclaim,rm,archive} ...
 
 Manage a role's shared priority queue.
 
+#### `prompt record`
+
+```text
+teamwork prompt record --original TEXT | --original-file PATH
+    --round TEXT [--round TEXT ...]
+    --enhanced TEXT | --enhanced-file PATH [--evidence TEXT] --by INSTANCE
+teamwork prompt show | list | gate
+```
+
+`prompt show` prints the latest record, `prompt list` every record, and
+`prompt gate` exits 1 until an enhanced prompt exists (the same check the first
+`criteria add` runs).
+
+Records the three intake artifacts in `Prompt.md`: the user's prompt verbatim,
+one entry per research round with its evidence, and the **enhanced prompt** the
+plan decomposes. `record` refuses an empty original (the ground truth), no
+research round (an unread prompt) and an empty enhanced text (a restatement with
+no improvement). `gate` exits 1 until an enhanced prompt exists, and the first
+`criteria add` is refused on a fresh project for the same reason - criteria are
+what "done" means, and freezing them on an unread prompt is how a team builds the
+wrong thing quickly. `--force '<reason>'` on `criteria add` records an honest
+exception.
+
+#### `ask add|list|answer|gate`
+
+```text
+teamwork ask add --question TEXT --option TEXT --option TEXT [--option ...]
+    [--recommend N] [--blocks {intake,plan,any}] --by INSTANCE
+teamwork ask list [--all] [--json]
+teamwork ask answer HANDLE --choice N [--note TEXT] --by INSTANCE
+teamwork ask gate
+```
+
+An ambiguity that changes what gets built becomes a question, not a guess. `add`
+requires 2-5 concrete options - a one-answer question is a request for permission
+and invites the team to answer itself - plus the option number the team
+recommends. A `blocks` question holds `loop` at CONTINUE until `answer` records
+the user's choice; `gate` is the same check as a shell gate. `answer` refuses a
+choice outside the option range and refuses to answer a question twice.
+
 #### `task add`
 
 ```text
