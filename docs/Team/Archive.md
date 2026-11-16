@@ -7813,3 +7813,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: Verified: git show 151e57e5 --stat -> 1 file (docs/guide/features.md) matching the declared ownership; the added row documents the file-ownership feature with correct cross-references; ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; links -> 0 issues
 - findings history: 
 - branch / merge: ceo/t-0074-update-features-md-with-file-ownership-f / e23210c9
+
+## T-0075 · Update README with file ownership feature and restore required section structure  (ceo)
+- date: 2026-11-16
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: features
+- self-check: [pass] Re-read the 1-file diff: only README.md changes. Boundary: the new content adds the file-ownership feature to the 'What you get' list and restores the required section structure. No code changes, no flags added. Empty/duplicate/second-call: the feature is already implemented and tested; this is documentation only. Contract surface: docs only. Scope: 1 file. | test: git diff README.md @b5fc8e297b7130c34e29f12ad0f669d3f692d820 -> shows the updated content with file ownership feature and restored section structure | preflight: PF-bb17b757de60 @b5fc8e297b71 (9 checks, 0 failed)
+- author evidence: commit b5fc8e29
+- reviewer evidence: Verified: git show b5fc8e29 --stat -> 1 file (README.md) matching the declared ownership; the added content documents the file-ownership feature with correct cross-references; ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; links -> 0 issues
+- findings history: 
+- branch / merge: ceo/t-0075-update-readme-with-file-ownership-featur / pending
