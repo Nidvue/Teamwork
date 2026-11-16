@@ -33,11 +33,11 @@ must name the host. The same test globs every `roles/*.md` (those ship inside th
 package) and fails on a host tool call - `subagent(`, `subagent_supervisor(`,
 `schedule.create` or `teams(` - because that is the same portability regression as
 one in `SKILL.md`; provider and model names are content, not a host dependency, so
-they are not scanned. The concrete pi launcher (`pi -p`) lives in
-`skills/teamwork-pi/SKILL.md` and in the adapter table.
+they are not scanned. The concrete pi launcher (`pi -p`) lives in the adapter table in
+`references/Adapters.md`, nowhere else.
 `tests/unit/test_pi_package.py` then pins the package itself: licence field,
-shipped files, host-only peers with no third-party package at all, no
-duplicated pi layer, runnable engine.
+shipped files, host-only peers with no third-party package at all, exactly one
+skill directory, runnable engine.
 
 ### No third-party package
 
@@ -71,12 +71,12 @@ cd dist/@nidvue/teamwork && npm pack         # npm reports the file count and si
 pi install npm:@nidvue/teamwork              # or: pi -e ./dist/@nidvue/teamwork for one session
 ```
 
-`pi install` then `/skill:teamwork` (protocol) and `/skill:teamwork-pi`
-(pi tool mapping) are available. No other package is needed or suggested: the
+`pi install` then `/skill:teamwork` is available: the protocol and the host
+mapping both live in that one skill. No other package is needed or suggested: the
 lanes are launched by the engine, so `pi` alone is enough.
  Verified on pi 1.3.0: the local install listed
 the package and `pi -p "list the skills that contain teamwork"` answered
-`teamwork, teamwork-pi`. The tarball root carries `package.json`, `skills/`,
+`teamwork`, and only `teamwork`. The tarball root carries `package.json`, `skills/`,
 `prompts/`, `README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`, `SECURITY.md`. Both
 the file count and the unpacked size move with every edit, so they are read from
 `npm pack`, never quoted in prose.
@@ -87,7 +87,6 @@ the file count and the unpacked size move with every edit, so they are read from
 @nidvue/teamwork/
 ├── package.json                     # name, pi-package keyword, pi.skills/pi.prompts, peer deps
 ├── skills/teamwork/                 # SKILL.md + references/ roles/ templates/ scripts/ src/
-├── skills/teamwork-pi/SKILL.md      # the pi adapter layer (six operations, packet shape)
 ├── prompts/                         # teamwork-pulse.md, teamwork-review.md
 ├── extensions/teamwork-status.ts    # the optional live agent widget (no dependency)
 └── README.md CHANGELOG.md LICENSE NOTICE SECURITY.md
