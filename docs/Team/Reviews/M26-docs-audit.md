@@ -11,7 +11,7 @@ disproves the page and the smallest correction, not a rewrite.
 
 ## 1. Findings
 
-### F1 - `docs/Team/Release.md:394` `## Open drift` omits R2, which is red at this head
+### F1 - `docs/Team/Release.md:394` `### Open drift` omits R2, which is red at this head
 
 - Claim: the live drift table (`:394-400`) lists three open items - the R8 marker,
   `required_linear_history=false`, the unpinned ruff - and no R2. R2 appears only in
@@ -24,7 +24,7 @@ disproves the page and the smallest correction, not a rewrite.
   `# release consistency: 1 problem(s)`, exit `1`. `git rev-list --count v1.5.9..HEAD`
   -> `82`: the version was not bumped after the tag, so R2 is red at this head and
   absent from the table an operator reads for open drift.
-- Corrected sentence: add a row to `## Open drift` (`Release.md:394`) reading "R2 red
+- Corrected sentence: add a row to `### Open drift` (`Release.md:394`) reading "R2 red
   at head: `DRIFT HEAD version 1.5.9 is not greater than tag v1.5.9` - the next
   release bumps `version.py` before it tags"; the closed paragraph at `:402-409` is
   dated history and stays.
@@ -109,7 +109,7 @@ disproves the page and the smallest correction, not a rewrite.
 
 ### F8 - `docs/Team/Release.md:398` points the open R8 item at a line that is not a channel claim
 
-- Claim: row 1 of `## Open drift` (`Release.md:398`, owner `ceo` T-0004): "the R8
+- Claim: row 1 of `### Open drift` (`Release.md:398`, owner `ceo` T-0004): "the R8
   marker is missing at `docs/Team/Decisions.md:1284` - blocks every release".
   (`Release.md:400` is row 3, the unpinned ruff, owner `release-engineer` T-0002.)
 - Disproof: `sed -n '1282,1286p' docs/Team/Decisions.md` -> `:1284` is `- task: T-0010`
