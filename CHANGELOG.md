@@ -9,6 +9,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.12] - 2026-11-16
+
+### Fixed
+
+- **The tree moves to 1.5.12 after the v1.5.11 tag** - `R2` requires HEAD's
+  version to be strictly greater than every reachable tag that is not at HEAD, so
+  the first commit after a release must carry the next version. `version.py` and
+  `CITATION.cff` now read 1.5.12; the release itself stays v1.5.11.
+
 ## [1.5.11] - 2026-11-16
 
 ### Added
