@@ -7916,4 +7916,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit bb97439e
 - reviewer evidence: python3 -c 'import json;m=json.load(open("docs/Team/AuditManifest.json"));print(m["ledger"]["records"],m["git"]["dirty"])' -> 8084 False; git show bb97439e --stat -> 2 files (AuditManifest.json, AuditManifest.md) only; .venv/bin/python scripts/teamwork.py ledger verify -> chain intact, every digest matches; sha256sum -c on the four artifacts -> 4/4 OK
 - findings history: 
-- branch / merge: ceo/t-0083-refresh-the-closing-audit-manifest-at-th / pending
+- branch / merge: ceo/t-0083-refresh-the-closing-audit-manifest-at-th / 525b3c07
