@@ -1315,6 +1315,36 @@ def dedupe(findings):
     return unique
 
 
+def history_ref_count(root) -> int:
+    """How many refs the ``--all --reflog`` history scope covered."""
+    proc = _run(["git", "-C", str(root), "for-each-ref", "--format=%(refname)"])
+    if proc.returncode != 0:
+        return 0
+    return len([ln for ln in proc.stdout.decode("utf-8", "replace").splitlines() if ln.strip()])
+
+
+_SCOPE_BY_MODE = {"tree": "head", "staged": "index", "stores": "stores"}
+
+
+def summary_scope(root, modes) -> str:
+    """The revision scope a run covered, named per mode that read one.
+
+    The same revision gets a different history verdict per checkout: ``--all
+    --reflog`` sees a local backup ref that a fresh CI clone never has. A PASS
+    therefore states the ref set and the scope it read. ``--staged`` reads the
+    index and ``--stores`` reads no revision at all, so neither may report head.
+    """
+    if "history" in modes:
+        return f"refs={history_ref_count(root)} scope=all+reflog"
+    read = [_SCOPE_BY_MODE[mode] for mode in modes if mode in _SCOPE_BY_MODE]
+    return f"scope={'+'.join(read)}"
+
+
+def summary_allow(explicit) -> str:
+    """The allowlist that was applied, or ``none`` - the gate read the same without it."""
+    return str(explicit) if explicit else "none"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="privacy_scan.py",
@@ -1463,7 +1493,10 @@ def main(argv=None):
                     line = f"{line}  {detail}"
                 print(line)
         state = "FAIL" if findings else "PASS"
-        print(f"privacy_scan: {state} - {len(findings)} finding(s) in {', '.join(modes)}")
+        print(
+            f"privacy_scan: {state} - {len(findings)} finding(s) in {', '.join(modes)}; "
+            f"allow={summary_allow(args.allow)} {summary_scope(root, modes)}"
+        )
     return 1 if findings else 0
 
 
