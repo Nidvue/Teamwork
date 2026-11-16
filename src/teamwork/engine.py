@@ -5530,6 +5530,9 @@ def guard_committer_identity(project: Path, rev_range: str = "HEAD") -> int:
         if sha in LEGACY_AUTHOR_EXEMPT:
             print(f"- {sha[:12]} skipped: legacy author ({LEGACY_AUTHOR_EXEMPT[sha]})")
             continue
+        if predates_identity_rule(project, sha):
+            print(f"- {sha[:12]} skipped: predates the role-mailbox rule")
+            continue
         seen += 1
         bot_author = an in BOT_IDENTITIES and _RE_BOT_EMAIL.match(ae) is not None
         if ce in canonical:
@@ -5589,6 +5592,33 @@ _RE_ACTING_ROLE = re.compile(r"^Acting role:\s*(.+?)\s*$", re.MULTILINE)
 _RE_ROLE_FIELD = re.compile(r"^Role:\s*(.+?)\s*$", re.MULTILINE)
 LEGACY_MESSAGE_EXEMPT: dict[str, str] = {}
 LEGACY_AUTHOR_EXEMPT: dict[str, str] = {}
+
+LEGACY_IDENTITY_BEFORE = "22a6edf20b3b9439611a72711dc5f13b5c4af310"
+
+LEGACY_IDENTITY_REASON = (
+    "published before the merge-identity fix; the commits are ancestors of "
+    f"{LEGACY_IDENTITY_BEFORE[:12]} on the protected default branch, so they are "
+    "not rewritten - every commit after that revision must be a role mailbox"
+)
+
+
+def predates_identity_rule(project: Path, sha: str) -> bool:
+    """True when ``sha`` is at or before the published revision the rule took effect.
+
+    Published history cannot be rewritten (it is protected and rewriting it is a
+    red line), so the commits that predate the role-mailbox merge rule stay in the
+    tree carrying the operator pair. This names one boundary instead of listing
+    every object: anything at or before it is exempt with a printed reason, and
+    anything after it is held to the rule, so a new operator-pair commit still
+    fails the audit and the committer guard.
+    """
+    boundary = (LEGACY_IDENTITY_BEFORE or "").strip()
+    if not boundary:
+        return False
+    probe = run_git(project, "merge-base", "--is-ancestor", sha, boundary)
+    return probe.returncode == 0
+
+
 _RE_MERGE_SUBJECT = re.compile(
     r"^(?:"
     r"chore\(merge\):"
@@ -5734,6 +5764,9 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
         reasons = []
         if sha in LEGACY_AUTHOR_EXEMPT:
             print(f"- {short} skipped: legacy author ({LEGACY_AUTHOR_EXEMPT[sha]})")
+            continue
+        if predates_identity_rule(project, sha):
+            print(f"- {short} skipped: predates the role-mailbox rule ({LEGACY_IDENTITY_REASON})")
             continue
         if an in BOT_IDENTITIES and _RE_BOT_EMAIL.match(ae) and ae not in canonical:
             print(f"- {short} ok: bot {an}")
@@ -8716,6 +8749,12 @@ def star_once(root: Path, dry_run: bool = False) -> str:
 
     Returns one line the caller prints. Never raises: a bootstrap step that can
     fail the workspace is worse than one that reports why it was skipped.
+
+    ``gh`` writes its config and cache under ``HOME``, so it runs with a scratch
+    ``HOME``: an ``init`` inside a read-only install tree must not create
+    ``~/.local`` there (the portability acceptance test asserts the shipped copy
+    is byte-identical afterwards). ``CI`` and ``TEAMWORK_STAR_ONCE=off`` skip it
+    entirely, because a CI run is not the user's project init.
     """
     import json as _json
     import shutil
@@ -8729,22 +8768,45 @@ def star_once(root: Path, dry_run: bool = False) -> str:
             done = {}
         if done.get("starred"):
             return f"star: already recorded at {done.get('at') or 'an earlier run'} ({STAR_REPO})"
+    mode = (os.environ.get("TEAMWORK_STAR_ONCE") or "auto").strip().lower()
+    if mode in ("0", "off", "no", "false"):
+        return "star: skipped - TEAMWORK_STAR_ONCE is off"
+    if mode == "auto" and os.environ.get("CI", "").strip():
+        return "star: skipped - a CI run is not the user's project init"
     gh = shutil.which("gh")
     if not gh:
         return "star: skipped - no `gh` on PATH, so GitHub access cannot be checked"
-    auth = subprocess.run(
-        [gh, "api", "user"], capture_output=True, text=True, timeout=30, check=False
-    )
-    if auth.returncode != 0:
-        return "star: skipped - no authenticated GitHub access (`gh api user` failed)"
-    if dry_run:
-        return f"star: would check and star {STAR_REPO} (dry run)"
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="teamwork-gh-") as gh_home:
+        gh_env = dict(os.environ, HOME=gh_home, XDG_CONFIG_HOME=gh_home)
+        if dry_run:
+            return f"star: would check and star {STAR_REPO} (dry run)"
+        auth = subprocess.run(
+            [gh, "api", "user"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            env=gh_env,
+        )
+        if auth.returncode != 0:
+            return "star: skipped - no authenticated GitHub access (`gh api user` failed)"
+        return _star_with(gh, gh_env, root, record)
+
+
+def _star_with(gh: str, gh_env: dict, root: Path, record: Path) -> str:
+    """Probe and star with a given environment, then record the decision."""
+    import json as _json
+    import subprocess
+
     probe = subprocess.run(
         [gh, "api", f"user/starred/{STAR_REPO}"],
         capture_output=True,
         text=True,
         timeout=30,
         check=False,
+        env=gh_env,
     )
     already = probe.returncode == 0
     if not already:
@@ -8754,6 +8816,7 @@ def star_once(root: Path, dry_run: bool = False) -> str:
             text=True,
             timeout=30,
             check=False,
+            env=gh_env,
         )
         if star.returncode != 0:
             detail = (star.stderr or star.stdout or "").strip().splitlines()
@@ -8775,11 +8838,7 @@ def star_once(root: Path, dry_run: bool = False) -> str:
         + "\n",
     )
     ledger_append(
-        root,
-        "star.once",
-        "system",
-        STAR_REPO,
-        "already starred" if already else "starred now",
+        root, "star.once", "system", STAR_REPO, "already starred" if already else "starred now"
     )
     return f"star: {STAR_REPO} " + ("was already starred" if already else "starred (once)")
 
