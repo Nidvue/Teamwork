@@ -195,6 +195,7 @@ under two roles is two tasks.
 | developer | T-0070 | status-widget | done | P-0091 | 5e37f092 |
 | developer | T-0071 | pr-merge | done | P-0093 | 66f2a703 |
 | developer | T-0072 | records | done | P-0094 | 5267f8ea |
+| developer | T-0073 | pi-package | done | P-0095 | ad86404b |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | blocked | - | - |
 | reviewer | T-0001 | - | done | - | - |
