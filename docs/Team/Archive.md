@@ -7994,4 +7994,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 753d4d94
 - reviewer evidence: venv/bin/python -m pytest -q tests/unit/test_pi_status_render.py tests/integration/test_agent_state_width_matrix.py tests/unit/test_lane_display.py @753d4d94 -> 39 passed in 6.81s; ruff check/format clean; 3 suite failures identical on main (pre-existing); HEADER-LIVE-REVIEW check passes; Design.md 10.9 updated with measured table row and check | credited: TS-0120 acceptance/widget-header by Reviewer-2 @753d4d94
 - findings history: 
-- branch / merge: developer/t-0081-widget-header-live-and-review-only-drop / pending
+- branch / merge: developer/t-0081-widget-header-live-and-review-only-drop / 262be1e3
