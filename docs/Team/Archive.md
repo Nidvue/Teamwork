@@ -7774,3 +7774,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: /home/operator/Code/Nidvue/Teamwork/.venv/bin/python scripts/check_release_consistency.py --offline @ca3bbd4f -> 0 problems, R2 ok HEAD 1.5.10 is newer than 1 tag; the two previously-failing tests pass at this revision (test_release_traceability skipped as not published line, test_traceability_matrix::test_every_deterministic_state_matches_a_real_run passed); git show ca3bbd4f --stat -> 3 files (version.py, CITATION.cff, CHANGELOG.md) matching the declared ownership
 - findings history: 
 - branch / merge: ceo/t-0071-bump-to-1-5-10-after-the-v1-5-9-tag-so-r / ea648c91
+
+## T-0072 · Add the swarm file-ownership rule: task --files declares the paths a lane may touch, printed in the lane packet, checked by preflight  (ceo)
+- date: 2026-11-16
+- priority: P1
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: ownership
+- self-check: [pass] Re-read the 6-file diff. BOUNDARY: the files check is omitted entirely when a task declares no --files, so an undeclared task keeps its old check count and never fails; it warns, never fails, when a path is outside the declared ownership; a directory prefix and a glob both match. EMPTY/DUPLICATE/SECOND-CALL: an empty files field returns None (tested); the parser round-trips the field (test_task_meta_fields binds TASK_META_FIELDS to new_task); the packet block prints once; preflight is read-only so a second run is identical. CONTRACT: two new CLI flags (--files on task add and task set), one new record field, one new preflight check name; no existing flag, exit code or record changed, and an undeclared task's report is byte-identical to before. CONCURRENCY: the check reads git diff --name-only, no writes; the field is written under the role lock like every task field. SCOPE: 6 files - engine.py, records.py, lanes.py, docs/guide/cli.md, references/Coordination.md, tests/unit/test_file_ownership.py. --shared used because the changes were already in the main checkout. | test: .venv/bin/python -m pytest -q tests/unit/test_file_ownership.py tests/unit/test_preflight.py tests/unit/test_task_meta_fields.py tests/unit/test_lanes.py @ee04ecddb1a43e507f45a91d28774d58d258b8df -> 92 passed | preflight: PF-d77971d6bcd7 @ee04ecddb1a4 (9 checks, 0 failed)
+- author evidence: commit ee04ecdd
+- reviewer evidence: Read the artifact first: git show ee04ecdd --stat -> 6 files matching the declared ownership (engine.py, records.py, lanes.py, cli.md, Coordination.md, test_file_ownership.py). The check is omitted when --files is empty (test_an_undeclared_task_is_not_forced_into_a_budget), warns outside ownership (test_a_diff_outside_the_declared_ownership_warns_with_the_path), matches dir prefixes and globs (test_owned_by_matches...), round-trips the field (test_a_new_task_carries_the_files...), and the packet prints it (test_the_lane_packet_prints_the_files...). Gate green: ruff format --check . -> 347 files; ruff check . -> All checks passed; privacy_scan --tree -> PASS 0; pytest docs/skill/cli/ci/makefile contracts -> 278 passed; pytest test_file_ownership+preflight+lanes -> 90 passed. TS-0216/0217/0218 recorded passing for area ownership.
+- findings history: 
+- branch / merge: ceo/t-0072-add-the-swarm-file-ownership-rule-task-f / pending
