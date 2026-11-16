@@ -59,6 +59,8 @@ Teamwork/
 │   ├── lanes.py              # the engine's own lane runtime: spawn, supervise, dynamic waves
 │   ├── layout.py             # team tree paths and cross-links
 │   ├── memorypack.py         # task-aware memory: score, pack, search, dream (Memory.md 4)
+│   ├── prompts.py            # the prompt record: original, research rounds, enhanced
+│   ├── questions.py          # clarifying questions with options; a blocking one holds loop
 │   ├── memverify.py          # memory verify: the focused, score-ranked check pass
 │   ├── messages.py           # the agent mailbox: priority queue, take/done, preemption
 │   ├── names.py              # names, roles, commit identities

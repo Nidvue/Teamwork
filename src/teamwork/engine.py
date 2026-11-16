@@ -249,6 +249,8 @@ from .layout import (
     project_of,
     project_path,
     project_root,
+    prompt_path,
+    questions_path,
     retired_dir,
     reviews_path,
     role_dir,
@@ -285,6 +287,23 @@ from .names import (
     safe_component,
     slugify,
     team_slug,
+)
+from .prompts import (
+    has_enhanced,
+    latest_prompt,
+    new_prompt,
+    parse_prompt,
+    write_prompt,
+)
+from .questions import (
+    QUESTION_BLOCKS,
+    blocking_questions,
+    find_question,
+    new_question,
+    open_questions,
+    parse_questions,
+    question_line,
+    write_questions,
 )
 from .records import (
     AGENT_LINKS,
@@ -2022,6 +2041,15 @@ def _criteria_mutate(args, root: Path, path: Path, items: list) -> int:
             )
         if find_criterion(items, args.id) is not None:
             die(f"criterion {args.id} already exists")
+        if not items and not has_enhanced(parse_prompt(prompt_path(root))):
+            print(
+                "teamwork: WARNING no enhanced prompt is recorded yet, so the request "
+                "was not researched and improved before these criteria were frozen.\n"
+                "  Record it: prompt record --original '<the user prompt verbatim>' "
+                "--round '<what the research found>' --enhanced '<the improved prompt>' "
+                "--by <you>\n"
+                "  `loop` will not report STOP until it exists."
+            )
         owner = args.owner or args.by or "ceo"
         owner, _r = validate_actor(root, owner, "criterion owner", must_exist=False)
         actor, _ar = validate_actor(root, args.by, "criterion author")
@@ -2739,6 +2767,8 @@ def _tests_list(args, root: Path, records: list) -> int:
 
 
 LEDGER_ACTIONS = (
+    "ask.add",
+    "ask.answer",
     "attention.add",
     "attention.resolve",
     "branch.retire",
@@ -2801,6 +2831,7 @@ LEDGER_ACTIONS = (
     "pr.merge.forced",
     "pr.open",
     "pr.repair",
+    "prompt.record",
     "pulse.observe",
     "read.sparse",
     "redline.close",
@@ -2815,6 +2846,7 @@ LEDGER_ACTIONS = (
     "skill.create",
     "skill.rm",
     "skill.share",
+    "star.once",
     "swarm.scale",
     "swarm.start",
     "swarm.stop",
@@ -6715,6 +6747,9 @@ def cmd_init(args) -> int:
         scaffold_instance(root, name, role, staffed=staffed, force=args.force)
         created.append(name)
 
+    if not getattr(args, "no_star", False):
+        print(f"teamwork: {star_once(root)}")
+
     print(f"teamwork: workspace ready at {root}")
     print(f"teamwork: global memory {gpath}")
     print("teamwork: memory + task lists are per ROLE (shared by its instances)")
@@ -8661,6 +8696,97 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
             print(f"teamwork: initial commit {sha}")
         elif r.returncode != 0 and not quiet:
             print(f"teamwork: initial commit skipped: {r.stderr.strip().splitlines()[:1]}")
+    return 0
+
+
+STAR_REPO = "Nidvue/Teamwork"
+
+STAR_RECORD = "Starred.json"
+
+
+def star_once(root: Path, dry_run: bool = False) -> str:
+    """Star the project repository once, when the host has GitHub access.
+
+    The instruction is one action at the beginning of a project, and it must be
+    exactly once: a second run is a no-op, and a host without GitHub access is
+    skipped silently rather than failing the bootstrap. The record lives in
+    ``Runtime/Starred.json`` so the decision survives the session; the check is
+    ``gh api user/starred/<repo>`` and the action is ``gh api -X PUT``, both
+    idempotent on GitHub's side, so a lost record still cannot double-star.
+
+    Returns one line the caller prints. Never raises: a bootstrap step that can
+    fail the workspace is worse than one that reports why it was skipped.
+    """
+    import json as _json
+    import shutil
+    import subprocess
+
+    record = root / DIR_RUNTIME / STAR_RECORD
+    if record.exists():
+        try:
+            done = _json.loads(record.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            done = {}
+        if done.get("starred"):
+            return f"star: already recorded at {done.get('at') or 'an earlier run'} ({STAR_REPO})"
+    gh = shutil.which("gh")
+    if not gh:
+        return "star: skipped - no `gh` on PATH, so GitHub access cannot be checked"
+    auth = subprocess.run(
+        [gh, "api", "user"], capture_output=True, text=True, timeout=30, check=False
+    )
+    if auth.returncode != 0:
+        return "star: skipped - no authenticated GitHub access (`gh api user` failed)"
+    if dry_run:
+        return f"star: would check and star {STAR_REPO} (dry run)"
+    probe = subprocess.run(
+        [gh, "api", f"user/starred/{STAR_REPO}"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    already = probe.returncode == 0
+    if not already:
+        star = subprocess.run(
+            [gh, "api", "-X", "PUT", "-H", "Content-Length: 0", f"user/starred/{STAR_REPO}"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if star.returncode != 0:
+            detail = (star.stderr or star.stdout or "").strip().splitlines()
+            return f"star: could not star {STAR_REPO}: " + (
+                detail[0] if detail else "unknown error"
+            )
+    record.parent.mkdir(parents=True, exist_ok=True)
+    write_lf(
+        record,
+        _json.dumps(
+            {
+                "repo": STAR_REPO,
+                "starred": True,
+                "already": already,
+                "at": datetime.datetime.now().isoformat(timespec="seconds"),
+            },
+            indent=2,
+        )
+        + "\n",
+    )
+    ledger_append(
+        root,
+        "star.once",
+        "system",
+        STAR_REPO,
+        "already starred" if already else "starred now",
+    )
+    return f"star: {STAR_REPO} " + ("was already starred" if already else "starred (once)")
+
+
+def cmd_star(args) -> int:
+    root = project_root(args)
+    print(star_once(root, dry_run=bool(getattr(args, "dry_run", False))))
     return 0
 
 
@@ -13628,6 +13754,228 @@ def cmd_attention(args) -> int:
     return 0
 
 
+def cmd_prompt(args) -> int:
+    """Record the original prompt, its research rounds and the enhanced prompt.
+
+    The enhanced prompt is what the plan decomposes, and it exists so the team
+    improves the request from evidence instead of restating it. ``record``
+    refuses an empty original (the ground truth), fewer than one research round
+    (an unread prompt) and an empty enhanced text (no improvement to decompose).
+    """
+    root = project_root(args)
+    path = prompt_path(root)
+    if args.prompt_cmd in ("show", "list"):
+        items = parse_prompt(path)
+        if not items:
+            print("# no prompt recorded yet")
+            return 0
+        item = items[-1] if args.prompt_cmd == "show" else None
+        for entry in [item] if item else items:
+            print(f"## {entry['id']} · {entry.get('title') or 'prompt'}")
+            print(f"- recorded_by: {entry.get('recorded_by') or '-'}")
+            print(f"- rounds: {len(entry.get('rounds') or [])}")
+            print(f"- evidence: {entry.get('evidence') or '-'}")
+            print("")
+            print("### Original prompt (verbatim)")
+            print(entry.get("original") or "")
+            print("")
+            print("### Research rounds")
+            for index, round_text in enumerate(entry.get("rounds") or [], start=1):
+                print(f"{index}. {round_text}")
+            print("")
+            print("### Enhanced prompt")
+            print(entry.get("enhanced") or "")
+            print("")
+        return 0
+    if args.prompt_cmd == "gate":
+        if has_enhanced(parse_prompt(path)):
+            print("# prompt gate: an enhanced prompt is recorded")
+            return 0
+        print(
+            "# prompt gate: no enhanced prompt yet - research the request, then "
+            "record it with `prompt record`"
+        )
+        return 1
+    if args.prompt_cmd != "record":
+        die(f"unknown prompt command '{args.prompt_cmd}'", 2)
+    actor, _role = validate_actor(root, args.by, "prompt author")
+    original = _read_text_arg(
+        getattr(args, "original", "") or "", getattr(args, "original_file", "")
+    )
+    enhanced = _read_text_arg(
+        getattr(args, "enhanced", "") or "", getattr(args, "enhanced_file", "")
+    )
+    if not original.strip():
+        die(
+            "prompt record needs the user's prompt verbatim: --original '<text>' or "
+            "--original-file <path>. The original is the ground truth and is never "
+            "edited.",
+            2,
+        )
+    if not enhanced.strip():
+        die(
+            "prompt record needs --enhanced '<text>' or --enhanced-file <path>: the "
+            "enhanced prompt is what the plan decomposes, and an empty one means the "
+            "request was restated rather than improved.",
+            2,
+        )
+    rounds = [one_line(item) for item in (getattr(args, "round", None) or []) if one_line(item)]
+    if len(rounds) < 1:
+        die(
+            "prompt record needs at least one --round '<what the pass found, with its "
+            "evidence>': one unread prompt is the failure this gate exists to stop. "
+            "Run a second round when the first leaves a fact unresolved.",
+            2,
+        )
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "prompt.lock"):
+        items = parse_prompt(path)
+        item = new_prompt(
+            original,
+            enhanced,
+            rounds,
+            actor,
+            one_line(getattr(args, "evidence", "") or ""),
+        )
+        items.append(item)
+        write_prompt(path, items)
+    ledger_append(
+        root,
+        "prompt.record",
+        actor,
+        item["id"],
+        f"{len(rounds)} research round(s); enhanced prompt {len(enhanced)} chars",
+    )
+    print(f"teamwork: recorded {item['id']} ({len(rounds)} research round(s))")
+    print("          the plan decomposes the enhanced prompt; the original stays verbatim")
+    return 0
+
+
+def _read_text_arg(inline: str, path: str) -> str:
+    """The text from an inline argument, or from a file when a path is given."""
+    if (path or "").strip():
+        source = Path(path.strip())
+        if not source.exists():
+            die(f"--file path does not exist: {source}", 2)
+        return source.read_text(encoding="utf-8")
+    return inline
+
+
+def cmd_ask(args) -> int:
+    """Record, list or answer a clarifying question with options.
+
+    The store exists so an ambiguity becomes a decision a person makes, not a
+    guess a model makes. ``ask add`` refuses fewer than two options - a question
+    with one answer is a request for permission, and it invites the team to
+    answer itself - and a ``blocks`` question holds ``loop`` at CONTINUE until
+    ``ask answer`` records a choice.
+    """
+    root = project_root(args)
+    path = questions_path(root)
+    if args.ask_cmd == "list":
+        items = parse_questions(path)
+        if not getattr(args, "all", False):
+            items = open_questions(items)
+        if getattr(args, "json", False):
+            for item in items:
+                print(json.dumps(item, sort_keys=True))
+            return 0
+        if not items:
+            print("# no open questions")
+            return 0
+        for item in items:
+            print(question_line(item))
+            for index, option in enumerate(item.get("options") or [], start=1):
+                mark = " *" if str(index) == str(item.get("recommend")) else ""
+                print(f"    {index}. {option}{mark}")
+        return 0
+    if args.ask_cmd == "gate":
+        blocked = blocking_questions(parse_questions(path))
+        if not blocked:
+            print("# questions gate: no blocking question is open")
+            return 0
+        print(f"# questions gate: {len(blocked)} blocking question(s) open")
+        for item in blocked:
+            print(f"- {question_line(item)}")
+        return 1
+    if args.ask_cmd == "add":
+        actor, _role = validate_actor(root, args.by, "question author")
+        text = (args.question or "").strip()
+        if not text:
+            die("ask add needs --question '<the ambiguity in one line>'", 2)
+        options = [one_line(value) for value in (args.option or []) if one_line(value)]
+        if len(options) < 2:
+            die(
+                "ask add needs at least two --option values: a question with one "
+                "answer is a request for permission, and the team would answer it "
+                "itself instead of asking the user",
+                2,
+            )
+        if len(options) > 5:
+            die("ask add takes at most five --option values: narrow the choice", 2)
+        recommend = int(getattr(args, "recommend", 0) or 0)
+        if recommend and not (1 <= recommend <= len(options)):
+            die(f"--recommend {recommend} is outside the {len(options)} option(s)", 2)
+        blocks = (getattr(args, "blocks", "") or "intake").strip().lower()
+        if blocks not in QUESTION_BLOCKS:
+            die(f"--blocks must be one of {', '.join(QUESTION_BLOCKS)}", 2)
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / "questions.lock"):
+            items = parse_questions(path)
+            item = new_question(text, options, blocks, recommend, actor)
+            items.append(item)
+            write_questions(path, items)
+        ledger_append(
+            root,
+            "ask.add",
+            actor,
+            item["id"],
+            f"[blocks={item['blocks']}] {one_line(text)[:90]} ({len(options)} options)",
+        )
+        print(f"teamwork: opened {question_line(item)}")
+        print(
+            "          answer it with: teamwork.py ask answer "
+            + item["id"]
+            + " --choice N --by <you>"
+        )
+        return 0
+    if args.ask_cmd == "answer":
+        actor, _role = validate_actor(root, args.by, "answerer")
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / "questions.lock"):
+            items = parse_questions(path)
+            index = find_question(items, args.handle)
+            if index is None:
+                die(f"no question '{args.handle}'", 2)
+            item = items[index]
+            if item["status"] != "open":
+                die(f"{item['id']} is already {item['status']}", 2)
+            choice = str(getattr(args, "choice", "") or "").strip()
+            if not choice.isdigit() or not (1 <= int(choice) <= len(item["options"])):
+                die(
+                    f"--choice must be 1..{len(item['options'])}: "
+                    + "; ".join(f"{i}. {opt}" for i, opt in enumerate(item["options"], start=1)),
+                    2,
+                )
+            item["status"] = "answered"
+            item["answered_by"] = actor
+            item["answered"] = today_iso()
+            item["choice"] = choice
+            item["note"] = one_line(getattr(args, "note", "") or "")
+            write_questions(path, items)
+        ledger_append(
+            root,
+            "ask.answer",
+            actor,
+            item["id"],
+            f"choice {item['choice']}: {item['options'][int(item['choice']) - 1][:90]}",
+        )
+        print(
+            f"teamwork: answered {item['id']} by {actor} -> "
+            f"{item['choice']}. {item['options'][int(item['choice']) - 1]}"
+        )
+        return 0
+    die(f"unknown ask command '{args.ask_cmd}'")
+    return 2
+
+
 def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     """Every completion gate, with the detail a human needs to act on it.
 
@@ -13642,6 +13990,41 @@ def gate_report(root: Path, stale_days: int = 2, full: bool = False) -> dict:
     sections = []
     names = list_roles(root)
     tasks = all_tasks(root)
+
+    s = _section("prompt (researched and enhanced)", "the request the plan decomposes")
+    prompt_records = parse_prompt(prompt_path(root))
+    latest = latest_prompt(prompt_records)
+    if latest is None:
+        s["lines"].append("no prompt record: run the intake (`prompt record --original ...`)")
+        if parse_criteria(criteria_path(root)):
+            s["blockers"].append(
+                "criteria are recorded but no prompt was researched and enhanced (`prompt record`)"
+            )
+    else:
+        rounds = len(latest.get("rounds") or [])
+        enhanced = bool((latest.get("enhanced") or "").strip())
+        s["lines"].append(
+            f"{latest['id']}: {rounds} research round(s); enhanced prompt "
+            + ("recorded" if enhanced else "MISSING")
+        )
+        if not enhanced:
+            s["blockers"].append(
+                f"{latest['id']} has no enhanced prompt: research the request and record "
+                "the improved prompt the plan decomposes"
+            )
+    sections.append(s)
+
+    s = _section("questions (blocking)", "what the team must ask before it guesses")
+    blocking = blocking_questions(parse_questions(questions_path(root)))
+    if not blocking:
+        s["lines"].append("none: no blocking question is open")
+    for item in blocking:
+        s["lines"].append(question_line(item))
+        s["blockers"].append(
+            f"blocking question {item['id']} is unanswered ({len(item['options'])} option(s)): "
+            f"{one_line(item['text'])[:90]}"
+        )
+    sections.append(s)
 
     s = _section("criteria", "acceptance criteria (machine records)")
     criteria = parse_criteria(criteria_path(root))
@@ -19013,6 +19396,11 @@ def _parsers_workspace(sub, common) -> None:
     )
     s.add_argument("--force", action="store_true", help="overwrite existing files")
     s.add_argument("--no-git", action="store_true", help="do not create/check the git repository")
+    s.add_argument(
+        "--no-star",
+        action="store_true",
+        help="skip the one-time star of Nidvue/Teamwork when GitHub access is available",
+    )
     s.set_defaults(func=cmd_init)
 
     s = sub.add_parser(
@@ -19383,6 +19771,89 @@ def _parsers_workspace(sub, common) -> None:
     s.add_argument("--by", required=True)
     s.add_argument("--resolution", required=True, help="what the person decided")
     s.set_defaults(func=cmd_attention)
+
+    s = sub.add_parser(
+        "ask",
+        parents=[common],
+        help="record/list/answer a clarifying question with options (a blocking one holds loop)",
+    )
+    qsub = s.add_subparsers(dest="ask_cmd", required=True)
+    s = qsub.add_parser(
+        "add", parents=[common], help="record an ambiguity with 2-5 concrete options"
+    )
+    s.add_argument("--question", required=True, help="the ambiguity, in one line")
+    s.add_argument(
+        "--option",
+        action="append",
+        default=[],
+        help="one concrete choice; repeat 2-5 times (the answer space the user picks from)",
+    )
+    s.add_argument(
+        "--recommend",
+        type=int,
+        default=0,
+        help="the option number the team recommends, with its reason in --question",
+    )
+    s.add_argument(
+        "--blocks",
+        default="intake",
+        help="which gate it holds: intake (default), plan, or any",
+    )
+    s.add_argument("--by", required=True)
+    s.set_defaults(func=cmd_ask)
+    s = qsub.add_parser("list", parents=[common], help="open questions with their options")
+    s.add_argument("--all", action="store_true", help="include answered and dropped")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_ask)
+    s = qsub.add_parser(
+        "answer", parents=[common], help="record the user's choice, closing the question"
+    )
+    s.add_argument("handle", help="Q-0001 or a substring of the question")
+    s.add_argument("--choice", required=True, help="the option number the user chose")
+    s.add_argument("--note", default="", help="the user's reason or any extra constraint")
+    s.add_argument("--by", required=True)
+    s.set_defaults(func=cmd_ask)
+    s = qsub.add_parser("gate", parents=[common], help="exit 1 while a blocking question is open")
+    s.set_defaults(func=cmd_ask)
+
+    s = sub.add_parser(
+        "prompt",
+        parents=[common],
+        help="record the original prompt, its research rounds and the enhanced prompt",
+    )
+    psub = s.add_subparsers(dest="prompt_cmd", required=True)
+    s = psub.add_parser(
+        "record", parents=[common], help="record original + research rounds + enhanced"
+    )
+    s.add_argument("--original", default="", help="the user's prompt, verbatim")
+    s.add_argument("--original-file", default="", help="read the original from this file")
+    s.add_argument("--enhanced", default="", help="the improved prompt the plan decomposes")
+    s.add_argument("--enhanced-file", default="", help="read the enhanced prompt from this file")
+    s.add_argument(
+        "--round",
+        action="append",
+        default=[],
+        help="one research round: what it found and the evidence; repeat for each pass",
+    )
+    s.add_argument("--evidence", default="", help="the command or path that backs the research")
+    s.add_argument("--by", required=True)
+    s.set_defaults(func=cmd_prompt)
+    s = psub.add_parser("show", parents=[common], help="the latest prompt record")
+    s.set_defaults(func=cmd_prompt)
+    s = psub.add_parser("list", parents=[common], help="every prompt record")
+    s.set_defaults(func=cmd_prompt)
+    s = psub.add_parser(
+        "gate", parents=[common], help="exit 1 until an enhanced prompt is recorded"
+    )
+    s.set_defaults(func=cmd_prompt)
+
+    s = sub.add_parser(
+        "star",
+        parents=[common],
+        help="star Nidvue/Teamwork once, when GitHub access is available (idempotent)",
+    )
+    s.add_argument("--dry-run", action="store_true", help="report what it would do")
+    s.set_defaults(func=cmd_star)
 
     s = sub.add_parser(
         "repo", parents=[common], help="ensure a git repository exists and report status"
@@ -19785,6 +20256,13 @@ def _parsers_quality(sub, common) -> None:
     s.add_argument("--text", required=True, help="verifiable statement")
     s.add_argument("--owner", required=True, help="role/instance accountable for it")
     s.add_argument("--by", required=True, help="who records it (provenance)")
+    s.add_argument(
+        "--force",
+        default="",
+        metavar="REASON",
+        help="freeze the first criteria before an enhanced prompt is recorded; "
+        "a reason is required and recorded",
+    )
     s.set_defaults(func=cmd_criteria)
     s = csub.add_parser("verify", parents=[common], help="mark verified with independent evidence")
     s.add_argument("id")
