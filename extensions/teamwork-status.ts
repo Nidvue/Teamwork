@@ -12,15 +12,13 @@ const INSTANCE_MIN = 6;
 const MODEL_MAX = 20;
 const LANE_MAX = 3;
 const WIDTH_MAX = 100;
-const ACTIVITY_MAX = 240;
+const ACTIVITY_MAX = 28;
 const TASK_W = 7;
 const USED_W = 5;
 const LEFT_MIN = 4;
 const LEFT_MAX = 5;
-const BAR_W = 5;
 const SEP = "▸";
 const DROP_MODEL_BELOW = 80;
-const DROP_BAR_BELOW = 72;
 const DROP_ACTIVITY_BELOW = 56;
 const DROP_LEFT_BELOW = 48;
 const BARE_BELOW = 32;
@@ -184,22 +182,6 @@ function leftClock(row: Instance): string {
   return "-";
 }
 
-function percentOf(row: Instance): number | null {
-  const sent = secondsOf(row.progress_pct);
-  if (sent !== null) return sent;
-  const budget = secondsOf(row.budget_seconds);
-  const elapsed = secondsOf(row.elapsed_seconds);
-  if (budget !== null && budget > 0 && elapsed !== null) return (elapsed * 100) / budget;
-  return null;
-}
-
-function bar(percent: number | null): string {
-  if (percent === null || Number.isNaN(percent)) return " ".repeat(BAR_W);
-  const clamped = Math.max(0, Math.min(100, percent));
-  const filled = Math.round((clamped / 100) * BAR_W);
-  return `${"█".repeat(filled)}${"░".repeat(BAR_W - filled)}`;
-}
-
 function task_id(value: string | undefined): string {
   const clean = (value ?? "").trim();
   const tail = clean.includes("/") ? clean.slice(clean.lastIndexOf("/") + 1) : clean;
@@ -247,11 +229,9 @@ type Row = {
   task: string;
   used: string;
   left: string;
-  bar: string;
   body: string;
   age: string;
   model: string;
-  percent: number | null;
 };
 
 type Layout = {
@@ -260,7 +240,6 @@ type Layout = {
   leftW: number;
   activity: number;
   left: boolean;
-  bar: boolean;
   model: boolean;
   bare: boolean;
 };
@@ -271,7 +250,8 @@ function rowFrom(row: Instance): Row {
   const stalled = row.stalled === true || (row.state ?? "").trim().toLowerCase() === "stalled";
   const state = (row.state ?? "").trim().toLowerCase() || (stalled ? "stalled" : "busy");
   const age = ago(secondsOf(row.last_seconds));
-  const core = text(row.activity, ACTIVITY_MAX) || text(row.last, ACTIVITY_MAX) || text(row.title, TITLE_MAX);
+  const core =
+    clipWords(row.activity, ACTIVITY_MAX) || clipWords(row.last, ACTIVITY_MAX) || text(row.title, TITLE_MAX);
   const word = state === "busy" ? "" : state;
   const body = word ? [word, core].filter((part) => part).join(" · ") : core;
   return {
@@ -282,11 +262,9 @@ function rowFrom(row: Instance): Row {
     task: task_label(row.task, review),
     used: usedClock(row),
     left: stalled ? "-" : leftClock(row),
-    bar: stalled ? " ".repeat(BAR_W) : bar(percentOf(row)),
     body,
     age,
     model: modelLabel(row.model),
-    percent: stalled ? null : percentOf(row),
   };
 }
 
@@ -295,7 +273,6 @@ function layoutFor(rows: Row[], width: number): Layout {
   const pad = Math.min(INSTANCE_MAX, widest);
   const bare = width < BARE_BELOW;
   const model = !bare && width >= DROP_MODEL_BELOW;
-  const showBar = !bare && width >= DROP_BAR_BELOW;
   const left = !bare && width >= DROP_LEFT_BELOW;
   const showActivity = !bare && width >= DROP_ACTIVITY_BELOW;
   const leftW = Math.min(LEFT_MAX, Math.max(LEFT_MIN, ...rows.map((row) => row.left.length)));
@@ -304,10 +281,10 @@ function layoutFor(rows: Row[], width: number): Layout {
     1 +
     USED_W +
     (left ? 2 + 1 + leftW : 0) +
-    (showBar ? 1 + BAR_W : 0) +
     (model ? 1 + MODEL_MAX : 0);
-  const activity = showActivity ? Math.max(0, width - head - tail - 1) : 0;
-  return { pad, taskW: TASK_W, leftW, activity, left, bar: showBar, model, bare };
+  const room = showActivity ? Math.max(0, width - head - tail - 1) : 0;
+  const activity = Math.min(ACTIVITY_MAX, room);
+  return { pad, taskW: TASK_W, leftW, activity, left, model, bare };
 }
 
 function fitActivity(body: string, age: string, room: number): string {
@@ -328,15 +305,13 @@ function rowLine(row: Row, layout: Layout, width: number, paint: Paint | undefin
   const cols = [head, row.used.padStart(USED_W)];
   const blankLeft = row.stalled;
   const leftCell = blankLeft ? " ".repeat(SEP.length + 1 + layout.leftW) : `${SEP} ${row.left.padStart(layout.leftW)}`;
-  const barCell = row.stalled ? " ".repeat(BAR_W) : row.bar;
   if (layout.left) cols.push(leftCell);
-  if (layout.bar) cols.push(barCell);
   let line = cols.join(" ");
   const tail = layout.model && row.model ? ` ${row.model}` : "";
   if (layout.activity) {
-    const room = width - line.length - tail.length - 1;
+    const room = Math.min(layout.activity, width - line.length - tail.length - 1);
     const cell = fitActivity(row.body, row.age, room);
-    if (cell) line = `${line} ${cell.padEnd(room)}`;
+    if (cell) line = `${line} ${cell}`;
   }
   line = `${line}${tail}`.trimEnd();
   if (line.length > width) return null;
@@ -366,7 +341,7 @@ export function render(payload: Payload, width = WIDTH_MAX, paint?: Paint): stri
   if (!instances.length && !lanes.length) return [];
   const counts = payload.counts ?? {};
   const rows: Row[] = instances.map(rowFrom);
-  rows.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || a.instance.localeCompare(b.instance));
+  rows.sort((a, b) => a.instance.localeCompare(b.instance));
   const drawable = rows.filter((row) => row.state !== "idle");
   const idle = rows.length - drawable.length;
   const named = new Set(rows.map((row) => row.instance));

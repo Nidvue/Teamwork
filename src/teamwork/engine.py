@@ -11938,6 +11938,7 @@ def cmd_status(args) -> int:
     counts = _status_counts(root, rows)
     meta = status_meta(root, rows, lanes_shown)
     counts.update(meta)
+    staffed = sum(len(instances_of(root, role)) for role in list_roles(root))
     wanted = (getattr(args, "agent", "") or "").strip()
     if wanted:
         rows = [row for row in rows if pascal(row["instance"]) == pascal(wanted)]
@@ -11961,7 +11962,7 @@ def cmd_status(args) -> int:
     idle = len(rows) - len(busy) - len(stalled)
     print(
         f"# Status ({len(busy)} busy, {len(stalled)} stalled, {idle} idle, "
-        f"{counts['activated']} activated, {counts['retired']} retired)"
+        f"{staffed} staffed, {counts['retired']} retired)"
     )
     live = [lane for lane in lanes_shown if lane["state"] in lane_runtime_live()]
     if live:
@@ -11986,7 +11987,7 @@ def cmd_status(args) -> int:
         print((head + str(row["progress"]))[:110])
     if idle:
         print(
-            f"- idle: {idle} seat(s) (activated {counts['activated']}, retired "
+            f"- idle: {idle} seat(s) (staffed {staffed}, retired "
             f"{counts['retired']}) - fold them: teamwork.py instance prune --keep-required"
         )
     return 0

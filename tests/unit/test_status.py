@@ -306,7 +306,11 @@ def test_the_panel_prints_the_lane_block_before_the_instance_rows(
     capsys.readouterr()
     assert cli("--project", project, "status") == 0
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0].startswith("# Status (1 busy, 0 stalled, 3 idle, 4 activated, 0 retired)")
+    assert (
+        lines[0].startswith("# Status (1 busy, 0 stalled, 3 idle, ")
+        and " staffed, " in lines[0]
+        and "activated" not in lines[0]
+    )
     assert lines[1] == "# Lanes (1 live, 0 ended not shown)"
     assert lines[2].startswith("- L-0001  Developer-1      running   T-"), lines[2]
     assert lines[2].endswith(" p/m"), lines[2]

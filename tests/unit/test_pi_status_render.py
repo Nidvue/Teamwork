@@ -227,8 +227,8 @@ def test_a_narrow_terminal_drops_columns_and_never_a_headless_row() -> None:
     wide = render(payload, 100)
     assert "tests.run" not in "\n".join(narrow), "below 56 columns the activity column is gone"
     assert "tests.run" in "\n".join(wide)
-    assert "░" not in "\n".join(narrow), "below 72 columns the bar is gone"
-    assert "░" in "\n".join(render(payload, 72))
+    assert "░" not in "\n".join(wide), "no bar on any line, at any width"
+    assert "█" not in "\n".join(wide), "the bar is deleted, not shrunk"
 
 
 def test_a_null_progress_keeps_the_tail_columns_aligned() -> None:
@@ -246,8 +246,8 @@ def test_a_null_progress_keeps_the_tail_columns_aligned() -> None:
     body = [line for line in run(schema5(rows, {"busy": 2}), 100)["lines"] if line.startswith("●")]
     assert len(body) == 2, body
     assert body[0].index("▸") == body[1].index("▸"), body
-    assert "█" in body[0] or "░" in body[0], "the derived bar still fills from budget and elapsed"
-    assert "█" not in body[1] and "░" not in body[1], "no budget means an empty bar"
+    assert "█" not in "\n".join(body) and "░" not in "\n".join(body), "the bar is deleted"
+    assert not any(line.endswith(" ") for line in body), "no row is padded to the edge"
 
 
 def test_a_review_lane_is_named_by_its_task_and_never_by_its_owner() -> None:
@@ -499,3 +499,44 @@ def test_every_width_keeps_every_line_inside_the_bound() -> None:
         assert lines, width
         assert max(len(line) for line in lines) <= width, (width, lines)
         assert len(lines) <= 12, (width, lines)
+
+
+def test_the_activity_is_capped_at_28_columns_and_never_padded() -> None:
+    row = busy_row("Developer", activity="a long activity string that runs well past the cap")
+    body = [line for line in run(schema5([row], {"busy": 1}), 100)["lines"] if line.startswith("●")]
+    assert body, "the busy row is drawn"
+    assert "…" in body[0], body[0]
+    assert not body[0].endswith(" "), "the line ends at its last visible character"
+    assert len(body[0]) < 100, "the row is never filled to the terminal edge"
+
+
+def test_the_activity_is_clipped_at_a_word_boundary_not_mid_token() -> None:
+    row = busy_row("Developer", activity="alpha beta gamma delta epsilon zeta")
+    body = [line for line in run(schema5([row], {"busy": 1}), 100)["lines"] if line.startswith("●")]
+    assert body, "the busy row is drawn"
+    assert "delta…" in body[0], body[0]
+    assert "epsil…" not in body[0], "a partial token is never emitted"
+
+
+def test_a_short_activity_leaves_a_short_line() -> None:
+    short = [
+        line
+        for line in run(schema5([busy_row("Developer", activity="lane done")], {"busy": 1}), 100)[
+            "lines"
+        ]
+        if line.startswith("●")
+    ]
+    long = [
+        line
+        for line in run(
+            schema5(
+                [busy_row("Developer", activity="a long activity that fills the whole cell")],
+                {"busy": 1},
+            ),
+            100,
+        )["lines"]
+        if line.startswith("●")
+    ]
+    assert short and long
+    assert len(short[0]) < len(long[0]), (short, long)
+    assert not short[0].endswith(" ")
