@@ -42,8 +42,8 @@ def test_instance_add_refuses_a_traversing_name(cli, project: Path) -> None:
 
     assert code != 0, "a name that safe_component had to change must be refused"
     assert tree(project) == before, "no directory may be created outside the team tree"
-    assert not (root / engine.DIR_AGENTS / "Ceo").exists()
-    assert not (root.parent / "Ceo").exists()
+    assert "Ceo" not in {path.name for path in (root / engine.DIR_AGENTS).iterdir()}
+    assert "Ceo" not in {path.name for path in root.parent.iterdir()}
 
 
 def test_instance_add_refuses_a_traversing_name_inside_its_own_role(cli, project: Path) -> None:
