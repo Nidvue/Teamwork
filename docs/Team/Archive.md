@@ -7877,4 +7877,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 77618150
 - reviewer evidence: git show 77618150 --stat -> 2 files (engine.py, test_identity_legacy.py). The exemption is one boundary, not a list: predates_identity_rule -> merge-base --is-ancestor, verified 4f4b81d3 True and b1155675 False, so post-rule commits are still audited. Reproduced the CI condition with GIT_CONFIG_GLOBAL=/dev/null: identity --audit --strict-authors --range HEAD -> rc 0, 3170 commits, 0 problems, the pre-rule commits printed as skipped with the reason. Portability: pytest -q tests/acceptance/test_portability_acceptance.py -> 6 passed, the shipped copy is byte-identical after init. Full local gate: ruff format/check, check_comments (0 commentary), mypy (34 files), privacy_scan PASS 0, links 0 issues, check_release_consistency 0 problems.
 - findings history: 
-- branch / merge: ceo/t-0080-ci-fix-exempt-published-pre-rule-history / pending
+- branch / merge: ceo/t-0080-ci-fix-exempt-published-pre-rule-history / a2365a40
