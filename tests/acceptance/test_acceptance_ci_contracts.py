@@ -64,8 +64,8 @@ def published_scope() -> str:
     SKIP; the checker's own default stays ``yes`` (fail-closed) for a run that
     says nothing. This asserts the verdict CI gets, on the checkout CI has.
     """
-    head = git(REPO_ROOT, "symbolic-ref", "-q", "HEAD").stdout.strip()
-    attached = head in {"refs/heads/main", "refs/heads/master"}
+    head = git(REPO_ROOT, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    attached = head in {"main", "master"}
     return "--head-is-default-branch=" + ("yes" if attached else "no")
 
 

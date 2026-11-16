@@ -32,7 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nowhere and failed with `R2 DRIFT HEAD version 1.5.13 is not greater than tag
   v1.5.13` (runs 43961251927, 43961222377). It now passes the scope CI passes,
   computed from whether HEAD is the tip of a local default branch, so the test
-  asserts the verdict CI gets on the checkout CI has.
+  asserts the verdict CI gets on the checkout CI has. The scope is read with
+  `git rev-parse --abbrev-ref HEAD`, which answers `HEAD` on a detached checkout:
+  `git symbolic-ref` exits 1 there, so the first version of this test failed the
+  tag checkout in the release pipeline (run 43972645472) instead of skipping R2.
 
 ## [1.5.13] - 2026-11-16
 
