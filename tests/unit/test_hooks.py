@@ -35,6 +35,7 @@ CLEARED = (
 )
 
 ROLE_EMAIL = "developer@agents.nidvue.com"
+PLACEHOLDER = "[" + "REDACTED" + "_EMAIL_4]"
 
 
 def clean_env(**extra: str) -> dict:
@@ -364,6 +365,25 @@ def test_pre_commit_allows_a_feature_branch(cli, feature, capsys) -> None:
     capsys.readouterr()
     assert cli("--project", feature, "hook", "pre-commit") == 0
     assert capsys.readouterr().err == ""
+
+
+def test_pre_commit_refuses_a_placeholder_identity(cli, feature, capsys) -> None:
+    """The masked-address text is refused before the object exists.
+
+    Measured on this project: twelve commits were authored and committed as
+    ``ReleaseEngineer <[REDACTED_EMAIL_n]>`` and the hook printed nothing, because
+    the identity check was a warning keyed on the role mailbox and a value with no
+    ``@`` was neither the right mailbox nor a personal address. A warning cannot
+    undo a commit; the object id is the email.
+    """
+    git(feature, "config", "user.name", "ReleaseEngineer")
+    git(feature, "config", "user.email", PLACEHOLDER)
+    capsys.readouterr()
+
+    assert cli("--project", feature, "hook", "pre-commit") == 1
+    err = capsys.readouterr().err
+    assert "is not an email address" in err
+    assert "masking placeholder" in err
 
 
 def stage_blob(path: Path, size: int) -> Path:

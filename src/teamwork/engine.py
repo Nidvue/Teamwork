@@ -279,6 +279,7 @@ from .names import (
     git_identity_args,
     git_identity_env,
     identity_string,
+    malformed_mailbox,
     one_line,
     pascal,
     preset_identity,
@@ -5796,6 +5797,16 @@ def audit_commit_identities(project: Path, rev_range: str, strict_authors: bool 
             continue
         if an in BOT_IDENTITIES and _RE_BOT_EMAIL.match(ae) and ae not in canonical:
             print(f"- {short} ok: bot {an}")
+            continue
+        if malformed_mailbox(ae) or malformed_mailbox(ce):
+            reasons.append(
+                f"malformed identity: author <{ae}>, committer <{ce}> - a value that "
+                "is not an email address is a redaction placeholder, not an outside "
+                "contributor"
+            )
+            problems.append((short, reasons))
+            for reason in reasons:
+                print(f"- {short} FAIL {an} <{ae}>: {reason}")
             continue
         expected = canonical.get(ae)
         operator = preset_identity(project)
