@@ -76,11 +76,10 @@ Design notes
 
 Measurement behind ``TARBALL_LAYOUT`` (11.2.3): the npm tarball does *not* keep
 payload-relative paths. ``build_pi_package.copy_skill`` stages ``skills/teamwork/``
-plus the pi-native layer at ``skills/teamwork-pi/`` and ``prompts/`` (= the tag
-tree's ``templates/pi-package/``). Hashing the tarball where it sits produces a
+and ``prompts/`` (= the tag tree's ``templates/pi-package/``). Hashing the tarball where it sits produces a
 digest a tag can never reproduce, so the shipped subtrees are re-laid out under
-their payload paths before hashing. Measured on the published tarballs:
-``1.1.2`` -> ``a01d9f0cbee641c3`` = payload of ``2c14b71``; ``1.1.0`` ->
+their payload paths before hashing. Measured on the published tarballs while the retired
+``skills/teamwork-pi/`` layer was still in the map: ``1.1.2`` -> ``a01d9f0cbee641c3`` = payload of ``2c14b71``; ``1.1.0`` ->
 ``ebfc2538e3d3d605`` = payload of ``v1.1.0`` (identical once
 ``scripts/build_pi_package.py`` is excluded, which is 11.5 example 3);
 ``1.1.1`` -> ``726bc547afc41ead``, which matches no commit reachable from
@@ -171,7 +170,6 @@ PAYLOAD_EXCLUDES = frozenset({"scripts/build_pi_package.py"})
 
 TARBALL_LAYOUT = (
     ("skills/teamwork", ""),
-    ("skills/teamwork-pi", "templates/pi-package/skills/teamwork-pi"),
     ("prompts", "templates/pi-package/prompts"),
     ("extensions", "extensions"),
 )
@@ -680,10 +678,9 @@ def payload_digest(root: Path, rev: str | None) -> str:
 def _tarball_payload_digest(blob: bytes) -> str:
     """Digest of an npm tarball's shipped payload, on the payload's own paths.
 
-    11.2.3 publishes the tarball as ``package/skills/teamwork/`` plus the pi-native
-    layer ``package/skills/teamwork-pi/`` and ``package/prompts/`` (see
-    ``build_pi_package.copy_skill``). A tag tree keeps that layer under
-    ``templates/pi-package/``. The paths are therefore *mapped back* to the
+    11.2.3 publishes the tarball as ``package/skills/teamwork/`` and
+    ``package/prompts/`` (see ``build_pi_package.copy_skill``). A tag tree keeps
+    ``prompts/`` under ``templates/pi-package/``. The paths are therefore *mapped back* to the
     repository's payload layout before hashing - without the map a tag tree and a
     tarball can never share a digest, and 11.5's worked examples would be
     unreachable. Everything outside the mapping (``package/package.json``,

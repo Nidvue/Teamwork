@@ -470,7 +470,6 @@ names that consumer; a bare count is the number of files naming the path.
 | `templates/TeamMap.md` | live | `config.DIR_TEAM_MAP_TPL`, read by `init` (`engine.py:3848`); `grep -l templates/TeamMap.md` -> 4 (Architecture.md, Archive.md, Decisions.md, +1) | kept |
 | `templates/pi-package/prompts/teamwork-pulse.md` | live | `build_pi_package.py:130` ships `prompts/`; `grep -l teamwork-pulse.md` -> 1 (Pi-Packaging.md) | kept |
 | `templates/pi-package/prompts/teamwork-review.md` | live | `build_pi_package.py:130` ships `prompts/`; `grep -l teamwork-review.md` -> 1 (Pi-Packaging.md) | kept |
-| `templates/pi-package/skills/teamwork-pi/SKILL.md` | live | `build_pi_package.py:127` copies it into the npm package; `grep -l templates/pi-package/skills/teamwork-pi/SKILL.md` -> 1 (Archive.md) | kept |
 | `tests/__init__.py` | live | imported by 6 module(s): check_release_consistency.py, privacy_scan.py, cli_harness.py, +3 | kept |
 | `tests/acceptance/cli_harness.py` | live | imported by 9 module(s): gate_fixtures.py, test_acceptance_docs.py, test_acceptance_links.py, +6 | kept |
 | `tests/acceptance/conftest.py` | live | imported by 1 module(s): __init__.py | kept |
@@ -594,7 +593,6 @@ Zero duplicates, measured two ways: no two tracked files share a digest
 |---|---|
 | `templates/Docs/*.md` vs `docs/Team/*.md` | the template and the instance: `init` copies the first to make the second, and the second carries this team's content |
 | `tests/unit/test_portable.py` vs `tests/unit/test_portability.py` | the OS seam's unit tests vs the portability contract (source-level rules, bundle resolution) - 6 tests vs 26, no shared assertion |
-| `SKILL.md` vs `templates/pi-package/skills/teamwork-pi/SKILL.md` | the host-agnostic protocol vs the pi-specific layer that maps its six host operations |
 | `README.md` vs `docs/guide/install.md` | the entry page vs the install reference the site links; the version pin they share is read by rule R6 of the release checker |
 
 #### Findings handed to their owners

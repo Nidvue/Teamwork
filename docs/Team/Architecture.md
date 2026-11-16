@@ -34,7 +34,7 @@ Teamwork/
 ├── roles/*.md                # 15 role charters
 ├── references/*.md           # policy detail
 ├── templates/                # AGENTS.md, Docs/*.md, TeamMap.md skeletons
-│   └── pi-package/           # pi manifest fragments: skills/teamwork-pi/SKILL.md, prompts/*.md
+│   └── pi-package/           # pi manifest fragments: prompts/*.md
 ├── .agents/skills/           # repo-local skills a session can load (tw-ceo-audit-close)
 ├── src/teamwork/
 │   ├── __init__.py           # re-exports __version__ only (no lazy re-exports)
@@ -1205,7 +1205,6 @@ applied to every npm version, never per-version:
 | Tarball prefix (under `package/`) | Payload prefix | Produced by |
 |---|---|---|
 | `skills/teamwork/` | `` (payload root) | `copy_skill`, the portable skill, `SKILL_FILES` + `SKILL_TREES` |
-| `skills/teamwork-pi/` | `templates/pi-package/skills/teamwork-pi/` | `copy_skill`, copied from that repository path |
 | `prompts/` | `templates/pi-package/prompts/` | `copy_skill`, copied from that repository path |
 
 Everything else in the tarball (`package.json`, `README.md`, `LICENSE`,

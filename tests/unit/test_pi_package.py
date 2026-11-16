@@ -109,22 +109,27 @@ def test_the_package_declares_no_third_party_package(tmp_path: Path) -> None:
         "the status widget is the only extension"
     )
 
-    adapter = (pkg / "skills" / "teamwork-pi" / "SKILL.md").read_text(encoding="utf-8")
-    for command in ("lane start", "swarm run"):
-        assert command in adapter, f"the layer must name the engine runtime: {command}"
-    for tool in ("subagent(", "subagent_supervisor(", "schedule.create", "teams("):
-        assert tool not in adapter, f"the layer must not require a host plugin: {tool}"
+    skills = sorted(p.name for p in (pkg / "skills").iterdir() if p.is_dir())
+    assert skills == ["teamwork"], f"the package ships exactly one skill: {skills}"
+    manifests = sorted(p.relative_to(pkg).as_posix() for p in (pkg / "skills").rglob("SKILL.md"))
+    assert manifests == ["skills/teamwork/SKILL.md"], manifests
+    assert manifest["pi"]["skills"] == ["./skills"]
+    portable = (pkg / "skills" / "teamwork" / "SKILL.md").read_text(encoding="utf-8")
+    for tool in ("subagent(", "schedule.create"):
+        assert tool not in portable, tool
 
 
 def test_the_pi_layer_is_not_shipped_twice(tmp_path: Path) -> None:
     pkg = build(tmp_path)
-    adapter = pkg / "skills" / "teamwork-pi" / "SKILL.md"
-    assert adapter.is_file()
-    duplicates = [p for p in (pkg / "skills" / "teamwork").rglob("teamwork-pi") if p.is_dir()]
-    assert not duplicates, duplicates
-    portable = (pkg / "skills" / "teamwork" / "SKILL.md").read_text(encoding="utf-8")
-    for tool in ("subagent(", "schedule.create"):
-        assert tool not in portable, tool
+    adapters = (pkg / "skills" / "teamwork" / "references" / "Adapters.md").read_text(
+        encoding="utf-8"
+    )
+    for heading in (
+        "## Packet shape that survives a bounded lane",
+        "## Rules that cost us real time",
+    ):
+        assert heading in adapters, heading
+    assert not list(pkg.rglob("teamwork-pi")), "the retired adapter layer is gone"
 
 
 def test_engine_and_skill_are_runnable_from_the_tarball(tmp_path: Path) -> None:
