@@ -95,6 +95,7 @@ def isolated_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for name in TEAM_ENV:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("TEAMWORK_SKILL_DIR", str(REPO_ROOT))
+    monkeypatch.setenv("TEAMWORK_UI", "off")
     monkeypatch.chdir(tmp_path)
     return tmp_path
 

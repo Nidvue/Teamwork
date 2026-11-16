@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.13] - 2026-11-16
 
+### Added
+
+- **The team draws itself in the pi agent UI by default** - `init` now installs
+  and registers `extensions/teamwork-status.ts` in the host it is running in
+  (`lanedisplay.ensure`), so bootstrapping the skill in pi shows the live wave
+  without a separate `ui install` or `refresh`; the step never fails the
+  workspace, and `init --no-ui` or `TEAMWORK_UI=off` opts out. A CI run and a host
+  with no agent directory write nothing.
+
 ### Fixed
 
 - **The agent-state width matrix runs on Windows** - the test replaced the child
