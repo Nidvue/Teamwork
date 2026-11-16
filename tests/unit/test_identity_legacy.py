@@ -168,8 +168,23 @@ def test_the_shipped_exemption_maps_are_empty_after_the_rewrite() -> None:
 
 
 def test_the_repository_history_needs_no_exemption() -> None:
-    """The audit and the guard are green on this tree with both maps empty."""
+    """The audit and the guard are green on this tree.
+
+    Published history before ``LEGACY_IDENTITY_BEFORE`` is exempt with a printed
+    reason: it predates the role-mailbox merge rule, the default branch is
+    protected, and rewriting it is a red line. Every commit after that revision
+    is held to the rule, which is what keeps the exemption from spreading.
+    """
     code, output = strict_audit(REPO_ROOT, "HEAD")
 
     assert code == 0, output
     assert engine.guard_committer_identity(REPO_ROOT, "HEAD") == 0
+    boundary = engine.LEGACY_IDENTITY_BEFORE
+    assert boundary, "the boundary must name a revision, not be empty"
+    assert (
+        subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "cat-file", "-e", f"{boundary}^{{commit}}"],
+            capture_output=True,
+        ).returncode
+        == 0
+    ), f"LEGACY_IDENTITY_BEFORE {boundary} is not a commit in this repository"
