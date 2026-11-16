@@ -7852,3 +7852,16 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - reviewer evidence: Read the artifact first: git show b1155675 --stat -> 15 files matching the declared scope. The two gates are real: prompt record refuses no-rounds and no-enhanced (exit 2), ask add refuses a single option (exit 2) and an out-of-range choice (exit 2), and loop reports each blocker. Independent run @b1155675: ruff format --check . -> 351 files; ruff check . -> All checks passed; mypy src/teamwork -> 34 files clean; privacy_scan --tree -> PASS 0; links -> 0 issues; check_release_consistency --offline -> 0 problems; pytest -q tests/unit/test_prompts.py tests/unit/test_questions.py -> 15 passed; tests/acceptance/test_full_loop.py -> 8 passed (the gate loop still reaches STOP once the prompt is recorded). Credits TS-0222/0223/0224 are re-recorded at this revision and cover the three layers. | credited: TS-0224 acceptance/intake by Reviewer @b11556756f182915d0da4aeabd230e6b2f41f200
 - findings history: 
 - branch / merge: ceo/t-0078-intake-gates-record-the-prompt-with-rese / 3e74160e
+
+## T-0079 · Release prep 1.5.11: the CHANGELOG section for the intake gates and the star-once bootstrap  (ceo)
+- date: 2026-11-16
+- priority: P0
+- owner: ceo role (work by: CEO)
+- reviewer: Reviewer
+- task / issue: -
+- area: changelog
+- self-check: [pass] Re-read the 1-file diff: CHANGELOG.md [1.5.11] gains an Added section above the existing Fixed one. BOUNDARY: no version change (1.5.11 is still untagged), no code. EMPTY/DUPLICATE/SECOND-CALL: the section is unique (R7 finds one per tag); a second run is a no-op. CONTRACT: docs only. SCOPE: CHANGELOG.md. | test: .venv/bin/python scripts/check_release_consistency.py --offline @3b5fd87c6224a0ff2f7504b21f0d5cf361210a32 -> 0 problems; .venv/bin/python -m pytest -q tests/unit/test_docs_contracts.py @3b5fd87c6224a0ff2f7504b21f0d5cf361210a32 -> 20 passed | preflight: PF-ce726e1b9c6c @3b5fd87c6224 (9 checks, 0 failed)
+- author evidence: commit 3b5fd87c
+- reviewer evidence: git show 3b5fd87c --stat -> CHANGELOG.md only; the [1.5.11] section now has Added (two bullets) then Fixed (one bullet), all under Keep-a-Changelog names; check_release_consistency --offline @3b5fd87c -> 0 problems (R7 one section per tag); pytest -q tests/unit/test_docs_contracts.py -> 20 passed
+- findings history: 
+- branch / merge: ceo/t-0079-release-prep-1-5-11-the-changelog-sectio / pending
