@@ -18,6 +18,7 @@ reason, exactly as tests/unit/test_pi_status_render.py does.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -54,10 +55,10 @@ def node() -> str:
 
 def draw(payload: dict, width: int) -> list[str]:
     env = {
+        **os.environ,
         "TW_EXTENSION": str(EXTENSION),
         "TW_PAYLOAD": json.dumps(payload),
         "TW_WIDTH": str(width),
-        "PATH": "/usr/bin:/bin:/usr/local/bin",
     }
     run = subprocess.run(
         [node(), "--experimental-strip-types", "--no-warnings", "-e", SCRIPT],
