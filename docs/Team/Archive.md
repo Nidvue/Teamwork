@@ -7773,4 +7773,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit df1131cf; commit 3a37c467; commit ca3bbd4f
 - reviewer evidence: /home/pingz/Code/Nidvue/Teamwork/.venv/bin/python scripts/check_release_consistency.py --offline @ca3bbd4f -> 0 problems, R2 ok HEAD 1.5.10 is newer than 1 tag; the two previously-failing tests pass at this revision (test_release_traceability skipped as not published line, test_traceability_matrix::test_every_deterministic_state_matches_a_real_run passed); git show ca3bbd4f --stat -> 3 files (version.py, CITATION.cff, CHANGELOG.md) matching the declared ownership
 - findings history: 
-- branch / merge: ceo/t-0071-bump-to-1-5-10-after-the-v1-5-9-tag-so-r / pending
+- branch / merge: ceo/t-0071-bump-to-1-5-10-after-the-v1-5-9-tag-so-r / ea648c91
