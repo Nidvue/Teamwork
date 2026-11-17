@@ -29,6 +29,11 @@ without a shell so a test, a wrapper or a new host can supply its own launcher.
 State survives the supervisor: a lane keeps running when the CLI exits, the record
 carries its pid, budget and outcome, and ``lane reap`` reconciles a lane that died
 without writing an outcome. A re-entered supervisor resumes from the records.
+
+The supervisor also enforces the clock: a lane past its deadline, or one that has
+written no log byte for a third of it, is terminated, and every timeout opens its
+own root-cause record and a P1 attention item naming the task
+(D-20261117-CEO-7). A timed-out unit is not retried with the same shape.
 """
 
 from __future__ import annotations
@@ -47,10 +52,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import bundle, engine, gitutil, lanerun, messages
+from .attention import new_attention, parse_attention, write_attention
 from .config import DIR_LOCKS, DIR_RUNTIME, F_SETTINGS, F_SHORT, PRIORITY_ORDER
 from .io import die, lock, write_lf
 from .layout import (
     agent_dir,
+    attention_path,
     list_agents,
     list_roles,
     project_of,
@@ -59,13 +66,14 @@ from .layout import (
     shown_path,
     task_file,
 )
-from .names import pascal, resolve_role, safe_component
+from .names import one_line, pascal, resolve_role, safe_component
 from .portable import IS_WINDOWS, pid_alive
 from .records import (
     executable,
     find_task,
     local_dep_map,
     new_entry,
+    new_task,
     parse_memory,
     parse_tasks,
     today_iso,
@@ -107,6 +115,8 @@ STALE_WAVE_LIMIT = 3
 PROFILE_MINUTES_FACTOR = {"fast": 0.4, "standard": 1.0, "deep": 1.6}
 
 PROFILE_TOOL_BUDGET = {"fast": 10, "standard": 16, "deep": 24}
+
+SILENCE_DIVISOR = 3
 
 WEIGHT_PER_LANE = 3
 
@@ -177,6 +187,20 @@ def _setting_int(root: Path, key: str, default: int, env: str = "") -> int:
 
 def lane_minutes(root: Path) -> int:
     return max(_setting_int(root, "LaneMinutes", DEFAULT_LANE_MINUTES, "TEAMWORK_LANE_MINUTES"), 1)
+
+
+def silence_seconds(minutes: int) -> float:
+    """How long a lane may hold its slot without writing a log byte."""
+    return max(minutes * 60 / SILENCE_DIVISOR, 1.0)
+
+
+def last_activity(run: dict) -> float:
+    """When the lane last wrote, or when it started when the log never grew."""
+    created = float(run.get("created") or 0)
+    try:
+        return max(os.path.getmtime(str(run.get("log") or "")), created)
+    except OSError:
+        return created
 
 
 def lane_attempts(root: Path) -> int:
@@ -1070,11 +1094,23 @@ def refresh(root: Path, run: dict) -> dict:
         run["error"] = "the process ended without writing an outcome file (crash or kill -9)"
     else:
         deadline = float(run.get("deadline") or 0)
+        minutes = int(run.get("minutes") or 0) or lane_minutes(root)
+        silent_for = finished - last_activity(run)
         if deadline and finished > deadline:
             terminate(int(run.get("pid") or 0))
             run["state"] = TIMEOUT
+            run["cause"] = "budget"
             run["finished"] = _stamp()
             run["error"] = "the supervisor killed it at the minute budget"
+        elif silent_for >= silence_seconds(minutes):
+            terminate(int(run.get("pid") or 0))
+            run["state"] = TIMEOUT
+            run["cause"] = "silent"
+            run["finished"] = _stamp()
+            run["error"] = (
+                f"silent for {int(silent_for)}s of its {minutes}m budget: no log byte for "
+                f"a third of the clock, killed early"
+            )
         else:
             run["heartbeat"] = _stamp()
             write_run(root, run)
@@ -1095,7 +1131,71 @@ def refresh(root: Path, run: dict) -> dict:
         str(run.get("role") or ""),
     )
     write_run(root, run)
+    if run.get("state") == TIMEOUT and not run.get("cause_opened"):
+        run["cause_opened"] = True
+        write_run(root, run)
+        open_timeout_cause(root, run)
     return run
+
+
+def open_timeout_cause(root: Path, run: dict) -> dict:
+    """One root-cause record and one P1 attention item per timeout (D-20261117-CEO-7).
+
+    A timeout is not a retry trigger: the budget the unit was given was wrong, or
+    the unit was, so the record asks for that cause and the attention item names the
+    timed-out task, which is what holds it for a person in `stage`.
+    """
+    agent = str(run.get("agent") or "")
+    role = str(run.get("role") or "") or resolve_role(agent)
+    task = str(run.get("task") or run.get("review_owner") or "")
+    cause = str(run.get("cause") or "budget")
+    minutes = int(run.get("minutes") or 0)
+    reason = str(run.get("error") or "no cause recorded")
+    title = f"Root cause: {task or run.get('id')} timed out ({cause}) on {agent}"
+    body = (
+        f"Lane {run.get('id')} ({agent}, {role}, {minutes}m budget) ended {cause}: {reason}. "
+        f"Task: {task or '-'}. Name why the unit did not fit its profile budget and fix "
+        f"that cause; a second timeout on the same task is not retried with the same "
+        f"shape."
+    )
+    record: dict = {}
+    if role:
+        path = task_file(root, role)
+        with lock(root / DIR_RUNTIME / DIR_LOCKS / f"role-{role}.lock"):
+            tasks = parse_tasks(path)
+            entry = new_task(title, "P1", tags="lanes,timeout", body=body, review="na")
+            entry["area"] = "lanes"
+            entry["kind"] = "bug"
+            tasks.append(entry)
+            write_tasks(path, tasks, role)
+            record = tasks[-1]
+        engine.ledger_append(
+            root,
+            "task.add",
+            agent,
+            str(record.get("id") or ""),
+            f"[P1] {title} (timeout cause of {run.get('id')})",
+            "",
+            role,
+        )
+    text = (
+        f"{agent} lane {run.get('id')} timed out ({cause}) on {task or 'no task'} "
+        f"after {minutes}m: {reason}. Root cause dug out in {record.get('id') or 'the queue'}."
+    )
+    named = task.upper() if re.fullmatch(r"T-\d+", task.upper()) else ""
+    with lock(root / DIR_RUNTIME / DIR_LOCKS / "attention.lock"):
+        items = parse_attention(attention_path(root))
+        item = new_attention(text, "blocker", agent, named)
+        items.append(item)
+        write_attention(attention_path(root), items)
+    engine.ledger_append(
+        root,
+        "attention.add",
+        agent,
+        item["id"],
+        f"[blocker] {task} {one_line(text)[:90]}",
+    )
+    return {"record": str(record.get("id") or ""), "attention": item["id"]}
 
 
 def settle(root: Path, fold: bool = False) -> list:
@@ -1391,6 +1491,11 @@ def _profile_of(root: Path, role: str, task: dict) -> str:
     return profile if profile in PROFILE_WEIGHT else "standard"
 
 
+def timed_out(runs: list, task: str) -> bool:
+    """A task that already burned a timeout is a root-cause job, not a retry."""
+    return any(str(run.get("task") or "") == task and run.get("state") == TIMEOUT for run in runs)
+
+
 def _attempts_used(runs: list, agent: str, task: str) -> int:
     """The highest attempt any run of this lane already spent on this task."""
     used = 0
@@ -1439,6 +1544,8 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
                 int(task.get("review_fails") or 0) if task.get("review_status") == "failed" else 0
             )
             if used >= limit or (used >= 1 and used > rounds):
+                continue
+            if timed_out(runs, task["id"]):
                 continue
             out.append(
                 Assignment(
@@ -1549,6 +1656,8 @@ def retry_plan(root: Path, attempts: int = 0) -> list:
     out: list = []
     for run in load_runs(root):
         if run.get("retried") or run.get("state") not in TERMINAL:
+            continue
+        if run.get("state") == TIMEOUT:
             continue
         if not run.get("task") or run.get("review_owner"):
             continue
