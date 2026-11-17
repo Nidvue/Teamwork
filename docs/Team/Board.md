@@ -83,6 +83,7 @@ under two roles is two tasks.
 |---|---|---|---|---|---|
 | architect | T-0001 | - | done | - | - |
 | architect | T-0002 | architecture | done | P-0024 | eea0824 |
+| architect | T-0003 | - | doing | - | - |
 | ceo | T-0001 | - | dropped | - | - |
 | ceo | T-0002 | throughput | done | - | - |
 | ceo | T-0003 | context | done | P-0001 | 2fcd9fd |
@@ -215,14 +216,15 @@ under two roles is two tasks.
 | developer | T-0086 | model-cost-policy | done | P-0118 | 47d6a6fa |
 | developer | T-0087 | model-cost-policy | doing | P-0120 | - |
 | developer | T-0088 | lanes | doing | P-0122 | - |
-| developer | T-0089 | lanes | doing | P-0123 | - |
+| developer | T-0089 | lanes | review | P-0123 | - |
 | developer | T-0090 | lanes | done | P-0121 | 2fcf72ec |
-| developer | T-0091 | lanes | review | P-0124 | - |
-| developer | T-0092 | extensions | review | P-0125 | - |
+| developer | T-0091 | lanes | doing | P-0124 | - |
+| developer | T-0092 | extensions | done | P-0125 | 2319ae1f |
 | developer | T-0093 | lanes | doing | - | - |
-| developer | T-0094 | - | doing | - | - |
-| developer | T-0095 | lanes | todo | - | - |
-| developer | T-0096 | lanes | todo | - | - |
+| developer | T-0094 | model | review | P-0127 | - |
+| developer | T-0095 | lanes | dropped | - | - |
+| developer | T-0096 | lanes | done | - | - |
+| developer | T-0097 | lanes | done | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | done | - | - |
@@ -244,7 +246,9 @@ under two roles is two tasks.
 | security-auditor | T-0002 | security-audit | done | P-0111 | e5cfb54b |
 | technical-writer | T-0001 | docs-audit | done | P-0101 | c1a0ca82 |
 | technical-writer | T-0002 | docs-links | done | P-0119 | d1845257 |
+| technical-writer | T-0003 | - | doing | - | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
+| team-leader | T-0002 | lanes | review | P-0126 | - |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
 | tester | T-0003 | - | dropped | - | - |
@@ -267,25 +271,24 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | feature | state | owner | squad | paths |
 |---|---|---|---|---|
-| F-0001 | ready | TeamLeader | - | .github/workflows/, scripts/, tests/, docs/guide/ci.md, docs/Team/Evolution.md |
 
 ## In flight
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| architect | T-0003 · Freeze the lane-runtime contract so a team leader can own the reliability stream | P0 | doing | - |
 | developer | T-0087 · New team and model auto must not silently pick the host premium default | P2 | doing | - |
 | developer | T-0088 · A finished or lost lane leaves its worktree, its merged branch and its temp files behind, and a stalled lane is only killed when someone runs reap | P1 | doing | - |
-| developer | T-0089 · A stalled seat is never reconciled: a claimed task whose lane ended renders stalled until a human starts a lane | P1 | doing | - |
-| developer | T-0091 · pulse pins a review claim that swarm run will not adopt, so a review sits idle for its whole lease | P1 | review | - |
-| developer | T-0092 · The lane display kills the lane: refresh() touches a stale ctx after a session replacement and the rejection exits node | P0 | review | - |
+| developer | T-0089 · A stalled seat is never reconciled: a claimed task whose lane ended renders stalled until a human starts a lane | P1 | review | - |
+| developer | T-0091 · pulse pins a review claim that swarm run will not adopt, so a review sits idle for its whole lease | P1 | doing | - |
 | developer | T-0093 · Root cause: T-0087 timed out (silent) on Developer-3 | P1 | doing | - |
-| developer | T-0094 · model auto must refuse a premium host default even when only part of the config is named | P1 | doing | - |
-| developer | T-0095 · Root cause: T-0092 timed out (silent) on Developer-1 | P1 | todo | - |
-| developer | T-0096 · Root cause: T-0092 timed out (silent) on Developer-1 | P1 | todo | - |
+| developer | T-0094 · model auto must refuse a premium host default even when only part of the config is named | P1 | review | - |
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | blocked | - |
 | reviewer | T-0010 · Encode L-0058 as a tw- skill: reviewing a destructive path (enumerate what it deletes and the key, run terminal+live on the same key before trusting the concurrency paragraph) | P2 | todo | - |
 | reviewer | T-0011 · Root cause: T-0090 timed out (silent) on Reviewer-2 | P1 | todo | - |
 | reviewer | T-0012 · Root cause: T-0091 timed out (silent) on Reviewer | P1 | todo | - |
+| technical-writer | T-0003 · Ship the operating rule: the CEO decomposes and stays free, a team leader owns the stream | P2 | doing | - |
+| team-leader | T-0002 · Own the lane-runtime stream: staff a squad, decompose the defect backlog, dispatch and report | P0 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
