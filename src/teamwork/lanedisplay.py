@@ -1,23 +1,26 @@
-"""The lane display: install the host extension that draws the live wave.
+"""The lane adapters: install the host extensions the bundle ships.
 
 ``swarm run`` starts every lane as a detached child process, so the session that
 dispatched them sees nothing on its own screen: the team works, the display stays
 empty, and no command says why. The picture is a separate one-way adapter - an
 extension that polls ``status --json`` and draws the rows - and it ships inside
-the bundle at ``extensions/teamwork-status.ts``.
+the bundle at ``extensions/teamwork-status.ts``. A second adapter,
+``extensions/teamwork-bus.ts``, carries the push side: it registers the session's
+bus address, injects pending mail and refuses a write another live session claims.
 
-Shipping the file is not the same as loading it. A host reads extensions from its
+Shipping a file is not the same as loading it. A host reads extensions from its
 own ``extensions/`` directory and from the ``extensions`` list in ``settings.json``,
-never from a skills directory, so a skill-only install carries the renderer and
+never from a skills directory, so a skill-only install carries the adapters and
 still draws nothing. That gap was measured on this project's own machine: 60 lane
 runs on record, no widget, and a ``--check`` that reported the bundle as in sync.
 
-So the install is a step, not a footnote. :func:`install` copies the shipped file
-next to the host's skills directory and registers it in ``settings.json`` once,
+So the install is a step, not a footnote, and it is the same step for every
+adapter: :func:`install` copies every extension the bundle ships next to the
+host's skills directory and registers each one in ``settings.json`` once,
 idempotently; :func:`status` answers the same question without writing. Both are
-safe on a host with neither directory: the protocol completes without a display
-(``references/Adapters.md``), so a missing renderer is a lost picture, never a
-blocked lane.
+safe on a host with neither directory: the protocol completes without an adapter
+(``references/Adapters.md``), so a missing adapter is a lost picture or an
+undelivered message, never a blocked lane.
 """
 
 from __future__ import annotations
@@ -31,9 +34,13 @@ from pathlib import Path
 
 from . import bundle
 
-EXT_NAME = "teamwork-status.ts"
+EXT_FILES = ("teamwork-status.ts", "teamwork-bus.ts")
 
-EXT_REL = Path("extensions") / EXT_NAME
+EXT_NAME = EXT_FILES[0]
+
+EXT_DIR = Path("extensions")
+
+EXT_REL = EXT_DIR / EXT_NAME
 
 BUNDLED = EXT_REL
 
@@ -52,16 +59,39 @@ class State:
     target: Path | None
     settings: Path | None
     detail: str
+    files: tuple[Path, ...] = ()
+    missing: tuple[str, ...] = ()
 
     @property
     def live(self) -> bool:
-        """Does the host draw the wave? Both halves are required."""
+        """Does the host load every adapter? Both halves are required."""
         return self.ok and self.installed and self.registered
+
+
+def shipped(skill_dir: Path) -> tuple[Path, ...]:
+    """The adapters a bundle carries, the known pair first, then any other file.
+
+    A bundle is whatever is installed in the host: a checkout, a wheel, the skill
+    directory itself. Reading the tuple from the bundle rather than from a
+    constant keeps a bundle that carries one adapter installable on its own.
+    """
+    folder = skill_dir / EXT_DIR
+    if not folder.is_dir():
+        return ()
+    found = {
+        path.name: path
+        for path in folder.glob("*.ts")
+        if path.is_file() and path.name not in RETIRED
+    }
+    order = [name for name in EXT_FILES if name in found]
+    order += sorted(name for name in found if name not in EXT_FILES)
+    return tuple(found[name] for name in order)
 
 
 def bundled(skill_dir: Path) -> Path:
     """The renderer inside a skill bundle or checkout."""
-    return skill_dir / BUNDLED
+    files = shipped(skill_dir)
+    return files[0] if files else skill_dir / BUNDLED
 
 
 def agent_dir(host: str = "pi", skills: str = "") -> Path | None:
@@ -78,7 +108,7 @@ def agent_dir(host: str = "pi", skills: str = "") -> Path | None:
 
 
 def _missing(skill_dir: Path) -> str:
-    """Why the bundle cannot hand the renderer over, in the caller's terms.
+    """Why the bundle cannot hand an adapter over, in the caller's terms.
 
     A built host package is the one layout that ships the extension beside the
     skill instead of inside it (``<package>/extensions``, declared in the package
@@ -101,40 +131,65 @@ def _load(path: Path) -> dict[str, object] | None:
     return loaded if isinstance(loaded, dict) else None
 
 
-def registered(settings: dict[str, object]) -> bool:
-    """Is the renderer already listed? Any spelling of the same file counts."""
+def listed(settings: dict[str, object]) -> set[str]:
+    """The adapter file names the settings file already lists, in any spelling."""
     entries = settings.get("extensions")
     if not isinstance(entries, list):
-        return False
-    return any(Path(str(entry)).name == EXT_NAME for entry in entries)
+        return set()
+    return {Path(str(entry)).name for entry in entries}
+
+
+def registered(settings: dict[str, object], names: tuple[str, ...] = ()) -> bool:
+    """Is every adapter of ``names`` (default: the known pair) already listed?"""
+    wanted = names or EXT_FILES
+    have = listed(settings)
+    return bool(wanted) and all(name in have for name in wanted)
+
+
+def _current(target_dir: Path, source: Path) -> bool:
+    """Is the host's copy of one adapter byte-identical to the bundle's?"""
+    target = target_dir / source.name
+    return target.is_file() and filecmp.cmp(source, target, shallow=False)
 
 
 def status(skill_dir: Path, *, host: str = "pi", skills: str = "") -> State:
-    """Report the installed file and the settings entry without writing anything.
+    """Report the installed files and the settings entries without writing anything.
 
-    ``skill_dir`` is the bundle that carries the renderer (a checkout, a wheel, the
+    ``skill_dir`` is the bundle that carries the adapters (a checkout, a wheel, the
     installed skill itself); ``skills`` is where the host keeps that bundle, and
-    only it can say which agent directory the extension belongs in.
+    only it can say which agent directory the extensions belong in.
     """
-    source = bundled(skill_dir)
     target_dir = agent_dir(host, skills)
     if target_dir is None:
         return State(False, False, False, None, None, f"host {host!r} has no extensions directory")
-    if not source.is_file():
+    sources = shipped(skill_dir)
+    if not sources:
         return State(False, False, False, None, None, _missing(skill_dir))
-    target = target_dir / EXT_REL
+    target = target_dir / EXT_DIR / sources[0].name
     settings_path = target_dir / SETTINGS_NAME
     settings = _load(settings_path)
     if settings is None:
         return State(
             False, False, False, target, settings_path, f"{settings_path} is not valid JSON"
         )
-    same = target.is_file() and filecmp.cmp(source, target, shallow=False)
-    return State(True, same, registered(settings), target, settings_path, "")
+    have = listed(settings)
+    stale = tuple(source.name for source in sources if not _current(target_dir / EXT_DIR, source))
+    unlisted = tuple(source.name for source in sources if source.name not in have)
+    missing = tuple(dict.fromkeys(stale + unlisted))
+    return State(
+        True,
+        not stale,
+        not unlisted,
+        target,
+        settings_path,
+        "",
+        tuple(target_dir / EXT_DIR / source.name for source in sources),
+        missing,
+    )
 
 
 def retire(directory: Path, settings: dict[str, object]) -> bool:
-    """Drop the renderers this file replaced, so the host loads exactly one.
+    """Drop the adapters this file replaced, so the host loads exactly one.
 
     A host that already installed the lanes-only renderer would otherwise draw two
     widgets for the same team, which is the defect this file exists to close.
@@ -156,27 +211,36 @@ def retire(directory: Path, settings: dict[str, object]) -> bool:
 
 
 def install(skill_dir: Path, *, host: str = "pi", skills: str = "", dry_run: bool = False) -> State:
-    """Copy the shipped renderer into the host's directory and register it once."""
+    """Copy every shipped adapter into the host's directory and register each once."""
     state = status(skill_dir, host=host, skills=skills)
     if not state.ok or state.target is None or state.settings is None:
         return state
     settings = _load(state.settings) or {}
     retired = retire(state.target.parent, settings)
-    needed = retired or not (state.installed and state.registered)
-    if not needed:
+    sources = shipped(skill_dir)
+    folder = state.target.parent
+    pending = [
+        source
+        for source in sources
+        if source.name not in listed(settings) or not _current(folder, source)
+    ]
+    if not (retired or pending):
         return state
     if dry_run:
         return replace(state, detail="would install")
-    if not state.installed:
-        state.target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(bundled(skill_dir), state.target)
-    if not state.registered:
-        entries = settings.get("extensions")
-        listed = list(entries) if isinstance(entries, list) else []
-        listed.append(EXT_REL.as_posix())
-        settings["extensions"] = listed
+    folder.mkdir(parents=True, exist_ok=True)
+    for source in sources:
+        if not _current(folder, source):
+            shutil.copy2(source, folder / source.name)
+    entries = settings.get("extensions")
+    listed_entries = list(entries) if isinstance(entries, list) else []
+    names = {Path(str(entry)).name for entry in listed_entries}
+    for source in sources:
+        if source.name not in names:
+            listed_entries.append((EXT_DIR / source.name).as_posix())
+    settings["extensions"] = listed_entries
     state.settings.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
-    return replace(state, installed=True, registered=True)
+    return replace(state, installed=True, registered=True, detail="")
 
 
 OFF = {"off", "0", "no", "false"}

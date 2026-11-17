@@ -16,11 +16,18 @@ instead of writing into a stranger's directory.
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from teamwork import lanedisplay
 
 RENDERER = Path("extensions") / "teamwork-status.ts"
+
+BUS = Path("extensions") / "teamwork-bus.ts"
 
 
 def skill(tmp_path: Path) -> Path:
@@ -188,6 +195,199 @@ def test_the_tree_ships_exactly_one_teamwork_renderer() -> None:
     assert not (root / "templates" / "pi-package" / "extensions").exists(), (
         "the second renderer tree is gone, not merely unloaded"
     )
+
+
+def pair(tmp_path: Path) -> Path:
+    """A bundle that carries both adapters, as the repository does."""
+    root = tmp_path / "bundle"
+    folder = root / "extensions"
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in ("teamwork-status.ts", "teamwork-bus.ts"):
+        (folder / name).write_text("export default function () {}\n", encoding="utf-8")
+    return root
+
+
+def test_install_registers_every_shipped_adapter(tmp_path: Path) -> None:
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+    settings = dest.parent.parent / "settings.json"
+
+    state = lanedisplay.install(pair(tmp_path), skills=str(dest))
+
+    assert state.ok and state.live, state.detail
+    assert [path.name for path in state.files] == ["teamwork-status.ts", "teamwork-bus.ts"]
+    written = json.loads(settings.read_text(encoding="utf-8"))
+    assert written["extensions"] == [
+        "extensions/teamwork-status.ts",
+        "extensions/teamwork-bus.ts",
+    ]
+
+    again = lanedisplay.install(pair(tmp_path), skills=str(dest))
+    assert again.live and again.missing == ()
+    assert json.loads(settings.read_text(encoding="utf-8"))["extensions"] == written["extensions"]
+
+
+def test_a_half_registered_pair_is_not_live(tmp_path: Path) -> None:
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+    settings = dest.parent.parent / "settings.json"
+    lanedisplay.install(pair(tmp_path), skills=str(dest))
+    settings.write_text(
+        json.dumps({"extensions": ["extensions/teamwork-status.ts"]}), encoding="utf-8"
+    )
+
+    state = lanedisplay.status(pair(tmp_path), skills=str(dest))
+
+    assert state.ok and not state.live
+    assert not state.registered
+    assert state.installed, "both files are on disk; only one is registered"
+    assert state.missing == ("teamwork-bus.ts",), state.missing
+
+
+def test_a_drifted_copy_is_reinstalled(tmp_path: Path) -> None:
+    dest = host(tmp_path)
+    dest.mkdir(parents=True)
+    lanedisplay.install(pair(tmp_path), skills=str(dest))
+    target = dest.parent.parent / "extensions" / "teamwork-bus.ts"
+    target.write_text("stale\n", encoding="utf-8")
+
+    assert not lanedisplay.status(pair(tmp_path), skills=str(dest)).installed
+    state = lanedisplay.install(pair(tmp_path), skills=str(dest))
+
+    assert state.live
+    assert target.read_text(encoding="utf-8") == "export default function () {}\n"
+
+
+DRIVER = """
+import assert from "node:assert";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+const root = process.env.TW_ROOT;
+const bus = process.env.TEAMWORK_BUS;
+const session = "sess-1";
+process.env.PI_SESSION_ID = session;
+process.env.TEAMWORK_ROLE = "developer";
+process.env.TEAMWORK_TEAM = "Teamwork";
+
+const mod = await import(process.env.TW_EXTENSION);
+const handlers = new Map();
+const sent = [];
+const pi = {
+  on(name, handler) { handlers.set(name, handler); },
+  sendMessage(message, options) { sent.push({ message, options }); },
+  registerCommand() {},
+  registerTool() {},
+};
+mod.default(pi);
+const ctx = { cwd: root };
+const checks = [];
+
+await handlers.get("session_start")({}, ctx);
+checks.push(["session address", existsSync(join(bus, `session:${session}`))]);
+
+await handlers.get("before_agent_start")({}, ctx);
+const mail = sent[0] || {};
+const content = String((mail.message || {}).content || "");
+checks.push(["one message", sent.length === 1]);
+checks.push(["next turn", Boolean(mail.options && mail.options.deliverAs === "nextTurn")]);
+checks.push(["mail id", content.includes("M-0001")]);
+checks.push(["mail subject", content.includes("hello")]);
+
+const blocked = await handlers.get("tool_call")(
+  { toolName: "write", input: { path: join(root, "shared.ts") } }, ctx);
+const reason = String((blocked || {}).reason || "");
+checks.push(["claimed write blocked", Boolean(blocked && blocked.block === true)]);
+checks.push(["names holder", reason.includes("Developer-9")]);
+checks.push(["names claim", reason.includes("C-0007")]);
+
+const free = await handlers.get("tool_call")(
+  { toolName: "write", input: { path: join(root, "mine.ts") } }, ctx);
+checks.push(["free path allowed", free === undefined]);
+
+const expired = await handlers.get("tool_call")(
+  { toolName: "edit", input: { path: join(root, "old.ts") } }, ctx);
+checks.push(["expired claim allowed", expired === undefined]);
+
+const own = await handlers.get("tool_call")(
+  { toolName: "edit", input: { path: join(root, "own.ts") } }, ctx);
+checks.push(["own claim allowed", own === undefined]);
+
+const shell = await handlers.get("tool_call")(
+  { toolName: "bash", input: { command: "rm shared.ts" } }, ctx);
+checks.push(["non-write tool ignored", shell === undefined]);
+
+const failed = checks.filter((pair) => !pair[1]);
+console.log(JSON.stringify({ checks: checks.map((p) => `${p[0]}: ${p[1]}`), failed: failed.length }));
+process.exit(failed.length ? 1 : 0);
+"""
+
+
+def test_the_shipped_bus_extension_drives_its_handlers(tmp_path: Path) -> None:
+    """AC-BUS-4/5: load the shipped file and drive session, mail and refusal."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is a host tool, not a test dependency")
+    extension = Path(__file__).resolve().parents[2] / BUS
+    assert extension.is_file(), extension
+    root = tmp_path / "repo"
+    (root / ".pi").mkdir(parents=True)
+    bus = tmp_path / "bus"
+    (bus / "*").mkdir(parents=True)
+    (bus / "*" / "M-0001.json").write_text(
+        json.dumps(
+            {
+                "id": "M-0001",
+                "from": "Developer-1",
+                "subject": "hello",
+                "priority": "high",
+                "state": "pending",
+                "created": "2026-11-17T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (bus / "claims").mkdir()
+    future = "2099-01-01T00:00:00Z"
+    for claim in (
+        {
+            "id": "C-0007",
+            "path": "shared.ts",
+            "by": "Developer-9",
+            "session": "other",
+            "expires": future,
+        },
+        {
+            "id": "C-0008",
+            "path": "old.ts",
+            "by": "Developer-9",
+            "session": "other",
+            "expires": "2000-01-01T00:00:00Z",
+        },
+        {"id": "C-0009", "path": "own.ts", "by": "me", "session": "sess-1", "expires": future},
+    ):
+        record = {**claim, "root": str(root)}
+        (bus / "claims" / f"{claim['id']}.json").write_text(json.dumps(record), encoding="utf-8")
+    driver = tmp_path / "drive.mjs"
+    driver.write_text(DRIVER, encoding="utf-8")
+
+    run = subprocess.run(
+        [node, "--experimental-strip-types", str(driver)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={
+            **os.environ,
+            "TW_EXTENSION": str(extension),
+            "TW_ROOT": str(root),
+            "TEAMWORK_BUS": str(bus),
+            "TEAMWORK_ROOT": str(root),
+        },
+    )
+
+    assert run.returncode == 0, run.stdout + run.stderr
+    report = json.loads(run.stdout.strip().splitlines()[-1])
+    assert report["failed"] == 0, report["checks"]
 
 
 def test_ensure_installs_and_registers_on_the_operators_host(tmp_path: Path, monkeypatch) -> None:
