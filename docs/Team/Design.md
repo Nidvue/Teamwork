@@ -1006,6 +1006,63 @@ of the two geometric shapes with emoji presentation (U+25B6, U+25C0). It reads t
 glyph table out of `extensions/teamwork-status.ts`, so a new glyph cannot be added
 without passing it.
 
+### 10.11 The panel: what the operator decides from it (T-0004/AC-D4, T-0005/AC-D6)
+
+Criterion: [Project.md](Project.md) AC-D4 and AC-D6. The Developer implements this in
+T-0084; the Technical Writer owns the docs layer. This section is the design record,
+written before that code, and it is the row table T-0084 builds to.
+
+#### Three operator questions, one signal each (AC-D6)
+
+| question | the one signal | field it reads | reads bad when | the action then | current value |
+|---|---|---|---|---|---|
+| Is the team efficient - is work moving? | live lanes against busy seats | `counts.lanes_live`, `counts.busy` | `lanes_live < busy`: a seat is busy with no lane behind it, so nothing is executing | reclaim the claim or start the lane the task names | 9 live / 9 busy -> good |
+| Is it effective - does work leave? | deliverables awaiting a verdict | `counts.review`, aged by the `review --queue` footer | `review > 6` (the queue's own capacity rule), or the oldest older than its profile lease (fast 20m, standard 40m, deep 80m) | add a Reviewer lane, or preempt for the oldest | 3 waiting, oldest 1d -> good on depth, act on age |
+| What needs my attention now? | stalled seats | `counts.stalled` | `> 0`: a task is claimed and no lane is running it | reclaim the claim or re-lane the task | 1 stalled -> bad, act |
+
+Every bound above is printed by the command beside it, never estimated (L-0029):
+
+```
+teamwork.py status --json | jq -c '.counts|{lanes_live,busy,stalled,review,ready}'
+  @2026-11-17T17:43:00 -> {"lanes_live":9,"busy":9,"stalled":1,"review":3,"ready":0}
+teamwork.py review --queue -> 3 deliverable(s) to review (0 unclaimed, 0 expired claim(s)), oldest 1d
+  / lease: fast 20m, standard 40m, deep 80m / add a Reviewer lane when unclaimed > 6
+```
+
+#### Panel element -> field -> record -> meaning -> bad value (AC-D4)
+
+| panel element | `status --json` field | the record it comes from | what the number means | what a bad value looks like |
+|---|---|---|---|---|
+| seats | `count`, `counts.busy`, `counts.stalled`, `counts.idle` | instance records | the roster the rows are drawn from | `busy + stalled + idle != count`: the header would lie about its own rows |
+| per-agent state | `instances[].state`, `.lane_state`, `.stalled`, `.elapsed_seconds`, `.remaining_seconds`, `.last_seconds` | the instance row plus its lane record and last ledger event | what one seat is doing, for how long, and how stale the line is | `stalled == true`, or `state == busy` with `lane_state != running` |
+| live lanes | `counts.lanes_live` | lane records in state `running` (`engine.py:12189`) | lanes executing right now | below `counts.busy` |
+| ready work | `counts.ready` | task records that are executable now (`_ready_for_role`, `engine.py:12207`) | tasks a lane could start this second | `ready > 0` while `lanes_live == 0`: work queued, nothing running |
+| review-queue depth | `counts.review` | task records with status `review` (`awaiting_review`, `engine.py:12208`) | deliverables waiting for an independent verdict | `> 6`, or older than the profile lease |
+
+#### Row budget and the hidden count rule (T-0084 implements this)
+
+1. The panel is 10.5's 12 lines, header and footer included: 1 header + at most 10
+   seat rows + 1 footer.
+2. Seats beyond the tenth collapse into ONE final row `+N more`, counted inside
+   the 12; `N = count - rows shown`.
+3. Rows are ordered stalled first, then busy by elapsed descending, then review
+   lanes, then idle, so the truncation drops the least urgent seats.
+4. The header always prints the true counts from `counts`, never the shown rows, so
+   the hidden count can never be read as an empty team.
+
+#### Empty, partial and no-tree states
+
+| state | what is drawn | why |
+|---|---|---|
+| empty (`count == 0`) | `teamwork · no seats` and no rows | a blank panel reads as a broken one |
+| partial (`instances` present, a `counts` key absent) | the row is drawn and the missing number is `-` | a fabricated `0` reads as a healthy team |
+| no tree (no team tree at the path) | one line `teamwork · no team tree at <path>`, exit 0 | the prompt must never be broken by the panel |
+
+**Checks added to 10.6**: `PANEL-SIGNAL` (every field named in the table exists in a
+real `status --json`), `PANEL-BUDGET` (rendered lines <= 12), `PANEL-HIDDEN`
+(`rows shown + N == count`), `PANEL-EMPTY` (the three states above render without
+an error and without a fabricated number).
+
 ## 11. Sources
 
 - [WCAG 2.1 - Contrast (Minimum)](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html) - accessed 2026-10-17
