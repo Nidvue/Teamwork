@@ -53,7 +53,16 @@ from pathlib import Path
 
 from . import bundle, engine, gitutil, lanerun, messages
 from .attention import new_attention, parse_attention, write_attention
-from .config import DIR_LOCKS, DIR_RUNTIME, F_SETTINGS, F_SHORT, PRIORITY_ORDER
+from .config import (
+    DEFAULT_BASE,
+    DIR_LOCKS,
+    DIR_RUNTIME,
+    DIR_WORKTREES,
+    F_SETTINGS,
+    F_SHORT,
+    PRIORITY_ORDER,
+    SCRATCH_DIRS,
+)
 from .io import die, lock, write_lf
 from .layout import (
     agent_dir,
@@ -1203,12 +1212,15 @@ def settle(root: Path, fold: bool = False) -> list:
 
     ``fold`` is opt-in: only a command that already moves seats (a swarm wave,
     `lane reap`) may fold a finished one, so `status`, `status --json`,
-    `status_snapshot` and `lane status` stay read-only (Design.md 10.9).
+    `status_snapshot` and `lane status` stay read-only (Design.md 10.9). The same
+    flag retires what a finished lane left behind (T-0088), so every wake cleans
+    up instead of waiting for a human to run `lane reap`.
     """
     runs = [refresh(root, run) for run in load_runs(root)]
     if fold:
         from . import engine
 
+        cleanup_finished(root)
         engine.fold_finished_seats(root)
     return runs
 
@@ -1906,6 +1918,9 @@ def cmd_lane(args) -> int:
             recycled = _recycle_finished(root, getattr(args, "by", "") or "ceo")
             if recycled:
                 print("# recycled " + ", ".join(recycled))
+            cleaned = cleanup_finished(root, getattr(args, "by", "") or "supervisor")
+            for line in cleaned:
+                print(line)
         return 0
     if verb == "preempt":
         return _lane_preempt(root, args)
@@ -2518,6 +2533,136 @@ def _recycle_finished(root: Path, by: str) -> list:
         )
         retired.append(f"{name} -> {shown}")
     return retired
+
+
+def _task_branches(root: Path) -> dict:
+    """Every task's recorded branch, by id: the branch a finished lane may leave."""
+    out: dict = {}
+    for role in list_roles(root):
+        for task in parse_tasks(task_file(root, role)):
+            branch = str(task.get("branch") or "").strip()
+            if branch:
+                out[str(task.get("id") or "")] = branch
+    return out
+
+
+def empty_lane_scratch(root: Path, agent: str) -> list:
+    """Delete one lane's own Scratch files, and nothing outside that directory."""
+    base = agent_dir(root, agent)
+    if not base.is_dir():
+        return []
+    removed = []
+    for scratch in (base / sub for sub in SCRATCH_DIRS):
+        if not scratch.is_dir():
+            continue
+        for path in scratch.rglob("*"):
+            if not path.is_file():
+                continue
+            try:
+                path.unlink()
+            except OSError:
+                continue
+            removed.append(shown_path(path.relative_to(root)))
+    return removed
+
+
+def _worktree_keep_reason(root: Path, path: Path) -> str:
+    """'' when the lane's own worktree can go, else the reason it must be kept."""
+    project = project_of(root)
+    wt_root = (root / DIR_RUNTIME / DIR_WORKTREES).resolve()
+    try:
+        inside = path.resolve().is_relative_to(wt_root)
+    except OSError:
+        inside = False
+    if not inside:
+        return f"worktree {path.name}: not under {DIR_RUNTIME}/{DIR_WORKTREES}"
+    if engine._worktree_is_busy(root, str(path)):
+        return f"worktree {path.name}: a live lane still holds it"
+    status = gitutil.run_git(path, "status", "--porcelain", "--ignored")
+    if status.returncode != 0:
+        return f"worktree {path.name}: git status failed"
+    if status.stdout.strip():
+        return f"worktree {path.name}: uncommitted work"
+    head = gitutil.run_git(path, "rev-parse", "HEAD").stdout.strip()
+    if not head:
+        return f"worktree {path.name}: no HEAD"
+    merged = gitutil.run_git(project, "merge-base", "--is-ancestor", head, DEFAULT_BASE).returncode
+    if merged != 0:
+        return f"worktree {path.name}: commits are not in {DEFAULT_BASE}"
+    return ""
+
+
+def cleanup_finished(root: Path, by: str = "supervisor") -> list:
+    """Retire what a finished lane left: its worktree, its merged branch, its Scratch.
+
+    A lane's own paths only (``lane_worktree`` is keyed by instance *and* task), and
+    only what cannot lose work: the worktree goes when it is clean and its HEAD is
+    already reachable from the base, the branch goes only when it is merged, and the
+    Scratch is emptied only when no live lane of that instance still writes into it -
+    the directory is keyed by instance, not by task, so a peer lane's in-flight file
+    would go with it. Everything else is kept and printed
+    with its reason, so a dirty tree or an unmerged branch is a message, not a
+    silent deletion (T-0088). Idempotent: a second call finds nothing to remove.
+    """
+    project = project_of(root)
+    branches = _task_branches(root)
+    busy = {pascal(str(run.get("agent") or "")) for run in live_runs(root)}
+    lines = []
+    for run in load_runs(root):
+        if run.get("state") not in TERMINAL:
+            continue
+        agent = str(run.get("agent") or "")
+        task_id = str(run.get("task") or "")
+        if not agent:
+            continue
+        removed: list = []
+        kept: list = []
+        path = engine.lane_worktree(root, agent, task_id) if task_id else None
+        if path is not None and path.is_dir():
+            reason = _worktree_keep_reason(root, path)
+            if reason:
+                kept.append(reason)
+            else:
+                result = gitutil.run_git(project, "worktree", "remove", str(path))
+                if result.returncode == 0 and not path.exists():
+                    removed.append(f"worktree {path.name}")
+                else:
+                    kept.append(f"worktree {path.name}: remove failed")
+        branch = branches.get(task_id, "")
+        if branch and branch != DEFAULT_BASE:
+            if not gitutil.branch_exists(project, branch):
+                pass
+            elif not gitutil.branch_merged(project, branch, DEFAULT_BASE):
+                kept.append(f"branch {branch}: not merged into {DEFAULT_BASE}")
+            elif path is not None and path.is_dir():
+                kept.append(f"branch {branch}: its worktree is still there")
+            elif engine.retire_branch(root, project, branch):
+                removed.append(f"branch {branch}")
+            else:
+                kept.append(f"branch {branch}: git refused the delete")
+        if pascal(agent) in busy:
+            kept.append(f"Scratch {agent}: a live lane of it still holds it")
+        else:
+            gone = empty_lane_scratch(root, agent)
+            if gone:
+                removed.append(f"{len(gone)} scratch file(s)")
+        if not removed:
+            continue
+        engine.ledger_append(
+            root,
+            "lane.cleanup",
+            by,
+            str(run.get("id") or ""),
+            f"{agent} {task_id or '-'}: removed {', '.join(removed)}; "
+            f"kept {', '.join(kept) or '-'}",
+            "",
+            str(run.get("role") or ""),
+        )
+        run["cleanup"] = {"removed": removed, "kept": kept}
+        write_run(root, run)
+        lines.append(f"{run.get('id')} ({agent}): removed {', '.join(removed)}")
+        lines.extend(f"  kept {reason}" for reason in kept)
+    return lines
 
 
 def urgent_instances(root: Path) -> list:
