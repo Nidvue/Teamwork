@@ -546,8 +546,8 @@ def test_two_consecutive_merges_both_succeed_in_one_work_repo(cli, project: Path
     assert cli("--project", project, "archive") == 0
 
 
-def test_archive_rewrite_is_a_commit_by_the_reviewer(cli, project: Path, capsys) -> None:
-    """The sha lands as its own Reviewer record commit, not as stray work tree state."""
+def test_archive_rewrite_is_a_commit_by_the_producer(cli, project: Path, capsys) -> None:
+    """The sha lands as its own producer record commit, not as stray work tree state."""
     root = init_workspace(cli, project, git=True)
     ship_and_open_pr(cli, project, root)
     pass_review(cli, project, capsys)
@@ -561,7 +561,7 @@ def test_archive_rewrite_is_a_commit_by_the_reviewer(cli, project: Path, capsys)
     assert changed == ["docs/Team/Archive.md"], "the record commit touches only the archive"
     assert "record the merge revision" in subject, "the rewrite is its own recorded commit"
     assert body.partition("\n\n")[0].strip() == subject.strip(), "one scannable subject"
-    assert "Role: Reviewer" in body, "the record commit names the role that made it"
+    assert "Role: Developer" in body, "the record commit names the producer, not the reviewer"
     assert "Acting role" not in body
     records = [r for r in engine.ledger_read(root) if r["action"] == "pr.merge.archive"]
     assert len(records) == 1
