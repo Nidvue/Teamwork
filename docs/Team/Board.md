@@ -97,7 +97,7 @@ under two roles is two tasks.
 | ceo | T-0009 | - | done | - | - |
 | ceo | T-0010 | context | done | P-0013 | 6ad1132 |
 | ceo | T-0011 | - | done | - | - |
-| ceo | T-0012 | - | dropped | - | - |
+| ceo | T-0012 | records | review | P-0145 | - |
 | ceo | T-0013 | records | done | P-0014 | 8835b16 |
 | ceo | T-0014 | - | dropped | P-0015 | - |
 | ceo | T-0015 | records | dropped | P-0016 | - |
@@ -223,15 +223,15 @@ under two roles is two tasks.
 | developer | T-0091 | lanes | doing | P-0124 | - |
 | developer | T-0092 | extensions | done | P-0125 | 2319ae1f |
 | developer | T-0093 | lanes | done | - | - |
-| developer | T-0094 | model | doing | P-0127 | - |
+| developer | T-0094 | model | done | P-0127 | 23d905ab |
 | developer | T-0095 | lanes | dropped | - | - |
 | developer | T-0096 | lanes | done | - | - |
 | developer | T-0097 | lanes | done | - | - |
 | developer | T-0098 | lanes | done | P-0132 | 834c92bf |
 | developer | T-0099 | lanes | done | P-0138 | 7b9e098a |
 | developer | T-0100 | harness | done | P-0136 | f33b74d1 |
-| developer | T-0101 | - | doing | - | - |
-| developer | T-0102 | identity | review | P-0140 | - |
+| developer | T-0101 | throughput | review | P-0144 | - |
+| developer | T-0102 | identity | blocked | P-0140 | - |
 | developer | T-0103 | lanes | review | P-0142 | - |
 | developer | T-0104 | identity | done | P-0137 | c6d4a5e8 |
 | developer | T-0105 | lanes | review | P-0143 | - |
@@ -294,11 +294,11 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | architect | T-0004 · Root cause: T-0003 timed out (silent) on Architect | P1 | review | - |
+| ceo | T-0012 · CI is red on the pushed revision fe1a996: the committer guard found three 'chore: hand edit' commits made with the operator's configured identity because the team git hooks were never installed in this checkout | P0 | review | - |
 | developer | T-0087 · New team and model auto must not silently pick the host premium default | P2 | doing | - |
 | developer | T-0091 · pulse pins a review claim that swarm run will not adopt, so a review sits idle for its whole lease | P1 | doing | - |
-| developer | T-0094 · model auto must refuse a premium host default even when only part of the config is named | P1 | doing | - |
-| developer | T-0101 · Measure where work waits: queue wait, claim wait, lane duration and finish-to-verdict in throughput | P1 | doing | - |
-| developer | T-0102 · A commit is authored by the operator's personal identity and the identity gate accepts it | P0 | review | - |
+| developer | T-0101 · Measure where work waits: queue wait, claim wait, lane duration and finish-to-verdict in throughput | P1 | review | - |
+| developer | T-0102 · A commit is authored by the operator's personal identity and the identity gate accepts it | P0 | blocked | - |
 | developer | T-0103 · Root cause: T-0087 timed out (budget) on Developer-1 | P1 | review | - |
 | developer | T-0105 · Root cause: T-0101 timed out (budget) on Developer-3 | P1 | review | - |
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | blocked | - |
