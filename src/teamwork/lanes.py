@@ -190,7 +190,7 @@ def lane_minutes(root: Path) -> int:
 
 
 def silence_seconds(minutes: int) -> float:
-    """How long a lane may hold its slot without writing a log byte."""
+    """How long a lane may hold its slot without burning a CPU tick."""
     return max(minutes * 60 / SILENCE_DIVISOR, 1.0)
 
 
@@ -201,6 +201,76 @@ def last_activity(run: dict) -> float:
         return max(os.path.getmtime(str(run.get("log") or "")), created)
     except OSError:
         return created
+
+
+def _children(pid: int) -> list[int]:
+    """Direct children of ``pid``, as the kernel lists them (empty when it does not)."""
+    found: list[int] = []
+    try:
+        tasks = list(Path(f"/proc/{pid}/task").iterdir())
+    except OSError:
+        return found
+    for task in tasks:
+        try:
+            raw = (task / "children").read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for token in raw.split():
+            try:
+                found.append(int(token))
+            except ValueError:
+                continue
+    return found
+
+
+def child_cpu(pid: int) -> float | None:
+    """CPU seconds the lane's whole process tree has burned; ``None`` without /proc.
+
+    The log is not a liveness signal: the launcher buffers its transcript until it
+    exits, so a healthy lane leaves the log at 0 bytes for the entire run (K-0051)
+    and the old rule killed it at a third of its budget. CPU time is activity the
+    supervisor can actually observe - a streaming launcher and the tool calls it
+    spawns burn ticks, a hung one burns none.
+    """
+    if pid <= 0 or not Path("/proc/self/stat").exists():
+        return None
+    ticks = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
+    total = 0.0
+    queue = [pid]
+    seen: set[int] = set()
+    while queue:
+        current = queue.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        try:
+            fields = (
+                Path(f"/proc/{current}/stat").read_text(encoding="utf-8").rsplit(")", 1)[1].split()
+            )
+        except (OSError, IndexError):
+            continue
+        try:
+            total += (int(fields[11]) + int(fields[12])) / ticks
+        except (IndexError, ValueError):
+            continue
+        queue.extend(_children(current))
+    return total
+
+
+def activity(run: dict, now: float) -> tuple[float, float | None]:
+    """When the lane was last seen working, and the CPU seconds that prove it.
+
+    ``now`` when the process tree burned a tick since the previous sample, and when
+    no sample can be taken at all: an unobservable lane is never called silent.
+    """
+    when = last_activity(run)
+    cpu = child_cpu(int(run.get("pid") or 0))
+    if cpu is None:
+        return now, None
+    previous = run.get("activity_cpu")
+    if not isinstance(previous, (int, float)) or cpu > float(previous):
+        when = max(when, now)
+    return when, cpu
 
 
 def lane_attempts(root: Path) -> int:
@@ -1095,7 +1165,10 @@ def refresh(root: Path, run: dict) -> dict:
     else:
         deadline = float(run.get("deadline") or 0)
         minutes = int(run.get("minutes") or 0) or lane_minutes(root)
-        silent_for = finished - last_activity(run)
+        when, cpu = activity(run, finished)
+        if cpu is not None:
+            run["activity_cpu"] = cpu
+        silent_for = finished - when
         if deadline and finished > deadline:
             terminate(int(run.get("pid") or 0))
             run["state"] = TIMEOUT
@@ -1108,7 +1181,7 @@ def refresh(root: Path, run: dict) -> dict:
             run["cause"] = "silent"
             run["finished"] = _stamp()
             run["error"] = (
-                f"silent for {int(silent_for)}s of its {minutes}m budget: no log byte for "
+                f"silent for {int(silent_for)}s of its {minutes}m budget: no CPU tick for "
                 f"a third of the clock, killed early"
             )
         else:
