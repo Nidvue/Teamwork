@@ -140,6 +140,24 @@ released artifact — with no personal data anywhere in the tree or in git histo
       release run's pages job for the tag, `mkdocs build --strict`,
       `teamwork.py links`
 
+## M10 - Cross-session bus, claims and the push adapter (this engagement)
+
+Two lanes in two worktrees of one project could not see each other: the mailbox is per
+team and per checkout, so an announcement reached one lane and a shared file had no
+owner. M10 adds the project-rooted bus, the live claim register and the extension that
+wakes a session on arrival.
+
+| AC | requirement | task | artifact | evidence |
+|---|---|---|---|---|
+| AC-BUS-1 | `bus_root` is `$TEAMWORK_BUS`, else `<project>/.pi/Teamwork/Bus`; one message is one file under its address key | T-0133 | `docs/Team/Architecture.md` 17.1 | commit 17cc7aba |
+| AC-BUS-2 | `*`, `role:`, `team:` are read-only announcements, closed by the sender or by TTL; `session:` is take-able and a second taker is refused | T-0133 | `docs/Team/Architecture.md` 17.2 | commit 96ce8ea6 |
+| AC-BUS-3 | `message inbox --for <instance>` is team rows then bus rows in one `(priority rank, created)` sort | T-0133 | `references/State.md` (The bus and the claim register) | commit 96ce8ea6 |
+| AC-CLM-1 | `claim add` refuses a live, unexpired claim on the same path, task or area and names the holder; TTL defaults to 120 minutes | T-0134 | `docs/Team/Architecture.md` 17.3 | commit ca6bde25 |
+| AC-BUS-4 | `teamwork-bus.ts` registers the session key, delivers pending mail at `before_agent_start`, refuses a `write` to a claimed path, and is shipped and registered by the installer | T-0135 | `docs/Team/Architecture.md` 17.4 | commit 76d970d0 |
+| AC-DOC-1 | the three surfaces are documented once each, in the record that owns them, with the known limitation named | T-0011 | this section, section 17, `references/State.md`, `SKILL.md` | this commit |
+
+Non-goals: no daemon, no socket, no cross-machine transport, no change to the team tree.
+
 ## M11 - Solid review pass (closed)
 
 Objective restated from the user brief: review code, logic, workflow, documents

@@ -479,3 +479,29 @@ lifecycle. A message never carries authority - it carries a request, and the
 recipient still records its own evidence.
 
 Ledger actions: `message.send`, `message.take`, `message.done`, `lane.preempt`.
+
+## The bus and the claim register
+
+The mailbox above is one team in one checkout. The bus is the same record shape at a
+project-rooted path, so two sessions in two worktrees see one another:
+`bus_root = $TEAMWORK_BUS` if set, else `<project>/.pi/Teamwork/Bus`, one file per
+message at `<bus_root>/<key>/M-nnnn.json`, every mutation under `<bus_root>/.lock`.
+
+```sh
+teamwork.py message send --from <you> --to '*' | role:<r> | team:<n> | session:<id> \
+    --priority <p> --subject '<one line>' [--body '<detail>'] [--ttl <minutes>]
+teamwork.py message inbox --for <instance>        # team rows, then bus rows, one sort
+teamwork.py claim add --by <id> --path <p> | --task <T-id> | --area <a> --ttl <minutes>
+teamwork.py claim check <value> | claim list | claim release <C-id>
+```
+
+`--to <Instance>` still writes `Runtime/Mailbox/<Instance>/` and is unchanged. The four
+bus keys are matched at read time, so nothing is copied per reader. `*`, `role:` and
+`team:` are announcements: read-only for recipients, closed by the sender or by TTL
+expiry. `session:<id>` is point-to-point: take-able, and a second taker is refused.
+
+The claim register refuses a live, unexpired claim on the same path, task or area and
+names the holder; the default TTL is 120 minutes. `extensions/teamwork-bus.ts` registers
+`session:<PI_SESSION_ID>` at `session_start`, delivers pending mail at
+`before_agent_start`, and refuses a `write` to a path another live session claims.
+Frozen interface and invariants: `docs/Team/Architecture.md` section 18.

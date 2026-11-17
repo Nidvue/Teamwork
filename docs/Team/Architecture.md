@@ -3108,3 +3108,93 @@ CHECK
 The block reads the code from the revision it runs in (repo root) and the records
 from the local team workspace (`TEAM_ROOT`, gitignored): the run records are
 local state, so they are counted at run time rather than pinned to a commit.
+
+## 18. The bus, the claim register and the push adapter (frozen)
+
+Frozen by D-20261117-CEO (bus and push adapter, T-0133/T-0135; claim register,
+T-0134). The mailbox described in `references/State.md` is per team and per checkout;
+this section adds the channel that crosses a checkout and the write claim that stops
+two lanes from writing one file.
+
+### 18.1 The bus root and the store
+
+`bus_root(root) = $TEAMWORK_BUS` when set, else `project_of(root)/".pi/Teamwork/Bus"`.
+
+One message is one JSON record at `<bus_root>/<key>/M-nnnn.json`: the mailbox record
+shape plus `scope`, `sender_session` and `expires`. Every mutation holds
+`<bus_root>/.lock`, so two sessions in two checkouts of one project share one store
+without sharing one checkout.
+
+| key | scope | read by | closed by |
+|---|---|---|---|
+| `*` | broadcast | every session on the bus | the sender, or `--ttl` expiry |
+| `role:<role>` | role | every instance of that role | the sender, or `--ttl` expiry |
+| `team:<Name>` | team | every session of that team | the sender, or `--ttl` expiry |
+| `session:<PI_SESSION_ID>` | point-to-point | that one session | the recipient (`take` then `done`) |
+
+### 18.2 Addressing and matching, at read time
+
+`message send --to` dispatches on the address, never on a registry:
+
+| `--to` | destination |
+|---|---|
+| `<Instance>` | this team's `Runtime/Mailbox/<Instance>/` - unchanged |
+| `*`, `role:<r>`, `team:<n>`, `session:<id>` | one file under `<bus_root>/<key>/` |
+
+Matching happens when a reader reads: it reads the keys it holds (`*`, its role, its
+team, its session), and nothing is fanned out at send time. One announcement therefore
+costs one file for N readers, and a reader that starts later still sees it.
+
+`message inbox --for <instance>` returns the team rows, then the bus rows for the
+instance's addresses, sorted once by `(priority rank, created)` - the same order and the
+same priority table the team mailbox uses.
+
+Announcement keys are read-only for recipients: a `*`, `role:` or `team:` record is
+never taken, it is closed by its sender or by `--ttl` expiry, so every reader keeps it
+until then. A `session:` record is point-to-point and take-able; `take` refuses a second
+taker, so one session processes it once.
+
+### 18.3 The claim register
+
+A bus announcement prevents duplicate work; a claim prevents duplicate writes.
+
+```sh
+teamwork.py claim add --by <id> (--path <p> | --task <T-id> | --area <a>) --ttl <minutes>
+teamwork.py claim check <value>
+teamwork.py claim list
+teamwork.py claim release <C-id>
+```
+
+One claim is one record at `<bus_root>/claims/<C-id>.json`, under the same
+`<bus_root>/.lock`. `add` refuses when a live, unexpired claim holds the same value and
+names the holder, so the refusal is actionable rather than a silent collision. TTL
+defaults to 120 minutes: a dead session stops blocking writes without anyone having to
+detect that it died.
+
+### 18.4 The push adapter (`extensions/teamwork-bus.ts`)
+
+The bus only pays for itself if a session is woken by it, so the extension hooks the
+session lifecycle:
+
+| hook | behaviour |
+|---|---|
+| `session_start` | registers `session:<PI_SESSION_ID>` for this repo on the bus |
+| `before_agent_start` | delivers pending mail via `pi.sendMessage(..., deliverAs: "nextTurn")` |
+| `write` tool call | refuses a path another live session claims, naming the holder |
+
+The installer ships it beside `teamwork-status.ts` and registers it, so a fresh checkout
+gains the bus on install instead of by hand.
+
+### 18.5 Known limitation
+
+`take()` marks only `session:<id>` rows taken, so an announcement (`*`, `role:`,
+`team:`) stays pending and `before_agent_start` re-injects it on every turn until the
+sender closes it or its TTL expires (`Knowledge.md#K-0049`). Read-only recipients are
+the design; repeated injection is its cost, and a long session pays it in context.
+
+### 18.6 Invariants
+
+- One message, one file, one address key: no copy per reader, no registry.
+- The team mailbox is unchanged; the bus is additive.
+- A refused `claim add` and a refused second `take` both name the holder.
+- No daemon, no socket, no cross-machine transport, no change to the team tree.

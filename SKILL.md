@@ -653,6 +653,31 @@ the one you need instead of the whole skill.
 | `references/Remotes.md` | git-host integrity: protection, checks, merge, tags |
 | `references/Loops.md` | loops, the task graph, failure routing, who signs off |
 
+## The bus and the claim register
+
+`message send --to <Instance>` writes the team mailbox. The four bus addresses cross a
+checkout, and are matched when a reader reads, so an announcement is one file for N
+readers:
+
+| `--to` | scope | closable by |
+|---|---|---|
+| `*` | every session on the bus | the sender, or `--ttl` expiry |
+| `role:<role>` | every instance of that role | the sender, or `--ttl` expiry |
+| `team:<Name>` | every session of that team | the sender, or `--ttl` expiry |
+| `session:<PI_SESSION_ID>` | one session, take-able | the recipient |
+
+```sh
+teamwork.py message send --from <you> --to role:developer --subject '<one line>' --ttl 60
+teamwork.py claim add --by <you> --path src/teamwork/engine.py --ttl 120
+teamwork.py claim check src/teamwork/engine.py | claim list | claim release <C-id>
+```
+
+A live, unexpired claim on the same path, task or area refuses the new claim and names
+the holder; the TTL (default 120 minutes) frees it when the holder dies. The
+`teamwork-bus.ts` extension registers `session:<PI_SESSION_ID>` at `session_start`,
+delivers pending mail at `before_agent_start`, and refuses a `write` to a claimed path.
+Full contract: `docs/Team/Architecture.md` section 18.
+
 ## Two-stage quality gate
 
 Every deliverable passes **two** gates, in order:
