@@ -181,6 +181,17 @@ export function writeTarget(tool: string, input: Record<string, unknown> | undef
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+const DELIVERED = new Map<string, Set<string>>();
+
+function delivered(session: string): Set<string> {
+  let seen = DELIVERED.get(session);
+  if (!seen) {
+    seen = new Set<string>();
+    DELIVERED.set(session, seen);
+  }
+  return seen;
+}
+
 function take(bus: string, rows: (Mail & { key?: string })[], session: string): void {
   for (const row of rows) {
     const key = row.key || "";
@@ -206,10 +217,13 @@ export default function teamworkBus(pi: ExtensionAPI): void {
 
   pi.on("before_agent_start", async (_event, ctx) => {
     const root = projectRoot(cwdOf(ctx));
-    const rows = pendingMail(root, addresses());
+    const session = sessionId();
+    const seen = delivered(session);
+    const rows = pendingMail(root, addresses()).filter((row) => !seen.has(String(row.id || "")));
     if (!rows.length) return;
     pi.sendMessage({ customType: KEY, content: mailText(rows) }, { deliverAs: "nextTurn" });
-    take(busRoot(root), rows, sessionId());
+    for (const row of rows) seen.add(String(row.id || ""));
+    take(busRoot(root), rows, session);
   });
 
   pi.on("tool_call", async (event, ctx) => {

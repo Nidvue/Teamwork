@@ -260,7 +260,7 @@ def test_a_drifted_copy_is_reinstalled(tmp_path: Path) -> None:
 
 DRIVER = """
 import assert from "node:assert";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.env.TW_ROOT;
@@ -293,6 +293,14 @@ checks.push(["one message", sent.length === 1]);
 checks.push(["next turn", Boolean(mail.options && mail.options.deliverAs === "nextTurn")]);
 checks.push(["mail id", content.includes("M-0001")]);
 checks.push(["mail subject", content.includes("hello")]);
+
+await handlers.get("before_agent_start")({}, ctx);
+await handlers.get("before_agent_start")({}, ctx);
+checks.push(["no replay on turn 2 and 3", sent.length === 1]);
+checks.push([
+  "broadcast stays pending",
+  JSON.parse(readFileSync(join(bus, "*", "M-0001.json"), "utf-8")).state === "pending",
+]);
 
 const blocked = await handlers.get("tool_call")(
   { toolName: "write", input: { path: join(root, "shared.ts") } }, ctx);
