@@ -12755,7 +12755,7 @@ def cmd_pulse(args) -> int:
                     if idx is None or tasks[idx]["status"] != "todo":
                         continue
                     tasks[idx]["status"] = "doing"
-                    tasks[idx]["claimed_by"] = inst
+                    tasks[idx]["claimed_by"] = tasks[idx].get("claimed_by") or inst
                     tasks[idx]["updated"] = today_iso()
                     write_tasks(path, tasks, role)
                     applied.append(f"{inst}<-{task['id']}")

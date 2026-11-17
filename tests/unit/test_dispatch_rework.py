@@ -20,7 +20,7 @@ from pathlib import Path
 
 from test_review_credit import seed, team_root
 
-from teamwork import engine, records
+from teamwork import engine, lanes, records
 
 DEFECT = "the limit check uses > where it must use >="
 DETECTOR = "a request exactly at the limit is rejected instead of accepted"
@@ -78,6 +78,29 @@ def test_the_rework_stays_with_the_owner_instance(cli, project) -> None:
     assert task["status"] == "todo"
     assert task["claimed_by"] == "Developer-1"
     assert ready_ids(project) == ["T-0001"]
+
+
+def test_the_dispatch_plan_hands_the_rework_to_its_owner_only(cli, project) -> None:
+    """A second idle developer instance must not take a peer's hand-back."""
+    seed(cli, project)
+    assert cli("--project", project, "instance", "add", "developer", "--count", 2) == 0
+    assert fail(cli, project) == 0
+    root = team_root(project)
+    path = engine.task_file(root, "developer")
+
+    def plan() -> dict:
+        return {
+            item.task: item.instance for item in lanes.dispatch_plan(root) if not item.review_owner
+        }
+
+    assert plan().get("T-0001") == "Developer-1", plan()
+
+    tasks = engine.parse_tasks(path)
+    busy = dict(tasks[0], id="T-0002", title="hold the owner's slot", status="doing")
+    engine.write_tasks(path, [*tasks, busy], "developer")
+
+    assert "T-0001" not in plan(), plan()
+    assert "Developer-2" not in plan().values(), plan()
 
 
 def test_a_task_that_never_failed_is_not_dispatched_again(cli, project) -> None:
