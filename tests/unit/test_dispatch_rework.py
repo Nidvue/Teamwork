@@ -103,6 +103,23 @@ def test_the_dispatch_plan_hands_the_rework_to_its_owner_only(cli, project) -> N
     assert "Developer-2" not in plan().values(), plan()
 
 
+def test_task_next_does_not_take_a_peers_rework(cli, project) -> None:
+    """The CLI path, not only the plan: `task next` must not overwrite the claim."""
+    seed(cli, project)
+    assert cli("--project", project, "instance", "add", "developer", "--count", 2) == 0
+    assert fail(cli, project) == 0
+
+    assert cli("--project", project, "task", "next", "Developer-2") == 3
+    task = task_record(project)
+    assert task["status"] == "todo", task["status"]
+    assert task["claimed_by"] == "Developer-1", task["claimed_by"]
+
+    assert cli("--project", project, "task", "next", "Developer-1") == 0
+    task = task_record(project)
+    assert task["status"] == "doing", task["status"]
+    assert task["claimed_by"] == "Developer-1", task["claimed_by"]
+
+
 def test_a_task_that_never_failed_is_not_dispatched_again(cli, project) -> None:
     """The empty case: the rule keys on the verdict, not on the claim."""
     seed(cli, project)

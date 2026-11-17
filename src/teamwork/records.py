@@ -49,7 +49,7 @@ from .layout import (
     testplan_path,
     tests_path,
 )
-from .names import body_text, one_line, resolve_role
+from .names import body_text, one_line, pascal, resolve_role
 
 REVIEWS_HEADER = (
     "# Reviews - PRs awaiting the Reviewer\n\n"
@@ -1153,8 +1153,21 @@ def local_dep_map(tasks: list) -> dict:
     return by_title
 
 
-def executable(t: dict, lookup: dict, cache: dict, root: Path) -> bool:
+def claim_allows(t: dict, instance: str) -> bool:
+    """A task handed back by a verdict stays with the instance that holds it.
+
+    A failed review returns the task to ``status=todo`` with its claim intact, so
+    it is ready again for its own owner - but ready for the role, not for every
+    instance in it: the author owns the fix and its context (T-0138).
+    """
+    owner = str(t.get("claimed_by") or "").strip()
+    return not owner or pascal(owner) == pascal(instance)
+
+
+def executable(t: dict, lookup: dict, cache: dict, root: Path, claimant: str = "") -> bool:
     if t["status"] != "todo":
+        return False
+    if claimant and not claim_allows(t, claimant):
         return False
     for dep in split_dependencies(t["deps"]):
         if ":" in dep:

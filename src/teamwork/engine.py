@@ -9707,7 +9707,7 @@ def cmd_task_next(args) -> int:
         tasks = parse_tasks(path)
         lookup = local_dep_map(tasks)
         cache: dict = {}
-        ready = [t for t in tasks if executable(t, lookup, cache, root)]
+        ready = [t for t in tasks if executable(t, lookup, cache, root, args.agent)]
         mode, mode_source = load_pulse_mode(root)
         refused = [t for t in ready if task_is_inferred(t)] if mode != "auto" else []
         if refused:

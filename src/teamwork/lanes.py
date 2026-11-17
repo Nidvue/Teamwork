@@ -78,6 +78,7 @@ from .layout import (
 from .names import one_line, pascal, resolve_role, safe_component
 from .portable import IS_WINDOWS, pid_alive
 from .records import (
+    claim_allows,
     executable,
     find_task,
     local_dep_map,
@@ -1752,7 +1753,7 @@ def dispatch_plan(root: Path, limit: int = 0) -> list:
                     (
                         at
                         for at, candidate in enumerate(items)
-                        if _claim_allows(candidate, instance)
+                        if claim_allows(candidate, instance)
                         and engine.feature_executable_by(root, instance, candidate, records)
                     ),
                     None,
@@ -1773,17 +1774,6 @@ def dispatch_plan(root: Path, limit: int = 0) -> list:
     if _review_backlogged(root, open_reviews):
         plan.sort(key=lambda item: 0 if item.review_owner else 1)
     return plan[:limit] if limit else plan
-
-
-def _claim_allows(task: dict, instance: str) -> bool:
-    """A task handed back by a verdict stays with the instance that holds it.
-
-    A failed review returns the task to ``status=todo`` with its claim intact, so
-    it is ready again for its own owner - but ready for the role, not for every
-    instance in it: the author owns the fix and its context (T-0138).
-    """
-    owner = str(task.get("claimed_by") or "").strip()
-    return not owner or pascal(owner) == pascal(instance)
 
 
 def _review_backlogged(root: Path, unclaimed: list) -> bool:
