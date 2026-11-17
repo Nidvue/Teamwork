@@ -1512,7 +1512,7 @@ def reconcile_stalled(root: Path, attempts: int = 0) -> list:
             "task.release",
             "reconcile",
             ", ".join(released),
-            f"{limit} attempt(s) spent and no live lane: back to todo, claim cleared",
+            f"{limit} attempt(s) spent and no live lane: blocked, claim cleared",
             "",
             "",
         )

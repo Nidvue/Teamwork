@@ -865,7 +865,7 @@ def test_a_stalled_claim_is_restarted_while_an_attempt_remains(cli, project: Pat
 
 
 def test_a_stalled_claim_is_released_once_the_attempts_are_spent(cli, project: Path) -> None:
-    """The other outcome of a reconcile: the task goes back to todo, the claim clears."""
+    """The other outcome of a reconcile: the task goes back as blocked, the claim clears."""
     root = init(cli, project)
     add_task(cli, project, "developer", "alpha")
     _stalled_claim(root, runs=2)
@@ -878,6 +878,23 @@ def test_a_stalled_claim_is_released_once_the_attempts_are_spent(cli, project: P
     ledger = (root / "Ledger.jsonl").read_text(encoding="utf-8")
     assert '"action": "task.release"' in ledger or "task.release" in ledger
     assert lanes.reconcile_stalled(root) == []
+
+
+def test_a_report_only_wake_releases_no_stalled_claim(cli, project: Path) -> None:
+    """T-0089: mutate=False is the report path - it must not release or write."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "alpha")
+    _stalled_claim(root, runs=2)
+    ledger = root / "Ledger.jsonl"
+    before = ledger.read_text(encoding="utf-8") if ledger.exists() else ""
+    engine._foldable_instances(root, keep_required=True, mutate=False)
+    task = engine.parse_tasks(engine.task_file(root, "developer"))[0]
+    assert task["status"] == "doing"
+    assert task["claimed_by"] == "Developer-1"
+    assert (ledger.read_text(encoding="utf-8") if ledger.exists() else "") == before
+    assert engine._foldable_instances(root, keep_required=True, mutate=True)
+    task = engine.parse_tasks(engine.task_file(root, "developer"))[0]
+    assert task["status"] == "blocked"
 
 
 def test_a_live_lane_is_never_reconciled(cli, project: Path) -> None:
