@@ -9,6 +9,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-11-17
+
+### Fixed
+
+- **An unknown record id exits `2` on every record command** - `criteria verify`,
+  `criteria reopen`, `criteria rm`, `tests run` and `tests rm` called `io.die` with
+  its default code `1`, while `knowledge show`, `attention take` and the argparse
+  layer answer `2` for "this id does not exist", so a script could not branch on
+  one code. They now pass `2` to `io.die`, `docs/guide/cli-records.md` states the
+  same code, and `tests/unit/test_unknown_record_id_exit_codes.py` pins the four
+  commands agreeing.
+
 ## [1.5.17] - 2026-11-17
 
 ### Fixed

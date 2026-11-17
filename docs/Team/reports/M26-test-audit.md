@@ -1,7 +1,7 @@
 # M26 test audit: vacuous tests proved by mutation, coverage, hermeticity, flake
 
 Owner: Tester. Task: T-0008 (M26 audit; audit only, no fix).
-Related: [the board](../Board.md) | [the plan](../Plan.md) | [M26 code audit](M26-code-audit.md) | [the writing standard](../../../AGENTS.md)
+Related: the board | the plan | M26 code audit | the writing standard - named here rather than linked: a one-way markdown edge fails `teamwork links`, and the precedent is docs/Team/reports/M26-code-audit.md.
 
 Audited revision: `d6ab6d23` (`git log --oneline -1` at the audit head), on a
 dedicated worktree `Runtime/Worktrees/Tester/T-0008`. No source file and no test

@@ -1,7 +1,7 @@
 # T-0085: unit-layer records for the 15 areas the plan required with no record
 
 Owner: Developer. Task: T-0085. Revision: `612f6c19` (`git -C <worktree> rev-parse HEAD`).
-Related: [the board](../Board.md) | [the plan](../Plan.md) | [the release](../Release.md)
+Related: the board | the plan | the release - named here rather than linked: a one-way markdown edge fails `teamwork links`, and the precedent is docs/Team/reports/M26-code-audit.md.
 
 ## 1. Why this record exists
 

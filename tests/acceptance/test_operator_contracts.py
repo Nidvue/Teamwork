@@ -106,7 +106,7 @@ def test_criteria_refuse_an_unknown_id_with_a_named_error(tmp_path: Path) -> Non
     listed = cli(project, ["criteria", "list"])
     assert "AC-1" in listed.output
     refused = cli(project, ["criteria", "verify", "AC-99", "--by", "Reviewer-1"])
-    assert refused.returncode == 1
+    assert refused.returncode == 2
     assert "no criterion 'AC-99'" in refused.output
 
 
