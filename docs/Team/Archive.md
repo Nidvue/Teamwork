@@ -8239,4 +8239,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit d9ec7b4a
 - reviewer evidence: check_release_consistency.py --offline @d9ec7b4a -> R7 ok (28 tagged versions); audit @d9ec7b4a -> merged branches still open: none; preflight PF-2b7d6fc57e49 @d9ec7b4a -> 0 failed; ruff format/check @d9ec7b4a -> ok; TS-0143 acceptance/release-integrity -> passing
 - findings history: 
-- branch / merge: releaseengineer/t-0004-release-consistency-r7-and-repository-hy / pending
+- branch / merge: releaseengineer/t-0004-release-consistency-r7-and-repository-hy / 3b7f4425
