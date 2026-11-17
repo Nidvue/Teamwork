@@ -2820,6 +2820,7 @@ LEDGER_ACTIONS = (
     "knowledge.add",
     "knowledge.supersede",
     "knowledge.touch",
+    "lane.cleanup",
     "lane.finish",
     "lane.preempt",
     "lane.start",
