@@ -150,6 +150,44 @@ LFS_PATTERNS = (
 )
 
 
+TRUTHY = frozenset({"true", "yes", "1", "on"})
+FALSY = frozenset({"false", "no", "0", "off"})
+
+
+def _signing_boolean(raw: str) -> bool | None:
+    """A git-style boolean, or None when the value says nothing usable."""
+    value = (raw or "").strip().lower()
+    if value in TRUTHY:
+        return True
+    if value in FALSY:
+        return False
+    return None
+
+
+def repo_signs_commits(project) -> bool:
+    """Whether the repository itself asks for signed commits (``commit.gpgsign``)."""
+    result = run_git(project, "config", "--get", "commit.gpgsign")
+    if result.returncode != 0:
+        return False
+    return _signing_boolean(result.stdout) is True
+
+
+def sign_args(project, setting: str = "") -> list:
+    """The ``-S`` an engine-made commit carries, decided once for every call site.
+
+    The team setting wins when it names a boolean, so a team can sign its own
+    records in a repository that does not require it, and can decline in one that
+    does. Otherwise the repository decides, which makes an engine commit signed
+    exactly when an agent's commit would be. Signing is never forced on: an unset
+    setting in a repository with no ``commit.gpgsign`` yields no ``-S``, so the
+    gate adds no requirement a project did not already have.
+    """
+    declared = _signing_boolean(setting)
+    if declared is not None:
+        return ["-S"] if declared else []
+    return ["-S"] if repo_signs_commits(project) else []
+
+
 def run_git(project: Path, *argv: str, timeout: float | None = None):
     """Run git in ``project`` with a bounded wall clock.
 

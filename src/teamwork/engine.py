@@ -207,6 +207,7 @@ from .gitutil import (
     lfs_text_mismatch,
     lfs_tracked,
     run_git,
+    sign_args,
 )
 from .harness import parse_frontmatter
 from .imaging import (
@@ -1641,6 +1642,31 @@ def _producer_commit_identity(t: dict | None = None, pr: dict | None = None) -> 
     return "reviewer", " (no producer role recorded; the reviewer authored it)"
 
 
+def _sign_args(root: Path) -> list:
+    """The signature arguments every engine-made commit passes, from one resolver.
+
+    ``SignCommits`` in the team ``Settings.json`` decides when it names a boolean;
+    otherwise the repository's ``commit.gpgsign`` does. A team setting that cannot
+    be read is not a reason to refuse a commit, so the repository decides then.
+    """
+    try:
+        setting = _settings_string(root, "SignCommits")
+    except (OSError, KeyError, TypeError, ValueError):
+        setting = ""
+    return sign_args(root, setting)
+
+
+def _signing_hint(root: Path) -> str:
+    """The clause a refused commit carries when that commit asked to be signed."""
+    if not _sign_args(root):
+        return ""
+    return (
+        "; signing is required here (Settings.json SignCommits or git config "
+        "commit.gpgsign), so a missing or unusable signing key is the cause - "
+        "check git config --get user.signingkey"
+    )
+
+
 def _merge_commit_env(project=None, role: str = "reviewer") -> dict:
     """The environment a merge's own commit runs in.
 
@@ -1864,6 +1890,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             rr = subprocess.run(
                 ["git", "-C", str(here)]
                 + git_identity_args(producer)
+                + _sign_args(here)
                 + ["commit", "-q", "-F", "-", "--", *records],
                 input=rec_msg,
                 capture_output=True,
@@ -1874,7 +1901,9 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 run_git(here, "reset", "-q", "--", *records)
                 die(
                     "could not commit the generated records (a hook or config "
-                    "blocked it); nothing was merged and the records stay staged "
+                    "blocked it)"
+                    + _signing_hint(here)
+                    + "; nothing was merged and the records stay staged "
                     "for a retry:\n  "
                     + (rr.stderr.strip() or rr.stdout.strip() or "(no output)").replace(
                         "\n", "\n  "
@@ -1905,6 +1934,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     r = subprocess.run(
                         ["git", "-C", str(here)]
                         + git_identity_args(producer)
+                        + _sign_args(here)
                         + ["commit", "-q", "-F", "-"],
                         input=message,
                         capture_output=True,
@@ -9004,7 +9034,10 @@ def ensure_repo(project: Path, commit: bool = True, quiet: bool = False) -> int:
             },
         )
         r = subprocess.run(
-            ["git", "-C", str(project)] + git_identity_args("ceo") + ["commit", "-q", "-F", "-"],
+            ["git", "-C", str(project)]
+            + _sign_args(project)
+            + git_identity_args("ceo")
+            + ["commit", "-q", "-F", "-"],
             input=msg,
             capture_output=True,
             text=True,
@@ -15007,6 +15040,7 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
     committed = subprocess.run(
         ["git", "-C", str(repo)]
         + git_identity_args(producer)
+        + _sign_args(repo)
         + ["commit", "-q", "-F", "-", "--", *dirty],
         input=message,
         capture_output=True,
@@ -15016,7 +15050,8 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", *dirty)
         die(
-            "could not commit the accepted-results entry (a hook or config blocked it); "
+            "could not commit the accepted-results entry (a hook or config "
+            "blocked it)" + _signing_hint(repo) + "; "
             "the entry stays in the work tree for a retry:\n  "
             + (committed.stderr.strip() or committed.stdout.strip() or "(no output)").replace(
                 "\n", "\n  "
@@ -15358,6 +15393,7 @@ def commit_archive_merge_sha(
     committed = subprocess.run(
         ["git", "-C", str(here)]
         + git_identity_args(producer)
+        + _sign_args(here)
         + ["commit", "-q", "-F", "-", "--", rel],
         input=close_msg,
         capture_output=True,
@@ -17602,6 +17638,7 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
     committed = subprocess.run(
         ["git", "-C", str(repo)]
         + git_identity_args(producer)
+        + _sign_args(repo)
         + ["commit", "-q", "-F", "-", "--", rel],
         input=message,
         capture_output=True,
@@ -17780,6 +17817,35 @@ def cmd_code_scanning(args) -> int:
     return 1 if blocking else 0
 
 
+def _audit_unsigned_commits_on_the_reviewed_range(root, names, args) -> int:
+    """A high finding when signing is required here and a reviewed commit is unsigned.
+
+    The range is ``main..HEAD`` of the checkout: the commits a project would have
+    had to exempt from its signature rule. Signing is never made mandatory, so a
+    repository that configures no signing reports nothing and this gate only
+    catches what it exists for - a commit made unsigned while the repository asked
+    for a signature.
+    """
+    if not _sign_args(root):
+        return 0
+    if not _rev_commit_exists(root, "main"):
+        return 0
+    listing = run_git(root, "log", "--format=%G?", "main..HEAD")
+    if listing.returncode != 0:
+        return 0
+    marks = [line.strip() for line in listing.stdout.splitlines() if line.strip()]
+    unsigned = [mark for mark in marks if mark in {"N", "B"}]
+    if not unsigned:
+        return 0
+    print(
+        f"- HIGH signing: {len(unsigned)} of {len(marks)} commit(s) on main..HEAD are "
+        "unsigned while this repository requires a signature (Settings.json "
+        "SignCommits or git config commit.gpgsign); an engine commit is signed "
+        "through sign_args, so an unsigned one was made outside the engine"
+    )
+    return len(unsigned)
+
+
 def cmd_audit(args) -> int:
     """Anti-hallucination / integrity audit of the whole workspace."""
     root = project_root(args)
@@ -17812,6 +17878,7 @@ def cmd_audit(args) -> int:
     problems += _audit_layered_tests(root, names, args)
     problems += _audit_evolution_framework(root, names, args)
     problems += _audit_bug_fixes_without_a_repro_record(root, names, args)
+    problems += _audit_unsigned_commits_on_the_reviewed_range(root, names, args)
     problems += _audit_merged_branches_still_open(root, names, args)
     problems += _audit_git_leftovers_merged_worktrees_and_stale_re(root, names, args)
     problems += _audit_git_archival_lfs_large_files(root, names, args)
