@@ -107,6 +107,7 @@ from .config import (
     DIR_WORKTREES,
     DOCS,
     DREAM_BUDGET_SECONDS,
+    EVIDENCE_DIRS,
     F_AUDITREPORT,
     F_CRITERIA,
     F_DISPUTES,
@@ -9382,6 +9383,40 @@ def clean_locations(root: Path, agents: list, team_wide: bool = False) -> list:
     return locations
 
 
+CITED_PATH = re.compile(r"[A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+")
+
+
+def clean_cited_paths(root: Path, project: Path) -> set[str]:
+    """Every path token the team's own records cite: a cited path is evidence.
+
+    A `tests run --artifact`, a `Tests.md` row, a task evidence line and a run log
+    all name files inside the tree. Those names are the only durable trace that a
+    file matters, so the janitor reads them before it unlinks anything: a path a
+    record cites is never scratch, whatever it is called. Records live in the team
+    root (`Agents/<X>/Runs/*.md`, `Roles/*/*.md`, `Knowledge.md`) and in the
+    committed `docs/Team/` set, so both are read.
+    """
+    records = sorted(root.rglob("*.md"))
+    docs = project.joinpath(*DIR_DOCS)
+    if docs.is_dir():
+        records += sorted(docs.glob("*.md"))
+    cited: set[str] = set()
+    for record in records:
+        try:
+            cited.update(CITED_PATH.findall(record.read_text(encoding="utf-8", errors="replace")))
+        except OSError:
+            continue
+    return cited
+
+
+def clean_is_evidence(path: Path, root: Path, cited: set[str]) -> bool:
+    """Whether a path is evidence: inside `Artifacts/`, `Reports/`, `Runs/`, or cited."""
+    rel = path.relative_to(root).as_posix()
+    if any(part in EVIDENCE_DIRS for part in path.relative_to(root).parts[:-1]):
+        return True
+    return rel in cited
+
+
 def cmd_clean(args) -> int:
     """Remove scratch/temp files inside the team tree. Never touches tracked files.
 
@@ -9392,6 +9427,9 @@ def cmd_clean(args) -> int:
     `Scratch/` only - `Global/` and `Roles/` just lose their temp-pattern files.
     A file whose `unlink` fails is listed as not removed and is never counted in
     the removed total: the summary states what happened, not what was attempted.
+    Evidence is out of scope whatever it is called: a file inside `Artifacts/`,
+    `Reports/` or `Runs/`, and any path a team record cites, is kept and counted
+    separately (T-0140 - `*.log` matched the run logs `Tests.md` cites).
     """
     root = project_root(args)
     project = project_of(root)
@@ -9412,7 +9450,9 @@ def cmd_clean(args) -> int:
         tracked = {p for p in r.stdout.split("\0") if p}
     removed = []
     stuck = []
+    spared = 0
     freed = 0
+    cited = clean_cited_paths(root, project)
     for base in locations:
         if not base.is_dir():
             continue
@@ -9425,6 +9465,9 @@ def cmd_clean(args) -> int:
                 continue
             empty_scratch = args.all and any(p.is_relative_to(d) for d in scratch)
             if not empty_scratch and not any(p.match(pat) for pat in SCRATCH_PATTERNS):
+                continue
+            if rel in cited or clean_is_evidence(p, root, cited):
+                spared += 1
                 continue
             try:
                 size = p.stat().st_size
@@ -9441,6 +9484,12 @@ def cmd_clean(args) -> int:
             removed.append(rel)
     verb = "would remove" if args.dry_run else "removed"
     print(f"teamwork: {verb} {len(removed)} scratch/temp file(s), {freed / 1024:.1f} KiB")
+    if spared:
+        kept = "would keep" if args.dry_run else "kept"
+        print(
+            f"teamwork: {kept} {spared} evidence file(s): a record cites it or it sits in "
+            f"{', '.join(EVIDENCE_DIRS)}"
+        )
     if stuck:
         print(f"teamwork: {len(stuck)} scratch/temp file(s) could not be removed:")
         for rel, why in stuck[:10]:

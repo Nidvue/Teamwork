@@ -41,6 +41,8 @@ DIR_ARTIFACTS = "Artifacts"
 
 DIR_REPORTS = "Reports"
 
+DIR_RUNS = "Runs"
+
 DIR_SCRATCH = "Scratch"
 
 DIR_DOCS = ("docs", "Team")
@@ -374,6 +376,8 @@ GITIGNORE_LINES = (
 SCRATCH_DIRS = (DIR_SCRATCH,)
 
 SCRATCH_PATTERNS = ("*.tmp", "*.temp", "*.bak", "*.orig", "*.rej", "*.log")
+
+EVIDENCE_DIRS = (DIR_ARTIFACTS, DIR_REPORTS, DIR_RUNS)
 
 MAX_ROUNDS = _env_int("TEAMWORK_MAX_DISPUTE_ROUNDS", 3)
 

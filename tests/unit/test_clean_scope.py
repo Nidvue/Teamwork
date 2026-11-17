@@ -25,6 +25,8 @@ from teamwork import engine
 
 SCRATCH_FILES = ("render/in-flight.png", "in-flight.tmp", "notes.temp")
 
+EVIDENCE_FILES = ("Artifacts/run.log", "Reports/report.log", "Runs/L-0001.log")
+
 
 def team_root(project: Path) -> Path:
     return (
@@ -55,7 +57,10 @@ def seed(cli, project: Path) -> tuple[Path, list[Path], list[Path], list[Path]]:
         artifact = base / "Artifacts" / "draft.tmp"
         artifact.parent.mkdir(parents=True, exist_ok=True)
         artifact.write_text("lane artifact temp\n", encoding="utf-8")
-        out.append(artifact)
+        for rel in EVIDENCE_FILES:
+            path = base / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("evidence a record cites\n", encoding="utf-8")
         return out
 
     peer = lane("Developer-1")
@@ -110,7 +115,6 @@ def test_the_temp_pattern_pass_never_reaches_a_peer_lane(cli, project: Path, mon
         assert path.exists(), f"the temp-pattern pass unlinked shared state: {path}"
     assert not (root / "Agents" / "Developer-2" / "Scratch" / "in-flight.tmp").exists()
     assert not (root / "Agents" / "Developer-2" / "Scratch" / "notes.temp").exists()
-    assert not (root / "Agents" / "Developer-2" / "Artifacts" / "draft.tmp").exists()
     assert (root / "Agents" / "Developer-2" / "Scratch" / "render" / "in-flight.png").exists()
 
 
@@ -212,6 +216,55 @@ def test_a_file_whose_unlink_fails_is_reported_not_counted(cli, project: Path, c
             locked.parent.chmod(0o700)
     assert locked.exists(), "the fixture did not block the unlink, so nothing is proved"
     assert code == 0
-    assert "removed 4 scratch/temp file(s)" in out, out
+    assert "removed 3 scratch/temp file(s)" in out, out
     assert "1 scratch/temp file(s) could not be removed:" in out, out
     assert f"  - {rel}: " in out, out
+
+
+def test_an_evidence_directory_survives_a_team_wide_clean(cli, project: Path, capsys) -> None:
+    """T-0140: `*.log` must not reach `Artifacts/`, `Reports/` or `Runs/` - they hold evidence.
+
+    The measured defect: `clean --team-wide` listed 39 files under `Agents/*/Runs/`,
+    the very run logs `Tests.md` cites, because `SCRATCH_PATTERNS` carries `*.log`.
+    """
+    root, _peer, _mine, _shared = seed(cli, project)
+    evidence = [
+        root / "Agents" / name / rel
+        for name in ("Developer-1", "Developer-2")
+        for rel in EVIDENCE_FILES
+    ]
+    stray = root / "Agents" / "Developer-1" / "Scratch" / "stray.log"
+    stray.parent.mkdir(parents=True, exist_ok=True)
+    stray.write_text("stray log\n", encoding="utf-8")
+    capsys.readouterr()
+    assert clean(cli, project, "--team-wide", "--all") == 0
+    out = capsys.readouterr().out
+    for path in evidence:
+        assert path.exists(), f"a team-wide clean unlinked evidence: {path}"
+    assert (root / "Agents" / "Developer-2" / "Artifacts" / "draft.tmp").exists()
+    assert not stray.exists(), "a stray *.log inside Scratch is still scratch"
+    assert "evidence file(s)" in out, out
+
+
+def test_a_path_a_record_cites_survives_even_inside_scratch(cli, project: Path, capsys) -> None:
+    """The citation protects the path, not its directory - and a second call keeps it."""
+    root, _peer, _mine, _shared = seed(cli, project)
+    keep = root / "Agents" / "Developer-2" / "Scratch" / "keep.log"
+    drop = root / "Agents" / "Developer-2" / "Scratch" / "drop.log"
+    for path in (keep, drop):
+        path.write_text("scratch\n", encoding="utf-8")
+    docs = project / "docs" / "Team"
+    docs.mkdir(parents=True, exist_ok=True)
+    (docs / "Tests.md").write_text(
+        f"| TS-0001 | unit | clean-scope | pass | artifact {keep.relative_to(root).as_posix()} |\n",
+        encoding="utf-8",
+    )
+    capsys.readouterr()
+    assert clean(cli, project, "--agent", "developer-2", "--all") == 0
+    out = capsys.readouterr().out
+    assert keep.exists(), f"a clean unlinked a path a record cites: {keep}"
+    assert not drop.exists(), f"an uncited scratch file survived --all: {drop}"
+    assert "evidence file(s)" in out, out
+    capsys.readouterr()
+    assert clean(cli, project, "--agent", "developer-2", "--all") == 0
+    assert keep.exists(), "a second clean unlinked the cited path"
