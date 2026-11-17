@@ -11950,11 +11950,15 @@ def _status_row(
     """
     run = live.get(pascal(instance)) or {}
     task = ""
+    title_role = resolve_role(instance)
     if run.get("task"):
         owner = str(run.get("review_owner") or "")
         task = f"{owner}/{run['task']}" if owner else str(run["task"])
+        if owner:
+            title_role = resolve_role(owner)
     else:
-        task = held.get(pascal(instance), "")
+        claimed = held.get(pascal(instance)) or ("", "")
+        title_role, task = resolve_role(claimed[0]), str(claimed[1])
     elapsed = None
     elapsed_seconds = None
     budget_seconds = None
@@ -11978,7 +11982,7 @@ def _status_row(
         progress = "claimed, no lane record"
     elif dispatching:
         progress = f"dispatching (last pulse {int(dispatching // 60)}m ago)"
-    title = str(titles.get(task.rsplit("/", 1)[-1], ""))
+    title = str(titles.get((title_role, task.rsplit("/", 1)[-1]), ""))
     if dispatching and not task and not run:
         title = "pulse: dispatch, arbitrate, fold"
     events = activity or {}
@@ -12099,10 +12103,13 @@ def status_snapshot(root: Path) -> tuple:
     for role in list_roles(root):
         for task in parse_tasks(task_file(root, role)):
             if task["status"] in ("doing", "selfcheck") and task.get("claimed_by"):
-                held[pascal(task["claimed_by"])] = task["id"]
+                held[pascal(task["claimed_by"])] = (resolve_role(role), task["id"])
             elif review_is_held(task):
-                held[pascal(task["review_claim"])] = task["id"]
-    titles = {str(t["id"]): str(t.get("title") or "") for _role, t in iter_tasks(root)}
+                held[pascal(task["review_claim"])] = (resolve_role(role), task["id"])
+    titles = {
+        (resolve_role(role), str(t["id"])): str(t.get("title") or "")
+        for role, t in iter_tasks(root)
+    }
     config = load_model_config(root)
     pulse_age = _pulse_age(root, now)
     activity = recent_activity(root)

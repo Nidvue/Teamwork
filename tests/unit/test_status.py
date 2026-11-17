@@ -194,6 +194,34 @@ def test_each_row_names_the_work_its_task_is(cli, project: Path, capsys) -> None
     assert "produce the contract" in line
 
 
+def test_two_roles_holding_the_same_task_id_each_name_their_own_title(
+    cli, project: Path, capsys
+) -> None:
+    build(cli, project, lane=False)
+    root = team_root(project)
+    assert cli("--project", project, "task", "add", "tester", "audit the vacuous tests") == 0
+    for role, instance in (("developer", "Developer-1"), ("tester", "Tester-1")):
+        path = engine.task_file(root, role)
+        tasks = engine.parse_tasks(path)
+        assert tasks[0]["id"] == "T-0001"
+        tasks[0]["status"] = "doing"
+        tasks[0]["claimed_by"] = instance
+        engine.write_tasks(path, tasks, role)
+    rows = {row["instance"]: row for row in payload(cli, project, capsys)["instances"]}
+    assert rows["Developer-1"]["task"] == "T-0001"
+    assert rows["Tester-1"]["task"] == "T-0001"
+    assert rows["Developer-1"]["title"] == "produce the contract"
+    assert rows["Tester-1"]["title"] == "audit the vacuous tests"
+    assert cli("--project", project, "status") == 0
+    lines = {
+        line.split()[1]: line
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith(("- Developer-1 ", "- Tester-1 "))
+    }
+    assert "produce the contract" in lines["Developer-1"]
+    assert "audit the vacuous tests" in lines["Tester-1"]
+
+
 def test_progress_pct_is_an_int_with_a_lane_and_null_without_one(
     cli, project: Path, capsys
 ) -> None:
