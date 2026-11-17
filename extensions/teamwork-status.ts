@@ -413,45 +413,73 @@ export default function teamworkStatus(pi: ExtensionAPI): void {
   let timer: ReturnType<typeof setInterval> | null = null;
   let context: ExtensionContext | null = null;
 
-  const clear = (ctx: ExtensionContext): void => {
-    ctx.ui.setWidget(KEY, []);
-    ctx.ui.setStatus(KEY, "");
-  };
-
   const stop = (): void => {
     if (timer) clearInterval(timer);
     timer = null;
   };
 
+  const stale = (): void => {
+    stop();
+    context = null;
+  };
+
+  const live = (ctx: ExtensionContext): boolean => {
+    try {
+      void ctx.ui;
+      return true;
+    } catch {
+      stale();
+      return false;
+    }
+  };
+
+  const clear = (ctx: ExtensionContext): void => {
+    try {
+      ctx.ui.setWidget(KEY, []);
+      ctx.ui.setStatus(KEY, "");
+    } catch {
+      stale();
+    }
+  };
+
   const refresh = async (): Promise<void> => {
     const ctx = context;
     if (!ctx) return;
-    if (!enabled) return clear(ctx);
-    const cwd = (ctx as { cwd?: string }).cwd ?? process.cwd();
-    const engine = findEngine(cwd);
-    if (!engine) {
-      clear(ctx);
-      stop();
-      return;
-    }
-    const payload = await readStatus(engine);
-    if (!payload) {
-      ctx.ui.setWidget(KEY, [`${GLYPH.stalled} teamwork: status unavailable`]);
-      return;
-    }
-    const paint = (ctx.ui as { theme?: Paint }).theme;
+    if (!live(ctx)) return;
     try {
+      if (!enabled) {
+        clear(ctx);
+        return;
+      }
+      const cwd = (ctx as { cwd?: string }).cwd ?? process.cwd();
+      const engine = findEngine(cwd);
+      if (!engine) {
+        clear(ctx);
+        stop();
+        return;
+      }
+      const payload = await readStatus(engine);
+      if (!payload) {
+        ctx.ui.setWidget(KEY, [`${GLYPH.stalled} teamwork: status unavailable`]);
+        return;
+      }
+      const paint = (ctx.ui as { theme?: Paint }).theme;
       ctx.ui.setWidget(KEY, render(payload, terminalWidth(), paint));
     } catch {
-      ctx.ui.setWidget(KEY, []);
+      stop();
+      clear(ctx);
     }
+  };
+
+  const tick = (): void => {
+    void refresh().catch(stop);
   };
 
   const start = (): void => {
     stop();
-    void refresh();
-    timer = setInterval(() => void refresh(), REFRESH_MS);
+    timer = setInterval(tick, REFRESH_MS);
     if (typeof timer === "object" && timer && "unref" in timer) timer.unref();
+    tick();
   };
 
   pi.on("session_start", async (_event, ctx) => {
