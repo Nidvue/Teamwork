@@ -231,10 +231,10 @@ under two roles is two tasks.
 | developer | T-0099 | lanes | review | P-0138 | - |
 | developer | T-0100 | harness | done | P-0136 | f33b74d1 |
 | developer | T-0101 | - | doing | - | - |
-| developer | T-0102 | identity | doing | P-0140 | - |
+| developer | T-0102 | identity | review | P-0140 | - |
 | developer | T-0103 | lanes | review | P-0142 | - |
-| developer | T-0104 | identity | review | P-0137 | - |
-| developer | T-0105 | lanes | doing | - | - |
+| developer | T-0104 | identity | done | P-0137 | c6d4a5e8 |
+| developer | T-0105 | lanes | review | P-0143 | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | done | - | - |
@@ -262,7 +262,7 @@ under two roles is two tasks.
 | technical-writer | T-0001 | docs-audit | done | P-0101 | c1a0ca82 |
 | technical-writer | T-0002 | docs-links | done | P-0119 | d1845257 |
 | technical-writer | T-0003 | roles | done | P-0128 | 059e413c |
-| technical-writer | T-0004 | records | review | P-0141 | - |
+| technical-writer | T-0004 | records | doing | P-0141 | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | team-leader | T-0002 | lanes | blocked | P-0126 | - |
 | team-leader | T-0003 | - | todo | - | - |
@@ -299,14 +299,13 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | developer | T-0094 · model auto must refuse a premium host default even when only part of the config is named | P1 | doing | - |
 | developer | T-0099 · An open feature does not protect its team leader or squad from being folded | P1 | review | - |
 | developer | T-0101 · Measure where work waits: queue wait, claim wait, lane duration and finish-to-verdict in throughput | P1 | doing | - |
-| developer | T-0102 · A commit is authored by the operator's personal identity and the identity gate accepts it | P0 | doing | - |
+| developer | T-0102 · A commit is authored by the operator's personal identity and the identity gate accepts it | P0 | review | - |
 | developer | T-0103 · Root cause: T-0087 timed out (budget) on Developer-1 | P1 | review | - |
-| developer | T-0104 · A reviewer authors the merge and the records commit, so the log names the reviewer as the author of the producer's work | P1 | review | - |
-| developer | T-0105 · Root cause: T-0101 timed out (budget) on Developer-3 | P1 | doing | - |
+| developer | T-0105 · Root cause: T-0101 timed out (budget) on Developer-3 | P1 | review | - |
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | blocked | - |
 | reviewer | T-0012 · Root cause: T-0091 timed out (silent) on Reviewer | P1 | doing | - |
 | reviewer | T-0017 · Root cause: T-0094 timed out (budget) on Reviewer-4 | P1 | review | - |
-| technical-writer | T-0004 · Records grow unbounded: Archive 4.5 MB, docs/Team 5.8 MB, Decisions 459 KB | P2 | review | - |
+| technical-writer | T-0004 · Records grow unbounded: Archive 4.5 MB, docs/Team 5.8 MB, Decisions 459 KB | P2 | doing | - |
 | team-leader | T-0002 · Own the lane-runtime stream: staff a squad, decompose the defect backlog, dispatch and report | P0 | blocked | - |
 | team-leader | T-0003 · Cut the wait: zero stalled seats at every wake, orphaned claims under 20%, median queue wait under 5 minutes | P0 | todo | - |
 
