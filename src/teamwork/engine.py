@@ -19571,15 +19571,6 @@ def host_default_model(env=None) -> str:
     return host_default(env)[1]
 
 
-def _named_premium_escape(entry: dict, env=None) -> bool:
-    """True when TEAMWORK_MODEL_ALLOW_PREMIUM names this lane's model."""
-    env = os.environ if env is None else env
-    model = entry.get("model") or ""
-    qualified = f"{entry['provider']}/{model}" if entry.get("provider") else model
-    allowed = [p.strip() for p in (env.get("TEAMWORK_MODEL_ALLOW_PREMIUM") or "").split(",")]
-    return any(name and name in (qualified, model) for name in allowed)
-
-
 def resolve_model_plan(root: Path, env=None) -> dict:
     """Route every staffed role to a model: strong lanes first, cost last.
 
@@ -19685,7 +19676,7 @@ def cmd_model_auto(args) -> int:
     unnamed = [
         (role, entry)
         for role, entry in sorted(plan["assignments"].items())
-        if not entry.get("named") and not _named_premium_escape(entry)
+        if not entry.get("named")
     ]
     if unnamed:
         die(
@@ -19694,8 +19685,7 @@ def cmd_model_auto(args) -> int:
             + " came from the host default ("
             + (host_default()[0] or "no host variable")
             + ") and nobody priced it. Name it in TEAMWORK_MODEL_STRONG, "
-            "TEAMWORK_MODEL_ECONOMY or TEAMWORK_MODEL_ALT, use `model set`, or "
-            "name the model in TEAMWORK_MODEL_ALLOW_PREMIUM to take the host's choice"
+            "TEAMWORK_MODEL_ECONOMY or TEAMWORK_MODEL_ALT, or use `model set`"
         )
     config = load_model_config(root)
     for role, entry in plan["assignments"].items():

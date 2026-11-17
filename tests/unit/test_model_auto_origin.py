@@ -82,7 +82,7 @@ def test_every_model_named_is_applied(cli, tmp_path, monkeypatch):
     assert applied["ceo"] == PREMIUM
 
 
-def test_the_allow_premium_escape_takes_the_host_default(cli, tmp_path, monkeypatch):
+def test_an_env_allow_does_not_take_the_host_default(cli, tmp_path, monkeypatch):
     project, root = _team(
         cli,
         tmp_path,
@@ -91,8 +91,10 @@ def test_the_allow_premium_escape_takes_the_host_default(cli, tmp_path, monkeypa
         PI_MODEL=PREMIUM,
         TEAMWORK_MODEL_ALLOW_PREMIUM=PREMIUM,
     )
-    assert cli("--project", project, "model", "auto", "--apply") == 0
-    assert _applied_models(root)["ceo"] == PREMIUM
+    before = _settings(root)
+    assert cli("--project", project, "model", "auto", "--apply") != 0
+    assert _settings(root) == before
+    assert PREMIUM not in json.dumps(_applied_models(root))
 
 
 def test_the_plan_names_the_variable_each_model_came_from(cli, tmp_path, monkeypatch):
