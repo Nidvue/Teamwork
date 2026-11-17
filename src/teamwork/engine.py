@@ -1022,6 +1022,65 @@ def retire_branch(root: Path, here: Path, branch: str, force: bool = False) -> b
     return False
 
 
+def retire_worktree(root: Path, project: Path, task: dict | None = None, branch: str = "") -> bool:
+    """Remove the worktree a merged task owns, so nothing of it survives the merge.
+
+    ``retire_branch`` removes a worktree only when git refuses to delete the branch
+    because that tree holds it, so a worktree whose branch is already merged or gone
+    stayed on disk as a stale checkout of a task nobody owns (D-20261117-CEO-2 c).
+    The task record is the authority and only a path inside ``Runtime/Worktrees`` is
+    ever removed.
+    """
+    tree = task_worktree(root, task) if task else None
+    if tree is None and branch:
+        tree = branch_worktree(project, branch)
+    if tree is None:
+        return False
+    wt_root = (root / DIR_RUNTIME / DIR_WORKTREES).resolve()
+    if not tree.resolve().is_relative_to(wt_root):
+        return False
+    if not tree.exists() and not _worktree_registered(project, tree):
+        return False
+    r = run_git(project, "worktree", "remove", "--force", str(tree))
+    if r.returncode != 0:
+        run_git(project, "worktree", "prune")
+        if tree.exists():
+            print(
+                f"# could not remove the worktree {tree.name}: "
+                f"{r.stderr.strip() or r.stdout.strip()}"
+            )
+            return False
+    print(f"# retired worktree {team_relative(root, tree)}")
+    return True
+
+
+def _rebase_branch_onto_base(
+    root: Path, project: Path, here: Path, base: str, branch: str, task: dict
+) -> tuple[bool, str]:
+    """Rebase the task branch onto the base it is about to join; (moved, error).
+
+    ``pr merge`` lands by rebasing the branch onto the current base and
+    fast-forwarding, so the base stays linear and the task is its one commit
+    (D-20261117-CEO-2 b). The rebase runs in the worktree that holds the branch,
+    because git refuses to check one branch out twice; when no tree holds it the
+    merge refuses and names the rebase instead of rewriting a tree under another
+    lane.
+    """
+    if run_git(project, "merge-base", "--is-ancestor", base, branch).returncode == 0:
+        return False, ""
+    tree = task_worktree(root, task) if task else None
+    where = tree if tree is not None and tree.is_dir() else None
+    if where is None and current_branch(here) == branch:
+        where = here
+    if where is None:
+        return False, f"no worktree holds {branch}, so the rebase is the owner's step"
+    r = run_git(where, "rebase", base, branch)
+    if r.returncode != 0:
+        run_git(where, "rebase", "--abort")
+        return False, (r.stderr.strip() or r.stdout.strip() or "git rebase failed")
+    return True, ""
+
+
 def _safe_ref(project: Path, ref: str) -> str:
     """A ref from a record, validated before git sees it (S-9).
 
@@ -1094,6 +1153,7 @@ def cmd_branch(args) -> int:
 
     worktree_note = ""
     worktree_abs = ""
+    shared_reason = ""
     if not getattr(args, "shared", False):
         wt = lane_worktree(root, args.agent, task["id"])
         wt.parent.mkdir(parents=True, exist_ok=True)
@@ -1105,10 +1165,24 @@ def cmd_branch(args) -> int:
         worktree_note = team_relative(root, wt)
         worktree_abs = str(wt)
     else:
+        shared_reason = (getattr(args, "reason", "") or "").strip() or str(
+            task.get("shared_reason") or ""
+        ).strip()
+        if not shared_reason:
+            die(
+                f"refusing --shared for {task['id']}: its own worktree is the default and "
+                "the shared checkout is the exception (D-20261117-CEO-2 a).\n"
+                "  A worktree cannot be isolated from a peer's uncommitted work, so the"
+                " exception is recorded on the task, not assumed:\n"
+                f"  teamwork.py branch start --agent {args.agent} --task {task['id']} "
+                "--shared --reason '<why this task cannot work in its own worktree>'",
+                2,
+            )
         print(
             f"# shared checkout: {args.agent} works in the main checkout for {task['id']}."
             "\n#   --shared is the exception, not the rule: two lanes in one tree commit"
-            " on each other's branches. Say why in the self-check note."
+            " on each other's branches."
+            f"\n#   reason recorded on the task: {shared_reason}"
         )
         r = run_git(here, "checkout", branch)
         if r.returncode != 0:
@@ -1121,6 +1195,8 @@ def cmd_branch(args) -> int:
         tasks[idx]["base"] = base
         if worktree_note:
             tasks[idx]["worktree"] = worktree_note
+        if shared_reason:
+            tasks[idx]["shared_reason"] = shared_reason
         tasks[idx]["claimed_by"] = tasks[idx].get("claimed_by") or check_claimant(
             root, args.agent, "claim", task_role
         )
@@ -1600,7 +1676,10 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             )
         if pr["status"] == "merged":
             print(f"# {pr['id']} already merged at {pr['merge_commit']}")
-            if args.delete_branch and branch_exists(project, pr["branch"]):
+            if not args.delete_branch:
+                print("# kept the branch and its worktree (--keep-branch)")
+            elif branch_exists(project, pr["branch"]):
+                retire_worktree(root, project, branch=pr["branch"])
                 retire_branch(root, here, pr["branch"], force=True)
             return 0
         if pr["status"] != "approved" and not args.force:
@@ -1815,14 +1894,22 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     )
                 merged = r
             else:
-                merged = subprocess.run(
-                    ["git", "-C", str(here)]
-                    + git_identity_args(producer)
-                    + ["merge", "--no-ff", "-m", message, branch],
-                    capture_output=True,
-                    text=True,
-                    env=_merge_commit_env(here, producer),
-                )
+                moved, why = _rebase_branch_onto_base(root, project, here, base, branch, t)
+                if why:
+                    die(
+                        f"refusing to merge {pr['id']}: {base} has moved and {branch} "
+                        f"cannot be rebased onto it:\n  {why}\n"
+                        "  Nothing was merged and the base is unchanged. The owner "
+                        "rebases and re-submits:\n"
+                        f"  git -C <the task's worktree> rebase {base}",
+                        2,
+                    )
+                if moved:
+                    print(
+                        f"# rebased {branch} onto {base}: the task lands as its one "
+                        "commit on a linear history"
+                    )
+                merged = run_git(here, "merge", "--ff-only", branch)
             if merged.returncode != 0:
                 run_git(here, "merge", "--abort")
                 if args.squash:
@@ -1879,6 +1966,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
         print(render_board_at_merge(root, here, pr))
         print(commit_archive_merge_sha(root, here, branch, sha, pr, merger))
         if not args.keep_branch:
+            retire_worktree(root, project, t, branch)
             if retire_branch(root, here, branch, force=args.squash):
                 ledger_append(
                     root,
@@ -1888,6 +1976,8 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     f"deleted {branch} after {pr['id']} merged",
                     sha,
                 )
+        else:
+            print("# kept the branch and its worktree (--keep-branch)")
         if was_on and was_on != base and branch_exists(here, was_on):
             r = run_git(here, "checkout", was_on)
             if r.returncode == 0:
@@ -17631,6 +17721,7 @@ def cmd_audit(args) -> int:
     problems += _audit_evolution_framework(root, names, args)
     problems += _audit_bug_fixes_without_a_repro_record(root, names, args)
     problems += _audit_merged_branches_still_open(root, names, args)
+    problems += _audit_git_leftovers_merged_worktrees_and_stale_re(root, names, args)
     problems += _audit_git_archival_lfs_large_files(root, names, args)
     problems += _audit_markdown_link_health_broken_malformed_ba(root, names, args)
 
@@ -18366,6 +18457,83 @@ def _audit_layered_tests(root: Path, names: list, args) -> int:
             f"- informational: {len(idle)} role(s) have no tests yet "
             f"({', '.join(idle)}); nothing to test until work starts"
         )
+    if not hits:
+        print("- none")
+    return hits
+
+
+def _local_branches(project: Path) -> list[str]:
+    r = run_git(project, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+    return [line.strip() for line in r.stdout.splitlines() if line.strip()]
+
+
+def _worktree_branches(project: Path) -> list[tuple[Path, str]]:
+    """(path, branch) per registered worktree; branch is '' on a detached HEAD."""
+    found: list[tuple[Path, str]] = []
+    path = ""
+    branch = ""
+    listing = run_git(project, "worktree", "list", "--porcelain").stdout.splitlines()
+    for line in listing + [""]:
+        if line.startswith("worktree "):
+            path = line[len("worktree ") :].strip()
+            branch = ""
+        elif line.startswith("branch "):
+            branch = line[len("branch ") :].strip().removeprefix("refs/heads/")
+        elif not line.strip() and path:
+            found.append((Path(path), branch))
+            path = ""
+    return found
+
+
+def _stale_remote_refs(project: Path) -> list[str]:
+    """Tracking refs git's own prune would delete: the remote no longer has them."""
+    stale: list[str] = []
+    remotes = [line.strip() for line in run_git(project, "remote").stdout.splitlines()]
+    for remote in [name for name in remotes if name]:
+        r = run_git(project, "remote", "prune", "--dry-run", remote)
+        if r.returncode != 0:
+            continue
+        for line in (r.stdout + r.stderr).splitlines():
+            if "would prune" not in line:
+                continue
+            ref = line.split("[would prune]", 1)[1].strip()
+            if ref:
+                stale.append(ref)
+    return stale
+
+
+def _audit_git_leftovers_merged_worktrees_and_stale_re(root: Path, names: list, args) -> int:
+    print("## git leftovers: merged branches, worktrees on a dead branch, stale remote refs")
+    hits = 0
+    project = project_of(root)
+    if is_git_repo(project):
+        base = DEFAULT_BASE if branch_exists(project, DEFAULT_BASE) else ""
+        if base:
+            for branch in _local_branches(project):
+                if branch == base:
+                    continue
+                if run_git(project, "merge-base", "--is-ancestor", branch, base).returncode == 0:
+                    print(f"- branch {branch} is merged into {base} and still exists; delete it")
+                    hits += 1
+        wt_root = (root / DIR_RUNTIME / DIR_WORKTREES).resolve()
+        for path, branch in _worktree_branches(project):
+            if not path.resolve().is_relative_to(wt_root):
+                continue
+            if not branch:
+                print(f"- worktree {path.name} is on a detached HEAD; remove it")
+                hits += 1
+            elif not branch_exists(project, branch):
+                print(f"- worktree {path.name} is on {branch}, which no longer exists; remove it")
+                hits += 1
+            elif (
+                base
+                and run_git(project, "merge-base", "--is-ancestor", branch, base).returncode == 0
+            ):
+                print(f"- worktree {path.name} is on merged branch {branch}; remove it")
+                hits += 1
+        for ref in _stale_remote_refs(project):
+            print(f"- stale remote-tracking ref {ref}; run git remote prune <remote>")
+            hits += 1
     if not hits:
         print("- none")
     return hits
@@ -20861,6 +21029,12 @@ def _parsers_integration(sub, common) -> None:
         "--shared",
         action="store_true",
         help="work in the main checkout instead of the task's own worktree (the exception)",
+    )
+    s.add_argument(
+        "--reason",
+        default="",
+        metavar="WHY",
+        help="required with --shared: why this task cannot work in its own worktree",
     )
     s.set_defaults(func=cmd_branch)
     s = bsub.add_parser("list", parents=[common], help="branches with PR/merge state")

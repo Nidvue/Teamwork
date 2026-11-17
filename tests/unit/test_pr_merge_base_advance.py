@@ -51,7 +51,7 @@ def add_task(
     assert cli("--project", project, "task", "next", "developer-1") == 0
     argv = ["--project", project, "branch", "start", "--agent", "developer-1", "--task", "T-0001"]
     if not worktree:
-        argv.append("--shared")
+        argv += ["--shared", "--reason", "the test needs the shared checkout"]
     if base:
         argv += ["--base", base]
     assert cli(*argv) == 0
