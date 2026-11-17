@@ -125,7 +125,7 @@ under two roles is two tasks.
 | designer | T-0001 | design | done | P-0086 | 830636bc |
 | designer | T-0002 | design | done | P-0088 | 7abfa18e |
 | designer | T-0003 | design | done | P-0096 | cd59fa15 |
-| designer | T-0004 | design | review | P-0107 | - |
+| designer | T-0004 | design | doing | P-0107 | - |
 | designer | T-0005 | - | doing | - | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
@@ -208,14 +208,14 @@ under two roles is two tasks.
 | developer | T-0079 | exit-codes | doing | P-0104 | - |
 | developer | T-0080 | privacy-scan | done | P-0105 | ebcff866 |
 | developer | T-0081 | widget-header | done | P-0106 | 262be1e3 |
-| developer | T-0082 | status | doing | - | - |
-| developer | T-0083 | team-records | review | P-0109 | - |
+| developer | T-0082 | status | review | P-0115 | - |
+| developer | T-0083 | team-records | done | P-0109 | - |
 | developer | T-0084 | widget | done | P-0112 | 7e085c95 |
 | developer | T-0085 | - | doing | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | done | - | - |
-| release-engineer | T-0004 | release-integrity | review | P-0108 | - |
+| release-engineer | T-0004 | release-integrity | done | P-0108 | 3b7f4425 |
 | release-engineer | T-0005 | changelog | review | P-0113 | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
@@ -240,7 +240,7 @@ under two roles is two tasks.
 | tester | T-0008 | tests | done | P-0103 | 49e8fde7 |
 | tester | T-0009 | tests | review | P-0110 | - |
 | tester | T-0010 | pi-package | review | P-0114 | - |
-| tester | T-0011 | - | doing | - | - |
+| tester | T-0011 | tests | review | P-0116 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -259,13 +259,11 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
 | ceo | T-0039 · Trim the Reviewer startup read back under the 122880 B cap | P2 | doing | - |
-| designer | T-0004 · AC-D4: record the panel design - what the user decides from it, with one record-backed signal per question | P1 | review | - |
+| designer | T-0004 · AC-D4: record the panel design - what the user decides from it, with one record-backed signal per question | P1 | doing | - |
 | designer | T-0005 · AC-D6: the panel rationale - three operator questions, one measurable signal each, recorded before the code | P1 | doing | - |
 | developer | T-0079 · release blockers: 7 failing tests, board drift, the 1.6.0 version bump and R2, plus the code audit's F-1 exit-code defect | P0 | doing | - |
-| developer | T-0082 · status shows another role's task title: status_snapshot builds titles keyed by task id only, so every role's T-0001 collides | P2 | doing | - |
-| developer | T-0083 · Decide the preserved shared-checkout work: adopt the bus/claims slice or archive it with a reason | P0 | review | - |
+| developer | T-0082 · status shows another role's task title: status_snapshot builds titles keyed by task id only, so every role's T-0001 collides | P2 | review | - |
 | developer | T-0085 · unit-layer records for 15 areas with no passing unit test record: agent-state-row, agent-state-width-matrix, board, ci-shard-matrix, design, docs-audit, docs-audit-citations, pi-package, privacy-scan, release-consistency, release-readiness, security-audit, ui-agent-state, widget, widget-header - add tests add --layer unit --area <a> and record the run at the current head | P2 | doing | - |
-| release-engineer | T-0004 · Release consistency R7 and repository hygiene: 5 missing CHANGELOG sections, merged branches, dead worktrees, stale refs | P0 | review | - |
 | release-engineer | T-0005 · release-layer record for area changelog: venv/bin/python scripts/check_release_consistency.py --offline -> then tests add --layer release --area changelog and record the run | P2 | review | - |
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | todo | - |
 | reviewer | T-0009 · acceptance-layer records for 8 areas: board, ci-shard-matrix, docs-audit (FAILING), docs-audit-citations (FAILING), privacy-scan, release-gate, security-audit, widget - run venv/bin/python -m pytest -q tests/acceptance -q and record tests run --layer acceptance --area <a>; the two FAILING rows TS-0117/TS-0118 must be re-run first | P2 | todo | - |
@@ -273,7 +271,7 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | technical-writer | T-0001 · M26 docs audit: false claims proved by command, version drift, the install story, duplication, stale team records; ranked; no edits | P0 | review | - |
 | tester | T-0009 · Triage the 41 test-layer gaps into per-role units, record the layers the Tester owns | P0 | review | - |
 | tester | T-0010 · AC-M25-4: prove an installed package exposes exactly one skill named teamwork | P1 | review | - |
-| tester | T-0011 · integration-layer tests missing for widget, widget-header, security-audit: -k widget and -k header on tests/integration/test_status_contract.py select 0 tests and no integration file names security-audit - write the assertions and record with tests run --layer integration --area <a> | P2 | doing | - |
+| tester | T-0011 · integration-layer tests missing for widget, widget-header, security-audit: -k widget and -k header on tests/integration/test_status_contract.py select 0 tests and no integration file names security-audit - write the assertions and record with tests run --layer integration --area <a> | P2 | review | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
