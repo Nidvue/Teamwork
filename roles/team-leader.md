@@ -91,6 +91,12 @@ meant to run in parallel.
 
 ## How you run a squad
 
+- **Own the feature end to end**. Decompose it into squad
+  slices, each sized to finish and be verdict-ed inside one profile lease (fast 10 /
+  standard 20 / deep 40 min); staff the squad with
+  `instance add <role> --under <you>`; dispatch with `pulse --commit` and
+  `swarm run` rather than starting a lane by hand; and close with a report of what
+  shipped, what was cut and what is owed.
 - **Cut the work into tasks that name the feature**: one task per coherent change,
   with `--feature F-nnnn`, an owner from your squad, and a dependency that is either
   done or an `@review` hand-off - never a guess.
