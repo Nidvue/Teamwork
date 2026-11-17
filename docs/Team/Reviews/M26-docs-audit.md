@@ -1,6 +1,7 @@
 # M26 docs audit - false claims proved by command
 
 Owner: Technical Writer. Task: T-0001. Audit only: no page was edited.
+Related: [Board](../Board.md), [Decisions](../Decisions.md).
 Revision audited: `d6ab6d23` (branch `technicalwriter/t-0001-...`, forked from `main`).
 Scope: the committed documentation a reader or operator acts on - `README.md`,
 `CHANGELOG.md`, `SKILL.md`, `references/*.md`, `roles/*.md`, `docs/*.md`,
