@@ -3158,18 +3158,19 @@ taker, so one session processes it once.
 
 A bus announcement prevents duplicate work; a claim prevents duplicate writes.
 
-```sh
-teamwork.py claim add --by <id> (--path <p> | --task <T-id> | --area <a>) --ttl <minutes>
-teamwork.py claim check <value>
-teamwork.py claim list
-teamwork.py claim release <C-id>
-```
+The record ships; the command does not. `extensions/teamwork-bus.ts` reads the register
+at `<bus_root>/claims/<C-id>.json` (`claims()`, :160) and its `write` hook refuses a path
+another live session holds, naming the holder (`holder()`, :163). A record is live while
+`expires` is absent or in the future and `state` is not dead, and its shape is
+`{id, path|task|area, by, session, root, created, expires, state}`.
 
-One claim is one record at `<bus_root>/claims/<C-id>.json`, under the same
-`<bus_root>/.lock`. `add` refuses when a live, unexpired claim holds the same value and
-names the holder, so the refusal is actionable rather than a silent collision. TTL
-defaults to 120 minutes: a dead session stops blocking writes without anyone having to
-detect that it died.
+No shipped CLI writes one: `scripts/teamwork.py` has no `claim` subcommand, so
+`teamwork.py claim add --by <id> --path <p>` and `teamwork.py claim list` exit 2 with an
+argparse error naming the top-level commands. The register's writer is the frozen target
+of D-20261117-CEO part 4 - `claim add|check|list|release`, `--path|--task|--area`, TTL
+default 120 minutes - and `src/teamwork/claims.py` (T-0134, `ca6bde25`) is not on
+`main`, so nothing refuses a second claim yet. Until it lands, the write exclusion a
+lane can rely on is its task's `--files` declaration, which `preflight` checks.
 
 ### 18.4 The push adapter (`extensions/teamwork-bus.ts`)
 
@@ -3196,5 +3197,5 @@ the design; repeated injection is its cost, and a long session pays it in contex
 
 - One message, one file, one address key: no copy per reader, no registry.
 - The team mailbox is unchanged; the bus is additive.
-- A refused `claim add` and a refused second `take` both name the holder.
+- A refused `take` and a refused `write` to a held path both name the holder.
 - No daemon, no socket, no cross-machine transport, no change to the team tree.
