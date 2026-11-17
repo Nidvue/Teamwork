@@ -1518,15 +1518,13 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
     (`pulse --commit`, the default mode) hand the dispatch to the lanes without
     losing it.
 
-    Only a claim with no run history is adopted: once a lane has spent an attempt,
-    the retry path owns that task. Without that split, adopting a stalled claim
-    re-planned the same task forever - measured at 783 waves in one run before the
-    bound existed. An exhausted assignment stays claimed and the CEO decides.
-
-    A review fail is not that shape: the round came back with findings, so the
-    lane has new work on the same task and no attempt spent on it yet. Adoption
-    allows one round per fail (``used <= review_fails``), which still stops a
-    stalled claim from being re-planned forever.
+    Every such claim is adopted while an attempt is left, and each adoption spends
+    one: the lane starts at ``used + 1``, so a claim whose lane died is restarted
+    rather than left stalled (T-0089). :func:`reconcile_stalled` releases the claim
+    once :func:`lane_attempts` is spent, so adoption cannot re-plan the same task
+    forever - the runaway measured at 783 waves in one run came from a bound that
+    skipped every claim with a spent attempt and left it stalled with nothing to
+    reconcile it.
     """
     limit = attempts or lane_attempts(root)
     live = {pascal(str(run.get("agent") or "")) for run in live_runs(root)}
@@ -1540,10 +1538,7 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
             if not holder or pascal(holder) in live:
                 continue
             used = _attempts_used(runs, holder, task["id"])
-            rounds = (
-                int(task.get("review_fails") or 0) if task.get("review_status") == "failed" else 0
-            )
-            if used >= limit or (used >= 1 and used > rounds):
+            if used >= limit:
                 continue
             if timed_out(runs, task["id"]):
                 continue
@@ -1578,6 +1573,58 @@ def adopted_plan(root: Path, attempts: int = 0) -> list:
             )
         )
     return out
+
+
+def reconcile_stalled(root: Path, attempts: int = 0) -> list:
+    """Restart or release a claimed task whose lane is gone (T-0089).
+
+    A stalled seat is a claim (``doing``/``selfcheck``) whose instance holds no live
+    lane. :func:`adopted_plan` restarts it while an attempt is left; once
+    :func:`lane_attempts` is spent nothing would ever touch it again, so the claim
+    is released through :func:`release_assignment`: the claim clears, the task goes
+    back to the board as ``blocked`` with the reason in its findings - ``todo`` would
+    hand it straight back to the same swarm wave, which is the runaway the attempt
+    bound exists to stop - and the seat folds on the same reconcile.
+
+    Returns the handles released. Called from the fold path only
+    (``engine._foldable_instances``), so a wake and ``instance prune`` reconcile and
+    ``status`` stays read-only; a second reconcile with nothing exhausted releases
+    nothing and appends nothing.
+    """
+    limit = attempts or lane_attempts(root)
+    live = {pascal(str(run.get("agent") or "")) for run in live_runs(root)}
+    runs = load_runs(root)
+    released: list = []
+    for role in list_roles(root):
+        for task in parse_tasks(task_file(root, role)):
+            if task["status"] not in ("doing", "selfcheck"):
+                continue
+            holder = str(task.get("claimed_by") or "").strip()
+            if not holder or pascal(holder) in live:
+                continue
+            if _attempts_used(runs, holder, task["id"]) < limit:
+                continue
+            assignment = Assignment(holder, role, task["id"], task["title"])
+            if release_assignment(
+                root,
+                assignment,
+                status="blocked",
+                note=f"released by reconcile: {limit} lane attempt(s) spent and no live lane",
+            ):
+                released.append(f"{holder}/{task['id']}")
+    if released:
+        names = ", ".join(released)
+        engine.ledger_append(
+            root,
+            "task.release",
+            "reconcile",
+            ", ".join(released),
+            f"{limit} attempt(s) spent and no live lane: blocked, claim cleared",
+            "",
+            "",
+        )
+        print(f"# reconcile: released {len(released)} stalled claim(s): {names}")
+    return released
 
 
 def dispatch_plan(root: Path, limit: int = 0) -> list:
@@ -1695,12 +1742,17 @@ def retry_plan(root: Path, attempts: int = 0) -> list:
     return out
 
 
-def release_assignment(root: Path, assignment: Assignment) -> bool:
+def release_assignment(
+    root: Path, assignment: Assignment, status: str = "todo", note: str = ""
+) -> bool:
     """Undo a claim this supervisor made when the lane could not start.
 
     A claim with no process behind it is worse than no claim: the instance looks
     busy, the task never becomes ready again, and the next wave plans around work
     nobody is doing. Only the fields this dispatcher wrote are cleared.
+
+    ``status`` and ``note`` let a reconcile give the task back as ``blocked`` with
+    its reason, instead of ``todo`` where the next wave would take it again.
     """
     if assignment.review_owner:
         path = task_file(root, assignment.review_owner)
@@ -1729,12 +1781,14 @@ def release_assignment(root: Path, assignment: Assignment) -> bool:
             return False
         task = tasks[index]
         holder = pascal(str(task.get("claimed_by") or ""))
-        if holder != pascal(assignment.instance) or task["status"] != "doing":
+        if holder != pascal(assignment.instance) or task["status"] not in ("doing", "selfcheck"):
             return False
         if task.get("self_check") == "passed" or task.get("pr"):
             return False
-        task["status"] = "todo"
+        task["status"] = status
         task["claimed_by"] = ""
+        if note:
+            task["findings"] = note
         task["updated"] = today_iso()
         write_tasks(path, tasks, assignment.role)
     return True

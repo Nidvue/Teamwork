@@ -2884,6 +2884,7 @@ LEDGER_ACTIONS = (
     "task.claim",
     "task.duplicate",
     "task.reclaim",
+    "task.release",
     "task.rm",
     "task.status",
     "tests.add",
@@ -6663,17 +6664,20 @@ def _idle_reasons(root: Path, role: str, name: str) -> list:
     return reasons
 
 
-def _foldable_instances(root: Path, keep_required: bool) -> tuple:
+def _foldable_instances(root: Path, keep_required: bool, mutate: bool = True) -> tuple:
     """``(fold, keep)`` for every instance: ``fold`` is idle with nothing to take.
 
     The CEO is never folded - it is the only voice to the user. ``keep_required``
     keeps one instance of each gate-critical role so an automatic fold can never
     strand the gate; an operator running `instance prune` without it drains every
-    idle lane.
+    idle lane. ``mutate=False`` is the report path: it reads the same board and
+    releases no claim, so a report-only wake changes nothing (T-0089).
     """
     from . import lanes as lane_runtime
 
     lane_runtime.settle(root)
+    if mutate:
+        lane_runtime.reconcile_stalled(root)
     reap_slots(root)
     ready_by_role = {role: _ready_for_role(root, role) for role in list_roles(root)}
     open_reviews = open_review_items(root)
@@ -12633,7 +12637,9 @@ def cmd_pulse(args) -> int:
             )
         print()
 
-    foldable, _kept = _foldable_instances(root, keep_required=True)
+    foldable, _kept = _foldable_instances(
+        root, keep_required=True, mutate=bool(args.commit and mode == "auto")
+    )
     if foldable:
         print(f"## idle lanes to fold ({len(foldable)})")
         for name, role in foldable:
