@@ -306,3 +306,30 @@ def test_built_package_ships_the_status_extension(tmp_path: Path) -> None:
     text = shipped.read_text(encoding="utf-8")
     assert '"status"' in text and '"--json"' in text, "the widget drives the status feed"
     assert "scripts" in text and "teamwork.py" in text
+
+
+def test_widget_feed_rows_carry_every_field_the_extension_reads(tmp_path: Path) -> None:
+    """The extension reads each row field by name (`extensions/teamwork-status.ts`),
+    so a row missing one key renders as an empty column, not as an error."""
+    project, team = populated(tmp_path)
+    code, payload = status_json(project, team)
+    assert code == 0
+    assert set(payload) == ENVELOPE, sorted(set(payload) ^ ENVELOPE)
+    assert payload["instances"], "the populated fixture must produce rows to check"
+    for row in payload["instances"]:
+        assert set(row) == ROW, sorted(set(row) ^ ROW)
+
+
+def test_widget_header_lane_count_describes_the_rows_it_prints(tmp_path: Path) -> None:
+    """The panel header prints `counts.lanes` beside the lane rows; a count that is
+    not the rows it describes makes the header contradict the body."""
+    project, team = populated(tmp_path)
+    code, payload = status_json(project, team)
+    assert code == 0
+    assert payload["counts"]["lanes"] == len(payload["lanes"]), (
+        payload["counts"]["lanes"],
+        len(payload["lanes"]),
+    )
+    assert payload["count"] == len(payload["instances"]), (
+        "the envelope count is the instance rows, not the lane rows"
+    )
