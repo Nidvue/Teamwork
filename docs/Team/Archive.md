@@ -8213,4 +8213,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 04f03115
 - reviewer evidence: node Scratch/r6-t0084-accept.mjs (own acceptance probe: real status --json, visibleWidth from pi-tui) @04f03115 -> rows=17 lanes=6, 0 lines over width at 40/80/100/120, <=12 lines, CJK instance name at 80 no overflow, partial payload no undefined/NaN, render({}) and empty instances+lanes -> [], no raw ANSI; venv/bin/python -m pytest tests/unit/test_pi_status_contract.py tests/unit/test_pi_status_render.py -q @04f03115 -> 31 passed in 19.26s; venv/bin/python -m ruff format --check tests/unit/test_pi_status_contract.py @04f03115 -> 1 file already formatted
 - findings history: 
-- branch / merge: developer-2/t-0084-panel-contract-ac-d1-d2-d3-d5-every-draw / pending
+- branch / merge: developer-2/t-0084-panel-contract-ac-d1-d2-d3-d5-every-draw / 7e085c95
