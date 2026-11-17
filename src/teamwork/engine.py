@@ -17548,6 +17548,7 @@ def cmd_audit(args) -> int:
     problems += _audit_done_without_evidence_fabricated_complet(root, names, args)
     problems += _audit_possible_duplicate_tasks_across_agents(root, names, args)
     problems += _audit_memory_caps(root, names, args)
+    problems += _audit_premium_lane_without_explicit_allow(root, names, args)
     problems += _audit_blocked_tasks(root, names, args)
     problems += _audit_stale_in_progress(root, names, args)
     problems += _audit_deliverables_awaiting_independent_review(root, names, args)
@@ -17753,6 +17754,22 @@ def _audit_memory_caps(root: Path, names: list, args) -> int:
         print("- none")
     print()
     return hits
+
+
+def _audit_premium_lane_without_explicit_allow(root: Path, names: list, args) -> int:
+    print("## cost policy (premium model on a lane)")
+    violations = premium_lane_violations(root)
+    for v in violations:
+        print(
+            f"- {v['lane']} ({v['scope']}) runs {v['provider'] or '-'}/"
+            f"{v['model'] or '-'}: {v['reason']} - a premium model needs an explicit "
+            "demand (D-20261117-CEO-4): set allow_premium on that lane, or move it "
+            "to an economy model"
+        )
+    if not violations:
+        print("- none")
+    print()
+    return len(violations)
 
 
 def _audit_blocked_tasks(root: Path, names: list, args) -> int:
@@ -19432,6 +19449,47 @@ def resolved_model(root: Path, agent: str) -> dict:
     if role and role in config["roles"]:
         return dict(config["roles"][role], source="role")
     return {"provider": "", "model": "", "source": "unset"}
+
+
+ECONOMY_PROVIDERS = {"deepinfra", "ollama", "ollama-cloud", "local", "self-hosted"}
+PREMIUM_MODEL_PREFIXES = ("anthropic/", "openai/", "google/", "xai/")
+
+
+def premium_lane_violations(root: Path) -> list:
+    """Lanes configured on a premium model with no explicit allow of their own.
+
+    D-20261117-CEO-4: a premium model runs only when the user asks for it, and then
+    only on the lane they name. The allow therefore sits on the lane's own entry
+    (``allow_premium``) instead of a team-wide switch, so one lane's demand cannot
+    cover another lane's drift. An entry that names no model is counted too: it
+    inherits a host default whose cost nobody recorded.
+    """
+    config = load_model_config(root)
+    violations = []
+    for scope in ("roles", "agents"):
+        for lane, entry in sorted(config[scope].items()):
+            if not isinstance(entry, dict) or entry.get("allow_premium"):
+                continue
+            provider = str(entry.get("provider") or "").strip().lower()
+            model = str(entry.get("model") or "").strip()
+            if not provider or not model:
+                reason = "unset"
+            elif provider not in ECONOMY_PROVIDERS:
+                reason = "premium-provider"
+            elif model.lower().startswith(PREMIUM_MODEL_PREFIXES):
+                reason = "premium-model"
+            else:
+                continue
+            violations.append(
+                {
+                    "lane": lane,
+                    "scope": scope,
+                    "provider": provider,
+                    "model": model,
+                    "reason": reason,
+                }
+            )
+    return violations
 
 
 AGENT_HOSTS = {
