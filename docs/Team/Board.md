@@ -205,18 +205,19 @@ under two roles is two tasks.
 | developer | T-0076 | widget | done | P-0099 | 926ec94c |
 | developer | T-0077 | - | dropped | - | - |
 | developer | T-0078 | audit | done | P-0100 | 9de0c8b1 |
-| developer | T-0079 | exit-codes | review | P-0104 | - |
+| developer | T-0079 | exit-codes | doing | P-0104 | - |
 | developer | T-0080 | privacy-scan | done | P-0105 | ebcff866 |
 | developer | T-0081 | widget-header | done | P-0106 | 262be1e3 |
 | developer | T-0082 | status | done | P-0115 | 71d8da75 |
 | developer | T-0083 | team-records | done | P-0109 | - |
 | developer | T-0084 | widget | done | P-0112 | 7e085c95 |
 | developer | T-0085 | unit-coverage | done | P-0117 | 85a94e26 |
+| developer | T-0086 | - | todo | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | done | - | - |
 | release-engineer | T-0004 | release-integrity | done | P-0108 | 3b7f4425 |
-| release-engineer | T-0005 | changelog | review | P-0113 | - |
+| release-engineer | T-0005 | changelog | done | P-0113 | c08da898 |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -225,7 +226,7 @@ under two roles is two tasks.
 | reviewer | T-0006 | - | done | - | - |
 | reviewer | T-0007 | status | done | P-0090 | edc00c18 |
 | reviewer | T-0008 | - | todo | - | - |
-| reviewer | T-0009 | - | review | - | - |
+| reviewer | T-0009 | - | done | - | - |
 | security-auditor | T-0001 | security-audit | done | P-0102 | a9b0ef95 |
 | security-auditor | T-0002 | security-audit | done | P-0111 | e5cfb54b |
 | technical-writer | T-0001 | m26-docs-audit | review | P-0101 | - |
@@ -239,8 +240,8 @@ under two roles is two tasks.
 | tester | T-0007 | ui-agent-state | done | P-0098 | 7284ad6b |
 | tester | T-0008 | tests | done | P-0103 | 49e8fde7 |
 | tester | T-0009 | tests | done | P-0110 | 4986d86b |
-| tester | T-0010 | pi-package | doing | P-0114 | - |
-| tester | T-0011 | tests | review | P-0116 | - |
+| tester | T-0010 | pi-package | review | P-0114 | - |
+| tester | T-0011 | tests | doing | P-0116 | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -258,13 +259,12 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| developer | T-0079 · release blockers: 7 failing tests, board drift, the 1.6.0 version bump and R2, plus the code audit's F-1 exit-code defect | P0 | review | - |
-| release-engineer | T-0005 · release-layer record for area changelog: venv/bin/python scripts/check_release_consistency.py --offline -> then tests add --layer release --area changelog and record the run | P2 | review | - |
+| developer | T-0079 · release blockers: 7 failing tests, board drift, the 1.6.0 version bump and R2, plus the code audit's F-1 exit-code defect | P0 | doing | - |
+| developer | T-0086 · Guard the cost policy: a test that no lane is configured on a premium model without an explicit allow | P2 | todo | - |
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | todo | - |
-| reviewer | T-0009 · acceptance-layer records for 8 areas: board, ci-shard-matrix, docs-audit (FAILING), docs-audit-citations (FAILING), privacy-scan, release-gate, security-audit, widget - run venv/bin/python -m pytest -q tests/acceptance -q and record tests run --layer acceptance --area <a>; the two FAILING rows TS-0117/TS-0118 must be re-run first | P2 | review | - |
 | technical-writer | T-0001 · M26 docs audit: false claims proved by command, version drift, the install story, duplication, stale team records; ranked; no edits | P0 | review | - |
-| tester | T-0010 · AC-M25-4: prove an installed package exposes exactly one skill named teamwork | P1 | doing | - |
-| tester | T-0011 · integration-layer tests missing for widget, widget-header, security-audit: -k widget and -k header on tests/integration/test_status_contract.py select 0 tests and no integration file names security-audit - write the assertions and record with tests run --layer integration --area <a> | P2 | review | - |
+| tester | T-0010 · AC-M25-4: prove an installed package exposes exactly one skill named teamwork | P1 | review | - |
+| tester | T-0011 · integration-layer tests missing for widget, widget-header, security-audit: -k widget and -k header on tests/integration/test_status_contract.py select 0 tests and no integration file names security-audit - write the assertions and record with tests run --layer integration --area <a> | P2 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
