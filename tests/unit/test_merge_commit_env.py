@@ -167,3 +167,62 @@ def test_the_accepted_results_entry_commit_keeps_the_ambient_environment(
     _pin_base_entry_commit(monkeypatch, tmp_path, seen)
     engine.commit_records_entry(tmp_path, {"id": "T-0002"}, "Reviewer-1")
     assert seen[-1]["env"]["TEAMWORK_MARKER"] == "kept"
+
+
+def test_the_merge_identity_is_the_producer_role_not_the_reviewer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GIT_AUTHOR_NAME", HOSTILE_IDENTITY[0])
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", HOSTILE_IDENTITY[1])
+    env = engine._merge_commit_env(None, "developer")
+    name, email = engine.role_identity("developer")
+    assert (env["GIT_AUTHOR_NAME"], env["GIT_AUTHOR_EMAIL"]) == (name, email)
+    assert (env["GIT_COMMITTER_NAME"], env["GIT_COMMITTER_EMAIL"]) == (name, email)
+    assert env["GIT_AUTHOR_NAME"] != engine.role_identity("reviewer")[0]
+    assert env["TEAMWORK_COMMIT_IDENTITY"] == "role"
+    assert engine._merge_commit_env()["GIT_AUTHOR_NAME"] == "Reviewer", (
+        "the default stays the reviewer so a caller with no producer is unchanged"
+    )
+
+
+@pytest.mark.parametrize(
+    ("task", "pr", "expected"),
+    [
+        ({"role": "tester"}, {"author": "Developer-4"}, "tester"),
+        ({"claimed_by": "Tester-2"}, {"author": "Developer-4"}, "tester"),
+        ({}, {"author": "Developer-4"}, "developer"),
+        ({}, {"author": "developer"}, "developer"),
+        ({}, {}, "reviewer"),
+        ({"claimed_by": ""}, {"author": ""}, "reviewer"),
+    ],
+)
+def test_the_producer_role_is_resolved_from_the_task_then_the_pr_author(
+    task: dict, pr: dict, expected: str
+) -> None:
+    role, note = engine._producer_commit_identity(task, pr)
+    assert role == expected
+    assert bool(note) is (expected == "reviewer")
+
+
+def test_a_merged_developer_task_records_the_developer_as_its_author() -> None:
+    task = {"id": "T-0104", "role": "developer", "claimed_by": "Developer-4"}
+    pr = {"id": "P-0200", "author": "Developer-4", "task": "T-0104"}
+    producer, note = engine._producer_commit_identity(task, pr)
+    message = engine.build_commit_message(
+        producer,
+        {
+            "type": "chore",
+            "area": "merge",
+            "task": task["id"],
+            "producers": pr["author"],
+            "goal": "integrate P-0200 into main",
+            "deliverable": "merge of the branch",
+            "why": "review passed",
+            "status": "merged into main",
+            "result": "review by Reviewer-2 (passed)" + note,
+        },
+    )
+    assert "\nRole: Developer\n" in message
+    assert "\nProducers: Developer\n" in message
+    assert "Reviewer" not in message.split("\n")[2]
+    assert "Result: review by Reviewer-2 (passed)" in message

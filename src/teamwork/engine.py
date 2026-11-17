@@ -1526,7 +1526,27 @@ def _return_staged_entries(
             )
 
 
-def _merge_commit_env(project=None) -> dict:
+def _producer_commit_identity(t: dict | None = None, pr: dict | None = None) -> tuple:
+    """(role, note) the commit that lands or records a task is authored by.
+
+    The log records the original author, so the producer's role mailbox authors the
+    commit and its ``Role`` field, never the reviewer's (D-20261117-CEO-14). The
+    note is non-empty only when nothing names a producer, so the body records that
+    the reviewer authored it instead of the commit inventing a role.
+    """
+    for name in (
+        (t or {}).get("role"),
+        (pr or {}).get("role"),
+        (t or {}).get("claimed_by"),
+        (pr or {}).get("author"),
+    ):
+        role = resolve_role(name or "")
+        if role:
+            return role, ""
+    return "reviewer", " (no producer role recorded; the reviewer authored it)"
+
+
+def _merge_commit_env(project=None, role: str = "reviewer") -> dict:
     """The environment a merge's own commit runs in.
 
     The R1 pre-commit hook refuses a commit on the default branch so no lane can
@@ -1537,14 +1557,15 @@ def _merge_commit_env(project=None) -> dict:
     The identity is pinned here as well: the merge passes ``-c user.name``, which
     loses to an exported ``GIT_AUTHOR_NAME`` left by a rebase, a forge runner or
     a wrapper shell, so without this a merge could land authored by the operator.
-    The pair is the Reviewer **role mailbox**, computed directly rather than from
+    The pair is ``role``'s **role mailbox** - the producer of the work the commit
+    lands, not the reviewer who runs the merge - computed directly rather than from
     ``commit_identity``: that helper falls back to the repository's configured pair
     (the operator), and the committer guard rejects an operator pair on the default
     branch - a merge on ``main`` is exactly the commit it audits (v1.5.10 tag run).
     ``TEAMWORK_COMMIT_IDENTITY=role`` is set too, so any nested git call the merge
     makes resolves the same role pair instead of the ambient one.
     """
-    name, email = role_identity("reviewer")
+    name, email = role_identity(role)
     return dict(
         os.environ,
         TEAMWORK_ALLOW_MAIN="1",
@@ -1724,10 +1745,11 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 + ", ".join(foreign)
                 + " uncommitted: another lane's record is not part of this merge's commit"
             )
+        producer, fallback_note = _producer_commit_identity(t, pr)
         if records:
             run_git(here, "add", "--", *records)
             rec_msg = build_commit_message(
-                "reviewer",
+                producer,
                 {
                     "type": "chore",
                     "area": "records",
@@ -1737,17 +1759,18 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                     "deliverable": ", ".join(records),
                     "why": "the evidence ledger and plan must match the merged revision",
                     "status": "recorded",
-                    "result": f"review {t.get('review_status')} by {t.get('reviewer') or merger}",
+                    "result": f"review {t.get('review_status')} by {t.get('reviewer') or merger}"
+                    + fallback_note,
                 },
             )
             rr = subprocess.run(
                 ["git", "-C", str(here)]
-                + git_identity_args("reviewer")
+                + git_identity_args(producer)
                 + ["commit", "-q", "-F", "-", "--", *records],
                 input=rec_msg,
                 capture_output=True,
                 text=True,
-                env=_merge_commit_env(here),
+                env=_merge_commit_env(here, producer),
             )
             if rr.returncode != 0:
                 run_git(here, "reset", "-q", "--", *records)
@@ -1762,7 +1785,7 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
             print(f"# recorded {len(records)} team record(s) on {base} before merging")
             base_sha = run_git(here, "rev-parse", base).stdout.strip()
         message = build_commit_message(
-            "reviewer",
+            producer,
             {
                 "type": "chore",
                 "area": "merge",
@@ -1772,7 +1795,8 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 "deliverable": f"merge of {branch}",
                 "why": f"review passed: {t.get('evidence') or 'see task evidence'}",
                 "status": f"merged into {base}",
-                "result": f"review by {t.get('reviewer') or args.by} ({t.get('review_status')})",
+                "result": f"review by {t.get('reviewer') or args.by} ({t.get('review_status')})"
+                + fallback_note,
             },
         )
         lifted = _lift_staged_entries(here, foreign)
@@ -1782,22 +1806,22 @@ def _pr_merge(args, root: Path, project: Path, here: Path, path: Path) -> int:
                 if r.returncode == 0:
                     r = subprocess.run(
                         ["git", "-C", str(here)]
-                        + git_identity_args("reviewer")
+                        + git_identity_args(producer)
                         + ["commit", "-q", "-F", "-"],
                         input=message,
                         capture_output=True,
                         text=True,
-                        env=_merge_commit_env(here),
+                        env=_merge_commit_env(here, producer),
                     )
                 merged = r
             else:
                 merged = subprocess.run(
                     ["git", "-C", str(here)]
-                    + git_identity_args("reviewer")
+                    + git_identity_args(producer)
                     + ["merge", "--no-ff", "-m", message, branch],
                     capture_output=True,
                     text=True,
-                    env=_merge_commit_env(here),
+                    env=_merge_commit_env(here, producer),
                 )
             if merged.returncode != 0:
                 run_git(here, "merge", "--abort")
@@ -14767,8 +14791,9 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
     dirty = [rel for rel in owned if rel in _uncommitted_paths(repo)]
     if not dirty:
         return "# archive: entry already committed on the base"
+    producer, fallback_note = _producer_commit_identity(t)
     message = build_commit_message(
-        "reviewer",
+        producer,
         {
             "type": "chore",
             "area": "records",
@@ -14778,18 +14803,18 @@ def commit_records_entry(root: Path, t: dict, by: str) -> str:
             "deliverable": ", ".join(dirty),
             "why": "a branchless deliverable never merges, so its entry needs its own commit",
             "status": "recorded",
-            "result": f"review {t.get('review_status')} by {by}",
+            "result": f"review {t.get('review_status')} by {by}" + fallback_note,
         },
     )
     run_git(repo, "add", "--", *dirty)
     committed = subprocess.run(
         ["git", "-C", str(repo)]
-        + git_identity_args("reviewer")
+        + git_identity_args(producer)
         + ["commit", "-q", "-F", "-", "--", *dirty],
         input=message,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(repo),
+        env=_merge_commit_env(repo, producer),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", *dirty)
@@ -15114,8 +15139,9 @@ def commit_archive_merge_sha(
             f"{staged.stderr.strip() or staged.stdout.strip()}",
             2,
         )
+    producer, fallback_note = _producer_commit_identity(None, pr)
     close_msg = build_commit_message(
-        "reviewer",
+        producer,
         {
             "type": "chore",
             "area": "records",
@@ -15129,17 +15155,17 @@ def commit_archive_merge_sha(
                 "exists, so it can only say 'pending'"
             ),
             "status": f"merged into {base}",
-            "result": f"{branch} -> {sha}",
+            "result": f"{branch} -> {sha}" + fallback_note,
         },
     )
     committed = subprocess.run(
         ["git", "-C", str(here)]
-        + git_identity_args("reviewer")
+        + git_identity_args(producer)
         + ["commit", "-q", "-F", "-", "--", rel],
         input=close_msg,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(here),
+        env=_merge_commit_env(here, producer),
     )
     if committed.returncode != 0:
         run_git(here, "reset", "-q", "--", rel)
@@ -17344,8 +17370,9 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
         return _board_stale_warning(
             pr, rel, "cannot stage it: " + (staged.stderr.strip() or staged.stdout.strip())
         )
+    producer, fallback_note = _producer_commit_identity(None, pr)
     message = build_commit_message(
-        "reviewer",
+        producer,
         {
             "type": "chore",
             "area": "records",
@@ -17358,17 +17385,17 @@ def render_board_at_merge(root: Path, repo: Path, pr: dict) -> str:
                 "writes it once the landing has moved them"
             ),
             "status": f"landed on {pr.get('base') or DEFAULT_BASE}",
-            "result": f"{pr.get('id')} merged; board rendered from the live queues",
+            "result": f"{pr.get('id')} merged; board rendered from the live queues" + fallback_note,
         },
     )
     committed = subprocess.run(
         ["git", "-C", str(repo)]
-        + git_identity_args("reviewer")
+        + git_identity_args(producer)
         + ["commit", "-q", "-F", "-", "--", rel],
         input=message,
         capture_output=True,
         text=True,
-        env=_merge_commit_env(repo),
+        env=_merge_commit_env(repo, producer),
     )
     if committed.returncode != 0:
         run_git(repo, "reset", "-q", "--", rel)
