@@ -2882,3 +2882,228 @@ context L0 begins `[experience]`.
   directory, so a reader looking for a new path will not find one.
 - A new store is added to the tree only by amending this section, never by a
   silent directory.
+
+## 17. The lane runtime (frozen)
+
+Owner: Architect. This section freezes the **lane runtime**: the run record, its
+state machine, the outcome file, the result marker, the budget defaults, the CLI
+verbs a lane may depend on, and the reclaim rule. It is the anchor a Team Leader
+files a reliability feature against: a `feature add` refuses an interface that is
+not frozen here, so every clause below is a contract with a command that
+re-derives it, not a description that drifts. Nothing here changes without a
+[Decisions](Decisions.md) entry and a notice to every lane that reads it.
+
+**Measured baseline at main `793c8b20fdc9da57cbb1c2245fe4617994ef41f9`
+(2026-11-17).** Every number in this section comes from the block in 17.9, run at
+that revision against the run records in this workspace (336 when measured; 17.9
+counts them at run time, because they are local state). The engine is
+implemented; this section freezes what it does rather than proposing a new shape.
+
+### 17.1 The run record
+
+One lane is one JSON record at `Runtime/Lanes/L-<nnnn>.json` (`<nnnn>` is 4+ digits,
+`L-0001` upward, allocated by `lanes.next_run_id`). The record is written whole by
+`lanes.write_run` and read whole by `lanes.load_runs`; there is no partial update
+and no second store.
+
+| Group | Keys | Frozen meaning |
+|---|---|---|
+| identity | `id`, `agent`, `role`, `task`, `title`, `source_run` | `id` is unique and immutable; `source_run` names the run a retry or a reclaim descends from |
+| process | `pid`, `host`, `argv`, `packet`, `log` | `pid` is the host process; `packet` and `log` are paths, never content |
+| budget | `minutes`, `tool_budget`, `attempt`, `attempts`, `profile` | the lease the lane was dispatched with |
+| model | `provider`, `model` | the pair the lane actually runs |
+| time | `created`, `started`, `heartbeat`, `deadline`, `finished` | `heartbeat` is the only clock a stall is judged on |
+| outcome | `state`, `exit`, `seconds`, `result`, `retried`, `slot_released`, `review_owner` | written at the transition that produces them |
+| conditional | `reason`, `stopped_by`, `error`, `cause`, `cause_opened`, `activity_at`, `activity_cpu`, `cleanup` | written only by the transition that produces them; absent otherwise |
+
+The six groups above are the whole key set: 30 unconditional keys plus 8
+conditional ones, 38 in all. The census at the baseline is 336 records carrying
+26 to 31 keys (`{26: 5, 27: 43, 28: 12, 29: 250, 30: 15, 31: 11}`) over a union
+of exactly those 38 keys, so no single record is representative and no count of
+one record is the contract - the union is. 17.9 compares the observed union
+against the table and fails on a key the table does not list. A reader must
+tolerate a key it does not know and must not require one it does not need: the
+record is append-only per run, never rewritten by a later revision of this
+contract.
+
+Paths, all under the team root:
+
+| Path | Content |
+|---|---|
+| `Runtime/Lanes/L-<nnnn>.json` | the run record |
+| `Runtime/Lanes/L-<nnnn>.outcome.json` | the outcome file (17.3) |
+| `Agents/<Instance>/Runs/L-<nnnn>.md` | the packet handed to the lane |
+| `Agents/<Instance>/Runs/L-<nnnn>.log` | the lane's stdout/stderr |
+| `Runtime/Worktrees/<Instance>/<T-id>/` | the lane's worktree, from `engine.lane_worktree` |
+
+### 17.2 The state machine
+
+Seven states, split by `lanes.LIVE` and `lanes.TERMINAL`; the split is exhaustive
+and a state is never both.
+
+| State | Class | Entered by |
+|---|---|---|
+| `starting` | LIVE | the dispatch, before the host process reports |
+| `running` | LIVE | the host process alive and heartbeating |
+| `exited` | TERMINAL | the process ended on its own |
+| `failed` | TERMINAL | the process ended non-zero |
+| `timeout` | TERMINAL | the lease `minutes` ran out; the supervisor kills it |
+| `stopped` | TERMINAL | an operator or supervisor stop |
+| `lost` | TERMINAL | no process and no heartbeat: the lane died unreported |
+
+`starting` is the one state with a grace window (`STARTING_GRACE_SECONDS`, 120 s)
+before it is treated as stalled. `timeout`, `stopped` and `lost` are decided by
+the supervisor, never by the lane itself, so a lane cannot claim its own ending.
+
+### 17.3 The outcome file and the result marker
+
+`lanerun.write_outcome` (`src/teamwork/lanerun.py:48`) writes exactly four keys
+beside the record: `state`, `exit`,
+`seconds`, `at`. The outcome file is the durable ending; the record may be
+reconciled, the outcome is not rewritten.
+
+The lane's own verdict is one line in its output, matched by `lanes.RESULT_RE`:
+
+```text
+LANE-RESULT: ok|blocked|failed <one sentence naming the revision or the blocker>
+```
+
+`lanes.read_result` takes the **last** match in the log tail, so a lane that
+repeats the line is read by its final word. A missing marker is not a failure of
+the lane's work; it is a missing record, and the supervisor's state decides. The
+three words are the lane's claim only: `ok` still needs self-check plus an open PR,
+and no marker substitutes for a gate.
+
+### 17.4 Budgets and profiles
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `DEFAULT_LANE_MINUTES` | 25 | the lane lease; the supervisor kills at it |
+| `DEFAULT_ATTEMPTS` | 2 | dispatches before the unit is failed |
+| `DEFAULT_TOOL_BUDGET` | 16 | tool calls a lane is told it may spend |
+| `DEFAULT_LANE_MAX` | 8 | lanes in flight at once |
+| `SILENCE_DIVISOR` | 3 | `silence_seconds(minutes) = minutes * 60 / 3` |
+| `PROFILE_TOOL_BUDGET` | fast 10, standard 16, deep 24 | per-profile tool budget |
+| `PROFILE_MINUTES_FACTOR` | fast 0.4, standard 1.0, deep 1.6 | per-profile lease factor |
+
+At a 25-minute lease the stall threshold is 500 s: a LIVE record whose
+`heartbeat` is older than that is reported stalled and is reclaimable. Settings
+override a default through `_setting`/`_setting_int` (the `Settings.json` key or
+the environment variable named there), so a consumer reads `lanes.lane_minutes`,
+`lanes.lane_attempts`, `lanes.lane_tool_budget` and `lanes.swarm_minutes` rather
+than the constants.
+
+### 17.5 The CLI surface a lane may depend on
+
+| Verb | Frozen guarantee |
+|---|---|
+| `lane` | list, show, tail and stop a run by id or handle; a stop is terminal |
+| `swarm run` | dispatch one wave and return; `--wait` drains the wave |
+| `pulse` | reconcile, then size and dispatch the next wave; `--no-spawn` reports only |
+| `slot acquire/renew/release` | the concurrency lease; a lane holds one while it runs |
+| `status` | live state of every instance: busy/idle, task, elapsed |
+| `refresh` | reconcile the records against the host: kill at the deadline, release the slot, fold a finished lane |
+| `task reclaim` | move a stranded claim; refuses a live lane |
+
+Subcommand flags, output rows and exit codes are frozen in
+[the user guide](https://github.com/Nidvue/Teamwork/blob/main/docs/guide/cli.md);
+this table freezes which verb exists and what it promises, not its formatting.
+
+### 17.6 Error, timeout and reclaim
+
+- **A live lane is never stolen.** `task reclaim` refuses while the claim holder
+  has a live run; `--force <reason>` is for a confirmed dead lane and the reason
+  is stored on the task.
+- **A stranded claim is not a live lane.** A claim whose holder has no live run
+  is stalled, not running: the row is reported by `status`/`board` and may be
+  reclaimed to an idle instance. Reclaim moves the claim, never the work.
+- **The supervisor owns the ending.** Deadline, silence and process exit are read
+  by `refresh`, which writes the terminal state, the outcome file and the slot
+  release. A lane that writes its own terminal state is a defect.
+- **A slot is released exactly once.** `slot_released` on the record is the
+  marker; a lane killed by the deadline still releases through the supervisor, so
+  a timeout can never leak a slot.
+- **Retry is bounded** by `attempts`; `retried` and `source_run` record the
+  descent, so an attempt chain is walkable from the last record alone.
+- **The worktree is not cleaned by the lane.** Removal is the supervisor's
+  reconcile step; a lane leaves its worktree and branch for the merge path.
+
+### 17.7 What the reliability stream may rely on
+
+These hold for every lane and are the invariants a Team Leader's feature tests
+against, not implementation detail:
+
+1. One task, one branch, one worktree: `Runtime/Worktrees/<Instance>/<T-id>`.
+2. Every lane has a record, a packet and a log; no lane runs unrecorded.
+3. Every terminal state has an outcome file with the same `state`.
+4. The result marker is optional; the state is mandatory.
+5. A claim is held by exactly one instance, and a stalled claim is reclaimable
+   only while no live run exists for it.
+6. A slot is never held by a terminal run.
+7. The evidence rule and the two-stage gate bind every lane whatever model it
+   runs; no runtime state relaxes a gate.
+
+### 17.8 Changing this contract
+
+A change to any clause above needs, in this order: a [Decisions](Decisions.md)
+entry with the evidence that motivates it, an edit to this section, and a notice
+to every lane that reads it. Adding a state, a key, a verb or a constant is a
+contract change. Renaming or removing one is a breaking change and needs the
+CEO's authorization recorded on the task.
+
+### 17.9 Re-derivation
+
+One command block, run at the revision under audit; it prints one line per clause
+group. A number quoted above that this block does not reproduce is stale and the
+section is wrong.
+
+```sh
+git rev-parse HEAD
+TEAM_ROOT=${TEAM_ROOT:-.pi/Teamwork/Teams/Teamwork} python - <<'CHECK'
+import collections, glob, json, os, sys
+from pathlib import Path
+sys.path.insert(0, 'src')
+from teamwork import engine, lanes, lanerun
+FROZEN = set('''id agent role task title source_run pid host argv packet log minutes
+tool_budget attempt attempts profile provider model created started heartbeat
+deadline finished state exit seconds result retried slot_released review_owner
+reason stopped_by error cause cause_opened activity_at activity_cpu cleanup'''.split())
+assert len(FROZEN) == 38, len(FROZEN)
+team = Path(os.environ['TEAM_ROOT'])
+recs = [r for r in sorted(glob.glob(str(team / 'Runtime/Lanes/L-*.json')))
+        if not r.endswith('.outcome.json')]
+hist, seen = collections.Counter(), set()
+for path in recs:
+    record = json.load(open(path))
+    hist[len(record)] += 1
+    seen |= set(record)
+print('17.1 records', len(recs), 'keycount', dict(sorted(hist.items())))
+print('17.1 unlisted', sorted(seen - FROZEN), 'unseen', sorted(FROZEN - seen))
+assert seen <= FROZEN, 'a record key is missing from the 17.1 table'
+print('17.1 paths', lanes.run_path(team, 'L-0001').name,
+      lanes.packet_path(team, 'A', 'L-0001').name,
+      engine.lane_worktree(team, 'A', 'T-0001').relative_to(team).parent.name)
+print('17.2 states', len(lanes.LIVE + lanes.TERMINAL), lanes.LIVE, lanes.TERMINAL,
+      lanes.STARTING_GRACE_SECONDS)
+outs = sorted(glob.glob(str(team / 'Runtime/Lanes/L-*.outcome.json')))
+shapes = collections.Counter(tuple(sorted(json.load(open(p)))) for p in outs)
+print('17.3 outcomes', len(outs), {str(k): v for k, v in shapes.items()})
+assert len(shapes) == 1, 'the outcome file is not one four-key shape'
+print('17.3 writer', lanerun.write_outcome.__module__ + '.' + lanerun.write_outcome.__name__,
+      'in lanes:', hasattr(lanes, 'write_outcome'))
+assert not hasattr(lanes, 'write_outcome'), 'the writer is not where 17.3 says it is'
+print('17.3 marker', bool(lanes.RESULT_RE.search('LANE-RESULT: ok done')),
+      bool(lanes.RESULT_RE.search('no marker')))
+print('17.4 defaults', lanes.DEFAULT_LANE_MINUTES, lanes.DEFAULT_ATTEMPTS,
+      lanes.DEFAULT_TOOL_BUDGET, lanes.DEFAULT_LANE_MAX)
+print('17.4 silence', lanes.silence_seconds(lanes.DEFAULT_LANE_MINUTES),
+      lanes.PROFILE_TOOL_BUDGET, lanes.PROFILE_MINUTES_FACTOR)
+print('17.5 symbols', {n: hasattr(lanes, n) for n in
+      ('write_run', 'load_runs', 'next_run_id', 'read_result', 'lane_minutes',
+       'lane_attempts', 'lane_tool_budget', 'swarm_minutes')})
+CHECK
+```
+
+The block reads the code from the revision it runs in (repo root) and the records
+from the local team workspace (`TEAM_ROOT`, gitignored): the run records are
+local state, so they are counted at run time rather than pinned to a commit.
