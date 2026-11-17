@@ -135,19 +135,50 @@ function readStatus(engine: string): Promise<Payload | null> {
   });
 }
 
+const WIDE =
+  /[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6]/;
+
+function cells(value: string): number {
+  let total = 0;
+  for (const char of value) total += WIDE.test(char) ? 2 : 1;
+  return total;
+}
+
+function sliceCells(value: string, max: number): string {
+  let out = "";
+  let used = 0;
+  for (const char of value) {
+    const width = WIDE.test(char) ? 2 : 1;
+    if (used + width > max) break;
+    out += char;
+    used += width;
+  }
+  return out;
+}
+
+function pad(value: string, width: number): string {
+  const short = width - cells(value);
+  return short > 0 ? `${value}${" ".repeat(short)}` : value;
+}
+
+function padStart(value: string, width: number): string {
+  const short = width - cells(value);
+  return short > 0 ? `${" ".repeat(short)}${value}` : value;
+}
+
 function text(value: string | undefined, max: number): string {
   const clean = (value ?? "").replace(/\s+/g, " ").trim();
   if (!clean) return "";
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
+  return cells(clean) > max ? `${sliceCells(clean, max - 1)}…` : clean;
 }
 
 function clipWords(value: string | undefined, max: number): string {
   if (max <= 0) return "";
   const clean = (value ?? "").replace(/\s+/g, " ").trim();
   if (!clean) return "";
-  if (clean.length <= max) return clean;
+  if (cells(clean) <= max) return clean;
   if (max === 1) return "…";
-  const cut = clean.slice(0, max - 1);
+  const cut = sliceCells(clean, max - 1);
   const space = cut.lastIndexOf(" ");
   const body = space > 0 ? cut.slice(0, space) : cut;
   return `${body.trimEnd()}…`;
@@ -269,7 +300,7 @@ function rowFrom(row: Instance): Row {
 }
 
 function layoutFor(rows: Row[], width: number): Layout {
-  const widest = Math.max(INSTANCE_MIN, ...rows.map((row) => row.instance.length));
+  const widest = Math.max(INSTANCE_MIN, ...rows.map((row) => cells(row.instance)));
   const pad = Math.min(INSTANCE_MAX, widest);
   const bare = width < BARE_BELOW;
   const model = !bare && width >= DROP_MODEL_BELOW;
@@ -296,25 +327,25 @@ function fitActivity(body: string, age: string, room: number): string {
 
 function rowLine(row: Row, layout: Layout, width: number, paint: Paint | undefined): string | null {
   const glyph = row.stalled ? GLYPH.stalled : row.review ? GLYPH.half : GLYPH.busy;
-  const head = `${glyph} ${row.instance.padEnd(layout.pad)} ${row.task.padEnd(layout.taskW)}`;
+  const head = `${glyph} ${pad(row.instance, layout.pad)} ${pad(row.task, layout.taskW)}`;
   if (layout.bare) {
     const bare = head.trimEnd();
-    if (bare.length > width) return null;
+    if (cells(bare) > width) return null;
     return tint(paint, row.stalled ? "warn" : "ok", bare[0]) + bare.slice(1);
   }
-  const cols = [head, row.used.padStart(USED_W)];
+  const cols = [head, padStart(row.used, USED_W)];
   const blankLeft = row.stalled;
-  const leftCell = blankLeft ? " ".repeat(SEP.length + 1 + layout.leftW) : `${SEP} ${row.left.padStart(layout.leftW)}`;
+  const leftCell = blankLeft ? " ".repeat(SEP.length + 1 + layout.leftW) : `${SEP} ${padStart(row.left, layout.leftW)}`;
   if (layout.left) cols.push(leftCell);
   let line = cols.join(" ");
   const tail = layout.model && row.model ? ` ${row.model}` : "";
   if (layout.activity) {
-    const room = Math.min(layout.activity, width - line.length - tail.length - 1);
+    const room = Math.min(layout.activity, width - cells(line) - cells(tail) - 1);
     const cell = fitActivity(row.body, row.age, room);
     if (cell) line = `${line} ${cell}`;
   }
   line = `${line}${tail}`.trimEnd();
-  if (line.length > width) return null;
+  if (cells(line) > width) return null;
   return tint(paint, row.stalled ? "warn" : "ok", line[0]) + line.slice(1);
 }
 
@@ -327,7 +358,7 @@ function laneLine(lane: Lane, width: number, paint: Paint | undefined): string |
   const task = task_label(lane.task, false);
   const line = `${GLYPH.lane} ${id} ${instance} ${task} ${glyph} ${word} ${elapsed(lane.elapsed_text)} ${modelLabel(lane.model)}`
     .trimEnd();
-  if (line.length > width) return null;
+  if (cells(line) > width) return null;
   const at = line.indexOf(` ${glyph} `) + 1;
   let out = line;
   if (state) out = out.slice(0, at) + tint(paint, state[2], glyph) + out.slice(at + 1);
