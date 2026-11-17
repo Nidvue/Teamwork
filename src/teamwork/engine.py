@@ -6665,6 +6665,32 @@ def _idle_reasons(root: Path, role: str, name: str) -> list:
     return reasons
 
 
+FEATURE_CLOSED_STATES = ("done", "dropped")
+
+
+def _feature_protection(root: Path, name: str) -> str:
+    """The open feature that protects a seat from folding, or "" when none does.
+
+    A seat is protected while it owns a feature that is not closed, and while the
+    leader it is attached to under `Team.md` does - the reporting chain the user
+    asked for collapses otherwise, minutes after the squad is built (T-0099).
+    """
+    records = parse_features(feature_record_path(root))
+    open_by_owner = {
+        pascal(str(record.get("owner") or "")): record
+        for record in records
+        if record.get("state") not in FEATURE_CLOSED_STATES
+    }
+    own = open_by_owner.get(pascal(name))
+    if own:
+        return f"it owns open feature {own['id']} ({own['state']})"
+    leader = pascal(instance_under(root, name))
+    led = open_by_owner.get(leader) if leader else None
+    if led:
+        return f"its leader {leader} owns open feature {led['id']} ({led['state']})"
+    return ""
+
+
 def _foldable_instances(root: Path, keep_required: bool, mutate: bool = True) -> tuple:
     """``(fold, keep)`` for every instance: ``fold`` is idle with nothing to take.
 
@@ -6698,10 +6724,16 @@ def _foldable_instances(root: Path, keep_required: bool, mutate: bool = True) ->
             if role == "reviewer" and open_reviews:
                 keep.append((name, role, f"{len(open_reviews)} unclaimed review(s)"))
                 continue
+            protected = _feature_protection(root, name)
+            if protected:
+                keep.append((name, role, protected))
+                continue
             if keep_required and role in ROSTER_REQUIRED and not any(k[1] == role for k in keep):
                 keep.append((name, role, f"one {role} stays for the gate"))
                 continue
             fold.append((name, role))
+    leaders = {pascal(instance_under(root, name)) for name, _role in fold}
+    fold.sort(key=lambda seat: 0 if pascal(seat[0]) in leaders else 1)
     return fold, keep
 
 
