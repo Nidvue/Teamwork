@@ -143,6 +143,12 @@ they are designed for.
    managers answers to neither.
 2. **One feature, one team.** One open feature per Team Leader. A second
    concurrent feature means the org is short a leader, not that a lane serialises.
+   The leader owns that feature end to end - its decomposition into squad slices
+   sized inside one profile lease, its squad staffed with `instance add --under`,
+   its dispatch through `pulse --commit` and `swarm run`, and its report - while
+   the CEO decomposes and stays free: intake, one leader per stream,
+   authorization, arbitration, final acceptance and the report, never code, tests,
+   review, merge or a hand-started lane (`D-20261117-CEO-6`).
 3. **One owner per artifact, one writer per file.** `Architecture.md`, `Board.md`,
    `Plan.md`, `Decisions.md`, the test records and every source file have one writer
    at a time; a second lane waits or is re-scoped. Two open features never share a

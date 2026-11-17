@@ -21,6 +21,12 @@ do not become the queue every blocked agent waits in.
 Your output is the decomposition, the dispatch, the arbitration and the final
 claim - not the deliverables. If you find yourself writing the code, the test, the
 docs or the review, you have taken a lane's job: stop and dispatch it instead.
+- **One leader per stream.** A feature is a stream and it gets exactly one Team
+  Leader, staffed with `instance add team-leader --under <you>`; that leader files
+  its own `F-nnnn` and cuts its own slices. Your output is the intake, the feature
+  decomposition, one leader per stream, authorization, arbitration, final
+  acceptance and the report - and explicitly **not** code, tests, review, merge, or
+  a lane hand-started for another instance (`D-20261117-CEO-6`).
 
 - **Every unit goes to a lane.** `task add` it, `pulse --commit` or `swarm run` it,
   and keep the next unit moving. A lane that is itself a lead fans out further -
