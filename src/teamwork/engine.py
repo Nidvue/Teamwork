@@ -1447,6 +1447,24 @@ def _merge_work_repo(project: Path, here: Path, base: str) -> Path:
     return wt if wt is not None else here
 
 
+def merge_tree_blockers(root: Path, project: Path, base: str) -> list[str]:
+    """Uncommitted paths that would refuse a merge into ``base``, one per record.
+
+    A merge runs in the work tree holding ``base``, and git refuses to check that
+    branch out over uncommitted work. The reviewed records under ``docs/`` are the
+    merge's own to commit; anything else belongs to the lane that wrote it. Left to
+    ``_pr_merge`` this is discovered *after* the verdict is recorded, which is how a
+    pass becomes approved-but-unmerged work, so both callers ask first.
+    """
+    here = _merge_work_repo(project, work_repo(root), base)
+    docs_prefix = "/".join(DIR_DOCS)
+    return [
+        rel
+        for rel in _uncommitted_paths(here)
+        if not (rel == docs_prefix or rel.startswith(docs_prefix + "/"))
+    ]
+
+
 MERGE_RECORD_NAMES = ("Archive.md",)
 
 
@@ -2062,6 +2080,17 @@ def merge_after_pass(
     branch = pr.get("branch") or ""
     if branch and not branch_exists(project, branch):
         print(f"# branch {branch} no longer exists; nothing to merge")
+        return False
+    blockers = merge_tree_blockers(root, project, pr.get("base") or DEFAULT_BASE)
+    if blockers:
+        print(
+            "# the pass is recorded but the merge cannot land: the work tree on "
+            f"{pr.get('base') or DEFAULT_BASE} has uncommitted work that is not this "
+            "merge's own record:\n  "
+            + "\n  ".join(blockers)
+            + "\n# commit or stash it, then land it with:\n"
+            f"#   teamwork.py pr merge --pr {pr['id']} --by {reviewer}"
+        )
         return False
     try:
         _pr_merge(
@@ -15738,6 +15767,20 @@ def cmd_review(args) -> int:
                         + "\n  No verdict was recorded. Split the claim (or renumber the "
                         "arriving record) and re-submit; `teamwork.py feature check` "
                         "reports the same findings at your revision.",
+                        2,
+                    )
+                blockers = merge_tree_blockers(root, project, probe_base)
+                if blockers and not args.force:
+                    die(
+                        f"refusing to pass {t['id']}: the work tree that would take the "
+                        f"merge into {probe_base} has uncommitted work that is not this "
+                        "merge's own record, so git would refuse the merge after the "
+                        "verdict was recorded:\n  "
+                        + "\n  ".join(blockers)
+                        + "\n  no verdict was recorded, the PR is unchanged and the task "
+                        "is still awaiting review. Commit or stash it, then pass again:\n"
+                        "  git -C <work tree> stash   # or commit it on its task branch\n"
+                        "  (--force <reason> records a deliberate override)",
                         2,
                     )
 
