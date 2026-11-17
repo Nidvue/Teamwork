@@ -15801,7 +15801,7 @@ def cmd_review(args) -> int:
             t["findings"] = f"{prev} | {finding}" if prev else finding
             t["review_detects"] = detects
             t["review_status"] = "failed"
-            t["status"] = "doing"
+            t["status"] = "todo"
             t["review_fails"] = int(t.get("review_fails") or 0) + 1
             t["review_mechanical"] = mechanical
             t["review_fail_rev"] = failed_rev
