@@ -21593,6 +21593,10 @@ def _parsers_meta(sub, common) -> None:
 
     _add_message_parsers(sub, common)
 
+    from .claims import add_parsers as _add_claim_parsers
+
+    _add_claim_parsers(sub, common)
+
     from .sparse import add_parsers as _add_read_parsers
 
     _add_read_parsers(sub, common)

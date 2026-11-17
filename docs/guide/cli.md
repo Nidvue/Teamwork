@@ -706,6 +706,32 @@ a review finding the author must act on, a fact another role holds, an interface
 change that invalidates a peer's work, or a hand-off - not to assign work (that is
 `task add`) and not to report progress (that is the worklog).
 
+### `claim`
+
+```text
+teamwork claim add --by BY (--path PATH | --task TASK | --area AREA) [--ttl MINUTES]
+teamwork claim check VALUE
+teamwork claim list [--json]
+teamwork claim release C-ID
+```
+
+The claim register is the live, expiring record of who is touching what: a
+second session that tries to claim the same value is refused before it writes,
+not warned after. Claims live in `<bus_root>/claims/C-nnnn.json`, mutated under
+`<bus_root>/.lock`, where `bus_root` is `$TEAMWORK_BUS` or
+`<project>/.pi/Teamwork/Bus`.
+
+| Verb | What it does |
+|---|---|
+| `add` | Takes a claim on a path, a task or an area. A live, unexpired claim on the same value is refused with exit `2`, naming the holder and the claim id. The same holder re-adding refreshes the TTL and keeps one record. |
+| `check` | The live holder of a value, or `# VALUE is free` with exit `1`. |
+| `list` | The live register only: an expired claim is not listed and does not refuse. |
+| `release` | Drops one claim by id and frees its value; an unknown id is exit `2`. |
+
+TTL defaults to 120 minutes and expiry is the garbage collection, so a dead
+session never blocks a live one. A path is normalised against the project root,
+so an absolute and a relative spelling of one file are the same claim.
+
 ### `attention`
 
 ```text
