@@ -203,9 +203,10 @@ a pass.
 - Locally: `git merge --squash <branch>` and commit as the repository's configured
   pair, or `teamwork.py pr merge --squash`, which does exactly that for you (the
   role mailbox only under `TEAMWORK_COMMIT_IDENTITY=role`).
-- `main` keeps: 1 required approval, 20 required checks (the release-consistency
-  context was added to the 15 before it, then the ubuntu `py3.10` and `py3.12` lanes and
-  the `Analyze (python)` / `Analyze (actions)` contexts brought it to 20), strict
+- `main` keeps: **0** required approvals (measured 2026-11-17, was 1 - open drift 4
+  below), 23 required checks (the release-consistency context was added to the 15
+  before it, then the ubuntu `py3.12`/`py3.13` lanes, the eight windows `py3.13` shards
+  and the `Analyze (python)` / `Analyze (actions)` contexts brought it to 23), strict
   up-to-date, no force-push, no deletion, `required_linear_history` disabled so the
   existing merge commits do not need an admin bypass. The required check list is
   measured, not quoted; the committer guard (`identity --guard-committer`) reports a
@@ -213,8 +214,9 @@ a pass.
   (`noreply@github.com`) only when the author is a canonical role mailbox.
 - `enforce_admins` is `false` and the repository has **one** collaborator with admin
   (`gh api repos/Nidvue/Teamwork/collaborators`). That is the single-owner caveat
-  `references/Remotes.md` asks to be stated here: `required_approving_review_count=1`
-  cannot be satisfied by the only account, so the admin bypass is the escape, and a
+  `references/Remotes.md` asks to be stated here: `required_approving_review_count`
+  was `1` (now `0`, open drift 4) and cannot be satisfied by the only account, so the
+  admin bypass is the escape, and a
   local merge pushed straight to `main` does not wait for the protection rules at
   all. The push path is guarded by the checks that run **on the push** - `committer
   guard`, `privacy scan`, `release consistency` - and by the Reviewer's verdict; the
@@ -340,9 +342,9 @@ repos/Nidvue/Teamwork/tags/protection`:
 |---|---|---|
 | no force-push | `allow_force_pushes.enabled=false` | ok |
 | no branch deletion | `allow_deletions.enabled=false` | ok |
-| required checks, strict | `strict=true`, 20 contexts | ok |
-| >= 1 non-author approval, stale dismissed | `required_approving_review_count=1`, `dismiss_stale_reviews=true`, `require_last_push_approval=false` | ok - last-push approval is not a policy rule |
-| the whole matrix is required | all 11 `test` lanes are contexts, including the two `include:` lanes `test (ubuntu-latest / py3.10)` and `test (ubuntu-latest / py3.12)`, and the two CodeQL contexts `Analyze (python)` / `Analyze (actions)` block a merge as well | ok - closed by `ceo` T-0010; the lanes run *and* block |
+| required checks, strict | `strict=true`, 23 contexts (re-measured 2026-11-17; was 20) | ok |
+| >= 1 non-author approval, stale dismissed | `required_approving_review_count=0` (was `1`), `required_pull_request_reviews != null`, `dismiss_stale_reviews=true`, `require_last_push_approval=false` | **drift** - the review requirement exists but demands zero approvals, so a host PR merges without one -> open drift 4 |
+| the whole matrix is required | all 13 `test` lanes are contexts (ubuntu `py3.11`/`py3.12`/`py3.13`, macos `py3.13`, eight windows `py3.13` shards; the `py3.10` lane is gone), and the two CodeQL contexts `Analyze (python)` / `Analyze (actions)` block a merge as well | ok - closed by `ceo` T-0010; the lanes run *and* block |
 | no merge commits on the default branch | `required_linear_history.enabled=false` | **drift**, rationale only in this page -> `ceo` T-0005 |
 | one canonical merge shape, host buttons off | `allow_squash_merge=false`, `allow_merge_commit=false`, `allow_rebase_merge=true`, `delete_branch_on_merge=true` | ok - the `references/Remotes.md` rebase-only variant; the host stamps the signed-in account and the required `committer guard` catches it |
 | admin bypass only as a recorded event | `enforce_admins.enabled=false`, one admin collaborator | ok with the caveat stated above |
@@ -398,6 +400,7 @@ Rollback needs no index: install the wheel asset of the tag you want.
 | 1 | the R8 marker is missing at `docs/Team/Decisions.md:1284` - blocks every release | `ceo` T-0004 |
 | 2 | `required_linear_history=false`, rationale not in `Decisions.md` | `ceo` T-0005 |
 | 3 | the lint job installs an unpinned ruff | `release-engineer` T-0002 |
+| 4 | `required_approving_review_count=0` on `main` (measured 2026-11-17 with `gh api repos/Nidvue/Teamwork/branches/main/protection --jq '.required_pull_request_reviews.required_approving_review_count'` -> `0`); the policy asks for one non-author approval and a host PR is now mergeable with none. Setting it back is a forge governance event, not a release-lane edit | `ceo` (attention filed by `release-engineer` T-0004) |
 
 ### Closed: R2 was red off the release tag
 
