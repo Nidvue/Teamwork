@@ -1,7 +1,7 @@
 # Test-layer gap matrix (T-0009)
 
 Owner: Tester
-Related: Board.md, M26-test-audit.md, Testing.md - named here rather than linked: a one-way markdown edge fails `teamwork links`, and the precedent is docs/Team/reports/M26-code-audit.md.
+Related: Board.md, [M26-test-audit.md](M26-test-audit.md), [Testing.md](../../../references/Testing.md), [the plan](../Plan.md)
 
 ## 1. What was measured
 
