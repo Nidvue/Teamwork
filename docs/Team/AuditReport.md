@@ -948,6 +948,18 @@ of the command that already covers the case, so no layer is duplicated.
 
 - S-1 (path traversal on `instance add --name`) stays closed: a traversing name
   is refused bare and inside its own role, and a legal name still creates the seat.
+- S-2 (the allowlist is keyed on the matched value, not on a path, so one line
+  exempts that literal everywhere and the file cannot report itself) stays
+  covered by the control TS-0134 already runs:
+  `tests/unit/test_privacy_scan.py::test_shipped_allowlist_entries_are_narrow_and_justified`
+  at line 861 pins the nine shipped entries by exact value, asserts each is one
+  anchored, fully escaped literal through `_is_one_escaped_literal`, and requires
+  the justifying comment to carry its CEO decision id (`T-0001`, `T-0034`/
+  `archived`, `D-20261110-CEO-8`) - so a new line cannot land without its
+  decision id in the same comment. `test_the_narrowness_check_rejects_loose_entries`
+  probes the predicate itself, so the guard cannot pass by accident. The
+  disposition is the finding's own: keep that test as the gate for any new line
+  and require the CEO decision id in the same comment.
 - S-3/S-4 (`refs=`, `allow=`) stay closed: the parsers are exercised with
   `allow=[]` and crafted entries, and a FAIL without an allowlist says `allow=none`.
 - The planted-credential control bites: a `ghp_` token in a scratch tree makes the
