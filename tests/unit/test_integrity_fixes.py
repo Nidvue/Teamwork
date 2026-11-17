@@ -484,7 +484,9 @@ def test_repo_bootstrap_preserves_a_name_only_local_identity(tmp_path: Path) -> 
     assert engine.run_git(project, "config", "--local", "user.name").stdout.strip() == "Ops Person"
 
 
-def test_a_team_mailbox_in_the_local_config_is_never_a_preset(tmp_path: Path) -> None:
+def test_a_team_mailbox_in_the_local_config_is_never_a_preset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The rule that keeps CI honest, pinned so deleting it fails here.
 
     ``init`` writes the CEO mailbox into local config on a host with no identity.
@@ -492,7 +494,17 @@ def test_a_team_mailbox_in_the_local_config_is_never_a_preset(tmp_path: Path) ->
     regression this pins. The assertion names the mailbox and the expected fallback
     directly, so removing the team-domain exclusion in ``names.preset_identity``
     turns this test red.
+
+    The global config is pinned to an empty file: ``preset_identity`` reads it when
+    the local pair is a team mailbox, so on an operator host whose own
+    ``user.email`` is a personal address the function legitimately returns that
+    operator and the assertion below failed on the machine that wrote it while
+    passing on CI - a test that measures the developer's git config measures the
+    developer, not the tree.
     """
+    global_config = tmp_path / "empty-gitconfig"
+    global_config.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
     project = tmp_path / "role-mailbox-local"
     project.mkdir()
     engine.run_git(project, "init", "-q", "-b", "main")

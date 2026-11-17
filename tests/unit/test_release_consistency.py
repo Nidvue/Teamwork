@@ -2359,3 +2359,43 @@ def test_r10_a_drifted_citation_exits_one_and_carries_both_values(tmp_path):
     assert [problem["rule"] for problem in payload["problems"]] == ["R10"], payload["problems"]
     detail = payload["problems"][0]["detail"]
     assert "CITATION.cff:" in detail and "AGPL-3.0-only" in detail and "AGPL-3.0-or-later" in detail
+
+
+def test_a_forge_pull_request_merge_ref_is_skipped_not_evaluated(tmp_path: Path) -> None:
+    """A host-built merge ref publishes nothing, so R2 is a SKIP there (11.2.2.1).
+
+    Measured on a real pull request: the checkout is `Merge <sha> into <sha>`, a
+    two-parent commit GitHub authored, and the bare `--offline` command used to
+    evaluate R2 on it - which made `AC-20`'s proof command exit 1 on every
+    contribution (`the state column disagrees with the run: AC-20 is claimed
+    green, the run exits [1, 0]`). The identity audit and the committer guard
+    already skip that pair; R2 now agrees with them, and an attached branch or a
+    single-parent checkout is still evaluated.
+    """
+    root = make_repo(tmp_path / "pr")
+    head = git(root, "rev-parse", "HEAD").strip()
+    git(root, "checkout", "-q", "-b", "feature")
+    write(root, {"README.md": "# Teamwork\n\nfeature\n"})
+    commit(root, message="feature")
+    branch = git(root, "rev-parse", "HEAD").strip()
+    git(root, "checkout", "-q", "--detach", head)
+    git(root, "merge", "--no-ff", "-q", "-m", f"Merge {branch} into {head}", branch)
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.status == "SKIP", result
+    assert "pull-request merge ref" in result.detail, result.detail
+
+
+def test_a_detached_single_parent_checkout_is_still_evaluated(tmp_path: Path) -> None:
+    """The scope is the host's merge ref, not detachment: a tag checkout still counts."""
+    root = make_repo(tmp_path / "tagged", version="1.0.0")
+    git(root, "tag", "v1.0.0")
+    write(root, {"README.md": "# Teamwork\n\nlater\n"})
+    commit(root, message="later")
+    git(root, "checkout", "-q", "--detach", "HEAD")
+
+    result = crc.rule_r2_head_is_newer(root)
+
+    assert result.status == "DRIFT", result
+    assert "is not greater than tag v1.0.0" in " ".join(result.findings), result.findings

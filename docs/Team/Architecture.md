@@ -558,7 +558,7 @@ from a shipped one.
 | `--json` | off | emit the JSON object of 11.1.3 instead of the table |
 | `--exceptions PATH` | `<repo-root>/release-exceptions.json` | the exception record of 11.4; a relative path resolves against `--repo-root` |
 | `--repo-root PATH` | the current directory | every path and git call is rooted here (tests point it at a fixture tree) |
-| `--head-is-default-branch {yes,no}` | `yes` | whether the checkout under test is the default branch, i.e. whether its version is a published claim; `no` makes R2 report `SKIP` instead of being evaluated (11.2.2.1, amendment [D-20261029-Architect](Decisions.md#d-20261029-architect---r2-evaluates-the-published-line-the-release-order-still-owes-one-bump-per-tag)) |
+| `--head-is-default-branch {yes,no}` | `yes` | whether the checkout under test is the default branch, i.e. whether its version is a published claim; `no` makes R2 report `SKIP` instead of being evaluated, and a forge-built pull-request merge ref (two parents, `Merge <sha> into <sha>`, detached) is recognised and `SKIP`ped under either value, because the host built that commit (11.2.2.1, amendment [D-20261029-Architect](Decisions.md#d-20261029-architect---r2-evaluates-the-published-line-the-release-order-still-owes-one-bump-per-tag)) |
 
 * `--offline` and `--online` together is a usage error: one line on stderr
   (`# check_release_consistency: --offline and --online are mutually exclusive`),
