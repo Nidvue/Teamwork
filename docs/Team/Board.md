@@ -121,7 +121,7 @@ under two roles is two tasks.
 | ceo | T-0036 | records | done | P-0079 | c824be5a |
 | ceo | T-0037 | records | done | P-0083 | f6e62305 |
 | ceo | T-0038 | records | done | P-0085 | dbc56003 |
-| ceo | T-0039 | - | review | - | - |
+| ceo | T-0039 | - | done | - | - |
 | designer | T-0001 | design | done | P-0086 | 830636bc |
 | designer | T-0002 | design | done | P-0088 | 7abfa18e |
 | designer | T-0003 | design | done | P-0096 | cd59fa15 |
@@ -227,7 +227,7 @@ under two roles is two tasks.
 | reviewer | T-0008 | - | todo | - | - |
 | reviewer | T-0009 | - | review | - | - |
 | security-auditor | T-0001 | security-audit | done | P-0102 | a9b0ef95 |
-| security-auditor | T-0002 | security-audit | review | P-0111 | - |
+| security-auditor | T-0002 | security-audit | done | P-0111 | e5cfb54b |
 | technical-writer | T-0001 | m26-docs-audit | review | P-0101 | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
@@ -238,7 +238,7 @@ under two roles is two tasks.
 | tester | T-0006 | ci-shard-matrix | done | P-0092 | 23aa21e4 |
 | tester | T-0007 | ui-agent-state | done | P-0098 | 7284ad6b |
 | tester | T-0008 | tests | done | P-0103 | 49e8fde7 |
-| tester | T-0009 | tests | review | P-0110 | - |
+| tester | T-0009 | tests | doing | P-0110 | - |
 | tester | T-0010 | pi-package | doing | P-0114 | - |
 | tester | T-0011 | tests | review | P-0116 | - |
 
@@ -258,7 +258,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
-| ceo | T-0039 · Trim the Reviewer startup read back under the 122880 B cap | P2 | review | - |
 | designer | T-0005 · AC-D6: the panel rationale - three operator questions, one measurable signal each, recorded before the code | P1 | review | - |
 | developer | T-0079 · release blockers: 7 failing tests, board drift, the 1.6.0 version bump and R2, plus the code audit's F-1 exit-code defect | P0 | review | - |
 | developer | T-0082 · status shows another role's task title: status_snapshot builds titles keyed by task id only, so every role's T-0001 collides | P2 | review | - |
@@ -266,9 +265,8 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | release-engineer | T-0005 · release-layer record for area changelog: venv/bin/python scripts/check_release_consistency.py --offline -> then tests add --layer release --area changelog and record the run | P2 | review | - |
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | todo | - |
 | reviewer | T-0009 · acceptance-layer records for 8 areas: board, ci-shard-matrix, docs-audit (FAILING), docs-audit-citations (FAILING), privacy-scan, release-gate, security-audit, widget - run venv/bin/python -m pytest -q tests/acceptance -q and record tests run --layer acceptance --area <a>; the two FAILING rows TS-0117/TS-0118 must be re-run first | P2 | review | - |
-| security-auditor | T-0002 · Record the security layer for the M26 audit: unit, integration and acceptance evidence for the fixed S-1..S-4 findings | P1 | review | - |
 | technical-writer | T-0001 · M26 docs audit: false claims proved by command, version drift, the install story, duplication, stale team records; ranked; no edits | P0 | review | - |
-| tester | T-0009 · Triage the 41 test-layer gaps into per-role units, record the layers the Tester owns | P0 | review | - |
+| tester | T-0009 · Triage the 41 test-layer gaps into per-role units, record the layers the Tester owns | P0 | doing | - |
 | tester | T-0010 · AC-M25-4: prove an installed package exposes exactly one skill named teamwork | P1 | doing | - |
 | tester | T-0011 · integration-layer tests missing for widget, widget-header, security-audit: -k widget and -k header on tests/integration/test_status_contract.py select 0 tests and no integration file names security-audit - write the assertions and record with tests run --layer integration --area <a> | P2 | review | - |
 
