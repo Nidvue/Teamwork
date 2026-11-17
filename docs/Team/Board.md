@@ -121,9 +121,12 @@ under two roles is two tasks.
 | ceo | T-0036 | records | done | P-0079 | c824be5a |
 | ceo | T-0037 | records | done | P-0083 | f6e62305 |
 | ceo | T-0038 | records | done | P-0085 | dbc56003 |
+| ceo | T-0039 | - | doing | - | - |
 | designer | T-0001 | design | done | P-0086 | 830636bc |
 | designer | T-0002 | design | done | P-0088 | 7abfa18e |
 | designer | T-0003 | design | done | P-0096 | cd59fa15 |
+| designer | T-0004 | design | review | P-0107 | - |
+| designer | T-0005 | - | review | - | - |
 | developer | T-0001 | - | done | - | - |
 | developer | T-0002 | cli-records | done | P-0003 | 3ab4a0d |
 | developer | T-0003 | memory | done | P-0005 | 521e190 |
@@ -205,10 +208,13 @@ under two roles is two tasks.
 | developer | T-0079 | exit-codes | doing | P-0104 | - |
 | developer | T-0080 | privacy-scan | done | P-0105 | ebcff866 |
 | developer | T-0081 | widget-header | done | P-0106 | 262be1e3 |
-| developer | T-0082 | - | todo | - | - |
+| developer | T-0082 | - | doing | - | - |
+| developer | T-0083 | - | doing | - | - |
+| developer | T-0084 | - | doing | - | - |
 | release-engineer | T-0001 | changelog | done | P-0084 | 88a60cd1 |
 | release-engineer | T-0002 | - | dropped | - | - |
 | release-engineer | T-0003 | - | done | - | - |
+| release-engineer | T-0004 | - | doing | - | - |
 | reviewer | T-0001 | - | done | - | - |
 | reviewer | T-0002 | - | done | - | - |
 | reviewer | T-0003 | - | dropped | - | - |
@@ -216,8 +222,10 @@ under two roles is two tasks.
 | reviewer | T-0005 | - | done | - | - |
 | reviewer | T-0006 | - | done | - | - |
 | reviewer | T-0007 | status | done | P-0090 | edc00c18 |
+| reviewer | T-0008 | - | todo | - | - |
 | security-auditor | T-0001 | security-audit | done | P-0102 | a9b0ef95 |
-| technical-writer | T-0001 | docs-audit | review | P-0101 | - |
+| security-auditor | T-0002 | - | doing | - | - |
+| technical-writer | T-0001 | docs-audit | doing | P-0101 | - |
 | team-leader | T-0001 | ci | done | P-0002 | 5de68e8 |
 | tester | T-0001 | - | done | P-0023 | dadd920 |
 | tester | T-0002 | - | done | P-0026 | 4c857a4 |
@@ -226,7 +234,9 @@ under two roles is two tasks.
 | tester | T-0005 | - | done | P-0081 | cc343480 |
 | tester | T-0006 | ci-shard-matrix | done | P-0092 | 23aa21e4 |
 | tester | T-0007 | ui-agent-state | done | P-0098 | 7284ad6b |
-| tester | T-0008 | tests | review | P-0103 | - |
+| tester | T-0008 | tests | done | P-0103 | 49e8fde7 |
+| tester | T-0009 | - | doing | - | - |
+| tester | T-0010 | - | doing | - | - |
 
 Rows whose PR is not merged carry no merged revision; the revision is read from
 the PR record, not from this table. A task with no PR is a task whose deliverable
@@ -244,11 +254,20 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 
 | agent | task | prio | state | artifact |
 |---|---|---|---|---|
+| ceo | T-0039 · Trim the Reviewer startup read back under the 122880 B cap | P2 | doing | - |
+| designer | T-0004 · AC-D4: record the panel design - what the user decides from it, with one record-backed signal per question | P1 | review | - |
+| designer | T-0005 · AC-D6: the panel rationale - three operator questions, one measurable signal each, recorded before the code | P1 | review | - |
 | developer | T-0078 · M26 code audit: real defects, broken invariants, dead code, portability and hot-path cost in src/teamwork + scripts; ranked with a reproduction each; no fixes | P0 | review | - |
 | developer | T-0079 · release blockers: 7 failing tests, board drift, the 1.6.0 version bump and R2, plus the code audit's F-1 exit-code defect | P0 | doing | - |
-| developer | T-0082 · status shows another role's task title: status_snapshot builds titles keyed by task id only, so every role's T-0001 collides | P2 | todo | - |
-| technical-writer | T-0001 · M26 docs audit: false claims proved by command, version drift, the install story, duplication, stale team records; ranked; no edits | P0 | review | - |
-| tester | T-0008 · M26 test audit: vacuous tests proved by mutation, missing coverage on critical paths, cross-platform hazards, hermeticity, flake; ranked; no fixes | P0 | review | - |
+| developer | T-0082 · status shows another role's task title: status_snapshot builds titles keyed by task id only, so every role's T-0001 collides | P2 | doing | - |
+| developer | T-0083 · Decide the preserved shared-checkout work: adopt the bus/claims slice or archive it with a reason | P0 | doing | - |
+| developer | T-0084 · Panel contract AC-D1/D2/D3/D5: every drawn field exists in status --json, bounded rows, width-true lines, silent without a tree | P1 | doing | - |
+| release-engineer | T-0004 · Release consistency R7 and repository hygiene: 5 missing CHANGELOG sections, merged branches, dead worktrees, stale refs | P0 | doing | - |
+| reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | todo | - |
+| security-auditor | T-0002 · Record the security layer for the M26 audit: unit, integration and acceptance evidence for the fixed S-1..S-4 findings | P1 | doing | - |
+| technical-writer | T-0001 · M26 docs audit: false claims proved by command, version drift, the install story, duplication, stale team records; ranked; no edits | P0 | doing | - |
+| tester | T-0009 · Triage the 41 test-layer gaps into per-role units, record the layers the Tester owns | P0 | doing | - |
+| tester | T-0010 · AC-M25-4: prove an installed package exposes exactly one skill named teamwork | P1 | doing | - |
 
 The task queue (`teamwork.py task list <role>`) is authoritative for a task's
 exact state; this table only says which lanes are open.
