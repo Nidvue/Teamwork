@@ -7,10 +7,11 @@ feature, and the squad attached under it, held none of those while between units
 so a wave folded both minutes after the team was built and the chain the user
 requires (user -> CEO -> leader -> workers) collapsed (T-0099).
 
-What must not regress: a seat is not foldable while it owns a feature that is not
-closed, or while the leader it is attached to under `Team.md` does; a leader whose
-feature is closed still folds; a squad member is folded only after its leader;
-nothing else about the policy moves.
+What must not regress: a seat is not foldable while it owns a feature in
+`FEATURE_OPEN_STATES` (`ready`, `active` - the same set `records.open_records`
+compares), or while the leader it is attached to under `Team.md` does; a feature
+only `proposed` protects nobody; a leader whose feature is closed still folds; a
+squad member is folded only after its leader; nothing else about the policy moves.
 
 Owner: developer. Task: T-0099. Requirements: AGENTS.md (reporting lines), 13.2.
 """
@@ -119,6 +120,17 @@ def test_a_closed_feature_folds_the_leader_first_and_then_its_squad(cli, project
     assert cli("--project", project, "instance", "prune", "--by", "ceo") == 0
     assert not (root / engine.DIR_AGENTS / "Team-Leader-1").is_dir()
     assert not (root / engine.DIR_AGENTS / "Developer-2").is_dir()
+
+
+def test_a_proposed_feature_protects_nobody(cli, project) -> None:
+    root = init(cli, project)
+    seed_feature(project, state="proposed")
+    assert engine.open_records(engine.parse_features(root / "docs" / "Team" / "Features.md")) == []
+    fold, _keep = engine._foldable_instances(root, keep_required=False, mutate=False)
+    names = [name for name, _role in fold]
+    assert "Team-Leader-1" in names
+    assert "Developer-2" in names
+    assert kept_reason(root, "Team-Leader-1") == ""
 
 
 def test_a_seat_with_no_feature_still_folds(cli, project) -> None:

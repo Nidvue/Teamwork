@@ -6665,21 +6665,18 @@ def _idle_reasons(root: Path, role: str, name: str) -> list:
     return reasons
 
 
-FEATURE_CLOSED_STATES = ("done", "dropped")
-
-
 def _feature_protection(root: Path, name: str) -> str:
     """The open feature that protects a seat from folding, or "" when none does.
 
-    A seat is protected while it owns a feature that is not closed, and while the
-    leader it is attached to under `Team.md` does - the reporting chain the user
+    A seat is protected while it owns a feature in `FEATURE_OPEN_STATES`, and while
+    the leader it is attached to under `Team.md` does - the reporting chain the user
     asked for collapses otherwise, minutes after the squad is built (T-0099).
     """
     records = parse_features(feature_record_path(root))
     open_by_owner = {
         pascal(str(record.get("owner") or "")): record
         for record in records
-        if record.get("state") not in FEATURE_CLOSED_STATES
+        if record.get("state") in FEATURE_OPEN_STATES
     }
     own = open_by_owner.get(pascal(name))
     if own:
