@@ -238,7 +238,7 @@ under two roles is two tasks.
 | tester | T-0006 | ci-shard-matrix | done | P-0092 | 23aa21e4 |
 | tester | T-0007 | ui-agent-state | done | P-0098 | 7284ad6b |
 | tester | T-0008 | tests | done | P-0103 | 49e8fde7 |
-| tester | T-0009 | tests | review | P-0110 | - |
+| tester | T-0009 | tests | done | P-0110 | 4986d86b |
 | tester | T-0010 | pi-package | doing | P-0114 | - |
 | tester | T-0011 | tests | review | P-0116 | - |
 
@@ -263,7 +263,6 @@ Shared services serve every feature and are attached to none: Architect, CEO, CF
 | reviewer | T-0008 · Verify AC-M19-6 and AC-M20-5 on the landed revision | P1 | todo | - |
 | reviewer | T-0009 · acceptance-layer records for 8 areas: board, ci-shard-matrix, docs-audit (FAILING), docs-audit-citations (FAILING), privacy-scan, release-gate, security-audit, widget - run venv/bin/python -m pytest -q tests/acceptance -q and record tests run --layer acceptance --area <a>; the two FAILING rows TS-0117/TS-0118 must be re-run first | P2 | review | - |
 | technical-writer | T-0001 · M26 docs audit: false claims proved by command, version drift, the install story, duplication, stale team records; ranked; no edits | P0 | review | - |
-| tester | T-0009 · Triage the 41 test-layer gaps into per-role units, record the layers the Tester owns | P0 | review | - |
 | tester | T-0010 · AC-M25-4: prove an installed package exposes exactly one skill named teamwork | P1 | doing | - |
 | tester | T-0011 · integration-layer tests missing for widget, widget-header, security-audit: -k widget and -k header on tests/integration/test_status_contract.py select 0 tests and no integration file names security-audit - write the assertions and record with tests run --layer integration --area <a> | P2 | review | - |
 
