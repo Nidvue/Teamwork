@@ -260,16 +260,19 @@ def child_cpu(pid: int) -> float | None:
 def activity(run: dict, now: float) -> tuple[float, float | None]:
     """When the lane was last seen working, and the CPU seconds that prove it.
 
-    ``now`` when the process tree burned a tick since the previous sample, and when
-    no sample can be taken at all: an unobservable lane is never called silent.
+    The tick that proves liveness lands on one poll, not every one: a live lane
+    waiting on provider I/O burns no CPU between two samples, so the sample that
+    did advance is remembered as ``activity_at`` and silence is measured from it.
+    ``now`` when the tree advanced in this sample, and when no sample can be
+    taken at all: an unobservable lane is never called silent.
     """
-    when = last_activity(run)
+    when = max(last_activity(run), float(run.get("activity_at") or 0))
     cpu = child_cpu(int(run.get("pid") or 0))
     if cpu is None:
         return now, None
     previous = run.get("activity_cpu")
     if not isinstance(previous, (int, float)) or cpu > float(previous):
-        when = max(when, now)
+        run["activity_at"] = when = now
     return when, cpu
 
 

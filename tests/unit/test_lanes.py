@@ -479,6 +479,34 @@ def test_a_buffered_log_is_not_silence_while_the_child_burns_cpu(
     assert not still.get("cause"), still
 
 
+def test_a_tick_burned_in_an_earlier_poll_is_not_silence_now(
+    cli, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tick that proves liveness lands on one poll, not on every poll (T-0098)."""
+    root = init(cli, project)
+    add_task(cli, project, "developer", "a unit waiting on provider I/O")
+    launcher(monkeypatch, fake_lane(tmp_path, body="import time\ntime.sleep(30)\n"), "{packet}")
+    assert (
+        cli("--project", project, "lane", "start", "--agent", "developer-1", "--task", "T-0001")
+        == 0
+    )
+    record = runs(root)[0]
+    silent_since = time.time() - lanes.silence_seconds(3) - 1
+    record["minutes"] = 3
+    record["created"] = silent_since
+    record["deadline"] = time.time() + 600
+    record["activity_cpu"] = 2.0
+    record["activity_at"] = time.time()
+    lanes.write_run(root, record)
+    os.utime(record["log"], (silent_since, silent_since))
+    monkeypatch.setattr(lanes, "child_cpu", lambda pid: 2.0)
+    assert cli("--project", project, "lane", "status", "L-0001") == 0
+    time.sleep(0.2)
+    still = runs(root)[0]
+    assert still["state"] in lanes.LIVE, still
+    assert not still.get("cause"), still
+
+
 def test_a_lane_that_writes_keeps_its_budget(cli, project: Path, tmp_path: Path) -> None:
     """A lane whose log is fresh is not silent, however long it has been alive."""
     root = init(cli, project)
