@@ -8304,4 +8304,4 @@ NOTE FOR CEO (not a finding against this deliverable): Memory.md:238 (section 8,
 - author evidence: commit 33773e6a
 - reviewer evidence: cd <worktree> && venv/bin/python -m pytest tests/unit/test_status.py -q @33773e6a -> 23 passed in 3.86s; the same new test at the parent 439d4d8f -> 1 failed, assert rows["Developer-1"]["title"] == 'produce the contract' got 'audit the vacuous tests' (the other role's title, the reported defect); full suite @33773e6a -> 7 failed, 3143 passed, 9 skipped, and 6 of the 7 fail identically at 439d4d8f (the tracked T-0079 release-blocker set) while test_lane_display_live passes in isolation at both revisions; ruff format --check . -> 358 files already formatted; ruff check . -> All checks passed; mypy src/teamwork -> no issues in 34 source files
 - findings history: 
-- branch / merge: developer-2/t-0082-status-shows-another-role-s-task-title-s / pending
+- branch / merge: developer-2/t-0082-status-shows-another-role-s-task-title-s / 71d8da75
