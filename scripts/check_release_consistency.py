@@ -116,7 +116,10 @@ R2's scope (11.2.2.1, amendment [D-20261029-Architect]): the rule asks whether
 the version this checkout **publishes** is ahead of the newest release on its
 line of history. A pull-request merge ref, a feature branch and a lane work tree
 publish nothing, so ``main()`` carries that fact in
-``--head-is-default-branch {yes,no}`` (default ``yes``) and
+``--head-is-default-branch {yes,no}`` (default ``yes``), and a forge-built
+pull-request merge ref is recognised from its own shape (two parents, ``Merge <sha>
+into <sha>``) and skipped, exactly as the identity audit and the committer guard
+already skip it, and
 ``rule_r2_head_is_newer(..., head_is_default_branch=False)`` returns ``SKIP`` -
 never ``ok`` - *before* it reads HEAD's version or the tag set. The default is
 fail-closed: a run that says nothing evaluates the frozen rule, so the scope
@@ -193,6 +196,10 @@ CHANNEL_UNAVAILABLE = "<!-- release-consistency: channel-unavailable -->"
 EXCEPTION_KEYS = ("version", "reason", "evidence", "recorded")
 
 R2_NOT_THE_DEFAULT_BRANCH = "not the default branch: the published line is evaluated on main only"
+R2_HOST_MERGE_REF = (
+    "a pull-request merge ref: the host built this commit, so it publishes nothing; "
+    "the branch commits are audited by the workflow's base..head range"
+)
 
 SCAN_EXCLUDED = "docs/Team/Archive.md"
 BOARD_PATH = "docs/Team/Board.md"
@@ -1067,6 +1074,25 @@ def rule_r1_tagged_version(repo_root: Path) -> RuleResult:
     return _ok("R1", f"{agreed} tag(s) agree with version.py")
 
 
+def _host_merge_ref(repo_root: Path) -> bool:
+    """Is HEAD the pull-request merge ref the forge builds?
+
+    Two parents and a ``Merge <sha> into <sha>`` subject: the commit is the host's,
+    not the team's, and ``engine.guard_committer_identity`` and
+    ``engine.audit_commit_identities`` already skip that pair for the same reason.
+    11.2.2.1 says such a checkout publishes nothing, so R2 is a SKIP here even
+    under the fail-closed default - the alternative is a red gate on every
+    contribution, which measures nothing.
+    """
+    if _git(repo_root, "symbolic-ref", "-q", "HEAD", missing_ok=True):
+        return False
+    line = _git(repo_root, "log", "-1", "--format=%p%x1f%s", "HEAD", missing_ok=True) or ""
+    parents, _, subject = line.partition("\x1f")
+    if len(parents.split()) < 2:
+        return False
+    return bool(re.match(r"^Merge [0-9a-f]{40} into [0-9a-f]{40}$", subject.strip()))
+
+
 def rule_r2_head_is_newer(repo_root: Path, head_is_default_branch: bool = True) -> RuleResult:
     """HEAD must be strictly newer than every tag in ``S`` (11.2.2).
 
@@ -1084,6 +1110,8 @@ def rule_r2_head_is_newer(repo_root: Path, head_is_default_branch: bool = True) 
     """
     if not head_is_default_branch:
         return _skip("R2", R2_NOT_THE_DEFAULT_BRANCH)
+    if _host_merge_ref(repo_root):
+        return _skip("R2", R2_HOST_MERGE_REF)
     error = _complete_tag_set_error(repo_root)
     if error is not None:
         raise InputError(error)

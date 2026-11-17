@@ -9,6 +9,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.17] - 2026-11-17
+
+### Fixed
+
+- **R2 recognises the host's pull-request merge ref** - a `pull_request` checkout is
+  the two-parent `Merge <sha> into <sha>` commit the forge builds, and the bare
+  `check_release_consistency.py --offline` evaluated R2 on it, so the proof command
+  in `Project.md`'s AC-20 row exited 1 on every contribution
+  (`the state column disagrees with the run: AC-20 is claimed green, the run exits
+  [1, 0]`) and every dependency pull request was red. R2 now `SKIP`s that pair with
+  a printed reason, exactly as `identity --audit` and `identity --guard-committer`
+  already do, while an attached branch, a tag checkout and a lane work tree keep
+  the fail-closed evaluation. Pinned by
+  `tests/unit/test_release_consistency.py::test_a_forge_pull_request_merge_ref_is_skipped_not_evaluated`
+  and its attached-counterpart case.
+
 ## [1.5.16] - 2026-11-16
 
 ### Fixed
